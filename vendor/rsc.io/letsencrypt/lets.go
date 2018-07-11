@@ -20,7 +20,7 @@
 //		"fmt"
 //		"log"
 //		"net/http"
-//		"rsc.io/letsencrypt"
+//		"github.com/dmcgowan/letsencrypt"
 //	)
 //
 //	func main() {
@@ -428,7 +428,9 @@ func (m *Manager) register(email string, prompt func(string) bool) error {
 // Consequently, the state should be kept private.
 func (m *Manager) Marshal() string {
 	m.init()
+	m.mu.Lock()
 	js, err := json.MarshalIndent(&m.state, "", "\t")
+	m.mu.Unlock()
 	if err != nil {
 		panic("unexpected json.Marshal failure")
 	}
@@ -450,7 +452,9 @@ func (m *Manager) Unmarshal(enc string) error {
 		}
 		st.key = key
 	}
+	m.mu.Lock()
 	m.state = st
+	m.mu.Unlock()
 	for host, cert := range m.state.Certs {
 		c, err := cert.toTLS()
 		if err != nil {
@@ -700,7 +704,7 @@ type tlsProvider struct {
 }
 
 func (p tlsProvider) Present(domain, token, keyAuth string) error {
-	cert, dom, err := acme.TLSSNI01ChallengeCertDomain(keyAuth)
+	cert, dom, err := acme.TLSSNI01ChallengeCert(keyAuth)
 	if err != nil {
 		return err
 	}
@@ -713,7 +717,7 @@ func (p tlsProvider) Present(domain, token, keyAuth string) error {
 }
 
 func (p tlsProvider) CleanUp(domain, token, keyAuth string) error {
-	_, dom, err := acme.TLSSNI01ChallengeCertDomain(keyAuth)
+	_, dom, err := acme.TLSSNI01ChallengeCert(keyAuth)
 	if err != nil {
 		return err
 	}

@@ -1,4 +1,4 @@
-package letsencrypt // import "rsc.io/letsencrypt"
+package letsencrypt // import "github.com/dmcgowan/letsencrypt"
 
 Package letsencrypt obtains TLS certificates from LetsEncrypt.org.
 
@@ -19,7 +19,7 @@ certificates in a file letsencrypt.cache across server restarts.
     	"fmt"
     	"log"
     	"net/http"
-    	"rsc.io/letsencrypt"
+    	"github.com/dmcgowan/letsencrypt"
     )
 
     func main() {

@@ -311,11 +311,13 @@
   revision = "bef53efd0c76e49e6de55ead051f886bea7e9420"
 
 [[projects]]
-  digest = "1:d218bd57bbd8a04014d2bee04223d0a3c2e8f434fdd3228c63ba4d68dc812351"
+  branch = "master"
+  digest = "1:15fbb9f95a13abe2be748b1159b491369d46a2ccc3f378e0f93c391f89608929"
   name = "rsc.io/letsencrypt"
   packages = ["."]
   pruneopts = "UT"
-  revision = "a019c9e6fce0c7132679dea13bd8df7c86ffe26c"
+  revision = "1847a81d2087eba73081db43989e54dabe0768cd"
+  source = "https://github.com/dmcgowan/letsencrypt.git"
 
 [solve-meta]
   analyzer-name = "dep"

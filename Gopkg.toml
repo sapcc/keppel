@@ -37,6 +37,11 @@
   branch = "master"
   name = "github.com/majewsky/schwift"
 
+[[override]]
+  name = "rsc.io/letsencrypt"
+  branch = "master"
+  source = "https://github.com/dmcgowan/letsencrypt.git"
+
 [prune]
   go-tests = true
   unused-packages = true
