@@ -14,7 +14,7 @@ import (
 	_ "github.com/docker/distribution/registry/storage/driver/filesystem"
 	_ "github.com/docker/distribution/registry/storage/driver/inmemory"
 	_ "github.com/docker/distribution/registry/storage/driver/middleware/redirect"
-	_ "github.com/sapcc/keppel/cmd/registry/swift-plus"
+	_ "github.com/sapcc/keppel/pkg/registry/swift-plus"
 )
 
 func main() {
