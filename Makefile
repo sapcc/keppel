@@ -9,4 +9,7 @@ build_all: $(patsubst cmd/%/main.go,build/%,$(wildcard cmd/*/main.go))
 build/%: FORCE
 	$(GO) install $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' '$(PKG)/cmd/$*'
 
+run-api: build/keppel-api
+	bash -c "source .env && ./build/keppel-api"
+
 .PHONY: FORCE

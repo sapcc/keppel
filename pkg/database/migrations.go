@@ -17,31 +17,33 @@
 *
 *******************************************************************************/
 
-package main
+package database
 
-import (
-	"github.com/gophercloud/utils/openstack/clientconfig"
-	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/keppel/pkg/database"
-	"github.com/sapcc/keppel/pkg/version"
-)
+import "strings"
 
-func main() {
-	logg.Info("starting keppel-api %s", version.Version)
+var sqlMigrations = stripWhitespace(map[string]string{
+	"001_initial.up.sql": `
+		BEGIN;
+		CREATE TABLE accounts (
+			name         TEXT NOT NULL PRIMARY KEY,
+			project_uuid TEXT NOT NULL
+		);
+		COMMIT;
+	`,
+	"001_initial.down.sql": `
+		BEGIN;
+		DROP TABLE accounts;
+		COMMIT;
+	`,
+})
 
-	//connect to Postgres
-	db, err := database.Init()
-	if err != nil {
-		logg.Fatal(err.Error())
+func stripWhitespace(in map[string]string) map[string]string {
+	out := make(map[string]string, len(in))
+	for filename, sql := range in {
+		out[filename] = strings.Replace(
+			strings.Join(strings.Fields(sql), " "),
+			"; ", ";\n", -1,
+		)
 	}
-
-	//connect to Keystone
-	provider, err := clientconfig.AuthenticatedClient(nil)
-	if err != nil {
-		logg.Fatal("cannot connect to Keystone: %s", err.Error())
-	}
-
-	//TODO
-	_ = db
-	_ = provider
+	return out
 }

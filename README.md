@@ -16,3 +16,5 @@ make && PATH=$PWD/build:$PATH keppel-api
 - `OS_AUTH_URL`, `OS_USERNAME` etc.: the conventional OpenStack auth vars (only Identity API v3 is supported)
 - `KEPPEL_POSTGRES_URI`: a [libpq connection URI](https://www.postgresql.org/docs/9.6/static/libpq-connect.html#LIBPQ-CONNSTRING)
 - `KEPPEL_LOCAL_ROLE`: a Keystone role name that enables read-write access to a project's Swift account when assigned at the project level (usually `swiftoperator`)
+
+The Postgres user must have permission to create additional databases. For each registry account, the database name is derived by concatenating the original database name in `KEPPEL_POSTGRES_URI` with the project ID using a dash, i.e. `account_db_name = keppel_db_name + "-" + project_id`.
