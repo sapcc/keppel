@@ -22,9 +22,12 @@ package main
 import (
 	"github.com/gophercloud/utils/openstack/clientconfig"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/keppel/pkg/version"
 )
 
 func main() {
+	logg.Info("starting keppel-api %s", version.Version)
+
 	provider, err := clientconfig.AuthenticatedClient(nil)
 	if err != nil {
 		logg.Fatal("cannot connect to Keystone: %s", err.Error())
