@@ -20,21 +20,21 @@
 package api
 
 import (
-	"database/sql"
 	"net/http"
 
 	"github.com/gophercloud/gophercloud"
 	"github.com/gorilla/mux"
+	gorp "gopkg.in/gorp.v2"
 )
 
 //KeppelV1 implements the /keppel/v1/ API endpoints.
 type KeppelV1 struct {
-	db         *sql.DB
+	db         *gorp.DbMap
 	identityV3 *gophercloud.ServiceClient
 }
 
 //NewKeppelV1 prepares a new instance of the KeppelV1 API handler.
-func NewKeppelV1(db *sql.DB, identityV3 *gophercloud.ServiceClient) (*KeppelV1, error) {
+func NewKeppelV1(db *gorp.DbMap, identityV3 *gophercloud.ServiceClient) (*KeppelV1, error) {
 	k := &KeppelV1{
 		db:         db,
 		identityV3: identityV3,

@@ -308,6 +308,14 @@
   revision = "a4bde12657593d5e90d0533a3e4fd95e635124cb"
 
 [[projects]]
+  digest = "1:670d1f29fa2aa15ea777cc5bcf95881f379bf8a71dbbe145be0774da97fede72"
+  name = "gopkg.in/gorp.v2"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "4df78490a9aa9a78b9b02b0c913df8dc1954faee"
+  version = "2.1"
+
+[[projects]]
   digest = "1:3b341dd3e8c439ecc5f01b3ce2cc3f77bc8c109402df1fdae96493011634b2a7"
   name = "gopkg.in/square/go-jose.v1"
   packages = [
@@ -364,6 +372,7 @@
     "github.com/mattes/migrate/source/go-bindata",
     "github.com/mitchellh/mapstructure",
     "github.com/sapcc/go-bits/logg",
+    "gopkg.in/gorp.v2",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

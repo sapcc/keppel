@@ -32,10 +32,11 @@ import (
 	"github.com/mattes/migrate"
 	"github.com/mattes/migrate/database/postgres"
 	bindata "github.com/mattes/migrate/source/go-bindata"
+	gorp "gopkg.in/gorp.v2"
 )
 
 //Init initializes the Postgres connection.
-func Init() (*sql.DB, error) {
+func Init() (*gorp.DbMap, error) {
 	urlStr := os.Getenv("KEPPEL_POSTGRES_URI")
 	if urlStr == "" {
 		return nil, errors.New("missing env variable: KEPPEL_POSTGRES_URI")
@@ -54,7 +55,10 @@ func Init() (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot apply database schema: %s", err.Error())
 	}
-	return db, nil
+
+	dbMap := &gorp.DbMap{Db: db, Dialect: gorp.PostgresDialect{}}
+	initModels(dbMap)
+	return dbMap, nil
 }
 
 var dbNotExistErrRx = regexp.MustCompile(`^pq: database "([^"]+)" does not exist$`)
