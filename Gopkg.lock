@@ -355,6 +355,7 @@
     "github.com/gophercloud/gophercloud",
     "github.com/gophercloud/gophercloud/openstack",
     "github.com/gophercloud/utils/openstack/clientconfig",
+    "github.com/gorilla/mux",
     "github.com/lib/pq",
     "github.com/majewsky/schwift",
     "github.com/majewsky/schwift/gopherschwift",

@@ -20,8 +20,15 @@
 package main
 
 import (
+	"net/http"
+	"os"
+
+	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/utils/openstack/clientconfig"
+	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/keppel/pkg/api"
 	"github.com/sapcc/keppel/pkg/database"
 	"github.com/sapcc/keppel/pkg/version"
 )
@@ -40,8 +47,28 @@ func main() {
 	if err != nil {
 		logg.Fatal("cannot connect to Keystone: %s", err.Error())
 	}
+	identityV3, err := openstack.NewIdentityV3(provider, gophercloud.EndpointOpts{})
+	if err != nil {
+		logg.Fatal("cannot find Identity v3 API in Keystone catalog: %s", err.Error())
+	}
+	keppelV1, err := api.NewKeppelV1(db, identityV3)
+	if err != nil {
+		logg.Fatal(err.Error())
+	}
 
-	//TODO
-	_ = db
-	_ = provider
+	//wire up HTTP handlers
+	r := mux.NewRouter()
+	r.PathPrefix("/keppel/v1/").Handler(keppelV1.Router())
+	http.Handle("/", r)
+
+	//start HTTP server (TODO Prometheus instrumentation, TODO log middleware)
+	listenAddress := os.Getenv("KEPPEL_LISTEN_ADDRESS")
+	if listenAddress == "" {
+		listenAddress = ":8080"
+	}
+	logg.Info("listening on " + listenAddress)
+	err = http.ListenAndServe(listenAddress, nil)
+	if err != nil {
+		logg.Fatal("error returned from http.ListenAndServe(): %s", err.Error())
+	}
 }
