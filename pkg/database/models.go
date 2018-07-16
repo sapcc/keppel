@@ -23,8 +23,8 @@ import gorp "gopkg.in/gorp.v2"
 
 //Account contains a record from the `accounts` table.
 type Account struct {
-	Name        string `db:"name"`
-	ProjectUUID string `db:"project_uuid"`
+	Name        string `db:"name" json:"name"`
+	ProjectUUID string `db:"project_uuid" json:"project_id"`
 }
 
 func initModels(db *gorp.DbMap) {

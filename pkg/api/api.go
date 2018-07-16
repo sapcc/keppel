@@ -20,10 +20,13 @@
 package api
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/gophercloud/gophercloud"
 	"github.com/gorilla/mux"
+	"github.com/sapcc/go-bits/respondwith"
+	"github.com/sapcc/keppel/pkg/database"
 	gorp "gopkg.in/gorp.v2"
 )
 
@@ -49,24 +52,50 @@ func (api *KeppelV1) Router() http.Handler {
 
 	//NOTE: Keppel account names appear in Swift container names, so they may not
 	//contain any slashes.
-	r.Methods("GET").Path("/keppel/v1/accounts").HandlerFunc(api.getAccounts)
-	r.Methods("GET").Path("/keppel/v1/accounts/{account:[^/]+}").HandlerFunc(api.getAccount)
-	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[^/]+}").HandlerFunc(api.putAccount)
+	r.Methods("GET").Path("/keppel/v1/accounts").HandlerFunc(api.handleGetAccounts)
+	r.Methods("GET").Path("/keppel/v1/accounts/{account:[^/]+}").HandlerFunc(api.handleGetAccount)
+	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[^/]+}").HandlerFunc(api.handlePutAccount)
 
 	return r
 }
 
-func (api *KeppelV1) getAccounts(w http.ResponseWriter, r *http.Request) {
-	//TODO
-	w.Write([]byte("list accounts"))
+func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
+	//TODO check policy, restrict `accounts` to those visible in the current scope
+	var accounts []database.Account
+	_, err := api.db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
+	respondwith.JSON(w, http.StatusOK, accounts)
 }
 
-func (api *KeppelV1) getAccount(w http.ResponseWriter, r *http.Request) {
-	//TODO
-	w.Write([]byte("get account " + mux.Vars(r)["account"]))
+func (api *KeppelV1) handleGetAccount(w http.ResponseWriter, r *http.Request) {
+	//TODO check policy
+	accountName := mux.Vars(r)["account"]
+	account, err := api.findAccount(accountName)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	if account == nil {
+		http.Error(w, "no such account", 404)
+		return
+	}
+
+	respondwith.JSON(w, http.StatusOK, account)
 }
 
-func (api *KeppelV1) putAccount(w http.ResponseWriter, r *http.Request) {
+func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	//TODO
 	w.Write([]byte("put account " + mux.Vars(r)["account"]))
+}
+
+func (api *KeppelV1) findAccount(name string) (*database.Account, error) {
+	var account database.Account
+	err := api.db.SelectOne(&account,
+		"SELECT * FROM accounts WHERE name = $1", name)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return &account, err
 }

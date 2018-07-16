@@ -218,11 +218,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:38aea08e5af2fcdc7387af211b690c7a109bbdb92f2a958e4e90fe37ec5caa56"
+  digest = "1:cc0adb6f1364f215812d76040ea520ab7cc3be1d4b876e5706e593ca74f49a72"
   name = "github.com/sapcc/go-bits"
-  packages = ["logg"]
+  packages = [
+    "logg",
+    "respondwith",
+  ]
   pruneopts = "UT"
-  revision = "a53d979b30853a19da37e6bb7443b373033570f5"
+  revision = "9579f7c495fd9568220d48f91cef5fa381dcd202"
 
 [[projects]]
   digest = "1:dd48f4df68952281e1b4f6724739aab98b79fa62b23dfa4dd187dd3c89dde430"
@@ -372,6 +375,7 @@
     "github.com/mattes/migrate/source/go-bindata",
     "github.com/mitchellh/mapstructure",
     "github.com/sapcc/go-bits/logg",
+    "github.com/sapcc/go-bits/respondwith",
     "gopkg.in/gorp.v2",
   ]
   solver-name = "gps-cdcl"
