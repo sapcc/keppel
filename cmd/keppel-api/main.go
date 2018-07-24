@@ -53,10 +53,13 @@ func main() {
 	if err != nil {
 		logg.Fatal(err.Error())
 	}
+	keppelV1, err := api.NewKeppelV1(db, serviceUser)
+	if err != nil {
+		logg.Fatal(err.Error())
+	}
 
 	//wire up HTTP handlers
 	r := mux.NewRouter()
-	keppelV1 := api.KeppelV1{DB: db, SU: serviceUser}
 	r.PathPrefix("/keppel/v1/").Handler(keppelV1.Router())
 	http.Handle("/", r)
 

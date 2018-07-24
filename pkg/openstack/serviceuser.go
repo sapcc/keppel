@@ -32,7 +32,7 @@ import (
 //ServiceUser wraps all the operations that Keppel needs to execute using its
 //service user account in OpenStack.
 type ServiceUser struct {
-	identityV3 *gophercloud.ServiceClient
+	IdentityV3 *gophercloud.ServiceClient
 
 	//The local role is the Keystone role that enables read-write access to a project's Swift account when assigned at the project level. (Its name is given in the KEPPEL_LOCAL_ROLE environment variable.)
 	localRoleID string
@@ -65,7 +65,7 @@ func NewServiceUser(provider *gophercloud.ProviderClient) (*ServiceUser, error) 
 	}
 
 	return &ServiceUser{
-		identityV3:    identityV3,
+		IdentityV3:    identityV3,
 		localRoleID:   localRole.ID,
 		serviceUserID: serviceUserID,
 	}, nil

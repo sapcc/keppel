@@ -38,6 +38,14 @@
   revision = "e2c28503fcd0675329da73bf48b33404db873782"
 
 [[projects]]
+  branch = "master"
+  digest = "1:dd33dda1078545d3f678fefedd53352f2519675f0c54f387da7e4b6be0e61fd7"
+  name = "github.com/databus23/goslo.policy"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "3ae74dd07ebf48d1f2babbd1d2177cd1878a09ee"
+
+[[projects]]
   digest = "1:cc484e200b5268eabbd5274550fbd0b8d82595c9b0d205012d4c75cc9a610012"
   name = "github.com/docker/distribution"
   packages = [
@@ -220,9 +228,10 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:cc0adb6f1364f215812d76040ea520ab7cc3be1d4b876e5706e593ca74f49a72"
+  digest = "1:2b5a0c784852157938003bbb139d02f24185ae24dabf4f19bc915c11bd4f26cf"
   name = "github.com/sapcc/go-bits"
   packages = [
+    "gopherpolicy",
     "logg",
     "respondwith",
   ]
@@ -377,6 +386,7 @@
     "github.com/mattes/migrate/database/postgres",
     "github.com/mattes/migrate/source/go-bindata",
     "github.com/mitchellh/mapstructure",
+    "github.com/sapcc/go-bits/gopherpolicy",
     "github.com/sapcc/go-bits/logg",
     "github.com/sapcc/go-bits/respondwith",
     "gopkg.in/gorp.v2",

@@ -1,0 +1,14 @@
+{
+  "cloud_rw": "role:cloud_registry_admin",
+  "cloud_ro": "role:cloud_registry_viewer or rule:cloud_rw",
+  "project_rw": "role:registry_admin",
+  "project_ro": "role:registry_viewer or rule:project_rw",
+  "any_rw": "rule:cloud_rw or rule:project_rw",
+  "any_ro": "rule:cloud_ro or rule:project_ro",
+
+  "account_matches_scope": "rule:cloud_ro or project_id:%(account_project_id)s",
+
+  "account:list": "rule:any_ro",
+  "account:show": "rule:any_ro and rule:account_matches_scope",
+  "account:edit": "rule:any_rw and rule:account_matches_scope"
+}
