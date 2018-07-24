@@ -23,13 +23,12 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/utils/openstack/clientconfig"
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/pkg/api"
 	"github.com/sapcc/keppel/pkg/database"
+	"github.com/sapcc/keppel/pkg/openstack"
 	"github.com/sapcc/keppel/pkg/version"
 )
 
@@ -50,17 +49,14 @@ func main() {
 	if err != nil {
 		logg.Fatal("cannot connect to Keystone: %s", err.Error())
 	}
-	identityV3, err := openstack.NewIdentityV3(provider, gophercloud.EndpointOpts{})
-	if err != nil {
-		logg.Fatal("cannot find Identity v3 API in Keystone catalog: %s", err.Error())
-	}
-	keppelV1, err := api.NewKeppelV1(db, identityV3)
+	serviceUser, err := openstack.NewServiceUser(provider)
 	if err != nil {
 		logg.Fatal(err.Error())
 	}
 
 	//wire up HTTP handlers
 	r := mux.NewRouter()
+	keppelV1 := api.KeppelV1{DB: db, SU: serviceUser}
 	r.PathPrefix("/keppel/v1/").Handler(keppelV1.Router())
 	http.Handle("/", r)
 
