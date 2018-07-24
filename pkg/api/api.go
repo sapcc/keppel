@@ -21,6 +21,7 @@ package api
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
@@ -143,8 +144,69 @@ func (api *KeppelV1) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
-	//TODO
-	w.Write([]byte("put account " + mux.Vars(r)["account"]))
+	//decode request body
+	var req struct {
+		Account struct {
+			ProjectUUID string `json:"project_id"`
+		} `json:"account"`
+	}
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "request body is not valid JSON: "+err.Error(), 400)
+		return
+	}
+	if req.Account.ProjectUUID == "" {
+		http.Error(w, `missing attribute "account.project_id" in request body`, 400)
+		return
+	}
+
+	//check permission to create account
+	token := api.checkToken(r)
+	token.Context.Request["account_project_id"] = req.Account.ProjectUUID
+	if !token.Require(w, "account:create") {
+		return
+	}
+
+	//check if account already exists
+	accountName := mux.Vars(r)["account"]
+	account, err := api.findAccount(accountName)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	if account != nil && account.ProjectUUID != req.Account.ProjectUUID {
+		http.Error(w, `missing attribute "account.project_id" in request body`, http.StatusConflict)
+		return
+	}
+
+	//create account if required
+	if account == nil {
+		tx, err := api.db.Begin()
+		if respondwith.ErrorText(w, err) {
+			return
+		}
+		defer database.RollbackUnlessCommitted(tx)
+
+		account = &database.Account{
+			Name:        accountName,
+			ProjectUUID: req.Account.ProjectUUID,
+		}
+		err = tx.Insert(account)
+		if respondwith.ErrorText(w, err) {
+			return
+		}
+
+		//before committing this, add the required role assignments
+		err = api.su.AddLocalRole(req.Account.ProjectUUID, token)
+		if respondwith.ErrorText(w, err) {
+			return
+		}
+		err = tx.Commit()
+		if respondwith.ErrorText(w, err) {
+			return
+		}
+	}
+
+	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"account": account})
 }
 
 func (api *KeppelV1) findAccount(name string) (*database.Account, error) {

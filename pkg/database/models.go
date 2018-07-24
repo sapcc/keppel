@@ -28,5 +28,5 @@ type Account struct {
 }
 
 func initModels(db *gorp.DbMap) {
-	db.AddTableWithName(Account{}, "accounts").SetKeys(true, "name")
+	db.AddTableWithName(Account{}, "accounts").SetKeys(false, "name")
 }

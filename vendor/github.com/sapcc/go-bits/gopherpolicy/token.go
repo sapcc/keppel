@@ -43,6 +43,9 @@ type Token struct {
 	//When AuthN succeeds, contains information about the client token which can
 	//be used to check access permissions.
 	Context policy.Context
+	//When AuthN succeeds, contains a fully-initialized ProviderClient with which
+	//this process can use the OpenStack API on behalf of the authenticated user.
+	ProviderClient *gophercloud.ProviderClient
 	//When AuthN fails, contains the deferred AuthN error.
 	Err error
 }

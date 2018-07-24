@@ -32,6 +32,7 @@ import (
 	"github.com/mattes/migrate"
 	"github.com/mattes/migrate/database/postgres"
 	bindata "github.com/mattes/migrate/source/go-bindata"
+	"github.com/sapcc/go-bits/logg"
 	gorp "gopkg.in/gorp.v2"
 )
 
@@ -135,4 +136,22 @@ func migrateSchema(db *sql.DB) error {
 		return nil
 	}
 	return err
+}
+
+//RollbackUnlessCommitted calls Rollback() on a transaction if it hasn't been
+//committed or rolled back yet. Use this with the defer keyword to make sure
+//that a transaction is automatically rolled back when a function fails.
+func RollbackUnlessCommitted(tx *gorp.Transaction) {
+	err := tx.Rollback()
+	switch err {
+	case nil:
+		//rolled back successfully
+		logg.Info("implicit rollback done")
+		return
+	case sql.ErrTxDone:
+		//already committed or rolled back - nothing to do
+		return
+	default:
+		logg.Error("implicit rollback failed: %s", err.Error())
+	}
 }

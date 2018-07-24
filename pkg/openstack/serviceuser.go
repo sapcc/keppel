@@ -27,6 +27,7 @@ import (
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/roles"
+	"github.com/sapcc/go-bits/gopherpolicy"
 )
 
 //ServiceUser wraps all the operations that Keppel needs to execute using its
@@ -84,4 +85,18 @@ func getRoleByName(identityV3 *gophercloud.ServiceClient, name string) (roles.Ro
 		return roles.Role{}, errors.New("no such role")
 	}
 	return list[0], nil
+}
+
+//AddLocalRole adds a role assignment of KEPPEL_LOCAL_ROLE for the Keppel
+//service user in the given project.
+func (su *ServiceUser) AddLocalRole(projectUUID string, requestingUser *gopherpolicy.Token) error {
+	client, err := openstack.NewIdentityV3(requestingUser.ProviderClient, gophercloud.EndpointOpts{})
+	if err != nil {
+		return err
+	}
+	result := roles.Assign(client, su.localRoleID, roles.AssignOpts{
+		UserID:    su.serviceUserID,
+		ProjectID: projectUUID,
+	})
+	return result.Err
 }

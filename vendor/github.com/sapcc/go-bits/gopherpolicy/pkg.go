@@ -29,6 +29,7 @@ import (
 
 	policy "github.com/databus23/goslo.policy"
 	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
 )
 
@@ -86,10 +87,24 @@ func (v *TokenValidator) CheckToken(r *http.Request) *Token {
 	if err != nil {
 		return &Token{Err: response.Err}
 	}
+	catalog, err := response.ExtractServiceCatalog()
+	if err != nil {
+		return &Token{Err: response.Err}
+	}
 
 	return &Token{
 		Enforcer: v.Enforcer,
 		Context:  tokenData.ToContext(),
+		ProviderClient: &gophercloud.ProviderClient{
+			IdentityBase:     v.IdentityV3.ProviderClient.IdentityBase,
+			IdentityEndpoint: v.IdentityV3.ProviderClient.IdentityEndpoint,
+			HTTPClient:       v.IdentityV3.ProviderClient.HTTPClient,
+			UserAgent:        v.IdentityV3.ProviderClient.UserAgent,
+			TokenID:          str,
+			EndpointLocator: func(opts gophercloud.EndpointOpts) (string, error) {
+				return openstack.V3EndpointURL(catalog, opts)
+			},
+		},
 	}
 }
 
