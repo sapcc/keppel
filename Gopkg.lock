@@ -107,13 +107,15 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:ace1c67a80cc77c63596890efd7c5c989237d2868b640df244e78c49c1dcdf8c"
+  digest = "1:29d2e9ee1d5dfd44b013941e978c34bc269cfad3ec8b3f0549b7411c4a1c8920"
   name = "github.com/gophercloud/gophercloud"
   packages = [
     ".",
+    "internal",
     "openstack",
     "openstack/identity/v2/tenants",
     "openstack/identity/v2/tokens",
+    "openstack/identity/v3/roles",
     "openstack/identity/v3/tokens",
     "openstack/utils",
     "pagination",
@@ -365,6 +367,7 @@
     "github.com/docker/distribution/version",
     "github.com/gophercloud/gophercloud",
     "github.com/gophercloud/gophercloud/openstack",
+    "github.com/gophercloud/gophercloud/openstack/identity/v3/roles",
     "github.com/gophercloud/utils/openstack/clientconfig",
     "github.com/gorilla/mux",
     "github.com/lib/pq",

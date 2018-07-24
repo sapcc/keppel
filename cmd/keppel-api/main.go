@@ -35,6 +35,9 @@ import (
 
 func main() {
 	logg.Info("starting keppel-api %s", version.Version)
+	if os.Getenv("KEPPEL_DEBUG") == "1" {
+		logg.ShowDebug = true
+	}
 
 	//connect to Postgres
 	db, err := database.Init()

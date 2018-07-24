@@ -21,9 +21,13 @@ package api
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack/identity/v3/roles"
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/pkg/database"
@@ -34,16 +38,53 @@ import (
 type KeppelV1 struct {
 	db         *gorp.DbMap
 	identityV3 *gophercloud.ServiceClient
+
+	//The local role is the Keystone role that enables read-write access to a project's Swift account when assigned at the project level. (Its name is given in the KEPPEL_LOCAL_ROLE environment variable.)
+	localRoleID string
+	//The user ID of Keppel's service user. We need to know this because creating
+	//an account creates a role assignment for this service user.
+	serviceUserID string
 }
 
 //NewKeppelV1 prepares a new instance of the KeppelV1 API handler.
 func NewKeppelV1(db *gorp.DbMap, identityV3 *gophercloud.ServiceClient) (*KeppelV1, error) {
-	k := &KeppelV1{
-		db:         db,
-		identityV3: identityV3,
+	localRoleName := os.Getenv("KEPPEL_LOCAL_ROLE")
+	if localRoleName == "" {
+		return nil, errors.New("missing env variable: KEPPEL_LOCAL_ROLE")
+	}
+	localRole, err := getRoleByName(identityV3, localRoleName)
+	if err != nil {
+		return nil, fmt.Errorf("cannot find Keystone role '%s': %s", localRoleName, err.Error())
 	}
 
-	return k, nil
+	//TODO this env var is provisional, remove when
+	//https://github.com/gophercloud/gophercloud/issues/1141 is accepted
+	serviceUserID := os.Getenv("KEPPEL_USER_ID")
+	if serviceUserID == "" {
+		return nil, errors.New("missing env variable: KEPPEL_USER_ID")
+	}
+
+	return &KeppelV1{
+		db:            db,
+		identityV3:    identityV3,
+		localRoleID:   localRole.ID,
+		serviceUserID: serviceUserID,
+	}, nil
+}
+
+func getRoleByName(identityV3 *gophercloud.ServiceClient, name string) (roles.Role, error) {
+	page, err := roles.List(identityV3, roles.ListOpts{Name: name}).AllPages()
+	if err != nil {
+		return roles.Role{}, err
+	}
+	list, err := roles.ExtractRoles(page)
+	if err != nil {
+		return roles.Role{}, err
+	}
+	if len(list) == 0 {
+		return roles.Role{}, errors.New("no such role")
+	}
+	return list[0], nil
 }
 
 //Router prepares a http.Handler
