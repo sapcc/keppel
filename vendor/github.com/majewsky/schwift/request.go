@@ -49,7 +49,6 @@ func cloneRequestOptions(orig *RequestOptions, additional Headers) *RequestOptio
 	result := RequestOptions{
 		Headers: make(Headers),
 		Values:  make(url.Values),
-		Context: orig.Context,
 	}
 	if orig != nil {
 		for k, v := range orig.Headers {
@@ -58,6 +57,7 @@ func cloneRequestOptions(orig *RequestOptions, additional Headers) *RequestOptio
 		for k, v := range orig.Values {
 			result.Values[k] = v
 		}
+		result.Context = orig.Context
 	}
 	for k, v := range additional {
 		result.Headers[k] = v

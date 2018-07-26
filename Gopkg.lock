@@ -189,7 +189,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:aad6e02be9591727ae545714765411eac772f9f4712a4f6c9e8c75264b3a7143"
+  digest = "1:7766153c611a5d362375ee33607a525b88533e930e3c7e7f5c5a0e3e547c6ed8"
   name = "github.com/majewsky/schwift"
   packages = [
     ".",
@@ -197,7 +197,7 @@
     "gopherschwift",
   ]
   pruneopts = "UT"
-  revision = "81c8b90bcb1345f1c0421a25a16a2d393d27805d"
+  revision = "56e3d1b71945877f116b87e7462fa96f427b0ecd"
 
 [[projects]]
   digest = "1:d5d5bc46a33475b1dfe04d0f1bd3f2d7b749e5a057654664f9b3ba0fdb10698f"
