@@ -20,8 +20,11 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/gophercloud/utils/openstack/clientconfig"
 	"github.com/gorilla/mux"
@@ -29,6 +32,7 @@ import (
 	"github.com/sapcc/keppel/pkg/api"
 	"github.com/sapcc/keppel/pkg/database"
 	"github.com/sapcc/keppel/pkg/openstack"
+	orchestrator_pkg "github.com/sapcc/keppel/pkg/orchestrator"
 	"github.com/sapcc/keppel/pkg/version"
 )
 
@@ -53,7 +57,9 @@ func main() {
 	if err != nil {
 		logg.Fatal(err.Error())
 	}
-	keppelV1, err := api.NewKeppelV1(db, serviceUser)
+
+	orchestrator, orchestratorAPI := orchestrator_pkg.NewOrchestrator()
+	keppelV1, err := api.NewKeppelV1(db, serviceUser, orchestratorAPI)
 	if err != nil {
 		logg.Fatal(err.Error())
 	}
@@ -69,8 +75,29 @@ func main() {
 		listenAddress = ":8080"
 	}
 	logg.Info("listening on " + listenAddress)
-	err = http.ListenAndServe(listenAddress, nil)
-	if err != nil {
-		logg.Fatal("error returned from http.ListenAndServe(): %s", err.Error())
+	go func() {
+		err = http.ListenAndServe(listenAddress, nil)
+		if err != nil {
+			logg.Fatal("error returned from http.ListenAndServe(): %s", err.Error())
+		}
+	}()
+
+	//enter orchestrator main loop
+	ok := orchestrator.Run(contextWithSIGINT(context.Background()))
+	if !ok {
+		os.Exit(1)
 	}
+}
+
+func contextWithSIGINT(ctx context.Context) context.Context {
+	ctx, cancel := context.WithCancel(ctx)
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-signalChan
+		signal.Reset(os.Interrupt, syscall.SIGTERM)
+		close(signalChan)
+		cancel()
+	}()
+	return ctx
 }

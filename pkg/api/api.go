@@ -32,18 +32,20 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/pkg/database"
 	"github.com/sapcc/keppel/pkg/openstack"
+	"github.com/sapcc/keppel/pkg/orchestrator"
 	gorp "gopkg.in/gorp.v2"
 )
 
 //KeppelV1 implements the /keppel/v1/ API endpoints.
 type KeppelV1 struct {
-	db *gorp.DbMap
-	su *openstack.ServiceUser
-	tv gopherpolicy.Validator
+	db   *gorp.DbMap
+	su   *openstack.ServiceUser
+	tv   gopherpolicy.Validator
+	orch *orchestrator.API
 }
 
 //NewKeppelV1 prepares a new KeppelV1 instance.
-func NewKeppelV1(db *gorp.DbMap, su *openstack.ServiceUser) (*KeppelV1, error) {
+func NewKeppelV1(db *gorp.DbMap, su *openstack.ServiceUser, orch *orchestrator.API) (*KeppelV1, error) {
 	tv := gopherpolicy.TokenValidator{
 		IdentityV3: su.IdentityV3,
 	}
@@ -57,9 +59,10 @@ func NewKeppelV1(db *gorp.DbMap, su *openstack.ServiceUser) (*KeppelV1, error) {
 	}
 
 	return &KeppelV1{
-		db: db,
-		su: su,
-		tv: &tv,
+		db:   db,
+		su:   su,
+		tv:   &tv,
+		orch: orch,
 	}, nil
 }
 
@@ -67,11 +70,12 @@ func NewKeppelV1(db *gorp.DbMap, su *openstack.ServiceUser) (*KeppelV1, error) {
 func (api *KeppelV1) Router() http.Handler {
 	r := mux.NewRouter()
 
-	//NOTE: Keppel account names appear in Swift container names, so they may not
-	//contain any slashes.
+	//NOTE: Keppel account names are severely restricted because Postgres
+	//database names are derived from them. Those are, most importantly,
+	//case-insensitive and restricted to 64 chars.
 	r.Methods("GET").Path("/keppel/v1/accounts").HandlerFunc(api.handleGetAccounts)
-	r.Methods("GET").Path("/keppel/v1/accounts/{account:[^/]+}").HandlerFunc(api.handleGetAccount)
-	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[^/]+}").HandlerFunc(api.handlePutAccount)
+	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{0,48}}").HandlerFunc(api.handleGetAccount)
+	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9-]{0,48}}").HandlerFunc(api.handlePutAccount)
 
 	return r
 }
@@ -205,6 +209,14 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	//ensure that keppel-registry is running (TODO remove, only used for testing)
+	portChan := make(chan uint16, 1)
+	api.orch.GetPortRequestChan <- orchestrator.GetPortRequest{
+		Account: *account,
+		Result:  portChan,
+	}
+	logg.Info("keppel-registry for account %s is running on port %d", account.Name, <-portChan)
 
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"account": account})
 }

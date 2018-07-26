@@ -10,6 +10,6 @@ build/%: FORCE
 	$(GO) install $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' '$(PKG)/cmd/$*'
 
 run-api: build/keppel-api
-	bash -c "source .env && ./build/keppel-api"
+	bash -c "source .env && PATH=$(CURDIR)/build:$$PATH keppel-api"
 
 .PHONY: FORCE

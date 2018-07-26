@@ -19,12 +19,28 @@
 
 package database
 
-import gorp "gopkg.in/gorp.v2"
+import (
+	"strings"
+
+	gorp "gopkg.in/gorp.v2"
+)
 
 //Account contains a record from the `accounts` table.
 type Account struct {
 	Name        string `db:"name" json:"name"`
 	ProjectUUID string `db:"project_uuid" json:"project_id"`
+}
+
+//SwiftContainerName returns the name of the Swift container backing this
+//Keppel account.
+func (a Account) SwiftContainerName() string {
+	return "keppel-" + a.Name
+}
+
+//PostgresDatabaseName returns the name of the Postgres database which contains this
+//Keppel account's metadata.
+func (a Account) PostgresDatabaseName() string {
+	return "keppel_" + strings.Replace(a.Name, "-", "_", -1)
 }
 
 func initModels(db *gorp.DbMap) {
