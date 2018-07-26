@@ -66,10 +66,10 @@ func NewOrchestrator() (*Orchestrator, *API) {
 //Run runs this orchestrator until the given context expires or until a fatal
 //error is encountered. Returns whether a fatal error was encountered.
 func (o *Orchestrator) Run(ctx context.Context) (ok bool) {
-	interruptChan := make(chan struct{})
+	innerCtx, cancel := context.WithCancel(ctx)
 	processExitChan := make(chan processExitMessage)
 	pc := processContext{
-		Interrupt:       interruptChan,
+		Context:         innerCtx,
 		ProcessExitChan: processExitChan,
 	}
 
@@ -94,8 +94,9 @@ func (o *Orchestrator) Run(ctx context.Context) (ok bool) {
 	for {
 		select {
 		case <-ctx.Done():
-			//signal to child processes to exit
-			close(interruptChan)
+			//silence govet (cancel() is a no-op since ctx and therefore innerCtx has
+			//already expired, but govet cannot understand that and suspects a context leak)
+			cancel()
 			//wait on child processes
 			pc.WaitGroup.Wait()
 			return ok
@@ -113,7 +114,7 @@ func (o *Orchestrator) Run(ctx context.Context) (ok bool) {
 					logg.Error("[account=%s] failed to start keppel-registry: %s", req.Account.Name, err.Error())
 					//failure to start new keppel-registries is considered a fatal error
 					ok = false
-					close(interruptChan)
+					cancel()
 				}
 			}
 			o.listenPorts[req.Account.Name] = port

@@ -19,6 +19,7 @@
 package orchestrator
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	net_url "net/url"
@@ -27,6 +28,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/pkg/database"
@@ -40,8 +42,6 @@ log:
 	accesslog:
 		disabled: true
 	level: info
-	fields:
-		service: keppel-registry
 http:
 	addr: :10000
 	headers:
@@ -57,7 +57,7 @@ storage:
 	swift-plus: # this line must be the last here because we append below
 `
 
-var baseConfigPath = filepath.Join(chooseRuntimeDir(), "keppel/registry-base.conf")
+var baseConfigPath = filepath.Join(chooseRuntimeDir(), "keppel/registry-base.yaml")
 
 func chooseRuntimeDir() string {
 	if val := os.Getenv("XDG_RUNTIME_DIR"); val != "" {
@@ -92,7 +92,7 @@ func init() {
 
 //Context state for launching keppel-registry processes.
 type processContext struct {
-	Interrupt       <-chan struct{} //When this channel is closed, SIGINT everyone.
+	Context         context.Context
 	WaitGroup       sync.WaitGroup
 	ProcessExitChan chan<- processExitMessage
 }
@@ -104,14 +104,14 @@ func (pc *processContext) startRegistry(account database.Account, port uint16) e
 
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("REGISTRY_HTTP_ADDR=:%d", port),
-		"REGISTRY_LOG_FIELDS_ACCOUNT="+account.Name,
+		"REGISTRY_LOG_FIELDS_KEPPEL.ACCOUNT="+account.Name,
 		"REGISTRY_STORAGE_SWIFT-PLUS_PROJECTID="+account.ProjectUUID,
 		"REGISTRY_STORAGE_SWIFT-PLUS_CONTAINER="+account.SwiftContainerName(),
 		"REGISTRY_STORAGE_SWIFT-PLUS_POSTGRESURI="+account.PostgresDatabaseName(),
 		//TODO OAuth config
 	)
 
-	//the REGISTRY_LOG_FIELDS_ACCOUNT variable (see above) adds the account
+	//the REGISTRY_LOG_FIELDS_kEPPEL.ACCOUNT variable (see above) adds the account
 	//name to all log messages produced by the keppel-registry (it is therefore
 	//safe to send its log directly to our own stdout)
 	cmd.Stdout = os.Stdout
@@ -150,11 +150,11 @@ func (pc *processContext) waitOnProcess(accountName string, cmd *exec.Cmd, proce
 	//Two options:
 	//1. Subprocess terminates abnormally. -> recv from processResult completes
 	//   before pc.Interrupt is fired.
-	//2. Subprocess does not terminate. -> At some point, pc.Interrupt fires (to
+	//2. Subprocess does not terminate. -> At some point, pc.Context expires (to
 	//   start the shutdown of keppel-api itself). Send SIGINT to the subprocess,
 	//   then recv its processResult.
 	select {
-	case <-pc.Interrupt:
+	case <-pc.Context.Done():
 		cmd.Process.Signal(os.Interrupt)
 	case err = <-processResult:
 		receivedProcessResult = true
@@ -163,8 +163,21 @@ func (pc *processContext) waitOnProcess(accountName string, cmd *exec.Cmd, proce
 		err = <-processResult
 	}
 
-	if err != nil {
+	//skip error "signal: interrupt" that occurs during normal SIGINT-triggered shutdown
+	if err != nil && !isShutdownBecauseOfSIGINT(err) {
 		logg.Error("[account=%s] keppel-registry exited with error: %s", accountName, err.Error())
 	}
-	pc.ProcessExitChan <- processExitMessage{accountName}
+	if pc.Context.Err() == nil {
+		//only send if someone is going to recv this
+		pc.ProcessExitChan <- processExitMessage{accountName}
+	}
+}
+
+func isShutdownBecauseOfSIGINT(err error) bool {
+	ee, ok := err.(*exec.ExitError)
+	if !ok {
+		return false
+	}
+	ws := ee.ProcessState.Sys().(syscall.WaitStatus)
+	return ws.Signaled() && ws.Signal() == syscall.SIGINT
 }
