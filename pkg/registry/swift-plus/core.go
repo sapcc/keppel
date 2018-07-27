@@ -453,6 +453,16 @@ func (p *plusDriver) Writer(ctx dcontext.Context, fullPath string, append bool) 
 
 //Stat implements the storagedriver.StorageDriver interface.
 func (p *plusDriver) Stat(ctx dcontext.Context, fullPath string) (storagedriver.FileInfo, error) {
+	//special case: health check looks at Stat("/") even though it's entirely bogus
+	if fullPath == "/" {
+		return fileInfo{
+			DirName:    "/",
+			BaseName:   "/",
+			SizeBytes:  -1,
+			ModifiedAt: time.Unix(0, 0),
+		}, nil
+	}
+
 	fi, err := p.readFileInfo(ctx, fullPath)
 	if err == sql.ErrNoRows {
 		return nil, storagedriver.PathNotFoundError{Path: fullPath}
