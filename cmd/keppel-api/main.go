@@ -66,7 +66,9 @@ func main() {
 
 	//wire up HTTP handlers
 	r := mux.NewRouter()
-	r.PathPrefix("/keppel/v1/").Handler(keppelV1.Router())
+	kv1, rv2 := keppelV1.Routers()
+	r.PathPrefix("/keppel/v1/").Handler(kv1)
+	r.PathPrefix("/v2/").Handler(rv2)
 	http.Handle("/", r)
 
 	//start HTTP server (TODO Prometheus instrumentation, TODO log middleware)

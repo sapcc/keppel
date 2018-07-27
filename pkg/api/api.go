@@ -62,18 +62,22 @@ func NewKeppelV1(db *database.DB, su *openstack.ServiceUser, orch *orchestrator.
 	}, nil
 }
 
-//Router prepares a http.Handler
-func (api *KeppelV1) Router() http.Handler {
-	r := mux.NewRouter()
+//Routers prepares http.Handler instances for the APIs provided by this instance.
+func (api *KeppelV1) Routers() (keppelAPI, proxyAPI http.Handler) {
+	keppelRouter := mux.NewRouter()
 
 	//NOTE: Keppel account names are severely restricted because Postgres
 	//database names are derived from them. Those are, most importantly,
 	//case-insensitive and restricted to 64 chars.
-	r.Methods("GET").Path("/keppel/v1/accounts").HandlerFunc(api.handleGetAccounts)
-	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{0,48}}").HandlerFunc(api.handleGetAccount)
-	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9-]{0,48}}").HandlerFunc(api.handlePutAccount)
+	keppelRouter.Methods("GET").Path("/keppel/v1/accounts").HandlerFunc(api.handleGetAccounts)
+	keppelRouter.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(api.handleGetAccount)
+	keppelRouter.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(api.handlePutAccount)
 
-	return r
+	proxyRouter := mux.NewRouter()
+
+	proxyRouter.PathPrefix("/v2/{account:[a-z0-9-]{1,48}}/").HandlerFunc(api.handleProxyToAccount)
+
+	return keppelRouter, proxyRouter
 }
 
 func (api *KeppelV1) checkToken(r *http.Request) *gopherpolicy.Token {
