@@ -20,6 +20,7 @@
 package database
 
 import (
+	"database/sql"
 	"strings"
 
 	gorp "gopkg.in/gorp.v2"
@@ -41,6 +42,18 @@ func (a Account) SwiftContainerName() string {
 //Keppel account's metadata.
 func (a Account) PostgresDatabaseName() string {
 	return "keppel_" + strings.Replace(a.Name, "-", "_", -1)
+}
+
+//FindAccount wworks similar to db.SelectOne(), but returns nil instead of
+//sql.ErrNoRows if no account exists with this name.
+func (db *DB) FindAccount(name string) (*Account, error) {
+	var account Account
+	err := db.SelectOne(&account,
+		"SELECT * FROM accounts WHERE name = $1", name)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return &account, err
 }
 
 func initModels(db *gorp.DbMap) {

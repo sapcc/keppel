@@ -36,8 +36,13 @@ import (
 	gorp "gopkg.in/gorp.v2"
 )
 
+//DB provides additional methods on top of gorp.DBMap.
+type DB struct {
+	gorp.DbMap
+}
+
 //Init initializes the Postgres connection.
-func Init() (*gorp.DbMap, error) {
+func Init() (*DB, error) {
 	urlStr := os.Getenv("KEPPEL_POSTGRES_URI")
 	if urlStr == "" {
 		return nil, errors.New("missing env variable: KEPPEL_POSTGRES_URI")
@@ -57,9 +62,9 @@ func Init() (*gorp.DbMap, error) {
 		return nil, fmt.Errorf("cannot apply database schema: %s", err.Error())
 	}
 
-	dbMap := &gorp.DbMap{Db: db, Dialect: gorp.PostgresDialect{}}
-	initModels(dbMap)
-	return dbMap, nil
+	result := &DB{DbMap: gorp.DbMap{Db: db, Dialect: gorp.PostgresDialect{}}}
+	initModels(&result.DbMap)
+	return result, nil
 }
 
 var dbNotExistErrRx = regexp.MustCompile(`^pq: database "([^"]+)" does not exist$`)
