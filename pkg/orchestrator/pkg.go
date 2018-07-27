@@ -25,11 +25,7 @@ import (
 	"github.com/sapcc/keppel/pkg/database"
 )
 
-//GetPortRequest can be sent into `type API` to ask the orchestrator for the
-//TCP port where the keppel-registry process for the given account is
-//listening. The orchestrator will take care of starting the keppel-registry
-//process if it is not running yet.
-type GetPortRequest struct {
+type getPortRequest struct {
 	Account database.Account
 	Result  chan<- uint16
 }
@@ -38,28 +34,22 @@ type processExitMessage struct {
 	AccountName string
 }
 
-//API is used by HTTP handlers to communicate with the Orchestrator
-//which manages the keppel-registry processes.
-type API struct {
-	GetPortRequestChan chan<- GetPortRequest
-}
-
 //Orchestrator is managing keppel-registry processes on the main loop.
 type Orchestrator struct {
-	getPortRequestChan <-chan GetPortRequest
+	getPortRequestChan <-chan getPortRequest
 	listenPorts        map[string]uint16
 	nextListenPort     uint16
 }
 
 //NewOrchestrator prepares a new Orchestrator instance.
 func NewOrchestrator() (*Orchestrator, *API) {
-	gprChan := make(chan GetPortRequest)
+	gprChan := make(chan getPortRequest)
 	return &Orchestrator{
 			getPortRequestChan: gprChan,
 			listenPorts:        make(map[string]uint16),
 			nextListenPort:     10000, //TODO make configurable?
 		}, &API{
-			GetPortRequestChan: gprChan,
+			getPortRequestChan: gprChan,
 		}
 }
 
@@ -118,7 +108,9 @@ func (o *Orchestrator) Run(ctx context.Context) (ok bool) {
 				}
 			}
 			o.listenPorts[req.Account.Name] = port
-			req.Result <- port
+			if req.Result != nil { //is nil when called from EnsureAllRegistriesAreRunning()
+				req.Result <- port
+			}
 		}
 	}
 }

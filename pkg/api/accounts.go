@@ -26,7 +26,6 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/pkg/database"
-	"github.com/sapcc/keppel/pkg/orchestrator"
 )
 
 func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
@@ -153,12 +152,8 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//ensure that keppel-registry is running (TODO remove, only used for testing)
-	portChan := make(chan uint16, 1)
-	api.orch.GetPortRequestChan <- orchestrator.GetPortRequest{
-		Account: *account,
-		Result:  portChan,
-	}
-	logg.Info("keppel-registry for account %s is running on port %d", account.Name, <-portChan)
+	logg.Info("keppel-registry for account %s is running on %s",
+		account.Name, api.orch.GetHostPortForAccount(*account))
 
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"account": account})
 }

@@ -82,6 +82,9 @@ func main() {
 		}
 	}()
 
+	//start orchestrator workers
+	go orchestratorAPI.EnsureAllRegistriesAreRunning(db)
+
 	//enter orchestrator main loop
 	ok := orchestrator.Run(contextWithSIGINT(context.Background()))
 	if !ok {
