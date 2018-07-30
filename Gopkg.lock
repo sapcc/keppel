@@ -46,6 +46,14 @@
   revision = "3ae74dd07ebf48d1f2babbd1d2177cd1878a09ee"
 
 [[projects]]
+  digest = "1:76dc72490af7174349349838f2fe118996381b31ea83243812a97e5a0fd5ed55"
+  name = "github.com/dgrijalva/jwt-go"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "06ea1031745cb8b3dab3f6a236daf2b0aa468b7e"
+  version = "v3.2.0"
+
+[[projects]]
   digest = "1:cc484e200b5268eabbd5274550fbd0b8d82595c9b0d205012d4c75cc9a610012"
   name = "github.com/docker/distribution"
   packages = [
@@ -239,6 +247,14 @@
   revision = "e15ec77aabeaa98a914096a240aea98fc84f9935"
 
 [[projects]]
+  digest = "1:274f67cb6fed9588ea2521ecdac05a6d62a8c51c074c1fccc6a49a40ba80e925"
+  name = "github.com/satori/go.uuid"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
+  version = "v1.2.0"
+
+[[projects]]
   digest = "1:dd48f4df68952281e1b4f6724739aab98b79fa62b23dfa4dd187dd3c89dde430"
   name = "github.com/spf13/cobra"
   packages = ["."]
@@ -361,6 +377,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/dgrijalva/jwt-go",
     "github.com/docker/distribution/context",
     "github.com/docker/distribution/registry",
     "github.com/docker/distribution/registry/auth/htpasswd",
@@ -389,6 +406,7 @@
     "github.com/sapcc/go-bits/gopherpolicy",
     "github.com/sapcc/go-bits/logg",
     "github.com/sapcc/go-bits/respondwith",
+    "github.com/satori/go.uuid",
     "gopkg.in/gorp.v2",
   ]
   solver-name = "gps-cdcl"
