@@ -91,3 +91,52 @@ func (su *ServiceUser) AddLocalRole(projectUUID string, requestingUser *gopherpo
 	})
 	return result.Err
 }
+
+//UserAccess describes the access permissions of a user in a certain scope
+//(project or global).
+type UserAccess struct {
+	Roles []string
+}
+
+//CheckUserAccess checks whether the given user has access to the project
+//corresponding to the given account (or, for account == nil, just whether the
+//user exists and the correct password was given).
+//The user name must be given as "username@userdomainname".
+//
+//Returns (access, nil) if the user exists and has access to the account.
+//
+//Returns (nil, nil) if the user exists, but does not have access (or no
+//account was specified).
+//
+//Returns (nil, err) in case of authentication failure (e.g. wrong
+//username/password) or other failures (e.g. Keystone API down).
+func (su *ServiceUser) CheckUserAccess(username, password string, account *database.Account) (*UserAccess, error) {
+	usernameFields := strings.SplitN(username, "@", 2)
+	if len(usernameFields) != 2 {
+		return nil, errors.New(`invalid username (expected "user@domain" format)`)
+	}
+
+	authOpts := gophercloud.AuthOptions{
+		IdentityEndpoint: su.IdentityV3.Endpoint,
+		Username:         usernameFields[0],
+		DomainName:       usernameFields[1],
+		Password:         password,
+	}
+	if account != nil {
+		authOpts.Scope = &gophercloud.AuthScope{ProjectID: account.ProjectUUID}
+	}
+
+	roles, err := tokens.Create(su.IdentityV3, &authOpts).ExtractRoles()
+	if err != nil {
+		return nil, err
+	}
+
+	if account == nil {
+		return nil, nil
+	}
+	roleNames := make([]string, len(roles))
+	for idx, role := range roles {
+		roleNames[idx] = role.Name
+	}
+	return &UserAccess{Roles: roleNames}, nil
+}

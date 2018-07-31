@@ -21,8 +21,12 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
+	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/pkg/auth"
+	"github.com/sapcc/keppel/pkg/database"
+	"github.com/sapcc/keppel/pkg/keppel"
 )
 
 func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
@@ -37,8 +41,27 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = req
 
-	//TODO get token from Keystone with username:password, scoped to account if req.Scope != nil
+	//find account if scope requested
+	var account *database.Account
+	if req.Scope != nil && req.Scope.ResourceType == "repository" {
+		accountName := strings.SplitN(req.Scope.ResourceName, "/", 2)[0]
+		account, err = keppel.State.DB.FindAccount(accountName)
+		if respondwith.ErrorText(w, err) {
+			return
+		}
+		//do not check account == nil here yet to not leak account existence to
+		//unauthorized users
+	}
+
+	//check user access
+	access, err := keppel.State.ServiceUser.CheckUserAccess(
+		req.UserName, req.Password, account)
+	if err != nil {
+		http.Error(w, err.Error(), 401)
+		return
+	}
+
 	//TODO match Keystone roles with requested scope and actions
 	//TODO generate/serialize JWT
-	panic("unimplemented")
+	respondwith.JSON(w, http.StatusOK, access)
 }
