@@ -23,30 +23,17 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/sapcc/go-bits/gopherpolicy"
-	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/keppel/pkg/keppel"
 	"github.com/sapcc/keppel/pkg/orchestrator"
 )
 
 //KeppelV1 implements the /keppel/v1/ API endpoints.
 type KeppelV1 struct {
-	tv   gopherpolicy.Validator
 	orch *orchestrator.API
 }
 
 //NewKeppelV1 prepares a new KeppelV1 instance.
 func NewKeppelV1(orch *orchestrator.API) (*KeppelV1, error) {
-	tv := gopherpolicy.TokenValidator{
-		IdentityV3: keppel.State.ServiceUser.IdentityV3,
-	}
-	err := tv.LoadPolicyFile(keppel.State.Config.OpenStack.PolicyFilePath)
-	if err != nil {
-		return nil, err
-	}
-
 	return &KeppelV1{
-		tv:   &tv,
 		orch: orch,
 	}, nil
 }
@@ -69,11 +56,4 @@ func (api *KeppelV1) Routers() (keppelAPI, proxyAPI http.Handler) {
 	proxyRouter.PathPrefix("/v2/{account:[a-z0-9-]{1,48}}/").HandlerFunc(api.handleProxyToAccount)
 
 	return keppelRouter, proxyRouter
-}
-
-func (api *KeppelV1) checkToken(r *http.Request) *gopherpolicy.Token {
-	token := api.tv.CheckToken(r)
-	token.Context.Logger = logg.Debug
-	token.Context.Request = mux.Vars(r)
-	return token
 }

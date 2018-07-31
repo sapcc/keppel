@@ -99,14 +99,19 @@ func (pc *processContext) startRegistry(account database.Account, port uint16) e
 		account.Name, port)
 	cmd := exec.Command("keppel-registry", "serve", baseConfigPath)
 
+	publicURL := keppel.State.Config.APIPublicURL
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("REGISTRY_HTTP_ADDR=:%d", port),
 		"REGISTRY_LOG_FIELDS_KEPPEL.ACCOUNT="+account.Name,
 		"REGISTRY_STORAGE_SWIFT-PLUS_PROJECTID="+account.ProjectUUID,
 		"REGISTRY_STORAGE_SWIFT-PLUS_CONTAINER="+account.SwiftContainerName(),
 		"REGISTRY_STORAGE_SWIFT-PLUS_POSTGRESURI="+account.PostgresDatabaseName(),
-		//TODO OAuth config
+		fmt.Sprintf("REGISTRY_AUTH_TOKEN_REALM=%s/keppel/v1/auth", publicURL.String()),
+		fmt.Sprintf("REGISTRY_AUTH_TOKEN_SERVICE=%s@%s", account.Name, publicURL.Host),
+		fmt.Sprintf("REGISTRY_AUTH_TOKEN_ISSUER=keppel-api@%s", publicURL.Host),
+		"REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE=TODO",
 	)
+	panic("fill in value above")
 
 	//the REGISTRY_LOG_FIELDS_kEPPEL.ACCOUNT variable (see above) adds the account
 	//name to all log messages produced by the keppel-registry (it is therefore

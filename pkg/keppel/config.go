@@ -47,6 +47,7 @@ type StateStruct struct {
 //ReadConfig().
 type Configuration struct {
 	APIListenAddress string
+	APIPublicURL     url.URL
 	DatabaseURL      url.URL
 	OpenStack        OpenStackConfiguration //TODO ugly; refactor to get rid of this
 }
@@ -70,6 +71,7 @@ type OpenStackConfiguration struct {
 type configuration struct {
 	API struct {
 		ListenAddress string `yaml:"listen_address"`
+		PublicURL     string `yaml:"public_url"`
 	} `yaml:"api"`
 	DB struct {
 		URL string `yaml:"url"`
@@ -97,6 +99,10 @@ func ReadConfig(path string) {
 	}
 
 	//compile into State
+	publicURL, err := url.Parse(cfg.API.PublicURL)
+	if err != nil {
+		logg.Fatal("malformed api.public_url: %s", err.Error())
+	}
 	dbURL, err := url.Parse(cfg.DB.URL)
 	if err != nil {
 		logg.Fatal("malformed db.url: %s", err.Error())
@@ -109,6 +115,7 @@ func ReadConfig(path string) {
 	State = &StateStruct{
 		Config: Configuration{
 			APIListenAddress: cfg.API.ListenAddress,
+			APIPublicURL:     *publicURL,
 			DatabaseURL:      *dbURL,
 			OpenStack:        cfg.OpenStack,
 		},
@@ -172,7 +179,8 @@ func initServiceUser(cfg *configuration) *os.ServiceUser {
 		logg.Fatal("cannot fetch initial Keystone token: %v", err)
 	}
 
-	serviceUser, err := os.NewServiceUser(provider, c.UserID, c.LocalRoleName)
+	serviceUser, err := os.NewServiceUser(
+		provider, c.UserID, c.LocalRoleName, c.PolicyFilePath)
 	if err != nil {
 		logg.Fatal(err.Error())
 	}

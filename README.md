@@ -17,6 +17,8 @@ make && PATH=$PWD/build:$PATH keppel-api
 api:
   # listen address for HTTP server of keppel-api (optional, value shown is the default)
   listen_address: :8080
+  # URL where users reach the keppel-api
+  public_url: https://keppel.example.com
 
 db:
   # a libpq connection URL

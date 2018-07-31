@@ -140,14 +140,6 @@
   revision = "45c2d035713fa44f366921035a44610ac5d45beb"
 
 [[projects]]
-  branch = "master"
-  digest = "1:daadc16f425a467550754bd6c7cd82a8884c7c753e9818242b7941ffb1537132"
-  name = "github.com/gophercloud/utils"
-  packages = ["openstack/clientconfig"]
-  pruneopts = "UT"
-  revision = "a4a9aeb470b8613c9c609fbb23c17836de44d05c"
-
-[[projects]]
   digest = "1:c79fb010be38a59d657c48c6ba1d003a8aa651fa56b579d959d74573b7dff8e1"
   name = "github.com/gorilla/context"
   packages = ["."]
@@ -236,7 +228,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b69e42674f1b359bbf45472955e94021eb585503e70b5ca76ae0e9d17b118bfc"
+  digest = "1:ab0009a158570651a0e3cf0b52b6f206d243aa0879bbbd776d20275d7ae6530a"
   name = "github.com/sapcc/go-bits"
   packages = [
     "gopherpolicy",
@@ -244,7 +236,7 @@
     "respondwith",
   ]
   pruneopts = "UT"
-  revision = "e15ec77aabeaa98a914096a240aea98fc84f9935"
+  revision = "12d5cb312982a38c902108a9b5b30464c9778d5c"
 
 [[projects]]
   digest = "1:274f67cb6fed9588ea2521ecdac05a6d62a8c51c074c1fccc6a49a40ba80e925"
@@ -394,7 +386,7 @@
     "github.com/gophercloud/gophercloud",
     "github.com/gophercloud/gophercloud/openstack",
     "github.com/gophercloud/gophercloud/openstack/identity/v3/roles",
-    "github.com/gophercloud/utils/openstack/clientconfig",
+    "github.com/gophercloud/gophercloud/openstack/identity/v3/tokens",
     "github.com/gorilla/mux",
     "github.com/lib/pq",
     "github.com/majewsky/schwift",
@@ -408,6 +400,7 @@
     "github.com/sapcc/go-bits/respondwith",
     "github.com/satori/go.uuid",
     "gopkg.in/gorp.v2",
+    "gopkg.in/yaml.v2",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

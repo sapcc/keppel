@@ -10,5 +10,5 @@
 
   "account:list": "rule:any_ro",
   "account:show": "rule:any_ro and rule:account_matches_scope",
-  "account:create": "rule:any_rw and rule:account_matches_scope"
+  "account:edit": "rule:any_rw and rule:account_matches_scope"
 }

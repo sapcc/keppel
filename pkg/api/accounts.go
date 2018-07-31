@@ -27,11 +27,25 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/pkg/database"
 	"github.com/sapcc/keppel/pkg/keppel"
+	"github.com/sapcc/keppel/pkg/openstack"
 )
 
+func checkTokenOrSend401(w http.ResponseWriter, r *http.Request) openstack.AccessLevel {
+	access, err := keppel.State.ServiceUser.GetAccessLevelForRequest(r)
+	if err != nil || access == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return nil
+	}
+	return access
+}
+
 func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
-	token := api.checkToken(r)
-	if !token.Require(w, "account:list") {
+	access := checkTokenOrSend401(w, r)
+	if access == nil {
+		return
+	}
+	if !access.CanViewAccounts() {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
@@ -44,8 +58,7 @@ func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	//restrict accounts to those visible in the current scope
 	var accountsFiltered []database.Account
 	for _, account := range accounts {
-		token.Context.Request["account_project_id"] = account.ProjectUUID
-		if token.Check("account:show") {
+		if access.CanViewAccount(account) {
 			accountsFiltered = append(accountsFiltered, account)
 		}
 	}
@@ -58,11 +71,14 @@ func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *KeppelV1) handleGetAccount(w http.ResponseWriter, r *http.Request) {
-	token := api.checkToken(r)
+	access := checkTokenOrSend401(w, r)
+	if access == nil {
+		return
+	}
 
 	//first very permissive check: can this user GET any accounts AT ALL?
-	token.Context.Request["account_project_id"] = token.Context.Auth["project_id"]
-	if !token.Require(w, "account:show") {
+	if !access.CanViewAccounts() {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
@@ -74,11 +90,8 @@ func (api *KeppelV1) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//perform final authorization with that project ID
-	if account != nil {
-		token.Context.Request["account_project_id"] = account.ProjectUUID
-		if !token.Check("account:show") {
-			account = nil
-		}
+	if account != nil && !access.CanViewAccount(*account) {
+		account = nil
 	}
 
 	if account == nil {
@@ -106,15 +119,23 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	accountName := mux.Vars(r)["account"]
+	accountToCreate := database.Account{
+		Name:        accountName,
+		ProjectUUID: req.Account.ProjectUUID,
+	}
+
 	//check permission to create account
-	token := api.checkToken(r)
-	token.Context.Request["account_project_id"] = req.Account.ProjectUUID
-	if !token.Require(w, "account:create") {
+	access := checkTokenOrSend401(w, r)
+	if access == nil {
+		return
+	}
+	if !access.CanChangeAccount(accountToCreate) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
 	//check if account already exists
-	accountName := mux.Vars(r)["account"]
 	account, err := keppel.State.DB.FindAccount(accountName)
 	if respondwith.ErrorText(w, err) {
 		return
@@ -132,17 +153,14 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		}
 		defer database.RollbackUnlessCommitted(tx)
 
-		account = &database.Account{
-			Name:        accountName,
-			ProjectUUID: req.Account.ProjectUUID,
-		}
+		account = &accountToCreate
 		err = tx.Insert(account)
 		if respondwith.ErrorText(w, err) {
 			return
 		}
 
 		//before committing this, add the required role assignments
-		err = keppel.State.ServiceUser.AddLocalRole(req.Account.ProjectUUID, token)
+		err = keppel.State.ServiceUser.AddLocalRole(req.Account.ProjectUUID, access)
 		if respondwith.ErrorText(w, err) {
 			return
 		}

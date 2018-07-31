@@ -27,6 +27,7 @@ import (
 	"github.com/sapcc/keppel/pkg/auth"
 	"github.com/sapcc/keppel/pkg/database"
 	"github.com/sapcc/keppel/pkg/keppel"
+	"github.com/sapcc/keppel/pkg/openstack"
 )
 
 func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +40,6 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	_ = req
 
 	//find account if scope requested
 	var account *database.Account
@@ -54,14 +54,50 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check user access
-	access, err := keppel.State.ServiceUser.CheckUserAccess(
+	access, err := keppel.State.ServiceUser.GetAccessLevelForUser(
 		req.UserName, req.Password, account)
 	if err != nil {
 		http.Error(w, err.Error(), 401)
 		return
 	}
 
-	//TODO match Keystone roles with requested scope and actions
-	//TODO generate/serialize JWT
-	respondwith.JSON(w, http.StatusOK, access)
+	//check requested scope and actions (TODO: this is wrong, we should not respond with Forbidden, but restrict the actions list to the permitted actions; possibly wiping out the scope completely if no actions remain)
+	if req.Scope != nil {
+		switch req.Scope.ResourceType {
+		case "registry":
+			req.Scope.Actions = filterRegistryActions(req.Scope.Actions, access)
+		case "repository":
+			if account == nil {
+				req.Scope.Actions = nil
+			} else {
+				req.Scope.Actions = filterRepoActions(req.Scope.Actions, access, *account)
+			}
+		default:
+			req.Scope.Actions = nil
+		}
+	}
+
+	jwt := req.ToJWT()
+	_ = jwt
+	panic("unimplemented") //TODO continue here
+}
+
+func filterRegistryActions(actions []string, access openstack.AccessLevel) (result []string) {
+	for _, action := range actions {
+		if action == "*" && access.CanViewAccounts() {
+			result = append(result, action)
+		}
+	}
+	return
+}
+
+func filterRepoActions(actions []string, access openstack.AccessLevel, account database.Account) (result []string) {
+	for _, action := range actions {
+		if action == "pull" && access.CanViewAccount(account) {
+			result = append(result, action)
+		} else if action == "push" && access.CanChangeAccount(account) {
+			result = append(result, action)
+		}
+	}
+	return
 }

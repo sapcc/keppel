@@ -29,6 +29,7 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/sapcc/keppel/pkg/keppel"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -110,18 +111,18 @@ func decodeAuthHeader(base64data string) (username, password string, err error) 
 }
 
 //ToJWT creates a Java Web Token that can be used to fulfil this token request.
-func (r Request) ToJWT(audience string) *jwt.Token {
+func (r Request) ToJWT() *jwt.Token {
 	now := time.Now()
 	expiry := now.Add(1 * time.Hour)
 
 	var access []interface{}
-	if r.Scope != nil {
+	if r.Scope != nil && len(r.Scope.Actions) > 0 {
 		access = []interface{}{r.Scope}
 	}
 
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"aud": audience,
-		"iss": r.Service,     //issuer (this API)
+		"aud": r.Service,
+		"iss": "keppel-api@" + keppel.State.Config.APIPublicURL.Host,
 		"sub": r.UserName,    //subject
 		"exp": expiry.Unix(), //not after
 		"nbf": now.Unix(),    //not before

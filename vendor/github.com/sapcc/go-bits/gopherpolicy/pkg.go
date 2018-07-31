@@ -81,15 +81,26 @@ func (v *TokenValidator) CheckToken(r *http.Request) *Token {
 		return &Token{Err: response.Err}
 	}
 
+	return v.TokenFromGophercloudResult(response)
+}
+
+//TokenFromGophercloudResult creates a Token instance from a gophercloud Result
+//from the tokens.Create() or tokens.Get() requests from package
+//github.com/gophercloud/gophercloud/openstack/identity/v3/tokens.
+func (v *TokenValidator) TokenFromGophercloudResult(result TokenResult) *Token {
 	//use a custom token struct instead of tokens.Token which is way incomplete
 	var tokenData keystoneToken
-	err := response.ExtractInto(&tokenData)
+	err := result.ExtractInto(&tokenData)
 	if err != nil {
-		return &Token{Err: response.Err}
+		return &Token{Err: err}
 	}
-	catalog, err := response.ExtractServiceCatalog()
+	token, err := result.Extract()
 	if err != nil {
-		return &Token{Err: response.Err}
+		return &Token{Err: err}
+	}
+	catalog, err := result.ExtractServiceCatalog()
+	if err != nil {
+		return &Token{Err: err}
 	}
 
 	return &Token{
@@ -100,12 +111,20 @@ func (v *TokenValidator) CheckToken(r *http.Request) *Token {
 			IdentityEndpoint: v.IdentityV3.ProviderClient.IdentityEndpoint,
 			HTTPClient:       v.IdentityV3.ProviderClient.HTTPClient,
 			UserAgent:        v.IdentityV3.ProviderClient.UserAgent,
-			TokenID:          str,
+			TokenID:          token.ID,
 			EndpointLocator: func(opts gophercloud.EndpointOpts) (string, error) {
 				return openstack.V3EndpointURL(catalog, opts)
 			},
 		},
 	}
+}
+
+//TokenResult is the interface type for the argument of
+//TokenValidator.TokenFromGophercloudResult().
+type TokenResult interface {
+	ExtractInto(value interface{}) error
+	Extract() (*tokens.Token, error)
+	ExtractServiceCatalog() (*tokens.ServiceCatalog, error)
 }
 
 type keystoneToken struct {
