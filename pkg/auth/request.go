@@ -20,6 +20,8 @@
 package auth
 
 import (
+	"crypto/ecdsa"
+	"crypto/rsa"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -110,17 +112,29 @@ func decodeAuthHeader(base64data string) (username, password string, err error) 
 	return fields[0], fields[1], nil
 }
 
-//ToJWT creates a Java Web Token that can be used to fulfil this token request.
-func (r Request) ToJWT() *jwt.Token {
+//ToTokenResponse creates a Java Web Token that can be used to fulfil this token request.
+func (r Request) ToTokenResponse() (*TokenResponse, error) {
 	now := time.Now()
-	expiry := now.Add(1 * time.Hour)
+	expiresIn := 1 * time.Hour //TODO make configurable?
+	expiry := now.Add(expiresIn)
 
 	var access []interface{}
 	if r.Scope != nil && len(r.Scope.Actions) > 0 {
 		access = []interface{}{r.Scope}
 	}
 
-	return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+	issuerKey := keppel.State.JWTIssuerKey.CryptoPrivateKey()
+	var method jwt.SigningMethod
+	switch issuerKey.(type) {
+	case *ecdsa.PrivateKey:
+		method = jwt.SigningMethodES256
+	case *rsa.PrivateKey:
+		method = jwt.SigningMethodRS256
+	default:
+		panic(fmt.Sprintf("do not know which JWT method to use for issuerKey.type = %t", issuerKey))
+	}
+
+	token := jwt.NewWithClaims(method, jwt.MapClaims{
 		"aud": r.Service,
 		"iss": "keppel-api@" + keppel.State.Config.APIPublicURL.Host,
 		"sub": r.UserName,    //subject
@@ -132,4 +146,19 @@ func (r Request) ToJWT() *jwt.Token {
 		//access permissions granted to this token
 		"access": access,
 	})
+
+	signed, err := token.SignedString(issuerKey)
+	return &TokenResponse{
+		Token:     signed,
+		ExpiresIn: uint64(expiresIn.Seconds()),
+		IssuedAt:  now.Format(time.RFC3339),
+	}, err
+}
+
+//TokenResponse is the type returned by ToTokenResponse(). This is the format
+//expected by Docker in an auth response.
+type TokenResponse struct {
+	Token     string `json:"token"`
+	ExpiresIn uint64 `json:"expires_in"`
+	IssuedAt  string `json:"issued_at"`
 }

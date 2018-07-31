@@ -21,9 +21,11 @@ package keppel
 
 import (
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 
+	"github.com/docker/libtrust"
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/sapcc/go-bits/logg"
@@ -38,9 +40,10 @@ var State *StateStruct
 
 //StateStruct is the type of `var State`.
 type StateStruct struct {
-	Config      Configuration
-	DB          *database.DB
-	ServiceUser *os.ServiceUser
+	Config       Configuration
+	DB           *database.DB
+	ServiceUser  *os.ServiceUser
+	JWTIssuerKey libtrust.PrivateKey
 }
 
 //Configuration contains some configuration values that are not compiled during
@@ -50,6 +53,16 @@ type Configuration struct {
 	APIPublicURL     url.URL
 	DatabaseURL      url.URL
 	OpenStack        OpenStackConfiguration //TODO ugly; refactor to get rid of this
+}
+
+//APIPublicHostname returns the hostname from the APIPublicURL.
+func (cfg Configuration) APIPublicHostname() string {
+	hostAndMaybePort := cfg.APIPublicURL.Host
+	host, _, err := net.SplitHostPort(hostAndMaybePort)
+	if err == nil {
+		return host
+	}
+	return hostAndMaybePort //looks like there is no port in here after all
 }
 
 //OpenStackConfiguration is a part of type Configuration.
@@ -112,6 +125,14 @@ func ReadConfig(path string) {
 		logg.Fatal(err.Error())
 	}
 
+	//TODO: To enable horizontal scaling (more than one keppel-api instance at a
+	//time) and seamless restarts, the private key should be passed in the
+	//configuration file.
+	jwtIssuerKey, err := libtrust.GenerateRSA4096PrivateKey()
+	if err != nil {
+		logg.Fatal("cannot generate JWT issuing key: " + err.Error())
+	}
+
 	State = &StateStruct{
 		Config: Configuration{
 			APIListenAddress: cfg.API.ListenAddress,
@@ -119,8 +140,9 @@ func ReadConfig(path string) {
 			DatabaseURL:      *dbURL,
 			OpenStack:        cfg.OpenStack,
 		},
-		DB:          db,
-		ServiceUser: initServiceUser(&cfg),
+		DB:           db,
+		ServiceUser:  initServiceUser(&cfg),
+		JWTIssuerKey: jwtIssuerKey,
 	}
 }
 

@@ -77,9 +77,11 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	jwt := req.ToJWT()
-	_ = jwt
-	panic("unimplemented") //TODO continue here
+	tokenInfo, err := req.ToTokenResponse()
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	respondwith.JSON(w, tokenInfo)
 }
 
 func filterRegistryActions(actions []string, access openstack.AccessLevel) (result []string) {

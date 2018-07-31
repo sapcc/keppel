@@ -29,6 +29,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/docker/libtrust"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/pkg/database"
 	"github.com/sapcc/keppel/pkg/keppel"
@@ -58,6 +59,7 @@ storage:
 `
 
 var baseConfigPath = filepath.Join(chooseRuntimeDir(), "keppel/registry-base.yaml")
+var issuerCertBundlePath = filepath.Join(chooseRuntimeDir(), "keppel/issuer-cert-bundle.pem")
 
 func chooseRuntimeDir() string {
 	if val := os.Getenv("XDG_RUNTIME_DIR"); val != "" {
@@ -87,6 +89,15 @@ func prepareBaseConfig() {
 	}
 }
 
+func prepareCertBundle() {
+	privKey := keppel.State.JWTIssuerKey
+	cert, err := libtrust.GenerateSelfSignedServerCert(
+		privKey, []string{keppel.State.Config.APIPublicHostname()}, nil)
+	if err != nil {
+		logg.Fatal("cannot generate token issuer certificate: " + err.Error())
+	}
+}
+
 //Context state for launching keppel-registry processes.
 type processContext struct {
 	Context         context.Context
@@ -99,19 +110,19 @@ func (pc *processContext) startRegistry(account database.Account, port uint16) e
 		account.Name, port)
 	cmd := exec.Command("keppel-registry", "serve", baseConfigPath)
 
-	publicURL := keppel.State.Config.APIPublicURL
+	publicURL := keppel.State.Config.APIPublicURL.String()
+	publicHost := keppel.State.Config.APIPublicHostname()
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("REGISTRY_HTTP_ADDR=:%d", port),
 		"REGISTRY_LOG_FIELDS_KEPPEL.ACCOUNT="+account.Name,
 		"REGISTRY_STORAGE_SWIFT-PLUS_PROJECTID="+account.ProjectUUID,
 		"REGISTRY_STORAGE_SWIFT-PLUS_CONTAINER="+account.SwiftContainerName(),
 		"REGISTRY_STORAGE_SWIFT-PLUS_POSTGRESURI="+account.PostgresDatabaseName(),
-		fmt.Sprintf("REGISTRY_AUTH_TOKEN_REALM=%s/keppel/v1/auth", publicURL.String()),
-		fmt.Sprintf("REGISTRY_AUTH_TOKEN_SERVICE=%s@%s", account.Name, publicURL.Host),
-		fmt.Sprintf("REGISTRY_AUTH_TOKEN_ISSUER=keppel-api@%s", publicURL.Host),
-		"REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE=TODO",
+		fmt.Sprintf("REGISTRY_AUTH_TOKEN_REALM=%s/keppel/v1/auth", publicURL),
+		fmt.Sprintf("REGISTRY_AUTH_TOKEN_SERVICE=%s@%s", account.Name, publicHost),
+		fmt.Sprintf("REGISTRY_AUTH_TOKEN_ISSUER=keppel-api@%s", publicHost),
+		"REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE="+issuerCertBundlePath,
 	)
-	panic("fill in value above")
 
 	//the REGISTRY_LOG_FIELDS_kEPPEL.ACCOUNT variable (see above) adds the account
 	//name to all log messages produced by the keppel-registry (it is therefore
