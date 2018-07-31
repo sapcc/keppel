@@ -43,6 +43,7 @@ type Orchestrator struct {
 
 //NewOrchestrator prepares a new Orchestrator instance.
 func NewOrchestrator() (*Orchestrator, *API) {
+	prepareBaseConfig()
 	gprChan := make(chan getPortRequest)
 	return &Orchestrator{
 			getPortRequestChan: gprChan,

@@ -24,6 +24,7 @@ import (
 
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/pkg/database"
+	"github.com/sapcc/keppel/pkg/keppel"
 )
 
 //API is used by other threads to communicate with the Orchestrator
@@ -47,10 +48,10 @@ func (api *API) GetHostPortForAccount(account database.Account) string {
 //EnsureAllRegistriesAreRunning polls the orchestrator every few minutes to
 //ensure that the keppel-registry processes for all known accounts are running.
 //This method does not return, so it should be run in a separate goroutine.
-func (api *API) EnsureAllRegistriesAreRunning(db *database.DB) {
+func (api *API) EnsureAllRegistriesAreRunning() {
 	for {
 		var accounts []database.Account
-		_, err := db.Select(&accounts, `SELECT * FROM accounts`)
+		_, err := keppel.State.DB.Select(&accounts, `SELECT * FROM accounts`)
 		if err != nil {
 			logg.Error("failed to enumerate accounts: " + err.Error())
 			accounts = nil

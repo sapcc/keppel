@@ -20,43 +20,32 @@
 package api
 
 import (
-	"errors"
 	"net/http"
-	"os"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/keppel/pkg/database"
-	"github.com/sapcc/keppel/pkg/openstack"
+	"github.com/sapcc/keppel/pkg/keppel"
 	"github.com/sapcc/keppel/pkg/orchestrator"
 )
 
 //KeppelV1 implements the /keppel/v1/ API endpoints.
 type KeppelV1 struct {
-	db   *database.DB
-	su   *openstack.ServiceUser
 	tv   gopherpolicy.Validator
 	orch *orchestrator.API
 }
 
 //NewKeppelV1 prepares a new KeppelV1 instance.
-func NewKeppelV1(db *database.DB, su *openstack.ServiceUser, orch *orchestrator.API) (*KeppelV1, error) {
+func NewKeppelV1(orch *orchestrator.API) (*KeppelV1, error) {
 	tv := gopherpolicy.TokenValidator{
-		IdentityV3: su.IdentityV3,
+		IdentityV3: keppel.State.ServiceUser.IdentityV3,
 	}
-	policyPath := os.Getenv("KEPPEL_POLICY_PATH")
-	if policyPath == "" {
-		return nil, errors.New("missing env variable: KEPPEL_POLICY_PATH")
-	}
-	err := tv.LoadPolicyFile(policyPath)
+	err := tv.LoadPolicyFile(keppel.State.Config.OpenStack.PolicyFilePath)
 	if err != nil {
 		return nil, err
 	}
 
 	return &KeppelV1{
-		db:   db,
-		su:   su,
 		tv:   &tv,
 		orch: orch,
 	}, nil

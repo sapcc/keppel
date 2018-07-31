@@ -22,12 +22,14 @@ package openstack
 import (
 	"errors"
 	"fmt"
-	"os"
+	"strings"
 
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/roles"
+	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
 	"github.com/sapcc/go-bits/gopherpolicy"
+	"github.com/sapcc/keppel/pkg/database"
 )
 
 //ServiceUser wraps all the operations that Keppel needs to execute using its
@@ -43,32 +45,21 @@ type ServiceUser struct {
 }
 
 //NewServiceUser creates a new ServiceUser instance.
-func NewServiceUser(provider *gophercloud.ProviderClient) (*ServiceUser, error) {
+func NewServiceUser(provider *gophercloud.ProviderClient, userID, localRoleName string) (*ServiceUser, error) {
 	identityV3, err := openstack.NewIdentityV3(provider, gophercloud.EndpointOpts{})
 	if err != nil {
 		return nil, fmt.Errorf("cannot find Identity v3 API in Keystone catalog: %s", err.Error())
 	}
 
-	localRoleName := os.Getenv("KEPPEL_LOCAL_ROLE")
-	if localRoleName == "" {
-		return nil, errors.New("missing env variable: KEPPEL_LOCAL_ROLE")
-	}
 	localRole, err := getRoleByName(identityV3, localRoleName)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find Keystone role '%s': %s", localRoleName, err.Error())
 	}
 
-	//TODO this env var is provisional, remove when
-	//https://github.com/gophercloud/gophercloud/issues/1141 is accepted
-	serviceUserID := os.Getenv("KEPPEL_USER_ID")
-	if serviceUserID == "" {
-		return nil, errors.New("missing env variable: KEPPEL_USER_ID")
-	}
-
 	return &ServiceUser{
 		IdentityV3:    identityV3,
 		localRoleID:   localRole.ID,
-		serviceUserID: serviceUserID,
+		serviceUserID: userID,
 	}, nil
 }
 

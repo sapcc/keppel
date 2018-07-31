@@ -26,6 +26,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/pkg/database"
+	"github.com/sapcc/keppel/pkg/keppel"
 )
 
 func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +36,7 @@ func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var accounts []database.Account
-	_, err := api.db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
+	_, err := keppel.State.DB.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -67,7 +68,7 @@ func (api *KeppelV1) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 
 	//get account from DB to find its project ID
 	accountName := mux.Vars(r)["account"]
-	account, err := api.db.FindAccount(accountName)
+	account, err := keppel.State.DB.FindAccount(accountName)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -114,7 +115,7 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 
 	//check if account already exists
 	accountName := mux.Vars(r)["account"]
-	account, err := api.db.FindAccount(accountName)
+	account, err := keppel.State.DB.FindAccount(accountName)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -125,7 +126,7 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 
 	//create account if required
 	if account == nil {
-		tx, err := api.db.Begin()
+		tx, err := keppel.State.DB.Begin()
 		if respondwith.ErrorText(w, err) {
 			return
 		}
@@ -141,7 +142,7 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//before committing this, add the required role assignments
-		err = api.su.AddLocalRole(req.Account.ProjectUUID, token)
+		err = keppel.State.ServiceUser.AddLocalRole(req.Account.ProjectUUID, token)
 		if respondwith.ErrorText(w, err) {
 			return
 		}

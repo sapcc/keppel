@@ -42,16 +42,7 @@ type DB struct {
 }
 
 //Init initializes the Postgres connection.
-func Init() (*DB, error) {
-	urlStr := os.Getenv("KEPPEL_POSTGRES_URI")
-	if urlStr == "" {
-		return nil, errors.New("missing env variable: KEPPEL_POSTGRES_URI")
-	}
-	url, err := net_url.Parse(urlStr)
-	if err != nil {
-		return nil, fmt.Errorf("malformed KEPPEL_POSTGRES_URI: %s", err.Error())
-	}
-
+func Init(url *net_url.URL) (*DB, error) {
 	db, err := connectToDatabase(url)
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to Postgres: %s", err.Error())

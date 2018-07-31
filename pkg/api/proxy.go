@@ -27,11 +27,12 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
+	"github.com/sapcc/keppel/pkg/keppel"
 )
 
 func (api *KeppelV1) handleProxyToAccount(w http.ResponseWriter, r *http.Request) {
 	accountName := mux.Vars(r)["account"]
-	account, err := api.db.FindAccount(accountName)
+	account, err := keppel.State.DB.FindAccount(accountName)
 	if respondwith.ErrorText(w, err) {
 		return
 	}

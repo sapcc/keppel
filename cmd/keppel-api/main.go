@@ -21,45 +21,46 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/gophercloud/utils/openstack/clientconfig"
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/pkg/api"
-	"github.com/sapcc/keppel/pkg/database"
-	"github.com/sapcc/keppel/pkg/openstack"
+	"github.com/sapcc/keppel/pkg/keppel"
 	orchestrator_pkg "github.com/sapcc/keppel/pkg/orchestrator"
-	"github.com/sapcc/keppel/pkg/version"
 )
 
 func main() {
-	logg.Info("starting keppel-api %s", version.Version)
+	logg.Info("starting keppel-api %s", keppel.Version)
 	if os.Getenv("KEPPEL_DEBUG") == "1" {
 		logg.ShowDebug = true
 	}
 
-	//connect to Postgres
-	db, err := database.Init()
-	if err != nil {
-		logg.Fatal(err.Error())
+	//I have some trouble getting Keppel to connect to our staging OpenStack
+	//through mitmproxy (which is very useful for development and debugging) when
+	//TLS certificate verification is enabled. Therefore, allow to turn it off
+	//with an env variable. (It's very important that this is not the standard
+	//"KEPPEL_DEBUG" variable. That one is meant to be useful for production
+	//systems, where you definitely don't want to turn off certificate
+	//verification.)
+	if os.Getenv("KEPPEL_INSECURE") == "1" {
+		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+		http.DefaultClient.Transport = http.DefaultTransport
 	}
 
-	//connect to Keystone
-	provider, err := clientconfig.AuthenticatedClient(nil)
-	if err != nil {
-		logg.Fatal("cannot connect to Keystone: %s", err.Error())
+	if len(os.Args) != 2 {
+		logg.Fatal("usage: keppel-api <config-path>")
 	}
-	serviceUser, err := openstack.NewServiceUser(provider)
-	if err != nil {
-		logg.Fatal(err.Error())
-	}
+	keppel.ReadConfig(os.Args[1]) //exits on error
 
 	orchestrator, orchestratorAPI := orchestrator_pkg.NewOrchestrator()
-	keppelV1, err := api.NewKeppelV1(db, serviceUser, orchestratorAPI)
+	keppelV1, err := api.NewKeppelV1(orchestratorAPI)
 	if err != nil {
 		logg.Fatal(err.Error())
 	}
@@ -72,20 +73,16 @@ func main() {
 	http.Handle("/", r)
 
 	//start HTTP server (TODO Prometheus instrumentation, TODO log middleware)
-	listenAddress := os.Getenv("KEPPEL_LISTEN_ADDRESS")
-	if listenAddress == "" {
-		listenAddress = ":8080"
-	}
-	logg.Info("listening on " + listenAddress)
+	logg.Info("listening on " + keppel.State.Config.APIListenAddress)
 	go func() {
-		err = http.ListenAndServe(listenAddress, nil)
+		err = http.ListenAndServe(keppel.State.Config.APIListenAddress, nil)
 		if err != nil {
 			logg.Fatal("error returned from http.ListenAndServe(): %s", err.Error())
 		}
 	}()
 
 	//start orchestrator workers
-	go orchestratorAPI.EnsureAllRegistriesAreRunning(db)
+	go orchestratorAPI.EnsureAllRegistriesAreRunning()
 
 	//enter orchestrator main loop
 	ok := orchestrator.Run(contextWithSIGINT(context.Background()))

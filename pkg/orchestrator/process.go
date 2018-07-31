@@ -22,7 +22,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	net_url "net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,6 +31,7 @@ import (
 
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/pkg/database"
+	"github.com/sapcc/keppel/pkg/keppel"
 )
 
 //The base configuration file for keppel-registry, which contains all values
@@ -66,19 +66,16 @@ func chooseRuntimeDir() string {
 	return "/run"
 }
 
-func init() {
+func prepareBaseConfig() {
 	cfg := baseConfig
-	setAuthFromEnv := func(envKey, configKey string) {
-		if val := os.Getenv(envKey); val != "" {
-			cfg += fmt.Sprintf("\t\t%s: %s\n", configKey, val)
-		}
+	setAuth := func(key, val string) {
+		cfg += fmt.Sprintf("\t\t%s: %s\n", key, val)
 	}
-	setAuthFromEnv("OS_AUTH_URL", "authurl")
-	setAuthFromEnv("OS_USERNAME", "username")
-	setAuthFromEnv("OS_PASSWORD", "password")
-	setAuthFromEnv("OS_USER_DOMAIN_NAME", "userdomainname")
-	setAuthFromEnv("OS_USER_DOMAIN_ID", "userdomainid")
-	setAuthFromEnv("OS_REGION_NAME", "regionname")
+	auth := keppel.State.Config.OpenStack.Auth
+	setAuth("authurl", auth.AuthURL)
+	setAuth("username", auth.UserName)
+	setAuth("password", auth.Password)
+	setAuth("userdomainname", auth.UserDomainName)
 	cfg = strings.Replace(cfg, "\t", "    ", -1)
 
 	err := os.MkdirAll(filepath.Dir(baseConfigPath), 0700)
@@ -117,14 +114,11 @@ func (pc *processContext) startRegistry(account database.Account, port uint16) e
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	url, err := net_url.Parse(os.Getenv("KEPPEL_POSTGRES_URI"))
-	if err != nil {
-		return err
-	}
+	url := keppel.State.Config.DatabaseURL
 	url.Path = "/" + account.PostgresDatabaseName()
 	cmd.Env = append(cmd.Env, "REGISTRY_STORAGE_SWIFT-PLUS_POSTGRESURI="+url.String())
 
-	err = cmd.Start()
+	err := cmd.Start()
 	if err != nil {
 		return err
 	}
