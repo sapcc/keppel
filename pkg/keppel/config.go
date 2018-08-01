@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 
 	"github.com/docker/libtrust"
 	"github.com/gophercloud/gophercloud"
@@ -40,10 +41,11 @@ var State *StateStruct
 
 //StateStruct is the type of `var State`.
 type StateStruct struct {
-	Config       Configuration
-	DB           *database.DB
-	ServiceUser  *os.ServiceUser
-	JWTIssuerKey libtrust.PrivateKey
+	Config           Configuration
+	DB               *database.DB
+	ServiceUser      *os.ServiceUser
+	JWTIssuerKey     libtrust.PrivateKey
+	JWTIssuerCertPEM string
 }
 
 //Configuration contains some configuration values that are not compiled during
@@ -90,6 +92,10 @@ type configuration struct {
 		URL string `yaml:"url"`
 	} `yaml:"db"`
 	OpenStack OpenStackConfiguration `yaml:"openstack"`
+	Trust     struct {
+		IssuerKeyIn  string `yaml:"issuer_key"`
+		IssuerCertIn string `yaml:"issuer_cert"`
+	} `yaml:"trust"`
 }
 
 //ReadConfig parses the given configuration file and fills the Config package
@@ -110,6 +116,12 @@ func ReadConfig(path string) {
 	if cfg.API.ListenAddress == "" {
 		cfg.API.ListenAddress = ":8080"
 	}
+	if cfg.API.PublicURL == "" {
+		logg.Fatal("missing api.public_url")
+	}
+	if cfg.DB.URL == "" {
+		logg.Fatal("missing db.url")
+	}
 
 	//compile into State
 	publicURL, err := url.Parse(cfg.API.PublicURL)
@@ -125,14 +137,6 @@ func ReadConfig(path string) {
 		logg.Fatal(err.Error())
 	}
 
-	//TODO: To enable horizontal scaling (more than one keppel-api instance at a
-	//time) and seamless restarts, the private key should be passed in the
-	//configuration file.
-	jwtIssuerKey, err := libtrust.GenerateRSA4096PrivateKey()
-	if err != nil {
-		logg.Fatal("cannot generate JWT issuing key: " + err.Error())
-	}
-
 	State = &StateStruct{
 		Config: Configuration{
 			APIListenAddress: cfg.API.ListenAddress,
@@ -140,9 +144,10 @@ func ReadConfig(path string) {
 			DatabaseURL:      *dbURL,
 			OpenStack:        cfg.OpenStack,
 		},
-		DB:           db,
-		ServiceUser:  initServiceUser(&cfg),
-		JWTIssuerKey: jwtIssuerKey,
+		DB:               db,
+		ServiceUser:      initServiceUser(&cfg),
+		JWTIssuerKey:     getIssuerKey(cfg.Trust.IssuerKeyIn),
+		JWTIssuerCertPEM: getIssuerCertPEM(cfg.Trust.IssuerCertIn),
 	}
 }
 
@@ -207,4 +212,56 @@ func initServiceUser(cfg *configuration) *os.ServiceUser {
 		logg.Fatal(err.Error())
 	}
 	return serviceUser
+}
+
+var (
+	looksLikePEMRx    = regexp.MustCompile(`^\s*-----\s*BEGIN`)
+	certificatePEMRx  = regexp.MustCompile(`^-----\s*BEGIN\s+CERTIFICATE\s*-----(?:\n|[a-zA-Z0-9+/=])*-----\s*END\s+CERTIFICATE\s*-----$`)
+	stripWhitespaceRx = regexp.MustCompile(`(?m)^\s*|\s*$`)
+)
+
+func getIssuerKey(in string) libtrust.PrivateKey {
+	if in == "" {
+		logg.Fatal("missing trust.issuer_key")
+	}
+
+	//if it looks like PEM, it's probably PEM; otherwise it's a filename
+	var buf []byte
+	if looksLikePEMRx.MatchString(in) {
+		buf = []byte(in)
+	} else {
+		var err error
+		buf, err = ioutil.ReadFile(in)
+		if err != nil {
+			logg.Fatal(err.Error())
+		}
+	}
+	buf = stripWhitespaceRx.ReplaceAll(buf, nil)
+
+	key, err := libtrust.UnmarshalPrivateKeyPEM(buf)
+	if err != nil {
+		logg.Fatal("failed to read trust.issuer_key: " + err.Error())
+	}
+	return key
+}
+
+func getIssuerCertPEM(in string) string {
+	if in == "" {
+		logg.Fatal("missing trust.issuer_cert")
+	}
+
+	//if it looks like PEM, it's probably PEM; otherwise it's a filename
+	if !looksLikePEMRx.MatchString(in) {
+		buf, err := ioutil.ReadFile(in)
+		if err != nil {
+			logg.Fatal(err.Error())
+		}
+		in = string(buf)
+	}
+	in = stripWhitespaceRx.ReplaceAllString(in, "")
+
+	if !certificatePEMRx.MatchString(in) {
+		logg.Fatal("trust.issuer_cert does not look like a PEM-encoded X509 certificate: does not match regexp /%s/", certificatePEMRx.String())
+	}
+	return in
 }

@@ -214,6 +214,7 @@ func (t *Token) VerifySigningKey(verifyOpts VerifyOptions) (signingKey libtrust.
 		}
 	default:
 		err = errors.New("unable to get token signing key")
+		log.Infof("trusted keys are: %#v", verifyOpts.TrustedKeys)
 	}
 
 	return

@@ -29,7 +29,6 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/docker/libtrust"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/pkg/database"
 	"github.com/sapcc/keppel/pkg/keppel"
@@ -90,11 +89,9 @@ func prepareBaseConfig() {
 }
 
 func prepareCertBundle() {
-	privKey := keppel.State.JWTIssuerKey
-	cert, err := libtrust.GenerateSelfSignedServerCert(
-		privKey, []string{keppel.State.Config.APIPublicHostname()}, nil)
+	err := ioutil.WriteFile(issuerCertBundlePath, []byte(keppel.State.JWTIssuerCertPEM), 0600)
 	if err != nil {
-		logg.Fatal("cannot generate token issuer certificate: " + err.Error())
+		logg.Fatal("cannot write issuer certificate bundle: " + err.Error())
 	}
 }
 

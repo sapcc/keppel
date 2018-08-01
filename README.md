@@ -42,8 +42,19 @@ openstack:
   # PROVISIONAL: the user ID for the Keppel service user (as identified by
   # openstack.auth.user_name and openstack.auth.user_domain_name)
   user_id: 790b87de4ec44ed4a4270b993d62905f
+
+trust:
+  issuer_key: /var/lib/keppel/privkey.pem
+  issuer_cert: /var/lib/keppel/cert.pem
 ```
 
 The format for libpq connection URLs is described in [this section of the PostgreSQL docs](https://www.postgresql.org/docs/9.6/static/libpq-connect.html#LIBPQ-CONNSTRING).
 
 The `openstack.user_id` field is stupid and we're aware. It will become obsolete when [this upstream issue](https://github.com/gophercloud/gophercloud/issues/1141) has been accepted.
+
+The key pair in the `trust` section is used for authentication: keppel-api signs tokens for Docker clients with the
+given private key, and keppel-registry verifies the tokens using the given certificate. Instead of specifying a
+filename, you can also supply the key/cert directly in PEM format. The Subject Public Key of the certificate must be the
+public counterpart of the private issuer key. You can generate a suitable `trust` section by running `bash
+./util/generate_trust.sh` in the repo root directory. Note that certificates expire! `util/generate_trust.sh` will
+generate a certificate with a validity of 1 year.

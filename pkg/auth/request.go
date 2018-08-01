@@ -23,6 +23,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -40,7 +41,7 @@ type Request struct {
 	UserName     string
 	Password     string
 	Scope        *Scope
-	Service      string
+	AccountName  string
 	ClientID     string
 	OfflineToken bool
 }
@@ -70,6 +71,11 @@ func ParseRequest(authorizationHeader, rawQuery string) (Request, error) {
 	if service == "" {
 		return Request{}, errors.New("missing query parameter: service")
 	}
+	//service should be in the format "<account_name>@<our_public_hostname>"
+	serviceSuffix := "@" + keppel.State.Config.APIPublicHostname()
+	if !strings.HasSuffix(service, serviceSuffix) {
+		return Request{}, errors.New("malformed query paramter: service")
+	}
 
 	offlineToken, err := strconv.ParseBool(query.Get("offline_token"))
 	if err != nil {
@@ -78,7 +84,7 @@ func ParseRequest(authorizationHeader, rawQuery string) (Request, error) {
 	result := Request{
 		UserName:     username,
 		Password:     password,
-		Service:      service,
+		AccountName:  strings.TrimSuffix(service, serviceSuffix),
 		ClientID:     query.Get("client_id"),
 		OfflineToken: offlineToken,
 	}
@@ -134,9 +140,10 @@ func (r Request) ToTokenResponse() (*TokenResponse, error) {
 		panic(fmt.Sprintf("do not know which JWT method to use for issuerKey.type = %t", issuerKey))
 	}
 
+	publicHost := keppel.State.Config.APIPublicHostname()
 	token := jwt.NewWithClaims(method, jwt.MapClaims{
-		"aud": r.Service,
-		"iss": "keppel-api@" + keppel.State.Config.APIPublicURL.Host,
+		"aud": r.AccountName + "@" + publicHost, //must match "service" argument from request
+		"iss": "keppel-api@" + publicHost,
 		"sub": r.UserName,    //subject
 		"exp": expiry.Unix(), //not after
 		"nbf": now.Unix(),    //not before
@@ -146,6 +153,16 @@ func (r Request) ToTokenResponse() (*TokenResponse, error) {
 		//access permissions granted to this token
 		"access": access,
 	})
+
+	var (
+		jwkMessage json.RawMessage
+		err        error
+	)
+	jwkMessage, err = keppel.State.JWTIssuerKey.PublicKey().MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	token.Header["jwk"] = &jwkMessage
 
 	signed, err := token.SignedString(issuerKey)
 	return &TokenResponse{

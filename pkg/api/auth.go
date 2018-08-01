@@ -21,7 +21,6 @@ package api
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/pkg/auth"
@@ -44,8 +43,7 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	//find account if scope requested
 	var account *database.Account
 	if req.Scope != nil && req.Scope.ResourceType == "repository" {
-		accountName := strings.SplitN(req.Scope.ResourceName, "/", 2)[0]
-		account, err = keppel.State.DB.FindAccount(accountName)
+		account, err = keppel.State.DB.FindAccount(req.AccountName)
 		if respondwith.ErrorText(w, err) {
 			return
 		}
@@ -61,7 +59,7 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//check requested scope and actions (TODO: this is wrong, we should not respond with Forbidden, but restrict the actions list to the permitted actions; possibly wiping out the scope completely if no actions remain)
+	//check requested scope and actions
 	if req.Scope != nil {
 		switch req.Scope.ResourceType {
 		case "registry":
@@ -81,7 +79,7 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-	respondwith.JSON(w, tokenInfo)
+	respondwith.JSON(w, http.StatusOK, tokenInfo)
 }
 
 func filterRegistryActions(actions []string, access openstack.AccessLevel) (result []string) {
