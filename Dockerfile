@@ -10,4 +10,5 @@ RUN make install PREFIX=/pkg
 FROM alpine:latest
 MAINTAINER "Stefan Majewsky <stefan.majewsky@sap.com>"
 
+RUN apk add --no-cache ca-certificates
 COPY --from=builder /pkg/ /usr/
