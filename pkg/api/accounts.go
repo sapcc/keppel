@@ -21,6 +21,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
@@ -119,7 +120,13 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//reserve identifiers for internal pseudo-accounts
 	accountName := mux.Vars(r)["account"]
+	if strings.HasPrefix(accountName, "keppel-") {
+		http.Error(w, `account names with the prefix "keppel-" are reserved for internal use`, 400)
+		return
+	}
+
 	accountToCreate := database.Account{
 		Name:        accountName,
 		ProjectUUID: req.Account.ProjectUUID,
