@@ -83,6 +83,13 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 func filterRegistryActions(actions []string, access openstack.AccessLevel) (result []string) {
+	//TODO FIXME: This always returns an empty slice in practice, because when a
+	//user wants to see the catalog, their token is not scoped to a specific
+	//account. Therefore there are no role assignments that
+	//`access.CanViewAccounts()` could consider, so it always returns false.
+	//
+	//We might have to list role assignments for the user, and *generate* new
+	//scopes for each account where the user "CanViewAccount".
 	for _, action := range actions {
 		if action == "*" && access.CanViewAccounts() {
 			result = append(result, action)

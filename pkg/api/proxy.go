@@ -31,17 +31,37 @@ import (
 	"github.com/sapcc/keppel/pkg/keppel"
 )
 
+func requireBearerToken(w http.ResponseWriter, r *http.Request) *Token {
+	token, err := auth.ParseTokenFromRequest(r)
+	if err != nil {
+		logg.Info("authentication failed for GET %s: %s", r.URL.Path, err.Error())
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return nil
+	}
+	return token
+}
+
 //This implements the GET /v2/ endpoint.
 func (api *KeppelV1) handleProxyToplevel(w http.ResponseWriter, r *http.Request) {
-	_, err := auth.ParseTokenFromRequest(r)
-	if err != nil {
-		logg.Info("authentication failed for GET /v2/: " + err.Error())
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	if requireBearerToken(w, r) == nil {
 		return
 	}
 
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{})
+}
+
+//This implements the GET /v2/_catalog endpoint.
+func (api *KeppelV1) handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
+	if requireBearerToken(w, r) == nil {
+		return
+	}
+
+	//TODO: stub (see also the FIXME in pkg/api/auth.go for why this is complicated)
+	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
+	respondwith.JSON(w, http.StatusOK, map[string]interface{}{
+		"repositories": []interface{}{},
+	})
 }
 
 func (api *KeppelV1) handleProxyToAccount(w http.ResponseWriter, r *http.Request) {

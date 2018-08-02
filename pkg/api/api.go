@@ -53,7 +53,8 @@ func (api *KeppelV1) Routers() (keppelAPI, proxyAPI http.Handler) {
 
 	proxyRouter := mux.NewRouter()
 
-	proxyRouter.Path("/v2/").HandlerFunc(api.handleProxyToplevel)
+	proxyRouter.Methods("GET").Path("/v2/").HandlerFunc(api.handleProxyToplevel)
+	proxyRouter.Methods("GET").Path("/v2/_catalog").HandlerFunc(api.handleProxyCatalog)
 	proxyRouter.PathPrefix("/v2/{account:[a-z0-9-]{1,48}}/").HandlerFunc(api.handleProxyToAccount)
 
 	return keppelRouter, proxyRouter
