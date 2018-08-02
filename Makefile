@@ -12,4 +12,8 @@ build/%: FORCE
 run-api-%: build/keppel-api build/keppel-registry
 	env PATH=$(CURDIR)/build:$$PATH keppel-api $*.yaml
 
+install: FORCE $(patsubst cmd/%/main.go,install/%,$(wildcard cmd/*/main.go))
+install/%: build/% FORCE
+	install -D -m 0755 build/$* "$(DESTDIR)$(PREFIX)/bin/$*"
+
 .PHONY: FORCE

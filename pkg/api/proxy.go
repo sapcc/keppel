@@ -31,7 +31,7 @@ import (
 	"github.com/sapcc/keppel/pkg/keppel"
 )
 
-func requireBearerToken(w http.ResponseWriter, r *http.Request) *Token {
+func requireBearerToken(w http.ResponseWriter, r *http.Request) *auth.Token {
 	token, err := auth.ParseTokenFromRequest(r)
 	if err != nil {
 		logg.Info("authentication failed for GET %s: %s", r.URL.Path, err.Error())
