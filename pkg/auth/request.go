@@ -20,20 +20,14 @@
 package auth
 
 import (
-	"crypto/ecdsa"
-	"crypto/rsa"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
-	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/sapcc/keppel/pkg/keppel"
-	uuid "github.com/satori/go.uuid"
 )
 
 //Request contains the query parameters and credentials in a token request.
@@ -118,64 +112,16 @@ func decodeAuthHeader(base64data string) (username, password string, err error) 
 	return fields[0], fields[1], nil
 }
 
-//ToTokenResponse creates a Java Web Token that can be used to fulfil this token request.
-func (r Request) ToTokenResponse() (*TokenResponse, error) {
-	now := time.Now()
-	expiresIn := 1 * time.Hour //TODO make configurable?
-	expiry := now.Add(expiresIn)
-
-	var access []interface{}
+//ToToken creates a token that can be used to fulfil this token request.
+func (r Request) ToToken() *Token {
+	var access []Scope
 	if r.Scope != nil && len(r.Scope.Actions) > 0 {
-		access = []interface{}{r.Scope}
+		access = []Scope{*r.Scope}
 	}
 
-	issuerKey := keppel.State.JWTIssuerKey.CryptoPrivateKey()
-	var method jwt.SigningMethod
-	switch issuerKey.(type) {
-	case *ecdsa.PrivateKey:
-		method = jwt.SigningMethodES256
-	case *rsa.PrivateKey:
-		method = jwt.SigningMethodRS256
-	default:
-		panic(fmt.Sprintf("do not know which JWT method to use for issuerKey.type = %t", issuerKey))
+	return &Token{
+		UserName:    r.UserName,
+		AccountName: r.AccountName,
+		Access:      access,
 	}
-
-	publicHost := keppel.State.Config.APIPublicHostname()
-	token := jwt.NewWithClaims(method, jwt.MapClaims{
-		"aud": r.AccountName + "@" + publicHost, //must match "service" argument from request
-		"iss": "keppel-api@" + publicHost,
-		"sub": r.UserName,    //subject
-		"exp": expiry.Unix(), //not after
-		"nbf": now.Unix(),    //not before
-		"iat": now.Unix(),    //issued at
-		//unique token ID
-		"jti": uuid.NewV4().String(),
-		//access permissions granted to this token
-		"access": access,
-	})
-
-	var (
-		jwkMessage json.RawMessage
-		err        error
-	)
-	jwkMessage, err = keppel.State.JWTIssuerKey.PublicKey().MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	token.Header["jwk"] = &jwkMessage
-
-	signed, err := token.SignedString(issuerKey)
-	return &TokenResponse{
-		Token:     signed,
-		ExpiresIn: uint64(expiresIn.Seconds()),
-		IssuedAt:  now.Format(time.RFC3339),
-	}, err
-}
-
-//TokenResponse is the type returned by ToTokenResponse(). This is the format
-//expected by Docker in an auth response.
-type TokenResponse struct {
-	Token     string `json:"token"`
-	ExpiresIn uint64 `json:"expires_in"`
-	IssuedAt  string `json:"issued_at"`
 }

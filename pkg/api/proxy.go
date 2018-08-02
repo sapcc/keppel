@@ -27,8 +27,22 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
+	"github.com/sapcc/keppel/pkg/auth"
 	"github.com/sapcc/keppel/pkg/keppel"
 )
+
+//This implements the GET /v2/ endpoint.
+func (api *KeppelV1) handleProxyToplevel(w http.ResponseWriter, r *http.Request) {
+	_, err := auth.ParseTokenFromRequest(r)
+	if err != nil {
+		logg.Info("authentication failed for GET /v2/: " + err.Error())
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
+	respondwith.JSON(w, http.StatusOK, map[string]interface{}{})
+}
 
 func (api *KeppelV1) handleProxyToAccount(w http.ResponseWriter, r *http.Request) {
 	accountName := mux.Vars(r)["account"]

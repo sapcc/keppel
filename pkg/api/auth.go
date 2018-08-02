@@ -75,7 +75,7 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	tokenInfo, err := req.ToTokenResponse()
+	tokenInfo, err := req.ToToken().ToResponse()
 	if respondwith.ErrorText(w, err) {
 		return
 	}
