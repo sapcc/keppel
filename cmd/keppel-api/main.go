@@ -70,6 +70,7 @@ func main() {
 	kv1, rv2 := keppelV1.Routers()
 	r.PathPrefix("/keppel/v1/").Handler(kv1)
 	r.PathPrefix("/v2/").Handler(rv2)
+	r.Methods("GET").Path("/health").HandlerFunc(handleHealthcheck)
 	http.Handle("/", r)
 
 	//start HTTP server (TODO Prometheus instrumentation, TODO log middleware)
@@ -102,4 +103,10 @@ func contextWithSIGINT(ctx context.Context) context.Context {
 		cancel()
 	}()
 	return ctx
+}
+
+func handleHealthcheck(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("ok"))
 }
