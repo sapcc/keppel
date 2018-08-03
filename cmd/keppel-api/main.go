@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
 	"syscall"
 
 	"github.com/gorilla/mux"
@@ -73,8 +74,11 @@ func main() {
 	r.Methods("GET").Path("/health").HandlerFunc(handleHealthcheck)
 
 	//TODO Prometheus instrumentation
+	loggm := logg.Middleware{
+		ExceptURLPath: regexp.MustCompile(`^/health`),
+	}
 	http.Handle("/",
-		logg.Middleware{}.Wrap(r),
+		loggm.Wrap(r),
 	)
 
 	//start HTTP server

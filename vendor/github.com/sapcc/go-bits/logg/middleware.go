@@ -23,13 +23,17 @@ import (
 	"bytes"
 	"net"
 	"net/http"
+	"regexp"
 )
 
 //Middleware is a HTTP middleware that adds logging of requests and error
-//responds to HTTP handlers.
+//responses to HTTP handlers.
 type Middleware struct {
 	//Responses with one of these status codes will not be logged.
 	ExceptStatusCodes []int
+	//If not nil, responses to requests with a path matching this regex will not
+	//be logged.
+	ExceptURLPath *regexp.Regexp
 }
 
 //Wrap wraps the given handler with this middleware.
@@ -44,7 +48,7 @@ func (m Middleware) Wrap(h http.Handler) http.Handler {
 		//write log line (the format is similar to nginx's "combined" log format, but
 		//the timestamp is at the front to ensure consistency with the rest of the
 		//log)
-		if !containsInt(m.ExceptStatusCodes, writer.statusCode) {
+		if !m.isExcluded(r, writer.statusCode) {
 			Other(
 				"REQUEST", `%s - - "%s %s %s" %03d %d "%s" "%s"`,
 				tryStripPort(r.RemoteAddr),
@@ -60,6 +64,13 @@ func (m Middleware) Wrap(h http.Handler) http.Handler {
 			)
 		}
 	})
+}
+
+func (m Middleware) isExcluded(r *http.Request, statusCode int) bool {
+	if m.ExceptURLPath != nil && m.ExceptURLPath.MatchString(r.URL.Path) {
+		return true
+	}
+	return containsInt(m.ExceptStatusCodes, statusCode)
 }
 
 func containsInt(list []int, value int) bool {

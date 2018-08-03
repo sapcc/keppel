@@ -228,7 +228,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:fcc35b60943bc7127735c89d18c55699301e7dc01afdd76ae3eb47cb14065433"
+  digest = "1:d64bee59ab06ff81a48c3299ac6b5311cb63f0f79832f82e9c7783e839454c9d"
   name = "github.com/sapcc/go-bits"
   packages = [
     "gopherpolicy",
@@ -236,7 +236,7 @@
     "respondwith",
   ]
   pruneopts = "UT"
-  revision = "b541b777813e2d1d2e6ee737271d41660392381e"
+  revision = "d4598afd8cd0c37d75292aab4503e7477bef90b2"
 
 [[projects]]
   digest = "1:274f67cb6fed9588ea2521ecdac05a6d62a8c51c074c1fccc6a49a40ba80e925"
