@@ -71,9 +71,13 @@ func main() {
 	r.PathPrefix("/keppel/v1/").Handler(kv1)
 	r.PathPrefix("/v2/").Handler(rv2)
 	r.Methods("GET").Path("/health").HandlerFunc(handleHealthcheck)
-	http.Handle("/", r)
 
-	//start HTTP server (TODO Prometheus instrumentation, TODO log middleware)
+	//TODO Prometheus instrumentation
+	http.Handle("/",
+		logg.Middleware{}.Wrap(r),
+	)
+
+	//start HTTP server
 	logg.Info("listening on " + keppel.State.Config.APIListenAddress)
 	go func() {
 		err = http.ListenAndServe(keppel.State.Config.APIListenAddress, nil)

@@ -228,7 +228,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:ab0009a158570651a0e3cf0b52b6f206d243aa0879bbbd776d20275d7ae6530a"
+  digest = "1:fcc35b60943bc7127735c89d18c55699301e7dc01afdd76ae3eb47cb14065433"
   name = "github.com/sapcc/go-bits"
   packages = [
     "gopherpolicy",
@@ -236,7 +236,7 @@
     "respondwith",
   ]
   pruneopts = "UT"
-  revision = "12d5cb312982a38c902108a9b5b30464c9778d5c"
+  revision = "b541b777813e2d1d2e6ee737271d41660392381e"
 
 [[projects]]
   digest = "1:274f67cb6fed9588ea2521ecdac05a6d62a8c51c074c1fccc6a49a40ba80e925"
@@ -383,6 +383,7 @@
     "github.com/docker/distribution/registry/storage/driver/inmemory",
     "github.com/docker/distribution/registry/storage/driver/middleware/redirect",
     "github.com/docker/distribution/version",
+    "github.com/docker/libtrust",
     "github.com/gophercloud/gophercloud",
     "github.com/gophercloud/gophercloud/openstack",
     "github.com/gophercloud/gophercloud/openstack/identity/v3/roles",
