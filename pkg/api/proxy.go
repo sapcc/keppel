@@ -31,10 +31,11 @@ import (
 	"github.com/sapcc/keppel/pkg/keppel"
 )
 
-func requireBearerToken(w http.ResponseWriter, r *http.Request) *auth.Token {
+func requireBearerToken(w http.ResponseWriter, r *http.Request, scope string) *auth.Token {
 	token, err := auth.ParseTokenFromRequest(r)
 	if err != nil {
 		logg.Info("authentication failed for GET %s: %s", r.URL.Path, err.Error())
+		auth.Challenge{AccountName: "keppel-api", Scope: scope}.WriteTo(w.Header())
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return nil
 	}
@@ -43,7 +44,7 @@ func requireBearerToken(w http.ResponseWriter, r *http.Request) *auth.Token {
 
 //This implements the GET /v2/ endpoint.
 func (api *KeppelV1) handleProxyToplevel(w http.ResponseWriter, r *http.Request) {
-	if requireBearerToken(w, r) == nil {
+	if requireBearerToken(w, r, "") == nil {
 		return
 	}
 
@@ -53,7 +54,7 @@ func (api *KeppelV1) handleProxyToplevel(w http.ResponseWriter, r *http.Request)
 
 //This implements the GET /v2/_catalog endpoint.
 func (api *KeppelV1) handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
-	if requireBearerToken(w, r) == nil {
+	if requireBearerToken(w, r, "registry:catalog:*") == nil {
 		return
 	}
 
