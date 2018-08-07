@@ -44,22 +44,26 @@ func requireBearerToken(w http.ResponseWriter, r *http.Request, scope string) *a
 
 //This implements the GET /v2/ endpoint.
 func (api *KeppelV1) handleProxyToplevel(w http.ResponseWriter, r *http.Request) {
+	//must be set even for 401 responses!
+	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
+
 	if requireBearerToken(w, r, "") == nil {
 		return
 	}
 
-	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{})
 }
 
 //This implements the GET /v2/_catalog endpoint.
 func (api *KeppelV1) handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
+	//must be set even for 401 responses!
+	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
+
 	if requireBearerToken(w, r, "registry:catalog:*") == nil {
 		return
 	}
 
 	//TODO: stub (see also the FIXME in pkg/api/auth.go for why this is complicated)
-	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{
 		"repositories": []interface{}{},
 	})
