@@ -116,7 +116,7 @@ func (pc *processContext) startRegistry(account database.Account, port uint16) e
 		"REGISTRY_STORAGE_SWIFT-PLUS_CONTAINER="+account.SwiftContainerName(),
 		"REGISTRY_STORAGE_SWIFT-PLUS_POSTGRESURI="+account.PostgresDatabaseName(),
 		fmt.Sprintf("REGISTRY_AUTH_TOKEN_REALM=%s/keppel/v1/auth", publicURL),
-		fmt.Sprintf("REGISTRY_AUTH_TOKEN_SERVICE=%s@%s", account.Name, publicHost),
+		"REGISTRY_AUTH_TOKEN_SERVICE="+publicHost,
 		fmt.Sprintf("REGISTRY_AUTH_TOKEN_ISSUER=keppel-api@%s", publicHost),
 		"REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE="+issuerCertBundlePath,
 	)
