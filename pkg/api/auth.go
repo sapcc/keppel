@@ -43,7 +43,7 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	//find account if scope requested
 	var account *database.Account
 	if req.Scope != nil && req.Scope.ResourceType == "repository" {
-		account, err = keppel.State.DB.FindAccount(req.AccountName)
+		account, err = keppel.State.DB.FindAccount(req.Scope.AccountName())
 		if respondwith.ErrorText(w, err) {
 			return
 		}

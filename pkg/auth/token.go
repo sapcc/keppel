@@ -40,8 +40,6 @@ import (
 type Token struct {
 	//The name of this user who created this token.
 	UserName string
-	//The account to which this token is scoped (may be empty).
-	AccountName string
 	//Access permissions for this token.
 	Access []Scope
 }
@@ -91,18 +89,17 @@ func ParseTokenFromRequest(r *http.Request) (*Token, error) {
 	if !claims.StandardClaims.VerifyNotBefore(now+3, true) {
 		return nil, errors.New("token not valid yet")
 	}
-	hostSuffix := "@" + keppel.State.Config.APIPublicHostname()
-	if !claims.StandardClaims.VerifyIssuer("keppel-api"+hostSuffix, true) {
+	publicHost := keppel.State.Config.APIPublicHostname()
+	if !claims.StandardClaims.VerifyIssuer("keppel-api@"+publicHost, true) {
 		return nil, errors.New("token has wrong issuer")
 	}
-	if !strings.HasSuffix(claims.StandardClaims.Audience, hostSuffix) {
+	if !claims.StandardClaims.VerifyAudience(publicHost, true) {
 		return nil, errors.New("token has wrong audience")
 	}
 
 	return &Token{
-		UserName:    claims.StandardClaims.Subject,
-		AccountName: strings.TrimSuffix(claims.StandardClaims.Audience, hostSuffix),
-		Access:      claims.Access,
+		UserName: claims.StandardClaims.Subject,
+		Access:   claims.Access,
 	}, nil
 }
 
@@ -144,7 +141,7 @@ func (t Token) ToResponse() (*TokenResponse, error) {
 		StandardClaims: jwt.StandardClaims{
 			Id: uuid.NewV4().String(),
 			//audience must match "service" argument from request
-			Audience:  t.AccountName + "@" + publicHost,
+			Audience:  publicHost,
 			Issuer:    "keppel-api@" + publicHost,
 			Subject:   t.UserName,
 			ExpiresAt: expiry.Unix(),

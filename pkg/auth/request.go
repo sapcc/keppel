@@ -35,7 +35,6 @@ type Request struct {
 	UserName     string
 	Password     string
 	Scope        *Scope
-	AccountName  string
 	ClientID     string
 	OfflineToken bool
 }
@@ -65,9 +64,7 @@ func ParseRequest(authorizationHeader, rawQuery string) (Request, error) {
 	if service == "" {
 		return Request{}, errors.New("missing query parameter: service")
 	}
-	//service should be in the format "<account_name>@<our_public_hostname>"
-	serviceSuffix := "@" + keppel.State.Config.APIPublicHostname()
-	if !strings.HasSuffix(service, serviceSuffix) {
+	if service != keppel.State.Config.APIPublicHostname() {
 		return Request{}, errors.New("malformed query paramter: service")
 	}
 
@@ -78,7 +75,6 @@ func ParseRequest(authorizationHeader, rawQuery string) (Request, error) {
 	result := Request{
 		UserName:     username,
 		Password:     password,
-		AccountName:  strings.TrimSuffix(service, serviceSuffix),
 		ClientID:     query.Get("client_id"),
 		OfflineToken: offlineToken,
 	}
@@ -120,8 +116,7 @@ func (r Request) ToToken() *Token {
 	}
 
 	return &Token{
-		UserName:    r.UserName,
-		AccountName: r.AccountName,
-		Access:      access,
+		UserName: r.UserName,
+		Access:   access,
 	}
 }

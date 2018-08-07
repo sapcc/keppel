@@ -22,7 +22,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
@@ -35,7 +34,7 @@ func requireBearerToken(w http.ResponseWriter, r *http.Request, scope string) *a
 	token, err := auth.ParseTokenFromRequest(r)
 	if err != nil {
 		logg.Info("authentication failed for GET %s: %s", r.URL.Path, err.Error())
-		auth.Challenge{AccountName: "keppel-api", Scope: scope}.WriteTo(w.Header())
+		auth.Challenge{Scope: scope}.WriteTo(w.Header())
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return nil
 	}
@@ -89,9 +88,6 @@ func (api *KeppelV1) handleProxyToAccount(w http.ResponseWriter, r *http.Request
 	proxyRequest := *r
 	proxyRequest.URL.Scheme = "http"
 	proxyRequest.URL.Host = api.orch.GetHostPortForAccount(*account)
-	//remove account name from URL path
-	proxyRequest.URL.Path = "/v2/" + strings.TrimPrefix(
-		proxyRequest.URL.Path, "/v2/"+account.Name+"/")
 
 	proxyRequest.Close = false
 	proxyRequest.RequestURI = ""

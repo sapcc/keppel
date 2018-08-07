@@ -104,3 +104,12 @@ func ParseScope(input string) (Scope, error) {
 
 	return scope, nil
 }
+
+//AccountName returns the first path element of the resource name, if the
+//resource type is "repository", or the empty string otherwise.
+func (s Scope) AccountName() string {
+	if s.ResourceType != "repository" {
+		return ""
+	}
+	return strings.SplitN(s.ResourceName, "/", 2)[0]
+}
