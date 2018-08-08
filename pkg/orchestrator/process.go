@@ -54,7 +54,6 @@ health:
 storage:
 	cache:
 		blobdescriptor: inmemory
-	swift-plus: # this line must be the last here because we append below
 `
 
 var baseConfigPath = filepath.Join(chooseRuntimeDir(), "keppel/registry-base.yaml")
@@ -68,16 +67,7 @@ func chooseRuntimeDir() string {
 }
 
 func prepareBaseConfig() {
-	cfg := baseConfig
-	setAuth := func(key, val string) {
-		cfg += fmt.Sprintf("\t\t%s: %s\n", key, val)
-	}
-	auth := keppel.State.Config.OpenStack.Auth
-	setAuth("authurl", auth.AuthURL)
-	setAuth("username", auth.UserName)
-	setAuth("password", auth.Password)
-	setAuth("userdomainname", auth.UserDomainName)
-	cfg = strings.Replace(cfg, "\t", "    ", -1)
+	cfg := strings.Replace(baseConfig, "\t", "    ", -1)
 
 	err := os.MkdirAll(filepath.Dir(baseConfigPath), 0700)
 	if err == nil {
@@ -106,15 +96,19 @@ func (pc *processContext) startRegistry(account database.Account, port uint16) e
 	logg.Info("[account=%s] starting keppel-registry on port %d",
 		account.Name, port)
 	cmd := exec.Command("keppel-registry", "serve", baseConfigPath)
+	cmd.Env = os.Environ()
+
+	storageEnv, err := keppel.State.StorageDriver.GetEnvironment(account, keppel.State.AuthDriver)
+	if err != nil {
+		return err
+	}
+	cmd.Env = append(cmd.Env, storageEnv...)
 
 	publicURL := keppel.State.Config.APIPublicURL.String()
 	publicHost := keppel.State.Config.APIPublicHostname()
-	cmd.Env = append(os.Environ(),
+	cmd.Env = append(cmd.Env,
 		fmt.Sprintf("REGISTRY_HTTP_ADDR=:%d", port),
 		"REGISTRY_LOG_FIELDS_KEPPEL.ACCOUNT="+account.Name,
-		"REGISTRY_STORAGE_SWIFT-PLUS_PROJECTID="+account.ProjectUUID,
-		"REGISTRY_STORAGE_SWIFT-PLUS_CONTAINER="+account.SwiftContainerName(),
-		"REGISTRY_STORAGE_SWIFT-PLUS_POSTGRESURI="+account.PostgresDatabaseName(),
 		fmt.Sprintf("REGISTRY_AUTH_TOKEN_REALM=%s/keppel/v1/auth", publicURL),
 		"REGISTRY_AUTH_TOKEN_SERVICE="+publicHost,
 		fmt.Sprintf("REGISTRY_AUTH_TOKEN_ISSUER=keppel-api@%s", publicHost),
@@ -131,7 +125,7 @@ func (pc *processContext) startRegistry(account database.Account, port uint16) e
 	url.Path = "/" + account.PostgresDatabaseName()
 	cmd.Env = append(cmd.Env, "REGISTRY_STORAGE_SWIFT-PLUS_POSTGRESURI="+url.String())
 
-	err := cmd.Start()
+	err = cmd.Start()
 	if err != nil {
 		return err
 	}

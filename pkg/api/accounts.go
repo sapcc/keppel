@@ -24,34 +24,34 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/pkg/database"
+	"github.com/sapcc/keppel/pkg/drivers"
 	"github.com/sapcc/keppel/pkg/keppel"
-	"github.com/sapcc/keppel/pkg/openstack"
 )
 
-func checkTokenOrSend401(w http.ResponseWriter, r *http.Request) openstack.AccessLevel {
-	access, err := keppel.State.ServiceUser.GetAccessLevelForRequest(r)
-	if err != nil || access == nil {
+func respondWithAuthError(w http.ResponseWriter, err error) bool {
+	switch err {
+	case nil:
+		return false
+	case drivers.ErrUnauthorized:
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return nil
+	case drivers.ErrForbidden:
+		http.Error(w, "Forbidden", http.StatusForbidden)
+	default:
+		http.Error(w, "unexpected error: "+err.Error(), http.StatusInternalServerError)
 	}
-	return access
+	return true
 }
 
 func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
-	access := checkTokenOrSend401(w, r)
-	if access == nil {
-		return
-	}
-	if !access.CanViewAccounts() {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+	authz, err := keppel.State.AuthDriver.AuthenticateUserFromRequest(r)
+	if respondWithAuthError(w, err) {
 		return
 	}
 
 	var accounts []database.Account
-	_, err := keppel.State.DB.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
+	_, err = keppel.State.DB.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -59,7 +59,7 @@ func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	//restrict accounts to those visible in the current scope
 	var accountsFiltered []database.Account
 	for _, account := range accounts {
-		if access.CanViewAccount(account) {
+		if authz.HasPermission(drivers.CanViewAccount, account.ProjectUUID) {
 			accountsFiltered = append(accountsFiltered, account)
 		}
 	}
@@ -72,14 +72,8 @@ func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *KeppelV1) handleGetAccount(w http.ResponseWriter, r *http.Request) {
-	access := checkTokenOrSend401(w, r)
-	if access == nil {
-		return
-	}
-
-	//first very permissive check: can this user GET any accounts AT ALL?
-	if !access.CanViewAccounts() {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+	authz, err := keppel.State.AuthDriver.AuthenticateUserFromRequest(r)
+	if respondWithAuthError(w, err) {
 		return
 	}
 
@@ -91,7 +85,7 @@ func (api *KeppelV1) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//perform final authorization with that project ID
-	if account != nil && !access.CanViewAccount(*account) {
+	if account != nil && !authz.HasPermission(drivers.CanViewAccount, account.ProjectUUID) {
 		account = nil
 	}
 
@@ -133,11 +127,11 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check permission to create account
-	access := checkTokenOrSend401(w, r)
-	if access == nil {
+	authz, err := keppel.State.AuthDriver.AuthenticateUserFromRequest(r)
+	if respondWithAuthError(w, err) {
 		return
 	}
-	if !access.CanChangeAccount(accountToCreate) {
+	if !authz.HasPermission(drivers.CanChangeAccount, accountToCreate.ProjectUUID) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -148,7 +142,7 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if account != nil && account.ProjectUUID != req.Account.ProjectUUID {
-		http.Error(w, `missing attribute "account.project_id" in request body`, http.StatusConflict)
+		http.Error(w, `account name already in use by a different project`, http.StatusConflict)
 		return
 	}
 
@@ -167,7 +161,7 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//before committing this, add the required role assignments
-		err = keppel.State.ServiceUser.AddLocalRole(req.Account.ProjectUUID, access)
+		err = keppel.State.AuthDriver.SetupAccount(*account, authz)
 		if respondwith.ErrorText(w, err) {
 			return
 		}
@@ -176,10 +170,6 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
-	//ensure that keppel-registry is running (TODO remove, only used for testing)
-	logg.Info("keppel-registry for account %s is running on %s",
-		account.Name, api.orch.GetHostPortForAccount(*account))
 
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"account": account})
 }

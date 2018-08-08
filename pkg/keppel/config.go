@@ -22,16 +22,13 @@ package keppel
 import (
 	"io/ioutil"
 	"net"
-	"net/http"
 	"net/url"
 	"regexp"
 
 	"github.com/docker/libtrust"
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/pkg/database"
-	os "github.com/sapcc/keppel/pkg/openstack"
+	"github.com/sapcc/keppel/pkg/drivers"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -43,7 +40,8 @@ var State *StateStruct
 type StateStruct struct {
 	Config           Configuration
 	DB               *database.DB
-	ServiceUser      *os.ServiceUser
+	AuthDriver       drivers.AuthDriver
+	StorageDriver    drivers.StorageDriver
 	JWTIssuerKey     libtrust.PrivateKey
 	JWTIssuerCertPEM string
 }
@@ -54,7 +52,6 @@ type Configuration struct {
 	APIListenAddress string
 	APIPublicURL     url.URL
 	DatabaseURL      url.URL
-	OpenStack        OpenStackConfiguration //TODO ugly; refactor to get rid of this
 }
 
 //APIPublicHostname returns the hostname from the APIPublicURL.
@@ -67,22 +64,6 @@ func (cfg Configuration) APIPublicHostname() string {
 	return hostAndMaybePort //looks like there is no port in here after all
 }
 
-//OpenStackConfiguration is a part of type Configuration.
-type OpenStackConfiguration struct {
-	Auth struct {
-		AuthURL           string `yaml:"auth_url"`
-		UserName          string `yaml:"user_name"`
-		UserDomainName    string `yaml:"user_domain_name"`
-		ProjectName       string `yaml:"project_name"`
-		ProjectDomainName string `yaml:"project_domain_name"`
-		Password          string `yaml:"password"`
-	} `yaml:"auth"`
-	LocalRoleName  string `yaml:"local_role"`
-	PolicyFilePath string `yaml:"policy_path"`
-	//TODO remove when https://github.com/gophercloud/gophercloud/issues/1141 is accepted
-	UserID string `yaml:"user_id"`
-}
-
 type configuration struct {
 	API struct {
 		ListenAddress string `yaml:"listen_address"`
@@ -91,11 +72,54 @@ type configuration struct {
 	DB struct {
 		URL string `yaml:"url"`
 	} `yaml:"db"`
-	OpenStack OpenStackConfiguration `yaml:"openstack"`
-	Trust     struct {
+	Auth    authDriverSection    `yaml:"auth"`
+	Storage storageDriverSection `yaml:"storage"`
+	Trust   struct {
 		IssuerKeyIn  string `yaml:"issuer_key"`
 		IssuerCertIn string `yaml:"issuer_cert"`
 	} `yaml:"trust"`
+}
+
+//This is a separate type because of its UnmarshalYAML implementation.
+type authDriverSection struct {
+	Driver drivers.AuthDriver
+}
+
+//UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (a *authDriverSection) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var data struct {
+		DriverName string `yaml:"driver"`
+	}
+	err := unmarshal(&data)
+	if err != nil {
+		return err
+	}
+	a.Driver, err = drivers.NewAuthDriver(data.DriverName)
+	if err != nil {
+		return err
+	}
+	return a.Driver.ReadConfig(unmarshal)
+}
+
+//This is a separate type because of its UnmarshalYAML implementation.
+type storageDriverSection struct {
+	Driver drivers.StorageDriver
+}
+
+//UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (s *storageDriverSection) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var data struct {
+		DriverName string `yaml:"driver"`
+	}
+	err := unmarshal(&data)
+	if err != nil {
+		return err
+	}
+	s.Driver, err = drivers.NewStorageDriver(data.DriverName)
+	if err != nil {
+		return err
+	}
+	return s.Driver.ReadConfig(unmarshal)
 }
 
 //ReadConfig parses the given configuration file and fills the Config package
@@ -137,81 +161,23 @@ func ReadConfig(path string) {
 		logg.Fatal(err.Error())
 	}
 
+	err = cfg.Auth.Driver.Connect()
+	if err != nil {
+		logg.Fatal(err.Error())
+	}
+
 	State = &StateStruct{
 		Config: Configuration{
 			APIListenAddress: cfg.API.ListenAddress,
 			APIPublicURL:     *publicURL,
 			DatabaseURL:      *dbURL,
-			OpenStack:        cfg.OpenStack,
 		},
 		DB:               db,
-		ServiceUser:      initServiceUser(&cfg),
+		AuthDriver:       cfg.Auth.Driver,
+		StorageDriver:    cfg.Storage.Driver,
 		JWTIssuerKey:     getIssuerKey(cfg.Trust.IssuerKeyIn),
 		JWTIssuerCertPEM: getIssuerCertPEM(cfg.Trust.IssuerCertIn),
 	}
-}
-
-func initServiceUser(cfg *configuration) *os.ServiceUser {
-	c := cfg.OpenStack
-	if c.Auth.AuthURL == "" {
-		logg.Fatal("missing openstack.auth.auth_url")
-	}
-	if c.Auth.UserName == "" {
-		logg.Fatal("missing openstack.auth.user_name")
-	}
-	if c.Auth.UserDomainName == "" {
-		logg.Fatal("missing openstack.auth.user_domain_name")
-	}
-	if c.Auth.Password == "" {
-		logg.Fatal("missing openstack.auth.password")
-	}
-	if c.Auth.ProjectName == "" {
-		logg.Fatal("missing openstack.auth.project_name")
-	}
-	if c.Auth.ProjectDomainName == "" {
-		logg.Fatal("missing openstack.auth.project_domain_name")
-	}
-	if c.LocalRoleName == "" {
-		logg.Fatal("missing openstack.local_role")
-	}
-	if c.PolicyFilePath == "" {
-		logg.Fatal("missing openstack.policy_path")
-	}
-	//TODO remove when https://github.com/gophercloud/gophercloud/issues/1141 is accepted
-	if c.UserID == "" {
-		logg.Fatal("missing openstack.user_id")
-	}
-
-	var err error
-	provider, err := openstack.NewClient(c.Auth.AuthURL)
-	if err != nil {
-		logg.Fatal("cannot initialize OpenStack client: %v", err)
-	}
-
-	//use http.DefaultClient, esp. to pick up the KEPPEL_INSECURE flag
-	provider.HTTPClient = *http.DefaultClient
-
-	err = openstack.Authenticate(provider, gophercloud.AuthOptions{
-		IdentityEndpoint: c.Auth.AuthURL,
-		AllowReauth:      true,
-		Username:         c.Auth.UserName,
-		DomainName:       c.Auth.UserDomainName,
-		Password:         c.Auth.Password,
-		Scope: &gophercloud.AuthScope{
-			ProjectName: c.Auth.ProjectName,
-			DomainName:  c.Auth.ProjectDomainName,
-		},
-	})
-	if err != nil {
-		logg.Fatal("cannot fetch initial Keystone token: %v", err)
-	}
-
-	serviceUser, err := os.NewServiceUser(
-		provider, c.UserID, c.LocalRoleName, c.PolicyFilePath)
-	if err != nil {
-		logg.Fatal(err.Error())
-	}
-	return serviceUser
 }
 
 var (

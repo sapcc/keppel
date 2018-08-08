@@ -25,8 +25,8 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/pkg/auth"
 	"github.com/sapcc/keppel/pkg/database"
+	"github.com/sapcc/keppel/pkg/drivers"
 	"github.com/sapcc/keppel/pkg/keppel"
-	"github.com/sapcc/keppel/pkg/openstack"
 )
 
 func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
@@ -52,10 +52,14 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check user access
-	access, err := keppel.State.ServiceUser.GetAccessLevelForUser(
-		req.UserName, req.Password, account)
-	if err != nil {
-		http.Error(w, err.Error(), 401)
+	var authz drivers.Authorization
+	if account == nil {
+		authz, err = keppel.State.AuthDriver.AuthenticateUser(req.UserName, req.Password)
+	} else {
+		authz, err = keppel.State.AuthDriver.AuthenticateUserInTenant(
+			req.UserName, req.Password, account.ProjectUUID)
+	}
+	if respondWithAuthError(w, err) {
 		return
 	}
 
@@ -63,12 +67,12 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	if req.Scope != nil {
 		switch req.Scope.ResourceType {
 		case "registry":
-			req.Scope.Actions = filterRegistryActions(req.Scope.Actions, access)
+			req.Scope.Actions = filterRegistryActions(req.Scope.Actions, authz)
 		case "repository":
 			if account == nil {
 				req.Scope.Actions = nil
 			} else {
-				req.Scope.Actions = filterRepoActions(req.Scope.Actions, access, *account)
+				req.Scope.Actions = filterRepoActions(req.Scope.Actions, authz, *account)
 			}
 		default:
 			req.Scope.Actions = nil
@@ -82,7 +86,7 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, tokenInfo)
 }
 
-func filterRegistryActions(actions []string, access openstack.AccessLevel) (result []string) {
+func filterRegistryActions(actions []string, authz drivers.Authorization) (result []string) {
 	//TODO FIXME: This always returns an empty slice in practice, because when a
 	//user wants to see the catalog, their token is not scoped to a specific
 	//account. Therefore there are no role assignments that
@@ -91,18 +95,18 @@ func filterRegistryActions(actions []string, access openstack.AccessLevel) (resu
 	//We might have to list role assignments for the user, and *generate* new
 	//scopes for each account where the user "CanViewAccount".
 	for _, action := range actions {
-		if action == "*" && access.CanViewAccounts() {
+		if action == "*" {
 			result = append(result, action)
 		}
 	}
 	return
 }
 
-func filterRepoActions(actions []string, access openstack.AccessLevel, account database.Account) (result []string) {
+func filterRepoActions(actions []string, authz drivers.Authorization, account database.Account) (result []string) {
 	for _, action := range actions {
-		if action == "pull" && access.CanViewAccount(account) {
+		if action == "pull" && authz.HasPermission(drivers.CanViewAccount, account.ProjectUUID) {
 			result = append(result, action)
-		} else if action == "push" && access.CanChangeAccount(account) {
+		} else if action == "push" && authz.HasPermission(drivers.CanChangeAccount, account.ProjectUUID) {
 			result = append(result, action)
 		}
 	}

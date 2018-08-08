@@ -33,6 +33,8 @@ import (
 	"github.com/sapcc/keppel/pkg/api"
 	"github.com/sapcc/keppel/pkg/keppel"
 	orchestrator_pkg "github.com/sapcc/keppel/pkg/orchestrator"
+
+	_ "github.com/sapcc/keppel/pkg/drivers/openstack"
 )
 
 func main() {
