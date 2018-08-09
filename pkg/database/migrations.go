@@ -25,8 +25,8 @@ var sqlMigrations = stripWhitespace(map[string]string{
 	"001_initial.up.sql": `
 		BEGIN;
 		CREATE TABLE accounts (
-			name         TEXT NOT NULL PRIMARY KEY,
-			project_uuid TEXT NOT NULL
+			name           TEXT NOT NULL PRIMARY KEY,
+			auth_tenant_id TEXT NOT NULL
 		);
 		COMMIT;
 	`,

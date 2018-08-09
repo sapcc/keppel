@@ -58,7 +58,7 @@ func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	//restrict accounts to those visible in the current scope
 	var accountsFiltered []database.Account
 	for _, account := range accounts {
-		if authz.HasPermission(keppel.CanViewAccount, account.ProjectUUID) {
+		if authz.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
 			accountsFiltered = append(accountsFiltered, account)
 		}
 	}
@@ -76,15 +76,15 @@ func (api *KeppelV1) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//get account from DB to find its project ID
+	//get account from DB to find its AuthTenantID
 	accountName := mux.Vars(r)["account"]
 	account, err := keppel.State.DB.FindAccount(accountName)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
 
-	//perform final authorization with that project ID
-	if account != nil && !authz.HasPermission(keppel.CanViewAccount, account.ProjectUUID) {
+	//perform final authorization with that AuthTenantID
+	if account != nil && !authz.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
 		account = nil
 	}
 
@@ -100,7 +100,7 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	//decode request body
 	var req struct {
 		Account struct {
-			ProjectUUID string `json:"project_id"`
+			AuthTenantID string `json:"auth_tenant_id"`
 		} `json:"account"`
 	}
 	err := json.NewDecoder(r.Body).Decode(&req)
@@ -108,8 +108,8 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "request body is not valid JSON: "+err.Error(), 400)
 		return
 	}
-	if req.Account.ProjectUUID == "" {
-		http.Error(w, `missing attribute "account.project_id" in request body`, 400)
+	if err := keppel.State.AuthDriver.ValidateTenantID(req.Account.AuthTenantID); err != nil {
+		http.Error(w, `malformed attribute "account.auth_tenant_id" in request body: `+err.Error(), 400)
 		return
 	}
 
@@ -121,8 +121,8 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accountToCreate := database.Account{
-		Name:        accountName,
-		ProjectUUID: req.Account.ProjectUUID,
+		Name:         accountName,
+		AuthTenantID: req.Account.AuthTenantID,
 	}
 
 	//check permission to create account
@@ -130,7 +130,7 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	if respondWithAuthError(w, err) {
 		return
 	}
-	if !authz.HasPermission(keppel.CanChangeAccount, accountToCreate.ProjectUUID) {
+	if !authz.HasPermission(keppel.CanChangeAccount, accountToCreate.AuthTenantID) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -140,8 +140,8 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-	if account != nil && account.ProjectUUID != req.Account.ProjectUUID {
-		http.Error(w, `account name already in use by a different project`, http.StatusConflict)
+	if account != nil && account.AuthTenantID != req.Account.AuthTenantID {
+		http.Error(w, `account name already in use by a different tenant`, http.StatusConflict)
 		return
 	}
 

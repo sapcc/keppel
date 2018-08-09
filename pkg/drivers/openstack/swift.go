@@ -51,7 +51,7 @@ func (d *swiftDriver) GetEnvironment(account database.Account, driver keppel.Aut
 		"REGISTRY_STORAGE_SWIFT-PLUS_USERNAME=" + k.ServiceUser.UserName,
 		"REGISTRY_STORAGE_SWIFT-PLUS_USERDOMAINNAME=" + k.ServiceUser.UserDomainName,
 		"REGISTRY_STORAGE_SWIFT-PLUS_PASSWORD=" + k.ServiceUser.Password,
-		"REGISTRY_STORAGE_SWIFT-PLUS_PROJECTID=" + account.ProjectUUID,
+		"REGISTRY_STORAGE_SWIFT-PLUS_PROJECTID=" + account.AuthTenantID,
 		"REGISTRY_STORAGE_SWIFT-PLUS_CONTAINER=" + account.SwiftContainerName(),
 		"REGISTRY_STORAGE_SWIFT-PLUS_POSTGRESURI=" + account.PostgresDatabaseName(),
 	}, nil

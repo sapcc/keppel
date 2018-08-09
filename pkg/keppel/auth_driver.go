@@ -60,6 +60,13 @@ type AuthDriver interface {
 	//ReadConfig and *before* any other methods are called.
 	Connect() error
 
+	//ValidateTenantID checks if the given string is a valid tenant ID. If so,
+	//nil shall be returned. If not, the returned error shall explain why the ID
+	//is not valid. The driver implementor can decide how thorough this check
+	//shall be: It can be anything from "is not empty" to "matches regex" to
+	//"exists in the auth database".
+	ValidateTenantID(tenantID string) error
+
 	//SetupAccount sets up the given tenant so that it can be used for the given
 	//Keppel account. The caller must supply an Authorization that was obtained
 	//from one of the AuthenticateUserXXX methods of the same instance, because

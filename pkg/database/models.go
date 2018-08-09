@@ -28,8 +28,8 @@ import (
 
 //Account contains a record from the `accounts` table.
 type Account struct {
-	Name        string `db:"name" json:"name"`
-	ProjectUUID string `db:"project_uuid" json:"project_id"` //TODO: rename to tenant_id to separate from OpenStack?
+	Name         string `db:"name" json:"name"`
+	AuthTenantID string `db:"auth_tenant_id" json:"auth_tenant_id"`
 }
 
 //SwiftContainerName returns the name of the Swift container backing this

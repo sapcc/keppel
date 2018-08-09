@@ -56,7 +56,7 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		authz, err = keppel.State.AuthDriver.AuthenticateUser(req.UserName, req.Password)
 	} else {
 		authz, err = keppel.State.AuthDriver.AuthenticateUserInTenant(
-			req.UserName, req.Password, account.ProjectUUID)
+			req.UserName, req.Password, account.AuthTenantID)
 	}
 	if respondWithAuthError(w, err) {
 		return
@@ -103,9 +103,9 @@ func filterRegistryActions(actions []string, authz keppel.Authorization) (result
 
 func filterRepoActions(actions []string, authz keppel.Authorization, account database.Account) (result []string) {
 	for _, action := range actions {
-		if action == "pull" && authz.HasPermission(keppel.CanViewAccount, account.ProjectUUID) {
+		if action == "pull" && authz.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
 			result = append(result, action)
-		} else if action == "push" && authz.HasPermission(keppel.CanChangeAccount, account.ProjectUUID) {
+		} else if action == "push" && authz.HasPermission(keppel.CanChangeAccount, account.AuthTenantID) {
 			result = append(result, action)
 		}
 	}

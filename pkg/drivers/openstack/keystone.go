@@ -166,6 +166,14 @@ func getRoleByName(identityV3 *gophercloud.ServiceClient, name string) (roles.Ro
 	return list[0], nil
 }
 
+//ValidateTenantID implements the keppel.AuthDriver interface.
+func (d *keystoneDriver) ValidateTenantID(tenantID string) error {
+	if tenantID == "" {
+		return errors.New("may not be empty")
+	}
+	return nil
+}
+
 //SetupAccount implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) SetupAccount(account database.Account, authorization keppel.Authorization) error {
 	requesterToken := authorization.(keystoneAuthorization).t //is a *gopherpolicy.Token
@@ -176,7 +184,7 @@ func (d *keystoneDriver) SetupAccount(account database.Account, authorization ke
 	}
 	result := roles.Assign(client, d.LocalRoleID, roles.AssignOpts{
 		UserID:    d.UserID,
-		ProjectID: account.ProjectUUID,
+		ProjectID: account.AuthTenantID,
 	})
 	return result.Err
 }
