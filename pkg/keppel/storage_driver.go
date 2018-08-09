@@ -17,7 +17,7 @@
 *
 *******************************************************************************/
 
-package drivers
+package keppel
 
 import (
 	"errors"
@@ -49,3 +49,24 @@ type StorageDriver interface {
 var (
 	ErrAuthDriverMismatch = errors.New("given AuthDriver is not supported by this StorageDriver")
 )
+
+var storageDriverFactories = make(map[string]func() StorageDriver)
+
+//NewStorageDriver creates a new StorageDriver using one of the factory functions
+//registered with RegisterStorageDriver().
+func NewStorageDriver(name string) (StorageDriver, error) {
+	factory := storageDriverFactories[name]
+	if factory != nil {
+		return factory(), nil
+	}
+	return nil, errors.New("no such storage driver: " + name)
+}
+
+//RegisterStorageDriver registers an StorageDriver. Call this from func init() of the
+//package defining the StorageDriver.
+func RegisterStorageDriver(name string, factory func() StorageDriver) {
+	if _, exists := storageDriverFactories[name]; exists {
+		panic("attempted to register multiple storage drivers with name = " + name)
+	}
+	storageDriverFactories[name] = factory
+}

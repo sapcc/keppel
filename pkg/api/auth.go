@@ -25,7 +25,6 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/pkg/auth"
 	"github.com/sapcc/keppel/pkg/database"
-	"github.com/sapcc/keppel/pkg/drivers"
 	"github.com/sapcc/keppel/pkg/keppel"
 )
 
@@ -52,7 +51,7 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check user access
-	var authz drivers.Authorization
+	var authz keppel.Authorization
 	if account == nil {
 		authz, err = keppel.State.AuthDriver.AuthenticateUser(req.UserName, req.Password)
 	} else {
@@ -86,7 +85,7 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, tokenInfo)
 }
 
-func filterRegistryActions(actions []string, authz drivers.Authorization) (result []string) {
+func filterRegistryActions(actions []string, authz keppel.Authorization) (result []string) {
 	//TODO FIXME: This always returns an empty slice in practice, because when a
 	//user wants to see the catalog, their token is not scoped to a specific
 	//account. Therefore there are no role assignments that
@@ -102,11 +101,11 @@ func filterRegistryActions(actions []string, authz drivers.Authorization) (resul
 	return
 }
 
-func filterRepoActions(actions []string, authz drivers.Authorization, account database.Account) (result []string) {
+func filterRepoActions(actions []string, authz keppel.Authorization, account database.Account) (result []string) {
 	for _, action := range actions {
-		if action == "pull" && authz.HasPermission(drivers.CanViewAccount, account.ProjectUUID) {
+		if action == "pull" && authz.HasPermission(keppel.CanViewAccount, account.ProjectUUID) {
 			result = append(result, action)
-		} else if action == "push" && authz.HasPermission(drivers.CanChangeAccount, account.ProjectUUID) {
+		} else if action == "push" && authz.HasPermission(keppel.CanChangeAccount, account.ProjectUUID) {
 			result = append(result, action)
 		}
 	}

@@ -28,7 +28,6 @@ import (
 	"github.com/docker/libtrust"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/pkg/database"
-	"github.com/sapcc/keppel/pkg/drivers"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -40,8 +39,8 @@ var State *StateStruct
 type StateStruct struct {
 	Config           Configuration
 	DB               *database.DB
-	AuthDriver       drivers.AuthDriver
-	StorageDriver    drivers.StorageDriver
+	AuthDriver       AuthDriver
+	StorageDriver    StorageDriver
 	JWTIssuerKey     libtrust.PrivateKey
 	JWTIssuerCertPEM string
 }
@@ -82,7 +81,7 @@ type configuration struct {
 
 //This is a separate type because of its UnmarshalYAML implementation.
 type authDriverSection struct {
-	Driver drivers.AuthDriver
+	Driver AuthDriver
 }
 
 //UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -94,7 +93,7 @@ func (a *authDriverSection) UnmarshalYAML(unmarshal func(interface{}) error) err
 	if err != nil {
 		return err
 	}
-	a.Driver, err = drivers.NewAuthDriver(data.DriverName)
+	a.Driver, err = NewAuthDriver(data.DriverName)
 	if err != nil {
 		return err
 	}
@@ -103,7 +102,7 @@ func (a *authDriverSection) UnmarshalYAML(unmarshal func(interface{}) error) err
 
 //This is a separate type because of its UnmarshalYAML implementation.
 type storageDriverSection struct {
-	Driver drivers.StorageDriver
+	Driver StorageDriver
 }
 
 //UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -115,7 +114,7 @@ func (s *storageDriverSection) UnmarshalYAML(unmarshal func(interface{}) error) 
 	if err != nil {
 		return err
 	}
-	s.Driver, err = drivers.NewStorageDriver(data.DriverName)
+	s.Driver, err = NewStorageDriver(data.DriverName)
 	if err != nil {
 		return err
 	}

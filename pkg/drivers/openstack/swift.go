@@ -21,29 +21,29 @@ package openstack
 
 import (
 	"github.com/sapcc/keppel/pkg/database"
-	"github.com/sapcc/keppel/pkg/drivers"
+	"github.com/sapcc/keppel/pkg/keppel"
 )
 
 type swiftDriver struct {
 }
 
 func init() {
-	drivers.RegisterStorageDriver("swift", func() drivers.StorageDriver {
+	keppel.RegisterStorageDriver("swift", func() keppel.StorageDriver {
 		return &swiftDriver{}
 	})
 }
 
-//ReadConfig implements the drivers.StorageDriver interface.
+//ReadConfig implements the keppel.StorageDriver interface.
 func (d *swiftDriver) ReadConfig(unmarshal func(interface{}) error) error {
 	//this driver does not have any config options
 	return nil
 }
 
-//GetEnvironment implements the drivers.StorageDriver interface.
-func (d *swiftDriver) GetEnvironment(account database.Account, driver drivers.AuthDriver) ([]string, error) {
+//GetEnvironment implements the keppel.StorageDriver interface.
+func (d *swiftDriver) GetEnvironment(account database.Account, driver keppel.AuthDriver) ([]string, error) {
 	k, ok := driver.(*keystoneDriver)
 	if !ok {
-		return nil, drivers.ErrAuthDriverMismatch
+		return nil, keppel.ErrAuthDriverMismatch
 	}
 
 	return []string{

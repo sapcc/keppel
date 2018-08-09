@@ -17,7 +17,7 @@
 *
 *******************************************************************************/
 
-package drivers
+package keppel
 
 import (
 	"errors"
@@ -87,3 +87,24 @@ var (
 	ErrUnauthorized = errors.New("Unauthorized")
 	ErrForbidden    = errors.New("Forbidden")
 )
+
+var authDriverFactories = make(map[string]func() AuthDriver)
+
+//NewAuthDriver creates a new AuthDriver using one of the factory functions
+//registered with RegisterAuthDriver().
+func NewAuthDriver(name string) (AuthDriver, error) {
+	factory := authDriverFactories[name]
+	if factory != nil {
+		return factory(), nil
+	}
+	return nil, errors.New("no such auth driver: " + name)
+}
+
+//RegisterAuthDriver registers an AuthDriver. Call this from func init() of the
+//package defining the AuthDriver.
+func RegisterAuthDriver(name string, factory func() AuthDriver) {
+	if _, exists := authDriverFactories[name]; exists {
+		panic("attempted to register multiple auth drivers with name = " + name)
+	}
+	authDriverFactories[name] = factory
+}

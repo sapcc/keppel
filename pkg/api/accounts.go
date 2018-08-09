@@ -26,7 +26,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/pkg/database"
-	"github.com/sapcc/keppel/pkg/drivers"
 	"github.com/sapcc/keppel/pkg/keppel"
 )
 
@@ -34,9 +33,9 @@ func respondWithAuthError(w http.ResponseWriter, err error) bool {
 	switch err {
 	case nil:
 		return false
-	case drivers.ErrUnauthorized:
+	case keppel.ErrUnauthorized:
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-	case drivers.ErrForbidden:
+	case keppel.ErrForbidden:
 		http.Error(w, "Forbidden", http.StatusForbidden)
 	default:
 		http.Error(w, "unexpected error: "+err.Error(), http.StatusInternalServerError)
@@ -59,7 +58,7 @@ func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	//restrict accounts to those visible in the current scope
 	var accountsFiltered []database.Account
 	for _, account := range accounts {
-		if authz.HasPermission(drivers.CanViewAccount, account.ProjectUUID) {
+		if authz.HasPermission(keppel.CanViewAccount, account.ProjectUUID) {
 			accountsFiltered = append(accountsFiltered, account)
 		}
 	}
@@ -85,7 +84,7 @@ func (api *KeppelV1) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//perform final authorization with that project ID
-	if account != nil && !authz.HasPermission(drivers.CanViewAccount, account.ProjectUUID) {
+	if account != nil && !authz.HasPermission(keppel.CanViewAccount, account.ProjectUUID) {
 		account = nil
 	}
 
@@ -131,7 +130,7 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	if respondWithAuthError(w, err) {
 		return
 	}
-	if !authz.HasPermission(drivers.CanChangeAccount, accountToCreate.ProjectUUID) {
+	if !authz.HasPermission(keppel.CanChangeAccount, accountToCreate.ProjectUUID) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}

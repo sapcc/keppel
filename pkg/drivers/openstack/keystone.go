@@ -37,7 +37,7 @@ import (
 	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/pkg/database"
-	"github.com/sapcc/keppel/pkg/drivers"
+	"github.com/sapcc/keppel/pkg/keppel"
 )
 
 type keystoneDriver struct {
@@ -62,12 +62,12 @@ type keystoneDriver struct {
 }
 
 func init() {
-	drivers.RegisterAuthDriver("keystone", func() drivers.AuthDriver {
+	keppel.RegisterAuthDriver("keystone", func() keppel.AuthDriver {
 		return &keystoneDriver{}
 	})
 }
 
-//ReadConfig implements the drivers.AuthDriver interface.
+//ReadConfig implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) ReadConfig(unmarshal func(interface{}) error) error {
 	err := unmarshal(d)
 	if err != nil {
@@ -103,7 +103,7 @@ func (d *keystoneDriver) ReadConfig(unmarshal func(interface{}) error) error {
 	return nil
 }
 
-//Connect implements the drivers.AuthDriver interface.
+//Connect implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) Connect() error {
 	var err error
 	d.Client, err = openstack.NewClient(d.ServiceUser.AuthURL)
@@ -166,8 +166,8 @@ func getRoleByName(identityV3 *gophercloud.ServiceClient, name string) (roles.Ro
 	return list[0], nil
 }
 
-//SetupAccount implements the drivers.AuthDriver interface.
-func (d *keystoneDriver) SetupAccount(account database.Account, authorization drivers.Authorization) error {
+//SetupAccount implements the keppel.AuthDriver interface.
+func (d *keystoneDriver) SetupAccount(account database.Account, authorization keppel.Authorization) error {
 	requesterToken := authorization.(keystoneAuthorization).t //is a *gopherpolicy.Token
 	client, err := openstack.NewIdentityV3(
 		requesterToken.ProviderClient, gophercloud.EndpointOpts{})
@@ -181,17 +181,17 @@ func (d *keystoneDriver) SetupAccount(account database.Account, authorization dr
 	return result.Err
 }
 
-//AuthenticateUser implements the drivers.AuthDriver interface.
-func (d *keystoneDriver) AuthenticateUser(userName, password string) (drivers.Authorization, error) {
+//AuthenticateUser implements the keppel.AuthDriver interface.
+func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Authorization, error) {
 	return d.AuthenticateUserInTenant(userName, password, "")
 }
 
-//AuthenticateUserInTenant implements the drivers.AuthDriver interface.
-func (d *keystoneDriver) AuthenticateUserInTenant(userName, password, tenantID string) (drivers.Authorization, error) {
+//AuthenticateUserInTenant implements the keppel.AuthDriver interface.
+func (d *keystoneDriver) AuthenticateUserInTenant(userName, password, tenantID string) (keppel.Authorization, error) {
 	usernameFields := strings.SplitN(userName, "@", 2)
 	if len(usernameFields) != 2 {
 		logg.Info(`invalid username in Authorization header (expected "user@domain" format)`)
-		return nil, drivers.ErrUnauthorized
+		return nil, keppel.ErrUnauthorized
 	}
 
 	authOpts := gophercloud.AuthOptions{
@@ -208,27 +208,27 @@ func (d *keystoneDriver) AuthenticateUserInTenant(userName, password, tenantID s
 	t := d.TokenValidator.TokenFromGophercloudResult(result)
 	if t.Err != nil {
 		logg.Info("failed to get token for user %q in project %q: %s", userName, tenantID, t.Err.Error())
-		return nil, drivers.ErrUnauthorized
+		return nil, keppel.ErrUnauthorized
 	}
 	if !t.Check("account:list") {
-		return nil, drivers.ErrForbidden
+		return nil, keppel.ErrForbidden
 	}
 	return &keystoneAuthorization{t}, nil
 }
 
-//AuthenticateUserFromRequest implements the drivers.AuthDriver interface.
-func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (drivers.Authorization, error) {
+//AuthenticateUserFromRequest implements the keppel.AuthDriver interface.
+func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Authorization, error) {
 	t := d.TokenValidator.CheckToken(r)
 	if t.Err != nil {
 		logg.Info("X-Auth-Token validation failed: " + t.Err.Error())
-		return nil, drivers.ErrUnauthorized
+		return nil, keppel.ErrUnauthorized
 	}
 
 	t.Context.Logger = logg.Debug
 	//token.Context.Request = mux.Vars(r) //not used at the moment
 
 	if !t.Check("account:list") {
-		return nil, drivers.ErrForbidden
+		return nil, keppel.ErrForbidden
 	}
 	return keystoneAuthorization{t}, nil
 }
@@ -237,15 +237,15 @@ type keystoneAuthorization struct {
 	t *gopherpolicy.Token
 }
 
-var ruleForPerm = map[drivers.Permission]string{
-	drivers.CanViewAccount:     "account:show",
-	drivers.CanPullFromAccount: "account:pull",
-	drivers.CanPushToAccount:   "account:push",
-	drivers.CanChangeAccount:   "account:edit",
+var ruleForPerm = map[keppel.Permission]string{
+	keppel.CanViewAccount:     "account:show",
+	keppel.CanPullFromAccount: "account:pull",
+	keppel.CanPushToAccount:   "account:push",
+	keppel.CanChangeAccount:   "account:edit",
 }
 
-//HasPermission implements the drivers.Authorization interface.
-func (a keystoneAuthorization) HasPermission(perm drivers.Permission, tenantID string) bool {
+//HasPermission implements the keppel.Authorization interface.
+func (a keystoneAuthorization) HasPermission(perm keppel.Permission, tenantID string) bool {
 	a.t.Context.Request["account_project_id"] = tenantID
 	return a.t.Check(ruleForPerm[perm])
 }
