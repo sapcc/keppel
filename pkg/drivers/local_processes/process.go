@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package orchestrator
+package localprocesses
 
 import (
 	"context"
@@ -115,7 +115,7 @@ func (pc *processContext) startRegistry(account database.Account, port uint16) e
 		"REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE="+issuerCertBundlePath,
 	)
 
-	//the REGISTRY_LOG_FIELDS_kEPPEL.ACCOUNT variable (see above) adds the account
+	//the REGISTRY_LOG_FIELDS_KEPPEL.ACCOUNT variable (see above) adds the account
 	//name to all log messages produced by the keppel-registry (it is therefore
 	//safe to send its log directly to our own stdout)
 	cmd.Stdout = os.Stdout
@@ -131,7 +131,7 @@ func (pc *processContext) startRegistry(account database.Account, port uint16) e
 	}
 
 	//manage the process during its lifetime (see big comment in
-	//Orchestrator.Run() for a high-level explanation)
+	//driver.Run() for a high-level explanation)
 	pc.WaitGroup.Add(2)
 	processResult := make(chan error)
 	go func() {

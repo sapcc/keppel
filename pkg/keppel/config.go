@@ -37,12 +37,13 @@ var State *StateStruct
 
 //StateStruct is the type of `var State`.
 type StateStruct struct {
-	Config           Configuration
-	DB               *database.DB
-	AuthDriver       AuthDriver
-	StorageDriver    StorageDriver
-	JWTIssuerKey     libtrust.PrivateKey
-	JWTIssuerCertPEM string
+	Config              Configuration
+	DB                  *database.DB
+	AuthDriver          AuthDriver
+	OrchestrationDriver OrchestrationDriver
+	StorageDriver       StorageDriver
+	JWTIssuerKey        libtrust.PrivateKey
+	JWTIssuerCertPEM    string
 }
 
 //Configuration contains some configuration values that are not compiled during
@@ -71,8 +72,9 @@ type configuration struct {
 	DB struct {
 		URL string `yaml:"url"`
 	} `yaml:"db"`
-	Auth    authDriverSection    `yaml:"auth"`
-	Storage storageDriverSection `yaml:"storage"`
+	Auth    authDriverSection          `yaml:"auth"`
+	Orch    orchestrationDriverSection `yaml:"orchestration"`
+	Storage storageDriverSection       `yaml:"storage"`
 	Trust   struct {
 		IssuerKeyIn  string `yaml:"issuer_key"`
 		IssuerCertIn string `yaml:"issuer_cert"`
@@ -94,6 +96,27 @@ func (a *authDriverSection) UnmarshalYAML(unmarshal func(interface{}) error) err
 		return err
 	}
 	a.Driver, err = NewAuthDriver(data.DriverName)
+	if err != nil {
+		return err
+	}
+	return a.Driver.ReadConfig(unmarshal)
+}
+
+//This is a separate type because of its UnmarshalYAML implementation.
+type orchestrationDriverSection struct {
+	Driver OrchestrationDriver
+}
+
+//UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (a *orchestrationDriverSection) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var data struct {
+		DriverName string `yaml:"driver"`
+	}
+	err := unmarshal(&data)
+	if err != nil {
+		return err
+	}
+	a.Driver, err = NewOrchestrationDriver(data.DriverName)
 	if err != nil {
 		return err
 	}
@@ -171,11 +194,12 @@ func ReadConfig(path string) {
 			APIPublicURL:     *publicURL,
 			DatabaseURL:      *dbURL,
 		},
-		DB:               db,
-		AuthDriver:       cfg.Auth.Driver,
-		StorageDriver:    cfg.Storage.Driver,
-		JWTIssuerKey:     getIssuerKey(cfg.Trust.IssuerKeyIn),
-		JWTIssuerCertPEM: getIssuerCertPEM(cfg.Trust.IssuerCertIn),
+		DB:                  db,
+		AuthDriver:          cfg.Auth.Driver,
+		OrchestrationDriver: cfg.Orch.Driver,
+		StorageDriver:       cfg.Storage.Driver,
+		JWTIssuerKey:        getIssuerKey(cfg.Trust.IssuerKeyIn),
+		JWTIssuerCertPEM:    getIssuerCertPEM(cfg.Trust.IssuerCertIn),
 	}
 }
 

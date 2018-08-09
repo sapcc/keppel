@@ -23,20 +23,10 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/sapcc/keppel/pkg/orchestrator"
 )
 
 //KeppelV1 implements the /keppel/v1/ API endpoints.
-type KeppelV1 struct {
-	orch *orchestrator.API
-}
-
-//NewKeppelV1 prepares a new KeppelV1 instance.
-func NewKeppelV1(orch *orchestrator.API) (*KeppelV1, error) {
-	return &KeppelV1{
-		orch: orch,
-	}, nil
-}
+type KeppelV1 struct{}
 
 //Routers prepares http.Handler instances for the APIs provided by this instance.
 func (api *KeppelV1) Routers() (keppelAPI, proxyAPI http.Handler) {

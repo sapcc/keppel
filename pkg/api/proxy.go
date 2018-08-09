@@ -86,9 +86,6 @@ func (api *KeppelV1) handleProxyToAccount(w http.ResponseWriter, r *http.Request
 	}
 
 	proxyRequest := *r
-	proxyRequest.URL.Scheme = "http"
-	proxyRequest.URL.Host = api.orch.GetHostPortForAccount(*account)
-
 	proxyRequest.Close = false
 	proxyRequest.RequestURI = ""
 	if proxyRequest.RemoteAddr != "" && proxyRequest.Header.Get("X-Forwarded-For") == "" {
@@ -96,7 +93,7 @@ func (api *KeppelV1) handleProxyToAccount(w http.ResponseWriter, r *http.Request
 		proxyRequest.Header.Set("X-Forwarded-For", host)
 	}
 
-	resp, err := http.DefaultClient.Do(&proxyRequest)
+	resp, err := keppel.State.OrchestrationDriver.DoHTTPRequest(*account, &proxyRequest)
 	if respondwith.ErrorText(w, err) {
 		return
 	}

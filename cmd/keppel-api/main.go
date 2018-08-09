@@ -32,8 +32,8 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/pkg/api"
 	"github.com/sapcc/keppel/pkg/keppel"
-	orchestrator_pkg "github.com/sapcc/keppel/pkg/orchestrator"
 
+	_ "github.com/sapcc/keppel/pkg/drivers/local_processes"
 	_ "github.com/sapcc/keppel/pkg/drivers/openstack"
 )
 
@@ -62,15 +62,9 @@ func main() {
 	}
 	keppel.ReadConfig(os.Args[1]) //exits on error
 
-	orchestrator, orchestratorAPI := orchestrator_pkg.NewOrchestrator()
-	keppelV1, err := api.NewKeppelV1(orchestratorAPI)
-	if err != nil {
-		logg.Fatal(err.Error())
-	}
-
 	//wire up HTTP handlers
 	r := mux.NewRouter()
-	kv1, rv2 := keppelV1.Routers()
+	kv1, rv2 := (&api.KeppelV1{}).Routers()
 	r.PathPrefix("/keppel/v1/").Handler(kv1)
 	r.PathPrefix("/v2/").Handler(rv2)
 	r.Methods("GET").Path("/health").HandlerFunc(handleHealthcheck)
@@ -86,17 +80,14 @@ func main() {
 	//start HTTP server
 	logg.Info("listening on " + keppel.State.Config.APIListenAddress)
 	go func() {
-		err = http.ListenAndServe(keppel.State.Config.APIListenAddress, nil)
+		err := http.ListenAndServe(keppel.State.Config.APIListenAddress, nil)
 		if err != nil {
 			logg.Fatal("error returned from http.ListenAndServe(): %s", err.Error())
 		}
 	}()
 
-	//start orchestrator workers
-	go orchestratorAPI.EnsureAllRegistriesAreRunning()
-
 	//enter orchestrator main loop
-	ok := orchestrator.Run(contextWithSIGINT(context.Background()))
+	ok := keppel.State.OrchestrationDriver.Run(contextWithSIGINT(context.Background()))
 	if !ok {
 		os.Exit(1)
 	}

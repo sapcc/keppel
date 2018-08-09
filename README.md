@@ -24,8 +24,9 @@ db:
   # a libpq connection URL
   url: postgres://postgres@localhost/keppel
 
-openstack:
-  auth:
+auth:
+  driver: keystone
+  service_user:
     # credentials for service user (only Identity V3 is supported)
     auth_url: https://keystone.example.com/v3
     user_name: keppel
@@ -42,6 +43,12 @@ openstack:
   # PROVISIONAL: the user ID for the Keppel service user (as identified by
   # openstack.auth.user_name and openstack.auth.user_domain_name)
   user_id: 790b87de4ec44ed4a4270b993d62905f
+
+storage:
+  driver: swift
+
+orchestration:
+  driver: local-processes
 
 trust:
   issuer_key: /var/lib/keppel/privkey.pem
