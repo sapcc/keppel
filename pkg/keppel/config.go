@@ -162,11 +162,22 @@ func ReadConfig(path string) {
 	if cfg.API.ListenAddress == "" {
 		cfg.API.ListenAddress = ":8080"
 	}
+
+	//check for required values
 	if cfg.API.PublicURL == "" {
 		logg.Fatal("missing api.public_url")
 	}
 	if cfg.DB.URL == "" {
 		logg.Fatal("missing db.url")
+	}
+	if cfg.Auth.Driver == nil {
+		logg.Fatal("missing auth.driver")
+	}
+	if cfg.Storage.Driver == nil {
+		logg.Fatal("missing storage.driver")
+	}
+	if cfg.Orch.Driver == nil {
+		logg.Fatal("missing orchestration.driver")
 	}
 
 	//compile into State
