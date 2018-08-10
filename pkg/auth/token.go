@@ -44,6 +44,16 @@ type Token struct {
 	Access []Scope
 }
 
+//Contains returns true if the given token authorizes the user for this scope.
+func (t Token) Contains(s Scope) bool {
+	for _, scope := range t.Access {
+		if scope.Contains(s) {
+			return true
+		}
+	}
+	return false
+}
+
 type tokenClaims struct {
 	jwt.StandardClaims
 	Access []Scope `json:"access"`

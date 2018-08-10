@@ -105,6 +105,15 @@ func ParseScope(input string) (Scope, error) {
 	return scope, nil
 }
 
+//MustParseScope is like ParseScope, but panics on error.
+func MustParseScope(input string) Scope {
+	s, err := ParseScope(input)
+	if err != nil {
+		panic(err.Error())
+	}
+	return s
+}
+
 //AccountName returns the first path element of the resource name, if the
 //resource type is "repository", or the empty string otherwise.
 func (s Scope) AccountName() string {
@@ -112,4 +121,34 @@ func (s Scope) AccountName() string {
 		return ""
 	}
 	return strings.SplitN(s.ResourceName, "/", 2)[0]
+}
+
+//Contains returns true if this scope is for the same resource as the other
+//scope, and if it contains all the actions that the other contains.
+func (s Scope) Contains(other Scope) bool {
+	if s.ResourceType != other.ResourceType {
+		return false
+	}
+	if s.ResourceName != other.ResourceName {
+		return false
+	}
+	actions := make(map[string]bool)
+	for _, a := range s.Actions {
+		actions[a] = true
+	}
+	for _, a := range other.Actions {
+		if !actions[a] {
+			return false
+		}
+	}
+	return true
+}
+
+//String serializes this scope into the format used in the Docker auth API.
+func (s Scope) String() string {
+	return strings.Join([]string{
+		s.ResourceType,
+		s.ResourceName,
+		strings.Join(s.Actions, ","),
+	}, ":")
 }

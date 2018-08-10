@@ -29,7 +29,7 @@ import (
 //Challenge describes an auth challenge that is posed in a Www-Authenticate
 //response header.
 type Challenge struct {
-	Scope string //optional
+	Scope *Scope //optional
 }
 
 //WriteTo adds the corresponding Www-Authenticate header to a response.
@@ -39,8 +39,8 @@ func (c Challenge) WriteTo(h http.Header) {
 		keppel.State.Config.APIPublicHostname(),
 	)
 
-	if c.Scope != "" {
-		fields += fmt.Sprintf(`,scope="%s"`, c.Scope)
+	if c.Scope != nil {
+		fields += fmt.Sprintf(`,scope="%s"`, c.Scope.String())
 	}
 
 	h.Set("Www-Authenticate", "Bearer "+fields)

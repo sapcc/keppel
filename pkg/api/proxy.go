@@ -19,6 +19,7 @@
 package api
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -30,8 +31,11 @@ import (
 	"github.com/sapcc/keppel/pkg/keppel"
 )
 
-func requireBearerToken(w http.ResponseWriter, r *http.Request, scope string) *auth.Token {
+func requireBearerToken(w http.ResponseWriter, r *http.Request, scope *auth.Scope) *auth.Token {
 	token, err := auth.ParseTokenFromRequest(r)
+	if err == nil && scope != nil && !token.Contains(*scope) {
+		err = fmt.Errorf("token does not cover scope %s", scope.String())
+	}
 	if err != nil {
 		logg.Info("authentication failed for GET %s: %s", r.URL.Path, err.Error())
 		auth.Challenge{Scope: scope}.WriteTo(w.Header())
@@ -46,7 +50,7 @@ func (api *KeppelV1) handleProxyToplevel(w http.ResponseWriter, r *http.Request)
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
-	if requireBearerToken(w, r, "") == nil {
+	if requireBearerToken(w, r, nil) == nil {
 		return
 	}
 
@@ -58,7 +62,8 @@ func (api *KeppelV1) handleProxyCatalog(w http.ResponseWriter, r *http.Request) 
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
-	if requireBearerToken(w, r, "registry:catalog:*") == nil {
+	requiredScope := auth.MustParseScope("registry:catalog:*")
+	if requireBearerToken(w, r, &requiredScope) == nil {
 		return
 	}
 
