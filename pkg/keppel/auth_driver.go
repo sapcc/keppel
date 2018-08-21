@@ -72,8 +72,11 @@ type AuthDriver interface {
 	//from one of the AuthenticateUserXXX methods of the same instance, because
 	//this operation may require more permissions than Keppel itself has.
 	SetupAccount(account database.Account, an Authorization) error
+
 	//AuthenticateUser authenticates the user identified by the given username
-	//and password, and validates if the user has access to *any* tenant.
+	//and password, and validates if the user has access to *any* tenant. If an
+	//error is returned, it MUST be either ErrUnauthorized or //ErrForbidden from
+	//this package.
 	AuthenticateUser(userName, password string) (Authorization, error)
 	//AuthenticateUserFromCredentials authenticates the user identifed by the
 	//given username and password, and validates if the user has access to the
