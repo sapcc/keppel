@@ -20,6 +20,8 @@
 package openstack
 
 import (
+	"os"
+
 	"github.com/sapcc/keppel/pkg/database"
 	"github.com/sapcc/keppel/pkg/keppel"
 )
@@ -46,6 +48,12 @@ func (d *swiftDriver) GetEnvironment(account database.Account, driver keppel.Aut
 		return nil, keppel.ErrAuthDriverMismatch
 	}
 
+	//cf. cmd/keppel-api/main.go
+	insecure := "false"
+	if os.Getenv("KEPPEL_INSECURE") == "1" {
+		insecure = "true"
+	}
+
 	return []string{
 		"REGISTRY_STORAGE_SWIFT-PLUS_AUTHURL=" + k.ServiceUser.AuthURL,
 		"REGISTRY_STORAGE_SWIFT-PLUS_USERNAME=" + k.ServiceUser.UserName,
@@ -54,5 +62,6 @@ func (d *swiftDriver) GetEnvironment(account database.Account, driver keppel.Aut
 		"REGISTRY_STORAGE_SWIFT-PLUS_PROJECTID=" + account.AuthTenantID,
 		"REGISTRY_STORAGE_SWIFT-PLUS_CONTAINER=" + account.SwiftContainerName(),
 		"REGISTRY_STORAGE_SWIFT-PLUS_POSTGRESURI=" + account.PostgresDatabaseName(),
+		"REGISTRY_STORAGE_SWIFT-PLUS_INSECURESKIPVERIFY=" + insecure,
 	}, nil
 }
