@@ -218,9 +218,6 @@ func (d *keystoneDriver) AuthenticateUserInTenant(userName, password, tenantID s
 		logg.Info("failed to get token for user %q in project %q: %s", userName, tenantID, t.Err.Error())
 		return nil, keppel.ErrUnauthorized
 	}
-	if !t.Check("account:list") {
-		return nil, keppel.ErrForbidden
-	}
 	return &keystoneAuthorization{t}, nil
 }
 
