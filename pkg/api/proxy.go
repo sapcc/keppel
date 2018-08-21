@@ -19,7 +19,6 @@
 package api
 
 import (
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -34,12 +33,12 @@ import (
 func requireBearerToken(w http.ResponseWriter, r *http.Request, scope *auth.Scope) *auth.Token {
 	token, err := auth.ParseTokenFromRequest(r)
 	if err == nil && scope != nil && !token.Contains(*scope) {
-		err = fmt.Errorf("token does not cover scope %s", scope.String())
+		err = keppel.ErrDenied.With("token does not cover scope %s", scope.String())
 	}
 	if err != nil {
-		logg.Info("authentication failed for GET %s: %s", r.URL.Path, err.Error())
+		logg.Info("GET %s: %s", r.URL.Path, err.Error())
 		auth.Challenge{Scope: scope}.WriteTo(w.Header())
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		err.WriteAsRegistryV2ResponseTo(w)
 		return nil
 	}
 	return token
@@ -86,7 +85,7 @@ func (api *KeppelV1) handleProxyToAccount(w http.ResponseWriter, r *http.Request
 		//We might have to do the full auth game right here already before even
 		//proxying to keppel-registry, but that would require recognizing all API
 		//endpoints.
-		http.Error(w, "not found", 404)
+		keppel.ErrNameUnknown.With("account not found").WriteAsRegistryV2ResponseTo(w)
 		return
 	}
 

@@ -190,16 +190,15 @@ func (d *keystoneDriver) SetupAccount(account database.Account, authorization ke
 }
 
 //AuthenticateUser implements the keppel.AuthDriver interface.
-func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Authorization, error) {
+func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Authorization, *keppel.RegistryV2Error) {
 	return d.AuthenticateUserInTenant(userName, password, "")
 }
 
 //AuthenticateUserInTenant implements the keppel.AuthDriver interface.
-func (d *keystoneDriver) AuthenticateUserInTenant(userName, password, tenantID string) (keppel.Authorization, error) {
+func (d *keystoneDriver) AuthenticateUserInTenant(userName, password, tenantID string) (keppel.Authorization, *keppel.RegistryV2Error) {
 	usernameFields := strings.SplitN(userName, "@", 2)
 	if len(usernameFields) != 2 {
-		logg.Info(`invalid username in Authorization header (expected "user@domain" format)`)
-		return nil, keppel.ErrUnauthorized
+		return nil, keppel.ErrUnauthorized.With(`invalid username (expected "user@domain" format)`)
 	}
 
 	authOpts := gophercloud.AuthOptions{
@@ -215,25 +214,26 @@ func (d *keystoneDriver) AuthenticateUserInTenant(userName, password, tenantID s
 	result := tokens.Create(d.IdentityV3, &authOpts)
 	t := d.TokenValidator.TokenFromGophercloudResult(result)
 	if t.Err != nil {
-		logg.Info("failed to get token for user %q in project %q: %s", userName, tenantID, t.Err.Error())
-		return nil, keppel.ErrUnauthorized
+		return nil, keppel.ErrUnauthorized.With(
+			"failed to get token for user %q in project %q: %s",
+			userName, tenantID, t.Err.Error(),
+		)
 	}
 	return &keystoneAuthorization{t}, nil
 }
 
 //AuthenticateUserFromRequest implements the keppel.AuthDriver interface.
-func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Authorization, error) {
+func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Authorization, *keppel.RegistryV2Error) {
 	t := d.TokenValidator.CheckToken(r)
 	if t.Err != nil {
-		logg.Info("X-Auth-Token validation failed: " + t.Err.Error())
-		return nil, keppel.ErrUnauthorized
+		return nil, keppel.ErrUnauthorized.With("X-Auth-Token validation failed: " + t.Err.Error())
 	}
 
 	t.Context.Logger = logg.Debug
 	//token.Context.Request = mux.Vars(r) //not used at the moment
 
 	if !t.Check("account:list") {
-		return nil, keppel.ErrForbidden
+		return nil, keppel.ErrDenied.With("")
 	}
 	return keystoneAuthorization{t}, nil
 }

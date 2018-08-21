@@ -23,7 +23,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -61,11 +60,11 @@ type tokenClaims struct {
 
 //ParseTokenFromRequest tries to parse the Bearer token supplied in the
 //request's Authorization header.
-func ParseTokenFromRequest(r *http.Request) (*Token, error) {
+func ParseTokenFromRequest(r *http.Request) (*Token, *keppel.RegistryV2Error) {
 	//read Authorization request header
 	tokenStr := r.Header.Get("Authorization")
 	if !strings.HasPrefix(tokenStr, "Bearer ") { //e.g. because it's missing
-		return nil, errors.New("no bearer token found in request headers")
+		return nil, keppel.ErrUnauthorized.With("no bearer token found in request headers")
 	}
 	tokenStr = strings.TrimPrefix(tokenStr, "Bearer ")
 
@@ -83,28 +82,28 @@ func ParseTokenFromRequest(r *http.Request) (*Token, error) {
 		return ourIssuerKey.PublicKey().CryptoPublicKey(), nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, keppel.ErrUnauthorized.With(err.Error())
 	}
 	if !token.Valid {
 		//NOTE: This branch is defense in depth. As of the time of this writing,
 		//token.Valid == false if and only if err != nil.
-		return nil, errors.New("token invalid")
+		return nil, keppel.ErrUnauthorized.With("token invalid")
 	}
 
 	//check claims (allow up to 3 seconds clock mismatch)
 	now := time.Now().Unix()
 	if !claims.StandardClaims.VerifyExpiresAt(now-3, true) {
-		return nil, errors.New("token expired")
+		return nil, keppel.ErrUnauthorized.With("token expired")
 	}
 	if !claims.StandardClaims.VerifyNotBefore(now+3, true) {
-		return nil, errors.New("token not valid yet")
+		return nil, keppel.ErrUnauthorized.With("token not valid yet")
 	}
 	publicHost := keppel.State.Config.APIPublicHostname()
 	if !claims.StandardClaims.VerifyIssuer("keppel-api@"+publicHost, true) {
-		return nil, errors.New("token has wrong issuer")
+		return nil, keppel.ErrUnauthorized.With("token has wrong issuer")
 	}
 	if !claims.StandardClaims.VerifyAudience(publicHost, true) {
-		return nil, errors.New("token has wrong audience")
+		return nil, keppel.ErrUnauthorized.With("token has wrong audience")
 	}
 
 	return &Token{

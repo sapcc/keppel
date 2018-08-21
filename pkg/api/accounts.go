@@ -30,13 +30,11 @@ import (
 )
 
 func respondWithAuthError(w http.ResponseWriter, err error) bool {
-	switch err {
+	switch err := err.(type) {
 	case nil:
 		return false
-	case keppel.ErrUnauthorized:
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-	case keppel.ErrForbidden:
-		http.Error(w, "Forbidden", http.StatusForbidden)
+	case *keppel.RegistryV2Error:
+		err.WriteAsTextTo(w)
 	default:
 		http.Error(w, "unexpected error: "+err.Error(), http.StatusInternalServerError)
 	}
@@ -44,6 +42,7 @@ func respondWithAuthError(w http.ResponseWriter, err error) bool {
 }
 
 func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
+	var err error
 	authz, err := keppel.State.AuthDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, err) {
 		return
@@ -71,6 +70,7 @@ func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *KeppelV1) handleGetAccount(w http.ResponseWriter, r *http.Request) {
+	var err error
 	authz, err := keppel.State.AuthDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, err) {
 		return
