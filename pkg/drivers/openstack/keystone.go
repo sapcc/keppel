@@ -220,7 +220,15 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Aut
 		authOpts.Scope.DomainName = authOpts.DomainName
 	}
 
-	result := tokens.Create(d.IdentityV3, &authOpts)
+	//use a fresh ServiceClient for tokens.Create(): otherwise, a 401 is going to
+	//confuse Gophercloud and make it refresh our own token although that's not
+	//the problem
+	client := *d.IdentityV3
+	client.TokenID = ""
+	client.EndpointLocator = nil
+	client.ReauthFunc = nil
+
+	result := tokens.Create(&client, &authOpts)
 	t := d.TokenValidator.TokenFromGophercloudResult(result)
 	if t.Err != nil {
 		return nil, keppel.ErrUnauthorized.With(
