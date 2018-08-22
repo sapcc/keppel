@@ -37,6 +37,9 @@ type Request struct {
 	Scope        *Scope
 	ClientID     string
 	OfflineToken bool
+	//the auth handler may add additional scopes in addition to the originally
+	//requested scope to encode access permissions, RBACs, etc.
+	CompiledScopes []Scope
 }
 
 //ParseRequest parses the data in a token request.
@@ -113,6 +116,11 @@ func (r Request) ToToken() *Token {
 	var access []Scope
 	if r.Scope != nil && len(r.Scope.Actions) > 0 {
 		access = []Scope{*r.Scope}
+	}
+	for _, scope := range r.CompiledScopes {
+		if len(scope.Actions) > 0 {
+			access = append(access, scope)
+		}
 	}
 
 	return &Token{

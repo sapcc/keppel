@@ -28,7 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
+	"regexp"
 
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
@@ -189,34 +189,43 @@ func (d *keystoneDriver) SetupAccount(account database.Account, authorization ke
 	return result.Err
 }
 
+//possible formats for the username:
+//
+//		user@domain/project@domain
+//		user@domain/project
+//
+var userNameRx = regexp.MustCompile(`^([^/@]+)@([^/@]+)/([^/@]+)(?:@([^/@]+))?$`)
+
+//                                    ^------^ ^------^ ^------^    ^------^
+//                                      user   u. dom.   project    pr. dom.
+
 //AuthenticateUser implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Authorization, *keppel.RegistryV2Error) {
-	return d.AuthenticateUserInTenant(userName, password, "")
-}
-
-//AuthenticateUserInTenant implements the keppel.AuthDriver interface.
-func (d *keystoneDriver) AuthenticateUserInTenant(userName, password, tenantID string) (keppel.Authorization, *keppel.RegistryV2Error) {
-	usernameFields := strings.SplitN(userName, "@", 2)
-	if len(usernameFields) != 2 {
-		return nil, keppel.ErrUnauthorized.With(`invalid username (expected "user@domain" format)`)
+	match := userNameRx.FindStringSubmatch(userName)
+	if match == nil {
+		return nil, keppel.ErrUnauthorized.With(`invalid username (expected "user@domain/project" or "user@domain/project@domain" format)`)
 	}
 
 	authOpts := gophercloud.AuthOptions{
 		IdentityEndpoint: d.IdentityV3.Endpoint,
-		Username:         usernameFields[0],
-		DomainName:       usernameFields[1],
+		Username:         match[1],
+		DomainName:       match[2],
 		Password:         password,
+		Scope: &gophercloud.AuthScope{
+			ProjectName: match[3],
+			DomainName:  match[4],
+		},
 	}
-	if tenantID != "" {
-		authOpts.Scope = &gophercloud.AuthScope{ProjectID: tenantID}
+	if authOpts.Scope.DomainName == "" {
+		authOpts.Scope.DomainName = authOpts.DomainName
 	}
 
 	result := tokens.Create(d.IdentityV3, &authOpts)
 	t := d.TokenValidator.TokenFromGophercloudResult(result)
 	if t.Err != nil {
 		return nil, keppel.ErrUnauthorized.With(
-			"failed to get token for user %q in project %q: %s",
-			userName, tenantID, t.Err.Error(),
+			"failed to get token for user %q: %s",
+			userName, t.Err.Error(),
 		)
 	}
 	return &keystoneAuthorization{t}, nil

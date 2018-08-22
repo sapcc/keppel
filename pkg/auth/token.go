@@ -41,6 +41,9 @@ type Token struct {
 	UserName string
 	//Access permissions for this token.
 	Access []Scope
+	//ListableAccounts is only set when Access contains "registy:catalog:*", and
+	//identifies the accounts that may be listed by the user of this token.
+	ListableAccounts []string
 }
 
 //Contains returns true if the given token authorizes the user for this scope.

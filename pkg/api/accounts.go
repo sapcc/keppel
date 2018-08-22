@@ -30,12 +30,15 @@ import (
 )
 
 func respondWithAuthError(w http.ResponseWriter, err error) bool {
-	switch err := err.(type) {
-	case nil:
+	if err == nil {
 		return false
-	case *keppel.RegistryV2Error:
-		err.WriteAsTextTo(w)
-	default:
+	}
+	if e, ok := err.(*keppel.RegistryV2Error); ok {
+		if e == nil { //WTF: no idea why this is not caught above
+			return false
+		}
+		e.WriteAsTextTo(w)
+	} else {
 		http.Error(w, "unexpected error: "+err.Error(), http.StatusInternalServerError)
 	}
 	return true

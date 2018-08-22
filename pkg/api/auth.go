@@ -51,13 +51,7 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check user access
-	var authz keppel.Authorization
-	if account == nil {
-		authz, err = keppel.State.AuthDriver.AuthenticateUser(req.UserName, req.Password)
-	} else {
-		authz, err = keppel.State.AuthDriver.AuthenticateUserInTenant(
-			req.UserName, req.Password, account.AuthTenantID)
-	}
+	authz, err := keppel.State.AuthDriver.AuthenticateUser(req.UserName, req.Password)
 	if respondWithAuthError(w, err) {
 		return
 	}
@@ -66,7 +60,15 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	if req.Scope != nil {
 		switch req.Scope.ResourceType {
 		case "registry":
-			req.Scope.Actions = filterRegistryActions(req.Scope.Actions, authz)
+			if req.Scope.ResourceName == "catalog" {
+				req.Scope.Actions = []string{"*"}
+				req.CompiledScopes, err = compileCatalogAccess(authz)
+				if respondwith.ErrorText(w, err) {
+					return
+				}
+			} else {
+				req.Scope.Actions = nil
+			}
 		case "repository":
 			if account == nil {
 				req.Scope.Actions = nil
@@ -85,22 +87,6 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, tokenInfo)
 }
 
-func filterRegistryActions(actions []string, authz keppel.Authorization) (result []string) {
-	//TODO FIXME: This always returns an empty slice in practice, because when a
-	//user wants to see the catalog, their token is not scoped to a specific
-	//account. Therefore there are no role assignments that
-	//`access.CanViewAccounts()` could consider, so it always returns false.
-	//
-	//We might have to list role assignments for the user, and *generate* new
-	//scopes for each account where the user "CanViewAccount".
-	for _, action := range actions {
-		if action == "*" {
-			result = append(result, action)
-		}
-	}
-	return
-}
-
 func filterRepoActions(actions []string, authz keppel.Authorization, account database.Account) (result []string) {
 	for _, action := range actions {
 		if action == "pull" && authz.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
@@ -110,4 +96,25 @@ func filterRepoActions(actions []string, authz keppel.Authorization, account dat
 		}
 	}
 	return
+}
+
+func compileCatalogAccess(authz keppel.Authorization) ([]auth.Scope, error) {
+	var accounts []database.Account
+	_, err := keppel.State.DB.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+
+	var scopes []auth.Scope
+	for _, account := range accounts {
+		if authz.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
+			scopes = append(scopes, auth.Scope{
+				ResourceType: "keppel_account",
+				ResourceName: account.Name,
+				Actions:      []string{"view"},
+			})
+		}
+	}
+
+	return scopes, nil
 }

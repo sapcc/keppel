@@ -41,8 +41,8 @@ const (
 	CanChangeAccount
 )
 
-//Authorization describes the access rights for some user, possibly limited to
-//some tenant. It is returned by methods in the AuthDriver interface.
+//Authorization describes the access rights for a user. It is returned by
+//methods in the AuthDriver interface.
 type Authorization interface {
 	HasPermission(perm Permission, tenantID string) bool
 }
@@ -74,15 +74,9 @@ type AuthDriver interface {
 	SetupAccount(account database.Account, an Authorization) error
 
 	//AuthenticateUser authenticates the user identified by the given username
-	//and password, and validates if the user has access to *any* tenant. If an
-	//error is returned, it MUST be either ErrUnauthorized or //ErrForbidden from
-	//this package.
+	//and password. Note that usernames may not contain colons, because
+	//credentials are encoded by clients in the "username:password" format.
 	AuthenticateUser(userName, password string) (Authorization, *RegistryV2Error)
-	//AuthenticateUserFromCredentials authenticates the user identifed by the
-	//given username and password, and validates if the user has access to the
-	//given tenant. If an error is returned, it MUST be either ErrUnauthorized or
-	//ErrForbidden from this package.
-	AuthenticateUserInTenant(userName, password, tenantID string) (Authorization, *RegistryV2Error)
 	//AuthenticateUserFromRequest reads credentials from the given incoming HTTP
 	//request to authenticate the user which makes this request. The
 	//implementation shall follow the conventions of the concrete backend, e.g. a
