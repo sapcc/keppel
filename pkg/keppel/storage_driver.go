@@ -21,8 +21,6 @@ package keppel
 
 import (
 	"errors"
-
-	"github.com/sapcc/keppel/pkg/database"
 )
 
 //StorageDriver is the abstract interface for a multi-tenant-capable storage
@@ -42,7 +40,7 @@ type StorageDriver interface {
 	//The tenant is backed by the given AuthDriver. Implementations should
 	//inspect the driver to ensure that the storage backend can work with this
 	//authentication method, returning ErrAuthDriverMismatch otherwise.
-	GetEnvironment(account database.Account, driver AuthDriver) ([]string, error)
+	GetEnvironment(account Account, driver AuthDriver) ([]string, error)
 }
 
 //Error types used by StorageDriver.

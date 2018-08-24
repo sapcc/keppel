@@ -23,8 +23,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-
-	"github.com/sapcc/keppel/pkg/database"
 )
 
 //OrchestrationDriver is the abstract interface for the orchestrator that
@@ -38,7 +36,7 @@ type OrchestrationDriver interface {
 	//DoHTTPRequest forwards the given request to the keppel-registry for the
 	//given account. If this keppel-registry is not running, it may be launched
 	//as a result of this call.
-	DoHTTPRequest(account database.Account, r *http.Request) (*http.Response, error)
+	DoHTTPRequest(account Account, r *http.Request) (*http.Response, error)
 	//Run is called exactly once by main() to launch all persistent goroutines
 	//used by the orchestrator. All resources shall be scoped on the given context.
 	//Run() shall block until the context expires or a fatal error is encountered.

@@ -36,7 +36,6 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
 	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/keppel/pkg/database"
 	"github.com/sapcc/keppel/pkg/keppel"
 )
 
@@ -175,7 +174,7 @@ func (d *keystoneDriver) ValidateTenantID(tenantID string) error {
 }
 
 //SetupAccount implements the keppel.AuthDriver interface.
-func (d *keystoneDriver) SetupAccount(account database.Account, authorization keppel.Authorization) error {
+func (d *keystoneDriver) SetupAccount(account keppel.Account, authorization keppel.Authorization) error {
 	requesterToken := authorization.(keystoneAuthorization).t //is a *gopherpolicy.Token
 	client, err := openstack.NewIdentityV3(
 		requesterToken.ProviderClient, gophercloud.EndpointOpts{})

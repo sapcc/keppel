@@ -22,8 +22,6 @@ package keppel
 import (
 	"errors"
 	"net/http"
-
-	"github.com/sapcc/keppel/pkg/database"
 )
 
 //Permission is an enum used by AuthDriver.
@@ -71,7 +69,7 @@ type AuthDriver interface {
 	//Keppel account. The caller must supply an Authorization that was obtained
 	//from one of the AuthenticateUserXXX methods of the same instance, because
 	//this operation may require more permissions than Keppel itself has.
-	SetupAccount(account database.Account, an Authorization) error
+	SetupAccount(account Account, an Authorization) error
 
 	//AuthenticateUser authenticates the user identified by the given username
 	//and password. Note that usernames may not contain colons, because

@@ -27,7 +27,6 @@ import (
 
 	"github.com/docker/libtrust"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/keppel/pkg/database"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -38,7 +37,7 @@ var State *StateStruct
 //StateStruct is the type of `var State`.
 type StateStruct struct {
 	Config              Configuration
-	DB                  *database.DB
+	DB                  *DB
 	AuthDriver          AuthDriver
 	OrchestrationDriver OrchestrationDriver
 	StorageDriver       StorageDriver
@@ -189,7 +188,7 @@ func ReadConfig(path string) {
 	if err != nil {
 		logg.Fatal("malformed db.url: %s", err.Error())
 	}
-	db, err := database.Init(dbURL)
+	db, err := initDB(dbURL)
 	if err != nil {
 		logg.Fatal(err.Error())
 	}

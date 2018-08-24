@@ -30,7 +30,6 @@ import (
 	"syscall"
 
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/keppel/pkg/database"
 	"github.com/sapcc/keppel/pkg/keppel"
 )
 
@@ -92,7 +91,7 @@ type processContext struct {
 	ProcessExitChan chan<- processExitMessage
 }
 
-func (pc *processContext) startRegistry(account database.Account, port uint16) error {
+func (pc *processContext) startRegistry(account keppel.Account, port uint16) error {
 	logg.Info("[account=%s] starting keppel-registry on port %d",
 		account.Name, port)
 	cmd := exec.Command("keppel-registry", "serve", baseConfigPath)

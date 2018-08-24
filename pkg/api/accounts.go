@@ -25,7 +25,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/keppel/pkg/database"
 	"github.com/sapcc/keppel/pkg/keppel"
 )
 
@@ -51,14 +50,14 @@ func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var accounts []database.Account
+	var accounts []keppel.Account
 	_, err = keppel.State.DB.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
 	if respondwith.ErrorText(w, err) {
 		return
 	}
 
 	//restrict accounts to those visible in the current scope
-	var accountsFiltered []database.Account
+	var accountsFiltered []keppel.Account
 	for _, account := range accounts {
 		if authz.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
 			accountsFiltered = append(accountsFiltered, account)
@@ -66,7 +65,7 @@ func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 	//ensure that this serializes as a list, not as null
 	if len(accountsFiltered) == 0 {
-		accountsFiltered = []database.Account{}
+		accountsFiltered = []keppel.Account{}
 	}
 
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"accounts": accountsFiltered})
@@ -123,7 +122,7 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accountToCreate := database.Account{
+	accountToCreate := keppel.Account{
 		Name:         accountName,
 		AuthTenantID: req.Account.AuthTenantID,
 	}
@@ -154,7 +153,7 @@ func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		if respondwith.ErrorText(w, err) {
 			return
 		}
-		defer database.RollbackUnlessCommitted(tx)
+		defer keppel.RollbackUnlessCommitted(tx)
 
 		account = &accountToCreate
 		err = tx.Insert(account)

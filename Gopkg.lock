@@ -54,7 +54,7 @@
   version = "v3.2.0"
 
 [[projects]]
-  digest = "1:cc484e200b5268eabbd5274550fbd0b8d82595c9b0d205012d4c75cc9a610012"
+  digest = "1:052ecabbf7cd331ec673472873893a67fec36ec44915c16b8f5b8b68f2a98315"
   name = "github.com/docker/distribution"
   packages = [
     ".",
@@ -73,8 +73,6 @@
     "registry/api/errcode",
     "registry/api/v2",
     "registry/auth",
-    "registry/auth/htpasswd",
-    "registry/auth/silly",
     "registry/auth/token",
     "registry/client",
     "registry/client/auth",
@@ -120,6 +118,21 @@
   ]
   pruneopts = "UT"
   revision = "535138d7bcd717d6531c701ef5933d98b1866257"
+
+[[projects]]
+  digest = "1:bd29cb0c0ff4ebf85e57dc19d4d38a9aebf6d9406212bd414fdfc5751a25041f"
+  name = "github.com/golang-migrate/migrate"
+  packages = [
+    ".",
+    "database",
+    "database/postgres",
+    "database/sqlite3",
+    "source",
+    "source/go_bindata",
+  ]
+  pruneopts = "UT"
+  revision = "e968e8a5f0fd43301a2e0ef025ce6db56eedb205"
+  version = "v3.4.0"
 
 [[projects]]
   branch = "master"
@@ -178,14 +191,15 @@
   revision = "adb9d91ee629dd8304c9f9d7c91977b9d7e61a35"
 
 [[projects]]
-  digest = "1:e49560bec65ed4ee4ecb008000c3f9d026029b117aa33251d9833d93ab9ab0aa"
+  branch = "master"
+  digest = "1:b8ce08d470e11c14084572e7a83e2d91b835c357999a157c1fe94d6538f6fcce"
   name = "github.com/lib/pq"
   packages = [
     ".",
     "oid",
   ]
   pruneopts = "UT"
-  revision = "b609790bd85edf8e9ab7e0f8912750a786177bcf"
+  revision = "4ded0e9383f75c197b3a2aaa6d590ac52df6fd79"
 
 [[projects]]
   branch = "master"
@@ -200,6 +214,14 @@
   revision = "56e3d1b71945877f116b87e7462fa96f427b0ecd"
 
 [[projects]]
+  branch = "master"
+  digest = "1:cc585fe869559066e8a0186cc07a7487c55083d7a701d94d2ec46fd7f9acb092"
+  name = "github.com/majewsky/sqlproxy"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "66c34829b29db560c3ef23289cc61f688426822a"
+
+[[projects]]
   digest = "1:d5d5bc46a33475b1dfe04d0f1bd3f2d7b749e5a057654664f9b3ba0fdb10698f"
   name = "github.com/mattes/migrate"
   packages = [
@@ -211,6 +233,14 @@
   ]
   pruneopts = "UT"
   revision = "69472d5f5cdca0fb2766d8d86f63cb2e78e1d869"
+
+[[projects]]
+  digest = "1:3cafc6a5a1b8269605d9df4c6956d43d8011fc57f266ca6b9d04da6c09dee548"
+  name = "github.com/mattn/go-sqlite3"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "25ecb14adfc7543176f7d85291ec7dba82c6f7e4"
+  version = "v1.9.0"
 
 [[projects]]
   digest = "1:666044031f9bc3e4a57ba8d8805ea61c202d6bbde8d488094aa039687c2b54b4"
@@ -228,15 +258,16 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:d64bee59ab06ff81a48c3299ac6b5311cb63f0f79832f82e9c7783e839454c9d"
+  digest = "1:bdca42f6ab46b268a41b7a1009841fcea787e38bbe31959777c7805902337fa8"
   name = "github.com/sapcc/go-bits"
   packages = [
     "gopherpolicy",
     "logg",
+    "postlite",
     "respondwith",
   ]
   pruneopts = "UT"
-  revision = "d4598afd8cd0c37d75292aab4503e7477bef90b2"
+  revision = "eb9d180601804bceaa97489a95e83074e7be7ddc"
 
 [[projects]]
   digest = "1:274f67cb6fed9588ea2521ecdac05a6d62a8c51c074c1fccc6a49a40ba80e925"
@@ -301,13 +332,9 @@
   revision = "b21fdbd4370f3717f3bbd2bf41c223bc273068e6"
 
 [[projects]]
-  digest = "1:756bfc1209e0730d7015997934fbfaa228bba639b13730e40e174448e1d693c3"
+  digest = "1:e7f6f08995053033055132f9941117dd0a57e25f547d47ea2fcec48a00212ba4"
   name = "golang.org/x/crypto"
-  packages = [
-    "bcrypt",
-    "blowfish",
-    "ocsp",
-  ]
+  packages = ["ocsp"]
   pruneopts = "UT"
   revision = "c10c31b5e94b6f7a0283272dc2bb27163dcea24b"
 
@@ -372,8 +399,6 @@
     "github.com/dgrijalva/jwt-go",
     "github.com/docker/distribution/context",
     "github.com/docker/distribution/registry",
-    "github.com/docker/distribution/registry/auth/htpasswd",
-    "github.com/docker/distribution/registry/auth/silly",
     "github.com/docker/distribution/registry/auth/token",
     "github.com/docker/distribution/registry/proxy",
     "github.com/docker/distribution/registry/storage/driver",
@@ -398,6 +423,7 @@
     "github.com/mitchellh/mapstructure",
     "github.com/sapcc/go-bits/gopherpolicy",
     "github.com/sapcc/go-bits/logg",
+    "github.com/sapcc/go-bits/postlite",
     "github.com/sapcc/go-bits/respondwith",
     "github.com/satori/go.uuid",
     "gopkg.in/gorp.v2",

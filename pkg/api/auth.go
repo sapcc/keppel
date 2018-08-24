@@ -24,7 +24,6 @@ import (
 
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/pkg/auth"
-	"github.com/sapcc/keppel/pkg/database"
 	"github.com/sapcc/keppel/pkg/keppel"
 )
 
@@ -40,7 +39,7 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//find account if scope requested
-	var account *database.Account
+	var account *keppel.Account
 	if req.Scope != nil && req.Scope.ResourceType == "repository" {
 		account, err = keppel.State.DB.FindAccount(req.Scope.AccountName())
 		if respondwith.ErrorText(w, err) {
@@ -87,7 +86,7 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, tokenInfo)
 }
 
-func filterRepoActions(actions []string, authz keppel.Authorization, account database.Account) (result []string) {
+func filterRepoActions(actions []string, authz keppel.Authorization, account keppel.Account) (result []string) {
 	for _, action := range actions {
 		if action == "pull" && authz.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
 			result = append(result, action)
@@ -99,7 +98,7 @@ func filterRepoActions(actions []string, authz keppel.Authorization, account dat
 }
 
 func compileCatalogAccess(authz keppel.Authorization) ([]auth.Scope, error) {
-	var accounts []database.Account
+	var accounts []keppel.Account
 	_, err := keppel.State.DB.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
 	if err != nil {
 		return nil, err

@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/keppel/pkg/database"
 	"github.com/sapcc/keppel/pkg/keppel"
 )
 
@@ -56,12 +55,12 @@ func (d *driver) ReadConfig(unmarshal func(interface{}) error) error {
 }
 
 type getPortRequest struct {
-	Account database.Account
+	Account keppel.Account
 	Result  chan<- uint16
 }
 
 //DoHTTPRequest implements the keppel.OrchestrationDriver interface.
-func (d *driver) DoHTTPRequest(account database.Account, r *http.Request) (*http.Response, error) {
+func (d *driver) DoHTTPRequest(account keppel.Account, r *http.Request) (*http.Response, error) {
 	resultChan := make(chan uint16, 1)
 	d.getPortRequestChan <- getPortRequest{
 		Account: account,
@@ -144,7 +143,7 @@ func (d *driver) Run(ctx context.Context) (ok bool) {
 
 func (d *driver) ensureAllRegistriesAreRunning() {
 	for {
-		var accounts []database.Account
+		var accounts []keppel.Account
 		_, err := keppel.State.DB.Select(&accounts, `SELECT * FROM accounts`)
 		if err != nil {
 			logg.Error("failed to enumerate accounts: " + err.Error())
