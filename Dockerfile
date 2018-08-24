@@ -1,6 +1,6 @@
 FROM golang:1.10-alpine as builder
 WORKDIR /x/src/github.com/sapcc/keppel/
-RUN apk add --no-cache make
+RUN apk add --no-cache make gcc musl-dev
 
 COPY . .
 RUN make install PREFIX=/pkg
