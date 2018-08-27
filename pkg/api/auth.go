@@ -34,7 +34,7 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		r.URL.RawQuery,
 	)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		respondwith.JSON(w, http.StatusBadRequest, map[string]string{"details": err.Error()})
 		return
 	}
 
@@ -42,7 +42,8 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	var account *keppel.Account
 	if req.Scope != nil && req.Scope.ResourceType == "repository" {
 		account, err = keppel.State.DB.FindAccount(req.Scope.AccountName())
-		if respondwith.ErrorText(w, err) {
+		if err != nil {
+			respondwith.JSON(w, http.StatusBadRequest, map[string]string{"details": err.Error()})
 			return
 		}
 		//do not check account == nil here yet to not leak account existence to
@@ -51,7 +52,8 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 
 	//check user access
 	authz, err := keppel.State.AuthDriver.AuthenticateUser(req.UserName, req.Password)
-	if respondWithAuthError(w, err) {
+	if err != nil {
+		respondwith.JSON(w, http.StatusUnauthorized, map[string]string{"details": err.Error()})
 		return
 	}
 
@@ -62,7 +64,8 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 			if req.Scope.ResourceName == "catalog" {
 				req.Scope.Actions = []string{"*"}
 				req.CompiledScopes, err = compileCatalogAccess(authz)
-				if respondwith.ErrorText(w, err) {
+				if err != nil {
+					respondwith.JSON(w, http.StatusBadRequest, map[string]string{"details": err.Error()})
 					return
 				}
 			} else {
@@ -80,7 +83,8 @@ func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tokenInfo, err := req.ToToken().ToResponse()
-	if respondwith.ErrorText(w, err) {
+	if err != nil {
+		respondwith.JSON(w, http.StatusBadRequest, map[string]string{"details": err.Error()})
 		return
 	}
 	respondwith.JSON(w, http.StatusOK, tokenInfo)
