@@ -17,17 +17,23 @@
 *
 *******************************************************************************/
 
-package api
+package authAPI
 
 import (
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/pkg/auth"
 	"github.com/sapcc/keppel/pkg/keppel"
 )
 
-func (api *KeppelV1) handleGetAuth(w http.ResponseWriter, r *http.Request) {
+//AddTo adds routes for this API to the given router.
+func AddTo(r *mux.Router) {
+	r.Methods("GET").Path("/keppel/v1/auth").HandlerFunc(handleGetAuth)
+}
+
+func handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	//parse request
 	req, err := auth.ParseRequest(
 		r.Header.Get("Authorization"),

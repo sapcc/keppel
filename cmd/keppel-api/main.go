@@ -30,7 +30,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/keppel/pkg/api"
+	authAPI "github.com/sapcc/keppel/pkg/api/auth"
+	keppelV1API "github.com/sapcc/keppel/pkg/api/keppel"
+	registryV2API "github.com/sapcc/keppel/pkg/api/registry"
 	"github.com/sapcc/keppel/pkg/keppel"
 
 	_ "github.com/sapcc/keppel/pkg/drivers/local_processes"
@@ -60,13 +62,16 @@ func main() {
 	if len(os.Args) != 2 {
 		logg.Fatal("usage: keppel-api <config-path>")
 	}
-	keppel.ReadConfig(os.Args[1]) //exits on error
+	err := keppel.ReadConfig(os.Args[1])
+	if err != nil {
+		logg.Fatal(err.Error())
+	}
 
 	//wire up HTTP handlers
 	r := mux.NewRouter()
-	kv1, rv2 := (&api.KeppelV1{}).Routers()
-	r.PathPrefix("/keppel/v1/").Handler(kv1)
-	r.PathPrefix("/v2/").Handler(rv2)
+	keppelV1API.AddTo(r)
+	authAPI.AddTo(r)
+	registryV2API.AddTo(r)
 	r.Methods("GET").Path("/health").HandlerFunc(handleHealthcheck)
 
 	//TODO Prometheus instrumentation

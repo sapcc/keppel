@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package api
+package keppelV1API
 
 import (
 	"encoding/json"
@@ -27,6 +27,16 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/pkg/keppel"
 )
+
+//AddTo adds routes for this API to the given router.
+func AddTo(r *mux.Router) {
+	//NOTE: Keppel account names are severely restricted because Postgres
+	//database names are derived from them. Those are, most importantly,
+	//case-insensitive and restricted to 64 chars.
+	r.Methods("GET").Path("/keppel/v1/accounts").HandlerFunc(handleGetAccounts)
+	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(handleGetAccount)
+	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(handlePutAccount)
+}
 
 func respondWithAuthError(w http.ResponseWriter, err error) bool {
 	if err == nil {
@@ -43,7 +53,7 @@ func respondWithAuthError(w http.ResponseWriter, err error) bool {
 	return true
 }
 
-func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
+func handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	var err error
 	authz, err := keppel.State.AuthDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, err) {
@@ -71,7 +81,7 @@ func (api *KeppelV1) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"accounts": accountsFiltered})
 }
 
-func (api *KeppelV1) handleGetAccount(w http.ResponseWriter, r *http.Request) {
+func handleGetAccount(w http.ResponseWriter, r *http.Request) {
 	var err error
 	authz, err := keppel.State.AuthDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, err) {
@@ -98,7 +108,7 @@ func (api *KeppelV1) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"account": account})
 }
 
-func (api *KeppelV1) handlePutAccount(w http.ResponseWriter, r *http.Request) {
+func handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	//decode request body
 	var req struct {
 		Account struct {

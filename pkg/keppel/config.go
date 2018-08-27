@@ -20,6 +20,7 @@
 package keppel
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/url"
@@ -145,16 +146,16 @@ func (s *storageDriverSection) UnmarshalYAML(unmarshal func(interface{}) error) 
 
 //ReadConfig parses the given configuration file and fills the Config package
 //variable.
-func ReadConfig(path string) {
+func ReadConfig(path string) error {
 	//read config file
 	configBytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		logg.Fatal("read configuration file: %s", err.Error())
+		return fmt.Errorf("read configuration file: %s", err.Error())
 	}
 	var cfg configuration
 	err = yaml.Unmarshal(configBytes, &cfg)
 	if err != nil {
-		logg.Fatal("parse configuration: %s", err.Error())
+		return fmt.Errorf("parse configuration: %s", err.Error())
 	}
 
 	//apply default values
@@ -164,38 +165,38 @@ func ReadConfig(path string) {
 
 	//check for required values
 	if cfg.API.PublicURL == "" {
-		logg.Fatal("missing api.public_url")
+		return fmt.Errorf("missing api.public_url")
 	}
 	if cfg.DB.URL == "" {
-		logg.Fatal("missing db.url")
+		return fmt.Errorf("missing db.url")
 	}
 	if cfg.Auth.Driver == nil {
-		logg.Fatal("missing auth.driver")
+		return fmt.Errorf("missing auth.driver")
 	}
 	if cfg.Storage.Driver == nil {
-		logg.Fatal("missing storage.driver")
+		return fmt.Errorf("missing storage.driver")
 	}
 	if cfg.Orch.Driver == nil {
-		logg.Fatal("missing orchestration.driver")
+		return fmt.Errorf("missing orchestration.driver")
 	}
 
 	//compile into State
 	publicURL, err := url.Parse(cfg.API.PublicURL)
 	if err != nil {
-		logg.Fatal("malformed api.public_url: %s", err.Error())
+		return fmt.Errorf("malformed api.public_url: %s", err.Error())
 	}
 	dbURL, err := url.Parse(cfg.DB.URL)
 	if err != nil {
-		logg.Fatal("malformed db.url: %s", err.Error())
+		return fmt.Errorf("malformed db.url: %s", err.Error())
 	}
 	db, err := initDB(dbURL)
 	if err != nil {
-		logg.Fatal(err.Error())
+		return err
 	}
 
 	err = cfg.Auth.Driver.Connect()
 	if err != nil {
-		logg.Fatal(err.Error())
+		return err
 	}
 
 	State = &StateStruct{
@@ -211,6 +212,7 @@ func ReadConfig(path string) {
 		JWTIssuerKey:        getIssuerKey(cfg.Trust.IssuerKeyIn),
 		JWTIssuerCertPEM:    getIssuerCertPEM(cfg.Trust.IssuerCertIn),
 	}
+	return nil
 }
 
 var (

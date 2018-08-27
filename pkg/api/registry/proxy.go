@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package api
+package registryV2API
 
 import (
 	"io"
@@ -29,6 +29,14 @@ import (
 	"github.com/sapcc/keppel/pkg/auth"
 	"github.com/sapcc/keppel/pkg/keppel"
 )
+
+//AddTo adds routes for this API to the given router.
+func AddTo(r *mux.Router) {
+	r.Methods("GET").Path("/v2/").HandlerFunc(handleProxyToplevel)
+	r.Methods("GET").Path("/v2/_catalog").HandlerFunc(handleProxyCatalog)
+	r.PathPrefix("/v2/{account:[a-z0-9-]{1,48}}/").HandlerFunc(handleProxyToAccount)
+	//see pkg/api/keppel/accounts.go for why account name format is limited
+}
 
 func requireBearerToken(w http.ResponseWriter, r *http.Request, scope *auth.Scope) *auth.Token {
 	token, err := auth.ParseTokenFromRequest(r)
@@ -45,7 +53,7 @@ func requireBearerToken(w http.ResponseWriter, r *http.Request, scope *auth.Scop
 }
 
 //This implements the GET /v2/ endpoint.
-func (api *KeppelV1) handleProxyToplevel(w http.ResponseWriter, r *http.Request) {
+func handleProxyToplevel(w http.ResponseWriter, r *http.Request) {
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
@@ -57,7 +65,7 @@ func (api *KeppelV1) handleProxyToplevel(w http.ResponseWriter, r *http.Request)
 }
 
 //This implements the GET /v2/_catalog endpoint.
-func (api *KeppelV1) handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
+func handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
@@ -66,13 +74,13 @@ func (api *KeppelV1) handleProxyCatalog(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	//TODO: stub (see also the FIXME in pkg/api/auth.go for why this is complicated)
+	//TODO: stub
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{
 		"repositories": []interface{}{},
 	})
 }
 
-func (api *KeppelV1) handleProxyToAccount(w http.ResponseWriter, r *http.Request) {
+func handleProxyToAccount(w http.ResponseWriter, r *http.Request) {
 	accountName := mux.Vars(r)["account"]
 	account, err := keppel.State.DB.FindAccount(accountName)
 	if respondwith.ErrorText(w, err) {
