@@ -20,6 +20,7 @@
 package keppel
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -28,7 +29,6 @@ import (
 	"regexp"
 
 	"github.com/docker/libtrust"
-	"github.com/sapcc/go-bits/logg"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -205,6 +205,15 @@ func ReadConfig(file io.Reader) error {
 		return err
 	}
 
+	issuerKey, err := getIssuerKey(cfg.Trust.IssuerKeyIn)
+	if err != nil {
+		return err
+	}
+	issuerCertPEM, err := getIssuerCertPEM(cfg.Trust.IssuerCertIn)
+	if err != nil {
+		return err
+	}
+
 	State = &StateStruct{
 		Config: Configuration{
 			APIListenAddress: cfg.API.ListenAddress,
@@ -215,8 +224,8 @@ func ReadConfig(file io.Reader) error {
 		AuthDriver:          cfg.Auth.Driver,
 		OrchestrationDriver: cfg.Orch.Driver,
 		StorageDriver:       cfg.Storage.Driver,
-		JWTIssuerKey:        getIssuerKey(cfg.Trust.IssuerKeyIn),
-		JWTIssuerCertPEM:    getIssuerCertPEM(cfg.Trust.IssuerCertIn),
+		JWTIssuerKey:        issuerKey,
+		JWTIssuerCertPEM:    issuerCertPEM,
 	}
 	return nil
 }
@@ -227,9 +236,9 @@ var (
 	stripWhitespaceRx = regexp.MustCompile(`(?m)^\s*|\s*$`)
 )
 
-func getIssuerKey(in string) libtrust.PrivateKey {
+func getIssuerKey(in string) (libtrust.PrivateKey, error) {
 	if in == "" {
-		logg.Fatal("missing trust.issuer_key")
+		return nil, errors.New("missing trust.issuer_key")
 	}
 
 	//if it looks like PEM, it's probably PEM; otherwise it's a filename
@@ -240,35 +249,35 @@ func getIssuerKey(in string) libtrust.PrivateKey {
 		var err error
 		buf, err = ioutil.ReadFile(in)
 		if err != nil {
-			logg.Fatal(err.Error())
+			return nil, err
 		}
 	}
 	buf = stripWhitespaceRx.ReplaceAll(buf, nil)
 
 	key, err := libtrust.UnmarshalPrivateKeyPEM(buf)
 	if err != nil {
-		logg.Fatal("failed to read trust.issuer_key: " + err.Error())
+		return nil, fmt.Errorf("failed to read trust.issuer_key: " + err.Error())
 	}
-	return key
+	return key, nil
 }
 
-func getIssuerCertPEM(in string) string {
+func getIssuerCertPEM(in string) (string, error) {
 	if in == "" {
-		logg.Fatal("missing trust.issuer_cert")
+		return "", errors.New("missing trust.issuer_cert")
 	}
 
 	//if it looks like PEM, it's probably PEM; otherwise it's a filename
 	if !looksLikePEMRx.MatchString(in) {
 		buf, err := ioutil.ReadFile(in)
 		if err != nil {
-			logg.Fatal(err.Error())
+			return "", err
 		}
 		in = string(buf)
 	}
 	in = stripWhitespaceRx.ReplaceAllString(in, "")
 
 	if !certificatePEMRx.MatchString(in) {
-		logg.Fatal("trust.issuer_cert does not look like a PEM-encoded X509 certificate: does not match regexp /%s/", certificatePEMRx.String())
+		return "", fmt.Errorf("trust.issuer_cert does not look like a PEM-encoded X509 certificate: does not match regexp /%s/", certificatePEMRx.String())
 	}
-	return in
+	return in, nil
 }

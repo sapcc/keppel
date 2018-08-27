@@ -107,7 +107,7 @@ func (d *keystoneDriver) Connect() error {
 	var err error
 	d.Client, err = openstack.NewClient(d.ServiceUser.AuthURL)
 	if err != nil {
-		logg.Fatal("cannot initialize OpenStack client: %v", err)
+		return fmt.Errorf("cannot initialize OpenStack client: %v", err)
 	}
 
 	//use http.DefaultClient, esp. to pick up the KEPPEL_INSECURE flag
