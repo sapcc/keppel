@@ -30,9 +30,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
-	authAPI "github.com/sapcc/keppel/pkg/api/auth"
-	keppelV1API "github.com/sapcc/keppel/pkg/api/keppel"
-	registryV2API "github.com/sapcc/keppel/pkg/api/registry"
+	authapi "github.com/sapcc/keppel/pkg/api/auth"
+	keppelv1api "github.com/sapcc/keppel/pkg/api/keppel"
+	registryv2api "github.com/sapcc/keppel/pkg/api/registry"
 	"github.com/sapcc/keppel/pkg/keppel"
 
 	_ "github.com/sapcc/keppel/pkg/drivers/local_processes"
@@ -75,9 +75,9 @@ func main() {
 
 	//wire up HTTP handlers
 	r := mux.NewRouter()
-	keppelV1API.AddTo(r)
-	authAPI.AddTo(r)
-	registryV2API.AddTo(r)
+	keppelv1api.AddTo(r)
+	authapi.AddTo(r)
+	registryv2api.AddTo(r)
 	r.Methods("GET").Path("/health").HandlerFunc(handleHealthcheck)
 
 	//TODO Prometheus instrumentation

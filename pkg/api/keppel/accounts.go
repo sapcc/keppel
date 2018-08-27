@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package keppelV1API
+package keppelv1api
 
 import (
 	"encoding/json"

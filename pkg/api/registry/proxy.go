@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package registryV2API
+package registryv2api
 
 import (
 	"io"
