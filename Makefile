@@ -31,7 +31,7 @@ GO_ALLPKGS := $(shell go list $(PKG)/...)
 # which packages to test with `go test`?
 GO_TESTPKGS := $(shell go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' $(PKG)/pkg/...)
 # which packages to measure coverage for?
-GO_COVERPKGS := $(shell go list $(PKG)/pkg/... | grep -v pkg/drivers | grep -v pkg/registry/swift-plus)
+GO_COVERPKGS := $(shell go list $(PKG)/pkg/... | grep -v pkg/drivers | grep -v pkg/registry/swift-plus | grep -v pkg/test/util)
 # output files from `go test`
 GO_COVERFILES := $(patsubst %,build/%.cover.out,$(subst /,_,$(GO_TESTPKGS)))
 

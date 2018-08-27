@@ -21,6 +21,7 @@ package keppel
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/url"
@@ -51,7 +52,7 @@ type StateStruct struct {
 type Configuration struct {
 	APIListenAddress string
 	APIPublicURL     url.URL
-	DatabaseURL      url.URL
+	DatabaseURL      *url.URL //is nil in unit tests
 }
 
 //APIPublicHostname returns the hostname from the APIPublicURL.
@@ -146,9 +147,9 @@ func (s *storageDriverSection) UnmarshalYAML(unmarshal func(interface{}) error) 
 
 //ReadConfig parses the given configuration file and fills the Config package
 //variable.
-func ReadConfig(path string) error {
+func ReadConfig(file io.Reader) error {
 	//read config file
-	configBytes, err := ioutil.ReadFile(path)
+	configBytes, err := ioutil.ReadAll(file)
 	if err != nil {
 		return fmt.Errorf("read configuration file: %s", err.Error())
 	}
@@ -208,7 +209,7 @@ func ReadConfig(path string) error {
 		Config: Configuration{
 			APIListenAddress: cfg.API.ListenAddress,
 			APIPublicURL:     *publicURL,
-			DatabaseURL:      *dbURL,
+			DatabaseURL:      dbURL,
 		},
 		DB:                  db,
 		AuthDriver:          cfg.Auth.Driver,

@@ -62,7 +62,13 @@ func main() {
 	if len(os.Args) != 2 {
 		logg.Fatal("usage: keppel-api <config-path>")
 	}
-	err := keppel.ReadConfig(os.Args[1])
+	cfgFile, err := os.Open(os.Args[1])
+	if err == nil {
+		err = keppel.ReadConfig(cfgFile)
+	}
+	if err == nil {
+		err = cfgFile.Close()
+	}
 	if err != nil {
 		logg.Fatal(err.Error())
 	}
