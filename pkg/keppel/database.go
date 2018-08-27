@@ -51,7 +51,7 @@ type DB struct {
 
 func initDB(dbURL *url.URL) (*DB, error) {
 	db, err := postlite.Connect(postlite.Configuration{
-		PostgresURL: dbURL,
+		PostgresURL: dbURL, //NOTE: is nil for keppel.TestMode == true
 		Migrations:  sqlMigrations,
 	})
 	if err != nil {
@@ -59,6 +59,9 @@ func initDB(dbURL *url.URL) (*DB, error) {
 	}
 
 	result := &DB{DbMap: gorp.DbMap{Db: db, Dialect: gorp.PostgresDialect{}}}
+	if dbURL == nil {
+		result.Dialect = gorp.SqliteDialect{}
+	}
 	initModels(&result.DbMap)
 	return result, nil
 }

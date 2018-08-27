@@ -167,7 +167,7 @@ func ReadConfig(path string) error {
 	if cfg.API.PublicURL == "" {
 		return fmt.Errorf("missing api.public_url")
 	}
-	if cfg.DB.URL == "" {
+	if cfg.DB.URL == "" && !TestMode {
 		return fmt.Errorf("missing db.url")
 	}
 	if cfg.Auth.Driver == nil {
@@ -185,9 +185,14 @@ func ReadConfig(path string) error {
 	if err != nil {
 		return fmt.Errorf("malformed api.public_url: %s", err.Error())
 	}
-	dbURL, err := url.Parse(cfg.DB.URL)
-	if err != nil {
-		return fmt.Errorf("malformed db.url: %s", err.Error())
+	var dbURL *url.URL
+	if TestMode {
+		dbURL = nil
+	} else {
+		dbURL, err = url.Parse(cfg.DB.URL)
+		if err != nil {
+			return fmt.Errorf("malformed db.url: %s", err.Error())
+		}
 	}
 	db, err := initDB(dbURL)
 	if err != nil {
