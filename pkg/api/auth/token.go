@@ -33,14 +33,21 @@ func AddTo(r *mux.Router) {
 	r.Methods("GET").Path("/keppel/v1/auth").HandlerFunc(handleGetAuth)
 }
 
+func respondWithError(w http.ResponseWriter, code int, err error) bool {
+	if err != nil {
+		respondwith.JSON(w, code, map[string]string{"details": err.Error()})
+		return true
+	}
+	return false
+}
+
 func handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	//parse request
 	req, err := auth.ParseRequest(
 		r.Header.Get("Authorization"),
 		r.URL.RawQuery,
 	)
-	if err != nil {
-		respondwith.JSON(w, http.StatusBadRequest, map[string]string{"details": err.Error()})
+	if respondWithError(w, http.StatusBadRequest, err) {
 		return
 	}
 
@@ -48,8 +55,7 @@ func handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	var account *keppel.Account
 	if req.Scope != nil && req.Scope.ResourceType == "repository" {
 		account, err = keppel.State.DB.FindAccount(req.Scope.AccountName())
-		if err != nil {
-			respondwith.JSON(w, http.StatusBadRequest, map[string]string{"details": err.Error()})
+		if respondWithError(w, http.StatusInternalServerError, err) {
 			return
 		}
 		//do not check account == nil here yet to not leak account existence to
@@ -58,8 +64,7 @@ func handleGetAuth(w http.ResponseWriter, r *http.Request) {
 
 	//check user access
 	authz, err := keppel.State.AuthDriver.AuthenticateUser(req.UserName, req.Password)
-	if err != nil {
-		respondwith.JSON(w, http.StatusUnauthorized, map[string]string{"details": err.Error()})
+	if respondWithError(w, http.StatusUnauthorized, err) {
 		return
 	}
 
@@ -70,8 +75,7 @@ func handleGetAuth(w http.ResponseWriter, r *http.Request) {
 			if req.Scope.ResourceName == "catalog" {
 				req.Scope.Actions = []string{"*"}
 				req.CompiledScopes, err = compileCatalogAccess(authz)
-				if err != nil {
-					respondwith.JSON(w, http.StatusBadRequest, map[string]string{"details": err.Error()})
+				if respondWithError(w, http.StatusInternalServerError, err) {
 					return
 				}
 			} else {
@@ -89,8 +93,7 @@ func handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tokenInfo, err := req.ToToken().ToResponse()
-	if err != nil {
-		respondwith.JSON(w, http.StatusBadRequest, map[string]string{"details": err.Error()})
+	if respondWithError(w, http.StatusBadRequest, err) {
 		return
 	}
 	respondwith.JSON(w, http.StatusOK, tokenInfo)
