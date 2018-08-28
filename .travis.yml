@@ -1,0 +1,13 @@
+language: go
+sudo: false
+
+go:
+    - 1.10
+
+install:
+    - go get -u github.com/golang/lint/golint
+    - go get -u github.com/mattn/goveralls
+
+script:
+    - make all check
+    - $HOME/gopath/bin/goveralls -coverprofile=build/cover.out -service=travis-ci
