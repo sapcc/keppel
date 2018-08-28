@@ -25,18 +25,17 @@ import (
 )
 
 //Permission is an enum used by AuthDriver.
-type Permission int
+type Permission string
 
 const (
-	_nullPermission Permission = iota
 	//CanViewAccount is the permission for viewing account metadata.
-	CanViewAccount
+	CanViewAccount Permission = "view"
 	//CanPullFromAccount is the permission for pulling images from this account.
-	CanPullFromAccount
+	CanPullFromAccount = "pull"
 	//CanPushToAccount is the permission for pushing images to this account.
-	CanPushToAccount
+	CanPushToAccount = "push"
 	//CanChangeAccount is the permission for creating and updating accounts.
-	CanChangeAccount
+	CanChangeAccount = "change"
 )
 
 //Authorization describes the access rights for a user. It is returned by

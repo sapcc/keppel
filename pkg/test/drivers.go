@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/sapcc/keppel/pkg/keppel"
 )
@@ -97,6 +98,9 @@ func (d *AuthDriver) Connect() error {
 
 //ValidateTenantID implements the keppel.AuthDriver interface.
 func (d *AuthDriver) ValidateTenantID(tenantID string) error {
+	if tenantID == "invalid" {
+		return errors.New(`must not be "invalid"`)
+	}
 	return nil
 }
 
@@ -108,16 +112,30 @@ func (d *AuthDriver) SetupAccount(account keppel.Account, an keppel.Authorizatio
 
 //AuthenticateUser implements the keppel.AuthDriver interface.
 func (d *AuthDriver) AuthenticateUser(userName, password string) (keppel.Authorization, *keppel.RegistryV2Error) {
-	return anythingGoesAuthorization{}, nil
+	return nil, keppel.ErrUnsupported.With("TODO: unimplemented")
 }
 
 //AuthenticateUserFromRequest implements the keppel.AuthDriver interface.
 func (d *AuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Authorization, *keppel.RegistryV2Error) {
-	return anythingGoesAuthorization{}, nil
+	hdr := r.Header.Get("X-Test-Perms")
+	if hdr == "" {
+		return nil, keppel.ErrUnauthorized.With("missing X-Test-Perms header")
+	}
+	perms := make(map[string]map[string]bool)
+	for _, field := range strings.Split(hdr, ",") {
+		fields := strings.SplitN(field, ":", 2)
+		if _, ok := perms[fields[0]]; !ok {
+			perms[fields[0]] = make(map[string]bool)
+		}
+		perms[fields[0]][fields[1]] = true
+	}
+	return authorization{perms}, nil
 }
 
-type anythingGoesAuthorization struct{}
+type authorization struct {
+	perms map[string]map[string]bool
+}
 
-func (anythingGoesAuthorization) HasPermission(perm keppel.Permission, tenantID string) bool {
-	return true
+func (a authorization) HasPermission(perm keppel.Permission, tenantID string) bool {
+	return a.perms[string(perm)][tenantID]
 }

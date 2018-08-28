@@ -20,14 +20,16 @@
 package keppelv1api
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/keppel/pkg/keppel"
 	"github.com/sapcc/keppel/pkg/test"
 )
 
-func TestAccountsAPI(t *testing.T) {
+func setup(t *testing.T) (http.Handler, *test.AuthDriver) {
 	test.Setup(t, `
 		api: { public_url: 'https://registry.example.org' }
 		auth: { driver: unittest }
@@ -38,10 +40,207 @@ func TestAccountsAPI(t *testing.T) {
 	r := mux.NewRouter()
 	AddTo(r)
 
+	return r, keppel.State.AuthDriver.(*test.AuthDriver)
+}
+
+func TestAccountsAPI(t *testing.T) {
+	r, authDriver := setup(t)
+
+	//no accounts right now
 	assert.HTTPRequest{
-		Method:           "GET",
-		Path:             "/keppel/v1/accounts",
-		ExpectStatusCode: 200,
-		ExpectJSON:       "fixtures/accounts-empty.json",
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: 200,
+		ExpectBody:   assert.JSONObject{"accounts": []interface{}{}},
+	}.Check(t, r)
+	assert.DeepEqual(t, "authDriver.AccountsThatWereSetUp",
+		authDriver.AccountsThatWereSetUp,
+		[]keppel.Account(nil),
+	)
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts/first",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: 404,
+		ExpectBody:   assert.StringData("no such account\n"),
+	}.Check(t, r)
+
+	//create an account (this request is executed twice to test idempotency)
+	for range []int{1, 2} {
+		assert.HTTPRequest{
+			Method: "PUT",
+			Path:   "/keppel/v1/accounts/first",
+			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+			Body: assert.JSONObject{
+				"account": assert.JSONObject{
+					"auth_tenant_id": "tenant1",
+				},
+			},
+			ExpectStatus: 200,
+			ExpectBody: assert.JSONObject{
+				"account": assert.JSONObject{
+					"name":           "first",
+					"auth_tenant_id": "tenant1",
+				},
+			},
+		}.Check(t, r)
+		assert.DeepEqual(t, "authDriver.AccountsThatWereSetUp",
+			authDriver.AccountsThatWereSetUp,
+			[]keppel.Account{{Name: "first", AuthTenantID: "tenant1"}},
+		)
+	}
+
+	//check that account shows up in GET...
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: 200,
+		ExpectBody: assert.JSONObject{
+			"accounts": []assert.JSONObject{{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+			}},
+		},
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts/first",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: 200,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+			},
+		},
+	}.Check(t, r)
+
+	//...but only when one has view permission on the correct tenant
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant2"},
+		ExpectStatus: 200,
+		ExpectBody: assert.JSONObject{
+			"accounts": []assert.JSONObject{},
+		},
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts/first",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant2"},
+		ExpectStatus: 404,
+		ExpectBody:   assert.StringData("no such account\n"),
+	}.Check(t, r)
+}
+
+func TestGetAccountsErrorCases(t *testing.T) {
+	r, _ := setup(t)
+
+	//test invalid authentication
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts",
+		ExpectStatus: 401,
+		ExpectBody:   assert.StringData("authentication required: missing X-Test-Perms header\n"),
+	}.Check(t, r)
+}
+
+func TestPutAccountErrorCases(t *testing.T) {
+	r, _ := setup(t)
+
+	//preparation: create an account (so that we can check the error that the requested account name is taken)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+			},
+		},
+		ExpectStatus: 200,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+			},
+		},
+	}.Check(t, r)
+
+	//test invalid inputs
+	assert.HTTPRequest{
+		Method:       "PUT",
+		Path:         "/keppel/v1/accounts/second",
+		Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body:         assert.StringData(`{"account":???}`),
+		ExpectStatus: 400,
+	}.Check(t, r)
+
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/second",
+		Header: map[string]string{"X-Test-Perms": "change:invalid"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "invalid",
+			},
+		},
+		ExpectStatus: 422,
+		ExpectBody:   assert.StringData("malformed attribute \"account.auth_tenant_id\" in request body: must not be \"invalid\"\n"),
+	}.Check(t, r)
+
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/keppel-api",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+			},
+		},
+		ExpectStatus: 422,
+		ExpectBody:   assert.StringData("account names with the prefix \"keppel-\" are reserved for internal use\n"),
+	}.Check(t, r)
+
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant2"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant2",
+			},
+		},
+		ExpectStatus: 409,
+		ExpectBody:   assert.StringData("account name already in use by a different tenant\n"),
+	}.Check(t, r)
+
+	//test invalid authentication/authorization
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/second",
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+			},
+		},
+		ExpectStatus: 401,
+		ExpectBody:   assert.StringData("authentication required: missing X-Test-Perms header\n"),
+	}.Check(t, r)
+
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/second",
+		Header: map[string]string{"X-Test-Perms": "view:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+			},
+		},
+		ExpectStatus: 403,
+		ExpectBody:   assert.StringData("Forbidden\n"),
 	}.Check(t, r)
 }

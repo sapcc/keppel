@@ -43,6 +43,7 @@ func respondWithAuthError(w http.ResponseWriter, err *keppel.RegistryV2Error) bo
 		return false
 	}
 	err.WriteAsTextTo(w)
+	w.Write([]byte("\n"))
 	return true
 }
 
@@ -91,6 +92,8 @@ func handleGetAccount(w http.ResponseWriter, r *http.Request) {
 		account = nil
 	}
 
+	//this returns 404 even if the real reason is lack of authorization in order
+	//to not leak information about which accounts exist for other tenants
 	if account == nil {
 		http.Error(w, "no such account", 404)
 		return
@@ -108,18 +111,18 @@ func handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		http.Error(w, "request body is not valid JSON: "+err.Error(), 400)
+		http.Error(w, "request body is not valid JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 	if err := keppel.State.AuthDriver.ValidateTenantID(req.Account.AuthTenantID); err != nil {
-		http.Error(w, `malformed attribute "account.auth_tenant_id" in request body: `+err.Error(), 400)
+		http.Error(w, `malformed attribute "account.auth_tenant_id" in request body: `+err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 
 	//reserve identifiers for internal pseudo-accounts
 	accountName := mux.Vars(r)["account"]
 	if strings.HasPrefix(accountName, "keppel-") {
-		http.Error(w, `account names with the prefix "keppel-" are reserved for internal use`, 400)
+		http.Error(w, `account names with the prefix "keppel-" are reserved for internal use`, http.StatusUnprocessableEntity)
 		return
 	}
 
