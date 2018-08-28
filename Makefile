@@ -11,12 +11,12 @@ GO_LDFLAGS    := -s -w -X $(PKG)/pkg/keppel.Version=$(shell util/find_version.sh
 # speed things up. If no source files have changed, `go install` exits quickly
 # without doing anything.
 build_all: $(patsubst cmd/%/main.go,build/%,$(wildcard cmd/*/main.go))
-build/%: FORCE
-	$(GO) install $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' '$(PKG)/cmd/$*'
+build/keppel-%: FORCE
+	$(GO) install $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' '$(PKG)/cmd/keppel-$*'
 
 install: FORCE $(patsubst cmd/%/main.go,install/%,$(wildcard cmd/*/main.go))
-install/%: build/% FORCE
-	install -D -m 0755 build/$* "$(DESTDIR)$(PREFIX)/bin/$*"
+install/keppel-%: build/keppel-% FORCE
+	install -D -m 0755 build/keppel-$* "$(DESTDIR)$(PREFIX)/bin/keppel-$*"
 
 ################################################################################
 
