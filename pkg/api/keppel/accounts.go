@@ -38,30 +38,22 @@ func AddTo(r *mux.Router) {
 	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(handlePutAccount)
 }
 
-func respondWithAuthError(w http.ResponseWriter, err error) bool {
+func respondWithAuthError(w http.ResponseWriter, err *keppel.RegistryV2Error) bool {
 	if err == nil {
 		return false
 	}
-	if e, ok := err.(*keppel.RegistryV2Error); ok {
-		if e == nil { //WTF: no idea why this is not caught above
-			return false
-		}
-		e.WriteAsTextTo(w)
-	} else {
-		http.Error(w, "unexpected error: "+err.Error(), http.StatusInternalServerError)
-	}
+	err.WriteAsTextTo(w)
 	return true
 }
 
 func handleGetAccounts(w http.ResponseWriter, r *http.Request) {
-	var err error
-	authz, err := keppel.State.AuthDriver.AuthenticateUserFromRequest(r)
-	if respondWithAuthError(w, err) {
+	authz, authErr := keppel.State.AuthDriver.AuthenticateUserFromRequest(r)
+	if respondWithAuthError(w, authErr) {
 		return
 	}
 
 	var accounts []keppel.Account
-	_, err = keppel.State.DB.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
+	_, err := keppel.State.DB.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -82,9 +74,8 @@ func handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleGetAccount(w http.ResponseWriter, r *http.Request) {
-	var err error
-	authz, err := keppel.State.AuthDriver.AuthenticateUserFromRequest(r)
-	if respondWithAuthError(w, err) {
+	authz, authErr := keppel.State.AuthDriver.AuthenticateUserFromRequest(r)
+	if respondWithAuthError(w, authErr) {
 		return
 	}
 
@@ -138,8 +129,8 @@ func handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check permission to create account
-	authz, err := keppel.State.AuthDriver.AuthenticateUserFromRequest(r)
-	if respondWithAuthError(w, err) {
+	authz, authErr := keppel.State.AuthDriver.AuthenticateUserFromRequest(r)
+	if respondWithAuthError(w, authErr) {
 		return
 	}
 	if !authz.HasPermission(keppel.CanChangeAccount, accountToCreate.AuthTenantID) {
