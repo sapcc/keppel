@@ -33,7 +33,8 @@ import (
 )
 
 //State is the master singleton containing all globally shared handles and
-//configuration values. It is filled by func ReadConfig().
+//configuration values. It is filled by func ReadConfig() during regular
+//operation, or by test.Setup() during unit tests.
 var State *StateStruct
 
 //StateStruct is the type of `var State`.

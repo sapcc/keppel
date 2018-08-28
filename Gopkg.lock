@@ -258,16 +258,17 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:bdca42f6ab46b268a41b7a1009841fcea787e38bbe31959777c7805902337fa8"
+  digest = "1:374db89cbf29ae22d8c03ee5fb67bfaa21da4bd6f24d128db73b2f1f8e1576c0"
   name = "github.com/sapcc/go-bits"
   packages = [
+    "assert",
     "gopherpolicy",
     "logg",
     "postlite",
     "respondwith",
   ]
   pruneopts = "UT"
-  revision = "eb9d180601804bceaa97489a95e83074e7be7ddc"
+  revision = "9ea1a2d8825baeb2113a01160d2241da9cc00576"
 
 [[projects]]
   digest = "1:274f67cb6fed9588ea2521ecdac05a6d62a8c51c074c1fccc6a49a40ba80e925"
@@ -421,6 +422,7 @@
     "github.com/mattes/migrate/database/postgres",
     "github.com/mattes/migrate/source/go-bindata",
     "github.com/mitchellh/mapstructure",
+    "github.com/sapcc/go-bits/assert",
     "github.com/sapcc/go-bits/gopherpolicy",
     "github.com/sapcc/go-bits/logg",
     "github.com/sapcc/go-bits/postlite",

@@ -73,3 +73,51 @@ func (*noopDriver) DoHTTPRequest(account keppel.Account, r *http.Request) (*http
 func (*noopDriver) Run(ctx context.Context) (ok bool) {
 	return false
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+//AuthDriver (driver ID "unittest") allows everything, but tracks all calls.
+type AuthDriver struct {
+	AccountsThatWereSetUp []keppel.Account
+}
+
+func init() {
+	keppel.RegisterAuthDriver("unittest", func() keppel.AuthDriver { return &AuthDriver{} })
+}
+
+//ReadConfig implements the keppel.AuthDriver interface.
+func (d *AuthDriver) ReadConfig(unmarshal func(interface{}) error) error {
+	return nil
+}
+
+//Connect implements the keppel.AuthDriver interface.
+func (d *AuthDriver) Connect() error {
+	return nil
+}
+
+//ValidateTenantID implements the keppel.AuthDriver interface.
+func (d *AuthDriver) ValidateTenantID(tenantID string) error {
+	return nil
+}
+
+//SetupAccount implements the keppel.AuthDriver interface.
+func (d *AuthDriver) SetupAccount(account keppel.Account, an keppel.Authorization) error {
+	d.AccountsThatWereSetUp = append(d.AccountsThatWereSetUp, account)
+	return nil
+}
+
+//AuthenticateUser implements the keppel.AuthDriver interface.
+func (d *AuthDriver) AuthenticateUser(userName, password string) (keppel.Authorization, *keppel.RegistryV2Error) {
+	return anythingGoesAuthorization{}, nil
+}
+
+//AuthenticateUserFromRequest implements the keppel.AuthDriver interface.
+func (d *AuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Authorization, *keppel.RegistryV2Error) {
+	return anythingGoesAuthorization{}, nil
+}
+
+type anythingGoesAuthorization struct{}
+
+func (anythingGoesAuthorization) HasPermission(perm keppel.Permission, tenantID string) bool {
+	return true
+}
