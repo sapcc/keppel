@@ -298,13 +298,6 @@ func tryComputeContentLength(content io.Reader) *uint64 {
 	return nil
 }
 
-//This covers both bytes.Reader and strings.Reader in a way that is compatible
-//with earlier versions of Go that don't have strings.Reader yet.
-type likeBytesReader interface {
-	io.WriterTo
-	io.Seeker
-}
-
 func tryComputeEtag(content io.Reader, headers ObjectHeaders) {
 	h := headers.Etag()
 	if h.Exists() {
@@ -319,11 +312,11 @@ func tryComputeEtag(content io.Reader, headers ObjectHeaders) {
 		//so this one is easy
 		sum := md5.Sum(r.Bytes())
 		h.Set(hex.EncodeToString(sum[:]))
-	case likeBytesReader:
+	case io.ReadSeeker:
 		//bytes.Reader does not have such a method, but it is an io.Seeker, so we
 		//can read the entire thing and then seek back to where we started
 		hash := md5.New()
-		n, _ := r.WriteTo(hash)
+		n, _ := io.Copy(hash, r)
 		r.Seek(-n, io.SeekCurrent)
 		h.Set(hex.EncodeToString(hash.Sum(nil)))
 	}

@@ -21,7 +21,7 @@ COVERPKGS = $(PKG),$(PKG)/gopherschwift # comma-separated list of packages for w
 
 static-tests: FORCE
 	@echo '>> gofmt...'
-	@if s="$$(gofmt -s -l $$(find -name \*.go) 2>/dev/null)" && test -n "$$s"; then echo "$$s"; false; fi
+	@if s="$$(gofmt -s -l $$(find . -name \*.go) 2>/dev/null)" && test -n "$$s"; then echo "$$s"; false; fi
 	@echo '>> golint...'
 	@if s="$$(golint $(TESTPKGS) 2>/dev/null)" && test -n "$$s"; then echo "$$s"; false; fi
 	@echo '>> govet...'

@@ -661,7 +661,7 @@ func (lo *LargeObject) AddSegment(segment SegmentInfo) error {
 //
 //This function uploads segment objects, so it may return any error that
 //Object.Upload() returns, see documentation over there.
-func (lo *LargeObject) Append(contents io.Reader, segmentSizeBytes int64) error {
+func (lo *LargeObject) Append(contents io.Reader, segmentSizeBytes int64, opts *RequestOptions) error {
 	if segmentSizeBytes < 0 {
 		panic("segmentSizeBytes may not be negative")
 	}
@@ -690,7 +690,7 @@ func (lo *LargeObject) Append(contents io.Reader, segmentSizeBytes int64) error 
 		}
 
 		obj := lo.NextSegmentObject()
-		err := obj.Upload(&tracker, nil, nil)
+		err := obj.Upload(&tracker, nil, opts)
 		if err != nil {
 			return err
 		}

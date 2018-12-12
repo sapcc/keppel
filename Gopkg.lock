@@ -2,7 +2,7 @@
 
 
 [[projects]]
-  digest = "1:cfcc37416c7b331117ca7e7e84cc923848a27daa16f5c63655cb526b645acf5b"
+  digest = "1:7dfa8c1d400e618d8ecc64a7a5340854c66d0e8fb5af24e84f6c7c9be6899ab9"
   name = "github.com/Sirupsen/logrus"
   packages = [
     ".",
@@ -13,7 +13,7 @@
   version = "v0.7.3"
 
 [[projects]]
-  digest = "1:ef77f571ba1a787703244ed5fdc4cc95451af14e0a721f4572d2185247479e54"
+  digest = "1:982da6118468bd03ae8112629d68d829a0df727c898ec2e912011b33a1ae0417"
   name = "github.com/bugsnag/bugsnag-go"
   packages = [
     ".",
@@ -54,7 +54,7 @@
   version = "v3.2.0"
 
 [[projects]]
-  digest = "1:052ecabbf7cd331ec673472873893a67fec36ec44915c16b8f5b8b68f2a98315"
+  digest = "1:175956fe6a41177d37578982c9b2accdd46596bec4ea7c268dd41eb508c09763"
   name = "github.com/docker/distribution"
   packages = [
     ".",
@@ -110,7 +110,7 @@
   revision = "fa567046d9b14f6aa788882a950d69651d230b21"
 
 [[projects]]
-  digest = "1:0d21cd5c2fee7cf4455e3d51d5d2df4087cb543766b424856ad17683deda60f8"
+  digest = "1:73e02c830775d85efc9a7b1c2c0cfff88f33ff8c283468cb08ef5b9490ff8f12"
   name = "github.com/garyburd/redigo"
   packages = [
     "internal",
@@ -120,7 +120,7 @@
   revision = "535138d7bcd717d6531c701ef5933d98b1866257"
 
 [[projects]]
-  digest = "1:bd29cb0c0ff4ebf85e57dc19d4d38a9aebf6d9406212bd414fdfc5751a25041f"
+  digest = "1:7ed977f2fcc3ae715c1aa9ac175da9d4606e494baa0c7f26418d021beaef285f"
   name = "github.com/golang-migrate/migrate"
   packages = [
     ".",
@@ -136,7 +136,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:29d2e9ee1d5dfd44b013941e978c34bc269cfad3ec8b3f0549b7411c4a1c8920"
+  digest = "1:f6d7cee7132185e2990e6eec34ccdd9fdad28005f5176b294cc3a459b5d75952"
   name = "github.com/gophercloud/gophercloud"
   packages = [
     ".",
@@ -192,7 +192,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b8ce08d470e11c14084572e7a83e2d91b835c357999a157c1fe94d6538f6fcce"
+  digest = "1:8ef506fc2bb9ced9b151dafa592d4046063d744c646c1bbe801982ce87e4bc24"
   name = "github.com/lib/pq"
   packages = [
     ".",
@@ -203,7 +203,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:7766153c611a5d362375ee33607a525b88533e930e3c7e7f5c5a0e3e547c6ed8"
+  digest = "1:5aa226b2bb5c48b24ce8ca6c7e0870bc4c03be488fd1d6d03e6d6530468d4538"
   name = "github.com/majewsky/schwift"
   packages = [
     ".",
@@ -211,7 +211,7 @@
     "gopherschwift",
   ]
   pruneopts = "UT"
-  revision = "56e3d1b71945877f116b87e7462fa96f427b0ecd"
+  revision = "e1b3d5e2efc913f52df74291c0c90efb346faa0e"
 
 [[projects]]
   branch = "master"
@@ -222,7 +222,7 @@
   revision = "66c34829b29db560c3ef23289cc61f688426822a"
 
 [[projects]]
-  digest = "1:d5d5bc46a33475b1dfe04d0f1bd3f2d7b749e5a057654664f9b3ba0fdb10698f"
+  digest = "1:fe0d3d78ad46ecc28cf0414d69167e253c717a019b348a8cb22ddf208669cce4"
   name = "github.com/mattes/migrate"
   packages = [
     ".",
@@ -258,7 +258,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:191dd5877b9516e36b45f2c87caa0f42194d1162b117eba902cc1686aa87d552"
+  digest = "1:c3f9b350ba819ac718d51070bf999a252192e34300da533fcdf1047d1d5398e7"
   name = "github.com/sapcc/go-bits"
   packages = [
     "assert",
@@ -294,7 +294,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:cfb76a7232a052ff91081fc04814bad48da7c0e4320b4d329e944c5d06cd56ac"
+  digest = "1:8e570d14a4798b4597dd4e9077c4ef213ecbfa6fba5bcd94134d4732df645551"
   name = "github.com/stevvooe/resumable"
   packages = [
     ".",
@@ -340,7 +340,7 @@
   revision = "c10c31b5e94b6f7a0283272dc2bb27163dcea24b"
 
 [[projects]]
-  digest = "1:8add07d306ca2f05ccd4facaebd630fbd58e03d9476adf468fd8b3b13a4d92e9"
+  digest = "1:ce7f04e13c05bce2a49845dca68acc69f02331cb0d838dea8a6ea408fe131f3d"
   name = "golang.org/x/net"
   packages = [
     "context",
@@ -366,7 +366,7 @@
   version = "2.1"
 
 [[projects]]
-  digest = "1:3b341dd3e8c439ecc5f01b3ce2cc3f77bc8c109402df1fdae96493011634b2a7"
+  digest = "1:4d380e1ae34abd77a3432cd1cd702a96aaa626bb722e206c8b2356be3225e4f6"
   name = "gopkg.in/square/go-jose.v1"
   packages = [
     ".",
