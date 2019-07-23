@@ -18,7 +18,6 @@ import (
 	"strings"
 	"time"
 
-	dcontext "github.com/docker/distribution/context"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"github.com/docker/distribution/registry/storage/driver/base"
 	"github.com/docker/distribution/registry/storage/driver/factory"
@@ -337,7 +336,7 @@ func (p *plusDriver) Name() string {
 }
 
 //GetContent implements the storagedriver.StorageDriver interface.
-func (p *plusDriver) GetContent(ctx dcontext.Context, fullPath string) ([]byte, error) {
+func (p *plusDriver) GetContent(ctx context.Context, fullPath string) ([]byte, error) {
 	//try to retrieve file from the database
 	fi, err := p.readFileInfo(ctx, fullPath)
 
@@ -364,7 +363,7 @@ func (p *plusDriver) GetContent(ctx dcontext.Context, fullPath string) ([]byte, 
 }
 
 //PutContent implements the storagedriver.StorageDriver interface.
-func (p *plusDriver) PutContent(ctx dcontext.Context, fullPath string, contents []byte) error {
+func (p *plusDriver) PutContent(ctx context.Context, fullPath string, contents []byte) error {
 	//if file exists already, remove its previous content from Swift
 	fi, err := p.readFileInfo(ctx, fullPath)
 	switch err {
@@ -410,7 +409,7 @@ func (p *plusDriver) PutContent(ctx dcontext.Context, fullPath string, contents 
 }
 
 //Reader implements the storagedriver.StorageDriver interface.
-func (p *plusDriver) Reader(ctx dcontext.Context, fullPath string, offset int64) (io.ReadCloser, error) {
+func (p *plusDriver) Reader(ctx context.Context, fullPath string, offset int64) (io.ReadCloser, error) {
 	fi, err := p.readFileInfo(ctx, fullPath)
 	if err == sql.ErrNoRows || fi.IsDir() {
 		return nil, storagedriver.PathNotFoundError{Path: fullPath}
@@ -443,7 +442,7 @@ func (p *plusDriver) Reader(ctx dcontext.Context, fullPath string, offset int64)
 }
 
 //Writer implements the storagedriver.StorageDriver interface.
-func (p *plusDriver) Writer(ctx dcontext.Context, fullPath string, append bool) (w storagedriver.FileWriter, err error) {
+func (p *plusDriver) Writer(ctx context.Context, fullPath string, append bool) (w storagedriver.FileWriter, err error) {
 	w, err = newPlusWriter(ctx, p, fullPath, append)
 	if w != nil {
 		w = newBufferedWriter(w, p.swift.ChunkSize)
@@ -452,7 +451,7 @@ func (p *plusDriver) Writer(ctx dcontext.Context, fullPath string, append bool) 
 }
 
 //Stat implements the storagedriver.StorageDriver interface.
-func (p *plusDriver) Stat(ctx dcontext.Context, fullPath string) (storagedriver.FileInfo, error) {
+func (p *plusDriver) Stat(ctx context.Context, fullPath string) (storagedriver.FileInfo, error) {
 	//special case: health check looks at Stat("/") even though it's entirely bogus
 	if fullPath == "/" {
 		return fileInfo{
@@ -471,7 +470,7 @@ func (p *plusDriver) Stat(ctx dcontext.Context, fullPath string) (storagedriver.
 }
 
 //List implements the storagedriver.StorageDriver interface.
-func (p *plusDriver) List(ctx dcontext.Context, fullPath string) ([]string, error) {
+func (p *plusDriver) List(ctx context.Context, fullPath string) ([]string, error) {
 	rows, err := p.db.QueryContext(ctx, `SELECT basename FROM files WHERE dirname = $1`, fullPath)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -496,7 +495,7 @@ func (p *plusDriver) List(ctx dcontext.Context, fullPath string) ([]string, erro
 }
 
 //Move implements the storagedriver.StorageDriver interface.
-func (p *plusDriver) Move(ctx dcontext.Context, sourcePath string, destPath string) error {
+func (p *plusDriver) Move(ctx context.Context, sourcePath string, destPath string) error {
 	fi1, err := p.readFileInfo(ctx, sourcePath)
 	if err == sql.ErrNoRows {
 		return storagedriver.PathNotFoundError{Path: sourcePath}
@@ -531,7 +530,7 @@ func (p *plusDriver) Move(ctx dcontext.Context, sourcePath string, destPath stri
 }
 
 //Delete implements the storagedriver.StorageDriver interface.
-func (p *plusDriver) Delete(ctx dcontext.Context, fullPath string) error {
+func (p *plusDriver) Delete(ctx context.Context, fullPath string) error {
 	fi, err := p.readFileInfo(ctx, fullPath)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -587,8 +586,13 @@ func (p *plusDriver) deleteBlobs(ctx context.Context, fi fileInfo) error {
 	return p.swift.DeleteAll(ctx, prependPrefix(p.swift.ObjectPrefix, fi.Location)+"/")
 }
 
+//Walk implements the storagedriver.StorageDriver interface.
+func (p *plusDriver) Walk(ctx context.Context, path string, f storagedriver.WalkFn) error {
+	return storagedriver.WalkFallback(ctx, p, path, f)
+}
+
 //URLFor implements the storagedriver.StorageDriver interface.
-func (p *plusDriver) URLFor(ctx dcontext.Context, fullPath string, options map[string]interface{}) (string, error) {
+func (p *plusDriver) URLFor(ctx context.Context, fullPath string, options map[string]interface{}) (string, error) {
 	fi, err := p.readFileInfo(ctx, fullPath)
 	if err == sql.ErrNoRows {
 		return "", storagedriver.PathNotFoundError{Path: fullPath}
