@@ -1,0 +1,176 @@
+# github.com/Shopify/logrus-bugsnag v0.0.0-20171204204709-577dee27f20d
+github.com/Shopify/logrus-bugsnag
+# github.com/beorn7/perks v1.0.0
+github.com/beorn7/perks/quantile
+# github.com/bshuster-repo/logrus-logstash-hook v0.4.1
+github.com/bshuster-repo/logrus-logstash-hook
+# github.com/bugsnag/bugsnag-go v0.0.0-20141110184014-b1d153021fcd
+github.com/bugsnag/bugsnag-go
+github.com/bugsnag/bugsnag-go/errors
+# github.com/bugsnag/osext v0.0.0-20130617224835-0dd3f918b21b
+github.com/bugsnag/osext
+# github.com/bugsnag/panicwrap v0.0.0-20151223152923-e2c28503fcd0
+github.com/bugsnag/panicwrap
+# github.com/databus23/goslo.policy v0.0.0-20170317131957-3ae74dd07ebf
+github.com/databus23/goslo.policy
+# github.com/dgrijalva/jwt-go v3.2.0+incompatible
+github.com/dgrijalva/jwt-go
+# github.com/docker/distribution v2.7.1+incompatible
+github.com/docker/distribution/registry
+github.com/docker/distribution/registry/auth/token
+github.com/docker/distribution/registry/proxy
+github.com/docker/distribution/registry/storage/driver/filesystem
+github.com/docker/distribution/registry/storage/driver/inmemory
+github.com/docker/distribution/registry/storage/driver/middleware/redirect
+github.com/docker/distribution/registry/storage/driver
+github.com/docker/distribution/registry/storage/driver/base
+github.com/docker/distribution/registry/storage/driver/factory
+github.com/docker/distribution/version
+github.com/docker/distribution/configuration
+github.com/docker/distribution/context
+github.com/docker/distribution/health
+github.com/docker/distribution/registry/handlers
+github.com/docker/distribution/registry/listener
+github.com/docker/distribution/registry/storage
+github.com/docker/distribution/uuid
+github.com/docker/distribution/registry/auth
+github.com/docker/distribution
+github.com/docker/distribution/reference
+github.com/docker/distribution/registry/client
+github.com/docker/distribution/registry/client/auth
+github.com/docker/distribution/registry/client/auth/challenge
+github.com/docker/distribution/registry/client/transport
+github.com/docker/distribution/registry/proxy/scheduler
+github.com/docker/distribution/registry/storage/driver/middleware
+github.com/docker/distribution/metrics
+github.com/docker/distribution/registry/api/errcode
+github.com/docker/distribution/health/checks
+github.com/docker/distribution/manifest/manifestlist
+github.com/docker/distribution/manifest/ocischema
+github.com/docker/distribution/manifest/schema1
+github.com/docker/distribution/manifest/schema2
+github.com/docker/distribution/notifications
+github.com/docker/distribution/registry/api/v2
+github.com/docker/distribution/registry/middleware/registry
+github.com/docker/distribution/registry/middleware/repository
+github.com/docker/distribution/registry/storage/cache/memory
+github.com/docker/distribution/registry/storage/cache/redis
+github.com/docker/distribution/manifest
+github.com/docker/distribution/registry/storage/cache
+github.com/docker/distribution/digestset
+# github.com/docker/go-metrics v0.0.0-20181218153428-b84716841b82
+github.com/docker/go-metrics
+# github.com/docker/libtrust v0.0.0-20150114040149-fa567046d9b1
+github.com/docker/libtrust
+# github.com/garyburd/redigo v0.0.0-20150301180006-535138d7bcd7
+github.com/garyburd/redigo/redis
+github.com/garyburd/redigo/internal
+# github.com/golang-migrate/migrate v3.4.0+incompatible
+github.com/golang-migrate/migrate
+github.com/golang-migrate/migrate/database
+github.com/golang-migrate/migrate/database/postgres
+github.com/golang-migrate/migrate/source/go_bindata
+github.com/golang-migrate/migrate/source
+# github.com/golang/protobuf v1.3.2
+github.com/golang/protobuf/proto
+# github.com/gophercloud/gophercloud v0.2.0
+github.com/gophercloud/gophercloud
+github.com/gophercloud/gophercloud/openstack
+github.com/gophercloud/gophercloud/openstack/identity/v3/roles
+github.com/gophercloud/gophercloud/openstack/identity/v3/tokens
+github.com/gophercloud/gophercloud/openstack/identity/v2/tokens
+github.com/gophercloud/gophercloud/openstack/utils
+github.com/gophercloud/gophercloud/internal
+github.com/gophercloud/gophercloud/pagination
+github.com/gophercloud/gophercloud/openstack/identity/v2/tenants
+# github.com/gorilla/context v1.1.1
+github.com/gorilla/context
+# github.com/gorilla/handlers v0.0.0-20150720190736-60c7bfde3e33
+github.com/gorilla/handlers
+# github.com/gorilla/mux v0.0.0-20170228224354-599cba5e7b61
+github.com/gorilla/mux
+# github.com/inconshreveable/mousetrap v1.0.0
+github.com/inconshreveable/mousetrap
+# github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629
+github.com/jpillora/longestcommon
+# github.com/konsorten/go-windows-terminal-sequences v1.0.2
+github.com/konsorten/go-windows-terminal-sequences
+# github.com/lib/pq v1.0.0
+github.com/lib/pq
+github.com/lib/pq/oid
+# github.com/majewsky/schwift v0.0.0-20180906125654-e1b3d5e2efc9
+github.com/majewsky/schwift
+github.com/majewsky/schwift/gopherschwift
+github.com/majewsky/schwift/capabilities
+# github.com/mattes/migrate v0.0.0-20171024180000-69472d5f5cdc
+github.com/mattes/migrate
+github.com/mattes/migrate/database/postgres
+github.com/mattes/migrate/source/go-bindata
+github.com/mattes/migrate/database
+github.com/mattes/migrate/source
+# github.com/matttproud/golang_protobuf_extensions v1.0.1
+github.com/matttproud/golang_protobuf_extensions/pbutil
+# github.com/miekg/dns v0.0.0-20161122061214-271c58e0c14f
+github.com/miekg/dns
+# github.com/mitchellh/mapstructure v0.0.0-20150528213339-482a9fd5fa83
+github.com/mitchellh/mapstructure
+# github.com/opencontainers/go-digest v1.0.0-rc1
+github.com/opencontainers/go-digest
+# github.com/opencontainers/image-spec v1.0.1
+github.com/opencontainers/image-spec/specs-go/v1
+github.com/opencontainers/image-spec/specs-go
+# github.com/prometheus/client_golang v1.0.0
+github.com/prometheus/client_golang/prometheus
+github.com/prometheus/client_golang/prometheus/promhttp
+github.com/prometheus/client_golang/prometheus/internal
+# github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
+github.com/prometheus/client_model/go
+# github.com/prometheus/common v0.6.0
+github.com/prometheus/common/expfmt
+github.com/prometheus/common/model
+github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
+# github.com/prometheus/procfs v0.0.3
+github.com/prometheus/procfs
+github.com/prometheus/procfs/internal/fs
+# github.com/sapcc/go-bits v0.0.0-20190522121402-dabab492e20b
+github.com/sapcc/go-bits/logg
+github.com/sapcc/go-bits/respondwith
+github.com/sapcc/go-bits/gopherpolicy
+github.com/sapcc/go-bits/easypg
+github.com/sapcc/go-bits/assert
+# github.com/satori/go.uuid v1.2.0
+github.com/satori/go.uuid
+# github.com/sirupsen/logrus v1.4.2
+github.com/sirupsen/logrus
+# github.com/spf13/cobra v0.0.0-20150605180824-312092086bed
+github.com/spf13/cobra
+# github.com/spf13/pflag v0.0.0-20150601220040-564482062245
+github.com/spf13/pflag
+# github.com/xenolf/lego v0.0.0-20160613233155-a9d8cec0e656
+github.com/xenolf/lego/acme
+# github.com/yvasiyarov/go-metrics v0.0.0-20140926110328-57bccd1ccd43
+github.com/yvasiyarov/go-metrics
+# github.com/yvasiyarov/gorelic v0.0.0-20141212073537-a9bba5b9ab50
+github.com/yvasiyarov/gorelic
+# github.com/yvasiyarov/newrelic_platform_go v0.0.0-20140908184405-b21fdbd4370f
+github.com/yvasiyarov/newrelic_platform_go
+# golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
+golang.org/x/crypto/ocsp
+# golang.org/x/net v0.0.0-20190628185345-da137c7871d7
+golang.org/x/net/context
+golang.org/x/net/publicsuffix
+# golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7
+golang.org/x/sys/unix
+golang.org/x/sys/windows
+# golang.org/x/time v0.0.0-20160202183820-a4bde1265759
+golang.org/x/time/rate
+# gopkg.in/gorp.v2 v2.0.0-20180226155812-4df78490a9aa
+gopkg.in/gorp.v2
+# gopkg.in/square/go-jose.v1 v1.0.1
+gopkg.in/square/go-jose.v1
+gopkg.in/square/go-jose.v1/cipher
+gopkg.in/square/go-jose.v1/json
+# gopkg.in/yaml.v2 v2.2.2
+gopkg.in/yaml.v2
+# rsc.io/letsencrypt v0.0.0-00010101000000-000000000000 => github.com/dmcgowan/letsencrypt v0.0.0-20160928181947-1847a81d2087
+rsc.io/letsencrypt
