@@ -24,7 +24,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sapcc/keppel/pkg/keppel"
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //Setup parses the given Keppel configuration and sets up keppel.TestMode and

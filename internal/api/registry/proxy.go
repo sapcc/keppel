@@ -26,8 +26,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/keppel/pkg/auth"
-	"github.com/sapcc/keppel/pkg/keppel"
+	"github.com/sapcc/keppel/internal/auth"
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //AddTo adds routes for this API to the given router.
@@ -35,7 +35,7 @@ func AddTo(r *mux.Router) {
 	r.Methods("GET").Path("/v2/").HandlerFunc(handleProxyToplevel)
 	r.Methods("GET").Path("/v2/_catalog").HandlerFunc(handleProxyCatalog)
 	r.PathPrefix("/v2/{account:[a-z0-9-]{1,48}}/").HandlerFunc(handleProxyToAccount)
-	//see pkg/api/keppel/accounts.go for why account name format is limited
+	//see internal/api/keppel/accounts.go for why account name format is limited
 }
 
 func requireBearerToken(w http.ResponseWriter, r *http.Request, scope *auth.Scope) *auth.Token {

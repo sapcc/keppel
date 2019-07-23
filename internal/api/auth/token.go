@@ -24,8 +24,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/keppel/pkg/auth"
-	"github.com/sapcc/keppel/pkg/keppel"
+	"github.com/sapcc/keppel/internal/auth"
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //AddTo adds routes for this API to the given router.

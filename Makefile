@@ -5,7 +5,7 @@ all: build_all
 
 GO            := GOPATH=$(CURDIR)/.gopath GOBIN=$(CURDIR)/build go
 GO_BUILDFLAGS :=
-GO_LDFLAGS    := -s -w -X $(PKG)/pkg/keppel.Version=$(shell util/find_version.sh)
+GO_LDFLAGS    := -s -w -X $(PKG)/internal/keppel.Version=$(shell util/find_version.sh)
 
 # These targets use the incremental rebuild capabilities of the Go compiler to
 # speed things up. If no source files have changed, `go install` exits quickly
@@ -29,9 +29,9 @@ run-api-%: build/keppel-api build/keppel-registry
 # which packages to test with static checkers?
 GO_ALLPKGS := $(shell go list $(PKG)/...)
 # which packages to test with `go test`?
-GO_TESTPKGS := $(shell go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' $(PKG)/pkg/...)
+GO_TESTPKGS := $(shell go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' $(PKG)/internal/...)
 # which packages to measure coverage for?
-GO_COVERPKGS := $(shell go list $(PKG)/pkg/... | grep -v pkg/drivers | grep -v pkg/registry/swift-plus | grep -v pkg/test/util)
+GO_COVERPKGS := $(shell go list $(PKG)/internal/... | grep -v internal/drivers | grep -v internal/registry/swift-plus | grep -v internal/test/util)
 # output files from `go test`
 GO_COVERFILES := $(patsubst %,build/%.cover.out,$(subst /,_,$(GO_TESTPKGS)))
 
@@ -45,16 +45,16 @@ check: all static-check build/cover.html FORCE
 static-check: FORCE
 	@if ! hash golint 2>/dev/null; then echo ">> Installing golint..."; go get -u github.com/golang/lint/golint; fi
 	@echo '>> gofmt'
-	@if s="$$(gofmt -s -l *.go pkg 2>/dev/null)"                            && test -n "$$s"; then printf ' => %s\n%s\n' gofmt  "$$s"; false; fi
+	@if s="$$(gofmt -s -l *.go internal 2>/dev/null)"                            && test -n "$$s"; then printf ' => %s\n%s\n' gofmt  "$$s"; false; fi
 	@echo '>> golint'
-	@if s="$$(golint . && find pkg -type d ! -name dbdata -exec golint {} \; 2>/dev/null)" && test -n "$$s"; then printf ' => %s\n%s\n' golint "$$s"; false; fi
+	@if s="$$(golint . && find internal -type d ! -name dbdata -exec golint {} \; 2>/dev/null)" && test -n "$$s"; then printf ' => %s\n%s\n' golint "$$s"; false; fi
 	@echo '>> go vet'
 	@$(GO) vet $(GO_ALLPKGS)
 build/%.cover.out: FORCE
 	@echo '>> go test $*'
 	$(GO) test $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(subst _,/,$*)
 build/cover.out: $(GO_COVERFILES)
-	pkg/test/util/gocovcat.go $(GO_COVERFILES) > $@
+	internal/test/util/gocovcat.go $(GO_COVERFILES) > $@
 build/cover.html: build/cover.out
 	$(GO) tool cover -html $< -o $@
 

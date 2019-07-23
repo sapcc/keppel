@@ -30,7 +30,7 @@ import (
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/docker/libtrust"
-	"github.com/sapcc/keppel/pkg/keppel"
+	"github.com/sapcc/keppel/internal/keppel"
 	uuid "github.com/satori/go.uuid"
 )
 

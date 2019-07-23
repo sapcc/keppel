@@ -36,7 +36,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
 	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/keppel/pkg/keppel"
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 type keystoneDriver struct {

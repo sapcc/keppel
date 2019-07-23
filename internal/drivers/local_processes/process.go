@@ -30,7 +30,7 @@ import (
 	"syscall"
 
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/keppel/pkg/keppel"
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //The base configuration file for keppel-registry, which contains all values

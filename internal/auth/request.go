@@ -27,7 +27,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sapcc/keppel/pkg/keppel"
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //Request contains the query parameters and credentials in a token request.

@@ -22,7 +22,7 @@ package openstack
 import (
 	"os"
 
-	"github.com/sapcc/keppel/pkg/keppel"
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 type swiftDriver struct{}

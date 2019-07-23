@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/sapcc/keppel/pkg/keppel"
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //Implements all three Driver interfaces. All methods return errors or empty

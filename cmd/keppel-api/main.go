@@ -30,13 +30,13 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
-	authapi "github.com/sapcc/keppel/pkg/api/auth"
-	keppelv1api "github.com/sapcc/keppel/pkg/api/keppel"
-	registryv2api "github.com/sapcc/keppel/pkg/api/registry"
-	"github.com/sapcc/keppel/pkg/keppel"
+	authapi "github.com/sapcc/keppel/internal/api/auth"
+	keppelv1api "github.com/sapcc/keppel/internal/api/keppel"
+	registryv2api "github.com/sapcc/keppel/internal/api/registry"
+	"github.com/sapcc/keppel/internal/keppel"
 
-	_ "github.com/sapcc/keppel/pkg/drivers/local_processes"
-	_ "github.com/sapcc/keppel/pkg/drivers/openstack"
+	_ "github.com/sapcc/keppel/internal/drivers/local_processes"
+	_ "github.com/sapcc/keppel/internal/drivers/openstack"
 )
 
 func main() {

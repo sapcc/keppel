@@ -25,8 +25,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
-	"github.com/sapcc/keppel/pkg/keppel"
-	"github.com/sapcc/keppel/pkg/test"
+	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/test"
 )
 
 func setup(t *testing.T) (http.Handler, *test.AuthDriver) {
