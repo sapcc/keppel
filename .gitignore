@@ -1,3 +1,12 @@
+# build artifacts
+.gopath/pkg/
 build/
+
+# runtime artifacts (see Makefile)
 /*.yaml
+
+# testing artifacts
+testing/postgresql-data/
+testing/postgresql-run/
+testing/postgresql.log
 *.actual

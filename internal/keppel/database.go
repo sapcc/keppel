@@ -23,8 +23,8 @@ import (
 	"database/sql"
 	"net/url"
 
+	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/go-bits/postlite"
 	gorp "gopkg.in/gorp.v2"
 )
 
@@ -46,8 +46,8 @@ type DB struct {
 }
 
 func initDB(dbURL *url.URL) (*DB, error) {
-	db, err := postlite.Connect(postlite.Configuration{
-		PostgresURL: dbURL, //NOTE: is nil for keppel.TestMode == true
+	db, err := easypg.Connect(easypg.Configuration{
+		PostgresURL: dbURL,
 		Migrations:  sqlMigrations,
 	})
 	if err != nil {
@@ -55,9 +55,6 @@ func initDB(dbURL *url.URL) (*DB, error) {
 	}
 
 	result := &DB{DbMap: gorp.DbMap{Db: db, Dialect: gorp.PostgresDialect{}}}
-	if dbURL == nil {
-		result.Dialect = gorp.SqliteDialect{}
-	}
 	initModels(&result.DbMap)
 	return result, nil
 }

@@ -21,6 +21,7 @@ package test
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -30,18 +31,39 @@ import (
 //Setup parses the given Keppel configuration and sets up keppel.TestMode and
 //keppel.State for the test.
 func Setup(t *testing.T, configYAML string) {
-	t.Helper()
+	// t.Helper()
 	keppel.TestMode = true
+
+	var postgresURL string
+	if os.Getenv("TRAVIS") == "true" {
+		//cf. https://docs.travis-ci.com/user/database-setup/#postgresql
+		postgresURL = "postgres://postgres@localhost/castellum?sslmode=disable"
+	} else {
+		//suitable for use with ./testing/with-postgres-db.sh
+		postgresURL = "postgres://postgres@localhost:54321/castellum?sslmode=disable"
+	}
 
 	//WTF: YAML parser chokes on leading tabs
 	configYAML = strings.Replace(configYAML, "\t", "  ", -1)
 	configYAML += "\n    trust:"
 	configYAML += "\n      issuer_key: " + fmt.Sprintf("%q", UnitTestIssuerPrivateKey)
 	configYAML += "\n      issuer_cert: " + fmt.Sprintf("%q", UnitTestIssuerCert)
+	configYAML += "\n    db:"
+	configYAML += "\n      url: " + postgresURL
 
 	err := keppel.ReadConfig(strings.NewReader(configYAML))
 	if err != nil {
-		t.Fatal(err.Error())
+		t.Error(err)
+		t.Log("Try prepending ./testing/with-postgres-db.sh to your command.")
+		t.FailNow()
+	}
+
+	//wipe the DB clean if there are any leftovers from the previous test run
+	for _, tableName := range []string{"accounts"} {
+		_, err := keppel.State.DB.Exec("DELETE FROM " + tableName)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
 	}
 }
 

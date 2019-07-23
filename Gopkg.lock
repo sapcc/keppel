@@ -143,13 +143,12 @@
   revision = "535138d7bcd717d6531c701ef5933d98b1866257"
 
 [[projects]]
-  digest = "1:7ed977f2fcc3ae715c1aa9ac175da9d4606e494baa0c7f26418d021beaef285f"
+  digest = "1:5365250c415af64ee9e126ac83e1534414662448514253f84dbd6dffe556bad5"
   name = "github.com/golang-migrate/migrate"
   packages = [
     ".",
     "database",
     "database/postgres",
-    "database/sqlite3",
     "source",
     "source/go_bindata",
   ]
@@ -253,14 +252,6 @@
   revision = "e1b3d5e2efc913f52df74291c0c90efb346faa0e"
 
 [[projects]]
-  branch = "master"
-  digest = "1:cc585fe869559066e8a0186cc07a7487c55083d7a701d94d2ec46fd7f9acb092"
-  name = "github.com/majewsky/sqlproxy"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "66c34829b29db560c3ef23289cc61f688426822a"
-
-[[projects]]
   digest = "1:fe0d3d78ad46ecc28cf0414d69167e253c717a019b348a8cb22ddf208669cce4"
   name = "github.com/mattes/migrate"
   packages = [
@@ -272,14 +263,6 @@
   ]
   pruneopts = "UT"
   revision = "69472d5f5cdca0fb2766d8d86f63cb2e78e1d869"
-
-[[projects]]
-  digest = "1:3cafc6a5a1b8269605d9df4c6956d43d8011fc57f266ca6b9d04da6c09dee548"
-  name = "github.com/mattn/go-sqlite3"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "25ecb14adfc7543176f7d85291ec7dba82c6f7e4"
-  version = "v1.9.0"
 
 [[projects]]
   digest = "1:ff5ebae34cfbf047d505ee150de27e60570e8c394b3b8fdbb720ff6ac71985fc"
@@ -367,17 +350,17 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c3f9b350ba819ac718d51070bf999a252192e34300da533fcdf1047d1d5398e7"
+  digest = "1:d8555f54ec27f030f5fe4c8faca1626bb396a57792386691672b1bc8e004e792"
   name = "github.com/sapcc/go-bits"
   packages = [
     "assert",
+    "easypg",
     "gopherpolicy",
     "logg",
-    "postlite",
     "respondwith",
   ]
   pruneopts = "UT"
-  revision = "ed29938ce01cdd95629409bd903c8c81934385d4"
+  revision = "dabab492e20bc8dd6603eeb2a924384c4955f4a3"
 
 [[projects]]
   digest = "1:274f67cb6fed9588ea2521ecdac05a6d62a8c51c074c1fccc6a49a40ba80e925"
@@ -514,7 +497,6 @@
   analyzer-version = 1
   input-imports = [
     "github.com/dgrijalva/jwt-go",
-    "github.com/docker/distribution/context",
     "github.com/docker/distribution/registry",
     "github.com/docker/distribution/registry/auth/token",
     "github.com/docker/distribution/registry/proxy",
@@ -539,9 +521,9 @@
     "github.com/mattes/migrate/source/go-bindata",
     "github.com/mitchellh/mapstructure",
     "github.com/sapcc/go-bits/assert",
+    "github.com/sapcc/go-bits/easypg",
     "github.com/sapcc/go-bits/gopherpolicy",
     "github.com/sapcc/go-bits/logg",
-    "github.com/sapcc/go-bits/postlite",
     "github.com/sapcc/go-bits/respondwith",
     "github.com/satori/go.uuid",
     "gopkg.in/gorp.v2",
