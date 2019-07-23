@@ -3,6 +3,9 @@ PREFIX := /usr
 
 all: build_all
 
+# NOTE: This repo uses Go modules, and uses a synthetic GOPATH at
+# $(CURDIR)/.gopath that is only used for the build cache. $GOPATH/src/ is
+# empty.
 GO            := GOPATH=$(CURDIR)/.gopath GOBIN=$(CURDIR)/build go
 GO_BUILDFLAGS :=
 GO_LDFLAGS    := -s -w -X $(PKG)/internal/keppel.Version=$(shell util/find_version.sh)
@@ -59,5 +62,8 @@ build/cover.out: $(GO_COVERFILES)
 	$(GO) run $(GO_BUILDFLAGS) util/gocovcat.go $(GO_COVERFILES) > $@
 build/cover.html: build/cover.out
 	$(GO) tool cover -html $< -o $@
+
+vendor: FORCE
+	$(GO) mod vendor
 
 .PHONY: FORCE
