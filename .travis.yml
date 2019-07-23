@@ -1,5 +1,5 @@
 addons:
-  postgresql: "9.5"
+  postgresql: "11"
 services:
   - postgresql
 
