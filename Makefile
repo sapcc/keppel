@@ -41,20 +41,22 @@ space := $(null) $(null)
 comma := ,
 
 check: all static-check build/cover.html FORCE
-	@echo -e "\e[1;32m>> All tests successful.\e[0m"
+	@printf "\e[1;32m>> All tests successful.\e[0m\n"
 static-check: FORCE
-	@if ! hash golint 2>/dev/null; then echo ">> Installing golint..."; go get -u github.com/golang/lint/golint; fi
-	@echo '>> gofmt'
-	@if s="$$(gofmt -s -l *.go internal 2>/dev/null)"                            && test -n "$$s"; then printf ' => %s\n%s\n' gofmt  "$$s"; false; fi
-	@echo '>> golint'
-	@if s="$$(golint . && find internal -type d ! -name dbdata -exec golint {} \; 2>/dev/null)" && test -n "$$s"; then printf ' => %s\n%s\n' golint "$$s"; false; fi
-	@echo '>> go vet'
-	@$(GO) vet $(GO_ALLPKGS)
+	@if ! hash golint 2>/dev/null; then printf "\e[1;36m>> Installing golint...\e[0m\n"; go get -u golang.org/x/lint/golint; fi
+	@printf "\e[1;36m>> gofmt\e[0m\n"
+	@if s="$$(gofmt -s -l *.go cmd pkg 2>/dev/null)"                            && test -n "$$s"; then printf ' => %s\n%s\n' gofmt  "$$s"; false; fi
+	@printf "\e[1;36m>> golint\e[0m\n"
+	@if s="$$(golint . && find cmd pkg -type d -exec golint {} \; 2>/dev/null)" && test -n "$$s"; then printf ' => %s\n%s\n' golint "$$s"; false; fi
+	@printf "\e[1;36m>> go vet\e[0m\n"
+	@$(GO) vet $(GO_BUILDFLAGS) $(GO_ALLPKGS)
+
+# detailed unit test run (incl. test coverage)
 build/%.cover.out: FORCE
-	@echo '>> go test $*'
+	@printf "\e[1;36m>> go test $(subst _,/,$*)\e[0m\n"
 	$(GO) test $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(subst _,/,$*)
 build/cover.out: $(GO_COVERFILES)
-	internal/test/util/gocovcat.go $(GO_COVERFILES) > $@
+	$(GO) run $(GO_BUILDFLAGS) util/gocovcat.go $(GO_COVERFILES) > $@
 build/cover.html: build/cover.out
 	$(GO) tool cover -html $< -o $@
 
