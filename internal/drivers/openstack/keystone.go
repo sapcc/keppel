@@ -51,12 +51,11 @@ type keystoneDriver struct {
 	} `yaml:"service_user"`
 	LocalRoleName  string `yaml:"local_role"`
 	PolicyFilePath string `yaml:"policy_path"`
-	//TODO remove when https://github.com/gophercloud/gophercloud/issues/1141 is accepted
-	UserID string `yaml:"user_id"`
 
 	Client         *gophercloud.ProviderClient  `yaml:"-"`
 	IdentityV3     *gophercloud.ServiceClient   `yaml:"-"`
 	TokenValidator *gopherpolicy.TokenValidator `yaml:"-"`
+	ServiceUserID  string                       `yaml:"-"`
 	LocalRoleID    string                       `yaml:"-"`
 }
 
@@ -95,9 +94,6 @@ func (d *keystoneDriver) ReadConfig(unmarshal func(interface{}) error) error {
 	}
 	if d.PolicyFilePath == "" {
 		return errors.New("missing auth.policy_path")
-	}
-	if d.UserID == "" {
-		return errors.New("missing auth.user_id")
 	}
 	return nil
 }
@@ -147,6 +143,16 @@ func (d *keystoneDriver) Connect() error {
 	}
 	d.LocalRoleID = localRole.ID
 
+	if result, ok := d.Client.GetAuthResult().(tokens.CreateResult); ok {
+		user, err := result.ExtractUser()
+		if err != nil {
+			return fmt.Errorf("cannot extract own user metadata from token response: %s", err.Error())
+		}
+		d.ServiceUserID = user.ID
+	} else {
+		return fmt.Errorf("got unexpected auth result: %T", d.Client.GetAuthResult())
+	}
+
 	return nil
 }
 
@@ -182,7 +188,7 @@ func (d *keystoneDriver) SetupAccount(account keppel.Account, authorization kepp
 		return err
 	}
 	result := roles.Assign(client, d.LocalRoleID, roles.AssignOpts{
-		UserID:    d.UserID,
+		UserID:    d.ServiceUserID,
 		ProjectID: account.AuthTenantID,
 	})
 	return result.Err
