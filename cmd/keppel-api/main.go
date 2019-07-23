@@ -21,11 +21,10 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"net/http"
 	"os"
 	"os/signal"
-	"regexp"
+	"strconv"
 	"syscall"
 
 	"github.com/gorilla/mux"
@@ -40,23 +39,11 @@ import (
 )
 
 func main() {
+	logg.ShowDebug, _ = strconv.ParseBool(os.Getenv("CASTELLUM_DEBUG"))
+
 	logg.Info("starting keppel-api %s", keppel.Version)
 	if os.Getenv("KEPPEL_DEBUG") == "1" {
 		logg.ShowDebug = true
-	}
-
-	//I have some trouble getting Keppel to connect to our staging OpenStack
-	//through mitmproxy (which is very useful for development and debugging) when
-	//TLS certificate verification is enabled. Therefore, allow to turn it off
-	//with an env variable. (It's very important that this is not the standard
-	//"KEPPEL_DEBUG" variable. That one is meant to be useful for production
-	//systems, where you definitely don't want to turn off certificate
-	//verification.)
-	if os.Getenv("KEPPEL_INSECURE") == "1" {
-		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true,
-		}
-		http.DefaultClient.Transport = http.DefaultTransport
 	}
 
 	if len(os.Args) != 2 {
@@ -78,15 +65,10 @@ func main() {
 	keppelv1api.AddTo(r)
 	authapi.AddTo(r)
 	registryv2api.AddTo(r)
-	r.Methods("GET").Path("/health").HandlerFunc(handleHealthcheck)
 
 	//TODO Prometheus instrumentation
-	loggm := logg.Middleware{
-		ExceptURLPath: regexp.MustCompile(`^/health`),
-	}
-	http.Handle("/",
-		loggm.Wrap(r),
-	)
+	http.Handle("/", logg.Middleware{}.Wrap(r))
+	http.HandleFunc("/healthcheck", healthCheckHandler)
 
 	//start HTTP server
 	logg.Info("listening on " + keppel.State.Config.APIListenAddress)
@@ -117,8 +99,13 @@ func contextWithSIGINT(ctx context.Context) context.Context {
 	return ctx
 }
 
-func handleHealthcheck(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
+func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	if r.URL.Path == "/healthcheck" && r.Method == "GET" {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	} else {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("not found"))
+	}
 }
