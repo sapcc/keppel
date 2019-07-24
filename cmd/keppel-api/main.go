@@ -57,9 +57,13 @@ func main() {
 	http.HandleFunc("/healthcheck", healthCheckHandler)
 
 	//start HTTP server
-	logg.Info("listening on " + keppel.State.Config.APIListenAddress)
+	apiListenAddress := os.Getenv("KEPPEL_API_LISTEN_ADDRESS")
+	if apiListenAddress == "" {
+		apiListenAddress = ":8080"
+	}
+	logg.Info("listening on " + apiListenAddress)
 	go func() {
-		err := http.ListenAndServe(keppel.State.Config.APIListenAddress, nil)
+		err := http.ListenAndServe(apiListenAddress, nil)
 		if err != nil {
 			logg.Fatal("error returned from http.ListenAndServe(): %s", err.Error())
 		}
@@ -98,12 +102,8 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 
 func setupState() *keppel.StateStruct {
 	cfg := keppel.Configuration{
-		APIListenAddress: os.Getenv("KEPPEL_API_LISTEN_ADDRESS"),
-		APIPublicURL:     mustGetenvURL("KEPPEL_API_PUBLIC_URL"),
-		DatabaseURL:      mustGetenvURL("KEPPEL_DB_URI"),
-	}
-	if cfg.APIListenAddress == "" {
-		cfg.APIListenAddress = ":8080"
+		APIPublicURL: mustGetenvURL("KEPPEL_API_PUBLIC_URL"),
+		DatabaseURL:  mustGetenvURL("KEPPEL_DB_URI"),
 	}
 
 	var err error

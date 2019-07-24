@@ -46,7 +46,6 @@ type StateStruct struct {
 //Configuration contains some configuration values that are not compiled during
 //ReadConfig().
 type Configuration struct {
-	APIListenAddress string
 	APIPublicURL     url.URL
 	DatabaseURL      url.URL
 	JWTIssuerKey     libtrust.PrivateKey
