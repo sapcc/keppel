@@ -37,10 +37,10 @@ func Setup(t *testing.T, configYAML string) {
 	var postgresURL string
 	if os.Getenv("TRAVIS") == "true" {
 		//cf. https://docs.travis-ci.com/user/database-setup/#postgresql
-		postgresURL = "postgres://postgres@localhost/castellum?sslmode=disable"
+		postgresURL = "postgres://postgres@localhost/keppel?sslmode=disable"
 	} else {
 		//suitable for use with ./testing/with-postgres-db.sh
-		postgresURL = "postgres://postgres@localhost:54321/castellum?sslmode=disable"
+		postgresURL = "postgres://postgres@localhost:54321/keppel?sslmode=disable"
 	}
 
 	//WTF: YAML parser chokes on leading tabs

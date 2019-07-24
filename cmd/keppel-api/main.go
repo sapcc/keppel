@@ -39,7 +39,7 @@ import (
 )
 
 func main() {
-	logg.ShowDebug, _ = strconv.ParseBool(os.Getenv("CASTELLUM_DEBUG"))
+	logg.ShowDebug, _ = strconv.ParseBool(os.Getenv("KEPPEL_DEBUG"))
 
 	logg.Info("starting keppel-api %s", keppel.Version)
 	if os.Getenv("KEPPEL_DEBUG") == "1" {
