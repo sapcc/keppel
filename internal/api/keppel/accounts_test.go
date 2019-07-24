@@ -21,6 +21,7 @@ package keppelv1api
 
 import (
 	"net/http"
+	"net/url"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -30,17 +31,32 @@ import (
 )
 
 func setup(t *testing.T) (http.Handler, *test.AuthDriver) {
-	test.Setup(t, `
-		api: { public_url: 'https://registry.example.org' }
-		auth: { driver: unittest }
-		orchestration: { driver: noop }
-		storage: { driver: noop }
-	`)
+	apiPublicURL, _ := url.Parse("https://registry.example.org")
+
+	ad, err := keppel.NewAuthDriver("unittest")
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	sd, err := keppel.NewStorageDriver("noop", ad)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	od, err := keppel.NewOrchestrationDriver("noop", sd)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	test.Setup(t, &keppel.StateStruct{
+		Config:              keppel.Configuration{APIPublicURL: *apiPublicURL},
+		AuthDriver:          ad,
+		StorageDriver:       sd,
+		OrchestrationDriver: od,
+	})
 
 	r := mux.NewRouter()
 	AddTo(r)
 
-	return r, keppel.State.AuthDriver.(*test.AuthDriver)
+	return r, ad.(*test.AuthDriver)
 }
 
 func TestAccountsAPI(t *testing.T) {

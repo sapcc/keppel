@@ -28,132 +28,91 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"regexp"
 
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/roles"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
+	"github.com/gophercloud/utils/openstack/clientconfig"
 	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
 type keystoneDriver struct {
-	//configuration
-	ServiceUser struct {
-		AuthURL           string `yaml:"auth_url"`
-		UserName          string `yaml:"user_name"`
-		UserDomainName    string `yaml:"user_domain_name"`
-		ProjectName       string `yaml:"project_name"`
-		ProjectDomainName string `yaml:"project_domain_name"`
-		Password          string `yaml:"password"`
-	} `yaml:"service_user"`
-	LocalRoleName  string `yaml:"local_role"`
-	PolicyFilePath string `yaml:"policy_path"`
-
-	Client         *gophercloud.ProviderClient  `yaml:"-"`
-	IdentityV3     *gophercloud.ServiceClient   `yaml:"-"`
-	TokenValidator *gopherpolicy.TokenValidator `yaml:"-"`
-	ServiceUserID  string                       `yaml:"-"`
-	LocalRoleID    string                       `yaml:"-"`
+	Provider       *gophercloud.ProviderClient
+	IdentityV3     *gophercloud.ServiceClient
+	TokenValidator *gopherpolicy.TokenValidator
+	ServiceUserID  string
+	LocalRoleID    string
 }
 
 func init() {
-	keppel.RegisterAuthDriver("keystone", func() keppel.AuthDriver {
-		return &keystoneDriver{}
-	})
-}
-
-//ReadConfig implements the keppel.AuthDriver interface.
-func (d *keystoneDriver) ReadConfig(unmarshal func(interface{}) error) error {
-	err := unmarshal(d)
-	if err != nil {
-		return err
-	}
-	if d.ServiceUser.AuthURL == "" {
-		return errors.New("missing auth.service_user.auth_url")
-	}
-	if d.ServiceUser.UserName == "" {
-		return errors.New("missing auth.service_user.user_name")
-	}
-	if d.ServiceUser.UserDomainName == "" {
-		return errors.New("missing auth.service_user.user_domain_name")
-	}
-	if d.ServiceUser.Password == "" {
-		return errors.New("missing auth.service_user.password")
-	}
-	if d.ServiceUser.ProjectName == "" {
-		return errors.New("missing auth.service_user.project_name")
-	}
-	if d.ServiceUser.ProjectDomainName == "" {
-		return errors.New("missing auth.service_user.project_domain_name")
-	}
-	if d.LocalRoleName == "" {
-		return errors.New("missing auth.local_role")
-	}
-	if d.PolicyFilePath == "" {
-		return errors.New("missing auth.policy_path")
-	}
-	return nil
-}
-
-//Connect implements the keppel.AuthDriver interface.
-func (d *keystoneDriver) Connect() error {
-	var err error
-	d.Client, err = openstack.NewClient(d.ServiceUser.AuthURL)
-	if err != nil {
-		return fmt.Errorf("cannot initialize OpenStack client: %v", err)
-	}
-
-	//use http.DefaultClient, esp. to pick up the KEPPEL_INSECURE flag
-	d.Client.HTTPClient = *http.DefaultClient
-
-	err = openstack.Authenticate(d.Client, gophercloud.AuthOptions{
-		IdentityEndpoint: d.ServiceUser.AuthURL,
-		AllowReauth:      true,
-		Username:         d.ServiceUser.UserName,
-		DomainName:       d.ServiceUser.UserDomainName,
-		Password:         d.ServiceUser.Password,
-		Scope: &gophercloud.AuthScope{
-			ProjectName: d.ServiceUser.ProjectName,
-			DomainName:  d.ServiceUser.ProjectDomainName,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("cannot fetch initial Keystone token: %v", err)
-	}
-
-	d.IdentityV3, err = openstack.NewIdentityV3(d.Client, gophercloud.EndpointOpts{})
-	if err != nil {
-		return fmt.Errorf("cannot find Identity v3 API in Keystone catalog: %s", err.Error())
-	}
-
-	d.TokenValidator = &gopherpolicy.TokenValidator{
-		IdentityV3: d.IdentityV3,
-	}
-	err = d.TokenValidator.LoadPolicyFile(d.PolicyFilePath)
-	if err != nil {
-		return err
-	}
-
-	localRole, err := getRoleByName(d.IdentityV3, d.LocalRoleName)
-	if err != nil {
-		return fmt.Errorf("cannot find Keystone role '%s': %s", d.LocalRoleName, err.Error())
-	}
-	d.LocalRoleID = localRole.ID
-
-	if result, ok := d.Client.GetAuthResult().(tokens.CreateResult); ok {
-		user, err := result.ExtractUser()
-		if err != nil {
-			return fmt.Errorf("cannot extract own user metadata from token response: %s", err.Error())
+	keppel.RegisterAuthDriver("keystone", func() (keppel.AuthDriver, error) {
+		mustGetenv := func(key string) string {
+			val := os.Getenv(key)
+			if val == "" {
+				logg.Fatal("missing environment variable: %s", key)
+			}
+			return val
 		}
-		d.ServiceUserID = user.ID
-	} else {
-		return fmt.Errorf("got unexpected auth result: %T", d.Client.GetAuthResult())
-	}
 
-	return nil
+		//authenticate service user
+		ao, err := clientconfig.AuthOptions(nil)
+		if err != nil {
+			return nil, errors.New("cannot find OpenStack credentials: " + err.Error())
+		}
+		ao.AllowReauth = true
+		provider, err := openstack.AuthenticatedClient(*ao)
+		if err != nil {
+			return nil, errors.New("cannot connect to OpenStack: " + err.Error())
+		}
+
+		//find Identity V3 endpoint
+		eo := gophercloud.EndpointOpts{
+			//note that empty values are acceptable in both fields
+			Region:       os.Getenv("OS_REGION_NAME"),
+			Availability: gophercloud.Availability(os.Getenv("OS_INTERFACE")),
+		}
+		identityV3, err := openstack.NewIdentityV3(provider, eo)
+		if err != nil {
+			return nil, errors.New("cannot find Keystone V3 API: " + err.Error())
+		}
+
+		//load oslo.policy
+		tv := &gopherpolicy.TokenValidator{IdentityV3: identityV3}
+		err = tv.LoadPolicyFile(mustGetenv("KEPPEL_OSLO_POLICY_PATH"))
+		if err != nil {
+			return nil, err
+		}
+
+		//resolve KEPPEL_AUTH_LOCAL_ROLE name into ID
+		localRoleName := mustGetenv("KEPPEL_AUTH_LOCAL_ROLE")
+		localRole, err := getRoleByName(identityV3, localRoleName)
+		if err != nil {
+			return nil, fmt.Errorf("cannot find Keystone role '%s': %s", localRoleName, err.Error())
+		}
+
+		//get user ID for service user
+		authResult, ok := provider.GetAuthResult().(tokens.CreateResult)
+		if !ok {
+			return nil, fmt.Errorf("got unexpected auth result: %T", provider.GetAuthResult())
+		}
+		serviceUser, err := authResult.ExtractUser()
+		if err != nil {
+			return nil, errors.New("cannot extract own user metadata from token response: " + err.Error())
+		}
+
+		return &keystoneDriver{
+			Provider:       provider,
+			IdentityV3:     identityV3,
+			TokenValidator: tv,
+			ServiceUserID:  serviceUser.ID,
+			LocalRoleID:    localRole.ID,
+		}, nil
+	})
 }
 
 func getRoleByName(identityV3 *gophercloud.ServiceClient, name string) (roles.Role, error) {

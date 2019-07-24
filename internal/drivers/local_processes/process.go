@@ -86,6 +86,7 @@ func prepareCertBundle() {
 
 //Context state for launching keppel-registry processes.
 type processContext struct {
+	StorageDriver   keppel.StorageDriver
 	Context         context.Context
 	WaitGroup       sync.WaitGroup
 	ProcessExitChan chan<- processExitMessage
@@ -97,7 +98,7 @@ func (pc *processContext) startRegistry(account keppel.Account, port uint16) err
 	cmd := exec.Command("keppel-registry", "serve", baseConfigPath)
 	cmd.Env = os.Environ()
 
-	storageEnv, err := keppel.State.StorageDriver.GetEnvironment(account, keppel.State.AuthDriver)
+	storageEnv, err := pc.StorageDriver.GetEnvironment(account)
 	if err != nil {
 		return err
 	}

@@ -28,11 +28,6 @@ import (
 //OrchestrationDriver is the abstract interface for the orchestrator that
 //manages the keppel-registry fleet.
 type OrchestrationDriver interface {
-	//ReadConfig unmarshals the configuration for this driver type into this
-	//driver instance. The `unmarshal` function works exactly like in
-	//UnmarshalYAML. This method shall only fail if the input data is malformed.
-	//It shall not make any network requests; use Run for that.
-	ReadConfig(unmarshal func(interface{}) error) error
 	//DoHTTPRequest forwards the given request to the keppel-registry for the
 	//given account. If this keppel-registry is not running, it may be launched
 	//as a result of this call.
@@ -44,21 +39,21 @@ type OrchestrationDriver interface {
 	Run(ctx context.Context) (ok bool)
 }
 
-var orchestrationDriverFactories = make(map[string]func() OrchestrationDriver)
+var orchestrationDriverFactories = make(map[string]func(StorageDriver) (OrchestrationDriver, error))
 
 //NewOrchestrationDriver creates a new OrchestrationDriver using one of the
 //factory functions registered with RegisterOrchestrationDriver().
-func NewOrchestrationDriver(name string) (OrchestrationDriver, error) {
+func NewOrchestrationDriver(name string, storageDriver StorageDriver) (OrchestrationDriver, error) {
 	factory := orchestrationDriverFactories[name]
 	if factory != nil {
-		return factory(), nil
+		return factory(storageDriver)
 	}
 	return nil, errors.New("no such orchestration driver: " + name)
 }
 
 //RegisterOrchestrationDriver registers an OrchestrationDriver. Call this from
 //func init() of the package defining the OrchestrationDriver.
-func RegisterOrchestrationDriver(name string, factory func() OrchestrationDriver) {
+func RegisterOrchestrationDriver(name string, factory func(StorageDriver) (OrchestrationDriver, error)) {
 	if _, exists := orchestrationDriverFactories[name]; exists {
 		panic("attempted to register multiple orchestration drivers with name = " + name)
 	}

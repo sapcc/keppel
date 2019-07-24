@@ -48,15 +48,6 @@ type Authorization interface {
 //tenants. A tenant is a scope where users can be authorized to perform certain
 //actions. For example, in OpenStack, a Keppel tenant is a Keystone project.
 type AuthDriver interface {
-	//ReadConfig unmarshals the configuration for this driver type into this
-	//driver instance. The `unmarshal` function works exactly like in
-	//UnmarshalYAML. This method shall only fail if the input data is malformed.
-	//It shall not make any network requests; use Connect for that.
-	ReadConfig(unmarshal func(interface{}) error) error
-	//Connect prepares this driver instance for usage. This is called *after*
-	//ReadConfig and *before* any other methods are called.
-	Connect() error
-
 	//ValidateTenantID checks if the given string is a valid tenant ID. If so,
 	//nil shall be returned. If not, the returned error shall explain why the ID
 	//is not valid. The driver implementor can decide how thorough this check
@@ -83,21 +74,21 @@ type AuthDriver interface {
 	AuthenticateUserFromRequest(r *http.Request) (Authorization, *RegistryV2Error)
 }
 
-var authDriverFactories = make(map[string]func() AuthDriver)
+var authDriverFactories = make(map[string]func() (AuthDriver, error))
 
 //NewAuthDriver creates a new AuthDriver using one of the factory functions
 //registered with RegisterAuthDriver().
 func NewAuthDriver(name string) (AuthDriver, error) {
 	factory := authDriverFactories[name]
 	if factory != nil {
-		return factory(), nil
+		return factory()
 	}
 	return nil, errors.New("no such auth driver: " + name)
 }
 
 //RegisterAuthDriver registers an AuthDriver. Call this from func init() of the
 //package defining the AuthDriver.
-func RegisterAuthDriver(name string, factory func() AuthDriver) {
+func RegisterAuthDriver(name string, factory func() (AuthDriver, error)) {
 	if _, exists := authDriverFactories[name]; exists {
 		panic("attempted to register multiple auth drivers with name = " + name)
 	}

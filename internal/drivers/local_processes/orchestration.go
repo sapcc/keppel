@@ -33,6 +33,7 @@ import (
 )
 
 type driver struct {
+	storage            keppel.StorageDriver
 	getPortRequestChan chan getPortRequest
 	//the following fields are only accessed by Run(), so no locking is necessary^
 	listenPorts    map[string]uint16
@@ -40,18 +41,14 @@ type driver struct {
 }
 
 func init() {
-	keppel.RegisterOrchestrationDriver("local-processes", func() keppel.OrchestrationDriver {
+	keppel.RegisterOrchestrationDriver("local-processes", func(storage keppel.StorageDriver) (keppel.OrchestrationDriver, error) {
 		return &driver{
+			storage:            storage,
 			getPortRequestChan: make(chan getPortRequest),
 			listenPorts:        make(map[string]uint16),
 			nextListenPort:     10000, //TODO make configurable?
-		}
+		}, nil
 	})
-}
-
-//ReadConfig implements the keppel.OrchestrationDriver interface.
-func (d *driver) ReadConfig(unmarshal func(interface{}) error) error {
-	return nil
 }
 
 type getPortRequest struct {
@@ -85,6 +82,7 @@ func (d *driver) Run(ctx context.Context) (ok bool) {
 	innerCtx, cancel := context.WithCancel(ctx)
 	processExitChan := make(chan processExitMessage)
 	pc := processContext{
+		StorageDriver:   d.storage,
 		Context:         innerCtx,
 		ProcessExitChan: processExitChan,
 	}

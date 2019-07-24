@@ -22,6 +22,7 @@ package main
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -40,25 +41,10 @@ import (
 
 func main() {
 	logg.ShowDebug, _ = strconv.ParseBool(os.Getenv("KEPPEL_DEBUG"))
-
 	logg.Info("starting keppel-api %s", keppel.Version)
-	if os.Getenv("KEPPEL_DEBUG") == "1" {
-		logg.ShowDebug = true
-	}
 
-	if len(os.Args) != 2 {
-		logg.Fatal("usage: keppel-api <config-path>")
-	}
-	cfgFile, err := os.Open(os.Args[1])
-	if err == nil {
-		err = keppel.ReadConfig(cfgFile)
-	}
-	if err == nil {
-		err = cfgFile.Close()
-	}
-	if err != nil {
-		logg.Fatal(err.Error())
-	}
+	//TODO get rid of global state
+	keppel.State = setupState()
 
 	//wire up HTTP handlers
 	r := mux.NewRouter()
@@ -108,4 +94,61 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("not found"))
 	}
+}
+
+func setupState() *keppel.StateStruct {
+	cfg := keppel.Configuration{
+		APIListenAddress: os.Getenv("KEPPEL_API_LISTEN_ADDRESS"),
+		APIPublicURL:     mustGetenvURL("KEPPEL_API_PUBLIC_URL"),
+		DatabaseURL:      mustGetenvURL("KEPPEL_DB_URI"),
+	}
+	if cfg.APIListenAddress == "" {
+		cfg.APIListenAddress = ":8080"
+	}
+
+	db, err := keppel.InitDB(cfg.DatabaseURL)
+	must(err)
+	ad, err := keppel.NewAuthDriver(mustGetenv("KEPPEL_DRIVER_AUTH"))
+	must(err)
+	sd, err := keppel.NewStorageDriver(mustGetenv("KEPPEL_DRIVER_STORAGE"), ad)
+	must(err)
+	od, err := keppel.NewOrchestrationDriver(mustGetenv("KEPPEL_DRIVER_ORCHESTRATION"), sd)
+	must(err)
+	iKey, err := keppel.ParseIssuerKey(mustGetenv("KEPPEL_ISSUER_KEY"))
+	must(err)
+	iCertPEM, err := keppel.ParseIssuerCertPEM(mustGetenv("KEPPEL_ISSUER_CERT"))
+	must(err)
+
+	return &keppel.StateStruct{
+		Config:              cfg,
+		DB:                  db,
+		AuthDriver:          ad,
+		OrchestrationDriver: od,
+		StorageDriver:       sd,
+		JWTIssuerKey:        iKey,
+		JWTIssuerCertPEM:    iCertPEM,
+	}
+}
+
+func must(err error) {
+	if err != nil {
+		logg.Fatal(err.Error())
+	}
+}
+
+func mustGetenv(key string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		logg.Fatal("missing environment variable: %s", key)
+	}
+	return val
+}
+
+func mustGetenvURL(key string) url.URL {
+	val := mustGetenv(key)
+	parsed, err := url.Parse(val)
+	if err != nil {
+		logg.Fatal("malformed %s: %s", key, err.Error())
+	}
+	return *parsed
 }

@@ -34,17 +34,9 @@ import (
 type noopDriver struct{}
 
 func init() {
-	keppel.RegisterAuthDriver("noop", func() keppel.AuthDriver { return &noopDriver{} })
-	keppel.RegisterOrchestrationDriver("noop", func() keppel.OrchestrationDriver { return &noopDriver{} })
-	keppel.RegisterStorageDriver("noop", func() keppel.StorageDriver { return &noopDriver{} })
-}
-
-func (*noopDriver) ReadConfig(unmarshal func(interface{}) error) error {
-	return nil
-}
-
-func (*noopDriver) Connect() error {
-	return nil
+	keppel.RegisterAuthDriver("noop", func() (keppel.AuthDriver, error) { return &noopDriver{}, nil })
+	keppel.RegisterOrchestrationDriver("noop", func(keppel.StorageDriver) (keppel.OrchestrationDriver, error) { return &noopDriver{}, nil })
+	keppel.RegisterStorageDriver("noop", func(keppel.AuthDriver) (keppel.StorageDriver, error) { return &noopDriver{}, nil })
 }
 
 func (*noopDriver) ValidateTenantID(tenantID string) error {
@@ -63,7 +55,7 @@ func (*noopDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Authoriz
 	return nil, keppel.ErrUnsupported.With("AuthenticateUserFromRequest not implemented for NoopDriver")
 }
 
-func (*noopDriver) GetEnvironment(account keppel.Account, driver keppel.AuthDriver) ([]string, error) {
+func (*noopDriver) GetEnvironment(account keppel.Account) ([]string, error) {
 	return nil, errors.New("GetEnvironment not implemented for NoopDriver")
 }
 
@@ -83,17 +75,7 @@ type AuthDriver struct {
 }
 
 func init() {
-	keppel.RegisterAuthDriver("unittest", func() keppel.AuthDriver { return &AuthDriver{} })
-}
-
-//ReadConfig implements the keppel.AuthDriver interface.
-func (d *AuthDriver) ReadConfig(unmarshal func(interface{}) error) error {
-	return nil
-}
-
-//Connect implements the keppel.AuthDriver interface.
-func (d *AuthDriver) Connect() error {
-	return nil
+	keppel.RegisterAuthDriver("unittest", func() (keppel.AuthDriver, error) { return &AuthDriver{}, nil })
 }
 
 //ValidateTenantID implements the keppel.AuthDriver interface.

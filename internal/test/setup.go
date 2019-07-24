@@ -20,19 +20,16 @@
 package test
 
 import (
-	"fmt"
+	"net/url"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//Setup parses the given Keppel configuration and sets up keppel.TestMode and
-//keppel.State for the test.
-func Setup(t *testing.T, configYAML string) {
-	// t.Helper()
-	keppel.TestMode = true
+//Setup sets up keppel.State for a test.
+func Setup(t *testing.T, state *keppel.StateStruct) {
+	t.Helper()
 
 	var postgresURL string
 	if os.Getenv("TRAVIS") == "true" {
@@ -43,15 +40,12 @@ func Setup(t *testing.T, configYAML string) {
 		postgresURL = "postgres://postgres@localhost:54321/keppel?sslmode=disable"
 	}
 
-	//WTF: YAML parser chokes on leading tabs
-	configYAML = strings.Replace(configYAML, "\t", "  ", -1)
-	configYAML += "\n    trust:"
-	configYAML += "\n      issuer_key: " + fmt.Sprintf("%q", UnitTestIssuerPrivateKey)
-	configYAML += "\n      issuer_cert: " + fmt.Sprintf("%q", UnitTestIssuerCert)
-	configYAML += "\n    db:"
-	configYAML += "\n      url: " + postgresURL
-
-	err := keppel.ReadConfig(strings.NewReader(configYAML))
+	dbURL, err := url.Parse(postgresURL)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	state.Config.DatabaseURL = *dbURL
+	state.DB, err = keppel.InitDB(*dbURL)
 	if err != nil {
 		t.Error(err)
 		t.Log("Try prepending ./testing/with-postgres-db.sh to your command.")
@@ -60,15 +54,26 @@ func Setup(t *testing.T, configYAML string) {
 
 	//wipe the DB clean if there are any leftovers from the previous test run
 	for _, tableName := range []string{"accounts"} {
-		_, err := keppel.State.DB.Exec("DELETE FROM " + tableName)
+		_, err := state.DB.Exec("DELETE FROM " + tableName)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
 	}
+
+	state.JWTIssuerKey, err = keppel.ParseIssuerKey(UnitTestIssuerPrivateKey)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	state.JWTIssuerCertPEM, err = keppel.ParseIssuerCertPEM(UnitTestIssuerCert)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	keppel.State = state
 }
 
 //UnitTestIssuerPrivateKey is an RSA private key that can be used as
-//trust.issuer_key in unit tests. DO NOT USE IN PRODUCTION.
+//KEPPEL_ISSUER_KEY in unit tests. DO NOT USE IN PRODUCTION.
 var UnitTestIssuerPrivateKey = `-----BEGIN RSA PRIVATE KEY-----
 MIIJKgIBAAKCAgEApaFTmtIHzEg9dznhoFgOKqZseh4PcXTITEc0F/1Gjj/zQmKj
 0jOlbTQv/4IbmFPVP75dGB+Dw5qHh+4TR8uObx6VudnkSHrn8buPKD1n2T5r/SMY
@@ -122,7 +127,7 @@ V/EtRMqfEOel+lTJXmLb0z7YOgfPmAT2ojk86CsjwbaWwn2rlNVmu+oB8CuSAg==
 -----END RSA PRIVATE KEY-----`
 
 //UnitTestIssuerCert is a certificate that can be used as
-//trust.issuer_cert in unit tests. DO NOT USE IN PRODUCTION.
+//KEPPEL_ISSUER_CERT in unit tests. DO NOT USE IN PRODUCTION.
 var UnitTestIssuerCert = `-----BEGIN CERTIFICATE-----
 MIIE+jCCAuKgAwIBAgIJAO+EjlXwlQA0MA0GCSqGSIb3DQEBCwUAMBExDzANBgNV
 BAMMBmtlcHBlbDAgFw0xODA4MjcxMzI4MjlaGA8yODQwMDExMDEzMjgyOVowETEP

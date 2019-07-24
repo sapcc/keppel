@@ -20,43 +20,43 @@
 package openstack
 
 import (
+	"errors"
 	"os"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-type swiftDriver struct{}
+type swiftDriver struct {
+	auth *keystoneDriver
+}
 
 func init() {
-	keppel.RegisterStorageDriver("swift", func() keppel.StorageDriver {
-		return &swiftDriver{}
+	keppel.RegisterStorageDriver("swift", func(driver keppel.AuthDriver) (keppel.StorageDriver, error) {
+		k, ok := driver.(*keystoneDriver)
+		if !ok {
+			return nil, keppel.ErrAuthDriverMismatch
+		}
+		return &swiftDriver{k}, nil
 	})
 }
 
-//ReadConfig implements the keppel.StorageDriver interface.
-func (d *swiftDriver) ReadConfig(unmarshal func(interface{}) error) error {
-	//this driver does not have any config options
-	return nil
-}
-
 //GetEnvironment implements the keppel.StorageDriver interface.
-func (d *swiftDriver) GetEnvironment(account keppel.Account, driver keppel.AuthDriver) ([]string, error) {
-	k, ok := driver.(*keystoneDriver)
-	if !ok {
-		return nil, keppel.ErrAuthDriverMismatch
-	}
-
+func (d *swiftDriver) GetEnvironment(account keppel.Account) ([]string, error) {
 	//cf. cmd/keppel-api/main.go
 	insecure := "false"
 	if os.Getenv("KEPPEL_INSECURE") == "1" {
 		insecure = "true"
 	}
 
+	password := os.Getenv("OS_PASSWORD")
+	if password == "" {
+		return nil, errors.New("missing environment variable: OS_PASSWORD")
+	}
+
 	return []string{
-		"REGISTRY_STORAGE_SWIFT-PLUS_AUTHURL=" + k.ServiceUser.AuthURL,
-		"REGISTRY_STORAGE_SWIFT-PLUS_USERNAME=" + k.ServiceUser.UserName,
-		"REGISTRY_STORAGE_SWIFT-PLUS_USERDOMAINNAME=" + k.ServiceUser.UserDomainName,
-		"REGISTRY_STORAGE_SWIFT-PLUS_PASSWORD=" + k.ServiceUser.Password,
+		"REGISTRY_STORAGE_SWIFT-PLUS_AUTHURL=" + d.auth.IdentityV3.Endpoint,
+		"REGISTRY_STORAGE_SWIFT-PLUS_USERID=" + d.auth.ServiceUserID,
+		"REGISTRY_STORAGE_SWIFT-PLUS_PASSWORD=" + password,
 		"REGISTRY_STORAGE_SWIFT-PLUS_PROJECTID=" + account.AuthTenantID,
 		"REGISTRY_STORAGE_SWIFT-PLUS_CONTAINER=" + account.SwiftContainerName(),
 		"REGISTRY_STORAGE_SWIFT-PLUS_POSTGRESURI=" + account.PostgresDatabaseName(),

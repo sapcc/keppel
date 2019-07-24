@@ -17,6 +17,7 @@ require (
 	github.com/golang-migrate/migrate v3.4.0+incompatible // indirect
 	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/gophercloud/gophercloud v0.2.0
+	github.com/gophercloud/utils v0.0.0-20190527093828-25f1b77b8c03
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/handlers v0.0.0-20150720190736-60c7bfde3e33 // indirect
 	github.com/gorilla/mux v0.0.0-20170228224354-599cba5e7b61
@@ -50,7 +51,6 @@ require (
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/gorp.v2 v2.0.0-20180226155812-4df78490a9aa
 	gopkg.in/square/go-jose.v1 v1.0.1 // indirect
-	gopkg.in/yaml.v2 v2.2.2
 	rsc.io/letsencrypt v0.0.0-00010101000000-000000000000 // indirect
 )
 
