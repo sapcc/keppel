@@ -56,6 +56,16 @@ func (db *DB) FindAccount(name string) (*Account, error) {
 	return &account, err
 }
 
+//AllAccounts implements the DBAccessForOrchestrationDriver interface.
+func (db *DB) AllAccounts() ([]Account, error) {
+	var accounts []Account
+	_, err := db.Select(&accounts, `SELECT * FROM accounts`)
+	if err != nil {
+		accounts = nil
+	}
+	return accounts, err
+}
+
 func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(Account{}, "accounts").SetKeys(false, "name")
 }

@@ -62,6 +62,17 @@ func (cfg Configuration) APIPublicHostname() string {
 	return hostAndMaybePort //looks like there is no port in here after all
 }
 
+//ToRegistryEnvironment returns a set of environment variables that pass this
+//Configuration down into a keppel-registry.
+func (cfg Configuration) ToRegistryEnvironment() map[string]string {
+	publicHost := cfg.APIPublicHostname()
+	return map[string]string{
+		"REGISTRY_AUTH_TOKEN_REALM":   cfg.APIPublicURL.String() + "/keppel/v1/auth",
+		"REGISTRY_AUTH_TOKEN_SERVICE": publicHost,
+		"REGISTRY_AUTH_TOKEN_ISSUER":  "keppel-api@" + publicHost,
+	}
+}
+
 var (
 	looksLikePEMRx    = regexp.MustCompile(`^\s*-----\s*BEGIN`)
 	certificatePEMRx  = regexp.MustCompile(`^-----\s*BEGIN\s+CERTIFICATE\s*-----(?:\n|[a-zA-Z0-9+/=])*-----\s*END\s+CERTIFICATE\s*-----$`)

@@ -28,20 +28,21 @@ import (
 
 type swiftDriver struct {
 	auth *keystoneDriver
+	cfg  keppel.Configuration
 }
 
 func init() {
-	keppel.RegisterStorageDriver("swift", func(driver keppel.AuthDriver) (keppel.StorageDriver, error) {
+	keppel.RegisterStorageDriver("swift", func(driver keppel.AuthDriver, cfg keppel.Configuration) (keppel.StorageDriver, error) {
 		k, ok := driver.(*keystoneDriver)
 		if !ok {
 			return nil, keppel.ErrAuthDriverMismatch
 		}
-		return &swiftDriver{k}, nil
+		return &swiftDriver{k, cfg}, nil
 	})
 }
 
 //GetEnvironment implements the keppel.StorageDriver interface.
-func (d *swiftDriver) GetEnvironment(account keppel.Account) ([]string, error) {
+func (d *swiftDriver) GetEnvironment(account keppel.Account) (map[string]string, error) {
 	//cf. cmd/keppel-api/main.go
 	insecure := "false"
 	if os.Getenv("KEPPEL_INSECURE") == "1" {
@@ -53,13 +54,16 @@ func (d *swiftDriver) GetEnvironment(account keppel.Account) ([]string, error) {
 		return nil, errors.New("missing environment variable: OS_PASSWORD")
 	}
 
-	return []string{
-		"REGISTRY_STORAGE_SWIFT-PLUS_AUTHURL=" + d.auth.IdentityV3.Endpoint,
-		"REGISTRY_STORAGE_SWIFT-PLUS_USERID=" + d.auth.ServiceUserID,
-		"REGISTRY_STORAGE_SWIFT-PLUS_PASSWORD=" + password,
-		"REGISTRY_STORAGE_SWIFT-PLUS_PROJECTID=" + account.AuthTenantID,
-		"REGISTRY_STORAGE_SWIFT-PLUS_CONTAINER=" + account.SwiftContainerName(),
-		"REGISTRY_STORAGE_SWIFT-PLUS_POSTGRESURI=" + account.PostgresDatabaseName(),
-		"REGISTRY_STORAGE_SWIFT-PLUS_INSECURESKIPVERIFY=" + insecure,
+	postgresURL := d.cfg.DatabaseURL
+	postgresURL.Path = "/" + account.PostgresDatabaseName()
+
+	return map[string]string{
+		"REGISTRY_STORAGE_SWIFT-PLUS_POSTGRESURI":        postgresURL.String(),
+		"REGISTRY_STORAGE_SWIFT-PLUS_AUTHURL":            d.auth.IdentityV3.Endpoint,
+		"REGISTRY_STORAGE_SWIFT-PLUS_USERID":             d.auth.ServiceUserID,
+		"REGISTRY_STORAGE_SWIFT-PLUS_PASSWORD":           password,
+		"REGISTRY_STORAGE_SWIFT-PLUS_PROJECTID":          account.AuthTenantID,
+		"REGISTRY_STORAGE_SWIFT-PLUS_CONTAINER":          account.SwiftContainerName(),
+		"REGISTRY_STORAGE_SWIFT-PLUS_INSECURESKIPVERIFY": insecure,
 	}, nil
 }

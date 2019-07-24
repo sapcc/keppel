@@ -81,11 +81,11 @@ func Setup(t *testing.T, authDriverName, storageDriverName, orchestrationDriverN
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	sd, err := keppel.NewStorageDriver(storageDriverName, ad)
+	sd, err := keppel.NewStorageDriver(storageDriverName, ad, cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	od, err := keppel.NewOrchestrationDriver(orchestrationDriverName, sd)
+	od, err := keppel.NewOrchestrationDriver(orchestrationDriverName, sd, cfg, db)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

@@ -25,6 +25,12 @@ import (
 	"net/http"
 )
 
+//DBAccessForOrchestrationDriver is an interface implemented by type DB for
+//use by type OrchestrationDriver.
+type DBAccessForOrchestrationDriver interface {
+	AllAccounts() ([]Account, error)
+}
+
 //OrchestrationDriver is the abstract interface for the orchestrator that
 //manages the keppel-registry fleet.
 type OrchestrationDriver interface {
@@ -39,21 +45,21 @@ type OrchestrationDriver interface {
 	Run(ctx context.Context) (ok bool)
 }
 
-var orchestrationDriverFactories = make(map[string]func(StorageDriver) (OrchestrationDriver, error))
+var orchestrationDriverFactories = make(map[string]func(StorageDriver, Configuration, DBAccessForOrchestrationDriver) (OrchestrationDriver, error))
 
 //NewOrchestrationDriver creates a new OrchestrationDriver using one of the
 //factory functions registered with RegisterOrchestrationDriver().
-func NewOrchestrationDriver(name string, storageDriver StorageDriver) (OrchestrationDriver, error) {
+func NewOrchestrationDriver(name string, storageDriver StorageDriver, cfg Configuration, db DBAccessForOrchestrationDriver) (OrchestrationDriver, error) {
 	factory := orchestrationDriverFactories[name]
 	if factory != nil {
-		return factory(storageDriver)
+		return factory(storageDriver, cfg, db)
 	}
 	return nil, errors.New("no such orchestration driver: " + name)
 }
 
 //RegisterOrchestrationDriver registers an OrchestrationDriver. Call this from
 //func init() of the package defining the OrchestrationDriver.
-func RegisterOrchestrationDriver(name string, factory func(StorageDriver) (OrchestrationDriver, error)) {
+func RegisterOrchestrationDriver(name string, factory func(StorageDriver, Configuration, DBAccessForOrchestrationDriver) (OrchestrationDriver, error)) {
 	if _, exists := orchestrationDriverFactories[name]; exists {
 		panic("attempted to register multiple orchestration drivers with name = " + name)
 	}

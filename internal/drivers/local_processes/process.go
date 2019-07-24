@@ -77,8 +77,8 @@ func prepareBaseConfig() {
 	}
 }
 
-func prepareCertBundle() {
-	err := ioutil.WriteFile(issuerCertBundlePath, []byte(keppel.State.Config.JWTIssuerCertPEM), 0600)
+func (d *driver) prepareCertBundle() {
+	err := ioutil.WriteFile(issuerCertBundlePath, []byte(d.cfg.JWTIssuerCertPEM), 0600)
 	if err != nil {
 		logg.Fatal("cannot write issuer certificate bundle: " + err.Error())
 	}
@@ -87,6 +87,7 @@ func prepareCertBundle() {
 //Context state for launching keppel-registry processes.
 type processContext struct {
 	StorageDriver   keppel.StorageDriver
+	Config          keppel.Configuration
 	Context         context.Context
 	WaitGroup       sync.WaitGroup
 	ProcessExitChan chan<- processExitMessage
@@ -102,16 +103,16 @@ func (pc *processContext) startRegistry(account keppel.Account, port uint16) err
 	if err != nil {
 		return err
 	}
-	cmd.Env = append(cmd.Env, storageEnv...)
+	for k, v := range storageEnv {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+	}
+	for k, v := range pc.Config.ToRegistryEnvironment() {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+	}
 
-	publicURL := keppel.State.Config.APIPublicURL.String()
-	publicHost := keppel.State.Config.APIPublicHostname()
 	cmd.Env = append(cmd.Env,
 		fmt.Sprintf("REGISTRY_HTTP_ADDR=:%d", port),
 		"REGISTRY_LOG_FIELDS_KEPPEL.ACCOUNT="+account.Name,
-		fmt.Sprintf("REGISTRY_AUTH_TOKEN_REALM=%s/keppel/v1/auth", publicURL),
-		"REGISTRY_AUTH_TOKEN_SERVICE="+publicHost,
-		fmt.Sprintf("REGISTRY_AUTH_TOKEN_ISSUER=keppel-api@%s", publicHost),
 		"REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE="+issuerCertBundlePath,
 	)
 
@@ -120,10 +121,6 @@ func (pc *processContext) startRegistry(account keppel.Account, port uint16) err
 	//safe to send its log directly to our own stdout)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-
-	url := keppel.State.Config.DatabaseURL
-	url.Path = "/" + account.PostgresDatabaseName()
-	cmd.Env = append(cmd.Env, "REGISTRY_STORAGE_SWIFT-PLUS_POSTGRESURI="+url.String())
 
 	err = cmd.Start()
 	if err != nil {

@@ -116,9 +116,9 @@ func setupState() *keppel.StateStruct {
 	must(err)
 	ad, err := keppel.NewAuthDriver(mustGetenv("KEPPEL_DRIVER_AUTH"))
 	must(err)
-	sd, err := keppel.NewStorageDriver(mustGetenv("KEPPEL_DRIVER_STORAGE"), ad)
+	sd, err := keppel.NewStorageDriver(mustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
 	must(err)
-	od, err := keppel.NewOrchestrationDriver(mustGetenv("KEPPEL_DRIVER_ORCHESTRATION"), sd)
+	od, err := keppel.NewOrchestrationDriver(mustGetenv("KEPPEL_DRIVER_ORCHESTRATION"), sd, cfg, db)
 	must(err)
 
 	return &keppel.StateStruct{

@@ -34,6 +34,8 @@ import (
 
 type driver struct {
 	storage            keppel.StorageDriver
+	cfg                keppel.Configuration
+	db                 keppel.DBAccessForOrchestrationDriver
 	getPortRequestChan chan getPortRequest
 	//the following fields are only accessed by Run(), so no locking is necessary^
 	listenPorts    map[string]uint16
@@ -41,9 +43,11 @@ type driver struct {
 }
 
 func init() {
-	keppel.RegisterOrchestrationDriver("local-processes", func(storage keppel.StorageDriver) (keppel.OrchestrationDriver, error) {
+	keppel.RegisterOrchestrationDriver("local-processes", func(storage keppel.StorageDriver, cfg keppel.Configuration, db keppel.DBAccessForOrchestrationDriver) (keppel.OrchestrationDriver, error) {
 		return &driver{
 			storage:            storage,
+			cfg:                cfg,
+			db:                 db,
 			getPortRequestChan: make(chan getPortRequest),
 			listenPorts:        make(map[string]uint16),
 			nextListenPort:     10000, //TODO make configurable?
@@ -76,13 +80,14 @@ type processExitMessage struct {
 //Run implements the keppel.OrchestrationDriver interface.
 func (d *driver) Run(ctx context.Context) (ok bool) {
 	prepareBaseConfig()
-	prepareCertBundle()
+	d.prepareCertBundle()
 	go d.ensureAllRegistriesAreRunning()
 
 	innerCtx, cancel := context.WithCancel(ctx)
 	processExitChan := make(chan processExitMessage)
 	pc := processContext{
 		StorageDriver:   d.storage,
+		Config:          d.cfg,
 		Context:         innerCtx,
 		ProcessExitChan: processExitChan,
 	}
@@ -141,8 +146,7 @@ func (d *driver) Run(ctx context.Context) (ok bool) {
 
 func (d *driver) ensureAllRegistriesAreRunning() {
 	for {
-		var accounts []keppel.Account
-		_, err := keppel.State.DB.Select(&accounts, `SELECT * FROM accounts`)
+		accounts, err := d.db.AllAccounts()
 		if err != nil {
 			logg.Error("failed to enumerate accounts: " + err.Error())
 			accounts = nil
