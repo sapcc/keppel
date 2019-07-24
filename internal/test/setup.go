@@ -28,7 +28,7 @@ import (
 )
 
 //Setup sets up keppel.State for a test.
-func Setup(t *testing.T, state *keppel.StateStruct) {
+func Setup(t *testing.T, authDriverName, storageDriverName, orchestrationDriverName string) {
 	t.Helper()
 
 	var postgresURL string
@@ -44,8 +44,16 @@ func Setup(t *testing.T, state *keppel.StateStruct) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	state.Config.DatabaseURL = *dbURL
-	state.DB, err = keppel.InitDB(*dbURL)
+	apiPublicURL, err := url.Parse("https://registry.example.org")
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	cfg := keppel.Configuration{
+		APIPublicURL: *apiPublicURL,
+		DatabaseURL:  *dbURL,
+	}
+
+	db, err := keppel.InitDB(cfg.DatabaseURL)
 	if err != nil {
 		t.Error(err)
 		t.Log("Try prepending ./testing/with-postgres-db.sh to your command.")
@@ -54,22 +62,41 @@ func Setup(t *testing.T, state *keppel.StateStruct) {
 
 	//wipe the DB clean if there are any leftovers from the previous test run
 	for _, tableName := range []string{"accounts"} {
-		_, err := state.DB.Exec("DELETE FROM " + tableName)
+		_, err := db.Exec("DELETE FROM " + tableName)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
 	}
 
-	state.JWTIssuerKey, err = keppel.ParseIssuerKey(UnitTestIssuerPrivateKey)
+	cfg.JWTIssuerKey, err = keppel.ParseIssuerKey(UnitTestIssuerPrivateKey)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	state.JWTIssuerCertPEM, err = keppel.ParseIssuerCertPEM(UnitTestIssuerCert)
+	cfg.JWTIssuerCertPEM, err = keppel.ParseIssuerCertPEM(UnitTestIssuerCert)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
-	keppel.State = state
+	ad, err := keppel.NewAuthDriver(authDriverName)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	sd, err := keppel.NewStorageDriver(storageDriverName, ad)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	od, err := keppel.NewOrchestrationDriver(orchestrationDriverName, sd)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	keppel.State = &keppel.StateStruct{
+		Config:              cfg,
+		DB:                  db,
+		AuthDriver:          ad,
+		StorageDriver:       sd,
+		OrchestrationDriver: od,
+	}
 }
 
 //UnitTestIssuerPrivateKey is an RSA private key that can be used as

@@ -78,7 +78,7 @@ func prepareBaseConfig() {
 }
 
 func prepareCertBundle() {
-	err := ioutil.WriteFile(issuerCertBundlePath, []byte(keppel.State.JWTIssuerCertPEM), 0600)
+	err := ioutil.WriteFile(issuerCertBundlePath, []byte(keppel.State.Config.JWTIssuerCertPEM), 0600)
 	if err != nil {
 		logg.Fatal("cannot write issuer certificate bundle: " + err.Error())
 	}

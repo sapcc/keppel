@@ -41,8 +41,6 @@ type StateStruct struct {
 	AuthDriver          AuthDriver
 	OrchestrationDriver OrchestrationDriver
 	StorageDriver       StorageDriver
-	JWTIssuerKey        libtrust.PrivateKey
-	JWTIssuerCertPEM    string
 }
 
 //Configuration contains some configuration values that are not compiled during
@@ -51,6 +49,8 @@ type Configuration struct {
 	APIListenAddress string
 	APIPublicURL     url.URL
 	DatabaseURL      url.URL
+	JWTIssuerKey     libtrust.PrivateKey
+	JWTIssuerCertPEM string
 }
 
 //APIPublicHostname returns the hostname from the APIPublicURL.

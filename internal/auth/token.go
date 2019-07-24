@@ -75,7 +75,7 @@ func ParseTokenFromRequest(r *http.Request) (*Token, *keppel.RegistryV2Error) {
 	var claims tokenClaims
 	token, err := jwt.ParseWithClaims(tokenStr, &claims, func(t *jwt.Token) (interface{}, error) {
 		//check that the signing method matches what we generate
-		ourIssuerKey := keppel.State.JWTIssuerKey
+		ourIssuerKey := keppel.State.Config.JWTIssuerKey
 		ourSigningMethod := chooseSigningMethod(ourIssuerKey)
 		if !equalSigningMethods(ourSigningMethod, t.Method) {
 			return nil, fmt.Errorf("Unexpected signing method: %v", t.Header["alg"])
@@ -145,7 +145,7 @@ func (t Token) ToResponse() (*TokenResponse, error) {
 	expiresIn := 1 * time.Hour //TODO make configurable?
 	expiry := now.Add(expiresIn)
 
-	issuerKey := keppel.State.JWTIssuerKey
+	issuerKey := keppel.State.Config.JWTIssuerKey
 	method := chooseSigningMethod(issuerKey)
 
 	publicHost := keppel.State.Config.APIPublicHostname()
@@ -168,7 +168,7 @@ func (t Token) ToResponse() (*TokenResponse, error) {
 		jwkMessage json.RawMessage
 		err        error
 	)
-	jwkMessage, err = keppel.State.JWTIssuerKey.PublicKey().MarshalJSON()
+	jwkMessage, err = keppel.State.Config.JWTIssuerKey.PublicKey().MarshalJSON()
 	if err != nil {
 		return nil, err
 	}

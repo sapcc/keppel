@@ -106,6 +106,12 @@ func setupState() *keppel.StateStruct {
 		cfg.APIListenAddress = ":8080"
 	}
 
+	var err error
+	cfg.JWTIssuerKey, err = keppel.ParseIssuerKey(mustGetenv("KEPPEL_ISSUER_KEY"))
+	must(err)
+	cfg.JWTIssuerCertPEM, err = keppel.ParseIssuerCertPEM(mustGetenv("KEPPEL_ISSUER_CERT"))
+	must(err)
+
 	db, err := keppel.InitDB(cfg.DatabaseURL)
 	must(err)
 	ad, err := keppel.NewAuthDriver(mustGetenv("KEPPEL_DRIVER_AUTH"))
@@ -114,10 +120,6 @@ func setupState() *keppel.StateStruct {
 	must(err)
 	od, err := keppel.NewOrchestrationDriver(mustGetenv("KEPPEL_DRIVER_ORCHESTRATION"), sd)
 	must(err)
-	iKey, err := keppel.ParseIssuerKey(mustGetenv("KEPPEL_ISSUER_KEY"))
-	must(err)
-	iCertPEM, err := keppel.ParseIssuerCertPEM(mustGetenv("KEPPEL_ISSUER_CERT"))
-	must(err)
 
 	return &keppel.StateStruct{
 		Config:              cfg,
@@ -125,8 +127,6 @@ func setupState() *keppel.StateStruct {
 		AuthDriver:          ad,
 		OrchestrationDriver: od,
 		StorageDriver:       sd,
-		JWTIssuerKey:        iKey,
-		JWTIssuerCertPEM:    iCertPEM,
 	}
 }
 
