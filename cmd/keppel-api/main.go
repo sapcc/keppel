@@ -30,7 +30,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
-	authapi "github.com/sapcc/keppel/internal/api/auth"
+	auth "github.com/sapcc/keppel/internal/api/auth"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
 	registryv2api "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -49,7 +49,7 @@ func main() {
 	//wire up HTTP handlers
 	r := mux.NewRouter()
 	keppelv1.NewAPI(keppel.State.AuthDriver, keppel.State.DB).AddTo(r)
-	authapi.AddTo(r)
+	auth.NewAPI(keppel.State.Config, keppel.State.AuthDriver, keppel.State.DB).AddTo(r)
 	registryv2api.AddTo(r)
 
 	//TODO Prometheus instrumentation

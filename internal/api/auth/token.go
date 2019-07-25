@@ -28,9 +28,21 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
+//API contains state variables used by the Auth API endpoint.
+type API struct {
+	cfg        keppel.Configuration
+	authDriver keppel.AuthDriver
+	db         *keppel.DB
+}
+
+//NewAPI constructs a new API instance.
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, db *keppel.DB) *API {
+	return &API{cfg, ad, db}
+}
+
 //AddTo adds routes for this API to the given router.
-func AddTo(r *mux.Router) {
-	r.Methods("GET").Path("/keppel/v1/auth").HandlerFunc(handleGetAuth)
+func (a *API) AddTo(r *mux.Router) {
+	r.Methods("GET").Path("/keppel/v1/auth").HandlerFunc(a.handleGetAuth)
 }
 
 func respondWithError(w http.ResponseWriter, code int, err error) bool {
@@ -41,12 +53,12 @@ func respondWithError(w http.ResponseWriter, code int, err error) bool {
 	return false
 }
 
-func handleGetAuth(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	//parse request
 	req, err := auth.ParseRequest(
 		r.Header.Get("Authorization"),
 		r.URL.RawQuery,
-		keppel.State.Config,
+		a.cfg,
 	)
 	if respondWithError(w, http.StatusBadRequest, err) {
 		return
@@ -55,7 +67,7 @@ func handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	//find account if scope requested
 	var account *keppel.Account
 	if req.Scope != nil && req.Scope.ResourceType == "repository" {
-		account, err = keppel.State.DB.FindAccount(req.Scope.AccountName())
+		account, err = a.db.FindAccount(req.Scope.AccountName())
 		if respondWithError(w, http.StatusInternalServerError, err) {
 			return
 		}
@@ -64,7 +76,7 @@ func handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check user access
-	authz, err := keppel.State.AuthDriver.AuthenticateUser(req.UserName, req.Password)
+	authz, err := a.authDriver.AuthenticateUser(req.UserName, req.Password)
 	if respondWithError(w, http.StatusUnauthorized, err) {
 		return
 	}
@@ -75,7 +87,7 @@ func handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		case "registry":
 			if req.Scope.ResourceName == "catalog" {
 				req.Scope.Actions = []string{"*"}
-				req.CompiledScopes, err = compileCatalogAccess(authz)
+				req.CompiledScopes, err = a.compileCatalogAccess(authz)
 				if respondWithError(w, http.StatusInternalServerError, err) {
 					return
 				}
@@ -111,9 +123,9 @@ func filterRepoActions(actions []string, authz keppel.Authorization, account kep
 	return
 }
 
-func compileCatalogAccess(authz keppel.Authorization) ([]auth.Scope, error) {
+func (a *API) compileCatalogAccess(authz keppel.Authorization) ([]auth.Scope, error) {
 	var accounts []keppel.Account
-	_, err := keppel.State.DB.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
+	_, err := a.db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
 	if err != nil {
 		return nil, err
 	}
