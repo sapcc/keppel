@@ -32,7 +32,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	auth "github.com/sapcc/keppel/internal/api/auth"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
-	registryv2api "github.com/sapcc/keppel/internal/api/registry"
+	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/keppel"
 
 	_ "github.com/sapcc/keppel/internal/drivers/local_processes"
@@ -43,14 +43,22 @@ func main() {
 	logg.ShowDebug, _ = strconv.ParseBool(os.Getenv("KEPPEL_DEBUG"))
 	logg.Info("starting keppel-api %s", keppel.Version)
 
-	//TODO get rid of global state
-	keppel.State = setupState()
+	cfg := parseConfig()
+
+	db, err := keppel.InitDB(cfg.DatabaseURL)
+	must(err)
+	ad, err := keppel.NewAuthDriver(mustGetenv("KEPPEL_DRIVER_AUTH"))
+	must(err)
+	sd, err := keppel.NewStorageDriver(mustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
+	must(err)
+	od, err := keppel.NewOrchestrationDriver(mustGetenv("KEPPEL_DRIVER_ORCHESTRATION"), sd, cfg, db)
+	must(err)
 
 	//wire up HTTP handlers
 	r := mux.NewRouter()
-	keppelv1.NewAPI(keppel.State.AuthDriver, keppel.State.DB).AddTo(r)
-	auth.NewAPI(keppel.State.Config, keppel.State.AuthDriver, keppel.State.DB).AddTo(r)
-	registryv2api.AddTo(r)
+	keppelv1.NewAPI(ad, db).AddTo(r)
+	auth.NewAPI(cfg, ad, db).AddTo(r)
+	registryv2.NewAPI(cfg, od, db).AddTo(r)
 
 	//TODO Prometheus instrumentation
 	http.Handle("/", logg.Middleware{}.Wrap(r))
@@ -70,7 +78,7 @@ func main() {
 	}()
 
 	//enter orchestrator main loop
-	ok := keppel.State.OrchestrationDriver.Run(contextWithSIGINT(context.Background()))
+	ok := od.Run(contextWithSIGINT(context.Background()))
 	if !ok {
 		os.Exit(1)
 	}
@@ -100,7 +108,7 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func setupState() *keppel.StateStruct {
+func parseConfig() keppel.Configuration {
 	cfg := keppel.Configuration{
 		APIPublicURL: mustGetenvURL("KEPPEL_API_PUBLIC_URL"),
 		DatabaseURL:  mustGetenvURL("KEPPEL_DB_URI"),
@@ -112,22 +120,7 @@ func setupState() *keppel.StateStruct {
 	cfg.JWTIssuerCertPEM, err = keppel.ParseIssuerCertPEM(mustGetenv("KEPPEL_ISSUER_CERT"))
 	must(err)
 
-	db, err := keppel.InitDB(cfg.DatabaseURL)
-	must(err)
-	ad, err := keppel.NewAuthDriver(mustGetenv("KEPPEL_DRIVER_AUTH"))
-	must(err)
-	sd, err := keppel.NewStorageDriver(mustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
-	must(err)
-	od, err := keppel.NewOrchestrationDriver(mustGetenv("KEPPEL_DRIVER_ORCHESTRATION"), sd, cfg, db)
-	must(err)
-
-	return &keppel.StateStruct{
-		Config:              cfg,
-		DB:                  db,
-		AuthDriver:          ad,
-		OrchestrationDriver: od,
-		StorageDriver:       sd,
-	}
+	return cfg
 }
 
 func must(err error) {

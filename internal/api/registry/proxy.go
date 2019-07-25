@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package registryv2api
+package registryv2
 
 import (
 	"io"
@@ -30,22 +30,34 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
+//API contains state variables used by the Auth API endpoint.
+type API struct {
+	cfg                 keppel.Configuration
+	orchestrationDriver keppel.OrchestrationDriver
+	db                  *keppel.DB
+}
+
+//NewAPI constructs a new API instance.
+func NewAPI(cfg keppel.Configuration, od keppel.OrchestrationDriver, db *keppel.DB) *API {
+	return &API{cfg, od, db}
+}
+
 //AddTo adds routes for this API to the given router.
-func AddTo(r *mux.Router) {
-	r.Methods("GET").Path("/v2/").HandlerFunc(handleProxyToplevel)
-	r.Methods("GET").Path("/v2/_catalog").HandlerFunc(handleProxyCatalog)
-	r.PathPrefix("/v2/{account:[a-z0-9-]{1,48}}/").HandlerFunc(handleProxyToAccount)
+func (a *API) AddTo(r *mux.Router) {
+	r.Methods("GET").Path("/v2/").HandlerFunc(a.handleProxyToplevel)
+	r.Methods("GET").Path("/v2/_catalog").HandlerFunc(a.handleProxyCatalog)
+	r.PathPrefix("/v2/{account:[a-z0-9-]{1,48}}/").HandlerFunc(a.handleProxyToAccount)
 	//see internal/api/keppel/accounts.go for why account name format is limited
 }
 
-func requireBearerToken(w http.ResponseWriter, r *http.Request, scope *auth.Scope) *auth.Token {
-	token, err := auth.ParseTokenFromRequest(r, keppel.State.Config)
+func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *auth.Scope) *auth.Token {
+	token, err := auth.ParseTokenFromRequest(r, a.cfg)
 	if err == nil && scope != nil && !token.Contains(*scope) {
 		err = keppel.ErrDenied.With("token does not cover scope %s", scope.String())
 	}
 	if err != nil {
 		logg.Info("GET %s: %s", r.URL.Path, err.Error())
-		auth.Challenge{Scope: scope}.WriteTo(w.Header(), keppel.State.Config)
+		auth.Challenge{Scope: scope}.WriteTo(w.Header(), a.cfg)
 		err.WriteAsRegistryV2ResponseTo(w)
 		return nil
 	}
@@ -53,11 +65,11 @@ func requireBearerToken(w http.ResponseWriter, r *http.Request, scope *auth.Scop
 }
 
 //This implements the GET /v2/ endpoint.
-func handleProxyToplevel(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleProxyToplevel(w http.ResponseWriter, r *http.Request) {
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
-	if requireBearerToken(w, r, nil) == nil {
+	if a.requireBearerToken(w, r, nil) == nil {
 		return
 	}
 
@@ -65,12 +77,12 @@ func handleProxyToplevel(w http.ResponseWriter, r *http.Request) {
 }
 
 //This implements the GET /v2/_catalog endpoint.
-func handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
 	requiredScope := auth.MustParseScope("registry:catalog:*")
-	if requireBearerToken(w, r, &requiredScope) == nil {
+	if a.requireBearerToken(w, r, &requiredScope) == nil {
 		return
 	}
 
@@ -80,9 +92,9 @@ func handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handleProxyToAccount(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleProxyToAccount(w http.ResponseWriter, r *http.Request) {
 	accountName := mux.Vars(r)["account"]
-	account, err := keppel.State.DB.FindAccount(accountName)
+	account, err := a.db.FindAccount(accountName)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -105,7 +117,7 @@ func handleProxyToAccount(w http.ResponseWriter, r *http.Request) {
 		proxyRequest.Header.Set("X-Forwarded-For", host)
 	}
 
-	resp, err := keppel.State.OrchestrationDriver.DoHTTPRequest(*account, &proxyRequest)
+	resp, err := a.orchestrationDriver.DoHTTPRequest(*account, &proxyRequest)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
