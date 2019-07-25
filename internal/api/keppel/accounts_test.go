@@ -17,7 +17,7 @@
 *
 *******************************************************************************/
 
-package keppelv1api
+package keppelv1
 
 import (
 	"net/http"
@@ -33,7 +33,7 @@ func setup(t *testing.T) (http.Handler, *test.AuthDriver) {
 	test.Setup(t, "unittest", "noop", "noop")
 
 	r := mux.NewRouter()
-	AddTo(r)
+	NewAPI(keppel.State.AuthDriver, keppel.State.DB).AddTo(r)
 
 	return r, keppel.State.AuthDriver.(*test.AuthDriver)
 }

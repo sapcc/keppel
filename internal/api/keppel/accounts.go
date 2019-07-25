@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package keppelv1api
+package keppelv1
 
 import (
 	"encoding/json"
@@ -28,14 +28,25 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
+//API contains state variables used by the Keppel V1 API implementation.
+type API struct {
+	authDriver keppel.AuthDriver
+	db         *keppel.DB
+}
+
+//NewAPI constructs a new API instance.
+func NewAPI(ad keppel.AuthDriver, db *keppel.DB) *API {
+	return &API{ad, db}
+}
+
 //AddTo adds routes for this API to the given router.
-func AddTo(r *mux.Router) {
+func (a *API) AddTo(r *mux.Router) {
 	//NOTE: Keppel account names are severely restricted because Postgres
 	//database names are derived from them. Those are, most importantly,
 	//case-insensitive and restricted to 64 chars.
-	r.Methods("GET").Path("/keppel/v1/accounts").HandlerFunc(handleGetAccounts)
-	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(handleGetAccount)
-	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(handlePutAccount)
+	r.Methods("GET").Path("/keppel/v1/accounts").HandlerFunc(a.handleGetAccounts)
+	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(a.handleGetAccount)
+	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(a.handlePutAccount)
 }
 
 func respondWithAuthError(w http.ResponseWriter, err *keppel.RegistryV2Error) bool {
@@ -47,14 +58,14 @@ func respondWithAuthError(w http.ResponseWriter, err *keppel.RegistryV2Error) bo
 	return true
 }
 
-func handleGetAccounts(w http.ResponseWriter, r *http.Request) {
-	authz, authErr := keppel.State.AuthDriver.AuthenticateUserFromRequest(r)
+func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
+	authz, authErr := a.authDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, authErr) {
 		return
 	}
 
 	var accounts []keppel.Account
-	_, err := keppel.State.DB.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
+	_, err := a.db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -74,15 +85,15 @@ func handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"accounts": accountsFiltered})
 }
 
-func handleGetAccount(w http.ResponseWriter, r *http.Request) {
-	authz, authErr := keppel.State.AuthDriver.AuthenticateUserFromRequest(r)
+func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
+	authz, authErr := a.authDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, authErr) {
 		return
 	}
 
 	//get account from DB to find its AuthTenantID
 	accountName := mux.Vars(r)["account"]
-	account, err := keppel.State.DB.FindAccount(accountName)
+	account, err := a.db.FindAccount(accountName)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -102,19 +113,21 @@ func handleGetAccount(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"account": account})
 }
 
-func handlePutAccount(w http.ResponseWriter, r *http.Request) {
+func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	//decode request body
 	var req struct {
 		Account struct {
 			AuthTenantID string `json:"auth_tenant_id"`
 		} `json:"account"`
 	}
-	err := json.NewDecoder(r.Body).Decode(&req)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	err := decoder.Decode(&req)
 	if err != nil {
 		http.Error(w, "request body is not valid JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := keppel.State.AuthDriver.ValidateTenantID(req.Account.AuthTenantID); err != nil {
+	if err := a.authDriver.ValidateTenantID(req.Account.AuthTenantID); err != nil {
 		http.Error(w, `malformed attribute "account.auth_tenant_id" in request body: `+err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
@@ -132,7 +145,7 @@ func handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check permission to create account
-	authz, authErr := keppel.State.AuthDriver.AuthenticateUserFromRequest(r)
+	authz, authErr := a.authDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, authErr) {
 		return
 	}
@@ -142,7 +155,7 @@ func handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check if account already exists
-	account, err := keppel.State.DB.FindAccount(accountName)
+	account, err := a.db.FindAccount(accountName)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -153,7 +166,7 @@ func handlePutAccount(w http.ResponseWriter, r *http.Request) {
 
 	//create account if required
 	if account == nil {
-		tx, err := keppel.State.DB.Begin()
+		tx, err := a.db.Begin()
 		if respondwith.ErrorText(w, err) {
 			return
 		}
@@ -166,7 +179,7 @@ func handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//before committing this, add the required role assignments
-		err = keppel.State.AuthDriver.SetupAccount(*account, authz)
+		err = a.authDriver.SetupAccount(*account, authz)
 		if respondwith.ErrorText(w, err) {
 			return
 		}
