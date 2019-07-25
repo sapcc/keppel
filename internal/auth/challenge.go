@@ -33,10 +33,10 @@ type Challenge struct {
 }
 
 //WriteTo adds the corresponding Www-Authenticate header to a response.
-func (c Challenge) WriteTo(h http.Header) {
+func (c Challenge) WriteTo(h http.Header, cfg keppel.Configuration) {
 	fields := fmt.Sprintf(`realm="%s",service="%s"`,
-		keppel.State.Config.APIPublicURL.String()+"/keppel/v1/auth",
-		keppel.State.Config.APIPublicHostname(),
+		cfg.APIPublicURL.String()+"/keppel/v1/auth",
+		cfg.APIPublicHostname(),
 	)
 
 	if c.Scope != nil {

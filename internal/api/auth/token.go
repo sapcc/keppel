@@ -46,6 +46,7 @@ func handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	req, err := auth.ParseRequest(
 		r.Header.Get("Authorization"),
 		r.URL.RawQuery,
+		keppel.State.Config,
 	)
 	if respondWithError(w, http.StatusBadRequest, err) {
 		return

@@ -44,6 +44,8 @@ type Token struct {
 	//ListableAccounts is only set when Access contains "registy:catalog:*", and
 	//identifies the accounts that may be listed by the user of this token.
 	ListableAccounts []string
+	//the Configuration is used later on to construct the Token
+	config keppel.Configuration
 }
 
 //Contains returns true if the given token authorizes the user for this scope.
@@ -63,7 +65,7 @@ type tokenClaims struct {
 
 //ParseTokenFromRequest tries to parse the Bearer token supplied in the
 //request's Authorization header.
-func ParseTokenFromRequest(r *http.Request) (*Token, *keppel.RegistryV2Error) {
+func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration) (*Token, *keppel.RegistryV2Error) {
 	//read Authorization request header
 	tokenStr := r.Header.Get("Authorization")
 	if !strings.HasPrefix(tokenStr, "Bearer ") { //e.g. because it's missing
@@ -75,7 +77,7 @@ func ParseTokenFromRequest(r *http.Request) (*Token, *keppel.RegistryV2Error) {
 	var claims tokenClaims
 	token, err := jwt.ParseWithClaims(tokenStr, &claims, func(t *jwt.Token) (interface{}, error) {
 		//check that the signing method matches what we generate
-		ourIssuerKey := keppel.State.Config.JWTIssuerKey
+		ourIssuerKey := cfg.JWTIssuerKey
 		ourSigningMethod := chooseSigningMethod(ourIssuerKey)
 		if !equalSigningMethods(ourSigningMethod, t.Method) {
 			return nil, fmt.Errorf("Unexpected signing method: %v", t.Header["alg"])
@@ -101,7 +103,7 @@ func ParseTokenFromRequest(r *http.Request) (*Token, *keppel.RegistryV2Error) {
 	if !claims.StandardClaims.VerifyNotBefore(now+3, true) {
 		return nil, keppel.ErrUnauthorized.With("token not valid yet")
 	}
-	publicHost := keppel.State.Config.APIPublicHostname()
+	publicHost := cfg.APIPublicHostname()
 	if !claims.StandardClaims.VerifyIssuer("keppel-api@"+publicHost, true) {
 		return nil, keppel.ErrUnauthorized.With("token has wrong issuer")
 	}
@@ -112,6 +114,7 @@ func ParseTokenFromRequest(r *http.Request) (*Token, *keppel.RegistryV2Error) {
 	return &Token{
 		UserName: claims.StandardClaims.Subject,
 		Access:   claims.Access,
+		config:   cfg,
 	}, nil
 }
 
@@ -145,10 +148,10 @@ func (t Token) ToResponse() (*TokenResponse, error) {
 	expiresIn := 1 * time.Hour //TODO make configurable?
 	expiry := now.Add(expiresIn)
 
-	issuerKey := keppel.State.Config.JWTIssuerKey
+	issuerKey := t.config.JWTIssuerKey
 	method := chooseSigningMethod(issuerKey)
 
-	publicHost := keppel.State.Config.APIPublicHostname()
+	publicHost := t.config.APIPublicHostname()
 	token := jwt.NewWithClaims(method, tokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			Id: uuid.NewV4().String(),
@@ -168,7 +171,7 @@ func (t Token) ToResponse() (*TokenResponse, error) {
 		jwkMessage json.RawMessage
 		err        error
 	)
-	jwkMessage, err = keppel.State.Config.JWTIssuerKey.PublicKey().MarshalJSON()
+	jwkMessage, err = t.config.JWTIssuerKey.PublicKey().MarshalJSON()
 	if err != nil {
 		return nil, err
 	}

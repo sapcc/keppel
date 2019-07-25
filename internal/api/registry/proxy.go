@@ -39,13 +39,13 @@ func AddTo(r *mux.Router) {
 }
 
 func requireBearerToken(w http.ResponseWriter, r *http.Request, scope *auth.Scope) *auth.Token {
-	token, err := auth.ParseTokenFromRequest(r)
+	token, err := auth.ParseTokenFromRequest(r, keppel.State.Config)
 	if err == nil && scope != nil && !token.Contains(*scope) {
 		err = keppel.ErrDenied.With("token does not cover scope %s", scope.String())
 	}
 	if err != nil {
 		logg.Info("GET %s: %s", r.URL.Path, err.Error())
-		auth.Challenge{Scope: scope}.WriteTo(w.Header())
+		auth.Challenge{Scope: scope}.WriteTo(w.Header(), keppel.State.Config)
 		err.WriteAsRegistryV2ResponseTo(w)
 		return nil
 	}

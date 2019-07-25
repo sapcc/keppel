@@ -40,6 +40,8 @@ type Request struct {
 	//the auth handler may add additional scopes in addition to the originally
 	//requested scope to encode access permissions, RBACs, etc.
 	CompiledScopes []Scope
+	//the Configuration is used later on to construct the Token
+	config keppel.Configuration
 }
 
 //ParseRequest parses the data in a token request.
@@ -48,7 +50,7 @@ type Request struct {
 //	    r.Header.Get("Authorization"),
 //	    r.URL.RawQuery,
 //	)
-func ParseRequest(authorizationHeader, rawQuery string) (Request, error) {
+func ParseRequest(authorizationHeader, rawQuery string, cfg keppel.Configuration) (Request, error) {
 	if !strings.HasPrefix(authorizationHeader, "Basic ") { //e.g. because it's missing
 		return Request{}, errors.New("missing Authorization header")
 	}
@@ -67,7 +69,7 @@ func ParseRequest(authorizationHeader, rawQuery string) (Request, error) {
 	if service == "" {
 		return Request{}, errors.New("missing query parameter: service")
 	}
-	if service != keppel.State.Config.APIPublicHostname() {
+	if service != cfg.APIPublicHostname() {
 		return Request{}, errors.New("malformed query paramter: service")
 	}
 
@@ -80,6 +82,7 @@ func ParseRequest(authorizationHeader, rawQuery string) (Request, error) {
 		Password:     password,
 		ClientID:     query.Get("client_id"),
 		OfflineToken: offlineToken,
+		config:       cfg,
 	}
 
 	scopeStr := query.Get("scope")
@@ -126,5 +129,6 @@ func (r Request) ToToken() *Token {
 	return &Token{
 		UserName: r.UserName,
 		Access:   access,
+		config:   r.config,
 	}
 }
