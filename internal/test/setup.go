@@ -27,8 +27,8 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//Setup sets up keppel.State for a test.
-func Setup(t *testing.T, authDriverName, storageDriverName, orchestrationDriverName string) {
+//Setup sets up a keppel.Configuration and database connection for a unit test.
+func Setup(t *testing.T) (keppel.Configuration, *keppel.DB) {
 	t.Helper()
 
 	var postgresURL string
@@ -77,26 +77,7 @@ func Setup(t *testing.T, authDriverName, storageDriverName, orchestrationDriverN
 		t.Fatal(err.Error())
 	}
 
-	ad, err := keppel.NewAuthDriver(authDriverName)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	sd, err := keppel.NewStorageDriver(storageDriverName, ad, cfg)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	od, err := keppel.NewOrchestrationDriver(orchestrationDriverName, sd, cfg, db)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	keppel.State = &keppel.StateStruct{
-		Config:              cfg,
-		DB:                  db,
-		AuthDriver:          ad,
-		StorageDriver:       sd,
-		OrchestrationDriver: od,
-	}
+	return cfg, db
 }
 
 //UnitTestIssuerPrivateKey is an RSA private key that can be used as

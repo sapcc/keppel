@@ -30,12 +30,17 @@ import (
 )
 
 func setup(t *testing.T) (http.Handler, *test.AuthDriver) {
-	test.Setup(t, "unittest", "noop", "noop")
+	_, db := test.Setup(t)
+
+	ad, err := keppel.NewAuthDriver("unittest")
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	r := mux.NewRouter()
-	NewAPI(keppel.State.AuthDriver, keppel.State.DB).AddTo(r)
+	NewAPI(ad, db).AddTo(r)
 
-	return r, keppel.State.AuthDriver.(*test.AuthDriver)
+	return r, ad.(*test.AuthDriver)
 }
 
 func TestAccountsAPI(t *testing.T) {
