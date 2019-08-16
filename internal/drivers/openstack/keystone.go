@@ -65,7 +65,12 @@ func init() {
 			return nil, errors.New("cannot find OpenStack credentials: " + err.Error())
 		}
 		ao.AllowReauth = true
-		provider, err := openstack.AuthenticatedClient(*ao)
+		provider, err := openstack.NewClient(ao.IdentityEndpoint)
+		if err == nil {
+			//use http.DefaultClient, esp. to pick up the KEPPEL_INSECURE flag
+			provider.HTTPClient = *http.DefaultClient
+			err = openstack.Authenticate(provider, *ao)
+		}
 		if err != nil {
 			return nil, errors.New("cannot connect to OpenStack: " + err.Error())
 		}

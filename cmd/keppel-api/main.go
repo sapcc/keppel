@@ -21,6 +21,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"net/http"
 	"net/url"
 	"os"
@@ -42,6 +43,18 @@ import (
 func main() {
 	logg.ShowDebug, _ = strconv.ParseBool(os.Getenv("KEPPEL_DEBUG"))
 	logg.Info("starting keppel-api %s", keppel.Version)
+
+	//The KEPPEL_INSECURE flag can be used to get Keppel to work through
+	//mitmproxy (which is very useful for development and debugging). (It's very
+	//important that this is not the standard "KEPPEL_DEBUG" variable. That one
+	//is meant to be useful for production systems, where you definitely don't
+	//want to turn off certificate verification.)
+	if insecure, _ := strconv.ParseBool(os.Getenv("KEPPEL_INSECURE")); insecure {
+		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+		http.DefaultClient.Transport = http.DefaultTransport
+	}
 
 	cfg := parseConfig()
 
