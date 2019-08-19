@@ -76,8 +76,9 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check user access
-	authz, err := a.authDriver.AuthenticateUser(req.UserName, req.Password)
-	if respondWithError(w, http.StatusUnauthorized, err) {
+	authz, rerr := a.authDriver.AuthenticateUser(req.UserName, req.Password)
+	if rerr != nil {
+		rerr.WriteAsRegistryV2ResponseTo(w)
 		return
 	}
 
@@ -114,9 +115,9 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 
 func filterRepoActions(actions []string, authz keppel.Authorization, account keppel.Account) (result []string) {
 	for _, action := range actions {
-		if action == "pull" && authz.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
+		if action == "pull" && authz.HasPermission(keppel.CanPullFromAccount, account.AuthTenantID) {
 			result = append(result, action)
-		} else if action == "push" && authz.HasPermission(keppel.CanChangeAccount, account.AuthTenantID) {
+		} else if action == "push" && authz.HasPermission(keppel.CanPushToAccount, account.AuthTenantID) {
 			result = append(result, action)
 		}
 	}

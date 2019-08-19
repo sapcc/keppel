@@ -127,7 +127,7 @@ func (e *RegistryV2Error) MarshalJSON() ([]byte, error) {
 func (e *RegistryV2Error) WriteAsRegistryV2ResponseTo(w http.ResponseWriter) {
 	w.WriteHeader(apiErrorStatusCodes[e.Code])
 	buf, _ := json.Marshal(struct {
-		Errors []*RegistryV2Error
+		Errors []*RegistryV2Error `json:"errors"`
 	}{
 		Errors: []*RegistryV2Error{e},
 	})

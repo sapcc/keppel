@@ -31,11 +31,11 @@ const (
 	//CanViewAccount is the permission for viewing account metadata.
 	CanViewAccount Permission = "view"
 	//CanPullFromAccount is the permission for pulling images from this account.
-	CanPullFromAccount = "pull"
+	CanPullFromAccount Permission = "pull"
 	//CanPushToAccount is the permission for pushing images to this account.
-	CanPushToAccount = "push"
+	CanPushToAccount Permission = "push"
 	//CanChangeAccount is the permission for creating and updating accounts.
-	CanChangeAccount = "change"
+	CanChangeAccount Permission = "change"
 )
 
 //Authorization describes the access rights for a user. It is returned by

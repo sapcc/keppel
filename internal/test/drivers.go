@@ -71,9 +71,14 @@ func (*noopDriver) Run(ctx context.Context) (ok bool) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-//AuthDriver (driver ID "unittest") allows everything, but tracks all calls.
+//AuthDriver (driver ID "unittest") is a keppel.AuthDriver for unit tests.
 type AuthDriver struct {
+	//for SetupAccount
 	AccountsThatWereSetUp []keppel.Account
+	//for AuthenticateUser
+	ExpectedUserName   string
+	ExpectedPassword   string
+	GrantedPermissions string
 }
 
 func init() {
@@ -96,7 +101,13 @@ func (d *AuthDriver) SetupAccount(account keppel.Account, an keppel.Authorizatio
 
 //AuthenticateUser implements the keppel.AuthDriver interface.
 func (d *AuthDriver) AuthenticateUser(userName, password string) (keppel.Authorization, *keppel.RegistryV2Error) {
-	return nil, keppel.ErrUnsupported.With("TODO: unimplemented")
+	is := func(a, b string) bool {
+		return a != "" && a == b
+	}
+	if is(userName, d.ExpectedUserName) && is(password, d.ExpectedPassword) {
+		return parseAuthorization(d.GrantedPermissions), nil
+	}
+	return nil, keppel.ErrUnauthorized.With("wrong credentials")
 }
 
 //AuthenticateUserFromRequest implements the keppel.AuthDriver interface.
@@ -105,15 +116,19 @@ func (d *AuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Author
 	if hdr == "" {
 		return nil, keppel.ErrUnauthorized.With("missing X-Test-Perms header")
 	}
+	return parseAuthorization(hdr), nil
+}
+
+func parseAuthorization(permsHeader string) keppel.Authorization {
 	perms := make(map[string]map[string]bool)
-	for _, field := range strings.Split(hdr, ",") {
+	for _, field := range strings.Split(permsHeader, ",") {
 		fields := strings.SplitN(field, ":", 2)
 		if _, ok := perms[fields[0]]; !ok {
 			perms[fields[0]] = make(map[string]bool)
 		}
 		perms[fields[0]][fields[1]] = true
 	}
-	return authorization{perms}, nil
+	return authorization{perms}
 }
 
 type authorization struct {
