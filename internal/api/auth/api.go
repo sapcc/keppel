@@ -56,7 +56,7 @@ func respondWithError(w http.ResponseWriter, code int, err error) bool {
 
 func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	//parse request
-	req, err := auth.ParseRequest(
+	req, err := ParseRequest(
 		r.Header.Get("Authorization"),
 		r.URL.RawQuery,
 		a.cfg,
@@ -105,7 +105,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		req.Scope.Actions = nil
 	}
 
-	tokenInfo, err := req.ToToken().ToResponse()
+	tokenInfo, err := makeTokenResponse(req.ToToken(), a.cfg)
 	if respondWithError(w, http.StatusBadRequest, err) {
 		return
 	}

@@ -17,7 +17,7 @@
 *
 *******************************************************************************/
 
-package auth
+package authapi
 
 import (
 	"encoding/base64"
@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -34,13 +35,13 @@ import (
 type Request struct {
 	UserName         string
 	Password         string
-	Scope            Scope
+	Scope            auth.Scope
 	ClientID         string
 	OfflineToken     bool
 	IntendedAudience string
 	//the auth handler may add additional scopes in addition to the originally
 	//requested scope to encode access permissions, RBACs, etc.
-	CompiledScopes []Scope
+	CompiledScopes []auth.Scope
 	//the Configuration is used later on to construct the Token
 	config keppel.Configuration
 }
@@ -74,7 +75,7 @@ func ParseRequest(authorizationHeader, rawQuery string, cfg keppel.Configuration
 		UserName:         username,
 		Password:         password,
 		ClientID:         query.Get("client_id"),
-		Scope:            ParseScope(query.Get("scope")),
+		Scope:            parseScope(query.Get("scope")),
 		OfflineToken:     offlineToken,
 		IntendedAudience: query.Get("service"),
 		config:           cfg,
@@ -97,10 +98,10 @@ func decodeAuthHeader(base64data string) (username, password string, err error) 
 }
 
 //ToToken creates a token that can be used to fulfil this token request.
-func (r Request) ToToken() *Token {
-	var access []Scope
+func (r Request) ToToken() auth.Token {
+	var access []auth.Scope
 	if len(r.Scope.Actions) > 0 {
-		access = []Scope{r.Scope}
+		access = []auth.Scope{r.Scope}
 	}
 	for _, scope := range r.CompiledScopes {
 		if len(scope.Actions) > 0 {
@@ -108,10 +109,9 @@ func (r Request) ToToken() *Token {
 		}
 	}
 
-	return &Token{
+	return auth.Token{
 		UserName: r.UserName,
 		Audience: r.IntendedAudience,
 		Access:   access,
-		config:   r.config,
 	}
 }
