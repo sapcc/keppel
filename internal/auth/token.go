@@ -39,6 +39,8 @@ import (
 type Token struct {
 	//The name of this user who created this token.
 	UserName string
+	//The service that this token can be used with.
+	Audience string
 	//Access permissions for this token.
 	Access []Scope
 	//ListableAccounts is only set when Access contains "registy:catalog:*", and
@@ -113,6 +115,7 @@ func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration) (*Token, *
 
 	return &Token{
 		UserName: claims.StandardClaims.Subject,
+		Audience: publicHost,
 		Access:   claims.Access,
 		config:   cfg,
 	}, nil
@@ -154,9 +157,8 @@ func (t Token) ToResponse() (*TokenResponse, error) {
 	publicHost := t.config.APIPublicHostname()
 	token := jwt.NewWithClaims(method, tokenClaims{
 		StandardClaims: jwt.StandardClaims{
-			Id: uuid.NewV4().String(),
-			//audience must match "service" argument from request
-			Audience:  publicHost,
+			Id:        uuid.NewV4().String(),
+			Audience:  t.Audience,
 			Issuer:    "keppel-api@" + publicHost,
 			Subject:   t.UserName,
 			ExpiresAt: expiry.Unix(),

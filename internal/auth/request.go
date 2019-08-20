@@ -32,11 +32,12 @@ import (
 
 //Request contains the query parameters and credentials in a token request.
 type Request struct {
-	UserName     string
-	Password     string
-	Scope        *Scope
-	ClientID     string
-	OfflineToken bool
+	UserName         string
+	Password         string
+	Scope            Scope
+	ClientID         string
+	OfflineToken     bool
+	IntendedAudience string
 	//the auth handler may add additional scopes in addition to the originally
 	//requested scope to encode access permissions, RBACs, etc.
 	CompiledScopes []Scope
@@ -65,37 +66,18 @@ func ParseRequest(authorizationHeader, rawQuery string, cfg keppel.Configuration
 		return Request{}, fmt.Errorf("cannot parse query string: %s", err.Error())
 	}
 
-	service := query.Get("service")
-	if service == "" {
-		return Request{}, errors.New("missing query parameter: service")
-	}
-	if service != cfg.APIPublicHostname() {
-		return Request{}, errors.New("malformed query paramter: service")
-	}
-
 	offlineToken, err := strconv.ParseBool(query.Get("offline_token"))
 	if err != nil {
 		offlineToken = false
 	}
 	result := Request{
-		UserName:     username,
-		Password:     password,
-		ClientID:     query.Get("client_id"),
-		OfflineToken: offlineToken,
-		config:       cfg,
-	}
-
-	scopeStr := query.Get("scope")
-	if scopeStr == "" {
-		if !offlineToken {
-			return Request{}, errors.New("missing query parameter: scope")
-		}
-	} else {
-		scope, err := ParseScope(scopeStr)
-		if err != nil {
-			return Request{}, err
-		}
-		result.Scope = &scope
+		UserName:         username,
+		Password:         password,
+		ClientID:         query.Get("client_id"),
+		Scope:            ParseScope(query.Get("scope")),
+		OfflineToken:     offlineToken,
+		IntendedAudience: query.Get("service"),
+		config:           cfg,
 	}
 
 	return result, nil
@@ -117,8 +99,8 @@ func decodeAuthHeader(base64data string) (username, password string, err error) 
 //ToToken creates a token that can be used to fulfil this token request.
 func (r Request) ToToken() *Token {
 	var access []Scope
-	if r.Scope != nil && len(r.Scope.Actions) > 0 {
-		access = []Scope{*r.Scope}
+	if len(r.Scope.Actions) > 0 {
+		access = []Scope{r.Scope}
 	}
 	for _, scope := range r.CompiledScopes {
 		if len(scope.Actions) > 0 {
@@ -128,6 +110,7 @@ func (r Request) ToToken() *Token {
 
 	return &Token{
 		UserName: r.UserName,
+		Audience: r.IntendedAudience,
 		Access:   access,
 		config:   r.config,
 	}

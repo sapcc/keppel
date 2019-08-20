@@ -20,26 +20,15 @@
 package auth
 
 import (
-	"errors"
-	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/sapcc/go-bits/logg"
 )
 
 var (
-	repoComponentRegexp = `[a-z0-9]+(?:[._-][a-z0-9]+)*`
-	repoNameRegexp      = regexp.MustCompile(`^` + repoComponentRegexp + `(?:/` + repoComponentRegexp + `)*$`)
-
-	errorScopeMissing             = errors.New("scope is missing")
-	errorScopeMissingResource     = errors.New("scope is missing a resource")
-	errorScopeMissingRepository   = errors.New("scope is missing a repository")
-	errorScopeMissingActions      = errors.New("scope is missing actions")
-	errorScopeInvalid             = errors.New("scope is invalid")
-	errorScopeResourceUnsupported = errors.New("resource is unsupported")
-	errorScopeRepositoryTooLong   = errors.New("repository must be less than 256 characters long")
-	errorScopeRepositoryInvalid   = fmt.Errorf("repository name must match %q", repoNameRegexp.String())
-	errorScopeActionUndefined     = errors.New("actions must not be empty")
-	errorScopeActionInvalid       = errors.New("actions contains invalid value")
+	repoNameRx = `[a-z0-9]+(?:[._-][a-z0-9]+)*`
+	repoPathRx = regexp.MustCompile(`^` + repoNameRx + `(?:/` + repoNameRx + `)*$`)
 )
 
 //Scope contains the fields of the "scope" query parameter in a token request.
@@ -51,67 +40,29 @@ type Scope struct {
 
 //ParseScope parses the "scope" query parameter from a token request.
 //
-//	scope, err := auth.ParseScope(r.URL.Query()["scope"])
-func ParseScope(input string) (Scope, error) {
-	if input == "" {
-		return Scope{}, errorScopeMissing
-	}
-
-	fields := strings.Split(input, ":")
-	if fields[0] == "" {
-		return Scope{}, errorScopeMissingResource
-	}
-	if len(fields) > 3 {
-		return Scope{}, errorScopeInvalid
-	}
-	if len(fields) == 2 {
-		return Scope{}, errorScopeMissingActions
-	}
-	if len(fields) == 1 {
-		return Scope{}, errorScopeMissingRepository
-	}
-
+//	scope := auth.ParseScope(r.URL.Query()["scope"])
+func ParseScope(input string) Scope {
+	fields := strings.SplitN(input, ":", 3)
 	scope := Scope{
 		ResourceType: fields[0],
-		ResourceName: fields[1],
-		Actions:      strings.Split(fields[2], ","),
 	}
-	if len(scope.Actions) == 0 {
-		return Scope{}, errorScopeActionInvalid
+	if len(fields) > 1 {
+		scope.ResourceName = fields[1]
+	}
+	if len(fields) > 2 {
+		scope.Actions = strings.Split(fields[2], ",")
 	}
 
-	switch scope.ResourceType {
-	case "registry":
-		if scope.ResourceName != "catalog" {
-			return Scope{}, errorScopeResourceUnsupported
-		}
-		scope.Actions = []string{"*"}
-	case "repository":
+	if scope.ResourceType == "repository" {
 		if len(scope.ResourceName) > 256 {
-			return Scope{}, errorScopeRepositoryTooLong
+			logg.Info("rejecting overlong repository name: %q", scope.ResourceName)
+			scope.ResourceName = ""
+		} else if !repoPathRx.MatchString(scope.ResourceName) {
+			logg.Info("rejecting invalid repository name: %q", scope.ResourceName)
+			scope.ResourceName = ""
 		}
-		if !repoNameRegexp.MatchString(scope.ResourceName) {
-			return Scope{}, errorScopeRepositoryInvalid
-		}
-		for _, action := range scope.Actions {
-			if action != "pull" && action != "push" {
-				return Scope{}, errorScopeActionInvalid
-			}
-		}
-	default:
-		return Scope{}, errorScopeResourceUnsupported
 	}
-
-	return scope, nil
-}
-
-//MustParseScope is like ParseScope, but panics on error.
-func MustParseScope(input string) Scope {
-	s, err := ParseScope(input)
-	if err != nil {
-		panic(err.Error())
-	}
-	return s
+	return scope
 }
 
 //AccountName returns the first path element of the resource name, if the

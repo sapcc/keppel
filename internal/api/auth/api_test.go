@@ -22,6 +22,8 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"io/ioutil"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -33,62 +35,123 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
+////////////////////////////////////////////////////////////////////////////////
+// The testcases in this file encode a lot of knowledge that I gained by
+// torturing the auth API of Docker Hub. DO NOT CHANGE stuff unless you have
+// verified how the Docker Hub auth endpoint works.
+// For the record, the auth endpoint of Docker Hub can be found by
+//
+//     curl -si https://registry-1.docker.io/v2/ | grep Authenticate
+
 type TestCase struct {
 	//request
-	ResType string
-	ResName string
-	Actions string
+	Scope string
 	//situation
-	CannotPush    bool
-	CannotPull    bool
-	WrongUserName bool
-	WrongPassword bool
-	WrongService  bool
+	CannotPush bool
+	CannotPull bool
 	//result
 	GrantedActions string
 }
 
 var testCases = []TestCase{
 	//basic success case
-	{ResType: "repository", ResName: "test1/foo", Actions: "pull",
+	{Scope: "repository:test1/foo:pull",
 		GrantedActions: "pull"},
-	{ResType: "repository", ResName: "test1/foo", Actions: "push",
+	{Scope: "repository:test1/foo:push",
 		GrantedActions: "push"},
-	{ResType: "repository", ResName: "test1/foo", Actions: "pull,push",
+	{Scope: "repository:test1/foo:pull,push",
 		GrantedActions: "pull,push"},
 	//not allowed to pull
-	{ResType: "repository", ResName: "test1/foo", Actions: "pull",
+	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, GrantedActions: ""},
-	{ResType: "repository", ResName: "test1/foo", Actions: "push",
+	{Scope: "repository:test1/foo:push",
 		CannotPull: true, GrantedActions: "push"},
-	{ResType: "repository", ResName: "test1/foo", Actions: "pull,push",
+	{Scope: "repository:test1/foo:pull,push",
 		CannotPull: true, GrantedActions: "push"},
 	//not allowed to push
-	{ResType: "repository", ResName: "test1/foo", Actions: "pull",
+	{Scope: "repository:test1/foo:pull",
 		CannotPush: true, GrantedActions: "pull"},
-	{ResType: "repository", ResName: "test1/foo", Actions: "push",
+	{Scope: "repository:test1/foo:push",
 		CannotPush: true, GrantedActions: ""},
-	{ResType: "repository", ResName: "test1/foo", Actions: "pull,push",
+	{Scope: "repository:test1/foo:pull,push",
 		CannotPush: true, GrantedActions: "pull"},
 	//not allowed to pull nor push
-	{ResType: "repository", ResName: "test1/foo", Actions: "pull",
+	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, GrantedActions: ""},
-	{ResType: "repository", ResName: "test1/foo", Actions: "push",
+	{Scope: "repository:test1/foo:push",
 		CannotPull: true, CannotPush: true, GrantedActions: ""},
-	{ResType: "repository", ResName: "test1/foo", Actions: "pull,push",
+	{Scope: "repository:test1/foo:pull,push",
 		CannotPull: true, CannotPush: true, GrantedActions: ""},
+	//catalog access always allowed if username/password are ok (access to
+	//specific accounts is filtered later)
+	{Scope: "registry:catalog:*",
+		GrantedActions: "*"},
+	{Scope: "registry:catalog:*",
+		CannotPull: true, GrantedActions: "*"},
+	{Scope: "registry:catalog:*",
+		CannotPush: true, GrantedActions: "*"},
+	{Scope: "registry:catalog:*",
+		CannotPull: true, CannotPush: true, GrantedActions: "*"},
+	//unknown resources/actions for resource type "registry"
+	{Scope: "registry:test1/foo:pull",
+		GrantedActions: ""},
+	{Scope: "registry:catalog:pull",
+		GrantedActions: ""},
+	//incomplete scope syntax
+	{Scope: "",
+		GrantedActions: ""},
+	{Scope: "repository",
+		GrantedActions: ""},
+	{Scope: "repository:",
+		GrantedActions: ""},
+	{Scope: "repository:test1",
+		GrantedActions: ""},
+	{Scope: "repository:test1/",
+		GrantedActions: ""},
+	{Scope: "repository:test1/foo",
+		GrantedActions: ""},
+	{Scope: "repository:test1/foo:",
+		GrantedActions: ""},
+	{Scope: "repository:test1:pull",
+		GrantedActions: ""},
+	{Scope: "repository:test1/:pull",
+		GrantedActions: ""},
 }
 
 //TODO all useful combinations of testcases
 //  - WrongUserName
 //  - WrongPassword
-//  - WrongService
-//  - scope "registry:catalog:*"
 //  - check line coverage for internal/api/auth/token.go
 //TODO token is always 200, even without authz
 //TODO expect refresh_token when offline_token=true is given
+//TODO find out what's up with CompiledScopes
+//TODO pull all code from internal/auth/ into internal/api/auth/ that is not
+//     useful outside of this package
+//
+//NOTES:
+//
+//$ curl -H "Authorization: soughwotruhwtyhet" -i https://auth.docker.io/token'?service=registry.docker.io&scope=foo:bar:*'
+//  HTTP/1.1 400 Bad Request
+//  Content-Type: text/plain; charset=utf-8
+//
+//  {"details":"malformed HTTP Authorization header"}
+//
+//$ curl -H "Authorization: Basic Zm9vOmJhciAtbgo=" -i https://auth.docker.io/token'?service=registry.docker.io&scope=foo:bar:*'
+//  HTTP/1.1 401 Unauthorized
+//  Www-Authenticate: Basic realm="auth.docker.io"
+//  Content-Type: text/plain; charset=utf-8
+//
+//  {"details":"incorrect username or password"}
 
-func TestAuth(t *testing.T) {
+func foreachServiceValue(action func(serviceStr string)) {
+	//Every value for the ?service= query parameter is equally okay and the API
+	//should issue a token for exactly that audience.
+	action("registry.example.com")
+	action("K='i}1&} ")
+	action("")
+}
+
+func TestAuthBasic(t *testing.T) {
 	cfg, db := test.Setup(t)
 
 	//set up a dummy account for testing
@@ -111,127 +174,130 @@ func TestAuth(t *testing.T) {
 	r := mux.NewRouter()
 	NewAPI(cfg, ad, db).AddTo(r)
 
-	for idx, c := range testCases {
-		t.Logf("----- testcase %d/%d -----\n", idx+1, len(testCases))
-		req := httptest.NewRequest("GET", "/keppel/v1/auth", nil)
+	foreachServiceValue(func(service string) {
+		for idx, c := range testCases {
+			t.Logf("----- testcase %d/%d with service %q -----\n", idx+1, len(testCases), service)
+			req := httptest.NewRequest("GET", "/keppel/v1/auth", nil)
 
-		//setup permissions for test
-		var perms []string
-		if c.CannotPush {
-			perms = append(perms, string(keppel.CanPushToAccount)+":otheraccount")
-		} else {
-			perms = append(perms, string(keppel.CanPushToAccount)+":test1authtenant")
-		}
-		if c.CannotPull {
-			perms = append(perms, string(keppel.CanPullFromAccount)+":otheraccount")
-		} else {
-			perms = append(perms, string(keppel.CanPullFromAccount)+":test1authtenant")
-		}
-		ad.GrantedPermissions = strings.Join(perms, ",")
+			//setup permissions for test
+			var perms []string
+			if c.CannotPush {
+				perms = append(perms, string(keppel.CanPushToAccount)+":otheraccount")
+			} else {
+				perms = append(perms, string(keppel.CanPushToAccount)+":test1authtenant")
+			}
+			if c.CannotPull {
+				perms = append(perms, string(keppel.CanPullFromAccount)+":otheraccount")
+			} else {
+				perms = append(perms, string(keppel.CanPullFromAccount)+":test1authtenant")
+			}
+			ad.GrantedPermissions = strings.Join(perms, ",")
 
-		//setup Authorization header for test
-		authInput := "correctusername:"
-		if c.WrongUserName {
-			authInput = "wrongusername:"
-		}
-		if c.WrongPassword {
-			authInput += "wrongpassword"
-		} else {
-			authInput += "correctpassword"
-		}
-		req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(authInput)))
+			//setup Authorization header for test
+			authInput := "correctusername:correctpassword"
+			req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(authInput)))
 
-		//build URL query string for test
-		query := url.Values{
-			"service": {"registry.example.org"},
-		}
-		if c.WrongService {
-			query.Set("service", "wrongregistry.example.org")
-		}
-		switch {
-		case c.ResType == "" && c.ResName == "" && c.Actions == "":
-			query.Set("offline_token", "true")
-		case c.ResType != "" && c.ResName != "" && c.Actions != "":
-			query.Set("scope", c.ResType+":"+c.ResName+":"+c.Actions)
-		default:
-			t.Error("unexpected combination of restype/resname/actions")
-		}
-		req.URL.RawQuery = query.Encode()
+			//build URL query string for test
+			query := url.Values{}
+			if service != "" {
+				query.Set("service", service)
+			}
+			if c.Scope != "" {
+				query.Set("scope", c.Scope)
+			}
+			req.URL.RawQuery = query.Encode()
 
-		//execute request
-		recorder := httptest.NewRecorder()
-		r.ServeHTTP(recorder, req)
-		resp := recorder.Result()
+			//execute request
+			recorder := httptest.NewRecorder()
+			r.ServeHTTP(recorder, req)
+			resp := recorder.Result()
 
-		//always expect token in result
-		var responseBody struct {
-			Token string `json:"token"`
-			//optional fields (all listed so that we can use DisallowUnknownFields())
-			AccessToken  string `json:"access_token"`
-			RefreshToken string `json:"refresh_token"`
-			ExpiresIn    uint64 `json:"expires_in"`
-			IssuedAt     string `json:"issued_at"`
-		}
-		dec := json.NewDecoder(resp.Body)
-		dec.DisallowUnknownFields()
-		err := dec.Decode(&responseBody)
-		if err != nil {
-			t.Error(err.Error())
-			continue
-		}
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("expected status 200, got %d instead", resp.StatusCode)
+			}
 
-		//extract payload from token
-		tokenFields := strings.Split(responseBody.Token, ".")
-		if len(tokenFields) != 3 {
-			t.Logf("JWT is %s", string(responseBody.Token))
-			t.Errorf("expected token with 3 parts, got %d parts", len(tokenFields))
-			continue
-		}
-		tokenBytes, err := base64.RawURLEncoding.DecodeString(tokenFields[1])
-		if err != nil {
-			t.Error(err.Error())
-			continue
-		}
+			//always expect token in result
+			responseBodyBytes, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			var responseBody struct {
+				Token string `json:"token"`
+				//optional fields (all listed so that we can use DisallowUnknownFields())
+				AccessToken  string `json:"access_token"`
+				RefreshToken string `json:"refresh_token"`
+				ExpiresIn    uint64 `json:"expires_in"`
+				IssuedAt     string `json:"issued_at"`
+			}
+			dec := json.NewDecoder(bytes.NewReader(responseBodyBytes))
+			dec.DisallowUnknownFields()
+			err = dec.Decode(&responseBody)
+			if err != nil {
+				t.Logf("token was: %s", string(responseBodyBytes))
+				t.Error(err.Error())
+				continue
+			}
 
-		//decode token
-		type jwtAccess struct {
-			Type    string   `json:"type"`
-			Name    string   `json:"name"`
-			Actions []string `json:"actions"`
-		}
-		var token struct {
-			Issuer    string      `json:"iss"`
-			Subject   string      `json:"sub"`
-			Audience  string      `json:"aud"`
-			ExpiresAt int64       `json:"exp"`
-			NotBefore int64       `json:"nbf"`
-			IssuedAt  int64       `json:"iat"`
-			TokenID   string      `json:"jti"`
-			Access    []jwtAccess `json:"access"`
-		}
-		dec = json.NewDecoder(bytes.NewReader(tokenBytes))
-		dec.DisallowUnknownFields()
-		err = dec.Decode(&token)
-		if err != nil {
-			t.Logf("token JSON is %s", string(tokenBytes))
-			t.Error(err.Error())
-			continue
-		}
+			//extract payload from token
+			tokenFields := strings.Split(responseBody.Token, ".")
+			if len(tokenFields) != 3 {
+				t.Logf("JWT is %s", string(responseBody.Token))
+				t.Errorf("expected token with 3 parts, got %d parts", len(tokenFields))
+				continue
+			}
+			tokenBytes, err := base64.RawURLEncoding.DecodeString(tokenFields[1])
+			if err != nil {
+				t.Error(err.Error())
+				continue
+			}
 
-		//check token attributes for correctness
-		expectedAccess := []jwtAccess(nil)
-		if c.GrantedActions != "" {
-			expectedAccess = []jwtAccess{{
-				Type:    c.ResType,
-				Name:    c.ResName,
-				Actions: strings.Split(c.GrantedActions, ","),
-			}}
-		}
-		equal := assert.DeepEqual(t, "token.Access", token.Access, expectedAccess)
-		if !equal {
-			continue
-		}
-		//TODO many attributes missing
+			//decode token
+			type jwtAccess struct {
+				Type    string   `json:"type"`
+				Name    string   `json:"name"`
+				Actions []string `json:"actions"`
+			}
+			var token struct {
+				Issuer    string      `json:"iss"`
+				Subject   string      `json:"sub"`
+				Audience  string      `json:"aud"`
+				ExpiresAt int64       `json:"exp"`
+				NotBefore int64       `json:"nbf"`
+				IssuedAt  int64       `json:"iat"`
+				TokenID   string      `json:"jti"`
+				Access    []jwtAccess `json:"access"`
+			}
+			dec = json.NewDecoder(bytes.NewReader(tokenBytes))
+			dec.DisallowUnknownFields()
+			err = dec.Decode(&token)
+			if err != nil {
+				t.Logf("token JSON is %s", string(tokenBytes))
+				t.Error(err.Error())
+				continue
+			}
 
-	}
+			//check token attributes for correctness
+			expectedAccess := []jwtAccess(nil)
+			if c.GrantedActions != "" {
+				fields := strings.SplitN(c.Scope, ":", 3)
+				expectedAccess = []jwtAccess{{
+					Type:    fields[0],
+					Name:    fields[1],
+					Actions: strings.Split(c.GrantedActions, ","),
+				}}
+			}
+			equal := true
+			if !assert.DeepEqual(t, "token.Access", token.Access, expectedAccess) {
+				equal = false
+			}
+			if !assert.DeepEqual(t, "token.Audience", token.Audience, service) {
+				equal = false
+			}
+			if !equal {
+				continue
+			}
+			//TODO many attributes missing
+
+		}
+	})
 }

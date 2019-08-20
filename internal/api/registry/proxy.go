@@ -76,13 +76,18 @@ func (a *API) handleProxyToplevel(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{})
 }
 
+var requiredScopeForCatalogEndpoint = auth.Scope{
+	ResourceType: "registry",
+	ResourceName: "catalog",
+	Actions:      []string{"*"},
+}
+
 //This implements the GET /v2/_catalog endpoint.
 func (a *API) handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
-	requiredScope := auth.MustParseScope("registry:catalog:*")
-	if a.requireBearerToken(w, r, &requiredScope) == nil {
+	if a.requireBearerToken(w, r, &requiredScopeForCatalogEndpoint) == nil {
 		return
 	}
 

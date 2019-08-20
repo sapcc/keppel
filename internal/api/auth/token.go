@@ -21,6 +21,7 @@ package authapi
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/respondwith"
@@ -66,7 +67,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 
 	//find account if scope requested
 	var account *keppel.Account
-	if req.Scope != nil && req.Scope.ResourceType == "repository" {
+	if req.Scope.ResourceType == "repository" && req.Scope.AccountName() != "" {
 		account, err = a.db.FindAccount(req.Scope.AccountName())
 		if respondWithError(w, http.StatusInternalServerError, err) {
 			return
@@ -83,27 +84,25 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check requested scope and actions
-	if req.Scope != nil {
-		switch req.Scope.ResourceType {
-		case "registry":
-			if req.Scope.ResourceName == "catalog" {
-				req.Scope.Actions = []string{"*"}
-				req.CompiledScopes, err = a.compileCatalogAccess(authz)
-				if respondWithError(w, http.StatusInternalServerError, err) {
-					return
-				}
-			} else {
-				req.Scope.Actions = nil
+	switch req.Scope.ResourceType {
+	case "registry":
+		if req.Scope.ResourceName == "catalog" && containsString(req.Scope.Actions, "*") {
+			req.Scope.Actions = []string{"*"}
+			req.CompiledScopes, err = a.compileCatalogAccess(authz)
+			if respondWithError(w, http.StatusInternalServerError, err) {
+				return
 			}
-		case "repository":
-			if account == nil {
-				req.Scope.Actions = nil
-			} else {
-				req.Scope.Actions = filterRepoActions(req.Scope.Actions, authz, *account)
-			}
-		default:
+		} else {
 			req.Scope.Actions = nil
 		}
+	case "repository":
+		if account == nil || !strings.Contains(req.Scope.ResourceName, "/") {
+			req.Scope.Actions = nil
+		} else {
+			req.Scope.Actions = filterRepoActions(req.Scope.Actions, authz, *account)
+		}
+	default:
+		req.Scope.Actions = nil
 	}
 
 	tokenInfo, err := req.ToToken().ToResponse()
@@ -111,6 +110,15 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondwith.JSON(w, http.StatusOK, tokenInfo)
+}
+
+func containsString(list []string, val string) bool {
+	for _, v := range list {
+		if v == val {
+			return true
+		}
+	}
+	return false
 }
 
 func filterRepoActions(actions []string, authz keppel.Authorization, account keppel.Account) (result []string) {
