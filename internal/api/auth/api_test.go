@@ -119,30 +119,9 @@ var testCases = []TestCase{
 		GrantedActions: ""},
 }
 
-//TODO all useful combinations of testcases
-//  - WrongUserName
-//  - WrongPassword
-//  - check line coverage for internal/api/auth/token.go
-//TODO token is always 200, even without authz
+//TODO check line coverage for internal/api/auth/token.go
 //TODO expect refresh_token when offline_token=true is given
 //TODO find out what's up with CompiledScopes
-//TODO pull all code from internal/auth/ into internal/api/auth/ that is not
-//     useful outside of this package
-//
-//NOTES:
-//
-//$ curl -H "Authorization: soughwotruhwtyhet" -i https://auth.docker.io/token'?service=registry.docker.io&scope=foo:bar:*'
-//  HTTP/1.1 400 Bad Request
-//  Content-Type: text/plain; charset=utf-8
-//
-//  {"details":"malformed HTTP Authorization header"}
-//
-//$ curl -H "Authorization: Basic Zm9vOmJhciAtbgo=" -i https://auth.docker.io/token'?service=registry.docker.io&scope=foo:bar:*'
-//  HTTP/1.1 401 Unauthorized
-//  Www-Authenticate: Basic realm="auth.docker.io"
-//  Content-Type: text/plain; charset=utf-8
-//
-//  {"details":"incorrect username or password"}
 
 func foreachServiceValue(action func(serviceStr string)) {
 	//Every value for the ?service= query parameter is equally okay and the API
@@ -152,7 +131,7 @@ func foreachServiceValue(action func(serviceStr string)) {
 	action("")
 }
 
-func TestAuthBasic(t *testing.T) {
+func setup(t *testing.T) (*mux.Router, *test.AuthDriver) {
 	cfg, db := test.Setup(t)
 
 	//set up a dummy account for testing
@@ -174,6 +153,11 @@ func TestAuthBasic(t *testing.T) {
 
 	r := mux.NewRouter()
 	NewAPI(cfg, ad, db).AddTo(r)
+	return r, ad
+}
+
+func TestIssueToken(t *testing.T) {
+	r, ad := setup(t)
 
 	foreachServiceValue(func(service string) {
 		for idx, c := range testCases {
@@ -311,5 +295,47 @@ func TestAuthBasic(t *testing.T) {
 				t.Errorf("IssuedAt should be now or in the past, but is %d seconds in the future", token.IssuedAt-nowUnix)
 			}
 		}
+	})
+}
+
+func TestInvalidCredentials(t *testing.T) {
+	r, _ := setup(t)
+
+	foreachServiceValue(func(service string) {
+		//execute normal GET requests that would result in a token with granted
+		//actions, if we didn't give the wrong username (in the first call) or
+		//password (in the second call)
+		urlPath := url.URL{
+			Path: "/keppel/v1/auth",
+			RawQuery: url.Values{
+				"service": {service},
+				"scope":   {"repository:test1/foo:pull"},
+			}.Encode(),
+		}
+		makeAuthHdr := func(username, password string) string {
+			input := username + ":" + password
+			return "Basic " + base64.StdEncoding.EncodeToString([]byte(input))
+		}
+		req := assert.HTTPRequest{
+			Method:       "GET",
+			Path:         urlPath.String(),
+			Header:       map[string]string{},
+			ExpectStatus: http.StatusUnauthorized,
+			ExpectBody:   assert.JSONObject{"details": "incorrect username or password"},
+		}
+
+		t.Logf("----- test malformed credentials with service %q -----\n", service)
+		req.Header["Authorization"] = "Bogus 65082567y295847y62"
+		req.ExpectBody = assert.JSONObject{"details": "malformed Authorization header"}
+		req.Check(t, r)
+
+		t.Logf("----- test wrong username with service %q -----\n", service)
+		req.Header["Authorization"] = makeAuthHdr("wrongusername", "correctpassword")
+		req.ExpectBody = assert.JSONObject{"details": "authentication required: wrong credentials"}
+		req.Check(t, r)
+
+		t.Logf("----- test wrong password with service %q -----\n", service)
+		req.Header["Authorization"] = makeAuthHdr("correctusername", "wrongpassword")
+		req.Check(t, r)
 	})
 }

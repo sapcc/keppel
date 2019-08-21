@@ -31,10 +31,31 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//Request contains the query parameters and credentials in a token request.
+func (a *API) checkAuthentication(authorizationHeader string) (userName string, authz keppel.Authorization, err error) {
+	if authorizationHeader == "" {
+		//TODO support anonymous login (only required once ACLs are added)
+		return "", nil, errors.New("missing Authorization header")
+	}
+	if !strings.HasPrefix(authorizationHeader, "Basic ") {
+		return "", nil, errors.New("malformed Authorization header")
+	}
+
+	userName, password, err := decodeAuthHeader(
+		strings.TrimPrefix(authorizationHeader, "Basic "))
+	if err != nil {
+		return "", nil, fmt.Errorf("cannot parse Authorization header: %s", err.Error())
+	}
+
+	authz, rerr := a.authDriver.AuthenticateUser(userName, password)
+	if rerr != nil {
+		return "", nil, rerr
+	}
+
+	return userName, authz, nil
+}
+
+//Request contains the query parameters in a token request.
 type Request struct {
-	UserName         string
-	Password         string
 	Scope            auth.Scope
 	ClientID         string
 	OfflineToken     bool
@@ -42,26 +63,9 @@ type Request struct {
 	//the auth handler may add additional scopes in addition to the originally
 	//requested scope to encode access permissions, RBACs, etc.
 	CompiledScopes []auth.Scope
-	//the Configuration is used later on to construct the Token
-	config keppel.Configuration
 }
 
-//ParseRequest parses the data in a token request.
-//
-//	req, err := auth.ParseRequest(
-//	    r.Header.Get("Authorization"),
-//	    r.URL.RawQuery,
-//	)
-func ParseRequest(authorizationHeader, rawQuery string, cfg keppel.Configuration) (Request, error) {
-	if !strings.HasPrefix(authorizationHeader, "Basic ") { //e.g. because it's missing
-		return Request{}, errors.New("missing Authorization header")
-	}
-	username, password, err := decodeAuthHeader(
-		strings.TrimPrefix(authorizationHeader, "Basic "))
-	if err != nil {
-		return Request{}, fmt.Errorf("cannot parse Authorization header: %s", err.Error())
-	}
-
+func parseRequest(rawQuery string, cfg keppel.Configuration) (Request, error) {
 	query, err := url.ParseQuery(rawQuery)
 	if err != nil {
 		return Request{}, fmt.Errorf("cannot parse query string: %s", err.Error())
@@ -72,13 +76,10 @@ func ParseRequest(authorizationHeader, rawQuery string, cfg keppel.Configuration
 		offlineToken = false
 	}
 	result := Request{
-		UserName:         username,
-		Password:         password,
 		ClientID:         query.Get("client_id"),
 		Scope:            parseScope(query.Get("scope")),
 		OfflineToken:     offlineToken,
 		IntendedAudience: query.Get("service"),
-		config:           cfg,
 	}
 
 	return result, nil
@@ -98,7 +99,7 @@ func decodeAuthHeader(base64data string) (username, password string, err error) 
 }
 
 //ToToken creates a token that can be used to fulfil this token request.
-func (r Request) ToToken() auth.Token {
+func (r Request) ToToken(userName string) auth.Token {
 	var access []auth.Scope
 	if len(r.Scope.Actions) > 0 {
 		access = []auth.Scope{r.Scope}
@@ -110,7 +111,7 @@ func (r Request) ToToken() auth.Token {
 	}
 
 	return auth.Token{
-		UserName: r.UserName,
+		UserName: userName,
 		Audience: r.IntendedAudience,
 		Access:   access,
 	}

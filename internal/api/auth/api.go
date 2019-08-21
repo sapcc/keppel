@@ -20,6 +20,7 @@
 package authapi
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -54,13 +55,16 @@ func respondWithError(w http.ResponseWriter, code int, err error) bool {
 	return false
 }
 
+var errUnautorized = errors.New("incorrect username or password")
+
 func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
+	userName, authz, err := a.checkAuthentication(r.Header.Get("Authorization"))
+	if respondWithError(w, http.StatusUnauthorized, err) {
+		return
+	}
+
 	//parse request
-	req, err := ParseRequest(
-		r.Header.Get("Authorization"),
-		r.URL.RawQuery,
-		a.cfg,
-	)
+	req, err := parseRequest(r.URL.RawQuery, a.cfg)
 	if respondWithError(w, http.StatusBadRequest, err) {
 		return
 	}
@@ -74,13 +78,6 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		}
 		//do not check account == nil here yet to not leak account existence to
 		//unauthorized users
-	}
-
-	//check user access
-	authz, rerr := a.authDriver.AuthenticateUser(req.UserName, req.Password)
-	if rerr != nil {
-		rerr.WriteAsRegistryV2ResponseTo(w)
-		return
 	}
 
 	//check requested scope and actions
@@ -105,7 +102,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		req.Scope.Actions = nil
 	}
 
-	tokenInfo, err := makeTokenResponse(req.ToToken(), a.cfg)
+	tokenInfo, err := makeTokenResponse(req.ToToken(userName), a.cfg)
 	if respondWithError(w, http.StatusBadRequest, err) {
 		return
 	}
