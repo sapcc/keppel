@@ -113,21 +113,6 @@ func (t Token) Contains(s Scope) bool {
 	return false
 }
 
-//IncludesAccessTo checks if this token permits access to the given resource
-//with the given action.
-func (t Token) IncludesAccessTo(resourceType, resourceName, action string) bool {
-	for _, scope := range t.Access {
-		if scope.ResourceType == resourceType && scope.ResourceName == resourceName {
-			for _, a := range scope.Actions {
-				if a == action {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
 //ChooseSigningMethod returns the appropriate signing method for the given
 //private key.
 func ChooseSigningMethod(key libtrust.PrivateKey) jwt.SigningMethod {
