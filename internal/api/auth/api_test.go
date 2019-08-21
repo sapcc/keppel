@@ -28,6 +28,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
@@ -257,10 +258,13 @@ func TestAuthBasic(t *testing.T) {
 				Name    string   `json:"name"`
 				Actions []string `json:"actions"`
 			}
+			type StaticTokenAttributes struct {
+				Issuer   string `json:"iss"`
+				Subject  string `json:"sub"`
+				Audience string `json:"aud"`
+			}
 			var token struct {
-				Issuer    string      `json:"iss"`
-				Subject   string      `json:"sub"`
-				Audience  string      `json:"aud"`
+				StaticTokenAttributes
 				ExpiresAt int64       `json:"exp"`
 				NotBefore int64       `json:"nbf"`
 				IssuedAt  int64       `json:"iat"`
@@ -286,18 +290,26 @@ func TestAuthBasic(t *testing.T) {
 					Actions: strings.Split(c.GrantedActions, ","),
 				}}
 			}
-			equal := true
-			if !assert.DeepEqual(t, "token.Access", token.Access, expectedAccess) {
-				equal = false
-			}
-			if !assert.DeepEqual(t, "token.Audience", token.Audience, service) {
-				equal = false
-			}
-			if !equal {
-				continue
-			}
-			//TODO many attributes missing
+			assert.DeepEqual(t, "token.Access", token.Access, expectedAccess)
 
+			expectedAttributes := StaticTokenAttributes{
+				Audience: service,
+				Issuer:   "keppel-api@registry.example.org",
+				Subject:  "correctusername",
+			}
+			assert.DeepEqual(t, "static token attributes", token.StaticTokenAttributes, expectedAttributes)
+
+			//check remaining token attributes for plausibility
+			nowUnix := time.Now().Unix()
+			if nowUnix >= token.ExpiresAt {
+				t.Errorf("ExpiresAt should be in the future, but is %d seconds in the past", nowUnix-token.ExpiresAt)
+			}
+			if nowUnix < token.NotBefore {
+				t.Errorf("NotBefore should be now or in the past, but is %d seconds in the future", token.NotBefore-nowUnix)
+			}
+			if nowUnix < token.IssuedAt {
+				t.Errorf("IssuedAt should be now or in the past, but is %d seconds in the future", token.IssuedAt-nowUnix)
+			}
 		}
 	})
 }
