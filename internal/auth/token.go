@@ -138,7 +138,7 @@ func ChooseSigningMethod(key libtrust.PrivateKey) jwt.SigningMethod {
 	case *rsa.PrivateKey:
 		return jwt.SigningMethodRS256
 	default:
-		panic(fmt.Sprintf("do not know which JWT method to use for issuerKey.type = %t", issuerKey))
+		panic(fmt.Sprintf("do not know which JWT method to use for issuerKey.type = %T", issuerKey))
 	}
 }
 
@@ -155,6 +155,6 @@ func equalSigningMethods(m1, m2 jwt.SigningMethod) bool {
 		}
 		return false
 	default:
-		panic(fmt.Sprintf("do not know how to compare signing methods of type %t", m1))
+		panic(fmt.Sprintf("do not know how to compare signing methods of type %T", m1))
 	}
 }

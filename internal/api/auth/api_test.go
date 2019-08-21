@@ -52,7 +52,8 @@ type TestCase struct {
 	CannotPush bool
 	CannotPull bool
 	//result
-	GrantedActions string
+	GrantedActions   string
+	AdditionalScopes []string
 }
 
 var testCases = []TestCase{
@@ -87,11 +88,13 @@ var testCases = []TestCase{
 	//catalog access always allowed if username/password are ok (access to
 	//specific accounts is filtered later)
 	{Scope: "registry:catalog:*",
-		GrantedActions: "*"},
+		GrantedActions:   "*",
+		AdditionalScopes: []string{"keppel_account:test1:view"}},
 	{Scope: "registry:catalog:*",
 		CannotPull: true, GrantedActions: "*"},
 	{Scope: "registry:catalog:*",
-		CannotPush: true, GrantedActions: "*"},
+		CannotPush: true, GrantedActions: "*",
+		AdditionalScopes: []string{"keppel_account:test1:view"}},
 	{Scope: "registry:catalog:*",
 		CannotPull: true, CannotPush: true, GrantedActions: "*"},
 	//unknown resources/actions for resource type "registry"
@@ -283,6 +286,16 @@ func TestIssueToken(t *testing.T) {
 					Actions: strings.Split(c.GrantedActions, ","),
 				}}
 			}
+			if len(c.AdditionalScopes) > 0 {
+				for _, scope := range c.AdditionalScopes {
+					fields := strings.SplitN(scope, ":", 3)
+					expectedAccess = append(expectedAccess, jwtAccess{
+						Type:    fields[0],
+						Name:    fields[1],
+						Actions: strings.Split(fields[2], ","),
+					})
+				}
+			}
 			assert.DeepEqual(t, "token.Access", token.Access, expectedAccess)
 
 			expectedAttributes := StaticTokenAttributes{
@@ -336,6 +349,8 @@ func TestInvalidCredentials(t *testing.T) {
 		t.Logf("----- test malformed credentials with service %q -----\n", service)
 		req.Header["Authorization"] = "Bogus 65082567y295847y62"
 		req.ExpectBody = assert.JSONObject{"details": "malformed Authorization header"}
+		req.Check(t, r)
+		req.Header["Authorization"] = "Basic 65082567y2958)*&@@"
 		req.Check(t, r)
 		req.Header["Authorization"] = "Basic " + base64.StdEncoding.EncodeToString([]byte("onlyusername"))
 		req.Check(t, r)
