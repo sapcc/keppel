@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -116,6 +117,12 @@ var testCases = []TestCase{
 	{Scope: "repository:test1:pull",
 		GrantedActions: ""},
 	{Scope: "repository:test1/:pull",
+		GrantedActions: ""},
+	//invalid scope syntax (overlong repository name)
+	{Scope: fmt.Sprintf("repository:test1/%s:pull", strings.Repeat("a", 300)),
+		GrantedActions: ""},
+	//invalid scope syntax (malformed repository name)
+	{Scope: "repository:test1/???:pull",
 		GrantedActions: ""},
 }
 
@@ -327,6 +334,8 @@ func TestInvalidCredentials(t *testing.T) {
 		t.Logf("----- test malformed credentials with service %q -----\n", service)
 		req.Header["Authorization"] = "Bogus 65082567y295847y62"
 		req.ExpectBody = assert.JSONObject{"details": "malformed Authorization header"}
+		req.Check(t, r)
+		req.Header["Authorization"] = "Basic " + base64.StdEncoding.EncodeToString([]byte("onlyusername"))
 		req.Check(t, r)
 
 		t.Logf("----- test wrong username with service %q -----\n", service)

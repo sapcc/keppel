@@ -31,19 +31,24 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
+var (
+	errNoAuthHeader        = errors.New("missing Authorization header")
+	errMalformedAuthHeader = errors.New("malformed Authorization header")
+)
+
 func (a *API) checkAuthentication(authorizationHeader string) (userName string, authz keppel.Authorization, err error) {
 	if authorizationHeader == "" {
 		//TODO support anonymous login (only required once ACLs are added)
-		return "", nil, errors.New("missing Authorization header")
+		return "", nil, errNoAuthHeader
 	}
 	if !strings.HasPrefix(authorizationHeader, "Basic ") {
-		return "", nil, errors.New("malformed Authorization header")
+		return "", nil, errMalformedAuthHeader
 	}
 
-	userName, password, err := decodeAuthHeader(
+	userName, password := decodeAuthHeader(
 		strings.TrimPrefix(authorizationHeader, "Basic "))
-	if err != nil {
-		return "", nil, fmt.Errorf("cannot parse Authorization header: %s", err.Error())
+	if userName == "" {
+		return "", nil, errMalformedAuthHeader
 	}
 
 	authz, rerr := a.authDriver.AuthenticateUser(userName, password)
@@ -85,17 +90,17 @@ func parseRequest(rawQuery string, cfg keppel.Configuration) (Request, error) {
 	return result, nil
 }
 
-func decodeAuthHeader(base64data string) (username, password string, err error) {
+func decodeAuthHeader(base64data string) (username, password string) {
 	bytes, err := base64.StdEncoding.DecodeString(base64data)
 	if err != nil {
-		return "", "", err
+		return "", ""
 	}
 
 	fields := strings.SplitN(string(bytes), ":", 2)
 	if len(fields) != 2 {
-		return "", "", errors.New(`expected "username:password" payload, but got no colon`)
+		return "", ""
 	}
-	return fields[0], fields[1], nil
+	return fields[0], fields[1]
 }
 
 //ToToken creates a token that can be used to fulfil this token request.
