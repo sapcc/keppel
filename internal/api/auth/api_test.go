@@ -174,14 +174,16 @@ func TestIssueToken(t *testing.T) {
 			//setup permissions for test
 			var perms []string
 			if c.CannotPush {
-				perms = append(perms, string(keppel.CanPushToAccount)+":otheraccount")
+				perms = append(perms, string(keppel.CanPushToAccount)+":othertenant")
 			} else {
 				perms = append(perms, string(keppel.CanPushToAccount)+":test1authtenant")
 			}
 			if c.CannotPull {
-				perms = append(perms, string(keppel.CanPullFromAccount)+":otheraccount")
+				perms = append(perms, string(keppel.CanPullFromAccount)+":othertenant")
+				perms = append(perms, string(keppel.CanViewAccount)+":othertenant")
 			} else {
 				perms = append(perms, string(keppel.CanPullFromAccount)+":test1authtenant")
+				perms = append(perms, string(keppel.CanViewAccount)+":test1authtenant")
 			}
 			ad.GrantedPermissions = strings.Join(perms, ",")
 
