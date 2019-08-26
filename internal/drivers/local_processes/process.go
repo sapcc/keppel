@@ -43,6 +43,7 @@ log:
 	level: info
 http:
 	addr: :10000
+	relativeurls: true
 	headers:
 		X-Content-Type-Options: [nosniff]
 health:

@@ -8,36 +8,32 @@ require (
 	github.com/bugsnag/bugsnag-go v0.0.0-20141110184014-b1d153021fcd // indirect
 	github.com/bugsnag/osext v0.0.0-20130617224835-0dd3f918b21b // indirect
 	github.com/bugsnag/panicwrap v0.0.0-20151223152923-e2c28503fcd0 // indirect
-	github.com/databus23/goslo.policy v0.0.0-20170317131957-3ae74dd07ebf // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/go-metrics v0.0.0-20181218153428-b84716841b82 // indirect
 	github.com/docker/libtrust v0.0.0-20150114040149-fa567046d9b1
 	github.com/garyburd/redigo v0.0.0-20150301180006-535138d7bcd7 // indirect
-	github.com/golang-migrate/migrate v3.4.0+incompatible // indirect
 	github.com/golang/protobuf v1.3.2 // indirect
-	github.com/gophercloud/gophercloud v0.2.0
+	github.com/gophercloud/gophercloud v0.3.0
 	github.com/gophercloud/utils v0.0.0-20190527093828-25f1b77b8c03
-	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/handlers v0.0.0-20150720190736-60c7bfde3e33 // indirect
-	github.com/gorilla/mux v0.0.0-20170228224354-599cba5e7b61
+	github.com/gorilla/mux v1.6.2
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
-	github.com/lib/pq v1.0.0
+	github.com/lib/pq v1.2.0
 	github.com/majewsky/schwift v0.0.0-20180906125654-e1b3d5e2efc9
 	github.com/mattes/migrate v0.0.0-20171024180000-69472d5f5cdc
 	github.com/miekg/dns v0.0.0-20161122061214-271c58e0c14f // indirect
-	github.com/mitchellh/mapstructure v0.0.0-20150528213339-482a9fd5fa83
+	github.com/mitchellh/mapstructure v1.0.0
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/prometheus/common v0.6.0 // indirect
 	github.com/prometheus/procfs v0.0.3 // indirect
-	github.com/sapcc/go-bits v0.0.0-20190522121402-dabab492e20b
+	github.com/sapcc/go-bits v0.0.0-20190822125528-a70419802c50
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/spf13/cobra v0.0.0-20150605180824-312092086bed // indirect
-	github.com/spf13/pflag v0.0.0-20150601220040-564482062245 // indirect
 	github.com/xenolf/lego v0.0.0-20160613233155-a9d8cec0e656 // indirect
 	github.com/yvasiyarov/go-metrics v0.0.0-20140926110328-57bccd1ccd43 // indirect
 	github.com/yvasiyarov/gorelic v0.0.0-20141212073537-a9bba5b9ab50 // indirect

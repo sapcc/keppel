@@ -136,11 +136,24 @@ func (d *driver) Run(ctx context.Context) (ok bool) {
 					cancel()
 				}
 			}
+			waitUntilRegistryRunning(port)
 			d.listenPorts[req.Account.Name] = port
 			if req.Result != nil { //is nil when called from ensureAllRegistriesAreRunning()
 				req.Result <- port
 			}
 		}
+	}
+}
+
+func waitUntilRegistryRunning(port uint16) {
+	duration := 2 * time.Millisecond
+	for try := 0; try < 10; try++ {
+		_, err := http.Get(fmt.Sprintf("localhost:%d", port))
+		if err == nil {
+			return
+		}
+		time.Sleep(duration)
+		duration *= 2
 	}
 }
 

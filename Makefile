@@ -57,7 +57,7 @@ static-check: FORCE
 # detailed unit test run (incl. test coverage)
 build/%.cover.out: FORCE
 	@printf "\e[1;36m>> go test $(subst _,/,$*)\e[0m\n"
-	$(GO) test $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(subst _,/,$*)
+	@env PATH=$(CURDIR)/build:$$PATH $(GO) test $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(subst _,/,$*)
 build/cover.out: $(GO_COVERFILES)
 	$(GO) run $(GO_BUILDFLAGS) util/gocovcat.go $(GO_COVERFILES) > $@
 build/cover.html: build/cover.out

@@ -20,7 +20,6 @@
 package test
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -28,45 +27,27 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//Implements all three Driver interfaces. All methods return errors or empty
-//values all the time, except for initialization methods (ReadConfig, Connect)
-//which return nil.
-type noopDriver struct{}
+//A dummy auth driver that always returns errors.
+type noopAuthDriver struct{}
 
 func init() {
-	keppel.RegisterAuthDriver("noop", func() (keppel.AuthDriver, error) { return &noopDriver{}, nil })
-	keppel.RegisterOrchestrationDriver("noop", func(keppel.StorageDriver, keppel.Configuration, keppel.DBAccessForOrchestrationDriver) (keppel.OrchestrationDriver, error) {
-		return &noopDriver{}, nil
-	})
-	keppel.RegisterStorageDriver("noop", func(keppel.AuthDriver, keppel.Configuration) (keppel.StorageDriver, error) { return &noopDriver{}, nil })
+	keppel.RegisterAuthDriver("noop", func() (keppel.AuthDriver, error) { return &noopAuthDriver{}, nil })
 }
 
-func (*noopDriver) ValidateTenantID(tenantID string) error {
+func (*noopAuthDriver) ValidateTenantID(tenantID string) error {
 	return nil
 }
 
-func (*noopDriver) SetupAccount(account keppel.Account, an keppel.Authorization) error {
-	return errors.New("SetupAccount not implemented for NoopDriver")
+func (*noopAuthDriver) SetupAccount(account keppel.Account, an keppel.Authorization) error {
+	return errors.New("SetupAccount not implemented for noopAuthDriver")
 }
 
-func (*noopDriver) AuthenticateUser(userName, password string) (keppel.Authorization, *keppel.RegistryV2Error) {
-	return nil, keppel.ErrUnsupported.With("AuthenticateUser not implemented for NoopDriver")
+func (*noopAuthDriver) AuthenticateUser(userName, password string) (keppel.Authorization, *keppel.RegistryV2Error) {
+	return nil, keppel.ErrUnsupported.With("AuthenticateUser not implemented for noopAuthDriver")
 }
 
-func (*noopDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Authorization, *keppel.RegistryV2Error) {
-	return nil, keppel.ErrUnsupported.With("AuthenticateUserFromRequest not implemented for NoopDriver")
-}
-
-func (*noopDriver) GetEnvironment(account keppel.Account) (map[string]string, error) {
-	return nil, errors.New("GetEnvironment not implemented for NoopDriver")
-}
-
-func (*noopDriver) DoHTTPRequest(account keppel.Account, r *http.Request) (*http.Response, error) {
-	return nil, errors.New("DoHTTPRequest not implemented for NoopDriver")
-}
-
-func (*noopDriver) Run(ctx context.Context) (ok bool) {
-	return false
+func (*noopAuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Authorization, *keppel.RegistryV2Error) {
+	return nil, keppel.ErrUnsupported.With("AuthenticateUserFromRequest not implemented for noopAuthDriver")
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -121,12 +102,14 @@ func (d *AuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Author
 
 func parseAuthorization(permsHeader string) keppel.Authorization {
 	perms := make(map[string]map[string]bool)
-	for _, field := range strings.Split(permsHeader, ",") {
-		fields := strings.SplitN(field, ":", 2)
-		if _, ok := perms[fields[0]]; !ok {
-			perms[fields[0]] = make(map[string]bool)
+	if permsHeader != "" {
+		for _, field := range strings.Split(permsHeader, ",") {
+			fields := strings.SplitN(field, ":", 2)
+			if _, ok := perms[fields[0]]; !ok {
+				perms[fields[0]] = make(map[string]bool)
+			}
+			perms[fields[0]][fields[1]] = true
 		}
-		perms[fields[0]][fields[1]] = true
 	}
 	return authorization{perms}
 }

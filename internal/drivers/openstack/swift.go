@@ -22,6 +22,7 @@ package openstack
 import (
 	"errors"
 	"os"
+	"strconv"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -44,9 +45,9 @@ func init() {
 //GetEnvironment implements the keppel.StorageDriver interface.
 func (d *swiftDriver) GetEnvironment(account keppel.Account) (map[string]string, error) {
 	//cf. cmd/keppel-api/main.go
-	insecure := "false"
-	if os.Getenv("KEPPEL_INSECURE") == "1" {
-		insecure = "true"
+	insecure, err := strconv.ParseBool(os.Getenv("KEPPEL_INSECURE"))
+	if err != nil {
+		insecure = false
 	}
 
 	password := os.Getenv("OS_PASSWORD")
@@ -65,6 +66,6 @@ func (d *swiftDriver) GetEnvironment(account keppel.Account) (map[string]string,
 		"REGISTRY_STORAGE_SWIFT-PLUS_PASSWORD":           password,
 		"REGISTRY_STORAGE_SWIFT-PLUS_PROJECTID":          account.AuthTenantID,
 		"REGISTRY_STORAGE_SWIFT-PLUS_CONTAINER":          account.SwiftContainerName(),
-		"REGISTRY_STORAGE_SWIFT-PLUS_INSECURESKIPVERIFY": insecure,
+		"REGISTRY_STORAGE_SWIFT-PLUS_INSECURESKIPVERIFY": strconv.FormatBool(insecure),
 	}, nil
 }
