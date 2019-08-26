@@ -45,7 +45,7 @@ type keystoneDriver struct {
 	Provider       *gophercloud.ProviderClient
 	IdentityV3     *gophercloud.ServiceClient
 	TokenValidator *gopherpolicy.TokenValidator
-	ServiceUserID  string
+	ServiceUser    tokens.User
 	LocalRoleID    string
 }
 
@@ -114,7 +114,7 @@ func init() {
 			Provider:       provider,
 			IdentityV3:     identityV3,
 			TokenValidator: tv,
-			ServiceUserID:  serviceUser.ID,
+			ServiceUser:    *serviceUser,
 			LocalRoleID:    localRole.ID,
 		}, nil
 	})
@@ -152,7 +152,7 @@ func (d *keystoneDriver) SetupAccount(account keppel.Account, authorization kepp
 		return err
 	}
 	result := roles.Assign(client, d.LocalRoleID, roles.AssignOpts{
-		UserID:    d.ServiceUserID,
+		UserID:    d.ServiceUser.ID,
 		ProjectID: account.AuthTenantID,
 	})
 	return result.Err

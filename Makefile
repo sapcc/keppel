@@ -24,8 +24,8 @@ install/keppel-%: build/keppel-% FORCE
 ################################################################################
 
 # This is for manual testing with the "local-processes" orchestrator.
-run-api-%: build/keppel-api build/keppel-registry
-	env PATH=$(CURDIR)/build:$$PATH keppel-api $*.yaml
+run-api: build/keppel-api build/keppel-registry
+	set -euo pipefail && source ./.env && env PATH=$(CURDIR)/build:$$PATH keppel-api
 
 ################################################################################
 

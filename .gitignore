@@ -3,7 +3,7 @@
 build/
 
 # runtime artifacts (see Makefile)
-/*.yaml
+/.env
 
 # testing artifacts
 testing/postgresql-data/
