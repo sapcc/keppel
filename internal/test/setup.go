@@ -20,37 +20,16 @@
 package test
 
 import (
-	"log"
 	"net/url"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//testLogWriter is an io.Writer that redirects the application's log output
-//into t.Log(). See log.SetOutput() call below.
-type testLogWriter struct {
-	t *testing.T
-}
-
-func (w testLogWriter) Write(buf []byte) (int, error) {
-	msg := strings.TrimSpace(string(buf))
-	if strings.Contains(msg, " ERROR: ") || strings.Contains(msg, " FATAL: ") {
-		w.t.Error(msg)
-	} else {
-		w.t.Log(msg)
-	}
-	return len(buf), nil
-}
-
 //Setup sets up a keppel.Configuration and database connection for a unit test.
 func Setup(t *testing.T) (keppel.Configuration, *keppel.DB) {
 	t.Helper()
-
-	//setup logg to write into t.Log()
-	log.SetOutput(testLogWriter{t})
 
 	var postgresURL string
 	if os.Getenv("TRAVIS") == "true" {
