@@ -1,13 +1,16 @@
-language: go
-sudo: false
+addons:
+  postgresql: "9.6"
+services:
+  - postgresql
 
+language: go
 go:
-    - '1.10'
+    - 1.12
 
 install:
-    - go get -u github.com/golang/lint/golint
+    - go get -u golang.org/x/lint/golint
     - go get -u github.com/mattn/goveralls
 
 script:
-    - make all check
-    - $HOME/gopath/bin/goveralls -coverprofile=build/cover.out -service=travis-ci
+   - make all check GO_BUILDFLAGS="-mod vendor"
+   - $HOME/gopath/bin/goveralls -coverprofile=build/cover.out -service=travis-ci

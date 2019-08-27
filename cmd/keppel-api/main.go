@@ -23,82 +23,75 @@ import (
 	"context"
 	"crypto/tls"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
-	"regexp"
+	"strconv"
 	"syscall"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
-	authapi "github.com/sapcc/keppel/pkg/api/auth"
-	keppelv1api "github.com/sapcc/keppel/pkg/api/keppel"
-	registryv2api "github.com/sapcc/keppel/pkg/api/registry"
-	"github.com/sapcc/keppel/pkg/keppel"
+	auth "github.com/sapcc/keppel/internal/api/auth"
+	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
+	registryv2 "github.com/sapcc/keppel/internal/api/registry"
+	"github.com/sapcc/keppel/internal/keppel"
 
-	_ "github.com/sapcc/keppel/pkg/drivers/local_processes"
-	_ "github.com/sapcc/keppel/pkg/drivers/openstack"
+	_ "github.com/sapcc/keppel/internal/drivers/local_processes"
+	_ "github.com/sapcc/keppel/internal/drivers/openstack"
 )
 
 func main() {
+	logg.ShowDebug, _ = strconv.ParseBool(os.Getenv("KEPPEL_DEBUG"))
 	logg.Info("starting keppel-api %s", keppel.Version)
-	if os.Getenv("KEPPEL_DEBUG") == "1" {
-		logg.ShowDebug = true
-	}
 
-	//I have some trouble getting Keppel to connect to our staging OpenStack
-	//through mitmproxy (which is very useful for development and debugging) when
-	//TLS certificate verification is enabled. Therefore, allow to turn it off
-	//with an env variable. (It's very important that this is not the standard
-	//"KEPPEL_DEBUG" variable. That one is meant to be useful for production
-	//systems, where you definitely don't want to turn off certificate
-	//verification.)
-	if os.Getenv("KEPPEL_INSECURE") == "1" {
+	//The KEPPEL_INSECURE flag can be used to get Keppel to work through
+	//mitmproxy (which is very useful for development and debugging). (It's very
+	//important that this is not the standard "KEPPEL_DEBUG" variable. That one
+	//is meant to be useful for production systems, where you definitely don't
+	//want to turn off certificate verification.)
+	if insecure, _ := strconv.ParseBool(os.Getenv("KEPPEL_INSECURE")); insecure {
 		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: true,
 		}
 		http.DefaultClient.Transport = http.DefaultTransport
 	}
 
-	if len(os.Args) != 2 {
-		logg.Fatal("usage: keppel-api <config-path>")
-	}
-	cfgFile, err := os.Open(os.Args[1])
-	if err == nil {
-		err = keppel.ReadConfig(cfgFile)
-	}
-	if err == nil {
-		err = cfgFile.Close()
-	}
-	if err != nil {
-		logg.Fatal(err.Error())
-	}
+	cfg := parseConfig()
+
+	db, err := keppel.InitDB(cfg.DatabaseURL)
+	must(err)
+	ad, err := keppel.NewAuthDriver(mustGetenv("KEPPEL_DRIVER_AUTH"))
+	must(err)
+	sd, err := keppel.NewStorageDriver(mustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
+	must(err)
+	od, err := keppel.NewOrchestrationDriver(mustGetenv("KEPPEL_DRIVER_ORCHESTRATION"), sd, cfg, db)
+	must(err)
 
 	//wire up HTTP handlers
 	r := mux.NewRouter()
-	keppelv1api.AddTo(r)
-	authapi.AddTo(r)
-	registryv2api.AddTo(r)
-	r.Methods("GET").Path("/health").HandlerFunc(handleHealthcheck)
+	keppelv1.NewAPI(ad, db).AddTo(r)
+	auth.NewAPI(cfg, ad, db).AddTo(r)
+	registryv2.NewAPI(cfg, od, db).AddTo(r)
 
 	//TODO Prometheus instrumentation
-	loggm := logg.Middleware{
-		ExceptURLPath: regexp.MustCompile(`^/health`),
-	}
-	http.Handle("/",
-		loggm.Wrap(r),
-	)
+	http.Handle("/", logg.Middleware{}.Wrap(r))
+	http.HandleFunc("/healthcheck", healthCheckHandler)
 
 	//start HTTP server
-	logg.Info("listening on " + keppel.State.Config.APIListenAddress)
+	apiListenAddress := os.Getenv("KEPPEL_API_LISTEN_ADDRESS")
+	if apiListenAddress == "" {
+		apiListenAddress = ":8080"
+	}
+	logg.Info("listening on " + apiListenAddress)
 	go func() {
-		err := http.ListenAndServe(keppel.State.Config.APIListenAddress, nil)
+		err := http.ListenAndServe(apiListenAddress, nil)
 		if err != nil {
 			logg.Fatal("error returned from http.ListenAndServe(): %s", err.Error())
 		}
 	}()
 
 	//enter orchestrator main loop
-	ok := keppel.State.OrchestrationDriver.Run(contextWithSIGINT(context.Background()))
+	ok := od.Run(contextWithSIGINT(context.Background()))
 	if !ok {
 		os.Exit(1)
 	}
@@ -117,8 +110,51 @@ func contextWithSIGINT(ctx context.Context) context.Context {
 	return ctx
 }
 
-func handleHealthcheck(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
+func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	if r.URL.Path == "/healthcheck" && r.Method == "GET" {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	} else {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("not found"))
+	}
+}
+
+func parseConfig() keppel.Configuration {
+	cfg := keppel.Configuration{
+		APIPublicURL: mustGetenvURL("KEPPEL_API_PUBLIC_URL"),
+		DatabaseURL:  mustGetenvURL("KEPPEL_DB_URI"),
+	}
+
+	var err error
+	cfg.JWTIssuerKey, err = keppel.ParseIssuerKey(mustGetenv("KEPPEL_ISSUER_KEY"))
+	must(err)
+	cfg.JWTIssuerCertPEM, err = keppel.ParseIssuerCertPEM(mustGetenv("KEPPEL_ISSUER_CERT"))
+	must(err)
+
+	return cfg
+}
+
+func must(err error) {
+	if err != nil {
+		logg.Fatal(err.Error())
+	}
+}
+
+func mustGetenv(key string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		logg.Fatal("missing environment variable: %s", key)
+	}
+	return val
+}
+
+func mustGetenvURL(key string) url.URL {
+	val := mustGetenv(key)
+	parsed, err := url.Parse(val)
+	if err != nil {
+		logg.Fatal("malformed %s: %s", key, err.Error())
+	}
+	return *parsed
 }

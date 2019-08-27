@@ -55,6 +55,9 @@ type Token struct {
 //is returned.
 func (t *Token) Require(w http.ResponseWriter, rule string) bool {
 	if t.Err != nil {
+		if t.Context.Logger != nil {
+			t.Context.Logger("returning 401 because of error: " + t.Err.Error())
+		}
 		http.Error(w, "Unauthorized", 401)
 		return false
 	}

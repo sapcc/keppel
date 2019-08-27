@@ -3,7 +3,7 @@
 [![Coverage Status](https://img.shields.io/coveralls/github/golang-migrate/migrate/master.svg)](https://coveralls.io/github/golang-migrate/migrate?branch=master)
 [![packagecloud.io](https://img.shields.io/badge/deb-packagecloud.io-844fec.svg)](https://packagecloud.io/golang-migrate/migrate?filter=debs)
 [![Docker Pulls](https://img.shields.io/docker/pulls/migrate/migrate.svg)](https://hub.docker.com/r/migrate/migrate/)
-![Supported Go Versions](https://img.shields.io/badge/Go-1.9%2C%201.10-lightgrey.svg)
+![Supported Go Versions](https://img.shields.io/badge/Go-1.10%2C%201.11-lightgrey.svg)
 [![GitHub Release](https://img.shields.io/github/release/golang-migrate/migrate.svg)](https://github.com/golang-migrate/migrate/releases)
 
 
@@ -19,6 +19,8 @@ __Database migrations written in Go. Use as [CLI](#cli-usage) or import as [libr
 
 
 Looking for [v1](https://github.com/golang-migrate/migrate/tree/v1)?
+
+Forked from [mattes/migrate](https://github.com/mattes/migrate)
 
 
 ## Databases
@@ -82,7 +84,7 @@ __[CLI Documentation](cli)__
 ### Basic usage:
 
 ```
-$ migrate -database postgres://localhost:5432/database up 2
+$ migrate -source file://path/to/migrations -database postgres://localhost:5432/database up 2
 ```
 
 ### Docker usage
