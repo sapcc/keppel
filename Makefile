@@ -30,11 +30,11 @@ run-api: build/keppel-api build/keppel-registry
 ################################################################################
 
 # which packages to test with static checkers?
-GO_ALLPKGS := $(shell go list $(PKG)/...)
+GO_ALLPKGS := $(shell $(GO) list $(GO_BUILDFLAGS) $(PKG)/...)
 # which packages to test with `go test`?
-GO_TESTPKGS := $(shell go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' $(PKG)/internal/...)
+GO_TESTPKGS := $(shell $(GO) list $(GO_BUILDFLAGS) -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' $(PKG)/internal/...)
 # which packages to measure coverage for?
-GO_COVERPKGS := $(shell go list $(PKG)/internal/... | grep -v internal/drivers | grep -v internal/registry/swift-plus | grep -v internal/test/util)
+GO_COVERPKGS := $(shell $(GO) list $(GO_BUILDFLAGS) $(PKG)/internal/... | grep -v internal/drivers | grep -v internal/registry/swift-plus | grep -v internal/test/util)
 # output files from `go test`
 GO_COVERFILES := $(patsubst %,build/%.cover.out,$(subst /,_,$(GO_TESTPKGS)))
 
