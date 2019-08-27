@@ -36,7 +36,12 @@ type testLogWriter struct {
 }
 
 func (w testLogWriter) Write(buf []byte) (int, error) {
-	w.t.Log(strings.TrimSpace(string(buf)))
+	msg := strings.TrimSpace(string(buf))
+	if strings.Contains(msg, " ERROR: ") || strings.Contains(msg, " FATAL: ") {
+		w.t.Error(msg)
+	} else {
+		w.t.Log(msg)
+	}
 	return len(buf), nil
 }
 
