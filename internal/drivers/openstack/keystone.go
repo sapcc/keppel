@@ -205,7 +205,7 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Aut
 			userName, t.Err.Error(),
 		)
 	}
-	return &keystoneAuthorization{t}, nil
+	return newKeystoneAuthorization(t), nil
 }
 
 //AuthenticateUserFromRequest implements the keppel.AuthDriver interface.
@@ -215,17 +215,24 @@ func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Au
 		return nil, keppel.ErrUnauthorized.With("X-Auth-Token validation failed: " + t.Err.Error())
 	}
 
-	t.Context.Logger = logg.Debug
-	//token.Context.Request = mux.Vars(r) //not used at the moment
+	//t.Context.Request = mux.Vars(r) //not used at the moment
 
-	if !t.Check("account:list") {
+	a := newKeystoneAuthorization(t)
+	if !a.t.Check("account:list") {
 		return nil, keppel.ErrDenied.With("")
 	}
-	return keystoneAuthorization{t}, nil
+	return a, nil
 }
 
 type keystoneAuthorization struct {
 	t *gopherpolicy.Token
+}
+
+func newKeystoneAuthorization(t *gopherpolicy.Token) keystoneAuthorization {
+	t.Context.Logger = logg.Debug
+	logg.Debug("token has auth = %v", t.Context.Auth)
+	logg.Debug("token has roles = %v", t.Context.Roles)
+	return keystoneAuthorization{t}
 }
 
 var ruleForPerm = map[keppel.Permission]string{
@@ -238,5 +245,6 @@ var ruleForPerm = map[keppel.Permission]string{
 //HasPermission implements the keppel.Authorization interface.
 func (a keystoneAuthorization) HasPermission(perm keppel.Permission, tenantID string) bool {
 	a.t.Context.Request["account_project_id"] = tenantID
+	logg.Debug("token has object attributes = %v", a.t.Context.Request)
 	return a.t.Check(ruleForPerm[perm])
 }
