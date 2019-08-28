@@ -246,5 +246,9 @@ var ruleForPerm = map[keppel.Permission]string{
 func (a keystoneAuthorization) HasPermission(perm keppel.Permission, tenantID string) bool {
 	a.t.Context.Request["account_project_id"] = tenantID
 	logg.Debug("token has object attributes = %v", a.t.Context.Request)
-	return a.t.Check(ruleForPerm[perm])
+
+	rule := ruleForPerm[perm]
+	result := a.t.Check(rule)
+	logg.Debug("policy rule %q evaluates to %t", rule, result)
+	return result
 }
