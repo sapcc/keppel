@@ -27,7 +27,7 @@ storage. This orchestration is completely transparent to the user: A unified API
 requests to their respective registry instances.
 
 Keppel provides a full implementation of the [OCI Distribution
-Specification](https://github.com/opencontainers/distribution-spec), the standard API for container image registries.
+API](https://github.com/opencontainers/distribution-spec), the standard API for container image registries.
 It also provides a [custom API](docs/api-spec.md) to control the multitenancy added by Keppel.
 
 ## Terminology
