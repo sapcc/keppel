@@ -30,7 +30,7 @@ require (
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/prometheus/common v0.6.0 // indirect
 	github.com/prometheus/procfs v0.0.3 // indirect
-	github.com/sapcc/go-bits v0.0.0-20190822125528-a70419802c50
+	github.com/sapcc/go-bits v0.0.0-20190829114822-07b70d85c824
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/spf13/cobra v0.0.0-20150605180824-312092086bed // indirect

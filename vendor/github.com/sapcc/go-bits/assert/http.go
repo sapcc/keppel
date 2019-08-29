@@ -53,6 +53,7 @@ type HTTPRequest struct {
 	//response properties
 	ExpectStatus int
 	ExpectBody   HTTPResponseBody
+	ExpectHeader map[string]string
 }
 
 //Check performs the HTTP request described by this HTTPRequest against the
@@ -90,6 +91,15 @@ func (r HTTPRequest) Check(t *testing.T, handler http.Handler) (resp *http.Respo
 		t.Errorf("%s %s: expected status code %d, got %d",
 			r.Method, r.Path, r.ExpectStatus, response.StatusCode,
 		)
+	}
+
+	for key, value := range r.ExpectHeader {
+		actual := response.Header.Get(key)
+		if actual != value {
+			t.Errorf("%s %s: expected %s: %q, got %s: %q",
+				r.Method, r.Path, key, value, key, actual,
+			)
+		}
 	}
 
 	if r.ExpectBody != nil {

@@ -43,7 +43,12 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
-//TODO check for header Docker-Distribution-Api-Version: registry/2.0 in all requests
+const (
+	versionHeaderKey   = "Docker-Distribution-Api-Version"
+	versionHeaderValue = "registry/2.0"
+)
+
+var versionHeader = map[string]string{versionHeaderKey: versionHeaderValue}
 
 func runTest(t *testing.T, action func(http.Handler, keppel.AuthDriver)) {
 	cfg, db := test.Setup(t)
@@ -143,8 +148,7 @@ func TestAll(t *testing.T) {
 
 		testVersionCheckEndpoint(t, h, ad)
 		testPullNonExistentTag(t, h, ad)
-		testPush(t, h, ad)
-		//TODO test successful pull
+		testPushAndPull(t, h, ad)
 		testPullExistingNotAllowed(t, h, ad)
 
 	})
@@ -156,6 +160,10 @@ func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver
 		Method:       "GET",
 		Path:         "/v2/",
 		ExpectStatus: http.StatusUnauthorized,
+		ExpectHeader: map[string]string{
+			versionHeaderKey:   versionHeaderValue,
+			"Www-Authenticate": `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org"`,
+		},
 		ExpectBody: assert.JSONObject{
 			"errors": []assert.JSONObject{{
 				"code":    keppel.ErrUnauthorized,
@@ -164,14 +172,6 @@ func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver
 			}},
 		},
 	}.Check(t, h)
-	assert.DeepEqual(t, "Www-Authenticate header",
-		resp.Header.Get("Www-Authenticate"),
-		`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org"`,
-	)
-	assert.DeepEqual(t, "Docker-Distribution-Api-Version header",
-		resp.Header.Get("Docker-Distribution-Api-Version"),
-		"registry/2.0",
-	)
 
 	//with token, expect status code 200
 	token := getToken(t, h, ad, "" /* , no permissions */)
@@ -180,6 +180,7 @@ func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver
 		Path:         "/v2/",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusOK,
+		ExpectHeader: versionHeader,
 	}.Check(t, h)
 	assert.DeepEqual(t, "Docker-Distribution-Api-Version header",
 		resp.Header.Get("Docker-Distribution-Api-Version"),
@@ -199,6 +200,7 @@ func testPullNonExistentTag(t *testing.T, h http.Handler, ad keppel.AuthDriver) 
 		Path:         "/v2/test1/foo/manifests/latest",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusNotFound,
+		ExpectHeader: versionHeader,
 		ExpectBody:   errorCode(keppel.ErrManifestUnknown),
 	}.Check(t, h)
 }
@@ -209,7 +211,7 @@ func (b byteData) GetRequestBody() (io.Reader, error) {
 	return bytes.NewReader([]byte(b)), nil
 }
 
-func testPush(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
+func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 	//This tests pushing a minimal image without any layers, so we only upload one object (the config JSON) and create a manifest.
 	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 		keppel.CanPullFromAccount,
@@ -221,6 +223,7 @@ func testPush(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 		Path:         "/v2/test1/foo/blobs/uploads/",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusAccepted,
+		ExpectHeader: versionHeader,
 	}.Check(t, h)
 	if t.Failed() {
 		t.FailNow()
@@ -232,6 +235,7 @@ func testPush(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	bodyBytes = bytes.TrimSpace(bodyBytes)
 	resp, _ = assert.HTTPRequest{
 		Method: "PATCH",
 		Path:   uploadPath,
@@ -243,6 +247,7 @@ func testPush(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 		},
 		Body:         byteData(bodyBytes),
 		ExpectStatus: http.StatusAccepted,
+		ExpectHeader: versionHeader,
 	}.Check(t, h)
 	if t.Failed() {
 		t.FailNow()
@@ -252,7 +257,8 @@ func testPush(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 	//finish config upload
 	query := url.Values{}
 	sha256Hash := sha256.Sum256(bodyBytes)
-	query.Set("digest", "sha256:"+hex.EncodeToString(sha256Hash[:]))
+	sha256HashStr := hex.EncodeToString(sha256Hash[:])
+	query.Set("digest", "sha256:"+sha256HashStr)
 	resp, _ = assert.HTTPRequest{
 		Method: "PUT",
 		Path:   appendQuery(uploadPath, query),
@@ -261,6 +267,7 @@ func testPush(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 			"Content-Length": "0",
 		},
 		ExpectStatus: http.StatusCreated,
+		ExpectHeader: versionHeader,
 	}.Check(t, h)
 	if t.Failed() {
 		t.FailNow()
@@ -273,6 +280,7 @@ func testPush(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 		Path:         layerPath,
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusOK,
+		ExpectHeader: versionHeader,
 	}.Check(t, h)
 	if t.Failed() {
 		t.FailNow()
@@ -289,7 +297,7 @@ func testPush(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 		"config": assert.JSONObject{
 			"mediaType": "application/vnd.docker.container.image.v1+json",
 			"size":      1122,
-			"digest":    "sha256:c1b9ce84bd047f52b9e31378d5f2ec9dd4dcca93f6be9395e12f6f658a93d846",
+			"digest":    "sha256:" + sha256HashStr,
 		},
 		"layers": []assert.JSONObject{},
 	}
@@ -302,10 +310,42 @@ func testPush(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 		},
 		Body:         manifestData,
 		ExpectStatus: http.StatusCreated,
+		ExpectHeader: versionHeader,
 	}.Check(t, h)
 	if t.Failed() {
 		t.FailNow()
 	}
+
+	//pull manifest using a read-only token
+	token = getToken(t, h, ad, "repository:test1/foo:pull",
+		keppel.CanPullFromAccount)
+	assert.HTTPRequest{
+		Method: "GET",
+		Path:   "/v2/test1/foo/manifests/latest",
+		Header: map[string]string{
+			"Accept":        "application/vnd.docker.distribution.manifest.v2+json",
+			"Authorization": "Bearer " + token,
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectHeader: map[string]string{
+			versionHeaderKey: versionHeaderValue,
+			"Content-Type":   "application/vnd.docker.distribution.manifest.v2+json",
+		},
+		ExpectBody: manifestData,
+	}.Check(t, h)
+
+	//pull config layer
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/v2/test1/foo/blobs/sha256:" + sha256HashStr,
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusOK,
+		ExpectHeader: map[string]string{
+			versionHeaderKey: versionHeaderValue,
+			"Content-Type":   "application/octet-stream",
+		},
+		ExpectBody: assert.JSONFixtureFile("fixtures/example-docker-image-config.json"),
+	}.Check(t, h)
 }
 
 func appendQuery(url string, query url.Values) string {
@@ -313,6 +353,9 @@ func appendQuery(url string, query url.Values) string {
 		return url + "&" + query.Encode()
 	}
 	return url + "?" + query.Encode()
+}
+
+func testPullExisting(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 }
 
 func testPullExistingNotAllowed(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
@@ -325,6 +368,7 @@ func testPullExistingNotAllowed(t *testing.T, h http.Handler, ad keppel.AuthDriv
 		Path:         "/v2/test1/foo/manifests/latest",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusForbidden,
+		ExpectHeader: versionHeader,
 		ExpectBody:   errorCode(keppel.ErrDenied),
 	}.Check(t, h)
 
@@ -336,6 +380,7 @@ func testPullExistingNotAllowed(t *testing.T, h http.Handler, ad keppel.AuthDriv
 		Path:         "/v2/test1/foo/manifests/latest",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusForbidden,
+		ExpectHeader: versionHeader,
 		ExpectBody:   errorCode(keppel.ErrDenied),
 	}.Check(t, h)
 }

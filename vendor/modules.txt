@@ -135,7 +135,7 @@ github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
 # github.com/prometheus/procfs v0.0.3
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
-# github.com/sapcc/go-bits v0.0.0-20190822125528-a70419802c50
+# github.com/sapcc/go-bits v0.0.0-20190829114822-07b70d85c824
 github.com/sapcc/go-bits/logg
 github.com/sapcc/go-bits/respondwith
 github.com/sapcc/go-bits/gopherpolicy

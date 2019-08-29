@@ -127,6 +127,8 @@ github.com/sapcc/go-bits v0.0.0-20190522121402-dabab492e20b h1:uNHlkQrn6OfRnZA7C
 github.com/sapcc/go-bits v0.0.0-20190522121402-dabab492e20b/go.mod h1:KeP5OOqQIgrauiDb/8shKWOq1YoplBALYNvpV4jizPo=
 github.com/sapcc/go-bits v0.0.0-20190822125528-a70419802c50 h1:Nw14FhQYugF3cp6gxQ2vEUwCgz6iyA3GYlmUrAV/v5A=
 github.com/sapcc/go-bits v0.0.0-20190822125528-a70419802c50/go.mod h1:i8MCkNKlXkQbuw8NEiRFXARBTkcksfIDRI+pwRVpvvA=
+github.com/sapcc/go-bits v0.0.0-20190829114822-07b70d85c824 h1:kTZ/s+Rvr418Pv6Q5FlRUtLCqoFi2ZSTSD7eR6h5Wec=
+github.com/sapcc/go-bits v0.0.0-20190829114822-07b70d85c824/go.mod h1:i8MCkNKlXkQbuw8NEiRFXARBTkcksfIDRI+pwRVpvvA=
 github.com/sapcc/hermes v0.0.0-20190722215605-d772f40f9fc6/go.mod h1:WM5CVlqFCGM+AUE7lQgkLmPE89PWqJS3i+oRXaSztR8=
 github.com/satori/go.uuid v1.2.0 h1:0uYX9dsZ2yD7q2RtLRtPSdGDWzjeM3TbMJP9utgA0ww=
 github.com/satori/go.uuid v1.2.0/go.mod h1:dA0hQrYB0VpLJoorglMZABFdXlWrHn1NEOzdhQKdks0=

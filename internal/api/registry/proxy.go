@@ -117,6 +117,9 @@ func (a *API) handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleProxyToAccount(w http.ResponseWriter, r *http.Request) {
+	//must be set even for 401 responses!
+	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
+
 	//check authorization before FindAccount(); otherwise we might leak
 	//information about account existence to unauthorized users
 	vars := mux.Vars(r)
