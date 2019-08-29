@@ -50,7 +50,7 @@ func init() {
 			db:                 db,
 			getPortRequestChan: make(chan getPortRequest),
 			listenPorts:        make(map[string]uint16),
-			nextListenPort:     10000, //TODO make configurable?
+			nextListenPort:     10000, //could be made configurable if it becomes a problem, but right now it isn't
 		}, nil
 	})
 }

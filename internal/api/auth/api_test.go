@@ -129,9 +129,7 @@ var testCases = []TestCase{
 		GrantedActions: ""},
 }
 
-//TODO check line coverage for internal/api/auth/token.go
 //TODO expect refresh_token when offline_token=true is given
-//TODO find out what's up with CompiledScopes
 
 func foreachServiceValue(action func(serviceStr string)) {
 	//Every value for the ?service= query parameter is equally okay and the API

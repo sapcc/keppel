@@ -41,7 +41,7 @@ type TokenResponse struct {
 //struct in the format expected by Docker in an auth response.
 func makeTokenResponse(t auth.Token, cfg keppel.Configuration) (*TokenResponse, error) {
 	now := time.Now()
-	expiresIn := 1 * time.Hour //TODO make configurable?
+	expiresIn := 1 * time.Hour //NOTE: could be made configurable if the need arises
 	expiry := now.Add(expiresIn)
 
 	issuerKey := cfg.JWTIssuerKey
