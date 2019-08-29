@@ -73,6 +73,8 @@ func (a *API) handleProxyToplevel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//The response is not defined beyond code 200, so reply in the same way as
+	//https://registry-1.docker.io/v2/, with an empty JSON object.
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{})
 }
 

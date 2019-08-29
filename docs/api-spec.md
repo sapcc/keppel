@@ -1,7 +1,9 @@
 # Keppel API specification
 
-Besides the [OCI Distribution API](https://github.com/opencontainers/distribution-spec) that is used e.g. by `docker
-pull/push`, Keppel provides its own REST API for managing Keppel accounts.
+Besides the [OCI Distribution API][oci-dist] that is used e.g. by `docker pull/push`, Keppel provides its own REST API
+for managing Keppel accounts.
+
+[oci-dist]: https://github.com/opencontainers/distribution-spec
 
 - Error responses always have `Content-Type: text/plain`.
 - Account names must conform to the regex `^[a-z0-9-]{1,48}$`, that is, they may not be longer than 48 chars and may
@@ -16,6 +18,7 @@ This document uses the terminology defined in the [README.md](../README.md#termi
 - [GET /v1/keppel/accounts](#get-keppelv1accounts)
 - [GET /v1/keppel/accounts/:name](#get-keppelv1accountsname)
 - [PUT /v1/keppel/accounts/:name](#put-keppelv1accountsname)
+- [GET /v1/keppel/auth](#get-keppelv1auth)
 
 ## GET /v1/keppel/accounts
 
@@ -71,3 +74,7 @@ as the response from the corresponding GET endpoint, except that:
 - `account.auth_tenant_id` may not be changed for existing accounts.
 
 On success, returns 200 and a JSON response body like from the corresponding GET endpoint.
+
+## GET /v1/keppel/auth
+
+This endpoint is reserved for the authentication workflow of the [OCI Distribution API][oci-dist].

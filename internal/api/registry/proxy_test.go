@@ -29,7 +29,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strconv"
 	"strings"
@@ -95,6 +94,10 @@ func runTest(t *testing.T, action func(http.Handler, keppel.AuthDriver)) {
 	action(r, ad)
 }
 
+var authorizationHeader = "Basic " + base64.StdEncoding.EncodeToString(
+	[]byte("correctusername:correctpassword"),
+)
+
 func getToken(t *testing.T, h http.Handler, adGeneric keppel.AuthDriver, scope string, perms ...keppel.Permission) string {
 	t.Helper()
 
@@ -109,32 +112,22 @@ func getToken(t *testing.T, h http.Handler, adGeneric keppel.AuthDriver, scope s
 	ad.GrantedPermissions = strings.Join(permStrs, ",")
 
 	//build a token request
-	req := httptest.NewRequest("GET", "/keppel/v1/auth", nil)
-	authInput := "correctusername:correctpassword"
-	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(authInput)))
-
 	query := url.Values{}
 	query.Set("service", "registry.example.org")
-	query.Set("scope", scope)
-	req.URL.RawQuery = query.Encode()
-
-	//execute request
-	recorder := httptest.NewRecorder()
-	h.ServeHTTP(recorder, req)
-	resp := recorder.Result()
-
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected status 200, got %d instead", resp.StatusCode)
+	if scope != "" {
+		query.Set("scope", scope)
 	}
+	_, bodyBytes := assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/auth?" + query.Encode(),
+		Header:       map[string]string{"Authorization": authorizationHeader},
+		ExpectStatus: http.StatusOK,
+	}.Check(t, h)
 
-	responseBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
 	var data struct {
 		Token string `json:"token"`
 	}
-	err = json.Unmarshal(responseBody, &data)
+	err := json.Unmarshal(bodyBytes, &data)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -146,12 +139,54 @@ func TestAll(t *testing.T) {
 	//as many tests as possible in this testcase to reduce the waiting.
 	runTest(t, func(h http.Handler, ad keppel.AuthDriver) {
 
+		testVersionCheckEndpoint(t, h, ad)
 		testPullNonExistentTag(t, h, ad)
 		testPush(t, h, ad)
 		//TODO test successful pull
 		testPullExistingNotAllowed(t, h, ad)
 
 	})
+}
+
+func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
+	//without token, expect auth challenge
+	resp, _ := assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/v2/",
+		ExpectStatus: http.StatusUnauthorized,
+		ExpectBody: assert.JSONObject{
+			"errors": []assert.JSONObject{{
+				"code":    keppel.ErrUnauthorized,
+				"message": "authentication required",
+				"detail":  "no bearer token found in request headers",
+			}},
+		},
+	}.Check(t, h)
+	assert.DeepEqual(t, "Www-Authenticate header",
+		resp.Header.Get("Www-Authenticate"),
+		`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org"`,
+	)
+	assert.DeepEqual(t, "Docker-Distribution-Api-Version header",
+		resp.Header.Get("Docker-Distribution-Api-Version"),
+		"registry/2.0",
+	)
+
+	//with token, expect status code 200
+	token := getToken(t, h, ad, "" /* , no permissions */)
+	resp, _ = assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/v2/",
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusOK,
+	}.Check(t, h)
+	assert.DeepEqual(t, "Docker-Distribution-Api-Version header",
+		resp.Header.Get("Docker-Distribution-Api-Version"),
+		"registry/2.0",
+	)
+
+	if t.Failed() {
+		t.FailNow()
+	}
 }
 
 func testPullNonExistentTag(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
