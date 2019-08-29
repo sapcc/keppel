@@ -157,7 +157,8 @@ func (a *API) handleProxyToAccount(w http.ResponseWriter, r *http.Request) {
 		proxyRequest.Header.Set("X-Forwarded-For", host)
 	}
 
-	resp, err := a.orchestrationDriver.DoHTTPRequest(*account, &proxyRequest)
+	resp, err := a.orchestrationDriver.DoHTTPRequest(*account, &proxyRequest,
+		keppel.DoNotFollowRedirects)
 	if respondwith.ErrorText(w, err) {
 		return
 	}

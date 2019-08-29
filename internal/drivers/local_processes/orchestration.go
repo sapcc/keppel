@@ -61,7 +61,7 @@ type getPortRequest struct {
 }
 
 //DoHTTPRequest implements the keppel.OrchestrationDriver interface.
-func (d *driver) DoHTTPRequest(account keppel.Account, r *http.Request) (*http.Response, error) {
+func (d *driver) DoHTTPRequest(account keppel.Account, r *http.Request, opts keppel.RequestOptions) (*http.Response, error) {
 	resultChan := make(chan uint16, 1)
 	d.getPortRequestChan <- getPortRequest{
 		Account: account,
@@ -70,7 +70,15 @@ func (d *driver) DoHTTPRequest(account keppel.Account, r *http.Request) (*http.R
 
 	r.URL.Scheme = "http"
 	r.URL.Host = fmt.Sprintf("localhost:%d", <-resultChan)
-	return http.DefaultClient.Do(r)
+
+	client := http.DefaultClient
+	if (opts & keppel.DoNotFollowRedirects) != 0 {
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+	}
+
+	return client.Do(r)
 }
 
 type processExitMessage struct {

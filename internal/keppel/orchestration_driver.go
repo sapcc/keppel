@@ -31,13 +31,28 @@ type DBAccessForOrchestrationDriver interface {
 	AllAccounts() ([]Account, error)
 }
 
+//RequestOptions is a bitfield that appears as an argument in
+//OrchestrationDriver.DoHTTPRequest().
+type RequestOptions int
+
+const (
+	//FollowRedirects is the default behavior for HTTP requests, wherein
+	//redirects (30x responses) will be followed and the response of the last
+	//request will be returned.
+	FollowRedirects RequestOptions = 0
+	//DoNotFollowRedirects ensures that 3xx responses are returned verbatim.
+	//This is important because registry storage drivers use 307 responses to
+	//have the client talk directly to the storage during `docker pull`.
+	DoNotFollowRedirects RequestOptions = 0x1
+)
+
 //OrchestrationDriver is the abstract interface for the orchestrator that
 //manages the keppel-registry fleet.
 type OrchestrationDriver interface {
 	//DoHTTPRequest forwards the given request to the keppel-registry for the
 	//given account. If this keppel-registry is not running, it may be launched
 	//as a result of this call.
-	DoHTTPRequest(account Account, r *http.Request) (*http.Response, error)
+	DoHTTPRequest(account Account, r *http.Request, opts RequestOptions) (*http.Response, error)
 	//Run is called exactly once by main() to launch all persistent goroutines
 	//used by the orchestrator. All resources shall be scoped on the given context.
 	//Run() shall block until the context expires or a fatal error is encountered.
