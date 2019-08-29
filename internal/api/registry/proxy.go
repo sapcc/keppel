@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-*  Copyright 2018 SAP SE
+*  Copyright 2018-2019 SAP SE
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 package registryv2
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -46,8 +47,24 @@ func NewAPI(cfg keppel.Configuration, od keppel.OrchestrationDriver, db *keppel.
 func (a *API) AddTo(r *mux.Router) {
 	r.Methods("GET").Path("/v2/").HandlerFunc(a.handleProxyToplevel)
 	r.Methods("GET").Path("/v2/_catalog").HandlerFunc(a.handleProxyCatalog)
-	r.PathPrefix("/v2/{account:[a-z0-9-]{1,48}}/").HandlerFunc(a.handleProxyToAccount)
 	//see internal/api/keppel/accounts.go for why account name format is limited
+	rr := r.PathPrefix("/v2/{account:[a-z0-9-]{1,48}}/").Subrouter()
+
+	rr.Methods("DELETE", "GET", "HEAD").
+		Path("/{repository:.+}/blobs/{digest}").
+		HandlerFunc(a.handleProxyToAccount)
+	rr.Methods("POST").
+		Path("/{repository:.+}/blobs/uploads/").
+		HandlerFunc(a.handleProxyToAccount)
+	rr.Methods("DELETE", "GET", "PATCH", "PUT").
+		Path("/{repository:.+}/blobs/uploads/{uuid}").
+		HandlerFunc(a.handleProxyToAccount)
+	rr.Methods("DELETE", "GET", "HEAD", "PUT").
+		Path("/{repository:.+}/manifests/{reference}").
+		HandlerFunc(a.handleProxyToAccount)
+	rr.Methods("GET").
+		Path("/{repository:.+}/tags/list").
+		HandlerFunc(a.handleProxyToAccount)
 }
 
 func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *auth.Scope) *auth.Token {
@@ -56,7 +73,7 @@ func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *
 		err = keppel.ErrDenied.With("token does not cover scope %s", scope.String())
 	}
 	if err != nil {
-		logg.Info("GET %s: %s", r.URL.Path, err.Error())
+		logg.Debug("GET %s: %s", r.URL.Path, err.Error())
 		auth.Challenge{Scope: scope}.WriteTo(w.Header(), a.cfg)
 		err.WriteAsRegistryV2ResponseTo(w)
 		return nil
@@ -100,18 +117,31 @@ func (a *API) handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleProxyToAccount(w http.ResponseWriter, r *http.Request) {
-	accountName := mux.Vars(r)["account"]
-	account, err := a.db.FindAccount(accountName)
+	//check authorization before FindAccount(); otherwise we might leak
+	//information about account existence to unauthorized users
+	vars := mux.Vars(r)
+	scope := auth.Scope{
+		ResourceType: "repository",
+		ResourceName: fmt.Sprintf("%s/%s", vars["account"], vars["repository"]),
+		Actions:      []string{"pull", "push"},
+	}
+	if r.Method == "GET" || r.Method == "HEAD" {
+		scope.Actions = []string{"pull"}
+	}
+	token := a.requireBearerToken(w, r, &scope)
+	if token == nil {
+		return
+	}
+
+	//we need to know the account to select the registry instance for this request
+	account, err := a.db.FindAccount(mux.Vars(r)["account"])
 	if respondwith.ErrorText(w, err) {
 		return
 	}
 	if account == nil {
-		//TODO respond in the same way as the registry would on Unauthorized, to
-		//not leak information about which accounts exist to unauthorized users
-		//
-		//We might have to do the full auth game right here already before even
-		//proxying to keppel-registry, but that would require recognizing all API
-		//endpoints.
+		//defense in depth - if the account does not exist, there should not be a
+		//valid token (the auth endpoint does not issue tokens with scopes for
+		//nonexistent accounts)
 		keppel.ErrNameUnknown.With("account not found").WriteAsRegistryV2ResponseTo(w)
 		return
 	}

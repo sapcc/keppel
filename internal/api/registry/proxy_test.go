@@ -43,6 +43,8 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
+//TODO check for header Docker-Distribution-Api-Version: registry/2.0 in all requests
+
 func runTest(t *testing.T, action func(http.Handler, keppel.AuthDriver)) {
 	cfg, db := test.Setup(t)
 
@@ -314,13 +316,16 @@ func appendQuery(url string, query url.Values) string {
 }
 
 func testPullExistingNotAllowed(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
+	//NOTE: docker-registry sends UNAUTHORIZED (401) instead of DENIED (403)
+	//here, but 403 is more correct.
+
 	token := getToken(t, h, ad, "repository:test1/foo:pull" /*, but no perms*/)
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/test1/foo/manifests/latest",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusUnauthorized,
-		ExpectBody:   errorCode(keppel.ErrUnauthorized),
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   errorCode(keppel.ErrDenied),
 	}.Check(t, h)
 
 	//same if the token is for the wrong scope
@@ -330,7 +335,7 @@ func testPullExistingNotAllowed(t *testing.T, h http.Handler, ad keppel.AuthDriv
 		Method:       "GET",
 		Path:         "/v2/test1/foo/manifests/latest",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusUnauthorized,
-		ExpectBody:   errorCode(keppel.ErrUnauthorized),
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   errorCode(keppel.ErrDenied),
 	}.Check(t, h)
 }

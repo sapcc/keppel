@@ -31,6 +31,7 @@ type errorCode keppel.RegistryV2ErrorCode
 
 //AssertResponseBody implements the assert.HTTPResponseBody interface.
 func (e errorCode) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) {
+	t.Helper()
 	var data struct {
 		Errors []struct {
 			Code errorCode `json:"code"`
