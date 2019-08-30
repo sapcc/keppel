@@ -70,6 +70,7 @@ func (d *driver) DoHTTPRequest(account keppel.Account, r *http.Request, opts kep
 
 	r.URL.Scheme = "http"
 	r.URL.Host = fmt.Sprintf("localhost:%d", <-resultChan)
+	r.Host = ""
 
 	client := http.DefaultClient
 	if (opts & keppel.DoNotFollowRedirects) != 0 {
