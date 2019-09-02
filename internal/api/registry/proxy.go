@@ -74,7 +74,11 @@ func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *
 	}
 	if err != nil {
 		logg.Debug("GET %s: %s", r.URL.Path, err.Error())
-		auth.Challenge{Scope: scope}.WriteTo(w.Header(), a.cfg)
+		challenge := auth.Challenge{Scope: scope}
+		if token != nil {
+			challenge.Error = "insufficient_scope"
+		}
+		challenge.WriteTo(w.Header(), a.cfg)
 		err.WriteAsRegistryV2ResponseTo(w)
 		return nil
 	}

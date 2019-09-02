@@ -30,6 +30,7 @@ import (
 //response header.
 type Challenge struct {
 	Scope *Scope //optional
+	Error string //optional
 }
 
 //WriteTo adds the corresponding Www-Authenticate header to a response.
@@ -41,6 +42,9 @@ func (c Challenge) WriteTo(h http.Header, cfg keppel.Configuration) {
 
 	if c.Scope != nil {
 		fields += fmt.Sprintf(`,scope="%s"`, c.Scope.String())
+	}
+	if c.Error != "" {
+		fields += fmt.Sprintf(`,error="%s"`, c.Error)
 	}
 
 	h.Set("Www-Authenticate", "Bearer "+fields)

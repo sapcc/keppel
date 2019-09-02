@@ -107,7 +107,7 @@ func TestProxyAPI(t *testing.T) {
 
 func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 	//without token, expect auth challenge
-	resp, _ := assert.HTTPRequest{
+	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/",
 		ExpectStatus: http.StatusUnauthorized,
@@ -126,17 +126,13 @@ func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver
 
 	//with token, expect status code 200
 	token := getToken(t, h, ad, "" /* , no permissions */)
-	resp, _ = assert.HTTPRequest{
+	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusOK,
 		ExpectHeader: versionHeader,
 	}.Check(t, h)
-	assert.DeepEqual(t, "Docker-Distribution-Api-Version header",
-		resp.Header.Get("Docker-Distribution-Api-Version"),
-		"registry/2.0",
-	)
 
 	if t.Failed() {
 		t.FailNow()

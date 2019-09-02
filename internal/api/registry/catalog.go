@@ -61,6 +61,11 @@ func (a *API) handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
 		limit, err = strconv.ParseUint(limitStr, 10, 64)
 		if err != nil {
 			http.Error(w, `invalid value for "n": `+err.Error(), http.StatusBadRequest)
+			return
+		}
+		if limit == 0 {
+			http.Error(w, `invalid value for "n": must not be 0`, http.StatusBadRequest)
+			return
 		}
 	} else {
 		limit = math.MaxUint64
@@ -73,6 +78,7 @@ func (a *API) handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
 		fields := strings.SplitN(marker, "/", 2)
 		if len(fields) != 2 {
 			http.Error(w, `invalid value for "last": must contain a slash`, http.StatusBadRequest)
+			return
 		}
 		markerAccountName = fields[0]
 	}
@@ -95,7 +101,7 @@ func (a *API) handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		//when paginating, we don't need to care about accounts before the marker
-		if markerAccountName == "" || account.Name <= markerAccountName {
+		if markerAccountName == "" || account.Name >= markerAccountName {
 			accounts = append(accounts, account)
 		}
 	}

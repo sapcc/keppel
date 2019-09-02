@@ -125,6 +125,7 @@ func (e *RegistryV2Error) MarshalJSON() ([]byte, error) {
 //WriteAsRegistryV2ResponseTo reports this error in the format used by the
 //Registry V2 API.
 func (e *RegistryV2Error) WriteAsRegistryV2ResponseTo(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(apiErrorStatusCodes[e.Code])
 	buf, _ := json.Marshal(struct {
 		Errors []*RegistryV2Error `json:"errors"`
