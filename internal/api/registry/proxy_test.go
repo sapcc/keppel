@@ -22,9 +22,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -50,7 +48,9 @@ const (
 
 var versionHeader = map[string]string{versionHeaderKey: versionHeaderValue}
 
-func runTest(t *testing.T, action func(http.Handler, keppel.AuthDriver)) {
+//It turns out that starting up a registry takes surprisingly long, so this
+//test bundles as many testcases as possible in one run to reduce the waiting.
+func TestProxyAPI(t *testing.T) {
 	cfg, db := test.Setup(t)
 
 	//set up a dummy account for testing
@@ -94,64 +94,15 @@ func runTest(t *testing.T, action func(http.Handler, keppel.AuthDriver)) {
 		}
 	}()
 
-	//run the API test
+	//run the API testcases
 	r := mux.NewRouter()
 	NewAPI(cfg, od, db).AddTo(r)
 	authapi.NewAPI(cfg, ad, db).AddTo(r)
-	action(r, ad)
-}
 
-var authorizationHeader = "Basic " + base64.StdEncoding.EncodeToString(
-	[]byte("correctusername:correctpassword"),
-)
-
-func getToken(t *testing.T, h http.Handler, adGeneric keppel.AuthDriver, scope string, perms ...keppel.Permission) string {
-	t.Helper()
-
-	//configure AuthDriver to allow access for this call
-	ad := adGeneric.(*test.AuthDriver)
-	ad.ExpectedUserName = "correctusername"
-	ad.ExpectedPassword = "correctpassword"
-	permStrs := make([]string, len(perms))
-	for idx, perm := range perms {
-		permStrs[idx] = string(perm) + ":test1authtenant"
-	}
-	ad.GrantedPermissions = strings.Join(permStrs, ",")
-
-	//build a token request
-	query := url.Values{}
-	query.Set("service", "registry.example.org")
-	if scope != "" {
-		query.Set("scope", scope)
-	}
-	_, bodyBytes := assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/auth?" + query.Encode(),
-		Header:       map[string]string{"Authorization": authorizationHeader},
-		ExpectStatus: http.StatusOK,
-	}.Check(t, h)
-
-	var data struct {
-		Token string `json:"token"`
-	}
-	err := json.Unmarshal(bodyBytes, &data)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	return data.Token
-}
-
-func TestAll(t *testing.T) {
-	//It turns out that starting up a registry takes surprisingly long, so bundle
-	//as many tests as possible in this testcase to reduce the waiting.
-	runTest(t, func(h http.Handler, ad keppel.AuthDriver) {
-
-		testVersionCheckEndpoint(t, h, ad)
-		testPullNonExistentTag(t, h, ad)
-		testPushAndPull(t, h, ad)
-		testPullExistingNotAllowed(t, h, ad)
-
-	})
+	testVersionCheckEndpoint(t, r, ad)
+	testPullNonExistentTag(t, r, ad)
+	testPushAndPull(t, r, ad)
+	testPullExistingNotAllowed(t, r, ad)
 }
 
 func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
