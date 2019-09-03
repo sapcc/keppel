@@ -1,8 +1,17 @@
 # Auth driver: `keystone`
 
 An auth driver using the Keystone V3 API of an OpenStack cluster. With this driver, Keppel auth tenants correspond to
-Keystone projects. Requests to the [Keppel API](../api-spec.md) are authenticated by reading a Keystone token from the
-X-Auth-Token request header.
+Keystone projects.
+
+- Requests to the [Keppel API](../api-spec.md) are authenticated by reading a Keystone token from the X-Auth-Token
+  request header.
+- Requests to the Docker Registry API are authenticated with username and password, and the username has one of the
+  following formats:
+  ```
+  user_name@user_domain_name/project_name@project_domain_name
+  user_name@domain_name/project_name
+  ```
+  The latter format implies that user and project are located in the same domain.
 
 | Variable | Default | Explanation |
 | -------- | ------- | ----------- |

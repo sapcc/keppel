@@ -38,6 +38,20 @@ var sqlMigrations = map[string]string{
 	"001_initial.down.sql": `
 		DROP TABLE accounts;
 	`,
+	"002_add_rbac.up.sql": `
+		CREATE TABLE rbac_policies (
+			account_name     TEXT    NOT NULL REFERENCES accounts ON DELETE CASCADE,
+			match_repository TEXT    NOT NULL,
+			match_username   TEXT    NOT NULL,
+			can_anon_pull    BOOLEAN NOT NULL DEFAULT FALSE,
+			can_pull         BOOLEAN NOT NULL DEFAULT FALSE,
+			can_push         BOOLEAN NOT NULL DEFAULT FALSE,
+			PRIMARY KEY (account_name, match_repository, match_username)
+		);
+	`,
+	"002_add_rbac.down.sql": `
+		DROP TABLE rbac_policies;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

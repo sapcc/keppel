@@ -58,7 +58,7 @@ func respondWithError(w http.ResponseWriter, code int, err error) bool {
 var errUnautorized = errors.New("incorrect username or password")
 
 func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
-	userName, authz, err := a.checkAuthentication(r.Header.Get("Authorization"))
+	authz, err := a.checkAuthentication(r.Header.Get("Authorization"))
 	if respondWithError(w, http.StatusUnauthorized, err) {
 		return
 	}
@@ -96,13 +96,16 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		if account == nil || !strings.Contains(req.Scope.ResourceName, "/") {
 			req.Scope.Actions = nil
 		} else {
-			req.Scope.Actions = filterRepoActions(req.Scope.Actions, authz, *account)
+			req.Scope.Actions, err = a.filterRepoActions(req.Scope.ResourceName, req.Scope.Actions, authz, *account)
+			if respondWithError(w, http.StatusInternalServerError, err) {
+				return
+			}
 		}
 	default:
 		req.Scope.Actions = nil
 	}
 
-	tokenInfo, err := makeTokenResponse(req.ToToken(userName), a.cfg)
+	tokenInfo, err := makeTokenResponse(req.ToToken(authz.UserName()), a.cfg)
 	if respondWithError(w, http.StatusBadRequest, err) {
 		return
 	}
@@ -118,15 +121,39 @@ func containsString(list []string, val string) bool {
 	return false
 }
 
-func filterRepoActions(actions []string, authz keppel.Authorization, account keppel.Account) (result []string) {
+func (a *API) filterRepoActions(repoName string, actions []string, authz keppel.Authorization, account keppel.Account) ([]string, error) {
+	isAllowedAction := map[string]bool{
+		"pull": authz.HasPermission(keppel.CanPullFromAccount, account.AuthTenantID),
+		"push": authz.HasPermission(keppel.CanPushToAccount, account.AuthTenantID),
+	}
+
+	var policies []keppel.RBACPolicy
+	_, err := a.db.Select(&policies, "SELECT * FROM rbac_policies WHERE account_name = $1", account.Name)
+	if err != nil {
+		return nil, err
+	}
+	userName := authz.UserName()
+	for _, policy := range policies {
+		if policy.Matches(repoName, userName) {
+			if policy.CanPullAnonymously {
+				isAllowedAction["pull"] = true
+			}
+			if policy.CanPull && authz != keppel.AnonymousAuthorization {
+				isAllowedAction["pull"] = true
+			}
+			if policy.CanPush && authz != keppel.AnonymousAuthorization {
+				isAllowedAction["push"] = true
+			}
+		}
+	}
+
+	var result []string
 	for _, action := range actions {
-		if action == "pull" && authz.HasPermission(keppel.CanPullFromAccount, account.AuthTenantID) {
-			result = append(result, action)
-		} else if action == "push" && authz.HasPermission(keppel.CanPushToAccount, account.AuthTenantID) {
+		if isAllowedAction[action] {
 			result = append(result, action)
 		}
 	}
-	return
+	return result, nil
 }
 
 func (a *API) compileCatalogAccess(authz keppel.Authorization) ([]auth.Scope, error) {

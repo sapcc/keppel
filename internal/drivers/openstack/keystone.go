@@ -242,6 +242,16 @@ var ruleForPerm = map[keppel.Permission]string{
 	keppel.CanChangeAccount:   "account:edit",
 }
 
+//UserName implements the keppel.Authorization interface.
+func (a keystoneAuthorization) UserName() string {
+	return fmt.Sprintf("%s@%s/%s@%s",
+		a.t.Context.Auth["user_name"],
+		a.t.Context.Auth["user_domain_name"],
+		a.t.Context.Auth["project_name"],
+		a.t.Context.Auth["project_domain_name"],
+	)
+}
+
 //HasPermission implements the keppel.Authorization interface.
 func (a keystoneAuthorization) HasPermission(perm keppel.Permission, tenantID string) bool {
 	a.t.Context.Request["account_project_id"] = tenantID

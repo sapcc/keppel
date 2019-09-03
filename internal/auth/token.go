@@ -34,7 +34,7 @@ import (
 //Token represents a JWT (Java Web Token), as used for authenticating on the
 //Registry v2 API.
 type Token struct {
-	//The name of the user who created this token.
+	//The name of the user who created this token. For anonymous users, this is empty.
 	UserName string
 	//The service that this token can be used with.
 	Audience string

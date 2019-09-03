@@ -36,27 +36,26 @@ var (
 	errMalformedAuthHeader = errors.New("malformed Authorization header")
 )
 
-func (a *API) checkAuthentication(authorizationHeader string) (userName string, authz keppel.Authorization, err error) {
+func (a *API) checkAuthentication(authorizationHeader string) (keppel.Authorization, error) {
 	if authorizationHeader == "" {
-		//TODO support anonymous login (only required once ACLs are added)
-		return "", nil, errNoAuthHeader
+		return keppel.AnonymousAuthorization, nil
 	}
 	if !strings.HasPrefix(authorizationHeader, "Basic ") {
-		return "", nil, errMalformedAuthHeader
+		return nil, errMalformedAuthHeader
 	}
 
 	userName, password := decodeAuthHeader(
 		strings.TrimPrefix(authorizationHeader, "Basic "))
 	if userName == "" {
-		return "", nil, errMalformedAuthHeader
+		return nil, errMalformedAuthHeader
 	}
 
 	authz, rerr := a.authDriver.AuthenticateUser(userName, password)
 	if rerr != nil {
-		return "", nil, rerr
+		return nil, rerr
 	}
 
-	return userName, authz, nil
+	return authz, nil
 }
 
 //Request contains the query parameters in a token request.

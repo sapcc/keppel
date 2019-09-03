@@ -86,7 +86,7 @@ func (d *AuthDriver) AuthenticateUser(userName, password string) (keppel.Authori
 		return a != "" && a == b
 	}
 	if is(userName, d.ExpectedUserName) && is(password, d.ExpectedPassword) {
-		return parseAuthorization(d.GrantedPermissions), nil
+		return d.parseAuthorization(d.GrantedPermissions), nil
 	}
 	return nil, keppel.ErrUnauthorized.With("wrong credentials")
 }
@@ -97,10 +97,10 @@ func (d *AuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Author
 	if hdr == "" {
 		return nil, keppel.ErrUnauthorized.With("missing X-Test-Perms header")
 	}
-	return parseAuthorization(hdr), nil
+	return d.parseAuthorization(hdr), nil
 }
 
-func parseAuthorization(permsHeader string) keppel.Authorization {
+func (d *AuthDriver) parseAuthorization(permsHeader string) keppel.Authorization {
 	perms := make(map[string]map[string]bool)
 	if permsHeader != "" {
 		for _, field := range strings.Split(permsHeader, ",") {
@@ -111,11 +111,16 @@ func parseAuthorization(permsHeader string) keppel.Authorization {
 			perms[fields[0]][fields[1]] = true
 		}
 	}
-	return authorization{perms}
+	return authorization{d.ExpectedUserName, perms}
 }
 
 type authorization struct {
-	perms map[string]map[string]bool
+	userName string
+	perms    map[string]map[string]bool
+}
+
+func (a authorization) UserName() string {
+	return a.userName
 }
 
 func (a authorization) HasPermission(perm keppel.Permission, tenantID string) bool {

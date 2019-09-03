@@ -21,6 +21,8 @@ package keppel
 
 import (
 	"database/sql"
+	"fmt"
+	"regexp"
 	"strings"
 
 	gorp "gopkg.in/gorp.v2"
@@ -28,8 +30,8 @@ import (
 
 //Account contains a record from the `accounts` table.
 type Account struct {
-	Name         string `db:"name" json:"name"`
-	AuthTenantID string `db:"auth_tenant_id" json:"auth_tenant_id"`
+	Name         string `db:"name"`
+	AuthTenantID string `db:"auth_tenant_id"`
 }
 
 //SwiftContainerName returns the name of the Swift container backing this
@@ -66,6 +68,39 @@ func (db *DB) AllAccounts() ([]Account, error) {
 	return accounts, err
 }
 
+//RBACPolicy contains a record from the `rbac_policies` table.
+type RBACPolicy struct {
+	AccountName        string `db:"account_name"`
+	RepositoryPattern  string `db:"match_repository"`
+	UserNamePattern    string `db:"match_username"`
+	CanPullAnonymously bool   `db:"can_anon_pull"`
+	CanPull            bool   `db:"can_pull"`
+	CanPush            bool   `db:"can_push"`
+}
+
+//Matches evaluates the regexes in this policy.
+func (r RBACPolicy) Matches(repoName, userName string) bool {
+	if r.RepositoryPattern != "" {
+		rx, err := regexp.Compile(fmt.Sprintf(`^%s/%s$`,
+			regexp.QuoteMeta(r.AccountName),
+			r.RepositoryPattern,
+		))
+		if err != nil || !rx.MatchString(repoName) {
+			return false
+		}
+	}
+
+	if r.UserNamePattern != "" {
+		rx, err := regexp.Compile(fmt.Sprintf(`^%s$`, r.UserNamePattern))
+		if err != nil || !rx.MatchString(userName) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(Account{}, "accounts").SetKeys(false, "name")
+	db.AddTableWithName(RBACPolicy{}, "rbac_policies").SetKeys(false, "account_name", "match_repository", "match_username")
 }

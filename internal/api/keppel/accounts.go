@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-*  Copyright 2018 SAP SE
+*  Copyright 2018-2019 SAP SE
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -20,7 +20,10 @@ package keppelv1
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -28,35 +31,110 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//API contains state variables used by the Keppel V1 API implementation.
-type API struct {
-	authDriver keppel.AuthDriver
-	db         *keppel.DB
+////////////////////////////////////////////////////////////////////////////////
+// data types
+
+//Account represents an account in the API.
+type Account struct {
+	Name         string       `json:"name"`
+	AuthTenantID string       `json:"auth_tenant_id"`
+	RBACPolicies []RBACPolicy `json:"rbac_policies"`
 }
 
-//NewAPI constructs a new API instance.
-func NewAPI(ad keppel.AuthDriver, db *keppel.DB) *API {
-	return &API{ad, db}
+//RBACPolicy represents an RBAC policy in the API.
+type RBACPolicy struct {
+	RepositoryPattern string   `json:"match_repository,omitempty"`
+	UserNamePattern   string   `json:"match_username,omitempty"`
+	Permissions       []string `json:"permissions"`
 }
 
-//AddTo adds routes for this API to the given router.
-func (a *API) AddTo(r *mux.Router) {
-	//NOTE: Keppel account names are severely restricted because Postgres
-	//database names are derived from them. Those are, most importantly,
-	//case-insensitive and restricted to 64 chars.
-	r.Methods("GET").Path("/keppel/v1/accounts").HandlerFunc(a.handleGetAccounts)
-	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(a.handleGetAccount)
-	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(a.handlePutAccount)
-}
+////////////////////////////////////////////////////////////////////////////////
+// data conversion/validation functions
 
-func respondWithAuthError(w http.ResponseWriter, err *keppel.RegistryV2Error) bool {
-	if err == nil {
-		return false
+func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
+	var dbPolicies []keppel.RBACPolicy
+	_, err := a.db.Select(&dbPolicies, `SELECT * FROM rbac_policies WHERE account_name = $1`, dbAccount.Name)
+	if err != nil {
+		return Account{}, err
 	}
-	err.WriteAsTextTo(w)
-	w.Write([]byte("\n"))
-	return true
+
+	policies := make([]RBACPolicy, len(dbPolicies))
+	for idx, p := range dbPolicies {
+		policies[idx] = renderRBACPolicy(p)
+	}
+
+	return Account{
+		Name:         dbAccount.Name,
+		AuthTenantID: dbAccount.AuthTenantID,
+		RBACPolicies: policies,
+	}, nil
 }
+
+func renderRBACPolicy(dbPolicy keppel.RBACPolicy) RBACPolicy {
+	result := RBACPolicy{
+		RepositoryPattern: dbPolicy.RepositoryPattern,
+		UserNamePattern:   dbPolicy.UserNamePattern,
+	}
+	if dbPolicy.CanPullAnonymously {
+		result.Permissions = append(result.Permissions, "anonymous_pull")
+	}
+	if dbPolicy.CanPull {
+		result.Permissions = append(result.Permissions, "pull")
+	}
+	if dbPolicy.CanPush {
+		result.Permissions = append(result.Permissions, "push")
+	}
+	return result
+}
+
+func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
+	result := keppel.RBACPolicy{
+		RepositoryPattern: policy.RepositoryPattern,
+		UserNamePattern:   policy.UserNamePattern,
+	}
+	for _, perm := range policy.Permissions {
+		switch perm {
+		case "anonymous_pull":
+			result.CanPullAnonymously = true
+		case "pull":
+			result.CanPull = true
+		case "push":
+			result.CanPush = true
+		default:
+			return result, fmt.Errorf("%q is not a valid RBAC policy permission", perm)
+		}
+	}
+
+	if len(policy.Permissions) == 0 {
+		return result, errors.New(`RBAC policy must grant at least one permission`)
+	}
+	if result.UserNamePattern == "" && result.RepositoryPattern == "" {
+		return result, errors.New(`RBAC policy must have at least one "match_..." attribute`)
+	}
+	if result.CanPullAnonymously && result.UserNamePattern != "" {
+		return result, errors.New(`RBAC policy with "anonymous_pull" may not have the "match_username" attribute`)
+	}
+	if result.CanPull && result.UserNamePattern == "" {
+		return result, errors.New(`RBAC policy with "pull" must have the "match_username" attribute`)
+	}
+	if result.CanPush && !result.CanPull {
+		return result, errors.New(`RBAC policy with "push" must also grant "pull"`)
+	}
+
+	for _, pattern := range []string{policy.RepositoryPattern, policy.UserNamePattern} {
+		if pattern == "" {
+			continue
+		}
+		if _, err := regexp.Compile(pattern); err != nil {
+			return result, fmt.Errorf("%q is not a valid regex: %s", pattern, err.Error())
+		}
+	}
+
+	return result, nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// handlers
 
 func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	authz, authErr := a.authDriver.AuthenticateUserFromRequest(r)
@@ -82,7 +160,15 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 		accountsFiltered = []keppel.Account{}
 	}
 
-	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"accounts": accountsFiltered})
+	//render accounts to JSON
+	accountsRendered := make([]Account, len(accountsFiltered))
+	for idx, account := range accountsFiltered {
+		accountsRendered[idx], err = a.renderAccount(account)
+		if respondwith.ErrorText(w, err) {
+			return
+		}
+	}
+	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"accounts": accountsRendered})
 }
 
 func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
@@ -110,14 +196,19 @@ func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"account": account})
+	accountRendered, err := a.renderAccount(*account)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"account": accountRendered})
 }
 
 func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	//decode request body
 	var req struct {
 		Account struct {
-			AuthTenantID string `json:"auth_tenant_id"`
+			AuthTenantID string       `json:"auth_tenant_id"`
+			RBACPolicies []RBACPolicy `json:"rbac_policies"`
 		} `json:"account"`
 	}
 	decoder := json.NewDecoder(r.Body)
@@ -137,6 +228,15 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(accountName, "keppel-") {
 		http.Error(w, `account names with the prefix "keppel-" are reserved for internal use`, http.StatusUnprocessableEntity)
 		return
+	}
+
+	rbacPolicies := make([]keppel.RBACPolicy, len(req.Account.RBACPolicies))
+	for idx, policy := range req.Account.RBACPolicies {
+		rbacPolicies[idx], err = parseRBACPolicy(policy)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
 	}
 
 	accountToCreate := keppel.Account{
@@ -189,5 +289,43 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"account": account})
+	err = a.putRBACPolicies(*account, rbacPolicies)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
+	accountRendered, err := a.renderAccount(*account)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"account": accountRendered})
+}
+
+func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPolicy) error {
+	tx, err := a.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer keppel.RollbackUnlessCommitted(tx)
+
+	//delete all existing policies
+	_, err = tx.Exec(`DELETE FROM rbac_policies WHERE account_name = $1`, account.Name)
+	if err != nil {
+		return err
+	}
+
+	//insert the requested policies
+	policiesForInsert := make([]interface{}, len(policies))
+	for idx, policy := range policies {
+		//need to clone because `policy` gets overwritten in the next loop iteration
+		cloned := policy
+		cloned.AccountName = account.Name
+		policiesForInsert[idx] = &cloned
+	}
+	err = tx.Insert(policiesForInsert...)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }

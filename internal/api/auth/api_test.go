@@ -47,14 +47,45 @@ import (
 
 type TestCase struct {
 	//request
-	Scope string
+	Scope          string
+	AnonymousLogin bool
 	//situation
 	CannotPush bool
 	CannotPull bool
+	RBACPolicy keppel.RBACPolicy
 	//result
 	GrantedActions   string
 	AdditionalScopes []string
 }
+
+var (
+	policyAnonPull = keppel.RBACPolicy{
+		RepositoryPattern:  "fo+",
+		CanPullAnonymously: true,
+	}
+	policyPullMatches = keppel.RBACPolicy{
+		RepositoryPattern: "fo+",
+		UserNamePattern:   "correct.*",
+		CanPull:           true,
+	}
+	policyPushMatches = keppel.RBACPolicy{
+		RepositoryPattern: "fo+",
+		UserNamePattern:   "correct.*",
+		CanPull:           true,
+		CanPush:           true,
+	}
+	policyPullDoesNotMatch = keppel.RBACPolicy{
+		RepositoryPattern: "fo+",
+		UserNamePattern:   "doesnotmatch",
+		CanPull:           true,
+	}
+	policyPushDoesNotMatch = keppel.RBACPolicy{
+		RepositoryPattern: "doesnotmatch",
+		UserNamePattern:   "correct.*",
+		CanPull:           true,
+		CanPush:           true,
+	}
+)
 
 var testCases = []TestCase{
 	//basic success case
@@ -127,6 +158,128 @@ var testCases = []TestCase{
 	//invalid scope syntax (malformed repository name)
 	{Scope: "repository:test1/???:pull",
 		GrantedActions: ""},
+	//anonymous login when RBAC policies do not allow access
+	{Scope: "repository:test1/foo:pull", AnonymousLogin: true,
+		GrantedActions: ""},
+	{Scope: "repository:test1/foo:push", AnonymousLogin: true,
+		GrantedActions: ""},
+	{Scope: "repository:test1/foo:pull,push", AnonymousLogin: true,
+		GrantedActions: ""},
+	//anonymous pull (but not push) is allowed by a matching RBAC policy
+	{Scope: "repository:test1/foo:pull", AnonymousLogin: true,
+		RBACPolicy:     policyAnonPull,
+		GrantedActions: "pull"},
+	{Scope: "repository:test1/foo:push", AnonymousLogin: true,
+		RBACPolicy:     policyAnonPull,
+		GrantedActions: ""},
+	{Scope: "repository:test1/foo:pull,push", AnonymousLogin: true,
+		RBACPolicy:     policyAnonPull,
+		GrantedActions: "pull"},
+	//RBAC policy with RepositoryPattern only works when repository name matches
+	{Scope: "repository:test1/foobar:pull", AnonymousLogin: true,
+		RBACPolicy:     policyAnonPull,
+		GrantedActions: ""},
+	{Scope: "repository:test1/foobar:push", AnonymousLogin: true,
+		RBACPolicy:     policyAnonPull,
+		GrantedActions: ""},
+	{Scope: "repository:test1/foobar:pull,push", AnonymousLogin: true,
+		RBACPolicy:     policyAnonPull,
+		GrantedActions: ""},
+	//RBAC policy for anonymous pull also enables pull access for all authenticated users
+	{Scope: "repository:test1/foo:pull",
+		CannotPull: true, CannotPush: true,
+		RBACPolicy:     policyAnonPull,
+		GrantedActions: "pull"},
+	{Scope: "repository:test1/foo:push",
+		CannotPull: true, CannotPush: true,
+		RBACPolicy:     policyAnonPull,
+		GrantedActions: ""},
+	{Scope: "repository:test1/foo:pull,push",
+		CannotPull: true, CannotPush: true,
+		RBACPolicy:     policyAnonPull,
+		GrantedActions: "pull"},
+	//RBAC policy for anonymous pull does not change anything if the user already has pull access
+	{Scope: "repository:test1/foo:pull",
+		RBACPolicy:     policyAnonPull,
+		GrantedActions: "pull"},
+	{Scope: "repository:test1/foo:push",
+		RBACPolicy:     policyAnonPull,
+		GrantedActions: "push"},
+	{Scope: "repository:test1/foo:pull,push",
+		RBACPolicy:     policyAnonPull,
+		GrantedActions: "pull,push"},
+	//RBAC policy with CanPull grants pull permissions to matching users
+	{Scope: "repository:test1/foo:pull",
+		CannotPull: true, CannotPush: true,
+		RBACPolicy:     policyPullMatches,
+		GrantedActions: "pull"},
+	{Scope: "repository:test1/foo:push",
+		CannotPull: true, CannotPush: true,
+		RBACPolicy:     policyPullMatches,
+		GrantedActions: ""},
+	{Scope: "repository:test1/foo:pull,push",
+		CannotPull: true, CannotPush: true,
+		RBACPolicy:     policyPullMatches,
+		GrantedActions: "pull"},
+	//RBAC policy with CanPull does not grant permissions if it does not match
+	{Scope: "repository:test1/foo:pull",
+		CannotPull: true, CannotPush: true,
+		RBACPolicy:     policyPullDoesNotMatch,
+		GrantedActions: ""},
+	{Scope: "repository:test1/foo:push",
+		CannotPull: true, CannotPush: true,
+		RBACPolicy:     policyPullDoesNotMatch,
+		GrantedActions: ""},
+	{Scope: "repository:test1/foo:pull,push",
+		CannotPull: true, CannotPush: true,
+		RBACPolicy:     policyPullDoesNotMatch,
+		GrantedActions: ""},
+	//RBAC policy with CanPull does not change anything if the user already has pull access
+	{Scope: "repository:test1/foo:pull",
+		RBACPolicy:     policyPullMatches,
+		GrantedActions: "pull"},
+	{Scope: "repository:test1/foo:push",
+		RBACPolicy:     policyPullMatches,
+		GrantedActions: "push"},
+	{Scope: "repository:test1/foo:pull,push",
+		RBACPolicy:     policyPullMatches,
+		GrantedActions: "pull,push"},
+	//RBAC policy with CanPull/CanPush grants pull permissions to matching users
+	{Scope: "repository:test1/foo:pull",
+		CannotPull: true, CannotPush: true,
+		RBACPolicy:     policyPullMatches,
+		GrantedActions: "pull"},
+	{Scope: "repository:test1/foo:push",
+		CannotPull: true, CannotPush: true,
+		RBACPolicy:     policyPullMatches,
+		GrantedActions: ""},
+	{Scope: "repository:test1/foo:pull,push",
+		CannotPull: true, CannotPush: true,
+		RBACPolicy:     policyPullMatches,
+		GrantedActions: "pull"},
+	//RBAC policy with CanPull/CanPush does not grant permissions if it does not match
+	{Scope: "repository:test1/foo:pull",
+		CannotPull: true, CannotPush: true,
+		RBACPolicy:     policyPullDoesNotMatch,
+		GrantedActions: ""},
+	{Scope: "repository:test1/foo:push",
+		CannotPull: true, CannotPush: true,
+		RBACPolicy:     policyPullDoesNotMatch,
+		GrantedActions: ""},
+	{Scope: "repository:test1/foo:pull,push",
+		CannotPull: true, CannotPush: true,
+		RBACPolicy:     policyPullDoesNotMatch,
+		GrantedActions: ""},
+	//RBAC policy with CanPull/CanPush does not change anything if the user already has pull/push access
+	{Scope: "repository:test1/foo:pull",
+		RBACPolicy:     policyPullMatches,
+		GrantedActions: "pull"},
+	{Scope: "repository:test1/foo:push",
+		RBACPolicy:     policyPullMatches,
+		GrantedActions: "push"},
+	{Scope: "repository:test1/foo:pull,push",
+		RBACPolicy:     policyPullMatches,
+		GrantedActions: "pull,push"},
 }
 
 //TODO expect refresh_token when offline_token=true is given
@@ -139,7 +292,7 @@ func foreachServiceValue(action func(serviceStr string)) {
 	action("")
 }
 
-func setup(t *testing.T) (*mux.Router, *test.AuthDriver) {
+func setup(t *testing.T) (*mux.Router, *test.AuthDriver, *keppel.DB) {
 	cfg, db := test.Setup(t)
 
 	//set up a dummy account for testing
@@ -161,16 +314,30 @@ func setup(t *testing.T) (*mux.Router, *test.AuthDriver) {
 
 	r := mux.NewRouter()
 	NewAPI(cfg, ad, db).AddTo(r)
-	return r, ad
+	return r, ad, db
 }
 
 func TestIssueToken(t *testing.T) {
-	r, ad := setup(t)
+	r, ad, db := setup(t)
 
 	foreachServiceValue(func(service string) {
 		for idx, c := range testCases {
 			t.Logf("----- testcase %d/%d with service %q -----\n", idx+1, len(testCases), service)
 			req := httptest.NewRequest("GET", "/keppel/v1/auth", nil)
+
+			//setup RBAC policies for test
+			_, err := db.Exec(`DELETE FROM rbac_policies WHERE account_name = $1`, "test1")
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			if c.RBACPolicy != (keppel.RBACPolicy{}) {
+				policy := c.RBACPolicy //take a clone for modifying
+				policy.AccountName = "test1"
+				err := db.Insert(&policy)
+				if err != nil {
+					t.Fatal(err.Error())
+				}
+			}
 
 			//setup permissions for test
 			var perms []string
@@ -189,8 +356,10 @@ func TestIssueToken(t *testing.T) {
 			ad.GrantedPermissions = strings.Join(perms, ",")
 
 			//setup Authorization header for test
-			authInput := "correctusername:correctpassword"
-			req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(authInput)))
+			if !c.AnonymousLogin {
+				authInput := "correctusername:correctpassword"
+				req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(authInput)))
+			}
 
 			//build URL query string for test
 			query := url.Values{}
@@ -299,7 +468,10 @@ func TestIssueToken(t *testing.T) {
 			expectedAttributes := StaticTokenAttributes{
 				Audience: service,
 				Issuer:   "keppel-api@registry.example.org",
-				Subject:  "correctusername",
+				Subject:  "",
+			}
+			if !c.AnonymousLogin {
+				expectedAttributes.Subject = "correctusername"
 			}
 			assert.DeepEqual(t, "static token attributes", token.StaticTokenAttributes, expectedAttributes)
 
@@ -319,7 +491,7 @@ func TestIssueToken(t *testing.T) {
 }
 
 func TestInvalidCredentials(t *testing.T) {
-	r, _ := setup(t)
+	r, _, _ := setup(t)
 
 	foreachServiceValue(func(service string) {
 		//execute normal GET requests that would result in a token with granted

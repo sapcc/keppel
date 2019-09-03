@@ -30,11 +30,23 @@ On success, returns 200 and a JSON response body like this:
   "accounts": [
     {
       "name": "firstaccount",
-      "auth_tenant_id": "firsttenant"
+      "auth_tenant_id": "firsttenant",
+      "rbac_policies": [
+        {
+          "match_repository": "library/.*",
+          "permissions": [ "anonymous_pull" ]
+        },
+        {
+          "match_repository": "library/alpine",
+          "match_username": "exampleuser@secondtenant",
+          "permissions": [ "pull", "push" ]
+        }
+      ]
     },
     {
       "name": "secondaccount",
-      "auth_tenant_id": "secondtenant"
+      "auth_tenant_id": "secondtenant",
+      "rbac_policies": []
     }
   ]
 }
@@ -46,6 +58,14 @@ The following fields may be returned:
 | ----- | ---- | ----------- |
 | `accounts[].name` | string | Name of this account. |
 | `accounts[].auth_tenant_id` | string | ID of auth tenant that regulates access to this account. |
+| `accounts[].rbac_policies` | list of objects | Policies for rule-based access control (RBAC) to repositories in this account. RBAC policies are evaluated in addition to the permissions granted by the auth tenant. |
+| `accounts[].rbac_policies[].match_repository` | string | The RBAC policy applies to all repositories in this account whose name matches this regex. The leading account name and slash is stripped from the repository name before matching. The notes on regexes below apply. |
+| `accounts[].rbac_policies[].match_username` | string | The RBAC policy applies to all users whose name matches this regex. Refer to the [documentation of your auth driver](./drivers/) for the syntax of usernames. The notes on regexes below apply. |
+| `accounts[].rbac_policies[].permissions` | list of strings | The permissions granted by the RBAC policy. Acceptable values include `pull`, `push` and `anonymous_pull`. When `pull` or `push` are given, `match_username` is not empty. When `anonymous_pull` is given, `match_username` is empty. |
+
+The values of the `match_repository` and `match_username` fields are regular expressions, using the
+[syntax defined by Go's stdlib regex parser](https://golang.org/pkg/regexp/syntax/). The anchors `^` and `$` are implied
+at both ends of the regex, and need not be added explicitly.
 
 ## GET /keppel/v1/accounts/:name
 
@@ -57,7 +77,18 @@ Otherwise returns 200 and a JSON response body like this:
 {
   "account": {
     "name": "firstaccount",
-    "auth_tenant_id": "firsttenant"
+    "auth_tenant_id": "firsttenant",
+    "rbac_policies": [
+      {
+        "match_repository": "library/.*",
+        "permissions": [ "anonymous_pull" ]
+      },
+      {
+        "match_repository": "library/alpine",
+        "match_username": "exampleuser@secondtenant",
+        "permissions": [ "pull", "push" ]
+      }
+    ]
   }
 }
 ```

@@ -82,6 +82,7 @@ func TestAccountsAPI(t *testing.T) {
 				"account": assert.JSONObject{
 					"name":           "first",
 					"auth_tenant_id": "tenant1",
+					"rbac_policies":  []assert.JSONObject{},
 				},
 			},
 		}.Check(t, r)
@@ -101,6 +102,7 @@ func TestAccountsAPI(t *testing.T) {
 			"accounts": []assert.JSONObject{{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
+				"rbac_policies":  []assert.JSONObject{},
 			}},
 		},
 	}.Check(t, r)
@@ -113,6 +115,7 @@ func TestAccountsAPI(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
+				"rbac_policies":  []assert.JSONObject{},
 			},
 		},
 	}.Check(t, r)
@@ -134,6 +137,82 @@ func TestAccountsAPI(t *testing.T) {
 		ExpectStatus: 404,
 		ExpectBody:   assert.StringData("no such account\n"),
 	}.Check(t, r)
+
+	//create an account with RBAC policies (this request is executed twice to test idempotency)
+	rbacPoliciesJSON := []assert.JSONObject{
+		{
+			"match_repository": "library/.*",
+			"permissions":      []string{"anonymous_pull"},
+		},
+		{
+			"match_repository": "library/alpine",
+			"match_username":   ".*@tenant2",
+			"permissions":      []string{"pull", "push"},
+		},
+	}
+	for range []int{1, 2} {
+		assert.HTTPRequest{
+			Method: "PUT",
+			Path:   "/keppel/v1/accounts/second",
+			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+			Body: assert.JSONObject{
+				"account": assert.JSONObject{
+					"auth_tenant_id": "tenant1",
+					"rbac_policies":  rbacPoliciesJSON,
+				},
+			},
+			ExpectStatus: 200,
+			ExpectBody: assert.JSONObject{
+				"account": assert.JSONObject{
+					"name":           "second",
+					"auth_tenant_id": "tenant1",
+					"rbac_policies":  rbacPoliciesJSON,
+				},
+			},
+		}.Check(t, r)
+		assert.DeepEqual(t, "authDriver.AccountsThatWereSetUp",
+			authDriver.AccountsThatWereSetUp,
+			[]keppel.Account{
+				{Name: "first", AuthTenantID: "tenant1"},
+				{Name: "second", AuthTenantID: "tenant1"},
+			},
+		)
+	}
+
+	//check that this account also shows up in GET
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: 200,
+		ExpectBody: assert.JSONObject{
+			"accounts": []assert.JSONObject{
+				{
+					"name":           "first",
+					"auth_tenant_id": "tenant1",
+					"rbac_policies":  []assert.JSONObject{},
+				},
+				{
+					"name":           "second",
+					"auth_tenant_id": "tenant1",
+					"rbac_policies":  rbacPoliciesJSON,
+				},
+			},
+		},
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts/second",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: 200,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "second",
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  rbacPoliciesJSON,
+			},
+		},
+	}.Check(t, r)
 }
 
 func TestGetAccountsErrorCases(t *testing.T) {
@@ -143,6 +222,23 @@ func TestGetAccountsErrorCases(t *testing.T) {
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts",
+		ExpectStatus: 401,
+		ExpectBody:   assert.StringData("authentication required: missing X-Test-Perms header\n"),
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts/first",
+		ExpectStatus: 401,
+		ExpectBody:   assert.StringData("authentication required: missing X-Test-Perms header\n"),
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+			},
+		},
 		ExpectStatus: 401,
 		ExpectBody:   assert.StringData("authentication required: missing X-Test-Perms header\n"),
 	}.Check(t, r)
@@ -166,6 +262,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
+				"rbac_policies":  []assert.JSONObject{},
 			},
 		},
 	}.Check(t, r)
@@ -242,5 +339,138 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: 403,
 		ExpectBody:   assert.StringData("Forbidden\n"),
+	}.Check(t, r)
+
+	//test malformed RBAC policies
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies": []assert.JSONObject{{
+					"match_repository": "library/.+",
+				}},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("RBAC policy must grant at least one permission\n"),
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies": []assert.JSONObject{{
+					"match_repository": "library/.+",
+					"permissions":      []string{"pull", "push", "foo"},
+				}},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("\"foo\" is not a valid RBAC policy permission\n"),
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies": []assert.JSONObject{{
+					"permissions": []string{"anonymous_pull"},
+				}},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("RBAC policy must have at least one \"match_...\" attribute\n"),
+	}.Check(t, r)
+
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies": []assert.JSONObject{{
+					"match_repository": "library/.+",
+					"match_username":   "foo",
+					"permissions":      []string{"anonymous_pull"},
+				}},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("RBAC policy with \"anonymous_pull\" may not have the \"match_username\" attribute\n"),
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies": []assert.JSONObject{{
+					"match_repository": "library/.+",
+					"permissions":      []string{"pull"},
+				}},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("RBAC policy with \"pull\" must have the \"match_username\" attribute\n"),
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies": []assert.JSONObject{{
+					"match_repository": "library/.+",
+					"permissions":      []string{"push"},
+				}},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("RBAC policy with \"push\" must also grant \"pull\"\n"),
+	}.Check(t, r)
+
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies": []assert.JSONObject{{
+					"match_repository": "*/library",
+					"permissions":      []string{"anonymous_pull"},
+				}},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("\"*/library\" is not a valid regex: error parsing regexp: missing argument to repetition operator: `*`\n"),
+	}.Check(t, r)
+
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies": []assert.JSONObject{{
+					"match_repository": "library/.+",
+					"match_username":   "[a-z]++@tenant2",
+					"permissions":      []string{"pull"},
+				}},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("\"[a-z]++@tenant2\" is not a valid regex: error parsing regexp: invalid nested repetition operator: `++`\n"),
 	}.Check(t, r)
 }

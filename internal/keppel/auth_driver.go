@@ -41,6 +41,12 @@ const (
 //Authorization describes the access rights for a user. It is returned by
 //methods in the AuthDriver interface.
 type Authorization interface {
+	//Returns the name of the the user that was authenticated. This should be the
+	//same format that is given as the first argument of AuthenticateUser().
+	//The AnonymousAuthorization always returns the empty string.
+	UserName() string
+	//Returns whether the given auth tenant grants the given permission to this user.
+	//The AnonymousAuthorization always returns false.
 	HasPermission(perm Permission, tenantID string) bool
 }
 
@@ -93,4 +99,16 @@ func RegisterAuthDriver(name string, factory func() (AuthDriver, error)) {
 		panic("attempted to register multiple auth drivers with name = " + name)
 	}
 	authDriverFactories[name] = factory
+}
+
+//AnonymousAuthorization is a keppel.Authorization for anonymous users.
+var AnonymousAuthorization = Authorization(anonAuthorization{})
+
+type anonAuthorization struct{}
+
+func (anonAuthorization) UserName() string {
+	return ""
+}
+func (anonAuthorization) HasPermission(perm Permission, tenantID string) bool {
+	return false
 }
