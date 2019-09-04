@@ -15,12 +15,12 @@ for managing Keppel accounts.
 
 This document uses the terminology defined in the [README.md](../README.md#terminology).
 
-- [GET /v1/keppel/accounts](#get-keppelv1accounts)
-- [GET /v1/keppel/accounts/:name](#get-keppelv1accountsname)
-- [PUT /v1/keppel/accounts/:name](#put-keppelv1accountsname)
-- [GET /v1/keppel/auth](#get-keppelv1auth)
+- [GET /keppel/v1/accounts](#get-keppelv1accounts)
+- [GET /keppel/v1/accounts/:name](#get-keppelv1accountsname)
+- [PUT /keppel/v1/accounts/:name](#put-keppelv1accountsname)
+- [GET /keppel/v1/auth](#get-keppelv1auth)
 
-## GET /v1/keppel/accounts
+## GET /keppel/v1/accounts
 
 Lists all accounts that the user has access to.
 On success, returns 200 and a JSON response body like this:
@@ -47,7 +47,7 @@ The following fields may be returned:
 | `accounts[].name` | string | Name of this account. |
 | `accounts[].auth_tenant_id` | string | ID of auth tenant that regulates access to this account. |
 
-## GET /v1/keppel/accounts/:name
+## GET /keppel/v1/accounts/:name
 
 Shows information about an individual account.
 Returns 404 if no account with the given name exists, or if the user does not have access to it.
@@ -65,7 +65,7 @@ Otherwise returns 200 and a JSON response body like this:
 The `.account` object's contents are equivalent to the corresponding entry in `.accounts[]` as returned by
 `GET /keppel/v1/accounts`.
 
-## PUT /v1/keppel/accounts/:name
+## PUT /keppel/v1/accounts/:name
 
 Creates or updates the account with the given name. The request body must be a JSON document following the same schema
 as the response from the corresponding GET endpoint, except that:
@@ -75,6 +75,6 @@ as the response from the corresponding GET endpoint, except that:
 
 On success, returns 200 and a JSON response body like from the corresponding GET endpoint.
 
-## GET /v1/keppel/auth
+## GET /keppel/v1/auth
 
 This endpoint is reserved for the authentication workflow of the [OCI Distribution API][oci-dist].
