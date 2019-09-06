@@ -16,17 +16,19 @@
 *
 ******************************************************************************/
 
-package test
+package testing
 
 import "github.com/sapcc/keppel/internal/keppel"
 
 func init() {
-	keppel.RegisterStorageDriver("unittest", func(_ keppel.AuthDriver, _ keppel.Configuration) (keppel.StorageDriver, error) {
+	keppel.RegisterStorageDriver("in-memory-for-testing", func(_ keppel.AuthDriver, _ keppel.Configuration) (keppel.StorageDriver, error) {
 		return &StorageDriver{}, nil
 	})
 }
 
-//StorageDriver (driver ID "unittest") is a keppel.StorageDriver for unit tests.
+//StorageDriver (driver ID "in-memory-for-testing") is a keppel.StorageDriver
+//for use in test suites where each keppel-registry stores its contents in RAM
+//only, without any persistence.
 type StorageDriver struct{}
 
 //GetEnvironment implements the keppel.StorageDriver interface.

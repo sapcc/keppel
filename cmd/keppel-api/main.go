@@ -38,6 +38,7 @@ import (
 
 	_ "github.com/sapcc/keppel/internal/drivers/local_processes"
 	_ "github.com/sapcc/keppel/internal/drivers/openstack"
+	_ "github.com/sapcc/keppel/internal/drivers/testing"
 )
 
 func main() {

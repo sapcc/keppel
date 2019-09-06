@@ -37,6 +37,7 @@ import (
 	"github.com/sapcc/go-bits/assert"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	_ "github.com/sapcc/keppel/internal/drivers/local_processes"
+	_ "github.com/sapcc/keppel/internal/drivers/testing"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -67,7 +68,7 @@ func TestProxyAPI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	sd, err := keppel.NewStorageDriver("unittest", ad, cfg)
+	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
