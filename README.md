@@ -52,6 +52,11 @@ appropriate drivers for their environment:
   The choice of storage driver is usually linked to the choice of auth driver because the auth driver needs to set up
   permissions for Keppel to access the storage service.
 
+- The **name claim driver** decides which account names a given user and auth tenant is allowed to claim. In a
+  single-region deployment, the "trivial" name claim driver allows everyone to claim any unused name. In a multi-region
+  deployment, an appropriate name claim driver could access a central service that manages account name claims. As for
+  storage drivers, the choice of name claim driver may be linked to the choice of auth driver.
+
 - The **orchestration driver** manages the fleet of Docker registry instances, and proxies requests to them.
 
 ## Building and running Keppel
@@ -71,6 +76,8 @@ make && PATH=$PWD/build:$PATH keppel-api
 | `KEPPEL_API_PUBLIC_URL` | *(required)* | URL where users reach keppel-api. |
 | `KEPPEL_DB_URI` | *(required)* | A [libpq connection URI][pq-uri] that locates the Keppel database. The non-URI "connection string" format is not allowed; it must be a URI. |
 | `KEPPEL_DRIVER_AUTH` | *(required)* | The name of an auth driver. |
+| `KEPPEL_DRIVER_NAMECLAIM` | *(required)* | The name of a name claim driver. For single-region deployments, the correct
+choice is probably `trivial`. |
 | `KEPPEL_DRIVER_ORCHESTRATION` | *(required)* | The name of an orchestration driver. |
 | `KEPPEL_DRIVER_STORAGE` | *(required)* | The name of a storage driver. |
 | `KEPPEL_ISSUER_KEY` | *(required)* | The private key (in PEM format) that keppel-api uses to sign auth tokens for Docker clients. |

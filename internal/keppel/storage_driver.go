@@ -32,10 +32,8 @@ type StorageDriver interface {
 	GetEnvironment(account Account) (map[string]string, error)
 }
 
-//Error types used by StorageDriver.
-var (
-	ErrAuthDriverMismatch = errors.New("given AuthDriver is not supported by this StorageDriver")
-)
+//ErrAuthDriverMismatch can be returned by StorageDriver and NameClaimDriver.
+var ErrAuthDriverMismatch = errors.New("given AuthDriver is not supported by this driver")
 
 var storageDriverFactories = make(map[string]func(AuthDriver, Configuration) (StorageDriver, error))
 
@@ -52,8 +50,8 @@ func NewStorageDriver(name string, authDriver AuthDriver, cfg Configuration) (St
 //RegisterStorageDriver registers an StorageDriver. Call this from func init() of the
 //package defining the StorageDriver.
 //
-//Factory implementations should inspect the driver to ensure that the storage
-//backend can work with this authentication method, returning
+//Factory implementations should inspect the auth driver to ensure that the
+//storage backend can work with this authentication method, returning
 //ErrAuthDriverMismatch otherwise.
 func RegisterStorageDriver(name string, factory func(AuthDriver, Configuration) (StorageDriver, error)) {
 	if _, exists := storageDriverFactories[name]; exists {

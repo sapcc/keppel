@@ -39,6 +39,7 @@ import (
 	_ "github.com/sapcc/keppel/internal/drivers/local_processes"
 	_ "github.com/sapcc/keppel/internal/drivers/openstack"
 	_ "github.com/sapcc/keppel/internal/drivers/testing"
+	_ "github.com/sapcc/keppel/internal/drivers/trivial"
 )
 
 func main() {
@@ -63,6 +64,8 @@ func main() {
 	must(err)
 	ad, err := keppel.NewAuthDriver(mustGetenv("KEPPEL_DRIVER_AUTH"))
 	must(err)
+	ncd, err := keppel.NewNameClaimDriver(mustGetenv("KEPPEL_DRIVER_NAMECLAIM"), ad, cfg)
+	must(err)
 	sd, err := keppel.NewStorageDriver(mustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
 	must(err)
 	od, err := keppel.NewOrchestrationDriver(mustGetenv("KEPPEL_DRIVER_ORCHESTRATION"), sd, cfg, db)
@@ -73,6 +76,7 @@ func main() {
 	keppelv1.NewAPI(ad, db).AddTo(r)
 	auth.NewAPI(cfg, ad, db).AddTo(r)
 	registryv2.NewAPI(cfg, od, db).AddTo(r)
+	_ = ncd //TODO remove
 
 	//TODO Prometheus instrumentation
 	http.Handle("/", logg.Middleware{}.Wrap(r))
