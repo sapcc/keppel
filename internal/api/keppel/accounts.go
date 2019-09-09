@@ -266,6 +266,19 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 
 	//create account if required
 	if account == nil {
+		//check permission to claim account name (this only happens here because
+		//it's only relevant for account creations, not for updates)
+		claim := keppel.NameClaim{
+			AccountName:   accountName,
+			AuthTenantID:  req.Account.AuthTenantID,
+			Authorization: authz,
+		}
+		err := a.ncDriver.Check(claim)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
+
 		tx, err := a.db.Begin()
 		if respondwith.ErrorText(w, err) {
 			return
@@ -280,6 +293,10 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 
 		//before committing this, add the required role assignments
 		err = a.authDriver.SetupAccount(*account, authz)
+		if respondwith.ErrorText(w, err) {
+			return
+		}
+		err = a.ncDriver.Commit(claim)
 		if respondwith.ErrorText(w, err) {
 			return
 		}

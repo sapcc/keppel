@@ -28,12 +28,13 @@ import (
 //API contains state variables used by the Keppel V1 API implementation.
 type API struct {
 	authDriver keppel.AuthDriver
+	ncDriver   keppel.NameClaimDriver
 	db         *keppel.DB
 }
 
 //NewAPI constructs a new API instance.
-func NewAPI(ad keppel.AuthDriver, db *keppel.DB) *API {
-	return &API{ad, db}
+func NewAPI(ad keppel.AuthDriver, ncd keppel.NameClaimDriver, db *keppel.DB) *API {
+	return &API{ad, ncd, db}
 }
 
 //AddTo adds routes for this API to the given router.

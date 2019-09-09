@@ -29,22 +29,26 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
-func setup(t *testing.T) (http.Handler, *test.AuthDriver) {
-	_, db := test.Setup(t)
+func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.NameClaimDriver) {
+	cfg, db := test.Setup(t)
 
 	ad, err := keppel.NewAuthDriver("unittest")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	ncd, err := keppel.NewNameClaimDriver("unittest", ad, cfg)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	r := mux.NewRouter()
-	NewAPI(ad, db).AddTo(r)
+	NewAPI(ad, ncd, db).AddTo(r)
 
-	return r, ad.(*test.AuthDriver)
+	return r, ad.(*test.AuthDriver), ncd.(*test.NameClaimDriver)
 }
 
 func TestAccountsAPI(t *testing.T) {
-	r, authDriver := setup(t)
+	r, authDriver, _ := setup(t)
 
 	//no accounts right now
 	assert.HTTPRequest{
@@ -216,7 +220,7 @@ func TestAccountsAPI(t *testing.T) {
 }
 
 func TestGetAccountsErrorCases(t *testing.T) {
-	r, _ := setup(t)
+	r, _, _ := setup(t)
 
 	//test invalid authentication
 	assert.HTTPRequest{
@@ -245,7 +249,7 @@ func TestGetAccountsErrorCases(t *testing.T) {
 }
 
 func TestPutAccountErrorCases(t *testing.T) {
-	r, _ := setup(t)
+	r, _, ncd := setup(t)
 
 	//preparation: create an account (so that we can check the error that the requested account name is taken)
 	assert.HTTPRequest{
@@ -339,6 +343,36 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: 403,
 		ExpectBody:   assert.StringData("Forbidden\n"),
+	}.Check(t, r)
+
+	//test rejection by name claim driver
+	ncd.CheckFails = true
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/second",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+			},
+		},
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   assert.StringData("cannot assign name \"second\" to auth tenant \"tenant1\"\n"),
+	}.Check(t, r)
+
+	ncd.CheckFails = false
+	ncd.CommitFails = true
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/second",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+			},
+		},
+		ExpectStatus: http.StatusInternalServerError, //this is not a client error because if it was, Check() should have failed already
+		ExpectBody:   assert.StringData("failed to assign name \"second\" to auth tenant \"tenant1\"\n"),
 	}.Check(t, r)
 
 	//test malformed RBAC policies

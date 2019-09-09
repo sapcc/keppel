@@ -73,10 +73,9 @@ func main() {
 
 	//wire up HTTP handlers
 	r := mux.NewRouter()
-	keppelv1.NewAPI(ad, db).AddTo(r)
+	keppelv1.NewAPI(ad, ncd, db).AddTo(r)
 	auth.NewAPI(cfg, ad, db).AddTo(r)
 	registryv2.NewAPI(cfg, od, db).AddTo(r)
-	_ = ncd //TODO remove
 
 	//TODO Prometheus instrumentation
 	http.Handle("/", logg.Middleware{}.Wrap(r))
