@@ -22,6 +22,8 @@
 //- the AuthDriver "keystone": Keppel tenants are Keystone projects. Incoming HTTP requests are authenticated by reading a Keystone token from the X-Auth-Token request header.
 //
 //- the StorageDriver "swift": Data for a Keppel account is stored in the Swift container "keppel-<accountname>" in the tenant's Swift account.
+//
+//- the NameClaimDriver "openstack-basic": A static whitelist is used to check which project can claim which account names.
 package openstack
 
 import (
@@ -51,14 +53,6 @@ type keystoneDriver struct {
 
 func init() {
 	keppel.RegisterAuthDriver("keystone", func() (keppel.AuthDriver, error) {
-		mustGetenv := func(key string) string {
-			val := os.Getenv(key)
-			if val == "" {
-				logg.Fatal("missing environment variable: %s", key)
-			}
-			return val
-		}
-
 		//authenticate service user
 		ao, err := clientconfig.AuthOptions(nil)
 		if err != nil {
@@ -261,4 +255,12 @@ func (a keystoneAuthorization) HasPermission(perm keppel.Permission, tenantID st
 	result := a.t.Check(rule)
 	logg.Debug("policy rule %q evaluates to %t", rule, result)
 	return result
+}
+
+func mustGetenv(key string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		logg.Fatal("missing environment variable: %s", key)
+	}
+	return val
 }
