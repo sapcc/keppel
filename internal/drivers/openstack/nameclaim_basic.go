@@ -40,7 +40,7 @@ type nameClaimDriverBasic struct {
 }
 
 func init() {
-	keppel.RegisterNameClaimDriver("keystone", func(ad keppel.AuthDriver, _ keppel.Configuration) (keppel.NameClaimDriver, error) {
+	keppel.RegisterNameClaimDriver("openstack-basic", func(ad keppel.AuthDriver, _ keppel.Configuration) (keppel.NameClaimDriver, error) {
 		k, ok := ad.(*keystoneDriver)
 		if !ok {
 			return nil, keppel.ErrAuthDriverMismatch
