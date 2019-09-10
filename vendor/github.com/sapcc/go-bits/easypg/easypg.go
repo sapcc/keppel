@@ -31,10 +31,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/golang-migrate/migrate"
-	"github.com/golang-migrate/migrate/database"
-	"github.com/golang-migrate/migrate/database/postgres"
-	bindata "github.com/golang-migrate/migrate/source/go_bindata"
+	"github.com/sapcc/go-bits/easypg/migrate"
+	"github.com/sapcc/go-bits/easypg/migrate/database"
+	"github.com/sapcc/go-bits/easypg/migrate/database/postgres"
+	bindata "github.com/sapcc/go-bits/easypg/migrate/source/go_bindata"
 
 	//enable postgres driver for database/sql
 	_ "github.com/lib/pq"
