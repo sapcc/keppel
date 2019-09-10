@@ -25,11 +25,21 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/audittools"
+	"github.com/sapcc/hermes/pkg/cadf"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
 
-func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.NameClaimDriver) {
+type mockAuditor struct {
+	Events []cadf.Event
+}
+
+func (a *mockAuditor) Record(params audittools.EventParameters) {
+	a.Events = append(a.Events, audittools.NewEvent(params))
+}
+
+func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.NameClaimDriver, *mockAuditor) {
 	cfg, db := test.Setup(t)
 
 	ad, err := keppel.NewAuthDriver("unittest")
@@ -42,13 +52,14 @@ func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.NameClaimDriver)
 	}
 
 	r := mux.NewRouter()
-	NewAPI(ad, ncd, db).AddTo(r)
+	auditor := &mockAuditor{}
+	NewAPI(ad, ncd, db, auditor).AddTo(r)
 
-	return r, ad.(*test.AuthDriver), ncd.(*test.NameClaimDriver)
+	return r, ad.(*test.AuthDriver), ncd.(*test.NameClaimDriver), auditor
 }
 
 func TestAccountsAPI(t *testing.T) {
-	r, authDriver, _ := setup(t)
+	r, authDriver, _, _ := setup(t)
 
 	//no accounts right now
 	assert.HTTPRequest{
@@ -220,7 +231,7 @@ func TestAccountsAPI(t *testing.T) {
 }
 
 func TestGetAccountsErrorCases(t *testing.T) {
-	r, _, _ := setup(t)
+	r, _, _, _ := setup(t)
 
 	//test invalid authentication
 	assert.HTTPRequest{
@@ -249,7 +260,7 @@ func TestGetAccountsErrorCases(t *testing.T) {
 }
 
 func TestPutAccountErrorCases(t *testing.T) {
-	r, _, ncd := setup(t)
+	r, _, ncd, _ := setup(t)
 
 	//preparation: create an account (so that we can check the error that the requested account name is taken)
 	assert.HTTPRequest{

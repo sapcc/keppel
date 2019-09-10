@@ -30,11 +30,12 @@ type API struct {
 	authDriver keppel.AuthDriver
 	ncDriver   keppel.NameClaimDriver
 	db         *keppel.DB
+	auditor    keppel.Auditor
 }
 
 //NewAPI constructs a new API instance.
-func NewAPI(ad keppel.AuthDriver, ncd keppel.NameClaimDriver, db *keppel.DB) *API {
-	return &API{ad, ncd, db}
+func NewAPI(ad keppel.AuthDriver, ncd keppel.NameClaimDriver, db *keppel.DB, auditor keppel.Auditor) *API {
+	return &API{ad, ncd, db, auditor}
 }
 
 //AddTo adds routes for this API to the given router.

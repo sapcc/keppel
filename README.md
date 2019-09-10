@@ -74,6 +74,9 @@ make && PATH=$PWD/build:$PATH keppel-api
 | -------- | ------- | ----------- |
 | `KEPPEL_API_LISTEN_ADDRESS` | :8080 | Listen address for HTTP server. |
 | `KEPPEL_API_PUBLIC_URL` | *(required)* | URL where users reach keppel-api. |
+| `KEPPEL_AUDIT_RABBITMQ_URI` | *(optional)* | RabbitMQ URI as per the [AMQP URI format](https://www.rabbitmq.com/uri-spec.html). If this variable is configured then Keppel will send audit events to the respective RabbitMQ server. |
+| `KEPPEL_AUDIT_RABBITMQ_QUEUE_NAME` | *(required if `KEPPEL_RABBITMQ_URI` is configured)* | Name for the queue that will hold the audit events. The events are published to the default exchange. |
+| `KEPPEL_AUDIT_SILENT` | *(optional)* | Whether to disable audit event logging to standard output. |
 | `KEPPEL_DB_URI` | *(required)* | A [libpq connection URI][pq-uri] that locates the Keppel database. The non-URI "connection string" format is not allowed; it must be a URI. |
 | `KEPPEL_DRIVER_AUTH` | *(required)* | The name of an auth driver. |
 | `KEPPEL_DRIVER_NAMECLAIM` | *(required)* | The name of a name claim driver. For single-region deployments, the correct

@@ -59,6 +59,7 @@ func main() {
 	}
 
 	cfg := parseConfig()
+	auditor := initAuditTrail()
 
 	db, err := keppel.InitDB(cfg.DatabaseURL)
 	must(err)
@@ -73,7 +74,7 @@ func main() {
 
 	//wire up HTTP handlers
 	r := mux.NewRouter()
-	keppelv1.NewAPI(ad, ncd, db).AddTo(r)
+	keppelv1.NewAPI(ad, ncd, db, auditor).AddTo(r)
 	auth.NewAPI(cfg, ad, db).AddTo(r)
 	registryv2.NewAPI(cfg, od, db).AddTo(r)
 
