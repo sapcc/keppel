@@ -66,7 +66,7 @@ func TestAccountsAPI(t *testing.T) {
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: 200,
+		ExpectStatus: http.StatusOK,
 		ExpectBody:   assert.JSONObject{"accounts": []interface{}{}},
 	}.Check(t, r)
 	assert.DeepEqual(t, "authDriver.AccountsThatWereSetUp",
@@ -77,7 +77,7 @@ func TestAccountsAPI(t *testing.T) {
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/first",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: 404,
+		ExpectStatus: http.StatusNotFound,
 		ExpectBody:   assert.StringData("no such account\n"),
 	}.Check(t, r)
 
@@ -92,7 +92,7 @@ func TestAccountsAPI(t *testing.T) {
 					"auth_tenant_id": "tenant1",
 				},
 			},
-			ExpectStatus: 200,
+			ExpectStatus: http.StatusOK,
 			ExpectBody: assert.JSONObject{
 				"account": assert.JSONObject{
 					"name":           "first",
@@ -112,7 +112,7 @@ func TestAccountsAPI(t *testing.T) {
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: 200,
+		ExpectStatus: http.StatusOK,
 		ExpectBody: assert.JSONObject{
 			"accounts": []assert.JSONObject{{
 				"name":           "first",
@@ -125,7 +125,7 @@ func TestAccountsAPI(t *testing.T) {
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/first",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: 200,
+		ExpectStatus: http.StatusOK,
 		ExpectBody: assert.JSONObject{
 			"account": assert.JSONObject{
 				"name":           "first",
@@ -140,7 +140,7 @@ func TestAccountsAPI(t *testing.T) {
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant2"},
-		ExpectStatus: 200,
+		ExpectStatus: http.StatusOK,
 		ExpectBody: assert.JSONObject{
 			"accounts": []assert.JSONObject{},
 		},
@@ -149,7 +149,7 @@ func TestAccountsAPI(t *testing.T) {
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/first",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant2"},
-		ExpectStatus: 404,
+		ExpectStatus: http.StatusNotFound,
 		ExpectBody:   assert.StringData("no such account\n"),
 	}.Check(t, r)
 
@@ -176,7 +176,7 @@ func TestAccountsAPI(t *testing.T) {
 					"rbac_policies":  rbacPoliciesJSON,
 				},
 			},
-			ExpectStatus: 200,
+			ExpectStatus: http.StatusOK,
 			ExpectBody: assert.JSONObject{
 				"account": assert.JSONObject{
 					"name":           "second",
@@ -199,7 +199,7 @@ func TestAccountsAPI(t *testing.T) {
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: 200,
+		ExpectStatus: http.StatusOK,
 		ExpectBody: assert.JSONObject{
 			"accounts": []assert.JSONObject{
 				{
@@ -219,7 +219,7 @@ func TestAccountsAPI(t *testing.T) {
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/second",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: 200,
+		ExpectStatus: http.StatusOK,
 		ExpectBody: assert.JSONObject{
 			"account": assert.JSONObject{
 				"name":           "second",
@@ -237,13 +237,13 @@ func TestGetAccountsErrorCases(t *testing.T) {
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts",
-		ExpectStatus: 401,
+		ExpectStatus: http.StatusUnauthorized,
 		ExpectBody:   assert.StringData("authentication required: missing X-Test-Perms header\n"),
 	}.Check(t, r)
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/first",
-		ExpectStatus: 401,
+		ExpectStatus: http.StatusUnauthorized,
 		ExpectBody:   assert.StringData("authentication required: missing X-Test-Perms header\n"),
 	}.Check(t, r)
 	assert.HTTPRequest{
@@ -254,7 +254,7 @@ func TestGetAccountsErrorCases(t *testing.T) {
 				"auth_tenant_id": "tenant1",
 			},
 		},
-		ExpectStatus: 401,
+		ExpectStatus: http.StatusUnauthorized,
 		ExpectBody:   assert.StringData("authentication required: missing X-Test-Perms header\n"),
 	}.Check(t, r)
 }
@@ -272,7 +272,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"auth_tenant_id": "tenant1",
 			},
 		},
-		ExpectStatus: 200,
+		ExpectStatus: http.StatusOK,
 		ExpectBody: assert.JSONObject{
 			"account": assert.JSONObject{
 				"name":           "first",
@@ -288,7 +288,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		Path:         "/keppel/v1/accounts/second",
 		Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
 		Body:         assert.StringData(`{"account":???}`),
-		ExpectStatus: 400,
+		ExpectStatus: http.StatusBadRequest,
 	}.Check(t, r)
 
 	assert.HTTPRequest{
@@ -300,7 +300,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"auth_tenant_id": "invalid",
 			},
 		},
-		ExpectStatus: 422,
+		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("malformed attribute \"account.auth_tenant_id\" in request body: must not be \"invalid\"\n"),
 	}.Check(t, r)
 
@@ -313,7 +313,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"auth_tenant_id": "tenant1",
 			},
 		},
-		ExpectStatus: 422,
+		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("account names with the prefix \"keppel-\" are reserved for internal use\n"),
 	}.Check(t, r)
 
@@ -326,7 +326,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"auth_tenant_id": "tenant2",
 			},
 		},
-		ExpectStatus: 409,
+		ExpectStatus: http.StatusConflict,
 		ExpectBody:   assert.StringData("account name already in use by a different tenant\n"),
 	}.Check(t, r)
 
@@ -339,7 +339,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"auth_tenant_id": "tenant1",
 			},
 		},
-		ExpectStatus: 401,
+		ExpectStatus: http.StatusUnauthorized,
 		ExpectBody:   assert.StringData("authentication required: missing X-Test-Perms header\n"),
 	}.Check(t, r)
 
@@ -352,7 +352,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"auth_tenant_id": "tenant1",
 			},
 		},
-		ExpectStatus: 403,
+		ExpectStatus: http.StatusForbidden,
 		ExpectBody:   assert.StringData("Forbidden\n"),
 	}.Check(t, r)
 
