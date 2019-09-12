@@ -22,6 +22,8 @@ package keppel
 import (
 	"errors"
 	"net/http"
+
+	"github.com/sapcc/go-bits/gopherpolicy"
 )
 
 //Permission is an enum used by AuthDriver.
@@ -48,6 +50,15 @@ type Authorization interface {
 	//Returns whether the given auth tenant grants the given permission to this user.
 	//The AnonymousAuthorization always returns false.
 	HasPermission(perm Permission, tenantID string) bool
+
+	//If this authorization is backed by a Keystone token, return that token.
+	//Returns nil otherwise. The AnonymousAuthorization always returns nil.
+	//
+	//NOTE: This breaks separation of concerns, but we need the token in the
+	//Keppel API to fill audittools.EventParameters values, and I don't see a
+	//more logical way to order responsibilities here that does not require a
+	//"backdoor" like this method.
+	KeystoneToken() *gopherpolicy.Token
 }
 
 //AuthDriver represents an authentication backend that supports multiple
@@ -111,4 +122,7 @@ func (anonAuthorization) UserName() string {
 }
 func (anonAuthorization) HasPermission(perm Permission, tenantID string) bool {
 	return false
+}
+func (anonAuthorization) KeystoneToken() *gopherpolicy.Token {
+	return nil
 }

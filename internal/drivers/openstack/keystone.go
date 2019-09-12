@@ -257,6 +257,11 @@ func (a keystoneAuthorization) HasPermission(perm keppel.Permission, tenantID st
 	return result
 }
 
+//HasPermission implements the keppel.Authorization interface.
+func (a keystoneAuthorization) KeystoneToken() *gopherpolicy.Token {
+	return a.t
+}
+
 func mustGetenv(key string) string {
 	val := os.Getenv(key)
 	if val == "" {

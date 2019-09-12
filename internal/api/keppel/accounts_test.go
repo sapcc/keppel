@@ -20,6 +20,7 @@
 package keppelv1
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -31,15 +32,65 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
-type mockAuditor struct {
+////////////////////////////////////////////////////////////////////////////////
+// recorder for audit events
+
+type testAuditor struct {
 	Events []cadf.Event
 }
 
-func (a *mockAuditor) Record(params audittools.EventParameters) {
-	a.Events = append(a.Events, audittools.NewEvent(params))
+func (a *testAuditor) Record(params audittools.EventParameters) {
+	a.Events = append(a.Events, a.Normalize(audittools.NewEvent(params)))
 }
 
-func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.NameClaimDriver, *mockAuditor) {
+func (a *testAuditor) Reset() {
+	//reset state for next test
+	a.Events = nil
+}
+
+func (a *testAuditor) ExpectEvents(t *testing.T, expectedEvents ...cadf.Event) {
+	t.Helper()
+	if len(expectedEvents) == 0 {
+		expectedEvents = nil
+	} else {
+		for idx, event := range expectedEvents {
+			expectedEvents[idx] = a.Normalize(event)
+		}
+	}
+	assert.DeepEqual(t, "CADF events", a.Events, expectedEvents)
+	a.Reset()
+}
+
+func (a *testAuditor) Normalize(event cadf.Event) cadf.Event {
+	//overwrite some attributes where we don't care about variance
+	event.TypeURI = "http://schemas.dmtf.org/cloud/audit/1.0/event"
+	event.ID = "00000000-0000-0000-0000-000000000000"
+	event.EventTime = "2006-01-02T15:04:05.999999+00:00"
+	event.EventType = "activity"
+	event.Initiator = cadf.Resource{}
+	event.Observer = cadf.Resource{}
+	return event
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// some helpers to make the cadf.Event literals shorter
+
+var (
+	cadfReasonOK = cadf.Reason{
+		ReasonType: "HTTP",
+		ReasonCode: "200",
+	}
+)
+
+func toJSON(x interface{}) string {
+	result, _ := json.Marshal(x)
+	return string(result)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// tests
+
+func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.NameClaimDriver, *testAuditor) {
 	cfg, db := test.Setup(t)
 
 	ad, err := keppel.NewAuthDriver("unittest")
@@ -52,14 +103,14 @@ func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.NameClaimDriver,
 	}
 
 	r := mux.NewRouter()
-	auditor := &mockAuditor{}
+	auditor := &testAuditor{}
 	NewAPI(ad, ncd, db, auditor).AddTo(r)
 
 	return r, ad.(*test.AuthDriver), ncd.(*test.NameClaimDriver), auditor
 }
 
 func TestAccountsAPI(t *testing.T) {
-	r, authDriver, _, _ := setup(t)
+	r, authDriver, _, auditor := setup(t)
 
 	//no accounts right now
 	assert.HTTPRequest{
@@ -82,7 +133,7 @@ func TestAccountsAPI(t *testing.T) {
 	}.Check(t, r)
 
 	//create an account (this request is executed twice to test idempotency)
-	for range []int{1, 2} {
+	for _, pass := range []int{1, 2} {
 		assert.HTTPRequest{
 			Method: "PUT",
 			Path:   "/keppel/v1/accounts/first",
@@ -105,6 +156,23 @@ func TestAccountsAPI(t *testing.T) {
 			authDriver.AccountsThatWereSetUp,
 			[]keppel.Account{{Name: "first", AuthTenantID: "tenant1"}},
 		)
+
+		//only the first pass should generate an audit event
+		if pass == 1 {
+			auditor.ExpectEvents(t, cadf.Event{
+				RequestPath: "/keppel/v1/accounts/first",
+				Action:      "create",
+				Outcome:     "success",
+				Reason:      cadfReasonOK,
+				Target: cadf.Resource{
+					TypeURI:   "docker-registry/account",
+					ID:        "first",
+					ProjectID: "tenant1",
+				},
+			})
+		} else {
+			auditor.ExpectEvents(t /*, nothing */)
+		}
 	}
 
 	//check that account shows up in GET...
@@ -165,7 +233,7 @@ func TestAccountsAPI(t *testing.T) {
 			"permissions":      []string{"pull", "push"},
 		},
 	}
-	for range []int{1, 2} {
+	for _, pass := range []int{1, 2} {
 		assert.HTTPRequest{
 			Method: "PUT",
 			Path:   "/keppel/v1/accounts/second",
@@ -192,6 +260,57 @@ func TestAccountsAPI(t *testing.T) {
 				{Name: "second", AuthTenantID: "tenant1"},
 			},
 		)
+
+		//only the first pass should generate audit events
+		if pass == 1 {
+			auditor.ExpectEvents(t,
+				cadf.Event{
+					RequestPath: "/keppel/v1/accounts/second",
+					Action:      "create",
+					Outcome:     "success",
+					Reason:      cadfReasonOK,
+					Target: cadf.Resource{
+						TypeURI:   "docker-registry/account",
+						ID:        "second",
+						ProjectID: "tenant1",
+					},
+				},
+				cadf.Event{
+					RequestPath: "/keppel/v1/accounts/second",
+					Action:      "create/rbac-policy",
+					Outcome:     "success",
+					Reason:      cadfReasonOK,
+					Target: cadf.Resource{
+						TypeURI:   "docker-registry/account",
+						ID:        "second",
+						ProjectID: "tenant1",
+						Attachments: []cadf.Attachment{{
+							Name:    "payload",
+							TypeURI: "mime:application/json",
+							Content: toJSON(rbacPoliciesJSON[0]),
+						}},
+					},
+				},
+				cadf.Event{
+					RequestPath: "/keppel/v1/accounts/second",
+					Action:      "create/rbac-policy",
+					Outcome:     "success",
+					Reason:      cadfReasonOK,
+					Target: cadf.Resource{
+						TypeURI:   "docker-registry/account",
+						ID:        "second",
+						ProjectID: "tenant1",
+						Attachments: []cadf.Attachment{{
+							Name:    "payload",
+							TypeURI: "mime:application/json",
+							Content: toJSON(rbacPoliciesJSON[1]),
+						}},
+					},
+				},
+			)
+		} else {
+			auditor.ExpectEvents(t /*, nothing */)
+		}
 	}
 
 	//check that this account also shows up in GET
@@ -228,6 +347,96 @@ func TestAccountsAPI(t *testing.T) {
 			},
 		},
 	}.Check(t, r)
+
+	//check editing of RBAC policies
+	newRBACPoliciesJSON := []assert.JSONObject{
+		//rbacPoliciesJSON[0] is deleted
+		//rbacPoliciesJSON[1] is updated as follows:
+		{
+			"match_repository": "library/alpine",
+			"match_username":   ".*@tenant2",
+			"permissions":      []string{"pull"},
+		},
+		//this one is entirely new:
+		{
+			"match_repository": "library/alpine",
+			"match_username":   ".*@tenant3",
+			"permissions":      []string{"pull", "push"},
+		},
+	}
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/second",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  newRBACPoliciesJSON,
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "second",
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  newRBACPoliciesJSON,
+			},
+		},
+	}.Check(t, r)
+	auditor.ExpectEvents(t,
+		cadf.Event{
+			RequestPath: "/keppel/v1/accounts/second",
+			Action:      "update/rbac-policy",
+			Outcome:     "success",
+			Reason:      cadfReasonOK,
+			Target: cadf.Resource{
+				TypeURI:   "docker-registry/account",
+				ID:        "second",
+				ProjectID: "tenant1",
+				Attachments: []cadf.Attachment{{
+					Name:    "payload",
+					TypeURI: "mime:application/json",
+					Content: toJSON(newRBACPoliciesJSON[0]),
+				}, {
+					Name:    "payload-before",
+					TypeURI: "mime:application/json",
+					Content: toJSON(rbacPoliciesJSON[1]),
+				}},
+			},
+		},
+		cadf.Event{
+			RequestPath: "/keppel/v1/accounts/second",
+			Action:      "create/rbac-policy",
+			Outcome:     "success",
+			Reason:      cadfReasonOK,
+			Target: cadf.Resource{
+				TypeURI:   "docker-registry/account",
+				ID:        "second",
+				ProjectID: "tenant1",
+				Attachments: []cadf.Attachment{{
+					Name:    "payload",
+					TypeURI: "mime:application/json",
+					Content: toJSON(newRBACPoliciesJSON[1]),
+				}},
+			},
+		},
+		cadf.Event{
+			RequestPath: "/keppel/v1/accounts/second",
+			Action:      "delete/rbac-policy",
+			Outcome:     "success",
+			Reason:      cadfReasonOK,
+			Target: cadf.Resource{
+				TypeURI:   "docker-registry/account",
+				ID:        "second",
+				ProjectID: "tenant1",
+				Attachments: []cadf.Attachment{{
+					Name:    "payload",
+					TypeURI: "mime:application/json",
+					Content: toJSON(rbacPoliciesJSON[0]),
+				}},
+			},
+		},
+	)
 }
 
 func TestGetAccountsErrorCases(t *testing.T) {

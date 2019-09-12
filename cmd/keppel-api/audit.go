@@ -76,7 +76,7 @@ func initAuditTrail() keppel.Auditor {
 
 //Record implements the keppel.Auditor interface.
 func (a auditor) Record(params audittools.EventParameters) {
-	params.Observer.TypeURI = "service/registry"
+	params.Observer.TypeURI = "service/docker-registry"
 	params.Observer.Name = "keppel"
 	params.Observer.ID = a.ObserverUUID
 

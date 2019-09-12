@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -125,4 +126,10 @@ func (a authorization) UserName() string {
 
 func (a authorization) HasPermission(perm keppel.Permission, tenantID string) bool {
 	return a.perms[string(perm)][tenantID]
+}
+
+func (a authorization) KeystoneToken() *gopherpolicy.Token {
+	//return a dummy token to enable testing of audit events (a nil token will
+	//suppress audit event generation)
+	return &gopherpolicy.Token{}
 }

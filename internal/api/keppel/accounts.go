@@ -25,8 +25,10 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -85,6 +87,11 @@ func renderRBACPolicy(dbPolicy keppel.RBACPolicy) RBACPolicy {
 		result.Permissions = append(result.Permissions, "push")
 	}
 	return result
+}
+
+func renderRBACPolicyPtr(dbPolicy keppel.RBACPolicy) *RBACPolicy {
+	policy := renderRBACPolicy(dbPolicy)
+	return &policy
 }
 
 func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
@@ -304,9 +311,36 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		if respondwith.ErrorText(w, err) {
 			return
 		}
+		if token := authz.KeystoneToken(); token != nil {
+			a.auditor.Record(audittools.EventParameters{
+				Time:       time.Now(),
+				Request:    r,
+				Token:      token,
+				ReasonCode: http.StatusOK,
+				Action:     "create",
+				Target:     AuditAccount{Account: *account},
+			})
+		}
 	}
 
-	err = a.putRBACPolicies(*account, rbacPolicies)
+	submitAudit := func(action string, target AuditRBACPolicy) {
+		if token := authz.KeystoneToken(); token != nil {
+			a.auditor.Record(audittools.EventParameters{
+				Time:       time.Now(),
+				Request:    r,
+				Token:      token,
+				ReasonCode: http.StatusOK,
+				Action:     action,
+				Target:     target,
+			})
+		}
+	}
+
+	for idx, policy := range rbacPolicies {
+		policy.AccountName = account.Name
+		rbacPolicies[idx] = policy
+	}
+	err = a.putRBACPolicies(*account, rbacPolicies, submitAudit)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -318,31 +352,68 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"account": accountRendered})
 }
 
-func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPolicy) error {
-	tx, err := a.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer keppel.RollbackUnlessCommitted(tx)
-
-	//delete all existing policies
-	_, err = tx.Exec(`DELETE FROM rbac_policies WHERE account_name = $1`, account.Name)
+func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPolicy, submitAudit func(action string, target AuditRBACPolicy)) error {
+	//enumerate existing policies
+	var dbPolicies []keppel.RBACPolicy
+	_, err := a.db.Select(&dbPolicies, `SELECT * FROM rbac_policies WHERE account_name = $1`, account.Name)
 	if err != nil {
 		return err
 	}
 
-	//insert the requested policies
-	policiesForInsert := make([]interface{}, len(policies))
-	for idx, policy := range policies {
-		//need to clone because `policy` gets overwritten in the next loop iteration
-		cloned := policy
-		cloned.AccountName = account.Name
-		policiesForInsert[idx] = &cloned
+	//put existing set of policies in a map to allow diff with new set
+	mapKey := func(p keppel.RBACPolicy) string {
+		//this mapping is collision-free because RepositoryPattern and UserNamePattern are valid regexes
+		return fmt.Sprintf("%s[%s][%s]", p.AccountName, p.RepositoryPattern, p.UserNamePattern)
 	}
-	err = tx.Insert(policiesForInsert...)
-	if err != nil {
-		return err
+	state := make(map[string]keppel.RBACPolicy)
+	for _, policy := range dbPolicies {
+		state[mapKey(policy)] = policy
 	}
 
-	return tx.Commit()
+	//insert or update policies as needed
+	for _, policy := range policies {
+		key := mapKey(policy)
+		if policyInDB, exists := state[key]; exists {
+			//update if necessary
+			if policy != policyInDB {
+				_, err := a.db.Update(&policy)
+				if err != nil {
+					return err
+				}
+				submitAudit("update/rbac-policy", AuditRBACPolicy{
+					Account: account,
+					Before:  renderRBACPolicyPtr(policyInDB),
+					After:   renderRBACPolicyPtr(policy),
+				})
+			}
+		} else {
+			//insert missing policy
+			err := a.db.Insert(&policy)
+			if err != nil {
+				return err
+			}
+			submitAudit("create/rbac-policy", AuditRBACPolicy{
+				Account: account,
+				After:   renderRBACPolicyPtr(policy),
+			})
+		}
+
+		//remove all updated policies from `state`
+		delete(state, key)
+	}
+
+	//because of delete() up there, `state` now only contains policies that are
+	//not in `policies` and which have to be deleted
+	for _, policy := range state {
+		_, err := a.db.Delete(&policy)
+		if err != nil {
+			return err
+		}
+		submitAudit("delete/rbac-policy", AuditRBACPolicy{
+			Account: account,
+			Before:  renderRBACPolicyPtr(policy),
+		})
+	}
+
+	return nil
 }
