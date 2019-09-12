@@ -46,6 +46,7 @@ require (
 	github.com/prometheus/client_golang v1.0.0
 	github.com/prometheus/common v0.6.0 // indirect
 	github.com/prometheus/procfs v0.0.3 // indirect
+	github.com/rs/cors v1.6.0
 	github.com/sapcc/go-bits v0.0.0-20190910095551-3863bd6b4943
 	github.com/sapcc/hermes v0.0.0-20190722215605-d772f40f9fc6
 	github.com/satori/go.uuid v1.2.0

@@ -30,6 +30,7 @@ import (
 	"syscall"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 	"github.com/sapcc/go-bits/logg"
 	auth "github.com/sapcc/keppel/internal/api/auth"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
@@ -79,7 +80,13 @@ func main() {
 	registryv2.NewAPI(cfg, od, db).AddTo(r)
 
 	//TODO Prometheus instrumentation
-	http.Handle("/", logg.Middleware{}.Wrap(r))
+	handler := logg.Middleware{}.Wrap(r)
+	handler = cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"HEAD", "GET", "POST", "PUT", "DELETE"},
+		AllowedHeaders: []string{"Content-Type", "User-Agent", "X-Auth-Token"},
+	}).Handler(handler)
+	http.Handle("/", handler)
 	http.HandleFunc("/healthcheck", healthCheckHandler)
 
 	//start HTTP server

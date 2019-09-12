@@ -137,6 +137,8 @@ github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
 # github.com/prometheus/procfs v0.0.3
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
+# github.com/rs/cors v1.6.0
+github.com/rs/cors
 # github.com/sapcc/go-bits v0.0.0-20190910095551-3863bd6b4943
 github.com/sapcc/go-bits/audittools
 github.com/sapcc/go-bits/logg
