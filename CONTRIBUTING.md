@@ -1,7 +1,7 @@
 # Overview for developers/contributors
 
 You should have read the entire [README.md](./README.md) once before starting
-to work on Castellum's codebase. This document assumes that you did that already.
+to work on Keppel's codebase. This document assumes that you did that already.
 
 ## Testing methodology
 

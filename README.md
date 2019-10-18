@@ -79,8 +79,7 @@ make && PATH=$PWD/build:$PATH keppel-api
 | `KEPPEL_AUDIT_SILENT` | *(optional)* | Whether to disable audit event logging to standard output. |
 | `KEPPEL_DB_URI` | *(required)* | A [libpq connection URI][pq-uri] that locates the Keppel database. The non-URI "connection string" format is not allowed; it must be a URI. |
 | `KEPPEL_DRIVER_AUTH` | *(required)* | The name of an auth driver. |
-| `KEPPEL_DRIVER_NAMECLAIM` | *(required)* | The name of a name claim driver. For single-region deployments, the correct
-choice is probably `trivial`. |
+| `KEPPEL_DRIVER_NAMECLAIM` | *(required)* | The name of a name claim driver. For single-region deployments, the correct choice is probably `trivial`. |
 | `KEPPEL_DRIVER_ORCHESTRATION` | *(required)* | The name of an orchestration driver. |
 | `KEPPEL_DRIVER_STORAGE` | *(required)* | The name of a storage driver. |
 | `KEPPEL_ISSUER_KEY` | *(required)* | The private key (in PEM format) that keppel-api uses to sign auth tokens for Docker clients. |
