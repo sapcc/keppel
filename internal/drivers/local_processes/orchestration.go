@@ -26,138 +26,101 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"os/exec"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/keppel/internal/drivers"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
 type driver struct {
-	storage            keppel.StorageDriver
-	cfg                keppel.Configuration
-	db                 keppel.DBAccessForOrchestrationDriver
-	getPortRequestChan chan getPortRequest
-	//the following fields are only accessed by Run(), so no locking is necessary^
-	listenPorts    map[string]uint16
-	nextListenPort uint16
+	//no mutexes necessary since LaunchRegistry() is guaranteed to
+	//always run in the same goroutine
+	StorageDriver  keppel.StorageDriver
+	Config         keppel.Configuration
+	NextListenPort uint16
 }
 
 func init() {
 	keppel.RegisterOrchestrationDriver("local-processes", func(storage keppel.StorageDriver, cfg keppel.Configuration, db keppel.DBAccessForOrchestrationDriver) (keppel.OrchestrationDriver, error) {
-		return &driver{
-			storage:            storage,
-			cfg:                cfg,
-			db:                 db,
-			getPortRequestChan: make(chan getPortRequest),
-			listenPorts:        make(map[string]uint16),
-			nextListenPort:     10000, //could be made configurable if it becomes a problem, but right now it isn't
+
+		prepareBaseConfig()
+		prepareCertBundle(cfg)
+
+		//could be made configurable if it becomes a problem, but right now it isn't
+		var nextListenPort uint16 = 10000
+
+		return &drivers.OrchestrationEngine{
+			Launcher: &driver{storage, cfg, nextListenPort},
+			DB:       db,
 		}, nil
 	})
 }
 
-type getPortRequest struct {
-	Account keppel.Account
-	Result  chan<- uint16
-}
+//LaunchRegistry implements the drivers.RegistryLauncher interface.
+func (d *driver) LaunchRegistry(processCtx, accountCtx context.Context, account keppel.Account, wg *sync.WaitGroup, notifyTerminated func()) (string, error) {
+	d.NextListenPort++
+	port := d.NextListenPort
+	logg.Info("[account=%s] starting keppel-registry on port %d", account.Name, port)
 
-//DoHTTPRequest implements the keppel.OrchestrationDriver interface.
-func (d *driver) DoHTTPRequest(account keppel.Account, r *http.Request, opts keppel.RequestOptions) (*http.Response, error) {
-	resultChan := make(chan uint16, 1)
-	d.getPortRequestChan <- getPortRequest{
-		Account: account,
-		Result:  resultChan,
+	cmd := exec.Command("keppel-registry", "serve", baseConfigPath)
+	cmd.Env = os.Environ()
+
+	storageEnv, err := d.StorageDriver.GetEnvironment(account)
+	if err != nil {
+		return "", err
+	}
+	for k, v := range storageEnv {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+	}
+	for k, v := range d.Config.ToRegistryEnvironment() {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	r.URL.Scheme = "http"
-	r.URL.Host = fmt.Sprintf("localhost:%d", <-resultChan)
-	r.Host = ""
+	cmd.Env = append(cmd.Env,
+		fmt.Sprintf("REGISTRY_HTTP_ADDR=:%d", port),
+		"REGISTRY_LOG_FIELDS_KEPPEL.ACCOUNT="+account.Name,
+		"REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE="+issuerCertBundlePath,
+	)
 
-	client := http.DefaultClient
-	if (opts & keppel.DoNotFollowRedirects) != 0 {
-		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		}
+	//the REGISTRY_LOG_FIELDS_KEPPEL.ACCOUNT variable (see above) adds the account
+	//name to all log messages produced by the keppel-registry (it is therefore
+	//safe to send its log directly to our own stdout)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err = cmd.Start()
+	if err != nil {
+		return "", err
 	}
 
-	return client.Do(r)
+	//manage the process during its lifetime
+	wg.Add(2)
+	processResult := make(chan error)
+	go func() {
+		defer wg.Done()
+		processResult <- cmd.Wait()
+		notifyTerminated()
+	}()
+	go func() {
+		defer wg.Done()
+		waitOnProcess(processCtx, accountCtx, account.Name, cmd, processResult)
+	}()
+
+	//give the registry process some time to come up
+	host := fmt.Sprintf("localhost:%d", port)
+	waitUntilRegistryRunning(host)
+	return host, nil
 }
 
-type processExitMessage struct {
-	AccountName string
-}
-
-//Run implements the keppel.OrchestrationDriver interface.
-func (d *driver) Run(ctx context.Context) (ok bool) {
-	prepareBaseConfig()
-	d.prepareCertBundle()
-	go d.ensureAllRegistriesAreRunning()
-
-	innerCtx, cancel := context.WithCancel(ctx)
-	processExitChan := make(chan processExitMessage)
-	pc := processContext{
-		StorageDriver:   d.storage,
-		Config:          d.cfg,
-		Context:         innerCtx,
-		ProcessExitChan: processExitChan,
-	}
-
-	//Overview of how this main loop works:
-	//
-	//1. Each call to pc.startRegistry() spawns a keppel-registry process.
-	//   pc.startRegistry() will launch some goroutines that manage the child
-	//   process during its lifetime. Those goroutines are tracked by
-	//   pc.WaitGroup.
-	//
-	//2. When the original ctx expires, the aforementioned goroutines will
-	//   cleanly shutdown all keppel-registry processes. When they're done
-	//   shutting down, the main loop (which is waiting on pc.WaitGroup) unblocks
-	//   and returns true.
-	//
-	//3. Abnormal termination of a single keppel-registry process is not a fatal
-	//   error. Its observing goroutine will send a processExitMessage that the
-	//   main loop uses to update its bookkeeping accordingly. The next request
-	//   for that Keppel account will launch a new keppel-registry process.
-	//
-	ok = true
-	for {
-		select {
-		case <-ctx.Done():
-			//silence govet (cancel() is a no-op since ctx and therefore innerCtx has
-			//already expired, but govet cannot understand that and suspects a context leak)
-			cancel()
-			//wait on child processes
-			pc.WaitGroup.Wait()
-			return ok
-
-		case msg := <-processExitChan:
-			delete(d.listenPorts, msg.AccountName)
-
-		case req := <-d.getPortRequestChan:
-			port, exists := d.listenPorts[req.Account.Name]
-			if !exists {
-				d.nextListenPort++
-				port = d.nextListenPort
-				err := pc.startRegistry(req.Account, port)
-				if err != nil {
-					logg.Error("[account=%s] failed to start keppel-registry: %s", req.Account.Name, err.Error())
-					//failure to start new keppel-registries is considered a fatal error
-					ok = false
-					cancel()
-				}
-			}
-			waitUntilRegistryRunning(port)
-			d.listenPorts[req.Account.Name] = port
-			if req.Result != nil { //is nil when called from ensureAllRegistriesAreRunning()
-				req.Result <- port
-			}
-		}
-	}
-}
-
-func waitUntilRegistryRunning(port uint16) {
+func waitUntilRegistryRunning(host string) {
 	duration := 2 * time.Millisecond
 	for try := 0; try < 10; try++ {
-		_, err := http.Get(fmt.Sprintf("localhost:%d", port))
+		_, err := http.Get(host)
 		if err == nil {
 			return
 		}
@@ -166,19 +129,44 @@ func waitUntilRegistryRunning(port uint16) {
 	}
 }
 
-func (d *driver) ensureAllRegistriesAreRunning() {
-	for {
-		accounts, err := d.db.AllAccounts()
-		if err != nil {
-			logg.Error("failed to enumerate accounts: " + err.Error())
-			accounts = nil
-		}
-		for _, account := range accounts {
-			//this starts the keppel-registry process for the account if not yet running
-			d.getPortRequestChan <- getPortRequest{Account: account}
-		}
+func waitOnProcess(processCtx, accountCtx context.Context, accountName string, cmd *exec.Cmd, processResult <-chan error) {
+	var err error
+	receivedProcessResult := false
 
-		//polling interval
-		time.Sleep(1 * time.Minute)
+	//Two options:
+	//1. Subprocess terminates abnormally. -> recv from processResult completes
+	//   before pc.Interrupt is fired.
+	//2. Subprocess does not terminate. -> At some point, processContext expires (to
+	//   start the shutdown of keppel-api itself) or accountContext expires
+	//   (because the account has been deleted). Send SIGINT to the subprocess,
+	//   then recv its processResult.
+	select {
+	case <-processCtx.Done():
+		logg.Debug("[account=%s] sending SIGINT to keppel-registry because of process shutdown...", accountName)
+		cmd.Process.Signal(os.Interrupt)
+	case <-accountCtx.Done():
+		logg.Debug("[account=%s] sending SIGINT to keppel-registry because of account deletion...", accountName)
+		cmd.Process.Signal(os.Interrupt)
+	case err = <-processResult:
+		receivedProcessResult = true
 	}
+	if !receivedProcessResult {
+		err = <-processResult
+	}
+
+	//skip error "signal: interrupt" that occurs during normal SIGINT-triggered shutdown
+	if err != nil && !isShutdownBecauseOfSIGINT(err) {
+		logg.Error("[account=%s] keppel-registry exited with error: %s", accountName, err.Error())
+	} else {
+		logg.Debug("[account=%s] keppel-registry exited normally", accountName)
+	}
+}
+
+func isShutdownBecauseOfSIGINT(err error) bool {
+	ee, ok := err.(*exec.ExitError)
+	if !ok {
+		return false
+	}
+	ws := ee.ProcessState.Sys().(syscall.WaitStatus)
+	return ws.Signaled() && ws.Signal() == syscall.SIGINT
 }
