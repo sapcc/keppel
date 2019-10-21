@@ -37,10 +37,9 @@ import (
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/keppel"
 
-	_ "github.com/sapcc/keppel/internal/drivers/local_processes"
 	_ "github.com/sapcc/keppel/internal/drivers/openstack"
-	_ "github.com/sapcc/keppel/internal/drivers/testing"
 	_ "github.com/sapcc/keppel/internal/drivers/trivial"
+	_ "github.com/sapcc/keppel/internal/orchestration/localprocesses"
 )
 
 func main() {

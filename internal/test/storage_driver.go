@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package testing
+package test
 
 import "github.com/sapcc/keppel/internal/keppel"
 

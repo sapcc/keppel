@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package drivers
+package orchestration
 
 import (
 	"context"
@@ -30,7 +30,7 @@ import (
 
 //RegistryLauncher is an interface for starting keppel-registry instances
 //for accounts. It is implemented by orchestration drivers that use type
-//OrchestrationEngine (see documentation over there for details).
+//Engine (see documentation over there for details).
 type RegistryLauncher interface {
 	//Ensures that a keppel-registry process is running for the given account.
 	//On success, returns the host:port where the registry's HTTP API can be
@@ -44,17 +44,16 @@ type RegistryLauncher interface {
 	//  no longer available (either due to controlled shutdown on context expiry
 	//  or because of an abnormal error).
 	//
-	//LaunchRegistry() is called by OrchestrationEngine.Run() and therefore
-	//always executes in the same goroutine.
+	//LaunchRegistry() is called by Engine.Run() and therefore always executes in
+	//the same goroutine.
 	LaunchRegistry(processCtx, accountCtx context.Context, account keppel.Account, wg *sync.WaitGroup, notifyTerminated func()) (string, error)
 }
 
-//OrchestrationEngine is a common baseline for orchestration drivers that
-//manage real keppel-registry fleets (as opposed to mock drivers for use in
-//testing). It implements the OrchestrationDriver interface, but defers the
-//actual work of starting a keppel-registry instance to an
-//OrchestrationStrategy instance.
-type OrchestrationEngine struct {
+//Engine is a common baseline for orchestration drivers that manage real
+//keppel-registry fleets (as opposed to mock drivers for use in testing). It
+//implements the OrchestrationDriver interface, but defers the actual work of
+//starting a keppel-registry instance to an OrchestrationStrategy instance.
+type Engine struct {
 	Launcher RegistryLauncher
 	DB       keppel.DBAccessForOrchestrationDriver
 	//filled by e.Run()
@@ -67,7 +66,7 @@ type hostRequest struct {
 }
 
 //DoHTTPRequest implements the keppel.OrchestrationDriver interface.
-func (e *OrchestrationEngine) DoHTTPRequest(account keppel.Account, r *http.Request, opts keppel.RequestOptions) (*http.Response, error) {
+func (e *Engine) DoHTTPRequest(account keppel.Account, r *http.Request, opts keppel.RequestOptions) (*http.Response, error) {
 	//We don't mess with mutexes. The goroutine that executes `e.Run()` is
 	//holding all the strings, and we only talk to it via `e.hostRequestChan`.
 
@@ -101,7 +100,7 @@ type registryState struct {
 }
 
 //Run implements the keppel.OrchestrationDriver interface.
-func (e *OrchestrationEngine) Run(ctx context.Context) (ok bool) {
+func (e *Engine) Run(ctx context.Context) (ok bool) {
 	hostRequestChan := make(chan hostRequest)
 	e.hostRequestChan = hostRequestChan
 	go e.ensureAllRegistriesAreRunning()
@@ -210,7 +209,7 @@ func (e *OrchestrationEngine) Run(ctx context.Context) (ok bool) {
 	}
 }
 
-func (e *OrchestrationEngine) ensureAllRegistriesAreRunning() {
+func (e *Engine) ensureAllRegistriesAreRunning() {
 	for {
 		accounts, err := e.DB.AllAccounts()
 		if err != nil {

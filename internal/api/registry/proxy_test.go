@@ -36,9 +36,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
-	_ "github.com/sapcc/keppel/internal/drivers/local_processes"
-	_ "github.com/sapcc/keppel/internal/drivers/testing"
 	"github.com/sapcc/keppel/internal/keppel"
+	_ "github.com/sapcc/keppel/internal/orchestration/localprocesses"
 	"github.com/sapcc/keppel/internal/test"
 )
 

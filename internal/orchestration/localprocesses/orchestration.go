@@ -20,6 +20,9 @@
 //Package localprocesses provides the orchestration driver "local-processes"
 //which starts keppel-registry processes on the same process where keppel-api
 //is running.
+//
+//This is below internal/orchestration/ rather than internal/drivers/ because
+//we want to measure code coverage for it.
 package localprocesses
 
 import (
@@ -33,8 +36,8 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/keppel/internal/drivers"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/orchestration"
 )
 
 type driver struct {
@@ -54,14 +57,14 @@ func init() {
 		//could be made configurable if it becomes a problem, but right now it isn't
 		var nextListenPort uint16 = 10000
 
-		return &drivers.OrchestrationEngine{
+		return &orchestration.Engine{
 			Launcher: &driver{storage, cfg, nextListenPort},
 			DB:       db,
 		}, nil
 	})
 }
 
-//LaunchRegistry implements the drivers.RegistryLauncher interface.
+//LaunchRegistry implements the orchestration.RegistryLauncher interface.
 func (d *driver) LaunchRegistry(processCtx, accountCtx context.Context, account keppel.Account, wg *sync.WaitGroup, notifyTerminated func()) (string, error) {
 	d.NextListenPort++
 	port := d.NextListenPort
