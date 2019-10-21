@@ -57,7 +57,8 @@ type Engine struct {
 	Launcher RegistryLauncher
 	DB       keppel.DBAccessForOrchestrationDriver
 	//filled by e.Run()
-	hostRequestChan chan<- hostRequest
+	hostRequestChan   chan<- hostRequest
+	reportRequestChan chan<- reportRequest
 }
 
 type hostRequest struct {
@@ -90,6 +91,19 @@ func (e *Engine) DoHTTPRequest(account keppel.Account, r *http.Request, opts kep
 	return client.Do(r)
 }
 
+type reportRequest struct {
+	Result chan<- map[string]string
+}
+
+//ReportState is used by unit tests to inquire about the internal state of the
+//Engine. The return value is a map indicating the running keppel-registry
+//instances: Each entry maps an account name to its hostname.
+func (e *Engine) ReportState() map[string]string {
+	resultChan := make(chan map[string]string, 1)
+	e.reportRequestChan <- reportRequest{resultChan}
+	return <-resultChan
+}
+
 type registryTerminatedMessage struct {
 	AccountName string
 }
@@ -103,6 +117,8 @@ type registryState struct {
 func (e *Engine) Run(ctx context.Context) (ok bool) {
 	hostRequestChan := make(chan hostRequest)
 	e.hostRequestChan = hostRequestChan
+	reportRequestChan := make(chan reportRequest)
+	e.reportRequestChan = reportRequestChan
 	go e.ensureAllRegistriesAreRunning()
 
 	processCtx, cancel := context.WithCancel(ctx)
@@ -146,12 +162,16 @@ func (e *Engine) Run(ctx context.Context) (ok bool) {
 				for msg := range registryTerminatedChan {
 					logg.Debug("[account=%s] discarded termination notice for keppel-registry", msg.AccountName)
 				}
-				//also send bogus responses to all pending host requests to unblock any
+				//also send bogus responses to all pending requests to unblock any
 				//HTTP handlers that called DoHTTPRequest() in the meantime
+				//TODO: test coverage for this
 				for req := range hostRequestChan {
 					if req.Result != nil {
 						req.Result <- ""
 					}
+				}
+				for req := range reportRequestChan {
+					req.Result <- nil
 				}
 			}()
 
@@ -172,8 +192,17 @@ func (e *Engine) Run(ctx context.Context) (ok bool) {
 			}
 			delete(runningRegistries, msg.AccountName)
 
+		case req := <-reportRequestChan:
+			logg.Debug("received engine report request")
+			result := make(map[string]string, len(runningRegistries))
+			for accountName, state := range runningRegistries {
+				result[accountName] = state.Host
+			}
+			req.Result <- result
+
 		case req := <-hostRequestChan:
 			accountName := req.Account.Name
+			logg.Debug("[account=%s] received host request", accountName)
 			state, exists := runningRegistries[accountName]
 			if !exists {
 				logg.Debug("[account=%s] launching keppel-registry...", accountName)
@@ -193,6 +222,7 @@ func (e *Engine) Run(ctx context.Context) (ok bool) {
 					state = registryState{host, cancelAccountCtx}
 					runningRegistries[accountName] = state
 				} else {
+					//TODO: test coverage for this branch
 					logg.Error("[account=%s] failed to start keppel-registry: %s", accountName, err.Error())
 					//failure to start new keppel-registries is considered a fatal error
 					ok = false
@@ -214,11 +244,11 @@ func (e *Engine) ensureAllRegistriesAreRunning() {
 		accounts, err := e.DB.AllAccounts()
 		if err != nil {
 			logg.Error("failed to enumerate accounts: " + err.Error())
-			accounts = nil
-		}
-		for _, account := range accounts {
-			//this starts the keppel-registry process for the account if not yet running
-			e.hostRequestChan <- hostRequest{Account: account}
+		} else {
+			for _, account := range accounts {
+				//this starts the keppel-registry process for the account if not yet running
+				e.hostRequestChan <- hostRequest{Account: account}
+			}
 		}
 
 		//polling interval

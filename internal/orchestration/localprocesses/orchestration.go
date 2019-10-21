@@ -40,7 +40,10 @@ import (
 	"github.com/sapcc/keppel/internal/orchestration"
 )
 
-type driver struct {
+//Driver (driver ID "local-processes") is a orchestration.RegistryLauncher
+//that uses a fleet of keppel-registry processes running on the same host as
+//keppel-api.
+type Driver struct {
 	//no mutexes necessary since LaunchRegistry() is guaranteed to
 	//always run in the same goroutine
 	StorageDriver  keppel.StorageDriver
@@ -58,14 +61,14 @@ func init() {
 		var nextListenPort uint16 = 10000
 
 		return &orchestration.Engine{
-			Launcher: &driver{storage, cfg, nextListenPort},
+			Launcher: &Driver{storage, cfg, nextListenPort},
 			DB:       db,
 		}, nil
 	})
 }
 
 //LaunchRegistry implements the orchestration.RegistryLauncher interface.
-func (d *driver) LaunchRegistry(processCtx, accountCtx context.Context, account keppel.Account, wg *sync.WaitGroup, notifyTerminated func()) (string, error) {
+func (d *Driver) LaunchRegistry(processCtx, accountCtx context.Context, account keppel.Account, wg *sync.WaitGroup, notifyTerminated func()) (string, error) {
 	d.NextListenPort++
 	port := d.NextListenPort
 	logg.Info("[account=%s] starting keppel-registry on port %d", account.Name, port)

@@ -28,15 +28,19 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/orchestration"
 	_ "github.com/sapcc/keppel/internal/orchestration/localprocesses"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -103,6 +107,9 @@ func TestProxyAPI(t *testing.T) {
 	testPullNonExistentTag(t, r, ad)
 	testPushAndPull(t, r, ad)
 	testPullExistingNotAllowed(t, r, ad)
+
+	//run some additional testcases for the orchestration engine
+	testKillAndRestartRegistry(t, r, ad, od)
 }
 
 func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
@@ -302,9 +309,6 @@ func appendQuery(url string, query url.Values) string {
 	return url + "?" + query.Encode()
 }
 
-func testPullExisting(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
-}
-
 func testPullExistingNotAllowed(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 	//NOTE: docker-registry sends UNAUTHORIZED (401) instead of DENIED (403)
 	//here, but 403 is more correct.
@@ -330,4 +334,58 @@ func testPullExistingNotAllowed(t *testing.T, h http.Handler, ad keppel.AuthDriv
 		ExpectHeader: versionHeader,
 		ExpectBody:   errorCode(keppel.ErrDenied),
 	}.Check(t, h)
+}
+
+func testKillAndRestartRegistry(t *testing.T, h http.Handler, ad keppel.AuthDriver, od keppel.OrchestrationDriver) {
+	//since we already ran some testcases, the keppel-registry for account "test1" should be running
+	oe := od.(*orchestration.Engine)
+	assert.DeepEqual(t, "OrchestrationEngine state",
+		oe.ReportState(),
+		map[string]string{"test1": "localhost:10001"},
+	)
+
+	//I have a very specific set of skills, skills I have acquired over a very
+	//long career. I will look for your keppel-registry process, I will find it,
+	//and I *will* kill it.
+	cmd := exec.Command("pidof", "keppel-registry")
+	outputBytes, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	pid, err := strconv.ParseUint(strings.TrimSpace(string(outputBytes)), 10, 16)
+	if err != nil {
+		t.Logf("output from `pidof keppel-registry`: %q", string(outputBytes))
+		t.Fatal(err.Error())
+	}
+	proc, err := os.FindProcess(int(pid))
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	err = proc.Kill()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	//check that the orchestration engine notices what's going on
+	time.Sleep(10 * time.Millisecond)
+	assert.DeepEqual(t, "OrchestrationEngine state",
+		oe.ReportState(),
+		map[string]string{}, //empty!
+	)
+
+	//check that the next request restarts the keppel-registry instance
+	token := getToken(t, h, ad, "repository:test1/doesnotexist:pull",
+		keppel.CanPullFromAccount)
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/v2/test1/doesnotexist/manifests/latest",
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusNotFound,
+		ExpectHeader: versionHeader,
+		ExpectBody:   errorCode(keppel.ErrManifestUnknown),
+	}.Check(t, h)
+	assert.DeepEqual(t, "OrchestrationEngine state",
+		oe.ReportState(),
+		map[string]string{"test1": "localhost:10002"}, //localprocesses.Driver chooses a new port!
+	)
 }
