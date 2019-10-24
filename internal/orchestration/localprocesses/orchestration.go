@@ -44,10 +44,16 @@ import (
 //that uses a fleet of keppel-registry processes running on the same host as
 //keppel-api.
 type Driver struct {
-	//no mutexes necessary since LaunchRegistry() is guaranteed to
-	//always run in the same goroutine
-	StorageDriver  keppel.StorageDriver
-	Config         keppel.Configuration
+	//protects non-thread-safe members (StorageDriver, Config and NextListenPort)
+	Mutex *sync.Mutex
+	//configuration from NewOrchestrationDriver()
+	StorageDriver keppel.StorageDriver
+	Config        keppel.Configuration
+	//configuration from RegistryLauncher.Init()
+	ProcessCtx       context.Context
+	WaitGroup        *sync.WaitGroup
+	ConnectivityChan chan<- orchestration.RegistryConnectivityMessage
+	//internal state
 	NextListenPort uint16
 }
 
@@ -57,18 +63,43 @@ func init() {
 		prepareBaseConfig()
 		prepareCertBundle(cfg)
 
-		//could be made configurable if it becomes a problem, but right now it isn't
-		var nextListenPort uint16 = 10000
-
 		return &orchestration.Engine{
-			Launcher: &Driver{storage, cfg, nextListenPort},
-			DB:       db,
+			Launcher: &Driver{
+				Mutex:         &sync.Mutex{},
+				StorageDriver: storage,
+				Config:        cfg,
+				//could be made configurable if it becomes a problem, but right now it isn't
+				NextListenPort: 10000,
+			},
+			DB: db,
 		}, nil
 	})
 }
 
+//Init implements the orchestration.RegistryLauncher interface.
+func (d *Driver) Init(processCtx context.Context, wg *sync.WaitGroup, connectivityChan chan<- orchestration.RegistryConnectivityMessage) {
+	d.ProcessCtx = processCtx
+	d.WaitGroup = wg
+	d.ConnectivityChan = connectivityChan
+}
+
 //LaunchRegistry implements the orchestration.RegistryLauncher interface.
-func (d *Driver) LaunchRegistry(processCtx, accountCtx context.Context, account keppel.Account, wg *sync.WaitGroup, notifyTerminated func()) (string, error) {
+func (d *Driver) LaunchRegistry(accountCtx context.Context, account keppel.Account) {
+	host, err := d.launchRegistry(accountCtx, account)
+	if err == nil {
+		waitUntilRegistryRunning(host)
+	}
+	d.ConnectivityChan <- orchestration.RegistryConnectivityMessage{
+		AccountName: account.Name,
+		Host:        host,
+		Err:         err,
+	}
+}
+
+func (d *Driver) launchRegistry(accountCtx context.Context, account keppel.Account) (string, error) {
+	d.Mutex.Lock()
+	defer d.Mutex.Unlock()
+
 	d.NextListenPort++
 	port := d.NextListenPort
 	logg.Info("[account=%s] starting keppel-registry on port %d", account.Name, port)
@@ -105,22 +136,22 @@ func (d *Driver) LaunchRegistry(processCtx, accountCtx context.Context, account 
 	}
 
 	//manage the process during its lifetime
-	wg.Add(2)
+	d.WaitGroup.Add(2)
 	processResult := make(chan error)
 	go func() {
-		defer wg.Done()
+		defer d.WaitGroup.Done()
 		processResult <- cmd.Wait()
-		notifyTerminated()
+		d.ConnectivityChan <- orchestration.RegistryConnectivityMessage{
+			AccountName: account.Name,
+			Host:        "", //signal termination
+		}
 	}()
 	go func() {
-		defer wg.Done()
-		waitOnProcess(processCtx, accountCtx, account.Name, cmd, processResult)
+		defer d.WaitGroup.Done()
+		waitOnProcess(d.ProcessCtx, accountCtx, account.Name, cmd, processResult)
 	}()
 
-	//give the registry process some time to come up
-	host := fmt.Sprintf("localhost:%d", port)
-	waitUntilRegistryRunning(host)
-	return host, nil
+	return fmt.Sprintf("localhost:%d", port), nil
 }
 
 func waitUntilRegistryRunning(host string) {
