@@ -107,11 +107,7 @@ func (d *Driver) launchRegistry(accountCtx context.Context, account keppel.Accou
 	cmd := exec.Command("keppel-registry", "serve", baseConfigPath)
 	cmd.Env = os.Environ()
 
-	storageEnv, err := d.StorageDriver.GetEnvironment(account)
-	if err != nil {
-		return "", err
-	}
-	for k, v := range storageEnv {
+	for k, v := range d.StorageDriver.GetEnvironment(account) {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
 	for k, v := range d.Config.ToRegistryEnvironment() {
@@ -130,7 +126,7 @@ func (d *Driver) launchRegistry(accountCtx context.Context, account keppel.Accou
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	err = cmd.Start()
+	err := cmd.Start()
 	if err != nil {
 		return "", err
 	}

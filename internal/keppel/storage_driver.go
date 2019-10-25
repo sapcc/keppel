@@ -29,7 +29,7 @@ type StorageDriver interface {
 	//GetEnvironment produces the environment variables that need to be passed to
 	//a keppel-registry process to set it up to read from/write to this storage.
 	//`tenantID` identifies the tenant which controls access to this account.
-	GetEnvironment(account Account) (map[string]string, error)
+	GetEnvironment(account Account) map[string]string
 }
 
 //ErrAuthDriverMismatch can be returned by StorageDriver and NameClaimDriver.

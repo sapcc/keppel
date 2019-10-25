@@ -28,8 +28,9 @@ import (
 )
 
 type swiftDriver struct {
-	auth *keystoneDriver
-	cfg  keppel.Configuration
+	auth     *keystoneDriver
+	cfg      keppel.Configuration
+	password string
 }
 
 func init() {
@@ -38,21 +39,20 @@ func init() {
 		if !ok {
 			return nil, keppel.ErrAuthDriverMismatch
 		}
-		return &swiftDriver{k, cfg}, nil
+		password := os.Getenv("OS_PASSWORD")
+		if password == "" {
+			return nil, errors.New("missing environment variable: OS_PASSWORD")
+		}
+		return &swiftDriver{k, cfg, password}, nil
 	})
 }
 
 //GetEnvironment implements the keppel.StorageDriver interface.
-func (d *swiftDriver) GetEnvironment(account keppel.Account) (map[string]string, error) {
+func (d *swiftDriver) GetEnvironment(account keppel.Account) map[string]string {
 	//cf. cmd/keppel-api/main.go
 	insecure, err := strconv.ParseBool(os.Getenv("KEPPEL_INSECURE"))
 	if err != nil {
 		insecure = false
-	}
-
-	password := os.Getenv("OS_PASSWORD")
-	if password == "" {
-		return nil, errors.New("missing environment variable: OS_PASSWORD")
 	}
 
 	postgresURL := d.cfg.DatabaseURL
@@ -63,9 +63,9 @@ func (d *swiftDriver) GetEnvironment(account keppel.Account) (map[string]string,
 		"REGISTRY_STORAGE_SWIFT-PLUS_AUTHURL":            d.auth.IdentityV3.Endpoint,
 		"REGISTRY_STORAGE_SWIFT-PLUS_USERNAME":           d.auth.ServiceUser.Name,
 		"REGISTRY_STORAGE_SWIFT-PLUS_USERDOMAINNAME":     d.auth.ServiceUser.Domain.Name,
-		"REGISTRY_STORAGE_SWIFT-PLUS_PASSWORD":           password,
+		"REGISTRY_STORAGE_SWIFT-PLUS_PASSWORD":           d.password,
 		"REGISTRY_STORAGE_SWIFT-PLUS_PROJECTID":          account.AuthTenantID,
 		"REGISTRY_STORAGE_SWIFT-PLUS_CONTAINER":          account.SwiftContainerName(),
 		"REGISTRY_STORAGE_SWIFT-PLUS_INSECURESKIPVERIFY": strconv.FormatBool(insecure),
-	}, nil
+	}
 }

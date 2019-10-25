@@ -32,6 +32,6 @@ func init() {
 type StorageDriver struct{}
 
 //GetEnvironment implements the keppel.StorageDriver interface.
-func (d *StorageDriver) GetEnvironment(account keppel.Account) (map[string]string, error) {
-	return map[string]string{"REGISTRY_STORAGE": "inmemory"}, nil
+func (d *StorageDriver) GetEnvironment(account keppel.Account) map[string]string {
+	return map[string]string{"REGISTRY_STORAGE": "inmemory"}
 }
