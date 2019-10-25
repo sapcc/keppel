@@ -60,11 +60,13 @@ require (
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4 // indirect
 	golang.org/x/net v0.0.0-20190628185345-da137c7871d7 // indirect
 	golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7 // indirect
-	golang.org/x/time v0.0.0-20160202183820-a4bde1265759 // indirect
 	google.golang.org/appengine v1.6.2 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/gorp.v2 v2.0.0-20180226155812-4df78490a9aa
 	gopkg.in/square/go-jose.v1 v1.0.1 // indirect
+	k8s.io/api v0.0.0-20190620084959-7cf5895f2711
+	k8s.io/apimachinery v0.0.0-20190612205821-1799e75a0719
+	k8s.io/client-go v0.0.0-20190620085101-78d2af792bab
 	rsc.io/letsencrypt v0.0.0-00010101000000-000000000000 // indirect
 )
 
