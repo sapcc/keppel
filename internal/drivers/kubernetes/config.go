@@ -21,6 +21,7 @@ package kubernetesdriver
 import (
 	"errors"
 	"os"
+	"strings"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	api_corev1 "k8s.io/api/core/v1"
@@ -127,7 +128,8 @@ func (cfg Configuration) RenderConfigMap() ManagedObject {
 		Name: cfg.Marker,
 		ApplyTo: func(obj runtime.Object) {
 			obj.(*api_corev1.ConfigMap).Data = map[string]string{
-				"registry-base.yaml":     baseConfig,
+				//note to self: YAML does not allow tabs for indentation
+				"registry-base.yaml":     strings.Replace(baseConfig, "\t", "    ", -1),
 				"issuer-cert-bundle.pem": cfg.Keppel.JWTIssuerCertPEM,
 			}
 		},

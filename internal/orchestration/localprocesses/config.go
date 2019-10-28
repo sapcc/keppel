@@ -62,6 +62,7 @@ func chooseRuntimeDir() string {
 }
 
 func prepareBaseConfig() {
+	//note to self: YAML does not allow tabs for indentation
 	cfg := strings.Replace(baseConfig, "\t", "    ", -1)
 
 	err := os.MkdirAll(filepath.Dir(baseConfigPath), 0700)
