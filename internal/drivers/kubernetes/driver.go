@@ -36,6 +36,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+//TODO remove unknown objects after grace period
+
 func init() {
 	keppel.RegisterOrchestrationDriver("kubernetes", func(storage keppel.StorageDriver, keppelConfig keppel.Configuration, db keppel.DBAccessForOrchestrationDriver) (keppel.OrchestrationDriver, error) {
 		cfg, err := NewConfiguration(storage, keppelConfig)
@@ -149,6 +151,8 @@ func setupInformers(cfg *Configuration) <-chan objectChangeMessage {
 	informerFactory.Core().V1().Services().Informer().AddEventHandler(funcs)
 	informerFactory.Apps().V1().Deployments().Informer().AddEventHandler(funcs)
 	informerFactory.Start(wait.NeverStop)
+	//TODO informerFactory.WaitForCacheToSync()
+	//TODO reconciliation every 5 minutes (see disco "enqueue all ingresses" etc.)
 
 	return notifyChan
 }

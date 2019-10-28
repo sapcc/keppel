@@ -85,7 +85,7 @@ func setupDeploymentContainerSpec(cont *api_corev1.Container, cfg *Configuration
 	cont.Name = "registry"
 	cont.Image = cfg.RegistryImage
 	cont.Command = []string{"keppel-registry"}
-	cont.Command = []string{"serve", "/etc/keppel/registry-base.yaml"}
+	cont.Args = []string{"serve", "/etc/keppel/registry-base.yaml"}
 
 	cont.Ports = []api_corev1.ContainerPort{{
 		Name:          "http",
