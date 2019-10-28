@@ -119,8 +119,9 @@ func updateEnvListFromMap(oldVars []api_corev1.EnvVar, newVars map[string]string
 	}
 	for name, value := range newVars {
 		if _, exists := mergedVars[name]; !exists {
-			mergedVars[name] = api_corev1.EnvVar{Name: name, Value: value}
+			names = append(names, name)
 		}
+		mergedVars[name] = api_corev1.EnvVar{Name: name, Value: value}
 	}
 	sort.Strings(names)
 
