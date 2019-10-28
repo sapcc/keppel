@@ -56,6 +56,7 @@ storage:
 		blobdescriptor: inmemory
 	delete:
 		enabled: true
+auth:
 	token:
 		rootcertbundle: /etc/keppel/issuer-cert-bundle.pem
 `
