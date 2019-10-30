@@ -27,6 +27,7 @@ import (
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/informers"
 )
 
 //ObjectKind is an enum containing the kinds that are supported by type
@@ -56,10 +57,18 @@ func IdentifyObject(obj runtime.Object) (ObjectKind, meta_v1.ObjectMeta) {
 	}
 }
 
+//ManagedObjectRef identifies a ManagedObject that's stored somewhere else.
+type ManagedObjectRef struct {
+	Kind      ObjectKind
+	Name      string
+	Namespace string
+}
+
 //ManagedObject describes the desired state of an object in k8s.
 type ManagedObject struct {
-	Kind ObjectKind
-	Name string
+	Kind      ObjectKind
+	Name      string
+	Namespace string
 	//AccountName identifies the account that this object belongs to, if any.
 	AccountName string
 	//ApplyTo applies the desired attributes to a new or existing instance of
@@ -67,10 +76,15 @@ type ManagedObject struct {
 	ApplyTo func(runtime.Object)
 }
 
+//Ref returns a ManagedObjectRef for this object.
+func (mo ManagedObject) Ref() ManagedObjectRef {
+	return ManagedObjectRef{mo.Kind, mo.Name, mo.Namespace}
+}
+
 //GetCurrentState returns the current state of this managed object on the k8s
 //apiserver, or nil if it does not exist on the apiserver at the moment.
-func (mo ManagedObject) GetCurrentState(cfg *Configuration) (runtime.Object, error) {
-	obj, err := mo.getCurrentState(cfg)
+func (mo ManagedObject) GetCurrentState(info informers.SharedInformerFactory) (runtime.Object, error) {
+	obj, err := mo.getCurrentState(info)
 	if k8s_errors.IsNotFound(err) {
 		return nil, nil
 	}
@@ -80,17 +94,17 @@ func (mo ManagedObject) GetCurrentState(cfg *Configuration) (runtime.Object, err
 	return obj, err
 }
 
-func (mo ManagedObject) getCurrentState(cfg *Configuration) (runtime.Object, error) {
+func (mo ManagedObject) getCurrentState(info informers.SharedInformerFactory) (runtime.Object, error) {
 	switch mo.Kind {
 	case ObjectKindConfigMap:
-		client := cfg.Clientset.CoreV1().ConfigMaps(cfg.NamespaceName)
-		return client.Get(mo.Name, meta_v1.GetOptions{})
+		lister := info.Core().V1().ConfigMaps().Lister()
+		return lister.ConfigMaps(mo.Namespace).Get(mo.Name)
 	case ObjectKindService:
-		client := cfg.Clientset.CoreV1().Services(cfg.NamespaceName)
-		return client.Get(mo.Name, meta_v1.GetOptions{})
+		lister := info.Core().V1().Services().Lister()
+		return lister.Services(mo.Namespace).Get(mo.Name)
 	case ObjectKindDeployment:
-		client := cfg.Clientset.AppsV1().Deployments(cfg.NamespaceName)
-		return client.Get(mo.Name, meta_v1.GetOptions{})
+		lister := info.Apps().V1().Deployments().Lister()
+		return lister.Deployments(mo.Namespace).Get(mo.Name)
 	default:
 		panic(fmt.Sprintf("ManagedObject.GetCurrentState() cannot handle kind %q", mo.Kind))
 	}
@@ -118,22 +132,22 @@ func (mo ManagedObject) CreateOrUpdate(currentState runtime.Object, cfg *Configu
 func (mo ManagedObject) Create(cfg *Configuration) (runtime.Object, error) {
 	meta := meta_v1.ObjectMeta{
 		Name:      mo.Name,
-		Namespace: cfg.NamespaceName,
+		Namespace: mo.Namespace,
 	}
 	cfg.AddCommonLabels(&meta.Labels)
 	switch mo.Kind {
 	case ObjectKindConfigMap:
 		obj := &api_corev1.ConfigMap{ObjectMeta: meta}
 		mo.ApplyTo(obj)
-		return cfg.Clientset.CoreV1().ConfigMaps(cfg.NamespaceName).Create(obj)
+		return cfg.Clientset.CoreV1().ConfigMaps(mo.Namespace).Create(obj)
 	case ObjectKindService:
 		obj := &api_corev1.Service{ObjectMeta: meta}
 		mo.ApplyTo(obj)
-		return cfg.Clientset.CoreV1().Services(cfg.NamespaceName).Create(obj)
+		return cfg.Clientset.CoreV1().Services(mo.Namespace).Create(obj)
 	case ObjectKindDeployment:
 		obj := &api_appsv1.Deployment{ObjectMeta: meta}
 		mo.ApplyTo(obj)
-		return cfg.Clientset.AppsV1().Deployments(cfg.NamespaceName).Create(obj)
+		return cfg.Clientset.AppsV1().Deployments(mo.Namespace).Create(obj)
 	default:
 		panic(fmt.Sprintf("ManagedObject.Create() cannot handle kind %q", mo.Kind))
 	}
@@ -152,13 +166,13 @@ func (mo ManagedObject) Update(currentState runtime.Object, cfg *Configuration) 
 
 	switch mo.Kind {
 	case ObjectKindConfigMap:
-		client := cfg.Clientset.CoreV1().ConfigMaps(cfg.NamespaceName)
+		client := cfg.Clientset.CoreV1().ConfigMaps(mo.Namespace)
 		return client.Update(desiredState.(*api_corev1.ConfigMap))
 	case ObjectKindService:
-		client := cfg.Clientset.CoreV1().Services(cfg.NamespaceName)
+		client := cfg.Clientset.CoreV1().Services(mo.Namespace)
 		return client.Update(desiredState.(*api_corev1.Service))
 	case ObjectKindDeployment:
-		client := cfg.Clientset.AppsV1().Deployments(cfg.NamespaceName)
+		client := cfg.Clientset.AppsV1().Deployments(mo.Namespace)
 		return client.Update(desiredState.(*api_appsv1.Deployment))
 	default:
 		panic(fmt.Sprintf("ManagedObject.Update() cannot handle kind %q", mo.Kind))

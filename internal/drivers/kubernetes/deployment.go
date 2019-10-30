@@ -25,6 +25,7 @@ import (
 	api_appsv1 "k8s.io/api/apps/v1"
 	api_corev1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func setupDeployment(depl *api_appsv1.Deployment, cfg *Configuration, account keppel.Account) {
@@ -130,4 +131,11 @@ func updateEnvListFromMap(oldVars []api_corev1.EnvVar, newVars map[string]string
 		result[idx] = mergedVars[name]
 	}
 	return result
+}
+
+func p2int32(val int32) *int32 {
+	return &val
+}
+func p2intstr(val int32) *intstr.IntOrString {
+	return &intstr.IntOrString{Type: intstr.Int, IntVal: val}
 }

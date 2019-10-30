@@ -125,8 +125,9 @@ func (cfg Configuration) CheckCommonLabels(meta meta_v1.ObjectMeta) bool {
 //This ConfigMap will be mounted in all registry pods as /etc/keppel.
 func (cfg Configuration) RenderConfigMap() ManagedObject {
 	return ManagedObject{
-		Kind: ObjectKindConfigMap,
-		Name: cfg.Marker,
+		Kind:      ObjectKindConfigMap,
+		Name:      cfg.Marker,
+		Namespace: cfg.NamespaceName,
 		ApplyTo: func(obj runtime.Object) {
 			obj.(*api_corev1.ConfigMap).Data = map[string]string{
 				//note to self: YAML does not allow tabs for indentation

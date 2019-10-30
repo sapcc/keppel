@@ -30,53 +30,71 @@ import (
 	api_appsv1 "k8s.io/api/apps/v1"
 	api_corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 )
 
 //TODO remove unknown objects after grace period
+//TODO skip error logs when update fails because of conflict
 
 func init() {
 	keppel.RegisterOrchestrationDriver("kubernetes", func(storage keppel.StorageDriver, keppelConfig keppel.Configuration, db keppel.DBAccessForOrchestrationDriver) (keppel.OrchestrationDriver, error) {
 		cfg, err := NewConfiguration(storage, keppelConfig)
 		return &orchestration.Engine{
-			Launcher: &driver{Config: cfg},
-			DB:       db,
+			Launcher: &driver{
+				Config:              cfg,
+				ManagedObjects:      map[ManagedObjectRef]ManagedObject{},
+				ManagedObjectsMutex: &sync.RWMutex{},
+				ProcessingQueue: workqueue.NewRateLimitingQueue(
+					workqueue.DefaultControllerRateLimiter(),
+				),
+			},
+			DB: db,
 		}, err
 	})
 }
 
 type driver struct {
-	Config *Configuration
+	Config              *Configuration
+	ManagedObjects      map[ManagedObjectRef]ManagedObject
+	ManagedObjectsMutex *sync.RWMutex
+	ProcessingQueue     workqueue.RateLimitingInterface
 	//fields that are initialized by .Init()
-	AddChan          chan<- ManagedObject
 	ConnectivityChan chan<- orchestration.RegistryConnectivityMessage
+	//fields that are initialized by .run()
+	Informers informers.SharedInformerFactory
 }
 
 //Init implements the orchestration.RegistryLauncher interface.
 func (d *driver) Init(ctx context.Context, wg *sync.WaitGroup, connectivityChan chan<- orchestration.RegistryConnectivityMessage, allAccounts []keppel.Account) {
-	addChan := make(chan ManagedObject, 5)
-	addChan <- d.Config.RenderConfigMap()
-	d.AddChan = addChan
 	d.ConnectivityChan = connectivityChan
 
-	//TODO pass ctx and wg
-	go runDriverMainLoop(d.Config, addChan, connectivityChan)
-
+	//SAFETY: These calls are safe without mutex lock because no other goroutines
+	//are accessing d.ManagedObjects yet.
 	for _, account := range allAccounts {
-		d.LaunchRegistry(account)
+		d.addManagedObjectsFor(account)
 	}
+	d.addManagedObject(d.Config.RenderConfigMap())
+
+	go d.run(ctx, wg)
 }
 
 //LaunchRegistry implements the orchestration.RegistryLauncher interface.
 func (d *driver) LaunchRegistry(account keppel.Account) {
+	d.ManagedObjectsMutex.Lock()
+	defer d.ManagedObjectsMutex.Unlock()
+	d.addManagedObjectsFor(account)
+}
+
+func (d *driver) addManagedObjectsFor(account keppel.Account) {
+	//NOTE: This method assumes that d.ManagedObjectsMutex is already locked!
 	objectName := fmt.Sprintf(`%s-%s`, d.Config.Marker, account.Name)
 
-	d.AddChan <- ManagedObject{
+	d.addManagedObject(ManagedObject{
 		Kind:        ObjectKindService,
 		Name:        objectName,
+		Namespace:   d.Config.NamespaceName,
 		AccountName: account.Name,
 		ApplyTo: func(obj runtime.Object) {
 			svc := obj.(*api_corev1.Service)
@@ -88,24 +106,29 @@ func (d *driver) LaunchRegistry(account keppel.Account) {
 			svc.Spec.Selector = map[string]string{"name": objectName}
 			svc.Spec.Type = api_corev1.ServiceTypeClusterIP
 		},
-	}
+	})
 
-	d.AddChan <- ManagedObject{
+	d.addManagedObject(ManagedObject{
 		Kind:        ObjectKindDeployment,
 		Name:        objectName,
+		Namespace:   d.Config.NamespaceName,
 		AccountName: account.Name,
 		ApplyTo: func(obj runtime.Object) {
 			depl := obj.(*api_appsv1.Deployment)
 			setupDeployment(depl, d.Config, account)
 		},
-	}
+	})
 }
 
-func p2int32(val int32) *int32 {
-	return &val
-}
-func p2intstr(val int32) *intstr.IntOrString {
-	return &intstr.IntOrString{Type: intstr.Int, IntVal: val}
+func (d *driver) addManagedObject(mo ManagedObject) {
+	//NOTE: This method assumes that d.ManagedObjectsMutex is already locked!
+	logg.Debug("adding %s %s to managed objects", mo.Kind, mo.Name)
+	ref := mo.Ref()
+	d.ManagedObjects[ref] = mo
+
+	//add to queue immediately to converge towards the desired state (e.g. to
+	//create the object if it does not exist in k8s yet)
+	d.ProcessingQueue.Add(ref)
 }
 
 type objectChangeMessage struct {
@@ -114,112 +137,127 @@ type objectChangeMessage struct {
 	State runtime.Object //= nil for deleted objects
 }
 
-//Sets up informers for all the object types that we're interested in.
-//Add/update/delete notifications are all funneled into a single channel that
-//is consumed by the driver main loop below.
-func setupInformers(cfg *Configuration) <-chan objectChangeMessage {
-	notifyChan := make(chan objectChangeMessage, 10)
-	sendChange := func(obj, state runtime.Object) {
-		kind, objectMeta := IdentifyObject(obj)
-		if cfg.CheckCommonLabels(objectMeta) {
-			notifyChan <- objectChangeMessage{
-				Kind:  kind,
-				Name:  objectMeta.Name,
-				State: state,
-			}
+//Number of worker goroutines.
+const threadiness = 5
+
+func (d *driver) run(ctx context.Context, wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer wg.Done()
+
+	enqueueObject := func(obj interface{}) {
+		kind, objectMeta := IdentifyObject(obj.(runtime.Object))
+		if d.Config.CheckCommonLabels(objectMeta) {
+			d.ProcessingQueue.Add(ManagedObjectRef{
+				Kind:      kind,
+				Name:      objectMeta.Name,
+				Namespace: objectMeta.Namespace,
+			})
 		}
 	}
-
 	funcs := cache.ResourceEventHandlerFuncs{
-		AddFunc: func(objUntyped interface{}) {
-			obj := objUntyped.(runtime.Object)
-			sendChange(obj, obj)
-		},
-		UpdateFunc: func(oldObjUntyped, newObjUntyped interface{}) {
-			oldObj := oldObjUntyped.(runtime.Object)
-			newObj := newObjUntyped.(runtime.Object)
-			sendChange(oldObj, newObj)
-		},
-		DeleteFunc: func(objUntyped interface{}) {
-			obj := objUntyped.(runtime.Object)
-			sendChange(obj, nil)
-		},
+		AddFunc:    enqueueObject,
+		UpdateFunc: func(_, obj interface{}) { enqueueObject(obj) },
+		DeleteFunc: enqueueObject,
 	}
 
-	informerFactory := informers.NewSharedInformerFactoryWithOptions(
-		cfg.Clientset, 30*time.Second,
-		informers.WithNamespace(cfg.NamespaceName), //only watch this namespace
+	d.Informers = informers.NewSharedInformerFactoryWithOptions(
+		d.Config.Clientset, 30*time.Second,
+		informers.WithNamespace(d.Config.NamespaceName), //only watch this namespace
 	)
-	informerFactory.Core().V1().ConfigMaps().Informer().AddEventHandler(funcs)
-	informerFactory.Core().V1().Services().Informer().AddEventHandler(funcs)
-	informerFactory.Apps().V1().Deployments().Informer().AddEventHandler(funcs)
-	informerFactory.Start(wait.NeverStop)
-	//TODO informerFactory.WaitForCacheToSync()
-	//TODO use client-go/util/workqueue like in github.com/kubernetes/sample-controller
+	d.Informers.Core().V1().ConfigMaps().Informer().AddEventHandler(funcs)
+	d.Informers.Core().V1().Services().Informer().AddEventHandler(funcs)
+	d.Informers.Apps().V1().Deployments().Informer().AddEventHandler(funcs)
+	d.Informers.Start(ctx.Done())
 
-	return notifyChan
-}
-
-func runDriverMainLoop(cfg *Configuration, addChan <-chan ManagedObject, connectivityChan chan<- orchestration.RegistryConnectivityMessage) {
-	notifyChan := setupInformers(cfg)
-	managedObjects := map[ObjectKind]map[string]ManagedObject{
-		ObjectKindConfigMap:  {},
-		ObjectKindService:    {},
-		ObjectKindDeployment: {},
-	}
-
-	for {
-		select {
-		case mo := <-addChan:
-			logg.Debug("adding %s %s to managed objects", mo.Kind, mo.Name)
-			managedObjects[mo.Kind][mo.Name] = mo
-
-			var newState runtime.Object
-			currentState, err := mo.GetCurrentState(cfg)
-			if err == nil {
-				newState, err = mo.CreateOrUpdate(currentState, cfg)
-			}
-			if err != nil {
-				if mo.AccountName != "" {
-					connectivityChan <- orchestration.RegistryConnectivityMessage{
-						AccountName: mo.AccountName,
-						Err:         err,
-					}
-				} else {
-					logg.Error(err.Error())
-				}
-				continue
-			}
-
-			//for pre-existing services, CreateOrUpdate() might be a no-op and we
-			//might not see an update notification, so this might be our only
-			//chance to send a connectivity message
-			maybePublishServiceIP(mo, newState, connectivityChan)
-
-		case msg := <-notifyChan:
-			mo, exists := managedObjects[msg.Kind][msg.Name]
-			if !exists {
-				logg.Debug("ignoring change on unmanaged %s %s", msg.Kind, msg.Name)
-				continue
-			}
-			newState, err := mo.CreateOrUpdate(msg.State, cfg)
-			if err != nil {
-				logg.Error(err.Error())
-			}
-			maybePublishServiceIP(mo, newState, connectivityChan)
+	cacheSyncCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	for rtype, ok := range d.Informers.WaitForCacheSync(cacheSyncCtx.Done()) {
+		if !ok {
+			logg.Fatal("timeout while waiting for %s cache to sync", rtype.String())
 		}
 	}
+	//silence govet (this is safe because we're not using `cacheSyncCtx` anymore)
+	cancel()
+
+	defer d.ProcessingQueue.ShutDown()
+	for i := 0; i < threadiness; i++ {
+		go d.runWorker(wg)
+	}
 }
 
-func maybePublishServiceIP(mo ManagedObject, state runtime.Object, connectivityChan chan<- orchestration.RegistryConnectivityMessage) {
-	if mo.Kind != "Service" {
+func (d *driver) runWorker(wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer wg.Done()
+
+	for d.processNextManagedObject() {
+	}
+}
+
+func (d *driver) processNextManagedObject() (continueWorking bool) {
+	queueEntry, shutdown := d.ProcessingQueue.Get()
+	if shutdown {
+		return false
+	}
+	defer d.ProcessingQueue.Done(queueEntry)
+
+	ref, ok := queueEntry.(ManagedObjectRef)
+	if !ok {
+		d.ProcessingQueue.Forget(queueEntry) //to avoid getting this item again
+		logg.Error("expected ManagedObjectRef in workqueue, but got %#v", queueEntry)
+	}
+
+	success := d.processManagedObject(ref)
+	if success {
+		d.ProcessingQueue.Forget(queueEntry)
+	} else {
+		d.ProcessingQueue.AddRateLimited(queueEntry)
+	}
+	return true
+}
+
+func (d *driver) processManagedObject(ref ManagedObjectRef) (ok bool) {
+	d.ManagedObjectsMutex.RLock()
+	mo, exists := d.ManagedObjects[ref]
+	d.ManagedObjectsMutex.RUnlock()
+	if !exists {
+		logg.Debug("ignoring change on unmanaged %s %s", ref.Kind, ref.Name)
+		return true
+	}
+
+	//converge object towards desired state, if necessary
+	var (
+		currentState runtime.Object
+		newState     runtime.Object
+		err          error
+	)
+	currentState, err = mo.GetCurrentState(d.Informers)
+	if err == nil {
+		newState, err = mo.CreateOrUpdate(currentState, d.Config)
+	}
+
+	//errors go either up to the OrchestrationEngine, or just into the log
+	if err != nil {
+		if mo.AccountName != "" {
+			d.ConnectivityChan <- orchestration.RegistryConnectivityMessage{
+				AccountName: mo.AccountName,
+				Err:         err,
+			}
+		} else {
+			logg.Error(err.Error())
+		}
+		return false
+	}
+
+	//when touching a Service, notify OrchestrationEngine about its service IP
+	if mo.Kind != ObjectKindService {
 		return
 	}
-	svc := state.(*api_corev1.Service)
+	svc := newState.(*api_corev1.Service)
 	if svc.Spec.ClusterIP != "" {
-		connectivityChan <- orchestration.RegistryConnectivityMessage{
+		d.ConnectivityChan <- orchestration.RegistryConnectivityMessage{
 			AccountName: mo.AccountName,
 			Host:        svc.Spec.ClusterIP + ":8080",
 		}
 	}
+
+	return true
 }
