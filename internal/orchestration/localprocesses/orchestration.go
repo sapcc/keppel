@@ -50,7 +50,7 @@ type Driver struct {
 	StorageDriver keppel.StorageDriver
 	Config        keppel.Configuration
 	//configuration from RegistryLauncher.Init()
-	ProcessCtx       context.Context
+	Context          context.Context
 	WaitGroup        *sync.WaitGroup
 	ConnectivityChan chan<- orchestration.RegistryConnectivityMessage
 	//internal state
@@ -77,15 +77,19 @@ func init() {
 }
 
 //Init implements the orchestration.RegistryLauncher interface.
-func (d *Driver) Init(processCtx context.Context, wg *sync.WaitGroup, connectivityChan chan<- orchestration.RegistryConnectivityMessage) {
-	d.ProcessCtx = processCtx
+func (d *Driver) Init(ctx context.Context, wg *sync.WaitGroup, connectivityChan chan<- orchestration.RegistryConnectivityMessage, allAccounts []keppel.Account) {
+	d.Context = ctx
 	d.WaitGroup = wg
 	d.ConnectivityChan = connectivityChan
+
+	for _, account := range allAccounts {
+		d.LaunchRegistry(account)
+	}
 }
 
 //LaunchRegistry implements the orchestration.RegistryLauncher interface.
-func (d *Driver) LaunchRegistry(accountCtx context.Context, account keppel.Account) {
-	host, err := d.launchRegistry(accountCtx, account)
+func (d *Driver) LaunchRegistry(account keppel.Account) {
+	host, err := d.launchRegistry(account)
 	if err == nil {
 		waitUntilRegistryRunning(host)
 	}
@@ -96,7 +100,7 @@ func (d *Driver) LaunchRegistry(accountCtx context.Context, account keppel.Accou
 	}
 }
 
-func (d *Driver) launchRegistry(accountCtx context.Context, account keppel.Account) (string, error) {
+func (d *Driver) launchRegistry(account keppel.Account) (string, error) {
 	d.Mutex.Lock()
 	defer d.Mutex.Unlock()
 
@@ -144,7 +148,7 @@ func (d *Driver) launchRegistry(accountCtx context.Context, account keppel.Accou
 	}()
 	go func() {
 		defer d.WaitGroup.Done()
-		waitOnProcess(d.ProcessCtx, accountCtx, account.Name, cmd, processResult)
+		waitOnProcess(d.Context, account.Name, cmd, processResult)
 	}()
 
 	return fmt.Sprintf("localhost:%d", port), nil
@@ -162,7 +166,7 @@ func waitUntilRegistryRunning(host string) {
 	}
 }
 
-func waitOnProcess(processCtx, accountCtx context.Context, accountName string, cmd *exec.Cmd, processResult <-chan error) {
+func waitOnProcess(ctx context.Context, accountName string, cmd *exec.Cmd, processResult <-chan error) {
 	var err error
 	receivedProcessResult := false
 
@@ -174,11 +178,8 @@ func waitOnProcess(processCtx, accountCtx context.Context, accountName string, c
 	//   (because the account has been deleted). Send SIGINT to the subprocess,
 	//   then recv its processResult.
 	select {
-	case <-processCtx.Done():
+	case <-ctx.Done():
 		logg.Debug("[account=%s] sending SIGINT to keppel-registry because of process shutdown...", accountName)
-		cmd.Process.Signal(os.Interrupt)
-	case <-accountCtx.Done():
-		logg.Debug("[account=%s] sending SIGINT to keppel-registry because of account deletion...", accountName)
 		cmd.Process.Signal(os.Interrupt)
 	case err = <-processResult:
 		receivedProcessResult = true

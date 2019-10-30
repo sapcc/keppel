@@ -22,7 +22,6 @@ import (
 	"context"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -51,24 +50,24 @@ type RegistryConnectivityMessage struct {
 //for accounts. It is implemented by orchestration drivers that use type
 //Engine (see documentation over there for details).
 type RegistryLauncher interface {
-	//Init is called once by Engine.Run() to pass arguments to the
-	//RegistryLauncher that are the same across all LaunchRegistry calls. Init is
-	//guaranteed to be called before any call to LaunchRegistry. See below for
-	//what the arguments mean.
-	Init(processCtx context.Context, wg *sync.WaitGroup, connectivityChan chan<- RegistryConnectivityMessage)
-
-	//Ensures that a keppel-registry process is running for the given account.
-	//Arguments:
+	//Init is called once by Engine.Run() before any other calls.
 	//
 	//- All goroutines spawned by this action shall be tracked in `wg`.
-	//- `processCtx` expires when this keppel-api instance is shutting down.
+	//- `ctx` expires when this keppel-api instance is shutting down.
 	//  All goroutines tracked by `wg` shall shutdown when this happens.
-	//- `accountCtx` expires when the account is deleted.
-	//- The caller shall be informed when the registry becomes available, and
-	//  when it stops being available (either due to controlled shutdown on
-	//  context expiry or because of an abnormal error) by sending a message into
-	//  `connectivityChan`.
-	LaunchRegistry(accountCtx context.Context, account keppel.Account)
+	//- `allAccounts` contains all accounts known to Keppel at this point. The
+	//  implementation shall behave as if LaunchRegistry() had been called for
+	//  each account. LaunchRegistry() will only be called for accounts that are
+	//  created after this point.
+	Init(ctx context.Context, wg *sync.WaitGroup, connectivityChan chan<- RegistryConnectivityMessage, allAccounts []keppel.Account)
+
+	//Ensures that a keppel-registry process is running for the given account.
+	//
+	//The caller shall be informed when the registry becomes available, and
+	//when it stops being available (either due to controlled shutdown on
+	//context expiry or because of an abnormal error) by sending a message into
+	//the `connectivityChan` which was passed into Init().
+	LaunchRegistry(account keppel.Account)
 }
 
 //Engine is a common baseline for orchestration drivers that manage real
@@ -118,6 +117,8 @@ type reportRequest struct {
 	Result chan<- map[string]string
 }
 
+type finishInitRequest struct{}
+
 //ReportState is used by unit tests to inquire about the internal state of the
 //Engine. The return value is a map indicating the running keppel-registry
 //instances: Each entry maps an account name to its hostname.
@@ -133,24 +134,28 @@ type registryTerminatedMessage struct {
 
 type registryState struct {
 	Host                string
-	CancelAccountCtx    func()
 	PendingHostRequests []chan<- string
 }
 
 //Run implements the keppel.OrchestrationDriver interface.
 func (e *Engine) Run(ctx context.Context) (ok bool) {
+	allAccounts, err := e.DB.AllAccounts()
+	if err != nil {
+		logg.Error("cannot enumerate existing accounts: " + err.Error())
+		return false
+	}
+
 	hostRequestChan := make(chan hostRequest)
 	e.hostRequestChan = hostRequestChan
 	reportRequestChan := make(chan reportRequest)
 	e.reportRequestChan = reportRequestChan
-	go e.ensureAllRegistriesAreRunning()
 	connectivityChan := make(chan RegistryConnectivityMessage)
 
-	processCtx, cancel := context.WithCancel(ctx)
+	innerCtx, cancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
 	runningRegistries := make(map[string]*registryState) //key = account name
 
-	e.Launcher.Init(processCtx, &wg, connectivityChan)
+	e.Launcher.Init(innerCtx, &wg, connectivityChan, allAccounts)
 
 	//Overview of how this main loop works:
 	//
@@ -162,21 +167,20 @@ func (e *Engine) Run(ctx context.Context) (ok bool) {
 	//   process during its lifetime. Those goroutines are tracked by `wg`.
 	//
 	//3. When the original `ctx` expires, the aforementioned goroutines will
-	//   cleanly shutdown because their `processCtx` expires. When they're done
+	//   cleanly shutdown because their `innerCtx` expires. When they're done
 	//   shutting down, the main loop (which is waiting on `wg`) unblocks and
 	//   returns true.
 	//
 	//4. Abnormal termination of a running keppel-registry is not a fatal
-	//   error. Its observing goroutine will call notifyTerminated() so that the
-	//   main loop can update its bookkeeping accordingly. The next request
-	//   for that Keppel account will launch a new registry.
-	//
+	//   error. Its observing goroutine will send a RegistryConnectivityMessage
+	//   so that the main loop can update its bookkeeping accordingly. The next
+	//   request for that Keppel account will call LaunchRegistry() anew.
 	ok = true
 	for {
 		select {
 		case <-ctx.Done():
 			logg.Debug("received interrupt - shutting down all goroutines...")
-			//silence govet (cancel() is a no-op since ctx and therefore processCtx
+			//silence govet (cancel() is a no-op since ctx and therefore innerCtx
 			//has already expired, but govet cannot understand that and suspects a
 			//context leak)
 			cancel()
@@ -226,11 +230,6 @@ func (e *Engine) Run(ctx context.Context) (ok bool) {
 
 				if msg.Host == "" {
 					logg.Debug("[account=%s] received termination notice for keppel-registry", msg.AccountName)
-					//when we get this message, the goroutines for this registry should
-					//already be shutting down, but better be safe than sorry and instruct
-					//them to shut down explicitly; I don't want to get stuck in wg.Wait()
-					//because some rogue goroutine didn't get the memo
-					state.CancelAccountCtx()
 					delete(runningRegistries, msg.AccountName)
 				} else {
 					logg.Debug("[account=%s] received connectivity notice for keppel-registry listening on %s", msg.AccountName, msg.Host)
@@ -262,31 +261,13 @@ func (e *Engine) Run(ctx context.Context) (ok bool) {
 			} else {
 				//start registry if not yet available
 				logg.Debug("[account=%s] launching keppel-registry...", accountName)
-				accountCtx, cancelAccountCtx := context.WithCancel(context.Background())
-				state := &registryState{CancelAccountCtx: cancelAccountCtx}
+				state := &registryState{}
 				if req.Result != nil {
 					state.PendingHostRequests = append(state.PendingHostRequests, req.Result)
 				}
 				runningRegistries[accountName] = state
-				go e.Launcher.LaunchRegistry(accountCtx, req.Account)
+				go e.Launcher.LaunchRegistry(req.Account)
 			}
 		}
-	}
-}
-
-func (e *Engine) ensureAllRegistriesAreRunning() {
-	for {
-		accounts, err := e.DB.AllAccounts()
-		if err != nil {
-			logg.Error("failed to enumerate accounts: " + err.Error())
-		} else {
-			for _, account := range accounts {
-				//this starts the keppel-registry process for the account if not yet running
-				e.hostRequestChan <- hostRequest{Account: account}
-			}
-		}
-
-		//polling interval
-		time.Sleep(1 * time.Minute)
 	}
 }

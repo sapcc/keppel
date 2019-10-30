@@ -56,19 +56,22 @@ type driver struct {
 }
 
 //Init implements the orchestration.RegistryLauncher interface.
-func (d *driver) Init(processCtx context.Context, wg *sync.WaitGroup, connectivityChan chan<- orchestration.RegistryConnectivityMessage) {
+func (d *driver) Init(ctx context.Context, wg *sync.WaitGroup, connectivityChan chan<- orchestration.RegistryConnectivityMessage, allAccounts []keppel.Account) {
 	addChan := make(chan ManagedObject, 5)
 	addChan <- d.Config.RenderConfigMap()
 	d.AddChan = addChan
 	d.ConnectivityChan = connectivityChan
 
-	//TODO pass processCtx and wg
+	//TODO pass ctx and wg
 	go runDriverMainLoop(d.Config, addChan, connectivityChan)
+
+	for _, account := range allAccounts {
+		d.LaunchRegistry(account)
+	}
 }
 
 //LaunchRegistry implements the orchestration.RegistryLauncher interface.
-func (d *driver) LaunchRegistry(accountCtx context.Context, account keppel.Account) {
-	//TODO react to expiry of `accountCtx`
+func (d *driver) LaunchRegistry(account keppel.Account) {
 	objectName := fmt.Sprintf(`%s-%s`, d.Config.Marker, account.Name)
 
 	d.AddChan <- ManagedObject{
@@ -152,7 +155,7 @@ func setupInformers(cfg *Configuration) <-chan objectChangeMessage {
 	informerFactory.Apps().V1().Deployments().Informer().AddEventHandler(funcs)
 	informerFactory.Start(wait.NeverStop)
 	//TODO informerFactory.WaitForCacheToSync()
-	//TODO reconciliation every 5 minutes (see disco "enqueue all ingresses" etc.)
+	//TODO use client-go/util/workqueue like in github.com/kubernetes/sample-controller
 
 	return notifyChan
 }
