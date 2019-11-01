@@ -44,8 +44,8 @@ import (
 //that uses a fleet of keppel-registry processes running on the same host as
 //keppel-api.
 type Driver struct {
-	//protects non-thread-safe members (StorageDriver, Config and NextListenPort)
-	Mutex *sync.Mutex
+	//protects non-thread-safe members (StorageDriver, Config, ListenPorts, NextListenPort)
+	Mutex *sync.RWMutex
 	//configuration from NewOrchestrationDriver()
 	StorageDriver keppel.StorageDriver
 	Config        keppel.Configuration
@@ -54,6 +54,7 @@ type Driver struct {
 	WaitGroup        *sync.WaitGroup
 	ConnectivityChan chan<- orchestration.RegistryConnectivityMessage
 	//internal state
+	ListenPorts    map[string]uint16 //key = accountName
 	NextListenPort uint16
 }
 
@@ -65,9 +66,10 @@ func init() {
 
 		return &orchestration.Engine{
 			Launcher: &Driver{
-				Mutex:         &sync.Mutex{},
+				Mutex:         &sync.RWMutex{},
 				StorageDriver: storage,
 				Config:        cfg,
+				ListenPorts:   map[string]uint16{},
 				//could be made configurable if it becomes a problem, but right now it isn't
 				NextListenPort: 10000,
 			},
@@ -89,6 +91,11 @@ func (d *Driver) Init(ctx context.Context, wg *sync.WaitGroup, connectivityChan 
 
 //LaunchRegistry implements the orchestration.RegistryLauncher interface.
 func (d *Driver) LaunchRegistry(account keppel.Account) {
+	host, exists := d.getExistingRegistryHost(account)
+	if exists {
+		return
+	}
+
 	host, err := d.launchRegistry(account)
 	if err == nil {
 		waitUntilRegistryRunning(host)
@@ -100,6 +107,13 @@ func (d *Driver) LaunchRegistry(account keppel.Account) {
 	}
 }
 
+func (d *Driver) getExistingRegistryHost(account keppel.Account) (string, bool) {
+	d.Mutex.RLock()
+	defer d.Mutex.RUnlock()
+	port, exists := d.ListenPorts[account.Name]
+	return fmt.Sprintf("localhost:%d", port), exists
+}
+
 func (d *Driver) launchRegistry(account keppel.Account) (string, error) {
 	d.Mutex.Lock()
 	defer d.Mutex.Unlock()
@@ -107,6 +121,7 @@ func (d *Driver) launchRegistry(account keppel.Account) (string, error) {
 	d.NextListenPort++
 	port := d.NextListenPort
 	logg.Info("[account=%s] starting keppel-registry on port %d", account.Name, port)
+	d.ListenPorts[account.Name] = port
 
 	cmd := exec.Command("keppel-registry", "serve", baseConfigPath)
 	cmd.Env = os.Environ()
@@ -141,10 +156,15 @@ func (d *Driver) launchRegistry(account keppel.Account) (string, error) {
 	go func() {
 		defer d.WaitGroup.Done()
 		processResult <- cmd.Wait()
+
 		d.ConnectivityChan <- orchestration.RegistryConnectivityMessage{
 			AccountName: account.Name,
 			Host:        "", //signal termination
 		}
+
+		d.Mutex.Lock()
+		defer d.Mutex.Unlock()
+		delete(d.ListenPorts, account.Name)
 	}()
 	go func() {
 		defer d.WaitGroup.Done()

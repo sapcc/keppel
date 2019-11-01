@@ -67,6 +67,11 @@ type RegistryLauncher interface {
 	//when it stops being available (either due to controlled shutdown on
 	//context expiry or because of an abnormal error) by sending a message into
 	//the `connectivityChan` which was passed into Init().
+	//
+	//This call should be idempotent in the following way: If LaunchRegistry was
+	//called earlier and the keppel-registry launched by that call is still
+	//alive, no new keppel-registry SHALL be launched. The second call MAY
+	//re-send the original connectivity message for that keppel-registry.
 	LaunchRegistry(account keppel.Account)
 }
 
@@ -155,7 +160,16 @@ func (e *Engine) Run(ctx context.Context) (ok bool) {
 	var wg sync.WaitGroup
 	runningRegistries := make(map[string]*registryState) //key = account name
 
-	e.Launcher.Init(innerCtx, &wg, connectivityChan, allAccounts)
+	//We need to run Init() in a separate goroutine, otherwise it will block when
+	//trying to send into connectivityChan since we are not reading it. Because
+	//the API contract for LaunchRegistry() guarantees that Init() has finished
+	//running before LaunchRegistry() is called, we use a channel to delay host
+	//requests until Init() is done.
+	waitForInitDoneChan := make(chan struct{})
+	go func() {
+		defer close(waitForInitDoneChan)
+		e.Launcher.Init(innerCtx, &wg, connectivityChan, allAccounts)
+	}()
 
 	//Overview of how this main loop works:
 	//
@@ -266,7 +280,10 @@ func (e *Engine) Run(ctx context.Context) (ok bool) {
 					state.PendingHostRequests = append(state.PendingHostRequests, req.Result)
 				}
 				runningRegistries[accountName] = state
-				go e.Launcher.LaunchRegistry(req.Account)
+				go func() {
+					<-waitForInitDoneChan //only call LaunchRegistry() after Init() returns
+					e.Launcher.LaunchRegistry(req.Account)
+				}()
 			}
 		}
 	}
