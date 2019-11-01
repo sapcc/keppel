@@ -67,6 +67,7 @@ func setupDeploymentPodSpec(depl *api_appsv1.Deployment, cfg *Configuration, acc
 				LocalObjectReference: api_corev1.LocalObjectReference{
 					Name: cfg.Marker,
 				},
+				DefaultMode: p2int32(420),
 			},
 		},
 	}}
