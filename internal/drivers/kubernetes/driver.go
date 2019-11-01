@@ -189,9 +189,11 @@ func (d *driver) run(ctx context.Context, wg *sync.WaitGroup) {
 func (d *driver) runWorker(wg *sync.WaitGroup) {
 	wg.Add(1)
 	defer wg.Done()
+	logg.Debug("k8s worker: starting...")
 
 	for d.processNextManagedObject() {
 	}
+	logg.Debug("k8s worker: shutting down...")
 }
 
 func (d *driver) processNextManagedObject() (continueWorking bool) {
@@ -217,6 +219,8 @@ func (d *driver) processNextManagedObject() (continueWorking bool) {
 }
 
 func (d *driver) processManagedObject(ref ManagedObjectRef) (ok bool) {
+	logg.Debug("k8s worker: processing %s %s", ref.Kind, ref.Name)
+
 	d.ManagedObjectsMutex.RLock()
 	mo, exists := d.ManagedObjects[ref]
 	d.ManagedObjectsMutex.RUnlock()

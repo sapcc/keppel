@@ -1,5 +1,7 @@
 # github.com/Shopify/logrus-bugsnag v0.0.0-20171204204709-577dee27f20d
 github.com/Shopify/logrus-bugsnag
+# github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a
+github.com/aryann/difflib
 # github.com/beorn7/perks v1.0.0
 github.com/beorn7/perks/quantile
 # github.com/bshuster-repo/logrus-logstash-hook v0.4.1

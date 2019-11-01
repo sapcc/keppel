@@ -19,9 +19,16 @@
 package kubernetesdriver
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
+	"strconv"
+	"strings"
 
+	"github.com/aryann/difflib"
+	"github.com/sapcc/go-bits/logg"
 	api_appsv1 "k8s.io/api/apps/v1"
 	api_corev1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -130,6 +137,7 @@ func (mo ManagedObject) CreateOrUpdate(currentState runtime.Object, cfg *Configu
 //Create attempts to create this ManagedObject on the server. On success,
 //returns the state of the object as returned by the server.
 func (mo ManagedObject) Create(cfg *Configuration) (runtime.Object, error) {
+	logg.Debug("k8s worker: creating %s %s", mo.Kind, mo.Name)
 	meta := meta_v1.ObjectMeta{
 		Name:      mo.Name,
 		Namespace: mo.Namespace,
@@ -161,7 +169,17 @@ func (mo ManagedObject) Update(currentState runtime.Object, cfg *Configuration) 
 	desiredState := currentState.DeepCopyObject()
 	mo.ApplyTo(desiredState)
 	if reflect.DeepEqual(desiredState, currentState) {
+		logg.Debug("k8s worker: skipping update of %s %s: nothing to change", mo.Kind, mo.Name)
 		return currentState, nil
+	}
+
+	logg.Debug("k8s worker: updating %s %s", mo.Kind, mo.Name)
+	wantDiff, _ := strconv.ParseBool(os.Getenv("KEPPEL_DEBUG_KUBERNETES_DIFFS"))
+	if wantDiff {
+		err := mo.logDiff(desiredState, currentState)
+		if err != nil {
+			logg.Error("error while trying to print k8s object diff: " + err.Error())
+		}
 	}
 
 	switch mo.Kind {
@@ -177,4 +195,67 @@ func (mo ManagedObject) Update(currentState runtime.Object, cfg *Configuration) 
 	default:
 		panic(fmt.Sprintf("ManagedObject.Update() cannot handle kind %q", mo.Kind))
 	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// helper for KEPPEL_DEBUG_KUBERNETES_DIFFS=true environment variable
+
+func (mo ManagedObject) logDiff(desiredState, currentState runtime.Object) error {
+	oldJSON, err := json.Marshal(currentState)
+	if err != nil {
+		return err
+	}
+	newJSON, err := json.Marshal(desiredState)
+	if err != nil {
+		return err
+	}
+
+	var (
+		oldJSONBuf bytes.Buffer
+		newJSONBuf bytes.Buffer
+	)
+	err = json.Indent(&oldJSONBuf, oldJSON, "", "  ")
+	if err != nil {
+		return err
+	}
+	err = json.Indent(&newJSONBuf, newJSON, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	diffRecords := difflib.Diff(
+		strings.SplitAfter(oldJSONBuf.String(), "\n"),
+		strings.SplitAfter(newJSONBuf.String(), "\n"),
+	)
+	isNearDiff := make(map[int]bool, len(diffRecords)+6)
+	for idx, record := range diffRecords {
+		if record.Delta == difflib.Common {
+			continue
+		}
+		for contextIdx := idx - 3; contextIdx <= idx+3; contextIdx++ {
+			isNearDiff[contextIdx] = true
+		}
+	}
+	if len(isNearDiff) == 0 {
+		return fmt.Errorf("no diff detected for %s %s (why are we updating it!?)", mo.Kind, mo.Name)
+	}
+
+	//generate something resembling a unified diff
+	logLines := make([]string, 0, len(diffRecords))
+	countLinesOmitted := 0
+	for idx, record := range diffRecords {
+		if !isNearDiff[idx] {
+			countLinesOmitted++
+			continue
+		}
+		if countLinesOmitted > 0 {
+			logLines = append(logLines,
+				fmt.Sprintf("... %d lines omitted ...", countLinesOmitted),
+			)
+			countLinesOmitted = 0
+		}
+		logLines = append(logLines, strings.TrimSuffix(record.String(), "\n"))
+	}
+	logg.Debug("will apply the following diff for %s %s:\n%s", mo.Kind, mo.Name, strings.Join(logLines, "\n"))
+	return nil
 }
