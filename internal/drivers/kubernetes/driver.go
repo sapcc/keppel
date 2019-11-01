@@ -182,6 +182,8 @@ func (d *driver) run(ctx context.Context, wg *sync.WaitGroup) {
 	for i := 0; i < threadiness; i++ {
 		go d.runWorker(wg)
 	}
+
+	<-ctx.Done()
 }
 
 func (d *driver) runWorker(wg *sync.WaitGroup) {
