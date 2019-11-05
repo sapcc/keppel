@@ -77,6 +77,7 @@ func (d *AuthDriver) ValidateTenantID(tenantID string) error {
 
 //SetupAccount implements the keppel.AuthDriver interface.
 func (d *AuthDriver) SetupAccount(account keppel.Account, an keppel.Authorization) error {
+	account.RegistryHTTPSecret = "" //clear this randomly-generated field to make assert.DeepEqual() work
 	d.AccountsThatWereSetUp = append(d.AccountsThatWereSetUp, account)
 	return nil
 }

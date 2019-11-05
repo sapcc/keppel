@@ -99,6 +99,7 @@ func setupDeploymentContainerSpec(cont *api_corev1.Container, cfg *Configuration
 	for k, v := range cfg.Keppel.ToRegistryEnvironment() {
 		envVars[k] = v
 	}
+	envVars["REGISTRY_HTTP_SECRET"] = account.RegistryHTTPSecret
 	cont.Env = updateEnvListFromMap(cont.Env, envVars)
 
 	cont.VolumeMounts = []api_corev1.VolumeMount{{

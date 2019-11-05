@@ -135,6 +135,7 @@ func (d *Driver) launchRegistry(account keppel.Account) (string, error) {
 
 	cmd.Env = append(cmd.Env,
 		fmt.Sprintf("REGISTRY_HTTP_ADDR=:%d", port),
+		"REGISTRY_HTTP_SECRET="+account.RegistryHTTPSecret,
 		"REGISTRY_LOG_FIELDS_KEPPEL.ACCOUNT="+account.Name,
 		"REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE="+issuerCertBundlePath,
 	)

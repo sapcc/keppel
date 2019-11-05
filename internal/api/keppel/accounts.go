@@ -247,8 +247,9 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accountToCreate := keppel.Account{
-		Name:         accountName,
-		AuthTenantID: req.Account.AuthTenantID,
+		Name:               accountName,
+		AuthTenantID:       req.Account.AuthTenantID,
+		RegistryHTTPSecret: keppel.GenerateRegistryHTTPSecret(),
 	}
 
 	//check permission to create account

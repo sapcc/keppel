@@ -90,7 +90,7 @@ func toJSON(x interface{}) string {
 ////////////////////////////////////////////////////////////////////////////////
 // tests
 
-func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.NameClaimDriver, *testAuditor) {
+func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.NameClaimDriver, *testAuditor, *keppel.DB) {
 	cfg, db := test.Setup(t)
 
 	ad, err := keppel.NewAuthDriver("unittest")
@@ -106,11 +106,11 @@ func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.NameClaimDriver,
 	auditor := &testAuditor{}
 	NewAPI(ad, ncd, db, auditor).AddTo(r)
 
-	return r, ad.(*test.AuthDriver), ncd.(*test.NameClaimDriver), auditor
+	return r, ad.(*test.AuthDriver), ncd.(*test.NameClaimDriver), auditor, db
 }
 
 func TestAccountsAPI(t *testing.T) {
-	r, authDriver, _, auditor := setup(t)
+	r, authDriver, _, auditor, db := setup(t)
 
 	//no accounts right now
 	assert.HTTPRequest{
@@ -133,6 +133,7 @@ func TestAccountsAPI(t *testing.T) {
 	}.Check(t, r)
 
 	//create an account (this request is executed twice to test idempotency)
+	var secretOfFirstAccount string
 	for _, pass := range []int{1, 2} {
 		assert.HTTPRequest{
 			Method: "PUT",
@@ -156,6 +157,24 @@ func TestAccountsAPI(t *testing.T) {
 			authDriver.AccountsThatWereSetUp,
 			[]keppel.Account{{Name: "first", AuthTenantID: "tenant1"}},
 		)
+
+		registryHTTPSecret, err := db.SelectStr(
+			`SELECT registry_http_secret FROM accounts WHERE name = 'first'`)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		if pass == 1 {
+			//in first pass, check that a suitable RegistryHTTPSecret got chosen
+			secretOfFirstAccount = registryHTTPSecret
+			if len(secretOfFirstAccount) != 48 {
+				t.Errorf("expected suitable RegistryHTTPSecret for account 'first', but got %q", registryHTTPSecret)
+			}
+		} else {
+			//in second pass, expect RegistryHTTPSecret to stay constant
+			if secretOfFirstAccount != registryHTTPSecret {
+				t.Errorf("PUT on account 'first' changed RegistryHTTPSecret! Expected %q, but got %q", secretOfFirstAccount, registryHTTPSecret)
+			}
+		}
 
 		//only the first pass should generate an audit event
 		if pass == 1 {
@@ -440,7 +459,7 @@ func TestAccountsAPI(t *testing.T) {
 }
 
 func TestGetAccountsErrorCases(t *testing.T) {
-	r, _, _, _ := setup(t)
+	r, _, _, _, _ := setup(t)
 
 	//test invalid authentication
 	assert.HTTPRequest{
@@ -469,7 +488,7 @@ func TestGetAccountsErrorCases(t *testing.T) {
 }
 
 func TestPutAccountErrorCases(t *testing.T) {
-	r, _, ncd, _ := setup(t)
+	r, _, ncd, _, _ := setup(t)
 
 	//preparation: create an account (so that we can check the error that the requested account name is taken)
 	assert.HTTPRequest{
