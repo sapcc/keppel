@@ -22,6 +22,7 @@ import (
 	"context"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -160,6 +161,23 @@ func (e *Engine) Run(ctx context.Context) (ok bool) {
 	var wg sync.WaitGroup
 	runningRegistries := make(map[string]*registryState) //key = account name
 
+	//check periodically that the DB connection still works (this ensures that a
+	//keppel-api process with a severed DB connection is promptly restarted)
+	dbUnreachableChan := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		for {
+			select {
+			case <-ticker.C:
+				if !e.DB.IsStillReachable() {
+					close(dbUnreachableChan)
+				}
+			case <-innerCtx.Done():
+				return
+			}
+		}
+	}()
+
 	//We need to run Init() in a separate goroutine, otherwise it will block when
 	//trying to send into connectivityChan since we are not reading it. Because
 	//the API contract for LaunchRegistry() guarantees that Init() has finished
@@ -192,11 +210,14 @@ func (e *Engine) Run(ctx context.Context) (ok bool) {
 	ok = true
 	for {
 		select {
-		case <-ctx.Done():
+		case <-dbUnreachableChan:
+			ok = false
+			cancel()
+
+		case <-innerCtx.Done():
 			logg.Debug("received interrupt - shutting down all goroutines...")
-			//silence govet (cancel() is a no-op since ctx and therefore innerCtx
-			//has already expired, but govet cannot understand that and suspects a
-			//context leak)
+			//silence govet (cancel() is a no-op since innerCtx has already expired,
+			//but govet cannot understand that and suspects a context leak)
 			cancel()
 
 			//if we called wg.Wait() right now, we could block because children might be

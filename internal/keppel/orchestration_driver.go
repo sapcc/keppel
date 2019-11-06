@@ -29,6 +29,7 @@ import (
 //use by type OrchestrationDriver.
 type DBAccessForOrchestrationDriver interface {
 	AllAccounts() ([]Account, error)
+	IsStillReachable() bool
 }
 
 //RequestOptions is a bitfield that appears as an argument in

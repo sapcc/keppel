@@ -80,6 +80,21 @@ func InitDB(dbURL url.URL) (*DB, error) {
 	return result, nil
 }
 
+//IsStillReachable implements the DBAccessForOrchestrationDriver interface.
+//It checks if the given DB can still execute SQL queries.
+func (db *DB) IsStillReachable() bool {
+	val, err := db.SelectInt(`SELECT 42`)
+	if err != nil {
+		logg.Error("DB has become unreachable: " + err.Error())
+		return false
+	}
+	if val != 42 {
+		logg.Error("DB has become unreachable")
+		return false
+	}
+	return true
+}
+
 //RollbackUnlessCommitted calls Rollback() on a transaction if it hasn't been
 //committed or rolled back yet. Use this with the defer keyword to make sure
 //that a transaction is automatically rolled back when a function fails.
