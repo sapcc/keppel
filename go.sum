@@ -314,6 +314,8 @@ github.com/sapcc/go-bits v0.0.0-20190910095551-3863bd6b4943 h1:tOsa/z/MGmhxp5qlu
 github.com/sapcc/go-bits v0.0.0-20190910095551-3863bd6b4943/go.mod h1:YpW83RbRSHPedMBfuvdfYJMQbejxSxzK1Kj/39szShw=
 github.com/sapcc/go-bits v0.0.0-20191122123627-1aca436e94ad h1:0g/OSiqwKbObCK1dh6o1O/gweOWPF13V14u1132QEBE=
 github.com/sapcc/go-bits v0.0.0-20191122123627-1aca436e94ad/go.mod h1:AhfOKfyOyTscn/WMiZ984bFNDuPWxUAbA7/mQ55SzAo=
+github.com/sapcc/go-bits v0.0.0-20191125140305-f4a863758644 h1:sB+3qFcqz5DJltAJ6EECdu+OeFk9Fg37FfQCANw9VZ8=
+github.com/sapcc/go-bits v0.0.0-20191125140305-f4a863758644/go.mod h1:AhfOKfyOyTscn/WMiZ984bFNDuPWxUAbA7/mQ55SzAo=
 github.com/sapcc/hermes v0.0.0-20190722215605-d772f40f9fc6 h1:iI+ew9JUORCqP+8pElkSayI/smvdiYoPRX6J4DmkVTI=
 github.com/sapcc/hermes v0.0.0-20190722215605-d772f40f9fc6/go.mod h1:WM5CVlqFCGM+AUE7lQgkLmPE89PWqJS3i+oRXaSztR8=
 github.com/sapcc/hermes v0.0.0-20191022102637-1c86dbdcbd15 h1:EDv+eYglYqfNNU6FZSZFXda+kD+7psqw7bdWW84faZY=

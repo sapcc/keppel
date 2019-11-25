@@ -27,7 +27,7 @@ require (
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/prometheus/client_golang v1.2.1
 	github.com/rs/cors v1.7.0
-	github.com/sapcc/go-bits v0.0.0-20191122123627-1aca436e94ad
+	github.com/sapcc/go-bits v0.0.0-20191125140305-f4a863758644
 	github.com/sapcc/hermes v0.0.0-20191022102637-1c86dbdcbd15
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v0.0.5 // indirect

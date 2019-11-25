@@ -25,12 +25,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/signal"
 	"strconv"
-	"syscall"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
+	"github.com/sapcc/go-bits/httpee"
 	"github.com/sapcc/go-bits/logg"
 	auth "github.com/sapcc/keppel/internal/api/auth"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
@@ -94,32 +93,20 @@ func main() {
 	if apiListenAddress == "" {
 		apiListenAddress = ":8080"
 	}
+	ctx := httpee.ContextWithSIGINT(context.Background())
 	logg.Info("listening on " + apiListenAddress)
 	go func() {
-		err := http.ListenAndServe(apiListenAddress, nil)
+		err := httpee.ListenAndServeContext(ctx, apiListenAddress, nil)
 		if err != nil {
-			logg.Fatal("error returned from http.ListenAndServe(): %s", err.Error())
+			logg.Fatal("error returned from httpee.ListenAndServeContext(): %s", err.Error())
 		}
 	}()
 
 	//enter orchestrator main loop
-	ok := od.Run(contextWithSIGINT(context.Background()))
+	ok := od.Run(ctx)
 	if !ok {
 		os.Exit(1)
 	}
-}
-
-func contextWithSIGINT(ctx context.Context) context.Context {
-	ctx, cancel := context.WithCancel(ctx)
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-signalChan
-		signal.Reset(os.Interrupt, syscall.SIGTERM)
-		close(signalChan)
-		cancel()
-	}()
-	return ctx
 }
 
 func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
