@@ -21,7 +21,6 @@ package keppel
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 )
@@ -51,15 +50,18 @@ const (
 
 //With is a convenience function for constructing type RegistryV2Error.
 func (c RegistryV2ErrorCode) With(msg string, args ...interface{}) *RegistryV2Error {
-	var err error
+	var detail *string
 	if msg != "" {
 		if len(args) > 0 {
-			err = fmt.Errorf(msg, args...)
-		} else {
-			err = errors.New(msg)
+			msg = fmt.Sprintf(msg, args...)
 		}
+		detail = &msg
 	}
-	return &RegistryV2Error{Code: c, Inner: err}
+	return &RegistryV2Error{
+		Code:    c,
+		Message: apiErrorMessages[c],
+		Detail:  detail,
+	}
 }
 
 var apiErrorMessages = map[RegistryV2ErrorCode]string{
@@ -101,25 +103,9 @@ var apiErrorStatusCodes = map[RegistryV2ErrorCode]int{
 //RegistryV2Error is the error type expected by clients of the docker-registry
 //v2 API.
 type RegistryV2Error struct {
-	Code  RegistryV2ErrorCode
-	Inner error //optional
-}
-
-//MarshalJSON implements the json.Marshaler interface.
-func (e *RegistryV2Error) MarshalJSON() ([]byte, error) {
-	data := struct {
-		Code    string  `json:"code"`
-		Message string  `json:"message"`
-		Detail  *string `json:"detail,keepempty"`
-	}{
-		Code:    string(e.Code),
-		Message: apiErrorMessages[e.Code],
-	}
-	if e.Inner != nil {
-		detail := e.Inner.Error()
-		data.Detail = &detail
-	}
-	return json.Marshal(data)
+	Code    RegistryV2ErrorCode `json:"code"`
+	Message string              `json:"message"`
+	Detail  *string             `json:"detail,keepempty"`
 }
 
 //WriteAsRegistryV2ResponseTo reports this error in the format used by the
@@ -143,9 +129,9 @@ func (e *RegistryV2Error) WriteAsTextTo(w http.ResponseWriter) {
 
 //Error implements the builtin/error interface.
 func (e *RegistryV2Error) Error() string {
-	text := apiErrorMessages[e.Code]
-	if e.Inner != nil {
-		text += ": " + e.Inner.Error()
+	text := e.Message
+	if e.Detail != nil {
+		text += ": " + *e.Detail
 	}
 	return text
 }
