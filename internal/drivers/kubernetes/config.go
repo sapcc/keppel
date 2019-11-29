@@ -59,6 +59,9 @@ storage:
 auth:
 	token:
 		rootcertbundle: /etc/keppel/issuer-cert-bundle.pem
+compatibility:
+	schema1:
+		enabled: false
 `
 
 //Configuration collects all configuration that is passed to this orchestration

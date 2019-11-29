@@ -49,6 +49,9 @@ health:
 storage:
 	cache:
 		blobdescriptor: inmemory
+compatibility:
+	schema1:
+		enabled: false
 `
 
 var baseConfigPath = filepath.Join(chooseRuntimeDir(), "keppel/registry-base.yaml")
