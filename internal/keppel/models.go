@@ -149,12 +149,44 @@ type Repository struct {
 	Name        string `db:"name"`
 }
 
+//FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a
+//Repository record when none exists yet.
+func (db *DB) FindOrCreateRepository(name string, account Account) (*Repository, error) {
+	var repo Repository
+	err := db.SelectOne(&repo,
+		"SELECT * FROM repos WHERE account_name = $1 AND name = $2", account.Name, name)
+	if err == sql.ErrNoRows {
+		repo = Repository{
+			AccountName: account.Name,
+			Name:        name,
+		}
+		err = db.Insert(&repo)
+	}
+	return &repo, err
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 //Manifest contains a record from the `manifests` table.
 type Manifest struct {
 	RepositoryID int64  `db:"repo_id"`
 	Digest       string `db:"digest"`
 	MediaType    string `db:"media_type"`
+	SizeBytes    uint64 `db:"size_bytes"`
 }
+
+//InsertIfMissing is equivalent to `e.Insert(&m)`, but does not fail if the
+//manifest exists in the database already.
+func (m Manifest) InsertIfMissing(e gorp.SqlExecutor) error {
+	_, err := e.Exec(`
+		INSERT INTO manifests (repo_id, digest, media_type, size_bytes)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (repo_id, digest) DO NOTHING
+	`, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes)
+	return err
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 //Tag contains a record from the `tags` table.
 type Tag struct {
@@ -162,6 +194,19 @@ type Tag struct {
 	Name         string `db:"name"`
 	Digest       string `db:"digest"`
 }
+
+//InsertIfMissing is equivalent to `e.Insert(&m)`, but does not fail if the
+//manifest exists in the database already.
+func (t Tag) InsertIfMissing(e gorp.SqlExecutor) error {
+	_, err := e.Exec(`
+		INSERT INTO tags (repo_id, name, digest)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (repo_id, name) DO UPDATE SET digest = EXCLUDED.digest
+	`, t.RepositoryID, t.Name, t.Digest)
+	return err
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(Account{}, "accounts").SetKeys(false, "name")

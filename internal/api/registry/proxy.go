@@ -38,17 +38,16 @@ func (a *API) handleProxyToplevel(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{})
 }
 
+//This implements all repository-scoped endpoints that do not have more specific handlers.
 func (a *API) handleProxyToAccount(w http.ResponseWriter, r *http.Request) {
-	account, repoName := a.checkAccountAccess(w, r)
+	account, _ := a.checkAccountAccess(w, r)
 	if account == nil {
 		return
 	}
-	_ = repoName
 
 	resp := a.proxyRequestToRegistry(w, r, *account)
 	if resp == nil {
 		return
 	}
-	defer resp.Body.Close()
 	a.proxyResponseToCaller(w, resp)
 }

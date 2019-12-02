@@ -19,8 +19,9 @@
 package registryv2
 
 import (
+	"bytes"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 
@@ -61,7 +62,7 @@ func (a *API) AddTo(r *mux.Router) {
 		HandlerFunc(a.handleProxyToAccount)
 	rr.Methods("DELETE", "GET", "HEAD", "PUT").
 		Path("/{repository:.+}/manifests/{reference}").
-		HandlerFunc(a.handleProxyToAccount)
+		HandlerFunc(a.handleManifest)
 	rr.Methods("GET").
 		Path("/{repository:.+}/tags/list").
 		HandlerFunc(a.handleProxyToAccount)
@@ -124,7 +125,33 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request) (accoun
 	return account, vars["repository"]
 }
 
-func (a *API) proxyRequestToRegistry(w http.ResponseWriter, r *http.Request, account keppel.Account) *http.Response {
+type interceptedResponse struct {
+	Resp http.Response //with Resp.Body == nil
+	Body []byte
+}
+
+func (a *API) interceptRequestBody(w http.ResponseWriter, r *http.Request) (buf []byte, ok bool) {
+	if r.Body == nil {
+		return nil, true
+	}
+
+	buf, err := ioutil.ReadAll(r.Body)
+	if respondwith.ErrorText(w, err) {
+		return nil, false
+	}
+	err = r.Body.Close()
+	if respondwith.ErrorText(w, err) {
+		return nil, false
+	}
+
+	//replace `r.Body` with a functionally identical copy, to ensure that a
+	//subsequent proxyRequestToRegistry() works as expected
+	r.Body = ioutil.NopCloser(bytes.NewReader(buf))
+
+	return buf, true
+}
+
+func (a *API) proxyRequestToRegistry(w http.ResponseWriter, r *http.Request, account keppel.Account) *interceptedResponse {
 	proxyRequest := *r
 	proxyRequest.Close = false
 	proxyRequest.RequestURI = ""
@@ -138,15 +165,28 @@ func (a *API) proxyRequestToRegistry(w http.ResponseWriter, r *http.Request, acc
 	if respondwith.ErrorText(w, err) {
 		return nil
 	}
-	return resp
+
+	result := interceptedResponse{Resp: *resp}
+	result.Body, err = ioutil.ReadAll(resp.Body)
+	if err == nil {
+		err = resp.Body.Close()
+	} else {
+		resp.Body.Close()
+	}
+	if respondwith.ErrorText(w, err) {
+		return nil
+	}
+	result.Resp.Body = nil
+
+	return &result
 }
 
-func (a *API) proxyResponseToCaller(w http.ResponseWriter, resp *http.Response) {
-	for k, v := range resp.Header {
+func (a *API) proxyResponseToCaller(w http.ResponseWriter, resp *interceptedResponse) {
+	for k, v := range resp.Resp.Header {
 		w.Header()[k] = v
 	}
-	w.WriteHeader(resp.StatusCode)
-	_, err := io.Copy(w, resp.Body)
+	w.WriteHeader(resp.Resp.StatusCode)
+	_, err := w.Write(resp.Body)
 	if err != nil {
 		logg.Error("error copying proxy response: " + err.Error())
 	}

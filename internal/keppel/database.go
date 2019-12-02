@@ -77,6 +77,7 @@ var sqlMigrations = map[string]string{
 			repo_id    BIGINT NOT NULL REFERENCES repos ON DELETE CASCADE,
 			digest     TEXT   NOT NULL,
 			media_type TEXT   NOT NULL,
+			size_bytes BIGINT NOT NULL,
 			PRIMARY KEY (repo_id, digest)
 		);
 		CREATE TABLE tags (

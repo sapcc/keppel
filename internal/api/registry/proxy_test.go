@@ -38,6 +38,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/easypg"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/orchestration"
@@ -59,8 +60,9 @@ func TestProxyAPI(t *testing.T) {
 
 	//set up a dummy account for testing
 	err := db.Insert(&keppel.Account{
-		Name:         "test1",
-		AuthTenantID: "test1authtenant",
+		Name:               "test1",
+		AuthTenantID:       "test1authtenant",
+		RegistryHTTPSecret: "topsecret",
 	})
 	if err != nil {
 		t.Fatal(err.Error())
@@ -105,7 +107,7 @@ func TestProxyAPI(t *testing.T) {
 
 	testVersionCheckEndpoint(t, r, ad)
 	testPullNonExistentTag(t, r, ad)
-	testPushAndPull(t, r, ad)
+	testPushAndPull(t, r, ad, db)
 	testPullExistingNotAllowed(t, r, ad)
 
 	//run some additional testcases for the orchestration engine
@@ -165,7 +167,7 @@ func (b byteData) GetRequestBody() (io.Reader, error) {
 	return bytes.NewReader([]byte(b)), nil
 }
 
-func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
+func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB) {
 	//This tests pushing a minimal image without any layers, so we only upload one object (the config JSON) and create a manifest.
 	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 		keppel.CanPullFromAccount,
@@ -244,7 +246,10 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 		strconv.FormatUint(uint64(len(bodyBytes)), 10),
 	)
 
-	//create manifest
+	//the DB should be empty (except for the `accounts` entry) until this point
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/001-before-push.sql")
+
+	//create manifest (this request is executed twice to test idempotency)
 	manifestData := assert.JSONObject{
 		"schemaVersion": 2,
 		"mediaType":     "application/vnd.docker.distribution.manifest.v2+json",
@@ -255,19 +260,23 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 		},
 		"layers": []assert.JSONObject{},
 	}
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/v2/test1/foo/manifests/latest",
-		Header: map[string]string{
-			"Authorization": "Bearer " + token,
-			"Content-Type":  "application/vnd.docker.distribution.manifest.v2+json",
-		},
-		Body:         manifestData,
-		ExpectStatus: http.StatusCreated,
-		ExpectHeader: versionHeader,
-	}.Check(t, h)
-	if t.Failed() {
-		t.FailNow()
+	for range []int{1, 2} {
+		assert.HTTPRequest{
+			Method: "PUT",
+			Path:   "/v2/test1/foo/manifests/latest",
+			Header: map[string]string{
+				"Authorization": "Bearer " + token,
+				"Content-Type":  "application/vnd.docker.distribution.manifest.v2+json",
+			},
+			Body:         manifestData,
+			ExpectStatus: http.StatusCreated,
+			ExpectHeader: versionHeader,
+		}.Check(t, h)
+		if t.Failed() {
+			t.FailNow()
+		}
+		//the DB should be empty (except for the `accounts` entry) until this point
+		easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/002-after-push.sql")
 	}
 
 	//pull manifest using a read-only token

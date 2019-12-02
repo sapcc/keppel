@@ -23,7 +23,7 @@ require (
 	github.com/majewsky/schwift v0.0.0-20180906125654-e1b3d5e2efc9
 	github.com/mattes/migrate v3.0.1+incompatible
 	github.com/mitchellh/mapstructure v1.1.2
-	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
+	github.com/opencontainers/go-digest v1.0.0-rc1
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/prometheus/client_golang v1.2.1
 	github.com/rs/cors v1.7.0

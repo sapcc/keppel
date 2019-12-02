@@ -20,6 +20,7 @@
 package test
 
 import (
+	"fmt"
 	"net/url"
 	"os"
 	"strconv"
@@ -65,7 +66,23 @@ func Setup(t *testing.T) (keppel.Configuration, *keppel.DB) {
 
 	//wipe the DB clean if there are any leftovers from the previous test run
 	for _, tableName := range []string{"accounts"} {
+		//NOTE: All tables not mentioned above are cleared via ON DELETE CASCADE.
 		_, err := db.Exec("DELETE FROM " + tableName)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+	}
+
+	//reset all primary key sequences for reproducible row IDs
+	for _, tableName := range []string{"repos"} {
+		nextID, err := db.SelectInt(fmt.Sprintf(
+			"SELECT 1 + COALESCE(MAX(id), 0) FROM %s", tableName,
+		))
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		query := fmt.Sprintf(`ALTER SEQUENCE %s_id_seq RESTART WITH %d`, tableName, nextID)
+		_, err = db.Exec(query)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
