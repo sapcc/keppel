@@ -64,6 +64,34 @@ var sqlMigrations = map[string]string{
 	"004_add_rbac_can_delete.down.sql": `
 		ALTER TABLE rbac_policies DROP COLUMN can_delete;
 	`,
+	//NOTE: The `repos` table is not strictly necessary. We could use
+	//(account_name, repo_name) instead of repo_id in `manifests` and `tags`.
+	//Giving numerical IDs to repos is just a storage space optimization.
+	"005_add_repos_manifests_tags.up.sql": `
+		CREATE TABLE repos (
+			id           BIGSERIAL NOT NULL PRIMARY KEY,
+			account_name TEXT      NOT NULL REFERENCES accounts ON DELETE CASCADE,
+			name         TEXT      NOT NULL
+		);
+		CREATE TABLE manifests (
+			repo_id    BIGINT NOT NULL REFERENCES repos ON DELETE CASCADE,
+			digest     TEXT   NOT NULL,
+			media_type TEXT   NOT NULL,
+			PRIMARY KEY (repo_id, digest)
+		);
+		CREATE TABLE tags (
+			repo_id    BIGINT NOT NULL REFERENCES repos ON DELETE CASCADE,
+			name       TEXT   NOT NULL,
+			digest     TEXT   NOT NULL,
+			PRIMARY KEY (repo_id, name),
+			FOREIGN KEY (repo_id, digest) REFERENCES manifests ON DELETE CASCADE
+		);
+	`,
+	"005_add_repos_manifests_tags.down.sql": `
+		DROP TABLE repos;
+		DROP TABLE manifests;
+		DROP TABLE tags;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

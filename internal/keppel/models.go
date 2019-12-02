@@ -105,6 +105,8 @@ func (db *DB) AllAccounts() ([]Account, error) {
 	return accounts, nil
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 //RBACPolicy contains a record from the `rbac_policies` table.
 type RBACPolicy struct {
 	AccountName        string `db:"account_name"`
@@ -138,7 +140,33 @@ func (r RBACPolicy) Matches(repoName, userName string) bool {
 	return true
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+//Repository contains a record from the `repos` table.
+type Repository struct {
+	ID          int64  `db:"id"`
+	AccountName string `db:"account_name"`
+	Name        string `db:"name"`
+}
+
+//Manifest contains a record from the `manifests` table.
+type Manifest struct {
+	RepositoryID int64  `db:"repo_id"`
+	Digest       string `db:"digest"`
+	MediaType    string `db:"media_type"`
+}
+
+//Tag contains a record from the `tags` table.
+type Tag struct {
+	RepositoryID int64  `db:"repo_id"`
+	Name         string `db:"name"`
+	Digest       string `db:"digest"`
+}
+
 func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(Account{}, "accounts").SetKeys(false, "name")
 	db.AddTableWithName(RBACPolicy{}, "rbac_policies").SetKeys(false, "account_name", "match_repository", "match_username")
+	db.AddTableWithName(Repository{}, "repos").SetKeys(true, "id")
+	db.AddTableWithName(Manifest{}, "manifests").SetKeys(false, "repo_id", "digest")
+	db.AddTableWithName(Tag{}, "tags").SetKeys(false, "repo_id", "name")
 }
