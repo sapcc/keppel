@@ -107,7 +107,16 @@ func TestProxyAPI(t *testing.T) {
 
 	testVersionCheckEndpoint(t, r, ad)
 	testPullNonExistentTag(t, r, ad)
-	testPushAndPull(t, r, ad, db)
+	testPushAndPull(t, r, ad, db,
+		"fixtures/example-docker-image-config.json",
+		"fixtures/001-before-push.sql",
+		"fixtures/002-after-push.sql",
+	)
+	testPushAndPull(t, r, ad, db,
+		"fixtures/example-docker-image-config2.json",
+		"fixtures/002-after-push.sql",
+		"fixtures/003-after-second-push.sql",
+	)
 	testPullExistingNotAllowed(t, r, ad)
 
 	//run some additional testcases for the orchestration engine
@@ -167,12 +176,7 @@ func (b byteData) GetRequestBody() (io.Reader, error) {
 	return bytes.NewReader([]byte(b)), nil
 }
 
-func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB) {
-	//This tests pushing a minimal image without any layers, so we only upload one object (the config JSON) and create a manifest.
-	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
-		keppel.CanPullFromAccount,
-		keppel.CanPushToAccount)
-
+func testBlobUpload(t *testing.T, h http.Handler, token string, contentBytes []byte) (digest string) {
 	//initiate upload for the image config
 	resp, _ := assert.HTTPRequest{
 		Method:       "POST",
@@ -187,21 +191,16 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *kep
 	uploadPath := resp.Header.Get("Location")
 
 	//send config data
-	bodyBytes, err := ioutil.ReadFile("fixtures/example-docker-image-config.json")
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	bodyBytes = bytes.TrimSpace(bodyBytes)
 	resp, _ = assert.HTTPRequest{
 		Method: "PATCH",
 		Path:   uploadPath,
 		Header: map[string]string{
 			"Authorization":  "Bearer " + token,
-			"Content-Length": fmt.Sprintf("%d", len(bodyBytes)),
-			"Content-Range":  fmt.Sprintf("bytes=0-%d", len(bodyBytes)),
+			"Content-Length": fmt.Sprintf("%d", len(contentBytes)),
+			"Content-Range":  fmt.Sprintf("bytes=0-%d", len(contentBytes)),
 			"Content-Type":   "application/octet-stream",
 		},
-		Body:         byteData(bodyBytes),
+		Body:         byteData(contentBytes),
 		ExpectStatus: http.StatusAccepted,
 		ExpectHeader: versionHeader,
 	}.Check(t, h)
@@ -212,7 +211,7 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *kep
 
 	//finish config upload
 	query := url.Values{}
-	sha256Hash := sha256.Sum256(bodyBytes)
+	sha256Hash := sha256.Sum256(contentBytes)
 	sha256HashStr := hex.EncodeToString(sha256Hash[:])
 	query.Set("digest", "sha256:"+sha256HashStr)
 	resp, _ = assert.HTTPRequest{
@@ -243,11 +242,27 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *kep
 	}
 	assert.DeepEqual(t, "layer Content-Length",
 		resp.Header.Get("Content-Length"),
-		strconv.FormatUint(uint64(len(bodyBytes)), 10),
+		strconv.FormatUint(uint64(len(contentBytes)), 10),
 	)
 
-	//the DB should be empty (except for the `accounts` entry) until this point
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/001-before-push.sql")
+	return sha256HashStr
+}
+
+func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB, imageConfigJSON, dbContentsBeforeManifestPush, dbContentsAfterManifestPush string) {
+	//This tests pushing a minimal image without any layers, so we only upload one object (the config JSON) and create a manifest.
+	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		keppel.CanPullFromAccount,
+		keppel.CanPushToAccount)
+
+	//upload config JSON
+	bodyBytes, err := ioutil.ReadFile(imageConfigJSON)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	bodyBytes = bytes.TrimSpace(bodyBytes)
+	sha256HashStr := testBlobUpload(t, h, token, bodyBytes)
+
+	easypg.AssertDBContent(t, db.DbMap.Db, dbContentsBeforeManifestPush)
 
 	//create manifest (this request is executed twice to test idempotency)
 	manifestData := assert.JSONObject{
@@ -255,7 +270,7 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *kep
 		"mediaType":     "application/vnd.docker.distribution.manifest.v2+json",
 		"config": assert.JSONObject{
 			"mediaType": "application/vnd.docker.container.image.v1+json",
-			"size":      1122,
+			"size":      len(bodyBytes),
 			"digest":    "sha256:" + sha256HashStr,
 		},
 		"layers": []assert.JSONObject{},
@@ -275,9 +290,22 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *kep
 		if t.Failed() {
 			t.FailNow()
 		}
-		//the DB should be empty (except for the `accounts` entry) until this point
-		easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/002-after-push.sql")
+		//check that repo/manifest/tag was created correctly in our DB
+		easypg.AssertDBContent(t, db.DbMap.Db, dbContentsAfterManifestPush)
 	}
+
+	//verify that "latest" now appears in tag list
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/v2/test1/foo/tags/list",
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusOK,
+		ExpectHeader: versionHeader,
+		ExpectBody: assert.JSONObject{
+			"name": "test1/foo",
+			"tags": []string{"latest"},
+		},
+	}.Check(t, h)
 
 	//pull manifest using a read-only token
 	token = getToken(t, h, ad, "repository:test1/foo:pull",
@@ -307,7 +335,7 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *kep
 			versionHeaderKey: versionHeaderValue,
 			"Content-Type":   "application/octet-stream",
 		},
-		ExpectBody: assert.JSONFixtureFile("fixtures/example-docker-image-config.json"),
+		ExpectBody: assert.JSONFixtureFile(imageConfigJSON),
 	}.Check(t, h)
 }
 
