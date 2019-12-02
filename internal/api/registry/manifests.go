@@ -84,7 +84,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	_, manifestDesc, err := distribution.UnmarshalManifest(r.Header.Get("Content-Type"), reqBuf)
+	manifest, manifestDesc, err := distribution.UnmarshalManifest(r.Header.Get("Content-Type"), reqBuf)
 	if err != nil {
 		keppel.ErrManifestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
 		return
@@ -94,6 +94,12 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	if !pushesToTag && manifestDesc.Digest != digestFromReference {
 		keppel.ErrDigestInvalid.With("actual manifest digest is " + manifestDesc.Digest.String()).WriteAsRegistryV2ResponseTo(w)
 		return
+	}
+
+	//compute total size of image
+	sizeBytes := uint64(manifestDesc.Size)
+	for _, desc := range manifest.References() {
+		sizeBytes += uint64(desc.Size)
 	}
 
 	//prepare new database entries, so that we only have to commit the transaction once the backend PUT is successful
@@ -106,7 +112,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		RepositoryID: repo.ID,
 		Digest:       manifestDesc.Digest.String(),
 		MediaType:    manifestDesc.MediaType,
-		SizeBytes:    uint64(manifestDesc.Size),
+		SizeBytes:    sizeBytes,
 	}.InsertIfMissing(tx)
 	if respondwith.ErrorText(w, err) {
 		return
