@@ -123,8 +123,9 @@ func containsString(list []string, val string) bool {
 
 func (a *API) filterRepoActions(repoName string, actions []string, authz keppel.Authorization, account keppel.Account) ([]string, error) {
 	isAllowedAction := map[string]bool{
-		"pull": authz.HasPermission(keppel.CanPullFromAccount, account.AuthTenantID),
-		"push": authz.HasPermission(keppel.CanPushToAccount, account.AuthTenantID),
+		"pull":   authz.HasPermission(keppel.CanPullFromAccount, account.AuthTenantID),
+		"push":   authz.HasPermission(keppel.CanPushToAccount, account.AuthTenantID),
+		"delete": authz.HasPermission(keppel.CanDeleteFromAccount, account.AuthTenantID),
 	}
 
 	var policies []keppel.RBACPolicy
@@ -143,6 +144,9 @@ func (a *API) filterRepoActions(repoName string, actions []string, authz keppel.
 			}
 			if policy.CanPush && authz != keppel.AnonymousAuthorization {
 				isAllowedAction["push"] = true
+			}
+			if policy.CanDelete && authz != keppel.AnonymousAuthorization {
+				isAllowedAction["delete"] = true
 			}
 		}
 	}

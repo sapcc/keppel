@@ -36,6 +36,8 @@ const (
 	CanPullFromAccount Permission = "pull"
 	//CanPushToAccount is the permission for pushing images to this account.
 	CanPushToAccount Permission = "push"
+	//CanDeleteFromAccount is the permission for deleting manifests from this account.
+	CanDeleteFromAccount Permission = "delete"
 	//CanChangeAccount is the permission for creating and updating accounts.
 	CanChangeAccount Permission = "change"
 )

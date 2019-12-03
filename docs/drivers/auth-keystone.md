@@ -26,6 +26,7 @@ Keppel understands access rules in the [`oslo.policy` JSON format][os-pol]. An e
 - `account:show` enables read access to repository and tag listings.
 - `account:pull` allows to `docker pull` images.
 - `account:push` allows to `docker push` images.
+- `account:delete` allows to delete image manifests and tags.
 - `account:edit` enables write access to an account's configuration.
 
 [os-env]: https://docs.openstack.org/python-openstackclient/latest/cli/man/openstack.html

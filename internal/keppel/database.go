@@ -58,6 +58,12 @@ var sqlMigrations = map[string]string{
 	"003_add_registry_secret.down.sql": `
 		ALTER TABLE accounts DROP COLUMN registry_http_secret;
 	`,
+	"004_add_rbac_can_delete.up.sql": `
+		ALTER TABLE rbac_policies ADD COLUMN can_delete BOOLEAN NOT NULL DEFAULT FALSE;
+	`,
+	"004_add_rbac_can_delete.down.sql": `
+		ALTER TABLE rbac_policies DROP COLUMN can_delete;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

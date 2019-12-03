@@ -86,6 +86,9 @@ func renderRBACPolicy(dbPolicy keppel.RBACPolicy) RBACPolicy {
 	if dbPolicy.CanPush {
 		result.Permissions = append(result.Permissions, "push")
 	}
+	if dbPolicy.CanDelete {
+		result.Permissions = append(result.Permissions, "delete")
+	}
 	return result
 }
 
@@ -107,6 +110,8 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 			result.CanPull = true
 		case "push":
 			result.CanPush = true
+		case "delete":
+			result.CanDelete = true
 		default:
 			return result, fmt.Errorf("%q is not a valid RBAC policy permission", perm)
 		}
@@ -126,6 +131,9 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 	}
 	if result.CanPush && !result.CanPull {
 		return result, errors.New(`RBAC policy with "push" must also grant "pull"`)
+	}
+	if result.CanDelete && result.UserNamePattern == "" {
+		return result, errors.New(`RBAC policy with "delete" must have the "match_username" attribute`)
 	}
 
 	for _, pattern := range []string{policy.RepositoryPattern, policy.UserNamePattern} {

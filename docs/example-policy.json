@@ -12,5 +12,6 @@
   "account:show": "rule:any_ro and rule:account_matches_scope",
   "account:pull": "rule:any_ro and rule:account_matches_scope",
   "account:push": "rule:any_rw and rule:account_matches_scope",
+  "account:delete": "rule:any_rw and rule:account_matches_scope",
   "account:edit": "rule:any_rw and rule:account_matches_scope"
 }

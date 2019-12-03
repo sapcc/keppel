@@ -113,6 +113,7 @@ type RBACPolicy struct {
 	CanPullAnonymously bool   `db:"can_anon_pull"`
 	CanPull            bool   `db:"can_pull"`
 	CanPush            bool   `db:"can_push"`
+	CanDelete          bool   `db:"can_delete"`
 }
 
 //Matches evaluates the regexes in this policy.

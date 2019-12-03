@@ -230,10 +230,11 @@ func newKeystoneAuthorization(t *gopherpolicy.Token) keystoneAuthorization {
 }
 
 var ruleForPerm = map[keppel.Permission]string{
-	keppel.CanViewAccount:     "account:show",
-	keppel.CanPullFromAccount: "account:pull",
-	keppel.CanPushToAccount:   "account:push",
-	keppel.CanChangeAccount:   "account:edit",
+	keppel.CanViewAccount:       "account:show",
+	keppel.CanPullFromAccount:   "account:pull",
+	keppel.CanPushToAccount:     "account:push",
+	keppel.CanDeleteFromAccount: "account:delete",
+	keppel.CanChangeAccount:     "account:edit",
 }
 
 //UserName implements the keppel.Authorization interface.
@@ -251,7 +252,11 @@ func (a keystoneAuthorization) HasPermission(perm keppel.Permission, tenantID st
 	a.t.Context.Request["account_project_id"] = tenantID
 	logg.Debug("token has object attributes = %v", a.t.Context.Request)
 
-	rule := ruleForPerm[perm]
+	rule, hasRule := ruleForPerm[perm]
+	if !hasRule {
+		return false
+	}
+
 	result := a.t.Check(rule)
 	logg.Debug("policy rule %q evaluates to %t", rule, result)
 	return result

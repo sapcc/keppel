@@ -380,7 +380,7 @@ func TestAccountsAPI(t *testing.T) {
 		{
 			"match_repository": "library/alpine",
 			"match_username":   ".*@tenant3",
-			"permissions":      []string{"pull", "push"},
+			"permissions":      []string{"pull", "delete"},
 		},
 	}
 	assert.HTTPRequest{
@@ -694,6 +694,22 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("RBAC policy with \"pull\" must have the \"match_username\" attribute\n"),
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies": []assert.JSONObject{{
+					"match_repository": "library/.+",
+					"permissions":      []string{"delete"},
+				}},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("RBAC policy with \"delete\" must have the \"match_username\" attribute\n"),
 	}.Check(t, r)
 	assert.HTTPRequest{
 		Method: "PUT",
