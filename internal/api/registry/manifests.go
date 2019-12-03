@@ -49,13 +49,54 @@ func (a *API) handleManifest(w http.ResponseWriter, r *http.Request) {
 
 //This implements the DELETE /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
-	account, _ := a.checkAccountAccess(w, r)
+	account, repoName := a.checkAccountAccess(w, r)
 	if account == nil {
 		return
 	}
+	repo, err := a.db.FindOrCreateRepository(repoName, *account)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
 
+	//<reference> must be a digest - the API does not allow deleting tags
+	//directly (tags are deleted by deleting their current manifest using its
+	//canonical digest)
+	digest, err := digest.Parse(mux.Vars(r)["reference"])
+	if err != nil {
+		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
+		return
+	}
+
+	//prepare deletion of database entries on our side, so that we only have to
+	//commit the transaction once the backend DELETE is successful
+	tx, err := a.db.Begin()
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	defer keppel.RollbackUnlessCommitted(tx)
+	result, err := a.db.Exec(
+		//this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
+		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
+		repo.ID, digest)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	rowsDeleted, err := result.RowsAffected()
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	if rowsDeleted == 0 {
+		keppel.ErrManifestUnknown.With("no such manifest").WriteAsRegistryV2ResponseTo(w)
+		return
+	}
+
+	//DELETE the manifest in the backend
 	resp := a.proxyRequestToRegistry(w, r, *account)
 	if resp == nil {
+		return
+	}
+	err = tx.Commit()
+	if respondwith.ErrorText(w, err) {
 		return
 	}
 
