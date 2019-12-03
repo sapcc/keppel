@@ -77,7 +77,7 @@ func testEmptyCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 		Path:         "/v2/_catalog",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusOK,
-		ExpectHeader: versionHeader,
+		ExpectHeader: test.VersionHeader,
 		ExpectBody: assert.JSONObject{
 			"repositories": []string{},
 		},
@@ -113,7 +113,7 @@ func testNonEmptyCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 		Path:         "/v2/_catalog",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusOK,
-		ExpectHeader: versionHeader,
+		ExpectHeader: test.VersionHeader,
 		ExpectBody:   assert.JSONObject{"repositories": allRepos},
 	}.Check(t, h)
 
@@ -122,8 +122,8 @@ func testNonEmptyCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 		for length := 1; length <= len(allRepos)+1; length++ {
 			expectedPage := allRepos[offset:]
 			expectedHeaders := map[string]string{
-				versionHeaderKey: versionHeaderValue,
-				"Content-Type":   "application/json",
+				test.VersionHeaderKey: test.VersionHeaderValue,
+				"Content-Type":        "application/json",
 			}
 
 			if len(expectedPage) > length {
@@ -156,7 +156,7 @@ func testNonEmptyCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 		Path:         "/v2/_catalog?n=-1",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusBadRequest,
-		ExpectHeader: versionHeader,
+		ExpectHeader: test.VersionHeader,
 		ExpectBody:   assert.StringData("invalid value for \"n\": strconv.ParseUint: parsing \"-1\": invalid syntax\n"),
 	}.Check(t, h)
 	assert.HTTPRequest{
@@ -164,7 +164,7 @@ func testNonEmptyCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 		Path:         "/v2/_catalog?n=0",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusBadRequest,
-		ExpectHeader: versionHeader,
+		ExpectHeader: test.VersionHeader,
 		ExpectBody:   assert.StringData("invalid value for \"n\": must not be 0\n"),
 	}.Check(t, h)
 	assert.HTTPRequest{
@@ -172,7 +172,7 @@ func testNonEmptyCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 		Path:         "/v2/_catalog?n=10&last=invalid",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusBadRequest,
-		ExpectHeader: versionHeader,
+		ExpectHeader: test.VersionHeader,
 		ExpectBody:   assert.StringData("invalid value for \"last\": must contain a slash\n"),
 	}.Check(t, h)
 }
@@ -184,11 +184,11 @@ func testAuthErrorsForCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver
 		Path:         "/v2/_catalog",
 		ExpectStatus: http.StatusUnauthorized,
 		ExpectHeader: map[string]string{
-			versionHeaderKey:   versionHeaderValue,
-			"Www-Authenticate": `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="registry:catalog:*"`,
-			"Content-Type":     "application/json",
+			test.VersionHeaderKey: test.VersionHeaderValue,
+			"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="registry:catalog:*"`,
+			"Content-Type":        "application/json",
 		},
-		ExpectBody: errorCode(keppel.ErrUnauthorized),
+		ExpectBody: test.ErrorCode(keppel.ErrUnauthorized),
 	}.Check(t, h)
 
 	//with token for wrong scope, expect Forbidden and renewed auth challenge
@@ -199,13 +199,13 @@ func testAuthErrorsForCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusForbidden,
 		ExpectHeader: map[string]string{
-			versionHeaderKey:   versionHeaderValue,
-			"Www-Authenticate": `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="registry:catalog:*",error="insufficient_scope"`,
-			"Content-Type":     "application/json",
+			test.VersionHeaderKey: test.VersionHeaderValue,
+			"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="registry:catalog:*",error="insufficient_scope"`,
+			"Content-Type":        "application/json",
 		},
 		//NOTE: Docker Hub (https://registry-1.docker.io) sends UNAUTHORIZED here,
 		//but DENIED is more logical.
-		ExpectBody: errorCode(keppel.ErrDenied),
+		ExpectBody: test.ErrorCode(keppel.ErrDenied),
 	}.Check(t, h)
 }
 

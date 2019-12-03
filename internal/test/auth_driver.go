@@ -20,10 +20,15 @@
 package test
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
+	"testing"
 
+	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -133,4 +138,50 @@ func (a authorization) KeystoneToken() *gopherpolicy.Token {
 	//return a dummy token to enable testing of audit events (a nil token will
 	//suppress audit event generation)
 	return &gopherpolicy.Token{}
+}
+
+var authorizationHeader = "Basic " + base64.StdEncoding.EncodeToString(
+	[]byte("correctusername:correctpassword"),
+)
+
+//GetTokenForTest can be used by unit tests to obtain a token for use with the
+//Registry v2 API. `h` must serve an authapi.API that uses `d` as its auth
+//driver.
+//
+//`scope` is the token scope, e.g. "repository:test1/foo:pull". `authTenantID`
+//is the ID of the auth tenant backing the requested account. `perms` is the
+//set of permissions that the requesting user has (the AuthDriver will set up
+//mock permissions for the duration of the token request).
+func (d *AuthDriver) GetTokenForTest(t *testing.T, h http.Handler, scope, authTenantID string, perms ...keppel.Permission) string {
+	t.Helper()
+	//configure AuthDriver to allow access for this call
+	d.ExpectedUserName = "correctusername"
+	d.ExpectedPassword = "correctpassword"
+	permStrs := make([]string, len(perms))
+	for idx, perm := range perms {
+		permStrs[idx] = string(perm) + ":" + authTenantID
+	}
+	d.GrantedPermissions = strings.Join(permStrs, ",")
+
+	//build a token request
+	query := url.Values{}
+	query.Set("service", "registry.example.org")
+	if scope != "" {
+		query.Set("scope", scope)
+	}
+	_, bodyBytes := assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/auth?" + query.Encode(),
+		Header:       map[string]string{"Authorization": authorizationHeader},
+		ExpectStatus: http.StatusOK,
+	}.Check(t, h)
+
+	var data struct {
+		Token string `json:"token"`
+	}
+	err := json.Unmarshal(bodyBytes, &data)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	return data.Token
 }

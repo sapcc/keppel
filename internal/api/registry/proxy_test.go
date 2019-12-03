@@ -21,13 +21,8 @@ package registryv2
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"strconv"
@@ -45,13 +40,6 @@ import (
 	_ "github.com/sapcc/keppel/internal/orchestration/localprocesses"
 	"github.com/sapcc/keppel/internal/test"
 )
-
-const (
-	versionHeaderKey   = "Docker-Distribution-Api-Version"
-	versionHeaderValue = "registry/2.0"
-)
-
-var versionHeader = map[string]string{versionHeaderKey: versionHeaderValue}
 
 //It turns out that starting up a registry takes surprisingly long, so this
 //test bundles as many testcases as possible in one run to reduce the waiting.
@@ -130,8 +118,8 @@ func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver
 		Path:         "/v2/",
 		ExpectStatus: http.StatusUnauthorized,
 		ExpectHeader: map[string]string{
-			versionHeaderKey:   versionHeaderValue,
-			"Www-Authenticate": `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org"`,
+			test.VersionHeaderKey: test.VersionHeaderValue,
+			"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org"`,
 		},
 		ExpectBody: assert.JSONObject{
 			"errors": []assert.JSONObject{{
@@ -149,7 +137,7 @@ func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver
 		Path:         "/v2/",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusOK,
-		ExpectHeader: versionHeader,
+		ExpectHeader: test.VersionHeader,
 	}.Check(t, h)
 
 	if t.Failed() {
@@ -165,87 +153,9 @@ func testPullNonExistentTag(t *testing.T, h http.Handler, ad keppel.AuthDriver) 
 		Path:         "/v2/test1/foo/manifests/latest",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusNotFound,
-		ExpectHeader: versionHeader,
-		ExpectBody:   errorCode(keppel.ErrManifestUnknown),
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
 	}.Check(t, h)
-}
-
-type byteData []byte
-
-func (b byteData) GetRequestBody() (io.Reader, error) {
-	return bytes.NewReader([]byte(b)), nil
-}
-
-func testBlobUpload(t *testing.T, h http.Handler, token string, contentBytes []byte) (digest string) {
-	//initiate upload for the image config
-	resp, _ := assert.HTTPRequest{
-		Method:       "POST",
-		Path:         "/v2/test1/foo/blobs/uploads/",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusAccepted,
-		ExpectHeader: versionHeader,
-	}.Check(t, h)
-	if t.Failed() {
-		t.FailNow()
-	}
-	uploadPath := resp.Header.Get("Location")
-
-	//send config data
-	resp, _ = assert.HTTPRequest{
-		Method: "PATCH",
-		Path:   uploadPath,
-		Header: map[string]string{
-			"Authorization":  "Bearer " + token,
-			"Content-Length": fmt.Sprintf("%d", len(contentBytes)),
-			"Content-Range":  fmt.Sprintf("bytes=0-%d", len(contentBytes)),
-			"Content-Type":   "application/octet-stream",
-		},
-		Body:         byteData(contentBytes),
-		ExpectStatus: http.StatusAccepted,
-		ExpectHeader: versionHeader,
-	}.Check(t, h)
-	if t.Failed() {
-		t.FailNow()
-	}
-	uploadPath = resp.Header.Get("Location")
-
-	//finish config upload
-	query := url.Values{}
-	sha256Hash := sha256.Sum256(contentBytes)
-	sha256HashStr := hex.EncodeToString(sha256Hash[:])
-	query.Set("digest", "sha256:"+sha256HashStr)
-	resp, _ = assert.HTTPRequest{
-		Method: "PUT",
-		Path:   appendQuery(uploadPath, query),
-		Header: map[string]string{
-			"Authorization":  "Bearer " + token,
-			"Content-Length": "0",
-		},
-		ExpectStatus: http.StatusCreated,
-		ExpectHeader: versionHeader,
-	}.Check(t, h)
-	if t.Failed() {
-		t.FailNow()
-	}
-	layerPath := resp.Header.Get("Location")
-
-	//validate config upload
-	resp, _ = assert.HTTPRequest{
-		Method:       "HEAD",
-		Path:         layerPath,
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusOK,
-		ExpectHeader: versionHeader,
-	}.Check(t, h)
-	if t.Failed() {
-		t.FailNow()
-	}
-	assert.DeepEqual(t, "layer Content-Length",
-		resp.Header.Get("Content-Length"),
-		strconv.FormatUint(uint64(len(contentBytes)), 10),
-	)
-
-	return sha256HashStr
 }
 
 func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB, imageConfigJSON, dbContentsBeforeManifestPush, dbContentsAfterManifestPush string) {
@@ -260,7 +170,7 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *kep
 		t.Fatal(err.Error())
 	}
 	bodyBytes = bytes.TrimSpace(bodyBytes)
-	sha256HashStr := testBlobUpload(t, h, token, bodyBytes)
+	sha256HashStr := test.UploadBlobToRegistry(t, h, "test1/foo", token, bodyBytes)
 
 	easypg.AssertDBContent(t, db.DbMap.Db, dbContentsBeforeManifestPush)
 
@@ -285,7 +195,7 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *kep
 			},
 			Body:         manifestData,
 			ExpectStatus: http.StatusCreated,
-			ExpectHeader: versionHeader,
+			ExpectHeader: test.VersionHeader,
 		}.Check(t, h)
 		if t.Failed() {
 			t.FailNow()
@@ -300,7 +210,7 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *kep
 		Path:         "/v2/test1/foo/tags/list",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusOK,
-		ExpectHeader: versionHeader,
+		ExpectHeader: test.VersionHeader,
 		ExpectBody: assert.JSONObject{
 			"name": "test1/foo",
 			"tags": []string{"latest"},
@@ -319,8 +229,8 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *kep
 		},
 		ExpectStatus: http.StatusOK,
 		ExpectHeader: map[string]string{
-			versionHeaderKey: versionHeaderValue,
-			"Content-Type":   "application/vnd.docker.distribution.manifest.v2+json",
+			test.VersionHeaderKey: test.VersionHeaderValue,
+			"Content-Type":        "application/vnd.docker.distribution.manifest.v2+json",
 		},
 		ExpectBody: manifestData,
 	}.Check(t, h)
@@ -332,18 +242,11 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *kep
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusOK,
 		ExpectHeader: map[string]string{
-			versionHeaderKey: versionHeaderValue,
-			"Content-Type":   "application/octet-stream",
+			test.VersionHeaderKey: test.VersionHeaderValue,
+			"Content-Type":        "application/octet-stream",
 		},
 		ExpectBody: assert.JSONFixtureFile(imageConfigJSON),
 	}.Check(t, h)
-}
-
-func appendQuery(url string, query url.Values) string {
-	if strings.Contains(url, "?") {
-		return url + "&" + query.Encode()
-	}
-	return url + "?" + query.Encode()
 }
 
 func testPullExistingNotAllowed(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
@@ -356,8 +259,8 @@ func testPullExistingNotAllowed(t *testing.T, h http.Handler, ad keppel.AuthDriv
 		Path:         "/v2/test1/foo/manifests/latest",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusForbidden,
-		ExpectHeader: versionHeader,
-		ExpectBody:   errorCode(keppel.ErrDenied),
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 	}.Check(t, h)
 
 	//same if the token is for the wrong scope
@@ -368,8 +271,8 @@ func testPullExistingNotAllowed(t *testing.T, h http.Handler, ad keppel.AuthDriv
 		Path:         "/v2/test1/foo/manifests/latest",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusForbidden,
-		ExpectHeader: versionHeader,
-		ExpectBody:   errorCode(keppel.ErrDenied),
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 	}.Check(t, h)
 }
 
@@ -418,8 +321,8 @@ func testKillAndRestartRegistry(t *testing.T, h http.Handler, ad keppel.AuthDriv
 		Path:         "/v2/test1/doesnotexist/manifests/latest",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusNotFound,
-		ExpectHeader: versionHeader,
-		ExpectBody:   errorCode(keppel.ErrManifestUnknown),
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
 	}.Check(t, h)
 	assert.DeepEqual(t, "OrchestrationEngine state",
 		oe.ReportState(),
