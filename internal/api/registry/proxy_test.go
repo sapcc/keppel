@@ -106,6 +106,18 @@ func TestProxyAPI(t *testing.T) {
 		"fixtures/003-after-second-push.sql",
 	)
 	testPullExistingNotAllowed(t, r, ad)
+	testDeleteManifest(t, r, ad, db,
+		//the first manifest, which is not referenced by tags anymore
+		"sha256:86fa8722ca7f27e97e1bc5060c3f6720bf43840f143f813fcbe48ed4cbeebb90",
+		//like 003, but without that manifest
+		"fixtures/004-after-first-delete.sql",
+	)
+	testDeleteManifest(t, r, ad, db,
+		//the second manifest, which is referenced by the "latest" tag
+		"sha256:65147aad93781ff7377b8fb81dab153bd58ffe05b5dc00b67b3035fa9420d2de",
+		//no tags or manifests left, but repo is left over
+		"fixtures/005-after-second-delete.sql",
+	)
 
 	//run some additional testcases for the orchestration engine
 	testKillAndRestartRegistry(t, r, ad, od)
@@ -247,6 +259,19 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *kep
 		},
 		ExpectBody: assert.JSONFixtureFile(imageConfigJSON),
 	}.Check(t, h)
+}
+
+func testDeleteManifest(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB, digest, dbContentsAfterManifestDelete string) {
+	token := getToken(t, h, ad, "repository:test1/foo:delete",
+		keppel.CanDeleteFromAccount)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/v2/test1/foo/manifests/" + digest,
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusAccepted,
+		ExpectHeader: test.VersionHeader,
+	}.Check(t, h)
+	easypg.AssertDBContent(t, db.DbMap.Db, dbContentsAfterManifestDelete)
 }
 
 func testPullExistingNotAllowed(t *testing.T, h http.Handler, ad keppel.AuthDriver) {

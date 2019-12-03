@@ -49,6 +49,8 @@ health:
 storage:
 	cache:
 		blobdescriptor: inmemory
+	delete:
+		enabled: true
 compatibility:
 	schema1:
 		enabled: false

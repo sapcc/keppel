@@ -99,10 +99,14 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request) (accoun
 	scope := auth.Scope{
 		ResourceType: "repository",
 		ResourceName: fmt.Sprintf("%s/%s", vars["account"], vars["repository"]),
-		Actions:      []string{"pull", "push"},
 	}
-	if r.Method == "GET" || r.Method == "HEAD" {
+	switch r.Method {
+	case "DELETE":
+		scope.Actions = []string{"delete"}
+	case "GET", "HEAD":
 		scope.Actions = []string{"pull"}
+	default:
+		scope.Actions = []string{"pull", "push"}
 	}
 	token := a.requireBearerToken(w, r, &scope)
 	if token == nil {
