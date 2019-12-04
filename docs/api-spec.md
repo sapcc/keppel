@@ -19,6 +19,8 @@ This document uses the terminology defined in the [README.md](../README.md#termi
 - [GET /keppel/v1/accounts/:name](#get-keppelv1accountsname)
 - [PUT /keppel/v1/accounts/:name](#put-keppelv1accountsname)
 - [GET /keppel/v1/auth](#get-keppelv1auth)
+- [GET /keppel/v1/accounts/:name/repositories](#get-keppelv1accountsnamerepositories)
+- [GET /keppel/v1/accounts/:name/repositories/:name/manifests](#get-keppelv1accountsnamerepositoriesnamemanifests)
 
 ## GET /keppel/v1/accounts
 
@@ -105,6 +107,92 @@ as the response from the corresponding GET endpoint, except that:
 - `account.auth_tenant_id` may not be changed for existing accounts.
 
 On success, returns 200 and a JSON response body like from the corresponding GET endpoint.
+
+## GET /keppel/v1/accounts/:name/repositories
+
+Lists repositories within the account with the given name. On success, returns 200 and a JSON response body like this:
+
+```json
+{
+  "repositories": [
+    {
+      "name": "foo0001",
+      "manifest_count": 23,
+      "tag_count": 2
+    },
+    ...,
+    {
+      "name": "foo1000",
+      "manifest_count": 10,
+      "tag_count": 0
+    }
+  ],
+  "truncated": true
+}
+```
+
+The following fields may be returned:
+
+| Field | Type | Explanation |
+| ----- | ---- | ----------- |
+| `repositories[].name` | string | Name of this repository. |
+| `repositories[].manifest_count` | integer | Number of manifests that are stored in this repository. |
+| `repositories[].tag_count` | integer | Number of tags that exist in this repository. |
+| `truncated` | boolean | Indicates whether [marker-based pagination](#marker-based-pagination) must be used to retrieve the rest of the result. |
+
+### Marker-based pagination
+
+Because an account may contain a potentially large number of repos, the implementation may employ **marker-based
+pagination**. If the `.truncated` field is present and true, only a partial result is shown. The next page of results
+can be obtained by resending the GET request with the query parameter `marker` set to the name of the last repository in
+the current result list, for instance
+
+    GET /keppel/v1/accounts/$ACCOUNT_NAME/repositories?marker=foo1000
+
+for the example response shown above. The last page of results will have `truncated` omitted or set to false.
+
+## GET /keppel/v1/accounts/:name/repositories/:name/manifests
+
+Lists manifests (and, indirectly, tags) in the given repository in the given account. On success, returns 200 and a JSON
+response body like this:
+
+```json
+{
+  "manifests": [
+    {
+      "digest": "sha256:622cb3371c1a08096eaac564fb59acccda1fcdbe13a9dd10b486e6463c8c2525",
+      "media_type": "application/vnd.docker.distribution.manifest.v2+json",
+      "size_bytes": 10518718,
+      "pushed_at": 1575468024,
+      "tags": [
+        {
+          "name": "latest",
+          "pushed_at": 1575468024
+        }
+      ]
+    },
+    {
+      "digest": "sha256:5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
+      "size_bytes": 2791084,
+      "pushed_at": 1575467980
+    }
+  ]
+}
+```
+
+The following fields may be returned:
+
+| Field | Type | Explanation |
+| ----- | ---- | ----------- |
+| `manifests[].digest` | string | The canonical digest of this manifest. |
+| `manifests[].media_type` | string | The MIME type of the canonical form of this manifest. |
+| `manifests[].size_bytes` | integer | Total size of this manifest and all layers referenced by it in the backing storage. |
+| `manifests[].pushed_at` | UNIX timestamp | When this manifest was pushed into the registry. |
+| `manifests[].tags` | array | All tags that currently resolve to this manifest. |
+| `manifests[].tags[].name` | string | The name of this tag. |
+| `manifests[].tags[].pushed_at` | string | When this tag was last updated in the registry. |
+| `truncated` | boolean | Indicates whether [marker-based pagination](#marker-based-pagination) must be used to retrieve the rest of the result. |
 
 ## GET /keppel/v1/auth
 
