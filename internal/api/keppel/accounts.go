@@ -187,27 +187,8 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
-	authz, authErr := a.authDriver.AuthenticateUserFromRequest(r)
-	if respondWithAuthError(w, authErr) {
-		return
-	}
-
-	//get account from DB to find its AuthTenantID
-	accountName := mux.Vars(r)["account"]
-	account, err := a.db.FindAccount(accountName)
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-
-	//perform final authorization with that AuthTenantID
-	if account != nil && !authz.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
-		account = nil
-	}
-
-	//this returns 404 even if the real reason is lack of authorization in order
-	//to not leak information about which accounts exist for other tenants
+	account := a.authenticateAccountScopedRequest(w, r, keppel.CanViewAccount)
 	if account == nil {
-		http.Error(w, "no such account", 404)
 		return
 	}
 

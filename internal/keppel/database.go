@@ -155,3 +155,26 @@ func RollbackUnlessCommitted(tx *gorp.Transaction) {
 		logg.Error("implicit rollback failed: %s", err.Error())
 	}
 }
+
+//ForeachRow calls dbi.Query() with the given query and args, then executes the
+//given action one for every row in the result set. It then cleans up the
+//result set, and it handles any errors that occur during all of this.
+func ForeachRow(dbi gorp.SqlExecutor, query string, args []interface{}, action func(*sql.Rows) error) error {
+	rows, err := dbi.Query(query, args...)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		err = action(rows)
+		if err != nil {
+			rows.Close()
+			return err
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		rows.Close()
+		return err
+	}
+	return rows.Close()
+}

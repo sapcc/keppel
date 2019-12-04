@@ -22,6 +22,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -46,6 +47,8 @@ func (a *API) AddTo(r *mux.Router) {
 	r.Methods("GET").Path("/keppel/v1/accounts").HandlerFunc(a.handleGetAccounts)
 	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(a.handleGetAccount)
 	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(a.handlePutAccount)
+
+	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/repositories").HandlerFunc(a.handleGetRepositories)
 }
 
 func respondWithAuthError(w http.ResponseWriter, err *keppel.RegistryV2Error) bool {
@@ -55,4 +58,30 @@ func respondWithAuthError(w http.ResponseWriter, err *keppel.RegistryV2Error) bo
 	err.WriteAsTextTo(w)
 	w.Write([]byte("\n"))
 	return true
+}
+
+func (a *API) authenticateAccountScopedRequest(w http.ResponseWriter, r *http.Request, perm keppel.Permission) *keppel.Account {
+	authz, authErr := a.authDriver.AuthenticateUserFromRequest(r)
+	if respondWithAuthError(w, authErr) {
+		return nil
+	}
+
+	//get account from DB to find its AuthTenantID
+	accountName := mux.Vars(r)["account"]
+	account, err := a.db.FindAccount(accountName)
+	if respondwith.ErrorText(w, err) {
+		return nil
+	}
+
+	//perform final authorization with that AuthTenantID
+	if account != nil && !authz.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
+		account = nil
+	}
+
+	//this returns 404 even if the real reason is lack of authorization in order
+	//to not leak information about which accounts exist for other tenants
+	if account == nil {
+		http.Error(w, "no such account", 404)
+	}
+	return account
 }
