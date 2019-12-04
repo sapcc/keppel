@@ -154,6 +154,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		Digest:       manifestDesc.Digest.String(),
 		MediaType:    manifestDesc.MediaType,
 		SizeBytes:    sizeBytes,
+		PushedAt:     a.timeNow(),
 	}.InsertIfMissing(tx)
 	if respondwith.ErrorText(w, err) {
 		return
@@ -163,6 +164,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 			RepositoryID: repo.ID,
 			Name:         reference,
 			Digest:       manifestDesc.Digest.String(),
+			PushedAt:     a.timeNow(),
 		}.InsertIfMissing(tx)
 		if respondwith.ErrorText(w, err) {
 			return

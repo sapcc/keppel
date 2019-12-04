@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
@@ -37,11 +38,18 @@ type API struct {
 	cfg                 keppel.Configuration
 	orchestrationDriver keppel.OrchestrationDriver
 	db                  *keppel.DB
+	timeNow             func() time.Time //usually time.Now, but can be swapped out for unit tests
 }
 
 //NewAPI constructs a new API instance.
 func NewAPI(cfg keppel.Configuration, od keppel.OrchestrationDriver, db *keppel.DB) *API {
-	return &API{cfg, od, db}
+	return &API{cfg, od, db, time.Now}
+}
+
+//OverrideTimeNow replaces time.Now with a test double.
+func (a *API) OverrideTimeNow(timeNow func() time.Time) *API {
+	a.timeNow = timeNow
+	return a
 }
 
 //AddTo adds routes for this API to the given router.

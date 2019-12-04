@@ -89,35 +89,44 @@ func TestProxyAPI(t *testing.T) {
 	}()
 
 	//run the API testcases
+	clock := &test.Clock{}
 	r := mux.NewRouter()
-	NewAPI(cfg, od, db).AddTo(r)
+	NewAPI(cfg, od, db).OverrideTimeNow(clock.Now).AddTo(r)
 	authapi.NewAPI(cfg, ad, db).AddTo(r)
 
+	clock.Step()
 	testVersionCheckEndpoint(t, r, ad)
+	clock.Step()
 	testPullNonExistentTag(t, r, ad)
+	clock.Step()
 	testPushAndPull(t, r, ad, db,
 		"fixtures/example-docker-image-config.json",
 		"fixtures/001-before-push.sql",
 		"fixtures/002-after-push.sql",
 	)
+	clock.Step()
 	testPushAndPull(t, r, ad, db,
 		"fixtures/example-docker-image-config2.json",
 		"fixtures/002-after-push.sql",
 		"fixtures/003-after-second-push.sql",
 	)
+	clock.Step()
 	testPullExistingNotAllowed(t, r, ad)
+	clock.Step()
 	testDeleteManifest(t, r, ad, db,
 		//the first manifest, which is not referenced by tags anymore
 		"sha256:86fa8722ca7f27e97e1bc5060c3f6720bf43840f143f813fcbe48ed4cbeebb90",
 		//like 003, but without that manifest
 		"fixtures/004-after-first-delete.sql",
 	)
+	clock.Step()
 	testDeleteManifest(t, r, ad, db,
 		//the second manifest, which is referenced by the "latest" tag
 		"sha256:65147aad93781ff7377b8fb81dab153bd58ffe05b5dc00b67b3035fa9420d2de",
 		//no tags or manifests left, but repo is left over
 		"fixtures/005-after-second-delete.sql",
 	)
+	clock.Step()
 
 	//run some additional testcases for the orchestration engine
 	testKillAndRestartRegistry(t, r, ad, od)

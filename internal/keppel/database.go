@@ -93,6 +93,14 @@ var sqlMigrations = map[string]string{
 		DROP TABLE manifests;
 		DROP TABLE tags;
 	`,
+	"006_add_pushed_at_timestamps.up.sql": `
+		ALTER TABLE manifests ADD COLUMN pushed_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+		ALTER TABLE tags ADD COLUMN pushed_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+	`,
+	"006_add_pushed_at_timestamps.down.sql": `
+		ALTER TABLE manifests DROP COLUMN pushed_at;
+		ALTER TABLE tags DROP COLUMN pushed_at;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.
