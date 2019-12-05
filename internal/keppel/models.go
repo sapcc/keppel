@@ -153,16 +153,23 @@ type Repository struct {
 //FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a
 //Repository record when none exists yet.
 func (db *DB) FindOrCreateRepository(name string, account Account) (*Repository, error) {
-	var repo Repository
-	err := db.SelectOne(&repo,
-		"SELECT * FROM repos WHERE account_name = $1 AND name = $2", account.Name, name)
+	repo, err := db.FindRepository(name, account)
 	if err == sql.ErrNoRows {
-		repo = Repository{
+		repo = &Repository{
 			AccountName: account.Name,
 			Name:        name,
 		}
-		err = db.Insert(&repo)
+		err = db.Insert(repo)
 	}
+	return repo, err
+}
+
+//FindRepository is a convenience wrapper around db.SelectOne(). If the
+//repository in question does not exist, sql.ErrNoRows is returned.
+func (db *DB) FindRepository(name string, account Account) (*Repository, error) {
+	var repo Repository
+	err := db.SelectOne(&repo,
+		"SELECT * FROM repos WHERE account_name = $1 AND name = $2", account.Name, name)
 	return &repo, err
 }
 

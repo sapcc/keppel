@@ -20,7 +20,7 @@ This document uses the terminology defined in the [README.md](../README.md#termi
 - [PUT /keppel/v1/accounts/:name](#put-keppelv1accountsname)
 - [GET /keppel/v1/auth](#get-keppelv1auth)
 - [GET /keppel/v1/accounts/:name/repositories](#get-keppelv1accountsnamerepositories)
-- [GET /keppel/v1/accounts/:name/repositories/:name/manifests](#get-keppelv1accountsnamerepositoriesnamemanifests)
+- [GET /keppel/v1/accounts/:name/repositories/:name/\_manifests](#get-keppelv1accountsnamerepositoriesnamemanifests)
 
 ## GET /keppel/v1/accounts
 
@@ -151,7 +151,9 @@ the current result list, for instance
 
 for the example response shown above. The last page of results will have `truncated` omitted or set to false.
 
-## GET /keppel/v1/accounts/:name/repositories/:name/manifests
+## GET /keppel/v1/accounts/:name/repositories/:name/\_manifests
+
+*Note the underscore in the last path element. Since repository names may contain slashes themselves, the underscore is necessary to distinguish the reserved word `_manifests` from a path component in the repository name.*
 
 Lists manifests (and, indirectly, tags) in the given repository in the given account. On success, returns 200 and a JSON
 response body like this:

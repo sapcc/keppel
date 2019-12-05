@@ -31,19 +31,31 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
+func mustInsert(t *testing.T, db *keppel.DB, obj interface{}) {
+	t.Helper()
+	err := db.Insert(obj)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+}
+
+func deterministicDummyDigest(counter int) string {
+	hash := sha256.Sum256(bytes.Repeat([]byte{1}, counter))
+	return "sha256:" + hex.EncodeToString(hash[:])
+}
+
 func TestReposAPI(t *testing.T) {
 	h, _, _, _, db := setup(t)
 
 	//setup two test accounts
-	for idx := 1; idx <= 2; idx++ {
-		err := db.Insert(&keppel.Account{
-			Name:         fmt.Sprintf("test%d", idx),
-			AuthTenantID: fmt.Sprintf("tenant%d", idx),
-		})
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-	}
+	mustInsert(t, db, &keppel.Account{
+		Name:         "test1",
+		AuthTenantID: "tenant1",
+	})
+	mustInsert(t, db, &keppel.Account{
+		Name:         "test2",
+		AuthTenantID: "tenant2",
+	})
 
 	//test empty result
 	assert.HTTPRequest{
@@ -59,47 +71,34 @@ func TestReposAPI(t *testing.T) {
 	//setup five repos in each account (the `test2` account only exists to
 	//validate that we don't accidentally list its repos as well)
 	for idx := 1; idx <= 5; idx++ {
-		err := db.Insert(&keppel.Repository{
+		mustInsert(t, db, &keppel.Repository{
 			Name:        fmt.Sprintf("repo1-%d", idx),
 			AccountName: "test1",
 		})
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		err = db.Insert(&keppel.Repository{
+		mustInsert(t, db, &keppel.Repository{
 			Name:        fmt.Sprintf("repo2-%d", idx),
 			AccountName: "test2",
 		})
-		if err != nil {
-			t.Fatal(err.Error())
-		}
 	}
 
 	//insert some dummy manifests and tags into one of the repos to check the
 	//manifest/tag counting
 	for idx := 1; idx <= 10; idx++ {
-		hash := sha256.Sum256(bytes.Repeat([]byte{1}, idx))
-		digest := "sha256:" + hex.EncodeToString(hash[:])
-		err := db.Insert(&keppel.Manifest{
+		digest := deterministicDummyDigest(idx)
+		mustInsert(t, db, &keppel.Manifest{
 			RepositoryID: 5, //repo1-3
 			Digest:       digest,
 			MediaType:    "",
 			SizeBytes:    uint64(1000 * idx),
 			PushedAt:     time.Now(),
 		})
-		if err != nil {
-			t.Fatal(err.Error())
-		}
 		if idx <= 3 {
-			err = db.Insert(&keppel.Tag{
+			mustInsert(t, db, &keppel.Tag{
 				RepositoryID: 5, //repo1-3
 				Name:         fmt.Sprintf("tag%d", idx),
 				Digest:       digest,
 				PushedAt:     time.Now(),
 			})
-			if err != nil {
-				t.Fatal(err.Error())
-			}
 		}
 	}
 
@@ -150,5 +149,27 @@ func TestReposAPI(t *testing.T) {
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
 		ExpectStatus: http.StatusOK,
 		ExpectBody:   assert.JSONObject{"repositories": renderedRepos[2:5]},
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts/test1/repositories?limit=3&marker=repo1-5",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: http.StatusOK,
+		ExpectBody:   assert.JSONObject{"repositories": []assert.JSONObject{}},
+	}.Check(t, h)
+
+	//test failure cases
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts/doesnotexist/repositories",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: http.StatusNotFound,
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts/test1/repositories?limit=foo",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: http.StatusBadRequest,
+		ExpectBody:   assert.StringData("strconv.ParseUint: parsing \"foo\": invalid syntax\n"),
 	}.Check(t, h)
 }
