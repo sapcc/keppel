@@ -58,7 +58,7 @@ func (a *API) handleGetRepositories(w http.ResponseWriter, r *http.Request) {
 	if marker == "" {
 		query = strings.Replace(query, `$CONDITION`, `TRUE`, 1)
 	} else {
-		query = strings.Replace(query, `$CONDITION`, `marker = $2`, 1)
+		query = strings.Replace(query, `$CONDITION`, `name > $2`, 1)
 		bindValues = append(bindValues, marker)
 	}
 
