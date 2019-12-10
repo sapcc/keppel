@@ -118,13 +118,17 @@ Lists repositories within the account with the given name. On success, returns 2
     {
       "name": "foo0001",
       "manifest_count": 23,
-      "tag_count": 2
+      "tag_count": 2,
+      "size_bytes": 103876423,
+      "pushed_at": 1575467980
     },
     ...,
     {
       "name": "foo1000",
       "manifest_count": 10,
-      "tag_count": 0
+      "tag_count": 0,
+      "size_bytes": 29862877,
+      "pushed_at": 1575468024
     }
   ],
   "truncated": true
@@ -138,6 +142,8 @@ The following fields may be returned:
 | `repositories[].name` | string | Name of this repository. |
 | `repositories[].manifest_count` | integer | Number of manifests that are stored in this repository. |
 | `repositories[].tag_count` | integer | Number of tags that exist in this repository. |
+| `repositories[].size_bytes` | integer | Sum of all manifests in this repository and layers referenced therein. This may be higher than the actual storage usage because layer sharing is not considered in this sum. |
+| `repositories[].pushed_at` | UNIX timestamp | When a manifest was pushed into the registry most recently. |
 | `truncated` | boolean | Indicates whether [marker-based pagination](#marker-based-pagination) must be used to retrieve the rest of the result. |
 
 ### Marker-based pagination

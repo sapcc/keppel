@@ -90,14 +90,14 @@ func TestReposAPI(t *testing.T) {
 			Digest:       digest,
 			MediaType:    "",
 			SizeBytes:    uint64(1000 * idx),
-			PushedAt:     time.Now(),
+			PushedAt:     time.Unix(int64(10000+10*idx), 0),
 		})
 		if idx <= 3 {
 			mustInsert(t, db, &keppel.Tag{
 				RepositoryID: 5, //repo1-3
 				Name:         fmt.Sprintf("tag%d", idx),
 				Digest:       digest,
-				PushedAt:     time.Now(),
+				PushedAt:     time.Unix(int64(20000+10*idx), 0),
 			})
 		}
 	}
@@ -106,7 +106,7 @@ func TestReposAPI(t *testing.T) {
 	renderedRepos := []assert.JSONObject{
 		{"name": "repo1-1", "manifest_count": 0, "tag_count": 0},
 		{"name": "repo1-2", "manifest_count": 0, "tag_count": 0},
-		{"name": "repo1-3", "manifest_count": 10, "tag_count": 3},
+		{"name": "repo1-3", "manifest_count": 10, "tag_count": 3, "size_bytes": 55000, "pushed_at": 20030},
 		{"name": "repo1-4", "manifest_count": 0, "tag_count": 0},
 		{"name": "repo1-5", "manifest_count": 0, "tag_count": 0},
 	}

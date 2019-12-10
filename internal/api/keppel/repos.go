@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -34,13 +35,28 @@ type Repository struct {
 	Name          string `json:"name"`
 	ManifestCount uint64 `json:"manifest_count"`
 	TagCount      uint64 `json:"tag_count"`
+	SizeBytes     uint64 `json:"size_bytes,omitempty"`
+	PushedAt      int64  `json:"pushed_at,omitempty"`
 }
 
 var repositoryGetQuery = `
+	WITH
+		manifest_stats AS (
+			SELECT repo_id, COUNT(*) AS count, SUM(size_bytes) AS size_bytes, MAX(pushed_at) AS pushed_at
+			  FROM manifests
+			 GROUP BY repo_id
+		),
+		tag_stats AS (
+			SELECT repo_id, COUNT(*) AS count, MAX(pushed_at) AS pushed_at
+			  FROM tags
+			 GROUP BY repo_id
+		)
 	SELECT r.name,
-	       (SELECT COUNT(*) FROM manifests WHERE repo_id = r.id),
-	       (SELECT COUNT(*) FROM tags WHERE repo_id = r.id)
+	       ms.count, ms.size_bytes, ms.pushed_at,
+	       ts.count, ts.pushed_at
 	  FROM repos r
+	  LEFT OUTER JOIN manifest_stats ms ON r.id = ms.repo_id
+	  LEFT OUTER JOIN tag_stats      ts ON r.id = ts.repo_id
 	 WHERE r.account_name = $1 AND $CONDITION
 	 ORDER BY name ASC
 	 LIMIT $LIMIT
@@ -68,10 +84,27 @@ func (a *API) handleGetRepositories(w http.ResponseWriter, r *http.Request) {
 		IsTruncated bool         `json:"truncated,omitempty"`
 	}
 	err = keppel.ForeachRow(a.db, query, bindValues, func(rows *sql.Rows) error {
-		var r Repository
-		err := rows.Scan(&r.Name, &r.ManifestCount, &r.TagCount)
+		var (
+			name                string
+			manifestCount       *uint64
+			maxManifestPushedAt *time.Time
+			sizeBytes           *uint64
+			tagCount            *uint64
+			maxTagPushedAt      *time.Time
+		)
+		err := rows.Scan(
+			&name,
+			&manifestCount, &sizeBytes, &maxManifestPushedAt,
+			&tagCount, &maxTagPushedAt,
+		)
 		if err == nil {
-			result.Repos = append(result.Repos, r)
+			result.Repos = append(result.Repos, Repository{
+				Name:          name,
+				ManifestCount: unpackUint64OrZero(manifestCount),
+				TagCount:      unpackUint64OrZero(tagCount),
+				SizeBytes:     unpackUint64OrZero(sizeBytes),
+				PushedAt:      maxTimeToUnix(maxTagPushedAt, maxManifestPushedAt),
+			})
 		}
 		return err
 	})
@@ -87,6 +120,28 @@ func (a *API) handleGetRepositories(w http.ResponseWriter, r *http.Request) {
 		result.IsTruncated = true
 	}
 	respondwith.JSON(w, http.StatusOK, result)
+}
+
+func unpackUint64OrZero(x *uint64) uint64 {
+	if x == nil {
+		return 0
+	}
+	return *x
+}
+
+//Returns the Unix timestamp corresponding to the later of the input times (or
+//0 if both are nil).
+func maxTimeToUnix(x, y *time.Time) int64 {
+	val := int64(0)
+	if x != nil {
+		val = x.Unix()
+	}
+	if y != nil {
+		if val < y.Unix() {
+			val = y.Unix()
+		}
+	}
+	return val
 }
 
 type paginatedQuery struct {
