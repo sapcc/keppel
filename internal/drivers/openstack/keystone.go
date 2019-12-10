@@ -59,12 +59,7 @@ func init() {
 			return nil, errors.New("cannot find OpenStack credentials: " + err.Error())
 		}
 		ao.AllowReauth = true
-		provider, err := openstack.NewClient(ao.IdentityEndpoint)
-		if err == nil {
-			//use http.DefaultClient, esp. to pick up the KEPPEL_INSECURE flag
-			provider.HTTPClient = *http.DefaultClient
-			err = openstack.Authenticate(provider, *ao)
-		}
+		provider, err := createProviderClient(*ao)
 		if err != nil {
 			return nil, errors.New("cannot connect to OpenStack: " + err.Error())
 		}
@@ -112,6 +107,16 @@ func init() {
 			LocalRoleID:    localRole.ID,
 		}, nil
 	})
+}
+
+func createProviderClient(ao gophercloud.AuthOptions) (*gophercloud.ProviderClient, error) {
+	provider, err := openstack.NewClient(ao.IdentityEndpoint)
+	if err == nil {
+		//use http.DefaultClient, esp. to pick up the KEPPEL_INSECURE flag
+		provider.HTTPClient = *http.DefaultClient
+		err = openstack.Authenticate(provider, ao)
+	}
+	return provider, err
 }
 
 func getRoleByName(identityV3 *gophercloud.ServiceClient, name string) (roles.Role, error) {
@@ -178,21 +183,21 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Aut
 			ProjectName: match[3],
 			DomainName:  match[4],
 		},
+		AllowReauth: false,
 	}
 	if authOpts.Scope.DomainName == "" {
 		authOpts.Scope.DomainName = authOpts.DomainName
 	}
 
-	//use a fresh ServiceClient for tokens.Create(): otherwise, a 401 is going to
-	//confuse Gophercloud and make it refresh our own token although that's not
-	//the problem
-	client := *d.IdentityV3
-	client.TokenID = ""
-	client.EndpointLocator = nil
-	client.ReauthFunc = nil
+	provider, err := createProviderClient(authOpts)
+	if err != nil {
+		return nil, keppel.ErrUnauthorized.With(
+			"failed to get token for user %q: %s",
+			userName, err.Error(),
+		)
+	}
 
-	result := tokens.Create(&client, &authOpts)
-	t := d.TokenValidator.TokenFromGophercloudResult(result)
+	t := d.TokenValidator.TokenFromGophercloudResult(provider.GetAuthResult().(tokens.CreateResult))
 	if t.Err != nil {
 		return nil, keppel.ErrUnauthorized.With(
 			"failed to get token for user %q: %s",
