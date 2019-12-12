@@ -21,6 +21,7 @@ package auth
 import (
 	"crypto/ecdsa"
 	"crypto/rsa"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -29,6 +30,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/docker/libtrust"
 	"github.com/sapcc/keppel/internal/keppel"
+	uuid "github.com/satori/go.uuid"
 )
 
 //Token represents a JWT (Java Web Token), as used for authenticating on the
@@ -142,4 +144,53 @@ func equalSigningMethods(m1, m2 jwt.SigningMethod) bool {
 	default:
 		panic(fmt.Sprintf("do not know how to compare signing methods of type %T", m1))
 	}
+}
+
+//IssuedToken is returned by Token.Issue().
+type IssuedToken struct {
+	SignedToken string
+	IssuedAt    time.Time
+	ExpiresAt   time.Time
+}
+
+//Issue generates a JWT for this Token instance.
+func (t Token) Issue(cfg keppel.Configuration) (*IssuedToken, error) {
+	now := time.Now()
+	expiresIn := 1 * time.Hour //NOTE: could be made configurable if the need arises
+	expiresAt := now.Add(expiresIn)
+
+	issuerKey := cfg.JWTIssuerKey
+	method := ChooseSigningMethod(issuerKey)
+
+	publicHost := cfg.APIPublicHostname()
+	token := jwt.NewWithClaims(method, TokenClaims{
+		StandardClaims: jwt.StandardClaims{
+			Id:        uuid.NewV4().String(),
+			Audience:  t.Audience,
+			Issuer:    "keppel-api@" + publicHost,
+			Subject:   t.UserName,
+			ExpiresAt: expiresAt.Unix(),
+			NotBefore: now.Unix(),
+			IssuedAt:  now.Unix(),
+		},
+		//access permissions granted to this token
+		Access: t.Access,
+	})
+
+	var (
+		jwkMessage json.RawMessage
+		err        error
+	)
+	jwkMessage, err = cfg.JWTIssuerKey.PublicKey().MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	token.Header["jwk"] = &jwkMessage
+
+	signed, err := token.SignedString(issuerKey.CryptoPrivateKey())
+	return &IssuedToken{
+		SignedToken: signed,
+		ExpiresAt:   expiresAt,
+		IssuedAt:    now,
+	}, err
 }
