@@ -19,13 +19,13 @@
 package keppelv1
 
 import (
-	"database/sql"
+	"fmt"
 	"net/http"
-	"regexp"
-	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/respondwith"
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -59,22 +59,12 @@ var tagGetQuery = `
 `
 
 func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
-	account := a.authenticateAccountScopedRequest(w, r, keppel.CanViewAccount)
+	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanViewAccount)
 	if account == nil {
 		return
 	}
-
-	repoName := mux.Vars(r)["repo_name"]
-	if !isValidRepoName(repoName) {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
-	}
-	repo, err := a.db.FindRepository(repoName, *account)
-	if err == sql.ErrNoRows {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
-	}
-	if respondwith.ErrorText(w, err) {
+	repo := a.findRepositoryFromRequest(w, r, *account)
+	if repo == nil {
 		return
 	}
 
@@ -137,16 +127,79 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, result)
 }
 
-var repoPathComponentRx = regexp.MustCompile(`^[a-z0-9]+(?:[._-][a-z0-9]+)*$`)
+func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
+	account, authz := a.authenticateAccountScopedRequest(w, r, keppel.CanDeleteFromAccount)
+	if account == nil {
+		return
+	}
+	repo := a.findRepositoryFromRequest(w, r, *account)
+	if repo == nil {
+		return
+	}
+	digest, err := digest.Parse(mux.Vars(r)["digest"])
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
 
-func isValidRepoName(name string) bool {
-	if name == "" {
-		return false
+	//prepare deletion of database entries on our side, so that we only have to
+	//commit the transaction once the backend DELETE is successful
+	tx, err := a.db.Begin()
+	if respondwith.ErrorText(w, err) {
+		return
 	}
-	for _, pathComponent := range strings.Split(name, `/`) {
-		if !repoPathComponentRx.MatchString(pathComponent) {
-			return false
-		}
+	defer keppel.RollbackUnlessCommitted(tx)
+	result, err := a.db.Exec(
+		//this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
+		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
+		repo.ID, digest)
+	if respondwith.ErrorText(w, err) {
+		return
 	}
-	return true
+	rowsDeleted, err := result.RowsAffected()
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	if rowsDeleted == 0 {
+		keppel.ErrManifestUnknown.With("no such manifest").WriteAsRegistryV2ResponseTo(w)
+		return
+	}
+
+	//DELETE the manifest in the backend
+	tokenForBackend, err := auth.Token{
+		UserName: authz.UserName(),
+		Audience: a.cfg.APIPublicHostname(),
+		Access: []auth.Scope{{
+			ResourceType: "repository",
+			ResourceName: repo.FullName(),
+			Actions:      []string{"delete"},
+		}},
+	}.Issue(a.cfg)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	reqPath := fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), digest)
+	req, err := http.NewRequest("DELETE", reqPath, nil)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+tokenForBackend.SignedToken)
+	resp, err := a.orchDriver.DoHTTPRequest(*account, req, keppel.FollowRedirects)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	if resp.StatusCode != http.StatusAccepted {
+		msg := fmt.Sprintf(
+			"expected backend request to return status code %d, got %s instead",
+			http.StatusAccepted, resp.Status,
+		)
+		http.Error(w, msg, http.StatusInternalServerError)
+		return
+	}
+
+	err = tx.Commit()
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

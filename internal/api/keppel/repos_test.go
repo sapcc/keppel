@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -45,7 +46,7 @@ func deterministicDummyDigest(counter int) string {
 }
 
 func TestReposAPI(t *testing.T) {
-	h, _, _, _, db := setup(t)
+	h, _, _, _, _, db := setup(t)
 
 	//setup two test accounts
 	mustInsert(t, db, &keppel.Account{
@@ -102,7 +103,7 @@ func TestReposAPI(t *testing.T) {
 		}
 	}
 
-	//test result without pagination
+	//test GET without pagination
 	renderedRepos := []assert.JSONObject{
 		{"name": "repo1-1", "manifest_count": 0, "tag_count": 0},
 		{"name": "repo1-2", "manifest_count": 0, "tag_count": 0},
@@ -125,7 +126,7 @@ func TestReposAPI(t *testing.T) {
 		ExpectBody:   assert.JSONObject{"repositories": renderedRepos},
 	}.Check(t, h)
 
-	//test result with pagination
+	//test GET with pagination
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/test1/repositories?limit=3",
@@ -158,7 +159,7 @@ func TestReposAPI(t *testing.T) {
 		ExpectBody:   assert.JSONObject{"repositories": []assert.JSONObject{}},
 	}.Check(t, h)
 
-	//test failure cases
+	//test GET failure cases
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/doesnotexist/repositories",
@@ -171,5 +172,48 @@ func TestReposAPI(t *testing.T) {
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
 		ExpectStatus: http.StatusBadRequest,
 		ExpectBody:   assert.StringData("strconv.ParseUint: parsing \"foo\": invalid syntax\n"),
+	}.Check(t, h)
+
+	//test DELETE happy case
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/before-delete-repo.sql")
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1",
+		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
+		ExpectStatus: http.StatusNoContent,
+	}.Check(t, h)
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/after-delete-repo.sql")
+
+	//test DELETE failure cases
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test2/repositories/repo2-1",
+		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
+		ExpectStatus: http.StatusNotFound,
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1/repositories/repo1-2",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: http.StatusForbidden,
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/doesnotexist/repositories/repo1-2",
+		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
+		ExpectStatus: http.StatusNotFound,
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1/repositories/doesnotexist",
+		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
+		ExpectStatus: http.StatusNotFound,
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1/repositories/repo1-3",
+		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
+		ExpectStatus: http.StatusConflict,
+		ExpectBody:   assert.StringData("cannot delete repository while there are still manifests in it\n"),
 	}.Check(t, h)
 }

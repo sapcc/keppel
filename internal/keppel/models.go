@@ -173,6 +173,11 @@ func (db *DB) FindRepository(name string, account Account) (*Repository, error) 
 	return &repo, err
 }
 
+//FullName prepends the account name to the repository name.
+func (r Repository) FullName() string {
+	return r.AccountName + `/` + r.Name
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 //Manifest contains a record from the `manifests` table.

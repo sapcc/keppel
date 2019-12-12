@@ -25,11 +25,12 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
 func TestManifestsAPI(t *testing.T) {
-	h, _, _, _, db := setup(t)
+	h, _, _, _, brm, db := setup(t)
 
 	//setup two test accounts
 	mustInsert(t, db, &keppel.Account{
@@ -110,7 +111,7 @@ func TestManifestsAPI(t *testing.T) {
 		return renderedManifests[i]["digest"].(string) < renderedManifests[j]["digest"].(string)
 	})
 
-	//test result without pagination
+	//test GET without pagination
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests",
@@ -126,7 +127,7 @@ func TestManifestsAPI(t *testing.T) {
 		ExpectBody:   assert.JSONObject{"manifests": renderedManifests},
 	}.Check(t, h)
 
-	//test result with pagination
+	//test GET with pagination
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=5",
@@ -160,7 +161,7 @@ func TestManifestsAPI(t *testing.T) {
 		}.Check(t, h)
 	}
 
-	//test failure cases
+	//test GET failure cases
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/doesnotexist/repositories/repo1-1/_manifests",
@@ -179,5 +180,67 @@ func TestManifestsAPI(t *testing.T) {
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
 		ExpectStatus: http.StatusBadRequest,
 		ExpectBody:   assert.StringData("strconv.ParseUint: parsing \"foo\": invalid syntax\n"),
+	}.Check(t, h)
+
+	//test DELETE happy case
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/before-delete-manifest.sql")
+	expectedBackendRequest := []backendRequest{{
+		AccountName: "test1",
+		Method:      "DELETE",
+		Path:        "/v2/test1/repo1-1/manifests/" + deterministicDummyDigest(11),
+		Status:      http.StatusAccepted,
+	}}
+	brm.ExpectActionToMakeBackendRequests(t, expectedBackendRequest, func() {
+		assert.HTTPRequest{
+			Method:       "DELETE",
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11),
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
+			ExpectStatus: http.StatusNoContent,
+		}.Check(t, h)
+	})
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/after-delete-manifest.sql")
+
+	//test DELETE failure cases
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test2/repositories/repo2-1/_manifests/" + deterministicDummyDigest(31),
+		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
+		ExpectStatus: http.StatusNotFound,
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1/repositories/repo1-2/_manifests/" + deterministicDummyDigest(21),
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: http.StatusForbidden,
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/doesnotexist/repositories/repo1-2/_manifests/" + deterministicDummyDigest(11),
+		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
+		ExpectStatus: http.StatusNotFound,
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1/repositories/doesnotexist/_manifests/" + deterministicDummyDigest(11),
+		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
+		ExpectStatus: http.StatusNotFound,
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11),
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
+		ExpectStatus: http.StatusNotFound,
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/second",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
+		ExpectStatus: http.StatusNotFound,
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/sha256:12345",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
+		ExpectStatus: http.StatusNotFound,
 	}.Check(t, h)
 }

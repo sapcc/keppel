@@ -187,7 +187,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
-	account := a.authenticateAccountScopedRequest(w, r, keppel.CanViewAccount)
+	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanViewAccount)
 	if account == nil {
 		return
 	}

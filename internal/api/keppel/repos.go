@@ -21,9 +21,6 @@ package keppelv1
 import (
 	"database/sql"
 	"net/http"
-	"net/url"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/sapcc/go-bits/respondwith"
@@ -63,7 +60,7 @@ var repositoryGetQuery = `
 `
 
 func (a *API) handleGetRepositories(w http.ResponseWriter, r *http.Request) {
-	account := a.authenticateAccountScopedRequest(w, r, keppel.CanViewAccount)
+	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanViewAccount)
 	if account == nil {
 		return
 	}
@@ -144,35 +141,43 @@ func maxTimeToUnix(x, y *time.Time) int64 {
 	return val
 }
 
-type paginatedQuery struct {
-	SQL         string
-	MarkerField string
-	Options     url.Values
-	BindValues  []interface{}
-}
-
-func (q paginatedQuery) Prepare() (modifiedSQLQuery string, modifiedBindValues []interface{}, limit uint64, err error) {
-	//hidden feature: allow lowering the default limit with ?limit= (we only
-	//really use this for the unit tests)
-	limit = uint64(1000)
-	if limitStr := q.Options.Get("limit"); limitStr != "" {
-		limitVal, err := strconv.ParseUint(limitStr, 10, 64)
-		if err != nil {
-			return "", nil, 0, err
-		}
-		if limitVal < limit { //never allow more than 1000 results at once
-			limit = limitVal
-		}
+func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
+	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanDeleteFromAccount)
+	if account == nil {
+		return
 	}
-	//fetch one more than `limit`: otherwise we cannot distinguish between a
-	//truncated 1000-row result and a non-truncated 1000-row result
-	query := strings.Replace(q.SQL, `$LIMIT`, strconv.FormatUint(limit+1, 10), 1)
-
-	marker := q.Options.Get("marker")
-	if marker == "" {
-		query = strings.Replace(query, `$CONDITION`, `TRUE`, 1)
-		return query, q.BindValues, limit, nil
+	repo := a.findRepositoryFromRequest(w, r, *account)
+	if repo == nil {
+		return
 	}
-	query = strings.Replace(query, `$CONDITION`, q.MarkerField+` > $2`, 1)
-	return query, append(q.BindValues, marker), limit, nil
+
+	tx, err := a.db.Begin()
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	defer keppel.RollbackUnlessCommitted(tx)
+
+	//deleting a repo is only allowed if there is nothing in it
+	manifestCount, err := tx.SelectInt(
+		`SELECT COUNT(*) FROM manifests WHERE repo_id = $1`,
+		repo.ID,
+	)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	if manifestCount > 0 {
+		msg := "cannot delete repository while there are still manifests in it"
+		http.Error(w, msg, http.StatusConflict)
+		return
+	}
+
+	_, err = tx.Delete(repo)
+	if err == nil {
+		err = tx.Commit()
+	}
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

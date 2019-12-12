@@ -18,9 +18,11 @@ This document uses the terminology defined in the [README.md](../README.md#termi
 - [GET /keppel/v1/accounts](#get-keppelv1accounts)
 - [GET /keppel/v1/accounts/:name](#get-keppelv1accountsname)
 - [PUT /keppel/v1/accounts/:name](#put-keppelv1accountsname)
-- [GET /keppel/v1/auth](#get-keppelv1auth)
 - [GET /keppel/v1/accounts/:name/repositories](#get-keppelv1accountsnamerepositories)
+- [DELETE /keppel/v1/accounts/:name/repositories/:name](#delete-keppelv1accountsnamerepositoriesname)
 - [GET /keppel/v1/accounts/:name/repositories/:name/\_manifests](#get-keppelv1accountsnamerepositoriesnamemanifests)
+- [DELETE /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest](#delete-keppelv1accountsnamerepositoriesnamemanifestsdigest)
+- [GET /keppel/v1/auth](#get-keppelv1auth)
 
 ## GET /keppel/v1/accounts
 
@@ -157,6 +159,13 @@ the current result list, for instance
 
 for the example response shown above. The last page of results will have `truncated` omitted or set to false.
 
+## DELETE /keppel/v1/accounts/:name/repositories/:name
+
+Deletes the specified repository and all manifests in it. Returns 204 (No Content) on success.
+
+Returns 409 (Conflict) if the repository still contains manifests. All manifests in the repository must be deleted
+before the repository can be deleted.
+
 ## GET /keppel/v1/accounts/:name/repositories/:name/\_manifests
 
 *Note the underscore in the last path element. Since repository names may contain slashes themselves, the underscore is necessary to distinguish the reserved word `_manifests` from a path component in the repository name.*
@@ -201,6 +210,11 @@ The following fields may be returned:
 | `manifests[].tags[].name` | string | The name of this tag. |
 | `manifests[].tags[].pushed_at` | string | When this tag was last updated in the registry. |
 | `truncated` | boolean | Indicates whether [marker-based pagination](#marker-based-pagination) must be used to retrieve the rest of the result. |
+
+## DELETE /keppel/v1/accounts/:name/repositories/:name/_manifests/:digest
+
+Deletes the specified manifest and all tags pointing to it. Returns 204 (No Content) on success.
+The digest that identifies the manifest must be that manifest's canonical digest, otherwise 404 is returned.
 
 ## GET /keppel/v1/auth
 
