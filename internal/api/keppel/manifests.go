@@ -102,26 +102,30 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	//since results were retrieved in sorted order, we know that for each
-	//manifest in the result set, its digest is >= the first digest and <= the
-	//last digest
-	firstDigest := result.Manifests[0].Digest
-	lastDigest := result.Manifests[len(result.Manifests)-1].Digest
-	var dbTags []keppel.Tag
-	_, err = a.db.Select(&dbTags, tagGetQuery, repo.ID, firstDigest, lastDigest)
-	if respondwith.ErrorText(w, err) {
-		return
-	}
+	if len(result.Manifests) == 0 {
+		result.Manifests = []*Manifest{}
+	} else {
+		//since results were retrieved in sorted order, we know that for each
+		//manifest in the result set, its digest is >= the first digest and <= the
+		//last digest
+		firstDigest := result.Manifests[0].Digest
+		lastDigest := result.Manifests[len(result.Manifests)-1].Digest
+		var dbTags []keppel.Tag
+		_, err = a.db.Select(&dbTags, tagGetQuery, repo.ID, firstDigest, lastDigest)
+		if respondwith.ErrorText(w, err) {
+			return
+		}
 
-	tagsByDigest := make(map[string][]Tag)
-	for _, dbTag := range dbTags {
-		tagsByDigest[dbTag.Digest] = append(tagsByDigest[dbTag.Digest], Tag{
-			Name:     dbTag.Name,
-			PushedAt: dbTag.PushedAt.Unix(),
-		})
-	}
-	for _, manifest := range result.Manifests {
-		manifest.Tags = tagsByDigest[manifest.Digest]
+		tagsByDigest := make(map[string][]Tag)
+		for _, dbTag := range dbTags {
+			tagsByDigest[dbTag.Digest] = append(tagsByDigest[dbTag.Digest], Tag{
+				Name:     dbTag.Name,
+				PushedAt: dbTag.PushedAt.Unix(),
+			})
+		}
+		for _, manifest := range result.Manifests {
+			manifest.Tags = tagsByDigest[manifest.Digest]
+		}
 	}
 
 	respondwith.JSON(w, http.StatusOK, result)

@@ -57,6 +57,15 @@ func TestManifestsAPI(t *testing.T) {
 		AccountName: "test2",
 	})
 
+	//test empty GET
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: http.StatusOK,
+		ExpectBody:   assert.JSONObject{"manifests": []assert.JSONObject{}},
+	}.Check(t, h)
+
 	//insert some dummy manifests and tags into each repo
 	for repoID := 1; repoID <= 3; repoID++ {
 		for idx := 1; idx <= 10; idx++ {
