@@ -6,12 +6,12 @@
   "any_rw": "rule:cloud_rw or rule:project_rw",
   "any_ro": "rule:cloud_ro or rule:project_ro",
 
-  "account_matches_scope": "rule:cloud_ro or project_id:%(account_project_id)s",
+  "matches_scope": "rule:cloud_ro or project_id:%(target.project.id)s",
 
   "account:list": "rule:any_ro",
-  "account:show": "rule:any_ro and rule:account_matches_scope",
-  "account:pull": "rule:any_ro and rule:account_matches_scope",
-  "account:push": "rule:any_rw and rule:account_matches_scope",
-  "account:delete": "rule:any_rw and rule:account_matches_scope",
-  "account:edit": "rule:any_rw and rule:account_matches_scope"
+  "account:show": "rule:any_ro and rule:matches_scope",
+  "account:pull": "rule:any_ro and rule:matches_scope",
+  "account:push": "rule:any_rw and rule:matches_scope",
+  "account:delete": "rule:any_rw and rule:matches_scope",
+  "account:edit": "rule:any_rw and rule:matches_scope"
 }

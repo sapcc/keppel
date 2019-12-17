@@ -254,7 +254,7 @@ func (a keystoneAuthorization) UserName() string {
 
 //HasPermission implements the keppel.Authorization interface.
 func (a keystoneAuthorization) HasPermission(perm keppel.Permission, tenantID string) bool {
-	a.t.Context.Request["account_project_id"] = tenantID
+	a.t.Context.Request["target.project.id"] = tenantID
 	logg.Debug("token has object attributes = %v", a.t.Context.Request)
 
 	rule, hasRule := ruleForPerm[perm]

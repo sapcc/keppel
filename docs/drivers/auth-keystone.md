@@ -29,5 +29,9 @@ Keppel understands access rules in the [`oslo.policy` JSON format][os-pol]. An e
 - `account:delete` allows to delete image manifests and tags.
 - `account:edit` enables write access to an account's configuration.
 
+All policy rules can use the object attribute `(target.project.id)s`.
+
+See also: [List of available API attributes](https://github.com/sapcc/go-bits/blob/53eeb20fde03c3d0a35e76cf9c9a06b63a415e6b/gopherpolicy/pkg.go#L151-L164)
+
 [os-env]: https://docs.openstack.org/python-openstackclient/latest/cli/man/openstack.html
 [os-pol]: https://docs.openstack.org/oslo.policy/latest/admin/policy-json-file.html
