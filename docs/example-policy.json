@@ -13,5 +13,8 @@
   "account:pull": "rule:any_ro and rule:matches_scope",
   "account:push": "rule:any_rw and rule:matches_scope",
   "account:delete": "rule:any_rw and rule:matches_scope",
-  "account:edit": "rule:any_rw and rule:matches_scope"
+  "account:edit": "rule:any_rw and rule:matches_scope",
+
+  "quota:show": "rule:any_ro and rule:matches_scope",
+  "quota:edit": "rule:cloud_rw"
 }

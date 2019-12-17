@@ -19,6 +19,7 @@
 package registryv2
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/docker/distribution"
@@ -109,6 +110,27 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	if account == nil {
 		return
 	}
+
+	//check if user has enough quota to push a manifest
+	quotas, err := a.db.FindQuotas(account.AuthTenantID)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	if quotas == nil {
+		quotas = keppel.DefaultQuotas(account.AuthTenantID)
+	}
+	manifestUsage, err := quotas.GetManifestUsage(a.db)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	if manifestUsage >= quotas.ManifestCount {
+		msg := fmt.Sprintf("manifest quota exceeded (quota = %d, usage = %d)",
+			quotas.ManifestCount, manifestUsage,
+		)
+		keppel.ErrDenied.With(msg).WithStatus(http.StatusConflict).WriteAsRegistryV2ResponseTo(w)
+		return
+	}
+
 	repo, err := a.db.FindOrCreateRepository(repoName, *account)
 	if respondwith.ErrorText(w, err) {
 		return

@@ -56,6 +56,15 @@ func TestProxyAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
+	//setup ample quota for all tests
+	err = db.Insert(&keppel.Quotas{
+		AuthTenantID:  "test1authtenant",
+		ManifestCount: 100,
+	})
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
 	//setup a fleet of drivers
 	ad, err := keppel.NewAuthDriver("unittest")
 	if err != nil {
@@ -112,6 +121,7 @@ func TestProxyAPI(t *testing.T) {
 	)
 	clock.Step()
 	testPullExistingNotAllowed(t, r, ad)
+	testManifestQuotaExceeded(t, r, ad, db)
 	clock.Step()
 	testDeleteManifest(t, r, ad, db,
 		//the first manifest, which is not referenced by tags anymore
@@ -308,6 +318,46 @@ func testPullExistingNotAllowed(t *testing.T, h http.Handler, ad keppel.AuthDriv
 		ExpectHeader: test.VersionHeader,
 		ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 	}.Check(t, h)
+}
+
+func testManifestQuotaExceeded(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB) {
+	_, err := db.Exec(`UPDATE quotas SET manifests = $1`, 1)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		keppel.CanPullFromAccount, keppel.CanPushToAccount)
+
+	quotaExceededMessage := test.ErrorCodeWithMessage{
+		Code:    keppel.ErrDenied,
+		Message: "manifest quota exceeded (quota = 1, usage = 2)",
+	}
+
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/v2/test1/foo/blobs/uploads/",
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusConflict,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   quotaExceededMessage,
+	}.Check(t, h)
+
+	assert.HTTPRequest{
+		Method:       "PUT",
+		Path:         "/v2/test1/foo/manifests/anotherone",
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		Body:         assert.StringData("request body does not matter"),
+		ExpectStatus: http.StatusConflict,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   quotaExceededMessage,
+	}.Check(t, h)
+
+	//reset quota to usable level
+	_, err = db.Exec(`UPDATE quotas SET manifests = $1`, 100)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 }
 
 func testKillAndRestartRegistry(t *testing.T, h http.Handler, ad keppel.AuthDriver, od keppel.OrchestrationDriver) {

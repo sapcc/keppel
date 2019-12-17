@@ -240,6 +240,8 @@ var ruleForPerm = map[keppel.Permission]string{
 	keppel.CanPushToAccount:     "account:push",
 	keppel.CanDeleteFromAccount: "account:delete",
 	keppel.CanChangeAccount:     "account:edit",
+	keppel.CanViewQuotas:        "quota:show",
+	keppel.CanChangeQuotas:      "quota:edit",
 }
 
 //UserName implements the keppel.Authorization interface.

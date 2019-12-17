@@ -23,6 +23,8 @@ This document uses the terminology defined in the [README.md](../README.md#termi
 - [GET /keppel/v1/accounts/:name/repositories/:name/\_manifests](#get-keppelv1accountsnamerepositoriesnamemanifests)
 - [DELETE /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest](#delete-keppelv1accountsnamerepositoriesnamemanifestsdigest)
 - [GET /keppel/v1/auth](#get-keppelv1auth)
+- [GET /keppel/v1/quotas/:auth\_tenant\_id](#get-keppelv1quotasauthtenantid)
+- [PUT /keppel/v1/quotas/:auth\_tenant\_id](#put-keppelv1quotasauthtenantid)
 
 ## GET /keppel/v1/accounts
 
@@ -219,3 +221,31 @@ The digest that identifies the manifest must be that manifest's canonical digest
 ## GET /keppel/v1/auth
 
 This endpoint is reserved for the authentication workflow of the [OCI Distribution API][oci-dist].
+
+## GET /keppel/v1/quotas/:auth\_tenant\_id
+
+Shows information about resource usage and limits for the given auth tenant.
+On success, returns 200 and a JSON response body like this:
+
+```json
+{
+  "manifests": {
+    "quota": 1000,
+    "usage": 42
+  }
+}
+```
+
+The following fields may be returned:
+
+| Field | Type | Explanation |
+| ----- | ---- | ----------- |
+| `manifests.quota` | integer | Maximum number of manifests that can be pushed to repositories in accounts belonging to this auth tenant. |
+| `manifests.usage` | integer | How many manifests exist in repositories in accounts belonging to this auth tenant. |
+
+## PUT /keppel/v1/quotas/:auth\_tenant\_id
+
+Updates the configuration for this auth tenant. The request body must be a JSON document following the same schema
+as the response from the corresponding GET endpoint, except that the `.usage` fields may not be present.
+
+On success, returns 200 and a JSON response body like from the corresponding GET endpoint.

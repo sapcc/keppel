@@ -20,6 +20,7 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -32,9 +33,23 @@ type ErrorCode keppel.RegistryV2ErrorCode
 //AssertResponseBody implements the assert.HTTPResponseBody interface.
 func (e ErrorCode) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) {
 	t.Helper()
+	wrapped := ErrorCodeWithMessage{keppel.RegistryV2ErrorCode(e), ""}
+	wrapped.AssertResponseBody(t, requestInfo, responseBody)
+}
+
+//ErrorCodeWithMessage extends ErrorCode with an expected detail message.
+type ErrorCodeWithMessage struct {
+	Code    keppel.RegistryV2ErrorCode
+	Message string
+}
+
+//AssertResponseBody implements the assert.HTTPResponseBody interface.
+func (e ErrorCodeWithMessage) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) {
+	t.Helper()
 	var data struct {
 		Errors []struct {
-			Code ErrorCode `json:"code"`
+			Code   keppel.RegistryV2ErrorCode `json:"code"`
+			Detail interface{}                `json:"detail"`
 		} `json:"errors"`
 	}
 	err := json.Unmarshal(responseBody, &data)
@@ -44,9 +59,22 @@ func (e ErrorCode) AssertResponseBody(t *testing.T, requestInfo string, response
 		return
 	}
 
-	if len(data.Errors) != 1 || data.Errors[0].Code != e {
+	expectedStr := string(e.Code)
+	if e.Message != "" {
+		expectedStr = fmt.Sprintf("%s with detail: %s", e.Code, e.Message)
+	}
+
+	matches := len(data.Errors) == 1 && data.Errors[0].Code == e.Code
+	if matches {
+		if e.Message != "" {
+			msgStr, ok := data.Errors[0].Detail.(string)
+			matches = ok && msgStr == e.Message
+		}
+	}
+
+	if !matches {
 		t.Errorf(requestInfo + ": got unexpected error")
-		t.Logf("\texpected = %q\n", string(e))
+		t.Logf("\texpected = %q\n", expectedStr)
 		t.Logf("\tactual = %q\n", string(responseBody))
 	}
 }

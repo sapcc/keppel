@@ -106,13 +106,24 @@ type RegistryV2Error struct {
 	Code    RegistryV2ErrorCode `json:"code"`
 	Message string              `json:"message"`
 	Detail  *string             `json:"detail,keepempty"`
+	Status  int                 `json:"-"`
+}
+
+//WithStatus changes the HTTP status code for this error.
+func (e *RegistryV2Error) WithStatus(status int) *RegistryV2Error {
+	e.Status = status
+	return e
 }
 
 //WriteAsRegistryV2ResponseTo reports this error in the format used by the
 //Registry V2 API.
 func (e *RegistryV2Error) WriteAsRegistryV2ResponseTo(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(apiErrorStatusCodes[e.Code])
+	if e.Status == 0 {
+		w.WriteHeader(apiErrorStatusCodes[e.Code])
+	} else {
+		w.WriteHeader(e.Status)
+	}
 	buf, _ := json.Marshal(struct {
 		Errors []*RegistryV2Error `json:"errors"`
 	}{

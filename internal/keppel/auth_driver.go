@@ -40,6 +40,10 @@ const (
 	CanDeleteFromAccount Permission = "delete"
 	//CanChangeAccount is the permission for creating and updating accounts.
 	CanChangeAccount Permission = "change"
+	//CanViewQuotas is the permission for viewing an auth tenant's quotas.
+	CanViewQuotas Permission = "viewquota"
+	//CanChangeQuotas is the permission for changing an auth tenant's quotas.
+	CanChangeQuotas Permission = "changequota"
 )
 
 //Authorization describes the access rights for a user. It is returned by

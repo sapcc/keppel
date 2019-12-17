@@ -101,6 +101,15 @@ var sqlMigrations = map[string]string{
 		ALTER TABLE manifests DROP COLUMN pushed_at;
 		ALTER TABLE tags DROP COLUMN pushed_at;
 	`,
+	"007_add_quotas.up.sql": `
+		CREATE TABLE quotas (
+			auth_tenant_id TEXT   NOT NULL PRIMARY KEY,
+			manifests      BIGINT NOT NULL
+		);
+	`,
+	"007_add_quotas.down.sql": `
+		DROP TABLE quotas;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

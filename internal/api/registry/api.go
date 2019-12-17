@@ -64,7 +64,7 @@ func (a *API) AddTo(r *mux.Router) {
 		HandlerFunc(a.handleProxyToAccount)
 	rr.Methods("POST").
 		Path("/{repository:.+}/blobs/uploads/").
-		HandlerFunc(a.handleProxyToAccount)
+		HandlerFunc(a.handleStartBlobUpload)
 	rr.Methods("DELETE", "GET", "PATCH", "PUT").
 		Path("/{repository:.+}/blobs/uploads/{uuid}").
 		HandlerFunc(a.handleProxyToAccount)

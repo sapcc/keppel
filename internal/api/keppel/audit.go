@@ -39,6 +39,43 @@ func (a AuditAccount) Render() cadf.Resource {
 	}
 }
 
+//AuditQuotas is an audittools.EventRenderer.
+type AuditQuotas struct {
+	QuotasBefore keppel.Quotas
+	QuotasAfter  keppel.Quotas
+}
+
+//Render implements the audittools.EventRenderer interface.
+func (a AuditQuotas) Render() cadf.Resource {
+	return cadf.Resource{
+		TypeURI:   "docker-registry/project-quota",
+		ID:        a.QuotasAfter.AuthTenantID,
+		ProjectID: a.QuotasAfter.AuthTenantID,
+		Attachments: []cadf.Attachment{
+			{
+				Name:    "payload-before",
+				TypeURI: "mime:application/json",
+				Content: quotasToJSON(a.QuotasBefore),
+			},
+			{
+				Name:    "payload",
+				TypeURI: "mime:application/json",
+				Content: quotasToJSON(a.QuotasAfter),
+			},
+		},
+	}
+}
+
+func quotasToJSON(q keppel.Quotas) string {
+	data := struct {
+		ManifestCount uint64 `json:"manifests"`
+	}{
+		ManifestCount: q.ManifestCount,
+	}
+	buf, _ := json.Marshal(data)
+	return string(buf)
+}
+
 //AuditRBACPolicy is an audittools.EventRenderer.
 type AuditRBACPolicy struct {
 	Account keppel.Account

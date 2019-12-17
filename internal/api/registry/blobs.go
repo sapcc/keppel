@@ -1,0 +1,68 @@
+/******************************************************************************
+*
+*  Copyright 2019 SAP SE
+*
+*  Licensed under the Apache License, Version 2.0 (the "License");
+*  you may not use this file except in compliance with the License.
+*  You may obtain a copy of the License at
+*
+*      http://www.apache.org/licenses/LICENSE-2.0
+*
+*  Unless required by applicable law or agreed to in writing, software
+*  distributed under the License is distributed on an "AS IS" BASIS,
+*  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+*  See the License for the specific language governing permissions and
+*  limitations under the License.
+*
+******************************************************************************/
+
+package registryv2
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/sapcc/go-bits/respondwith"
+	"github.com/sapcc/keppel/internal/keppel"
+)
+
+//This implements the POST /v2/<account>/<repository>/blobs/uploads/ endpoint.
+func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
+	//must be set even for 401 responses!
+	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
+
+	account, _ := a.checkAccountAccess(w, r)
+	if account == nil {
+		return
+	}
+
+	//only allow new blob uploads when there is enough quota to push a manifest
+	//
+	//This is not strictly necessary to enforce the manifest quota, but it's
+	//useful to avoid the accumulation of unreferenced blobs in the account's
+	//backing storage.
+	quotas, err := a.db.FindQuotas(account.AuthTenantID)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	if quotas == nil {
+		quotas = keppel.DefaultQuotas(account.AuthTenantID)
+	}
+	manifestUsage, err := quotas.GetManifestUsage(a.db)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	if manifestUsage >= quotas.ManifestCount {
+		msg := fmt.Sprintf("manifest quota exceeded (quota = %d, usage = %d)",
+			quotas.ManifestCount, manifestUsage,
+		)
+		keppel.ErrDenied.With(msg).WithStatus(http.StatusConflict).WriteAsRegistryV2ResponseTo(w)
+		return
+	}
+
+	resp := a.proxyRequestToRegistry(w, r, *account)
+	if resp == nil {
+		return
+	}
+	a.proxyResponseToCaller(w, resp)
+}

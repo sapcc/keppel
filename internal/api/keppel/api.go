@@ -60,6 +60,9 @@ func (a *API) AddTo(r *mux.Router) {
 
 	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/repositories").HandlerFunc(a.handleGetRepositories)
 	r.Methods("DELETE").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/repositories/{repo_name:.+}").HandlerFunc(a.handleDeleteRepository)
+
+	r.Methods("GET").Path("/keppel/v1/quotas/{auth_tenant_id}").HandlerFunc(a.handleGetQuotas)
+	r.Methods("PUT").Path("/keppel/v1/quotas/{auth_tenant_id}").HandlerFunc(a.handlePutQuotas)
 }
 
 func respondWithAuthError(w http.ResponseWriter, err *keppel.RegistryV2Error) bool {
@@ -103,6 +106,22 @@ func (a *API) authenticateAccountScopedRequest(w http.ResponseWriter, r *http.Re
 	}
 
 	return account, authz
+}
+
+func (a *API) authenticateAuthTenantScopedRequest(w http.ResponseWriter, r *http.Request, perm keppel.Permission) (authTenantID string, authz keppel.Authorization) {
+	authz, authErr := a.authDriver.AuthenticateUserFromRequest(r)
+	if respondWithAuthError(w, authErr) {
+		return "", nil
+	}
+
+	//enforce requested permissions
+	authTenantID = mux.Vars(r)["auth_tenant_id"]
+	if !authz.HasPermission(perm, authTenantID) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return "", nil
+	}
+
+	return authTenantID, authz
 }
 
 func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, account keppel.Account) *keppel.Repository {

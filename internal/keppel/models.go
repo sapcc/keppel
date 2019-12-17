@@ -224,10 +224,56 @@ func (t Tag) InsertIfMissing(e gorp.SqlExecutor) error {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+//Quotas contains a record from the `quotas` table.
+type Quotas struct {
+	AuthTenantID  string `db:"auth_tenant_id"`
+	ManifestCount uint64 `db:"manifests"`
+}
+
+//FindQuotas works similar to db.SelectOne(), but returns nil instead of
+//sql.ErrNoRows if no quota set exists for this auth tenant.
+func (db *DB) FindQuotas(authTenantID string) (*Quotas, error) {
+	var quotas Quotas
+	err := db.SelectOne(&quotas,
+		"SELECT * FROM quotas WHERE auth_tenant_id = $1", authTenantID)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return &quotas, err
+}
+
+//DefaultQuotas creates a new Quotas instance with the default quotas.
+func DefaultQuotas(authTenantID string) *Quotas {
+	//Right now, the default quota is always 0. The value of having this function
+	//is to ensure that we only need to change this place if this ever changes.
+	return &Quotas{
+		AuthTenantID:  authTenantID,
+		ManifestCount: 0,
+	}
+}
+
+var manifestUsageQuery = `
+	SELECT COUNT(m.digest)
+	  FROM manifests m
+	  JOIN repos r ON m.repo_id = r.id
+	  JOIN accounts a ON a.name = r.account_name
+	 WHERE a.auth_tenant_id = $1
+`
+
+//GetManifestUsage returns how many manifests currently exist in repos in
+//accounts connected to this quota set's auth tenant.
+func (q Quotas) GetManifestUsage(db gorp.SqlExecutor) (uint64, error) {
+	manifestCount, err := db.SelectInt(manifestUsageQuery, q.AuthTenantID)
+	return uint64(manifestCount), err
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(Account{}, "accounts").SetKeys(false, "name")
 	db.AddTableWithName(RBACPolicy{}, "rbac_policies").SetKeys(false, "account_name", "match_repository", "match_username")
 	db.AddTableWithName(Repository{}, "repos").SetKeys(true, "id")
 	db.AddTableWithName(Manifest{}, "manifests").SetKeys(false, "repo_id", "digest")
 	db.AddTableWithName(Tag{}, "tags").SetKeys(false, "repo_id", "name")
+	db.AddTableWithName(Quotas{}, "quotas").SetKeys(false, "auth_tenant_id")
 }
