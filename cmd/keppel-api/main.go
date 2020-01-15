@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
@@ -122,8 +123,9 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 
 func parseConfig() keppel.Configuration {
 	cfg := keppel.Configuration{
-		APIPublicURL: mustGetenvURL("KEPPEL_API_PUBLIC_URL"),
-		DatabaseURL:  mustGetenvURL("KEPPEL_DB_URI"),
+		APIPublicURL:   mustGetenvURL("KEPPEL_API_PUBLIC_URL"),
+		DatabaseURL:    mustGetenvURL("KEPPEL_DB_URI"),
+		IsPeerHostName: make(map[string]bool),
 	}
 
 	var err error
@@ -131,6 +133,10 @@ func parseConfig() keppel.Configuration {
 	must(err)
 	cfg.JWTIssuerCertPEM, err = keppel.ParseIssuerCertPEM(mustGetenv("KEPPEL_ISSUER_CERT"))
 	must(err)
+
+	for _, peerHostName := range strings.Split(os.Getenv("KEPPEL_PEERS"), ",") {
+		cfg.IsPeerHostName[peerHostName] = true
+	}
 
 	return cfg
 }

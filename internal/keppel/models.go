@@ -269,6 +269,27 @@ func (q Quotas) GetManifestUsage(db gorp.SqlExecutor) (uint64, error) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+//Peer contains a record from the `peers` table.
+type Peer struct {
+	HostName string `db:"hostname"`
+
+	//OurPassword is what we use to log in at the peer.
+	OurPassword string `db:"our_password"`
+
+	//TheirCurrentPasswordHash and TheirPreviousPasswordHash is what the peer
+	//uses to log in with us. Passwords are rotated hourly. We allow access with
+	//the current *and* the previous password to avoid a race where we enter the
+	//new password in the database and then reject authentication attempts from
+	//the peer before we told them about the new password.
+	TheirCurrentPasswordHash  string `db:"their_current_password_hash"`
+	TheirPreviousPasswordHash string `db:"their_current_password_hash"`
+
+	//LastPeeredAt is when we last issued a new password for this peer.
+	LastPeeredAt time.Time `db:"last_peered_at"`
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(Account{}, "accounts").SetKeys(false, "name")
 	db.AddTableWithName(RBACPolicy{}, "rbac_policies").SetKeys(false, "account_name", "match_repository", "match_username")
@@ -276,4 +297,5 @@ func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(Manifest{}, "manifests").SetKeys(false, "repo_id", "digest")
 	db.AddTableWithName(Tag{}, "tags").SetKeys(false, "repo_id", "name")
 	db.AddTableWithName(Quotas{}, "quotas").SetKeys(false, "auth_tenant_id")
+	db.AddTableWithName(Peer{}, "peers").SetKeys(false, "hostname")
 }
