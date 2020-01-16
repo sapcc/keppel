@@ -17,6 +17,7 @@ require (
 	github.com/gophercloud/utils v0.0.0-20191115025210-6e51b8944d05
 	github.com/gorilla/handlers v1.4.2 // indirect
 	github.com/gorilla/mux v1.7.3
+	github.com/jarcoal/httpmock v1.0.4
 	github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629 // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/lib/pq v1.2.0

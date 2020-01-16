@@ -56,15 +56,17 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check that these credentials work
-	authURL := fmt.Sprintf("https://%s/keppel/v1/auth", req.PeerHostName)
+	authURL := fmt.Sprintf("https://%s/keppel/v1/auth?service=%[1]s", req.PeerHostName)
 	authReq, err := http.NewRequest("GET", authURL, nil)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
+
 	authHash := base64.StdEncoding.EncodeToString([]byte(
 		req.UserName + ":" + req.Password,
 	))
 	authReq.Header.Set("Authorization", "Basic "+authHash)
+
 	authResp, err := http.DefaultClient.Do(authReq)
 	if err != nil {
 		http.Error(w, "could not validate credentials: "+err.Error(), http.StatusUnauthorized)

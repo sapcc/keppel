@@ -65,7 +65,7 @@ func Setup(t *testing.T) (keppel.Configuration, *keppel.DB) {
 	}
 
 	//wipe the DB clean if there are any leftovers from the previous test run
-	for _, tableName := range []string{"accounts", "quotas"} {
+	for _, tableName := range []string{"accounts", "peers", "quotas"} {
 		//NOTE: All tables not mentioned above are cleared via ON DELETE CASCADE.
 		_, err := db.Exec("DELETE FROM " + tableName)
 		if err != nil {

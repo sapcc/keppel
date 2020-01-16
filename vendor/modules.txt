@@ -123,6 +123,8 @@ github.com/hashicorp/golang-lru
 github.com/hashicorp/golang-lru/simplelru
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
+# github.com/jarcoal/httpmock v1.0.4
+github.com/jarcoal/httpmock
 # github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629
 github.com/jpillora/longestcommon
 # github.com/json-iterator/go v1.1.7

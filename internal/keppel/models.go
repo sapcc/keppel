@@ -282,7 +282,7 @@ type Peer struct {
 	//new password in the database and then reject authentication attempts from
 	//the peer before we told them about the new password.
 	TheirCurrentPasswordHash  string `db:"their_current_password_hash"`
-	TheirPreviousPasswordHash string `db:"their_current_password_hash"`
+	TheirPreviousPasswordHash string `db:"their_previous_password_hash"`
 
 	//LastPeeredAt is when we last issued a new password for this peer.
 	LastPeeredAt time.Time `db:"last_peered_at"`
