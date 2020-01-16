@@ -37,7 +37,6 @@ func TestPeeringAPI(t *testing.T) {
 
 	//set up peer.example.org as a peer of us, otherwise we will reject peering
 	//attempts from that source
-	cfg.IsPeerHostName = map[string]bool{"peer.example.org": true}
 	err := db.Insert(&keppel.Peer{
 		HostName:     "peer.example.org",
 		LastPeeredAt: time.Unix(0, 0).UTC(),

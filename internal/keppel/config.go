@@ -36,7 +36,6 @@ type Configuration struct {
 	DatabaseURL      url.URL
 	JWTIssuerKey     libtrust.PrivateKey
 	JWTIssuerCertPEM string
-	IsPeerHostName   map[string]bool
 }
 
 //APIPublicHostname returns the hostname from the APIPublicURL.

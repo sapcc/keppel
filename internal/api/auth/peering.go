@@ -20,12 +20,14 @@
 package authapi
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/sapcc/go-bits/respondwith"
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
@@ -50,8 +52,13 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//do we even know that guy? :)
-	if !a.cfg.IsPeerHostName[req.PeerHostName] {
+	var peer keppel.Peer
+	err = a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, req.PeerHostName)
+	if err == sql.ErrNoRows {
 		http.Error(w, "unknown issuer", http.StatusBadRequest)
+		return
+	}
+	if respondwith.ErrorText(w, err) {
 		return
 	}
 
@@ -78,23 +85,11 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//update database
-	result, err := a.db.Exec(
+	_, err = a.db.Exec(
 		`UPDATE peers SET our_password = $1 WHERE hostname = $2`,
 		req.Password, req.PeerHostName,
 	)
 	if respondwith.ErrorText(w, err) {
-		return
-	}
-	rowsUpdated, err := result.RowsAffected()
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-	if rowsUpdated == 0 {
-		//This should never occur. We checked `a.cfg.IsPeerHostName`, and all
-		//entries there should have an entry in the `peers` DB table because we
-		//also issued passwords in the opposite direction (or at least attempted to
-		//do so).
-		http.Error(w, "peer not found in database", http.StatusNotFound)
 		return
 	}
 
