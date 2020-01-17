@@ -479,8 +479,7 @@ func TestIssueToken(t *testing.T) {
 
 			//setup Authorization header for test
 			if !c.AnonymousLogin {
-				authInput := "correctusername:correctpassword"
-				req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(authInput)))
+				req.Header.Set("Authorization", keppel.BuildBasicAuthHeader("correctusername", "correctpassword"))
 			}
 
 			//build URL query string for test
@@ -626,10 +625,6 @@ func TestInvalidCredentials(t *testing.T) {
 				"scope":   {"repository:test1/foo:pull"},
 			}.Encode(),
 		}
-		makeAuthHdr := func(username, password string) string {
-			input := username + ":" + password
-			return "Basic " + base64.StdEncoding.EncodeToString([]byte(input))
-		}
 		req := assert.HTTPRequest{
 			Method:       "GET",
 			Path:         urlPath.String(),
@@ -648,12 +643,12 @@ func TestInvalidCredentials(t *testing.T) {
 		req.Check(t, r)
 
 		t.Logf("----- test wrong username with service %q -----\n", service)
-		req.Header["Authorization"] = makeAuthHdr("wrongusername", "correctpassword")
+		req.Header["Authorization"] = keppel.BuildBasicAuthHeader("wrongusername", "correctpassword")
 		req.ExpectBody = assert.JSONObject{"details": "authentication required: wrong credentials"}
 		req.Check(t, r)
 
 		t.Logf("----- test wrong password with service %q -----\n", service)
-		req.Header["Authorization"] = makeAuthHdr("correctusername", "wrongpassword")
+		req.Header["Authorization"] = keppel.BuildBasicAuthHeader("correctusername", "wrongpassword")
 		req.Check(t, r)
 	})
 }

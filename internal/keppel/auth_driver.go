@@ -20,6 +20,7 @@
 package keppel
 
 import (
+	"encoding/base64"
 	"errors"
 	"net/http"
 
@@ -131,4 +132,10 @@ func (anonAuthorization) HasPermission(perm Permission, tenantID string) bool {
 }
 func (anonAuthorization) KeystoneToken() *gopherpolicy.Token {
 	return nil
+}
+
+//BuildBasicAuthHeader constructs the value of an "Authorization" HTTP header for the given basic auth credentials.
+func BuildBasicAuthHeader(userName, password string) string {
+	creds := userName + ":" + password
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(creds))
 }

@@ -21,7 +21,6 @@ package authapi
 
 import (
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -68,11 +67,7 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-
-	authHash := base64.StdEncoding.EncodeToString([]byte(
-		req.UserName + ":" + req.Password,
-	))
-	authReq.Header.Set("Authorization", "Basic "+authHash)
+	authReq.Header.Set("Authorization", keppel.BuildBasicAuthHeader(req.UserName, req.Password))
 
 	authResp, err := http.DefaultClient.Do(authReq)
 	if err != nil {
