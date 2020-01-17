@@ -209,6 +209,8 @@ github.com/yvasiyarov/gorelic
 # github.com/yvasiyarov/newrelic_platform_go v0.0.0-20160601141957-9c099fbc30e9
 github.com/yvasiyarov/newrelic_platform_go
 # golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
+golang.org/x/crypto/bcrypt
+golang.org/x/crypto/blowfish
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/net v0.0.0-20190620200207-3b0461eec859
 golang.org/x/net/context

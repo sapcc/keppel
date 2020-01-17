@@ -285,7 +285,7 @@ type Peer struct {
 	TheirPreviousPasswordHash string `db:"their_previous_password_hash"`
 
 	//LastPeeredAt is when we last issued a new password for this peer.
-	LastPeeredAt time.Time `db:"last_peered_at"`
+	LastPeeredAt *time.Time `db:"last_peered_at"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////

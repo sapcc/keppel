@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/jarcoal/httpmock"
@@ -37,10 +36,7 @@ func TestPeeringAPI(t *testing.T) {
 
 	//set up peer.example.org as a peer of us, otherwise we will reject peering
 	//attempts from that source
-	err := db.Insert(&keppel.Peer{
-		HostName:     "peer.example.org",
-		LastPeeredAt: time.Unix(0, 0).UTC(),
-	})
+	err := db.Insert(&keppel.Peer{HostName: "peer.example.org"})
 	if err != nil {
 		t.Fatal(err.Error())
 	}

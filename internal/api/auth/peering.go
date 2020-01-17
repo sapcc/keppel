@@ -29,13 +29,17 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
+//PeeringRequest is the structure of the JSON request body sent to the POST
+///keppel/v1/auth/peering endpoint.
+type PeeringRequest struct {
+	PeerHostName string `json:"peer"`
+	UserName     string `json:"username"`
+	Password     string `json:"password"`
+}
+
 func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 	//decode request body
-	var req struct {
-		PeerHostName string `json:"peer"`
-		UserName     string `json:"username"`
-		Password     string `json:"password"`
-	}
+	var req PeeringRequest
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	err := decoder.Decode(&req)

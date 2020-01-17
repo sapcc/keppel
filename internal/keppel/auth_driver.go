@@ -134,6 +134,26 @@ func (anonAuthorization) KeystoneToken() *gopherpolicy.Token {
 	return nil
 }
 
+//ReplicationAuthorization is a keppel.Authorization for replication users with global pull access.
+type ReplicationAuthorization struct {
+	PeerHostName string
+}
+
+//UserName implements the keppel.Authorization interface.
+func (a ReplicationAuthorization) UserName() string {
+	return "replication@" + a.PeerHostName
+}
+
+//HasPermission implements the keppel.Authorization interface.
+func (a ReplicationAuthorization) HasPermission(perm Permission, tenantID string) bool {
+	return perm == CanViewAccount || perm == CanPullFromAccount
+}
+
+//KeystoneToken implements the keppel.Authorization interface.
+func (a ReplicationAuthorization) KeystoneToken() *gopherpolicy.Token {
+	return nil
+}
+
 //BuildBasicAuthHeader constructs the value of an "Authorization" HTTP header for the given basic auth credentials.
 func BuildBasicAuthHeader(userName, password string) string {
 	creds := userName + ":" + password
