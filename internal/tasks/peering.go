@@ -28,13 +28,20 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/sapcc/go-bits/logg"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"golang.org/x/crypto/bcrypt"
+	"gopkg.in/gorp.v2"
 )
 
 //IssueNewPasswordForPeer issues a new replication password for the given peer.
-func IssueNewPasswordForPeer(cfg keppel.Configuration, db *keppel.DB, peer keppel.Peer) (resultErr error) {
+//
+//The `tx` argument can be given if the caller already has a transaction open
+//for this operation. This is useful because it is the caller's responsibility
+//to lock the database row for the peer to prevent concurrent issuances for the
+//same peer by different keppel-api instances.
+func IssueNewPasswordForPeer(cfg keppel.Configuration, db *keppel.DB, tx *gorp.Transaction, peer keppel.Peer) (resultErr error) {
 	newPasswordBytes := make([]byte, 20)
 	_, err := rand.Read(newPasswordBytes)
 	if err != nil {
@@ -49,13 +56,21 @@ func IssueNewPasswordForPeer(cfg keppel.Configuration, db *keppel.DB, peer keppe
 	//update password in our own DB - we need to do this first because, as soon
 	//as we send the HTTP request, the peer could come back to us at any time to
 	//verify the password
-	_, err = db.Exec(`
+	_, err = tx.Exec(`
 		UPDATE peers SET
 			their_current_password_hash = $1,
 			their_previous_password_hash = their_current_password_hash,
 			last_peered_at = NOW()
 		WHERE hostname = $2
 	`, newPasswordHashed, peer.HostName)
+	if err == nil {
+		err = tx.Commit()
+	} else {
+		errRollback := tx.Rollback()
+		if errRollback != nil {
+			logg.Error("unexpected error during SQL ROLLBACK: " + errRollback.Error())
+		}
+	}
 	if err != nil {
 		return err
 	}

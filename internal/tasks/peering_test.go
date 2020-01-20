@@ -65,7 +65,11 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 	for range []int{0, 1, 2, 3, 4} {
 		//test successful issuance of password
 		timeBeforeIssue := time.Now()
-		err = IssueNewPasswordForPeer(cfg, db, getPeerFromDB(t, db))
+		tx, err := db.Begin()
+		if err != nil {
+			t.Error(err.Error())
+		}
+		err = IssueNewPasswordForPeer(cfg, db, tx, getPeerFromDB(t, db))
 		if err != nil {
 			t.Error(err.Error())
 		}
@@ -110,7 +114,11 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 		httpmock.NewStringResponder(http.StatusUnauthorized, "unauthorized"),
 	)
 	peerBeforeFailedIssue := getPeerFromDB(t, db)
-	err = IssueNewPasswordForPeer(cfg, db, getPeerFromDB(t, db))
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	err = IssueNewPasswordForPeer(cfg, db, tx, getPeerFromDB(t, db))
 	if err == nil {
 		t.Error("expected IssueNewPasswordForPeer to fail, but got err = nil")
 	}
