@@ -61,7 +61,27 @@ func (a *API) checkAuthentication(authorizationHeader string) (keppel.Authorizat
 		return keppel.ReplicationAuthorization{PeerHostName: peerHostName}, nil
 	}
 
-	return a.authDriver.AuthenticateUser(userName, password)
+	authz, rerr := a.authDriver.AuthenticateUser(userName, password)
+	if rerr != nil {
+		return nil, rerr
+	}
+	return authz, nil
+
+	//WARNING: It's tempting to shorten the last paragraph to just
+	//
+	//	return a.authDriver.AuthenticateUser(userName, password)
+	//
+	//But that breaks everything! AuthenticateUser does not return `error`, it
+	//returns `*keppel.RegistryV2Error`. When a nil RegistryV2Error is returned,
+	//it would get cast into
+	//
+	//	err = error(*keppel.RegistryV2Error(nil))
+	//
+	//which is very different from
+	//
+	//	err = error(nil)
+	//
+	//That's one of the few really really stupid traps in Go.
 }
 
 func (a *API) validatePeerCredentials(peerHostName, password string) error {
