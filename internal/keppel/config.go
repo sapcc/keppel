@@ -29,8 +29,8 @@ import (
 	"github.com/docker/libtrust"
 )
 
-//Configuration contains some configuration values that are not compiled during
-//ReadConfig().
+//Configuration contains all configuration values that are not specific to a
+//certain driver.
 type Configuration struct {
 	APIPublicURL     url.URL
 	DatabaseURL      url.URL

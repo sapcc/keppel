@@ -23,6 +23,7 @@ This document uses the terminology defined in the [README.md](../README.md#termi
 - [GET /keppel/v1/accounts/:name/repositories/:name/\_manifests](#get-keppelv1accountsnamerepositoriesnamemanifests)
 - [DELETE /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest](#delete-keppelv1accountsnamerepositoriesnamemanifestsdigest)
 - [GET /keppel/v1/auth](#get-keppelv1auth)
+- [POST /keppel/v1/auth/peering](#post-keppelv1authpeering)
 - [GET /keppel/v1/quotas/:auth\_tenant\_id](#get-keppelv1quotasauthtenantid)
 - [PUT /keppel/v1/quotas/:auth\_tenant\_id](#put-keppelv1quotasauthtenantid)
 
@@ -52,7 +53,11 @@ On success, returns 200 and a JSON response body like this:
     {
       "name": "secondaccount",
       "auth_tenant_id": "secondtenant",
-      "rbac_policies": []
+      "rbac_policies": [],
+      "replication": {
+        "strategy": "on_first_use",
+        "upstream": "keppel.example.com"
+      }
     }
   ]
 }
@@ -68,10 +73,33 @@ The following fields may be returned:
 | `accounts[].rbac_policies[].match_repository` | string | The RBAC policy applies to all repositories in this account whose name matches this regex. The leading account name and slash is stripped from the repository name before matching. The notes on regexes below apply. |
 | `accounts[].rbac_policies[].match_username` | string | The RBAC policy applies to all users whose name matches this regex. Refer to the [documentation of your auth driver](./drivers/) for the syntax of usernames. The notes on regexes below apply. |
 | `accounts[].rbac_policies[].permissions` | list of strings | The permissions granted by the RBAC policy. Acceptable values include `pull`, `push`, `delete` and `anonymous_pull`. When `pull`, `push` or `delete` are included, `match_username` is not empty. When `anonymous_pull` is included, `match_username` is empty. |
+| `accounts[].replication` | object or omitted | Replication configuration for this account, if any. [See below](#replication-strategies) for details. |
 
 The values of the `match_repository` and `match_username` fields are regular expressions, using the
 [syntax defined by Go's stdlib regex parser](https://golang.org/pkg/regexp/syntax/). The anchors `^` and `$` are implied
 at both ends of the regex, and need not be added explicitly.
+
+### Replication strategies
+
+This section describes the different possible configurations for `accounts[].replication`.
+
+#### Strategy: `on_first_use`
+
+When an authorized user pulls a manifest which does not exist in this registry yet, the same manifest will be queried in
+the upstream registry configured by the Keppel operator. If this query returns a result, the manifest and all blobs
+referenced by it will be pulled from the upstream registry into the local one. Note that:
+
+- Manifests and blobs pulled thusly will not be deleted automatically, even if they disappear from the upstream registry
+  later on.
+- Accounts with this replication strategy will not allow direct push access. Images can only be added to these accounts
+  through replication.
+
+The following fields are shown on accounts configured with this strategy:
+
+| Field | Type | Explanation |
+| ----- | ---- | ----------- |
+| `accounts[].replication.strategy` | string | The string `on_first_use`. |
+| `accounts[].replication.upstream` | string | The hostname of the upstream registry. Must be one of the peers configured for this registry by its operator. |
 
 ## GET /keppel/v1/accounts/:name
 
@@ -108,7 +136,7 @@ Creates or updates the account with the given name. The request body must be a J
 as the response from the corresponding GET endpoint, except that:
 
 - `account.name` may not be present (the name is already given in the URL), and
-- `account.auth_tenant_id` may not be changed for existing accounts.
+- `account.auth_tenant_id` and `account.replication` may not be changed for existing accounts.
 
 On success, returns 200 and a JSON response body like from the corresponding GET endpoint.
 
@@ -221,6 +249,30 @@ The digest that identifies the manifest must be that manifest's canonical digest
 ## GET /keppel/v1/auth
 
 This endpoint is reserved for the authentication workflow of the [OCI Distribution API][oci-dist].
+
+## POST /keppel/v1/auth/peering
+
+*This endpoint is only used for internal communication between Keppel registries and cannot be used by outside users.*
+
+An upstream registry can send this request to a downstream registry to issue a username and password for it. These
+credentials allow pull access to the entire upstream registry via the usual Registry V2 auth process. The downstream
+registry is expected to store these credentials for use in content replication. On success, returns 204 (No Content).
+The request body must be a JSON document like this:
+
+```json
+{
+  "peer": "keppel.example.org",
+  "username": "replication@keppel.example.com",
+  "password": "EaxiYoo8ju7Ohvukooch",
+}
+```
+
+The following fields must be included:
+
+| Field | Type | Explanation |
+| ----- | ---- | ----------- |
+| `peer` | string | The hostname of the registry for which those credentials are valid. |
+| `username`<br />`password` | string | Credentials granting global pull access to that registry. |
 
 ## GET /keppel/v1/quotas/:auth\_tenant\_id
 

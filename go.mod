@@ -17,6 +17,7 @@ require (
 	github.com/gophercloud/utils v0.0.0-20191115025210-6e51b8944d05
 	github.com/gorilla/handlers v1.4.2 // indirect
 	github.com/gorilla/mux v1.7.3
+	github.com/jarcoal/httpmock v1.0.4
 	github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629 // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/lib/pq v1.2.0
@@ -34,6 +35,7 @@ require (
 	github.com/yvasiyarov/go-metrics v0.0.0-20150112132944-c25f46c4b940 // indirect
 	github.com/yvasiyarov/gorelic v0.0.7 // indirect
 	github.com/yvasiyarov/newrelic_platform_go v0.0.0-20160601141957-9c099fbc30e9 // indirect
+	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 	gopkg.in/gorp.v2 v2.2.0
 	k8s.io/api v0.0.0-20190620084959-7cf5895f2711
 	k8s.io/apimachinery v0.0.0-20190612205821-1799e75a0719

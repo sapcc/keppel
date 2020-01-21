@@ -110,6 +110,24 @@ var sqlMigrations = map[string]string{
 	"007_add_quotas.down.sql": `
 		DROP TABLE quotas;
 	`,
+	"008_add_peers.up.sql": `
+		CREATE TABLE peers (
+			hostname                     TEXT        NOT NULL PRIMARY KEY,
+			our_password                 TEXT        NOT NULL DEFAULT '',
+			their_current_password_hash  TEXT        NOT NULL,
+			their_previous_password_hash TEXT        NOT NULL DEFAULT '',
+			last_peered_at               TIMESTAMPTZ DEFAULT NULL
+		);
+	`,
+	"008_add_peers.down.sql": `
+		DROP TABLE peers;
+	`,
+	"009_add_replication_on_first_use.up.sql": `
+		ALTER TABLE accounts ADD COLUMN upstream_peer_hostname TEXT NOT NULL DEFAULT '';
+	`,
+	"009_add_replication_on_first_use.down.sql": `
+		ALTER TABLE accounts DROP COLUMN upstream_peer_hostname;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

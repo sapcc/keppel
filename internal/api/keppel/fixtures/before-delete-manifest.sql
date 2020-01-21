@@ -1,5 +1,5 @@
-INSERT INTO accounts (name, auth_tenant_id, registry_http_secret) VALUES ('test1', 'tenant1', '');
-INSERT INTO accounts (name, auth_tenant_id, registry_http_secret) VALUES ('test2', 'tenant2', '');
+INSERT INTO accounts (name, auth_tenant_id, registry_http_secret, upstream_peer_hostname) VALUES ('test1', 'tenant1', '', '');
+INSERT INTO accounts (name, auth_tenant_id, registry_http_secret, upstream_peer_hostname) VALUES ('test2', 'tenant2', '', '');
 
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at) VALUES (1, 'sha256:3ee5f0d83bf791f0fb4d750a5719ce19d6d352ef7e5a4264e4b760f0f9c15014', 'application/vnd.docker.distribution.manifest.v2+json', 2000, 12000);
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at) VALUES (1, 'sha256:48341d92e2c078cb4203d231be6402df6794f7114ff465e51174b293caba2438', 'application/vnd.docker.distribution.manifest.v2+json', 8000, 18000);

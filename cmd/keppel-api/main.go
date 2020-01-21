@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
@@ -72,6 +73,10 @@ func main() {
 	od, err := keppel.NewOrchestrationDriver(mustGetenv("KEPPEL_DRIVER_ORCHESTRATION"), sd, cfg, db)
 	must(err)
 
+	//start background goroutines
+	ctx := httpee.ContextWithSIGINT(context.Background())
+	runPeering(ctx, cfg, db, strings.Split(os.Getenv("KEPPEL_PEERS"), ","))
+
 	//wire up HTTP handlers
 	r := mux.NewRouter()
 	keppelv1.NewAPI(cfg, ad, ncd, od, db, auditor).AddTo(r)
@@ -93,7 +98,6 @@ func main() {
 	if apiListenAddress == "" {
 		apiListenAddress = ":8080"
 	}
-	ctx := httpee.ContextWithSIGINT(context.Background())
 	logg.Info("listening on " + apiListenAddress)
 	go func() {
 		err := httpee.ListenAndServeContext(ctx, apiListenAddress, nil)

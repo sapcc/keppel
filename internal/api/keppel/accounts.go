@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-*  Copyright 2018-2019 SAP SE
+*  Copyright 2018-2020 SAP SE
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -38,9 +39,10 @@ import (
 
 //Account represents an account in the API.
 type Account struct {
-	Name         string       `json:"name"`
-	AuthTenantID string       `json:"auth_tenant_id"`
-	RBACPolicies []RBACPolicy `json:"rbac_policies"`
+	Name              string             `json:"name"`
+	AuthTenantID      string             `json:"auth_tenant_id"`
+	RBACPolicies      []RBACPolicy       `json:"rbac_policies"`
+	ReplicationPolicy *ReplicationPolicy `json:"replication,omitempty"`
 }
 
 //RBACPolicy represents an RBAC policy in the API.
@@ -48,6 +50,12 @@ type RBACPolicy struct {
 	RepositoryPattern string   `json:"match_repository,omitempty"`
 	UserNamePattern   string   `json:"match_username,omitempty"`
 	Permissions       []string `json:"permissions"`
+}
+
+//ReplicationPolicy represents a replication policy in the API.
+type ReplicationPolicy struct {
+	Strategy             string `json:"strategy"`
+	UpstreamPeerHostName string `json:"upstream"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -66,10 +74,22 @@ func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
 	}
 
 	return Account{
-		Name:         dbAccount.Name,
-		AuthTenantID: dbAccount.AuthTenantID,
-		RBACPolicies: policies,
+		Name:              dbAccount.Name,
+		AuthTenantID:      dbAccount.AuthTenantID,
+		RBACPolicies:      policies,
+		ReplicationPolicy: renderReplicationPolicy(dbAccount),
 	}, nil
+}
+
+func renderReplicationPolicy(dbAccount keppel.Account) *ReplicationPolicy {
+	if dbAccount.UpstreamPeerHostName == "" {
+		return nil
+	}
+
+	return &ReplicationPolicy{
+		Strategy:             "on_first_use",
+		UpstreamPeerHostName: dbAccount.UpstreamPeerHostName,
+	}
 }
 
 func renderRBACPolicy(dbPolicy keppel.RBACPolicy) RBACPolicy {
@@ -203,8 +223,9 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	//decode request body
 	var req struct {
 		Account struct {
-			AuthTenantID string       `json:"auth_tenant_id"`
-			RBACPolicies []RBACPolicy `json:"rbac_policies"`
+			AuthTenantID      string             `json:"auth_tenant_id"`
+			RBACPolicies      []RBACPolicy       `json:"rbac_policies"`
+			ReplicationPolicy *ReplicationPolicy `json:"replication"`
 		} `json:"account"`
 	}
 	decoder := json.NewDecoder(r.Body)
@@ -241,6 +262,26 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		RegistryHTTPSecret: keppel.GenerateRegistryHTTPSecret(),
 	}
 
+	//validate replication policy
+	if req.Account.ReplicationPolicy != nil {
+		rp := *req.Account.ReplicationPolicy
+		if rp.Strategy != "on_first_use" {
+			http.Error(w, fmt.Sprintf(`unknown replication strategy: %q`, rp.Strategy), http.StatusUnprocessableEntity)
+			return
+		}
+
+		peerCount, err := a.db.SelectInt(`SELECT COUNT(*) FROM peers WHERE hostname = $1`, rp.UpstreamPeerHostName)
+		if respondwith.ErrorText(w, err) {
+			return
+		}
+		if peerCount == 0 {
+			http.Error(w, fmt.Sprintf(`unknown peer registry: %q`, rp.UpstreamPeerHostName), http.StatusUnprocessableEntity)
+			return
+		}
+
+		accountToCreate.UpstreamPeerHostName = rp.UpstreamPeerHostName
+	}
+
 	//check permission to create account
 	authz, authErr := a.authDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, authErr) {
@@ -258,6 +299,12 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	if account != nil && account.AuthTenantID != req.Account.AuthTenantID {
 		http.Error(w, `account name already in use by a different tenant`, http.StatusConflict)
+		return
+	}
+
+	//replication strategy may not be changed after account creation
+	if account != nil && req.Account.ReplicationPolicy != nil && !reflect.DeepEqual(req.Account.ReplicationPolicy, renderReplicationPolicy(*account)) {
+		http.Error(w, `cannot change replication policy on existing account`, http.StatusConflict)
 		return
 	}
 

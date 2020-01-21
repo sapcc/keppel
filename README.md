@@ -17,18 +17,21 @@ In other documents:
 When working with the container ecosystem (Docker, Kubernetes, etc.), you need a place to store your container images.
 The default choice is the [Docker Registry](https://github.com/docker/distribution), but a Docker Registry alone is not
 enough in productive deployments because you also need a compatible OAuth2 provider. A popular choice is
-[Harbor](https://goharbor.io), which bundles a Docker Registry, an auth provider, and some other tools.
+[Harbor](https://goharbor.io), which bundles a Docker Registry, an auth provider, and some other tools. Another choice
+is [Quay](https://github.com/quay/quay), which implements the registry protocol itself, but is otherwise very similar to
+Harbor.
 
 However, Harbor's architecture is limited by its use of a single registry that is shared between all users. Most
 importantly, by putting the images of all users in the same storage, quota and usage tracking need to be implemented
 from scratch to ensure accurate controlling and billing. Keppel uses a different approach: It orchestrates a fleet of
-Docker registry instances that all have separate storage spaces. Quota and usage can therefore be tracked by the backing
-storage. This orchestration is completely transparent to the user: A unified API endpoint is provided that multiplexes
-requests to their respective registry instances.
+Docker registry instances that all have separate storage spaces. Storage quota and usage can therefore be tracked by the
+backing storage. This orchestration is completely transparent to the user: A unified API endpoint is provided that
+multiplexes requests to their respective registry instances.
 
 Keppel provides a full implementation of the [OCI Distribution
 API](https://github.com/opencontainers/distribution-spec), the standard API for container image registries.
-It also provides a [custom API](docs/api-spec.md) to control the multitenancy added by Keppel.
+It also provides a [custom API](docs/api-spec.md) to control the multitenancy added by Keppel and to expose additional
+metadata about repositories, manifests and tags.
 
 ## Terminology
 
@@ -82,15 +85,19 @@ make && PATH=$PWD/build:$PATH keppel-api
 | `KEPPEL_DRIVER_NAMECLAIM` | *(required)* | The name of a name claim driver. For single-region deployments, the correct choice is probably `trivial`. |
 | `KEPPEL_DRIVER_ORCHESTRATION` | *(required)* | The name of an orchestration driver. |
 | `KEPPEL_DRIVER_STORAGE` | *(required)* | The name of a storage driver. |
-| `KEPPEL_ISSUER_KEY` | *(required)* | The private key (in PEM format) that keppel-api uses to sign auth tokens for Docker clients. |
-| `KEPPEL_ISSUER_CERT` | *(required)* | The certificate (in PEM format) belonging to the key above. keppel-registry verifies client tokens using this certificate. |
+| `KEPPEL_ISSUER_KEY` | *(required)* | The private key (in PEM format, or given as a path to a PEM file) that keppel-api uses to sign auth tokens for Docker clients. |
+| `KEPPEL_ISSUER_CERT` | *(required)* | The certificate (in PEM format, or given as a path to a PEM file) belonging to the key above. keppel-registry verifies client tokens using this certificate. |
+| `KEPPEL_PEERS` | *(optional)* | A comma-separated list of hostnames where our peer keppel-api instances are running. This is the set of instances that this keppel-api can replicate from. |
 
 To choose drivers, refer to the [documentation for drivers](./docs/drivers). Note that some drivers require additional
 configuration as mentioned in their respective documentation.
 
-Notes on `KEPPEL_ISSUER_KEY` and `KEPPEL_ISSUER_CERT`:
+For `KEPPEL_ISSUER_KEY` and `KEPPEL_ISSUER_CERT`, the Subject Public Key of the certificate must be the public
+counterpart of the private issuer key. Here's an example of how to generate such a pair of private key and certificate:
 
-- Instead of a PEM-encoded key or cert, the variables may also contain the paths to the key or cert, respectively.
-- The Subject Public Key of the certificate must be the public counterpart of the private issuer key. You can generate a suitable `trust` section by running `bash ./util/generate_trust.sh` in the repo root directory. Note that certificates expire! `util/generate_trust.sh` will generate a certificate with a validity of 1 year.
+```bash
+openssl genrsa -out privkey.pem 4096 2>/dev/null
+openssl req -x509 -sha256 -days 365 -subj "/CN=keppel" -key privkey.pem -out cert.pem
+```
 
 [pq-uri]: https://www.postgresql.org/docs/9.6/static/libpq-connect.html#LIBPQ-CONNSTRING

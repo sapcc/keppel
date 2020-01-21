@@ -20,6 +20,7 @@
 package authapi
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -50,12 +52,51 @@ func (a *API) checkAuthentication(authorizationHeader string) (keppel.Authorizat
 		return nil, errMalformedAuthHeader
 	}
 
+	if strings.HasPrefix(userName, "replication@") {
+		peerHostName := strings.TrimPrefix(userName, "replication@")
+		err := a.validatePeerCredentials(peerHostName, password)
+		if err != nil {
+			return nil, err
+		}
+		return keppel.ReplicationAuthorization{PeerHostName: peerHostName}, nil
+	}
+
 	authz, rerr := a.authDriver.AuthenticateUser(userName, password)
 	if rerr != nil {
 		return nil, rerr
 	}
-
 	return authz, nil
+
+	//WARNING: It's tempting to shorten the last paragraph to just
+	//
+	//	return a.authDriver.AuthenticateUser(userName, password)
+	//
+	//But that breaks everything! AuthenticateUser does not return `error`, it
+	//returns `*keppel.RegistryV2Error`. When a nil RegistryV2Error is returned,
+	//it would get cast into
+	//
+	//	err = error(*keppel.RegistryV2Error(nil))
+	//
+	//which is very different from
+	//
+	//	err = error(nil)
+	//
+	//That's one of the few really really stupid traps in Go.
+}
+
+func (a *API) validatePeerCredentials(peerHostName, password string) error {
+	var peer keppel.Peer
+	err := a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, peerHostName)
+	if err != nil {
+		return err
+	}
+	hashes := []string{peer.TheirCurrentPasswordHash, peer.TheirPreviousPasswordHash}
+	for _, hash := range hashes {
+		if hash != "" && bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil {
+			return nil
+		}
+	}
+	return sql.ErrNoRows
 }
 
 //Request contains the query parameters in a token request.
