@@ -122,6 +122,12 @@ var sqlMigrations = map[string]string{
 	"008_add_peers.down.sql": `
 		DROP TABLE peers;
 	`,
+	"009_add_replication_on_first_use.up.sql": `
+		ALTER TABLE accounts ADD COLUMN upstream_peer_hostname TEXT NOT NULL DEFAULT '';
+	`,
+	"009_add_replication_on_first_use.down.sql": `
+		ALTER TABLE accounts DROP COLUMN upstream_peer_hostname;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

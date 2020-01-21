@@ -1,6 +1,6 @@
 /*******************************************************************************
 *
-* Copyright 2018 SAP SE
+* Copyright 2018-2020 SAP SE
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -841,5 +841,135 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("\"[a-z]++@tenant2\" is not a valid regex: error parsing regexp: invalid nested repetition operator: `++`\n"),
+	}.Check(t, r)
+}
+
+func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
+	r, _, _, _, _, db := setup(t)
+
+	//configure a peer
+	err := db.Insert(&keppel.Peer{HostName: "peer.example.org"})
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	//test error cases on creation
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"replication":    assert.JSONObject{"strategy": "yes_please"},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("unknown replication strategy: \"yes_please\"\n"),
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"replication": assert.JSONObject{
+					"strategy": "on_first_use",
+					"upstream": "someone-else.example.org",
+				},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("unknown peer registry: \"someone-else.example.org\"\n"),
+	}.Check(t, r)
+
+	//test PUT success case
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"replication": assert.JSONObject{
+					"strategy": "on_first_use",
+					"upstream": "peer.example.org",
+				},
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  []assert.JSONObject{},
+				"replication": assert.JSONObject{
+					"strategy": "on_first_use",
+					"upstream": "peer.example.org",
+				},
+			},
+		},
+	}.Check(t, r)
+
+	//PUT on existing account with replication unspecified is okay, leaves
+	//replication settings unchanged
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  []assert.JSONObject{},
+				"replication": assert.JSONObject{
+					"strategy": "on_first_use",
+					"upstream": "peer.example.org",
+				},
+			},
+		},
+	}.Check(t, r)
+
+	//PUT on existing account with different replication settings is not allowed
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/second",
+		Header: map[string]string{"X-Test-Perms": "change:tenant2"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant2",
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "second",
+				"auth_tenant_id": "tenant2",
+				"rbac_policies":  []assert.JSONObject{},
+			},
+		},
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/second",
+		Header: map[string]string{"X-Test-Perms": "change:tenant2"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant2",
+				"replication": assert.JSONObject{
+					"strategy": "on_first_use",
+					"upstream": "peer.example.org",
+				},
+			},
+		},
+		ExpectStatus: http.StatusConflict,
+		ExpectBody:   assert.StringData("cannot change replication policy on existing account\n"),
 	}.Check(t, r)
 }

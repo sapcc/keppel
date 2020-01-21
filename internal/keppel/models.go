@@ -36,6 +36,8 @@ type Account struct {
 	Name               string `db:"name"`
 	AuthTenantID       string `db:"auth_tenant_id"`
 	RegistryHTTPSecret string `db:"registry_http_secret"`
+	//UpstreamPeerHostName is set if and only if the "on_first_use" replication strategy is used.
+	UpstreamPeerHostName string `db:"upstream_peer_hostname"`
 }
 
 //SwiftContainerName returns the name of the Swift container backing this
