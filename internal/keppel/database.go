@@ -114,7 +114,7 @@ var sqlMigrations = map[string]string{
 		CREATE TABLE peers (
 			hostname                     TEXT        NOT NULL PRIMARY KEY,
 			our_password                 TEXT        NOT NULL DEFAULT '',
-			their_current_password_hash  TEXT        NOT NULL,
+			their_current_password_hash  TEXT        NOT NULL DEFAULT '',
 			their_previous_password_hash TEXT        NOT NULL DEFAULT '',
 			last_peered_at               TIMESTAMPTZ DEFAULT NULL
 		);
