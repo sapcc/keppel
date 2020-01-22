@@ -26,7 +26,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
@@ -75,7 +74,7 @@ func main() {
 
 	//start background goroutines
 	ctx := httpee.ContextWithSIGINT(context.Background())
-	runPeering(ctx, cfg, db, strings.Split(os.Getenv("KEPPEL_PEERS"), ","))
+	runPeering(ctx, cfg, db)
 
 	//wire up HTTP handlers
 	r := mux.NewRouter()

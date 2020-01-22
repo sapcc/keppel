@@ -21,6 +21,8 @@ package main
 import (
 	"context"
 	"database/sql"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
@@ -28,7 +30,15 @@ import (
 	"github.com/sapcc/keppel/internal/tasks"
 )
 
-func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB, peerHostNames []string) {
+func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
+	var peerHostNames []string
+	for _, hostName := range strings.Split(os.Getenv("KEPPEL_PEERS"), ",") {
+		hostName = strings.TrimSpace(hostName)
+		if hostName != "" {
+			peerHostNames = append(peerHostNames, hostName)
+		}
+	}
+
 	if len(peerHostNames) == 0 {
 		//nothing to do
 		return
