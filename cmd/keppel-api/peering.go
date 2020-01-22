@@ -75,8 +75,8 @@ func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
 //will not work as expected.
 const getNextPeerQuery = `
 	SELECT * FROM peers
-	 WHERE last_peered_at < $1
-	 ORDER BY last_peered_at ASC LIMIT 1
+	 WHERE last_peered_at < $1 OR last_peered_at IS NULL
+	 ORDER BY COALESCE(last_peered_at, TO_TIMESTAMP(-1)) ASC LIMIT 1
 	   FOR UPDATE SKIP LOCKED
 `
 
