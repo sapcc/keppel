@@ -108,7 +108,7 @@ func TestProxyAPI(t *testing.T) {
 	clock.Step()
 	testPullNonExistentTag(t, r, ad)
 	clock.Step()
-	testPushAndPull(t, r, ad, db,
+	firstBlobDigest := testPushAndPull(t, r, ad, db,
 		"fixtures/example-docker-image-config.json",
 		"fixtures/001-before-push.sql",
 		"fixtures/002-after-push.sql",
@@ -122,6 +122,15 @@ func TestProxyAPI(t *testing.T) {
 	clock.Step()
 	testPullExistingNotAllowed(t, r, ad)
 	testManifestQuotaExceeded(t, r, ad, db)
+	testReplicationOnFirstUse(t, r, db,
+		//the first manifest, which is not referenced by a tag
+		"sha256:86fa8722ca7f27e97e1bc5060c3f6720bf43840f143f813fcbe48ed4cbeebb90",
+		//the blob contained in that manifest
+		firstBlobDigest,
+		//the second manifest, which is referenced by a tag
+		"sha256:65147aad93781ff7377b8fb81dab153bd58ffe05b5dc00b67b3035fa9420d2de",
+		"latest", //the tag
+	)
 	clock.Step()
 	testDeleteManifest(t, r, ad, db,
 		//the first manifest, which is not referenced by tags anymore
@@ -189,7 +198,7 @@ func testPullNonExistentTag(t *testing.T, h http.Handler, ad keppel.AuthDriver) 
 	}.Check(t, h)
 }
 
-func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB, imageConfigJSON, dbContentsBeforeManifestPush, dbContentsAfterManifestPush string) {
+func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB, imageConfigJSON, dbContentsBeforeManifestPush, dbContentsAfterManifestPush string) string {
 	//This tests pushing a minimal image without any layers, so we only upload one object (the config JSON) and create a manifest.
 	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 		keppel.CanPullFromAccount,
@@ -278,6 +287,8 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *kep
 		},
 		ExpectBody: assert.JSONFixtureFile(imageConfigJSON),
 	}.Check(t, h)
+
+	return "sha256:" + sha256HashStr
 }
 
 func testDeleteManifest(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB, digest, dbContentsAfterManifestDelete string) {

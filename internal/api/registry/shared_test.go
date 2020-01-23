@@ -20,6 +20,7 @@ package registryv2
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -29,5 +30,29 @@ import (
 func getToken(t *testing.T, h http.Handler, ad keppel.AuthDriver, scope string, perms ...keppel.Permission) string {
 	t.Helper()
 
-	return ad.(*test.AuthDriver).GetTokenForTest(t, h, scope, "test1authtenant", perms...)
+	return ad.(*test.AuthDriver).GetTokenForTest(t, h, "registry.example.org", scope, "test1authtenant", perms...)
+}
+
+func getTokenForSecondary(t *testing.T, h http.Handler, ad keppel.AuthDriver, scope string, perms ...keppel.Permission) string {
+	t.Helper()
+
+	return ad.(*test.AuthDriver).GetTokenForTest(t, h, "registry-secondary.example.org", scope, "test1authtenant", perms...)
+}
+
+//httpTransportForTest is an http.Transport that redirects some
+type httpTransportForTest struct {
+	Handlers map[string]http.Handler
+}
+
+//RoundTrip implements the http.RoundTripper interface.
+func (t *httpTransportForTest) RoundTrip(req *http.Request) (*http.Response, error) {
+	//only intercept requests when the target host is known to us
+	h := t.Handlers[req.URL.Host]
+	if h == nil {
+		return http.DefaultTransport.RoundTrip(req)
+	}
+
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	return w.Result(), nil
 }
