@@ -71,9 +71,15 @@ func (a *API) AddTo(r *mux.Router) {
 	rr.Methods("DELETE", "GET", "PATCH", "PUT").
 		Path("/{repository:.+}/blobs/uploads/{uuid}").
 		HandlerFunc(a.handleProxyToAccount)
-	rr.Methods("DELETE", "GET", "HEAD", "PUT").
+	rr.Methods("DELETE").
 		Path("/{repository:.+}/manifests/{reference}").
-		HandlerFunc(a.handleManifest)
+		HandlerFunc(a.handleDeleteManifest)
+	rr.Methods("GET", "HEAD").
+		Path("/{repository:.+}/manifests/{reference}").
+		HandlerFunc(a.handleGetOrHeadManifest)
+	rr.Methods("PUT").
+		Path("/{repository:.+}/manifests/{reference}").
+		HandlerFunc(a.handlePutManifest)
 	rr.Methods("GET").
 		Path("/{repository:.+}/tags/list").
 		HandlerFunc(a.handleProxyToAccount)
@@ -100,7 +106,7 @@ func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *
 //A one-stop-shop authorization checker for all endpoints that set the mux vars
 //"account" and "repository". On success, returns the account and repository
 //that this request is about.
-func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request) (account *keppel.Account, repoName string) {
+func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request) (account *keppel.Account, repoName string, token *auth.Token) {
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
@@ -119,25 +125,25 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request) (accoun
 	default:
 		scope.Actions = []string{"pull", "push"}
 	}
-	token := a.requireBearerToken(w, r, &scope)
+	token = a.requireBearerToken(w, r, &scope)
 	if token == nil {
-		return nil, ""
+		return nil, "", nil
 	}
 
 	//we need to know the account to select the registry instance for this request
 	account, err := a.db.FindAccount(mux.Vars(r)["account"])
 	if respondwith.ErrorText(w, err) {
-		return nil, ""
+		return nil, "", nil
 	}
 	if account == nil {
 		//defense in depth - if the account does not exist, there should not be a
 		//valid token (the auth endpoint does not issue tokens with scopes for
 		//nonexistent accounts)
 		keppel.ErrNameUnknown.With("account not found").WriteAsRegistryV2ResponseTo(w)
-		return nil, ""
+		return nil, "", nil
 	}
 
-	return account, vars["repository"]
+	return account, vars["repository"], token
 }
 
 type interceptedResponse struct {

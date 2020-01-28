@@ -19,14 +19,12 @@
 package replication
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/sapcc/keppel/internal/auth"
@@ -46,8 +44,7 @@ type Blob struct {
 	Digest  string
 }
 
-//ReplicateBlob replicates the blob with the given digest into the given
-//repository from the b.Account's upstream registry.
+//ReplicateBlob replicates the given blob from its account's upstream registry.
 //
 //If a ResponseWriter is given, the response to the GET request to the upstream
 //registry is also copied into it as the blob contents are being streamed into
@@ -114,7 +111,7 @@ func (r Replicator) ReplicateBlob(b Blob, w http.ResponseWriter) (responseWasWri
 	}
 
 	//query upstream for the blob
-	blobReadCloser, blobLengthBytes, err := r.fetchFromUpstream(b, peer, peerToken)
+	blobReadCloser, blobLengthBytes, _, err := r.fetchFromUpstream(b.Repo, "blobs/"+b.Digest, peer, peerToken)
 	if err != nil {
 		return false, err
 	}
@@ -130,55 +127,10 @@ func (r Replicator) ReplicateBlob(b Blob, w http.ResponseWriter) (responseWasWri
 	}
 
 	//upload into local keppel-registry
-	return true, r.uploadToLocal(b, blobReader, blobLengthBytes, localToken.SignedToken)
+	return true, r.uploadBlobToLocal(b, blobReader, blobLengthBytes, localToken.SignedToken)
 }
 
-func (r Replicator) fetchFromUpstream(b Blob, peer keppel.Peer, peerToken string) (body io.ReadCloser, bodyLengthBytes uint64, returnErr error) {
-	reqURL := fmt.Sprintf(
-		"https://%s/v2/%s/blobs/%s",
-		peer.HostName, b.Repo.FullName(), b.Digest)
-
-	req, err := http.NewRequest("GET", reqURL, nil)
-	if err != nil {
-		return nil, 0, err
-	}
-	req.Header.Set("Authorization", "Bearer "+peerToken)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer func() {
-		//close resp.Body only if we're not passing it to the caller
-		if body == nil {
-			resp.Body.Close()
-		}
-	}()
-
-	//on success, just return the response body
-	if resp.StatusCode == http.StatusOK {
-		blobLengthBytes, err := strconv.ParseUint(resp.Header.Get("Content-Length"), 10, 64)
-		return resp.Body, blobLengthBytes, err
-	}
-
-	//on error, try to parse the upstream RegistryV2Error so that we can proxy it
-	//through to the client correctly
-	//
-	//NOTE: We use HasPrefix here because the actual Content-Type is usually
-	//"application/json; charset=utf-8".
-	if strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
-		var respData struct {
-			Errors []*keppel.RegistryV2Error `json:"errors"`
-		}
-		err := json.NewDecoder(resp.Body).Decode(&respData)
-		if err == nil && len(respData.Errors) > 0 {
-			return nil, 0, respData.Errors[0].WithStatus(resp.StatusCode)
-		}
-	}
-	return nil, 0, unexpectedStatusCodeError{req, http.StatusOK, resp.Status}
-}
-
-func (r Replicator) uploadToLocal(b Blob, blobReader io.Reader, blobLengthBytes uint64, localToken string) error {
+func (r Replicator) uploadBlobToLocal(b Blob, blobReader io.Reader, blobLengthBytes uint64, localToken string) error {
 	//start blob upload
 	url1 := fmt.Sprintf("/v2/%s/blobs/uploads/", b.Repo.FullName())
 	req1, err := http.NewRequest("POST", url1, nil)

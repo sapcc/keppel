@@ -40,7 +40,7 @@ func (a *API) handleProxyToplevel(w http.ResponseWriter, r *http.Request) {
 
 //This implements all repository-scoped endpoints that do not have more specific handlers.
 func (a *API) handleProxyToAccount(w http.ResponseWriter, r *http.Request) {
-	account, _ := a.checkAccountAccess(w, r)
+	account, _, _ := a.checkAccountAccess(w, r)
 	if account == nil {
 		return
 	}

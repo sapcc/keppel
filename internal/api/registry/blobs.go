@@ -31,7 +31,7 @@ import (
 
 //This implements the GET/HEAD /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
-	account, repoName := a.checkAccountAccess(w, r)
+	account, repoName, _ := a.checkAccountAccess(w, r)
 	if account == nil {
 		return
 	}
@@ -45,10 +45,6 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 
 	//if the blob does not exist there, we may have the option of replicating
 	//from upstream
-	//
-	//NOTE: I would like to send status 102 (Processing) when the replication
-	//takes a long time, but it appears that net/http does not support that.
-	//<https://github.com/golang/go/issues/36734>
 	if resp.Resp.StatusCode == http.StatusNotFound && account.UpstreamPeerHostName != "" {
 		repo, err := a.db.FindOrCreateRepository(repoName, *account)
 		if respondwith.ErrorText(w, err) {
@@ -96,7 +92,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
-	account, repoName := a.checkAccountAccess(w, r)
+	account, repoName, _ := a.checkAccountAccess(w, r)
 	if account == nil {
 		return
 	}

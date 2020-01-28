@@ -21,36 +21,86 @@ package registryv2
 import (
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/docker/distribution"
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/replication"
 
 	//distribution.UnmarshalManifest() relies on the following packages
 	//registering their manifest schemas.
 	_ "github.com/docker/distribution/manifest/manifestlist"
 	_ "github.com/docker/distribution/manifest/ocischema"
-	_ "github.com/docker/distribution/manifest/schema1"
 	_ "github.com/docker/distribution/manifest/schema2"
+	//NOTE: We don't enable github.com/docker/distribution/manifest/schema1
+	//anymore since it's legacy anyway and docker-registry's rewriting between
+	//schema1 and schema2 interferes with our replication logic.
 )
 
-//This implements the HEAD/GET/PUT/DELETE /v2/<repo>/manifests/<reference> endpoint.
-func (a *API) handleManifest(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case "DELETE":
-		a.handleDeleteManifest(w, r)
-	case "PUT":
-		a.handlePutManifest(w, r)
-	default:
-		a.handleProxyToAccount(w, r)
+//This implements the HEAD/GET /v2/<repo>/manifests/<reference> endpoint.
+func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
+	account, repoName, _ := a.checkAccountAccess(w, r)
+	if account == nil {
+		return
 	}
+
+	//forcefully disable the docker-registry's automatic down-conversion from
+	//schema2 to schema1 unless the client really really wants it and sets an
+	//Accept header for schema1 (this automatic conversion would confuse our
+	//ReplicateManifest task)
+	if r.Header.Get("Accept") == "" {
+		r.Header.Set("Accept", strings.Join(distribution.ManifestMediaTypes(), ", "))
+	}
+
+	resp := a.proxyRequestToRegistry(w, r, *account)
+	if resp == nil {
+		return
+	}
+
+	//if the manifest does not exist there, we may have the option of replicating
+	//from upstream
+	if resp.Resp.StatusCode == http.StatusNotFound && account.UpstreamPeerHostName != "" {
+		repo, err := a.db.FindOrCreateRepository(repoName, *account)
+		if respondwith.ErrorText(w, err) {
+			return
+		}
+
+		repl := replication.NewReplicator(a.cfg, a.db, a.orchestrationDriver)
+		m := replication.Manifest{
+			Account:   *account,
+			Repo:      *repo,
+			Reference: mux.Vars(r)["reference"],
+		}
+		pm, err := repl.ReplicateManifest(r.Context(), m) //pm is a keppel.PendingManifest
+		if err != nil {
+			if rerr, ok := err.(*keppel.RegistryV2Error); ok {
+				rerr.WriteAsRegistryV2ResponseTo(w)
+			} else {
+				respondwith.ErrorText(w, err)
+			}
+			return
+		}
+
+		w.Header().Set("Content-Length", strconv.FormatUint(uint64(len(pm.Content)), 10))
+		w.Header().Set("Content-Type", pm.MediaType)
+		w.Header().Set("Docker-Content-Digest", pm.Digest)
+		w.WriteHeader(http.StatusOK)
+		if r.Method != "HEAD" {
+			w.Write([]byte(pm.Content))
+		}
+		return
+	}
+
+	a.proxyResponseToCaller(w, resp)
 }
 
 //This implements the DELETE /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
-	account, repoName := a.checkAccountAccess(w, r)
+	account, repoName, _ := a.checkAccountAccess(w, r)
 	if account == nil {
 		return
 	}
@@ -106,13 +156,15 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 
 //This implements the PUT /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
-	account, repoName := a.checkAccountAccess(w, r)
+	account, repoName, token := a.checkAccountAccess(w, r)
 	if account == nil {
 		return
 	}
 
-	//forbid pushing into replica accounts
-	if account.UpstreamPeerHostName != "" {
+	//forbid pushing into replica accounts (BUT allow it for the internal
+	//replication user, who uses this handler to perform the final PUT when a
+	//manifest is replicated)
+	if account.UpstreamPeerHostName != "" && token.UserName != "replication@"+a.cfg.APIPublicHostname() {
 		msg := fmt.Sprintf("cannot push into replica account (push to %s/%s/%s instead!)",
 			account.UpstreamPeerHostName, account.Name, repoName,
 		)

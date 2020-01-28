@@ -27,6 +27,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
@@ -139,7 +140,10 @@ func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *k
 	//the secondary registry wants to talk to the primary registry over HTTPS, so
 	//attach the primary registry's HTTP handler to the http.DefaultClient
 	tt := &httpTransportForTest{
-		Handlers: map[string]http.Handler{"registry.example.org": hPrimary},
+		Handlers: map[string]http.Handler{
+			"registry.example.org":           hPrimary,
+			"registry-secondary.example.org": r,
+		},
 	}
 	http.DefaultClient.Transport = tt
 	defer func() {
@@ -150,6 +154,18 @@ func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *k
 	testROFUSuccessCases(t, r, ad2, firstManifestDigest, firstBlobDigest, secondManifestDigest, secondManifestTag)
 	testROFUMissingEntities(t, r, ad2)
 	testROFUForbidDirectUpload(t, r, ad2)
+
+	//wait until all async replications are done
+	for idx := 0; idx < 10; idx++ {
+		count, err := db2.SelectInt(`SELECT COUNT(*) FROM pending_manifests`)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		if count == 0 {
+			break
+		}
+		time.Sleep(50 * time.Second)
+	}
 
 	//run the positive tests again with the network connection to the primary
 	//registry severed, to validate that contents have actually been replicated
@@ -179,7 +195,10 @@ func testROFUSuccessCases(t *testing.T, h http.Handler, ad keppel.AuthDriver, fi
 		Path:         "/v2/test1/foo/manifests/" + firstManifestDigest,
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusOK,
-		ExpectHeader: test.VersionHeader, //TODO Content-Type
+		ExpectHeader: map[string]string{
+			test.VersionHeaderKey: test.VersionHeaderValue,
+			"Content-Type":        "application/vnd.docker.distribution.manifest.v2+json",
+		},
 	}.Check(t, h)
 	assertDigest(t, "manifest", manifestData, firstManifestDigest)
 
@@ -192,7 +211,10 @@ func testROFUSuccessCases(t *testing.T, h http.Handler, ad keppel.AuthDriver, fi
 		Path:         "/v2/test1/foo/manifests/" + secondManifestTag,
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusOK,
-		ExpectHeader: test.VersionHeader, //TODO Content-Type
+		ExpectHeader: map[string]string{
+			test.VersionHeaderKey: test.VersionHeaderValue,
+			"Content-Type":        "application/vnd.docker.distribution.manifest.v2+json",
+		},
 	}.Check(t, h)
 	assertDigest(t, "manifest", manifestData, secondManifestDigest)
 }

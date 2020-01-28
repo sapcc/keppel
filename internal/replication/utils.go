@@ -22,8 +22,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"strconv"
+	"strings"
 
+	"github.com/docker/distribution"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -75,6 +79,58 @@ func (r Replicator) getPeerToken(peer keppel.Peer, repoFullName string) (string,
 		return "", errors.New("peer authentication did not yield a token")
 	}
 	return respData.Token, nil
+}
+
+func (r Replicator) fetchFromUpstream(repo keppel.Repository, path string, peer keppel.Peer, peerToken string) (body io.ReadCloser, bodyLengthBytes uint64, contentType string, returnErr error) {
+	reqURL := fmt.Sprintf(
+		"https://%s/v2/%s/%s",
+		peer.HostName, repo.FullName(), path)
+
+	req, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		return nil, 0, "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+peerToken)
+
+	if strings.HasPrefix(path, "manifests/") {
+		//ensure that we only retrieve manifest types that we can actually parse
+		//(this especially bypasses docker-registry's automatic down-conversion
+		//from schema2 to schema1)
+		req.Header.Set("Accept", strings.Join(distribution.ManifestMediaTypes(), ", "))
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, 0, "", err
+	}
+	defer func() {
+		//close resp.Body only if we're not passing it to the caller
+		if body == nil {
+			resp.Body.Close()
+		}
+	}()
+
+	//on success, just return the response body
+	if resp.StatusCode == http.StatusOK {
+		blobLengthBytes, err := strconv.ParseUint(resp.Header.Get("Content-Length"), 10, 64)
+		return resp.Body, blobLengthBytes, resp.Header.Get("Content-Type"), err
+	}
+
+	//on error, try to parse the upstream RegistryV2Error so that we can proxy it
+	//through to the client correctly
+	//
+	//NOTE: We use HasPrefix here because the actual Content-Type is usually
+	//"application/json; charset=utf-8".
+	if strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
+		var respData struct {
+			Errors []*keppel.RegistryV2Error `json:"errors"`
+		}
+		err := json.NewDecoder(resp.Body).Decode(&respData)
+		if err == nil && len(respData.Errors) > 0 {
+			return nil, 0, "", respData.Errors[0].WithStatus(resp.StatusCode)
+		}
+	}
+	return nil, 0, "", unexpectedStatusCodeError{req, http.StatusOK, resp.Status}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
