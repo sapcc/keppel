@@ -59,9 +59,12 @@ func (a *API) AddTo(r *mux.Router) {
 	//see internal/api/keppel/accounts.go for why account name format is limited
 	rr := r.PathPrefix("/v2/{account:[a-z0-9-]{1,48}}/").Subrouter()
 
-	rr.Methods("DELETE", "GET", "HEAD").
+	rr.Methods("DELETE").
 		Path("/{repository:.+}/blobs/{digest}").
 		HandlerFunc(a.handleProxyToAccount)
+	rr.Methods("GET", "HEAD").
+		Path("/{repository:.+}/blobs/{digest}").
+		HandlerFunc(a.handleGetOrHeadBlob)
 	rr.Methods("POST").
 		Path("/{repository:.+}/blobs/uploads/").
 		HandlerFunc(a.handleStartBlobUpload)

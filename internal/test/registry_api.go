@@ -27,10 +27,10 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 const (
@@ -91,7 +91,7 @@ func UploadBlobToRegistry(t *testing.T, h http.Handler, repo, token string, cont
 	query.Set("digest", "sha256:"+sha256HashStr)
 	resp, _ = assert.HTTPRequest{
 		Method: "PUT",
-		Path:   appendQuery(uploadPath, query),
+		Path:   keppel.AppendQuery(uploadPath, query),
 		Header: map[string]string{
 			"Authorization":  "Bearer " + token,
 			"Content-Length": "0",
@@ -127,11 +127,4 @@ type byteData []byte
 
 func (b byteData) GetRequestBody() (io.Reader, error) {
 	return bytes.NewReader([]byte(b)), nil
-}
-
-func appendQuery(url string, query url.Values) string {
-	if strings.Contains(url, "?") {
-		return url + "&" + query.Encode()
-	}
-	return url + "?" + query.Encode()
 }

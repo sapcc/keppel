@@ -22,17 +22,91 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gorilla/mux"
+	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/replication"
 )
+
+//This implements the GET/HEAD /v2/<account>/<repository>/blobs/<digest> endpoint.
+func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
+	account, repoName := a.checkAccountAccess(w, r)
+	if account == nil {
+		return
+	}
+
+	//check our local registry first
+	resp := a.proxyRequestToRegistry(w, r, *account)
+	if resp == nil {
+		return
+	}
+	responseWasWritten := false
+
+	//if the blob does not exist there, we may have the option of replicating
+	//from upstream
+	//
+	//NOTE: I would like to send status 102 (Processing) when the replication
+	//takes a long time, but it appears that net/http does not support that.
+	//<https://github.com/golang/go/issues/36734>
+	if resp.Resp.StatusCode == http.StatusNotFound && account.UpstreamPeerHostName != "" {
+		repo, err := a.db.FindOrCreateRepository(repoName, *account)
+		if respondwith.ErrorText(w, err) {
+			return
+		}
+
+		repl := replication.NewReplicator(a.cfg, a.db, a.orchestrationDriver)
+		blob := replication.Blob{
+			Account: *account,
+			Repo:    *repo,
+			Digest:  mux.Vars(r)["digest"],
+		}
+		responseWasWritten, err = repl.ReplicateBlob(blob, w)
+
+		if err != nil {
+			if responseWasWritten {
+				//we cannot write to `w` if br.Execute() wrote a response there already
+				logg.Error("while trying to replicate blob %s in %s/%s: %s",
+					blob.Digest, account.Name, repo.Name, err.Error())
+			} else if err == replication.ErrConcurrentReplication {
+				//special handling for GET during ongoing replication (429 Too Many
+				//Requests is not a perfect match, but it's my best guess for getting
+				//clients to automatically retry the request after a few seconds)
+				w.Header().Set("Retry-After", "10")
+				msg := "currently replicating on a different worker, please retry in a few seconds"
+				http.Error(w, msg, http.StatusTooManyRequests)
+				return
+			} else if rerr, ok := err.(*keppel.RegistryV2Error); ok {
+				rerr.WriteAsRegistryV2ResponseTo(w)
+				return
+			} else {
+				respondwith.ErrorText(w, err)
+				return
+			}
+		}
+	}
+
+	if !responseWasWritten {
+		a.proxyResponseToCaller(w, resp)
+	}
+}
 
 //This implements the POST /v2/<account>/<repository>/blobs/uploads/ endpoint.
 func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
-	account, _ := a.checkAccountAccess(w, r)
+	account, repoName := a.checkAccountAccess(w, r)
 	if account == nil {
+		return
+	}
+
+	//forbid pushing into replica accounts
+	if account.UpstreamPeerHostName != "" {
+		msg := fmt.Sprintf("cannot push into replica account (push to %s/%s/%s instead!)",
+			account.UpstreamPeerHostName, account.Name, repoName,
+		)
+		keppel.ErrDenied.With(msg).WriteAsRegistryV2ResponseTo(w)
 		return
 	}
 

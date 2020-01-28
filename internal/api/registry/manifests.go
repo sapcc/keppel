@@ -111,6 +111,15 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//forbid pushing into replica accounts
+	if account.UpstreamPeerHostName != "" {
+		msg := fmt.Sprintf("cannot push into replica account (push to %s/%s/%s instead!)",
+			account.UpstreamPeerHostName, account.Name, repoName,
+		)
+		keppel.ErrDenied.With(msg).WriteAsRegistryV2ResponseTo(w)
+		return
+	}
+
 	//check if user has enough quota to push a manifest
 	quotas, err := a.db.FindQuotas(account.AuthTenantID)
 	if respondwith.ErrorText(w, err) {
