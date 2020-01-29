@@ -31,10 +31,10 @@ import (
 type ErrorCode keppel.RegistryV2ErrorCode
 
 //AssertResponseBody implements the assert.HTTPResponseBody interface.
-func (e ErrorCode) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) {
+func (e ErrorCode) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
 	t.Helper()
 	wrapped := ErrorCodeWithMessage{keppel.RegistryV2ErrorCode(e), ""}
-	wrapped.AssertResponseBody(t, requestInfo, responseBody)
+	return wrapped.AssertResponseBody(t, requestInfo, responseBody)
 }
 
 //ErrorCodeWithMessage extends ErrorCode with an expected detail message.
@@ -44,7 +44,7 @@ type ErrorCodeWithMessage struct {
 }
 
 //AssertResponseBody implements the assert.HTTPResponseBody interface.
-func (e ErrorCodeWithMessage) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) {
+func (e ErrorCodeWithMessage) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
 	t.Helper()
 	var data struct {
 		Errors []struct {
@@ -56,7 +56,7 @@ func (e ErrorCodeWithMessage) AssertResponseBody(t *testing.T, requestInfo strin
 	if err != nil {
 		t.Errorf("%s: cannot decode JSON: %s", requestInfo, err.Error())
 		t.Logf("\tresponse body = %q", string(responseBody))
-		return
+		return false
 	}
 
 	expectedStr := string(e.Code)
@@ -77,4 +77,6 @@ func (e ErrorCodeWithMessage) AssertResponseBody(t *testing.T, requestInfo strin
 		t.Logf("\texpected = %q\n", expectedStr)
 		t.Logf("\tactual = %q\n", string(responseBody))
 	}
+
+	return matches
 }
