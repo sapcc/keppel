@@ -292,6 +292,36 @@ type Peer struct {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+//PendingBlob contains a record from the `pending_blobs` table.
+type PendingBlob struct {
+	RepositoryID int64         `db:"repo_id"`
+	Digest       string        `db:"digest"`
+	Reason       PendingReason `db:"reason"`
+	PendingSince time.Time     `db:"since"`
+}
+
+//PendingManifest contains a record from the `pending_manifests` table.
+type PendingManifest struct {
+	RepositoryID int64         `db:"repo_id"`
+	Reference    string        `db:"reference"` //either digest or tag
+	Digest       string        `db:"digest"`
+	Reason       PendingReason `db:"reason"`
+	PendingSince time.Time     `db:"since"`
+	MediaType    string        `db:"media_type"`
+	Content      string        `db:"content"`
+}
+
+//PendingReason is an enum that explains why a blob or manifest is pending.
+type PendingReason string
+
+const (
+	//PendingBecauseOfReplication is when a blob or manifest is pending because
+	//it is currently being replicated from an upstream registry.
+	PendingBecauseOfReplication PendingReason = "replication"
+)
+
+////////////////////////////////////////////////////////////////////////////////
+
 func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(Account{}, "accounts").SetKeys(false, "name")
 	db.AddTableWithName(RBACPolicy{}, "rbac_policies").SetKeys(false, "account_name", "match_repository", "match_username")
@@ -300,4 +330,6 @@ func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(Tag{}, "tags").SetKeys(false, "repo_id", "name")
 	db.AddTableWithName(Quotas{}, "quotas").SetKeys(false, "auth_tenant_id")
 	db.AddTableWithName(Peer{}, "peers").SetKeys(false, "hostname")
+	db.AddTableWithName(PendingBlob{}, "pending_blobs").SetKeys(false, "repo_id", "digest")
+	db.AddTableWithName(PendingManifest{}, "pending_manifests").SetKeys(false, "repo_id", "reference")
 }

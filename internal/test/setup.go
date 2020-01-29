@@ -33,22 +33,45 @@ import (
 //Setup sets up a keppel.Configuration and database connection for a unit test.
 func Setup(t *testing.T) (keppel.Configuration, *keppel.DB) {
 	t.Helper()
+	return setup(t, false)
+}
+
+//SetupSecondary sets up a keppel.Configuration and database connection for a secondary instance in a unit test.
+func SetupSecondary(t *testing.T) (keppel.Configuration, *keppel.DB) {
+	t.Helper()
+	return setup(t, true)
+}
+
+func setup(t *testing.T, isSecondary bool) (keppel.Configuration, *keppel.DB) {
+	t.Helper()
 	logg.ShowDebug, _ = strconv.ParseBool(os.Getenv("KEPPEL_DEBUG"))
+
+	var (
+		dbName          string
+		apiPublicURLStr string
+	)
+	if isSecondary {
+		dbName = "keppel_secondary"
+		apiPublicURLStr = "https://registry-secondary.example.org"
+	} else {
+		dbName = "keppel"
+		apiPublicURLStr = "https://registry.example.org"
+	}
 
 	var postgresURL string
 	if os.Getenv("TRAVIS") == "true" {
 		//cf. https://docs.travis-ci.com/user/database-setup/#postgresql
-		postgresURL = "postgres://postgres@localhost/keppel?sslmode=disable"
+		postgresURL = fmt.Sprintf("postgres://postgres@localhost/%s?sslmode=disable", dbName)
 	} else {
 		//suitable for use with ./testing/with-postgres-db.sh
-		postgresURL = "postgres://postgres@localhost:54321/keppel?sslmode=disable"
+		postgresURL = fmt.Sprintf("postgres://postgres@localhost:54321/%s?sslmode=disable", dbName)
 	}
 
 	dbURL, err := url.Parse(postgresURL)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	apiPublicURL, err := url.Parse("https://registry.example.org")
+	apiPublicURL, err := url.Parse(apiPublicURLStr)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

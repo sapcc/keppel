@@ -40,7 +40,9 @@ type HTTPResponseBody interface {
 	//Checks that the given actual response body is equal to this expected value.
 	//`request` contains a user-readable representation of the original request,
 	//for use in error messages.
-	AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte)
+	//
+	//Returns whether the assertion was successful.
+	AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool
 }
 
 //HTTPRequest is a HTTP request that gets executed by a unit test.
@@ -87,7 +89,11 @@ func (r HTTPRequest) Check(t *testing.T, handler http.Handler) (resp *http.Respo
 	response := recorder.Result()
 	responseBytes, _ := ioutil.ReadAll(response.Body)
 
+	hadErrors := false
+	bodyShown := false
+
 	if response.StatusCode != r.ExpectStatus {
+		hadErrors = true
 		t.Errorf("%s %s: expected status code %d, got %d",
 			r.Method, r.Path, r.ExpectStatus, response.StatusCode,
 		)
@@ -104,7 +110,16 @@ func (r HTTPRequest) Check(t *testing.T, handler http.Handler) (resp *http.Respo
 
 	if r.ExpectBody != nil {
 		requestInfo := fmt.Sprintf("%s %s", r.Method, r.Path)
-		r.ExpectBody.AssertResponseBody(t, requestInfo, responseBytes)
+		if !r.ExpectBody.AssertResponseBody(t, requestInfo, responseBytes) {
+			hadErrors = true
+			bodyShown = true
+		}
+	}
+
+	//in case of errors, it's usually very helpful to see the response body
+	//(particularly for 4xx and 5xx responses), so make sure that it gets shown)
+	if hadErrors && !bodyShown {
+		t.Logf("%s %s: response body was %q", r.Method, r.Path, string(responseBytes))
 	}
 
 	return response, responseBytes

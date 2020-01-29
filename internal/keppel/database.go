@@ -128,6 +128,33 @@ var sqlMigrations = map[string]string{
 	"009_add_replication_on_first_use.down.sql": `
 		ALTER TABLE accounts DROP COLUMN upstream_peer_hostname;
 	`,
+	"010_add_pending_blobs.up.sql": `
+		CREATE TABLE pending_blobs (
+			repo_id BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
+			digest  TEXT        NOT NULL,
+			reason  TEXT        NOT NULL,
+			since   TIMESTAMPTZ DEFAULT NOW(),
+			PRIMARY KEY (repo_id, digest)
+		);
+	`,
+	"010_add_pending_blobs.down.sql": `
+		DROP TABLE pending_blobs;
+	`,
+	"011_add_pending_manifests.up.sql": `
+		CREATE TABLE pending_manifests (
+			repo_id    BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
+			reference  TEXT        NOT NULL,
+			digest     TEXT        NOT NULL,
+			reason     TEXT        NOT NULL,
+			since      TIMESTAMPTZ DEFAULT NOW(),
+			media_type TEXT        NOT NULL,
+			content    TEXT        NOT NULL,
+			PRIMARY KEY (repo_id, reference)
+		);
+	`,
+	"011_add_pending_manifests.down.sql": `
+		DROP TABLE pending_manifests;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

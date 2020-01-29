@@ -152,7 +152,7 @@ var authorizationHeader = "Basic " + base64.StdEncoding.EncodeToString(
 //is the ID of the auth tenant backing the requested account. `perms` is the
 //set of permissions that the requesting user has (the AuthDriver will set up
 //mock permissions for the duration of the token request).
-func (d *AuthDriver) GetTokenForTest(t *testing.T, h http.Handler, scope, authTenantID string, perms ...keppel.Permission) string {
+func (d *AuthDriver) GetTokenForTest(t *testing.T, h http.Handler, service, scope, authTenantID string, perms ...keppel.Permission) string {
 	t.Helper()
 	//configure AuthDriver to allow access for this call
 	d.ExpectedUserName = "correctusername"
@@ -165,7 +165,7 @@ func (d *AuthDriver) GetTokenForTest(t *testing.T, h http.Handler, scope, authTe
 
 	//build a token request
 	query := url.Values{}
-	query.Set("service", "registry.example.org")
+	query.Set("service", service)
 	if scope != "" {
 		query.Set("scope", scope)
 	}
