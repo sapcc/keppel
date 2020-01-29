@@ -57,7 +57,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 			Repo:    *repo,
 			Digest:  mux.Vars(r)["digest"],
 		}
-		responseWasWritten, err = repl.ReplicateBlob(blob, w)
+		responseWasWritten, err = repl.ReplicateBlob(blob, w, r.Method)
 
 		if err != nil {
 			if responseWasWritten {

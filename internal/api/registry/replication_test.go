@@ -151,6 +151,7 @@ func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *k
 	}()
 
 	//run all replication-on-first-use (ROFU) tests once
+	testROFUNonReplicatingCases(t, r, ad2, od2, db2, firstBlobDigest)
 	testROFUSuccessCases(t, r, ad2, firstManifestDigest, firstBlobDigest, secondManifestDigest, secondManifestTag)
 	testROFUMissingEntities(t, r, ad2)
 	testROFUForbidDirectUpload(t, r, ad2)
@@ -172,6 +173,37 @@ func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *k
 	http.DefaultClient.Transport = nil
 	testROFUSuccessCases(t, r, ad2, firstManifestDigest, firstBlobDigest, secondManifestDigest, secondManifestTag)
 	testROFUForbidDirectUpload(t, r, ad2)
+}
+
+func testROFUNonReplicatingCases(t *testing.T, h http.Handler, ad keppel.AuthDriver, od keppel.OrchestrationDriver, db *keppel.DB, firstBlobDigest string) {
+	//before replication, do a HEAD on a blob - this should only be proxied to
+	//upstream and not cause a full replication (we reserve the full replication
+	//for the first GET on the blob since we can then also stream the blob
+	//contents to that client directly)
+	token := getTokenForSecondary(t, h, ad, "repository:test1/foo:pull",
+		keppel.CanPullFromAccount)
+	assert.HTTPRequest{
+		Method:       "HEAD",
+		Path:         "/v2/test1/foo/blobs/" + firstBlobDigest,
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusOK,
+		ExpectHeader: test.VersionHeader,
+	}.Check(t, h)
+
+	//query the backing keppel-registry to check that the blob was not actually replicated
+	account, err := db.FindAccount("test1")
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	req, _ := http.NewRequest("GET", "/v2/test1/foo/blobs/"+firstBlobDigest, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := od.DoHTTPRequest(*account, req, keppel.FollowRedirects)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("expected blob %s to be 404 in secondary keppel-registry, but is actually %s", firstBlobDigest, resp.Status)
+	}
 }
 
 func testROFUSuccessCases(t *testing.T, h http.Handler, ad keppel.AuthDriver, firstManifestDigest, firstBlobDigest, secondManifestDigest, secondManifestTag string) {

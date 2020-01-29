@@ -63,7 +63,7 @@ func (r Replicator) ReplicateManifest(ctx context.Context, m Manifest) (keppel.P
 	}
 
 	//query upstream for the manifest
-	manifestReader, _, manifestContentType, err := r.fetchFromUpstream(m.Repo, "manifests/"+m.Reference, peer, peerToken)
+	manifestReader, _, manifestContentType, err := r.fetchFromUpstream(m.Repo, "GET", "manifests/"+m.Reference, peer, peerToken)
 	if err != nil {
 		return keppel.PendingManifest{}, err
 	}
@@ -241,7 +241,7 @@ func (r Replicator) replicateBlobIfNecessary(b Blob, localToken string) error {
 		return nil
 	}
 
-	_, err = r.ReplicateBlob(b, nil)
+	_, err = r.ReplicateBlob(b, nil, "GET")
 	return err
 }
 

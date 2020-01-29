@@ -27,7 +27,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/docker/distribution"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -81,23 +80,16 @@ func (r Replicator) getPeerToken(peer keppel.Peer, repoFullName string) (string,
 	return respData.Token, nil
 }
 
-func (r Replicator) fetchFromUpstream(repo keppel.Repository, path string, peer keppel.Peer, peerToken string) (body io.ReadCloser, bodyLengthBytes uint64, contentType string, returnErr error) {
+func (r Replicator) fetchFromUpstream(repo keppel.Repository, method, path string, peer keppel.Peer, peerToken string) (body io.ReadCloser, bodyLengthBytes uint64, contentType string, returnErr error) {
 	reqURL := fmt.Sprintf(
 		"https://%s/v2/%s/%s",
 		peer.HostName, repo.FullName(), path)
 
-	req, err := http.NewRequest("GET", reqURL, nil)
+	req, err := http.NewRequest(method, reqURL, nil)
 	if err != nil {
 		return nil, 0, "", err
 	}
 	req.Header.Set("Authorization", "Bearer "+peerToken)
-
-	if strings.HasPrefix(path, "manifests/") {
-		//ensure that we only retrieve manifest types that we can actually parse
-		//(this especially bypasses docker-registry's automatic down-conversion
-		//from schema2 to schema1)
-		req.Header.Set("Accept", strings.Join(distribution.ManifestMediaTypes(), ", "))
-	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

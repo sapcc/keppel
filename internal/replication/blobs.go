@@ -51,7 +51,11 @@ type Blob struct {
 //our local registry. The result value `responseWasWritten` indicates whether
 //this happened. It may be false if an error occured before writing into the
 //ResponseWriter took place.
-func (r Replicator) ReplicateBlob(b Blob, w http.ResponseWriter) (responseWasWritten bool, returnErr error) {
+//
+//`requestMethod` is usually "GET", but can also be set to "HEAD". In this
+//case, no replication will take place. The upstream HEAD request will just be
+//proxied into the given ResponseWriter.
+func (r Replicator) ReplicateBlob(b Blob, w http.ResponseWriter, requestMethod string) (responseWasWritten bool, returnErr error) {
 	//mark this blob as currently being replicated
 	pendingBlob := keppel.PendingBlob{
 		RepositoryID: b.Repo.ID,
@@ -85,18 +89,23 @@ func (r Replicator) ReplicateBlob(b Blob, w http.ResponseWriter) (responseWasWri
 		}
 	}()
 
-	//get a token for the local keppel-registry
-	localToken, err := auth.Token{
-		UserName: "replication@" + r.cfg.APIPublicHostname(),
-		Audience: r.cfg.APIPublicHostname(),
-		Access: []auth.Scope{{
-			ResourceType: "repository",
-			ResourceName: b.Repo.FullName(),
-			Actions:      []string{"pull", "push"},
-		}},
-	}.Issue(r.cfg)
-	if err != nil {
-		return false, err
+	//get a token for the local keppel-registry (we don't need to do this for
+	//HEAD requests; those cannot cause an actual replication because no blob
+	//contents are streamed)
+	var localToken *auth.IssuedToken
+	if requestMethod != "HEAD" {
+		localToken, err = auth.Token{
+			UserName: "replication@" + r.cfg.APIPublicHostname(),
+			Audience: r.cfg.APIPublicHostname(),
+			Access: []auth.Scope{{
+				ResourceType: "repository",
+				ResourceName: b.Repo.FullName(),
+				Actions:      []string{"pull", "push"},
+			}},
+		}.Issue(r.cfg)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	//get a token for upstream
@@ -111,7 +120,11 @@ func (r Replicator) ReplicateBlob(b Blob, w http.ResponseWriter) (responseWasWri
 	}
 
 	//query upstream for the blob
-	blobReadCloser, blobLengthBytes, _, err := r.fetchFromUpstream(b.Repo, "blobs/"+b.Digest, peer, peerToken)
+	upstreamMethod := "GET"
+	if requestMethod == "HEAD" {
+		upstreamMethod = "HEAD"
+	}
+	blobReadCloser, blobLengthBytes, _, err := r.fetchFromUpstream(b.Repo, upstreamMethod, "blobs/"+b.Digest, peer, peerToken)
 	if err != nil {
 		return false, err
 	}
@@ -126,7 +139,10 @@ func (r Replicator) ReplicateBlob(b Blob, w http.ResponseWriter) (responseWasWri
 		blobReader = io.TeeReader(blobReader, w)
 	}
 
-	//upload into local keppel-registry
+	//upload into local keppel-registry if we have a blob content to upload
+	if requestMethod == "HEAD" {
+		return true, nil
+	}
 	return true, r.uploadBlobToLocal(b, blobReader, blobLengthBytes, localToken.SignedToken)
 }
 
