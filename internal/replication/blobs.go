@@ -67,7 +67,7 @@ func (r Replicator) ReplicateBlob(b Blob, w http.ResponseWriter, requestMethod s
 	if err != nil {
 		//did we get a duplicate-key error because this blob is already being replicated?
 		count, err := r.db.SelectInt(
-			`SELECT * FROM pending_blobs WHERE repo_id = $1 AND digest = $2`,
+			`SELECT COUNT(*) FROM pending_blobs WHERE repo_id = $1 AND digest = $2`,
 			b.Repo.ID, b.Digest,
 		)
 		if err == nil && count > 0 {

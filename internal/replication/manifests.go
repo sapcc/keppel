@@ -125,7 +125,7 @@ func (r Replicator) replicateManifestAsync(ctx context.Context, m Manifest, pm k
 	if err != nil {
 		//did we get a duplicate-key error because this blob is already being replicated?
 		count, err := r.db.SelectInt(
-			`SELECT * FROM pending_manifests WHERE repo_id = $1 AND reference = $2`,
+			`SELECT COUNT(*) FROM pending_manifests WHERE repo_id = $1 AND reference = $2`,
 			pm.RepositoryID, pm.Reference,
 		)
 		if err == nil && count > 0 {
