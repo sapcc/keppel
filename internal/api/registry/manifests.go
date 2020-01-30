@@ -74,7 +74,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 			Repo:      *repo,
 			Reference: mux.Vars(r)["reference"],
 		}
-		pm, err := repl.ReplicateManifest(r.Context(), m) //pm is a keppel.PendingManifest
+		pm, err := repl.ReplicateManifest(a.ctx, m) //pm is a keppel.PendingManifest
 		if err != nil {
 			if rerr, ok := err.(*keppel.RegistryV2Error); ok {
 				rerr.WriteAsRegistryV2ResponseTo(w)

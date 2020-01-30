@@ -134,7 +134,7 @@ func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *k
 	}()
 
 	r := mux.NewRouter()
-	NewAPI(cfg2, od2, db2).AddTo(r)
+	NewAPI(context.Background(), cfg2, od2, db2).AddTo(r)
 	authapi.NewAPI(cfg2, ad2, db2).AddTo(r)
 
 	//the secondary registry wants to talk to the primary registry over HTTPS, so

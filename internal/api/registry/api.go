@@ -20,6 +20,7 @@ package registryv2
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -34,6 +35,7 @@ import (
 
 //API contains state variables used by the Auth API endpoint.
 type API struct {
+	ctx                 context.Context
 	cfg                 keppel.Configuration
 	orchestrationDriver keppel.OrchestrationDriver
 	db                  *keppel.DB
@@ -41,8 +43,8 @@ type API struct {
 }
 
 //NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, od keppel.OrchestrationDriver, db *keppel.DB) *API {
-	return &API{cfg, od, db, time.Now}
+func NewAPI(ctx context.Context, cfg keppel.Configuration, od keppel.OrchestrationDriver, db *keppel.DB) *API {
+	return &API{ctx, cfg, od, db, time.Now}
 }
 
 //OverrideTimeNow replaces time.Now with a test double.

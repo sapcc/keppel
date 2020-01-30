@@ -100,7 +100,7 @@ func TestProxyAPI(t *testing.T) {
 	//run the API testcases
 	clock := &test.Clock{}
 	r := mux.NewRouter()
-	NewAPI(cfg, od, db).OverrideTimeNow(clock.Now).AddTo(r)
+	NewAPI(context.Background(), cfg, od, db).OverrideTimeNow(clock.Now).AddTo(r)
 	authapi.NewAPI(cfg, ad, db).AddTo(r)
 
 	clock.Step()
