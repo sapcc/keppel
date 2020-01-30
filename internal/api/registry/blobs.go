@@ -24,7 +24,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/replication"
 )
@@ -47,7 +46,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	//from upstream
 	if resp.Resp.StatusCode == http.StatusNotFound && account.UpstreamPeerHostName != "" {
 		repo, err := a.db.FindOrCreateRepository(repoName, *account)
-		if respondwith.ErrorText(w, err) {
+		if respondWithError(w, err) {
 			return
 		}
 
@@ -70,13 +69,10 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 				//clients to automatically retry the request after a few seconds)
 				w.Header().Set("Retry-After", "10")
 				msg := "currently replicating on a different worker, please retry in a few seconds"
-				keppel.ErrTooManyRequests.With(msg).WithStatus(http.StatusTooManyRequests).WriteAsRegistryV2ResponseTo(w)
-				return
-			} else if rerr, ok := err.(*keppel.RegistryV2Error); ok {
-				rerr.WriteAsRegistryV2ResponseTo(w)
+				keppel.ErrTooManyRequests.With(msg).WriteAsRegistryV2ResponseTo(w)
 				return
 			} else {
-				respondwith.ErrorText(w, err)
+				respondWithError(w, err)
 				return
 			}
 		}
@@ -112,14 +108,14 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	//useful to avoid the accumulation of unreferenced blobs in the account's
 	//backing storage.
 	quotas, err := a.db.FindQuotas(account.AuthTenantID)
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return
 	}
 	if quotas == nil {
 		quotas = keppel.DefaultQuotas(account.AuthTenantID)
 	}
 	manifestUsage, err := quotas.GetManifestUsage(a.db)
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return
 	}
 	if manifestUsage >= quotas.ManifestCount {

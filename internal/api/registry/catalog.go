@@ -92,7 +92,7 @@ func (a *API) handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		account, err := a.db.FindAccount(accountName)
-		if respondwith.ErrorText(w, err) {
+		if respondWithError(w, err) {
 			return
 		}
 		if account == nil {
@@ -180,22 +180,22 @@ func (a *API) getCatalogForAccount(w http.ResponseWriter, account keppel.Account
 
 	//build request
 	req, err := http.NewRequest("GET", "/v2/_catalog", nil)
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return nil, false
 	}
 	req.Header.Set("Authorization", authorizationHeader)
 
 	//perform request to backing keppel-registry
 	resp, err := a.orchestrationDriver.DoHTTPRequest(account, req, keppel.FollowRedirects)
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return nil, false
 	}
 	respBodyBytes, err := ioutil.ReadAll(resp.Body)
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return nil, false
 	}
 	err = resp.Body.Close()
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return nil, false
 	}
 
@@ -212,7 +212,7 @@ func (a *API) getCatalogForAccount(w http.ResponseWriter, account keppel.Account
 	dec := json.NewDecoder(bytes.NewReader(respBodyBytes))
 	dec.DisallowUnknownFields()
 	err = dec.Decode(&data)
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return nil, false
 	}
 

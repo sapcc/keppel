@@ -55,17 +55,16 @@ const (
 
 //With is a convenience function for constructing type RegistryV2Error.
 func (c RegistryV2ErrorCode) With(msg string, args ...interface{}) *RegistryV2Error {
-	var detail interface{}
-	if msg != "" {
+	if msg == "" {
+		msg = apiErrorMessages[c]
+	} else {
 		if len(args) > 0 {
 			msg = fmt.Sprintf(msg, args...)
 		}
-		detail = msg
 	}
 	return &RegistryV2Error{
 		Code:    c,
-		Message: apiErrorMessages[c],
-		Detail:  detail,
+		Message: msg,
 	}
 }
 
@@ -85,6 +84,9 @@ var apiErrorMessages = map[RegistryV2ErrorCode]string{
 	ErrUnauthorized:        "authentication required",
 	ErrDenied:              "requested access to the resource is denied",
 	ErrUnsupported:         "operation is unsupported",
+	ErrUnknown:             "unknown error",
+	ErrUnavailable:         "registry is currently unavailable",
+	ErrTooManyRequests:     "too many requests; please slow down",
 }
 
 var apiErrorStatusCodes = map[RegistryV2ErrorCode]int{
@@ -103,6 +105,9 @@ var apiErrorStatusCodes = map[RegistryV2ErrorCode]int{
 	ErrUnauthorized:        http.StatusUnauthorized,
 	ErrDenied:              http.StatusForbidden,
 	ErrUnsupported:         http.StatusNotImplemented,
+	ErrUnknown:             http.StatusInternalServerError,
+	ErrUnavailable:         http.StatusInternalServerError,
+	ErrTooManyRequests:     http.StatusTooManyRequests,
 }
 
 //RegistryV2Error is the error type expected by clients of the docker-registry

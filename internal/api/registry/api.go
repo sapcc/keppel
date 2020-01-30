@@ -28,7 +28,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -85,6 +84,23 @@ func (a *API) AddTo(r *mux.Router) {
 		HandlerFunc(a.handleProxyToAccount)
 }
 
+//Like respondwith.ErrorText(), but writes a RegistryV2Error instead of plain text.
+func respondWithError(w http.ResponseWriter, err error) bool {
+	switch err := err.(type) {
+	case nil:
+		return false
+	case *keppel.RegistryV2Error:
+		if err == nil {
+			return false
+		}
+		err.WriteAsRegistryV2ResponseTo(w)
+		return true
+	default:
+		keppel.ErrUnknown.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
+		return true
+	}
+}
+
 func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *auth.Scope) *auth.Token {
 	token, err := auth.ParseTokenFromRequest(r, a.cfg)
 	if err == nil && scope != nil && !token.Contains(*scope) {
@@ -132,7 +148,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request) (accoun
 
 	//we need to know the account to select the registry instance for this request
 	account, err := a.db.FindAccount(mux.Vars(r)["account"])
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return nil, "", nil
 	}
 	if account == nil {
@@ -157,11 +173,11 @@ func (a *API) interceptRequestBody(w http.ResponseWriter, r *http.Request) (buf 
 	}
 
 	buf, err := ioutil.ReadAll(r.Body)
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return nil, false
 	}
 	err = r.Body.Close()
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return nil, false
 	}
 
@@ -183,7 +199,7 @@ func (a *API) proxyRequestToRegistry(w http.ResponseWriter, r *http.Request, acc
 
 	resp, err := a.orchestrationDriver.DoHTTPRequest(account, &proxyRequest,
 		keppel.DoNotFollowRedirects)
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return nil
 	}
 
@@ -194,7 +210,7 @@ func (a *API) proxyRequestToRegistry(w http.ResponseWriter, r *http.Request, acc
 	} else {
 		resp.Body.Close()
 	}
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return nil
 	}
 	result.Resp.Body = nil

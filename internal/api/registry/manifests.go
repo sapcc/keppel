@@ -27,7 +27,6 @@ import (
 	"github.com/docker/distribution"
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
-	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/replication"
 
@@ -65,7 +64,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	//from upstream
 	if resp.Resp.StatusCode == http.StatusNotFound && account.UpstreamPeerHostName != "" {
 		repo, err := a.db.FindOrCreateRepository(repoName, *account)
-		if respondwith.ErrorText(w, err) {
+		if respondWithError(w, err) {
 			return
 		}
 
@@ -80,7 +79,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 			if rerr, ok := err.(*keppel.RegistryV2Error); ok {
 				rerr.WriteAsRegistryV2ResponseTo(w)
 			} else {
-				respondwith.ErrorText(w, err)
+				respondWithError(w, err)
 			}
 			return
 		}
@@ -105,7 +104,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	repo, err := a.db.FindOrCreateRepository(repoName, *account)
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return
 	}
 
@@ -121,7 +120,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	//prepare deletion of database entries on our side, so that we only have to
 	//commit the transaction once the backend DELETE is successful
 	tx, err := a.db.Begin()
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return
 	}
 	defer keppel.RollbackUnlessCommitted(tx)
@@ -129,11 +128,11 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		//this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
 		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
 		repo.ID, digest)
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return
 	}
 	rowsDeleted, err := result.RowsAffected()
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return
 	}
 	if rowsDeleted == 0 {
@@ -147,7 +146,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err = tx.Commit()
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return
 	}
 
@@ -174,14 +173,14 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 
 	//check if user has enough quota to push a manifest
 	quotas, err := a.db.FindQuotas(account.AuthTenantID)
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return
 	}
 	if quotas == nil {
 		quotas = keppel.DefaultQuotas(account.AuthTenantID)
 	}
 	manifestUsage, err := quotas.GetManifestUsage(a.db)
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return
 	}
 	if manifestUsage >= quotas.ManifestCount {
@@ -193,7 +192,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	repo, err := a.db.FindOrCreateRepository(repoName, *account)
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return
 	}
 
@@ -228,7 +227,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 
 	//prepare new database entries, so that we only have to commit the transaction once the backend PUT is successful
 	tx, err := a.db.Begin()
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return
 	}
 	defer keppel.RollbackUnlessCommitted(tx)
@@ -239,7 +238,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		SizeBytes:    sizeBytes,
 		PushedAt:     a.timeNow(),
 	}.InsertIfMissing(tx)
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return
 	}
 	if pushesToTag {
@@ -249,7 +248,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 			Digest:       manifestDesc.Digest.String(),
 			PushedAt:     a.timeNow(),
 		}.InsertIfMissing(tx)
-		if respondwith.ErrorText(w, err) {
+		if respondWithError(w, err) {
 			return
 		}
 	}
@@ -260,7 +259,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err = tx.Commit()
-	if respondwith.ErrorText(w, err) {
+	if respondWithError(w, err) {
 		return
 	}
 
