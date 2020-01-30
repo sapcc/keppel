@@ -153,6 +153,19 @@ func (r Replicator) replicateManifestAsync(ctx context.Context, m Manifest, pm k
 	//it is now safe for the current GET request to proceed
 	signal <- nil
 
+	//When pulling a Docker image, the Docker client pulls the manifest first,
+	//then the image configuration, then the blobs. Errors that occur when
+	//pulling a blob are considered recoverable and will cause the Docker client
+	//to enter a retry loop. But pull errors for the manifest and image
+	//configuration are not recoverable and make `docker pull` fail immediately.
+	//At this point, the client is receiving the manifest from us and they want
+	//to pull the image configuration next. If we started replicating blobs
+	//immediately, there's a decent chance that we would start replicating the
+	//image configuration blob, which would cause the client to see a 429 error.
+	//That's bad UX, so we wait a bit to give the client a head start in pulling
+	//the image configuration.
+	time.Sleep(3 * time.Second)
+
 	//replicate all blobs referenced by this manifest
 	hadErrors := false
 	remainingBlobs := manifest.References()
