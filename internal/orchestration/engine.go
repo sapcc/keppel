@@ -109,7 +109,9 @@ func (e *Engine) DoHTTPRequest(account keppel.Account, r *http.Request, opts kep
 	r.Host = ""
 	logg.Debug("using host %q for request", r.URL.Host)
 
-	client := http.DefaultClient
+	//NOTE: it's important to take a copy with the * operator here, otherwise
+	//`client.CheckRedirect = ...` modifies the global http.DefaultClient!
+	client := *http.DefaultClient
 	if (opts & keppel.DoNotFollowRedirects) != 0 {
 		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
