@@ -123,7 +123,7 @@ func (r Replicator) replicateManifestAsync(ctx context.Context, m Manifest, pm k
 	//mark this manifest as currently being replicated
 	err = r.db.Insert(&pm)
 	if err != nil {
-		//did we get a duplicate-key error because this blob is already being replicated?
+		//did we get a duplicate-key error because this manifest is already being replicated?
 		count, err := r.db.SelectInt(
 			`SELECT COUNT(*) FROM pending_manifests WHERE repo_id = $1 AND reference = $2`,
 			pm.RepositoryID, pm.Reference,
@@ -180,7 +180,7 @@ func (r Replicator) replicateManifestAsync(ctx context.Context, m Manifest, pm k
 			Account: m.Account,
 			Repo:    m.Repo,
 			Digest:  desc.Digest.String(),
-		}, localToken.SignedToken)
+		}, m, localToken.SignedToken)
 
 		switch err {
 		case nil:
@@ -238,7 +238,7 @@ func (r Replicator) replicateManifestAsync(ctx context.Context, m Manifest, pm k
 	}
 }
 
-func (r Replicator) replicateBlobIfNecessary(b Blob, localToken string) error {
+func (r Replicator) replicateBlobIfNecessary(b Blob, m Manifest, localToken string) error {
 	//check if this blob needs to be replicated
 	req, err := http.NewRequest("HEAD", fmt.Sprintf("/v2/%s/blobs/%s", b.Repo.FullName(), b.Digest), nil)
 	if err != nil {
@@ -254,6 +254,8 @@ func (r Replicator) replicateBlobIfNecessary(b Blob, localToken string) error {
 		return nil
 	}
 
+	logg.Info("replicating blob %s referenced by manifest %s in %s/%s",
+		b.Digest, m.Reference, m.Account.Name, m.Repo.Name)
 	_, err = r.ReplicateBlob(b, nil, "GET")
 	return err
 }
