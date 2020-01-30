@@ -164,8 +164,8 @@ func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver
 		ExpectBody: assert.JSONObject{
 			"errors": []assert.JSONObject{{
 				"code":    keppel.ErrUnauthorized,
-				"message": "authentication required",
-				"detail":  "no bearer token found in request headers",
+				"detail":  nil,
+				"message": "no bearer token found in request headers",
 			}},
 		},
 	}.Check(t, h)

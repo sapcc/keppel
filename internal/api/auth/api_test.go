@@ -644,7 +644,7 @@ func TestInvalidCredentials(t *testing.T) {
 
 		t.Logf("----- test wrong username with service %q -----\n", service)
 		req.Header["Authorization"] = keppel.BuildBasicAuthHeader("wrongusername", "correctpassword")
-		req.ExpectBody = assert.JSONObject{"details": "authentication required: wrong credentials"}
+		req.ExpectBody = assert.JSONObject{"details": "wrong credentials"}
 		req.Check(t, r)
 
 		t.Logf("----- test wrong password with service %q -----\n", service)

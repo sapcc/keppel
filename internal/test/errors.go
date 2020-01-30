@@ -48,8 +48,8 @@ func (e ErrorCodeWithMessage) AssertResponseBody(t *testing.T, requestInfo strin
 	t.Helper()
 	var data struct {
 		Errors []struct {
-			Code   keppel.RegistryV2ErrorCode `json:"code"`
-			Detail interface{}                `json:"detail"`
+			Code    keppel.RegistryV2ErrorCode `json:"code"`
+			Message string                     `json:"message"`
 		} `json:"errors"`
 	}
 	err := json.Unmarshal(responseBody, &data)
@@ -61,17 +61,13 @@ func (e ErrorCodeWithMessage) AssertResponseBody(t *testing.T, requestInfo strin
 
 	expectedStr := string(e.Code)
 	if e.Message != "" {
-		expectedStr = fmt.Sprintf("%s with detail: %s", e.Code, e.Message)
+		expectedStr = fmt.Sprintf("%s with message: %s", e.Code, e.Message)
 	}
 
 	matches := len(data.Errors) == 1 && data.Errors[0].Code == e.Code
 	if matches {
-		if e.Message != "" {
-			msgStr, ok := data.Errors[0].Detail.(string)
-			matches = ok && msgStr == e.Message
-		}
+		matches = e.Message == "" || data.Errors[0].Message == e.Message
 	}
-
 	if !matches {
 		t.Errorf(requestInfo + ": got unexpected error")
 		t.Logf("\texpected = %q\n", expectedStr)

@@ -546,13 +546,13 @@ func TestGetAccountsErrorCases(t *testing.T) {
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts",
 		ExpectStatus: http.StatusUnauthorized,
-		ExpectBody:   assert.StringData("authentication required: missing X-Test-Perms header\n"),
+		ExpectBody:   assert.StringData("missing X-Test-Perms header\n"),
 	}.Check(t, r)
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/first",
 		ExpectStatus: http.StatusUnauthorized,
-		ExpectBody:   assert.StringData("authentication required: missing X-Test-Perms header\n"),
+		ExpectBody:   assert.StringData("missing X-Test-Perms header\n"),
 	}.Check(t, r)
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -563,7 +563,7 @@ func TestGetAccountsErrorCases(t *testing.T) {
 			},
 		},
 		ExpectStatus: http.StatusUnauthorized,
-		ExpectBody:   assert.StringData("authentication required: missing X-Test-Perms header\n"),
+		ExpectBody:   assert.StringData("missing X-Test-Perms header\n"),
 	}.Check(t, r)
 }
 
@@ -648,7 +648,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		},
 		ExpectStatus: http.StatusUnauthorized,
-		ExpectBody:   assert.StringData("authentication required: missing X-Test-Perms header\n"),
+		ExpectBody:   assert.StringData("missing X-Test-Perms header\n"),
 	}.Check(t, r)
 
 	assert.HTTPRequest{
