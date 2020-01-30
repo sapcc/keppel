@@ -70,7 +70,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 				//clients to automatically retry the request after a few seconds)
 				w.Header().Set("Retry-After", "10")
 				msg := "currently replicating on a different worker, please retry in a few seconds"
-				http.Error(w, msg, http.StatusTooManyRequests)
+				keppel.ErrTooManyRequests.With(msg).WithStatus(http.StatusTooManyRequests).WriteAsRegistryV2ResponseTo(w)
 				return
 			} else if rerr, ok := err.(*keppel.RegistryV2Error); ok {
 				rerr.WriteAsRegistryV2ResponseTo(w)

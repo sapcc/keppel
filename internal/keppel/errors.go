@@ -46,6 +46,11 @@ const (
 	ErrUnauthorized        RegistryV2ErrorCode = "UNAUTHORIZED"
 	ErrDenied              RegistryV2ErrorCode = "DENIED"
 	ErrUnsupported         RegistryV2ErrorCode = "UNSUPPORTED"
+
+	//not in opencontainers/distribution-spec, but appears in github.com/docker/distribution
+	ErrUnknown         RegistryV2ErrorCode = "UNKNOWN"
+	ErrUnavailable     RegistryV2ErrorCode = "UNAVAILABLE"
+	ErrTooManyRequests RegistryV2ErrorCode = "TOOMANYREQUESTS"
 )
 
 //With is a convenience function for constructing type RegistryV2Error.
