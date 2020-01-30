@@ -18,20 +18,61 @@
 
 package test
 
-import "github.com/sapcc/keppel/internal/keppel"
+import (
+	"errors"
+	"fmt"
+
+	"github.com/sapcc/keppel/internal/keppel"
+)
 
 func init() {
 	keppel.RegisterStorageDriver("in-memory-for-testing", func(_ keppel.AuthDriver, _ keppel.Configuration) (keppel.StorageDriver, error) {
-		return &StorageDriver{}, nil
+		return &StorageDriver{make(map[string][]byte)}, nil
 	})
 }
 
 //StorageDriver (driver ID "in-memory-for-testing") is a keppel.StorageDriver
 //for use in test suites where each keppel-registry stores its contents in RAM
 //only, without any persistence.
-type StorageDriver struct{}
+type StorageDriver struct {
+	manifests map[string][]byte
+}
 
 //GetEnvironment implements the keppel.StorageDriver interface.
 func (d *StorageDriver) GetEnvironment(account keppel.Account) map[string]string {
 	return map[string]string{"REGISTRY_STORAGE_INMEMORY": "{}"}
+}
+
+var errNoSuchManifest = errors.New("no such manifest")
+
+//ReadManifest implements the keppel.StorageDriver interface.
+func (d *StorageDriver) ReadManifest(account keppel.Account, repoName, digest string) ([]byte, error) {
+	k := manifestKey(account, repoName, digest)
+	contents, exists := d.manifests[k]
+	if !exists {
+		return nil, errNoSuchManifest
+	}
+	return contents, nil
+}
+
+//WriteManifest implements the keppel.StorageDriver interface.
+func (d *StorageDriver) WriteManifest(account keppel.Account, repoName, digest string, contents []byte) error {
+	k := manifestKey(account, repoName, digest)
+	d.manifests[k] = contents
+	return nil
+}
+
+//DeleteManifest implements the keppel.StorageDriver interface.
+func (d *StorageDriver) DeleteManifest(account keppel.Account, repoName, digest string) error {
+	k := manifestKey(account, repoName, digest)
+	_, exists := d.manifests[k]
+	if !exists {
+		return errNoSuchManifest
+	}
+	delete(d.manifests, k)
+	return nil
+}
+
+func manifestKey(account keppel.Account, repoName, digest string) string {
+	return fmt.Sprintf("%s/%s/%s", account.Name, repoName, digest)
 }

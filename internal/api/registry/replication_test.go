@@ -27,7 +27,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
@@ -134,7 +133,7 @@ func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *k
 	}()
 
 	r := mux.NewRouter()
-	NewAPI(context.Background(), cfg2, od2, db2).AddTo(r)
+	NewAPI(cfg2, sd2, od2, db2).AddTo(r)
 	authapi.NewAPI(cfg2, ad2, db2).AddTo(r)
 
 	//the secondary registry wants to talk to the primary registry over HTTPS, so
@@ -155,18 +154,6 @@ func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *k
 	testROFUSuccessCases(t, r, ad2, firstManifestDigest, firstBlobDigest, secondManifestDigest, secondManifestTag)
 	testROFUMissingEntities(t, r, ad2)
 	testROFUForbidDirectUpload(t, r, ad2)
-
-	//wait until all async replications are done
-	for idx := 0; idx < 10; idx++ {
-		count, err := db2.SelectInt(`SELECT COUNT(*) FROM pending_manifests`)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		if count == 0 {
-			break
-		}
-		time.Sleep(50 * time.Second)
-	}
 
 	//run the positive tests again with the network connection to the primary
 	//registry severed, to validate that contents have actually been replicated

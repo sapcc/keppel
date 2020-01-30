@@ -50,7 +50,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		repl := replication.NewReplicator(a.cfg, a.db, a.orchestrationDriver)
+		repl := replication.NewReplicator(a.cfg, a.db, a.sd, a.orchestrationDriver)
 		blob := replication.Blob{
 			Account: *account,
 			Repo:    *repo,

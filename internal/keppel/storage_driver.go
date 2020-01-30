@@ -30,6 +30,10 @@ type StorageDriver interface {
 	//a keppel-registry process to set it up to read from/write to this storage.
 	//`tenantID` identifies the tenant which controls access to this account.
 	GetEnvironment(account Account) map[string]string
+
+	ReadManifest(account Account, repoName, digest string) ([]byte, error)
+	WriteManifest(account Account, repoName, digest string, contents []byte) error
+	DeleteManifest(account Account, repoName, digest string) error
 }
 
 //ErrAuthDriverMismatch can be returned by StorageDriver and NameClaimDriver.

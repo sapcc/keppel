@@ -122,6 +122,12 @@ type RegistryV2Error struct {
 	Status int         `json:"-"`
 }
 
+//WithDetail adds detail information to this error.
+func (e *RegistryV2Error) WithDetail(detail interface{}) *RegistryV2Error {
+	e.Detail = detail
+	return e
+}
+
 //WithStatus changes the HTTP status code for this error.
 func (e *RegistryV2Error) WithStatus(status int) *RegistryV2Error {
 	e.Status = status

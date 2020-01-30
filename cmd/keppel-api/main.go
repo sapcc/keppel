@@ -80,7 +80,7 @@ func main() {
 	r := mux.NewRouter()
 	keppelv1.NewAPI(cfg, ad, ncd, od, db, auditor).AddTo(r)
 	auth.NewAPI(cfg, ad, db).AddTo(r)
-	registryv2.NewAPI(ctx, cfg, od, db).AddTo(r)
+	registryv2.NewAPI(cfg, sd, od, db).AddTo(r)
 
 	//TODO Prometheus instrumentation
 	handler := logg.Middleware{}.Wrap(r)

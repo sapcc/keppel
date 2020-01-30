@@ -59,7 +59,7 @@ func TestCatalogEndpoint(t *testing.T) {
 
 	//setup registry API with a specialized mock orchestration driver
 	od := keppel.OrchestrationDriver(dummyCatalogDriver{})
-	NewAPI(context.Background(), cfg, od, db).AddTo(r)
+	NewAPI(cfg, nil, od, db).AddTo(r)
 
 	//testcases
 	testEmptyCatalog(t, r, ad)

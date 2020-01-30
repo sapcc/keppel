@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"net/http"
 	"net/url"
 	"sort"
@@ -40,6 +39,8 @@ var requiredScopeForCatalogEndpoint = auth.Scope{
 	ResourceName: "catalog",
 	Actions:      []string{"*"},
 }
+
+const maxLimit = 100
 
 //This implements the GET /v2/_catalog endpoint.
 func (a *API) handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +69,10 @@ func (a *API) handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		limit = math.MaxUint64
+		limit = maxLimit
+	}
+	if limit > maxLimit {
+		limit = maxLimit
 	}
 
 	//parse query: marker (parameter "last")

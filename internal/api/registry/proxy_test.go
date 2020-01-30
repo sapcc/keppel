@@ -100,7 +100,7 @@ func TestProxyAPI(t *testing.T) {
 	//run the API testcases
 	clock := &test.Clock{}
 	r := mux.NewRouter()
-	NewAPI(context.Background(), cfg, od, db).OverrideTimeNow(clock.Now).AddTo(r)
+	NewAPI(cfg, sd, od, db).OverrideTimeNow(clock.Now).AddTo(r)
 	authapi.NewAPI(cfg, ad, db).AddTo(r)
 
 	clock.Step()
@@ -411,13 +411,14 @@ func testKillAndRestartRegistry(t *testing.T, h http.Handler, ad keppel.AuthDriv
 	//check that the next request restarts the keppel-registry instance
 	token := getToken(t, h, ad, "repository:test1/doesnotexist:pull",
 		keppel.CanPullFromAccount)
+	bogusDigest := "sha256:" + strings.Repeat("0", 64)
 	assert.HTTPRequest{
 		Method:       "GET",
-		Path:         "/v2/test1/doesnotexist/manifests/latest",
+		Path:         "/v2/test1/doesnotexist/blobs/" + bogusDigest,
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusNotFound,
 		ExpectHeader: test.VersionHeader,
-		ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
+		ExpectBody:   test.ErrorCode(keppel.ErrBlobUnknown),
 	}.Check(t, h)
 	assert.DeepEqual(t, "OrchestrationEngine state",
 		oe.ReportState(),

@@ -20,7 +20,6 @@ package registryv2
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -35,16 +34,16 @@ import (
 
 //API contains state variables used by the Auth API endpoint.
 type API struct {
-	ctx                 context.Context
 	cfg                 keppel.Configuration
+	sd                  keppel.StorageDriver
 	orchestrationDriver keppel.OrchestrationDriver
 	db                  *keppel.DB
 	timeNow             func() time.Time //usually time.Now, but can be swapped out for unit tests
 }
 
 //NewAPI constructs a new API instance.
-func NewAPI(ctx context.Context, cfg keppel.Configuration, od keppel.OrchestrationDriver, db *keppel.DB) *API {
-	return &API{ctx, cfg, od, db, time.Now}
+func NewAPI(cfg keppel.Configuration, sd keppel.StorageDriver, od keppel.OrchestrationDriver, db *keppel.DB) *API {
+	return &API{cfg, sd, od, db, time.Now}
 }
 
 //OverrideTimeNow replaces time.Now with a test double.
@@ -83,7 +82,7 @@ func (a *API) AddTo(r *mux.Router) {
 		HandlerFunc(a.handlePutManifest)
 	rr.Methods("GET").
 		Path("/{repository:.+}/tags/list").
-		HandlerFunc(a.handleProxyToAccount)
+		HandlerFunc(a.handleListTags)
 }
 
 //Like respondwith.ErrorText(), but writes a RegistryV2Error instead of plain text.
