@@ -64,6 +64,7 @@ build/cover.html: build/cover.out
 	$(GO) tool cover -html $< -o $@
 
 vendor: FORCE
+	$(GO) mod tidy
 	$(GO) mod vendor
 
 .PHONY: FORCE
