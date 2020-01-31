@@ -97,7 +97,7 @@ func setup(t *testing.T, isSecondary bool) (keppel.Configuration, *keppel.DB) {
 	}
 
 	//reset all primary key sequences for reproducible row IDs
-	for _, tableName := range []string{"repos"} {
+	for _, tableName := range []string{"blobs", "repos"} {
 		nextID, err := db.SelectInt(fmt.Sprintf(
 			"SELECT 1 + COALESCE(MAX(id), 0) FROM %s", tableName,
 		))

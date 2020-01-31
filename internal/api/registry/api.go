@@ -19,31 +19,31 @@
 package registryv2
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
-	"net"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //API contains state variables used by the Auth API endpoint.
 type API struct {
-	cfg                 keppel.Configuration
-	sd                  keppel.StorageDriver
-	orchestrationDriver keppel.OrchestrationDriver
-	db                  *keppel.DB
-	timeNow             func() time.Time //usually time.Now, but can be swapped out for unit tests
+	cfg keppel.Configuration
+	sd  keppel.StorageDriver
+	db  *keppel.DB
+	//non-pure functions that can be replaced by deterministic doubles for unit tests
+	timeNow           func() time.Time
+	generateStorageID func() string
 }
 
 //NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, sd keppel.StorageDriver, od keppel.OrchestrationDriver, db *keppel.DB) *API {
-	return &API{cfg, sd, od, db, time.Now}
+func NewAPI(cfg keppel.Configuration, sd keppel.StorageDriver, db *keppel.DB) *API {
+	return &API{cfg, sd, db, time.Now, keppel.GenerateStorageID}
 }
 
 //OverrideTimeNow replaces time.Now with a test double.
@@ -52,25 +52,40 @@ func (a *API) OverrideTimeNow(timeNow func() time.Time) *API {
 	return a
 }
 
+//OverrideGenerateStorageID replaces keppel.GenerateStorageID with a test double.
+func (a *API) OverrideGenerateStorageID(generateStorageID func() string) *API {
+	a.generateStorageID = generateStorageID
+	return a
+}
+
 //AddTo adds routes for this API to the given router.
 func (a *API) AddTo(r *mux.Router) {
-	r.Methods("GET").Path("/v2/").HandlerFunc(a.handleProxyToplevel)
-	r.Methods("GET").Path("/v2/_catalog").HandlerFunc(a.handleProxyCatalog)
+	r.Methods("GET").Path("/v2/").HandlerFunc(a.handleToplevel)
+	r.Methods("GET").Path("/v2/_catalog").HandlerFunc(a.handleGetCatalog)
 	//see internal/api/keppel/accounts.go for why account name format is limited
 	rr := r.PathPrefix("/v2/{account:[a-z0-9-]{1,48}}/").Subrouter()
 
 	rr.Methods("DELETE").
 		Path("/{repository:.+}/blobs/{digest}").
-		HandlerFunc(a.handleProxyToAccount)
+		HandlerFunc(a.handleDeleteBlob)
 	rr.Methods("GET", "HEAD").
 		Path("/{repository:.+}/blobs/{digest}").
 		HandlerFunc(a.handleGetOrHeadBlob)
 	rr.Methods("POST").
 		Path("/{repository:.+}/blobs/uploads/").
 		HandlerFunc(a.handleStartBlobUpload)
-	rr.Methods("DELETE", "GET", "PATCH", "PUT").
+	rr.Methods("DELETE").
 		Path("/{repository:.+}/blobs/uploads/{uuid}").
-		HandlerFunc(a.handleProxyToAccount)
+		HandlerFunc(a.handleDeleteBlobUpload)
+	rr.Methods("GET").
+		Path("/{repository:.+}/blobs/uploads/{uuid}").
+		HandlerFunc(a.handleGetBlobUpload)
+	rr.Methods("PATCH").
+		Path("/{repository:.+}/blobs/uploads/{uuid}").
+		HandlerFunc(a.handleContinueBlobUpload)
+	rr.Methods("PUT").
+		Path("/{repository:.+}/blobs/uploads/{uuid}").
+		HandlerFunc(a.handleFinishBlobUpload)
 	rr.Methods("DELETE").
 		Path("/{repository:.+}/manifests/{reference}").
 		HandlerFunc(a.handleDeleteManifest)
@@ -83,6 +98,20 @@ func (a *API) AddTo(r *mux.Router) {
 	rr.Methods("GET").
 		Path("/{repository:.+}/tags/list").
 		HandlerFunc(a.handleListTags)
+}
+
+//This implements the GET /v2/ endpoint.
+func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
+	//must be set even for 401 responses!
+	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
+
+	if a.requireBearerToken(w, r, nil) == nil {
+		return
+	}
+
+	//The response is not defined beyond code 200, so reply in the same way as
+	//https://registry-1.docker.io/v2/, with an empty JSON object.
+	respondwith.JSON(w, http.StatusOK, map[string]interface{}{})
 }
 
 //Like respondwith.ErrorText(), but writes a RegistryV2Error instead of plain text.
@@ -120,6 +149,9 @@ func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *
 	return token
 }
 
+//The "with trailing slash" simplifies the regex because we need not write the regex for a path element twice.
+var repoNameWithTrailingSlashRx = regexp.MustCompile(`^(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)+$`)
+
 //A one-stop-shop authorization checker for all endpoints that set the mux vars
 //"account" and "repository". On success, returns the account and repository
 //that this request is about.
@@ -127,9 +159,16 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request) (accoun
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
+	//check that repo name is wellformed
+	vars := mux.Vars(r)
+	repoName = vars["repository"]
+	if !repoNameWithTrailingSlashRx.MatchString("/" + repoName) {
+		keppel.ErrNameInvalid.With("invalid repository name").WriteAsRegistryV2ResponseTo(w)
+		return
+	}
+
 	//check authorization before FindAccount(); otherwise we might leak
 	//information about account existence to unauthorized users
-	vars := mux.Vars(r)
 	scope := auth.Scope{
 		ResourceType: "repository",
 		ResourceName: fmt.Sprintf("%s/%s", vars["account"], vars["repository"]),
@@ -160,72 +199,5 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request) (accoun
 		return nil, "", nil
 	}
 
-	return account, vars["repository"], token
-}
-
-type interceptedResponse struct {
-	Resp http.Response //with Resp.Body == nil
-	Body []byte
-}
-
-func (a *API) interceptRequestBody(w http.ResponseWriter, r *http.Request) (buf []byte, ok bool) {
-	if r.Body == nil {
-		return nil, true
-	}
-
-	buf, err := ioutil.ReadAll(r.Body)
-	if respondWithError(w, err) {
-		return nil, false
-	}
-	err = r.Body.Close()
-	if respondWithError(w, err) {
-		return nil, false
-	}
-
-	//replace `r.Body` with a functionally identical copy, to ensure that a
-	//subsequent proxyRequestToRegistry() works as expected
-	r.Body = ioutil.NopCloser(bytes.NewReader(buf))
-
-	return buf, true
-}
-
-func (a *API) proxyRequestToRegistry(w http.ResponseWriter, r *http.Request, account keppel.Account) *interceptedResponse {
-	proxyRequest := *r
-	proxyRequest.Close = false
-	proxyRequest.RequestURI = ""
-	if proxyRequest.RemoteAddr != "" && proxyRequest.Header.Get("X-Forwarded-For") == "" {
-		host, _, _ := net.SplitHostPort(proxyRequest.RemoteAddr)
-		proxyRequest.Header.Set("X-Forwarded-For", host)
-	}
-
-	resp, err := a.orchestrationDriver.DoHTTPRequest(account, &proxyRequest,
-		keppel.DoNotFollowRedirects)
-	if respondWithError(w, err) {
-		return nil
-	}
-
-	result := interceptedResponse{Resp: *resp}
-	result.Body, err = ioutil.ReadAll(resp.Body)
-	if err == nil {
-		err = resp.Body.Close()
-	} else {
-		resp.Body.Close()
-	}
-	if respondWithError(w, err) {
-		return nil
-	}
-	result.Resp.Body = nil
-
-	return &result
-}
-
-func (a *API) proxyResponseToCaller(w http.ResponseWriter, resp *interceptedResponse) {
-	for k, v := range resp.Resp.Header {
-		w.Header()[k] = v
-	}
-	w.WriteHeader(resp.Resp.StatusCode)
-	_, err := w.Write(resp.Body)
-	if err != nil {
-		logg.Error("error copying proxy response: " + err.Error())
-	}
+	return account, repoName, token
 }

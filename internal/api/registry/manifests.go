@@ -21,6 +21,7 @@ package registryv2
 import (
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -67,7 +68,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			repl := replication.NewReplicator(a.cfg, a.db, a.sd, a.orchestrationDriver)
+			repl := replication.NewReplicator(a.cfg, a.db, a.sd)
 			m := replication.Manifest{
 				Account:   *account,
 				Repo:      *repo,
@@ -246,11 +247,11 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	reference := keppel.ParseManifestReference(mux.Vars(r)["reference"])
 
 	//validate manifest on our side
-	reqBuf, ok := a.interceptRequestBody(w, r)
-	if !ok {
+	manifestBytes, err := ioutil.ReadAll(r.Body)
+	if respondWithError(w, err) {
 		return
 	}
-	manifest, manifestDesc, err := distribution.UnmarshalManifest(r.Header.Get("Content-Type"), reqBuf)
+	manifest, manifestDesc, err := distribution.UnmarshalManifest(r.Header.Get("Content-Type"), manifestBytes)
 	if err != nil {
 		keppel.ErrManifestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
 		return
@@ -265,18 +266,12 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	//check that all referenced blobs exist (TODO: some manifest types reference
 	//other manifests, so we should look for manifests in these cases)
 	for _, desc := range manifest.References() {
-		blobURL := fmt.Sprintf("/v2/%s/blobs/%s", repo.FullName(), desc.Digest.String())
-		blobReq, err := http.NewRequest("HEAD", blobURL, nil)
-		if respondWithError(w, err) {
-			return
-		}
-		blobReq.Header.Set("Authorization", r.Header.Get("Authorization"))
-		blobResp, err := a.orchestrationDriver.DoHTTPRequest(*account, blobReq, keppel.FollowRedirects)
-		if respondWithError(w, err) {
-			return
-		}
-		if blobResp.StatusCode != http.StatusOK {
+		_, err := a.db.FindBlobByRepositoryID(desc.Digest, repo.ID, *account)
+		if err == sql.ErrNoRows {
 			keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String()).WriteAsRegistryV2ResponseTo(w)
+			return
+		}
+		if respondWithError(w, err) {
 			return
 		}
 	}
@@ -316,7 +311,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//PUT the manifest in the backend
-	err = a.sd.WriteManifest(*account, repo.Name, manifestDesc.Digest.String(), reqBuf)
+	err = a.sd.WriteManifest(*account, repo.Name, manifestDesc.Digest.String(), manifestBytes)
 	if respondWithError(w, err) {
 		return
 	}

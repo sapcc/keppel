@@ -20,29 +20,24 @@ package registryv2
 
 import (
 	"bytes"
-	"context"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"os/exec"
-	"strconv"
-	"strings"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/orchestration"
 	_ "github.com/sapcc/keppel/internal/orchestration/localprocesses"
 	"github.com/sapcc/keppel/internal/test"
 )
 
 //It turns out that starting up a registry takes surprisingly long, so this
 //test bundles as many testcases as possible in one run to reduce the waiting.
+//
+//TODO unbundle the testcases, now that we don't have to start actual
+//docker-registry processes anymore
 func TestProxyAPI(t *testing.T) {
 	cfg, db := test.Setup(t)
 
@@ -74,33 +69,12 @@ func TestProxyAPI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	od, err := keppel.NewOrchestrationDriver("local-processes", sd, cfg, db)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	//run the orchestration driver's mainloop for the duration of the test
-	//(the wait group is important to ensure that od.Run() runs to completion;
-	//otherwise the test harness appears to kill its goroutine too early)
-	ctx, cancel := context.WithCancel(context.Background())
-	var wg sync.WaitGroup
-	defer func() {
-		cancel() //uses `defer` because t.Fatal() might exit early
-		wg.Wait()
-	}()
-	go func() {
-		wg.Add(1)
-		defer wg.Done()
-		ok := od.Run(ctx)
-		if !ok {
-			t.Error("orchestration driver mainloop exited unsuccessfully")
-		}
-	}()
 
 	//run the API testcases
 	clock := &test.Clock{}
+	sidGen := &test.StorageIDGenerator{}
 	r := mux.NewRouter()
-	NewAPI(cfg, sd, od, db).OverrideTimeNow(clock.Now).AddTo(r)
+	NewAPI(cfg, sd, db).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next).AddTo(r)
 	authapi.NewAPI(cfg, ad, db).AddTo(r)
 
 	clock.Step()
@@ -108,15 +82,14 @@ func TestProxyAPI(t *testing.T) {
 	clock.Step()
 	testPullNonExistentTag(t, r, ad)
 	clock.Step()
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/001-before-push.sql")
 	firstBlobDigest := testPushAndPull(t, r, ad, db,
 		"fixtures/example-docker-image-config.json",
-		"fixtures/001-before-push.sql",
 		"fixtures/002-after-push.sql",
 	)
 	clock.Step()
 	testPushAndPull(t, r, ad, db,
 		"fixtures/example-docker-image-config2.json",
-		"fixtures/002-after-push.sql",
 		"fixtures/003-after-second-push.sql",
 	)
 	clock.Step()
@@ -142,13 +115,12 @@ func TestProxyAPI(t *testing.T) {
 	testDeleteManifest(t, r, ad, db,
 		//the second manifest, which is referenced by the "latest" tag
 		"sha256:65147aad93781ff7377b8fb81dab153bd58ffe05b5dc00b67b3035fa9420d2de",
-		//no tags or manifests left, but repo is left over
+		//no tags or manifests left, but repo and blobs are left over
 		"fixtures/005-after-second-delete.sql",
 	)
 	clock.Step()
 
-	//run some additional testcases for the orchestration engine
-	testKillAndRestartRegistry(t, r, ad, od)
+	t.Error("TODO: change DELETE on repo to be a soft-deletion that is committed by keppel-janitor after blobs and uploads have been cleaned up")
 }
 
 func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
@@ -198,7 +170,7 @@ func testPullNonExistentTag(t *testing.T, h http.Handler, ad keppel.AuthDriver) 
 	}.Check(t, h)
 }
 
-func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB, imageConfigJSON, dbContentsBeforeManifestPush, dbContentsAfterManifestPush string) string {
+func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB, imageConfigJSON, dbContentsAfterManifestPush string) string {
 	//This tests pushing a minimal image without any layers, so we only upload one object (the config JSON) and create a manifest.
 	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 		keppel.CanPullFromAccount,
@@ -211,8 +183,6 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *kep
 	}
 	bodyBytes = bytes.TrimSpace(bodyBytes)
 	sha256HashStr := test.UploadBlobToRegistry(t, h, "test1/foo", token, bodyBytes)
-
-	easypg.AssertDBContent(t, db.DbMap.Db, dbContentsBeforeManifestPush)
 
 	//create manifest (this request is executed twice to test idempotency)
 	manifestData := assert.JSONObject{
@@ -369,59 +339,4 @@ func testManifestQuotaExceeded(t *testing.T, h http.Handler, ad keppel.AuthDrive
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-}
-
-func testKillAndRestartRegistry(t *testing.T, h http.Handler, ad keppel.AuthDriver, od keppel.OrchestrationDriver) {
-	//since we already ran some testcases, the keppel-registry for account "test1" should be running
-	oe := od.(*orchestration.Engine)
-	assert.DeepEqual(t, "OrchestrationEngine state",
-		oe.ReportState(),
-		map[string]string{"test1": "localhost:10001"},
-	)
-
-	//I have a very specific set of skills, skills I have acquired over a very
-	//long career. I will look for your keppel-registry process, I will find it,
-	//and I *will* kill it.
-	cmd := exec.Command("pidof", "keppel-registry")
-	outputBytes, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	pid, err := strconv.ParseUint(strings.TrimSpace(string(outputBytes)), 10, 16)
-	if err != nil {
-		t.Logf("output from `pidof keppel-registry`: %q", string(outputBytes))
-		t.Fatal(err.Error())
-	}
-	proc, err := os.FindProcess(int(pid))
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	err = proc.Kill()
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	//check that the orchestration engine notices what's going on
-	time.Sleep(10 * time.Millisecond)
-	assert.DeepEqual(t, "OrchestrationEngine state",
-		oe.ReportState(),
-		map[string]string{}, //empty!
-	)
-
-	//check that the next request restarts the keppel-registry instance
-	token := getToken(t, h, ad, "repository:test1/doesnotexist:pull",
-		keppel.CanPullFromAccount)
-	bogusDigest := "sha256:" + strings.Repeat("0", 64)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/test1/doesnotexist/blobs/" + bogusDigest,
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusNotFound,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   test.ErrorCode(keppel.ErrBlobUnknown),
-	}.Check(t, h)
-	assert.DeepEqual(t, "OrchestrationEngine state",
-		oe.ReportState(),
-		map[string]string{"test1": "localhost:10002"}, //localprocesses.Driver chooses a new port!
-	)
 }
