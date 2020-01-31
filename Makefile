@@ -23,8 +23,8 @@ install/keppel-%: build/keppel-% FORCE
 
 ################################################################################
 
-# This is for manual testing with the "local-processes" orchestrator.
-run-api: build/keppel-api build/keppel-registry
+# This is for manual testing.
+run-api: build/keppel-api
 	set -euo pipefail && source ./.env && env PATH=$(CURDIR)/build:$$PATH keppel-api
 
 ################################################################################
@@ -34,7 +34,7 @@ GO_ALLPKGS := $(shell $(GO) list $(GO_BUILDFLAGS) $(PKG)/...)
 # which packages to test with `go test`?
 GO_TESTPKGS := $(shell $(GO) list $(GO_BUILDFLAGS) -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' $(PKG)/internal/...)
 # which packages to measure coverage for?
-GO_COVERPKGS := $(shell $(GO) list $(GO_BUILDFLAGS) $(PKG)/internal/... | grep -v internal/drivers | grep -v internal/registry/swift-plus | grep -v internal/test/util)
+GO_COVERPKGS := $(shell $(GO) list $(GO_BUILDFLAGS) $(PKG)/internal/... | grep -v internal/drivers | grep -v internal/test/util)
 # output files from `go test`
 GO_COVERFILES := $(patsubst %,build/%.cover.out,$(subst /,_,$(GO_TESTPKGS)))
 
