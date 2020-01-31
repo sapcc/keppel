@@ -78,7 +78,7 @@ func main() {
 
 	//wire up HTTP handlers
 	r := mux.NewRouter()
-	keppelv1.NewAPI(cfg, ad, ncd, od, db, auditor).AddTo(r)
+	keppelv1.NewAPI(cfg, ad, ncd, sd, db, auditor).AddTo(r)
 	auth.NewAPI(cfg, ad, db).AddTo(r)
 	registryv2.NewAPI(cfg, sd, db).AddTo(r)
 

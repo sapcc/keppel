@@ -176,7 +176,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer keppel.RollbackUnlessCommitted(tx)
-	result, err := a.db.Exec(
+	result, err := tx.Exec(
 		//this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
 		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
 		repo.ID, digest.String())
@@ -194,6 +194,10 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 
 	//DELETE the manifest in the backend
 	err = a.sd.DeleteManifest(*account, repo.Name, digest.String())
+	if respondWithError(w, err) {
+		return
+	}
+	err = tx.Commit()
 	if respondWithError(w, err) {
 		return
 	}

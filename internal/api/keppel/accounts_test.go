@@ -20,11 +20,7 @@
 package keppelv1
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
-	"fmt"
-	"io/ioutil"
 	"net/http"
 	"testing"
 
@@ -92,84 +88,9 @@ func toJSON(x interface{}) string {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// mock implementation of the OrchestrationDriver interface
-
-type backendRequestMatcher struct {
-	reqs []backendRequest
-}
-
-type backendRequest struct {
-	//expected request
-	AccountName string
-	Method      string
-	Path        string
-	RequestBody []byte
-	//pre-recorded response
-	Status       int
-	ResponseBody []byte
-}
-
-func (r backendRequest) String() string {
-	return fmt.Sprintf("account=%s %s %s", r.AccountName, r.Method, r.Path)
-}
-
-func (m *backendRequestMatcher) ExpectActionToMakeBackendRequests(t *testing.T, reqs []backendRequest, action func()) {
-	t.Helper()
-	m.reqs = reqs
-	action()
-
-	for _, req := range m.reqs {
-		t.Error("expected backend request not observed: " + req.String())
-	}
-	m.reqs = nil
-}
-
-//DoHTTPRequest implements the keppel.OrchestrationDriver interface.
-func (m *backendRequestMatcher) DoHTTPRequest(account keppel.Account, r *http.Request, opts keppel.RequestOptions) (*http.Response, error) {
-	br := backendRequest{
-		AccountName: account.Name,
-		Method:      r.Method,
-		Path:        r.URL.Path,
-	}
-	if r.Body != nil {
-		var err error
-		br.RequestBody, err = ioutil.ReadAll(r.Body)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if len(m.reqs) == 0 {
-		return nil, fmt.Errorf("unexpected backend request: %s", br.String())
-	}
-	expected := m.reqs[0]
-	m.reqs = m.reqs[1:]
-
-	if br.AccountName != expected.AccountName || br.Method != expected.Method || br.Path != expected.Path || !bytes.Equal(br.RequestBody, expected.RequestBody) {
-		return nil, fmt.Errorf("unexpected backend request: %s (expected %s)", br.String(), expected.String())
-	}
-
-	return &http.Response{
-		Status:        fmt.Sprintf("%d %s", expected.Status, http.StatusText(expected.Status)),
-		StatusCode:    expected.Status,
-		Proto:         "HTTP/1.1",
-		ProtoMajor:    1,
-		ProtoMinor:    1,
-		Body:          ioutil.NopCloser(bytes.NewReader(expected.ResponseBody)),
-		ContentLength: int64(len(expected.ResponseBody)),
-		Request:       r,
-	}, nil
-}
-
-//Run implements the keppel.OrchestrationDriver interface.
-func (m *backendRequestMatcher) Run(ctx context.Context) bool {
-	panic("unimplemented")
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // tests
 
-func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.NameClaimDriver, *testAuditor, *backendRequestMatcher, *keppel.DB) {
+func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.NameClaimDriver, *testAuditor, keppel.StorageDriver, *keppel.DB) {
 	cfg, db := test.Setup(t)
 
 	ad, err := keppel.NewAuthDriver("unittest")
@@ -180,13 +101,16 @@ func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.NameClaimDriver,
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	od := &backendRequestMatcher{}
+	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, cfg)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	r := mux.NewRouter()
 	auditor := &testAuditor{}
-	NewAPI(cfg, ad, ncd, od, db, auditor).AddTo(r)
+	NewAPI(cfg, ad, ncd, sd, db, auditor).AddTo(r)
 
-	return r, ad.(*test.AuthDriver), ncd.(*test.NameClaimDriver), auditor, od, db
+	return r, ad.(*test.AuthDriver), ncd.(*test.NameClaimDriver), auditor, sd, db
 }
 
 func TestAccountsAPI(t *testing.T) {

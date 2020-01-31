@@ -119,8 +119,6 @@ func TestProxyAPI(t *testing.T) {
 		"fixtures/005-after-second-delete.sql",
 	)
 	clock.Step()
-
-	t.Error("TODO: change DELETE on repo to be a soft-deletion that is committed by keppel-janitor after blobs and uploads have been cleaned up")
 }
 
 func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
