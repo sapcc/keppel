@@ -135,13 +135,22 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	repo, err := a.db.FindRepository(repoName, *account)
+	if err == sql.ErrNoRows {
+		keppel.ErrNameUnknown.With("no such repository").WriteAsRegistryV2ResponseTo(w)
+		return
+	}
+	if respondWithError(w, err) {
+		return
+	}
+
 	blobDigest, err := digest.Parse(mux.Vars(r)["digest"])
 	if err != nil {
 		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
 		return
 	}
 
-	blob, err := a.db.FindBlobByRepositoryName(blobDigest, repoName, *account)
+	blob, err := a.db.FindBlobByRepositoryID(blobDigest, repo.ID, *account)
 	if err == sql.ErrNoRows {
 		keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w)
 		return
@@ -150,24 +159,10 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//prepare the deletion in the DB (but don't commit until we've deleted in the StorageDriver)
-	tx, err := a.db.Begin()
-	if respondWithError(w, err) {
-		return
-	}
-	defer keppel.RollbackUnlessCommitted(tx)
-
-	//this also deletes all blob_mounts because of ON DELETE CASCADE
-	_, err = tx.Delete(&blob)
-	if respondWithError(w, err) {
-		return
-	}
-
-	err = a.sd.DeleteBlob(*account, blob.StorageID)
-	if respondWithError(w, err) {
-		return
-	}
-	err = tx.Commit()
+	//unmount the blob from this particular repo (if it is mounted in other
+	//repos, it will still be accessible there; otherwise keppel-janitor will
+	//clean it up soon)
+	_, err = a.db.Exec(`DELETE FROM blob_mounts WHERE blob_id = $1 AND repo_id = $2`, blob.ID, repo.ID)
 	if respondWithError(w, err) {
 		return
 	}
