@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/gophercloud/gophercloud"
@@ -64,28 +63,8 @@ func init() {
 	})
 }
 
-//GetEnvironment implements the keppel.StorageDriver interface.
-func (d *swiftDriver) GetEnvironment(account keppel.Account) map[string]string {
-	//cf. cmd/keppel-api/main.go
-	insecure, err := strconv.ParseBool(os.Getenv("KEPPEL_INSECURE"))
-	if err != nil {
-		insecure = false
-	}
-
-	postgresURL := d.cfg.DatabaseURL
-	postgresURL.Path = "/" + account.PostgresDatabaseName()
-
-	return map[string]string{
-		"REGISTRY_STORAGE_SWIFT-PLUS_POSTGRESURI":        postgresURL.String(),
-		"REGISTRY_STORAGE_SWIFT-PLUS_AUTHURL":            d.auth.IdentityV3.Endpoint,
-		"REGISTRY_STORAGE_SWIFT-PLUS_USERNAME":           d.auth.ServiceUser.Name,
-		"REGISTRY_STORAGE_SWIFT-PLUS_USERDOMAINNAME":     d.auth.ServiceUser.Domain.Name,
-		"REGISTRY_STORAGE_SWIFT-PLUS_PASSWORD":           d.password,
-		"REGISTRY_STORAGE_SWIFT-PLUS_PROJECTID":          account.AuthTenantID,
-		"REGISTRY_STORAGE_SWIFT-PLUS_CONTAINER":          account.SwiftContainerName(),
-		"REGISTRY_STORAGE_SWIFT-PLUS_INSECURESKIPVERIFY": strconv.FormatBool(insecure),
-	}
-}
+//TODO translate errors from Swift into keppel.RegistryV2Error where
+//appropriate (esp. keppel.ErrSizeInvalid and keppel.ErrTooManyRequests)
 
 func (d *swiftDriver) getBackendConnection(account keppel.Account) (*schwift.Container, error) {
 	a, ok := d.accounts[account.AuthTenantID]

@@ -42,11 +42,6 @@ type StorageDriver struct {
 	manifests map[string][]byte
 }
 
-//GetEnvironment implements the keppel.StorageDriver interface.
-func (d *StorageDriver) GetEnvironment(account keppel.Account) map[string]string {
-	return map[string]string{"REGISTRY_STORAGE_INMEMORY": "{}"}
-}
-
 var (
 	errNoSuchBlob     = errors.New("no such blob")
 	errNoSuchManifest = errors.New("no such manifest")

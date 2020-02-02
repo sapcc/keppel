@@ -27,13 +27,8 @@ import (
 )
 
 //StorageDriver is the abstract interface for a multi-tenant-capable storage
-//backend where the keppel-registry fleet can store images.
+//backend.
 type StorageDriver interface {
-	//GetEnvironment produces the environment variables that need to be passed to
-	//a keppel-registry process to set it up to read from/write to this storage.
-	//`tenantID` identifies the tenant which controls access to this account.
-	GetEnvironment(account Account) map[string]string
-
 	//`storageID` identifies blobs within an account. (The storage ID is
 	//different from the digest: The storage ID gets chosen at the start of the
 	//upload, when we don't know the full digest yet.) `chunkNumber` identifies
@@ -42,8 +37,8 @@ type StorageDriver interface {
 	//The second call will have a `chunkNumber` of 2, and so on.
 	//
 	//If `chunkLength` is non-nil, the implementation may assume that `chunk`
-	//will yield that many bytes, and throw an error when that turns out not to
-	//be true.
+	//will yield that many bytes, and return keppel.ErrSizeInvalid when that
+	//turns out not to be true.
 	AppendToBlob(account Account, storageID string, chunkNumber uint32, chunkLength *uint64, chunk io.Reader) error
 	//FinalizeBlob() is called at the end of the upload, after the last
 	//AppendToBlob() call for that blob. `chunkCount` identifies how often
