@@ -219,7 +219,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		msg := fmt.Sprintf("cannot push into replica account (push to %s/%s/%s instead!)",
 			account.UpstreamPeerHostName, account.Name, repoName,
 		)
-		keppel.ErrDenied.With(msg).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrUnsupported.With(msg).WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w)
 		return
 	}
 

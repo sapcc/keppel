@@ -24,77 +24,36 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
-	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
 
-//It turns out that starting up a registry takes surprisingly long, so this
-//test bundles as many testcases as possible in one run to reduce the waiting.
-//
-//TODO unbundle the testcases, now that we don't have to start actual
+//TODO unbundle these testcases, now that we don't have to start actual
 //docker-registry processes anymore
 func TestProxyAPI(t *testing.T) {
-	cfg, db := test.Setup(t)
-
-	//set up a dummy account for testing
-	err := db.Insert(&keppel.Account{
-		Name:               "test1",
-		AuthTenantID:       "test1authtenant",
-		RegistryHTTPSecret: "topsecret",
-	})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	//setup ample quota for all tests
-	err = db.Insert(&keppel.Quotas{
-		AuthTenantID:  "test1authtenant",
-		ManifestCount: 100,
-	})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	//setup a fleet of drivers
-	ad, err := keppel.NewAuthDriver("unittest")
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, cfg)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	//run the API testcases
-	clock := &test.Clock{}
-	sidGen := &test.StorageIDGenerator{}
-	r := mux.NewRouter()
-	NewAPI(cfg, sd, db).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next).AddTo(r)
-	authapi.NewAPI(cfg, ad, db).AddTo(r)
+	h, _, db, ad, _, clock := setup(t)
 
 	clock.Step()
-	testVersionCheckEndpoint(t, r, ad)
+	testVersionCheckEndpoint(t, h, ad)
 	clock.Step()
-	testPullNonExistentTag(t, r, ad)
+	testPullNonExistentTag(t, h, ad)
 	clock.Step()
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/001-before-push.sql")
-	firstBlobDigest := testPushAndPull(t, r, ad, db,
+	firstBlobDigest := testPushAndPull(t, h, ad, db,
 		"fixtures/example-docker-image-config.json",
 		"fixtures/002-after-push.sql",
 	)
 	clock.Step()
-	testPushAndPull(t, r, ad, db,
+	testPushAndPull(t, h, ad, db,
 		"fixtures/example-docker-image-config2.json",
 		"fixtures/003-after-second-push.sql",
 	)
 	clock.Step()
-	testPullExistingNotAllowed(t, r, ad)
-	testManifestQuotaExceeded(t, r, ad, db)
-	testReplicationOnFirstUse(t, r, db,
+	testPullExistingNotAllowed(t, h, ad)
+	testManifestQuotaExceeded(t, h, ad, db)
+	testReplicationOnFirstUse(t, h, db,
 		//the first manifest, which is not referenced by a tag
 		"sha256:86fa8722ca7f27e97e1bc5060c3f6720bf43840f143f813fcbe48ed4cbeebb90",
 		//the blob contained in that manifest
@@ -104,14 +63,14 @@ func TestProxyAPI(t *testing.T) {
 		"latest", //the tag
 	)
 	clock.Step()
-	testDeleteManifest(t, r, ad, db,
+	testDeleteManifest(t, h, ad, db,
 		//the first manifest, which is not referenced by tags anymore
 		"sha256:86fa8722ca7f27e97e1bc5060c3f6720bf43840f143f813fcbe48ed4cbeebb90",
 		//like 003, but without that manifest
 		"fixtures/004-after-first-delete.sql",
 	)
 	clock.Step()
-	testDeleteManifest(t, r, ad, db,
+	testDeleteManifest(t, h, ad, db,
 		//the second manifest, which is referenced by the "latest" tag
 		"sha256:65147aad93781ff7377b8fb81dab153bd58ffe05b5dc00b67b3035fa9420d2de",
 		//no tags or manifests left, but repo and blobs are left over

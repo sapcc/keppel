@@ -71,9 +71,6 @@ func (d *StorageDriver) AppendToBlob(account keppel.Account, storageID string, c
 	if err != nil {
 		return err
 	}
-	if chunkLength != nil && uint64(len(chunkBytes)) != *chunkLength {
-		return fmt.Errorf("expected chunk with %d bytes, but read %d bytes", *chunkLength, len(chunkBytes))
-	}
 	d.blobs[k] = append(contents, chunkBytes...)
 	return nil
 }
@@ -143,4 +140,16 @@ func (d *StorageDriver) DeleteManifest(account keppel.Account, repoName, digest 
 	}
 	delete(d.manifests, k)
 	return nil
+}
+
+//BlobCount returns how many blobs exist in this storage driver. This is mostly
+//used to validate that failure cases do not commit data to the storage.
+func (d *StorageDriver) BlobCount() int {
+	return len(d.blobs)
+}
+
+//ManifestCount returns how many manifests exist in this storage driver. This is mostly
+//used to validate that failure cases do not commit data to the storage.
+func (d *StorageDriver) ManifestCount() int {
+	return len(d.manifests)
 }

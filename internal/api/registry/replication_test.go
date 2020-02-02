@@ -252,7 +252,7 @@ func testROFUForbidDirectUpload(t *testing.T, h http.Handler, ad keppel.AuthDriv
 		keppel.CanPullFromAccount, keppel.CanPushToAccount)
 
 	deniedMessage := test.ErrorCodeWithMessage{
-		Code:    keppel.ErrDenied,
+		Code:    keppel.ErrUnsupported,
 		Message: "cannot push into replica account (push to registry.example.org/test1/foo instead!)",
 	}
 
@@ -260,7 +260,7 @@ func testROFUForbidDirectUpload(t *testing.T, h http.Handler, ad keppel.AuthDriv
 		Method:       "POST",
 		Path:         "/v2/test1/foo/blobs/uploads/",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusForbidden,
+		ExpectStatus: http.StatusMethodNotAllowed,
 		ExpectHeader: test.VersionHeader,
 		ExpectBody:   deniedMessage,
 	}.Check(t, h)
@@ -270,7 +270,7 @@ func testROFUForbidDirectUpload(t *testing.T, h http.Handler, ad keppel.AuthDriv
 		Path:         "/v2/test1/foo/manifests/anotherone",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		Body:         assert.StringData("request body does not matter"),
-		ExpectStatus: http.StatusForbidden,
+		ExpectStatus: http.StatusMethodNotAllowed,
 		ExpectHeader: test.VersionHeader,
 		ExpectBody:   deniedMessage,
 	}.Check(t, h)

@@ -52,7 +52,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 		msg := fmt.Sprintf("cannot push into replica account (push to %s/%s/%s instead!)",
 			account.UpstreamPeerHostName, account.Name, repoName,
 		)
-		keppel.ErrDenied.With(msg).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrUnsupported.With(msg).WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w)
 		return
 	}
 
@@ -187,6 +187,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	}
 	sizeBytes, err := strconv.ParseUint(sizeBytesStr, 10, 64)
 	if sizeBytesStr == "" {
+		//COVERAGE: unreachable in unit tests because net/http validates Content-Length header format before sending
 		keppel.ErrSizeInvalid.With("invalid Content-Length: " + err.Error()).WriteAsRegistryV2ResponseTo(w)
 		return false
 	}
@@ -226,7 +227,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 
 	actualDigest := digest.NewDigest(digest.SHA256, dw.Hash)
 	if actualDigest != blobDigest {
-		keppel.ErrDigestInvalid.With("expected %s, but actual digest was %s", blobDigestStr, actualDigest.String())
+		keppel.ErrDigestInvalid.With("expected %s, but actual digest was %s", blobDigestStr, actualDigest.String()).WriteAsRegistryV2ResponseTo(w)
 		return false
 	}
 
@@ -249,7 +250,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 		return false
 	}
 
-	_, err = a.db.Exec(`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1, $2)`,
+	_, err = tx.Exec(`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1, $2)`,
 		blob.ID, repo.ID,
 	)
 	if respondWithError(w, err) {
@@ -333,7 +334,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	if upload == nil {
 		return
 	}
-	dw, rerr := a.resumeUpload(upload, r.URL.Query().Get("state"))
+	dw, rerr := a.resumeUpload(*account, upload, r.URL.Query().Get("state"))
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w)
 		return
@@ -377,7 +378,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	query := r.URL.Query()
-	dw, rerr := a.resumeUpload(upload, query.Get("state"))
+	dw, rerr := a.resumeUpload(*account, upload, query.Get("state"))
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w)
 		return
@@ -426,7 +427,22 @@ func (a *API) findUpload(w http.ResponseWriter, r *http.Request, account keppel.
 	return upload
 }
 
-func (a *API) resumeUpload(upload *keppel.Upload, stateStr string) (*digestWriter, *keppel.RegistryV2Error) {
+func (a *API) resumeUpload(account keppel.Account, upload *keppel.Upload, stateStr string) (dw *digestWriter, returnErr *keppel.RegistryV2Error) {
+	//when encountering an error, cancel the upload entirely
+	defer func() {
+		if returnErr != nil {
+			logg.Info("aborting upload because of error during resumeUpload()")
+			err := a.sd.AbortBlobUpload(account, upload.StorageID, upload.NumChunks)
+			if err != nil {
+				logg.Error("additional error encountered during AbortBlobUpload: " + err.Error())
+			}
+			_, err = a.db.Delete(upload)
+			if err != nil {
+				logg.Error("additional error encountered while deleting Upload from DB: " + err.Error())
+			}
+		}
+	}()
+
 	//when an upload does not contain any data yet, stateStr should be empty
 	//because there is nothing to resume
 	if upload.NumChunks == 0 {
@@ -445,6 +461,9 @@ func (a *API) resumeUpload(upload *keppel.Upload, stateStr string) (*digestWrite
 	hash := sha256.New()
 	err = hash.(encoding.BinaryUnmarshaler).UnmarshalBinary(stateBytes)
 	if err != nil {
+		//NOTE on test coverage: I've tried, but couldn't build a test where the
+		//session state is corrupted specifically to go through the Base64
+		//decoding, but not through this step.
 		return nil, keppel.ErrBlobUploadInvalid.With("broken session state")
 	}
 
@@ -459,6 +478,8 @@ func (a *API) resumeUpload(upload *keppel.Upload, stateStr string) (*digestWrite
 	hash = sha256.New()
 	err = hash.(encoding.BinaryUnmarshaler).UnmarshalBinary(stateBytes)
 	if err != nil {
+		//NOTE on test coverage: This branch is defense in depth. We unmarshaled
+		//the same state above, so hitting an error just here should be impossible.
 		return nil, keppel.ErrBlobUploadInvalid.With("broken session state")
 	}
 

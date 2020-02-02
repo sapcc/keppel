@@ -85,9 +85,12 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.FormatUint(lengthBytes, 10))
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Docker-Content-Digest", blob.Digest)
-	_, err = io.Copy(w, reader)
-	if err != nil {
-		logg.Error("unexpected error from io.Copy() while sending blob to client: %s", err.Error())
+	w.WriteHeader(http.StatusOK)
+	if r.Method != "HEAD" {
+		_, err = io.Copy(w, reader)
+		if err != nil {
+			logg.Error("unexpected error from io.Copy() while sending blob to client: %s", err.Error())
+		}
 	}
 }
 
