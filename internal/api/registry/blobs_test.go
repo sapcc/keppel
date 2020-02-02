@@ -31,6 +31,9 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
+//TODO test coverage for cross-repository blob mount
+//TODO test coverage for delete blob mount
+
 func TestBlobMonolithicUpload(t *testing.T) {
 	h, _, db, ad, sd, _ := setup(t)
 	readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
