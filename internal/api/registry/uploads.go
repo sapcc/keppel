@@ -346,7 +346,17 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Content-Range") != "" {
 		val, err := a.parseContentRange(upload, r.Header)
 		if err != nil {
-			keppel.ErrBlobUploadInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
+			keppel.ErrSizeInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
+
+			logg.Info("aborting upload because of error during parseContentRange()")
+			err := a.sd.AbortBlobUpload(*account, upload.StorageID, upload.NumChunks)
+			if err != nil {
+				logg.Error("additional error encountered during AbortBlobUpload: " + err.Error())
+			}
+			_, err = a.db.Delete(upload)
+			if err != nil {
+				logg.Error("additional error encountered while deleting Upload from DB: " + err.Error())
+			}
 			return
 		}
 		chunkSizeBytes = &val
@@ -388,7 +398,8 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	if contentLengthStr := r.Header.Get("Content-Length"); contentLengthStr != "" {
 		contentLength, err := strconv.ParseUint(contentLengthStr, 10, 64)
 		if err != nil {
-			keppel.ErrBlobUploadInvalid.With("malformed Content-Length: " + err.Error())
+			//COVERAGE: unreachable in unit tests because net/http validates Content-Length header format before sending
+			keppel.ErrSizeInvalid.With("malformed Content-Length: " + err.Error())
 			return
 		}
 		if contentLength > 0 {
@@ -461,9 +472,9 @@ func (a *API) resumeUpload(account keppel.Account, upload *keppel.Upload, stateS
 	hash := sha256.New()
 	err = hash.(encoding.BinaryUnmarshaler).UnmarshalBinary(stateBytes)
 	if err != nil {
-		//NOTE on test coverage: I've tried, but couldn't build a test where the
-		//session state is corrupted specifically to go through the Base64
-		//decoding, but not through this step.
+		//COVERAGE: I've tried, but couldn't build a test where the session state
+		//is corrupted specifically to go through the Base64 decoding, but not
+		//through this step.
 		return nil, keppel.ErrBlobUploadInvalid.With("broken session state")
 	}
 
@@ -478,8 +489,8 @@ func (a *API) resumeUpload(account keppel.Account, upload *keppel.Upload, stateS
 	hash = sha256.New()
 	err = hash.(encoding.BinaryUnmarshaler).UnmarshalBinary(stateBytes)
 	if err != nil {
-		//NOTE on test coverage: This branch is defense in depth. We unmarshaled
-		//the same state above, so hitting an error just here should be impossible.
+		//COVERAGE: This branch is defense in depth. We unmarshaled the same state
+		//above, so hitting an error just here should be impossible.
 		return nil, keppel.ErrBlobUploadInvalid.With("broken session state")
 	}
 
@@ -512,6 +523,7 @@ func (a *API) parseContentRange(upload *keppel.Upload, hdr http.Header) (uint64,
 	}
 	length, err := strconv.ParseUint(lengthStr, 10, 64)
 	if err != nil {
+		//COVERAGE: unreachable in unit tests because net/http validates Content-Length header format before sending
 		return 0, errors.New("malformed Content-Length: " + err.Error())
 	}
 

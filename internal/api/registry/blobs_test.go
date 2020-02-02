@@ -179,151 +179,242 @@ func getBlobUploadURL(t *testing.T, h http.Handler, token string) string {
 	return resp.Header.Get("Location")
 }
 
-func TestBlobStreamedUpload(t *testing.T) {
-	h, _, db, ad, sd, _ := setup(t)
-	readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
-		keppel.CanPullFromAccount)
-	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
-		keppel.CanPullFromAccount,
-		keppel.CanPushToAccount)
+func TestBlobStreamedAndChunkedUpload(t *testing.T) {
+	//run everything in this testcase once for streamed upload and once for chunked upload
+	for _, isChunked := range []bool{false, true} {
 
-	blobContents := []byte("just some random data")
-	blobDigest := "sha256:" + sha256Of(blobContents)
+		h, _, db, ad, sd, _ := setup(t)
+		readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
+			keppel.CanPullFromAccount)
+		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+			keppel.CanPullFromAccount,
+			keppel.CanPushToAccount)
 
-	//shorthand for a common header structure that appears in many requests below
-	tokenAndContentType := map[string]string{
-		"Authorization": "Bearer " + token,
-		"Content-Type":  "application/octet-stream",
-	}
+		blobContents := []byte("just some random data")
+		blobDigest := "sha256:" + sha256Of(blobContents)
 
-	//test failure cases during POST: token does not have push access
-	assert.HTTPRequest{
-		Method: "POST",
-		Path:   "/v2/test1/foo/blobs/uploads/",
-		Header: map[string]string{
-			"Authorization":  "Bearer " + readOnlyToken,
-			"Content-Length": strconv.Itoa(len(blobContents)),
-			"Content-Type":   "application/octet-stream",
-		},
-		Body:         test.ByteData(blobContents),
-		ExpectStatus: http.StatusForbidden,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   test.ErrorCode(keppel.ErrDenied),
-	}.Check(t, h)
+		//shorthand for a common header structure that appears in many requests below
+		getHeadersForPATCH := func(offset, length int) map[string]string {
+			hdr := map[string]string{
+				"Authorization": "Bearer " + token,
+				"Content-Type":  "application/octet-stream",
+			}
+			//for streamed upload, Content-Range and Content-Length are omitted
+			if isChunked {
+				hdr["Content-Range"] = fmt.Sprintf("%d-%d", offset, offset+length)
+				hdr["Content-Length"] = strconv.Itoa(length)
+			}
+			return hdr
+		}
 
-	//test failure cases during PATCH: bogus session ID
-	assert.HTTPRequest{
-		Method:       "PATCH",
-		Path:         "/v2/test1/foo/blobs/uploads/b9ef33aa-7e2a-4fc8-8083-6b00601dab98", //bogus session ID
-		Header:       tokenAndContentType,
-		Body:         test.ByteData(blobContents),
-		ExpectStatus: http.StatusNotFound,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   test.ErrorCode(keppel.ErrBlobUploadUnknown),
-	}.Check(t, h)
+		//test failure cases during POST: token does not have push access
+		assert.HTTPRequest{
+			Method: "POST",
+			Path:   "/v2/test1/foo/blobs/uploads/",
+			Header: map[string]string{
+				"Authorization":  "Bearer " + readOnlyToken,
+				"Content-Length": strconv.Itoa(len(blobContents)),
+				"Content-Type":   "application/octet-stream",
+			},
+			Body:         test.ByteData(blobContents),
+			ExpectStatus: http.StatusForbidden,
+			ExpectHeader: test.VersionHeader,
+			ExpectBody:   test.ErrorCode(keppel.ErrDenied),
+		}.Check(t, h)
 
-	//test failure cases during PATCH: unexpected session state (the first PATCH
-	//request should not contain session state)
-	assert.HTTPRequest{
-		Method:       "PATCH",
-		Path:         keppel.AppendQuery(getBlobUploadURL(t, h, token), url.Values{"state": {"unexpected"}}),
-		Header:       tokenAndContentType,
-		Body:         test.ByteData(blobContents),
-		ExpectStatus: http.StatusBadRequest,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   test.ErrorCode(keppel.ErrBlobUploadInvalid),
-	}.Check(t, h)
-
-	//test failure cases during PATCH: malformed session state (this requires a
-	//successful PATCH first, otherwise the API would not expect to find session
-	//state in our request)
-	uploadURL := getBlobUploadURL(t, h, token)
-	assert.HTTPRequest{
-		Method:       "PATCH",
-		Path:         uploadURL,
-		Header:       tokenAndContentType,
-		Body:         test.ByteData(blobContents),
-		ExpectStatus: http.StatusAccepted,
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "PATCH",
-		Path:         keppel.AppendQuery(uploadURL, url.Values{"state": {"unexpected"}}),
-		Header:       tokenAndContentType,
-		Body:         test.ByteData(blobContents),
-		ExpectStatus: http.StatusBadRequest,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   test.ErrorCode(keppel.ErrBlobUploadInvalid),
-	}.Check(t, h)
-
-	//helper function: upload all the blob contents with a single PATCH, so that
-	//we can test error cases for PUT
-	getUploadURLForPUT := func() string {
-		resp, _ := assert.HTTPRequest{
+		//test failure cases during PATCH: bogus session ID
+		assert.HTTPRequest{
 			Method:       "PATCH",
-			Path:         getBlobUploadURL(t, h, token),
-			Header:       tokenAndContentType,
+			Path:         "/v2/test1/foo/blobs/uploads/b9ef33aa-7e2a-4fc8-8083-6b00601dab98", //bogus session ID
+			Header:       getHeadersForPATCH(0, len(blobContents)),
+			Body:         test.ByteData(blobContents),
+			ExpectStatus: http.StatusNotFound,
+			ExpectHeader: test.VersionHeader,
+			ExpectBody:   test.ErrorCode(keppel.ErrBlobUploadUnknown),
+		}.Check(t, h)
+
+		//test failure cases during PATCH: unexpected session state (the first PATCH
+		//request should not contain session state)
+		assert.HTTPRequest{
+			Method:       "PATCH",
+			Path:         keppel.AppendQuery(getBlobUploadURL(t, h, token), url.Values{"state": {"unexpected"}}),
+			Header:       getHeadersForPATCH(0, len(blobContents)),
+			Body:         test.ByteData(blobContents),
+			ExpectStatus: http.StatusBadRequest,
+			ExpectHeader: test.VersionHeader,
+			ExpectBody:   test.ErrorCode(keppel.ErrBlobUploadInvalid),
+		}.Check(t, h)
+
+		//test failure cases during PATCH: malformed session state (this requires a
+		//successful PATCH first, otherwise the API would not expect to find session
+		//state in our request)
+		uploadURL := getBlobUploadURL(t, h, token)
+		assert.HTTPRequest{
+			Method:       "PATCH",
+			Path:         uploadURL,
+			Header:       getHeadersForPATCH(0, len(blobContents)),
 			Body:         test.ByteData(blobContents),
 			ExpectStatus: http.StatusAccepted,
 		}.Check(t, h)
-		return resp.Header.Get("Location")
-	}
-
-	//test failure cases during PUT: digest is missing or wrong
-	for _, wrongDigest := range []string{"", "wrong", "sha256:" + sha256Of([]byte("something else"))} {
 		assert.HTTPRequest{
-			Method:       "PUT",
-			Path:         keppel.AppendQuery(getUploadURLForPUT(), url.Values{"digest": {wrongDigest}}),
-			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Method:       "PATCH",
+			Path:         keppel.AppendQuery(uploadURL, url.Values{"state": {"unexpected"}}),
+			Header:       getHeadersForPATCH(len(blobContents), len(blobContents)),
+			Body:         test.ByteData(blobContents),
 			ExpectStatus: http.StatusBadRequest,
 			ExpectHeader: test.VersionHeader,
-			ExpectBody:   test.ErrorCode(keppel.ErrDigestInvalid),
+			ExpectBody:   test.ErrorCode(keppel.ErrBlobUploadInvalid),
 		}.Check(t, h)
-	}
 
-	//failed requests should not retain anything in the storage
-	expectStorageEmpty(t, sd, db)
+		//test failure cases during PATCH: malformed Content-Range and/or
+		//Content-Length (only for chunked upload; streamed upload does not have
+		//these headers)
+		if isChunked {
+			testWrongContentRangeAndOrLength := func(contentRange, contentLength string) {
+				t.Helper()
+				//upload the blob contents in two chunks; we will trigger the error
+				//condition in the second PATCH
+				chunk1, chunk2 := blobContents[0:10], blobContents[10:15]
+				resp, _ := assert.HTTPRequest{
+					Method:       "PATCH",
+					Path:         getBlobUploadURL(t, h, token),
+					Header:       getHeadersForPATCH(0, len(chunk1)),
+					Body:         test.ByteData(chunk1),
+					ExpectStatus: http.StatusAccepted,
+				}.Check(t, h)
+				assert.HTTPRequest{
+					Method: "PATCH",
+					Path:   resp.Header.Get("Location"),
+					Header: map[string]string{
+						"Authorization":  "Bearer " + token,
+						"Content-Length": contentLength,
+						"Content-Range":  contentRange,
+						"Content-Type":   "application/octet-stream",
+					},
+					Body:         test.ByteData(chunk2),
+					ExpectStatus: http.StatusBadRequest,
+					ExpectHeader: test.VersionHeader,
+					ExpectBody:   test.ErrorCode(keppel.ErrSizeInvalid),
+				}.Check(t, h)
+			}
+			//NOTE: The correct headers would be Content-Range: 10-15 and Content-Length: 5.
+			testWrongContentRangeAndOrLength("10-14", "4")                         //both consistently wrong
+			testWrongContentRangeAndOrLength("10-15", "6")                         //only Content-Length wrong
+			testWrongContentRangeAndOrLength("10-16", "5")                         //only Content-Range wrong
+			testWrongContentRangeAndOrLength("8-13", "5")                          //consistent, but wrong offset
+			testWrongContentRangeAndOrLength("10-15", "")                          //Content-Length missing
+			testWrongContentRangeAndOrLength("10", "5")                            //wrong format for Content-Range
+			testWrongContentRangeAndOrLength("10-abc", "5")                        //even wronger format for Content-Range
+			testWrongContentRangeAndOrLength("99999999999999999999999999-10", "5") //what are you doing?
+			testWrongContentRangeAndOrLength("10-99999999999999999999999999", "5") //omg stop it!
+		}
 
-	//test success case (with multiple chunks!)
-	uploadURL = getBlobUploadURL(t, h, token)
-	progress := 0
-	for _, chunk := range bytes.SplitAfter(blobContents, []byte(" ")) {
-		progress += len(chunk)
+		//test failure cases during PUT: digest is missing or wrong
+		for _, wrongDigest := range []string{"", "wrong", "sha256:" + sha256Of([]byte("something else"))} {
+			//upload all the blob contents at once (we're only interested in the final PUT)
+			resp, _ := assert.HTTPRequest{
+				Method:       "PATCH",
+				Path:         getBlobUploadURL(t, h, token),
+				Header:       getHeadersForPATCH(0, len(blobContents)),
+				Body:         test.ByteData(blobContents),
+				ExpectStatus: http.StatusAccepted,
+			}.Check(t, h)
+			uploadURL := resp.Header.Get("Location")
+			assert.HTTPRequest{
+				Method:       "PUT",
+				Path:         keppel.AppendQuery(uploadURL, url.Values{"digest": {wrongDigest}}),
+				Header:       map[string]string{"Authorization": "Bearer " + token},
+				ExpectStatus: http.StatusBadRequest,
+				ExpectHeader: test.VersionHeader,
+				ExpectBody:   test.ErrorCode(keppel.ErrDigestInvalid),
+			}.Check(t, h)
+		}
 
-		if progress == len(blobContents) {
-			//send the last chunk with the final PUT request
+		//test failure cases during PUT: broken Content-Length on PUT with content
+		for _, wrongContentLength := range []string{"", "0", "1024"} {
+			//upload the blob contents in two chunks, so that we have a chunk to send with PUT
+			chunk1, chunk2 := blobContents[0:10], blobContents[10:]
+			resp, _ := assert.HTTPRequest{
+				Method:       "PATCH",
+				Path:         getBlobUploadURL(t, h, token),
+				Header:       getHeadersForPATCH(0, len(chunk1)),
+				Body:         test.ByteData(chunk1),
+				ExpectStatus: http.StatusAccepted,
+			}.Check(t, h)
+			uploadURL := resp.Header.Get("Location")
+
+			//when Content-Length is missing or 0, the request body will just be
+			//ignored and the validation will fail later when the digest does not match
+			//because of the missing chunk
+			expectedError := test.ErrorCode(keppel.ErrSizeInvalid)
+			if wrongContentLength == "" || wrongContentLength == "0" {
+				expectedError = test.ErrorCode(keppel.ErrDigestInvalid)
+			}
+
 			assert.HTTPRequest{
 				Method: "PUT",
 				Path:   keppel.AppendQuery(uploadURL, url.Values{"digest": {blobDigest}}),
 				Header: map[string]string{
 					"Authorization":  "Bearer " + token,
-					"Content-Length": strconv.Itoa(len(chunk)),
+					"Content-Length": wrongContentLength,
 					"Content-Type":   "application/octet-stream",
 				},
-				Body:         test.ByteData(chunk),
-				ExpectStatus: http.StatusCreated,
-				ExpectHeader: map[string]string{
-					test.VersionHeaderKey: test.VersionHeaderValue,
-					"Content-Length":      "0",
-					"Location":            "/v2/test1/foo/blobs/" + blobDigest,
-				},
+				Body:         test.ByteData(chunk2),
+				ExpectStatus: http.StatusBadRequest,
+				ExpectHeader: test.VersionHeader,
+				ExpectBody:   expectedError,
 			}.Check(t, h)
-		} else {
-			resp, _ := assert.HTTPRequest{
-				Method:       "PATCH",
-				Path:         uploadURL,
-				Header:       tokenAndContentType,
-				Body:         test.ByteData(chunk),
-				ExpectStatus: http.StatusAccepted,
-				ExpectHeader: map[string]string{
-					test.VersionHeaderKey: test.VersionHeaderValue,
-					"Content-Length":      "0",
-					"Range":               fmt.Sprintf("0-%d", progress),
-				},
-			}.Check(t, h)
-			uploadURL = resp.Header.Get("Location")
-		}
-	}
 
-	//validate that the blob was stored at the specified location
-	expectBlobContents(t, h, token, blobDigest, blobContents)
+			if t.Failed() {
+				t.Fatalf("fails on CL %q", wrongContentLength)
+			}
+		}
+
+		//failed requests should not retain anything in the storage
+		expectStorageEmpty(t, sd, db)
+
+		//test success case (with multiple chunks!)
+		uploadURL = getBlobUploadURL(t, h, token)
+		progress := 0
+		for _, chunk := range bytes.SplitAfter(blobContents, []byte(" ")) {
+			progress += len(chunk)
+
+			if progress == len(blobContents) {
+				//send the last chunk with the final PUT request
+				assert.HTTPRequest{
+					Method: "PUT",
+					Path:   keppel.AppendQuery(uploadURL, url.Values{"digest": {blobDigest}}),
+					Header: map[string]string{
+						"Authorization":  "Bearer " + token,
+						"Content-Length": strconv.Itoa(len(chunk)),
+						"Content-Type":   "application/octet-stream",
+					},
+					Body:         test.ByteData(chunk),
+					ExpectStatus: http.StatusCreated,
+					ExpectHeader: map[string]string{
+						test.VersionHeaderKey: test.VersionHeaderValue,
+						"Content-Length":      "0",
+						"Location":            "/v2/test1/foo/blobs/" + blobDigest,
+					},
+				}.Check(t, h)
+			} else {
+				resp, _ := assert.HTTPRequest{
+					Method:       "PATCH",
+					Path:         uploadURL,
+					Header:       getHeadersForPATCH(progress-len(chunk), len(chunk)),
+					Body:         test.ByteData(chunk),
+					ExpectStatus: http.StatusAccepted,
+					ExpectHeader: map[string]string{
+						test.VersionHeaderKey: test.VersionHeaderValue,
+						"Content-Length":      "0",
+						"Range":               fmt.Sprintf("0-%d", progress),
+					},
+				}.Check(t, h)
+				uploadURL = resp.Header.Get("Location")
+			}
+		}
+
+		//validate that the blob was stored at the specified location
+		expectBlobContents(t, h, token, blobDigest, blobContents)
+	}
 }
