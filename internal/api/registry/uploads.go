@@ -293,9 +293,11 @@ func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//perform the deletion in the storage backend, then make the DB change durable
-	err = a.sd.AbortBlobUpload(*account, upload.StorageID, upload.NumChunks)
-	if respondWithError(w, err) {
-		return
+	if upload.NumChunks > 0 {
+		err = a.sd.AbortBlobUpload(*account, upload.StorageID, upload.NumChunks)
+		if respondWithError(w, err) {
+			return
+		}
 	}
 	err = tx.Commit()
 	if respondWithError(w, err) {

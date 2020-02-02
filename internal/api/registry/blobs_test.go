@@ -164,7 +164,7 @@ func expectStorageEmpty(t *testing.T, sd *test.StorageDriver, db *keppel.DB) {
 	}
 }
 
-func getBlobUploadURL(t *testing.T, h http.Handler, token string) string {
+func getBlobUpload(t *testing.T, h http.Handler, token string) (uploadURL, uploadUUID string) {
 	resp, _ := assert.HTTPRequest{
 		Method:       "POST",
 		Path:         "/v2/test1/foo/blobs/uploads/",
@@ -176,7 +176,12 @@ func getBlobUploadURL(t *testing.T, h http.Handler, token string) string {
 			"Range":               "0-0",
 		},
 	}.Check(t, h)
-	return resp.Header.Get("Location")
+	return resp.Header.Get("Location"), resp.Header.Get("Blob-Upload-Session-Id")
+}
+
+func getBlobUploadURL(t *testing.T, h http.Handler, token string) string {
+	u, _ := getBlobUpload(t, h, token)
+	return u
 }
 
 func TestBlobStreamedAndChunkedUpload(t *testing.T) {
@@ -417,4 +422,174 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 		//validate that the blob was stored at the specified location
 		expectBlobContents(t, h, token, blobDigest, blobContents)
 	}
+}
+
+func TestGetBlobUpload(t *testing.T) {
+	//NOTE: We only use the read-write token for driving the blob upload through
+	//its various stages. All the GET requests use the read-only token to verify
+	//that read-only tokens work here.
+	h, _, _, ad, _, _ := setup(t)
+	readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		keppel.CanPullFromAccount)
+	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		keppel.CanPullFromAccount,
+		keppel.CanPushToAccount)
+
+	blobContents := []byte("just some random data")
+	blobDigest := "sha256:" + sha256Of(blobContents)
+
+	//test failure cases: no such upload
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/v2/test1/foo/blobs/uploads/b9ef33aa-7e2a-4fc8-8083-6b00601dab98", //bogus session ID
+		Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+		ExpectStatus: http.StatusNotFound,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrBlobUploadUnknown),
+	}.Check(t, h)
+
+	//test success case: upload without contents in it
+	uploadURL, uploadUUID := getBlobUpload(t, h, token)
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
+		Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+		ExpectStatus: http.StatusNoContent,
+		ExpectHeader: map[string]string{
+			test.VersionHeaderKey:    test.VersionHeaderValue,
+			"Blob-Upload-Session-Id": uploadUUID,
+			"Content-Length":         "0",
+			"Range":                  "0-0",
+		},
+		ExpectBody: assert.StringData(""),
+	}.Check(t, h)
+
+	//test success case: upload with contents in it
+	resp, _ := assert.HTTPRequest{
+		Method: "PATCH",
+		Path:   uploadURL,
+		Header: map[string]string{
+			"Authorization": "Bearer " + token,
+			"Content-Type":  "application/octet-stream",
+		},
+		Body:         test.ByteData(blobContents),
+		ExpectStatus: http.StatusAccepted,
+		ExpectHeader: map[string]string{
+			test.VersionHeaderKey: test.VersionHeaderValue,
+			"Content-Length":      "0",
+			"Range":               fmt.Sprintf("0-%d", len(blobContents)),
+		},
+	}.Check(t, h)
+	uploadURL = resp.Header.Get("Location")
+
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
+		Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+		ExpectStatus: http.StatusNoContent,
+		ExpectHeader: map[string]string{
+			test.VersionHeaderKey:    test.VersionHeaderValue,
+			"Blob-Upload-Session-Id": uploadUUID,
+			"Content-Length":         "0",
+			"Range":                  fmt.Sprintf("0-%d", len(blobContents)),
+		},
+		ExpectBody: assert.StringData(""),
+	}.Check(t, h)
+
+	//test failure case: finished upload should be cleaned up and not show up in GET anymore
+	assert.HTTPRequest{
+		Method:       "PUT",
+		Path:         keppel.AppendQuery(uploadURL, url.Values{"digest": {blobDigest}}),
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusCreated,
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
+		Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+		ExpectStatus: http.StatusNotFound,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrBlobUploadUnknown),
+	}.Check(t, h)
+}
+
+func TestDeleteBlobUpload(t *testing.T) {
+	h, _, db, ad, sd, _ := setup(t)
+	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		keppel.CanPullFromAccount,
+		keppel.CanPushToAccount)
+	deleteToken := getToken(t, h, ad, "repository:test1/foo:delete",
+		keppel.CanDeleteFromAccount)
+
+	blobContents := []byte("just some random data")
+
+	//test failure cases: no such upload
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/v2/test1/foo/blobs/uploads/b9ef33aa-7e2a-4fc8-8083-6b00601dab98", //bogus session ID
+		Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+		ExpectStatus: http.StatusNotFound,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrBlobUploadUnknown),
+	}.Check(t, h)
+
+	//test deletion of upload with no contents in it
+	_, uploadUUID := getBlobUpload(t, h, token)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   test.ErrorCode(keppel.ErrDenied),
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
+		Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+		ExpectStatus: http.StatusNoContent,
+		ExpectHeader: map[string]string{
+			test.VersionHeaderKey: test.VersionHeaderValue,
+			"Content-Length":      "0",
+		},
+		ExpectBody: assert.StringData(""),
+	}.Check(t, h)
+
+	//test deletion of upload with contents in it
+	uploadURL, uploadUUID := getBlobUpload(t, h, token)
+	assert.HTTPRequest{
+		Method: "PATCH",
+		Path:   uploadURL,
+		Header: map[string]string{
+			"Authorization": "Bearer " + token,
+			"Content-Type":  "application/octet-stream",
+		},
+		Body:         test.ByteData(blobContents),
+		ExpectStatus: http.StatusAccepted,
+		ExpectHeader: map[string]string{
+			test.VersionHeaderKey: test.VersionHeaderValue,
+			"Content-Length":      "0",
+			"Range":               fmt.Sprintf("0-%d", len(blobContents)),
+		},
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   test.ErrorCode(keppel.ErrDenied),
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
+		Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+		ExpectStatus: http.StatusNoContent,
+		ExpectHeader: map[string]string{
+			test.VersionHeaderKey: test.VersionHeaderValue,
+			"Content-Length":      "0",
+		},
+		ExpectBody: assert.StringData(""),
+	}.Check(t, h)
+
+	//since all uploads were eventually deleted, there should be nothing in the storage
+	expectStorageEmpty(t, sd, db)
 }
