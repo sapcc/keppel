@@ -45,7 +45,7 @@ func (s StringData) AssertResponseBody(t *testing.T, requestInfo string, respons
 
 	responseStr := string(responseBody)
 	if responseStr != string(s) {
-		t.Error(requestInfo + ": got unexpected response body")
+		t.Errorf("%s: got unexpected response body", requestInfo)
 		t.Logf("\texpected = %q\n", string(s))
 		t.Logf("\t  actual = %q\n", responseStr)
 		return false
@@ -81,7 +81,7 @@ func (o JSONObject) AssertResponseBody(t *testing.T, requestInfo string, respons
 	}
 
 	if string(responseBody) != string(buf) {
-		t.Error(requestInfo + ": got unexpected response body")
+		t.Errorf("%s: got unexpected response body", requestInfo)
 		t.Logf("\texpected = %q\n", string(buf))
 		t.Logf("\t  actual = %q\n", string(responseBody))
 		return false
