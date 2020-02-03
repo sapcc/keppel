@@ -32,7 +32,6 @@ import (
 )
 
 //TODO test coverage for cross-repository blob mount
-//TODO test coverage for delete blob mount
 
 func TestBlobMonolithicUpload(t *testing.T) {
 	h, _, db, ad, sd, _ := setup(t)
@@ -116,10 +115,10 @@ func TestBlobMonolithicUpload(t *testing.T) {
 	}.Check(t, h)
 
 	//validate that the blob was stored at the specified location
-	expectBlobContents(t, h, token, blobDigest, blobContents)
+	expectBlobContents(t, h, token, "test1/foo", blobDigest, blobContents)
 }
 
-func expectBlobContents(t *testing.T, h http.Handler, token, blobDigest string, blobContents []byte) {
+func expectBlobContents(t *testing.T, h http.Handler, token, repoName, blobDigest string, blobContents []byte) {
 	for _, method := range []string{"GET", "HEAD"} {
 		respBody := blobContents
 		if method == "HEAD" {
@@ -127,7 +126,7 @@ func expectBlobContents(t *testing.T, h http.Handler, token, blobDigest string, 
 		}
 		assert.HTTPRequest{
 			Method:       method,
-			Path:         "/v2/test1/foo/blobs/" + blobDigest,
+			Path:         "/v2/" + repoName + "/blobs/" + blobDigest,
 			Header:       map[string]string{"Authorization": "Bearer " + token},
 			ExpectStatus: http.StatusOK,
 			ExpectHeader: map[string]string{
@@ -423,7 +422,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 		}
 
 		//validate that the blob was stored at the specified location
-		expectBlobContents(t, h, token, blobDigest, blobContents)
+		expectBlobContents(t, h, token, "test1/foo", blobDigest, blobContents)
 	}
 }
 
@@ -595,4 +594,117 @@ func TestDeleteBlobUpload(t *testing.T) {
 
 	//since all uploads were eventually deleted, there should be nothing in the storage
 	expectStorageEmpty(t, sd, db)
+}
+
+func TestDeleteBlob(t *testing.T) {
+	h, _, db, ad, sd, _ := setup(t)
+	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		keppel.CanPullFromAccount,
+		keppel.CanPushToAccount)
+	deleteToken := getToken(t, h, ad, "repository:test1/foo:delete",
+		keppel.CanDeleteFromAccount)
+	otherRepoToken := getToken(t, h, ad, "repository:test1/bar:pull,push",
+		keppel.CanPullFromAccount,
+		keppel.CanPushToAccount)
+
+	blobContents := []byte("just some random data")
+	blobDigest := "sha256:" + sha256Of(blobContents)
+
+	//test failure case: delete blob from non-existent repo
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/v2/test1/foo/blobs/" + blobDigest,
+		Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+		ExpectStatus: http.StatusNotFound,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrNameUnknown),
+	}.Check(t, h)
+
+	//push a blob so that we can test its deletion
+	assert.HTTPRequest{
+		Method: "POST",
+		Path:   "/v2/test1/foo/blobs/uploads/?digest=" + blobDigest,
+		Header: map[string]string{
+			"Authorization":  "Bearer " + token,
+			"Content-Length": strconv.Itoa(len(blobContents)),
+			"Content-Type":   "application/octet-stream",
+		},
+		Body:         test.ByteData(blobContents),
+		ExpectStatus: http.StatusCreated,
+	}.Check(t, h)
+
+	//cross-mount the same blob in a different repo (the blob should not be
+	//deleted from test1/bar when we delete it from test1/foo)
+	assert.HTTPRequest{
+		Method: "POST",
+		Path:   "/v2/test1/bar/blobs/uploads/?from=test1%2Ffoo&mount=" + blobDigest,
+		Header: map[string]string{
+			"Authorization":  "Bearer " + otherRepoToken,
+			"Content-Length": "0",
+		},
+		ExpectStatus: http.StatusCreated,
+	}.Check(t, h)
+
+	//the blob should now be visible in both repos
+	expectBlobContents(t, h, token, "test1/foo", blobDigest, blobContents)
+	expectBlobContents(t, h, otherRepoToken, "test1/bar", blobDigest, blobContents)
+
+	//test failure case: no delete permission
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/v2/test1/foo/blobs/" + blobDigest,
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusForbidden,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrDenied),
+	}.Check(t, h)
+
+	//test failure case: no such blob
+	bogusDigest := "sha256:" + sha256Of([]byte("something else"))
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/v2/test1/foo/blobs/" + bogusDigest,
+		Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+		ExpectStatus: http.StatusNotFound,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrBlobUnknown),
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/v2/test1/foo/blobs/thisisnotadigest",
+		Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+		ExpectStatus: http.StatusBadRequest,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrDigestInvalid),
+	}.Check(t, h)
+
+	//we only had failed DELETEs until now, so the blob should still be there
+	expectBlobContents(t, h, token, "test1/foo", blobDigest, blobContents)
+	expectBlobContents(t, h, otherRepoToken, "test1/bar", blobDigest, blobContents)
+
+	//test success case: delete the blob from the first repo
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/v2/test1/foo/blobs/" + blobDigest,
+		Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+		ExpectStatus: http.StatusAccepted,
+		ExpectHeader: map[string]string{
+			test.VersionHeaderKey: test.VersionHeaderValue,
+			"Content-Length":      "0",
+		},
+	}.Check(t, h)
+
+	//after successful DELETE, the blob should be gone from test1/foo...
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/v2/test1/foo/blobs/" + blobDigest,
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusNotFound,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrBlobUnknown),
+	}.Check(t, h)
+	//...but still be visible in test1/bar
+	expectBlobContents(t, h, otherRepoToken, "test1/bar", blobDigest, blobContents)
+
+	_, _ = db, sd
 }

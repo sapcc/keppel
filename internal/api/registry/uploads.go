@@ -88,7 +88,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	//special case: request for cross-repo blob mount
 	query := r.URL.Query()
 	if sourceRepoFullName := query.Get("from"); sourceRepoFullName != "" {
-		a.performCrossRepositoryBlobMount(w, r, *account, *repo, sourceRepoFullName, query.Get("digest"))
+		a.performCrossRepositoryBlobMount(w, r, *account, *repo, sourceRepoFullName, query.Get("mount"))
 		return
 	}
 
