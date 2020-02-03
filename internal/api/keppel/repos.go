@@ -171,6 +171,25 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	blobLikeCount, err := tx.SelectInt(
+		`SELECT (
+			SELECT COUNT(*) FROM blob_mounts WHERE repo_id = $1
+		) + (
+			SELECT COUNT(*) FROM pending_blobs WHERE repo_id = $1
+		) + (
+			SELECT COUNT(*) FROM uploads WHERE repo_id = $1
+		)`,
+		repo.ID,
+	)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	if blobLikeCount > 0 {
+		msg := "cannot delete repository while there are still blobs in it"
+		http.Error(w, msg, http.StatusConflict)
+		return
+	}
+
 	_, err = tx.Delete(repo)
 	if err == nil {
 		err = tx.Commit()

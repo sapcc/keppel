@@ -19,13 +19,11 @@
 package keppelv1
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -132,7 +130,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
-	account, authz := a.authenticateAccountScopedRequest(w, r, keppel.CanDeleteFromAccount)
+	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanDeleteFromAccount)
 	if account == nil {
 		return
 	}
@@ -170,37 +168,10 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//DELETE the manifest in the backend
-	tokenForBackend, err := auth.Token{
-		UserName: authz.UserName(),
-		Audience: a.cfg.APIPublicHostname(),
-		Access: []auth.Scope{{
-			ResourceType: "repository",
-			ResourceName: repo.FullName(),
-			Actions:      []string{"delete"},
-		}},
-	}.Issue(a.cfg)
+	err = a.sd.DeleteManifest(*account, repo.Name, digest.String())
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-	reqPath := fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), digest)
-	req, err := http.NewRequest("DELETE", reqPath, nil)
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-	req.Header.Set("Authorization", "Bearer "+tokenForBackend.SignedToken)
-	resp, err := a.orchDriver.DoHTTPRequest(*account, req, keppel.FollowRedirects)
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-	if resp.StatusCode != http.StatusAccepted {
-		msg := fmt.Sprintf(
-			"expected backend request to return status code %d, got %s instead",
-			http.StatusAccepted, resp.Status,
-		)
-		http.Error(w, msg, http.StatusInternalServerError)
-		return
-	}
-
 	err = tx.Commit()
 	if respondwith.ErrorText(w, err) {
 		return

@@ -19,11 +19,7 @@
 package registryv2
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
@@ -47,6 +43,16 @@ func TestCatalogEndpoint(t *testing.T) {
 		if err != nil {
 			t.Fatal(err.Error())
 		}
+
+		for _, repoName := range []string{"foo", "bar", "qux"} {
+			err := db.Insert(&keppel.Repository{
+				Name:        repoName,
+				AccountName: fmt.Sprintf("test%d", idx),
+			})
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+		}
 	}
 
 	//setup auth API with the regular unittest driver
@@ -56,10 +62,7 @@ func TestCatalogEndpoint(t *testing.T) {
 	}
 	r := mux.NewRouter()
 	authapi.NewAPI(cfg, ad, db).AddTo(r)
-
-	//setup registry API with a specialized mock orchestration driver
-	od := keppel.OrchestrationDriver(dummyCatalogDriver{})
-	NewAPI(context.Background(), cfg, od, db).AddTo(r)
+	NewAPI(cfg, nil, db).AddTo(r)
 
 	//testcases
 	testEmptyCatalog(t, r, ad)
@@ -207,46 +210,4 @@ func testAuthErrorsForCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver
 		//but DENIED is more logical.
 		ExpectBody: test.ErrorCode(keppel.ErrDenied),
 	}.Check(t, h)
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// type dummyCatalogDriver
-
-type dummyCatalogDriver struct{}
-
-//DoHTTPRequest implements the keppel.OrchestrationDriver interface.
-func (dummyCatalogDriver) DoHTTPRequest(account keppel.Account, r *http.Request, opts keppel.RequestOptions) (*http.Response, error) {
-	//expect only catalog queries
-	if r.Method != "GET" || r.URL.Path != "/v2/_catalog" {
-		return nil, fmt.Errorf("expected request for GET /v2/_catalog, got %s %s", r.Method, r.URL.Path)
-	}
-	if r.URL.RawQuery != "" {
-		return nil, fmt.Errorf("expected no query string for GET /v2/_catalog, got %q", r.URL.RawQuery)
-	}
-
-	buf, _ := json.Marshal(map[string]interface{}{
-		"repositories": []string{
-			//NOTE: not sorted, but catalog endpoint of keppel-api will do proper sorting
-			account.Name + "/foo",
-			account.Name + "/bar",
-			account.Name + "/qux",
-		},
-	})
-
-	return &http.Response{
-		Status:        "200 OK",
-		StatusCode:    http.StatusOK,
-		Proto:         "HTTP/1.1",
-		ProtoMajor:    1,
-		ProtoMinor:    1,
-		Header:        http.Header{"Content-Type": {"application/json"}},
-		Body:          ioutil.NopCloser(bytes.NewReader(buf)),
-		ContentLength: int64(len(buf)),
-		Request:       r,
-	}, nil
-}
-
-//Run implements the keppel.OrchestrationDriver interface.
-func (dummyCatalogDriver) Run(ctx context.Context) (ok bool) {
-	return true
 }

@@ -19,13 +19,59 @@
 package registryv2
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gorilla/mux"
+	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
+
+func setup(t *testing.T) (http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver, *test.Clock) {
+	cfg, db := test.Setup(t)
+
+	//set up a dummy account for testing
+	err := db.Insert(&keppel.Account{
+		Name:               "test1",
+		AuthTenantID:       "test1authtenant",
+		RegistryHTTPSecret: "topsecret",
+	})
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	//setup ample quota for all tests
+	err = db.Insert(&keppel.Quotas{
+		AuthTenantID:  "test1authtenant",
+		ManifestCount: 100,
+	})
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	//setup a fleet of drivers
+	ad, err := keppel.NewAuthDriver("unittest")
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, cfg)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	//wire up the HTTP APIs
+	clock := &test.Clock{}
+	sidGen := &test.StorageIDGenerator{}
+	r := mux.NewRouter()
+	NewAPI(cfg, sd, db).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next).AddTo(r)
+	authapi.NewAPI(cfg, ad, db).AddTo(r)
+
+	return r, cfg, db, ad.(*test.AuthDriver), sd.(*test.StorageDriver), clock
+}
 
 func getToken(t *testing.T, h http.Handler, ad keppel.AuthDriver, scope string, perms ...keppel.Permission) string {
 	t.Helper()
@@ -55,4 +101,9 @@ func (t *httpTransportForTest) RoundTrip(req *http.Request) (*http.Response, err
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	return w.Result(), nil
+}
+
+func sha256Of(data []byte) string {
+	sha256Hash := sha256.Sum256(data)
+	return hex.EncodeToString(sha256Hash[:])
 }

@@ -19,22 +19,19 @@
 package registryv2
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"net/http"
 	"strings"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/assert"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/orchestration"
-	"github.com/sapcc/keppel/internal/orchestration/localprocesses"
 	"github.com/sapcc/keppel/internal/test"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -108,33 +105,9 @@ func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *k
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	od2, err := keppel.NewOrchestrationDriver("local-processes", sd2, cfg2, db2)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	//avoid port collision between primary and secondary registry fleet
-	od2.(*orchestration.Engine).Launcher.(*localprocesses.Driver).NextListenPort += 1000
-
-	//run the orchestration driver's mainloop for the duration of the test
-	//(the wait group is important to ensure that od.Run() runs to completion;
-	//otherwise the test harness appears to kill its goroutine too early)
-	ctx, cancel := context.WithCancel(context.Background())
-	var wg sync.WaitGroup
-	defer func() {
-		cancel() //uses `defer` because t.Fatal() might exit early
-		wg.Wait()
-	}()
-	go func() {
-		wg.Add(1)
-		defer wg.Done()
-		ok := od2.Run(ctx)
-		if !ok {
-			t.Error("secondary orchestration driver mainloop exited unsuccessfully")
-		}
-	}()
 
 	r := mux.NewRouter()
-	NewAPI(context.Background(), cfg2, od2, db2).AddTo(r)
+	NewAPI(cfg2, sd2, db2).AddTo(r)
 	authapi.NewAPI(cfg2, ad2, db2).AddTo(r)
 
 	//the secondary registry wants to talk to the primary registry over HTTPS, so
@@ -151,22 +124,10 @@ func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *k
 	}()
 
 	//run all replication-on-first-use (ROFU) tests once
-	testROFUNonReplicatingCases(t, r, ad2, od2, db2, firstBlobDigest)
+	testROFUNonReplicatingCases(t, r, ad2, db2, firstBlobDigest)
 	testROFUSuccessCases(t, r, ad2, firstManifestDigest, firstBlobDigest, secondManifestDigest, secondManifestTag)
 	testROFUMissingEntities(t, r, ad2)
 	testROFUForbidDirectUpload(t, r, ad2)
-
-	//wait until all async replications are done
-	for idx := 0; idx < 10; idx++ {
-		count, err := db2.SelectInt(`SELECT COUNT(*) FROM pending_manifests`)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		if count == 0 {
-			break
-		}
-		time.Sleep(50 * time.Second)
-	}
 
 	//run the positive tests again with the network connection to the primary
 	//registry severed, to validate that contents have actually been replicated
@@ -175,7 +136,7 @@ func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *k
 	testROFUForbidDirectUpload(t, r, ad2)
 }
 
-func testROFUNonReplicatingCases(t *testing.T, h http.Handler, ad keppel.AuthDriver, od keppel.OrchestrationDriver, db *keppel.DB, firstBlobDigest string) {
+func testROFUNonReplicatingCases(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB, firstBlobDigest string) {
 	//before replication, do a HEAD on a blob - this should only be proxied to
 	//upstream and not cause a full replication (we reserve the full replication
 	//for the first GET on the blob since we can then also stream the blob
@@ -190,19 +151,10 @@ func testROFUNonReplicatingCases(t *testing.T, h http.Handler, ad keppel.AuthDri
 		ExpectHeader: test.VersionHeader,
 	}.Check(t, h)
 
-	//query the backing keppel-registry to check that the blob was not actually replicated
-	account, err := db.FindAccount("test1")
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	req, _ := http.NewRequest("GET", "/v2/test1/foo/blobs/"+firstBlobDigest, nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := od.DoHTTPRequest(*account, req, keppel.FollowRedirects)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	if resp.StatusCode != http.StatusNotFound {
-		t.Errorf("expected blob %s to be 404 in secondary keppel-registry, but is actually %s", firstBlobDigest, resp.Status)
+	//query the DB to check that the blob was not actually replicated
+	_, err := db.FindBlobByRepositoryName(digest.Digest(firstBlobDigest), "foo", keppel.Account{Name: "test1"})
+	if err != sql.ErrNoRows {
+		t.Errorf("expected DB to reply sql.ErrNoRows, but actually err = %#v", err)
 	}
 }
 
@@ -300,7 +252,7 @@ func testROFUForbidDirectUpload(t *testing.T, h http.Handler, ad keppel.AuthDriv
 		keppel.CanPullFromAccount, keppel.CanPushToAccount)
 
 	deniedMessage := test.ErrorCodeWithMessage{
-		Code:    keppel.ErrDenied,
+		Code:    keppel.ErrUnsupported,
 		Message: "cannot push into replica account (push to registry.example.org/test1/foo instead!)",
 	}
 
@@ -308,7 +260,7 @@ func testROFUForbidDirectUpload(t *testing.T, h http.Handler, ad keppel.AuthDriv
 		Method:       "POST",
 		Path:         "/v2/test1/foo/blobs/uploads/",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusForbidden,
+		ExpectStatus: http.StatusMethodNotAllowed,
 		ExpectHeader: test.VersionHeader,
 		ExpectBody:   deniedMessage,
 	}.Check(t, h)
@@ -318,7 +270,7 @@ func testROFUForbidDirectUpload(t *testing.T, h http.Handler, ad keppel.AuthDriv
 		Path:         "/v2/test1/foo/manifests/anotherone",
 		Header:       map[string]string{"Authorization": "Bearer " + token},
 		Body:         assert.StringData("request body does not matter"),
-		ExpectStatus: http.StatusForbidden,
+		ExpectStatus: http.StatusMethodNotAllowed,
 		ExpectHeader: test.VersionHeader,
 		ExpectBody:   deniedMessage,
 	}.Check(t, h)

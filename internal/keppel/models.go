@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/opencontainers/go-digest"
 	gorp "gopkg.in/gorp.v2"
 )
 
@@ -141,6 +142,101 @@ func (r RBACPolicy) Matches(repoName, userName string) bool {
 	}
 
 	return true
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+//Blob contains a record from the `blobs` table.
+//
+//In the `blobs` table, blobs are only bound to an account. This makes
+//cross-repo blob mounts cheap and easy to implement. The actual connection to
+//repos is in the `blob_mounts` table.
+//
+//StorageID is used to construct the filename (or equivalent) for this blob
+//in the StorageDriver. We cannot use the digest for this since the StorageID
+//needs to be chosen at the start of the blob upload, when the digest is not
+//known yet.
+type Blob struct {
+	ID          int64     `db:"id"`
+	AccountName string    `db:"account_name"`
+	Digest      string    `db:"digest"`
+	SizeBytes   uint64    `db:"size_bytes"`
+	StorageID   string    `db:"storage_id"`
+	PushedAt    time.Time `db:"pushed_at"`
+}
+
+const blobGetQueryByRepoName = `
+	SELECT b.*
+	  FROM blobs b
+	  JOIN blob_mounts bm ON b.id = bm.blob_id
+	  JOIN repos r ON bm.repo_id = r.id
+	 WHERE b.account_name = $1 AND b.digest = $2
+	   AND r.account_name = $1 AND r.name = $3
+`
+
+const blobGetQueryByRepoID = `
+	SELECT b.*
+	  FROM blobs b
+	  JOIN blob_mounts bm ON b.id = bm.blob_id
+	 WHERE b.account_name = $1 AND b.digest = $2 AND bm.repo_id = $3
+`
+
+//FindBlobByRepositoryName is a convenience wrapper around db.SelectOne(). If
+//the blob in question does not exist, sql.ErrNoRows is returned.
+func (db *DB) FindBlobByRepositoryName(blobDigest digest.Digest, repoName string, account Account) (*Blob, error) {
+	var blob Blob
+	err := db.SelectOne(&blob, blobGetQueryByRepoName, account.Name, blobDigest.String(), repoName)
+	return &blob, err
+}
+
+//FindBlobByRepositoryID is a convenience wrapper around db.SelectOne(). If
+//the blob in question does not exist, sql.ErrNoRows is returned.
+func (db *DB) FindBlobByRepositoryID(blobDigest digest.Digest, repoID int64, account Account) (*Blob, error) {
+	var blob Blob
+	err := db.SelectOne(&blob, blobGetQueryByRepoID, account.Name, blobDigest.String(), repoID)
+	return &blob, err
+}
+
+//Upload contains a record from the `uploads` table.
+//
+//Digest contains the SHA256 digest of everything that has been uploaded so
+//far. This is used to validate that we're resuming at the right position in
+//the next PUT/PATCH.
+type Upload struct {
+	RepositoryID int64     `db:"repo_id"`
+	UUID         string    `db:"uuid"`
+	StorageID    string    `db:"storage_id"`
+	SizeBytes    uint64    `db:"size_bytes"`
+	Digest       string    `db:"digest"`
+	NumChunks    uint32    `db:"num_chunks"`
+	UpdatedAt    time.Time `db:"updated_at"`
+}
+
+const uploadGetQueryByRepoName = `
+	SELECT u.*
+	  FROM uploads u
+	  JOIN repos r ON u.repo_id = r.id
+	 WHERE u.uuid = $1 AND r.account_name = $2 AND r.name = $3
+`
+
+const uploadGetQueryByRepoID = `
+	SELECT u.* FROM uploads u WHERE u.uuid = $1 AND repo_id = $2
+`
+
+//FindUploadByRepositoryName is a convenience wrapper around db.SelectOne(). If
+//the upload in question does not exist, sql.ErrNoRows is returned.
+func (db *DB) FindUploadByRepositoryName(uuid string, repoName string, account Account) (*Upload, error) {
+	var upload Upload
+	err := db.SelectOne(&upload, uploadGetQueryByRepoName, uuid, account.Name, repoName)
+	return &upload, err
+}
+
+//FindUploadByRepositoryID is a convenience wrapper around db.SelectOne(). If
+//the upload in question does not exist, sql.ErrNoRows is returned.
+func (db *DB) FindUploadByRepositoryID(uuid string, repoID int64) (*Upload, error) {
+	var upload Upload
+	err := db.SelectOne(&upload, uploadGetQueryByRepoID, uuid, repoID)
+	return &upload, err
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -300,17 +396,6 @@ type PendingBlob struct {
 	PendingSince time.Time     `db:"since"`
 }
 
-//PendingManifest contains a record from the `pending_manifests` table.
-type PendingManifest struct {
-	RepositoryID int64         `db:"repo_id"`
-	Reference    string        `db:"reference"` //either digest or tag
-	Digest       string        `db:"digest"`
-	Reason       PendingReason `db:"reason"`
-	PendingSince time.Time     `db:"since"`
-	MediaType    string        `db:"media_type"`
-	Content      string        `db:"content"`
-}
-
 //PendingReason is an enum that explains why a blob or manifest is pending.
 type PendingReason string
 
@@ -325,11 +410,12 @@ const (
 func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(Account{}, "accounts").SetKeys(false, "name")
 	db.AddTableWithName(RBACPolicy{}, "rbac_policies").SetKeys(false, "account_name", "match_repository", "match_username")
+	db.AddTableWithName(Blob{}, "blobs").SetKeys(true, "id")
+	db.AddTableWithName(Upload{}, "uploads").SetKeys(false, "repo_id", "uuid")
 	db.AddTableWithName(Repository{}, "repos").SetKeys(true, "id")
 	db.AddTableWithName(Manifest{}, "manifests").SetKeys(false, "repo_id", "digest")
 	db.AddTableWithName(Tag{}, "tags").SetKeys(false, "repo_id", "name")
 	db.AddTableWithName(Quotas{}, "quotas").SetKeys(false, "auth_tenant_id")
 	db.AddTableWithName(Peer{}, "peers").SetKeys(false, "hostname")
 	db.AddTableWithName(PendingBlob{}, "pending_blobs").SetKeys(false, "repo_id", "digest")
-	db.AddTableWithName(PendingManifest{}, "pending_manifests").SetKeys(false, "repo_id", "reference")
 }

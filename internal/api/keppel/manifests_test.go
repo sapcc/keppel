@@ -21,6 +21,7 @@ package keppelv1
 import (
 	"net/http"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,7 +31,7 @@ import (
 )
 
 func TestManifestsAPI(t *testing.T) {
-	h, _, _, _, brm, db := setup(t)
+	h, _, _, _, sd, db := setup(t)
 
 	//setup two test accounts
 	mustInsert(t, db, &keppel.Account{
@@ -44,18 +45,14 @@ func TestManifestsAPI(t *testing.T) {
 
 	//setup test repos (`repo1-2` and `repo2-1` only exist to validate that we
 	//don't accidentally list manifests from there)
-	mustInsert(t, db, &keppel.Repository{
-		Name:        "repo1-1",
-		AccountName: "test1",
-	})
-	mustInsert(t, db, &keppel.Repository{
-		Name:        "repo1-2",
-		AccountName: "test1",
-	})
-	mustInsert(t, db, &keppel.Repository{
-		Name:        "repo2-1",
-		AccountName: "test2",
-	})
+	repos := []*keppel.Repository{
+		{Name: "repo1-1", AccountName: "test1"},
+		{Name: "repo1-2", AccountName: "test1"},
+		{Name: "repo2-1", AccountName: "test2"},
+	}
+	for _, repo := range repos {
+		mustInsert(t, db, repo)
+	}
 
 	//test empty GET
 	assert.HTTPRequest{
@@ -68,14 +65,26 @@ func TestManifestsAPI(t *testing.T) {
 
 	//insert some dummy manifests and tags into each repo
 	for repoID := 1; repoID <= 3; repoID++ {
+		repo := repos[repoID-1]
+
 		for idx := 1; idx <= 10; idx++ {
+			digest := deterministicDummyDigest(repoID*10 + idx)
+			sizeBytes := uint64(1000 * idx)
 			mustInsert(t, db, &keppel.Manifest{
 				RepositoryID: int64(repoID),
-				Digest:       deterministicDummyDigest(repoID*10 + idx),
+				Digest:       digest,
 				MediaType:    "application/vnd.docker.distribution.manifest.v2+json",
-				SizeBytes:    uint64(1000 * idx),
+				SizeBytes:    sizeBytes,
 				PushedAt:     time.Unix(int64(1000*(repoID*10+idx)), 0),
 			})
+
+			err := sd.WriteManifest(
+				keppel.Account{Name: repo.AccountName},
+				repo.Name, digest, []byte(strings.Repeat("x", int(sizeBytes))),
+			)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
 		}
 		//one manifest is referenced by two tags, one is referenced by one tag
 		mustInsert(t, db, &keppel.Tag{
@@ -193,20 +202,12 @@ func TestManifestsAPI(t *testing.T) {
 
 	//test DELETE happy case
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/before-delete-manifest.sql")
-	expectedBackendRequest := []backendRequest{{
-		AccountName: "test1",
-		Method:      "DELETE",
-		Path:        "/v2/test1/repo1-1/manifests/" + deterministicDummyDigest(11),
-		Status:      http.StatusAccepted,
-	}}
-	brm.ExpectActionToMakeBackendRequests(t, expectedBackendRequest, func() {
-		assert.HTTPRequest{
-			Method:       "DELETE",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11),
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
-			ExpectStatus: http.StatusNoContent,
-		}.Check(t, h)
-	})
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11),
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
+		ExpectStatus: http.StatusNoContent,
+	}.Check(t, h)
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/after-delete-manifest.sql")
 
 	//test DELETE failure cases

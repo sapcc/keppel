@@ -20,20 +20,56 @@
 package keppel
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
+	"io"
 )
 
 //StorageDriver is the abstract interface for a multi-tenant-capable storage
-//backend where the keppel-registry fleet can store images.
+//backend.
 type StorageDriver interface {
-	//GetEnvironment produces the environment variables that need to be passed to
-	//a keppel-registry process to set it up to read from/write to this storage.
-	//`tenantID` identifies the tenant which controls access to this account.
-	GetEnvironment(account Account) map[string]string
+	//`storageID` identifies blobs within an account. (The storage ID is
+	//different from the digest: The storage ID gets chosen at the start of the
+	//upload, when we don't know the full digest yet.) `chunkNumber` identifies
+	//how often AppendToBlob() has already been called for this account and
+	//storageID. For the first call to AppendToBlob(), `chunkNumber` will be 1.
+	//The second call will have a `chunkNumber` of 2, and so on.
+	//
+	//If `chunkLength` is non-nil, the implementation may assume that `chunk`
+	//will yield that many bytes, and return keppel.ErrSizeInvalid when that
+	//turns out not to be true.
+	AppendToBlob(account Account, storageID string, chunkNumber uint32, chunkLength *uint64, chunk io.Reader) error
+	//FinalizeBlob() is called at the end of the upload, after the last
+	//AppendToBlob() call for that blob. `chunkCount` identifies how often
+	//AppendToBlob() was called.
+	FinalizeBlob(account Account, storageID string, chunkCount uint32) error
+	//AbortBlobUpload() is used to clean up after an error in AppendToBlob() or
+	//FinalizeBlob(). It is the counterpart of DeleteBlob() for when any part of
+	//the blob upload failed.
+	AbortBlobUpload(account Account, storageID string, chunkCount uint32) error
+
+	ReadBlob(account Account, storageID string) (contents io.ReadCloser, sizeBytes uint64, err error)
+	//If the blob can be retrieved by a publicly accessible URL, URLForBlob shall
+	//return it. Otherwise ErrCannotGenerateURL shall be returned to instruct the
+	//caller fall back to ReadBlob().
+	URLForBlob(account Account, storageID string) (string, error)
+	//DeleteBlob may assume that FinalizeBlob() has been called. If an error
+	//occurred before or during FinalizeBlob(), AbortBlobUpload() will be called
+	//instead.
+	DeleteBlob(account Account, storageID string) error
+
+	ReadManifest(account Account, repoName, digest string) ([]byte, error)
+	WriteManifest(account Account, repoName, digest string, contents []byte) error
+	DeleteManifest(account Account, repoName, digest string) error
 }
 
 //ErrAuthDriverMismatch can be returned by StorageDriver and NameClaimDriver.
 var ErrAuthDriverMismatch = errors.New("given AuthDriver is not supported by this driver")
+
+//ErrCannotGenerateURL is returned by StorageDriver.URLForBlob() when the
+//StorageDriver does not support blob URLs.
+var ErrCannotGenerateURL = errors.New("URLForBlob() is not supported")
 
 var storageDriverFactories = make(map[string]func(AuthDriver, Configuration) (StorageDriver, error))
 
@@ -58,4 +94,14 @@ func RegisterStorageDriver(name string, factory func(AuthDriver, Configuration) 
 		panic("attempted to register multiple storage drivers with name = " + name)
 	}
 	storageDriverFactories[name] = factory
+}
+
+//GenerateStorageID generates a new random storage ID for use with keppel.StorageDriver.AppendToBlob().
+func GenerateStorageID() string {
+	buf := make([]byte, 32)
+	_, err := rand.Read(buf)
+	if err != nil {
+		panic(err.Error())
+	}
+	return hex.EncodeToString(buf)
 }

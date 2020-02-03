@@ -36,10 +36,8 @@ import (
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/keppel"
 
-	_ "github.com/sapcc/keppel/internal/drivers/kubernetes"
 	_ "github.com/sapcc/keppel/internal/drivers/openstack"
 	_ "github.com/sapcc/keppel/internal/drivers/trivial"
-	_ "github.com/sapcc/keppel/internal/orchestration/localprocesses"
 )
 
 func main() {
@@ -69,8 +67,6 @@ func main() {
 	must(err)
 	sd, err := keppel.NewStorageDriver(mustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
 	must(err)
-	od, err := keppel.NewOrchestrationDriver(mustGetenv("KEPPEL_DRIVER_ORCHESTRATION"), sd, cfg, db)
-	must(err)
 
 	//start background goroutines
 	ctx := httpee.ContextWithSIGINT(context.Background())
@@ -78,9 +74,9 @@ func main() {
 
 	//wire up HTTP handlers
 	r := mux.NewRouter()
-	keppelv1.NewAPI(cfg, ad, ncd, od, db, auditor).AddTo(r)
+	keppelv1.NewAPI(cfg, ad, ncd, sd, db, auditor).AddTo(r)
 	auth.NewAPI(cfg, ad, db).AddTo(r)
-	registryv2.NewAPI(ctx, cfg, od, db).AddTo(r)
+	registryv2.NewAPI(cfg, sd, db).AddTo(r)
 
 	//TODO Prometheus instrumentation
 	handler := logg.Middleware{}.Wrap(r)
@@ -98,17 +94,9 @@ func main() {
 		apiListenAddress = ":8080"
 	}
 	logg.Info("listening on " + apiListenAddress)
-	go func() {
-		err := httpee.ListenAndServeContext(ctx, apiListenAddress, nil)
-		if err != nil {
-			logg.Fatal("error returned from httpee.ListenAndServeContext(): %s", err.Error())
-		}
-	}()
-
-	//enter orchestrator main loop
-	ok := od.Run(ctx)
-	if !ok {
-		os.Exit(1)
+	err = httpee.ListenAndServeContext(ctx, apiListenAddress, nil)
+	if err != nil {
+		logg.Fatal("error returned from httpee.ListenAndServeContext(): %s", err.Error())
 	}
 }
 

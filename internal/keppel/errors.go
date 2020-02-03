@@ -91,17 +91,17 @@ var apiErrorMessages = map[RegistryV2ErrorCode]string{
 
 var apiErrorStatusCodes = map[RegistryV2ErrorCode]int{
 	ErrBlobUnknown:         http.StatusNotFound,
-	ErrBlobUploadInvalid:   http.StatusUnprocessableEntity,
+	ErrBlobUploadInvalid:   http.StatusBadRequest,
 	ErrBlobUploadUnknown:   http.StatusNotFound,
-	ErrDigestInvalid:       http.StatusUnprocessableEntity,
+	ErrDigestInvalid:       http.StatusBadRequest,
 	ErrManifestBlobUnknown: http.StatusNotFound,
-	ErrManifestInvalid:     http.StatusUnprocessableEntity,
+	ErrManifestInvalid:     http.StatusBadRequest,
 	ErrManifestUnknown:     http.StatusNotFound,
-	ErrManifestUnverified:  http.StatusUnprocessableEntity,
-	ErrNameInvalid:         http.StatusUnprocessableEntity,
+	ErrManifestUnverified:  http.StatusBadRequest,
+	ErrNameInvalid:         http.StatusBadRequest,
 	ErrNameUnknown:         http.StatusNotFound,
-	ErrSizeInvalid:         http.StatusUnprocessableEntity,
-	ErrTagInvalid:          http.StatusUnprocessableEntity,
+	ErrSizeInvalid:         http.StatusBadRequest,
+	ErrTagInvalid:          http.StatusBadRequest,
 	ErrUnauthorized:        http.StatusUnauthorized,
 	ErrDenied:              http.StatusForbidden,
 	ErrUnsupported:         http.StatusNotImplemented,
@@ -120,6 +120,12 @@ type RegistryV2Error struct {
 	//keppel-registry.
 	Detail interface{} `json:"detail,keepempty"`
 	Status int         `json:"-"`
+}
+
+//WithDetail adds detail information to this error.
+func (e *RegistryV2Error) WithDetail(detail interface{}) *RegistryV2Error {
+	e.Detail = detail
+	return e
 }
 
 //WithStatus changes the HTTP status code for this error.

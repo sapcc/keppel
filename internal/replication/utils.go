@@ -34,12 +34,12 @@ import (
 type Replicator struct {
 	cfg keppel.Configuration
 	db  *keppel.DB
-	od  keppel.OrchestrationDriver
+	sd  keppel.StorageDriver
 }
 
 //NewReplicator creates a new Replicator instance.
-func NewReplicator(cfg keppel.Configuration, db *keppel.DB, od keppel.OrchestrationDriver) Replicator {
-	return Replicator{cfg, db, od}
+func NewReplicator(cfg keppel.Configuration, db *keppel.DB, sd keppel.StorageDriver) Replicator {
+	return Replicator{cfg, db, sd}
 }
 
 func (r Replicator) getPeerToken(peer keppel.Peer, repoFullName string) (string, error) {

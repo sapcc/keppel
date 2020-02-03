@@ -22,16 +22,24 @@ is [Quay](https://github.com/quay/quay), which implements the registry protocol 
 Harbor.
 
 However, Harbor's architecture is limited by its use of a single registry that is shared between all users. Most
-importantly, by putting the images of all users in the same storage, quota and usage tracking need to be implemented
-from scratch to ensure accurate controlling and billing. Keppel uses a different approach: It orchestrates a fleet of
-Docker registry instances that all have separate storage spaces. Storage quota and usage can therefore be tracked by the
-backing storage. This orchestration is completely transparent to the user: A unified API endpoint is provided that
-multiplexes requests to their respective registry instances.
+importantly, by putting the images of all users in the same storage, quota and usage tracking gets unnecessarily
+complicated. Keppel instead uses multi-tenant-aware storage drivers so that each customer gets their own separate
+storage space. Storage quota and usage can therefore be tracked by the backing storage. This orchestration is completely
+transparent to the user: A unified API endpoint is provided that multiplexes requests to their respective registry
+instances.
 
-Keppel provides a full implementation of the [OCI Distribution
-API](https://github.com/opencontainers/distribution-spec), the standard API for container image registries.
-It also provides a [custom API](docs/api-spec.md) to control the multitenancy added by Keppel and to expose additional
-metadata about repositories, manifests and tags.
+Keppel fully implements the [OCI Distribution API](https://github.com/opencontainers/distribution-spec), the standard
+API for container image registries.  It also provides a [custom API](docs/api-spec.md) to control the multitenancy added
+by Keppel and to expose additional metadata about repositories, manifests and tags.
+
+## History
+
+In its first year, leading up to 1.0, Keppel used to orchestrate a fleet of docker-registry instances to provide the
+OCI Distribution API. We hoped to save ourselves the work of reimplementing the full Distribution API, since Keppel
+would only have to reverse-proxy customer requests into their respective docker-registry. Over time, as Keppel's feature
+set grew, more and more API requests were intercepted to track metadata, validate requests and so forth. We ended up
+scrapping the docker-registry fleet entirely to make Keppel much easier to deploy and manage. It's now conceptually more
+similar to Quay than to Harbor, but retains its unique multi-tenant storage architecture.
 
 ## Terminology
 
@@ -60,17 +68,10 @@ appropriate drivers for their environment:
   deployment, an appropriate name claim driver could access a central service that manages account name claims. As for
   storage drivers, the choice of name claim driver may be linked to the choice of auth driver.
 
-- The **orchestration driver** manages the fleet of Docker registry instances, and proxies requests to them.
-
 ## Building and running Keppel
 
-Run with
+Build with `make`, install with `make install` or `docker build`. Then run `keppel-api`.
 
-```bash
-make && PATH=$PWD/build:$PATH keppel-api
-```
-
-`keppel-api` expects that `keppel-registry` exists in `$PATH`, hence the manipulation of `$PATH` in this example.
 `keppel-api` expects no command-line arguments, and takes configuration from the following environment variables:
 
 | Variable | Default | Explanation |
@@ -83,7 +84,6 @@ make && PATH=$PWD/build:$PATH keppel-api
 | `KEPPEL_DB_URI` | *(required)* | A [libpq connection URI][pq-uri] that locates the Keppel database. The non-URI "connection string" format is not allowed; it must be a URI. |
 | `KEPPEL_DRIVER_AUTH` | *(required)* | The name of an auth driver. |
 | `KEPPEL_DRIVER_NAMECLAIM` | *(required)* | The name of a name claim driver. For single-region deployments, the correct choice is probably `trivial`. |
-| `KEPPEL_DRIVER_ORCHESTRATION` | *(required)* | The name of an orchestration driver. |
 | `KEPPEL_DRIVER_STORAGE` | *(required)* | The name of a storage driver. |
 | `KEPPEL_ISSUER_KEY` | *(required)* | The private key (in PEM format, or given as a path to a PEM file) that keppel-api uses to sign auth tokens for Docker clients. |
 | `KEPPEL_ISSUER_CERT` | *(required)* | The certificate (in PEM format, or given as a path to a PEM file) belonging to the key above. keppel-registry verifies client tokens using this certificate. |

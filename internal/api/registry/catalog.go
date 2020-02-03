@@ -19,11 +19,8 @@
 package registryv2
 
 import (
-	"bytes"
-	"encoding/json"
+	"database/sql"
 	"fmt"
-	"io/ioutil"
-	"math"
 	"net/http"
 	"net/url"
 	"sort"
@@ -41,8 +38,10 @@ var requiredScopeForCatalogEndpoint = auth.Scope{
 	Actions:      []string{"*"},
 }
 
+const maxLimit = 100
+
 //This implements the GET /v2/_catalog endpoint.
-func (a *API) handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
@@ -68,7 +67,10 @@ func (a *API) handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		limit = math.MaxUint64
+		limit = maxLimit
+	}
+	if limit > maxLimit {
+		limit = maxLimit
 	}
 
 	//parse query: marker (parameter "last")
@@ -113,9 +115,8 @@ func (a *API) handleProxyCatalog(w http.ResponseWriter, r *http.Request) {
 	var allNames []string
 	partialResult := false
 	for idx, account := range accounts {
-		names, ok := a.getCatalogForAccount(w, *account, r.Header.Get("Authorization"))
-		if !ok {
-			//in this case, getCatalogForAccount has rendered an error onto `w` already
+		names, err := a.getCatalogForAccount(*account)
+		if respondWithError(w, err) {
 			return
 		}
 
@@ -167,54 +168,19 @@ func parseKeppelAccountScope(s auth.Scope) string {
 	return ""
 }
 
-func (a *API) getCatalogForAccount(w http.ResponseWriter, account keppel.Account, authorizationHeader string) (names []string, ok bool) {
-	//NOTE: This reuses the user's token, which works because everyone
-	//(keppel-api and each keppel-registry) expects the same token audience.
-	//However, this is unsound: If the user has access to keppel-registry
-	//directly (which is a feature we might offer in the future), they could use
-	//a registry:catalog:* token intended for keppel-api to list repos in
-	//keppel-registry, even if they don't have the corresponding
-	//keppel_account:$NAME:view scope. If direct access to keppel-registry is
-	//desired, the auth API should be changed to issue tokens for different
-	//audiences.
+const catalogGetQuery = `SELECT name FROM repos WHERE account_name = $1 ORDER BY name`
 
-	//build request
-	req, err := http.NewRequest("GET", "/v2/_catalog", nil)
-	if respondWithError(w, err) {
-		return nil, false
-	}
-	req.Header.Set("Authorization", authorizationHeader)
-
-	//perform request to backing keppel-registry
-	resp, err := a.orchestrationDriver.DoHTTPRequest(account, req, keppel.FollowRedirects)
-	if respondWithError(w, err) {
-		return nil, false
-	}
-	respBodyBytes, err := ioutil.ReadAll(resp.Body)
-	if respondWithError(w, err) {
-		return nil, false
-	}
-	err = resp.Body.Close()
-	if respondWithError(w, err) {
-		return nil, false
-	}
-
-	//in case of unexpected errors, forward error message to user
-	if resp.StatusCode != http.StatusOK {
-		w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
-		w.Write(respBodyBytes)
-	}
-
-	//decode response body
-	var data struct {
-		Repositories []string `json:"repositories"`
-	}
-	dec := json.NewDecoder(bytes.NewReader(respBodyBytes))
-	dec.DisallowUnknownFields()
-	err = dec.Decode(&data)
-	if respondWithError(w, err) {
-		return nil, false
-	}
-
-	return data.Repositories, true
+func (a *API) getCatalogForAccount(account keppel.Account) ([]string, error) {
+	var result []string
+	err := keppel.ForeachRow(a.db, catalogGetQuery, []interface{}{account.Name},
+		func(rows *sql.Rows) error {
+			var name string
+			err := rows.Scan(&name)
+			if err == nil {
+				result = append(result, fmt.Sprintf("%s/%s", account.Name, name))
+			}
+			return err
+		},
+	)
+	return result, err
 }

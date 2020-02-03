@@ -19,7 +19,9 @@
 package registryv2
 
 import (
+	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -36,8 +38,8 @@ import (
 	_ "github.com/docker/distribution/manifest/ocischema"
 	_ "github.com/docker/distribution/manifest/schema2"
 	//NOTE: We don't enable github.com/docker/distribution/manifest/schema1
-	//anymore since it's legacy anyway and docker-registry's rewriting between
-	//schema1 and schema2 interferes with our replication logic.
+	//anymore since it's legacy anyway and the implementation is a lot simpler
+	//when we don't have to rewrite manifests between schema1 and schema2.
 )
 
 //This implements the HEAD/GET /v2/<repo>/manifests/<reference> endpoint.
@@ -47,54 +49,104 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//forcefully disable the docker-registry's automatic down-conversion from
-	//schema2 to schema1 unless the client really really wants it and sets an
-	//Accept header for schema1 (this automatic conversion would confuse our
-	//ReplicateManifest task)
-	if r.Header.Get("Accept") == "" {
-		r.Header.Set("Accept", strings.Join(distribution.ManifestMediaTypes(), ", "))
-	}
+	reference := keppel.ParseManifestReference(mux.Vars(r)["reference"])
+	dbManifest, err := a.findManifestInDB(*account, repoName, reference)
+	var manifestBytes []byte
 
-	resp := a.proxyRequestToRegistry(w, r, *account)
-	if resp == nil {
-		return
-	}
-
-	//if the manifest does not exist there, we may have the option of replicating
-	//from upstream
-	if resp.Resp.StatusCode == http.StatusNotFound && account.UpstreamPeerHostName != "" {
-		repo, err := a.db.FindOrCreateRepository(repoName, *account)
+	if err != sql.ErrNoRows {
 		if respondWithError(w, err) {
 			return
 		}
-
-		repl := replication.NewReplicator(a.cfg, a.db, a.orchestrationDriver)
-		m := replication.Manifest{
-			Account:   *account,
-			Repo:      *repo,
-			Reference: mux.Vars(r)["reference"],
-		}
-		pm, err := repl.ReplicateManifest(a.ctx, m) //pm is a keppel.PendingManifest
-		if err != nil {
-			if rerr, ok := err.(*keppel.RegistryV2Error); ok {
-				rerr.WriteAsRegistryV2ResponseTo(w)
-			} else {
-				respondWithError(w, err)
-			}
-			return
-		}
-
-		w.Header().Set("Content-Length", strconv.FormatUint(uint64(len(pm.Content)), 10))
-		w.Header().Set("Content-Type", pm.MediaType)
-		w.Header().Set("Docker-Content-Digest", pm.Digest)
-		w.WriteHeader(http.StatusOK)
-		if r.Method != "HEAD" {
-			w.Write([]byte(pm.Content))
-		}
-		return
 	}
 
-	a.proxyResponseToCaller(w, resp)
+	if err == sql.ErrNoRows {
+		//if the manifest does not exist there, we may have the option of replicating
+		//from upstream
+		if account.UpstreamPeerHostName != "" {
+			repo, err := a.db.FindOrCreateRepository(repoName, *account)
+			if respondWithError(w, err) {
+				return
+			}
+
+			repl := replication.NewReplicator(a.cfg, a.db, a.sd)
+			m := replication.Manifest{
+				Account:   *account,
+				Repo:      *repo,
+				Reference: reference,
+			}
+			dbManifest, manifestBytes, err = repl.ReplicateManifest(m) //pm is a keppel.PendingManifest
+			if respondWithError(w, err) {
+				return
+			}
+		} else {
+			keppel.ErrManifestUnknown.With("").WithDetail(reference.Tag).WriteAsRegistryV2ResponseTo(w)
+			return
+		}
+	} else {
+		//if manifest was found in our DB, fetch the contents from the storage
+		manifestBytes, err = a.sd.ReadManifest(*account, repoName, dbManifest.Digest)
+	}
+
+	//verify Accept header, if any
+	acceptHeader := r.Header.Get("Accept")
+	if acceptHeader != "" {
+		accepted := false
+		for _, acceptField := range strings.Split(acceptHeader, ",") {
+			acceptField = strings.SplitN(acceptField, ";", 2)[0]
+			acceptField = strings.TrimSpace(acceptField)
+			if acceptField == dbManifest.MediaType {
+				accepted = true
+			}
+		}
+		if !accepted {
+			msg := fmt.Sprintf("manifest type %s is not covered by Accept header", dbManifest.MediaType)
+			keppel.ErrManifestUnknown.With(msg).WriteAsRegistryV2ResponseTo(w)
+			return
+		}
+	}
+
+	//write response
+	w.Header().Set("Content-Length", strconv.FormatUint(uint64(len(manifestBytes)), 10))
+	w.Header().Set("Content-Type", dbManifest.MediaType)
+	w.Header().Set("Docker-Content-Digest", dbManifest.Digest)
+	w.WriteHeader(http.StatusOK)
+	if r.Method != "HEAD" {
+		w.Write(manifestBytes)
+	}
+	return
+}
+
+func (a *API) findManifestInDB(account keppel.Account, repoName string, reference keppel.ManifestReference) (*keppel.Manifest, error) {
+	repo, err := a.db.FindRepository(repoName, account)
+	if err != nil {
+		return nil, err
+	}
+
+	//resolve tag into digest if necessary
+	refDigest := reference.Digest
+	if reference.IsTag() {
+		digestStr, err := a.db.SelectStr(
+			`SELECT digest FROM tags WHERE repo_id = $1 AND name = $2`,
+			repo.ID, reference.Tag,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if digestStr == "" {
+			return nil, sql.ErrNoRows
+		}
+		refDigest, err = digest.Parse(digestStr)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var dbManifest keppel.Manifest
+	err = a.db.SelectOne(&dbManifest,
+		`SELECT * FROM manifests WHERE repo_id = $1 AND digest = $2`,
+		repo.ID, refDigest.String(),
+	)
+	return &dbManifest, err
 }
 
 //This implements the DELETE /v2/<repo>/manifests/<reference> endpoint.
@@ -124,10 +176,10 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer keppel.RollbackUnlessCommitted(tx)
-	result, err := a.db.Exec(
+	result, err := tx.Exec(
 		//this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
 		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
-		repo.ID, digest)
+		repo.ID, digest.String())
 	if respondWithError(w, err) {
 		return
 	}
@@ -141,8 +193,8 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//DELETE the manifest in the backend
-	resp := a.proxyRequestToRegistry(w, r, *account)
-	if resp == nil {
+	err = a.sd.DeleteManifest(*account, repo.Name, digest.String())
+	if respondWithError(w, err) {
 		return
 	}
 	err = tx.Commit()
@@ -150,7 +202,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.proxyResponseToCaller(w, resp)
+	w.WriteHeader(http.StatusAccepted)
 }
 
 //This implements the PUT /v2/<repo>/manifests/<reference> endpoint.
@@ -167,7 +219,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		msg := fmt.Sprintf("cannot push into replica account (push to %s/%s/%s instead!)",
 			account.UpstreamPeerHostName, account.Name, repoName,
 		)
-		keppel.ErrDenied.With(msg).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrUnsupported.With(msg).WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w)
 		return
 	}
 
@@ -196,30 +248,39 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reference := mux.Vars(r)["reference"]
-	//if `reference` parses as a digest, interpret it as a digest, otherwise
-	//interpret it as a tag name
-	digestFromReference, err := digest.Parse(reference)
-	pushesToTag := err != nil
+	reference := keppel.ParseManifestReference(mux.Vars(r)["reference"])
 
 	//validate manifest on our side
-	reqBuf, ok := a.interceptRequestBody(w, r)
-	if !ok {
+	manifestBytes, err := ioutil.ReadAll(r.Body)
+	if respondWithError(w, err) {
 		return
 	}
-	manifest, manifestDesc, err := distribution.UnmarshalManifest(r.Header.Get("Content-Type"), reqBuf)
+	manifest, manifestDesc, err := distribution.UnmarshalManifest(r.Header.Get("Content-Type"), manifestBytes)
 	if err != nil {
 		keppel.ErrManifestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
 		return
 	}
 
 	//if <reference> is not a tag, it must be the digest of the manifest
-	if !pushesToTag && manifestDesc.Digest != digestFromReference {
+	if reference.IsDigest() && manifestDesc.Digest != reference.Digest {
 		keppel.ErrDigestInvalid.With("actual manifest digest is " + manifestDesc.Digest.String()).WriteAsRegistryV2ResponseTo(w)
 		return
 	}
 
-	//compute total size of image
+	//check that all referenced blobs exist (TODO: some manifest types reference
+	//other manifests, so we should look for manifests in these cases)
+	for _, desc := range manifest.References() {
+		_, err := a.db.FindBlobByRepositoryID(desc.Digest, repo.ID, *account)
+		if err == sql.ErrNoRows {
+			keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String()).WriteAsRegistryV2ResponseTo(w)
+			return
+		}
+		if respondWithError(w, err) {
+			return
+		}
+	}
+
+	//compute total size of image (TODO: code duplication with ReplicateManifest())
 	sizeBytes := uint64(manifestDesc.Size)
 	for _, desc := range manifest.References() {
 		sizeBytes += uint64(desc.Size)
@@ -241,10 +302,10 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	if respondWithError(w, err) {
 		return
 	}
-	if pushesToTag {
+	if reference.IsTag() {
 		err = keppel.Tag{
 			RepositoryID: repo.ID,
-			Name:         reference,
+			Name:         reference.Tag,
 			Digest:       manifestDesc.Digest.String(),
 			PushedAt:     a.timeNow(),
 		}.InsertIfMissing(tx)
@@ -254,8 +315,8 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//PUT the manifest in the backend
-	resp := a.proxyRequestToRegistry(w, r, *account)
-	if resp == nil {
+	err = a.sd.WriteManifest(*account, repo.Name, manifestDesc.Digest.String(), manifestBytes)
+	if respondWithError(w, err) {
 		return
 	}
 	err = tx.Commit()
@@ -263,5 +324,8 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.proxyResponseToCaller(w, resp)
+	w.Header().Set("Content-Length", "0")
+	w.Header().Set("Docker-Content-Digest", manifestDesc.Digest.String())
+	w.Header().Set("Location", fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), manifestDesc.Digest.String()))
+	w.WriteHeader(http.StatusCreated)
 }

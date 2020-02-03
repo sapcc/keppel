@@ -155,6 +155,54 @@ var sqlMigrations = map[string]string{
 	"011_add_pending_manifests.down.sql": `
 		DROP TABLE pending_manifests;
 	`,
+	"012_drop_pending_manifests.up.sql": `
+		DROP TABLE pending_manifests;
+	`,
+	"012_drop_pending_manifests.down.sql": `
+		CREATE TABLE pending_manifests (
+			repo_id    BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
+			reference  TEXT        NOT NULL,
+			digest     TEXT        NOT NULL,
+			reason     TEXT        NOT NULL,
+			since      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			media_type TEXT        NOT NULL,
+			content    TEXT        NOT NULL,
+			PRIMARY KEY (repo_id, reference)
+		);
+	`,
+	"013_add_blobs_uploads.up.sql": `
+		CREATE TABLE blobs (
+			id           BIGSERIAL   NOT NULL PRIMARY KEY,
+			account_name TEXT        NOT NULL REFERENCES accounts ON DELETE CASCADE,
+			digest       TEXT        NOT NULL,
+			size_bytes   BIGINT      NOT NULL,
+			storage_id   TEXT        NOT NULL,
+			pushed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			UNIQUE (account_name, digest)
+		);
+
+		CREATE TABLE blob_mounts (
+			blob_id BIGINT NOT NULL REFERENCES blobs ON DELETE CASCADE,
+			repo_id BIGINT NOT NULL REFERENCES repos ON DELETE CASCADE,
+			UNIQUE (blob_id, repo_id)
+		);
+
+		CREATE TABLE uploads (
+			repo_id     BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
+			uuid        TEXT        NOT NULL,
+			storage_id  TEXT        NOT NULL,
+			size_bytes  BIGINT      NOT NULL,
+			digest      TEXT        NOT NULL,
+			num_chunks  INT         NOT NULL,
+			updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			PRIMARY KEY (repo_id, uuid)
+		);
+	`,
+	"013_add_blobs_uploads.down.sql": `
+		DROP TABLE blobs;
+		DROP TABLE blob_mounts;
+		DROP TABLE uploads;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

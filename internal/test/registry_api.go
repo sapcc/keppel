@@ -75,7 +75,7 @@ func UploadBlobToRegistry(t *testing.T, h http.Handler, repo, token string, cont
 			"Content-Range":  fmt.Sprintf("bytes=0-%d", len(contentBytes)),
 			"Content-Type":   "application/octet-stream",
 		},
-		Body:         byteData(contentBytes),
+		Body:         ByteData(contentBytes),
 		ExpectStatus: http.StatusAccepted,
 		ExpectHeader: VersionHeader,
 	}.Check(t, h)
@@ -123,8 +123,25 @@ func UploadBlobToRegistry(t *testing.T, h http.Handler, repo, token string, cont
 	return sha256HashStr
 }
 
-type byteData []byte
+//ByteData implements the assert.HTTPRequestBody interface for byte slices.
+//TODO upstream this type into go-bits/assert
+type ByteData []byte
 
-func (b byteData) GetRequestBody() (io.Reader, error) {
+//GetRequestBody implements the assert.HTTPRequestBody interface.
+func (b ByteData) GetRequestBody() (io.Reader, error) {
 	return bytes.NewReader([]byte(b)), nil
+}
+
+//AssertResponseBody implements the HTTPResponseBody interface.
+func (b ByteData) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
+	t.Helper()
+
+	if !bytes.Equal([]byte(b), responseBody) {
+		t.Error(requestInfo + ": got unexpected response body")
+		t.Logf("\texpected = %q\n", b)
+		t.Logf("\t  actual = %q\n", responseBody)
+		return false
+	}
+
+	return true
 }

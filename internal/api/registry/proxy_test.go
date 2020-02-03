@@ -20,109 +20,40 @@ package registryv2
 
 import (
 	"bytes"
-	"context"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"os/exec"
-	"strconv"
-	"strings"
-	"sync"
 	"testing"
-	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
-	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/orchestration"
-	_ "github.com/sapcc/keppel/internal/orchestration/localprocesses"
 	"github.com/sapcc/keppel/internal/test"
 )
 
-//It turns out that starting up a registry takes surprisingly long, so this
-//test bundles as many testcases as possible in one run to reduce the waiting.
+//TODO unbundle these testcases, now that we don't have to start actual
+//docker-registry processes anymore
 func TestProxyAPI(t *testing.T) {
-	cfg, db := test.Setup(t)
-
-	//set up a dummy account for testing
-	err := db.Insert(&keppel.Account{
-		Name:               "test1",
-		AuthTenantID:       "test1authtenant",
-		RegistryHTTPSecret: "topsecret",
-	})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	//setup ample quota for all tests
-	err = db.Insert(&keppel.Quotas{
-		AuthTenantID:  "test1authtenant",
-		ManifestCount: 100,
-	})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	//setup a fleet of drivers
-	ad, err := keppel.NewAuthDriver("unittest")
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, cfg)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	od, err := keppel.NewOrchestrationDriver("local-processes", sd, cfg, db)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	//run the orchestration driver's mainloop for the duration of the test
-	//(the wait group is important to ensure that od.Run() runs to completion;
-	//otherwise the test harness appears to kill its goroutine too early)
-	ctx, cancel := context.WithCancel(context.Background())
-	var wg sync.WaitGroup
-	defer func() {
-		cancel() //uses `defer` because t.Fatal() might exit early
-		wg.Wait()
-	}()
-	go func() {
-		wg.Add(1)
-		defer wg.Done()
-		ok := od.Run(ctx)
-		if !ok {
-			t.Error("orchestration driver mainloop exited unsuccessfully")
-		}
-	}()
-
-	//run the API testcases
-	clock := &test.Clock{}
-	r := mux.NewRouter()
-	NewAPI(context.Background(), cfg, od, db).OverrideTimeNow(clock.Now).AddTo(r)
-	authapi.NewAPI(cfg, ad, db).AddTo(r)
+	h, _, db, ad, _, clock := setup(t)
 
 	clock.Step()
-	testVersionCheckEndpoint(t, r, ad)
+	testVersionCheckEndpoint(t, h, ad)
 	clock.Step()
-	testPullNonExistentTag(t, r, ad)
+	testPullNonExistentTag(t, h, ad)
 	clock.Step()
-	firstBlobDigest := testPushAndPull(t, r, ad, db,
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/001-before-push.sql")
+	firstBlobDigest := testPushAndPull(t, h, ad, db,
 		"fixtures/example-docker-image-config.json",
-		"fixtures/001-before-push.sql",
 		"fixtures/002-after-push.sql",
 	)
 	clock.Step()
-	testPushAndPull(t, r, ad, db,
+	testPushAndPull(t, h, ad, db,
 		"fixtures/example-docker-image-config2.json",
-		"fixtures/002-after-push.sql",
 		"fixtures/003-after-second-push.sql",
 	)
 	clock.Step()
-	testPullExistingNotAllowed(t, r, ad)
-	testManifestQuotaExceeded(t, r, ad, db)
-	testReplicationOnFirstUse(t, r, db,
+	testPullExistingNotAllowed(t, h, ad)
+	testManifestQuotaExceeded(t, h, ad, db)
+	testReplicationOnFirstUse(t, h, db,
 		//the first manifest, which is not referenced by a tag
 		"sha256:86fa8722ca7f27e97e1bc5060c3f6720bf43840f143f813fcbe48ed4cbeebb90",
 		//the blob contained in that manifest
@@ -132,23 +63,20 @@ func TestProxyAPI(t *testing.T) {
 		"latest", //the tag
 	)
 	clock.Step()
-	testDeleteManifest(t, r, ad, db,
+	testDeleteManifest(t, h, ad, db,
 		//the first manifest, which is not referenced by tags anymore
 		"sha256:86fa8722ca7f27e97e1bc5060c3f6720bf43840f143f813fcbe48ed4cbeebb90",
 		//like 003, but without that manifest
 		"fixtures/004-after-first-delete.sql",
 	)
 	clock.Step()
-	testDeleteManifest(t, r, ad, db,
+	testDeleteManifest(t, h, ad, db,
 		//the second manifest, which is referenced by the "latest" tag
 		"sha256:65147aad93781ff7377b8fb81dab153bd58ffe05b5dc00b67b3035fa9420d2de",
-		//no tags or manifests left, but repo is left over
+		//no tags or manifests left, but repo and blobs are left over
 		"fixtures/005-after-second-delete.sql",
 	)
 	clock.Step()
-
-	//run some additional testcases for the orchestration engine
-	testKillAndRestartRegistry(t, r, ad, od)
 }
 
 func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
@@ -198,7 +126,7 @@ func testPullNonExistentTag(t *testing.T, h http.Handler, ad keppel.AuthDriver) 
 	}.Check(t, h)
 }
 
-func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB, imageConfigJSON, dbContentsBeforeManifestPush, dbContentsAfterManifestPush string) string {
+func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB, imageConfigJSON, dbContentsAfterManifestPush string) string {
 	//This tests pushing a minimal image without any layers, so we only upload one object (the config JSON) and create a manifest.
 	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 		keppel.CanPullFromAccount,
@@ -211,8 +139,6 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *kep
 	}
 	bodyBytes = bytes.TrimSpace(bodyBytes)
 	sha256HashStr := test.UploadBlobToRegistry(t, h, "test1/foo", token, bodyBytes)
-
-	easypg.AssertDBContent(t, db.DbMap.Db, dbContentsBeforeManifestPush)
 
 	//create manifest (this request is executed twice to test idempotency)
 	manifestData := assert.JSONObject{
@@ -369,58 +295,4 @@ func testManifestQuotaExceeded(t *testing.T, h http.Handler, ad keppel.AuthDrive
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-}
-
-func testKillAndRestartRegistry(t *testing.T, h http.Handler, ad keppel.AuthDriver, od keppel.OrchestrationDriver) {
-	//since we already ran some testcases, the keppel-registry for account "test1" should be running
-	oe := od.(*orchestration.Engine)
-	assert.DeepEqual(t, "OrchestrationEngine state",
-		oe.ReportState(),
-		map[string]string{"test1": "localhost:10001"},
-	)
-
-	//I have a very specific set of skills, skills I have acquired over a very
-	//long career. I will look for your keppel-registry process, I will find it,
-	//and I *will* kill it.
-	cmd := exec.Command("pidof", "keppel-registry")
-	outputBytes, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	pid, err := strconv.ParseUint(strings.TrimSpace(string(outputBytes)), 10, 16)
-	if err != nil {
-		t.Logf("output from `pidof keppel-registry`: %q", string(outputBytes))
-		t.Fatal(err.Error())
-	}
-	proc, err := os.FindProcess(int(pid))
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	err = proc.Kill()
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	//check that the orchestration engine notices what's going on
-	time.Sleep(10 * time.Millisecond)
-	assert.DeepEqual(t, "OrchestrationEngine state",
-		oe.ReportState(),
-		map[string]string{}, //empty!
-	)
-
-	//check that the next request restarts the keppel-registry instance
-	token := getToken(t, h, ad, "repository:test1/doesnotexist:pull",
-		keppel.CanPullFromAccount)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/test1/doesnotexist/manifests/latest",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusNotFound,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
-	}.Check(t, h)
-	assert.DeepEqual(t, "OrchestrationEngine state",
-		oe.ReportState(),
-		map[string]string{"test1": "localhost:10002"}, //localprocesses.Driver chooses a new port!
-	)
 }

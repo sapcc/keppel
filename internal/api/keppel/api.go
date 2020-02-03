@@ -36,14 +36,14 @@ type API struct {
 	cfg        keppel.Configuration
 	authDriver keppel.AuthDriver
 	ncDriver   keppel.NameClaimDriver
-	orchDriver keppel.OrchestrationDriver
+	sd         keppel.StorageDriver
 	db         *keppel.DB
 	auditor    keppel.Auditor
 }
 
 //NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, ncd keppel.NameClaimDriver, od keppel.OrchestrationDriver, db *keppel.DB, auditor keppel.Auditor) *API {
-	return &API{cfg, ad, ncd, od, db, auditor}
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, ncd keppel.NameClaimDriver, sd keppel.StorageDriver, db *keppel.DB, auditor keppel.Auditor) *API {
+	return &API{cfg, ad, ncd, sd, db, auditor}
 }
 
 //AddTo adds routes for this API to the given router.

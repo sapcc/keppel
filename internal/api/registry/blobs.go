@@ -19,10 +19,13 @@
 package registryv2
 
 import (
-	"fmt"
+	"database/sql"
+	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/replication"
@@ -35,100 +38,136 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//check our local registry first
-	resp := a.proxyRequestToRegistry(w, r, *account)
-	if resp == nil {
+	blobDigest, err := digest.Parse(mux.Vars(r)["digest"])
+	if err != nil {
+		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
 		return
 	}
-	responseWasWritten := false
 
-	//if the blob does not exist there, we may have the option of replicating
-	//from upstream
-	if resp.Resp.StatusCode == http.StatusNotFound && account.UpstreamPeerHostName != "" {
-		repo, err := a.db.FindOrCreateRepository(repoName, *account)
-		if respondWithError(w, err) {
-			return
+	//locate this blob from the DB
+	blob, err := a.db.FindBlobByRepositoryName(blobDigest, repoName, *account)
+	if err == sql.ErrNoRows {
+		//if the blob does not exist here, we may have the option of replicating from upstream
+		if account.UpstreamPeerHostName != "" {
+			a.tryReplicateBlob(w, r, *account, repoName, blobDigest)
+		} else {
+			keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w)
 		}
-
-		repl := replication.NewReplicator(a.cfg, a.db, a.orchestrationDriver)
-		blob := replication.Blob{
-			Account: *account,
-			Repo:    *repo,
-			Digest:  mux.Vars(r)["digest"],
-		}
-		responseWasWritten, err = repl.ReplicateBlob(blob, w, r.Method)
-
-		if err != nil {
-			if responseWasWritten {
-				//we cannot write to `w` if br.Execute() wrote a response there already
-				logg.Error("while trying to replicate blob %s in %s/%s: %s",
-					blob.Digest, account.Name, repo.Name, err.Error())
-			} else if err == replication.ErrConcurrentReplication {
-				//special handling for GET during ongoing replication (429 Too Many
-				//Requests is not a perfect match, but it's my best guess for getting
-				//clients to automatically retry the request after a few seconds)
-				w.Header().Set("Retry-After", "10")
-				msg := "currently replicating on a different worker, please retry in a few seconds"
-				keppel.ErrTooManyRequests.With(msg).WriteAsRegistryV2ResponseTo(w)
-				return
-			} else {
-				respondWithError(w, err)
-				return
-			}
-		}
+		return
+	}
+	if respondWithError(w, err) {
+		return
 	}
 
-	if !responseWasWritten {
-		a.proxyResponseToCaller(w, resp)
+	//prefer redirecting the client to a storage URL if the storage driver can give us one
+	url, err := a.sd.URLForBlob(*account, blob.StorageID)
+	if err == nil {
+		w.Header().Set("Docker-Content-Digest", blob.Digest)
+		w.Header().Set("Location", url)
+		w.WriteHeader(http.StatusTemporaryRedirect)
+		return
+	}
+	if err != keppel.ErrCannotGenerateURL {
+		respondWithError(w, err)
+		return
+	}
+
+	//return the blob contents to the client directly (NOTE: this code path is
+	//rather lazy and esp. does not support range requests because it is only
+	//used by unit tests anyway; all production-grade storage drivers have a
+	//functional URLForBlob implementation)
+	reader, lengthBytes, err := a.sd.ReadBlob(*account, blob.StorageID)
+	if respondWithError(w, err) {
+		return
+	}
+	defer reader.Close()
+
+	w.Header().Set("Content-Length", strconv.FormatUint(lengthBytes, 10))
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Docker-Content-Digest", blob.Digest)
+	w.WriteHeader(http.StatusOK)
+	if r.Method != "HEAD" {
+		_, err = io.Copy(w, reader)
+		if err != nil {
+			logg.Error("unexpected error from io.Copy() while sending blob to client: %s", err.Error())
+		}
 	}
 }
 
-//This implements the POST /v2/<account>/<repository>/blobs/uploads/ endpoint.
-func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
-	//must be set even for 401 responses!
-	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
+func (a *API) tryReplicateBlob(w http.ResponseWriter, r *http.Request, account keppel.Account, repoName string, blobDigest digest.Digest) {
+	repo, err := a.db.FindOrCreateRepository(repoName, account)
+	if respondWithError(w, err) {
+		return
+	}
 
+	repl := replication.NewReplicator(a.cfg, a.db, a.sd)
+	blob := replication.Blob{
+		Account: account,
+		Repo:    *repo,
+		Digest:  blobDigest,
+	}
+	responseWasWritten, err := repl.ReplicateBlob(blob, w, r.Method)
+
+	if err != nil {
+		if responseWasWritten {
+			//we cannot write to `w` if br.Execute() wrote a response there already
+			logg.Error("while trying to replicate blob %s in %s/%s: %s",
+				blob.Digest, account.Name, repo.Name, err.Error())
+		} else if err == replication.ErrConcurrentReplication {
+			//special handling for GET during ongoing replication (429 Too Many
+			//Requests is not a perfect match, but it's my best guess for getting
+			//clients to automatically retry the request after a few seconds)
+			w.Header().Set("Retry-After", "10")
+			msg := "currently replicating on a different worker, please retry in a few seconds"
+			keppel.ErrTooManyRequests.With(msg).WriteAsRegistryV2ResponseTo(w)
+			return
+		} else {
+			respondWithError(w, err)
+			return
+		}
+	}
+}
+
+//This implements the DELETE /v2/<account>/<repository>/blobs/<digest> endpoint.
+func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 	account, repoName, _ := a.checkAccountAccess(w, r)
 	if account == nil {
 		return
 	}
 
-	//forbid pushing into replica accounts
-	if account.UpstreamPeerHostName != "" {
-		msg := fmt.Sprintf("cannot push into replica account (push to %s/%s/%s instead!)",
-			account.UpstreamPeerHostName, account.Name, repoName,
-		)
-		keppel.ErrDenied.With(msg).WriteAsRegistryV2ResponseTo(w)
+	repo, err := a.db.FindRepository(repoName, *account)
+	if err == sql.ErrNoRows {
+		keppel.ErrNameUnknown.With("no such repository").WriteAsRegistryV2ResponseTo(w)
 		return
 	}
-
-	//only allow new blob uploads when there is enough quota to push a manifest
-	//
-	//This is not strictly necessary to enforce the manifest quota, but it's
-	//useful to avoid the accumulation of unreferenced blobs in the account's
-	//backing storage.
-	quotas, err := a.db.FindQuotas(account.AuthTenantID)
 	if respondWithError(w, err) {
 		return
 	}
-	if quotas == nil {
-		quotas = keppel.DefaultQuotas(account.AuthTenantID)
-	}
-	manifestUsage, err := quotas.GetManifestUsage(a.db)
-	if respondWithError(w, err) {
-		return
-	}
-	if manifestUsage >= quotas.ManifestCount {
-		msg := fmt.Sprintf("manifest quota exceeded (quota = %d, usage = %d)",
-			quotas.ManifestCount, manifestUsage,
-		)
-		keppel.ErrDenied.With(msg).WithStatus(http.StatusConflict).WriteAsRegistryV2ResponseTo(w)
+
+	blobDigest, err := digest.Parse(mux.Vars(r)["digest"])
+	if err != nil {
+		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
 		return
 	}
 
-	resp := a.proxyRequestToRegistry(w, r, *account)
-	if resp == nil {
+	blob, err := a.db.FindBlobByRepositoryID(blobDigest, repo.ID, *account)
+	if err == sql.ErrNoRows {
+		keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w)
 		return
 	}
-	a.proxyResponseToCaller(w, resp)
+	if respondWithError(w, err) {
+		return
+	}
+
+	//unmount the blob from this particular repo (if it is mounted in other
+	//repos, it will still be accessible there; otherwise keppel-janitor will
+	//clean it up soon)
+	_, err = a.db.Exec(`DELETE FROM blob_mounts WHERE blob_id = $1 AND repo_id = $2`, blob.ID, repo.ID)
+	if respondWithError(w, err) {
+		return
+	}
+
+	w.Header().Set("Content-Length", "0")
+	w.Header().Set("Docker-Content-Digest", blob.Digest)
+	w.WriteHeader(http.StatusAccepted)
 }
