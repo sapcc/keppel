@@ -1,4 +1,4 @@
-INSERT INTO accounts (name, auth_tenant_id, registry_http_secret, upstream_peer_hostname) VALUES ('test1', 'test1authtenant', 'topsecret', '');
+INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname) VALUES ('test1', 'test1authtenant', '');
 
 INSERT INTO blob_mounts (blob_id, repo_id) VALUES (1, 1);
 INSERT INTO blob_mounts (blob_id, repo_id) VALUES (2, 1);

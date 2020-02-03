@@ -257,9 +257,8 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accountToCreate := keppel.Account{
-		Name:               accountName,
-		AuthTenantID:       req.Account.AuthTenantID,
-		RegistryHTTPSecret: keppel.GenerateRegistryHTTPSecret(),
+		Name:         accountName,
+		AuthTenantID: req.Account.AuthTenantID,
 	}
 
 	//validate replication policy

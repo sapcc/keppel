@@ -36,9 +36,8 @@ func setup(t *testing.T) (http.Handler, keppel.Configuration, *keppel.DB, *test.
 
 	//set up a dummy account for testing
 	err := db.Insert(&keppel.Account{
-		Name:               "test1",
-		AuthTenantID:       "test1authtenant",
-		RegistryHTTPSecret: "topsecret",
+		Name:         "test1",
+		AuthTenantID: "test1authtenant",
 	})
 	if err != nil {
 		t.Fatal(err.Error())

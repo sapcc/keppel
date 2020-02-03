@@ -31,14 +31,11 @@ import (
 var sqlMigrations = map[string]string{
 	"001_initial.up.sql": `
 		CREATE TABLE accounts (
-			name           TEXT NOT NULL PRIMARY KEY,
-			auth_tenant_id TEXT NOT NULL
+			name                   TEXT NOT NULL PRIMARY KEY,
+			auth_tenant_id         TEXT NOT NULL,
+			upstream_peer_hostname TEXT NOT NULL DEFAULT ''
 		);
-	`,
-	"001_initial.down.sql": `
-		DROP TABLE accounts;
-	`,
-	"002_add_rbac.up.sql": `
+
 		CREATE TABLE rbac_policies (
 			account_name     TEXT    NOT NULL REFERENCES accounts ON DELETE CASCADE,
 			match_repository TEXT    NOT NULL,
@@ -46,71 +43,15 @@ var sqlMigrations = map[string]string{
 			can_anon_pull    BOOLEAN NOT NULL DEFAULT FALSE,
 			can_pull         BOOLEAN NOT NULL DEFAULT FALSE,
 			can_push         BOOLEAN NOT NULL DEFAULT FALSE,
+			can_delete       BOOLEAN NOT NULL DEFAULT FALSE,
 			PRIMARY KEY (account_name, match_repository, match_username)
 		);
-	`,
-	"002_add_rbac.down.sql": `
-		DROP TABLE rbac_policies;
-	`,
-	"003_add_registry_secret.up.sql": `
-		ALTER TABLE accounts ADD COLUMN registry_http_secret TEXT NOT NULL DEFAULT '';
-	`,
-	"003_add_registry_secret.down.sql": `
-		ALTER TABLE accounts DROP COLUMN registry_http_secret;
-	`,
-	"004_add_rbac_can_delete.up.sql": `
-		ALTER TABLE rbac_policies ADD COLUMN can_delete BOOLEAN NOT NULL DEFAULT FALSE;
-	`,
-	"004_add_rbac_can_delete.down.sql": `
-		ALTER TABLE rbac_policies DROP COLUMN can_delete;
-	`,
-	//NOTE: The `repos` table is not strictly necessary. We could use
-	//(account_name, repo_name) instead of repo_id in `manifests` and `tags`.
-	//Giving numerical IDs to repos is just a storage space optimization.
-	"005_add_repos_manifests_tags.up.sql": `
-		CREATE TABLE repos (
-			id           BIGSERIAL NOT NULL PRIMARY KEY,
-			account_name TEXT      NOT NULL REFERENCES accounts ON DELETE CASCADE,
-			name         TEXT      NOT NULL
-		);
-		CREATE TABLE manifests (
-			repo_id    BIGINT NOT NULL REFERENCES repos ON DELETE CASCADE,
-			digest     TEXT   NOT NULL,
-			media_type TEXT   NOT NULL,
-			size_bytes BIGINT NOT NULL,
-			PRIMARY KEY (repo_id, digest)
-		);
-		CREATE TABLE tags (
-			repo_id    BIGINT NOT NULL REFERENCES repos ON DELETE CASCADE,
-			name       TEXT   NOT NULL,
-			digest     TEXT   NOT NULL,
-			PRIMARY KEY (repo_id, name),
-			FOREIGN KEY (repo_id, digest) REFERENCES manifests ON DELETE CASCADE
-		);
-	`,
-	"005_add_repos_manifests_tags.down.sql": `
-		DROP TABLE repos;
-		DROP TABLE manifests;
-		DROP TABLE tags;
-	`,
-	"006_add_pushed_at_timestamps.up.sql": `
-		ALTER TABLE manifests ADD COLUMN pushed_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-		ALTER TABLE tags ADD COLUMN pushed_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-	`,
-	"006_add_pushed_at_timestamps.down.sql": `
-		ALTER TABLE manifests DROP COLUMN pushed_at;
-		ALTER TABLE tags DROP COLUMN pushed_at;
-	`,
-	"007_add_quotas.up.sql": `
+
 		CREATE TABLE quotas (
 			auth_tenant_id TEXT   NOT NULL PRIMARY KEY,
 			manifests      BIGINT NOT NULL
 		);
-	`,
-	"007_add_quotas.down.sql": `
-		DROP TABLE quotas;
-	`,
-	"008_add_peers.up.sql": `
+
 		CREATE TABLE peers (
 			hostname                     TEXT        NOT NULL PRIMARY KEY,
 			our_password                 TEXT        NOT NULL DEFAULT '',
@@ -118,59 +59,13 @@ var sqlMigrations = map[string]string{
 			their_previous_password_hash TEXT        NOT NULL DEFAULT '',
 			last_peered_at               TIMESTAMPTZ DEFAULT NULL
 		);
-	`,
-	"008_add_peers.down.sql": `
-		DROP TABLE peers;
-	`,
-	"009_add_replication_on_first_use.up.sql": `
-		ALTER TABLE accounts ADD COLUMN upstream_peer_hostname TEXT NOT NULL DEFAULT '';
-	`,
-	"009_add_replication_on_first_use.down.sql": `
-		ALTER TABLE accounts DROP COLUMN upstream_peer_hostname;
-	`,
-	"010_add_pending_blobs.up.sql": `
-		CREATE TABLE pending_blobs (
-			repo_id BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
-			digest  TEXT        NOT NULL,
-			reason  TEXT        NOT NULL,
-			since   TIMESTAMPTZ DEFAULT NOW(),
-			PRIMARY KEY (repo_id, digest)
+
+		CREATE TABLE repos (
+			id           BIGSERIAL NOT NULL PRIMARY KEY,
+			account_name TEXT      NOT NULL REFERENCES accounts ON DELETE CASCADE,
+			name         TEXT      NOT NULL
 		);
-	`,
-	"010_add_pending_blobs.down.sql": `
-		DROP TABLE pending_blobs;
-	`,
-	"011_add_pending_manifests.up.sql": `
-		CREATE TABLE pending_manifests (
-			repo_id    BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
-			reference  TEXT        NOT NULL,
-			digest     TEXT        NOT NULL,
-			reason     TEXT        NOT NULL,
-			since      TIMESTAMPTZ DEFAULT NOW(),
-			media_type TEXT        NOT NULL,
-			content    TEXT        NOT NULL,
-			PRIMARY KEY (repo_id, reference)
-		);
-	`,
-	"011_add_pending_manifests.down.sql": `
-		DROP TABLE pending_manifests;
-	`,
-	"012_drop_pending_manifests.up.sql": `
-		DROP TABLE pending_manifests;
-	`,
-	"012_drop_pending_manifests.down.sql": `
-		CREATE TABLE pending_manifests (
-			repo_id    BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
-			reference  TEXT        NOT NULL,
-			digest     TEXT        NOT NULL,
-			reason     TEXT        NOT NULL,
-			since      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			media_type TEXT        NOT NULL,
-			content    TEXT        NOT NULL,
-			PRIMARY KEY (repo_id, reference)
-		);
-	`,
-	"013_add_blobs_uploads.up.sql": `
+
 		CREATE TABLE blobs (
 			id           BIGSERIAL   NOT NULL PRIMARY KEY,
 			account_name TEXT        NOT NULL REFERENCES accounts ON DELETE CASCADE,
@@ -197,11 +92,45 @@ var sqlMigrations = map[string]string{
 			updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			PRIMARY KEY (repo_id, uuid)
 		);
+
+		CREATE TABLE manifests (
+			repo_id    BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
+			digest     TEXT        NOT NULL,
+			media_type TEXT        NOT NULL,
+			size_bytes BIGINT      NOT NULL,
+			pushed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			PRIMARY KEY (repo_id, digest)
+		);
+
+		CREATE TABLE tags (
+			repo_id    BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
+			name       TEXT        NOT NULL,
+			digest     TEXT        NOT NULL,
+			pushed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			PRIMARY KEY (repo_id, name),
+			FOREIGN KEY (repo_id, digest) REFERENCES manifests ON DELETE CASCADE
+		);
+
+		CREATE TABLE pending_blobs (
+			repo_id BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
+			digest  TEXT        NOT NULL,
+			reason  TEXT        NOT NULL,
+			since   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			PRIMARY KEY (repo_id, digest)
+		);
 	`,
-	"013_add_blobs_uploads.down.sql": `
-		DROP TABLE blobs;
-		DROP TABLE blob_mounts;
+	"001_initial.down.sql": `
+		DROP TABLE pending_blobs;
+		DROP TABLE tags;
+		DROP TABLE manifests;
 		DROP TABLE uploads;
+		DROP TABLE blob_mounts;
+		DROP TABLE blobs;
+		DROP TABLE repos;
+		DROP TABLE peers;
+		DROP TABLE quotas;
+		DROP TABLE rbac_policies;
+		DROP TABLE accounts;
 	`,
 }
 
@@ -223,21 +152,6 @@ func InitDB(dbURL url.URL) (*DB, error) {
 	result := &DB{DbMap: gorp.DbMap{Db: db, Dialect: gorp.PostgresDialect{}}}
 	initModels(&result.DbMap)
 	return result, nil
-}
-
-//IsStillReachable implements the DBAccessForOrchestrationDriver interface.
-//It checks if the given DB can still execute SQL queries.
-func (db *DB) IsStillReachable() bool {
-	val, err := db.SelectInt(`SELECT 42`)
-	if err != nil {
-		logg.Error("DB has become unreachable: " + err.Error())
-		return false
-	}
-	if val != 42 {
-		logg.Error("DB has become unreachable")
-		return false
-	}
-	return true
 }
 
 //RollbackUnlessCommitted calls Rollback() on a transaction if it hasn't been

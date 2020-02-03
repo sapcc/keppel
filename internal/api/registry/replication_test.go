@@ -80,7 +80,6 @@ func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *k
 	err = db2.Insert(&keppel.Account{
 		Name:                 "test1",
 		AuthTenantID:         "test1authtenant",
-		RegistryHTTPSecret:   "topsecret",
 		UpstreamPeerHostName: "registry.example.org",
 	})
 	if err != nil {
