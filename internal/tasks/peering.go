@@ -48,7 +48,7 @@ func IssueNewPasswordForPeer(cfg keppel.Configuration, db *keppel.DB, tx *gorp.T
 		return err
 	}
 	newPassword := hex.EncodeToString(newPasswordBytes)
-	newPasswordHashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), 12)
+	newPasswordHashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), 10)
 	if err != nil {
 		return err
 	}
