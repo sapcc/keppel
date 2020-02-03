@@ -2,6 +2,7 @@ package clientconfig
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
 
@@ -56,6 +57,14 @@ type ClientOpts struct {
 	// This will override a region in clouds.yaml or can be used
 	// when authenticating directly with AuthInfo.
 	RegionName string
+
+	// EndpointType specifies whether to use the public, internal, or
+	// admin endpoint of a service.
+	EndpointType string
+
+	// HTTPClient provides the ability customize the ProviderClient's
+	// internal HTTP client.
+	HTTPClient *http.Client
 
 	// YAMLOpts provides the ability to pass a customized set
 	// of options and methods for loading the YAML file.
@@ -283,6 +292,17 @@ func GetCloudFromYAML(opts *ClientOpts) (*Cloud, error) {
 	// TODO: this is where reading vendor files should go be considered when not found in
 	// clouds-public.yml
 	// https://github.com/openstack/openstacksdk/tree/master/openstack/config/vendors
+
+	// Both Interface and EndpointType are valid settings in clouds.yaml,
+	// but we want to standardize on EndpointType for simplicity.
+	//
+	// If only Interface was set, we copy that to EndpointType to use as the setting.
+	// But in all other cases, EndpointType is used and Interface is cleared.
+	if cloud.Interface != "" && cloud.EndpointType == "" {
+		cloud.EndpointType = cloud.Interface
+	}
+
+	cloud.Interface = ""
 
 	return cloud, nil
 }
@@ -720,6 +740,11 @@ func NewServiceClient(service string, opts *ClientOpts) (*gophercloud.ServiceCli
 		return nil, err
 	}
 
+	// If an HTTPClient was specified, use it.
+	if opts.HTTPClient != nil {
+		pClient.HTTPClient = *opts.HTTPClient
+	}
+
 	// Determine the region to use.
 	// First, check if the REGION_NAME environment variable is set.
 	var region string
@@ -738,8 +763,27 @@ func NewServiceClient(service string, opts *ClientOpts) (*gophercloud.ServiceCli
 		region = v
 	}
 
+	// Determine the endpoint type to use.
+	// First, check if the OS_INTERFACE environment variable is set.
+	var endpointType string
+	if v := env.Getenv(envPrefix + "INTERFACE"); v != "" {
+		endpointType = v
+	}
+
+	// Next, check if the cloud entry sets an endpoint type.
+	if v := cloud.EndpointType; v != "" {
+		endpointType = v
+	}
+
+	// Finally, see if one was specified in the ClientOpts.
+	// If so, this takes precedence.
+	if v := opts.EndpointType; v != "" {
+		endpointType = v
+	}
+
 	eo := gophercloud.EndpointOpts{
-		Region: region,
+		Region:       region,
+		Availability: GetEndpointType(endpointType),
 	}
 
 	switch service {
