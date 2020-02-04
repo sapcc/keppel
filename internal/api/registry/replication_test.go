@@ -27,9 +27,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/keppel/internal/api"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
@@ -105,16 +105,17 @@ func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *k
 		t.Fatal(err.Error())
 	}
 
-	r := mux.NewRouter()
-	NewAPI(cfg2, sd2, db2).AddTo(r)
-	authapi.NewAPI(cfg2, ad2, db2).AddTo(r)
+	h := api.Compose(
+		NewAPI(cfg2, sd2, db2),
+		authapi.NewAPI(cfg2, ad2, db2),
+	)
 
 	//the secondary registry wants to talk to the primary registry over HTTPS, so
 	//attach the primary registry's HTTP handler to the http.DefaultClient
 	tt := &httpTransportForTest{
 		Handlers: map[string]http.Handler{
 			"registry.example.org":           hPrimary,
-			"registry-secondary.example.org": r,
+			"registry-secondary.example.org": h,
 		},
 	}
 	http.DefaultClient.Transport = tt
@@ -123,16 +124,16 @@ func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *k
 	}()
 
 	//run all replication-on-first-use (ROFU) tests once
-	testROFUNonReplicatingCases(t, r, ad2, db2, firstBlobDigest)
-	testROFUSuccessCases(t, r, ad2, firstManifestDigest, firstBlobDigest, secondManifestDigest, secondManifestTag)
-	testROFUMissingEntities(t, r, ad2)
-	testROFUForbidDirectUpload(t, r, ad2)
+	testROFUNonReplicatingCases(t, h, ad2, db2, firstBlobDigest)
+	testROFUSuccessCases(t, h, ad2, firstManifestDigest, firstBlobDigest, secondManifestDigest, secondManifestTag)
+	testROFUMissingEntities(t, h, ad2)
+	testROFUForbidDirectUpload(t, h, ad2)
 
 	//run the positive tests again with the network connection to the primary
 	//registry severed, to validate that contents have actually been replicated
 	http.DefaultClient.Transport = nil
-	testROFUSuccessCases(t, r, ad2, firstManifestDigest, firstBlobDigest, secondManifestDigest, secondManifestTag)
-	testROFUForbidDirectUpload(t, r, ad2)
+	testROFUSuccessCases(t, h, ad2, firstManifestDigest, firstBlobDigest, secondManifestDigest, secondManifestTag)
+	testROFUForbidDirectUpload(t, h, ad2)
 }
 
 func testROFUNonReplicatingCases(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB, firstBlobDigest string) {

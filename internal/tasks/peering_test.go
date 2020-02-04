@@ -25,9 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/jarcoal/httpmock"
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/keppel/internal/api"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
@@ -41,8 +41,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	r := mux.NewRouter()
-	authapi.NewAPI(cfg, ad, db).AddTo(r)
+	h := api.Compose(authapi.NewAPI(cfg, ad, db))
 
 	//setup a peer
 	err = db.Insert(&keppel.Peer{HostName: "peer.example.org"})
@@ -102,7 +101,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 				//...but any older passwords will not work
 				req.ExpectStatus = http.StatusUnauthorized
 			}
-			req.Check(t, r)
+			req.Check(t, h)
 		}
 	}
 

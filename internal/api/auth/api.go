@@ -43,7 +43,7 @@ func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, db *keppel.DB) *API 
 	return &API{cfg, ad, db}
 }
 
-//AddTo adds routes for this API to the given router.
+//AddTo implements the api.API interface.
 func (a *API) AddTo(r *mux.Router) {
 	r.Methods("GET").Path("/keppel/v1/auth").HandlerFunc(a.handleGetAuth)
 	r.Methods("POST").Path("/keppel/v1/auth/peering").HandlerFunc(a.handlePostPeering)

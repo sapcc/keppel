@@ -46,7 +46,7 @@ func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, ncd keppel.NameClaim
 	return &API{cfg, ad, ncd, sd, db, auditor}
 }
 
-//AddTo adds routes for this API to the given router.
+//AddTo implements the api.API interface.
 func (a *API) AddTo(r *mux.Router) {
 	//NOTE: Keppel account names are severely restricted because Postgres
 	//database names are derived from them. Those are, most importantly,

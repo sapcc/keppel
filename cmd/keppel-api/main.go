@@ -27,12 +27,11 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 	"github.com/sapcc/go-bits/httpee"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/go-bits/sre"
+	"github.com/sapcc/keppel/internal/api"
 	auth "github.com/sapcc/keppel/internal/api/auth"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
@@ -75,13 +74,12 @@ func main() {
 	runPeering(ctx, cfg, db)
 
 	//wire up HTTP handlers
-	r := mux.NewRouter()
-	keppelv1.NewAPI(cfg, ad, ncd, sd, db, auditor).AddTo(r)
-	auth.NewAPI(cfg, ad, db).AddTo(r)
-	registryv2.NewAPI(cfg, sd, db).AddTo(r)
-
-	//setup instrumentation on the HTTP server level
-	handler := logg.Middleware{}.Wrap(sre.Instrument(r))
+	handler := api.Compose(
+		keppelv1.NewAPI(cfg, ad, ncd, sd, db, auditor),
+		auth.NewAPI(cfg, ad, db),
+		registryv2.NewAPI(cfg, sd, db),
+	)
+	handler = logg.Middleware{}.Wrap(handler)
 	handler = cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{"HEAD", "GET", "POST", "PUT", "DELETE"},

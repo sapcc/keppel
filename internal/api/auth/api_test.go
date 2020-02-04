@@ -31,8 +31,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -409,7 +409,7 @@ func foreachServiceValue(action func(serviceStr string)) {
 	action("")
 }
 
-func setup(t *testing.T) (*mux.Router, *test.AuthDriver, *keppel.DB) {
+func setup(t *testing.T) (http.Handler, *test.AuthDriver, *keppel.DB) {
 	cfg, db := test.Setup(t)
 
 	//set up a dummy account for testing
@@ -429,9 +429,8 @@ func setup(t *testing.T) (*mux.Router, *test.AuthDriver, *keppel.DB) {
 	ad.ExpectedUserName = "correctusername"
 	ad.ExpectedPassword = "correctpassword"
 
-	r := mux.NewRouter()
-	NewAPI(cfg, ad, db).AddTo(r)
-	return r, ad, db
+	h := api.Compose(NewAPI(cfg, ad, db))
+	return h, ad, db
 }
 
 func TestIssueToken(t *testing.T) {

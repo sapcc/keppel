@@ -25,7 +25,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gorilla/mux"
+	"github.com/sapcc/keppel/internal/api"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
@@ -65,11 +65,12 @@ func setup(t *testing.T) (http.Handler, keppel.Configuration, *keppel.DB, *test.
 	//wire up the HTTP APIs
 	clock := &test.Clock{}
 	sidGen := &test.StorageIDGenerator{}
-	r := mux.NewRouter()
-	NewAPI(cfg, sd, db).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next).AddTo(r)
-	authapi.NewAPI(cfg, ad, db).AddTo(r)
+	h := api.Compose(
+		NewAPI(cfg, sd, db).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+		authapi.NewAPI(cfg, ad, db),
+	)
 
-	return r, cfg, db, ad.(*test.AuthDriver), sd.(*test.StorageDriver), clock
+	return h, cfg, db, ad.(*test.AuthDriver), sd.(*test.StorageDriver), clock
 }
 
 func getToken(t *testing.T, h http.Handler, ad keppel.AuthDriver, scope string, perms ...keppel.Permission) string {

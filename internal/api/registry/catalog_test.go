@@ -24,8 +24,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/keppel/internal/api"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
@@ -60,14 +60,15 @@ func TestCatalogEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	r := mux.NewRouter()
-	authapi.NewAPI(cfg, ad, db).AddTo(r)
-	NewAPI(cfg, nil, db).AddTo(r)
+	h := api.Compose(
+		authapi.NewAPI(cfg, ad, db),
+		NewAPI(cfg, nil, db),
+	)
 
 	//testcases
-	testEmptyCatalog(t, r, ad)
-	testNonEmptyCatalog(t, r, ad)
-	testAuthErrorsForCatalog(t, r, ad)
+	testEmptyCatalog(t, h, ad)
+	testNonEmptyCatalog(t, h, ad)
+	testAuthErrorsForCatalog(t, h, ad)
 }
 
 func testEmptyCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver) {

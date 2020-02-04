@@ -23,10 +23,10 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/gorilla/mux"
 	"github.com/jarcoal/httpmock"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -46,8 +46,7 @@ func TestPeeringAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	r := mux.NewRouter()
-	NewAPI(cfg, ad, db).AddTo(r)
+	h := api.Compose(NewAPI(cfg, ad, db))
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -86,7 +85,7 @@ func TestPeeringAPI(t *testing.T) {
 		},
 		ExpectStatus: http.StatusBadRequest,
 		ExpectBody:   assert.StringData("unknown issuer\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	assert.HTTPRequest{
 		Method: "POST",
@@ -98,7 +97,7 @@ func TestPeeringAPI(t *testing.T) {
 		},
 		ExpectStatus: http.StatusBadRequest,
 		ExpectBody:   assert.StringData("wrong audience\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	assert.HTTPRequest{
 		Method: "POST",
@@ -110,7 +109,7 @@ func TestPeeringAPI(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnauthorized,
 		ExpectBody:   assert.StringData("could not validate credentials: expected 200 OK, but got 401\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//error cases should not touch the DB
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/before-peering.sql")
@@ -126,7 +125,7 @@ func TestPeeringAPI(t *testing.T) {
 		},
 		ExpectStatus: http.StatusNoContent,
 		ExpectBody:   assert.StringData(""),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//success case should have touched the DB
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/after-peering.sql")

@@ -24,10 +24,10 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/hermes/pkg/cadf"
+	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -106,11 +106,10 @@ func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.NameClaimDriver,
 		t.Fatal(err.Error())
 	}
 
-	r := mux.NewRouter()
 	auditor := &testAuditor{}
-	NewAPI(cfg, ad, ncd, sd, db, auditor).AddTo(r)
+	h := api.Compose(NewAPI(cfg, ad, ncd, sd, db, auditor))
 
-	return r, ad.(*test.AuthDriver), ncd.(*test.NameClaimDriver), auditor, sd, db
+	return h, ad.(*test.AuthDriver), ncd.(*test.NameClaimDriver), auditor, sd, db
 }
 
 func TestAccountsAPI(t *testing.T) {

@@ -59,7 +59,7 @@ func (a *API) OverrideGenerateStorageID(generateStorageID func() string) *API {
 	return a
 }
 
-//AddTo adds routes for this API to the given router.
+//AddTo implements the api.API interface.
 func (a *API) AddTo(r *mux.Router) {
 	r.Methods("GET").Path("/v2/").HandlerFunc(a.handleToplevel)
 	r.Methods("GET").Path("/v2/_catalog").HandlerFunc(a.handleGetCatalog)
