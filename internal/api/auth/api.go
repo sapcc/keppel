@@ -26,6 +26,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/respondwith"
+	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -59,6 +60,7 @@ func respondWithError(w http.ResponseWriter, code int, err error) bool {
 var errUnautorized = errors.New("incorrect username or password")
 
 func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
+	sre.IdentifyEndpoint(r, "/keppel/v1/auth")
 	authz, err := a.checkAuthentication(r.Header.Get("Authorization"))
 	if respondWithError(w, http.StatusUnauthorized, err) {
 		return

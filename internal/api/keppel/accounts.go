@@ -31,6 +31,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/respondwith"
+	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -172,6 +173,7 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 // handlers
 
 func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
+	sre.IdentifyEndpoint(r, "/keppel/v1/accounts")
 	authz, authErr := a.authDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, authErr) {
 		return
@@ -207,6 +209,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
+	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
 	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanViewAccount)
 	if account == nil {
 		return
@@ -220,6 +223,7 @@ func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
+	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
 	//decode request body
 	var req struct {
 		Account struct {

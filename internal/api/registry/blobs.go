@@ -27,12 +27,14 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/replication"
 )
 
 //This implements the GET/HEAD /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
+	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
 	account, repoName, _ := a.checkAccountAccess(w, r)
 	if account == nil {
 		return
@@ -130,6 +132,7 @@ func (a *API) tryReplicateBlob(w http.ResponseWriter, r *http.Request, account k
 
 //This implements the DELETE /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
+	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
 	account, repoName, _ := a.checkAccountAccess(w, r)
 	if account == nil {
 		return

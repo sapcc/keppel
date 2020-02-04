@@ -24,6 +24,7 @@ import (
 	"strconv"
 
 	"github.com/sapcc/go-bits/respondwith"
+	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -34,6 +35,7 @@ const tagsListQuery = `
 `
 
 func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
+	sre.IdentifyEndpoint(r, "/v2/:account/:repo/tags/list")
 	account, repoName, _ := a.checkAccountAccess(w, r)
 	if account == nil {
 		return

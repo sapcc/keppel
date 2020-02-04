@@ -24,6 +24,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/respondwith"
+	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -57,6 +58,7 @@ var tagGetQuery = `
 `
 
 func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
+	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests")
 	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanViewAccount)
 	if account == nil {
 		return
@@ -130,6 +132,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
+	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests/:digest")
 	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanDeleteFromAccount)
 	if account == nil {
 		return

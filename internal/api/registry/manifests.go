@@ -29,6 +29,7 @@ import (
 	"github.com/docker/distribution"
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
+	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/replication"
 
@@ -44,6 +45,7 @@ import (
 
 //This implements the HEAD/GET /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
+	sre.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
 	account, repoName, _ := a.checkAccountAccess(w, r)
 	if account == nil {
 		return
@@ -151,6 +153,7 @@ func (a *API) findManifestInDB(account keppel.Account, repoName string, referenc
 
 //This implements the DELETE /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
+	sre.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
 	account, repoName, _ := a.checkAccountAccess(w, r)
 	if account == nil {
 		return
@@ -207,6 +210,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 
 //This implements the PUT /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
+	sre.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
 	account, repoName, token := a.checkAccountAccess(w, r)
 	if account == nil {
 		return
