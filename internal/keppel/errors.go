@@ -104,7 +104,7 @@ var apiErrorStatusCodes = map[RegistryV2ErrorCode]int{
 	ErrTagInvalid:          http.StatusBadRequest,
 	ErrUnauthorized:        http.StatusUnauthorized,
 	ErrDenied:              http.StatusForbidden,
-	ErrUnsupported:         http.StatusNotImplemented,
+	ErrUnsupported:         http.StatusMethodNotAllowed,
 	ErrUnknown:             http.StatusInternalServerError,
 	ErrUnavailable:         http.StatusInternalServerError,
 	ErrTooManyRequests:     http.StatusTooManyRequests,

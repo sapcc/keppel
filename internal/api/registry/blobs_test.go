@@ -31,8 +31,6 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
-//TODO test coverage for cross-repository blob mount
-
 func TestBlobMonolithicUpload(t *testing.T) {
 	h, _, db, ad, sd, _ := setup(t)
 	readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
@@ -597,7 +595,7 @@ func TestDeleteBlobUpload(t *testing.T) {
 }
 
 func TestDeleteBlob(t *testing.T) {
-	h, _, db, ad, sd, _ := setup(t)
+	h, _, _, ad, _, _ := setup(t)
 	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 		keppel.CanPullFromAccount,
 		keppel.CanPushToAccount)
@@ -705,6 +703,116 @@ func TestDeleteBlob(t *testing.T) {
 	}.Check(t, h)
 	//...but still be visible in test1/bar
 	expectBlobContents(t, h, otherRepoToken, "test1/bar", blobDigest, blobContents)
+}
 
-	_, _ = db, sd
+func TestCrossRepositoryBlobMount(t *testing.T) {
+	h, _, _, ad, _, _ := setup(t)
+	readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		keppel.CanPullFromAccount)
+	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		keppel.CanPullFromAccount,
+		keppel.CanPushToAccount)
+	otherRepoToken := getToken(t, h, ad, "repository:test1/bar:pull,push",
+		keppel.CanPullFromAccount,
+		keppel.CanPushToAccount)
+
+	blobContents := []byte("just some random data")
+	blobDigest := "sha256:" + sha256Of(blobContents)
+
+	//upload a blob to test1/bar so that we can test mounting it to test1/foo
+	assert.HTTPRequest{
+		Method: "POST",
+		Path:   "/v2/test1/bar/blobs/uploads/?digest=" + blobDigest,
+		Header: map[string]string{
+			"Authorization":  "Bearer " + otherRepoToken,
+			"Content-Length": strconv.Itoa(len(blobContents)),
+			"Content-Type":   "application/octet-stream",
+		},
+		Body:         assert.ByteData(blobContents),
+		ExpectStatus: http.StatusCreated,
+	}.Check(t, h)
+
+	//test failure cases: token does not have push access
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/v2/test1/foo/blobs/uploads/?from=test1/bar&mount=" + blobDigest,
+		Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+		ExpectStatus: http.StatusForbidden,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrDenied),
+	}.Check(t, h)
+
+	//test failure cases: source repo does not exist
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/v2/test1/foo/blobs/uploads/?from=test1/qux&mount=" + blobDigest,
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusNotFound,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrNameUnknown),
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/v2/test1/foo/blobs/uploads/?from=test1/:qux&mount=" + blobDigest,
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusBadRequest,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrNameInvalid),
+	}.Check(t, h)
+
+	//test failure cases: cannot mount across accounts
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/v2/test1/foo/blobs/uploads/?from=test2/foo&mount=" + blobDigest,
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusMethodNotAllowed,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
+	}.Check(t, h)
+
+	//test failure cases: digest is malformed or wrong
+	bogusDigest := "sha256:" + sha256Of([]byte("something else"))
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/v2/test1/foo/blobs/uploads/?from=test1/bar&mount=wrong",
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusBadRequest,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrDigestInvalid),
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/v2/test1/foo/blobs/uploads/?from=test1/bar&mount=" + bogusDigest,
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusNotFound,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrBlobUnknown),
+	}.Check(t, h)
+
+	//since these all failed, the blob should not be available in test1/foo yet
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/v2/test1/foo/blobs/" + blobDigest,
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusNotFound,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrBlobUnknown),
+	}.Check(t, h)
+
+	//test success case
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/v2/test1/foo/blobs/uploads/?from=test1/bar&mount=" + blobDigest,
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusCreated,
+		ExpectHeader: map[string]string{
+			test.VersionHeaderKey: test.VersionHeaderValue,
+			"Content-Length":      "0",
+			"Location":            "/v2/test1/foo/blobs/" + blobDigest,
+		},
+	}.Check(t, h)
+
+	//now the blob should be available in both the original and the new repo
+	expectBlobContents(t, h, token, "test1/foo", blobDigest, blobContents)
+	expectBlobContents(t, h, otherRepoToken, "test1/bar", blobDigest, blobContents)
 }
