@@ -29,7 +29,9 @@ import (
 	"github.com/docker/distribution"
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/sre"
+	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/replication"
 
@@ -115,7 +117,12 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "HEAD" {
 		w.Write(manifestBytes)
 	}
-	return
+
+	//count the pull
+	if r.Method == "GET" {
+		l := prometheus.Labels{"account": account.Name, "method": "registry-api"}
+		api.ManifestsPulledCounter.With(l).Inc()
+	}
 }
 
 func (a *API) findManifestInDB(account keppel.Account, repoName string, reference keppel.ManifestReference) (*keppel.Manifest, error) {
@@ -327,6 +334,10 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	if respondWithError(w, err) {
 		return
 	}
+
+	//count the push
+	l := prometheus.Labels{"account": account.Name, "method": "registry-api"}
+	api.ManifestsPushedCounter.With(l).Inc()
 
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Docker-Content-Digest", manifestDesc.Digest.String())

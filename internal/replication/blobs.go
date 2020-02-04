@@ -26,7 +26,9 @@ import (
 	"time"
 
 	"github.com/opencontainers/go-digest"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -123,12 +125,29 @@ func (r Replicator) ReplicateBlob(b Blob, w http.ResponseWriter, requestMethod s
 	if requestMethod == "HEAD" {
 		return true, nil
 	}
-	return true, r.uploadBlobToLocal(b, blobReader, blobLengthBytes)
+
+	err = r.uploadBlobToLocal(b, blobReader, blobLengthBytes)
+	if err != nil {
+		return true, err
+	}
+
+	//count the successful push
+	l := prometheus.Labels{"account": b.Account.Name, "method": "replication"}
+	api.BlobsPushedCounter.With(l).Inc()
+	return true, nil
 }
 
 const chunkSizeBytes = 500 << 20 // 500 MiB
 
 func (r Replicator) uploadBlobToLocal(b Blob, blobReader io.Reader, blobLengthBytes uint64) (returnErr error) {
+	defer func() {
+		//if blob upload fails, count an aborted upload
+		if returnErr != nil {
+			l := prometheus.Labels{"account": b.Account.Name, "method": "replication"}
+			api.UploadsAbortedCounter.With(l).Inc()
+		}
+	}()
+
 	chunkCount := uint32(0)
 	remainingBytes := blobLengthBytes
 	storageID := keppel.GenerateStorageID()

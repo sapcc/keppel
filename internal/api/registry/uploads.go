@@ -35,8 +35,10 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sre"
+	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
 	uuid "github.com/satori/go.uuid"
 )
@@ -203,6 +205,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	}
 	err = a.sd.FinalizeBlob(account, storageID, 1)
 	if respondWithError(w, err) {
+		countAbortedBlobUpload(account)
 		err := a.sd.AbortBlobUpload(account, storageID, 1)
 		if err != nil {
 			logg.Error("additional error encountered while aborting blob upload %s into %s: %s", storageID, repo.FullName(), err.Error())
@@ -213,6 +216,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	//if any of the remaining steps fail, don't forget to cleanup the storage backend
 	defer func() {
 		if !ok {
+			countAbortedBlobUpload(account)
 			err := a.sd.DeleteBlob(account, storageID)
 			if err != nil {
 				logg.Error("additional error encountered while deleting broken blob %s from %s: %s", storageID, repo.FullName(), err.Error())
@@ -356,6 +360,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 			keppel.ErrSizeInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
 
 			logg.Info("aborting upload because of error during parseContentRange()")
+			countAbortedBlobUpload(*account)
 			err := a.sd.AbortBlobUpload(*account, upload.StorageID, upload.NumChunks)
 			if err != nil {
 				logg.Error("additional error encountered during AbortBlobUpload: " + err.Error())
@@ -424,6 +429,10 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//count a finished blob push
+	l := prometheus.Labels{"account": account.Name, "method": "registry-api"}
+	api.BlobsPushedCounter.With(l).Inc()
+
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Content-Range", fmt.Sprintf("0-%d", blob.SizeBytes))
 	w.Header().Set("Docker-Content-Digest", blob.Digest)
@@ -451,6 +460,7 @@ func (a *API) resumeUpload(account keppel.Account, upload *keppel.Upload, stateS
 	defer func() {
 		if returnErr != nil {
 			logg.Info("aborting upload because of error during resumeUpload()")
+			countAbortedBlobUpload(account)
 			err := a.sd.AbortBlobUpload(account, upload.StorageID, upload.NumChunks)
 			if err != nil {
 				logg.Error("additional error encountered during AbortBlobUpload: " + err.Error())
@@ -552,6 +562,7 @@ func (a *API) streamIntoUpload(account keppel.Account, upload *keppel.Upload, dw
 	defer func() {
 		if returnErr != nil {
 			logg.Info("aborting upload because of error during streamIntoUpload()")
+			countAbortedBlobUpload(account)
 			err := a.sd.AbortBlobUpload(account, upload.StorageID, upload.NumChunks)
 			if err != nil {
 				logg.Error("additional error encountered during AbortBlobUpload: " + err.Error())
@@ -609,6 +620,7 @@ func (a *API) finishUpload(account keppel.Account, repoName string, upload *kepp
 			//TODO: might have to use DeleteBlob instead of AbortBlobUpload if the
 			//error occurs after successful FinalizeBlob call
 			logg.Info("aborting upload because of error during finishUpload()")
+			countAbortedBlobUpload(account)
 			err := a.sd.AbortBlobUpload(account, upload.StorageID, upload.NumChunks)
 			if err != nil {
 				logg.Error("additional error encountered during AbortBlobUpload: " + err.Error())
@@ -684,4 +696,9 @@ func (w *digestWriter) Write(buf []byte) (n int, err error) {
 		w.bytesWritten += uint64(n)
 	}
 	return n, err
+}
+
+func countAbortedBlobUpload(account keppel.Account) {
+	l := prometheus.Labels{"account": account.Name, "method": "registry-api"}
+	api.UploadsAbortedCounter.With(l).Inc()
 }

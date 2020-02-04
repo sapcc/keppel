@@ -23,11 +23,14 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sre"
+	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/replication"
 )
@@ -35,7 +38,7 @@ import (
 //This implements the GET/HEAD /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
-	account, repoName, _ := a.checkAccountAccess(w, r)
+	account, repoName, token := a.checkAccountAccess(w, r)
 	if account == nil {
 		return
 	}
@@ -59,6 +62,15 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	}
 	if respondWithError(w, err) {
 		return
+	}
+
+	//before we branch into different code paths, count the pull
+	if r.Method == "GET" {
+		l := prometheus.Labels{"account": account.Name, "method": "registry-api"}
+		if strings.HasPrefix(token.UserName, "replication@") {
+			l["method"] = "replication"
+		}
+		api.BlobsPulledCounter.With(l).Inc()
 	}
 
 	//prefer redirecting the client to a storage URL if the storage driver can give us one
