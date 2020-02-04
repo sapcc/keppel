@@ -31,6 +31,28 @@ import (
 	"testing"
 )
 
+//ByteData implements the HTTPRequestBody and HTTPResponseBody for plain bytestrings.
+type ByteData []byte
+
+//GetRequestBody implements the HTTPRequestBody interface.
+func (b ByteData) GetRequestBody() (io.Reader, error) {
+	return bytes.NewReader([]byte(b)), nil
+}
+
+//AssertResponseBody implements the HTTPResponseBody interface.
+func (b ByteData) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
+	t.Helper()
+
+	if !bytes.Equal([]byte(b), responseBody) {
+		t.Error(requestInfo + ": got unexpected response body")
+		t.Logf("\texpected = %q\n", b)
+		t.Logf("\t  actual = %q\n", responseBody)
+		return false
+	}
+
+	return true
+}
+
 //StringData implements HTTPRequestBody and HTTPResponseBody for plain strings.
 type StringData string
 

@@ -20,7 +20,7 @@ require (
 	github.com/poy/onpar v0.0.0-20190519213022-ee068f8ea4d1 // indirect
 	github.com/prometheus/client_golang v1.4.0
 	github.com/rs/cors v1.7.0
-	github.com/sapcc/go-bits v0.0.0-20200202190900-c4dbd089c539
+	github.com/sapcc/go-bits v0.0.0-20200204095854-fca1eb5c3bdd
 	github.com/sapcc/hermes v0.0.0-20200113180615-22691208a86f
 	github.com/satori/go.uuid v1.2.0
 	github.com/ziutek/mymysql v1.5.4 // indirect

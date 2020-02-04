@@ -53,7 +53,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 			"Content-Length": strconv.Itoa(len(blobContents)),
 			"Content-Type":   "application/octet-stream",
 		},
-		Body:         test.ByteData(blobContents),
+		Body:         assert.ByteData(blobContents),
 		ExpectStatus: http.StatusForbidden,
 		ExpectHeader: test.VersionHeader,
 		ExpectBody:   test.ErrorCode(keppel.ErrDenied),
@@ -69,7 +69,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 				"Content-Length": strconv.Itoa(len(blobContents)),
 				"Content-Type":   "application/octet-stream",
 			},
-			Body:         test.ByteData(blobContents),
+			Body:         assert.ByteData(blobContents),
 			ExpectStatus: http.StatusBadRequest,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrDigestInvalid),
@@ -86,7 +86,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 				"Content-Length": wrongLength,
 				"Content-Type":   "application/octet-stream",
 			},
-			Body:         test.ByteData(blobContents),
+			Body:         assert.ByteData(blobContents),
 			ExpectStatus: http.StatusBadRequest,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrSizeInvalid),
@@ -105,7 +105,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 			"Content-Length": strconv.Itoa(len(blobContents)),
 			"Content-Type":   "application/octet-stream",
 		},
-		Body:         test.ByteData(blobContents),
+		Body:         assert.ByteData(blobContents),
 		ExpectStatus: http.StatusCreated,
 		ExpectHeader: map[string]string{
 			test.VersionHeaderKey: test.VersionHeaderValue,
@@ -135,7 +135,7 @@ func expectBlobContents(t *testing.T, h http.Handler, token, repoName, blobDiges
 				"Content-Type":          "application/octet-stream",
 				"Docker-Content-Digest": blobDigest,
 			},
-			ExpectBody: test.ByteData(respBody),
+			ExpectBody: assert.ByteData(respBody),
 		}.Check(t, h)
 	}
 }
@@ -223,7 +223,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				"Content-Length": strconv.Itoa(len(blobContents)),
 				"Content-Type":   "application/octet-stream",
 			},
-			Body:         test.ByteData(blobContents),
+			Body:         assert.ByteData(blobContents),
 			ExpectStatus: http.StatusForbidden,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrDenied),
@@ -234,7 +234,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			Method:       "PATCH",
 			Path:         "/v2/test1/foo/blobs/uploads/b9ef33aa-7e2a-4fc8-8083-6b00601dab98", //bogus session ID
 			Header:       getHeadersForPATCH(0, len(blobContents)),
-			Body:         test.ByteData(blobContents),
+			Body:         assert.ByteData(blobContents),
 			ExpectStatus: http.StatusNotFound,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrBlobUploadUnknown),
@@ -246,7 +246,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			Method:       "PATCH",
 			Path:         keppel.AppendQuery(getBlobUploadURL(t, h, token), url.Values{"state": {"unexpected"}}),
 			Header:       getHeadersForPATCH(0, len(blobContents)),
-			Body:         test.ByteData(blobContents),
+			Body:         assert.ByteData(blobContents),
 			ExpectStatus: http.StatusBadRequest,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrBlobUploadInvalid),
@@ -260,14 +260,14 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			Method:       "PATCH",
 			Path:         uploadURL,
 			Header:       getHeadersForPATCH(0, len(blobContents)),
-			Body:         test.ByteData(blobContents),
+			Body:         assert.ByteData(blobContents),
 			ExpectStatus: http.StatusAccepted,
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "PATCH",
 			Path:         keppel.AppendQuery(uploadURL, url.Values{"state": {"unexpected"}}),
 			Header:       getHeadersForPATCH(len(blobContents), len(blobContents)),
-			Body:         test.ByteData(blobContents),
+			Body:         assert.ByteData(blobContents),
 			ExpectStatus: http.StatusBadRequest,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrBlobUploadInvalid),
@@ -286,7 +286,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 					Method:       "PATCH",
 					Path:         getBlobUploadURL(t, h, token),
 					Header:       getHeadersForPATCH(0, len(chunk1)),
-					Body:         test.ByteData(chunk1),
+					Body:         assert.ByteData(chunk1),
 					ExpectStatus: http.StatusAccepted,
 				}.Check(t, h)
 				assert.HTTPRequest{
@@ -298,7 +298,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 						"Content-Range":  contentRange,
 						"Content-Type":   "application/octet-stream",
 					},
-					Body:         test.ByteData(chunk2),
+					Body:         assert.ByteData(chunk2),
 					ExpectStatus: http.StatusBadRequest,
 					ExpectHeader: test.VersionHeader,
 					ExpectBody:   test.ErrorCode(keppel.ErrSizeInvalid),
@@ -323,7 +323,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				Method:       "PATCH",
 				Path:         getBlobUploadURL(t, h, token),
 				Header:       getHeadersForPATCH(0, len(blobContents)),
-				Body:         test.ByteData(blobContents),
+				Body:         assert.ByteData(blobContents),
 				ExpectStatus: http.StatusAccepted,
 			}.Check(t, h)
 			uploadURL := resp.Header.Get("Location")
@@ -345,7 +345,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				Method:       "PATCH",
 				Path:         getBlobUploadURL(t, h, token),
 				Header:       getHeadersForPATCH(0, len(chunk1)),
-				Body:         test.ByteData(chunk1),
+				Body:         assert.ByteData(chunk1),
 				ExpectStatus: http.StatusAccepted,
 			}.Check(t, h)
 			uploadURL := resp.Header.Get("Location")
@@ -366,7 +366,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 					"Content-Length": wrongContentLength,
 					"Content-Type":   "application/octet-stream",
 				},
-				Body:         test.ByteData(chunk2),
+				Body:         assert.ByteData(chunk2),
 				ExpectStatus: http.StatusBadRequest,
 				ExpectHeader: test.VersionHeader,
 				ExpectBody:   expectedError,
@@ -396,7 +396,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 						"Content-Length": strconv.Itoa(len(chunk)),
 						"Content-Type":   "application/octet-stream",
 					},
-					Body:         test.ByteData(chunk),
+					Body:         assert.ByteData(chunk),
 					ExpectStatus: http.StatusCreated,
 					ExpectHeader: map[string]string{
 						test.VersionHeaderKey: test.VersionHeaderValue,
@@ -409,7 +409,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 					Method:       "PATCH",
 					Path:         uploadURL,
 					Header:       getHeadersForPATCH(progress-len(chunk), len(chunk)),
-					Body:         test.ByteData(chunk),
+					Body:         assert.ByteData(chunk),
 					ExpectStatus: http.StatusAccepted,
 					ExpectHeader: map[string]string{
 						test.VersionHeaderKey: test.VersionHeaderValue,
@@ -474,7 +474,7 @@ func TestGetBlobUpload(t *testing.T) {
 			"Authorization": "Bearer " + token,
 			"Content-Type":  "application/octet-stream",
 		},
-		Body:         test.ByteData(blobContents),
+		Body:         assert.ByteData(blobContents),
 		ExpectStatus: http.StatusAccepted,
 		ExpectHeader: map[string]string{
 			test.VersionHeaderKey: test.VersionHeaderValue,
@@ -565,7 +565,7 @@ func TestDeleteBlobUpload(t *testing.T) {
 			"Authorization": "Bearer " + token,
 			"Content-Type":  "application/octet-stream",
 		},
-		Body:         test.ByteData(blobContents),
+		Body:         assert.ByteData(blobContents),
 		ExpectStatus: http.StatusAccepted,
 		ExpectHeader: map[string]string{
 			test.VersionHeaderKey: test.VersionHeaderValue,
@@ -629,7 +629,7 @@ func TestDeleteBlob(t *testing.T) {
 			"Content-Length": strconv.Itoa(len(blobContents)),
 			"Content-Type":   "application/octet-stream",
 		},
-		Body:         test.ByteData(blobContents),
+		Body:         assert.ByteData(blobContents),
 		ExpectStatus: http.StatusCreated,
 	}.Check(t, h)
 
