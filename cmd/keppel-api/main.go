@@ -28,9 +28,11 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 	"github.com/sapcc/go-bits/httpee"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/sre"
 	auth "github.com/sapcc/keppel/internal/api/auth"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
@@ -78,14 +80,15 @@ func main() {
 	auth.NewAPI(cfg, ad, db).AddTo(r)
 	registryv2.NewAPI(cfg, sd, db).AddTo(r)
 
-	//TODO Prometheus instrumentation
-	handler := logg.Middleware{}.Wrap(r)
+	//setup instrumentation on the HTTP server level
+	handler := logg.Middleware{}.Wrap(sre.Instrument(r))
 	handler = cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{"HEAD", "GET", "POST", "PUT", "DELETE"},
 		AllowedHeaders: []string{"Content-Type", "User-Agent", "X-Auth-Token"},
 	}).Handler(handler)
 	http.Handle("/", handler)
+	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/healthcheck", healthCheckHandler)
 
 	//start HTTP server

@@ -67,6 +67,7 @@ github.com/opencontainers/image-spec/specs-go/v1
 # github.com/prometheus/client_golang v1.4.0
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/internal
+github.com/prometheus/client_golang/prometheus/promhttp
 # github.com/prometheus/client_model v0.2.0
 github.com/prometheus/client_model/go
 # github.com/prometheus/common v0.9.1
@@ -93,6 +94,7 @@ github.com/sapcc/go-bits/gopherpolicy
 github.com/sapcc/go-bits/httpee
 github.com/sapcc/go-bits/logg
 github.com/sapcc/go-bits/respondwith
+github.com/sapcc/go-bits/sre
 # github.com/sapcc/hermes v0.0.0-20200113180615-22691208a86f
 github.com/sapcc/hermes/pkg/cadf
 # github.com/satori/go.uuid v1.2.0
