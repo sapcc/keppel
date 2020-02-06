@@ -92,14 +92,15 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//verify Accept header, if any
-	acceptHeader := r.Header.Get("Accept")
-	if acceptHeader != "" {
+	if r.Header.Get("Accept") != "" {
 		accepted := false
-		for _, acceptField := range strings.Split(acceptHeader, ",") {
-			acceptField = strings.SplitN(acceptField, ";", 2)[0]
-			acceptField = strings.TrimSpace(acceptField)
-			if acceptField == dbManifest.MediaType {
-				accepted = true
+		for _, acceptHeader := range r.Header["Accept"] {
+			for _, acceptField := range strings.Split(acceptHeader, ",") {
+				acceptField = strings.SplitN(acceptField, ";", 2)[0]
+				acceptField = strings.TrimSpace(acceptField)
+				if acceptField == dbManifest.MediaType {
+					accepted = true
+				}
 			}
 		}
 		if !accepted {
