@@ -32,6 +32,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
@@ -157,42 +158,19 @@ func (d *keystoneDriver) SetupAccount(account keppel.Account, authorization kepp
 	return result.Err
 }
 
-//possible formats for the username:
-//
-//		user@domain/project@domain
-//		user@domain/project
-//
-var userNameRx = regexp.MustCompile(`^([^/@]+)@([^/@]+)/([^/@]+)(?:@([^/@]+))?$`)
-
-//                                    ^------^ ^------^ ^------^    ^------^
-//                                      user   u. dom.   project    pr. dom.
-
 //AuthenticateUser implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Authorization, *keppel.RegistryV2Error) {
-	match := userNameRx.FindStringSubmatch(userName)
-	if match == nil {
-		return nil, keppel.ErrUnauthorized.With(`invalid username (expected "user@domain/project" or "user@domain/project@domain" format)`)
+	authOpts, rerr := parseUserNameAndPassword(userName, password)
+	if rerr != nil {
+		return nil, rerr
 	}
-
-	authOpts := gophercloud.AuthOptions{
-		IdentityEndpoint: d.IdentityV3.Endpoint,
-		Username:         match[1],
-		DomainName:       match[2],
-		Password:         password,
-		Scope: &gophercloud.AuthScope{
-			ProjectName: match[3],
-			DomainName:  match[4],
-		},
-		AllowReauth: false,
-	}
-	if authOpts.Scope.DomainName == "" {
-		authOpts.Scope.DomainName = authOpts.DomainName
-	}
+	authOpts.IdentityEndpoint = d.IdentityV3.Endpoint
+	authOpts.AllowReauth = false
 
 	provider, err := createProviderClient(authOpts)
 	if err != nil {
 		return nil, keppel.ErrUnauthorized.With(
-			"failed to get token for user %q: %s",
+			"failed to get token for %q: %s",
 			userName, err.Error(),
 		)
 	}
@@ -205,6 +183,46 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Aut
 		)
 	}
 	return newKeystoneAuthorization(t), nil
+}
+
+//possible formats for the username:
+//
+//		${USER}@${DOMAIN}/${PROJECT}@${DOMAIN}
+//		${USER}@${DOMAIN}/${PROJECT}
+//
+//		applicationcredential-${APPLICATION_CREDENTIAL_ID}
+//
+var userNameRx = regexp.MustCompile(`^([^/@]+)@([^/@]+)/([^/@]+)(?:@([^/@]+))?$`)
+
+//                                    ^------^ ^------^ ^------^    ^------^
+//                                      user   u. dom.   project    pr. dom.
+
+func parseUserNameAndPassword(userName, password string) (gophercloud.AuthOptions, *keppel.RegistryV2Error) {
+	if strings.HasPrefix(userName, "applicationcredential-") {
+		return gophercloud.AuthOptions{
+			ApplicationCredentialID:     strings.TrimPrefix(userName, "applicationcredential-"),
+			ApplicationCredentialSecret: password,
+		}, nil
+	}
+
+	match := userNameRx.FindStringSubmatch(userName)
+	if match == nil {
+		return gophercloud.AuthOptions{}, keppel.ErrUnauthorized.With(`invalid username (expected "user@domain/project" or "user@domain/project@domain" format)`)
+	}
+
+	ao := gophercloud.AuthOptions{
+		Username:   match[1],
+		DomainName: match[2],
+		Password:   password,
+		Scope: &gophercloud.AuthScope{
+			ProjectName: match[3],
+			DomainName:  match[4],
+		},
+	}
+	if ao.Scope.DomainName == "" {
+		ao.Scope.DomainName = ao.DomainName
+	}
+	return ao, nil
 }
 
 //AuthenticateUserFromRequest implements the keppel.AuthDriver interface.

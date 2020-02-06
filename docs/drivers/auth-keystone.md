@@ -5,13 +5,17 @@ Keystone projects.
 
 - Requests to the [Keppel API](../api-spec.md) are authenticated by reading a Keystone token from the X-Auth-Token
   request header.
-- Requests to the Docker Registry API are authenticated with username and password, and the username has one of the
+- Requests to the Docker Registry API can be authenticated with username and password, and the username has one of the
   following formats:
   ```
   user_name@user_domain_name/project_name@project_domain_name
   user_name@domain_name/project_name
   ```
   The latter format implies that user and project are located in the same domain.
+- Requests to the Docker Registry API can also be authenticated with an application credential by giving the user name
+  `applicationcredential=`, followed by the application credential ID. The supplied password must be the application
+  credential secret. It's not yet possible to identify an application credential by its name, but a syntax for this
+  could be added in a later release.
 
 | Variable | Default | Explanation |
 | -------- | ------- | ----------- |
