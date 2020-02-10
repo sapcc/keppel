@@ -98,7 +98,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 			for _, acceptField := range strings.Split(acceptHeader, ",") {
 				acceptField = strings.SplitN(acceptField, ";", 2)[0]
 				acceptField = strings.TrimSpace(acceptField)
-				if acceptField == dbManifest.MediaType {
+				if acceptField == dbManifest.MediaType || acceptField == "*/*" { // Accept: */* is used by curl(1)
 					accepted = true
 				}
 			}
