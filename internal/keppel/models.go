@@ -36,6 +36,9 @@ type Account struct {
 	AuthTenantID string `db:"auth_tenant_id"`
 	//UpstreamPeerHostName is set if and only if the "on_first_use" replication strategy is used.
 	UpstreamPeerHostName string `db:"upstream_peer_hostname"`
+	//RequiredLabels is a comma-separated list of labels that must be present on
+	//all image manifests in this account.
+	RequiredLabels string `db:"required_labels"`
 }
 
 //SwiftContainerName returns the name of the Swift container backing this

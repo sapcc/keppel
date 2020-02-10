@@ -20,6 +20,7 @@ package registryv2
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -27,6 +28,9 @@ import (
 	"strings"
 
 	"github.com/docker/distribution"
+	"github.com/docker/distribution/manifest/manifestlist"
+	"github.com/docker/distribution/manifest/ocischema"
+	"github.com/docker/distribution/manifest/schema2"
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
@@ -34,15 +38,6 @@ import (
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/replication"
-
-	//distribution.UnmarshalManifest() relies on the following packages
-	//registering their manifest schemas.
-	_ "github.com/docker/distribution/manifest/manifestlist"
-	_ "github.com/docker/distribution/manifest/ocischema"
-	_ "github.com/docker/distribution/manifest/schema2"
-	//NOTE: We don't enable github.com/docker/distribution/manifest/schema1
-	//anymore since it's legacy anyway and the implementation is a lot simpler
-	//when we don't have to rewrite manifests between schema1 and schema2.
 )
 
 //This implements the HEAD/GET /v2/<repo>/manifests/<reference> endpoint.
@@ -292,6 +287,20 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	//enforce account-specific validation rules on manifest
+	if account.RequiredLabels != "" {
+		requiredLabels := strings.Split(account.RequiredLabels, ",")
+		missingLabels, err := a.checkManifestHasRequiredLabels(*account, manifest, requiredLabels)
+		if respondWithError(w, err) {
+			return
+		}
+		if len(missingLabels) > 0 {
+			msg := "missing required labels: " + strings.Join(missingLabels, ", ")
+			keppel.ErrManifestInvalid.With(msg).WriteAsRegistryV2ResponseTo(w)
+			return
+		}
+	}
+
 	//compute total size of image (TODO: code duplication with ReplicateManifest())
 	sizeBytes := uint64(manifestDesc.Size)
 	for _, desc := range manifest.References() {
@@ -344,4 +353,62 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Docker-Content-Digest", manifestDesc.Digest.String())
 	w.Header().Set("Location", fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), manifestDesc.Digest.String()))
 	w.WriteHeader(http.StatusCreated)
+}
+
+//Returns the list of missing labels, or nil if everything is ok.
+func (a *API) checkManifestHasRequiredLabels(account keppel.Account, manifest distribution.Manifest, requiredLabels []string) ([]string, error) {
+	var configBlob distribution.Descriptor
+	switch m := manifest.(type) {
+	case *schema2.DeserializedManifest:
+		configBlob = m.Config
+	case *ocischema.DeserializedManifest:
+		configBlob = m.Config
+	case *manifestlist.DeserializedManifestList:
+		//manifest lists only reference other manifests, they don't have labels themselves
+		return nil, nil
+	}
+
+	//load the config blob
+	storageID, err := a.db.SelectStr(
+		`SELECT storage_id FROM blobs WHERE account_name = $1 AND digest = $2`,
+		account.Name, configBlob.Digest.String(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if storageID == "" {
+		return nil, keppel.ErrManifestBlobUnknown.With("").WithDetail(configBlob.Digest.String())
+	}
+	blobReader, _, err := a.sd.ReadBlob(account, storageID)
+	if err != nil {
+		return nil, err
+	}
+	blobContents, err := ioutil.ReadAll(blobReader)
+	if err != nil {
+		return nil, err
+	}
+	err = blobReader.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	//the Docker v2 and OCI formats are very similar; they're both JSON and have
+	//the labels in the same place, so we can use a single code path for both
+	var data struct {
+		Config struct {
+			Labels map[string]interface{} `json:"labels"`
+		} `json:"config"`
+	}
+	err = json.Unmarshal(blobContents, &data)
+	if err != nil {
+		return nil, err
+	}
+
+	var missingLabels []string
+	for _, label := range requiredLabels {
+		if _, exists := data.Config.Labels[label]; !exists {
+			missingLabels = append(missingLabels, label)
+		}
+	}
+	return missingLabels, nil
 }

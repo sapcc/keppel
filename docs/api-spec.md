@@ -57,6 +57,9 @@ On success, returns 200 and a JSON response body like this:
       "replication": {
         "strategy": "on_first_use",
         "upstream": "keppel.example.com"
+      },
+      "validation": {
+        "required_labels": [ "maintainers", "source_repo" ]
       }
     }
   ]
@@ -74,6 +77,8 @@ The following fields may be returned:
 | `accounts[].rbac_policies[].match_username` | string | The RBAC policy applies to all users whose name matches this regex. Refer to the [documentation of your auth driver](./drivers/) for the syntax of usernames. The notes on regexes below apply. |
 | `accounts[].rbac_policies[].permissions` | list of strings | The permissions granted by the RBAC policy. Acceptable values include `pull`, `push`, `delete` and `anonymous_pull`. When `pull`, `push` or `delete` are included, `match_username` is not empty. When `anonymous_pull` is included, `match_username` is empty. |
 | `accounts[].replication` | object or omitted | Replication configuration for this account, if any. [See below](#replication-strategies) for details. |
+| `accounts[].validation` | object or omitted | Validation rules for this account. When included, pushing blobs and manifests not satisfying these validation rules may be rejected. |
+| `accounts[].validation.required_labels` | list of strings | When non-empty, image manifests must include all these labels. (Labels can be set on an image using the Dockerfile's `LABEL` command.) |
 
 The values of the `match_repository` and `match_username` fields are regular expressions, using the
 [syntax defined by Go's stdlib regex parser](https://golang.org/pkg/regexp/syntax/). The anchors `^` and `$` are implied

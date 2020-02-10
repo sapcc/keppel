@@ -132,6 +132,12 @@ var sqlMigrations = map[string]string{
 		DROP TABLE rbac_policies;
 		DROP TABLE accounts;
 	`,
+	"002_add_account_required_labels.up.sql": `
+		ALTER TABLE accounts ADD column required_labels TEXT NOT NULL DEFAULT '';
+	`,
+	"002_add_account_required_labels.down.sql": `
+		ALTER TABLE accounts DROP column required_labels;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

@@ -440,6 +440,57 @@ func TestAccountsAPI(t *testing.T) {
 			},
 		},
 	)
+
+	//test setting up a validation policy
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/second",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  newRBACPoliciesJSON,
+				"validation": assert.JSONObject{
+					"required_labels": []string{"foo", "bar"},
+				},
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "second",
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  newRBACPoliciesJSON,
+				"validation": assert.JSONObject{
+					"required_labels": []string{"foo", "bar"},
+				},
+			},
+		},
+	}.Check(t, r)
+
+	//setting an empty validation policy should be equivalent to removing it
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/second",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  newRBACPoliciesJSON,
+				"validation": assert.JSONObject{
+					"required_labels": []string{},
+				},
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "second",
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  newRBACPoliciesJSON,
+			},
+		},
+	}.Check(t, r)
 }
 
 func TestGetAccountsErrorCases(t *testing.T) {

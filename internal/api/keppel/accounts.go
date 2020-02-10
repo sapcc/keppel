@@ -44,6 +44,7 @@ type Account struct {
 	AuthTenantID      string             `json:"auth_tenant_id"`
 	RBACPolicies      []RBACPolicy       `json:"rbac_policies"`
 	ReplicationPolicy *ReplicationPolicy `json:"replication,omitempty"`
+	ValidationPolicy  *ValidationPolicy  `json:"validation,omitempty"`
 }
 
 //RBACPolicy represents an RBAC policy in the API.
@@ -57,6 +58,11 @@ type RBACPolicy struct {
 type ReplicationPolicy struct {
 	Strategy             string `json:"strategy"`
 	UpstreamPeerHostName string `json:"upstream"`
+}
+
+//ValidationPolicy represents a validation policy in the API.
+type ValidationPolicy struct {
+	RequiredLabels []string `json:"required_labels,omitempty"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -79,6 +85,7 @@ func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
 		AuthTenantID:      dbAccount.AuthTenantID,
 		RBACPolicies:      policies,
 		ReplicationPolicy: renderReplicationPolicy(dbAccount),
+		ValidationPolicy:  renderValidationPolicy(dbAccount),
 	}, nil
 }
 
@@ -90,6 +97,16 @@ func renderReplicationPolicy(dbAccount keppel.Account) *ReplicationPolicy {
 	return &ReplicationPolicy{
 		Strategy:             "on_first_use",
 		UpstreamPeerHostName: dbAccount.UpstreamPeerHostName,
+	}
+}
+
+func renderValidationPolicy(dbAccount keppel.Account) *ValidationPolicy {
+	if dbAccount.RequiredLabels == "" {
+		return nil
+	}
+
+	return &ValidationPolicy{
+		RequiredLabels: strings.Split(dbAccount.RequiredLabels, ","),
 	}
 }
 
@@ -230,6 +247,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			AuthTenantID      string             `json:"auth_tenant_id"`
 			RBACPolicies      []RBACPolicy       `json:"rbac_policies"`
 			ReplicationPolicy *ReplicationPolicy `json:"replication"`
+			ValidationPolicy  *ValidationPolicy  `json:"validation"`
 		} `json:"account"`
 	}
 	decoder := json.NewDecoder(r.Body)
@@ -283,6 +301,19 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		}
 
 		accountToCreate.UpstreamPeerHostName = rp.UpstreamPeerHostName
+	}
+
+	//validate validation policy
+	if req.Account.ValidationPolicy != nil {
+		vp := *req.Account.ValidationPolicy
+		for _, label := range vp.RequiredLabels {
+			if strings.Contains(label, ",") {
+				http.Error(w, fmt.Sprintf(`invalid label name: %q`, label), http.StatusUnprocessableEntity)
+				return
+			}
+		}
+
+		accountToCreate.RequiredLabels = strings.Join(vp.RequiredLabels, ",")
 	}
 
 	//check permission to create account
@@ -360,6 +391,19 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 				Action:     "create",
 				Target:     AuditAccount{Account: *account},
 			})
+		}
+	} else {
+		//account != nil: update if necessary
+		needsUpdate := false
+		if account.RequiredLabels != accountToCreate.RequiredLabels {
+			account.RequiredLabels = accountToCreate.RequiredLabels
+			needsUpdate = true
+		}
+		if needsUpdate {
+			_, err := a.db.Update(account)
+			if respondwith.ErrorText(w, err) {
+				return
+			}
 		}
 	}
 
