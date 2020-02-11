@@ -41,6 +41,7 @@ import (
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
 	uuid "github.com/satori/go.uuid"
+	"gopkg.in/gorp.v2"
 )
 
 //This implements the POST /v2/<account>/<repository>/blobs/uploads/ endpoint.
@@ -251,12 +252,13 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 		StorageID:   storageID,
 		PushedAt:    a.timeNow(),
 	}
-	err = tx.Insert(&blob)
+	onCommit, err := a.createOrUpdateBlobObject(tx, &blob, account)
 	if respondWithError(w, err) {
 		return false
 	}
 
-	_, err = tx.Exec(`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1, $2)`,
+	_, err = tx.Exec(
+		`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
 		blob.ID, repo.ID,
 	)
 	if respondWithError(w, err) {
@@ -266,6 +268,9 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	err = tx.Commit()
 	if respondWithError(w, err) {
 		return false
+	}
+	if onCommit != nil {
+		onCommit()
 	}
 
 	//the spec wants a Blob-Upload-Session-Id header even though the upload is done, so just make something up
@@ -655,6 +660,11 @@ func (a *API) finishUpload(account keppel.Account, repoName string, upload *kepp
 	}
 	defer keppel.RollbackUnlessCommitted(tx)
 
+	_, err = tx.Delete(upload)
+	if err != nil {
+		return nil, err
+	}
+
 	blob = &keppel.Blob{
 		AccountName: account.Name,
 		Digest:      blobDigest.String(),
@@ -662,15 +672,12 @@ func (a *API) finishUpload(account keppel.Account, repoName string, upload *kepp
 		StorageID:   upload.StorageID,
 		PushedAt:    a.timeNow(),
 	}
-	err = tx.Insert(blob)
+	onCommit, err := a.createOrUpdateBlobObject(tx, blob, account)
 	if err != nil {
 		return nil, err
 	}
-	_, err = tx.Delete(upload)
-	if err != nil {
-		return nil, err
-	}
-	_, err = tx.Exec(`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1, $2)`,
+	_, err = tx.Exec(
+		`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
 		blob.ID, repo.ID)
 	if err != nil {
 		return nil, err
@@ -681,7 +688,47 @@ func (a *API) finishUpload(account keppel.Account, repoName string, upload *kepp
 	if err != nil {
 		return nil, err
 	}
-	return blob, tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+	if onCommit != nil {
+		onCommit()
+	}
+	return blob, nil
+}
+
+//Insert a Blob object in the database. This is similar to tx.Insert(blob), but
+//handles a collision where another blob with the same account name and digest
+//already exists in the database.
+func (a *API) createOrUpdateBlobObject(tx *gorp.Transaction, blob *keppel.Blob, account keppel.Account) (onCommit func(), returnErr error) {
+	//check for collision
+	var otherBlob keppel.Blob
+	err := tx.SelectOne(&otherBlob,
+		`SELECT * FROM blobs WHERE account_name = $1 AND digest = $2`,
+		blob.AccountName, blob.Digest)
+
+	switch err {
+	case sql.ErrNoRows:
+		//no collision - just insert the new blob
+		return nil, tx.Insert(blob)
+	case nil:
+		//collision - replace old blob with new blob (we trust the new blob more
+		//because we just verified its digest)
+		blob.ID = otherBlob.ID
+		_, err := tx.Update(blob)
+		onCommit := func() {
+			//when the UPDATE was committed, we need to cleanup the old blob's contents
+			err := a.sd.DeleteBlob(account, otherBlob.StorageID)
+			if err != nil {
+				logg.Error("additional error encountered while deleting duplicate blob %s from %s: %s", otherBlob.StorageID, account.Name, err.Error())
+			}
+		}
+		return onCommit, err
+	default:
+		//unexpected error during SELECT
+		return nil, err
+	}
 }
 
 //digestWriter is an io.Writer that writes into the given Hash and also tracks the number of bytes written.

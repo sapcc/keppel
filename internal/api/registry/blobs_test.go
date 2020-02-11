@@ -94,26 +94,29 @@ func TestBlobMonolithicUpload(t *testing.T) {
 	//failed requests should not retain anything in the storage
 	expectStorageEmpty(t, sd, db)
 
-	//test success case
-	assert.HTTPRequest{
-		Method: "POST",
-		Path:   "/v2/test1/foo/blobs/uploads/?digest=" + blobDigest,
-		Header: map[string]string{
-			"Authorization":  "Bearer " + token,
-			"Content-Length": strconv.Itoa(len(blobContents)),
-			"Content-Type":   "application/octet-stream",
-		},
-		Body:         assert.ByteData(blobContents),
-		ExpectStatus: http.StatusCreated,
-		ExpectHeader: map[string]string{
-			test.VersionHeaderKey: test.VersionHeaderValue,
-			"Content-Length":      "0",
-			"Location":            "/v2/test1/foo/blobs/" + blobDigest,
-		},
-	}.Check(t, h)
+	//test success case twice: should look the same also in the second pass
+	for range []int{1, 2} {
+		//test success case
+		assert.HTTPRequest{
+			Method: "POST",
+			Path:   "/v2/test1/foo/blobs/uploads/?digest=" + blobDigest,
+			Header: map[string]string{
+				"Authorization":  "Bearer " + token,
+				"Content-Length": strconv.Itoa(len(blobContents)),
+				"Content-Type":   "application/octet-stream",
+			},
+			Body:         assert.ByteData(blobContents),
+			ExpectStatus: http.StatusCreated,
+			ExpectHeader: map[string]string{
+				test.VersionHeaderKey: test.VersionHeaderValue,
+				"Content-Length":      "0",
+				"Location":            "/v2/test1/foo/blobs/" + blobDigest,
+			},
+		}.Check(t, h)
 
-	//validate that the blob was stored at the specified location
-	expectBlobContents(t, h, token, "test1/foo", blobDigest, blobContents)
+		//validate that the blob was stored at the specified location
+		expectBlobContents(t, h, token, "test1/foo", blobDigest, blobContents)
+	}
 }
 
 func expectBlobContents(t *testing.T, h http.Handler, token, repoName, blobDigest string, blobContents []byte) {
@@ -378,49 +381,52 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 		//failed requests should not retain anything in the storage
 		expectStorageEmpty(t, sd, db)
 
-		//test success case (with multiple chunks!)
-		uploadURL = getBlobUploadURL(t, h, token)
-		progress := 0
-		for _, chunk := range bytes.SplitAfter(blobContents, []byte(" ")) {
-			progress += len(chunk)
+		//test success case twice: should look the same also in the second pass
+		for range []int{1, 2} {
+			//test success case (with multiple chunks!)
+			uploadURL = getBlobUploadURL(t, h, token)
+			progress := 0
+			for _, chunk := range bytes.SplitAfter(blobContents, []byte(" ")) {
+				progress += len(chunk)
 
-			if progress == len(blobContents) {
-				//send the last chunk with the final PUT request
-				assert.HTTPRequest{
-					Method: "PUT",
-					Path:   keppel.AppendQuery(uploadURL, url.Values{"digest": {blobDigest}}),
-					Header: map[string]string{
-						"Authorization":  "Bearer " + token,
-						"Content-Length": strconv.Itoa(len(chunk)),
-						"Content-Type":   "application/octet-stream",
-					},
-					Body:         assert.ByteData(chunk),
-					ExpectStatus: http.StatusCreated,
-					ExpectHeader: map[string]string{
-						test.VersionHeaderKey: test.VersionHeaderValue,
-						"Content-Length":      "0",
-						"Location":            "/v2/test1/foo/blobs/" + blobDigest,
-					},
-				}.Check(t, h)
-			} else {
-				resp, _ := assert.HTTPRequest{
-					Method:       "PATCH",
-					Path:         uploadURL,
-					Header:       getHeadersForPATCH(progress-len(chunk), len(chunk)),
-					Body:         assert.ByteData(chunk),
-					ExpectStatus: http.StatusAccepted,
-					ExpectHeader: map[string]string{
-						test.VersionHeaderKey: test.VersionHeaderValue,
-						"Content-Length":      "0",
-						"Range":               fmt.Sprintf("0-%d", progress),
-					},
-				}.Check(t, h)
-				uploadURL = resp.Header.Get("Location")
+				if progress == len(blobContents) {
+					//send the last chunk with the final PUT request
+					assert.HTTPRequest{
+						Method: "PUT",
+						Path:   keppel.AppendQuery(uploadURL, url.Values{"digest": {blobDigest}}),
+						Header: map[string]string{
+							"Authorization":  "Bearer " + token,
+							"Content-Length": strconv.Itoa(len(chunk)),
+							"Content-Type":   "application/octet-stream",
+						},
+						Body:         assert.ByteData(chunk),
+						ExpectStatus: http.StatusCreated,
+						ExpectHeader: map[string]string{
+							test.VersionHeaderKey: test.VersionHeaderValue,
+							"Content-Length":      "0",
+							"Location":            "/v2/test1/foo/blobs/" + blobDigest,
+						},
+					}.Check(t, h)
+				} else {
+					resp, _ := assert.HTTPRequest{
+						Method:       "PATCH",
+						Path:         uploadURL,
+						Header:       getHeadersForPATCH(progress-len(chunk), len(chunk)),
+						Body:         assert.ByteData(chunk),
+						ExpectStatus: http.StatusAccepted,
+						ExpectHeader: map[string]string{
+							test.VersionHeaderKey: test.VersionHeaderValue,
+							"Content-Length":      "0",
+							"Range":               fmt.Sprintf("0-%d", progress),
+						},
+					}.Check(t, h)
+					uploadURL = resp.Header.Get("Location")
+				}
 			}
-		}
 
-		//validate that the blob was stored at the specified location
-		expectBlobContents(t, h, token, "test1/foo", blobDigest, blobContents)
+			//validate that the blob was stored at the specified location
+			expectBlobContents(t, h, token, "test1/foo", blobDigest, blobContents)
+		}
 	}
 }
 
