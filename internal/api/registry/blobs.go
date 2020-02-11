@@ -140,6 +140,14 @@ func (a *API) tryReplicateBlob(w http.ResponseWriter, r *http.Request, account k
 			return
 		}
 	}
+
+	//if `err == nil && !responseWasWritten`, the blob was replicated by mounting
+	//an existing blob with the same digest into this repo; in this case, we need
+	//to restart the GET call to find the mounted blob
+	if !responseWasWritten {
+		//TODO ugly (and may cause an infinite loop if not handled carefully)
+		a.handleGetOrHeadBlob(w, r)
+	}
 }
 
 //This implements the DELETE /v2/<account>/<repository>/blobs/<digest> endpoint.

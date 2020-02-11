@@ -137,6 +137,10 @@ const blobGetQueryByRepoID = `
 	 WHERE b.account_name = $1 AND b.digest = $2 AND bm.repo_id = $3
 `
 
+const blobGetQueryByAccountName = `
+	SELECT * FROM blobs WHERE account_name = $1 AND digest = $2
+`
+
 //FindBlobByRepositoryName is a convenience wrapper around db.SelectOne(). If
 //the blob in question does not exist, sql.ErrNoRows is returned.
 func (db *DB) FindBlobByRepositoryName(blobDigest digest.Digest, repoName string, account Account) (*Blob, error) {
@@ -150,6 +154,14 @@ func (db *DB) FindBlobByRepositoryName(blobDigest digest.Digest, repoName string
 func (db *DB) FindBlobByRepositoryID(blobDigest digest.Digest, repoID int64, account Account) (*Blob, error) {
 	var blob Blob
 	err := db.SelectOne(&blob, blobGetQueryByRepoID, account.Name, blobDigest.String(), repoID)
+	return &blob, err
+}
+
+//FindBlobByAccountName is a convenience wrapper around db.SelectOne(). If the
+//blob in question does not exist, sql.ErrNoRows is returned.
+func (db *DB) FindBlobByAccountName(blobDigest digest.Digest, account Account) (*Blob, error) {
+	var blob Blob
+	err := db.SelectOne(&blob, blobGetQueryByAccountName, account.Name, blobDigest.String())
 	return &blob, err
 }
 

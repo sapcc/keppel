@@ -66,11 +66,31 @@ func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *k
 		t.Fatal(err.Error())
 	}
 
+	//we want to test replication for a blob that exists in multiple repos, so
+	//mount one of the blobs from test1/foo into test1/bar on upstream
+	barRepoPrimary, err := dbPrimary.FindOrCreateRepository("bar", keppel.Account{Name: "test1"})
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	_, err = dbPrimary.Exec(
+		`INSERT INTO blob_mounts (blob_id, repo_id) VALUES (
+			(SELECT id FROM blobs WHERE account_name = $1 AND digest = $2), $3
+		)`,
+		"test1", firstBlobDigest, barRepoPrimary.ID,
+	)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
 	defer func() {
 		//reset primary's DB into its previous state
 		_, err = dbPrimary.Exec(`DELETE FROM peers WHERE hostname = $1`,
 			"registry-secondary.example.org",
 		)
+		if err != nil {
+			t.Error(err.Error())
+		}
+		_, err = dbPrimary.Exec(`DELETE FROM repos WHERE name = $1`, "bar")
 		if err != nil {
 			t.Error(err.Error())
 		}
@@ -201,6 +221,23 @@ func testROFUSuccessCases(t *testing.T, h http.Handler, ad keppel.AuthDriver, fi
 		},
 	}.Check(t, h)
 	assertDigest(t, "manifest", manifestData, secondManifestDigest)
+
+	//On upstream, the blob with `firstBlobDigest` exists in both the test1/foo
+	//and test1/bar repo.  We already replicated it into test1/foo. When
+	//replicating it again into test1/bar, the test used to fail because it just
+	//stupidly replicated the same blob again and thus ran into a DB error
+	//because `INSERT INTO blobs` violates the uniqueness constraint on
+	//(account_name, digest). It should actually only create a new blob mount.
+	token = getTokenForSecondary(t, h, ad, "repository:test1/bar:pull",
+		keppel.CanPullFromAccount)
+	_, blobData = assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/v2/test1/bar/blobs/" + firstBlobDigest,
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusOK,
+		ExpectHeader: test.VersionHeader,
+	}.Check(t, h)
+	assertDigest(t, "blob", blobData, firstBlobDigest)
 }
 
 func assertDigest(t *testing.T, objectType string, data []byte, expectedDigest string) {

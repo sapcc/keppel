@@ -19,6 +19,7 @@
 package replication
 
 import (
+	"database/sql"
 	"errors"
 	"io"
 	"net/http"
@@ -90,6 +91,15 @@ func (r Replicator) ReplicateBlob(b Blob, w http.ResponseWriter, requestMethod s
 		}
 	}()
 
+	//if we already have the same blob locally in a different repo, we would not
+	//need to transfer its contents again, we could just mount it
+	localBlob, err := r.db.FindBlobByAccountName(b.Digest, b.Account)
+	if err == sql.ErrNoRows {
+		localBlob = nil
+	} else if err != nil {
+		return false, err
+	}
+
 	//get a token for upstream
 	var peer keppel.Peer
 	err = r.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, b.Account.UpstreamPeerHostName)
@@ -103,7 +113,7 @@ func (r Replicator) ReplicateBlob(b Blob, w http.ResponseWriter, requestMethod s
 
 	//query upstream for the blob
 	upstreamMethod := "GET"
-	if requestMethod == "HEAD" {
+	if requestMethod == "HEAD" || localBlob != nil {
 		upstreamMethod = "HEAD"
 	}
 	blobReadCloser, blobLengthBytes, _, err := r.fetchFromUpstream(b.Repo, upstreamMethod, "blobs/"+b.Digest.String(), peer, peerToken)
@@ -111,6 +121,16 @@ func (r Replicator) ReplicateBlob(b Blob, w http.ResponseWriter, requestMethod s
 		return false, err
 	}
 	defer blobReadCloser.Close()
+
+	//at this point, it's clear that upstream has the blob; if we also have it
+	//locally, we just need to mount it; then we can revert to the regular code path
+	if localBlob != nil {
+		_, err := r.db.Exec(
+			`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			localBlob.ID, b.Repo.ID,
+		)
+		return false, err
+	}
 
 	//stream into `w` if requested
 	blobReader := io.Reader(blobReadCloser)
