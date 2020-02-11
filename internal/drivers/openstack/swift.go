@@ -86,7 +86,7 @@ func (d *swiftDriver) getBackendConnection(account keppel.Account) (*schwift.Con
 		if err != nil {
 			return nil, err
 		}
-		a, err := gopherschwift.Wrap(client, &gopherschwift.Options{
+		a, err = gopherschwift.Wrap(client, &gopherschwift.Options{
 			UserAgent: "keppel-api/" + keppel.Version,
 		})
 		if err != nil {
