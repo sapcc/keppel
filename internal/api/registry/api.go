@@ -151,8 +151,8 @@ func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *
 	return token
 }
 
-//The "with trailing slash" simplifies the regex because we need not write the regex for a path element twice.
-var repoNameWithTrailingSlashRx = regexp.MustCompile(`^(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)+$`)
+//The "with leading slash" simplifies the regex because we need not write the regex for a path element twice.
+var repoNameWithLeadingSlashRx = regexp.MustCompile(`^(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)+$`)
 
 //A one-stop-shop authorization checker for all endpoints that set the mux vars
 //"account" and "repository". On success, returns the account and repository
@@ -164,7 +164,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request) (accoun
 	//check that repo name is wellformed
 	vars := mux.Vars(r)
 	repoName = vars["repository"]
-	if !repoNameWithTrailingSlashRx.MatchString("/" + repoName) {
+	if !repoNameWithLeadingSlashRx.MatchString("/" + repoName) {
 		keppel.ErrNameInvalid.With("invalid repository name").WriteAsRegistryV2ResponseTo(w)
 		return
 	}

@@ -1,5 +1,6 @@
 PKG     = github.com/sapcc/keppel
 PREFIX := /usr
+BINS    = $(patsubst cmd/%/main.go,%,$(wildcard cmd/*/main.go))
 
 all: build_all
 
@@ -13,13 +14,13 @@ GO_LDFLAGS    := -s -w -X $(PKG)/internal/keppel.Version=$(shell util/find_versi
 # These targets use the incremental rebuild capabilities of the Go compiler to
 # speed things up. If no source files have changed, `go install` exits quickly
 # without doing anything.
-build_all: $(patsubst cmd/%/main.go,build/%,$(wildcard cmd/*/main.go))
-build/keppel-%: FORCE
-	$(GO) install $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' '$(PKG)/cmd/keppel-$*'
+build_all: $(addprefix build/,$(BINS))
+build/%: FORCE
+	$(GO) install $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' '$(PKG)/cmd/$*'
 
-install: FORCE $(patsubst cmd/%/main.go,install/%,$(wildcard cmd/*/main.go))
-install/keppel-%: build/keppel-% FORCE
-	install -D -m 0755 build/keppel-$* "$(DESTDIR)$(PREFIX)/bin/keppel-$*"
+install: FORCE $(addprefix install/,$(BINS))
+install/%: build/% FORCE
+	install -D -m 0755 build/$* "$(DESTDIR)$(PREFIX)/bin/$*"
 
 ################################################################################
 
