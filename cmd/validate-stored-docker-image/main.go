@@ -61,30 +61,64 @@ func main() {
 	}
 
 	var token string
-	manifestBytes, manifestContentType, err := getManifestContents(ref, &token)
+	var manifestsToCheck []digest.Digest
+	var blobsToCheck []digest.Digest
+
+	manifestBytes, manifestContentType, err := getManifestContents(ref, ref.Reference, &token)
 	if err != nil {
 		logg.Fatal(err.Error())
 	}
-
 	manifest, manifestDesc, err := distribution.UnmarshalManifest(manifestContentType, manifestBytes)
 	if err != nil {
 		logg.Fatal("error decoding %s manifest: %s", manifestContentType, err.Error())
 	}
-	logg.Info("manifest %s looks good, includes references to %d blobs", manifestDesc.Digest, len(manifest.References()))
-
-	for _, blobDesc := range manifest.References() {
-		err := verifyBlobContents(ref, blobDesc.Digest, token)
-		if err == nil {
-			logg.Info("blob %s looks good", blobDesc.Digest)
+	for _, desc := range manifest.References() {
+		if isManifestMediaType(desc.MediaType) {
+			manifestsToCheck = append(manifestsToCheck, desc.Digest)
 		} else {
-			logg.Fatal("error verifying blob %s: %s", blobDesc.Digest, err.Error())
+			blobsToCheck = append(blobsToCheck, desc.Digest)
+		}
+	}
+	logg.Info("manifest %s looks good, references %d manifests and %d blobs", manifestDesc.Digest, len(manifestsToCheck), len(blobsToCheck))
+
+	for len(manifestsToCheck) > 0 {
+		manifestDigest := manifestsToCheck[0]
+		manifestsToCheck = manifestsToCheck[1:]
+
+		manifestBytes, manifestContentType, err := getManifestContents(ref, manifestDigest.String(), &token)
+		if err != nil {
+			logg.Fatal(err.Error())
+		}
+		manifest, manifestDesc, err := distribution.UnmarshalManifest(manifestContentType, manifestBytes)
+		if err != nil {
+			logg.Fatal("error decoding %s manifest: %s", manifestContentType, err.Error())
+		}
+		newManifestCount, newBlobCount := 0, 0
+		for _, desc := range manifest.References() {
+			if isManifestMediaType(desc.MediaType) {
+				manifestsToCheck = append(manifestsToCheck, desc.Digest)
+				newManifestCount++
+			} else {
+				blobsToCheck = append(blobsToCheck, desc.Digest)
+				newBlobCount++
+			}
+		}
+		logg.Info("manifest %s looks good, references %d manifests and %d blobs", manifestDesc.Digest, newManifestCount, newBlobCount)
+	}
+
+	for _, blobDigest := range blobsToCheck {
+		err := verifyBlobContents(ref, blobDigest, token)
+		if err == nil {
+			logg.Info("blob %s looks good", blobDigest)
+		} else {
+			logg.Fatal("error verifying blob %s: %s", blobDigest, err.Error())
 		}
 	}
 }
 
-func getManifestContents(ref client.ImageReference, token *string) ([]byte, string, error) {
+func getManifestContents(ref client.ImageReference, reference string, token *string) ([]byte, string, error) {
 	uri := fmt.Sprintf("https://%s/v2/%s/manifests/%s",
-		ref.Host, ref.RepoName, ref.Reference)
+		ref.Host, ref.RepoName, reference)
 
 	//send GET request for manifest
 	req, err := http.NewRequest("GET", uri, nil)
@@ -197,4 +231,13 @@ func parseRegistryAPIError(respBytes []byte) error {
 		return data.Errors[0]
 	}
 	return errors.New(string(respBytes))
+}
+
+func isManifestMediaType(contentType string) bool {
+	for _, mt := range distribution.ManifestMediaTypes() {
+		if mt == contentType {
+			return true
+		}
+	}
+	return false
 }
