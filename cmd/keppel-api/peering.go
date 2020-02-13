@@ -31,26 +31,37 @@ import (
 )
 
 func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
-	var peerHostNames []string
+	isPeerHostName := make(map[string]bool)
 	for _, hostName := range strings.Split(os.Getenv("KEPPEL_PEERS"), ",") {
 		hostName = strings.TrimSpace(hostName)
 		if hostName != "" {
-			peerHostNames = append(peerHostNames, hostName)
+			isPeerHostName[hostName] = true
 		}
 	}
 
-	if len(peerHostNames) == 0 {
+	if len(isPeerHostName) == 0 {
 		//nothing to do
 		return
 	}
 
 	//add missing entries to `peers` table
-	for _, peerHostName := range peerHostNames {
+	for peerHostName := range isPeerHostName {
 		_, err := db.Exec(
 			`INSERT INTO peers (hostname) VALUES ($1) ON CONFLICT DO NOTHING`,
 			peerHostName,
 		)
 		must(err)
+	}
+
+	//remove old entries from `peers` table
+	var allPeers []keppel.Peer
+	_, err := db.Select(&allPeers, `SELECT * FROM peers`)
+	must(err)
+	for _, peer := range allPeers {
+		if !isPeerHostName[peer.HostName] {
+			_, err := db.Delete(peer)
+			must(err)
+		}
 	}
 
 	go func() {
