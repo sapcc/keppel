@@ -59,7 +59,7 @@ func (a *API) handleGetPeers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var peers []keppel.Peer
-	_, err := a.db.Select(&peers, `SELECT * FROM peers`)
+	_, err := a.db.Select(&peers, `SELECT * FROM peers ORDER BY hostname`)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
