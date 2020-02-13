@@ -7,7 +7,7 @@ RUN make -C /src install PREFIX=/pkg GO_BUILDFLAGS='-mod vendor'
 ################################################################################
 
 FROM alpine:latest
-MAINTAINER "Stefan Majewsky <stefan.majewsky@sap.com>"
+LABEL source_repository="https://github.com/sapcc/keppel"
 
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /pkg/ /usr/
