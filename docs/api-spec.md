@@ -24,6 +24,7 @@ This document uses the terminology defined in the [README.md](../README.md#termi
 - [DELETE /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest](#delete-keppelv1accountsnamerepositoriesnamemanifestsdigest)
 - [GET /keppel/v1/auth](#get-keppelv1auth)
 - [POST /keppel/v1/auth/peering](#post-keppelv1authpeering)
+- [GET /keppel/v1/peers](#get-keppelv1peers)
 - [GET /keppel/v1/quotas/:auth\_tenant\_id](#get-keppelv1quotasauthtenantid)
 - [PUT /keppel/v1/quotas/:auth\_tenant\_id](#put-keppelv1quotasauthtenantid)
 
@@ -278,6 +279,27 @@ The following fields must be included:
 | ----- | ---- | ----------- |
 | `peer` | string | The hostname of the registry for which those credentials are valid. |
 | `username`<br />`password` | string | Credentials granting global pull access to that registry. |
+
+## GET /keppel/v1/peers
+
+Shows information about the peers known to this registry. This information is vital for users who want to create a
+replica account, since they have to know which peers are eligible.
+On success, returns 200 and a JSON response body like this:
+
+```json
+{
+  "peers": [
+    { "hostname": "keppel.example.org" },
+    { "hostname": "keppel.example.com" }
+  ]
+}
+
+The following fields may be returned:
+
+| Field | Type | Explanation |
+| ----- | ---- | ----------- |
+| `peers` | list of objects | List of peers known to this registry. |
+| `peers[].hostname` | string | Hostname of this peer. |
 
 ## GET /keppel/v1/quotas/:auth\_tenant\_id
 
