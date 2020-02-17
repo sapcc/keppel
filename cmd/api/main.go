@@ -17,15 +17,13 @@
 *
 *******************************************************************************/
 
-package main
+package apicmd
 
 import (
 	"context"
-	"crypto/tls"
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
@@ -36,26 +34,23 @@ import (
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/keppel"
-
-	_ "github.com/sapcc/keppel/internal/drivers/openstack"
-	_ "github.com/sapcc/keppel/internal/drivers/trivial"
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	logg.ShowDebug, _ = strconv.ParseBool(os.Getenv("KEPPEL_DEBUG"))
-	logg.Info("starting keppel-api %s", keppel.Version)
-
-	//The KEPPEL_INSECURE flag can be used to get Keppel to work through
-	//mitmproxy (which is very useful for development and debugging). (It's very
-	//important that this is not the standard "KEPPEL_DEBUG" variable. That one
-	//is meant to be useful for production systems, where you definitely don't
-	//want to turn off certificate verification.)
-	if insecure, _ := strconv.ParseBool(os.Getenv("KEPPEL_INSECURE")); insecure {
-		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true,
-		}
-		http.DefaultClient.Transport = http.DefaultTransport
+//AddCommandTo mounts this command into the command hierarchy.
+func AddCommandTo(parent *cobra.Command) {
+	cmd := &cobra.Command{
+		Use:   "api",
+		Short: "Run the keppel-api server component.",
+		Long:  "Run the keppel-api server component. Configuration is read from environment variables as described in README.md.",
+		Args:  cobra.NoArgs,
+		Run:   run,
 	}
+	parent.AddCommand(cmd)
+}
+
+func run(cmd *cobra.Command, args []string) {
+	logg.Info("starting keppel-api %s", keppel.Version)
 
 	cfg := parseConfig()
 	auditor := initAuditTrail()

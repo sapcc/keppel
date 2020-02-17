@@ -23,6 +23,7 @@ require (
 	github.com/sapcc/go-bits v0.0.0-20200204095854-fca1eb5c3bdd
 	github.com/sapcc/hermes v0.0.0-20200113180615-22691208a86f
 	github.com/satori/go.uuid v1.2.0
+	github.com/spf13/cobra v0.0.5
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/crypto v0.0.0-20200128174031-69ecbb4d6d5d
 	gopkg.in/gorp.v2 v2.2.0

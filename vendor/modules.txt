@@ -45,6 +45,8 @@ github.com/gorilla/mux
 github.com/hashicorp/errwrap
 # github.com/hashicorp/go-multierror v1.0.0
 github.com/hashicorp/go-multierror
+# github.com/inconshreveable/mousetrap v1.0.0
+github.com/inconshreveable/mousetrap
 # github.com/jarcoal/httpmock v1.0.4
 github.com/jarcoal/httpmock
 # github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629
@@ -99,6 +101,10 @@ github.com/sapcc/go-bits/sre
 github.com/sapcc/hermes/pkg/cadf
 # github.com/satori/go.uuid v1.2.0
 github.com/satori/go.uuid
+# github.com/spf13/cobra v0.0.5
+github.com/spf13/cobra
+# github.com/spf13/pflag v1.0.5
+github.com/spf13/pflag
 # github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271
 github.com/streadway/amqp
 # golang.org/x/crypto v0.0.0-20200128174031-69ecbb4d6d5d

@@ -1,8 +1,7 @@
 PKG     = github.com/sapcc/keppel
 PREFIX := /usr
-BINS    = $(patsubst cmd/%/main.go,%,$(wildcard cmd/*/main.go))
 
-all: build_all
+all: build/keppel
 
 # NOTE: This repo uses Go modules, and uses a synthetic GOPATH at
 # $(CURDIR)/.gopath that is only used for the build cache. $GOPATH/src/ is
@@ -14,19 +13,17 @@ GO_LDFLAGS    := -s -w -X $(PKG)/internal/keppel.Version=$(shell util/find_versi
 # These targets use the incremental rebuild capabilities of the Go compiler to
 # speed things up. If no source files have changed, `go install` exits quickly
 # without doing anything.
-build_all: $(addprefix build/,$(BINS))
-build/%: FORCE
-	$(GO) install $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' '$(PKG)/cmd/$*'
+build/keppel: FORCE
+	$(GO) install $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' '$(PKG)'
 
-install: FORCE $(addprefix install/,$(BINS))
-install/%: build/% FORCE
-	install -D -m 0755 build/$* "$(DESTDIR)$(PREFIX)/bin/$*"
+install: FORCE
+	install -D -m 0755 build/keppel "$(DESTDIR)$(PREFIX)/bin/keppel"
 
 ################################################################################
 
 # This is for manual testing.
 run-api: build/keppel-api
-	set -euo pipefail && source ./.env && env PATH=$(CURDIR)/build:$$PATH keppel-api
+	set -euo pipefail && source ./.env && env PATH=$(CURDIR)/build:$$PATH keppel server api
 
 ################################################################################
 

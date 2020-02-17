@@ -16,12 +16,7 @@
 *
 ******************************************************************************/
 
-//Command validate-docker-stored-image can be used to validate an image stored
-//in a registry supporting the Registry V2 API. If the repo in question is in a
-//replica account in Keppel, this command can also be used to force replication
-//to take place (i.e. when this command exits successfully, the image is
-//definitely replicated).
-package main
+package validatecmd
 
 import (
 	"encoding/json"
@@ -37,25 +32,33 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/spf13/cobra"
 )
 
-const usageStr = `
-Usage:   %[1]s <image>
-Example: %[1]s registry.example.org/library/alpine:3.9
+var (
+	authUserName string
+	authPassword string
+)
 
-If credentials are needed to pull the image, supply them in the
-environment variables DOCKER_USERNAME and DOCKER_PASSWORD.
-
-`
-
-func main() {
-	if len(os.Args) != 2 || os.Args[1] == "" {
-		fmt.Fprintf(os.Stderr, usageStr, os.Args[0])
-		os.Exit(1)
+//AddCommandTo mounts this command into the command hierarchy.
+func AddCommandTo(parent *cobra.Command) {
+	cmd := &cobra.Command{
+		Use:     "validate <image>",
+		Example: "  keppel validate registry.example.org/library/alpine:3.9",
+		Short:   "Pulls an image and validates that its contents are intact.",
+		Long: `Pulls an image and validates that its contents are intact.
+If the image is in a Keppel replica account, this ensures that the image is replicated as a side effect.`,
+		Args: cobra.ExactArgs(1),
+		Run:  run,
 	}
+	cmd.PersistentFlags().StringVar(&authUserName, "username", "", "User name (only required for non-public images).")
+	cmd.PersistentFlags().StringVar(&authUserName, "password", "", "Password (only required for non-public images).")
+	parent.AddCommand(cmd)
+}
 
-	ref, interpretation, err := client.ParseImageReference(os.Args[1])
-	logg.Info("interpreting %s as %s", os.Args[1], interpretation)
+func run(cmd *cobra.Command, args []string) {
+	ref, interpretation, err := client.ParseImageReference(args[0])
+	logg.Info("interpreting %s as %s", args[0], interpretation)
 	if err != nil {
 		logg.Fatal(err.Error())
 	}
