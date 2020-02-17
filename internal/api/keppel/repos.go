@@ -176,8 +176,6 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 
 	blobLikeCount, err := tx.SelectInt(
 		`SELECT (
-			SELECT COUNT(*) FROM blob_mounts WHERE repo_id = $1
-		) + (
 			SELECT COUNT(*) FROM pending_blobs WHERE repo_id = $1
 		) + (
 			SELECT COUNT(*) FROM uploads WHERE repo_id = $1
@@ -188,10 +186,13 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if blobLikeCount > 0 {
-		msg := "cannot delete repository while there are still blobs in it"
+		msg := "cannot delete repository while blobs in it are being uploaded or replicated"
 		http.Error(w, msg, http.StatusConflict)
 		return
 	}
+	//^ NOTE: It's not a problem if there are blob_mounts in this repo. When the
+	//repo is deleted, its blob mounts will be cleaned up, and the janitor will
+	//then clean up any blobs without any remaining mounts.
 
 	_, err = tx.Delete(repo)
 	if err == nil {
