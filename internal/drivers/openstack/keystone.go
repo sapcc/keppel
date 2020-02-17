@@ -135,6 +135,11 @@ func getRoleByName(identityV3 *gophercloud.ServiceClient, name string) (roles.Ro
 	return list[0], nil
 }
 
+//DriverName implements the keppel.AuthDriver interface.
+func (d *keystoneDriver) DriverName() string {
+	return "keystone"
+}
+
 //ValidateTenantID implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) ValidateTenantID(tenantID string) error {
 	if tenantID == "" {

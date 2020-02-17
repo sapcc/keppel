@@ -115,6 +115,14 @@ func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.NameClaimDriver,
 func TestAccountsAPI(t *testing.T) {
 	r, authDriver, _, auditor, _, _ := setup(t)
 
+	//test the /keppel/v1 endpoint
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1",
+		ExpectStatus: http.StatusOK,
+		ExpectBody:   assert.JSONObject{"auth_driver": "unittest"},
+	}.Check(t, r)
+
 	//no accounts right now
 	assert.HTTPRequest{
 		Method:       "GET",

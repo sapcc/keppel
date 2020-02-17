@@ -40,6 +40,10 @@ func init() {
 	keppel.RegisterAuthDriver("noop", func() (keppel.AuthDriver, error) { return &noopAuthDriver{}, nil })
 }
 
+func (*noopAuthDriver) DriverName() string {
+	return "noop"
+}
+
 func (*noopAuthDriver) ValidateTenantID(tenantID string) error {
 	return nil
 }
@@ -70,6 +74,11 @@ type AuthDriver struct {
 
 func init() {
 	keppel.RegisterAuthDriver("unittest", func() (keppel.AuthDriver, error) { return &AuthDriver{}, nil })
+}
+
+//DriverName implements the keppel.AuthDriver interface.
+func (d *AuthDriver) DriverName() string {
+	return "unittest"
 }
 
 //ValidateTenantID implements the keppel.AuthDriver interface.

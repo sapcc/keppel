@@ -15,6 +15,7 @@ for managing Keppel accounts.
 
 This document uses the terminology defined in the [README.md](../README.md#terminology).
 
+- [GET /keppel/v1](#get-keppelv1)
 - [GET /keppel/v1/accounts](#get-keppelv1accounts)
 - [GET /keppel/v1/accounts/:name](#get-keppelv1accountsname)
 - [PUT /keppel/v1/accounts/:name](#put-keppelv1accountsname)
@@ -27,6 +28,23 @@ This document uses the terminology defined in the [README.md](../README.md#termi
 - [GET /keppel/v1/peers](#get-keppelv1peers)
 - [GET /keppel/v1/quotas/:auth\_tenant\_id](#get-keppelv1quotasauthtenantid)
 - [PUT /keppel/v1/quotas/:auth\_tenant\_id](#put-keppelv1quotasauthtenantid)
+
+## GET /keppel/v1
+
+Shows information about this Keppel API. Authentication is not required.
+On success, returns 200 and a JSON response like this:
+
+```json
+{
+  "auth_driver": "keystone"
+}
+```
+
+The following fields may be returned:
+
+| Field | Type | Explanation |
+| ----- | ---- | ----------- |
+| `auth_driver` | string | The authentication driver used by this Keppel instance. This is important to know for clients using the Keppel API to decide how to obtain an authorization for the API. |
 
 ## GET /keppel/v1/accounts
 

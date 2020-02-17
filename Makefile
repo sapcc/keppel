@@ -22,7 +22,7 @@ install: build/keppel FORCE
 ################################################################################
 
 # This is for manual testing.
-run-api: build/keppel-api
+run-api: build/keppel
 	set -euo pipefail && source ./.env && env PATH=$(CURDIR)/build:$$PATH keppel server api
 
 ################################################################################

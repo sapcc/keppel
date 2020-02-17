@@ -72,6 +72,10 @@ type Authorization interface {
 //tenants. A tenant is a scope where users can be authorized to perform certain
 //actions. For example, in OpenStack, a Keppel tenant is a Keystone project.
 type AuthDriver interface {
+	//DriverName returns the name of the auth driver as specified in
+	//RegisterAuthDriver() and, therefore, the KEPPEL_AUTH_DRIVER variable.
+	DriverName() string
+
 	//ValidateTenantID checks if the given string is a valid tenant ID. If so,
 	//nil shall be returned. If not, the returned error shall explain why the ID
 	//is not valid. The driver implementor can decide how thorough this check

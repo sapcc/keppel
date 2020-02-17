@@ -48,6 +48,8 @@ func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, ncd keppel.NameClaim
 
 //AddTo implements the api.API interface.
 func (a *API) AddTo(r *mux.Router) {
+	r.Methods("GET").Path("/keppel/v1").HandlerFunc(a.handleGetAPIInfo)
+
 	//NOTE: Keppel account names are severely restricted because Postgres
 	//database names are derived from them. Those are, most importantly,
 	//case-insensitive and restricted to 64 chars.
@@ -65,6 +67,14 @@ func (a *API) AddTo(r *mux.Router) {
 
 	r.Methods("GET").Path("/keppel/v1/quotas/{auth_tenant_id}").HandlerFunc(a.handleGetQuotas)
 	r.Methods("PUT").Path("/keppel/v1/quotas/{auth_tenant_id}").HandlerFunc(a.handlePutQuotas)
+}
+
+func (a *API) handleGetAPIInfo(w http.ResponseWriter, r *http.Request) {
+	respondwith.JSON(w, http.StatusOK, struct {
+		AuthDriverName string `json:"auth_driver"`
+	}{
+		AuthDriverName: a.authDriver.DriverName(),
+	})
 }
 
 func respondWithAuthError(w http.ResponseWriter, err *keppel.RegistryV2Error) bool {
