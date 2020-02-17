@@ -138,6 +138,12 @@ var sqlMigrations = map[string]string{
 	"002_add_account_required_labels.down.sql": `
 		ALTER TABLE accounts DROP column required_labels;
 	`,
+	"003_add_repos_uniqueness_constraint.up.sql": `
+		ALTER TABLE repos ADD CONSTRAINT repos_account_name_name_key UNIQUE (account_name, name);
+	`,
+	"003_add_repos_uniqueness_constraint.down.sql": `
+		ALTER TABLE repos DROP CONSTRAINT repos_account_name_name_key;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.
