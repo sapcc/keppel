@@ -19,19 +19,12 @@
 package validatecmd
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
-	"io"
-	"io/ioutil"
-	"net/http"
 	"os"
+	"strings"
 
-	"github.com/docker/distribution"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/client"
-	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/spf13/cobra"
 )
 
@@ -56,6 +49,28 @@ If the image is in a Keppel replica account, this ensures that the image is repl
 	parent.AddCommand(cmd)
 }
 
+type logger struct{}
+
+//LogManifest implements the client.ValidationLogger interface.
+func (l logger) LogManifest(reference string, level int, err error) {
+	indent := strings.Repeat("  ", level)
+	if err == nil {
+		logg.Info("%smanifest %s looks good", indent, reference)
+	} else {
+		logg.Error("%smanifest %s validation failed: %s", indent, reference, err.Error())
+	}
+}
+
+//LogBlob implements the client.ValidationLogger interface.
+func (l logger) LogBlob(d digest.Digest, level int, err error) {
+	indent := strings.Repeat("  ", level)
+	if err == nil {
+		logg.Info("%sblob     %s looks good", indent, d.String())
+	} else {
+		logg.Error("%sblob     %s validation failed: %s", indent, d.String(), err.Error())
+	}
+}
+
 func run(cmd *cobra.Command, args []string) {
 	ref, interpretation, err := client.ParseImageReference(args[0])
 	logg.Info("interpreting %s as %s", args[0], interpretation)
@@ -63,184 +78,14 @@ func run(cmd *cobra.Command, args []string) {
 		logg.Fatal(err.Error())
 	}
 
-	var token string
-	var manifestsToCheck []digest.Digest
-	var blobsToCheck []digest.Digest
-
-	manifestBytes, manifestContentType, err := getManifestContents(ref, ref.Reference, &token)
+	c := &client.RepoClient{
+		Host:     ref.Host,
+		RepoName: ref.RepoName,
+		UserName: authUserName,
+		Password: authPassword,
+	}
+	err = c.ValidateManifest(ref.Reference, logger{})
 	if err != nil {
-		logg.Fatal(err.Error())
+		os.Exit(1)
 	}
-	manifest, manifestDesc, err := distribution.UnmarshalManifest(manifestContentType, manifestBytes)
-	if err != nil {
-		logg.Fatal("error decoding %s manifest: %s", manifestContentType, err.Error())
-	}
-	for _, desc := range manifest.References() {
-		if isManifestMediaType(desc.MediaType) {
-			manifestsToCheck = append(manifestsToCheck, desc.Digest)
-		} else {
-			blobsToCheck = append(blobsToCheck, desc.Digest)
-		}
-	}
-	logg.Info("manifest %s looks good, references %d manifests and %d blobs", manifestDesc.Digest, len(manifestsToCheck), len(blobsToCheck))
-
-	for len(manifestsToCheck) > 0 {
-		manifestDigest := manifestsToCheck[0]
-		manifestsToCheck = manifestsToCheck[1:]
-
-		manifestBytes, manifestContentType, err := getManifestContents(ref, manifestDigest.String(), &token)
-		if err != nil {
-			logg.Fatal(err.Error())
-		}
-		manifest, manifestDesc, err := distribution.UnmarshalManifest(manifestContentType, manifestBytes)
-		if err != nil {
-			logg.Fatal("error decoding %s manifest: %s", manifestContentType, err.Error())
-		}
-		newManifestCount, newBlobCount := 0, 0
-		for _, desc := range manifest.References() {
-			if isManifestMediaType(desc.MediaType) {
-				manifestsToCheck = append(manifestsToCheck, desc.Digest)
-				newManifestCount++
-			} else {
-				blobsToCheck = append(blobsToCheck, desc.Digest)
-				newBlobCount++
-			}
-		}
-		logg.Info("manifest %s looks good, references %d manifests and %d blobs", manifestDesc.Digest, newManifestCount, newBlobCount)
-	}
-
-	for _, blobDigest := range blobsToCheck {
-		err := verifyBlobContents(ref, blobDigest, token)
-		if err == nil {
-			logg.Info("blob %s looks good", blobDigest)
-		} else {
-			logg.Fatal("error verifying blob %s: %s", blobDigest, err.Error())
-		}
-	}
-}
-
-func getManifestContents(ref client.ImageReference, reference string, token *string) ([]byte, string, error) {
-	uri := fmt.Sprintf("https://%s/v2/%s/manifests/%s",
-		ref.Host, ref.RepoName, reference)
-
-	//send GET request for manifest
-	req, err := http.NewRequest("GET", uri, nil)
-	if err != nil {
-		return nil, "", err
-	}
-	req.Header["Accept"] = distribution.ManifestMediaTypes()
-	if *token != "" {
-		req.Header.Set("Authorization", "Bearer "+*token)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, "", err
-	}
-	respBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, "", err
-	}
-	err = resp.Body.Close()
-	if err != nil {
-		return nil, "", err
-	}
-
-	//if it's a 401, do the auth challenge...
-	if resp.StatusCode == http.StatusUnauthorized {
-		authChallenge, err := client.ParseAuthChallenge(resp.Header)
-		if err != nil {
-			return nil, "", fmt.Errorf("cannot parse auth challenge from 401 response to GET %s: %s", uri, err.Error())
-		}
-		*token, err = authChallenge.GetToken(os.Getenv("DOCKER_USERNAME"), os.Getenv("DOCKER_PASSWORD"))
-		if err != nil {
-			return nil, "", fmt.Errorf("authentication failed: %s", err.Error())
-		}
-
-		//...then resend the GET request with the token
-		req, err := http.NewRequest("GET", uri, nil)
-		if err != nil {
-			return nil, "", err
-		}
-		req.Header["Accept"] = distribution.ManifestMediaTypes()
-		req.Header.Set("Authorization", "Bearer "+*token)
-		resp, err = http.DefaultClient.Do(req)
-		if err != nil {
-			return nil, "", err
-		}
-		respBytes, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, "", err
-		}
-		err = resp.Body.Close()
-		if err != nil {
-			return nil, "", err
-		}
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, "", parseRegistryAPIError(respBytes)
-	}
-	return respBytes, resp.Header.Get("Content-Type"), nil
-}
-
-func verifyBlobContents(ref client.ImageReference, blobDigest digest.Digest, token string) (returnErr error) {
-	uri := fmt.Sprintf("https://%s/v2/%s/blobs/%s",
-		ref.Host, ref.RepoName, blobDigest)
-
-	req, err := http.NewRequest("GET", uri, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if returnErr == nil {
-			returnErr = resp.Body.Close()
-		} else {
-			resp.Body.Close()
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		respBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		return parseRegistryAPIError(respBytes)
-	}
-
-	hash := blobDigest.Algorithm().Hash()
-	_, err = io.Copy(hash, resp.Body)
-	if err != nil {
-		return err
-	}
-	actualDigest := digest.NewDigest(blobDigest.Algorithm(), hash)
-	if actualDigest != blobDigest {
-		return fmt.Errorf("actual digest is %s", actualDigest)
-	}
-	return nil
-}
-
-func parseRegistryAPIError(respBytes []byte) error {
-	var data struct {
-		Errors []*keppel.RegistryV2Error `json:"errors"`
-	}
-	err := json.Unmarshal(respBytes, &data)
-	if err == nil {
-		return data.Errors[0]
-	}
-	return errors.New(string(respBytes))
-}
-
-func isManifestMediaType(contentType string) bool {
-	for _, mt := range distribution.ManifestMediaTypes() {
-		if mt == contentType {
-			return true
-		}
-	}
-	return false
 }
