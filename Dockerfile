@@ -11,4 +11,4 @@ LABEL source_repository="https://github.com/sapcc/keppel"
 
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /pkg/ /usr/
-ENTRYPOINT /usr/bin/keppel
+ENTRYPOINT [ "/usr/bin/keppel" ]
