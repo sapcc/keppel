@@ -16,7 +16,7 @@ GO_LDFLAGS    := -s -w -X $(PKG)/internal/keppel.Version=$(shell util/find_versi
 build/keppel: FORCE
 	$(GO) install $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' '$(PKG)'
 
-install: FORCE
+install: build/keppel FORCE
 	install -D -m 0755 build/keppel "$(DESTDIR)$(PREFIX)/bin/keppel"
 
 ################################################################################
