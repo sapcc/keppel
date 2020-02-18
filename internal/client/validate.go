@@ -83,6 +83,9 @@ func (c *RepoClient) doValidateManifest(reference string, level int, logger Vali
 	resp, err := c.doGetRequest("manifests/"+reference, http.Header{
 		"Accept": distribution.ManifestMediaTypes(),
 	})
+	if err != nil {
+		return err
+	}
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
