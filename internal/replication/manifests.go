@@ -103,6 +103,7 @@ func (r Replicator) ReplicateManifest(m Manifest) (*keppel.Manifest, []byte, err
 			RepositoryID: m.Repo.ID,
 			Name:         m.Reference.Tag,
 			Digest:       manifestDesc.Digest.String(),
+			PushedAt:     time.Now(),
 		}.InsertIfMissing(tx)
 		if err != nil {
 			return nil, nil, err
