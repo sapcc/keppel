@@ -45,7 +45,7 @@ If the image is in a Keppel replica account, this ensures that the image is repl
 		Run:  run,
 	}
 	cmd.PersistentFlags().StringVar(&authUserName, "username", "", "User name (only required for non-public images).")
-	cmd.PersistentFlags().StringVar(&authUserName, "password", "", "Password (only required for non-public images).")
+	cmd.PersistentFlags().StringVar(&authPassword, "password", "", "Password (only required for non-public images).")
 	parent.AddCommand(cmd)
 }
 

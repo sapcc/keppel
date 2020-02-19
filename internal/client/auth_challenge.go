@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -38,6 +39,8 @@ type AuthChallenge struct {
 	Scope   string
 }
 
+var challengeFieldRx = regexp.MustCompile(`^(\w+)\s*=\s*"([^"]*)"\s*,?\s*`)
+
 //ParseAuthChallenge parses the auth challenge from the response headers of an
 //unauthenticated request to a registry API.
 func ParseAuthChallenge(hdr http.Header) (AuthChallenge, error) {
@@ -49,18 +52,22 @@ func ParseAuthChallenge(hdr http.Header) (AuthChallenge, error) {
 		parts := strings.SplitN(input, " ", 2)
 		return AuthChallenge{}, fmt.Errorf("cannot handle Www-Authenticate challenge of type %q", parts[0])
 	}
-	input = strings.TrimPrefix(input, "Bearer ")
+	input = strings.TrimSpace(strings.TrimPrefix(input, "Bearer "))
 
 	var c AuthChallenge
-	for _, keyValuePair := range strings.Split(input, ",") {
-		if !strings.Contains(keyValuePair, "=") {
-			continue
+
+	for input != "" {
+		//find next challenge field (because of the ^ anchor, this always yields a
+		//prefix of `input`)
+		match := challengeFieldRx.FindStringSubmatch(input)
+		if match == nil {
+			return AuthChallenge{}, fmt.Errorf("malformed Www-Authenticate header: %s", hdr.Get("Www-Authenticate"))
 		}
-		fields := strings.SplitN(keyValuePair, "=", 2)
-		key := strings.TrimSpace(fields[0])
-		value := strings.TrimSpace(fields[1])
-		value = strings.TrimPrefix(value, `"`)
-		value = strings.TrimSuffix(value, `"`)
+
+		//remove challenge field from input for next loop iteration
+		input = strings.TrimPrefix(input, match[0])
+
+		key, value := match[1], match[2]
 		switch key {
 		case "realm":
 			c.Realm = value
