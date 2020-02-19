@@ -82,9 +82,11 @@ func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
 		}
 
 		//...then resend the GET request with the token
-		_, err = r.Body.Seek(0, io.SeekStart)
-		if err != nil {
-			return nil, err
+		if r.Body != nil {
+			_, err = r.Body.Seek(0, io.SeekStart)
+			if err != nil {
+				return nil, err
+			}
 		}
 		req, err := http.NewRequest(r.Method, uri, r.Body)
 		if err != nil {
