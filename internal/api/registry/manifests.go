@@ -73,7 +73,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				Repo:      *repo,
 				Reference: reference,
 			}
-			dbManifest, manifestBytes, err = repl.ReplicateManifest(m) //pm is a keppel.PendingManifest
+			dbManifest, manifestBytes, err = repl.ReplicateManifest(m)
 			if respondWithError(w, err) {
 				return
 			}
@@ -84,6 +84,9 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	} else {
 		//if manifest was found in our DB, fetch the contents from the storage
 		manifestBytes, err = a.sd.ReadManifest(*account, repoName, dbManifest.Digest)
+		if respondWithError(w, err) {
+			return
+		}
 	}
 
 	//verify Accept header, if any
