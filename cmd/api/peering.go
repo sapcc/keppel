@@ -59,7 +59,7 @@ func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
 	must(err)
 	for _, peer := range allPeers {
 		if !isPeerHostName[peer.HostName] {
-			_, err := db.Delete(peer)
+			_, err := db.Delete(&peer)
 			must(err)
 		}
 	}
