@@ -130,8 +130,8 @@ github.com/magiconair/properties v1.8.0/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czP
 github.com/magiconair/properties v1.8.1/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/mailru/easyjson v0.0.0-20180730094502-03f2033d19d5/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/mailru/easyjson v0.7.0/go.mod h1:KAzv3t3aY1NaHWoQz1+4F1ccyAH66Jk7yos7ldAVICs=
-github.com/majewsky/schwift v0.0.0-20180906125654-e1b3d5e2efc9 h1:gEZ+rVeQ1lzzFvykFE2F6BjKD1aCMxW0Uq1GeNs4DeQ=
-github.com/majewsky/schwift v0.0.0-20180906125654-e1b3d5e2efc9/go.mod h1:jSufaUESZRjOnLL32oE+4MjOvHnTQfuKuGsqda6oV1I=
+github.com/majewsky/schwift v0.0.0-20200224150542-3857990bb9f7 h1:xwrlKnv4kxKaUTmslxhZWT5bBBPf9Zoy/TaTBqsKW4w=
+github.com/majewsky/schwift v0.0.0-20200224150542-3857990bb9f7/go.mod h1:jSufaUESZRjOnLL32oE+4MjOvHnTQfuKuGsqda6oV1I=
 github.com/mattn/go-sqlite3 v2.0.3+incompatible h1:gXHsfypPkaMZrKbD5209QV9jbUTJKjyR5WD3HYQSd+U=
 github.com/mattn/go-sqlite3 v2.0.3+incompatible/go.mod h1:FPy6KqzDD04eiIsT53CuJW3U88zkxoIYsOqkbpncsNc=
 github.com/matttproud/golang_protobuf_extensions v1.0.1 h1:4hp9jkHxhMHkqkrB3Ix0jegS5sx/RkqARlsWZ6pIwiU=

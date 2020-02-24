@@ -55,7 +55,7 @@ github.com/jpillora/longestcommon
 github.com/lib/pq
 github.com/lib/pq/oid
 github.com/lib/pq/scram
-# github.com/majewsky/schwift v0.0.0-20180906125654-e1b3d5e2efc9
+# github.com/majewsky/schwift v0.0.0-20200224150542-3857990bb9f7
 github.com/majewsky/schwift
 github.com/majewsky/schwift/capabilities
 github.com/majewsky/schwift/gopherschwift

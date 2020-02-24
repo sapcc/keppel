@@ -13,7 +13,7 @@ require (
 	github.com/gorilla/mux v1.7.3
 	github.com/jarcoal/httpmock v1.0.4
 	github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629 // indirect
-	github.com/majewsky/schwift v0.0.0-20180906125654-e1b3d5e2efc9
+	github.com/majewsky/schwift v0.0.0-20200224150542-3857990bb9f7
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1
 	github.com/opencontainers/image-spec v1.0.1 // indirect

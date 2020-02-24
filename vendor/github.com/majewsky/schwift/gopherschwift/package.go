@@ -120,6 +120,20 @@ func (g *backend) do(req *http.Request, afterReauth bool) (*http.Response, error
 		if err != nil {
 			return nil, err
 		}
+
+		//Swift is stupid: Even though we send `Expect: 100-continue`, it doesn't
+		//help. Swift will right away answer `100 Continue` and ONLY THEN actually
+		//check the token (at least in our prod setup).
+		//
+		//To increase the chance that this does not completely break this request,
+		//reset the reader if it implements Seek().
+		if seekableReqBody, ok := req.Body.(io.Seeker); ok {
+			_, err := seekableReqBody.Seek(0, io.SeekStart)
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		//restart request with new token
 		return g.do(req, true)
 	}
