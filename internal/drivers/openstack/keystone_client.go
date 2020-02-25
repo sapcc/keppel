@@ -123,6 +123,18 @@ func (d *keystoneClientDriver) ServerHost() string {
 	return ""
 }
 
+//ServerScheme implements the client.AuthDriver interface.
+func (d *keystoneClientDriver) ServerScheme() string {
+	if d.Client == nil {
+		panic("called before Connect()")
+	}
+	endpointURL, err := url.Parse(d.Client.Endpoint)
+	if err == nil {
+		return endpointURL.Scheme
+	}
+	return ""
+}
+
 //SendHTTPRequest implements the client.AuthDriver interface.
 func (d *keystoneClientDriver) SendHTTPRequest(req *http.Request) (*http.Response, error) {
 	opts := gophercloud.RequestOpts{

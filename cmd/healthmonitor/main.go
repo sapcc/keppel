@@ -83,6 +83,7 @@ func run(cmd *cobra.Command, args []string) {
 		AuthDriver:  ad,
 		AccountName: args[0],
 		RepoClient: &client.RepoClient{
+			Scheme:   ad.ServerScheme(),
 			Host:     ad.ServerHost(),
 			RepoName: args[0] + "/healthcheck",
 			UserName: apiUser,

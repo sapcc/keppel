@@ -44,6 +44,9 @@ type AuthDriver interface {
 	//ServerHost returns the server's hostname. May be of the form "host:port".
 	//May panic when called before Connect().
 	ServerHost() string
+	//ServerScheme returns "http" or "https" to indicate whether the server
+	//exposes an encrypted or unencrypted API.
+	ServerScheme() string
 	//SendHTTPRequest sends a HTTP request to the Keppel API. The implementation
 	//will fill in the correct server hostname and add any required auth headers.
 	//May panic when called before Connect().

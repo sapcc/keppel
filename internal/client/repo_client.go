@@ -31,6 +31,7 @@ import (
 
 //RepoClient contains methods for interacting with a repository on a registry server.
 type RepoClient struct {
+	Scheme   string //either "http" or "https"
 	Host     string //either a plain hostname or a host:port like "example.org:443"
 	RepoName string
 
@@ -51,8 +52,12 @@ type repoRequest struct {
 }
 
 func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
-	uri := fmt.Sprintf("https://%s/v2/%s/%s",
-		c.Host, c.RepoName, r.Path)
+	if c.Scheme == "" {
+		c.Scheme = "https"
+	}
+
+	uri := fmt.Sprintf("%s://%s/v2/%s/%s",
+		c.Scheme, c.Host, c.RepoName, r.Path)
 
 	//send GET request for manifest
 	req, err := http.NewRequest(r.Method, uri, r.Body)
