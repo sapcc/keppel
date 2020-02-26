@@ -125,11 +125,7 @@ func (r Replicator) ReplicateBlob(b Blob, w http.ResponseWriter, requestMethod s
 	//at this point, it's clear that upstream has the blob; if we also have it
 	//locally, we just need to mount it; then we can revert to the regular code path
 	if localBlob != nil {
-		_, err := r.db.Exec(
-			`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-			localBlob.ID, b.Repo.ID,
-		)
-		return false, err
+		return false, keppel.MountBlobIntoRepo(r.db, *localBlob, b.Repo)
 	}
 
 	//stream into `w` if requested
@@ -237,8 +233,7 @@ func (r Replicator) uploadBlobToLocal(b Blob, blobReader io.Reader, blobLengthBy
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1, $2)`,
-		dbBlob.ID, b.Repo.ID)
+	err = keppel.MountBlobIntoRepo(tx, dbBlob, b.Repo)
 	if err != nil {
 		return err
 	}

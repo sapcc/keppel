@@ -165,6 +165,15 @@ func (db *DB) FindBlobByAccountName(blobDigest digest.Digest, account Account) (
 	return &blob, err
 }
 
+//MountBlobIntoRepo creates an entry in the blob_mounts database table.
+func MountBlobIntoRepo(db gorp.SqlExecutor, blob Blob, repo Repository) error {
+	_, err := db.Exec(
+		`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+		blob.ID, repo.ID,
+	)
+	return err
+}
+
 //Upload contains a record from the `uploads` table.
 //
 //Digest contains the SHA256 digest of everything that has been uploaded so

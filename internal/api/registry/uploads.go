@@ -162,10 +162,7 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 	}
 
 	//create blob mount if missing
-	_, err = a.db.Exec(
-		`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-		blob.ID, targetRepo.ID,
-	)
+	err = keppel.MountBlobIntoRepo(a.db, *blob, targetRepo)
 	if respondWithError(w, err) {
 		return
 	}
@@ -256,15 +253,10 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	if respondWithError(w, err) {
 		return false
 	}
-
-	_, err = tx.Exec(
-		`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-		blob.ID, repo.ID,
-	)
+	err = keppel.MountBlobIntoRepo(tx, blob, repo)
 	if respondWithError(w, err) {
 		return false
 	}
-
 	err = tx.Commit()
 	if respondWithError(w, err) {
 		return false
@@ -676,9 +668,7 @@ func (a *API) finishUpload(account keppel.Account, repoName string, upload *kepp
 	if err != nil {
 		return nil, err
 	}
-	_, err = tx.Exec(
-		`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-		blob.ID, repo.ID)
+	err = keppel.MountBlobIntoRepo(tx, *blob, *repo)
 	if err != nil {
 		return nil, err
 	}
