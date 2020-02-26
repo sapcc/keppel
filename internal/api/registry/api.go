@@ -140,7 +140,11 @@ func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *
 	}
 	if err != nil {
 		logg.Debug("GET %s: %s", r.URL.Path, err.Error())
-		challenge := auth.Challenge{Scope: scope}
+		challenge := auth.Challenge{
+			Scope:             scope,
+			OverrideAPIHost:   r.Header.Get("X-Forwarded-Host"),
+			OverrideAPIScheme: r.Header.Get("X-Forwarded-Proto"),
+		}
 		if token != nil {
 			challenge.Error = "insufficient_scope"
 		}

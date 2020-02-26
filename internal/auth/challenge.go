@@ -22,6 +22,7 @@ package auth
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -31,12 +32,23 @@ import (
 type Challenge struct {
 	Scope *Scope //optional
 	Error string //optional
+
+	//optional: if set, asks for the client to use the /keppel/v1/auth port at
+	//this host (this allows the API to take into account which hostname and
+	//scheme was used by the client to connect via a reverse proxy)
+	OverrideAPIHost   string
+	OverrideAPIScheme string
 }
 
 //WriteTo adds the corresponding Www-Authenticate header to a response.
 func (c Challenge) WriteTo(h http.Header, cfg keppel.Configuration) {
+	apiURL := cfg.APIPublicURL.String()
+	if c.OverrideAPIHost != "" && c.OverrideAPIScheme != "" {
+		apiURL = (&url.URL{Scheme: c.OverrideAPIScheme, Host: c.OverrideAPIHost}).String()
+	}
+
 	fields := fmt.Sprintf(`realm="%s",service="%s"`,
-		cfg.APIPublicURL.String()+"/keppel/v1/auth",
+		apiURL+"/keppel/v1/auth",
 		cfg.APIPublicHostname(),
 	)
 
