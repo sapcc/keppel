@@ -49,8 +49,9 @@ func run(cmd *cobra.Command, args []string) {
 
 	//TODO start task loops
 
-	//start HTTP server for Prometheus metrics
+	//start HTTP server for Prometheus metrics and health check
 	http.Handle("/metrics", promhttp.Handler())
+	http.HandleFunc("/healthcheck", healthCheckHandler)
 	listenAddress := os.Getenv("KEPPEL_JANITOR_LISTEN_ADDRESS")
 	if listenAddress == "" {
 		listenAddress = ":8080"
@@ -59,5 +60,16 @@ func run(cmd *cobra.Command, args []string) {
 	err := httpee.ListenAndServeContext(ctx, listenAddress, nil)
 	if err != nil {
 		logg.Fatal("error returned from httpee.ListenAndServeContext(): %s", err.Error())
+	}
+}
+
+func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	if r.URL.Path == "/healthcheck" && r.Method == "GET" {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	} else {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("not found"))
 	}
 }
