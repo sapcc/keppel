@@ -27,6 +27,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	apicmd "github.com/sapcc/keppel/cmd/api"
 	healthmonitorcmd "github.com/sapcc/keppel/cmd/healthmonitor"
+	janitorcmd "github.com/sapcc/keppel/cmd/janitor"
 	validatecmd "github.com/sapcc/keppel/cmd/validate"
 	"github.com/spf13/cobra"
 
@@ -73,6 +74,7 @@ func main() {
 	}
 	apicmd.AddCommandTo(serverCmd)
 	healthmonitorcmd.AddCommandTo(serverCmd)
+	janitorcmd.AddCommandTo(serverCmd)
 	rootCmd.AddCommand(serverCmd)
 
 	if err := rootCmd.Execute(); err != nil {
