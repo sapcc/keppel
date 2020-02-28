@@ -26,6 +26,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sapcc/go-bits/httpee"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/spf13/cobra"
 )
@@ -45,31 +46,36 @@ func AddCommandTo(parent *cobra.Command) {
 func run(cmd *cobra.Command, args []string) {
 	logg.Info("starting keppel-janitor %s", keppel.Version)
 
+	cfg := keppel.ParseConfiguration()
+
+	db, err := keppel.InitDB(cfg.DatabaseURL)
+	must(err)
+	ad, err := keppel.NewAuthDriver(keppel.MustGetenv("KEPPEL_DRIVER_AUTH"))
+	must(err)
+	sd, err := keppel.NewStorageDriver(keppel.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
+	must(err)
+
 	ctx := httpee.ContextWithSIGINT(context.Background())
 
 	//TODO start task loops
+	_, _ = db, sd
 
 	//start HTTP server for Prometheus metrics and health check
 	http.Handle("/metrics", promhttp.Handler())
-	http.HandleFunc("/healthcheck", healthCheckHandler)
+	http.HandleFunc("/healthcheck", api.HealthCheckHandler)
 	listenAddress := os.Getenv("KEPPEL_JANITOR_LISTEN_ADDRESS")
 	if listenAddress == "" {
 		listenAddress = ":8080"
 	}
 	logg.Info("listening on " + listenAddress)
-	err := httpee.ListenAndServeContext(ctx, listenAddress, nil)
+	err = httpee.ListenAndServeContext(ctx, listenAddress, nil)
 	if err != nil {
 		logg.Fatal("error returned from httpee.ListenAndServeContext(): %s", err.Error())
 	}
 }
 
-func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	if r.URL.Path == "/healthcheck" && r.Method == "GET" {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
-	} else {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("not found"))
+func must(err error) {
+	if err != nil {
+		logg.Fatal(err.Error())
 	}
 }

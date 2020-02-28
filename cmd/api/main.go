@@ -22,7 +22,6 @@ package apicmd
 import (
 	"context"
 	"net/http"
-	"net/url"
 	"os"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -52,16 +51,16 @@ func AddCommandTo(parent *cobra.Command) {
 func run(cmd *cobra.Command, args []string) {
 	logg.Info("starting keppel-api %s", keppel.Version)
 
-	cfg := parseConfig()
+	cfg := keppel.ParseConfiguration()
 	auditor := initAuditTrail()
 
 	db, err := keppel.InitDB(cfg.DatabaseURL)
 	must(err)
-	ad, err := keppel.NewAuthDriver(mustGetenv("KEPPEL_DRIVER_AUTH"))
+	ad, err := keppel.NewAuthDriver(keppel.MustGetenv("KEPPEL_DRIVER_AUTH"))
 	must(err)
-	ncd, err := keppel.NewNameClaimDriver(mustGetenv("KEPPEL_DRIVER_NAMECLAIM"), ad, cfg)
+	ncd, err := keppel.NewNameClaimDriver(keppel.MustGetenv("KEPPEL_DRIVER_NAMECLAIM"), ad, cfg)
 	must(err)
-	sd, err := keppel.NewStorageDriver(mustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
+	sd, err := keppel.NewStorageDriver(keppel.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
 	must(err)
 
 	//start background goroutines
@@ -82,7 +81,7 @@ func run(cmd *cobra.Command, args []string) {
 	}).Handler(handler)
 	http.Handle("/", handler)
 	http.Handle("/metrics", promhttp.Handler())
-	http.HandleFunc("/healthcheck", healthCheckHandler)
+	http.HandleFunc("/healthcheck", api.HealthCheckHandler)
 
 	//start HTTP server
 	apiListenAddress := os.Getenv("KEPPEL_API_LISTEN_ADDRESS")
@@ -96,49 +95,8 @@ func run(cmd *cobra.Command, args []string) {
 	}
 }
 
-func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	if r.URL.Path == "/healthcheck" && r.Method == "GET" {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
-	} else {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("not found"))
-	}
-}
-
-func parseConfig() keppel.Configuration {
-	cfg := keppel.Configuration{
-		APIPublicURL: mustGetenvURL("KEPPEL_API_PUBLIC_URL"),
-		DatabaseURL:  mustGetenvURL("KEPPEL_DB_URI"),
-	}
-
-	var err error
-	cfg.JWTIssuerKey, err = keppel.ParseIssuerKey(mustGetenv("KEPPEL_ISSUER_KEY"))
-	must(err)
-
-	return cfg
-}
-
 func must(err error) {
 	if err != nil {
 		logg.Fatal(err.Error())
 	}
-}
-
-func mustGetenv(key string) string {
-	val := os.Getenv(key)
-	if val == "" {
-		logg.Fatal("missing environment variable: %s", key)
-	}
-	return val
-}
-
-func mustGetenvURL(key string) url.URL {
-	val := mustGetenv(key)
-	parsed, err := url.Parse(val)
-	if err != nil {
-		logg.Fatal("malformed %s: %s", key, err.Error())
-	}
-	return *parsed
 }

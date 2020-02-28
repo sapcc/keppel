@@ -63,7 +63,7 @@ func initAuditTrail() keppel.Auditor {
 			EventSink:           eventSink,
 			OnSuccessfulPublish: func() { auditEventPublishSuccessCounter.Inc() },
 			OnFailedPublish:     func() { auditEventPublishFailedCounter.Inc() },
-		}.Commit(rabbitURI, mustGetenv("KEPPEL_AUDIT_RABBITMQ_QUEUE_NAME"))
+		}.Commit(rabbitURI, keppel.MustGetenv("KEPPEL_AUDIT_RABBITMQ_QUEUE_NAME"))
 	}
 
 	silent, _ := strconv.ParseBool(os.Getenv("KEPPEL_AUDIT_SILENT"))

@@ -24,9 +24,11 @@ import (
 	"io/ioutil"
 	"net"
 	"net/url"
+	"os"
 	"regexp"
 
 	"github.com/docker/libtrust"
+	"github.com/sapcc/go-bits/logg"
 )
 
 //Configuration contains all configuration values that are not specific to a
@@ -72,4 +74,40 @@ func ParseIssuerKey(in string) (libtrust.PrivateKey, error) {
 		return nil, fmt.Errorf("failed to read KEPPEL_ISSUER_KEY: " + err.Error())
 	}
 	return key, nil
+}
+
+//ParseConfiguration obtains a keppel.Configuration instance from the
+//corresponding environment variables. Aborts on error.
+func ParseConfiguration() Configuration {
+	cfg := Configuration{
+		APIPublicURL: mustGetenvURL("KEPPEL_API_PUBLIC_URL"),
+		DatabaseURL:  mustGetenvURL("KEPPEL_DB_URI"),
+	}
+
+	var err error
+	cfg.JWTIssuerKey, err = ParseIssuerKey(MustGetenv("KEPPEL_ISSUER_KEY"))
+	if err != nil {
+		logg.Fatal(err.Error())
+	}
+
+	return cfg
+}
+
+//MustGetenv is like os.Getenv, but aborts with an error message if the given
+//environment variable is missing or empty.
+func MustGetenv(key string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		logg.Fatal("missing environment variable: %s", key)
+	}
+	return val
+}
+
+func mustGetenvURL(key string) url.URL {
+	val := MustGetenv(key)
+	parsed, err := url.Parse(val)
+	if err != nil {
+		logg.Fatal("malformed %s: %s", key, err.Error())
+	}
+	return *parsed
 }
