@@ -115,10 +115,6 @@ func setup(t *testing.T, isSecondary bool) (keppel.Configuration, *keppel.DB) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	cfg.JWTIssuerCertPEM, err = keppel.ParseIssuerCertPEM(UnitTestIssuerCert)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
 
 	return cfg, db
 }
@@ -176,35 +172,3 @@ FvFvd6cxBsJtVH7HMLsPiYqRmMEam0C5rZEEPkUJ1L4agEU1vfV+dhCaTxus+tPe
 cVD23BmXI3LgZ/sLRdZO4js/jT7C5FV9zBKooLnWn+UdMJNft3HHj4axeJZmBU17
 V/EtRMqfEOel+lTJXmLb0z7YOgfPmAT2ojk86CsjwbaWwn2rlNVmu+oB8CuSAg==
 -----END RSA PRIVATE KEY-----`
-
-//UnitTestIssuerCert is a certificate that can be used as
-//KEPPEL_ISSUER_CERT in unit tests. DO NOT USE IN PRODUCTION.
-var UnitTestIssuerCert = `-----BEGIN CERTIFICATE-----
-MIIE+jCCAuKgAwIBAgIJAO+EjlXwlQA0MA0GCSqGSIb3DQEBCwUAMBExDzANBgNV
-BAMMBmtlcHBlbDAgFw0xODA4MjcxMzI4MjlaGA8yODQwMDExMDEzMjgyOVowETEP
-MA0GA1UEAwwGa2VwcGVsMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA
-paFTmtIHzEg9dznhoFgOKqZseh4PcXTITEc0F/1Gjj/zQmKj0jOlbTQv/4IbmFPV
-P75dGB+Dw5qHh+4TR8uObx6VudnkSHrn8buPKD1n2T5r/SMY2mHATL40Tu+5RVmB
-CJfYTNhjYhOVc5si06CTIYhjBTitWsJcTiG0zcYYySizhqGgbBF8faO24BoL4n0O
-8H6+J8WIyOxlkGbaKJqDaiagazqX4Ii4PTe2AmlT/CHVnU6sj3FM9OI5ksoF4RPy
-BIkaAZGFu7iHXKmZS46AkrNOwXrYadLG0lQuhY9CdqMzixIvNViIkSIfOjxLhqio
-yVMKarYWQFwb6HNfAQAa56Z+gvWImgFAw5yRbtb0yuK8N+nPdWhLPQw6JnYhlHrZ
-J1+108fkFlgbGCUSOgPvs2XO2B2fd8QWisXhQCahariuYqPj3oGnu224sLaTLDR1
-77NGmZqwOR038/7cOE3VJTFdAWTmdGmkz3B8DcsAvzishKSoyi1bWytIKNrrwXPD
-R9wxuATHsstiZXlEixyD5rJLP+RxkCocTx5Wg9S2KkoUP/zMQMw0aOOrk/7rqlM9
-w2ZkACuTkioC5ynw5Yco7VHdmkzm4nEnuHj9gOAalRl8kJ0rX7ozarcZEMn3hkDL
-1F+SYdBYx2unf4od2r/fxXTYeaVVwjah1PQXs+Tg+/8CAwEAAaNTMFEwHQYDVR0O
-BBYEFHUO/BsOlllOktauJkiBDmYkapCvMB8GA1UdIwQYMBaAFHUO/BsOlllOktau
-JkiBDmYkapCvMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggIBADmG
-boKW3tVbt7Fa944MZVM9vZcEUjvVWxJg4vmlEBJTStiEEg1M7dGZHjZqBvwXwc3g
-rQ8z6ZBLRV/Wr0TntUZzMn75pYp52mGyPFxVd0inAhGrlD0oL7SR3JKZ8CBuJSLr
-iAhkmXDvnZP1IOLWQV84r2kQ5cIWvk5G2qnB6CFgKXKbb3i/4V+x/1w22PmoRUAF
-A8gE/5wQM1sWVhV8Pa1erG5N1wR0y24BiXOmfdSbVnJCj7oRyeT239TCdc0STmAr
-aKFvsWyvYJunEW9Zp274cZzlp66uYJz/D2knhShqxoS7ehMYs3BymvyUL9uVIEtT
-XmY0i2/1ZbxT+BQ1NOfY8F7+FvGfLEn/BsX5Cdc0sQ/B47XIkY/S/q73VZy5StWA
-pqNrkrAcLsBpHoNIGT7dKStI8fyqdWvMoYj+2GNUWLJ8o5icsEK5b1W1MB8Yx1v1
-k8IkGPSyDr30UOg+Hf5KHbue+mnwT+yatzRqlA0NgnHOHa/y0Lis28oA7R+mpkOz
-ZqXk0KKlfG5LQ6k8wRcTj99SKGvxG5jD7QNb9ipjOWMkNHq2INzbyjlKTcqGP13Y
-ATQts90TbXzTVAw1wOj1BXkuz28FozX6tQEEBnm1V4eCSeloFD6ZxLNaKtwstLeq
-wT/m/w7ZQ+UFwIV1YmvVlNopcop+rpFKFWUeVCHe
------END CERTIFICATE-----`

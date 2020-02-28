@@ -32,10 +32,9 @@ import (
 //Configuration contains all configuration values that are not specific to a
 //certain driver.
 type Configuration struct {
-	APIPublicURL     url.URL
-	DatabaseURL      url.URL
-	JWTIssuerKey     libtrust.PrivateKey
-	JWTIssuerCertPEM string
+	APIPublicURL url.URL
+	DatabaseURL  url.URL
+	JWTIssuerKey libtrust.PrivateKey
 }
 
 //APIPublicHostname returns the hostname from the APIPublicURL.
@@ -48,20 +47,8 @@ func (cfg Configuration) APIPublicHostname() string {
 	return hostAndMaybePort //looks like there is no port in here after all
 }
 
-//ToRegistryEnvironment returns a set of environment variables that pass this
-//Configuration down into a keppel-registry.
-func (cfg Configuration) ToRegistryEnvironment() map[string]string {
-	publicHost := cfg.APIPublicHostname()
-	return map[string]string{
-		"REGISTRY_AUTH_TOKEN_REALM":   cfg.APIPublicURL.String() + "/keppel/v1/auth",
-		"REGISTRY_AUTH_TOKEN_SERVICE": publicHost,
-		"REGISTRY_AUTH_TOKEN_ISSUER":  "keppel-api@" + publicHost,
-	}
-}
-
 var (
 	looksLikePEMRx    = regexp.MustCompile(`^\s*-----\s*BEGIN`)
-	certificatePEMRx  = regexp.MustCompile(`^-----\s*BEGIN\s+CERTIFICATE\s*-----(?:\n|[a-zA-Z0-9+/=])*-----\s*END\s+CERTIFICATE\s*-----$`)
 	stripWhitespaceRx = regexp.MustCompile(`(?m)^\s*|\s*$`)
 )
 
@@ -85,22 +72,4 @@ func ParseIssuerKey(in string) (libtrust.PrivateKey, error) {
 		return nil, fmt.Errorf("failed to read KEPPEL_ISSUER_KEY: " + err.Error())
 	}
 	return key, nil
-}
-
-//ParseIssuerCertPEM parses the contents of the KEPPEL_ISSUER_CERT variable.
-func ParseIssuerCertPEM(in string) (string, error) {
-	//if it looks like PEM, it's probably PEM; otherwise it's a filename
-	if !looksLikePEMRx.MatchString(in) {
-		buf, err := ioutil.ReadFile(in)
-		if err != nil {
-			return "", err
-		}
-		in = string(buf)
-	}
-	in = stripWhitespaceRx.ReplaceAllString(in, "")
-
-	if !certificatePEMRx.MatchString(in) {
-		return "", fmt.Errorf("KEPPEL_ISSUER_CERT does not look like a PEM-encoded X509 certificate: does not match regexp /%s/", certificatePEMRx.String())
-	}
-	return in, nil
 }

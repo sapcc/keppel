@@ -116,8 +116,6 @@ func parseConfig() keppel.Configuration {
 	var err error
 	cfg.JWTIssuerKey, err = keppel.ParseIssuerKey(mustGetenv("KEPPEL_ISSUER_KEY"))
 	must(err)
-	cfg.JWTIssuerCertPEM, err = keppel.ParseIssuerCertPEM(mustGetenv("KEPPEL_ISSUER_CERT"))
-	must(err)
 
 	return cfg
 }

@@ -88,20 +88,11 @@ Both commands take configuration from the following environment variables:
 | `KEPPEL_DRIVER_AUTH` | *(required)* | The name of an auth driver. |
 | `KEPPEL_DRIVER_NAMECLAIM` | *(required)* | The name of a name claim driver. For single-region deployments, the correct choice is probably `trivial`. |
 | `KEPPEL_DRIVER_STORAGE` | *(required)* | The name of a storage driver. |
+| `KEPPEL_ISSUER_KEY` | *(required)* | The private key (in PEM format, or given as a path to a PEM file) that keppel-api uses to sign auth tokens for Docker clients. Can be generated with `openssl genrsa -out privkey.pem 4096`. |
 | `KEPPEL_JANITOR_LISTEN_ADDRESS` | :8080 | Listen address for janitor process (provides HTTP endpoint for Prometheus metrics). |
-| `KEPPEL_ISSUER_KEY` | *(required)* | The private key (in PEM format, or given as a path to a PEM file) that keppel-api uses to sign auth tokens for Docker clients. |
-| `KEPPEL_ISSUER_CERT` | *(required)* | The certificate (in PEM format, or given as a path to a PEM file) belonging to the key above. keppel-registry verifies client tokens using this certificate. |
 | `KEPPEL_PEERS` | *(optional)* | A comma-separated list of hostnames where our peer keppel-api instances are running. This is the set of instances that this keppel-api can replicate from. |
 
 To choose drivers, refer to the [documentation for drivers](./docs/drivers). Note that some drivers require additional
 configuration as mentioned in their respective documentation.
-
-For `KEPPEL_ISSUER_KEY` and `KEPPEL_ISSUER_CERT`, the Subject Public Key of the certificate must be the public
-counterpart of the private issuer key. Here's an example of how to generate such a pair of private key and certificate:
-
-```bash
-openssl genrsa -out privkey.pem 4096 2>/dev/null
-openssl req -x509 -sha256 -days 365 -subj "/CN=keppel" -key privkey.pem -out cert.pem
-```
 
 [pq-uri]: https://www.postgresql.org/docs/9.6/static/libpq-connect.html#LIBPQ-CONNSTRING
