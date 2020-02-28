@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-*  Copyright 2019 SAP SE
+*  Copyright 2020 SAP SE
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -16,27 +16,31 @@
 *
 ******************************************************************************/
 
-package test
+package tasks
 
-import "time"
+import (
+	"time"
 
-//Clock is a deterministic clock for unit tests. It starts at the Unix epoch
-//and only advances when Clock.Step() is called.
-type Clock struct {
-	currentTime int64
+	"github.com/sapcc/keppel/internal/keppel"
+)
+
+//Janitor contains the toolbox of the keppel-janitor process.
+type Janitor struct {
+	sd keppel.StorageDriver
+	db *keppel.DB
+	//non-pure functions that can be replaced by deterministic doubles for unit tests
+	timeNow func() time.Time
 }
 
-//Now reads the clock.
-func (c *Clock) Now() time.Time {
-	return time.Unix(c.currentTime, 0).UTC()
+//NewJanitor creates a new Janitor.
+func NewJanitor(sd keppel.StorageDriver, db *keppel.DB) *Janitor {
+	j := &Janitor{sd, db, time.Now}
+	j.initializeCounters()
+	return j
 }
 
-//Step advances the clock by one second.
-func (c *Clock) Step() {
-	c.currentTime++
-}
-
-//StepBy advances the clock by the given duration.
-func (c *Clock) StepBy(d time.Duration) {
-	c.currentTime += int64(d / time.Second)
+//OverrideTimeNow replaces time.Now with a test double.
+func (j *Janitor) OverrideTimeNow(timeNow func() time.Time) *Janitor {
+	j.timeNow = timeNow
+	return j
 }

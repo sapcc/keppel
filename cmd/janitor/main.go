@@ -20,14 +20,17 @@ package janitorcmd
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sapcc/go-bits/httpee"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/tasks"
 	"github.com/spf13/cobra"
 )
 
@@ -57,8 +60,9 @@ func run(cmd *cobra.Command, args []string) {
 
 	ctx := httpee.ContextWithSIGINT(context.Background())
 
-	//TODO start task loops
-	_, _ = db, sd
+	//start task loops
+	janitor := tasks.NewJanitor(sd, db)
+	go jobLoop(janitor.DeleteNextAbandonedUpload)
 
 	//start HTTP server for Prometheus metrics and health check
 	http.Handle("/metrics", promhttp.Handler())
@@ -71,6 +75,24 @@ func run(cmd *cobra.Command, args []string) {
 	err = httpee.ListenAndServeContext(ctx, listenAddress, nil)
 	if err != nil {
 		logg.Fatal("error returned from httpee.ListenAndServeContext(): %s", err.Error())
+	}
+}
+
+//Execute a task repeatedly, but slow down when sql.ErrNoRows is returned by it.
+//(Tasks use this error value to indicate that nothing needs scraping, so we
+//can back off a bit to avoid useless database load.)
+func jobLoop(task func() error) {
+	for {
+		err := task()
+		switch err {
+		case nil:
+			//nothing to do here
+		case sql.ErrNoRows:
+			//nothing to do right now - slow down a bit to avoid useless DB load
+			time.Sleep(10 * time.Second)
+		default:
+			logg.Error(err.Error())
+		}
 	}
 }
 
