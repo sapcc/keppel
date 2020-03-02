@@ -69,6 +69,11 @@ func (j *Janitor) DeleteNextAbandonedUpload() (returnErr error) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			logg.Debug("no abandoned uploads to clean up - slowing down...")
+			//explicit rollback to avoid spamming the log with "implicit rollback done" logs
+			err := tx.Rollback()
+			if err != nil {
+				return err
+			}
 			return sql.ErrNoRows
 		}
 		return err
