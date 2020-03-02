@@ -222,12 +222,14 @@ func (r Replicator) uploadBlobToLocal(b Blob, blobReader io.Reader, blobLengthBy
 		return err
 	}
 	defer keppel.RollbackUnlessCommitted(tx)
+	blobPushedAt := time.Now()
 	dbBlob := keppel.Blob{
 		AccountName: b.Account.Name,
 		Digest:      b.Digest.String(),
 		SizeBytes:   blobLengthBytes,
 		StorageID:   storageID,
-		PushedAt:    time.Now(),
+		PushedAt:    blobPushedAt,
+		ValidatedAt: blobPushedAt,
 	}
 	err = tx.Insert(&dbBlob)
 	if err != nil {

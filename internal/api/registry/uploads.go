@@ -242,12 +242,14 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	}
 	defer keppel.RollbackUnlessCommitted(tx)
 
+	blobPushedAt := a.timeNow()
 	blob := keppel.Blob{
 		AccountName: account.Name,
 		Digest:      blobDigest.String(),
 		SizeBytes:   sizeBytes,
 		StorageID:   storageID,
-		PushedAt:    a.timeNow(),
+		PushedAt:    blobPushedAt,
+		ValidatedAt: blobPushedAt,
 	}
 	onCommit, err := a.createOrUpdateBlobObject(tx, &blob, account)
 	if respondWithError(w, err) {
@@ -657,12 +659,14 @@ func (a *API) finishUpload(account keppel.Account, repoName string, upload *kepp
 		return nil, err
 	}
 
+	blobPushedAt := a.timeNow()
 	blob = &keppel.Blob{
 		AccountName: account.Name,
 		Digest:      blobDigest.String(),
 		SizeBytes:   upload.SizeBytes,
 		StorageID:   upload.StorageID,
-		PushedAt:    a.timeNow(),
+		PushedAt:    blobPushedAt,
+		ValidatedAt: blobPushedAt,
 	}
 	onCommit, err := a.createOrUpdateBlobObject(tx, blob, account)
 	if err != nil {

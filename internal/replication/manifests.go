@@ -87,12 +87,14 @@ func (r Replicator) ReplicateManifest(m Manifest) (*keppel.Manifest, []byte, err
 	}
 	defer keppel.RollbackUnlessCommitted(tx)
 
+	manifestPushedAt := time.Now()
 	dbManifest := keppel.Manifest{
 		RepositoryID: m.Repo.ID,
 		Digest:       manifestDesc.Digest.String(),
 		MediaType:    manifestDesc.MediaType,
 		SizeBytes:    sizeBytes,
-		PushedAt:     time.Now(),
+		PushedAt:     manifestPushedAt,
+		ValidatedAt:  manifestPushedAt,
 	}
 	err = dbManifest.InsertIfMissing(tx)
 	if err != nil {

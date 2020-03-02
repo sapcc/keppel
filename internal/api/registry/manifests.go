@@ -316,12 +316,14 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer keppel.RollbackUnlessCommitted(tx)
+	manifestPushedAt := a.timeNow()
 	err = keppel.Manifest{
 		RepositoryID: repo.ID,
 		Digest:       manifestDesc.Digest.String(),
 		MediaType:    manifestDesc.MediaType,
 		SizeBytes:    sizeBytes,
-		PushedAt:     a.timeNow(),
+		PushedAt:     manifestPushedAt,
+		ValidatedAt:  manifestPushedAt,
 	}.InsertIfMissing(tx)
 	if respondWithError(w, err) {
 		return

@@ -144,6 +144,29 @@ var sqlMigrations = map[string]string{
 	"003_add_repos_uniqueness_constraint.down.sql": `
 		ALTER TABLE repos DROP CONSTRAINT repos_account_name_name_key;
 	`,
+	"004_add_manifest_subreferences.up.sql": `
+		CREATE TABLE manifest_blob_refs (
+			repo_id BIGINT NOT NULL,
+			digest  TEXT   NOT NULL,
+			blob_id BIGINT NOT NULL       REFERENCES blobs ON DELETE RESTRICT,
+			FOREIGN KEY (repo_id, digest) REFERENCES manifests ON DELETE CASCADE
+		);
+		CREATE TABLE manifest_manifest_refs (
+			repo_id       BIGINT NOT NULL,
+			parent_digest TEXT   NOT NULL,
+			child_digest  TEXT   NOT NULL,
+			FOREIGN KEY (repo_id, parent_digest) REFERENCES manifests (repo_id, digest) ON DELETE CASCADE,
+			FOREIGN KEY (repo_id, child_digest)  REFERENCES manifests (repo_id, digest) ON DELETE RESTRICT
+		);
+		ALTER TABLE manifests ADD COLUMN validated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+		ALTER TABLE blobs     ADD COLUMN validated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+	`,
+	"004_add_manifest_subreferences.down.sql": `
+		DROP TABLE manifest_blob_refs;
+		DROP TABLE manifest_manifest_refs;
+		ALTER TABLE manifests DROP COLUMN validated_at;
+		ALTER TABLE blobs     DROP COLUMN validated_at;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

@@ -119,6 +119,7 @@ type Blob struct {
 	SizeBytes   uint64    `db:"size_bytes"`
 	StorageID   string    `db:"storage_id"`
 	PushedAt    time.Time `db:"pushed_at"`
+	ValidatedAt time.Time `db:"validated_at"`
 }
 
 const blobGetQueryByRepoName = `
@@ -262,16 +263,17 @@ type Manifest struct {
 	MediaType    string    `db:"media_type"`
 	SizeBytes    uint64    `db:"size_bytes"`
 	PushedAt     time.Time `db:"pushed_at"`
+	ValidatedAt  time.Time `db:"validated_at"`
 }
 
 //InsertIfMissing is equivalent to `e.Insert(&m)`, but does not fail if the
 //manifest exists in the database already.
 func (m Manifest) InsertIfMissing(e gorp.SqlExecutor) error {
 	_, err := e.Exec(`
-		INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (repo_id, digest) DO NOTHING
-	`, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt)
+	`, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.ValidatedAt)
 	return err
 }
 
