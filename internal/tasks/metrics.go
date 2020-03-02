@@ -29,11 +29,16 @@ var (
 		Name: "keppel_failed_abandoned_upload_cleanups",
 		Help: "Counter for failed cleanup of abandoned uploads.",
 	})
+
+	metricsRegistered = false
 )
 
 func (j *Janitor) initializeCounters() {
-	prometheus.MustRegister(cleanupAbandonedUploadSuccessCounter)
-	prometheus.MustRegister(cleanupAbandonedUploadFailedCounter)
+	if !metricsRegistered {
+		metricsRegistered = true
+		prometheus.MustRegister(cleanupAbandonedUploadSuccessCounter)
+		prometheus.MustRegister(cleanupAbandonedUploadFailedCounter)
+	}
 
 	//add 0 to all counters to ensure that the relevant timeseries exist
 	cleanupAbandonedUploadSuccessCounter.Add(0)
