@@ -31,12 +31,10 @@ var (
 	})
 )
 
-func init() {
+func (j *Janitor) initializeCounters() {
 	prometheus.MustRegister(cleanupAbandonedUploadSuccessCounter)
 	prometheus.MustRegister(cleanupAbandonedUploadFailedCounter)
-}
 
-func (j *Janitor) initializeCounters() {
 	//add 0 to all counters to ensure that the relevant timeseries exist
 	cleanupAbandonedUploadSuccessCounter.Add(0)
 	cleanupAbandonedUploadFailedCounter.Add(0)
