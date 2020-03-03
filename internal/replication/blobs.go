@@ -93,7 +93,7 @@ func (r Replicator) ReplicateBlob(b Blob, w http.ResponseWriter, requestMethod s
 
 	//if we already have the same blob locally in a different repo, we would not
 	//need to transfer its contents again, we could just mount it
-	localBlob, err := r.db.FindBlobByAccountName(b.Digest, b.Account)
+	localBlob, err := keppel.FindBlobByAccountName(r.db, b.Digest, b.Account)
 	if err == sql.ErrNoRows {
 		localBlob = nil
 	} else if err != nil {

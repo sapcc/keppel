@@ -22,8 +22,8 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/docker/distribution"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/processor"
 )
 
 //Manifest describes a manifest that can be replicated into our local registry.
@@ -48,7 +48,7 @@ func (r Replicator) ReplicateManifest(m Manifest) (*keppel.Manifest, []byte, err
 	}
 
 	//query upstream for the manifest
-	manifestReader, _, manifestContentType, err := r.fetchFromUpstream(m.Repo, "GET", "manifests/"+m.Reference.String(), peer, peerToken)
+	manifestReader, _, manifestMediaType, err := r.fetchFromUpstream(m.Repo, "GET", "manifests/"+m.Reference.String(), peer, peerToken)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -62,61 +62,13 @@ func (r Replicator) ReplicateManifest(m Manifest) (*keppel.Manifest, []byte, err
 		return nil, nil, err
 	}
 
-	//validate manifest
-	manifest, manifestDesc, err := distribution.UnmarshalManifest(manifestContentType, manifestBytes)
-	if err != nil {
-		return nil, nil, keppel.ErrManifestInvalid.With(err.Error())
-	}
-	//if <reference> is not a tag, it must be the digest of the manifest
-	if m.Reference.IsDigest() && manifestDesc.Digest.String() != m.Reference.Digest.String() {
-		return nil, nil, keppel.ErrDigestInvalid.With("upstream manifest digest is " + manifestDesc.Digest.String())
-	}
-
-	//NOTE: We trust upstream to have all blobs referenced by this manifest; these will
-	//be replicated when a client first asks for them.
-
-	//compute total size of image (TODO: code duplication with handlePutManifest())
-	sizeBytes := uint64(manifestDesc.Size)
-	for _, desc := range manifest.References() {
-		sizeBytes += uint64(desc.Size)
-	}
-
-	tx, err := r.db.Begin()
-	if err != nil {
-		return nil, nil, err
-	}
-	defer keppel.RollbackUnlessCommitted(tx)
-
-	manifestPushedAt := time.Now()
-	dbManifest := keppel.Manifest{
-		RepositoryID: m.Repo.ID,
-		Digest:       manifestDesc.Digest.String(),
-		MediaType:    manifestDesc.MediaType,
-		SizeBytes:    sizeBytes,
-		PushedAt:     manifestPushedAt,
-		ValidatedAt:  manifestPushedAt,
-	}
-	err = dbManifest.InsertIfMissing(tx)
-	if err != nil {
-		return nil, nil, err
-	}
-	if m.Reference.IsTag() {
-		err = keppel.Tag{
-			RepositoryID: m.Repo.ID,
-			Name:         m.Reference.Tag,
-			Digest:       manifestDesc.Digest.String(),
-			PushedAt:     time.Now(),
-		}.InsertIfMissing(tx)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	//before committing, put the manifest into the backend
-	err = r.sd.WriteManifest(m.Account, m.Repo.Name, manifestDesc.Digest.String(), manifestBytes)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return &dbManifest, manifestBytes, tx.Commit()
+	proc := processor.New(r.db, r.sd)
+	manifest, err := proc.ValidateAndStoreManifest(m.Account, processor.IncomingManifest{
+		RepoName:  m.Repo.Name,
+		Reference: m.Reference,
+		MediaType: manifestMediaType,
+		Contents:  manifestBytes,
+		PushedAt:  time.Now(),
+	})
+	return manifest, manifestBytes, err
 }

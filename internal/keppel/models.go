@@ -144,7 +144,7 @@ const blobGetQueryByAccountName = `
 
 //FindBlobByRepositoryName is a convenience wrapper around db.SelectOne(). If
 //the blob in question does not exist, sql.ErrNoRows is returned.
-func (db *DB) FindBlobByRepositoryName(blobDigest digest.Digest, repoName string, account Account) (*Blob, error) {
+func FindBlobByRepositoryName(db gorp.SqlExecutor, blobDigest digest.Digest, repoName string, account Account) (*Blob, error) {
 	var blob Blob
 	err := db.SelectOne(&blob, blobGetQueryByRepoName, account.Name, blobDigest.String(), repoName)
 	return &blob, err
@@ -152,7 +152,7 @@ func (db *DB) FindBlobByRepositoryName(blobDigest digest.Digest, repoName string
 
 //FindBlobByRepositoryID is a convenience wrapper around db.SelectOne(). If
 //the blob in question does not exist, sql.ErrNoRows is returned.
-func (db *DB) FindBlobByRepositoryID(blobDigest digest.Digest, repoID int64, account Account) (*Blob, error) {
+func FindBlobByRepositoryID(db gorp.SqlExecutor, blobDigest digest.Digest, repoID int64, account Account) (*Blob, error) {
 	var blob Blob
 	err := db.SelectOne(&blob, blobGetQueryByRepoID, account.Name, blobDigest.String(), repoID)
 	return &blob, err
@@ -160,7 +160,7 @@ func (db *DB) FindBlobByRepositoryID(blobDigest digest.Digest, repoID int64, acc
 
 //FindBlobByAccountName is a convenience wrapper around db.SelectOne(). If the
 //blob in question does not exist, sql.ErrNoRows is returned.
-func (db *DB) FindBlobByAccountName(blobDigest digest.Digest, account Account) (*Blob, error) {
+func FindBlobByAccountName(db gorp.SqlExecutor, blobDigest digest.Digest, account Account) (*Blob, error) {
 	var blob Blob
 	err := db.SelectOne(&blob, blobGetQueryByAccountName, account.Name, blobDigest.String())
 	return &blob, err

@@ -172,7 +172,7 @@ func testROFUNonReplicatingCases(t *testing.T, h http.Handler, ad keppel.AuthDri
 	}.Check(t, h)
 
 	//query the DB to check that the blob was not actually replicated
-	_, err := db.FindBlobByRepositoryName(digest.Digest(firstBlobDigest), "foo", keppel.Account{Name: "test1"})
+	_, err := keppel.FindBlobByRepositoryName(db, digest.Digest(firstBlobDigest), "foo", keppel.Account{Name: "test1"})
 	if err != sql.ErrNoRows {
 		t.Errorf("expected DB to reply sql.ErrNoRows, but actually err = %#v", err)
 	}
