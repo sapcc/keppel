@@ -20,6 +20,7 @@ package keppelv1
 
 import (
 	"net/http"
+	"sort"
 
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
@@ -125,6 +126,10 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, manifest := range result.Manifests {
 			manifest.Tags = tagsByDigest[manifest.Digest]
+			//sort in deterministic order for unit test
+			sort.Slice(manifest.Tags, func(i, j int) bool {
+				return manifest.Tags[i].Name < manifest.Tags[j].Name
+			})
 		}
 	}
 
