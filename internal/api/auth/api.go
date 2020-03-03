@@ -75,7 +75,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	//find account if scope requested
 	var account *keppel.Account
 	if req.Scope.ResourceType == "repository" && req.Scope.AccountName() != "" {
-		account, err = a.db.FindAccount(req.Scope.AccountName())
+		account, err = keppel.FindAccount(a.db, req.Scope.AccountName())
 		if respondWithError(w, http.StatusInternalServerError, err) {
 			return
 		}

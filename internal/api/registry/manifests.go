@@ -58,7 +58,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		//if the manifest does not exist there, we may have the option of replicating
 		//from upstream
 		if account.UpstreamPeerHostName != "" {
-			repo, err := a.db.FindOrCreateRepository(repoName, *account)
+			repo, err := keppel.FindOrCreateRepository(a.db, repoName, *account)
 			if respondWithError(w, err) {
 				return
 			}
@@ -121,7 +121,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) findManifestInDB(account keppel.Account, repoName string, reference keppel.ManifestReference) (*keppel.Manifest, error) {
-	repo, err := a.db.FindRepository(repoName, account)
+	repo, err := keppel.FindRepository(a.db, repoName, account)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	if account == nil {
 		return
 	}
-	repo, err := a.db.FindOrCreateRepository(repoName, *account)
+	repo, err := keppel.FindOrCreateRepository(a.db, repoName, *account)
 	if respondWithError(w, err) {
 		return
 	}

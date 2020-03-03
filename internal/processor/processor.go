@@ -91,7 +91,7 @@ func (p *Processor) insideTransaction(action func(*gorp.Transaction) error) erro
 //Returns nil if and only if the user can push another manifest.
 func (p *Processor) checkQuotaForManifestPush(account keppel.Account) error {
 	//check if user has enough quota to push a manifest
-	quotas, err := p.db.FindQuotas(account.AuthTenantID)
+	quotas, err := keppel.FindQuotas(p.db, account.AuthTenantID)
 	if err != nil {
 		return err
 	}

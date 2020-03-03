@@ -47,12 +47,7 @@ type IncomingManifest struct {
 //given reference. If the reference is a digest, it is validated. Otherwise, a
 //tag with that name is created that points to the new manifest.
 func (p *Processor) ValidateAndStoreManifest(account keppel.Account, m IncomingManifest) (*keppel.Manifest, error) {
-	//early preparations
 	err := p.checkQuotaForManifestPush(account)
-	if err != nil {
-		return nil, err
-	}
-	repo, err := p.db.FindOrCreateRepository(m.RepoName, account)
 	if err != nil {
 		return nil, err
 	}
@@ -68,6 +63,11 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, m IncomingM
 
 	var dbManifest *keppel.Manifest
 	err = p.insideTransaction(func(tx *gorp.Transaction) error {
+		repo, err := keppel.FindOrCreateRepository(tx, m.RepoName, account)
+		if err != nil {
+			return err
+		}
+
 		//when a manifest is pushed into an account with replication enabled, it's
 		//because we're replicating a manifest from upstream; in this case, the
 		//referenced blobs and manifests will be replicated later and we skip the

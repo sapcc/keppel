@@ -68,7 +68,7 @@ func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *k
 
 	//we want to test replication for a blob that exists in multiple repos, so
 	//mount one of the blobs from test1/foo into test1/bar on upstream
-	barRepoPrimary, err := dbPrimary.FindOrCreateRepository("bar", keppel.Account{Name: "test1"})
+	barRepoPrimary, err := keppel.FindOrCreateRepository(dbPrimary, "bar", keppel.Account{Name: "test1"})
 	if err != nil {
 		t.Fatal(err.Error())
 	}

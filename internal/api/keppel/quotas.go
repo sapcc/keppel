@@ -54,7 +54,7 @@ func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	quotas, err := a.db.FindQuotas(authTenantID)
+	quotas, err := keppel.FindQuotas(a.db, authTenantID)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -82,7 +82,7 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	quotas, err := a.db.FindQuotas(authTenantID)
+	quotas, err := keppel.FindQuotas(a.db, authTenantID)
 	if respondwith.ErrorText(w, err) {
 		return
 	}

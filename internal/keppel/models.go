@@ -55,7 +55,7 @@ func (a Account) PostgresDatabaseName() string {
 
 //FindAccount works similar to db.SelectOne(), but returns nil instead of
 //sql.ErrNoRows if no account exists with this name.
-func (db *DB) FindAccount(name string) (*Account, error) {
+func FindAccount(db gorp.SqlExecutor, name string) (*Account, error) {
 	var account Account
 	err := db.SelectOne(&account,
 		"SELECT * FROM accounts WHERE name = $1", name)
@@ -203,7 +203,7 @@ const uploadGetQueryByRepoID = `
 
 //FindUploadByRepositoryName is a convenience wrapper around db.SelectOne(). If
 //the upload in question does not exist, sql.ErrNoRows is returned.
-func (db *DB) FindUploadByRepositoryName(uuid string, repoName string, account Account) (*Upload, error) {
+func FindUploadByRepositoryName(db gorp.SqlExecutor, uuid string, repoName string, account Account) (*Upload, error) {
 	var upload Upload
 	err := db.SelectOne(&upload, uploadGetQueryByRepoName, uuid, account.Name, repoName)
 	return &upload, err
@@ -211,7 +211,7 @@ func (db *DB) FindUploadByRepositoryName(uuid string, repoName string, account A
 
 //FindUploadByRepositoryID is a convenience wrapper around db.SelectOne(). If
 //the upload in question does not exist, sql.ErrNoRows is returned.
-func (db *DB) FindUploadByRepositoryID(uuid string, repoID int64) (*Upload, error) {
+func FindUploadByRepositoryID(db gorp.SqlExecutor, uuid string, repoID int64) (*Upload, error) {
 	var upload Upload
 	err := db.SelectOne(&upload, uploadGetQueryByRepoID, uuid, repoID)
 	return &upload, err
@@ -228,8 +228,8 @@ type Repository struct {
 
 //FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a
 //Repository record when none exists yet.
-func (db *DB) FindOrCreateRepository(name string, account Account) (*Repository, error) {
-	repo, err := db.FindRepository(name, account)
+func FindOrCreateRepository(db gorp.SqlExecutor, name string, account Account) (*Repository, error) {
+	repo, err := FindRepository(db, name, account)
 	if err == sql.ErrNoRows {
 		repo = &Repository{
 			AccountName: account.Name,
@@ -242,7 +242,7 @@ func (db *DB) FindOrCreateRepository(name string, account Account) (*Repository,
 
 //FindRepository is a convenience wrapper around db.SelectOne(). If the
 //repository in question does not exist, sql.ErrNoRows is returned.
-func (db *DB) FindRepository(name string, account Account) (*Repository, error) {
+func FindRepository(db gorp.SqlExecutor, name string, account Account) (*Repository, error) {
 	var repo Repository
 	err := db.SelectOne(&repo,
 		"SELECT * FROM repos WHERE account_name = $1 AND name = $2", account.Name, name)
@@ -318,7 +318,7 @@ type Quotas struct {
 
 //FindQuotas works similar to db.SelectOne(), but returns nil instead of
 //sql.ErrNoRows if no quota set exists for this auth tenant.
-func (db *DB) FindQuotas(authTenantID string) (*Quotas, error) {
+func FindQuotas(db gorp.SqlExecutor, authTenantID string) (*Quotas, error) {
 	var quotas Quotas
 	err := db.SelectOne(&quotas,
 		"SELECT * FROM quotas WHERE auth_tenant_id = $1", authTenantID)

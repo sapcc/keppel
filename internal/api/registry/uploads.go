@@ -66,7 +66,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	//This is not strictly necessary to enforce the manifest quota, but it's
 	//useful to avoid the accumulation of unreferenced blobs in the account's
 	//backing storage.
-	quotas, err := a.db.FindQuotas(account.AuthTenantID)
+	quotas, err := keppel.FindQuotas(a.db, account.AuthTenantID)
 	if respondWithError(w, err) {
 		return
 	}
@@ -85,7 +85,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	repo, err := a.db.FindOrCreateRepository(repoName, *account)
+	repo, err := keppel.FindOrCreateRepository(a.db, repoName, *account)
 	if respondWithError(w, err) {
 		return
 	}
@@ -137,7 +137,7 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 		keppel.ErrNameInvalid.With("source repository is invalid").WriteAsRegistryV2ResponseTo(w)
 		return
 	}
-	sourceRepo, err := a.db.FindRepository(sourceRepoName, account)
+	sourceRepo, err := keppel.FindRepository(a.db, sourceRepoName, account)
 	if err == sql.ErrNoRows {
 		keppel.ErrNameUnknown.With("source repository does not exist").WriteAsRegistryV2ResponseTo(w)
 		return
@@ -442,7 +442,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 func (a *API) findUpload(w http.ResponseWriter, r *http.Request, account keppel.Account, repoName string) *keppel.Upload {
 	uploadUUID := mux.Vars(r)["uuid"]
 
-	upload, err := a.db.FindUploadByRepositoryName(uploadUUID, repoName, account)
+	upload, err := keppel.FindUploadByRepositoryName(a.db, uploadUUID, repoName, account)
 	if err == sql.ErrNoRows {
 		keppel.ErrBlobUploadUnknown.With("no such upload: " + uploadUUID).WriteAsRegistryV2ResponseTo(w)
 		return nil
@@ -644,7 +644,7 @@ func (a *API) finishUpload(account keppel.Account, repoName string, upload *kepp
 	}
 
 	//prepare database changes
-	repo, err := a.db.FindOrCreateRepository(repoName, account)
+	repo, err := keppel.FindOrCreateRepository(a.db, repoName, account)
 	if err != nil {
 		return nil, err
 	}

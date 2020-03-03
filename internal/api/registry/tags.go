@@ -41,7 +41,7 @@ func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	repo, err := a.db.FindRepository(repoName, *account)
+	repo, err := keppel.FindRepository(a.db, repoName, *account)
 	if err == sql.ErrNoRows {
 		keppel.ErrNameUnknown.With("no such repository").WriteAsRegistryV2ResponseTo(w)
 		return

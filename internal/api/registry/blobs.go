@@ -109,7 +109,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) tryReplicateBlob(w http.ResponseWriter, r *http.Request, account keppel.Account, repoName string, blobDigest digest.Digest) {
-	repo, err := a.db.FindOrCreateRepository(repoName, account)
+	repo, err := keppel.FindOrCreateRepository(a.db, repoName, account)
 	if respondWithError(w, err) {
 		return
 	}
@@ -158,7 +158,7 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	repo, err := a.db.FindRepository(repoName, *account)
+	repo, err := keppel.FindRepository(a.db, repoName, *account)
 	if err == sql.ErrNoRows {
 		keppel.ErrNameUnknown.With("no such repository").WriteAsRegistryV2ResponseTo(w)
 		return

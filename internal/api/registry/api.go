@@ -209,7 +209,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request) (accoun
 	}
 
 	//we need to know the account to select the registry instance for this request
-	account, err := a.db.FindAccount(mux.Vars(r)["account"])
+	account, err := keppel.FindAccount(a.db, mux.Vars(r)["account"])
 	if respondWithError(w, err) {
 		return nil, "", nil
 	}
