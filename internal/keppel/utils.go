@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/docker/distribution"
 	"github.com/opencontainers/go-digest"
 )
 
@@ -31,6 +32,16 @@ func AppendQuery(url string, query url.Values) string {
 		return url + "&" + query.Encode()
 	}
 	return url + "?" + query.Encode()
+}
+
+//IsManifestMediaType returns whether the given media type is for a manifest.
+func IsManifestMediaType(mediaType string) bool {
+	for _, mt := range distribution.ManifestMediaTypes() {
+		if mt == mediaType {
+			return true
+		}
+	}
+	return false
 }
 
 ////////////////////////////////////////////////////////////////////////////////

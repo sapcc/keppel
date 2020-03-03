@@ -72,17 +72,16 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, m IncomingM
 		//because we're replicating a manifest from upstream; in this case, the
 		//referenced blobs and manifests will be replicated later and we skip the
 		//corresponding validation steps
-		if account.UpstreamPeerHostName == "" {
-			//check that all referenced blobs exist (TODO: some manifest types reference
-			//other manifests, so we should look for manifests in these cases)
-			for _, desc := range manifest.References() {
-				_, err := keppel.FindBlobByRepositoryID(tx, desc.Digest, repo.ID, account)
-				if err == sql.ErrNoRows {
-					return keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String())
-				}
-				if err != nil {
-					return err
-				}
+		hasReferencedObjects := account.UpstreamPeerHostName == ""
+		var (
+			referencedBlobIDs         []int64
+			referencedManifestDigests []string
+		)
+
+		if hasReferencedObjects {
+			referencedBlobIDs, referencedManifestDigests, err = findManifestReferencedObjects(tx, account, *repo, manifest)
+			if err != nil {
+				return err
 			}
 
 			//enforce account-specific validation rules on manifest
@@ -130,10 +129,80 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, m IncomingM
 			}
 		}
 
+		//persist manifest-blob references into the DB
+		_, err = tx.Exec(`DELETE FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`,
+			repo.ID, manifestDesc.Digest.String())
+		if err != nil {
+			return err
+		}
+		err = keppel.WithPreparedStatement(tx,
+			`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
+			func(stmt *sql.Stmt) error {
+				for _, blobID := range referencedBlobIDs {
+					_, err := stmt.Exec(repo.ID, manifestDesc.Digest.String(), blobID)
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+		//persist manifest-manifest references into the DB
+		_, err = tx.Exec(`DELETE FROM manifest_manifest_refs WHERE repo_id = $1 AND parent_digest = $2`,
+			repo.ID, manifestDesc.Digest.String())
+		if err != nil {
+			return err
+		}
+		err = keppel.WithPreparedStatement(tx,
+			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES ($1, $2, $3)`,
+			func(stmt *sql.Stmt) error {
+				for _, digest := range referencedManifestDigests {
+					_, err := stmt.Exec(repo.ID, manifestDesc.Digest.String(), digest)
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+		)
+		if err != nil {
+			return err
+		}
+
 		//PUT the manifest in the backend
 		return p.sd.WriteManifest(account, repo.Name, manifestDesc.Digest.String(), m.Contents)
 	})
 	return dbManifest, err
+}
+
+func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account, repo keppel.Repository, manifest distribution.Manifest) (blobIDs []int64, manifestDigests []string, returnErr error) {
+	for _, desc := range manifest.References() {
+		if keppel.IsManifestMediaType(desc.MediaType) {
+			_, err := keppel.FindManifest(tx, repo, desc.Digest.String())
+			if err == sql.ErrNoRows {
+				return nil, nil, keppel.ErrManifestUnknown.With("").WithDetail(desc.Digest.String())
+			}
+			if err != nil {
+				return nil, nil, err
+			}
+			manifestDigests = append(manifestDigests, desc.Digest.String())
+		} else {
+			blob, err := keppel.FindBlobByRepositoryID(tx, desc.Digest, repo.ID, account)
+			if err == sql.ErrNoRows {
+				return nil, nil, keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String())
+			}
+			if err != nil {
+				return nil, nil, err
+			}
+			blobIDs = append(blobIDs, blob.ID)
+		}
+	}
+
+	return blobIDs, manifestDigests, nil
 }
 
 //Returns the list of missing labels, or nil if everything is ok.

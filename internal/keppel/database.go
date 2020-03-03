@@ -229,3 +229,25 @@ func ForeachRow(dbi gorp.SqlExecutor, query string, args []interface{}, action f
 	}
 	return rows.Close()
 }
+
+//StmtPreparer is anything that has the classical Prepare() method like *sql.DB
+//or *sql.Tx.
+type StmtPreparer interface {
+	Prepare(query string) (*sql.Stmt, error)
+}
+
+//WithPreparedStatement calls dbi.Prepare() and passes the resulting prepared statement
+//into the given action. It then cleans up the prepared statements, and it
+//handles any errors that occur during all of this.
+func WithPreparedStatement(dbi StmtPreparer, query string, action func(*sql.Stmt) error) error {
+	stmt, err := dbi.Prepare(query)
+	if err != nil {
+		return err
+	}
+	err = action(stmt)
+	if err != nil {
+		stmt.Close()
+		return err
+	}
+	return stmt.Close()
+}

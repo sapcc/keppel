@@ -266,6 +266,15 @@ type Manifest struct {
 	ValidatedAt  time.Time `db:"validated_at"`
 }
 
+//FindManifest is a convenience wrapper around db.SelectOne(). If the
+//manifest in question does not exist, sql.ErrNoRows is returned.
+func FindManifest(db gorp.SqlExecutor, repo Repository, digest string) (*Manifest, error) {
+	var manifest Manifest
+	err := db.SelectOne(&manifest,
+		"SELECT * FROM manifests WHERE repo_id = $1 AND digest = $2", repo.ID, digest)
+	return &manifest, err
+}
+
 //InsertIfMissing is equivalent to `e.Insert(&m)`, but does not fail if the
 //manifest exists in the database already.
 func (m Manifest) InsertIfMissing(e gorp.SqlExecutor) error {
