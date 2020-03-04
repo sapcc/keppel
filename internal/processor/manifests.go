@@ -113,17 +113,17 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, m IncomingM
 			PushedAt:     m.PushedAt,
 			ValidatedAt:  m.PushedAt,
 		}
-		err = dbManifest.InsertIfMissing(tx)
+		err = upsertManifest(tx, *dbManifest)
 		if err != nil {
 			return err
 		}
 		if m.Reference.IsTag() {
-			err = keppel.Tag{
+			err = upsertTag(tx, keppel.Tag{
 				RepositoryID: repo.ID,
 				Name:         m.Reference.Tag,
 				Digest:       manifestDesc.Digest.String(),
 				PushedAt:     m.PushedAt,
-			}.InsertIfMissing(tx)
+			})
 			if err != nil {
 				return err
 			}
@@ -261,4 +261,24 @@ func checkManifestHasRequiredLabels(tx *gorp.Transaction, sd keppel.StorageDrive
 		}
 	}
 	return missingLabels, nil
+}
+
+func upsertManifest(db gorp.SqlExecutor, m keppel.Manifest) error {
+	_, err := db.Exec(`
+		INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (repo_id, digest) DO UPDATE
+			SET validated_at = EXCLUDED.validated_at
+	`, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.ValidatedAt)
+	return err
+}
+
+func upsertTag(db gorp.SqlExecutor, t keppel.Tag) error {
+	_, err := db.Exec(`
+		INSERT INTO tags (repo_id, name, digest, pushed_at)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (repo_id, name) DO UPDATE
+			SET digest = EXCLUDED.digest, pushed_at = EXCLUDED.pushed_at
+	`, t.RepositoryID, t.Name, t.Digest, t.PushedAt)
+	return err
 }

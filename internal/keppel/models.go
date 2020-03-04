@@ -275,37 +275,12 @@ func FindManifest(db gorp.SqlExecutor, repo Repository, digest string) (*Manifes
 	return &manifest, err
 }
 
-//InsertIfMissing is equivalent to `e.Insert(&m)`, but does not fail if the
-//manifest exists in the database already.
-func (m Manifest) InsertIfMissing(e gorp.SqlExecutor) error {
-	_, err := e.Exec(`
-		INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (repo_id, digest) DO NOTHING
-	`, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.ValidatedAt)
-	return err
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 //Tag contains a record from the `tags` table.
 type Tag struct {
 	RepositoryID int64     `db:"repo_id"`
 	Name         string    `db:"name"`
 	Digest       string    `db:"digest"`
 	PushedAt     time.Time `db:"pushed_at"`
-}
-
-//InsertIfMissing is equivalent to `e.Insert(&m)`, but does not fail if the
-//manifest exists in the database already.
-func (t Tag) InsertIfMissing(e gorp.SqlExecutor) error {
-	_, err := e.Exec(`
-		INSERT INTO tags (repo_id, name, digest, pushed_at)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (repo_id, name) DO UPDATE
-			SET digest = EXCLUDED.digest, pushed_at = EXCLUDED.pushed_at
-	`, t.RepositoryID, t.Name, t.Digest, t.PushedAt)
-	return err
 }
 
 ////////////////////////////////////////////////////////////////////////////////
