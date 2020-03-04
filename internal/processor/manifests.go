@@ -51,17 +51,64 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 		return nil, err
 	}
 
-	//validate manifest
-	manifest, manifestDesc, err := distribution.UnmarshalManifest(m.MediaType, m.Contents)
-	if err != nil {
-		return nil, keppel.ErrManifestInvalid.With(err.Error())
+	manifest := &keppel.Manifest{
+		//NOTE: .Digest and .SizeBytes are computed by validateAndStoreManifestCommon()
+		RepositoryID: repo.ID,
+		MediaType:    m.MediaType,
+		PushedAt:     m.PushedAt,
+		ValidatedAt:  m.PushedAt,
 	}
-	if m.Reference.IsDigest() && manifestDesc.Digest != m.Reference.Digest {
-		return nil, keppel.ErrDigestInvalid.With("actual manifest digest is " + manifestDesc.Digest.String())
+	if m.Reference.IsDigest() {
+		//allow validateAndStoreManifestCommon() to validate the user-supplied
+		//digest against the actual manifest data
+		manifest.Digest = m.Reference.Digest.String()
+	}
+	err = p.validateAndStoreManifestCommon(account, repo, manifest, m.Contents,
+		func(tx *gorp.Transaction) error {
+			if m.Reference.IsTag() {
+				err = upsertTag(tx, keppel.Tag{
+					RepositoryID: repo.ID,
+					Name:         m.Reference.Tag,
+					Digest:       manifest.Digest,
+					PushedAt:     m.PushedAt,
+				})
+				if err != nil {
+					return err
+				}
+			}
+
+			//after making all DB changes, but before committing the DB transaction,
+			//write the manifest into the backend
+			return p.sd.WriteManifest(account, repo.Name, manifest.Digest, m.Contents)
+		},
+	)
+	return manifest, err
+}
+
+func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo keppel.Repository, manifest *keppel.Manifest, manifestBytes []byte, actionBeforeCommit func(*gorp.Transaction) error) error {
+	//parse manifest
+	manifestParsed, manifestDesc, err := distribution.UnmarshalManifest(manifest.MediaType, manifestBytes)
+	if err != nil {
+		return keppel.ErrManifestInvalid.With(err.Error())
+	}
+	if manifest.Digest != "" && manifestDesc.Digest.String() != manifest.Digest {
+		return keppel.ErrDigestInvalid.With("actual manifest digest is " + manifestDesc.Digest.String())
 	}
 
-	var dbManifest *keppel.Manifest
-	err = p.insideTransaction(func(tx *gorp.Transaction) error {
+	//fill in the fields of `manifest` that ValidateAndStoreManifest() could not
+	//fill in yet ()
+	manifest.Digest = manifestDesc.Digest.String()
+	// ^ This field was empty until now when the user pushed a tag and therefore
+	// did not supply a digest.
+	manifest.MediaType = manifestDesc.MediaType
+	// ^ Those two should be the same already, but if in doubt, we trust the
+	// parser more than the user input.
+	manifest.SizeBytes = uint64(manifestDesc.Size)
+	for _, desc := range manifestParsed.References() {
+		manifest.SizeBytes += uint64(desc.Size)
+	}
+
+	return p.insideTransaction(func(tx *gorp.Transaction) error {
 		//when a manifest is pushed into an account with replication enabled, it's
 		//because we're replicating a manifest from upstream; in this case, the
 		//referenced blobs and manifests will be replicated later and we skip the
@@ -73,7 +120,7 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 		)
 
 		if hasReferencedObjects {
-			referencedBlobIDs, referencedManifestDigests, err = findManifestReferencedObjects(tx, account, repo, manifest)
+			referencedBlobIDs, referencedManifestDigests, err = findManifestReferencedObjects(tx, account, repo, manifestParsed)
 			if err != nil {
 				return err
 			}
@@ -81,7 +128,7 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 			//enforce account-specific validation rules on manifest
 			if account.RequiredLabels != "" {
 				requiredLabels := strings.Split(account.RequiredLabels, ",")
-				missingLabels, err := checkManifestHasRequiredLabels(tx, p.sd, account, manifest, requiredLabels)
+				missingLabels, err := checkManifestHasRequiredLabels(tx, p.sd, account, manifestParsed, requiredLabels)
 				if err != nil {
 					return err
 				}
@@ -92,40 +139,15 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 			}
 		}
 
-		//compute total size of image
-		sizeBytes := uint64(manifestDesc.Size)
-		for _, desc := range manifest.References() {
-			sizeBytes += uint64(desc.Size)
-		}
-
-		//create new database entries
-		dbManifest = &keppel.Manifest{
-			RepositoryID: repo.ID,
-			Digest:       manifestDesc.Digest.String(),
-			MediaType:    manifestDesc.MediaType,
-			SizeBytes:    sizeBytes,
-			PushedAt:     m.PushedAt,
-			ValidatedAt:  m.PushedAt,
-		}
-		err = upsertManifest(tx, *dbManifest)
+		//create or update basic database entries
+		err = upsertManifest(tx, *manifest)
 		if err != nil {
 			return err
-		}
-		if m.Reference.IsTag() {
-			err = upsertTag(tx, keppel.Tag{
-				RepositoryID: repo.ID,
-				Name:         m.Reference.Tag,
-				Digest:       manifestDesc.Digest.String(),
-				PushedAt:     m.PushedAt,
-			})
-			if err != nil {
-				return err
-			}
 		}
 
 		//persist manifest-blob references into the DB
 		_, err = tx.Exec(`DELETE FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`,
-			repo.ID, manifestDesc.Digest.String())
+			repo.ID, manifest.Digest)
 		if err != nil {
 			return err
 		}
@@ -133,7 +155,7 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 			`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
 			func(stmt *sql.Stmt) error {
 				for _, blobID := range referencedBlobIDs {
-					_, err := stmt.Exec(repo.ID, manifestDesc.Digest.String(), blobID)
+					_, err := stmt.Exec(repo.ID, manifest.Digest, blobID)
 					if err != nil {
 						return err
 					}
@@ -147,7 +169,7 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 
 		//persist manifest-manifest references into the DB
 		_, err = tx.Exec(`DELETE FROM manifest_manifest_refs WHERE repo_id = $1 AND parent_digest = $2`,
-			repo.ID, manifestDesc.Digest.String())
+			repo.ID, manifest.Digest)
 		if err != nil {
 			return err
 		}
@@ -155,7 +177,7 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES ($1, $2, $3)`,
 			func(stmt *sql.Stmt) error {
 				for _, digest := range referencedManifestDigests {
-					_, err := stmt.Exec(repo.ID, manifestDesc.Digest.String(), digest)
+					_, err := stmt.Exec(repo.ID, manifest.Digest, digest)
 					if err != nil {
 						return err
 					}
@@ -167,10 +189,8 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 			return err
 		}
 
-		//PUT the manifest in the backend
-		return p.sd.WriteManifest(account, repo.Name, manifestDesc.Digest.String(), m.Contents)
+		return actionBeforeCommit(tx)
 	})
-	return dbManifest, err
 }
 
 func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account, repo keppel.Repository, manifest distribution.Manifest) (blobIDs []int64, manifestDigests []string, returnErr error) {
@@ -262,7 +282,7 @@ func upsertManifest(db gorp.SqlExecutor, m keppel.Manifest) error {
 		INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (repo_id, digest) DO UPDATE
-			SET validated_at = EXCLUDED.validated_at
+			SET size_bytes = EXCLUDED.size_bytes, validated_at = EXCLUDED.validated_at
 	`, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.ValidatedAt)
 	return err
 }
