@@ -63,8 +63,7 @@ func (r Replicator) ReplicateManifest(m Manifest) (*keppel.Manifest, []byte, err
 	}
 
 	proc := processor.New(r.db, r.sd)
-	manifest, err := proc.ValidateAndStoreManifest(m.Account, processor.IncomingManifest{
-		RepoName:  m.Repo.Name,
+	manifest, err := proc.ValidateAndStoreManifest(m.Account, m.Repo, processor.IncomingManifest{
 		Reference: m.Reference,
 		MediaType: manifestMediaType,
 		Contents:  manifestBytes,

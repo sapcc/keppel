@@ -215,6 +215,13 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			return hdr
 		}
 
+		//create the "test1/foo" repository to ensure that we don't just always hit
+		//NAME_UNKNOWN errors
+		_, err := keppel.FindOrCreateRepository(db, "foo", keppel.Account{Name: "test1"})
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+
 		//test failure cases during POST: token does not have push access
 		assert.HTTPRequest{
 			Method: "POST",
@@ -434,7 +441,7 @@ func TestGetBlobUpload(t *testing.T) {
 	//NOTE: We only use the read-write token for driving the blob upload through
 	//its various stages. All the GET requests use the read-only token to verify
 	//that read-only tokens work here.
-	h, _, _, ad, _, _ := setup(t)
+	h, _, db, ad, _, _ := setup(t)
 	readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
 		keppel.CanPullFromAccount)
 	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
@@ -443,6 +450,13 @@ func TestGetBlobUpload(t *testing.T) {
 
 	blobContents := []byte("just some random data")
 	blobDigest := "sha256:" + sha256Of(blobContents)
+
+	//create the "test1/foo" repository to ensure that we don't just always hit
+	//NAME_UNKNOWN errors
+	_, err := keppel.FindOrCreateRepository(db, "foo", keppel.Account{Name: "test1"})
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	//test failure cases: no such upload
 	assert.HTTPRequest{
@@ -528,6 +542,13 @@ func TestDeleteBlobUpload(t *testing.T) {
 		keppel.CanDeleteFromAccount)
 
 	blobContents := []byte("just some random data")
+
+	//create the "test1/foo" repository to ensure that we don't just always hit
+	//NAME_UNKNOWN errors
+	_, err := keppel.FindOrCreateRepository(db, "foo", keppel.Account{Name: "test1"})
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	//test failure cases: no such upload
 	assert.HTTPRequest{

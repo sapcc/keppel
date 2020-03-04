@@ -36,23 +36,17 @@ const tagsListQuery = `
 
 func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/tags/list")
-	account, repoName, _ := a.checkAccountAccess(w, r)
+	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing)
 	if account == nil {
-		return
-	}
-
-	repo, err := keppel.FindRepository(a.db, repoName, *account)
-	if err == sql.ErrNoRows {
-		keppel.ErrNameUnknown.With("no such repository").WriteAsRegistryV2ResponseTo(w)
-		return
-	}
-	if respondWithError(w, err) {
 		return
 	}
 
 	//parse query: limit (parameter "n")
 	query := r.URL.Query()
-	var limit uint64
+	var (
+		limit uint64
+		err   error
+	)
 	if limitStr := query.Get("n"); limitStr != "" {
 		limit, err = strconv.ParseUint(limitStr, 10, 64)
 		if err != nil {

@@ -39,13 +39,13 @@ import (
 //This implements the HEAD/GET /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
-	account, repoName, _ := a.checkAccountAccess(w, r)
+	account, repo, _ := a.checkAccountAccess(w, r, createRepoIfMissingAndReplica)
 	if account == nil {
 		return
 	}
 
 	reference := keppel.ParseManifestReference(mux.Vars(r)["reference"])
-	dbManifest, err := a.findManifestInDB(*account, repoName, reference)
+	dbManifest, err := a.findManifestInDB(*account, *repo, reference)
 	var manifestBytes []byte
 
 	if err != sql.ErrNoRows {
@@ -58,11 +58,6 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		//if the manifest does not exist there, we may have the option of replicating
 		//from upstream
 		if account.UpstreamPeerHostName != "" {
-			repo, err := keppel.FindOrCreateRepository(a.db, repoName, *account)
-			if respondWithError(w, err) {
-				return
-			}
-
 			repl := replication.NewReplicator(a.cfg, a.db, a.sd)
 			m := replication.Manifest{
 				Account:   *account,
@@ -79,7 +74,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		//if manifest was found in our DB, fetch the contents from the storage
-		manifestBytes, err = a.sd.ReadManifest(*account, repoName, dbManifest.Digest)
+		manifestBytes, err = a.sd.ReadManifest(*account, repo.Name, dbManifest.Digest)
 		if respondWithError(w, err) {
 			return
 		}
@@ -120,12 +115,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *API) findManifestInDB(account keppel.Account, repoName string, reference keppel.ManifestReference) (*keppel.Manifest, error) {
-	repo, err := keppel.FindRepository(a.db, repoName, account)
-	if err != nil {
-		return nil, err
-	}
-
+func (a *API) findManifestInDB(account keppel.Account, repo keppel.Repository, reference keppel.ManifestReference) (*keppel.Manifest, error) {
 	//resolve tag into digest if necessary
 	refDigest := reference.Digest
 	if reference.IsTag() {
@@ -146,7 +136,7 @@ func (a *API) findManifestInDB(account keppel.Account, repoName string, referenc
 	}
 
 	var dbManifest keppel.Manifest
-	err = a.db.SelectOne(&dbManifest,
+	err := a.db.SelectOne(&dbManifest,
 		`SELECT * FROM manifests WHERE repo_id = $1 AND digest = $2`,
 		repo.ID, refDigest.String(),
 	)
@@ -156,12 +146,8 @@ func (a *API) findManifestInDB(account keppel.Account, repoName string, referenc
 //This implements the DELETE /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
-	account, repoName, _ := a.checkAccountAccess(w, r)
+	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing)
 	if account == nil {
-		return
-	}
-	repo, err := keppel.FindOrCreateRepository(a.db, repoName, *account)
-	if respondWithError(w, err) {
 		return
 	}
 
@@ -213,7 +199,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 //This implements the PUT /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
-	account, repoName, _ := a.checkAccountAccess(w, r)
+	account, repo, _ := a.checkAccountAccess(w, r, createRepoIfMissing)
 	if account == nil {
 		return
 	}
@@ -221,7 +207,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	//forbid pushing into replica accounts
 	if account.UpstreamPeerHostName != "" {
 		msg := fmt.Sprintf("cannot push into replica account (push to %s/%s/%s instead!)",
-			account.UpstreamPeerHostName, account.Name, repoName,
+			account.UpstreamPeerHostName, account.Name, repo.Name,
 		)
 		keppel.ErrUnsupported.With(msg).WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w)
 		return
@@ -235,8 +221,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 
 	//validate and store manifest
 	proc := processor.New(a.db, a.sd)
-	manifest, err := proc.ValidateAndStoreManifest(*account, processor.IncomingManifest{
-		RepoName:  repoName,
+	manifest, err := proc.ValidateAndStoreManifest(*account, *repo, processor.IncomingManifest{
 		Reference: keppel.ParseManifestReference(mux.Vars(r)["reference"]),
 		MediaType: r.Header.Get("Content-Type"),
 		Contents:  manifestBytes,
@@ -252,6 +237,6 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Docker-Content-Digest", manifest.Digest)
-	w.Header().Set("Location", fmt.Sprintf("/v2/%s/%s/manifests/%s", account.Name, repoName, manifest.Digest))
+	w.Header().Set("Location", fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), manifest.Digest))
 	w.WriteHeader(http.StatusCreated)
 }

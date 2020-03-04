@@ -38,7 +38,7 @@ func TestProxyAPI(t *testing.T) {
 	clock.Step()
 	testVersionCheckEndpoint(t, h, ad)
 	clock.Step()
-	testPullNonExistentTag(t, h, ad)
+	testPullNonExistentTag(t, h, ad, db)
 	clock.Step()
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/001-before-push.sql")
 	firstBlobDigest := testPushAndPull(t, h, ad, db,
@@ -114,9 +114,25 @@ func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver
 	}
 }
 
-func testPullNonExistentTag(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
+func testPullNonExistentTag(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB) {
 	token := getToken(t, h, ad, "repository:test1/foo:pull",
 		keppel.CanPullFromAccount)
+
+	//we can either get an error because the repo does not exist...
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/v2/test1/foo/manifests/latest",
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusNotFound,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrNameUnknown),
+	}.Check(t, h)
+
+	//...or if it does, because the manifest does not exist
+	_, err := keppel.FindOrCreateRepository(db, "foo", keppel.Account{Name: "test1"})
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/test1/foo/manifests/latest",

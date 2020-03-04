@@ -38,7 +38,7 @@ import (
 //This implements the GET/HEAD /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
-	account, repoName, token := a.checkAccountAccess(w, r)
+	account, repo, token := a.checkAccountAccess(w, r, createRepoIfMissingAndReplica)
 	if account == nil {
 		return
 	}
@@ -50,11 +50,11 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//locate this blob from the DB
-	blob, err := keppel.FindBlobByRepositoryName(a.db, blobDigest, repoName, *account)
+	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *repo, *account)
 	if err == sql.ErrNoRows {
 		//if the blob does not exist here, we may have the option of replicating from upstream
 		if account.UpstreamPeerHostName != "" {
-			a.tryReplicateBlob(w, r, *account, repoName, blobDigest)
+			a.tryReplicateBlob(w, r, *account, *repo, blobDigest)
 		} else {
 			keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w)
 		}
@@ -108,16 +108,11 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *API) tryReplicateBlob(w http.ResponseWriter, r *http.Request, account keppel.Account, repoName string, blobDigest digest.Digest) {
-	repo, err := keppel.FindOrCreateRepository(a.db, repoName, account)
-	if respondWithError(w, err) {
-		return
-	}
-
+func (a *API) tryReplicateBlob(w http.ResponseWriter, r *http.Request, account keppel.Account, repo keppel.Repository, blobDigest digest.Digest) {
 	repl := replication.NewReplicator(a.cfg, a.db, a.sd)
 	blob := replication.Blob{
 		Account: account,
-		Repo:    *repo,
+		Repo:    repo,
 		Digest:  blobDigest,
 	}
 	responseWasWritten, err := repl.ReplicateBlob(blob, w, r.Method)
@@ -153,17 +148,8 @@ func (a *API) tryReplicateBlob(w http.ResponseWriter, r *http.Request, account k
 //This implements the DELETE /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
-	account, repoName, _ := a.checkAccountAccess(w, r)
+	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing)
 	if account == nil {
-		return
-	}
-
-	repo, err := keppel.FindRepository(a.db, repoName, *account)
-	if err == sql.ErrNoRows {
-		keppel.ErrNameUnknown.With("no such repository").WriteAsRegistryV2ResponseTo(w)
-		return
-	}
-	if respondWithError(w, err) {
 		return
 	}
 
@@ -173,7 +159,7 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	blob, err := keppel.FindBlobByRepositoryID(a.db, blobDigest, repo.ID, *account)
+	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *repo, *account)
 	if err == sql.ErrNoRows {
 		keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w)
 		return

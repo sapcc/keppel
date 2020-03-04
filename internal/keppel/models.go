@@ -150,11 +150,11 @@ func FindBlobByRepositoryName(db gorp.SqlExecutor, blobDigest digest.Digest, rep
 	return &blob, err
 }
 
-//FindBlobByRepositoryID is a convenience wrapper around db.SelectOne(). If
+//FindBlobByRepository is a convenience wrapper around db.SelectOne(). If
 //the blob in question does not exist, sql.ErrNoRows is returned.
-func FindBlobByRepositoryID(db gorp.SqlExecutor, blobDigest digest.Digest, repoID int64, account Account) (*Blob, error) {
+func FindBlobByRepository(db gorp.SqlExecutor, blobDigest digest.Digest, repo Repository, account Account) (*Blob, error) {
 	var blob Blob
-	err := db.SelectOne(&blob, blobGetQueryByRepoID, account.Name, blobDigest.String(), repoID)
+	err := db.SelectOne(&blob, blobGetQueryByRepoID, account.Name, blobDigest.String(), repo.ID)
 	return &blob, err
 }
 
@@ -190,30 +190,15 @@ type Upload struct {
 	UpdatedAt    time.Time `db:"updated_at"`
 }
 
-const uploadGetQueryByRepoName = `
-	SELECT u.*
-	  FROM uploads u
-	  JOIN repos r ON u.repo_id = r.id
-	 WHERE u.uuid = $1 AND r.account_name = $2 AND r.name = $3
-`
-
 const uploadGetQueryByRepoID = `
 	SELECT u.* FROM uploads u WHERE u.uuid = $1 AND repo_id = $2
 `
 
-//FindUploadByRepositoryName is a convenience wrapper around db.SelectOne(). If
+//FindUploadByRepository is a convenience wrapper around db.SelectOne(). If
 //the upload in question does not exist, sql.ErrNoRows is returned.
-func FindUploadByRepositoryName(db gorp.SqlExecutor, uuid string, repoName string, account Account) (*Upload, error) {
+func FindUploadByRepository(db gorp.SqlExecutor, uuid string, repo Repository) (*Upload, error) {
 	var upload Upload
-	err := db.SelectOne(&upload, uploadGetQueryByRepoName, uuid, account.Name, repoName)
-	return &upload, err
-}
-
-//FindUploadByRepositoryID is a convenience wrapper around db.SelectOne(). If
-//the upload in question does not exist, sql.ErrNoRows is returned.
-func FindUploadByRepositoryID(db gorp.SqlExecutor, uuid string, repoID int64) (*Upload, error) {
-	var upload Upload
-	err := db.SelectOne(&upload, uploadGetQueryByRepoID, uuid, repoID)
+	err := db.SelectOne(&upload, uploadGetQueryByRepoID, uuid, repo.ID)
 	return &upload, err
 }
 

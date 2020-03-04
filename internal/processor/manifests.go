@@ -36,7 +36,6 @@ import (
 //IncomingManifest contains information about a manifest uploaded by the user
 //(or downloaded from a peer registry in the case of replication).
 type IncomingManifest struct {
-	RepoName  string
 	Reference keppel.ManifestReference
 	MediaType string
 	Contents  []byte
@@ -46,7 +45,7 @@ type IncomingManifest struct {
 //ValidateAndStoreManifest validates the given manifest and stores it under the
 //given reference. If the reference is a digest, it is validated. Otherwise, a
 //tag with that name is created that points to the new manifest.
-func (p *Processor) ValidateAndStoreManifest(account keppel.Account, m IncomingManifest) (*keppel.Manifest, error) {
+func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel.Repository, m IncomingManifest) (*keppel.Manifest, error) {
 	err := p.checkQuotaForManifestPush(account)
 	if err != nil {
 		return nil, err
@@ -63,11 +62,6 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, m IncomingM
 
 	var dbManifest *keppel.Manifest
 	err = p.insideTransaction(func(tx *gorp.Transaction) error {
-		repo, err := keppel.FindOrCreateRepository(tx, m.RepoName, account)
-		if err != nil {
-			return err
-		}
-
 		//when a manifest is pushed into an account with replication enabled, it's
 		//because we're replicating a manifest from upstream; in this case, the
 		//referenced blobs and manifests will be replicated later and we skip the
@@ -79,7 +73,7 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, m IncomingM
 		)
 
 		if hasReferencedObjects {
-			referencedBlobIDs, referencedManifestDigests, err = findManifestReferencedObjects(tx, account, *repo, manifest)
+			referencedBlobIDs, referencedManifestDigests, err = findManifestReferencedObjects(tx, account, repo, manifest)
 			if err != nil {
 				return err
 			}
@@ -191,7 +185,7 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 			}
 			manifestDigests = append(manifestDigests, desc.Digest.String())
 		} else {
-			blob, err := keppel.FindBlobByRepositoryID(tx, desc.Digest, repo.ID, account)
+			blob, err := keppel.FindBlobByRepository(tx, desc.Digest, repo, account)
 			if err == sql.ErrNoRows {
 				return nil, nil, keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String())
 			}
