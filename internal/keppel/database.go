@@ -158,14 +158,22 @@ var sqlMigrations = map[string]string{
 			FOREIGN KEY (repo_id, parent_digest) REFERENCES manifests (repo_id, digest) ON DELETE CASCADE,
 			FOREIGN KEY (repo_id, child_digest)  REFERENCES manifests (repo_id, digest) ON DELETE RESTRICT
 		);
-		ALTER TABLE manifests ADD COLUMN validated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-		ALTER TABLE blobs     ADD COLUMN validated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+		ALTER TABLE manifests
+			ADD COLUMN validated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			ADD COLUMN validation_error_message TEXT        NOT NULL DEFAULT '';
+		ALTER TABLE blobs
+			ADD COLUMN validated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			ADD COLUMN validation_error_message TEXT        NOT NULL DEFAULT '';
 	`,
 	"004_add_manifest_subreferences.down.sql": `
 		DROP TABLE manifest_blob_refs;
 		DROP TABLE manifest_manifest_refs;
-		ALTER TABLE manifests DROP COLUMN validated_at;
-		ALTER TABLE blobs     DROP COLUMN validated_at;
+		ALTER TABLE manifests
+			DROP COLUMN validated_at,
+			DROP COLUMN validation_error_message;
+		ALTER TABLE blobs
+			DROP COLUMN validated_at,
+			DROP COLUMN validation_error_message;
 	`,
 }
 

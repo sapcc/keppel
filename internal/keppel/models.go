@@ -113,13 +113,14 @@ func (r RBACPolicy) Matches(repoName, userName string) bool {
 //needs to be chosen at the start of the blob upload, when the digest is not
 //known yet.
 type Blob struct {
-	ID          int64     `db:"id"`
-	AccountName string    `db:"account_name"`
-	Digest      string    `db:"digest"`
-	SizeBytes   uint64    `db:"size_bytes"`
-	StorageID   string    `db:"storage_id"`
-	PushedAt    time.Time `db:"pushed_at"`
-	ValidatedAt time.Time `db:"validated_at"`
+	ID                     int64     `db:"id"`
+	AccountName            string    `db:"account_name"`
+	Digest                 string    `db:"digest"`
+	SizeBytes              uint64    `db:"size_bytes"`
+	StorageID              string    `db:"storage_id"`
+	PushedAt               time.Time `db:"pushed_at"`
+	ValidatedAt            time.Time `db:"validated_at"`
+	ValidationErrorMessage string    `db:"validation_error_message"`
 }
 
 const blobGetQueryByRepoName = `
@@ -243,12 +244,13 @@ func (r Repository) FullName() string {
 
 //Manifest contains a record from the `manifests` table.
 type Manifest struct {
-	RepositoryID int64     `db:"repo_id"`
-	Digest       string    `db:"digest"`
-	MediaType    string    `db:"media_type"`
-	SizeBytes    uint64    `db:"size_bytes"`
-	PushedAt     time.Time `db:"pushed_at"`
-	ValidatedAt  time.Time `db:"validated_at"`
+	RepositoryID           int64     `db:"repo_id"`
+	Digest                 string    `db:"digest"`
+	MediaType              string    `db:"media_type"`
+	SizeBytes              uint64    `db:"size_bytes"`
+	PushedAt               time.Time `db:"pushed_at"`
+	ValidatedAt            time.Time `db:"validated_at"`
+	ValidationErrorMessage string    `db:"validation_error_message"`
 }
 
 //FindManifest is a convenience wrapper around db.SelectOne(). If the

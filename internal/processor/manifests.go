@@ -85,6 +85,24 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 	return manifest, err
 }
 
+//ValidateExistingManifest validates the given manifest that already exists in the DB.
+//The `now` argument will be used instead of time.Now() to accommodate unit
+//tests that use a different clock.
+func (p *Processor) ValidateExistingManifest(account keppel.Account, repo keppel.Repository, manifest *keppel.Manifest, now time.Time) error {
+	manifestBytes, err := p.sd.ReadManifest(account, repo.Name, manifest.Digest)
+	if err != nil {
+		return err
+	}
+
+	//if the validation succeeds, these fields will be committed
+	manifest.ValidatedAt = now
+	manifest.ValidationErrorMessage = ""
+
+	return p.validateAndStoreManifestCommon(account, repo, manifest, manifestBytes,
+		func(tx *gorp.Transaction) error { return nil },
+	)
+}
+
 func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo keppel.Repository, manifest *keppel.Manifest, manifestBytes []byte, actionBeforeCommit func(*gorp.Transaction) error) error {
 	//parse manifest
 	manifestParsed, manifestDesc, err := distribution.UnmarshalManifest(manifest.MediaType, manifestBytes)
