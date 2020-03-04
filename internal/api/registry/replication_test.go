@@ -21,13 +21,11 @@ package registryv2
 import (
 	"crypto/rand"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"net/http"
 	"strings"
 	"testing"
 
-	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/keppel/internal/api"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
@@ -143,8 +141,10 @@ func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *k
 		http.DefaultClient.Transport = nil
 	}()
 
+	//TODO test that a blob cannot be replicated before the manifest that references it
+	//TODO test a manifest replication that mounts an existing blob into a new repo
+
 	//run all replication-on-first-use (ROFU) tests once
-	testROFUNonReplicatingCases(t, h, ad2, db2, firstBlobDigest)
 	testROFUSuccessCases(t, h, ad2, firstManifestDigest, firstBlobDigest, secondManifestDigest, secondManifestTag)
 	testROFUMissingEntities(t, h, ad2)
 	testROFUForbidDirectUpload(t, h, ad2)
@@ -156,44 +156,11 @@ func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *k
 	testROFUForbidDirectUpload(t, h, ad2)
 }
 
-func testROFUNonReplicatingCases(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB, firstBlobDigest string) {
-	//before replication, do a HEAD on a blob - this should only be proxied to
-	//upstream and not cause a full replication (we reserve the full replication
-	//for the first GET on the blob since we can then also stream the blob
-	//contents to that client directly)
-	token := getTokenForSecondary(t, h, ad, "repository:test1/foo:pull",
-		keppel.CanPullFromAccount)
-	assert.HTTPRequest{
-		Method:       "HEAD",
-		Path:         "/v2/test1/foo/blobs/" + firstBlobDigest,
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusOK,
-		ExpectHeader: test.VersionHeader,
-	}.Check(t, h)
-
-	//query the DB to check that the blob was not actually replicated
-	_, err := keppel.FindBlobByRepositoryName(db, digest.Digest(firstBlobDigest), "foo", keppel.Account{Name: "test1"})
-	if err != sql.ErrNoRows {
-		t.Errorf("expected DB to reply sql.ErrNoRows, but actually err = %#v", err)
-	}
-}
-
 func testROFUSuccessCases(t *testing.T, h http.Handler, ad keppel.AuthDriver, firstManifestDigest, firstBlobDigest, secondManifestDigest, secondManifestTag string) {
-	//pull a blob that exists upstream, but not locally yet - this will
-	//transparently fetch the blob into the local registry
+	//pull a manifest that exists upstream, but not locally yet - this will
+	//transparently fetch the manifest into the local registry
 	token := getTokenForSecondary(t, h, ad, "repository:test1/foo:pull",
 		keppel.CanPullFromAccount)
-	_, blobData := assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/test1/foo/blobs/" + firstBlobDigest,
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusOK,
-		ExpectHeader: test.VersionHeader,
-	}.Check(t, h)
-	assertDigest(t, "blob", blobData, firstBlobDigest)
-
-	//pull a manifest referencing that blob that exists upstream, but not locally
-	//yet - this will transparently fetch the manifest into the local registry
 	_, manifestData := assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/test1/foo/manifests/" + firstManifestDigest,
@@ -206,10 +173,18 @@ func testROFUSuccessCases(t *testing.T, h http.Handler, ad keppel.AuthDriver, fi
 	}.Check(t, h)
 	assertDigest(t, "manifest", manifestData, firstManifestDigest)
 
-	//pull a second manifest - this differs from the previous test case in two ways:
-	//1. the pull happens by tag, not by manifest digest
-	//2. the blob referenced in the manifest is not pulled beforehand and thus
-	//will be replicated during this request
+	//pull a blob referenced by this manifest - this will transparently fetch the
+	//blob into the local registry
+	_, blobData := assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/v2/test1/foo/blobs/" + firstBlobDigest,
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusOK,
+		ExpectHeader: test.VersionHeader,
+	}.Check(t, h)
+	assertDigest(t, "blob", blobData, firstBlobDigest)
+
+	//pull a second manifest by tag
 	_, manifestData = assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/test1/foo/manifests/" + secondManifestTag,
@@ -221,23 +196,6 @@ func testROFUSuccessCases(t *testing.T, h http.Handler, ad keppel.AuthDriver, fi
 		},
 	}.Check(t, h)
 	assertDigest(t, "manifest", manifestData, secondManifestDigest)
-
-	//On upstream, the blob with `firstBlobDigest` exists in both the test1/foo
-	//and test1/bar repo.  We already replicated it into test1/foo. When
-	//replicating it again into test1/bar, the test used to fail because it just
-	//stupidly replicated the same blob again and thus ran into a DB error
-	//because `INSERT INTO blobs` violates the uniqueness constraint on
-	//(account_name, digest). It should actually only create a new blob mount.
-	token = getTokenForSecondary(t, h, ad, "repository:test1/bar:pull",
-		keppel.CanPullFromAccount)
-	_, blobData = assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/test1/bar/blobs/" + firstBlobDigest,
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusOK,
-		ExpectHeader: test.VersionHeader,
-	}.Check(t, h)
-	assertDigest(t, "blob", blobData, firstBlobDigest)
 }
 
 func assertDigest(t *testing.T, objectType string, data []byte, expectedDigest string) {

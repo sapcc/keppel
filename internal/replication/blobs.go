@@ -19,14 +19,12 @@
 package replication
 
 import (
-	"database/sql"
 	"errors"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/api"
@@ -39,13 +37,6 @@ var (
 	ErrConcurrentReplication = errors.New("currently replicating")
 )
 
-//Blob describes a blob that can be replicated into our local registry.
-type Blob struct {
-	Account keppel.Account
-	Repo    keppel.Repository
-	Digest  digest.Digest
-}
-
 //ReplicateBlob replicates the given blob from its account's upstream registry.
 //
 //If a ResponseWriter is given, the response to the GET request to the upstream
@@ -53,15 +44,11 @@ type Blob struct {
 //our local registry. The result value `responseWasWritten` indicates whether
 //this happened. It may be false if an error occured before writing into the
 //ResponseWriter took place.
-//
-//`requestMethod` is usually "GET", but can also be set to "HEAD". In this
-//case, no replication will take place. The upstream HEAD request will just be
-//proxied into the given ResponseWriter.
-func (r Replicator) ReplicateBlob(b Blob, w http.ResponseWriter, requestMethod string) (responseWasWritten bool, returnErr error) {
+func (r Replicator) ReplicateBlob(blob keppel.Blob, account keppel.Account, repo keppel.Repository, w http.ResponseWriter) (responseWasWritten bool, returnErr error) {
 	//mark this blob as currently being replicated
 	pendingBlob := keppel.PendingBlob{
-		RepositoryID: b.Repo.ID,
-		Digest:       b.Digest.String(),
+		AccountName:  account.Name,
+		Digest:       blob.Digest,
 		Reason:       keppel.PendingBecauseOfReplication,
 		PendingSince: time.Now(),
 	}
@@ -69,8 +56,8 @@ func (r Replicator) ReplicateBlob(b Blob, w http.ResponseWriter, requestMethod s
 	if err != nil {
 		//did we get a duplicate-key error because this blob is already being replicated?
 		count, err := r.db.SelectInt(
-			`SELECT COUNT(*) FROM pending_blobs WHERE repo_id = $1 AND digest = $2`,
-			b.Repo.ID, b.Digest.String(),
+			`SELECT COUNT(*) FROM pending_blobs WHERE account_name = $1 AND digest = $2`,
+			account.Name, blob.Digest,
 		)
 		if err == nil && count > 0 {
 			return false, ErrConcurrentReplication
@@ -83,83 +70,59 @@ func (r Replicator) ReplicateBlob(b Blob, w http.ResponseWriter, requestMethod s
 	//(one way or the other)
 	defer func() {
 		_, err := r.db.Exec(
-			`DELETE FROM pending_blobs WHERE repo_id = $1 AND digest = $2`,
-			b.Repo.ID, b.Digest.String(),
+			`DELETE FROM pending_blobs WHERE account_name = $1 AND digest = $2`,
+			account.Name, blob.Digest,
 		)
 		if returnErr == nil {
 			returnErr = err
 		}
 	}()
 
-	//if we already have the same blob locally in a different repo, we would not
-	//need to transfer its contents again, we could just mount it
-	localBlob, err := keppel.FindBlobByAccountName(r.db, b.Digest, b.Account)
-	if err == sql.ErrNoRows {
-		localBlob = nil
-	} else if err != nil {
-		return false, err
-	}
-
 	//get a token for upstream
 	var peer keppel.Peer
-	err = r.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, b.Account.UpstreamPeerHostName)
+	err = r.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, account.UpstreamPeerHostName)
 	if err != nil {
 		return false, err
 	}
-	peerToken, err := r.getPeerToken(peer, b.Repo.FullName())
+	peerToken, err := r.getPeerToken(peer, repo.FullName())
 	if err != nil {
 		return false, err
 	}
 
 	//query upstream for the blob
-	upstreamMethod := "GET"
-	if requestMethod == "HEAD" || localBlob != nil {
-		upstreamMethod = "HEAD"
-	}
-	blobReadCloser, blobLengthBytes, _, err := r.fetchFromUpstream(b.Repo, upstreamMethod, "blobs/"+b.Digest.String(), peer, peerToken)
+	blobReadCloser, blobLengthBytes, _, err := r.fetchFromUpstream(repo, "GET", "blobs/"+blob.Digest, peer, peerToken)
 	if err != nil {
 		return false, err
 	}
 	defer blobReadCloser.Close()
 
-	//at this point, it's clear that upstream has the blob; if we also have it
-	//locally, we just need to mount it; then we can revert to the regular code path
-	if localBlob != nil {
-		return false, keppel.MountBlobIntoRepo(r.db, *localBlob, b.Repo)
-	}
-
 	//stream into `w` if requested
 	blobReader := io.Reader(blobReadCloser)
 	if w != nil {
-		w.Header().Set("Docker-Content-Digest", b.Digest.String())
+		w.Header().Set("Docker-Content-Digest", blob.Digest)
 		w.Header().Set("Content-Length", strconv.FormatUint(blobLengthBytes, 10))
 		w.WriteHeader(http.StatusOK)
 		blobReader = io.TeeReader(blobReader, w)
 	}
 
-	//upload into local keppel-registry if we have a blob content to upload
-	if requestMethod == "HEAD" {
-		return true, nil
-	}
-
-	err = r.uploadBlobToLocal(b, blobReader, blobLengthBytes)
+	err = r.uploadBlobToLocal(blob, account, blobReader, blobLengthBytes)
 	if err != nil {
 		return true, err
 	}
 
 	//count the successful push
-	l := prometheus.Labels{"account": b.Account.Name, "method": "replication"}
+	l := prometheus.Labels{"account": account.Name, "method": "replication"}
 	api.BlobsPushedCounter.With(l).Inc()
 	return true, nil
 }
 
 const chunkSizeBytes = 500 << 20 // 500 MiB
 
-func (r Replicator) uploadBlobToLocal(b Blob, blobReader io.Reader, blobLengthBytes uint64) (returnErr error) {
+func (r Replicator) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, blobReader io.Reader, blobLengthBytes uint64) (returnErr error) {
 	defer func() {
 		//if blob upload fails, count an aborted upload
 		if returnErr != nil {
-			l := prometheus.Labels{"account": b.Account.Name, "method": "replication"}
+			l := prometheus.Labels{"account": account.Name, "method": "replication"}
 			api.UploadsAbortedCounter.With(l).Inc()
 		}
 	}()
@@ -182,12 +145,12 @@ func (r Replicator) uploadBlobToLocal(b Blob, blobReader io.Reader, blobLengthBy
 		}
 		chunkCount++
 
-		err := r.sd.AppendToBlob(b.Account, storageID, chunkCount, &chunkLength, chunk)
+		err := r.sd.AppendToBlob(account, storageID, chunkCount, &chunkLength, chunk)
 		if err != nil {
-			abortErr := r.sd.AbortBlobUpload(b.Account, storageID, chunkCount)
+			abortErr := r.sd.AbortBlobUpload(account, storageID, chunkCount)
 			if abortErr != nil {
 				logg.Error("additional error encountered when aborting upload %s into account %s: %s",
-					storageID, b.Account.Name, abortErr.Error())
+					storageID, account.Name, abortErr.Error())
 			}
 			return err
 		}
@@ -195,12 +158,12 @@ func (r Replicator) uploadBlobToLocal(b Blob, blobReader io.Reader, blobLengthBy
 		remainingBytes -= chunkLength
 	}
 
-	err := r.sd.FinalizeBlob(b.Account, storageID, chunkCount)
+	err := r.sd.FinalizeBlob(account, storageID, chunkCount)
 	if err != nil {
-		abortErr := r.sd.AbortBlobUpload(b.Account, storageID, chunkCount)
+		abortErr := r.sd.AbortBlobUpload(account, storageID, chunkCount)
 		if abortErr != nil {
 			logg.Error("additional error encountered when aborting upload %s into account %s: %s",
-				storageID, b.Account.Name, abortErr.Error())
+				storageID, account.Name, abortErr.Error())
 		}
 		return err
 	}
@@ -208,36 +171,18 @@ func (r Replicator) uploadBlobToLocal(b Blob, blobReader io.Reader, blobLengthBy
 	//if errors occur while trying to update the DB, we need to clean up the blob in the storage
 	defer func() {
 		if returnErr != nil {
-			deleteErr := r.sd.DeleteBlob(b.Account, storageID)
+			deleteErr := r.sd.DeleteBlob(account, storageID)
 			if deleteErr != nil {
 				logg.Error("additional error encountered when deleting uploaded blob %s from account %s after upload error: %s",
-					storageID, b.Account.Name, deleteErr.Error())
+					storageID, account.Name, deleteErr.Error())
 			}
 		}
 	}()
 
 	//write blob metadata to DB
-	tx, err := r.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer keppel.RollbackUnlessCommitted(tx)
-	blobPushedAt := time.Now()
-	dbBlob := keppel.Blob{
-		AccountName: b.Account.Name,
-		Digest:      b.Digest.String(),
-		SizeBytes:   blobLengthBytes,
-		StorageID:   storageID,
-		PushedAt:    blobPushedAt,
-		ValidatedAt: blobPushedAt,
-	}
-	err = tx.Insert(&dbBlob)
-	if err != nil {
-		return err
-	}
-	err = keppel.MountBlobIntoRepo(tx, dbBlob, b.Repo)
-	if err != nil {
-		return err
-	}
-	return tx.Commit()
+	blob.StorageID = storageID
+	blob.PushedAt = time.Now()
+	blob.ValidatedAt = blob.PushedAt
+	_, err = r.db.Update(&blob)
+	return err
 }

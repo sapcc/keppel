@@ -26,9 +26,6 @@ import (
 	"time"
 
 	"github.com/docker/distribution"
-	"github.com/docker/distribution/manifest/manifestlist"
-	"github.com/docker/distribution/manifest/ocischema"
-	"github.com/docker/distribution/manifest/schema2"
 	"github.com/sapcc/keppel/internal/keppel"
 	"gopkg.in/gorp.v2"
 )
@@ -127,33 +124,21 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 	}
 
 	return p.insideTransaction(func(tx *gorp.Transaction) error {
-		//when a manifest is pushed into an account with replication enabled, it's
-		//because we're replicating a manifest from upstream; in this case, the
-		//referenced blobs and manifests will be replicated later and we skip the
-		//corresponding validation steps
-		hasReferencedObjects := account.UpstreamPeerHostName == ""
-		var (
-			referencedBlobIDs         []int64
-			referencedManifestDigests []string
-		)
+		referencedBlobIDs, referencedManifestDigests, err := findManifestReferencedObjects(tx, account, repo, manifestParsed)
+		if err != nil {
+			return err
+		}
 
-		if hasReferencedObjects {
-			referencedBlobIDs, referencedManifestDigests, err = findManifestReferencedObjects(tx, account, repo, manifestParsed)
+		//enforce account-specific validation rules on manifest
+		if account.RequiredLabels != "" {
+			requiredLabels := strings.Split(account.RequiredLabels, ",")
+			missingLabels, err := checkManifestHasRequiredLabels(tx, p.sd, account, manifestParsed, requiredLabels)
 			if err != nil {
 				return err
 			}
-
-			//enforce account-specific validation rules on manifest
-			if account.RequiredLabels != "" {
-				requiredLabels := strings.Split(account.RequiredLabels, ",")
-				missingLabels, err := checkManifestHasRequiredLabels(tx, p.sd, account, manifestParsed, requiredLabels)
-				if err != nil {
-					return err
-				}
-				if len(missingLabels) > 0 {
-					msg := "missing required labels: " + strings.Join(missingLabels, ", ")
-					return keppel.ErrManifestInvalid.With(msg)
-				}
+			if len(missingLabels) > 0 {
+				msg := "missing required labels: " + strings.Join(missingLabels, ", ")
+				return keppel.ErrManifestInvalid.With(msg)
 			}
 		}
 
@@ -239,14 +224,9 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 
 //Returns the list of missing labels, or nil if everything is ok.
 func checkManifestHasRequiredLabels(tx *gorp.Transaction, sd keppel.StorageDriver, account keppel.Account, manifest distribution.Manifest, requiredLabels []string) ([]string, error) {
-	var configBlob distribution.Descriptor
-	switch m := manifest.(type) {
-	case *schema2.DeserializedManifest:
-		configBlob = m.Config
-	case *ocischema.DeserializedManifest:
-		configBlob = m.Config
-	case *manifestlist.DeserializedManifestList:
-		//manifest lists only reference other manifests, they don't have labels themselves
+	//is this manifest an image that has labels?
+	configBlob := keppel.FindImageConfigBlob(manifest)
+	if configBlob == nil {
 		return nil, nil
 	}
 

@@ -175,6 +175,26 @@ var sqlMigrations = map[string]string{
 			DROP COLUMN validated_at,
 			DROP COLUMN validation_error_message;
 	`,
+	"005_rebase_pending_blobs_on_accounts.up.sql": `
+		DROP TABLE pending_blobs;
+		CREATE TABLE pending_blobs (
+			account_name TEXT        NOT NULL REFERENCES accounts ON DELETE CASCADE,
+			digest       TEXT        NOT NULL,
+			reason       TEXT        NOT NULL,
+			since        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			PRIMARY KEY (account_name, digest)
+		);
+	`,
+	"005_rebase_pending_blobs_on_accounts.down.sql": `
+		DROP TABLE pending_blobs;
+		CREATE TABLE pending_blobs (
+			repo_id BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
+			digest  TEXT        NOT NULL,
+			reason  TEXT        NOT NULL,
+			since   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			PRIMARY KEY (repo_id, digest)
+		);
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

@@ -19,10 +19,14 @@
 package keppel
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 
 	"github.com/docker/distribution"
+	"github.com/docker/distribution/manifest/manifestlist"
+	"github.com/docker/distribution/manifest/ocischema"
+	"github.com/docker/distribution/manifest/schema2"
 	"github.com/opencontainers/go-digest"
 )
 
@@ -42,6 +46,24 @@ func IsManifestMediaType(mediaType string) bool {
 		}
 	}
 	return false
+}
+
+//FindImageConfigBlob returns the descriptor of the blob containing this
+//manifest's image configuration, or nil if the manifest does not have an image
+//configuration.
+func FindImageConfigBlob(manifest distribution.Manifest) *distribution.Descriptor {
+	switch m := manifest.(type) {
+	case *schema2.DeserializedManifest:
+		return &m.Config
+	case *ocischema.DeserializedManifest:
+		return &m.Config
+	case *manifestlist.DeserializedManifestList:
+		//manifest lists only reference other manifests, they are not images and
+		//thus don't have an image configuration themselves
+		return nil
+	default:
+		panic(fmt.Sprintf("unexpected manifest type: %T", manifest))
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
