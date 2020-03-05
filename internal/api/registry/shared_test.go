@@ -21,10 +21,13 @@ package registryv2
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
+	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/keppel/internal/api"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -106,4 +109,105 @@ func (t *httpTransportForTest) RoundTrip(req *http.Request) (*http.Response, err
 func sha256Of(data []byte) string {
 	sha256Hash := sha256.Sum256(data)
 	return hex.EncodeToString(sha256Hash[:])
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// helpers for setting up test scenarios
+
+func uploadBlob(t *testing.T, h http.Handler, token, fullRepoName string, blob test.Bytes) {
+	assert.HTTPRequest{
+		Method: "POST",
+		Path:   fmt.Sprintf("/v2/%s/blobs/uploads/?digest=%s", fullRepoName, blob.Digest),
+		Header: map[string]string{
+			"Authorization":  "Bearer " + token,
+			"Content-Length": strconv.Itoa(len(blob.Contents)),
+			"Content-Type":   "application/octet-stream",
+		},
+		Body:         assert.ByteData(blob.Contents),
+		ExpectStatus: http.StatusCreated,
+	}.Check(t, h)
+}
+
+func uploadManifest(t *testing.T, h http.Handler, token, fullRepoName string, manifest test.Bytes) {
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   fmt.Sprintf("/v2/%s/manifests/%s", fullRepoName, manifest.Digest),
+		Header: map[string]string{
+			"Authorization": "Bearer " + token,
+			"Content-Type":  "application/vnd.docker.distribution.manifest.v2+json",
+		},
+		Body:         assert.ByteData(manifest.Contents),
+		ExpectStatus: http.StatusCreated,
+	}.Check(t, h)
+}
+
+func getBlobUpload(t *testing.T, h http.Handler, token, fullRepoName string) (uploadURL, uploadUUID string) {
+	resp, _ := assert.HTTPRequest{
+		Method:       "POST",
+		Path:         fmt.Sprintf("/v2/%s/blobs/uploads/", fullRepoName),
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusAccepted,
+		ExpectHeader: map[string]string{
+			test.VersionHeaderKey: test.VersionHeaderValue,
+			"Content-Length":      "0",
+			"Range":               "0-0",
+		},
+	}.Check(t, h)
+	return resp.Header.Get("Location"), resp.Header.Get("Blob-Upload-Session-Id")
+}
+
+func getBlobUploadURL(t *testing.T, h http.Handler, token, fullRepoName string) string {
+	u, _ := getBlobUpload(t, h, token, fullRepoName)
+	return u
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// reusable assertions
+
+func expectBlobExists(t *testing.T, h http.Handler, token, fullRepoName string, blob test.Bytes) {
+	for _, method := range []string{"GET", "HEAD"} {
+		respBody := blob.Contents
+		if method == "HEAD" {
+			respBody = nil
+		}
+		assert.HTTPRequest{
+			Method:       method,
+			Path:         "/v2/" + fullRepoName + "/blobs/" + blob.Digest.String(),
+			Header:       map[string]string{"Authorization": "Bearer " + token},
+			ExpectStatus: http.StatusOK,
+			ExpectHeader: map[string]string{
+				test.VersionHeaderKey:   test.VersionHeaderValue,
+				"Content-Length":        strconv.Itoa(len(blob.Contents)),
+				"Content-Type":          "application/octet-stream",
+				"Docker-Content-Digest": blob.Digest.String(),
+			},
+			ExpectBody: assert.ByteData(respBody),
+		}.Check(t, h)
+	}
+}
+
+func expectStorageEmpty(t *testing.T, sd *test.StorageDriver, db *keppel.DB) {
+	t.Helper()
+	//test that no blobs were yet commited to the DB...
+	count, err := db.SelectInt(`SELECT COUNT(*) FROM blobs`)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	if count > 0 {
+		t.Errorf("expected 0 blobs in the DB, but found %d blobs", count)
+	}
+
+	//...nor to the storage
+	if sd.BlobCount() > 0 {
+		t.Errorf("expected 0 blobs in the storage, but found %d blobs", sd.BlobCount())
+	}
+
+	//also there should be no unfinished uploads
+	count, err = db.SelectInt(`SELECT COUNT(*) FROM uploads`)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	if count > 0 {
+		t.Errorf("expected 0 uploads in the DB, but found %d uploads", count)
+	}
 }
