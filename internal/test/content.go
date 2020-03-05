@@ -32,13 +32,18 @@ import (
 
 //Bytes groups a bytestring with its digest.
 type Bytes struct {
-	Contents []byte
-	Digest   digest.Digest
+	Contents  []byte
+	Digest    digest.Digest
+	MediaType string
 }
 
 //NewBytes makes a new Bytes instance.
 func NewBytes(contents []byte) Bytes {
-	return Bytes{contents, digest.Canonical.FromBytes(contents)}
+	return newBytesWithMediaType(contents, "application/octet-stream")
+}
+
+func newBytesWithMediaType(contents []byte, mediaType string) Bytes {
+	return Bytes{contents, digest.Canonical.FromBytes(contents), mediaType}
 }
 
 //NewBytesFromFile creates a Bytes instance with the contents of the given file.
@@ -60,10 +65,9 @@ func GenerateExampleLayer(seed int64) Bytes {
 //Image contains all the pieces of a Docker image. The Layers and Config must
 //be uploaded to the registry as blobs.
 type Image struct {
-	Layers    []Bytes
-	Config    Bytes
-	Manifest  Bytes
-	MediaType string
+	Layers   []Bytes
+	Config   Bytes
+	Manifest Bytes
 }
 
 var baseImageConfig = map[string]interface{}{
@@ -179,10 +183,48 @@ func GenerateImage(layers ...Bytes) Image {
 	}
 
 	return Image{
-		Layers:    layers,
-		Config:    imageConfigBytesObj,
-		Manifest:  NewBytes(manifestBytes),
-		MediaType: "application/vnd.docker.distribution.manifest.v2+json",
+		Layers:   layers,
+		Config:   imageConfigBytesObj,
+		Manifest: newBytesWithMediaType(manifestBytes, "application/vnd.docker.distribution.manifest.v2+json"),
+	}
+}
+
+//ImageList contains all the pieces of a multi-architecture Docker image. This
+//type is used for testing the behavior of Keppel with manifests that reference
+//other manifests.
+type ImageList struct {
+	ImageManifests []Bytes
+	Manifest       Bytes
+}
+
+//GenerateImageList makes an ImageList containing the given images in a
+//deterministic manner.
+func GenerateImageList(imageManifests ...Bytes) ImageList {
+	manifestDescs := []map[string]interface{}{}
+	for idx, m := range imageManifests {
+		manifestDescs = append(manifestDescs, map[string]interface{}{
+			"mediaType": m.MediaType,
+			"size":      len(m.Contents),
+			"digest":    m.Digest.String(),
+			"platform": map[string]string{
+				"os":           "linux",
+				"architecture": fmt.Sprintf("dummy%d", idx),
+			},
+		})
+	}
+
+	manifestListBytes, err := json.Marshal(map[string]interface{}{
+		"schemaVersion": 2,
+		"mediaType":     "application/vnd.docker.distribution.manifest.list.v2+json",
+		"manifests":     manifestDescs,
+	})
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return ImageList{
+		ImageManifests: imageManifests,
+		Manifest:       newBytesWithMediaType(manifestListBytes, "application/vnd.docker.distribution.manifest.list.v2+json"),
 	}
 }
 

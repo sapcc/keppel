@@ -129,7 +129,7 @@ func uploadBlob(t *testing.T, h http.Handler, token, fullRepoName string, blob t
 	}.Check(t, h)
 }
 
-func uploadManifest(t *testing.T, h http.Handler, token, fullRepoName string, manifest test.Bytes, mediaType, reference string) {
+func uploadManifest(t *testing.T, h http.Handler, token, fullRepoName string, manifest test.Bytes, reference string) {
 	t.Helper()
 	if reference == "" {
 		reference = manifest.Digest.String()
@@ -139,7 +139,7 @@ func uploadManifest(t *testing.T, h http.Handler, token, fullRepoName string, ma
 		Path:   fmt.Sprintf("/v2/%s/manifests/%s", fullRepoName, reference),
 		Header: map[string]string{
 			"Authorization": "Bearer " + token,
-			"Content-Type":  mediaType,
+			"Content-Type":  manifest.MediaType,
 		},
 		Body:         assert.ByteData(manifest.Contents),
 		ExpectStatus: http.StatusCreated,
@@ -193,7 +193,7 @@ func expectBlobExists(t *testing.T, h http.Handler, token, fullRepoName string, 
 	}
 }
 
-func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName string, manifest test.Bytes, mediaType, reference string) {
+func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName string, manifest test.Bytes, reference string) {
 	for _, method := range []string{"GET", "HEAD"} {
 		respBody := manifest.Contents
 		if method == "HEAD" {
@@ -210,7 +210,7 @@ func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName stri
 			ExpectStatus: http.StatusOK,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey:   test.VersionHeaderValue,
-				"Content-Type":          mediaType,
+				"Content-Type":          manifest.MediaType,
 				"Docker-Content-Digest": manifest.Digest.String(),
 			},
 			ExpectBody: assert.ByteData(respBody),
@@ -220,7 +220,7 @@ func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName stri
 		req.Check(t, h)
 
 		//with matching Accept header
-		req.Header["Accept"] = mediaType
+		req.Header["Accept"] = manifest.MediaType
 		req.Check(t, h)
 
 		//with mismatching Accept header

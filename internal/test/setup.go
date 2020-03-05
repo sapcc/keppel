@@ -87,6 +87,25 @@ func setup(t *testing.T, isSecondary bool) (keppel.Configuration, *keppel.DB) {
 		t.FailNow()
 	}
 
+	//wipe the DB clean if there are any leftovers from the previous test run,
+	//starting with the manifest_manifest_refs table (this table's foreign-key
+	//constraints are so entangled that any attempt to cascade a deletion from
+	//higher up in the hierarchy will run into some ON DELETE RESTRICT
+	//constraints and fail)
+	for {
+		result, err := db.Exec(`DELETE FROM manifest_manifest_refs WHERE parent_digest NOT IN (SELECT child_digest FROM manifest_manifest_refs)`)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		rowsDeleted, err := result.RowsAffected()
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		if rowsDeleted == 0 {
+			break
+		}
+	}
+
 	//wipe the DB clean if there are any leftovers from the previous test run
 	for _, tableName := range []string{"repos", "accounts", "peers", "quotas"} {
 		//NOTE: All tables not mentioned above are cleared via ON DELETE CASCADE.

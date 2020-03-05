@@ -79,7 +79,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			Path:   "/v2/test1/foo/manifests/" + ref,
 			Header: map[string]string{
 				"Authorization": "Bearer " + readOnlyToken,
-				"Content-Type":  image.MediaType,
+				"Content-Type":  image.Manifest.MediaType,
 			},
 			Body:         assert.ByteData(image.Manifest.Contents),
 			ExpectStatus: http.StatusForbidden,
@@ -92,7 +92,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			Path:   "/v2/test1/foo/manifests/" + ref,
 			Header: map[string]string{
 				"Authorization": "Bearer " + token,
-				"Content-Type":  image.MediaType,
+				"Content-Type":  image.Manifest.MediaType,
 			},
 			Body:         assert.ByteData(append([]byte("wtf"), image.Manifest.Contents...)),
 			ExpectStatus: http.StatusBadRequest,
@@ -105,7 +105,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			Path:   "/v2/test1/foo/manifests/sha256:" + sha256Of([]byte("something else")),
 			Header: map[string]string{
 				"Authorization": "Bearer " + token,
-				"Content-Type":  image.MediaType,
+				"Content-Type":  image.Manifest.MediaType,
 			},
 			Body:         assert.ByteData(image.Manifest.Contents),
 			ExpectStatus: http.StatusBadRequest,
@@ -118,7 +118,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			Path:   "/v2/test1/foo/manifests/" + ref,
 			Header: map[string]string{
 				"Authorization": "Bearer " + token,
-				"Content-Type":  image.MediaType,
+				"Content-Type":  image.Manifest.MediaType,
 			},
 			Body:         assert.ByteData(image.Manifest.Contents),
 			ExpectStatus: http.StatusNotFound,
@@ -136,7 +136,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			Path:   "/v2/test1/foo/manifests/" + ref,
 			Header: map[string]string{
 				"Authorization": "Bearer " + token,
-				"Content-Type":  image.MediaType,
+				"Content-Type":  image.Manifest.MediaType,
 			},
 			Body:         assert.ByteData(image.Manifest.Contents),
 			ExpectStatus: http.StatusNotFound,
@@ -153,8 +153,8 @@ func TestImageManifestLifecycle(t *testing.T) {
 		clock.Step()
 		easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-002-after-upload-blob.sql")
 
-		uploadManifest(t, h, token, "test1/foo", image.Manifest, image.MediaType, ref)
-		uploadManifest(t, h, token, "test1/foo", image.Manifest, image.MediaType, ref)
+		uploadManifest(t, h, token, "test1/foo", image.Manifest, ref)
+		uploadManifest(t, h, token, "test1/foo", image.Manifest, ref)
 		clock.Step()
 		if ref == "latest" {
 			easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-tag.sql")
@@ -164,9 +164,9 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 		//check GET/HEAD: manifest should now be available under the reference
 		//where it was pushed to...
-		expectManifestExists(t, h, readOnlyToken, "test1/foo", image.Manifest, image.MediaType, ref)
+		expectManifestExists(t, h, readOnlyToken, "test1/foo", image.Manifest, ref)
 		//...and under its digest
-		expectManifestExists(t, h, readOnlyToken, "test1/foo", image.Manifest, image.MediaType, image.Manifest.Digest.String())
+		expectManifestExists(t, h, readOnlyToken, "test1/foo", image.Manifest, image.Manifest.Digest.String())
 
 		//GET failure case: wrong scope
 		assert.HTTPRequest{
@@ -223,6 +223,64 @@ func TestImageManifestLifecycle(t *testing.T) {
 	}
 }
 
+func TestImageListManifestLifecycle(t *testing.T) {
+	//This test builds on TestImageManifestLifecycle and provides test coverage
+	//for the parts of the manifest push workflow that check manifest-manifest
+	//references. (We don't have those in plain images, only in image lists.)
+	h, _, db, ad, _, clock := setup(t)
+	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		keppel.CanPullFromAccount,
+		keppel.CanPushToAccount)
+	deleteToken := getToken(t, h, ad, "repository:test1/foo:delete",
+		keppel.CanDeleteFromAccount)
+
+	//as a setup, upload two images and render a third image that's not uploaded
+	image1 := test.GenerateImage(test.GenerateExampleLayer(1))
+	image2 := test.GenerateImage(test.GenerateExampleLayer(2))
+	image3 := test.GenerateImage(test.GenerateExampleLayer(3))
+	clock.Step()
+	uploadBlob(t, h, token, "test1/foo", image1.Layers[0])
+	uploadBlob(t, h, token, "test1/foo", image1.Config)
+	uploadManifest(t, h, token, "test1/foo", image1.Manifest, "first")
+	clock.Step()
+	uploadBlob(t, h, token, "test1/foo", image2.Layers[0])
+	uploadBlob(t, h, token, "test1/foo", image2.Config)
+	uploadManifest(t, h, token, "test1/foo", image2.Manifest, "second")
+	clock.Step()
+
+	//PUT failure case: cannot upload image list manifest referencing missing manifests
+	list1 := test.GenerateImageList(image1.Manifest, image3.Manifest)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/v2/test1/foo/manifests/" + list1.Manifest.Digest.String(),
+		Header: map[string]string{
+			"Authorization": "Bearer " + token,
+			"Content-Type":  list1.Manifest.MediaType,
+		},
+		Body:         assert.ByteData(list1.Manifest.Contents),
+		ExpectStatus: http.StatusNotFound,
+		ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
+	}.Check(t, h)
+
+	//PUT success case: upload image list manifest referencing available manifests
+	list2 := test.GenerateImageList(image1.Manifest, image2.Manifest)
+	uploadManifest(t, h, token, "test1/foo", list2.Manifest, "list")
+
+	clock.Step()
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagelistmanifest-001-after-upload-manifest.sql")
+
+	//DELETE success case
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/v2/test1/foo/manifests/" + list2.Manifest.Digest.String(),
+		Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+		ExpectStatus: http.StatusAccepted,
+		ExpectHeader: test.VersionHeader,
+	}.Check(t, h)
+	clock.Step()
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagelistmanifest-002-after-delete-manifest.sql")
+}
+
 func TestManifestQuotaExceeded(t *testing.T) {
 	h, _, db, ad, _, _ := setup(t)
 	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
@@ -234,10 +292,10 @@ func TestManifestQuotaExceeded(t *testing.T) {
 	image2 := test.GenerateImage(test.GenerateExampleLayer(2))
 	uploadBlob(t, h, token, "test1/foo", image1.Layers[0])
 	uploadBlob(t, h, token, "test1/foo", image1.Config)
-	uploadManifest(t, h, token, "test1/foo", image1.Manifest, image1.MediaType, "first")
+	uploadManifest(t, h, token, "test1/foo", image1.Manifest, "first")
 	uploadBlob(t, h, token, "test1/foo", image2.Layers[0])
 	uploadBlob(t, h, token, "test1/foo", image2.Config)
-	uploadManifest(t, h, token, "test1/foo", image2.Manifest, image2.MediaType, "second")
+	uploadManifest(t, h, token, "test1/foo", image2.Manifest, "second")
 
 	//set quota below usage
 	_, err := db.Exec(`UPDATE quotas SET manifests = $1`, 1)
