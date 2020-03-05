@@ -41,7 +41,7 @@ type AuditTrail struct {
 func (t AuditTrail) Commit(rabbitmqURI, rabbitmqQueueName string) {
 	rc := &RabbitConnection{}
 	connect := func() {
-		if !rc.IsConnected || rc == nil {
+		if rc == nil || !rc.IsConnected {
 			var err error
 			rc, err = NewRabbitConnection(rabbitmqURI, rabbitmqQueueName)
 			if err != nil {
@@ -50,7 +50,7 @@ func (t AuditTrail) Commit(rabbitmqURI, rabbitmqQueueName string) {
 		}
 	}
 	sendEvent := func(e *cadf.Event) bool {
-		if !rc.IsConnected {
+		if rc == nil || !rc.IsConnected {
 			return false
 		}
 		err := rc.PublishEvent(e)
@@ -79,7 +79,7 @@ func (t AuditTrail) Commit(rabbitmqURI, rabbitmqQueueName string) {
 				nextEvent := pendingEvents[0]
 				if successful = sendEvent(&nextEvent); !successful {
 					//refresh connection, if old
-					if time.Since(rc.LastConnectedAt) > (5 * time.Minute) {
+					if rc == nil || time.Since(rc.LastConnectedAt) > (5*time.Minute) {
 						rc.Disconnect()
 						connect()
 					}
