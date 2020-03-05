@@ -22,6 +22,7 @@ package test
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"time"
 
@@ -40,6 +41,12 @@ func NewBytes(contents []byte) Bytes {
 	return Bytes{contents, digest.Canonical.FromBytes(contents)}
 }
 
+//NewBytesFromFile creates a Bytes instance with the contents of the given file.
+func NewBytesFromFile(path string) (Bytes, error) {
+	buf, err := ioutil.ReadFile(path)
+	return NewBytes(buf), err
+}
+
 //GenerateExampleLayer generates a blob of 1 MiB that can be used like an image
 //layer when constructing image manifests for unit tests. The contents are
 //generated deterministically from the given seed.
@@ -53,9 +60,10 @@ func GenerateExampleLayer(seed int64) Bytes {
 //Image contains all the pieces of a Docker image. The Layers and Config must
 //be uploaded to the registry as blobs.
 type Image struct {
-	Layers   []Bytes
-	Config   Bytes
-	Manifest Bytes
+	Layers    []Bytes
+	Config    Bytes
+	Manifest  Bytes
+	MediaType string
 }
 
 var baseImageConfig = map[string]interface{}{
@@ -171,9 +179,10 @@ func GenerateImage(layers []Bytes) Image {
 	}
 
 	return Image{
-		Layers:   layers,
-		Config:   imageConfigBytesObj,
-		Manifest: NewBytes(manifestBytes),
+		Layers:    layers,
+		Config:    imageConfigBytesObj,
+		Manifest:  NewBytes(manifestBytes),
+		MediaType: "application/vnd.docker.distribution.manifest.v2+json",
 	}
 }
 

@@ -35,10 +35,14 @@ import (
 func TestProxyAPI(t *testing.T) {
 	h, _, db, ad, _, clock := setup(t)
 
+	_, err := keppel.FindOrCreateRepository(db, "foo", keppel.Account{Name: "test1"})
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
 	clock.Step()
 	testVersionCheckEndpoint(t, h, ad)
 	clock.Step()
-	testPullNonExistentTag(t, h, ad, db)
 	clock.Step()
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/001-before-push.sql")
 	firstBlobDigest := testPushAndPull(t, h, ad, db,
@@ -51,7 +55,6 @@ func TestProxyAPI(t *testing.T) {
 		"fixtures/003-after-second-push.sql",
 	)
 	clock.Step()
-	testPullExistingNotAllowed(t, h, ad)
 	testManifestQuotaExceeded(t, h, ad, db)
 	testReplicationOnFirstUse(t, h, db,
 		//the first manifest, which is not referenced by a tag
@@ -62,21 +65,6 @@ func TestProxyAPI(t *testing.T) {
 		"sha256:65147aad93781ff7377b8fb81dab153bd58ffe05b5dc00b67b3035fa9420d2de",
 		"latest", //the tag
 	)
-	clock.Step()
-	testDeleteManifest(t, h, ad, db,
-		//the first manifest, which is not referenced by tags anymore
-		"sha256:86fa8722ca7f27e97e1bc5060c3f6720bf43840f143f813fcbe48ed4cbeebb90",
-		//like 003, but without that manifest
-		"fixtures/004-after-first-delete.sql",
-	)
-	clock.Step()
-	testDeleteManifest(t, h, ad, db,
-		//the second manifest, which is referenced by the "latest" tag
-		"sha256:65147aad93781ff7377b8fb81dab153bd58ffe05b5dc00b67b3035fa9420d2de",
-		//no tags or manifests left, but repo and blobs are left over
-		"fixtures/005-after-second-delete.sql",
-	)
-	clock.Step()
 }
 
 func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
@@ -112,35 +100,6 @@ func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver
 	if t.Failed() {
 		t.FailNow()
 	}
-}
-
-func testPullNonExistentTag(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB) {
-	token := getToken(t, h, ad, "repository:test1/foo:pull",
-		keppel.CanPullFromAccount)
-
-	//we can either get an error because the repo does not exist...
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/test1/foo/manifests/latest",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusNotFound,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   test.ErrorCode(keppel.ErrNameUnknown),
-	}.Check(t, h)
-
-	//...or if it does, because the manifest does not exist
-	_, err := keppel.FindOrCreateRepository(db, "foo", keppel.Account{Name: "test1"})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/test1/foo/manifests/latest",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusNotFound,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
-	}.Check(t, h)
 }
 
 func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB, imageConfigJSON, dbContentsAfterManifestPush string) string {
@@ -232,46 +191,6 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *kep
 	}.Check(t, h)
 
 	return "sha256:" + sha256HashStr
-}
-
-func testDeleteManifest(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB, digest, dbContentsAfterManifestDelete string) {
-	token := getToken(t, h, ad, "repository:test1/foo:delete",
-		keppel.CanDeleteFromAccount)
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/v2/test1/foo/manifests/" + digest,
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusAccepted,
-		ExpectHeader: test.VersionHeader,
-	}.Check(t, h)
-	easypg.AssertDBContent(t, db.DbMap.Db, dbContentsAfterManifestDelete)
-}
-
-func testPullExistingNotAllowed(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
-	//NOTE: docker-registry sends UNAUTHORIZED (401) instead of DENIED (403)
-	//here, but 403 is more correct.
-
-	token := getToken(t, h, ad, "repository:test1/foo:pull" /*, but no perms*/)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/test1/foo/manifests/latest",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusForbidden,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   test.ErrorCode(keppel.ErrDenied),
-	}.Check(t, h)
-
-	//same if the token is for the wrong scope
-	token = getToken(t, h, ad, "repository:test1/bar:pull",
-		keppel.CanPullFromAccount)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/test1/foo/manifests/latest",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusForbidden,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   test.ErrorCode(keppel.ErrDenied),
-	}.Check(t, h)
 }
 
 func testManifestQuotaExceeded(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB) {

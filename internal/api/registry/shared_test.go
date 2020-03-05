@@ -115,6 +115,7 @@ func sha256Of(data []byte) string {
 // helpers for setting up test scenarios
 
 func uploadBlob(t *testing.T, h http.Handler, token, fullRepoName string, blob test.Bytes) {
+	t.Helper()
 	assert.HTTPRequest{
 		Method: "POST",
 		Path:   fmt.Sprintf("/v2/%s/blobs/uploads/?digest=%s", fullRepoName, blob.Digest),
@@ -128,13 +129,17 @@ func uploadBlob(t *testing.T, h http.Handler, token, fullRepoName string, blob t
 	}.Check(t, h)
 }
 
-func uploadManifest(t *testing.T, h http.Handler, token, fullRepoName string, manifest test.Bytes) {
+func uploadManifest(t *testing.T, h http.Handler, token, fullRepoName string, manifest test.Bytes, mediaType, reference string) {
+	t.Helper()
+	if reference == "" {
+		reference = manifest.Digest.String()
+	}
 	assert.HTTPRequest{
 		Method: "PUT",
-		Path:   fmt.Sprintf("/v2/%s/manifests/%s", fullRepoName, manifest.Digest),
+		Path:   fmt.Sprintf("/v2/%s/manifests/%s", fullRepoName, reference),
 		Header: map[string]string{
 			"Authorization": "Bearer " + token,
-			"Content-Type":  "application/vnd.docker.distribution.manifest.v2+json",
+			"Content-Type":  mediaType,
 		},
 		Body:         assert.ByteData(manifest.Contents),
 		ExpectStatus: http.StatusCreated,
@@ -142,6 +147,7 @@ func uploadManifest(t *testing.T, h http.Handler, token, fullRepoName string, ma
 }
 
 func getBlobUpload(t *testing.T, h http.Handler, token, fullRepoName string) (uploadURL, uploadUUID string) {
+	t.Helper()
 	resp, _ := assert.HTTPRequest{
 		Method:       "POST",
 		Path:         fmt.Sprintf("/v2/%s/blobs/uploads/", fullRepoName),
@@ -157,6 +163,7 @@ func getBlobUpload(t *testing.T, h http.Handler, token, fullRepoName string) (up
 }
 
 func getBlobUploadURL(t *testing.T, h http.Handler, token, fullRepoName string) string {
+	t.Helper()
 	u, _ := getBlobUpload(t, h, token, fullRepoName)
 	return u
 }
@@ -183,6 +190,45 @@ func expectBlobExists(t *testing.T, h http.Handler, token, fullRepoName string, 
 			},
 			ExpectBody: assert.ByteData(respBody),
 		}.Check(t, h)
+	}
+}
+
+func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName string, manifest test.Bytes, mediaType, reference string) {
+	for _, method := range []string{"GET", "HEAD"} {
+		respBody := manifest.Contents
+		if method == "HEAD" {
+			respBody = nil
+		}
+		if reference == "" {
+			reference = manifest.Digest.String()
+		}
+
+		req := assert.HTTPRequest{
+			Method:       method,
+			Path:         "/v2/test1/foo/manifests/" + reference,
+			Header:       map[string]string{"Authorization": "Bearer " + token},
+			ExpectStatus: http.StatusOK,
+			ExpectHeader: map[string]string{
+				test.VersionHeaderKey:   test.VersionHeaderValue,
+				"Content-Type":          mediaType,
+				"Docker-Content-Digest": manifest.Digest.String(),
+			},
+			ExpectBody: assert.ByteData(respBody),
+		}
+
+		//without Accept header
+		req.Check(t, h)
+
+		//with matching Accept header
+		req.Header["Accept"] = mediaType
+		req.Check(t, h)
+
+		//with mismatching Accept header
+		req.Header["Accept"] = "text/plain"
+		req.ExpectStatus = http.StatusNotFound
+		req.ExpectHeader = test.VersionHeader
+		req.ExpectBody = test.ErrorCode(keppel.ErrManifestUnknown)
+		req.Check(t, h)
 	}
 }
 
