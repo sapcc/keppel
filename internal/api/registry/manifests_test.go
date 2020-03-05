@@ -29,7 +29,7 @@ import (
 )
 
 func TestImageManifestLifecycle(t *testing.T) {
-	image := test.GenerateImage(nil) //nil = no layers, just one blob (image config)
+	image := test.GenerateImage( /* no layers */ )
 
 	for _, ref := range []string{"latest", image.Manifest.Digest.String()} {
 		h, _, db, ad, sd, clock := setup(t)
@@ -221,6 +221,55 @@ func TestImageManifestLifecycle(t *testing.T) {
 		clock.Step()
 		easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-002-after-upload-blob.sql")
 	}
+}
+
+func TestManifestQuotaExceeded(t *testing.T) {
+	h, _, db, ad, _, _ := setup(t)
+	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		keppel.CanPullFromAccount,
+		keppel.CanPushToAccount)
+
+	//as a setup, upload two images
+	image1 := test.GenerateImage(test.GenerateExampleLayer(1))
+	image2 := test.GenerateImage(test.GenerateExampleLayer(2))
+	uploadBlob(t, h, token, "test1/foo", image1.Layers[0])
+	uploadBlob(t, h, token, "test1/foo", image1.Config)
+	uploadManifest(t, h, token, "test1/foo", image1.Manifest, image1.MediaType, "first")
+	uploadBlob(t, h, token, "test1/foo", image2.Layers[0])
+	uploadBlob(t, h, token, "test1/foo", image2.Config)
+	uploadManifest(t, h, token, "test1/foo", image2.Manifest, image2.MediaType, "second")
+
+	//set quota below usage
+	_, err := db.Exec(`UPDATE quotas SET manifests = $1`, 1)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	quotaExceededMessage := test.ErrorCodeWithMessage{
+		Code:    keppel.ErrDenied,
+		Message: "manifest quota exceeded (quota = 1, usage = 2)",
+	}
+
+	//further blob uploads are not possible now
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/v2/test1/foo/blobs/uploads/",
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		ExpectStatus: http.StatusConflict,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   quotaExceededMessage,
+	}.Check(t, h)
+
+	//further manifest uploads are not possible now
+	assert.HTTPRequest{
+		Method:       "PUT",
+		Path:         "/v2/test1/foo/manifests/anotherone",
+		Header:       map[string]string{"Authorization": "Bearer " + token},
+		Body:         assert.StringData("request body does not matter"),
+		ExpectStatus: http.StatusConflict,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   quotaExceededMessage,
+	}.Check(t, h)
 }
 
 func TestManifestRequiredLabels(t *testing.T) {

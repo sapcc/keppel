@@ -134,7 +134,7 @@ var baseImageConfig = map[string]interface{}{
 }
 
 //GenerateImage makes an Image from the given bytes in a deterministic manner.
-func GenerateImage(layers []Bytes) Image {
+func GenerateImage(layers ...Bytes) Image {
 	//build image config referencing the given layers
 	imageConfig := make(map[string]interface{})
 	for k, v := range baseImageConfig {

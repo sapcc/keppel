@@ -55,7 +55,6 @@ func TestProxyAPI(t *testing.T) {
 		"fixtures/003-after-second-push.sql",
 	)
 	clock.Step()
-	testManifestQuotaExceeded(t, h, ad, db)
 	testReplicationOnFirstUse(t, h, db,
 		//the first manifest, which is not referenced by a tag
 		"sha256:86fa8722ca7f27e97e1bc5060c3f6720bf43840f143f813fcbe48ed4cbeebb90",
@@ -191,44 +190,4 @@ func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *kep
 	}.Check(t, h)
 
 	return "sha256:" + sha256HashStr
-}
-
-func testManifestQuotaExceeded(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB) {
-	_, err := db.Exec(`UPDATE quotas SET manifests = $1`, 1)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
-		keppel.CanPullFromAccount, keppel.CanPushToAccount)
-
-	quotaExceededMessage := test.ErrorCodeWithMessage{
-		Code:    keppel.ErrDenied,
-		Message: "manifest quota exceeded (quota = 1, usage = 2)",
-	}
-
-	assert.HTTPRequest{
-		Method:       "POST",
-		Path:         "/v2/test1/foo/blobs/uploads/",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusConflict,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   quotaExceededMessage,
-	}.Check(t, h)
-
-	assert.HTTPRequest{
-		Method:       "PUT",
-		Path:         "/v2/test1/foo/manifests/anotherone",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		Body:         assert.StringData("request body does not matter"),
-		ExpectStatus: http.StatusConflict,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   quotaExceededMessage,
-	}.Check(t, h)
-
-	//reset quota to usable level
-	_, err = db.Exec(`UPDATE quotas SET manifests = $1`, 100)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
 }
