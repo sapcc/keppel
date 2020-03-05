@@ -41,7 +41,6 @@ func TestProxyAPI(t *testing.T) {
 	}
 
 	clock.Step()
-	testVersionCheckEndpoint(t, h, ad)
 	clock.Step()
 	clock.Step()
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/001-before-push.sql")
@@ -64,41 +63,6 @@ func TestProxyAPI(t *testing.T) {
 		"sha256:65147aad93781ff7377b8fb81dab153bd58ffe05b5dc00b67b3035fa9420d2de",
 		"latest", //the tag
 	)
-}
-
-func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
-	//without token, expect auth challenge
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/",
-		Header:       addHeadersForCorrectAuthChallenge(nil),
-		ExpectStatus: http.StatusUnauthorized,
-		ExpectHeader: map[string]string{
-			test.VersionHeaderKey: test.VersionHeaderValue,
-			"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org"`,
-		},
-		ExpectBody: assert.JSONObject{
-			"errors": []assert.JSONObject{{
-				"code":    keppel.ErrUnauthorized,
-				"detail":  nil,
-				"message": "no bearer token found in request headers",
-			}},
-		},
-	}.Check(t, h)
-
-	//with token, expect status code 200
-	token := getToken(t, h, ad, "" /* , no permissions */)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusOK,
-		ExpectHeader: test.VersionHeader,
-	}.Check(t, h)
-
-	if t.Failed() {
-		t.FailNow()
-	}
 }
 
 func testPushAndPull(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB, imageConfigJSON, dbContentsAfterManifestPush string) string {
