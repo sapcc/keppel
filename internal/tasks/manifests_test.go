@@ -28,6 +28,94 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
+//Base behavior for various unit tests that start with the same image, destroy
+//it in various ways, and check that ValidateNextManifest correctly fixes it.
+func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel.DB)) {
+	j, _, db, sd, clock := setup(t)
+	clock.StepBy(1 * time.Hour)
+
+	//setup two image manifests, both with some layers
+	images := make([]test.Image, 2)
+	for idx := range images {
+		image := test.GenerateImage(
+			test.GenerateExampleLayer(int64(10*idx+1)),
+			test.GenerateExampleLayer(int64(10*idx+2)),
+		)
+		images[idx] = image
+
+		imageSize := len(image.Manifest.Contents) + len(image.Config.Contents)
+		for _, layer := range image.Layers {
+			imageSize += len(layer.Contents)
+		}
+
+		layer1BlobID := uploadBlob(t, db, sd, clock, image.Layers[0])
+		layer2BlobID := uploadBlob(t, db, sd, clock, image.Layers[1])
+		configBlobID := uploadBlob(t, db, sd, clock, image.Config)
+		uploadManifest(t, db, sd, clock, image.Manifest, imageSize)
+		for _, blobID := range []int64{layer1BlobID, layer2BlobID, configBlobID} {
+			mustExec(t, db,
+				`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
+				blobID, image.Manifest.Digest.String(),
+			)
+		}
+	}
+
+	//also setup an image list manifest containing those images (so that we have
+	//some manifest-manifest refs to play with)
+	imageList := test.GenerateImageList(images[0].Manifest, images[1].Manifest)
+	imageListSize := len(imageList.Manifest.Contents)
+	for _, image := range images {
+		imageListSize += len(image.Manifest.Contents)
+	}
+
+	uploadManifest(t, db, sd, clock, imageList.Manifest, imageListSize)
+	for _, image := range images {
+		mustExec(t, db,
+			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
+			imageList.Manifest.Digest.String(), image.Manifest.Digest.String(),
+		)
+	}
+
+	//since these manifests were just uploaded, validated_at is set to right now,
+	//so ValidateNextManifest will report that there is nothing to do
+	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextManifest())
+
+	//once they need validating, they validate successfully
+	clock.StepBy(12 * time.Hour)
+	expectSuccess(t, j.ValidateNextManifest())
+	expectSuccess(t, j.ValidateNextManifest())
+	expectSuccess(t, j.ValidateNextManifest())
+	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextManifest())
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/manifest-validate-001-before-disturbance.sql")
+
+	//disturb the DB state, then rerun ValidateNextManifest to fix it
+	clock.StepBy(12 * time.Hour)
+	disturb(db)
+	expectSuccess(t, j.ValidateNextManifest())
+	expectSuccess(t, j.ValidateNextManifest())
+	expectSuccess(t, j.ValidateNextManifest())
+	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextManifest())
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/manifest-validate-002-after-fix.sql")
+}
+
+func TestValidateNextManifestFixesWrongSize(t *testing.T) {
+	testValidateNextManifestFixesDisturbance(t, func(db *keppel.DB) {
+		mustExec(t, db, `UPDATE manifests SET size_bytes = 1337`)
+	})
+}
+
+func TestValidateNextManifestFixesMissingManifestBlobRefs(t *testing.T) {
+	testValidateNextManifestFixesDisturbance(t, func(db *keppel.DB) {
+		mustExec(t, db, `DELETE FROM manifest_blob_refs WHERE blob_id % 2 = 0`)
+	})
+}
+
+func TestValidateNextManifestFixesMissingManifestManifestRefs(t *testing.T) {
+	testValidateNextManifestFixesDisturbance(t, func(db *keppel.DB) {
+		mustExec(t, db, `DELETE FROM manifest_manifest_refs`)
+	})
+}
+
 func TestValidateNextManifestError(t *testing.T) {
 	j, _, db, sd, clock := setup(t)
 
