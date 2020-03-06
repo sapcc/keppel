@@ -75,7 +75,7 @@ func (r Replicator) getPeerToken(peer keppel.Peer, repoFullName string) (string,
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return "", keppel.ErrUnavailable.With(err.Error())
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -109,7 +109,7 @@ func (r Replicator) fetchFromUpstream(repo keppel.Repository, method, path strin
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, 0, "", err
+		return nil, 0, "", keppel.ErrUnavailable.With(err.Error())
 	}
 	defer func() {
 		//close resp.Body only if we're not passing it to the caller

@@ -130,9 +130,8 @@ func TestROFUMissingEntities(t *testing.T) {
 		)
 		if !firstPass {
 			//in the second pass, when the upstream registry is not reachable, we will get network errors instead
-			//(TODO this might warrant its own distinct error code and a 502 status instead)
-			expectedStatus = http.StatusInternalServerError
-			expectedManifestError = keppel.ErrUnknown
+			expectedStatus = http.StatusServiceUnavailable
+			expectedManifestError = keppel.ErrUnavailable
 		}
 
 		//try to pull a manifest by tag that exists neither locally nor upstream
