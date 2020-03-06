@@ -203,4 +203,46 @@ func TestROFUForbidDirectUpload(t *testing.T) {
 	})
 }
 
-//TODO TestROFUManifestQuotaExceeded
+func TestROFUManifestQuotaExceeded(t *testing.T) {
+	h1, _, db1, ad1, _, clock := setup(t)
+
+	//upload image to primary account
+	token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
+		keppel.CanPullFromAccount,
+		keppel.CanPushToAccount)
+	image := test.GenerateImage(test.GenerateExampleLayer(1))
+	clock.Step()
+	uploadBlob(t, h1, token, "test1/foo", image.Layers[0])
+	uploadBlob(t, h1, token, "test1/foo", image.Config)
+	uploadManifest(t, h1, token, "test1/foo", image.Manifest, "first")
+
+	//in secondary account...
+	testWithReplica(t, h1, db1, clock, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+		if !firstPass {
+			return
+		}
+
+		//...lower quotas so that replication will fail
+		_, err := db2.Exec(`UPDATE quotas SET manifests = $1`, 0)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+
+		quotaExceededMessage := test.ErrorCodeWithMessage{
+			Code:    keppel.ErrDenied,
+			Message: "manifest quota exceeded (quota = 0, usage = 0)",
+		}
+
+		token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+			keppel.CanPullFromAccount)
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/v2/test1/foo/manifests/first",
+			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Body:         assert.StringData("request body does not matter"),
+			ExpectStatus: http.StatusConflict,
+			ExpectHeader: test.VersionHeader,
+			ExpectBody:   quotaExceededMessage,
+		}.Check(t, h2)
+	})
+}
