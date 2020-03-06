@@ -23,7 +23,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/logg"
@@ -50,7 +49,7 @@ func (r Replicator) ReplicateBlob(blob keppel.Blob, account keppel.Account, repo
 		AccountName:  account.Name,
 		Digest:       blob.Digest,
 		Reason:       keppel.PendingBecauseOfReplication,
-		PendingSince: time.Now(),
+		PendingSince: r.timeNow(),
 	}
 	err := r.db.Insert(&pendingBlob)
 	if err != nil {
@@ -99,6 +98,7 @@ func (r Replicator) ReplicateBlob(blob keppel.Blob, account keppel.Account, repo
 	//stream into `w` if requested
 	blobReader := io.Reader(blobReadCloser)
 	if w != nil {
+		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("Docker-Content-Digest", blob.Digest)
 		w.Header().Set("Content-Length", strconv.FormatUint(blobLengthBytes, 10))
 		w.WriteHeader(http.StatusOK)
@@ -129,7 +129,7 @@ func (r Replicator) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, 
 
 	chunkCount := uint32(0)
 	remainingBytes := blobLengthBytes
-	storageID := keppel.GenerateStorageID()
+	storageID := r.generateStorageID()
 
 	for chunkCount == 0 || remainingBytes > 0 {
 		var (
@@ -181,7 +181,7 @@ func (r Replicator) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, 
 
 	//write blob metadata to DB
 	blob.StorageID = storageID
-	blob.PushedAt = time.Now()
+	blob.PushedAt = r.timeNow()
 	blob.ValidatedAt = blob.PushedAt
 	_, err = r.db.Update(&blob)
 	return err

@@ -77,7 +77,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//...and answer GET requests by replicating the blob contents
-		repl := replication.NewReplicator(a.cfg, a.db, a.sd)
+		repl := replication.NewReplicator(a.cfg, a.db, a.sd).OverrideTimeNow(a.timeNow).OverrideGenerateStorageID(a.generateStorageID)
 		responseWasWritten, err := repl.ReplicateBlob(*blob, *account, *repo, w)
 
 		if err != nil {

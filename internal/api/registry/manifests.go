@@ -58,7 +58,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		//if the manifest does not exist there, we may have the option of replicating
 		//from upstream
 		if account.UpstreamPeerHostName != "" {
-			repl := replication.NewReplicator(a.cfg, a.db, a.sd)
+			repl := replication.NewReplicator(a.cfg, a.db, a.sd).OverrideTimeNow(a.timeNow).OverrideGenerateStorageID(a.generateStorageID)
 			m := replication.Manifest{
 				Account:   *account,
 				Repo:      *repo,

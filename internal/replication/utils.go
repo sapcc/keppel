@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -35,11 +36,26 @@ type Replicator struct {
 	cfg keppel.Configuration
 	db  *keppel.DB
 	sd  keppel.StorageDriver
+	//non-pure functions that can be replaced by deterministic doubles for unit tests
+	timeNow           func() time.Time
+	generateStorageID func() string
 }
 
 //NewReplicator creates a new Replicator instance.
-func NewReplicator(cfg keppel.Configuration, db *keppel.DB, sd keppel.StorageDriver) Replicator {
-	return Replicator{cfg, db, sd}
+func NewReplicator(cfg keppel.Configuration, db *keppel.DB, sd keppel.StorageDriver) *Replicator {
+	return &Replicator{cfg, db, sd, time.Now, keppel.GenerateStorageID}
+}
+
+//OverrideTimeNow replaces time.Now with a test double.
+func (r *Replicator) OverrideTimeNow(timeNow func() time.Time) *Replicator {
+	r.timeNow = timeNow
+	return r
+}
+
+//OverrideGenerateStorageID replaces keppel.GenerateStorageID with a test double.
+func (r *Replicator) OverrideGenerateStorageID(generateStorageID func() string) *Replicator {
+	r.generateStorageID = generateStorageID
+	return r
 }
 
 func (r Replicator) getPeerToken(peer keppel.Peer, repoFullName string) (string, error) {

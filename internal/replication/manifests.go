@@ -21,7 +21,6 @@ package replication
 import (
 	"database/sql"
 	"io/ioutil"
-	"time"
 
 	"github.com/docker/distribution"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -128,7 +127,7 @@ func (r Replicator) replicateManifestRecursively(m Manifest, peer keppel.Peer, p
 		Reference: m.Reference,
 		MediaType: manifestMediaType,
 		Contents:  manifestBytes,
-		PushedAt:  time.Now(),
+		PushedAt:  r.timeNow(),
 	})
 	return manifest, manifestBytes, err
 }
