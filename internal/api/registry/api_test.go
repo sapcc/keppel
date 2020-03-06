@@ -27,7 +27,7 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
-func testVersionCheckEndpoint(t *testing.T) {
+func TestVersionCheckEndpoint(t *testing.T) {
 	h, _, _, ad, _, _ := setup(t)
 
 	//without token, expect auth challenge

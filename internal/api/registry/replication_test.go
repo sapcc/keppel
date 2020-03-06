@@ -20,6 +20,7 @@ package registryv2
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -244,5 +245,44 @@ func TestROFUManifestQuotaExceeded(t *testing.T) {
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   quotaExceededMessage,
 		}.Check(t, h2)
+	})
+}
+
+func TestROFUUseCachedBlobMetadata(t *testing.T) {
+	h1, _, db1, ad1, _, clock := setup(t)
+
+	//upload image to primary account
+	token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
+		keppel.CanPullFromAccount,
+		keppel.CanPushToAccount)
+	image := test.GenerateImage(test.GenerateExampleLayer(1))
+	clock.Step()
+	uploadBlob(t, h1, token, "test1/foo", image.Layers[0])
+	uploadBlob(t, h1, token, "test1/foo", image.Config)
+	uploadManifest(t, h1, token, "test1/foo", image.Manifest, "first")
+
+	testWithReplica(t, h1, db1, clock, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+		//in the first pass, just replicate the manifest
+		token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+			keppel.CanPullFromAccount)
+		expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "first")
+
+		//in the second pass, query blobs with HEAD - this should work fine even
+		//though the blob contents are not replicated since all necessary metadata
+		//can be obtained from the manifest
+		for _, blob := range []test.Bytes{image.Config, image.Layers[0]} {
+			assert.HTTPRequest{
+				Method:       "HEAD",
+				Path:         "/v2/test1/foo/blobs/" + blob.Digest.String(),
+				Header:       map[string]string{"Authorization": "Bearer " + token},
+				ExpectStatus: http.StatusOK,
+				ExpectHeader: map[string]string{
+					test.VersionHeaderKey:   test.VersionHeaderValue,
+					"Content-Length":        strconv.Itoa(len(blob.Contents)),
+					"Content-Type":          "application/octet-stream",
+					"Docker-Content-Digest": blob.Digest.String(),
+				},
+			}.Check(t, h2)
+		}
 	})
 }

@@ -71,6 +71,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		//...answer HEAD requests with the metadata that we obtained when replicating the manifest...
 		if r.Method == "HEAD" {
 			w.Header().Set("Content-Length", strconv.FormatUint(blob.SizeBytes, 10))
+			w.Header().Set("Content-Type", "application/octet-stream")
 			w.Header().Set("Docker-Content-Digest", blob.Digest)
 			w.WriteHeader(http.StatusOK)
 			return
