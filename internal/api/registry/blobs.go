@@ -20,6 +20,7 @@ package registryv2
 
 import (
 	"database/sql"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -38,7 +39,7 @@ import (
 //This implements the GET/HEAD /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
-	account, repoName, token := a.checkAccountAccess(w, r)
+	account, repo, token := a.checkAccountAccess(w, r, failIfRepoMissing)
 	if account == nil {
 		return
 	}
@@ -50,17 +51,55 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//locate this blob from the DB
-	blob, err := a.db.FindBlobByRepositoryName(blobDigest, repoName, *account)
+	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *repo, *account)
 	if err == sql.ErrNoRows {
-		//if the blob does not exist here, we may have the option of replicating from upstream
-		if account.UpstreamPeerHostName != "" {
-			a.tryReplicateBlob(w, r, *account, repoName, blobDigest)
-		} else {
-			keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w)
-		}
+		keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w)
 		return
 	}
 	if respondWithError(w, err) {
+		return
+	}
+
+	//if this blob has not been replicated...
+	if blob.StorageID == "" {
+		if account.UpstreamPeerHostName == "" {
+			//defense in depth: unbacked blobs should not exist in non-replica accounts
+			keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w)
+			return
+		}
+
+		//...answer HEAD requests with the metadata that we obtained when replicating the manifest...
+		if r.Method == "HEAD" {
+			w.Header().Set("Content-Length", strconv.FormatUint(blob.SizeBytes, 10))
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.Header().Set("Docker-Content-Digest", blob.Digest)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		//...and answer GET requests by replicating the blob contents
+		repl := replication.NewReplicator(a.cfg, a.db, a.sd).OverrideTimeNow(a.timeNow).OverrideGenerateStorageID(a.generateStorageID)
+		responseWasWritten, err := repl.ReplicateBlob(*blob, *account, *repo, w)
+
+		if err != nil {
+			if responseWasWritten {
+				//we cannot write to `w` if br.Execute() wrote a response there already
+				logg.Error("while trying to replicate blob %s in %s/%s: %s",
+					blob.Digest, account.Name, repo.Name, err.Error())
+			} else if err == replication.ErrConcurrentReplication {
+				//special handling for GET during ongoing replication (429 Too Many
+				//Requests is not a perfect match, but it's my best guess for getting
+				//clients to automatically retry the request after a few seconds)
+				w.Header().Set("Retry-After", "10")
+				msg := "currently replicating on a different worker, please retry in a few seconds"
+				keppel.ErrTooManyRequests.With(msg).WriteAsRegistryV2ResponseTo(w)
+			} else {
+				respondWithError(w, err)
+			}
+		} else if !responseWasWritten {
+			respondWithError(w, errors.New("blob replication yielded neither blob contents nor an error"))
+		}
+
 		return
 	}
 
@@ -108,62 +147,11 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *API) tryReplicateBlob(w http.ResponseWriter, r *http.Request, account keppel.Account, repoName string, blobDigest digest.Digest) {
-	repo, err := a.db.FindOrCreateRepository(repoName, account)
-	if respondWithError(w, err) {
-		return
-	}
-
-	repl := replication.NewReplicator(a.cfg, a.db, a.sd)
-	blob := replication.Blob{
-		Account: account,
-		Repo:    *repo,
-		Digest:  blobDigest,
-	}
-	responseWasWritten, err := repl.ReplicateBlob(blob, w, r.Method)
-
-	if err != nil {
-		if responseWasWritten {
-			//we cannot write to `w` if br.Execute() wrote a response there already
-			logg.Error("while trying to replicate blob %s in %s/%s: %s",
-				blob.Digest, account.Name, repo.Name, err.Error())
-		} else if err == replication.ErrConcurrentReplication {
-			//special handling for GET during ongoing replication (429 Too Many
-			//Requests is not a perfect match, but it's my best guess for getting
-			//clients to automatically retry the request after a few seconds)
-			w.Header().Set("Retry-After", "10")
-			msg := "currently replicating on a different worker, please retry in a few seconds"
-			keppel.ErrTooManyRequests.With(msg).WriteAsRegistryV2ResponseTo(w)
-			return
-		} else {
-			respondWithError(w, err)
-			return
-		}
-	}
-
-	//if `err == nil && !responseWasWritten`, the blob was replicated by mounting
-	//an existing blob with the same digest into this repo; in this case, we need
-	//to restart the GET call to find the mounted blob
-	if !responseWasWritten {
-		//TODO ugly (and may cause an infinite loop if not handled carefully)
-		a.handleGetOrHeadBlob(w, r)
-	}
-}
-
 //This implements the DELETE /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
-	account, repoName, _ := a.checkAccountAccess(w, r)
+	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing)
 	if account == nil {
-		return
-	}
-
-	repo, err := a.db.FindRepository(repoName, *account)
-	if err == sql.ErrNoRows {
-		keppel.ErrNameUnknown.With("no such repository").WriteAsRegistryV2ResponseTo(w)
-		return
-	}
-	if respondWithError(w, err) {
 		return
 	}
 
@@ -173,7 +161,7 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	blob, err := a.db.FindBlobByRepositoryID(blobDigest, repo.ID, *account)
+	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *repo, *account)
 	if err == sql.ErrNoRows {
 		keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w)
 		return

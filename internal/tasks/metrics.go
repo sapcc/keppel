@@ -29,6 +29,14 @@ var (
 		Name: "keppel_failed_abandoned_upload_cleanups",
 		Help: "Counter for failed cleanup of abandoned uploads.",
 	})
+	validateManifestSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "keppel_successful_manifest_validations",
+		Help: "Counter for successful manifest validations.",
+	})
+	validateManifestFailedCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "keppel_failed_manifest_validations",
+		Help: "Counter for failed manifest validations.",
+	})
 
 	metricsRegistered = false
 )
@@ -38,9 +46,13 @@ func (j *Janitor) initializeCounters() {
 		metricsRegistered = true
 		prometheus.MustRegister(cleanupAbandonedUploadSuccessCounter)
 		prometheus.MustRegister(cleanupAbandonedUploadFailedCounter)
+		prometheus.MustRegister(validateManifestSuccessCounter)
+		prometheus.MustRegister(validateManifestFailedCounter)
 	}
 
 	//add 0 to all counters to ensure that the relevant timeseries exist
 	cleanupAbandonedUploadSuccessCounter.Add(0)
 	cleanupAbandonedUploadFailedCounter.Add(0)
+	validateManifestSuccessCounter.Add(0)
+	validateManifestFailedCounter.Add(0)
 }

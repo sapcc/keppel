@@ -144,6 +144,59 @@ var sqlMigrations = map[string]string{
 	"003_add_repos_uniqueness_constraint.down.sql": `
 		ALTER TABLE repos DROP CONSTRAINT repos_account_name_name_key;
 	`,
+	"004_add_manifest_subreferences.up.sql": `
+		CREATE TABLE manifest_blob_refs (
+			repo_id BIGINT NOT NULL,
+			digest  TEXT   NOT NULL,
+			blob_id BIGINT NOT NULL       REFERENCES blobs ON DELETE RESTRICT,
+			FOREIGN KEY (repo_id, digest) REFERENCES manifests ON DELETE CASCADE,
+			UNIQUE (repo_id, digest, blob_id)
+		);
+		CREATE TABLE manifest_manifest_refs (
+			repo_id       BIGINT NOT NULL,
+			parent_digest TEXT   NOT NULL,
+			child_digest  TEXT   NOT NULL,
+			FOREIGN KEY (repo_id, parent_digest) REFERENCES manifests (repo_id, digest) ON DELETE CASCADE,
+			FOREIGN KEY (repo_id, child_digest)  REFERENCES manifests (repo_id, digest) ON DELETE RESTRICT,
+			UNIQUE (repo_id, parent_digest, child_digest)
+		);
+		ALTER TABLE manifests
+			ADD COLUMN validated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			ADD COLUMN validation_error_message TEXT        NOT NULL DEFAULT '';
+		ALTER TABLE blobs
+			ADD COLUMN validated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			ADD COLUMN validation_error_message TEXT        NOT NULL DEFAULT '';
+	`,
+	"004_add_manifest_subreferences.down.sql": `
+		DROP TABLE manifest_blob_refs;
+		DROP TABLE manifest_manifest_refs;
+		ALTER TABLE manifests
+			DROP COLUMN validated_at,
+			DROP COLUMN validation_error_message;
+		ALTER TABLE blobs
+			DROP COLUMN validated_at,
+			DROP COLUMN validation_error_message;
+	`,
+	"005_rebase_pending_blobs_on_accounts.up.sql": `
+		DROP TABLE pending_blobs;
+		CREATE TABLE pending_blobs (
+			account_name TEXT        NOT NULL REFERENCES accounts ON DELETE CASCADE,
+			digest       TEXT        NOT NULL,
+			reason       TEXT        NOT NULL,
+			since        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			PRIMARY KEY (account_name, digest)
+		);
+	`,
+	"005_rebase_pending_blobs_on_accounts.down.sql": `
+		DROP TABLE pending_blobs;
+		CREATE TABLE pending_blobs (
+			repo_id BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
+			digest  TEXT        NOT NULL,
+			reason  TEXT        NOT NULL,
+			since   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			PRIMARY KEY (repo_id, digest)
+		);
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.
@@ -205,4 +258,26 @@ func ForeachRow(dbi gorp.SqlExecutor, query string, args []interface{}, action f
 		return err
 	}
 	return rows.Close()
+}
+
+//StmtPreparer is anything that has the classical Prepare() method like *sql.DB
+//or *sql.Tx.
+type StmtPreparer interface {
+	Prepare(query string) (*sql.Stmt, error)
+}
+
+//WithPreparedStatement calls dbi.Prepare() and passes the resulting prepared statement
+//into the given action. It then cleans up the prepared statements, and it
+//handles any errors that occur during all of this.
+func WithPreparedStatement(dbi StmtPreparer, query string, action func(*sql.Stmt) error) error {
+	stmt, err := dbi.Prepare(query)
+	if err != nil {
+		return err
+	}
+	err = action(stmt)
+	if err != nil {
+		stmt.Close()
+		return err
+	}
+	return stmt.Close()
 }

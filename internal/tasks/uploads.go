@@ -50,8 +50,8 @@ func (j *Janitor) DeleteNextAbandonedUpload() (returnErr error) {
 		if returnErr == nil {
 			cleanupAbandonedUploadSuccessCounter.Inc()
 		} else if returnErr != sql.ErrNoRows {
-			cleanupAbandonedUploadSuccessCounter.Inc()
-			returnErr = fmt.Errorf("error while deleting an abandoned upload: %s", returnErr.Error())
+			cleanupAbandonedUploadFailedCounter.Inc()
+			returnErr = fmt.Errorf("while deleting an abandoned upload: %s", returnErr.Error())
 		}
 	}()
 

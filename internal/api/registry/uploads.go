@@ -47,15 +47,15 @@ import (
 //This implements the POST /v2/<account>/<repository>/blobs/uploads/ endpoint.
 func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/")
-	account, repoName, _ := a.checkAccountAccess(w, r)
+	account, repo, _ := a.checkAccountAccess(w, r, createRepoIfMissing)
 	if account == nil {
 		return
 	}
 
 	//forbid pushing into replica accounts
 	if account.UpstreamPeerHostName != "" {
-		msg := fmt.Sprintf("cannot push into replica account (push to %s/%s/%s instead!)",
-			account.UpstreamPeerHostName, account.Name, repoName,
+		msg := fmt.Sprintf("cannot push into replica account (push to %s/%s instead!)",
+			account.UpstreamPeerHostName, repo.FullName(),
 		)
 		keppel.ErrUnsupported.With(msg).WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w)
 		return
@@ -66,7 +66,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	//This is not strictly necessary to enforce the manifest quota, but it's
 	//useful to avoid the accumulation of unreferenced blobs in the account's
 	//backing storage.
-	quotas, err := a.db.FindQuotas(account.AuthTenantID)
+	quotas, err := keppel.FindQuotas(a.db, account.AuthTenantID)
 	if respondWithError(w, err) {
 		return
 	}
@@ -82,11 +82,6 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 			quotas.ManifestCount, manifestUsage,
 		)
 		keppel.ErrDenied.With(msg).WithStatus(http.StatusConflict).WriteAsRegistryV2ResponseTo(w)
-		return
-	}
-
-	repo, err := a.db.FindOrCreateRepository(repoName, *account)
-	if respondWithError(w, err) {
 		return
 	}
 
@@ -137,7 +132,7 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 		keppel.ErrNameInvalid.With("source repository is invalid").WriteAsRegistryV2ResponseTo(w)
 		return
 	}
-	sourceRepo, err := a.db.FindRepository(sourceRepoName, account)
+	sourceRepo, err := keppel.FindRepository(a.db, sourceRepoName, account)
 	if err == sql.ErrNoRows {
 		keppel.ErrNameUnknown.With("source repository does not exist").WriteAsRegistryV2ResponseTo(w)
 		return
@@ -152,7 +147,7 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
 		return
 	}
-	blob, err := a.db.FindBlobByRepositoryID(blobDigest, sourceRepo.ID, account)
+	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *sourceRepo, account)
 	if err == sql.ErrNoRows {
 		keppel.ErrBlobUnknown.With("blob does not exist in source repository").WriteAsRegistryV2ResponseTo(w)
 		return
@@ -242,12 +237,14 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	}
 	defer keppel.RollbackUnlessCommitted(tx)
 
+	blobPushedAt := a.timeNow()
 	blob := keppel.Blob{
 		AccountName: account.Name,
 		Digest:      blobDigest.String(),
 		SizeBytes:   sizeBytes,
 		StorageID:   storageID,
-		PushedAt:    a.timeNow(),
+		PushedAt:    blobPushedAt,
+		ValidatedAt: blobPushedAt,
 	}
 	onCommit, err := a.createOrUpdateBlobObject(tx, &blob, account)
 	if respondWithError(w, err) {
@@ -276,11 +273,11 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 //This implements the DELETE /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
 func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
-	account, repoName, _ := a.checkAccountAccess(w, r)
+	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing)
 	if account == nil {
 		return
 	}
-	upload := a.findUpload(w, r, *account, repoName)
+	upload := a.findUpload(w, r, *repo)
 	if upload == nil {
 		return
 	}
@@ -316,11 +313,11 @@ func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
 //This implements the GET /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
 func (a *API) handleGetBlobUpload(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
-	account, repoName, _ := a.checkAccountAccess(w, r)
+	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing)
 	if account == nil {
 		return
 	}
-	upload := a.findUpload(w, r, *account, repoName)
+	upload := a.findUpload(w, r, *repo)
 	if upload == nil {
 		return
 	}
@@ -334,11 +331,11 @@ func (a *API) handleGetBlobUpload(w http.ResponseWriter, r *http.Request) {
 //This implements the PATCH /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
 func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
-	account, repoName, _ := a.checkAccountAccess(w, r)
+	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing)
 	if account == nil {
 		return
 	}
-	upload := a.findUpload(w, r, *account, repoName)
+	upload := a.findUpload(w, r, *repo)
 	if upload == nil {
 		return
 	}
@@ -381,7 +378,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	query.Set("state", digestState)
 	w.Header().Set("Blob-Upload-Session-Id", upload.UUID)
 	w.Header().Set("Content-Length", "0")
-	w.Header().Set("Location", fmt.Sprintf("/v2/%s/%s/blobs/uploads/%s?%s", account.Name, repoName, upload.UUID, query.Encode()))
+	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/uploads/%s?%s", repo.FullName(), upload.UUID, query.Encode()))
 	w.Header().Set("Range", fmt.Sprintf("0-%d", upload.SizeBytes))
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -389,11 +386,11 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 //This implements the PUT /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
 func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
-	account, repoName, _ := a.checkAccountAccess(w, r)
+	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing)
 	if account == nil {
 		return
 	}
-	upload := a.findUpload(w, r, *account, repoName)
+	upload := a.findUpload(w, r, *repo)
 	if upload == nil {
 		return
 	}
@@ -421,7 +418,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//convert the Upload object into a Blob
-	blob, err := a.finishUpload(*account, repoName, upload, query.Get("digest"))
+	blob, err := a.finishUpload(*account, *repo, upload, query.Get("digest"))
 	if respondWithError(w, err) {
 		return
 	}
@@ -433,14 +430,14 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Content-Range", fmt.Sprintf("0-%d", blob.SizeBytes))
 	w.Header().Set("Docker-Content-Digest", blob.Digest)
-	w.Header().Set("Location", fmt.Sprintf("/v2/%s/%s/blobs/%s", account.Name, repoName, blob.Digest))
+	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/%s", repo.FullName(), blob.Digest))
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (a *API) findUpload(w http.ResponseWriter, r *http.Request, account keppel.Account, repoName string) *keppel.Upload {
+func (a *API) findUpload(w http.ResponseWriter, r *http.Request, repo keppel.Repository) *keppel.Upload {
 	uploadUUID := mux.Vars(r)["uuid"]
 
-	upload, err := a.db.FindUploadByRepositoryName(uploadUUID, repoName, account)
+	upload, err := keppel.FindUploadByRepository(a.db, uploadUUID, repo)
 	if err == sql.ErrNoRows {
 		keppel.ErrBlobUploadUnknown.With("no such upload: " + uploadUUID).WriteAsRegistryV2ResponseTo(w)
 		return nil
@@ -607,7 +604,7 @@ func (a *API) streamIntoUpload(account keppel.Account, upload *keppel.Upload, dw
 	return base64.URLEncoding.EncodeToString(digestStateBytes), nil
 }
 
-func (a *API) finishUpload(account keppel.Account, repoName string, upload *keppel.Upload, blobDigestStr string) (blob *keppel.Blob, returnErr error) {
+func (a *API) finishUpload(account keppel.Account, repo keppel.Repository, upload *keppel.Upload, blobDigestStr string) (blob *keppel.Blob, returnErr error) {
 	//if anything happens during this operation, we likely have produced an
 	//inconsistent state between DB, storage backend and our internal book
 	//keeping (esp. the digestState in dw.Hash), so we will have to abort the
@@ -642,10 +639,6 @@ func (a *API) finishUpload(account keppel.Account, repoName string, upload *kepp
 	}
 
 	//prepare database changes
-	repo, err := a.db.FindOrCreateRepository(repoName, account)
-	if err != nil {
-		return nil, err
-	}
 	tx, err := a.db.Begin()
 	if err != nil {
 		return nil, err
@@ -657,18 +650,20 @@ func (a *API) finishUpload(account keppel.Account, repoName string, upload *kepp
 		return nil, err
 	}
 
+	blobPushedAt := a.timeNow()
 	blob = &keppel.Blob{
 		AccountName: account.Name,
 		Digest:      blobDigest.String(),
 		SizeBytes:   upload.SizeBytes,
 		StorageID:   upload.StorageID,
-		PushedAt:    a.timeNow(),
+		PushedAt:    blobPushedAt,
+		ValidatedAt: blobPushedAt,
 	}
 	onCommit, err := a.createOrUpdateBlobObject(tx, blob, account)
 	if err != nil {
 		return nil, err
 	}
-	err = keppel.MountBlobIntoRepo(tx, *blob, *repo)
+	err = keppel.MountBlobIntoRepo(tx, *blob, repo)
 	if err != nil {
 		return nil, err
 	}

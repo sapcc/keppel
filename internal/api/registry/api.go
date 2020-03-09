@@ -19,6 +19,7 @@
 package registryv2
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -174,26 +175,34 @@ func setDefaultsForChallenge(c *auth.Challenge, r *http.Request) {
 //The "with leading slash" simplifies the regex because we need not write the regex for a path element twice.
 var repoNameWithLeadingSlashRx = regexp.MustCompile(`^(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)+$`)
 
+type repoAccessStrategy int
+
+const (
+	failIfRepoMissing             repoAccessStrategy = 0
+	createRepoIfMissing           repoAccessStrategy = 1
+	createRepoIfMissingAndReplica repoAccessStrategy = 2
+)
+
 //A one-stop-shop authorization checker for all endpoints that set the mux vars
 //"account" and "repository". On success, returns the account and repository
 //that this request is about.
-func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request) (account *keppel.Account, repoName string, token *auth.Token) {
+func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy) (*keppel.Account, *keppel.Repository, *auth.Token) {
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
 	//check that repo name is wellformed
 	vars := mux.Vars(r)
-	repoName = vars["repository"]
+	accountName, repoName := vars["account"], vars["repository"]
 	if !repoNameWithLeadingSlashRx.MatchString("/" + repoName) {
 		keppel.ErrNameInvalid.With("invalid repository name").WriteAsRegistryV2ResponseTo(w)
-		return
+		return nil, nil, nil
 	}
 
 	//check authorization before FindAccount(); otherwise we might leak
 	//information about account existence to unauthorized users
 	scope := auth.Scope{
 		ResourceType: "repository",
-		ResourceName: fmt.Sprintf("%s/%s", vars["account"], vars["repository"]),
+		ResourceName: fmt.Sprintf("%s/%s", accountName, repoName),
 	}
 	switch r.Method {
 	case "DELETE":
@@ -203,23 +212,43 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request) (accoun
 	default:
 		scope.Actions = []string{"pull", "push"}
 	}
-	token = a.requireBearerToken(w, r, &scope)
+	token := a.requireBearerToken(w, r, &scope)
 	if token == nil {
-		return nil, "", nil
+		return nil, nil, nil
 	}
 
 	//we need to know the account to select the registry instance for this request
-	account, err := a.db.FindAccount(mux.Vars(r)["account"])
+	account, err := keppel.FindAccount(a.db, accountName)
 	if respondWithError(w, err) {
-		return nil, "", nil
+		return nil, nil, nil
 	}
 	if account == nil {
 		//defense in depth - if the account does not exist, there should not be a
 		//valid token (the auth endpoint does not issue tokens with scopes for
 		//nonexistent accounts)
 		keppel.ErrNameUnknown.With("account not found").WriteAsRegistryV2ResponseTo(w)
-		return nil, "", nil
+		return nil, nil, nil
 	}
 
-	return account, repoName, token
+	canCreateRepoIfMissing := false
+	if strategy == createRepoIfMissing {
+		canCreateRepoIfMissing = true
+	} else if strategy == createRepoIfMissingAndReplica {
+		canCreateRepoIfMissing = account.UpstreamPeerHostName != ""
+	}
+
+	var repo *keppel.Repository
+	if canCreateRepoIfMissing {
+		repo, err = keppel.FindOrCreateRepository(a.db, repoName, *account)
+	} else {
+		repo, err = keppel.FindRepository(a.db, repoName, *account)
+	}
+	if err == sql.ErrNoRows || repo == nil {
+		keppel.ErrNameUnknown.With("repository not found").WriteAsRegistryV2ResponseTo(w)
+		return nil, nil, nil
+	} else if respondWithError(w, err) {
+		return nil, nil, nil
+	}
+
+	return account, repo, token
 }

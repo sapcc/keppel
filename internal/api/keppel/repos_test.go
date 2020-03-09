@@ -86,12 +86,14 @@ func TestReposAPI(t *testing.T) {
 	//manifest/tag counting
 	for idx := 1; idx <= 10; idx++ {
 		digest := deterministicDummyDigest(idx)
+		manifestPushedAt := time.Unix(int64(10000+10*idx), 0)
 		mustInsert(t, db, &keppel.Manifest{
 			RepositoryID: 5, //repo1-3
 			Digest:       digest,
 			MediaType:    "",
 			SizeBytes:    uint64(1000 * idx),
-			PushedAt:     time.Unix(int64(10000+10*idx), 0),
+			PushedAt:     manifestPushedAt,
+			ValidatedAt:  manifestPushedAt,
 		})
 		if idx <= 3 {
 			mustInsert(t, db, &keppel.Tag{

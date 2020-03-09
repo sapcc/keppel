@@ -20,7 +20,9 @@ package registryv2
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/sapcc/go-bits/respondwith"
@@ -36,23 +38,17 @@ const tagsListQuery = `
 
 func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/tags/list")
-	account, repoName, _ := a.checkAccountAccess(w, r)
+	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing)
 	if account == nil {
-		return
-	}
-
-	repo, err := a.db.FindRepository(repoName, *account)
-	if err == sql.ErrNoRows {
-		keppel.ErrNameUnknown.With("no such repository").WriteAsRegistryV2ResponseTo(w)
-		return
-	}
-	if respondWithError(w, err) {
 		return
 	}
 
 	//parse query: limit (parameter "n")
 	query := r.URL.Query()
-	var limit uint64
+	var (
+		limit uint64
+		err   error
+	)
 	if limitStr := query.Get("n"); limitStr != "" {
 		limit, err = strconv.ParseUint(limitStr, 10, 64)
 		if err != nil {
@@ -73,9 +69,9 @@ func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 	//parse query: marker (parameter "last")
 	marker := query.Get("last")
 
-	//list tags
-	var tags []string
-	err = keppel.ForeachRow(a.db, tagsListQuery, []interface{}{repo.ID, marker, limit}, func(rows *sql.Rows) error {
+	//list tags (we request one more than `limit` to see if we need to paginate)
+	tags := []string{}
+	err = keppel.ForeachRow(a.db, tagsListQuery, []interface{}{repo.ID, marker, limit + 1}, func(rows *sql.Rows) error {
 		var tagName string
 		err = rows.Scan(&tagName)
 		if err == nil {
@@ -85,6 +81,19 @@ func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 	})
 	if respondWithError(w, err) {
 		return
+	}
+
+	//do we need to paginate?
+	if uint64(len(tags)) > limit {
+		tags = tags[0:limit]
+		linkQuery := url.Values{}
+		linkQuery.Set("n", strconv.FormatUint(limit, 10))
+		linkQuery.Set("last", tags[len(tags)-1])
+		linkURL := url.URL{
+			Path:     fmt.Sprintf("/v2/%s/tags/list", repo.FullName()),
+			RawQuery: linkQuery.Encode(),
+		}
+		w.Header().Set("Link", fmt.Sprintf(`<%s>; rel="next"`, linkURL.String()))
 	}
 
 	respondwith.JSON(w, http.StatusOK,

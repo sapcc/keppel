@@ -70,12 +70,14 @@ func TestManifestsAPI(t *testing.T) {
 		for idx := 1; idx <= 10; idx++ {
 			digest := deterministicDummyDigest(repoID*10 + idx)
 			sizeBytes := uint64(1000 * idx)
+			pushedAt := time.Unix(int64(1000*(repoID*10+idx)), 0)
 			mustInsert(t, db, &keppel.Manifest{
 				RepositoryID: int64(repoID),
 				Digest:       digest,
 				MediaType:    "application/vnd.docker.distribution.manifest.v2+json",
 				SizeBytes:    sizeBytes,
-				PushedAt:     time.Unix(int64(1000*(repoID*10+idx)), 0),
+				PushedAt:     pushedAt,
+				ValidatedAt:  pushedAt,
 			})
 
 			err := sd.WriteManifest(

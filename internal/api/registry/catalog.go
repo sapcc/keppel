@@ -95,7 +95,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 			//`scope` does not look like `keppel_account:$ACCOUNT_NAME:view`
 			continue
 		}
-		account, err := a.db.FindAccount(accountName)
+		account, err := keppel.FindAccount(a.db, accountName)
 		if respondWithError(w, err) {
 			return
 		}

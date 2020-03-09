@@ -19,11 +19,12 @@
 package replication
 
 import (
+	"database/sql"
 	"io/ioutil"
-	"time"
 
 	"github.com/docker/distribution"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/processor"
 )
 
 //Manifest describes a manifest that can be replicated into our local registry.
@@ -47,8 +48,14 @@ func (r Replicator) ReplicateManifest(m Manifest) (*keppel.Manifest, []byte, err
 		return nil, nil, err
 	}
 
+	return r.replicateManifestRecursively(m, peer, peerToken)
+}
+
+func (r Replicator) replicateManifestRecursively(m Manifest, peer keppel.Peer, peerToken string) (*keppel.Manifest, []byte, error) {
+	proc := processor.New(r.db, r.sd)
+
 	//query upstream for the manifest
-	manifestReader, _, manifestContentType, err := r.fetchFromUpstream(m.Repo, "GET", "manifests/"+m.Reference.String(), peer, peerToken)
+	manifestReader, _, manifestMediaType, err := r.fetchFromUpstream(m.Repo, "GET", "manifests/"+m.Reference.String(), peer, peerToken)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -62,59 +69,65 @@ func (r Replicator) ReplicateManifest(m Manifest) (*keppel.Manifest, []byte, err
 		return nil, nil, err
 	}
 
-	//validate manifest
-	manifest, manifestDesc, err := distribution.UnmarshalManifest(manifestContentType, manifestBytes)
+	//parse the manifest to discover references to other manifests and blobs
+	manifestParsed, _, err := distribution.UnmarshalManifest(manifestMediaType, manifestBytes)
 	if err != nil {
 		return nil, nil, keppel.ErrManifestInvalid.With(err.Error())
 	}
-	//if <reference> is not a tag, it must be the digest of the manifest
-	if m.Reference.IsDigest() && manifestDesc.Digest.String() != m.Reference.Digest.String() {
-		return nil, nil, keppel.ErrDigestInvalid.With("upstream manifest digest is " + manifestDesc.Digest.String())
-	}
 
-	//NOTE: We trust upstream to have all blobs referenced by this manifest; these will
-	//be replicated when a client first asks for them.
-
-	//compute total size of image (TODO: code duplication with handlePutManifest())
-	sizeBytes := uint64(manifestDesc.Size)
-	for _, desc := range manifest.References() {
-		sizeBytes += uint64(desc.Size)
-	}
-
-	tx, err := r.db.Begin()
-	if err != nil {
-		return nil, nil, err
-	}
-	defer keppel.RollbackUnlessCommitted(tx)
-
-	dbManifest := keppel.Manifest{
-		RepositoryID: m.Repo.ID,
-		Digest:       manifestDesc.Digest.String(),
-		MediaType:    manifestDesc.MediaType,
-		SizeBytes:    sizeBytes,
-		PushedAt:     time.Now(),
-	}
-	err = dbManifest.InsertIfMissing(tx)
-	if err != nil {
-		return nil, nil, err
-	}
-	if m.Reference.IsTag() {
-		err = keppel.Tag{
-			RepositoryID: m.Repo.ID,
-			Name:         m.Reference.Tag,
-			Digest:       manifestDesc.Digest.String(),
-			PushedAt:     time.Now(),
-		}.InsertIfMissing(tx)
-		if err != nil {
-			return nil, nil, err
+	//mark all missing blobs as pending replication
+	for _, desc := range manifestParsed.References() {
+		if keppel.IsManifestMediaType(desc.MediaType) {
+			//replicate referenced manifests recursively if required
+			_, err := keppel.FindManifest(r.db, m.Repo, desc.Digest.String())
+			if err == sql.ErrNoRows {
+				_, _, err = r.replicateManifestRecursively(Manifest{
+					Account:   m.Account,
+					Repo:      m.Repo,
+					Reference: keppel.ManifestReference{Digest: desc.Digest},
+				}, peer, peerToken)
+			}
+			if err != nil {
+				return nil, nil, err
+			}
+		} else {
+			//mark referenced blobs as pending replication if not replicated yet
+			blob, err := proc.FindBlobOrInsertUnbackedBlob(desc, m.Account)
+			if err != nil {
+				return nil, nil, err
+			}
+			//also ensure that the blob is mounted in this repo (this is also
+			//important if the blob exists; it may only have been replicated in a
+			//different repo)
+			err = keppel.MountBlobIntoRepo(r.db, *blob, m.Repo)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 	}
 
-	//before committing, put the manifest into the backend
-	err = r.sd.WriteManifest(m.Account, m.Repo.Name, manifestDesc.Digest.String(), manifestBytes)
-	if err != nil {
-		return nil, nil, err
+	//if the manifest is an image, we need to replicate the image configuration
+	//blob immediately because ValidateAndStoreManifest() uses it for validation
+	//purposes
+	configBlobDesc := keppel.FindImageConfigBlob(manifestParsed)
+	if configBlobDesc != nil {
+		configBlob, err := keppel.FindBlobByAccountName(r.db, configBlobDesc.Digest, m.Account)
+		if err != nil {
+			return nil, nil, err
+		}
+		if configBlob.StorageID == "" {
+			_, err = r.ReplicateBlob(*configBlob, m.Account, m.Repo, nil)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
 	}
 
-	return &dbManifest, manifestBytes, tx.Commit()
+	manifest, err := proc.ValidateAndStoreManifest(m.Account, m.Repo, processor.IncomingManifest{
+		Reference: m.Reference,
+		MediaType: manifestMediaType,
+		Contents:  manifestBytes,
+		PushedAt:  r.timeNow(),
+	})
+	return manifest, manifestBytes, err
 }

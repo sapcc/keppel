@@ -55,7 +55,7 @@ func (a Account) PostgresDatabaseName() string {
 
 //FindAccount works similar to db.SelectOne(), but returns nil instead of
 //sql.ErrNoRows if no account exists with this name.
-func (db *DB) FindAccount(name string) (*Account, error) {
+func FindAccount(db gorp.SqlExecutor, name string) (*Account, error) {
 	var account Account
 	err := db.SelectOne(&account,
 		"SELECT * FROM accounts WHERE name = $1", name)
@@ -113,12 +113,14 @@ func (r RBACPolicy) Matches(repoName, userName string) bool {
 //needs to be chosen at the start of the blob upload, when the digest is not
 //known yet.
 type Blob struct {
-	ID          int64     `db:"id"`
-	AccountName string    `db:"account_name"`
-	Digest      string    `db:"digest"`
-	SizeBytes   uint64    `db:"size_bytes"`
-	StorageID   string    `db:"storage_id"`
-	PushedAt    time.Time `db:"pushed_at"`
+	ID                     int64     `db:"id"`
+	AccountName            string    `db:"account_name"`
+	Digest                 string    `db:"digest"`
+	SizeBytes              uint64    `db:"size_bytes"`
+	StorageID              string    `db:"storage_id"`
+	PushedAt               time.Time `db:"pushed_at"`
+	ValidatedAt            time.Time `db:"validated_at"`
+	ValidationErrorMessage string    `db:"validation_error_message"`
 }
 
 const blobGetQueryByRepoName = `
@@ -143,23 +145,23 @@ const blobGetQueryByAccountName = `
 
 //FindBlobByRepositoryName is a convenience wrapper around db.SelectOne(). If
 //the blob in question does not exist, sql.ErrNoRows is returned.
-func (db *DB) FindBlobByRepositoryName(blobDigest digest.Digest, repoName string, account Account) (*Blob, error) {
+func FindBlobByRepositoryName(db gorp.SqlExecutor, blobDigest digest.Digest, repoName string, account Account) (*Blob, error) {
 	var blob Blob
 	err := db.SelectOne(&blob, blobGetQueryByRepoName, account.Name, blobDigest.String(), repoName)
 	return &blob, err
 }
 
-//FindBlobByRepositoryID is a convenience wrapper around db.SelectOne(). If
+//FindBlobByRepository is a convenience wrapper around db.SelectOne(). If
 //the blob in question does not exist, sql.ErrNoRows is returned.
-func (db *DB) FindBlobByRepositoryID(blobDigest digest.Digest, repoID int64, account Account) (*Blob, error) {
+func FindBlobByRepository(db gorp.SqlExecutor, blobDigest digest.Digest, repo Repository, account Account) (*Blob, error) {
 	var blob Blob
-	err := db.SelectOne(&blob, blobGetQueryByRepoID, account.Name, blobDigest.String(), repoID)
+	err := db.SelectOne(&blob, blobGetQueryByRepoID, account.Name, blobDigest.String(), repo.ID)
 	return &blob, err
 }
 
 //FindBlobByAccountName is a convenience wrapper around db.SelectOne(). If the
 //blob in question does not exist, sql.ErrNoRows is returned.
-func (db *DB) FindBlobByAccountName(blobDigest digest.Digest, account Account) (*Blob, error) {
+func FindBlobByAccountName(db gorp.SqlExecutor, blobDigest digest.Digest, account Account) (*Blob, error) {
 	var blob Blob
 	err := db.SelectOne(&blob, blobGetQueryByAccountName, account.Name, blobDigest.String())
 	return &blob, err
@@ -189,30 +191,15 @@ type Upload struct {
 	UpdatedAt    time.Time `db:"updated_at"`
 }
 
-const uploadGetQueryByRepoName = `
-	SELECT u.*
-	  FROM uploads u
-	  JOIN repos r ON u.repo_id = r.id
-	 WHERE u.uuid = $1 AND r.account_name = $2 AND r.name = $3
-`
-
 const uploadGetQueryByRepoID = `
 	SELECT u.* FROM uploads u WHERE u.uuid = $1 AND repo_id = $2
 `
 
-//FindUploadByRepositoryName is a convenience wrapper around db.SelectOne(). If
+//FindUploadByRepository is a convenience wrapper around db.SelectOne(). If
 //the upload in question does not exist, sql.ErrNoRows is returned.
-func (db *DB) FindUploadByRepositoryName(uuid string, repoName string, account Account) (*Upload, error) {
+func FindUploadByRepository(db gorp.SqlExecutor, uuid string, repo Repository) (*Upload, error) {
 	var upload Upload
-	err := db.SelectOne(&upload, uploadGetQueryByRepoName, uuid, account.Name, repoName)
-	return &upload, err
-}
-
-//FindUploadByRepositoryID is a convenience wrapper around db.SelectOne(). If
-//the upload in question does not exist, sql.ErrNoRows is returned.
-func (db *DB) FindUploadByRepositoryID(uuid string, repoID int64) (*Upload, error) {
-	var upload Upload
-	err := db.SelectOne(&upload, uploadGetQueryByRepoID, uuid, repoID)
+	err := db.SelectOne(&upload, uploadGetQueryByRepoID, uuid, repo.ID)
 	return &upload, err
 }
 
@@ -227,8 +214,8 @@ type Repository struct {
 
 //FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a
 //Repository record when none exists yet.
-func (db *DB) FindOrCreateRepository(name string, account Account) (*Repository, error) {
-	repo, err := db.FindRepository(name, account)
+func FindOrCreateRepository(db gorp.SqlExecutor, name string, account Account) (*Repository, error) {
+	repo, err := FindRepository(db, name, account)
 	if err == sql.ErrNoRows {
 		repo = &Repository{
 			AccountName: account.Name,
@@ -241,7 +228,7 @@ func (db *DB) FindOrCreateRepository(name string, account Account) (*Repository,
 
 //FindRepository is a convenience wrapper around db.SelectOne(). If the
 //repository in question does not exist, sql.ErrNoRows is returned.
-func (db *DB) FindRepository(name string, account Account) (*Repository, error) {
+func FindRepository(db gorp.SqlExecutor, name string, account Account) (*Repository, error) {
 	var repo Repository
 	err := db.SelectOne(&repo,
 		"SELECT * FROM repos WHERE account_name = $1 AND name = $2", account.Name, name)
@@ -257,25 +244,23 @@ func (r Repository) FullName() string {
 
 //Manifest contains a record from the `manifests` table.
 type Manifest struct {
-	RepositoryID int64     `db:"repo_id"`
-	Digest       string    `db:"digest"`
-	MediaType    string    `db:"media_type"`
-	SizeBytes    uint64    `db:"size_bytes"`
-	PushedAt     time.Time `db:"pushed_at"`
+	RepositoryID           int64     `db:"repo_id"`
+	Digest                 string    `db:"digest"`
+	MediaType              string    `db:"media_type"`
+	SizeBytes              uint64    `db:"size_bytes"`
+	PushedAt               time.Time `db:"pushed_at"`
+	ValidatedAt            time.Time `db:"validated_at"`
+	ValidationErrorMessage string    `db:"validation_error_message"`
 }
 
-//InsertIfMissing is equivalent to `e.Insert(&m)`, but does not fail if the
-//manifest exists in the database already.
-func (m Manifest) InsertIfMissing(e gorp.SqlExecutor) error {
-	_, err := e.Exec(`
-		INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at)
-		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (repo_id, digest) DO NOTHING
-	`, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt)
-	return err
+//FindManifest is a convenience wrapper around db.SelectOne(). If the
+//manifest in question does not exist, sql.ErrNoRows is returned.
+func FindManifest(db gorp.SqlExecutor, repo Repository, digest string) (*Manifest, error) {
+	var manifest Manifest
+	err := db.SelectOne(&manifest,
+		"SELECT * FROM manifests WHERE repo_id = $1 AND digest = $2", repo.ID, digest)
+	return &manifest, err
 }
-
-////////////////////////////////////////////////////////////////////////////////
 
 //Tag contains a record from the `tags` table.
 type Tag struct {
@@ -283,18 +268,6 @@ type Tag struct {
 	Name         string    `db:"name"`
 	Digest       string    `db:"digest"`
 	PushedAt     time.Time `db:"pushed_at"`
-}
-
-//InsertIfMissing is equivalent to `e.Insert(&m)`, but does not fail if the
-//manifest exists in the database already.
-func (t Tag) InsertIfMissing(e gorp.SqlExecutor) error {
-	_, err := e.Exec(`
-		INSERT INTO tags (repo_id, name, digest, pushed_at)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (repo_id, name) DO UPDATE
-			SET digest = EXCLUDED.digest, pushed_at = EXCLUDED.pushed_at
-	`, t.RepositoryID, t.Name, t.Digest, t.PushedAt)
-	return err
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -307,7 +280,7 @@ type Quotas struct {
 
 //FindQuotas works similar to db.SelectOne(), but returns nil instead of
 //sql.ErrNoRows if no quota set exists for this auth tenant.
-func (db *DB) FindQuotas(authTenantID string) (*Quotas, error) {
+func FindQuotas(db gorp.SqlExecutor, authTenantID string) (*Quotas, error) {
 	var quotas Quotas
 	err := db.SelectOne(&quotas,
 		"SELECT * FROM quotas WHERE auth_tenant_id = $1", authTenantID)
@@ -367,17 +340,17 @@ type Peer struct {
 
 //PendingBlob contains a record from the `pending_blobs` table.
 type PendingBlob struct {
-	RepositoryID int64         `db:"repo_id"`
+	AccountName  string        `db:"account_name"`
 	Digest       string        `db:"digest"`
 	Reason       PendingReason `db:"reason"`
 	PendingSince time.Time     `db:"since"`
 }
 
-//PendingReason is an enum that explains why a blob or manifest is pending.
+//PendingReason is an enum that explains why a blob is pending.
 type PendingReason string
 
 const (
-	//PendingBecauseOfReplication is when a blob or manifest is pending because
+	//PendingBecauseOfReplication is when a blob is pending because
 	//it is currently being replicated from an upstream registry.
 	PendingBecauseOfReplication PendingReason = "replication"
 )
@@ -394,5 +367,5 @@ func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(Tag{}, "tags").SetKeys(false, "repo_id", "name")
 	db.AddTableWithName(Quotas{}, "quotas").SetKeys(false, "auth_tenant_id")
 	db.AddTableWithName(Peer{}, "peers").SetKeys(false, "hostname")
-	db.AddTableWithName(PendingBlob{}, "pending_blobs").SetKeys(false, "repo_id", "digest")
+	db.AddTableWithName(PendingBlob{}, "pending_blobs").SetKeys(false, "account_name", "digest")
 }

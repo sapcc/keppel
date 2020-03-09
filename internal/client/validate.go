@@ -26,6 +26,7 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/opencontainers/go-digest"
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //ValidationLogger can be passed to ValidateManifest, primarily to allow the
@@ -97,7 +98,7 @@ func (c *RepoClient) doValidateManifest(reference string, level int, logger Vali
 
 	//...now recurse into the manifests and blobs that it references
 	for _, desc := range manifest.References() {
-		if isManifestMediaType(desc.MediaType) {
+		if keppel.IsManifestMediaType(desc.MediaType) {
 			err := c.doValidateManifest(desc.Digest.String(), level+1, logger, cache)
 			if err != nil {
 				return err
@@ -149,13 +150,4 @@ func (c *RepoClient) ValidateBlobContents(blobDigest digest.Digest) (returnErr e
 		return fmt.Errorf("actual digest is %s", actualDigest)
 	}
 	return nil
-}
-
-func isManifestMediaType(contentType string) bool {
-	for _, mt := range distribution.ManifestMediaTypes() {
-		if mt == contentType {
-			return true
-		}
-	}
-	return false
 }

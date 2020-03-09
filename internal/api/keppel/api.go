@@ -94,7 +94,7 @@ func (a *API) authenticateAccountScopedRequest(w http.ResponseWriter, r *http.Re
 
 	//get account from DB to find its AuthTenantID
 	accountName := mux.Vars(r)["account"]
-	account, err := a.db.FindAccount(accountName)
+	account, err := keppel.FindAccount(a.db, accountName)
 	if respondwith.ErrorText(w, err) {
 		return nil, nil
 	}
@@ -143,7 +143,7 @@ func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, 
 		return nil
 	}
 
-	repo, err := a.db.FindRepository(repoName, account)
+	repo, err := keppel.FindRepository(a.db, repoName, account)
 	if err == sql.ErrNoRows {
 		http.Error(w, "not found", http.StatusNotFound)
 		return nil

@@ -19,296 +19,270 @@
 package registryv2
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
-	"database/sql"
-	"encoding/hex"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/assert"
-	"github.com/sapcc/keppel/internal/api"
-	authapi "github.com/sapcc/keppel/internal/api/auth"
+	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
-	"golang.org/x/crypto/bcrypt"
 )
 
-//NOTE: This test is run from TestProxyAPI to reuse its existing primary
-//registry and pushed blobs/manifests.
-func testReplicationOnFirstUse(t *testing.T, hPrimary http.Handler, dbPrimary *keppel.DB, firstManifestDigest, firstBlobDigest, secondManifestDigest, secondManifestTag string) {
-	cfg2, db2 := test.SetupSecondary(t)
+//NOTE: ROFU = ReplicationOnFirstUse
 
-	//give the secondary registry credentials for replicating from the primary
-	replicationPasswordBytes := make([]byte, 20)
-	_, err := rand.Read(replicationPasswordBytes)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+func TestROFUSimpleImage(t *testing.T) {
+	h1, _, db1, ad1, _, clock := setup(t)
 
-	replicationPassword := hex.EncodeToString(replicationPasswordBytes)
-	err = db2.Insert(&keppel.Peer{
-		HostName:    "registry.example.org",
-		OurPassword: replicationPassword,
+	//upload image to primary account
+	token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
+		keppel.CanPullFromAccount,
+		keppel.CanPushToAccount)
+	image := test.GenerateImage(test.GenerateExampleLayer(1))
+	clock.Step()
+	uploadBlob(t, h1, token, "test1/foo", image.Layers[0])
+	uploadBlob(t, h1, token, "test1/foo", image.Config)
+	uploadManifest(t, h1, token, "test1/foo", image.Manifest, "first")
+
+	//test pull by manifest in secondary account
+	testWithReplica(t, h1, db1, clock, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+		token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+			keppel.CanPullFromAccount)
+
+		clock.Step()
+		expectManifestExists(t, h2, token, "test1/foo", image.Manifest, image.Manifest.Digest.String())
+
+		if firstPass {
+			easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/imagemanifest-replication-001-after-pull-manifest.sql")
+		}
+
+		clock.Step()
+		expectBlobExists(t, h2, token, "test1/foo", image.Config)
+		expectBlobExists(t, h2, token, "test1/foo", image.Layers[0])
+
+		if firstPass {
+			easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/imagemanifest-replication-002-after-pull-blobs.sql")
+		}
 	})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
 
-	replicationPasswordHash, _ := bcrypt.GenerateFromPassword([]byte(replicationPassword), 8)
-	err = dbPrimary.Insert(&keppel.Peer{
-		HostName:                 "registry-secondary.example.org",
-		TheirCurrentPasswordHash: string(replicationPasswordHash),
+	//test pull by tag in secondary account
+	testWithReplica(t, h1, db1, clock, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+		token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+			keppel.CanPullFromAccount)
+		expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "first")
+		expectBlobExists(t, h2, token, "test1/foo", image.Config)
+		expectBlobExists(t, h2, token, "test1/foo", image.Layers[0])
 	})
+}
+
+func TestROFUImageList(t *testing.T) {
+	h1, _, db1, ad1, _, clock := setup(t)
+
+	//upload image list with two images to primary account
+	token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
+		keppel.CanPullFromAccount,
+		keppel.CanPushToAccount)
+	image1 := test.GenerateImage(test.GenerateExampleLayer(1))
+	image2 := test.GenerateImage(test.GenerateExampleLayer(2))
+	list := test.GenerateImageList(image1.Manifest, image2.Manifest)
+	clock.Step()
+	uploadBlob(t, h1, token, "test1/foo", image1.Layers[0])
+	uploadBlob(t, h1, token, "test1/foo", image1.Config)
+	uploadManifest(t, h1, token, "test1/foo", image1.Manifest, "first")
+	uploadBlob(t, h1, token, "test1/foo", image2.Layers[0])
+	uploadBlob(t, h1, token, "test1/foo", image2.Config)
+	uploadManifest(t, h1, token, "test1/foo", image2.Manifest, "second")
+	uploadManifest(t, h1, token, "test1/foo", list.Manifest, "list")
+
+	//test pull in secondary account
+	testWithReplica(t, h1, db1, clock, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+		token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+			keppel.CanPullFromAccount)
+
+		clock.Step()
+		expectManifestExists(t, h2, token, "test1/foo", list.Manifest, "list")
+
+		easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/imagelistmanifest-replication-001-after-pull-listmanifest.sql")
+
+		if !firstPass {
+			//test that this also transferred the referenced manifests eagerly (this
+			//part only runs when the primary registry is not reachable)
+			expectManifestExists(t, h2, token, "test1/foo", image1.Manifest, "")
+			expectManifestExists(t, h2, token, "test1/foo", image2.Manifest, "")
+		}
+	})
+}
+
+func TestROFUMissingEntities(t *testing.T) {
+	h1, _, db1, _, _, clock := setup(t)
+
+	//ensure that the `test1/foo` repo exists upstream; otherwise we'll just get
+	//NAME_UNKNOWN
+	_, err := keppel.FindOrCreateRepository(db1, "foo", keppel.Account{Name: "test1"})
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
-	//we want to test replication for a blob that exists in multiple repos, so
-	//mount one of the blobs from test1/foo into test1/bar on upstream
-	barRepoPrimary, err := dbPrimary.FindOrCreateRepository("bar", keppel.Account{Name: "test1"})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	_, err = dbPrimary.Exec(
-		`INSERT INTO blob_mounts (blob_id, repo_id) VALUES (
-			(SELECT id FROM blobs WHERE account_name = $1 AND digest = $2), $3
-		)`,
-		"test1", firstBlobDigest, barRepoPrimary.ID,
-	)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	defer func() {
-		//reset primary's DB into its previous state
-		_, err = dbPrimary.Exec(`DELETE FROM peers WHERE hostname = $1`,
-			"registry-secondary.example.org",
+	testWithReplica(t, h1, db1, clock, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+		var (
+			expectedStatus        = http.StatusNotFound
+			expectedManifestError = keppel.ErrManifestUnknown
 		)
-		if err != nil {
-			t.Error(err.Error())
+		if !firstPass {
+			//in the second pass, when the upstream registry is not reachable, we will get network errors instead
+			expectedStatus = http.StatusServiceUnavailable
+			expectedManifestError = keppel.ErrUnavailable
 		}
-		_, err = dbPrimary.Exec(`DELETE FROM repos WHERE name = $1`, "bar")
-		if err != nil {
-			t.Error(err.Error())
+
+		//try to pull a manifest by tag that exists neither locally nor upstream
+		token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+			keppel.CanPullFromAccount)
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/v2/test1/foo/manifests/thisdoesnotexist",
+			Header:       map[string]string{"Authorization": "Bearer " + token},
+			ExpectStatus: expectedStatus,
+			ExpectHeader: test.VersionHeader,
+			ExpectBody:   test.ErrorCode(expectedManifestError),
+		}.Check(t, h2)
+
+		//try to pull a manifest by hash that exists neither locally nor upstream
+		bogusDigest := "sha256:" + strings.Repeat("0", 64)
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/v2/test1/foo/manifests/" + bogusDigest,
+			Header:       map[string]string{"Authorization": "Bearer " + token},
+			ExpectStatus: expectedStatus,
+			ExpectHeader: test.VersionHeader,
+			ExpectBody:   test.ErrorCode(expectedManifestError),
+		}.Check(t, h2)
+
+		//try to pull a blob that exists neither locally nor upstream
+		//(this always gives 404 because we don't even try to replicate blobs that
+		//are not referenced by a manifest that was already replicated)
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/v2/test1/foo/blobs/" + bogusDigest,
+			Header:       map[string]string{"Authorization": "Bearer " + token},
+			ExpectStatus: http.StatusNotFound,
+			ExpectHeader: test.VersionHeader,
+			ExpectBody:   test.ErrorCode(keppel.ErrBlobUnknown),
+		}.Check(t, h2)
+	})
+}
+
+func TestROFUForbidDirectUpload(t *testing.T) {
+	h1, _, db1, _, _, clock := setup(t)
+	testWithReplica(t, h1, db1, clock, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+		token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull,push",
+			keppel.CanPullFromAccount, keppel.CanPushToAccount)
+
+		deniedMessage := test.ErrorCodeWithMessage{
+			Code:    keppel.ErrUnsupported,
+			Message: "cannot push into replica account (push to registry.example.org/test1/foo instead!)",
 		}
-	}()
 
-	//set up a replicated account referencing the primary test account from TestProxyAPI
-	err = db2.Insert(&keppel.Account{
-		Name:                 "test1",
-		AuthTenantID:         "test1authtenant",
-		UpstreamPeerHostName: "registry.example.org",
+		assert.HTTPRequest{
+			Method:       "POST",
+			Path:         "/v2/test1/foo/blobs/uploads/",
+			Header:       map[string]string{"Authorization": "Bearer " + token},
+			ExpectStatus: http.StatusMethodNotAllowed,
+			ExpectHeader: test.VersionHeader,
+			ExpectBody:   deniedMessage,
+		}.Check(t, h2)
+
+		assert.HTTPRequest{
+			Method:       "PUT",
+			Path:         "/v2/test1/foo/manifests/anotherone",
+			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Body:         assert.StringData("request body does not matter"),
+			ExpectStatus: http.StatusMethodNotAllowed,
+			ExpectHeader: test.VersionHeader,
+			ExpectBody:   deniedMessage,
+		}.Check(t, h2)
 	})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+}
 
-	//setup ample quota for all tests
-	err = db2.Insert(&keppel.Quotas{
-		AuthTenantID:  "test1authtenant",
-		ManifestCount: 100,
+func TestROFUManifestQuotaExceeded(t *testing.T) {
+	h1, _, db1, ad1, _, clock := setup(t)
+
+	//upload image to primary account
+	token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
+		keppel.CanPullFromAccount,
+		keppel.CanPushToAccount)
+	image := test.GenerateImage(test.GenerateExampleLayer(1))
+	clock.Step()
+	uploadBlob(t, h1, token, "test1/foo", image.Layers[0])
+	uploadBlob(t, h1, token, "test1/foo", image.Config)
+	uploadManifest(t, h1, token, "test1/foo", image.Manifest, "first")
+
+	//in secondary account...
+	testWithReplica(t, h1, db1, clock, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+		if !firstPass {
+			return
+		}
+
+		//...lower quotas so that replication will fail
+		_, err := db2.Exec(`UPDATE quotas SET manifests = $1`, 0)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+
+		quotaExceededMessage := test.ErrorCodeWithMessage{
+			Code:    keppel.ErrDenied,
+			Message: "manifest quota exceeded (quota = 0, usage = 0)",
+		}
+
+		token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+			keppel.CanPullFromAccount)
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/v2/test1/foo/manifests/first",
+			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Body:         assert.StringData("request body does not matter"),
+			ExpectStatus: http.StatusConflict,
+			ExpectHeader: test.VersionHeader,
+			ExpectBody:   quotaExceededMessage,
+		}.Check(t, h2)
 	})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	//setup a fleet of drivers for keppel-secondary
-	ad2, err := keppel.NewAuthDriver("unittest")
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	sd2, err := keppel.NewStorageDriver("in-memory-for-testing", ad2, cfg2)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	h := api.Compose(
-		NewAPI(cfg2, sd2, db2),
-		authapi.NewAPI(cfg2, ad2, db2),
-	)
-
-	//the secondary registry wants to talk to the primary registry over HTTPS, so
-	//attach the primary registry's HTTP handler to the http.DefaultClient
-	tt := &httpTransportForTest{
-		Handlers: map[string]http.Handler{
-			"registry.example.org":           hPrimary,
-			"registry-secondary.example.org": h,
-		},
-	}
-	http.DefaultClient.Transport = tt
-	defer func() {
-		http.DefaultClient.Transport = nil
-	}()
-
-	//run all replication-on-first-use (ROFU) tests once
-	testROFUNonReplicatingCases(t, h, ad2, db2, firstBlobDigest)
-	testROFUSuccessCases(t, h, ad2, firstManifestDigest, firstBlobDigest, secondManifestDigest, secondManifestTag)
-	testROFUMissingEntities(t, h, ad2)
-	testROFUForbidDirectUpload(t, h, ad2)
-
-	//run the positive tests again with the network connection to the primary
-	//registry severed, to validate that contents have actually been replicated
-	http.DefaultClient.Transport = nil
-	testROFUSuccessCases(t, h, ad2, firstManifestDigest, firstBlobDigest, secondManifestDigest, secondManifestTag)
-	testROFUForbidDirectUpload(t, h, ad2)
 }
 
-func testROFUNonReplicatingCases(t *testing.T, h http.Handler, ad keppel.AuthDriver, db *keppel.DB, firstBlobDigest string) {
-	//before replication, do a HEAD on a blob - this should only be proxied to
-	//upstream and not cause a full replication (we reserve the full replication
-	//for the first GET on the blob since we can then also stream the blob
-	//contents to that client directly)
-	token := getTokenForSecondary(t, h, ad, "repository:test1/foo:pull",
-		keppel.CanPullFromAccount)
-	assert.HTTPRequest{
-		Method:       "HEAD",
-		Path:         "/v2/test1/foo/blobs/" + firstBlobDigest,
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusOK,
-		ExpectHeader: test.VersionHeader,
-	}.Check(t, h)
+func TestROFUUseCachedBlobMetadata(t *testing.T) {
+	h1, _, db1, ad1, _, clock := setup(t)
 
-	//query the DB to check that the blob was not actually replicated
-	_, err := db.FindBlobByRepositoryName(digest.Digest(firstBlobDigest), "foo", keppel.Account{Name: "test1"})
-	if err != sql.ErrNoRows {
-		t.Errorf("expected DB to reply sql.ErrNoRows, but actually err = %#v", err)
-	}
-}
+	//upload image to primary account
+	token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
+		keppel.CanPullFromAccount,
+		keppel.CanPushToAccount)
+	image := test.GenerateImage(test.GenerateExampleLayer(1))
+	clock.Step()
+	uploadBlob(t, h1, token, "test1/foo", image.Layers[0])
+	uploadBlob(t, h1, token, "test1/foo", image.Config)
+	uploadManifest(t, h1, token, "test1/foo", image.Manifest, "first")
 
-func testROFUSuccessCases(t *testing.T, h http.Handler, ad keppel.AuthDriver, firstManifestDigest, firstBlobDigest, secondManifestDigest, secondManifestTag string) {
-	//pull a blob that exists upstream, but not locally yet - this will
-	//transparently fetch the blob into the local registry
-	token := getTokenForSecondary(t, h, ad, "repository:test1/foo:pull",
-		keppel.CanPullFromAccount)
-	_, blobData := assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/test1/foo/blobs/" + firstBlobDigest,
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusOK,
-		ExpectHeader: test.VersionHeader,
-	}.Check(t, h)
-	assertDigest(t, "blob", blobData, firstBlobDigest)
+	testWithReplica(t, h1, db1, clock, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+		//in the first pass, just replicate the manifest
+		token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+			keppel.CanPullFromAccount)
+		expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "first")
 
-	//pull a manifest referencing that blob that exists upstream, but not locally
-	//yet - this will transparently fetch the manifest into the local registry
-	_, manifestData := assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/test1/foo/manifests/" + firstManifestDigest,
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusOK,
-		ExpectHeader: map[string]string{
-			test.VersionHeaderKey: test.VersionHeaderValue,
-			"Content-Type":        "application/vnd.docker.distribution.manifest.v2+json",
-		},
-	}.Check(t, h)
-	assertDigest(t, "manifest", manifestData, firstManifestDigest)
-
-	//pull a second manifest - this differs from the previous test case in two ways:
-	//1. the pull happens by tag, not by manifest digest
-	//2. the blob referenced in the manifest is not pulled beforehand and thus
-	//will be replicated during this request
-	_, manifestData = assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/test1/foo/manifests/" + secondManifestTag,
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusOK,
-		ExpectHeader: map[string]string{
-			test.VersionHeaderKey: test.VersionHeaderValue,
-			"Content-Type":        "application/vnd.docker.distribution.manifest.v2+json",
-		},
-	}.Check(t, h)
-	assertDigest(t, "manifest", manifestData, secondManifestDigest)
-
-	//On upstream, the blob with `firstBlobDigest` exists in both the test1/foo
-	//and test1/bar repo.  We already replicated it into test1/foo. When
-	//replicating it again into test1/bar, the test used to fail because it just
-	//stupidly replicated the same blob again and thus ran into a DB error
-	//because `INSERT INTO blobs` violates the uniqueness constraint on
-	//(account_name, digest). It should actually only create a new blob mount.
-	token = getTokenForSecondary(t, h, ad, "repository:test1/bar:pull",
-		keppel.CanPullFromAccount)
-	_, blobData = assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/test1/bar/blobs/" + firstBlobDigest,
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusOK,
-		ExpectHeader: test.VersionHeader,
-	}.Check(t, h)
-	assertDigest(t, "blob", blobData, firstBlobDigest)
-}
-
-func assertDigest(t *testing.T, objectType string, data []byte, expectedDigest string) {
-	t.Helper()
-	hash := sha256.Sum256(data)
-	assert.DeepEqual(t, objectType+" digest",
-		"sha256:"+hex.EncodeToString(hash[:]),
-		expectedDigest,
-	)
-}
-
-func testROFUMissingEntities(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
-	//try to pull a manifest by tag that exists neither locally nor upstream
-	token := getTokenForSecondary(t, h, ad, "repository:test1/foo:pull",
-		keppel.CanPullFromAccount)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/test1/foo/manifests/thisdoesnotexist",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusNotFound,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
-	}.Check(t, h)
-
-	//try to pull a manifest by hash that exists neither locally nor upstream
-	bogusDigest := "sha256:" + strings.Repeat("0", 64)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/test1/foo/manifests/" + bogusDigest,
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusNotFound,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
-	}.Check(t, h)
-
-	//try to pull a blob that exists neither locally nor upstream
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/test1/foo/blobs/" + bogusDigest,
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusNotFound,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   test.ErrorCode(keppel.ErrBlobUnknown),
-	}.Check(t, h)
-}
-
-func testROFUForbidDirectUpload(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
-	token := getTokenForSecondary(t, h, ad, "repository:test1/foo:pull,push",
-		keppel.CanPullFromAccount, keppel.CanPushToAccount)
-
-	deniedMessage := test.ErrorCodeWithMessage{
-		Code:    keppel.ErrUnsupported,
-		Message: "cannot push into replica account (push to registry.example.org/test1/foo instead!)",
-	}
-
-	assert.HTTPRequest{
-		Method:       "POST",
-		Path:         "/v2/test1/foo/blobs/uploads/",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusMethodNotAllowed,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   deniedMessage,
-	}.Check(t, h)
-
-	assert.HTTPRequest{
-		Method:       "PUT",
-		Path:         "/v2/test1/foo/manifests/anotherone",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		Body:         assert.StringData("request body does not matter"),
-		ExpectStatus: http.StatusMethodNotAllowed,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   deniedMessage,
-	}.Check(t, h)
+		//in the second pass, query blobs with HEAD - this should work fine even
+		//though the blob contents are not replicated since all necessary metadata
+		//can be obtained from the manifest
+		for _, blob := range []test.Bytes{image.Config, image.Layers[0]} {
+			assert.HTTPRequest{
+				Method:       "HEAD",
+				Path:         "/v2/test1/foo/blobs/" + blob.Digest.String(),
+				Header:       map[string]string{"Authorization": "Bearer " + token},
+				ExpectStatus: http.StatusOK,
+				ExpectHeader: map[string]string{
+					test.VersionHeaderKey:   test.VersionHeaderValue,
+					"Content-Length":        strconv.Itoa(len(blob.Contents)),
+					"Content-Type":          "application/octet-stream",
+					"Docker-Content-Digest": blob.Digest.String(),
+				},
+			}.Check(t, h2)
+		}
+	})
 }

@@ -327,7 +327,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check if account already exists
-	account, err := a.db.FindAccount(accountName)
+	account, err := keppel.FindAccount(a.db, accountName)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
