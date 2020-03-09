@@ -140,11 +140,8 @@ func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *
 	}
 	if err != nil {
 		logg.Debug("GET %s: %s", r.URL.Path, err.Error())
-		challenge := auth.Challenge{
-			Scope:             scope,
-			OverrideAPIHost:   r.Header.Get("X-Forwarded-Host"),
-			OverrideAPIScheme: r.Header.Get("X-Forwarded-Proto"),
-		}
+		challenge := auth.Challenge{Scope: scope}
+		setDefaultsForChallenge(&challenge, r)
 		if token != nil {
 			challenge.Error = "insufficient_scope"
 		}
@@ -153,6 +150,25 @@ func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *
 		return nil
 	}
 	return token
+}
+
+func setDefaultsForChallenge(c *auth.Challenge, r *http.Request) {
+	//case 1: we are behind a reverse proxy
+	if host := r.Header.Get("X-Forwarded-Host"); host != "" {
+		c.OverrideAPIHost = host
+		c.OverrideAPIScheme = r.Header.Get("X-Forwarded-Proto")
+		return
+	}
+
+	//case 2: we are not behind a reverse proxy, but the Host header indicates how the user reached us
+	if host := r.Header.Get("Host"); host != "" {
+		c.OverrideAPIHost = host
+		c.OverrideAPIScheme = "http"
+		return
+	}
+
+	//case 3: no idea how the user got here - the challenge will use the cfg.APIPublicHostname() by default
+	return
 }
 
 //The "with leading slash" simplifies the regex because we need not write the regex for a path element twice.
