@@ -30,9 +30,14 @@ import (
 
 //Base behavior for various unit tests that start with the same image, destroy
 //it in various ways, and check that ValidateNextManifest correctly fixes it.
-func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel.DB)) {
+func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel.DB, []int64, []string)) {
 	j, _, db, sd, clock := setup(t)
 	clock.StepBy(1 * time.Hour)
+
+	var (
+		allBlobIDs         []int64
+		allManifestDigests []string
+	)
 
 	//setup two image manifests, both with some layers
 	images := make([]test.Image, 2)
@@ -58,6 +63,8 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 				blobID, image.Manifest.Digest.String(),
 			)
 		}
+		allBlobIDs = append(allBlobIDs, layer1BlobID, layer2BlobID, configBlobID)
+		allManifestDigests = append(allManifestDigests, image.Manifest.Digest.String())
 	}
 
 	//also setup an image list manifest containing those images (so that we have
@@ -75,6 +82,7 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 			imageList.Manifest.Digest.String(), image.Manifest.Digest.String(),
 		)
 	}
+	allManifestDigests = append(allManifestDigests, imageList.Manifest.Digest.String())
 
 	//since these manifests were just uploaded, validated_at is set to right now,
 	//so ValidateNextManifest will report that there is nothing to do
@@ -90,7 +98,7 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 
 	//disturb the DB state, then rerun ValidateNextManifest to fix it
 	clock.StepBy(12 * time.Hour)
-	disturb(db)
+	disturb(db, allBlobIDs, allManifestDigests)
 	expectSuccess(t, j.ValidateNextManifest())
 	expectSuccess(t, j.ValidateNextManifest())
 	expectSuccess(t, j.ValidateNextManifest())
@@ -99,20 +107,40 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 }
 
 func TestValidateNextManifestFixesWrongSize(t *testing.T) {
-	testValidateNextManifestFixesDisturbance(t, func(db *keppel.DB) {
+	testValidateNextManifestFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
 		mustExec(t, db, `UPDATE manifests SET size_bytes = 1337`)
 	})
 }
 
 func TestValidateNextManifestFixesMissingManifestBlobRefs(t *testing.T) {
-	testValidateNextManifestFixesDisturbance(t, func(db *keppel.DB) {
+	testValidateNextManifestFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
 		mustExec(t, db, `DELETE FROM manifest_blob_refs WHERE blob_id % 2 = 0`)
 	})
 }
 
 func TestValidateNextManifestFixesMissingManifestManifestRefs(t *testing.T) {
-	testValidateNextManifestFixesDisturbance(t, func(db *keppel.DB) {
+	testValidateNextManifestFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
 		mustExec(t, db, `DELETE FROM manifest_manifest_refs`)
+	})
+}
+
+func TestValidateNextManifestFixesSuperfluousManifestBlobRefs(t *testing.T) {
+	testValidateNextManifestFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+		for _, id := range allBlobIDs {
+			for _, d := range allManifestDigests {
+				mustExec(t, db, `INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, $1, $2) ON CONFLICT DO NOTHING`, d, id)
+			}
+		}
+	})
+}
+
+func TestValidateNextManifestFixesSuperfluousManifestManifestRefs(t *testing.T) {
+	testValidateNextManifestFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+		for _, d1 := range allManifestDigests {
+			for _, d2 := range allManifestDigests {
+				mustExec(t, db, `INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2) ON CONFLICT DO NOTHING`, d1, d2)
+			}
+		}
 	})
 }
 

@@ -149,14 +149,16 @@ var sqlMigrations = map[string]string{
 			repo_id BIGINT NOT NULL,
 			digest  TEXT   NOT NULL,
 			blob_id BIGINT NOT NULL       REFERENCES blobs ON DELETE RESTRICT,
-			FOREIGN KEY (repo_id, digest) REFERENCES manifests ON DELETE CASCADE
+			FOREIGN KEY (repo_id, digest) REFERENCES manifests ON DELETE CASCADE,
+			UNIQUE (repo_id, digest, blob_id)
 		);
 		CREATE TABLE manifest_manifest_refs (
 			repo_id       BIGINT NOT NULL,
 			parent_digest TEXT   NOT NULL,
 			child_digest  TEXT   NOT NULL,
 			FOREIGN KEY (repo_id, parent_digest) REFERENCES manifests (repo_id, digest) ON DELETE CASCADE,
-			FOREIGN KEY (repo_id, child_digest)  REFERENCES manifests (repo_id, digest) ON DELETE RESTRICT
+			FOREIGN KEY (repo_id, child_digest)  REFERENCES manifests (repo_id, digest) ON DELETE RESTRICT,
+			UNIQUE (repo_id, parent_digest, child_digest)
 		);
 		ALTER TABLE manifests
 			ADD COLUMN validated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
