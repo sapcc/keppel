@@ -197,6 +197,16 @@ var sqlMigrations = map[string]string{
 			PRIMARY KEY (repo_id, digest)
 		);
 	`,
+	"006_forbid_blob_mount_deletion_while_referenced.up.sql": `
+		ALTER TABLE manifest_blob_refs
+			DROP CONSTRAINT manifest_blob_refs_blob_id_fkey,
+			ADD FOREIGN KEY (blob_id, repo_id) REFERENCES blob_mounts (blob_id, repo_id) ON DELETE RESTRICT;
+	`,
+	"006_forbid_blob_mount_deletion_while_referenced.down.sql": `
+		ALTER TABLE manifest_blob_refs
+			DROP CONSTRAINT manifest_blob_refs_blob_id_repo_id_fkey,
+			ADD FOREIGN KEY blob_id REFERENCES blobs (id) ON DELETE RESTRICT;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

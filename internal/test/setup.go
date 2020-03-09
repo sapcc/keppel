@@ -107,13 +107,13 @@ func setup(t *testing.T, isSecondary bool) (keppel.Configuration, *keppel.DB) {
 	}
 
 	//wipe the DB clean if there are any leftovers from the previous test run
-	for _, tableName := range []string{"repos", "accounts", "peers", "quotas"} {
+	for _, tableName := range []string{"manifest_blob_refs", "accounts", "peers", "quotas"} {
 		//NOTE: All tables not mentioned above are cleared via ON DELETE CASCADE.
 		//
-		//NOTE 2: `repos` is technically not necessary because it would be cleared
-		//when `accounts` is cleared, but if we clear `accounts` directly, the
-		//deletions cascade down in the wrong order and trigger some ON DELETE
-		//RESTRICT constraints.
+		//NOTE 2: `manifest_blob_refs` is technically not necessary because it
+		//would be cleared when `accounts` is cleared, but if we clear `accounts`
+		//directly, the deletions cascade down in the wrong order and trigger
+		//ON DELETE RESTRICT constraints.
 		_, err := db.Exec("DELETE FROM " + tableName)
 		if err != nil {
 			t.Fatal(err.Error())
