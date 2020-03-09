@@ -161,8 +161,8 @@ func setDefaultsForChallenge(c *auth.Challenge, r *http.Request) {
 	}
 
 	//case 2: we are not behind a reverse proxy, but the Host header indicates how the user reached us
-	if host := r.Header.Get("Host"); host != "" {
-		c.OverrideAPIHost = host
+	if r.Host != "" {
+		c.OverrideAPIHost = r.Host
 		c.OverrideAPIScheme = "http"
 		return
 	}
