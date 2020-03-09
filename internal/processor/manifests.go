@@ -142,52 +142,16 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 			}
 		}
 
-		//create or update basic database entries
+		//create or update database entries
 		err = upsertManifest(tx, *manifest)
 		if err != nil {
 			return err
 		}
-
-		//persist manifest-blob references into the DB
-		_, err = tx.Exec(`DELETE FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`,
-			repo.ID, manifest.Digest)
+		err = maintainManifestBlobRefs(tx, *manifest, referencedBlobIDs)
 		if err != nil {
 			return err
 		}
-		err = keppel.WithPreparedStatement(tx,
-			`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
-			func(stmt *sql.Stmt) error {
-				for _, blobID := range referencedBlobIDs {
-					_, err := stmt.Exec(repo.ID, manifest.Digest, blobID)
-					if err != nil {
-						return err
-					}
-				}
-				return nil
-			},
-		)
-		if err != nil {
-			return err
-		}
-
-		//persist manifest-manifest references into the DB
-		_, err = tx.Exec(`DELETE FROM manifest_manifest_refs WHERE repo_id = $1 AND parent_digest = $2`,
-			repo.ID, manifest.Digest)
-		if err != nil {
-			return err
-		}
-		err = keppel.WithPreparedStatement(tx,
-			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES ($1, $2, $3)`,
-			func(stmt *sql.Stmt) error {
-				for _, digest := range referencedManifestDigests {
-					_, err := stmt.Exec(repo.ID, manifest.Digest, digest)
-					if err != nil {
-						return err
-					}
-				}
-				return nil
-			},
-		)
+		err = maintainManifestManifestRefs(tx, *manifest, referencedManifestDigests)
 		if err != nil {
 			return err
 		}
@@ -293,4 +257,129 @@ func upsertTag(db gorp.SqlExecutor, t keppel.Tag) error {
 			SET digest = EXCLUDED.digest, pushed_at = EXCLUDED.pushed_at
 	`, t.RepositoryID, t.Name, t.Digest, t.PushedAt)
 	return err
+}
+
+func maintainManifestBlobRefs(tx *gorp.Transaction, m keppel.Manifest, referencedBlobIDs []int64) error {
+	//find existing manifest_blob_refs entries for this manifest
+	isExistingBlobIDRef := make(map[int64]bool)
+	query := `SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`
+	err := keppel.ForeachRow(tx, query, []interface{}{m.RepositoryID, m.Digest}, func(rows *sql.Rows) error {
+		var blobID int64
+		err := rows.Scan(&blobID)
+		isExistingBlobIDRef[blobID] = true
+		return err
+	})
+	if err != nil {
+		return err
+	}
+
+	//create missing manifest_blob_refs
+	if len(referencedBlobIDs) > 0 {
+		err = keppel.WithPreparedStatement(tx,
+			`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
+			func(stmt *sql.Stmt) error {
+				for _, blobID := range referencedBlobIDs {
+					if isExistingBlobIDRef[blobID] {
+						delete(isExistingBlobIDRef, blobID) //see below for why we do this
+						continue
+					}
+
+					_, err := stmt.Exec(m.RepositoryID, m.Digest, blobID)
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	//delete superfluous manifest_blob_refs (because we deleted from
+	//`isExistingBlobIDRef` in the previous loop, all entries left in it are
+	//definitely not in `referencedBlobIDs` and therefore need to be deleted)
+	if len(isExistingBlobIDRef) > 0 {
+		err = keppel.WithPreparedStatement(tx,
+			`DELETE FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2 AND blob_id = $3`,
+			func(stmt *sql.Stmt) error {
+				for blobID := range isExistingBlobIDRef {
+					_, err := stmt.Exec(m.RepositoryID, m.Digest, blobID)
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func maintainManifestManifestRefs(tx *gorp.Transaction, m keppel.Manifest, referencedManifestDigests []string) error {
+	//find existing manifest_manifest_refs entries for this manifest
+	isExistingManifestDigestRef := make(map[string]bool)
+	query := `SELECT child_digest FROM manifest_manifest_refs WHERE repo_id = $1 AND parent_digest = $2`
+	err := keppel.ForeachRow(tx, query, []interface{}{m.RepositoryID, m.Digest}, func(rows *sql.Rows) error {
+		var childDigest string
+		err := rows.Scan(&childDigest)
+		isExistingManifestDigestRef[childDigest] = true
+		return err
+	})
+	if err != nil {
+		return err
+	}
+
+	//create missing manifest_manifest_refs
+	if len(referencedManifestDigests) > 0 {
+		err = keppel.WithPreparedStatement(tx,
+			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES ($1, $2, $3)`,
+			func(stmt *sql.Stmt) error {
+				for _, childDigest := range referencedManifestDigests {
+					if isExistingManifestDigestRef[childDigest] {
+						delete(isExistingManifestDigestRef, childDigest) //see below for why we do this
+						continue
+					}
+
+					_, err := stmt.Exec(m.RepositoryID, m.Digest, childDigest)
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	//delete superfluous manifest_manifest_refs (because we deleted from
+	//`isExistingManifestDigestRef` in the previous loop, all entries left in it
+	//are definitely not in `referencedManifestDigests` and therefore need to be
+	//deleted)
+	if len(isExistingManifestDigestRef) > 0 {
+		err = keppel.WithPreparedStatement(tx,
+			`DELETE FROM manifest_manifest_refs WHERE repo_id = $1 AND parent_digest = $2 AND child_digest = $3`,
+			func(stmt *sql.Stmt) error {
+				for childDigest := range isExistingManifestDigestRef {
+					_, err := stmt.Exec(m.RepositoryID, m.Digest, childDigest)
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
