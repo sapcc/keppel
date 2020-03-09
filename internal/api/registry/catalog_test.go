@@ -186,6 +186,7 @@ func testAuthErrorsForCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/_catalog",
+		Header:       addHeadersForCorrectAuthChallenge(nil),
 		ExpectStatus: http.StatusUnauthorized,
 		ExpectHeader: map[string]string{
 			test.VersionHeaderKey: test.VersionHeaderValue,
@@ -200,7 +201,7 @@ func testAuthErrorsForCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/_catalog",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
+		Header:       addHeadersForCorrectAuthChallenge(map[string]string{"Authorization": "Bearer " + token}),
 		ExpectStatus: http.StatusForbidden,
 		ExpectHeader: map[string]string{
 			test.VersionHeaderKey: test.VersionHeaderValue,
@@ -211,4 +212,16 @@ func testAuthErrorsForCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver
 		//but DENIED is more logical.
 		ExpectBody: test.ErrorCode(keppel.ErrDenied),
 	}.Check(t, h)
+}
+
+func addHeadersForCorrectAuthChallenge(hdr map[string]string) map[string]string {
+	if hdr == nil {
+		hdr = make(map[string]string)
+	}
+	//without these headers, the auth challenge would be generated based on the
+	//Host header of the simulated HTTP request, which the httptest library sets
+	//to "example.com"
+	hdr["X-Forwarded-Host"] = "registry.example.org"
+	hdr["X-Forwarded-Proto"] = "https"
+	return hdr
 }

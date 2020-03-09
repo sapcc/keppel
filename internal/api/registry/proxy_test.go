@@ -84,6 +84,7 @@ func testVersionCheckEndpoint(t *testing.T, h http.Handler, ad keppel.AuthDriver
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/",
+		Header:       addHeadersForCorrectAuthChallenge(nil),
 		ExpectStatus: http.StatusUnauthorized,
 		ExpectHeader: map[string]string{
 			test.VersionHeaderKey: test.VersionHeaderValue,
