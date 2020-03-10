@@ -153,6 +153,20 @@ func manifestObject(c *schwift.Container, repoName, digest string) *schwift.Obje
 	return c.Object(fmt.Sprintf("%s/_manifests/%s", repoName, digest))
 }
 
+//Like schwift.Object.Upload(), but does a HEAD request on the object
+//beforehand to ensure that we have a valid token. There seems to be a problem
+//in gopherschwift with restarting requests with request bodies after
+//reauthentication, even though [1] is supposed to handle this case.
+//
+//[1] https://github.com/majewsky/schwift/blob/3857990bb9f705ed06f8ac2a18ba7d4a732f4274/gopherschwift/package.go#L124-L135
+func uploadToObject(o *schwift.Object, content io.Reader, opts *schwift.UploadOptions, ropts *schwift.RequestOptions) error {
+	_, err := o.Headers()
+	if err != nil {
+		return err
+	}
+	return o.Upload(content, opts, ropts)
+}
+
 //AppendToBlob implements the keppel.StorageDriver interface.
 func (d *swiftDriver) AppendToBlob(account keppel.Account, storageID string, chunkNumber uint32, chunkLength *uint64, chunk io.Reader) error {
 	c, err := d.getBackendConnection(account)
@@ -163,7 +177,8 @@ func (d *swiftDriver) AppendToBlob(account keppel.Account, storageID string, chu
 	if chunkLength != nil {
 		hdr.SizeBytes().Set(*chunkLength)
 	}
-	return chunkObject(c, storageID, chunkNumber).Upload(chunk, nil, hdr.ToOpts())
+	o := chunkObject(c, storageID, chunkNumber)
+	return uploadToObject(o, chunk, nil, hdr.ToOpts())
 }
 
 //FinalizeBlob implements the keppel.StorageDriver interface.
@@ -283,7 +298,7 @@ func (d *swiftDriver) WriteManifest(account keppel.Account, repoName, digest str
 		return err
 	}
 	o := manifestObject(c, repoName, digest)
-	return o.Upload(bytes.NewReader(contents), nil, nil)
+	return uploadToObject(o, bytes.NewReader(contents), nil, nil)
 }
 
 //DeleteManifest implements the keppel.StorageDriver interface.
