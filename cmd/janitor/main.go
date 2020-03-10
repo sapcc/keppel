@@ -63,6 +63,7 @@ func run(cmd *cobra.Command, args []string) {
 	//start task loops
 	janitor := tasks.NewJanitor(sd, db)
 	go jobLoop(janitor.DeleteNextAbandonedUpload)
+	go jobLoop(janitor.SweepBlobMountsInNextRepo)
 	go jobLoop(janitor.ValidateNextManifest)
 
 	//start HTTP server for Prometheus metrics and health check

@@ -189,6 +189,16 @@ func GenerateImage(layers ...Bytes) Image {
 	}
 }
 
+//SizeBytes returns the value that we expect in the DB column
+//`manifests.size_bytes` for this image.
+func (i Image) SizeBytes() uint64 {
+	imageSize := len(i.Manifest.Contents) + len(i.Config.Contents)
+	for _, layer := range i.Layers {
+		imageSize += len(layer.Contents)
+	}
+	return uint64(imageSize)
+}
+
 //ImageList contains all the pieces of a multi-architecture Docker image. This
 //type is used for testing the behavior of Keppel with manifests that reference
 //other manifests.
@@ -226,6 +236,16 @@ func GenerateImageList(imageManifests ...Bytes) ImageList {
 		ImageManifests: imageManifests,
 		Manifest:       newBytesWithMediaType(manifestListBytes, "application/vnd.docker.distribution.manifest.list.v2+json"),
 	}
+}
+
+//SizeBytes returns the value that we expect in the DB column
+//`manifests.size_bytes` for this image.
+func (i ImageList) SizeBytes() uint64 {
+	imageSize := len(i.Manifest.Contents)
+	for _, m := range i.ImageManifests {
+		imageSize += len(m.Contents)
+	}
+	return uint64(imageSize)
 }
 
 func makeTimestamp(seconds int) string {

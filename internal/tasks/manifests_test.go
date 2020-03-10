@@ -48,15 +48,10 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 		)
 		images[idx] = image
 
-		imageSize := len(image.Manifest.Contents) + len(image.Config.Contents)
-		for _, layer := range image.Layers {
-			imageSize += len(layer.Contents)
-		}
-
 		layer1BlobID := uploadBlob(t, db, sd, clock, image.Layers[0])
 		layer2BlobID := uploadBlob(t, db, sd, clock, image.Layers[1])
 		configBlobID := uploadBlob(t, db, sd, clock, image.Config)
-		uploadManifest(t, db, sd, clock, image.Manifest, imageSize)
+		uploadManifest(t, db, sd, clock, image.Manifest, image.SizeBytes())
 		for _, blobID := range []int64{layer1BlobID, layer2BlobID, configBlobID} {
 			mustExec(t, db,
 				`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
@@ -70,12 +65,7 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 	//also setup an image list manifest containing those images (so that we have
 	//some manifest-manifest refs to play with)
 	imageList := test.GenerateImageList(images[0].Manifest, images[1].Manifest)
-	imageListSize := len(imageList.Manifest.Contents)
-	for _, image := range images {
-		imageListSize += len(image.Manifest.Contents)
-	}
-
-	uploadManifest(t, db, sd, clock, imageList.Manifest, imageListSize)
+	uploadManifest(t, db, sd, clock, imageList.Manifest, imageList.SizeBytes())
 	for _, image := range images {
 		mustExec(t, db,
 			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
@@ -150,12 +140,11 @@ func TestValidateNextManifestError(t *testing.T) {
 	//setup a manifest that does not exist in the backing storage
 	clock.StepBy(1 * time.Hour)
 	image := test.GenerateImage( /* no layers */ )
-	imageSize := len(image.Manifest.Contents) + len(image.Config.Contents)
 	must(t, db.Insert(&keppel.Manifest{
 		RepositoryID: 1,
 		Digest:       image.Manifest.Digest.String(),
 		MediaType:    image.Manifest.MediaType,
-		SizeBytes:    uint64(imageSize),
+		SizeBytes:    image.SizeBytes(),
 		PushedAt:     clock.Now(),
 		ValidatedAt:  clock.Now(),
 	}))
@@ -175,7 +164,7 @@ func TestValidateNextManifestError(t *testing.T) {
 	//upload manifest and blob so that we can test recovering from the validation error
 	uploadBlob(t, db, sd, clock, image.Config)
 	mustExec(t, db, `DELETE FROM manifests WHERE digest = $1`, image.Manifest.Digest.String())
-	uploadManifest(t, db, sd, clock, image.Manifest, imageSize)
+	uploadManifest(t, db, sd, clock, image.Manifest, image.SizeBytes())
 
 	//next validation should be happy (and also create the missing refs)
 	clock.StepBy(12 * time.Hour)

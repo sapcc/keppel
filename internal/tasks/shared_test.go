@@ -101,7 +101,7 @@ func uploadBlob(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock *tes
 	return dbBlob.ID
 }
 
-func uploadManifest(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock *test.Clock, manifest test.Bytes, sizeBytes int) {
+func uploadManifest(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock *test.Clock, manifest test.Bytes, sizeBytes uint64) {
 	t.Helper()
 	account := keppel.Account{Name: "test1"}
 
@@ -109,7 +109,7 @@ func uploadManifest(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock 
 		RepositoryID: 1,
 		Digest:       manifest.Digest.String(),
 		MediaType:    manifest.MediaType,
-		SizeBytes:    uint64(sizeBytes),
+		SizeBytes:    sizeBytes,
 		PushedAt:     clock.Now(),
 		ValidatedAt:  clock.Now(),
 	}))
