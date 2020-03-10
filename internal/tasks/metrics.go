@@ -29,6 +29,30 @@ var (
 		Name: "keppel_failed_abandoned_upload_cleanups",
 		Help: "Counter for failed cleanup of abandoned uploads.",
 	})
+	sweepBlobMountsSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "keppel_successful_blob_mount_sweeps",
+		Help: "Counter for successful garbage collections on blob mounts in a repo.",
+	})
+	sweepBlobMountsFailedCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "keppel_failed_blob_mount_sweeps",
+		Help: "Counter for failed garbage collections on blob mounts in a repo.",
+	})
+	sweepBlobsSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "keppel_successful_blob_sweeps",
+		Help: "Counter for successful garbage collections on blobs in an account.",
+	})
+	sweepBlobsFailedCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "keppel_failed_blob_sweeps",
+		Help: "Counter for failed garbage collections on blobs in an account.",
+	})
+	sweepStorageSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "keppel_successful_storage_sweeps",
+		Help: "Counter for successful garbage collections of an account's backing storage.",
+	})
+	sweepStorageFailedCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "keppel_failed_storage_sweeps",
+		Help: "Counter for failed garbage collections of an account's backing storage.",
+	})
 	validateManifestSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "keppel_successful_manifest_validations",
 		Help: "Counter for successful manifest validations.",
@@ -46,6 +70,12 @@ func (j *Janitor) initializeCounters() {
 		metricsRegistered = true
 		prometheus.MustRegister(cleanupAbandonedUploadSuccessCounter)
 		prometheus.MustRegister(cleanupAbandonedUploadFailedCounter)
+		prometheus.MustRegister(sweepBlobMountsSuccessCounter)
+		prometheus.MustRegister(sweepBlobMountsFailedCounter)
+		prometheus.MustRegister(sweepBlobsSuccessCounter)
+		prometheus.MustRegister(sweepBlobsFailedCounter)
+		prometheus.MustRegister(sweepStorageSuccessCounter)
+		prometheus.MustRegister(sweepStorageFailedCounter)
 		prometheus.MustRegister(validateManifestSuccessCounter)
 		prometheus.MustRegister(validateManifestFailedCounter)
 	}
@@ -53,6 +83,12 @@ func (j *Janitor) initializeCounters() {
 	//add 0 to all counters to ensure that the relevant timeseries exist
 	cleanupAbandonedUploadSuccessCounter.Add(0)
 	cleanupAbandonedUploadFailedCounter.Add(0)
+	sweepBlobMountsSuccessCounter.Add(0)
+	sweepBlobMountsFailedCounter.Add(0)
+	sweepBlobsSuccessCounter.Add(0)
+	sweepBlobsFailedCounter.Add(0)
+	sweepStorageSuccessCounter.Add(0)
+	sweepStorageFailedCounter.Add(0)
 	validateManifestSuccessCounter.Add(0)
 	validateManifestFailedCounter.Add(0)
 }

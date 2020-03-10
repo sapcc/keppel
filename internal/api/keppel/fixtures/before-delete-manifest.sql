@@ -1,5 +1,5 @@
-INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, required_labels) VALUES ('test1', 'tenant1', '', '');
-INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, required_labels) VALUES ('test2', 'tenant2', '', '');
+INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, required_labels, blobs_sweeped_at, storage_sweeped_at) VALUES ('test1', 'tenant1', '', '', NULL, NULL);
+INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, required_labels, blobs_sweeped_at, storage_sweeped_at) VALUES ('test2', 'tenant2', '', '', NULL, NULL);
 
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message) VALUES (1, 'sha256:3ee5f0d83bf791f0fb4d750a5719ce19d6d352ef7e5a4264e4b760f0f9c15014', 'application/vnd.docker.distribution.manifest.v2+json', 2000, 12000, 12000, '');
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message) VALUES (1, 'sha256:48341d92e2c078cb4203d231be6402df6794f7114ff465e51174b293caba2438', 'application/vnd.docker.distribution.manifest.v2+json', 8000, 18000, 18000, '');
@@ -32,9 +32,9 @@ INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, valid
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message) VALUES (3, 'sha256:ecdaf79b192e5eb9d894c4108b530b64a453762b215bf58e3f102b9cdb39c25f', 'application/vnd.docker.distribution.manifest.v2+json', 7000, 37000, 37000, '');
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message) VALUES (3, 'sha256:f5576efe561214ce478995fd3cad0181ac257b8fe19f3e84e731c15b45a51776', 'application/vnd.docker.distribution.manifest.v2+json', 9000, 39000, 39000, '');
 
-INSERT INTO repos (id, account_name, name) VALUES (1, 'test1', 'repo1-1');
-INSERT INTO repos (id, account_name, name) VALUES (2, 'test1', 'repo1-2');
-INSERT INTO repos (id, account_name, name) VALUES (3, 'test2', 'repo2-1');
+INSERT INTO repos (id, account_name, name, blob_mounts_sweeped_at) VALUES (1, 'test1', 'repo1-1', NULL);
+INSERT INTO repos (id, account_name, name, blob_mounts_sweeped_at) VALUES (2, 'test1', 'repo1-2', NULL);
+INSERT INTO repos (id, account_name, name, blob_mounts_sweeped_at) VALUES (3, 'test2', 'repo2-1', NULL);
 
 INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, 'first', 'sha256:7b0c710c832f5e2d6ba6b0d459531380d8127d86b6ddf9f5e9e7df2f27f16479', 20001);
 INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, 'second', 'sha256:3ee5f0d83bf791f0fb4d750a5719ce19d6d352ef7e5a4264e4b760f0f9c15014', 20003);

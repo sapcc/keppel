@@ -207,6 +207,22 @@ var sqlMigrations = map[string]string{
 			DROP CONSTRAINT manifest_blob_refs_blob_id_repo_id_fkey,
 			ADD FOREIGN KEY blob_id REFERENCES blobs (id) ON DELETE RESTRICT;
 	`,
+	"007_add_garbage_collection_timestamps.up.sql": `
+		ALTER TABLE accounts
+			ADD COLUMN blobs_sweeped_at   TIMESTAMPTZ DEFAULT NULL,
+			ADD COLUMN storage_sweeped_at TIMESTAMPTZ DEFAULT NULL;
+		ALTER TABLE repos       ADD COLUMN blob_mounts_sweeped_at TIMESTAMPTZ DEFAULT NULL;
+		ALTER TABLE blobs       ADD COLUMN marked_for_deletion_at TIMESTAMPTZ DEFAULT NULL;
+		ALTER TABLE blob_mounts ADD COLUMN marked_for_deletion_at TIMESTAMPTZ DEFAULT NULL;
+	`,
+	"007_add_garbage_collection_timestamps.down.sql": `
+		ALTER TABLE accounts
+			DROP COLUMN blobs_sweeped_at,
+			DROP COLUMN storage_sweeped_at;
+		ALTER TABLE repos       DROP COLUMN blob_mounts_sweeped_at;
+		ALTER TABLE blobs       DROP COLUMN marked_for_deletion_at;
+		ALTER TABLE blob_mounts DROP COLUMN marked_for_deletion_at;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

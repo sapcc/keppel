@@ -34,11 +34,15 @@ import (
 type Account struct {
 	Name         string `db:"name"`
 	AuthTenantID string `db:"auth_tenant_id"`
+
 	//UpstreamPeerHostName is set if and only if the "on_first_use" replication strategy is used.
 	UpstreamPeerHostName string `db:"upstream_peer_hostname"`
 	//RequiredLabels is a comma-separated list of labels that must be present on
 	//all image manifests in this account.
 	RequiredLabels string `db:"required_labels"`
+
+	BlobsSweepedAt   *time.Time `db:"blobs_sweeped_at"`
+	StorageSweepedAt *time.Time `db:"storage_sweeped_at"`
 }
 
 //SwiftContainerName returns the name of the Swift container backing this
@@ -113,14 +117,15 @@ func (r RBACPolicy) Matches(repoName, userName string) bool {
 //needs to be chosen at the start of the blob upload, when the digest is not
 //known yet.
 type Blob struct {
-	ID                     int64     `db:"id"`
-	AccountName            string    `db:"account_name"`
-	Digest                 string    `db:"digest"`
-	SizeBytes              uint64    `db:"size_bytes"`
-	StorageID              string    `db:"storage_id"`
-	PushedAt               time.Time `db:"pushed_at"`
-	ValidatedAt            time.Time `db:"validated_at"`
-	ValidationErrorMessage string    `db:"validation_error_message"`
+	ID                     int64      `db:"id"`
+	AccountName            string     `db:"account_name"`
+	Digest                 string     `db:"digest"`
+	SizeBytes              uint64     `db:"size_bytes"`
+	StorageID              string     `db:"storage_id"`
+	PushedAt               time.Time  `db:"pushed_at"`
+	ValidatedAt            time.Time  `db:"validated_at"`
+	ValidationErrorMessage string     `db:"validation_error_message"`
+	MarkedForDeletionAt    *time.Time `db:"marked_for_deletion_at"`
 }
 
 const blobGetQueryByRepoName = `
@@ -207,9 +212,10 @@ func FindUploadByRepository(db gorp.SqlExecutor, uuid string, repo Repository) (
 
 //Repository contains a record from the `repos` table.
 type Repository struct {
-	ID          int64  `db:"id"`
-	AccountName string `db:"account_name"`
-	Name        string `db:"name"`
+	ID                  int64      `db:"id"`
+	AccountName         string     `db:"account_name"`
+	Name                string     `db:"name"`
+	BlobMountsSweepedAt *time.Time `db:"blob_mounts_sweeped_at"`
 }
 
 //FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a
