@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -68,6 +69,9 @@ type healthMonitorJob struct {
 	AuthDriver  client.AuthDriver
 	AccountName string
 	RepoClient  *client.RepoClient
+
+	LastResultLock *sync.RWMutex
+	LastResult     *bool //nil during initialization, non-nil indicates result of last healthcheck
 }
 
 func run(cmd *cobra.Command, args []string) {
@@ -89,6 +93,7 @@ func run(cmd *cobra.Command, args []string) {
 			UserName: apiUser,
 			Password: apiPassword,
 		},
+		LastResultLock: &sync.RWMutex{},
 	}
 
 	//run one-time preparations
@@ -102,6 +107,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	//expose metrics endpoint
+	http.HandleFunc("/healthcheck", job.ReportHealthcheckResult)
 	http.Handle("/metrics", promhttp.Handler())
 	ctx := httpee.ContextWithSIGINT(context.Background())
 	go func() {
@@ -162,14 +168,40 @@ func (j *healthMonitorJob) UploadImage() (string, error) {
 func (j *healthMonitorJob) ValidateImage(manifestRef string) {
 	err := j.RepoClient.ValidateManifest(manifestRef, nil)
 	if err == nil {
-		healthmonitorResultGauge.Set(1)
+		j.recordHealthcheckResult(true)
 	} else {
-		healthmonitorResultGauge.Set(0)
+		j.recordHealthcheckResult(false)
 		imageRef := client.ImageReference{
 			Host:      j.RepoClient.Host,
 			RepoName:  j.RepoClient.RepoName,
 			Reference: manifestRef,
 		}
 		logg.Error("validation of %s failed: %s", imageRef.String(), err.Error())
+	}
+}
+
+func (j *healthMonitorJob) recordHealthcheckResult(ok bool) {
+	if ok {
+		healthmonitorResultGauge.Set(1)
+	} else {
+		healthmonitorResultGauge.Set(0)
+	}
+	j.LastResultLock.Lock()
+	j.LastResult = &ok
+	j.LastResultLock.Unlock()
+}
+
+//Provides the GET /healthcheck endpoint.
+func (j *healthMonitorJob) ReportHealthcheckResult(w http.ResponseWriter, r *http.Request) {
+	j.LastResultLock.RLock()
+	lastResult := j.LastResult
+	j.LastResultLock.RUnlock()
+
+	if lastResult == nil {
+		http.Error(w, "still starting up", http.StatusServiceUnavailable)
+	} else if *lastResult {
+		w.WriteHeader(http.StatusNoContent)
+	} else {
+		http.Error(w, "healthcheck failed", http.StatusInternalServerError)
 	}
 }
