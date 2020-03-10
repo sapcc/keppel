@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"time"
 
@@ -161,7 +162,7 @@ func manifestObject(c *schwift.Container, repoName, digest string) *schwift.Obje
 //[1] https://github.com/majewsky/schwift/blob/3857990bb9f705ed06f8ac2a18ba7d4a732f4274/gopherschwift/package.go#L124-L135
 func uploadToObject(o *schwift.Object, content io.Reader, opts *schwift.UploadOptions, ropts *schwift.RequestOptions) error {
 	_, err := o.Headers()
-	if err != nil {
+	if err != nil && !schwift.Is(err, http.StatusNotFound) {
 		return err
 	}
 	return o.Upload(content, opts, ropts)
