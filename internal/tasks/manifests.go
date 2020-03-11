@@ -74,7 +74,17 @@ func (j *Janitor) ValidateNextManifest() (returnErr error) {
 	//perform validation
 	proc := processor.New(j.db, j.sd)
 	err = proc.ValidateExistingManifest(*account, repo, &manifest, j.timeNow())
-	if err != nil {
+	if err == nil {
+		//update `validated_at` and reset error message
+		_, err := j.db.Exec(`
+			UPDATE manifests SET validated_at = $1, validation_error_message = ''
+			 WHERE repo_id = $2 AND digest = $3`,
+			j.timeNow(), repo.ID, manifest.Digest,
+		)
+		if err != nil {
+			return err
+		}
+	} else {
 		//attempt to log the error message, and also update the `validated_at`
 		//timestamp to ensure that the ValidateNextManifest() loop does not get
 		//stuck on this one

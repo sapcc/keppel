@@ -137,22 +137,15 @@ func TestValidateNextManifestFixesSuperfluousManifestManifestRefs(t *testing.T) 
 func TestValidateNextManifestError(t *testing.T) {
 	j, _, db, sd, clock := setup(t)
 
-	//setup a manifest that does not exist in the backing storage
+	//setup a manifest that is missing a referenced blob
 	clock.StepBy(1 * time.Hour)
 	image := test.GenerateImage( /* no layers */ )
-	must(t, db.Insert(&keppel.Manifest{
-		RepositoryID: 1,
-		Digest:       image.Manifest.Digest.String(),
-		MediaType:    image.Manifest.MediaType,
-		SizeBytes:    image.SizeBytes(),
-		PushedAt:     clock.Now(),
-		ValidatedAt:  clock.Now(),
-	}))
+	uploadManifest(t, db, sd, clock, image.Manifest, image.SizeBytes())
 
-	//validation should yield an error ("no such manifest" is returned by test.StorageDriver)
+	//validation should yield an error
 	clock.StepBy(12 * time.Hour)
-	expectError(t, "while validating a manifest: no such manifest",
-		j.ValidateNextManifest())
+	expectedError := "while validating a manifest: manifest blob unknown to registry: " + image.Config.Digest.String()
+	expectError(t, expectedError, j.ValidateNextManifest())
 
 	//check that validation error to be recorded in the DB
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/manifest-validate-error-001.sql")
@@ -161,10 +154,8 @@ func TestValidateNextManifestError(t *testing.T) {
 	//was recently validated
 	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextManifest())
 
-	//upload manifest and blob so that we can test recovering from the validation error
+	//upload missing blob so that we can test recovering from the validation error
 	uploadBlob(t, db, sd, clock, image.Config)
-	mustExec(t, db, `DELETE FROM manifests WHERE digest = $1`, image.Manifest.Digest.String())
-	uploadManifest(t, db, sd, clock, image.Manifest, image.SizeBytes())
 
 	//next validation should be happy (and also create the missing refs)
 	clock.StepBy(12 * time.Hour)
