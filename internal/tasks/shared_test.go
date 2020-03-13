@@ -43,7 +43,8 @@ func setup(t *testing.T) (*Janitor, keppel.Configuration, *keppel.DB, keppel.Sto
 	must(t, db.Insert(&keppel.Repository{AccountName: "test1", Name: "foo"}))
 
 	clock := &test.Clock{}
-	j := NewJanitor(sd, db).OverrideTimeNow(clock.Now)
+	sidGen := &test.StorageIDGenerator{}
+	j := NewJanitor(cfg, sd, db).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next)
 
 	return j, cfg, db, sd, clock
 }

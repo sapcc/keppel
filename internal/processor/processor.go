@@ -22,8 +22,10 @@ package processor
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
 	"gopkg.in/gorp.v2"
 )
@@ -32,13 +34,31 @@ import (
 //It abstracts DB accesses into high-level interactions and keeps DB updates in
 //lockstep with StorageDriver accesses.
 type Processor struct {
-	db *keppel.DB
-	sd keppel.StorageDriver
+	cfg         keppel.Configuration
+	db          *keppel.DB
+	sd          keppel.StorageDriver
+	repoClients map[string]*client.RepoClient //key = account name
+
+	//non-pure functions that can be replaced by deterministic doubles for unit tests
+	timeNow           func() time.Time
+	generateStorageID func() string
 }
 
 //New creates a new Processor.
-func New(db *keppel.DB, sd keppel.StorageDriver) *Processor {
-	return &Processor{db, sd}
+func New(cfg keppel.Configuration, db *keppel.DB, sd keppel.StorageDriver) *Processor {
+	return &Processor{cfg, db, sd, make(map[string]*client.RepoClient), time.Now, keppel.GenerateStorageID}
+}
+
+//OverrideTimeNow replaces time.Now with a test double.
+func (p *Processor) OverrideTimeNow(timeNow func() time.Time) *Processor {
+	p.timeNow = timeNow
+	return p
+}
+
+//OverrideGenerateStorageID replaces keppel.GenerateStorageID with a test double.
+func (p *Processor) OverrideGenerateStorageID(generateStorageID func() string) *Processor {
+	p.generateStorageID = generateStorageID
+	return p
 }
 
 //WithLowlevelAccess lets the caller access the low-level interfaces wrapped by
@@ -109,4 +129,33 @@ func (p *Processor) checkQuotaForManifestPush(account keppel.Account) error {
 		return keppel.ErrDenied.With(msg).WithStatus(http.StatusConflict)
 	}
 	return nil
+}
+
+//Takes a repo in a replica account and returns a RepoClient for accessing its
+//the upstream repo in the corresponding primary account.
+func (p *Processor) getRepoClientForUpstream(account keppel.Account, repo keppel.Repository) (*client.RepoClient, error) {
+	//use cached client if possible (this one probably already contains a valid
+	//pull token)
+	if c, ok := p.repoClients[account.Name]; ok {
+		return c, nil
+	}
+
+	if account.UpstreamPeerHostName == "" {
+		return nil, fmt.Errorf("account %q is not a replica", account.Name)
+	}
+	var peer keppel.Peer
+	err := p.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, account.UpstreamPeerHostName)
+	if err != nil {
+		return nil, err
+	}
+
+	c := &client.RepoClient{
+		Scheme:   "https",
+		Host:     peer.HostName,
+		RepoName: repo.FullName(),
+		UserName: "replication@" + p.cfg.APIPublicHostname(),
+		Password: peer.OurPassword,
+	}
+	p.repoClients[account.Name] = c
+	return c, nil
 }

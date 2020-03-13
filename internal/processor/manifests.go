@@ -383,3 +383,75 @@ func maintainManifestManifestRefs(tx *gorp.Transaction, m keppel.Manifest, refer
 
 	return nil
 }
+
+//ReplicateManifest replicates the manifest from its account's upstream registry.
+//On success, the manifest's metadata and contents are returned.
+func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Repository, reference keppel.ManifestReference) (*keppel.Manifest, []byte, error) {
+	//query upstream for the manifest
+	client, err := p.getRepoClientForUpstream(account, repo)
+	if err != nil {
+		return nil, nil, err
+	}
+	manifestBytes, manifestMediaType, err := client.DownloadManifest(reference.String()) //TODO DownloadManifest should take a keppel.ManifestReference
+	if err != nil {
+		return nil, nil, err
+	}
+
+	//parse the manifest to discover references to other manifests and blobs
+	manifestParsed, _, err := distribution.UnmarshalManifest(manifestMediaType, manifestBytes)
+	if err != nil {
+		return nil, nil, keppel.ErrManifestInvalid.With(err.Error())
+	}
+
+	//mark all missing blobs as pending replication
+	for _, desc := range manifestParsed.References() {
+		if keppel.IsManifestMediaType(desc.MediaType) {
+			//replicate referenced manifests recursively if required
+			_, err := keppel.FindManifest(p.db, repo, desc.Digest.String())
+			if err == sql.ErrNoRows {
+				_, _, err = p.ReplicateManifest(account, repo, keppel.ManifestReference{Digest: desc.Digest})
+			}
+			if err != nil {
+				return nil, nil, err
+			}
+		} else {
+			//mark referenced blobs as pending replication if not replicated yet
+			blob, err := p.FindBlobOrInsertUnbackedBlob(desc, account)
+			if err != nil {
+				return nil, nil, err
+			}
+			//also ensure that the blob is mounted in this repo (this is also
+			//important if the blob exists; it may only have been replicated in a
+			//different repo)
+			err = keppel.MountBlobIntoRepo(p.db, *blob, repo)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+	}
+
+	//if the manifest is an image, we need to replicate the image configuration
+	//blob immediately because ValidateAndStoreManifest() uses it for validation
+	//purposes
+	configBlobDesc := keppel.FindImageConfigBlob(manifestParsed)
+	if configBlobDesc != nil {
+		configBlob, err := keppel.FindBlobByAccountName(p.db, configBlobDesc.Digest, account)
+		if err != nil {
+			return nil, nil, err
+		}
+		if configBlob.StorageID == "" {
+			_, err = p.ReplicateBlob(*configBlob, account, repo, nil)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+	}
+
+	manifest, err := p.ValidateAndStoreManifest(account, repo, IncomingManifest{
+		Reference: reference,
+		MediaType: manifestMediaType,
+		Contents:  manifestBytes,
+		PushedAt:  p.timeNow(),
+	})
+	return manifest, manifestBytes, err
+}

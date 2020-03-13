@@ -33,7 +33,7 @@ import (
 	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/replication"
+	"github.com/sapcc/keppel/internal/processor"
 )
 
 //This implements the GET/HEAD /v2/<account>/<repository>/blobs/<digest> endpoint.
@@ -78,15 +78,14 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//...and answer GET requests by replicating the blob contents
-		repl := replication.NewReplicator(a.cfg, a.db, a.sd).OverrideTimeNow(a.timeNow).OverrideGenerateStorageID(a.generateStorageID)
-		responseWasWritten, err := repl.ReplicateBlob(*blob, *account, *repo, w)
+		responseWasWritten, err := a.processor().ReplicateBlob(*blob, *account, *repo, w)
 
 		if err != nil {
 			if responseWasWritten {
 				//we cannot write to `w` if br.Execute() wrote a response there already
 				logg.Error("while trying to replicate blob %s in %s/%s: %s",
 					blob.Digest, account.Name, repo.Name, err.Error())
-			} else if err == replication.ErrConcurrentReplication {
+			} else if err == processor.ErrConcurrentReplication {
 				//special handling for GET during ongoing replication (429 Too Many
 				//Requests is not a perfect match, but it's my best guess for getting
 				//clients to automatically retry the request after a few seconds)

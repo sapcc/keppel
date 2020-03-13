@@ -33,7 +33,6 @@ import (
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/processor"
-	"github.com/sapcc/keppel/internal/replication"
 )
 
 //This implements the HEAD/GET /v2/<repo>/manifests/<reference> endpoint.
@@ -58,13 +57,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		//if the manifest does not exist there, we may have the option of replicating
 		//from upstream
 		if account.UpstreamPeerHostName != "" {
-			repl := replication.NewReplicator(a.cfg, a.db, a.sd).OverrideTimeNow(a.timeNow).OverrideGenerateStorageID(a.generateStorageID)
-			m := replication.Manifest{
-				Account:   *account,
-				Repo:      *repo,
-				Reference: reference,
-			}
-			dbManifest, manifestBytes, err = repl.ReplicateManifest(m)
+			dbManifest, manifestBytes, err = a.processor().ReplicateManifest(*account, *repo, reference)
 			if respondWithError(w, err) {
 				return
 			}
@@ -218,8 +211,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//validate and store manifest
-	proc := processor.New(a.db, a.sd)
-	manifest, err := proc.ValidateAndStoreManifest(*account, *repo, processor.IncomingManifest{
+	manifest, err := a.processor().ValidateAndStoreManifest(*account, *repo, processor.IncomingManifest{
 		Reference: keppel.ParseManifestReference(mux.Vars(r)["reference"]),
 		MediaType: r.Header.Get("Content-Type"),
 		Contents:  manifestBytes,

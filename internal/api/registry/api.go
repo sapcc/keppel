@@ -31,6 +31,7 @@ import (
 	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/processor"
 )
 
 //API contains state variables used by the Auth API endpoint.
@@ -100,6 +101,10 @@ func (a *API) AddTo(r *mux.Router) {
 	rr.Methods("GET").
 		Path("/{repository:.+}/tags/list").
 		HandlerFunc(a.handleListTags)
+}
+
+func (a *API) processor() *processor.Processor {
+	return processor.New(a.cfg, a.db, a.sd).OverrideTimeNow(a.timeNow).OverrideGenerateStorageID(a.generateStorageID)
 }
 
 //This implements the GET /v2/ endpoint.

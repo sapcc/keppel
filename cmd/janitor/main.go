@@ -61,7 +61,7 @@ func run(cmd *cobra.Command, args []string) {
 	ctx := httpee.ContextWithSIGINT(context.Background())
 
 	//start task loops
-	janitor := tasks.NewJanitor(sd, db)
+	janitor := tasks.NewJanitor(cfg, sd, db)
 	go jobLoop(janitor.DeleteNextAbandonedUpload)
 	go jobLoop(janitor.SweepBlobMountsInNextRepo)
 	go jobLoop(janitor.SweepBlobsInNextAccount)

@@ -72,7 +72,7 @@ func (j *Janitor) ValidateNextManifest() (returnErr error) {
 	}
 
 	//perform validation
-	proc := processor.New(j.db, j.sd)
+	proc := processor.New(j.cfg, j.db, j.sd).OverrideTimeNow(j.timeNow).OverrideGenerateStorageID(j.generateStorageID)
 	err = proc.ValidateExistingManifest(*account, repo, &manifest, j.timeNow())
 	if err == nil {
 		//update `validated_at` and reset error message

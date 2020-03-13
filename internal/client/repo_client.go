@@ -71,7 +71,7 @@ func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, keppel.ErrUnavailable.With(err.Error())
 	}
 
 	//if it's a 401, do the auth challenge...
@@ -102,7 +102,7 @@ func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
 		req.Header.Set("Authorization", "Bearer "+c.token)
 		resp, err = http.DefaultClient.Do(req)
 		if err != nil {
-			return nil, err
+			return nil, keppel.ErrUnavailable.With(err.Error())
 		}
 	}
 

@@ -28,7 +28,6 @@ import (
 
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/test"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -83,30 +82,8 @@ func TestDeleteAbandonedUploadWithManyChunks(t *testing.T) {
 }
 
 func testDeleteUpload(t *testing.T, setupUploadObject func(keppel.StorageDriver, keppel.Account) keppel.Upload) {
-	//setup a test DB and storage
-	cfg, db := test.Setup(t)
-	sd, err := keppel.NewStorageDriver("in-memory-for-testing", keppel.AuthDriver(nil), cfg)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	//setup a Janitor instance
-	clock := &test.Clock{}
-	j := NewJanitor(sd, db).OverrideTimeNow(clock.Now)
-
-	//setup an account and repo where we can upload to
-	account := keppel.Account{
-		Name:         "test1",
-		AuthTenantID: "test1authtenant",
-	}
-	err = db.Insert(&account)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	err = db.Insert(&keppel.Repository{
-		AccountName: "test1",
-		Name:        "foo",
-	})
+	j, _, db, sd, clock := setup(t)
+	account := keppel.Account{Name: "test1"}
 
 	//right now, there are no upload objects, so DeleteNextAbandonedUpload should indicate that
 	clock.StepBy(48 * time.Hour)
@@ -119,7 +96,7 @@ func testDeleteUpload(t *testing.T, setupUploadObject func(keppel.StorageDriver,
 	upload.UUID = testUploadUUID
 	upload.StorageID = testStorageID
 	upload.UpdatedAt = clock.Now()
-	err = db.Insert(&upload)
+	err := db.Insert(&upload)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

@@ -104,7 +104,7 @@ func (c *RepoClient) doValidateManifest(reference string, level int, logger Vali
 //ValidateBlobContents fetches the given blob from the repo and verifies that
 //the contents produce the correct digest.
 func (c *RepoClient) ValidateBlobContents(blobDigest digest.Digest) (returnErr error) {
-	readCloser, err := c.DownloadBlob(blobDigest)
+	readCloser, _, err := c.DownloadBlob(blobDigest)
 	if err != nil {
 		return err
 	}

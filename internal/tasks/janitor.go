@@ -26,15 +26,18 @@ import (
 
 //Janitor contains the toolbox of the keppel-janitor process.
 type Janitor struct {
-	sd keppel.StorageDriver
-	db *keppel.DB
+	cfg keppel.Configuration
+	sd  keppel.StorageDriver
+	db  *keppel.DB
+
 	//non-pure functions that can be replaced by deterministic doubles for unit tests
-	timeNow func() time.Time
+	timeNow           func() time.Time
+	generateStorageID func() string
 }
 
 //NewJanitor creates a new Janitor.
-func NewJanitor(sd keppel.StorageDriver, db *keppel.DB) *Janitor {
-	j := &Janitor{sd, db, time.Now}
+func NewJanitor(cfg keppel.Configuration, sd keppel.StorageDriver, db *keppel.DB) *Janitor {
+	j := &Janitor{cfg, sd, db, time.Now, keppel.GenerateStorageID}
 	j.initializeCounters()
 	return j
 }
@@ -42,5 +45,11 @@ func NewJanitor(sd keppel.StorageDriver, db *keppel.DB) *Janitor {
 //OverrideTimeNow replaces time.Now with a test double.
 func (j *Janitor) OverrideTimeNow(timeNow func() time.Time) *Janitor {
 	j.timeNow = timeNow
+	return j
+}
+
+//OverrideGenerateStorageID replaces keppel.GenerateStorageID with a test double.
+func (j *Janitor) OverrideGenerateStorageID(generateStorageID func() string) *Janitor {
+	j.generateStorageID = generateStorageID
 	return j
 }
