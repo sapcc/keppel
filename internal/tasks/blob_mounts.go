@@ -27,10 +27,13 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-var blobMountSweepSearchQuery = `
+//NOTE: This skips over repos where some or all manifests have failed validation.
+//If a manifest fails validation, we cannot be sure that we're really seeing
+//all manifest_blob_refs. This could result in us mistakenly deleting blob
+//mounts even though they are referenced by a manifest.
+const blobMountSweepSearchQuery = `
 	SELECT * FROM repos
 		WHERE blob_mounts_sweeped_at IS NULL OR blob_mounts_sweeped_at < $1
-		-- only sweep in repos where all manifests have passed validation
 		AND id NOT IN (SELECT repo_id FROM manifests WHERE validation_error_message != '')
 	-- repos without any sweeps first, then sorted by last sweep
 	ORDER BY blob_mounts_sweeped_at IS NULL DESC, blob_mounts_sweeped_at ASC
@@ -38,25 +41,25 @@ var blobMountSweepSearchQuery = `
 	LIMIT 1
 `
 
-var blobMountMarkQuery = `
+const blobMountMarkQuery = `
 	UPDATE blob_mounts SET marked_for_deletion_at = $2
 	WHERE repo_id = $1 AND marked_for_deletion_at IS NULL AND blob_id NOT IN (
 		SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1
 	)
 `
 
-var blobMountUnmarkQuery = `
+const blobMountUnmarkQuery = `
 	UPDATE blob_mounts SET marked_for_deletion_at = NULL
 	WHERE repo_id = $1 AND blob_id IN (
 		SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1
 	)
 `
 
-var blobMountSweepMarkedQuery = `
+const blobMountSweepMarkedQuery = `
 	DELETE FROM blob_mounts WHERE repo_id = $1 AND marked_for_deletion_at < $2
 `
 
-var blobMountSweepDoneQuery = `
+const blobMountSweepDoneQuery = `
 	UPDATE repos SET blob_mounts_sweeped_at = $2 WHERE id = $1
 `
 
@@ -72,17 +75,18 @@ var blobMountSweepDoneQuery = `
 //Blob mounts are sweeped in each repo at most once per hour. If no repos need
 //to be sweeped, sql.ErrNoRows is returned to instruct the caller to slow down.
 func (j *Janitor) SweepBlobMountsInNextRepo() (returnErr error) {
+	var repo keppel.Repository
 	defer func() {
 		if returnErr == nil {
 			sweepBlobMountsSuccessCounter.Inc()
 		} else if returnErr != sql.ErrNoRows {
 			sweepBlobMountsFailedCounter.Inc()
-			returnErr = fmt.Errorf("while sweeping blob mounts: %s", returnErr.Error())
+			returnErr = fmt.Errorf("while sweeping blob mounts in repo %q: %s",
+				repo.FullName(), returnErr.Error())
 		}
 	}()
 
 	//find repo to sweep
-	var repo keppel.Repository
 	maxSweepedAt := j.timeNow().Add(-1 * time.Hour)
 	err := j.db.SelectOne(&repo, blobMountSweepSearchQuery, maxSweepedAt)
 	if err != nil {

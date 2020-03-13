@@ -22,8 +22,10 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"io/ioutil"
 	"testing"
 
+	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 	"gopkg.in/gorp.v2"
@@ -77,7 +79,7 @@ func expectError(t *testing.T, expected string, actual error) {
 	}
 }
 
-func uploadBlob(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock *test.Clock, blob test.Bytes) int64 {
+func uploadBlob(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock *test.Clock, blob test.Bytes) keppel.Blob {
 	t.Helper()
 	account := keppel.Account{Name: "test1"}
 	repo := keppel.Repository{ID: 1, Name: "foo", AccountName: "test1"}
@@ -98,7 +100,7 @@ func uploadBlob(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock *tes
 	must(t, sd.AppendToBlob(account, storageID, 1, &dbBlob.SizeBytes, bytes.NewBuffer(blob.Contents)))
 	must(t, sd.FinalizeBlob(account, storageID, 1))
 	must(t, keppel.MountBlobIntoRepo(db, dbBlob, repo))
-	return dbBlob.ID
+	return dbBlob
 }
 
 func uploadManifest(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock *test.Clock, manifest test.Bytes, sizeBytes uint64) {
@@ -114,4 +116,54 @@ func uploadManifest(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock 
 		ValidatedAt:  clock.Now(),
 	}))
 	must(t, sd.WriteManifest(account, "foo", manifest.Digest.String(), manifest.Contents))
+}
+
+func expectBlobsExistInStorage(t *testing.T, sd keppel.StorageDriver, blobs ...keppel.Blob) {
+	t.Helper()
+	account := keppel.Account{Name: "test1"}
+	for _, blob := range blobs {
+		readCloser, sizeBytes, err := sd.ReadBlob(account, blob.StorageID)
+		if err != nil {
+			t.Errorf("expected blob %s to exist in the storage, but got: %s", blob.Digest, err.Error())
+			continue
+		}
+		blobBytes, err := ioutil.ReadAll(readCloser)
+		if err == nil {
+			readCloser.Close()
+		} else {
+			err = readCloser.Close()
+		}
+		if err != nil {
+			t.Errorf("unexpected error while reading blob %s: %s", blob.Digest, err.Error())
+			continue
+		}
+
+		if uint64(len(blobBytes)) != sizeBytes {
+			t.Errorf("unexpected error while reading blob %s: expected %d bytes, but got %d bytes", blob.Digest, sizeBytes, len(blobBytes))
+			continue
+		}
+
+		expectedDigest, err := digest.Parse(blob.Digest)
+		if err != nil {
+			t.Errorf("blob digest %q is not a digest: %s", blob.Digest, err.Error())
+			continue
+		}
+		actualDigest := expectedDigest.Algorithm().FromBytes(blobBytes)
+		if actualDigest != expectedDigest {
+			t.Errorf("blob %s has corrupted contents: actual digest is %s", blob.Digest, actualDigest)
+			continue
+		}
+	}
+}
+
+func expectBlobsMissingInStorage(t *testing.T, sd keppel.StorageDriver, blobs ...keppel.Blob) {
+	t.Helper()
+	account := keppel.Account{Name: "test1"}
+	for _, blob := range blobs {
+		_, _, err := sd.ReadBlob(account, blob.StorageID)
+		if err == nil {
+			t.Errorf("expected blob %s to be missing in the storage, but could read it", blob.Digest)
+			continue
+		}
+	}
 }

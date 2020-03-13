@@ -28,7 +28,7 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
-//Base behavior for various unit tests that start with the same image, destroy
+//Base behavior for various unit tests that start with the same image list, destroy
 //it in various ways, and check that ValidateNextManifest correctly fixes it.
 func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel.DB, []int64, []string)) {
 	j, _, db, sd, clock := setup(t)
@@ -48,17 +48,17 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 		)
 		images[idx] = image
 
-		layer1BlobID := uploadBlob(t, db, sd, clock, image.Layers[0])
-		layer2BlobID := uploadBlob(t, db, sd, clock, image.Layers[1])
-		configBlobID := uploadBlob(t, db, sd, clock, image.Config)
+		layer1Blob := uploadBlob(t, db, sd, clock, image.Layers[0])
+		layer2Blob := uploadBlob(t, db, sd, clock, image.Layers[1])
+		configBlob := uploadBlob(t, db, sd, clock, image.Config)
 		uploadManifest(t, db, sd, clock, image.Manifest, image.SizeBytes())
-		for _, blobID := range []int64{layer1BlobID, layer2BlobID, configBlobID} {
+		for _, blobID := range []int64{layer1Blob.ID, layer2Blob.ID, configBlob.ID} {
 			mustExec(t, db,
 				`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
 				blobID, image.Manifest.Digest.String(),
 			)
 		}
-		allBlobIDs = append(allBlobIDs, layer1BlobID, layer2BlobID, configBlobID)
+		allBlobIDs = append(allBlobIDs, layer1Blob.ID, layer2Blob.ID, configBlob.ID)
 		allManifestDigests = append(allManifestDigests, image.Manifest.Digest.String())
 	}
 

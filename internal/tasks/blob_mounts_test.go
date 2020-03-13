@@ -37,11 +37,11 @@ func TestSweepBlobMounts(t *testing.T) {
 		test.GenerateExampleLayer(1),
 		test.GenerateExampleLayer(2),
 	)
-	layer1BlobID := uploadBlob(t, db, sd, clock, image.Layers[0])
-	layer2BlobID := uploadBlob(t, db, sd, clock, image.Layers[1])
-	configBlobID := uploadBlob(t, db, sd, clock, image.Config)
+	layer1Blob := uploadBlob(t, db, sd, clock, image.Layers[0])
+	layer2Blob := uploadBlob(t, db, sd, clock, image.Layers[1])
+	configBlob := uploadBlob(t, db, sd, clock, image.Config)
 	uploadManifest(t, db, sd, clock, image.Manifest, image.SizeBytes())
-	for _, blobID := range []int64{layer1BlobID, layer2BlobID, configBlobID} {
+	for _, blobID := range []int64{layer1Blob.ID, layer2Blob.ID, configBlob.ID} {
 		mustExec(t, db,
 			`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
 			blobID, image.Manifest.Digest.String(),
@@ -59,8 +59,8 @@ func TestSweepBlobMounts(t *testing.T) {
 	clock.StepBy(2 * time.Hour)
 	bogusBlob1 := test.GenerateExampleLayer(3)
 	bogusBlob2 := test.GenerateExampleLayer(4)
-	bogusBlob1ID := uploadBlob(t, db, sd, clock, bogusBlob1)
-	bogusBlob2ID := uploadBlob(t, db, sd, clock, bogusBlob2)
+	dbBogusBlob1 := uploadBlob(t, db, sd, clock, bogusBlob1)
+	dbBogusBlob2 := uploadBlob(t, db, sd, clock, bogusBlob2)
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-mount-sweep-002.sql")
 
 	//the next sweep should mark those blob's mounts for deletion
@@ -73,9 +73,9 @@ func TestSweepBlobMounts(t *testing.T) {
 	//ValidateNextManifest, but we're not testing that here)
 	mustExec(t, db,
 		`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
-		bogusBlob2ID, image.Manifest.Digest.String(),
+		dbBogusBlob2.ID, image.Manifest.Digest.String(),
 	)
-	_ = bogusBlob1ID
+	_ = dbBogusBlob1
 
 	//the next sweep will delete the mount for `bogusBlob1` (since it was marked
 	//for deletion and is still not referenced by any manifest), but remove the
