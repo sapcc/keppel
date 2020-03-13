@@ -20,11 +20,10 @@ package client
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -108,27 +107,36 @@ func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
 	}
 
 	if resp.StatusCode != r.ExpectStatus {
-		respBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
+		//on error, try to parse the upstream RegistryV2Error so that we can proxy it
+		//through to the client correctly
+		//
+		//NOTE: We use HasPrefix here because the actual Content-Type is usually
+		//"application/json; charset=utf-8".
+		if strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
+			var respData struct {
+				Errors []*keppel.RegistryV2Error `json:"errors"`
+			}
+			err := json.NewDecoder(resp.Body).Decode(&respData)
+			if err == nil && len(respData.Errors) > 0 {
+				return nil, respData.Errors[0].WithStatus(resp.StatusCode)
+			}
 		}
-		err = resp.Body.Close()
-		if err != nil {
-			return nil, err
-		}
-		return nil, parseRegistryAPIError(respBytes)
+		return nil, unexpectedStatusCodeError{req, http.StatusOK, resp.Status}
 	}
 
 	return resp, nil
 }
 
-func parseRegistryAPIError(respBytes []byte) error {
-	var data struct {
-		Errors []*keppel.RegistryV2Error `json:"errors"`
-	}
-	err := json.Unmarshal(respBytes, &data)
-	if err == nil {
-		return data.Errors[0]
-	}
-	return errors.New(string(respBytes))
+////////////////////////////////////////////////////////////////////////////////
+
+type unexpectedStatusCodeError struct {
+	req            *http.Request
+	expectedStatus int
+	actualStatus   string
+}
+
+func (e unexpectedStatusCodeError) Error() string {
+	return fmt.Sprintf("during %s %s: expected status %d, but got %s",
+		e.req.Method, e.req.URL.String(), e.expectedStatus, e.actualStatus,
+	)
 }

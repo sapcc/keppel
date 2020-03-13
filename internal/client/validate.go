@@ -21,8 +21,6 @@ package client
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
-	"net/http"
 
 	"github.com/docker/distribution"
 	"github.com/opencontainers/go-digest"
@@ -65,28 +63,11 @@ func (c *RepoClient) doValidateManifest(reference string, level int, logger Vali
 		}
 	}()
 
-	resp, err := c.doRequest(repoRequest{
-		Method:       "GET",
-		Path:         "manifests/" + reference,
-		Headers:      http.Header{"Accept": distribution.ManifestMediaTypes()},
-		ExpectStatus: http.StatusOK,
-	})
+	manifestBytes, manifestMediaType, err := c.DownloadManifest(reference)
 	if err != nil {
 		return err
 	}
-	respBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	err = resp.Body.Close()
-	if err != nil {
-		return err
-	}
-
-	manifest, manifestDesc, err := distribution.UnmarshalManifest(
-		resp.Header.Get("Content-Type"),
-		respBytes,
-	)
+	manifest, manifestDesc, err := distribution.UnmarshalManifest(manifestMediaType, manifestBytes)
 	if err != nil {
 		return err
 	}
@@ -123,25 +104,21 @@ func (c *RepoClient) doValidateManifest(reference string, level int, logger Vali
 //ValidateBlobContents fetches the given blob from the repo and verifies that
 //the contents produce the correct digest.
 func (c *RepoClient) ValidateBlobContents(blobDigest digest.Digest) (returnErr error) {
-	resp, err := c.doRequest(repoRequest{
-		Method:       "GET",
-		Path:         "blobs/" + blobDigest.String(),
-		ExpectStatus: http.StatusOK,
-	})
+	readCloser, err := c.DownloadBlob(blobDigest)
 	if err != nil {
 		return err
 	}
 
 	defer func() {
 		if returnErr == nil {
-			returnErr = resp.Body.Close()
+			returnErr = readCloser.Close()
 		} else {
-			resp.Body.Close()
+			readCloser.Close()
 		}
 	}()
 
 	hash := blobDigest.Algorithm().Hash()
-	_, err = io.Copy(hash, resp.Body)
+	_, err = io.Copy(hash, readCloser)
 	if err != nil {
 		return err
 	}
