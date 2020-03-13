@@ -129,7 +129,9 @@ func (j *Janitor) SweepBlobsInNextAccount() (returnErr error) {
 	//SweepStorageInNextAccount will take care of it soon enough. Also the user
 	//will not notice this inconsistency because the DB is our primary source of
 	//truth.
-	logg.Info("sweeping %d blobs in account %s", len(blobs), account.Name)
+	if len(blobs) > 0 {
+		logg.Info("sweeping %d blobs in account %s", len(blobs), account.Name)
+	}
 	for _, blob := range blobs {
 		_, err := j.db.Delete(&blob) //without transaction: we need this committed right now
 		if err != nil {
