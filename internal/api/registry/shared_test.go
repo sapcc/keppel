@@ -23,7 +23,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"strconv"
 	"testing"
 
@@ -154,7 +153,7 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 
 	//the secondary registry wants to talk to the primary registry over HTTPS, so
 	//attach the primary registry's HTTP handler to the http.DefaultClient
-	tt := &httpTransportForTest{
+	tt := &test.RoundTripper{
 		Handlers: map[string]http.Handler{
 			"registry.example.org":           h1,
 			"registry-secondary.example.org": h2,
@@ -177,25 +176,6 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 	if t.Failed() {
 		t.FailNow()
 	}
-}
-
-//httpTransportForTest is an http.Transport that redirects some domains to
-//http.Handler instances.
-type httpTransportForTest struct {
-	Handlers map[string]http.Handler
-}
-
-//RoundTrip implements the http.RoundTripper interface.
-func (t *httpTransportForTest) RoundTrip(req *http.Request) (*http.Response, error) {
-	//only intercept requests when the target host is known to us
-	h := t.Handlers[req.URL.Host]
-	if h == nil {
-		return http.DefaultTransport.RoundTrip(req)
-	}
-
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-	return w.Result(), nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
