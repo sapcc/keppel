@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/processor"
 )
 
 //Janitor contains the toolbox of the keppel-janitor process.
@@ -52,4 +53,8 @@ func (j *Janitor) OverrideTimeNow(timeNow func() time.Time) *Janitor {
 func (j *Janitor) OverrideGenerateStorageID(generateStorageID func() string) *Janitor {
 	j.generateStorageID = generateStorageID
 	return j
+}
+
+func (j *Janitor) processor() *processor.Processor {
+	return processor.New(j.cfg, j.db, j.sd).OverrideTimeNow(j.timeNow).OverrideGenerateStorageID(j.generateStorageID)
 }

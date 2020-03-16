@@ -28,7 +28,7 @@ import (
 )
 
 func TestSweepBlobMounts(t *testing.T) {
-	j, _, db, sd, clock := setup(t)
+	j, _, db, sd, clock, _ := setup(t)
 	clock.StepBy(1 * time.Hour)
 
 	//setup an image manifest with some layers, so that we have some blob mounts

@@ -455,3 +455,23 @@ func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Reposi
 	})
 	return manifest, manifestBytes, err
 }
+
+//CheckManifestOnPrimary checks if the given manifest exists on its account's
+//upstream registry. If not, false is returned, An error is returned only if
+//the account is not a replica, or if the upstream registry cannot be queried.
+func (p *Processor) CheckManifestOnPrimary(account keppel.Account, repo keppel.Repository, reference keppel.ManifestReference) (bool, error) {
+	client, err := p.getRepoClientForUpstream(account, repo)
+	if err != nil {
+		return false, err
+	}
+	_, _, err = client.DownloadManifest(reference.String())
+	switch err := err.(type) {
+	case nil:
+		return true, nil
+	case *keppel.RegistryV2Error:
+		if err.Code == keppel.ErrManifestUnknown {
+			return false, nil
+		}
+	}
+	return false, err
+}

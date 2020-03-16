@@ -23,13 +23,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/processor"
 )
 
 //query that finds the next manifest to be validated
-var outdatedManifestSearchQuery = `
+const outdatedManifestSearchQuery = `
 	SELECT * FROM manifests WHERE validated_at < $1
 	ORDER BY validated_at ASC -- oldest manifests first
 	LIMIT 1                   -- one at a time
@@ -72,8 +72,7 @@ func (j *Janitor) ValidateNextManifest() (returnErr error) {
 	}
 
 	//perform validation
-	proc := processor.New(j.cfg, j.db, j.sd).OverrideTimeNow(j.timeNow).OverrideGenerateStorageID(j.generateStorageID)
-	err = proc.ValidateExistingManifest(*account, repo, &manifest, j.timeNow())
+	err = j.processor().ValidateExistingManifest(*account, repo, &manifest, j.timeNow())
 	if err == nil {
 		//update `validated_at` and reset error message
 		_, err := j.db.Exec(`
@@ -100,4 +99,162 @@ func (j *Janitor) ValidateNextManifest() (returnErr error) {
 	}
 
 	return nil
+}
+
+const syncManifestRepoSelectQuery = `
+	SELECT r.* FROM repos r
+		JOIN accounts a ON r.account_name = a.name
+		WHERE (r.manifests_synced_at IS NULL OR r.manifests_synced_at < $1)
+		-- only consider repos in replica accounts
+		AND a.upstream_peer_hostname != ''
+	-- repos without any syncs first, then sorted by last sync
+	ORDER BY r.manifests_synced_at IS NULL DESC, r.manifests_synced_at ASC
+	-- only one repo at a time
+	LIMIT 1
+`
+
+const syncManifestEnumerateRefsQuery = `
+	SELECT parent_digest, child_digest FROM manifest_manifest_refs WHERE repo_id = $1
+`
+
+const syncManifestDoneQuery = `
+	UPDATE repos SET manifests_synced_at = $2 WHERE id = $1
+`
+
+//SyncManifestsInNextRepo finds the next repository in a replica account where
+//manifests have not been synced for more than an hour, and syncs its manifests.
+//Syncing involves checking with the primary account which manifests have been
+//deleted there, and replicating the deletions on our side.
+//
+//If no repo needs syncing, sql.ErrNoRows is returned.
+func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
+	defer func() {
+		if returnErr == nil {
+			syncManifestsSuccessCounter.Inc()
+		} else if returnErr != sql.ErrNoRows {
+			syncManifestsFailedCounter.Inc()
+			returnErr = fmt.Errorf("while syncing manifests in a replica repo: %s", returnErr.Error())
+		}
+	}()
+
+	//find repository to sync
+	var repo keppel.Repository
+	maxSyncedAt := j.timeNow().Add(-1 * time.Hour)
+	err := j.db.SelectOne(&repo, syncManifestRepoSelectQuery, maxSyncedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			logg.Debug("no accounts to sync manifests in - slowing down...")
+			return sql.ErrNoRows
+		}
+		return err
+	}
+
+	//find corresponding account
+	account, err := keppel.FindAccount(j.db, repo.AccountName)
+	if err != nil {
+		return fmt.Errorf("cannot find account for repo %s: %s", repo.FullName(), err.Error())
+	}
+
+	//enumerate manifests in this repo
+	var manifests []keppel.Manifest
+	_, err = j.db.Select(&manifests, `SELECT * FROM manifests WHERE repo_id = $1`, repo.ID)
+	if err != nil {
+		return fmt.Errorf("cannot list manifests in repo %s: %s", repo.FullName(), err.Error())
+	}
+
+	//check which manifests need to be deleted
+	shallDeleteManifest := make(map[string]bool)
+	p := j.processor()
+	for _, manifest := range manifests {
+		ref := keppel.ManifestReference{Digest: digest.Digest(manifest.Digest)}
+		exists, err := p.CheckManifestOnPrimary(*account, repo, ref)
+		if err != nil {
+			return fmt.Errorf("cannot check existence of manifest %s/%s on primary account: %s", repo.FullName(), manifest.Digest, err.Error())
+		}
+		if !exists {
+			shallDeleteManifest[manifest.Digest] = true
+		}
+	}
+
+	//enumerate manifest-manifest refs in this repo
+	parentDigestsOf := make(map[string][]string)
+	err = keppel.ForeachRow(j.db, syncManifestEnumerateRefsQuery, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+		var (
+			parentDigest string
+			childDigest  string
+		)
+		err = rows.Scan(&parentDigest, &childDigest)
+		if err != nil {
+			return err
+		}
+		parentDigestsOf[childDigest] = append(parentDigestsOf[childDigest], parentDigest)
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("cannot enumerate manifest-manifest refs in repo %s: %s", repo.FullName(), err.Error())
+	}
+
+	//delete manifests in correct order (if there is a parent-child relationship,
+	//we always need to delete the parent manifest first, otherwise the database
+	//will complain because of its consistency checks)
+	if len(shallDeleteManifest) > 0 {
+		logg.Info("deleting %d manifests in repo %s that were deleted on corresponding primary account", len(shallDeleteManifest), repo.FullName())
+	}
+	manifestWasDeleted := make(map[string]bool)
+	for len(shallDeleteManifest) > 0 {
+		deletedSomething := false
+	MANIFEST:
+		for digest := range shallDeleteManifest {
+			for _, parentDigest := range parentDigestsOf[digest] {
+				if !manifestWasDeleted[parentDigest] {
+					//cannot delete this manifest yet because it's still being referenced - retry in next iteration
+					continue MANIFEST
+				}
+			}
+
+			//no manifests left that reference this one - we can delete it
+			//
+			//The ordering is important: The DELETE statement could fail if some concurrent
+			//process created a manifest reference in the meantime. If that happens,
+			//and we have already deleted the manifest in the backing storage, we've
+			//caused an inconsistency that we cannot recover from. To avoid that
+			//risk, we do it the other way around. In this way, we could have an
+			//inconsistency where the manifest is deleted from the database, but still
+			//present in the backing storage. But this inconsistency is easier to
+			//recover from: SweepStorageInNextAccount will take care of it soon
+			//enough. Also the user will not notice this inconsistency because the DB
+			//is our primary source of truth.
+			_, err := j.db.Delete(&keppel.Manifest{RepositoryID: repo.ID, Digest: digest}) //without transaction: we need this committed right now
+
+			if err != nil {
+				return fmt.Errorf("cannot remove deleted manifest %s in repo %s from DB: %s", digest, repo.FullName(), err.Error())
+			}
+			err = j.sd.DeleteManifest(*account, repo.Name, digest)
+			if err != nil {
+				return fmt.Errorf("cannot remove deleted manifest %s in repo %s from storage: %s", digest, repo.FullName(), err.Error())
+			}
+
+			//remove deletion from work queue (so that we can eventually exit from the outermost loop)
+			delete(shallDeleteManifest, digest)
+
+			//track deletion (so that we can eventually start deleting manifests referenced by this one)
+			manifestWasDeleted[digest] = true
+
+			//track that we're making progress
+			deletedSomething = true
+		}
+
+		//we should be deleting something in each iteration, otherwise we will get stuck in an infinite loop
+		if !deletedSomething {
+			undeletedDigests := make([]string, 0, len(shallDeleteManifest))
+			for digest := range shallDeleteManifest {
+				undeletedDigests = append(undeletedDigests, digest)
+			}
+			return fmt.Errorf("cannot remove deleted manifests %v in repo %s because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)",
+				undeletedDigests, repo.FullName())
+		}
+	}
+
+	_, err = j.db.Exec(syncManifestDoneQuery, repo.ID, j.timeNow())
+	return err
 }

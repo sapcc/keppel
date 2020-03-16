@@ -20,6 +20,8 @@ package tasks
 
 import (
 	"database/sql"
+	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
@@ -28,10 +30,13 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
+////////////////////////////////////////////////////////////////////////////////
+// tests for ValidateNextManifest
+
 //Base behavior for various unit tests that start with the same image list, destroy
 //it in various ways, and check that ValidateNextManifest correctly fixes it.
 func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel.DB, []int64, []string)) {
-	j, _, db, sd, clock := setup(t)
+	j, _, db, sd, clock, _ := setup(t)
 	clock.StepBy(1 * time.Hour)
 
 	var (
@@ -135,7 +140,7 @@ func TestValidateNextManifestFixesSuperfluousManifestManifestRefs(t *testing.T) 
 }
 
 func TestValidateNextManifestError(t *testing.T) {
-	j, _, db, sd, clock := setup(t)
+	j, _, db, sd, clock, _ := setup(t)
 
 	//setup a manifest that is missing a referenced blob
 	clock.StepBy(1 * time.Hour)
@@ -161,4 +166,149 @@ func TestValidateNextManifestError(t *testing.T) {
 	clock.StepBy(12 * time.Hour)
 	expectSuccess(t, j.ValidateNextManifest())
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/manifest-validate-error-002.sql")
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// tests for SyncManifestsInNextRepo
+
+func TestSyncManifestsInNextRepo(t *testing.T) {
+	j1, _, db1, sd1, clock, h1 := setup(t)
+	j2, _, db2, sd2, _ := setupReplica(t, db1, h1, clock)
+	clock.StepBy(1 * time.Hour)
+
+	//upload some manifests...
+	images := make([]test.Image, 4)
+	for idx := range images {
+		image := test.GenerateImage(
+			test.GenerateExampleLayer(int64(10*idx+1)),
+			test.GenerateExampleLayer(int64(10*idx+2)),
+		)
+		images[idx] = image
+
+		//...to the primary account...
+		layer1Blob := uploadBlob(t, db1, sd1, clock, image.Layers[0])
+		layer2Blob := uploadBlob(t, db1, sd1, clock, image.Layers[1])
+		configBlob := uploadBlob(t, db1, sd1, clock, image.Config)
+		uploadManifest(t, db1, sd1, clock, image.Manifest, image.SizeBytes())
+		for _, blobID := range []int64{layer1Blob.ID, layer2Blob.ID, configBlob.ID} {
+			mustExec(t, db1,
+				`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
+				blobID, image.Manifest.Digest.String(),
+			)
+		}
+
+		//...and most of them also to the replica account (to simulate replication having taken place)
+		if idx != 0 {
+			layer1Blob := uploadBlob(t, db2, sd2, clock, image.Layers[0])
+			layer2Blob := uploadBlob(t, db2, sd2, clock, image.Layers[1])
+			configBlob := uploadBlob(t, db2, sd2, clock, image.Config)
+			uploadManifest(t, db2, sd2, clock, image.Manifest, image.SizeBytes())
+			for _, blobID := range []int64{layer1Blob.ID, layer2Blob.ID, configBlob.ID} {
+				mustExec(t, db2,
+					`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
+					blobID, image.Manifest.Digest.String(),
+				)
+			}
+		}
+	}
+
+	//also setup an image list manifest containing some of those images (so that we have
+	//some manifest-manifest refs to play with)
+	imageList := test.GenerateImageList(images[1].Manifest, images[2].Manifest)
+	uploadManifest(t, db1, sd1, clock, imageList.Manifest, imageList.SizeBytes())
+	for _, imageManifest := range imageList.ImageManifests {
+		mustExec(t, db1,
+			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
+			imageList.Manifest.Digest.String(), imageManifest.Digest.String(),
+		)
+	}
+	//this one is replicated as well
+	uploadManifest(t, db2, sd2, clock, imageList.Manifest, imageList.SizeBytes())
+	for _, imageManifest := range imageList.ImageManifests {
+		mustExec(t, db2,
+			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
+			imageList.Manifest.Digest.String(), imageManifest.Digest.String(),
+		)
+	}
+
+	//SyncManifestsInNextRepo on the primary registry should have nothing to do
+	//since there are no replica accounts
+	expectError(t, sql.ErrNoRows.Error(), j1.SyncManifestsInNextRepo())
+	//SyncManifestsInNextRepo on the secondary registry should set the
+	//ManifestsSyncedAt timestamp on the repo, but otherwise not do anything
+	expectSuccess(t, j2.SyncManifestsInNextRepo())
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-001.sql")
+	expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-001.sql")
+
+	//delete a manifest on the primary side (this one is a simple image not referenced by anyone else)
+	clock.StepBy(2 * time.Hour)
+	mustExec(t, db1,
+		`DELETE FROM manifests WHERE digest = $1`,
+		images[3].Manifest.Digest.String(),
+	)
+
+	//again, nothing to do on the primary side
+	expectError(t, sql.ErrNoRows.Error(), j1.SyncManifestsInNextRepo())
+	//SyncManifestsInNextRepo on the replica side should delete the same manifest
+	//that we deleted in the primary account
+	expectSuccess(t, j2.SyncManifestsInNextRepo())
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-002.sql")
+	expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-002.sql")
+
+	//cause a deliberate consistency on the primary side: delete a manifest that
+	//*is* referenced by another manifest (this requires deleting the
+	//manifest-manifest ref first, otherwise the DB will complain)
+	clock.StepBy(2 * time.Hour)
+	mustExec(t, db1,
+		`DELETE FROM manifest_manifest_refs WHERE child_digest = $1`,
+		images[2].Manifest.Digest.String(),
+	)
+	mustExec(t, db1,
+		`DELETE FROM manifests WHERE digest = $1`,
+		images[2].Manifest.Digest.String(),
+	)
+
+	//SyncManifestsInNextRepo should now complain since it wants to delete
+	//images[2].Manifest, but it can't because of the manifest-manifest ref to
+	//the image list
+	expectedError := fmt.Sprintf(`while syncing manifests in a replica repo: cannot remove deleted manifests [%s] in repo test1/foo because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)`,
+		images[2].Manifest.Digest.String(),
+	)
+	expectError(t, expectedError, j2.SyncManifestsInNextRepo())
+	//the DB should not have changed since the operation was aborted
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-002.sql") //unchanged
+
+	//also remove the image list manifest on the primary side
+	clock.StepBy(2 * time.Hour)
+	mustExec(t, db1,
+		`DELETE FROM manifests WHERE digest = $1`,
+		imageList.Manifest.Digest.String(),
+	)
+
+	//this makes the primary side consistent again, so SyncManifestsInNextRepo
+	//should succeed now and remove both deleted manifests from the DB
+	expectSuccess(t, j2.SyncManifestsInNextRepo())
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-003.sql")
+	expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-003.sql")
+
+	//replace the primary registry's API with something that just answers 404 all the time
+	clock.StepBy(2 * time.Hour)
+	http.DefaultClient.Transport.(*test.RoundTripper).Handlers["registry.example.org"] = http.HandlerFunc(answerWith404)
+	//This is particularly devious since 404 is returned by the GET endpoint for
+	//a manifest when the manifest was deleted. We want to check that the next
+	//SyncManifestsInNextRepo understands that this is a network issue and not
+	//caused by the manifest getting deleted, since the 404-generating endpoint
+	//does not render a proper MANIFEST_UNKNOWN error.
+	expectedError = fmt.Sprintf(`while syncing manifests in a replica repo: cannot check existence of manifest test1/foo/%s on primary account: during GET https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found`,
+		images[1].Manifest.Digest.String(), //the only manifest that is left
+	)
+	expectError(t, expectedError, j2.SyncManifestsInNextRepo())
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-003.sql") //unchanged
+}
+
+func answerWith404(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "not found", http.StatusNotFound)
 }

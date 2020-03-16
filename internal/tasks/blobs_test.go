@@ -29,7 +29,7 @@ import (
 )
 
 func TestSweepBlobs(t *testing.T) {
-	j, _, db, sd, clock := setup(t)
+	j, _, db, sd, clock, _ := setup(t)
 	clock.StepBy(1 * time.Hour)
 
 	//insert some blobs into the DB

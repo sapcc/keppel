@@ -23,15 +23,27 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"io/ioutil"
+	"net/http"
 	"testing"
 
 	"github.com/opencontainers/go-digest"
+	"github.com/sapcc/keppel/internal/api"
+	authapi "github.com/sapcc/keppel/internal/api/auth"
+	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
+	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/gorp.v2"
 )
 
-func setup(t *testing.T) (*Janitor, keppel.Configuration, *keppel.DB, keppel.StorageDriver, *test.Clock) {
+//these credentials are in global vars so that we don't have to recompute them
+//in every test run (bcrypt is intentionally CPU-intensive)
+var (
+	replicationPassword     string
+	replicationPasswordHash string
+)
+
+func setup(t *testing.T) (*Janitor, keppel.Configuration, *keppel.DB, keppel.StorageDriver, *test.Clock, http.Handler) {
 	cfg, db := test.Setup(t)
 
 	ad, err := keppel.NewAuthDriver("unittest")
@@ -46,7 +58,61 @@ func setup(t *testing.T) (*Janitor, keppel.Configuration, *keppel.DB, keppel.Sto
 	sidGen := &test.StorageIDGenerator{}
 	j := NewJanitor(cfg, sd, db).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next)
 
-	return j, cfg, db, sd, clock
+	h := api.Compose(
+		registryv2.NewAPI(cfg, sd, db).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+		authapi.NewAPI(cfg, ad, db),
+	)
+
+	return j, cfg, db, sd, clock, h
+}
+
+func setupReplica(t *testing.T, db1 *keppel.DB, h1 http.Handler, clock *test.Clock) (*Janitor, keppel.Configuration, *keppel.DB, keppel.StorageDriver, http.Handler) {
+	cfg2, db2 := test.SetupSecondary(t)
+
+	ad2, err := keppel.NewAuthDriver("unittest")
+	must(t, err)
+	sd2, err := keppel.NewStorageDriver("in-memory-for-testing", ad2, cfg2)
+	must(t, err)
+
+	must(t, db2.Insert(&keppel.Account{Name: "test1", AuthTenantID: "test1authtenant", UpstreamPeerHostName: "registry.example.org"}))
+	must(t, db2.Insert(&keppel.Repository{AccountName: "test1", Name: "foo"}))
+
+	//give the secondary registry credentials for replicating from the primary
+	if replicationPassword == "" {
+		//this password needs to be constant because it appears in some fixtures/*.sql
+		replicationPassword = "a4cb6fae5b8bb91b0b993486937103dab05eca93"
+
+		hashBytes, _ := bcrypt.GenerateFromPassword([]byte(replicationPassword), 8)
+		replicationPasswordHash = string(hashBytes)
+	}
+
+	must(t, db2.Insert(&keppel.Peer{
+		HostName:    "registry.example.org",
+		OurPassword: replicationPassword,
+	}))
+	must(t, db1.Insert(&keppel.Peer{
+		HostName:                 "registry-secondary.example.org",
+		TheirCurrentPasswordHash: replicationPasswordHash,
+	}))
+
+	sidGen := &test.StorageIDGenerator{}
+	j2 := NewJanitor(cfg2, sd2, db2).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next)
+	h2 := api.Compose(
+		registryv2.NewAPI(cfg2, sd2, db2).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+		authapi.NewAPI(cfg2, ad2, db2),
+	)
+
+	//the secondary registry wants to talk to the primary registry over HTTPS, so
+	//attach the primary registry's HTTP handler to the http.DefaultClient
+	tt := &test.RoundTripper{
+		Handlers: map[string]http.Handler{
+			"registry.example.org":           h1,
+			"registry-secondary.example.org": h2,
+		},
+	}
+	http.DefaultClient.Transport = tt
+
+	return j2, cfg2, db2, sd2, h2
 }
 
 func must(t *testing.T, err error) {

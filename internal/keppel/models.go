@@ -216,7 +216,7 @@ type Repository struct {
 	AccountName         string     `db:"account_name"`
 	Name                string     `db:"name"`
 	BlobMountsSweepedAt *time.Time `db:"blob_mounts_sweeped_at"` //see tasks.SweepBlobMountsInNextRepo
-	ManifestsSyncedAt   *time.Time `db:"manifests_synced_at"`    //see tasks.SyncManifestsInNextAccount (only set for replica accounts)
+	ManifestsSyncedAt   *time.Time `db:"manifests_synced_at"`    //see tasks.SyncManifestsInNextRepo (only set for replica accounts)
 }
 
 //FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a
