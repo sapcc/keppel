@@ -223,6 +223,12 @@ var sqlMigrations = map[string]string{
 		ALTER TABLE blobs       DROP COLUMN marked_for_deletion_at;
 		ALTER TABLE blob_mounts DROP COLUMN marked_for_deletion_at;
 	`,
+	"008_add_repos_manifests_synced_at.up.sql": `
+		ALTER TABLE repos ADD COLUMN manifests_synced_at TIMESTAMPTZ DEFAULT NULL;
+	`,
+	"008_add_repos_manifests_synced_at.down.sql": `
+		ALTER TABLE repos DROP COLUMN manifests_synced_at;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

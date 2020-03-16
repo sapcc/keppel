@@ -7,5 +7,5 @@ INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, 
 
 INSERT INTO quotas (auth_tenant_id, manifests) VALUES ('test1authtenant', 100);
 
-INSERT INTO repos (id, account_name, name, blob_mounts_sweeped_at) VALUES (1, 'test1', 'foo', NULL);
-INSERT INTO repos (id, account_name, name, blob_mounts_sweeped_at) VALUES (2, 'test1', 'bar', NULL);
+INSERT INTO repos (id, account_name, name, blob_mounts_sweeped_at, manifests_synced_at) VALUES (1, 'test1', 'foo', NULL, NULL);
+INSERT INTO repos (id, account_name, name, blob_mounts_sweeped_at, manifests_synced_at) VALUES (2, 'test1', 'bar', NULL, NULL);

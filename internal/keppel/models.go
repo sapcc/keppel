@@ -41,8 +41,8 @@ type Account struct {
 	//all image manifests in this account.
 	RequiredLabels string `db:"required_labels"`
 
-	BlobsSweepedAt   *time.Time `db:"blobs_sweeped_at"`
-	StorageSweepedAt *time.Time `db:"storage_sweeped_at"`
+	BlobsSweepedAt   *time.Time `db:"blobs_sweeped_at"`   //see tasks.SweepBlobsInNextAccount
+	StorageSweepedAt *time.Time `db:"storage_sweeped_at"` //see tasks.SweepStorageInNextAccount
 }
 
 //SwiftContainerName returns the name of the Swift container backing this
@@ -123,9 +123,9 @@ type Blob struct {
 	SizeBytes              uint64     `db:"size_bytes"`
 	StorageID              string     `db:"storage_id"`
 	PushedAt               time.Time  `db:"pushed_at"`
-	ValidatedAt            time.Time  `db:"validated_at"`
+	ValidatedAt            time.Time  `db:"validated_at"` //see tasks.ValidateNextBlob
 	ValidationErrorMessage string     `db:"validation_error_message"`
-	MarkedForDeletionAt    *time.Time `db:"marked_for_deletion_at"`
+	MarkedForDeletionAt    *time.Time `db:"marked_for_deletion_at"` //see tasks.SweepBlobsInNextAccount
 }
 
 const blobGetQueryByRepoName = `
@@ -215,7 +215,8 @@ type Repository struct {
 	ID                  int64      `db:"id"`
 	AccountName         string     `db:"account_name"`
 	Name                string     `db:"name"`
-	BlobMountsSweepedAt *time.Time `db:"blob_mounts_sweeped_at"`
+	BlobMountsSweepedAt *time.Time `db:"blob_mounts_sweeped_at"` //see tasks.SweepBlobMountsInNextRepo
+	ManifestsSyncedAt   *time.Time `db:"manifests_synced_at"`    //see tasks.SyncManifestsInNextAccount (only set for replica accounts)
 }
 
 //FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a
@@ -255,7 +256,7 @@ type Manifest struct {
 	MediaType              string    `db:"media_type"`
 	SizeBytes              uint64    `db:"size_bytes"`
 	PushedAt               time.Time `db:"pushed_at"`
-	ValidatedAt            time.Time `db:"validated_at"`
+	ValidatedAt            time.Time `db:"validated_at"` //see tasks.ValidateNextManifest
 	ValidationErrorMessage string    `db:"validation_error_message"`
 }
 
@@ -339,7 +340,7 @@ type Peer struct {
 	TheirPreviousPasswordHash string `db:"their_previous_password_hash"`
 
 	//LastPeeredAt is when we last issued a new password for this peer.
-	LastPeeredAt *time.Time `db:"last_peered_at"`
+	LastPeeredAt *time.Time `db:"last_peered_at"` //see tasks.IssueNewPasswordForPeer
 }
 
 ////////////////////////////////////////////////////////////////////////////////

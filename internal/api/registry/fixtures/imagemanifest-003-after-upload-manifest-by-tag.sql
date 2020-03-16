@@ -11,7 +11,7 @@ INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, valid
 
 INSERT INTO quotas (auth_tenant_id, manifests) VALUES ('test1authtenant', 100);
 
-INSERT INTO repos (id, account_name, name, blob_mounts_sweeped_at) VALUES (1, 'test1', 'foo', NULL);
-INSERT INTO repos (id, account_name, name, blob_mounts_sweeped_at) VALUES (2, 'test1', 'bar', NULL);
+INSERT INTO repos (id, account_name, name, blob_mounts_sweeped_at, manifests_synced_at) VALUES (1, 'test1', 'foo', NULL, NULL);
+INSERT INTO repos (id, account_name, name, blob_mounts_sweeped_at, manifests_synced_at) VALUES (2, 'test1', 'bar', NULL, NULL);
 
 INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, 'latest', 'sha256:8a9217f1887083297faf37cb2c1808f71289f0cd722d6e5157a07be1c362945f', 2);
