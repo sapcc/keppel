@@ -62,6 +62,20 @@ type StorageDriver interface {
 	ReadManifest(account Account, repoName, digest string) ([]byte, error)
 	WriteManifest(account Account, repoName, digest string, contents []byte) error
 	DeleteManifest(account Account, repoName, digest string) error
+
+	//This method shall only be used as a positive signal for the existence of a
+	//blob or manifest in the storage, not as a negative signal: If we expect a
+	//blob or manifest to be in the storage, but it does not show up in these
+	//lists, that does not necessarily mean it does not exist in the storage.
+	//This is because storage implementations may be backed by object stores with
+	//eventual consistency.
+	ListStorageContents(account Account) (blobStorageIDs []string, manifests []StoredManifestInfo, err error)
+}
+
+//StoredManifestInfo is returned by StorageDriver.ListManifests().
+type StoredManifestInfo struct {
+	RepoName string
+	Digest   string
 }
 
 //ErrAuthDriverMismatch can be returned by StorageDriver and NameClaimDriver.

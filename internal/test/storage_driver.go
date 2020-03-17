@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"regexp"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -135,6 +136,35 @@ func (d *StorageDriver) DeleteManifest(account keppel.Account, repoName, digest 
 	}
 	delete(d.manifests, k)
 	return nil
+}
+
+//ListStorageContents implements the keppel.StorageDriver interface.
+func (d *StorageDriver) ListStorageContents(account keppel.Account) ([]string, []keppel.StoredManifestInfo, error) {
+	var (
+		blobStorageIDs []string
+		manifests      []keppel.StoredManifestInfo
+	)
+
+	rx := regexp.MustCompile(`^` + blobKey(account, `(.*)`) + `$`)
+	for key := range d.blobs {
+		match := rx.FindStringSubmatch(key)
+		if match != nil {
+			blobStorageIDs = append(blobStorageIDs, match[1])
+		}
+	}
+
+	rx = regexp.MustCompile(`^` + manifestKey(account, `(.*)`, `(.*)`) + `$`)
+	for key := range d.manifests {
+		match := rx.FindStringSubmatch(key)
+		if match != nil {
+			manifests = append(manifests, keppel.StoredManifestInfo{
+				RepoName: match[1],
+				Digest:   match[2],
+			})
+		}
+	}
+
+	return blobStorageIDs, manifests, nil
 }
 
 //BlobCount returns how many blobs exist in this storage driver. This is mostly

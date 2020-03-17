@@ -28,6 +28,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/gophercloud/gophercloud"
@@ -310,4 +311,50 @@ func (d *swiftDriver) DeleteManifest(account keppel.Account, repoName, digest st
 	}
 	o := manifestObject(c, repoName, digest)
 	return o.Delete(nil, nil)
+}
+
+var (
+	//This regex is used to reconstruct the storage ID from a blob's or chunk's object name.
+	//It's kinda the reverse of func blobObject() or func checkObject().
+	blobOrChunkObjectNameRx = regexp.MustCompile(`^_(?:blobs|chunks)/([^/]{2})/([^/]{2})/([^/]+)`)
+	//This regex recovers the repo name and manifest digest from a manifest's object name.
+	//It's kinda the reverse of func manifestObject().
+	manifestObjectNameRx = regexp.MustCompile(`^(.+)/_manifests/([^/]+)$`)
+)
+
+//ListStorageContents implements the keppel.StorageDriver interface.
+func (d *swiftDriver) ListStorageContents(account keppel.Account) ([]string, []keppel.StoredManifestInfo, error) {
+	c, err := d.getBackendConnection(account)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	isStorageID := make(map[string]struct{})
+	var manifests []keppel.StoredManifestInfo
+
+	err = c.Objects().Foreach(func(o *schwift.Object) error {
+		if match := blobOrChunkObjectNameRx.FindStringSubmatch(o.Name()); match != nil {
+			storageID := match[1] + match[2] + match[3]
+			isStorageID[storageID] = struct{}{}
+			return nil
+		}
+		if match := manifestObjectNameRx.FindStringSubmatch(o.Name()); match != nil {
+			manifests = append(manifests, keppel.StoredManifestInfo{
+				RepoName: match[1],
+				Digest:   match[2],
+			})
+			return nil
+		}
+		return fmt.Errorf("encountered unexpected object while listing storage contents of account %s: %s", account.Name, o.Name())
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	storageIDs := make([]string, 0, len(isStorageID))
+	for id := range isStorageID {
+		storageIDs = append(storageIDs, id)
+	}
+
+	return storageIDs, manifests, nil
 }
