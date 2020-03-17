@@ -13,7 +13,7 @@ Keystone projects.
   ```
   The latter format implies that user and project are located in the same domain.
 - Requests to the Docker Registry API can also be authenticated with an application credential by giving the user name
-  `applicationcredential=`, followed by the application credential ID. The supplied password must be the application
+  `applicationcredential-`, followed by the application credential ID. The supplied password must be the application
   credential secret. It's not yet possible to identify an application credential by its name, but a syntax for this
   could be added in a later release.
 
