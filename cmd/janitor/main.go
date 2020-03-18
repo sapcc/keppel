@@ -65,6 +65,7 @@ func run(cmd *cobra.Command, args []string) {
 	go jobLoop(janitor.DeleteNextAbandonedUpload)
 	go jobLoop(janitor.SweepBlobMountsInNextRepo)
 	go jobLoop(janitor.SweepBlobsInNextAccount)
+	go jobLoop(janitor.SweepStorageInNextAccount)
 	go jobLoop(janitor.SyncManifestsInNextRepo)
 	go jobLoop(janitor.ValidateNextManifest)
 

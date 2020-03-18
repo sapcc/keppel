@@ -364,6 +364,28 @@ const (
 
 ////////////////////////////////////////////////////////////////////////////////
 
+//UnknownBlob contains a record from the `unknown_blobs` table.
+//This is only used by tasks.SweepStorageInNextAccount().
+type UnknownBlob struct {
+	AccountName         string    `db:"account_name"`
+	StorageID           string    `db:"storage_id"`
+	MarkedForDeletionAt time.Time `db:"marked_for_deletion_at"`
+}
+
+//UnknownManifest contains a record from the `unknown_manifests` table.
+//This is only used by tasks.SweepStorageInNextAccount().
+//
+//NOTE: We don't use repository IDs here because unknown manifests may exist in
+//repositories that are also not known to the database.
+type UnknownManifest struct {
+	AccountName         string    `db:"account_name"`
+	RepositoryName      string    `db:"repo_name"`
+	Digest              string    `db:"digest"`
+	MarkedForDeletionAt time.Time `db:"marked_for_deletion_at"`
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(Account{}, "accounts").SetKeys(false, "name")
 	db.AddTableWithName(RBACPolicy{}, "rbac_policies").SetKeys(false, "account_name", "match_repository", "match_username")
@@ -375,4 +397,6 @@ func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(Quotas{}, "quotas").SetKeys(false, "auth_tenant_id")
 	db.AddTableWithName(Peer{}, "peers").SetKeys(false, "hostname")
 	db.AddTableWithName(PendingBlob{}, "pending_blobs").SetKeys(false, "account_name", "digest")
+	db.AddTableWithName(UnknownBlob{}, "unknown_blobs").SetKeys(false, "account_name", "storage_id")
+	db.AddTableWithName(UnknownManifest{}, "unknown_manifests").SetKeys(false, "account_name", "repo_name", "digest")
 }

@@ -20,8 +20,6 @@ package tasks
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -152,8 +150,7 @@ func uploadBlob(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock *tes
 	repo := keppel.Repository{ID: 1, Name: "foo", AccountName: "test1"}
 
 	//get a storage ID deterministically
-	hash := sha256.Sum256(blob.Contents)
-	storageID := hex.EncodeToString(hash[:])
+	storageID := blob.Digest.Encoded()
 
 	dbBlob := keppel.Blob{
 		AccountName: "test1",
@@ -170,19 +167,21 @@ func uploadBlob(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock *tes
 	return dbBlob
 }
 
-func uploadManifest(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock *test.Clock, manifest test.Bytes, sizeBytes uint64) {
+func uploadManifest(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock *test.Clock, manifest test.Bytes, sizeBytes uint64) keppel.Manifest {
 	t.Helper()
 	account := keppel.Account{Name: "test1"}
 
-	must(t, db.Insert(&keppel.Manifest{
+	dbManifest := keppel.Manifest{
 		RepositoryID: 1,
 		Digest:       manifest.Digest.String(),
 		MediaType:    manifest.MediaType,
 		SizeBytes:    sizeBytes,
 		PushedAt:     clock.Now(),
 		ValidatedAt:  clock.Now(),
-	}))
+	}
+	must(t, db.Insert(&dbManifest))
 	must(t, sd.WriteManifest(account, "foo", manifest.Digest.String(), manifest.Contents))
+	return dbManifest
 }
 
 func expectBlobsExistInStorage(t *testing.T, sd keppel.StorageDriver, blobs ...keppel.Blob) {
@@ -230,6 +229,40 @@ func expectBlobsMissingInStorage(t *testing.T, sd keppel.StorageDriver, blobs ..
 		_, _, err := sd.ReadBlob(account, blob.StorageID)
 		if err == nil {
 			t.Errorf("expected blob %s to be missing in the storage, but could read it", blob.Digest)
+			continue
+		}
+	}
+}
+
+func expectManifestsExistInStorage(t *testing.T, sd keppel.StorageDriver, manifests ...keppel.Manifest) {
+	t.Helper()
+	account := keppel.Account{Name: "test1"}
+	for _, manifest := range manifests {
+		manifestBytes, err := sd.ReadManifest(account, "foo", manifest.Digest)
+		if err != nil {
+			t.Errorf("expected manifest %s to exist in the storage, but got: %s", manifest.Digest, err.Error())
+			continue
+		}
+		expectedDigest, err := digest.Parse(manifest.Digest)
+		if err != nil {
+			t.Errorf("manifest digest %q is not a digest: %s", manifest.Digest, err.Error())
+			continue
+		}
+		actualDigest := expectedDigest.Algorithm().FromBytes(manifestBytes)
+		if actualDigest != expectedDigest {
+			t.Errorf("manifest %s has corrupted contents: actual digest is %s", manifest.Digest, actualDigest)
+			continue
+		}
+	}
+}
+
+func expectManifestsMissingInStorage(t *testing.T, sd keppel.StorageDriver, manifests ...keppel.Manifest) {
+	t.Helper()
+	account := keppel.Account{Name: "test1"}
+	for _, manifest := range manifests {
+		_, err := sd.ReadManifest(account, "foo", manifest.Digest)
+		if err == nil {
+			t.Errorf("expected manifest %s to be missing in the storage, but could read it", manifest.Digest)
 			continue
 		}
 	}

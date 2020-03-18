@@ -229,6 +229,25 @@ var sqlMigrations = map[string]string{
 	"008_add_repos_manifests_synced_at.down.sql": `
 		ALTER TABLE repos DROP COLUMN manifests_synced_at;
 	`,
+	"009_add_tables_for_storage_sweep.up.sql": `
+		CREATE TABLE unknown_blobs (
+			account_name           TEXT        NOT NULL REFERENCES accounts ON DELETE CASCADE,
+			storage_id             TEXT        NOT NULL,
+			marked_for_deletion_at TIMESTAMPTZ NOT NULL,
+			PRIMARY KEY (account_name, storage_id)
+		);
+		CREATE TABLE unknown_manifests (
+			account_name           TEXT        NOT NULL REFERENCES accounts ON DELETE CASCADE,
+			repo_name              TEXT        NOT NULL,
+			digest                 TEXT        NOT NULL,
+			marked_for_deletion_at TIMESTAMPTZ NOT NULL,
+			PRIMARY KEY (account_name, repo_name, digest)
+		);
+	`,
+	"009_add_tables_for_storage_sweep.down.sql": `
+		DROP TABLE unknown_blobs;
+		DROP TABLE unknown_manifests;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.
