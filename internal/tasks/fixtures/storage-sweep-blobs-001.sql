@@ -30,6 +30,7 @@ INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, valid
 
 INSERT INTO repos (id, account_name, name, blob_mounts_sweeped_at, manifests_synced_at) VALUES (1, 'test1', 'foo', NULL, NULL);
 
+INSERT INTO unknown_blobs (account_name, storage_id, marked_for_deletion_at) VALUES ('test1', '2c133eb257ac317fbaddd3188edc1721e71541c7023d87b5e9cc3455ebf929fe', 32400);
 INSERT INTO unknown_blobs (account_name, storage_id, marked_for_deletion_at) VALUES ('test1', '8ce2cde98e42a9004a44265af9c1b03aed84e49e4adaa9fc3032a568ebdc6322', 32400);
 INSERT INTO unknown_blobs (account_name, storage_id, marked_for_deletion_at) VALUES ('test1', '8e179b08fa229a8c2958d000ca68113cdd7860d38338f376c131c4a52e550140', 32400);
 

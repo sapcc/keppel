@@ -31,7 +31,7 @@ import (
 
 func init() {
 	keppel.RegisterStorageDriver("in-memory-for-testing", func(_ keppel.AuthDriver, _ keppel.Configuration) (keppel.StorageDriver, error) {
-		return &StorageDriver{make(map[string][]byte), make(map[string][]byte)}, nil
+		return &StorageDriver{make(map[string][]byte), make(map[string]uint32), make(map[string][]byte)}, nil
 	})
 }
 
@@ -39,13 +39,16 @@ func init() {
 //for use in test suites where each keppel-registry stores its contents in RAM
 //only, without any persistence.
 type StorageDriver struct {
-	blobs     map[string][]byte
-	manifests map[string][]byte
+	blobs           map[string][]byte
+	blobChunkCounts map[string]uint32 //previous chunkNumber for running upload, 0 when finished (same semantics as keppel.StoredBlobInfo.ChunkCount field)
+	manifests       map[string][]byte
 }
 
 var (
-	errNoSuchBlob     = errors.New("no such blob")
-	errNoSuchManifest = errors.New("no such manifest")
+	errNoSuchBlob                   = errors.New("no such blob")
+	errNoSuchManifest               = errors.New("no such manifest")
+	errAppendToBlobAfterFinalize    = errors.New("AppendToBlob() was called after FinalizeBlob()")
+	errAbortBlobUploadAfterFinalize = errors.New("AbortBlobUpload() was called after FinalizeBlob()")
 )
 
 func blobKey(account keppel.Account, storageID string) string {
@@ -59,29 +62,47 @@ func manifestKey(account keppel.Account, repoName, digest string) string {
 //AppendToBlob implements the keppel.StorageDriver interface.
 func (d *StorageDriver) AppendToBlob(account keppel.Account, storageID string, chunkNumber uint32, chunkLength *uint64, chunk io.Reader) error {
 	k := blobKey(account, storageID)
-	contents, exists := d.blobs[k]
-	if exists != (chunkNumber > 1) {
-		return errNoSuchBlob
+
+	//check that we're calling AppendToBlob() in the correct order
+	chunkCount, exists := d.blobChunkCounts[k]
+	if chunkNumber == 1 {
+		if exists {
+			return fmt.Errorf("expected chunk #%d, but got chunk #1", chunkCount+1)
+		}
+	} else {
+		if exists && chunkCount == 0 {
+			return errAppendToBlobAfterFinalize
+		}
+		if chunkCount+1 != chunkNumber || !exists {
+			return fmt.Errorf("expected chunk #%d, but got chunk #%d", chunkCount+1, chunkNumber)
+		}
 	}
+
 	chunkBytes, err := ioutil.ReadAll(chunk)
 	if err != nil {
 		return err
 	}
-	d.blobs[k] = append(contents, chunkBytes...)
+	d.blobs[k] = append(d.blobs[k], chunkBytes...)
+	d.blobChunkCounts[k] = chunkNumber
 	return nil
 }
 
 //FinalizeBlob implements the keppel.StorageDriver interface.
 func (d *StorageDriver) FinalizeBlob(account keppel.Account, storageID string, chunkCount uint32) error {
-	_, exists := d.blobs[blobKey(account, storageID)]
+	k := blobKey(account, storageID)
+	_, exists := d.blobs[k]
 	if !exists {
 		return errNoSuchBlob
 	}
+	d.blobChunkCounts[k] = 0 //mark as finalized
 	return nil
 }
 
 //AbortBlobUpload implements the keppel.StorageDriver interface.
 func (d *StorageDriver) AbortBlobUpload(account keppel.Account, storageID string, chunkCount uint32) error {
+	if d.blobChunkCounts[blobKey(account, storageID)] == 0 {
+		return errAbortBlobUploadAfterFinalize
+	}
 	return d.DeleteBlob(account, storageID)
 }
 
@@ -107,6 +128,7 @@ func (d *StorageDriver) DeleteBlob(account keppel.Account, storageID string) err
 		return errNoSuchBlob
 	}
 	delete(d.blobs, k)
+	delete(d.blobChunkCounts, k)
 	return nil
 }
 
@@ -139,17 +161,20 @@ func (d *StorageDriver) DeleteManifest(account keppel.Account, repoName, digest 
 }
 
 //ListStorageContents implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ListStorageContents(account keppel.Account) ([]string, []keppel.StoredManifestInfo, error) {
+func (d *StorageDriver) ListStorageContents(account keppel.Account) ([]keppel.StoredBlobInfo, []keppel.StoredManifestInfo, error) {
 	var (
-		blobStorageIDs []string
-		manifests      []keppel.StoredManifestInfo
+		blobs     []keppel.StoredBlobInfo
+		manifests []keppel.StoredManifestInfo
 	)
 
 	rx := regexp.MustCompile(`^` + blobKey(account, `(.*)`) + `$`)
 	for key := range d.blobs {
 		match := rx.FindStringSubmatch(key)
 		if match != nil {
-			blobStorageIDs = append(blobStorageIDs, match[1])
+			blobs = append(blobs, keppel.StoredBlobInfo{
+				StorageID:  match[1],
+				ChunkCount: d.blobChunkCounts[key],
+			})
 		}
 	}
 
@@ -164,7 +189,7 @@ func (d *StorageDriver) ListStorageContents(account keppel.Account) ([]string, [
 		}
 	}
 
-	return blobStorageIDs, manifests, nil
+	return blobs, manifests, nil
 }
 
 //BlobCount returns how many blobs exist in this storage driver. This is mostly

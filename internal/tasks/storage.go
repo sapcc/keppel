@@ -77,7 +77,7 @@ func (j *Janitor) SweepStorageInNextAccount() (returnErr error) {
 	}
 
 	//enumerate blobs and manifests in the backing storage
-	actualStorageIDs, actualManifests, err := j.sd.ListStorageContents(account)
+	actualBlobs, actualManifests, err := j.sd.ListStorageContents(account)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (j *Janitor) SweepStorageInNextAccount() (returnErr error) {
 	maxMarkedAt := j.timeNow().Add(-4 * time.Hour)
 
 	//handle blobs and manifests separately
-	err = j.sweepBlobStorage(account, actualStorageIDs, maxMarkedAt)
+	err = j.sweepBlobStorage(account, actualBlobs, maxMarkedAt)
 	if err != nil {
 		return err
 	}
@@ -101,10 +101,10 @@ func (j *Janitor) SweepStorageInNextAccount() (returnErr error) {
 	return err
 }
 
-func (j *Janitor) sweepBlobStorage(account keppel.Account, actualStorageIDs []string, maxMarkedAt time.Time) error {
-	isActualStorageID := make(map[string]bool, len(actualStorageIDs))
-	for _, id := range actualStorageIDs {
-		isActualStorageID[id] = true
+func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.StoredBlobInfo, maxMarkedAt time.Time) error {
+	actualBlobsByStorageID := make(map[string]keppel.StoredBlobInfo, len(actualBlobs))
+	for _, blobInfo := range actualBlobs {
+		actualBlobsByStorageID[blobInfo.StorageID] = blobInfo
 	}
 
 	//enumerate blobs known to the DB
@@ -157,9 +157,18 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualStorageIDs []st
 			//operator deleted the blob between the mark and sweep phases, or if we
 			//deleted the blob from the backing storage in a previous sweep, but
 			//could not remove the unknown_blobs entry from the DB)
-			if isActualStorageID[unknownBlob.StorageID] {
-				//TODO We might need to call AbortBlobUpload() instead.
-				err := j.sd.DeleteBlob(account, unknownBlob.StorageID)
+			if blobInfo, exists := actualBlobsByStorageID[unknownBlob.StorageID]; exists {
+				//need to use different cleanup strategies depending on whether the
+				//blob upload was finalized or not
+				if blobInfo.ChunkCount > 0 {
+					logg.Info("storage sweep in account %s: removing unfinalized blob stored at %s with %d chunks",
+						account.Name, unknownBlob.StorageID, blobInfo.ChunkCount)
+					err = j.sd.AbortBlobUpload(account, unknownBlob.StorageID, blobInfo.ChunkCount)
+				} else {
+					logg.Info("storage sweep in account %s: removing finalized blob stored at %s",
+						account.Name, unknownBlob.StorageID)
+					err = j.sd.DeleteBlob(account, unknownBlob.StorageID)
+				}
 				if err != nil {
 					return err
 				}
@@ -172,7 +181,7 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualStorageIDs []st
 	}
 
 	//mark phase: record newly discovered unknown blobs in the DB
-	for storageID := range isActualStorageID {
+	for storageID := range actualBlobsByStorageID {
 		if isKnownStorageID[storageID] || isMarkedStorageID[storageID] {
 			continue
 		}
@@ -239,6 +248,8 @@ func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests [
 			//if we deleted the manifest from the backing storage in a previous
 			//sweep, but could not remove the unknown_manifests entry from the DB)
 			if isActualManifest[unknownManifestInfo] {
+				logg.Info("storage sweep in account %s: removing manifest %s/%s",
+					account.Name, unknownManifest.RepositoryName, unknownManifest.Digest)
 				err := j.sd.DeleteManifest(account, unknownManifest.RepositoryName, unknownManifest.Digest)
 				if err != nil {
 					return err

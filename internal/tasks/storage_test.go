@@ -108,6 +108,13 @@ func TestSweepStorageBlobs(t *testing.T) {
 		UpdatedAt:    j.timeNow(),
 	}))
 
+	//create another blob that's mid-upload; this one will be sweeped later to
+	//verify that we clean up unfinished uploads correctly
+	testBlob4 := test.GenerateExampleLayer(33)
+	storageID = testBlob4.Digest.Encoded()
+	sizeBytes = uint64(len(testBlob4.Contents))
+	must(t, sd.AppendToBlob(account, storageID, 1, &sizeBytes, bytes.NewReader(testBlob4.Contents)))
+
 	//next SweepStorageInNextAccount should mark them for deletion...
 	clock.StepBy(8 * time.Hour)
 	expectSuccess(t, j.SweepStorageInNextAccount())
@@ -119,6 +126,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 		keppel.Blob{Digest: testBlob1.Digest.String(), StorageID: testBlob1.Digest.Encoded()},
 		keppel.Blob{Digest: testBlob2.Digest.String(), StorageID: testBlob2.Digest.Encoded()},
 		keppel.Blob{Digest: testBlob3.Digest.String(), StorageID: testBlob3.Digest.Encoded()},
+		keppel.Blob{Digest: testBlob4.Digest.String(), StorageID: testBlob4.Digest.Encoded()},
 	)
 	expectManifestsExistInStorage(t, sd, healthyManifests...)
 
@@ -137,7 +145,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	must(t, db.Insert(&dbTestBlob1))
 
 	//next SweepStorageInNextAccount should unmark blob 1 (because it's now in
-	//the DB) and sweep blob 2 (since it is still not in the DB)
+	//the DB) and sweep blobs 2 and 4 (since it is still not in the DB)
 	clock.StepBy(8 * time.Hour)
 	expectSuccess(t, j.SweepStorageInNextAccount())
 	expectError(t, sql.ErrNoRows.Error(), j.SweepStorageInNextAccount())
@@ -149,6 +157,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	)
 	expectBlobsMissingInStorage(t, sd,
 		keppel.Blob{Digest: testBlob2.Digest.String(), StorageID: testBlob2.Digest.Encoded()},
+		keppel.Blob{Digest: testBlob4.Digest.String(), StorageID: testBlob4.Digest.Encoded()},
 	)
 	expectManifestsExistInStorage(t, sd, healthyManifests...)
 }

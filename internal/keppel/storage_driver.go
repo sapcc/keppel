@@ -69,10 +69,18 @@ type StorageDriver interface {
 	//lists, that does not necessarily mean it does not exist in the storage.
 	//This is because storage implementations may be backed by object stores with
 	//eventual consistency.
-	ListStorageContents(account Account) (blobStorageIDs []string, manifests []StoredManifestInfo, err error)
+	ListStorageContents(account Account) (blobs []StoredBlobInfo, manifests []StoredManifestInfo, err error)
 }
 
-//StoredManifestInfo is returned by StorageDriver.ListManifests().
+//StoredBlobInfo is returned by StorageDriver.ListStorageContents().
+type StoredBlobInfo struct {
+	StorageID string
+	//ChunkCount is 0 for finalized blobs (that can be deleted with DeleteBlob)
+	//or >0 for ongoing uploads (that can be deleted with AbortBlobUpload).
+	ChunkCount uint32
+}
+
+//StoredManifestInfo is returned by StorageDriver.ListStorageContents().
 type StoredManifestInfo struct {
 	RepoName string
 	Digest   string

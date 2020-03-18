@@ -29,6 +29,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/gophercloud/gophercloud"
@@ -314,28 +315,38 @@ func (d *swiftDriver) DeleteManifest(account keppel.Account, repoName, digest st
 }
 
 var (
-	//This regex is used to reconstruct the storage ID from a blob's or chunk's object name.
+	//These regexes are used to reconstruct the storage ID from a blob's or chunk's object name.
 	//It's kinda the reverse of func blobObject() or func checkObject().
-	blobOrChunkObjectNameRx = regexp.MustCompile(`^_(?:blobs|chunks)/([^/]{2})/([^/]{2})/([^/]+)`)
+	blobObjectNameRx  = regexp.MustCompile(`^_blobs/([^/]{2})/([^/]{2})/([^/]+)$`)
+	chunkObjectNameRx = regexp.MustCompile(`^_chunks/([^/]{2})/([^/]{2})/([^/]+)/([0-9]+)$`)
 	//This regex recovers the repo name and manifest digest from a manifest's object name.
 	//It's kinda the reverse of func manifestObject().
 	manifestObjectNameRx = regexp.MustCompile(`^(.+)/_manifests/([^/]+)$`)
 )
 
 //ListStorageContents implements the keppel.StorageDriver interface.
-func (d *swiftDriver) ListStorageContents(account keppel.Account) ([]string, []keppel.StoredManifestInfo, error) {
+func (d *swiftDriver) ListStorageContents(account keppel.Account) ([]keppel.StoredBlobInfo, []keppel.StoredManifestInfo, error) {
 	c, err := d.getBackendConnection(account)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	isStorageID := make(map[string]struct{})
+	chunkCounts := make(map[string]uint32) //key = storage ID, value = same semantics as keppel.StoredBlobInfo.ChunkCount
 	var manifests []keppel.StoredManifestInfo
 
 	err = c.Objects().Foreach(func(o *schwift.Object) error {
-		if match := blobOrChunkObjectNameRx.FindStringSubmatch(o.Name()); match != nil {
+		if match := blobObjectNameRx.FindStringSubmatch(o.Name()); match != nil {
 			storageID := match[1] + match[2] + match[3]
-			isStorageID[storageID] = struct{}{}
+			mergeChunkCount(chunkCounts, storageID, 0)
+			return nil
+		}
+		if match := chunkObjectNameRx.FindStringSubmatch(o.Name()); match != nil {
+			storageID := match[1] + match[2] + match[3]
+			chunkNumber, err := strconv.ParseUint(match[4], 10, 32)
+			if err != nil {
+				return fmt.Errorf("while parsing chunk object name %s: %s", o.Name(), err.Error())
+			}
+			mergeChunkCount(chunkCounts, storageID, uint32(chunkNumber))
 			return nil
 		}
 		if match := manifestObjectNameRx.FindStringSubmatch(o.Name()); match != nil {
@@ -351,10 +362,33 @@ func (d *swiftDriver) ListStorageContents(account keppel.Account) ([]string, []k
 		return nil, nil, err
 	}
 
-	storageIDs := make([]string, 0, len(isStorageID))
-	for id := range isStorageID {
-		storageIDs = append(storageIDs, id)
+	blobs := make([]keppel.StoredBlobInfo, 0, len(chunkCounts))
+	for storageID, chunkCount := range chunkCounts {
+		blobs = append(blobs, keppel.StoredBlobInfo{
+			StorageID:  storageID,
+			ChunkCount: chunkCount,
+		})
 	}
 
-	return storageIDs, manifests, nil
+	return blobs, manifests, nil
+}
+
+//See comment on keppel.StoredBlobInfo.ChunkCount for explanation of semantics.
+func mergeChunkCount(chunkCounts map[string]uint32, key string, chunkNumber uint32) {
+	prevCount, exists := chunkCounts[key]
+	if !exists {
+		//nothing to merge, just record the new value
+		chunkCounts[key] = chunkNumber
+		return
+	}
+
+	//The value 0 indicates a finalized blob and therefore takes precedence over actual chunk numbers.
+	if prevCount == 0 || chunkNumber == 0 {
+		chunkCounts[key] = 0
+		return
+	}
+	//If 0 is not involved, remember the largest chunk number as that's gonna be the chunk count.
+	if chunkNumber > prevCount {
+		chunkCounts[key] = chunkNumber
+	}
 }
