@@ -61,6 +61,14 @@ var (
 		Name: "keppel_failed_manifest_syncs",
 		Help: "Counter for failed manifest syncs in replica repos.",
 	})
+	validateBlobSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "keppel_successful_blob_validations",
+		Help: "Counter for successful blob validations.",
+	})
+	validateBlobFailedCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "keppel_failed_blob_validations",
+		Help: "Counter for failed blob validations.",
+	})
 	validateManifestSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "keppel_successful_manifest_validations",
 		Help: "Counter for successful manifest validations.",
@@ -86,6 +94,8 @@ func (j *Janitor) initializeCounters() {
 		prometheus.MustRegister(sweepStorageFailedCounter)
 		prometheus.MustRegister(syncManifestsSuccessCounter)
 		prometheus.MustRegister(syncManifestsFailedCounter)
+		prometheus.MustRegister(validateBlobSuccessCounter)
+		prometheus.MustRegister(validateBlobFailedCounter)
 		prometheus.MustRegister(validateManifestSuccessCounter)
 		prometheus.MustRegister(validateManifestFailedCounter)
 	}
@@ -101,6 +111,8 @@ func (j *Janitor) initializeCounters() {
 	sweepStorageFailedCounter.Add(0)
 	syncManifestsSuccessCounter.Add(0)
 	syncManifestsFailedCounter.Add(0)
+	validateBlobSuccessCounter.Add(0)
+	validateBlobFailedCounter.Add(0)
 	validateManifestSuccessCounter.Add(0)
 	validateManifestFailedCounter.Add(0)
 }

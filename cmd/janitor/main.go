@@ -67,6 +67,7 @@ func run(cmd *cobra.Command, args []string) {
 	go jobLoop(janitor.SweepBlobsInNextAccount)
 	go jobLoop(janitor.SweepStorageInNextAccount)
 	go jobLoop(janitor.SyncManifestsInNextRepo)
+	go jobLoop(janitor.ValidateNextBlob)
 	go jobLoop(janitor.ValidateNextManifest)
 
 	//start HTTP server for Prometheus metrics and health check
@@ -93,10 +94,12 @@ func jobLoop(task func() error) {
 		case nil:
 			//nothing to do here
 		case sql.ErrNoRows:
-			//nothing to do right now - slow down a bit to avoid useless DB load
+			//nothing to do right now - slow down a bit to avoid useless DB polling
 			time.Sleep(10 * time.Second)
 		default:
 			logg.Error(err.Error())
+			//slow down a bit after an error to avoid hammering the DB during outages
+			time.Sleep(2 * time.Second)
 		}
 	}
 }

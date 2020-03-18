@@ -20,9 +20,11 @@ package tasks
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
@@ -74,4 +76,57 @@ func TestSweepBlobs(t *testing.T) {
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-sweep-003.sql")
 	expectBlobsMissingInStorage(t, sd, dbBlobs[0:2]...)
 	expectBlobsExistInStorage(t, sd, dbBlobs[2:]...)
+}
+
+func TestValidateBlobs(t *testing.T) {
+	j, _, db, sd, clock, _ := setup(t)
+	clock.StepBy(1 * time.Hour)
+
+	//upload some blobs
+	dbBlobs := make([]keppel.Blob, 3)
+	for idx := range dbBlobs {
+		blob := test.GenerateExampleLayer(int64(idx))
+		dbBlobs[idx] = uploadBlob(t, db, sd, clock, blob)
+	}
+
+	//ValidateNextBlob should be happy about these blobs
+	clock.StepBy(8 * 24 * time.Hour)
+	expectSuccess(t, j.ValidateNextBlob())
+	expectSuccess(t, j.ValidateNextBlob())
+	expectSuccess(t, j.ValidateNextBlob())
+	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextBlob())
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-validate-001.sql")
+
+	//deliberately destroy one of the blob's digests
+	wrongDigest := digest.Canonical.FromBytes([]byte("not the right content"))
+	mustExec(t, db,
+		`UPDATE blobs SET digest = $1 WHERE digest = $2`,
+		wrongDigest.String(), dbBlobs[2].Digest,
+	)
+
+	//not so happy now, huh?
+	clock.StepBy(8 * 24 * time.Hour)
+	expectedError := fmt.Sprintf(
+		`while validating a blob: expected digest %s, but got %s`,
+		wrongDigest.String(), dbBlobs[2].Digest,
+	)
+	expectSuccess(t, j.ValidateNextBlob())
+	expectSuccess(t, j.ValidateNextBlob())
+	expectError(t, expectedError, j.ValidateNextBlob())
+	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextBlob())
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-validate-002.sql")
+
+	//fix the issue
+	mustExec(t, db,
+		`UPDATE blobs SET digest = $1 WHERE digest = $2`,
+		dbBlobs[2].Digest, wrongDigest.String(),
+	)
+
+	//this should resolve the error and also remove the error message from the DB
+	clock.StepBy(8 * 24 * time.Hour)
+	expectSuccess(t, j.ValidateNextBlob())
+	expectSuccess(t, j.ValidateNextBlob())
+	expectSuccess(t, j.ValidateNextBlob())
+	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextBlob())
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-validate-003.sql")
 }

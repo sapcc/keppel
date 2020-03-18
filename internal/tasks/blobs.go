@@ -146,3 +146,69 @@ func (j *Janitor) SweepBlobsInNextAccount() (returnErr error) {
 	_, err = j.db.Exec(blobSweepDoneQuery, account.Name, j.timeNow())
 	return err
 }
+
+const validateBlobSearchQuery = `
+	SELECT * FROM blobs WHERE validated_at < $1
+	ORDER BY validated_at ASC -- oldest blobs first
+	LIMIT 1                   -- one at a time
+`
+
+//ValidateNextBlob validates the next blob that has not been validated for more
+//than 7 days. If no manifest needs to be validated, sql.ErrNoRows is returned.
+func (j *Janitor) ValidateNextBlob() (returnErr error) {
+	defer func() {
+		if returnErr == nil {
+			validateBlobSuccessCounter.Inc()
+		} else if returnErr != sql.ErrNoRows {
+			validateBlobFailedCounter.Inc()
+			returnErr = fmt.Errorf("while validating a blob: %s", returnErr.Error())
+		}
+	}()
+
+	//find blob
+	var blob keppel.Blob
+	maxValidatedAt := j.timeNow().Add(-7 * 24 * time.Hour)
+	err := j.db.SelectOne(&blob, validateBlobSearchQuery, maxValidatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			logg.Debug("no blobs to validate - slowing down...")
+			return sql.ErrNoRows
+		}
+		return err
+	}
+
+	//find corresponding account
+	account, err := keppel.FindAccount(j.db, blob.AccountName)
+	if err != nil {
+		return fmt.Errorf("cannot find account for manifest %s/%s: %s", blob.AccountName, blob.Digest, err.Error())
+	}
+
+	//perform validation
+	err = j.processor().ValidateExistingBlob(*account, blob)
+	if err == nil {
+		//update `validated_at` and reset error message
+		_, err := j.db.Exec(`
+			UPDATE blobs SET validated_at = $1, validation_error_message = ''
+			 WHERE account_name = $2 AND digest = $3`,
+			j.timeNow(), account.Name, blob.Digest,
+		)
+		if err != nil {
+			return err
+		}
+	} else {
+		//attempt to log the error message, and also update the `validated_at`
+		//timestamp to ensure that the ValidateNextBlob() loop does not get stuck
+		//on this one
+		_, updateErr := j.db.Exec(`
+			UPDATE blobs SET validated_at = $1, validation_error_message = $2
+			 WHERE account_name = $3 AND digest = $4`,
+			j.timeNow(), err.Error(), account.Name, blob.Digest,
+		)
+		if updateErr != nil {
+			err = fmt.Errorf("%s (additional error encountered while recording validation error: %s)", err.Error(), updateErr.Error())
+		}
+		return err
+	}
+
+	return nil
+}

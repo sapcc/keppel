@@ -22,6 +22,7 @@ package processor
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -35,6 +36,39 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 	"gopkg.in/gorp.v2"
 )
+
+//ValidateExistingBlob validates the given blob that already exists in the DB.
+//Validation includes computing the digest of the blob contents and comparing
+//to the digest in the DB. On success, nil is returned.
+func (p *Processor) ValidateExistingBlob(account keppel.Account, blob keppel.Blob) (returnErr error) {
+	blobDigest, err := digest.Parse(blob.Digest)
+	if err != nil {
+		return fmt.Errorf("cannot parse blob digest: %s", err.Error())
+	}
+
+	readCloser, _, err := p.sd.ReadBlob(account, blob.StorageID)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = readCloser.Close()
+		} else {
+			readCloser.Close()
+		}
+	}()
+
+	actualDigest, err := blobDigest.Algorithm().FromReader(readCloser)
+	if err != nil {
+		return err
+	}
+	if actualDigest != blobDigest {
+		return fmt.Errorf("expected digest %s, but got %s",
+			blob.Digest, actualDigest.String(),
+		)
+	}
+	return nil
+}
 
 //FindBlobOrInsertUnbackedBlob is used by the replication code path. If the
 //requested blob does not exist, a blob record with an empty storage ID will be
