@@ -82,17 +82,22 @@ func TestValidateBlobs(t *testing.T) {
 	j, _, db, sd, clock, _ := setup(t)
 	clock.StepBy(1 * time.Hour)
 
-	//upload some blobs
+	//upload some blobs (we need to step the clock after each upload to ensure
+	//that ValidateNextBlob later goes through them in a particular order, to
+	//make the testcase deterministic)
 	dbBlobs := make([]keppel.Blob, 3)
 	for idx := range dbBlobs {
 		blob := test.GenerateExampleLayer(int64(idx))
+		clock.Step()
 		dbBlobs[idx] = uploadBlob(t, db, sd, clock, blob)
 	}
 
 	//ValidateNextBlob should be happy about these blobs
-	clock.StepBy(8 * 24 * time.Hour)
+	clock.StepBy(8*24*time.Hour - 2*time.Second)
 	expectSuccess(t, j.ValidateNextBlob())
+	clock.Step()
 	expectSuccess(t, j.ValidateNextBlob())
+	clock.Step()
 	expectSuccess(t, j.ValidateNextBlob())
 	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextBlob())
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-validate-001.sql")
@@ -105,13 +110,15 @@ func TestValidateBlobs(t *testing.T) {
 	)
 
 	//not so happy now, huh?
-	clock.StepBy(8 * 24 * time.Hour)
+	clock.StepBy(8*24*time.Hour - 2*time.Second)
 	expectedError := fmt.Sprintf(
 		`while validating a blob: expected digest %s, but got %s`,
 		wrongDigest.String(), dbBlobs[2].Digest,
 	)
 	expectSuccess(t, j.ValidateNextBlob())
+	clock.Step()
 	expectSuccess(t, j.ValidateNextBlob())
+	clock.Step()
 	expectError(t, expectedError, j.ValidateNextBlob())
 	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextBlob())
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-validate-002.sql")
@@ -123,9 +130,11 @@ func TestValidateBlobs(t *testing.T) {
 	)
 
 	//this should resolve the error and also remove the error message from the DB
-	clock.StepBy(8 * 24 * time.Hour)
+	clock.StepBy(8*24*time.Hour - 2*time.Second)
 	expectSuccess(t, j.ValidateNextBlob())
+	clock.Step()
 	expectSuccess(t, j.ValidateNextBlob())
+	clock.Step()
 	expectSuccess(t, j.ValidateNextBlob())
 	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextBlob())
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-validate-003.sql")
