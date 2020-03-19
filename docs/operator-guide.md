@@ -13,7 +13,7 @@ In this document:
 
 In other documents:
 
-- [Supported drivers](./docs/drivers/)
+- [Supported drivers](./drivers/)
 
 ## Terminology and data model
 
@@ -147,7 +147,7 @@ The following configuration options are understood by both the API server and th
 | `KEPPEL_DRIVER_STORAGE` | *(required)* | The name of a storage driver. |
 | `KEPPEL_ISSUER_KEY` | *(required)* | The private key (in PEM format, or given as a path to a PEM file) that keppel-api uses to sign auth tokens for Docker clients. Can be generated with `openssl genrsa -out privkey.pem 4096`. |
 
-To choose drivers, refer to the [documentation for drivers](./docs/drivers/). Note that some drivers require additional
+To choose drivers, refer to the [documentation for drivers](./drivers/). Note that some drivers require additional
 configuration as mentioned in their respective documentation.
 
 [pq-uri]: https://www.postgresql.org/docs/9.6/static/libpq-connect.html#LIBPQ-CONNSTRING
