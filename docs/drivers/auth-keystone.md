@@ -4,7 +4,8 @@ An auth driver using the Keystone V3 API of an OpenStack cluster. With this driv
 Keystone projects.
 
 - Requests to the [Keppel API](../api-spec.md) are authenticated by reading a Keystone token from the X-Auth-Token
-  request header.
+  request header. When using the client commands of Keppel, the regular OpenStack auth environment variables (`OS_...`)
+  need to be present. See [documentation for openstackclient][os-env] for details.
 - Requests to the Docker Registry API can be authenticated with username and password, and the username has one of the
   following formats:
   ```
@@ -16,6 +17,8 @@ Keystone projects.
   `applicationcredential-`, followed by the application credential ID. The supplied password must be the application
   credential secret. It's not yet possible to identify an application credential by its name, but a syntax for this
   could be added in a later release.
+
+## Server-side configuration
 
 | Variable | Default | Explanation |
 | -------- | ------- | ----------- |

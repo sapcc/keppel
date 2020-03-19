@@ -61,17 +61,50 @@ $ docker push keppel-1.example.com/library/myimage:mytag
 $ docker pull keppel-2.example.com/library/myimage:mytag # same image!
 ```
 
+When Keppel instances are configured as peers for each other, they will regularly check in with each other to issue each
+other service user passwords. This process is known as **peering**.
+
 There's one more thing you need to know: In Keppel's data model, blobs are actually not sorted into repositories, but
 one level higher, into accounts. This allows us to deduplicate blobs that are referenced by multiple repositories in the
 same account. To model which repositories contain which blobs, Keppel's data model has an additional object, the **blob
 mount**. A blob mount connects a blob stored within an account with a repo within that account where that blob can be
-accessed by the user. All in all, our data model looks like this:
+accessed by the user. All in all, our data model looks like this: (Peers and quotas are not pictured for simplicity's
+sake.)
 
 ![data model](./data-model.png)
 
 ### Validation and garbage collection
 
-TODO explain purpose, rhythm, success/error indicators
+The chart above indicates various recurring tasks that need to be run on a regular basis. Keppel has a dedicated server
+component, the **janitor**, which is responsible for performing these recurring tasks. The table below explains all the
+tasks performed by the janitor.
+
+| Task | Explanation |
+| ---- | ----------- |
+| <nobr><span style="color:#12991C">&#10102;</span> Manifest reference validation</nobr> | Takes a manifest, parses its contents and check that the references to other manifests and blobs included therein are correctly entered in the database.<br><br>*Rhythm:* every 3 hours (per manifest)<br>*Clock:* database field `manifests.validated_at`<br>*Success signal:* Prometheus counter `keppel_successful_manifest_validations`<br>*Success signal:* database field `manifests.validation_error_message` cleared<br>*Failure signal:* Prometheus counter `keppel_failed_manifest_validations`<br>*Failure signal:* database field `manifests.validation_error_message` filled |
+| <nobr><span style="color:#12991C">&#10103;</span> Blob content validation</nobr> | Takes a blob and computes the digest of its contents to see if it checks the digest stored in the database.<br><br>*Rhythm:* every 7 days (per blob)<br>*Clock:* database field `blobs.validated_at`<br>*Success signal:* Prometheus counter `keppel_successful_blob_validations`<br>*Success signal:* database field `blobs.validation_error_message` cleared<br>*Failure signal:* Prometheus counter `keppel_failed_blob_validations`<br>*Failure signal:* database field `blobs.validation_error_message` filled |
+| <nobr><span style="color:#E83C3C">&#10102;</span> Blob mount GC</nobr> | Takes a repository and unmounts all blobs that are not referenced by any manifest in this repository.<br><br>*Rhythm:* every hour (per repository), **BUT** not while any manifests in the repository fail validation<br>*Clock:* database field `repos.blob_mounts_sweeped_at`<br>*Success signal:* Prometheus counter `keppel_successful_blob_mount_sweeps`<br>*Failure signal:* Prometheus counter `keppel_failed_blob_mount_sweeps` |
+| <nobr><span style="color:#E83C3C">&#10103;</span> Blob GC</nobr> | Takes an account and deletes all blobs that are not mounted into any repository.<br><br>*Rhythm:* every hour (per account)<br>*Clock:* database field `accounts.blobs_sweeped_at`<br>*Success signal:* Prometheus counter `keppel_successful_blob_sweeps`<br>*Failure signal:* Prometheus counter `keppel_failed_blob_sweeps` |
+| <nobr><span style="color:#E83C3C">&#10104;</span> Storage GC</nobr> | Takes an account's backing storage and deletes all blobs and manifests in it that are not referenced in the database.<br><br>*Rhythm:* every 6 hours (per account)<br>*Clock:* database field `accounts.storage_sweeped_at`<br>*Success signal:* Prometheus counter `keppel_successful_storage_sweeps`<br>*Failure signal:* Prometheus counter `keppel_failed_storage_sweeps` |
+| <nobr>Manifest sync</nobr> | Takes a repo in a replica account and deletes all manifests stored in it that have been deleted on the primary account.<br><br>*Rhythm:* every hour (per repository)<br>*Clock:* database field `repos.manifests_synced_at`<br>*Success signal:* Prometheus counter `keppel_successful_manifest_syncs`<br>*Failure signal:* Prometheus counter `keppel_failed_manifest_syncs` |
+
+In this table:
+
+- The **rhythm** is how often each task is executed.
+- The **clock** is a timestamp field in the database that indicates when the task was last run for a particular
+  manifest/repository/account. You can manipulate this field if you want to have a task re-run ahead of schedule.
+- **Success signals** indicate that a task completed successfully.
+- **Failure signals** indicate that a task failed.
+
+All garbage collection (GC) passes run in a mark-and-sweep pattern: When an unreferenced object is encountered for the
+first time, it is only marked for deletion. It will be deleted when the next run still finds it unreferenced. This is to
+avoid inconsistencies arising from write operations running in parallel with a GC pass.
+
+Note that the GC passes chain together: When a manifest is deleted, the blob mount GC will clean up its blob mounts.
+Then the blob GC will clean up the blobs. Both steps take about 2-3 hours because of the hourly GC rhythm and the
+mark-and-sweep pattern. Therefore it takes between 4-6 hours from a manifest's deletion to the deletion of the blobs on
+the backing storage. Add another 1-2 hours if you're deleting on a primary account and want to see blobs deleted in the
+replica account.
 
 ## Building and running Keppel
 
