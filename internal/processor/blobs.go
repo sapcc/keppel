@@ -170,7 +170,7 @@ func (p *Processor) ReplicateBlob(blob keppel.Blob, account keppel.Account, repo
 	}
 
 	//count the successful push
-	l := prometheus.Labels{"account": account.Name, "method": "replication"}
+	l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "replication"}
 	api.BlobsPushedCounter.With(l).Inc()
 	return true, nil
 }
@@ -181,7 +181,7 @@ func (p *Processor) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, 
 	defer func() {
 		//if blob upload fails, count an aborted upload
 		if returnErr != nil {
-			l := prometheus.Labels{"account": account.Name, "method": "replication"}
+			l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "replication"}
 			api.UploadsAbortedCounter.With(l).Inc()
 		}
 	}()

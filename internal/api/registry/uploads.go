@@ -424,7 +424,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//count a finished blob push
-	l := prometheus.Labels{"account": account.Name, "method": "registry-api"}
+	l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 	api.BlobsPushedCounter.With(l).Inc()
 
 	w.Header().Set("Content-Length", "0")
@@ -731,6 +731,6 @@ func (w *digestWriter) Write(buf []byte) (n int, err error) {
 }
 
 func countAbortedBlobUpload(account keppel.Account) {
-	l := prometheus.Labels{"account": account.Name, "method": "registry-api"}
+	l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 	api.UploadsAbortedCounter.With(l).Inc()
 }

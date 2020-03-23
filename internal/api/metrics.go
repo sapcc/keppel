@@ -30,7 +30,7 @@ var (
 			Name: "keppel_pulled_blobs",
 			Help: "Counts blobs that are pulled from Keppel.",
 		},
-		[]string{"account", "method"},
+		[]string{"account", "auth_tenant_id", "method"},
 	)
 	//BlobsPushedCounter is a prometheus.CounterVec.
 	BlobsPushedCounter = prometheus.NewCounterVec(
@@ -38,7 +38,7 @@ var (
 			Name: "keppel_pushed_blobs",
 			Help: "Counts blobs that are pushed into Keppel.",
 		},
-		[]string{"account", "method"},
+		[]string{"account", "auth_tenant_id", "method"},
 	)
 	//ManifestsPulledCounter is a prometheus.CounterVec.
 	ManifestsPulledCounter = prometheus.NewCounterVec(
@@ -46,7 +46,7 @@ var (
 			Name: "keppel_pulled_manifests",
 			Help: "Counts manifests that are pulled from Keppel.",
 		},
-		[]string{"account", "method"},
+		[]string{"account", "auth_tenant_id", "method"},
 	)
 	//ManifestsPushedCounter is a prometheus.CounterVec.
 	ManifestsPushedCounter = prometheus.NewCounterVec(
@@ -54,7 +54,7 @@ var (
 			Name: "keppel_pushed_manifests",
 			Help: "Counts manifests that are pushed into Keppel.",
 		},
-		[]string{"account", "method"},
+		[]string{"account", "auth_tenant_id", "method"},
 	)
 	//UploadsAbortedCounter is a prometheus.CounterVec.
 	UploadsAbortedCounter = prometheus.NewCounterVec(
@@ -62,7 +62,7 @@ var (
 			Name: "keppel_aborted_uploads",
 			Help: "Counts blob uploads into Keppel that fail and get aborted by Keppel.",
 		},
-		[]string{"account", "method"},
+		[]string{"account", "auth_tenant_id", "method"},
 	)
 )
 

@@ -103,7 +103,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 
 	//count the pull
 	if r.Method == "GET" {
-		l := prometheus.Labels{"account": account.Name, "method": "registry-api"}
+		l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 		api.ManifestsPulledCounter.With(l).Inc()
 	}
 }
@@ -222,7 +222,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//count the push
-	l := prometheus.Labels{"account": account.Name, "method": "registry-api"}
+	l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 	api.ManifestsPushedCounter.With(l).Inc()
 
 	w.Header().Set("Content-Length", "0")
