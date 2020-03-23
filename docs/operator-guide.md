@@ -87,6 +87,7 @@ tasks performed by the janitor.
 | ![Number 2:](./icon-red-2.png) Blob GC | Takes an account and deletes all blobs that are not mounted into any repository.<br><br>*Rhythm:* every hour (per account)<br>*Clock:* database field `accounts.blobs_sweeped_at`<br>*Success signal:* Prometheus counter `keppel_successful_blob_sweeps`<br>*Failure signal:* Prometheus counter `keppel_failed_blob_sweeps` |
 | ![Number 3:](./icon-red-3.png) Storage GC | Takes an account's backing storage and deletes all blobs and manifests in it that are not referenced in the database.<br><br>*Rhythm:* every 6 hours (per account)<br>*Clock:* database field `accounts.storage_sweeped_at`<br>*Success signal:* Prometheus counter `keppel_successful_storage_sweeps`<br>*Failure signal:* Prometheus counter `keppel_failed_storage_sweeps` |
 | Manifest sync | Takes a repo in a replica account and deletes all manifests stored in it that have been deleted on the primary account.<br><br>*Rhythm:* every hour (per repository)<br>*Clock:* database field `repos.manifests_synced_at`<br>*Success signal:* Prometheus counter `keppel_successful_manifest_syncs`<br>*Failure signal:* Prometheus counter `keppel_failed_manifest_syncs` |
+| Cleanup of abandoned uploads | Takes a blob upload that is still technically in progress, but has not been touched by the user in 24 hours, and removes it from the database and backing storage.<br><br>*Clock:* database fields `uploads.updated_at`<br>*Success signal:* Prometheus counter `keppel_successful_abandoned_upload_cleanups`<br>*Failure signal:* Prometheus counter `keppel_failed_abandoned_upload_cleanups` |
 
 In this table:
 
@@ -106,14 +107,22 @@ mark-and-sweep pattern. Therefore it takes between 4-6 hours from a manifest's d
 the backing storage. Add another 1-2 hours if you're deleting on a primary account and want to see blobs deleted in the
 replica account.
 
+In the SAP Converged Cloud deployments of Keppel, we alert on all the `keppel_failed_...` metrics to be notified when
+any of these tasks are failing. We also use [postgres\_exporter](https://github.com/wrouesnel/postgres_exporter) custom
+metrics to track the **clock** database fields as Prometheus metrics and alert when these get way too old to be notified
+when the tasks are not running at all for some reason. See
+[here](https://github.com/sapcc/helm-charts/blob/master/openstack/keppel/values.yaml) under `customMetrics` and
+[here](https://github.com/sapcc/helm-charts/blob/master/openstack/keppel/alerts/openstack/janitor.alerts) for details.
+
 ## Building and running Keppel
 
 Build Keppel with `make`, install with `make install` or `docker build`. This is the same as in the general README,
 since the server and client components are all combined in one single binary. For a complete Keppel deployment, you need
 to run:
 
-- as many instances of `keppel server api` as you want, and
-- exactly one instance of `keppel server janitor`.
+- as many instances of `keppel server api` as you want,
+- exactly one instance of `keppel server janitor`,
+- optionally, one instance of `keppel server healthmonitor`.
 
 Both commands take configuration from environment variables, as listed below.
 
@@ -170,8 +179,55 @@ These options are only understood by the janitor.
 
 | Variable | Default | Explanation |
 | -------- | ------- | ----------- |
-| `KEPPEL_JANITOR_LISTEN_ADDRESS` | :8080 | Listen address for janitor process (provides HTTP endpoint for Prometheus metrics). |
+| `KEPPEL_JANITOR_LISTEN_ADDRESS` | :8080 | Listen address for HTTP server (only provides Prometheus metrics). |
+
+### Health monitor configuration options
+
+The health monitor takes some configuration options on the commandline:
+
+```
+$ keppel server healthmonitor <account-name> --listen <listen-address>
+```
+
+| Option | Default | Explanation |
+| ------ | ------- | ----------- |
+| `<account-name>` | *(required)* | The account where the test image is uploaded to and downloaded from. This account should be reserved for the health monitor and not be used by anyone else. |
+| `<listen-address>` | :8080 | Listen address for HTTP server (only provides Prometheus metrics). |
+
+Additionally, the environment variables must contain credentials for authenticating with the authentication method used
+by the target Keppel API. (This is because the health monitor accesses the Keppel API to manage the configuration of its
+account.) Refer to the documentation of your auth driver for what environment variables are expected.
+
+After the initial setup phase (where the account is created and the test image is uploaded), the test image will be
+downloaded and validated every 30 seconds. The result of the test is published as a Prometheus metric (see below). If
+the test fails, a detailed error message is logged in stderr. If the setup phase fails, an error message is logged as
+well and the program immediately exits with non-zero status.
 
 ## Prometheus metrics
 
-TODO
+All server components emit Prometheus metrics on the HTTP endpoint `/metrics`.
+
+### API metrics
+
+| Metric | Labels | Explanation |
+| ------ | ------ | ----------- |
+| `keppel_pulled_blobs`<br>`keppel_pushed_blobs`<br>`keppel_pulled_manifests`<br>`keppel_pushed_manifests`<br>`keppel_aborted_uploads` | `account`, `auth_tenant_id`, `method` | Counters for various API operations, as identified by the metric name. `keppel_aborted_uploads` counts blob uploads that ran into errors. Successful uploads are counted by `keppel_pushed_blobs` instead.<br><br>`method` is usually `registry-api`, but can also be `replication` (counting pulls on the primary account and pushes into replica accounts). |
+| `keppel_failed_auditevent_publish`<br>`keppel_successful_auditevent_publish` | *none* | Counter for failed/successful deliveries of audit events (only if audit event sending is configured). |
+
+### Janitor metrics
+
+None of these metrics have labels. [See above](#validation-and-garbage-collection) for explanations of each operation.
+
+| Metric | Explanation |
+| ------ | ----------- |
+| `keppel_successful_blob_sweeps`<br>`keppel_failed_blob_sweeps`<br>`keppel_successful_storage_sweeps`<br>`keppel_failed_storage_sweeps` | Counters for account-level operations. One increment equals one account. |
+| `keppel_successful_blob_mount_sweeps`<br>`keppel_failed_blob_mount_sweeps`<br>`keppel_successful_manifest_syncs`<br>`keppel_failed_manifest_syncs` | Counters for repository-level operations. One increment equals one repository. |
+| `keppel_successful_blob_validations`<br>`keppel_failed_blob_validations` | Counters for blob-level operations. One increment equals one blob. |
+| `keppel_successful_manifest_validations`<br>`keppel_failed_manifest_validations` | Counters for manifest-level operations. One increment equals one manifest. |
+| `keppel_successful_abandoned_upload_cleanups`<br>`keppel_failed_abandoned_upload_cleanups` | Counters for upload-level operations. One increment equals one upload. |
+
+### Health monitor metrics
+
+| Metric | Labels | Explanation |
+| ------ | ------ | ----------- |
+| `keppel_healthmonitor_result` | *none* | 0 if the last health check failed, 1 if it succeeded. |
