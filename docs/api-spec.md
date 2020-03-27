@@ -57,6 +57,7 @@ On success, returns 200 and a JSON response body like this:
     {
       "name": "firstaccount",
       "auth_tenant_id": "firsttenant",
+      "metadata": {},
       "rbac_policies": [
         {
           "match_repository": "library/.*",
@@ -72,6 +73,9 @@ On success, returns 200 and a JSON response body like this:
     {
       "name": "secondaccount",
       "auth_tenant_id": "secondtenant",
+      "metadata": {
+        "priority": "just an example"
+      },
       "rbac_policies": [],
       "replication": {
         "strategy": "on_first_use",
@@ -91,6 +95,7 @@ The following fields may be returned:
 | ----- | ---- | ----------- |
 | `accounts[].name` | string | Name of this account. |
 | `accounts[].auth_tenant_id` | string | ID of auth tenant that regulates access to this account. |
+| `accounts[].metadata` | object of strings | Free-form metadata maintained by the user. The contents of this field are not interpreted by Keppel, but may trigger special behavior in applications using this API. |
 | `accounts[].rbac_policies` | list of objects | Policies for rule-based access control (RBAC) to repositories in this account. RBAC policies are evaluated in addition to the permissions granted by the auth tenant. |
 | `accounts[].rbac_policies[].match_repository` | string | The RBAC policy applies to all repositories in this account whose name matches this regex. The leading account name and slash is stripped from the repository name before matching. The notes on regexes below apply. |
 | `accounts[].rbac_policies[].match_username` | string | The RBAC policy applies to all users whose name matches this regex. Refer to the [documentation of your auth driver](./drivers/) for the syntax of usernames. The notes on regexes below apply. |

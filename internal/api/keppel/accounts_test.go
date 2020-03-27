@@ -152,6 +152,10 @@ func TestAccountsAPI(t *testing.T) {
 			Body: assert.JSONObject{
 				"account": assert.JSONObject{
 					"auth_tenant_id": "tenant1",
+					"metadata": assert.JSONObject{
+						"bar": "barbar",
+						"foo": "foofoo",
+					},
 				},
 			},
 			ExpectStatus: http.StatusOK,
@@ -159,13 +163,17 @@ func TestAccountsAPI(t *testing.T) {
 				"account": assert.JSONObject{
 					"name":           "first",
 					"auth_tenant_id": "tenant1",
-					"rbac_policies":  []assert.JSONObject{},
+					"metadata": assert.JSONObject{
+						"bar": "barbar",
+						"foo": "foofoo",
+					},
+					"rbac_policies": []assert.JSONObject{},
 				},
 			},
 		}.Check(t, r)
 		assert.DeepEqual(t, "authDriver.AccountsThatWereSetUp",
 			authDriver.AccountsThatWereSetUp,
-			[]keppel.Account{{Name: "first", AuthTenantID: "tenant1"}},
+			[]keppel.Account{{Name: "first", AuthTenantID: "tenant1", MetadataJSON: `{"bar":"barbar","foo":"foofoo"}`}},
 		)
 
 		//only the first pass should generate an audit event
@@ -196,7 +204,11 @@ func TestAccountsAPI(t *testing.T) {
 			"accounts": []assert.JSONObject{{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
-				"rbac_policies":  []assert.JSONObject{},
+				"metadata": assert.JSONObject{
+					"bar": "barbar",
+					"foo": "foofoo",
+				},
+				"rbac_policies": []assert.JSONObject{},
 			}},
 		},
 	}.Check(t, r)
@@ -209,7 +221,11 @@ func TestAccountsAPI(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
-				"rbac_policies":  []assert.JSONObject{},
+				"metadata": assert.JSONObject{
+					"bar": "barbar",
+					"foo": "foofoo",
+				},
+				"rbac_policies": []assert.JSONObject{},
 			},
 		},
 	}.Check(t, r)
@@ -260,6 +276,7 @@ func TestAccountsAPI(t *testing.T) {
 				"account": assert.JSONObject{
 					"name":           "second",
 					"auth_tenant_id": "tenant1",
+					"metadata":       assert.JSONObject{},
 					"rbac_policies":  rbacPoliciesJSON,
 				},
 			},
@@ -267,7 +284,7 @@ func TestAccountsAPI(t *testing.T) {
 		assert.DeepEqual(t, "authDriver.AccountsThatWereSetUp",
 			authDriver.AccountsThatWereSetUp,
 			[]keppel.Account{
-				{Name: "first", AuthTenantID: "tenant1"},
+				{Name: "first", AuthTenantID: "tenant1", MetadataJSON: `{"bar":"barbar","foo":"foofoo"}`},
 				{Name: "second", AuthTenantID: "tenant1"},
 			},
 		)
@@ -335,11 +352,16 @@ func TestAccountsAPI(t *testing.T) {
 				{
 					"name":           "first",
 					"auth_tenant_id": "tenant1",
-					"rbac_policies":  []assert.JSONObject{},
+					"metadata": assert.JSONObject{
+						"bar": "barbar",
+						"foo": "foofoo",
+					},
+					"rbac_policies": []assert.JSONObject{},
 				},
 				{
 					"name":           "second",
 					"auth_tenant_id": "tenant1",
+					"metadata":       assert.JSONObject{},
 					"rbac_policies":  rbacPoliciesJSON,
 				},
 			},
@@ -354,6 +376,7 @@ func TestAccountsAPI(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
+				"metadata":       assert.JSONObject{},
 				"rbac_policies":  rbacPoliciesJSON,
 			},
 		},
@@ -390,6 +413,7 @@ func TestAccountsAPI(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
+				"metadata":       assert.JSONObject{},
 				"rbac_policies":  newRBACPoliciesJSON,
 			},
 		},
@@ -468,6 +492,7 @@ func TestAccountsAPI(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
+				"metadata":       assert.JSONObject{},
 				"rbac_policies":  newRBACPoliciesJSON,
 				"validation": assert.JSONObject{
 					"required_labels": []string{"foo", "bar"},
@@ -495,6 +520,7 @@ func TestAccountsAPI(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
+				"metadata":       assert.JSONObject{},
 				"rbac_policies":  newRBACPoliciesJSON,
 			},
 		},
@@ -548,6 +574,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
+				"metadata":       assert.JSONObject{},
 				"rbac_policies":  []assert.JSONObject{},
 			},
 		},
@@ -866,6 +893,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
+				"metadata":       assert.JSONObject{},
 				"rbac_policies":  []assert.JSONObject{},
 				"replication": assert.JSONObject{
 					"strategy": "on_first_use",
@@ -891,6 +919,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
+				"metadata":       assert.JSONObject{},
 				"rbac_policies":  []assert.JSONObject{},
 				"replication": assert.JSONObject{
 					"strategy": "on_first_use",
@@ -915,6 +944,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "second",
 				"auth_tenant_id": "tenant2",
+				"metadata":       assert.JSONObject{},
 				"rbac_policies":  []assert.JSONObject{},
 			},
 		},

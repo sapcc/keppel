@@ -42,6 +42,7 @@ import (
 type Account struct {
 	Name              string             `json:"name"`
 	AuthTenantID      string             `json:"auth_tenant_id"`
+	Metadata          map[string]string  `json:"metadata"`
 	RBACPolicies      []RBACPolicy       `json:"rbac_policies"`
 	ReplicationPolicy *ReplicationPolicy `json:"replication,omitempty"`
 	ValidationPolicy  *ValidationPolicy  `json:"validation,omitempty"`
@@ -80,9 +81,18 @@ func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
 		policies[idx] = renderRBACPolicy(p)
 	}
 
+	metadata := make(map[string]string)
+	if dbAccount.MetadataJSON != "" {
+		err := json.Unmarshal([]byte(dbAccount.MetadataJSON), &metadata)
+		if err != nil {
+			return Account{}, fmt.Errorf("malformed metadata JSON: %q", dbAccount.MetadataJSON)
+		}
+	}
+
 	return Account{
 		Name:              dbAccount.Name,
 		AuthTenantID:      dbAccount.AuthTenantID,
+		Metadata:          metadata,
 		RBACPolicies:      policies,
 		ReplicationPolicy: renderReplicationPolicy(dbAccount),
 		ValidationPolicy:  renderValidationPolicy(dbAccount),
@@ -245,6 +255,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Account struct {
 			AuthTenantID      string             `json:"auth_tenant_id"`
+			Metadata          map[string]string  `json:"metadata"`
 			RBACPolicies      []RBACPolicy       `json:"rbac_policies"`
 			ReplicationPolicy *ReplicationPolicy `json:"replication"`
 			ValidationPolicy  *ValidationPolicy  `json:"validation"`
@@ -278,9 +289,16 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	metadataJSONStr := ""
+	if len(req.Account.Metadata) > 0 {
+		metadataJSON, _ := json.Marshal(req.Account.Metadata)
+		metadataJSONStr = string(metadataJSON)
+	}
+
 	accountToCreate := keppel.Account{
 		Name:         accountName,
 		AuthTenantID: req.Account.AuthTenantID,
+		MetadataJSON: metadataJSONStr,
 	}
 
 	//validate replication policy
@@ -395,6 +413,10 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	} else {
 		//account != nil: update if necessary
 		needsUpdate := false
+		if account.MetadataJSON != accountToCreate.MetadataJSON {
+			account.MetadataJSON = accountToCreate.MetadataJSON
+			needsUpdate = true
+		}
 		if account.RequiredLabels != accountToCreate.RequiredLabels {
 			account.RequiredLabels = accountToCreate.RequiredLabels
 			needsUpdate = true
