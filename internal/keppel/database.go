@@ -248,6 +248,12 @@ var sqlMigrations = map[string]string{
 		DROP TABLE unknown_blobs;
 		DROP TABLE unknown_manifests;
 	`,
+	"010_add_account_metadata.up.sql": `
+		ALTER TABLE accounts ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '';
+	`,
+	"010_add_account_metadata.down.sql": `
+		ALTER TABLE accounts DROP COLUMN metadata_json;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

@@ -23,7 +23,6 @@ import (
 	"database/sql"
 	"fmt"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/opencontainers/go-digest"
@@ -41,6 +40,9 @@ type Account struct {
 	//all image manifests in this account.
 	RequiredLabels string `db:"required_labels"`
 
+	//MetadataJSON contains a JSON string of a map[string]string, or the empty string.
+	MetadataJSON string `db:"metadata_json"`
+
 	BlobsSweepedAt   *time.Time `db:"blobs_sweeped_at"`   //see tasks.SweepBlobsInNextAccount
 	StorageSweepedAt *time.Time `db:"storage_sweeped_at"` //see tasks.SweepStorageInNextAccount
 }
@@ -49,12 +51,6 @@ type Account struct {
 //Keppel account.
 func (a Account) SwiftContainerName() string {
 	return "keppel-" + a.Name
-}
-
-//PostgresDatabaseName returns the name of the Postgres database which contains this
-//Keppel account's metadata.
-func (a Account) PostgresDatabaseName() string {
-	return "keppel_" + strings.Replace(a.Name, "-", "_", -1)
 }
 
 //FindAccount works similar to db.SelectOne(), but returns nil instead of

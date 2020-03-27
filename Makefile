@@ -46,9 +46,9 @@ check: all static-check build/cover.html FORCE
 static-check: FORCE
 	@if ! hash golint 2>/dev/null; then printf "\e[1;36m>> Installing golint...\e[0m\n"; go get -u golang.org/x/lint/golint; fi
 	@printf "\e[1;36m>> gofmt\e[0m\n"
-	@if s="$$(gofmt -s -l *.go cmd pkg 2>/dev/null)"                            && test -n "$$s"; then printf ' => %s\n%s\n' gofmt  "$$s"; false; fi
+	@if s="$$(gofmt -s -l *.go cmd internal 2>/dev/null)"                            && test -n "$$s"; then printf ' => %s\n%s\n' gofmt  "$$s"; false; fi
 	@printf "\e[1;36m>> golint\e[0m\n"
-	@if s="$$(golint . && find cmd pkg -type d -exec golint {} \; 2>/dev/null)" && test -n "$$s"; then printf ' => %s\n%s\n' golint "$$s"; false; fi
+	@if s="$$(golint . && find cmd internal -type d -exec golint {} \; 2>/dev/null)" && test -n "$$s"; then printf ' => %s\n%s\n' golint "$$s"; false; fi
 	@printf "\e[1;36m>> go vet\e[0m\n"
 	@$(GO) vet $(GO_BUILDFLAGS) $(GO_ALLPKGS)
 
