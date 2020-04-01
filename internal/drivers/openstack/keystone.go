@@ -172,15 +172,19 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Aut
 	authOpts.IdentityEndpoint = d.IdentityV3.Endpoint
 	authOpts.AllowReauth = false
 
-	provider, err := createProviderClient(authOpts)
-	if err != nil {
-		return nil, keppel.ErrUnauthorized.With(
-			"failed to get token for %q: %s",
-			userName, err.Error(),
-		)
+	//perform the authentication with a fresh ServiceClient, otherwise a 401
+	//response will trigger a useless reauthentication of the service user
+	throwAwayClient := *d.IdentityV3
+	throwAwayClient.SetThrowaway(true)
+	throwAwayClient.ReauthFunc = nil
+	throwAwayClient.SetTokenAndAuthResult(nil)
+
+	result, rerr := tokensCreate(&throwAwayClient, &authOpts)
+	if rerr != nil {
+		return nil, rerr
 	}
 
-	t := d.TokenValidator.TokenFromGophercloudResult(provider.GetAuthResult().(tokens.CreateResult))
+	t := d.TokenValidator.TokenFromGophercloudResult(result)
 	if t.Err != nil {
 		return nil, keppel.ErrUnauthorized.With(
 			"failed to get token for user %q: %s",
@@ -202,9 +206,9 @@ var userNameRx = regexp.MustCompile(`^([^/@]+)@([^/@]+)/([^/@]+)(?:@([^/@]+))?$`
 //                                    ^------^ ^------^ ^------^    ^------^
 //                                      user   u. dom.   project    pr. dom.
 
-func parseUserNameAndPassword(userName, password string) (gophercloud.AuthOptions, *keppel.RegistryV2Error) {
+func parseUserNameAndPassword(userName, password string) (tokens.AuthOptions, *keppel.RegistryV2Error) {
 	if strings.HasPrefix(userName, "applicationcredential-") {
-		return gophercloud.AuthOptions{
+		return tokens.AuthOptions{
 			ApplicationCredentialID:     strings.TrimPrefix(userName, "applicationcredential-"),
 			ApplicationCredentialSecret: password,
 		}, nil
@@ -212,14 +216,14 @@ func parseUserNameAndPassword(userName, password string) (gophercloud.AuthOption
 
 	match := userNameRx.FindStringSubmatch(userName)
 	if match == nil {
-		return gophercloud.AuthOptions{}, keppel.ErrUnauthorized.With(`invalid username (expected "user@domain/project" or "user@domain/project@domain" format)`)
+		return tokens.AuthOptions{}, keppel.ErrUnauthorized.With(`invalid username (expected "user@domain/project" or "user@domain/project@domain" format)`)
 	}
 
-	ao := gophercloud.AuthOptions{
+	ao := tokens.AuthOptions{
 		Username:   match[1],
 		DomainName: match[2],
 		Password:   password,
-		Scope: &gophercloud.AuthScope{
+		Scope: tokens.Scope{
 			ProjectName: match[3],
 			DomainName:  match[4],
 		},
@@ -228,6 +232,45 @@ func parseUserNameAndPassword(userName, password string) (gophercloud.AuthOption
 		ao.Scope.DomainName = ao.DomainName
 	}
 	return ao, nil
+}
+
+//Like `tokens.Create(identityV3, opts)`, but translates a 429 response into
+//keppel.ErrTooManyRequests.  We cannot just inspect `result.Err` from a
+//regular `tokens.Create()` call because gophercloud.ErrUnexpectedResponseCode
+//(and thus, gophercloud.ErrDefault429) does not allow us to inspect the
+//response headers, specifically, the Retry-After header.
+func tokensCreate(identityV3 *gophercloud.ServiceClient, opts tokens.AuthOptionsBuilder) (tokens.CreateResult, *keppel.RegistryV2Error) {
+	var r tokens.CreateResult
+	scope, err := opts.ToTokenV3ScopeMap()
+	if err != nil {
+		r.Err = err
+		return r, nil
+	}
+	b, err := opts.ToTokenV3CreateMap(scope)
+	if err != nil {
+		r.Err = err
+		return r, nil
+	}
+
+	resp, err := identityV3.Post(identityV3.ServiceURL("auth", "tokens"), b, &r.Body, &gophercloud.RequestOpts{
+		MoreHeaders: map[string]string{"X-Auth-Token": ""},
+		OkCodes:     []int{http.StatusCreated, http.StatusTooManyRequests},
+	})
+	if err != nil {
+		r.Err = err
+		return r, nil
+	}
+
+	switch resp.StatusCode {
+	case http.StatusCreated:
+		r.Header = resp.Header
+		return r, nil
+	case http.StatusTooManyRequests:
+		retryAfterStr := resp.Header.Get("Retry-After")
+		return tokens.CreateResult{}, keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr)
+	default:
+		panic("unreachable")
+	}
 }
 
 //AuthenticateUserFromRequest implements the keppel.AuthDriver interface.

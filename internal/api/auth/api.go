@@ -50,6 +50,14 @@ func (a *API) AddTo(r *mux.Router) {
 }
 
 func respondWithError(w http.ResponseWriter, code int, err error) bool {
+	if rerr, ok := err.(*keppel.RegistryV2Error); ok {
+		if rerr != nil {
+			rerr.WriteAsAuthResponseTo(w)
+			return true
+		}
+		return false
+	}
+
 	if err != nil {
 		respondwith.JSON(w, code, map[string]string{"details": err.Error()})
 		return true
