@@ -143,6 +143,9 @@ your environment:
   deployment, an appropriate name claim driver could access a central service that manages account name claims. As for
   storage drivers, the choice of name claim driver may be linked to the choice of auth driver.
 
+- The **rate limit driver** decides how many pull/push operations can be executed per time unit for a given account.
+  This driver is optional. If no rate limit driver is configured, rate limiting will not be enabled.
+
 ### Common configuration options
 
 The following configuration options are understood by both the API server and the janitor:
@@ -171,7 +174,11 @@ These options are only understood by the API server.
 | `KEPPEL_AUDIT_RABBITMQ_URI` | *(optional)* | RabbitMQ URI as per the [AMQP URI format](https://www.rabbitmq.com/uri-spec.html). If this variable is configured then Keppel will send audit events to the respective RabbitMQ server. |
 | `KEPPEL_AUDIT_RABBITMQ_QUEUE_NAME` | *(required if `KEPPEL_AUDIT_RABBITMQ_URI` is configured)* | Name for the queue that will hold the audit events. The events are published to the default exchange. |
 | `KEPPEL_AUDIT_SILENT` | *(optional)* | Whether to disable audit event logging to standard output. |
+| `KEPPEL_DRIVER_RATELIMIT` | *(optional)* | The name of a rate limit driver. Leave empty to disable rate limiting. |
 | `KEPPEL_PEERS` | *(optional)* | A comma-separated list of hostnames where our peer keppel-api instances are running. This is the set of instances that this keppel-api can replicate from. |
+| `KEPPEL_REDIS_URI` | *(required if `KEPPEL_DRIVER_RATELIMIT` is configured)* | A URI identifying the location of a Redis instance, in the [same format as understood by redis-cli][redis-uri]. If given, this Redis is used an ephemeral storage by compatible auth drivers and rate limit drivers. |
+
+[redis-uri]: https://redis.io/topics/rediscli#host-port-password-and-database
 
 ### Janitor configuration options
 
