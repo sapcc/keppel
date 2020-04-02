@@ -174,7 +174,13 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Aut
 
 	//perform the authentication with a fresh ServiceClient, otherwise a 401
 	//response will trigger a useless reauthentication of the service user
-	throwAwayClient := *d.IdentityV3
+	throwAwayClient := gophercloud.ServiceClient{
+		ProviderClient: &gophercloud.ProviderClient{
+			HTTPClient: *http.DefaultClient,
+			Throwaway:  true,
+		},
+		Endpoint: d.IdentityV3.Endpoint,
+	}
 	throwAwayClient.SetThrowaway(true)
 	throwAwayClient.ReauthFunc = nil
 	throwAwayClient.SetTokenAndAuthResult(nil)
