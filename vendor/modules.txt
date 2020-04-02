@@ -107,6 +107,8 @@ github.com/spf13/cobra
 github.com/spf13/pflag
 # github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271
 github.com/streadway/amqp
+# github.com/throttled/throttled v2.2.4+incompatible
+github.com/throttled/throttled
 # golang.org/x/crypto v0.0.0-20200128174031-69ecbb4d6d5d
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish

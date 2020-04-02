@@ -8,9 +8,11 @@ require (
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
 	github.com/go-gorp/gorp v2.2.0+incompatible // indirect
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
+	github.com/gomodule/redigo v2.0.0+incompatible // indirect
 	github.com/gophercloud/gophercloud v0.7.0
 	github.com/gophercloud/utils v0.0.0-20200104035643-cb37ab634bff
 	github.com/gorilla/mux v1.7.3
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/jarcoal/httpmock v1.0.4
 	github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629 // indirect
 	github.com/majewsky/schwift v0.0.0-20200224150542-3857990bb9f7
@@ -24,6 +26,7 @@ require (
 	github.com/sapcc/hermes v0.0.0-20200113180615-22691208a86f
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v0.0.5
+	github.com/throttled/throttled v2.2.4+incompatible
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/crypto v0.0.0-20200128174031-69ecbb4d6d5d
 	gopkg.in/gorp.v2 v2.2.0

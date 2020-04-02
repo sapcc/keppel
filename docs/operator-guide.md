@@ -144,7 +144,8 @@ your environment:
   storage drivers, the choice of name claim driver may be linked to the choice of auth driver.
 
 - The **rate limit driver** decides how many pull/push operations can be executed per time unit for a given account.
-  This driver is optional. If no rate limit driver is configured, rate limiting will not be enabled.
+  This driver is optional. If no rate limit driver is configured, rate limiting will not be enabled. As for storage
+  drivers, the choice of rate limit driver may be linked to the choice of auth driver.
 
 ### Common configuration options
 
