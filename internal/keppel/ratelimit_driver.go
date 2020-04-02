@@ -20,28 +20,29 @@ package keppel
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/throttled/throttled"
 )
 
 //RateLimitedAction is an enum of all actions that can be rate-limited.
-type RateLimitedAction int
+type RateLimitedAction string
 
 const (
 	//BlobPullAction is a RateLimitedAction.
-	BlobPullAction RateLimitedAction = iota
+	BlobPullAction RateLimitedAction = "pullblob"
 	//BlobPushAction is a RateLimitedAction.
-	BlobPushAction
+	BlobPushAction RateLimitedAction = "pushblob"
 	//ManifestPullAction is a RateLimitedAction.
-	ManifestPullAction
+	ManifestPullAction RateLimitedAction = "pullmanifest"
 	//ManifestPushAction is a RateLimitedAction.
-	ManifestPushAction
+	ManifestPushAction RateLimitedAction = "pushmanifest"
 )
 
 //RateLimitDriver is a pluggable strategy that determines the rate limits of
 //each account.
 type RateLimitDriver interface {
-	GetRateLimit(account Account, action RateLimitedAction) throttled.Rate
+	GetRateLimit(account Account, action RateLimitedAction) throttled.RateQuota
 }
 
 var rateLimitDriverFactories = make(map[string]func(AuthDriver, Configuration) (RateLimitDriver, error))
@@ -67,4 +68,26 @@ func RegisterRateLimitDriver(name string, factory func(AuthDriver, Configuration
 		panic("attempted to register multiple rate-limit drivers with name = " + name)
 	}
 	rateLimitDriverFactories[name] = factory
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+//RateLimitEngine provides the rate-limiting interface used by the API
+//implementation.
+type RateLimitEngine struct {
+	Driver RateLimitDriver
+	Store  throttled.GCRAStore
+}
+
+//RateLimitAllows checks whether the given action on the given account is allowed by
+//the account's rate limit.
+func (e RateLimitEngine) RateLimitAllows(account Account, action RateLimitedAction) (bool, throttled.RateLimitResult, error) {
+	rateQuota := e.Driver.GetRateLimit(account, action)
+	gcra, err := throttled.NewGCRARateLimiter(e.Store, rateQuota)
+	if err != nil {
+		return false, throttled.RateLimitResult{}, err
+	}
+	key := fmt.Sprintf("ratelimit-%s-%s", string(action), account.Name)
+	limited, result, err := gcra.RateLimit(key, 1)
+	return !limited, result, err
 }

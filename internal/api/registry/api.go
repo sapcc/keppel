@@ -39,14 +39,15 @@ type API struct {
 	cfg keppel.Configuration
 	sd  keppel.StorageDriver
 	db  *keppel.DB
+	rle *keppel.RateLimitEngine //may be nil
 	//non-pure functions that can be replaced by deterministic doubles for unit tests
 	timeNow           func() time.Time
 	generateStorageID func() string
 }
 
 //NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, sd keppel.StorageDriver, db *keppel.DB) *API {
-	return &API{cfg, sd, db, time.Now, keppel.GenerateStorageID}
+func NewAPI(cfg keppel.Configuration, sd keppel.StorageDriver, db *keppel.DB, rle *keppel.RateLimitEngine) *API {
+	return &API{cfg, sd, db, rle, time.Now, keppel.GenerateStorageID}
 }
 
 //OverrideTimeNow replaces time.Now with a test double.

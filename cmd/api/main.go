@@ -21,9 +21,11 @@ package apicmd
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 
+	"github.com/go-redis/redis"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 	"github.com/sapcc/go-bits/httpee"
@@ -34,6 +36,7 @@ import (
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/spf13/cobra"
+	"github.com/throttled/throttled/store/goredisstore"
 )
 
 //AddCommandTo mounts this command into the command hierarchy.
@@ -63,6 +66,17 @@ func run(cmd *cobra.Command, args []string) {
 	sd, err := keppel.NewStorageDriver(keppel.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
 	must(err)
 
+	redisClient, err := initRedis()
+	must(err)
+	rle := (*keppel.RateLimitEngine)(nil)
+	if redisClient != nil {
+		store, err := goredisstore.New(redisClient, "keppel-")
+		must(err)
+		rld, err := keppel.NewRateLimitDriver(keppel.MustGetenv("KEPPEL_DRIVER_RATELIMIT"), ad, cfg)
+		must(err)
+		rle = &keppel.RateLimitEngine{Driver: rld, Store: store}
+	}
+
 	//start background goroutines
 	ctx := httpee.ContextWithSIGINT(context.Background())
 	runPeering(ctx, cfg, db)
@@ -71,7 +85,7 @@ func run(cmd *cobra.Command, args []string) {
 	handler := api.Compose(
 		keppelv1.NewAPI(cfg, ad, ncd, sd, db, auditor),
 		auth.NewAPI(cfg, ad, db),
-		registryv2.NewAPI(cfg, sd, db),
+		registryv2.NewAPI(cfg, sd, db, rle),
 	)
 	handler = logg.Middleware{}.Wrap(handler)
 	handler = cors.New(cors.Options{
@@ -99,4 +113,17 @@ func must(err error) {
 	if err != nil {
 		logg.Fatal(err.Error())
 	}
+}
+
+//Note that, since Redis is optional, this may return (nil, nil).
+func initRedis() (*redis.Client, error) {
+	urlStr := os.Getenv("KEPPEL_REDIS_URI")
+	if urlStr == "" {
+		return nil, nil
+	}
+	opts, err := redis.ParseURL(urlStr)
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse KEPPEL_REDIS_URI: %s", err.Error())
+	}
+	return redis.NewClient(opts), nil
 }

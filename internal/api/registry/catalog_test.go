@@ -62,7 +62,7 @@ func TestCatalogEndpoint(t *testing.T) {
 	}
 	h := api.Compose(
 		authapi.NewAPI(cfg, ad, db),
-		NewAPI(cfg, nil, db),
+		NewAPI(cfg, nil, db, nil),
 	)
 
 	//testcases

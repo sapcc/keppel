@@ -67,6 +67,10 @@ func init() {
 }
 
 //GetRateLimit implements the keppel.RateLimitDriver interface.
-func (d RateLimitDriver) GetRateLimit(account keppel.Account, action keppel.RateLimitedAction) throttled.Rate {
-	return d.Limits[action]
+func (d RateLimitDriver) GetRateLimit(account keppel.Account, action keppel.RateLimitedAction) throttled.RateQuota {
+	rate := d.Limits[action]
+	return throttled.RateQuota{
+		MaxRate:  rate,
+		MaxBurst: 3, //TODO make configurable
+	}
 }

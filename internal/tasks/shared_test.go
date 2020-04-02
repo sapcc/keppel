@@ -57,7 +57,7 @@ func setup(t *testing.T) (*Janitor, keppel.Configuration, *keppel.DB, keppel.Sto
 	j := NewJanitor(cfg, sd, db).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next)
 
 	h := api.Compose(
-		registryv2.NewAPI(cfg, sd, db).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+		registryv2.NewAPI(cfg, sd, db, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 		authapi.NewAPI(cfg, ad, db),
 	)
 
@@ -96,7 +96,7 @@ func setupReplica(t *testing.T, db1 *keppel.DB, h1 http.Handler, clock *test.Clo
 	sidGen := &test.StorageIDGenerator{}
 	j2 := NewJanitor(cfg2, sd2, db2).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next)
 	h2 := api.Compose(
-		registryv2.NewAPI(cfg2, sd2, db2).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+		registryv2.NewAPI(cfg2, sd2, db2, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 		authapi.NewAPI(cfg2, ad2, db2),
 	)
 

@@ -76,7 +76,7 @@ func setup(t *testing.T) (http.Handler, keppel.Configuration, *keppel.DB, *test.
 	clock := &test.Clock{}
 	sidGen := &test.StorageIDGenerator{}
 	h := api.Compose(
-		NewAPI(cfg, sd, db).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+		NewAPI(cfg, sd, db, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 		authapi.NewAPI(cfg, ad, db),
 	)
 
@@ -147,7 +147,7 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 
 	sidGen := &test.StorageIDGenerator{}
 	h2 := api.Compose(
-		NewAPI(cfg2, sd2, db2).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+		NewAPI(cfg2, sd2, db2, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 		authapi.NewAPI(cfg2, ad2, db2),
 	)
 
