@@ -51,6 +51,9 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	if account == nil {
 		return
 	}
+	if !a.checkRateLimit(w, *account, keppel.BlobPushAction) {
+		return
+	}
 
 	//forbid pushing into replica accounts
 	if account.UpstreamPeerHostName != "" {

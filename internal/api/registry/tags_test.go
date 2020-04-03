@@ -33,7 +33,7 @@ import (
 )
 
 func TestListTags(t *testing.T) {
-	h, _, _, ad, _, _ := setup(t)
+	h, _, _, ad, _, _ := setup(t, nil)
 
 	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 		keppel.CanPullFromAccount,

@@ -30,7 +30,8 @@ import (
 
 //RateLimitDriver is the rate limit driver "basic".
 type RateLimitDriver struct {
-	Limits map[keppel.RateLimitedAction]throttled.Rate
+	Limits   map[keppel.RateLimitedAction]throttled.Rate
+	MaxBurst int
 }
 
 var (
@@ -62,7 +63,10 @@ func init() {
 			}
 			limits[action] = rateConstructors[match[2]](int(count))
 		}
-		return RateLimitDriver{limits}, nil
+		return RateLimitDriver{
+			Limits:   limits,
+			MaxBurst: 3, //TODO make configurable
+		}, nil
 	})
 }
 
@@ -71,6 +75,6 @@ func (d RateLimitDriver) GetRateLimit(account keppel.Account, action keppel.Rate
 	rate := d.Limits[action]
 	return throttled.RateQuota{
 		MaxRate:  rate,
-		MaxBurst: 3, //TODO make configurable
+		MaxBurst: d.MaxBurst,
 	}
 }

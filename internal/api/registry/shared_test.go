@@ -41,7 +41,7 @@ var (
 	replicationPasswordHash string
 )
 
-func setup(t *testing.T) (http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver, *test.Clock) {
+func setup(t *testing.T, rle *keppel.RateLimitEngine) (http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver, *test.Clock) {
 	cfg, db := test.Setup(t)
 
 	//set up a dummy account for testing
@@ -76,7 +76,7 @@ func setup(t *testing.T) (http.Handler, keppel.Configuration, *keppel.DB, *test.
 	clock := &test.Clock{}
 	sidGen := &test.StorageIDGenerator{}
 	h := api.Compose(
-		NewAPI(cfg, sd, db, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+		NewAPI(cfg, sd, db, rle).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 		authapi.NewAPI(cfg, ad, db),
 	)
 

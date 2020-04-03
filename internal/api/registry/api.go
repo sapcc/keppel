@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -257,4 +258,23 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	}
 
 	return account, repo, token
+}
+
+func (a *API) checkRateLimit(w http.ResponseWriter, account keppel.Account, action keppel.RateLimitedAction) bool {
+	//rate-limiting is optional
+	if a.rle == nil {
+		return true
+	}
+
+	allowed, result, err := a.rle.RateLimitAllows(account, action)
+	if respondWithError(w, err) {
+		return false
+	}
+	if !allowed {
+		retryAfterStr := strconv.FormatUint(uint64(result.RetryAfter/time.Second), 10)
+		respondWithError(w, keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr))
+		return false
+	}
+
+	return true
 }

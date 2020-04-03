@@ -32,7 +32,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 	image := test.GenerateImage( /* no layers */ )
 
 	for _, ref := range []string{"latest", image.Manifest.Digest.String()} {
-		h, _, db, ad, sd, clock := setup(t)
+		h, _, db, ad, sd, clock := setup(t, nil)
 		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
@@ -227,7 +227,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 	//This test builds on TestImageManifestLifecycle and provides test coverage
 	//for the parts of the manifest push workflow that check manifest-manifest
 	//references. (We don't have those in plain images, only in image lists.)
-	h, _, db, ad, _, clock := setup(t)
+	h, _, db, ad, _, clock := setup(t, nil)
 	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 		keppel.CanPullFromAccount,
 		keppel.CanPushToAccount)
@@ -282,7 +282,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 }
 
 func TestManifestQuotaExceeded(t *testing.T) {
-	h, _, db, ad, _, _ := setup(t)
+	h, _, db, ad, _, _ := setup(t, nil)
 	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 		keppel.CanPullFromAccount,
 		keppel.CanPushToAccount)
@@ -331,7 +331,7 @@ func TestManifestQuotaExceeded(t *testing.T) {
 }
 
 func TestManifestRequiredLabels(t *testing.T) {
-	h, _, db, ad, _, _ := setup(t)
+	h, _, db, ad, _, _ := setup(t, nil)
 	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 		keppel.CanPullFromAccount,
 		keppel.CanPushToAccount)
