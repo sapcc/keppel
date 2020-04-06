@@ -32,6 +32,7 @@ import (
 	"github.com/spf13/cobra"
 
 	//include all known driver implementations
+	_ "github.com/sapcc/keppel/internal/drivers/basic"
 	_ "github.com/sapcc/keppel/internal/drivers/openstack"
 	_ "github.com/sapcc/keppel/internal/drivers/trivial"
 	"github.com/sapcc/keppel/internal/keppel"
