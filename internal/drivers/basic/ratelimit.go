@@ -24,6 +24,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/throttled/throttled"
 )
@@ -62,6 +63,7 @@ func init() {
 				return nil, fmt.Errorf("malformed %s: %s", envVar, err.Error())
 			}
 			limits[action] = rateConstructors[match[2]](int(count))
+			logg.Debug("parsed rate limit for %s is %#v", action, limits[action])
 		}
 		return RateLimitDriver{
 			Limits:   limits,
