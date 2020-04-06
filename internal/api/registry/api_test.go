@@ -28,7 +28,7 @@ import (
 )
 
 func TestVersionCheckEndpoint(t *testing.T) {
-	h, _, _, ad, _, _ := setup(t)
+	h, _, _, ad, _, _ := setup(t, nil)
 
 	//without token, expect auth challenge
 	assert.HTTPRequest{

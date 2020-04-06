@@ -16,6 +16,14 @@ github.com/docker/distribution/manifest/schema2
 github.com/docker/distribution/reference
 # github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
 github.com/docker/libtrust
+# github.com/go-redis/redis v6.15.7+incompatible
+github.com/go-redis/redis
+github.com/go-redis/redis/internal
+github.com/go-redis/redis/internal/consistenthash
+github.com/go-redis/redis/internal/hashtag
+github.com/go-redis/redis/internal/pool
+github.com/go-redis/redis/internal/proto
+github.com/go-redis/redis/internal/util
 # github.com/gofrs/uuid v3.2.0+incompatible
 github.com/gofrs/uuid
 # github.com/golang/protobuf v1.3.2
@@ -107,6 +115,9 @@ github.com/spf13/cobra
 github.com/spf13/pflag
 # github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271
 github.com/streadway/amqp
+# github.com/throttled/throttled v2.2.4+incompatible
+github.com/throttled/throttled
+github.com/throttled/throttled/store/goredisstore
 # golang.org/x/crypto v0.0.0-20200128174031-69ecbb4d6d5d
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish

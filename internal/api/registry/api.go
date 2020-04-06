@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -39,14 +40,15 @@ type API struct {
 	cfg keppel.Configuration
 	sd  keppel.StorageDriver
 	db  *keppel.DB
+	rle *keppel.RateLimitEngine //may be nil
 	//non-pure functions that can be replaced by deterministic doubles for unit tests
 	timeNow           func() time.Time
 	generateStorageID func() string
 }
 
 //NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, sd keppel.StorageDriver, db *keppel.DB) *API {
-	return &API{cfg, sd, db, time.Now, keppel.GenerateStorageID}
+func NewAPI(cfg keppel.Configuration, sd keppel.StorageDriver, db *keppel.DB, rle *keppel.RateLimitEngine) *API {
+	return &API{cfg, sd, db, rle, time.Now, keppel.GenerateStorageID}
 }
 
 //OverrideTimeNow replaces time.Now with a test double.
@@ -256,4 +258,23 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	}
 
 	return account, repo, token
+}
+
+func (a *API) checkRateLimit(w http.ResponseWriter, account keppel.Account, action keppel.RateLimitedAction) bool {
+	//rate-limiting is optional
+	if a.rle == nil {
+		return true
+	}
+
+	allowed, result, err := a.rle.RateLimitAllows(account, action)
+	if respondWithError(w, err) {
+		return false
+	}
+	if !allowed {
+		retryAfterStr := strconv.FormatUint(uint64(result.RetryAfter/time.Second), 10)
+		respondWithError(w, keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr))
+		return false
+	}
+
+	return true
 }

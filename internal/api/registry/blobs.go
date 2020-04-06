@@ -43,6 +43,9 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	if account == nil {
 		return
 	}
+	if !a.checkRateLimit(w, *account, keppel.BlobPullAction) {
+		return
+	}
 
 	blobDigest, err := digest.Parse(mux.Vars(r)["digest"])
 	if err != nil {

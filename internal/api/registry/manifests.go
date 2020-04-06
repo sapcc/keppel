@@ -42,6 +42,9 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	if account == nil {
 		return
 	}
+	if !a.checkRateLimit(w, *account, keppel.ManifestPullAction) {
+		return
+	}
 
 	reference := keppel.ParseManifestReference(mux.Vars(r)["reference"])
 	dbManifest, err := a.findManifestInDB(*account, *repo, reference)
@@ -192,6 +195,9 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
 	account, repo, _ := a.checkAccountAccess(w, r, createRepoIfMissing)
 	if account == nil {
+		return
+	}
+	if !a.checkRateLimit(w, *account, keppel.ManifestPushAction) {
 		return
 	}
 

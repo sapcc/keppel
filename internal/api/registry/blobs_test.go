@@ -32,7 +32,7 @@ import (
 )
 
 func TestBlobMonolithicUpload(t *testing.T) {
-	h, _, db, ad, sd, _ := setup(t)
+	h, _, db, ad, sd, _ := setup(t, nil)
 	readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
 		keppel.CanPullFromAccount)
 	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
@@ -122,7 +122,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 	//run everything in this testcase once for streamed upload and once for chunked upload
 	for _, isChunked := range []bool{false, true} {
 
-		h, _, db, ad, sd, _ := setup(t)
+		h, _, db, ad, sd, _ := setup(t, nil)
 		readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount)
 		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
@@ -371,7 +371,7 @@ func TestGetBlobUpload(t *testing.T) {
 	//NOTE: We only use the read-write token for driving the blob upload through
 	//its various stages. All the GET requests use the read-only token to verify
 	//that read-only tokens work here.
-	h, _, db, ad, _, _ := setup(t)
+	h, _, db, ad, _, _ := setup(t, nil)
 	readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
 		keppel.CanPullFromAccount)
 	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
@@ -463,7 +463,7 @@ func TestGetBlobUpload(t *testing.T) {
 }
 
 func TestDeleteBlobUpload(t *testing.T) {
-	h, _, db, ad, sd, _ := setup(t)
+	h, _, db, ad, sd, _ := setup(t, nil)
 	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 		keppel.CanPullFromAccount,
 		keppel.CanPushToAccount)
@@ -551,7 +551,7 @@ func TestDeleteBlobUpload(t *testing.T) {
 }
 
 func TestDeleteBlob(t *testing.T) {
-	h, _, _, ad, _, _ := setup(t)
+	h, _, _, ad, _, _ := setup(t, nil)
 	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 		keppel.CanPullFromAccount,
 		keppel.CanPushToAccount)
@@ -651,7 +651,7 @@ func TestDeleteBlob(t *testing.T) {
 }
 
 func TestCrossRepositoryBlobMount(t *testing.T) {
-	h, _, _, ad, _, _ := setup(t)
+	h, _, _, ad, _, _ := setup(t, nil)
 	readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
 		keppel.CanPullFromAccount)
 	token := getToken(t, h, ad, "repository:test1/foo:pull,push",

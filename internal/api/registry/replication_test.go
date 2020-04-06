@@ -33,7 +33,7 @@ import (
 //NOTE: ROFU = ReplicationOnFirstUse
 
 func TestROFUSimpleImage(t *testing.T) {
-	h1, _, db1, ad1, _, clock := setup(t)
+	h1, _, db1, ad1, _, clock := setup(t, nil)
 
 	//upload image to primary account
 	token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
@@ -77,7 +77,7 @@ func TestROFUSimpleImage(t *testing.T) {
 }
 
 func TestROFUImageList(t *testing.T) {
-	h1, _, db1, ad1, _, clock := setup(t)
+	h1, _, db1, ad1, _, clock := setup(t, nil)
 
 	//upload image list with two images to primary account
 	token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
@@ -115,7 +115,7 @@ func TestROFUImageList(t *testing.T) {
 }
 
 func TestROFUMissingEntities(t *testing.T) {
-	h1, _, db1, _, _, clock := setup(t)
+	h1, _, db1, _, _, clock := setup(t, nil)
 
 	//ensure that the `test1/foo` repo exists upstream; otherwise we'll just get
 	//NAME_UNKNOWN
@@ -173,7 +173,7 @@ func TestROFUMissingEntities(t *testing.T) {
 }
 
 func TestROFUForbidDirectUpload(t *testing.T) {
-	h1, _, db1, _, _, clock := setup(t)
+	h1, _, db1, _, _, clock := setup(t, nil)
 	testWithReplica(t, h1, db1, clock, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
 		token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount, keppel.CanPushToAccount)
@@ -205,7 +205,7 @@ func TestROFUForbidDirectUpload(t *testing.T) {
 }
 
 func TestROFUManifestQuotaExceeded(t *testing.T) {
-	h1, _, db1, ad1, _, clock := setup(t)
+	h1, _, db1, ad1, _, clock := setup(t, nil)
 
 	//upload image to primary account
 	token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
@@ -249,7 +249,7 @@ func TestROFUManifestQuotaExceeded(t *testing.T) {
 }
 
 func TestROFUUseCachedBlobMetadata(t *testing.T) {
-	h1, _, db1, ad1, _, clock := setup(t)
+	h1, _, db1, ad1, _, clock := setup(t, nil)
 
 	//upload image to primary account
 	token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
