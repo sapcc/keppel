@@ -79,7 +79,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	ad, err := client.NewAuthDriver()
 	if err != nil {
-		logg.Fatal(err.Error())
+		logg.Fatal("while setting up auth driver: %s", err.Error())
 	}
 
 	apiUser, apiPassword := ad.CredentialsForRegistryAPI()
@@ -99,11 +99,11 @@ func run(cmd *cobra.Command, args []string) {
 	//run one-time preparations
 	err = job.PrepareKeppelAccount()
 	if err != nil {
-		logg.Fatal(err.Error())
+		logg.Fatal("while preparing Keppel account: %s", err.Error())
 	}
 	manifestRef, err := job.UploadImage()
 	if err != nil {
-		logg.Fatal(err.Error())
+		logg.Fatal("while uploading test image: %s", err.Error())
 	}
 
 	//expose metrics endpoint
