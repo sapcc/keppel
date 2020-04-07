@@ -86,6 +86,24 @@ func (t *Token) UserName() string {
 	return t.Context.Auth["user_name"]
 }
 
+//UserDomainName returns the name of the domain containing the user for whom
+//this token was issued, or "" if the token was invalid.
+func (t *Token) UserDomainName() string {
+	return t.Context.Auth["user_domain_name"]
+}
+
+//ProjectScopeUUID returns the UUID of this token's project scope, or "" if the token is
+//invalid or not scoped to a project.
+func (t *Token) ProjectScopeUUID() string {
+	return t.Context.Auth["project_id"]
+}
+
+//DomainScopeUUID returns the UUID of this token's domain scope, or "" if the token is
+//invalid or not scoped to a domain.
+func (t *Token) DomainScopeUUID() string {
+	return t.Context.Auth["domain_id"]
+}
+
 func extractErrorMessage(err error) string {
 	switch e := err.(type) {
 	case gophercloud.ErrUnexpectedResponseCode:

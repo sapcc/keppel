@@ -29,7 +29,7 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-bits/assert"
-	"github.com/sapcc/go-bits/gopherpolicy"
+	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -142,10 +142,32 @@ func (a authorization) HasPermission(perm keppel.Permission, tenantID string) bo
 	return a.perms[string(perm)][tenantID]
 }
 
-func (a authorization) KeystoneToken() *gopherpolicy.Token {
-	//return a dummy token to enable testing of audit events (a nil token will
-	//suppress audit event generation)
-	return &gopherpolicy.Token{}
+func (a authorization) UserInfo() audittools.UserInfo {
+	//return a dummy UserInfo to enable testing of audit events (a nil UserInfo
+	//will suppress audit event generation)
+	return dummyUserInfo{}
+}
+
+type dummyUserInfo struct{}
+
+func (dummyUserInfo) UserUUID() string {
+	return "dummy-userid"
+}
+
+func (dummyUserInfo) UserName() string {
+	return "dummy-username"
+}
+
+func (dummyUserInfo) UserDomainName() string {
+	return "dummy-domainname"
+}
+
+func (dummyUserInfo) ProjectScopeUUID() string {
+	return "dummy-projectid"
+}
+
+func (dummyUserInfo) DomainScopeUUID() string {
+	return ""
 }
 
 var authorizationHeader = "Basic " + base64.StdEncoding.EncodeToString(

@@ -400,11 +400,11 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		if respondwith.ErrorText(w, err) {
 			return
 		}
-		if token := authz.KeystoneToken(); token != nil {
+		if userInfo := authz.UserInfo(); userInfo != nil {
 			a.auditor.Record(audittools.EventParameters{
 				Time:       time.Now(),
 				Request:    r,
-				Token:      token,
+				User:       userInfo,
 				ReasonCode: http.StatusOK,
 				Action:     "create",
 				Target:     AuditAccount{Account: *account},
@@ -430,11 +430,11 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	submitAudit := func(action string, target AuditRBACPolicy) {
-		if token := authz.KeystoneToken(); token != nil {
+		if userInfo := authz.UserInfo(); userInfo != nil {
 			a.auditor.Record(audittools.EventParameters{
 				Time:       time.Now(),
 				Request:    r,
-				Token:      token,
+				User:       userInfo,
 				ReasonCode: http.StatusOK,
 				Action:     action,
 				Target:     target,

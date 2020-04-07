@@ -39,6 +39,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/roles"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
 	"github.com/gophercloud/utils/openstack/clientconfig"
+	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -341,8 +342,8 @@ func (a keystoneAuthorization) HasPermission(perm keppel.Permission, tenantID st
 	return result
 }
 
-//HasPermission implements the keppel.Authorization interface.
-func (a keystoneAuthorization) KeystoneToken() *gopherpolicy.Token {
+//UserInfo implements the keppel.Authorization interface.
+func (a keystoneAuthorization) UserInfo() audittools.UserInfo {
 	return a.t
 }
 

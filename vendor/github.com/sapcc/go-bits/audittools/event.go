@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
-	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/hermes/pkg/cadf"
 )
@@ -37,11 +36,25 @@ type TargetRenderer interface {
 	Render() cadf.Resource
 }
 
+// UserInfo is implemented by types that describe a user who is taking an
+// action on an OpenStack API. The most important implementor of this interface
+// is *gopherpolicy.Token.
+type UserInfo interface {
+	UserUUID() string
+	UserName() string
+	UserDomainName() string
+	//ProjectScopeUUID returns the empty string if the user's token is not for a project scope.
+	ProjectScopeUUID() string
+	//DomainScopeUUID returns the empty string if the user's token is not for a domain scope.
+	DomainScopeUUID() string
+}
+
 // EventParameters contains the necessary parameters for generating a cadf.Event.
 type EventParameters struct {
 	Time    time.Time
 	Request *http.Request
-	Token   *gopherpolicy.Token
+	// User is usually a *gopherpolicy.Token instance.
+	User UserInfo
 	// ReasonCode is used to determine whether the Event.Outcome was a 'success' or 'failure'.
 	// It is recommended to use a constant from: https://golang.org/pkg/net/http/#pkg-constants
 	ReasonCode int
@@ -75,16 +88,18 @@ func NewEvent(p EventParameters) cadf.Event {
 			ReasonCode: strconv.Itoa(p.ReasonCode),
 		},
 		Initiator: cadf.Resource{
-			TypeURI:   "service/security/account/user",
-			Name:      p.Token.Context.Auth["user_name"],
-			ID:        p.Token.Context.Auth["user_id"],
-			Domain:    p.Token.Context.Auth["domain_name"],
-			DomainID:  p.Token.Context.Auth["domain_id"],
-			ProjectID: p.Token.Context.Auth["project_id"],
+			TypeURI: "service/security/account/user",
+			//information about user
+			Name:   p.User.UserName(),
+			Domain: p.User.UserDomainName(),
+			ID:     p.User.UserUUID(),
 			Host: &cadf.Host{
 				Address: tryStripPort(p.Request.RemoteAddr),
 				Agent:   p.Request.Header.Get("User-Agent"),
 			},
+			//information about user's scope (only one of both will be filled)
+			DomainID:  p.User.DomainScopeUUID(),
+			ProjectID: p.User.ProjectScopeUUID(),
 		},
 		Target: p.Target.Render(),
 		Observer: cadf.Resource{

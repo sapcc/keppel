@@ -39,13 +39,25 @@
 package logg
 
 import (
-	"log"
+	stdlog "log"
 	"os"
 	"strings"
+	"sync"
 )
 
-//ShowDebug can be set to true to enable the display of debug logs.
-var ShowDebug = false
+var (
+	//ShowDebug can be set to true to enable the display of debug logs.
+	ShowDebug = false
+	log       = stdlog.New(stdlog.Writer(), stdlog.Prefix(), stdlog.Flags())
+	mu        sync.Mutex
+)
+
+//SetLogger allows to define custom logger
+func SetLogger(l *stdlog.Logger) {
+	mu.Lock()
+	defer mu.Unlock()
+	log = l
+}
 
 //Fatal logs a fatal error and terminates the program.
 func Fatal(msg string, args ...interface{}) {

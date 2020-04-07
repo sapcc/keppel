@@ -24,7 +24,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/sapcc/go-bits/gopherpolicy"
+	"github.com/sapcc/go-bits/audittools"
 )
 
 //Permission is an enum used by AuthDriver.
@@ -58,14 +58,11 @@ type Authorization interface {
 	//The AnonymousAuthorization always returns false.
 	HasPermission(perm Permission, tenantID string) bool
 
-	//If this authorization is backed by a Keystone token, return that token.
-	//Returns nil otherwise. The AnonymousAuthorization always returns nil.
+	//If this authorization is backed by a Keystone token, return a UserInfo for
+	//that token. Returns nil otherwise. The AnonymousAuthorization always returns nil.
 	//
-	//NOTE: This breaks separation of concerns, but we need the token in the
-	//Keppel API to fill audittools.EventParameters values, and I don't see a
-	//more logical way to order responsibilities here that does not require a
-	//"backdoor" like this method.
-	KeystoneToken() *gopherpolicy.Token
+	//If non-nil, the Keppel API will submit OpenStack CADF audit events.
+	UserInfo() audittools.UserInfo
 }
 
 //AuthDriver represents an authentication backend that supports multiple
@@ -134,7 +131,7 @@ func (anonAuthorization) UserName() string {
 func (anonAuthorization) HasPermission(perm Permission, tenantID string) bool {
 	return false
 }
-func (anonAuthorization) KeystoneToken() *gopherpolicy.Token {
+func (anonAuthorization) UserInfo() audittools.UserInfo {
 	return nil
 }
 
@@ -153,8 +150,8 @@ func (a ReplicationAuthorization) HasPermission(perm Permission, tenantID string
 	return perm == CanViewAccount || perm == CanPullFromAccount
 }
 
-//KeystoneToken implements the keppel.Authorization interface.
-func (a ReplicationAuthorization) KeystoneToken() *gopherpolicy.Token {
+//UserInfo implements the keppel.Authorization interface.
+func (a ReplicationAuthorization) UserInfo() audittools.UserInfo {
 	return nil
 }
 

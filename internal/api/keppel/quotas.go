@@ -138,11 +138,11 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//record audit event when quotas have changed
-		if token := authz.KeystoneToken(); token != nil {
+		if userInfo := authz.UserInfo(); userInfo != nil {
 			a.auditor.Record(audittools.EventParameters{
 				Time:       time.Now(),
 				Request:    r,
-				Token:      token,
+				User:       userInfo,
 				ReasonCode: http.StatusOK,
 				Action:     "update",
 				Target:     AuditQuotas{QuotasBefore: quotasBefore, QuotasAfter: *quotas},
