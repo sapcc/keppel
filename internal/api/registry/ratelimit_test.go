@@ -32,14 +32,14 @@ import (
 )
 
 func TestRateLimits(t *testing.T) {
+	rateQuota := throttled.RateQuota{MaxRate: throttled.PerMin(2), MaxBurst: 3}
 	rld := basic.RateLimitDriver{
-		Limits: map[keppel.RateLimitedAction]throttled.Rate{
-			keppel.BlobPullAction:     throttled.PerMin(2),
-			keppel.BlobPushAction:     throttled.PerMin(2),
-			keppel.ManifestPullAction: throttled.PerMin(2),
-			keppel.ManifestPushAction: throttled.PerMin(2),
+		Limits: map[keppel.RateLimitedAction]throttled.RateQuota{
+			keppel.BlobPullAction:     rateQuota,
+			keppel.BlobPushAction:     rateQuota,
+			keppel.ManifestPullAction: rateQuota,
+			keppel.ManifestPushAction: rateQuota,
 		},
-		MaxBurst: 3,
 	}
 	rls := newTestGCRAStore()
 	rle := &keppel.RateLimitEngine{Driver: rld, Store: rls}
@@ -102,7 +102,7 @@ func TestRateLimits(t *testing.T) {
 
 		//we can always execute 1 request initially, and then we can burst on top
 		//of that
-		for i := 0; i < rld.MaxBurst+1; i++ {
+		for i := 0; i < rateQuota.MaxBurst+1; i++ {
 			req.Check(t, h)
 			clock.StepBy(time.Second)
 		}
@@ -113,12 +113,12 @@ func TestRateLimits(t *testing.T) {
 		failingReq.ExpectStatus = http.StatusTooManyRequests
 		failingReq.ExpectHeader = map[string]string{
 			test.VersionHeaderKey: test.VersionHeaderValue,
-			"Retry-After":         strconv.Itoa(29 - rld.MaxBurst),
+			"Retry-After":         strconv.Itoa(29 - rateQuota.MaxBurst),
 		}
 		failingReq.Check(t, h)
 
 		//be impatient
-		clock.StepBy(time.Duration(28-rld.MaxBurst) * time.Second)
+		clock.StepBy(time.Duration(28-rateQuota.MaxBurst) * time.Second)
 		failingReq.ExpectHeader["Retry-After"] = "1"
 		failingReq.Check(t, h)
 
