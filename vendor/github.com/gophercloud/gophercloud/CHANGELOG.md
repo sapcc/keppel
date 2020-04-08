@@ -1,4 +1,100 @@
-## 0.8.0 (Unreleased)
+## 0.10.0 (Unreleased)
+
+## 0.9.0 (March 10, 2020)
+
+UPGRADE NOTES
+
+* The way we implement new API result fields added by microversions has changed. Previously, we would declare a dedicated `ExtractFoo` function in a file called `microversions.go`. Now, we are declaring those fields inline of the original result struct as a pointer. [GH-1854](https://github.com/gophercloud/gophercloud/pull/1854)
+
+* `compute/v2/servers.CreateOpts.Networks` has changed from `[]Network` to `interface{}` in order to support creating servers that have no networks. [GH-1884](https://github.com/gophercloud/gophercloud/pull/1884)
+
+IMPROVEMENTS
+
+* Added `compute/v2/extensions/instanceactions.List` [GH-1848](https://github.com/gophercloud/gophercloud/pull/1848)
+* Added `compute/v2/extensions/instanceactions.Get` [GH-1848](https://github.com/gophercloud/gophercloud/pull/1848)
+* Added `networking/v2/ports.List.FixedIPs` [GH-1849](https://github.com/gophercloud/gophercloud/pull/1849)
+* Added `identity/v3/extensions/trusts.List` [GH-1855](https://github.com/gophercloud/gophercloud/pull/1855)
+* Added `identity/v3/extensions/trusts.Get` [GH-1855](https://github.com/gophercloud/gophercloud/pull/1855)
+* Added `identity/v3/extensions/trusts.Trust.ExpiresAt` [GH-1857](https://github.com/gophercloud/gophercloud/pull/1857)
+* Added `identity/v3/extensions/trusts.Trust.DeletedAt` [GH-1857](https://github.com/gophercloud/gophercloud/pull/1857)
+* Added `compute/v2/extensions/instanceactions.InstanceActionDetail` [GH-1851](https://github.com/gophercloud/gophercloud/pull/1851)
+* Added `compute/v2/extensions/instanceactions.Event` [GH-1851](https://github.com/gophercloud/gophercloud/pull/1851)
+* Added `compute/v2/extensions/instanceactions.ListOpts` [GH-1858](https://github.com/gophercloud/gophercloud/pull/1858)
+* Added `objectstorage/v1/containers.UpdateOpts.TempURLKey` [GH-1864](https://github.com/gophercloud/gophercloud/pull/1864)
+* Added `objectstorage/v1/containers.UpdateOpts.TempURLKey2` [GH-1864](https://github.com/gophercloud/gophercloud/pull/1864)
+* Added `placement/v1/resourceproviders.GetUsages` [GH-1862](https://github.com/gophercloud/gophercloud/pull/1862)
+* Added `placement/v1/resourceproviders.GetInventories` [GH-1862](https://github.com/gophercloud/gophercloud/pull/1862)
+* Added `imageservice/v2/images.ReplaceImageMinRam` [GH-1867](https://github.com/gophercloud/gophercloud/pull/1867)
+* Added `objectstorage/v1/containers.UpdateOpts.TempURLKey` [GH-1865](https://github.com/gophercloud/gophercloud/pull/1865)
+* Added `objectstorage/v1/containers.CreateOpts.TempURLKey2` [GH-1865](https://github.com/gophercloud/gophercloud/pull/1865)
+* Added `blockstorage/extensions/volumetransfers.List` [GH-1869](https://github.com/gophercloud/gophercloud/pull/1869)
+* Added `blockstorage/extensions/volumetransfers.Create` [GH-1869](https://github.com/gophercloud/gophercloud/pull/1869)
+* Added `blockstorage/extensions/volumetransfers.Accept` [GH-1869](https://github.com/gophercloud/gophercloud/pull/1869)
+* Added `blockstorage/extensions/volumetransfers.Get` [GH-1869](https://github.com/gophercloud/gophercloud/pull/1869)
+* Added `blockstorage/extensions/volumetransfers.Delete` [GH-1869](https://github.com/gophercloud/gophercloud/pull/1869)
+* Added `blockstorage/extensions/backups.RestoreFromBackup` [GH-1871](https://github.com/gophercloud/gophercloud/pull/1871)
+* Added `blockstorage/v3/volumes.CreateOpts.BackupID` [GH-1871](https://github.com/gophercloud/gophercloud/pull/1871)
+* Added `blockstorage/v3/volumes.Volume.BackupID` [GH-1871](https://github.com/gophercloud/gophercloud/pull/1871)
+* Added `identity/v3/projects.ListOpts.Tags` [GH-1882](https://github.com/gophercloud/gophercloud/pull/1882)
+* Added `identity/v3/projects.ListOpts.TagsAny` [GH-1882](https://github.com/gophercloud/gophercloud/pull/1882)
+* Added `identity/v3/projects.ListOpts.NotTags` [GH-1882](https://github.com/gophercloud/gophercloud/pull/1882)
+* Added `identity/v3/projects.ListOpts.NotTagsAny` [GH-1882](https://github.com/gophercloud/gophercloud/pull/1882)
+* Added `identity/v3/projects.CreateOpts.Tags` [GH-1882](https://github.com/gophercloud/gophercloud/pull/1882)
+* Added `identity/v3/projects.UpdateOpts.Tags` [GH-1882](https://github.com/gophercloud/gophercloud/pull/1882)
+* Added `identity/v3/projects.Project.Tags` [GH-1882](https://github.com/gophercloud/gophercloud/pull/1882)
+* Changed `compute/v2/servers.CreateOpts.Networks` from `[]Network` to `interface{}` to support creating servers with no networks. [GH-1884](https://github.com/gophercloud/gophercloud/pull/1884)
+
+
+BUG FIXES
+
+* Added support for `int64` headers, which were previously being silently dropped [GH-1860](https://github.com/gophercloud/gophercloud/pull/1860)
+* Allow image properties with empty values [GH-1875](https://github.com/gophercloud/gophercloud/pull/1875)
+* Fixed `compute/v2/extensions/extendedserverattributes.ServerAttributesExt.Userdata` JSON tag [GH-1881](https://github.com/gophercloud/gophercloud/pull/1881)
+
+## 0.8.0 (February 8, 2020)
+
+UPGRADE NOTES
+
+* The behavior of `keymanager/v1/acls.SetOpts` has changed. Instead of a struct, it is now `[]SetOpt`. See [GH-1816](https://github.com/gophercloud/gophercloud/pull/1816) for implementation details.
+
+IMPROVEMENTS
+
+* The result of `containerinfra/v1/clusters.Resize` now returns only the UUID when calling `Extract`. This is a backwards-breaking change from the previous struct that was returned [GH-1649](https://github.com/gophercloud/gophercloud/pull/1649)
+* Added `compute/v2/extensions/shelveunshelve.Shelve` [GH-1799](https://github.com/gophercloud/gophercloud/pull/1799)
+* Added `compute/v2/extensions/shelveunshelve.ShelveOffload` [GH-1799](https://github.com/gophercloud/gophercloud/pull/1799)
+* Added `compute/v2/extensions/shelveunshelve.Unshelve` [GH-1799](https://github.com/gophercloud/gophercloud/pull/1799)
+* Added `containerinfra/v1/nodegroups.Get` [GH-1774](https://github.com/gophercloud/gophercloud/pull/1774)
+* Added `containerinfra/v1/nodegroups.List` [GH-1774](https://github.com/gophercloud/gophercloud/pull/1774)
+* Added `orchestration/v1/resourcetypes.List` [GH-1806](https://github.com/gophercloud/gophercloud/pull/1806)
+* Added `orchestration/v1/resourcetypes.GetSchema` [GH-1806](https://github.com/gophercloud/gophercloud/pull/1806)
+* Added `orchestration/v1/resourcetypes.GenerateTemplate` [GH-1806](https://github.com/gophercloud/gophercloud/pull/1806)
+* Added `keymanager/v1/acls.SetOpt` and changed `keymanager/v1/acls.SetOpts` to `[]SetOpt` [GH-1816](https://github.com/gophercloud/gophercloud/pull/1816)
+* Added `blockstorage/apiversions.List` [GH-458](https://github.com/gophercloud/gophercloud/pull/458)
+* Added `blockstorage/apiversions.Get` [GH-458](https://github.com/gophercloud/gophercloud/pull/458)
+* Added `StatusCodeError` interface and `GetStatusCode` convenience method [GH-1820](https://github.com/gophercloud/gophercloud/pull/1820)
+* Added pagination support to `compute/v2/extensions/usage.SingleTenant` [GH-1819](https://github.com/gophercloud/gophercloud/pull/1819)
+* Added pagination support to `compute/v2/extensions/usage.AllTenants` [GH-1819](https://github.com/gophercloud/gophercloud/pull/1819)
+* Added `placement/v1/resourceproviders.List` [GH-1815](https://github.com/gophercloud/gophercloud/pull/1815)
+* Allow `CreateMemberOptsBuilder` to be passed in `loadbalancer/v2/pools.Create` [GH-1822](https://github.com/gophercloud/gophercloud/pull/1822)
+* Added `Backup` to `loadbalancer/v2/pools.CreateMemberOpts` [GH-1824](https://github.com/gophercloud/gophercloud/pull/1824)
+* Added `MonitorAddress` to `loadbalancer/v2/pools.CreateMemberOpts` [GH-1824](https://github.com/gophercloud/gophercloud/pull/1824)
+* Added `MonitorPort` to `loadbalancer/v2/pools.CreateMemberOpts` [GH-1824](https://github.com/gophercloud/gophercloud/pull/1824)
+* Changed `Impersonation` to a non-required field in `identity/v3/extensions/trusts.CreateOpts` [GH-1818](https://github.com/gophercloud/gophercloud/pull/1818)
+* Added `InsertHeaders` to `loadbalancer/v2/listeners.UpdateOpts` [GH-1835]
+* Added `NUMATopology` to `baremetalintrospection/v1/introspection.Data` [GH-1842](https://github.com/gophercloud/gophercloud/pull/1842)
+* Added `placement/v1/resourceproviders.Create` [GH-1841](https://github.com/gophercloud/gophercloud/pull/1841)
+* Added `blockstorage/extensions/volumeactions.UploadImageOpts.Visibility` [GH-1873](https://github.com/gophercloud/gophercloud/pull/1873)
+* Added `blockstorage/extensions/volumeactions.UploadImageOpts.Protected` [GH-1873](https://github.com/gophercloud/gophercloud/pull/1873)
+* Added `blockstorage/extensions/volumeactions.VolumeImage.Visibility` [GH-1873](https://github.com/gophercloud/gophercloud/pull/1873)
+* Added `blockstorage/extensions/volumeactions.VolumeImage.Protected` [GH-1873](https://github.com/gophercloud/gophercloud/pull/1873)
+
+BUG FIXES
+
+* Changed `sort_key` to `sort_keys` in ` workflow/v2/crontriggers.ListOpts` [GH-1809](https://github.com/gophercloud/gophercloud/pull/1809)
+* Allow `blockstorage/extensions/schedulerstats.Capabilities.MaxOverSubscriptionRatio` to accept both string and int/float responses [GH-1817](https://github.com/gophercloud/gophercloud/pull/1817)
+* Fixed bug in `NewLoadBalancerV2` for situations when the LBaaS service was advertised without a `/v2.0` endpoint [GH-1829](https://github.com/gophercloud/gophercloud/pull/1829)
+* Fixed JSON tags in `baremetal/v1/ports.UpdateOperation` [GH-1840](https://github.com/gophercloud/gophercloud/pull/1840)
+* Fixed JSON tags in `networking/v2/extensions/lbaas/vips.commonResult.Extract()` [GH-1840](https://github.com/gophercloud/gophercloud/pull/1840)
 
 ## 0.7.0 (December 3, 2019)
 
