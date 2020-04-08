@@ -34,6 +34,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/go-redis/redis"
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/roles"
@@ -54,7 +55,7 @@ type keystoneDriver struct {
 }
 
 func init() {
-	keppel.RegisterAuthDriver("keystone", func() (keppel.AuthDriver, error) {
+	keppel.RegisterAuthDriver("keystone", func(rc *redis.Client) (keppel.AuthDriver, error) {
 		//authenticate service user
 		ao, err := clientconfig.AuthOptions(nil)
 		if err != nil {
@@ -82,6 +83,11 @@ func init() {
 		err = tv.LoadPolicyFile(mustGetenv("KEPPEL_OSLO_POLICY_PATH"))
 		if err != nil {
 			return nil, err
+		}
+		if rc == nil {
+			tv.Cacher = gopherpolicy.InMemoryCacher()
+		} else {
+			tv.Cacher = redisCacher{rc}
 		}
 
 		//resolve KEPPEL_AUTH_LOCAL_ROLE name into ID

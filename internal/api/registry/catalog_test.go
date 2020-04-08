@@ -56,7 +56,7 @@ func TestCatalogEndpoint(t *testing.T) {
 	}
 
 	//setup auth API with the regular unittest driver
-	ad, err := keppel.NewAuthDriver("unittest")
+	ad, err := keppel.NewAuthDriver("unittest", nil)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

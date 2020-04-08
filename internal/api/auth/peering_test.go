@@ -41,7 +41,7 @@ func TestPeeringAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	ad, err := keppel.NewAuthDriver("unittest")
+	ad, err := keppel.NewAuthDriver("unittest", nil)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

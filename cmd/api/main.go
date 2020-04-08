@@ -59,18 +59,18 @@ func run(cmd *cobra.Command, args []string) {
 
 	db, err := keppel.InitDB(cfg.DatabaseURL)
 	must(err)
-	ad, err := keppel.NewAuthDriver(keppel.MustGetenv("KEPPEL_DRIVER_AUTH"))
+	rc, err := initRedis()
+	must(err)
+	ad, err := keppel.NewAuthDriver(keppel.MustGetenv("KEPPEL_DRIVER_AUTH"), rc)
 	must(err)
 	ncd, err := keppel.NewNameClaimDriver(keppel.MustGetenv("KEPPEL_DRIVER_NAMECLAIM"), ad, cfg)
 	must(err)
 	sd, err := keppel.NewStorageDriver(keppel.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
 	must(err)
 
-	redisClient, err := initRedis()
-	must(err)
 	rle := (*keppel.RateLimitEngine)(nil)
-	if redisClient != nil {
-		store, err := goredisstore.New(redisClient, "keppel-")
+	if rc != nil {
+		store, err := goredisstore.New(rc, "keppel-")
 		must(err)
 		rld, err := keppel.NewRateLimitDriver(keppel.MustGetenv("KEPPEL_DRIVER_RATELIMIT"), ad, cfg)
 		must(err)

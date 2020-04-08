@@ -28,39 +28,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-redis/redis"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/keppel/internal/keppel"
 )
-
-//A dummy auth driver that always returns errors.
-type noopAuthDriver struct{}
-
-func init() {
-	keppel.RegisterAuthDriver("noop", func() (keppel.AuthDriver, error) { return &noopAuthDriver{}, nil })
-}
-
-func (*noopAuthDriver) DriverName() string {
-	return "noop"
-}
-
-func (*noopAuthDriver) ValidateTenantID(tenantID string) error {
-	return nil
-}
-
-func (*noopAuthDriver) SetupAccount(account keppel.Account, an keppel.Authorization) error {
-	return errors.New("SetupAccount not implemented for noopAuthDriver")
-}
-
-func (*noopAuthDriver) AuthenticateUser(userName, password string) (keppel.Authorization, *keppel.RegistryV2Error) {
-	return nil, keppel.ErrUnsupported.With("AuthenticateUser not implemented for noopAuthDriver")
-}
-
-func (*noopAuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Authorization, *keppel.RegistryV2Error) {
-	return nil, keppel.ErrUnsupported.With("AuthenticateUserFromRequest not implemented for noopAuthDriver")
-}
-
-////////////////////////////////////////////////////////////////////////////////
 
 //AuthDriver (driver ID "unittest") is a keppel.AuthDriver for unit tests.
 type AuthDriver struct {
@@ -73,7 +45,7 @@ type AuthDriver struct {
 }
 
 func init() {
-	keppel.RegisterAuthDriver("unittest", func() (keppel.AuthDriver, error) { return &AuthDriver{}, nil })
+	keppel.RegisterAuthDriver("unittest", func(*redis.Client) (keppel.AuthDriver, error) { return &AuthDriver{}, nil })
 }
 
 //DriverName implements the keppel.AuthDriver interface.

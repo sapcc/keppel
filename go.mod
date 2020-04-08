@@ -13,7 +13,6 @@ require (
 	github.com/gophercloud/gophercloud v0.7.0
 	github.com/gophercloud/utils v0.0.0-20200104035643-cb37ab634bff
 	github.com/gorilla/mux v1.7.3
-	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/jarcoal/httpmock v1.0.4
 	github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629 // indirect
 	github.com/majewsky/schwift v0.0.0-20200224150542-3857990bb9f7
@@ -25,7 +24,7 @@ require (
 	github.com/poy/onpar v0.0.0-20190519213022-ee068f8ea4d1 // indirect
 	github.com/prometheus/client_golang v1.4.0
 	github.com/rs/cors v1.7.0
-	github.com/sapcc/go-bits v0.0.0-20200407131426-20b41ce811de
+	github.com/sapcc/go-bits v0.0.0-20200408113334-fba3bcbf66ea
 	github.com/sapcc/hermes v0.0.0-20200113180615-22691208a86f
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v0.0.5

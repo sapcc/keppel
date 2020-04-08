@@ -37,7 +37,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 	cfg, db := test.Setup(t)
 
 	//setup an auth API on our side
-	ad, err := keppel.NewAuthDriver("unittest")
+	ad, err := keppel.NewAuthDriver("unittest", nil)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

@@ -24,6 +24,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/go-redis/redis"
 	"github.com/sapcc/go-bits/audittools"
 )
 
@@ -99,21 +100,24 @@ type AuthDriver interface {
 	AuthenticateUserFromRequest(r *http.Request) (Authorization, *RegistryV2Error)
 }
 
-var authDriverFactories = make(map[string]func() (AuthDriver, error))
+var authDriverFactories = make(map[string]func(*redis.Client) (AuthDriver, error))
 
 //NewAuthDriver creates a new AuthDriver using one of the factory functions
 //registered with RegisterAuthDriver().
-func NewAuthDriver(name string) (AuthDriver, error) {
+func NewAuthDriver(name string, rc *redis.Client) (AuthDriver, error) {
 	factory := authDriverFactories[name]
 	if factory != nil {
-		return factory()
+		return factory(rc)
 	}
 	return nil, errors.New("no such auth driver: " + name)
 }
 
 //RegisterAuthDriver registers an AuthDriver. Call this from func init() of the
 //package defining the AuthDriver.
-func RegisterAuthDriver(name string, factory func() (AuthDriver, error)) {
+//
+//Warning: The *redis.Client argument of the factory function is optional! Only
+//use it for caching authorizations if it is non-nil.
+func RegisterAuthDriver(name string, factory func(*redis.Client) (AuthDriver, error)) {
 	if _, exists := authDriverFactories[name]; exists {
 		panic("attempted to register multiple auth drivers with name = " + name)
 	}

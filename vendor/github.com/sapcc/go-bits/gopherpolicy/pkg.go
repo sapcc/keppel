@@ -26,6 +26,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	policy "github.com/databus23/goslo.policy"
 	"github.com/gophercloud/gophercloud"
@@ -43,12 +44,24 @@ type Validator interface {
 	CheckToken(r *http.Request) *Token
 }
 
+//Cacher is the generic interface for a token cache.
+type Cacher interface {
+	//StoreTokenPayload attempts to store the given token payload in the cache.
+	StoreTokenPayload(token string, payload []byte)
+	//LoadTokenPayload attempts to retrieve the payload for the given token from
+	//the cache. If there nothing cached for this token, or if the retrieval
+	//fails, nil shall be returned.
+	LoadTokenPayload(token string) []byte
+}
+
 //TokenValidator combines an Identity v3 client to validate tokens (AuthN), and
 //a policy.Enforcer to check access permissions (AuthZ).
 type TokenValidator struct {
 	IdentityV3 *gophercloud.ServiceClient
 	//Enforcer can also be initialized with the LoadPolicyFile method.
 	Enforcer Enforcer
+	//Cacher can be used to cache validated tokens.
+	Cacher Cacher
 }
 
 //LoadPolicyFile creates v.Enforcer from the given policy file.
@@ -70,18 +83,44 @@ func (v *TokenValidator) LoadPolicyFile(path string) error {
 //returns a Token instance for checking authorization. Any errors that occur
 //during this function are deferred until Require() is called.
 func (v *TokenValidator) CheckToken(r *http.Request) *Token {
-	str := r.Header.Get("X-Auth-Token")
-	if str == "" {
+	tokenStr := r.Header.Get("X-Auth-Token")
+	if tokenStr == "" {
 		return &Token{Err: errors.New("X-Auth-Token header missing")}
 	}
 
-	response := tokens.Get(v.IdentityV3, str)
+	//prefer cached token payload over actually talking to Keystone (but fallback
+	//to Keystone if the token payload deserialization fails)
+	if v.Cacher != nil {
+		payload := v.Cacher.LoadTokenPayload(tokenStr)
+		if payload != nil {
+			var s serializableToken
+			err := json.Unmarshal(payload, &s)
+			if err == nil && s.Token.ExpiresAt.After(time.Now()) {
+				t := v.TokenFromGophercloudResult(s)
+				if t.Err == nil {
+					return t
+				}
+			}
+		}
+	}
+
+	response := tokens.Get(v.IdentityV3, tokenStr)
 	if response.Err != nil {
 		//this includes 4xx responses, so after this point, we can be sure that the token is valid
 		return &Token{Err: response.Err}
 	}
 
-	return v.TokenFromGophercloudResult(response)
+	t := v.TokenFromGophercloudResult(response)
+
+	//cache token payload if valid
+	if t.Err == nil && v.Cacher != nil {
+		payload, err := json.Marshal(t.serializable)
+		if err == nil {
+			v.Cacher.StoreTokenPayload(tokenStr, payload)
+		}
+	}
+
+	return t
 }
 
 //TokenFromGophercloudResult creates a Token instance from a gophercloud Result
@@ -115,6 +154,11 @@ func (v *TokenValidator) TokenFromGophercloudResult(result TokenResult) *Token {
 			EndpointLocator: func(opts gophercloud.EndpointOpts) (string, error) {
 				return openstack.V3EndpointURL(catalog, opts)
 			},
+		},
+		serializable: serializableToken{
+			Token:          *token,
+			TokenData:      tokenData,
+			ServiceCatalog: catalog.Entries,
 		},
 	}
 }

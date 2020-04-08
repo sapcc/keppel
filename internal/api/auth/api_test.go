@@ -421,7 +421,7 @@ func setup(t *testing.T) (http.Handler, *test.AuthDriver, *keppel.DB) {
 		t.Fatal(err.Error())
 	}
 
-	adGeneric, err := keppel.NewAuthDriver("unittest")
+	adGeneric, err := keppel.NewAuthDriver("unittest", nil)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

@@ -44,7 +44,7 @@ var (
 func setup(t *testing.T) (*Janitor, keppel.Configuration, *keppel.DB, keppel.StorageDriver, *test.Clock, http.Handler) {
 	cfg, db := test.Setup(t)
 
-	ad, err := keppel.NewAuthDriver("unittest")
+	ad, err := keppel.NewAuthDriver("unittest", nil)
 	must(t, err)
 	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, cfg)
 	must(t, err)
@@ -67,7 +67,7 @@ func setup(t *testing.T) (*Janitor, keppel.Configuration, *keppel.DB, keppel.Sto
 func setupReplica(t *testing.T, db1 *keppel.DB, h1 http.Handler, clock *test.Clock) (*Janitor, keppel.Configuration, *keppel.DB, keppel.StorageDriver, http.Handler) {
 	cfg2, db2 := test.SetupSecondary(t)
 
-	ad2, err := keppel.NewAuthDriver("unittest")
+	ad2, err := keppel.NewAuthDriver("unittest", nil)
 	must(t, err)
 	sd2, err := keppel.NewStorageDriver("in-memory-for-testing", ad2, cfg2)
 	must(t, err)

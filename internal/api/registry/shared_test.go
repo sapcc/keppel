@@ -63,7 +63,7 @@ func setup(t *testing.T, rle *keppel.RateLimitEngine) (http.Handler, keppel.Conf
 	}
 
 	//setup a fleet of drivers
-	ad, err := keppel.NewAuthDriver("unittest")
+	ad, err := keppel.NewAuthDriver("unittest", nil)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -136,7 +136,7 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 	}
 
 	//setup a fleet of drivers for keppel-secondary
-	ad2, err := keppel.NewAuthDriver("unittest")
+	ad2, err := keppel.NewAuthDriver("unittest", nil)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

@@ -53,7 +53,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	db, err := keppel.InitDB(cfg.DatabaseURL)
 	must(err)
-	ad, err := keppel.NewAuthDriver(keppel.MustGetenv("KEPPEL_DRIVER_AUTH"))
+	ad, err := keppel.NewAuthDriver(keppel.MustGetenv("KEPPEL_DRIVER_AUTH"), nil)
 	must(err)
 	sd, err := keppel.NewStorageDriver(keppel.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
 	must(err)

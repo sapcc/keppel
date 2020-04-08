@@ -20,10 +20,12 @@
 package gopherpolicy
 
 import (
+	"fmt"
 	"net/http"
 
 	policy "github.com/databus23/goslo.policy"
 	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
 )
 
 //Enforcer contains the Enforce method that struct Token requires to check
@@ -48,6 +50,10 @@ type Token struct {
 	ProviderClient *gophercloud.ProviderClient
 	//When AuthN fails, contains the deferred AuthN error.
 	Err error
+
+	//When AuthN succeeds, contains all the information needed to serialize this
+	//token in SerializeTokenForCache.
+	serializable serializableToken
 }
 
 //Require checks if the given token has the given permission according to the
@@ -104,27 +110,33 @@ func (t *Token) DomainScopeUUID() string {
 	return t.Context.Auth["domain_id"]
 }
 
-func extractErrorMessage(err error) string {
-	switch e := err.(type) {
-	case gophercloud.ErrUnexpectedResponseCode:
-		return e.Error()
-	case gophercloud.ErrDefault401:
-		return e.ErrUnexpectedResponseCode.Error()
-	case gophercloud.ErrDefault403:
-		return e.ErrUnexpectedResponseCode.Error()
-	case gophercloud.ErrDefault404:
-		return e.ErrUnexpectedResponseCode.Error()
-	case gophercloud.ErrDefault405:
-		return e.ErrUnexpectedResponseCode.Error()
-	case gophercloud.ErrDefault408:
-		return e.ErrUnexpectedResponseCode.Error()
-	case gophercloud.ErrDefault429:
-		return e.ErrUnexpectedResponseCode.Error()
-	case gophercloud.ErrDefault500:
-		return e.ErrUnexpectedResponseCode.Error()
-	case gophercloud.ErrDefault503:
-		return e.ErrUnexpectedResponseCode.Error()
-	default:
-		return err.Error()
+////////////////////////////////////////////////////////////////////////////////
+// type serializableToken
+
+type serializableToken struct {
+	Token          tokens.Token          `json:"token_id"`
+	TokenData      keystoneToken         `json:"token_data"`
+	ServiceCatalog []tokens.CatalogEntry `json:"catalog"`
+}
+
+//ExtractInto implements the TokenResult interface.
+func (s serializableToken) ExtractInto(value interface{}) error {
+	//TokenResult.ExtractInto is only ever called with a value of type
+	//*keystoneToken, so this is okay
+	kd, ok := value.(*keystoneToken)
+	if !ok {
+		return fmt.Errorf("serializableToken.ExtractInto called with unsupported target type %T", value)
 	}
+	*kd = s.TokenData
+	return nil
+}
+
+//Extract implements the TokenResult interface.
+func (s serializableToken) Extract() (*tokens.Token, error) {
+	return &s.Token, nil
+}
+
+//ExtractServiceCatalog implements the TokenResult interface.
+func (s serializableToken) ExtractServiceCatalog() (*tokens.ServiceCatalog, error) {
+	return &tokens.ServiceCatalog{Entries: s.ServiceCatalog}, nil
 }
