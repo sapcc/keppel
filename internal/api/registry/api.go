@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -260,9 +261,16 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	return account, repo, token
 }
 
-func (a *API) checkRateLimit(w http.ResponseWriter, account keppel.Account, action keppel.RateLimitedAction) bool {
+func (a *API) checkRateLimit(w http.ResponseWriter, account keppel.Account, token *auth.Token, action keppel.RateLimitedAction) bool {
 	//rate-limiting is optional
 	if a.rle == nil {
+		return true
+	}
+
+	//cluster-internal traffic is exempt from rate-limits (if the request is
+	//caused by a user API request, the rate-limit has been checked already
+	//before the cluster-internal request was sent)
+	if strings.HasPrefix(token.UserName, "replication@") {
 		return true
 	}
 

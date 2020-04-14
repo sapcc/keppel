@@ -38,11 +38,11 @@ import (
 //This implements the HEAD/GET /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
-	account, repo, _ := a.checkAccountAccess(w, r, createRepoIfMissingAndReplica)
+	account, repo, token := a.checkAccountAccess(w, r, createRepoIfMissingAndReplica)
 	if account == nil {
 		return
 	}
-	if !a.checkRateLimit(w, *account, keppel.ManifestPullAction) {
+	if !a.checkRateLimit(w, *account, token, keppel.ManifestPullAction) {
 		return
 	}
 
@@ -193,11 +193,11 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 //This implements the PUT /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
-	account, repo, _ := a.checkAccountAccess(w, r, createRepoIfMissing)
+	account, repo, token := a.checkAccountAccess(w, r, createRepoIfMissing)
 	if account == nil {
 		return
 	}
-	if !a.checkRateLimit(w, *account, keppel.ManifestPushAction) {
+	if !a.checkRateLimit(w, *account, token, keppel.ManifestPushAction) {
 		return
 	}
 

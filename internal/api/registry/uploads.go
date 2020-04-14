@@ -47,11 +47,11 @@ import (
 //This implements the POST /v2/<account>/<repository>/blobs/uploads/ endpoint.
 func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/")
-	account, repo, _ := a.checkAccountAccess(w, r, createRepoIfMissing)
+	account, repo, token := a.checkAccountAccess(w, r, createRepoIfMissing)
 	if account == nil {
 		return
 	}
-	if !a.checkRateLimit(w, *account, keppel.BlobPushAction) {
+	if !a.checkRateLimit(w, *account, token, keppel.BlobPushAction) {
 		return
 	}
 
