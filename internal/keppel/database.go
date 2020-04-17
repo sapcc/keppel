@@ -254,6 +254,12 @@ var sqlMigrations = map[string]string{
 	"010_add_account_metadata.down.sql": `
 		ALTER TABLE accounts DROP COLUMN metadata_json;
 	`,
+	"011_add_account_announced_to_federation_at.up.sql": `
+		ALTER TABLE accounts ADD COLUMN announced_to_federation_at TIMESTAMPTZ DEFAULT NULL;
+	`,
+	"011_add_account_announced_to_federation_at.down.sql": `
+		ALTER TABLE accounts DROP COLUMN announced_to_federation_at;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

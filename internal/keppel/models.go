@@ -43,8 +43,9 @@ type Account struct {
 	//MetadataJSON contains a JSON string of a map[string]string, or the empty string.
 	MetadataJSON string `db:"metadata_json"`
 
-	BlobsSweepedAt   *time.Time `db:"blobs_sweeped_at"`   //see tasks.SweepBlobsInNextAccount
-	StorageSweepedAt *time.Time `db:"storage_sweeped_at"` //see tasks.SweepStorageInNextAccount
+	BlobsSweepedAt          *time.Time `db:"blobs_sweeped_at"`           //see tasks.SweepBlobsInNextAccount
+	StorageSweepedAt        *time.Time `db:"storage_sweeped_at"`         //see tasks.SweepStorageInNextAccount
+	AnnouncedToFederationAt *time.Time `db:"announced_to_federation_at"` //see tasks.AnnounceNextAccountToFederation
 }
 
 //SwiftContainerName returns the name of the Swift container backing this

@@ -31,7 +31,7 @@ import (
 )
 
 func TestSweepBlobs(t *testing.T) {
-	j, _, db, sd, clock, _ := setup(t)
+	j, _, db, _, sd, clock, _ := setup(t)
 	clock.StepBy(1 * time.Hour)
 
 	//insert some blobs into the DB
@@ -79,7 +79,7 @@ func TestSweepBlobs(t *testing.T) {
 }
 
 func TestValidateBlobs(t *testing.T) {
-	j, _, db, sd, clock, _ := setup(t)
+	j, _, db, _, sd, clock, _ := setup(t)
 	clock.StepBy(1 * time.Hour)
 
 	//upload some blobs (we need to step the clock after each upload to ensure

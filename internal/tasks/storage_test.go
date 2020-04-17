@@ -76,7 +76,7 @@ func setupStorageSweepTest(t *testing.T, j *Janitor, db *keppel.DB, sd keppel.St
 }
 
 func TestSweepStorageBlobs(t *testing.T) {
-	j, _, db, sd, clock, _ := setup(t)
+	j, _, db, _, sd, clock, _ := setup(t)
 	clock.StepBy(1 * time.Hour)
 	_, healthyBlobs, healthyManifests := setupStorageSweepTest(t, j, db, sd, clock)
 
@@ -163,7 +163,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 }
 
 func TestSweepStorageManifests(t *testing.T) {
-	j, _, db, sd, clock, _ := setup(t)
+	j, _, db, _, sd, clock, _ := setup(t)
 	clock.StepBy(1 * time.Hour)
 	images, healthyBlobs, healthyManifests := setupStorageSweepTest(t, j, db, sd, clock)
 

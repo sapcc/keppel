@@ -82,7 +82,7 @@ func TestDeleteAbandonedUploadWithManyChunks(t *testing.T) {
 }
 
 func testDeleteUpload(t *testing.T, setupUploadObject func(keppel.StorageDriver, keppel.Account) keppel.Upload) {
-	j, _, db, sd, clock, _ := setup(t)
+	j, _, db, _, sd, clock, _ := setup(t)
 	account := keppel.Account{Name: "test1"}
 
 	//right now, there are no upload objects, so DeleteNextAbandonedUpload should indicate that

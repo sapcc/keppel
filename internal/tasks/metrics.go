@@ -21,6 +21,14 @@ package tasks
 import "github.com/prometheus/client_golang/prometheus"
 
 var (
+	announceAccountToFederationSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "keppel_successful_account_federation_announcements",
+		Help: "Counter for successful announcements of existing accounts to the federation driver.",
+	})
+	announceAccountToFederationFailedCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "keppel_failed_account_federation_announcements",
+		Help: "Counter for failed announcements of existing accounts to the federation driver.",
+	})
 	cleanupAbandonedUploadSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "keppel_successful_abandoned_upload_cleanups",
 		Help: "Counter for successful cleanup of abandoned uploads.",
@@ -84,6 +92,8 @@ var (
 func (j *Janitor) initializeCounters() {
 	if !metricsRegistered {
 		metricsRegistered = true
+		prometheus.MustRegister(announceAccountToFederationSuccessCounter)
+		prometheus.MustRegister(announceAccountToFederationFailedCounter)
 		prometheus.MustRegister(cleanupAbandonedUploadSuccessCounter)
 		prometheus.MustRegister(cleanupAbandonedUploadFailedCounter)
 		prometheus.MustRegister(sweepBlobMountsSuccessCounter)
@@ -101,6 +111,8 @@ func (j *Janitor) initializeCounters() {
 	}
 
 	//add 0 to all counters to ensure that the relevant timeseries exist
+	announceAccountToFederationSuccessCounter.Add(0)
+	announceAccountToFederationFailedCounter.Add(0)
 	cleanupAbandonedUploadSuccessCounter.Add(0)
 	cleanupAbandonedUploadFailedCounter.Add(0)
 	sweepBlobMountsSuccessCounter.Add(0)

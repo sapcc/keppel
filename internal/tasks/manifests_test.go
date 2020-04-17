@@ -36,7 +36,7 @@ import (
 //Base behavior for various unit tests that start with the same image list, destroy
 //it in various ways, and check that ValidateNextManifest correctly fixes it.
 func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel.DB, []int64, []string)) {
-	j, _, db, sd, clock, _ := setup(t)
+	j, _, db, _, sd, clock, _ := setup(t)
 	clock.StepBy(1 * time.Hour)
 
 	var (
@@ -140,7 +140,7 @@ func TestValidateNextManifestFixesSuperfluousManifestManifestRefs(t *testing.T) 
 }
 
 func TestValidateNextManifestError(t *testing.T) {
-	j, _, db, sd, clock, _ := setup(t)
+	j, _, db, _, sd, clock, _ := setup(t)
 
 	//setup a manifest that is missing a referenced blob
 	clock.StepBy(1 * time.Hour)
@@ -172,7 +172,7 @@ func TestValidateNextManifestError(t *testing.T) {
 // tests for SyncManifestsInNextRepo
 
 func TestSyncManifestsInNextRepo(t *testing.T) {
-	j1, _, db1, sd1, clock, h1 := setup(t)
+	j1, _, db1, _, sd1, clock, h1 := setup(t)
 	j2, _, db2, sd2, _ := setupReplica(t, db1, h1, clock)
 	clock.StepBy(1 * time.Hour)
 

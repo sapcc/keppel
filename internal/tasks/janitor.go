@@ -28,6 +28,7 @@ import (
 //Janitor contains the toolbox of the keppel-janitor process.
 type Janitor struct {
 	cfg keppel.Configuration
+	fd  keppel.FederationDriver
 	sd  keppel.StorageDriver
 	db  *keppel.DB
 
@@ -37,8 +38,8 @@ type Janitor struct {
 }
 
 //NewJanitor creates a new Janitor.
-func NewJanitor(cfg keppel.Configuration, sd keppel.StorageDriver, db *keppel.DB) *Janitor {
-	j := &Janitor{cfg, sd, db, time.Now, keppel.GenerateStorageID}
+func NewJanitor(cfg keppel.Configuration, fd keppel.FederationDriver, sd keppel.StorageDriver, db *keppel.DB) *Janitor {
+	j := &Janitor{cfg, fd, sd, db, time.Now, keppel.GenerateStorageID}
 	j.initializeCounters()
 	return j
 }

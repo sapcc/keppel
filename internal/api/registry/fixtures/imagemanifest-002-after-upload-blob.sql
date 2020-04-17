@@ -1,4 +1,4 @@
-INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, required_labels, blobs_sweeped_at, storage_sweeped_at, metadata_json) VALUES ('test1', 'test1authtenant', '', '', NULL, NULL, '');
+INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, required_labels, blobs_sweeped_at, storage_sweeped_at, metadata_json, announced_to_federation_at) VALUES ('test1', 'test1authtenant', '', '', NULL, NULL, '', NULL);
 
 INSERT INTO blob_mounts (blob_id, repo_id, marked_for_deletion_at) VALUES (1, 1, NULL);
 INSERT INTO blob_mounts (blob_id, repo_id, marked_for_deletion_at) VALUES (1, 2, NULL);

@@ -55,13 +55,16 @@ func run(cmd *cobra.Command, args []string) {
 	must(err)
 	ad, err := keppel.NewAuthDriver(keppel.MustGetenv("KEPPEL_DRIVER_AUTH"), nil)
 	must(err)
+	fd, err := keppel.NewFederationDriver(keppel.MustGetenv("KEPPEL_DRIVER_FEDERATION"), ad, cfg)
+	must(err)
 	sd, err := keppel.NewStorageDriver(keppel.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
 	must(err)
 
 	ctx := httpee.ContextWithSIGINT(context.Background())
 
 	//start task loops
-	janitor := tasks.NewJanitor(cfg, sd, db)
+	janitor := tasks.NewJanitor(cfg, fd, sd, db)
+	go jobLoop(janitor.AnnounceNextAccountToFederation)
 	go jobLoop(janitor.DeleteNextAbandonedUpload)
 	go jobLoop(janitor.SweepBlobMountsInNextRepo)
 	go jobLoop(janitor.SweepBlobsInNextAccount)
