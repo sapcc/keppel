@@ -362,16 +362,25 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 
 	//create account if required
 	if account == nil {
+		//sublease tokens are only relevant when creating replica accounts
+		subleaseToken := ""
+		if accountToCreate.UpstreamPeerHostName != "" {
+			subleaseToken = r.Header.Get("X-Keppel-Sublease-Token")
+		}
+
 		//check permission to claim account name (this only happens here because
 		//it's only relevant for account creations, not for updates)
-		claim := keppel.NameClaim{
-			AccountName:   accountName,
-			AuthTenantID:  req.Account.AuthTenantID,
-			Authorization: authz,
-		}
-		err := a.ncDriver.Check(claim)
-		if err != nil {
+		claimResult, err := a.fd.ClaimAccountName(accountToCreate, authz, subleaseToken)
+		switch claimResult {
+		case keppel.ClaimSucceeded:
+			//nothing to do
+		case keppel.ClaimFailed:
+			//user error
 			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		case keppel.ClaimErrored:
+			//server error
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -389,10 +398,6 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 
 		//before committing this, add the required role assignments
 		err = a.authDriver.SetupAccount(*account, authz)
-		if respondwith.ErrorText(w, err) {
-			return
-		}
-		err = a.ncDriver.Commit(claim)
 		if respondwith.ErrorText(w, err) {
 			return
 		}

@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/domains"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/projects"
@@ -34,18 +35,18 @@ type nameClaimWhitelistEntry struct {
 	AccountName *regexp.Regexp
 }
 
-type nameClaimDriverBasic struct {
+type federationDriverBasic struct {
 	AuthDriver *keystoneDriver
 	Whitelist  []nameClaimWhitelistEntry
 }
 
 func init() {
-	keppel.RegisterNameClaimDriver("openstack-basic", func(ad keppel.AuthDriver, _ keppel.Configuration) (keppel.NameClaimDriver, error) {
+	keppel.RegisterFederationDriver("openstack-basic", func(ad keppel.AuthDriver, _ keppel.Configuration) (keppel.FederationDriver, error) {
 		k, ok := ad.(*keystoneDriver)
 		if !ok {
 			return nil, keppel.ErrAuthDriverMismatch
 		}
-		result := &nameClaimDriverBasic{AuthDriver: k}
+		result := &federationDriverBasic{AuthDriver: k}
 
 		wlStr := strings.TrimSuffix(mustGetenv("KEPPEL_NAMECLAIM_WHITELIST"), ",")
 		for _, wlEntryStr := range strings.Split(wlStr, ",") {
@@ -72,32 +73,42 @@ func init() {
 	})
 }
 
-//Check implements the keppel.NameClaimDriver interface.
-func (d *nameClaimDriverBasic) Check(claim keppel.NameClaim) error {
-	project, err := projects.Get(d.AuthDriver.IdentityV3, claim.AuthTenantID).Extract()
+//ClaimAccountName implements the keppel.FederationDriver interface.
+func (d *federationDriverBasic) ClaimAccountName(account keppel.Account, authz keppel.Authorization, subleaseToken string) (keppel.ClaimResult, error) {
+	project, err := projects.Get(d.AuthDriver.IdentityV3, account.AuthTenantID).Extract()
 	if err != nil {
-		return err
+		return keppel.ClaimErrored, err
 	}
 	domain, err := domains.Get(d.AuthDriver.IdentityV3, project.DomainID).Extract()
 	if err != nil {
-		return err
+		return keppel.ClaimErrored, err
 	}
 	projectName := fmt.Sprintf("%s@%s", project.Name, domain.Name)
 
 	for _, entry := range d.Whitelist {
 		projectMatches := entry.ProjectName.MatchString(projectName)
-		accountMatches := entry.AccountName.MatchString(claim.AccountName)
+		accountMatches := entry.AccountName.MatchString(account.Name)
 		if projectMatches && accountMatches {
-			return nil
+			return keppel.ClaimSucceeded, nil
 		}
 	}
 
-	return fmt.Errorf(`account name "%s" is not whitelisted for project "%s"`,
-		claim.AccountName, projectName,
+	return keppel.ClaimFailed, fmt.Errorf(`account name "%s" is not whitelisted for project "%s"`,
+		account.Name, projectName,
 	)
 }
 
-//Commit implements the keppel.NameClaimDriver interface.
-func (d *nameClaimDriverBasic) Commit(claim keppel.NameClaim) error {
-	return d.Check(claim)
+//IssueSubleaseToken implements the keppel.FederationDriver interface.
+func (d *federationDriverBasic) IssueSubleaseToken(account keppel.Account) (string, error) {
+	return "", nil
+}
+
+//ForfeitAccountName implements the keppel.FederationDriver interface.
+func (d *federationDriverBasic) ForfeitAccountName(account keppel.Account) error {
+	return nil
+}
+
+//RecordExistingAccount implements the keppel.FederationDriver interface.
+func (d *federationDriverBasic) RecordExistingAccount(account keppel.Account, now time.Time) error {
+	return nil
 }

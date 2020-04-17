@@ -1,6 +1,6 @@
-# Name claim driver: `openstack-basic`
+# Federation driver: `openstack-basic`
 
-A simple name claim driver for use with the [`keystone` auth driver](./auth-keystone.md). Claims are checked against a
+A simple federation driver for use with the [`keystone` auth driver](./auth-keystone.md). Claims are checked against a
 hardcoded whitelist. This driver is OpenStack-specific since it translates auth tenant IDs (i.e., project IDs) into
 project names before checking.
 

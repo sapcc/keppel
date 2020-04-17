@@ -63,7 +63,7 @@ func run(cmd *cobra.Command, args []string) {
 	must(err)
 	ad, err := keppel.NewAuthDriver(keppel.MustGetenv("KEPPEL_DRIVER_AUTH"), rc)
 	must(err)
-	ncd, err := keppel.NewNameClaimDriver(keppel.MustGetenv("KEPPEL_DRIVER_NAMECLAIM"), ad, cfg)
+	fd, err := keppel.NewFederationDriver(keppel.MustGetenv("KEPPEL_DRIVER_FEDERATION"), ad, cfg)
 	must(err)
 	sd, err := keppel.NewStorageDriver(keppel.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
 	must(err)
@@ -83,7 +83,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	//wire up HTTP handlers
 	handler := api.Compose(
-		keppelv1.NewAPI(cfg, ad, ncd, sd, db, auditor),
+		keppelv1.NewAPI(cfg, ad, fd, sd, db, auditor),
 		auth.NewAPI(cfg, ad, db),
 		registryv2.NewAPI(cfg, sd, db, rle),
 	)

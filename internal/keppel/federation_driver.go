@@ -1,0 +1,106 @@
+/******************************************************************************
+*
+*  Copyright 2020 SAP SE
+*
+*  Licensed under the Apache License, Version 2.0 (the "License");
+*  you may not use this file except in compliance with the License.
+*  You may obtain a copy of the License at
+*
+*      http://www.apache.org/licenses/LICENSE-2.0
+*
+*  Unless required by applicable law or agreed to in writing, software
+*  distributed under the License is distributed on an "AS IS" BASIS,
+*  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+*  See the License for the specific language governing permissions and
+*  limitations under the License.
+*
+******************************************************************************/
+
+package keppel
+
+import (
+	"errors"
+	"time"
+)
+
+//ClaimResult is an enum returned by FederationDriver.ClaimAccountName().
+type ClaimResult int
+
+const (
+	//ClaimSucceeded indicates that ClaimAccountName() returned with a nil error.
+	ClaimSucceeded ClaimResult = iota
+	//ClaimFailed indicates that ClaimAccountName() returned with an error
+	//because the user did not have permission to claim the account in question.
+	ClaimFailed
+	//ClaimErrored indicates that ClaimAccountName() returned with an error
+	//because of an unexpected problem on the server side.
+	ClaimErrored
+)
+
+//FederationDriver is the abstract interface for a strategy that coordinates
+//the claiming of account names across Keppel deployments.
+type FederationDriver interface {
+	//ClaimAccountName is called when creating a new account, and returns nil if
+	//and only if this Keppel is allowed to use `account.Name` for the given new
+	//`account`. Besides the fields of `account`, the implementation may inspect
+	//`authz`, the keppel.Authorization for the user requesting the claim.
+	//
+	//For some drivers, creating a replica account requires confirmation from the
+	//Keppel hosting the primary account. This is done by issuing a sublease
+	//token on the primary account using IssueSubleaseToken(), then presenting
+	//this `subleaseToken` to this method.
+	//
+	//The implementation MUST be idempotent. If a call returned nil, a subsequent
+	//call with the same `account` must also return nil unless
+	//ForfeitAccountName() was called inbetween.
+	ClaimAccountName(account Account, authz Authorization, subleaseToken string) (ClaimResult, error)
+
+	//IssueSubleaseToken may only be called on existing primary accounts, not on
+	//replica accounts. It generates a secret one-time token that other Keppels
+	//can use to verify that the caller is allowed to create a replica account
+	//for this primary account.
+	//
+	//Sublease tokens are optional. If ClaimAccountName does not inspect its
+	//`subleaseToken` parameter, this method shall return ("", nil).
+	IssueSubleaseToken(account Account) (string, error)
+
+	//ForfeitAccountName is the inverse operation of ClaimAccountName. It is used
+	//when deleting an account and releases this Keppel's claim on the account
+	//name.
+	ForfeitAccountName(account Account) error
+
+	//RecordExistingAccount is called regularly for each account in our database.
+	//The driver implementation can use this call to ensure that the existence of
+	//this account is tracked in its storage. (We don't expect this to require
+	//any actual work during normal operation. The purpose of this mechanism is
+	//to aid in switching between federation drivers.)
+	//
+	//The `now` argument contains the value of time.Now(). It may refer to an
+	//artificial wall clock during unit tests.
+	RecordExistingAccount(account Account, now time.Time) error
+}
+
+var federationDriverFactories = make(map[string]func(AuthDriver, Configuration) (FederationDriver, error))
+
+//NewFederationDriver creates a new FederationDriver using one of the factory
+//functions registered with RegisterFederationDriver().
+func NewFederationDriver(name string, ad AuthDriver, cfg Configuration) (FederationDriver, error) {
+	factory := federationDriverFactories[name]
+	if factory != nil {
+		return factory(ad, cfg)
+	}
+	return nil, errors.New("no such federation driver: " + name)
+}
+
+//RegisterFederationDriver registers an FederationDriver. Call this from func
+//init() of the package defining the FederationDriver.
+//
+//Factory implementations should inspect the auth driver to ensure that the
+//federation driver can work with this authentication method, returning
+//ErrAuthDriverMismatch otherwise.
+func RegisterFederationDriver(name string, factory func(AuthDriver, Configuration) (FederationDriver, error)) {
+	if _, exists := federationDriverFactories[name]; exists {
+		panic("attempted to register multiple federation drivers with name = " + name)
+	}
+	federationDriverFactories[name] = factory
+}

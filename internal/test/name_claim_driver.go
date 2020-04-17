@@ -20,34 +20,56 @@ package test
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//NameClaimDriver (driver ID "unittest") is a keppel.NameClaimDriver for unit tests.
-type NameClaimDriver struct {
-	CheckFails  bool
-	CommitFails bool
+//FederationDriver (driver ID "unittest") is a keppel.FederationDriver for unit tests.
+type FederationDriver struct {
+	ClaimFailsBecauseOfUserError   bool
+	ClaimFailsBecauseOfServerError bool
+	RecordedAccounts               []AccountRecordedByFederationDriver
+}
+
+//AccountRecordedByFederationDriver appears in type FederationDriver.
+type AccountRecordedByFederationDriver struct {
+	Account    keppel.Account
+	RecordedAt time.Time
 }
 
 func init() {
-	keppel.RegisterNameClaimDriver("unittest", func(_ keppel.AuthDriver, _ keppel.Configuration) (keppel.NameClaimDriver, error) {
-		return &NameClaimDriver{}, nil
+	keppel.RegisterFederationDriver("unittest", func(_ keppel.AuthDriver, _ keppel.Configuration) (keppel.FederationDriver, error) {
+		return &FederationDriver{}, nil
 	})
 }
 
-//Check implements the keppel.NameClaimDriver interface.
-func (d *NameClaimDriver) Check(claim keppel.NameClaim) error {
-	if d.CheckFails {
-		return fmt.Errorf("cannot assign name %q to auth tenant %q", claim.AccountName, claim.AuthTenantID)
+//ClaimAccountName implements the keppel.FederationDriver interface.
+func (d *FederationDriver) ClaimAccountName(account keppel.Account, authz keppel.Authorization, subleaseToken string) (keppel.ClaimResult, error) {
+	if d.ClaimFailsBecauseOfUserError {
+		return keppel.ClaimFailed, fmt.Errorf("cannot assign name %q to auth tenant %q", account.Name, account.AuthTenantID)
 	}
+	if d.ClaimFailsBecauseOfServerError {
+		return keppel.ClaimErrored, fmt.Errorf("failed to assign name %q to auth tenant %q", account.Name, account.AuthTenantID)
+	}
+	return keppel.ClaimSucceeded, nil
+}
+
+//IssueSubleaseToken implements the keppel.FederationDriver interface.
+func (d *FederationDriver) IssueSubleaseToken(account keppel.Account) (string, error) {
+	return "", nil
+}
+
+//ForfeitAccountName implements the keppel.FederationDriver interface.
+func (d *FederationDriver) ForfeitAccountName(account keppel.Account) error {
 	return nil
 }
 
-//Commit implements the keppel.NameClaimDriver interface.
-func (d *NameClaimDriver) Commit(claim keppel.NameClaim) error {
-	if d.CommitFails {
-		return fmt.Errorf("failed to assign name %q to auth tenant %q", claim.AccountName, claim.AuthTenantID)
-	}
+//RecordExistingAccount implements the keppel.FederationDriver interface.
+func (d *FederationDriver) RecordExistingAccount(account keppel.Account, now time.Time) error {
+	d.RecordedAccounts = append(d.RecordedAccounts, AccountRecordedByFederationDriver{
+		Account:    account,
+		RecordedAt: now,
+	})
 	return nil
 }

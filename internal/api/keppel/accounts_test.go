@@ -90,14 +90,14 @@ func toJSON(x interface{}) string {
 ////////////////////////////////////////////////////////////////////////////////
 // tests
 
-func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.NameClaimDriver, *testAuditor, keppel.StorageDriver, *keppel.DB) {
+func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.FederationDriver, *testAuditor, keppel.StorageDriver, *keppel.DB) {
 	cfg, db := test.Setup(t)
 
 	ad, err := keppel.NewAuthDriver("unittest", nil)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	ncd, err := keppel.NewNameClaimDriver("unittest", ad, cfg)
+	fd, err := keppel.NewFederationDriver("unittest", ad, cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -107,9 +107,9 @@ func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.NameClaimDriver,
 	}
 
 	auditor := &testAuditor{}
-	h := api.Compose(NewAPI(cfg, ad, ncd, sd, db, auditor))
+	h := api.Compose(NewAPI(cfg, ad, fd, sd, db, auditor))
 
-	return h, ad.(*test.AuthDriver), ncd.(*test.NameClaimDriver), auditor, sd, db
+	return h, ad.(*test.AuthDriver), fd.(*test.FederationDriver), auditor, sd, db
 }
 
 func TestAccountsAPI(t *testing.T) {
@@ -557,7 +557,7 @@ func TestGetAccountsErrorCases(t *testing.T) {
 }
 
 func TestPutAccountErrorCases(t *testing.T) {
-	r, _, ncd, _, _, _ := setup(t)
+	r, _, fd, _, _, _ := setup(t)
 
 	//preparation: create an account (so that we can check the error that the requested account name is taken)
 	assert.HTTPRequest{
@@ -654,8 +654,10 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectBody:   assert.StringData("Forbidden\n"),
 	}.Check(t, r)
 
-	//test rejection by name claim driver
-	ncd.CheckFails = true
+	//test rejection by federation driver (we test both user error and server
+	//error to validate that they generate the correct respective HTTP status
+	//codes)
+	fd.ClaimFailsBecauseOfUserError = true
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/second",
@@ -669,8 +671,8 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectBody:   assert.StringData("cannot assign name \"second\" to auth tenant \"tenant1\"\n"),
 	}.Check(t, r)
 
-	ncd.CheckFails = false
-	ncd.CommitFails = true
+	fd.ClaimFailsBecauseOfUserError = false
+	fd.ClaimFailsBecauseOfServerError = true
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/second",
@@ -680,7 +682,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"auth_tenant_id": "tenant1",
 			},
 		},
-		ExpectStatus: http.StatusInternalServerError, //this is not a client error because if it was, Check() should have failed already
+		ExpectStatus: http.StatusInternalServerError,
 		ExpectBody:   assert.StringData("failed to assign name \"second\" to auth tenant \"tenant1\"\n"),
 	}.Check(t, r)
 

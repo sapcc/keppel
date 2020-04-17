@@ -35,15 +35,15 @@ import (
 type API struct {
 	cfg        keppel.Configuration
 	authDriver keppel.AuthDriver
-	ncDriver   keppel.NameClaimDriver
+	fd         keppel.FederationDriver
 	sd         keppel.StorageDriver
 	db         *keppel.DB
 	auditor    keppel.Auditor
 }
 
 //NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, ncd keppel.NameClaimDriver, sd keppel.StorageDriver, db *keppel.DB, auditor keppel.Auditor) *API {
-	return &API{cfg, ad, ncd, sd, db, auditor}
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, sd keppel.StorageDriver, db *keppel.DB, auditor keppel.Auditor) *API {
+	return &API{cfg, ad, fd, sd, db, auditor}
 }
 
 //AddTo implements the api.API interface.
