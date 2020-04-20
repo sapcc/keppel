@@ -19,6 +19,7 @@ This document uses the terminology defined in the [README.md](../README.md#termi
 - [GET /keppel/v1/accounts](#get-keppelv1accounts)
 - [GET /keppel/v1/accounts/:name](#get-keppelv1accountsname)
 - [PUT /keppel/v1/accounts/:name](#put-keppelv1accountsname)
+- [POST /keppel/v1/accounts/:name/sublease](#post-keppelv1accountsnamesublease)
 - [GET /keppel/v1/accounts/:name/repositories](#get-keppelv1accountsnamerepositories)
 - [DELETE /keppel/v1/accounts/:name/repositories/:name](#delete-keppelv1accountsnamerepositoriesname)
 - [GET /keppel/v1/accounts/:name/repositories/:name/\_manifests](#get-keppelv1accountsnamerepositoriesnamemanifests)
@@ -168,6 +169,29 @@ as the response from the corresponding GET endpoint, except that:
 - `account.auth_tenant_id` and `account.replication` may not be changed for existing accounts.
 
 On success, returns 200 and a JSON response body like from the corresponding GET endpoint.
+
+When creating a replica account, it may be necessary to supply a **sublease token** in the `X-Keppel-Sublease-Token`
+header. The sublease token must have been issued by the Keppel instance hosting the corresponding primary account, via
+the [POST /keppel/v1/accounts/:name/sublease](#post-keppelv1accountsnamesublease) endpoint. If a sublease token is
+required, but the correct one was not supplied, 403 (Forbidden) will be returned.
+
+## POST /keppel/v1/accounts/:name/sublease
+
+Issues a **sublease token** for the given account. A sublease token can be redeemed exactly once to create a replica
+account connected to this account in another Keppel instance. On success, returns 200 and a JSON response body like
+this:
+
+```
+{
+  "sublease_token": "oingoojei6aejab0Too4"
+}
+```
+
+The sublease token mechanism is optional. If the `.sublease_token` field comes back empty, it means that no sublease
+token needs to be presented when creating a replica of this primary account.
+
+Sublease tokens can only be issued for primary accounts. If the account in question is a replica account, 400 (Bad
+Request) is returned.
 
 ## GET /keppel/v1/accounts/:name/repositories
 

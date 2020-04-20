@@ -19,6 +19,7 @@
 package test
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -29,6 +30,8 @@ import (
 type FederationDriver struct {
 	ClaimFailsBecauseOfUserError   bool
 	ClaimFailsBecauseOfServerError bool
+	NextSubleaseTokenToIssue       string
+	ValidSubleaseTokens            map[string]string //maps accountName => subleaseToken
 	RecordedAccounts               []AccountRecordedByFederationDriver
 }
 
@@ -40,24 +43,41 @@ type AccountRecordedByFederationDriver struct {
 
 func init() {
 	keppel.RegisterFederationDriver("unittest", func(_ keppel.AuthDriver, _ keppel.Configuration) (keppel.FederationDriver, error) {
-		return &FederationDriver{}, nil
+		return &FederationDriver{
+			ValidSubleaseTokens: make(map[string]string),
+		}, nil
 	})
 }
 
 //ClaimAccountName implements the keppel.FederationDriver interface.
 func (d *FederationDriver) ClaimAccountName(account keppel.Account, authz keppel.Authorization, subleaseToken string) (keppel.ClaimResult, error) {
+	//simulated failures for primary accounts
 	if d.ClaimFailsBecauseOfUserError {
 		return keppel.ClaimFailed, fmt.Errorf("cannot assign name %q to auth tenant %q", account.Name, account.AuthTenantID)
 	}
 	if d.ClaimFailsBecauseOfServerError {
 		return keppel.ClaimErrored, fmt.Errorf("failed to assign name %q to auth tenant %q", account.Name, account.AuthTenantID)
 	}
+
+	//for replica accounts, do the regular sublease-token dance
+	if account.UpstreamPeerHostName != "" {
+		expectedToken, exists := d.ValidSubleaseTokens[account.Name]
+		if !exists || subleaseToken != expectedToken {
+			return keppel.ClaimFailed, errors.New("wrong sublease token")
+		}
+		//each sublease token can only be used once
+		delete(d.ValidSubleaseTokens, account.Name)
+	}
+
 	return keppel.ClaimSucceeded, nil
 }
 
 //IssueSubleaseToken implements the keppel.FederationDriver interface.
 func (d *FederationDriver) IssueSubleaseToken(account keppel.Account) (string, error) {
-	return "", nil
+	//issue each sublease token only once
+	t := d.NextSubleaseTokenToIssue
+	d.NextSubleaseTokenToIssue = ""
+	return t, nil
 }
 
 //ForfeitAccountName implements the keppel.FederationDriver interface.

@@ -56,6 +56,7 @@ func (a *API) AddTo(r *mux.Router) {
 	r.Methods("GET").Path("/keppel/v1/accounts").HandlerFunc(a.handleGetAccounts)
 	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(a.handleGetAccount)
 	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(a.handlePutAccount)
+	r.Methods("POST").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/sublease").HandlerFunc(a.handlePostAccountSublease)
 
 	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/repositories/{repo_name:.+}/_manifests").HandlerFunc(a.handleGetManifests)
 	r.Methods("DELETE").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/repositories/{repo_name:.+}/_manifests/{digest}").HandlerFunc(a.handleDeleteManifest)
@@ -113,7 +114,7 @@ func (a *API) authenticateAccountScopedRequest(w http.ResponseWriter, r *http.Re
 
 	//enforce permissions other than CanViewAccount if requested
 	if !authz.HasPermission(perm, account.AuthTenantID) {
-		http.Error(w, "forbidden", http.StatusForbidden)
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return nil, nil
 	}
 

@@ -113,7 +113,7 @@ func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.FederationDriver
 }
 
 func TestAccountsAPI(t *testing.T) {
-	r, authDriver, _, auditor, _, _ := setup(t)
+	r, authDriver, fd, auditor, _, _ := setup(t)
 
 	//test the /keppel/v1 endpoint
 	assert.HTTPRequest{
@@ -525,6 +525,17 @@ func TestAccountsAPI(t *testing.T) {
 			},
 		},
 	}.Check(t, r)
+
+	//test POST /keppel/v1/:accounts/sublease success case (error cases are in
+	//TestPutAccountErrorCases and TestGetPutAccountReplicationOnFirstUse)
+	fd.NextSubleaseTokenToIssue = "this-is-the-token"
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/keppel/v1/accounts/second/sublease",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
+		ExpectStatus: http.StatusOK,
+		ExpectBody:   assert.JSONObject{"sublease_token": "this-is-the-token"},
+	}.Check(t, r)
 }
 
 func TestGetAccountsErrorCases(t *testing.T) {
@@ -834,10 +845,32 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("\"[a-z]++@tenant2\" is not a valid regex: error parsing regexp: invalid nested repetition operator: `++`\n"),
 	}.Check(t, r)
+
+	//test errors for sublease token issuance: missing authentication/authorization
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/keppel/v1/accounts/first/sublease",
+		ExpectStatus: http.StatusUnauthorized,
+		ExpectBody:   assert.StringData("missing X-Test-Perms header\n"),
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/keppel/v1/accounts/first/sublease",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   assert.StringData("Forbidden\n"),
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/keppel/v1/accounts/unknown/sublease", //account does not exist
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
+		ExpectStatus: http.StatusNotFound,
+		ExpectBody:   assert.StringData("no such account\n"),
+	}.Check(t, r)
 }
 
 func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
-	r, _, _, _, _, db := setup(t)
+	r, _, fd, _, _, db := setup(t)
 
 	//configure a peer
 	err := db.Insert(&keppel.Peer{HostName: "peer.example.org"})
@@ -876,11 +909,46 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 		ExpectBody:   assert.StringData("unknown peer registry: \"someone-else.example.org\"\n"),
 	}.Check(t, r)
 
-	//test PUT success case
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
 		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"replication": assert.JSONObject{
+					"strategy": "on_first_use",
+					"upstream": "peer.example.org",
+				},
+			},
+		},
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   assert.StringData("wrong sublease token\n"),
+	}.Check(t, r)
+
+	fd.ValidSubleaseTokens["first"] = "valid-token"
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1", "X-Keppel-Sublease-Token": "not-the-valid-token"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"replication": assert.JSONObject{
+					"strategy": "on_first_use",
+					"upstream": "peer.example.org",
+				},
+			},
+		},
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   assert.StringData("wrong sublease token\n"),
+	}.Check(t, r)
+
+	//test PUT success case
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1", "X-Keppel-Sublease-Token": "valid-token"},
 		Body: assert.JSONObject{
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
@@ -929,6 +997,15 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 				},
 			},
 		},
+	}.Check(t, r)
+
+	//cannot issue sublease token for replica account (only for primary accounts)
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/keppel/v1/accounts/first/sublease",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
+		ExpectStatus: http.StatusBadRequest,
+		ExpectBody:   assert.StringData("operation not allowed for replica accounts\n"),
 	}.Check(t, r)
 
 	//PUT on existing account with different replication settings is not allowed

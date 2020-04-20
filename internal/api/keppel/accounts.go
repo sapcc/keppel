@@ -528,3 +528,23 @@ func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPoli
 
 	return nil
 }
+
+func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) {
+	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/sublease")
+	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanChangeAccount)
+	if account == nil {
+		return
+	}
+
+	if account.UpstreamPeerHostName != "" {
+		http.Error(w, "operation not allowed for replica accounts", http.StatusBadRequest)
+		return
+	}
+
+	token, err := a.fd.IssueSubleaseToken(*account)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
+	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"sublease_token": token})
+}
