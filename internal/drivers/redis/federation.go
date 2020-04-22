@@ -67,7 +67,7 @@ func (d *federationDriver) tokenKey(account keppel.Account) string {
 const (
 	checkAndClearScript = `
 		local v = redis.call('GET', KEYS[1])
-		if v == ARGV[1]
+		if v == ARGV[1] then
 			redis.call('DEL', KEYS[1])
 			return 1
 		end
