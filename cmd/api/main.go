@@ -91,7 +91,7 @@ func run(cmd *cobra.Command, args []string) {
 	handler = cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{"HEAD", "GET", "POST", "PUT", "DELETE"},
-		AllowedHeaders: []string{"Content-Type", "User-Agent", "X-Auth-Token"},
+		AllowedHeaders: []string{"Content-Type", "User-Agent", "X-Auth-Token", "X-Keppel-Sublease-Token"},
 	}).Handler(handler)
 	http.Handle("/", handler)
 	http.Handle("/metrics", promhttp.Handler())
