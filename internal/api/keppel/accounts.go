@@ -363,14 +363,19 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	//create account if required
 	if account == nil {
 		//sublease tokens are only relevant when creating replica accounts
-		subleaseToken := ""
+		subleaseTokenSecret := ""
 		if accountToCreate.UpstreamPeerHostName != "" {
-			subleaseToken = r.Header.Get("X-Keppel-Sublease-Token")
+			subleaseToken, err := SubleaseTokenFromRequest(r)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			subleaseTokenSecret = subleaseToken.Secret
 		}
 
 		//check permission to claim account name (this only happens here because
 		//it's only relevant for account creations, not for updates)
-		claimResult, err := a.fd.ClaimAccountName(accountToCreate, authz, subleaseToken)
+		claimResult, err := a.fd.ClaimAccountName(accountToCreate, authz, subleaseTokenSecret)
 		switch claimResult {
 		case keppel.ClaimSucceeded:
 			//nothing to do
@@ -541,10 +546,24 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	token, err := a.fd.IssueSubleaseToken(*account)
+	st := SubleaseToken{
+		AccountName:     account.Name,
+		PrimaryHostname: a.cfg.APIPublicHostname(),
+	}
+
+	var err error
+	st.Secret, err = a.fd.IssueSubleaseTokenSecret(*account)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
 
-	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"sublease_token": token})
+	//only serialize SubleaseToken if it contains a secret at all
+	var serialized string
+	if st.Secret == "" {
+		serialized = ""
+	} else {
+		serialized = st.Serialize()
+	}
+
+	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"sublease_token": serialized})
 }

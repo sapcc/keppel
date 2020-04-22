@@ -47,22 +47,22 @@ type FederationDriver interface {
 	//
 	//For some drivers, creating a replica account requires confirmation from the
 	//Keppel hosting the primary account. This is done by issuing a sublease
-	//token on the primary account using IssueSubleaseToken(), then presenting
-	//this `subleaseToken` to this method.
+	//token secret on the primary account using IssueSubleaseTokenSecret(), then
+	//presenting this `subleaseTokenSecret` to this method.
 	//
 	//The implementation MUST be idempotent. If a call returned nil, a subsequent
 	//call with the same `account` must also return nil unless
 	//ForfeitAccountName() was called inbetween.
-	ClaimAccountName(account Account, authz Authorization, subleaseToken string) (ClaimResult, error)
+	ClaimAccountName(account Account, authz Authorization, subleaseTokenSecret string) (ClaimResult, error)
 
-	//IssueSubleaseToken may only be called on existing primary accounts, not on
-	//replica accounts. It generates a secret one-time token that other Keppels
-	//can use to verify that the caller is allowed to create a replica account
-	//for this primary account.
+	//IssueSubleaseTokenSecret may only be called on existing primary accounts,
+	//not on replica accounts. It generates a secret one-time token that other
+	//Keppels can use to verify that the caller is allowed to create a replica
+	//account for this primary account.
 	//
 	//Sublease tokens are optional. If ClaimAccountName does not inspect its
-	//`subleaseToken` parameter, this method shall return ("", nil).
-	IssueSubleaseToken(account Account) (string, error)
+	//`subleaseTokenSecret` parameter, this method shall return ("", nil).
+	IssueSubleaseTokenSecret(account Account) (string, error)
 
 	//ForfeitAccountName is the inverse operation of ClaimAccountName. It is used
 	//when deleting an account and releases this Keppel's claim on the account

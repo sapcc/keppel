@@ -30,8 +30,8 @@ import (
 type FederationDriver struct {
 	ClaimFailsBecauseOfUserError   bool
 	ClaimFailsBecauseOfServerError bool
-	NextSubleaseTokenToIssue       string
-	ValidSubleaseTokens            map[string]string //maps accountName => subleaseToken
+	NextSubleaseTokenSecretToIssue string
+	ValidSubleaseTokenSecrets      map[string]string //maps accountName => subleaseTokenSecret
 	RecordedAccounts               []AccountRecordedByFederationDriver
 }
 
@@ -44,13 +44,13 @@ type AccountRecordedByFederationDriver struct {
 func init() {
 	keppel.RegisterFederationDriver("unittest", func(_ keppel.AuthDriver, _ keppel.Configuration) (keppel.FederationDriver, error) {
 		return &FederationDriver{
-			ValidSubleaseTokens: make(map[string]string),
+			ValidSubleaseTokenSecrets: make(map[string]string),
 		}, nil
 	})
 }
 
 //ClaimAccountName implements the keppel.FederationDriver interface.
-func (d *FederationDriver) ClaimAccountName(account keppel.Account, authz keppel.Authorization, subleaseToken string) (keppel.ClaimResult, error) {
+func (d *FederationDriver) ClaimAccountName(account keppel.Account, authz keppel.Authorization, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	//simulated failures for primary accounts
 	if d.ClaimFailsBecauseOfUserError {
 		return keppel.ClaimFailed, fmt.Errorf("cannot assign name %q to auth tenant %q", account.Name, account.AuthTenantID)
@@ -61,22 +61,22 @@ func (d *FederationDriver) ClaimAccountName(account keppel.Account, authz keppel
 
 	//for replica accounts, do the regular sublease-token dance
 	if account.UpstreamPeerHostName != "" {
-		expectedToken, exists := d.ValidSubleaseTokens[account.Name]
-		if !exists || subleaseToken != expectedToken {
+		expectedTokenSecret, exists := d.ValidSubleaseTokenSecrets[account.Name]
+		if !exists || subleaseTokenSecret != expectedTokenSecret {
 			return keppel.ClaimFailed, errors.New("wrong sublease token")
 		}
 		//each sublease token can only be used once
-		delete(d.ValidSubleaseTokens, account.Name)
+		delete(d.ValidSubleaseTokenSecrets, account.Name)
 	}
 
 	return keppel.ClaimSucceeded, nil
 }
 
-//IssueSubleaseToken implements the keppel.FederationDriver interface.
-func (d *FederationDriver) IssueSubleaseToken(account keppel.Account) (string, error) {
+//IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
+func (d *FederationDriver) IssueSubleaseTokenSecret(account keppel.Account) (string, error) {
 	//issue each sublease token only once
-	t := d.NextSubleaseTokenToIssue
-	d.NextSubleaseTokenToIssue = ""
+	t := d.NextSubleaseTokenSecretToIssue
+	d.NextSubleaseTokenSecretToIssue = ""
 	return t, nil
 }
 

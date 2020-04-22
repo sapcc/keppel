@@ -21,7 +21,6 @@ package redis
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -65,11 +64,6 @@ func (d *federationDriver) tokenKey(account keppel.Account) string {
 	return fmt.Sprintf("%s-token-%s", d.prefix, account.Name)
 }
 
-type structuredToken struct {
-	PrimaryHostname string `json:"primary"`
-	Token           string `json:"token"`
-}
-
 const (
 	checkAndClearScript = `
 		local v = redis.call('GET', KEYS[1])
@@ -82,16 +76,16 @@ const (
 )
 
 //ClaimAccountName implements the keppel.FederationDriver interface.
-func (d *federationDriver) ClaimAccountName(account keppel.Account, authz keppel.Authorization, subleaseToken string) (keppel.ClaimResult, error) {
+func (d *federationDriver) ClaimAccountName(account keppel.Account, authz keppel.Authorization, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	if account.UpstreamPeerHostName != "" {
-		return d.claimReplicaAccount(account, subleaseToken)
+		return d.claimReplicaAccount(account, subleaseTokenSecret)
 	}
-	return d.claimPrimaryAccount(account, subleaseToken)
+	return d.claimPrimaryAccount(account, subleaseTokenSecret)
 }
 
-func (d *federationDriver) claimPrimaryAccount(account keppel.Account, subleaseToken string) (keppel.ClaimResult, error) {
+func (d *federationDriver) claimPrimaryAccount(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	//defense in depth - the caller should already have verified this
-	if subleaseToken != "" {
+	if subleaseTokenSecret != "" {
 		return keppel.ClaimFailed, errors.New("cannot check sublease token when claiming a primary account")
 	}
 
@@ -116,26 +110,14 @@ func (d *federationDriver) claimPrimaryAccount(account keppel.Account, subleaseT
 	return keppel.ClaimSucceeded, nil
 }
 
-func (d *federationDriver) claimReplicaAccount(account keppel.Account, subleaseToken string) (keppel.ClaimResult, error) {
+func (d *federationDriver) claimReplicaAccount(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	//defense in depth - the caller should already have verified this
-	if subleaseToken == "" {
+	if subleaseTokenSecret == "" {
 		return keppel.ClaimFailed, errors.New("missing sublease token")
 	}
 
-	//unpack the sublease token (the Redis only knows about the inner token, not
-	//the extra structure that IssueSubleaseToken wrapped around it)
-	outerTokenBytes, err := base64.StdEncoding.DecodeString(subleaseToken)
-	if err != nil {
-		return keppel.ClaimFailed, fmt.Errorf("malformed sublease token: %s", err.Error())
-	}
-	var outerToken structuredToken
-	err = json.Unmarshal(outerTokenBytes, &outerToken)
-	if err != nil {
-		return keppel.ClaimFailed, fmt.Errorf("malformed sublease token: %s", err.Error())
-	}
-
-	//validate the sublease token
-	ok, err := d.rc.Eval(checkAndClearScript, []string{d.tokenKey(account)}, outerToken.Token).Bool()
+	//validate the sublease token secret
+	ok, err := d.rc.Eval(checkAndClearScript, []string{d.tokenKey(account)}, subleaseTokenSecret).Bool()
 	if err != nil {
 		return keppel.ClaimErrored, err
 	}
@@ -157,8 +139,8 @@ func (d *federationDriver) claimReplicaAccount(account keppel.Account, subleaseT
 	return keppel.ClaimSucceeded, nil
 }
 
-//IssueSubleaseToken implements the keppel.FederationDriver interface.
-func (d *federationDriver) IssueSubleaseToken(account keppel.Account) (string, error) {
+//IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
+func (d *federationDriver) IssueSubleaseTokenSecret(account keppel.Account) (string, error) {
 	//defense in depth - the caller should already have verified this
 	if account.UpstreamPeerHostName != "" {
 		return "", errors.New("operation not allowed for replica accounts")
@@ -183,17 +165,7 @@ func (d *federationDriver) IssueSubleaseToken(account keppel.Account) (string, e
 	if err != nil {
 		return "", fmt.Errorf("could not store token: %s", err.Error())
 	}
-
-	//wrap the token into an outer structure that includes the primary account's
-	//hostname; a client can parse this structure to display this information to
-	//the user for confirmation
-	outerBytes, _ := json.Marshal(structuredToken{
-		PrimaryHostname: d.ownHostname,
-		Token:           tokenStr,
-	})
-	outerStr := base64.StdEncoding.EncodeToString(outerBytes)
-
-	return outerStr, nil
+	return tokenStr, nil
 }
 
 //ForfeitAccountName implements the keppel.FederationDriver interface.

@@ -20,6 +20,7 @@
 package keppelv1
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -528,13 +529,13 @@ func TestAccountsAPI(t *testing.T) {
 
 	//test POST /keppel/v1/:accounts/sublease success case (error cases are in
 	//TestPutAccountErrorCases and TestGetPutAccountReplicationOnFirstUse)
-	fd.NextSubleaseTokenToIssue = "this-is-the-token"
+	fd.NextSubleaseTokenSecretToIssue = "this-is-the-token"
 	assert.HTTPRequest{
 		Method:       "POST",
 		Path:         "/keppel/v1/accounts/second/sublease",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
 		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"sublease_token": "this-is-the-token"},
+		ExpectBody:   assert.JSONObject{"sublease_token": makeSubleaseToken("second", "registry.example.org", "this-is-the-token")},
 	}.Check(t, r)
 }
 
@@ -926,11 +927,14 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 		ExpectBody:   assert.StringData("wrong sublease token\n"),
 	}.Check(t, r)
 
-	fd.ValidSubleaseTokens["first"] = "valid-token"
+	fd.ValidSubleaseTokenSecrets["first"] = "valid-token"
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1", "X-Keppel-Sublease-Token": "not-the-valid-token"},
+		Header: map[string]string{
+			"X-Test-Perms":            "change:tenant1",
+			"X-Keppel-Sublease-Token": makeSubleaseToken("first", "peer.example.org", "not-the-valid-token"),
+		},
 		Body: assert.JSONObject{
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
@@ -948,7 +952,10 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1", "X-Keppel-Sublease-Token": "valid-token"},
+		Header: map[string]string{
+			"X-Test-Perms":            "change:tenant1",
+			"X-Keppel-Sublease-Token": makeSubleaseToken("first", "peer.example.org", "valid-token"),
+		},
 		Body: assert.JSONObject{
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
@@ -1044,4 +1051,13 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 		ExpectStatus: http.StatusConflict,
 		ExpectBody:   assert.StringData("cannot change replication policy on existing account\n"),
 	}.Check(t, r)
+}
+
+func makeSubleaseToken(accountName, primaryHostname, secret string) string {
+	buf, _ := json.Marshal(assert.JSONObject{
+		"account": accountName,
+		"primary": primaryHostname,
+		"secret":  secret,
+	})
+	return base64.StdEncoding.EncodeToString(buf)
 }

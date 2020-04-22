@@ -74,7 +74,7 @@ func init() {
 }
 
 //ClaimAccountName implements the keppel.FederationDriver interface.
-func (d *federationDriverBasic) ClaimAccountName(account keppel.Account, authz keppel.Authorization, subleaseToken string) (keppel.ClaimResult, error) {
+func (d *federationDriverBasic) ClaimAccountName(account keppel.Account, authz keppel.Authorization, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	project, err := projects.Get(d.AuthDriver.IdentityV3, account.AuthTenantID).Extract()
 	if err != nil {
 		return keppel.ClaimErrored, err
@@ -98,8 +98,8 @@ func (d *federationDriverBasic) ClaimAccountName(account keppel.Account, authz k
 	)
 }
 
-//IssueSubleaseToken implements the keppel.FederationDriver interface.
-func (d *federationDriverBasic) IssueSubleaseToken(account keppel.Account) (string, error) {
+//IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
+func (d *federationDriverBasic) IssueSubleaseTokenSecret(account keppel.Account) (string, error) {
 	return "", nil
 }
 
