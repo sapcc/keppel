@@ -402,3 +402,30 @@ func TestManifestRequiredLabels(t *testing.T) {
 		ExpectHeader: test.VersionHeader,
 	}.Check(t, h)
 }
+
+func TestImageManifestWrongBlobSize(t *testing.T) {
+	h, _, _, ad, _, _ := setup(t, nil)
+	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		keppel.CanPullFromAccount,
+		keppel.CanPushToAccount)
+
+	//generate an image that references a layer, but the reference includes the wrong layer size
+	layer := test.GenerateExampleLayer(1)
+	uploadBlob(t, h, token, "test1/foo", layer)
+
+	layer.Contents = append(layer.Contents, []byte("something")...)
+	image := test.GenerateImage(layer)
+	uploadBlob(t, h, token, "test1/foo", image.Config)
+
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/v2/test1/foo/manifests/latest",
+		Header: map[string]string{
+			"Authorization": "Bearer " + token,
+			"Content-Type":  image.Manifest.MediaType,
+		},
+		Body:         assert.ByteData(image.Manifest.Contents),
+		ExpectStatus: http.StatusBadRequest,
+		ExpectBody:   test.ErrorCode(keppel.ErrManifestInvalid),
+	}.Check(t, h)
+}

@@ -21,6 +21,7 @@ package processor
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"strings"
 	"time"
@@ -178,6 +179,12 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 			}
 			if err != nil {
 				return nil, nil, err
+			}
+			if blob.SizeBytes != uint64(desc.Size) {
+				msg := fmt.Sprintf(
+					"manifest references blob %s with %d bytes, but blob actually contains %d bytes",
+					desc.Digest.String(), desc.Size, blob.SizeBytes)
+				return nil, nil, keppel.ErrManifestInvalid.With(msg)
 			}
 			blobIDs = append(blobIDs, blob.ID)
 		}
