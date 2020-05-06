@@ -70,7 +70,7 @@ func UploadBlobToRegistry(t *testing.T, h http.Handler, repo, token string, cont
 		Header: map[string]string{
 			"Authorization":  "Bearer " + token,
 			"Content-Length": fmt.Sprintf("%d", len(contentBytes)),
-			"Content-Range":  fmt.Sprintf("bytes=0-%d", len(contentBytes)),
+			"Content-Range":  fmt.Sprintf("bytes=0-%d", len(contentBytes)-1),
 			"Content-Type":   "application/octet-stream",
 		},
 		Body:         assert.ByteData(contentBytes),

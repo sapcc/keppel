@@ -139,7 +139,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			}
 			//for streamed upload, Content-Range and Content-Length are omitted
 			if isChunked {
-				hdr["Content-Range"] = fmt.Sprintf("%d-%d", offset, offset+length)
+				hdr["Content-Range"] = fmt.Sprintf("%d-%d", offset, offset+length-1)
 				hdr["Content-Length"] = strconv.Itoa(length)
 			}
 			return hdr
@@ -242,12 +242,12 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 					ExpectBody:   test.ErrorCode(keppel.ErrSizeInvalid),
 				}.Check(t, h)
 			}
-			//NOTE: The correct headers would be Content-Range: 10-15 and Content-Length: 5.
-			testWrongContentRangeAndOrLength("10-14", "4")                         //both consistently wrong
-			testWrongContentRangeAndOrLength("10-15", "6")                         //only Content-Length wrong
-			testWrongContentRangeAndOrLength("10-16", "5")                         //only Content-Range wrong
-			testWrongContentRangeAndOrLength("8-13", "5")                          //consistent, but wrong offset
-			testWrongContentRangeAndOrLength("10-15", "")                          //Content-Length missing
+			//NOTE: The correct headers would be Content-Range: 10-14 and Content-Length: 5.
+			testWrongContentRangeAndOrLength("10-13", "4")                         //both consistently wrong
+			testWrongContentRangeAndOrLength("10-14", "6")                         //only Content-Length wrong
+			testWrongContentRangeAndOrLength("10-15", "5")                         //only Content-Range wrong
+			testWrongContentRangeAndOrLength("8-12", "5")                          //consistent, but wrong offset
+			testWrongContentRangeAndOrLength("10-14", "")                          //Content-Length missing
 			testWrongContentRangeAndOrLength("10", "5")                            //wrong format for Content-Range
 			testWrongContentRangeAndOrLength("10-abc", "5")                        //even wronger format for Content-Range
 			testWrongContentRangeAndOrLength("99999999999999999999999999-10", "5") //what are you doing?
@@ -354,7 +354,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 						ExpectHeader: map[string]string{
 							test.VersionHeaderKey: test.VersionHeaderValue,
 							"Content-Length":      "0",
-							"Range":               fmt.Sprintf("0-%d", progress),
+							"Range":               fmt.Sprintf("0-%d", progress-1),
 						},
 					}.Check(t, h)
 					uploadURL = resp.Header.Get("Location")
@@ -426,7 +426,7 @@ func TestGetBlobUpload(t *testing.T) {
 		ExpectHeader: map[string]string{
 			test.VersionHeaderKey: test.VersionHeaderValue,
 			"Content-Length":      "0",
-			"Range":               fmt.Sprintf("0-%d", len(blob.Contents)),
+			"Range":               fmt.Sprintf("0-%d", len(blob.Contents)-1),
 		},
 	}.Check(t, h)
 	uploadURL = resp.Header.Get("Location")
@@ -440,7 +440,7 @@ func TestGetBlobUpload(t *testing.T) {
 			test.VersionHeaderKey:    test.VersionHeaderValue,
 			"Blob-Upload-Session-Id": uploadUUID,
 			"Content-Length":         "0",
-			"Range":                  fmt.Sprintf("0-%d", len(blob.Contents)),
+			"Range":                  fmt.Sprintf("0-%d", len(blob.Contents)-1),
 		},
 		ExpectBody: assert.StringData(""),
 	}.Check(t, h)
@@ -524,7 +524,7 @@ func TestDeleteBlobUpload(t *testing.T) {
 		ExpectHeader: map[string]string{
 			test.VersionHeaderKey: test.VersionHeaderValue,
 			"Content-Length":      "0",
-			"Range":               fmt.Sprintf("0-%d", len(blobContents)),
+			"Range":               fmt.Sprintf("0-%d", len(blobContents)-1),
 		},
 	}.Check(t, h)
 	assert.HTTPRequest{

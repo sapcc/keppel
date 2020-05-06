@@ -327,7 +327,7 @@ func (a *API) handleGetBlobUpload(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Blob-Upload-Session-Id", upload.UUID)
 	w.Header().Set("Content-Length", "0")
-	w.Header().Set("Range", fmt.Sprintf("0-%d", upload.SizeBytes))
+	w.Header().Set("Range", makeRangeHeader(upload.SizeBytes))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -382,7 +382,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Blob-Upload-Session-Id", upload.UUID)
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/uploads/%s?%s", repo.FullName(), upload.UUID, query.Encode()))
-	w.Header().Set("Range", fmt.Sprintf("0-%d", upload.SizeBytes))
+	w.Header().Set("Range", makeRangeHeader(upload.SizeBytes))
 	w.WriteHeader(http.StatusAccepted)
 }
 
@@ -431,7 +431,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	api.BlobsPushedCounter.With(l).Inc()
 
 	w.Header().Set("Content-Length", "0")
-	w.Header().Set("Content-Range", fmt.Sprintf("0-%d", blob.SizeBytes))
+	w.Header().Set("Content-Range", makeRangeHeader(blob.SizeBytes))
 	w.Header().Set("Docker-Content-Digest", blob.Digest)
 	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/%s", repo.FullName(), blob.Digest))
 	w.WriteHeader(http.StatusCreated)
@@ -545,8 +545,8 @@ func (a *API) parseContentRange(upload *keppel.Upload, hdr http.Header) (uint64,
 	if rangeStart != upload.SizeBytes {
 		return 0, fmt.Errorf("upload resumed at wrong offset: %d != %d", rangeStart, upload.SizeBytes)
 	}
-	if (rangeEnd - rangeStart) != length {
-		return 0, fmt.Errorf("Content-Range contains %d bytes, but Content-Length is %d", rangeEnd-rangeStart, length)
+	if (rangeEnd + 1 - rangeStart) != length {
+		return 0, fmt.Errorf("Content-Range contains %d bytes, but Content-Length is %d", rangeEnd+1-rangeStart, length)
 	}
 	return length, nil
 }
@@ -736,4 +736,11 @@ func (w *digestWriter) Write(buf []byte) (n int, err error) {
 func countAbortedBlobUpload(account keppel.Account) {
 	l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 	api.UploadsAbortedCounter.With(l).Inc()
+}
+
+func makeRangeHeader(sizeBytes uint64) string {
+	if sizeBytes == 0 {
+		return "0-0"
+	}
+	return fmt.Sprintf("0-%d", sizeBytes-1)
 }
