@@ -58,7 +58,10 @@ func (p *Processor) ValidateExistingBlob(account keppel.Account, blob keppel.Blo
 		}
 	}()
 
-	actualDigest, err := blobDigest.Algorithm().FromReader(readCloser)
+	bcw := &byteCountingWriter{}
+	reader := io.TeeReader(readCloser, bcw)
+
+	actualDigest, err := blobDigest.Algorithm().FromReader(reader)
 	if err != nil {
 		return err
 	}
@@ -67,7 +70,24 @@ func (p *Processor) ValidateExistingBlob(account keppel.Account, blob keppel.Blo
 			blob.Digest, actualDigest.String(),
 		)
 	}
+
+	if uint64(bcw.bytesWritten) != blob.SizeBytes {
+		return fmt.Errorf("expected %d bytes, but got %d bytes",
+			blob.SizeBytes, bcw.bytesWritten,
+		)
+	}
+
 	return nil
+}
+
+//An io.Writer that just counts how many bytes were written into it.
+type byteCountingWriter struct {
+	bytesWritten int
+}
+
+func (w *byteCountingWriter) Write(buf []byte) (int, error) {
+	w.bytesWritten += len(buf)
+	return len(buf), nil
 }
 
 //FindBlobOrInsertUnbackedBlob is used by the replication code path. If the
