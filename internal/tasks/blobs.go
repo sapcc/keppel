@@ -29,23 +29,23 @@ import (
 
 const blobSweepSearchQuery = `
 	SELECT * FROM accounts
-		WHERE blobs_sweeped_at IS NULL OR blobs_sweeped_at < $1
+		WHERE next_blob_sweep_at IS NULL OR next_blob_sweep_at < $1
 	-- accounts without any sweeps first, then sorted by last sweep
-	ORDER BY blobs_sweeped_at IS NULL DESC, blobs_sweeped_at ASC
+	ORDER BY next_blob_sweep_at IS NULL DESC, next_blob_sweep_at ASC
 	-- only one account at a time
 	LIMIT 1
 `
 
 const blobMarkQuery = `
-	UPDATE blobs SET marked_for_deletion_at = $2
-	WHERE account_name = $1 AND marked_for_deletion_at IS NULL AND id NOT IN (
+	UPDATE blobs SET can_be_deleted_at = $2
+	WHERE account_name = $1 AND can_be_deleted_at IS NULL AND id NOT IN (
 		SELECT m.blob_id FROM blob_mounts m JOIN repos r ON m.repo_id = r.id
 		WHERE r.account_name = $1
 	)
 `
 
 const blobUnmarkQuery = `
-	UPDATE blobs SET marked_for_deletion_at = NULL
+	UPDATE blobs SET can_be_deleted_at = NULL
 	WHERE account_name = $1 AND id IN (
 		SELECT m.blob_id FROM blob_mounts m JOIN repos r ON m.repo_id = r.id
 		WHERE r.account_name = $1
@@ -53,11 +53,11 @@ const blobUnmarkQuery = `
 `
 
 const blobSelectMarkedQuery = `
-	SELECT * FROM blobs WHERE account_name = $1 AND marked_for_deletion_at < $2
+	SELECT * FROM blobs WHERE account_name = $1 AND can_be_deleted_at < $2
 `
 
 const blobSweepDoneQuery = `
-	UPDATE accounts SET blobs_sweeped_at = $2 WHERE name = $1
+	UPDATE accounts SET next_blob_sweep_at = $2 WHERE name = $1
 `
 
 //SweepBlobsInNextAccount finds the next account where blobs need to be
@@ -83,8 +83,7 @@ func (j *Janitor) SweepBlobsInNextAccount() (returnErr error) {
 	}()
 
 	//find account to sweep
-	maxSweepedAt := j.timeNow().Add(-1 * time.Hour)
-	err := j.db.SelectOne(&account, blobSweepSearchQuery, maxSweepedAt)
+	err := j.db.SelectOne(&account, blobSweepSearchQuery, j.timeNow())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			logg.Debug("no blobs to sweep - slowing down...")
@@ -93,12 +92,16 @@ func (j *Janitor) SweepBlobsInNextAccount() (returnErr error) {
 		return err
 	}
 
+	//allow next pass in 1 hour to delete the newly marked blob mounts, but use a
+	//slighly earlier cut-off time to account for the marking taking some time
+	canBeDeletedAt := j.timeNow().Add(30 * time.Minute)
+
 	//NOTE: We don't need to pack the following steps in a single transaction, so
 	//we won't. The mark and unmark are obviously safe since they only update
 	//metadata, and the sweep only touches stuff that was marked in the
 	//*previous* sweep. The only thing that we need to make sure is that unmark
 	//is strictly ordered before sweep.
-	_, err = j.db.Exec(blobMarkQuery, account.Name, j.timeNow())
+	_, err = j.db.Exec(blobMarkQuery, account.Name, canBeDeletedAt)
 	if err != nil {
 		return err
 	}
@@ -107,12 +110,9 @@ func (j *Janitor) SweepBlobsInNextAccount() (returnErr error) {
 		return err
 	}
 
-	//select blobs for deletion that were marked in the last run 1 hour ago, but
-	//use a slightly later cut-off time to account for the marking taking some
-	//time
-	maxMarkedAt := j.timeNow().Add(-30 * time.Minute)
+	//select blobs for deletion that were marked in the last run
 	var blobs []keppel.Blob
-	_, err = j.db.Select(&blobs, blobSelectMarkedQuery, account.Name, maxMarkedAt)
+	_, err = j.db.Select(&blobs, blobSelectMarkedQuery, account.Name, j.timeNow())
 	if err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func (j *Janitor) SweepBlobsInNextAccount() (returnErr error) {
 		}
 	}
 
-	_, err = j.db.Exec(blobSweepDoneQuery, account.Name, j.timeNow())
+	_, err = j.db.Exec(blobSweepDoneQuery, account.Name, j.timeNow().Add(1*time.Hour))
 	return err
 }
 

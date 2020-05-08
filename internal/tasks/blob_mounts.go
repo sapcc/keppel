@@ -33,34 +33,34 @@ import (
 //mounts even though they are referenced by a manifest.
 const blobMountSweepSearchQuery = `
 	SELECT * FROM repos
-		WHERE blob_mounts_sweeped_at IS NULL OR blob_mounts_sweeped_at < $1
+		WHERE next_blob_mount_sweep_at IS NULL OR next_blob_mount_sweep_at < $1
 		AND id NOT IN (SELECT repo_id FROM manifests WHERE validation_error_message != '')
 	-- repos without any sweeps first, then sorted by last sweep
-	ORDER BY blob_mounts_sweeped_at IS NULL DESC, blob_mounts_sweeped_at ASC
+	ORDER BY next_blob_mount_sweep_at IS NULL DESC, next_blob_mount_sweep_at ASC
 	-- only one repo at a time
 	LIMIT 1
 `
 
 const blobMountMarkQuery = `
-	UPDATE blob_mounts SET marked_for_deletion_at = $2
-	WHERE repo_id = $1 AND marked_for_deletion_at IS NULL AND blob_id NOT IN (
+	UPDATE blob_mounts SET can_be_deleted_at = $2
+	WHERE repo_id = $1 AND can_be_deleted_at IS NULL AND blob_id NOT IN (
 		SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1
 	)
 `
 
 const blobMountUnmarkQuery = `
-	UPDATE blob_mounts SET marked_for_deletion_at = NULL
+	UPDATE blob_mounts SET can_be_deleted_at = NULL
 	WHERE repo_id = $1 AND blob_id IN (
 		SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1
 	)
 `
 
 const blobMountSweepMarkedQuery = `
-	DELETE FROM blob_mounts WHERE repo_id = $1 AND marked_for_deletion_at < $2
+	DELETE FROM blob_mounts WHERE repo_id = $1 AND can_be_deleted_at < $2
 `
 
 const blobMountSweepDoneQuery = `
-	UPDATE repos SET blob_mounts_sweeped_at = $2 WHERE id = $1
+	UPDATE repos SET next_blob_mount_sweep_at = $2 WHERE id = $1
 `
 
 //SweepBlobMountsInNextRepo finds the next repo where blob mounts need to be
@@ -87,8 +87,7 @@ func (j *Janitor) SweepBlobMountsInNextRepo() (returnErr error) {
 	}()
 
 	//find repo to sweep
-	maxSweepedAt := j.timeNow().Add(-1 * time.Hour)
-	err := j.db.SelectOne(&repo, blobMountSweepSearchQuery, maxSweepedAt)
+	err := j.db.SelectOne(&repo, blobMountSweepSearchQuery, j.timeNow())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			logg.Debug("no blob mounts to sweep - slowing down...")
@@ -97,12 +96,16 @@ func (j *Janitor) SweepBlobMountsInNextRepo() (returnErr error) {
 		return err
 	}
 
+	//allow next pass in 1 hour to delete the newly marked blob mounts, but use a
+	//slighly earlier cut-off time to account for the marking taking some time
+	canBeDeletedAt := j.timeNow().Add(30 * time.Minute)
+
 	//NOTE: We don't need to pack the following steps in a single transaction, so
 	//we won't. The mark and unmark are obviously safe since they only update
 	//metadata, and the sweep only touches stuff that was marked in the
 	//*previous* sweep. The only thing that we need to make sure is that unmark
 	//is strictly ordered before sweep.
-	_, err = j.db.Exec(blobMountMarkQuery, repo.ID, j.timeNow())
+	_, err = j.db.Exec(blobMountMarkQuery, repo.ID, canBeDeletedAt)
 	if err != nil {
 		return err
 	}
@@ -110,10 +113,8 @@ func (j *Janitor) SweepBlobMountsInNextRepo() (returnErr error) {
 	if err != nil {
 		return err
 	}
-	//delete blob-mounts that were marked in the last run 1 hour ago, but use a
-	//slightly later cut-off time to account for the marking taking some time
-	maxMarkedAt := j.timeNow().Add(-30 * time.Minute)
-	result, err := j.db.Exec(blobMountSweepMarkedQuery, repo.ID, maxMarkedAt)
+	//delete blob-mounts that were marked in the last run
+	result, err := j.db.Exec(blobMountSweepMarkedQuery, repo.ID, j.timeNow())
 	if err != nil {
 		return err
 	}
@@ -125,6 +126,6 @@ func (j *Janitor) SweepBlobMountsInNextRepo() (returnErr error) {
 		logg.Info("%d blob mounts sweeped in repo %s", rowsDeleted, repo.FullName())
 	}
 
-	_, err = j.db.Exec(blobMountSweepDoneQuery, repo.ID, j.timeNow())
+	_, err = j.db.Exec(blobMountSweepDoneQuery, repo.ID, j.timeNow().Add(1*time.Hour))
 	return err
 }

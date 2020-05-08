@@ -104,11 +104,11 @@ func (j *Janitor) ValidateNextManifest() (returnErr error) {
 const syncManifestRepoSelectQuery = `
 	SELECT r.* FROM repos r
 		JOIN accounts a ON r.account_name = a.name
-		WHERE (r.manifests_synced_at IS NULL OR r.manifests_synced_at < $1)
+		WHERE (r.next_manifest_sync_at IS NULL OR r.next_manifest_sync_at < $1)
 		-- only consider repos in replica accounts
 		AND a.upstream_peer_hostname != ''
 	-- repos without any syncs first, then sorted by last sync
-	ORDER BY r.manifests_synced_at IS NULL DESC, r.manifests_synced_at ASC
+	ORDER BY r.next_manifest_sync_at IS NULL DESC, r.next_manifest_sync_at ASC
 	-- only one repo at a time
 	LIMIT 1
 `
@@ -118,7 +118,7 @@ const syncManifestEnumerateRefsQuery = `
 `
 
 const syncManifestDoneQuery = `
-	UPDATE repos SET manifests_synced_at = $2 WHERE id = $1
+	UPDATE repos SET next_manifest_sync_at = $2 WHERE id = $1
 `
 
 //SyncManifestsInNextRepo finds the next repository in a replica account where
@@ -139,8 +139,7 @@ func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
 
 	//find repository to sync
 	var repo keppel.Repository
-	maxSyncedAt := j.timeNow().Add(-1 * time.Hour)
-	err := j.db.SelectOne(&repo, syncManifestRepoSelectQuery, maxSyncedAt)
+	err := j.db.SelectOne(&repo, syncManifestRepoSelectQuery, j.timeNow())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			logg.Debug("no accounts to sync manifests in - slowing down...")
@@ -255,6 +254,6 @@ func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
 		}
 	}
 
-	_, err = j.db.Exec(syncManifestDoneQuery, repo.ID, j.timeNow())
+	_, err = j.db.Exec(syncManifestDoneQuery, repo.ID, j.timeNow().Add(1*time.Hour))
 	return err
 }

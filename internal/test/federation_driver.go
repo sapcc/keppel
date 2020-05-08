@@ -87,7 +87,7 @@ func (d *FederationDriver) ForfeitAccountName(account keppel.Account) error {
 
 //RecordExistingAccount implements the keppel.FederationDriver interface.
 func (d *FederationDriver) RecordExistingAccount(account keppel.Account, now time.Time) error {
-	account.AnnouncedToFederationAt = nil // this pointer type is poison for DeepEqual tests
+	account.NextFederationAnnouncementAt = nil // this pointer type is poison for DeepEqual tests
 
 	d.RecordedAccounts = append(d.RecordedAccounts, AccountRecordedByFederationDriver{
 		Account:    account,

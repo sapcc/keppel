@@ -29,15 +29,15 @@ import (
 
 const accountAnnouncementSearchQuery = `
 	SELECT * FROM accounts
-		WHERE announced_to_federation_at IS NULL OR announced_to_federation_at < $1
+		WHERE next_federation_announcement_at IS NULL OR next_federation_announcement_at < $1
 	-- accounts without any announcements first, then sorted by last announcement
-	ORDER BY announced_to_federation_at IS NULL DESC, announced_to_federation_at ASC
+	ORDER BY next_federation_announcement_at IS NULL DESC, next_federation_announcement_at ASC
 	-- only one account at a time
 	LIMIT 1
 `
 
 const accountAnnouncementDoneQuery = `
-	UPDATE accounts SET announced_to_federation_at = $2 WHERE name = $1
+	UPDATE accounts SET next_federation_announcement_at = $2 WHERE name = $1
 `
 
 //AnnounceNextAccountToFederation finds the next account that has not been
@@ -57,8 +57,7 @@ func (j *Janitor) AnnounceNextAccountToFederation() (returnErr error) {
 	}()
 
 	//find account to announce
-	maxAnnouncedAt := j.timeNow().Add(-1 * time.Hour)
-	err := j.db.SelectOne(&account, accountAnnouncementSearchQuery, maxAnnouncedAt)
+	err := j.db.SelectOne(&account, accountAnnouncementSearchQuery, j.timeNow())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			logg.Debug("no accounts to announce to federation - slowing down...")
@@ -74,6 +73,6 @@ func (j *Janitor) AnnounceNextAccountToFederation() (returnErr error) {
 		logg.Error("cannot announce account %q to federation: %s", account.Name, err.Error())
 	}
 
-	_, err = j.db.Exec(accountAnnouncementDoneQuery, account.Name, j.timeNow())
+	_, err = j.db.Exec(accountAnnouncementDoneQuery, account.Name, j.timeNow().Add(1*time.Hour))
 	return err
 }

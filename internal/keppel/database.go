@@ -260,6 +260,54 @@ var sqlMigrations = map[string]string{
 	"011_add_account_announced_to_federation_at.down.sql": `
 		ALTER TABLE accounts DROP COLUMN announced_to_federation_at;
 	`,
+	"012_flip_timestamp_semantics.up.sql": `
+		ALTER TABLE accounts
+			DROP COLUMN blobs_sweeped_at,
+			DROP COLUMN storage_sweeped_at,
+			DROP COLUMN announced_to_federation_at,
+			ADD COLUMN next_blob_sweep_at TIMESTAMPTZ DEFAULT NULL,
+			ADD COLUMN next_storage_sweep_at TIMESTAMPTZ DEFAULT NULL,
+			ADD COLUMN next_federation_announcement_at TIMESTAMPTZ DEFAULT NULL;
+		ALTER TABLE blobs
+			DROP COLUMN marked_for_deletion_at,
+			ADD COLUMN can_be_deleted_at TIMESTAMPTZ DEFAULT NULL;
+		ALTER TABLE blob_mounts
+			DROP COLUMN marked_for_deletion_at,
+			ADD COLUMN can_be_deleted_at TIMESTAMPTZ DEFAULT NULL;
+		ALTER TABLE repos
+			DROP COLUMN blob_mounts_sweeped_at,
+			DROP COLUMN manifests_synced_at,
+			ADD COLUMN next_blob_mount_sweep_at TIMESTAMPTZ DEFAULT NULL,
+			ADD COLUMN next_manifest_sync_at TIMESTAMPTZ DEFAULT NULL;
+		DELETE FROM unknown_blobs;
+		ALTER TABLE unknown_blobs RENAME COLUMN marked_for_deletion_at TO can_be_deleted_at;
+		DELETE FROM unknown_manifests;
+		ALTER TABLE unknown_manifests RENAME COLUMN marked_for_deletion_at TO can_be_deleted_at;
+	`,
+	"012_flip_timestamp_semantics.down.sql": `
+		ALTER TABLE accounts
+			DROP COLUMN next_blob_sweep_at,
+			DROP COLUMN next_storage_sweep_at,
+			DROP COLUMN next_federation_announcement_at,
+			ADD COLUMN blobs_sweeped_at TIMESTAMPTZ DEFAULT NULL,
+			ADD COLUMN storage_sweeped_at TIMESTAMPTZ DEFAULT NULL,
+			ADD COLUMN announced_to_federation_at TIMESTAMPTZ DEFAULT NULL;
+		ALTER TABLE blobs
+			DROP COLUMN can_be_deleted_at,
+			ADD COLUMN marked_for_deletion_at TIMESTAMPTZ DEFAULT NULL;
+		ALTER TABLE blob_mounts
+			DROP COLUMN can_be_deleted_at,
+			ADD COLUMN marked_for_deletion_at TIMESTAMPTZ DEFAULT NULL;
+		ALTER TABLE repos
+			DROP COLUMN next_blob_mount_sweep_at,
+			DROP COLUMN next_manifest_sync_at,
+			ADD COLUMN blob_mounts_sweeped_at TIMESTAMPTZ DEFAULT NULL,
+			ADD COLUMN manifests_synced_at TIMESTAMPTZ DEFAULT NULL;
+		DELETE FROM unknown_blobs;
+		ALTER TABLE unknown_blobs RENAME COLUMN can_be_deleted_at TO marked_for_deletion_at;
+		DELETE FROM unknown_manifests;
+		ALTER TABLE unknown_manifests RENAME COLUMN can_be_deleted_at TO marked_for_deletion_at;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

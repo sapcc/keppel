@@ -29,15 +29,15 @@ import (
 
 const storageSweepSearchQuery = `
 	SELECT * FROM accounts
-		WHERE storage_sweeped_at IS NULL OR storage_sweeped_at < $1
+		WHERE next_storage_sweep_at IS NULL OR next_storage_sweep_at < $1
 	-- accounts without any sweeps first, then sorted by last sweep
-	ORDER BY storage_sweeped_at IS NULL DESC, storage_sweeped_at ASC
+	ORDER BY next_storage_sweep_at IS NULL DESC, next_storage_sweep_at ASC
 	-- only one account at a time
 	LIMIT 1
 `
 
 const storageSweepDoneQuery = `
-	UPDATE accounts SET storage_sweeped_at = $2 WHERE name = $1
+	UPDATE accounts SET next_storage_sweep_at = $2 WHERE name = $1
 `
 
 //SweepStorageInNextAccount finds the next account where the backing storage
@@ -66,8 +66,7 @@ func (j *Janitor) SweepStorageInNextAccount() (returnErr error) {
 	}()
 
 	//find account to sweep
-	maxSweepedAt := j.timeNow().Add(-6 * time.Hour)
-	err := j.db.SelectOne(&account, storageSweepSearchQuery, maxSweepedAt)
+	err := j.db.SelectOne(&account, storageSweepSearchQuery, j.timeNow())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			logg.Debug("no storages to sweep - slowing down...")
@@ -82,26 +81,27 @@ func (j *Janitor) SweepStorageInNextAccount() (returnErr error) {
 		return err
 	}
 
-	//we want to delete everything that was marked in the last run 6 hours ago,
-	//but use a slightly later cut-off time to account for the marking taking
-	//some time
-	maxMarkedAt := j.timeNow().Add(-4 * time.Hour)
+	//when creating new entries in `unknown_blobs` and `unknown_manifests`, set
+	//the `can_be_deleted_at` timestamp such that the next pass 6 hours from now
+	//will sweep them (we don't use .Add(6 * time.Hour) to account for the
+	//marking taking some time)
+	canBeDeletedAt := j.timeNow().Add(4 * time.Hour)
 
 	//handle blobs and manifests separately
-	err = j.sweepBlobStorage(account, actualBlobs, maxMarkedAt)
+	err = j.sweepBlobStorage(account, actualBlobs, canBeDeletedAt)
 	if err != nil {
 		return err
 	}
-	err = j.sweepManifestStorage(account, actualManifests, maxMarkedAt)
+	err = j.sweepManifestStorage(account, actualManifests, canBeDeletedAt)
 	if err != nil {
 		return err
 	}
 
-	_, err = j.db.Exec(storageSweepDoneQuery, account.Name, j.timeNow())
+	_, err = j.db.Exec(storageSweepDoneQuery, account.Name, j.timeNow().Add(6*time.Hour))
 	return err
 }
 
-func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.StoredBlobInfo, maxMarkedAt time.Time) error {
+func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.StoredBlobInfo, canBeDeletedAt time.Time) error {
 	actualBlobsByStorageID := make(map[string]keppel.StoredBlobInfo, len(actualBlobs))
 	for _, blobInfo := range actualBlobs {
 		actualBlobsByStorageID[blobInfo.StorageID] = blobInfo
@@ -151,7 +151,7 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 
 		//sweep blobs that have been marked long enough
 		isMarkedStorageID[unknownBlob.StorageID] = true
-		if unknownBlob.MarkedForDeletionAt.Before(maxMarkedAt) {
+		if unknownBlob.CanBeDeletedAt.Before(j.timeNow()) {
 			//only call DeleteBlob if we can still see the blob in the backing
 			//storage (this protects against unexpected errors e.g. because an
 			//operator deleted the blob between the mark and sweep phases, or if we
@@ -186,9 +186,9 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 			continue
 		}
 		err := j.db.Insert(&keppel.UnknownBlob{
-			AccountName:         account.Name,
-			StorageID:           storageID,
-			MarkedForDeletionAt: j.timeNow(),
+			AccountName:    account.Name,
+			StorageID:      storageID,
+			CanBeDeletedAt: canBeDeletedAt,
 		})
 		if err != nil {
 			return err
@@ -198,7 +198,7 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 	return nil
 }
 
-func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests []keppel.StoredManifestInfo, maxMarkedAt time.Time) error {
+func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests []keppel.StoredManifestInfo, canBeDeletedAt time.Time) error {
 	isActualManifest := make(map[keppel.StoredManifestInfo]bool, len(actualManifests))
 	for _, m := range actualManifests {
 		isActualManifest[m] = true
@@ -241,7 +241,7 @@ func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests [
 
 		//sweep manifests that have been marked long enough
 		isMarkedManifest[unknownManifestInfo] = true
-		if unknownManifest.MarkedForDeletionAt.Before(maxMarkedAt) {
+		if unknownManifest.CanBeDeletedAt.Before(j.timeNow()) {
 			//only call DeleteManifest if we can still see the manifest in the
 			//backing storage (this protects against unexpected errors e.g. because
 			//an operator deleted the manifest between the mark and sweep phases, or
@@ -268,10 +268,10 @@ func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests [
 			continue
 		}
 		err := j.db.Insert(&keppel.UnknownManifest{
-			AccountName:         account.Name,
-			RepositoryName:      manifest.RepoName,
-			Digest:              manifest.Digest,
-			MarkedForDeletionAt: j.timeNow(),
+			AccountName:    account.Name,
+			RepositoryName: manifest.RepoName,
+			Digest:         manifest.Digest,
+			CanBeDeletedAt: canBeDeletedAt,
 		})
 		if err != nil {
 			return err

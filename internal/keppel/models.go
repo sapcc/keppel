@@ -43,9 +43,9 @@ type Account struct {
 	//MetadataJSON contains a JSON string of a map[string]string, or the empty string.
 	MetadataJSON string `db:"metadata_json"`
 
-	BlobsSweepedAt          *time.Time `db:"blobs_sweeped_at"`           //see tasks.SweepBlobsInNextAccount
-	StorageSweepedAt        *time.Time `db:"storage_sweeped_at"`         //see tasks.SweepStorageInNextAccount
-	AnnouncedToFederationAt *time.Time `db:"announced_to_federation_at"` //see tasks.AnnounceNextAccountToFederation
+	NextBlobSweepedAt            *time.Time `db:"next_blob_sweep_at"`              //see tasks.SweepBlobsInNextAccount
+	NextStorageSweepedAt         *time.Time `db:"next_storage_sweep_at"`           //see tasks.SweepStorageInNextAccount
+	NextFederationAnnouncementAt *time.Time `db:"next_federation_announcement_at"` //see tasks.AnnounceNextAccountToFederation
 }
 
 //SwiftContainerName returns the name of the Swift container backing this
@@ -122,7 +122,7 @@ type Blob struct {
 	PushedAt               time.Time  `db:"pushed_at"`
 	ValidatedAt            time.Time  `db:"validated_at"` //see tasks.ValidateNextBlob
 	ValidationErrorMessage string     `db:"validation_error_message"`
-	MarkedForDeletionAt    *time.Time `db:"marked_for_deletion_at"` //see tasks.SweepBlobsInNextAccount
+	CanBeDeletedAt         *time.Time `db:"can_be_deleted_at"` //see tasks.SweepBlobsInNextAccount
 }
 
 const blobGetQueryByRepoName = `
@@ -209,11 +209,11 @@ func FindUploadByRepository(db gorp.SqlExecutor, uuid string, repo Repository) (
 
 //Repository contains a record from the `repos` table.
 type Repository struct {
-	ID                  int64      `db:"id"`
-	AccountName         string     `db:"account_name"`
-	Name                string     `db:"name"`
-	BlobMountsSweepedAt *time.Time `db:"blob_mounts_sweeped_at"` //see tasks.SweepBlobMountsInNextRepo
-	ManifestsSyncedAt   *time.Time `db:"manifests_synced_at"`    //see tasks.SyncManifestsInNextRepo (only set for replica accounts)
+	ID                   int64      `db:"id"`
+	AccountName          string     `db:"account_name"`
+	Name                 string     `db:"name"`
+	NextBlobMountSweepAt *time.Time `db:"next_blob_mount_sweep_at"` //see tasks.SweepBlobMountsInNextRepo
+	NextManifestSyncAt   *time.Time `db:"next_manifest_sync_at"`    //see tasks.SyncManifestsInNextRepo (only set for replica accounts)
 }
 
 //FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a
@@ -364,9 +364,9 @@ const (
 //UnknownBlob contains a record from the `unknown_blobs` table.
 //This is only used by tasks.SweepStorageInNextAccount().
 type UnknownBlob struct {
-	AccountName         string    `db:"account_name"`
-	StorageID           string    `db:"storage_id"`
-	MarkedForDeletionAt time.Time `db:"marked_for_deletion_at"`
+	AccountName    string    `db:"account_name"`
+	StorageID      string    `db:"storage_id"`
+	CanBeDeletedAt time.Time `db:"can_be_deleted_at"`
 }
 
 //UnknownManifest contains a record from the `unknown_manifests` table.
@@ -375,10 +375,10 @@ type UnknownBlob struct {
 //NOTE: We don't use repository IDs here because unknown manifests may exist in
 //repositories that are also not known to the database.
 type UnknownManifest struct {
-	AccountName         string    `db:"account_name"`
-	RepositoryName      string    `db:"repo_name"`
-	Digest              string    `db:"digest"`
-	MarkedForDeletionAt time.Time `db:"marked_for_deletion_at"`
+	AccountName    string    `db:"account_name"`
+	RepositoryName string    `db:"repo_name"`
+	Digest         string    `db:"digest"`
+	CanBeDeletedAt time.Time `db:"can_be_deleted_at"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////
