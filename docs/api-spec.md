@@ -96,6 +96,7 @@ The following fields may be returned:
 | ----- | ---- | ----------- |
 | `accounts[].name` | string | Name of this account. |
 | `accounts[].auth_tenant_id` | string | ID of auth tenant that regulates access to this account. |
+| `accounts[].in_maintenance` | bool | Whether this account is in maintenance mode. [See below](#maintenance-mode) for details. |
 | `accounts[].metadata` | object of strings | Free-form metadata maintained by the user. The contents of this field are not interpreted by Keppel, but may trigger special behavior in applications using this API. |
 | `accounts[].rbac_policies` | list of objects | Policies for rule-based access control (RBAC) to repositories in this account. RBAC policies are evaluated in addition to the permissions granted by the auth tenant. |
 | `accounts[].rbac_policies[].match_repository` | string | The RBAC policy applies to all repositories in this account whose name matches this regex. The leading account name and slash is stripped from the repository name before matching. The notes on regexes below apply. |
@@ -116,11 +117,11 @@ This section describes the different possible configurations for `accounts[].rep
 #### Strategy: `on_first_use`
 
 When an authorized user pulls a manifest which does not exist in this registry yet, the same manifest will be queried in
-the upstream registry configured by the Keppel operator. If this query returns a result, the manifest and all blobs
+the respective primary account. The primary account must have the same name as this account and must be located in one
+of the upstream registries configured by the Keppel operator. If this query returns a result, the manifest and all blobs
 referenced by it will be pulled from the upstream registry into the local one. Note that:
 
-- Manifests and blobs pulled thusly will not be deleted automatically, even if they disappear from the upstream registry
-  later on.
+- Manifests and blobs can not be deleted directly, but will be cleaned up once they disappear from the upstream registry.
 - Accounts with this replication strategy will not allow direct push access. Images can only be added to these accounts
   through replication.
 
@@ -130,6 +131,19 @@ The following fields are shown on accounts configured with this strategy:
 | ----- | ---- | ----------- |
 | `accounts[].replication.strategy` | string | The string `on_first_use`. |
 | `accounts[].replication.upstream` | string | The hostname of the upstream registry. Must be one of the peers configured for this registry by its operator. |
+
+### Maintenance mode
+
+When `accounts[].in_maintenance` is true, the following differences in behavior apply to this account:
+
+- For primary accounts (i.e. accounts that are not replicas), no new blobs or manifests may be pushed. Only pulling and
+  deleting are allowed.
+- For replica accounts, no new blobs or manifests will be replicated. Pulling is still allowed, but it becomes possible
+  to delete blobs and manifests.
+
+Maintenance mode is a significant part of the account deletion workflow: Sending a DELETE request on an account is only
+allowed while the account is in maintenance mode, and the caller must have deleted all manifests from the account before
+attempting to DELETE it.
 
 ## GET /keppel/v1/accounts/:name
 

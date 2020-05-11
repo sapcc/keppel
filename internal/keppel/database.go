@@ -308,6 +308,12 @@ var sqlMigrations = map[string]string{
 		DELETE FROM unknown_manifests;
 		ALTER TABLE unknown_manifests RENAME COLUMN can_be_deleted_at TO marked_for_deletion_at;
 	`,
+	"013_add_account_in_maintenance.up.sql": `
+		ALTER TABLE accounts ADD COLUMN in_maintenance BOOLEAN NOT NULL DEFAULT FALSE;
+	`,
+	"013_add_account_in_maintenance.down.sql": `
+		ALTER TABLE accounts DROP COLUMN in_maintenance;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

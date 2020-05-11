@@ -39,6 +39,8 @@ type Account struct {
 	//RequiredLabels is a comma-separated list of labels that must be present on
 	//all image manifests in this account.
 	RequiredLabels string `db:"required_labels"`
+	//InMaintenance indicates whether the account is in maintenance mode (as defined in the API spec).
+	InMaintenance bool `db:"in_maintenance"`
 
 	//MetadataJSON contains a JSON string of a map[string]string, or the empty string.
 	MetadataJSON string `db:"metadata_json"`

@@ -42,6 +42,7 @@ import (
 type Account struct {
 	Name              string             `json:"name"`
 	AuthTenantID      string             `json:"auth_tenant_id"`
+	InMaintenance     bool               `json:"in_maintenance"`
 	Metadata          map[string]string  `json:"metadata"`
 	RBACPolicies      []RBACPolicy       `json:"rbac_policies"`
 	ReplicationPolicy *ReplicationPolicy `json:"replication,omitempty"`
@@ -92,6 +93,7 @@ func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
 	return Account{
 		Name:              dbAccount.Name,
 		AuthTenantID:      dbAccount.AuthTenantID,
+		InMaintenance:     dbAccount.InMaintenance,
 		Metadata:          metadata,
 		RBACPolicies:      policies,
 		ReplicationPolicy: renderReplicationPolicy(dbAccount),
@@ -255,6 +257,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Account struct {
 			AuthTenantID      string             `json:"auth_tenant_id"`
+			InMaintenance     bool               `json:"in_maintenance"`
 			Metadata          map[string]string  `json:"metadata"`
 			RBACPolicies      []RBACPolicy       `json:"rbac_policies"`
 			ReplicationPolicy *ReplicationPolicy `json:"replication"`
@@ -296,9 +299,10 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accountToCreate := keppel.Account{
-		Name:         accountName,
-		AuthTenantID: req.Account.AuthTenantID,
-		MetadataJSON: metadataJSONStr,
+		Name:          accountName,
+		AuthTenantID:  req.Account.AuthTenantID,
+		InMaintenance: req.Account.InMaintenance,
+		MetadataJSON:  metadataJSONStr,
 	}
 
 	//validate replication policy
@@ -423,6 +427,10 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	} else {
 		//account != nil: update if necessary
 		needsUpdate := false
+		if account.InMaintenance != accountToCreate.InMaintenance {
+			account.InMaintenance = accountToCreate.InMaintenance
+			needsUpdate = true
+		}
 		if account.MetadataJSON != accountToCreate.MetadataJSON {
 			account.MetadataJSON = accountToCreate.MetadataJSON
 			needsUpdate = true
