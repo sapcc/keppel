@@ -86,6 +86,24 @@ func TestImageManifestLifecycle(t *testing.T) {
 			ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 		}.Check(t, h)
 
+		//PUT failure case: cannot push while account is in maintenance
+		testWithAccountInMaintenance(t, db, "test1", func() {
+			assert.HTTPRequest{
+				Method: "PUT",
+				Path:   "/v2/test1/foo/manifests/" + ref,
+				Header: map[string]string{
+					"Authorization": "Bearer " + token,
+					"Content-Type":  image.Manifest.MediaType,
+				},
+				Body:         assert.ByteData(image.Manifest.Contents),
+				ExpectStatus: http.StatusMethodNotAllowed,
+				ExpectBody: test.ErrorCodeWithMessage{
+					Code:    keppel.ErrUnsupported,
+					Message: "account is in maintenance",
+				},
+			}.Check(t, h)
+		})
+
 		//PUT failure case: malformed manifest
 		assert.HTTPRequest{
 			Method: "PUT",

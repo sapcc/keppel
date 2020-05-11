@@ -56,6 +56,26 @@ func TestBlobMonolithicUpload(t *testing.T) {
 		ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 	}.Check(t, h)
 
+	//test failure cases: account is in maintenance
+	testWithAccountInMaintenance(t, db, "test1", func() {
+		assert.HTTPRequest{
+			Method: "POST",
+			Path:   "/v2/test1/foo/blobs/uploads/?digest=" + blob.Digest.String(),
+			Header: map[string]string{
+				"Authorization":  "Bearer " + token,
+				"Content-Length": strconv.Itoa(len(blob.Contents)),
+				"Content-Type":   "application/octet-stream",
+			},
+			Body:         assert.ByteData(blob.Contents),
+			ExpectStatus: http.StatusMethodNotAllowed,
+			ExpectHeader: test.VersionHeader,
+			ExpectBody: test.ErrorCodeWithMessage{
+				Code:    keppel.ErrUnsupported,
+				Message: "account is in maintenance",
+			},
+		}.Check(t, h)
+	})
+
 	//test failure cases: digest is wrong
 	for _, wrongDigest := range []string{"wrong", "sha256:" + sha256Of([]byte("something else"))} {
 		assert.HTTPRequest{
@@ -166,6 +186,26 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 		}.Check(t, h)
+
+		//test failure cases during POST: account is in maintenance
+		testWithAccountInMaintenance(t, db, "test1", func() {
+			assert.HTTPRequest{
+				Method: "POST",
+				Path:   "/v2/test1/foo/blobs/uploads/",
+				Header: map[string]string{
+					"Authorization":  "Bearer " + token,
+					"Content-Length": strconv.Itoa(len(blob.Contents)),
+					"Content-Type":   "application/octet-stream",
+				},
+				Body:         assert.ByteData(blob.Contents),
+				ExpectStatus: http.StatusMethodNotAllowed,
+				ExpectHeader: test.VersionHeader,
+				ExpectBody: test.ErrorCodeWithMessage{
+					Code:    keppel.ErrUnsupported,
+					Message: "account is in maintenance",
+				},
+			}.Check(t, h)
+		})
 
 		//test failure cases during PATCH: bogus session ID
 		assert.HTTPRequest{

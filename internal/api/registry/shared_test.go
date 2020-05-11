@@ -339,6 +339,18 @@ func expectStorageEmpty(t *testing.T, sd *test.StorageDriver, db *keppel.DB) {
 	}
 }
 
+func testWithAccountInMaintenance(t *testing.T, db *keppel.DB, accountName string, action func()) {
+	_, err := db.Exec("UPDATE accounts SET in_maintenance = TRUE WHERE name = $1", accountName)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	action()
+	_, err = db.Exec("UPDATE accounts SET in_maintenance = FALSE WHERE name = $1", accountName)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 func sha256Of(data []byte) string {

@@ -154,9 +154,22 @@ func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
 		return fmt.Errorf("cannot find account for repo %s: %s", repo.FullName(), err.Error())
 	}
 
+	//do not perform manifest sync while account is in maintenance (maintenance mode blocks all kinds of replication)
+	if !account.InMaintenance {
+		err = j.performManifestSync(*account, repo)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = j.db.Exec(syncManifestDoneQuery, repo.ID, j.timeNow().Add(1*time.Hour))
+	return err
+}
+
+func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Repository) error {
 	//enumerate manifests in this repo
 	var manifests []keppel.Manifest
-	_, err = j.db.Select(&manifests, `SELECT * FROM manifests WHERE repo_id = $1`, repo.ID)
+	_, err := j.db.Select(&manifests, `SELECT * FROM manifests WHERE repo_id = $1`, repo.ID)
 	if err != nil {
 		return fmt.Errorf("cannot list manifests in repo %s: %s", repo.FullName(), err.Error())
 	}
@@ -166,7 +179,7 @@ func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
 	p := j.processor()
 	for _, manifest := range manifests {
 		ref := keppel.ManifestReference{Digest: digest.Digest(manifest.Digest)}
-		exists, err := p.CheckManifestOnPrimary(*account, repo, ref)
+		exists, err := p.CheckManifestOnPrimary(account, repo, ref)
 		if err != nil {
 			return fmt.Errorf("cannot check existence of manifest %s/%s on primary account: %s", repo.FullName(), manifest.Digest, err.Error())
 		}
@@ -228,7 +241,7 @@ func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
 			if err != nil {
 				return fmt.Errorf("cannot remove deleted manifest %s in repo %s from DB: %s", digest, repo.FullName(), err.Error())
 			}
-			err = j.sd.DeleteManifest(*account, repo.Name, digest)
+			err = j.sd.DeleteManifest(account, repo.Name, digest)
 			if err != nil {
 				return fmt.Errorf("cannot remove deleted manifest %s in repo %s from storage: %s", digest, repo.FullName(), err.Error())
 			}
@@ -254,6 +267,5 @@ func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
 		}
 	}
 
-	_, err = j.db.Exec(syncManifestDoneQuery, repo.ID, j.timeNow().Add(1*time.Hour))
-	return err
+	return nil
 }

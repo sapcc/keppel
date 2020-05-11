@@ -59,7 +59,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	if err == sql.ErrNoRows {
 		//if the manifest does not exist there, we may have the option of replicating
 		//from upstream
-		if account.UpstreamPeerHostName != "" {
+		if account.UpstreamPeerHostName != "" && !account.InMaintenance {
 			dbManifest, manifestBytes, err = a.processor().ReplicateManifest(*account, *repo, reference)
 			if respondWithError(w, err) {
 				return
@@ -207,6 +207,12 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 			account.UpstreamPeerHostName, account.Name, repo.Name,
 		)
 		keppel.ErrUnsupported.With(msg).WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w)
+		return
+	}
+
+	//forbid pushing during maintenance
+	if account.InMaintenance {
+		keppel.ErrUnsupported.With("account is in maintenance").WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w)
 		return
 	}
 

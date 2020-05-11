@@ -64,6 +64,12 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//forbid pushing during maintenance
+	if account.InMaintenance {
+		keppel.ErrUnsupported.With("account is in maintenance").WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w)
+		return
+	}
+
 	//only allow new blob uploads when there is enough quota to push a manifest
 	//
 	//This is not strictly necessary to enforce the manifest quota, but it's
