@@ -50,6 +50,25 @@ func TestROFUSimpleImage(t *testing.T) {
 		token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
 			keppel.CanPullFromAccount)
 
+		if firstPass {
+			//replication will not take place while the account is in maintenance
+			testWithAccountInMaintenance(t, db2, "test1", func() {
+				assert.HTTPRequest{
+					Method:       "GET",
+					Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
+					Header:       map[string]string{"Authorization": "Bearer " + token},
+					ExpectStatus: http.StatusNotFound,
+					ExpectHeader: test.VersionHeader,
+					ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
+				}.Check(t, h2)
+			})
+		} else {
+			//if manifest is already present locally, we don't care about the maintenance mode
+			testWithAccountInMaintenance(t, db2, "test1", func() {
+				expectManifestExists(t, h2, token, "test1/foo", image.Manifest, image.Manifest.Digest.String())
+			})
+		}
+
 		clock.Step()
 		expectManifestExists(t, h2, token, "test1/foo", image.Manifest, image.Manifest.Digest.String())
 

@@ -1,4 +1,4 @@
-INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, required_labels, metadata_json, next_blob_sweep_at, next_storage_sweep_at, next_federation_announcement_at) VALUES ('test1', 'test1authtenant', 'registry.example.org', '', '', NULL, NULL, NULL);
+INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, required_labels, metadata_json, next_blob_sweep_at, next_storage_sweep_at, next_federation_announcement_at, in_maintenance) VALUES ('test1', 'test1authtenant', 'registry.example.org', '', '', NULL, NULL, NULL, TRUE);
 
 INSERT INTO blob_mounts (blob_id, repo_id, can_be_deleted_at) VALUES (1, 1, NULL);
 INSERT INTO blob_mounts (blob_id, repo_id, can_be_deleted_at) VALUES (2, 1, NULL);
@@ -23,6 +23,9 @@ INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, 
 INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, 'sha256:33ef30d47bd666b28f971cc3f07b00aca72d55865e79d6ca03a836647bb81f42', 1);
 INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, 'sha256:33ef30d47bd666b28f971cc3f07b00aca72d55865e79d6ca03a836647bb81f42', 2);
 INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, 'sha256:33ef30d47bd666b28f971cc3f07b00aca72d55865e79d6ca03a836647bb81f42', 3);
+INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, 'sha256:5e81574b620cb58bd6db9ba7cfab0eefc6fdf36ec04a423af737a23c0b481d57', 7);
+INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, 'sha256:5e81574b620cb58bd6db9ba7cfab0eefc6fdf36ec04a423af737a23c0b481d57', 8);
+INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, 'sha256:5e81574b620cb58bd6db9ba7cfab0eefc6fdf36ec04a423af737a23c0b481d57', 9);
 INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, 'sha256:622d6cd420f93b90fcf415b3254eb798eb1df51c7aecbf1ccc8331acea30079d', 4);
 INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, 'sha256:622d6cd420f93b90fcf415b3254eb798eb1df51c7aecbf1ccc8331acea30079d', 5);
 INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, 'sha256:622d6cd420f93b90fcf415b3254eb798eb1df51c7aecbf1ccc8331acea30079d', 6);
@@ -31,6 +34,7 @@ INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES
 INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, 'sha256:cb117c93c9ebf1b0b7eb0be4f0abfee8ec773a895fa64dc7ea13b824a6b11506', 'sha256:622d6cd420f93b90fcf415b3254eb798eb1df51c7aecbf1ccc8331acea30079d');
 
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message) VALUES (1, 'sha256:33ef30d47bd666b28f971cc3f07b00aca72d55865e79d6ca03a836647bb81f42', 'application/vnd.docker.distribution.manifest.v2+json', 2099156, 3600, 3600, '');
+INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message) VALUES (1, 'sha256:5e81574b620cb58bd6db9ba7cfab0eefc6fdf36ec04a423af737a23c0b481d57', 'application/vnd.docker.distribution.manifest.v2+json', 2099156, 3600, 3600, '');
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message) VALUES (1, 'sha256:622d6cd420f93b90fcf415b3254eb798eb1df51c7aecbf1ccc8331acea30079d', 'application/vnd.docker.distribution.manifest.v2+json', 2099156, 3600, 3600, '');
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message) VALUES (1, 'sha256:cb117c93c9ebf1b0b7eb0be4f0abfee8ec773a895fa64dc7ea13b824a6b11506', 'application/vnd.docker.distribution.manifest.list.v2+json', 1715, 3600, 3600, '');
 

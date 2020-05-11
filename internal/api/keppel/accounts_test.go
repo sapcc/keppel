@@ -164,6 +164,7 @@ func TestAccountsAPI(t *testing.T) {
 				"account": assert.JSONObject{
 					"name":           "first",
 					"auth_tenant_id": "tenant1",
+					"in_maintenance": false,
 					"metadata": assert.JSONObject{
 						"bar": "barbar",
 						"foo": "foofoo",
@@ -205,6 +206,7 @@ func TestAccountsAPI(t *testing.T) {
 			"accounts": []assert.JSONObject{{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
+				"in_maintenance": false,
 				"metadata": assert.JSONObject{
 					"bar": "barbar",
 					"foo": "foofoo",
@@ -222,6 +224,7 @@ func TestAccountsAPI(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
+				"in_maintenance": false,
 				"metadata": assert.JSONObject{
 					"bar": "barbar",
 					"foo": "foofoo",
@@ -277,6 +280,7 @@ func TestAccountsAPI(t *testing.T) {
 				"account": assert.JSONObject{
 					"name":           "second",
 					"auth_tenant_id": "tenant1",
+					"in_maintenance": false,
 					"metadata":       assert.JSONObject{},
 					"rbac_policies":  rbacPoliciesJSON,
 				},
@@ -353,6 +357,7 @@ func TestAccountsAPI(t *testing.T) {
 				{
 					"name":           "first",
 					"auth_tenant_id": "tenant1",
+					"in_maintenance": false,
 					"metadata": assert.JSONObject{
 						"bar": "barbar",
 						"foo": "foofoo",
@@ -362,6 +367,7 @@ func TestAccountsAPI(t *testing.T) {
 				{
 					"name":           "second",
 					"auth_tenant_id": "tenant1",
+					"in_maintenance": false,
 					"metadata":       assert.JSONObject{},
 					"rbac_policies":  rbacPoliciesJSON,
 				},
@@ -377,11 +383,54 @@ func TestAccountsAPI(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
+				"in_maintenance": false,
 				"metadata":       assert.JSONObject{},
 				"rbac_policies":  rbacPoliciesJSON,
 			},
 		},
 	}.Check(t, r)
+
+	//check editing of InMaintenance flag
+	for _, inMaintenance := range []bool{true, false} {
+		assert.HTTPRequest{
+			Method: "PUT",
+			Path:   "/keppel/v1/accounts/second",
+			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+			Body: assert.JSONObject{
+				"account": assert.JSONObject{
+					"auth_tenant_id": "tenant1",
+					"in_maintenance": inMaintenance,
+					"rbac_policies":  rbacPoliciesJSON,
+				},
+			},
+			ExpectStatus: http.StatusOK,
+			ExpectBody: assert.JSONObject{
+				"account": assert.JSONObject{
+					"name":           "second",
+					"auth_tenant_id": "tenant1",
+					"in_maintenance": inMaintenance,
+					"metadata":       assert.JSONObject{},
+					"rbac_policies":  rbacPoliciesJSON,
+				},
+			},
+		}.Check(t, r)
+
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/keppel/v1/accounts/second",
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+			ExpectStatus: http.StatusOK,
+			ExpectBody: assert.JSONObject{
+				"account": assert.JSONObject{
+					"name":           "second",
+					"auth_tenant_id": "tenant1",
+					"in_maintenance": inMaintenance,
+					"metadata":       assert.JSONObject{},
+					"rbac_policies":  rbacPoliciesJSON,
+				},
+			},
+		}.Check(t, r)
+	}
 
 	//check editing of RBAC policies
 	newRBACPoliciesJSON := []assert.JSONObject{
@@ -414,6 +463,7 @@ func TestAccountsAPI(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
+				"in_maintenance": false,
 				"metadata":       assert.JSONObject{},
 				"rbac_policies":  newRBACPoliciesJSON,
 			},
@@ -493,6 +543,7 @@ func TestAccountsAPI(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
+				"in_maintenance": false,
 				"metadata":       assert.JSONObject{},
 				"rbac_policies":  newRBACPoliciesJSON,
 				"validation": assert.JSONObject{
@@ -521,6 +572,7 @@ func TestAccountsAPI(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
+				"in_maintenance": false,
 				"metadata":       assert.JSONObject{},
 				"rbac_policies":  newRBACPoliciesJSON,
 			},
@@ -586,6 +638,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
+				"in_maintenance": false,
 				"metadata":       assert.JSONObject{},
 				"rbac_policies":  []assert.JSONObject{},
 			},
@@ -970,6 +1023,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
+				"in_maintenance": false,
 				"metadata":       assert.JSONObject{},
 				"rbac_policies":  []assert.JSONObject{},
 				"replication": assert.JSONObject{
@@ -996,6 +1050,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
+				"in_maintenance": false,
 				"metadata":       assert.JSONObject{},
 				"rbac_policies":  []assert.JSONObject{},
 				"replication": assert.JSONObject{
@@ -1030,6 +1085,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "second",
 				"auth_tenant_id": "tenant2",
+				"in_maintenance": false,
 				"metadata":       assert.JSONObject{},
 				"rbac_policies":  []assert.JSONObject{},
 			},
