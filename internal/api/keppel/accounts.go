@@ -19,6 +19,7 @@
 package keppelv1
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -540,6 +541,143 @@ func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPoli
 	}
 
 	return nil
+}
+
+type deleteAccountRemainingManifest struct {
+	RepositoryName string `json:"repository"`
+	Digest         string `json:"digest"`
+}
+
+type deleteAccountRemainingManifests struct {
+	Count uint64                           `json:"count"`
+	Next  []deleteAccountRemainingManifest `json:"next"`
+}
+
+type deleteAccountRemainingBlobs struct {
+	Count uint64 `json:"count"`
+}
+
+type deleteAccountResponse struct {
+	RemainingManifests *deleteAccountRemainingManifests `json:"remaining_manifests,omitempty"`
+	RemainingBlobs     *deleteAccountRemainingBlobs     `json:"remaining_blobs,omitempty"`
+	Error              string                           `json:"error,omitempty"`
+}
+
+func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
+	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
+	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanChangeAccount)
+	if account == nil {
+		return
+	}
+
+	resp, err := a.deleteAccount(*account)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	if resp == nil {
+		w.WriteHeader(http.StatusNoContent)
+	} else {
+		respondwith.JSON(w, http.StatusConflict, resp)
+	}
+}
+
+const (
+	deleteAccountFindManifestsQuery = `
+		SELECT r.name, m.digest
+			FROM manifests m
+			JOIN repos r ON m.repo_id = r.id
+			JOIN accounts a ON a.name = r.account_name
+		 WHERE a.name = $1
+		 LIMIT 10
+	`
+	deleteAccountCountManifestsQuery = `
+		SELECT COUNT(m.digest)
+			FROM manifests m
+			JOIN repos r ON m.repo_id = r.id
+			JOIN accounts a ON a.name = r.account_name
+		 WHERE a.name = $1
+	`
+	deleteAccountReposQuery                   = `DELETE FROM repos WHERE account_name = $1`
+	deleteAccountCountBlobsQuery              = `SELECT COUNT(id) FROM blobs WHERE account_name = $1`
+	deleteAccountScheduleBlobSweepQuery       = `UPDATE accounts SET next_blob_sweep_at = $2 WHERE name = $1`
+	deleteAccountMarkAllBlobsForDeletionQuery = `UPDATE blobs SET can_be_deleted_at = $2 WHERE account_name = $1`
+)
+
+func (a *API) deleteAccount(account keppel.Account) (*deleteAccountResponse, error) {
+	if !account.InMaintenance {
+		return &deleteAccountResponse{
+			Error: "account must be set in maintenance first",
+		}, nil
+	}
+
+	//can only delete account when user has deleted all manifests from it
+	var nextManifests []deleteAccountRemainingManifest
+	err := keppel.ForeachRow(a.db, deleteAccountFindManifestsQuery, []interface{}{account.Name},
+		func(rows *sql.Rows) error {
+			var m deleteAccountRemainingManifest
+			err := rows.Scan(&m.RepositoryName, &m.Digest)
+			nextManifests = append(nextManifests, m)
+			return err
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if len(nextManifests) > 0 {
+		manifestCount, err := a.db.SelectInt(deleteAccountCountManifestsQuery, account.Name)
+		return &deleteAccountResponse{
+			RemainingManifests: &deleteAccountRemainingManifests{
+				Count: uint64(manifestCount),
+				Next:  nextManifests,
+			},
+		}, err
+	}
+
+	//delete all repos (and therefore, all blob mounts), so that blob sweeping
+	//can immediately take place
+	_, err = a.db.Exec(deleteAccountReposQuery, account.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	//can only delete account when all blobs have been deleted
+	blobCount, err := a.db.SelectInt(deleteAccountCountBlobsQuery, account.Name)
+	if err != nil {
+		return nil, err
+	}
+	if blobCount > 0 {
+		//make sure that blob sweep runs immediately
+		_, err := a.db.Exec(deleteAccountMarkAllBlobsForDeletionQuery, account.Name, time.Now())
+		if err != nil {
+			return nil, err
+		}
+		_, err = a.db.Exec(deleteAccountScheduleBlobSweepQuery, account.Name, time.Now())
+		if err != nil {
+			return nil, err
+		}
+		return &deleteAccountResponse{
+			RemainingBlobs: &deleteAccountRemainingBlobs{Count: uint64(blobCount)},
+		}, nil
+	}
+
+	//start deleting the account in a transaction
+	tx, err := a.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer keppel.RollbackUnlessCommitted(tx)
+	_, err = tx.Delete(&account)
+	if err != nil {
+		return nil, err
+	}
+
+	//before committing the transaction, confirm account deletion with the federation driver
+	err = a.fd.ForfeitAccountName(account)
+	if err != nil {
+		return &deleteAccountResponse{Error: err.Error()}, nil
+	}
+
+	return nil, tx.Commit()
 }
 
 func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) {

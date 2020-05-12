@@ -19,6 +19,7 @@ This document uses the terminology defined in the [README.md](../README.md#termi
 - [GET /keppel/v1/accounts](#get-keppelv1accounts)
 - [GET /keppel/v1/accounts/:name](#get-keppelv1accountsname)
 - [PUT /keppel/v1/accounts/:name](#put-keppelv1accountsname)
+- [DELETE /keppel/v1/accounts/:name](#delete-keppelv1accountsname)
 - [POST /keppel/v1/accounts/:name/sublease](#post-keppelv1accountsnamesublease)
 - [GET /keppel/v1/accounts/:name/repositories](#get-keppelv1accountsnamerepositories)
 - [DELETE /keppel/v1/accounts/:name/repositories/:name](#delete-keppelv1accountsnamerepositoriesname)
@@ -188,6 +189,54 @@ When creating a replica account, it may be necessary to supply a **sublease toke
 header. The sublease token must have been issued by the Keppel instance hosting the corresponding primary account, via
 the [POST /keppel/v1/accounts/:name/sublease](#post-keppelv1accountsnamesublease) endpoint. If a sublease token is
 required, but the correct one was not supplied, 403 (Forbidden) will be returned.
+
+## DELETE /keppel/v1/accounts/:name
+
+Deletes the given account. On success, returns 204 (No Content).
+
+Accounts can only be deleted after all manifests and blobs have been deleted from the account and its backing storage.
+If these requirements are not met, 409 (Conflict) will be returned along with a JSON response body like this:
+
+```json
+{
+  "remaining_manifests": {
+    "count": 23,
+    "next": [
+      {
+        "repository": "library/alpine",
+        "digest": "sha256:54c5b3dd459d5ef778bb2fa1e23a5fb0e1b62ae66970bcb436e8f81a1a1a8e41",
+      },
+      {
+        "repository": "library/alpine",
+        "digest": "sha256:721fe5d2ca0c3f66b596df049b23619d14b9912f88344dea3b5335ad007f11a3",
+      },
+      ...
+    ]
+  },
+  "remaining_blobs": {
+    "count": 42
+  },
+  "error": "cannot delete this primary account because replicas are still attached to it"
+}
+```
+
+The following fields may be returned:
+
+| Field | Type | Explanation |
+| ----- | ---- | ----------- |
+| `remaining_manifests` | object | If this field is included, there are still manifests left in the account that the client has to delete before the account deletion can proceed. A list of manifests can be found in the `remaining_manifests.next` field. |
+| `remaining_manifests.count` | integer | The total number of manifests that are still stored in this account. This value can be used to present a progress indication to the user. |
+| `remaining_manifests.next` | array of objects | A list of manifests that are still stored in this account. To proceed with the account deletion, the client shall delete these manifests first, then restart the DELETE request on the account. The length of this list is capped to prevent excessive response sizes, so the number of entries in this list may be less than `remaining_manifests.count`. In this case, the next DELETE request on the account will show the next set of manifests that needs to be deleted. |
+| `remaining_manifests.next[].repository` | string | The repository (within this account) where this manifest is stored. |
+| `remaining_manifests.next[].digest` | string | The digest of this manifest. |
+| `remaining_blobs` | object | If this field is included, there are still blobs left in the account. There is no API for deleting blobs, but when this field is included, it indicates that Keppel has scheduled a garbage collection to cleanup these blobs. The client shall restart the DELETE request on the account after some time (e.g. 15 seconds) to observe whether garbage collection is finished. |
+| `remaining_blobs.count` | integer | The total number of blobs that are still stored in this account. This value can be used to present a progress indication to the user. |
+| `error` | string | If this field is included, the account deletion was attempted, but failed. This field contains a human-readable error message describing the problem. |
+
+Unlike in the artificial example above, usually only one of the top-level fields will be present at a time. Each
+top-level field represents a distinct phase of the account deletion process: First all manifests need to be deleted (so
+only `remaining_manifests` would be shown), then all blobs need to be garbage-collected (so only `remaining_blobs` would
+be shown), then the account itself can be deleted (so only `error` would be shown if necessary).
 
 ## POST /keppel/v1/accounts/:name/sublease
 

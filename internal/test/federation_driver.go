@@ -30,6 +30,7 @@ import (
 type FederationDriver struct {
 	ClaimFailsBecauseOfUserError   bool
 	ClaimFailsBecauseOfServerError bool
+	ForfeitFails                   bool
 	NextSubleaseTokenSecretToIssue string
 	ValidSubleaseTokenSecrets      map[string]string //maps accountName => subleaseTokenSecret
 	RecordedAccounts               []AccountRecordedByFederationDriver
@@ -82,6 +83,9 @@ func (d *FederationDriver) IssueSubleaseTokenSecret(account keppel.Account) (str
 
 //ForfeitAccountName implements the keppel.FederationDriver interface.
 func (d *FederationDriver) ForfeitAccountName(account keppel.Account) error {
+	if d.ForfeitFails {
+		return errors.New("ForfeitAccountName failing as requested")
+	}
 	return nil
 }
 

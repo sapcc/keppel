@@ -20,13 +20,17 @@
 package keppelv1
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/audittools"
+	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/hermes/pkg/cadf"
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -1107,6 +1111,207 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 		ExpectStatus: http.StatusConflict,
 		ExpectBody:   assert.StringData("cannot change replication policy on existing account\n"),
 	}.Check(t, r)
+}
+
+func TestDeleteAccount(t *testing.T) {
+	r, _, fd, _, sd, db := setup(t)
+
+	//setup test accounts and repositories
+	nextBlobSweepAt := time.Unix(200, 0)
+	accounts := []*keppel.Account{
+		{Name: "test1", AuthTenantID: "tenant1", InMaintenance: true, NextBlobSweepedAt: &nextBlobSweepAt},
+		{Name: "test2", AuthTenantID: "tenant2", InMaintenance: true},
+		{Name: "test3", AuthTenantID: "tenant3", InMaintenance: true},
+	}
+	for _, account := range accounts {
+		mustInsert(t, db, account)
+	}
+	repos := []*keppel.Repository{
+		{AccountName: "test1", Name: "foo/bar"},
+		{AccountName: "test1", Name: "something-else"},
+	}
+	for _, repo := range repos {
+		mustInsert(t, db, repo)
+	}
+
+	//upload a test image
+	image := test.GenerateImage(
+		test.GenerateExampleLayer(1),
+		test.GenerateExampleLayer(2),
+	)
+
+	sidGen := test.StorageIDGenerator{}
+	var blobs []keppel.Blob
+	for idx, testBlob := range append(image.Layers, image.Config) {
+		storageID := sidGen.Next()
+		blob := keppel.Blob{
+			AccountName: accounts[0].Name,
+			Digest:      testBlob.Digest.String(),
+			SizeBytes:   uint64(len(testBlob.Contents)),
+			StorageID:   storageID,
+			PushedAt:    time.Unix(int64(idx), 0),
+			ValidatedAt: time.Unix(int64(idx), 0),
+		}
+		mustInsert(t, db, &blob)
+		blobs = append(blobs, blob)
+
+		err := sd.AppendToBlob(*accounts[0], storageID, 1, &blob.SizeBytes, bytes.NewReader(testBlob.Contents))
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		err = sd.FinalizeBlob(*accounts[0], storageID, 1)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		err = keppel.MountBlobIntoRepo(db, blob, *repos[0])
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+	}
+
+	manifest := keppel.Manifest{
+		RepositoryID: repos[0].ID,
+		Digest:       image.Manifest.Digest.String(),
+		MediaType:    image.Manifest.MediaType,
+		SizeBytes:    uint64(len(image.Manifest.Contents)),
+		PushedAt:     time.Unix(100, 0),
+		ValidatedAt:  time.Unix(100, 0),
+	}
+	mustInsert(t, db, &manifest)
+	err := sd.WriteManifest(*accounts[0], repos[0].Name, image.Manifest.Digest.String(), image.Manifest.Contents)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	for _, blob := range blobs {
+		_, err := db.Exec(
+			`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
+			repos[0].ID, image.Manifest.Digest.String(), blob.ID,
+		)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+	}
+
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/delete-account-000.sql")
+
+	//failure case: insufficient permissions (the "delete" permission refers to
+	//manifests within the account, not the account itself)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
+		ExpectStatus: http.StatusForbidden,
+	}.Check(t, r)
+
+	//failure case: account not in maintenance
+	_, err = db.Exec(`UPDATE accounts SET in_maintenance = FALSE`)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
+		ExpectStatus: http.StatusConflict,
+		ExpectBody: assert.JSONObject{
+			"error": "account must be set in maintenance first",
+		},
+	}.Check(t, r)
+	_, err = db.Exec(`UPDATE accounts SET in_maintenance = TRUE`)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	//phase 1: DELETE on account should complain about remaining manifests
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
+		ExpectStatus: http.StatusConflict,
+		ExpectBody: assert.JSONObject{
+			"remaining_manifests": assert.JSONObject{
+				"count": 1,
+				"next": []assert.JSONObject{{
+					"repository": repos[0].Name,
+					"digest":     image.Manifest.Digest.String(),
+				}},
+			},
+		},
+	}.Check(t, r)
+
+	//that didn't touch the DB
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/delete-account-000.sql")
+
+	//as indicated by the response, we need to delete the specified manifest to
+	//proceed with the account deletion
+	assert.HTTPRequest{
+		Method: "DELETE",
+		Path: fmt.Sprintf(
+			"/keppel/v1/accounts/test1/repositories/%s/_manifests/%s",
+			repos[0].Name, image.Manifest.Digest.String(),
+		),
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
+		ExpectStatus: http.StatusNoContent,
+	}.Check(t, r)
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/delete-account-001.sql")
+
+	//phase 2: DELETE on account should complain about remaining blobs
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
+		ExpectStatus: http.StatusConflict,
+		ExpectBody: assert.JSONObject{
+			"remaining_blobs": assert.JSONObject{"count": 3},
+		},
+	}.Check(t, r)
+
+	//but this will have cleaned up the blob mounts and scheduled a GC pass
+	//(replace time.Now() with a deterministic time before diffing the DB)
+	_, err = db.Exec(
+		`UPDATE accounts SET next_blob_sweep_at = $1 WHERE next_blob_sweep_at > $2 AND next_blob_sweep_at <= $3`,
+		time.Unix(300, 0),
+		time.Now().Add(-5*time.Second),
+		time.Now(),
+	)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	//also all blobs will be marked for deletion
+	_, err = db.Exec(
+		`UPDATE blobs SET can_be_deleted_at = $1 WHERE can_be_deleted_at > $2 AND can_be_deleted_at <= $3`,
+		time.Unix(300, 0),
+		time.Now().Add(-5*time.Second),
+		time.Now(),
+	)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/delete-account-002.sql")
+
+	//phase 3: all blobs have been cleaned up, so the account can finally be
+	//deleted (we use fresh accounts for this because that's easier than
+	//running the blob sweep)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test2",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant2,change:tenant2"},
+		ExpectStatus: http.StatusNoContent,
+	}.Check(t, r)
+
+	fd.ForfeitFails = true
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test3",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant3,change:tenant3"},
+		ExpectStatus: http.StatusConflict,
+		ExpectBody: assert.JSONObject{
+			"error": "ForfeitAccountName failing as requested",
+		},
+	}.Check(t, r)
+
+	//account "test2" should be gone now
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/delete-account-003.sql")
 }
 
 func makeSubleaseToken(accountName, primaryHostname, secret string) string {
