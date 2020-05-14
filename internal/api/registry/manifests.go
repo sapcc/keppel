@@ -29,6 +29,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -108,6 +109,17 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 		api.ManifestsPulledCounter.With(l).Inc()
+
+		_, err := a.db.Exec(
+			`UPDATE manifests SET last_pulled_at = $1 WHERE repo_id = $2 AND digest = $3`,
+			a.timeNow(), dbManifest.RepositoryID, dbManifest.Digest,
+		)
+		if err != nil {
+			logg.Error(
+				"could not update last_pulled_at timestamp on manifest %s@%s: %s",
+				repo.FullName(), dbManifest.Digest, err.Error(),
+			)
+		}
 	}
 }
 

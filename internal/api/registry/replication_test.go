@@ -119,7 +119,11 @@ func TestROFUImageList(t *testing.T) {
 		token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
 			keppel.CanPullFromAccount)
 
-		clock.Step()
+		if firstPass {
+			//do not step the clock in the second pass, otherwise the AssertDBContent
+			//will change on the failed last_pulled_at timestamp
+			clock.Step()
+		}
 		expectManifestExists(t, h2, token, "test1/foo", list.Manifest, "list")
 
 		easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/imagelistmanifest-replication-001-after-pull-listmanifest.sql")
