@@ -327,10 +327,12 @@ response body like this:
       "media_type": "application/vnd.docker.distribution.manifest.v2+json",
       "size_bytes": 10518718,
       "pushed_at": 1575468024,
+      "last_pulled_at": 1575554424,
       "tags": [
         {
           "name": "latest",
-          "pushed_at": 1575468024
+          "pushed_at": 1575468024,
+          "last_pulled_at": 1575550824
         }
       ]
     },
@@ -338,7 +340,8 @@ response body like this:
       "digest": "sha256:5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
       "size_bytes": 2791084,
-      "pushed_at": 1575467980
+      "pushed_at": 1575467980,
+      "last_pulled_at": null
     }
   ]
 }
@@ -352,9 +355,11 @@ The following fields may be returned:
 | `manifests[].media_type` | string | The MIME type of the canonical form of this manifest. |
 | `manifests[].size_bytes` | integer | Total size of this manifest and all layers referenced by it in the backing storage. |
 | `manifests[].pushed_at` | UNIX timestamp | When this manifest was pushed into the registry. |
+| `manifests[].last_pulled_at` | UNIX timestamp or null | When this manifest was last pulled from the registry (or null if it was never pulled). |
 | `manifests[].tags` | array | All tags that currently resolve to this manifest. |
 | `manifests[].tags[].name` | string | The name of this tag. |
 | `manifests[].tags[].pushed_at` | string | When this tag was last updated in the registry. |
+| `manifests[].tags[].last_pulled_at` | UNIX timestamp or null | When this manifest was last pulled from the registry using this tag name (or null if it was never pulled from this tag). |
 | `truncated` | boolean | Indicates whether [marker-based pagination](#marker-based-pagination) must be used to retrieve the rest of the result. |
 
 ## DELETE /keppel/v1/accounts/:name/repositories/:name/_manifests/:digest

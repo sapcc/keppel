@@ -71,14 +71,19 @@ func TestManifestsAPI(t *testing.T) {
 			digest := deterministicDummyDigest(repoID*10 + idx)
 			sizeBytes := uint64(1000 * idx)
 			pushedAt := time.Unix(int64(1000*(repoID*10+idx)), 0)
-			mustInsert(t, db, &keppel.Manifest{
+
+			dbManifest := keppel.Manifest{
 				RepositoryID: int64(repoID),
 				Digest:       digest,
 				MediaType:    "application/vnd.docker.distribution.manifest.v2+json",
 				SizeBytes:    sizeBytes,
 				PushedAt:     pushedAt,
 				ValidatedAt:  pushedAt,
-			})
+			}
+			if idx == 1 {
+				dbManifest.LastPulledAt = p2time(pushedAt.Add(100 * time.Second))
+			}
+			mustInsert(t, db, &dbManifest)
 
 			err := sd.WriteManifest(
 				keppel.Account{Name: repo.AccountName},
@@ -94,18 +99,21 @@ func TestManifestsAPI(t *testing.T) {
 			Name:         "first",
 			Digest:       deterministicDummyDigest(repoID*10 + 1),
 			PushedAt:     time.Unix(20001, 0),
+			LastPulledAt: p2time(time.Unix(20101, 0)),
 		})
 		mustInsert(t, db, &keppel.Tag{
 			RepositoryID: int64(repoID),
 			Name:         "stillfirst",
 			Digest:       deterministicDummyDigest(repoID*10 + 1),
 			PushedAt:     time.Unix(20002, 0),
+			LastPulledAt: nil,
 		})
 		mustInsert(t, db, &keppel.Tag{
 			RepositoryID: int64(repoID),
 			Name:         "second",
 			Digest:       deterministicDummyDigest(repoID*10 + 2),
 			PushedAt:     time.Unix(20003, 0),
+			LastPulledAt: nil,
 		})
 	}
 
@@ -114,18 +122,20 @@ func TestManifestsAPI(t *testing.T) {
 	renderedManifests := make([]assert.JSONObject, 10)
 	for idx := 1; idx <= 10; idx++ {
 		renderedManifests[idx-1] = assert.JSONObject{
-			"digest":     deterministicDummyDigest(10 + idx),
-			"media_type": "application/vnd.docker.distribution.manifest.v2+json",
-			"size_bytes": uint64(1000 * idx),
-			"pushed_at":  int64(1000 * (10 + idx)),
+			"digest":         deterministicDummyDigest(10 + idx),
+			"media_type":     "application/vnd.docker.distribution.manifest.v2+json",
+			"size_bytes":     uint64(1000 * idx),
+			"pushed_at":      int64(1000 * (10 + idx)),
+			"last_pulled_at": nil,
 		}
 	}
+	renderedManifests[0]["last_pulled_at"] = 11100
 	renderedManifests[0]["tags"] = []assert.JSONObject{
-		{"name": "first", "pushed_at": 20001},
-		{"name": "stillfirst", "pushed_at": 20002},
+		{"name": "first", "pushed_at": 20001, "last_pulled_at": 20101},
+		{"name": "stillfirst", "pushed_at": 20002, "last_pulled_at": nil},
 	}
 	renderedManifests[1]["tags"] = []assert.JSONObject{
-		{"name": "second", "pushed_at": 20003},
+		{"name": "second", "pushed_at": 20003, "last_pulled_at": nil},
 	}
 	sort.Slice(renderedManifests, func(i, j int) bool {
 		return renderedManifests[i]["digest"].(string) < renderedManifests[j]["digest"].(string)
@@ -255,4 +265,8 @@ func TestManifestsAPI(t *testing.T) {
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
 		ExpectStatus: http.StatusNotFound,
 	}.Check(t, h)
+}
+
+func p2time(x time.Time) *time.Time {
+	return &x
 }

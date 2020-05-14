@@ -21,6 +21,7 @@ package keppelv1
 import (
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
@@ -31,17 +32,19 @@ import (
 
 //Manifest represents a manifest in the API.
 type Manifest struct {
-	Digest    string `json:"digest"`
-	MediaType string `json:"media_type"`
-	SizeBytes uint64 `json:"size_bytes"`
-	PushedAt  int64  `json:"pushed_at"`
-	Tags      []Tag  `json:"tags,omitempty"`
+	Digest       string `json:"digest"`
+	MediaType    string `json:"media_type"`
+	SizeBytes    uint64 `json:"size_bytes"`
+	PushedAt     int64  `json:"pushed_at"`
+	LastPulledAt *int64 `json:"last_pulled_at,keepempty"`
+	Tags         []Tag  `json:"tags,omitempty"`
 }
 
 //Tag represents a tag in the API.
 type Tag struct {
-	Name     string `json:"name"`
-	PushedAt int64  `json:"pushed_at"`
+	Name         string `json:"name"`
+	PushedAt     int64  `json:"pushed_at"`
+	LastPulledAt *int64 `json:"last_pulled_at,keepempty"`
 }
 
 var manifestGetQuery = `
@@ -96,10 +99,11 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		result.Manifests = append(result.Manifests, &Manifest{
-			Digest:    dbManifest.Digest,
-			MediaType: dbManifest.MediaType,
-			SizeBytes: dbManifest.SizeBytes,
-			PushedAt:  dbManifest.PushedAt.Unix(),
+			Digest:       dbManifest.Digest,
+			MediaType:    dbManifest.MediaType,
+			SizeBytes:    dbManifest.SizeBytes,
+			PushedAt:     dbManifest.PushedAt.Unix(),
+			LastPulledAt: maybeTimeToUnix(dbManifest.LastPulledAt),
 		})
 	}
 
@@ -120,8 +124,9 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		tagsByDigest := make(map[string][]Tag)
 		for _, dbTag := range dbTags {
 			tagsByDigest[dbTag.Digest] = append(tagsByDigest[dbTag.Digest], Tag{
-				Name:     dbTag.Name,
-				PushedAt: dbTag.PushedAt.Unix(),
+				Name:         dbTag.Name,
+				PushedAt:     dbTag.PushedAt.Unix(),
+				LastPulledAt: maybeTimeToUnix(dbTag.LastPulledAt),
 			})
 		}
 		for _, manifest := range result.Manifests {
@@ -134,6 +139,14 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondwith.JSON(w, http.StatusOK, result)
+}
+
+func maybeTimeToUnix(t *time.Time) *int64 {
+	if t == nil {
+		return nil
+	}
+	val := t.Unix()
+	return &val
 }
 
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
