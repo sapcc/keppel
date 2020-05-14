@@ -261,7 +261,7 @@ func upsertTag(db gorp.SqlExecutor, t keppel.Tag) error {
 		INSERT INTO tags (repo_id, name, digest, pushed_at)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (repo_id, name) DO UPDATE
-			SET digest = EXCLUDED.digest, pushed_at = EXCLUDED.pushed_at
+			SET digest = EXCLUDED.digest, pushed_at = EXCLUDED.pushed_at, last_pulled_at = EXCLUDED.last_pulled_at
 	`, t.RepositoryID, t.Name, t.Digest, t.PushedAt)
 	return err
 }

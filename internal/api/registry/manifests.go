@@ -110,6 +110,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 		api.ManifestsPulledCounter.With(l).Inc()
 
+		//update manifests.last_pulled_at
 		_, err := a.db.Exec(
 			`UPDATE manifests SET last_pulled_at = $1 WHERE repo_id = $2 AND digest = $3`,
 			a.timeNow(), dbManifest.RepositoryID, dbManifest.Digest,
@@ -119,6 +120,20 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				"could not update last_pulled_at timestamp on manifest %s@%s: %s",
 				repo.FullName(), dbManifest.Digest, err.Error(),
 			)
+		}
+
+		//also update tags.last_pulled_at if applicable
+		if reference.IsTag() {
+			_, err := a.db.Exec(
+				`UPDATE tags SET last_pulled_at = $1 WHERE repo_id = $2 AND digest = $3 AND name = $4`,
+				a.timeNow(), dbManifest.RepositoryID, dbManifest.Digest, reference.Tag,
+			)
+			if err != nil {
+				logg.Error(
+					"could not update last_pulled_at timestamp on tag %s/%s: %s",
+					repo.FullName(), reference.Tag, err.Error(),
+				)
+			}
 		}
 	}
 }
