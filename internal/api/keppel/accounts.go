@@ -252,6 +252,8 @@ func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"account": accountRendered})
 }
 
+var looksLikeAPIVersionRx = regexp.MustCompile(`^v[0-9][1-9]*$`)
+
 func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
 	//decode request body
@@ -277,10 +279,18 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//reserve identifiers for internal pseudo-accounts
+	//reserve identifiers for internal pseudo-accounts and anything that might
+	//appear like the first path element of a legal endpoint path on any of our
+	//APIs (we will soon start recognizing image-like URLs such as
+	//keppel.example.org/account/repo and offer redirection to a suitable UI;
+	//this requires the account name to not overlap with API endpoint paths)
 	accountName := mux.Vars(r)["account"]
-	if strings.HasPrefix(accountName, "keppel-") {
-		http.Error(w, `account names with the prefix "keppel-" are reserved for internal use`, http.StatusUnprocessableEntity)
+	if strings.HasPrefix(accountName, "keppel") {
+		http.Error(w, `account names with the prefix "keppel" are reserved for internal use`, http.StatusUnprocessableEntity)
+		return
+	}
+	if looksLikeAPIVersionRx.MatchString(accountName) {
+		http.Error(w, `account names that look like API versions are reserved for internal use`, http.StatusUnprocessableEntity)
 		return
 	}
 

@@ -681,7 +681,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("account names with the prefix \"keppel-\" are reserved for internal use\n"),
+		ExpectBody:   assert.StringData("account names with the prefix \"keppel\" are reserved for internal use\n"),
 	}.Check(t, r)
 
 	assert.HTTPRequest{
