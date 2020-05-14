@@ -314,6 +314,12 @@ var sqlMigrations = map[string]string{
 	"013_add_account_in_maintenance.down.sql": `
 		ALTER TABLE accounts DROP COLUMN in_maintenance;
 	`,
+	"014_add_manifests_last_pulled_at.up.sql": `
+		ALTER TABLE manifests ADD COLUMN last_pulled_at TIMESTAMPTZ DEFAULT NULL;
+	`,
+	"014_add_manifests_last_pulled_at.down.sql": `
+		ALTER TABLE manifests DROP COLUMN last_pulled_at;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

@@ -24,9 +24,9 @@ INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, 'sha256:7ce
 INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, 'sha256:53f2e51cfb1ab43831ba433a7be298d30fd2555bee9d6765117148a19a6d28ec', 'sha256:33ef30d47bd666b28f971cc3f07b00aca72d55865e79d6ca03a836647bb81f42');
 INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, 'sha256:53f2e51cfb1ab43831ba433a7be298d30fd2555bee9d6765117148a19a6d28ec', 'sha256:7ce8d2ddbc66e475563019803ff254fb78b7becafd39959dc735ace4efaf395e');
 
-INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message) VALUES (1, 'sha256:33ef30d47bd666b28f971cc3f07b00aca72d55865e79d6ca03a836647bb81f42', 'application/vnd.docker.distribution.manifest.v2+json', 2099156, 3600, 3600, '');
-INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message) VALUES (1, 'sha256:53f2e51cfb1ab43831ba433a7be298d30fd2555bee9d6765117148a19a6d28ec', 'application/vnd.docker.distribution.manifest.list.v2+json', 1715, 3600, 3600, '');
-INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message) VALUES (1, 'sha256:7ce8d2ddbc66e475563019803ff254fb78b7becafd39959dc735ace4efaf395e', 'application/vnd.docker.distribution.manifest.v2+json', 2099156, 3600, 3600, '');
+INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message, last_pulled_at) VALUES (1, 'sha256:33ef30d47bd666b28f971cc3f07b00aca72d55865e79d6ca03a836647bb81f42', 'application/vnd.docker.distribution.manifest.v2+json', 2099156, 3600, 3600, '', NULL);
+INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message, last_pulled_at) VALUES (1, 'sha256:53f2e51cfb1ab43831ba433a7be298d30fd2555bee9d6765117148a19a6d28ec', 'application/vnd.docker.distribution.manifest.list.v2+json', 1715, 3600, 3600, '', NULL);
+INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message, last_pulled_at) VALUES (1, 'sha256:7ce8d2ddbc66e475563019803ff254fb78b7becafd39959dc735ace4efaf395e', 'application/vnd.docker.distribution.manifest.v2+json', 2099156, 3600, 3600, '', NULL);
 
 INSERT INTO repos (id, account_name, name, next_blob_mount_sweep_at, next_manifest_sync_at) VALUES (1, 'test1', 'foo', NULL, NULL);
 

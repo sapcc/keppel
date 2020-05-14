@@ -250,13 +250,14 @@ func (r Repository) FullName() string {
 
 //Manifest contains a record from the `manifests` table.
 type Manifest struct {
-	RepositoryID           int64     `db:"repo_id"`
-	Digest                 string    `db:"digest"`
-	MediaType              string    `db:"media_type"`
-	SizeBytes              uint64    `db:"size_bytes"`
-	PushedAt               time.Time `db:"pushed_at"`
-	ValidatedAt            time.Time `db:"validated_at"` //see tasks.ValidateNextManifest
-	ValidationErrorMessage string    `db:"validation_error_message"`
+	RepositoryID           int64      `db:"repo_id"`
+	Digest                 string     `db:"digest"`
+	MediaType              string     `db:"media_type"`
+	SizeBytes              uint64     `db:"size_bytes"`
+	PushedAt               time.Time  `db:"pushed_at"`
+	ValidatedAt            time.Time  `db:"validated_at"` //see tasks.ValidateNextManifest
+	ValidationErrorMessage string     `db:"validation_error_message"`
+	LastPulledAt           *time.Time `db:"last_pulled_at"`
 }
 
 //FindManifest is a convenience wrapper around db.SelectOne(). If the
