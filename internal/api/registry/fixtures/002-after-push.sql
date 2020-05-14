@@ -12,4 +12,4 @@ INSERT INTO quotas (auth_tenant_id, manifests) VALUES ('test1authtenant', 100);
 
 INSERT INTO repos (id, account_name, name, next_blob_mount_sweep_at, next_manifest_sync_at) VALUES (1, 'test1', 'foo', NULL, NULL);
 
-INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, 'latest', 'sha256:86fa8722ca7f27e97e1bc5060c3f6720bf43840f143f813fcbe48ed4cbeebb90', 3);
+INSERT INTO tags (repo_id, name, digest, pushed_at, last_pulled_at) VALUES (1, 'latest', 'sha256:86fa8722ca7f27e97e1bc5060c3f6720bf43840f143f813fcbe48ed4cbeebb90', 3, NULL);

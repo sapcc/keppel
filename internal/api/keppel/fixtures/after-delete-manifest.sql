@@ -35,10 +35,10 @@ INSERT INTO repos (id, account_name, name, next_blob_mount_sweep_at, next_manife
 INSERT INTO repos (id, account_name, name, next_blob_mount_sweep_at, next_manifest_sync_at) VALUES (2, 'test1', 'repo1-2', NULL, NULL);
 INSERT INTO repos (id, account_name, name, next_blob_mount_sweep_at, next_manifest_sync_at) VALUES (3, 'test2', 'repo2-1', NULL, NULL);
 
-INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, 'second', 'sha256:3ee5f0d83bf791f0fb4d750a5719ce19d6d352ef7e5a4264e4b760f0f9c15014', 20003);
-INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (2, 'first', 'sha256:41122349d311a07751ca89355e920157458227652629aa742f3643fbcad246bc', 20001);
-INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (2, 'second', 'sha256:543695320e5ed157afafdd9e3f95383c1a27c7d468537fa02389cdaf27b77858', 20003);
-INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (2, 'stillfirst', 'sha256:41122349d311a07751ca89355e920157458227652629aa742f3643fbcad246bc', 20002);
-INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (3, 'first', 'sha256:cc5f6cf32f361e9fb50506c70a866c25bf5956ff095cd5c968ebb14f22412a63', 20001);
-INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (3, 'second', 'sha256:72cd6e8422c407fb6d098690f1130b7ded7ec2f7f5e1d30bd9d521f015363793', 20003);
-INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (3, 'stillfirst', 'sha256:cc5f6cf32f361e9fb50506c70a866c25bf5956ff095cd5c968ebb14f22412a63', 20002);
+INSERT INTO tags (repo_id, name, digest, pushed_at, last_pulled_at) VALUES (1, 'second', 'sha256:3ee5f0d83bf791f0fb4d750a5719ce19d6d352ef7e5a4264e4b760f0f9c15014', 20003, NULL);
+INSERT INTO tags (repo_id, name, digest, pushed_at, last_pulled_at) VALUES (2, 'first', 'sha256:41122349d311a07751ca89355e920157458227652629aa742f3643fbcad246bc', 20001, NULL);
+INSERT INTO tags (repo_id, name, digest, pushed_at, last_pulled_at) VALUES (2, 'second', 'sha256:543695320e5ed157afafdd9e3f95383c1a27c7d468537fa02389cdaf27b77858', 20003, NULL);
+INSERT INTO tags (repo_id, name, digest, pushed_at, last_pulled_at) VALUES (2, 'stillfirst', 'sha256:41122349d311a07751ca89355e920157458227652629aa742f3643fbcad246bc', 20002, NULL);
+INSERT INTO tags (repo_id, name, digest, pushed_at, last_pulled_at) VALUES (3, 'first', 'sha256:cc5f6cf32f361e9fb50506c70a866c25bf5956ff095cd5c968ebb14f22412a63', 20001, NULL);
+INSERT INTO tags (repo_id, name, digest, pushed_at, last_pulled_at) VALUES (3, 'second', 'sha256:72cd6e8422c407fb6d098690f1130b7ded7ec2f7f5e1d30bd9d521f015363793', 20003, NULL);
+INSERT INTO tags (repo_id, name, digest, pushed_at, last_pulled_at) VALUES (3, 'stillfirst', 'sha256:cc5f6cf32f361e9fb50506c70a866c25bf5956ff095cd5c968ebb14f22412a63', 20002, NULL);

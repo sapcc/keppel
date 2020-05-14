@@ -320,6 +320,12 @@ var sqlMigrations = map[string]string{
 	"014_add_manifests_last_pulled_at.down.sql": `
 		ALTER TABLE manifests DROP COLUMN last_pulled_at;
 	`,
+	"015_add_tags_last_pulled_at.up.sql": `
+		ALTER TABLE tags ADD COLUMN last_pulled_at TIMESTAMPTZ DEFAULT NULL;
+	`,
+	"015_add_tags_last_pulled_at.down.sql": `
+		ALTER TABLE tags DROP COLUMN last_pulled_at;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

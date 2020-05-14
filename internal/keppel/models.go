@@ -271,10 +271,11 @@ func FindManifest(db gorp.SqlExecutor, repo Repository, digest string) (*Manifes
 
 //Tag contains a record from the `tags` table.
 type Tag struct {
-	RepositoryID int64     `db:"repo_id"`
-	Name         string    `db:"name"`
-	Digest       string    `db:"digest"`
-	PushedAt     time.Time `db:"pushed_at"`
+	RepositoryID int64      `db:"repo_id"`
+	Name         string     `db:"name"`
+	Digest       string     `db:"digest"`
+	PushedAt     time.Time  `db:"pushed_at"`
+	LastPulledAt *time.Time `db:"last_pulled_at"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////
