@@ -86,6 +86,7 @@ func run(cmd *cobra.Command, args []string) {
 		keppelv1.NewAPI(cfg, ad, fd, sd, db, auditor),
 		auth.NewAPI(cfg, ad, db),
 		registryv2.NewAPI(cfg, sd, db, rle),
+		&guiRedirecter{db, os.Getenv("KEPPEL_GUI_URI")},
 	)
 	handler = logg.Middleware{}.Wrap(handler)
 	handler = cors.New(cors.Options{

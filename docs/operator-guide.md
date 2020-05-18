@@ -178,6 +178,7 @@ These options are only understood by the API server.
 | `KEPPEL_AUDIT_RABBITMQ_QUEUE_NAME` | *(required if `KEPPEL_AUDIT_RABBITMQ_URI` is configured)* | Name for the queue that will hold the audit events. The events are published to the default exchange. |
 | `KEPPEL_AUDIT_SILENT` | *(optional)* | Whether to disable audit event logging to standard output. |
 | `KEPPEL_DRIVER_RATELIMIT` | *(optional)* | The name of a rate limit driver. Leave empty to disable rate limiting. |
+| `KEPPEL_GUI_URI` | *(optional)* | If true, GET requests coming from a web browser for URLs that look like repositories (e.g. <https://registry.example.org/someaccount/somerepo>) will be redirected to this URL. The value must be a URL string, which may contain the placeholders `%ACCOUNT_NAME%`, `%REPO_NAME%` and `%AUTH_TENANT_ID%`. These placeholders will be replaced with their respective values if present. To avoid leaking account existence to unauthorized users, the redirect will only be done if the repository in question allowed anonymous pulling. |
 | `KEPPEL_PEERS` | *(optional)* | A comma-separated list of hostnames where our peer keppel-api instances are running. This is the set of instances that this keppel-api can replicate from. |
 | `KEPPEL_REDIS_URI` | *(required if `KEPPEL_DRIVER_RATELIMIT` is configured)* | A URI identifying the location of a Redis instance, in the [same format as understood by redis-cli][redis-uri]. If given, this Redis is used an ephemeral storage by compatible auth drivers and rate limit drivers. |
 
