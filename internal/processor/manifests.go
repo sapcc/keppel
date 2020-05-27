@@ -162,7 +162,15 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 }
 
 func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account, repo keppel.Repository, manifest distribution.Manifest) (blobIDs []int64, manifestDigests []string, returnErr error) {
+	//ensure that we don't insert duplicate entries into `blobIDs` and `manifestDigests`
+	wasHandled := make(map[string]bool)
+
 	for _, desc := range manifest.References() {
+		if wasHandled[desc.Digest.String()] {
+			continue
+		}
+		wasHandled[desc.Digest.String()] = true
+
 		if keppel.IsManifestMediaType(desc.MediaType) {
 			_, err := keppel.FindManifest(tx, repo, desc.Digest.String())
 			if err == sql.ErrNoRows {
