@@ -130,8 +130,10 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 			return err
 		}
 
-		//enforce account-specific validation rules on manifest
-		if account.RequiredLabels != "" {
+		//enforce account-specific validation rules on manifest, but only when
+		//pushing (not when validating at a later point in time, the set of
+		//RequiredLabels could have been changed by then)
+		if manifest.PushedAt == manifest.ValidatedAt && account.RequiredLabels != "" {
 			requiredLabels := strings.Split(account.RequiredLabels, ",")
 			missingLabels, err := checkManifestHasRequiredLabels(tx, p.sd, account, manifestParsed, requiredLabels)
 			if err != nil {
