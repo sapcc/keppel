@@ -481,7 +481,7 @@ func (p *Processor) CheckManifestOnPrimary(account keppel.Account, repo keppel.R
 	if err != nil {
 		return false, err
 	}
-	_, _, err = client.DownloadManifest(reference.String())
+	_, err = client.CheckManifest(reference.String())
 	switch err := err.(type) {
 	case nil:
 		return true, nil
