@@ -148,7 +148,7 @@ func (j *Janitor) SweepBlobsInNextAccount() (returnErr error) {
 }
 
 const validateBlobSearchQuery = `
-	SELECT * FROM blobs WHERE validated_at < $1
+	SELECT * FROM blobs WHERE validated_at < $1 AND storage_id != ''
 	ORDER BY validated_at ASC -- oldest blobs first
 	LIMIT 1                   -- one at a time
 `
