@@ -51,7 +51,7 @@ var endpointURLRegexp = regexp.MustCompile(`^(.*/)v1/(.*)/$`)
 func InitializeAccount(backend Backend) (*Account, error) {
 	match := endpointURLRegexp.FindStringSubmatch(backend.EndpointURL())
 	if match == nil {
-		return nil, fmt.Errorf(`schwift.AccountFromClient(): invalid Swift endpoint URL: cannot find "/v1/" in %q`, backend.EndpointURL())
+		return nil, fmt.Errorf(`schwift.InitializeAccount(): invalid Swift endpoint URL: cannot find "/v1/" in %q`, backend.EndpointURL())
 	}
 	return &Account{
 		backend: backend,
