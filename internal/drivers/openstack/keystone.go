@@ -192,9 +192,10 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Aut
 	throwAwayClient.ReauthFunc = nil
 	throwAwayClient.SetTokenAndAuthResult(nil)
 
-	result, rerr := tokensCreate(&throwAwayClient, &authOpts)
-	if rerr != nil {
-		return nil, rerr
+	result := tokens.Create(&throwAwayClient, &authOpts)
+	if err, ok := result.Err.(gophercloud.ErrDefault429); ok {
+		retryAfterStr := err.ResponseHeader.Get("Retry-After")
+		return nil, keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr)
 	}
 
 	t := d.TokenValidator.TokenFromGophercloudResult(result)
@@ -245,45 +246,6 @@ func parseUserNameAndPassword(userName, password string) (tokens.AuthOptions, *k
 		ao.Scope.DomainName = ao.DomainName
 	}
 	return ao, nil
-}
-
-//Like `tokens.Create(identityV3, opts)`, but translates a 429 response into
-//keppel.ErrTooManyRequests.  We cannot just inspect `result.Err` from a
-//regular `tokens.Create()` call because gophercloud.ErrUnexpectedResponseCode
-//(and thus, gophercloud.ErrDefault429) does not allow us to inspect the
-//response headers, specifically, the Retry-After header.
-func tokensCreate(identityV3 *gophercloud.ServiceClient, opts tokens.AuthOptionsBuilder) (tokens.CreateResult, *keppel.RegistryV2Error) {
-	var r tokens.CreateResult
-	scope, err := opts.ToTokenV3ScopeMap()
-	if err != nil {
-		r.Err = err
-		return r, nil
-	}
-	b, err := opts.ToTokenV3CreateMap(scope)
-	if err != nil {
-		r.Err = err
-		return r, nil
-	}
-
-	resp, err := identityV3.Post(identityV3.ServiceURL("auth", "tokens"), b, &r.Body, &gophercloud.RequestOpts{
-		MoreHeaders: map[string]string{"X-Auth-Token": ""},
-		OkCodes:     []int{http.StatusCreated, http.StatusTooManyRequests},
-	})
-	if err != nil {
-		r.Err = err
-		return r, nil
-	}
-
-	switch resp.StatusCode {
-	case http.StatusCreated:
-		r.Header = resp.Header
-		return r, nil
-	case http.StatusTooManyRequests:
-		retryAfterStr := resp.Header.Get("Retry-After")
-		return tokens.CreateResult{}, keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr)
-	default:
-		panic("unreachable")
-	}
 }
 
 //AuthenticateUserFromRequest implements the keppel.AuthDriver interface.
