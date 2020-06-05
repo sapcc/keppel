@@ -228,6 +228,16 @@ func TestImageManifestLifecycle(t *testing.T) {
 			ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
 		}.Check(t, h)
 
+		//DELETE failure case: cannot delete blob while the manifest still exists in the DB
+		assert.HTTPRequest{
+			Method:       "DELETE",
+			Path:         "/v2/test1/foo/blobs/" + image.Config.Digest.String(),
+			Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+			ExpectStatus: http.StatusMethodNotAllowed,
+			ExpectHeader: test.VersionHeader,
+			ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
+		}.Check(t, h)
+
 		//DELETE success case
 		assert.HTTPRequest{
 			Method:       "DELETE",

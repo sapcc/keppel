@@ -172,6 +172,19 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//can only delete blob mount if it's not used by any manifests
+	refCount, err := a.db.SelectInt(`SELECT COUNT(*) FROM manifest_blob_refs WHERE blob_id = $1 AND repo_id = $2`, blob.ID, repo.ID)
+	if respondWithError(w, err) {
+		return
+	}
+	if refCount > 0 {
+		keppel.ErrUnsupported.
+			With("blob %s cannot be deleted while it is referenced by manifests in this repo", blob.Digest).
+			WithStatus(http.StatusMethodNotAllowed).
+			WriteAsRegistryV2ResponseTo(w)
+		return
+	}
+
 	//unmount the blob from this particular repo (if it is mounted in other
 	//repos, it will still be accessible there; otherwise keppel-janitor will
 	//clean it up soon)
