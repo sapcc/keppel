@@ -179,7 +179,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	//canonical digest)
 	digest, err := digest.Parse(mux.Vars(r)["reference"])
 	if err != nil {
-		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrUnsupported.With("cannot delete manifest by tag, only by digest").WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w)
 		return
 	}
 
