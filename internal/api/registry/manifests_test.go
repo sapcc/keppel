@@ -213,9 +213,9 @@ func TestImageManifestLifecycle(t *testing.T) {
 			Method:       "DELETE",
 			Path:         "/v2/test1/foo/manifests/latest",
 			Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
-			ExpectStatus: http.StatusBadRequest,
+			ExpectStatus: http.StatusMethodNotAllowed,
 			ExpectHeader: test.VersionHeader,
-			ExpectBody:   test.ErrorCode(keppel.ErrDigestInvalid),
+			ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
 		}.Check(t, h)
 
 		//DELETE failure case: unknown manifest
