@@ -106,7 +106,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//count the pull
-	if r.Method == "GET" {
+	if r.Method == "GET" && r.Header.Get("X-Keppel-No-Count-Towards-Last-Pulled") != "1" {
 		l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 		api.ManifestsPulledCounter.With(l).Inc()
 

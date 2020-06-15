@@ -47,24 +47,27 @@ func (c *RepoClient) DownloadBlob(blobDigest digest.Digest) (contents io.ReadClo
 	return resp.Body, sizeBytes, nil
 }
 
+//DownloadManifestOpts appears in func DownloadManifest.
+type DownloadManifestOpts struct {
+	DoNotCountTowardsLastPulled bool
+}
+
 //DownloadManifest fetches a manifest from this repository. If an error is
 //returned, it's usually a *keppel.RegistryV2Error.
-func (c *RepoClient) DownloadManifest(reference string) (contents []byte, mediaType string, returnErr error) {
-	return c.getOrHeadManifest("GET", reference)
-}
+func (c *RepoClient) DownloadManifest(reference string, opts *DownloadManifestOpts) (contents []byte, mediaType string, returnErr error) {
+	if opts == nil {
+		opts = &DownloadManifestOpts{}
+	}
 
-//CheckManifest performs a HEAD request on this manifest in this repository.
-//If an error is returned, it's usually a *keppel.RegistryV2Error.
-func (c *RepoClient) CheckManifest(reference string) (mediaType string, returnErr error) {
-	_, mt, err := c.getOrHeadManifest("HEAD", reference)
-	return mt, err
-}
+	hdr := http.Header{"Accept": distribution.ManifestMediaTypes()}
+	if opts.DoNotCountTowardsLastPulled {
+		hdr.Set("X-Keppel-No-Count-Towards-Last-Pulled", "1")
+	}
 
-func (c *RepoClient) getOrHeadManifest(method, reference string) (contents []byte, mediaType string, returnErr error) {
 	resp, err := c.doRequest(repoRequest{
-		Method:       method,
+		Method:       "GET",
 		Path:         "manifests/" + reference,
-		Headers:      http.Header{"Accept": distribution.ManifestMediaTypes()},
+		Headers:      hdr,
 		ExpectStatus: http.StatusOK,
 	})
 	if err != nil {
