@@ -231,6 +231,11 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 		)
 	}
 
+	//set a well-known last_pulled_at timestamp on all manifests in the primary
+	//DB (we will later verify that this was not touched by the manifest sync)
+	expectedLastPulledAt := time.Unix(42, 0)
+	mustExec(t, db1, `UPDATE manifests SET last_pulled_at = $1`, expectedLastPulledAt)
+
 	//SyncManifestsInNextRepo on the primary registry should have nothing to do
 	//since there are no replica accounts
 	expectError(t, sql.ErrNoRows.Error(), j1.SyncManifestsInNextRepo())
@@ -268,7 +273,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 	expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
 	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-003.sql")
 
-	//cause a deliberate consistency on the primary side: delete a manifest that
+	//cause a deliberate inconsistency on the primary side: delete a manifest that
 	//*is* referenced by another manifest (this requires deleting the
 	//manifest-manifest ref first, otherwise the DB will complain)
 	clock.StepBy(2 * time.Hour)
@@ -318,6 +323,17 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 	)
 	expectError(t, expectedError, j2.SyncManifestsInNextRepo())
 	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-004.sql") //unchanged
+
+	//check that the manifest sync did not update the last_pulled_at timestamps
+	//in the primary DB (even though there were GET requests for the manifests
+	//there)
+	var lastPulledAt time.Time
+	expectSuccess(t, db1.DbMap.QueryRow(`SELECT MAX(last_pulled_at) FROM manifests`).Scan(&lastPulledAt))
+	if !lastPulledAt.Equal(expectedLastPulledAt) {
+		t.Error("last_pulled_at timestamps on the primary side were touched")
+		t.Logf("  expected = %#v", expectedLastPulledAt)
+		t.Logf("  actual   = %#v", lastPulledAt)
+	}
 }
 
 func answerWith404(w http.ResponseWriter, r *http.Request) {

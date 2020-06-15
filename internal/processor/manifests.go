@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/docker/distribution"
+	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
 	"gopkg.in/gorp.v2"
 )
@@ -405,11 +406,11 @@ func maintainManifestManifestRefs(tx *gorp.Transaction, m keppel.Manifest, refer
 //On success, the manifest's metadata and contents are returned.
 func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Repository, reference keppel.ManifestReference) (*keppel.Manifest, []byte, error) {
 	//query upstream for the manifest
-	client, err := p.getRepoClientForUpstream(account, repo)
+	c, err := p.getRepoClientForUpstream(account, repo)
 	if err != nil {
 		return nil, nil, err
 	}
-	manifestBytes, manifestMediaType, err := client.DownloadManifest(reference.String()) //TODO DownloadManifest should take a keppel.ManifestReference
+	manifestBytes, manifestMediaType, err := c.DownloadManifest(reference.String(), nil) //TODO DownloadManifest should take a keppel.ManifestReference
 	if err != nil {
 		return nil, nil, err
 	}
@@ -477,11 +478,13 @@ func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Reposi
 //upstream registry. If not, false is returned, An error is returned only if
 //the account is not a replica, or if the upstream registry cannot be queried.
 func (p *Processor) CheckManifestOnPrimary(account keppel.Account, repo keppel.Repository, reference keppel.ManifestReference) (bool, error) {
-	client, err := p.getRepoClientForUpstream(account, repo)
+	c, err := p.getRepoClientForUpstream(account, repo)
 	if err != nil {
 		return false, err
 	}
-	_, _, err = client.DownloadManifest(reference.String())
+	_, _, err = c.DownloadManifest(reference.String(), &client.DownloadManifestOpts{
+		DoNotCountTowardsLastPulled: true,
+	})
 	switch err := err.(type) {
 	case nil:
 		return true, nil

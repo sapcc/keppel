@@ -63,7 +63,7 @@ func (c *RepoClient) doValidateManifest(reference string, level int, logger Vali
 		}
 	}()
 
-	manifestBytes, manifestMediaType, err := c.DownloadManifest(reference)
+	manifestBytes, manifestMediaType, err := c.DownloadManifest(reference, nil)
 	if err != nil {
 		return err
 	}
