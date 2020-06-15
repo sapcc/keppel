@@ -313,7 +313,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 	//SyncManifestsInNextRepo understands that this is a network issue and not
 	//caused by the manifest getting deleted, since the 404-generating endpoint
 	//does not render a proper MANIFEST_UNKNOWN error.
-	expectedError = fmt.Sprintf(`while syncing manifests in a replica repo: cannot check existence of manifest test1/foo/%s on primary account: during HEAD https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found`,
+	expectedError = fmt.Sprintf(`while syncing manifests in a replica repo: cannot check existence of manifest test1/foo/%s on primary account: during GET https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found`,
 		images[1].Manifest.Digest.String(), //the only manifest that is left
 	)
 	expectError(t, expectedError, j2.SyncManifestsInNextRepo())

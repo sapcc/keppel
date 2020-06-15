@@ -50,19 +50,8 @@ func (c *RepoClient) DownloadBlob(blobDigest digest.Digest) (contents io.ReadClo
 //DownloadManifest fetches a manifest from this repository. If an error is
 //returned, it's usually a *keppel.RegistryV2Error.
 func (c *RepoClient) DownloadManifest(reference string) (contents []byte, mediaType string, returnErr error) {
-	return c.getOrHeadManifest("GET", reference)
-}
-
-//CheckManifest performs a HEAD request on this manifest in this repository.
-//If an error is returned, it's usually a *keppel.RegistryV2Error.
-func (c *RepoClient) CheckManifest(reference string) (mediaType string, returnErr error) {
-	_, mt, err := c.getOrHeadManifest("HEAD", reference)
-	return mt, err
-}
-
-func (c *RepoClient) getOrHeadManifest(method, reference string) (contents []byte, mediaType string, returnErr error) {
 	resp, err := c.doRequest(repoRequest{
-		Method:       method,
+		Method:       "GET",
 		Path:         "manifests/" + reference,
 		Headers:      http.Header{"Accept": distribution.ManifestMediaTypes()},
 		ExpectStatus: http.StatusOK,
