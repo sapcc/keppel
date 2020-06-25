@@ -23,7 +23,7 @@ require (
 	github.com/poy/onpar v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.6.0
 	github.com/rs/cors v1.7.0
-	github.com/sapcc/go-bits v0.0.0-20200408113334-fba3bcbf66ea
+	github.com/sapcc/go-bits v0.0.0-20200625101710-e2d86e0013cb
 	github.com/sapcc/hermes v0.0.0-20200512164035-6df4e7771fb5
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.0.0

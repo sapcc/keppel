@@ -46,12 +46,14 @@ type Validator interface {
 
 //Cacher is the generic interface for a token cache.
 type Cacher interface {
-	//StoreTokenPayload attempts to store the given token payload in the cache.
-	StoreTokenPayload(token string, payload []byte)
-	//LoadTokenPayload attempts to retrieve the payload for the given token from
-	//the cache. If there nothing cached for this token, or if the retrieval
-	//fails, nil shall be returned.
-	LoadTokenPayload(token string) []byte
+	//StoreTokenPayload attempts to store the token payload corresponding to the
+	//given credentials in the cache. Implementations shall treat `credentials`
+	//as an opaque string and only use it as a cache key.
+	StoreTokenPayload(credentials string, payload []byte)
+	//LoadTokenPayload attempts to retrieve the payload for the given credentials
+	//from the cache. If there nothing cached for these credentials, or if the
+	//retrieval fails, nil shall be returned.
+	LoadTokenPayload(credentials string) []byte
 }
 
 //TokenValidator combines an Identity v3 client to validate tokens (AuthN), and
@@ -88,10 +90,26 @@ func (v *TokenValidator) CheckToken(r *http.Request) *Token {
 		return &Token{Err: errors.New("X-Auth-Token header missing")}
 	}
 
+	return v.CheckCredentials(tokenStr, func() TokenResult {
+		return tokens.Get(v.IdentityV3, tokenStr)
+	})
+}
+
+//CheckCredentials is a more generic version of CheckToken that can also be
+//used when the user supplies credentials instead of a Keystone token.
+//
+//The `check` argument contains the logic for actually checking the user's
+//credentials, usually by calling tokens.Create() or tokens.Get() from package
+//github.com/gophercloud/gophercloud/openstack/identity/v3/tokens.
+//
+//The `cacheKey` argument shall be a string that identifies the given
+//credentials. This key is used for caching the TokenResult in `v.Cacher` if
+//that is non-nil.
+func (v *TokenValidator) CheckCredentials(cacheKey string, check func() TokenResult) *Token {
 	//prefer cached token payload over actually talking to Keystone (but fallback
 	//to Keystone if the token payload deserialization fails)
 	if v.Cacher != nil {
-		payload := v.Cacher.LoadTokenPayload(tokenStr)
+		payload := v.Cacher.LoadTokenPayload(cacheKey)
 		if payload != nil {
 			var s serializableToken
 			err := json.Unmarshal(payload, &s)
@@ -104,19 +122,13 @@ func (v *TokenValidator) CheckToken(r *http.Request) *Token {
 		}
 	}
 
-	response := tokens.Get(v.IdentityV3, tokenStr)
-	if response.Err != nil {
-		//this includes 4xx responses, so after this point, we can be sure that the token is valid
-		return &Token{Err: response.Err}
-	}
-
-	t := v.TokenFromGophercloudResult(response)
+	t := v.TokenFromGophercloudResult(check())
 
 	//cache token payload if valid
 	if t.Err == nil && v.Cacher != nil {
 		payload, err := json.Marshal(t.serializable)
 		if err == nil {
-			v.Cacher.StoreTokenPayload(tokenStr, payload)
+			v.Cacher.StoreTokenPayload(cacheKey, payload)
 		}
 	}
 
@@ -165,6 +177,9 @@ func (v *TokenValidator) TokenFromGophercloudResult(result TokenResult) *Token {
 
 //TokenResult is the interface type for the argument of
 //TokenValidator.TokenFromGophercloudResult().
+//
+//Notable implementors are tokens.CreateResult or tokens.GetResult from package
+//github.com/gophercloud/gophercloud/openstack/identity/v3/tokens.
 type TokenResult interface {
 	ExtractInto(value interface{}) error
 	Extract() (*tokens.Token, error)

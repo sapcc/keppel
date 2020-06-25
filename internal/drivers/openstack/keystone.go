@@ -192,14 +192,16 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Aut
 	throwAwayClient.ReauthFunc = nil
 	throwAwayClient.SetTokenAndAuthResult(nil)
 
-	result := tokens.Create(&throwAwayClient, &authOpts)
-	if err, ok := result.Err.(gophercloud.ErrDefault429); ok {
-		retryAfterStr := err.ResponseHeader.Get("Retry-After")
-		return nil, keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr)
-	}
+	t := d.TokenValidator.CheckCredentials(
+		fmt.Sprintf("username=%s,password=%s", userName, password),
+		func() gopherpolicy.TokenResult { return tokens.Create(&throwAwayClient, &authOpts) },
+	)
 
-	t := d.TokenValidator.TokenFromGophercloudResult(result)
 	if t.Err != nil {
+		if err, ok := t.Err.(gophercloud.ErrDefault429); ok {
+			retryAfterStr := err.ResponseHeader.Get("Retry-After")
+			return nil, keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr)
+		}
 		return nil, keppel.ErrUnauthorized.With(
 			"failed to get token for user %q: %s",
 			userName, t.Err.Error(),

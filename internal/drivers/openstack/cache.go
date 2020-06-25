@@ -33,20 +33,20 @@ type redisCacher struct {
 	*redis.Client
 }
 
-func cacheKeyForToken(token string) string {
-	sha256Hash := sha256.Sum256([]byte(token))
-	return "keystone-token-" + hex.EncodeToString(sha256Hash[:])
+func hashCacheKey(cacheKey string) string {
+	sha256Hash := sha256.Sum256([]byte(cacheKey))
+	return "keystone-" + hex.EncodeToString(sha256Hash[:])
 }
 
-func (c redisCacher) StoreTokenPayload(token string, payload []byte) {
-	err := c.Set(cacheKeyForToken(token), payload, 5*time.Minute).Err()
+func (c redisCacher) StoreTokenPayload(cacheKey string, payload []byte) {
+	err := c.Set(hashCacheKey(cacheKey), payload, 5*time.Minute).Err()
 	if err != nil {
 		logg.Error("cannot cache token payload in Redis: %s", err.Error())
 	}
 }
 
-func (c redisCacher) LoadTokenPayload(token string) []byte {
-	payload, err := c.Get(cacheKeyForToken(token)).Bytes()
+func (c redisCacher) LoadTokenPayload(cacheKey string) []byte {
+	payload, err := c.Get(hashCacheKey(cacheKey)).Bytes()
 	if err == redis.Nil {
 		return nil
 	}
