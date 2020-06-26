@@ -191,11 +191,18 @@ func (d *federationDriver) ForfeitAccountName(account keppel.Account) error {
 	}
 
 	//all validations okay -> cleanup all keys associated with this primary account
-	return d.rc.Del(
-		d.primaryKey(account),
-		d.replicasKey(account),
-		d.tokenKey(account),
-	).Err()
+	//
+	//NOTE: Dynomite does not play well with multi-key DEL commands, so we delete
+	//one key at a time
+	err = d.rc.Del(d.tokenKey(account)).Err()
+	if err != nil {
+		return err
+	}
+	err = d.rc.Del(d.replicasKey(account)).Err()
+	if err != nil {
+		return err
+	}
+	return d.rc.Del(d.primaryKey(account)).Err()
 }
 
 //RecordExistingAccount implements the keppel.FederationDriver interface.
