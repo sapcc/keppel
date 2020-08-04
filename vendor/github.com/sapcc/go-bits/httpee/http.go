@@ -32,16 +32,18 @@ import (
 	"github.com/sapcc/go-bits/logg"
 )
 
+var shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
+
 // ContextWithSIGINT creates a new context.Context using the provided Context, and
 // launches a goroutine that cancels the Context when an interrupt signal is caught.
 func ContextWithSIGINT(ctx context.Context) context.Context {
 	ctx, cancel := context.WithCancel(ctx)
 	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(signalChan, shutdownSignals...)
 	go func() {
 		<-signalChan
 		logg.Info("Interrupt received...")
-		signal.Reset(os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+		signal.Reset(shutdownSignals...)
 		close(signalChan)
 		cancel()
 	}()
@@ -56,12 +58,11 @@ func ListenAndServeContext(ctx context.Context, addr string, handler http.Handle
 	// waitForServerShutdown channel serves two purposes:
 	// 1. It is used to block until server.Shutdown() returns to prevent
 	// program from exiting prematurely. This is because when Shutdown is
-	// called, Serve, ListenAndServe, and ListenAndServeTLS immediately return
-	// ErrServerClosed.
+	// called ListenAndServe immediately return ErrServerClosed.
 	// 2. It is used to convey errors encountered during Shutdown from the
 	// goroutine to the caller function.
 	waitForServerShutdown := make(chan error)
-	shutdownServer := make(chan int, 1)
+	shutdownServer := make(chan struct{})
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -69,18 +70,16 @@ func ListenAndServeContext(ctx context.Context, addr string, handler http.Handle
 		}
 
 		logg.Info("Shutting down HTTP server...")
+
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		err := server.Shutdown(ctx)
-		if err != nil {
-			waitForServerShutdown <- err
-		}
-		close(waitForServerShutdown)
 		cancel()
+		waitForServerShutdown <- err
 	}()
 
 	listenAndServeErr := server.ListenAndServe()
 	if listenAndServeErr != http.ErrServerClosed {
-		shutdownServer <- 1
+		shutdownServer <- struct{}{}
 	}
 
 	shutdownErr := <-waitForServerShutdown
