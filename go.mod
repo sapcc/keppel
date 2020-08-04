@@ -9,7 +9,6 @@ require (
 	github.com/go-gorp/gorp v2.2.0+incompatible // indirect
 	github.com/go-redis/redis v6.15.8+incompatible
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
-	github.com/gomodule/redigo v1.8.2 // indirect
 	github.com/gophercloud/gophercloud v0.12.0
 	github.com/gophercloud/utils v0.0.0-20200508015959-b0167b94122c
 	github.com/gorilla/mux v1.7.4
@@ -17,7 +16,6 @@ require (
 	github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629 // indirect
 	github.com/majewsky/schwift v0.0.0-20200416120220-80c09ef2a88d
 	github.com/mattn/go-sqlite3 v1.14.0 // indirect
-	github.com/onsi/ginkgo v1.14.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/poy/onpar v1.0.0 // indirect
@@ -27,7 +25,7 @@ require (
 	github.com/sapcc/hermes v0.0.0-20200512164035-6df4e7771fb5
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.0.0
-	github.com/throttled/throttled v2.2.5+incompatible
+	github.com/throttled/throttled/v2 v2.5.0
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
 	gopkg.in/gorp.v2 v2.2.0

@@ -22,7 +22,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/throttled/throttled"
+	"github.com/throttled/throttled/v2"
 )
 
 //RateLimitedAction is an enum of all actions that can be rate-limited.

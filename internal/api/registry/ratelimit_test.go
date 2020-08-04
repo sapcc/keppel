@@ -28,7 +28,7 @@ import (
 	"github.com/sapcc/keppel/internal/drivers/basic"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
-	"github.com/throttled/throttled"
+	"github.com/throttled/throttled/v2"
 )
 
 func TestRateLimits(t *testing.T) {

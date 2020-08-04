@@ -40,8 +40,6 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/gomodule/redigo v1.8.2
-## explicit
 # github.com/gophercloud/gophercloud v0.12.0
 ## explicit
 github.com/gophercloud/gophercloud
@@ -92,8 +90,6 @@ github.com/majewsky/schwift/gopherschwift
 ## explicit
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
-# github.com/onsi/ginkgo v1.14.0
-## explicit
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit
 github.com/opencontainers/go-digest
@@ -150,10 +146,10 @@ github.com/spf13/cobra
 github.com/spf13/pflag
 # github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271
 github.com/streadway/amqp
-# github.com/throttled/throttled v2.2.5+incompatible
+# github.com/throttled/throttled/v2 v2.5.0
 ## explicit
-github.com/throttled/throttled
-github.com/throttled/throttled/store/goredisstore
+github.com/throttled/throttled/v2
+github.com/throttled/throttled/v2/store/goredisstore
 # github.com/ziutek/mymysql v1.5.4
 ## explicit
 # golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
@@ -204,5 +200,5 @@ google.golang.org/protobuf/types/known/timestamppb
 # gopkg.in/gorp.v2 v2.2.0
 ## explicit
 gopkg.in/gorp.v2
-# gopkg.in/yaml.v2 v2.3.0
+# gopkg.in/yaml.v2 v2.2.7
 gopkg.in/yaml.v2

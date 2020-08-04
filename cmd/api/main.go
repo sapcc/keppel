@@ -36,7 +36,7 @@ import (
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/spf13/cobra"
-	"github.com/throttled/throttled/store/goredisstore"
+	"github.com/throttled/throttled/v2/store/goredisstore"
 )
 
 //AddCommandTo mounts this command into the command hierarchy.
