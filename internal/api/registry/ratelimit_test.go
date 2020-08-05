@@ -29,6 +29,7 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 	"github.com/throttled/throttled/v2"
+	"github.com/throttled/throttled/v2/store/memstore"
 )
 
 func TestRateLimits(t *testing.T) {
@@ -41,15 +42,18 @@ func TestRateLimits(t *testing.T) {
 			keppel.ManifestPushAction: rateQuota,
 		},
 	}
-	rls := newTestGCRAStore()
+	rls, err := memstore.New(-1)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 	rle := &keppel.RateLimitEngine{Driver: rld, Store: rls}
 
 	h, _, db, ad, _, clock := setup(t, rle)
-	rls.TimeNow = clock.Now
+	rls.SetTimeNow(clock.Now)
 
 	//create the "test1/foo" repository to ensure that we don't just always hit
 	//NAME_UNKNOWN errors
-	_, err := keppel.FindOrCreateRepository(db, "foo", keppel.Account{Name: "test1"})
+	_, err = keppel.FindOrCreateRepository(db, "foo", keppel.Account{Name: "test1"})
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -131,48 +135,4 @@ func TestRateLimits(t *testing.T) {
 		failingReq.ExpectHeader["Retry-After"] = "30"
 		failingReq.Check(t, h)
 	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// type testGCRAStore
-
-//testGCRAStore is a throttled.GCRAStore with in-memory storage that can be
-//connected to test.Clock. The implementation is not thread-safe, which is not
-//a problem since our tests don't run concurrently.
-type testGCRAStore struct {
-	Values  map[string]int64
-	TimeNow func() time.Time
-}
-
-func newTestGCRAStore() *testGCRAStore {
-	return &testGCRAStore{make(map[string]int64), nil}
-}
-
-func (s *testGCRAStore) GetWithTime(key string) (int64, time.Time, error) {
-	val, ok := s.Values[key]
-	if !ok {
-		val = -1
-	}
-	return val, s.TimeNow(), nil
-}
-
-func (s *testGCRAStore) SetIfNotExistsWithTTL(key string, value int64, _ time.Duration) (bool, error) {
-	_, ok := s.Values[key]
-	if ok {
-		return false, nil
-	}
-	s.Values[key] = value
-	return true, nil
-}
-
-func (s *testGCRAStore) CompareAndSwapWithTTL(key string, oldValue, newValue int64, _ time.Duration) (bool, error) {
-	val, ok := s.Values[key]
-	if !ok {
-		return false, nil
-	}
-	if val == oldValue {
-		s.Values[key] = newValue
-		return true, nil
-	}
-	return false, nil
 }
