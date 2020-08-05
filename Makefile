@@ -33,8 +33,6 @@ GO_ALLPKGS := $(shell $(GO) list $(GO_BUILDFLAGS) $(PKG)/...)
 GO_TESTPKGS := $(shell $(GO) list $(GO_BUILDFLAGS) -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' $(PKG)/internal/...)
 # which packages to measure coverage for?
 GO_COVERPKGS := $(shell $(GO) list $(GO_BUILDFLAGS) $(PKG)/internal/... | grep -v internal/drivers | grep -v internal/test/util)
-# output files from `go test`
-GO_COVERFILES := $(patsubst %,build/%.cover.out,$(subst /,_,$(GO_TESTPKGS)))
 
 # down below, I need to substitute spaces with commas; because of the syntax,
 # I have to get these separators from variables
@@ -53,11 +51,9 @@ static-check: FORCE
 	@$(GO) vet $(GO_BUILDFLAGS) $(GO_ALLPKGS)
 
 # detailed unit test run (incl. test coverage)
-build/%.cover.out: FORCE
-	@printf "\e[1;36m>> go test $(subst _,/,$*)\e[0m\n"
-	@env PATH=$(CURDIR)/build:$$PATH $(GO) test $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(subst _,/,$*)
-build/cover.out: $(GO_COVERFILES)
-	$(GO) run $(GO_BUILDFLAGS) util/gocovcat.go $(GO_COVERFILES) > $@
+build/cover.out: FORCE
+	@printf "\e[1;36m>> go test\e[0m\n"
+	@env PATH=$(CURDIR)/build:$$PATH $(GO) test $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' -p 1 -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
 build/cover.html: build/cover.out
 	$(GO) tool cover -html $< -o $@
 
