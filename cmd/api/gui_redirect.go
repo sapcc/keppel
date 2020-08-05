@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -51,7 +50,6 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 	}
 
 	vars := mux.Vars(r)
-	logg.Info("HALLO 1: %#v", vars)
 
 	//do we have this account/repo?
 	account, err := keppel.FindAccount(g.db, vars["account"])
@@ -59,13 +57,11 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 		respondNotFound(w, r)
 		return
 	}
-	logg.Info("HALLO 2: %#v", account)
 	repo, err := keppel.FindRepository(g.db, vars["repository"], *account)
 	if err != nil || repo == nil {
 		respondNotFound(w, r)
 		return
 	}
-	logg.Info("HALLO 3: %#v", repo)
 
 	//is it publicly readable?
 	var policies []keppel.RBACPolicy
@@ -77,7 +73,6 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 		respondNotFound(w, r)
 		return
 	}
-	logg.Info("HALLO 4: %#v", policies)
 	for _, policy := range policies {
 		if policy.Matches(repo.FullName(), keppel.AnonymousAuthorization.UserName()) {
 			//do the redirect
