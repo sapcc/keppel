@@ -20,7 +20,6 @@
 package keppel
 
 import (
-	"fmt"
 	"io/ioutil"
 	"net"
 	"net/url"
@@ -50,9 +49,11 @@ func (u APIAccessURL) Hostname() string {
 //Configuration contains all configuration values that are not specific to a
 //certain driver.
 type Configuration struct {
-	APIPublicURL APIAccessURL
-	DatabaseURL  url.URL
-	JWTIssuerKey libtrust.PrivateKey
+	APIPublicURL        APIAccessURL
+	AnycastAPIPublicURL *APIAccessURL
+	DatabaseURL         url.URL
+	JWTIssuerKey        libtrust.PrivateKey
+	AnycastJWTIssuerKey *libtrust.PrivateKey
 }
 
 var (
@@ -75,25 +76,30 @@ func ParseIssuerKey(in string) (libtrust.PrivateKey, error) {
 	}
 	buf = stripWhitespaceRx.ReplaceAll(buf, nil)
 
-	key, err := libtrust.UnmarshalPrivateKeyPEM(buf)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read KEPPEL_ISSUER_KEY: " + err.Error())
-	}
-	return key, nil
+	return libtrust.UnmarshalPrivateKeyPEM(buf)
 }
 
 //ParseConfiguration obtains a keppel.Configuration instance from the
 //corresponding environment variables. Aborts on error.
 func ParseConfiguration() Configuration {
 	cfg := Configuration{
-		APIPublicURL: APIAccessURL{URL: mustGetenvURL("KEPPEL_API_PUBLIC_URL")},
-		DatabaseURL:  mustGetenvURL("KEPPEL_DB_URI"),
+		APIPublicURL:        APIAccessURL{URL: mustGetenvURL("KEPPEL_API_PUBLIC_URL")},
+		AnycastAPIPublicURL: mayGetenvURL("KEPPEL_API_ANYCAST_URL"),
+		DatabaseURL:         mustGetenvURL("KEPPEL_DB_URI"),
 	}
 
 	var err error
 	cfg.JWTIssuerKey, err = ParseIssuerKey(MustGetenv("KEPPEL_ISSUER_KEY"))
 	if err != nil {
-		logg.Fatal(err.Error())
+		logg.Fatal("failed to read KEPPEL_ISSUER_KEY: " + err.Error())
+	}
+
+	if cfg.AnycastAPIPublicURL != nil {
+		key, err := ParseIssuerKey(MustGetenv("KEPPEL_ANYCAST_ISSUER_KEY"))
+		if err != nil {
+			logg.Fatal("failed to read KEPPEL_ANYCAST_ISSUER_KEY: " + err.Error())
+		}
+		cfg.AnycastJWTIssuerKey = &key
 	}
 
 	return cfg
@@ -116,4 +122,16 @@ func mustGetenvURL(key string) url.URL {
 		logg.Fatal("malformed %s: %s", key, err.Error())
 	}
 	return *parsed
+}
+
+func mayGetenvURL(key string) *APIAccessURL {
+	val := os.Getenv(key)
+	if val == "" {
+		return nil
+	}
+	parsed, err := url.Parse(val)
+	if err != nil {
+		logg.Fatal("malformed %s: %s", key, err.Error())
+	}
+	return &APIAccessURL{URL: *parsed}
 }
