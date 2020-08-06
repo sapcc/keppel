@@ -704,7 +704,7 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 
 	st := SubleaseToken{
 		AccountName:     account.Name,
-		PrimaryHostname: a.cfg.APIPublicHostname(),
+		PrimaryHostname: a.cfg.APIPublicURL.Hostname(),
 	}
 
 	var err error

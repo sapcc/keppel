@@ -47,7 +47,7 @@ func init() {
 			return nil, fmt.Errorf("cannot parse KEPPEL_FEDERATION_REDIS_URI: %s", err.Error())
 		}
 		return &federationDriver{
-			ownHostname: cfg.APIPublicHostname(),
+			ownHostname: cfg.APIPublicURL.Hostname(),
 			prefix:      prefix,
 			rc:          redis.NewClient(opts),
 		}, nil

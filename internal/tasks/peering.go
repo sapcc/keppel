@@ -98,7 +98,7 @@ func IssueNewPasswordForPeer(cfg keppel.Configuration, db *keppel.DB, tx *gorp.T
 
 	//send new credentials to peer
 	bodyBytes, _ := json.Marshal(authapi.PeeringRequest{
-		PeerHostName: cfg.APIPublicHostname(),
+		PeerHostName: cfg.APIPublicURL.Hostname(),
 		UserName:     "replication@" + peer.HostName,
 		Password:     newPassword,
 	})

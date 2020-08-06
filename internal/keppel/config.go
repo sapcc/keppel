@@ -31,22 +31,28 @@ import (
 	"github.com/sapcc/go-bits/logg"
 )
 
-//Configuration contains all configuration values that are not specific to a
-//certain driver.
-type Configuration struct {
-	APIPublicURL url.URL
-	DatabaseURL  url.URL
-	JWTIssuerKey libtrust.PrivateKey
+//APIAccessURL describes where Keppel's API is reachable. Typically only the
+//protocol and host/port fields are filled.
+type APIAccessURL struct {
+	url.URL
 }
 
-//APIPublicHostname returns the hostname from the APIPublicURL.
-func (cfg Configuration) APIPublicHostname() string {
-	hostAndMaybePort := cfg.APIPublicURL.Host
+//Hostname returns the hostname from this URL.
+func (u APIAccessURL) Hostname() string {
+	hostAndMaybePort := u.Host
 	host, _, err := net.SplitHostPort(hostAndMaybePort)
 	if err == nil {
 		return host
 	}
 	return hostAndMaybePort //looks like there is no port in here after all
+}
+
+//Configuration contains all configuration values that are not specific to a
+//certain driver.
+type Configuration struct {
+	APIPublicURL APIAccessURL
+	DatabaseURL  url.URL
+	JWTIssuerKey libtrust.PrivateKey
 }
 
 var (
@@ -80,7 +86,7 @@ func ParseIssuerKey(in string) (libtrust.PrivateKey, error) {
 //corresponding environment variables. Aborts on error.
 func ParseConfiguration() Configuration {
 	cfg := Configuration{
-		APIPublicURL: mustGetenvURL("KEPPEL_API_PUBLIC_URL"),
+		APIPublicURL: APIAccessURL{URL: mustGetenvURL("KEPPEL_API_PUBLIC_URL")},
 		DatabaseURL:  mustGetenvURL("KEPPEL_DB_URI"),
 	}
 

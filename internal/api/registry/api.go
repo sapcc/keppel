@@ -176,7 +176,7 @@ func setDefaultsForChallenge(c *auth.Challenge, r *http.Request) {
 		return
 	}
 
-	//case 3: no idea how the user got here - the challenge will use the cfg.APIPublicHostname() by default
+	//case 3: no idea how the user got here - the challenge will use the cfg.APIPublicURL.Hostname() by default
 	return
 }
 

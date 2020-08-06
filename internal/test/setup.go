@@ -76,7 +76,7 @@ func setup(t *testing.T, isSecondary bool) (keppel.Configuration, *keppel.DB) {
 		t.Fatal(err.Error())
 	}
 	cfg := keppel.Configuration{
-		APIPublicURL: *apiPublicURL,
+		APIPublicURL: keppel.APIAccessURL{URL: *apiPublicURL},
 		DatabaseURL:  *dbURL,
 	}
 

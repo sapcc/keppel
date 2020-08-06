@@ -90,7 +90,7 @@ func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration) (*Token, *
 	if !claims.StandardClaims.VerifyNotBefore(now+3, true) {
 		return nil, keppel.ErrUnauthorized.With("token not valid yet")
 	}
-	publicHost := cfg.APIPublicHostname()
+	publicHost := cfg.APIPublicURL.Hostname()
 	if !claims.StandardClaims.VerifyIssuer("keppel-api@"+publicHost, true) {
 		return nil, keppel.ErrUnauthorized.With("token has wrong issuer")
 	}
@@ -162,7 +162,7 @@ func (t Token) Issue(cfg keppel.Configuration) (*IssuedToken, error) {
 	issuerKey := cfg.JWTIssuerKey
 	method := ChooseSigningMethod(issuerKey)
 
-	publicHost := cfg.APIPublicHostname()
+	publicHost := cfg.APIPublicURL.Hostname()
 	token := jwt.NewWithClaims(method, TokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			Id:        uuid.NewV4().String(),

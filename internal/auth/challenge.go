@@ -49,7 +49,7 @@ func (c Challenge) WriteTo(h http.Header, cfg keppel.Configuration) {
 
 	fields := fmt.Sprintf(`realm="%s",service="%s"`,
 		apiURL+"/keppel/v1/auth",
-		cfg.APIPublicHostname(),
+		cfg.APIPublicURL.Hostname(),
 	)
 
 	if c.Scope != nil {
