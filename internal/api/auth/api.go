@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/auth"
@@ -97,6 +98,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		if respondWithError(w, http.StatusInternalServerError, err) {
 			return
 		}
+		return
 	}
 
 	//check authentication
@@ -139,14 +141,25 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Request, tokenReq Request) error {
 	accountName := tokenReq.Scope.AccountName()
+
 	primaryHostName, err := a.fd.FindPrimaryAccount(accountName)
 	if err != nil {
 		return err
 	}
 
-	reqURL := fmt.Sprintf("https://%s/keppel/v1/auth?%s", primaryHostName, r.URL.RawQuery)
+	//protect against infinite forwarding loops in case different Keppels have
+	//different ideas about how is the primary account
+	if forwardedBy := r.URL.Query().Get("X-Keppel-Forwarded-By"); forwardedBy != "" {
+		logg.Error("not forwarding anycast token request for account %q to %s because request was already forwarded to us by %s",
+			accountName, primaryHostName, forwardedBy)
+		return errors.New("request blocked by reverse-proxy loop protection")
+	}
+
+	reqURL := fmt.Sprintf("https://%s/keppel/v1/auth?%s&forwarded-by=%s",
+		primaryHostName, r.URL.RawQuery, a.cfg.APIPublicURL.Hostname())
 	req, err := http.NewRequest("GET", reqURL, nil)
 	req.Header.Set("Authorization", r.Header.Get("Authorization"))
+	req.Header.Set("X-Keppel-Forwarded-By", a.cfg.APIPublicURL.Hostname())
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err

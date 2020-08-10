@@ -32,7 +32,7 @@ import (
 )
 
 func TestCatalogEndpoint(t *testing.T) {
-	cfg, db := test.Setup(t)
+	cfg, db := test.Setup(t, nil)
 
 	//set up dummy accounts for testing
 	for idx := 1; idx <= 3; idx++ {

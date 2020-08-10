@@ -42,7 +42,7 @@ var (
 )
 
 func setup(t *testing.T, rle *keppel.RateLimitEngine) (http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver, *test.Clock) {
-	cfg, db := test.Setup(t)
+	cfg, db := test.Setup(t, nil)
 
 	//set up a dummy account for testing
 	err := db.Insert(&keppel.Account{
@@ -88,7 +88,7 @@ func setup(t *testing.T, rle *keppel.RateLimitEngine) (http.Handler, keppel.Conf
 }
 
 func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.Clock, action func(bool, http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver)) {
-	cfg2, db2 := test.SetupSecondary(t)
+	cfg2, db2 := test.Setup(t, &test.SetupOptions{IsSecondary: true})
 
 	//give the secondary registry credentials for replicating from the primary
 	if replicationPassword == "" {

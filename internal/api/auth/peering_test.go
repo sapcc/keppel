@@ -32,7 +32,7 @@ import (
 )
 
 func TestPeeringAPI(t *testing.T) {
-	cfg, db := test.Setup(t)
+	cfg, db := test.Setup(t, nil)
 
 	//set up peer.example.org as a peer of us, otherwise we will reject peering
 	//attempts from that source
