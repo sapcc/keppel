@@ -71,13 +71,17 @@ func setup(t *testing.T, rle *keppel.RateLimitEngine) (http.Handler, keppel.Conf
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	fd, err := keppel.NewFederationDriver("unittest", ad, cfg)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	//wire up the HTTP APIs
 	clock := &test.Clock{}
 	sidGen := &test.StorageIDGenerator{}
 	h := api.Compose(
 		NewAPI(cfg, sd, db, rle).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
-		authapi.NewAPI(cfg, ad, db),
+		authapi.NewAPI(cfg, ad, fd, db),
 	)
 
 	return h, cfg, db, ad.(*test.AuthDriver), sd.(*test.StorageDriver), clock
@@ -140,6 +144,10 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	fd2, err := keppel.NewFederationDriver("unittest", ad2, cfg2)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 	sd2, err := keppel.NewStorageDriver("in-memory-for-testing", ad2, cfg2)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -148,7 +156,7 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 	sidGen := &test.StorageIDGenerator{}
 	h2 := api.Compose(
 		NewAPI(cfg2, sd2, db2, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
-		authapi.NewAPI(cfg2, ad2, db2),
+		authapi.NewAPI(cfg2, ad2, fd2, db2),
 	)
 
 	//the secondary registry wants to talk to the primary registry over HTTPS, so

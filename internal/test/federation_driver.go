@@ -99,3 +99,8 @@ func (d *FederationDriver) RecordExistingAccount(account keppel.Account, now tim
 	})
 	return nil
 }
+
+//FindPrimaryAccount implements the keppel.FederationDriver interface.
+func (d *FederationDriver) FindPrimaryAccount(accountName string) (string, error) {
+	return "", keppel.ErrNoSuchPrimaryAccount
+}

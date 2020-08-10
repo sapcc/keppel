@@ -112,3 +112,8 @@ func (d *federationDriverBasic) ForfeitAccountName(account keppel.Account) error
 func (d *federationDriverBasic) RecordExistingAccount(account keppel.Account, now time.Time) error {
 	return nil
 }
+
+//FindPrimaryAccount implements the keppel.FederationDriver interface.
+func (d *federationDriverBasic) FindPrimaryAccount(accountName string) (string, error) {
+	return "", keppel.ErrNoSuchPrimaryAccount
+}

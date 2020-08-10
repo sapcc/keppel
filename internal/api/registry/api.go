@@ -143,14 +143,20 @@ func respondWithError(w http.ResponseWriter, err error) bool {
 }
 
 func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *auth.Scope) *auth.Token {
-	token, err := auth.ParseTokenFromRequest(r, a.cfg)
+	//for requests to the anycast endpoint, we need to use the anycast issuer key instead of the regular one
+	requestURL := keppel.OriginalRequestURL(r)
+	audience := auth.LocalService
+	if a.cfg.AnycastAPIPublicURL != nil && requestURL.SameHostAndSchemeAs(*a.cfg.AnycastAPIPublicURL) {
+		audience = auth.AnycastService
+	}
+
+	token, err := auth.ParseTokenFromRequest(r, a.cfg, audience)
 	if err == nil && scope != nil && !token.Contains(*scope) {
 		err = keppel.ErrDenied.With("token does not cover scope %s", scope.String())
 	}
 	if err != nil {
 		logg.Debug("GET %s: %s", r.URL.Path, err.Error())
-		challenge := auth.Challenge{Scope: scope}
-		requestURL := keppel.OriginalRequestURL(r)
+		challenge := auth.Challenge{Service: audience, Scope: scope}
 		challenge.OverrideAPIHost = requestURL.Host
 		challenge.OverrideAPIScheme = requestURL.Scheme
 		if token != nil {

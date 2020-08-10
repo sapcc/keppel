@@ -46,6 +46,11 @@ func (u APIAccessURL) Hostname() string {
 	return hostAndMaybePort //looks like there is no port in here after all
 }
 
+//SameHostAndSchemeAs is self-explanatory.
+func (u APIAccessURL) SameHostAndSchemeAs(other APIAccessURL) bool {
+	return u.Scheme == other.Scheme && u.Host == other.Host
+}
+
 //Configuration contains all configuration values that are not specific to a
 //certain driver.
 type Configuration struct {

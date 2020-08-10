@@ -45,8 +45,12 @@ func TestPeeringAPI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	fd, err := keppel.NewFederationDriver("unittest", ad, cfg)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
-	h := api.Compose(NewAPI(cfg, ad, db))
+	h := api.Compose(NewAPI(cfg, ad, fd, db))
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()

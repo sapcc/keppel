@@ -37,6 +37,10 @@ const (
 	ClaimErrored
 )
 
+//ErrNoSuchPrimaryAccount is returned by FederationDriver.FindPrimaryAccount if
+//no peer has the given primary account.
+var ErrNoSuchPrimaryAccount = errors.New("no such primary account")
+
 //FederationDriver is the abstract interface for a strategy that coordinates
 //the claiming of account names across Keppel deployments.
 type FederationDriver interface {
@@ -78,6 +82,12 @@ type FederationDriver interface {
 	//The `now` argument contains the value of time.Now(). It may refer to an
 	//artificial wall clock during unit tests.
 	RecordExistingAccount(account Account, now time.Time) error
+
+	//FindPrimaryAccount is used to redirect anycast requests for accounts that
+	//do not exist locally. It shell return the hostname of the peer that hosts
+	//the primary account. If no account with this name exists anywhere,
+	//ErrNoSuchPrimaryAccount shall be returned.
+	FindPrimaryAccount(accountName string) (peerHostName string, err error)
 }
 
 var federationDriverFactories = make(map[string]func(AuthDriver, Configuration) (FederationDriver, error))

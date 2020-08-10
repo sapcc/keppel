@@ -30,8 +30,9 @@ import (
 //Challenge describes an auth challenge that is posed in a Www-Authenticate
 //response header.
 type Challenge struct {
-	Scope *Scope //optional
-	Error string //optional
+	Service Service
+	Scope   *Scope //optional
+	Error   string //optional
 
 	//optional: if set, asks for the client to use the /keppel/v1/auth port at
 	//this host (this allows the API to take into account which hostname and
@@ -49,7 +50,7 @@ func (c Challenge) WriteTo(h http.Header, cfg keppel.Configuration) {
 
 	fields := fmt.Sprintf(`realm="%s",service="%s"`,
 		apiURL+"/keppel/v1/auth",
-		cfg.APIPublicURL.Hostname(),
+		c.Service.Hostname(cfg),
 	)
 
 	if c.Scope != nil {

@@ -41,7 +41,11 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	h := api.Compose(authapi.NewAPI(cfg, ad, db))
+	fd, err := keppel.NewFederationDriver("unittest", ad, cfg)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	h := api.Compose(authapi.NewAPI(cfg, ad, fd, db))
 
 	//setup a peer
 	err = db.Insert(&keppel.Peer{HostName: "peer.example.org"})

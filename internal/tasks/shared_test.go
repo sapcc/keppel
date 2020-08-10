@@ -60,7 +60,7 @@ func setup(t *testing.T) (*Janitor, keppel.Configuration, *keppel.DB, *test.Fede
 
 	h := api.Compose(
 		registryv2.NewAPI(cfg, sd, db, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
-		authapi.NewAPI(cfg, ad, db),
+		authapi.NewAPI(cfg, ad, fd, db),
 	)
 
 	return j, cfg, db, fd.(*test.FederationDriver), sd, clock, h
@@ -101,7 +101,7 @@ func setupReplica(t *testing.T, db1 *keppel.DB, h1 http.Handler, clock *test.Clo
 	j2 := NewJanitor(cfg2, fd2, sd2, db2).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next)
 	h2 := api.Compose(
 		registryv2.NewAPI(cfg2, sd2, db2, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
-		authapi.NewAPI(cfg2, ad2, db2),
+		authapi.NewAPI(cfg2, ad2, fd2, db2),
 	)
 
 	//the secondary registry wants to talk to the primary registry over HTTPS, so

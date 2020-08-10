@@ -34,7 +34,7 @@ import (
 //OriginalRequestURL returns the URL that the original requester used when
 //sending an HTTP request. This inspects the X-Forwarded-* set of headers to
 //identify reverse proxying.
-func OriginalRequestURL(r *http.Request) url.URL {
+func OriginalRequestURL(r *http.Request) APIAccessURL {
 	u := url.URL{
 		Path:     r.URL.Path,
 		RawQuery: r.URL.RawQuery,
@@ -47,18 +47,18 @@ func OriginalRequestURL(r *http.Request) url.URL {
 		if u.Scheme == "" {
 			u.Scheme = "http"
 		}
-		return u
+		return APIAccessURL{u}
 	}
 
 	//case 2: we are not behind a reverse proxy, but the Host header indicates how the user reached us
 	if r.Host != "" {
 		u.Host = r.Host
 		u.Scheme = "http"
-		return u
+		return APIAccessURL{u}
 	}
 
 	//case 3: no idea how the user got here - don't include any guesses in the URL
-	return u
+	return APIAccessURL{u}
 }
 
 //AppendQuery adds additional query parameters to an existing unparsed URL.
