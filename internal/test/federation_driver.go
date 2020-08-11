@@ -26,8 +26,13 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
+var (
+	federationDriversForThisUnitTest []*FederationDriver
+)
+
 //FederationDriver (driver ID "unittest") is a keppel.FederationDriver for unit tests.
 type FederationDriver struct {
+	APIPublicHostName              string
 	ClaimFailsBecauseOfUserError   bool
 	ClaimFailsBecauseOfServerError bool
 	ForfeitFails                   bool
@@ -43,11 +48,18 @@ type AccountRecordedByFederationDriver struct {
 }
 
 func init() {
-	keppel.RegisterFederationDriver("unittest", func(_ keppel.AuthDriver, _ keppel.Configuration) (keppel.FederationDriver, error) {
-		return &FederationDriver{
+	keppel.RegisterFederationDriver("unittest", func(_ keppel.AuthDriver, cfg keppel.Configuration) (keppel.FederationDriver, error) {
+		fd := &FederationDriver{
+			APIPublicHostName:         cfg.APIPublicURL.Hostname(),
 			ValidSubleaseTokenSecrets: make(map[string]string),
-		}, nil
+		}
+		federationDriversForThisUnitTest = append(federationDriversForThisUnitTest, fd)
+		return fd, nil
 	})
+}
+
+func resetTestFederationDriver() {
+	federationDriversForThisUnitTest = nil
 }
 
 //ClaimAccountName implements the keppel.FederationDriver interface.
@@ -98,4 +110,16 @@ func (d *FederationDriver) RecordExistingAccount(account keppel.Account, now tim
 		RecordedAt: now,
 	})
 	return nil
+}
+
+//FindPrimaryAccount implements the keppel.FederationDriver interface.
+func (d *FederationDriver) FindPrimaryAccount(accountName string) (string, error) {
+	for _, fd := range federationDriversForThisUnitTest {
+		for _, a := range fd.RecordedAccounts {
+			if a.Account.Name == accountName {
+				return fd.APIPublicHostName, nil
+			}
+		}
+	}
+	return "", keppel.ErrNoSuchPrimaryAccount
 }

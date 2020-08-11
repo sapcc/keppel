@@ -32,7 +32,7 @@ import (
 )
 
 func TestPeeringAPI(t *testing.T) {
-	cfg, db := test.Setup(t)
+	cfg, db := test.Setup(t, nil)
 
 	//set up peer.example.org as a peer of us, otherwise we will reject peering
 	//attempts from that source
@@ -45,8 +45,12 @@ func TestPeeringAPI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	fd, err := keppel.NewFederationDriver("unittest", ad, cfg)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
-	h := api.Compose(NewAPI(cfg, ad, db))
+	h := api.Compose(NewAPI(cfg, ad, fd, db))
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()

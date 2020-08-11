@@ -33,13 +33,51 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+//Service enumerates the different audiences for which we can issue tokens.
+type Service int
+
+const (
+	//LocalService is the Service for tokens issued by this keppel-api for use
+	//only with the same keppel-api.
+	LocalService Service = 0
+	//AnycastService is the Service for tokens issued by this keppel-api or one
+	//of its peers for their shared anycast endpoint.
+	AnycastService Service = 1
+)
+
+//Hostname returns the hostname that is used as the "audience" value in tokens
+//and as the "service" value in auth challenges.
+func (s Service) Hostname(cfg keppel.Configuration) string {
+	switch s {
+	case LocalService:
+		return cfg.APIPublicURL.Hostname()
+	case AnycastService:
+		return cfg.AnycastAPIPublicURL.Hostname()
+	default:
+		panic(fmt.Sprintf("unknown auth service code: %d", s))
+	}
+}
+
+//IssuerKey returns the issuer key that is used to sign tokens for this
+//service.
+func (s Service) IssuerKey(cfg keppel.Configuration) libtrust.PrivateKey {
+	switch s {
+	case LocalService:
+		return cfg.JWTIssuerKey
+	case AnycastService:
+		return *cfg.AnycastJWTIssuerKey
+	default:
+		panic(fmt.Sprintf("unknown auth service code: %d", s))
+	}
+}
+
 //Token represents a JWT (Java Web Token), as used for authenticating on the
 //Registry v2 API.
 type Token struct {
 	//The name of the user who created this token. For anonymous users, this is empty.
 	UserName string
 	//The service that this token can be used with.
-	Audience string
+	Audience Service
 	//Access permissions for this token.
 	Access []Scope
 }
@@ -52,7 +90,7 @@ type TokenClaims struct {
 
 //ParseTokenFromRequest tries to parse the Bearer token supplied in the
 //request's Authorization header.
-func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration) (*Token, *keppel.RegistryV2Error) {
+func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration, audience Service) (*Token, *keppel.RegistryV2Error) {
 	//read Authorization request header
 	tokenStr := r.Header.Get("Authorization")
 	if !strings.HasPrefix(tokenStr, "Bearer ") { //e.g. because it's missing
@@ -64,7 +102,7 @@ func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration) (*Token, *
 	var claims TokenClaims
 	token, err := jwt.ParseWithClaims(tokenStr, &claims, func(t *jwt.Token) (interface{}, error) {
 		//check that the signing method matches what we generate
-		ourIssuerKey := cfg.JWTIssuerKey
+		ourIssuerKey := audience.IssuerKey(cfg)
 		ourSigningMethod := ChooseSigningMethod(ourIssuerKey)
 		if !equalSigningMethods(ourSigningMethod, t.Method) {
 			return nil, fmt.Errorf("Unexpected signing method: %v", t.Header["alg"])
@@ -90,17 +128,17 @@ func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration) (*Token, *
 	if !claims.StandardClaims.VerifyNotBefore(now+3, true) {
 		return nil, keppel.ErrUnauthorized.With("token not valid yet")
 	}
-	publicHost := cfg.APIPublicHostname()
+	publicHost := audience.Hostname(cfg)
 	if !claims.StandardClaims.VerifyIssuer("keppel-api@"+publicHost, true) {
-		return nil, keppel.ErrUnauthorized.With("token has wrong issuer")
+		return nil, keppel.ErrUnauthorized.With("token has wrong issuer (expected keppel-api@%s)", publicHost)
 	}
 	if !claims.StandardClaims.VerifyAudience(publicHost, true) {
-		return nil, keppel.ErrUnauthorized.With("token has wrong audience")
+		return nil, keppel.ErrUnauthorized.With("token has wrong audience (expected %s)", publicHost)
 	}
 
 	return &Token{
 		UserName: claims.StandardClaims.Subject,
-		Audience: publicHost,
+		Audience: audience,
 		Access:   claims.Access,
 	}, nil
 }
@@ -159,15 +197,15 @@ func (t Token) Issue(cfg keppel.Configuration) (*IssuedToken, error) {
 	expiresIn := 1 * time.Hour //NOTE: could be made configurable if the need arises
 	expiresAt := now.Add(expiresIn)
 
-	issuerKey := cfg.JWTIssuerKey
+	issuerKey := t.Audience.IssuerKey(cfg)
 	method := ChooseSigningMethod(issuerKey)
 
-	publicHost := cfg.APIPublicHostname()
+	publicHost := t.Audience.Hostname(cfg)
 	token := jwt.NewWithClaims(method, TokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			Id:        uuid.NewV4().String(),
-			Audience:  t.Audience,
-			Issuer:    "keppel-api@" + publicHost,
+			Audience:  publicHost,
+			Issuer:    "keppel-api@" + cfg.APIPublicURL.Hostname(),
 			Subject:   t.UserName,
 			ExpiresAt: expiresAt.Unix(),
 			NotBefore: now.Unix(),
@@ -181,7 +219,7 @@ func (t Token) Issue(cfg keppel.Configuration) (*IssuedToken, error) {
 		jwkMessage json.RawMessage
 		err        error
 	)
-	jwkMessage, err = cfg.JWTIssuerKey.PublicKey().MarshalJSON()
+	jwkMessage, err = issuerKey.PublicKey().MarshalJSON()
 	if err != nil {
 		return nil, err
 	}

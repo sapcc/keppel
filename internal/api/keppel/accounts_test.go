@@ -96,7 +96,7 @@ func toJSON(x interface{}) string {
 // tests
 
 func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.FederationDriver, *testAuditor, keppel.StorageDriver, *keppel.DB) {
-	cfg, db := test.Setup(t)
+	cfg, db := test.Setup(t, nil)
 
 	ad, err := keppel.NewAuthDriver("unittest", nil)
 	if err != nil {

@@ -34,14 +34,18 @@ import (
 )
 
 func TestIssueNewPasswordForPeer(t *testing.T) {
-	cfg, db := test.Setup(t)
+	cfg, db := test.Setup(t, nil)
 
 	//setup an auth API on our side
 	ad, err := keppel.NewAuthDriver("unittest", nil)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	h := api.Compose(authapi.NewAPI(cfg, ad, db))
+	fd, err := keppel.NewFederationDriver("unittest", ad, cfg)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	h := api.Compose(authapi.NewAPI(cfg, ad, fd, db))
 
 	//setup a peer
 	err = db.Insert(&keppel.Peer{HostName: "peer.example.org"})

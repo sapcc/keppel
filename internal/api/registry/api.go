@@ -143,14 +143,22 @@ func respondWithError(w http.ResponseWriter, err error) bool {
 }
 
 func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *auth.Scope) *auth.Token {
-	token, err := auth.ParseTokenFromRequest(r, a.cfg)
+	//for requests to the anycast endpoint, we need to use the anycast issuer key instead of the regular one
+	requestURL := keppel.OriginalRequestURL(r)
+	audience := auth.LocalService
+	if a.cfg.AnycastAPIPublicURL != nil && requestURL.SameHostAndSchemeAs(*a.cfg.AnycastAPIPublicURL) {
+		audience = auth.AnycastService
+	}
+
+	token, err := auth.ParseTokenFromRequest(r, a.cfg, audience)
 	if err == nil && scope != nil && !token.Contains(*scope) {
 		err = keppel.ErrDenied.With("token does not cover scope %s", scope.String())
 	}
 	if err != nil {
 		logg.Debug("GET %s: %s", r.URL.Path, err.Error())
-		challenge := auth.Challenge{Scope: scope}
-		setDefaultsForChallenge(&challenge, r)
+		challenge := auth.Challenge{Service: audience, Scope: scope}
+		challenge.OverrideAPIHost = requestURL.Host
+		challenge.OverrideAPIScheme = requestURL.Scheme
 		if token != nil {
 			challenge.Error = "insufficient_scope"
 		}
@@ -159,25 +167,6 @@ func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *
 		return nil
 	}
 	return token
-}
-
-func setDefaultsForChallenge(c *auth.Challenge, r *http.Request) {
-	//case 1: we are behind a reverse proxy
-	if host := r.Header.Get("X-Forwarded-Host"); host != "" {
-		c.OverrideAPIHost = host
-		c.OverrideAPIScheme = r.Header.Get("X-Forwarded-Proto")
-		return
-	}
-
-	//case 2: we are not behind a reverse proxy, but the Host header indicates how the user reached us
-	if r.Host != "" {
-		c.OverrideAPIHost = r.Host
-		c.OverrideAPIScheme = "http"
-		return
-	}
-
-	//case 3: no idea how the user got here - the challenge will use the cfg.APIPublicHostname() by default
-	return
 }
 
 //The "with leading slash" simplifies the regex because we need not write the regex for a path element twice.

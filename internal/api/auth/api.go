@@ -21,10 +21,13 @@ package authapi
 
 import (
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/auth"
@@ -35,12 +38,13 @@ import (
 type API struct {
 	cfg        keppel.Configuration
 	authDriver keppel.AuthDriver
+	fd         keppel.FederationDriver
 	db         *keppel.DB
 }
 
 //NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, db *keppel.DB) *API {
-	return &API{cfg, ad, db}
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, db *keppel.DB) *API {
+	return &API{cfg, ad, fd, db}
 }
 
 //AddTo implements the api.API interface.
@@ -69,10 +73,6 @@ var errUnautorized = errors.New("incorrect username or password")
 
 func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/auth")
-	authz, err := a.checkAuthentication(r.Header.Get("Authorization"))
-	if respondWithError(w, http.StatusUnauthorized, err) {
-		return
-	}
 
 	//parse request
 	req, err := parseRequest(r.URL.RawQuery, a.cfg)
@@ -89,6 +89,22 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		}
 		//do not check account == nil here yet to not leak account existence to
 		//unauthorized users
+	}
+
+	//if we don't have this account locally, but the request is an anycast
+	//request and one of our peers has the account, ask them to issue the token
+	if account == nil && req.IntendedAudience == auth.AnycastService {
+		err := a.reverseProxyTokenReqToUpstream(w, r, req)
+		if respondWithError(w, http.StatusInternalServerError, err) {
+			return
+		}
+		return
+	}
+
+	//check authentication
+	authz, err := a.checkAuthentication(r.Header.Get("Authorization"))
+	if respondWithError(w, http.StatusUnauthorized, err) {
+		return
 	}
 
 	//check requested scope and actions
@@ -121,6 +137,39 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondwith.JSON(w, http.StatusOK, tokenInfo)
+}
+
+func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Request, tokenReq Request) error {
+	accountName := tokenReq.Scope.AccountName()
+
+	primaryHostName, err := a.fd.FindPrimaryAccount(accountName)
+	if err != nil {
+		return err
+	}
+
+	//protect against infinite forwarding loops in case different Keppels have
+	//different ideas about how is the primary account
+	if forwardedBy := r.URL.Query().Get("X-Keppel-Forwarded-By"); forwardedBy != "" {
+		logg.Error("not forwarding anycast token request for account %q to %s because request was already forwarded to us by %s",
+			accountName, primaryHostName, forwardedBy)
+		return errors.New("request blocked by reverse-proxy loop protection")
+	}
+
+	reqURL := fmt.Sprintf("https://%s/keppel/v1/auth?%s&forwarded-by=%s",
+		primaryHostName, r.URL.RawQuery, a.cfg.APIPublicURL.Hostname())
+	req, err := http.NewRequest("GET", reqURL, nil)
+	req.Header.Set("Authorization", r.Header.Get("Authorization"))
+	req.Header.Set("X-Keppel-Forwarded-By", a.cfg.APIPublicURL.Hostname())
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
+	w.WriteHeader(resp.StatusCode)
+	_, err = io.Copy(w, resp.Body)
+	return err
 }
 
 func containsString(list []string, val string) bool {

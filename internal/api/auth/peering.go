@@ -51,7 +51,7 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check that these credentials are intended for us
-	if req.UserName != "replication@"+a.cfg.APIPublicHostname() {
+	if req.UserName != "replication@"+a.cfg.APIPublicURL.Hostname() {
 		http.Error(w, "wrong audience", http.StatusBadRequest)
 		return
 	}

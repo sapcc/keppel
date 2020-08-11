@@ -34,7 +34,6 @@ import (
 )
 
 var (
-	errNoAuthHeader        = errors.New("missing Authorization header")
 	errMalformedAuthHeader = errors.New("malformed Authorization header")
 )
 
@@ -104,7 +103,7 @@ type Request struct {
 	Scope            auth.Scope
 	ClientID         string
 	OfflineToken     bool
-	IntendedAudience string
+	IntendedAudience auth.Service
 	//the auth handler may add additional scopes in addition to the originally
 	//requested scope to encode access permissions, RBACs, etc.
 	CompiledScopes []auth.Scope
@@ -121,10 +120,18 @@ func parseRequest(rawQuery string, cfg keppel.Configuration) (Request, error) {
 		offlineToken = false
 	}
 	result := Request{
-		ClientID:         query.Get("client_id"),
-		Scope:            parseScope(query.Get("scope")),
-		OfflineToken:     offlineToken,
-		IntendedAudience: query.Get("service"),
+		ClientID:     query.Get("client_id"),
+		Scope:        parseScope(query.Get("scope")),
+		OfflineToken: offlineToken,
+	}
+
+	serviceHost := query.Get("service")
+	if serviceHost == auth.LocalService.Hostname(cfg) {
+		result.IntendedAudience = auth.LocalService
+	} else if cfg.AnycastAPIPublicURL != nil && serviceHost == auth.AnycastService.Hostname(cfg) {
+		result.IntendedAudience = auth.AnycastService
+	} else {
+		return Request{}, fmt.Errorf("cannot issue tokens for service: %q", serviceHost)
 	}
 
 	return result, nil

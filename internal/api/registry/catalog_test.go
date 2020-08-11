@@ -32,7 +32,7 @@ import (
 )
 
 func TestCatalogEndpoint(t *testing.T) {
-	cfg, db := test.Setup(t)
+	cfg, db := test.Setup(t, nil)
 
 	//set up dummy accounts for testing
 	for idx := 1; idx <= 3; idx++ {
@@ -60,8 +60,12 @@ func TestCatalogEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	fd, err := keppel.NewFederationDriver("unittest", ad, cfg)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 	h := api.Compose(
-		authapi.NewAPI(cfg, ad, db),
+		authapi.NewAPI(cfg, ad, fd, db),
 		NewAPI(cfg, nil, db, nil),
 	)
 
