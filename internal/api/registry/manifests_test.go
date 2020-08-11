@@ -161,6 +161,24 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectBody:   test.ErrorCode(keppel.ErrManifestBlobUnknown),
 			}.Check(t, h)
 
+			//PUT failure case: cannot upload manifest via the anycast API
+			if currentScenario.WithAnycast {
+				assert.HTTPRequest{
+					Method: "PUT",
+					Path:   "/v2/test1/foo/manifests/" + ref,
+					Header: map[string]string{
+						"Authorization":     "Bearer " + token,
+						"Content-Type":      image.Manifest.MediaType,
+						"X-Forwarded-Host":  cfg.AnycastAPIPublicURL.Host,
+						"X-Forwarded-Proto": cfg.AnycastAPIPublicURL.Scheme,
+					},
+					Body:         assert.ByteData(image.Manifest.Contents),
+					ExpectStatus: http.StatusMethodNotAllowed,
+					ExpectHeader: test.VersionHeader,
+					ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
+				}.Check(t, h)
+			}
+
 			//PUT success case: upload manifest (and also the blob referenced by it);
 			//each PUT is executed twice to test idempotency
 			clock.Step()

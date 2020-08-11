@@ -22,6 +22,7 @@ package keppel
 import (
 	"io/ioutil"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"regexp"
@@ -59,6 +60,15 @@ type Configuration struct {
 	DatabaseURL         url.URL
 	JWTIssuerKey        libtrust.PrivateKey
 	AnycastJWTIssuerKey *libtrust.PrivateKey
+}
+
+//IsAnycastRequest returns true if this configuration has anycast enabled and
+//the given request is for the anycast API.
+func (c Configuration) IsAnycastRequest(r *http.Request) bool {
+	if c.AnycastAPIPublicURL == nil {
+		return false
+	}
+	return OriginalRequestURL(r).SameHostAndSchemeAs(*c.AnycastAPIPublicURL)
 }
 
 var (

@@ -47,6 +47,13 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
+	//defense in depth: the auth API does not issue anycast tokens for registry:catalog:* anyway
+	if a.cfg.IsAnycastRequest(r) {
+		msg := "/v2/_catalog endpoint is not supported for anycast requests"
+		keppel.ErrUnsupported.With(msg).WriteAsRegistryV2ResponseTo(w)
+		return
+	}
+
 	token := a.requireBearerToken(w, r, &requiredScopeForCatalogEndpoint)
 	if token == nil {
 		return

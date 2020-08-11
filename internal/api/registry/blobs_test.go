@@ -110,6 +110,25 @@ func TestBlobMonolithicUpload(t *testing.T) {
 			}.Check(t, h)
 		}
 
+		//test failure cases: cannot upload manifest via the anycast API
+		if currentScenario.WithAnycast {
+			assert.HTTPRequest{
+				Method: "POST",
+				Path:   "/v2/test1/foo/blobs/uploads/?digest=" + blob.Digest.String(),
+				Header: map[string]string{
+					"Authorization":     "Bearer " + token,
+					"Content-Length":    strconv.Itoa(len(blob.Contents)),
+					"Content-Type":      "application/octet-stream",
+					"X-Forwarded-Host":  cfg.AnycastAPIPublicURL.Host,
+					"X-Forwarded-Proto": cfg.AnycastAPIPublicURL.Scheme,
+				},
+				Body:         assert.ByteData(blob.Contents),
+				ExpectStatus: http.StatusMethodNotAllowed,
+				ExpectHeader: test.VersionHeader,
+				ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
+			}.Check(t, h)
+		}
+
 		//failed requests should not retain anything in the storage
 		expectStorageEmpty(t, sd, db)
 

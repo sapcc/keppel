@@ -144,10 +144,17 @@ func respondWithError(w http.ResponseWriter, err error) bool {
 
 func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *auth.Scope) *auth.Token {
 	//for requests to the anycast endpoint, we need to use the anycast issuer key instead of the regular one
-	requestURL := keppel.OriginalRequestURL(r)
 	audience := auth.LocalService
-	if a.cfg.AnycastAPIPublicURL != nil && requestURL.SameHostAndSchemeAs(*a.cfg.AnycastAPIPublicURL) {
+	if a.cfg.IsAnycastRequest(r) {
 		audience = auth.AnycastService
+
+		//completely forbid write operations on the anycast API (only the local API
+		//may be used for writes and deletes)
+		if r.Method != "HEAD" && r.Method != "GET" {
+			msg := "write access is not supported for anycast requests"
+			keppel.ErrUnsupported.With(msg).WriteAsRegistryV2ResponseTo(w)
+			return nil
+		}
 	}
 
 	token, err := auth.ParseTokenFromRequest(r, a.cfg, audience)
@@ -157,6 +164,7 @@ func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *
 	if err != nil {
 		logg.Debug("GET %s: %s", r.URL.Path, err.Error())
 		challenge := auth.Challenge{Service: audience, Scope: scope}
+		requestURL := keppel.OriginalRequestURL(r)
 		challenge.OverrideAPIHost = requestURL.Host
 		challenge.OverrideAPIScheme = requestURL.Scheme
 		if token != nil {
