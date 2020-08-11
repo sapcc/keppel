@@ -23,9 +23,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -445,12 +443,14 @@ func setupGeneric(t *testing.T, isSecondary bool, testAccount keppel.Account) (h
 	return h, cfg, ad, fd.(*test.FederationDriver), db
 }
 
+//jwtAccess appears in type jwtToken.
 type jwtAccess struct {
 	Type    string   `json:"type"`
 	Name    string   `json:"name"`
 	Actions []string `json:"actions"`
 }
 
+//jwtToken contains the parsed contents of the payload section of a JWT token.
 type jwtToken struct {
 	Issuer    string      `json:"iss"`
 	Subject   string      `json:"sub"`
@@ -462,7 +462,18 @@ type jwtToken struct {
 	Access    []jwtAccess `json:"access"`
 }
 
-func unpackTokenResult(t *testing.T, responseBodyBytes []byte) (*jwtToken, error) {
+//jwtContents contains what we expect in a JWT token payload section. This type
+//implements assert.HTTPResponseBody and can therefore be used with
+//assert.HTTPRequest.
+type jwtContents struct {
+	Issuer   string
+	Subject  string
+	Audience string
+	Access   []jwtAccess
+}
+
+//AssertResponseBody implements the assert.HTTPResponseBody interface.
+func (c jwtContents) AssertResponseBody(t *testing.T, requestInfo string, responseBodyBytes []byte) (ok bool) {
 	var responseBody struct {
 		Token string `json:"token"`
 		//optional fields (all listed so that we can use DisallowUnknownFields())
@@ -476,18 +487,22 @@ func unpackTokenResult(t *testing.T, responseBodyBytes []byte) (*jwtToken, error
 	err := dec.Decode(&responseBody)
 	if err != nil {
 		t.Logf("token was: %s", string(responseBodyBytes))
-		return nil, err
+		t.Errorf("%s: cannot decode response body: %s", requestInfo, err.Error())
+		return false
 	}
 
 	//extract payload from token
 	tokenFields := strings.Split(responseBody.Token, ".")
 	if len(tokenFields) != 3 {
 		t.Logf("JWT is %s", string(responseBody.Token))
-		return nil, fmt.Errorf("expected token with 3 parts, got %d parts", len(tokenFields))
+		t.Errorf("%s: expected token with 3 parts, got %d parts", requestInfo, len(tokenFields))
+		return false
 	}
 	tokenBytes, err := base64.RawURLEncoding.DecodeString(tokenFields[1])
 	if err != nil {
-		return nil, err
+		t.Logf("JWT is %s", string(responseBody.Token))
+		t.Errorf("%s: cannot decode JWT payload section: %s", requestInfo, err.Error())
+		return false
 	}
 
 	//decode token
@@ -497,10 +512,33 @@ func unpackTokenResult(t *testing.T, responseBodyBytes []byte) (*jwtToken, error
 	err = dec.Decode(&token)
 	if err != nil {
 		t.Logf("token JSON is %s", string(tokenBytes))
-		return nil, err
+		t.Errorf("%s: cannot deserialize JWT payload section: %s", requestInfo, err.Error())
+		return false
 	}
 
-	return &token, nil
+	//check token attributes for correctness
+	ok = true
+	ok = ok && assert.DeepEqual(t, "token.Access for "+requestInfo, token.Access, c.Access)
+	ok = ok && assert.DeepEqual(t, "token.Audience for "+requestInfo, token.Audience, c.Audience)
+	ok = ok && assert.DeepEqual(t, "token.Issuer for "+requestInfo, token.Issuer, c.Issuer)
+	ok = ok && assert.DeepEqual(t, "token.Subject for "+requestInfo, token.Subject, c.Subject)
+
+	//check remaining token attributes for plausibility
+	nowUnix := time.Now().Unix()
+	if nowUnix >= token.ExpiresAt {
+		t.Errorf("%s: ExpiresAt should be in the future, but is %d seconds in the past", requestInfo, nowUnix-token.ExpiresAt)
+		ok = false
+	}
+	if nowUnix < token.NotBefore {
+		t.Errorf("%s: NotBefore should be now or in the past, but is %d seconds in the future", requestInfo, token.NotBefore-nowUnix)
+		ok = false
+	}
+	if nowUnix < token.IssuedAt {
+		t.Errorf("%s: IssuedAt should be now or in the past, but is %d seconds in the future", requestInfo, token.IssuedAt-nowUnix)
+		ok = false
+	}
+
+	return ok
 }
 
 func TestIssueToken(t *testing.T) {
@@ -509,7 +547,6 @@ func TestIssueToken(t *testing.T) {
 
 	for idx, c := range testCases {
 		t.Logf("----- testcase %d/%d -----\n", idx+1, len(testCases))
-		req := httptest.NewRequest("GET", "/keppel/v1/auth", nil)
 
 		//setup RBAC policies for test
 		_, err := db.Exec(`DELETE FROM rbac_policies WHERE account_name = $1`, "test1")
@@ -547,8 +584,14 @@ func TestIssueToken(t *testing.T) {
 		ad.GrantedPermissions = strings.Join(perms, ",")
 
 		//setup Authorization header for test
+		req := assert.HTTPRequest{
+			Method:       "GET",
+			ExpectStatus: http.StatusOK,
+		}
 		if !c.AnonymousLogin {
-			req.Header.Set("Authorization", keppel.BuildBasicAuthHeader("correctusername", "correctpassword"))
+			req.Header = map[string]string{
+				"Authorization": keppel.BuildBasicAuthHeader("correctusername", "correctpassword"),
+			}
 		}
 
 		//build URL query string for test
@@ -559,33 +602,20 @@ func TestIssueToken(t *testing.T) {
 		if c.Scope != "" {
 			query.Set("scope", c.Scope)
 		}
-		req.URL.RawQuery = query.Encode()
+		req.Path = "/keppel/v1/auth?" + query.Encode()
 
-		//execute request
-		recorder := httptest.NewRecorder()
-		r.ServeHTTP(recorder, req)
-		resp := recorder.Result()
-
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("expected status 200, got %d instead", resp.StatusCode)
+		//build expected tokenContents to match against
+		expectedContents := jwtContents{
+			Audience: service,
+			Issuer:   "keppel-api@registry.example.org",
+			Subject:  "correctusername",
 		}
-
-		//always expect token in result
-		responseBodyBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			t.Fatal(err.Error())
+		if c.AnonymousLogin {
+			expectedContents.Subject = ""
 		}
-		token, err := unpackTokenResult(t, responseBodyBytes)
-		if err != nil {
-			t.Error(err.Error())
-			continue
-		}
-
-		//check token attributes for correctness
-		expectedAccess := []jwtAccess(nil)
 		if c.GrantedActions != "" {
 			fields := strings.SplitN(c.Scope, ":", 3)
-			expectedAccess = []jwtAccess{{
+			expectedContents.Access = []jwtAccess{{
 				Type:    fields[0],
 				Name:    fields[1],
 				Actions: strings.Split(c.GrantedActions, ","),
@@ -594,33 +624,17 @@ func TestIssueToken(t *testing.T) {
 		if len(c.AdditionalScopes) > 0 {
 			for _, scope := range c.AdditionalScopes {
 				fields := strings.SplitN(scope, ":", 3)
-				expectedAccess = append(expectedAccess, jwtAccess{
+				expectedContents.Access = append(expectedContents.Access, jwtAccess{
 					Type:    fields[0],
 					Name:    fields[1],
 					Actions: strings.Split(fields[2], ","),
 				})
 			}
 		}
-		assert.DeepEqual(t, "token.Access", token.Access, expectedAccess)
-		assert.DeepEqual(t, "token.Audience", token.Audience, service)
-		assert.DeepEqual(t, "token.Issuer", token.Issuer, "keppel-api@registry.example.org")
-		if c.AnonymousLogin {
-			assert.DeepEqual(t, "token.Subject", token.Subject, "")
-		} else {
-			assert.DeepEqual(t, "token.Subject", token.Subject, "correctusername")
-		}
+		req.ExpectBody = expectedContents
 
-		//check remaining token attributes for plausibility
-		nowUnix := time.Now().Unix()
-		if nowUnix >= token.ExpiresAt {
-			t.Errorf("ExpiresAt should be in the future, but is %d seconds in the past", nowUnix-token.ExpiresAt)
-		}
-		if nowUnix < token.NotBefore {
-			t.Errorf("NotBefore should be now or in the past, but is %d seconds in the future", token.NotBefore-nowUnix)
-		}
-		if nowUnix < token.IssuedAt {
-			t.Errorf("IssuedAt should be now or in the past, but is %d seconds in the future", token.IssuedAt-nowUnix)
-		}
+		//execute request
+		req.Check(t, r)
 	}
 }
 
@@ -757,33 +771,27 @@ func TestAnycastToken(t *testing.T) {
 
 		if c.ErrorMessage == "" {
 			req.ExpectStatus = http.StatusOK
+
+			//build jwtContents struct to contain issued token against
+			expectedContents := jwtContents{
+				Audience: c.Service,
+				Issuer:   "keppel-api@" + c.Issuer,
+				Subject:  "correctusername",
+			}
+			if c.HasAccess {
+				expectedContents.Access = []jwtAccess{{
+					Type:    "repository",
+					Name:    fmt.Sprintf("%s/foo", c.AccountName),
+					Actions: []string{"pull"},
+				}}
+			}
+			req.ExpectBody = expectedContents
+
 		} else {
 			req.ExpectStatus = http.StatusBadRequest
 			req.ExpectBody = assert.JSONObject{"details": c.ErrorMessage}
 		}
 
-		_, respBodyBytes := req.Check(t, c.Handler)
-		if c.ErrorMessage != "" {
-			//do not check token result if we don't expect a token to be issued
-			continue
-		}
-		token, err := unpackTokenResult(t, respBodyBytes)
-		if err != nil {
-			t.Error(err.Error())
-		}
-
-		//check token attributes for correctness
-		var expectedAccess []jwtAccess
-		if c.HasAccess {
-			expectedAccess = []jwtAccess{{
-				Type:    "repository",
-				Name:    fmt.Sprintf("%s/foo", c.AccountName),
-				Actions: []string{"pull"},
-			}}
-		}
-		assert.DeepEqual(t, "token.Access", token.Access, expectedAccess)
-		assert.DeepEqual(t, "token.Audience", token.Audience, c.Service)
-		assert.DeepEqual(t, "token.Issuer", token.Issuer, fmt.Sprintf("keppel-api@%s", c.Issuer))
-		assert.DeepEqual(t, "token.Subject", token.Subject, "correctusername")
+		req.Check(t, c.Handler)
 	}
 }
