@@ -474,6 +474,8 @@ type jwtContents struct {
 
 //AssertResponseBody implements the assert.HTTPResponseBody interface.
 func (c jwtContents) AssertResponseBody(t *testing.T, requestInfo string, responseBodyBytes []byte) (ok bool) {
+	t.Helper()
+
 	var responseBody struct {
 		Token string `json:"token"`
 		//optional fields (all listed so that we can use DisallowUnknownFields())
@@ -758,15 +760,17 @@ func TestAnycastToken(t *testing.T) {
 			HasAccess: false, Issuer: localService2},
 	}
 
+	correctAuthHeader := map[string]string{
+		"Authorization": keppel.BuildBasicAuthHeader("correctusername", "correctpassword"),
+	}
+
 	for idx, c := range anycastTestCases {
 		t.Logf("----- testcase %d/%d -----\n", idx+1, len(anycastTestCases))
 
 		req := assert.HTTPRequest{
 			Method: "GET",
 			Path:   fmt.Sprintf("/keppel/v1/auth?scope=repository:%s/foo:pull&service=%s", c.AccountName, c.Service),
-			Header: map[string]string{
-				"Authorization": keppel.BuildBasicAuthHeader("correctusername", "correctpassword"),
-			},
+			Header: correctAuthHeader,
 		}
 
 		if c.ErrorMessage == "" {
@@ -794,4 +798,18 @@ func TestAnycastToken(t *testing.T) {
 
 		req.Check(t, c.Handler)
 	}
+
+	//some additional testcases that don't fit nicely into the pattern of the loop above
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=registry:catalog:*", anycastService),
+		Header:       correctAuthHeader,
+		ExpectStatus: http.StatusOK,
+		ExpectBody: jwtContents{
+			Audience: anycastService,
+			Issuer:   "keppel-api@" + localService1,
+			Subject:  "correctusername",
+			Access:   nil, //catalog access is not allowed for anycast since we don't know which peer to ask for authentication
+		},
+	}.Check(t, h1)
 }

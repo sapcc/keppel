@@ -87,20 +87,21 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		if respondWithError(w, http.StatusInternalServerError, err) {
 			return
 		}
-		//do not check account == nil here yet to not leak account existence to
-		//unauthorized users
-	}
 
-	//if we don't have this account locally, but the request is an anycast
-	//request and one of our peers has the account, ask them to issue the token
-	if account == nil && req.IntendedAudience == auth.AnycastService {
-		err := a.reverseProxyTokenReqToUpstream(w, r, req)
-		if err != keppel.ErrNoSuchPrimaryAccount {
-			if respondWithError(w, http.StatusInternalServerError, err) {
+		//if we don't have this account locally, but the request is an anycast
+		//request and one of our peers has the account, ask them to issue the token
+		if account == nil && req.IntendedAudience == auth.AnycastService {
+			err := a.reverseProxyTokenReqToUpstream(w, r, req)
+			if err != keppel.ErrNoSuchPrimaryAccount {
+				if respondWithError(w, http.StatusInternalServerError, err) {
+					return
+				}
 				return
 			}
-			return
 		}
+
+		//do not check account == nil further yet to not leak account existence to
+		//unauthorized users
 	}
 
 	//check authentication
@@ -112,7 +113,11 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	//check requested scope and actions
 	switch req.Scope.ResourceType {
 	case "registry":
-		if req.Scope.ResourceName == "catalog" && containsString(req.Scope.Actions, "*") {
+		if req.IntendedAudience == auth.AnycastService {
+			//we cannot allow catalog access on the anycast API since there is no way
+			//to decide which peer does the authentication in this case
+			req.Scope.Actions = nil
+		} else if req.Scope.ResourceName == "catalog" && containsString(req.Scope.Actions, "*") {
 			req.Scope.Actions = []string{"*"}
 			req.CompiledScopes, err = a.compileCatalogAccess(authz)
 			if respondWithError(w, http.StatusInternalServerError, err) {
