@@ -42,97 +42,98 @@ func TestRateLimits(t *testing.T) {
 			keppel.ManifestPushAction: rateQuota,
 		},
 	}
-	rls, err := memstore.New(-1)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	rle := &keppel.RateLimitEngine{Driver: rld, Store: rls}
+	rle := &keppel.RateLimitEngine{Driver: rld, Store: nil}
 
-	h, _, db, ad, _, clock := setup(t, rle)
-	rls.SetTimeNow(clock.Now)
+	testWithPrimary(t, rle, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+		rls, err := memstore.New(-1)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		rls.SetTimeNow(clock.Now)
+		rle.Store = rls
 
-	//create the "test1/foo" repository to ensure that we don't just always hit
-	//NAME_UNKNOWN errors
-	_, err = keppel.FindOrCreateRepository(db, "foo", keppel.Account{Name: "test1"})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+		//create the "test1/foo" repository to ensure that we don't just always hit
+		//NAME_UNKNOWN errors
+		_, err = keppel.FindOrCreateRepository(db, "foo", keppel.Account{Name: "test1"})
+		if err != nil {
+			t.Fatal(err.Error())
+		}
 
-	token := getToken(t, h, ad, "repository:test1/foo:pull,push",
-		keppel.CanPullFromAccount,
-		keppel.CanPushToAccount)
-	bogusDigest := "sha256:" + sha256Of([]byte("something else"))
+		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+			keppel.CanPullFromAccount,
+			keppel.CanPushToAccount)
+		bogusDigest := "sha256:" + sha256Of([]byte("something else"))
 
-	//prepare some test requests that should be affected by rate limiting
-	//(some of these fail with 404 or 400, but that's okay; the important part is
-	//whether they fail with 429 or not)
-	testRequests := []assert.HTTPRequest{
-		{
-			Method:       "GET",
-			Path:         "/v2/test1/foo/blobs/" + bogusDigest,
-			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusNotFound,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   test.ErrorCode(keppel.ErrBlobUnknown),
-		},
-		{
-			Method:       "POST",
-			Path:         "/v2/test1/foo/blobs/uploads/",
-			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusAccepted,
-			ExpectHeader: test.VersionHeader,
-		},
-		{
-			Method:       "GET",
-			Path:         "/v2/test1/foo/manifests/" + bogusDigest,
-			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusNotFound,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
-		},
-		{
-			Method:       "PUT",
-			Path:         "/v2/test1/foo/manifests/" + bogusDigest,
-			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusBadRequest,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   test.ErrorCode(keppel.ErrManifestInvalid),
-		},
-		//TODO more
-	}
+		//prepare some test requests that should be affected by rate limiting
+		//(some of these fail with 404 or 400, but that's okay; the important part is
+		//whether they fail with 429 or not)
+		testRequests := []assert.HTTPRequest{
+			{
+				Method:       "GET",
+				Path:         "/v2/test1/foo/blobs/" + bogusDigest,
+				Header:       map[string]string{"Authorization": "Bearer " + token},
+				ExpectStatus: http.StatusNotFound,
+				ExpectHeader: test.VersionHeader,
+				ExpectBody:   test.ErrorCode(keppel.ErrBlobUnknown),
+			},
+			{
+				Method:       "POST",
+				Path:         "/v2/test1/foo/blobs/uploads/",
+				Header:       map[string]string{"Authorization": "Bearer " + token},
+				ExpectStatus: http.StatusAccepted,
+				ExpectHeader: test.VersionHeader,
+			},
+			{
+				Method:       "GET",
+				Path:         "/v2/test1/foo/manifests/" + bogusDigest,
+				Header:       map[string]string{"Authorization": "Bearer " + token},
+				ExpectStatus: http.StatusNotFound,
+				ExpectHeader: test.VersionHeader,
+				ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
+			},
+			{
+				Method:       "PUT",
+				Path:         "/v2/test1/foo/manifests/" + bogusDigest,
+				Header:       map[string]string{"Authorization": "Bearer " + token},
+				ExpectStatus: http.StatusBadRequest,
+				ExpectHeader: test.VersionHeader,
+				ExpectBody:   test.ErrorCode(keppel.ErrManifestInvalid),
+			},
+		}
 
-	for _, req := range testRequests {
-		clock.StepBy(time.Hour)
+		for _, req := range testRequests {
+			clock.StepBy(time.Hour)
 
-		//we can always execute 1 request initially, and then we can burst on top
-		//of that
-		for i := 0; i < rateQuota.MaxBurst+1; i++ {
-			req.Check(t, h)
+			//we can always execute 1 request initially, and then we can burst on top
+			//of that
+			for i := 0; i < rateQuota.MaxBurst+1; i++ {
+				req.Check(t, h)
+				clock.StepBy(time.Second)
+			}
+
+			//then the next request should be rate-limited
+			failingReq := req
+			failingReq.ExpectBody = test.ErrorCode(keppel.ErrTooManyRequests)
+			failingReq.ExpectStatus = http.StatusTooManyRequests
+			failingReq.ExpectHeader = map[string]string{
+				test.VersionHeaderKey: test.VersionHeaderValue,
+				"Retry-After":         strconv.Itoa(29 - rateQuota.MaxBurst),
+			}
+			failingReq.Check(t, h)
+
+			//be impatient
+			clock.StepBy(time.Duration(28-rateQuota.MaxBurst) * time.Second)
+			failingReq.ExpectHeader["Retry-After"] = "1"
+			failingReq.Check(t, h)
+
+			//finally!
 			clock.StepBy(time.Second)
+			req.Check(t, h)
+
+			//aaaand... we're rate-limited again immediately because we haven't
+			//recovered our burst budget yet
+			failingReq.ExpectHeader["Retry-After"] = "30"
+			failingReq.Check(t, h)
 		}
-
-		//then the next request should be rate-limited
-		failingReq := req
-		failingReq.ExpectBody = test.ErrorCode(keppel.ErrTooManyRequests)
-		failingReq.ExpectStatus = http.StatusTooManyRequests
-		failingReq.ExpectHeader = map[string]string{
-			test.VersionHeaderKey: test.VersionHeaderValue,
-			"Retry-After":         strconv.Itoa(29 - rateQuota.MaxBurst),
-		}
-		failingReq.Check(t, h)
-
-		//be impatient
-		clock.StepBy(time.Duration(28-rateQuota.MaxBurst) * time.Second)
-		failingReq.ExpectHeader["Retry-After"] = "1"
-		failingReq.Check(t, h)
-
-		//finally!
-		clock.StepBy(time.Second)
-		req.Check(t, h)
-
-		//aaaand... we're rate-limited again immediately because we haven't
-		//recovered our burst budget yet
-		failingReq.ExpectHeader["Retry-After"] = "30"
-		failingReq.Check(t, h)
-	}
+	})
 }

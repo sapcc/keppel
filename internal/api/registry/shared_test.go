@@ -34,61 +34,80 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-//these credentials are in global vars so that we don't have to recompute them
-//in every test run (bcrypt is intentionally CPU-intensive)
 var (
+	//these credentials are in global vars so that we don't have to recompute them
+	//in every test run (bcrypt is intentionally CPU-intensive)
 	replicationPassword     string
 	replicationPasswordHash string
+
+	scenarios = []test.SetupOptions{
+		{WithAnycast: false},
+		{WithAnycast: true},
+	}
+	currentScenario test.SetupOptions
 )
 
-func setup(t *testing.T, rle *keppel.RateLimitEngine) (http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver, *test.Clock) {
-	cfg, db := test.Setup(t, nil)
+func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver, *test.FederationDriver, *test.Clock)) {
+	for _, scenario := range scenarios {
+		currentScenario = scenario
+		cfg, db := test.Setup(t, &scenario)
 
-	//set up a dummy account for testing
-	err := db.Insert(&keppel.Account{
-		Name:         "test1",
-		AuthTenantID: "test1authtenant",
-	})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+		//set up a dummy account for testing
+		err := db.Insert(&keppel.Account{
+			Name:         "test1",
+			AuthTenantID: "test1authtenant",
+		})
+		if err != nil {
+			t.Fatal(err.Error())
+		}
 
-	//setup ample quota for all tests
-	err = db.Insert(&keppel.Quotas{
-		AuthTenantID:  "test1authtenant",
-		ManifestCount: 100,
-	})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+		//setup ample quota for all tests
+		err = db.Insert(&keppel.Quotas{
+			AuthTenantID:  "test1authtenant",
+			ManifestCount: 100,
+		})
+		if err != nil {
+			t.Fatal(err.Error())
+		}
 
-	//setup a fleet of drivers
-	ad, err := keppel.NewAuthDriver("unittest", nil)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, cfg)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	fd, err := keppel.NewFederationDriver("unittest", ad, cfg)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+		//setup a fleet of drivers
+		ad, err := keppel.NewAuthDriver("unittest", nil)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, cfg)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		fd, err := keppel.NewFederationDriver("unittest", ad, cfg)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
 
-	//wire up the HTTP APIs
-	clock := &test.Clock{}
-	sidGen := &test.StorageIDGenerator{}
-	h := api.Compose(
-		NewAPI(cfg, sd, db, rle).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
-		authapi.NewAPI(cfg, ad, fd, db),
-	)
+		//wire up the HTTP APIs
+		clock := &test.Clock{}
+		sidGen := &test.StorageIDGenerator{}
+		h := api.Compose(
+			NewAPI(cfg, sd, db, rle).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+			authapi.NewAPI(cfg, ad, fd, db),
+		)
 
-	return h, cfg, db, ad.(*test.AuthDriver), sd.(*test.StorageDriver), clock
+		//run the tests for this scenario
+		action(h, cfg, db, ad.(*test.AuthDriver), sd.(*test.StorageDriver), fd.(*test.FederationDriver), clock)
+
+		//shutdown DB to free up connections (otherwise the test eventually fails
+		//with Postgres saying "too many clients already")
+		err = db.Db.Close()
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+	}
 }
 
 func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.Clock, action func(bool, http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver)) {
-	cfg2, db2 := test.Setup(t, &test.SetupOptions{IsSecondary: true})
+	opts := currentScenario
+	opts.IsSecondary = true
+	cfg2, db2 := test.Setup(t, &opts)
 
 	//give the secondary registry credentials for replicating from the primary
 	if replicationPassword == "" {

@@ -28,34 +28,34 @@ import (
 )
 
 func TestVersionCheckEndpoint(t *testing.T) {
-	h, _, _, ad, _, _ := setup(t, nil)
+	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+		//without token, expect auth challenge
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/v2/",
+			Header:       addHeadersForCorrectAuthChallenge(nil),
+			ExpectStatus: http.StatusUnauthorized,
+			ExpectHeader: map[string]string{
+				test.VersionHeaderKey: test.VersionHeaderValue,
+				"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org"`,
+			},
+			ExpectBody: assert.JSONObject{
+				"errors": []assert.JSONObject{{
+					"code":    keppel.ErrUnauthorized,
+					"detail":  nil,
+					"message": "no bearer token found in request headers",
+				}},
+			},
+		}.Check(t, h)
 
-	//without token, expect auth challenge
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/",
-		Header:       addHeadersForCorrectAuthChallenge(nil),
-		ExpectStatus: http.StatusUnauthorized,
-		ExpectHeader: map[string]string{
-			test.VersionHeaderKey: test.VersionHeaderValue,
-			"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org"`,
-		},
-		ExpectBody: assert.JSONObject{
-			"errors": []assert.JSONObject{{
-				"code":    keppel.ErrUnauthorized,
-				"detail":  nil,
-				"message": "no bearer token found in request headers",
-			}},
-		},
-	}.Check(t, h)
-
-	//with token, expect status code 200
-	token := getToken(t, h, ad, "" /* , no permissions */)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusOK,
-		ExpectHeader: test.VersionHeader,
-	}.Check(t, h)
+		//with token, expect status code 200
+		token := getToken(t, h, ad, "" /* , no permissions */)
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/v2/",
+			Header:       map[string]string{"Authorization": "Bearer " + token},
+			ExpectStatus: http.StatusOK,
+			ExpectHeader: test.VersionHeader,
+		}.Check(t, h)
+	})
 }
