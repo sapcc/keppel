@@ -733,6 +733,15 @@ func TestAnycastToken(t *testing.T) {
 			HasAccess: true, Issuer: localService1},
 		{AccountName: "test2", Service: anycastService, Handler: h2,
 			HasAccess: true, Issuer: localService2},
+		//asking for a token for an account that doesn't exist will never work
+		{AccountName: "test3", Service: localService1, Handler: h1,
+			HasAccess: false, Issuer: localService1},
+		{AccountName: "test3", Service: localService2, Handler: h2,
+			HasAccess: false, Issuer: localService2},
+		{AccountName: "test3", Service: anycastService, Handler: h1,
+			HasAccess: false, Issuer: localService1},
+		{AccountName: "test3", Service: anycastService, Handler: h2,
+			HasAccess: false, Issuer: localService2},
 	}
 
 	for idx, c := range anycastTestCases {

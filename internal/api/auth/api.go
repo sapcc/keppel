@@ -95,10 +95,12 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	//request and one of our peers has the account, ask them to issue the token
 	if account == nil && req.IntendedAudience == auth.AnycastService {
 		err := a.reverseProxyTokenReqToUpstream(w, r, req)
-		if respondWithError(w, http.StatusInternalServerError, err) {
+		if err != keppel.ErrNoSuchPrimaryAccount {
+			if respondWithError(w, http.StatusInternalServerError, err) {
+				return
+			}
 			return
 		}
-		return
 	}
 
 	//check authentication
