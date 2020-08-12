@@ -88,7 +88,7 @@ func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(http
 		clock := &test.Clock{}
 		sidGen := &test.StorageIDGenerator{}
 		h := api.Compose(
-			NewAPI(cfg, sd, db, rle).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+			NewAPI(cfg, fd, sd, db, rle).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 			authapi.NewAPI(cfg, ad, fd, db),
 		)
 
@@ -174,7 +174,7 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 
 	sidGen := &test.StorageIDGenerator{}
 	h2 := api.Compose(
-		NewAPI(cfg2, sd2, db2, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+		NewAPI(cfg2, fd2, sd2, db2, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 		authapi.NewAPI(cfg2, ad2, fd2, db2),
 	)
 

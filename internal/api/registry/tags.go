@@ -38,7 +38,7 @@ const tagsListQuery = `
 
 func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/tags/list")
-	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing)
+	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
 		return
 	}

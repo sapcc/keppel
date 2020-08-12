@@ -39,7 +39,7 @@ import (
 //This implements the GET/HEAD /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
-	account, repo, token := a.checkAccountAccess(w, r, failIfRepoMissing)
+	account, repo, token := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
 		return
 	}
@@ -152,7 +152,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 //This implements the DELETE /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
-	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing)
+	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
 		return
 	}

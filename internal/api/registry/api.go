@@ -39,6 +39,7 @@ import (
 //API contains state variables used by the Auth API endpoint.
 type API struct {
 	cfg keppel.Configuration
+	fd  keppel.FederationDriver
 	sd  keppel.StorageDriver
 	db  *keppel.DB
 	rle *keppel.RateLimitEngine //may be nil
@@ -48,8 +49,8 @@ type API struct {
 }
 
 //NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, sd keppel.StorageDriver, db *keppel.DB, rle *keppel.RateLimitEngine) *API {
-	return &API{cfg, sd, db, rle, time.Now, keppel.GenerateStorageID}
+func NewAPI(cfg keppel.Configuration, fd keppel.FederationDriver, sd keppel.StorageDriver, db *keppel.DB, rle *keppel.RateLimitEngine) *API {
+	return &API{cfg, fd, sd, db, rle, time.Now, keppel.GenerateStorageID}
 }
 
 //OverrideTimeNow replaces time.Now with a test double.
@@ -188,10 +189,20 @@ const (
 	createRepoIfMissingAndReplica repoAccessStrategy = 2
 )
 
+type anycastRequestInfo struct {
+	AccountName     string
+	RepoName        string
+	PrimaryHostName string //the peer who has this account
+}
+
 //A one-stop-shop authorization checker for all endpoints that set the mux vars
 //"account" and "repository". On success, returns the account and repository
 //that this request is about.
-func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy) (*keppel.Account, *keppel.Repository, *auth.Token) {
+//
+//If the account does not exist locally, but the request is for the anycast API
+//and the account exists elsewhere, the `anycastHandler` is invoked if given
+//instead of giving a 404 response.
+func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy, anycastHandler func(http.ResponseWriter, *http.Request, anycastRequestInfo)) (*keppel.Account, *keppel.Repository, *auth.Token) {
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
@@ -228,9 +239,22 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		return nil, nil, nil
 	}
 	if account == nil {
-		//defense in depth - if the account does not exist, there should not be a
-		//valid token (the auth endpoint does not issue tokens with scopes for
-		//nonexistent accounts)
+		if anycastHandler != nil && a.cfg.IsAnycastRequest(r) {
+			primaryHostName, err := a.fd.FindPrimaryAccount(accountName)
+			switch err {
+			case error(nil):
+				anycastHandler(w, r, anycastRequestInfo{accountName, repoName, primaryHostName})
+				return nil, nil, nil
+			case keppel.ErrNoSuchPrimaryAccount:
+				//fall through to the standard 404 handling below
+			default:
+				respondWithError(w, err)
+				return nil, nil, nil
+			}
+		}
+		//defense in depth - if the account does not exist and we're not
+		//anycasting, there should not be a valid token (the auth endpoint does not
+		//issue tokens with scopes for nonexistent accounts)
 		keppel.ErrNameUnknown.With("account not found").WriteAsRegistryV2ResponseTo(w)
 		return nil, nil, nil
 	}

@@ -85,7 +85,7 @@ func run(cmd *cobra.Command, args []string) {
 	handler := api.Compose(
 		keppelv1.NewAPI(cfg, ad, fd, sd, db, auditor),
 		auth.NewAPI(cfg, ad, fd, db),
-		registryv2.NewAPI(cfg, sd, db, rle),
+		registryv2.NewAPI(cfg, fd, sd, db, rle),
 		&headerReflector{logg.ShowDebug}, //the header reflection endpoint is only enabled where debugging is enabled (i.e. usually in dev/QA only)
 		&guiRedirecter{db, os.Getenv("KEPPEL_GUI_URI")},
 	)
