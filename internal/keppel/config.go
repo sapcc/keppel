@@ -21,7 +21,6 @@ package keppel
 
 import (
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -31,32 +30,11 @@ import (
 	"github.com/sapcc/go-bits/logg"
 )
 
-//APIAccessURL describes where Keppel's API is reachable. Typically only the
-//protocol and host/port fields are filled.
-type APIAccessURL struct {
-	url.URL
-}
-
-//Hostname returns the hostname from this URL.
-func (u APIAccessURL) Hostname() string {
-	hostAndMaybePort := u.Host
-	host, _, err := net.SplitHostPort(hostAndMaybePort)
-	if err == nil {
-		return host
-	}
-	return hostAndMaybePort //looks like there is no port in here after all
-}
-
-//SameHostAndSchemeAs is self-explanatory.
-func (u APIAccessURL) SameHostAndSchemeAs(other APIAccessURL) bool {
-	return u.Scheme == other.Scheme && u.Host == other.Host
-}
-
 //Configuration contains all configuration values that are not specific to a
 //certain driver.
 type Configuration struct {
-	APIPublicURL        APIAccessURL
-	AnycastAPIPublicURL *APIAccessURL
+	APIPublicURL        url.URL
+	AnycastAPIPublicURL *url.URL
 	DatabaseURL         url.URL
 	JWTIssuerKey        libtrust.PrivateKey
 	AnycastJWTIssuerKey *libtrust.PrivateKey
@@ -68,7 +46,9 @@ func (c Configuration) IsAnycastRequest(r *http.Request) bool {
 	if c.AnycastAPIPublicURL == nil {
 		return false
 	}
-	return OriginalRequestURL(r).SameHostAndSchemeAs(*c.AnycastAPIPublicURL)
+	u1 := OriginalRequestURL(r)
+	u2 := *c.AnycastAPIPublicURL
+	return u1.Scheme == u2.Scheme && u1.Host == u2.Host
 }
 
 var (
@@ -98,7 +78,7 @@ func ParseIssuerKey(in string) (libtrust.PrivateKey, error) {
 //corresponding environment variables. Aborts on error.
 func ParseConfiguration() Configuration {
 	cfg := Configuration{
-		APIPublicURL:        APIAccessURL{URL: mustGetenvURL("KEPPEL_API_PUBLIC_URL")},
+		APIPublicURL:        mustGetenvURL("KEPPEL_API_PUBLIC_URL"),
 		AnycastAPIPublicURL: mayGetenvURL("KEPPEL_API_ANYCAST_URL"),
 		DatabaseURL:         mustGetenvURL("KEPPEL_DB_URI"),
 	}
@@ -139,7 +119,7 @@ func mustGetenvURL(key string) url.URL {
 	return *parsed
 }
 
-func mayGetenvURL(key string) *APIAccessURL {
+func mayGetenvURL(key string) *url.URL {
 	val := os.Getenv(key)
 	if val == "" {
 		return nil
@@ -148,5 +128,5 @@ func mayGetenvURL(key string) *APIAccessURL {
 	if err != nil {
 		logg.Fatal("malformed %s: %s", key, err.Error())
 	}
-	return &APIAccessURL{URL: *parsed}
+	return parsed
 }

@@ -76,7 +76,7 @@ func Setup(t *testing.T, optsPtr *SetupOptions) (keppel.Configuration, *keppel.D
 		t.Fatal(err.Error())
 	}
 	cfg := keppel.Configuration{
-		APIPublicURL: keppel.APIAccessURL{URL: *apiPublicURL},
+		APIPublicURL: *apiPublicURL,
 		DatabaseURL:  *dbURL,
 	}
 
@@ -145,7 +145,7 @@ func Setup(t *testing.T, optsPtr *SetupOptions) (keppel.Configuration, *keppel.D
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		cfg.AnycastAPIPublicURL = &keppel.APIAccessURL{URL: *anycastAPIPublicURL}
+		cfg.AnycastAPIPublicURL = anycastAPIPublicURL
 
 		anycastJWTIssuerKey, err := keppel.ParseIssuerKey(UnitTestAnycastIssuerPrivateKey)
 		if err != nil {
