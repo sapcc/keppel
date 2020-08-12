@@ -506,6 +506,22 @@ func TestGetBlobUpload(t *testing.T) {
 			ExpectBody: assert.StringData(""),
 		}.Check(t, h)
 
+		//test failure case: cannot inspect upload via the anycast API
+		if currentScenario.WithAnycast {
+			assert.HTTPRequest{
+				Method: "GET",
+				Path:   "/v2/test1/foo/blobs/uploads/" + uploadUUID,
+				Header: map[string]string{
+					"Authorization":     "Bearer " + readOnlyToken,
+					"X-Forwarded-Host":  cfg.AnycastAPIPublicURL.Host,
+					"X-Forwarded-Proto": cfg.AnycastAPIPublicURL.Scheme,
+				},
+				ExpectStatus: http.StatusMethodNotAllowed,
+				ExpectHeader: test.VersionHeader,
+				ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
+			}.Check(t, h)
+		}
+
 		//test failure case: finished upload should be cleaned up and not show up in GET anymore
 		assert.HTTPRequest{
 			Method:       "PUT",

@@ -322,6 +322,15 @@ func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
 //This implements the GET /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
 func (a *API) handleGetBlobUpload(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
+
+	//this endpoint does not make sense on the read-only anycast API
+	if a.cfg.IsAnycastRequest(r) {
+		w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
+		msg := "/v2/:account/:repo/blobs/uploads/:uuid endpoint is not supported for anycast requests"
+		keppel.ErrUnsupported.With(msg).WriteAsRegistryV2ResponseTo(w)
+		return
+	}
+
 	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing)
 	if account == nil {
 		return
