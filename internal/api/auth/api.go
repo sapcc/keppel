@@ -21,8 +21,6 @@ package authapi
 
 import (
 	"errors"
-	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -162,21 +160,12 @@ func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Requ
 		return errors.New("request blocked by reverse-proxy loop protection")
 	}
 
-	reqURL := fmt.Sprintf("https://%s/keppel/v1/auth?%s&forwarded-by=%s",
-		primaryHostName, r.URL.RawQuery, a.cfg.APIPublicURL.Hostname())
-	req, err := http.NewRequest("GET", reqURL, nil)
-	req.Header.Set("Authorization", r.Header.Get("Authorization"))
-	req.Header.Set("X-Keppel-Forwarded-By", a.cfg.APIPublicURL.Hostname())
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := a.cfg.ReverseProxyAnycastRequestToPeer(r, primaryHostName)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-
-	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
-	w.WriteHeader(resp.StatusCode)
-	_, err = io.Copy(w, resp.Body)
-	return err
+	a.cfg.ForwardReverseProxyResponseToClient(w, resp)
+	return nil
 }
 
 func containsString(list []string, val string) bool {

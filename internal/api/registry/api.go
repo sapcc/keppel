@@ -239,11 +239,20 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		return nil, nil, nil
 	}
 	if account == nil {
+		//if this is an anycast request, try forwarding it to the peer that has the primary account with this name
 		if anycastHandler != nil && a.cfg.IsAnycastRequest(r) {
 			primaryHostName, err := a.fd.FindPrimaryAccount(accountName)
 			switch err {
 			case error(nil):
-				anycastHandler(w, r, anycastRequestInfo{accountName, repoName, primaryHostName})
+				//protect against infinite forwarding loops in case different Keppels have
+				//different ideas about how is the primary account
+				if forwardedBy := r.URL.Query().Get("X-Keppel-Forwarded-By"); forwardedBy != "" {
+					msg := fmt.Sprintf("not forwarding anycast request for account %q to %s because request was already forwarded to us by %s",
+						accountName, primaryHostName, forwardedBy)
+					keppel.ErrUnknown.With(msg).WriteAsRegistryV2ResponseTo(w)
+				} else {
+					anycastHandler(w, r, anycastRequestInfo{accountName, repoName, primaryHostName})
+				}
 				return nil, nil, nil
 			case keppel.ErrNoSuchPrimaryAccount:
 				//fall through to the standard 404 handling below
