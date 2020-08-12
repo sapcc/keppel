@@ -129,8 +129,12 @@ func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration, audience S
 		return nil, keppel.ErrUnauthorized.With("token not valid yet")
 	}
 	publicHost := audience.Hostname(cfg)
-	if !claims.StandardClaims.VerifyIssuer("keppel-api@"+publicHost, true) {
-		return nil, keppel.ErrUnauthorized.With("token has wrong issuer (expected keppel-api@%s)", publicHost)
+	if audience == LocalService {
+		if !claims.StandardClaims.VerifyIssuer("keppel-api@"+publicHost, true) {
+			return nil, keppel.ErrUnauthorized.With("token has wrong issuer (expected keppel-api@%s)", publicHost)
+		}
+		//NOTE: For anycast tokens, we don't verify the issuer. Any of our peers
+		//could have issued the token.
 	}
 	if !claims.StandardClaims.VerifyAudience(publicHost, true) {
 		return nil, keppel.ErrUnauthorized.With("token has wrong audience (expected %s)", publicHost)

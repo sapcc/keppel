@@ -54,7 +54,7 @@ func (cfg Configuration) ReverseProxyAnycastRequestToPeer(r *http.Request, peerH
 	}
 	req.Header.Set("Authorization", r.Header.Get("Authorization"))
 	req.Header.Set("X-Keppel-Forwarded-By", cfg.APIPublicURL.Hostname())
-	return http.DefaultClient.Do(req) //TODO: do not resolve 307s
+	return http.DefaultClient.Do(req) //TODO: do not resolve 3xx responses
 }
 
 //ForwardReverseProxyResponseToClient is used when

@@ -46,6 +46,15 @@ func (c Configuration) IsAnycastRequest(r *http.Request) bool {
 	if c.AnycastAPIPublicURL == nil {
 		return false
 	}
+
+	//case 1: anycast request explicitly reverse-proxied to us from the
+	//keppel-api that originally received it
+	forwardedBy := r.Header.Get("X-Keppel-Forwarded-By")
+	if forwardedBy != "" {
+		return true
+	}
+
+	//case 2: anycast request originating from the user
 	u1 := OriginalRequestURL(r)
 	u2 := *c.AnycastAPIPublicURL
 	return u1.Scheme == u2.Scheme && u1.Host == u2.Host

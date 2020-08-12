@@ -172,9 +172,13 @@ func (d *AuthDriver) GetTokenForTest(t *testing.T, h http.Handler, service, scop
 		query.Set("scope", scope)
 	}
 	_, bodyBytes := assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/auth?" + query.Encode(),
-		Header:       map[string]string{"Authorization": authorizationHeader},
+		Method: "GET",
+		Path:   "/keppel/v1/auth?" + query.Encode(),
+		Header: map[string]string{
+			"Authorization":     authorizationHeader,
+			"X-Forwarded-Host":  service,
+			"X-Forwarded-Proto": "https",
+		},
 		ExpectStatus: http.StatusOK,
 	}.Check(t, h)
 

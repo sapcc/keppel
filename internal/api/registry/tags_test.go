@@ -149,5 +149,29 @@ func TestListTags(t *testing.T) {
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   assert.StringData("invalid value for \"n\": must not be 0\n"),
 		}.Check(t, h)
+
+		//test anycast tag listing
+		if currentScenario.WithAnycast {
+			testWithReplica(t, h, db, clock, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+				testAnycast(t, firstPass, db2, func() {
+					anycastToken := getTokenForAnycast(t, h, ad, "repository:test1/foo:pull",
+						keppel.CanPullFromAccount)
+					req := assert.HTTPRequest{
+						Method: "GET",
+						Path:   "/v2/test1/foo/tags/list",
+						Header: map[string]string{
+							"Authorization":     "Bearer " + anycastToken,
+							"X-Forwarded-Host":  cfg.AnycastAPIPublicURL.Host,
+							"X-Forwarded-Proto": cfg.AnycastAPIPublicURL.Scheme,
+						},
+						ExpectStatus: http.StatusOK,
+						ExpectHeader: test.VersionHeader,
+						ExpectBody:   assert.JSONObject{"name": "test1/foo", "tags": allTagNames},
+					}
+					req.Check(t, h)
+					req.Check(t, h2)
+				})
+			})
+		}
 	})
 }

@@ -38,7 +38,7 @@ const tagsListQuery = `
 
 func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/tags/list")
-	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
+	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, a.handleListTagsAnycast)
 	if account == nil {
 		return
 	}
@@ -105,4 +105,13 @@ func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 			Tags:     tags,
 		},
 	)
+}
+
+func (a *API) handleListTagsAnycast(w http.ResponseWriter, r *http.Request, info anycastRequestInfo) {
+	//nothing special here
+	resp, err := a.cfg.ReverseProxyAnycastRequestToPeer(r, info.PrimaryHostName)
+	if respondWithError(w, err) {
+		return
+	}
+	a.cfg.ForwardReverseProxyResponseToClient(w, resp)
 }

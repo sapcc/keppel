@@ -116,7 +116,7 @@ func (d *FederationDriver) RecordExistingAccount(account keppel.Account, now tim
 func (d *FederationDriver) FindPrimaryAccount(accountName string) (string, error) {
 	for _, fd := range federationDriversForThisUnitTest {
 		for _, a := range fd.RecordedAccounts {
-			if a.Account.Name == accountName {
+			if a.Account.Name == accountName && a.Account.UpstreamPeerHostName == "" {
 				return fd.APIPublicHostName, nil
 			}
 		}

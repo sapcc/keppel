@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/keppel/internal/api"
@@ -53,10 +54,11 @@ func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(http
 		cfg, db := test.Setup(t, &scenario)
 
 		//set up a dummy account for testing
-		err := db.Insert(&keppel.Account{
+		testAccount := keppel.Account{
 			Name:         "test1",
 			AuthTenantID: "test1authtenant",
-		})
+		}
+		err := db.Insert(&testAccount)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -83,6 +85,7 @@ func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(http
 		if err != nil {
 			t.Fatal(err.Error())
 		}
+		fd.RecordExistingAccount(testAccount, time.Unix(0, 0))
 
 		//wire up the HTTP APIs
 		clock := &test.Clock{}
@@ -140,11 +143,12 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 	}()
 
 	//set up a dummy account for testing
-	err = db2.Insert(&keppel.Account{
+	testAccount := keppel.Account{
 		Name:                 "test1",
 		AuthTenantID:         "test1authtenant",
 		UpstreamPeerHostName: "registry.example.org",
-	})
+	}
+	err = db2.Insert(&testAccount)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -171,6 +175,7 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	fd2.RecordExistingAccount(testAccount, time.Unix(0, 0))
 
 	sidGen := &test.StorageIDGenerator{}
 	h2 := api.Compose(
@@ -205,6 +210,24 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 	}
 }
 
+//To be called inside testWithReplica() if the test is specifically about
+//testing how anycast requests are redirected between peers.
+func testAnycast(t *testing.T, firstPass bool, db2 *keppel.DB, action func()) {
+	t.Helper()
+
+	//the second pass of testWithReplica() has a severed network connection, so anycast is not possible
+	if !firstPass {
+		return
+	}
+	//to make sure that we actually anycast, the replica must not have the "test1" account
+	_, err := db2.Exec(`DELETE FROM accounts`)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	action()
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // helpers for setting up test scenarios
 
@@ -218,6 +241,12 @@ func getTokenForSecondary(t *testing.T, h http.Handler, ad keppel.AuthDriver, sc
 	t.Helper()
 
 	return ad.(*test.AuthDriver).GetTokenForTest(t, h, "registry-secondary.example.org", scope, "test1authtenant", perms...)
+}
+
+func getTokenForAnycast(t *testing.T, h http.Handler, ad keppel.AuthDriver, scope string, perms ...keppel.Permission) string {
+	t.Helper()
+
+	return ad.(*test.AuthDriver).GetTokenForTest(t, h, "registry-global.example.org", scope, "test1authtenant", perms...)
 }
 
 func uploadBlob(t *testing.T, h http.Handler, token, fullRepoName string, blob test.Bytes) {
