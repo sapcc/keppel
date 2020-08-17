@@ -52,7 +52,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 					Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
 					ExpectStatus: http.StatusNotFound,
 					ExpectHeader: test.VersionHeader,
-					ExpectBody:   test.ErrorCode(keppel.ErrNameUnknown),
+					ExpectBody:   bodyForMethod(method, test.ErrorCode(keppel.ErrNameUnknown)),
 				}.Check(t, h)
 			}
 
@@ -69,7 +69,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 					Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
 					ExpectStatus: http.StatusNotFound,
 					ExpectHeader: test.VersionHeader,
-					ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
+					ExpectBody:   bodyForMethod(method, test.ErrorCode(keppel.ErrManifestUnknown)),
 				}.Check(t, h)
 			}
 
@@ -268,6 +268,13 @@ func TestImageManifestLifecycle(t *testing.T) {
 			easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-002-after-upload-blob.sql")
 		})
 	}
+}
+
+func bodyForMethod(method string, body assert.HTTPResponseBody) assert.HTTPResponseBody {
+	if method == "HEAD" {
+		return nil
+	}
+	return body
 }
 
 func TestImageListManifestLifecycle(t *testing.T) {

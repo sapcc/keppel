@@ -148,7 +148,7 @@ func (e *RegistryV2Error) WithHeader(key string, values ...string) *RegistryV2Er
 
 //WriteAsRegistryV2ResponseTo reports this error in the format used by the
 //Registry V2 API.
-func (e *RegistryV2Error) WriteAsRegistryV2ResponseTo(w http.ResponseWriter) {
+func (e *RegistryV2Error) WriteAsRegistryV2ResponseTo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	for k, v := range e.Headers {
 		w.Header()[k] = v
@@ -158,12 +158,14 @@ func (e *RegistryV2Error) WriteAsRegistryV2ResponseTo(w http.ResponseWriter) {
 	} else {
 		w.WriteHeader(e.Status)
 	}
-	buf, _ := json.Marshal(struct {
-		Errors []*RegistryV2Error `json:"errors"`
-	}{
-		Errors: []*RegistryV2Error{e},
-	})
-	w.Write(append(buf, '\n'))
+	if r.Method != "HEAD" {
+		buf, _ := json.Marshal(struct {
+			Errors []*RegistryV2Error `json:"errors"`
+		}{
+			Errors: []*RegistryV2Error{e},
+		})
+		w.Write(append(buf, '\n'))
+	}
 }
 
 //WriteAsAuthResponseTo reports this error in the format used by the Auth API

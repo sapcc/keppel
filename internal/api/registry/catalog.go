@@ -50,7 +50,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 	//defense in depth: the auth API does not issue anycast tokens for registry:catalog:* anyway
 	if a.cfg.IsAnycastRequest(r) {
 		msg := "/v2/_catalog endpoint is not supported for anycast requests"
-		keppel.ErrUnsupported.With(msg).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrUnsupported.With(msg).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 
@@ -103,7 +103,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		account, err := keppel.FindAccount(a.db, accountName)
-		if respondWithError(w, err) {
+		if respondWithError(w, r, err) {
 			return
 		}
 		if account == nil {
@@ -125,7 +125,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 	partialResult := false
 	for idx, account := range accounts {
 		names, err := a.getCatalogForAccount(*account)
-		if respondWithError(w, err) {
+		if respondWithError(w, r, err) {
 			return
 		}
 

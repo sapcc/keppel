@@ -364,7 +364,9 @@ func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName stri
 		req.Header["Accept"] = "text/plain"
 		req.ExpectStatus = http.StatusNotFound
 		req.ExpectHeader = test.VersionHeader
-		req.ExpectBody = test.ErrorCode(keppel.ErrManifestUnknown)
+		if method == "GET" {
+			req.ExpectBody = test.ErrorCode(keppel.ErrManifestUnknown)
+		}
 		req.Check(t, h)
 	}
 }

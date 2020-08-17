@@ -184,7 +184,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if rowsDeleted == 0 {
-		keppel.ErrManifestUnknown.With("no such manifest").WriteAsRegistryV2ResponseTo(w)
+		http.Error(w, "no such manifest", http.StatusNotFound)
 		return
 	}
 

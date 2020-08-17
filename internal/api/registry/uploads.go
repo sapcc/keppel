@@ -51,7 +51,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	if account == nil {
 		return
 	}
-	if !a.checkRateLimit(w, *account, token, keppel.BlobPushAction) {
+	if !a.checkRateLimit(w, r, *account, token, keppel.BlobPushAction) {
 		return
 	}
 
@@ -60,13 +60,13 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 		msg := fmt.Sprintf("cannot push into replica account (push to %s/%s instead!)",
 			account.UpstreamPeerHostName, repo.FullName(),
 		)
-		keppel.ErrUnsupported.With(msg).WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrUnsupported.With(msg).WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 
 	//forbid pushing during maintenance
 	if account.InMaintenance {
-		keppel.ErrUnsupported.With("account is in maintenance").WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrUnsupported.With("account is in maintenance").WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 
@@ -76,21 +76,21 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	//useful to avoid the accumulation of unreferenced blobs in the account's
 	//backing storage.
 	quotas, err := keppel.FindQuotas(a.db, account.AuthTenantID)
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 	if quotas == nil {
 		quotas = keppel.DefaultQuotas(account.AuthTenantID)
 	}
 	manifestUsage, err := quotas.GetManifestUsage(a.db)
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 	if manifestUsage >= quotas.ManifestCount {
 		msg := fmt.Sprintf("manifest quota exceeded (quota = %d, usage = %d)",
 			quotas.ManifestCount, manifestUsage,
 		)
-		keppel.ErrDenied.With(msg).WithStatus(http.StatusConflict).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrDenied.With(msg).WithStatus(http.StatusConflict).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 
@@ -119,7 +119,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.db.Insert(&upload)
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 
@@ -133,41 +133,41 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Request, account keppel.Account, targetRepo keppel.Repository, sourceRepoFullName, blobDigestStr string) {
 	//validate source repository
 	if !strings.HasPrefix(sourceRepoFullName, account.Name+"/") {
-		keppel.ErrUnsupported.With("cannot mount blobs across different accounts").WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrUnsupported.With("cannot mount blobs across different accounts").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 	sourceRepoName := strings.TrimPrefix(sourceRepoFullName, account.Name+"/")
 	if !repoNameWithLeadingSlashRx.MatchString("/" + sourceRepoName) {
-		keppel.ErrNameInvalid.With("source repository is invalid").WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrNameInvalid.With("source repository is invalid").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 	sourceRepo, err := keppel.FindRepository(a.db, sourceRepoName, account)
 	if err == sql.ErrNoRows {
-		keppel.ErrNameUnknown.With("source repository does not exist").WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrNameUnknown.With("source repository does not exist").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 
 	//validate blob
 	blobDigest, err := digest.Parse(blobDigestStr)
 	if err != nil {
-		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *sourceRepo, account)
 	if err == sql.ErrNoRows {
-		keppel.ErrBlobUnknown.With("blob does not exist in source repository").WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrBlobUnknown.With("blob does not exist in source repository").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 
 	//create blob mount if missing
 	err = keppel.MountBlobIntoRepo(a.db, *blob, targetRepo)
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 
@@ -181,20 +181,20 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, account keppel.Account, repo keppel.Repository, blobDigestStr string) (ok bool) {
 	blobDigest, err := digest.Parse(blobDigestStr)
 	if err != nil {
-		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 		return false
 	}
 
 	//parse Content-Length
 	sizeBytesStr := r.Header.Get("Content-Length")
 	if sizeBytesStr == "" {
-		keppel.ErrSizeInvalid.With("missing Content-Length header").WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrSizeInvalid.With("missing Content-Length header").WriteAsRegistryV2ResponseTo(w, r)
 		return false
 	}
 	sizeBytes, err := strconv.ParseUint(sizeBytesStr, 10, 64)
 	if sizeBytesStr == "" {
 		//COVERAGE: unreachable in unit tests because net/http validates Content-Length header format before sending
-		keppel.ErrSizeInvalid.With("invalid Content-Length: " + err.Error()).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrSizeInvalid.With("invalid Content-Length: "+err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 		return false
 	}
 
@@ -202,11 +202,11 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	storageID := a.generateStorageID()
 	dw := digestWriter{Hash: sha256.New()}
 	err = a.sd.AppendToBlob(account, storageID, 1, &sizeBytes, io.TeeReader(r.Body, &dw))
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return false
 	}
 	err = a.sd.FinalizeBlob(account, storageID, 1)
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		countAbortedBlobUpload(account)
 		err := a.sd.AbortBlobUpload(account, storageID, 1)
 		if err != nil {
@@ -229,19 +229,19 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 
 	//validate digest and length
 	if dw.bytesWritten != sizeBytes {
-		keppel.ErrSizeInvalid.With("Content-Length was %d, but %d bytes were sent", sizeBytes, dw.bytesWritten).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrSizeInvalid.With("Content-Length was %d, but %d bytes were sent", sizeBytes, dw.bytesWritten).WriteAsRegistryV2ResponseTo(w, r)
 		return false
 	}
 
 	actualDigest := digest.NewDigest(digest.SHA256, dw.Hash)
 	if actualDigest != blobDigest {
-		keppel.ErrDigestInvalid.With("expected %s, but actual digest was %s", blobDigestStr, actualDigest.String()).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrDigestInvalid.With("expected %s, but actual digest was %s", blobDigestStr, actualDigest.String()).WriteAsRegistryV2ResponseTo(w, r)
 		return false
 	}
 
 	//record blob in DB
 	tx, err := a.db.Begin()
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return false
 	}
 	defer keppel.RollbackUnlessCommitted(tx)
@@ -256,15 +256,15 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 		ValidatedAt: blobPushedAt,
 	}
 	onCommit, err := a.createOrUpdateBlobObject(tx, &blob, account)
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return false
 	}
 	err = keppel.MountBlobIntoRepo(tx, blob, repo)
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return false
 	}
 	err = tx.Commit()
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return false
 	}
 	if onCommit != nil {
@@ -293,24 +293,24 @@ func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
 
 	//prepare the database transaction for deleting this upload
 	tx, err := a.db.Begin()
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 	defer keppel.RollbackUnlessCommitted(tx)
 	_, err = tx.Delete(upload)
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 
 	//perform the deletion in the storage backend, then make the DB change durable
 	if upload.NumChunks > 0 {
 		err = a.sd.AbortBlobUpload(*account, upload.StorageID, upload.NumChunks)
-		if respondWithError(w, err) {
+		if respondWithError(w, r, err) {
 			return
 		}
 	}
 	err = tx.Commit()
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 
@@ -327,7 +327,7 @@ func (a *API) handleGetBlobUpload(w http.ResponseWriter, r *http.Request) {
 	if a.cfg.IsAnycastRequest(r) {
 		w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 		msg := "/v2/:account/:repo/blobs/uploads/:uuid endpoint is not supported for anycast requests"
-		keppel.ErrUnsupported.With(msg).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrUnsupported.With(msg).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 
@@ -359,7 +359,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	dw, rerr := a.resumeUpload(*account, upload, r.URL.Query().Get("state"))
 	if rerr != nil {
-		rerr.WriteAsRegistryV2ResponseTo(w)
+		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 
@@ -369,7 +369,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Content-Range") != "" {
 		val, err := a.parseContentRange(upload, r.Header)
 		if err != nil {
-			keppel.ErrSizeInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
+			keppel.ErrSizeInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 
 			logg.Info("aborting upload because of error during parseContentRange()")
 			countAbortedBlobUpload(*account)
@@ -388,7 +388,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 
 	//append request body to upload
 	digestState, err := a.streamIntoUpload(*account, upload, dw, r.Body, chunkSizeBytes)
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 
@@ -415,7 +415,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	dw, rerr := a.resumeUpload(*account, upload, query.Get("state"))
 	if rerr != nil {
-		rerr.WriteAsRegistryV2ResponseTo(w)
+		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 
@@ -429,7 +429,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 		}
 		if contentLength > 0 {
 			_, err = a.streamIntoUpload(*account, upload, dw, r.Body, &contentLength)
-			if respondWithError(w, err) {
+			if respondWithError(w, r, err) {
 				return
 			}
 		}
@@ -437,7 +437,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 
 	//convert the Upload object into a Blob
 	blob, err := a.finishUpload(*account, *repo, upload, query.Get("digest"))
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 
@@ -457,10 +457,10 @@ func (a *API) findUpload(w http.ResponseWriter, r *http.Request, repo keppel.Rep
 
 	upload, err := keppel.FindUploadByRepository(a.db, uploadUUID, repo)
 	if err == sql.ErrNoRows {
-		keppel.ErrBlobUploadUnknown.With("no such upload: " + uploadUUID).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrBlobUploadUnknown.With("no such upload: "+uploadUUID).WriteAsRegistryV2ResponseTo(w, r)
 		return nil
 	}
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return nil
 	}
 

@@ -43,23 +43,23 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	if account == nil {
 		return
 	}
-	if !a.checkRateLimit(w, *account, token, keppel.BlobPullAction) {
+	if !a.checkRateLimit(w, r, *account, token, keppel.BlobPullAction) {
 		return
 	}
 
 	blobDigest, err := digest.Parse(mux.Vars(r)["digest"])
 	if err != nil {
-		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 
 	//locate this blob from the DB
 	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *repo, *account)
 	if err == sql.ErrNoRows {
-		keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 
@@ -67,7 +67,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	if blob.StorageID == "" {
 		if account.UpstreamPeerHostName == "" {
 			//defense in depth: unbacked blobs should not exist in non-replica accounts
-			keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w)
+			keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w, r)
 			return
 		}
 
@@ -94,12 +94,12 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 				//clients to automatically retry the request after a few seconds)
 				w.Header().Set("Retry-After", "10")
 				msg := "currently replicating on a different worker, please retry in a few seconds"
-				keppel.ErrTooManyRequests.With(msg).WriteAsRegistryV2ResponseTo(w)
+				keppel.ErrTooManyRequests.With(msg).WriteAsRegistryV2ResponseTo(w, r)
 			} else {
-				respondWithError(w, err)
+				respondWithError(w, r, err)
 			}
 		} else if !responseWasWritten {
-			respondWithError(w, errors.New("blob replication yielded neither blob contents nor an error"))
+			respondWithError(w, r, errors.New("blob replication yielded neither blob contents nor an error"))
 		}
 
 		return
@@ -123,7 +123,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != keppel.ErrCannotGenerateURL {
-		respondWithError(w, err)
+		respondWithError(w, r, err)
 		return
 	}
 
@@ -132,7 +132,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	//used by unit tests anyway; all production-grade storage drivers have a
 	//functional URLForBlob implementation)
 	reader, lengthBytes, err := a.sd.ReadBlob(*account, blob.StorageID)
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 	defer reader.Close()
@@ -159,29 +159,29 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 
 	blobDigest, err := digest.Parse(mux.Vars(r)["digest"])
 	if err != nil {
-		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 
 	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *repo, *account)
 	if err == sql.ErrNoRows {
-		keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 
 	//can only delete blob mount if it's not used by any manifests
 	refCount, err := a.db.SelectInt(`SELECT COUNT(*) FROM manifest_blob_refs WHERE blob_id = $1 AND repo_id = $2`, blob.ID, repo.ID)
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 	if refCount > 0 {
 		keppel.ErrUnsupported.
 			With("blob %s cannot be deleted while it is referenced by manifests in this repo", blob.Digest).
 			WithStatus(http.StatusMethodNotAllowed).
-			WriteAsRegistryV2ResponseTo(w)
+			WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 
@@ -189,7 +189,7 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 	//repos, it will still be accessible there; otherwise keppel-janitor will
 	//clean it up soon)
 	_, err = a.db.Exec(`DELETE FROM blob_mounts WHERE blob_id = $1 AND repo_id = $2`, blob.ID, repo.ID)
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 

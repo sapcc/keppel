@@ -127,7 +127,7 @@ func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
 }
 
 //Like respondwith.ErrorText(), but writes a RegistryV2Error instead of plain text.
-func respondWithError(w http.ResponseWriter, err error) bool {
+func respondWithError(w http.ResponseWriter, r *http.Request, err error) bool {
 	switch err := err.(type) {
 	case nil:
 		return false
@@ -135,10 +135,10 @@ func respondWithError(w http.ResponseWriter, err error) bool {
 		if err == nil {
 			return false
 		}
-		err.WriteAsRegistryV2ResponseTo(w)
+		err.WriteAsRegistryV2ResponseTo(w, r)
 		return true
 	default:
-		keppel.ErrUnknown.With(err.Error()).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrUnknown.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 		return true
 	}
 }
@@ -153,7 +153,7 @@ func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *
 		//may be used for writes and deletes)
 		if r.Method != "HEAD" && r.Method != "GET" {
 			msg := "write access is not supported for anycast requests"
-			keppel.ErrUnsupported.With(msg).WriteAsRegistryV2ResponseTo(w)
+			keppel.ErrUnsupported.With(msg).WriteAsRegistryV2ResponseTo(w, r)
 			return nil
 		}
 	}
@@ -172,7 +172,7 @@ func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *
 			challenge.Error = "insufficient_scope"
 		}
 		challenge.WriteTo(w.Header(), a.cfg)
-		err.WriteAsRegistryV2ResponseTo(w)
+		err.WriteAsRegistryV2ResponseTo(w, r)
 		return nil
 	}
 	return token
@@ -210,7 +210,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	vars := mux.Vars(r)
 	accountName, repoName := vars["account"], vars["repository"]
 	if !repoNameWithLeadingSlashRx.MatchString("/" + repoName) {
-		keppel.ErrNameInvalid.With("invalid repository name").WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrNameInvalid.With("invalid repository name").WriteAsRegistryV2ResponseTo(w, r)
 		return nil, nil, nil
 	}
 
@@ -235,7 +235,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 
 	//we need to know the account to select the registry instance for this request
 	account, err := keppel.FindAccount(a.db, accountName)
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return nil, nil, nil
 	}
 	if account == nil {
@@ -249,7 +249,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 				if forwardedBy := r.URL.Query().Get("X-Keppel-Forwarded-By"); forwardedBy != "" {
 					msg := fmt.Sprintf("not forwarding anycast request for account %q to %s because request was already forwarded to us by %s",
 						accountName, primaryHostName, forwardedBy)
-					keppel.ErrUnknown.With(msg).WriteAsRegistryV2ResponseTo(w)
+					keppel.ErrUnknown.With(msg).WriteAsRegistryV2ResponseTo(w, r)
 				} else {
 					anycastHandler(w, r, anycastRequestInfo{accountName, repoName, primaryHostName})
 				}
@@ -257,14 +257,14 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 			case keppel.ErrNoSuchPrimaryAccount:
 				//fall through to the standard 404 handling below
 			default:
-				respondWithError(w, err)
+				respondWithError(w, r, err)
 				return nil, nil, nil
 			}
 		}
 		//defense in depth - if the account does not exist and we're not
 		//anycasting, there should not be a valid token (the auth endpoint does not
 		//issue tokens with scopes for nonexistent accounts)
-		keppel.ErrNameUnknown.With("account not found").WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrNameUnknown.With("account not found").WriteAsRegistryV2ResponseTo(w, r)
 		return nil, nil, nil
 	}
 
@@ -282,16 +282,16 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		repo, err = keppel.FindRepository(a.db, repoName, *account)
 	}
 	if err == sql.ErrNoRows || repo == nil {
-		keppel.ErrNameUnknown.With("repository not found").WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrNameUnknown.With("repository not found").WriteAsRegistryV2ResponseTo(w, r)
 		return nil, nil, nil
-	} else if respondWithError(w, err) {
+	} else if respondWithError(w, r, err) {
 		return nil, nil, nil
 	}
 
 	return account, repo, token
 }
 
-func (a *API) checkRateLimit(w http.ResponseWriter, account keppel.Account, token *auth.Token, action keppel.RateLimitedAction) bool {
+func (a *API) checkRateLimit(w http.ResponseWriter, r *http.Request, account keppel.Account, token *auth.Token, action keppel.RateLimitedAction) bool {
 	//rate-limiting is optional
 	if a.rle == nil {
 		return true
@@ -305,12 +305,12 @@ func (a *API) checkRateLimit(w http.ResponseWriter, account keppel.Account, toke
 	}
 
 	allowed, result, err := a.rle.RateLimitAllows(account, action)
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return false
 	}
 	if !allowed {
 		retryAfterStr := strconv.FormatUint(uint64(result.RetryAfter/time.Second), 10)
-		respondWithError(w, keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr))
+		respondWithError(w, r, keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr))
 		return false
 	}
 

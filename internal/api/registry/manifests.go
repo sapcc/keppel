@@ -43,7 +43,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	if account == nil {
 		return
 	}
-	if !a.checkRateLimit(w, *account, token, keppel.ManifestPullAction) {
+	if !a.checkRateLimit(w, r, *account, token, keppel.ManifestPullAction) {
 		return
 	}
 
@@ -52,7 +52,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	var manifestBytes []byte
 
 	if err != sql.ErrNoRows {
-		if respondWithError(w, err) {
+		if respondWithError(w, r, err) {
 			return
 		}
 	}
@@ -62,17 +62,17 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		//from upstream
 		if account.UpstreamPeerHostName != "" && !account.InMaintenance {
 			dbManifest, manifestBytes, err = a.processor().ReplicateManifest(*account, *repo, reference)
-			if respondWithError(w, err) {
+			if respondWithError(w, r, err) {
 				return
 			}
 		} else {
-			keppel.ErrManifestUnknown.With("").WithDetail(reference.Tag).WriteAsRegistryV2ResponseTo(w)
+			keppel.ErrManifestUnknown.With("").WithDetail(reference.Tag).WriteAsRegistryV2ResponseTo(w, r)
 			return
 		}
 	} else {
 		//if manifest was found in our DB, fetch the contents from the storage
 		manifestBytes, err = a.sd.ReadManifest(*account, repo.Name, dbManifest.Digest)
-		if respondWithError(w, err) {
+		if respondWithError(w, r, err) {
 			return
 		}
 	}
@@ -91,7 +91,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		}
 		if !accepted {
 			msg := fmt.Sprintf("manifest type %s is not covered by Accept header", dbManifest.MediaType)
-			keppel.ErrManifestUnknown.With(msg).WriteAsRegistryV2ResponseTo(w)
+			keppel.ErrManifestUnknown.With(msg).WriteAsRegistryV2ResponseTo(w, r)
 			return
 		}
 	}
@@ -179,7 +179,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	//canonical digest)
 	digest, err := digest.Parse(mux.Vars(r)["reference"])
 	if err != nil {
-		keppel.ErrUnsupported.With("cannot delete manifest by tag, only by digest").WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrUnsupported.With("cannot delete manifest by tag, only by digest").WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 
@@ -188,21 +188,21 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		//this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
 		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
 		repo.ID, digest.String())
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 	rowsDeleted, err := result.RowsAffected()
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 	if rowsDeleted == 0 {
-		keppel.ErrManifestUnknown.With("no such manifest").WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrManifestUnknown.With("no such manifest").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 
 	//delete the manifest in the backend
 	err = a.sd.DeleteManifest(*account, repo.Name, digest.String())
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 	//^ NOTE: We do this *after* the deletion is durable in the DB to be extra
@@ -224,7 +224,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	if account == nil {
 		return
 	}
-	if !a.checkRateLimit(w, *account, token, keppel.ManifestPushAction) {
+	if !a.checkRateLimit(w, r, *account, token, keppel.ManifestPushAction) {
 		return
 	}
 
@@ -233,19 +233,19 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		msg := fmt.Sprintf("cannot push into replica account (push to %s/%s/%s instead!)",
 			account.UpstreamPeerHostName, account.Name, repo.Name,
 		)
-		keppel.ErrUnsupported.With(msg).WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrUnsupported.With(msg).WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 
 	//forbid pushing during maintenance
 	if account.InMaintenance {
-		keppel.ErrUnsupported.With("account is in maintenance").WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w)
+		keppel.ErrUnsupported.With("account is in maintenance").WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 
 	//read manifest from request
 	manifestBytes, err := ioutil.ReadAll(r.Body)
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 
@@ -256,7 +256,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		Contents:  manifestBytes,
 		PushedAt:  a.timeNow(),
 	})
-	if respondWithError(w, err) {
+	if respondWithError(w, r, err) {
 		return
 	}
 
