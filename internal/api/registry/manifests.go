@@ -39,7 +39,7 @@ import (
 //This implements the HEAD/GET /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
-	account, repo, token := a.checkAccountAccess(w, r, createRepoIfMissingAndReplica, nil)
+	account, repo, token := a.checkAccountAccess(w, r, createRepoIfMissingAndReplica, a.handleGetOrHeadManifestAnycast)
 	if account == nil {
 		return
 	}
@@ -164,6 +164,17 @@ func (a *API) findManifestInDB(account keppel.Account, repo keppel.Repository, r
 		repo.ID, refDigest.String(),
 	)
 	return &dbManifest, err
+}
+
+func (a *API) handleGetOrHeadManifestAnycast(w http.ResponseWriter, r *http.Request, info anycastRequestInfo) {
+	resp, err := a.cfg.ReverseProxyAnycastRequestToPeer(r, info.PrimaryHostName)
+	if respondWithError(w, r, err) {
+		return
+	}
+	a.cfg.ForwardReverseProxyResponseToClient(w, resp)
+
+	//the only special part:
+	api.ManifestsPulledCounter.With(info.AsPrometheusLabels()).Inc()
 }
 
 //This implements the DELETE /v2/<repo>/manifests/<reference> endpoint.

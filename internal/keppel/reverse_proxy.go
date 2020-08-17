@@ -26,6 +26,13 @@ import (
 	"github.com/sapcc/go-bits/logg"
 )
 
+//When reverse-proxying, these headers from the client request will be
+//forwarded. All other client headers will be discarded.
+var reverseProxyHeaders = []string{
+	"Accept",
+	"Authorization",
+}
+
 //ReverseProxyAnycastRequestToPeer takes a http.Request for the anycast API and
 //reverse-proxies it to a different keppel-api in this Keppel's peer group.
 //After receiving the response, the caller usually continues with
@@ -52,7 +59,9 @@ func (cfg Configuration) ReverseProxyAnycastRequestToPeer(r *http.Request, peerH
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", r.Header.Get("Authorization"))
+	for _, headerName := range reverseProxyHeaders {
+		req.Header[headerName] = r.Header[headerName]
+	}
 	req.Header.Set("X-Keppel-Forwarded-By", cfg.APIPublicURL.Hostname())
 	return http.DefaultClient.Do(req) //TODO: do not resolve 3xx responses
 }

@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sre"
@@ -193,6 +194,18 @@ type anycastRequestInfo struct {
 	AccountName     string
 	RepoName        string
 	PrimaryHostName string //the peer who has this account
+}
+
+func (info anycastRequestInfo) AsPrometheusLabels() prometheus.Labels {
+	//when counting a pull over the anycast API, we don't know the account's auth
+	//tenant (since we're not hosting the account), so we're free to abuse ^W use
+	//this field for tracking the fact that we were redirecting an anycast
+	//request, and where we redirected it
+	return prometheus.Labels{
+		"account":        info.AccountName,
+		"auth_tenant_id": "anycast-" + info.PrimaryHostName,
+		"method":         "registry-api",
+	}
 }
 
 //A one-stop-shop authorization checker for all endpoints that set the mux vars

@@ -329,7 +329,7 @@ func expectBlobExists(t *testing.T, h http.Handler, token, fullRepoName string, 
 	}
 }
 
-func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName string, manifest test.Bytes, reference string) {
+func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName string, manifest test.Bytes, reference string, additionalHeaders map[string]string) {
 	t.Helper()
 	for _, method := range []string{"GET", "HEAD"} {
 		respBody := manifest.Contents
@@ -351,6 +351,9 @@ func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName stri
 				"Docker-Content-Digest": manifest.Digest.String(),
 			},
 			ExpectBody: assert.ByteData(respBody),
+		}
+		for k, v := range additionalHeaders {
+			req.Header[k] = v
 		}
 
 		//without Accept header

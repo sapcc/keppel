@@ -200,9 +200,9 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			//check GET/HEAD: manifest should now be available under the reference
 			//where it was pushed to...
-			expectManifestExists(t, h, readOnlyToken, "test1/foo", image.Manifest, ref)
+			expectManifestExists(t, h, readOnlyToken, "test1/foo", image.Manifest, ref, nil)
 			//...and under its digest
-			expectManifestExists(t, h, readOnlyToken, "test1/foo", image.Manifest, image.Manifest.Digest.String())
+			expectManifestExists(t, h, readOnlyToken, "test1/foo", image.Manifest, image.Manifest.Digest.String(), nil)
 
 			//GET failure case: wrong scope
 			assert.HTTPRequest{
@@ -215,6 +215,24 @@ func TestImageManifestLifecycle(t *testing.T) {
 			}.Check(t, h)
 			//^ NOTE: docker-registry sends UNAUTHORIZED (401) instead of DENIED (403)
 			//        here, but 403 is more correct.
+
+			//test GET via anycast
+			if currentScenario.WithAnycast {
+				testWithReplica(t, h, db, clock, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+					testAnycast(t, firstPass, db2, func() {
+						anycastToken := getTokenForAnycast(t, h, ad, "repository:test1/foo:pull",
+							keppel.CanPullFromAccount)
+						anycastHeaders := map[string]string{
+							"X-Forwarded-Host":  cfg.AnycastAPIPublicURL.Hostname(),
+							"X-Forwarded-Proto": "https",
+						}
+						expectManifestExists(t, h, anycastToken, "test1/foo", image.Manifest, ref, anycastHeaders)
+						expectManifestExists(t, h, anycastToken, "test1/foo", image.Manifest, image.Manifest.Digest.String(), anycastHeaders)
+						expectManifestExists(t, h2, anycastToken, "test1/foo", image.Manifest, ref, anycastHeaders)
+						expectManifestExists(t, h2, anycastToken, "test1/foo", image.Manifest, image.Manifest.Digest.String(), anycastHeaders)
+					})
+				})
+			}
 
 			//DELETE failure case: no delete permission
 			assert.HTTPRequest{

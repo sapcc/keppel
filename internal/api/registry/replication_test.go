@@ -64,12 +64,12 @@ func TestROFUSimpleImage(t *testing.T) {
 			} else {
 				//if manifest is already present locally, we don't care about the maintenance mode
 				testWithAccountInMaintenance(t, db2, "test1", func() {
-					expectManifestExists(t, h2, token, "test1/foo", image.Manifest, image.Manifest.Digest.String())
+					expectManifestExists(t, h2, token, "test1/foo", image.Manifest, image.Manifest.Digest.String(), nil)
 				})
 			}
 
 			clock.Step()
-			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, image.Manifest.Digest.String())
+			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, image.Manifest.Digest.String(), nil)
 
 			if firstPass {
 				easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/imagemanifest-replication-001-after-pull-manifest.sql")
@@ -88,7 +88,7 @@ func TestROFUSimpleImage(t *testing.T) {
 		testWithReplica(t, h1, db1, clock, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
 			token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
 				keppel.CanPullFromAccount)
-			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "first")
+			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "first", nil)
 			expectBlobExists(t, h2, token, "test1/foo", image.Config)
 			expectBlobExists(t, h2, token, "test1/foo", image.Layers[0])
 		})
@@ -123,15 +123,15 @@ func TestROFUImageList(t *testing.T) {
 				//will change on the failed last_pulled_at timestamp
 				clock.Step()
 			}
-			expectManifestExists(t, h2, token, "test1/foo", list.Manifest, "list")
+			expectManifestExists(t, h2, token, "test1/foo", list.Manifest, "list", nil)
 
 			easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/imagelistmanifest-replication-001-after-pull-listmanifest.sql")
 
 			if !firstPass {
 				//test that this also transferred the referenced manifests eagerly (this
 				//part only runs when the primary registry is not reachable)
-				expectManifestExists(t, h2, token, "test1/foo", image1.Manifest, "")
-				expectManifestExists(t, h2, token, "test1/foo", image2.Manifest, "")
+				expectManifestExists(t, h2, token, "test1/foo", image1.Manifest, "", nil)
+				expectManifestExists(t, h2, token, "test1/foo", image2.Manifest, "", nil)
 			}
 		})
 	})
@@ -288,7 +288,7 @@ func TestROFUUseCachedBlobMetadata(t *testing.T) {
 			//in the first pass, just replicate the manifest
 			token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
 				keppel.CanPullFromAccount)
-			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "first")
+			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "first", nil)
 
 			//in the second pass, query blobs with HEAD - this should work fine even
 			//though the blob contents are not replicated since all necessary metadata
