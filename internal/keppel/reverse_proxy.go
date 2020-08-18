@@ -75,13 +75,15 @@ func (cfg Configuration) ForwardReverseProxyResponseToClient(w http.ResponseWrit
 	}
 	w.WriteHeader(resp.StatusCode)
 
-	_, err := io.Copy(w, resp.Body)
-	if err == nil {
-		err = resp.Body.Close()
-	} else {
-		resp.Body.Close()
-	}
-	if err != nil {
-		logg.Error("while forwarding reverse-proxy response to caller: " + err.Error())
+	if resp.Body != nil {
+		_, err := io.Copy(w, resp.Body)
+		if err == nil {
+			err = resp.Body.Close()
+		} else {
+			resp.Body.Close()
+		}
+		if err != nil {
+			logg.Error("while forwarding reverse-proxy response to caller: " + err.Error())
+		}
 	}
 }
