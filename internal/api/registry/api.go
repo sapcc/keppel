@@ -304,7 +304,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	return account, repo, token
 }
 
-func (a *API) checkRateLimit(w http.ResponseWriter, r *http.Request, account keppel.Account, token *auth.Token, action keppel.RateLimitedAction) bool {
+func (a *API) checkRateLimit(w http.ResponseWriter, r *http.Request, account keppel.Account, token *auth.Token, action keppel.RateLimitedAction, amount uint64) bool {
 	//rate-limiting is optional
 	if a.rle == nil {
 		return true
@@ -317,7 +317,7 @@ func (a *API) checkRateLimit(w http.ResponseWriter, r *http.Request, account kep
 		return true
 	}
 
-	allowed, result, err := a.rle.RateLimitAllows(account, action)
+	allowed, result, err := a.rle.RateLimitAllows(account, action, amount)
 	if respondWithError(w, r, err) {
 		return false
 	}

@@ -23,6 +23,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -41,12 +42,13 @@ type envVarSet struct {
 
 var (
 	envVars = map[keppel.RateLimitedAction]envVarSet{
-		keppel.BlobPullAction:     {"KEPPEL_RATELIMIT_BLOB_PULLS", "KEPPEL_BURST_BLOB_PULLS"},
-		keppel.BlobPushAction:     {"KEPPEL_RATELIMIT_BLOB_PUSHES", "KEPPEL_BURST_BLOB_PUSHES"},
-		keppel.ManifestPullAction: {"KEPPEL_RATELIMIT_MANIFEST_PULLS", "KEPPEL_BURST_MANIFEST_PULLS"},
-		keppel.ManifestPushAction: {"KEPPEL_RATELIMIT_MANIFEST_PUSHES", "KEPPEL_BURST_MANIFEST_PUSHES"},
+		keppel.BlobPullAction:            {"KEPPEL_RATELIMIT_BLOB_PULLS", "KEPPEL_BURST_BLOB_PULLS"},
+		keppel.BlobPushAction:            {"KEPPEL_RATELIMIT_BLOB_PUSHES", "KEPPEL_BURST_BLOB_PUSHES"},
+		keppel.ManifestPullAction:        {"KEPPEL_RATELIMIT_MANIFEST_PULLS", "KEPPEL_BURST_MANIFEST_PULLS"},
+		keppel.ManifestPushAction:        {"KEPPEL_RATELIMIT_MANIFEST_PUSHES", "KEPPEL_BURST_MANIFEST_PUSHES"},
+		keppel.AnycastBlobBytePullAction: {"KEPPEL_RATELIMIT_ANYCAST_BLOB_PULL_BYTES", "KEPPEL_BURST_ANYCAST_BLOB_PULL_BYTES"},
 	}
-	valueRx          = regexp.MustCompile(`^\s*([0-9]+)\s*r/([smh])\s*$`)
+	valueRx          = regexp.MustCompile(`^\s*([0-9]+)\s*[Br]/([smh])\s*$`)
 	rateConstructors = map[string]func(int) throttled.Rate{
 		"s": throttled.PerSec,
 		"m": throttled.PerMin,
@@ -62,38 +64,59 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			burst, err := parseBurst(envVars.Burst)
-			if err != nil {
-				return nil, err
+			if rate != nil {
+				burst, err := parseBurst(envVars.Burst)
+				if err != nil {
+					return nil, err
+				}
+				limits[action] = throttled.RateQuota{MaxRate: *rate, MaxBurst: burst}
+				logg.Debug("parsed rate quota for %s is %#v", action, limits[action])
 			}
-			limits[action] = throttled.RateQuota{MaxRate: rate, MaxBurst: burst}
-			logg.Debug("parsed rate quota for %s is %#v", action, limits[action])
 		}
 		return RateLimitDriver{limits}, nil
 	})
 }
 
 //GetRateLimit implements the keppel.RateLimitDriver interface.
-func (d RateLimitDriver) GetRateLimit(account keppel.Account, action keppel.RateLimitedAction) throttled.RateQuota {
-	return d.Limits[action]
+func (d RateLimitDriver) GetRateLimit(account keppel.Account, action keppel.RateLimitedAction) *throttled.RateQuota {
+	quota, ok := d.Limits[action]
+	if ok {
+		return &quota
+	}
+	return nil
 }
 
-func parseRateLimit(envVar string) (throttled.Rate, error) {
-	match := valueRx.FindStringSubmatch(keppel.MustGetenv(envVar))
+func parseRateLimit(envVar string) (*throttled.Rate, error) {
+	var valStr string
+	if strings.HasSuffix(envVar, "_BYTES") {
+		valStr = os.Getenv(envVar)
+		if valStr == "" {
+			return nil, nil
+		}
+	} else {
+		valStr = keppel.MustGetenv(envVar)
+	}
+
+	match := valueRx.FindStringSubmatch(valStr)
 	if match == nil {
-		return throttled.Rate{}, fmt.Errorf("malformed %s: %q", envVar, os.Getenv(envVar))
+		return nil, fmt.Errorf("malformed %s: %q", envVar, os.Getenv(envVar))
 	}
 	count, err := strconv.ParseUint(match[1], 10, 32)
 	if err != nil {
-		return throttled.Rate{}, fmt.Errorf("malformed %s: %s", envVar, err.Error())
+		return nil, fmt.Errorf("malformed %s: %s", envVar, err.Error())
 	}
-	return rateConstructors[match[2]](int(count)), nil
+	rate := rateConstructors[match[2]](int(count))
+	return &rate, nil
 }
 
 func parseBurst(envVar string) (int, error) {
 	valStr := os.Getenv(envVar)
 	if valStr == "" {
-		valStr = "5"
+		if strings.HasSuffix(envVar, "_BYTES") {
+			valStr = "0"
+		} else {
+			valStr = "5"
+		}
 	}
 	val, err := strconv.ParseUint(valStr, 10, 32)
 	if err != nil {

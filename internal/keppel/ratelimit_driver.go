@@ -21,6 +21,7 @@ package keppel
 import (
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/throttled/throttled/v2"
 )
@@ -37,12 +38,17 @@ const (
 	ManifestPullAction RateLimitedAction = "pullmanifest"
 	//ManifestPushAction is a RateLimitedAction.
 	ManifestPushAction RateLimitedAction = "pushmanifest"
+	//AnycastBlobBytePullAction is a RateLimitedAction. It refers to blobs being
+	//pulled from other regions via anycast. The `amount` given to
+	//RateLimitAllows() shall be the blob size in bytes.
+	AnycastBlobBytePullAction RateLimitedAction = "pullblobbytesanycast"
 )
 
 //RateLimitDriver is a pluggable strategy that determines the rate limits of
 //each account.
 type RateLimitDriver interface {
-	GetRateLimit(account Account, action RateLimitedAction) throttled.RateQuota
+	//GetRateLimit shall return nil if the given action has no rate limit.
+	GetRateLimit(account Account, action RateLimitedAction) *throttled.RateQuota
 }
 
 var rateLimitDriverFactories = make(map[string]func(AuthDriver, Configuration) (RateLimitDriver, error))
@@ -81,13 +87,23 @@ type RateLimitEngine struct {
 
 //RateLimitAllows checks whether the given action on the given account is allowed by
 //the account's rate limit.
-func (e RateLimitEngine) RateLimitAllows(account Account, action RateLimitedAction) (bool, throttled.RateLimitResult, error) {
+func (e RateLimitEngine) RateLimitAllows(account Account, action RateLimitedAction, amount uint64) (bool, throttled.RateLimitResult, error) {
 	rateQuota := e.Driver.GetRateLimit(account, action)
-	gcra, err := throttled.NewGCRARateLimiter(e.Store, rateQuota)
+	if rateQuota == nil {
+		//no rate limit for this account and action
+		return true, throttled.RateLimitResult{
+			Limit:      math.MaxInt64,
+			Remaining:  math.MaxInt64,
+			ResetAfter: 0,
+			RetryAfter: -1,
+		}, nil
+	}
+
+	gcra, err := throttled.NewGCRARateLimiter(e.Store, *rateQuota)
 	if err != nil {
 		return false, throttled.RateLimitResult{}, err
 	}
 	key := fmt.Sprintf("ratelimit-%s-%s", string(action), account.Name)
-	limited, result, err := gcra.RateLimit(key, 1)
+	limited, result, err := gcra.RateLimit(key, int(amount))
 	return !limited, result, err
 }

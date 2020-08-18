@@ -43,7 +43,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	if account == nil {
 		return
 	}
-	if !a.checkRateLimit(w, r, *account, token, keppel.BlobPullAction) {
+	if !a.checkRateLimit(w, r, *account, token, keppel.BlobPullAction, 1) {
 		return
 	}
 
