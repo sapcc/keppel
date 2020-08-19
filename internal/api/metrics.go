@@ -24,6 +24,22 @@ import (
 )
 
 var (
+	//BlobBytesPulledCounter is a prometheus.CounterVec.
+	BlobBytesPulledCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "keppel_pulled_blob_bytes",
+			Help: "Counts blob content bytes that are pulled from Keppel.",
+		},
+		[]string{"account", "auth_tenant_id", "method"},
+	)
+	//BlobBytesPushedCounter is a prometheus.CounterVec.
+	BlobBytesPushedCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "keppel_pushed_blob_bytes",
+			Help: "Counts blob content bytes that are pushed into Keppel.",
+		},
+		[]string{"account", "auth_tenant_id", "method"},
+	)
 	//BlobsPulledCounter is a prometheus.CounterVec.
 	BlobsPulledCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -76,6 +92,8 @@ var (
 )
 
 func init() {
+	prometheus.MustRegister(BlobBytesPulledCounter)
+	prometheus.MustRegister(BlobBytesPushedCounter)
 	prometheus.MustRegister(BlobsPulledCounter)
 	prometheus.MustRegister(BlobsPushedCounter)
 	prometheus.MustRegister(ManifestsPulledCounter)

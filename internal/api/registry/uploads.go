@@ -444,6 +444,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	//count a finished blob push
 	l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 	api.BlobsPushedCounter.With(l).Inc()
+	api.BlobBytesPushedCounter.With(l).Add(float64(blob.SizeBytes))
 
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Content-Range", makeRangeHeader(blob.SizeBytes))

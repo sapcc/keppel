@@ -106,7 +106,8 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//if a peer reverse-proxied to us to fulfil an anycast request, enforce the anycast rate limits
-	if forwardedBy := r.Header.Get("X-Keppel-Forwarded-By"); forwardedBy != "" {
+	isAnycast := r.Header.Get("X-Keppel-Forwarded-By") != ""
+	if isAnycast {
 		//AnycastBlobBytePullAction is only relevant for GET requests since it
 		//limits the size of the response body (which is empty for HEAD)
 		if r.Method == "GET" {
@@ -121,8 +122,11 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 		if strings.HasPrefix(token.UserName, "replication@") {
 			l["method"] = "replication"
+		} else if isAnycast {
+			l["method"] = "registry-api+anycast"
 		}
 		api.BlobsPulledCounter.With(l).Inc()
+		api.BlobBytesPulledCounter.With(l).Add(float64(blob.SizeBytes))
 	}
 
 	//prefer redirecting the client to a storage URL if the storage driver can give us one
