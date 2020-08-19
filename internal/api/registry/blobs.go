@@ -39,7 +39,7 @@ import (
 //This implements the GET/HEAD /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
-	account, repo, token := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
+	account, repo, token := a.checkAccountAccess(w, r, failIfRepoMissing, a.handleGetOrHeadBlobAnycast)
 	if account == nil {
 		return
 	}
@@ -105,6 +105,17 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//if a peer reverse-proxied to us to fulfil an anycast request, enforce the anycast rate limits
+	if forwardedBy := r.Header.Get("X-Keppel-Forwarded-By"); forwardedBy != "" {
+		//AnycastBlobBytePullAction is only relevant for GET requests since it
+		//limits the size of the response body (which is empty for HEAD)
+		if r.Method == "GET" {
+			if !a.checkRateLimit(w, r, *account, token, keppel.AnycastBlobBytePullAction, blob.SizeBytes) {
+				return
+			}
+		}
+	}
+
 	//before we branch into different code paths, count the pull
 	if r.Method == "GET" {
 		l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
@@ -147,6 +158,16 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 			logg.Error("unexpected error from io.Copy() while sending blob to client: %s", err.Error())
 		}
 	}
+}
+
+func (a *API) handleGetOrHeadBlobAnycast(w http.ResponseWriter, r *http.Request, info anycastRequestInfo) {
+	//NOTE: Rate limits are enforced by the peer that we reverse-proxy to, not by
+	//us. We couldn't enforce them anyway because we don't have this account.
+	err := a.cfg.ReverseProxyAnycastRequestToPeer(w, r, info.PrimaryHostName)
+	if respondWithError(w, r, err) {
+		return
+	}
+	api.BlobsPulledCounter.With(info.AsPrometheusLabels()).Inc()
 }
 
 //This implements the DELETE /v2/<account>/<repository>/blobs/<digest> endpoint.

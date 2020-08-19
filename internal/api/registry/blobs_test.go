@@ -153,7 +153,23 @@ func TestBlobMonolithicUpload(t *testing.T) {
 			}.Check(t, h)
 
 			//validate that the blob was stored at the specified location
-			expectBlobExists(t, h, token, "test1/foo", blob)
+			expectBlobExists(t, h, token, "test1/foo", blob, nil)
+		}
+
+		//test GET via anycast
+		if currentScenario.WithAnycast {
+			testWithReplica(t, h, db, clock, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+				testAnycast(t, firstPass, db2, func() {
+					anycastToken := getTokenForAnycast(t, h, ad, "repository:test1/foo:pull",
+						keppel.CanPullFromAccount)
+					anycastHeaders := map[string]string{
+						"X-Forwarded-Host":  cfg.AnycastAPIPublicURL.Hostname(),
+						"X-Forwarded-Proto": "https",
+					}
+					expectBlobExists(t, h, anycastToken, "test1/foo", blob, anycastHeaders)
+					expectBlobExists(t, h2, anycastToken, "test1/foo", blob, anycastHeaders)
+				})
+			})
 		}
 	})
 }
@@ -422,7 +438,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				}
 
 				//validate that the blob was stored at the specified location
-				expectBlobExists(t, h, token, "test1/foo", blob)
+				expectBlobExists(t, h, token, "test1/foo", blob, nil)
 			}
 		})
 	}
@@ -668,8 +684,8 @@ func TestDeleteBlob(t *testing.T) {
 		}.Check(t, h)
 
 		//the blob should now be visible in both repos
-		expectBlobExists(t, h, token, "test1/foo", blob)
-		expectBlobExists(t, h, otherRepoToken, "test1/bar", blob)
+		expectBlobExists(t, h, token, "test1/foo", blob, nil)
+		expectBlobExists(t, h, otherRepoToken, "test1/bar", blob, nil)
 
 		//test failure case: no delete permission
 		assert.HTTPRequest{
@@ -701,8 +717,8 @@ func TestDeleteBlob(t *testing.T) {
 		}.Check(t, h)
 
 		//we only had failed DELETEs until now, so the blob should still be there
-		expectBlobExists(t, h, token, "test1/foo", blob)
-		expectBlobExists(t, h, otherRepoToken, "test1/bar", blob)
+		expectBlobExists(t, h, token, "test1/foo", blob, nil)
+		expectBlobExists(t, h, otherRepoToken, "test1/bar", blob, nil)
 
 		//test success case: delete the blob from the first repo
 		assert.HTTPRequest{
@@ -726,7 +742,7 @@ func TestDeleteBlob(t *testing.T) {
 			ExpectBody:   test.ErrorCode(keppel.ErrBlobUnknown),
 		}.Check(t, h)
 		//...but still be visible in test1/bar
-		expectBlobExists(t, h, otherRepoToken, "test1/bar", blob)
+		expectBlobExists(t, h, otherRepoToken, "test1/bar", blob, nil)
 	})
 }
 
@@ -827,7 +843,7 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 		}.Check(t, h)
 
 		//now the blob should be available in both the original and the new repo
-		expectBlobExists(t, h, token, "test1/foo", blob)
-		expectBlobExists(t, h, otherRepoToken, "test1/bar", blob)
+		expectBlobExists(t, h, token, "test1/foo", blob, nil)
+		expectBlobExists(t, h, otherRepoToken, "test1/bar", blob, nil)
 	})
 }

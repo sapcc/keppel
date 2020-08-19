@@ -108,10 +108,8 @@ func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleListTagsAnycast(w http.ResponseWriter, r *http.Request, info anycastRequestInfo) {
-	//nothing special here
-	resp, err := a.cfg.ReverseProxyAnycastRequestToPeer(r, info.PrimaryHostName)
+	err := a.cfg.ReverseProxyAnycastRequestToPeer(w, r, info.PrimaryHostName)
 	if respondWithError(w, r, err) {
 		return
 	}
-	a.cfg.ForwardReverseProxyResponseToClient(w, resp)
 }

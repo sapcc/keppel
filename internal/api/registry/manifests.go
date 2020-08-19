@@ -167,13 +167,10 @@ func (a *API) findManifestInDB(account keppel.Account, repo keppel.Repository, r
 }
 
 func (a *API) handleGetOrHeadManifestAnycast(w http.ResponseWriter, r *http.Request, info anycastRequestInfo) {
-	resp, err := a.cfg.ReverseProxyAnycastRequestToPeer(r, info.PrimaryHostName)
+	err := a.cfg.ReverseProxyAnycastRequestToPeer(w, r, info.PrimaryHostName)
 	if respondWithError(w, r, err) {
 		return
 	}
-	a.cfg.ForwardReverseProxyResponseToClient(w, resp)
-
-	//the only special part:
 	api.ManifestsPulledCounter.With(info.AsPrometheusLabels()).Inc()
 }
 

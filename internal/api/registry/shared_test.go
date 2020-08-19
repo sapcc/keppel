@@ -306,14 +306,14 @@ func getBlobUploadURL(t *testing.T, h http.Handler, token, fullRepoName string) 
 ////////////////////////////////////////////////////////////////////////////////
 // reusable assertions
 
-func expectBlobExists(t *testing.T, h http.Handler, token, fullRepoName string, blob test.Bytes) {
+func expectBlobExists(t *testing.T, h http.Handler, token, fullRepoName string, blob test.Bytes, additionalHeaders map[string]string) {
 	t.Helper()
 	for _, method := range []string{"GET", "HEAD"} {
 		respBody := blob.Contents
 		if method == "HEAD" {
 			respBody = nil
 		}
-		assert.HTTPRequest{
+		req := assert.HTTPRequest{
 			Method:       method,
 			Path:         "/v2/" + fullRepoName + "/blobs/" + blob.Digest.String(),
 			Header:       map[string]string{"Authorization": "Bearer " + token},
@@ -325,7 +325,11 @@ func expectBlobExists(t *testing.T, h http.Handler, token, fullRepoName string, 
 				"Docker-Content-Digest": blob.Digest.String(),
 			},
 			ExpectBody: assert.ByteData(respBody),
-		}.Check(t, h)
+		}
+		for k, v := range additionalHeaders {
+			req.Header[k] = v
+		}
+		req.Check(t, h)
 	}
 }
 

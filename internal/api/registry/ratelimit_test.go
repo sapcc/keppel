@@ -137,3 +137,76 @@ func TestRateLimits(t *testing.T) {
 		}
 	})
 }
+
+func TestAnycastRateLimits(t *testing.T) {
+	blob := test.NewBytes([]byte("the blob for our test case"))
+
+	//set up rate limit such that we can pull this blob only twice in a row
+	rateQuota := throttled.RateQuota{MaxRate: throttled.PerMin(len(blob.Contents) * 2), MaxBurst: len(blob.Contents) * 2}
+	rld := basic.RateLimitDriver{
+		Limits: map[keppel.RateLimitedAction]throttled.RateQuota{
+			keppel.AnycastBlobBytePullAction: rateQuota,
+			//all other rate limits are set to "unlimited"
+		},
+	}
+	rle := &keppel.RateLimitEngine{Driver: rld, Store: nil}
+
+	testWithPrimary(t, rle, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+		if !currentScenario.WithAnycast {
+			return
+		}
+		rls, err := memstore.New(-1)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		rls.SetTimeNow(clock.Now)
+		rle.Store = rls
+
+		//upload the test blob
+		uploadToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
+			keppel.CanPullFromAccount,
+			keppel.CanPushToAccount)
+		uploadBlob(t, h, uploadToken, "test1/foo", blob)
+
+		//pull it via anycast - twice is allowed by the
+		testWithReplica(t, h, db, clock, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+			clock.StepBy(time.Hour) //reset all rate limits
+			testAnycast(t, firstPass, db2, func() {
+
+				anycastToken := getTokenForAnycast(t, h, ad, "repository:test1/foo:pull",
+					keppel.CanPullFromAccount)
+				anycastHeaders := map[string]string{
+					"X-Forwarded-Host":  cfg.AnycastAPIPublicURL.Hostname(),
+					"X-Forwarded-Proto": "https",
+				}
+
+				//two pulls are allowed by the rate limit (note that these are actually
+				//four requests because each expectBlobExists() does one GET and one
+				//HEAD, but the rate limit only counts GETs since the rate limit is on
+				//the blob contents, which don't get transferred during HEAD)
+				expectBlobExists(t, h2, anycastToken, "test1/foo", blob, anycastHeaders)
+				expectBlobExists(t, h2, anycastToken, "test1/foo", blob, anycastHeaders)
+
+				//third pull will be rejected by the rate limit
+				assert.HTTPRequest{
+					Method: "GET",
+					Path:   "/v2/test1/foo/blobs/" + blob.Digest.String(),
+					Header: map[string]string{
+						"Authorization":     "Bearer " + anycastToken,
+						"X-Forwarded-Host":  cfg.AnycastAPIPublicURL.Hostname(),
+						"X-Forwarded-Proto": "https",
+					},
+					ExpectBody:   test.ErrorCode(keppel.ErrTooManyRequests),
+					ExpectStatus: http.StatusTooManyRequests,
+					ExpectHeader: map[string]string{
+						test.VersionHeaderKey: test.VersionHeaderValue,
+						"Retry-After":         "28",
+					},
+				}.Check(t, h2)
+
+				//pull from primary is okay since we don't traverse regions
+				expectBlobExists(t, h, anycastToken, "test1/foo", blob, anycastHeaders)
+			})
+		})
+	})
+}

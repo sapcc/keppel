@@ -160,12 +160,7 @@ func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Requ
 		return errors.New("request blocked by reverse-proxy loop protection")
 	}
 
-	resp, err := a.cfg.ReverseProxyAnycastRequestToPeer(r, primaryHostName)
-	if err != nil {
-		return err
-	}
-	a.cfg.ForwardReverseProxyResponseToClient(w, resp)
-	return nil
+	return a.cfg.ReverseProxyAnycastRequestToPeer(w, r, primaryHostName)
 }
 
 func containsString(list []string, val string) bool {
