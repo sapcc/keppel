@@ -23,7 +23,7 @@ install: build/keppel FORCE
 
 # This is for manual testing.
 run-api: build/keppel
-	set -euo pipefail && source ./.env && env PATH=$(CURDIR)/build:$$PATH keppel server api
+	set -euo pipefail && source ./.env && $(CURDIR)/build/keppel server api
 
 ################################################################################
 
@@ -53,7 +53,7 @@ static-check: FORCE
 # detailed unit test run (incl. test coverage)
 build/cover.out: FORCE
 	@printf "\e[1;36m>> go test\e[0m\n"
-	@env PATH=$(CURDIR)/build:$$PATH $(GO) test $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' -p 1 -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
+	@$(GO) test $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' -p 1 -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
 build/cover.html: build/cover.out
 	$(GO) tool cover -html $< -o $@
 
