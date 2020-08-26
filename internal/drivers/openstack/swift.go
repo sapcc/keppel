@@ -281,7 +281,21 @@ func (d *swiftDriver) DeleteBlob(account keppel.Account, storageID string) error
 	if err != nil {
 		return err
 	}
-	return blobObject(c, storageID).Delete(&schwift.DeleteOptions{DeleteSegments: true}, nil)
+	err = blobObject(c, storageID).Delete(&schwift.DeleteOptions{DeleteSegments: true}, nil)
+	reportObjectErrorsIfAny("DeleteBlob", err)
+	return err
+}
+
+func reportObjectErrorsIfAny(operation string, err error) {
+	if berr, ok := err.(schwift.BulkError); ok {
+		//When we return this `err` to the Keppel core, it will only look at
+		//Error() which prints only the summary (e.g. "400 Bad Request (+2 object
+		//errors)"). This method ensures that the individual object errors also
+		//get logged.
+		for _, oerr := range berr.ObjectErrors {
+			logg.Error("encountered error during Swift bulk operation in %s for object %s", oerr.Error())
+		}
+	}
 }
 
 //ReadManifest implements the keppel.StorageDriver interface.
