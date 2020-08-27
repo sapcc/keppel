@@ -51,7 +51,7 @@ func (m Middleware) Wrap(h http.Handler) http.Handler {
 		if !m.isExcluded(r, writer.statusCode) {
 			Other(
 				"REQUEST", `%s - - "%s %s %s" %03d %d "%s" "%s"`,
-				tryStripPort(r.RemoteAddr),
+				getRequesterIP(r),
 				r.Method, r.URL.String(), r.Proto,
 				writer.statusCode, writer.bytesWritten,
 				stringOrDefault("-", r.Header.Get("Referer")),
@@ -89,12 +89,18 @@ func stringOrDefault(defaultValue, value string) string {
 	return value
 }
 
-func tryStripPort(hostPort string) string {
-	host, _, err := net.SplitHostPort(hostPort)
+func getRequesterIP(r *http.Request) string {
+	remoteAddr := r.RemoteAddr
+	if xForwardedFor := r.Header.Get("X-Forwarded-For"); xForwardedFor != "" {
+		remoteAddr = xForwardedFor
+	}
+
+	//strip port, if any
+	host, _, err := net.SplitHostPort(remoteAddr)
 	if err == nil {
 		return host
 	}
-	return hostPort
+	return remoteAddr
 }
 
 //A custom response writer that collects information about the response to
