@@ -199,18 +199,21 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	}
 
 	//stream request body into the storage backend while also computing the digest and length
-	storageID := a.generateStorageID()
-	dw := digestWriter{Hash: sha256.New()}
-	err = a.sd.AppendToBlob(account, storageID, 1, &sizeBytes, io.TeeReader(r.Body, &dw))
-	if respondWithError(w, r, err) {
-		return false
+	upload := keppel.Upload{
+		StorageID: a.generateStorageID(),
+		SizeBytes: 0,
+		NumChunks: 0,
 	}
-	err = a.sd.FinalizeBlob(account, storageID, 1)
+	dw := digestWriter{Hash: sha256.New()}
+	err = a.processor().AppendToBlob(account, &upload, io.TeeReader(r.Body, &dw), sizeBytes)
+	if err == nil {
+		err = a.sd.FinalizeBlob(account, upload.StorageID, upload.NumChunks)
+	}
 	if respondWithError(w, r, err) {
 		countAbortedBlobUpload(account)
-		err := a.sd.AbortBlobUpload(account, storageID, 1)
+		err := a.sd.AbortBlobUpload(account, upload.StorageID, upload.NumChunks)
 		if err != nil {
-			logg.Error("additional error encountered while aborting blob upload %s into %s: %s", storageID, repo.FullName(), err.Error())
+			logg.Error("additional error encountered while aborting blob upload %s into %s: %s", upload.StorageID, repo.FullName(), err.Error())
 		}
 		return false
 	}
@@ -219,9 +222,9 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	defer func() {
 		if !ok {
 			countAbortedBlobUpload(account)
-			err := a.sd.DeleteBlob(account, storageID)
+			err := a.sd.DeleteBlob(account, upload.StorageID)
 			if err != nil {
-				logg.Error("additional error encountered while deleting broken blob %s from %s: %s", storageID, repo.FullName(), err.Error())
+				logg.Error("additional error encountered while deleting broken blob %s from %s: %s", upload.StorageID, repo.FullName(), err.Error())
 			}
 			return
 		}
@@ -251,7 +254,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 		AccountName: account.Name,
 		Digest:      blobDigest.String(),
 		SizeBytes:   sizeBytes,
-		StorageID:   storageID,
+		StorageID:   upload.StorageID,
 		PushedAt:    blobPushedAt,
 		ValidatedAt: blobPushedAt,
 	}

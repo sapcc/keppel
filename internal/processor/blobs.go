@@ -195,8 +195,6 @@ func (p *Processor) ReplicateBlob(blob keppel.Blob, account keppel.Account, repo
 	return true, nil
 }
 
-const chunkSizeBytes = 500 << 20 // 500 MiB
-
 func (p *Processor) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, blobReader io.Reader, blobLengthBytes uint64) (returnErr error) {
 	defer func() {
 		//if blob upload fails, count an aborted upload
@@ -206,43 +204,27 @@ func (p *Processor) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, 
 		}
 	}()
 
-	chunkCount := uint32(0)
-	remainingBytes := blobLengthBytes
-	storageID := p.generateStorageID()
-
-	for chunkCount == 0 || remainingBytes > 0 {
-		var (
-			chunk       io.Reader
-			chunkLength uint64
-		)
-		if remainingBytes > chunkSizeBytes {
-			chunk = io.LimitReader(blobReader, chunkSizeBytes)
-			chunkLength = chunkSizeBytes
-		} else {
-			chunk = blobReader
-			chunkLength = remainingBytes
-		}
-		chunkCount++
-
-		err := p.sd.AppendToBlob(account, storageID, chunkCount, &chunkLength, chunk)
-		if err != nil {
-			abortErr := p.sd.AbortBlobUpload(account, storageID, chunkCount)
-			if abortErr != nil {
-				logg.Error("additional error encountered when aborting upload %s into account %s: %s",
-					storageID, account.Name, abortErr.Error())
-			}
-			return err
-		}
-
-		remainingBytes -= chunkLength
+	upload := keppel.Upload{
+		StorageID: p.generateStorageID(),
+		SizeBytes: 0,
+		NumChunks: 0,
 	}
-
-	err := p.sd.FinalizeBlob(account, storageID, chunkCount)
+	err := p.AppendToBlob(account, &upload, blobReader, blobLengthBytes)
 	if err != nil {
-		abortErr := p.sd.AbortBlobUpload(account, storageID, chunkCount)
+		abortErr := p.sd.AbortBlobUpload(account, upload.StorageID, upload.NumChunks)
 		if abortErr != nil {
 			logg.Error("additional error encountered when aborting upload %s into account %s: %s",
-				storageID, account.Name, abortErr.Error())
+				upload.StorageID, account.Name, abortErr.Error())
+		}
+		return err
+	}
+
+	err = p.sd.FinalizeBlob(account, upload.StorageID, upload.NumChunks)
+	if err != nil {
+		abortErr := p.sd.AbortBlobUpload(account, upload.StorageID, upload.NumChunks)
+		if abortErr != nil {
+			logg.Error("additional error encountered when aborting upload %s into account %s: %s",
+				upload.StorageID, account.Name, abortErr.Error())
 		}
 		return err
 	}
@@ -250,18 +232,51 @@ func (p *Processor) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, 
 	//if errors occur while trying to update the DB, we need to clean up the blob in the storage
 	defer func() {
 		if returnErr != nil {
-			deleteErr := p.sd.DeleteBlob(account, storageID)
+			deleteErr := p.sd.DeleteBlob(account, upload.StorageID)
 			if deleteErr != nil {
 				logg.Error("additional error encountered when deleting uploaded blob %s from account %s after upload error: %s",
-					storageID, account.Name, deleteErr.Error())
+					upload.StorageID, account.Name, deleteErr.Error())
 			}
 		}
 	}()
 
 	//write blob metadata to DB
-	blob.StorageID = storageID
+	blob.StorageID = upload.StorageID
 	blob.PushedAt = p.timeNow()
 	blob.ValidatedAt = blob.PushedAt
 	_, err = p.db.Update(&blob)
 	return err
+}
+
+//AppendToBlob appends bytes to a blob upload, and updates the upload's
+//SizeBytes and NumChunks fields appropriately. Chunking of large uploads is
+//implemented at this level, to accomodate storage drivers that have a size
+//restriction on blob chunks.
+//
+//Warning: The upload's Digest field is *not* read or written. For chunked
+//uploads, the caller is responsible for performing and validating the digest
+//computation.
+func (p *Processor) AppendToBlob(account keppel.Account, upload *keppel.Upload, contents io.Reader, lengthBytes uint64) error {
+	return foreachChunk(contents, lengthBytes, func(chunk io.Reader, chunkLengthBytes uint64) error {
+		upload.NumChunks++
+		upload.SizeBytes += chunkLengthBytes
+		return p.sd.AppendToBlob(account, upload.StorageID, upload.NumChunks, &chunkLengthBytes, chunk)
+	})
+}
+
+const chunkSizeBytes = 500 << 20 // 500 MiB
+
+//This function contains the logic for splitting `contents` (containing `lengthBytes`) into chunks of `chunkSizeBytes` max.
+func foreachChunk(contents io.Reader, lengthBytes uint64, action func(io.Reader, uint64) error) error {
+	//NOTE: This function is written such that `action` is called at least once,
+	//even when `contents` is empty.
+	remainingBytes := lengthBytes
+	for remainingBytes > chunkSizeBytes {
+		err := action(io.LimitReader(contents, chunkSizeBytes), chunkSizeBytes)
+		if err != nil {
+			return err
+		}
+		remainingBytes -= chunkSizeBytes
+	}
+	return action(contents, remainingBytes)
 }
