@@ -1,6 +1,10 @@
 #!/bin/sh
 set -euo pipefail
 
+if hash greadlink &>/dev/null; then
+  readlink() { greadlink "$@"; }
+fi
+
 # set working directory to repo root
 cd "$(dirname "$(dirname "$(readlink -f "$0")")")"
 
@@ -15,7 +19,7 @@ fi
 mkdir -p testing/postgresql-run/
 
 step "Configuring PostgreSQL"
-sed -i '/^#\?\(external_pid_file\|unix_socket_directories\|port\)\b/d' testing/postgresql-data/postgresql.conf
+sed -ie '/^#\?\(external_pid_file\|unix_socket_directories\|port\)\b/d' testing/postgresql-data/postgresql.conf
 (
   echo "external_pid_file = '${PWD}/testing/postgresql-run/pid'"
   echo "unix_socket_directories = '${PWD}/testing/postgresql-run'"
