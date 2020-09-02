@@ -1,5 +1,9 @@
 # Keppel, a multi-tenant container image registry
 
+[![Build Status](https://img.shields.io/travis/sapcc/keppel)](https://travis-ci.org/github/sapcc/keppel)
+[![Coverage Status](https://img.shields.io/coveralls/github/sapcc/keppel)](https://coveralls.io/github/sapcc/keppel)
+[![Go Report Card](https://goreportcard.com/badge/github.com/sapcc/keppel)](https://goreportcard.com/report/github.com/sapcc/keppel)
+
 In this document:
 
 - [Overview](#overview)
