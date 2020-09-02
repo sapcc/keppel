@@ -19,6 +19,7 @@
 package tasks
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -184,7 +185,16 @@ func (j *Janitor) ValidateNextBlob() (returnErr error) {
 	}
 
 	//perform validation
-	err = j.processor().ValidateExistingBlob(*account, blob)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	opts := retryOpts{
+		ctx:         ctx,
+		period:      5 * time.Second,
+		maxAttempts: 3,
+	}
+	err = retry(opts, func() error {
+		return j.processor().ValidateExistingBlob(*account, blob)
+	})
 	if err == nil {
 		//update `validated_at` and reset error message
 		_, err := j.db.Exec(`
