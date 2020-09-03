@@ -205,7 +205,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 		NumChunks: 0,
 	}
 	dw := digestWriter{Hash: sha256.New()}
-	err = a.processor().AppendToBlob(account, &upload, io.TeeReader(r.Body, &dw), sizeBytes)
+	err = a.processor().AppendToBlob(account, &upload, io.TeeReader(r.Body, &dw), &sizeBytes)
 	if err == nil {
 		err = a.sd.FinalizeBlob(account, upload.StorageID, upload.NumChunks)
 	}
@@ -591,14 +591,14 @@ func (a *API) streamIntoUpload(account keppel.Account, upload *keppel.Upload, dw
 	}()
 
 	//stream data from request body into storage
-	upload.NumChunks++
-	err := a.sd.AppendToBlob(account, upload.StorageID, upload.NumChunks, chunkSizeBytes, io.TeeReader(chunk, dw))
+	sizeBytesBefore := upload.SizeBytes
+	err := a.processor().AppendToBlob(account, upload, io.TeeReader(chunk, dw), chunkSizeBytes)
 	if err != nil {
 		return "", err
 	}
 
 	//if chunkSizeBytes is known, check that we wrote that many bytes
-	actualChunkSizeBytes := dw.bytesWritten - upload.SizeBytes
+	actualChunkSizeBytes := dw.bytesWritten - sizeBytesBefore
 	if chunkSizeBytes != nil && *chunkSizeBytes != actualChunkSizeBytes {
 		msg := fmt.Sprintf("expected upload of %d bytes, but request contained only %d bytes",
 			*chunkSizeBytes, actualChunkSizeBytes,
@@ -615,7 +615,6 @@ func (a *API) streamIntoUpload(account keppel.Account, upload *keppel.Upload, dw
 	}
 
 	//update Upload object in DB
-	upload.SizeBytes = dw.bytesWritten
 	upload.Digest = digest.NewDigest(digest.SHA256, dw.Hash).String()
 	upload.UpdatedAt = a.timeNow()
 	_, err = a.db.Update(upload)

@@ -209,7 +209,7 @@ func (p *Processor) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, 
 		SizeBytes: 0,
 		NumChunks: 0,
 	}
-	err := p.AppendToBlob(account, &upload, blobReader, blobLengthBytes)
+	err := p.AppendToBlob(account, &upload, blobReader, &blobLengthBytes)
 	if err != nil {
 		abortErr := p.sd.AbortBlobUpload(account, upload.StorageID, upload.NumChunks)
 		if abortErr != nil {
@@ -256,18 +256,30 @@ func (p *Processor) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, 
 //Warning: The upload's Digest field is *not* read or written. For chunked
 //uploads, the caller is responsible for performing and validating the digest
 //computation.
-func (p *Processor) AppendToBlob(account keppel.Account, upload *keppel.Upload, contents io.Reader, lengthBytes uint64) error {
-	return foreachChunk(contents, lengthBytes, func(chunk io.Reader, chunkLengthBytes uint64) error {
+func (p *Processor) AppendToBlob(account keppel.Account, upload *keppel.Upload, contents io.Reader, lengthBytes *uint64) error {
+	//case 1: we know the length of the input and don't have to guess when to chunk
+	if lengthBytes != nil {
+		return foreachChunkWithKnownSize(contents, *lengthBytes, func(chunk io.Reader, chunkLengthBytes uint64) error {
+			upload.NumChunks++
+			upload.SizeBytes += chunkLengthBytes
+			return p.sd.AppendToBlob(account, upload.StorageID, upload.NumChunks, &chunkLengthBytes, chunk)
+		})
+	}
+
+	//case 2: we *don't* know the input length
+	ctr := chunkingTrackingReader{wrapped: contents}
+	err := foreachChunkWithUnknownSize(&ctr, func(chunk io.Reader) error {
 		upload.NumChunks++
-		upload.SizeBytes += chunkLengthBytes
-		return p.sd.AppendToBlob(account, upload.StorageID, upload.NumChunks, &chunkLengthBytes, chunk)
+		return p.sd.AppendToBlob(account, upload.StorageID, upload.NumChunks, nil, chunk)
 	})
+	upload.SizeBytes += ctr.bytesRead
+	return err
 }
 
 const chunkSizeBytes = 500 << 20 // 500 MiB
 
 //This function contains the logic for splitting `contents` (containing `lengthBytes`) into chunks of `chunkSizeBytes` max.
-func foreachChunk(contents io.Reader, lengthBytes uint64, action func(io.Reader, uint64) error) error {
+func foreachChunkWithKnownSize(contents io.Reader, lengthBytes uint64, action func(io.Reader, uint64) error) error {
 	//NOTE: This function is written such that `action` is called at least once,
 	//even when `contents` is empty.
 	remainingBytes := lengthBytes
@@ -279,4 +291,70 @@ func foreachChunk(contents io.Reader, lengthBytes uint64, action func(io.Reader,
 		remainingBytes -= chunkSizeBytes
 	}
 	return action(contents, remainingBytes)
+}
+
+//Like foreachChunkWithKnownSize, but this one is for when we don't know how many bytes are in the original reader.
+func foreachChunkWithUnknownSize(contents *chunkingTrackingReader, action func(io.Reader) error) error {
+	//NOTE: This function is written such that `action` is called at least once,
+	//even when `contents` is empty.
+	for {
+		err := action(io.LimitReader(contents, chunkSizeBytes))
+		if err != nil {
+			return err
+		}
+		if contents.IsEOF() {
+			return nil
+		}
+	}
+}
+
+//This reader is used by AppendToBlob() when we have a reader with an unknown
+//amount of bytes in it. It serves two purposes:
+//
+//1. While its underlying reader is being read from, it tracks how many bytes
+//   were read. We need this information to update upload.SizeBytes afterwards.
+//
+//2. It has a IsEOF() method for checking if EOF has been reached. This
+//   information is used to determine when to stop chunking.
+//
+type chunkingTrackingReader struct {
+	wrapped   io.Reader
+	peeked    *byte //may contain a byte that we read in advance from `wrapped` to check for EOF
+	bytesRead uint64
+}
+
+//Read implements the io.Reader interface.
+func (r *chunkingTrackingReader) Read(buf []byte) (int, error) {
+	if len(buf) == 0 {
+		return 0, nil
+	}
+
+	if r.peeked != nil {
+		buf[0] = *r.peeked
+		r.peeked = nil
+		r.bytesRead++
+		n, err := r.Read(buf[1:])
+		return n + 1, err
+	}
+
+	n, err := r.wrapped.Read(buf)
+	r.bytesRead += uint64(n)
+	return n, err
+}
+
+func (r *chunkingTrackingReader) IsEOF() bool {
+	if r.peeked != nil {
+		return false
+	}
+
+	var buf [1]byte
+	n, err := r.wrapped.Read(buf[:])
+	if err == io.EOF {
+		return true
+	}
+	if n == 1 {
+		r.peeked = &buf[0]
+	}
+	return false
+	//NOTE: Non-EOF errors are discarded here, but the next Read() should surface them.
 }
