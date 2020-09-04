@@ -293,7 +293,7 @@ func reportObjectErrorsIfAny(operation string, err error) {
 		//errors)"). This method ensures that the individual object errors also
 		//get logged.
 		for _, oerr := range berr.ObjectErrors {
-			logg.Error("encountered error during Swift bulk operation in %s for object %s", oerr.Error())
+			logg.Error("encountered error during Swift bulk operation for object %s", oerr.Error())
 		}
 	}
 }
