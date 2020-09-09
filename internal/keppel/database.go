@@ -342,6 +342,8 @@ func InitDB(dbURL url.URL) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	//ensure that this process does not starve other Keppel processes for DB connections
+	db.SetMaxOpenConns(16)
 
 	result := &DB{DbMap: gorp.DbMap{Db: db, Dialect: gorp.PostgresDialect{}}}
 	initModels(&result.DbMap)
