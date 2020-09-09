@@ -25,6 +25,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/dlmiddlecote/sqlstats"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sapcc/go-bits/httpee"
 	"github.com/sapcc/go-bits/logg"
@@ -59,6 +61,8 @@ func run(cmd *cobra.Command, args []string) {
 	must(err)
 	sd, err := keppel.NewStorageDriver(keppel.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
 	must(err)
+
+	prometheus.MustRegister(sqlstats.NewStatsCollector("keppel", db.DbMap.Db))
 
 	ctx := httpee.ContextWithSIGINT(context.Background())
 

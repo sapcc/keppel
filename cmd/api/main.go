@@ -25,7 +25,9 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/dlmiddlecote/sqlstats"
 	"github.com/go-redis/redis"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 	"github.com/sapcc/go-bits/httpee"
@@ -67,6 +69,8 @@ func run(cmd *cobra.Command, args []string) {
 	must(err)
 	sd, err := keppel.NewStorageDriver(keppel.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
 	must(err)
+
+	prometheus.MustRegister(sqlstats.NewStatsCollector("keppel", db.DbMap.Db))
 
 	rle := (*keppel.RateLimitEngine)(nil)
 	if rc != nil {

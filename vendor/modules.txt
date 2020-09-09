@@ -7,6 +7,9 @@ github.com/databus23/goslo.policy
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 ## explicit
 github.com/dgrijalva/jwt-go
+# github.com/dlmiddlecote/sqlstats v1.0.1
+## explicit
+github.com/dlmiddlecote/sqlstats
 # github.com/docker/distribution v2.7.1+incompatible
 ## explicit
 github.com/docker/distribution
