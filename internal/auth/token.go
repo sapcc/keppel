@@ -198,7 +198,7 @@ type IssuedToken struct {
 //Issue generates a JWT for this Token instance.
 func (t Token) Issue(cfg keppel.Configuration) (*IssuedToken, error) {
 	now := time.Now()
-	expiresIn := 1 * time.Hour //NOTE: could be made configurable if the need arises
+	expiresIn := 4 * time.Hour //NOTE: could be made configurable if the need arises
 	expiresAt := now.Add(expiresIn)
 
 	issuerKey := t.Audience.IssuerKey(cfg)
