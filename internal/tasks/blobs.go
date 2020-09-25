@@ -138,9 +138,11 @@ func (j *Janitor) SweepBlobsInNextAccount() (returnErr error) {
 		if err != nil {
 			return err
 		}
-		err = j.sd.DeleteBlob(account, blob.StorageID)
-		if err != nil {
-			return err
+		if blob.StorageID != "" { //ignore unbacked blobs that were never replicated
+			err = j.sd.DeleteBlob(account, blob.StorageID)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
