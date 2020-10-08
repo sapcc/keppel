@@ -24,7 +24,7 @@ github.com/docker/distribution/reference
 github.com/docker/libtrust
 # github.com/go-gorp/gorp v2.2.0+incompatible
 ## explicit
-# github.com/go-redis/redis v6.15.8+incompatible
+# github.com/go-redis/redis v6.15.9+incompatible
 ## explicit
 github.com/go-redis/redis
 github.com/go-redis/redis/internal
@@ -43,7 +43,7 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/gophercloud/gophercloud v0.12.0
+# github.com/gophercloud/gophercloud v0.13.0
 ## explicit
 github.com/gophercloud/gophercloud
 github.com/gophercloud/gophercloud/internal
@@ -58,11 +58,12 @@ github.com/gophercloud/gophercloud/openstack/identity/v3/roles
 github.com/gophercloud/gophercloud/openstack/identity/v3/tokens
 github.com/gophercloud/gophercloud/openstack/utils
 github.com/gophercloud/gophercloud/pagination
-# github.com/gophercloud/utils v0.0.0-20200508015959-b0167b94122c
+# github.com/gophercloud/utils v0.0.0-20200918191848-da0e919a012a
 ## explicit
 github.com/gophercloud/utils/env
+github.com/gophercloud/utils/gnocchi
 github.com/gophercloud/utils/openstack/clientconfig
-# github.com/gorilla/mux v1.7.4
+# github.com/gorilla/mux v1.8.0
 ## explicit
 github.com/gorilla/mux
 # github.com/hashicorp/errwrap v1.0.0
@@ -74,7 +75,7 @@ github.com/hashicorp/golang-lru
 github.com/hashicorp/golang-lru/simplelru
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
-# github.com/jarcoal/httpmock v1.0.5
+# github.com/jarcoal/httpmock v1.0.6
 ## explicit
 github.com/jarcoal/httpmock
 # github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629
@@ -89,7 +90,7 @@ github.com/lib/pq/scram
 github.com/majewsky/schwift
 github.com/majewsky/schwift/capabilities
 github.com/majewsky/schwift/gopherschwift
-# github.com/mattn/go-sqlite3 v1.14.0
+# github.com/mattn/go-sqlite3 v1.14.4
 ## explicit
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
@@ -100,7 +101,7 @@ github.com/opencontainers/go-digest
 ## explicit
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/poy/onpar v1.0.0
+# github.com/poy/onpar v1.0.1
 ## explicit
 # github.com/prometheus/client_golang v1.7.1
 ## explicit
@@ -136,7 +137,7 @@ github.com/sapcc/go-bits/httpee
 github.com/sapcc/go-bits/logg
 github.com/sapcc/go-bits/respondwith
 github.com/sapcc/go-bits/sre
-# github.com/sapcc/hermes v0.0.0-20200512164035-6df4e7771fb5
+# github.com/sapcc/hermes v0.0.0-20200928164006-62559084bfce
 ## explicit
 github.com/sapcc/hermes/pkg/cadf
 # github.com/satori/go.uuid v1.2.0
@@ -156,7 +157,7 @@ github.com/throttled/throttled/v2/store/goredisstore
 github.com/throttled/throttled/v2/store/memstore
 # github.com/ziutek/mymysql v1.5.4
 ## explicit
-# golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
+# golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
 ## explicit
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
@@ -204,5 +205,5 @@ google.golang.org/protobuf/types/known/timestamppb
 # gopkg.in/gorp.v2 v2.2.0
 ## explicit
 gopkg.in/gorp.v2
-# gopkg.in/yaml.v2 v2.2.7
+# gopkg.in/yaml.v2 v2.3.0
 gopkg.in/yaml.v2
