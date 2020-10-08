@@ -1,5 +1,4 @@
 # build artifacts
-.gopath/pkg/
 build/
 
 # runtime artifacts (see Makefile)

@@ -1,0 +1,18 @@
+# Configuration file for <https://github.com/sapcc/go-makefile-maker>
+
+binaries:
+  - name:        keppel
+    fromPackage: .
+    installTo:   bin/
+
+coverageTest:
+  only: '/internal'
+  except: '/drivers|/test/util'
+
+variables:
+  GO_LDFLAGS: '-X $(PKG)/internal/keppel.Version=$(shell util/find_version.sh)'
+
+verbatim: |
+  # This is for manual testing.
+  run-api: build/keppel
+    set -euo pipefail && source ./.env && $(CURDIR)/build/keppel server api
