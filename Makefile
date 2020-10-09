@@ -13,12 +13,17 @@ build-all: build/keppel
 
 GO_BUILDFLAGS = -mod vendor
 GO_LDFLAGS = -X $(PKG)/internal/keppel.Version=$(shell util/find_version.sh)
+GO_TESTENV = 
 
 build/keppel: FORCE
 	go build $(GO_BUILDFLAGS) -ldflags '-s -w $(GO_LDFLAGS)' -o build/keppel .
 
 DESTDIR =
-PREFIX = /usr
+ifeq ($(shell uname -s),Darwin)
+  PREFIX = /usr/local
+else
+  PREFIX = /usr
+endif
 
 install: FORCE build/keppel
 	install -D -m 0755 build/keppel "$(DESTDIR)$(PREFIX)/bin/keppel"
@@ -36,6 +41,7 @@ space := $(null) $(null)
 comma := ,
 
 check: build-all static-check build/cover.html FORCE
+	@printf "\e[1;32m>> All checks successful.\e[0m\n"
 
 static-check: FORCE
 	@if ! hash golint 2>/dev/null; then printf "\e[1;36m>> Installing golint...\e[0m\n"; GO111MODULE=off go get -u golang.org/x/lint/golint; fi
@@ -48,7 +54,7 @@ static-check: FORCE
 
 build/cover.out: FORCE
 	@printf "\e[1;36m>> go test\e[0m\n"
-	@go test $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' -p 1 -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
+	@env $(GO_TESTENV) go test $(GO_BUILDFLAGS) -ldflags '-s -w $(GO_LDFLAGS)' -p 1 -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
 
 build/cover.html: build/cover.out
 	@printf "\e[1;36m>> go tool cover > build/cover.html\e[0m\n"
@@ -58,5 +64,8 @@ vendor: FORCE
 	go mod tidy
 	go mod vendor
 	go mod verify
+
+clean: FORCE
+	git clean -dxf build
 
 .PHONY: FORCE

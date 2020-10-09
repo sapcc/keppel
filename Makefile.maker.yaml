@@ -12,6 +12,9 @@ coverageTest:
 variables:
   GO_LDFLAGS: '-X $(PKG)/internal/keppel.Version=$(shell util/find_version.sh)'
 
+vendoring:
+  enabled: true
+
 verbatim: |
   # This is for manual testing.
   run-api: build/keppel
