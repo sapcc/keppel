@@ -192,7 +192,7 @@ func (j *Janitor) ValidateNextBlob() (returnErr error) {
 	opts := retryOpts{
 		ctx:         ctx,
 		period:      5 * time.Second,
-		maxAttempts: 3,
+		maxAttempts: 10,
 	}
 	err = retry(opts, func() error {
 		return j.processor().ValidateExistingBlob(*account, blob)
