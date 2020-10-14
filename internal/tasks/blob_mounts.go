@@ -31,7 +31,7 @@ import (
 //If a manifest fails validation, we cannot be sure that we're really seeing
 //all manifest_blob_refs. This could result in us mistakenly deleting blob
 //mounts even though they are referenced by a manifest.
-const blobMountSweepSearchQuery = `
+var blobMountSweepSearchQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT * FROM repos
 		WHERE next_blob_mount_sweep_at IS NULL OR next_blob_mount_sweep_at < $1
 		AND id NOT IN (SELECT repo_id FROM manifests WHERE validation_error_message != '')
@@ -39,29 +39,29 @@ const blobMountSweepSearchQuery = `
 	ORDER BY next_blob_mount_sweep_at IS NULL DESC, next_blob_mount_sweep_at ASC
 	-- only one repo at a time
 	LIMIT 1
-`
+`)
 
-const blobMountMarkQuery = `
+var blobMountMarkQuery = keppel.SimplifyWhitespaceInSQL(`
 	UPDATE blob_mounts SET can_be_deleted_at = $2
 	WHERE repo_id = $1 AND can_be_deleted_at IS NULL AND blob_id NOT IN (
 		SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1
 	)
-`
+`)
 
-const blobMountUnmarkQuery = `
+var blobMountUnmarkQuery = keppel.SimplifyWhitespaceInSQL(`
 	UPDATE blob_mounts SET can_be_deleted_at = NULL
 	WHERE repo_id = $1 AND blob_id IN (
 		SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1
 	)
-`
+`)
 
-const blobMountSweepMarkedQuery = `
+var blobMountSweepMarkedQuery = keppel.SimplifyWhitespaceInSQL(`
 	DELETE FROM blob_mounts WHERE repo_id = $1 AND can_be_deleted_at < $2
-`
+`)
 
-const blobMountSweepDoneQuery = `
+var blobMountSweepDoneQuery = keppel.SimplifyWhitespaceInSQL(`
 	UPDATE repos SET next_blob_mount_sweep_at = $2 WHERE id = $1
-`
+`)
 
 //SweepBlobMountsInNextRepo finds the next repo where blob mounts need to be
 //garbage-collected, and performs the GC. This entails a marking of all blob

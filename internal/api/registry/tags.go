@@ -30,11 +30,11 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-const tagsListQuery = `
+var tagsListQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT name FROM tags
 	 WHERE repo_id = $1 AND (name > $2 or $2 = '')
 	 ORDER BY name ASC LIMIT $3
-`
+`)
 
 func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/tags/list")

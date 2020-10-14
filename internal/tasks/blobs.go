@@ -28,38 +28,38 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-const blobSweepSearchQuery = `
+var blobSweepSearchQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT * FROM accounts
 		WHERE next_blob_sweep_at IS NULL OR next_blob_sweep_at < $1
 	-- accounts without any sweeps first, then sorted by last sweep
 	ORDER BY next_blob_sweep_at IS NULL DESC, next_blob_sweep_at ASC
 	-- only one account at a time
 	LIMIT 1
-`
+`)
 
-const blobMarkQuery = `
+var blobMarkQuery = keppel.SimplifyWhitespaceInSQL(`
 	UPDATE blobs SET can_be_deleted_at = $2
 	WHERE account_name = $1 AND can_be_deleted_at IS NULL AND id NOT IN (
 		SELECT m.blob_id FROM blob_mounts m JOIN repos r ON m.repo_id = r.id
 		WHERE r.account_name = $1
 	)
-`
+`)
 
-const blobUnmarkQuery = `
+var blobUnmarkQuery = keppel.SimplifyWhitespaceInSQL(`
 	UPDATE blobs SET can_be_deleted_at = NULL
 	WHERE account_name = $1 AND id IN (
 		SELECT m.blob_id FROM blob_mounts m JOIN repos r ON m.repo_id = r.id
 		WHERE r.account_name = $1
 	)
-`
+`)
 
-const blobSelectMarkedQuery = `
+var blobSelectMarkedQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT * FROM blobs WHERE account_name = $1 AND can_be_deleted_at < $2
-`
+`)
 
-const blobSweepDoneQuery = `
+var blobSweepDoneQuery = keppel.SimplifyWhitespaceInSQL(`
 	UPDATE accounts SET next_blob_sweep_at = $2 WHERE name = $1
-`
+`)
 
 //SweepBlobsInNextAccount finds the next account where blobs need to be
 //garbage-collected, and performs the GC. This entails a marking of all blobs
@@ -150,11 +150,11 @@ func (j *Janitor) SweepBlobsInNextAccount() (returnErr error) {
 	return err
 }
 
-const validateBlobSearchQuery = `
+var validateBlobSearchQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT * FROM blobs WHERE validated_at < $1 AND storage_id != ''
 	ORDER BY validated_at ASC -- oldest blobs first
 	LIMIT 1                   -- one at a time
-`
+`)
 
 //ValidateNextBlob validates the next blob that has not been validated for more
 //than 7 days. If no manifest needs to be validated, sql.ErrNoRows is returned.

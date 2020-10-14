@@ -27,18 +27,18 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-const accountAnnouncementSearchQuery = `
+var accountAnnouncementSearchQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT * FROM accounts
 		WHERE next_federation_announcement_at IS NULL OR next_federation_announcement_at < $1
 	-- accounts without any announcements first, then sorted by last announcement
 	ORDER BY next_federation_announcement_at IS NULL DESC, next_federation_announcement_at ASC
 	-- only one account at a time
 	LIMIT 1
-`
+`)
 
-const accountAnnouncementDoneQuery = `
+var accountAnnouncementDoneQuery = keppel.SimplifyWhitespaceInSQL(`
 	UPDATE accounts SET next_federation_announcement_at = $2 WHERE name = $1
-`
+`)
 
 //AnnounceNextAccountToFederation finds the next account that has not been
 //announced to the FederationDriver in more than an hour, and announces it. If

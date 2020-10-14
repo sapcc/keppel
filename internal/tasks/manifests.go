@@ -30,11 +30,11 @@ import (
 )
 
 //query that finds the next manifest to be validated
-const outdatedManifestSearchQuery = `
+var outdatedManifestSearchQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT * FROM manifests WHERE validated_at < $1
 	ORDER BY validated_at ASC -- oldest manifests first
 	LIMIT 1                   -- one at a time
-`
+`)
 
 //ValidateNextManifest validates manifests that have not been validated for more
 //than 6 hours. At most one manifest is validated per call. If no manifest
@@ -111,7 +111,7 @@ func (j *Janitor) ValidateNextManifest() (returnErr error) {
 	return nil
 }
 
-const syncManifestRepoSelectQuery = `
+var syncManifestRepoSelectQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT r.* FROM repos r
 		JOIN accounts a ON r.account_name = a.name
 		WHERE (r.next_manifest_sync_at IS NULL OR r.next_manifest_sync_at < $1)
@@ -121,15 +121,15 @@ const syncManifestRepoSelectQuery = `
 	ORDER BY r.next_manifest_sync_at IS NULL DESC, r.next_manifest_sync_at ASC
 	-- only one repo at a time
 	LIMIT 1
-`
+`)
 
-const syncManifestEnumerateRefsQuery = `
+var syncManifestEnumerateRefsQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT parent_digest, child_digest FROM manifest_manifest_refs WHERE repo_id = $1
-`
+`)
 
-const syncManifestDoneQuery = `
+var syncManifestDoneQuery = keppel.SimplifyWhitespaceInSQL(`
 	UPDATE repos SET next_manifest_sync_at = $2 WHERE id = $1
-`
+`)
 
 //SyncManifestsInNextRepo finds the next repository in a replica account where
 //manifests have not been synced for more than an hour, and syncs its manifests.

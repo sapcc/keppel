@@ -37,7 +37,7 @@ type Repository struct {
 	PushedAt      int64  `json:"pushed_at,omitempty"`
 }
 
-var repositoryGetQuery = `
+var repositoryGetQuery = keppel.SimplifyWhitespaceInSQL(`
 	WITH
 		manifest_stats AS (
 			SELECT repo_id, COUNT(*) AS count, SUM(size_bytes) AS size_bytes, MAX(pushed_at) AS pushed_at
@@ -58,7 +58,7 @@ var repositoryGetQuery = `
 	 WHERE r.account_name = $1 AND $CONDITION
 	 ORDER BY name ASC
 	 LIMIT $LIMIT
-`
+`)
 
 func (a *API) handleGetRepositories(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories")

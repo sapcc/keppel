@@ -84,12 +84,12 @@ func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
 
 //WARNING: This must be run in a transaction, or else `FOR UPDATE SKIP LOCKED`
 //will not work as expected.
-const getNextPeerQuery = `
+var getNextPeerQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT * FROM peers
 	 WHERE last_peered_at < $1 OR last_peered_at IS NULL
 	 ORDER BY COALESCE(last_peered_at, TO_TIMESTAMP(-1)) ASC LIMIT 1
 	   FOR UPDATE SKIP LOCKED
-`
+`)
 
 func tryIssueNewPasswordForPeer(cfg keppel.Configuration, db *keppel.DB) error {
 	tx, err := db.Begin()

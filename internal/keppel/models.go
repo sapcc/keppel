@@ -127,25 +127,25 @@ type Blob struct {
 	CanBeDeletedAt         *time.Time `db:"can_be_deleted_at"` //see tasks.SweepBlobsInNextAccount
 }
 
-const blobGetQueryByRepoName = `
+var blobGetQueryByRepoName = SimplifyWhitespaceInSQL(`
 	SELECT b.*
 	  FROM blobs b
 	  JOIN blob_mounts bm ON b.id = bm.blob_id
 	  JOIN repos r ON bm.repo_id = r.id
 	 WHERE b.account_name = $1 AND b.digest = $2
 	   AND r.account_name = $1 AND r.name = $3
-`
+`)
 
-const blobGetQueryByRepoID = `
+var blobGetQueryByRepoID = SimplifyWhitespaceInSQL(`
 	SELECT b.*
 	  FROM blobs b
 	  JOIN blob_mounts bm ON b.id = bm.blob_id
 	 WHERE b.account_name = $1 AND b.digest = $2 AND bm.repo_id = $3
-`
+`)
 
-const blobGetQueryByAccountName = `
+var blobGetQueryByAccountName = SimplifyWhitespaceInSQL(`
 	SELECT * FROM blobs WHERE account_name = $1 AND digest = $2
-`
+`)
 
 //FindBlobByRepositoryName is a convenience wrapper around db.SelectOne(). If
 //the blob in question does not exist, sql.ErrNoRows is returned.
@@ -195,9 +195,9 @@ type Upload struct {
 	UpdatedAt    time.Time `db:"updated_at"`
 }
 
-const uploadGetQueryByRepoID = `
+var uploadGetQueryByRepoID = SimplifyWhitespaceInSQL(`
 	SELECT u.* FROM uploads u WHERE u.uuid = $1 AND repo_id = $2
-`
+`)
 
 //FindUploadByRepository is a convenience wrapper around db.SelectOne(). If
 //the upload in question does not exist, sql.ErrNoRows is returned.
@@ -308,13 +308,13 @@ func DefaultQuotas(authTenantID string) *Quotas {
 	}
 }
 
-var manifestUsageQuery = `
+var manifestUsageQuery = SimplifyWhitespaceInSQL(`
 	SELECT COUNT(m.digest)
 	  FROM manifests m
 	  JOIN repos r ON m.repo_id = r.id
 	  JOIN accounts a ON a.name = r.account_name
 	 WHERE a.auth_tenant_id = $1
-`
+`)
 
 //GetManifestUsage returns how many manifests currently exist in repos in
 //accounts connected to this quota set's auth tenant.

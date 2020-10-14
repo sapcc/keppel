@@ -22,6 +22,7 @@ package keppel
 import (
 	"database/sql"
 	"net/url"
+	"regexp"
 
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/logg"
@@ -411,4 +412,14 @@ func WithPreparedStatement(dbi StmtPreparer, query string, action func(*sql.Stmt
 		return err
 	}
 	return stmt.Close()
+}
+
+var sqlWhitespaceOrCommentRx = regexp.MustCompile(`\s+(?m:--.*$)?`)
+
+//SimplifyWhitespaceInSQL takes an SQL query string that's hardcoded in the
+//program and simplifies all the whitespaces, esp. ensuring that there are no
+//comments and newlines. This makes the database log nicer when queries are
+//logged there (e.g. for running too long).
+func SimplifyWhitespaceInSQL(query string) string {
+	return sqlWhitespaceOrCommentRx.ReplaceAllString(query, " ")
 }

@@ -47,19 +47,19 @@ type Tag struct {
 	LastPulledAt *int64 `json:"last_pulled_at,keepempty"`
 }
 
-var manifestGetQuery = `
+var manifestGetQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT *
 	  FROM manifests
 	 WHERE repo_id = $1 AND $CONDITION
 	 ORDER BY digest ASC
 	 LIMIT $LIMIT
-`
+`)
 
-var tagGetQuery = `
+var tagGetQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT *
 	  FROM tags
 	 WHERE repo_id = $1 AND digest >= $2 AND digest <= $3
-`
+`)
 
 func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests")

@@ -28,19 +28,19 @@ import (
 )
 
 //query that finds the next upload to be cleaned up
-var abandonedUploadSearchQuery = `
+var abandonedUploadSearchQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT * FROM uploads WHERE updated_at < $1
 	ORDER BY updated_at ASC -- oldest uploads first
 	FOR UPDATE SKIP LOCKED  -- block concurrent continuation of upload
 	LIMIT 1                 -- one at a time
-`
+`)
 
 //query that finds the account belonging to an repo object
-var findAccountForRepoQuery = `
+var findAccountForRepoQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT a.* FROM accounts a
 	JOIN repos r ON r.account_name = a.name
 	WHERE r.id = $1
-`
+`)
 
 //DeleteNextAbandonedUpload cleans up uploads that have not been updated for more
 //than a day. At most one upload is cleaned up per call. If no upload needs to

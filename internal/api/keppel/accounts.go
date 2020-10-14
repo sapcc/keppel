@@ -591,22 +591,22 @@ func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-const (
-	deleteAccountFindManifestsQuery = `
+var (
+	deleteAccountFindManifestsQuery = keppel.SimplifyWhitespaceInSQL(`
 		SELECT r.name, m.digest
 			FROM manifests m
 			JOIN repos r ON m.repo_id = r.id
 			JOIN accounts a ON a.name = r.account_name
 		 WHERE a.name = $1
 		 LIMIT 10
-	`
-	deleteAccountCountManifestsQuery = `
+	`)
+	deleteAccountCountManifestsQuery = keppel.SimplifyWhitespaceInSQL(`
 		SELECT COUNT(m.digest)
 			FROM manifests m
 			JOIN repos r ON m.repo_id = r.id
 			JOIN accounts a ON a.name = r.account_name
 		 WHERE a.name = $1
-	`
+	`)
 	deleteAccountReposQuery                   = `DELETE FROM repos WHERE account_name = $1`
 	deleteAccountCountBlobsQuery              = `SELECT COUNT(id) FROM blobs WHERE account_name = $1`
 	deleteAccountScheduleBlobSweepQuery       = `UPDATE accounts SET next_blob_sweep_at = $2 WHERE name = $1`

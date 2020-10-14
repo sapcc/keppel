@@ -27,18 +27,18 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-const storageSweepSearchQuery = `
+var storageSweepSearchQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT * FROM accounts
 		WHERE next_storage_sweep_at IS NULL OR next_storage_sweep_at < $1
 	-- accounts without any sweeps first, then sorted by last sweep
 	ORDER BY next_storage_sweep_at IS NULL DESC, next_storage_sweep_at ASC
 	-- only one account at a time
 	LIMIT 1
-`
+`)
 
-const storageSweepDoneQuery = `
+var storageSweepDoneQuery = keppel.SimplifyWhitespaceInSQL(`
 	UPDATE accounts SET next_storage_sweep_at = $2 WHERE name = $1
-`
+`)
 
 //SweepStorageInNextAccount finds the next account where the backing storage
 //needs to be garbage-collected, and performs the GC. This entails a marking of
