@@ -24,7 +24,7 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/sapcc/go-bits/httpee"
+	"github.com/sapcc/go-bits/httpext"
 )
 
 //Middleware is a HTTP middleware that adds logging of requests and error
@@ -52,7 +52,7 @@ func (m Middleware) Wrap(h http.Handler) http.Handler {
 		if !m.isExcluded(r, writer.statusCode) {
 			Other(
 				"REQUEST", `%s - - "%s %s %s" %03d %d "%s" "%s"`,
-				httpee.GetRequesterIP(r),
+				httpext.GetRequesterIPFor(r),
 				r.Method, r.URL.String(), r.Proto,
 				writer.statusCode, writer.bytesWritten,
 				stringOrDefault("-", r.Header.Get("Referer")),
