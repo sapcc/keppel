@@ -1,6 +1,6 @@
 /*******************************************************************************
 *
-* Copyright 2018 SAP SE
+* Copyright 2018-2020 SAP SE
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -21,9 +21,10 @@ package logg
 
 import (
 	"bytes"
-	"net"
 	"net/http"
 	"regexp"
+
+	"github.com/sapcc/go-bits/httpee"
 )
 
 //Middleware is a HTTP middleware that adds logging of requests and error
@@ -51,7 +52,7 @@ func (m Middleware) Wrap(h http.Handler) http.Handler {
 		if !m.isExcluded(r, writer.statusCode) {
 			Other(
 				"REQUEST", `%s - - "%s %s %s" %03d %d "%s" "%s"`,
-				getRequesterIP(r),
+				httpee.GetRequesterIP(r),
 				r.Method, r.URL.String(), r.Proto,
 				writer.statusCode, writer.bytesWritten,
 				stringOrDefault("-", r.Header.Get("Referer")),
@@ -87,20 +88,6 @@ func stringOrDefault(defaultValue, value string) string {
 		return defaultValue
 	}
 	return value
-}
-
-func getRequesterIP(r *http.Request) string {
-	remoteAddr := r.RemoteAddr
-	if xForwardedFor := r.Header.Get("X-Forwarded-For"); xForwardedFor != "" {
-		remoteAddr = xForwardedFor
-	}
-
-	//strip port, if any
-	host, _, err := net.SplitHostPort(remoteAddr)
-	if err == nil {
-		return host
-	}
-	return remoteAddr
 }
 
 //A custom response writer that collects information about the response to

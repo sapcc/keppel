@@ -20,12 +20,12 @@
 package audittools
 
 import (
-	"net"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gofrs/uuid"
+	"github.com/sapcc/go-bits/httpee"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/hermes/pkg/cadf"
 )
@@ -94,7 +94,7 @@ func NewEvent(p EventParameters) cadf.Event {
 			Domain: p.User.UserDomainName(),
 			ID:     p.User.UserUUID(),
 			Host: &cadf.Host{
-				Address: tryStripPort(p.Request.RemoteAddr),
+				Address: httpee.GetRequesterIPFor(p.Request),
 				Agent:   p.Request.Header.Get("User-Agent"),
 			},
 			//information about user's scope (only one of both will be filled)
@@ -119,12 +119,4 @@ func GenerateUUID() string {
 		logg.Fatal(err.Error())
 	}
 	return u.String()
-}
-
-func tryStripPort(hostPort string) string {
-	host, _, err := net.SplitHostPort(hostPort)
-	if err == nil {
-		return host
-	}
-	return hostPort
 }

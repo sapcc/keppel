@@ -1,6 +1,6 @@
 /*******************************************************************************
 *
-* Copyright 2019 SAP SE
+* Copyright 2019-2020 SAP SE
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -17,12 +17,13 @@
 *
 *******************************************************************************/
 
-//Package httpee provides some convenience functions on top of the "http"
+//Package httpee provides some convenience functions on top of the "net/http"
 //package from the stdlib.
 package httpee
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -36,6 +37,9 @@ var shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
 
 // ContextWithSIGINT creates a new context.Context using the provided Context, and
 // launches a goroutine that cancels the Context when an interrupt signal is caught.
+//
+// This function is not strictly related to net/http, but fits nicely with func
+// ListenAndServeContext from this package.
 func ContextWithSIGINT(ctx context.Context) context.Context {
 	ctx, cancel := context.WithCancel(ctx)
 	signalChan := make(chan os.Signal, 1)
@@ -91,4 +95,21 @@ func ListenAndServeContext(ctx context.Context, addr string, handler http.Handle
 		logg.Error("Additional error encountered while shutting down server: %s", shutdownErr.Error())
 	}
 	return listenAndServeErr
+}
+
+//GetRequesterIPFor inspects an http.Request and returns the IP address of the
+//machine where the request originated (or the empty string if no IP can be
+//found in the request).
+func GetRequesterIPFor(r *http.Request) string {
+	remoteAddr := r.RemoteAddr
+	if xForwardedFor := r.Header.Get("X-Forwarded-For"); xForwardedFor != "" {
+		remoteAddr = xForwardedFor
+	}
+
+	//strip port, if any
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err == nil {
+		return host
+	}
+	return remoteAddr
 }
