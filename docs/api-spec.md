@@ -23,13 +23,13 @@ This document uses the terminology defined in the [README.md](../README.md#termi
 - [POST /keppel/v1/accounts/:name/sublease](#post-keppelv1accountsnamesublease)
 - [GET /keppel/v1/accounts/:name/repositories](#get-keppelv1accountsnamerepositories)
 - [DELETE /keppel/v1/accounts/:name/repositories/:name](#delete-keppelv1accountsnamerepositoriesname)
-- [GET /keppel/v1/accounts/:name/repositories/:name/\_manifests](#get-keppelv1accountsnamerepositoriesnamemanifests)
-- [DELETE /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest](#delete-keppelv1accountsnamerepositoriesnamemanifestsdigest)
+- [GET /keppel/v1/accounts/:name/repositories/:name/\_manifests](#get-keppelv1accountsnamerepositoriesname_manifests)
+- [DELETE /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest](#delete-keppelv1accountsnamerepositoriesname_manifestsdigest)
 - [GET /keppel/v1/auth](#get-keppelv1auth)
 - [POST /keppel/v1/auth/peering](#post-keppelv1authpeering)
 - [GET /keppel/v1/peers](#get-keppelv1peers)
-- [GET /keppel/v1/quotas/:auth\_tenant\_id](#get-keppelv1quotasauthtenantid)
-- [PUT /keppel/v1/quotas/:auth\_tenant\_id](#put-keppelv1quotasauthtenantid)
+- [GET /keppel/v1/quotas/:auth\_tenant\_id](#get-keppelv1quotasauth_tenant_id)
+- [PUT /keppel/v1/quotas/:auth\_tenant\_id](#put-keppelv1quotasauth_tenant_id)
 
 ## GET /keppel/v1
 
@@ -408,6 +408,7 @@ On success, returns 200 and a JSON response body like this:
     { "hostname": "keppel.example.com" }
   ]
 }
+```
 
 The following fields may be returned:
 
