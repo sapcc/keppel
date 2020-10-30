@@ -1,6 +1,6 @@
 /*******************************************************************************
 *
-* Copyright 2018 SAP SE
+* Copyright 2018-2020 SAP SE
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -36,6 +36,12 @@ type Account struct {
 
 	//UpstreamPeerHostName is set if and only if the "on_first_use" replication strategy is used.
 	UpstreamPeerHostName string `db:"upstream_peer_hostname"`
+	//ExternalPeerURL, ExternalPeerUserName and ExternalPeerPassword are set if
+	//and only if the "from_external_on_first_use" replication strategy is used.
+	ExternalPeerURL      string `db:"external_peer_url"`
+	ExternalPeerUserName string `db:"external_peer_username"`
+	ExternalPeerPassword string `db:"external_peer_password"`
+
 	//RequiredLabels is a comma-separated list of labels that must be present on
 	//all image manifests in this account.
 	RequiredLabels string `db:"required_labels"`

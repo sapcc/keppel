@@ -60,7 +60,13 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	if err == sql.ErrNoRows {
 		//if the manifest does not exist there, we may have the option of replicating
 		//from upstream
-		if account.UpstreamPeerHostName != "" && !account.InMaintenance {
+		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.InMaintenance {
+			//when replicating from external, only authenticated users can trigger the replication
+			if account.ExternalPeerURL != "" && token.UserName == "" {
+				keppel.ErrDenied.With("image does not exist here, and anonymous users may not replicate images").WriteAsRegistryV2ResponseTo(w, r)
+				return
+			}
+
 			dbManifest, manifestBytes, err = a.processor().ReplicateManifest(*account, *repo, reference)
 			if respondWithError(w, r, err) {
 				return
@@ -240,6 +246,13 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	if account.UpstreamPeerHostName != "" {
 		msg := fmt.Sprintf("cannot push into replica account (push to %s/%s/%s instead!)",
 			account.UpstreamPeerHostName, account.Name, repo.Name,
+		)
+		keppel.ErrUnsupported.With(msg).WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w, r)
+		return
+	}
+	if account.ExternalPeerURL != "" {
+		msg := fmt.Sprintf("cannot push into external replica account (push to %s/%s instead!)",
+			account.ExternalPeerURL, repo.Name,
 		)
 		keppel.ErrUnsupported.With(msg).WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w, r)
 		return

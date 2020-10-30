@@ -218,7 +218,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			//test GET via anycast
 			if currentScenario.WithAnycast {
-				testWithReplica(t, h, db, clock, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+				testWithReplica(t, h, db, clock, "on_first_use", func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
 					testAnycast(t, firstPass, db2, func() {
 						anycastToken := getTokenForAnycast(t, h, ad, "repository:test1/foo:pull",
 							keppel.CanPullFromAccount)

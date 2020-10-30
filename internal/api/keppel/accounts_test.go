@@ -947,8 +947,8 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 				"replication":    assert.JSONObject{"strategy": "yes_please"},
 			},
 		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("unknown replication strategy: \"yes_please\"\n"),
+		ExpectStatus: http.StatusBadRequest,
+		ExpectBody:   assert.StringData("request body is not valid JSON: do not know how to deserialize ReplicationPolicy with strategy \"yes_please\"\n"),
 	}.Check(t, r)
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -1105,6 +1105,258 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 				"replication": assert.JSONObject{
 					"strategy": "on_first_use",
 					"upstream": "peer.example.org",
+				},
+			},
+		},
+		ExpectStatus: http.StatusConflict,
+		ExpectBody:   assert.StringData("cannot change replication policy on existing account\n"),
+	}.Check(t, r)
+}
+
+func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
+	r, _, fd, _, _, _ := setup(t)
+
+	//test error cases on creation
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"replication": assert.JSONObject{
+					"strategy": "from_external_on_first_use",
+					"upstream": "registry.example.org",
+				},
+			},
+		},
+		ExpectStatus: http.StatusBadRequest,
+		ExpectBody:   assert.StringData("request body is not valid JSON: json: cannot unmarshal string into Go struct field .account.replication of type keppelv1.ReplicationExternalPeerSpec\n"),
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"replication": assert.JSONObject{
+					"strategy": "from_external_on_first_use",
+					"upstream": assert.JSONObject{
+						"not": "what-you-expect",
+					},
+				},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("missing upstream URL for \"from_external_on_first_use\" replication\n"),
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"replication": assert.JSONObject{
+					"strategy": "from_external_on_first_use",
+					"upstream": assert.JSONObject{
+						"url":      "registry.example.com",
+						"username": "keks",
+					},
+				},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("need either both username and password or neither for \"from_external_on_first_use\" replication\n"),
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"replication": assert.JSONObject{
+					"strategy": "from_external_on_first_use",
+					"upstream": assert.JSONObject{
+						"url":      "registry.example.com",
+						"password": "keks",
+					},
+				},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("need either both username and password or neither for \"from_external_on_first_use\" replication\n"),
+	}.Check(t, r)
+
+	//test PUT success case
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"replication": assert.JSONObject{
+					"strategy": "from_external_on_first_use",
+					"upstream": assert.JSONObject{
+						"url": "registry.example.com",
+					},
+				},
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+				"in_maintenance": false,
+				"metadata":       assert.JSONObject{},
+				"rbac_policies":  []assert.JSONObject{},
+				"replication": assert.JSONObject{
+					"strategy": "from_external_on_first_use",
+					"upstream": assert.JSONObject{
+						"url": "registry.example.com",
+					},
+				},
+			},
+		},
+	}.Check(t, r)
+
+	//PUT on existing account with replication unspecified is okay, leaves
+	//replication settings unchanged
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+				"in_maintenance": false,
+				"metadata":       assert.JSONObject{},
+				"rbac_policies":  []assert.JSONObject{},
+				"replication": assert.JSONObject{
+					"strategy": "from_external_on_first_use",
+					"upstream": assert.JSONObject{
+						"url": "registry.example.com",
+					},
+				},
+			},
+		},
+	}.Check(t, r)
+
+	//test PUT on existing account to update replication credentials
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"replication": assert.JSONObject{
+					"strategy": "from_external_on_first_use",
+					"upstream": assert.JSONObject{
+						"url":      "registry.example.com",
+						"username": "foo",
+						"password": "bar",
+					},
+				},
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+				"in_maintenance": false,
+				"metadata":       assert.JSONObject{},
+				"rbac_policies":  []assert.JSONObject{},
+				"replication": assert.JSONObject{
+					"strategy": "from_external_on_first_use",
+					"upstream": assert.JSONObject{
+						"url":      "registry.example.com",
+						"username": "foo",
+						"password": "bar",
+					},
+				},
+			},
+		},
+	}.Check(t, r)
+
+	//test sublease token issuance on account (external replicas count as primary
+	//accounts for the purposes of account name subleasing)
+	fd.NextSubleaseTokenSecretToIssue = "this-is-the-token"
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/keppel/v1/accounts/first/sublease",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
+		ExpectStatus: http.StatusOK,
+		ExpectBody:   assert.JSONObject{"sublease_token": makeSubleaseToken("first", "registry.example.org", "this-is-the-token")},
+	}.Check(t, r)
+
+	//PUT on existing account with different replication settings is not allowed
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"replication": assert.JSONObject{
+					"strategy": "from_external_on_first_use",
+					"upstream": assert.JSONObject{
+						"url":      "other-registry.example.com",
+						"username": "foo",
+						"password": "bar",
+					},
+				},
+			},
+		},
+		ExpectStatus: http.StatusConflict,
+		ExpectBody:   assert.StringData("cannot change replication policy on existing account\n"),
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/second",
+		Header: map[string]string{"X-Test-Perms": "change:tenant2"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant2",
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "second",
+				"auth_tenant_id": "tenant2",
+				"in_maintenance": false,
+				"metadata":       assert.JSONObject{},
+				"rbac_policies":  []assert.JSONObject{},
+			},
+		},
+	}.Check(t, r)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/second",
+		Header: map[string]string{"X-Test-Perms": "change:tenant2"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant2",
+				"replication": assert.JSONObject{
+					"strategy": "from_external_on_first_use",
+					"upstream": assert.JSONObject{
+						"url":      "other-registry.example.com",
+						"username": "foo",
+						"password": "bar",
+					},
 				},
 			},
 		},

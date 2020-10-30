@@ -285,7 +285,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	if strategy == createRepoIfMissing {
 		canCreateRepoIfMissing = true
 	} else if strategy == createRepoIfMissingAndReplica {
-		canCreateRepoIfMissing = account.UpstreamPeerHostName != ""
+		canCreateRepoIfMissing = account.UpstreamPeerHostName != "" || (account.ExternalPeerURL != "" && token.UserName != "")
 	}
 
 	var repo *keppel.Repository

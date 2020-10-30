@@ -75,12 +75,7 @@ func (j *Janitor) ValidateNextManifest() (returnErr error) {
 	//perform validation
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	opts := retryOpts{
-		ctx:         ctx,
-		period:      5 * time.Second,
-		maxAttempts: 10,
-	}
-	err = retry(opts, func() error {
+	err = retry(ctx, defaultRetryOpts, func() error {
 		return j.processor().ValidateExistingManifest(*account, repo, &manifest, j.timeNow())
 	})
 	if err == nil {

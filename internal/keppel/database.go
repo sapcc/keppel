@@ -1,6 +1,6 @@
 /*******************************************************************************
 *
-* Copyright 2018 SAP SE
+* Copyright 2018-2020 SAP SE
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -326,6 +326,18 @@ var sqlMigrations = map[string]string{
 	`,
 	"015_add_tags_last_pulled_at.down.sql": `
 		ALTER TABLE tags DROP COLUMN last_pulled_at;
+	`,
+	"016_add_account_external_replica_credentials.up.sql": `
+	ALTER TABLE accounts
+		ADD COLUMN external_peer_url      TEXT DEFAULT NULL,
+		ADD COLUMN external_peer_username TEXT DEFAULT NULL,
+		ADD COLUMN external_peer_password TEXT DEFAULT NULL;
+	`,
+	"016_add_account_external_replica_credentials.down.sql": `
+	ALTER TABLE accounts
+		DROP COLUMN external_peer_url,
+		DROP COLUMN external_peer_username,
+		DROP COLUMN external_peer_password;
 	`,
 }
 

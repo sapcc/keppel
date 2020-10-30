@@ -63,6 +63,13 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 		keppel.ErrUnsupported.With(msg).WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
+	if account.ExternalPeerURL != "" {
+		msg := fmt.Sprintf("cannot push into external replica account (push to %s/%s instead!)",
+			account.ExternalPeerURL, repo.Name,
+		)
+		keppel.ErrUnsupported.With(msg).WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w, r)
+		return
+	}
 
 	//forbid pushing during maintenance
 	if account.InMaintenance {

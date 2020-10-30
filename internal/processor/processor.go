@@ -22,6 +22,7 @@ package processor
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
@@ -136,26 +137,45 @@ func (p *Processor) checkQuotaForManifestPush(account keppel.Account) error {
 func (p *Processor) getRepoClientForUpstream(account keppel.Account, repo keppel.Repository) (*client.RepoClient, error) {
 	//use cached client if possible (this one probably already contains a valid
 	//pull token)
-	if c, ok := p.repoClients[account.Name]; ok {
+	if c, ok := p.repoClients[repo.FullName()]; ok {
 		return c, nil
 	}
 
-	if account.UpstreamPeerHostName == "" {
-		return nil, fmt.Errorf("account %q is not a replica", account.Name)
-	}
-	var peer keppel.Peer
-	err := p.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, account.UpstreamPeerHostName)
-	if err != nil {
-		return nil, err
+	if account.UpstreamPeerHostName != "" {
+		var peer keppel.Peer
+		err := p.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, account.UpstreamPeerHostName)
+		if err != nil {
+			return nil, err
+		}
+
+		c := &client.RepoClient{
+			Scheme:   "https",
+			Host:     peer.HostName,
+			RepoName: repo.FullName(),
+			UserName: "replication@" + p.cfg.APIPublicURL.Hostname(),
+			Password: peer.OurPassword,
+		}
+		p.repoClients[repo.FullName()] = c
+		return c, nil
 	}
 
-	c := &client.RepoClient{
-		Scheme:   "https",
-		Host:     peer.HostName,
-		RepoName: repo.FullName(),
-		UserName: "replication@" + p.cfg.APIPublicURL.Hostname(),
-		Password: peer.OurPassword,
+	if account.ExternalPeerURL != "" {
+		c := &client.RepoClient{
+			Scheme:   "https",
+			UserName: account.ExternalPeerUserName,
+			Password: account.ExternalPeerPassword,
+		}
+		if strings.Contains(account.ExternalPeerURL, "/") {
+			fields := strings.SplitN(account.ExternalPeerURL, "/", 2)
+			c.Host = fields[0]
+			c.RepoName = fmt.Sprintf("%s/%s", fields[1], repo.Name)
+		} else {
+			c.Host = account.ExternalPeerURL
+			c.RepoName = repo.Name
+		}
+		p.repoClients[repo.FullName()] = c
+		return c, nil
 	}
-	p.repoClients[account.Name] = c
-	return c, nil
+
+	return nil, fmt.Errorf("account %q does not have an upstream", account.Name)
 }
