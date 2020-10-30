@@ -328,16 +328,36 @@ var sqlMigrations = map[string]string{
 		ALTER TABLE tags DROP COLUMN last_pulled_at;
 	`,
 	"016_add_account_external_replica_credentials.up.sql": `
-	ALTER TABLE accounts
-		ADD COLUMN external_peer_url      TEXT DEFAULT NULL,
-		ADD COLUMN external_peer_username TEXT DEFAULT NULL,
-		ADD COLUMN external_peer_password TEXT DEFAULT NULL;
+		ALTER TABLE accounts
+			ADD COLUMN external_peer_url      TEXT DEFAULT NULL,
+			ADD COLUMN external_peer_username TEXT DEFAULT NULL,
+			ADD COLUMN external_peer_password TEXT DEFAULT NULL;
 	`,
 	"016_add_account_external_replica_credentials.down.sql": `
-	ALTER TABLE accounts
-		DROP COLUMN external_peer_url,
-		DROP COLUMN external_peer_username,
-		DROP COLUMN external_peer_password;
+		ALTER TABLE accounts
+			DROP COLUMN external_peer_url,
+			DROP COLUMN external_peer_username,
+			DROP COLUMN external_peer_password;
+	`,
+	"017_fix_datatypes.up.sql": `
+		ALTER TABLE accounts
+			DROP COLUMN external_peer_url,
+			DROP COLUMN external_peer_username,
+			DROP COLUMN external_peer_password;
+		ALTER TABLE accounts
+			ADD COLUMN external_peer_url      TEXT NOT NULL DEFAULT '',
+			ADD COLUMN external_peer_username TEXT NOT NULL DEFAULT '',
+			ADD COLUMN external_peer_password TEXT NOT NULL DEFAULT '';
+	`,
+	"017_fix_datatypes.down.sql": `
+		ALTER TABLE accounts
+			DROP COLUMN external_peer_url,
+			DROP COLUMN external_peer_username,
+			DROP COLUMN external_peer_password;
+		ALTER TABLE accounts
+			ADD COLUMN external_peer_url      TEXT DEFAULT NULL,
+			ADD COLUMN external_peer_username TEXT DEFAULT NULL,
+			ADD COLUMN external_peer_password TEXT DEFAULT NULL;
 	`,
 }
 
