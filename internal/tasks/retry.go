@@ -25,33 +25,39 @@ import (
 )
 
 type retryOpts struct {
-	ctx         context.Context
-	period      time.Duration
-	maxAttempts int
+	Period      time.Duration
+	MaxAttempts int
+}
+
+//defaultRetryOpts is the default setting for retryOpts. This is in a variable
+//so the unit tests can dial it back to avoid useless waits.
+var defaultRetryOpts = retryOpts{
+	Period:      5 * time.Second,
+	MaxAttempts: 10,
 }
 
 //retry will run action every retryOpts.period until:
 //  1. the action is successful (err == nil)
 //  2. the retryOpts.maxAttempts elapses
 //  3. the context expires
-func retry(o retryOpts, action func() error) error {
+func retry(ctx context.Context, o retryOpts, action func() error) error {
 	var err error
 	i := 0
 
 LOOP:
 	for {
 		select {
-		case <-o.ctx.Done():
+		case <-ctx.Done():
 			break LOOP
 		default:
-			if i == o.maxAttempts {
+			if i == o.MaxAttempts {
 				break LOOP
 			}
 			if err = action(); err == nil {
 				return nil
 			}
 			i++
-			time.Sleep(o.period)
+			time.Sleep(o.Period)
 		}
 	}
 
