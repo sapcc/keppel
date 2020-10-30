@@ -168,8 +168,8 @@ func TestAnycastRateLimits(t *testing.T) {
 			keppel.CanPushToAccount)
 		uploadBlob(t, h, uploadToken, "test1/foo", blob)
 
-		//pull it via anycast - twice is allowed by the
-		testWithReplica(t, h, db, clock, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+		//pull it via anycast
+		testWithReplica(t, h, db, clock, "on_first_use", func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
 			clock.StepBy(time.Hour) //reset all rate limits
 			testAnycast(t, firstPass, db2, func() {
 

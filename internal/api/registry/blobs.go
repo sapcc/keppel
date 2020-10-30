@@ -65,7 +65,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 
 	//if this blob has not been replicated...
 	if blob.StorageID == "" {
-		if account.UpstreamPeerHostName == "" {
+		if account.UpstreamPeerHostName == "" && account.ExternalPeerURL == "" {
 			//defense in depth: unbacked blobs should not exist in non-replica accounts
 			keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w, r)
 			return

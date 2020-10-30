@@ -107,7 +107,7 @@ func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(http
 	}
 }
 
-func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.Clock, action func(bool, http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver)) {
+func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.Clock, strategy string, action func(bool, http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver)) {
 	opts := currentScenario
 	opts.IsSecondary = true
 	cfg2, db2 := test.Setup(t, &opts)
@@ -144,9 +144,18 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 
 	//set up a dummy account for testing
 	testAccount := keppel.Account{
-		Name:                 "test1",
-		AuthTenantID:         "test1authtenant",
-		UpstreamPeerHostName: "registry.example.org",
+		Name:         "test1",
+		AuthTenantID: "test1authtenant",
+	}
+	switch strategy {
+	case "on_first_use":
+		testAccount.UpstreamPeerHostName = "registry.example.org"
+	case "from_external_on_first_use":
+		testAccount.ExternalPeerURL = "registry.example.org/test1"
+		testAccount.ExternalPeerUserName = "replication@registry-secondary.example.org"
+		testAccount.ExternalPeerPassword = replicationPassword
+	default:
+		t.Fatalf("unknown strategy: %q", strategy)
 	}
 	err = db2.Insert(&testAccount)
 	if err != nil {
@@ -197,16 +206,26 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 	}()
 
 	//run the testcase once with the primary registry available
+	t.Logf("running first pass for strategy %s", strategy)
 	action(true, h2, cfg2, db2, ad2.(*test.AuthDriver), sd2.(*test.StorageDriver))
 	if t.Failed() {
 		t.FailNow()
 	}
 
 	//sever the network connection to the primary registry and re-run all testcases
+	t.Logf("running second pass for strategy %s", strategy)
 	http.DefaultClient.Transport = nil
 	action(false, h2, cfg2, db2, ad2.(*test.AuthDriver), sd2.(*test.StorageDriver))
 	if t.Failed() {
 		t.FailNow()
+	}
+}
+
+func testWithAllReplicaTypes(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.Clock, action func(string, bool, http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver)) {
+	for _, strategy := range []string{"on_first_use", "from_external_on_first_use"} {
+		testWithReplica(t, h1, db1, clock, strategy, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+			action(strategy, firstPass, h2, cfg2, db2, ad2, sd2)
+		})
 	}
 }
 
