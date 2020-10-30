@@ -133,6 +133,28 @@ The following fields are shown on accounts configured with this strategy:
 | `accounts[].replication.strategy` | string | The string `on_first_use`. |
 | `accounts[].replication.upstream` | string | The hostname of the upstream registry. Must be one of the peers configured for this registry by its operator. |
 
+#### Strategy: `from_external_on_first_use`
+
+This behaves mostly identically to `on_first_use`, but can pull from any registry implementing the OCI Distribution
+Spec, including public registries like Docker Hub or GCR. Since there is no way for Keppel to negotiate service users
+with these registries, the user must supply pull credentials (or else anonymous access is used for pulling, meaning that
+only publicly accessible images can be replicated). Note that:
+
+- Accounts with this strategy can be replicated from by other peer registries. For instance, an account with
+  `on_first_use` in a peer registry can pull from an account with `from_external_on_first_use` in this registry.
+- Pulling an image from this account requires a non-anonymous token when the image is pulled for the first time. This is
+  a safety measure to prevent external users from leeching off some other team who configured their account to pull from
+  a popular public registry and enabled anonymous pulling. In this scenario, only the team members of the team hosting
+  the account can decide to host images in the account by explicitly pulling them for the first time.
+
+The following fields are shown on accounts configured with this strategy:
+
+| Field | Type | Explanation |
+| ----- | ---- | ----------- |
+| `accounts[].replication.strategy` | string | The string `from_external_on_first_use`. |
+| `accounts[].replication.upstream.url` | string | The URL from which images are pulled. This may refer to either a public registry's domain name (e.g. `registry-1.docker.io` for Docker Hub) or a subpath below its domain name (e.g. `gcr.io/google_containers`). |
+| `accounts[].replication.upstream.username`<br>`accounts[].replication.upstream.password` | string, optional | The credentials that this registry logs in with to replicate images from upstream. If not given, anonymous login is used. |
+
 ### Maintenance mode
 
 When `accounts[].in_maintenance` is true, the following differences in behavior apply to this account:
