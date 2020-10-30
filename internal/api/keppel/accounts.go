@@ -59,13 +59,65 @@ type RBACPolicy struct {
 
 //ReplicationPolicy represents a replication policy in the API.
 type ReplicationPolicy struct {
-	Strategy             string `json:"strategy"`
-	UpstreamPeerHostName string `json:"upstream"`
+	Strategy string
+	//only for `on_first_use`
+	UpstreamPeerHostName string
+	//only for `from_external_on_first_use`
+	ExternalPeer ReplicationExternalPeerSpec
+}
+
+//ReplicationExternalPeerSpec appears in type ReplicationPolicy.
+type ReplicationExternalPeerSpec struct {
+	URL      string `json:"url"`
+	UserName string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
 //ValidationPolicy represents a validation policy in the API.
 type ValidationPolicy struct {
 	RequiredLabels []string `json:"required_labels,omitempty"`
+}
+
+//MarshalJSON implements the json.Marshaler interface.
+func (r ReplicationPolicy) MarshalJSON() ([]byte, error) {
+	switch r.Strategy {
+	case "on_first_use":
+		data := struct {
+			Strategy             string `json:"strategy"`
+			UpstreamPeerHostName string `json:"upstream"`
+		}{r.Strategy, r.UpstreamPeerHostName}
+		return json.Marshal(data)
+	case "from_external_on_first_use":
+		data := struct {
+			Strategy     string                      `json:"strategy"`
+			ExternalPeer ReplicationExternalPeerSpec `json:"upstream"`
+		}{r.Strategy, r.ExternalPeer}
+		return json.Marshal(data)
+	default:
+		return nil, fmt.Errorf("do not know how to serialize ReplicationPolicy with strategy %q", r.Strategy)
+	}
+}
+
+//UnmarshalJSON implements the json.Unmarshaler interface.
+func (r *ReplicationPolicy) UnmarshalJSON(buf []byte) error {
+	var s struct {
+		Strategy string          `json:"strategy"`
+		Upstream json.RawMessage `json:"upstream"`
+	}
+	err := json.Unmarshal(buf, &s)
+	if err != nil {
+		return err
+	}
+	r.Strategy = s.Strategy
+
+	switch r.Strategy {
+	case "on_first_use":
+		return json.Unmarshal(s.Upstream, &r.UpstreamPeerHostName)
+	case "from_external_on_first_use":
+		return json.Unmarshal(s.Upstream, &r.ExternalPeer)
+	default:
+		return fmt.Errorf("do not know how to deserialize ReplicationPolicy with strategy %q", r.Strategy)
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -103,14 +155,25 @@ func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
 }
 
 func renderReplicationPolicy(dbAccount keppel.Account) *ReplicationPolicy {
-	if dbAccount.UpstreamPeerHostName == "" {
-		return nil
+	if dbAccount.UpstreamPeerHostName != "" {
+		return &ReplicationPolicy{
+			Strategy:             "on_first_use",
+			UpstreamPeerHostName: dbAccount.UpstreamPeerHostName,
+		}
 	}
 
-	return &ReplicationPolicy{
-		Strategy:             "on_first_use",
-		UpstreamPeerHostName: dbAccount.UpstreamPeerHostName,
+	if dbAccount.ExternalPeerURL != "" {
+		return &ReplicationPolicy{
+			Strategy: "from_external_on_first_use",
+			ExternalPeer: ReplicationExternalPeerSpec{
+				URL:      dbAccount.ExternalPeerURL,
+				UserName: dbAccount.ExternalPeerUserName,
+				Password: dbAccount.ExternalPeerPassword,
+			},
+		}
 	}
+
+	return nil
 }
 
 func renderValidationPolicy(dbAccount keppel.Account) *ValidationPolicy {
@@ -319,21 +382,31 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	//validate replication policy
 	if req.Account.ReplicationPolicy != nil {
 		rp := *req.Account.ReplicationPolicy
-		if rp.Strategy != "on_first_use" {
-			http.Error(w, fmt.Sprintf(`unknown replication strategy: %q`, rp.Strategy), http.StatusUnprocessableEntity)
-			return
-		}
 
-		peerCount, err := a.db.SelectInt(`SELECT COUNT(*) FROM peers WHERE hostname = $1`, rp.UpstreamPeerHostName)
-		if respondwith.ErrorText(w, err) {
-			return
+		switch rp.Strategy {
+		case "on_first_use":
+			peerCount, err := a.db.SelectInt(`SELECT COUNT(*) FROM peers WHERE hostname = $1`, rp.UpstreamPeerHostName)
+			if respondwith.ErrorText(w, err) {
+				return
+			}
+			if peerCount == 0 {
+				http.Error(w, fmt.Sprintf(`unknown peer registry: %q`, rp.UpstreamPeerHostName), http.StatusUnprocessableEntity)
+				return
+			}
+			accountToCreate.UpstreamPeerHostName = rp.UpstreamPeerHostName
+		case "from_external_on_first_use":
+			if rp.ExternalPeer.URL == "" {
+				http.Error(w, `missing upstream URL for "from_external_on_first_use" replication`, http.StatusUnprocessableEntity)
+				return
+			}
+			if (rp.ExternalPeer.UserName == "") != (rp.ExternalPeer.Password == "") {
+				http.Error(w, `need either both username and password or neither for "from_external_on_first_use" replication`, http.StatusUnprocessableEntity)
+				return
+			}
+			accountToCreate.ExternalPeerURL = rp.ExternalPeer.URL
+			accountToCreate.ExternalPeerUserName = rp.ExternalPeer.UserName
+			accountToCreate.ExternalPeerPassword = rp.ExternalPeer.Password
 		}
-		if peerCount == 0 {
-			http.Error(w, fmt.Sprintf(`unknown peer registry: %q`, rp.UpstreamPeerHostName), http.StatusUnprocessableEntity)
-			return
-		}
-
-		accountToCreate.UpstreamPeerHostName = rp.UpstreamPeerHostName
 	}
 
 	//validate validation policy
@@ -370,7 +443,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//replication strategy may not be changed after account creation
-	if account != nil && req.Account.ReplicationPolicy != nil && !reflect.DeepEqual(req.Account.ReplicationPolicy, renderReplicationPolicy(*account)) {
+	if account != nil && req.Account.ReplicationPolicy != nil && !replicationPoliciesFunctionallyEqual(req.Account.ReplicationPolicy, renderReplicationPolicy(*account)) {
 		http.Error(w, `cannot change replication policy on existing account`, http.StatusConflict)
 		return
 	}
@@ -450,6 +523,14 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			account.RequiredLabels = accountToCreate.RequiredLabels
 			needsUpdate = true
 		}
+		if account.ExternalPeerUserName != accountToCreate.ExternalPeerUserName {
+			account.ExternalPeerUserName = accountToCreate.ExternalPeerUserName
+			needsUpdate = true
+		}
+		if account.ExternalPeerPassword != accountToCreate.ExternalPeerPassword {
+			account.ExternalPeerPassword = accountToCreate.ExternalPeerPassword
+			needsUpdate = true
+		}
 		if needsUpdate {
 			_, err := a.db.Update(account)
 			if respondwith.ErrorText(w, err) {
@@ -485,6 +566,28 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"account": accountRendered})
+}
+
+//Like reflect.DeepEqual, but ignores some fields that are allowed to be
+//updated after account creation.
+func replicationPoliciesFunctionallyEqual(lhs *ReplicationPolicy, rhs *ReplicationPolicy) bool {
+	//one nil and one non-nil is not equal
+	if (lhs == nil) != (rhs == nil) {
+		return false
+	}
+	//two nil's are equal
+	if lhs == nil {
+		return true
+	}
+
+	//ignore pull credentials (the user shall be able to change these after account creation)
+	lhsClone := *lhs
+	rhsClone := *rhs
+	lhsClone.ExternalPeer.UserName = ""
+	lhsClone.ExternalPeer.Password = ""
+	rhsClone.ExternalPeer.UserName = ""
+	rhsClone.ExternalPeer.Password = ""
+	return reflect.DeepEqual(lhsClone, rhsClone)
 }
 
 func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPolicy, submitAudit func(action string, target AuditRBACPolicy)) error {
