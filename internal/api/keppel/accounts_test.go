@@ -1284,7 +1284,6 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 					"upstream": assert.JSONObject{
 						"url":      "registry.example.com",
 						"username": "foo",
-						"password": "bar",
 					},
 				},
 			},

@@ -168,7 +168,7 @@ func renderReplicationPolicy(dbAccount keppel.Account) *ReplicationPolicy {
 			ExternalPeer: ReplicationExternalPeerSpec{
 				URL:      dbAccount.ExternalPeerURL,
 				UserName: dbAccount.ExternalPeerUserName,
-				Password: dbAccount.ExternalPeerPassword,
+				//NOTE: Password is omitted here for security reasons
 			},
 		}
 	}
