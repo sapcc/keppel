@@ -155,6 +155,8 @@ The following fields are shown on accounts configured with this strategy:
 | `accounts[].replication.upstream.url` | string | The URL from which images are pulled. This may refer to either a public registry's domain name (e.g. `registry-1.docker.io` for Docker Hub) or a subpath below its domain name (e.g. `gcr.io/google_containers`). |
 | `accounts[].replication.upstream.username`<br>`accounts[].replication.upstream.password` | string, optional | The credentials that this registry logs in with to replicate images from upstream. If not given, anonymous login is used. |
 
+Note that the `accounts[].replication.upstream.password` field is omitted from GET responses for security reasons.
+
 ### Maintenance mode
 
 When `accounts[].in_maintenance` is true, the following differences in behavior apply to this account:
