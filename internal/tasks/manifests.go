@@ -111,7 +111,7 @@ var syncManifestRepoSelectQuery = keppel.SimplifyWhitespaceInSQL(`
 		JOIN accounts a ON r.account_name = a.name
 		WHERE (r.next_manifest_sync_at IS NULL OR r.next_manifest_sync_at < $1)
 		-- only consider repos in replica accounts
-		AND a.upstream_peer_hostname != ''
+		AND (a.upstream_peer_hostname != '' OR a.external_peer_url != '')
 	-- repos without any syncs first, then sorted by last sync
 	ORDER BY r.next_manifest_sync_at IS NULL DESC, r.next_manifest_sync_at ASC
 	-- only one repo at a time
