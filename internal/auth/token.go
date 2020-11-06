@@ -82,6 +82,12 @@ type Token struct {
 	Access []Scope
 }
 
+//IsRegularUser indicates if this token is for a regular user, not for an
+//anonymous user or an internal service user.
+func (t Token) IsRegularUser() bool {
+	return t.UserName != "" && !strings.HasPrefix(t.UserName, "replication@")
+}
+
 //TokenClaims is the type for JWT claims issued by Keppel.
 type TokenClaims struct {
 	jwt.StandardClaims
