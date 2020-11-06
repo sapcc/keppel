@@ -6,7 +6,7 @@ RUN make -C /src install PREFIX=/pkg GO_BUILDFLAGS='-mod vendor'
 
 ################################################################################
 
-FROM alpine:latest
+FROM alpine:3.12
 LABEL source_repository="https://github.com/sapcc/keppel"
 
 RUN apk add --no-cache ca-certificates
