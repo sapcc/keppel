@@ -96,6 +96,11 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if !accepted {
+			if logg.ShowDebug {
+				for _, acceptHeader := range r.Header["Accept"] {
+					logg.Debug("manifest type %s is not covered by Accept: %s", acceptHeader)
+				}
+			}
 			msg := fmt.Sprintf("manifest type %s is not covered by Accept header", dbManifest.MediaType)
 			keppel.ErrManifestUnknown.With(msg).WriteAsRegistryV2ResponseTo(w, r)
 			return
