@@ -90,7 +90,11 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 			for _, acceptField := range strings.Split(acceptHeader, ",") {
 				acceptField = strings.SplitN(acceptField, ";", 2)[0]
 				acceptField = strings.TrimSpace(acceptField)
-				if acceptField == dbManifest.MediaType || acceptField == "*/*" { // Accept: */* is used by curl(1)
+				// Accept: */* is used by curl(1)
+				// Accept: application/json is used by go-containerregistry
+				//         (they also send application/vnd.docker.distribution.manifest.v2+json
+				//         with higher prio, but that doesn't help when we have an image list manifest)
+				if acceptField == dbManifest.MediaType || acceptField == "application/json" || acceptField == "*/*" {
 					accepted = true
 				}
 			}
@@ -98,7 +102,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		if !accepted {
 			if logg.ShowDebug {
 				for _, acceptHeader := range r.Header["Accept"] {
-					logg.Debug("manifest type %s is not covered by Accept: %s", acceptHeader)
+					logg.Debug("manifest type %s is not covered by Accept: %s", dbManifest.MediaType, acceptHeader)
 				}
 			}
 			msg := fmt.Sprintf("manifest type %s is not covered by Accept header", dbManifest.MediaType)
