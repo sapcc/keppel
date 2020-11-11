@@ -211,6 +211,7 @@ type ImageList struct {
 //deterministic manner.
 func GenerateImageList(imageManifests ...Bytes) ImageList {
 	manifestDescs := []map[string]interface{}{}
+	testArchStrings := []string{"amd64", "arm", "arm64", "386", "ppc64le", "s390x"}
 	for idx, m := range imageManifests {
 		manifestDescs = append(manifestDescs, map[string]interface{}{
 			"mediaType": m.MediaType,
@@ -218,7 +219,7 @@ func GenerateImageList(imageManifests ...Bytes) ImageList {
 			"digest":    m.Digest.String(),
 			"platform": map[string]string{
 				"os":           "linux",
-				"architecture": fmt.Sprintf("dummy%d", idx),
+				"architecture": testArchStrings[idx],
 			},
 		})
 	}
