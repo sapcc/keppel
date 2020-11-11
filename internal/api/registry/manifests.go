@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-*  Copyright 2019 SAP SE
+*  Copyright 2019-2020 SAP SE
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/docker/distribution"
+	"github.com/docker/distribution/manifest/manifestlist"
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
@@ -86,6 +88,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	//verify Accept header, if any
 	if r.Header.Get("Accept") != "" {
 		accepted := false
+		acceptableByRecursingIntoDefaultImage := false
 		for _, acceptHeader := range r.Header["Accept"] {
 			for _, acceptField := range strings.Split(acceptHeader, ",") {
 				acceptField = strings.SplitN(acceptField, ";", 2)[0]
@@ -97,8 +100,39 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				if acceptField == dbManifest.MediaType || acceptField == "application/json" || acceptField == "*/*" {
 					accepted = true
 				}
+				// Accept: application/vnd.docker.distribution.manifest.v2+json is an ultra-special case (see below)
+				if acceptField == "application/vnd.docker.distribution.manifest.v2+json" {
+					if dbManifest.MediaType == "application/vnd.docker.distribution.manifest.list.v2+json" {
+						acceptableByRecursingIntoDefaultImage = true
+					}
+				}
 			}
 		}
+
+		if !accepted && acceptableByRecursingIntoDefaultImage {
+			//We have an application/vnd.docker.distribution.manifest.list.v2+json manifest, but the
+			//client only accepts application/vnd.docker.distribution.manifest.v2+json. To stay
+			//compatible with the reference implementation of Docker Hub, we serve this case by recursing
+			//into the image list and returning the linux/amd64 manifest to the client.
+			manifestParsed, _, err := distribution.UnmarshalManifest(dbManifest.MediaType, manifestBytes)
+			if err != nil {
+				keppel.ErrManifestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
+				return
+			}
+			manifestList, ok := manifestParsed.(*manifestlist.DeserializedManifestList)
+			if ok {
+				for _, subManifestDesc := range manifestList.Manifests {
+					if subManifestDesc.Platform.OS == "linux" && subManifestDesc.Platform.Architecture == "amd64" {
+						url := fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), subManifestDesc.Digest.String())
+						w.Header().Set("Docker-Content-Digest", subManifestDesc.Digest.String())
+						w.Header().Set("Location", url)
+						w.WriteHeader(http.StatusTemporaryRedirect)
+						return
+					}
+				}
+			}
+		}
+
 		if !accepted {
 			if logg.ShowDebug {
 				for _, acceptHeader := range r.Header["Accept"] {

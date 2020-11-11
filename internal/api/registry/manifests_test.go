@@ -341,6 +341,31 @@ func TestImageListManifestLifecycle(t *testing.T) {
 		clock.Step()
 		easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagelistmanifest-001-after-upload-manifest.sql")
 
+		//check GET for manifest list
+		expectManifestExists(t, h, token, "test1/foo", list2.Manifest, "list", nil)
+
+		//as a special case, GET on the manifest list returns the linux/amd64
+		//manifest if only single-arch manifests are accepted by the client (this
+		//behavior is somewhat dubious, but required for full compatibility with
+		//existing clients)
+		assert.HTTPRequest{
+			Method: "GET",
+			Path:   "/v2/test1/foo/manifests/" + list2.Manifest.Digest.String(),
+			Header: map[string]string{
+				"Authorization": "Bearer " + token,
+				"Accept":        "application/vnd.docker.distribution.manifest.v2+json",
+			},
+			ExpectStatus: http.StatusTemporaryRedirect,
+			ExpectHeader: map[string]string{
+				test.VersionHeaderKey: test.VersionHeaderValue,
+				"Location":            "/v2/test1/foo/manifests/" + image1.Manifest.Digest.String(),
+			},
+		}.Check(t, h)
+		//but we return the whole list if at all possible
+		expectManifestExists(t, h, token, "test1/foo", list2.Manifest, "list", map[string]string{
+			"Accept": "application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json",
+		})
+
 		//DELETE success case
 		assert.HTTPRequest{
 			Method:       "DELETE",
