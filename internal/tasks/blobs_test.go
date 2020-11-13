@@ -130,6 +130,8 @@ func TestValidateBlobs(t *testing.T) {
 	)
 
 	//this should resolve the error and also remove the error message from the DB
+	//(note that the order in which blobs are checked differs this time because
+	//blobs with an existing validation error are chosen with higher priority)
 	clock.StepBy(8*24*time.Hour - 2*time.Second)
 	expectSuccess(t, j.ValidateNextBlob())
 	clock.Step()

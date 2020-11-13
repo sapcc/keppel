@@ -19,7 +19,6 @@
 package tasks
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -31,9 +30,12 @@ import (
 
 //query that finds the next manifest to be validated
 var outdatedManifestSearchQuery = keppel.SimplifyWhitespaceInSQL(`
-	SELECT * FROM manifests WHERE validated_at < $1
-	ORDER BY validated_at ASC -- oldest manifests first
-	LIMIT 1                   -- one at a time
+	SELECT * FROM manifests
+		WHERE validated_at < $1 OR (validated_at < $2 AND validation_error_message != '')
+	ORDER BY validation_error_message != '' DESC, validated_at ASC
+		-- oldest blobs first, but always prefer to recheck a failed validation
+	LIMIT 1
+		-- one at a time
 `)
 
 //ValidateNextManifest validates manifests that have not been validated for more
@@ -49,10 +51,12 @@ func (j *Janitor) ValidateNextManifest() (returnErr error) {
 		}
 	}()
 
-	//find manifest
+	//find manifest: validate once every 24 hours, but recheck after 10 minutes if
+	//validation failed
 	var manifest keppel.Manifest
-	maxValidatedAt := j.timeNow().Add(-6 * time.Hour)
-	err := j.db.SelectOne(&manifest, outdatedManifestSearchQuery, maxValidatedAt)
+	maxSuccessfulValidatedAt := j.timeNow().Add(-24 * time.Hour)
+	maxFailedValidatedAt := j.timeNow().Add(-10 * time.Minute)
+	err := j.db.SelectOne(&manifest, outdatedManifestSearchQuery, maxSuccessfulValidatedAt, maxFailedValidatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			logg.Debug("no manifests to validate - slowing down...")
@@ -73,11 +77,7 @@ func (j *Janitor) ValidateNextManifest() (returnErr error) {
 	}
 
 	//perform validation
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	err = retry(ctx, defaultRetryOpts, func() error {
-		return j.processor().ValidateExistingManifest(*account, repo, &manifest, j.timeNow())
-	})
+	err = j.processor().ValidateExistingManifest(*account, repo, &manifest, j.timeNow())
 	if err == nil {
 		//update `validated_at` and reset error message
 		_, err := j.db.Exec(`

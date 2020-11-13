@@ -84,7 +84,7 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextManifest())
 
 	//once they need validating, they validate successfully
-	clock.StepBy(12 * time.Hour)
+	clock.StepBy(36 * time.Hour)
 	expectSuccess(t, j.ValidateNextManifest())
 	expectSuccess(t, j.ValidateNextManifest())
 	expectSuccess(t, j.ValidateNextManifest())
@@ -92,7 +92,7 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/manifest-validate-001-before-disturbance.sql")
 
 	//disturb the DB state, then rerun ValidateNextManifest to fix it
-	clock.StepBy(12 * time.Hour)
+	clock.StepBy(36 * time.Hour)
 	disturb(db, allBlobIDs, allManifestDigests)
 	expectSuccess(t, j.ValidateNextManifest())
 	expectSuccess(t, j.ValidateNextManifest())
@@ -148,7 +148,7 @@ func TestValidateNextManifestError(t *testing.T) {
 	uploadManifest(t, db, sd, clock, image.Manifest, image.SizeBytes())
 
 	//validation should yield an error
-	clock.StepBy(12 * time.Hour)
+	clock.StepBy(36 * time.Hour)
 	expectedError := "while validating a manifest: manifest blob unknown to registry: " + image.Config.Digest.String()
 	expectError(t, expectedError, j.ValidateNextManifest())
 
@@ -163,7 +163,7 @@ func TestValidateNextManifestError(t *testing.T) {
 	uploadBlob(t, db, sd, clock, image.Config)
 
 	//next validation should be happy (and also create the missing refs)
-	clock.StepBy(12 * time.Hour)
+	clock.StepBy(36 * time.Hour)
 	expectSuccess(t, j.ValidateNextManifest())
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/manifest-validate-error-002.sql")
 }

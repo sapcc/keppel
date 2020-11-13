@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/keppel/internal/api"
@@ -63,9 +62,6 @@ func setup(t *testing.T) (*Janitor, keppel.Configuration, *keppel.DB, *test.Fede
 		registryv2.NewAPI(cfg, fd, sd, db, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 		authapi.NewAPI(cfg, ad, fd, db),
 	)
-
-	//don't spend a useless amount of time waiting during tests
-	defaultRetryOpts.Period = 1 * time.Millisecond
 
 	return j, cfg, db, fd.(*test.FederationDriver), sd, clock, h
 }

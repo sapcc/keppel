@@ -19,7 +19,6 @@
 package tasks
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -151,9 +150,12 @@ func (j *Janitor) SweepBlobsInNextAccount() (returnErr error) {
 }
 
 var validateBlobSearchQuery = keppel.SimplifyWhitespaceInSQL(`
-	SELECT * FROM blobs WHERE validated_at < $1 AND storage_id != ''
-	ORDER BY validated_at ASC -- oldest blobs first
-	LIMIT 1                   -- one at a time
+	SELECT * FROM blobs
+		WHERE storage_id != '' AND (validated_at < $1 OR (validated_at < $2 AND validation_error_message != ''))
+	ORDER BY validation_error_message != '' DESC, validated_at ASC
+		-- oldest blobs first, but always prefer to recheck a failed validation
+	LIMIT 1
+		-- one at a time
 `)
 
 //ValidateNextBlob validates the next blob that has not been validated for more
@@ -168,10 +170,12 @@ func (j *Janitor) ValidateNextBlob() (returnErr error) {
 		}
 	}()
 
-	//find blob
+	//find blob: validate once every 7 days, but recheck after 10 minutes if
+	//validation failed
 	var blob keppel.Blob
-	maxValidatedAt := j.timeNow().Add(-7 * 24 * time.Hour)
-	err := j.db.SelectOne(&blob, validateBlobSearchQuery, maxValidatedAt)
+	maxSuccessfulValidatedAt := j.timeNow().Add(-7 * 24 * time.Hour)
+	maxFailedValidatedAt := j.timeNow().Add(-10 * time.Minute)
+	err := j.db.SelectOne(&blob, validateBlobSearchQuery, maxSuccessfulValidatedAt, maxFailedValidatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			logg.Debug("no blobs to validate - slowing down...")
@@ -187,11 +191,7 @@ func (j *Janitor) ValidateNextBlob() (returnErr error) {
 	}
 
 	//perform validation
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	err = retry(ctx, defaultRetryOpts, func() error {
-		return j.processor().ValidateExistingBlob(*account, blob)
-	})
+	err = j.processor().ValidateExistingBlob(*account, blob)
 	if err == nil {
 		//update `validated_at` and reset error message
 		_, err := j.db.Exec(`
