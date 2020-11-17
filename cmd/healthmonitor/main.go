@@ -41,7 +41,8 @@ Monitors the health of a Keppel instance. This sets up a Keppel account with
 the given name containing a single image, and pulls the image at regular
 intervals. The health check result will be published as a Prometheus metric.
 
-The environment variables must contain credentials for authenticating with the authentication method used by the target Keppel API.
+The environment variables must contain credentials for authenticating with the
+authentication method used by the target Keppel API.
 `)
 
 var listenAddress string
@@ -114,7 +115,7 @@ func run(cmd *cobra.Command, args []string) {
 	ctx := httpee.ContextWithSIGINT(context.Background())
 	go func() {
 		logg.Info("listening on %s...", listenAddress)
-		err = httpee.ListenAndServeContext(ctx, listenAddress, nil)
+		err := httpee.ListenAndServeContext(ctx, listenAddress, nil)
 		if err != nil {
 			logg.Fatal("error returned from httpee.ListenAndServeContext(): %s", err.Error())
 		}
@@ -138,6 +139,11 @@ func (j *healthMonitorJob) PrepareKeppelAccount() error {
 	reqBody := map[string]interface{}{
 		"account": map[string]interface{}{
 			"auth_tenant_id": j.AuthDriver.CurrentAuthTenantID(),
+			//anonymous pull access is needed for `keppel server anycastmonitor`
+			"rbac_policies": []map[string]interface{}{{
+				"match_repository": "healthcheck",
+				"permissions":      []string{"anonymous_pull"},
+			}},
 		},
 	}
 	reqBodyBytes, _ := json.Marshal(reqBody)
@@ -162,7 +168,7 @@ func (j *healthMonitorJob) UploadImage() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	digest, err := j.RepoClient.UploadManifest([]byte(minimalManifest), minimalManifestMediaType, "")
+	digest, err := j.RepoClient.UploadManifest([]byte(minimalManifest), minimalManifestMediaType, "latest")
 	return digest.String(), err
 }
 

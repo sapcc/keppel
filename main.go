@@ -25,6 +25,7 @@ import (
 	"os"
 
 	"github.com/sapcc/go-bits/logg"
+	anycastmonitorcmd "github.com/sapcc/keppel/cmd/anycastmonitor"
 	apicmd "github.com/sapcc/keppel/cmd/api"
 	healthmonitorcmd "github.com/sapcc/keppel/cmd/healthmonitor"
 	janitorcmd "github.com/sapcc/keppel/cmd/janitor"
@@ -74,6 +75,7 @@ func main() {
 			cmd.Help()
 		},
 	}
+	anycastmonitorcmd.AddCommandTo(serverCmd)
 	apicmd.AddCommandTo(serverCmd)
 	healthmonitorcmd.AddCommandTo(serverCmd)
 	janitorcmd.AddCommandTo(serverCmd)
