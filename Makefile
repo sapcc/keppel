@@ -12,7 +12,7 @@ run-api: build/keppel
 build-all: build/keppel
 
 GO_BUILDFLAGS = -mod vendor
-GO_LDFLAGS = -X $(PKG)/internal/keppel.Version=$(shell util/find_version.sh)
+GO_LDFLAGS = -X github.com/sapcc/keppel/internal/keppel.Version=$(shell util/find_version.sh)
 GO_TESTENV = 
 
 build/keppel: FORCE
