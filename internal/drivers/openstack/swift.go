@@ -1,6 +1,6 @@
 /*******************************************************************************
 *
-* Copyright 2018 SAP SE
+* Copyright 2018-2020 SAP SE
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -44,9 +44,23 @@ type swiftDriver struct {
 	auth                 *keystoneDriver
 	cfg                  keppel.Configuration
 	password             string
-	accounts             map[string]*schwift.Account
+	accountCache         map[string]accountCacheEntry
 	containerTempURLKeys map[string]string
 }
+
+type accountCacheEntry struct {
+	Account         *schwift.Account
+	AuthenticatedAt time.Time
+}
+
+//I was having trouble with an elusive bug where the keppel-janitor would run
+//into 401 issues in a loop during DeleteBlob(). Schwift does not detect the
+//401 because it's wrapped in a bulk error, but there *should* be a
+//Object.Headers() before the bulkdelete which would detect the 401. But for
+//some unknown reason it doesn't. I'm working around the error by only
+//caching schwift.Account instances for a limited time. That way we won't
+//have to rely on Schwift's reauth logic.
+const maxAccountAge time.Duration = 2 * time.Hour
 
 func init() {
 	keppel.RegisterStorageDriver("swift", func(driver keppel.AuthDriver, cfg keppel.Configuration) (keppel.StorageDriver, error) {
@@ -60,7 +74,7 @@ func init() {
 		}
 		return &swiftDriver{
 			k, cfg, password,
-			make(map[string]*schwift.Account),
+			make(map[string]accountCacheEntry),
 			make(map[string]string),
 		}, nil
 	})
@@ -70,9 +84,9 @@ func init() {
 //appropriate (esp. keppel.ErrSizeInvalid and keppel.ErrTooManyRequests)
 
 func (d *swiftDriver) getBackendConnection(account keppel.Account) (*schwift.Container, error) {
-	a, ok := d.accounts[account.AuthTenantID]
+	cacheEntry, ok := d.accountCache[account.AuthTenantID]
 
-	if !ok {
+	if !ok || cacheEntry.AuthenticatedAt.Before(time.Now().Add(-maxAccountAge)) {
 		ao := gophercloud.AuthOptions{
 			IdentityEndpoint: d.auth.IdentityV3.Endpoint,
 			Username:         d.auth.ServiceUser.Name,
@@ -89,16 +103,17 @@ func (d *swiftDriver) getBackendConnection(account keppel.Account) (*schwift.Con
 		if err != nil {
 			return nil, err
 		}
-		a, err = gopherschwift.Wrap(client, &gopherschwift.Options{
+		swiftAccount, err := gopherschwift.Wrap(client, &gopherschwift.Options{
 			UserAgent: "keppel-api/" + keppel.Version,
 		})
 		if err != nil {
 			return nil, err
 		}
-		d.accounts[account.AuthTenantID] = a
+		cacheEntry = accountCacheEntry{swiftAccount, time.Now()}
+		d.accountCache[account.AuthTenantID] = cacheEntry
 	}
 
-	c := a.Container(account.SwiftContainerName())
+	c := cacheEntry.Account.Container(account.SwiftContainerName())
 
 	//on first use, cache the tempurl key (for fast read access to blobs)
 	if d.containerTempURLKeys[account.Name] == "" {
