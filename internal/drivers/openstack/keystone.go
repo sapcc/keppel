@@ -27,12 +27,14 @@
 package openstack
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/go-redis/redis"
 	"github.com/gophercloud/gophercloud"
@@ -179,12 +181,20 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Aut
 	authOpts.IdentityEndpoint = d.IdentityV3.Endpoint
 	authOpts.AllowReauth = false
 
+	//abort the authentication after 45 seconds if it's stuck; we want to be able
+	//to show a useful error message before we run into our own timeouts (usually
+	//the loadbalancer or whatever's in front of us will have a timeout of 60
+	//seconds)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel() //silence govet
+
 	//perform the authentication with a fresh ServiceClient, otherwise a 401
 	//response will trigger a useless reauthentication of the service user
 	throwAwayClient := gophercloud.ServiceClient{
 		ProviderClient: &gophercloud.ProviderClient{
 			HTTPClient: *http.DefaultClient,
 			Throwaway:  true,
+			Context:    ctx,
 		},
 		Endpoint: d.IdentityV3.Endpoint,
 	}
