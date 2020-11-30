@@ -156,7 +156,12 @@ The following configuration options are understood by both the API server and th
 | Variable | Default | Explanation |
 | -------- | ------- | ----------- |
 | `KEPPEL_API_PUBLIC_URL` | *(required)* | URL where users reach keppel-api. |
-| `KEPPEL_DB_URI` | *(required)* | A [libpq connection URI][pq-uri] that locates the Keppel database. The non-URI "connection string" format is not allowed; it must be a URI. |
+| `KEPPEL_DB_NAME` | `keppel` | The name of the database. |
+| `KEPPEL_DB_USERNAME` | `postgres` | Username of the user that Keppel should use to connect to the database. |
+| `KEPPEL_DB_PASSWORD` | *(optional)* | Password for the specified user. |
+| `KEPPEL_DB_HOSTNAME` | `localhost` | Hostname of the database server. |
+| `KEPPEL_DB_PORT` | `5432` | Port on which the PostgreSQL service is running on. |
+| `KEPPEL_DB_CONNECTION_OPTIONS` | *(optional)* | Database connection options. |
 | `KEPPEL_DRIVER_AUTH` | *(required)* | The name of an auth driver. |
 | `KEPPEL_DRIVER_FEDERATION` | *(required)* | The name of a federation driver. For single-region deployments, the correct choice is probably `trivial`. |
 | `KEPPEL_DRIVER_STORAGE` | *(required)* | The name of a storage driver. |
@@ -164,8 +169,6 @@ The following configuration options are understood by both the API server and th
 
 To choose drivers, refer to the [documentation for drivers](./drivers/). Note that some drivers require additional
 configuration as mentioned in their respective documentation.
-
-[pq-uri]: https://www.postgresql.org/docs/9.6/static/libpq-connect.html#LIBPQ-CONNSTRING
 
 ### API server configuration options
 

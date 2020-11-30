@@ -89,7 +89,7 @@ func ParseConfiguration() Configuration {
 	cfg := Configuration{
 		APIPublicURL:        mustGetenvURL("KEPPEL_API_PUBLIC_URL"),
 		AnycastAPIPublicURL: mayGetenvURL("KEPPEL_API_ANYCAST_URL"),
-		DatabaseURL:         mustGetenvURL("KEPPEL_DB_URI"),
+		DatabaseURL:         getDbURL(),
 	}
 
 	var err error
@@ -138,4 +138,29 @@ func mayGetenvURL(key string) *url.URL {
 		logg.Fatal("malformed %s: %s", key, err.Error())
 	}
 	return parsed
+}
+
+func envOrDefault(key, defaultVal string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		val = defaultVal
+	}
+	return val
+}
+
+func getDbURL() url.URL {
+	dbName := envOrDefault("KEPPEL_DB_NAME", "keppel")
+	dbUsername := envOrDefault("KEPPEL_DB_USERNAME", "postgres")
+	dbPass := os.Getenv("KEPPEL_DB_PASSWORD")
+	dbHost := envOrDefault("KEPPEL_DB_HOSTNAME", "localhost")
+	dbPort := envOrDefault("KEPPEL_DB_PORT", "5432")
+	dbConnOpts := os.Getenv("KEPPEL_DB_CONNECTION_OPTIONS")
+
+	return url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(dbUsername, dbPass),
+		Host:     dbHost + ":" + dbPort,
+		Path:     dbName,
+		RawQuery: dbConnOpts,
+	}
 }
