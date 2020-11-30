@@ -82,7 +82,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 					"Content-Type":  image.Manifest.MediaType,
 				},
 				Body:         assert.ByteData(image.Manifest.Contents),
-				ExpectStatus: http.StatusForbidden,
+				ExpectStatus: http.StatusUnauthorized,
 				ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 			}.Check(t, h)
 
@@ -209,7 +209,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				Method:       "GET",
 				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
 				Header:       map[string]string{"Authorization": "Bearer " + otherRepoToken},
-				ExpectStatus: http.StatusForbidden,
+				ExpectStatus: http.StatusUnauthorized,
 				ExpectHeader: test.VersionHeader,
 				ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 			}.Check(t, h)
@@ -239,7 +239,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				Method:       "DELETE",
 				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
 				Header:       map[string]string{"Authorization": "Bearer " + token},
-				ExpectStatus: http.StatusForbidden,
+				ExpectStatus: http.StatusUnauthorized,
 				ExpectHeader: test.VersionHeader,
 				ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 			}.Check(t, h)

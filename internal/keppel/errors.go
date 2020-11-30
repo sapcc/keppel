@@ -1,6 +1,6 @@
 /*******************************************************************************
 *
-* Copyright 2018 SAP SE
+* Copyright 2018-2020 SAP SE
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -105,7 +105,7 @@ var apiErrorStatusCodes = map[RegistryV2ErrorCode]int{
 	ErrSizeInvalid:         http.StatusBadRequest,
 	ErrTagInvalid:          http.StatusBadRequest,
 	ErrUnauthorized:        http.StatusUnauthorized,
-	ErrDenied:              http.StatusForbidden,
+	ErrDenied:              http.StatusUnauthorized, //403 would make more sense, but we need to show 401 for bug-for-bug compatibility with docker-registry, see e.g. <https://github.com/google/go-containerregistry/issues/724>
 	ErrUnsupported:         http.StatusMethodNotAllowed,
 	ErrUnknown:             http.StatusInternalServerError,
 	ErrUnavailable:         http.StatusServiceUnavailable,

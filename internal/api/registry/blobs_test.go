@@ -51,7 +51,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 				"Content-Type":   "application/octet-stream",
 			},
 			Body:         assert.ByteData(blob.Contents),
-			ExpectStatus: http.StatusForbidden,
+			ExpectStatus: http.StatusUnauthorized,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 		}.Check(t, h)
@@ -218,7 +218,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 					"Content-Type":   "application/octet-stream",
 				},
 				Body:         assert.ByteData(blob.Contents),
-				ExpectStatus: http.StatusForbidden,
+				ExpectStatus: http.StatusUnauthorized,
 				ExpectHeader: test.VersionHeader,
 				ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 			}.Check(t, h)
@@ -589,7 +589,7 @@ func TestDeleteBlobUpload(t *testing.T) {
 			Method:       "DELETE",
 			Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
 			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusForbidden,
+			ExpectStatus: http.StatusUnauthorized,
 			ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 		}.Check(t, h)
 		assert.HTTPRequest{
@@ -625,7 +625,7 @@ func TestDeleteBlobUpload(t *testing.T) {
 			Method:       "DELETE",
 			Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
 			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusForbidden,
+			ExpectStatus: http.StatusUnauthorized,
 			ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 		}.Check(t, h)
 		assert.HTTPRequest{
@@ -692,7 +692,7 @@ func TestDeleteBlob(t *testing.T) {
 			Method:       "DELETE",
 			Path:         "/v2/test1/foo/blobs/" + blob.Digest.String(),
 			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusForbidden,
+			ExpectStatus: http.StatusUnauthorized,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 		}.Check(t, h)
@@ -767,7 +767,7 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 			Method:       "POST",
 			Path:         "/v2/test1/foo/blobs/uploads/?from=test1/bar&mount=" + blob.Digest.String(),
 			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
-			ExpectStatus: http.StatusForbidden,
+			ExpectStatus: http.StatusUnauthorized,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 		}.Check(t, h)

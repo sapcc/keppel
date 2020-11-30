@@ -271,7 +271,7 @@ func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Au
 
 	a := newKeystoneAuthorization(t)
 	if !a.t.Check("account:list") {
-		return nil, keppel.ErrDenied.With("")
+		return nil, keppel.ErrDenied.With("").WithStatus(http.StatusForbidden)
 	}
 	return a, nil
 }

@@ -206,7 +206,7 @@ func testAuthErrorsForCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver
 		Method:       "GET",
 		Path:         "/v2/_catalog",
 		Header:       addHeadersForCorrectAuthChallenge(map[string]string{"Authorization": "Bearer " + token}),
-		ExpectStatus: http.StatusForbidden,
+		ExpectStatus: http.StatusUnauthorized,
 		ExpectHeader: map[string]string{
 			test.VersionHeaderKey: test.VersionHeaderValue,
 			"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="registry:catalog:*",error="insufficient_scope"`,

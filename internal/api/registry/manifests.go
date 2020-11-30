@@ -65,7 +65,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.InMaintenance {
 			//when replicating from external, only authenticated users can trigger the replication
 			if account.ExternalPeerURL != "" && !token.IsRegularUser() {
-				keppel.ErrDenied.With("image does not exist here, and anonymous users may not replicate images").WriteAsRegistryV2ResponseTo(w, r)
+				keppel.ErrDenied.With("image does not exist here, and anonymous users may not replicate images").WithStatus(http.StatusForbidden).WriteAsRegistryV2ResponseTo(w, r)
 				return
 			}
 
