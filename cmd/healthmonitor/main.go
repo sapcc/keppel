@@ -32,6 +32,7 @@ import (
 	"github.com/sapcc/go-bits/httpee"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/client"
+	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/spf13/cobra"
 )
 
@@ -75,6 +76,7 @@ type healthMonitorJob struct {
 }
 
 func run(cmd *cobra.Command, args []string) {
+	keppel.Component = "keppel-health-monitor"
 	prometheus.MustRegister(healthmonitorResultGauge)
 
 	ad, err := client.NewAuthDriver()

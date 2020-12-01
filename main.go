@@ -20,6 +20,7 @@ package main
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -51,7 +52,7 @@ func main() {
 		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: true,
 		}
-		http.DefaultClient.Transport = http.DefaultTransport
+		http.DefaultClient.Transport = userAgentInjector{http.DefaultTransport}
 	}
 
 	rootCmd := &cobra.Command{
@@ -82,4 +83,14 @@ func main() {
 	if err := rootCmd.Execute(); err != nil {
 		logg.Fatal(err.Error())
 	}
+}
+
+type userAgentInjector struct {
+	Inner http.RoundTripper
+}
+
+//RoundTrip implements the http.RoundTripper interface.
+func (uai userAgentInjector) RoundTrip(req *http.Request) (*http.Response, error) {
+	req.Header.Set("User-Agent", fmt.Sprintf("%s/%s", keppel.Component, keppel.Version))
+	return uai.Inner.RoundTrip(req)
 }

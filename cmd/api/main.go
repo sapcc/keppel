@@ -54,6 +54,7 @@ func AddCommandTo(parent *cobra.Command) {
 }
 
 func run(cmd *cobra.Command, args []string) {
+	keppel.Component = "keppel-api"
 	logg.Info("starting keppel-api %s", keppel.Version)
 
 	cfg := keppel.ParseConfiguration()
