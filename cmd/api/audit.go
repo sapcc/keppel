@@ -81,7 +81,7 @@ func initAuditTrail() keppel.Auditor {
 		}.Commit(rabbitQueueName, rabbitURI)
 	}
 
-	silent, _ := strconv.ParseBool(os.Getenv("KEPPEL_AUDIT_SILENT"))
+	silent := keppel.MustParseBool(os.Getenv("KEPPEL_AUDIT_SILENT"))
 	return auditor{
 		OnStdout:     !silent,
 		EventSink:    eventSink,

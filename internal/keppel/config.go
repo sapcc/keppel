@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 
 	"github.com/docker/libtrust"
 	"github.com/sapcc/go-bits/logg"
@@ -107,6 +108,12 @@ func ParseConfiguration() Configuration {
 	}
 
 	return cfg
+}
+
+// MustParseBool is like strconv.ParseBool() but doesn't return any error.
+func MustParseBool(str string) bool {
+	v, _ := strconv.ParseBool(str)
+	return v
 }
 
 //MustGetenv is like os.Getenv, but aborts with an error message if the given
