@@ -170,7 +170,7 @@ func getDbURL() url.URL {
 	return url.URL{
 		Scheme:   "postgres",
 		User:     url.UserPassword(dbUsername, dbPass),
-		Host:     dbHost + ":" + dbPort,
+		Host:     net.JoinHostPort(dbHost, dbPort),
 		Path:     dbName,
 		RawQuery: dbConnOpts,
 	}
