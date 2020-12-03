@@ -10,7 +10,8 @@ require (
 	github.com/go-gorp/gorp v2.2.0+incompatible // indirect
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
-	github.com/gophercloud/gophercloud v0.13.0
+	github.com/gofrs/uuid v3.3.0+incompatible // indirect
+	github.com/gophercloud/gophercloud v0.14.0
 	github.com/gophercloud/utils v0.0.0-20200918191848-da0e919a012a
 	github.com/gorilla/mux v1.8.0
 	github.com/jarcoal/httpmock v1.0.6
@@ -22,10 +23,11 @@ require (
 	github.com/poy/onpar v1.0.1 // indirect
 	github.com/prometheus/client_golang v1.7.1
 	github.com/rs/cors v1.7.0
-	github.com/sapcc/go-bits v0.0.0-20201015124403-5d1815e53d18
+	github.com/sapcc/go-bits v0.0.0-20201203204854-32575942fc71
 	github.com/sapcc/hermes v0.0.0-20200928164006-62559084bfce
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.0.0
+	github.com/streadway/amqp v1.0.1-0.20200716223359-e6b33f460591
 	github.com/throttled/throttled/v2 v2.6.0
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0

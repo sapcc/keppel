@@ -24,6 +24,7 @@ import (
 
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/hermes/pkg/cadf"
+	"github.com/streadway/amqp"
 )
 
 // AuditTrail holds an event sink for receiving audit events and closure functions
@@ -38,21 +39,15 @@ type AuditTrail struct {
 // a specific RabbitMQ Connection using the specified amqp URI and queue name.
 // The OnSuccessfulPublish and OnFailedPublish closures are executed as per
 // their respective case.
-func (t AuditTrail) Commit(rabbitmqURI, rabbitmqQueueName string) {
-	rc := &RabbitConnection{}
-	connect := func() {
-		if rc == nil || !rc.IsConnected {
-			var err error
-			rc, err = NewRabbitConnection(rabbitmqURI, rabbitmqQueueName)
-			if err != nil {
-				logg.Error(err.Error())
-			}
-		}
+func (t AuditTrail) Commit(rabbitmqQueueName string, rabbitmqURI amqp.URI) {
+	uriStr := rabbitmqURI.String()
+	rc, err := NewRabbitConnection(uriStr, rabbitmqQueueName)
+	if err != nil {
+		logg.Error(err.Error())
 	}
+
 	sendEvent := func(e *cadf.Event) bool {
-		if rc == nil || !rc.IsConnected {
-			return false
-		}
+		rc = refreshConnectionIfClosedOrOld(rc, uriStr, rabbitmqQueueName)
 		err := rc.PublishEvent(e)
 		if err != nil {
 			t.OnFailedPublish()
@@ -68,23 +63,21 @@ func (t AuditTrail) Commit(rabbitmqURI, rabbitmqQueueName string) {
 	for {
 		select {
 		case e := <-t.EventSink:
-			connect()
 			if successful := sendEvent(&e); !successful {
 				pendingEvents = append(pendingEvents, e)
 			}
 		case <-ticker:
 			for len(pendingEvents) > 0 {
-				connect()
-				successful := false //until proven otherwise
+				successful := false // until proven otherwise
+
 				nextEvent := pendingEvents[0]
 				if successful = sendEvent(&nextEvent); !successful {
-					//refresh connection, if old
-					if rc == nil || time.Since(rc.LastConnectedAt) > (5*time.Minute) {
-						rc.Disconnect()
-						connect()
-					}
+					// One more try before giving up. We simply set rc to nil
+					// and sendEvent() will take care of refreshing the
+					// connection.
 					time.Sleep(5 * time.Second)
-					successful = sendEvent(&nextEvent) //one more try before giving up
+					rc = nil
+					successful = sendEvent(&nextEvent)
 				}
 
 				if successful {
@@ -95,4 +88,21 @@ func (t AuditTrail) Commit(rabbitmqURI, rabbitmqQueueName string) {
 			}
 		}
 	}
+}
+
+func refreshConnectionIfClosedOrOld(rc *RabbitConnection, uri, queueName string) *RabbitConnection {
+	if !rc.IsNilOrClosed() {
+		if time.Since(rc.LastConnectedAt) < 5*time.Minute {
+			return rc
+		}
+		rc.Disconnect()
+	}
+
+	new, err := NewRabbitConnection(uri, queueName)
+	if err != nil {
+		logg.Error(err.Error())
+		return nil
+	}
+
+	return new
 }

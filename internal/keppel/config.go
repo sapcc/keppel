@@ -140,7 +140,9 @@ func mayGetenvURL(key string) *url.URL {
 	return parsed
 }
 
-func envOrDefault(key, defaultVal string) string {
+//GetenvOrDefault is like os.Getenv but it also takes a default value which is
+//returned if the given environment variable is missing or empty.
+func GetenvOrDefault(key, defaultVal string) string {
 	val := os.Getenv(key)
 	if val == "" {
 		val = defaultVal
@@ -149,11 +151,11 @@ func envOrDefault(key, defaultVal string) string {
 }
 
 func getDbURL() url.URL {
-	dbName := envOrDefault("KEPPEL_DB_NAME", "keppel")
-	dbUsername := envOrDefault("KEPPEL_DB_USERNAME", "postgres")
+	dbName := GetenvOrDefault("KEPPEL_DB_NAME", "keppel")
+	dbUsername := GetenvOrDefault("KEPPEL_DB_USERNAME", "postgres")
 	dbPass := os.Getenv("KEPPEL_DB_PASSWORD")
-	dbHost := envOrDefault("KEPPEL_DB_HOSTNAME", "localhost")
-	dbPort := envOrDefault("KEPPEL_DB_PORT", "5432")
+	dbHost := GetenvOrDefault("KEPPEL_DB_HOSTNAME", "localhost")
+	dbPort := GetenvOrDefault("KEPPEL_DB_PORT", "5432")
 	dbConnOpts := os.Getenv("KEPPEL_DB_CONNECTION_OPTIONS")
 
 	return url.URL{

@@ -28,7 +28,10 @@ own.
 One usage of the aforementioned implementation can be:
 	package yourPackageName
 
-	...
+	import (
+		"github.com/sapcc/go-bits/audittools"
+		...
+	)
 
 	var eventPublishSuccessCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
@@ -45,30 +48,32 @@ One usage of the aforementioned implementation can be:
 
 	var EventSink chan<- cadf.Event
 
-	var (
-		sendEventsToRabbitMQ bool
-		rabbitmqURI          string
-		rabbitmqQueueName    string
-	)
-
 	func init() {
-		if sendEventsToRabbitMQ {
-			s := make(chan cadf.Event, 20)
-			EventSink = s
+		s := make(chan cadf.Event, 20)
+		EventSink = s
 
-			onSuccessFunc := func() {
-				eventPublishSuccessCounter.Inc()
-			}
-			onFailFunc() := func() {
-				eventPublishSuccessCounter.Inc()
-			}
-
-			go audittools.AuditTrail{
-				EventSink:           s,
-				OnSuccessfulPublish: onSuccessFunc,
-				OnFailedPublish:     onFailFunc,
-			}.Commit(rabbitmqURI, rabbitmqQueueName)
+		onSuccessFunc := func() {
+			eventPublishSuccessCounter.Inc()
 		}
+		onFailFunc() := func() {
+			eventPublishFailedCounter.Inc()
+		}
+
+		rabbitmqQueueName := "down-the-rabbit-hole"
+		rabbitmqURI := amqp.URI{
+			Scheme:   "amqp",
+			Host:     "localhost",
+			Port:     5672,
+			Username: "guest",
+			Password: "guest",
+			Vhost:    "/",
+		}
+
+		go audittools.AuditTrail{
+			EventSink:           s,
+			OnSuccessfulPublish: onSuccessFunc,
+			OnFailedPublish:     onFailFunc,
+		}.Commit(rabbitmqQueueName, rabbitmqURI)
 	}
 
 	func someFunction() {
