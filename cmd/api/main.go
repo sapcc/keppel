@@ -124,13 +124,13 @@ func must(err error) {
 
 //Note that, since Redis is optional, this may return (nil, nil).
 func initRedis() (*redis.Client, error) {
-	urlStr := os.Getenv("KEPPEL_REDIS_URI")
-	if urlStr == "" {
+	if !keppel.MustParseBool("KEPPEL_REDIS_ENABLE") {
 		return nil, nil
 	}
+	urlStr := keppel.GetRedisURL("KEPPEL")
 	opts, err := redis.ParseURL(urlStr)
 	if err != nil {
-		return nil, fmt.Errorf("cannot parse KEPPEL_REDIS_URI: %s", err.Error())
+		return nil, fmt.Errorf("cannot parse Redis URL: %s", err.Error())
 	}
 	return redis.NewClient(opts), nil
 }

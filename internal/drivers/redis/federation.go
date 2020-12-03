@@ -42,9 +42,11 @@ func init() {
 		if prefix == "" {
 			prefix = "keppel"
 		}
-		opts, err := redis.ParseURL(keppel.MustGetenv("KEPPEL_FEDERATION_REDIS_URI"))
+		keppel.MustGetenv("KEPPEL_FEDERATION_REDIS_HOSTNAME") // check config
+		urlStr := keppel.GetRedisURL("KEPPEL_FEDERATION")
+		opts, err := redis.ParseURL(urlStr)
 		if err != nil {
-			return nil, fmt.Errorf("cannot parse KEPPEL_FEDERATION_REDIS_URI: %s", err.Error())
+			return nil, fmt.Errorf("cannot parse federation Redis URL: %s", err.Error())
 		}
 		return &federationDriver{
 			ownHostname: cfg.APIPublicURL.Hostname(),

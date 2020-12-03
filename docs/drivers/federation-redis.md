@@ -7,10 +7,11 @@ Redis is only read from and written when creating or deleting accounts and when 
 
 | Variable | Default | Explanation |
 | -------- | ------- | ----------- |
-| `KEPPEL_FEDERATION_REDIS_URI` | *(required)* | A URI identifying the location of the shared Redis instance, in the [same format as understood by redis-cli][redis-uri]. This is separate from `KEPPEL_REDIS_URI` since that one is usually local to the current Keppel instance whereas the federation Redis is shared among all Keppel instances in your deployment. |
+| `KEPPEL_FEDERATION_REDIS_HOSTNAME` | *(required)* | Hostname identifying the location of the shared Redis instance. This is separate from `KEPPEL_REDIS_HOSTNAME` since that one is usually local to the current Keppel instance whereas the federation Redis is shared among all Keppel instances in your deployment. |
+| `KEPPEL_FEDERATION_REDIS_PORT` | `6379` | Port on which the shared Redis instance is running on. |
+| `KEPPEL_FEDERATION_REDIS_DB_NUM` | `0` | Database number. |
+| `KEPPEL_FEDERATION_REDIS_PASSWORD` | *(optional)* | Password for the authentication. |
 | `KEPPEL_FEDERATION_REDIS_PREFIX` | `keppel` | A prefix string that is prepended to all keys that this driver accesses in the Redis. This is useful for separating QA from productive deployments etc. |
-
-[redis-uri]: https://redis.io/topics/rediscli#host-port-password-and-database
 
 In Redis, the following keys are accessed by this driver:
 
