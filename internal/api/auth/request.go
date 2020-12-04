@@ -100,13 +100,13 @@ func (a *API) validatePeerCredentials(peerHostName, password string) error {
 
 //Request contains the query parameters in a token request.
 type Request struct {
-	Scope            auth.Scope
+	Scopes           auth.ScopeSet
 	ClientID         string
 	OfflineToken     bool
 	IntendedAudience auth.Service
 	//the auth handler may add additional scopes in addition to the originally
 	//requested scope to encode access permissions, RBACs, etc.
-	CompiledScopes []auth.Scope
+	CompiledScopes auth.ScopeSet
 }
 
 func parseRequest(rawQuery string, cfg keppel.Configuration) (Request, error) {
@@ -121,7 +121,7 @@ func parseRequest(rawQuery string, cfg keppel.Configuration) (Request, error) {
 	}
 	result := Request{
 		ClientID:     query.Get("client_id"),
-		Scope:        parseScope(query.Get("scope")),
+		Scopes:       parseScopes(query["scope"]),
 		OfflineToken: offlineToken,
 	}
 
@@ -153,12 +153,9 @@ func decodeAuthHeader(base64data string) (username, password string) {
 //ToToken creates a token that can be used to fulfil this token request.
 func (r Request) ToToken(userName string) auth.Token {
 	var access []auth.Scope
-	if len(r.Scope.Actions) > 0 {
-		access = []auth.Scope{r.Scope}
-	}
-	for _, scope := range r.CompiledScopes {
+	for _, scope := range append(r.Scopes, r.CompiledScopes...) {
 		if len(scope.Actions) > 0 {
-			access = append(access, scope)
+			access = append(access, *scope)
 		}
 	}
 

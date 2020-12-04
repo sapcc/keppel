@@ -55,3 +55,11 @@ func parseScope(input string) auth.Scope {
 	}
 	return scope
 }
+
+func parseScopes(inputs []string) auth.ScopeSet {
+	var ss auth.ScopeSet
+	for _, input := range inputs {
+		ss.Add(parseScope(input))
+	}
+	return ss
+}

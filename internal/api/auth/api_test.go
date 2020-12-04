@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-*  Copyright 2019 SAP SE
+*  Copyright 2019-2020 SAP SE
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ import (
 // verified how the Docker Hub auth endpoint works.
 // For the record, the auth endpoint of Docker Hub can be found by
 //
-//     curl -si https://registry-1.docker.io/v2/ | grep Authenticate
+//     curl -si https://index.docker.io/v2/ | grep Authenticate
 
 type TestCase struct {
 	//request
@@ -812,4 +812,87 @@ func TestAnycastToken(t *testing.T) {
 			Access:   nil, //catalog access is not allowed for anycast since we don't know which peer to ask for authentication
 		},
 	}.Check(t, h1)
+}
+
+func TestMultiScope(t *testing.T) {
+	//It turns out that it's allowed to send multiple scopes in a single auth
+	//request, which produces a token with a union of all granted scopes. This
+	//test covers some basic cases of multi-scopes.
+
+	r, cfg, ad, _, _ := setupPrimary(t)
+	service := cfg.APIPublicURL.Hostname()
+
+	//various shorthands for the testcases below
+	correctAuthHeader := map[string]string{
+		"Authorization": keppel.BuildBasicAuthHeader("correctusername", "correctpassword"),
+	}
+	makeJWTContents := func(access []jwtAccess) jwtContents {
+		return jwtContents{
+			Audience: service,
+			Issuer:   "keppel-api@" + service,
+			Subject:  "correctusername",
+			Access:   access,
+		}
+	}
+	makePerms := func(perms ...keppel.Permission) string {
+		var fields []string
+		for _, perm := range perms {
+			fields = append(fields, string(perm)+":test1authtenant")
+		}
+		return strings.Join(fields, ",")
+	}
+
+	//case 1: multiple actions on the same resource and we get everything we ask for
+	ad.GrantedPermissions = makePerms(keppel.CanViewAccount, keppel.CanPullFromAccount, keppel.CanPushToAccount, keppel.CanDeleteFromAccount)
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=repository:test1/foo:pull&scope=repository:test1/foo:push&scope=repository:test1/foo:delete", service),
+		Header:       correctAuthHeader,
+		ExpectStatus: http.StatusOK,
+		ExpectBody: makeJWTContents([]jwtAccess{{
+			Type:    "repository",
+			Name:    "test1/foo",
+			Actions: []string{"pull", "push", "delete"},
+		}}),
+	}.Check(t, r)
+
+	//case 2: overlapping actions on the same resource and we get everything except "delete"
+	ad.GrantedPermissions = makePerms(keppel.CanViewAccount, keppel.CanPullFromAccount, keppel.CanPushToAccount)
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=repository:test1/foo:pull,delete&scope=repository:test1/foo:pull,push&scope=repository:test1/foo:delete", service),
+		Header:       correctAuthHeader,
+		ExpectStatus: http.StatusOK,
+		ExpectBody: makeJWTContents([]jwtAccess{{
+			Type:    "repository",
+			Name:    "test1/foo",
+			Actions: []string{"pull", "push"}, //"pull" was mentioned twice in the scopes - this verifies that it was deduplicated
+		}}),
+	}.Check(t, r)
+
+	//case 3: actions on multiple resources and we reject access to one of the resources entirely
+	ad.GrantedPermissions = makePerms(keppel.CanViewAccount, keppel.CanPullFromAccount, keppel.CanPushToAccount)
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=repository:test1/foo:pull,push&scope=repository:test2/foo:pull,push&scope=registry:catalog:*", service),
+		Header:       correctAuthHeader,
+		ExpectStatus: http.StatusOK,
+		ExpectBody: makeJWTContents([]jwtAccess{
+			{
+				Type:    "repository",
+				Name:    "test1/foo",
+				Actions: []string{"pull", "push"},
+			},
+			{
+				Type:    "registry",
+				Name:    "catalog",
+				Actions: []string{"*"},
+			},
+			{
+				Type:    "keppel_account",
+				Name:    "test1",
+				Actions: []string{"view"},
+			},
+		}),
+	}.Check(t, r)
 }

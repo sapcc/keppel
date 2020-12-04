@@ -78,28 +78,35 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//find account if scope requested
-	var account *keppel.Account
-	if req.Scope.ResourceType == "repository" && req.Scope.AccountName() != "" {
-		account, err = keppel.FindAccount(a.db, req.Scope.AccountName())
-		if respondWithError(w, http.StatusInternalServerError, err) {
+	//special cases for anycast requests
+	if req.IntendedAudience == auth.AnycastService {
+		if len(req.Scopes) > 1 {
+			//NOTE: This is not a fundamental restriction, there was just no demand for
+			//it yet. If the requirement comes up, we could ask all relevant upstreams
+			//for tokens and issue one token that grants the sum of all accesses.
+			respondWithError(w, http.StatusInternalServerError, errors.New("anycast tokens cannot be issued for multiple scopes at once"))
 			return
 		}
 
-		//if we don't have this account locally, but the request is an anycast
-		//request and one of our peers has the account, ask them to issue the token
-		if account == nil && req.IntendedAudience == auth.AnycastService {
-			err := a.reverseProxyTokenReqToUpstream(w, r, req)
-			if err != keppel.ErrNoSuchPrimaryAccount {
+		if len(req.Scopes) == 1 {
+			scope := req.Scopes[0]
+			if scope.ResourceType == "repository" {
+				account, err := keppel.FindAccount(a.db, scope.AccountName())
 				if respondWithError(w, http.StatusInternalServerError, err) {
 					return
 				}
-				return
+
+				//if we don't have this account locally, but the request is an anycast
+				//request and one of our peers has the account, ask them to issue the token
+				if account == nil {
+					err := a.reverseProxyTokenReqToUpstream(w, r, req, scope.AccountName())
+					if err != keppel.ErrNoSuchPrimaryAccount {
+						respondWithError(w, http.StatusInternalServerError, err)
+						return
+					}
+				}
 			}
 		}
-
-		//do not check account == nil further yet to not leak account existence to
-		//unauthorized users
 	}
 
 	//check authentication
@@ -109,32 +116,38 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check requested scope and actions
-	switch req.Scope.ResourceType {
-	case "registry":
-		if req.IntendedAudience == auth.AnycastService {
-			//we cannot allow catalog access on the anycast API since there is no way
-			//to decide which peer does the authentication in this case
-			req.Scope.Actions = nil
-		} else if req.Scope.ResourceName == "catalog" && containsString(req.Scope.Actions, "*") {
-			req.Scope.Actions = []string{"*"}
-			req.CompiledScopes, err = a.compileCatalogAccess(authz)
+	for _, scope := range req.Scopes {
+		switch scope.ResourceType {
+		case "registry":
+			if req.IntendedAudience == auth.AnycastService {
+				//we cannot allow catalog access on the anycast API since there is no way
+				//to decide which peer does the authentication in this case
+				scope.Actions = nil
+			} else if scope.ResourceName == "catalog" && containsString(scope.Actions, "*") {
+				scope.Actions = []string{"*"}
+				err = a.compileCatalogAccess(authz, req.CompiledScopes.Add)
+				if respondWithError(w, http.StatusInternalServerError, err) {
+					return
+				}
+			} else {
+				scope.Actions = nil
+			}
+		case "repository":
+			account, err := keppel.FindAccount(a.db, scope.AccountName())
 			if respondWithError(w, http.StatusInternalServerError, err) {
 				return
 			}
-		} else {
-			req.Scope.Actions = nil
-		}
-	case "repository":
-		if account == nil || !strings.Contains(req.Scope.ResourceName, "/") {
-			req.Scope.Actions = nil
-		} else {
-			req.Scope.Actions, err = a.filterRepoActions(req.Scope.ResourceName, req.Scope.Actions, authz, *account)
-			if respondWithError(w, http.StatusInternalServerError, err) {
-				return
+			if account == nil || !strings.Contains(scope.ResourceName, "/") {
+				scope.Actions = nil
+			} else {
+				scope.Actions, err = a.filterRepoActions(scope.ResourceName, scope.Actions, authz, *account)
+				if respondWithError(w, http.StatusInternalServerError, err) {
+					return
+				}
 			}
+		default:
+			scope.Actions = nil
 		}
-	default:
-		req.Scope.Actions = nil
 	}
 
 	tokenInfo, err := makeTokenResponse(req.ToToken(authz.UserName()), a.cfg)
@@ -144,9 +157,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, tokenInfo)
 }
 
-func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Request, tokenReq Request) error {
-	accountName := tokenReq.Scope.AccountName()
-
+func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Request, tokenReq Request, accountName string) error {
 	primaryHostName, err := a.fd.FindPrimaryAccount(accountName)
 	if err != nil {
 		return err
@@ -211,17 +222,16 @@ func (a *API) filterRepoActions(repoName string, actions []string, authz keppel.
 	return result, nil
 }
 
-func (a *API) compileCatalogAccess(authz keppel.Authorization) ([]auth.Scope, error) {
+func (a *API) compileCatalogAccess(authz keppel.Authorization, addScope func(auth.Scope)) error {
 	var accounts []keppel.Account
 	_, err := a.db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	var scopes []auth.Scope
 	for _, account := range accounts {
 		if authz.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
-			scopes = append(scopes, auth.Scope{
+			addScope(auth.Scope{
 				ResourceType: "keppel_account",
 				ResourceName: account.Name,
 				Actions:      []string{"view"},
@@ -229,5 +239,5 @@ func (a *API) compileCatalogAccess(authz keppel.Authorization) ([]auth.Scope, er
 		}
 	}
 
-	return scopes, nil
+	return nil
 }
