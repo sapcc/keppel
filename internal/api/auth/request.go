@@ -114,7 +114,7 @@ func parseRequest(rawQuery string, cfg keppel.Configuration) (Request, error) {
 		return Request{}, fmt.Errorf("cannot parse query string: %s", err.Error())
 	}
 
-	offlineToken := keppel.MustParseBool(query.Get("offline_token"))
+	offlineToken := keppel.ParseBool(query.Get("offline_token"))
 	result := Request{
 		ClientID:     query.Get("client_id"),
 		Scope:        parseScope(query.Get("scope")),

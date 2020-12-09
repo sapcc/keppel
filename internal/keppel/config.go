@@ -112,8 +112,8 @@ func ParseConfiguration() Configuration {
 	return cfg
 }
 
-// MustParseBool is like strconv.ParseBool() but doesn't return any error.
-func MustParseBool(str string) bool {
+// ParseBool is like strconv.ParseBool() but doesn't return any error.
+func ParseBool(str string) bool {
 	v, _ := strconv.ParseBool(str)
 	return v
 }

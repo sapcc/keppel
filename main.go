@@ -40,14 +40,14 @@ import (
 )
 
 func main() {
-	logg.ShowDebug = keppel.MustParseBool(os.Getenv("KEPPEL_DEBUG"))
+	logg.ShowDebug = keppel.ParseBool(os.Getenv("KEPPEL_DEBUG"))
 
 	//The KEPPEL_INSECURE flag can be used to get Keppel to work through
 	//mitmproxy (which is very useful for development and debugging). (It's very
 	//important that this is not the standard "KEPPEL_DEBUG" variable. That one
 	//is meant to be useful for production systems, where you definitely don't
 	//want to turn off certificate verification.)
-	if keppel.MustParseBool(os.Getenv("KEPPEL_INSECURE")) {
+	if keppel.ParseBool(os.Getenv("KEPPEL_INSECURE")) {
 		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: true,
 		}
