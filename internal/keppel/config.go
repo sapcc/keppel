@@ -20,6 +20,7 @@
 package keppel
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -27,9 +28,9 @@ import (
 	"os"
 	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/docker/libtrust"
+	"github.com/go-redis/redis"
 	"github.com/sapcc/go-bits/logg"
 )
 
@@ -176,23 +177,26 @@ func getDbURL() url.URL {
 	}
 }
 
-// GetRedisURL returns a Redis connection URL by getting the required
-// parameters from environment variables:
+// GetRedisOptions returns a redis.Options by getting the required parameters
+// from environment variables:
 //   REDIS_PASSWORD, REDIS_HOSTNAME, REDIS_PORT, and REDIS_DB_NUM.
 //
 // The environment variable keys are prefixed with the provided prefix.
-func GetRedisURL(prefix string) string {
-	prefix = strings.Join([]string{prefix, "REDIS"}, "_")
+func GetRedisOptions(prefix string) (*redis.Options, error) {
+	prefix = prefix + "_REDIS"
 	pass := os.Getenv(prefix + "_PASSWORD")
 	host := GetenvOrDefault(prefix+"_HOSTNAME", "localhost")
 	port := GetenvOrDefault(prefix+"_PORT", "6379")
 	dbNum := GetenvOrDefault(prefix+"_DB_NUM", "0")
-
-	url := url.URL{
-		Scheme: "redis",
-		User:   url.UserPassword("", pass),
-		Host:   net.JoinHostPort(host, port),
-		Path:   dbNum,
+	db, err := strconv.Atoi(dbNum)
+	if err != nil {
+		return nil, fmt.Errorf("invalid value for %s: %q", prefix+"_DB_NUM", dbNum)
 	}
-	return url.String()
+
+	return &redis.Options{
+		Network:  "tcp",
+		Password: pass,
+		Addr:     net.JoinHostPort(host, port),
+		DB:       db,
+	}, nil
 }

@@ -43,8 +43,7 @@ func init() {
 			prefix = "keppel"
 		}
 		keppel.MustGetenv("KEPPEL_FEDERATION_REDIS_HOSTNAME") // check config
-		urlStr := keppel.GetRedisURL("KEPPEL_FEDERATION")
-		opts, err := redis.ParseURL(urlStr)
+		opts, err := keppel.GetRedisOptions("KEPPEL_FEDERATION")
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse federation Redis URL: %s", err.Error())
 		}
