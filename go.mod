@@ -25,6 +25,7 @@ require (
 	github.com/sapcc/hermes v0.0.0-20200928164006-62559084bfce
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.1.1
+	github.com/streadway/amqp v1.0.1-0.20200716223359-e6b33f460591
 	github.com/throttled/throttled/v2 v2.7.1
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/crypto v0.0.0-20201208171446-5f87f3452ae9

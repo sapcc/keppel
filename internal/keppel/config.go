@@ -20,13 +20,17 @@
 package keppel
 
 import (
+	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 
 	"github.com/docker/libtrust"
+	"github.com/go-redis/redis"
 	"github.com/sapcc/go-bits/logg"
 )
 
@@ -89,7 +93,7 @@ func ParseConfiguration() Configuration {
 	cfg := Configuration{
 		APIPublicURL:        mustGetenvURL("KEPPEL_API_PUBLIC_URL"),
 		AnycastAPIPublicURL: mayGetenvURL("KEPPEL_API_ANYCAST_URL"),
-		DatabaseURL:         mustGetenvURL("KEPPEL_DB_URI"),
+		DatabaseURL:         getDbURL(),
 	}
 
 	var err error
@@ -107,6 +111,12 @@ func ParseConfiguration() Configuration {
 	}
 
 	return cfg
+}
+
+// ParseBool is like strconv.ParseBool() but doesn't return any error.
+func ParseBool(str string) bool {
+	v, _ := strconv.ParseBool(str)
+	return v
 }
 
 //MustGetenv is like os.Getenv, but aborts with an error message if the given
@@ -138,4 +148,55 @@ func mayGetenvURL(key string) *url.URL {
 		logg.Fatal("malformed %s: %s", key, err.Error())
 	}
 	return parsed
+}
+
+//GetenvOrDefault is like os.Getenv but it also takes a default value which is
+//returned if the given environment variable is missing or empty.
+func GetenvOrDefault(key, defaultVal string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		val = defaultVal
+	}
+	return val
+}
+
+func getDbURL() url.URL {
+	dbName := GetenvOrDefault("KEPPEL_DB_NAME", "keppel")
+	dbUsername := GetenvOrDefault("KEPPEL_DB_USERNAME", "postgres")
+	dbPass := os.Getenv("KEPPEL_DB_PASSWORD")
+	dbHost := GetenvOrDefault("KEPPEL_DB_HOSTNAME", "localhost")
+	dbPort := GetenvOrDefault("KEPPEL_DB_PORT", "5432")
+	dbConnOpts := os.Getenv("KEPPEL_DB_CONNECTION_OPTIONS")
+
+	return url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(dbUsername, dbPass),
+		Host:     net.JoinHostPort(dbHost, dbPort),
+		Path:     dbName,
+		RawQuery: dbConnOpts,
+	}
+}
+
+// GetRedisOptions returns a redis.Options by getting the required parameters
+// from environment variables:
+//   REDIS_PASSWORD, REDIS_HOSTNAME, REDIS_PORT, and REDIS_DB_NUM.
+//
+// The environment variable keys are prefixed with the provided prefix.
+func GetRedisOptions(prefix string) (*redis.Options, error) {
+	prefix = prefix + "_REDIS"
+	pass := os.Getenv(prefix + "_PASSWORD")
+	host := GetenvOrDefault(prefix+"_HOSTNAME", "localhost")
+	port := GetenvOrDefault(prefix+"_PORT", "6379")
+	dbNum := GetenvOrDefault(prefix+"_DB_NUM", "0")
+	db, err := strconv.Atoi(dbNum)
+	if err != nil {
+		return nil, fmt.Errorf("invalid value for %s: %q", prefix+"_DB_NUM", dbNum)
+	}
+
+	return &redis.Options{
+		Network:  "tcp",
+		Password: pass,
+		Addr:     net.JoinHostPort(host, port),
+		DB:       db,
+	}, nil
 }

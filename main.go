@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 
 	"github.com/sapcc/go-bits/logg"
 	apicmd "github.com/sapcc/keppel/cmd/api"
@@ -41,14 +40,14 @@ import (
 )
 
 func main() {
-	logg.ShowDebug, _ = strconv.ParseBool(os.Getenv("KEPPEL_DEBUG"))
+	logg.ShowDebug = keppel.ParseBool(os.Getenv("KEPPEL_DEBUG"))
 
 	//The KEPPEL_INSECURE flag can be used to get Keppel to work through
 	//mitmproxy (which is very useful for development and debugging). (It's very
 	//important that this is not the standard "KEPPEL_DEBUG" variable. That one
 	//is meant to be useful for production systems, where you definitely don't
 	//want to turn off certificate verification.)
-	if insecure, _ := strconv.ParseBool(os.Getenv("KEPPEL_INSECURE")); insecure {
+	if keppel.ParseBool(os.Getenv("KEPPEL_INSECURE")) {
 		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: true,
 		}

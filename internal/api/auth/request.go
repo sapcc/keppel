@@ -25,7 +25,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/sapcc/keppel/internal/auth"
@@ -115,10 +114,7 @@ func parseRequest(rawQuery string, cfg keppel.Configuration) (Request, error) {
 		return Request{}, fmt.Errorf("cannot parse query string: %s", err.Error())
 	}
 
-	offlineToken, err := strconv.ParseBool(query.Get("offline_token"))
-	if err != nil {
-		offlineToken = false
-	}
+	offlineToken := keppel.ParseBool(query.Get("offline_token"))
 	result := Request{
 		ClientID:     query.Get("client_id"),
 		Scopes:       parseScopes(query["scope"]),

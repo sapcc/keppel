@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"strconv"
 	"testing"
 
 	"github.com/sapcc/go-bits/logg"
@@ -39,7 +38,7 @@ type SetupOptions struct {
 //Setup sets up a keppel.Configuration and database connection for a unit test.
 func Setup(t *testing.T, optsPtr *SetupOptions) (keppel.Configuration, *keppel.DB) {
 	t.Helper()
-	logg.ShowDebug, _ = strconv.ParseBool(os.Getenv("KEPPEL_DEBUG"))
+	logg.ShowDebug = keppel.ParseBool(os.Getenv("KEPPEL_DEBUG"))
 
 	var opts SetupOptions
 	if optsPtr != nil {

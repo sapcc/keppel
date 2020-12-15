@@ -151,6 +151,7 @@ github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
 # github.com/streadway/amqp v1.0.1-0.20200716223359-e6b33f460591
+## explicit
 github.com/streadway/amqp
 # github.com/throttled/throttled/v2 v2.7.1
 ## explicit

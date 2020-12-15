@@ -28,6 +28,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/hermes/pkg/cadf"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/streadway/amqp"
 )
 
 var (
@@ -54,7 +55,21 @@ func initAuditTrail() keppel.Auditor {
 	prometheus.MustRegister(auditEventPublishFailedCounter)
 
 	var eventSink chan cadf.Event
-	if rabbitURI := os.Getenv("KEPPEL_AUDIT_RABBITMQ_URI"); rabbitURI != "" {
+	if rabbitQueueName := os.Getenv("KEPPEL_AUDIT_RABBITMQ_QUEUE_NAME"); rabbitQueueName != "" {
+		portStr := keppel.GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_PORT", "5672")
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			logg.Fatal("invalid value for KEPPEL_AUDIT_RABBITMQ_PORT: %s", err.Error())
+		}
+		rabbitURI := amqp.URI{
+			Scheme:   "amqp",
+			Host:     keppel.GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_HOSTNAME", "localhost"),
+			Port:     port,
+			Username: keppel.GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_USERNAME", "guest"),
+			Password: keppel.GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_PASSWORD", "guest"),
+			Vhost:    "/",
+		}
+
 		eventSink = make(chan cadf.Event, 20)
 		auditEventPublishSuccessCounter.Add(0)
 		auditEventPublishFailedCounter.Add(0)
@@ -63,10 +78,10 @@ func initAuditTrail() keppel.Auditor {
 			EventSink:           eventSink,
 			OnSuccessfulPublish: func() { auditEventPublishSuccessCounter.Inc() },
 			OnFailedPublish:     func() { auditEventPublishFailedCounter.Inc() },
-		}.Commit(rabbitURI, keppel.MustGetenv("KEPPEL_AUDIT_RABBITMQ_QUEUE_NAME"))
+		}.Commit(rabbitQueueName, rabbitURI)
 	}
 
-	silent, _ := strconv.ParseBool(os.Getenv("KEPPEL_AUDIT_SILENT"))
+	silent := keppel.ParseBool(os.Getenv("KEPPEL_AUDIT_SILENT"))
 	return auditor{
 		OnStdout:     !silent,
 		EventSink:    eventSink,

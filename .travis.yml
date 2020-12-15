@@ -8,9 +8,9 @@ go:
     - 1.13
 
 install:
-    - go get -u golang.org/x/lint/golint
-    - go get -u github.com/mattn/goveralls
+    - GO111MODULE=off go get -u golang.org/x/lint/golint
+    - GO111MODULE=off go get -u github.com/mattn/goveralls
 
 script:
-   - make all check GO_BUILDFLAGS="-mod vendor"
+   - make check
    - $HOME/gopath/bin/goveralls -coverprofile=build/cover.out -service=travis-ci
