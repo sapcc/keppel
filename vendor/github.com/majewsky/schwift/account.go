@@ -92,6 +92,9 @@ func (a *Account) Backend() Backend {
 //has not been cached yet, a HEAD request is issued on the account.
 //
 //This operation fails with http.StatusNotFound if the account does not exist.
+//
+//WARNING: This method is not thread-safe. Calling it concurrently on the same
+//object results in undefined behavior.
 func (a *Account) Headers() (AccountHeaders, error) {
 	if a.headers != nil {
 		return *a.headers, nil
@@ -116,6 +119,9 @@ func (a *Account) Headers() (AccountHeaders, error) {
 
 //Invalidate clears the internal cache of this Account instance. The next call
 //to Headers() on this instance will issue a HEAD request on the account.
+//
+//WARNING: This method is not thread-safe. Calling it concurrently on the same
+//object results in undefined behavior.
 func (a *Account) Invalidate() {
 	a.headers = nil
 }
@@ -178,6 +184,9 @@ func (a *Account) Containers() *ContainerIterator {
 //Capabilities queries the GET /info endpoint of the Swift server providing
 //this account. Capabilities are cached, so the GET request will only be sent
 //once during the first call to this method.
+//
+//WARNING: This method is not thread-safe. Calling it concurrently on the same
+//object results in undefined behavior.
 func (a *Account) Capabilities() (Capabilities, error) {
 	if a.caps != nil {
 		return *a.caps, nil

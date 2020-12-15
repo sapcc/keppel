@@ -74,6 +74,9 @@ func (c *Container) Exists() (bool, error) {
 //has not been cached yet, a HEAD request is issued on the container.
 //
 //This operation fails with http.StatusNotFound if the container does not exist.
+//
+//WARNING: This method is not thread-safe. Calling it concurrently on the same
+//object results in undefined behavior.
 func (c *Container) Headers() (ContainerHeaders, error) {
 	if c.headers != nil {
 		return *c.headers, nil
@@ -159,6 +162,9 @@ func (c *Container) Delete(opts *RequestOptions) error {
 
 //Invalidate clears the internal cache of this Container instance. The next call
 //to Headers() on this instance will issue a HEAD request on the container.
+//
+//WARNING: This method is not thread-safe. Calling it concurrently on the same
+//object results in undefined behavior.
 func (c *Container) Invalidate() {
 	c.headers = nil
 }

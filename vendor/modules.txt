@@ -33,17 +33,15 @@ github.com/go-redis/redis/internal/hashtag
 github.com/go-redis/redis/internal/pool
 github.com/go-redis/redis/internal/proto
 github.com/go-redis/redis/internal/util
-# github.com/go-sql-driver/mysql v1.5.0
-## explicit
 # github.com/gofrs/uuid v3.2.0+incompatible
 github.com/gofrs/uuid
-# github.com/golang/protobuf v1.4.2
+# github.com/golang/protobuf v1.4.3
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/gophercloud/gophercloud v0.13.0
+# github.com/gophercloud/gophercloud v0.14.0
 ## explicit
 github.com/gophercloud/gophercloud
 github.com/gophercloud/gophercloud/internal
@@ -58,10 +56,11 @@ github.com/gophercloud/gophercloud/openstack/identity/v3/roles
 github.com/gophercloud/gophercloud/openstack/identity/v3/tokens
 github.com/gophercloud/gophercloud/openstack/utils
 github.com/gophercloud/gophercloud/pagination
-# github.com/gophercloud/utils v0.0.0-20200918191848-da0e919a012a
+# github.com/gophercloud/utils v0.0.0-20201212031956-9dc30e126fea
 ## explicit
 github.com/gophercloud/utils/env
 github.com/gophercloud/utils/gnocchi
+github.com/gophercloud/utils/internal
 github.com/gophercloud/utils/openstack/clientconfig
 # github.com/gorilla/mux v1.8.0
 ## explicit
@@ -85,15 +84,17 @@ github.com/jpillora/longestcommon
 github.com/lib/pq
 github.com/lib/pq/oid
 github.com/lib/pq/scram
-# github.com/majewsky/schwift v0.0.0-20200416120220-80c09ef2a88d
+# github.com/majewsky/schwift v0.0.0-20201014122716-bd1c74594efe
 ## explicit
 github.com/majewsky/schwift
 github.com/majewsky/schwift/capabilities
 github.com/majewsky/schwift/gopherschwift
-# github.com/mattn/go-sqlite3 v1.14.4
+# github.com/mattn/go-sqlite3 v1.14.5
 ## explicit
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
+# github.com/mitchellh/go-homedir v1.1.0
+github.com/mitchellh/go-homedir
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit
 github.com/opencontainers/go-digest
@@ -103,25 +104,25 @@ github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
 # github.com/poy/onpar v1.0.1
 ## explicit
-# github.com/prometheus/client_golang v1.7.1
+# github.com/prometheus/client_golang v1.8.0
 ## explicit
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/internal
 github.com/prometheus/client_golang/prometheus/promhttp
 # github.com/prometheus/client_model v0.2.0
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.10.0
+# github.com/prometheus/common v0.14.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
 github.com/prometheus/common/model
-# github.com/prometheus/procfs v0.1.3
+# github.com/prometheus/procfs v0.2.0
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
 # github.com/rs/cors v1.7.0
 ## explicit
 github.com/rs/cors
-# github.com/sapcc/go-bits v0.0.0-20201015124403-5d1815e53d18
+# github.com/sapcc/go-bits v0.0.0-20201203204854-32575942fc71
 ## explicit
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
@@ -144,25 +145,25 @@ github.com/sapcc/hermes/pkg/cadf
 # github.com/satori/go.uuid v1.2.0
 ## explicit
 github.com/satori/go.uuid
-# github.com/spf13/cobra v1.0.0
+# github.com/spf13/cobra v1.1.1
 ## explicit
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
-# github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271
+# github.com/streadway/amqp v1.0.1-0.20200716223359-e6b33f460591
 github.com/streadway/amqp
-# github.com/throttled/throttled/v2 v2.6.0
+# github.com/throttled/throttled/v2 v2.7.1
 ## explicit
 github.com/throttled/throttled/v2
 github.com/throttled/throttled/v2/store/goredisstore
 github.com/throttled/throttled/v2/store/memstore
 # github.com/ziutek/mymysql v1.5.4
 ## explicit
-# golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
+# golang.org/x/crypto v0.0.0-20201208171446-5f87f3452ae9
 ## explicit
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
-# golang.org/x/sys v0.0.0-20200615200032-f1bc736245b1
+# golang.org/x/sys v0.0.0-20201015000850-e3ed0017c211
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows

@@ -104,6 +104,9 @@ func (o *Object) Exists() (bool, error) {
 //Object.SymlinkHeaders() to obtain the metadata for the symlink instead.
 //
 //This operation fails with http.StatusNotFound if the object does not exist.
+//
+//WARNING: This method is not thread-safe. Calling it concurrently on the same
+//object results in undefined behavior.
 func (o *Object) Headers() (ObjectHeaders, error) {
 	if o.headers != nil {
 		return *o.headers, nil
@@ -409,6 +412,9 @@ func (o *Object) Delete(opts *DeleteOptions, ropts *RequestOptions) error {
 
 //Invalidate clears the internal cache of this Object instance. The next call
 //to Headers() on this instance will issue a HEAD request on the object.
+//
+//WARNING: This method is not thread-safe. Calling it concurrently on the same
+//object results in undefined behavior.
 func (o *Object) Invalidate() {
 	o.headers = nil
 	o.symlinkHeaders = nil
@@ -426,6 +432,9 @@ func (o *Object) Invalidate() {
 //	str, err := object.Download(nil).AsString()
 //
 //See documentation on type DownloadedObject for details.
+//
+//WARNING: This method is not thread-safe. Calling it concurrently on the same
+//object results in undefined behavior.
 func (o *Object) Download(opts *RequestOptions) DownloadedObject {
 	resp, err := Request{
 		Method:            "GET",
@@ -542,6 +551,9 @@ func (o *Object) SymlinkTo(target *Object, opts *SymlinkOptions, ropts *RequestO
 //a symlink, the cache for Object.Headers() has already been populated.
 //
 //This operation fails with http.StatusNotFound if the object does not exist.
+//
+//WARNING: This method is not thread-safe. Calling it concurrently on the same
+//object results in undefined behavior.
 func (o *Object) SymlinkHeaders() (headers ObjectHeaders, target *Object, err error) {
 	if o.symlinkHeaders == nil {
 		o.symlinkHeaders, err = o.fetchHeaders(&RequestOptions{

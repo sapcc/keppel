@@ -32,11 +32,10 @@ import (
 // RabbitConnection represents a unique connection to some RabbitMQ server with
 // an open Channel and a declared Queue.
 type RabbitConnection struct {
-	Inner   *amqp.Connection
-	Channel *amqp.Channel
-	Queue   amqp.Queue
+	Inner     *amqp.Connection
+	Channel   *amqp.Channel
+	QueueName string
 
-	IsConnected     bool
 	LastConnectedAt time.Time
 }
 
@@ -56,7 +55,7 @@ func NewRabbitConnection(uri, queueName string) (*RabbitConnection, error) {
 	}
 
 	//declare a queue to hold and deliver messages to consumers
-	q, err := ch.QueueDeclare(
+	_, err = ch.QueueDeclare(
 		queueName, // name of the queue
 		false,     // durable: queue should survive cluster reset (or broker restart)
 		false,     // autodelete when unused
@@ -71,8 +70,7 @@ func NewRabbitConnection(uri, queueName string) (*RabbitConnection, error) {
 	return &RabbitConnection{
 		Inner:           conn,
 		Channel:         ch,
-		Queue:           q,
-		IsConnected:     true,
+		QueueName:       queueName,
 		LastConnectedAt: time.Now(),
 	}, nil
 }
@@ -81,27 +79,35 @@ func NewRabbitConnection(uri, queueName string) (*RabbitConnection, error) {
 func (c *RabbitConnection) Disconnect() {
 	c.Channel.Close()
 	c.Inner.Close()
-	c.IsConnected = false
+}
+
+// IsNilOrClosed is like (*amqp.Connection).IsClosed() but it also returns true
+// if RabbitConnection or the underlying amqp.Connection are nil.
+func (c *RabbitConnection) IsNilOrClosed() bool {
+	return c == nil || c.Inner == nil || c.Inner.IsClosed()
 }
 
 // PublishEvent publishes a cadf.Event to a specific RabbitMQ Connection.
 // A nil pointer for event parameter will return an error.
 func (c *RabbitConnection) PublishEvent(event *cadf.Event) error {
-	if !c.IsConnected {
-		return errors.New("audittools: could not publish event: not connected to a RabbitMQ server")
+	if c.IsNilOrClosed() {
+		return amqp.ErrClosed
 	}
+
 	if event == nil {
 		return errors.New("audittools: could not publish event: got a nil pointer for 'event' parameter")
 	}
+
 	b, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
+
 	return c.Channel.Publish(
-		"",           // exchange: publish to default
-		c.Queue.Name, // routing key: same as queue name
-		false,        // mandatory: don't publish if no queue is bound that matches the routing key
-		false,        // immediate: don't publish if no consumer on the matched queue is ready to accept the delivery
+		"",          // exchange: publish to default
+		c.QueueName, // routing key: same as queue name
+		false,       // mandatory: don't publish if no queue is bound that matches the routing key
+		false,       // immediate: don't publish if no consumer on the matched queue is ready to accept the delivery
 		amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        b,

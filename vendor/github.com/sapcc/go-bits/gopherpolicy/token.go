@@ -98,16 +98,46 @@ func (t *Token) UserDomainName() string {
 	return t.Context.Auth["user_domain_name"]
 }
 
+//UserDomainUUID returns the UUID of the domain containing the user for whom
+//this token was issued, or "" if the token was invalid.
+func (t *Token) UserDomainUUID() string {
+	return t.Context.Auth["user_domain_id"]
+}
+
 //ProjectScopeUUID returns the UUID of this token's project scope, or "" if the token is
 //invalid or not scoped to a project.
 func (t *Token) ProjectScopeUUID() string {
 	return t.Context.Auth["project_id"]
 }
 
+//ProjectScopeName returns the name of this token's project scope, or "" if the token is
+//invalid or not scoped to a project.
+func (t *Token) ProjectScopeName() string {
+	return t.Context.Auth["project_name"]
+}
+
+//ProjectScopeDomainUUID returns the UUID of this token's project scope domain, or ""
+//if the token is invalid or not scoped to a project.
+func (t *Token) ProjectScopeDomainUUID() string {
+	return t.Context.Auth["project_domain_id"]
+}
+
+//ProjectScopeDomainName returns the name of this token's project scope domain, or ""
+//if the token is invalid or not scoped to a project.
+func (t *Token) ProjectScopeDomainName() string {
+	return t.Context.Auth["project_domain_name"]
+}
+
 //DomainScopeUUID returns the UUID of this token's domain scope, or "" if the token is
 //invalid or not scoped to a domain.
 func (t *Token) DomainScopeUUID() string {
 	return t.Context.Auth["domain_id"]
+}
+
+//DomainScopeName returns the name of this token's domain scope, or "" if the token is
+//invalid or not scoped to a domain.
+func (t *Token) DomainScopeName() string {
+	return t.Context.Auth["domain_name"]
 }
 
 ////////////////////////////////////////////////////////////////////////////////
