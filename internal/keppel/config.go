@@ -20,6 +20,7 @@
 package keppel
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -32,6 +33,7 @@ import (
 	"github.com/docker/libtrust"
 	"github.com/go-redis/redis"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/keppel/internal/clair"
 )
 
 //Configuration contains all configuration values that are not specific to a
@@ -42,6 +44,7 @@ type Configuration struct {
 	DatabaseURL         url.URL
 	JWTIssuerKey        libtrust.PrivateKey
 	AnycastJWTIssuerKey *libtrust.PrivateKey
+	ClairClient         *clair.Client
 }
 
 //IsAnycastRequest returns true if this configuration has anycast enabled and
@@ -108,6 +111,21 @@ func ParseConfiguration() Configuration {
 			logg.Fatal("failed to read KEPPEL_ANYCAST_ISSUER_KEY: " + err.Error())
 		}
 		cfg.AnycastJWTIssuerKey = &key
+	}
+
+	clairURL := mayGetenvURL("KEPPEL_CLAIR_URL")
+	if clairURL != nil {
+		//Clair does a base64 decode of the key given in its configuration; I find
+		//this quite unnecessary and surprising, but in order to not cause any
+		//additional confusion, we do the same thing
+		key, err := base64.StdEncoding.DecodeString(MustGetenv("KEPPEL_CLAIR_PRESHARED_KEY"))
+		if err != nil {
+			logg.Fatal("failed to read KEPPEL_CLAIR_PRESHARED_KEY: " + err.Error())
+		}
+		cfg.ClairClient = &clair.Client{
+			BaseURL:      *clairURL,
+			PresharedKey: key,
+		}
 	}
 
 	return cfg

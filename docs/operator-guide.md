@@ -156,6 +156,8 @@ The following configuration options are understood by both the API server and th
 | Variable | Default | Explanation |
 | -------- | ------- | ----------- |
 | `KEPPEL_API_PUBLIC_URL` | *(required)* | URL where users reach keppel-api. |
+| `KEPPEL_CLAIR_PRESHARED_KEY` | *(required if `KEPPEL_CLAIR_URL` is given)* | Secret key for authenticating with Clair. Keppel expects Clair to have the same PSK configured in its `auth.psk.key` config option. Furthermore, the `auth.psk.iss` option must be set to `[ "keppel" ]`. |
+| `KEPPEL_CLAIR_URL` | *(optional)* | URL where Keppel can reach a [Clair](https://quay.github.io/clair/) instance for vulnerability scanning. If not given, Keppel will not have vulnerability scanning capabilities. |
 | `KEPPEL_DB_NAME` | `keppel` | The name of the database. |
 | `KEPPEL_DB_USERNAME` | `postgres` | Username of the user that Keppel should use to connect to the database. |
 | `KEPPEL_DB_PASSWORD` | *(optional)* | Password for the specified user. |
