@@ -88,12 +88,13 @@ func TestReposAPI(t *testing.T) {
 		digest := deterministicDummyDigest(idx)
 		manifestPushedAt := time.Unix(int64(10000+10*idx), 0)
 		mustInsert(t, db, &keppel.Manifest{
-			RepositoryID: 5, //repo1-3
-			Digest:       digest,
-			MediaType:    "",
-			SizeBytes:    uint64(1000 * idx),
-			PushedAt:     manifestPushedAt,
-			ValidatedAt:  manifestPushedAt,
+			RepositoryID:        5, //repo1-3
+			Digest:              digest,
+			MediaType:           "",
+			SizeBytes:           uint64(1000 * idx),
+			PushedAt:            manifestPushedAt,
+			ValidatedAt:         manifestPushedAt,
+			VulnerabilityStatus: "Unknown",
 		})
 		if idx <= 3 {
 			mustInsert(t, db, &keppel.Tag{

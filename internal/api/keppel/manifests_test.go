@@ -73,12 +73,13 @@ func TestManifestsAPI(t *testing.T) {
 			pushedAt := time.Unix(int64(1000*(repoID*10+idx)), 0)
 
 			dbManifest := keppel.Manifest{
-				RepositoryID: int64(repoID),
-				Digest:       digest,
-				MediaType:    "application/vnd.docker.distribution.manifest.v2+json",
-				SizeBytes:    sizeBytes,
-				PushedAt:     pushedAt,
-				ValidatedAt:  pushedAt,
+				RepositoryID:        int64(repoID),
+				Digest:              digest,
+				MediaType:           "application/vnd.docker.distribution.manifest.v2+json",
+				SizeBytes:           sizeBytes,
+				PushedAt:            pushedAt,
+				ValidatedAt:         pushedAt,
+				VulnerabilityStatus: "Unknown",
 			}
 			if idx == 1 {
 				dbManifest.LastPulledAt = p2time(pushedAt.Add(100 * time.Second))

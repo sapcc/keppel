@@ -359,6 +359,16 @@ var sqlMigrations = map[string]string{
 			ADD COLUMN external_peer_username TEXT DEFAULT NULL,
 			ADD COLUMN external_peer_password TEXT DEFAULT NULL;
 	`,
+	"018_track_vulnerability_status.up.sql": `
+		ALTER TABLE manifests
+			ADD COLUMN next_vuln_check_at TIMESTAMPTZ DEFAULT NULL,
+			ADD COLUMN vuln_status TEXT NOT NULL DEFAULT 'Unknown';
+	`,
+	"018_track_vulnerability_status.down.sql": `
+		ALTER TABLE manifests
+			DROP COLUMN next_vuln_check_at,
+			DROP COLUMN vuln_status;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

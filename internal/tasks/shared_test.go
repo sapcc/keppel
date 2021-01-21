@@ -176,12 +176,13 @@ func uploadManifest(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock 
 	account := keppel.Account{Name: "test1"}
 
 	dbManifest := keppel.Manifest{
-		RepositoryID: 1,
-		Digest:       manifest.Digest.String(),
-		MediaType:    manifest.MediaType,
-		SizeBytes:    sizeBytes,
-		PushedAt:     clock.Now(),
-		ValidatedAt:  clock.Now(),
+		RepositoryID:        1,
+		Digest:              manifest.Digest.String(),
+		MediaType:           manifest.MediaType,
+		SizeBytes:           sizeBytes,
+		PushedAt:            clock.Now(),
+		ValidatedAt:         clock.Now(),
+		VulnerabilityStatus: "Unknown",
 	}
 	must(t, db.Insert(&dbManifest))
 	must(t, sd.WriteManifest(account, "foo", manifest.Digest.String(), manifest.Contents))
