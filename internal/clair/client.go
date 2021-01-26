@@ -19,7 +19,17 @@
 
 package clair
 
-import "net/url"
+import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"path"
+	"time"
+
+	"github.com/dgrijalva/jwt-go"
+)
 
 //Client is a client for accessing the Clair vulnerability scanning service.
 type Client struct {
@@ -27,4 +37,58 @@ type Client struct {
 	BaseURL url.URL
 	//PresharedKey is used to sign auth tokens for use with Clair.
 	PresharedKey []byte
+}
+
+func (c *Client) requestURL(pathElements ...string) string {
+	requestURL := c.BaseURL
+	requestURL.Path = path.Join(c.BaseURL.Path, path.Join(pathElements...))
+	return requestURL.String()
+}
+
+func (c *Client) doRequest(req *http.Request, respBody interface{}) error {
+	//add auth token to request
+	now := time.Now()
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
+		Audience:  c.BaseURL.Host,
+		Issuer:    "keppel",
+		IssuedAt:  now.Unix(),
+		NotBefore: now.Unix(),
+		ExpiresAt: now.Add(1 * time.Hour).Unix(),
+	})
+	tokenStr, err := token.SignedString(c.PresharedKey)
+	if err != nil {
+		return fmt.Errorf("cannot issue token for %s %s: %w", req.Method, req.URL.String(), err)
+	}
+	req.Header.Set("Authorization", "Bearer "+tokenStr)
+
+	//add additional headers to request
+	if req.Body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	req.Header.Set("Accept", "application/json")
+
+	//run request
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("cannot %s %s: %w", req.Method, req.URL.String(), err)
+	}
+	respBodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("cannot %s %s: %w", req.Method, req.URL.String(), err)
+	}
+	err = resp.Body.Close()
+	if err != nil {
+		return fmt.Errorf("cannot %s %s: %w", req.Method, req.URL.String(), err)
+	}
+
+	//expect 2xx response
+	if resp.StatusCode >= 299 {
+		return fmt.Errorf("cannot %s %s: got %d response: %q", req.Method, req.URL.String(), resp.StatusCode, string(respBodyBytes))
+	}
+
+	err = json.Unmarshal(respBodyBytes, &respBody)
+	if err != nil {
+		return fmt.Errorf("cannot %s %s: cannot decode response body: %w", req.Method, req.URL.String(), err)
+	}
+	return nil
 }

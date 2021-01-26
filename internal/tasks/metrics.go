@@ -29,6 +29,14 @@ var (
 		Name: "keppel_failed_account_federation_announcements",
 		Help: "Counter for failed announcements of existing accounts to the federation driver.",
 	})
+	checkVulnerabilitySuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "keppel_successful_vulnerability_checks",
+		Help: "Counter for successful updates of the vulnerability status of a manifest.",
+	})
+	checkVulnerabilityFailedCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "keppel_failed_vulnerability_checks",
+		Help: "Counter for failed updates of the vulnerability status of a manifest.",
+	})
 	cleanupAbandonedUploadSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "keppel_successful_abandoned_upload_cleanups",
 		Help: "Counter for successful cleanup of abandoned uploads.",
@@ -94,6 +102,8 @@ func (j *Janitor) initializeCounters() {
 		metricsRegistered = true
 		prometheus.MustRegister(announceAccountToFederationSuccessCounter)
 		prometheus.MustRegister(announceAccountToFederationFailedCounter)
+		prometheus.MustRegister(checkVulnerabilitySuccessCounter)
+		prometheus.MustRegister(checkVulnerabilityFailedCounter)
 		prometheus.MustRegister(cleanupAbandonedUploadSuccessCounter)
 		prometheus.MustRegister(cleanupAbandonedUploadFailedCounter)
 		prometheus.MustRegister(sweepBlobMountsSuccessCounter)
@@ -113,6 +123,8 @@ func (j *Janitor) initializeCounters() {
 	//add 0 to all counters to ensure that the relevant timeseries exist
 	announceAccountToFederationSuccessCounter.Add(0)
 	announceAccountToFederationFailedCounter.Add(0)
+	checkVulnerabilitySuccessCounter.Add(0)
+	checkVulnerabilityFailedCounter.Add(0)
 	cleanupAbandonedUploadSuccessCounter.Add(0)
 	cleanupAbandonedUploadFailedCounter.Add(0)
 	sweepBlobMountsSuccessCounter.Add(0)
