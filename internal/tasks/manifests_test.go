@@ -22,10 +22,13 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/keppel/internal/api"
+	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -338,4 +341,102 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 
 func answerWith404(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "not found", http.StatusNotFound)
+}
+
+func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
+	j, _, db, _, sd, clock, h := setup(t)
+	clock.StepBy(1 * time.Hour)
+
+	//setup two image manifests with just one content layer (we don't really care about
+	//the content since our Clair double doesn't care either)
+	images := make([]test.Image, 2)
+	for idx := range images {
+		image := test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
+		images[idx] = image
+
+		configBlob := uploadBlob(t, db, sd, clock, image.Config)
+		layerBlob := uploadBlob(t, db, sd, clock, image.Layers[0])
+		uploadManifest(t, db, sd, clock, image.Manifest, image.SizeBytes())
+		mustExec(t, db,
+			`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
+			configBlob.ID, image.Manifest.Digest.String(),
+		)
+		mustExec(t, db,
+			`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
+			layerBlob.ID, image.Manifest.Digest.String(),
+		)
+	}
+
+	//also setup an image list manifest containing those images (so that we have
+	//some manifest-manifest refs to play with)
+	imageList := test.GenerateImageList(images[0].Manifest, images[1].Manifest)
+	uploadManifest(t, db, sd, clock, imageList.Manifest, imageList.SizeBytes())
+	for _, image := range images {
+		mustExec(t, db,
+			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
+			imageList.Manifest.Digest.String(), image.Manifest.Digest.String(),
+		)
+	}
+
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/vulnerability-check-000.sql")
+
+	//setup our Clair API double
+	claird := test.NewClairDouble()
+	tt := &test.RoundTripper{
+		Handlers: map[string]http.Handler{
+			"registry.example.org": h,
+			"clair.example.org":    api.Compose(claird),
+		},
+	}
+	http.DefaultClient.Transport = tt
+	j.cfg.ClairClient = &clair.Client{
+		BaseURL:      mustParseURL("https://clair.example.org/"),
+		PresharedKey: []byte("doesnotmatter"), //since the ClairDouble does not check the Authorization header
+	}
+
+	//ClairDouble wants to know which image manifests to expect (only the
+	//non-list manifests are relevant here; the list manifest does not contain
+	//any blobs and thus only aggregates its submanifests' vulnerability
+	//statuses)
+	for idx, image := range images {
+		claird.IndexFixtures[image.Manifest.Digest.String()] = fmt.Sprintf("fixtures/clair/manifest-%03d.json", idx)
+	}
+	//Clair support currently requires a storage driver that can do URLForBlob()
+	sd.(*test.StorageDriver).AllowDummyURLs = true
+
+	//first round of CheckVulnerabilitiesForNextManifest should submit manifests
+	//to Clair for indexing, but since Clair is not done indexing yet, images
+	//stay in vulnerability status "Unknown" for know
+	clock.StepBy(30 * time.Minute)
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest()) //once for each manifest
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
+	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/vulnerability-check-001.sql")
+
+	//five minutes later, indexing is still not finished
+	clock.StepBy(5 * time.Minute)
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest()) //once for each manifest
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
+	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/vulnerability-check-002.sql")
+
+	//five minutes later, indexing is finished now and ClairDouble provides vulnerability reports to us
+	claird.ReportFixtures[images[0].Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
+	claird.ReportFixtures[images[1].Manifest.Digest.String()] = "fixtures/clair/report-clean.json"
+	clock.StepBy(5 * time.Minute)
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest()) //once for each manifest
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
+	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/vulnerability-check-003.sql")
+}
+
+func mustParseURL(in string) url.URL {
+	u, err := url.Parse(in)
+	if err != nil {
+		panic(err.Error())
+	}
+	return *u
 }

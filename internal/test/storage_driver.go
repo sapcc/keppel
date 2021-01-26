@@ -31,7 +31,7 @@ import (
 
 func init() {
 	keppel.RegisterStorageDriver("in-memory-for-testing", func(_ keppel.AuthDriver, _ keppel.Configuration) (keppel.StorageDriver, error) {
-		return &StorageDriver{make(map[string][]byte), make(map[string]uint32), make(map[string][]byte)}, nil
+		return &StorageDriver{make(map[string][]byte), make(map[string]uint32), make(map[string][]byte), false}, nil
 	})
 }
 
@@ -42,6 +42,7 @@ type StorageDriver struct {
 	blobs           map[string][]byte
 	blobChunkCounts map[string]uint32 //previous chunkNumber for running upload, 0 when finished (same semantics as keppel.StoredBlobInfo.ChunkCount field)
 	manifests       map[string][]byte
+	AllowDummyURLs  bool
 }
 
 var (
@@ -117,6 +118,9 @@ func (d *StorageDriver) ReadBlob(account keppel.Account, storageID string) (io.R
 
 //URLForBlob implements the keppel.StorageDriver interface.
 func (d *StorageDriver) URLForBlob(account keppel.Account, storageID string) (string, error) {
+	if d.AllowDummyURLs {
+		return "blob://" + storageID, nil
+	}
 	return "", keppel.ErrCannotGenerateURL
 }
 

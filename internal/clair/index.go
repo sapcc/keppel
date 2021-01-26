@@ -37,7 +37,7 @@ type Manifest struct {
 type Layer struct {
 	Digest  string      `json:"hash"`
 	URL     string      `json:"uri"`
-	Headers http.Header `json:"headers"`
+	Headers http.Header `json:"headers,omitempty"`
 }
 
 //ManifestState is returned by CheckManifestState.

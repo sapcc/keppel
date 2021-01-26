@@ -278,7 +278,7 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 
 var vulnCheckSelectQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT m.* FROM manifests m
-		WHERE (m.next_vuln_check_at IS NULL OR r.next_manifest_sync_at < $1)
+		WHERE (m.next_vuln_check_at IS NULL OR m.next_vuln_check_at < $1)
 	-- manifests without any check first, then sorted by schedule
 	ORDER BY m.next_vuln_check_at IS NULL DESC, m.next_vuln_check_at ASC
 	-- only one manifests at a time
@@ -339,7 +339,7 @@ func (j *Janitor) CheckVulnerabilitiesForNextManifest() (returnErr error) {
 	if err != nil {
 		return err
 	}
-	_, err = j.db.Update(manifest)
+	_, err = j.db.Update(&manifest)
 	return err
 }
 
@@ -360,17 +360,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		return err
 	}
 
-	if len(blobs) == 0 {
-		//manifest is an image list that does not reference blobs by itself, so it
-		//does not have any vulnerabilities by itself (only transitively from its
-		//constituent images, whose reports get merged later on in the API)
-		manifest.VulnerabilityStatus = clair.CleanSeverity
-		//checks can be spaced out farther since we will obtain the same result each time anyway
-		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(24 * time.Hour))
-		return nil
-	}
-
-	//check manifest state in Clair (includes initial submission)
+	//collect blob data to construct Clair manifest
 	clairManifest := clair.Manifest{
 		Digest: manifest.Digest,
 	}
@@ -402,31 +392,9 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			URL:    blobURL,
 		})
 	}
-	clairState, err := j.cfg.ClairClient.CheckManifestState(clairManifest)
-	if err != nil {
-		return err
-	}
-	if clairState.IsErrored {
-		return fmt.Errorf("Clair reports indexing of %s as errored", manifest.Digest)
-	}
-	if clairState.IsIndexed {
-		logg.Info("skipping vulnerability check for %s: indexing is not finished yet", manifest.Digest)
-		//wait a bit for indexing to finish, then come back to update the vulnerability status
-		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(2 * time.Minute))
-		return nil
-	}
 
-	//get vulnerability report from Clair
-	clairReport, err := j.cfg.ClairClient.GetVulnerabilityReport(manifest.Digest)
-	if err != nil {
-		return err
-	}
-	if clairReport == nil {
-		return fmt.Errorf("Clair reports indexing of %s as finished, but vulnerability report is 404", manifest.Digest)
-	}
-	severities := []clair.Severity{clairReport.Severity()}
-
-	//merge with vulnerability status of all submanifests
+	//collect vulnerability status of constituent images
+	var severities []clair.Severity
 	err = keppel.ForeachRow(j.db, vulnCheckSubmanifestInfoQuery, []interface{}{manifest.Digest}, func(rows *sql.Rows) error {
 		var severity clair.Severity
 		err := rows.Scan(&severity)
@@ -437,8 +405,39 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		return err
 	}
 
+	//ask Clair for vulnerability status of blobs in this image
+	if len(blobs) > 0 {
+		clairState, err := j.cfg.ClairClient.CheckManifestState(clairManifest)
+		if err != nil {
+			return err
+		}
+		if clairState.IsErrored {
+			return fmt.Errorf("Clair reports indexing of %s as errored", manifest.Digest)
+		}
+		if clairState.IsIndexed {
+			clairReport, err := j.cfg.ClairClient.GetVulnerabilityReport(manifest.Digest)
+			if err != nil {
+				return err
+			}
+			if clairReport == nil {
+				return fmt.Errorf("Clair reports indexing of %s as finished, but vulnerability report is 404", manifest.Digest)
+			}
+			severities = append(severities, clairReport.Severity())
+		} else {
+			severities = append(severities, clair.UnknownSeverity)
+		}
+	}
+
+	//merge all vulnerability statuses
 	manifest.VulnerabilityStatus = clair.MergeSeverities(severities...)
-	manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(1 * time.Hour))
+	if manifest.VulnerabilityStatus == clair.UnknownSeverity {
+		logg.Info("skipping vulnerability check for %s: indexing is not finished yet", manifest.Digest)
+		//wait a bit for indexing to finish, then come back to update the vulnerability status
+		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(2 * time.Minute))
+	} else {
+		//regular recheck loop (vulnerability status might change if Clair adds new vulnerabilities to its DB)
+		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(1 * time.Hour))
+	}
 	return nil
 }
 
