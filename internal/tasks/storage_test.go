@@ -193,12 +193,13 @@ func TestSweepStorageManifests(t *testing.T) {
 	//to storage already, but not yet to DB)
 	clock.StepBy(1 * time.Hour)
 	dbTestManifest1 := keppel.Manifest{
-		RepositoryID: 1,
-		Digest:       testImageList1.Manifest.Digest.String(),
-		MediaType:    testImageList1.Manifest.MediaType,
-		SizeBytes:    uint64(len(testImageList1.Manifest.Contents)),
-		PushedAt:     clock.Now(),
-		ValidatedAt:  clock.Now(),
+		RepositoryID:        1,
+		Digest:              testImageList1.Manifest.Digest.String(),
+		MediaType:           testImageList1.Manifest.MediaType,
+		SizeBytes:           uint64(len(testImageList1.Manifest.Contents)),
+		PushedAt:            clock.Now(),
+		ValidatedAt:         clock.Now(),
+		VulnerabilityStatus: "Unknown",
 	}
 	must(t, db.Insert(&dbTestManifest1))
 

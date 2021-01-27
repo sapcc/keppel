@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/opencontainers/go-digest"
+	"github.com/sapcc/keppel/internal/clair"
 	gorp "gopkg.in/gorp.v2"
 )
 
@@ -247,6 +248,15 @@ func FindRepository(db gorp.SqlExecutor, name string, account Account) (*Reposit
 	return &repo, err
 }
 
+//FindRepositoryByID is a convenience wrapper around db.SelectOne(). If the
+//repository in question does not exist, sql.ErrNoRows is returned.
+func FindRepositoryByID(db gorp.SqlExecutor, id int64) (*Repository, error) {
+	var repo Repository
+	err := db.SelectOne(&repo,
+		"SELECT * FROM repos WHERE id = $1", id)
+	return &repo, err
+}
+
 //FullName prepends the account name to the repository name.
 func (r Repository) FullName() string {
 	return r.AccountName + `/` + r.Name
@@ -256,14 +266,16 @@ func (r Repository) FullName() string {
 
 //Manifest contains a record from the `manifests` table.
 type Manifest struct {
-	RepositoryID           int64      `db:"repo_id"`
-	Digest                 string     `db:"digest"`
-	MediaType              string     `db:"media_type"`
-	SizeBytes              uint64     `db:"size_bytes"`
-	PushedAt               time.Time  `db:"pushed_at"`
-	ValidatedAt            time.Time  `db:"validated_at"` //see tasks.ValidateNextManifest
-	ValidationErrorMessage string     `db:"validation_error_message"`
-	LastPulledAt           *time.Time `db:"last_pulled_at"`
+	RepositoryID             int64          `db:"repo_id"`
+	Digest                   string         `db:"digest"`
+	MediaType                string         `db:"media_type"`
+	SizeBytes                uint64         `db:"size_bytes"`
+	PushedAt                 time.Time      `db:"pushed_at"`
+	ValidatedAt              time.Time      `db:"validated_at"` //see tasks.ValidateNextManifest
+	ValidationErrorMessage   string         `db:"validation_error_message"`
+	LastPulledAt             *time.Time     `db:"last_pulled_at"`
+	NextVulnerabilityCheckAt *time.Time     `db:"next_vuln_check_at"` //see tasks.CheckVulnerabilitiesForNextManifest
+	VulnerabilityStatus      clair.Severity `db:"vuln_status"`
 }
 
 //FindManifest is a convenience wrapper around db.SelectOne(). If the

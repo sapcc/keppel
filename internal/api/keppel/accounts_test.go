@@ -1421,12 +1421,13 @@ func TestDeleteAccount(t *testing.T) {
 	}
 
 	manifest := keppel.Manifest{
-		RepositoryID: repos[0].ID,
-		Digest:       image.Manifest.Digest.String(),
-		MediaType:    image.Manifest.MediaType,
-		SizeBytes:    uint64(len(image.Manifest.Contents)),
-		PushedAt:     time.Unix(100, 0),
-		ValidatedAt:  time.Unix(100, 0),
+		RepositoryID:        repos[0].ID,
+		Digest:              image.Manifest.Digest.String(),
+		MediaType:           image.Manifest.MediaType,
+		SizeBytes:           uint64(len(image.Manifest.Contents)),
+		PushedAt:            time.Unix(100, 0),
+		ValidatedAt:         time.Unix(100, 0),
+		VulnerabilityStatus: "Unknown",
 	}
 	mustInsert(t, db, &manifest)
 	err := sd.WriteManifest(*accounts[0], repos[0].Name, image.Manifest.Digest.String(), image.Manifest.Contents)

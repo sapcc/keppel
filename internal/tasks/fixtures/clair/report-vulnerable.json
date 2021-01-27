@@ -1,0 +1,88 @@
+{
+  "manifest_hash": "sha256:7c5ed02bcdf0dbddf6f1664e01d6a1505c880e296a599371eb919e0e053c0aef",
+  "packages": {
+    "10": {
+      "id": "10",
+      "name": "libapt-pkg5.0",
+      "version": "1.6.11",
+      "kind": "binary",
+      "normalized_version": "",
+      "arch": "x86",
+      "module": "",
+      "cpe": "",
+      "source": {
+        "id": "9",
+        "name": "apt",
+        "version": "1.6.11",
+        "kind": "source",
+        "source": null
+      }
+    }
+  },
+  "distributions": {
+    "1": {
+      "id": "1",
+      "did": "ubuntu",
+      "name": "Ubuntu",
+      "version": "18.04.3 LTS (Bionic Beaver)",
+      "version_code_name": "bionic",
+      "version_id": "18.04",
+      "arch": "",
+      "cpe": "",
+      "pretty_name": "Ubuntu 18.04.3 LTS"
+    }
+  },
+  "environments": {
+    "10": [
+      {
+        "package_db": "var/lib/dpkg/status",
+        "introduced_in": "sha256:35c102085707f703de2d9eaad8752d6fe1b8f02b5d2149f1d8357c9cc7fb7d0a",
+        "distribution_id": "1"
+      }
+    ]
+  },
+  "vulnerabilities": {
+    "356835": {
+      "id": "356835",
+      "updater": "",
+      "name": "CVE-2009-5155",
+      "description": "In the GNU C Library (aka glibc or libc6) before 2.28,\nparse_reg_exp in posix/regcomp.c misparses alternatives,\nwhich allows attackers to cause a denial of service (assertion\nfailure and application exit) or trigger an incorrect result\nby attempting a regular-expression match.\"\n",
+      "links": "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2009-5155\nhttp://people.canonical.com/~ubuntu-security/cve/2009/CVE-2009-5155.html\nhttps://sourceware.org/bugzilla/show_bug.cgi?id=11053\nhttps://debbugs.gnu.org/cgi/bugreport.cgi?bug=22793\nhttps://debbugs.gnu.org/cgi/bugreport.cgi?bug=32806\nhttps://debbugs.gnu.org/cgi/bugreport.cgi?bug=34238\nhttps://sourceware.org/bugzilla/show_bug.cgi?id=18986\"\n",
+      "severity": "Low",
+      "normalized_severity": "Low",
+      "package": {
+        "id": "0",
+        "name": "glibc",
+        "version": "",
+        "kind": "",
+        "source": null,
+        "package_db": "",
+        "repository_hint": ""
+      },
+      "dist": {
+        "id": "0",
+        "did": "ubuntu",
+        "name": "Ubuntu",
+        "version": "18.04.3 LTS (Bionic Beaver)",
+        "version_code_name": "bionic",
+        "version_id": "18.04",
+        "arch": "",
+        "cpe": "",
+        "pretty_name": ""
+      },
+      "repo": {
+        "id": "0",
+        "name": "Ubuntu 18.04.3 LTS",
+        "key": "",
+        "uri": ""
+      },
+      "issued": "2019-10-12T07:20:50.52Z",
+      "fixed_in_version": "2.28-0ubuntu1"
+    }
+  },
+  "package_vulnerabilities": {
+    "10": [
+      "356835"
+    ]
+  }
+}

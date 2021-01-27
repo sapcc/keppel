@@ -77,6 +77,9 @@ func run(cmd *cobra.Command, args []string) {
 	go jobLoop(janitor.SyncManifestsInNextRepo)
 	go jobLoop(janitor.ValidateNextBlob)
 	go jobLoop(janitor.ValidateNextManifest)
+	if cfg.ClairClient != nil {
+		go jobLoop(janitor.CheckVulnerabilitiesForNextManifest)
+	}
 
 	//start HTTP server for Prometheus metrics and health check
 	http.Handle("/metrics", promhttp.Handler())
