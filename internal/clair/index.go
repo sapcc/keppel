@@ -80,6 +80,17 @@ func (c *Client) submitManifest(renderManifest func() (Manifest, error)) (indexR
 	if err != nil {
 		return indexReport{}, err
 	}
+
+	//Clair does not like manifests with no contents, but those do exist (for
+	//healthchecks, conformance tests, etc.), so generate a bogus indexReport for
+	//those
+	if len(m.Layers) == 0 {
+		return indexReport{
+			Digest: m.Digest,
+			State:  "IndexFinished",
+		}, nil
+	}
+
 	jsonBytes, err := json.Marshal(m)
 	if err != nil {
 		return indexReport{}, err
