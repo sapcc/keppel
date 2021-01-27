@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/docker/distribution"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/clair"
@@ -360,12 +361,8 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		return err
 	}
 
-	//collect blob data to construct Clair manifest
-	clairManifest := clair.Manifest{
-		Digest: manifest.Digest,
-	}
+	//can only validate when all blobs are present in the storage
 	for _, blob := range blobs {
-		//can only validate when all blobs are present in the storage
 		if blob.StorageID == "" {
 			//if the manifest is fairly new, the user who replicated it is probably
 			//still replicating it; give them 10 minutes to finish replicating it
@@ -381,16 +378,6 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			//after successful replication, restart this call to read the new blob with the correct StorageID from the DB
 			return j.doVulnerabilityCheck(account, repo, manifest)
 		}
-
-		blobURL, err := j.sd.URLForBlob(account, blob.StorageID)
-		//TODO handle ErrCannotGenerateURL (at least enough to cover unit tests)
-		if err != nil {
-			return err
-		}
-		clairManifest.Layers = append(clairManifest.Layers, clair.Layer{
-			Digest: blob.Digest,
-			URL:    blobURL,
-		})
 	}
 
 	//collect vulnerability status of constituent images
@@ -407,7 +394,9 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 
 	//ask Clair for vulnerability status of blobs in this image
 	if len(blobs) > 0 {
-		clairState, err := j.cfg.ClairClient.CheckManifestState(clairManifest)
+		clairState, err := j.cfg.ClairClient.CheckManifestState(manifest.Digest, func() (clair.Manifest, error) {
+			return j.buildClairManifest(account, repo, *manifest, blobs)
+		})
 		if err != nil {
 			return err
 		}
@@ -439,6 +428,46 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(1 * time.Hour))
 	}
 	return nil
+}
+
+func (j *Janitor) buildClairManifest(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, blobs []keppel.Blob) (clair.Manifest, error) {
+	result := clair.Manifest{
+		Digest: manifest.Digest,
+	}
+
+	//the Clair manifest can only include blobs that are actual image layers, so we need to parse the manifest contents
+	manifestBytes, err := j.sd.ReadManifest(account, repo.Name, manifest.Digest)
+	if err != nil {
+		return clair.Manifest{}, err
+	}
+	manifestParsed, manifestDesc, err := distribution.UnmarshalManifest(manifest.MediaType, manifestBytes)
+	if err != nil {
+		return clair.Manifest{}, keppel.ErrManifestInvalid.With(err.Error())
+	}
+	if manifest.Digest != "" && manifestDesc.Digest.String() != manifest.Digest {
+		return clair.Manifest{}, keppel.ErrDigestInvalid.With("actual manifest digest is " + manifestDesc.Digest.String())
+	}
+	isLayer := make(map[string]bool)
+	for _, desc := range keppel.FindImageLayerBlobs(manifestParsed) {
+		isLayer[desc.Digest.String()] = true
+	}
+
+	for _, blob := range blobs {
+		if !isLayer[blob.Digest] {
+			continue
+		}
+		blobURL, err := j.sd.URLForBlob(account, blob.StorageID)
+		//TODO handle ErrCannotGenerateURL (at least enough to cover unit tests)
+		if err != nil {
+			return clair.Manifest{}, err
+		}
+		result.Layers = append(result.Layers, clair.Layer{
+			Digest: blob.Digest,
+			URL:    blobURL,
+		})
+	}
+
+	return result, nil
 }
 
 func p2time(x time.Time) *time.Time {

@@ -97,6 +97,23 @@ func FindImageConfigBlob(manifest distribution.Manifest) *distribution.Descripto
 	}
 }
 
+//FindImageLayerBlobs returns the descriptors of the blobs containing this
+//manifest's image layers, or an empty list if the manifest does not have layers.
+func FindImageLayerBlobs(manifest distribution.Manifest) []distribution.Descriptor {
+	switch m := manifest.(type) {
+	case *schema2.DeserializedManifest:
+		return m.Layers
+	case *ocischema.DeserializedManifest:
+		return m.Layers
+	case *manifestlist.DeserializedManifestList:
+		//manifest lists only reference other manifests, they are not images and
+		//thus don't have an image configuration themselves
+		return nil
+	default:
+		panic(fmt.Sprintf("unexpected manifest type: %T", manifest))
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 //ManifestReference is a reference to a manifest as encountered in a URL on the

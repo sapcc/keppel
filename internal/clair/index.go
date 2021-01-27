@@ -60,21 +60,26 @@ func (r indexReport) IntoManifestState() ManifestState {
 }
 
 //CheckManifestState submits the manifest to clair for indexing if not done
-//yet, and checks if the indexing has finished.
-func (c *Client) CheckManifestState(m Manifest) (ManifestState, error) {
-	req, err := http.NewRequest("GET", c.requestURL("indexer", "api", "v1", "index_report", m.Digest), nil)
+//yet, and checks if the indexing has finished. Since the manifest rendering is
+//costly, it's wrapped in a callback that this method only calls when needed.
+func (c *Client) CheckManifestState(digest string, renderManifest func() (Manifest, error)) (ManifestState, error) {
+	req, err := http.NewRequest("GET", c.requestURL("indexer", "api", "v1", "index_report", digest), nil)
 	if err != nil {
 		return ManifestState{}, err
 	}
 	var result indexReport
 	err = c.doRequest(req, &result)
 	if err != nil && strings.Contains(err.Error(), "got 404 response") {
-		result, err = c.submitManifest(m)
+		result, err = c.submitManifest(renderManifest)
 	}
 	return result.IntoManifestState(), err
 }
 
-func (c *Client) submitManifest(m Manifest) (indexReport, error) {
+func (c *Client) submitManifest(renderManifest func() (Manifest, error)) (indexReport, error) {
+	m, err := renderManifest()
+	if err != nil {
+		return indexReport{}, err
+	}
 	jsonBytes, err := json.Marshal(m)
 	if err != nil {
 		return indexReport{}, err
