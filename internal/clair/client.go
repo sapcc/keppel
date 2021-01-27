@@ -37,6 +37,9 @@ type Client struct {
 	BaseURL url.URL
 	//PresharedKey is used to sign auth tokens for use with Clair.
 	PresharedKey []byte
+	//isEmptyManifest tracks when we did not submit a manifest because it does
+	//not contain any actual layers.
+	isEmptyManifest map[string]bool
 }
 
 func (c *Client) requestURL(pathElements ...string) string {

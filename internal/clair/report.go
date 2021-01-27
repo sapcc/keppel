@@ -89,6 +89,20 @@ func (v *Vulnerability) UnmarshalJSON(buf []byte) error {
 //from Clair. `(nil, nil)` is returned in case of 404, i.e. if the manifest has
 //not been fully indexed yet.
 func (c *Client) GetVulnerabilityReport(digest string) (*VulnerabilityReport, error) {
+	//if we faked the indexing report, we also need to fake the vulnerability
+	//report (see comment in c.submitManifest())
+	if c.isEmptyManifest[digest] {
+		return &VulnerabilityReport{
+			Digest:                 digest,
+			Packages:               map[string]interface{}{},
+			Distributions:          map[string]interface{}{},
+			Repositories:           map[string]interface{}{},
+			Environments:           map[string][]interface{}{},
+			Vulnerabilities:        map[string]*Vulnerability{},
+			PackageVulnerabilities: map[string][]string{},
+		}, nil
+	}
+
 	req, err := http.NewRequest("GET", c.requestURL("matcher", "api", "v1", "vulnerability_report", digest), nil)
 	if err != nil {
 		return nil, err

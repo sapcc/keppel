@@ -85,6 +85,7 @@ func (c *Client) submitManifest(renderManifest func() (Manifest, error)) (indexR
 	//healthchecks, conformance tests, etc.), so generate a bogus indexReport for
 	//those
 	if len(m.Layers) == 0 {
+		c.isEmptyManifest[m.Digest] = true //remind ourselves to also fake the VulnerabilityReport later
 		return indexReport{
 			Digest: m.Digest,
 			State:  "IndexFinished",
