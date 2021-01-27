@@ -288,13 +288,14 @@ func newKeystoneAuthorization(t *gopherpolicy.Token) keystoneAuthorization {
 }
 
 var ruleForPerm = map[keppel.Permission]string{
-	keppel.CanViewAccount:       "account:show",
-	keppel.CanPullFromAccount:   "account:pull",
-	keppel.CanPushToAccount:     "account:push",
-	keppel.CanDeleteFromAccount: "account:delete",
-	keppel.CanChangeAccount:     "account:edit",
-	keppel.CanViewQuotas:        "quota:show",
-	keppel.CanChangeQuotas:      "quota:edit",
+	keppel.CanViewAccount:        "account:show",
+	keppel.CanPullFromAccount:    "account:pull",
+	keppel.CanPushToAccount:      "account:push",
+	keppel.CanDeleteFromAccount:  "account:delete",
+	keppel.CanChangeAccount:      "account:edit",
+	keppel.CanViewQuotas:         "quota:show",
+	keppel.CanChangeQuotas:       "quota:edit",
+	keppel.CanAdministrateKeppel: "keppel:admin",
 }
 
 //UserName implements the keppel.Authorization interface.

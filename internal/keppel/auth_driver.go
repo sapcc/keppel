@@ -46,6 +46,8 @@ const (
 	CanViewQuotas Permission = "viewquota"
 	//CanChangeQuotas is the permission for changing an auth tenant's quotas.
 	CanChangeQuotas Permission = "changequota"
+	//CanAdministrateKeppel is a global permission (not tied to any auth tenant) for certain administrative tasks in Keppel.
+	CanAdministrateKeppel Permission = "keppeladmin"
 )
 
 //Authorization describes the access rights for a user. It is returned by

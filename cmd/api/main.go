@@ -34,6 +34,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/api"
 	auth "github.com/sapcc/keppel/internal/api/auth"
+	"github.com/sapcc/keppel/internal/api/clairproxy"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -91,6 +92,7 @@ func run(cmd *cobra.Command, args []string) {
 		keppelv1.NewAPI(cfg, ad, fd, sd, db, auditor),
 		auth.NewAPI(cfg, ad, fd, db),
 		registryv2.NewAPI(cfg, fd, sd, db, rle),
+		clairproxy.NewAPI(cfg, ad),
 		&headerReflector{logg.ShowDebug}, //the header reflection endpoint is only enabled where debugging is enabled (i.e. usually in dev/QA only)
 		&guiRedirecter{db, os.Getenv("KEPPEL_GUI_URI")},
 	)

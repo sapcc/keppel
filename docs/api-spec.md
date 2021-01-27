@@ -30,6 +30,7 @@ This document uses the terminology defined in the [README.md](../README.md#termi
 - [GET /keppel/v1/peers](#get-keppelv1peers)
 - [GET /keppel/v1/quotas/:auth\_tenant\_id](#get-keppelv1quotasauth_tenant_id)
 - [PUT /keppel/v1/quotas/:auth\_tenant\_id](#put-keppelv1quotasauth_tenant_id)
+- [GET /clair/:path](#get-clairpath)
 
 ## GET /keppel/v1
 
@@ -471,3 +472,10 @@ Updates the configuration for this auth tenant. The request body must be a JSON 
 as the response from the corresponding GET endpoint, except that the `.usage` fields may not be present.
 
 On success, returns 200 and a JSON response body like from the corresponding GET endpoint.
+
+## GET /clair/:path
+
+When Keppel is set up with a Clair instance for vulnerability scanning, all GET/HEAD requests for paths under `/clair/`
+get reverse-proxied into the Clair API. The user must have administrative access to Keppel. This reverse-proxying is
+useful because a Clair instance associated with Keppel usually only responds to requests with tokens issued by Keppel,
+and Keppel does not hand out those tokens at all.
