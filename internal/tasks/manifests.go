@@ -367,7 +367,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			//if the manifest is fairly new, the user who replicated it is probably
 			//still replicating it; give them 10 minutes to finish replicating it
 			manifest.NextVulnerabilityCheckAt = p2time(manifest.PushedAt.Add(10 * time.Minute))
-			if manifest.NextVulnerabilityCheckAt.Before(time.Now()) {
+			if manifest.NextVulnerabilityCheckAt.After(j.timeNow()) {
 				return nil
 			}
 			//otherwise we do the replication ourselves
