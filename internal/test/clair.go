@@ -22,8 +22,12 @@ package test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -77,6 +81,8 @@ func (c *ClairDouble) postIndexReport(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unexpected digest: "+digest, http.StatusBadRequest)
 		return
 	}
+	fixturePathAbs, _ := filepath.Abs(fixturePath)
+	actualPathAbs := fixturePathAbs + ".actual"
 
 	//pretty-print actual request body into file
 	reqBodyBytes, err := json.Marshal(reqBody)
@@ -88,8 +94,20 @@ func (c *ClairDouble) postIndexReport(w http.ResponseWriter, r *http.Request) {
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-	err = ioutil.WriteFile(fixturePath+".actual", reqBodyBuf.Bytes(), 0666)
+	err = ioutil.WriteFile(actualPathAbs, reqBodyBuf.Bytes(), 0666)
 	if respondwith.ErrorText(w, err) {
+		return
+	}
+
+	//only accept manifests that we anticipated
+	cmd := exec.Command("diff", "-u", fixturePathAbs, actualPathAbs)
+	cmd.Stdin = nil
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	if err != nil {
+		msg := fmt.Sprintf("manifest for %s does not match fixture at %s (see diff output above)", digest, fixturePath)
+		http.Error(w, msg, http.StatusBadRequest)
 		return
 	}
 

@@ -399,7 +399,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	//any blobs and thus only aggregates its submanifests' vulnerability
 	//statuses)
 	for idx, image := range images {
-		claird.IndexFixtures[image.Manifest.Digest.String()] = fmt.Sprintf("fixtures/clair/manifest-%03d.json", idx)
+		claird.IndexFixtures[image.Manifest.Digest.String()] = fmt.Sprintf("fixtures/clair/manifest-%03d.json", idx+1)
 	}
 	//Clair support currently requires a storage driver that can do URLForBlob()
 	sd.(*test.StorageDriver).AllowDummyURLs = true
