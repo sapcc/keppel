@@ -27,8 +27,19 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 )
+
+func deterministicDummySeverity(counter int) clair.Severity {
+	if counter%5 == 0 {
+		return "Unknown"
+	}
+	if counter%3 == 0 {
+		return "High"
+	}
+	return "Clean"
+}
 
 func TestManifestsAPI(t *testing.T) {
 	h, _, _, _, sd, db := setup(t)
@@ -79,7 +90,7 @@ func TestManifestsAPI(t *testing.T) {
 				SizeBytes:           sizeBytes,
 				PushedAt:            pushedAt,
 				ValidatedAt:         pushedAt,
-				VulnerabilityStatus: "Unknown",
+				VulnerabilityStatus: deterministicDummySeverity(idx),
 			}
 			if idx == 1 {
 				dbManifest.LastPulledAt = p2time(pushedAt.Add(100 * time.Second))
@@ -123,11 +134,12 @@ func TestManifestsAPI(t *testing.T) {
 	renderedManifests := make([]assert.JSONObject, 10)
 	for idx := 1; idx <= 10; idx++ {
 		renderedManifests[idx-1] = assert.JSONObject{
-			"digest":         deterministicDummyDigest(10 + idx),
-			"media_type":     "application/vnd.docker.distribution.manifest.v2+json",
-			"size_bytes":     uint64(1000 * idx),
-			"pushed_at":      int64(1000 * (10 + idx)),
-			"last_pulled_at": nil,
+			"digest":               deterministicDummyDigest(10 + idx),
+			"media_type":           "application/vnd.docker.distribution.manifest.v2+json",
+			"size_bytes":           uint64(1000 * idx),
+			"pushed_at":            int64(1000 * (10 + idx)),
+			"last_pulled_at":       nil,
+			"vulnerability_status": string(deterministicDummySeverity(idx)),
 		}
 	}
 	renderedManifests[0]["last_pulled_at"] = 11100

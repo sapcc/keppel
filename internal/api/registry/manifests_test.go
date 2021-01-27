@@ -24,6 +24,7 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -232,6 +233,27 @@ func TestImageManifestLifecycle(t *testing.T) {
 						expectManifestExists(t, h2, anycastToken, "test1/foo", image.Manifest, image.Manifest.Digest.String(), anycastHeaders)
 					})
 				})
+			}
+
+			//test display of custom headers during GET/HEAD
+			_, err = db.Exec(
+				`UPDATE manifests SET vuln_status = $1 WHERE digest = $2`,
+				clair.CleanSeverity, image.Manifest.Digest.String(),
+			)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			for _, method := range []string{"GET", "HEAD"} {
+				assert.HTTPRequest{
+					Method:       method,
+					Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
+					Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+					ExpectStatus: http.StatusOK,
+					ExpectHeader: map[string]string{
+						test.VersionHeaderKey:           test.VersionHeaderValue,
+						"X-Keppel-Vulnerability-Status": string(clair.CleanSeverity),
+					},
+				}.Check(t, h)
 			}
 
 			//DELETE failure case: no delete permission
