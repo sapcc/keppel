@@ -406,7 +406,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 
 	//first round of CheckVulnerabilitiesForNextManifest should submit manifests
 	//to Clair for indexing, but since Clair is not done indexing yet, images
-	//stay in vulnerability status "Unknown" for know
+	//stay in vulnerability status "Pending" for now
 	clock.StepBy(30 * time.Minute)
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest()) //once for each manifest
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())

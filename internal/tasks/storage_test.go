@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -199,7 +200,7 @@ func TestSweepStorageManifests(t *testing.T) {
 		SizeBytes:           uint64(len(testImageList1.Manifest.Contents)),
 		PushedAt:            clock.Now(),
 		ValidatedAt:         clock.Now(),
-		VulnerabilityStatus: "Unknown",
+		VulnerabilityStatus: clair.PendingSeverity,
 	}
 	must(t, db.Insert(&dbTestManifest1))
 

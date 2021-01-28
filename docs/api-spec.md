@@ -387,7 +387,7 @@ The following fields may be returned:
 | `manifests[].tags[].name` | string | The name of this tag. |
 | `manifests[].tags[].pushed_at` | string | When this tag was last updated in the registry. |
 | `manifests[].tags[].last_pulled_at` | UNIX timestamp or null | When this manifest was last pulled from the registry using this tag name (or null if it was never pulled from this tag). |
-| `manifests[].vulnerability_status` | string | Either `Clean` (no vulnerabilities have been found in this image), `Unknown` (vulnerability scanning is not enabled on this server or is still in progress for this image or has failed for this image) or any of the severity strings defined by Clair (`Negligible`, `Low`, `Medium`, `High`, `Critical`, `Defcon1`). |
+| `manifests[].vulnerability_status` | string | Either `Clean` (no vulnerabilities have been found in this image), `Pending` (vulnerability scanning is not enabled on this server or is still in progress for this image or has failed for this image) or any of the severity strings defined by Clair (`Unknown`, `Negligible`, `Low`, `Medium`, `High`, `Critical`, `Defcon1`). |
 | `truncated` | boolean | Indicates whether [marker-based pagination](#marker-based-pagination) must be used to retrieve the rest of the result. |
 
 ## DELETE /keppel/v1/accounts/:name/repositories/:name/_manifests/:digest

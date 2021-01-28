@@ -33,12 +33,12 @@ import (
 
 func deterministicDummySeverity(counter int) clair.Severity {
 	if counter%5 == 0 {
-		return "Unknown"
+		return clair.PendingSeverity
 	}
 	if counter%3 == 0 {
-		return "High"
+		return clair.HighSeverity
 	}
-	return "Clean"
+	return clair.CleanSeverity
 }
 
 func TestManifestsAPI(t *testing.T) {

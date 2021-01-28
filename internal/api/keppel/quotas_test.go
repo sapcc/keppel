@@ -25,6 +25,7 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/hermes/pkg/cadf"
+	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -130,7 +131,7 @@ func TestQuotasAPI(t *testing.T) {
 			SizeBytes:           uint64(1000 * idx),
 			PushedAt:            pushedAt,
 			ValidatedAt:         pushedAt,
-			VulnerabilityStatus: "Unknown",
+			VulnerabilityStatus: clair.PendingSeverity,
 		})
 	}
 	assert.HTTPRequest{

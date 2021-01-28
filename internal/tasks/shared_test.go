@@ -28,6 +28,7 @@ import (
 	"github.com/sapcc/keppel/internal/api"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
+	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 	"golang.org/x/crypto/bcrypt"
@@ -182,7 +183,7 @@ func uploadManifest(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock 
 		SizeBytes:           sizeBytes,
 		PushedAt:            clock.Now(),
 		ValidatedAt:         clock.Now(),
-		VulnerabilityStatus: "Unknown",
+		VulnerabilityStatus: clair.PendingSeverity,
 	}
 	must(t, db.Insert(&dbManifest))
 	must(t, sd.WriteManifest(account, "foo", manifest.Digest.String(), manifest.Contents))

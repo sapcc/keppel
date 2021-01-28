@@ -29,6 +29,7 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -94,7 +95,7 @@ func TestReposAPI(t *testing.T) {
 			SizeBytes:           uint64(1000 * idx),
 			PushedAt:            manifestPushedAt,
 			ValidatedAt:         manifestPushedAt,
-			VulnerabilityStatus: "Unknown",
+			VulnerabilityStatus: clair.PendingSeverity,
 		})
 		if idx <= 3 {
 			mustInsert(t, db, &keppel.Tag{

@@ -6,7 +6,7 @@ INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, 
 
 INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, 'sha256:86fa8722ca7f27e97e1bc5060c3f6720bf43840f143f813fcbe48ed4cbeebb90', 1);
 
-INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message, last_pulled_at, next_vuln_check_at, vuln_status) VALUES (1, 'sha256:86fa8722ca7f27e97e1bc5060c3f6720bf43840f143f813fcbe48ed4cbeebb90', 'application/vnd.docker.distribution.manifest.v2+json', 1751, 3, 3, '', NULL, NULL, 'Unknown');
+INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message, last_pulled_at, next_vuln_check_at, vuln_status) VALUES (1, 'sha256:86fa8722ca7f27e97e1bc5060c3f6720bf43840f143f813fcbe48ed4cbeebb90', 'application/vnd.docker.distribution.manifest.v2+json', 1751, 3, 3, '', NULL, NULL, 'Pending');
 
 INSERT INTO quotas (auth_tenant_id, manifests) VALUES ('test1authtenant', 100);
 

@@ -369,6 +369,14 @@ var sqlMigrations = map[string]string{
 			DROP COLUMN next_vuln_check_at,
 			DROP COLUMN vuln_status;
 	`,
+	"019_fix_default_vulnerability_status.up.sql": `
+		ALTER TABLE manifests ALTER COLUMN vuln_status SET DEFAULT 'Pending';
+		UPDATE manifests SET vuln_status = 'Pending', next_vuln_check_at = NULL WHERE vuln_status = 'Unknown';
+	`,
+	"019_fix_default_vulnerability_status.down.sql": `
+		ALTER TABLE manifests ALTER COLUMN vuln_status SET DEFAULT 'Unknown';
+		UPDATE manifests SET vuln_status = 'Unknown', next_vuln_check_at = NULL WHERE vuln_status = 'Pending';
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

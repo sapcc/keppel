@@ -413,13 +413,13 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			}
 			severities = append(severities, clairReport.Severity())
 		} else {
-			severities = append(severities, clair.UnknownSeverity)
+			severities = append(severities, clair.PendingSeverity)
 		}
 	}
 
 	//merge all vulnerability statuses
 	manifest.VulnerabilityStatus = clair.MergeSeverities(severities...)
-	if manifest.VulnerabilityStatus == clair.UnknownSeverity {
+	if manifest.VulnerabilityStatus == clair.PendingSeverity {
 		logg.Info("skipping vulnerability check for %s: indexing is not finished yet", manifest.Digest)
 		//wait a bit for indexing to finish, then come back to update the vulnerability status
 		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(2 * time.Minute))
@@ -457,7 +457,7 @@ func (j *Janitor) buildClairManifest(account keppel.Account, repo keppel.Reposit
 			continue
 		}
 		blobURL, err := j.sd.URLForBlob(account, blob.StorageID)
-		//TODO handle ErrCannotGenerateURL (at least enough to cover unit tests)
+		//TODO handle ErrCannotGenerateURL (currently not a problem because all storage drivers can make URLs)
 		if err != nil {
 			return clair.Manifest{}, err
 		}

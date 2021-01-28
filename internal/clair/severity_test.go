@@ -29,8 +29,8 @@ func TestMergeSeverities(t *testing.T) {
 		}
 	}
 	expect(CleanSeverity, MergeSeverities())
-	expect(UnknownSeverity, MergeSeverities(UnknownSeverity))
-	expect(UnknownSeverity, MergeSeverities(UnknownSeverity, HighSeverity))
+	expect(PendingSeverity, MergeSeverities(PendingSeverity))
+	expect(PendingSeverity, MergeSeverities(PendingSeverity, HighSeverity))
 	expect(LowSeverity, MergeSeverities(LowSeverity, LowSeverity))
 	expect(HighSeverity, MergeSeverities(LowSeverity, HighSeverity))
 }

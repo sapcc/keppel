@@ -33,6 +33,7 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/hermes/pkg/cadf"
 	"github.com/sapcc/keppel/internal/api"
+	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -1427,7 +1428,7 @@ func TestDeleteAccount(t *testing.T) {
 		SizeBytes:           uint64(len(image.Manifest.Contents)),
 		PushedAt:            time.Unix(100, 0),
 		ValidatedAt:         time.Unix(100, 0),
-		VulnerabilityStatus: "Unknown",
+		VulnerabilityStatus: clair.PendingSeverity,
 	}
 	mustInsert(t, db, &manifest)
 	err := sd.WriteManifest(*accounts[0], repos[0].Name, image.Manifest.Digest.String(), image.Manifest.Contents)
