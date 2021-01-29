@@ -58,7 +58,9 @@ type ParsedManifest interface {
 	//BlobReferences returns all blobs referenced by this manifest.
 	BlobReferences() []distribution.Descriptor
 	//ManifestReferences returns all manifests referenced by this manifest.
-	ManifestReferences() []manifestlist.ManifestDescriptor
+	//This takes an account as argument because the `account.PlatformFilter` may
+	//need to be considered.
+	ManifestReferences(account Account) []manifestlist.ManifestDescriptor
 }
 
 //ParseManifest parses a manifest. It also returns a Descriptor describing the manifest itself.
@@ -96,7 +98,7 @@ func (a v2ManifestAdapter) BlobReferences() []distribution.Descriptor {
 	return a.m.References()
 }
 
-func (a v2ManifestAdapter) ManifestReferences() []manifestlist.ManifestDescriptor {
+func (a v2ManifestAdapter) ManifestReferences(account Account) []manifestlist.ManifestDescriptor {
 	return nil
 }
 
@@ -117,7 +119,7 @@ func (a ociManifestAdapter) BlobReferences() []distribution.Descriptor {
 	return a.m.References()
 }
 
-func (a ociManifestAdapter) ManifestReferences() []manifestlist.ManifestDescriptor {
+func (a ociManifestAdapter) ManifestReferences(account Account) []manifestlist.ManifestDescriptor {
 	return nil
 }
 
@@ -138,6 +140,12 @@ func (a listManifestAdapter) BlobReferences() []distribution.Descriptor {
 	return nil
 }
 
-func (a listManifestAdapter) ManifestReferences() []manifestlist.ManifestDescriptor {
-	return a.m.Manifests
+func (a listManifestAdapter) ManifestReferences(account Account) []manifestlist.ManifestDescriptor {
+	result := make([]manifestlist.ManifestDescriptor, 0, len(a.m.Manifests))
+	for _, m := range a.m.Manifests {
+		if account.PlatformFilter.Includes(m.Platform) {
+			result = append(result, m)
+		}
+	}
+	return result
 }
