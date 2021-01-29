@@ -26,8 +26,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/docker/distribution"
-	"github.com/docker/distribution/manifest/manifestlist"
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
@@ -114,21 +112,18 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 			//client only accepts application/vnd.docker.distribution.manifest.v2+json. To stay
 			//compatible with the reference implementation of Docker Hub, we serve this case by recursing
 			//into the image list and returning the linux/amd64 manifest to the client.
-			manifestParsed, _, err := distribution.UnmarshalManifest(dbManifest.MediaType, manifestBytes)
+			manifestParsed, _, err := keppel.ParseManifest(dbManifest.MediaType, manifestBytes)
 			if err != nil {
 				keppel.ErrManifestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 				return
 			}
-			manifestList, ok := manifestParsed.(*manifestlist.DeserializedManifestList)
-			if ok {
-				for _, subManifestDesc := range manifestList.Manifests {
-					if subManifestDesc.Platform.OS == "linux" && subManifestDesc.Platform.Architecture == "amd64" {
-						url := fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), subManifestDesc.Digest.String())
-						w.Header().Set("Docker-Content-Digest", subManifestDesc.Digest.String())
-						w.Header().Set("Location", url)
-						w.WriteHeader(http.StatusTemporaryRedirect)
-						return
-					}
+			for _, subManifestDesc := range manifestParsed.ManifestReferences() {
+				if subManifestDesc.Platform.OS == "linux" && subManifestDesc.Platform.Architecture == "amd64" {
+					url := fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), subManifestDesc.Digest.String())
+					w.Header().Set("Docker-Content-Digest", subManifestDesc.Digest.String())
+					w.Header().Set("Location", url)
+					w.WriteHeader(http.StatusTemporaryRedirect)
+					return
 				}
 			}
 		}

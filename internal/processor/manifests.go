@@ -26,7 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/distribution"
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
 	"gopkg.in/gorp.v2"
@@ -104,7 +103,7 @@ func (p *Processor) ValidateExistingManifest(account keppel.Account, repo keppel
 
 func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo keppel.Repository, manifest *keppel.Manifest, manifestBytes []byte, actionBeforeCommit func(*gorp.Transaction) error) error {
 	//parse manifest
-	manifestParsed, manifestDesc, err := distribution.UnmarshalManifest(manifest.MediaType, manifestBytes)
+	manifestParsed, manifestDesc, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
 	if err != nil {
 		return keppel.ErrManifestInvalid.With(err.Error())
 	}
@@ -121,7 +120,10 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 	// ^ Those two should be the same already, but if in doubt, we trust the
 	// parser more than the user input.
 	manifest.SizeBytes = uint64(manifestDesc.Size)
-	for _, desc := range manifestParsed.References() {
+	for _, desc := range manifestParsed.BlobReferences() {
+		manifest.SizeBytes += uint64(desc.Size)
+	}
+	for _, desc := range manifestParsed.ManifestReferences() {
 		manifest.SizeBytes += uint64(desc.Size)
 	}
 
@@ -164,50 +166,55 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 	})
 }
 
-func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account, repo keppel.Repository, manifest distribution.Manifest) (blobIDs []int64, manifestDigests []string, returnErr error) {
+func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account, repo keppel.Repository, manifest keppel.ParsedManifest) (blobIDs []int64, manifestDigests []string, returnErr error) {
 	//ensure that we don't insert duplicate entries into `blobIDs` and `manifestDigests`
 	wasHandled := make(map[string]bool)
 
-	for _, desc := range manifest.References() {
+	for _, desc := range manifest.BlobReferences() {
 		if wasHandled[desc.Digest.String()] {
 			continue
 		}
 		wasHandled[desc.Digest.String()] = true
 
-		if keppel.IsManifestMediaType(desc.MediaType) {
-			_, err := keppel.FindManifest(tx, repo, desc.Digest.String())
-			if err == sql.ErrNoRows {
-				return nil, nil, keppel.ErrManifestUnknown.With("").WithDetail(desc.Digest.String())
-			}
-			if err != nil {
-				return nil, nil, err
-			}
-			manifestDigests = append(manifestDigests, desc.Digest.String())
-		} else {
-			blob, err := keppel.FindBlobByRepository(tx, desc.Digest, repo, account)
-			if err == sql.ErrNoRows {
-				return nil, nil, keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String())
-			}
-			if err != nil {
-				return nil, nil, err
-			}
-			if blob.SizeBytes != uint64(desc.Size) {
-				msg := fmt.Sprintf(
-					"manifest references blob %s with %d bytes, but blob actually contains %d bytes",
-					desc.Digest.String(), desc.Size, blob.SizeBytes)
-				return nil, nil, keppel.ErrManifestInvalid.With(msg)
-			}
-			blobIDs = append(blobIDs, blob.ID)
+		blob, err := keppel.FindBlobByRepository(tx, desc.Digest, repo, account)
+		if err == sql.ErrNoRows {
+			return nil, nil, keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String())
 		}
+		if err != nil {
+			return nil, nil, err
+		}
+		if blob.SizeBytes != uint64(desc.Size) {
+			msg := fmt.Sprintf(
+				"manifest references blob %s with %d bytes, but blob actually contains %d bytes",
+				desc.Digest.String(), desc.Size, blob.SizeBytes)
+			return nil, nil, keppel.ErrManifestInvalid.With(msg)
+		}
+		blobIDs = append(blobIDs, blob.ID)
+	}
+
+	for _, desc := range manifest.ManifestReferences() {
+		if wasHandled[desc.Digest.String()] {
+			continue
+		}
+		wasHandled[desc.Digest.String()] = true
+
+		_, err := keppel.FindManifest(tx, repo, desc.Digest.String())
+		if err == sql.ErrNoRows {
+			return nil, nil, keppel.ErrManifestUnknown.With("").WithDetail(desc.Digest.String())
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+		manifestDigests = append(manifestDigests, desc.Digest.String())
 	}
 
 	return blobIDs, manifestDigests, nil
 }
 
 //Returns the list of missing labels, or nil if everything is ok.
-func checkManifestHasRequiredLabels(tx *gorp.Transaction, sd keppel.StorageDriver, account keppel.Account, manifest distribution.Manifest, requiredLabels []string) ([]string, error) {
+func checkManifestHasRequiredLabels(tx *gorp.Transaction, sd keppel.StorageDriver, account keppel.Account, manifest keppel.ParsedManifest, requiredLabels []string) ([]string, error) {
 	//is this manifest an image that has labels?
-	configBlob := keppel.FindImageConfigBlob(manifest)
+	configBlob := manifest.FindImageConfigBlob()
 	if configBlob == nil {
 		return nil, nil
 	}
@@ -416,42 +423,42 @@ func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Reposi
 	}
 
 	//parse the manifest to discover references to other manifests and blobs
-	manifestParsed, _, err := distribution.UnmarshalManifest(manifestMediaType, manifestBytes)
+	manifestParsed, _, err := keppel.ParseManifest(manifestMediaType, manifestBytes)
 	if err != nil {
 		return nil, nil, keppel.ErrManifestInvalid.With(err.Error())
 	}
 
+	//replicate referenced manifests recursively if required
+	for _, desc := range manifestParsed.ManifestReferences() {
+		_, err := keppel.FindManifest(p.db, repo, desc.Digest.String())
+		if err == sql.ErrNoRows {
+			_, _, err = p.ReplicateManifest(account, repo, keppel.ManifestReference{Digest: desc.Digest})
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
 	//mark all missing blobs as pending replication
-	for _, desc := range manifestParsed.References() {
-		if keppel.IsManifestMediaType(desc.MediaType) {
-			//replicate referenced manifests recursively if required
-			_, err := keppel.FindManifest(p.db, repo, desc.Digest.String())
-			if err == sql.ErrNoRows {
-				_, _, err = p.ReplicateManifest(account, repo, keppel.ManifestReference{Digest: desc.Digest})
-			}
-			if err != nil {
-				return nil, nil, err
-			}
-		} else {
-			//mark referenced blobs as pending replication if not replicated yet
-			blob, err := p.FindBlobOrInsertUnbackedBlob(desc, account)
-			if err != nil {
-				return nil, nil, err
-			}
-			//also ensure that the blob is mounted in this repo (this is also
-			//important if the blob exists; it may only have been replicated in a
-			//different repo)
-			err = keppel.MountBlobIntoRepo(p.db, *blob, repo)
-			if err != nil {
-				return nil, nil, err
-			}
+	for _, desc := range manifestParsed.BlobReferences() {
+		//mark referenced blobs as pending replication if not replicated yet
+		blob, err := p.FindBlobOrInsertUnbackedBlob(desc, account)
+		if err != nil {
+			return nil, nil, err
+		}
+		//also ensure that the blob is mounted in this repo (this is also
+		//important if the blob exists; it may only have been replicated in a
+		//different repo)
+		err = keppel.MountBlobIntoRepo(p.db, *blob, repo)
+		if err != nil {
+			return nil, nil, err
 		}
 	}
 
 	//if the manifest is an image, we need to replicate the image configuration
 	//blob immediately because ValidateAndStoreManifest() uses it for validation
 	//purposes
-	configBlobDesc := keppel.FindImageConfigBlob(manifestParsed)
+	configBlobDesc := manifestParsed.FindImageConfigBlob()
 	if configBlobDesc != nil {
 		configBlob, err := keppel.FindBlobByAccountName(p.db, configBlobDesc.Digest, account)
 		if err != nil {

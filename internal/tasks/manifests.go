@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/docker/distribution"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/clair"
@@ -440,7 +439,7 @@ func (j *Janitor) buildClairManifest(account keppel.Account, repo keppel.Reposit
 	if err != nil {
 		return clair.Manifest{}, err
 	}
-	manifestParsed, manifestDesc, err := distribution.UnmarshalManifest(manifest.MediaType, manifestBytes)
+	manifestParsed, manifestDesc, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
 	if err != nil {
 		return clair.Manifest{}, keppel.ErrManifestInvalid.With(err.Error())
 	}
@@ -448,7 +447,7 @@ func (j *Janitor) buildClairManifest(account keppel.Account, repo keppel.Reposit
 		return clair.Manifest{}, keppel.ErrDigestInvalid.With("actual manifest digest is " + manifestDesc.Digest.String())
 	}
 	isLayer := make(map[string]bool)
-	for _, desc := range keppel.FindImageLayerBlobs(manifestParsed) {
+	for _, desc := range manifestParsed.FindImageLayerBlobs() {
 		isLayer[desc.Digest.String()] = true
 	}
 
