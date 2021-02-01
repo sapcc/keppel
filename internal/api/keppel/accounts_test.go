@@ -905,6 +905,24 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectBody:   assert.StringData("\"[a-z]++@tenant2\" is not a valid regex: error parsing regexp: invalid nested repetition operator: `++`\n"),
 	}.Check(t, r)
 
+	//test unexpected platform filter
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"platform_filter": []assert.JSONObject{{
+					"os":           "linux",
+					"architecture": "amd64",
+				}},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("platform filter is only allowed on replica accounts\n"),
+	}.Check(t, r)
+
 	//test errors for sublease token issuance: missing authentication/authorization
 	assert.HTTPRequest{
 		Method:       "POST",
@@ -1192,6 +1210,17 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 	}.Check(t, r)
 
 	//test PUT success case
+	testPlatformFilter := []assert.JSONObject{
+		{
+			"os":           "linux",
+			"architecture": "amd64",
+		},
+		{
+			"os":           "linux",
+			"architecture": "arm64",
+			"variant":      "v8",
+		},
+	}
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
@@ -1205,6 +1234,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 						"url": "registry.example.com",
 					},
 				},
+				"platform_filter": testPlatformFilter,
 			},
 		},
 		ExpectStatus: http.StatusOK,
@@ -1221,6 +1251,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 						"url": "registry.example.com",
 					},
 				},
+				"platform_filter": testPlatformFilter,
 			},
 		},
 	}.Check(t, r)
@@ -1250,6 +1281,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 						"url": "registry.example.com",
 					},
 				},
+				"platform_filter": testPlatformFilter,
 			},
 		},
 	}.Check(t, r)
@@ -1287,6 +1319,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 						"username": "foo",
 					},
 				},
+				"platform_filter": testPlatformFilter,
 			},
 		},
 	}.Check(t, r)
@@ -1362,6 +1395,29 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		},
 		ExpectStatus: http.StatusConflict,
 		ExpectBody:   assert.StringData("cannot change replication policy on existing account\n"),
+	}.Check(t, r)
+
+	//PUT on existing account with different platform filter is not allowed
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"replication": assert.JSONObject{
+					"strategy": "from_external_on_first_use",
+					"upstream": assert.JSONObject{
+						"url":      "registry.example.com",
+						"username": "foo",
+						"password": "bar",
+					},
+				},
+				"platform_filter": []assert.JSONObject{},
+			},
+		},
+		ExpectStatus: http.StatusConflict,
+		ExpectBody:   assert.StringData("cannot change platform filter on existing account\n"),
 	}.Check(t, r)
 }
 
