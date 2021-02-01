@@ -19,18 +19,21 @@
 package validatecmd
 
 import (
+	"encoding/json"
 	"os"
 	"strings"
 
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/client"
+	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/spf13/cobra"
 )
 
 var (
-	authUserName string
-	authPassword string
+	authUserName      string
+	authPassword      string
+	platformFilterStr string
 )
 
 //AddCommandTo mounts this command into the command hierarchy.
@@ -46,6 +49,7 @@ If the image is in a Keppel replica account, this ensures that the image is repl
 	}
 	cmd.PersistentFlags().StringVar(&authUserName, "username", "", "User name (only required for non-public images).")
 	cmd.PersistentFlags().StringVar(&authPassword, "password", "", "Password (only required for non-public images).")
+	cmd.PersistentFlags().StringVar(&platformFilterStr, "platform-filter", "[]", "When validating a multi-architecture image, only recurse into the contained images matching one of the given platforms. The filter must be given as a JSON array of objects matching each having the same format as the `manifests[].platform` field in the <https://github.com/opencontainers/image-spec/blob/master/image-index.md>.")
 	parent.AddCommand(cmd)
 }
 
@@ -72,6 +76,12 @@ func (l logger) LogBlob(d digest.Digest, level int, err error) {
 }
 
 func run(cmd *cobra.Command, args []string) {
+	var platformFilter keppel.PlatformFilter
+	err := json.Unmarshal([]byte(platformFilterStr), &platformFilter)
+	if err != nil {
+		logg.Fatal("cannot parse platform filter: " + err.Error())
+	}
+
 	ref, interpretation, err := client.ParseImageReference(args[0])
 	logg.Info("interpreting %s as %s", args[0], interpretation)
 	if err != nil {
@@ -84,7 +94,7 @@ func run(cmd *cobra.Command, args []string) {
 		UserName: authUserName,
 		Password: authPassword,
 	}
-	err = c.ValidateManifest(ref.Reference, logger{})
+	err = c.ValidateManifest(ref.Reference, logger{}, platformFilter)
 	if err != nil {
 		os.Exit(1)
 	}

@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/docker/distribution"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -42,15 +41,15 @@ func (noopLogger) LogBlob(digest.Digest, int, error) {}
 //ValidateManifest fetches the given manifest from the repo and verifies that
 //it parses correctly. It also validates all references manifests and blobs
 //recursively.
-func (c *RepoClient) ValidateManifest(reference string, logger ValidationLogger) error {
+func (c *RepoClient) ValidateManifest(reference string, logger ValidationLogger, platformFilter keppel.PlatformFilter) error {
 	cache := make(map[string]error)
 	if logger == nil {
 		logger = noopLogger{}
 	}
-	return c.doValidateManifest(reference, 0, logger, cache)
+	return c.doValidateManifest(reference, 0, logger, platformFilter, cache)
 }
 
-func (c *RepoClient) doValidateManifest(reference string, level int, logger ValidationLogger, cache map[string]error) (returnErr error) {
+func (c *RepoClient) doValidateManifest(reference string, level int, logger ValidationLogger, platformFilter keppel.PlatformFilter, cache map[string]error) (returnErr error) {
 	if cachedResult, exists := cache[reference]; exists {
 		logger.LogManifest(reference, level, cachedResult)
 		return cachedResult
@@ -67,7 +66,7 @@ func (c *RepoClient) doValidateManifest(reference string, level int, logger Vali
 	if err != nil {
 		return err
 	}
-	manifest, manifestDesc, err := distribution.UnmarshalManifest(manifestMediaType, manifestBytes)
+	manifest, manifestDesc, err := keppel.ParseManifest(manifestMediaType, manifestBytes)
 	if err != nil {
 		return err
 	}
@@ -78,23 +77,22 @@ func (c *RepoClient) doValidateManifest(reference string, level int, logger Vali
 	cache[manifestDesc.Digest.String()] = nil
 
 	//...now recurse into the manifests and blobs that it references
-	for _, desc := range manifest.References() {
-		if keppel.IsManifestMediaType(desc.MediaType) {
-			err := c.doValidateManifest(desc.Digest.String(), level+1, logger, cache)
+	for _, desc := range manifest.BlobReferences() {
+		if cachedResult, exists := cache[desc.Digest.String()]; exists {
+			logger.LogBlob(desc.Digest, level+1, cachedResult)
+		} else {
+			err := c.ValidateBlobContents(desc.Digest)
+			logger.LogBlob(desc.Digest, level+1, err)
+			cache[desc.Digest.String()] = err
 			if err != nil {
 				return err
 			}
-		} else {
-			if cachedResult, exists := cache[desc.Digest.String()]; exists {
-				logger.LogBlob(desc.Digest, level+1, cachedResult)
-			} else {
-				err := c.ValidateBlobContents(desc.Digest)
-				logger.LogBlob(desc.Digest, level+1, err)
-				cache[desc.Digest.String()] = err
-				if err != nil {
-					return err
-				}
-			}
+		}
+	}
+	for _, desc := range manifest.ManifestReferences(platformFilter) {
+		err := c.doValidateManifest(desc.Digest.String(), level+1, logger, platformFilter, cache)
+		if err != nil {
+			return err
 		}
 	}
 

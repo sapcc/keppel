@@ -120,7 +120,7 @@ func run(cmd *cobra.Command, args []string) {
 func (j *anycastMonitorJob) ValidateImages(manifestRef string) {
 	for accountName, repoClient := range j.RepoClients {
 		labels := prometheus.Labels{"account": accountName}
-		err := repoClient.ValidateManifest(manifestRef, nil)
+		err := repoClient.ValidateManifest(manifestRef, nil, nil)
 		if err == nil {
 			resultGaugeVec.With(labels).Set(1)
 		} else {

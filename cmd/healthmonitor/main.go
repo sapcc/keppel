@@ -174,7 +174,7 @@ func (j *healthMonitorJob) UploadImage() (string, error) {
 
 //Validates the uploaded image and emits the keppel_healthmonitor_result metric accordingly.
 func (j *healthMonitorJob) ValidateImage(manifestRef string) {
-	err := j.RepoClient.ValidateManifest(manifestRef, nil)
+	err := j.RepoClient.ValidateManifest(manifestRef, nil, nil)
 	if err == nil {
 		j.recordHealthcheckResult(true)
 	} else {

@@ -123,7 +123,7 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 	for _, desc := range manifestParsed.BlobReferences() {
 		manifest.SizeBytes += uint64(desc.Size)
 	}
-	for _, desc := range manifestParsed.ManifestReferences(account) {
+	for _, desc := range manifestParsed.ManifestReferences(account.PlatformFilter) {
 		manifest.SizeBytes += uint64(desc.Size)
 	}
 
@@ -192,7 +192,7 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 		blobIDs = append(blobIDs, blob.ID)
 	}
 
-	for _, desc := range manifest.ManifestReferences(account) {
+	for _, desc := range manifest.ManifestReferences(account.PlatformFilter) {
 		if wasHandled[desc.Digest.String()] {
 			continue
 		}
@@ -429,7 +429,7 @@ func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Reposi
 	}
 
 	//replicate referenced manifests recursively if required
-	for _, desc := range manifestParsed.ManifestReferences(account) {
+	for _, desc := range manifestParsed.ManifestReferences(account.PlatformFilter) {
 		_, err := keppel.FindManifest(p.db, repo, desc.Digest.String())
 		if err == sql.ErrNoRows {
 			_, _, err = p.ReplicateManifest(account, repo, keppel.ManifestReference{Digest: desc.Digest})
