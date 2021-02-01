@@ -41,13 +41,14 @@ import (
 
 //Account represents an account in the API.
 type Account struct {
-	Name              string             `json:"name"`
-	AuthTenantID      string             `json:"auth_tenant_id"`
-	InMaintenance     bool               `json:"in_maintenance"`
-	Metadata          map[string]string  `json:"metadata"`
-	RBACPolicies      []RBACPolicy       `json:"rbac_policies"`
-	ReplicationPolicy *ReplicationPolicy `json:"replication,omitempty"`
-	ValidationPolicy  *ValidationPolicy  `json:"validation,omitempty"`
+	Name              string                `json:"name"`
+	AuthTenantID      string                `json:"auth_tenant_id"`
+	InMaintenance     bool                  `json:"in_maintenance"`
+	Metadata          map[string]string     `json:"metadata"`
+	RBACPolicies      []RBACPolicy          `json:"rbac_policies"`
+	ReplicationPolicy *ReplicationPolicy    `json:"replication,omitempty"`
+	ValidationPolicy  *ValidationPolicy     `json:"validation,omitempty"`
+	PlatformFilter    keppel.PlatformFilter `json:"platform_filter,omitempty"`
 }
 
 //RBACPolicy represents an RBAC policy in the API.
@@ -151,6 +152,7 @@ func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
 		RBACPolicies:      policies,
 		ReplicationPolicy: renderReplicationPolicy(dbAccount),
 		ValidationPolicy:  renderValidationPolicy(dbAccount),
+		PlatformFilter:    dbAccount.PlatformFilter,
 	}, nil
 }
 
@@ -322,12 +324,13 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	//decode request body
 	var req struct {
 		Account struct {
-			AuthTenantID      string             `json:"auth_tenant_id"`
-			InMaintenance     bool               `json:"in_maintenance"`
-			Metadata          map[string]string  `json:"metadata"`
-			RBACPolicies      []RBACPolicy       `json:"rbac_policies"`
-			ReplicationPolicy *ReplicationPolicy `json:"replication"`
-			ValidationPolicy  *ValidationPolicy  `json:"validation"`
+			AuthTenantID      string                `json:"auth_tenant_id"`
+			InMaintenance     bool                  `json:"in_maintenance"`
+			Metadata          map[string]string     `json:"metadata"`
+			RBACPolicies      []RBACPolicy          `json:"rbac_policies"`
+			ReplicationPolicy *ReplicationPolicy    `json:"replication"`
+			ValidationPolicy  *ValidationPolicy     `json:"validation"`
+			PlatformFilter    keppel.PlatformFilter `json:"platform_filter"`
 		} `json:"account"`
 	}
 	decoder := json.NewDecoder(r.Body)
@@ -422,6 +425,15 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		accountToCreate.RequiredLabels = strings.Join(vp.RequiredLabels, ",")
 	}
 
+	//validate platform filter
+	if req.Account.PlatformFilter != nil {
+		if req.Account.ReplicationPolicy == nil {
+			http.Error(w, `platform filter is only allowed on replica accounts`, http.StatusUnprocessableEntity)
+			return
+		}
+		accountToCreate.PlatformFilter = req.Account.PlatformFilter
+	}
+
 	//check permission to create account
 	authz, authErr := a.authDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, authErr) {
@@ -445,6 +457,10 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	//replication strategy may not be changed after account creation
 	if account != nil && req.Account.ReplicationPolicy != nil && !replicationPoliciesFunctionallyEqual(req.Account.ReplicationPolicy, renderReplicationPolicy(*account)) {
 		http.Error(w, `cannot change replication policy on existing account`, http.StatusConflict)
+		return
+	}
+	if account != nil && req.Account.PlatformFilter != nil && !reflect.DeepEqual(req.Account.PlatformFilter, account.PlatformFilter) {
+		http.Error(w, `cannot change platform filter on existing account`, http.StatusConflict)
 		return
 	}
 

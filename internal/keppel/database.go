@@ -377,6 +377,14 @@ var sqlMigrations = map[string]string{
 		ALTER TABLE manifests ALTER COLUMN vuln_status SET DEFAULT 'Unknown';
 		UPDATE manifests SET vuln_status = 'Unknown', next_vuln_check_at = NULL WHERE vuln_status = 'Pending';
 	`,
+	"020_add_account_platform_filter.up.sql": `
+		ALTER TABLE accounts
+			ADD COLUMN platform_filter TEXT NOT NULL DEFAULT '';
+	`,
+	"020_add_account_platform_filter.down.sql": `
+		ALTER TABLE accounts
+			DROP COLUMN platform_filter;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

@@ -117,7 +117,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				keppel.ErrManifestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 				return
 			}
-			for _, subManifestDesc := range manifestParsed.ManifestReferences() {
+			for _, subManifestDesc := range manifestParsed.ManifestReferences(*account) {
 				if subManifestDesc.Platform.OS == "linux" && subManifestDesc.Platform.Architecture == "amd64" {
 					url := fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), subManifestDesc.Digest.String())
 					w.Header().Set("Docker-Content-Digest", subManifestDesc.Digest.String())

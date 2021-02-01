@@ -391,3 +391,66 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 		})
 	})
 }
+
+func TestReplicationImageListWithPlatformFilter(t *testing.T) {
+	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock) {
+		//This test is mostly identical to TestReplicationImageList(), but the
+		//replica will get a platform_filter and thus not replicate all
+		//submanifests.
+		token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
+			keppel.CanPullFromAccount,
+			keppel.CanPushToAccount)
+		image1 := test.GenerateImage(test.GenerateExampleLayer(1))
+		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
+		list := test.GenerateImageList(image1.Manifest, image2.Manifest)
+		clock.Step()
+		uploadBlob(t, h1, token, "test1/foo", image1.Layers[0])
+		uploadBlob(t, h1, token, "test1/foo", image1.Config)
+		uploadManifest(t, h1, token, "test1/foo", image1.Manifest, "first")
+		uploadBlob(t, h1, token, "test1/foo", image2.Layers[0])
+		uploadBlob(t, h1, token, "test1/foo", image2.Config)
+		uploadManifest(t, h1, token, "test1/foo", image2.Manifest, "second")
+		uploadManifest(t, h1, token, "test1/foo", list.Manifest, "list")
+
+		//test pull in secondary account
+		testWithAllReplicaTypes(t, h1, db1, clock, func(strategy string, firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+			//setup the platform_filter that differentiates this test from
+			//TestReplicationImageList()
+			_, err := db2.Exec(`UPDATE accounts SET platform_filter = $1`, `[{"os":"linux","architecture":"amd64"}]`)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+
+			token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+				keppel.CanPullFromAccount)
+
+			if firstPass {
+				//do not step the clock in the second pass, otherwise the AssertDBContent
+				//will fail on the changed last_pulled_at timestamp
+				clock.Step()
+			}
+			expectManifestExists(t, h2, token, "test1/foo", list.Manifest, "list", nil)
+
+			if strategy == "on_first_use" {
+				easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/imagelistmanifest-replication-with-platformfilter-001-after-pull-listmanifest.sql")
+			}
+
+			if !firstPass {
+				//test that this also transferred the referenced manifests eagerly (this
+				//part only runs when the primary registry is not reachable)
+				expectManifestExists(t, h2, token, "test1/foo", image1.Manifest, "", nil)
+
+				//when now requesting the unreplicated manifest, the replica will try
+				//to replicate and therefore run into a network error
+				assert.HTTPRequest{
+					Method:       "GET",
+					Path:         "/v2/test1/foo/manifests/" + image2.Manifest.Digest.String(),
+					Header:       map[string]string{"Authorization": "Bearer " + token},
+					ExpectStatus: http.StatusServiceUnavailable,
+					ExpectHeader: test.VersionHeader,
+					ExpectBody:   test.ErrorCode(keppel.ErrUnavailable),
+				}.Check(t, h2)
+			}
+		})
+	})
+}

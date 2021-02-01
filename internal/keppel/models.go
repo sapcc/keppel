@@ -42,6 +42,8 @@ type Account struct {
 	ExternalPeerURL      string `db:"external_peer_url"`
 	ExternalPeerUserName string `db:"external_peer_username"`
 	ExternalPeerPassword string `db:"external_peer_password"`
+	//PlatformFilter restricts which submanifests get replicated when a list manifest is replicated.
+	PlatformFilter PlatformFilter `db:"platform_filter"`
 
 	//RequiredLabels is a comma-separated list of labels that must be present on
 	//all image manifests in this account.
