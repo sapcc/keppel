@@ -31,9 +31,9 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-func deterministicDummySeverity(counter int) clair.Severity {
+func deterministicDummyVulnStatus(counter int) clair.VulnerabilityStatus {
 	if counter%5 == 0 {
-		return clair.PendingSeverity
+		return clair.PendingVulnerabilityStatus
 	}
 	if counter%3 == 0 {
 		return clair.HighSeverity
@@ -90,7 +90,7 @@ func TestManifestsAPI(t *testing.T) {
 				SizeBytes:           sizeBytes,
 				PushedAt:            pushedAt,
 				ValidatedAt:         pushedAt,
-				VulnerabilityStatus: deterministicDummySeverity(idx),
+				VulnerabilityStatus: deterministicDummyVulnStatus(idx),
 			}
 			if idx == 1 {
 				dbManifest.LastPulledAt = p2time(pushedAt.Add(100 * time.Second))
@@ -139,7 +139,7 @@ func TestManifestsAPI(t *testing.T) {
 			"size_bytes":           uint64(1000 * idx),
 			"pushed_at":            int64(1000 * (10 + idx)),
 			"last_pulled_at":       nil,
-			"vulnerability_status": string(deterministicDummySeverity(idx)),
+			"vulnerability_status": string(deterministicDummyVulnStatus(idx)),
 		}
 	}
 	renderedManifests[0]["last_pulled_at"] = 11100

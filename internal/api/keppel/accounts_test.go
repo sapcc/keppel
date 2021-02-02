@@ -1484,7 +1484,7 @@ func TestDeleteAccount(t *testing.T) {
 		SizeBytes:           uint64(len(image.Manifest.Contents)),
 		PushedAt:            time.Unix(100, 0),
 		ValidatedAt:         time.Unix(100, 0),
-		VulnerabilityStatus: clair.PendingSeverity,
+		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
 	}
 	mustInsert(t, db, &manifest)
 	err := sd.WriteManifest(*accounts[0], repos[0].Name, image.Manifest.Digest.String(), image.Manifest.Contents)

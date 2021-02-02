@@ -131,7 +131,7 @@ func TestQuotasAPI(t *testing.T) {
 			SizeBytes:           uint64(1000 * idx),
 			PushedAt:            pushedAt,
 			ValidatedAt:         pushedAt,
-			VulnerabilityStatus: clair.PendingSeverity,
+			VulnerabilityStatus: clair.PendingVulnerabilityStatus,
 		})
 	}
 	assert.HTTPRequest{

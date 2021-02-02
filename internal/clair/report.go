@@ -39,15 +39,15 @@ type VulnerabilityReport struct {
 	PackageVulnerabilities map[string][]string       `json:"package_vulnerabilities"`
 }
 
-//Severity returns the merged severity of all vulnerabilities in this report.
-func (r VulnerabilityReport) Severity() Severity {
-	sevs := make([]Severity, 0, len(r.Vulnerabilities))
+//VulnerabilityStatus returns the merged severity of all vulnerabilities in this report.
+func (r VulnerabilityReport) VulnerabilityStatus() VulnerabilityStatus {
+	sevs := make([]VulnerabilityStatus, 0, len(r.Vulnerabilities))
 	for _, v := range r.Vulnerabilities {
 		if v != nil {
 			sevs = append(sevs, v.NormalizedSeverity)
 		}
 	}
-	return MergeSeverities(sevs...)
+	return MergeVulnerabilityStatuses(sevs...)
 }
 
 //Vulnerability appears in type VulnerabilityReport.
@@ -55,7 +55,7 @@ type Vulnerability struct {
 	//all data relating to this vulnerability (for serializing into JSON)
 	Contents map[string]interface{}
 	//some individual fields from .Contents, prepared for internal processing
-	NormalizedSeverity Severity
+	NormalizedSeverity VulnerabilityStatus
 }
 
 //MarshalJSON implements the json.Marshaler interface.
@@ -74,7 +74,7 @@ func (v *Vulnerability) UnmarshalJSON(buf []byte) error {
 	}
 
 	var parsed struct {
-		NormalizedSeverity Severity `json:"normalized_severity"`
+		NormalizedSeverity VulnerabilityStatus `json:"normalized_severity"`
 	}
 	err = json.Unmarshal(buf, &parsed)
 	if err != nil {

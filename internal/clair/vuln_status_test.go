@@ -21,16 +21,16 @@ package clair
 
 import "testing"
 
-func TestMergeSeverities(t *testing.T) {
-	expect := func(expected, actual Severity) {
+func TestMergeVulnerabilityStatuses(t *testing.T) {
+	expect := func(expected, actual VulnerabilityStatus) {
 		t.Helper()
 		if expected != actual {
 			t.Errorf("expected %s, but got %s", expected, actual)
 		}
 	}
-	expect(CleanSeverity, MergeSeverities())
-	expect(PendingSeverity, MergeSeverities(PendingSeverity))
-	expect(PendingSeverity, MergeSeverities(PendingSeverity, HighSeverity))
-	expect(LowSeverity, MergeSeverities(LowSeverity, LowSeverity))
-	expect(HighSeverity, MergeSeverities(LowSeverity, HighSeverity))
+	expect(CleanSeverity, MergeVulnerabilityStatuses())
+	expect(PendingVulnerabilityStatus, MergeVulnerabilityStatuses(PendingVulnerabilityStatus))
+	expect(PendingVulnerabilityStatus, MergeVulnerabilityStatuses(PendingVulnerabilityStatus, HighSeverity))
+	expect(LowSeverity, MergeVulnerabilityStatuses(LowSeverity, LowSeverity))
+	expect(HighSeverity, MergeVulnerabilityStatuses(LowSeverity, HighSeverity))
 }

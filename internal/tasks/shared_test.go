@@ -183,7 +183,7 @@ func uploadManifest(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock 
 		SizeBytes:           sizeBytes,
 		PushedAt:            clock.Now(),
 		ValidatedAt:         clock.Now(),
-		VulnerabilityStatus: clair.PendingSeverity,
+		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
 	}
 	must(t, db.Insert(&dbManifest))
 	must(t, sd.WriteManifest(account, "foo", manifest.Digest.String(), manifest.Contents))

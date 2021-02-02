@@ -380,11 +380,11 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 	}
 
 	//collect vulnerability status of constituent images
-	var severities []clair.Severity
+	var vulnStatuses []clair.VulnerabilityStatus
 	err = keppel.ForeachRow(j.db, vulnCheckSubmanifestInfoQuery, []interface{}{manifest.Digest}, func(rows *sql.Rows) error {
-		var severity clair.Severity
-		err := rows.Scan(&severity)
-		severities = append(severities, severity)
+		var vulnStatus clair.VulnerabilityStatus
+		err := rows.Scan(&vulnStatus)
+		vulnStatuses = append(vulnStatuses, vulnStatus)
 		return err
 	})
 	if err != nil {
@@ -410,15 +410,15 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			if clairReport == nil {
 				return fmt.Errorf("Clair reports indexing of %s as finished, but vulnerability report is 404", manifest.Digest)
 			}
-			severities = append(severities, clairReport.Severity())
+			vulnStatuses = append(vulnStatuses, clairReport.VulnerabilityStatus())
 		} else {
-			severities = append(severities, clair.PendingSeverity)
+			vulnStatuses = append(vulnStatuses, clair.PendingVulnerabilityStatus)
 		}
 	}
 
 	//merge all vulnerability statuses
-	manifest.VulnerabilityStatus = clair.MergeSeverities(severities...)
-	if manifest.VulnerabilityStatus == clair.PendingSeverity {
+	manifest.VulnerabilityStatus = clair.MergeVulnerabilityStatuses(vulnStatuses...)
+	if manifest.VulnerabilityStatus == clair.PendingVulnerabilityStatus {
 		logg.Info("skipping vulnerability check for %s: indexing is not finished yet", manifest.Digest)
 		//wait a bit for indexing to finish, then come back to update the vulnerability status
 		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(2 * time.Minute))

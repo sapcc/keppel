@@ -200,7 +200,7 @@ func TestSweepStorageManifests(t *testing.T) {
 		SizeBytes:           uint64(len(testImageList1.Manifest.Contents)),
 		PushedAt:            clock.Now(),
 		ValidatedAt:         clock.Now(),
-		VulnerabilityStatus: clair.PendingSeverity,
+		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
 	}
 	must(t, db.Insert(&dbTestManifest1))
 

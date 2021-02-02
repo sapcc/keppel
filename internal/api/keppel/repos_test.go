@@ -95,7 +95,7 @@ func TestReposAPI(t *testing.T) {
 			SizeBytes:           uint64(1000 * idx),
 			PushedAt:            manifestPushedAt,
 			ValidatedAt:         manifestPushedAt,
-			VulnerabilityStatus: clair.PendingSeverity,
+			VulnerabilityStatus: clair.PendingVulnerabilityStatus,
 		})
 		if idx <= 3 {
 			mustInsert(t, db, &keppel.Tag{
