@@ -23,6 +23,8 @@ package clair
 type VulnerabilityStatus string
 
 const (
+	//ErrorVulnerabilityStatus is a VulnerabilityStatus that indicates that vulnerability scanning failed.
+	ErrorVulnerabilityStatus VulnerabilityStatus = "Error"
 	//PendingVulnerabilityStatus is a VulnerabilityStatus which means that we're not done scanning vulnerabilities yet.
 	PendingVulnerabilityStatus VulnerabilityStatus = "Pending"
 	//CleanSeverity is a VulnerabilityStatus which means that there are no vulnerabilities.
@@ -44,6 +46,7 @@ const (
 )
 
 var sevMap = map[VulnerabilityStatus]uint{
+	ErrorVulnerabilityStatus:   0,
 	PendingVulnerabilityStatus: 0,
 	CleanSeverity:              1,
 	UnknownSeverity:            2,
@@ -57,11 +60,16 @@ var sevMap = map[VulnerabilityStatus]uint{
 
 //MergeVulnerabilityStatuses combines multiple VulnerabilityStatus values into one.
 //
+//* Any ErrorVulnerabilityStatus input results in an ErrorVulnerabilityStatus result.
 //* Otherwise, any PendingVulnerabilityStatus input results in a PendingVulnerabilityStatus result.
 //* Otherwise, the result is the same as the highest individual severity.
 func MergeVulnerabilityStatuses(sevs ...VulnerabilityStatus) VulnerabilityStatus {
 	result := CleanSeverity
 	for _, s := range sevs {
+		//if any part of vulnerability scanning fails, the entirety is considered failed
+		if s == ErrorVulnerabilityStatus {
+			return ErrorVulnerabilityStatus
+		}
 		if sevMap[s] == 0 {
 			//`s == PendingVulnerabilityStatus` or `s` is a string value not known to us
 			return PendingVulnerabilityStatus

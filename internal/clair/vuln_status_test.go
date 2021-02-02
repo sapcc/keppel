@@ -29,6 +29,9 @@ func TestMergeVulnerabilityStatuses(t *testing.T) {
 		}
 	}
 	expect(CleanSeverity, MergeVulnerabilityStatuses())
+	expect(ErrorVulnerabilityStatus, MergeVulnerabilityStatuses(ErrorVulnerabilityStatus))
+	expect(ErrorVulnerabilityStatus, MergeVulnerabilityStatuses(ErrorVulnerabilityStatus, PendingVulnerabilityStatus))
+	expect(ErrorVulnerabilityStatus, MergeVulnerabilityStatuses(ErrorVulnerabilityStatus, HighSeverity))
 	expect(PendingVulnerabilityStatus, MergeVulnerabilityStatuses(PendingVulnerabilityStatus))
 	expect(PendingVulnerabilityStatus, MergeVulnerabilityStatuses(PendingVulnerabilityStatus, HighSeverity))
 	expect(LowSeverity, MergeVulnerabilityStatuses(LowSeverity, LowSeverity))

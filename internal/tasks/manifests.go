@@ -400,9 +400,8 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			return err
 		}
 		if clairState.IsErrored {
-			return fmt.Errorf("Clair reports indexing of %s as errored", manifest.Digest)
-		}
-		if clairState.IsIndexed {
+			vulnStatuses = append(vulnStatuses, clair.ErrorVulnerabilityStatus)
+		} else if clairState.IsIndexed {
 			clairReport, err := j.cfg.ClairClient.GetVulnerabilityReport(manifest.Digest)
 			if err != nil {
 				return err
