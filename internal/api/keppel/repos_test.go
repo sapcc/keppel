@@ -47,7 +47,7 @@ func deterministicDummyDigest(counter int) string {
 }
 
 func TestReposAPI(t *testing.T) {
-	h, _, _, _, _, db := setup(t)
+	h, _, _, _, _, db, _ := setup(t)
 
 	//setup two test accounts
 	mustInsert(t, db, &keppel.Account{

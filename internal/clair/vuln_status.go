@@ -58,6 +58,12 @@ var sevMap = map[VulnerabilityStatus]uint{
 	Defcon1Severity:            8,
 }
 
+//HasReport checks whether a manifest with this VulnerabilityStatus has a
+//vulnerability report available.
+func (s VulnerabilityStatus) HasReport() bool {
+	return sevMap[s] > 0
+}
+
 //MergeVulnerabilityStatuses combines multiple VulnerabilityStatus values into one.
 //
 //* Any ErrorVulnerabilityStatus input results in an ErrorVulnerabilityStatus result.

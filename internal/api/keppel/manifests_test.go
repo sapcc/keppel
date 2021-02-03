@@ -42,7 +42,7 @@ func deterministicDummyVulnStatus(counter int) clair.VulnerabilityStatus {
 }
 
 func TestManifestsAPI(t *testing.T) {
-	h, _, _, _, sd, db := setup(t)
+	h, _, _, _, sd, db, claird := setup(t)
 
 	//setup two test accounts
 	mustInsert(t, db, &keppel.Account{
@@ -277,6 +277,50 @@ func TestManifestsAPI(t *testing.T) {
 		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/sha256:12345",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
 		ExpectStatus: http.StatusNotFound,
+	}.Check(t, h)
+
+	//test GET vulnerability report failure cases
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11) + "/vulnerability_report",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: http.StatusNotFound, //this manifest was deleted above
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12) + "/vulnerability_report",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: http.StatusMethodNotAllowed, //manifest cannot have vulnerability report because it does not have manifest-blob refs
+	}.Check(t, h)
+
+	//setup a dummy blob that's correctly mounted and linked to our test manifest
+	//so that the vulnerability report can actually be shown
+	dummyBlob := keppel.Blob{
+		AccountName: "test1",
+		Digest:      deterministicDummyDigest(101),
+	}
+	mustInsert(t, db, &dummyBlob)
+	err := keppel.MountBlobIntoRepo(db, dummyBlob, *repos[0])
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	_, err = db.Exec(
+		`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
+		repos[0].ID, deterministicDummyDigest(12), dummyBlob.ID,
+	)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	//configure our ClairDouble to present a vulnerability report for our test manifest
+	claird.WasIndexSubmitted[deterministicDummyDigest(12)] = true
+	claird.ReportFixtures[deterministicDummyDigest(12)] = "fixtures/clair-report-vulnerable.json"
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12) + "/vulnerability_report",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: http.StatusOK,
+		ExpectBody:   assert.JSONFixtureFile("fixtures/clair-report-vulnerable.json"),
 	}.Check(t, h)
 }
 

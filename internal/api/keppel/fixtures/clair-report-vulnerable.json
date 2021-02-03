@@ -1,0 +1,88 @@
+{
+  "manifest_hash": "sha256:3ee5f0d83bf791f0fb4d750a5719ce19d6d352ef7e5a4264e4b760f0f9c15014",
+  "packages": {
+    "10": {
+      "arch": "x86",
+      "cpe": "",
+      "id": "10",
+      "kind": "binary",
+      "module": "",
+      "name": "libapt-pkg5.0",
+      "normalized_version": "",
+      "source": {
+        "id": "9",
+        "kind": "source",
+        "name": "apt",
+        "source": null,
+        "version": "1.6.11"
+      },
+      "version": "1.6.11"
+    }
+  },
+  "distributions": {
+    "1": {
+      "arch": "",
+      "cpe": "",
+      "did": "ubuntu",
+      "id": "1",
+      "name": "Ubuntu",
+      "pretty_name": "Ubuntu 18.04.3 LTS",
+      "version": "18.04.3 LTS (Bionic Beaver)",
+      "version_code_name": "bionic",
+      "version_id": "18.04"
+    }
+  },
+  "environments": {
+    "10": [
+      {
+        "distribution_id": "1",
+        "introduced_in": "sha256:35c102085707f703de2d9eaad8752d6fe1b8f02b5d2149f1d8357c9cc7fb7d0a",
+        "package_db": "var/lib/dpkg/status"
+      }
+    ]
+  },
+  "vulnerabilities": {
+    "356835": {
+      "description": "In the GNU C Library (aka glibc or libc6) before 2.28,\nparse_reg_exp in posix/regcomp.c misparses alternatives,\nwhich allows attackers to cause a denial of service (assertion\nfailure and application exit) or trigger an incorrect result\nby attempting a regular-expression match.\"\n",
+      "dist": {
+        "arch": "",
+        "cpe": "",
+        "did": "ubuntu",
+        "id": "0",
+        "name": "Ubuntu",
+        "pretty_name": "",
+        "version": "18.04.3 LTS (Bionic Beaver)",
+        "version_code_name": "bionic",
+        "version_id": "18.04"
+      },
+      "fixed_in_version": "2.28-0ubuntu1",
+      "id": "356835",
+      "issued": "2019-10-12T07:20:50.52Z",
+      "links": "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2009-5155\nhttp://people.canonical.com/~ubuntu-security/cve/2009/CVE-2009-5155.html\nhttps://sourceware.org/bugzilla/show_bug.cgi?id=11053\nhttps://debbugs.gnu.org/cgi/bugreport.cgi?bug=22793\nhttps://debbugs.gnu.org/cgi/bugreport.cgi?bug=32806\nhttps://debbugs.gnu.org/cgi/bugreport.cgi?bug=34238\nhttps://sourceware.org/bugzilla/show_bug.cgi?id=18986\"\n",
+      "name": "CVE-2009-5155",
+      "normalized_severity": "Low",
+      "package": {
+        "id": "0",
+        "kind": "",
+        "name": "glibc",
+        "package_db": "",
+        "repository_hint": "",
+        "source": null,
+        "version": ""
+      },
+      "repo": {
+        "id": "0",
+        "key": "",
+        "name": "Ubuntu 18.04.3 LTS",
+        "uri": ""
+      },
+      "severity": "Low",
+      "updater": ""
+    }
+  },
+  "package_vulnerabilities": {
+    "10": [
+      "356835"
+    ]
+  }
+}

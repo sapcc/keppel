@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
@@ -96,8 +97,19 @@ func toJSON(x interface{}) string {
 ////////////////////////////////////////////////////////////////////////////////
 // tests
 
-func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.FederationDriver, *testAuditor, keppel.StorageDriver, *keppel.DB) {
+func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.FederationDriver, *testAuditor, keppel.StorageDriver, *keppel.DB, *test.ClairDouble) {
 	cfg, db := test.Setup(t, nil)
+
+	//setup a dummy ClairClient for testing the GET vulnerability report endpoint
+	claird := test.NewClairDouble()
+	clairURL, err := url.Parse("https://clair.example.org/")
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	cfg.ClairClient = &clair.Client{
+		BaseURL:      *clairURL,
+		PresharedKey: []byte("doesnotmatter"), //since the ClairDouble does not check the Authorization header
+	}
 
 	ad, err := keppel.NewAuthDriver("unittest", nil)
 	if err != nil {
@@ -115,11 +127,20 @@ func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.FederationDriver
 	auditor := &testAuditor{}
 	h := api.Compose(NewAPI(cfg, ad, fd, sd, db, auditor))
 
-	return h, ad.(*test.AuthDriver), fd.(*test.FederationDriver), auditor, sd, db
+	//second half of the ClairDouble setup
+	tt := &test.RoundTripper{
+		Handlers: map[string]http.Handler{
+			"registry.example.org": h,
+			"clair.example.org":    api.Compose(claird),
+		},
+	}
+	http.DefaultClient.Transport = tt
+
+	return h, ad.(*test.AuthDriver), fd.(*test.FederationDriver), auditor, sd, db, claird
 }
 
 func TestAccountsAPI(t *testing.T) {
-	r, authDriver, fd, auditor, _, _ := setup(t)
+	r, authDriver, fd, auditor, _, _, _ := setup(t)
 
 	//test the /keppel/v1 endpoint
 	assert.HTTPRequest{
@@ -597,7 +618,7 @@ func TestAccountsAPI(t *testing.T) {
 }
 
 func TestGetAccountsErrorCases(t *testing.T) {
-	r, _, _, _, _, _ := setup(t)
+	r, _, _, _, _, _, _ := setup(t)
 
 	//test invalid authentication
 	assert.HTTPRequest{
@@ -626,7 +647,7 @@ func TestGetAccountsErrorCases(t *testing.T) {
 }
 
 func TestPutAccountErrorCases(t *testing.T) {
-	r, _, fd, _, _, _ := setup(t)
+	r, _, fd, _, _, _, _ := setup(t)
 
 	//preparation: create an account (so that we can check the error that the requested account name is taken)
 	assert.HTTPRequest{
@@ -947,7 +968,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 }
 
 func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
-	r, _, fd, _, _, db := setup(t)
+	r, _, fd, _, _, db, _ := setup(t)
 
 	//configure a peer
 	err := db.Insert(&keppel.Peer{HostName: "peer.example.org"})
@@ -1133,7 +1154,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 }
 
 func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
-	r, _, fd, _, _, _ := setup(t)
+	r, _, fd, _, _, _, _ := setup(t)
 
 	//test error cases on creation
 	assert.HTTPRequest{
@@ -1422,7 +1443,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 }
 
 func TestDeleteAccount(t *testing.T) {
-	r, _, fd, _, sd, db := setup(t)
+	r, _, fd, _, sd, db, _ := setup(t)
 
 	//setup test accounts and repositories
 	nextBlobSweepAt := time.Unix(200, 0)

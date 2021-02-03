@@ -39,7 +39,7 @@ type ClairDouble struct {
 	T *testing.T
 	//key = manifest digest, value = path to JSON fixture file containing `clair.Manifest` for this image
 	IndexFixtures     map[string]string
-	wasIndexSubmitted map[string]bool
+	WasIndexSubmitted map[string]bool
 	//key = manifest digest, value = path to JSON fixture file containing `clair.VulnerabilityReport` for this image
 	ReportFixtures map[string]string
 }
@@ -48,7 +48,7 @@ type ClairDouble struct {
 func NewClairDouble() *ClairDouble {
 	return &ClairDouble{
 		IndexFixtures:     make(map[string]string),
-		wasIndexSubmitted: make(map[string]bool),
+		WasIndexSubmitted: make(map[string]bool),
 		ReportFixtures:    make(map[string]string),
 	}
 }
@@ -113,7 +113,7 @@ func (c *ClairDouble) postIndexReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//minimal valid response to keep Keppel going
-	c.wasIndexSubmitted[digest] = true
+	c.WasIndexSubmitted[digest] = true
 	state := "CheckManifest"
 	if c.ReportFixtures[digest] != "" {
 		state = "IndexFinished"
@@ -127,7 +127,7 @@ func (c *ClairDouble) postIndexReport(w http.ResponseWriter, r *http.Request) {
 func (c *ClairDouble) getIndexReport(w http.ResponseWriter, r *http.Request) {
 	digest := mux.Vars(r)["digest"]
 
-	if c.wasIndexSubmitted[digest] {
+	if c.WasIndexSubmitted[digest] {
 		state := "CheckManifest"
 		if c.ReportFixtures[digest] != "" {
 			state = "IndexFinished"
@@ -144,7 +144,7 @@ func (c *ClairDouble) getIndexReport(w http.ResponseWriter, r *http.Request) {
 func (c *ClairDouble) getVulnerabilityReport(w http.ResponseWriter, r *http.Request) {
 	digest := mux.Vars(r)["digest"]
 	fixturePath := c.ReportFixtures[digest]
-	if !c.wasIndexSubmitted[digest] || digest == "" {
+	if !c.WasIndexSubmitted[digest] || digest == "" {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}

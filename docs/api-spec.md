@@ -25,6 +25,7 @@ This document uses the terminology defined in the [README.md](../README.md#termi
 - [DELETE /keppel/v1/accounts/:name/repositories/:name](#delete-keppelv1accountsnamerepositoriesname)
 - [GET /keppel/v1/accounts/:name/repositories/:name/\_manifests](#get-keppelv1accountsnamerepositoriesname_manifests)
 - [DELETE /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest](#delete-keppelv1accountsnamerepositoriesname_manifestsdigest)
+- [GET /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest/vulnerability\_report](#delete-keppelv1accountsnamerepositoriesname_manifestsdigestvulnerability_report)
 - [GET /keppel/v1/auth](#get-keppelv1auth)
 - [POST /keppel/v1/auth/peering](#post-keppelv1authpeering)
 - [GET /keppel/v1/peers](#get-keppelv1peers)
@@ -388,14 +389,26 @@ The following fields may be returned:
 | `manifests[].tags[].name` | string | The name of this tag. |
 | `manifests[].tags[].pushed_at` | string | When this tag was last updated in the registry. |
 | `manifests[].tags[].last_pulled_at` | UNIX timestamp or null | When this manifest was last pulled from the registry using this tag name (or null if it was never pulled from this tag). |
-| `manifests[].vulnerability_status` | string | Either `Clean` (no vulnerabilities have been found in this image), `Pending` (vulnerability scanning is not enabled on this server or is still in progress for this image or has failed for this image), `Error` (vulnerability scanning failed for this image or an image referenced in this manifest), or any of the severity strings defined by Clair (`Unknown`, `Negligible`, `Low`, `Medium`, `High`, `Critical`, `Defcon1`). |
+| `manifests[].vulnerability_status` | string | Either `Clean` (no vulnerabilities have been found in this image), `Pending` (vulnerability scanning is not enabled on this server or is still in progress for this image or has failed for this image), `Error` (vulnerability scanning failed for this image or an image referenced in this manifest), or any of the severity strings defined by Clair (`Unknown`, `Negligible`, `Low`, `Medium`, `High`, `Critical`, `Defcon1`). The full vulnerability report can be retrieved with [a separate API call](#delete-keppelv1accountsnamerepositoriesname_manifestsdigestvulnerability_report). |
 | `manifests[].vulnerability_scan_error` | string | Only shown if `vulnerability_status` is `Error`. Contains the error message from Clair that explains why this image could not be scanned. When `vulnerability_status` is `Error` because scanning failed for an image referenced in this manifest, the error message will be shown on the referenced manifest instead of on this manifest. |
 | `truncated` | boolean | Indicates whether [marker-based pagination](#marker-based-pagination) must be used to retrieve the rest of the result. |
 
-## DELETE /keppel/v1/accounts/:name/repositories/:name/_manifests/:digest
+## DELETE /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest
 
 Deletes the specified manifest and all tags pointing to it. Returns 204 (No Content) on success.
 The digest that identifies the manifest must be that manifest's canonical digest, otherwise 404 is returned.
+
+## GET /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest/vulnerability\_report
+
+Retrieves the vulnerability report for the specified manifest. If the manifest exists and a vulnerability report is available for it, returns 200 (OK) and a JSON response body containing the vulnerability report in the [format defined by Clair](https://quay.github.io/clair/reference/api.html#schemavulnerabilityreport).
+
+Returns 404 (Not Found) if the specified manifest does not exist.
+
+Otherwise, returns 204 (No Content) if the manifest does not directly reference any image layers and thus cannot be scanned for vulnerabilities itself.
+
+Otherwise, returns 405 (Method Not Allowed) if the manifest exists, but its vulnerability status (see above) is either `Pending` or `Error`. (This case should technically also be a 404, but the different status code allows clients to disambiguate the nonexistence of the manifest from the nonexistence of the vulnerability report.)
+
+Note that, when manifests reference other manifests (the most common case being multi-arch images referencing their constituent single-arch images), the vulnerability status of the parent manifest aggregates over the vulnerability statuses of its child manifests, but its vulnerability report only covers image layers directly referenced by the parent manifest. Clients displaying the vulnerability report for a multi-arch image manifest or any other manifest referencing child manifests should recursively fetch the vulnerability reports of all child manifests and show a merged representation as appropriate for their use case.
 
 ## GET /keppel/v1/auth
 

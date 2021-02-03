@@ -19,6 +19,7 @@
 package keppelv1
 
 import (
+	"database/sql"
 	"net/http"
 	"sort"
 	"time"
@@ -203,4 +204,52 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *API) handleGetVulnerabilityReport(w http.ResponseWriter, r *http.Request) {
+	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests/:digest/vulnerability_report")
+	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanViewAccount)
+	if account == nil {
+		return
+	}
+	repo := a.findRepositoryFromRequest(w, r, *account)
+	if repo == nil {
+		return
+	}
+	digest, err := digest.Parse(mux.Vars(r)["digest"])
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	manifest, err := keppel.FindManifest(a.db, *repo, digest.String())
+	if err == sql.ErrNoRows {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
+	//there is no vulnerability report if:
+	//- we don't have vulnerability scanning enabled at all
+	//- vulnerability scanning is not done yet
+	//- the image does not have any blobs that could be scanned for vulnerabilities
+	blobCount, err := a.db.SelectInt(
+		`SELECT COUNT(*) FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`,
+		repo.ID, manifest.Digest,
+	)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	if a.cfg.ClairClient == nil || !manifest.VulnerabilityStatus.HasReport() || blobCount == 0 {
+		http.Error(w, "no vulnerability report found", http.StatusMethodNotAllowed)
+		return
+	}
+
+	clairReport, err := a.cfg.ClairClient.GetVulnerabilityReport(manifest.Digest)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	respondwith.JSON(w, http.StatusOK, clairReport)
 }
