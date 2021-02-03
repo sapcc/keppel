@@ -385,6 +385,14 @@ var sqlMigrations = map[string]string{
 		ALTER TABLE accounts
 			DROP COLUMN platform_filter;
 	`,
+	"021_add_manifest_vuln_scan_error.up.sql": `
+		ALTER TABLE manifests
+			ADD COLUMN vuln_scan_error TEXT NOT NULL DEFAULT '';
+	`,
+	"021_add_manifest_vuln_scan_error.down.sql": `
+		ALTER TABLE manifests
+			DROP COLUMN vuln_scan_error;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.
