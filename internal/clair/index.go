@@ -42,20 +42,23 @@ type Layer struct {
 
 //ManifestState is returned by CheckManifestState.
 type ManifestState struct {
-	IsIndexed bool
-	IsErrored bool
+	IsIndexed    bool
+	IsErrored    bool
+	ErrorMessage string
 }
 
 type indexReport struct {
-	Digest string `json:"manifest_hash"`
-	State  string `json:"state"`
+	Digest       string `json:"manifest_hash"`
+	State        string `json:"state"`
+	ErrorMessage string `json:"err"`
 	//there are more fields, but we are not interested in them
 }
 
 func (r indexReport) IntoManifestState() ManifestState {
 	return ManifestState{
-		IsIndexed: r.State == "IndexFinished",
-		IsErrored: r.State == "IndexError",
+		IsIndexed:    r.State == "IndexFinished",
+		IsErrored:    r.State == "IndexError",
+		ErrorMessage: r.ErrorMessage,
 	}
 }
 

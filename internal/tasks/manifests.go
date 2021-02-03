@@ -392,6 +392,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 	}
 
 	//ask Clair for vulnerability status of blobs in this image
+	manifest.VulnerabilityScanErrorMessage = "" //unless it gets set to something else below
 	if len(blobs) > 0 {
 		clairState, err := j.cfg.ClairClient.CheckManifestState(manifest.Digest, func() (clair.Manifest, error) {
 			return j.buildClairManifest(account, repo, *manifest, blobs)
@@ -401,6 +402,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		}
 		if clairState.IsErrored {
 			vulnStatuses = append(vulnStatuses, clair.ErrorVulnerabilityStatus)
+			manifest.VulnerabilityScanErrorMessage = clairState.ErrorMessage
 		} else if clairState.IsIndexed {
 			clairReport, err := j.cfg.ClairClient.GetVulnerabilityReport(manifest.Digest)
 			if err != nil {

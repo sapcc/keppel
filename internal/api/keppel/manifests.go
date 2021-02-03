@@ -33,13 +33,14 @@ import (
 
 //Manifest represents a manifest in the API.
 type Manifest struct {
-	Digest              string                    `json:"digest"`
-	MediaType           string                    `json:"media_type"`
-	SizeBytes           uint64                    `json:"size_bytes"`
-	PushedAt            int64                     `json:"pushed_at"`
-	LastPulledAt        *int64                    `json:"last_pulled_at,keepempty"`
-	Tags                []Tag                     `json:"tags,omitempty"`
-	VulnerabilityStatus clair.VulnerabilityStatus `json:"vulnerability_status"`
+	Digest                        string                    `json:"digest"`
+	MediaType                     string                    `json:"media_type"`
+	SizeBytes                     uint64                    `json:"size_bytes"`
+	PushedAt                      int64                     `json:"pushed_at"`
+	LastPulledAt                  *int64                    `json:"last_pulled_at,keepempty"`
+	Tags                          []Tag                     `json:"tags,omitempty"`
+	VulnerabilityStatus           clair.VulnerabilityStatus `json:"vulnerability_status"`
+	VulnerabilityScanErrorMessage string                    `json:"vulnerability_scan_error,omitempty"`
 }
 
 //Tag represents a tag in the API.
@@ -101,12 +102,13 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		result.Manifests = append(result.Manifests, &Manifest{
-			Digest:              dbManifest.Digest,
-			MediaType:           dbManifest.MediaType,
-			SizeBytes:           dbManifest.SizeBytes,
-			PushedAt:            dbManifest.PushedAt.Unix(),
-			LastPulledAt:        maybeTimeToUnix(dbManifest.LastPulledAt),
-			VulnerabilityStatus: dbManifest.VulnerabilityStatus,
+			Digest:                        dbManifest.Digest,
+			MediaType:                     dbManifest.MediaType,
+			SizeBytes:                     dbManifest.SizeBytes,
+			PushedAt:                      dbManifest.PushedAt.Unix(),
+			LastPulledAt:                  maybeTimeToUnix(dbManifest.LastPulledAt),
+			VulnerabilityStatus:           dbManifest.VulnerabilityStatus,
+			VulnerabilityScanErrorMessage: dbManifest.VulnerabilityScanErrorMessage,
 		})
 	}
 
