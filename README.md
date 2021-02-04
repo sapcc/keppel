@@ -35,7 +35,15 @@ instances.
 
 Keppel fully implements the [OCI Distribution API][dist-api], the standard API for container image registries. It also
 provides a [custom API](docs/api-spec.md) to control the multitenancy added by Keppel and to expose additional metadata
-about repositories, manifests and tags.
+about repositories, manifests and tags. Other unique features of Keppel include:
+
+- **cross-regional federation**: Keppel instances running in different geographical regions or different network
+  segments can share their account name space and provide seamless replication between accounts of the same name on
+  different instances.
+- **online garbage collection**: Unlike Docker Registry, Keppel can perform all garbage collection tasks without
+  scheduled downtime or any other form of operator intervention.
+- **vulnerability scanning**: Keppel can use [Clair](https://quay.github.io/clair/) to perform vulnerability scans on
+  its contents.
 
 [dist-api]: https://github.com/opencontainers/distribution-spec
 
