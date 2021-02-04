@@ -279,8 +279,8 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 var vulnCheckSelectQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT m.* FROM manifests m
 		WHERE (m.next_vuln_check_at IS NULL OR m.next_vuln_check_at < $1)
-	-- manifests without any check first, then sorted by schedule, then sorted by digest for deterministic behavior in unit test
-	ORDER BY m.next_vuln_check_at IS NULL DESC, m.next_vuln_check_at ASC, m.digest ASC
+	-- manifests without any check first, then prefer manifests without a finished check, then sorted by schedule, then sorted by digest for deterministic behavior in unit test
+	ORDER BY m.next_vuln_check_at IS NULL DESC, m.vuln_status = 'Pending' DESC, m.next_vuln_check_at ASC, m.digest ASC
 	-- only one manifests at a time
 	LIMIT 1
 `)
