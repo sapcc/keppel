@@ -25,7 +25,6 @@ import (
 	"net/http"
 
 	"github.com/go-redis/redis"
-	"github.com/sapcc/go-bits/audittools"
 )
 
 //Permission is an enum used by AuthDriver.
@@ -49,24 +48,6 @@ const (
 	//CanAdministrateKeppel is a global permission (not tied to any auth tenant) for certain administrative tasks in Keppel.
 	CanAdministrateKeppel Permission = "keppeladmin"
 )
-
-//Authorization describes the access rights for a user. It is returned by
-//methods in the AuthDriver interface.
-type Authorization interface {
-	//Returns the name of the the user that was authenticated. This should be the
-	//same format that is given as the first argument of AuthenticateUser().
-	//The AnonymousAuthorization always returns the empty string.
-	UserName() string
-	//Returns whether the given auth tenant grants the given permission to this user.
-	//The AnonymousAuthorization always returns false.
-	HasPermission(perm Permission, tenantID string) bool
-
-	//If this authorization is backed by a Keystone token, return a UserInfo for
-	//that token. Returns nil otherwise. The AnonymousAuthorization always returns nil.
-	//
-	//If non-nil, the Keppel API will submit OpenStack CADF audit events.
-	UserInfo() audittools.UserInfo
-}
 
 //AuthDriver represents an authentication backend that supports multiple
 //tenants. A tenant is a scope where users can be authorized to perform certain
@@ -124,41 +105,6 @@ func RegisterAuthDriver(name string, factory func(*redis.Client) (AuthDriver, er
 		panic("attempted to register multiple auth drivers with name = " + name)
 	}
 	authDriverFactories[name] = factory
-}
-
-//AnonymousAuthorization is a keppel.Authorization for anonymous users.
-var AnonymousAuthorization = Authorization(anonAuthorization{})
-
-type anonAuthorization struct{}
-
-func (anonAuthorization) UserName() string {
-	return ""
-}
-func (anonAuthorization) HasPermission(perm Permission, tenantID string) bool {
-	return false
-}
-func (anonAuthorization) UserInfo() audittools.UserInfo {
-	return nil
-}
-
-//ReplicationAuthorization is a keppel.Authorization for replication users with global pull access.
-type ReplicationAuthorization struct {
-	PeerHostName string
-}
-
-//UserName implements the keppel.Authorization interface.
-func (a ReplicationAuthorization) UserName() string {
-	return "replication@" + a.PeerHostName
-}
-
-//HasPermission implements the keppel.Authorization interface.
-func (a ReplicationAuthorization) HasPermission(perm Permission, tenantID string) bool {
-	return perm == CanViewAccount || perm == CanPullFromAccount
-}
-
-//UserInfo implements the keppel.Authorization interface.
-func (a ReplicationAuthorization) UserInfo() audittools.UserInfo {
-	return nil
 }
 
 //BuildBasicAuthHeader constructs the value of an "Authorization" HTTP header for the given basic auth credentials.
