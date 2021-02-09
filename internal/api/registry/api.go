@@ -40,6 +40,7 @@ import (
 //API contains state variables used by the Auth API endpoint.
 type API struct {
 	cfg keppel.Configuration
+	ad  keppel.AuthDriver
 	fd  keppel.FederationDriver
 	sd  keppel.StorageDriver
 	db  *keppel.DB
@@ -50,8 +51,8 @@ type API struct {
 }
 
 //NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, fd keppel.FederationDriver, sd keppel.StorageDriver, db *keppel.DB, rle *keppel.RateLimitEngine) *API {
-	return &API{cfg, fd, sd, db, rle, time.Now, keppel.GenerateStorageID}
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, sd keppel.StorageDriver, db *keppel.DB, rle *keppel.RateLimitEngine) *API {
+	return &API{cfg, ad, fd, sd, db, rle, time.Now, keppel.GenerateStorageID}
 }
 
 //OverrideTimeNow replaces time.Now with a test double.
@@ -159,7 +160,7 @@ func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *
 		}
 	}
 
-	token, err := auth.ParseTokenFromRequest(r, a.cfg, audience)
+	token, err := auth.ParseTokenFromRequest(r, a.cfg, a.ad, audience)
 	if err == nil && scope != nil && !token.Contains(*scope) {
 		err = keppel.ErrDenied.With("token does not cover scope %s", scope.String())
 	}
@@ -313,7 +314,7 @@ func (a *API) checkRateLimit(w http.ResponseWriter, r *http.Request, account kep
 	//cluster-internal traffic is exempt from rate-limits (if the request is
 	//caused by a user API request, the rate-limit has been checked already
 	//before the cluster-internal request was sent)
-	if strings.HasPrefix(token.UserName, "replication@") {
+	if strings.HasPrefix(token.Authorization.UserName(), "replication@") {
 		return true
 	}
 

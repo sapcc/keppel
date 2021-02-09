@@ -460,6 +460,10 @@ type jwtToken struct {
 	IssuedAt  int64       `json:"iat"`
 	TokenID   string      `json:"jti"`
 	Access    []jwtAccess `json:"access"`
+	//The EmbeddedAuthorization is ignored by this test. It will be exercised
+	//indirectly in the registry API tests since the registry API uses attributes
+	//from the EmbeddedAuthorization.
+	Ignored map[string]interface{} `json:"kea"`
 }
 
 //jwtContents contains what we expect in a JWT token payload section. This type

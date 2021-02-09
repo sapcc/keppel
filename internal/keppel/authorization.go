@@ -21,6 +21,7 @@ package keppel
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/sapcc/go-bits/audittools"
@@ -128,4 +129,57 @@ func deserializeReplAuthorization(in []byte, _ AuthDriver) (Authorization, error
 	var peerHostName string
 	err := json.Unmarshal(in, &peerHostName)
 	return ReplicationAuthorization{peerHostName}, err
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// EmbeddedAuthorization
+
+//EmbeddedAuthorization wraps an Authorization such that it can be serialized into JSON.
+type EmbeddedAuthorization struct {
+	Authorization Authorization
+	//AuthDriver is ignored during serialization, but must be filled prior to
+	//deserialization because some types of Authorization require their
+	//respective AuthDriver to deserialize properly.
+	AuthDriver AuthDriver
+}
+
+//MarshalJSON implements the json.Marshaler interface.
+func (ea EmbeddedAuthorization) MarshalJSON() ([]byte, error) {
+	typeName, payload, err := ea.Authorization.SerializeToJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	//The straight-forward approach would be to serialize as
+	//`{"type":"foo","payload":"something"}`, but we serialize as
+	//`{"foo":"something"}` instead to shave off a few bytes.
+	return json.Marshal(map[string]json.RawMessage{typeName: json.RawMessage(payload)})
+}
+
+//UnmarshalJSON implements the json.Marshaler interface.
+func (ea *EmbeddedAuthorization) UnmarshalJSON(in []byte) error {
+	if ea.AuthDriver == nil {
+		return errors.New("cannot unmarshal EmbeddedAuthorization without an AuthDriver")
+	}
+
+	m := make(map[string]json.RawMessage)
+	err := json.Unmarshal(in, &m)
+	if err != nil {
+		return err
+	}
+	if len(m) != 1 {
+		return fmt.Errorf("cannot unmarshal EmbeddedAuthorization with %d components", len(m))
+	}
+
+	for typeName, payload := range m {
+		deserializer := authzDeserializers[typeName]
+		if deserializer == nil {
+			return fmt.Errorf("cannot unmarshal EmbeddedAuthorization with unknown payload type %q", typeName)
+		}
+		ea.Authorization, err = deserializer([]byte(payload), ea.AuthDriver)
+		return err
+	}
+
+	//the loop body executes exactly once, therefore this location is unreachable
+	panic("unreachable")
 }

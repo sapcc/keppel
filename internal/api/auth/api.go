@@ -150,7 +150,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	tokenInfo, err := makeTokenResponse(req.ToToken(authz.UserName()), a.cfg)
+	tokenInfo, err := makeTokenResponse(req.ToToken(authz), a.cfg)
 	if respondWithError(w, http.StatusBadRequest, err) {
 		return
 	}

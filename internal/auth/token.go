@@ -74,8 +74,8 @@ func (s Service) IssuerKey(cfg keppel.Configuration) libtrust.PrivateKey {
 //Token represents a JWT (Java Web Token), as used for authenticating on the
 //Registry v2 API.
 type Token struct {
-	//The name of the user who created this token. For anonymous users, this is empty.
-	UserName string
+	//Authorization is the original Authorization object that is serialized within this token.
+	Authorization keppel.Authorization
 	//The service that this token can be used with.
 	Audience Service
 	//Access permissions for this token.
@@ -85,18 +85,20 @@ type Token struct {
 //IsRegularUser indicates if this token is for a regular user, not for an
 //anonymous user or an internal service user.
 func (t Token) IsRegularUser() bool {
-	return t.UserName != "" && !strings.HasPrefix(t.UserName, "replication@")
+	userName := t.Authorization.UserName()
+	return userName != "" && !strings.HasPrefix(userName, "replication@")
 }
 
 //TokenClaims is the type for JWT claims issued by Keppel.
 type TokenClaims struct {
 	jwt.StandardClaims
-	Access []Scope `json:"access"`
+	Access                []Scope                      `json:"access"`
+	EmbeddedAuthorization keppel.EmbeddedAuthorization `json:"kea"` //kea = keppel embedded authorization
 }
 
 //ParseTokenFromRequest tries to parse the Bearer token supplied in the
 //request's Authorization header.
-func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration, audience Service) (*Token, *keppel.RegistryV2Error) {
+func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration, ad keppel.AuthDriver, audience Service) (*Token, *keppel.RegistryV2Error) {
 	//read Authorization request header
 	tokenStr := r.Header.Get("Authorization")
 	if !strings.HasPrefix(tokenStr, "Bearer ") { //e.g. because it's missing
@@ -106,6 +108,7 @@ func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration, audience S
 
 	//parse JWT
 	var claims TokenClaims
+	claims.EmbeddedAuthorization.AuthDriver = ad
 	token, err := jwt.ParseWithClaims(tokenStr, &claims, func(t *jwt.Token) (interface{}, error) {
 		//check that the signing method matches what we generate
 		ourIssuerKey := audience.IssuerKey(cfg)
@@ -147,9 +150,9 @@ func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration, audience S
 	}
 
 	return &Token{
-		UserName: claims.StandardClaims.Subject,
-		Audience: audience,
-		Access:   claims.Access,
+		Authorization: claims.EmbeddedAuthorization.Authorization,
+		Audience:      audience,
+		Access:        claims.Access,
 	}, nil
 }
 
@@ -216,13 +219,16 @@ func (t Token) Issue(cfg keppel.Configuration) (*IssuedToken, error) {
 			Id:        uuid.NewV4().String(),
 			Audience:  publicHost,
 			Issuer:    "keppel-api@" + cfg.APIPublicURL.Hostname(),
-			Subject:   t.UserName,
+			Subject:   t.Authorization.UserName(),
 			ExpiresAt: expiresAt.Unix(),
 			NotBefore: now.Unix(),
 			IssuedAt:  now.Unix(),
 		},
 		//access permissions granted to this token
 		Access: t.Access,
+		EmbeddedAuthorization: keppel.EmbeddedAuthorization{
+			Authorization: t.Authorization,
+		},
 	})
 
 	var (

@@ -120,7 +120,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	//before we branch into different code paths, count the pull
 	if r.Method == "GET" {
 		l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
-		if strings.HasPrefix(token.UserName, "replication@") {
+		if strings.HasPrefix(token.Authorization.UserName(), "replication@") {
 			l["method"] = "replication"
 		} else if isAnycast {
 			l["method"] = "registry-api+anycast"
