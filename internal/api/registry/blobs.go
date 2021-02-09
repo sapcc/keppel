@@ -24,7 +24,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
@@ -39,11 +38,11 @@ import (
 //This implements the GET/HEAD /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
-	account, repo, token := a.checkAccountAccess(w, r, failIfRepoMissing, a.handleGetOrHeadBlobAnycast)
+	account, repo, authz := a.checkAccountAccess(w, r, failIfRepoMissing, a.handleGetOrHeadBlobAnycast)
 	if account == nil {
 		return
 	}
-	if !a.checkRateLimit(w, r, *account, token, keppel.BlobPullAction, 1) {
+	if !a.checkRateLimit(w, r, *account, authz, keppel.BlobPullAction, 1) {
 		return
 	}
 
@@ -111,7 +110,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		//AnycastBlobBytePullAction is only relevant for GET requests since it
 		//limits the size of the response body (which is empty for HEAD)
 		if r.Method == "GET" {
-			if !a.checkRateLimit(w, r, *account, token, keppel.AnycastBlobBytePullAction, blob.SizeBytes) {
+			if !a.checkRateLimit(w, r, *account, authz, keppel.AnycastBlobBytePullAction, blob.SizeBytes) {
 				return
 			}
 		}
@@ -120,7 +119,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	//before we branch into different code paths, count the pull
 	if r.Method == "GET" {
 		l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
-		if strings.HasPrefix(token.Authorization.UserName(), "replication@") {
+		if authz.Authorization().IsReplicationUser() {
 			l["method"] = "replication"
 		} else if isAnycast {
 			l["method"] = "registry-api+anycast"

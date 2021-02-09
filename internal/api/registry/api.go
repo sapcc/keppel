@@ -24,12 +24,10 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/auth"
@@ -119,7 +117,7 @@ func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
-	if a.requireBearerToken(w, r, nil) == nil {
+	if a.requireAuthorization(w, r, nil) == nil {
 		return
 	}
 
@@ -143,41 +141,6 @@ func respondWithError(w http.ResponseWriter, r *http.Request, err error) bool {
 		keppel.ErrUnknown.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 		return true
 	}
-}
-
-func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *auth.Scope) *auth.Token {
-	//for requests to the anycast endpoint, we need to use the anycast issuer key instead of the regular one
-	audience := auth.LocalService
-	if a.cfg.IsAnycastRequest(r) {
-		audience = auth.AnycastService
-
-		//completely forbid write operations on the anycast API (only the local API
-		//may be used for writes and deletes)
-		if r.Method != "HEAD" && r.Method != "GET" {
-			msg := "write access is not supported for anycast requests"
-			keppel.ErrUnsupported.With(msg).WriteAsRegistryV2ResponseTo(w, r)
-			return nil
-		}
-	}
-
-	token, err := auth.ParseTokenFromRequest(r, a.cfg, a.ad, audience)
-	if err == nil && scope != nil && !token.Contains(*scope) {
-		err = keppel.ErrDenied.With("token does not cover scope %s", scope.String())
-	}
-	if err != nil {
-		logg.Debug("GET %s: %s", r.URL.Path, err.Error())
-		challenge := auth.Challenge{Service: audience, Scope: scope}
-		requestURL := keppel.OriginalRequestURL(r)
-		challenge.OverrideAPIHost = requestURL.Host
-		challenge.OverrideAPIScheme = requestURL.Scheme
-		if token != nil {
-			challenge.Error = "insufficient_scope"
-		}
-		challenge.WriteTo(w.Header(), a.cfg)
-		err.WriteAsRegistryV2ResponseTo(w, r)
-		return nil
-	}
-	return token
 }
 
 //The "with leading slash" simplifies the regex because we need not write the regex for a path element twice.
@@ -216,7 +179,7 @@ func (info anycastRequestInfo) AsPrometheusLabels() prometheus.Labels {
 //If the account does not exist locally, but the request is for the anycast API
 //and the account exists elsewhere, the `anycastHandler` is invoked if given
 //instead of giving a 404 response.
-func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy, anycastHandler func(http.ResponseWriter, *http.Request, anycastRequestInfo)) (*keppel.Account, *keppel.Repository, *auth.Token) {
+func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy, anycastHandler func(http.ResponseWriter, *http.Request, anycastRequestInfo)) (*keppel.Account, *keppel.Repository, APIAuthorization) {
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
@@ -242,8 +205,8 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	default:
 		scope.Actions = []string{"pull", "push"}
 	}
-	token := a.requireBearerToken(w, r, &scope)
-	if token == nil {
+	authz := a.requireAuthorization(w, r, &scope)
+	if authz == nil {
 		return nil, nil, nil
 	}
 
@@ -286,7 +249,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	if strategy == createRepoIfMissing {
 		canCreateRepoIfMissing = true
 	} else if strategy == createRepoIfMissingAndReplica {
-		canCreateRepoIfMissing = account.UpstreamPeerHostName != "" || (account.ExternalPeerURL != "" && token.IsRegularUser())
+		canCreateRepoIfMissing = account.UpstreamPeerHostName != "" || (account.ExternalPeerURL != "" && authz.Authorization().IsRegularUser())
 	}
 
 	var repo *keppel.Repository
@@ -302,10 +265,10 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		return nil, nil, nil
 	}
 
-	return account, repo, token
+	return account, repo, authz
 }
 
-func (a *API) checkRateLimit(w http.ResponseWriter, r *http.Request, account keppel.Account, token *auth.Token, action keppel.RateLimitedAction, amount uint64) bool {
+func (a *API) checkRateLimit(w http.ResponseWriter, r *http.Request, account keppel.Account, authz APIAuthorization, action keppel.RateLimitedAction, amount uint64) bool {
 	//rate-limiting is optional
 	if a.rle == nil {
 		return true
@@ -314,7 +277,7 @@ func (a *API) checkRateLimit(w http.ResponseWriter, r *http.Request, account kep
 	//cluster-internal traffic is exempt from rate-limits (if the request is
 	//caused by a user API request, the rate-limit has been checked already
 	//before the cluster-internal request was sent)
-	if strings.HasPrefix(token.Authorization.UserName(), "replication@") {
+	if authz.Authorization().IsReplicationUser() {
 		return true
 	}
 

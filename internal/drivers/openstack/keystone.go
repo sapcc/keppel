@@ -341,6 +341,16 @@ func (a keystoneAuthorization) HasPermission(perm keppel.Permission, tenantID st
 	return result
 }
 
+//IsRegularUser implements the keppel.Authorization interface.
+func (a keystoneAuthorization) IsRegularUser() bool {
+	return true
+}
+
+//IsReplicationUser implements the keppel.Authorization interface.
+func (a keystoneAuthorization) IsReplicationUser() bool {
+	return false
+}
+
 //UserInfo implements the keppel.Authorization interface.
 func (a keystoneAuthorization) UserInfo() audittools.UserInfo {
 	return a.t

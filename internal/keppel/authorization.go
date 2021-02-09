@@ -30,19 +30,27 @@ import (
 //Authorization describes the access rights for a user. It is returned by
 //methods in the AuthDriver interface.
 type Authorization interface {
-	//Returns the name of the the user that was authenticated. This should be the
-	//same format that is given as the first argument of AuthenticateUser().
-	//The AnonymousAuthorization always returns the empty string.
-	UserName() string
 	//Returns whether the given auth tenant grants the given permission to this user.
 	//The AnonymousAuthorization always returns false.
 	HasPermission(perm Permission, tenantID string) bool
+
+	//IsRegularUser indicates if this token is for a regular user, not for an
+	//anonymous user or an internal service user.
+	IsRegularUser() bool
+	//IsReplicationUser indicates if this token is for an internal service user
+	//used only for replication. (Some special rules apply for those service
+	//users, e.g. rate limit exemptions.)
+	IsReplicationUser() bool
 
 	//SerializeToJSON serializes this Authorization instance into JSON for
 	//inclusion in a token payload. The `typeName` must be identical to the
 	//`name` argument of the RegisterAuthorization call for this type.
 	SerializeToJSON() (typeName string, payload []byte, err error)
 
+	//Returns the name of the the user that was authenticated. This should be the
+	//same format that is given as the first argument of AuthenticateUser().
+	//The AnonymousAuthorization always returns the empty string.
+	UserName() string
 	//If this authorization is backed by a Keystone token, return a UserInfo for
 	//that token. Returns nil otherwise. The AnonymousAuthorization always returns nil.
 	//
@@ -82,6 +90,12 @@ func (anonAuthorization) UserName() string {
 func (anonAuthorization) HasPermission(perm Permission, tenantID string) bool {
 	return false
 }
+func (anonAuthorization) IsRegularUser() bool {
+	return false
+}
+func (anonAuthorization) IsReplicationUser() bool {
+	return false
+}
 func (anonAuthorization) SerializeToJSON() (typeName string, payload []byte, err error) {
 	return "anon", []byte("true"), nil
 }
@@ -112,6 +126,16 @@ func (a ReplicationAuthorization) UserName() string {
 //HasPermission implements the keppel.Authorization interface.
 func (a ReplicationAuthorization) HasPermission(perm Permission, tenantID string) bool {
 	return perm == CanViewAccount || perm == CanPullFromAccount
+}
+
+//IsRegularUser implements the keppel.Authorization interface.
+func (a ReplicationAuthorization) IsRegularUser() bool {
+	return false
+}
+
+//IsReplicationUser implements the keppel.Authorization interface.
+func (a ReplicationAuthorization) IsReplicationUser() bool {
+	return true
 }
 
 //SerializeToJSON implements the keppel.Authorization interface.

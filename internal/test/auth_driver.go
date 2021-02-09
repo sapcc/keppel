@@ -115,6 +115,14 @@ func (a authorization) HasPermission(perm keppel.Permission, tenantID string) bo
 	return a.Perms[string(perm)][tenantID]
 }
 
+func (a authorization) IsRegularUser() bool {
+	return true
+}
+
+func (a authorization) IsReplicationUser() bool {
+	return false
+}
+
 func (a authorization) UserInfo() audittools.UserInfo {
 	//return a dummy UserInfo to enable testing of audit events (a nil UserInfo
 	//will suppress audit event generation)

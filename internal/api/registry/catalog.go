@@ -54,8 +54,8 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := a.requireBearerToken(w, r, &requiredScopeForCatalogEndpoint)
-	if token == nil {
+	authz := a.requireAuthorization(w, r, &requiredScopeForCatalogEndpoint)
+	if authz == nil {
 		return
 	}
 
@@ -95,36 +95,17 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//find accessible accounts
-	var accounts []*keppel.Account
-	for _, scope := range token.Access {
-		accountName := parseKeppelAccountScope(scope)
-		if accountName == "" {
-			//`scope` does not look like `keppel_account:$ACCOUNT_NAME:view`
-			continue
-		}
-		account, err := keppel.FindAccount(a.db, accountName)
-		if respondWithError(w, r, err) {
-			return
-		}
-		if account == nil {
-			//account was deleted since token issuance, so there cannot be any repos
-			//in it
-			continue
-		}
-		//when paginating, we don't need to care about accounts before the marker
-		if markerAccountName == "" || account.Name >= markerAccountName {
-			accounts = append(accounts, account)
-		}
+	accountNames, err := authz.AccountsWithCatalogAccess(markerAccountName)
+	if respondWithError(w, r, err) {
+		return
 	}
-	sort.Slice(accounts, func(i, j int) bool {
-		return accounts[i].Name < accounts[j].Name
-	})
+	sort.Strings(accountNames)
 
 	//collect repository names from backend
 	var allNames []string
 	partialResult := false
-	for idx, account := range accounts {
-		names, err := a.getCatalogForAccount(*account)
+	for idx, accountName := range accountNames {
+		names, err := a.getCatalogForAccount(accountName)
 		if respondWithError(w, r, err) {
 			return
 		}
@@ -179,14 +160,14 @@ func parseKeppelAccountScope(s auth.Scope) string {
 
 const catalogGetQuery = `SELECT name FROM repos WHERE account_name = $1 ORDER BY name`
 
-func (a *API) getCatalogForAccount(account keppel.Account) ([]string, error) {
+func (a *API) getCatalogForAccount(accountName string) ([]string, error) {
 	var result []string
-	err := keppel.ForeachRow(a.db, catalogGetQuery, []interface{}{account.Name},
+	err := keppel.ForeachRow(a.db, catalogGetQuery, []interface{}{accountName},
 		func(rows *sql.Rows) error {
 			var name string
 			err := rows.Scan(&name)
 			if err == nil {
-				result = append(result, fmt.Sprintf("%s/%s", account.Name, name))
+				result = append(result, fmt.Sprintf("%s/%s", accountName, name))
 			}
 			return err
 		},

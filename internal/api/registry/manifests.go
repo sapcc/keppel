@@ -39,11 +39,11 @@ import (
 //This implements the HEAD/GET /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
-	account, repo, token := a.checkAccountAccess(w, r, createRepoIfMissingAndReplica, a.handleGetOrHeadManifestAnycast)
+	account, repo, authz := a.checkAccountAccess(w, r, createRepoIfMissingAndReplica, a.handleGetOrHeadManifestAnycast)
 	if account == nil {
 		return
 	}
-	if !a.checkRateLimit(w, r, *account, token, keppel.ManifestPullAction, 1) {
+	if !a.checkRateLimit(w, r, *account, authz, keppel.ManifestPullAction, 1) {
 		return
 	}
 
@@ -62,9 +62,9 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		//from upstream (as an exception, other Keppels replicating from us always
 		//see the true 404 to properly replicate the non-existence of the manifest
 		//from this account into the replica account)
-		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.InMaintenance && !strings.HasPrefix(token.Authorization.UserName(), "replication@") {
+		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.InMaintenance && !authz.Authorization().IsReplicationUser() {
 			//when replicating from external, only authenticated users can trigger the replication
-			if account.ExternalPeerURL != "" && !token.IsRegularUser() {
+			if account.ExternalPeerURL != "" && !authz.Authorization().IsRegularUser() {
 				keppel.ErrDenied.With("image does not exist here, and anonymous users may not replicate images").WithStatus(http.StatusForbidden).WriteAsRegistryV2ResponseTo(w, r)
 				return
 			}
@@ -275,11 +275,11 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 //This implements the PUT /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
-	account, repo, token := a.checkAccountAccess(w, r, createRepoIfMissing, nil)
+	account, repo, authz := a.checkAccountAccess(w, r, createRepoIfMissing, nil)
 	if account == nil {
 		return
 	}
-	if !a.checkRateLimit(w, r, *account, token, keppel.ManifestPushAction, 1) {
+	if !a.checkRateLimit(w, r, *account, authz, keppel.ManifestPushAction, 1) {
 		return
 	}
 
