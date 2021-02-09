@@ -20,6 +20,9 @@
 package keppel
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"github.com/sapcc/go-bits/audittools"
 )
 
@@ -34,12 +37,38 @@ type Authorization interface {
 	//The AnonymousAuthorization always returns false.
 	HasPermission(perm Permission, tenantID string) bool
 
+	//SerializeToJSON serializes this Authorization instance into JSON for
+	//inclusion in a token payload. The `typeName` must be identical to the
+	//`name` argument of the RegisterAuthorization call for this type.
+	SerializeToJSON() (typeName string, payload []byte, err error)
+
 	//If this authorization is backed by a Keystone token, return a UserInfo for
 	//that token. Returns nil otherwise. The AnonymousAuthorization always returns nil.
 	//
 	//If non-nil, the Keppel API will submit OpenStack CADF audit events.
 	UserInfo() audittools.UserInfo
 }
+
+var authzDeserializers = map[string]func([]byte, AuthDriver) (Authorization, error){
+	"anon": deserializeAnonAuthorization,
+	"repl": deserializeReplAuthorization,
+}
+
+//RegisterAuthorization registers a type implementing the Authorization
+//interface. Call this from func init() of the package defining the type.
+//
+//The `deserialize` function is called whenever an instance of this type needs to
+//be deserialized from a token payload. It shall perform the exact reverse of
+//the type's SerializeToJSON method.
+func RegisterAuthorization(name string, deserialize func([]byte, AuthDriver) (Authorization, error)) {
+	if _, exists := authzDeserializers[name]; exists {
+		panic("attempted to register multiple Authorization types with name = " + name)
+	}
+	authzDeserializers[name] = deserialize
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// AnonymousAuthorization
 
 //AnonymousAuthorization is a keppel.Authorization for anonymous users.
 var AnonymousAuthorization = Authorization(anonAuthorization{})
@@ -52,9 +81,22 @@ func (anonAuthorization) UserName() string {
 func (anonAuthorization) HasPermission(perm Permission, tenantID string) bool {
 	return false
 }
+func (anonAuthorization) SerializeToJSON() (typeName string, payload []byte, err error) {
+	return "anon", []byte("true"), nil
+}
 func (anonAuthorization) UserInfo() audittools.UserInfo {
 	return nil
 }
+
+func deserializeAnonAuthorization(in []byte, _ AuthDriver) (Authorization, error) {
+	if string(in) != "true" {
+		return nil, fmt.Errorf("%q is not a valid payload for AnonymousAuthorization", string(in))
+	}
+	return AnonymousAuthorization, nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// ReplicationAuthorization
 
 //ReplicationAuthorization is a keppel.Authorization for replication users with global pull access.
 type ReplicationAuthorization struct {
@@ -71,7 +113,19 @@ func (a ReplicationAuthorization) HasPermission(perm Permission, tenantID string
 	return perm == CanViewAccount || perm == CanPullFromAccount
 }
 
+//SerializeToJSON implements the keppel.Authorization interface.
+func (a ReplicationAuthorization) SerializeToJSON() (typeName string, payload []byte, err error) {
+	payload, err = json.Marshal(a.PeerHostName)
+	return "repl", payload, err
+}
+
 //UserInfo implements the keppel.Authorization interface.
 func (a ReplicationAuthorization) UserInfo() audittools.UserInfo {
 	return nil
+}
+
+func deserializeReplAuthorization(in []byte, _ AuthDriver) (Authorization, error) {
+	var peerHostName string
+	err := json.Unmarshal(in, &peerHostName)
+	return ReplicationAuthorization{peerHostName}, err
 }

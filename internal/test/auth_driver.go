@@ -45,6 +45,7 @@ type AuthDriver struct {
 }
 
 func init() {
+	keppel.RegisterAuthorization("unittest", deserializeUnittestAuthorization)
 	keppel.RegisterAuthDriver("unittest", func(*redis.Client) (keppel.AuthDriver, error) { return &AuthDriver{}, nil })
 }
 
@@ -102,22 +103,33 @@ func (d *AuthDriver) parseAuthorization(permsHeader string) keppel.Authorization
 }
 
 type authorization struct {
-	userName string
-	perms    map[string]map[string]bool
+	Username string
+	Perms    map[string]map[string]bool
 }
 
 func (a authorization) UserName() string {
-	return a.userName
+	return a.Username
 }
 
 func (a authorization) HasPermission(perm keppel.Permission, tenantID string) bool {
-	return a.perms[string(perm)][tenantID]
+	return a.Perms[string(perm)][tenantID]
 }
 
 func (a authorization) UserInfo() audittools.UserInfo {
 	//return a dummy UserInfo to enable testing of audit events (a nil UserInfo
 	//will suppress audit event generation)
 	return dummyUserInfo{}
+}
+
+func (a authorization) SerializeToJSON() (typeName string, payload []byte, err error) {
+	payload, err = json.Marshal(a)
+	return "unittest", payload, err
+}
+
+func deserializeUnittestAuthorization(in []byte, _ keppel.AuthDriver) (keppel.Authorization, error) {
+	var a authorization
+	err := json.Unmarshal(in, &a)
+	return a, err
 }
 
 type dummyUserInfo struct{}

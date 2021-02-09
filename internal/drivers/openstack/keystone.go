@@ -28,6 +28,7 @@ package openstack
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -36,6 +37,7 @@ import (
 	"strings"
 	"time"
 
+	policy "github.com/databus23/goslo.policy"
 	"github.com/go-redis/redis"
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
@@ -57,6 +59,7 @@ type keystoneDriver struct {
 }
 
 func init() {
+	keppel.RegisterAuthorization("keystone", deserializeKeystoneAuthorization)
 	keppel.RegisterAuthDriver("keystone", func(rc *redis.Client) (keppel.AuthDriver, error) {
 		//authenticate service user
 		ao, err := clientconfig.AuthOptions(nil)
@@ -119,6 +122,14 @@ func init() {
 	})
 }
 
+func mustGetenv(key string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		logg.Fatal("missing environment variable: %s", key)
+	}
+	return val
+}
+
 func createProviderClient(ao gophercloud.AuthOptions) (*gophercloud.ProviderClient, error) {
 	provider, err := openstack.NewClient(ao.IdentityEndpoint)
 	if err == nil {
@@ -160,6 +171,10 @@ func (d *keystoneDriver) ValidateTenantID(tenantID string) error {
 //SetupAccount implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) SetupAccount(account keppel.Account, authorization keppel.Authorization) error {
 	requesterToken := authorization.(keystoneAuthorization).t //is a *gopherpolicy.Token
+	if requesterToken.ProviderClient == nil {
+		return errors.New("user token does not contain a functional client (probably because of a serialization roundtrip)")
+	}
+
 	client, err := openstack.NewIdentityV3(
 		requesterToken.ProviderClient, gophercloud.EndpointOpts{})
 	if err != nil {
@@ -278,6 +293,9 @@ func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Au
 
 type keystoneAuthorization struct {
 	t *gopherpolicy.Token
+	//^ WARNING: Token may not always contain everything you expect
+	//because of a serialization roundtrip. See SerializeToJSON() and
+	//deserializeKeystoneAuthorization() for details.
 }
 
 func newKeystoneAuthorization(t *gopherpolicy.Token) keystoneAuthorization {
@@ -301,10 +319,10 @@ var ruleForPerm = map[keppel.Permission]string{
 //UserName implements the keppel.Authorization interface.
 func (a keystoneAuthorization) UserName() string {
 	return fmt.Sprintf("%s@%s/%s@%s",
-		a.t.Context.Auth["user_name"],
-		a.t.Context.Auth["user_domain_name"],
-		a.t.Context.Auth["project_name"],
-		a.t.Context.Auth["project_domain_name"],
+		a.t.UserName(),
+		a.t.UserDomainName(),
+		a.t.ProjectScopeName(),
+		a.t.ProjectScopeDomainName(),
 	)
 }
 
@@ -328,10 +346,45 @@ func (a keystoneAuthorization) UserInfo() audittools.UserInfo {
 	return a.t
 }
 
-func mustGetenv(key string) string {
-	val := os.Getenv(key)
-	if val == "" {
-		logg.Fatal("missing environment variable: %s", key)
+type serializedKeystoneAuthorization struct {
+	Auth  map[string]string `json:"auth"`
+	Roles []string          `json:"roles"`
+}
+
+//SerializeToJSON implements the keppel.Authorization interface.
+func (a keystoneAuthorization) SerializeToJSON() (typeName string, payload []byte, err error) {
+	//We cannot serialize the entire gopherpolicy.Token, that would include the
+	//X-Auth-Token and possibly even the full token response including service
+	//catalog, and thus produce a rather massive payload. We skip the token and
+	//token response and only serialize what we need to make policy decisions and
+	//satisfy the audittools.UserInfo interface.
+	payload, err = json.Marshal(serializedKeystoneAuthorization{
+		Auth:  a.t.Context.Auth,
+		Roles: a.t.Context.Roles,
+	})
+	return "keystone", payload, err
+}
+
+func deserializeKeystoneAuthorization(in []byte, ad keppel.AuthDriver) (keppel.Authorization, error) {
+	d, ok := ad.(*keystoneDriver)
+	if !ok {
+		return nil, keppel.ErrAuthDriverMismatch
 	}
-	return val
+
+	var ska serializedKeystoneAuthorization
+	err := json.Unmarshal(in, &ska)
+	if err != nil {
+		return nil, err
+	}
+
+	return newKeystoneAuthorization(&gopherpolicy.Token{
+		Enforcer: d.TokenValidator.Enforcer,
+		Context: policy.Context{
+			Auth:    ska.Auth,
+			Roles:   ska.Roles,
+			Request: make(map[string]string), //filled by HasPermission(); does not need to be serialized
+		},
+		ProviderClient: nil, //cannot be reasonably serialized; see comment above
+		Err:            nil,
+	}), nil
 }
