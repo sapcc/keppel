@@ -22,7 +22,6 @@ package authapi
 import (
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/logg"
@@ -115,39 +114,10 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//check requested scope and actions
-	for _, scope := range req.Scopes {
-		switch scope.ResourceType {
-		case "registry":
-			if req.IntendedAudience == auth.AnycastService {
-				//we cannot allow catalog access on the anycast API since there is no way
-				//to decide which peer does the authentication in this case
-				scope.Actions = nil
-			} else if scope.ResourceName == "catalog" && containsString(scope.Actions, "*") {
-				scope.Actions = []string{"*"}
-				err = a.compileCatalogAccess(authz, req.CompiledScopes.Add)
-				if respondWithError(w, http.StatusInternalServerError, err) {
-					return
-				}
-			} else {
-				scope.Actions = nil
-			}
-		case "repository":
-			account, err := keppel.FindAccount(a.db, scope.AccountName())
-			if respondWithError(w, http.StatusInternalServerError, err) {
-				return
-			}
-			if account == nil || !strings.Contains(scope.ResourceName, "/") {
-				scope.Actions = nil
-			} else {
-				scope.Actions, err = a.filterRepoActions(scope.ResourceName, scope.Actions, authz, *account)
-				if respondWithError(w, http.StatusInternalServerError, err) {
-					return
-				}
-			}
-		default:
-			scope.Actions = nil
-		}
+	//check authorization
+	req.Scopes, err = req.Scopes.FilterAuthorized(authz, req.IntendedAudience, a.db)
+	if respondWithError(w, http.StatusInternalServerError, err) {
+		return
 	}
 
 	tokenInfo, err := makeTokenResponse(req.ToToken(authz), a.cfg)
@@ -164,7 +134,7 @@ func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Requ
 	}
 
 	//protect against infinite forwarding loops in case different Keppels have
-	//different ideas about how is the primary account
+	//different ideas about who is the primary account
 	if forwardedBy := r.URL.Query().Get("X-Keppel-Forwarded-By"); forwardedBy != "" {
 		logg.Error("not forwarding anycast token request for account %q to %s because request was already forwarded to us by %s",
 			accountName, primaryHostName, forwardedBy)
@@ -172,72 +142,4 @@ func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Requ
 	}
 
 	return a.cfg.ReverseProxyAnycastRequestToPeer(w, r, primaryHostName)
-}
-
-func containsString(list []string, val string) bool {
-	for _, v := range list {
-		if v == val {
-			return true
-		}
-	}
-	return false
-}
-
-func (a *API) filterRepoActions(repoName string, actions []string, authz keppel.Authorization, account keppel.Account) ([]string, error) {
-	isAllowedAction := map[string]bool{
-		"pull":   authz.HasPermission(keppel.CanPullFromAccount, account.AuthTenantID),
-		"push":   authz.HasPermission(keppel.CanPushToAccount, account.AuthTenantID),
-		"delete": authz.HasPermission(keppel.CanDeleteFromAccount, account.AuthTenantID),
-	}
-
-	var policies []keppel.RBACPolicy
-	_, err := a.db.Select(&policies, "SELECT * FROM rbac_policies WHERE account_name = $1", account.Name)
-	if err != nil {
-		return nil, err
-	}
-	userName := authz.UserName()
-	for _, policy := range policies {
-		if policy.Matches(repoName, userName) {
-			if policy.CanPullAnonymously {
-				isAllowedAction["pull"] = true
-			}
-			if policy.CanPull && authz != keppel.AnonymousAuthorization {
-				isAllowedAction["pull"] = true
-			}
-			if policy.CanPush && authz != keppel.AnonymousAuthorization {
-				isAllowedAction["push"] = true
-			}
-			if policy.CanDelete && authz != keppel.AnonymousAuthorization {
-				isAllowedAction["delete"] = true
-			}
-		}
-	}
-
-	var result []string
-	for _, action := range actions {
-		if isAllowedAction[action] {
-			result = append(result, action)
-		}
-	}
-	return result, nil
-}
-
-func (a *API) compileCatalogAccess(authz keppel.Authorization, addScope func(auth.Scope)) error {
-	var accounts []keppel.Account
-	_, err := a.db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
-	if err != nil {
-		return err
-	}
-
-	for _, account := range accounts {
-		if authz.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
-			addScope(auth.Scope{
-				ResourceType: "keppel_account",
-				ResourceName: account.Name,
-				Actions:      []string{"view"},
-			})
-		}
-	}
-
-	return nil
 }

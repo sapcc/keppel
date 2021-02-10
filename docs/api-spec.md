@@ -8,10 +8,17 @@ for managing Keppel accounts.
 - Error responses always have `Content-Type: text/plain`.
 - Account names must conform to the regex `^[a-z0-9-]{1,48}$`, that is, they may not be longer than 48 chars and may
   only contain lowercase letters, digits and dashes.
-- When the auth driver is `keystone`, Keppel's service URL can be found in the Keystone service catalog under the
-  service type `keppel`.
+
+The authentication method for this API depends on which auth driver is used by the Keppel instance in question:
+
 - When the auth driver is `keystone`, all endpoints require a Keystone token to be present in the `X-Auth-Token` header.
   Only Keystone v3 is supported.
+- When the auth driver is `keystone`, Keppel's service URL can be found in the Keystone service catalog under the
+  service type `keppel`.
+
+The OCI Distribution API usually uses OAuth-like bearer tokens, but in Keppel, it can also be made to use the same
+authentication method as the API specified in this document. To do so, add the request header `Authorization: keppel`
+and the same request headers as on this API to a request for the OCI Distribution API.
 
 This document uses the terminology defined in the [README.md](../README.md#terminology).
 

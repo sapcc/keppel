@@ -40,8 +40,23 @@ type APIAuthorization interface {
 }
 
 func (a *API) requireAuthorization(w http.ResponseWriter, r *http.Request, scope *auth.Scope) APIAuthorization {
-	//TODO keppelToken
+	if r.Header.Get("Authorization") == "keppel" && !a.cfg.IsAnycastRequest(r) {
+		return a.requireKeppelAPIAuth(w, r, scope, auth.LocalService)
+	}
+	//this is also called when requireKeppelAPIAuth() returned nil, in order to render the regular 401 response
 	return a.requireBearerToken(w, r, scope)
+}
+
+func isKeppelAccountViewScope(s auth.Scope) bool {
+	if s.ResourceType != "keppel_account" {
+		return false
+	}
+	for _, action := range s.Actions {
+		if action == "view" {
+			return true
+		}
+	}
+	return false
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -97,11 +112,62 @@ func (b bearerToken) Authorization() keppel.Authorization {
 func (b bearerToken) AccountsWithCatalogAccess(markerAccountName string) ([]string, error) {
 	result := make([]string, 0, len(b.t.Access))
 	for _, scope := range b.t.Access {
-		accountName := parseKeppelAccountScope(scope)
-		if accountName == "" {
-			//`scope` does not look like `keppel_account:$ACCOUNT_NAME:view`
+		if !isKeppelAccountViewScope(scope) {
 			continue
 		}
+		accountName := scope.ResourceName
+		//when paginating, we don't need to care about accounts before the marker
+		if markerAccountName == "" || accountName >= markerAccountName {
+			result = append(result, accountName)
+		}
+	}
+	return result, nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// type keppelAPIAuth
+
+type keppelAPIAuth struct {
+	AuthZ         keppel.Authorization
+	GrantedScopes auth.ScopeSet
+}
+
+func (a *API) requireKeppelAPIAuth(w http.ResponseWriter, r *http.Request, scope *auth.Scope, audience auth.Service) APIAuthorization {
+	authz, authErr := a.ad.AuthenticateUserFromRequest(r)
+	if authErr != nil {
+		//fallback to default auth to render 401 response including auth challenge
+		return a.requireBearerToken(w, r, scope)
+	}
+
+	if scope == nil {
+		return keppelAPIAuth{authz, nil}
+	}
+
+	grantedScopes, err := auth.ScopeSet{scope}.FilterAuthorized(authz, audience, a.db)
+	if respondWithError(w, r, err) {
+		return nil
+	}
+	if !grantedScopes.Contains(*scope) {
+		//fallback to default auth to render 401 response including auth challenge
+		return a.requireBearerToken(w, r, scope)
+	}
+
+	return keppelAPIAuth{authz, grantedScopes}
+}
+
+//Authorization implements the APIAuthorization interface.
+func (a keppelAPIAuth) Authorization() keppel.Authorization {
+	return a.AuthZ
+}
+
+//AccountsWithCatalogAccess implements the APIAuthorization interface.
+func (a keppelAPIAuth) AccountsWithCatalogAccess(markerAccountName string) ([]string, error) {
+	result := make([]string, 0, len(a.GrantedScopes))
+	for _, scope := range a.GrantedScopes {
+		if !isKeppelAccountViewScope(*scope) {
+			continue
+		}
+		accountName := scope.ResourceName
 		//when paginating, we don't need to care about accounts before the marker
 		if markerAccountName == "" || accountName >= markerAccountName {
 			result = append(result, accountName)

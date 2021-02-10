@@ -146,18 +146,6 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func parseKeppelAccountScope(s auth.Scope) string {
-	if s.ResourceType != "keppel_account" {
-		return ""
-	}
-	for _, action := range s.Actions {
-		if action == "view" {
-			return s.ResourceName
-		}
-	}
-	return ""
-}
-
 const catalogGetQuery = `SELECT name FROM repos WHERE account_name = $1 ORDER BY name`
 
 func (a *API) getCatalogForAccount(accountName string) ([]string, error) {
