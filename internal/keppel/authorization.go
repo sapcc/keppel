@@ -89,7 +89,11 @@ type compressedPayload struct {
 //message that self-documents the compression algorithm that was used.
 func CompressTokenPayload(payload []byte) ([]byte, error) {
 	var buf bytes.Buffer
-	_, err := gzip.NewWriter(&buf).Write(payload)
+	writer := gzip.NewWriter(&buf)
+	_, err := writer.Write(payload)
+	if err == nil {
+		err = writer.Close()
+	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot apply GZip compression: %w", err)
 	}
