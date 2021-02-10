@@ -372,6 +372,9 @@ func (a keystoneAuthorization) SerializeToJSON() (typeName string, payload []byt
 		Auth:  a.t.Context.Auth,
 		Roles: a.t.Context.Roles,
 	})
+	if err == nil {
+		payload, err = keppel.CompressTokenPayload(payload)
+	}
 	return "keystone", payload, err
 }
 
@@ -381,8 +384,13 @@ func deserializeKeystoneAuthorization(in []byte, ad keppel.AuthDriver) (keppel.A
 		return nil, keppel.ErrAuthDriverMismatch
 	}
 
+	in, err := keppel.DecompressTokenPayload(in)
+	if err != nil {
+		return nil, err
+	}
+
 	var ska serializedKeystoneAuthorization
-	err := json.Unmarshal(in, &ska)
+	err = json.Unmarshal(in, &ska)
 	if err != nil {
 		return nil, err
 	}
