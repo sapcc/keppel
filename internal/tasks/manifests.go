@@ -231,25 +231,9 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 			}
 
 			//no manifests left that reference this one - we can delete it
-			//
-			//The ordering is important: The DELETE statement could fail if some concurrent
-			//process created a manifest reference in the meantime. If that happens,
-			//and we have already deleted the manifest in the backing storage, we've
-			//caused an inconsistency that we cannot recover from. To avoid that
-			//risk, we do it the other way around. In this way, we could have an
-			//inconsistency where the manifest is deleted from the database, but still
-			//present in the backing storage. But this inconsistency is easier to
-			//recover from: SweepStorageInNextAccount will take care of it soon
-			//enough. Also the user will not notice this inconsistency because the DB
-			//is our primary source of truth.
-			_, err := j.db.Delete(&keppel.Manifest{RepositoryID: repo.ID, Digest: digest}) //without transaction: we need this committed right now
-
+			err := j.processor().DeleteManifest(account, repo, digest)
 			if err != nil {
-				return fmt.Errorf("cannot remove deleted manifest %s in repo %s from DB: %s", digest, repo.FullName(), err.Error())
-			}
-			err = j.sd.DeleteManifest(account, repo.Name, digest)
-			if err != nil {
-				return fmt.Errorf("cannot remove deleted manifest %s in repo %s from storage: %s", digest, repo.FullName(), err.Error())
+				return fmt.Errorf("cannot remove deleted manifest %s in repo %s: %w", digest, repo.FullName(), err)
 			}
 
 			//remove deletion from work queue (so that we can eventually exit from the outermost loop)

@@ -29,6 +29,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/processor"
 )
 
 //API contains state variables used by the Keppel V1 API implementation.
@@ -70,6 +71,10 @@ func (a *API) AddTo(r *mux.Router) {
 
 	r.Methods("GET").Path("/keppel/v1/quotas/{auth_tenant_id}").HandlerFunc(a.handleGetQuotas)
 	r.Methods("PUT").Path("/keppel/v1/quotas/{auth_tenant_id}").HandlerFunc(a.handlePutQuotas)
+}
+
+func (a *API) processor() *processor.Processor {
+	return processor.New(a.cfg, a.db, a.sd)
 }
 
 func (a *API) handleGetAPIInfo(w http.ResponseWriter, r *http.Request) {

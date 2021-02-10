@@ -239,35 +239,14 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//delete manifest from the database
-	result, err := a.db.Exec(
-		//this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
-		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
-		repo.ID, digest.String())
-	if respondWithError(w, r, err) {
-		return
-	}
-	rowsDeleted, err := result.RowsAffected()
-	if respondWithError(w, r, err) {
-		return
-	}
-	if rowsDeleted == 0 {
+	err = a.processor().DeleteManifest(*account, *repo, digest.String())
+	if err == sql.ErrNoRows {
 		keppel.ErrManifestUnknown.With("no such manifest").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
-
-	//delete the manifest in the backend
-	err = a.sd.DeleteManifest(*account, repo.Name, digest.String())
 	if respondWithError(w, r, err) {
 		return
 	}
-	//^ NOTE: We do this *after* the deletion is durable in the DB to be extra
-	//sure that we did not break any constraints (esp. manifest-manifest refs and
-	//manifest-blob refs) that the DB enforces. Doing things in this order might
-	//mean that, if DeleteManifest fails, we're left with a manifest in the
-	//backing storage that is not referenced in the DB anymore, but this is not a
-	//huge problem since the janitor can clean those up after the fact. What's
-	//most important is that we don't lose any data in the backing storage while
-	//it is still referenced in the DB.
 
 	w.WriteHeader(http.StatusAccepted)
 }

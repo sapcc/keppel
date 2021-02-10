@@ -502,3 +502,39 @@ func (p *Processor) CheckManifestOnPrimary(account keppel.Account, repo keppel.R
 	}
 	return false, err
 }
+
+//DeleteManifest deletes the given manifest from both the database and the
+//backing storage.
+//
+//If the manifest does not exist, sql.ErrNoRows is returned.
+func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repository, digest string) error {
+	result, err := p.db.Exec(
+		//this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
+		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
+		repo.ID, digest)
+	if err != nil {
+		return err
+	}
+	rowsDeleted, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsDeleted == 0 {
+		return sql.ErrNoRows
+	}
+
+	return p.sd.DeleteManifest(account, repo.Name, digest)
+	//^ NOTE: We do this *after* the deletion is durable in the DB to be extra
+	//sure that we did not break any constraints (esp. manifest-manifest refs and
+	//manifest-blob refs) that the DB enforces. Doing things in this order might
+	//mean that, if DeleteManifest fails, we're left with a manifest in the
+	//backing storage that is not referenced in the DB anymore, but this is not a
+	//huge problem since the janitor can clean those up after the fact. What's
+	//most important is that we don't lose any data in the backing storage while
+	//it is still referenced in the DB.
+	//
+	//Also, the DELETE statement could fail if some concurrent process created a
+	//manifest reference in the meantime. If that happens, and we have already
+	//deleted the manifest in the backing storage, we've caused an inconsistency
+	//that we cannot recover from.
+}

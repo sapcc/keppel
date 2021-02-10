@@ -171,38 +171,15 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//prepare deletion of database entries on our side, so that we only have to
-	//commit the transaction once the backend DELETE is successful
-	tx, err := a.db.Begin()
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-	defer keppel.RollbackUnlessCommitted(tx)
-	result, err := a.db.Exec(
-		//this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
-		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
-		repo.ID, digest)
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-	rowsDeleted, err := result.RowsAffected()
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-	if rowsDeleted == 0 {
+	err = a.processor().DeleteManifest(*account, *repo, digest.String())
+	if err == sql.ErrNoRows {
 		http.Error(w, "no such manifest", http.StatusNotFound)
 		return
 	}
+	if respondwith.ErrorText(w, err) {
+		return
+	}
 
-	//DELETE the manifest in the backend
-	err = a.sd.DeleteManifest(*account, repo.Name, digest.String())
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-	err = tx.Commit()
-	if respondwith.ErrorText(w, err) {
-		return
-	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
