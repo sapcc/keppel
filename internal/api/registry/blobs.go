@@ -129,22 +129,26 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//prefer redirecting the client to a storage URL if the storage driver can give us one
-	url, err := a.sd.URLForBlob(*account, blob.StorageID)
-	if err == nil {
-		w.Header().Set("Docker-Content-Digest", blob.Digest)
-		w.Header().Set("Location", url)
-		w.WriteHeader(http.StatusTemporaryRedirect)
-		return
-	}
-	if err != keppel.ErrCannotGenerateURL {
-		respondWithError(w, r, err)
-		return
+	//
+	//We only do this for large blobs. Small blobs (esp. image configs) are served by us directly.
+	//This enables UIs to pull image config blobs from us (where we know that
+	//CORS is set up correctly) rather than from the storage backend which may
+	//have a different CORS configuration (or none at all).
+	if blob.SizeBytes > 8192 {
+		url, err := a.sd.URLForBlob(*account, blob.StorageID)
+		if err == nil {
+			w.Header().Set("Docker-Content-Digest", blob.Digest)
+			w.Header().Set("Location", url)
+			w.WriteHeader(http.StatusTemporaryRedirect)
+			return
+		}
+		if err != keppel.ErrCannotGenerateURL {
+			respondWithError(w, r, err)
+			return
+		}
 	}
 
-	//return the blob contents to the client directly (NOTE: this code path is
-	//rather lazy and esp. does not support range requests because it is only
-	//used by unit tests anyway; all production-grade storage drivers have a
-	//functional URLForBlob implementation)
+	//return the blob contents to the client directly (TODO: support range requests)
 	reader, lengthBytes, err := a.sd.ReadBlob(*account, blob.StorageID)
 	if respondWithError(w, r, err) {
 		return
