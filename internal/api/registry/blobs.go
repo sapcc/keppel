@@ -35,6 +35,11 @@ import (
 	"github.com/sapcc/keppel/internal/processor"
 )
 
+var isImageConfigBlobMediaType = map[string]bool{
+	"application/vnd.docker.container.image.v1+json": true,
+	"application/vnd.oci.image.config.v1+json":       true,
+}
+
 //This implements the GET/HEAD /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
@@ -130,11 +135,12 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 
 	//prefer redirecting the client to a storage URL if the storage driver can give us one
 	//
-	//We only do this for large blobs. Small blobs (esp. image configs) are served by us directly.
-	//This enables UIs to pull image config blobs from us (where we know that
-	//CORS is set up correctly) rather than from the storage backend which may
-	//have a different CORS configuration (or none at all).
-	if blob.SizeBytes > 8192 {
+	//We do not do this for image config blobs. Those are rather small, so the
+	//optimization of redirecting rather than reverse-proxying is not as relevant
+	//as for image layers. By reverse-proxying these blobs, we can be sure that
+	//CORS happens correctly. This is important for web UIs reading image config
+	//blobs in order to render informational UIs.
+	if isImageConfigBlobMediaType[blob.MediaType] {
 		url, err := a.sd.URLForBlob(*account, blob.StorageID)
 		if err == nil {
 			w.Header().Set("Docker-Content-Digest", blob.Digest)
