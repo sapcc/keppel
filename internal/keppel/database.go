@@ -393,6 +393,14 @@ var sqlMigrations = map[string]string{
 		ALTER TABLE manifests
 			DROP COLUMN vuln_scan_error;
 	`,
+	"022_add_blob_media_type.up.sql": `
+		ALTER TABLE blobs
+			ADD COLUMN media_type TEXT NOT NULL DEFAULT '';
+	`,
+	"022_add_blob_media_type.down.sql": `
+		ALTER TABLE blobs
+			DROP COLUMN media_type;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

@@ -130,6 +130,7 @@ type Blob struct {
 	Digest                 string     `db:"digest"`
 	SizeBytes              uint64     `db:"size_bytes"`
 	StorageID              string     `db:"storage_id"`
+	MediaType              string     `db:"media_type"`
 	PushedAt               time.Time  `db:"pushed_at"`
 	ValidatedAt            time.Time  `db:"validated_at"` //see tasks.ValidateNextBlob
 	ValidationErrorMessage string     `db:"validation_error_message"`
