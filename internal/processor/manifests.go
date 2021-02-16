@@ -101,6 +101,11 @@ func (p *Processor) ValidateExistingManifest(account keppel.Account, repo keppel
 	)
 }
 
+type blobRef struct {
+	ID        int64
+	MediaType string
+}
+
 func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo keppel.Repository, manifest *keppel.Manifest, manifestBytes []byte, actionBeforeCommit func(*gorp.Transaction) error) error {
 	//parse manifest
 	manifestParsed, manifestDesc, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
@@ -128,7 +133,7 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 	}
 
 	return p.insideTransaction(func(tx *gorp.Transaction) error {
-		referencedBlobIDs, referencedManifestDigests, err := findManifestReferencedObjects(tx, account, repo, manifestParsed)
+		referencedBlobs, referencedManifestDigests, err := findManifestReferencedObjects(tx, account, repo, manifestParsed)
 		if err != nil {
 			return err
 		}
@@ -153,7 +158,7 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 		if err != nil {
 			return err
 		}
-		err = maintainManifestBlobRefs(tx, *manifest, referencedBlobIDs)
+		err = maintainManifestBlobRefs(tx, *manifest, referencedBlobs)
 		if err != nil {
 			return err
 		}
@@ -166,8 +171,8 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 	})
 }
 
-func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account, repo keppel.Repository, manifest keppel.ParsedManifest) (blobIDs []int64, manifestDigests []string, returnErr error) {
-	//ensure that we don't insert duplicate entries into `blobIDs` and `manifestDigests`
+func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account, repo keppel.Repository, manifest keppel.ParsedManifest) (blobRefs []blobRef, manifestDigests []string, returnErr error) {
+	//ensure that we don't insert duplicate entries into `blobRefs` and `manifestDigests`
 	wasHandled := make(map[string]bool)
 
 	for _, desc := range manifest.BlobReferences() {
@@ -189,7 +194,7 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 				desc.Digest.String(), desc.Size, blob.SizeBytes)
 			return nil, nil, keppel.ErrManifestInvalid.With(msg)
 		}
-		blobIDs = append(blobIDs, blob.ID)
+		blobRefs = append(blobRefs, blobRef{blob.ID, desc.MediaType})
 	}
 
 	for _, desc := range manifest.ManifestReferences(account.PlatformFilter) {
@@ -208,7 +213,7 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 		manifestDigests = append(manifestDigests, desc.Digest.String())
 	}
 
-	return blobIDs, manifestDigests, nil
+	return blobRefs, manifestDigests, nil
 }
 
 //Returns the list of missing labels, or nil if everything is ok.
@@ -284,11 +289,29 @@ func upsertTag(db gorp.SqlExecutor, t keppel.Tag) error {
 	return err
 }
 
-func maintainManifestBlobRefs(tx *gorp.Transaction, m keppel.Manifest, referencedBlobIDs []int64) error {
+func maintainManifestBlobRefs(tx *gorp.Transaction, m keppel.Manifest, referencedBlobs []blobRef) error {
+	//maintain media type on blobs (we have no way of knowing the media type of a
+	//blob when it gets uploaded by itself, but manifests always include the
+	//media type of each blob referenced therein; therefore now is our only
+	//chance to persist this information for future use)
+	query := `UPDATE blobs SET media_type = $1 WHERE id = $2 AND media_type != $1`
+	err := keppel.WithPreparedStatement(tx, query, func(stmt *sql.Stmt) error {
+		for _, blobRef := range referencedBlobs {
+			_, err := stmt.Exec(blobRef.MediaType, blobRef.ID)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
 	//find existing manifest_blob_refs entries for this manifest
 	isExistingBlobIDRef := make(map[int64]bool)
-	query := `SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`
-	err := keppel.ForeachRow(tx, query, []interface{}{m.RepositoryID, m.Digest}, func(rows *sql.Rows) error {
+	query = `SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`
+	err = keppel.ForeachRow(tx, query, []interface{}{m.RepositoryID, m.Digest}, func(rows *sql.Rows) error {
 		var blobID int64
 		err := rows.Scan(&blobID)
 		isExistingBlobIDRef[blobID] = true
@@ -299,17 +322,17 @@ func maintainManifestBlobRefs(tx *gorp.Transaction, m keppel.Manifest, reference
 	}
 
 	//create missing manifest_blob_refs
-	if len(referencedBlobIDs) > 0 {
+	if len(referencedBlobs) > 0 {
 		err = keppel.WithPreparedStatement(tx,
 			`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
 			func(stmt *sql.Stmt) error {
-				for _, blobID := range referencedBlobIDs {
-					if isExistingBlobIDRef[blobID] {
-						delete(isExistingBlobIDRef, blobID) //see below for why we do this
+				for _, blobRef := range referencedBlobs {
+					if isExistingBlobIDRef[blobRef.ID] {
+						delete(isExistingBlobIDRef, blobRef.ID) //see below for why we do this
 						continue
 					}
 
-					_, err := stmt.Exec(m.RepositoryID, m.Digest, blobID)
+					_, err := stmt.Exec(m.RepositoryID, m.Digest, blobRef.ID)
 					if err != nil {
 						return err
 					}
