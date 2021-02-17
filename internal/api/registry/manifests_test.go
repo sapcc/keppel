@@ -305,7 +305,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectHeader: test.VersionHeader,
 			}.Check(t, h)
 			clock.Step()
-			easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-002-after-upload-blob.sql")
+			easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-004-after-delete-manifest.sql")
 		})
 	}
 }
