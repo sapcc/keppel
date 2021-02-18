@@ -140,7 +140,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	//as for image layers. By reverse-proxying these blobs, we can be sure that
 	//CORS happens correctly. This is important for web UIs reading image config
 	//blobs in order to render informational UIs.
-	if isImageConfigBlobMediaType[blob.MediaType] {
+	if !isImageConfigBlobMediaType[blob.MediaType] {
 		url, err := a.sd.URLForBlob(*account, blob.StorageID)
 		if err == nil {
 			w.Header().Set("Docker-Content-Digest", blob.Digest)
