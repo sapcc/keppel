@@ -26,6 +26,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
+	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/clair"
@@ -157,7 +158,7 @@ func maybeTimeToUnix(t *time.Time) *int64 {
 
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests/:digest")
-	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanDeleteFromAccount)
+	account, authz := a.authenticateAccountScopedRequest(w, r, keppel.CanDeleteFromAccount)
 	if account == nil {
 		return
 	}
@@ -178,6 +179,21 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	}
 	if respondwith.ErrorText(w, err) {
 		return
+	}
+
+	if userInfo := authz.UserInfo(); userInfo != nil {
+		a.auditor.Record(audittools.EventParameters{
+			Time:       time.Now(),
+			Request:    r,
+			User:       userInfo,
+			ReasonCode: http.StatusOK,
+			Action:     "delete",
+			Target: keppel.AuditManifest{
+				Account:    *account,
+				Repository: *repo,
+				Digest:     digest.String(),
+			},
+		})
 	}
 
 	w.WriteHeader(http.StatusNoContent)

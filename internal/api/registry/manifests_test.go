@@ -24,6 +24,7 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/hermes/pkg/cadf"
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
@@ -146,6 +147,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			//failed requests should not retain anything in the storage
 			expectStorageEmpty(t, sd, db)
+			auditor.ExpectEvents(t /*, nothing */)
 
 			//PUT failure case: cannot upload manifest if referenced blob is uploaded, but
 			//in the wrong repo
@@ -180,6 +182,9 @@ func TestImageManifestLifecycle(t *testing.T) {
 				}.Check(t, h)
 			}
 
+			//there should still not be any manifests
+			auditor.ExpectEvents(t /*, nothing */)
+
 			//PUT success case: upload manifest (and also the blob referenced by it);
 			//each PUT is executed twice to test idempotency
 			clock.Step()
@@ -198,6 +203,38 @@ func TestImageManifestLifecycle(t *testing.T) {
 			} else {
 				easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-digest.sql")
 			}
+
+			//since we did two PUTs, two events will have been logged
+			auditEvents := []cadf.Event{{
+				RequestPath: "/v2/test1/foo/manifests/" + ref,
+				Action:      "create",
+				Outcome:     "success",
+				Reason:      test.CADFReasonOK,
+				Target: cadf.Resource{
+					TypeURI:   "docker-registry/account/repository/manifest",
+					ID:        "test1/foo@" + image.Manifest.Digest.String(),
+					ProjectID: "test1authtenant",
+				},
+			}}
+			if ref != image.Manifest.Digest.String() {
+				auditEvents = append(auditEvents, cadf.Event{
+					RequestPath: "/v2/test1/foo/manifests/" + ref,
+					Action:      "create",
+					Outcome:     "success",
+					Reason:      test.CADFReasonOK,
+					Target: cadf.Resource{
+						TypeURI:   "docker-registry/account/repository/tag",
+						ID:        "test1/foo:" + ref,
+						ProjectID: "test1authtenant",
+						Attachments: []cadf.Attachment{{
+							Name:    "digest",
+							TypeURI: "mime:text/plain",
+							Content: image.Manifest.Digest.String(),
+						}},
+					},
+				})
+			}
+			auditor.ExpectEvents(t, append(auditEvents, auditEvents...)...)
 
 			//check GET/HEAD: manifest should now be available under the reference
 			//where it was pushed to...
@@ -296,6 +333,9 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
 			}.Check(t, h)
 
+			//no deletes were successful yet, so...
+			auditor.ExpectEvents(t /*, nothing */)
+
 			//DELETE success case
 			assert.HTTPRequest{
 				Method:       "DELETE",
@@ -306,7 +346,21 @@ func TestImageManifestLifecycle(t *testing.T) {
 			}.Check(t, h)
 			clock.Step()
 			easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-004-after-delete-manifest.sql")
+
+			//the DELETE will have logged an audit event
+			auditor.ExpectEvents(t, cadf.Event{
+				RequestPath: "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
+				Action:      "delete",
+				Outcome:     "success",
+				Reason:      test.CADFReasonOK,
+				Target: cadf.Resource{
+					TypeURI:   "docker-registry/account/repository/manifest",
+					ID:        "test1/foo@" + image.Manifest.Digest.String(),
+					ProjectID: "test1authtenant",
+				},
+			})
 		})
+
 	}
 }
 

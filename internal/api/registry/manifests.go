@@ -29,6 +29,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/api"
@@ -224,7 +225,7 @@ func (a *API) handleGetOrHeadManifestAnycast(w http.ResponseWriter, r *http.Requ
 //This implements the DELETE /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
-	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
+	account, repo, authz := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
 		return
 	}
@@ -246,6 +247,21 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	}
 	if respondWithError(w, r, err) {
 		return
+	}
+
+	if userInfo := authz.Authorization().UserInfo(); userInfo != nil {
+		a.auditor.Record(audittools.EventParameters{
+			Time:       a.timeNow(),
+			Request:    r,
+			User:       userInfo,
+			ReasonCode: http.StatusOK,
+			Action:     "delete",
+			Target: keppel.AuditManifest{
+				Account:    *account,
+				Repository: *repo,
+				Digest:     digest.String(),
+			},
+		})
 	}
 
 	w.WriteHeader(http.StatusAccepted)
@@ -291,8 +307,9 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//validate and store manifest
+	ref := keppel.ParseManifestReference(mux.Vars(r)["reference"])
 	manifest, err := a.processor().ValidateAndStoreManifest(*account, *repo, processor.IncomingManifest{
-		Reference: keppel.ParseManifestReference(mux.Vars(r)["reference"]),
+		Reference: ref,
 		MediaType: r.Header.Get("Content-Type"),
 		Contents:  manifestBytes,
 		PushedAt:  a.timeNow(),
@@ -304,6 +321,32 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	//count the push
 	l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 	api.ManifestsPushedCounter.With(l).Inc()
+
+	if userInfo := authz.Authorization().UserInfo(); userInfo != nil {
+		record := func(target audittools.TargetRenderer) {
+			a.auditor.Record(audittools.EventParameters{
+				Time:       a.timeNow(),
+				Request:    r,
+				User:       userInfo,
+				ReasonCode: http.StatusOK,
+				Action:     "create",
+				Target:     target,
+			})
+		}
+		record(keppel.AuditManifest{
+			Account:    *account,
+			Repository: *repo,
+			Digest:     manifest.Digest,
+		})
+		if ref.IsTag() {
+			record(keppel.AuditTag{
+				Account:    *account,
+				Repository: *repo,
+				Digest:     manifest.Digest,
+				TagName:    ref.Tag,
+			})
+		}
+	}
 
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Docker-Content-Digest", manifest.Digest)

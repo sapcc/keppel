@@ -27,8 +27,10 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/hermes/pkg/cadf"
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/test"
 )
 
 func deterministicDummyVulnStatus(counter int) clair.VulnerabilityStatus {
@@ -42,7 +44,7 @@ func deterministicDummyVulnStatus(counter int) clair.VulnerabilityStatus {
 }
 
 func TestManifestsAPI(t *testing.T) {
-	h, _, _, _, sd, db, claird := setup(t)
+	h, _, _, auditor, sd, db, claird := setup(t)
 
 	//setup two test accounts
 	mustInsert(t, db, &keppel.Account{
@@ -234,6 +236,18 @@ func TestManifestsAPI(t *testing.T) {
 		ExpectStatus: http.StatusNoContent,
 	}.Check(t, h)
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/after-delete-manifest.sql")
+
+	auditor.ExpectEvents(t, cadf.Event{
+		RequestPath: "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11),
+		Action:      "delete",
+		Outcome:     "success",
+		Reason:      test.CADFReasonOK,
+		Target: cadf.Resource{
+			TypeURI:   "docker-registry/account/repository/manifest",
+			ID:        "test1/repo1-1@" + deterministicDummyDigest(11),
+			ProjectID: "tenant1",
+		},
+	})
 
 	//test DELETE failure cases
 	assert.HTTPRequest{
