@@ -162,9 +162,13 @@ func (j *healthMonitorJob) PrepareKeppelAccount() error {
 	return nil
 }
 
-//Uploads a minimal complete image (one blob and one manifest) for testing.
+//Uploads a minimal complete image (one config blob, one layer blob and one manifest) for testing.
 func (j *healthMonitorJob) UploadImage() (string, error) {
 	_, err := j.RepoClient.UploadMonolithicBlob([]byte(minimalImageConfiguration))
+	if err != nil {
+		return "", err
+	}
+	_, err = j.RepoClient.UploadMonolithicBlob(minimalImageLayer())
 	if err != nil {
 		return "", err
 	}
