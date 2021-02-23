@@ -48,7 +48,7 @@ var (
 	currentScenario test.SetupOptions
 )
 
-func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver, *test.FederationDriver, *test.Clock)) {
+func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver, *test.FederationDriver, *test.Clock, *test.Auditor)) {
 	for _, scenario := range scenarios {
 		currentScenario = scenario
 		cfg, db := test.Setup(t, &scenario)
@@ -88,15 +88,16 @@ func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(http
 		fd.RecordExistingAccount(testAccount, time.Unix(0, 0))
 
 		//wire up the HTTP APIs
+		auditor := &test.Auditor{}
 		clock := &test.Clock{}
 		sidGen := &test.StorageIDGenerator{}
 		h := api.Compose(
-			NewAPI(cfg, ad, fd, sd, db, rle).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+			NewAPI(cfg, ad, fd, sd, db, auditor, rle).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 			authapi.NewAPI(cfg, ad, fd, db),
 		)
 
 		//run the tests for this scenario
-		action(h, cfg, db, ad.(*test.AuthDriver), sd.(*test.StorageDriver), fd.(*test.FederationDriver), clock)
+		action(h, cfg, db, ad.(*test.AuthDriver), sd.(*test.StorageDriver), fd.(*test.FederationDriver), clock, auditor)
 
 		//shutdown DB to free up connections (otherwise the test eventually fails
 		//with Postgres saying "too many clients already")
@@ -188,7 +189,7 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 
 	sidGen := &test.StorageIDGenerator{}
 	h2 := api.Compose(
-		NewAPI(cfg2, ad2, fd2, sd2, db2, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+		NewAPI(cfg2, ad2, fd2, sd2, db2, nil, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 		authapi.NewAPI(cfg2, ad2, fd2, db2),
 	)
 

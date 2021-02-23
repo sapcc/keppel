@@ -32,7 +32,7 @@ import (
 )
 
 func TestBlobMonolithicUpload(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount)
 		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
@@ -178,7 +178,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 	//run everything in this testcase once for streamed upload and once for chunked upload
 	for _, isChunked := range []bool{false, true} {
 
-		testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+		testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 			readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
 				keppel.CanPullFromAccount)
 			token := getToken(t, h, ad, "repository:test1/foo:pull,push",
@@ -445,7 +445,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 }
 
 func TestGetBlobUpload(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		//NOTE: We only use the read-write token for driving the blob upload through
 		//its various stages. All the GET requests use the read-only token to verify
 		//that read-only tokens work here.
@@ -557,7 +557,7 @@ func TestGetBlobUpload(t *testing.T) {
 }
 
 func TestDeleteBlobUpload(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
@@ -646,7 +646,7 @@ func TestDeleteBlobUpload(t *testing.T) {
 }
 
 func TestDeleteBlob(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
@@ -747,7 +747,7 @@ func TestDeleteBlob(t *testing.T) {
 }
 
 func TestCrossRepositoryBlobMount(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount)
 		token := getToken(t, h, ad, "repository:test1/foo:pull,push",

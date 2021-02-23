@@ -33,7 +33,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 	image := test.GenerateImage( /* no layers */ )
 
 	for _, ref := range []string{"latest", image.Manifest.Digest.String()} {
-		testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+		testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 			token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 				keppel.CanPullFromAccount,
 				keppel.CanPushToAccount)
@@ -318,7 +318,7 @@ func bodyForMethod(method string, body assert.HTTPResponseBody) assert.HTTPRespo
 }
 
 func TestImageListManifestLifecycle(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		//This test builds on TestImageManifestLifecycle and provides test coverage
 		//for the parts of the manifest push workflow that check manifest-manifest
 		//references. (We don't have those in plain images, only in image lists.)
@@ -402,7 +402,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 }
 
 func TestManifestQuotaExceeded(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
@@ -452,7 +452,7 @@ func TestManifestQuotaExceeded(t *testing.T) {
 }
 
 func TestManifestRequiredLabels(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
@@ -526,7 +526,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 }
 
 func TestImageManifestWrongBlobSize(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)

@@ -44,7 +44,7 @@ func TestRateLimits(t *testing.T) {
 	}
 	rle := &keppel.RateLimitEngine{Driver: rld, Store: nil}
 
-	testWithPrimary(t, rle, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, rle, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		rls, err := memstore.New(-1)
 		if err != nil {
 			t.Fatal(err.Error())
@@ -151,7 +151,7 @@ func TestAnycastRateLimits(t *testing.T) {
 	}
 	rle := &keppel.RateLimitEngine{Driver: rld, Store: nil}
 
-	testWithPrimary(t, rle, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, rle, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		if !currentScenario.WithAnycast {
 			return
 		}

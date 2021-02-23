@@ -37,20 +37,21 @@ import (
 
 //API contains state variables used by the Auth API endpoint.
 type API struct {
-	cfg keppel.Configuration
-	ad  keppel.AuthDriver
-	fd  keppel.FederationDriver
-	sd  keppel.StorageDriver
-	db  *keppel.DB
-	rle *keppel.RateLimitEngine //may be nil
+	cfg     keppel.Configuration
+	ad      keppel.AuthDriver
+	fd      keppel.FederationDriver
+	sd      keppel.StorageDriver
+	db      *keppel.DB
+	auditor keppel.Auditor
+	rle     *keppel.RateLimitEngine //may be nil
 	//non-pure functions that can be replaced by deterministic doubles for unit tests
 	timeNow           func() time.Time
 	generateStorageID func() string
 }
 
 //NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, sd keppel.StorageDriver, db *keppel.DB, rle *keppel.RateLimitEngine) *API {
-	return &API{cfg, ad, fd, sd, db, rle, time.Now, keppel.GenerateStorageID}
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, sd keppel.StorageDriver, db *keppel.DB, auditor keppel.Auditor, rle *keppel.RateLimitEngine) *API {
+	return &API{cfg, ad, fd, sd, db, auditor, rle, time.Now, keppel.GenerateStorageID}
 }
 
 //OverrideTimeNow replaces time.Now with a test double.

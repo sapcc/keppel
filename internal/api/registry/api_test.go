@@ -28,7 +28,7 @@ import (
 )
 
 func TestVersionCheckEndpoint(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		//without token, expect auth challenge
 		assert.HTTPRequest{
 			Method:       "GET",
@@ -64,7 +64,7 @@ func TestKeppelAPIAuth(t *testing.T) {
 	//All the other tests use the conventional auth method using bearer tokens.
 	//This test provides test coverage for authenticating with the same
 	//AuthDriver-dependent mechanism used by the Keppel API.
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		//upload a manifest for testing (using bearer tokens since all our test
 		//helper functions use those)
 		token := getToken(t, h, ad, "repository:test1/foo:pull,push",

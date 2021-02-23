@@ -32,7 +32,7 @@ import (
 )
 
 func TestReplicationSimpleImage(t *testing.T) {
-	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		//upload image to primary account
 		token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
@@ -95,7 +95,7 @@ func TestReplicationSimpleImage(t *testing.T) {
 }
 
 func TestReplicationImageList(t *testing.T) {
-	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		//upload image list with two images to primary account
 		token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
@@ -139,7 +139,7 @@ func TestReplicationImageList(t *testing.T) {
 }
 
 func TestReplicationMissingEntities(t *testing.T) {
-	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		//ensure that the `test1/foo` repo exists upstream; otherwise we'll just get
 		//NAME_UNKNOWN
 		_, err := keppel.FindOrCreateRepository(db1, "foo", keppel.Account{Name: "test1"})
@@ -197,7 +197,7 @@ func TestReplicationMissingEntities(t *testing.T) {
 }
 
 func TestReplicationForbidDirectUpload(t *testing.T) {
-	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		testWithAllReplicaTypes(t, h1, db1, clock, func(strategy string, firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
 			token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull,push",
 				keppel.CanPullFromAccount, keppel.CanPushToAccount)
@@ -233,7 +233,7 @@ func TestReplicationForbidDirectUpload(t *testing.T) {
 }
 
 func TestReplicationManifestQuotaExceeded(t *testing.T) {
-	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		//upload image to primary account
 		token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
@@ -277,7 +277,7 @@ func TestReplicationManifestQuotaExceeded(t *testing.T) {
 }
 
 func TestReplicationUseCachedBlobMetadata(t *testing.T) {
-	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		//upload image to primary account
 		token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
@@ -316,7 +316,7 @@ func TestReplicationUseCachedBlobMetadata(t *testing.T) {
 }
 
 func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
-	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		//upload image to primary account
 		token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
@@ -393,7 +393,7 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 }
 
 func TestReplicationImageListWithPlatformFilter(t *testing.T) {
-	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock) {
+	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
 		//This test is mostly identical to TestReplicationImageList(), but the
 		//replica will get a platform_filter and thus not replicate all
 		//submanifests.
