@@ -27,6 +27,7 @@ import (
 	"github.com/sapcc/hermes/pkg/cadf"
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/test"
 )
 
 func TestQuotasAPI(t *testing.T) {
@@ -78,7 +79,7 @@ func TestQuotasAPI(t *testing.T) {
 				RequestPath: "/keppel/v1/quotas/tenant1",
 				Action:      "update",
 				Outcome:     "success",
-				Reason:      cadfReasonOK,
+				Reason:      test.CADFReasonOK,
 				Target: cadf.Resource{
 					TypeURI:   "docker-registry/project-quota",
 					ID:        "tenant1",

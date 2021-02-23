@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/assert"
-	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/hermes/pkg/cadf"
 	"github.com/sapcc/keppel/internal/api"
@@ -39,65 +38,7 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
-////////////////////////////////////////////////////////////////////////////////
-// recorder for audit events
-
-type testAuditor struct {
-	Events []cadf.Event
-}
-
-func (a *testAuditor) Record(params audittools.EventParameters) {
-	a.Events = append(a.Events, a.Normalize(audittools.NewEvent(params)))
-}
-
-func (a *testAuditor) Reset() {
-	//reset state for next test
-	a.Events = nil
-}
-
-func (a *testAuditor) ExpectEvents(t *testing.T, expectedEvents ...cadf.Event) {
-	t.Helper()
-	if len(expectedEvents) == 0 {
-		expectedEvents = nil
-	} else {
-		for idx, event := range expectedEvents {
-			expectedEvents[idx] = a.Normalize(event)
-		}
-	}
-	assert.DeepEqual(t, "CADF events", a.Events, expectedEvents)
-	a.Reset()
-}
-
-func (a *testAuditor) Normalize(event cadf.Event) cadf.Event {
-	//overwrite some attributes where we don't care about variance
-	event.TypeURI = "http://schemas.dmtf.org/cloud/audit/1.0/event"
-	event.ID = "00000000-0000-0000-0000-000000000000"
-	event.EventTime = "2006-01-02T15:04:05.999999+00:00"
-	event.EventType = "activity"
-	event.Initiator = cadf.Resource{}
-	event.Observer = cadf.Resource{}
-	return event
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// some helpers to make the cadf.Event literals shorter
-
-var (
-	cadfReasonOK = cadf.Reason{
-		ReasonType: "HTTP",
-		ReasonCode: "200",
-	}
-)
-
-func toJSON(x interface{}) string {
-	result, _ := json.Marshal(x)
-	return string(result)
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// tests
-
-func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.FederationDriver, *testAuditor, keppel.StorageDriver, *keppel.DB, *test.ClairDouble) {
+func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.FederationDriver, *test.Auditor, keppel.StorageDriver, *keppel.DB, *test.ClairDouble) {
 	cfg, db := test.Setup(t, nil)
 
 	//setup a dummy ClairClient for testing the GET vulnerability report endpoint
@@ -124,7 +65,7 @@ func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.FederationDriver
 		t.Fatal(err.Error())
 	}
 
-	auditor := &testAuditor{}
+	auditor := &test.Auditor{}
 	h := api.Compose(NewAPI(cfg, ad, fd, sd, db, auditor))
 
 	//second half of the ClairDouble setup
@@ -210,7 +151,7 @@ func TestAccountsAPI(t *testing.T) {
 				RequestPath: "/keppel/v1/accounts/first",
 				Action:      "create",
 				Outcome:     "success",
-				Reason:      cadfReasonOK,
+				Reason:      test.CADFReasonOK,
 				Target: cadf.Resource{
 					TypeURI:   "docker-registry/account",
 					ID:        "first",
@@ -327,7 +268,7 @@ func TestAccountsAPI(t *testing.T) {
 					RequestPath: "/keppel/v1/accounts/second",
 					Action:      "create",
 					Outcome:     "success",
-					Reason:      cadfReasonOK,
+					Reason:      test.CADFReasonOK,
 					Target: cadf.Resource{
 						TypeURI:   "docker-registry/account",
 						ID:        "second",
@@ -338,7 +279,7 @@ func TestAccountsAPI(t *testing.T) {
 					RequestPath: "/keppel/v1/accounts/second",
 					Action:      "create/rbac-policy",
 					Outcome:     "success",
-					Reason:      cadfReasonOK,
+					Reason:      test.CADFReasonOK,
 					Target: cadf.Resource{
 						TypeURI:   "docker-registry/account",
 						ID:        "second",
@@ -346,7 +287,7 @@ func TestAccountsAPI(t *testing.T) {
 						Attachments: []cadf.Attachment{{
 							Name:    "payload",
 							TypeURI: "mime:application/json",
-							Content: toJSON(rbacPoliciesJSON[0]),
+							Content: test.ToJSON(rbacPoliciesJSON[0]),
 						}},
 					},
 				},
@@ -354,7 +295,7 @@ func TestAccountsAPI(t *testing.T) {
 					RequestPath: "/keppel/v1/accounts/second",
 					Action:      "create/rbac-policy",
 					Outcome:     "success",
-					Reason:      cadfReasonOK,
+					Reason:      test.CADFReasonOK,
 					Target: cadf.Resource{
 						TypeURI:   "docker-registry/account",
 						ID:        "second",
@@ -362,7 +303,7 @@ func TestAccountsAPI(t *testing.T) {
 						Attachments: []cadf.Attachment{{
 							Name:    "payload",
 							TypeURI: "mime:application/json",
-							Content: toJSON(rbacPoliciesJSON[1]),
+							Content: test.ToJSON(rbacPoliciesJSON[1]),
 						}},
 					},
 				},
@@ -500,7 +441,7 @@ func TestAccountsAPI(t *testing.T) {
 			RequestPath: "/keppel/v1/accounts/second",
 			Action:      "update/rbac-policy",
 			Outcome:     "success",
-			Reason:      cadfReasonOK,
+			Reason:      test.CADFReasonOK,
 			Target: cadf.Resource{
 				TypeURI:   "docker-registry/account",
 				ID:        "second",
@@ -508,11 +449,11 @@ func TestAccountsAPI(t *testing.T) {
 				Attachments: []cadf.Attachment{{
 					Name:    "payload",
 					TypeURI: "mime:application/json",
-					Content: toJSON(newRBACPoliciesJSON[0]),
+					Content: test.ToJSON(newRBACPoliciesJSON[0]),
 				}, {
 					Name:    "payload-before",
 					TypeURI: "mime:application/json",
-					Content: toJSON(rbacPoliciesJSON[1]),
+					Content: test.ToJSON(rbacPoliciesJSON[1]),
 				}},
 			},
 		},
@@ -520,7 +461,7 @@ func TestAccountsAPI(t *testing.T) {
 			RequestPath: "/keppel/v1/accounts/second",
 			Action:      "create/rbac-policy",
 			Outcome:     "success",
-			Reason:      cadfReasonOK,
+			Reason:      test.CADFReasonOK,
 			Target: cadf.Resource{
 				TypeURI:   "docker-registry/account",
 				ID:        "second",
@@ -528,7 +469,7 @@ func TestAccountsAPI(t *testing.T) {
 				Attachments: []cadf.Attachment{{
 					Name:    "payload",
 					TypeURI: "mime:application/json",
-					Content: toJSON(newRBACPoliciesJSON[1]),
+					Content: test.ToJSON(newRBACPoliciesJSON[1]),
 				}},
 			},
 		},
@@ -536,7 +477,7 @@ func TestAccountsAPI(t *testing.T) {
 			RequestPath: "/keppel/v1/accounts/second",
 			Action:      "delete/rbac-policy",
 			Outcome:     "success",
-			Reason:      cadfReasonOK,
+			Reason:      test.CADFReasonOK,
 			Target: cadf.Resource{
 				TypeURI:   "docker-registry/account",
 				ID:        "second",
@@ -544,7 +485,7 @@ func TestAccountsAPI(t *testing.T) {
 				Attachments: []cadf.Attachment{{
 					Name:    "payload",
 					TypeURI: "mime:application/json",
-					Content: toJSON(rbacPoliciesJSON[0]),
+					Content: test.ToJSON(rbacPoliciesJSON[0]),
 				}},
 			},
 		},
