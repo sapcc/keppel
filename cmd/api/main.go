@@ -59,7 +59,7 @@ func run(cmd *cobra.Command, args []string) {
 	logg.Info("starting keppel-api %s", keppel.Version)
 
 	cfg := keppel.ParseConfiguration()
-	auditor := initAuditTrail()
+	auditor := keppel.InitAuditTrail()
 
 	db, err := keppel.InitDB(cfg.DatabaseURL)
 	must(err)

@@ -38,6 +38,7 @@ type Processor struct {
 	cfg         keppel.Configuration
 	db          *keppel.DB
 	sd          keppel.StorageDriver
+	auditor     keppel.Auditor
 	repoClients map[string]*client.RepoClient //key = account name
 
 	//non-pure functions that can be replaced by deterministic doubles for unit tests
@@ -46,8 +47,8 @@ type Processor struct {
 }
 
 //New creates a new Processor.
-func New(cfg keppel.Configuration, db *keppel.DB, sd keppel.StorageDriver) *Processor {
-	return &Processor{cfg, db, sd, make(map[string]*client.RepoClient), time.Now, keppel.GenerateStorageID}
+func New(cfg keppel.Configuration, db *keppel.DB, sd keppel.StorageDriver, auditor keppel.Auditor) *Processor {
+	return &Processor{cfg, db, sd, auditor, make(map[string]*client.RepoClient), time.Now, keppel.GenerateStorageID}
 }
 
 //OverrideTimeNow replaces time.Now with a test double.

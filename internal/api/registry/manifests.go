@@ -29,7 +29,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/api"
@@ -70,7 +69,10 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			dbManifest, manifestBytes, err = a.processor().ReplicateManifest(*account, *repo, reference)
+			dbManifest, manifestBytes, err = a.processor().ReplicateManifest(*account, *repo, reference, keppel.AuditContext{
+				Authorization: authz.Authorization(),
+				Request:       r,
+			})
 			if respondWithError(w, r, err) {
 				return
 			}
@@ -240,28 +242,16 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//delete manifest from the database
-	err = a.processor().DeleteManifest(*account, *repo, digest.String())
+	err = a.processor().DeleteManifest(*account, *repo, digest.String(), keppel.AuditContext{
+		Authorization: authz.Authorization(),
+		Request:       r,
+	})
 	if err == sql.ErrNoRows {
 		keppel.ErrManifestUnknown.With("no such manifest").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 	if respondWithError(w, r, err) {
 		return
-	}
-
-	if userInfo := authz.Authorization().UserInfo(); userInfo != nil {
-		a.auditor.Record(audittools.EventParameters{
-			Time:       a.timeNow(),
-			Request:    r,
-			User:       userInfo,
-			ReasonCode: http.StatusOK,
-			Action:     "delete",
-			Target: keppel.AuditManifest{
-				Account:    *account,
-				Repository: *repo,
-				Digest:     digest.String(),
-			},
-		})
 	}
 
 	w.WriteHeader(http.StatusAccepted)
@@ -313,6 +303,9 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		MediaType: r.Header.Get("Content-Type"),
 		Contents:  manifestBytes,
 		PushedAt:  a.timeNow(),
+	}, keppel.AuditContext{
+		Authorization: authz.Authorization(),
+		Request:       r,
 	})
 	if respondWithError(w, r, err) {
 		return
@@ -321,32 +314,6 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	//count the push
 	l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 	api.ManifestsPushedCounter.With(l).Inc()
-
-	if userInfo := authz.Authorization().UserInfo(); userInfo != nil {
-		record := func(target audittools.TargetRenderer) {
-			a.auditor.Record(audittools.EventParameters{
-				Time:       a.timeNow(),
-				Request:    r,
-				User:       userInfo,
-				ReasonCode: http.StatusOK,
-				Action:     "create",
-				Target:     target,
-			})
-		}
-		record(keppel.AuditManifest{
-			Account:    *account,
-			Repository: *repo,
-			Digest:     manifest.Digest,
-		})
-		if ref.IsTag() {
-			record(keppel.AuditTag{
-				Account:    *account,
-				Repository: *repo,
-				Digest:     manifest.Digest,
-				TagName:    ref.Tag,
-			})
-		}
-	}
 
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Docker-Content-Digest", manifest.Digest)

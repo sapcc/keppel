@@ -157,6 +157,12 @@ The following configuration options are understood by both the API server and th
 | Variable | Default | Explanation |
 | -------- | ------- | ----------- |
 | `KEPPEL_API_PUBLIC_URL` | *(required)* | URL where users reach keppel-api. |
+| `KEPPEL_AUDIT_RABBITMQ_QUEUE_NAME` | *(required for enabling audit trail)* | Name for the queue that will hold the audit events. The events are published to the default exchange. |
+| `KEPPEL_AUDIT_RABBITMQ_USERNAME` | `guest` | RabbitMQ Username. |
+| `KEPPEL_AUDIT_RABBITMQ_PASSWORD` | `guest` | Password for the specified user. |
+| `KEPPEL_AUDIT_RABBITMQ_HOSTNAME` | `localhost` | Hostname of the RabbitMQ server. |
+| `KEPPEL_AUDIT_RABBITMQ_PORT` | `5672` |  Port number to which the underlying connection is made. |
+| `KEPPEL_AUDIT_SILENT` | *(optional)* | Whether to disable audit event logging to standard output. |
 | `KEPPEL_CLAIR_PRESHARED_KEY` | *(required if `KEPPEL_CLAIR_URL` is given)* | Secret key for authenticating with Clair. Keppel expects Clair to have the same PSK configured in its `auth.psk.key` config option. Furthermore, the `auth.psk.iss` option must be set to `[ "keppel" ]`. |
 | `KEPPEL_CLAIR_URL` | *(optional)* | URL where Keppel can reach a [Clair](https://quay.github.io/clair/) instance for vulnerability scanning. If not given, Keppel will not have vulnerability scanning capabilities. |
 | `KEPPEL_DB_NAME` | `keppel` | The name of the database. |
@@ -182,12 +188,6 @@ These options are only understood by the API server.
 | `KEPPEL_ANYCAST_ISSUER_KEY` | *(required if `KEPPEL_API_ANYCAST_URL` is configured)* | Like `KEPPEL_ISSUER_KEY`, but this key is used to sign tokens for access to the anycast-style endpoints. (See below for details.) This key must be the same for all keppel-api instances with the same anycast URL. |
 | `KEPPEL_API_ANYCAST_URL` | *(optional)* | URL where users reach any keppel-api from this Keppel's group of peers, usually through some sort of anycast mechanism (hence the name). When this keppel-api receives an API request directed to this URL or a path below, and the respective Keppel account does not exist locally, the request is reverse-proxied to the peer that holds the primary account. The anycast endpoints are limited to anonymous authorization and therefore cannot be used for pushing. |
 | `KEPPEL_API_LISTEN_ADDRESS` | :8080 | Listen address for HTTP server. |
-| `KEPPEL_AUDIT_RABBITMQ_QUEUE_NAME` | *(required for enabling audit trail)* | Name for the queue that will hold the audit events. The events are published to the default exchange. |
-| `KEPPEL_AUDIT_RABBITMQ_USERNAME` | `guest` | RabbitMQ Username. |
-| `KEPPEL_AUDIT_RABBITMQ_PASSWORD` | `guest` | Password for the specified user. |
-| `KEPPEL_AUDIT_RABBITMQ_HOSTNAME` | `localhost` | Hostname of the RabbitMQ server. |
-| `KEPPEL_AUDIT_RABBITMQ_PORT` | `5672` |  Port number to which the underlying connection is made. |
-| `KEPPEL_AUDIT_SILENT` | *(optional)* | Whether to disable audit event logging to standard output. |
 | `KEPPEL_DRIVER_RATELIMIT` | *(optional)* | The name of a rate limit driver. Leave empty to disable rate limiting. |
 | `KEPPEL_GUI_URI` | *(optional)* | If true, GET requests coming from a web browser for URLs that look like repositories (e.g. <https://registry.example.org/someaccount/somerepo>) will be redirected to this URL. The value must be a URL string, which may contain the placeholders `%ACCOUNT_NAME%`, `%REPO_NAME%` and `%AUTH_TENANT_ID%`. These placeholders will be replaced with their respective values if present. To avoid leaking account existence to unauthorized users, the redirect will only be done if the repository in question allowed anonymous pulling. |
 | `KEPPEL_PEERS` | *(optional)* | A comma-separated list of hostnames where our peer keppel-api instances are running. This is the set of instances that this keppel-api can replicate from. |

@@ -19,10 +19,16 @@
 package keppel
 
 import (
-	"fmt"
+	"encoding/json"
+	"net/http"
+	"os"
+	"strconv"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/audittools"
+	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/hermes/pkg/cadf"
+	"github.com/streadway/amqp"
 )
 
 //Auditor is a component that forwards audit events to the appropriate logs.
@@ -33,40 +39,138 @@ type Auditor interface {
 	Record(params audittools.EventParameters)
 }
 
-//AuditManifest is an audittools.TargetRenderer.
-type AuditManifest struct {
-	Account    Account
-	Repository Repository
-	Digest     string
+//AuditContext collects arguments that business logic methods need only for
+//generating audit events.
+type AuditContext struct {
+	Authorization Authorization
+	Request       *http.Request
 }
 
-//Render implements the audittools.TargetRenderer interface.
-func (a AuditManifest) Render() cadf.Resource {
+////////////////////////////////////////////////////////////////////////////////
+// janitorUserInfo
+
+//janitorUserInfo is an audittools.NonStandardUserInfo representing the
+//keppel-janitor (who does not have a corresponding OpenStack user). It can be
+//used via `var JanitorAuthorization`.
+type janitorUserInfo struct {
+	TaskName string
+}
+
+//UserUUID implements the audittools.UserInfo interface.
+func (janitorUserInfo) UserUUID() string {
+	return "" //unused
+}
+
+//UserName implements the audittools.UserInfo interface.
+func (janitorUserInfo) UserName() string {
+	return "" //unused
+}
+
+//UserDomainName implements the audittools.UserInfo interface.
+func (janitorUserInfo) UserDomainName() string {
+	return "" //unused
+}
+
+//ProjectScopeUUID implements the audittools.UserInfo interface.
+func (janitorUserInfo) ProjectScopeUUID() string {
+	return "" //unused
+}
+
+//DomainScopeUUID implements the audittools.UserInfo interface.
+func (janitorUserInfo) DomainScopeUUID() string {
+	return "" //unused
+}
+
+//AsInitiator implements the audittools.NonStandardUserInfo interface.
+func (u janitorUserInfo) AsInitiator() cadf.Resource {
 	return cadf.Resource{
-		TypeURI:   "docker-registry/account/repository/manifest",
-		ID:        fmt.Sprintf("%s@%s", a.Repository.FullName(), a.Digest),
-		ProjectID: a.Account.AuthTenantID,
+		TypeURI: "service/docker-registry/janitor-task",
+		Name:    u.TaskName,
+		Domain:  "keppel",
+		ID:      u.TaskName,
 	}
 }
 
-//AuditTag is an audittools.TargetRenderer.
-type AuditTag struct {
-	Account    Account
-	Repository Repository
-	Digest     string
-	TagName    string
+////////////////////////////////////////////////////////////////////////////////
+// auditorImpl
+
+var (
+	auditEventPublishSuccessCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "keppel_successful_auditevent_publish",
+			Help: "Counter for successful audit event publish to RabbitMQ server.",
+		})
+	auditEventPublishFailedCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "keppel_failed_auditevent_publish",
+			Help: "Counter for failed audit event publish to RabbitMQ server.",
+		})
+)
+
+//auditorImpl is the productive implementation of the Auditor interface.
+//(We only expose the interface publicly because we want to be able to
+//substitute a double in unit tests.)
+type auditorImpl struct {
+	OnStdout     bool
+	EventSink    chan<- cadf.Event //nil if not wanted
+	ObserverUUID string
 }
 
-//Render implements the audittools.TargetRenderer interface.
-func (a AuditTag) Render() cadf.Resource {
-	return cadf.Resource{
-		TypeURI:   "docker-registry/account/repository/tag",
-		ID:        fmt.Sprintf("%s:%s", a.Repository.FullName(), a.TagName),
-		ProjectID: a.Account.AuthTenantID,
-		Attachments: []cadf.Attachment{{
-			Name:    "digest",
-			TypeURI: "mime:text/plain",
-			Content: a.Digest,
-		}},
+//InitAuditTrail initializes a Auditor from the configuration variables
+//found in the environment.
+func InitAuditTrail() Auditor {
+	prometheus.MustRegister(auditEventPublishSuccessCounter)
+	prometheus.MustRegister(auditEventPublishFailedCounter)
+
+	var eventSink chan cadf.Event
+	if rabbitQueueName := os.Getenv("KEPPEL_AUDIT_RABBITMQ_QUEUE_NAME"); rabbitQueueName != "" {
+		portStr := GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_PORT", "5672")
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			logg.Fatal("invalid value for KEPPEL_AUDIT_RABBITMQ_PORT: %s", err.Error())
+		}
+		rabbitURI := amqp.URI{
+			Scheme:   "amqp",
+			Host:     GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_HOSTNAME", "localhost"),
+			Port:     port,
+			Username: GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_USERNAME", "guest"),
+			Password: GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_PASSWORD", "guest"),
+			Vhost:    "/",
+		}
+
+		eventSink = make(chan cadf.Event, 20)
+		auditEventPublishSuccessCounter.Add(0)
+		auditEventPublishFailedCounter.Add(0)
+
+		go audittools.AuditTrail{
+			EventSink:           eventSink,
+			OnSuccessfulPublish: func() { auditEventPublishSuccessCounter.Inc() },
+			OnFailedPublish:     func() { auditEventPublishFailedCounter.Inc() },
+		}.Commit(rabbitQueueName, rabbitURI)
+	}
+
+	silent := ParseBool(os.Getenv("KEPPEL_AUDIT_SILENT"))
+	return auditorImpl{
+		OnStdout:     !silent,
+		EventSink:    eventSink,
+		ObserverUUID: audittools.GenerateUUID(),
+	}
+}
+
+//Record implements the Auditor interface.
+func (a auditorImpl) Record(params audittools.EventParameters) {
+	params.Observer.TypeURI = "service/docker-registry"
+	params.Observer.Name = "keppel"
+	params.Observer.ID = a.ObserverUUID
+
+	event := audittools.NewEvent(params)
+
+	if a.OnStdout {
+		msg, _ := json.Marshal(event)
+		logg.Other("AUDIT", string(msg))
+	}
+
+	if a.EventSink != nil {
+		a.EventSink <- event
 	}
 }

@@ -53,6 +53,7 @@ func run(cmd *cobra.Command, args []string) {
 	logg.Info("starting keppel-janitor %s", keppel.Version)
 
 	cfg := keppel.ParseConfiguration()
+	auditor := keppel.InitAuditTrail()
 
 	db, err := keppel.InitDB(cfg.DatabaseURL)
 	must(err)
@@ -68,7 +69,7 @@ func run(cmd *cobra.Command, args []string) {
 	ctx := httpee.ContextWithSIGINT(context.Background())
 
 	//start task loops
-	janitor := tasks.NewJanitor(cfg, fd, sd, db)
+	janitor := tasks.NewJanitor(cfg, fd, sd, db, auditor)
 	go jobLoop(janitor.AnnounceNextAccountToFederation)
 	go jobLoop(janitor.DeleteNextAbandonedUpload)
 	go jobLoop(janitor.SweepBlobMountsInNextRepo)

@@ -62,8 +62,9 @@ type Authorization interface {
 }
 
 var authzDeserializers = map[string]func([]byte, AuthDriver) (Authorization, error){
-	"anon": deserializeAnonAuthorization,
-	"repl": deserializeReplAuthorization,
+	"anon":    deserializeAnonAuthorization,
+	"janitor": deserializeJanitorAuthorization,
+	"repl":    deserializeReplAuthorization,
 }
 
 //RegisterAuthorization registers a type implementing the Authorization
@@ -150,6 +151,49 @@ func deserializeAnonAuthorization(in []byte, _ AuthDriver) (Authorization, error
 		return nil, fmt.Errorf("%q is not a valid payload for AnonymousAuthorization", string(in))
 	}
 	return AnonymousAuthorization, nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// JanitorAuthorization
+
+//JanitorAuthorization is a keppel.Authorization for the janitor user. (It's
+//only used for generating audit events.)
+type JanitorAuthorization struct {
+	TaskName string
+}
+
+//UserName implements the keppel.Authorization interface.
+func (JanitorAuthorization) UserName() string {
+	return ""
+}
+
+//HasPermission implements the keppel.Authorization interface.
+func (JanitorAuthorization) HasPermission(perm Permission, tenantID string) bool {
+	return false
+}
+
+//IsRegularUser implements the keppel.Authorization interface.
+func (JanitorAuthorization) IsRegularUser() bool {
+	return false
+}
+
+//IsReplicationUser implements the keppel.Authorization interface.
+func (JanitorAuthorization) IsReplicationUser() bool {
+	return false
+}
+
+//SerializeToJSON implements the keppel.Authorization interface.
+func (a JanitorAuthorization) SerializeToJSON() (typeName string, payload []byte, err error) {
+	return "janitor", []byte(a.TaskName), nil
+}
+
+//UserInfo implements the keppel.Authorization interface.
+func (a JanitorAuthorization) UserInfo() audittools.UserInfo {
+	return janitorUserInfo{a.TaskName}
+}
+
+func deserializeJanitorAuthorization(in []byte, _ AuthDriver) (Authorization, error) {
+	return JanitorAuthorization{string(in)}, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

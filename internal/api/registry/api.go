@@ -109,7 +109,7 @@ func (a *API) AddTo(r *mux.Router) {
 }
 
 func (a *API) processor() *processor.Processor {
-	return processor.New(a.cfg, a.db, a.sd).OverrideTimeNow(a.timeNow).OverrideGenerateStorageID(a.generateStorageID)
+	return processor.New(a.cfg, a.db, a.sd, a.auditor).OverrideTimeNow(a.timeNow).OverrideGenerateStorageID(a.generateStorageID)
 }
 
 //This implements the GET /v2/ endpoint.

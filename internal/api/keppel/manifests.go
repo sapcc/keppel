@@ -26,7 +26,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
-	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/clair"
@@ -172,28 +171,16 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.processor().DeleteManifest(*account, *repo, digest.String())
+	err = a.processor().DeleteManifest(*account, *repo, digest.String(), keppel.AuditContext{
+		Authorization: authz,
+		Request:       r,
+	})
 	if err == sql.ErrNoRows {
 		http.Error(w, "no such manifest", http.StatusNotFound)
 		return
 	}
 	if respondwith.ErrorText(w, err) {
 		return
-	}
-
-	if userInfo := authz.UserInfo(); userInfo != nil {
-		a.auditor.Record(audittools.EventParameters{
-			Time:       time.Now(),
-			Request:    r,
-			User:       userInfo,
-			ReasonCode: http.StatusOK,
-			Action:     "delete",
-			Target: keppel.AuditManifest{
-				Account:    *account,
-				Repository: *repo,
-				Digest:     digest.String(),
-			},
-		})
 	}
 
 	w.WriteHeader(http.StatusNoContent)

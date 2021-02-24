@@ -231,7 +231,10 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 			}
 
 			//no manifests left that reference this one - we can delete it
-			err := j.processor().DeleteManifest(account, repo, digest)
+			err := j.processor().DeleteManifest(account, repo, digest, keppel.AuditContext{
+				Authorization: keppel.JanitorAuthorization{TaskName: "manifest-sync"},
+				Request:       janitorDummyRequest,
+			})
 			if err != nil {
 				return fmt.Errorf("cannot remove deleted manifest %s in repo %s: %w", digest, repo.FullName(), err)
 			}

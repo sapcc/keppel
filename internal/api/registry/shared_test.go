@@ -188,8 +188,9 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 	fd2.RecordExistingAccount(testAccount, time.Unix(0, 0))
 
 	sidGen := &test.StorageIDGenerator{}
+	auditor := &test.Auditor{}
 	h2 := api.Compose(
-		NewAPI(cfg2, ad2, fd2, sd2, db2, nil, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+		NewAPI(cfg2, ad2, fd2, sd2, db2, auditor, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 		authapi.NewAPI(cfg2, ad2, fd2, db2),
 	)
 

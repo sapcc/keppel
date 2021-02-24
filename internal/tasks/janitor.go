@@ -19,18 +19,28 @@
 package tasks
 
 import (
+	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/processor"
 )
 
+//janitorDummyRequest can be put in the Request field of type keppel.AuditContext.
+var janitorDummyRequest = &http.Request{URL: &url.URL{
+	Scheme: "http",
+	Host:   "localhost",
+	Path:   "keppel-janitor",
+}}
+
 //Janitor contains the toolbox of the keppel-janitor process.
 type Janitor struct {
-	cfg keppel.Configuration
-	fd  keppel.FederationDriver
-	sd  keppel.StorageDriver
-	db  *keppel.DB
+	cfg     keppel.Configuration
+	fd      keppel.FederationDriver
+	sd      keppel.StorageDriver
+	db      *keppel.DB
+	auditor keppel.Auditor
 
 	//non-pure functions that can be replaced by deterministic doubles for unit tests
 	timeNow           func() time.Time
@@ -38,8 +48,8 @@ type Janitor struct {
 }
 
 //NewJanitor creates a new Janitor.
-func NewJanitor(cfg keppel.Configuration, fd keppel.FederationDriver, sd keppel.StorageDriver, db *keppel.DB) *Janitor {
-	j := &Janitor{cfg, fd, sd, db, time.Now, keppel.GenerateStorageID}
+func NewJanitor(cfg keppel.Configuration, fd keppel.FederationDriver, sd keppel.StorageDriver, db *keppel.DB, auditor keppel.Auditor) *Janitor {
+	j := &Janitor{cfg, fd, sd, db, auditor, time.Now, keppel.GenerateStorageID}
 	j.initializeCounters()
 	return j
 }
@@ -57,5 +67,5 @@ func (j *Janitor) OverrideGenerateStorageID(generateStorageID func() string) *Ja
 }
 
 func (j *Janitor) processor() *processor.Processor {
-	return processor.New(j.cfg, j.db, j.sd).OverrideTimeNow(j.timeNow).OverrideGenerateStorageID(j.generateStorageID)
+	return processor.New(j.cfg, j.db, j.sd, j.auditor).OverrideTimeNow(j.timeNow).OverrideGenerateStorageID(j.generateStorageID)
 }

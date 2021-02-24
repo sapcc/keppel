@@ -23,9 +23,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"strings"
 	"time"
 
+	"github.com/sapcc/go-bits/audittools"
+	"github.com/sapcc/hermes/pkg/cadf"
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
 	"gopkg.in/gorp.v2"
@@ -43,7 +46,7 @@ type IncomingManifest struct {
 //ValidateAndStoreManifest validates the given manifest and stores it under the
 //given reference. If the reference is a digest, it is validated. Otherwise, a
 //tag with that name is created that points to the new manifest.
-func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel.Repository, m IncomingManifest) (*keppel.Manifest, error) {
+func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel.Repository, m IncomingManifest, actx keppel.AuditContext) (*keppel.Manifest, error) {
 	err := p.checkQuotaForManifestPush(account)
 	if err != nil {
 		return nil, err
@@ -80,7 +83,36 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 			return p.sd.WriteManifest(account, repo.Name, manifest.Digest, m.Contents)
 		},
 	)
-	return manifest, err
+	if err != nil {
+		return nil, err
+	}
+
+	if userInfo := actx.Authorization.UserInfo(); userInfo != nil {
+		record := func(target audittools.TargetRenderer) {
+			p.auditor.Record(audittools.EventParameters{
+				Time:       p.timeNow(),
+				Request:    actx.Request,
+				User:       userInfo,
+				ReasonCode: http.StatusOK,
+				Action:     "create",
+				Target:     target,
+			})
+		}
+		record(auditManifest{
+			Account:    account,
+			Repository: repo,
+			Digest:     manifest.Digest,
+		})
+		if m.Reference.IsTag() {
+			record(auditTag{
+				Account:    account,
+				Repository: repo,
+				Digest:     manifest.Digest,
+				TagName:    m.Reference.Tag,
+			})
+		}
+	}
+	return manifest, nil
 }
 
 //ValidateExistingManifest validates the given manifest that already exists in the DB.
@@ -434,7 +466,7 @@ func maintainManifestManifestRefs(tx *gorp.Transaction, m keppel.Manifest, refer
 
 //ReplicateManifest replicates the manifest from its account's upstream registry.
 //On success, the manifest's metadata and contents are returned.
-func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Repository, reference keppel.ManifestReference) (*keppel.Manifest, []byte, error) {
+func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Repository, reference keppel.ManifestReference, actx keppel.AuditContext) (*keppel.Manifest, []byte, error) {
 	//query upstream for the manifest
 	c, err := p.getRepoClientForUpstream(account, repo)
 	if err != nil {
@@ -455,7 +487,7 @@ func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Reposi
 	for _, desc := range manifestParsed.ManifestReferences(account.PlatformFilter) {
 		_, err := keppel.FindManifest(p.db, repo, desc.Digest.String())
 		if err == sql.ErrNoRows {
-			_, _, err = p.ReplicateManifest(account, repo, keppel.ManifestReference{Digest: desc.Digest})
+			_, _, err = p.ReplicateManifest(account, repo, keppel.ManifestReference{Digest: desc.Digest}, actx)
 		}
 		if err != nil {
 			return nil, nil, err
@@ -500,7 +532,7 @@ func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Reposi
 		MediaType: manifestMediaType,
 		Contents:  manifestBytes,
 		PushedAt:  p.timeNow(),
-	})
+	}, actx)
 	return manifest, manifestBytes, err
 }
 
@@ -530,7 +562,7 @@ func (p *Processor) CheckManifestOnPrimary(account keppel.Account, repo keppel.R
 //backing storage.
 //
 //If the manifest does not exist, sql.ErrNoRows is returned.
-func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repository, digest string) error {
+func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repository, digest string, actx keppel.AuditContext) error {
 	result, err := p.db.Exec(
 		//this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
 		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
@@ -546,18 +578,76 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 		return sql.ErrNoRows
 	}
 
-	return p.sd.DeleteManifest(account, repo.Name, digest)
-	//^ NOTE: We do this *after* the deletion is durable in the DB to be extra
-	//sure that we did not break any constraints (esp. manifest-manifest refs and
-	//manifest-blob refs) that the DB enforces. Doing things in this order might
-	//mean that, if DeleteManifest fails, we're left with a manifest in the
-	//backing storage that is not referenced in the DB anymore, but this is not a
-	//huge problem since the janitor can clean those up after the fact. What's
-	//most important is that we don't lose any data in the backing storage while
-	//it is still referenced in the DB.
+	//We delete in the storage *after* the deletion is durable in the DB to be
+	//extra sure that we did not break any constraints (esp. manifest-manifest
+	//refs and manifest-blob refs) that the DB enforces. Doing things in this
+	//order might mean that, if DeleteManifest fails, we're left with a manifest
+	//in the backing storage that is not referenced in the DB anymore, but this
+	//is not a huge problem since the janitor can clean those up after the fact.
+	//What's most important is that we don't lose any data in the backing storage
+	//while it is still referenced in the DB.
 	//
 	//Also, the DELETE statement could fail if some concurrent process created a
 	//manifest reference in the meantime. If that happens, and we have already
 	//deleted the manifest in the backing storage, we've caused an inconsistency
 	//that we cannot recover from.
+	err = p.sd.DeleteManifest(account, repo.Name, digest)
+	if err != nil {
+		return err
+	}
+
+	if userInfo := actx.Authorization.UserInfo(); userInfo != nil {
+		p.auditor.Record(audittools.EventParameters{
+			Time:       p.timeNow(),
+			Request:    actx.Request,
+			User:       userInfo,
+			ReasonCode: http.StatusOK,
+			Action:     "delete",
+			Target: auditManifest{
+				Account:    account,
+				Repository: repo,
+				Digest:     digest,
+			},
+		})
+	}
+
+	return nil
+}
+
+//auditManifest is an audittools.TargetRenderer.
+type auditManifest struct {
+	Account    keppel.Account
+	Repository keppel.Repository
+	Digest     string
+}
+
+//Render implements the audittools.TargetRenderer interface.
+func (a auditManifest) Render() cadf.Resource {
+	return cadf.Resource{
+		TypeURI:   "docker-registry/account/repository/manifest",
+		ID:        fmt.Sprintf("%s@%s", a.Repository.FullName(), a.Digest),
+		ProjectID: a.Account.AuthTenantID,
+	}
+}
+
+//auditTag is an audittools.TargetRenderer.
+type auditTag struct {
+	Account    keppel.Account
+	Repository keppel.Repository
+	Digest     string
+	TagName    string
+}
+
+//Render implements the audittools.TargetRenderer interface.
+func (a auditTag) Render() cadf.Resource {
+	return cadf.Resource{
+		TypeURI:   "docker-registry/account/repository/tag",
+		ID:        fmt.Sprintf("%s:%s", a.Repository.FullName(), a.TagName),
+		ProjectID: a.Account.AuthTenantID,
+		Attachments: []cadf.Attachment{{
+			Name:    "digest",
+			TypeURI: "mime:text/plain",
+			Content: a.Digest,
+		}},
+	}
 }

@@ -49,6 +49,15 @@ type UserInfo interface {
 	DomainScopeUUID() string
 }
 
+//NonStandardUserInfo is an extension interface for type UserInfo that allows a
+//UserInfo instance to render its own cadf.Resource. This is useful for
+//UserInfo implementors representing special roles that are not backed by a
+//Keystone user.
+type NonStandardUserInfo interface {
+	UserInfo
+	AsInitiator() cadf.Resource
+}
+
 // EventParameters contains the necessary parameters for generating a cadf.Event.
 type EventParameters struct {
 	Time    time.Time
@@ -76,18 +85,11 @@ func NewEvent(p EventParameters) cadf.Event {
 		outcome = "success"
 	}
 
-	return cadf.Event{
-		TypeURI:   "http://schemas.dmtf.org/cloud/audit/1.0/event",
-		ID:        GenerateUUID(),
-		EventTime: p.Time.Format("2006-01-02T15:04:05.999999+00:00"),
-		EventType: "activity",
-		Action:    p.Action,
-		Outcome:   outcome,
-		Reason: cadf.Reason{
-			ReasonType: "HTTP",
-			ReasonCode: strconv.Itoa(p.ReasonCode),
-		},
-		Initiator: cadf.Resource{
+	var initiator cadf.Resource
+	if u, ok := p.User.(NonStandardUserInfo); ok {
+		initiator = u.AsInitiator()
+	} else {
+		initiator = cadf.Resource{
 			TypeURI: "service/security/account/user",
 			//information about user
 			Name:   p.User.UserName(),
@@ -100,8 +102,22 @@ func NewEvent(p EventParameters) cadf.Event {
 			//information about user's scope (only one of both will be filled)
 			DomainID:  p.User.DomainScopeUUID(),
 			ProjectID: p.User.ProjectScopeUUID(),
+		}
+	}
+
+	return cadf.Event{
+		TypeURI:   "http://schemas.dmtf.org/cloud/audit/1.0/event",
+		ID:        GenerateUUID(),
+		EventTime: p.Time.Format("2006-01-02T15:04:05.999999+00:00"),
+		EventType: "activity",
+		Action:    p.Action,
+		Outcome:   outcome,
+		Reason: cadf.Reason{
+			ReasonType: "HTTP",
+			ReasonCode: strconv.Itoa(p.ReasonCode),
 		},
-		Target: p.Target.Render(),
+		Initiator: initiator,
+		Target:    p.Target.Render(),
 		Observer: cadf.Resource{
 			TypeURI: p.Observer.TypeURI,
 			Name:    p.Observer.Name,

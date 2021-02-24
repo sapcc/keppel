@@ -3,6 +3,7 @@ module github.com/sapcc/keppel
 go 1.15
 
 require (
+	github.com/databus23/goslo.policy v0.0.0-20170317131957-3ae74dd07ebf
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dlmiddlecote/sqlstats v1.0.1
 	github.com/docker/distribution v2.7.1+incompatible
@@ -21,7 +22,7 @@ require (
 	github.com/poy/onpar v1.0.1 // indirect
 	github.com/prometheus/client_golang v1.8.0
 	github.com/rs/cors v1.7.0
-	github.com/sapcc/go-bits v0.0.0-20201203204854-32575942fc71
+	github.com/sapcc/go-bits v0.0.0-20210224200539-a8e93aa719ac
 	github.com/sapcc/hermes v0.0.0-20200928164006-62559084bfce
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.1.1
