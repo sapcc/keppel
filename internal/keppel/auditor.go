@@ -160,7 +160,7 @@ func InitAuditTrail() Auditor {
 //Record implements the Auditor interface.
 func (a auditorImpl) Record(params audittools.EventParameters) {
 	params.Observer.TypeURI = "service/docker-registry"
-	params.Observer.Name = "keppel"
+	params.Observer.Name = Component
 	params.Observer.ID = a.ObserverUUID
 
 	event := audittools.NewEvent(params)
