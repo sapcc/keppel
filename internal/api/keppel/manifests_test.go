@@ -244,7 +244,8 @@ func TestManifestsAPI(t *testing.T) {
 		Reason:      test.CADFReasonOK,
 		Target: cadf.Resource{
 			TypeURI:   "docker-registry/account/repository/manifest",
-			ID:        "test1/repo1-1@" + deterministicDummyDigest(11),
+			Name:      "test1/repo1-1@" + deterministicDummyDigest(11),
+			ID:        deterministicDummyDigest(11),
 			ProjectID: "tenant1",
 		},
 	})

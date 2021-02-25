@@ -212,7 +212,8 @@ func TestImageManifestLifecycle(t *testing.T) {
 				Reason:      test.CADFReasonOK,
 				Target: cadf.Resource{
 					TypeURI:   "docker-registry/account/repository/manifest",
-					ID:        "test1/foo@" + image.Manifest.Digest.String(),
+					Name:      "test1/foo@" + image.Manifest.Digest.String(),
+					ID:        image.Manifest.Digest.String(),
 					ProjectID: "test1authtenant",
 				},
 			}}
@@ -224,13 +225,9 @@ func TestImageManifestLifecycle(t *testing.T) {
 					Reason:      test.CADFReasonOK,
 					Target: cadf.Resource{
 						TypeURI:   "docker-registry/account/repository/tag",
-						ID:        "test1/foo:" + ref,
+						Name:      "test1/foo:" + ref,
+						ID:        image.Manifest.Digest.String(),
 						ProjectID: "test1authtenant",
-						Attachments: []cadf.Attachment{{
-							Name:    "digest",
-							TypeURI: "mime:text/plain",
-							Content: image.Manifest.Digest.String(),
-						}},
 					},
 				})
 			}
@@ -355,7 +352,8 @@ func TestImageManifestLifecycle(t *testing.T) {
 				Reason:      test.CADFReasonOK,
 				Target: cadf.Resource{
 					TypeURI:   "docker-registry/account/repository/manifest",
-					ID:        "test1/foo@" + image.Manifest.Digest.String(),
+					Name:      "test1/foo@" + image.Manifest.Digest.String(),
+					ID:        image.Manifest.Digest.String(),
 					ProjectID: "test1authtenant",
 				},
 			})

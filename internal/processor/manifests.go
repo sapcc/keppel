@@ -625,7 +625,8 @@ type auditManifest struct {
 func (a auditManifest) Render() cadf.Resource {
 	return cadf.Resource{
 		TypeURI:   "docker-registry/account/repository/manifest",
-		ID:        fmt.Sprintf("%s@%s", a.Repository.FullName(), a.Digest),
+		Name:      fmt.Sprintf("%s@%s", a.Repository.FullName(), a.Digest),
+		ID:        a.Digest,
 		ProjectID: a.Account.AuthTenantID,
 	}
 }
@@ -642,12 +643,8 @@ type auditTag struct {
 func (a auditTag) Render() cadf.Resource {
 	return cadf.Resource{
 		TypeURI:   "docker-registry/account/repository/tag",
-		ID:        fmt.Sprintf("%s:%s", a.Repository.FullName(), a.TagName),
+		Name:      fmt.Sprintf("%s:%s", a.Repository.FullName(), a.TagName),
+		ID:        a.Digest,
 		ProjectID: a.Account.AuthTenantID,
-		Attachments: []cadf.Attachment{{
-			Name:    "digest",
-			TypeURI: "mime:text/plain",
-			Content: a.Digest,
-		}},
 	}
 }
