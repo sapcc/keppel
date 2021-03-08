@@ -31,7 +31,7 @@ install: FORCE build/keppel
 # which packages to test with static checkers
 GO_ALLPKGS := $(shell go list ./...)
 # which files to test with static checkers (this contains a list of globs)
-GO_ALLFILES := $(addsuffix /*.go,$(patsubst $(shell go list .),.,$(shell go list ./...)))
+GO_ALLFILES := $(addsuffix /*.go,$(patsubst $(shell go list .)%,.%,$(shell go list ./...)))
 # which packages to test with "go test"
 GO_TESTPKGS := $(shell go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./...)
 # which packages to measure coverage for
