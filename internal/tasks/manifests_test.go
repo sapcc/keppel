@@ -337,6 +337,18 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 		t.Logf("  expected = %#v", expectedLastPulledAt)
 		t.Logf("  actual   = %#v", lastPulledAt)
 	}
+
+	//flip back to the actual primary registry's API
+	http.DefaultClient.Transport.(*test.RoundTripper).Handlers["registry.example.org"] = h1
+	//delete the entire repository on the primary
+	clock.StepBy(2 * time.Hour)
+	mustExec(t, db1, `DELETE FROM manifests`)
+	mustExec(t, db1, `DELETE FROM repos`)
+	//the manifest sync should reflect the repository deletion on the replica
+	expectSuccess(t, j2.SyncManifestsInNextRepo())
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-005.sql")
+	expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-005.sql")
 }
 
 func answerWith404(w http.ResponseWriter, r *http.Request) {

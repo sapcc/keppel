@@ -552,6 +552,11 @@ func (p *Processor) CheckManifestOnPrimary(account keppel.Account, repo keppel.R
 		return true, nil
 	case *keppel.RegistryV2Error:
 		if err.Code == keppel.ErrManifestUnknown {
+			//manifest was deleted
+			return false, nil
+		}
+		if err.Code == keppel.ErrNameUnknown {
+			//manifest was deleted
 			return false, nil
 		}
 	}

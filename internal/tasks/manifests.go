@@ -127,6 +127,10 @@ var syncManifestDoneQuery = keppel.SimplifyWhitespaceInSQL(`
 	UPDATE repos SET next_manifest_sync_at = $2 WHERE id = $1
 `)
 
+var syncManifestCleanupEmptyQuery = keppel.SimplifyWhitespaceInSQL(`
+	DELETE FROM repos r WHERE id = $1 AND (SELECT COUNT(*) FROM manifests WHERE repo_id = r.id) = 0
+`)
+
 //SyncManifestsInNextRepo finds the next repository in a replica account where
 //manifests have not been synced for more than an hour, and syncs its manifests.
 //Syncing involves checking with the primary account which manifests have been
@@ -169,6 +173,10 @@ func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
 	}
 
 	_, err = j.db.Exec(syncManifestDoneQuery, repo.ID, j.timeNow().Add(1*time.Hour))
+	if err != nil {
+		return err
+	}
+	_, err = j.db.Exec(syncManifestCleanupEmptyQuery, repo.ID)
 	return err
 }
 
