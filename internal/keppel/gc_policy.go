@@ -20,6 +20,8 @@
 package keppel
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 )
@@ -43,4 +45,40 @@ func (g GCPolicy) Matches(repoName string) bool {
 
 	rx, err = regexp.Compile(fmt.Sprintf(`^%s$`, g.RepositoryPattern))
 	return err == nil && rx.MatchString(repoName)
+}
+
+//Validate returns an error if this policy is invalid.
+func (g GCPolicy) Validate() error {
+	if g.RepositoryPattern == "" {
+		return errors.New(`GC policy must have the "match_repository" attribute`)
+	}
+
+	for _, pattern := range []string{g.RepositoryPattern, g.NegativeRepositoryPattern} {
+		if pattern == "" {
+			continue
+		}
+		if _, err := regexp.Compile(pattern); err != nil {
+			return fmt.Errorf("%q is not a valid regex: %s", pattern, err.Error())
+		}
+	}
+
+	switch g.Strategy {
+	case "delete_untagged":
+		//valid
+		return nil
+	case "":
+		return errors.New(`GC policy must have the "strategy" attribute`)
+	default:
+		return fmt.Errorf("%q is not a valid strategy for a GC policy", g.Strategy)
+	}
+}
+
+//ParseGCPolicies parses the GC policies for the given account.
+func (a Account) ParseGCPolicies() ([]GCPolicy, error) {
+	if a.GCPoliciesJSON == "" || a.GCPoliciesJSON == "[]" {
+		return nil, nil
+	}
+	var policies []GCPolicy
+	err := json.Unmarshal([]byte(a.GCPoliciesJSON), &policies)
+	return policies, err
 }
