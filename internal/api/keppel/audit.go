@@ -32,11 +32,22 @@ type AuditAccount struct {
 
 //Render implements the audittools.EventRenderer interface.
 func (a AuditAccount) Render() cadf.Resource {
-	return cadf.Resource{
+	res := cadf.Resource{
 		TypeURI:   "docker-registry/account",
 		ID:        a.Account.Name,
 		ProjectID: a.Account.AuthTenantID,
 	}
+
+	gcPoliciesJSON := a.Account.GCPoliciesJSON
+	if gcPoliciesJSON != "" && gcPoliciesJSON != "[]" {
+		res.Attachments = append(res.Attachments, cadf.Attachment{
+			Name:    "gc-policies",
+			TypeURI: "mime:application/json",
+			Content: a.Account.GCPoliciesJSON,
+		})
+	}
+
+	return res
 }
 
 //AuditQuotas is an audittools.EventRenderer.

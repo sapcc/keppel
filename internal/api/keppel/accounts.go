@@ -45,6 +45,7 @@ type Account struct {
 	AuthTenantID      string                `json:"auth_tenant_id"`
 	InMaintenance     bool                  `json:"in_maintenance"`
 	Metadata          map[string]string     `json:"metadata"`
+	GCPolicies        []keppel.GCPolicy     `json:"gc_policies,omitempty"`
 	RBACPolicies      []RBACPolicy          `json:"rbac_policies"`
 	ReplicationPolicy *ReplicationPolicy    `json:"replication,omitempty"`
 	ValidationPolicy  *ValidationPolicy     `json:"validation,omitempty"`
@@ -125,8 +126,13 @@ func (r *ReplicationPolicy) UnmarshalJSON(buf []byte) error {
 // data conversion/validation functions
 
 func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
+	gcPolicies, err := dbAccount.ParseGCPolicies()
+	if err != nil {
+		return Account{}, err
+	}
+
 	var dbPolicies []keppel.RBACPolicy
-	_, err := a.db.Select(&dbPolicies, `SELECT * FROM rbac_policies WHERE account_name = $1`, dbAccount.Name)
+	_, err = a.db.Select(&dbPolicies, `SELECT * FROM rbac_policies WHERE account_name = $1`, dbAccount.Name)
 	if err != nil {
 		return Account{}, err
 	}
@@ -147,6 +153,7 @@ func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
 	return Account{
 		Name:              dbAccount.Name,
 		AuthTenantID:      dbAccount.AuthTenantID,
+		GCPolicies:        gcPolicies,
 		InMaintenance:     dbAccount.InMaintenance,
 		Metadata:          metadata,
 		RBACPolicies:      policies,
@@ -325,6 +332,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Account struct {
 			AuthTenantID      string                `json:"auth_tenant_id"`
+			GCPolicies        []keppel.GCPolicy     `json:"gc_policies"`
 			InMaintenance     bool                  `json:"in_maintenance"`
 			Metadata          map[string]string     `json:"metadata"`
 			RBACPolicies      []RBACPolicy          `json:"rbac_policies"`
@@ -360,6 +368,14 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	for _, policy := range req.Account.GCPolicies {
+		err := policy.Validate()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+	}
+
 	rbacPolicies := make([]keppel.RBACPolicy, len(req.Account.RBACPolicies))
 	for idx, policy := range req.Account.RBACPolicies {
 		rbacPolicies[idx], err = parseRBACPolicy(policy)
@@ -375,11 +391,18 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		metadataJSONStr = string(metadataJSON)
 	}
 
+	gcPoliciesJSONStr := "[]"
+	if len(req.Account.GCPolicies) > 0 {
+		gcPoliciesJSON, _ := json.Marshal(req.Account.GCPolicies)
+		gcPoliciesJSONStr = string(gcPoliciesJSON)
+	}
+
 	accountToCreate := keppel.Account{
-		Name:          accountName,
-		AuthTenantID:  req.Account.AuthTenantID,
-		InMaintenance: req.Account.InMaintenance,
-		MetadataJSON:  metadataJSONStr,
+		Name:           accountName,
+		AuthTenantID:   req.Account.AuthTenantID,
+		InMaintenance:  req.Account.InMaintenance,
+		MetadataJSON:   metadataJSONStr,
+		GCPoliciesJSON: gcPoliciesJSONStr,
 	}
 
 	//validate replication policy
@@ -527,6 +550,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	} else {
 		//account != nil: update if necessary
 		needsUpdate := false
+		needsAudit := false
 		if account.InMaintenance != accountToCreate.InMaintenance {
 			account.InMaintenance = accountToCreate.InMaintenance
 			needsUpdate = true
@@ -534,6 +558,11 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		if account.MetadataJSON != accountToCreate.MetadataJSON {
 			account.MetadataJSON = accountToCreate.MetadataJSON
 			needsUpdate = true
+		}
+		if account.GCPoliciesJSON != accountToCreate.GCPoliciesJSON {
+			account.GCPoliciesJSON = accountToCreate.GCPoliciesJSON
+			needsUpdate = true
+			needsAudit = true
 		}
 		if account.RequiredLabels != accountToCreate.RequiredLabels {
 			account.RequiredLabels = accountToCreate.RequiredLabels
@@ -551,6 +580,18 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			_, err := a.db.Update(account)
 			if respondwith.ErrorText(w, err) {
 				return
+			}
+		}
+		if needsAudit {
+			if userInfo := authz.UserInfo(); userInfo != nil {
+				a.auditor.Record(audittools.EventParameters{
+					Time:       time.Now(),
+					Request:    r,
+					User:       userInfo,
+					ReasonCode: http.StatusOK,
+					Action:     "update",
+					Target:     AuditAccount{Account: *account},
+				})
 			}
 		}
 	}

@@ -52,7 +52,7 @@ func setup(t *testing.T) (*Janitor, keppel.Configuration, *keppel.DB, *test.Fede
 	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, cfg)
 	must(t, err)
 
-	must(t, db.Insert(&keppel.Account{Name: "test1", AuthTenantID: "test1authtenant"}))
+	must(t, db.Insert(&keppel.Account{Name: "test1", AuthTenantID: "test1authtenant", GCPoliciesJSON: "[]"}))
 	must(t, db.Insert(&keppel.Repository{AccountName: "test1", Name: "foo"}))
 
 	clock := &test.Clock{}
@@ -78,7 +78,7 @@ func setupReplica(t *testing.T, db1 *keppel.DB, h1 http.Handler, clock *test.Clo
 	sd2, err := keppel.NewStorageDriver("in-memory-for-testing", ad2, cfg2)
 	must(t, err)
 
-	must(t, db2.Insert(&keppel.Account{Name: "test1", AuthTenantID: "test1authtenant", UpstreamPeerHostName: "registry.example.org"}))
+	must(t, db2.Insert(&keppel.Account{Name: "test1", AuthTenantID: "test1authtenant", UpstreamPeerHostName: "registry.example.org", GCPoliciesJSON: "[]"}))
 	must(t, db2.Insert(&keppel.Repository{AccountName: "test1", Name: "foo"}))
 
 	//give the secondary registry credentials for replicating from the primary

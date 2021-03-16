@@ -79,6 +79,13 @@ On success, returns 200 and a JSON response body like this:
           "match_username": "exampleuser@secondtenant",
           "permissions": [ "pull", "push" ]
         }
+      ],
+      "gc_policies": [
+        {
+          "match_repository": ".*/webapp",
+          "except_repository": "example/webapp",
+          "strategy": "delete_untagged"
+        }
       ]
     },
     {
@@ -106,6 +113,10 @@ The following fields may be returned:
 | ----- | ---- | ----------- |
 | `accounts[].name` | string | Name of this account. |
 | `accounts[].auth_tenant_id` | string | ID of auth tenant that regulates access to this account. |
+| `accounts[].gc_policies` | list of objects | Policies for garbage collection (automated deletion of images) for repositories in this account. GC policies apply in addition to the regular garbage collection runs performed by Keppel that clean up unreferenced objects of all kinds. |
+| `accounts[].gc_policies[].match_repository` | string | The GC policy applies to all repositories in this account whose name matches this regex. The leading account name and slash is stripped from the repository name before matching. The notes on regexes below apply. |
+| `accounts[].gc_policies[].except_repository` | string | If given, matching repositories will be excluded from this GC policy, even if they the `match_repository` regex. The syntax and mechanics of matching are otherwise identical to `match_repository` above. |
+| `accounts[].gc_policies[].strategy` | string | [See below](#garbage-collection-strategies) for details. |
 | `accounts[].in_maintenance` | bool | Whether this account is in maintenance mode. [See below](#maintenance-mode) for details. |
 | `accounts[].metadata` | object of strings | Free-form metadata maintained by the user. The contents of this field are not interpreted by Keppel, but may trigger special behavior in applications using this API. |
 | `accounts[].rbac_policies` | list of objects | Policies for rule-based access control (RBAC) to repositories in this account. RBAC policies are evaluated in addition to the permissions granted by the auth tenant. |
@@ -117,9 +128,17 @@ The following fields may be returned:
 | `accounts[].validation` | object or omitted | Validation rules for this account. When included, pushing blobs and manifests not satisfying these validation rules may be rejected. |
 | `accounts[].validation.required_labels` | list of strings | When non-empty, image manifests must include all these labels. (Labels can be set on an image using the Dockerfile's `LABEL` command.) |
 
-The values of the `match_repository` and `match_username` fields are regular expressions, using the
+The values of the `match_repository`, `except_repository` and `match_username` fields are regular expressions, using the
 [syntax defined by Go's stdlib regex parser](https://golang.org/pkg/regexp/syntax/). The anchors `^` and `$` are implied
 at both ends of the regex, and need not be added explicitly.
+
+### Garbage collection strategies
+
+This section describes the different possible values for `accounts[].policies[].strategy` and their semantics.
+
+#### Strategy: `delete_untagged`
+
+In all matching repositories, GC runs will delete all images without any tags.
 
 ### Replication strategies
 

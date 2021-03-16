@@ -116,8 +116,9 @@ func TestQuotasAPI(t *testing.T) {
 
 	//put some manifests in the DB, check thet GET reflects higher usage
 	mustInsert(t, db, &keppel.Account{
-		Name:         "test1",
-		AuthTenantID: "tenant1",
+		Name:           "test1",
+		AuthTenantID:   "tenant1",
+		GCPoliciesJSON: "[]",
 	})
 	mustInsert(t, db, &keppel.Repository{
 		Name:        "repo1",

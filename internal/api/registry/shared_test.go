@@ -55,8 +55,9 @@ func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(http
 
 		//set up a dummy account for testing
 		testAccount := keppel.Account{
-			Name:         "test1",
-			AuthTenantID: "test1authtenant",
+			Name:           "test1",
+			AuthTenantID:   "test1authtenant",
+			GCPoliciesJSON: "[]",
 		}
 		err := db.Insert(&testAccount)
 		if err != nil {
@@ -145,8 +146,9 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 
 	//set up a dummy account for testing
 	testAccount := keppel.Account{
-		Name:         "test1",
-		AuthTenantID: "test1authtenant",
+		Name:           "test1",
+		AuthTenantID:   "test1authtenant",
+		GCPoliciesJSON: "[]",
 	}
 	switch strategy {
 	case "on_first_use":

@@ -142,7 +142,7 @@ func TestAccountsAPI(t *testing.T) {
 		}.Check(t, r)
 		assert.DeepEqual(t, "authDriver.AccountsThatWereSetUp",
 			authDriver.AccountsThatWereSetUp,
-			[]keppel.Account{{Name: "first", AuthTenantID: "tenant1", MetadataJSON: `{"bar":"barbar","foo":"foofoo"}`}},
+			[]keppel.Account{{Name: "first", AuthTenantID: "tenant1", MetadataJSON: `{"bar":"barbar","foo":"foofoo"}`, GCPoliciesJSON: "[]"}},
 		)
 
 		//only the first pass should generate an audit event
@@ -219,7 +219,18 @@ func TestAccountsAPI(t *testing.T) {
 		ExpectBody:   assert.StringData("no such account\n"),
 	}.Check(t, r)
 
-	//create an account with RBAC policies (this request is executed twice to test idempotency)
+	//create an account with RBAC policies and GC policies (this request is executed twice to test idempotency)
+	gcPoliciesJSON := []assert.JSONObject{
+		{
+			"match_repository": ".*/webapp",
+			"strategy":         "delete_untagged",
+		},
+		{
+			"match_repository":  ".*/database",
+			"except_repository": "archive/.*",
+			"strategy":          "delete_untagged",
+		},
+	}
 	rbacPoliciesJSON := []assert.JSONObject{
 		{
 			"match_repository": "library/.*",
@@ -239,6 +250,7 @@ func TestAccountsAPI(t *testing.T) {
 			Body: assert.JSONObject{
 				"account": assert.JSONObject{
 					"auth_tenant_id": "tenant1",
+					"gc_policies":    gcPoliciesJSON,
 					"rbac_policies":  rbacPoliciesJSON,
 				},
 			},
@@ -247,6 +259,7 @@ func TestAccountsAPI(t *testing.T) {
 				"account": assert.JSONObject{
 					"name":           "second",
 					"auth_tenant_id": "tenant1",
+					"gc_policies":    gcPoliciesJSON,
 					"in_maintenance": false,
 					"metadata":       assert.JSONObject{},
 					"rbac_policies":  rbacPoliciesJSON,
@@ -256,8 +269,8 @@ func TestAccountsAPI(t *testing.T) {
 		assert.DeepEqual(t, "authDriver.AccountsThatWereSetUp",
 			authDriver.AccountsThatWereSetUp,
 			[]keppel.Account{
-				{Name: "first", AuthTenantID: "tenant1", MetadataJSON: `{"bar":"barbar","foo":"foofoo"}`},
-				{Name: "second", AuthTenantID: "tenant1"},
+				{Name: "first", AuthTenantID: "tenant1", MetadataJSON: `{"bar":"barbar","foo":"foofoo"}`, GCPoliciesJSON: "[]"},
+				{Name: "second", AuthTenantID: "tenant1", GCPoliciesJSON: gcPoliciesToJSON(gcPoliciesJSON)},
 			},
 		)
 
@@ -273,6 +286,11 @@ func TestAccountsAPI(t *testing.T) {
 						TypeURI:   "docker-registry/account",
 						ID:        "second",
 						ProjectID: "tenant1",
+						Attachments: []cadf.Attachment{{
+							Name:    "gc-policies",
+							TypeURI: "mime:application/json",
+							Content: gcPoliciesToJSON(gcPoliciesJSON),
+						}},
 					},
 				},
 				cadf.Event{
@@ -334,6 +352,7 @@ func TestAccountsAPI(t *testing.T) {
 				{
 					"name":           "second",
 					"auth_tenant_id": "tenant1",
+					"gc_policies":    gcPoliciesJSON,
 					"in_maintenance": false,
 					"metadata":       assert.JSONObject{},
 					"rbac_policies":  rbacPoliciesJSON,
@@ -350,6 +369,7 @@ func TestAccountsAPI(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
+				"gc_policies":    gcPoliciesJSON,
 				"in_maintenance": false,
 				"metadata":       assert.JSONObject{},
 				"rbac_policies":  rbacPoliciesJSON,
@@ -357,7 +377,8 @@ func TestAccountsAPI(t *testing.T) {
 		},
 	}.Check(t, r)
 
-	//check editing of InMaintenance flag
+	//check editing of InMaintenance flag (this also tests editing of GC policies
+	//since we don't give any and thus clear the field)
 	for _, inMaintenance := range []bool{true, false} {
 		assert.HTTPRequest{
 			Method: "PUT",
@@ -397,6 +418,25 @@ func TestAccountsAPI(t *testing.T) {
 				},
 			},
 		}.Check(t, r)
+
+		//the first pass also generates an audit event since we're touching the GCPolicies
+		if inMaintenance {
+			auditor.ExpectEvents(t,
+				cadf.Event{
+					RequestPath: "/keppel/v1/accounts/second",
+					Action:      "update",
+					Outcome:     "success",
+					Reason:      test.CADFReasonOK,
+					Target: cadf.Resource{
+						TypeURI:   "docker-registry/account",
+						ID:        "second",
+						ProjectID: "tenant1",
+					},
+				},
+			)
+		} else {
+			auditor.ExpectEvents(t /*, nothing */)
+		}
 	}
 
 	//check editing of RBAC policies
@@ -717,6 +757,63 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectStatus: http.StatusInternalServerError,
 		ExpectBody:   assert.StringData("failed to assign name \"second\" to auth tenant \"tenant1\"\n"),
 	}.Check(t, r)
+
+	//test malformed GC policies
+	gcPolicyTestcases := []struct {
+		GCPolicyJSON assert.JSONObject
+		ErrorMessage string
+	}{
+		{
+			GCPolicyJSON: assert.JSONObject{
+				"except_repository": "library/.*",
+				"strategy":          "delete_untagged",
+			},
+			ErrorMessage: `GC policy must have the "match_repository" attribute`,
+		},
+		{
+			GCPolicyJSON: assert.JSONObject{
+				"match_repository": "*/library",
+				"strategy":         "delete_untagged",
+			},
+			ErrorMessage: "\"*/library\" is not a valid regex: error parsing regexp: missing argument to repetition operator: `*`",
+		},
+		{
+			GCPolicyJSON: assert.JSONObject{
+				"match_repository":  "library/.*",
+				"except_repository": "*/library",
+				"strategy":          "delete_untagged",
+			},
+			ErrorMessage: "\"*/library\" is not a valid regex: error parsing regexp: missing argument to repetition operator: `*`",
+		},
+		{
+			GCPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.*",
+			},
+			ErrorMessage: `GC policy must have the "strategy" attribute`,
+		},
+		{
+			GCPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.*",
+				"strategy":         "foo",
+			},
+			ErrorMessage: `"foo" is not a valid strategy for a GC policy`,
+		},
+	}
+	for _, tc := range gcPolicyTestcases {
+		assert.HTTPRequest{
+			Method: "PUT",
+			Path:   "/keppel/v1/accounts/first",
+			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+			Body: assert.JSONObject{
+				"account": assert.JSONObject{
+					"auth_tenant_id": "tenant1",
+					"gc_policies":    []assert.JSONObject{tc.GCPolicyJSON},
+				},
+			},
+			ExpectStatus: http.StatusUnprocessableEntity,
+			ExpectBody:   assert.StringData(tc.ErrorMessage + "\n"),
+		}.Check(t, r)
+	}
 
 	//test malformed RBAC policies
 	assert.HTTPRequest{
@@ -1389,9 +1486,9 @@ func TestDeleteAccount(t *testing.T) {
 	//setup test accounts and repositories
 	nextBlobSweepAt := time.Unix(200, 0)
 	accounts := []*keppel.Account{
-		{Name: "test1", AuthTenantID: "tenant1", InMaintenance: true, NextBlobSweepedAt: &nextBlobSweepAt},
-		{Name: "test2", AuthTenantID: "tenant2", InMaintenance: true},
-		{Name: "test3", AuthTenantID: "tenant3", InMaintenance: true},
+		{Name: "test1", AuthTenantID: "tenant1", InMaintenance: true, NextBlobSweepedAt: &nextBlobSweepAt, GCPoliciesJSON: "[]"},
+		{Name: "test2", AuthTenantID: "tenant2", InMaintenance: true, GCPoliciesJSON: "[]"},
+		{Name: "test3", AuthTenantID: "tenant3", InMaintenance: true, GCPoliciesJSON: "[]"},
 	}
 	for _, account := range accounts {
 		mustInsert(t, db, account)
@@ -1592,4 +1689,21 @@ func makeSubleaseToken(accountName, primaryHostname, secret string) string {
 		"secret":  secret,
 	})
 	return base64.StdEncoding.EncodeToString(buf)
+}
+
+func gcPoliciesToJSON(in []assert.JSONObject) string {
+	//This is mostly the same as `test.ToJSON(in)`, but deserializes into
+	//keppel.GCPolicy in an intermediate step to render the JSON with the correct
+	//field order.
+	buf, _ := json.Marshal(in)
+	var policies []keppel.GCPolicy
+	err := json.Unmarshal(buf, &policies)
+	if err != nil {
+		panic(err.Error())
+	}
+	buf, err = json.Marshal(policies)
+	if err != nil {
+		panic(err.Error())
+	}
+	return string(buf)
 }
