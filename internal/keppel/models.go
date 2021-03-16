@@ -53,6 +53,8 @@ type Account struct {
 
 	//MetadataJSON contains a JSON string of a map[string]string, or the empty string.
 	MetadataJSON string `db:"metadata_json"`
+	//GCPoliciesJSON contains a JSON string of []keppel.GCPolicy, or the empty string.
+	GCPoliciesJSON string `db:"gc_policies_json"`
 
 	NextBlobSweepedAt            *time.Time `db:"next_blob_sweep_at"`              //see tasks.SweepBlobsInNextAccount
 	NextStorageSweepedAt         *time.Time `db:"next_storage_sweep_at"`           //see tasks.SweepStorageInNextAccount
@@ -221,11 +223,12 @@ func FindUploadByRepository(db gorp.SqlExecutor, uuid string, repo Repository) (
 
 //Repository contains a record from the `repos` table.
 type Repository struct {
-	ID                   int64      `db:"id"`
-	AccountName          string     `db:"account_name"`
-	Name                 string     `db:"name"`
-	NextBlobMountSweepAt *time.Time `db:"next_blob_mount_sweep_at"` //see tasks.SweepBlobMountsInNextRepo
-	NextManifestSyncAt   *time.Time `db:"next_manifest_sync_at"`    //see tasks.SyncManifestsInNextRepo (only set for replica accounts)
+	ID                      int64      `db:"id"`
+	AccountName             string     `db:"account_name"`
+	Name                    string     `db:"name"`
+	NextBlobMountSweepAt    *time.Time `db:"next_blob_mount_sweep_at"` //see tasks.SweepBlobMountsInNextRepo
+	NextManifestSyncAt      *time.Time `db:"next_manifest_sync_at"`    //see tasks.SyncManifestsInNextRepo (only set for replica accounts)
+	NextGarbageCollectionAt *time.Time `db:"next_gc_at"`               //see tasks.GarbageCollectManifestsInNextRepo
 }
 
 //FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a

@@ -48,12 +48,14 @@ func TestManifestsAPI(t *testing.T) {
 
 	//setup two test accounts
 	mustInsert(t, db, &keppel.Account{
-		Name:         "test1",
-		AuthTenantID: "tenant1",
+		Name:           "test1",
+		AuthTenantID:   "tenant1",
+		GCPoliciesJSON: "[]",
 	})
 	mustInsert(t, db, &keppel.Account{
-		Name:         "test2",
-		AuthTenantID: "tenant2",
+		Name:           "test2",
+		AuthTenantID:   "tenant2",
+		GCPoliciesJSON: "[]",
 	})
 
 	//setup test repos (`repo1-2` and `repo2-1` only exist to validate that we

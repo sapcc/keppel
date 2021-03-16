@@ -37,8 +37,9 @@ func TestCatalogEndpoint(t *testing.T) {
 	//set up dummy accounts for testing
 	for idx := 1; idx <= 3; idx++ {
 		err := db.Insert(&keppel.Account{
-			Name:         fmt.Sprintf("test%d", idx),
-			AuthTenantID: "test1authtenant",
+			Name:           fmt.Sprintf("test%d", idx),
+			AuthTenantID:   "test1authtenant",
+			GCPoliciesJSON: "[]",
 		})
 		if err != nil {
 			t.Fatal(err.Error())

@@ -376,10 +376,11 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accountToCreate := keppel.Account{
-		Name:          accountName,
-		AuthTenantID:  req.Account.AuthTenantID,
-		InMaintenance: req.Account.InMaintenance,
-		MetadataJSON:  metadataJSONStr,
+		Name:           accountName,
+		AuthTenantID:   req.Account.AuthTenantID,
+		InMaintenance:  req.Account.InMaintenance,
+		MetadataJSON:   metadataJSONStr,
+		GCPoliciesJSON: "[]",
 	}
 
 	//validate replication policy

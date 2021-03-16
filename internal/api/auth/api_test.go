@@ -401,15 +401,17 @@ var testCases = []TestCase{
 
 func setupPrimary(t *testing.T) (http.Handler, keppel.Configuration, *test.AuthDriver, *test.FederationDriver, *keppel.DB) {
 	return setupGeneric(t, false, keppel.Account{
-		Name:         "test1",
-		AuthTenantID: "test1authtenant",
+		Name:           "test1",
+		AuthTenantID:   "test1authtenant",
+		GCPoliciesJSON: "[]",
 	})
 }
 
 func setupSecondary(t *testing.T) (http.Handler, keppel.Configuration, *test.AuthDriver, *test.FederationDriver, *keppel.DB) {
 	return setupGeneric(t, true, keppel.Account{
-		Name:         "test2",
-		AuthTenantID: "test1authtenant",
+		Name:           "test2",
+		AuthTenantID:   "test1authtenant",
+		GCPoliciesJSON: "[]",
 	})
 }
 

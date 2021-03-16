@@ -401,6 +401,18 @@ var sqlMigrations = map[string]string{
 		ALTER TABLE blobs
 			DROP COLUMN media_type;
 	`,
+	"023_manifest_garbage_collection.up.sql": `
+		ALTER TABLE accounts
+			ADD COLUMN gc_policies_json TEXT NOT NULL DEFAULT '[]';
+		ALTER TABLE repos
+			ADD COLUMN next_gc_at TIMESTAMPTZ DEFAULT NULL;
+	`,
+	"023_manifest_garbage_collection.down.sql": `
+		ALTER TABLE accounts
+			DROP COLUMN gc_policies_json;
+		ALTER TABLE repos
+			DROP COLUMN next_gc_at;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

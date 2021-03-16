@@ -44,7 +44,7 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 
 	//setup another account; only that one should need announcing initially
 	clock.StepBy(5 * time.Minute)
-	account2 := keppel.Account{Name: "test2", AuthTenantID: "test2authtenant"}
+	account2 := keppel.Account{Name: "test2", AuthTenantID: "test2authtenant", GCPoliciesJSON: "[]"}
 	must(t, db.Insert(&account2))
 	expectSuccess(t, j.AnnounceNextAccountToFederation())
 	expectAccountsAnnouncedJustNow(t, fd, clock, account2)
