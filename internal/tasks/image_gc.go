@@ -104,6 +104,8 @@ var untaggedImagesSelectQuery = keppel.SimplifyWhitespaceInSQL(`
 		WHERE repo_id = $1
 		-- only consider untagged images
 		AND digest NOT IN (SELECT digest FROM tags WHERE repo_id = $1)
+		-- never cleanup images that are part of another image
+		AND digest NOT IN (SELECT child_digest FROM manifest_manifest_refs WHERE repo_id = $1)
 		-- do not consider freshly pushed images (the client may still be working on pushing the tag)
 		AND pushed_at < $2
 `)

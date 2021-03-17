@@ -84,9 +84,34 @@ func TestGCUntaggedImages(t *testing.T) {
 		`UPDATE accounts SET gc_policies_json = $1`,
 		`[{"match_repository":".*","strategy":"delete_untagged"}]`,
 	)
+	//however now there's also a tagged image list referencing it
+	imageList := test.GenerateImageList(images[0].Manifest, images[1].Manifest)
+	uploadManifest(t, db, sd, clock, imageList.Manifest, imageList.SizeBytes())
+	for _, image := range images {
+		mustExec(t, db,
+			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
+			imageList.Manifest.Digest.String(), image.Manifest.Digest.String(),
+		)
+	}
+	mustExec(t, db,
+		`INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, $1, $2, $3)`,
+		"list", imageList.Manifest.Digest.String(), j.timeNow(),
+	)
 
-	//GC should delete the untagged image
+	//GC should not delete the untagged image since it's referenced by the tagged list image
 	expectSuccess(t, j.GarbageCollectManifestsInNextRepo())
 	expectError(t, sql.ErrNoRows.Error(), j.GarbageCollectManifestsInNextRepo())
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/gc-untagged-images-2.sql")
+
+	//delete the image list manifest
+	clock.StepBy(2 * time.Hour)
+	mustExec(t, db,
+		`DELETE FROM manifests WHERE digest = $1`,
+		imageList.Manifest.Digest.String(),
+	)
+
+	//GC should now delete the untagged image since nothing references it anymore
+	expectSuccess(t, j.GarbageCollectManifestsInNextRepo())
+	expectError(t, sql.ErrNoRows.Error(), j.GarbageCollectManifestsInNextRepo())
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/gc-untagged-images-3.sql")
 }
