@@ -215,6 +215,25 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 		}
 	}
 
+	//one of the replicated images is also tagged
+	for _, db := range []*keppel.DB{db1, db2} {
+		mustExec(t, db,
+			`INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, $1, $2, $3)`,
+			"latest",
+			images[1].Manifest.Digest.String(),
+			clock.Now(),
+		)
+	}
+
+	//we need some quota for this since the tag sync runs
+	//Processor.ReplicateManifest() which insists on running a quota check before
+	//storing manifests, even if the new manifest ends up an existing one and
+	//therefore doesn't affect the quota usage at all
+	mustExec(t, db2,
+		`INSERT INTO quotas (auth_tenant_id, manifests) VALUES ($1, $2)`,
+		"test1authtenant", 10,
+	)
+
 	//also setup an image list manifest containing some of those images (so that we have
 	//some manifest-manifest refs to play with)
 	imageList := test.GenerateImageList(images[1].Manifest, images[2].Manifest)
@@ -238,6 +257,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 	//DB (we will later verify that this was not touched by the manifest sync)
 	expectedLastPulledAt := time.Unix(42, 0)
 	mustExec(t, db1, `UPDATE manifests SET last_pulled_at = $1`, expectedLastPulledAt)
+	mustExec(t, db1, `UPDATE tags SET last_pulled_at = $1`, expectedLastPulledAt)
 
 	//SyncManifestsInNextRepo on the primary registry should have nothing to do
 	//since there are no replica accounts
@@ -254,6 +274,11 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 	mustExec(t, db1,
 		`DELETE FROM manifests WHERE digest = $1`,
 		images[3].Manifest.Digest.String(),
+	)
+	//move a tag on the primary side
+	mustExec(t, db1,
+		`UPDATE tags SET digest = $1`,
+		images[2].Manifest.Digest.String(),
 	)
 
 	//again, nothing to do on the primary side
@@ -296,8 +321,8 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 		images[2].Manifest.Digest.String(),
 	)
 	expectError(t, expectedError, j2.SyncManifestsInNextRepo())
-	//the DB should not have changed since the operation was aborted
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-003.sql") //unchanged
+	//the tag sync went through though, so the tag should be gone
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-004.sql")
 
 	//also remove the image list manifest on the primary side
 	clock.StepBy(2 * time.Hour)
@@ -309,9 +334,9 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 	//this makes the primary side consistent again, so SyncManifestsInNextRepo
 	//should succeed now and remove both deleted manifests from the DB
 	expectSuccess(t, j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-004.sql")
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-005.sql")
 	expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-004.sql")
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-005.sql")
 
 	//replace the primary registry's API with something that just answers 404 all the time
 	clock.StepBy(2 * time.Hour)
@@ -325,7 +350,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 		images[1].Manifest.Digest.String(), //the only manifest that is left
 	)
 	expectError(t, expectedError, j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-004.sql") //unchanged
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-005.sql") //unchanged
 
 	//check that the manifest sync did not update the last_pulled_at timestamps
 	//in the primary DB (even though there were GET requests for the manifests
@@ -346,14 +371,17 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 	mustExec(t, db1, `DELETE FROM repos`)
 	//the manifest sync should reflect the repository deletion on the replica
 	expectSuccess(t, j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-005.sql")
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-006.sql")
 	expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-005.sql")
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-006.sql")
 }
 
 func answerWith404(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "not found", http.StatusNotFound)
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// tests for CheckVulnerabilitiesForNextManifest
 
 func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	j, _, db, _, sd, clock, h := setup(t)

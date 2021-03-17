@@ -132,6 +132,8 @@ func respondWithError(w http.ResponseWriter, r *http.Request, err error) bool {
 	switch err := err.(type) {
 	case nil:
 		return false
+	case processor.UpstreamManifestMissingError:
+		return respondWithError(w, r, err.Inner)
 	case *keppel.RegistryV2Error:
 		if err == nil {
 			return false

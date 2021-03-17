@@ -301,23 +301,29 @@ func checkManifestHasRequiredLabels(tx *gorp.Transaction, sd keppel.StorageDrive
 	return missingLabels, nil
 }
 
+var upsertManifestQuery = keppel.SimplifyWhitespaceInSQL(`
+	INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at)
+	VALUES ($1, $2, $3, $4, $5, $6)
+	ON CONFLICT (repo_id, digest) DO UPDATE
+		SET size_bytes = EXCLUDED.size_bytes, validated_at = EXCLUDED.validated_at
+`)
+
 func upsertManifest(db gorp.SqlExecutor, m keppel.Manifest) error {
-	_, err := db.Exec(`
-		INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (repo_id, digest) DO UPDATE
-			SET size_bytes = EXCLUDED.size_bytes, validated_at = EXCLUDED.validated_at
-	`, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.ValidatedAt)
+	_, err := db.Exec(upsertManifestQuery, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.ValidatedAt)
 	return err
 }
 
+var upsertTagQuery = keppel.SimplifyWhitespaceInSQL(`
+	INSERT INTO tags (repo_id, name, digest, pushed_at)
+	VALUES ($1, $2, $3, $4)
+	ON CONFLICT (repo_id, name) DO UPDATE
+		SET digest = EXCLUDED.digest, last_pulled_at = EXCLUDED.last_pulled_at,
+			-- only set "pushed_at" when the tag is actually moving to a different manifest
+			pushed_at = (CASE WHEN tags.digest = EXCLUDED.digest THEN tags.pushed_at ELSE EXCLUDED.pushed_at END)
+`)
+
 func upsertTag(db gorp.SqlExecutor, t keppel.Tag) error {
-	_, err := db.Exec(`
-		INSERT INTO tags (repo_id, name, digest, pushed_at)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (repo_id, name) DO UPDATE
-			SET digest = EXCLUDED.digest, pushed_at = EXCLUDED.pushed_at, last_pulled_at = EXCLUDED.last_pulled_at
-	`, t.RepositoryID, t.Name, t.Digest, t.PushedAt)
+	_, err := db.Exec(upsertTagQuery, t.RepositoryID, t.Name, t.Digest, t.PushedAt)
 	return err
 }
 
@@ -464,6 +470,18 @@ func maintainManifestManifestRefs(tx *gorp.Transaction, m keppel.Manifest, refer
 	return nil
 }
 
+//UpstreamManifestMissingError is returned from ReplicateManifest when a
+//manifest is legitimately nonexistent on upstream (i.e. returning a valid 404 error in the correct format).
+type UpstreamManifestMissingError struct {
+	Ref   keppel.ManifestReference
+	Inner error
+}
+
+//Error implements the builtin/error interface.
+func (e UpstreamManifestMissingError) Error() string {
+	return e.Inner.Error()
+}
+
 //ReplicateManifest replicates the manifest from its account's upstream registry.
 //On success, the manifest's metadata and contents are returned.
 func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Repository, reference keppel.ManifestReference, actx keppel.AuditContext) (*keppel.Manifest, []byte, error) {
@@ -472,8 +490,14 @@ func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Reposi
 	if err != nil {
 		return nil, nil, err
 	}
-	manifestBytes, manifestMediaType, err := c.DownloadManifest(reference.String(), nil) //TODO DownloadManifest should take a keppel.ManifestReference
+	//TODO DownloadManifest should take a keppel.ManifestReference
+	manifestBytes, manifestMediaType, err := c.DownloadManifest(reference.String(), &client.DownloadManifestOpts{
+		DoNotCountTowardsLastPulled: true,
+	})
 	if err != nil {
+		if errorIsManifestNotFound(err) {
+			return nil, nil, UpstreamManifestMissingError{reference, err}
+		}
 		return nil, nil, err
 	}
 
@@ -547,20 +571,22 @@ func (p *Processor) CheckManifestOnPrimary(account keppel.Account, repo keppel.R
 	_, _, err = c.DownloadManifest(reference.String(), &client.DownloadManifestOpts{
 		DoNotCountTowardsLastPulled: true,
 	})
-	switch err := err.(type) {
-	case nil:
-		return true, nil
-	case *keppel.RegistryV2Error:
-		if err.Code == keppel.ErrManifestUnknown {
-			//manifest was deleted
+	if err != nil {
+		if errorIsManifestNotFound(err) {
 			return false, nil
 		}
-		if err.Code == keppel.ErrNameUnknown {
-			//manifest was deleted
-			return false, nil
-		}
+		return false, err
 	}
-	return false, err
+	return true, nil
+}
+
+func errorIsManifestNotFound(err error) bool {
+	if rerr, ok := err.(*keppel.RegistryV2Error); ok {
+		//ErrManifestUnknown: manifest was deleted
+		//ErrNameUnknown: repo was deleted
+		return rerr.Code == keppel.ErrManifestUnknown || rerr.Code == keppel.ErrNameUnknown
+	}
+	return false
 }
 
 //DeleteManifest deletes the given manifest from both the database and the

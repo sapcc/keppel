@@ -86,7 +86,8 @@ tasks performed by the janitor.
 | ![Number 1:](./icon-red-1.png) Blob mount GC | Takes a repository and unmounts all blobs that are not referenced by any manifest in this repository.<br><br>*Rhythm:* every hour (per repository), **BUT** not while any manifests in the repository fail validation<br>*Clock:* database field `repos.next_blob_mount_sweep_at`<br>*Success signal:* Prometheus counter `keppel_successful_blob_mount_sweeps`<br>*Failure signal:* Prometheus counter `keppel_failed_blob_mount_sweeps` |
 | ![Number 2:](./icon-red-2.png) Blob GC | Takes an account and deletes all blobs that are not mounted into any repository.<br><br>*Rhythm:* every hour (per account)<br>*Clock:* database field `accounts.next_blob_sweep_at`<br>*Success signal:* Prometheus counter `keppel_successful_blob_sweeps`<br>*Failure signal:* Prometheus counter `keppel_failed_blob_sweeps` |
 | ![Number 3:](./icon-red-3.png) Storage GC | Takes an account's backing storage and deletes all blobs and manifests in it that are not referenced in the database.<br><br>*Rhythm:* every 6 hours (per account)<br>*Clock:* database field `accounts.next_storage_sweep_at`<br>*Success signal:* Prometheus counter `keppel_successful_storage_sweeps`<br>*Failure signal:* Prometheus counter `keppel_failed_storage_sweeps` |
-| Manifest sync | Takes a repo in a replica account and deletes all manifests stored in it that have been deleted on the primary account.<br><br>*Rhythm:* every hour (per repository)<br>*Clock:* database field `repos.next_manifest_sync_at`<br>*Success signal:* Prometheus counter `keppel_successful_manifest_syncs`<br>*Failure signal:* Prometheus counter `keppel_failed_manifest_syncs` |
+| Tag/manifest sync | Takes a repo in a replica account and deletes all manifests stored in it that have been deleted on the primary account. Also moves all replicated tags to point to the same manifest as on the primary account, replicating new manifests as necessary.<br><br>*Rhythm:* every hour (per repository)<br>*Clock:* database field `repos.next_manifest_sync_at`<br>*Success signal:* Prometheus counter `keppel_successful_manifest_syncs`<br>*Failure signal:* Prometheus counter `keppel_failed_manifest_syncs` |
+| Image GC | Evaluates all GC policies configured by users on their accounts (see respective section in API spec for details).<br><br>*Rhythm:* every hour (per repository)<br>*Clock:* database field `repos.next_gc_at`<br>*Success signal:* Prometheus counter `keppel_successful_image_garbage_collections`<br>*Failure signal:* Prometheus counter `keppel_failed_image_garbage_collections` |
 | Cleanup of abandoned uploads | Takes a blob upload that is still technically in progress, but has not been touched by the user in 24 hours, and removes it from the database and backing storage.<br><br>*Rhythm:* 24 hours after upload was last touched (per upload)<br>*Clock:* database field `uploads.updated_at`<br>*Success signal:* Prometheus counter `keppel_successful_abandoned_upload_cleanups`<br>*Failure signal:* Prometheus counter `keppel_failed_abandoned_upload_cleanups` |
 | Account federation announcement | Takes an account and announces its existence to the federation driver. This is a no-op for the simpler federation driver implementations. For federation drivers that track account existence in a global-scoped storage, this validation ensures that all existing accounts are correctly tracked there. This is most useful when switching to a different federation driver and populating its storage.<br><br>*Rhythm:* every hour (per account)<br>*Clock:* database field `accounts.next_federation_announcement_at`<br>*Success signal:* Prometheus counter `keppel_successful_account_federation_announcements`<br>*Failure signal:* Prometheus counter `keppel_failed_account_federation_announcements` |
 | Vulnerability scanning | Only if a Clair instance has been configured (see below). Takes a manifest and updates its vulnerability status according to the result of its vulnerability scan in Clair. If the image has not been scanned by Clair yet, it gets submitted to clair and the vulnerability status remains in `Pending` until scanning finishes.<br><br>*Rhythm:* every hour (per manifest)<br>*Clock:* database field `manifests.next_vuln_check_at`<br>*Success signal:* Prometheus counter `keppel_successful_vulnerability_checks`<br>*Failure signal:* Prometheus counter `keppel_failed_vulnerability_checks` |
@@ -100,7 +101,7 @@ In this table:
 - **Success signals** indicate that a task completed successfully.
 - **Failure signals** indicate that a task failed.
 
-All garbage collection (GC) passes run in a mark-and-sweep pattern: When an unreferenced object is encountered for the
+Most garbage collection (GC) passes run in a mark-and-sweep pattern: When an unreferenced object is encountered for the
 first time, it is only marked for deletion. It will be deleted when the next run still finds it unreferenced. This is to
 avoid inconsistencies arising from write operations running in parallel with a GC pass.
 
@@ -125,9 +126,10 @@ to run:
 
 - as many instances of `keppel server api` as you want,
 - exactly one instance of `keppel server janitor`,
-- optionally, one instance of `keppel server healthmonitor`.
+- optionally, one instance of `keppel server healthmonitor`,
+- optionally, one instance of `keppel server anycastmonitor`.
 
-Both commands take configuration from environment variables, as listed below.
+All commands take configuration from environment variables, as listed below.
 
 ### Drivers
 

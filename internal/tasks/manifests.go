@@ -27,6 +27,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/processor"
 )
 
 //query that finds the next manifest to be validated
@@ -166,6 +167,10 @@ func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
 
 	//do not perform manifest sync while account is in maintenance (maintenance mode blocks all kinds of replication)
 	if !account.InMaintenance {
+		err = j.performTagSync(*account, repo)
+		if err != nil {
+			return err
+		}
 		err = j.performManifestSync(*account, repo)
 		if err != nil {
 			return err
@@ -180,10 +185,54 @@ func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
 	return err
 }
 
+func (j *Janitor) performTagSync(account keppel.Account, repo keppel.Repository) error {
+	var tags []keppel.Tag
+	_, err := j.db.Select(&tags, `SELECT * FROM tags WHERE repo_id = $1`, repo.ID)
+	if err != nil {
+		return fmt.Errorf("cannot list tags in repo %s: %s", repo.FullName(), err.Error())
+	}
+
+	p := j.processor()
+	for _, tag := range tags {
+		//we want to check if upstream still has the tag, and if it has moved to a
+		//different manifest, replicate that manifest; all of that boils down to
+		//just a ReplicateManifest() call
+		ref := keppel.ManifestReference{Tag: tag.Name}
+		_, _, err := p.ReplicateManifest(account, repo, ref, keppel.AuditContext{
+			Authorization: keppel.JanitorAuthorization{TaskName: "tag-sync"},
+			Request:       janitorDummyRequest,
+		})
+		if err != nil {
+			//if the tag itself (and only the tag itself!) 404s, we can replicate the
+			//tag deletion into our replica
+			err404, ok := err.(processor.UpstreamManifestMissingError)
+			if ok && err404.Ref == ref {
+				_, err := j.db.Delete(&tag)
+				if err != nil {
+					return err
+				}
+			} else {
+				//all other errors fail the sync
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+var repoUntaggedManifestsSelectQuery = keppel.SimplifyWhitespaceInSQL(`
+	SELECT m.* FROM manifests m
+		WHERE repo_id = $1
+		AND digest NOT IN (SELECT digest FROM tags WHERE repo_id = $1)
+`)
+
 func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Repository) error {
-	//enumerate manifests in this repo
+	//enumerate manifests in this repo (this only needs to consider untagged
+	//manifests: we run right after performTagSync, therefore all images that are
+	//tagged right now were already confirmed to still be good)
 	var manifests []keppel.Manifest
-	_, err := j.db.Select(&manifests, `SELECT * FROM manifests WHERE repo_id = $1`, repo.ID)
+	_, err := j.db.Select(&manifests, repoUntaggedManifestsSelectQuery, repo.ID)
 	if err != nil {
 		return fmt.Errorf("cannot list manifests in repo %s: %s", repo.FullName(), err.Error())
 	}
