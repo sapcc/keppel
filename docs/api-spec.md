@@ -343,7 +343,7 @@ The following fields may be returned:
 | `repositories[].name` | string | Name of this repository. |
 | `repositories[].manifest_count` | integer | Number of manifests that are stored in this repository. |
 | `repositories[].tag_count` | integer | Number of tags that exist in this repository. |
-| `repositories[].size_bytes` | integer | Sum of all manifests in this repository and layers referenced therein. This may be higher than the actual storage usage because layer sharing is not considered in this sum. |
+| `repositories[].size_bytes` | integer | Size sum for all blobs in this repository. This correctly deduplicates layers shared between multiple manifests, but does not count the manifest's own size (only the blobs referenced therein). |
 | `repositories[].pushed_at` | UNIX timestamp | When a manifest was pushed into the registry most recently. |
 | `truncated` | boolean | Indicates whether [marker-based pagination](#marker-based-pagination) must be used to retrieve the rest of the result. |
 

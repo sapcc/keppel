@@ -85,13 +85,33 @@ func TestReposAPI(t *testing.T) {
 		})
 	}
 
+	//insert some dummy blobs and blob mounts into one of the repos to check the
+	//blob size statistics
+	filledRepo := keppel.Repository{ID: 5} //repo1-3
+	for idx := 1; idx <= 10; idx++ {
+		digest := deterministicDummyDigest(1000 + idx)
+		blobPushedAt := time.Unix(int64(1000+10*idx), 0)
+		blob := keppel.Blob{
+			AccountName: "test1",
+			Digest:      digest,
+			SizeBytes:   uint64(2000 * idx),
+			PushedAt:    blobPushedAt,
+			ValidatedAt: blobPushedAt,
+		}
+		mustInsert(t, db, &blob)
+		err := keppel.MountBlobIntoRepo(db, blob, filledRepo)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+	}
+
 	//insert some dummy manifests and tags into one of the repos to check the
 	//manifest/tag counting
 	for idx := 1; idx <= 10; idx++ {
 		digest := deterministicDummyDigest(idx)
 		manifestPushedAt := time.Unix(int64(10000+10*idx), 0)
 		mustInsert(t, db, &keppel.Manifest{
-			RepositoryID:        5, //repo1-3
+			RepositoryID:        filledRepo.ID,
 			Digest:              digest,
 			MediaType:           "",
 			SizeBytes:           uint64(1000 * idx),
@@ -113,7 +133,7 @@ func TestReposAPI(t *testing.T) {
 	renderedRepos := []assert.JSONObject{
 		{"name": "repo1-1", "manifest_count": 0, "tag_count": 0},
 		{"name": "repo1-2", "manifest_count": 0, "tag_count": 0},
-		{"name": "repo1-3", "manifest_count": 10, "tag_count": 3, "size_bytes": 55000, "pushed_at": 20030},
+		{"name": "repo1-3", "manifest_count": 10, "tag_count": 3, "size_bytes": 110000, "pushed_at": 20030},
 		{"name": "repo1-4", "manifest_count": 0, "tag_count": 0},
 		{"name": "repo1-5", "manifest_count": 0, "tag_count": 0},
 	}

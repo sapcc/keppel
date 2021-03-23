@@ -39,8 +39,14 @@ type Repository struct {
 
 var repositoryGetQuery = keppel.SimplifyWhitespaceInSQL(`
 	WITH
+		blob_stats AS (
+			SELECT bm.repo_id AS repo_id, SUM(b.size_bytes) AS size_bytes
+			  FROM blob_mounts bm
+			  JOIN blobs b ON b.id = bm.blob_id
+			 GROUP BY bm.repo_id
+		),
 		manifest_stats AS (
-			SELECT repo_id, COUNT(*) AS count, SUM(size_bytes) AS size_bytes, MAX(pushed_at) AS pushed_at
+			SELECT repo_id, COUNT(*) AS count, MAX(pushed_at) AS pushed_at
 			  FROM manifests
 			 GROUP BY repo_id
 		),
@@ -50,9 +56,11 @@ var repositoryGetQuery = keppel.SimplifyWhitespaceInSQL(`
 			 GROUP BY repo_id
 		)
 	SELECT r.name,
-	       ms.count, ms.size_bytes, ms.pushed_at,
+	       bs.size_bytes,
+	       ms.count, ms.pushed_at,
 	       ts.count, ts.pushed_at
 	  FROM repos r
+	  LEFT OUTER JOIN blob_stats     bs ON r.id = bs.repo_id
 	  LEFT OUTER JOIN manifest_stats ms ON r.id = ms.repo_id
 	  LEFT OUTER JOIN tag_stats      ts ON r.id = ts.repo_id
 	 WHERE r.account_name = $1 AND $CONDITION
@@ -85,15 +93,16 @@ func (a *API) handleGetRepositories(w http.ResponseWriter, r *http.Request) {
 	err = keppel.ForeachRow(a.db, query, bindValues, func(rows *sql.Rows) error {
 		var (
 			name                string
+			sizeBytes           *uint64
 			manifestCount       *uint64
 			maxManifestPushedAt *time.Time
-			sizeBytes           *uint64
 			tagCount            *uint64
 			maxTagPushedAt      *time.Time
 		)
 		err := rows.Scan(
 			&name,
-			&manifestCount, &sizeBytes, &maxManifestPushedAt,
+			&sizeBytes,
+			&manifestCount, &maxManifestPushedAt,
 			&tagCount, &maxTagPushedAt,
 		)
 		if err == nil {
