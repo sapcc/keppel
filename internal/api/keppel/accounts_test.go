@@ -1383,6 +1383,75 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		},
 	}.Check(t, r)
 
+	//PUT on existing account with replication credentials section copied from
+	//GET is okay, leaves replication settings unchanged too (this is important
+	//because, in practice, clients copy the account config from GET, change a
+	//thing, and PUT the result)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"in_maintenance": false,
+				"metadata":       assert.JSONObject{},
+				"rbac_policies":  []assert.JSONObject{},
+				"replication": assert.JSONObject{
+					"strategy": "from_external_on_first_use",
+					"upstream": assert.JSONObject{
+						"url":      "registry.example.com",
+						"username": "foo",
+					},
+				},
+				"platform_filter": testPlatformFilter,
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+				"in_maintenance": false,
+				"metadata":       assert.JSONObject{},
+				"rbac_policies":  []assert.JSONObject{},
+				"replication": assert.JSONObject{
+					"strategy": "from_external_on_first_use",
+					"upstream": assert.JSONObject{
+						"url":      "registry.example.com",
+						"username": "foo",
+					},
+				},
+				"platform_filter": testPlatformFilter,
+			},
+		},
+	}.Check(t, r)
+
+	//...but changing the username without also supplying a password is wrong
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"in_maintenance": false,
+				"metadata":       assert.JSONObject{},
+				"rbac_policies":  []assert.JSONObject{},
+				"replication": assert.JSONObject{
+					"strategy": "from_external_on_first_use",
+					"upstream": assert.JSONObject{
+						"url":      "registry.example.com",
+						"username": "bar",
+					},
+				},
+				"platform_filter": testPlatformFilter,
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("cannot change username for \"from_external_on_first_use\" replication without also changing password\n"),
+	}.Check(t, r)
+
 	//test sublease token issuance on account (external replicas count as primary
 	//accounts for the purposes of account name subleasing)
 	fd.NextSubleaseTokenSecretToIssue = "this-is-the-token"

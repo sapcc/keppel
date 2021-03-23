@@ -425,13 +425,10 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, `missing upstream URL for "from_external_on_first_use" replication`, http.StatusUnprocessableEntity)
 				return
 			}
-			if (rp.ExternalPeer.UserName == "") != (rp.ExternalPeer.Password == "") {
-				http.Error(w, `need either both username and password or neither for "from_external_on_first_use" replication`, http.StatusUnprocessableEntity)
-				return
-			}
 			accountToCreate.ExternalPeerURL = rp.ExternalPeer.URL
 			accountToCreate.ExternalPeerUserName = rp.ExternalPeer.UserName
 			accountToCreate.ExternalPeerPassword = rp.ExternalPeer.Password
+			//NOTE: There are some delayed checks below which require the existing account to be loaded from the DB first.
 		}
 	}
 
@@ -475,6 +472,35 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	if account != nil && account.AuthTenantID != req.Account.AuthTenantID {
 		http.Error(w, `account name already in use by a different tenant`, http.StatusConflict)
 		return
+	}
+
+	//late replication policy validations (could not do these earlier because we
+	//did not have `account` yet)
+	if req.Account.ReplicationPolicy != nil {
+		rp := *req.Account.ReplicationPolicy
+
+		if rp.Strategy == "from_external_on_first_use" {
+			//for new accounts, we need either full credentials or none
+			if account == nil {
+				if (rp.ExternalPeer.UserName == "") != (rp.ExternalPeer.Password == "") {
+					http.Error(w, `need either both username and password or neither for "from_external_on_first_use" replication`, http.StatusUnprocessableEntity)
+					return
+				}
+			}
+
+			//for existing accounts, having only a username is acceptable if it's
+			//unchanged (this case occurs when a client GETs the account, changes
+			//something unrelated to replication, and PUTs the result; the password is
+			//redacted in GET)
+			if account != nil && rp.ExternalPeer.UserName != "" && rp.ExternalPeer.Password == "" {
+				if rp.ExternalPeer.UserName == account.ExternalPeerUserName {
+					rp.ExternalPeer.Password = account.ExternalPeerPassword //to pass the equality checks below
+				} else {
+					http.Error(w, `cannot change username for "from_external_on_first_use" replication without also changing password`, http.StatusUnprocessableEntity)
+					return
+				}
+			}
+		}
 	}
 
 	//replication strategy may not be changed after account creation
