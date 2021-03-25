@@ -645,6 +645,38 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 	return nil
 }
 
+//DeleteTag deletes the given tag from the database. The manifest is not deleted.
+//If the tag does not exist, sql.ErrNoRows is returned.
+func (p *Processor) DeleteTag(account keppel.Account, repo keppel.Repository, tagName string, actx keppel.AuditContext) error {
+	digest, err := p.db.SelectStr(
+		`DELETE FROM tags WHERE repo_id = $1 AND name = $2 RETURNING digest`,
+		repo.ID, tagName)
+	if err != nil {
+		return err
+	}
+	if digest == "" {
+		return sql.ErrNoRows
+	}
+
+	if userInfo := actx.Authorization.UserInfo(); userInfo != nil {
+		p.auditor.Record(audittools.EventParameters{
+			Time:       p.timeNow(),
+			Request:    actx.Request,
+			User:       userInfo,
+			ReasonCode: http.StatusOK,
+			Action:     "delete",
+			Target: auditTag{
+				Account:    account,
+				Repository: repo,
+				Digest:     digest,
+				TagName:    tagName,
+			},
+		})
+	}
+
+	return nil
+}
+
 //auditManifest is an audittools.TargetRenderer.
 type auditManifest struct {
 	Account    keppel.Account

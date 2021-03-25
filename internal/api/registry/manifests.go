@@ -232,20 +232,18 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//<reference> must be a digest - the API does not allow deleting tags
-	//directly (tags are deleted by deleting their current manifest using its
-	//canonical digest)
-	digest, err := digest.Parse(mux.Vars(r)["reference"])
-	if err != nil {
-		keppel.ErrUnsupported.With("cannot delete manifest by tag, only by digest").WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w, r)
-		return
-	}
-
-	//delete manifest from the database
-	err = a.processor().DeleteManifest(*account, *repo, digest.String(), keppel.AuditContext{
+	//delete tag or manifest from the database
+	ref := keppel.ParseManifestReference(mux.Vars(r)["reference"])
+	actx := keppel.AuditContext{
 		Authorization: authz.Authorization(),
 		Request:       r,
-	})
+	}
+	var err error
+	if ref.IsTag() {
+		err = a.processor().DeleteTag(*account, *repo, ref.Tag, actx)
+	} else {
+		err = a.processor().DeleteManifest(*account, *repo, ref.Digest.String(), actx)
+	}
 	if err == sql.ErrNoRows {
 		keppel.ErrManifestUnknown.With("no such manifest").WriteAsRegistryV2ResponseTo(w, r)
 		return

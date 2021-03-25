@@ -186,6 +186,33 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
+	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_tags/:name")
+	account, authz := a.authenticateAccountScopedRequest(w, r, keppel.CanDeleteFromAccount)
+	if account == nil {
+		return
+	}
+	repo := a.findRepositoryFromRequest(w, r, *account)
+	if repo == nil {
+		return
+	}
+	tagName := mux.Vars(r)["tag_name"]
+
+	err := a.processor().DeleteTag(*account, *repo, tagName, keppel.AuditContext{
+		Authorization: authz,
+		Request:       r,
+	})
+	if err == sql.ErrNoRows {
+		http.Error(w, "no such tag", http.StatusNotFound)
+		return
+	}
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (a *API) handleGetVulnerabilityReport(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests/:digest/vulnerability_report")
 	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanViewAccount)

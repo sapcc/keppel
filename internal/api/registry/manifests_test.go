@@ -300,16 +300,6 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 			}.Check(t, h)
 
-			//DELETE failure case: cannot delete by tag
-			assert.HTTPRequest{
-				Method:       "DELETE",
-				Path:         "/v2/test1/foo/manifests/latest",
-				Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
-				ExpectStatus: http.StatusMethodNotAllowed,
-				ExpectHeader: test.VersionHeader,
-				ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
-			}.Check(t, h)
-
 			//DELETE failure case: unknown manifest
 			assert.HTTPRequest{
 				Method:       "DELETE",
@@ -336,17 +326,21 @@ func TestImageManifestLifecycle(t *testing.T) {
 			//DELETE success case
 			assert.HTTPRequest{
 				Method:       "DELETE",
-				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
+				Path:         "/v2/test1/foo/manifests/" + ref,
 				Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
 				ExpectStatus: http.StatusAccepted,
 				ExpectHeader: test.VersionHeader,
 			}.Check(t, h)
 			clock.Step()
-			easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-004-after-delete-manifest.sql")
+			if ref == "latest" {
+				easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-004-after-delete-tag.sql")
+			} else {
+				easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-004-after-delete-manifest.sql")
+			}
 
 			//the DELETE will have logged an audit event
-			auditor.ExpectEvents(t, cadf.Event{
-				RequestPath: "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
+			event := cadf.Event{
+				RequestPath: "/v2/test1/foo/manifests/" + ref,
 				Action:      "delete",
 				Outcome:     "success",
 				Reason:      test.CADFReasonOK,
@@ -356,7 +350,12 @@ func TestImageManifestLifecycle(t *testing.T) {
 					ID:        image.Manifest.Digest.String(),
 					ProjectID: "test1authtenant",
 				},
-			})
+			}
+			if ref == "latest" {
+				event.Target.TypeURI = "docker-registry/account/repository/tag"
+				event.Target.Name = "test1/foo:latest"
+			}
+			auditor.ExpectEvents(t, event)
 		})
 
 	}

@@ -229,7 +229,7 @@ func TestManifestsAPI(t *testing.T) {
 		ExpectBody:   assert.StringData("strconv.ParseUint: parsing \"foo\": invalid syntax\n"),
 	}.Check(t, h)
 
-	//test DELETE happy case
+	//test DELETE manifest happy case
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/before-delete-manifest.sql")
 	assert.HTTPRequest{
 		Method:       "DELETE",
@@ -252,7 +252,29 @@ func TestManifestsAPI(t *testing.T) {
 		},
 	})
 
-	//test DELETE failure cases
+	//test DELETE tag happy case
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1/repositories/repo1-2/_tags/stillfirst",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
+		ExpectStatus: http.StatusNoContent,
+	}.Check(t, h)
+	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/after-delete-tag.sql")
+
+	auditor.ExpectEvents(t, cadf.Event{
+		RequestPath: "/keppel/v1/accounts/test1/repositories/repo1-2/_tags/stillfirst",
+		Action:      "delete",
+		Outcome:     "success",
+		Reason:      test.CADFReasonOK,
+		Target: cadf.Resource{
+			TypeURI:   "docker-registry/account/repository/tag",
+			Name:      "test1/repo1-2:stillfirst",
+			ID:        deterministicDummyDigest(21),
+			ProjectID: "tenant1",
+		},
+	})
+
+	//test DELETE manifest failure cases
 	assert.HTTPRequest{
 		Method:       "DELETE",
 		Path:         "/keppel/v1/accounts/test2/repositories/repo2-1/_manifests/" + deterministicDummyDigest(31),
@@ -285,7 +307,7 @@ func TestManifestsAPI(t *testing.T) {
 	}.Check(t, h)
 	assert.HTTPRequest{
 		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/second",
+		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/second", //this endpoint only works with digests
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
 		ExpectStatus: http.StatusNotFound,
 	}.Check(t, h)
@@ -293,6 +315,32 @@ func TestManifestsAPI(t *testing.T) {
 		Method:       "DELETE",
 		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/sha256:12345",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
+		ExpectStatus: http.StatusNotFound,
+	}.Check(t, h)
+
+	//test DELETE tag failure cases
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1/repositories/repo1-2/_tags/first",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: http.StatusForbidden,
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test2/repositories/repo2-1/_tags/" + deterministicDummyDigest(31), //this endpoint only works with tags
+		Header:       map[string]string{"X-Test-Perms": "delete:tenant2,view:tenant2"},
+		ExpectStatus: http.StatusNotFound,
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test2/repositories/doesnotexist/_tags/first",
+		Header:       map[string]string{"X-Test-Perms": "delete:tenant2,view:tenant2"},
+		ExpectStatus: http.StatusNotFound,
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test2/repositories/repo2-1/_tags/doesnotexist",
+		Header:       map[string]string{"X-Test-Perms": "delete:tenant2,view:tenant2"},
 		ExpectStatus: http.StatusNotFound,
 	}.Check(t, h)
 

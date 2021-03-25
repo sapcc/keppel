@@ -33,6 +33,7 @@ This document uses the terminology defined in the [README.md](../README.md#termi
 - [GET /keppel/v1/accounts/:name/repositories/:name/\_manifests](#get-keppelv1accountsnamerepositoriesname_manifests)
 - [DELETE /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest](#delete-keppelv1accountsnamerepositoriesname_manifestsdigest)
 - [GET /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest/vulnerability\_report](#delete-keppelv1accountsnamerepositoriesname_manifestsdigestvulnerability_report)
+- [DELETE /keppel/v1/accounts/:name/repositories/:name/\_tags/:name](#delete-keppelv1accountsnamerepositoriesname_tagsname)
 - [GET /keppel/v1/auth](#get-keppelv1auth)
 - [POST /keppel/v1/auth/peering](#post-keppelv1authpeering)
 - [GET /keppel/v1/peers](#get-keppelv1peers)
@@ -435,6 +436,10 @@ Otherwise, returns 204 (No Content) if the manifest does not directly reference 
 Otherwise, returns 405 (Method Not Allowed) if the manifest exists, but its vulnerability status (see above) is either `Pending` or `Error`. (This case should technically also be a 404, but the different status code allows clients to disambiguate the nonexistence of the manifest from the nonexistence of the vulnerability report.)
 
 Note that, when manifests reference other manifests (the most common case being multi-arch images referencing their constituent single-arch images), the vulnerability status of the parent manifest aggregates over the vulnerability statuses of its child manifests, but its vulnerability report only covers image layers directly referenced by the parent manifest. Clients displaying the vulnerability report for a multi-arch image manifest or any other manifest referencing child manifests should recursively fetch the vulnerability reports of all child manifests and show a merged representation as appropriate for their use case.
+
+## DELETE /keppel/v1/accounts/:name/repositories/:name/\_tags/:name
+
+Deletes the specified tag, without deleting the manifest it points to. Returns 204 (No Content) on success.
 
 ## GET /keppel/v1/auth
 
