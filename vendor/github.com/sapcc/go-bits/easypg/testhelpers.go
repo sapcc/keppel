@@ -26,10 +26,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
+	"regexp"
 	"strings"
 	"testing"
-	"time"
 )
 
 //ExecSQLFile loads a file containing SQL statements and executes them all.
@@ -59,82 +58,120 @@ func ExecSQLFile(t *testing.T, db *sql.DB, path string) {
 //error if these two are different from each other.
 func AssertDBContent(t *testing.T, db *sql.DB, fixtureFile string) {
 	t.Helper()
-	actualContent := getDBContent(t, db)
+	_, a := NewTracker(t, db)
+	a.AssertEqualToFile(fixtureFile)
+}
+
+//Tracker keeps a copy of the database contents and allows for checking the
+//database contents (or changes made to them) during tests.
+type Tracker struct {
+	t    *testing.T
+	db   *sql.DB
+	snap dbSnapshot
+}
+
+//NewTracker creates a new Tracker.
+//
+//Since the initial creation involves taking a snapshot, this snapshot is
+//returned as a second value. This is an optimization, since it is often
+//desired to assert on the full DB contents when creating the tracker. Calling
+//Tracker.DBContent() directly after NewTracker() would do a useless second
+//snapshot.
+func NewTracker(t *testing.T, db *sql.DB) (*Tracker, Assertable) {
+	t.Helper()
+	snap := newDBSnapshot(t, db)
+	return &Tracker{t, db, snap}, Assertable{t, snap.ToSQL(nil)}
+}
+
+//DBContent produces a dump of the current database contents, as a sequence of
+//INSERT statements on which test assertions can be executed.
+func (t *Tracker) DBContent() Assertable {
+	t.t.Helper()
+	t.snap = newDBSnapshot(t.t, t.db)
+	return Assertable{t.t, t.snap.ToSQL(nil)}
+}
+
+//DBChanges produces a diff of the current database contents against the state
+//at the last Tracker call, as a sequence of INSERT/UPDATE/DELETE statements on
+//which test assertions can be executed.
+func (t *Tracker) DBChanges() Assertable {
+	t.t.Helper()
+	snap := newDBSnapshot(t.t, t.db)
+	diff := snap.ToSQL(t.snap)
+	t.snap = snap
+	return Assertable{t.t, diff}
+}
+
+//Assertable contains a set of SQL statements. Instances are produced by
+//methods on type Tracker.
+type Assertable struct {
+	t       *testing.T
+	payload string
+}
+
+//AssertEqualToFile compares the set of SQL statements to those in the given
+//file. A test error is generated in case of differences.
+func (a Assertable) AssertEqualToFile(fixtureFile string) {
+	a.t.Helper()
 
 	//write actual content to file to make it easy to copy the computed result over
 	//to the fixture path when a new test is added or an existing one is modified
 	fixturePath, _ := filepath.Abs(fixtureFile)
 	actualPath := fixturePath + ".actual"
-	err := ioutil.WriteFile(actualPath, []byte(actualContent), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
+	failOnErr(a.t, ioutil.WriteFile(actualPath, []byte(a.payload), 0644))
 
 	cmd := exec.Command("diff", "-u", fixturePath, actualPath)
 	cmd.Stdin = nil
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	failOnErr(t, cmd.Run())
+	failOnErr(a.t, cmd.Run())
 }
 
-func getDBContent(t *testing.T, db *sql.DB) string {
-	//list all tables
-	var tableNames []string
-	rows, err := db.Query(`
-		SELECT table_name FROM information_schema.tables
-		WHERE table_schema = 'public' AND table_name != 'schema_migrations'
-		ORDER BY table_name COLLATE "C"
-	`)
+var whitespaceAtStartOfLineRx = regexp.MustCompile(`(?m)^\s+`)
 
-	failOnErr(t, err)
-	for rows.Next() {
-		var name string
-		failOnErr(t, rows.Scan(&name))
-		tableNames = append(tableNames, name)
-	}
-	failOnErr(t, rows.Err())
-	failOnErr(t, rows.Close())
+//AssertEqual compares the set of SQL statements to those in the given string
+//literal. A test error is generated in case of differences. This assertion
+//is lenient with regards to whitespace to enable callers to format their
+//string literals in a way that fits nicely in the surrounding code.
+func (a Assertable) AssertEqual(expected string) {
+	a.t.Helper()
+	//cleanup indentation and empty lines in `expected`
+	expected = strings.TrimSpace(expected) + "\n"
+	expected = whitespaceAtStartOfLineRx.ReplaceAllString(expected, "")
 
-	//foreach table, dump each entry as an INSERT statement
-	serializedRows := make(map[string][]string)
-	for _, tableName := range tableNames {
-		rows, err := db.Query(`SELECT * FROM ` + tableName)
-		failOnErr(t, err)
-		columnNames, err := rows.Columns()
-		failOnErr(t, err)
+	//cleanup empty lines in `actual`
+	actual := strings.Replace(a.payload, "\n\n", "\n", -1)
 
-		scanTarget := make([]interface{}, len(columnNames))
-		for idx := range scanTarget {
-			scanTarget[idx] = &sqlValueSerializer{}
-		}
-		formatStr := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s);",
-			tableName,
-			strings.Join(columnNames, ", "),
-			strings.Join(times(len(columnNames), "%#v"), ", "),
-		)
-
-		for rows.Next() {
-			failOnErr(t, rows.Scan(scanTarget...))
-			serialized := fmt.Sprintf(formatStr, scanTarget...)
-			serializedRows[tableName] = append(serializedRows[tableName], serialized)
-		}
-
-		failOnErr(t, rows.Err())
-		failOnErr(t, rows.Close())
+	//quick path: if both are equal, we're fine
+	if expected == actual {
+		return
 	}
 
-	//sort rows into deterministic order
-	var results []string
-	for _, tableName := range tableNames {
-		rows := serializedRows[tableName]
-		if len(rows) == 0 {
-			continue
-		}
-		sort.Strings(rows)
-		results = append(results, strings.Join(rows, "\n"))
-	}
+	//slow path: show a diff
+	tmpDir, err := ioutil.TempDir("", "easypg-diff")
+	failOnErr(a.t, err)
+	actualPath := filepath.Join(tmpDir, "/actual")
+	failOnErr(a.t, ioutil.WriteFile(actualPath, []byte(actual), 0644))
+	expectedPath := filepath.Join(tmpDir, "/expected")
+	failOnErr(a.t, ioutil.WriteFile(expectedPath, []byte(expected), 0644))
 
-	return strings.Join(results, "\n\n") + "\n"
+	cmd := exec.Command("diff", "-u", expectedPath, actualPath)
+	cmd.Stdin = nil
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	failOnErr(a.t, cmd.Run())
+}
+
+//AssertEqualf is a shorthand for AssertEqual(fmt.Sprintf(...)).
+func (a Assertable) AssertEqualf(format string, args ...interface{}) {
+	a.t.Helper()
+	a.AssertEqual(fmt.Sprintf(format, args...))
+}
+
+//AssertEmpty is a shorthand for AssertEqual("").
+func (a Assertable) AssertEmpty() {
+	a.t.Helper()
+	a.AssertEqual("")
 }
 
 func failOnErr(t *testing.T, err error) {
@@ -142,50 +179,4 @@ func failOnErr(t *testing.T, err error) {
 	if err != nil {
 		t.Fatal(err)
 	}
-}
-
-func times(n int, s string) []string {
-	result := make([]string, n)
-	for idx := range result {
-		result[idx] = s
-	}
-	return result
-}
-
-type sqlValueSerializer struct {
-	Serialized string
-}
-
-func (s *sqlValueSerializer) Scan(src interface{}) error {
-	switch val := src.(type) {
-	case int64:
-		s.Serialized = fmt.Sprintf("%#v", val)
-	case float64:
-		s.Serialized = fmt.Sprintf("%#v", val)
-	case bool:
-		s.Serialized = "FALSE"
-		if val {
-			s.Serialized = "TRUE"
-		}
-	case []byte:
-		s.Serialized = fmt.Sprintf("'%s'", string(val))
-		//SQLite apparently stores boolean values as C strings
-		switch s.Serialized {
-		case "'FALSE'":
-			s.Serialized = "FALSE"
-		case "'TRUE'":
-			s.Serialized = "TRUE"
-		}
-	case string:
-		s.Serialized = fmt.Sprintf("'%s'", val)
-	case time.Time:
-		s.Serialized = fmt.Sprintf("%#v", val.Unix())
-	default:
-		s.Serialized = "NULL"
-	}
-	return nil
-}
-
-func (s *sqlValueSerializer) GoString() string {
-	return s.Serialized
 }

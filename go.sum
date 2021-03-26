@@ -380,8 +380,8 @@ github.com/ryanuber/columnize v0.0.0-20160712163229-9b3edd62028f/go.mod h1:sm1tb
 github.com/samuel/go-zookeeper v0.0.0-20190923202752-2cc03de413da/go.mod h1:gi+0XIa01GRL2eRQVjQkKGqKF3SF9vZR/HnPullcV2E=
 github.com/sapcc/go-bits v0.0.0-20180828115508-ed29938ce01c/go.mod h1:KeP5OOqQIgrauiDb/8shKWOq1YoplBALYNvpV4jizPo=
 github.com/sapcc/go-bits v0.0.0-20190910095551-3863bd6b4943/go.mod h1:YpW83RbRSHPedMBfuvdfYJMQbejxSxzK1Kj/39szShw=
-github.com/sapcc/go-bits v0.0.0-20210224200539-a8e93aa719ac h1:neXPyj0YFkug5YvS86yX/k0Smzrg3+k4DKx0scp7sOk=
-github.com/sapcc/go-bits v0.0.0-20210224200539-a8e93aa719ac/go.mod h1:K/nymIfebyify6kJ9K62XSQHFw/M5QNo8BmYNmuUJbk=
+github.com/sapcc/go-bits v0.0.0-20210326161745-782f1d0cfdee h1:C01q6P51r/D6LGIoqtoRXaEFAdpo/3NXeKIqXvuhf+A=
+github.com/sapcc/go-bits v0.0.0-20210326161745-782f1d0cfdee/go.mod h1:K/nymIfebyify6kJ9K62XSQHFw/M5QNo8BmYNmuUJbk=
 github.com/sapcc/hermes v0.0.0-20190722215605-d772f40f9fc6/go.mod h1:WM5CVlqFCGM+AUE7lQgkLmPE89PWqJS3i+oRXaSztR8=
 github.com/sapcc/hermes v0.0.0-20210216180520-a78bcce1902f h1:SWzv/XHYCr8IJdzw6zgjnX29EPrINyTJZxG+rTepCt4=
 github.com/sapcc/hermes v0.0.0-20210216180520-a78bcce1902f/go.mod h1:AoVNC9XhQ7x3oorZ+J3G1xrYWIgYJBhcN0+bH5S48lU=

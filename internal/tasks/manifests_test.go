@@ -418,7 +418,8 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		)
 	}
 
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/vulnerability-check-000.sql")
+	tr, tr0 := easypg.NewTracker(t, db.DbMap.Db)
+	tr0.AssertEqualToFile("fixtures/vulnerability-check-setup.sql")
 
 	//setup our Clair API double
 	claird := test.NewClairDouble()
@@ -452,7 +453,11 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/vulnerability-check-001.sql")
+	tr.DBChanges().AssertEqual(`
+		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = 'sha256:7c5ed02bcdf0dbddf6f1664e01d6a1505c880e296a599371eb919e0e053c0aef';
+		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = 'sha256:be414f354c95cb5c3e26d604f5fc79523c68c3f86e0fae98060d5bbc8db466c3';
+		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = 'sha256:dbed29ef114646eb4018436b03c6081f63e8a2693a78e3557b0cd240494fa3c0';
+	`)
 
 	//five minutes later, indexing is still not finished
 	clock.StepBy(5 * time.Minute)
@@ -460,7 +465,11 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/vulnerability-check-002.sql")
+	tr.DBChanges().AssertEqual(`
+		UPDATE manifests SET next_vuln_check_at = 5820 WHERE repo_id = 1 AND digest = 'sha256:7c5ed02bcdf0dbddf6f1664e01d6a1505c880e296a599371eb919e0e053c0aef';
+		UPDATE manifests SET next_vuln_check_at = 5820 WHERE repo_id = 1 AND digest = 'sha256:be414f354c95cb5c3e26d604f5fc79523c68c3f86e0fae98060d5bbc8db466c3';
+		UPDATE manifests SET next_vuln_check_at = 5820 WHERE repo_id = 1 AND digest = 'sha256:dbed29ef114646eb4018436b03c6081f63e8a2693a78e3557b0cd240494fa3c0';
+	`)
 
 	//five minutes later, indexing is finished now and ClairDouble provides vulnerability reports to us
 	claird.ReportFixtures[images[0].Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
@@ -470,7 +479,11 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/vulnerability-check-003.sql")
+	tr.DBChanges().AssertEqual(`
+		UPDATE manifests SET next_vuln_check_at = 9600, vuln_status = 'Low' WHERE repo_id = 1 AND digest = 'sha256:7c5ed02bcdf0dbddf6f1664e01d6a1505c880e296a599371eb919e0e053c0aef';
+		UPDATE manifests SET next_vuln_check_at = 9600, vuln_status = 'Clean' WHERE repo_id = 1 AND digest = 'sha256:be414f354c95cb5c3e26d604f5fc79523c68c3f86e0fae98060d5bbc8db466c3';
+		UPDATE manifests SET next_vuln_check_at = 9600, vuln_status = 'Low' WHERE repo_id = 1 AND digest = 'sha256:dbed29ef114646eb4018436b03c6081f63e8a2693a78e3557b0cd240494fa3c0';
+	`)
 }
 
 func mustParseURL(in string) url.URL {
