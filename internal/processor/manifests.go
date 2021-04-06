@@ -584,7 +584,8 @@ func errorIsManifestNotFound(err error) bool {
 	if rerr, ok := err.(*keppel.RegistryV2Error); ok {
 		//ErrManifestUnknown: manifest was deleted
 		//ErrNameUnknown: repo was deleted
-		return rerr.Code == keppel.ErrManifestUnknown || rerr.Code == keppel.ErrNameUnknown
+		//"NOT_FOUND": not defined by the spec, but observed in the wild with Harbor
+		return rerr.Code == keppel.ErrManifestUnknown || rerr.Code == keppel.ErrNameUnknown || rerr.Code == "NOT_FOUND"
 	}
 	return false
 }
