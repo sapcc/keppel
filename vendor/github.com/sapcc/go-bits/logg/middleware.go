@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"net/http"
 	"regexp"
+	"time"
 
 	"github.com/sapcc/go-bits/httpext"
 )
@@ -44,19 +45,22 @@ func (m Middleware) Wrap(h http.Handler) http.Handler {
 		writer := responseWriter{original: w}
 
 		//forward request to actual handler
+		start := time.Now()
 		h.ServeHTTP(&writer, r)
+		duration := time.Since(start)
 
 		//write log line (the format is similar to nginx's "combined" log format, but
 		//the timestamp is at the front to ensure consistency with the rest of the
 		//log)
 		if !m.isExcluded(r, writer.statusCode) {
 			Other(
-				"REQUEST", `%s - - "%s %s %s" %03d %d "%s" "%s"`,
+				"REQUEST", `%s - - "%s %s %s" %03d %d "%s" "%s" %.3fs`,
 				httpext.GetRequesterIPFor(r),
 				r.Method, r.URL.String(), r.Proto,
 				writer.statusCode, writer.bytesWritten,
 				stringOrDefault("-", r.Header.Get("Referer")),
 				stringOrDefault("-", r.Header.Get("User-Agent")),
+				duration.Seconds(),
 			)
 		}
 		if writer.errorMessageBuf.Len() > 0 {

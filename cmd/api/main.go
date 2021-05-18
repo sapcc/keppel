@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/dlmiddlecote/sqlstats"
 	"github.com/go-redis/redis"
@@ -84,7 +85,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	//start background goroutines
-	ctx := httpee.ContextWithSIGINT(context.Background())
+	ctx := httpee.ContextWithSIGINT(context.Background(), 10*time.Second)
 	runPeering(ctx, cfg, db)
 
 	//wire up HTTP handlers

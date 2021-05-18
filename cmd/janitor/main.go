@@ -66,7 +66,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	prometheus.MustRegister(sqlstats.NewStatsCollector("keppel", db.DbMap.Db))
 
-	ctx := httpee.ContextWithSIGINT(context.Background())
+	ctx := httpee.ContextWithSIGINT(context.Background(), 10*time.Second)
 
 	//start task loops
 	janitor := tasks.NewJanitor(cfg, fd, sd, db, auditor)

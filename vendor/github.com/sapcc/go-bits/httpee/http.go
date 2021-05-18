@@ -39,7 +39,12 @@ var shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
 //
 // This function is not strictly related to net/http, but fits nicely with func
 // ListenAndServeContext from this package.
-func ContextWithSIGINT(ctx context.Context) context.Context {
+//
+// If `delay` is not 0, the context will be canceled with this delay after an
+// interrupt signal was caught. This is useful when using the context with
+// ListenAndServeContext(), to give reverse-proxies using this HTTP server some
+// extra delay to notice the pending shutdown of this server.
+func ContextWithSIGINT(ctx context.Context, delay time.Duration) context.Context {
 	ctx, cancel := context.WithCancel(ctx)
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, shutdownSignals...)
@@ -47,6 +52,7 @@ func ContextWithSIGINT(ctx context.Context) context.Context {
 		<-signalChan
 		logg.Info("Interrupt received...")
 		signal.Reset(shutdownSignals...)
+		time.Sleep(delay)
 		close(signalChan)
 		cancel()
 	}()

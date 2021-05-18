@@ -94,7 +94,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	//expose metrics endpoint
 	http.Handle("/metrics", promhttp.Handler())
-	ctx := httpee.ContextWithSIGINT(context.Background())
+	ctx := httpee.ContextWithSIGINT(context.Background(), 1*time.Second)
 	go func() {
 		logg.Info("listening on %s...", listenAddress)
 		err := httpee.ListenAndServeContext(ctx, listenAddress, nil)
