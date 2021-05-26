@@ -234,15 +234,14 @@ type Repository struct {
 //FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a
 //Repository record when none exists yet.
 func FindOrCreateRepository(db gorp.SqlExecutor, name string, account Account) (*Repository, error) {
-	repo, err := FindRepository(db, name, account)
+	var repo Repository
+	err := db.SelectOne(&repo,
+		"INSERT INTO repos (account_name, name) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *", account.Name, name)
 	if err == sql.ErrNoRows {
-		repo = &Repository{
-			AccountName: account.Name,
-			Name:        name,
-		}
-		err = db.Insert(repo)
+		//the row already existed, so we did not insert it and hence nothing was returned
+		return FindRepository(db, name, account)
 	}
-	return repo, err
+	return &repo, err
 }
 
 //FindRepository is a convenience wrapper around db.SelectOne(). If the
