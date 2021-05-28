@@ -169,19 +169,38 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 		if err != nil {
 			return err
 		}
-
 		//enforce account-specific validation rules on manifest, but only when
 		//pushing (not when validating at a later point in time, the set of
 		//RequiredLabels could have been changed by then)
-		if manifest.PushedAt == manifest.ValidatedAt && account.RequiredLabels != "" {
-			requiredLabels := strings.Split(account.RequiredLabels, ",")
-			missingLabels, err := checkManifestHasRequiredLabels(tx, p.sd, account, manifestParsed, requiredLabels)
+		labelsRequired := manifest.PushedAt == manifest.ValidatedAt && account.RequiredLabels != ""
+		labels, err := getManifestLabels(tx, p.sd, account, manifestParsed)
+		if err != nil {
+			return err
+		}
+		if len(labels) > 0 {
+			labelsJSON, err := json.Marshal(labels)
 			if err != nil {
 				return err
 			}
-			if len(missingLabels) > 0 {
-				msg := "missing required labels: " + strings.Join(missingLabels, ", ")
-				return keppel.ErrManifestInvalid.With(msg)
+			manifest.LabelsJSON = string(labelsJSON)
+
+			if labelsRequired {
+				requiredLabels := strings.Split(account.RequiredLabels, ",")
+				var missingLabels []string
+				for _, l := range requiredLabels {
+					if _, exists := labels[l]; !exists {
+						missingLabels = append(missingLabels, l)
+					}
+				}
+				if len(missingLabels) > 0 {
+					msg := "missing required labels: " + strings.Join(missingLabels, ", ")
+					return keppel.ErrManifestInvalid.With(msg)
+				}
+			}
+		} else {
+			manifest.LabelsJSON = ""
+			if labelsRequired {
+				return keppel.ErrManifestInvalid.With("missing required labels: %s", account.RequiredLabels)
 			}
 		}
 
@@ -249,7 +268,7 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 }
 
 //Returns the list of missing labels, or nil if everything is ok.
-func checkManifestHasRequiredLabels(tx *gorp.Transaction, sd keppel.StorageDriver, account keppel.Account, manifest keppel.ParsedManifest, requiredLabels []string) ([]string, error) {
+func getManifestLabels(tx *gorp.Transaction, sd keppel.StorageDriver, account keppel.Account, manifest keppel.ParsedManifest) (map[string]string, error) {
 	//is this manifest an image that has labels?
 	configBlob := manifest.FindImageConfigBlob()
 	if configBlob == nil {
@@ -284,7 +303,7 @@ func checkManifestHasRequiredLabels(tx *gorp.Transaction, sd keppel.StorageDrive
 	//the labels in the same place, so we can use a single code path for both
 	var data struct {
 		Config struct {
-			Labels map[string]interface{} `json:"labels"`
+			Labels map[string]string `json:"labels"`
 		} `json:"config"`
 	}
 	err = json.Unmarshal(blobContents, &data)
@@ -292,24 +311,18 @@ func checkManifestHasRequiredLabels(tx *gorp.Transaction, sd keppel.StorageDrive
 		return nil, err
 	}
 
-	var missingLabels []string
-	for _, label := range requiredLabels {
-		if _, exists := data.Config.Labels[label]; !exists {
-			missingLabels = append(missingLabels, label)
-		}
-	}
-	return missingLabels, nil
+	return data.Config.Labels, nil
 }
 
 var upsertManifestQuery = keppel.SimplifyWhitespaceInSQL(`
-	INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at)
-	VALUES ($1, $2, $3, $4, $5, $6)
+	INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, labels_json)
+	VALUES ($1, $2, $3, $4, $5, $6, $7)
 	ON CONFLICT (repo_id, digest) DO UPDATE
 		SET size_bytes = EXCLUDED.size_bytes, validated_at = EXCLUDED.validated_at
 `)
 
 func upsertManifest(db gorp.SqlExecutor, m keppel.Manifest) error {
-	_, err := db.Exec(upsertManifestQuery, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.ValidatedAt)
+	_, err := db.Exec(upsertManifestQuery, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.ValidatedAt, m.LabelsJSON)
 	return err
 }
 
