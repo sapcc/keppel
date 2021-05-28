@@ -58,6 +58,10 @@ have access to all of schwift's API:
 
 	account, err := gopherschwift.Wrap(client)
 
+For example, to download an object's contents into a string:
+
+	text, err := account.Container("foo").Object("bar.txt").Download(nil).AsString()
+
 Authentication with a different OpenStack library
 
 If you use a different Go library to handle Keystone/Swift authentication, take

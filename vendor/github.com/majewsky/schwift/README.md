@@ -53,7 +53,11 @@ account, err := gopherschwift.Wrap(client, nil)
 ```
 
 From this point, follow the [API documentation](https://godoc.org/github.com/majewsky/schwift) for what you can do with
-the `schwift.Account` object.
+the `schwift.Account` object. For example, to download an object's contents into a string:
+
+```
+text, err := account.Container("foo").Object("bar.txt").Download(nil).AsString()
+```
 
 ## Why another Swift client library?
 

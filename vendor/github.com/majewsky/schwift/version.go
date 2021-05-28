@@ -19,4 +19,4 @@
 package schwift
 
 //Version contains the version number of Schwift.
-const Version = "1.0-beta"
+const Version = "1.0.0"

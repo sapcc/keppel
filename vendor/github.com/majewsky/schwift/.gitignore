@@ -2,6 +2,3 @@
 cover.out
 cover.out.*
 cover.html
-
-# vendoring
-.golangvend-cache/

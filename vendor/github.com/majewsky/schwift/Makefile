@@ -3,6 +3,10 @@ help:
 	@echo '    make generate'
 	@echo '    make test'
 
+GO_BUILDFLAGS =
+GO_LDFLAGS =
+GO_TESTENV =
+
 ################################################################################
 
 generate: generated.go
@@ -14,32 +18,37 @@ generate: generated.go
 ################################################################################
 
 test: static-tests cover.html
+	@printf "\e[1;32m>> All tests successful.\e[0m\n"
 
-PKG = github.com/majewsky/schwift
-TESTPKGS = $(PKG) $(PKG)/tests          # space-separated list of packages containing tests
-COVERPKGS = $(PKG),$(PKG)/gopherschwift # comma-separated list of packages for which to measure coverage
+# which packages to test with static checkers
+GO_ALLPKGS := $(shell go list ./... | grep -v '/util')
+# which files to test with static checkers (this contains a list of globs)
+GO_ALLFILES := $(addsuffix /*.go,$(patsubst $(shell go list .),.,$(GO_ALLPKGS)))
+# which packages to test with "go test"
+GO_TESTPKGS := $(shell go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | grep -v '/util')
+# which packages to measure coverage for
+GO_COVERPKGS := $(shell go list ./... | grep -Ev '/util')
+# to get around weird Makefile syntax restrictions, we need variables containing a space and comma
+space := $(null) $(null)
+comma := ,
 
 static-tests: FORCE
-	@echo '>> gofmt...'
-	@if s="$$(gofmt -s -l $$(find . -name \*.go) 2>/dev/null)" && test -n "$$s"; then echo "$$s"; false; fi
-	@echo '>> golint...'
-	@if s="$$(golint $(TESTPKGS) 2>/dev/null)" && test -n "$$s"; then echo "$$s"; false; fi
-	@echo '>> govet...'
-	@go vet $(TESTPKGS)
+	@if ! hash golint 2>/dev/null; then printf "\e[1;36m>> Installing golint...\e[0m\n"; GO111MODULE=off go get -u golang.org/x/lint/golint; fi
+	@printf "\e[1;36m>> gofmt\e[0m\n"
+	@if s="$$(gofmt -s -d $(GO_ALLFILES) 2>/dev/null)" && test -n "$$s"; then echo "$$s"; false; fi
+	@printf "\e[1;36m>> golint\e[0m\n"
+	@if s="$$(golint $(GO_ALLPKGS) 2>/dev/null)" && test -n "$$s"; then echo "$$s"; false; fi
+	@printf "\e[1;36m>> go vet\e[0m\n"
+	@go vet $(GO_BUILDFLAGS) $(GO_ALLPKGS)
 
-cover.out.%: FORCE
-	@echo '>> go test...'
-	go test -covermode count -coverpkg $(COVERPKGS) -coverprofile $@ $(subst _,/,$*)
-cover.out: $(addprefix cover.out.,$(subst /,_,$(TESTPKGS)))
-	util/gocovcat.go $^ > $@
+cover.out: FORCE
+	@printf "\e[1;36m>> go test\e[0m\n"
+	@env $(GO_TESTENV) go test $(GO_BUILDFLAGS) -ldflags '-s -w $(GO_LDFLAGS)' -p 1 -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
+
 cover.html: cover.out
-	@echo '>> rendering cover.html...'
+	@printf "\e[1;36m>> go tool cover > $@\e[0m\n"
 	@go tool cover -html=$< -o $@
 
 ################################################################################
-
-# vendoring by https://github.com/holocm/golangvend
-vendor: FORCE
-	@golangvend
 
 .PHONY: FORCE
