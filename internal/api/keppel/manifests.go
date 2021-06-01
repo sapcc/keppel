@@ -104,7 +104,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 			result.IsTruncated = true
 			break
 		}
-		labelsJSON := []byte(dbManifest.LabelsJSON)
+		labelsJSON := json.RawMessage(dbManifest.LabelsJSON)
 		result.Manifests = append(result.Manifests, &Manifest{
 			Digest:                        dbManifest.Digest,
 			MediaType:                     dbManifest.MediaType,
