@@ -596,9 +596,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 			"bar": "is there",
 			"foo": "is there",
 		}
-		if !assert.DeepEqual(t, "labels_json", actual, expected) {
-			t.Fatal("expected labels_json to be correctly populated during image push")
-		}
+		assert.DeepEqual(t, "labels_json", actual, expected)
 	})
 }
 
