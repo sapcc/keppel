@@ -19,6 +19,7 @@
 package registryv2
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -573,6 +574,29 @@ func TestManifestRequiredLabels(t *testing.T) {
 			ExpectStatus: http.StatusCreated,
 			ExpectHeader: test.VersionHeader,
 		}.Check(t, h)
+
+		//check that the labels_json field is populated correctly in the db
+		var dbManifests []keppel.Manifest
+		_, err = db.Select(&dbManifests,
+			`SELECT * FROM manifests`,
+		)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		if len(dbManifests) != 1 {
+			t.Fatalf("expected 1 manifest entry in db, got: %d", len(dbManifests))
+		}
+
+		var actual map[string]string
+		err = json.Unmarshal([]byte(dbManifests[0].LabelsJSON), &actual)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		expected := map[string]string{
+			"bar": "is there",
+			"foo": "is there",
+		}
+		assert.DeepEqual(t, "labels_json", actual, expected)
 	})
 }
 

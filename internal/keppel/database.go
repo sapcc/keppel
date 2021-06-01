@@ -413,6 +413,14 @@ var sqlMigrations = map[string]string{
 		ALTER TABLE repos
 			DROP COLUMN next_gc_at;
 	`,
+	"024_add_manifest_labels.up.sql": `
+		ALTER TABLE manifests
+			ADD COLUMN labels_json TEXT NOT NULL DEFAULT '';
+	`,
+	"024_add_manifest_labels.down.sql": `
+		ALTER TABLE manifests
+			DROP COLUMN labels_json;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.
