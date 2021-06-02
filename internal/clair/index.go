@@ -24,6 +24,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+
+	"github.com/sapcc/go-bits/logg"
 )
 
 //Manifest is the representation of an image manifest that gets submitted to
@@ -102,6 +104,7 @@ func (c *Client) submitManifest(renderManifest func() (Manifest, error)) (indexR
 	if err != nil {
 		return indexReport{}, err
 	}
+	logg.Debug("sending indexing request to Clair: %s", string(jsonBytes))
 
 	req, err := http.NewRequest(
 		"POST",
