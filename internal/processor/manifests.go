@@ -318,7 +318,7 @@ var upsertManifestQuery = keppel.SimplifyWhitespaceInSQL(`
 	INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, labels_json)
 	VALUES ($1, $2, $3, $4, $5, $6, $7)
 	ON CONFLICT (repo_id, digest) DO UPDATE
-		SET size_bytes = EXCLUDED.size_bytes, validated_at = EXCLUDED.validated_at
+		SET size_bytes = EXCLUDED.size_bytes, validated_at = EXCLUDED.validated_at, labels_json = EXCLUDED.labels_json
 `)
 
 func upsertManifest(db gorp.SqlExecutor, m keppel.Manifest) error {
