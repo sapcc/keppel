@@ -56,7 +56,7 @@ type FederationDriver interface {
 	//
 	//The implementation MUST be idempotent. If a call returned nil, a subsequent
 	//call with the same `account` must also return nil unless
-	//ForfeitAccountName() was called inbetween.
+	//ForfeitAccountName() was called in between.
 	ClaimAccountName(account Account, authz Authorization, subleaseTokenSecret string) (ClaimResult, error)
 
 	//IssueSubleaseTokenSecret may only be called on existing primary accounts,

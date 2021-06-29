@@ -15,6 +15,20 @@ variables:
 vendoring:
   enabled: true
 
+githubWorkflows:
+  global:
+    ignorePaths: [ "**.md" ] # all Markdown files
+  ci:
+    enabled: true
+    coveralls: true
+    postgres:
+      enabled: true
+  license:
+    enabled: true
+  spellCheck:
+    enabled: true
+    ignorePaths: [] # override global setting so that nothing is ignored
+
 verbatim: |
   # This is for manual testing.
   run-api: build/keppel

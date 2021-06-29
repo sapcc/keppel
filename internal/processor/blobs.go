@@ -127,7 +127,7 @@ var (
 //If a ResponseWriter is given, the response to the GET request to the upstream
 //registry is also copied into it as the blob contents are being streamed into
 //our local registry. The result value `responseWasWritten` indicates whether
-//this happened. It may be false if an error occured before writing into the
+//this happened. It may be false if an error occurred before writing into the
 //ResponseWriter took place.
 func (p *Processor) ReplicateBlob(blob keppel.Blob, account keppel.Account, repo keppel.Repository, w http.ResponseWriter) (responseWasWritten bool, returnErr error) {
 	//mark this blob as currently being replicated
@@ -250,7 +250,7 @@ func (p *Processor) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, 
 
 //AppendToBlob appends bytes to a blob upload, and updates the upload's
 //SizeBytes and NumChunks fields appropriately. Chunking of large uploads is
-//implemented at this level, to accomodate storage drivers that have a size
+//implemented at this level, to accommodate storage drivers that have a size
 //restriction on blob chunks.
 //
 //Warning: The upload's Digest field is *not* read or written. For chunked

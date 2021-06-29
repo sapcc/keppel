@@ -403,7 +403,7 @@ func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName stri
 
 func expectStorageEmpty(t *testing.T, sd *test.StorageDriver, db *keppel.DB) {
 	t.Helper()
-	//test that no blobs were yet commited to the DB...
+	//test that no blobs were yet committed to the DB...
 	count, err := db.SelectInt(`SELECT COUNT(*) FROM blobs`)
 	if err != nil {
 		t.Fatal(err.Error())
