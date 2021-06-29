@@ -146,7 +146,7 @@ func decodeAuthHeader(base64data string) (username, password string) {
 	return fields[0], fields[1]
 }
 
-//ToToken creates a token that can be used to fulfil this token request.
+//ToToken creates a token that can be used to fulfill this token request.
 func (r Request) ToToken(authz keppel.Authorization) auth.Token {
 	var access []auth.Scope
 	for _, scope := range append(r.Scopes, r.CompiledScopes...) {

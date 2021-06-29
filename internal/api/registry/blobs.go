@@ -109,7 +109,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//if a peer reverse-proxied to us to fulfil an anycast request, enforce the anycast rate limits
+	//if a peer reverse-proxied to us to fulfill an anycast request, enforce the anycast rate limits
 	isAnycast := r.Header.Get("X-Keppel-Forwarded-By") != ""
 	if isAnycast {
 		//AnycastBlobBytePullAction is only relevant for GET requests since it
