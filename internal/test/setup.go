@@ -57,14 +57,8 @@ func Setup(t *testing.T, optsPtr *SetupOptions) (keppel.Configuration, *keppel.D
 		apiPublicURLStr = "https://registry.example.org"
 	}
 
-	var postgresURL string
-	if os.Getenv("TRAVIS") == "true" {
-		//cf. https://docs.travis-ci.com/user/database-setup/#postgresql
-		postgresURL = fmt.Sprintf("postgres://postgres@localhost/%s?sslmode=disable", dbName)
-	} else {
-		//suitable for use with ./testing/with-postgres-db.sh
-		postgresURL = fmt.Sprintf("postgres://postgres@localhost:54321/%s?sslmode=disable", dbName)
-	}
+	//suitable for use with ./testing/with-postgres-db.sh
+	postgresURL := fmt.Sprintf("postgres://postgres:postgres@localhost:54321/%s?sslmode=disable", dbName)
 
 	dbURL, err := url.Parse(postgresURL)
 	if err != nil {
