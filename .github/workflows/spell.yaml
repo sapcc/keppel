@@ -24,6 +24,5 @@ jobs:
         exclude: ./vendor/*
         fail_on_error: true
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        locale: US
         reporter: github-check
 
