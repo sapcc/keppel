@@ -205,7 +205,7 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 		}
 
 		//create or update database entries
-		err = upsertManifest(tx, *manifest)
+		err = upsertManifest(tx, *manifest, manifestBytes)
 		if err != nil {
 			return err
 		}
@@ -321,8 +321,19 @@ var upsertManifestQuery = keppel.SimplifyWhitespaceInSQL(`
 		SET size_bytes = EXCLUDED.size_bytes, validated_at = EXCLUDED.validated_at, labels_json = EXCLUDED.labels_json
 `)
 
-func upsertManifest(db gorp.SqlExecutor, m keppel.Manifest) error {
+var upsertManifestContentQuery = keppel.SimplifyWhitespaceInSQL(`
+	INSERT INTO manifest_contents (repo_id, digest, content)
+	VALUES ($1, $2, $3)
+	ON CONFLICT (repo_id, digest) DO UPDATE
+		SET content = EXCLUDED.content
+`)
+
+func upsertManifest(db gorp.SqlExecutor, m keppel.Manifest, manifestBytes []byte) error {
 	_, err := db.Exec(upsertManifestQuery, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.ValidatedAt, m.LabelsJSON)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(upsertManifestContentQuery, m.RepositoryID, m.Digest, manifestBytes)
 	return err
 }
 

@@ -421,6 +421,18 @@ var sqlMigrations = map[string]string{
 		ALTER TABLE manifests
 			DROP COLUMN labels_json;
 	`,
+	"025_add_manifest_contents.up.sql": `
+		CREATE TABLE manifest_contents (
+			repo_id BIGINT NOT NULL,
+			digest  TEXT   NOT NULL,
+			content BYTEA  NOT NULL,
+			FOREIGN KEY (repo_id, digest) REFERENCES manifests ON DELETE CASCADE,
+			UNIQUE (repo_id, digest)
+		);
+	`,
+	"025_add_manifest_contents.down.sql": `
+		DROP TABLE manifest_contents;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

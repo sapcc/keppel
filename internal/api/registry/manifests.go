@@ -81,10 +81,18 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		//if manifest was found in our DB, fetch the contents from the storage
-		manifestBytes, err = a.sd.ReadManifest(*account, repo.Name, dbManifest.Digest)
-		if respondWithError(w, r, err) {
-			return
+		//if manifest was found in our DB, fetch the contents from the DB (or fall
+		//back to the storage if the DB entry is not there for some reason)
+		manifestBytes, err = a.getManifestContentFromDB(repo.ID, dbManifest.Digest)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				logg.Info("could not read manifest %s@%s from DB (falling back to read from storage): %s",
+					repo.FullName(), dbManifest.Digest, err.Error())
+			}
+			manifestBytes, err = a.sd.ReadManifest(*account, repo.Name, dbManifest.Digest)
+			if respondWithError(w, r, err) {
+				return
+			}
 		}
 	}
 
@@ -214,6 +222,15 @@ func (a *API) findManifestInDB(account keppel.Account, repo keppel.Repository, r
 		repo.ID, refDigest.String(),
 	)
 	return &dbManifest, err
+}
+
+func (a *API) getManifestContentFromDB(repoID int64, digest string) ([]byte, error) {
+	var result []byte
+	err := a.db.SelectOne(&result,
+		`SELECT content FROM manifest_contents WHERE repo_id = $1 AND digest = $2`,
+		repoID, digest,
+	)
+	return result, err
 }
 
 func (a *API) handleGetOrHeadManifestAnycast(w http.ResponseWriter, r *http.Request, info anycastRequestInfo) {
