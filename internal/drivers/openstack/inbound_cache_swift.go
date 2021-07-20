@@ -44,7 +44,7 @@ func init() {
 //LoadManifest implements the keppel.InboundCacheDriver interface.
 func (d *inboundCacheDriverSwift) LoadManifest(location keppel.InboundCacheLocation, now time.Time) (contents []byte, mediaType string, returnedError error) {
 	defer func() {
-		if returnedError != nil {
+		if returnedError != nil && returnedError != sql.ErrNoRows {
 			returnedError = fmt.Errorf("while performing a lookup in the inbound cache: %w", returnedError)
 		}
 	}()
