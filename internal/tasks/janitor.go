@@ -39,6 +39,7 @@ type Janitor struct {
 	cfg     keppel.Configuration
 	fd      keppel.FederationDriver
 	sd      keppel.StorageDriver
+	icd     keppel.InboundCacheDriver
 	db      *keppel.DB
 	auditor keppel.Auditor
 
@@ -48,8 +49,8 @@ type Janitor struct {
 }
 
 //NewJanitor creates a new Janitor.
-func NewJanitor(cfg keppel.Configuration, fd keppel.FederationDriver, sd keppel.StorageDriver, db *keppel.DB, auditor keppel.Auditor) *Janitor {
-	j := &Janitor{cfg, fd, sd, db, auditor, time.Now, keppel.GenerateStorageID}
+func NewJanitor(cfg keppel.Configuration, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *keppel.DB, auditor keppel.Auditor) *Janitor {
+	j := &Janitor{cfg, fd, sd, icd, db, auditor, time.Now, keppel.GenerateStorageID}
 	j.initializeCounters()
 	return j
 }
@@ -67,5 +68,5 @@ func (j *Janitor) OverrideGenerateStorageID(generateStorageID func() string) *Ja
 }
 
 func (j *Janitor) processor() *processor.Processor {
-	return processor.New(j.cfg, j.db, j.sd, j.auditor).OverrideTimeNow(j.timeNow).OverrideGenerateStorageID(j.generateStorageID)
+	return processor.New(j.cfg, j.db, j.sd, j.icd, j.auditor).OverrideTimeNow(j.timeNow).OverrideGenerateStorageID(j.generateStorageID)
 }

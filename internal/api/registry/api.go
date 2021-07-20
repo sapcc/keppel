@@ -41,6 +41,7 @@ type API struct {
 	ad      keppel.AuthDriver
 	fd      keppel.FederationDriver
 	sd      keppel.StorageDriver
+	icd     keppel.InboundCacheDriver
 	db      *keppel.DB
 	auditor keppel.Auditor
 	rle     *keppel.RateLimitEngine //may be nil
@@ -50,8 +51,8 @@ type API struct {
 }
 
 //NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, sd keppel.StorageDriver, db *keppel.DB, auditor keppel.Auditor, rle *keppel.RateLimitEngine) *API {
-	return &API{cfg, ad, fd, sd, db, auditor, rle, time.Now, keppel.GenerateStorageID}
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *keppel.DB, auditor keppel.Auditor, rle *keppel.RateLimitEngine) *API {
+	return &API{cfg, ad, fd, sd, icd, db, auditor, rle, time.Now, keppel.GenerateStorageID}
 }
 
 //OverrideTimeNow replaces time.Now with a test double.
@@ -109,7 +110,7 @@ func (a *API) AddTo(r *mux.Router) {
 }
 
 func (a *API) processor() *processor.Processor {
-	return processor.New(a.cfg, a.db, a.sd, a.auditor).OverrideTimeNow(a.timeNow).OverrideGenerateStorageID(a.generateStorageID)
+	return processor.New(a.cfg, a.db, a.sd, a.icd, a.auditor).OverrideTimeNow(a.timeNow).OverrideGenerateStorageID(a.generateStorageID)
 }
 
 //This implements the GET /v2/ endpoint.

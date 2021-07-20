@@ -38,13 +38,14 @@ type API struct {
 	authDriver keppel.AuthDriver
 	fd         keppel.FederationDriver
 	sd         keppel.StorageDriver
+	icd        keppel.InboundCacheDriver
 	db         *keppel.DB
 	auditor    keppel.Auditor
 }
 
 //NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, sd keppel.StorageDriver, db *keppel.DB, auditor keppel.Auditor) *API {
-	return &API{cfg, ad, fd, sd, db, auditor}
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *keppel.DB, auditor keppel.Auditor) *API {
+	return &API{cfg, ad, fd, sd, icd, db, auditor}
 }
 
 //AddTo implements the api.API interface.
@@ -74,7 +75,7 @@ func (a *API) AddTo(r *mux.Router) {
 }
 
 func (a *API) processor() *processor.Processor {
-	return processor.New(a.cfg, a.db, a.sd, a.auditor)
+	return processor.New(a.cfg, a.db, a.sd, a.icd, a.auditor)
 }
 
 func (a *API) handleGetAPIInfo(w http.ResponseWriter, r *http.Request) {

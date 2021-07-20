@@ -87,13 +87,17 @@ func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(http
 			t.Fatal(err.Error())
 		}
 		fd.RecordExistingAccount(testAccount, time.Unix(0, 0))
+		icd, err := keppel.NewInboundCacheDriver("unittest", cfg)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
 
 		//wire up the HTTP APIs
 		auditor := &test.Auditor{}
 		clock := &test.Clock{}
 		sidGen := &test.StorageIDGenerator{}
 		h := api.Compose(
-			NewAPI(cfg, ad, fd, sd, db, auditor, rle).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+			NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 			authapi.NewAPI(cfg, ad, fd, db),
 		)
 
@@ -188,11 +192,15 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 		t.Fatal(err.Error())
 	}
 	fd2.RecordExistingAccount(testAccount, time.Unix(0, 0))
+	icd2, err := keppel.NewInboundCacheDriver("unittest", cfg2)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	sidGen := &test.StorageIDGenerator{}
 	auditor := &test.Auditor{}
 	h2 := api.Compose(
-		NewAPI(cfg2, ad2, fd2, sd2, db2, auditor, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+		NewAPI(cfg2, ad2, fd2, sd2, icd2, db2, auditor, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 		authapi.NewAPI(cfg2, ad2, fd2, db2),
 	)
 
