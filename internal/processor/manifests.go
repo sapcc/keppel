@@ -509,15 +509,7 @@ func (e UpstreamManifestMissingError) Error() string {
 //ReplicateManifest replicates the manifest from its account's upstream registry.
 //On success, the manifest's metadata and contents are returned.
 func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Repository, reference keppel.ManifestReference, actx keppel.AuditContext) (*keppel.Manifest, []byte, error) {
-	//query upstream for the manifest
-	c, err := p.getRepoClientForUpstream(account, repo)
-	if err != nil {
-		return nil, nil, err
-	}
-	//TODO DownloadManifest should take a keppel.ManifestReference
-	manifestBytes, manifestMediaType, err := c.DownloadManifest(reference.String(), &client.DownloadManifestOpts{
-		DoNotCountTowardsLastPulled: true,
-	})
+	manifestBytes, manifestMediaType, err := p.downloadManifestViaInboundCache(account, repo, reference)
 	if err != nil {
 		if errorIsManifestNotFound(err) {
 			return nil, nil, UpstreamManifestMissingError{reference, err}
@@ -588,13 +580,7 @@ func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Reposi
 //upstream registry. If not, false is returned, An error is returned only if
 //the account is not a replica, or if the upstream registry cannot be queried.
 func (p *Processor) CheckManifestOnPrimary(account keppel.Account, repo keppel.Repository, reference keppel.ManifestReference) (bool, error) {
-	c, err := p.getRepoClientForUpstream(account, repo)
-	if err != nil {
-		return false, err
-	}
-	_, _, err = c.DownloadManifest(reference.String(), &client.DownloadManifestOpts{
-		DoNotCountTowardsLastPulled: true,
-	})
+	_, _, err := p.downloadManifestViaInboundCache(account, repo, reference)
 	if err != nil {
 		if errorIsManifestNotFound(err) {
 			return false, nil
@@ -612,6 +598,40 @@ func errorIsManifestNotFound(err error) bool {
 		return rerr.Code == keppel.ErrManifestUnknown || rerr.Code == keppel.ErrNameUnknown || rerr.Code == "NOT_FOUND"
 	}
 	return false
+}
+
+//Downloads a manifest from an account's upstream using
+//RepoClient.DownloadManifest(), but also takes into account the inbound cache.
+func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo keppel.Repository, ref keppel.ManifestReference) ([]byte, string, error) {
+	c, err := p.getRepoClientForUpstream(account, repo)
+	if err != nil {
+		return nil, "", err
+	}
+
+	//try loading the manifest from the cache
+	loc := keppel.InboundCacheLocation{
+		HostName:  c.Host,
+		RepoName:  c.RepoName,
+		Reference: ref,
+	}
+	manifestBytes, manifestMediaType, err := p.icd.LoadManifest(loc, p.timeNow())
+	if err != sql.ErrNoRows {
+		//either cache hit (err == nil) or unexpected error
+		return manifestBytes, manifestMediaType, err
+	}
+
+	//cache miss -> download from actual upstream registry
+	//(TODO: DownloadManifest should take a keppel.ManifestReference)
+	manifestBytes, manifestMediaType, err = c.DownloadManifest(ref.String(), &client.DownloadManifestOpts{
+		DoNotCountTowardsLastPulled: true,
+	})
+	if err != nil {
+		return nil, "", err
+	}
+
+	//successfully downloaded manifest -> fill cache
+	err = p.icd.StoreManifest(loc, manifestBytes, manifestMediaType, p.timeNow())
+	return manifestBytes, manifestMediaType, err
 }
 
 //DeleteManifest deletes the given manifest from both the database and the
