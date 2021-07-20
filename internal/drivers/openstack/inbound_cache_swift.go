@@ -24,6 +24,8 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"os"
+	"regexp"
 	"time"
 
 	"github.com/majewsky/schwift"
@@ -31,18 +33,52 @@ import (
 )
 
 type inboundCacheDriverSwift struct {
-	Container *schwift.Container
+	Container       *schwift.Container
+	HostInclusionRx *regexp.Regexp
+	HostExclusionRx *regexp.Regexp
 }
 
 func init() {
 	keppel.RegisterInboundCacheDriver("swift", func(_ keppel.Configuration) (keppel.InboundCacheDriver, error) {
 		container, err := initSwiftContainerConnection("KEPPEL_INBOUND_CACHE_")
-		return &inboundCacheDriverSwift{Container: container}, err
+		if err != nil {
+			return nil, err
+		}
+		hostInclusionRx, err := compileOptionalImplicitlyBoundedRegex(os.Getenv("KEPPEL_INBOUND_CACHE_ONLY_HOSTS"))
+		if err != nil {
+			return nil, err
+		}
+		hostExclusionRx, err := compileOptionalImplicitlyBoundedRegex(os.Getenv("KEPPEL_INBOUND_CACHE_EXCEPT_HOSTS"))
+		if err != nil {
+			return nil, err
+		}
+
+		return &inboundCacheDriverSwift{
+			Container:       container,
+			HostInclusionRx: hostInclusionRx,
+			HostExclusionRx: hostExclusionRx,
+		}, err
 	})
+}
+
+func compileOptionalImplicitlyBoundedRegex(pattern string) (*regexp.Regexp, error) {
+	if pattern == "" {
+		return nil, nil
+	}
+
+	rx, err := regexp.Compile(`^` + pattern + `$`)
+	if err != nil {
+		return nil, fmt.Errorf("%q is not a valid regex: %w", pattern, err)
+	}
+	return rx, nil
 }
 
 //LoadManifest implements the keppel.InboundCacheDriver interface.
 func (d *inboundCacheDriverSwift) LoadManifest(location keppel.InboundCacheLocation, now time.Time) (contents []byte, mediaType string, returnedError error) {
+	if d.skip(location) {
+		return nil, "", sql.ErrNoRows
+	}
+
 	defer func() {
 		if returnedError != nil && returnedError != sql.ErrNoRows {
 			returnedError = fmt.Errorf("while performing a lookup in the inbound cache: %w", returnedError)
@@ -68,6 +104,10 @@ func (d *inboundCacheDriverSwift) LoadManifest(location keppel.InboundCacheLocat
 
 //StoreManifest implements the keppel.InboundCacheDriver interface.
 func (d *inboundCacheDriverSwift) StoreManifest(location keppel.InboundCacheLocation, contents []byte, mediaType string, now time.Time) error {
+	if d.skip(location) {
+		return nil
+	}
+
 	hdr := schwift.NewObjectHeaders()
 	hdr.ContentType().Set(mediaType)
 	hdr.ExpiresAt().Set(d.expiryFor(location, now))
@@ -97,4 +137,14 @@ func (d *inboundCacheDriverSwift) expiryFor(loc keppel.InboundCacheLocation, now
 		return now.Add(3 * time.Hour)
 	}
 	return now.Add(48 * time.Hour)
+}
+
+func (d *inboundCacheDriverSwift) skip(loc keppel.InboundCacheLocation) bool {
+	if d.HostInclusionRx != nil && !d.HostInclusionRx.MatchString(loc.HostName) {
+		return true
+	}
+	if d.HostExclusionRx != nil && d.HostExclusionRx.MatchString(loc.HostName) {
+		return true
+	}
+	return false
 }
