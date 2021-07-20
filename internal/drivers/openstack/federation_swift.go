@@ -48,47 +48,50 @@ type federationDriverSwift struct {
 
 func init() {
 	keppel.RegisterFederationDriver("swift", func(_ keppel.AuthDriver, cfg keppel.Configuration) (keppel.FederationDriver, error) {
-		//authenticate service user
-		ao, err := clientconfig.AuthOptions(&clientconfig.ClientOpts{
-			EnvPrefix: "KEPPEL_FEDERATION_OS_",
-		})
-		if err != nil {
-			return nil, errors.New("cannot find OpenStack credentials for federation driver: " + err.Error())
-		}
-		ao.AllowReauth = true
-		provider, err := createProviderClient(*ao)
-		if err != nil {
-			return nil, errors.New("cannot connect to OpenStack for federation driver: " + err.Error())
-		}
-
-		//find Swift endpoint
-		eo := gophercloud.EndpointOpts{
-			//note that empty values are acceptable in both fields
-			Region:       os.Getenv("KEPPEL_FEDERATION_OS_REGION_NAME"),
-			Availability: gophercloud.Availability(os.Getenv("KEPPEL_FEDERATION_OS_INTERFACE")),
-		}
-		swiftV1, err := openstack.NewObjectStorageV1(provider, eo)
-		if err != nil {
-			return nil, errors.New("cannot find Swift v1 API for federation driver: " + err.Error())
-		}
-
-		//create Swift container if necessary
-		swiftAccount, err := gopherschwift.Wrap(swiftV1, &gopherschwift.Options{
-			UserAgent: fmt.Sprintf("%s/%s", keppel.Component, keppel.Version),
-		})
-		if err != nil {
-			return nil, err
-		}
-		container, err := swiftAccount.Container(keppel.MustGetenv("KEPPEL_FEDERATION_SWIFT_CONTAINER")).EnsureExists()
-		if err != nil {
-			return nil, err
-		}
-
+		container, err := initSwiftContainerConnection("KEPPEL_FEDERATION_")
 		return &federationDriverSwift{
 			Container:   container,
 			OwnHostName: cfg.APIPublicURL.Hostname(),
-		}, nil
+		}, err
 	})
+}
+
+func initSwiftContainerConnection(envPrefix string) (*schwift.Container, error) {
+	//authenticate service user
+	ao, err := clientconfig.AuthOptions(&clientconfig.ClientOpts{EnvPrefix: envPrefix + "OS_"})
+	if err != nil {
+		return nil, errors.New("cannot find OpenStack credentials for federation driver: " + err.Error())
+	}
+	ao.AllowReauth = true
+	provider, err := createProviderClient(*ao)
+	if err != nil {
+		return nil, errors.New("cannot connect to OpenStack for federation driver: " + err.Error())
+	}
+
+	//find Swift endpoint
+	eo := gophercloud.EndpointOpts{
+		//note that empty values are acceptable in both fields
+		Region:       os.Getenv(envPrefix + "OS_REGION_NAME"),
+		Availability: gophercloud.Availability(os.Getenv(envPrefix + "OS_INTERFACE")),
+	}
+	swiftV1, err := openstack.NewObjectStorageV1(provider, eo)
+	if err != nil {
+		return nil, errors.New("cannot find Swift v1 API for federation driver: " + err.Error())
+	}
+
+	//create Swift container if necessary
+	swiftAccount, err := gopherschwift.Wrap(swiftV1, &gopherschwift.Options{
+		UserAgent: fmt.Sprintf("%s/%s", keppel.Component, keppel.Version),
+	})
+	if err != nil {
+		return nil, err
+	}
+	container, err := swiftAccount.Container(keppel.MustGetenv(envPrefix + "SWIFT_CONTAINER")).EnsureExists()
+	if err != nil {
+		return nil, err
+	}
+
+	return container, nil
 }
 
 type accountFile struct {

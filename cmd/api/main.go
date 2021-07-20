@@ -72,6 +72,8 @@ func run(cmd *cobra.Command, args []string) {
 	must(err)
 	sd, err := keppel.NewStorageDriver(keppel.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
 	must(err)
+	icd, err := keppel.NewInboundCacheDriver(keppel.MustGetenv("KEPPEL_DRIVER_FEDERATION"), cfg)
+	must(err)
 
 	prometheus.MustRegister(sqlstats.NewStatsCollector("keppel", db.DbMap.Db))
 
@@ -90,9 +92,9 @@ func run(cmd *cobra.Command, args []string) {
 
 	//wire up HTTP handlers
 	handler := api.Compose(
-		keppelv1.NewAPI(cfg, ad, fd, sd, db, auditor),
+		keppelv1.NewAPI(cfg, ad, fd, sd, icd, db, auditor),
 		auth.NewAPI(cfg, ad, fd, db),
-		registryv2.NewAPI(cfg, ad, fd, sd, db, auditor, rle),
+		registryv2.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle),
 		clairproxy.NewAPI(cfg, ad),
 		&headerReflector{logg.ShowDebug}, //the header reflection endpoint is only enabled where debugging is enabled (i.e. usually in dev/QA only)
 		&guiRedirecter{db, os.Getenv("KEPPEL_GUI_URI")},

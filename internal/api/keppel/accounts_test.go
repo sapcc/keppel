@@ -64,9 +64,13 @@ func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.FederationDriver
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	icd, err := keppel.NewInboundCacheDriver("unittest", cfg)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	auditor := &test.Auditor{}
-	h := api.Compose(NewAPI(cfg, ad, fd, sd, db, auditor))
+	h := api.Compose(NewAPI(cfg, ad, fd, sd, icd, db, auditor))
 
 	//second half of the ClairDouble setup
 	tt := &test.RoundTripper{

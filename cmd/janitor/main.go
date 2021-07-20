@@ -63,13 +63,15 @@ func run(cmd *cobra.Command, args []string) {
 	must(err)
 	sd, err := keppel.NewStorageDriver(keppel.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
 	must(err)
+	icd, err := keppel.NewInboundCacheDriver(keppel.MustGetenv("KEPPEL_DRIVER_FEDERATION"), cfg)
+	must(err)
 
 	prometheus.MustRegister(sqlstats.NewStatsCollector("keppel", db.DbMap.Db))
 
 	ctx := httpee.ContextWithSIGINT(context.Background(), 10*time.Second)
 
 	//start task loops
-	janitor := tasks.NewJanitor(cfg, fd, sd, db, auditor)
+	janitor := tasks.NewJanitor(cfg, fd, sd, icd, db, auditor)
 	go jobLoop(janitor.AnnounceNextAccountToFederation)
 	go jobLoop(janitor.DeleteNextAbandonedUpload)
 	go jobLoop(janitor.GarbageCollectManifestsInNextRepo)

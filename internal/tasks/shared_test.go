@@ -51,6 +51,8 @@ func setup(t *testing.T) (*Janitor, keppel.Configuration, *keppel.DB, *test.Fede
 	must(t, err)
 	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, cfg)
 	must(t, err)
+	icd, err := keppel.NewInboundCacheDriver("unittest", cfg)
+	must(t, err)
 
 	must(t, db.Insert(&keppel.Account{Name: "test1", AuthTenantID: "test1authtenant", GCPoliciesJSON: "[]"}))
 	must(t, db.Insert(&keppel.Repository{AccountName: "test1", Name: "foo"}))
@@ -58,10 +60,10 @@ func setup(t *testing.T) (*Janitor, keppel.Configuration, *keppel.DB, *test.Fede
 	clock := &test.Clock{}
 	sidGen := &test.StorageIDGenerator{}
 	auditor := &test.Auditor{}
-	j := NewJanitor(cfg, fd, sd, db, auditor).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next)
+	j := NewJanitor(cfg, fd, sd, icd, db, auditor).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next)
 
 	h := api.Compose(
-		registryv2.NewAPI(cfg, ad, fd, sd, db, nil, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+		registryv2.NewAPI(cfg, ad, fd, sd, icd, db, nil, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 		authapi.NewAPI(cfg, ad, fd, db),
 	)
 
@@ -76,6 +78,8 @@ func setupReplica(t *testing.T, db1 *keppel.DB, h1 http.Handler, clock *test.Clo
 	fd2, err := keppel.NewFederationDriver("unittest", ad2, cfg2)
 	must(t, err)
 	sd2, err := keppel.NewStorageDriver("in-memory-for-testing", ad2, cfg2)
+	must(t, err)
+	icd2, err := keppel.NewInboundCacheDriver("unittest", cfg2)
 	must(t, err)
 
 	must(t, db2.Insert(&keppel.Account{Name: "test1", AuthTenantID: "test1authtenant", UpstreamPeerHostName: "registry.example.org", GCPoliciesJSON: "[]"}))
@@ -101,9 +105,9 @@ func setupReplica(t *testing.T, db1 *keppel.DB, h1 http.Handler, clock *test.Clo
 
 	sidGen := &test.StorageIDGenerator{}
 	auditor := &test.Auditor{}
-	j2 := NewJanitor(cfg2, fd2, sd2, db2, auditor).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next)
+	j2 := NewJanitor(cfg2, fd2, sd2, icd2, db2, auditor).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next)
 	h2 := api.Compose(
-		registryv2.NewAPI(cfg2, ad2, fd2, sd2, db2, nil, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+		registryv2.NewAPI(cfg2, ad2, fd2, sd2, icd2, db2, nil, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 		authapi.NewAPI(cfg2, ad2, fd2, db2),
 	)
 

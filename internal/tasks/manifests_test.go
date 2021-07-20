@@ -292,10 +292,22 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 	expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
 	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-002.sql")
 
-	//after the end of the maintenance, SyncManifestsInNextRepo on the replica
-	//side should delete the same manifest that we deleted in the primary account
+	//after the end of the maintenance, we would naively expect
+	//SyncManifestsInNextRepo to actually replicate the deletion, BUT we have an
+	//inbound cache with a lifetime of 6 hours, so actually nothing should happen
 	clock.StepBy(2 * time.Hour)
 	mustExec(t, db2, `UPDATE accounts SET in_maintenance = FALSE`)
+	expectSuccess(t, j2.SyncManifestsInNextRepo())
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-002b.sql")
+	expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-002b.sql")
+
+	//This proves that the inbound cache works. From now on, we will go in clock
+	//increments of 7 hours to force the inbound cache to never hit.
+
+	//after the end of the maintenance, SyncManifestsInNextRepo on the replica
+	//side should delete the same manifest that we deleted in the primary account
+	clock.StepBy(7 * time.Hour)
 	expectSuccess(t, j2.SyncManifestsInNextRepo())
 	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-003.sql")
 	expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
@@ -304,7 +316,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 	//cause a deliberate inconsistency on the primary side: delete a manifest that
 	//*is* referenced by another manifest (this requires deleting the
 	//manifest-manifest ref first, otherwise the DB will complain)
-	clock.StepBy(2 * time.Hour)
+	clock.StepBy(7 * time.Hour)
 	mustExec(t, db1,
 		`DELETE FROM manifest_manifest_refs WHERE child_digest = $1`,
 		images[2].Manifest.Digest.String(),
@@ -325,7 +337,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-004.sql")
 
 	//also remove the image list manifest on the primary side
-	clock.StepBy(2 * time.Hour)
+	clock.StepBy(7 * time.Hour)
 	mustExec(t, db1,
 		`DELETE FROM manifests WHERE digest = $1`,
 		imageList.Manifest.Digest.String(),
@@ -339,7 +351,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-005.sql")
 
 	//replace the primary registry's API with something that just answers 404 all the time
-	clock.StepBy(2 * time.Hour)
+	clock.StepBy(7 * time.Hour)
 	http.DefaultClient.Transport.(*test.RoundTripper).Handlers["registry.example.org"] = http.HandlerFunc(answerWith404)
 	//This is particularly devious since 404 is returned by the GET endpoint for
 	//a manifest when the manifest was deleted. We want to check that the next
@@ -366,7 +378,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 	//flip back to the actual primary registry's API
 	http.DefaultClient.Transport.(*test.RoundTripper).Handlers["registry.example.org"] = h1
 	//delete the entire repository on the primary
-	clock.StepBy(2 * time.Hour)
+	clock.StepBy(7 * time.Hour)
 	mustExec(t, db1, `DELETE FROM manifests`)
 	mustExec(t, db1, `DELETE FROM repos`)
 	//the manifest sync should reflect the repository deletion on the replica
