@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/hermes/pkg/cadf"
 	"github.com/sapcc/keppel/internal/client"
@@ -614,10 +615,14 @@ func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo
 		RepoName:  c.RepoName,
 		Reference: ref,
 	}
+	labels := prometheus.Labels{"external_hostname": c.Host}
 	manifestBytes, manifestMediaType, err := p.icd.LoadManifest(loc, p.timeNow())
+	if err == nil {
+		InboundManifestCacheHitCounter.With(labels).Inc()
+		return manifestBytes, manifestMediaType, nil
+	}
 	if err != sql.ErrNoRows {
-		//either cache hit (err == nil) or unexpected error
-		return manifestBytes, manifestMediaType, err
+		return nil, "", err
 	}
 
 	//cache miss -> download from actual upstream registry
@@ -631,7 +636,12 @@ func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo
 
 	//successfully downloaded manifest -> fill cache
 	err = p.icd.StoreManifest(loc, manifestBytes, manifestMediaType, p.timeNow())
-	return manifestBytes, manifestMediaType, err
+	if err != nil {
+		return nil, "", err
+	}
+
+	InboundManifestCacheMissCounter.With(labels).Inc()
+	return manifestBytes, manifestMediaType, nil
 }
 
 //DeleteManifest deletes the given manifest from both the database and the
