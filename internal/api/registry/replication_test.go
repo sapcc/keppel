@@ -454,3 +454,88 @@ func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 		})
 	})
 }
+
+func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
+	//This test is more contrived than the others because we have *three* registries involved instead of two.
+	//- Primary and secondary are, as usual, set up as peers of each other with a replicated account "test1".
+	//- "test1" is reconfigured into an external replica of tertiary on both primary and secondary.
+	//- Tertiary rejects the first pull to trigger the pull delegation code path.
+
+	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
+		testWithReplica(t, h1, db1, clock, "on_first_use", func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+			if !firstPass {
+				return //no second pass needed
+			}
+
+			token1 := getToken(t, h1, ad1, "repository:test1/foo:pull",
+				keppel.CanPullFromAccount)
+			token2 := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+				keppel.CanPullFromAccount)
+
+			//setup tertiary as a mostly static responder
+			image := test.GenerateImage(test.GenerateExampleLayer(1))
+			requestCounter := 0
+			tertiaryHandler := func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != "GET" {
+					http.Error(w, r.Method+"not allowed", http.StatusMethodNotAllowed)
+					return
+				}
+				for _, blob := range append(image.Layers, image.Config) {
+					if r.URL.Path == "/v2/foo/blobs/"+blob.Digest.String() {
+						w.Header().Set("Content-Length", strconv.Itoa(len(blob.Contents)))
+						w.WriteHeader(http.StatusOK)
+						w.Write(blob.Contents)
+						return
+					}
+				}
+				if r.URL.Path == "/v2/foo/manifests/"+image.Manifest.Digest.String() {
+					requestCounter++
+					if requestCounter == 1 {
+						//reject initial manifest pull to trigger the pull delegation code path
+						keppel.ErrTooManyRequests.With("").WriteAsRegistryV2ResponseTo(w, r)
+						return
+					}
+					w.Header().Set("Content-Type", image.Manifest.MediaType)
+					w.Header().Set("Content-Length", strconv.Itoa(len(image.Manifest.Contents)))
+					w.WriteHeader(http.StatusOK)
+					w.Write(image.Manifest.Contents)
+					return
+				}
+			}
+			http.DefaultClient.Transport.(*test.RoundTripper).Handlers["registry-tertiary.example.org"] = http.HandlerFunc(tertiaryHandler)
+
+			//reconfigure "test1" into an external replica of tertiary
+			for _, db := range []*keppel.DB{db1, db2} {
+				_, err := db.Exec(`UPDATE accounts SET upstream_peer_hostname = '', external_peer_url = $2 WHERE name = $1`,
+					"test1", "registry-tertiary.example.org")
+				if err != nil {
+					t.Fatal(err.Error())
+				}
+			}
+
+			//test successful pull delegation (from secondary to primary)
+			requestCounter = 0
+			assert.HTTPRequest{
+				Method:       "GET",
+				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
+				Header:       map[string]string{"Authorization": "Bearer " + token2},
+				ExpectStatus: http.StatusOK,
+				ExpectHeader: test.VersionHeader,
+				ExpectBody:   assert.ByteData(image.Manifest.Contents),
+			}.Check(t, h2)
+
+			//test failed pull delegation (from primary to secondary; primary does
+			//not have a password for secondary's peering API, so delegation fails
+			//and we see the original 429 response instead)
+			requestCounter = 0
+			assert.HTTPRequest{
+				Method:       "GET",
+				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
+				Header:       map[string]string{"Authorization": "Bearer " + token1},
+				ExpectStatus: http.StatusTooManyRequests,
+				ExpectHeader: test.VersionHeader,
+				ExpectBody:   test.ErrorCode(keppel.ErrTooManyRequests),
+			}.Check(t, h1)
+		})
+	})
+}

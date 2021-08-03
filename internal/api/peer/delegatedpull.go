@@ -21,6 +21,7 @@ package peerv1
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/respondwith"
@@ -63,6 +64,7 @@ func (a *API) handleDelegatedPullManifest(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Content-Type", manifestMediaType)
+	w.Header().Set("Content-Length", strconv.Itoa(len(manifestBytes)))
 	w.WriteHeader(http.StatusOK)
 	w.Write(manifestBytes)
 }

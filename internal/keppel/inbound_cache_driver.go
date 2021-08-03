@@ -51,6 +51,15 @@ type InboundCacheLocation struct {
 	Reference ManifestReference
 }
 
+//String returns the string representation of this location.
+func (loc InboundCacheLocation) String() string {
+	path := loc.HostName + "/" + loc.RepoName
+	if loc.Reference.IsTag() {
+		return path + ":" + loc.Reference.Tag
+	}
+	return path + "@" + loc.Reference.Digest.String()
+}
+
 var inboundCacheDriverFactories = make(map[string]func(Configuration) (InboundCacheDriver, error))
 
 //NewInboundCacheDriver creates a new InboundCacheDriver using one of the
