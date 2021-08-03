@@ -29,7 +29,6 @@ import (
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -52,9 +51,12 @@ func (a *API) checkAuthentication(authorizationHeader string) (keppel.Authorizat
 
 	if strings.HasPrefix(userName, "replication@") {
 		peerHostName := strings.TrimPrefix(userName, "replication@")
-		err := a.validatePeerCredentials(peerHostName, password)
+		peer, err := auth.CheckPeerCredentials(a.db, peerHostName, password)
 		if err != nil {
 			return nil, err
+		}
+		if peer == nil {
+			return nil, sql.ErrNoRows
 		}
 		return keppel.ReplicationAuthorization{PeerHostName: peerHostName}, nil
 	}
@@ -80,21 +82,6 @@ func (a *API) checkAuthentication(authorizationHeader string) (keppel.Authorizat
 	//	err = error(nil)
 	//
 	//That's one of the few really really stupid traps in Go.
-}
-
-func (a *API) validatePeerCredentials(peerHostName, password string) error {
-	var peer keppel.Peer
-	err := a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, peerHostName)
-	if err != nil {
-		return err
-	}
-	hashes := []string{peer.TheirCurrentPasswordHash, peer.TheirPreviousPasswordHash}
-	for _, hash := range hashes {
-		if hash != "" && bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil {
-			return nil
-		}
-	}
-	return sql.ErrNoRows
 }
 
 //Request contains the query parameters in a token request.

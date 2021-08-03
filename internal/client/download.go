@@ -50,6 +50,7 @@ func (c *RepoClient) DownloadBlob(blobDigest digest.Digest) (contents io.ReadClo
 //DownloadManifestOpts appears in func DownloadManifest.
 type DownloadManifestOpts struct {
 	DoNotCountTowardsLastPulled bool
+	ExtraHeaders                http.Header
 }
 
 //DownloadManifest fetches a manifest from this repository. If an error is
@@ -62,6 +63,11 @@ func (c *RepoClient) DownloadManifest(reference string, opts *DownloadManifestOp
 	hdr := http.Header{"Accept": distribution.ManifestMediaTypes()}
 	if opts.DoNotCountTowardsLastPulled {
 		hdr.Set("X-Keppel-No-Count-Towards-Last-Pulled", "1")
+	}
+	for k, v := range opts.ExtraHeaders {
+		if len(v) > 0 {
+			hdr[k] = v
+		}
 	}
 
 	resp, err := c.doRequest(repoRequest{
