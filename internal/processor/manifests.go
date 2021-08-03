@@ -29,6 +29,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/audittools"
+	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/hermes/pkg/cadf"
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -601,6 +602,13 @@ func errorIsManifestNotFound(err error) bool {
 	return false
 }
 
+func errorIsUpstreamRateLimit(err error) bool {
+	if rerr, ok := err.(*keppel.RegistryV2Error); ok {
+		return rerr.Code == keppel.ErrTooManyRequests
+	}
+	return false
+}
+
 //Downloads a manifest from an account's upstream using
 //RepoClient.DownloadManifest(), but also takes into account the inbound cache.
 func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo keppel.Repository, ref keppel.ManifestReference) ([]byte, string, error) {
@@ -630,6 +638,16 @@ func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo
 	manifestBytes, manifestMediaType, err = c.DownloadManifest(ref.String(), &client.DownloadManifestOpts{
 		DoNotCountTowardsLastPulled: true,
 	})
+	if err != nil && account.ExternalPeerURL != "" && errorIsUpstreamRateLimit(err) {
+		//when a pull from an external registry runs into a rate limit, ask a
+		//random peer to retry the pull for us; they might be successful since
+		//rate limits are usually per source IP
+		var ok bool
+		manifestBytes, manifestMediaType, ok = p.downloadManifestViaPullDelegation(loc, account.ExternalPeerUserName, account.ExternalPeerPassword)
+		if ok {
+			err = nil
+		}
+	}
 	if err != nil {
 		return nil, "", err
 	}
@@ -642,6 +660,55 @@ func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo
 
 	InboundManifestCacheMissCounter.With(labels).Inc()
 	return manifestBytes, manifestMediaType, nil
+}
+
+//Uses the peering API to ask another peer to downloads a manifest from an
+//external registry for us. This gets used when the external registry denies
+//the pull to us because we hit our rate limit.
+func (p *Processor) downloadManifestViaPullDelegation(loc keppel.InboundCacheLocation, userName, password string) ([]byte, string, bool) {
+	//select a peer at random
+	var peer keppel.Peer
+	err := p.db.SelectOne(&peer, `SELECT * FROM peers WHERE our_password != '' ORDER BY RANDOM() LIMIT 1`)
+	if err == sql.ErrNoRows {
+		//no peers set up - just skip this step without logging anything
+		return nil, "", false
+	}
+	if err != nil {
+		logg.Error("while trying to select a peer for pull delegation: %s", err.Error())
+		return nil, "", false
+	}
+
+	//build request
+	reqURL := fmt.Sprintf("https://%s/peer/v1/delegatedpull/%s/v2/%s/manifests/%s",
+		peer.HostName, loc.HostName, loc.RepoName, loc.Reference)
+	req, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		logg.Error("while trying to build a pull delegation request for %s: %s", loc.String(), err.Error())
+		return nil, "", false
+	}
+	ourUserName := fmt.Sprintf("replication@%s", p.cfg.APIPublicURL.Hostname())
+	req.Header.Set("Authorization", keppel.BuildBasicAuthHeader(ourUserName, peer.OurPassword))
+	req.Header.Set("X-Keppel-Delegated-Pull-Username", userName)
+	req.Header.Set("X-Keppel-Delegated-Pull-Password", password)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		logg.Error("during GET %s: %s", reqURL, err.Error())
+		return nil, "", false
+	}
+	defer resp.Body.Close()
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		logg.Error("during GET %s: %s", reqURL, err.Error())
+		return nil, "", false
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		logg.Error("during GET %s: expected 200, got %d with response: %s",
+			req.URL, resp.StatusCode, string(respBytes))
+		return nil, "", false
+	}
+	return respBytes, resp.Header.Get("Content-Type"), true
 }
 
 //DeleteManifest deletes the given manifest from both the database and the
