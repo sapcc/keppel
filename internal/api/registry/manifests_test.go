@@ -205,7 +205,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-digest.sql")
 			}
 
-			//since we did two PUTs, two events will have been logged
+			//we did two PUTs, but only the first one will be logged since the second one did not change anything
 			auditEvents := []cadf.Event{{
 				RequestPath: "/v2/test1/foo/manifests/" + ref,
 				Action:      "create",
@@ -232,7 +232,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 					},
 				})
 			}
-			auditor.ExpectEvents(t, append(auditEvents, auditEvents...)...)
+			auditor.ExpectEvents(t, auditEvents...)
 
 			//check GET/HEAD: manifest should now be available under the reference
 			//where it was pushed to...
