@@ -47,10 +47,10 @@ type IncomingManifest struct {
 }
 
 var checkManifestExistsQuery = keppel.SimplifyWhitespaceInSQL(`
-	SELECT COUNT(*) > 1 FROM manifests WHERE repo_id = $1 AND digest = $2
+	SELECT COUNT(*) > 0 FROM manifests WHERE repo_id = $1 AND digest = $2
 `)
 var checkTagExistsAtSameDigestQuery = keppel.SimplifyWhitespaceInSQL(`
-	SELECT COUNT(*) > 1 FROM tags WHERE repo_id = $1 AND name = $2 AND digest = $3
+	SELECT COUNT(*) > 0 FROM tags WHERE repo_id = $1 AND name = $2 AND digest = $3
 `)
 
 //ValidateAndStoreManifest validates the given manifest and stores it under the
