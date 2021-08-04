@@ -440,6 +440,14 @@ type DB struct {
 	gorp.DbMap
 }
 
+//SelectBool is analogous to the other SelectFoo() functions from gorp.DbMap
+//like SelectFloat, SelectInt, SelectStr, etc.
+func (db *DB) SelectBool(query string, args ...interface{}) (bool, error) {
+	var result bool
+	err := db.QueryRow(query, args...).Scan(&result)
+	return result, err
+}
+
 //InitDB connects to the Postgres database.
 func InitDB(dbURL url.URL) (*DB, error) {
 	db, err := easypg.Connect(easypg.Configuration{

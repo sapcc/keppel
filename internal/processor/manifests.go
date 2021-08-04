@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/logg"
@@ -45,13 +46,41 @@ type IncomingManifest struct {
 	PushedAt  time.Time //usually time.Now(), but can be different in unit tests
 }
 
+var checkManifestExistsQuery = keppel.SimplifyWhitespaceInSQL(`
+	SELECT COUNT(*) > 1 FROM manifests WHERE repo_id = $1 AND digest = $2
+`)
+var checkTagExistsAtSameDigestQuery = keppel.SimplifyWhitespaceInSQL(`
+	SELECT COUNT(*) > 1 FROM tags WHERE repo_id = $1 AND name = $2 AND digest = $3
+`)
+
 //ValidateAndStoreManifest validates the given manifest and stores it under the
 //given reference. If the reference is a digest, it is validated. Otherwise, a
 //tag with that name is created that points to the new manifest.
 func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel.Repository, m IncomingManifest, actx keppel.AuditContext) (*keppel.Manifest, error) {
-	err := p.checkQuotaForManifestPush(account)
+	//check if the objects we want to create already exist in the database; this
+	//check is not 100% reliable since it does not run in the same transaction as
+	//the actual upsert, so results should be taken with a grain of salt; but the
+	//result is accurate enough to avoid most duplicate audit events
+	digest := digest.Canonical.FromBytes(m.Contents)
+	manifestExistsAlready, err := p.db.SelectBool(checkManifestExistsQuery, repo.ID, digest.String())
 	if err != nil {
 		return nil, err
+	}
+	var tagExistsAlready bool
+	if m.Reference.IsTag() {
+		tagExistsAlready, err = p.db.SelectBool(checkTagExistsAtSameDigestQuery, repo.ID, m.Reference.Tag, digest.String())
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	//the quota check can be skipped if we are sure that we won't need to insert
+	//a new row into the manifests table
+	if !manifestExistsAlready {
+		err = p.checkQuotaForManifestPush(account)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	manifest := &keppel.Manifest{
@@ -89,6 +118,11 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 		return nil, err
 	}
 
+	//submit audit events, but only if we are reasonably sure that we actually
+	//inserted a new manifest and/or changed a tag (without this restriction, we
+	//would log an audit event everytime a manifest is validated or a tag is
+	//synced; before the introduction of this check, we generated millions of
+	//useless audit events per month)
 	if userInfo := actx.Authorization.UserInfo(); userInfo != nil {
 		record := func(target audittools.TargetRenderer) {
 			p.auditor.Record(audittools.EventParameters{
@@ -100,12 +134,14 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 				Target:     target,
 			})
 		}
-		record(auditManifest{
-			Account:    account,
-			Repository: repo,
-			Digest:     manifest.Digest,
-		})
-		if m.Reference.IsTag() {
+		if !manifestExistsAlready {
+			record(auditManifest{
+				Account:    account,
+				Repository: repo,
+				Digest:     manifest.Digest,
+			})
+		}
+		if m.Reference.IsTag() && !tagExistsAlready {
 			record(auditTag{
 				Account:    account,
 				Repository: repo,
