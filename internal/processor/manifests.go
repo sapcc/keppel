@@ -66,12 +66,14 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 	if err != nil {
 		return nil, err
 	}
+	logg.Debug("ValidateAndStoreManifest: in repo %d, manifest %s already exists = %t", repo.ID, digest.String(), manifestExistsAlready)
 	var tagExistsAlready bool
 	if m.Reference.IsTag() {
 		tagExistsAlready, err = p.db.SelectBool(checkTagExistsAtSameDigestQuery, repo.ID, m.Reference.Tag, digest.String())
 		if err != nil {
 			return nil, err
 		}
+		logg.Debug("ValidateAndStoreManifest: in repo %d, tag %s @%s already exists = %t", repo.ID, m.Reference.Tag, digest.String(), tagExistsAlready)
 	}
 
 	//the quota check can be skipped if we are sure that we won't need to insert
