@@ -26,6 +26,7 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/opencontainers/go-digest"
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //DownloadBlob fetches a blob's contents from this repository. If an error is
@@ -55,7 +56,7 @@ type DownloadManifestOpts struct {
 
 //DownloadManifest fetches a manifest from this repository. If an error is
 //returned, it's usually a *keppel.RegistryV2Error.
-func (c *RepoClient) DownloadManifest(reference string, opts *DownloadManifestOpts) (contents []byte, mediaType string, returnErr error) {
+func (c *RepoClient) DownloadManifest(reference keppel.ManifestReference, opts *DownloadManifestOpts) (contents []byte, mediaType string, returnErr error) {
 	if opts == nil {
 		opts = &DownloadManifestOpts{}
 	}
@@ -72,7 +73,7 @@ func (c *RepoClient) DownloadManifest(reference string, opts *DownloadManifestOp
 
 	resp, err := c.doRequest(repoRequest{
 		Method:       "GET",
-		Path:         "manifests/" + reference,
+		Path:         "manifests/" + reference.String(),
 		Headers:      hdr,
 		ExpectStatus: http.StatusOK,
 	})

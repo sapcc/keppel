@@ -104,20 +104,21 @@ func run(cmd *cobra.Command, args []string) {
 	}()
 
 	//enter long-running check loop
-	job.ValidateImages("latest") //once immediately to initialize the metrics
+	manifestRef := keppel.ManifestReference{Tag: "latest"}
+	job.ValidateImages(manifestRef) //once immediately to initialize the metrics
 	tick := time.Tick(30 * time.Second)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-tick:
-			job.ValidateImages("latest")
+			job.ValidateImages(manifestRef)
 		}
 	}
 }
 
 //Validates the uploaded images and emits the keppel_anycastmonitor_result metric accordingly.
-func (j *anycastMonitorJob) ValidateImages(manifestRef string) {
+func (j *anycastMonitorJob) ValidateImages(manifestRef keppel.ManifestReference) {
 	for accountName, repoClient := range j.RepoClients {
 		labels := prometheus.Labels{"account": accountName}
 		err := repoClient.ValidateManifest(manifestRef, nil, nil)
@@ -125,7 +126,7 @@ func (j *anycastMonitorJob) ValidateImages(manifestRef string) {
 			resultGaugeVec.With(labels).Set(1)
 		} else {
 			resultGaugeVec.With(labels).Set(0)
-			imageRef := client.ImageReference{
+			imageRef := keppel.ImageReference{
 				Host:      repoClient.Host,
 				RepoName:  repoClient.RepoName,
 				Reference: manifestRef,

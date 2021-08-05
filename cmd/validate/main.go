@@ -56,12 +56,12 @@ If the image is in a Keppel replica account, this ensures that the image is repl
 type logger struct{}
 
 //LogManifest implements the client.ValidationLogger interface.
-func (l logger) LogManifest(reference string, level int, err error) {
+func (l logger) LogManifest(reference keppel.ManifestReference, level int, err error) {
 	indent := strings.Repeat("  ", level)
 	if err == nil {
-		logg.Info("%smanifest %s looks good", indent, reference)
+		logg.Info("%smanifest %s looks good", indent, reference.String())
 	} else {
-		logg.Error("%smanifest %s validation failed: %s", indent, reference, err.Error())
+		logg.Error("%smanifest %s validation failed: %s", indent, reference.String(), err.Error())
 	}
 }
 
@@ -82,7 +82,7 @@ func run(cmd *cobra.Command, args []string) {
 		logg.Fatal("cannot parse platform filter: " + err.Error())
 	}
 
-	ref, interpretation, err := client.ParseImageReference(args[0])
+	ref, interpretation, err := keppel.ParseImageReference(args[0])
 	logg.Info("interpreting %s as %s", args[0], interpretation)
 	if err != nil {
 		logg.Fatal(err.Error())

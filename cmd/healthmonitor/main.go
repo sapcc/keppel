@@ -163,27 +163,27 @@ func (j *healthMonitorJob) PrepareKeppelAccount() error {
 }
 
 //Uploads a minimal complete image (one config blob, one layer blob and one manifest) for testing.
-func (j *healthMonitorJob) UploadImage() (string, error) {
+func (j *healthMonitorJob) UploadImage() (keppel.ManifestReference, error) {
 	_, err := j.RepoClient.UploadMonolithicBlob([]byte(minimalImageConfiguration))
 	if err != nil {
-		return "", err
+		return keppel.ManifestReference{}, err
 	}
 	_, err = j.RepoClient.UploadMonolithicBlob(minimalImageLayer())
 	if err != nil {
-		return "", err
+		return keppel.ManifestReference{}, err
 	}
 	digest, err := j.RepoClient.UploadManifest([]byte(minimalManifest), minimalManifestMediaType, "latest")
-	return digest.String(), err
+	return keppel.ManifestReference{Digest: digest}, err
 }
 
 //Validates the uploaded image and emits the keppel_healthmonitor_result metric accordingly.
-func (j *healthMonitorJob) ValidateImage(manifestRef string) {
+func (j *healthMonitorJob) ValidateImage(manifestRef keppel.ManifestReference) {
 	err := j.RepoClient.ValidateManifest(manifestRef, nil, nil)
 	if err == nil {
 		j.recordHealthcheckResult(true)
 	} else {
 		j.recordHealthcheckResult(false)
-		imageRef := client.ImageReference{
+		imageRef := keppel.ImageReference{
 			Host:      j.RepoClient.Host,
 			RepoName:  j.RepoClient.RepoName,
 			Reference: manifestRef,

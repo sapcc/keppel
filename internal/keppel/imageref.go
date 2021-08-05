@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package client
+package keppel
 
 import (
 	"fmt"
@@ -34,21 +34,21 @@ const defaultTagName = "latest"
 type ImageReference struct {
 	Host      string //either a plain hostname or a host:port like "example.org:443"
 	RepoName  string
-	Reference string //either a digest like "sha256:a8f37..." or a tag name like "latest"
+	Reference ManifestReference
 }
 
 //String returns the most compact string representation of this reference.
 func (r ImageReference) String() string {
 	var result string
-	if strings.Contains(r.Reference, ":") {
+	if r.Reference.IsDigest() {
 		//digests are appended with "@"
-		result = fmt.Sprintf("%s@%s", r.RepoName, r.Reference)
+		result = fmt.Sprintf("%s@%s", r.RepoName, r.Reference.Digest.String())
 	} else {
 		//tag names are appended with ":"
-		if r.Reference == defaultTagName {
+		if r.Reference.Tag == defaultTagName {
 			result = r.RepoName
 		} else {
-			result = fmt.Sprintf("%s:%s", r.RepoName, r.Reference)
+			result = fmt.Sprintf("%s:%s", r.RepoName, r.Reference.Tag)
 		}
 	}
 
@@ -91,14 +91,14 @@ func ParseImageReference(input string) (ImageReference, string, error) {
 	if strings.Contains(imageURL.Path, "@") {
 		//input references a digest
 		pathParts := strings.SplitN(imageURL.Path, "@", 2)
+		digest, err := digest.Parse(pathParts[1])
+		if err != nil {
+			return ImageReference{}, input, fmt.Errorf("invalid digest: %q", ref.Reference)
+		}
 		ref = ImageReference{
 			Host:      imageURL.Host,
 			RepoName:  strings.TrimPrefix(pathParts[0], "/"),
-			Reference: pathParts[1],
-		}
-		_, err := digest.Parse(ref.Reference)
-		if err != nil {
-			return ImageReference{}, input, fmt.Errorf("invalid digest: %q", ref.Reference)
+			Reference: ManifestReference{Digest: digest},
 		}
 	} else if strings.Contains(imageURL.Path, ":") {
 		//input references a tag name
@@ -106,14 +106,14 @@ func ParseImageReference(input string) (ImageReference, string, error) {
 		ref = ImageReference{
 			Host:      imageURL.Host,
 			RepoName:  strings.TrimPrefix(pathParts[0], "/"),
-			Reference: pathParts[1],
+			Reference: ManifestReference{Tag: pathParts[1]},
 		}
 	} else {
 		//input references no tag or digest - use default tag
 		ref = ImageReference{
 			Host:      imageURL.Host,
 			RepoName:  strings.TrimPrefix(imageURL.Path, "/"),
-			Reference: "latest",
+			Reference: ManifestReference{Tag: "latest"},
 		}
 	}
 

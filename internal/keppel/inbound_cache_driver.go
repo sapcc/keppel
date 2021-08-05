@@ -32,32 +32,12 @@ type InboundCacheDriver interface {
 	//
 	//time.Now() is given in the second argument to allow for tests to use an
 	//artificial wall clock.
-	LoadManifest(location InboundCacheLocation, now time.Time) (contents []byte, mediaType string, err error)
+	LoadManifest(location ImageReference, now time.Time) (contents []byte, mediaType string, err error)
 	//StoreManifest places a manifest in the cache for later retrieval.
 	//
 	//time.Now() is given in the last argument to allow for tests to use an
 	//artificial wall clock.
-	StoreManifest(location InboundCacheLocation, contents []byte, mediaType string, now time.Time) error
-}
-
-//InboundCacheLocation identifies a single manifest that is stored in an inbound
-//cache. This type appears in type InboundCacheDriver.
-type InboundCacheLocation struct {
-	//The hostname of the external registry.
-	HostName string
-	//The repository name within the external registry.
-	RepoName string
-	//The tag name or digest for this manifest.
-	Reference ManifestReference
-}
-
-//String returns the string representation of this location.
-func (loc InboundCacheLocation) String() string {
-	path := loc.HostName + "/" + loc.RepoName
-	if loc.Reference.IsTag() {
-		return path + ":" + loc.Reference.Tag
-	}
-	return path + "@" + loc.Reference.Digest.String()
+	StoreManifest(location ImageReference, contents []byte, mediaType string, now time.Time) error
 }
 
 var inboundCacheDriverFactories = make(map[string]func(Configuration) (InboundCacheDriver, error))

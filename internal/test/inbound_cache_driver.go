@@ -32,7 +32,7 @@ import (
 //unbounded memory footprint).
 type InboundCacheDriver struct {
 	MaxAge  time.Duration
-	Entries map[keppel.InboundCacheLocation]inboundCacheEntry
+	Entries map[keppel.ImageReference]inboundCacheEntry
 }
 
 type inboundCacheEntry struct {
@@ -44,12 +44,12 @@ type inboundCacheEntry struct {
 func init() {
 	keppel.RegisterInboundCacheDriver("unittest", func(_ keppel.Configuration) (keppel.InboundCacheDriver, error) {
 		defaultMaxAge := 6 * time.Hour
-		return &InboundCacheDriver{defaultMaxAge, make(map[keppel.InboundCacheLocation]inboundCacheEntry)}, nil
+		return &InboundCacheDriver{defaultMaxAge, make(map[keppel.ImageReference]inboundCacheEntry)}, nil
 	})
 }
 
 //LoadManifest implements the keppel.InboundCacheDriver interface.
-func (d *InboundCacheDriver) LoadManifest(location keppel.InboundCacheLocation, now time.Time) (contents []byte, mediaType string, err error) {
+func (d *InboundCacheDriver) LoadManifest(location keppel.ImageReference, now time.Time) (contents []byte, mediaType string, err error) {
 	maxInsertedAt := now.Add(-d.MaxAge)
 	entry, ok := d.Entries[location]
 	if ok && entry.InsertedAt.After(maxInsertedAt) {
@@ -59,7 +59,7 @@ func (d *InboundCacheDriver) LoadManifest(location keppel.InboundCacheLocation, 
 }
 
 //StoreManifest implements the keppel.InboundCacheDriver interface.
-func (d *InboundCacheDriver) StoreManifest(location keppel.InboundCacheLocation, contents []byte, mediaType string, now time.Time) error {
+func (d *InboundCacheDriver) StoreManifest(location keppel.ImageReference, contents []byte, mediaType string, now time.Time) error {
 	d.Entries[location] = inboundCacheEntry{contents, mediaType, now}
 	return nil
 }

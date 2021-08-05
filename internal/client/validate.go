@@ -29,19 +29,19 @@ import (
 //ValidationLogger can be passed to ValidateManifest, primarily to allow the
 //caller to log the progress of the validation operation.
 type ValidationLogger interface {
-	LogManifest(reference string, level int, validationResult error)
+	LogManifest(reference keppel.ManifestReference, level int, validationResult error)
 	LogBlob(d digest.Digest, level int, validationResult error)
 }
 
 type noopLogger struct{}
 
-func (noopLogger) LogManifest(string, int, error)    {}
-func (noopLogger) LogBlob(digest.Digest, int, error) {}
+func (noopLogger) LogManifest(keppel.ManifestReference, int, error) {}
+func (noopLogger) LogBlob(digest.Digest, int, error)                {}
 
 //ValidateManifest fetches the given manifest from the repo and verifies that
 //it parses correctly. It also validates all references manifests and blobs
 //recursively.
-func (c *RepoClient) ValidateManifest(reference string, logger ValidationLogger, platformFilter keppel.PlatformFilter) error {
+func (c *RepoClient) ValidateManifest(reference keppel.ManifestReference, logger ValidationLogger, platformFilter keppel.PlatformFilter) error {
 	cache := make(map[string]error)
 	if logger == nil {
 		logger = noopLogger{}
@@ -49,8 +49,8 @@ func (c *RepoClient) ValidateManifest(reference string, logger ValidationLogger,
 	return c.doValidateManifest(reference, 0, logger, platformFilter, cache)
 }
 
-func (c *RepoClient) doValidateManifest(reference string, level int, logger ValidationLogger, platformFilter keppel.PlatformFilter, cache map[string]error) (returnErr error) {
-	if cachedResult, exists := cache[reference]; exists {
+func (c *RepoClient) doValidateManifest(reference keppel.ManifestReference, level int, logger ValidationLogger, platformFilter keppel.PlatformFilter, cache map[string]error) (returnErr error) {
+	if cachedResult, exists := cache[reference.String()]; exists {
 		logger.LogManifest(reference, level, cachedResult)
 		return cachedResult
 	}
@@ -72,7 +72,7 @@ func (c *RepoClient) doValidateManifest(reference string, level int, logger Vali
 	}
 
 	//the manifest itself looks good...
-	logger.LogManifest(manifestDesc.Digest.String(), level, nil)
+	logger.LogManifest(keppel.ManifestReference{Digest: manifestDesc.Digest}, level, nil)
 	logged = true
 	cache[manifestDesc.Digest.String()] = nil
 
@@ -90,7 +90,7 @@ func (c *RepoClient) doValidateManifest(reference string, level int, logger Vali
 		}
 	}
 	for _, desc := range manifest.ManifestReferences(platformFilter) {
-		err := c.doValidateManifest(desc.Digest.String(), level+1, logger, platformFilter, cache)
+		err := c.doValidateManifest(keppel.ManifestReference{Digest: desc.Digest}, level+1, logger, platformFilter, cache)
 		if err != nil {
 			return err
 		}

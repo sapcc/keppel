@@ -74,7 +74,7 @@ func compileOptionalImplicitlyBoundedRegex(pattern string) (*regexp.Regexp, erro
 }
 
 //LoadManifest implements the keppel.InboundCacheDriver interface.
-func (d *inboundCacheDriverSwift) LoadManifest(location keppel.InboundCacheLocation, now time.Time) (contents []byte, mediaType string, returnedError error) {
+func (d *inboundCacheDriverSwift) LoadManifest(location keppel.ImageReference, now time.Time) (contents []byte, mediaType string, returnedError error) {
 	if d.skip(location) {
 		return nil, "", sql.ErrNoRows
 	}
@@ -103,7 +103,7 @@ func (d *inboundCacheDriverSwift) LoadManifest(location keppel.InboundCacheLocat
 }
 
 //StoreManifest implements the keppel.InboundCacheDriver interface.
-func (d *inboundCacheDriverSwift) StoreManifest(location keppel.InboundCacheLocation, contents []byte, mediaType string, now time.Time) error {
+func (d *inboundCacheDriverSwift) StoreManifest(location keppel.ImageReference, contents []byte, mediaType string, now time.Time) error {
 	if d.skip(location) {
 		return nil
 	}
@@ -120,30 +120,30 @@ func (d *inboundCacheDriverSwift) StoreManifest(location keppel.InboundCacheLoca
 	return nil
 }
 
-func (d *inboundCacheDriverSwift) objectFor(loc keppel.InboundCacheLocation) *schwift.Object {
+func (d *inboundCacheDriverSwift) objectFor(imageRef keppel.ImageReference) *schwift.Object {
 	var name string
-	if loc.Reference.IsTag() {
+	if imageRef.Reference.IsTag() {
 		name = fmt.Sprintf("%s/%s/_tags/%s",
-			loc.HostName, loc.RepoName, loc.Reference.Tag)
+			imageRef.Host, imageRef.RepoName, imageRef.Reference.Tag)
 	} else {
 		name = fmt.Sprintf("%s/%s/_manifests/%s",
-			loc.HostName, loc.RepoName, loc.Reference.Digest.String())
+			imageRef.Host, imageRef.RepoName, imageRef.Reference.Digest.String())
 	}
 	return d.Container.Object(name)
 }
 
-func (d *inboundCacheDriverSwift) expiryFor(loc keppel.InboundCacheLocation, now time.Time) time.Time {
-	if loc.Reference.IsTag() {
+func (d *inboundCacheDriverSwift) expiryFor(imageRef keppel.ImageReference, now time.Time) time.Time {
+	if imageRef.Reference.IsTag() {
 		return now.Add(3 * time.Hour)
 	}
 	return now.Add(48 * time.Hour)
 }
 
-func (d *inboundCacheDriverSwift) skip(loc keppel.InboundCacheLocation) bool {
-	if d.HostInclusionRx != nil && !d.HostInclusionRx.MatchString(loc.HostName) {
+func (d *inboundCacheDriverSwift) skip(imageRef keppel.ImageReference) bool {
+	if d.HostInclusionRx != nil && !d.HostInclusionRx.MatchString(imageRef.Host) {
 		return true
 	}
-	if d.HostExclusionRx != nil && d.HostExclusionRx.MatchString(loc.HostName) {
+	if d.HostExclusionRx != nil && d.HostExclusionRx.MatchString(imageRef.Host) {
 		return true
 	}
 	return false

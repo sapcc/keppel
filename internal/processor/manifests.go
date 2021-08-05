@@ -656,13 +656,13 @@ func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo
 	}
 
 	//try loading the manifest from the cache
-	loc := keppel.InboundCacheLocation{
-		HostName:  c.Host,
+	imageRef := keppel.ImageReference{
+		Host:      c.Host,
 		RepoName:  c.RepoName,
 		Reference: ref,
 	}
 	labels := prometheus.Labels{"external_hostname": c.Host}
-	manifestBytes, manifestMediaType, err := p.icd.LoadManifest(loc, p.timeNow())
+	manifestBytes, manifestMediaType, err := p.icd.LoadManifest(imageRef, p.timeNow())
 	if err == nil {
 		InboundManifestCacheHitCounter.With(labels).Inc()
 		return manifestBytes, manifestMediaType, nil
@@ -672,8 +672,7 @@ func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo
 	}
 
 	//cache miss -> download from actual upstream registry
-	//(TODO: DownloadManifest should take a keppel.ManifestReference)
-	manifestBytes, manifestMediaType, err = c.DownloadManifest(ref.String(), &client.DownloadManifestOpts{
+	manifestBytes, manifestMediaType, err = c.DownloadManifest(ref, &client.DownloadManifestOpts{
 		DoNotCountTowardsLastPulled: true,
 	})
 	if err != nil && account.ExternalPeerURL != "" && errorIsUpstreamRateLimit(err) {
@@ -681,7 +680,7 @@ func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo
 		//random peer to retry the pull for us; they might be successful since
 		//rate limits are usually per source IP
 		var ok bool
-		manifestBytes, manifestMediaType, ok = p.downloadManifestViaPullDelegation(loc, account.ExternalPeerUserName, account.ExternalPeerPassword)
+		manifestBytes, manifestMediaType, ok = p.downloadManifestViaPullDelegation(imageRef, account.ExternalPeerUserName, account.ExternalPeerPassword)
 		if ok {
 			err = nil
 		}
@@ -691,7 +690,7 @@ func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo
 	}
 
 	//successfully downloaded manifest -> fill cache
-	err = p.icd.StoreManifest(loc, manifestBytes, manifestMediaType, p.timeNow())
+	err = p.icd.StoreManifest(imageRef, manifestBytes, manifestMediaType, p.timeNow())
 	if err != nil {
 		return nil, "", err
 	}
@@ -703,7 +702,7 @@ func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo
 //Uses the peering API to ask another peer to downloads a manifest from an
 //external registry for us. This gets used when the external registry denies
 //the pull to us because we hit our rate limit.
-func (p *Processor) downloadManifestViaPullDelegation(loc keppel.InboundCacheLocation, userName, password string) ([]byte, string, bool) {
+func (p *Processor) downloadManifestViaPullDelegation(imageRef keppel.ImageReference, userName, password string) ([]byte, string, bool) {
 	//select a peer at random
 	var peer keppel.Peer
 	err := p.db.SelectOne(&peer, `SELECT * FROM peers WHERE our_password != '' ORDER BY RANDOM() LIMIT 1`)
@@ -718,10 +717,10 @@ func (p *Processor) downloadManifestViaPullDelegation(loc keppel.InboundCacheLoc
 
 	//build request
 	reqURL := fmt.Sprintf("https://%s/peer/v1/delegatedpull/%s/v2/%s/manifests/%s",
-		peer.HostName, loc.HostName, loc.RepoName, loc.Reference)
+		peer.HostName, imageRef.Host, imageRef.RepoName, imageRef.Reference)
 	req, err := http.NewRequest("GET", reqURL, nil)
 	if err != nil {
-		logg.Error("while trying to build a pull delegation request for %s: %s", loc.String(), err.Error())
+		logg.Error("while trying to build a pull delegation request for %s: %s", imageRef.String(), err.Error())
 		return nil, "", false
 	}
 	ourUserName := fmt.Sprintf("replication@%s", p.cfg.APIPublicURL.Hostname())

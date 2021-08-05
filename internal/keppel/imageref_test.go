@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package client
+package keppel
 
 import (
 	"strings"
@@ -60,7 +60,7 @@ func TestParseImageReferenceSuccess(t *testing.T) {
 			}
 
 			for _, reference := range references {
-				ref := ImageReference{hostName, repoName, reference}
+				ref := ImageReference{hostName, repoName, ParseManifestReference(reference)}
 				parsedRef, interpretation, err := ParseImageReference(ref.String())
 				if err == nil {
 					if !assert.DeepEqual(t, "parse of %s", parsedRef, ref) {
