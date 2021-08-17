@@ -1,6 +1,6 @@
 /*******************************************************************************
 *
-* Copyright 2018-2020 SAP SE
+* Copyright 2018 SAP SE
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -41,26 +40,9 @@ import (
 )
 
 type swiftDriver struct {
-	auth                 *keystoneDriver
-	cfg                  keppel.Configuration
-	password             string
-	accountCache         map[string]accountCacheEntry
+	mainAccount          *schwift.Account
 	containerTempURLKeys map[string]string
 }
-
-type accountCacheEntry struct {
-	Account         *schwift.Account
-	AuthenticatedAt time.Time
-}
-
-//I was having trouble with an elusive bug where the keppel-janitor would run
-//into 401 issues in a loop during DeleteBlob(). Schwift does not detect the
-//401 because it's wrapped in a bulk error, but there *should* be a
-//Object.Headers() before the bulkdelete which would detect the 401. But for
-//some unknown reason it doesn't. I'm working around the error by only
-//caching schwift.Account instances for a limited time. That way we won't
-//have to rely on Schwift's reauth logic.
-const maxAccountAge time.Duration = 2 * time.Hour
 
 func init() {
 	keppel.RegisterStorageDriver("swift", func(driver keppel.AuthDriver, cfg keppel.Configuration) (keppel.StorageDriver, error) {
@@ -68,15 +50,25 @@ func init() {
 		if !ok {
 			return nil, keppel.ErrAuthDriverMismatch
 		}
-		password := os.Getenv("OS_PASSWORD")
-		if password == "" {
-			return nil, errors.New("missing environment variable: OS_PASSWORD")
+
+		eo := gophercloud.EndpointOpts{
+			//note that empty values are acceptable in both fields
+			Region:       os.Getenv("OS_REGION_NAME"),
+			Availability: gophercloud.Availability(os.Getenv("OS_INTERFACE")),
 		}
-		return &swiftDriver{
-			k, cfg, password,
-			make(map[string]accountCacheEntry),
-			make(map[string]string),
-		}, nil
+		client, err := openstack.NewObjectStorageV1(k.Provider, eo)
+		if err != nil {
+			return nil, err
+		}
+
+		swiftAccount, err := gopherschwift.Wrap(client, &gopherschwift.Options{
+			UserAgent: fmt.Sprintf("%s/%s", keppel.Component, keppel.Version),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		return &swiftDriver{swiftAccount, make(map[string]string)}, nil
 	})
 }
 
@@ -84,36 +76,7 @@ func init() {
 //appropriate (esp. keppel.ErrSizeInvalid and keppel.ErrTooManyRequests)
 
 func (d *swiftDriver) getBackendConnection(account keppel.Account) (*schwift.Container, error) {
-	cacheEntry, ok := d.accountCache[account.AuthTenantID]
-
-	if !ok || cacheEntry.AuthenticatedAt.Before(time.Now().Add(-maxAccountAge)) {
-		ao := gophercloud.AuthOptions{
-			IdentityEndpoint: d.auth.IdentityV3.Endpoint,
-			Username:         d.auth.ServiceUser.Name,
-			DomainName:       d.auth.ServiceUser.Domain.Name,
-			Password:         d.password,
-			AllowReauth:      true,
-			Scope:            &gophercloud.AuthScope{ProjectID: account.AuthTenantID},
-		}
-		provider, err := openstack.AuthenticatedClient(ao)
-		if err != nil {
-			return nil, err
-		}
-		client, err := openstack.NewObjectStorageV1(provider, gophercloud.EndpointOpts{})
-		if err != nil {
-			return nil, err
-		}
-		swiftAccount, err := gopherschwift.Wrap(client, &gopherschwift.Options{
-			UserAgent: fmt.Sprintf("%s/%s", keppel.Component, keppel.Version),
-		})
-		if err != nil {
-			return nil, err
-		}
-		cacheEntry = accountCacheEntry{swiftAccount, time.Now()}
-		d.accountCache[account.AuthTenantID] = cacheEntry
-	}
-
-	c := cacheEntry.Account.Container(account.SwiftContainerName())
+	c := d.mainAccount.SwitchAccount("AUTH_" + account.AuthTenantID).Container(account.SwiftContainerName())
 
 	//on first use, cache the tempurl key (for fast read access to blobs)
 	if d.containerTempURLKeys[account.Name] == "" {

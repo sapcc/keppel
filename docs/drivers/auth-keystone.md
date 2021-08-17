@@ -23,7 +23,6 @@ Keystone projects.
 | Variable | Default | Explanation |
 | -------- | ------- | ----------- |
 | `OS_...` | *(required)* | A full set of OpenStack auth environment variables for Keppel's service user. See [documentation for openstackclient][os-env] for details. |
-| `KEPPEL_AUTH_LOCAL_ROLE` | *(required)* | A Keystone role name that will be assigned to Keppel's service user in a project when creating a Keppel account there, in order to enable access to this project for the storage driver. For the `swift` storage driver, this will usually be `swiftoperator`. |
 | `KEPPEL_OSLO_POLICY_PATH` | *(required)* | Path to the `policy.json` file for this service. |
 
 Keppel understands access rules in the [`oslo.policy` JSON format][os-pol]. An example can be seen at

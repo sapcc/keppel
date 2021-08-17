@@ -41,7 +41,6 @@ import (
 	"github.com/go-redis/redis"
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
-	"github.com/gophercloud/gophercloud/openstack/identity/v3/roles"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
 	"github.com/gophercloud/utils/openstack/clientconfig"
 	"github.com/sapcc/go-bits/audittools"
@@ -54,8 +53,6 @@ type keystoneDriver struct {
 	Provider       *gophercloud.ProviderClient
 	IdentityV3     *gophercloud.ServiceClient
 	TokenValidator *gopherpolicy.TokenValidator
-	ServiceUser    tokens.User
-	LocalRoleID    string
 }
 
 func init() {
@@ -95,29 +92,10 @@ func init() {
 			tv.Cacher = redisCacher{rc}
 		}
 
-		//resolve KEPPEL_AUTH_LOCAL_ROLE name into ID
-		localRoleName := mustGetenv("KEPPEL_AUTH_LOCAL_ROLE")
-		localRole, err := getRoleByName(identityV3, localRoleName)
-		if err != nil {
-			return nil, fmt.Errorf("cannot find Keystone role '%s': %s", localRoleName, err.Error())
-		}
-
-		//get user ID for service user
-		authResult, ok := provider.GetAuthResult().(tokens.CreateResult)
-		if !ok {
-			return nil, fmt.Errorf("got unexpected auth result: %T", provider.GetAuthResult())
-		}
-		serviceUser, err := authResult.ExtractUser()
-		if err != nil {
-			return nil, errors.New("cannot extract own user metadata from token response: " + err.Error())
-		}
-
 		return &keystoneDriver{
 			Provider:       provider,
 			IdentityV3:     identityV3,
 			TokenValidator: tv,
-			ServiceUser:    *serviceUser,
-			LocalRoleID:    localRole.ID,
 		}, nil
 	})
 }
@@ -140,21 +118,6 @@ func createProviderClient(ao gophercloud.AuthOptions) (*gophercloud.ProviderClie
 	return provider, err
 }
 
-func getRoleByName(identityV3 *gophercloud.ServiceClient, name string) (roles.Role, error) {
-	page, err := roles.List(identityV3, roles.ListOpts{Name: name}).AllPages()
-	if err != nil {
-		return roles.Role{}, err
-	}
-	list, err := roles.ExtractRoles(page)
-	if err != nil {
-		return roles.Role{}, err
-	}
-	if len(list) == 0 {
-		return roles.Role{}, errors.New("no such role")
-	}
-	return list[0], nil
-}
-
 //DriverName implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) DriverName() string {
 	return "keystone"
@@ -170,21 +133,7 @@ func (d *keystoneDriver) ValidateTenantID(tenantID string) error {
 
 //SetupAccount implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) SetupAccount(account keppel.Account, authorization keppel.Authorization) error {
-	requesterToken := authorization.(keystoneAuthorization).t //is a *gopherpolicy.Token
-	if requesterToken.ProviderClient == nil {
-		return errors.New("user token does not contain a functional client (probably because of a serialization roundtrip)")
-	}
-
-	client, err := openstack.NewIdentityV3(
-		requesterToken.ProviderClient, gophercloud.EndpointOpts{})
-	if err != nil {
-		return err
-	}
-	result := roles.Assign(client, d.LocalRoleID, roles.AssignOpts{
-		UserID:    d.ServiceUser.ID,
-		ProjectID: account.AuthTenantID,
-	})
-	return result.Err
+	return nil
 }
 
 //AuthenticateUser implements the keppel.AuthDriver interface.
