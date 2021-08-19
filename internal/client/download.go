@@ -82,10 +82,11 @@ func (c *RepoClient) DownloadManifest(reference keppel.ManifestReference, opts *
 	}
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, "", err
+	if err == nil {
+		err = resp.Body.Close()
+	} else {
+		resp.Body.Close()
 	}
-	err = resp.Body.Close()
 	if err != nil {
 		return nil, "", err
 	}

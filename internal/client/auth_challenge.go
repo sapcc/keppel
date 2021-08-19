@@ -109,10 +109,11 @@ func (c AuthChallenge) GetToken(userName, password string) (string, error) {
 		return "", err
 	}
 	respBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
+	if err == nil {
+		err = resp.Body.Close()
+	} else {
+		resp.Body.Close()
 	}
-	err = resp.Body.Close()
 	if err != nil {
 		return "", err
 	}

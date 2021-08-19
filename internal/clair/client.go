@@ -76,10 +76,11 @@ func (c *Client) doRequest(req *http.Request, respBody interface{}) error {
 		return fmt.Errorf("cannot %s %s: %w", req.Method, req.URL.String(), err)
 	}
 	respBodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("cannot %s %s: %w", req.Method, req.URL.String(), err)
+	if err == nil {
+		err = resp.Body.Close()
+	} else {
+		resp.Body.Close()
 	}
-	err = resp.Body.Close()
 	if err != nil {
 		return fmt.Errorf("cannot %s %s: %w", req.Method, req.URL.String(), err)
 	}
