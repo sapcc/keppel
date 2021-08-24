@@ -304,6 +304,13 @@ type Tag struct {
 	LastPulledAt *time.Time `db:"last_pulled_at"`
 }
 
+//ManifestContent contains a record from the `manifest_contents` table.
+type ManifestContent struct {
+	RepositoryID int64  `db:"repo_id"`
+	Digest       string `db:"digest"`
+	Content      []byte `db:"content"`
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 //Quotas contains a record from the `quotas` table.
@@ -421,6 +428,7 @@ func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(Repository{}, "repos").SetKeys(true, "id")
 	db.AddTableWithName(Manifest{}, "manifests").SetKeys(false, "repo_id", "digest")
 	db.AddTableWithName(Tag{}, "tags").SetKeys(false, "repo_id", "name")
+	db.AddTableWithName(ManifestContent{}, "manifest_contents").SetKeys(false, "repo_id", "digest")
 	db.AddTableWithName(Quotas{}, "quotas").SetKeys(false, "auth_tenant_id")
 	db.AddTableWithName(Peer{}, "peers").SetKeys(false, "hostname")
 	db.AddTableWithName(PendingBlob{}, "pending_blobs").SetKeys(false, "account_name", "digest")

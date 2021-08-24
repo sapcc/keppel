@@ -59,7 +59,7 @@ func GenerateExampleLayer(seed int64) Bytes {
 	r := rand.New(rand.NewSource(seed))
 	buf := make([]byte, 1<<20)
 	r.Read(buf[:])
-	return NewBytes(buf)
+	return newBytesWithMediaType(buf, "application/vnd.docker.image.rootfs.diff.tar.gzip")
 }
 
 //Image contains all the pieces of a Docker image. The Layers and Config must
@@ -156,13 +156,13 @@ func GenerateImage(layers ...Bytes) Image {
 	if err != nil {
 		panic(err.Error())
 	}
-	imageConfigBytesObj := NewBytes(imageConfigBytes)
+	imageConfigBytesObj := newBytesWithMediaType(imageConfigBytes, "application/vnd.docker.container.image.v1+json")
 
 	//build a manifest
 	layerDescs := []map[string]interface{}{}
 	for _, layer := range layers {
 		layerDescs = append(layerDescs, map[string]interface{}{
-			"mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+			"mediaType": layer.MediaType,
 			"size":      len(layer.Contents),
 			"digest":    layer.Digest.String(),
 		})
@@ -171,7 +171,7 @@ func GenerateImage(layers ...Bytes) Image {
 		"schemaVersion": 2,
 		"mediaType":     "application/vnd.docker.distribution.manifest.v2+json",
 		"config": assert.JSONObject{
-			"mediaType": "application/vnd.docker.container.image.v1+json",
+			"mediaType": imageConfigBytesObj.MediaType,
 			"size":      len(imageConfigBytes),
 			"digest":    imageConfigBytesObj.Digest.String(),
 		},

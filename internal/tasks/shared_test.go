@@ -170,6 +170,7 @@ func uploadBlob(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock *tes
 		StorageID:   storageID,
 		PushedAt:    clock.Now(),
 		ValidatedAt: clock.Now(),
+		MediaType:   blob.MediaType,
 	}
 	must(t, db.Insert(&dbBlob))
 	must(t, sd.AppendToBlob(account, storageID, 1, &dbBlob.SizeBytes, bytes.NewBuffer(blob.Contents)))
@@ -192,6 +193,11 @@ func uploadManifest(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock 
 		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
 	}
 	must(t, db.Insert(&dbManifest))
+	must(t, db.Insert(&keppel.ManifestContent{
+		RepositoryID: 1,
+		Digest:       manifest.Digest.String(),
+		Content:      manifest.Contents,
+	}))
 	must(t, sd.WriteManifest(account, "foo", manifest.Digest.String(), manifest.Contents))
 	return dbManifest
 }
