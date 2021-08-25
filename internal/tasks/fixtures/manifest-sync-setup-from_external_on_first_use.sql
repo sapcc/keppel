@@ -1,4 +1,4 @@
-INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, required_labels, metadata_json, next_blob_sweep_at, next_storage_sweep_at, next_federation_announcement_at, in_maintenance, external_peer_url, external_peer_username, external_peer_password, platform_filter, gc_policies_json) VALUES ('test1', 'test1authtenant', 'registry.example.org', '', '', NULL, NULL, NULL, FALSE, '', '', '', '', '[]');
+INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, required_labels, metadata_json, next_blob_sweep_at, next_storage_sweep_at, next_federation_announcement_at, in_maintenance, external_peer_url, external_peer_username, external_peer_password, platform_filter, gc_policies_json) VALUES ('test1', 'test1authtenant', '', '', '', NULL, NULL, NULL, FALSE, 'registry.example.org/test1', 'replication@registry-secondary.example.org', 'a4cb6fae5b8bb91b0b993486937103dab05eca93', '', '[]');
 
 INSERT INTO blob_mounts (blob_id, repo_id, can_be_deleted_at) VALUES (1, 1, NULL);
 INSERT INTO blob_mounts (blob_id, repo_id, can_be_deleted_at) VALUES (2, 1, NULL);
@@ -38,7 +38,7 @@ INSERT INTO manifest_contents (repo_id, digest, content) VALUES (1, 'sha256:ac2d
 INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, 'sha256:ac2def9c9ad7219933c8b0672a0ae6e50e1a7acb990a7a79eb79742af7b1998e', 'sha256:33ef30d47bd666b28f971cc3f07b00aca72d55865e79d6ca03a836647bb81f42');
 INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, 'sha256:ac2def9c9ad7219933c8b0672a0ae6e50e1a7acb990a7a79eb79742af7b1998e', 'sha256:622d6cd420f93b90fcf415b3254eb798eb1df51c7aecbf1ccc8331acea30079d');
 
-INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message, last_pulled_at, next_vuln_check_at, vuln_status, vuln_scan_error, labels_json) VALUES (1, 'sha256:33ef30d47bd666b28f971cc3f07b00aca72d55865e79d6ca03a836647bb81f42', 'application/vnd.docker.distribution.manifest.v2+json', 2099156, 3600, 18000, '', NULL, NULL, 'Pending', '', '');
+INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message, last_pulled_at, next_vuln_check_at, vuln_status, vuln_scan_error, labels_json) VALUES (1, 'sha256:33ef30d47bd666b28f971cc3f07b00aca72d55865e79d6ca03a836647bb81f42', 'application/vnd.docker.distribution.manifest.v2+json', 2099156, 3600, 3600, '', NULL, NULL, 'Pending', '', '');
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message, last_pulled_at, next_vuln_check_at, vuln_status, vuln_scan_error, labels_json) VALUES (1, 'sha256:5e81574b620cb58bd6db9ba7cfab0eefc6fdf36ec04a423af737a23c0b481d57', 'application/vnd.docker.distribution.manifest.v2+json', 2099156, 3600, 3600, '', NULL, NULL, 'Pending', '', '');
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message, last_pulled_at, next_vuln_check_at, vuln_status, vuln_scan_error, labels_json) VALUES (1, 'sha256:622d6cd420f93b90fcf415b3254eb798eb1df51c7aecbf1ccc8331acea30079d', 'application/vnd.docker.distribution.manifest.v2+json', 2099156, 3600, 3600, '', NULL, NULL, 'Pending', '', '');
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message, last_pulled_at, next_vuln_check_at, vuln_status, vuln_scan_error, labels_json) VALUES (1, 'sha256:ac2def9c9ad7219933c8b0672a0ae6e50e1a7acb990a7a79eb79742af7b1998e', 'application/vnd.docker.distribution.manifest.list.v2+json', 1711, 3600, 3600, '', NULL, NULL, 'Pending', '', '');
@@ -47,6 +47,6 @@ INSERT INTO peers (hostname, our_password, their_current_password_hash, their_pr
 
 INSERT INTO quotas (auth_tenant_id, manifests) VALUES ('test1authtenant', 10);
 
-INSERT INTO repos (id, account_name, name, next_blob_mount_sweep_at, next_manifest_sync_at, next_gc_at) VALUES (1, 'test1', 'foo', NULL, 21600, NULL);
+INSERT INTO repos (id, account_name, name, next_blob_mount_sweep_at, next_manifest_sync_at, next_gc_at) VALUES (1, 'test1', 'foo', NULL, NULL, NULL);
 
 INSERT INTO tags (repo_id, name, digest, pushed_at, last_pulled_at) VALUES (1, 'latest', 'sha256:33ef30d47bd666b28f971cc3f07b00aca72d55865e79d6ca03a836647bb81f42', 3600, NULL);

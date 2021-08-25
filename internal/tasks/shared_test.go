@@ -70,7 +70,12 @@ func setup(t *testing.T) (*Janitor, keppel.Configuration, *keppel.DB, *test.Fede
 	return j, cfg, db, fd.(*test.FederationDriver), sd, clock, h
 }
 
-func setupReplica(t *testing.T, db1 *keppel.DB, h1 http.Handler, clock *test.Clock) (*Janitor, keppel.Configuration, *keppel.DB, keppel.StorageDriver, http.Handler) {
+func forAllReplicaTypes(t *testing.T, action func(string)) {
+	action("on_first_use")
+	action("from_external_on_first_use")
+}
+
+func setupReplica(t *testing.T, db1 *keppel.DB, h1 http.Handler, clock *test.Clock, strategy string) (*Janitor, keppel.Configuration, *keppel.DB, keppel.StorageDriver, http.Handler) {
 	cfg2, db2 := test.Setup(t, &test.SetupOptions{IsSecondary: true})
 
 	ad2, err := keppel.NewAuthDriver("unittest", nil)
@@ -81,9 +86,6 @@ func setupReplica(t *testing.T, db1 *keppel.DB, h1 http.Handler, clock *test.Clo
 	must(t, err)
 	icd2, err := keppel.NewInboundCacheDriver("unittest", cfg2)
 	must(t, err)
-
-	must(t, db2.Insert(&keppel.Account{Name: "test1", AuthTenantID: "test1authtenant", UpstreamPeerHostName: "registry.example.org", GCPoliciesJSON: "[]"}))
-	must(t, db2.Insert(&keppel.Repository{AccountName: "test1", Name: "foo"}))
 
 	//give the secondary registry credentials for replicating from the primary
 	if replicationPassword == "" {
@@ -102,6 +104,24 @@ func setupReplica(t *testing.T, db1 *keppel.DB, h1 http.Handler, clock *test.Clo
 		HostName:                 "registry-secondary.example.org",
 		TheirCurrentPasswordHash: replicationPasswordHash,
 	}))
+
+	testAccount := keppel.Account{
+		Name:           "test1",
+		AuthTenantID:   "test1authtenant",
+		GCPoliciesJSON: "[]",
+	}
+	switch strategy {
+	case "on_first_use":
+		testAccount.UpstreamPeerHostName = "registry.example.org"
+	case "from_external_on_first_use":
+		testAccount.ExternalPeerURL = "registry.example.org/test1"
+		testAccount.ExternalPeerUserName = "replication@registry-secondary.example.org"
+		testAccount.ExternalPeerPassword = replicationPassword
+	default:
+		t.Fatalf("unknown strategy: %q", strategy)
+	}
+	must(t, db2.Insert(&testAccount))
+	must(t, db2.Insert(&keppel.Repository{AccountName: testAccount.Name, Name: "foo"}))
 
 	sidGen := &test.StorageIDGenerator{}
 	auditor := &test.Auditor{}

@@ -175,217 +175,292 @@ func TestValidateNextManifestError(t *testing.T) {
 // tests for SyncManifestsInNextRepo
 
 func TestSyncManifestsInNextRepo(t *testing.T) {
-	j1, _, db1, _, sd1, clock, h1 := setup(t)
-	j2, _, db2, sd2, _ := setupReplica(t, db1, h1, clock)
-	clock.StepBy(1 * time.Hour)
+	forAllReplicaTypes(t, func(strategy string) {
+		j1, _, db1, _, sd1, clock, h1 := setup(t)
+		j2, _, db2, sd2, _ := setupReplica(t, db1, h1, clock, strategy)
+		clock.StepBy(1 * time.Hour)
 
-	//upload some manifests...
-	images := make([]test.Image, 4)
-	for idx := range images {
-		image := test.GenerateImage(
-			test.GenerateExampleLayer(int64(10*idx+1)),
-			test.GenerateExampleLayer(int64(10*idx+2)),
-		)
-		images[idx] = image
-
-		//...to the primary account...
-		layer1Blob := uploadBlob(t, db1, sd1, clock, image.Layers[0])
-		layer2Blob := uploadBlob(t, db1, sd1, clock, image.Layers[1])
-		configBlob := uploadBlob(t, db1, sd1, clock, image.Config)
-		uploadManifest(t, db1, sd1, clock, image.Manifest, image.SizeBytes())
-		for _, blobID := range []int64{layer1Blob.ID, layer2Blob.ID, configBlob.ID} {
-			mustExec(t, db1,
-				`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
-				blobID, image.Manifest.Digest.String(),
+		//upload some manifests...
+		images := make([]test.Image, 4)
+		for idx := range images {
+			image := test.GenerateImage(
+				test.GenerateExampleLayer(int64(10*idx+1)),
+				test.GenerateExampleLayer(int64(10*idx+2)),
 			)
-		}
+			images[idx] = image
 
-		//...and most of them also to the replica account (to simulate replication having taken place)
-		if idx != 0 {
-			layer1Blob := uploadBlob(t, db2, sd2, clock, image.Layers[0])
-			layer2Blob := uploadBlob(t, db2, sd2, clock, image.Layers[1])
-			configBlob := uploadBlob(t, db2, sd2, clock, image.Config)
-			uploadManifest(t, db2, sd2, clock, image.Manifest, image.SizeBytes())
+			//...to the primary account...
+			layer1Blob := uploadBlob(t, db1, sd1, clock, image.Layers[0])
+			layer2Blob := uploadBlob(t, db1, sd1, clock, image.Layers[1])
+			configBlob := uploadBlob(t, db1, sd1, clock, image.Config)
+			uploadManifest(t, db1, sd1, clock, image.Manifest, image.SizeBytes())
 			for _, blobID := range []int64{layer1Blob.ID, layer2Blob.ID, configBlob.ID} {
-				mustExec(t, db2,
+				mustExec(t, db1,
 					`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
 					blobID, image.Manifest.Digest.String(),
 				)
 			}
+
+			//...and most of them also to the replica account (to simulate replication having taken place)
+			if idx != 0 {
+				layer1Blob := uploadBlob(t, db2, sd2, clock, image.Layers[0])
+				layer2Blob := uploadBlob(t, db2, sd2, clock, image.Layers[1])
+				configBlob := uploadBlob(t, db2, sd2, clock, image.Config)
+				uploadManifest(t, db2, sd2, clock, image.Manifest, image.SizeBytes())
+				for _, blobID := range []int64{layer1Blob.ID, layer2Blob.ID, configBlob.ID} {
+					mustExec(t, db2,
+						`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
+						blobID, image.Manifest.Digest.String(),
+					)
+				}
+			}
 		}
-	}
 
-	//one of the replicated images is also tagged
-	for _, db := range []*keppel.DB{db1, db2} {
-		mustExec(t, db,
-			`INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, $1, $2, $3)`,
-			"latest",
-			images[1].Manifest.Digest.String(),
-			clock.Now(),
-		)
-	}
+		//one of the replicated images is also tagged
+		for _, db := range []*keppel.DB{db1, db2} {
+			mustExec(t, db,
+				`INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, $1, $2, $3)`,
+				"latest",
+				images[1].Manifest.Digest.String(),
+				clock.Now(),
+			)
+		}
 
-	//we need some quota for this since the tag sync runs
-	//Processor.ReplicateManifest() which insists on running a quota check before
-	//storing manifests, even if the new manifest ends up an existing one and
-	//therefore doesn't affect the quota usage at all
-	mustExec(t, db2,
-		`INSERT INTO quotas (auth_tenant_id, manifests) VALUES ($1, $2)`,
-		"test1authtenant", 10,
-	)
-
-	//also setup an image list manifest containing some of those images (so that we have
-	//some manifest-manifest refs to play with)
-	imageList := test.GenerateImageList(images[1].Manifest, images[2].Manifest)
-	uploadManifest(t, db1, sd1, clock, imageList.Manifest, imageList.SizeBytes())
-	for _, imageManifest := range imageList.ImageManifests {
-		mustExec(t, db1,
-			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
-			imageList.Manifest.Digest.String(), imageManifest.Digest.String(),
-		)
-	}
-	//this one is replicated as well
-	uploadManifest(t, db2, sd2, clock, imageList.Manifest, imageList.SizeBytes())
-	for _, imageManifest := range imageList.ImageManifests {
+		//we need some quota for this since the tag sync runs
+		//Processor.ReplicateManifest() which insists on running a quota check before
+		//storing manifests, even if the new manifest ends up an existing one and
+		//therefore doesn't affect the quota usage at all
 		mustExec(t, db2,
-			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
-			imageList.Manifest.Digest.String(), imageManifest.Digest.String(),
+			`INSERT INTO quotas (auth_tenant_id, manifests) VALUES ($1, $2)`,
+			"test1authtenant", 10,
 		)
-	}
 
-	//set a well-known last_pulled_at timestamp on all manifests in the primary
-	//DB (we will later verify that this was not touched by the manifest sync)
-	expectedLastPulledAt := time.Unix(42, 0)
-	mustExec(t, db1, `UPDATE manifests SET last_pulled_at = $1`, expectedLastPulledAt)
-	mustExec(t, db1, `UPDATE tags SET last_pulled_at = $1`, expectedLastPulledAt)
+		//also setup an image list manifest containing some of those images (so that we have
+		//some manifest-manifest refs to play with)
+		imageList := test.GenerateImageList(images[1].Manifest, images[2].Manifest)
+		uploadManifest(t, db1, sd1, clock, imageList.Manifest, imageList.SizeBytes())
+		for _, imageManifest := range imageList.ImageManifests {
+			mustExec(t, db1,
+				`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
+				imageList.Manifest.Digest.String(), imageManifest.Digest.String(),
+			)
+		}
+		//this one is replicated as well
+		uploadManifest(t, db2, sd2, clock, imageList.Manifest, imageList.SizeBytes())
+		for _, imageManifest := range imageList.ImageManifests {
+			mustExec(t, db2,
+				`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
+				imageList.Manifest.Digest.String(), imageManifest.Digest.String(),
+			)
+		}
 
-	//SyncManifestsInNextRepo on the primary registry should have nothing to do
-	//since there are no replica accounts
-	expectError(t, sql.ErrNoRows.Error(), j1.SyncManifestsInNextRepo())
-	//SyncManifestsInNextRepo on the secondary registry should set the
-	//ManifestsSyncedAt timestamp on the repo, but otherwise not do anything
-	expectSuccess(t, j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-001.sql")
-	expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-001.sql")
+		//set a well-known last_pulled_at timestamp on all manifests in the primary
+		//DB (we will later verify that this was not touched by the manifest sync)
+		expectedLastPulledAt := time.Unix(42, 0)
+		mustExec(t, db1, `UPDATE manifests SET last_pulled_at = $1`, expectedLastPulledAt)
+		mustExec(t, db1, `UPDATE tags SET last_pulled_at = $1`, expectedLastPulledAt)
 
-	//delete a manifest on the primary side (this one is a simple image not referenced by anyone else)
-	clock.StepBy(2 * time.Hour)
-	mustExec(t, db1,
-		`DELETE FROM manifests WHERE digest = $1`,
-		images[3].Manifest.Digest.String(),
-	)
-	//move a tag on the primary side
-	mustExec(t, db1,
-		`UPDATE tags SET digest = $1`,
-		images[2].Manifest.Digest.String(),
-	)
+		tr, tr0 := easypg.NewTracker(t, db2.DbMap.Db)
+		tr0.AssertEqualToFile(fmt.Sprintf("fixtures/manifest-sync-setup-%s.sql", strategy))
 
-	//again, nothing to do on the primary side
-	expectError(t, sql.ErrNoRows.Error(), j1.SyncManifestsInNextRepo())
-	//SyncManifestsInNextRepo on the replica side should not do anything while
-	//the account is in maintenance; only the timestamp is updated to make sure
-	//that the job loop progresses to the next repo
-	mustExec(t, db2, `UPDATE accounts SET in_maintenance = TRUE`)
-	expectSuccess(t, j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-002.sql")
-	expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-002.sql")
+		//SyncManifestsInNextRepo on the primary registry should have nothing to do
+		//since there are no replica accounts
+		expectError(t, sql.ErrNoRows.Error(), j1.SyncManifestsInNextRepo())
+		//SyncManifestsInNextRepo on the secondary registry should set the
+		//ManifestsSyncedAt timestamp on the repo, but otherwise not do anything
+		expectSuccess(t, j2.SyncManifestsInNextRepo())
+		tr.DBChanges().AssertEqualf(`
+			UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+		`,
+			clock.Now().Add(1*time.Hour).Unix(),
+		)
+		//second run should not have anything else to do
+		expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+		tr.DBChanges().AssertEmpty()
 
-	//after the end of the maintenance, we would naively expect
-	//SyncManifestsInNextRepo to actually replicate the deletion, BUT we have an
-	//inbound cache with a lifetime of 6 hours, so actually nothing should happen
-	clock.StepBy(2 * time.Hour)
-	mustExec(t, db2, `UPDATE accounts SET in_maintenance = FALSE`)
-	expectSuccess(t, j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-002b.sql")
-	expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-002b.sql")
+		//delete a manifest on the primary side (this one is a simple image not referenced by anyone else)
+		clock.StepBy(2 * time.Hour)
+		mustExec(t, db1,
+			`DELETE FROM manifests WHERE digest = $1`,
+			images[3].Manifest.Digest.String(),
+		)
+		//move a tag on the primary side
+		mustExec(t, db1,
+			`UPDATE tags SET digest = $1`,
+			images[2].Manifest.Digest.String(),
+		)
 
-	//This proves that the inbound cache works. From now on, we will go in clock
-	//increments of 7 hours to force the inbound cache to never hit.
+		//again, nothing to do on the primary side
+		expectError(t, sql.ErrNoRows.Error(), j1.SyncManifestsInNextRepo())
+		//SyncManifestsInNextRepo on the replica side should not do anything while
+		//the account is in maintenance; only the timestamp is updated to make sure
+		//that the job loop progresses to the next repo
+		mustExec(t, db2, `UPDATE accounts SET in_maintenance = TRUE`)
+		expectSuccess(t, j2.SyncManifestsInNextRepo())
+		tr.DBChanges().AssertEqualf(`
+			UPDATE accounts SET in_maintenance = TRUE WHERE name = 'test1';
+			UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+		`,
+			clock.Now().Add(1*time.Hour).Unix(),
+		)
+		expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+		tr.DBChanges().AssertEmpty()
 
-	//after the end of the maintenance, SyncManifestsInNextRepo on the replica
-	//side should delete the same manifest that we deleted in the primary account
-	clock.StepBy(7 * time.Hour)
-	expectSuccess(t, j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-003.sql")
-	expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-003.sql")
+		//after the end of the maintenance, we would naively expect
+		//SyncManifestsInNextRepo to actually replicate the deletion, BUT we have an
+		//inbound cache with a lifetime of 6 hours, so actually nothing should
+		//happen (only the tag gets synced, which includes a validation of the
+		//referenced manifest)
+		clock.StepBy(2 * time.Hour)
+		mustExec(t, db2, `UPDATE accounts SET in_maintenance = FALSE`)
+		expectSuccess(t, j2.SyncManifestsInNextRepo())
+		tr.DBChanges().AssertEqualf(`
+			UPDATE accounts SET in_maintenance = FALSE WHERE name = 'test1';
+			UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';
+			UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+		`,
+			clock.Now().Unix(),
+			images[1].Manifest.Digest.String(),
+			clock.Now().Add(1*time.Hour).Unix(),
+		)
+		expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+		tr.DBChanges().AssertEmpty()
 
-	//cause a deliberate inconsistency on the primary side: delete a manifest that
-	//*is* referenced by another manifest (this requires deleting the
-	//manifest-manifest ref first, otherwise the DB will complain)
-	clock.StepBy(7 * time.Hour)
-	mustExec(t, db1,
-		`DELETE FROM manifest_manifest_refs WHERE child_digest = $1`,
-		images[2].Manifest.Digest.String(),
-	)
-	mustExec(t, db1,
-		`DELETE FROM manifests WHERE digest = $1`,
-		images[2].Manifest.Digest.String(),
-	)
+		//This proves that the inbound cache works. From now on, we will go in clock
+		//increments of 7 hours to force the inbound cache to never hit.
 
-	//SyncManifestsInNextRepo should now complain since it wants to delete
-	//images[2].Manifest, but it can't because of the manifest-manifest ref to
-	//the image list
-	expectedError := fmt.Sprintf(`while syncing manifests in a replica repo: cannot remove deleted manifests [%s] in repo test1/foo because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)`,
-		images[2].Manifest.Digest.String(),
-	)
-	expectError(t, expectedError, j2.SyncManifestsInNextRepo())
-	//the tag sync went through though, so the tag should be gone
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-004.sql")
+		//after the end of the maintenance, SyncManifestsInNextRepo on the replica
+		//side should delete the same manifest that we deleted in the primary
+		//account, and also replicate the tag change (which includes a validation
+		//of the referenced manifest)
+		clock.StepBy(7 * time.Hour)
+		expectSuccess(t, j2.SyncManifestsInNextRepo())
+		tr.DBChanges().AssertEqualf(`
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%s' AND blob_id = 7;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 8;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 9;
+			DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
+			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
+			UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';
+			UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+			UPDATE tags SET digest = '%[3]s', pushed_at = %[2]d WHERE repo_id = 1 AND name = 'latest';
+		`,
+			images[3].Manifest.Digest.String(), //the deleted manifest
+			clock.Now().Unix(),
+			images[2].Manifest.Digest.String(), //the tagged manifest
+			clock.Now().Add(1*time.Hour).Unix(),
+		)
+		expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+		tr.DBChanges().AssertEmpty()
 
-	//also remove the image list manifest on the primary side
-	clock.StepBy(7 * time.Hour)
-	mustExec(t, db1,
-		`DELETE FROM manifests WHERE digest = $1`,
-		imageList.Manifest.Digest.String(),
-	)
+		//cause a deliberate inconsistency on the primary side: delete a manifest that
+		//*is* referenced by another manifest (this requires deleting the
+		//manifest-manifest ref first, otherwise the DB will complain)
+		clock.StepBy(7 * time.Hour)
+		mustExec(t, db1,
+			`DELETE FROM manifest_manifest_refs WHERE child_digest = $1`,
+			images[2].Manifest.Digest.String(),
+		)
+		mustExec(t, db1,
+			`DELETE FROM manifests WHERE digest = $1`,
+			images[2].Manifest.Digest.String(),
+		)
 
-	//this makes the primary side consistent again, so SyncManifestsInNextRepo
-	//should succeed now and remove both deleted manifests from the DB
-	expectSuccess(t, j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-005.sql")
-	expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-005.sql")
+		//SyncManifestsInNextRepo should now complain since it wants to delete
+		//images[2].Manifest, but it can't because of the manifest-manifest ref to
+		//the image list
+		expectedError := fmt.Sprintf(`while syncing manifests in a replica repo: cannot remove deleted manifests [%s] in repo test1/foo because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)`,
+			images[2].Manifest.Digest.String(),
+		)
+		expectError(t, expectedError, j2.SyncManifestsInNextRepo())
+		//the tag sync went through though, so the tag should be gone
+		tr.DBChanges().AssertEqual(`DELETE FROM tags WHERE repo_id = 1 AND name = 'latest';`)
 
-	//replace the primary registry's API with something that just answers 404 all the time
-	clock.StepBy(7 * time.Hour)
-	http.DefaultClient.Transport.(*test.RoundTripper).Handlers["registry.example.org"] = http.HandlerFunc(answerWith404)
-	//This is particularly devious since 404 is returned by the GET endpoint for
-	//a manifest when the manifest was deleted. We want to check that the next
-	//SyncManifestsInNextRepo understands that this is a network issue and not
-	//caused by the manifest getting deleted, since the 404-generating endpoint
-	//does not render a proper MANIFEST_UNKNOWN error.
-	expectedError = fmt.Sprintf(`while syncing manifests in a replica repo: cannot check existence of manifest test1/foo/%s on primary account: during GET https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found`,
-		images[1].Manifest.Digest.String(), //the only manifest that is left
-	)
-	expectError(t, expectedError, j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-005.sql") //unchanged
+		//also remove the image list manifest on the primary side
+		clock.StepBy(7 * time.Hour)
+		mustExec(t, db1,
+			`DELETE FROM manifests WHERE digest = $1`,
+			imageList.Manifest.Digest.String(),
+		)
 
-	//check that the manifest sync did not update the last_pulled_at timestamps
-	//in the primary DB (even though there were GET requests for the manifests
-	//there)
-	var lastPulledAt time.Time
-	expectSuccess(t, db1.DbMap.QueryRow(`SELECT MAX(last_pulled_at) FROM manifests`).Scan(&lastPulledAt))
-	if !lastPulledAt.Equal(expectedLastPulledAt) {
-		t.Error("last_pulled_at timestamps on the primary side were touched")
-		t.Logf("  expected = %#v", expectedLastPulledAt)
-		t.Logf("  actual   = %#v", lastPulledAt)
-	}
+		//this makes the primary side consistent again, so SyncManifestsInNextRepo
+		//should succeed now and remove both deleted manifests from the DB
+		expectSuccess(t, j2.SyncManifestsInNextRepo())
+		tr.DBChanges().AssertEqualf(`
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 4;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 5;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 6;
+			DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
+			DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[2]s';
+			DELETE FROM manifest_manifest_refs WHERE repo_id = 1 AND parent_digest = '%[2]s' AND child_digest = '%[3]s';
+			DELETE FROM manifest_manifest_refs WHERE repo_id = 1 AND parent_digest = '%[2]s' AND child_digest = '%[1]s';
+			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
+			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[2]s';
+			UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+		`,
+			images[2].Manifest.Digest.String(),
+			imageList.Manifest.Digest.String(),
+			images[1].Manifest.Digest.String(),
+			clock.Now().Add(1*time.Hour).Unix(),
+		)
+		expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+		tr.DBChanges().AssertEmpty()
 
-	//flip back to the actual primary registry's API
-	http.DefaultClient.Transport.(*test.RoundTripper).Handlers["registry.example.org"] = h1
-	//delete the entire repository on the primary
-	clock.StepBy(7 * time.Hour)
-	mustExec(t, db1, `DELETE FROM manifests`)
-	mustExec(t, db1, `DELETE FROM repos`)
-	//the manifest sync should reflect the repository deletion on the replica
-	expectSuccess(t, j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-006.sql")
-	expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
-	easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/manifest-sync-006.sql")
+		//replace the primary registry's API with something that just answers 404 all the time
+		clock.StepBy(7 * time.Hour)
+		http.DefaultClient.Transport.(*test.RoundTripper).Handlers["registry.example.org"] = http.HandlerFunc(answerWith404)
+		//This is particularly devious since 404 is returned by the GET endpoint for
+		//a manifest when the manifest was deleted. We want to check that the next
+		//SyncManifestsInNextRepo understands that this is a network issue and not
+		//caused by the manifest getting deleted, since the 404-generating endpoint
+		//does not render a proper MANIFEST_UNKNOWN error.
+		expectedError = fmt.Sprintf(`while syncing manifests in a replica repo: cannot check existence of manifest test1/foo/%s on primary account: during GET https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found`,
+			images[1].Manifest.Digest.String(), //the only manifest that is left
+		)
+		expectError(t, expectedError, j2.SyncManifestsInNextRepo())
+		tr.DBChanges().AssertEmpty()
+
+		//check that the manifest sync did not update the last_pulled_at timestamps
+		//in the primary DB (even though there were GET requests for the manifests
+		//there)
+		var lastPulledAt time.Time
+		expectSuccess(t, db1.DbMap.QueryRow(`SELECT MAX(last_pulled_at) FROM manifests`).Scan(&lastPulledAt))
+		if !lastPulledAt.Equal(expectedLastPulledAt) {
+			t.Error("last_pulled_at timestamps on the primary side were touched")
+			t.Logf("  expected = %#v", expectedLastPulledAt)
+			t.Logf("  actual   = %#v", lastPulledAt)
+		}
+
+		//flip back to the actual primary registry's API
+		http.DefaultClient.Transport.(*test.RoundTripper).Handlers["registry.example.org"] = h1
+		//delete the entire repository on the primary
+		clock.StepBy(7 * time.Hour)
+		mustExec(t, db1, `DELETE FROM manifests`)
+		mustExec(t, db1, `DELETE FROM repos`)
+		//the manifest sync should reflect the repository deletion on the replica
+		expectSuccess(t, j2.SyncManifestsInNextRepo())
+		tr.DBChanges().AssertEqualf(`
+			DELETE FROM blob_mounts WHERE blob_id = 1 AND repo_id = 1;
+			DELETE FROM blob_mounts WHERE blob_id = 2 AND repo_id = 1;
+			DELETE FROM blob_mounts WHERE blob_id = 3 AND repo_id = 1;
+			DELETE FROM blob_mounts WHERE blob_id = 4 AND repo_id = 1;
+			DELETE FROM blob_mounts WHERE blob_id = 5 AND repo_id = 1;
+			DELETE FROM blob_mounts WHERE blob_id = 6 AND repo_id = 1;
+			DELETE FROM blob_mounts WHERE blob_id = 7 AND repo_id = 1;
+			DELETE FROM blob_mounts WHERE blob_id = 8 AND repo_id = 1;
+			DELETE FROM blob_mounts WHERE blob_id = 9 AND repo_id = 1;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 1;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 2;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 3;
+			DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
+			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
+			DELETE FROM repos WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+		`,
+			images[1].Manifest.Digest.String(),
+		)
+		expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+		tr.DBChanges().AssertEmpty()
+	})
 }
 
 func answerWith404(w http.ResponseWriter, r *http.Request) {
