@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"sort"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
@@ -110,7 +109,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 			MediaType:                     dbManifest.MediaType,
 			SizeBytes:                     dbManifest.SizeBytes,
 			PushedAt:                      dbManifest.PushedAt.Unix(),
-			LastPulledAt:                  maybeTimeToUnix(dbManifest.LastPulledAt),
+			LastPulledAt:                  keppel.MaybeTimeToUnix(dbManifest.LastPulledAt),
 			LabelsJSON:                    labelsJSON,
 			VulnerabilityStatus:           dbManifest.VulnerabilityStatus,
 			VulnerabilityScanErrorMessage: dbManifest.VulnerabilityScanErrorMessage,
@@ -136,7 +135,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 			tagsByDigest[dbTag.Digest] = append(tagsByDigest[dbTag.Digest], Tag{
 				Name:         dbTag.Name,
 				PushedAt:     dbTag.PushedAt.Unix(),
-				LastPulledAt: maybeTimeToUnix(dbTag.LastPulledAt),
+				LastPulledAt: keppel.MaybeTimeToUnix(dbTag.LastPulledAt),
 			})
 		}
 		for _, manifest := range result.Manifests {
@@ -149,14 +148,6 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondwith.JSON(w, http.StatusOK, result)
-}
-
-func maybeTimeToUnix(t *time.Time) *int64 {
-	if t == nil {
-		return nil
-	}
-	val := t.Unix()
-	return &val
 }
 
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {

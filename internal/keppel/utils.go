@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 //OriginalRequestURL returns the URL that the original requester used when
@@ -60,4 +61,13 @@ func AppendQuery(url string, query url.Values) string {
 		return url + "&" + query.Encode()
 	}
 	return url + "?" + query.Encode()
+}
+
+//MaybeTimeToUnix casts a time.Time instance into its UNIX timestamp while preserving nil-ness.
+func MaybeTimeToUnix(t *time.Time) *int64 {
+	if t == nil {
+		return nil
+	}
+	val := t.Unix()
+	return &val
 }

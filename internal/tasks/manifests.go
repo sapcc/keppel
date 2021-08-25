@@ -19,8 +19,12 @@
 package tasks
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"time"
 
 	"github.com/opencontainers/go-digest"
@@ -167,11 +171,15 @@ func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
 
 	//do not perform manifest sync while account is in maintenance (maintenance mode blocks all kinds of replication)
 	if !account.InMaintenance {
-		err = j.performTagSync(*account, repo)
+		syncPayload, err := j.getReplicaSyncPayload(*account, repo)
 		if err != nil {
 			return err
 		}
-		err = j.performManifestSync(*account, repo)
+		err = j.performTagSync(*account, repo, syncPayload)
+		if err != nil {
+			return err
+		}
+		err = j.performManifestSync(*account, repo, syncPayload)
 		if err != nil {
 			return err
 		}
@@ -185,7 +193,114 @@ func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
 	return err
 }
 
-func (j *Janitor) performTagSync(account keppel.Account, repo keppel.Repository) error {
+//When performing a manifest/tag sync, and the upstream is one of our peers,
+//we can use the replica-sync API instead of polling each manifest and tag
+//individually. This also synchronizes our own last_pulled_at timestamps into
+//the primary account. The primary therefore gains a complete picture of pull
+//activity, which is required for some GC policies to work correctly.
+func (j *Janitor) getReplicaSyncPayload(account keppel.Account, repo keppel.Repository) (*keppel.ReplicaSyncPayload, error) {
+	//the replica-sync API is only available when upstream is a peer
+	if account.UpstreamPeerHostName == "" {
+		return nil, nil
+	}
+
+	//get peer
+	var peer keppel.Peer
+	err := j.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, account.UpstreamPeerHostName)
+	if err != nil {
+		return nil, err
+	}
+
+	//assemble request body
+	tagsByDigest := make(map[string][]keppel.TagForSync)
+	query := `SELECT name, digest, last_pulled_at FROM tags WHERE repo_id = $1`
+	err = keppel.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+		var (
+			name         string
+			digest       string
+			lastPulledAt *time.Time
+		)
+		err = rows.Scan(&name, &digest, &lastPulledAt)
+		if err != nil {
+			return err
+		}
+		tagsByDigest[digest] = append(tagsByDigest[digest], keppel.TagForSync{
+			Name:         name,
+			LastPulledAt: keppel.MaybeTimeToUnix(lastPulledAt),
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var manifests []keppel.ManifestForSync
+	query = `SELECT digest, last_pulled_at FROM manifests WHERE repo_id = $1`
+	err = keppel.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+		var (
+			digest       string
+			lastPulledAt *time.Time
+		)
+		err = rows.Scan(&digest, &lastPulledAt)
+		if err != nil {
+			return err
+		}
+		manifests = append(manifests, keppel.ManifestForSync{
+			Digest:       digest,
+			LastPulledAt: keppel.MaybeTimeToUnix(lastPulledAt),
+			Tags:         tagsByDigest[digest],
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	//build request
+	reqBodyBytes, err := json.Marshal(keppel.ReplicaSyncPayload{Manifests: manifests})
+	if err != nil {
+		return nil, err
+	}
+	reqURL := fmt.Sprintf("https://%s/peer/v1/sync-replica/%s", peer.HostName, repo.FullName())
+	req, err := http.NewRequest("POST", reqURL, bytes.NewReader(reqBodyBytes))
+	if err != nil {
+		return nil, err
+	}
+	ourUserName := fmt.Sprintf("replication@%s", j.cfg.APIPublicURL.Hostname())
+	req.Header.Set("Authorization", keppel.BuildBasicAuthHeader(ourUserName, peer.OurPassword))
+
+	//execute request
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("during POST %s: %w", reqURL, err)
+	}
+	defer resp.Body.Close()
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("during POST %s: %w", reqURL, err)
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		//404 can occur when the repo has been deleted on primary; in this case,
+		//fall back to verifying the deletion explicitly using the normal API
+		return nil, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("during POST %s: expected 200, got %d with response: %s",
+			req.URL, resp.StatusCode, string(respBytes))
+	}
+
+	//parse response body
+	var payload keppel.ReplicaSyncPayload
+	decoder := json.NewDecoder(bytes.NewReader(respBytes))
+	decoder.DisallowUnknownFields()
+	err = decoder.Decode(&payload)
+	if err != nil {
+		return nil, fmt.Errorf("while parsing response for POST %s: %w", reqURL, err)
+	}
+	return &payload, nil
+}
+
+func (j *Janitor) performTagSync(account keppel.Account, repo keppel.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
 	var tags []keppel.Tag
 	_, err := j.db.Select(&tags, `SELECT * FROM tags WHERE repo_id = $1`, repo.ID)
 	if err != nil {
@@ -193,7 +308,28 @@ func (j *Janitor) performTagSync(account keppel.Account, repo keppel.Repository)
 	}
 
 	p := j.processor()
+TAG:
 	for _, tag := range tags {
+		//if we have a ReplicaSyncPayload available, use it
+		if syncPayload != nil {
+			switch syncPayload.DigestForTag(tag.Name) {
+			case tag.Digest:
+				//the tag still points to the same digest - nothing to do
+				continue TAG
+			case "":
+				//the tag was deleted - replicate the tag deletion into our replica
+				_, err := j.db.Delete(&tag)
+				if err != nil {
+					return err
+				}
+				continue TAG
+			default:
+				//the tag was updated to point to a different manifest - replicate it
+				//using the generic codepath below
+				break
+			}
+		}
+
 		//we want to check if upstream still has the tag, and if it has moved to a
 		//different manifest, replicate that manifest; all of that boils down to
 		//just a ReplicateManifest() call
@@ -227,7 +363,7 @@ var repoUntaggedManifestsSelectQuery = keppel.SimplifyWhitespaceInSQL(`
 		AND digest NOT IN (SELECT digest FROM tags WHERE repo_id = $1)
 `)
 
-func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Repository) error {
+func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
 	//enumerate manifests in this repo (this only needs to consider untagged
 	//manifests: we run right after performTagSync, therefore all images that are
 	//tagged right now were already confirmed to still be good)
@@ -241,6 +377,15 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 	shallDeleteManifest := make(map[string]bool)
 	p := j.processor()
 	for _, manifest := range manifests {
+		//if we have a ReplicaSyncPayload available, use it to check manifest existence
+		if syncPayload != nil {
+			if !syncPayload.HasManifest(manifest.Digest) {
+				shallDeleteManifest[manifest.Digest] = true
+			}
+			continue
+		}
+
+		//when querying an external registry, we have to check each manifest one-by-one
 		ref := keppel.ManifestReference{Digest: digest.Digest(manifest.Digest)}
 		exists, err := p.CheckManifestOnPrimary(account, repo, ref)
 		if err != nil {

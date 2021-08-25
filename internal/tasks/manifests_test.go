@@ -216,14 +216,16 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			}
 		}
 
-		//one of the replicated images is also tagged
+		//some of the replicated images are also tagged
 		for _, db := range []*keppel.DB{db1, db2} {
-			mustExec(t, db,
-				`INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, $1, $2, $3)`,
-				"latest",
-				images[1].Manifest.Digest.String(),
-				clock.Now(),
-			)
+			for _, tagName := range []string{"latest", "other"} {
+				mustExec(t, db,
+					`INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, $1, $2, $3)`,
+					tagName,
+					images[1].Manifest.Digest.String(),
+					clock.Now(),
+				)
+			}
 		}
 
 		//we need some quota for this since the tag sync runs
@@ -256,16 +258,28 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 
 		//set a well-known last_pulled_at timestamp on all manifests in the primary
 		//DB (we will later verify that this was not touched by the manifest sync)
-		expectedLastPulledAt := time.Unix(42, 0)
-		mustExec(t, db1, `UPDATE manifests SET last_pulled_at = $1`, expectedLastPulledAt)
-		mustExec(t, db1, `UPDATE tags SET last_pulled_at = $1`, expectedLastPulledAt)
+		initialLastPulledAt := time.Unix(42, 0)
+		mustExec(t, db1, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
+		mustExec(t, db1, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
+
+		//as an exception, in the on_first_use method, we can and want to merge
+		//last_pulled_at timestamps from the replica into those of the primary, so
+		//set some of those to verify the merging behavior
+		earlierLastPulledAt := initialLastPulledAt.Add(-10 * time.Second)
+		laterLastPulledAt := initialLastPulledAt.Add(+10 * time.Second)
+		mustExec(t, db2, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, earlierLastPulledAt, images[1].Manifest.Digest.String())
+		mustExec(t, db2, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, laterLastPulledAt, images[2].Manifest.Digest.String())
+		mustExec(t, db2, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, earlierLastPulledAt, "latest")
+		mustExec(t, db2, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, laterLastPulledAt, "other")
 
 		tr, tr0 := easypg.NewTracker(t, db2.DbMap.Db)
 		tr0.AssertEqualToFile(fmt.Sprintf("fixtures/manifest-sync-setup-%s.sql", strategy))
+		trForPrimary, _ := easypg.NewTracker(t, db1.DbMap.Db)
 
 		//SyncManifestsInNextRepo on the primary registry should have nothing to do
 		//since there are no replica accounts
 		expectError(t, sql.ErrNoRows.Error(), j1.SyncManifestsInNextRepo())
+		trForPrimary.DBChanges().AssertEmpty()
 		//SyncManifestsInNextRepo on the secondary registry should set the
 		//ManifestsSyncedAt timestamp on the repo, but otherwise not do anything
 		expectSuccess(t, j2.SyncManifestsInNextRepo())
@@ -278,6 +292,29 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 		expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
 		tr.DBChanges().AssertEmpty()
 
+		//in on_first_use, the sync should have merged the replica's last_pulled_at
+		//timestamps into the primary, i.e. primary.last_pulled_at =
+		//max(primary.last_pulled_at, replica.last_pulled_at); this only touches
+		//the DB when the replica's last_pulled_at is after the primary's
+		if strategy == "on_first_use" {
+			trForPrimary.DBChanges().AssertEqualf(
+				`
+				UPDATE manifests SET last_pulled_at = %[1]d WHERE repo_id = 1 AND digest = '%[2]s';
+UPDATE tags SET last_pulled_at = %[1]d WHERE repo_id = 1 AND name = 'other';
+				`,
+				laterLastPulledAt.Unix(),
+				images[2].Manifest.Digest.String(),
+			)
+			//reset all timestamps to prevent divergences in the rest of the test
+			mustExec(t, db1, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
+			mustExec(t, db1, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
+			mustExec(t, db2, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
+			mustExec(t, db2, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
+			tr.DBChanges() // skip these changes
+		} else {
+			trForPrimary.DBChanges().AssertEmpty()
+		}
+
 		//delete a manifest on the primary side (this one is a simple image not referenced by anyone else)
 		clock.StepBy(2 * time.Hour)
 		mustExec(t, db1,
@@ -286,7 +323,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 		)
 		//move a tag on the primary side
 		mustExec(t, db1,
-			`UPDATE tags SET digest = $1`,
+			`UPDATE tags SET digest = $1 WHERE name = 'latest'`,
 			images[2].Manifest.Digest.String(),
 		)
 
@@ -306,49 +343,63 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 		expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
 		tr.DBChanges().AssertEmpty()
 
-		//after the end of the maintenance, we would naively expect
-		//SyncManifestsInNextRepo to actually replicate the deletion, BUT we have an
-		//inbound cache with a lifetime of 6 hours, so actually nothing should
-		//happen (only the tag gets synced, which includes a validation of the
-		//referenced manifest)
-		clock.StepBy(2 * time.Hour)
+		//end maintenance
 		mustExec(t, db2, `UPDATE accounts SET in_maintenance = FALSE`)
-		expectSuccess(t, j2.SyncManifestsInNextRepo())
-		tr.DBChanges().AssertEqualf(`
-			UPDATE accounts SET in_maintenance = FALSE WHERE name = 'test1';
+		tr.DBChanges().AssertEqual(`UPDATE accounts SET in_maintenance = FALSE WHERE name = 'test1';`)
+
+		//test that replication from external uses the inbound cache
+		if strategy == "from_external_on_first_use" {
+			//after the end of the maintenance, we would naively expect
+			//SyncManifestsInNextRepo to actually replicate the deletion, BUT we have an
+			//inbound cache with a lifetime of 6 hours, so actually nothing should
+			//happen (only the tag gets synced, which includes a validation of the
+			//referenced manifest)
+			clock.StepBy(2 * time.Hour)
+			expectSuccess(t, j2.SyncManifestsInNextRepo())
+			tr.DBChanges().AssertEqualf(`
 			UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';
 			UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 		`,
-			clock.Now().Unix(),
-			images[1].Manifest.Digest.String(),
-			clock.Now().Add(1*time.Hour).Unix(),
-		)
-		expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
-		tr.DBChanges().AssertEmpty()
+				clock.Now().Unix(),
+				images[1].Manifest.Digest.String(),
+				clock.Now().Add(1*time.Hour).Unix(),
+			)
+			expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+			tr.DBChanges().AssertEmpty()
+		}
 
-		//This proves that the inbound cache works. From now on, we will go in clock
-		//increments of 7 hours to force the inbound cache to never hit.
+		//From now on, we will go in clock increments of 7 hours to force the
+		//inbound cache to never hit.
 
 		//after the end of the maintenance, SyncManifestsInNextRepo on the replica
 		//side should delete the same manifest that we deleted in the primary
 		//account, and also replicate the tag change (which includes a validation
-		//of the referenced manifest)
+		//of the tagged manifests)
 		clock.StepBy(7 * time.Hour)
 		expectSuccess(t, j2.SyncManifestsInNextRepo())
+		manifestValidationBecauseOfExistingTag := fmt.Sprintf(
+			//this validation is skipped in "on_first_use" because the respective tag is unchanged
+			`UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';`+"\n",
+			clock.Now().Unix(), images[1].Manifest.Digest.String(),
+		)
+		if strategy == "on_first_use" {
+			manifestValidationBecauseOfExistingTag = ""
+		}
 		tr.DBChanges().AssertEqualf(`
-			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%s' AND blob_id = 7;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 7;
 			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 8;
 			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 9;
 			DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
-			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
-			UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';
-			UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
-			UPDATE tags SET digest = '%[3]s', pushed_at = %[2]d WHERE repo_id = 1 AND name = 'latest';
+			%[5]sDELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
+			UPDATE manifests SET validated_at = %[2]d WHERE repo_id = 1 AND digest = '%[3]s';
+			UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+			UPDATE tags SET digest = '%[3]s', pushed_at = %[2]d, last_pulled_at = NULL WHERE repo_id = 1 AND name = 'latest';
 		`,
 			images[3].Manifest.Digest.String(), //the deleted manifest
 			clock.Now().Unix(),
-			images[2].Manifest.Digest.String(), //the tagged manifest
+			images[2].Manifest.Digest.String(), //the manifest now tagged as "latest"
 			clock.Now().Add(1*time.Hour).Unix(),
+			manifestValidationBecauseOfExistingTag,
 		)
 		expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
 		tr.DBChanges().AssertEmpty()
@@ -373,8 +424,19 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			images[2].Manifest.Digest.String(),
 		)
 		expectError(t, expectedError, j2.SyncManifestsInNextRepo())
-		//the tag sync went through though, so the tag should be gone
-		tr.DBChanges().AssertEqual(`DELETE FROM tags WHERE repo_id = 1 AND name = 'latest';`)
+		//the tag sync went through though, so the tag should be gone (the manifest
+		//validation is because of the "other" tag that still exists)
+		manifestValidationBecauseOfExistingTag = fmt.Sprintf(
+			//this validation is skipped in "on_first_use" because the respective tag is unchanged
+			`UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';`+"\n",
+			clock.Now().Unix(), images[1].Manifest.Digest.String(),
+		)
+		if strategy == "on_first_use" {
+			manifestValidationBecauseOfExistingTag = ""
+		}
+		tr.DBChanges().AssertEqualf(`%sDELETE FROM tags WHERE repo_id = 1 AND name = 'latest';`,
+			manifestValidationBecauseOfExistingTag,
+		)
 
 		//also remove the image list manifest on the primary side
 		clock.StepBy(7 * time.Hour)
@@ -382,6 +444,8 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			`DELETE FROM manifests WHERE digest = $1`,
 			imageList.Manifest.Digest.String(),
 		)
+		//and remove the other tag (this is required for the 404 error message in the next step but one to be deterministic)
+		mustExec(t, db1, `DELETE FROM tags`)
 
 		//this makes the primary side consistent again, so SyncManifestsInNextRepo
 		//should succeed now and remove both deleted manifests from the DB
@@ -397,6 +461,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
 			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[2]s';
 			UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+			DELETE FROM tags WHERE repo_id = 1 AND name = 'other';
 		`,
 			images[2].Manifest.Digest.String(),
 			imageList.Manifest.Digest.String(),
@@ -425,9 +490,9 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 		//there)
 		var lastPulledAt time.Time
 		expectSuccess(t, db1.DbMap.QueryRow(`SELECT MAX(last_pulled_at) FROM manifests`).Scan(&lastPulledAt))
-		if !lastPulledAt.Equal(expectedLastPulledAt) {
+		if !lastPulledAt.Equal(initialLastPulledAt) {
 			t.Error("last_pulled_at timestamps on the primary side were touched")
-			t.Logf("  expected = %#v", expectedLastPulledAt)
+			t.Logf("  expected = %#v", initialLastPulledAt)
 			t.Logf("  actual   = %#v", lastPulledAt)
 		}
 

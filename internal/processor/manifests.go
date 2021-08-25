@@ -381,9 +381,11 @@ var upsertTagQuery = keppel.SimplifyWhitespaceInSQL(`
 	INSERT INTO tags (repo_id, name, digest, pushed_at)
 	VALUES ($1, $2, $3, $4)
 	ON CONFLICT (repo_id, name) DO UPDATE
-		SET digest = EXCLUDED.digest, last_pulled_at = EXCLUDED.last_pulled_at,
+		SET digest = EXCLUDED.digest,
 			-- only set "pushed_at" when the tag is actually moving to a different manifest
-			pushed_at = (CASE WHEN tags.digest = EXCLUDED.digest THEN tags.pushed_at ELSE EXCLUDED.pushed_at END)
+			pushed_at = (CASE WHEN tags.digest = EXCLUDED.digest THEN tags.pushed_at ELSE EXCLUDED.pushed_at END),
+			-- merge "last_pulled_at" when staying on the same manifest, otherwise use only new value
+			last_pulled_at = (CASE WHEN tags.digest = EXCLUDED.digest THEN GREATEST(tags.last_pulled_at, EXCLUDED.last_pulled_at) ELSE EXCLUDED.last_pulled_at END)
 `)
 
 func upsertTag(db gorp.SqlExecutor, t keppel.Tag) error {

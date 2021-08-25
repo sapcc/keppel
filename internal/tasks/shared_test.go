@@ -27,6 +27,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/keppel/internal/api"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
+	peerv1 "github.com/sapcc/keppel/internal/api/peer"
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -63,6 +64,7 @@ func setup(t *testing.T) (*Janitor, keppel.Configuration, *keppel.DB, *test.Fede
 	j := NewJanitor(cfg, fd, sd, icd, db, auditor).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next)
 
 	h := api.Compose(
+		peerv1.NewAPI(cfg, db),
 		registryv2.NewAPI(cfg, ad, fd, sd, icd, db, nil, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 		authapi.NewAPI(cfg, ad, fd, db),
 	)
@@ -127,6 +129,7 @@ func setupReplica(t *testing.T, db1 *keppel.DB, h1 http.Handler, clock *test.Clo
 	auditor := &test.Auditor{}
 	j2 := NewJanitor(cfg2, fd2, sd2, icd2, db2, auditor).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next)
 	h2 := api.Compose(
+		peerv1.NewAPI(cfg2, db2),
 		registryv2.NewAPI(cfg2, ad2, fd2, sd2, icd2, db2, nil, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 		authapi.NewAPI(cfg2, ad2, fd2, db2),
 	)

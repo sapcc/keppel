@@ -48,6 +48,7 @@ func (a *API) AddTo(r *mux.Router) {
 	//to upstream, so there is an additional /v2/ in there in reference to the
 	//Registry V2 API.
 	r.Methods("GET").Path("/peer/v1/delegatedpull/{hostname}/v2/{repo:.+}/manifests/{reference}").HandlerFunc(a.handleDelegatedPullManifest)
+	r.Methods("POST").Path("/peer/v1/sync-replica/{account}/{repo:.+}").HandlerFunc(a.handleSyncReplica)
 }
 
 func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request) *keppel.Peer {
