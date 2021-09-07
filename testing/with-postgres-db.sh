@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -euo pipefail
 
 if hash greadlink &>/dev/null; then
@@ -9,7 +9,7 @@ fi
 cd "$(dirname "$(dirname "$(readlink -f "$0")")")"
 
 step() {
-  echo -e "\e[1;36m>>\e[0;36m $@...\e[0m"
+  echo -e "\e[1;36m>>\e[0;36m $*...\e[0m"
 }
 
 if [ ! -d testing/postgresql-data/ ]; then
@@ -30,7 +30,7 @@ step "Starting PostgreSQL"
 rm -f -- testing/postgresql.log
 pg_ctl start -D testing/postgresql-data/ -l testing/postgresql.log -w -s
 
-step "Running command: $@"
+step "Running command: $*"
 set +e
 "$@"
 EXIT_CODE=$?
