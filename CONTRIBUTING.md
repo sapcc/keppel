@@ -5,6 +5,30 @@ to work on Keppel's codebase. This document assumes that you did that already.
 
 ## Testing methodology
 
+In the following parts is described how to run Keppel locally and the test suite.
+
+### Run Keppel locally
+
+You can start Keppel locally with `make run-api` but without the correct environment variables in `.env` it will stop really fast.
+
+An example `.env` to get Keppel up and running is shown below:
+
+```bash
+export KEPPEL_API_PUBLIC_URL=http://localhost
+export KEPPEL_ISSUER_KEY=./privkey.pem
+export KEPPEL_DB_CONNECTION_OPTIONS=sslmode=disable
+export KEPPEL_DB_PASSWORD=mysecretpassword
+export KEPPEL_DRIVER_FEDERATION=trivial
+export KEPPEL_DRIVER_INBOUND_CACHE=trivial
+```
+
+In addition to that the following extra steps are required:
+- A private key in PEM format is required to to sign auth token for Docker clients. It can be generated with `openssl genrsa -out privkey.pem 4096`.
+- A local postgresql instance. You can start one in docker with the following command: `docker run --name postgres -e POSTGRES_PASSWORD=mysecretpassword -e POSTGRES_DB=keppel -p 127.0.0.1:5432:5432 -d postgres`
+- `KEPPEL_DRIVER_AUTH` and `KEPPEL_DRIVER_STORAGE` need to be configured and exported. Best look them up in an existing Keppel installation.
+
+### Run the test suite
+
 Run the full test suite with:
 
 ```sh
