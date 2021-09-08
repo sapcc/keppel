@@ -15,7 +15,7 @@ This will produce a coverage report at `build/cover.html`.
 
 ## Code structure
 
-Once compiled, Limes is only a single binary containing subcommands for the various components. This reduces the size of
+Once compiled, Keppel is only a single binary containing subcommands for the various components. This reduces the size of
 the compiled application dramatically since a lot of code is shared. The main entrypoint is in `main.go`, from which
 everything else follows.
 
