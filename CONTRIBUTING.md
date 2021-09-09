@@ -14,7 +14,7 @@ You can start Keppel locally with `make run-api` but without the correct environ
 An example `.env` to get Keppel up and running is shown below:
 
 ```bash
-export KEPPEL_API_PUBLIC_URL=http://localhost
+export KEPPEL_API_PUBLIC_URL=http://localhost:8080
 export KEPPEL_ISSUER_KEY=./privkey.pem
 export KEPPEL_DB_CONNECTION_OPTIONS=sslmode=disable
 export KEPPEL_DB_PASSWORD=mysecretpassword
