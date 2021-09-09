@@ -3,6 +3,7 @@ build/
 
 # runtime artifacts (see Makefile)
 /.env
+privkey.pem
 
 # testing artifacts
 testing/postgresql-data/
