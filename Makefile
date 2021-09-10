@@ -4,7 +4,11 @@
 ################################################################################
 
 MAKEFLAGS=--warn-undefined-variables
+# /bin/sh is dash on Debian which does not support all features of ash/bash
+# to fix that we use /bin/bash only on Debian to not break Alpine
+ifneq ($(shell grep -c debian /etc/os-release),0)
 SHELL := /bin/bash
+endif
 
 default: build-all
 
