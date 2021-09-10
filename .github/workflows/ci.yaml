@@ -61,7 +61,7 @@ jobs:
         COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GIT_BRANCH: ${{ github.head_ref }}
       run: |
-        GO111MODULE=off go get -u github.com/mattn/goveralls
+        go install github.com/mattn/goveralls@latest
         goveralls -service=github -coverprofile=build/cover.out
     services:
       postgres:

@@ -51,7 +51,7 @@ check: build-all static-check build/cover.html FORCE
 	@printf "\e[1;32m>> All checks successful.\e[0m\n"
 
 static-check: FORCE
-	@if ! hash golint 2>/dev/null; then printf "\e[1;36m>> Installing golint...\e[0m\n"; GO111MODULE=off go get -u golang.org/x/lint/golint; fi
+	@if ! hash golint 2>/dev/null; then printf "\e[1;36m>> Installing golint...\e[0m\n"; go install golang.org/x/lint/golint@latest; fi
 	@printf "\e[1;36m>> gofmt\e[0m\n"
 	@if s="$$(gofmt -s -d $(GO_ALLFILES) 2>/dev/null)" && test -n "$$s"; then echo "$$s"; false; fi
 	@printf "\e[1;36m>> golint\e[0m\n"
@@ -76,7 +76,7 @@ vendor: FORCE
 	go mod verify
 
 license-headers: FORCE
-	@if ! hash addlicense 2>/dev/null; then printf "\e[1;36m>> Installing addlicense...\e[0m\n"; GO111MODULE=off go get -u github.com/google/addlicense; fi
+	@if ! hash addlicense 2>/dev/null; then printf "\e[1;36m>> Installing addlicense...\e[0m\n"; go install github.com/google/addlicense@latest; fi
 	find * \( -name vendor -type d -prune \) -o \( -name \*.go -exec addlicense -c "SAP SE" -- {} + \)
 
 clean: FORCE

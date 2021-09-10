@@ -28,6 +28,6 @@ jobs:
         go-version: "1.16"
     - name: Check if source code files have license header
       run: |
-        GO111MODULE=off go get -u github.com/google/addlicense
+        go install github.com/google/addlicense@latest
         find * \( -name vendor -type d -prune \) -o \( -name \*.go -exec addlicense --check -- {} + \)
 
