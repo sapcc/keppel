@@ -10,7 +10,7 @@ fi
 cd "$(dirname "$(dirname "$(readlink -f "$0")")")"
 
 step() {
-  printf '\x1B[1;36m>>\x1B[0;36m %s...\x1B[0m' "$1"
+  printf '\x1B[1;36m>>\x1B[0;36m %s...\x1B[0m\n' "$1"
 }
 
 if [ ! -d testing/postgresql-data/ ]; then
