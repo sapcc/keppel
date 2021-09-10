@@ -1,7 +1,8 @@
-#!/bin/bash
+#!/bin/sh
+# shellcheck shell=ash
 set -euo pipefail
 
-if hash greadlink &>/dev/null; then
+if hash greadlink >/dev/null 2>/dev/null; then
   readlink() { greadlink "$@"; }
 fi
 
@@ -9,7 +10,7 @@ fi
 cd "$(dirname "$(dirname "$(readlink -f "$0")")")"
 
 step() {
-  echo -e "\e[1;36m>>\e[0;36m $*...\e[0m"
+  printf '\x1B[1;36m>>\x1B[0;36m %s...\x1B[0m' "$1"
 }
 
 if [ ! -d testing/postgresql-data/ ]; then
