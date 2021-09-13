@@ -24,6 +24,8 @@ This document uses the terminology defined in the [README.md](../README.md#termi
 
 - [GET /keppel/v1](#get-keppelv1)
 - [GET /keppel/v1/accounts](#get-keppelv1accounts)
+  - [Replication strategies](#replication-strategies)
+  - [Maintenance mode](#maintenance-mode)
 - [GET /keppel/v1/accounts/:name](#get-keppelv1accountsname)
 - [PUT /keppel/v1/accounts/:name](#put-keppelv1accountsname)
 - [DELETE /keppel/v1/accounts/:name](#delete-keppelv1accountsname)
@@ -83,9 +85,18 @@ On success, returns 200 and a JSON response body like this:
       ],
       "gc_policies": [
         {
+          "match_repository": ".*",
+          "time_constraint": {
+            "on": "last_pulled_at",
+            "newer_than": "7d"
+          },
+          "action": "protect"
+        },
+        {
           "match_repository": ".*/webapp",
           "except_repository": "example/webapp",
-          "strategy": "delete_untagged"
+          "match_untagged": true,
+          "action": "delete"
         }
       ]
     },
@@ -114,10 +125,17 @@ The following fields may be returned:
 | ----- | ---- | ----------- |
 | `accounts[].name` | string | Name of this account. |
 | `accounts[].auth_tenant_id` | string | ID of auth tenant that regulates access to this account. |
-| `accounts[].gc_policies` | list of objects | Policies for garbage collection (automated deletion of images) for repositories in this account. GC policies apply in addition to the regular garbage collection runs performed by Keppel that clean up unreferenced objects of all kinds. |
-| `accounts[].gc_policies[].match_repository` | string | The GC policy applies to all repositories in this account whose name matches this regex. The leading account name and slash is stripped from the repository name before matching. The notes on regexes below apply. |
-| `accounts[].gc_policies[].except_repository` | string | If given, matching repositories will be excluded from this GC policy, even if they the `match_repository` regex. The syntax and mechanics of matching are otherwise identical to `match_repository` above. |
-| `accounts[].gc_policies[].strategy` | string | [See below](#garbage-collection-strategies) for details. |
+| `accounts[].gc_policies` | list of objects or omitted | Policies for garbage collection (automated deletion of images) for repositories in this account. GC policies apply in addition to the regular garbage collection runs performed by Keppel that clean up unreferenced objects of all kinds. GC policies are ordered by priority: Earlier policies take precedence over later policies. |
+| `accounts[].gc_policies[].match_repository` | string or omitted | The GC policy applies to all repositories in this account whose name matches this regex. The leading account name and slash is stripped from the repository name before matching. The notes on regexes below apply. |
+| `accounts[].gc_policies[].except_repository` | string or omitted | If given, matching repositories will be excluded from this GC policy, even if they match the `match_repository` regex. The syntax and mechanics of matching are otherwise identical to `match_repository` above. |
+| `accounts[].gc_policies[].match_tag` | string or omitted | The GC policy applies to all images in matching repositories that have a tag whose name matches this regex. The notes on regexes below apply. |
+| `accounts[].gc_policies[].except_tag` | string or omitted | If given, images with matching tag names will be excluded from this GC policy, even if they match the `match_tag` regex. The syntax and mechanics of matching are otherwise identical to `match_tag` above. |
+| `accounts[].gc_policies[].only_untagged` | bool or omitted | If true, the GC policy applies to all images that do not have any tags. |
+| `accounts[].gc_policies[].time_constraint` | object | If given, the GC policy only applies to images matching the time constraint specified herein. |
+| `accounts[].gc_policies[].time_constraint.on` | string | The timestamp attribute on each image on which this time constraint operates. Either `pushed_at` or `last_pulled_at`. |
+| `accounts[].gc_policies[].time_constraint.oldest`<br>`accounts[].gc_policies[].time_constraint.newest` | integer or omitted | If set, the GC policy only applies to at most that many images within each repository, specifically to those that are oldest/newest ones when ordered by the timestamp attribute specified in the `time_constraint.on` key. |
+| `accounts[].gc_policies[].time_constraint.older_than`<br>`accounts[].gc_policies[].time_constraint.newer_than` | duration or omitted | If set, the GC policy only applies to at most images whose timestamp (as selected by the `time_constraint.on` key) is older/newer than the given age. Age values are given as a duration string as accepted by the [time.ParseDuration function in Go's stdlib](https://pkg.go.dev/time#ParseDuration). Besides the units specified therein, the additional units "d" (day), "w" (week) and "y" (year) are understood. |
+| `accounts[].gc_policies[].action` | string | One of: `delete` (to delete matching images) or `protect` (to not delete matching images, even if another policy with a lower priority would want to). |
 | `accounts[].in_maintenance` | bool | Whether this account is in maintenance mode. [See below](#maintenance-mode) for details. |
 | `accounts[].metadata` | object of strings | Free-form metadata maintained by the user. The contents of this field are not interpreted by Keppel, but may trigger special behavior in applications using this API. |
 | `accounts[].rbac_policies` | list of objects | Policies for rule-based access control (RBAC) to repositories in this account. RBAC policies are evaluated in addition to the permissions granted by the auth tenant. |
@@ -129,17 +147,9 @@ The following fields may be returned:
 | `accounts[].validation` | object or omitted | Validation rules for this account. When included, pushing blobs and manifests not satisfying these validation rules may be rejected. |
 | `accounts[].validation.required_labels` | list of strings | When non-empty, image manifests must include all these labels. (Labels can be set on an image using the Dockerfile's `LABEL` command.) |
 
-The values of the `match_repository`, `except_repository` and `match_username` fields are regular expressions, using the
+The values of fields with names like `match_...` and `except_...` are regular expressions, using the
 [syntax defined by Go's stdlib regex parser](https://golang.org/pkg/regexp/syntax/). The anchors `^` and `$` are implied
 at both ends of the regex, and need not be added explicitly.
-
-### Garbage collection strategies
-
-This section describes the different possible values for `accounts[].policies[].strategy` and their semantics.
-
-#### Strategy: `delete_untagged`
-
-In all matching repositories, GC runs will delete all images without any tags.
 
 ### Replication strategies
 
