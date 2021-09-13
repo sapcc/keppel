@@ -76,19 +76,23 @@ func (j *Janitor) GarbageCollectManifestsInNextRepo() (returnErr error) {
 	if err != nil {
 		return fmt.Errorf("cannot load GC policies for account %s: %w", account.Name, err)
 	}
+	for idx, policy := range policies {
+		err := policy.Validate()
+		if err != nil {
+			return fmt.Errorf("GC policy #%d for account %s is invalid: %w", idx+1, account.Name, err)
+		}
+	}
 
 	//find matching GC policies
 	doDeleteUntagged := false
 	for _, policy := range policies {
-		if !policy.Matches(repo.Name) {
+		if !policy.MatchesRepository(repo.Name) {
 			continue
 		}
-		switch policy.Strategy {
-		case "delete_untagged":
+		if policy.OnlyUntagged && policy.Action == "delete" {
 			doDeleteUntagged = true
-		default:
-			logg.Info("ignoring GC policy for account %s with unknown strategy %q", account.Name, policy.Strategy)
 		}
+		//TODO evaluate all other policies
 	}
 
 	//execute selected GC passes (we do this outside the above for loop to

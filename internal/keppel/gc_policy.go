@@ -24,20 +24,35 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 //GCPolicy is a policy enabling optional garbage collection runs in an account.
 type GCPolicy struct {
-	RepositoryPattern         string `json:"match_repository"`
-	NegativeRepositoryPattern string `json:"except_repository,omitempty"`
-	Strategy                  string `json:"strategy"`
+	RepositoryPattern         string            `json:"match_repository"`
+	NegativeRepositoryPattern string            `json:"except_repository,omitempty"`
+	TagPattern                string            `json:"match_tag,omitempty"`
+	NegativeTagPattern        string            `json:"except_tag,omitempty"`
+	OnlyUntagged              bool              `json:"only_untagged,omitempty"`
+	TimeConstraint            *GCTimeConstraint `json:"time_constraint,omitempty"`
+	Action                    string            `json:"action"`
 }
 
-//Matches evaluates the regexes in this policy.
-func (g GCPolicy) Matches(repoName string) bool {
+//GCTimeConstraint appears in type GCPolicy.
+type GCTimeConstraint struct {
+	FieldName   string   `json:"on"`
+	OldestCount uint64   `json:"oldest,omitempty"`
+	NewestCount uint64   `json:"newest,omitempty"`
+	MinAge      Duration `json:"older_than,omitempty"`
+	MaxAge      Duration `json:"newer_than,omitempty"`
+}
+
+//MatchesRepository evaluates the repository regexes in this policy.
+func (g GCPolicy) MatchesRepository(repoName string) bool {
 	//Notes:
 	//- Regex parse errors always make the match fail to avoid accidental overmatches.
-	//- NegativeRepositoryPattern takes precedence and is thus evaluated first
+	//- NegativeRepositoryPattern takes precedence and is thus evaluated first.
+
 	rx, err := regexp.Compile(fmt.Sprintf(`^%s$`, g.NegativeRepositoryPattern))
 	if err != nil || rx.MatchString(repoName) {
 		return false
@@ -53,7 +68,7 @@ func (g GCPolicy) Validate() error {
 		return errors.New(`GC policy must have the "match_repository" attribute`)
 	}
 
-	for _, pattern := range []string{g.RepositoryPattern, g.NegativeRepositoryPattern} {
+	for _, pattern := range []string{g.RepositoryPattern, g.NegativeRepositoryPattern, g.TagPattern, g.NegativeTagPattern} {
 		if pattern == "" {
 			continue
 		}
@@ -62,14 +77,60 @@ func (g GCPolicy) Validate() error {
 		}
 	}
 
-	switch g.Strategy {
-	case "delete_untagged":
+	if g.OnlyUntagged {
+		if g.TagPattern != "" {
+			return fmt.Errorf(`GC policy cannot have the "match_tag" attribute when "only_untagged" is set`)
+		}
+		if g.NegativeTagPattern != "" {
+			return fmt.Errorf(`GC policy cannot have the "except_tag" attribute when "only_untagged" is set`)
+		}
+	}
+
+	if g.TimeConstraint != nil {
+		tc := *g.TimeConstraint
+		var tcFilledFields []string
+		if tc.OldestCount != 0 {
+			tcFilledFields = append(tcFilledFields, `"oldest"`)
+			if g.Action == "delete" {
+				return fmt.Errorf(`GC policy with action %q cannot set the "time_constraint.oldest" attribute`, g.Action)
+			}
+		}
+		if tc.NewestCount != 0 {
+			tcFilledFields = append(tcFilledFields, `"newest"`)
+			if g.Action == "delete" {
+				return fmt.Errorf(`GC policy with action %q cannot set the "time_constraint.newest" attribute`, g.Action)
+			}
+		}
+		if tc.MinAge != 0 {
+			tcFilledFields = append(tcFilledFields, `"older_than"`)
+		}
+		if tc.MaxAge != 0 {
+			tcFilledFields = append(tcFilledFields, `"newer_than"`)
+		}
+
+		switch tc.FieldName {
+		case "":
+			return errors.New(`GC policy time constraint must have the "on" attribute`)
+		case "last_pulled_at", "pushed_at":
+			if len(tcFilledFields) == 0 {
+				return fmt.Errorf(`GC policy time constraint needs to set at least one attribute other than "on"`)
+			}
+			if len(tcFilledFields) > 1 {
+				return fmt.Errorf(`GC policy time constraint cannot set all these attributes at once: %s`, strings.Join(tcFilledFields, ", "))
+			}
+		default:
+			return fmt.Errorf(`%q is not a valid target for a GC policy time constraint`, tc.FieldName)
+		}
+	}
+
+	switch g.Action {
+	case "delete", "protect":
 		//valid
 		return nil
 	case "":
-		return errors.New(`GC policy must have the "strategy" attribute`)
+		return errors.New(`GC policy must have the "action" attribute`)
 	default:
-		return fmt.Errorf("%q is not a valid strategy for a GC policy", g.Strategy)
+		return fmt.Errorf("%q is not a valid action for a GC policy", g.Action)
 	}
 }
 

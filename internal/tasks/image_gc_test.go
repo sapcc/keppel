@@ -34,7 +34,7 @@ func TestGCUntaggedImages(t *testing.T) {
 	//setup GC policy for test
 	mustExec(t, s.DB,
 		`UPDATE accounts SET gc_policies_json = $1`,
-		`[{"match_repository":".*","strategy":"delete_untagged"}]`,
+		`[{"match_repository":".*","only_untagged":true,"action":"delete"}]`,
 	)
 
 	//store two images, one tagged, one untagged
@@ -55,7 +55,7 @@ func TestGCUntaggedImages(t *testing.T) {
 	s.Clock.StepBy(2 * time.Hour)
 	mustExec(t, s.DB,
 		`UPDATE accounts SET gc_policies_json = $1`,
-		`[{"match_repository":".*","except_repository":"foo","strategy":"delete_untagged"}]`,
+		`[{"match_repository":".*","except_repository":"foo","only_untagged":true,"action":"delete"}]`,
 	)
 
 	//GC should only update the next_gc_at timestamp, and otherwise not do anything
@@ -67,7 +67,7 @@ func TestGCUntaggedImages(t *testing.T) {
 	s.Clock.StepBy(2 * time.Hour)
 	mustExec(t, s.DB,
 		`UPDATE accounts SET gc_policies_json = $1`,
-		`[{"match_repository":".*","strategy":"delete_untagged"}]`,
+		`[{"match_repository":".*","only_untagged":true,"action":"delete"}]`,
 	)
 	//however now there's also a tagged image list referencing it
 	imageList := test.GenerateImageList(images[0], images[1])

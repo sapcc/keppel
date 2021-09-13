@@ -179,13 +179,21 @@ func TestAccountsAPI(t *testing.T) {
 	//create an account with RBAC policies and GC policies (this request is executed twice to test idempotency)
 	gcPoliciesJSON := []assert.JSONObject{
 		{
-			"match_repository": ".*/webapp",
-			"strategy":         "delete_untagged",
-		},
-		{
 			"match_repository":  ".*/database",
 			"except_repository": "archive/.*",
-			"strategy":          "delete_untagged",
+			"time_constraint": assert.JSONObject{
+				"on": "pushed_at",
+				"newer_than": assert.JSONObject{
+					"value": 10,
+					"unit":  "d",
+				},
+			},
+			"action": "protect",
+		},
+		{
+			"match_repository": ".*",
+			"only_untagged":    true,
+			"action":           "delete",
 		},
 	}
 	rbacPoliciesJSON := []assert.JSONObject{
@@ -725,14 +733,16 @@ func TestPutAccountErrorCases(t *testing.T) {
 		{
 			GCPolicyJSON: assert.JSONObject{
 				"except_repository": "library/.*",
-				"strategy":          "delete_untagged",
+				"only_untagged":     true,
+				"action":            "delete",
 			},
 			ErrorMessage: `GC policy must have the "match_repository" attribute`,
 		},
 		{
 			GCPolicyJSON: assert.JSONObject{
 				"match_repository": "*/library",
-				"strategy":         "delete_untagged",
+				"only_untagged":    true,
+				"action":           "delete",
 			},
 			ErrorMessage: "\"*/library\" is not a valid regex: error parsing regexp: missing argument to repetition operator: `*`",
 		},
@@ -740,22 +750,129 @@ func TestPutAccountErrorCases(t *testing.T) {
 			GCPolicyJSON: assert.JSONObject{
 				"match_repository":  "library/.*",
 				"except_repository": "*/library",
-				"strategy":          "delete_untagged",
+				"only_untagged":     true,
+				"action":            "delete",
 			},
 			ErrorMessage: "\"*/library\" is not a valid regex: error parsing regexp: missing argument to repetition operator: `*`",
 		},
 		{
 			GCPolicyJSON: assert.JSONObject{
 				"match_repository": "library/.*",
+				"only_untagged":    true,
 			},
-			ErrorMessage: `GC policy must have the "strategy" attribute`,
+			ErrorMessage: `GC policy must have the "action" attribute`,
 		},
 		{
 			GCPolicyJSON: assert.JSONObject{
 				"match_repository": "library/.*",
-				"strategy":         "foo",
+				"only_untagged":    true,
+				"action":           "foo",
 			},
-			ErrorMessage: `"foo" is not a valid strategy for a GC policy`,
+			ErrorMessage: `"foo" is not a valid action for a GC policy`,
+		},
+		{
+			GCPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.*",
+				"match_tag":        "*-foo",
+				"action":           "delete",
+			},
+			ErrorMessage: "\"*-foo\" is not a valid regex: error parsing regexp: missing argument to repetition operator: `*`",
+		},
+		{
+			GCPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.*",
+				"match_tag":        "foo-.*",
+				"except_tag":       "*-bar",
+				"action":           "delete",
+			},
+			ErrorMessage: "\"*-bar\" is not a valid regex: error parsing regexp: missing argument to repetition operator: `*`",
+		},
+		{
+			GCPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.*",
+				"match_tag":        "foo-.*",
+				"only_untagged":    true,
+				"action":           "delete",
+			},
+			ErrorMessage: `GC policy cannot have the "match_tag" attribute when "only_untagged" is set`,
+		},
+		{
+			GCPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.*",
+				"except_tag":       "foo-.*",
+				"only_untagged":    true,
+				"action":           "delete",
+			},
+			ErrorMessage: `GC policy cannot have the "except_tag" attribute when "only_untagged" is set`,
+		},
+		{
+			GCPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.*",
+				"only_untagged":    true,
+				"time_constraint":  assert.JSONObject{},
+				"action":           "delete",
+			},
+			ErrorMessage: `GC policy time constraint must have the "on" attribute`,
+		},
+		{
+			GCPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.*",
+				"only_untagged":    true,
+				"time_constraint": assert.JSONObject{
+					"on":         "frobnicated_at",
+					"newer_than": assert.JSONObject{"value": 10, "unit": "d"},
+				},
+				"action": "delete",
+			},
+			ErrorMessage: `"frobnicated_at" is not a valid target for a GC policy time constraint`,
+		},
+		{
+			GCPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.*",
+				"only_untagged":    true,
+				"time_constraint": assert.JSONObject{
+					"on": "last_pulled_at",
+				},
+				"action": "delete",
+			},
+			ErrorMessage: `GC policy time constraint needs to set at least one attribute other than "on"`,
+		},
+		{
+			GCPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.*",
+				"only_untagged":    true,
+				"time_constraint": assert.JSONObject{
+					"on":         "pushed_at",
+					"oldest":     10,
+					"older_than": assert.JSONObject{"value": 5, "unit": "h"},
+				},
+				"action": "protect",
+			},
+			ErrorMessage: `GC policy time constraint cannot set all these attributes at once: "oldest", "older_than"`,
+		},
+		{
+			GCPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.*",
+				"only_untagged":    true,
+				"time_constraint": assert.JSONObject{
+					"on":     "pushed_at",
+					"oldest": 10,
+				},
+				"action": "delete",
+			},
+			ErrorMessage: `GC policy with action "delete" cannot set the "time_constraint.oldest" attribute`,
+		},
+		{
+			GCPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.*",
+				"only_untagged":    true,
+				"time_constraint": assert.JSONObject{
+					"on":     "pushed_at",
+					"newest": 10,
+				},
+				"action": "delete",
+			},
+			ErrorMessage: `GC policy with action "delete" cannot set the "time_constraint.newest" attribute`,
 		},
 	}
 	for _, tc := range gcPolicyTestcases {
