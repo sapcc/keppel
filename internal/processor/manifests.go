@@ -760,7 +760,16 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
 		repo.ID, digest)
 	if err != nil {
-		return err
+		otherDigest, err2 := p.db.SelectStr(
+			`SELECT parent_digest FROM manifest_manifest_refs WHERE repo_id = $1 AND child_digest = $2`,
+			repo.ID, digest)
+		// more than one manifest is referenced by another manifest
+		if otherDigest != "" && err2 == nil {
+			return fmt.Errorf("cannot delete a manifest which is referenced by the manifest %s", otherDigest)
+		} else {
+			// if the SELECT failed return the previous error to not shadow it
+			return err
+		}
 	}
 	rowsDeleted, err := result.RowsAffected()
 	if err != nil {
