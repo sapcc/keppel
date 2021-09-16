@@ -72,7 +72,7 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 
 	//also setup an image list manifest containing those images (so that we have
 	//some manifest-manifest refs to play with)
-	imageList := test.GenerateImageList(images[0].Manifest, images[1].Manifest)
+	imageList := test.GenerateImageList(images[0], images[1])
 	uploadManifest(t, db, sd, clock, imageList.Manifest, imageList.SizeBytes())
 	for _, image := range images {
 		mustExec(t, db,
@@ -239,20 +239,20 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 
 		//also setup an image list manifest containing some of those images (so that we have
 		//some manifest-manifest refs to play with)
-		imageList := test.GenerateImageList(images[1].Manifest, images[2].Manifest)
+		imageList := test.GenerateImageList(images[1], images[2])
 		uploadManifest(t, db1, sd1, clock, imageList.Manifest, imageList.SizeBytes())
-		for _, imageManifest := range imageList.ImageManifests {
+		for _, img := range imageList.Images {
 			mustExec(t, db1,
 				`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
-				imageList.Manifest.Digest.String(), imageManifest.Digest.String(),
+				imageList.Manifest.Digest.String(), img.Manifest.Digest.String(),
 			)
 		}
 		//this one is replicated as well
 		uploadManifest(t, db2, sd2, clock, imageList.Manifest, imageList.SizeBytes())
-		for _, imageManifest := range imageList.ImageManifests {
+		for _, img := range imageList.Images {
 			mustExec(t, db2,
 				`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
-				imageList.Manifest.Digest.String(), imageManifest.Digest.String(),
+				imageList.Manifest.Digest.String(), img.Manifest.Digest.String(),
 			)
 		}
 
@@ -561,7 +561,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 
 	//also setup an image list manifest containing those images (so that we have
 	//some manifest-manifest refs to play with)
-	imageList := test.GenerateImageList(images[0].Manifest, images[1].Manifest)
+	imageList := test.GenerateImageList(images[0], images[1])
 	uploadManifest(t, db, sd, clock, imageList.Manifest, imageList.SizeBytes())
 	for _, image := range images {
 		mustExec(t, db,

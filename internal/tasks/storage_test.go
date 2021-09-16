@@ -55,7 +55,7 @@ func setupStorageSweepTest(t *testing.T, j *Janitor, db *keppel.DB, sd keppel.St
 		}
 	}
 
-	imageList := test.GenerateImageList(images[0].Manifest, images[1].Manifest)
+	imageList := test.GenerateImageList(images[0], images[1])
 	healthyManifests = append(healthyManifests,
 		uploadManifest(t, db, sd, clock, imageList.Manifest, imageList.SizeBytes()))
 	for _, image := range images {
@@ -170,8 +170,8 @@ func TestSweepStorageManifests(t *testing.T) {
 
 	//put some manifests in the storage without nothing them in the DB
 	account := keppel.Account{Name: "test1"}
-	testImageList1 := test.GenerateImageList(images[0].Manifest)
-	testImageList2 := test.GenerateImageList(images[1].Manifest)
+	testImageList1 := test.GenerateImageList(images[0])
+	testImageList2 := test.GenerateImageList(images[1])
 	for _, manifest := range []test.Bytes{testImageList1.Manifest, testImageList2.Manifest} {
 		must(t, sd.WriteManifest(account, "foo", manifest.Digest.String(), manifest.Contents))
 	}

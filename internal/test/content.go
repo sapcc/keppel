@@ -203,20 +203,20 @@ func (i Image) SizeBytes() uint64 {
 //type is used for testing the behavior of Keppel with manifests that reference
 //other manifests.
 type ImageList struct {
-	ImageManifests []Bytes
-	Manifest       Bytes
+	Images   []Image
+	Manifest Bytes
 }
 
 //GenerateImageList makes an ImageList containing the given images in a
 //deterministic manner.
-func GenerateImageList(imageManifests ...Bytes) ImageList {
+func GenerateImageList(images ...Image) ImageList {
 	manifestDescs := []map[string]interface{}{}
 	testArchStrings := []string{"amd64", "arm", "arm64", "386", "ppc64le", "s390x"}
-	for idx, m := range imageManifests {
+	for idx, img := range images {
 		manifestDescs = append(manifestDescs, map[string]interface{}{
-			"mediaType": m.MediaType,
-			"size":      len(m.Contents),
-			"digest":    m.Digest.String(),
+			"mediaType": img.Manifest.MediaType,
+			"size":      len(img.Manifest.Contents),
+			"digest":    img.Manifest.Digest.String(),
 			"platform": map[string]string{
 				"os":           "linux",
 				"architecture": testArchStrings[idx],
@@ -234,17 +234,17 @@ func GenerateImageList(imageManifests ...Bytes) ImageList {
 	}
 
 	return ImageList{
-		ImageManifests: imageManifests,
-		Manifest:       newBytesWithMediaType(manifestListBytes, "application/vnd.docker.distribution.manifest.list.v2+json"),
+		Images:   images,
+		Manifest: newBytesWithMediaType(manifestListBytes, "application/vnd.docker.distribution.manifest.list.v2+json"),
 	}
 }
 
 //SizeBytes returns the value that we expect in the DB column
 //`manifests.size_bytes` for this image.
-func (i ImageList) SizeBytes() uint64 {
-	imageSize := len(i.Manifest.Contents)
-	for _, m := range i.ImageManifests {
-		imageSize += len(m.Contents)
+func (l ImageList) SizeBytes() uint64 {
+	imageSize := len(l.Manifest.Contents)
+	for _, i := range l.Images {
+		imageSize += len(i.Manifest.Contents)
 	}
 	return uint64(imageSize)
 }

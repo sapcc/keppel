@@ -85,7 +85,7 @@ func TestGCUntaggedImages(t *testing.T) {
 		`[{"match_repository":".*","strategy":"delete_untagged"}]`,
 	)
 	//however now there's also a tagged image list referencing it
-	imageList := test.GenerateImageList(images[0].Manifest, images[1].Manifest)
+	imageList := test.GenerateImageList(images[0], images[1])
 	uploadManifest(t, db, sd, clock, imageList.Manifest, imageList.SizeBytes())
 	for _, image := range images {
 		mustExec(t, db,

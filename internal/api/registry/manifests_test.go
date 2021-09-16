@@ -395,7 +395,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 		clock.Step()
 
 		//PUT failure case: cannot upload image list manifest referencing missing manifests
-		list1 := test.GenerateImageList(image1.Manifest, image3.Manifest)
+		list1 := test.GenerateImageList(image1, image3)
 		assert.HTTPRequest{
 			Method: "PUT",
 			Path:   "/v2/test1/foo/manifests/" + list1.Manifest.Digest.String(),
@@ -409,7 +409,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 		}.Check(t, h)
 
 		//PUT success case: upload image list manifest referencing available manifests
-		list2 := test.GenerateImageList(image1.Manifest, image2.Manifest)
+		list2 := test.GenerateImageList(image1, image2)
 		uploadManifest(t, h, token, "test1/foo", list2.Manifest, "list")
 
 		clock.Step()
