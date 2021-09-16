@@ -669,7 +669,7 @@ func TestDeleteBlob(t *testing.T) {
 		}.Check(t, h)
 
 		//push a blob so that we can test its deletion
-		uploadBlob(t, h, token, "test1/foo", blob)
+		blob.MustUpload(t, h, token, fooRepoRef)
 
 		//cross-mount the same blob in a different repo (the blob should not be
 		//deleted from test1/bar when we delete it from test1/foo)
@@ -760,7 +760,7 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 		blob := test.NewBytes([]byte("just some random data"))
 
 		//upload a blob to test1/bar so that we can test mounting it to test1/foo
-		uploadBlob(t, h, otherRepoToken, "test1/bar", blob)
+		blob.MustUpload(t, h, otherRepoToken, barRepoRef)
 
 		//test failure cases: token does not have push access
 		assert.HTTPRequest{

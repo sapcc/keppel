@@ -28,6 +28,7 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //Bytes groups a bytestring with its digest.
@@ -199,6 +200,13 @@ func (i Image) SizeBytes() uint64 {
 	return uint64(imageSize)
 }
 
+//DigestRef returns the ManifestReference for this manifest's digest.
+func (i Image) DigestRef() keppel.ManifestReference {
+	return keppel.ManifestReference{
+		Digest: i.Manifest.Digest,
+	}
+}
+
 //ImageList contains all the pieces of a multi-architecture Docker image. This
 //type is used for testing the behavior of Keppel with manifests that reference
 //other manifests.
@@ -247,6 +255,13 @@ func (l ImageList) SizeBytes() uint64 {
 		imageSize += len(i.Manifest.Contents)
 	}
 	return uint64(imageSize)
+}
+
+//DigestRef returns the ManifestReference for this manifest's digest.
+func (i ImageList) DigestRef() keppel.ManifestReference {
+	return keppel.ManifestReference{
+		Digest: i.Manifest.Digest,
+	}
 }
 
 func makeTimestamp(seconds int) string {

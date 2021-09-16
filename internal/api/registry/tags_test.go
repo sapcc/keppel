@@ -53,8 +53,7 @@ func TestListTags(t *testing.T) {
 
 		//upload a test image without tagging it
 		image := test.GenerateImage( /* no layers */ )
-		uploadBlob(t, h, token, "test1/foo", image.Config)
-		uploadManifest(t, h, token, "test1/foo", image.Manifest, "")
+		image.MustUpload(t, h, db, token, fooRepoRef, "")
 
 		//test empty tag list for existing repo
 		req := assert.HTTPRequest{
@@ -84,7 +83,7 @@ func TestListTags(t *testing.T) {
 			allTagNames[i], allTagNames[j] = allTagNames[j], allTagNames[i]
 		})
 		for _, tagName := range allTagNames {
-			uploadManifest(t, h, token, "test1/foo", image.Manifest, tagName)
+			image.MustUpload(t, h, db, token, fooRepoRef, tagName)
 		}
 		//but when listing tags, we expect them in sorted order
 		sort.Strings(allTagNames)

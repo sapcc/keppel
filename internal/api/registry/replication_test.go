@@ -39,9 +39,7 @@ func TestReplicationSimpleImage(t *testing.T) {
 			keppel.CanPushToAccount)
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		clock.Step()
-		uploadBlob(t, h1, token, "test1/foo", image.Layers[0])
-		uploadBlob(t, h1, token, "test1/foo", image.Config)
-		uploadManifest(t, h1, token, "test1/foo", image.Manifest, "first")
+		image.MustUpload(t, h1, db1, token, fooRepoRef, "first")
 
 		//test pull by manifest in secondary account
 		testWithAllReplicaTypes(t, h1, db1, clock, func(strategy string, firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
@@ -104,13 +102,9 @@ func TestReplicationImageList(t *testing.T) {
 		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
 		list := test.GenerateImageList(image1, image2)
 		clock.Step()
-		uploadBlob(t, h1, token, "test1/foo", image1.Layers[0])
-		uploadBlob(t, h1, token, "test1/foo", image1.Config)
-		uploadManifest(t, h1, token, "test1/foo", image1.Manifest, "first")
-		uploadBlob(t, h1, token, "test1/foo", image2.Layers[0])
-		uploadBlob(t, h1, token, "test1/foo", image2.Config)
-		uploadManifest(t, h1, token, "test1/foo", image2.Manifest, "second")
-		uploadManifest(t, h1, token, "test1/foo", list.Manifest, "list")
+		image1.MustUpload(t, h1, db1, token, fooRepoRef, "first")
+		image2.MustUpload(t, h1, db1, token, fooRepoRef, "second")
+		list.MustUpload(t, h1, db1, token, fooRepoRef, "list")
 
 		//test pull in secondary account
 		testWithAllReplicaTypes(t, h1, db1, clock, func(strategy string, firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
@@ -240,9 +234,7 @@ func TestReplicationManifestQuotaExceeded(t *testing.T) {
 			keppel.CanPushToAccount)
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		clock.Step()
-		uploadBlob(t, h1, token, "test1/foo", image.Layers[0])
-		uploadBlob(t, h1, token, "test1/foo", image.Config)
-		uploadManifest(t, h1, token, "test1/foo", image.Manifest, "first")
+		image.MustUpload(t, h1, db1, token, fooRepoRef, "first")
 
 		//in secondary account...
 		testWithAllReplicaTypes(t, h1, db1, clock, func(strategy string, firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
@@ -284,9 +276,7 @@ func TestReplicationUseCachedBlobMetadata(t *testing.T) {
 			keppel.CanPushToAccount)
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		clock.Step()
-		uploadBlob(t, h1, token, "test1/foo", image.Layers[0])
-		uploadBlob(t, h1, token, "test1/foo", image.Config)
-		uploadManifest(t, h1, token, "test1/foo", image.Manifest, "first")
+		image.MustUpload(t, h1, db1, token, fooRepoRef, "first")
 
 		testWithAllReplicaTypes(t, h1, db1, clock, func(strategy string, firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
 			//in the first pass, just replicate the manifest
@@ -323,10 +313,8 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 			keppel.CanPushToAccount)
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		clock.Step()
-		uploadBlob(t, h1, token, "test1/foo", image.Layers[0])
-		uploadBlob(t, h1, token, "test1/foo", image.Config)
-		uploadManifest(t, h1, token, "test1/foo", image.Manifest, "first")
-		uploadManifest(t, h1, token, "test1/foo", image.Manifest, "second")
+		image.MustUpload(t, h1, db1, token, fooRepoRef, "first")
+		image.MustUpload(t, h1, db1, token, fooRepoRef, "second")
 
 		testWithReplica(t, h1, db1, clock, "from_external_on_first_use", func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
 			//need only one pass for this test
@@ -404,13 +392,9 @@ func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
 		list := test.GenerateImageList(image1, image2)
 		clock.Step()
-		uploadBlob(t, h1, token, "test1/foo", image1.Layers[0])
-		uploadBlob(t, h1, token, "test1/foo", image1.Config)
-		uploadManifest(t, h1, token, "test1/foo", image1.Manifest, "first")
-		uploadBlob(t, h1, token, "test1/foo", image2.Layers[0])
-		uploadBlob(t, h1, token, "test1/foo", image2.Config)
-		uploadManifest(t, h1, token, "test1/foo", image2.Manifest, "second")
-		uploadManifest(t, h1, token, "test1/foo", list.Manifest, "list")
+		image1.MustUpload(t, h1, db1, token, fooRepoRef, "first")
+		image2.MustUpload(t, h1, db1, token, fooRepoRef, "second")
+		list.MustUpload(t, h1, db1, token, fooRepoRef, "list")
 
 		//test pull in secondary account
 		testWithAllReplicaTypes(t, h1, db1, clock, func(strategy string, firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {

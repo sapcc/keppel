@@ -72,9 +72,7 @@ func TestKeppelAPIAuth(t *testing.T) {
 			keppel.CanPushToAccount)
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		clock.Step()
-		uploadBlob(t, h, token, "test1/foo", image.Layers[0])
-		uploadBlob(t, h, token, "test1/foo", image.Config)
-		uploadManifest(t, h, token, "test1/foo", image.Manifest, "first")
+		image.MustUpload(t, h, db, token, fooRepoRef, "first")
 
 		//test scopeless endpoint: happy case
 		assert.HTTPRequest{

@@ -166,7 +166,7 @@ func TestAnycastRateLimits(t *testing.T) {
 		uploadToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
-		uploadBlob(t, h, uploadToken, "test1/foo", blob)
+		blob.MustUpload(t, h, uploadToken, fooRepoRef)
 
 		//pull it via anycast
 		testWithReplica(t, h, db, clock, "on_first_use", func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {

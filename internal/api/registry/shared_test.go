@@ -47,6 +47,10 @@ var (
 		{WithAnycast: true},
 	}
 	currentScenario test.SetupOptions
+
+	//only for use with .UploadToRegistryAPI()
+	fooRepoRef = keppel.Repository{AccountName: "test1", Name: "foo"}
+	barRepoRef = keppel.Repository{AccountName: "test1", Name: "bar"}
 )
 
 func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver, *test.FederationDriver, *test.Clock, *test.Auditor)) {
@@ -281,38 +285,6 @@ func getTokenForAnycast(t *testing.T, h http.Handler, ad keppel.AuthDriver, scop
 	t.Helper()
 
 	return ad.(*test.AuthDriver).GetTokenForTest(t, h, "registry-global.example.org", scope, "test1authtenant", perms...)
-}
-
-func uploadBlob(t *testing.T, h http.Handler, token, fullRepoName string, blob test.Bytes) {
-	t.Helper()
-	assert.HTTPRequest{
-		Method: "POST",
-		Path:   fmt.Sprintf("/v2/%s/blobs/uploads/?digest=%s", fullRepoName, blob.Digest),
-		Header: map[string]string{
-			"Authorization":  "Bearer " + token,
-			"Content-Length": strconv.Itoa(len(blob.Contents)),
-			"Content-Type":   "application/octet-stream",
-		},
-		Body:         assert.ByteData(blob.Contents),
-		ExpectStatus: http.StatusCreated,
-	}.Check(t, h)
-}
-
-func uploadManifest(t *testing.T, h http.Handler, token, fullRepoName string, manifest test.Bytes, reference string) {
-	t.Helper()
-	if reference == "" {
-		reference = manifest.Digest.String()
-	}
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   fmt.Sprintf("/v2/%s/manifests/%s", fullRepoName, reference),
-		Header: map[string]string{
-			"Authorization": "Bearer " + token,
-			"Content-Type":  manifest.MediaType,
-		},
-		Body:         assert.ByteData(manifest.Contents),
-		ExpectStatus: http.StatusCreated,
-	}.Check(t, h)
 }
 
 func getBlobUpload(t *testing.T, h http.Handler, token, fullRepoName string) (uploadURL, uploadUUID string) {
