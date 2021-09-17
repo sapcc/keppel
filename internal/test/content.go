@@ -258,9 +258,9 @@ func (l ImageList) SizeBytes() uint64 {
 }
 
 //DigestRef returns the ManifestReference for this manifest's digest.
-func (i ImageList) DigestRef() keppel.ManifestReference {
+func (l ImageList) DigestRef() keppel.ManifestReference {
 	return keppel.ManifestReference{
-		Digest: i.Manifest.Digest,
+		Digest: l.Manifest.Digest,
 	}
 }
 
