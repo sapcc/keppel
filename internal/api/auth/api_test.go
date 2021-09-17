@@ -30,8 +30,6 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/assert"
-	"github.com/sapcc/keppel/internal/api"
-	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -401,49 +399,24 @@ var testCases = []TestCase{
 //TODO expect refresh_token when offline_token=true is given
 
 func setupPrimary(t *testing.T) (http.Handler, keppel.Configuration, *test.AuthDriver, *test.FederationDriver, *keppel.DB) {
-	return setupGeneric(t, false, keppel.Account{
-		Name:           "test1",
-		AuthTenantID:   "test1authtenant",
-		GCPoliciesJSON: "[]",
-	})
+	s := test.NewSetup(t,
+		test.WithAnycast(true),
+		test.WithAccount(keppel.Account{Name: "test1", AuthTenantID: "test1authtenant"}),
+	)
+	s.AD.ExpectedUserName = "correctusername"
+	s.AD.ExpectedPassword = "correctpassword"
+	return s.Handler, s.Config, s.AD, s.FD, s.DB
 }
 
 func setupSecondary(t *testing.T) (http.Handler, keppel.Configuration, *test.AuthDriver, *test.FederationDriver, *keppel.DB) {
-	return setupGeneric(t, true, keppel.Account{
-		Name:           "test2",
-		AuthTenantID:   "test1authtenant",
-		GCPoliciesJSON: "[]",
-	})
-}
-
-func setupGeneric(t *testing.T, isSecondary bool, testAccount keppel.Account) (http.Handler, keppel.Configuration, *test.AuthDriver, *test.FederationDriver, *keppel.DB) {
-	cfg, db := test.Setup(t, &test.SetupOptions{
-		IsSecondary: isSecondary,
-		WithAnycast: true,
-	})
-
-	//set up a dummy account for testing
-	err := db.Insert(&testAccount)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	adGeneric, err := keppel.NewAuthDriver("unittest", nil)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	ad := adGeneric.(*test.AuthDriver)
-	ad.ExpectedUserName = "correctusername"
-	ad.ExpectedPassword = "correctpassword"
-
-	fd, err := keppel.NewFederationDriver("unittest", ad, cfg)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	fd.RecordExistingAccount(testAccount, time.Unix(0, 0))
-
-	h := api.Compose(authapi.NewAPI(cfg, ad, fd, db))
-	return h, cfg, ad, fd.(*test.FederationDriver), db
+	s := test.NewSetup(t,
+		test.IsSecondaryTo(nil),
+		test.WithAnycast(true),
+		test.WithAccount(keppel.Account{Name: "test2", AuthTenantID: "test1authtenant"}),
+	)
+	s.AD.ExpectedUserName = "correctusername"
+	s.AD.ExpectedPassword = "correctpassword"
+	return s.Handler, s.Config, s.AD, s.FD, s.DB
 }
 
 //jwtAccess appears in type jwtToken.

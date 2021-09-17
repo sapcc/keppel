@@ -21,35 +21,141 @@ package test
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"testing"
 
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/keppel/internal/api"
+	authapi "github.com/sapcc/keppel/internal/api/auth"
+	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
+	peerv1 "github.com/sapcc/keppel/internal/api/peer"
+	registryv2 "github.com/sapcc/keppel/internal/api/registry"
+	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
+	"golang.org/x/crypto/bcrypt"
 )
 
-//SetupOptions contains optional arguments for test.Setup().
-type SetupOptions struct {
-	IsSecondary bool //if true, configures registry-secondary.example.org instead of registry.example.org
-	WithAnycast bool
+type setupParams struct {
+	//all false/empty by default
+	IsSecondary     bool
+	WithAnycast     bool
+	WithKeppelAPI   bool
+	WithPeerAPI     bool
+	WithClairDouble bool
+	WithQuotas      bool
+	RateLimitEngine *keppel.RateLimitEngine
+	SetupOfPrimary  *Setup
+	Accounts        []*keppel.Account
+	Repos           []*keppel.Repository
 }
 
-//Setup sets up a keppel.Configuration and database connection for a unit test.
-func Setup(t *testing.T, optsPtr *SetupOptions) (keppel.Configuration, *keppel.DB) {
+//SetupOption is an option that can be given to NewSetup().
+type SetupOption func(*setupParams)
+
+//IsSecondaryTo is a SetupOption that configures registry-secondary.example.org
+//instead of registry.example.org. If a non-nil Setup instance is given, that's
+//the Setup for the corresponding primary instance, and both sides will be
+//configured to peer with each other.
+func IsSecondaryTo(s *Setup) SetupOption {
+	return func(params *setupParams) {
+		params.IsSecondary = true
+		params.SetupOfPrimary = s
+	}
+}
+
+//WithAnycast is a SetupOption that fills the anycast fields in keppel.Configuration if true is given.
+func WithAnycast(withAnycast bool) SetupOption {
+	return func(params *setupParams) {
+		params.WithAnycast = withAnycast
+	}
+}
+
+//WithKeppelAPI is a SetupOption that enables the peer API.
+func WithKeppelAPI(params *setupParams) {
+	params.WithKeppelAPI = true
+}
+
+//WithPeerAPI is a SetupOption that enables the peer API.
+func WithPeerAPI(params *setupParams) {
+	params.WithPeerAPI = true
+}
+
+//WithClairDouble is a SetupOption that sets up a ClairDouble at clair.example.org.
+func WithClairDouble(params *setupParams) {
+	params.WithClairDouble = true
+}
+
+//WithQuotas is a SetupOption that sets up ample quota for all configured accounts.
+func WithQuotas(params *setupParams) {
+	params.WithQuotas = true
+}
+
+//WithRateLimitEngine is a SetupOption to use a RateLimitEngine in enabled APIs.
+func WithRateLimitEngine(rle *keppel.RateLimitEngine) SetupOption {
+	return func(params *setupParams) {
+		params.RateLimitEngine = rle
+	}
+}
+
+//WithAccount is a SetupOption that adds the given keppel.Account to the DB during NewSetup().
+func WithAccount(account keppel.Account) SetupOption {
+	return func(params *setupParams) {
+		//this field has a default value that's not the zero value
+		account.GCPoliciesJSON = "[]"
+		params.Accounts = append(params.Accounts, &account)
+	}
+}
+
+//WithRepo is a SetupOption that adds the given keppel.Repository to the DB during NewSetup().
+func WithRepo(repo keppel.Repository) SetupOption {
+	return func(params *setupParams) {
+		params.Repos = append(params.Repos, &repo)
+	}
+}
+
+//Setup contains all the pieces that are needed for most tests.
+type Setup struct {
+	//fields that are always set
+	Config       keppel.Configuration
+	DB           *keppel.DB
+	Clock        *Clock
+	SIDGenerator *StorageIDGenerator
+	Auditor      *Auditor
+	AD           *AuthDriver
+	FD           *FederationDriver
+	SD           *StorageDriver
+	ICD          *InboundCacheDriver
+	Handler      http.Handler
+	ClairDouble  *ClairDouble
+	//fields that are filled by WithAccount and WithRepo (in order)
+	Accounts []*keppel.Account
+	Repos    []*keppel.Repository
+}
+
+//these credentials are in global vars so that we don't have to recompute them
+//in every test run (bcrypt is intentionally CPU-intensive)
+var (
+	ReplicationPassword     string
+	replicationPasswordHash string
+)
+
+//NewSetup prepares most or all pieces of Keppel for a test.
+func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	t.Helper()
 	logg.ShowDebug = keppel.ParseBool(os.Getenv("KEPPEL_DEBUG"))
-
-	var opts SetupOptions
-	if optsPtr != nil {
-		opts = *optsPtr
+	var params setupParams
+	for _, option := range opts {
+		option(&params)
 	}
 
+	//choose identity
 	var (
 		dbName          string
 		apiPublicURLStr string
 	)
-	if opts.IsSecondary {
+	if params.IsSecondary {
 		dbName = "keppel_secondary"
 		apiPublicURLStr = "https://registry-secondary.example.org"
 	} else {
@@ -60,20 +166,38 @@ func Setup(t *testing.T, optsPtr *SetupOptions) (keppel.Configuration, *keppel.D
 	//suitable for use with ./testing/with-postgres-db.sh
 	postgresURL := fmt.Sprintf("postgres://postgres:postgres@localhost:54321/%s?sslmode=disable", dbName)
 
+	//build keppel.Configuration
 	dbURL, err := url.Parse(postgresURL)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	must(t, err)
 	apiPublicURL, err := url.Parse(apiPublicURLStr)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	cfg := keppel.Configuration{
-		APIPublicURL: *apiPublicURL,
-		DatabaseURL:  *dbURL,
+	must(t, err)
+	jwtIssuerKey, err := keppel.ParseIssuerKey(UnitTestIssuerPrivateKey)
+	must(t, err)
+	s := Setup{
+		Config: keppel.Configuration{
+			APIPublicURL: *apiPublicURL,
+			DatabaseURL:  *dbURL,
+			JWTIssuerKey: jwtIssuerKey,
+		},
 	}
 
-	db, err := keppel.InitDB(cfg.DatabaseURL)
+	//setup a dummy ClairClient for testing interaction with the Clair API
+	if params.WithClairDouble {
+		s.ClairDouble = NewClairDouble()
+		clairURL, err := url.Parse("https://clair.example.org/")
+		must(t, err)
+
+		s.Config.ClairClient = &clair.Client{
+			BaseURL:      *clairURL,
+			PresharedKey: []byte("doesnotmatter"), //since the ClairDouble does not check the Authorization header
+		}
+		if tt, ok := http.DefaultClient.Transport.(*RoundTripper); ok {
+			tt.Handlers[clairURL.Host] = api.Compose(s.ClairDouble)
+		}
+	}
+
+	//connect to DB
+	s.DB, err = keppel.InitDB(s.Config.DatabaseURL)
 	if err != nil {
 		t.Error(err)
 		t.Log("Try prepending ./testing/with-postgres-db.sh to your command.")
@@ -86,14 +210,10 @@ func Setup(t *testing.T, optsPtr *SetupOptions) (keppel.Configuration, *keppel.D
 	//higher up in the hierarchy will run into some ON DELETE RESTRICT
 	//constraints and fail)
 	for {
-		result, err := db.Exec(`DELETE FROM manifest_manifest_refs WHERE parent_digest NOT IN (SELECT child_digest FROM manifest_manifest_refs)`)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		result, err := s.DB.Exec(`DELETE FROM manifest_manifest_refs WHERE parent_digest NOT IN (SELECT child_digest FROM manifest_manifest_refs)`)
+		must(t, err)
 		rowsDeleted, err := result.RowsAffected()
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		must(t, err)
 		if rowsDeleted == 0 {
 			break
 		}
@@ -107,47 +227,126 @@ func Setup(t *testing.T, optsPtr *SetupOptions) (keppel.Configuration, *keppel.D
 		//would be cleared when `accounts` is cleared, but if we clear `accounts`
 		//directly, the deletions cascade down in the wrong order and trigger
 		//ON DELETE RESTRICT constraints.
-		_, err := db.Exec("DELETE FROM " + tableName)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		_, err := s.DB.Exec("DELETE FROM " + tableName)
+		must(t, err)
 	}
 
 	//reset all primary key sequences for reproducible row IDs
 	for _, tableName := range []string{"blobs", "repos"} {
-		nextID, err := db.SelectInt(fmt.Sprintf(
+		nextID, err := s.DB.SelectInt(fmt.Sprintf(
 			"SELECT 1 + COALESCE(MAX(id), 0) FROM %s", tableName,
 		))
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		must(t, err)
+
 		query := fmt.Sprintf(`ALTER SEQUENCE %s_id_seq RESTART WITH %d`, tableName, nextID)
-		_, err = db.Exec(query)
-		if err != nil {
-			t.Fatal(err.Error())
+		_, err = s.DB.Exec(query)
+		must(t, err)
+	}
+
+	//setup anycast if requested
+	if params.WithAnycast {
+		anycastAPIPublicURL, err := url.Parse("https://registry-global.example.org")
+		must(t, err)
+		s.Config.AnycastAPIPublicURL = anycastAPIPublicURL
+
+		anycastJWTIssuerKey, err := keppel.ParseIssuerKey(UnitTestAnycastIssuerPrivateKey)
+		must(t, err)
+		s.Config.AnycastJWTIssuerKey = &anycastJWTIssuerKey
+	}
+
+	//setup essential test doubles
+	s.Clock = &Clock{}
+	s.SIDGenerator = &StorageIDGenerator{}
+	s.Auditor = &Auditor{}
+
+	//if we are secondary and we know the primary, share the clock with it
+	if params.SetupOfPrimary != nil {
+		s.Clock = params.SetupOfPrimary.Clock
+	}
+
+	//setup essential drivers
+	ad, err := keppel.NewAuthDriver("unittest", nil)
+	must(t, err)
+	s.AD = ad.(*AuthDriver)
+	fd, err := keppel.NewFederationDriver("unittest", ad, s.Config)
+	must(t, err)
+	s.FD = fd.(*FederationDriver)
+	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, s.Config)
+	must(t, err)
+	s.SD = sd.(*StorageDriver)
+	icd, err := keppel.NewInboundCacheDriver("unittest", s.Config)
+	must(t, err)
+	s.ICD = icd.(*InboundCacheDriver)
+
+	//setup APIs
+	apis := []api.API{
+		//Registry API (and thus Auth API) are nearly always needed for
+		//Bytes.Upload, Image.Upload and ImageList.Upload
+		registryv2.NewAPI(s.Config, ad, fd, sd, icd, s.DB, s.Auditor, params.RateLimitEngine).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next),
+		authapi.NewAPI(s.Config, ad, fd, s.DB),
+	}
+	if params.WithKeppelAPI {
+		apis = append(apis, keppelv1.NewAPI(s.Config, ad, fd, sd, icd, s.DB, s.Auditor))
+	}
+	if params.WithPeerAPI {
+		apis = append(apis, peerv1.NewAPI(s.Config, s.DB))
+	}
+	s.Handler = api.Compose(apis...)
+	if tt, ok := http.DefaultClient.Transport.(*RoundTripper); ok {
+		tt.Handlers[s.Config.APIPublicURL.Host] = s.Handler
+	}
+
+	//setup initial accounts/repos
+	quotasSetFor := make(map[string]bool)
+	for _, account := range params.Accounts {
+		must(t, s.DB.Insert(account))
+		fd.RecordExistingAccount(*account, s.Clock.Now())
+		if params.WithQuotas && !quotasSetFor[account.AuthTenantID] {
+			must(t, s.DB.Insert(&keppel.Quotas{
+				AuthTenantID:  account.AuthTenantID,
+				ManifestCount: 100,
+			}))
+			quotasSetFor[account.AuthTenantID] = true
+		}
+	}
+	s.Accounts = params.Accounts
+	for _, repo := range params.Repos {
+		must(t, s.DB.Insert(repo))
+	}
+	s.Repos = params.Repos
+
+	//setup peering with primary if requested
+	if params.IsSecondary {
+		s1 := params.SetupOfPrimary
+		if s1 != nil {
+			//give the secondary registry credentials for replicating from the primary
+			if ReplicationPassword == "" {
+				//this password needs to be constant because it appears in some fixtures/*.sql
+				ReplicationPassword = "a4cb6fae5b8bb91b0b993486937103dab05eca93"
+
+				hashBytes, _ := bcrypt.GenerateFromPassword([]byte(ReplicationPassword), 8)
+				replicationPasswordHash = string(hashBytes)
+			}
+
+			must(t, s.DB.Insert(&keppel.Peer{
+				HostName:    "registry.example.org",
+				OurPassword: ReplicationPassword,
+			}))
+			must(t, s1.DB.Insert(&keppel.Peer{
+				HostName:                 "registry-secondary.example.org",
+				TheirCurrentPasswordHash: replicationPasswordHash,
+			}))
 		}
 	}
 
-	cfg.JWTIssuerKey, err = keppel.ParseIssuerKey(UnitTestIssuerPrivateKey)
+	return s
+}
+
+func must(t *testing.T, err error) {
+	t.Helper()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-
-	if opts.WithAnycast {
-		anycastAPIPublicURL, err := url.Parse("https://registry-global.example.org")
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		cfg.AnycastAPIPublicURL = anycastAPIPublicURL
-
-		anycastJWTIssuerKey, err := keppel.ParseIssuerKey(UnitTestAnycastIssuerPrivateKey)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		cfg.AnycastJWTIssuerKey = &anycastJWTIssuerKey
-	}
-
-	return cfg, db
 }
 
 //UnitTestIssuerPrivateKey is an RSA private key that can be used as

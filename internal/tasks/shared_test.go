@@ -25,51 +25,20 @@ import (
 	"testing"
 
 	"github.com/opencontainers/go-digest"
-	"github.com/sapcc/keppel/internal/api"
-	authapi "github.com/sapcc/keppel/internal/api/auth"
-	peerv1 "github.com/sapcc/keppel/internal/api/peer"
-	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
-	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/gorp.v2"
 )
 
-//these credentials are in global vars so that we don't have to recompute them
-//in every test run (bcrypt is intentionally CPU-intensive)
-var (
-	replicationPassword     string
-	replicationPasswordHash string
-)
-
 func setup(t *testing.T) (*Janitor, keppel.Configuration, *keppel.DB, *test.FederationDriver, keppel.StorageDriver, *test.Clock, http.Handler) {
-	cfg, db := test.Setup(t, nil)
-
-	ad, err := keppel.NewAuthDriver("unittest", nil)
-	must(t, err)
-	fd, err := keppel.NewFederationDriver("unittest", ad, cfg)
-	must(t, err)
-	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, cfg)
-	must(t, err)
-	icd, err := keppel.NewInboundCacheDriver("unittest", cfg)
-	must(t, err)
-
-	must(t, db.Insert(&keppel.Account{Name: "test1", AuthTenantID: "test1authtenant", GCPoliciesJSON: "[]"}))
-	must(t, db.Insert(&keppel.Repository{AccountName: "test1", Name: "foo"}))
-
-	clock := &test.Clock{}
-	sidGen := &test.StorageIDGenerator{}
-	auditor := &test.Auditor{}
-	j := NewJanitor(cfg, fd, sd, icd, db, auditor).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next)
-
-	h := api.Compose(
-		peerv1.NewAPI(cfg, db),
-		registryv2.NewAPI(cfg, ad, fd, sd, icd, db, nil, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
-		authapi.NewAPI(cfg, ad, fd, db),
+	s := test.NewSetup(t,
+		test.WithPeerAPI,
+		test.WithAccount(keppel.Account{Name: "test1", AuthTenantID: "test1authtenant"}),
+		test.WithRepo(keppel.Repository{AccountName: "test1", Name: "foo"}),
 	)
-
-	return j, cfg, db, fd.(*test.FederationDriver), sd, clock, h
+	j := NewJanitor(s.Config, s.FD, s.SD, s.ICD, s.DB, s.Auditor).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next)
+	return j, s.Config, s.DB, s.FD, s.SD, s.Clock, s.Handler
 }
 
 func forAllReplicaTypes(t *testing.T, action func(string)) {
@@ -78,39 +47,9 @@ func forAllReplicaTypes(t *testing.T, action func(string)) {
 }
 
 func setupReplica(t *testing.T, db1 *keppel.DB, h1 http.Handler, clock *test.Clock, strategy string) (*Janitor, keppel.Configuration, *keppel.DB, keppel.StorageDriver, http.Handler) {
-	cfg2, db2 := test.Setup(t, &test.SetupOptions{IsSecondary: true})
-
-	ad2, err := keppel.NewAuthDriver("unittest", nil)
-	must(t, err)
-	fd2, err := keppel.NewFederationDriver("unittest", ad2, cfg2)
-	must(t, err)
-	sd2, err := keppel.NewStorageDriver("in-memory-for-testing", ad2, cfg2)
-	must(t, err)
-	icd2, err := keppel.NewInboundCacheDriver("unittest", cfg2)
-	must(t, err)
-
-	//give the secondary registry credentials for replicating from the primary
-	if replicationPassword == "" {
-		//this password needs to be constant because it appears in some fixtures/*.sql
-		replicationPassword = "a4cb6fae5b8bb91b0b993486937103dab05eca93"
-
-		hashBytes, _ := bcrypt.GenerateFromPassword([]byte(replicationPassword), 8)
-		replicationPasswordHash = string(hashBytes)
-	}
-
-	must(t, db2.Insert(&keppel.Peer{
-		HostName:    "registry.example.org",
-		OurPassword: replicationPassword,
-	}))
-	must(t, db1.Insert(&keppel.Peer{
-		HostName:                 "registry-secondary.example.org",
-		TheirCurrentPasswordHash: replicationPasswordHash,
-	}))
-
 	testAccount := keppel.Account{
-		Name:           "test1",
-		AuthTenantID:   "test1authtenant",
-		GCPoliciesJSON: "[]",
+		Name:         "test1",
+		AuthTenantID: "test1authtenant",
 	}
 	switch strategy {
 	case "on_first_use":
@@ -118,33 +57,21 @@ func setupReplica(t *testing.T, db1 *keppel.DB, h1 http.Handler, clock *test.Clo
 	case "from_external_on_first_use":
 		testAccount.ExternalPeerURL = "registry.example.org/test1"
 		testAccount.ExternalPeerUserName = "replication@registry-secondary.example.org"
-		testAccount.ExternalPeerPassword = replicationPassword
+		testAccount.ExternalPeerPassword = test.ReplicationPassword
 	default:
 		t.Fatalf("unknown strategy: %q", strategy)
 	}
-	must(t, db2.Insert(&testAccount))
-	must(t, db2.Insert(&keppel.Repository{AccountName: testAccount.Name, Name: "foo"}))
 
-	sidGen := &test.StorageIDGenerator{}
-	auditor := &test.Auditor{}
-	j2 := NewJanitor(cfg2, fd2, sd2, icd2, db2, auditor).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next)
-	h2 := api.Compose(
-		peerv1.NewAPI(cfg2, db2),
-		registryv2.NewAPI(cfg2, ad2, fd2, sd2, icd2, db2, nil, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
-		authapi.NewAPI(cfg2, ad2, fd2, db2),
+	s1 := test.Setup{DB: db1, Handler: h1, Clock: clock}
+	s := test.NewSetup(t,
+		test.IsSecondaryTo(&s1),
+		test.WithPeerAPI,
+		test.WithAccount(testAccount),
+		test.WithRepo(keppel.Repository{AccountName: "test1", Name: "foo"}),
 	)
 
-	//the secondary registry wants to talk to the primary registry over HTTPS, so
-	//attach the primary registry's HTTP handler to the http.DefaultClient
-	tt := &test.RoundTripper{
-		Handlers: map[string]http.Handler{
-			"registry.example.org":           h1,
-			"registry-secondary.example.org": h2,
-		},
-	}
-	http.DefaultClient.Transport = tt
-
-	return j2, cfg2, db2, sd2, h2
+	j2 := NewJanitor(s.Config, s.FD, s.SD, s.ICD, s.DB, s.Auditor).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next)
+	return j2, s.Config, s.DB, s.SD, s.Handler
 }
 
 func must(t *testing.T, err error) {

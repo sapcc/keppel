@@ -172,7 +172,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			}.Check(t, h)
 
 			//PUT failure case: cannot upload manifest via the anycast API
-			if currentScenario.WithAnycast {
+			if currentlyWithAnycast {
 				assert.HTTPRequest{
 					Method: "PUT",
 					Path:   "/v2/test1/foo/manifests/" + ref,
@@ -259,7 +259,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			//        here, but 403 is more correct.
 
 			//test GET via anycast
-			if currentScenario.WithAnycast {
+			if currentlyWithAnycast {
 				testWithReplica(t, h, db, clock, "on_first_use", func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
 					testAnycast(t, firstPass, db2, func() {
 						anycastToken := getTokenForAnycast(t, h, ad, "repository:test1/foo:pull",

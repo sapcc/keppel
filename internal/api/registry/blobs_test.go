@@ -111,7 +111,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 		}
 
 		//test failure cases: cannot upload manifest via the anycast API
-		if currentScenario.WithAnycast {
+		if currentlyWithAnycast {
 			assert.HTTPRequest{
 				Method: "POST",
 				Path:   "/v2/test1/foo/blobs/uploads/?digest=" + blob.Digest.String(),
@@ -157,7 +157,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 		}
 
 		//test GET via anycast
-		if currentScenario.WithAnycast {
+		if currentlyWithAnycast {
 			testWithReplica(t, h, db, clock, "on_first_use", func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
 				testAnycast(t, firstPass, db2, func() {
 					anycastToken := getTokenForAnycast(t, h, ad, "repository:test1/foo:pull",
@@ -523,7 +523,7 @@ func TestGetBlobUpload(t *testing.T) {
 		}.Check(t, h)
 
 		//test failure case: cannot inspect upload via the anycast API
-		if currentScenario.WithAnycast {
+		if currentlyWithAnycast {
 			assert.HTTPRequest{
 				Method: "GET",
 				Path:   "/v2/test1/foo/blobs/uploads/" + uploadUUID,

@@ -25,65 +25,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"testing"
 	"time"
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/hermes/pkg/cadf"
-	"github.com/sapcc/keppel/internal/api"
-	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
 
 func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.FederationDriver, *test.Auditor, keppel.StorageDriver, *keppel.DB, *test.Clock, *test.ClairDouble) {
-	cfg, db := test.Setup(t, nil)
+	s := test.NewSetup(t,
+		test.WithClairDouble,
+		test.WithKeppelAPI,
+	)
 
-	//setup a dummy ClairClient for testing the GET vulnerability report endpoint
-	claird := test.NewClairDouble()
-	clairURL, err := url.Parse("https://clair.example.org/")
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	cfg.ClairClient = &clair.Client{
-		BaseURL:      *clairURL,
-		PresharedKey: []byte("doesnotmatter"), //since the ClairDouble does not check the Authorization header
-	}
-
-	ad, err := keppel.NewAuthDriver("unittest", nil)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	fd, err := keppel.NewFederationDriver("unittest", ad, cfg)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, cfg)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	icd, err := keppel.NewInboundCacheDriver("unittest", cfg)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	clock := &test.Clock{}
-	auditor := &test.Auditor{}
-	h := api.Compose(keppelv1.NewAPI(cfg, ad, fd, sd, icd, db, auditor))
-
-	//second half of the ClairDouble setup
-	tt := &test.RoundTripper{
-		Handlers: map[string]http.Handler{
-			"registry.example.org": h,
-			"clair.example.org":    api.Compose(claird),
-		},
-	}
-	http.DefaultClient.Transport = tt
-
-	return h, ad.(*test.AuthDriver), fd.(*test.FederationDriver), auditor, sd, db, clock, claird
+	return s.Handler, s.AD, s.FD, s.Auditor, s.SD, s.DB, s.Clock, s.ClairDouble
 }
 
 func TestAccountsAPI(t *testing.T) {

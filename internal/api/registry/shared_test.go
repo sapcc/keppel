@@ -25,29 +25,14 @@ import (
 	"net/http"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/sapcc/go-bits/assert"
-	"github.com/sapcc/keppel/internal/api"
-	authapi "github.com/sapcc/keppel/internal/api/auth"
-	peerv1 "github.com/sapcc/keppel/internal/api/peer"
-	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
-	//these credentials are in global vars so that we don't have to recompute them
-	//in every test run (bcrypt is intentionally CPU-intensive)
-	replicationPassword     string
-	replicationPasswordHash string
-
-	scenarios = []test.SetupOptions{
-		{WithAnycast: false},
-		{WithAnycast: true},
-	}
-	currentScenario test.SetupOptions
+	currentlyWithAnycast bool
 
 	//only for use with .UploadToRegistryAPI()
 	fooRepoRef = keppel.Repository{AccountName: "test1", Name: "foo"}
@@ -55,187 +40,73 @@ var (
 )
 
 func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver, *test.FederationDriver, *test.Clock, *test.Auditor)) {
-	for _, scenario := range scenarios {
-		currentScenario = scenario
-		cfg, db := test.Setup(t, &scenario)
+	test.WithRoundTripper(func(tt *test.RoundTripper) {
+		for _, withAnycast := range []bool{false, true} {
+			s := test.NewSetup(t,
+				test.WithAnycast(withAnycast),
+				test.WithAccount(keppel.Account{Name: "test1", AuthTenantID: "test1authtenant"}),
+				test.WithQuotas,
+				test.WithPeerAPI,
+				test.WithRateLimitEngine(rle),
+			)
+			currentlyWithAnycast = withAnycast
 
-		//set up a dummy account for testing
-		testAccount := keppel.Account{
-			Name:           "test1",
-			AuthTenantID:   "test1authtenant",
-			GCPoliciesJSON: "[]",
-		}
-		err := db.Insert(&testAccount)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+			//run the tests for this scenario
+			action(s.Handler, s.Config, s.DB, s.AD, s.SD, s.FD, s.Clock, s.Auditor)
 
-		//setup ample quota for all tests
-		err = db.Insert(&keppel.Quotas{
-			AuthTenantID:  "test1authtenant",
-			ManifestCount: 100,
-		})
-		if err != nil {
-			t.Fatal(err.Error())
+			//shutdown DB to free up connections (otherwise the test eventually fails
+			//with Postgres saying "too many clients already")
+			err := s.DB.Db.Close()
+			if err != nil {
+				t.Fatal(err.Error())
+			}
 		}
-
-		//setup a fleet of drivers
-		ad, err := keppel.NewAuthDriver("unittest", nil)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, cfg)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		fd, err := keppel.NewFederationDriver("unittest", ad, cfg)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		fd.RecordExistingAccount(testAccount, time.Unix(0, 0))
-		icd, err := keppel.NewInboundCacheDriver("unittest", cfg)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-
-		//wire up the HTTP APIs
-		auditor := &test.Auditor{}
-		clock := &test.Clock{}
-		sidGen := &test.StorageIDGenerator{}
-		h := api.Compose(
-			registryv2.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
-			peerv1.NewAPI(cfg, db),
-			authapi.NewAPI(cfg, ad, fd, db),
-		)
-
-		//run the tests for this scenario
-		action(h, cfg, db, ad.(*test.AuthDriver), sd.(*test.StorageDriver), fd.(*test.FederationDriver), clock, auditor)
-
-		//shutdown DB to free up connections (otherwise the test eventually fails
-		//with Postgres saying "too many clients already")
-		err = db.Db.Close()
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-	}
+	})
 }
 
 func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.Clock, strategy string, action func(bool, http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver)) {
-	opts := currentScenario
-	opts.IsSecondary = true
-	cfg2, db2 := test.Setup(t, &opts)
-
-	//give the secondary registry credentials for replicating from the primary
-	if replicationPassword == "" {
-		//this password needs to be constant because it appears in some fixtures/*.sql
-		replicationPassword = "a4cb6fae5b8bb91b0b993486937103dab05eca93"
-
-		hashBytes, _ := bcrypt.GenerateFromPassword([]byte(replicationPassword), 8)
-		replicationPasswordHash = string(hashBytes)
-	}
-
-	err := db2.Insert(&keppel.Peer{
-		HostName:    "registry.example.org",
-		OurPassword: replicationPassword,
-	})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	err = db1.Insert(&keppel.Peer{
-		HostName:                 "registry-secondary.example.org",
-		TheirCurrentPasswordHash: replicationPasswordHash,
-	})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	defer func() {
-		_, err := db1.Exec(`DELETE FROM peers`)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-	}()
-
-	//set up a dummy account for testing
-	testAccount := keppel.Account{
-		Name:           "test1",
-		AuthTenantID:   "test1authtenant",
-		GCPoliciesJSON: "[]",
-	}
+	testAccount := keppel.Account{Name: "test1", AuthTenantID: "test1authtenant"}
 	switch strategy {
 	case "on_first_use":
 		testAccount.UpstreamPeerHostName = "registry.example.org"
 	case "from_external_on_first_use":
 		testAccount.ExternalPeerURL = "registry.example.org/test1"
 		testAccount.ExternalPeerUserName = "replication@registry-secondary.example.org"
-		testAccount.ExternalPeerPassword = replicationPassword
+		testAccount.ExternalPeerPassword = test.ReplicationPassword
 	default:
 		t.Fatalf("unknown strategy: %q", strategy)
 	}
-	err = db2.Insert(&testAccount)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
 
-	//setup ample quota for all tests
-	err = db2.Insert(&keppel.Quotas{
-		AuthTenantID:  "test1authtenant",
-		ManifestCount: 100,
-	})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	//setup a fleet of drivers for keppel-secondary
-	ad2, err := keppel.NewAuthDriver("unittest", nil)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	fd2, err := keppel.NewFederationDriver("unittest", ad2, cfg2)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	sd2, err := keppel.NewStorageDriver("in-memory-for-testing", ad2, cfg2)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	fd2.RecordExistingAccount(testAccount, time.Unix(0, 0))
-	icd2, err := keppel.NewInboundCacheDriver("unittest", cfg2)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	sidGen := &test.StorageIDGenerator{}
-	auditor := &test.Auditor{}
-	h2 := api.Compose(
-		registryv2.NewAPI(cfg2, ad2, fd2, sd2, icd2, db2, auditor, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
-		peerv1.NewAPI(cfg2, db2),
-		authapi.NewAPI(cfg2, ad2, fd2, db2),
+	s1 := &test.Setup{Handler: h1, DB: db1, Clock: clock}
+	s := test.NewSetup(t,
+		test.IsSecondaryTo(s1),
+		test.WithAnycast(currentlyWithAnycast),
+		test.WithAccount(testAccount),
+		test.WithQuotas,
+		test.WithPeerAPI,
 	)
 
-	//the secondary registry wants to talk to the primary registry over HTTPS, so
-	//attach the primary registry's HTTP handler to the http.DefaultClient
-	tt := &test.RoundTripper{
-		Handlers: map[string]http.Handler{
-			"registry.example.org":           h1,
-			"registry-secondary.example.org": h2,
-		},
-	}
-	http.DefaultClient.Transport = tt
 	defer func() {
-		http.DefaultClient.Transport = nil
+		_, err := db1.Exec(`DELETE FROM peers`)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		tt := http.DefaultClient.Transport.(*test.RoundTripper)
+		tt.Handlers["registry-secondary.example.org"] = nil
 	}()
 
 	//run the testcase once with the primary registry available
 	t.Logf("running first pass for strategy %s", strategy)
-	action(true, h2, cfg2, db2, ad2.(*test.AuthDriver), sd2.(*test.StorageDriver))
+	action(true, s.Handler, s.Config, s.DB, s.AD, s.SD)
 	if t.Failed() {
 		t.FailNow()
 	}
 
 	//sever the network connection to the primary registry and re-run all testcases
 	t.Logf("running second pass for strategy %s", strategy)
-	http.DefaultClient.Transport = nil
-	action(false, h2, cfg2, db2, ad2.(*test.AuthDriver), sd2.(*test.StorageDriver))
+	test.WithoutRoundTripper(func() {
+		action(false, s.Handler, s.Config, s.DB, s.AD, s.SD)
+	})
 	if t.Failed() {
 		t.FailNow()
 	}

@@ -25,19 +25,16 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-bits/assert"
-	"github.com/sapcc/keppel/internal/api"
-	authapi "github.com/sapcc/keppel/internal/api/auth"
-	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
 
 func TestCatalogEndpoint(t *testing.T) {
-	cfg, db := test.Setup(t, nil)
+	s := test.NewSetup(t)
 
 	//set up dummy accounts for testing
 	for idx := 1; idx <= 3; idx++ {
-		err := db.Insert(&keppel.Account{
+		err := s.DB.Insert(&keppel.Account{
 			Name:           fmt.Sprintf("test%d", idx),
 			AuthTenantID:   "test1authtenant",
 			GCPoliciesJSON: "[]",
@@ -47,7 +44,7 @@ func TestCatalogEndpoint(t *testing.T) {
 		}
 
 		for _, repoName := range []string{"foo", "bar", "qux"} {
-			err := db.Insert(&keppel.Repository{
+			err := s.DB.Insert(&keppel.Repository{
 				Name:        repoName,
 				AccountName: fmt.Sprintf("test%d", idx),
 			})
@@ -57,24 +54,10 @@ func TestCatalogEndpoint(t *testing.T) {
 		}
 	}
 
-	//setup auth API with the regular unittest driver
-	ad, err := keppel.NewAuthDriver("unittest", nil)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	fd, err := keppel.NewFederationDriver("unittest", ad, cfg)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	h := api.Compose(
-		authapi.NewAPI(cfg, ad, fd, db),
-		registryv2.NewAPI(cfg, ad, fd, nil, nil, db, nil, nil),
-	)
-
 	//testcases
-	testEmptyCatalog(t, h, ad)
-	testNonEmptyCatalog(t, h, ad)
-	testAuthErrorsForCatalog(t, h, ad)
+	testEmptyCatalog(t, s.Handler, s.AD)
+	testNonEmptyCatalog(t, s.Handler, s.AD)
+	testAuthErrorsForCatalog(t, s.Handler, s.AD)
 }
 
 func testEmptyCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver) {

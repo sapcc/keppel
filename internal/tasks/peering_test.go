@@ -20,12 +20,11 @@ package tasks
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/jarcoal/httpmock"
+	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/keppel/internal/api"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
@@ -34,103 +33,81 @@ import (
 )
 
 func TestIssueNewPasswordForPeer(t *testing.T) {
-	cfg, db := test.Setup(t, nil)
+	test.WithRoundTripper(func(tt *test.RoundTripper) {
+		s := test.NewSetup(t)
 
-	//setup an auth API on our side
-	ad, err := keppel.NewAuthDriver("unittest", nil)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	fd, err := keppel.NewFederationDriver("unittest", ad, cfg)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	h := api.Compose(authapi.NewAPI(cfg, ad, fd, db))
+		//setup a peer
+		must(t, s.DB.Insert(&keppel.Peer{HostName: "peer.example.org"}))
 
-	//setup a peer
-	err = db.Insert(&keppel.Peer{HostName: "peer.example.org"})
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+		//setup a mock for the peer that just swallows any password that we give to it
+		mockPeer := mockPeerReceivingPassword{}
+		tt.Handlers["peer.example.org"] = api.Compose(&mockPeer)
 
-	//setup a mock for the peer that just swallows any password that we give to it
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
+		var issuedPasswords []string
+		for range []int{0, 1, 2, 3, 4} {
+			//test successful issuance of password
+			timeBeforeIssue := time.Now()
+			tx, err := s.DB.Begin()
+			if err != nil {
+				t.Error(err.Error())
+			}
+			err = IssueNewPasswordForPeer(s.Config, s.DB, tx, getPeerFromDB(t, s.DB))
+			if err != nil {
+				t.Error(err.Error())
+			}
+			for idx, previousPassword := range issuedPasswords {
+				if mockPeer.Password == previousPassword {
+					t.Errorf("expected IssueNewPasswordForPeer to issue a fresh password, but peer still has password #%d", idx+1)
+				}
+			}
+			issuedPasswords = append(issuedPasswords, mockPeer.Password)
 
-	mockPeer := mockPeerReceivingPassword{}
-	httpmock.RegisterResponder(
-		"POST",
-		"https://peer.example.org/keppel/v1/auth/peering",
-		mockPeer.ReceivePassword,
-	)
+			//check that `last_peered_at` was updated
+			peerState := getPeerFromDB(t, s.DB)
+			if peerState.LastPeeredAt == nil {
+				t.Error("expected peer to have last_peered_at, but got nil")
+			} else if peerState.LastPeeredAt.Before(timeBeforeIssue) {
+				t.Error("expected IssueNewPasswordForPeer to update last_peered_at, but last_peered_at is still old")
+			}
 
-	var issuedPasswords []string
-	for range []int{0, 1, 2, 3, 4} {
-		//test successful issuance of password
-		timeBeforeIssue := time.Now()
-		tx, err := db.Begin()
+			for idx, password := range issuedPasswords {
+				//test that the current password and previous password (if any) can be used to authenticate on our side...
+				req := assert.HTTPRequest{
+					Method: "GET",
+					Path:   "/keppel/v1/auth?service=registry.example.org",
+					Header: map[string]string{
+						"Authorization": keppel.BuildBasicAuthHeader("replication@peer.example.org", password),
+					},
+					ExpectStatus: http.StatusOK,
+				}
+				if idx < len(issuedPasswords)-2 {
+					//...but any older passwords will not work
+					req.ExpectStatus = http.StatusUnauthorized
+				}
+				req.Check(t, s.Handler)
+			}
+		}
+
+		//test failing issuance of password
+		tt.Handlers["peer.example.org"] = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		})
+		peerBeforeFailedIssue := getPeerFromDB(t, s.DB)
+		tx, err := s.DB.Begin()
 		if err != nil {
-			t.Error(err.Error())
+			t.Fatal(err.Error())
 		}
-		err = IssueNewPasswordForPeer(cfg, db, tx, getPeerFromDB(t, db))
-		if err != nil {
-			t.Error(err.Error())
-		}
-		for idx, previousPassword := range issuedPasswords {
-			if mockPeer.Password == previousPassword {
-				t.Errorf("expected IssueNewPasswordForPeer to issue a fresh password, but peer still has password #%d", idx+1)
-			}
-		}
-		issuedPasswords = append(issuedPasswords, mockPeer.Password)
-
-		//check that `last_peered_at` was updated
-		peerState := getPeerFromDB(t, db)
-		if peerState.LastPeeredAt == nil {
-			t.Error("expected peer to have last_peered_at, but got nil")
-		} else if peerState.LastPeeredAt.Before(timeBeforeIssue) {
-			t.Error("expected IssueNewPasswordForPeer to update last_peered_at, but last_peered_at is still old")
+		err = IssueNewPasswordForPeer(s.Config, s.DB, tx, getPeerFromDB(t, s.DB))
+		if err == nil {
+			t.Error("expected IssueNewPasswordForPeer to fail, but got err = nil")
 		}
 
-		for idx, password := range issuedPasswords {
-			//test that the current password and previous password (if any) can be used to authenticate on our side...
-			req := assert.HTTPRequest{
-				Method: "GET",
-				Path:   "/keppel/v1/auth?service=registry.example.org",
-				Header: map[string]string{
-					"Authorization": keppel.BuildBasicAuthHeader("replication@peer.example.org", password),
-				},
-				ExpectStatus: http.StatusOK,
-			}
-			if idx < len(issuedPasswords)-2 {
-				//...but any older passwords will not work
-				req.ExpectStatus = http.StatusUnauthorized
-			}
-			req.Check(t, h)
-		}
-	}
-
-	//test failing issuance of password
-	httpmock.Reset()
-	httpmock.RegisterResponder(
-		"POST",
-		"https://peer.example.org/keppel/v1/auth/peering",
-		httpmock.NewStringResponder(http.StatusUnauthorized, "unauthorized"),
-	)
-	peerBeforeFailedIssue := getPeerFromDB(t, db)
-	tx, err := db.Begin()
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	err = IssueNewPasswordForPeer(cfg, db, tx, getPeerFromDB(t, db))
-	if err == nil {
-		t.Error("expected IssueNewPasswordForPeer to fail, but got err = nil")
-	}
-
-	//a failing issuance should not touch the DB
-	assert.DeepEqual(t, "peer state after failed IssueNewPasswordForPeer",
-		getPeerFromDB(t, db),
-		peerBeforeFailedIssue,
-	)
+		//a failing issuance should not touch the DB
+		assert.DeepEqual(t, "peer state after failed IssueNewPasswordForPeer",
+			getPeerFromDB(t, s.DB),
+			peerBeforeFailedIssue,
+		)
+	})
 }
 
 func getPeerFromDB(t *testing.T, db *keppel.DB) keppel.Peer {
@@ -147,7 +124,12 @@ type mockPeerReceivingPassword struct {
 	Password string
 }
 
-func (p *mockPeerReceivingPassword) ReceivePassword(r *http.Request) (*http.Response, error) {
+//AddTo implements the api.API interface.
+func (p *mockPeerReceivingPassword) AddTo(r *mux.Router) {
+	r.Methods("POST").Path("/keppel/v1/auth/peering").HandlerFunc(p.handleReceivePassword)
+}
+
+func (p *mockPeerReceivingPassword) handleReceivePassword(w http.ResponseWriter, r *http.Request) {
 	//I would prefer to use the actual implementation of this endpoint, but we
 	//only have one DB for the whole testcase, and using it for both ourselves
 	//and the peer is asking for trouble.
@@ -157,19 +139,23 @@ func (p *mockPeerReceivingPassword) ReceivePassword(r *http.Request) (*http.Resp
 	decoder.DisallowUnknownFields()
 	err := decoder.Decode(&req)
 	if err != nil {
-		return nil, err
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
 	}
 
 	if req.PeerHostName != "registry.example.org" {
-		return nil, errors.New("wrong hostname")
+		http.Error(w, "wrong hostname", http.StatusUnprocessableEntity)
+		return
 	}
 	if req.UserName != "replication@peer.example.org" {
-		return nil, errors.New("wrong username")
+		http.Error(w, "wrong username", http.StatusUnprocessableEntity)
+		return
 	}
 	if req.Password == "" {
-		return nil, errors.New("malformed password")
+		http.Error(w, "malformed password", http.StatusUnprocessableEntity)
+		return
 	}
 
 	p.Password = req.Password
-	return httpmock.NewStringResponder(http.StatusNoContent, "")(r)
+	w.WriteHeader(http.StatusNoContent)
 }

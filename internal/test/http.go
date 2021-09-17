@@ -29,6 +29,24 @@ type RoundTripper struct {
 	Handlers map[string]http.Handler
 }
 
+//WithRoundTripper sets up a RoundTripper instance as the default HTTP
+//transport for the duration of the given action.
+func WithRoundTripper(action func(*RoundTripper)) {
+	t := RoundTripper{Handlers: make(map[string]http.Handler)}
+	prevTransport := http.DefaultClient.Transport
+	http.DefaultClient.Transport = &t
+	action(&t)
+	http.DefaultClient.Transport = prevTransport
+}
+
+//WithoutRoundTripper can be used during WithRoundTripper() to temporarily revert back to the
+func WithoutRoundTripper(action func()) {
+	prevTransport := http.DefaultClient.Transport
+	http.DefaultClient.Transport = nil
+	action()
+	http.DefaultClient.Transport = prevTransport
+}
+
 //RoundTrip implements the http.RoundTripper interface.
 func (t *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	//only intercept requests when the target host is known to us

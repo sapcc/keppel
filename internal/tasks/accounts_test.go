@@ -30,6 +30,7 @@ import (
 
 func TestAnnounceAccountsToFederation(t *testing.T) {
 	j, _, db, fd, _, clock, _ := setup(t)
+	fd.RecordedAccounts = nil
 	clock.StepBy(1 * time.Hour)
 
 	var account1 keppel.Account
@@ -63,6 +64,7 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 }
 
 func expectAccountsAnnouncedJustNow(t *testing.T, fd *test.FederationDriver, clock *test.Clock, accounts ...keppel.Account) {
+	t.Helper()
 	var expected []test.AccountRecordedByFederationDriver
 	for _, a := range accounts {
 		expected = append(expected, test.AccountRecordedByFederationDriver{
