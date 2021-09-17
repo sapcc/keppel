@@ -44,22 +44,23 @@ func TestRateLimits(t *testing.T) {
 	}
 	rle := &keppel.RateLimitEngine{Driver: rld, Store: nil}
 
-	testWithPrimary(t, rle, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
+	testWithPrimary(t, rle, func(s test.Setup) {
 		rls, err := memstore.New(-1)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		rls.SetTimeNow(clock.Now)
+		rls.SetTimeNow(s.Clock.Now)
 		rle.Store = rls
 
 		//create the "test1/foo" repository to ensure that we don't just always hit
 		//NAME_UNKNOWN errors
-		_, err = keppel.FindOrCreateRepository(db, "foo", keppel.Account{Name: "test1"})
+		_, err = keppel.FindOrCreateRepository(s.DB, "foo", keppel.Account{Name: "test1"})
 		if err != nil {
 			t.Fatal(err.Error())
 		}
 
-		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		h := s.Handler
+		token := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 		bogusDigest := "sha256:" + sha256Of([]byte("something else"))
@@ -102,13 +103,13 @@ func TestRateLimits(t *testing.T) {
 		}
 
 		for _, req := range testRequests {
-			clock.StepBy(time.Hour)
+			s.Clock.StepBy(time.Hour)
 
 			//we can always execute 1 request initially, and then we can burst on top
 			//of that
 			for i := 0; i < rateQuota.MaxBurst+1; i++ {
 				req.Check(t, h)
-				clock.StepBy(time.Second)
+				s.Clock.StepBy(time.Second)
 			}
 
 			//then the next request should be rate-limited
@@ -122,12 +123,12 @@ func TestRateLimits(t *testing.T) {
 			failingReq.Check(t, h)
 
 			//be impatient
-			clock.StepBy(time.Duration(28-rateQuota.MaxBurst) * time.Second)
+			s.Clock.StepBy(time.Duration(28-rateQuota.MaxBurst) * time.Second)
 			failingReq.ExpectHeader["Retry-After"] = "1"
 			failingReq.Check(t, h)
 
 			//finally!
-			clock.StepBy(time.Second)
+			s.Clock.StepBy(time.Second)
 			req.Check(t, h)
 
 			//aaaand... we're rate-limited again immediately because we haven't
@@ -151,7 +152,7 @@ func TestAnycastRateLimits(t *testing.T) {
 	}
 	rle := &keppel.RateLimitEngine{Driver: rld, Store: nil}
 
-	testWithPrimary(t, rle, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
+	testWithPrimary(t, rle, func(s test.Setup) {
 		if !currentlyWithAnycast {
 			return
 		}
@@ -159,24 +160,26 @@ func TestAnycastRateLimits(t *testing.T) {
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		rls.SetTimeNow(clock.Now)
+		rls.SetTimeNow(s.Clock.Now)
 		rle.Store = rls
 
 		//upload the test blob
-		uploadToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		h := s.Handler
+		uploadToken := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 		blob.MustUpload(t, h, uploadToken, fooRepoRef)
 
 		//pull it via anycast
-		testWithReplica(t, h, db, clock, "on_first_use", func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
-			clock.StepBy(time.Hour) //reset all rate limits
-			testAnycast(t, firstPass, db2, func() {
+		testWithReplica(t, s, "on_first_use", func(firstPass bool, s2 test.Setup) {
+			h2 := s2.Handler
+			s.Clock.StepBy(time.Hour) //reset all rate limits
+			testAnycast(t, firstPass, s2.DB, func() {
 
-				anycastToken := getTokenForAnycast(t, h, ad, "repository:test1/foo:pull",
+				anycastToken := getTokenForAnycast(t, h, s.AD, "repository:test1/foo:pull",
 					keppel.CanPullFromAccount)
 				anycastHeaders := map[string]string{
-					"X-Forwarded-Host":  cfg.AnycastAPIPublicURL.Hostname(),
+					"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Hostname(),
 					"X-Forwarded-Proto": "https",
 				}
 
@@ -193,7 +196,7 @@ func TestAnycastRateLimits(t *testing.T) {
 					Path:   "/v2/test1/foo/blobs/" + blob.Digest.String(),
 					Header: map[string]string{
 						"Authorization":     "Bearer " + anycastToken,
-						"X-Forwarded-Host":  cfg.AnycastAPIPublicURL.Hostname(),
+						"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Hostname(),
 						"X-Forwarded-Proto": "https",
 					},
 					ExpectBody:   test.ErrorCode(keppel.ErrTooManyRequests),

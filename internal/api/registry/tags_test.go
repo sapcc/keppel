@@ -33,12 +33,12 @@ import (
 )
 
 func TestListTags(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
-
-		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+	testWithPrimary(t, nil, func(s test.Setup) {
+		h := s.Handler
+		token := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
-		readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull",
+		readOnlyToken := getToken(t, h, s.AD, "repository:test1/foo:pull",
 			keppel.CanPullFromAccount)
 
 		//test tag list for missing repo
@@ -53,7 +53,7 @@ func TestListTags(t *testing.T) {
 
 		//upload a test image without tagging it
 		image := test.GenerateImage( /* no layers */ )
-		image.MustUpload(t, h, db, token, fooRepoRef, "")
+		image.MustUpload(t, h, s.DB, token, fooRepoRef, "")
 
 		//test empty tag list for existing repo
 		req := assert.HTTPRequest{
@@ -83,7 +83,7 @@ func TestListTags(t *testing.T) {
 			allTagNames[i], allTagNames[j] = allTagNames[j], allTagNames[i]
 		})
 		for _, tagName := range allTagNames {
-			image.MustUpload(t, h, db, token, fooRepoRef, tagName)
+			image.MustUpload(t, h, s.DB, token, fooRepoRef, tagName)
 		}
 		//but when listing tags, we expect them in sorted order
 		sort.Strings(allTagNames)
@@ -151,17 +151,18 @@ func TestListTags(t *testing.T) {
 
 		//test anycast tag listing
 		if currentlyWithAnycast {
-			testWithReplica(t, h, db, clock, "on_first_use", func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
-				testAnycast(t, firstPass, db2, func() {
-					anycastToken := getTokenForAnycast(t, h, ad, "repository:test1/foo:pull",
+			testWithReplica(t, s, "on_first_use", func(firstPass bool, s2 test.Setup) {
+				h2 := s2.Handler
+				testAnycast(t, firstPass, s2.DB, func() {
+					anycastToken := getTokenForAnycast(t, h, s.AD, "repository:test1/foo:pull",
 						keppel.CanPullFromAccount)
 					req := assert.HTTPRequest{
 						Method: "GET",
 						Path:   "/v2/test1/foo/tags/list",
 						Header: map[string]string{
 							"Authorization":     "Bearer " + anycastToken,
-							"X-Forwarded-Host":  cfg.AnycastAPIPublicURL.Host,
-							"X-Forwarded-Proto": cfg.AnycastAPIPublicURL.Scheme,
+							"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Host,
+							"X-Forwarded-Proto": s.Config.AnycastAPIPublicURL.Scheme,
 						},
 						ExpectStatus: http.StatusOK,
 						ExpectHeader: test.VersionHeader,

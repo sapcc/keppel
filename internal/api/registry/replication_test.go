@@ -32,23 +32,25 @@ import (
 )
 
 func TestReplicationSimpleImage(t *testing.T) {
-	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
+	testWithPrimary(t, nil, func(s1 test.Setup) {
 		//upload image to primary account
-		token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
+		h1 := s1.Handler
+		token := getToken(t, h1, s1.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
-		clock.Step()
-		image.MustUpload(t, h1, db1, token, fooRepoRef, "first")
+		s1.Clock.Step()
+		image.MustUpload(t, h1, s1.DB, token, fooRepoRef, "first")
 
 		//test pull by manifest in secondary account
-		testWithAllReplicaTypes(t, h1, db1, clock, func(strategy string, firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
-			token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
+			h2 := s2.Handler
+			token := getTokenForSecondary(t, h2, s2.AD, "repository:test1/foo:pull",
 				keppel.CanPullFromAccount)
 
 			if firstPass {
 				//replication will not take place while the account is in maintenance
-				testWithAccountInMaintenance(t, db2, "test1", func() {
+				testWithAccountInMaintenance(t, s2.DB, "test1", func() {
 					assert.HTTPRequest{
 						Method:       "GET",
 						Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
@@ -60,30 +62,31 @@ func TestReplicationSimpleImage(t *testing.T) {
 				})
 			} else {
 				//if manifest is already present locally, we don't care about the maintenance mode
-				testWithAccountInMaintenance(t, db2, "test1", func() {
+				testWithAccountInMaintenance(t, s2.DB, "test1", func() {
 					expectManifestExists(t, h2, token, "test1/foo", image.Manifest, image.Manifest.Digest.String(), nil)
 				})
 			}
 
-			clock.Step()
+			s1.Clock.Step()
 			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, image.Manifest.Digest.String(), nil)
 
 			if firstPass && strategy == "on_first_use" {
-				easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/imagemanifest-replication-001-after-pull-manifest.sql")
+				easypg.AssertDBContent(t, s2.DB.DbMap.Db, "fixtures/imagemanifest-replication-001-after-pull-manifest.sql")
 			}
 
-			clock.Step()
+			s1.Clock.Step()
 			expectBlobExists(t, h2, token, "test1/foo", image.Config, nil)
 			expectBlobExists(t, h2, token, "test1/foo", image.Layers[0], nil)
 
 			if firstPass && strategy == "on_first_use" {
-				easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/imagemanifest-replication-002-after-pull-blobs.sql")
+				easypg.AssertDBContent(t, s2.DB.DbMap.Db, "fixtures/imagemanifest-replication-002-after-pull-blobs.sql")
 			}
 		})
 
 		//test pull by tag in secondary account
-		testWithAllReplicaTypes(t, h1, db1, clock, func(strategy string, firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
-			token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
+			h2 := s2.Handler
+			token := getTokenForSecondary(t, h2, s2.AD, "repository:test1/foo:pull",
 				keppel.CanPullFromAccount)
 			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "first", nil)
 			expectBlobExists(t, h2, token, "test1/foo", image.Config, nil)
@@ -93,33 +96,35 @@ func TestReplicationSimpleImage(t *testing.T) {
 }
 
 func TestReplicationImageList(t *testing.T) {
-	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
+	testWithPrimary(t, nil, func(s1 test.Setup) {
 		//upload image list with two images to primary account
-		token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
+		h1 := s1.Handler
+		token := getToken(t, h1, s1.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 		image1 := test.GenerateImage(test.GenerateExampleLayer(1))
 		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
 		list := test.GenerateImageList(image1, image2)
-		clock.Step()
-		image1.MustUpload(t, h1, db1, token, fooRepoRef, "first")
-		image2.MustUpload(t, h1, db1, token, fooRepoRef, "second")
-		list.MustUpload(t, h1, db1, token, fooRepoRef, "list")
+		s1.Clock.Step()
+		image1.MustUpload(t, h1, s1.DB, token, fooRepoRef, "first")
+		image2.MustUpload(t, h1, s1.DB, token, fooRepoRef, "second")
+		list.MustUpload(t, h1, s1.DB, token, fooRepoRef, "list")
 
 		//test pull in secondary account
-		testWithAllReplicaTypes(t, h1, db1, clock, func(strategy string, firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
-			token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
+			h2 := s2.Handler
+			token := getTokenForSecondary(t, h2, s2.AD, "repository:test1/foo:pull",
 				keppel.CanPullFromAccount)
 
 			if firstPass {
 				//do not step the clock in the second pass, otherwise the AssertDBContent
 				//will fail on the changed last_pulled_at timestamp
-				clock.Step()
+				s1.Clock.Step()
 			}
 			expectManifestExists(t, h2, token, "test1/foo", list.Manifest, "list", nil)
 
 			if strategy == "on_first_use" {
-				easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/imagelistmanifest-replication-001-after-pull-listmanifest.sql")
+				easypg.AssertDBContent(t, s2.DB.DbMap.Db, "fixtures/imagelistmanifest-replication-001-after-pull-listmanifest.sql")
 			}
 
 			if !firstPass {
@@ -133,15 +138,15 @@ func TestReplicationImageList(t *testing.T) {
 }
 
 func TestReplicationMissingEntities(t *testing.T) {
-	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
+	testWithPrimary(t, nil, func(s1 test.Setup) {
 		//ensure that the `test1/foo` repo exists upstream; otherwise we'll just get
 		//NAME_UNKNOWN
-		_, err := keppel.FindOrCreateRepository(db1, "foo", keppel.Account{Name: "test1"})
+		_, err := keppel.FindOrCreateRepository(s1.DB, "foo", keppel.Account{Name: "test1"})
 		if err != nil {
 			t.Fatal(err.Error())
 		}
 
-		testWithAllReplicaTypes(t, h1, db1, clock, func(strategy string, firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
 			var (
 				expectedStatus        = http.StatusNotFound
 				expectedManifestError = keppel.ErrManifestUnknown
@@ -153,7 +158,8 @@ func TestReplicationMissingEntities(t *testing.T) {
 			}
 
 			//try to pull a manifest by tag that exists neither locally nor upstream
-			token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+			h2 := s2.Handler
+			token := getTokenForSecondary(t, h2, s2.AD, "repository:test1/foo:pull",
 				keppel.CanPullFromAccount)
 			assert.HTTPRequest{
 				Method:       "GET",
@@ -191,9 +197,10 @@ func TestReplicationMissingEntities(t *testing.T) {
 }
 
 func TestReplicationForbidDirectUpload(t *testing.T) {
-	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
-		testWithAllReplicaTypes(t, h1, db1, clock, func(strategy string, firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
-			token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull,push",
+	testWithPrimary(t, nil, func(s1 test.Setup) {
+		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
+			h2 := s2.Handler
+			token := getTokenForSecondary(t, h2, s2.AD, "repository:test1/foo:pull,push",
 				keppel.CanPullFromAccount, keppel.CanPushToAccount)
 
 			deniedMessage := test.ErrorCodeWithMessage{
@@ -227,23 +234,24 @@ func TestReplicationForbidDirectUpload(t *testing.T) {
 }
 
 func TestReplicationManifestQuotaExceeded(t *testing.T) {
-	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
+	testWithPrimary(t, nil, func(s1 test.Setup) {
 		//upload image to primary account
-		token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
+		h1 := s1.Handler
+		token := getToken(t, h1, s1.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
-		clock.Step()
-		image.MustUpload(t, h1, db1, token, fooRepoRef, "first")
+		s1.Clock.Step()
+		image.MustUpload(t, h1, s1.DB, token, fooRepoRef, "first")
 
 		//in secondary account...
-		testWithAllReplicaTypes(t, h1, db1, clock, func(strategy string, firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
 			if !firstPass {
 				return
 			}
 
 			//...lower quotas so that replication will fail
-			_, err := db2.Exec(`UPDATE quotas SET manifests = $1`, 0)
+			_, err := s2.DB.Exec(`UPDATE quotas SET manifests = $1`, 0)
 			if err != nil {
 				t.Fatal(err.Error())
 			}
@@ -253,7 +261,8 @@ func TestReplicationManifestQuotaExceeded(t *testing.T) {
 				Message: "manifest quota exceeded (quota = 0, usage = 0)",
 			}
 
-			token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+			h2 := s2.Handler
+			token := getTokenForSecondary(t, h2, s2.AD, "repository:test1/foo:pull",
 				keppel.CanPullFromAccount)
 			assert.HTTPRequest{
 				Method:       "GET",
@@ -269,18 +278,20 @@ func TestReplicationManifestQuotaExceeded(t *testing.T) {
 }
 
 func TestReplicationUseCachedBlobMetadata(t *testing.T) {
-	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
+	testWithPrimary(t, nil, func(s1 test.Setup) {
 		//upload image to primary account
-		token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
+		h1 := s1.Handler
+		token := getToken(t, h1, s1.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
-		clock.Step()
-		image.MustUpload(t, h1, db1, token, fooRepoRef, "first")
+		s1.Clock.Step()
+		image.MustUpload(t, h1, s1.DB, token, fooRepoRef, "first")
 
-		testWithAllReplicaTypes(t, h1, db1, clock, func(strategy string, firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
 			//in the first pass, just replicate the manifest
-			token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+			h2 := s2.Handler
+			token := getTokenForSecondary(t, h2, s2.AD, "repository:test1/foo:pull",
 				keppel.CanPullFromAccount)
 			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "first", nil)
 
@@ -306,17 +317,18 @@ func TestReplicationUseCachedBlobMetadata(t *testing.T) {
 }
 
 func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
-	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
+	testWithPrimary(t, nil, func(s1 test.Setup) {
 		//upload image to primary account
-		token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
+		h1 := s1.Handler
+		token := getToken(t, h1, s1.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
-		clock.Step()
-		image.MustUpload(t, h1, db1, token, fooRepoRef, "first")
-		image.MustUpload(t, h1, db1, token, fooRepoRef, "second")
+		s1.Clock.Step()
+		image.MustUpload(t, h1, s1.DB, token, fooRepoRef, "first")
+		image.MustUpload(t, h1, s1.DB, token, fooRepoRef, "second")
 
-		testWithReplica(t, h1, db1, clock, "from_external_on_first_use", func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+		testWithReplica(t, s1, "from_external_on_first_use", func(firstPass bool, s2 test.Setup) {
 			//need only one pass for this test
 			if !firstPass {
 				return
@@ -324,12 +336,13 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 
 			//make sure that the "test1/foo" repo exists on secondary (otherwise we
 			//will get useless NAME_UNKNOWN errors later, not the errors we're interested in)
-			token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+			h2 := s2.Handler
+			token := getTokenForSecondary(t, h2, s2.AD, "repository:test1/foo:pull",
 				keppel.CanPullFromAccount)
 			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "second", nil)
 
 			//enable anonymous pull on the account
-			err := db2.Insert(&keppel.RBACPolicy{
+			err := s2.DB.Insert(&keppel.RBACPolicy{
 				AccountName:        "test1",
 				RepositoryPattern:  ".*",
 				CanPullAnonymously: true,
@@ -381,42 +394,44 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 }
 
 func TestReplicationImageListWithPlatformFilter(t *testing.T) {
-	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
+	testWithPrimary(t, nil, func(s1 test.Setup) {
 		//This test is mostly identical to TestReplicationImageList(), but the
 		//replica will get a platform_filter and thus not replicate all
 		//submanifests.
-		token := getToken(t, h1, ad1, "repository:test1/foo:pull,push",
+		h1 := s1.Handler
+		token := getToken(t, h1, s1.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 		image1 := test.GenerateImage(test.GenerateExampleLayer(1))
 		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
 		list := test.GenerateImageList(image1, image2)
-		clock.Step()
-		image1.MustUpload(t, h1, db1, token, fooRepoRef, "first")
-		image2.MustUpload(t, h1, db1, token, fooRepoRef, "second")
-		list.MustUpload(t, h1, db1, token, fooRepoRef, "list")
+		s1.Clock.Step()
+		image1.MustUpload(t, h1, s1.DB, token, fooRepoRef, "first")
+		image2.MustUpload(t, h1, s1.DB, token, fooRepoRef, "second")
+		list.MustUpload(t, h1, s1.DB, token, fooRepoRef, "list")
 
 		//test pull in secondary account
-		testWithAllReplicaTypes(t, h1, db1, clock, func(strategy string, firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
 			//setup the platform_filter that differentiates this test from
 			//TestReplicationImageList()
-			_, err := db2.Exec(`UPDATE accounts SET platform_filter = $1`, `[{"os":"linux","architecture":"amd64"}]`)
+			_, err := s2.DB.Exec(`UPDATE accounts SET platform_filter = $1`, `[{"os":"linux","architecture":"amd64"}]`)
 			if err != nil {
 				t.Fatal(err.Error())
 			}
 
-			token := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+			h2 := s2.Handler
+			token := getTokenForSecondary(t, h2, s2.AD, "repository:test1/foo:pull",
 				keppel.CanPullFromAccount)
 
 			if firstPass {
 				//do not step the clock in the second pass, otherwise the AssertDBContent
 				//will fail on the changed last_pulled_at timestamp
-				clock.Step()
+				s1.Clock.Step()
 			}
 			expectManifestExists(t, h2, token, "test1/foo", list.Manifest, "list", nil)
 
 			if strategy == "on_first_use" {
-				easypg.AssertDBContent(t, db2.DbMap.Db, "fixtures/imagelistmanifest-replication-with-platformfilter-001-after-pull-listmanifest.sql")
+				easypg.AssertDBContent(t, s2.DB.DbMap.Db, "fixtures/imagelistmanifest-replication-with-platformfilter-001-after-pull-listmanifest.sql")
 			}
 
 			if !firstPass {
@@ -445,15 +460,17 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 	//- "test1" is reconfigured into an external replica of tertiary on both primary and secondary.
 	//- Tertiary rejects the first pull to trigger the pull delegation code path.
 
-	testWithPrimary(t, nil, func(h1 http.Handler, cfg1 keppel.Configuration, db1 *keppel.DB, ad1 *test.AuthDriver, sd1 *test.StorageDriver, fd1 *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
-		testWithReplica(t, h1, db1, clock, "on_first_use", func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
+	testWithPrimary(t, nil, func(s1 test.Setup) {
+		testWithReplica(t, s1, "on_first_use", func(firstPass bool, s2 test.Setup) {
 			if !firstPass {
 				return //no second pass needed
 			}
 
-			token1 := getToken(t, h1, ad1, "repository:test1/foo:pull",
+			h1 := s1.Handler
+			h2 := s2.Handler
+			token1 := getToken(t, h1, s1.AD, "repository:test1/foo:pull",
 				keppel.CanPullFromAccount)
-			token2 := getTokenForSecondary(t, h2, ad2, "repository:test1/foo:pull",
+			token2 := getTokenForSecondary(t, h2, s2.AD, "repository:test1/foo:pull",
 				keppel.CanPullFromAccount)
 
 			//setup tertiary as a mostly static responder
@@ -489,7 +506,7 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 			http.DefaultClient.Transport.(*test.RoundTripper).Handlers["registry-tertiary.example.org"] = http.HandlerFunc(tertiaryHandler)
 
 			//reconfigure "test1" into an external replica of tertiary
-			for _, db := range []*keppel.DB{db1, db2} {
+			for _, db := range []*keppel.DB{s1.DB, s2.DB} {
 				_, err := db.Exec(`UPDATE accounts SET upstream_peer_hostname = '', external_peer_url = $2 WHERE name = $1`,
 					"test1", "registry-tertiary.example.org")
 				if err != nil {

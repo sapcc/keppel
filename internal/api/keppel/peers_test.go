@@ -24,10 +24,12 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/test"
 )
 
 func TestPeersAPI(t *testing.T) {
-	h, _, _, _, _, db, _, _ := setup(t)
+	s := test.NewSetup(t, test.WithKeppelAPI)
+	h := s.Handler
 
 	//check empty response when there are no peers in the DB
 	assert.HTTPRequest{
@@ -44,7 +46,7 @@ func TestPeersAPI(t *testing.T) {
 		{"hostname": "keppel.example.org"},
 	}
 	for _, peer := range expectedPeers {
-		err := db.Insert(&keppel.Peer{HostName: peer["hostname"].(string)})
+		err := s.DB.Insert(&keppel.Peer{HostName: peer["hostname"].(string)})
 		if err != nil {
 			t.Fatal(err)
 		}

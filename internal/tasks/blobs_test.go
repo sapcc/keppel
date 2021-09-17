@@ -31,14 +31,14 @@ import (
 )
 
 func TestSweepBlobs(t *testing.T) {
-	j, _, db, _, sd, clock, _ := setup(t)
-	clock.StepBy(1 * time.Hour)
+	j, s := setup(t)
+	s.Clock.StepBy(1 * time.Hour)
 
 	//insert some blobs into the DB
 	var dbBlobs []keppel.Blob
 	for idx := int64(0); idx < 5; idx++ {
 		blob := test.GenerateExampleLayer(idx)
-		dbBlob := uploadBlob(t, db, sd, clock, blob)
+		dbBlob := uploadBlob(t, s, blob)
 		dbBlobs = append(dbBlobs, dbBlob)
 	}
 
@@ -47,40 +47,40 @@ func TestSweepBlobs(t *testing.T) {
 	//the blobs_sweeped_at timestamp on the account
 	expectSuccess(t, j.SweepBlobsInNextAccount())
 	expectError(t, sql.ErrNoRows.Error(), j.SweepBlobsInNextAccount())
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-sweep-001.sql")
-	expectBlobsExistInStorage(t, sd, dbBlobs...)
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-sweep-001.sql")
+	expectBlobsExistInStorage(t, s.SD, dbBlobs...)
 
 	//remove blob mounts for some blobs - SweepBlobsInNextAccount() should now
 	//mark them for deletion (but not actually delete them yet)
-	clock.StepBy(2 * time.Hour)
-	mustExec(t, db,
+	s.Clock.StepBy(2 * time.Hour)
+	mustExec(t, s.DB,
 		`DELETE FROM blob_mounts WHERE blob_id IN ($1,$2,$3)`,
 		dbBlobs[0].ID, dbBlobs[1].ID, dbBlobs[2].ID,
 	)
 	expectSuccess(t, j.SweepBlobsInNextAccount())
 	expectError(t, sql.ErrNoRows.Error(), j.SweepBlobsInNextAccount())
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-sweep-002.sql")
-	expectBlobsExistInStorage(t, sd, dbBlobs...)
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-sweep-002.sql")
+	expectBlobsExistInStorage(t, s.SD, dbBlobs...)
 
 	//recreate one of these blob mounts - this should protect it from being
 	//deleted
-	mustExec(t, db,
+	mustExec(t, s.DB,
 		`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1,1)`,
 		dbBlobs[2].ID,
 	)
 
 	//the other two blobs should get deleted in the next sweep
-	clock.StepBy(2 * time.Hour)
+	s.Clock.StepBy(2 * time.Hour)
 	expectSuccess(t, j.SweepBlobsInNextAccount())
 	expectError(t, sql.ErrNoRows.Error(), j.SweepBlobsInNextAccount())
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-sweep-003.sql")
-	expectBlobsMissingInStorage(t, sd, dbBlobs[0:2]...)
-	expectBlobsExistInStorage(t, sd, dbBlobs[2:]...)
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-sweep-003.sql")
+	expectBlobsMissingInStorage(t, s.SD, dbBlobs[0:2]...)
+	expectBlobsExistInStorage(t, s.SD, dbBlobs[2:]...)
 }
 
 func TestValidateBlobs(t *testing.T) {
-	j, _, db, _, sd, clock, _ := setup(t)
-	clock.StepBy(1 * time.Hour)
+	j, s := setup(t)
+	s.Clock.StepBy(1 * time.Hour)
 
 	//upload some blobs (we need to step the clock after each upload to ensure
 	//that ValidateNextBlob later goes through them in a particular order, to
@@ -88,43 +88,43 @@ func TestValidateBlobs(t *testing.T) {
 	dbBlobs := make([]keppel.Blob, 3)
 	for idx := range dbBlobs {
 		blob := test.GenerateExampleLayer(int64(idx))
-		clock.Step()
-		dbBlobs[idx] = uploadBlob(t, db, sd, clock, blob)
+		s.Clock.Step()
+		dbBlobs[idx] = uploadBlob(t, s, blob)
 	}
 
 	//ValidateNextBlob should be happy about these blobs
-	clock.StepBy(8*24*time.Hour - 2*time.Second)
+	s.Clock.StepBy(8*24*time.Hour - 2*time.Second)
 	expectSuccess(t, j.ValidateNextBlob())
-	clock.Step()
+	s.Clock.Step()
 	expectSuccess(t, j.ValidateNextBlob())
-	clock.Step()
+	s.Clock.Step()
 	expectSuccess(t, j.ValidateNextBlob())
 	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextBlob())
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-validate-001.sql")
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-validate-001.sql")
 
 	//deliberately destroy one of the blob's digests
 	wrongDigest := digest.Canonical.FromBytes([]byte("not the right content"))
-	mustExec(t, db,
+	mustExec(t, s.DB,
 		`UPDATE blobs SET digest = $1 WHERE digest = $2`,
 		wrongDigest.String(), dbBlobs[2].Digest,
 	)
 
 	//not so happy now, huh?
-	clock.StepBy(8*24*time.Hour - 2*time.Second)
+	s.Clock.StepBy(8*24*time.Hour - 2*time.Second)
 	expectedError := fmt.Sprintf(
 		`while validating a blob: expected digest %s, but got %s`,
 		wrongDigest.String(), dbBlobs[2].Digest,
 	)
 	expectSuccess(t, j.ValidateNextBlob())
-	clock.Step()
+	s.Clock.Step()
 	expectSuccess(t, j.ValidateNextBlob())
-	clock.Step()
+	s.Clock.Step()
 	expectError(t, expectedError, j.ValidateNextBlob())
 	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextBlob())
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-validate-002.sql")
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-validate-002.sql")
 
 	//fix the issue
-	mustExec(t, db,
+	mustExec(t, s.DB,
 		`UPDATE blobs SET digest = $1 WHERE digest = $2`,
 		dbBlobs[2].Digest, wrongDigest.String(),
 	)
@@ -132,12 +132,12 @@ func TestValidateBlobs(t *testing.T) {
 	//this should resolve the error and also remove the error message from the DB
 	//(note that the order in which blobs are checked differs this time because
 	//blobs with an existing validation error are chosen with higher priority)
-	clock.StepBy(8*24*time.Hour - 2*time.Second)
+	s.Clock.StepBy(8*24*time.Hour - 2*time.Second)
 	expectSuccess(t, j.ValidateNextBlob())
-	clock.Step()
+	s.Clock.Step()
 	expectSuccess(t, j.ValidateNextBlob())
-	clock.Step()
+	s.Clock.Step()
 	expectSuccess(t, j.ValidateNextBlob())
 	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextBlob())
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-validate-003.sql")
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-validate-003.sql")
 }

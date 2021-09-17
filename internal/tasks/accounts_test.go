@@ -29,52 +29,52 @@ import (
 )
 
 func TestAnnounceAccountsToFederation(t *testing.T) {
-	j, _, db, fd, _, clock, _ := setup(t)
-	fd.RecordedAccounts = nil
-	clock.StepBy(1 * time.Hour)
+	j, s := setup(t)
+	s.FD.RecordedAccounts = nil
+	s.Clock.StepBy(1 * time.Hour)
 
 	var account1 keppel.Account
-	must(t, db.SelectOne(&account1, `SELECT * FROM accounts`))
+	must(t, s.DB.SelectOne(&account1, `SELECT * FROM accounts`))
 
 	//with just one account set up, AnnounceNextAccountToFederation should
 	//announce that account, then start doing nothing
 	expectSuccess(t, j.AnnounceNextAccountToFederation())
-	expectAccountsAnnouncedJustNow(t, fd, clock, account1)
+	expectAccountsAnnouncedJustNow(t, s, account1)
 	expectError(t, sql.ErrNoRows.Error(), j.AnnounceNextAccountToFederation())
-	expectAccountsAnnouncedJustNow(t, fd, clock /*, nothing */)
+	expectAccountsAnnouncedJustNow(t, s /*, nothing */)
 
 	//setup another account; only that one should need announcing initially
-	clock.StepBy(5 * time.Minute)
+	s.Clock.StepBy(5 * time.Minute)
 	account2 := keppel.Account{Name: "test2", AuthTenantID: "test2authtenant", GCPoliciesJSON: "[]"}
-	must(t, db.Insert(&account2))
+	must(t, s.DB.Insert(&account2))
 	expectSuccess(t, j.AnnounceNextAccountToFederation())
-	expectAccountsAnnouncedJustNow(t, fd, clock, account2)
+	expectAccountsAnnouncedJustNow(t, s, account2)
 	expectError(t, sql.ErrNoRows.Error(), j.AnnounceNextAccountToFederation())
-	expectAccountsAnnouncedJustNow(t, fd, clock /*, nothing */)
+	expectAccountsAnnouncedJustNow(t, s /*, nothing */)
 
 	//do another full round of announcements
-	clock.StepBy(65 * time.Minute)
+	s.Clock.StepBy(65 * time.Minute)
 	expectSuccess(t, j.AnnounceNextAccountToFederation())
-	expectAccountsAnnouncedJustNow(t, fd, clock, account1)
+	expectAccountsAnnouncedJustNow(t, s, account1)
 	expectSuccess(t, j.AnnounceNextAccountToFederation())
-	expectAccountsAnnouncedJustNow(t, fd, clock, account2)
+	expectAccountsAnnouncedJustNow(t, s, account2)
 	expectError(t, sql.ErrNoRows.Error(), j.AnnounceNextAccountToFederation())
-	expectAccountsAnnouncedJustNow(t, fd, clock /*, nothing */)
+	expectAccountsAnnouncedJustNow(t, s /*, nothing */)
 
 }
 
-func expectAccountsAnnouncedJustNow(t *testing.T, fd *test.FederationDriver, clock *test.Clock, accounts ...keppel.Account) {
+func expectAccountsAnnouncedJustNow(t *testing.T, s test.Setup, accounts ...keppel.Account) {
 	t.Helper()
 	var expected []test.AccountRecordedByFederationDriver
 	for _, a := range accounts {
 		expected = append(expected, test.AccountRecordedByFederationDriver{
 			Account:    a,
-			RecordedAt: clock.Now(),
+			RecordedAt: s.Clock.Now(),
 		})
 	}
 	assert.DeepEqual(t, "accounts announced to federation",
-		fd.RecordedAccounts, expected)
+		s.FD.RecordedAccounts, expected)
 
 	//reset for next test step
-	fd.RecordedAccounts = nil
+	s.FD.RecordedAccounts = nil
 }

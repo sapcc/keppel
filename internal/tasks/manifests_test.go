@@ -39,8 +39,8 @@ import (
 //Base behavior for various unit tests that start with the same image list, destroy
 //it in various ways, and check that ValidateNextManifest correctly fixes it.
 func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel.DB, []int64, []string)) {
-	j, _, db, _, sd, clock, _ := setup(t)
-	clock.StepBy(1 * time.Hour)
+	j, s := setup(t)
+	s.Clock.StepBy(1 * time.Hour)
 
 	var (
 		allBlobIDs         []int64
@@ -56,12 +56,12 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 		)
 		images[idx] = image
 
-		layer1Blob := uploadBlob(t, db, sd, clock, image.Layers[0])
-		layer2Blob := uploadBlob(t, db, sd, clock, image.Layers[1])
-		configBlob := uploadBlob(t, db, sd, clock, image.Config)
-		uploadManifest(t, db, sd, clock, image.Manifest, image.SizeBytes())
+		layer1Blob := uploadBlob(t, s, image.Layers[0])
+		layer2Blob := uploadBlob(t, s, image.Layers[1])
+		configBlob := uploadBlob(t, s, image.Config)
+		uploadManifest(t, s, image.Manifest, image.SizeBytes())
 		for _, blobID := range []int64{layer1Blob.ID, layer2Blob.ID, configBlob.ID} {
-			mustExec(t, db,
+			mustExec(t, s.DB,
 				`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
 				blobID, image.Manifest.Digest.String(),
 			)
@@ -73,9 +73,9 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 	//also setup an image list manifest containing those images (so that we have
 	//some manifest-manifest refs to play with)
 	imageList := test.GenerateImageList(images[0], images[1])
-	uploadManifest(t, db, sd, clock, imageList.Manifest, imageList.SizeBytes())
+	uploadManifest(t, s, imageList.Manifest, imageList.SizeBytes())
 	for _, image := range images {
-		mustExec(t, db,
+		mustExec(t, s.DB,
 			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
 			imageList.Manifest.Digest.String(), image.Manifest.Digest.String(),
 		)
@@ -87,21 +87,21 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextManifest())
 
 	//once they need validating, they validate successfully
-	clock.StepBy(36 * time.Hour)
+	s.Clock.StepBy(36 * time.Hour)
 	expectSuccess(t, j.ValidateNextManifest())
 	expectSuccess(t, j.ValidateNextManifest())
 	expectSuccess(t, j.ValidateNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextManifest())
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/manifest-validate-001-before-disturbance.sql")
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-001-before-disturbance.sql")
 
 	//disturb the DB state, then rerun ValidateNextManifest to fix it
-	clock.StepBy(36 * time.Hour)
-	disturb(db, allBlobIDs, allManifestDigests)
+	s.Clock.StepBy(36 * time.Hour)
+	disturb(s.DB, allBlobIDs, allManifestDigests)
 	expectSuccess(t, j.ValidateNextManifest())
 	expectSuccess(t, j.ValidateNextManifest())
 	expectSuccess(t, j.ValidateNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextManifest())
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/manifest-validate-002-after-fix.sql")
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-002-after-fix.sql")
 }
 
 func TestValidateNextManifestFixesWrongSize(t *testing.T) {
@@ -143,32 +143,32 @@ func TestValidateNextManifestFixesSuperfluousManifestManifestRefs(t *testing.T) 
 }
 
 func TestValidateNextManifestError(t *testing.T) {
-	j, _, db, _, sd, clock, _ := setup(t)
+	j, s := setup(t)
 
 	//setup a manifest that is missing a referenced blob
-	clock.StepBy(1 * time.Hour)
+	s.Clock.StepBy(1 * time.Hour)
 	image := test.GenerateImage( /* no layers */ )
-	uploadManifest(t, db, sd, clock, image.Manifest, image.SizeBytes())
+	uploadManifest(t, s, image.Manifest, image.SizeBytes())
 
 	//validation should yield an error
-	clock.StepBy(36 * time.Hour)
+	s.Clock.StepBy(36 * time.Hour)
 	expectedError := "while validating a manifest: manifest blob unknown to registry: " + image.Config.Digest.String()
 	expectError(t, expectedError, j.ValidateNextManifest())
 
 	//check that validation error to be recorded in the DB
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/manifest-validate-error-001.sql")
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-error-001.sql")
 
 	//expect next ValidateNextManifest run to skip over this manifest since it
 	//was recently validated
 	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextManifest())
 
 	//upload missing blob so that we can test recovering from the validation error
-	uploadBlob(t, db, sd, clock, image.Config)
+	uploadBlob(t, s, image.Config)
 
 	//next validation should be happy (and also create the missing refs)
-	clock.StepBy(36 * time.Hour)
+	s.Clock.StepBy(36 * time.Hour)
 	expectSuccess(t, j.ValidateNextManifest())
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/manifest-validate-error-002.sql")
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-error-002.sql")
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -177,9 +177,9 @@ func TestValidateNextManifestError(t *testing.T) {
 func TestSyncManifestsInNextRepo(t *testing.T) {
 	forAllReplicaTypes(t, func(strategy string) {
 		test.WithRoundTripper(func(tt *test.RoundTripper) {
-			j1, _, db1, _, sd1, clock, h1 := setup(t)
-			j2, _, db2, sd2, _ := setupReplica(t, db1, h1, clock, strategy)
-			clock.StepBy(1 * time.Hour)
+			j1, s1 := setup(t)
+			j2, s2 := setupReplica(t, s1, strategy)
+			s1.Clock.StepBy(1 * time.Hour)
 
 			//upload some manifests...
 			images := make([]test.Image, 4)
@@ -191,12 +191,12 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 				images[idx] = image
 
 				//...to the primary account...
-				layer1Blob := uploadBlob(t, db1, sd1, clock, image.Layers[0])
-				layer2Blob := uploadBlob(t, db1, sd1, clock, image.Layers[1])
-				configBlob := uploadBlob(t, db1, sd1, clock, image.Config)
-				uploadManifest(t, db1, sd1, clock, image.Manifest, image.SizeBytes())
+				layer1Blob := uploadBlob(t, s1, image.Layers[0])
+				layer2Blob := uploadBlob(t, s1, image.Layers[1])
+				configBlob := uploadBlob(t, s1, image.Config)
+				uploadManifest(t, s1, image.Manifest, image.SizeBytes())
 				for _, blobID := range []int64{layer1Blob.ID, layer2Blob.ID, configBlob.ID} {
-					mustExec(t, db1,
+					mustExec(t, s1.DB,
 						`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
 						blobID, image.Manifest.Digest.String(),
 					)
@@ -204,12 +204,12 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 
 				//...and most of them also to the replica account (to simulate replication having taken place)
 				if idx != 0 {
-					layer1Blob := uploadBlob(t, db2, sd2, clock, image.Layers[0])
-					layer2Blob := uploadBlob(t, db2, sd2, clock, image.Layers[1])
-					configBlob := uploadBlob(t, db2, sd2, clock, image.Config)
-					uploadManifest(t, db2, sd2, clock, image.Manifest, image.SizeBytes())
+					layer1Blob := uploadBlob(t, s2, image.Layers[0])
+					layer2Blob := uploadBlob(t, s2, image.Layers[1])
+					configBlob := uploadBlob(t, s2, image.Config)
+					uploadManifest(t, s2, image.Manifest, image.SizeBytes())
 					for _, blobID := range []int64{layer1Blob.ID, layer2Blob.ID, configBlob.ID} {
-						mustExec(t, db2,
+						mustExec(t, s2.DB,
 							`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
 							blobID, image.Manifest.Digest.String(),
 						)
@@ -218,13 +218,13 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			}
 
 			//some of the replicated images are also tagged
-			for _, db := range []*keppel.DB{db1, db2} {
+			for _, db := range []*keppel.DB{s1.DB, s2.DB} {
 				for _, tagName := range []string{"latest", "other"} {
 					mustExec(t, db,
 						`INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, $1, $2, $3)`,
 						tagName,
 						images[1].Manifest.Digest.String(),
-						clock.Now(),
+						s1.Clock.Now(),
 					)
 				}
 			}
@@ -233,7 +233,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			//Processor.ReplicateManifest() which insists on running a quota check before
 			//storing manifests, even if the new manifest ends up an existing one and
 			//therefore doesn't affect the quota usage at all
-			mustExec(t, db2,
+			mustExec(t, s2.DB,
 				`INSERT INTO quotas (auth_tenant_id, manifests) VALUES ($1, $2)`,
 				"test1authtenant", 10,
 			)
@@ -241,17 +241,17 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			//also setup an image list manifest containing some of those images (so that we have
 			//some manifest-manifest refs to play with)
 			imageList := test.GenerateImageList(images[1], images[2])
-			uploadManifest(t, db1, sd1, clock, imageList.Manifest, imageList.SizeBytes())
+			uploadManifest(t, s1, imageList.Manifest, imageList.SizeBytes())
 			for _, img := range imageList.Images {
-				mustExec(t, db1,
+				mustExec(t, s1.DB,
 					`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
 					imageList.Manifest.Digest.String(), img.Manifest.Digest.String(),
 				)
 			}
 			//this one is replicated as well
-			uploadManifest(t, db2, sd2, clock, imageList.Manifest, imageList.SizeBytes())
+			uploadManifest(t, s2, imageList.Manifest, imageList.SizeBytes())
 			for _, img := range imageList.Images {
-				mustExec(t, db2,
+				mustExec(t, s2.DB,
 					`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
 					imageList.Manifest.Digest.String(), img.Manifest.Digest.String(),
 				)
@@ -260,22 +260,22 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			//set a well-known last_pulled_at timestamp on all manifests in the primary
 			//DB (we will later verify that this was not touched by the manifest sync)
 			initialLastPulledAt := time.Unix(42, 0)
-			mustExec(t, db1, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
-			mustExec(t, db1, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
+			mustExec(t, s1.DB, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
+			mustExec(t, s1.DB, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
 
 			//as an exception, in the on_first_use method, we can and want to merge
 			//last_pulled_at timestamps from the replica into those of the primary, so
 			//set some of those to verify the merging behavior
 			earlierLastPulledAt := initialLastPulledAt.Add(-10 * time.Second)
 			laterLastPulledAt := initialLastPulledAt.Add(+10 * time.Second)
-			mustExec(t, db2, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, earlierLastPulledAt, images[1].Manifest.Digest.String())
-			mustExec(t, db2, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, laterLastPulledAt, images[2].Manifest.Digest.String())
-			mustExec(t, db2, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, earlierLastPulledAt, "latest")
-			mustExec(t, db2, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, laterLastPulledAt, "other")
+			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, earlierLastPulledAt, images[1].Manifest.Digest.String())
+			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, laterLastPulledAt, images[2].Manifest.Digest.String())
+			mustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, earlierLastPulledAt, "latest")
+			mustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, laterLastPulledAt, "other")
 
-			tr, tr0 := easypg.NewTracker(t, db2.DbMap.Db)
+			tr, tr0 := easypg.NewTracker(t, s2.DB.DbMap.Db)
 			tr0.AssertEqualToFile(fmt.Sprintf("fixtures/manifest-sync-setup-%s.sql", strategy))
-			trForPrimary, _ := easypg.NewTracker(t, db1.DbMap.Db)
+			trForPrimary, _ := easypg.NewTracker(t, s1.DB.DbMap.Db)
 
 			//SyncManifestsInNextRepo on the primary registry should have nothing to do
 			//since there are no replica accounts
@@ -287,7 +287,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			tr.DBChanges().AssertEqualf(`
 			UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 		`,
-				clock.Now().Add(1*time.Hour).Unix(),
+				s1.Clock.Now().Add(1*time.Hour).Unix(),
 			)
 			//second run should not have anything else to do
 			expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
@@ -307,23 +307,23 @@ UPDATE tags SET last_pulled_at = %[1]d WHERE repo_id = 1 AND name = 'other';
 					images[2].Manifest.Digest.String(),
 				)
 				//reset all timestamps to prevent divergences in the rest of the test
-				mustExec(t, db1, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
-				mustExec(t, db1, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
-				mustExec(t, db2, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
-				mustExec(t, db2, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
+				mustExec(t, s1.DB, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
+				mustExec(t, s1.DB, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
+				mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
+				mustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
 				tr.DBChanges() // skip these changes
 			} else {
 				trForPrimary.DBChanges().AssertEmpty()
 			}
 
 			//delete a manifest on the primary side (this one is a simple image not referenced by anyone else)
-			clock.StepBy(2 * time.Hour)
-			mustExec(t, db1,
+			s1.Clock.StepBy(2 * time.Hour)
+			mustExec(t, s1.DB,
 				`DELETE FROM manifests WHERE digest = $1`,
 				images[3].Manifest.Digest.String(),
 			)
 			//move a tag on the primary side
-			mustExec(t, db1,
+			mustExec(t, s1.DB,
 				`UPDATE tags SET digest = $1 WHERE name = 'latest'`,
 				images[2].Manifest.Digest.String(),
 			)
@@ -333,19 +333,19 @@ UPDATE tags SET last_pulled_at = %[1]d WHERE repo_id = 1 AND name = 'other';
 			//SyncManifestsInNextRepo on the replica side should not do anything while
 			//the account is in maintenance; only the timestamp is updated to make sure
 			//that the job loop progresses to the next repo
-			mustExec(t, db2, `UPDATE accounts SET in_maintenance = TRUE`)
+			mustExec(t, s2.DB, `UPDATE accounts SET in_maintenance = TRUE`)
 			expectSuccess(t, j2.SyncManifestsInNextRepo())
 			tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET in_maintenance = TRUE WHERE name = 'test1';
 			UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 		`,
-				clock.Now().Add(1*time.Hour).Unix(),
+				s1.Clock.Now().Add(1*time.Hour).Unix(),
 			)
 			expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
 			tr.DBChanges().AssertEmpty()
 
 			//end maintenance
-			mustExec(t, db2, `UPDATE accounts SET in_maintenance = FALSE`)
+			mustExec(t, s2.DB, `UPDATE accounts SET in_maintenance = FALSE`)
 			tr.DBChanges().AssertEqual(`UPDATE accounts SET in_maintenance = FALSE WHERE name = 'test1';`)
 
 			//test that replication from external uses the inbound cache
@@ -355,15 +355,15 @@ UPDATE tags SET last_pulled_at = %[1]d WHERE repo_id = 1 AND name = 'other';
 				//inbound cache with a lifetime of 6 hours, so actually nothing should
 				//happen (only the tag gets synced, which includes a validation of the
 				//referenced manifest)
-				clock.StepBy(2 * time.Hour)
+				s1.Clock.StepBy(2 * time.Hour)
 				expectSuccess(t, j2.SyncManifestsInNextRepo())
 				tr.DBChanges().AssertEqualf(`
 			UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';
 			UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 		`,
-					clock.Now().Unix(),
+					s1.Clock.Now().Unix(),
 					images[1].Manifest.Digest.String(),
-					clock.Now().Add(1*time.Hour).Unix(),
+					s1.Clock.Now().Add(1*time.Hour).Unix(),
 				)
 				expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
 				tr.DBChanges().AssertEmpty()
@@ -376,12 +376,12 @@ UPDATE tags SET last_pulled_at = %[1]d WHERE repo_id = 1 AND name = 'other';
 			//side should delete the same manifest that we deleted in the primary
 			//account, and also replicate the tag change (which includes a validation
 			//of the tagged manifests)
-			clock.StepBy(7 * time.Hour)
+			s1.Clock.StepBy(7 * time.Hour)
 			expectSuccess(t, j2.SyncManifestsInNextRepo())
 			manifestValidationBecauseOfExistingTag := fmt.Sprintf(
 				//this validation is skipped in "on_first_use" because the respective tag is unchanged
 				`UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';`+"\n",
-				clock.Now().Unix(), images[1].Manifest.Digest.String(),
+				s1.Clock.Now().Unix(), images[1].Manifest.Digest.String(),
 			)
 			if strategy == "on_first_use" {
 				manifestValidationBecauseOfExistingTag = ""
@@ -397,9 +397,9 @@ UPDATE tags SET last_pulled_at = %[1]d WHERE repo_id = 1 AND name = 'other';
 			UPDATE tags SET digest = '%[3]s', pushed_at = %[2]d, last_pulled_at = NULL WHERE repo_id = 1 AND name = 'latest';
 		`,
 				images[3].Manifest.Digest.String(), //the deleted manifest
-				clock.Now().Unix(),
+				s1.Clock.Now().Unix(),
 				images[2].Manifest.Digest.String(), //the manifest now tagged as "latest"
-				clock.Now().Add(1*time.Hour).Unix(),
+				s1.Clock.Now().Add(1*time.Hour).Unix(),
 				manifestValidationBecauseOfExistingTag,
 			)
 			expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
@@ -408,12 +408,12 @@ UPDATE tags SET last_pulled_at = %[1]d WHERE repo_id = 1 AND name = 'other';
 			//cause a deliberate inconsistency on the primary side: delete a manifest that
 			//*is* referenced by another manifest (this requires deleting the
 			//manifest-manifest ref first, otherwise the DB will complain)
-			clock.StepBy(7 * time.Hour)
-			mustExec(t, db1,
+			s1.Clock.StepBy(7 * time.Hour)
+			mustExec(t, s1.DB,
 				`DELETE FROM manifest_manifest_refs WHERE child_digest = $1`,
 				images[2].Manifest.Digest.String(),
 			)
-			mustExec(t, db1,
+			mustExec(t, s1.DB,
 				`DELETE FROM manifests WHERE digest = $1`,
 				images[2].Manifest.Digest.String(),
 			)
@@ -430,7 +430,7 @@ UPDATE tags SET last_pulled_at = %[1]d WHERE repo_id = 1 AND name = 'other';
 			manifestValidationBecauseOfExistingTag = fmt.Sprintf(
 				//this validation is skipped in "on_first_use" because the respective tag is unchanged
 				`UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';`+"\n",
-				clock.Now().Unix(), images[1].Manifest.Digest.String(),
+				s1.Clock.Now().Unix(), images[1].Manifest.Digest.String(),
 			)
 			if strategy == "on_first_use" {
 				manifestValidationBecauseOfExistingTag = ""
@@ -440,13 +440,13 @@ UPDATE tags SET last_pulled_at = %[1]d WHERE repo_id = 1 AND name = 'other';
 			)
 
 			//also remove the image list manifest on the primary side
-			clock.StepBy(7 * time.Hour)
-			mustExec(t, db1,
+			s1.Clock.StepBy(7 * time.Hour)
+			mustExec(t, s1.DB,
 				`DELETE FROM manifests WHERE digest = $1`,
 				imageList.Manifest.Digest.String(),
 			)
 			//and remove the other tag (this is required for the 404 error message in the next step but one to be deterministic)
-			mustExec(t, db1, `DELETE FROM tags`)
+			mustExec(t, s1.DB, `DELETE FROM tags`)
 
 			//this makes the primary side consistent again, so SyncManifestsInNextRepo
 			//should succeed now and remove both deleted manifests from the DB
@@ -467,13 +467,13 @@ UPDATE tags SET last_pulled_at = %[1]d WHERE repo_id = 1 AND name = 'other';
 				images[2].Manifest.Digest.String(),
 				imageList.Manifest.Digest.String(),
 				images[1].Manifest.Digest.String(),
-				clock.Now().Add(1*time.Hour).Unix(),
+				s1.Clock.Now().Add(1*time.Hour).Unix(),
 			)
 			expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
 			tr.DBChanges().AssertEmpty()
 
 			//replace the primary registry's API with something that just answers 404 all the time
-			clock.StepBy(7 * time.Hour)
+			s1.Clock.StepBy(7 * time.Hour)
 			http.DefaultClient.Transport.(*test.RoundTripper).Handlers["registry.example.org"] = http.HandlerFunc(answerWith404)
 			//This is particularly devious since 404 is returned by the GET endpoint for
 			//a manifest when the manifest was deleted. We want to check that the next
@@ -490,7 +490,7 @@ UPDATE tags SET last_pulled_at = %[1]d WHERE repo_id = 1 AND name = 'other';
 			//in the primary DB (even though there were GET requests for the manifests
 			//there)
 			var lastPulledAt time.Time
-			expectSuccess(t, db1.DbMap.QueryRow(`SELECT MAX(last_pulled_at) FROM manifests`).Scan(&lastPulledAt))
+			expectSuccess(t, s1.DB.DbMap.QueryRow(`SELECT MAX(last_pulled_at) FROM manifests`).Scan(&lastPulledAt))
 			if !lastPulledAt.Equal(initialLastPulledAt) {
 				t.Error("last_pulled_at timestamps on the primary side were touched")
 				t.Logf("  expected = %#v", initialLastPulledAt)
@@ -498,11 +498,11 @@ UPDATE tags SET last_pulled_at = %[1]d WHERE repo_id = 1 AND name = 'other';
 			}
 
 			//flip back to the actual primary registry's API
-			http.DefaultClient.Transport.(*test.RoundTripper).Handlers["registry.example.org"] = h1
+			http.DefaultClient.Transport.(*test.RoundTripper).Handlers["registry.example.org"] = s1.Handler
 			//delete the entire repository on the primary
-			clock.StepBy(7 * time.Hour)
-			mustExec(t, db1, `DELETE FROM manifests`)
-			mustExec(t, db1, `DELETE FROM repos`)
+			s1.Clock.StepBy(7 * time.Hour)
+			mustExec(t, s1.DB, `DELETE FROM manifests`)
+			mustExec(t, s1.DB, `DELETE FROM repos`)
 			//the manifest sync should reflect the repository deletion on the replica
 			expectSuccess(t, j2.SyncManifestsInNextRepo())
 			tr.DBChanges().AssertEqualf(`
@@ -538,8 +538,8 @@ func answerWith404(w http.ResponseWriter, r *http.Request) {
 // tests for CheckVulnerabilitiesForNextManifest
 
 func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
-	j, _, db, _, sd, clock, h := setup(t)
-	clock.StepBy(1 * time.Hour)
+	j, s := setup(t)
+	s.Clock.StepBy(1 * time.Hour)
 
 	//setup two image manifests with just one content layer (we don't really care about
 	//the content since our Clair double doesn't care either)
@@ -548,14 +548,14 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		image := test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
 		images[idx] = image
 
-		configBlob := uploadBlob(t, db, sd, clock, image.Config)
-		layerBlob := uploadBlob(t, db, sd, clock, image.Layers[0])
-		uploadManifest(t, db, sd, clock, image.Manifest, image.SizeBytes())
-		mustExec(t, db,
+		configBlob := uploadBlob(t, s, image.Config)
+		layerBlob := uploadBlob(t, s, image.Layers[0])
+		uploadManifest(t, s, image.Manifest, image.SizeBytes())
+		mustExec(t, s.DB,
 			`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
 			configBlob.ID, image.Manifest.Digest.String(),
 		)
-		mustExec(t, db,
+		mustExec(t, s.DB,
 			`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
 			layerBlob.ID, image.Manifest.Digest.String(),
 		)
@@ -564,22 +564,22 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	//also setup an image list manifest containing those images (so that we have
 	//some manifest-manifest refs to play with)
 	imageList := test.GenerateImageList(images[0], images[1])
-	uploadManifest(t, db, sd, clock, imageList.Manifest, imageList.SizeBytes())
+	uploadManifest(t, s, imageList.Manifest, imageList.SizeBytes())
 	for _, image := range images {
-		mustExec(t, db,
+		mustExec(t, s.DB,
 			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
 			imageList.Manifest.Digest.String(), image.Manifest.Digest.String(),
 		)
 	}
 
-	tr, tr0 := easypg.NewTracker(t, db.DbMap.Db)
+	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
 	tr0.AssertEqualToFile("fixtures/vulnerability-check-setup.sql")
 
-	//setup our Clair API double
+	//setup our Clair API double (TODO use test.WithClairDouble instead)
 	claird := test.NewClairDouble()
 	tt := &test.RoundTripper{
 		Handlers: map[string]http.Handler{
-			"registry.example.org": h,
+			"registry.example.org": s.Handler,
 			"clair.example.org":    api.Compose(claird),
 		},
 	}
@@ -597,12 +597,12 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		claird.IndexFixtures[image.Manifest.Digest.String()] = fmt.Sprintf("fixtures/clair/manifest-%03d.json", idx+1)
 	}
 	//Clair support currently requires a storage driver that can do URLForBlob()
-	sd.(*test.StorageDriver).AllowDummyURLs = true
+	s.SD.AllowDummyURLs = true
 
 	//first round of CheckVulnerabilitiesForNextManifest should submit manifests
 	//to Clair for indexing, but since Clair is not done indexing yet, images
 	//stay in vulnerability status "Pending" for now
-	clock.StepBy(30 * time.Minute)
+	s.Clock.StepBy(30 * time.Minute)
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest()) //once for each manifest
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
@@ -614,7 +614,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	`)
 
 	//five minutes later, indexing is still not finished
-	clock.StepBy(5 * time.Minute)
+	s.Clock.StepBy(5 * time.Minute)
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest()) //once for each manifest
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
@@ -628,7 +628,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	//five minutes later, indexing is finished now and ClairDouble provides vulnerability reports to us
 	claird.ReportFixtures[images[0].Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
 	claird.ReportFixtures[images[1].Manifest.Digest.String()] = "fixtures/clair/report-clean.json"
-	clock.StepBy(5 * time.Minute)
+	s.Clock.StepBy(5 * time.Minute)
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest()) //once for each manifest
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())

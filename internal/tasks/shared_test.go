@@ -21,7 +21,6 @@ package tasks
 import (
 	"bytes"
 	"io/ioutil"
-	"net/http"
 	"testing"
 
 	"github.com/opencontainers/go-digest"
@@ -31,14 +30,14 @@ import (
 	"gopkg.in/gorp.v2"
 )
 
-func setup(t *testing.T) (*Janitor, keppel.Configuration, *keppel.DB, *test.FederationDriver, keppel.StorageDriver, *test.Clock, http.Handler) {
+func setup(t *testing.T) (*Janitor, test.Setup) {
 	s := test.NewSetup(t,
 		test.WithPeerAPI,
 		test.WithAccount(keppel.Account{Name: "test1", AuthTenantID: "test1authtenant"}),
 		test.WithRepo(keppel.Repository{AccountName: "test1", Name: "foo"}),
 	)
 	j := NewJanitor(s.Config, s.FD, s.SD, s.ICD, s.DB, s.Auditor).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next)
-	return j, s.Config, s.DB, s.FD, s.SD, s.Clock, s.Handler
+	return j, s
 }
 
 func forAllReplicaTypes(t *testing.T, action func(string)) {
@@ -46,7 +45,7 @@ func forAllReplicaTypes(t *testing.T, action func(string)) {
 	action("from_external_on_first_use")
 }
 
-func setupReplica(t *testing.T, db1 *keppel.DB, h1 http.Handler, clock *test.Clock, strategy string) (*Janitor, keppel.Configuration, *keppel.DB, keppel.StorageDriver, http.Handler) {
+func setupReplica(t *testing.T, s1 test.Setup, strategy string) (*Janitor, test.Setup) {
 	testAccount := keppel.Account{
 		Name:         "test1",
 		AuthTenantID: "test1authtenant",
@@ -62,7 +61,6 @@ func setupReplica(t *testing.T, db1 *keppel.DB, h1 http.Handler, clock *test.Clo
 		t.Fatalf("unknown strategy: %q", strategy)
 	}
 
-	s1 := test.Setup{DB: db1, Handler: h1, Clock: clock}
 	s := test.NewSetup(t,
 		test.IsSecondaryTo(&s1),
 		test.WithPeerAPI,
@@ -71,7 +69,7 @@ func setupReplica(t *testing.T, db1 *keppel.DB, h1 http.Handler, clock *test.Clo
 	)
 
 	j2 := NewJanitor(s.Config, s.FD, s.SD, s.ICD, s.DB, s.Auditor).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next)
-	return j2, s.Config, s.DB, s.SD, s.Handler
+	return j2, s
 }
 
 func must(t *testing.T, err error) {
@@ -105,7 +103,7 @@ func expectError(t *testing.T, expected string, actual error) {
 	}
 }
 
-func uploadBlob(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock *test.Clock, blob test.Bytes) keppel.Blob {
+func uploadBlob(t *testing.T, s test.Setup, blob test.Bytes) keppel.Blob {
 	t.Helper()
 	account := keppel.Account{Name: "test1"}
 	repo := keppel.Repository{ID: 1, Name: "foo", AccountName: "test1"}
@@ -118,18 +116,18 @@ func uploadBlob(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock *tes
 		Digest:      blob.Digest.String(),
 		SizeBytes:   uint64(len(blob.Contents)),
 		StorageID:   storageID,
-		PushedAt:    clock.Now(),
-		ValidatedAt: clock.Now(),
+		PushedAt:    s.Clock.Now(),
+		ValidatedAt: s.Clock.Now(),
 		MediaType:   blob.MediaType,
 	}
-	must(t, db.Insert(&dbBlob))
-	must(t, sd.AppendToBlob(account, storageID, 1, &dbBlob.SizeBytes, bytes.NewBuffer(blob.Contents)))
-	must(t, sd.FinalizeBlob(account, storageID, 1))
-	must(t, keppel.MountBlobIntoRepo(db, dbBlob, repo))
+	must(t, s.DB.Insert(&dbBlob))
+	must(t, s.SD.AppendToBlob(account, storageID, 1, &dbBlob.SizeBytes, bytes.NewBuffer(blob.Contents)))
+	must(t, s.SD.FinalizeBlob(account, storageID, 1))
+	must(t, keppel.MountBlobIntoRepo(s.DB, dbBlob, repo))
 	return dbBlob
 }
 
-func uploadManifest(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock *test.Clock, manifest test.Bytes, sizeBytes uint64) keppel.Manifest {
+func uploadManifest(t *testing.T, s test.Setup, manifest test.Bytes, sizeBytes uint64) keppel.Manifest {
 	t.Helper()
 	account := keppel.Account{Name: "test1"}
 
@@ -138,17 +136,17 @@ func uploadManifest(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock 
 		Digest:              manifest.Digest.String(),
 		MediaType:           manifest.MediaType,
 		SizeBytes:           sizeBytes,
-		PushedAt:            clock.Now(),
-		ValidatedAt:         clock.Now(),
+		PushedAt:            s.Clock.Now(),
+		ValidatedAt:         s.Clock.Now(),
 		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
 	}
-	must(t, db.Insert(&dbManifest))
-	must(t, db.Insert(&keppel.ManifestContent{
+	must(t, s.DB.Insert(&dbManifest))
+	must(t, s.DB.Insert(&keppel.ManifestContent{
 		RepositoryID: 1,
 		Digest:       manifest.Digest.String(),
 		Content:      manifest.Contents,
 	}))
-	must(t, sd.WriteManifest(account, "foo", manifest.Digest.String(), manifest.Contents))
+	must(t, s.SD.WriteManifest(account, "foo", manifest.Digest.String(), manifest.Contents))
 	return dbManifest
 }
 

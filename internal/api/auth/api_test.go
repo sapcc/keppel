@@ -398,17 +398,17 @@ var testCases = []TestCase{
 
 //TODO expect refresh_token when offline_token=true is given
 
-func setupPrimary(t *testing.T) (http.Handler, keppel.Configuration, *test.AuthDriver, *test.FederationDriver, *keppel.DB) {
+func setupPrimary(t *testing.T) test.Setup {
 	s := test.NewSetup(t,
 		test.WithAnycast(true),
 		test.WithAccount(keppel.Account{Name: "test1", AuthTenantID: "test1authtenant"}),
 	)
 	s.AD.ExpectedUserName = "correctusername"
 	s.AD.ExpectedPassword = "correctpassword"
-	return s.Handler, s.Config, s.AD, s.FD, s.DB
+	return s
 }
 
-func setupSecondary(t *testing.T) (http.Handler, keppel.Configuration, *test.AuthDriver, *test.FederationDriver, *keppel.DB) {
+func setupSecondary(t *testing.T) test.Setup {
 	s := test.NewSetup(t,
 		test.IsSecondaryTo(nil),
 		test.WithAnycast(true),
@@ -416,7 +416,7 @@ func setupSecondary(t *testing.T) (http.Handler, keppel.Configuration, *test.Aut
 	)
 	s.AD.ExpectedUserName = "correctusername"
 	s.AD.ExpectedPassword = "correctpassword"
-	return s.Handler, s.Config, s.AD, s.FD, s.DB
+	return s
 }
 
 //jwtAccess appears in type jwtToken.
@@ -524,21 +524,21 @@ func (c jwtContents) AssertResponseBody(t *testing.T, requestInfo string, respon
 }
 
 func TestIssueToken(t *testing.T) {
-	r, cfg, ad, _, db := setupPrimary(t)
-	service := cfg.APIPublicURL.Hostname()
+	s := setupPrimary(t)
+	service := s.Config.APIPublicURL.Hostname()
 
 	for idx, c := range testCases {
 		t.Logf("----- testcase %d/%d -----\n", idx+1, len(testCases))
 
 		//setup RBAC policies for test
-		_, err := db.Exec(`DELETE FROM rbac_policies WHERE account_name = $1`, "test1")
+		_, err := s.DB.Exec(`DELETE FROM rbac_policies WHERE account_name = $1`, "test1")
 		if err != nil {
 			t.Fatal(err.Error())
 		}
 		if c.RBACPolicy != (keppel.RBACPolicy{}) {
 			policy := c.RBACPolicy //take a clone for modifying
 			policy.AccountName = "test1"
-			err := db.Insert(&policy)
+			err := s.DB.Insert(&policy)
 			if err != nil {
 				t.Fatal(err.Error())
 			}
@@ -563,7 +563,7 @@ func TestIssueToken(t *testing.T) {
 			perms = append(perms, string(keppel.CanPullFromAccount)+":test1authtenant")
 			perms = append(perms, string(keppel.CanViewAccount)+":test1authtenant")
 		}
-		ad.GrantedPermissions = strings.Join(perms, ",")
+		s.AD.GrantedPermissions = strings.Join(perms, ",")
 
 		//setup Authorization header for test
 		req := assert.HTTPRequest{
@@ -616,13 +616,14 @@ func TestIssueToken(t *testing.T) {
 		req.ExpectBody = expectedContents
 
 		//execute request
-		req.Check(t, r)
+		req.Check(t, s.Handler)
 	}
 }
 
 func TestInvalidCredentials(t *testing.T) {
-	r, cfg, _, _, _ := setupPrimary(t)
-	service := cfg.APIPublicURL.Hostname()
+	s := setupPrimary(t)
+	h := s.Handler
+	service := s.Config.APIPublicURL.Hostname()
 
 	//execute normal GET requests that would result in a token with granted
 	//actions, if we didn't give the wrong username (in the first call) or
@@ -645,20 +646,20 @@ func TestInvalidCredentials(t *testing.T) {
 	t.Logf("----- test malformed credentials with service %q -----\n", service)
 	req.Header["Authorization"] = "Bogus 65082567y295847y62"
 	req.ExpectBody = assert.JSONObject{"details": "malformed Authorization header"}
-	req.Check(t, r)
+	req.Check(t, h)
 	req.Header["Authorization"] = "Basic 65082567y2958)*&@@"
-	req.Check(t, r)
+	req.Check(t, h)
 	req.Header["Authorization"] = "Basic " + base64.StdEncoding.EncodeToString([]byte("onlyusername"))
-	req.Check(t, r)
+	req.Check(t, h)
 
 	t.Logf("----- test wrong username with service %q -----\n", service)
 	req.Header["Authorization"] = keppel.BuildBasicAuthHeader("wrongusername", "correctpassword")
 	req.ExpectBody = assert.JSONObject{"details": "wrong credentials"}
-	req.Check(t, r)
+	req.Check(t, h)
 
 	t.Logf("----- test wrong password with service %q -----\n", service)
 	req.Header["Authorization"] = keppel.BuildBasicAuthHeader("correctusername", "wrongpassword")
-	req.Check(t, r)
+	req.Check(t, h)
 }
 
 type anycastTestCase struct {
@@ -673,125 +674,115 @@ type anycastTestCase struct {
 }
 
 func TestAnycastToken(t *testing.T) {
-	h1, cfg1, ad1, _, _ := setupPrimary(t)
-	h2, cfg2, ad2, _, _ := setupSecondary(t)
+	test.WithRoundTripper(func(tt *test.RoundTripper) {
+		s1 := setupPrimary(t)
+		s2 := setupSecondary(t)
+		h1 := s1.Handler
+		h2 := s2.Handler
 
-	//when reverse-proxying auth requests, the primary registry wants to talk to
-	//the secondary via HTTPs, so attach their HTTP handlers to the
-	//http.DefaultClient
-	tt := &test.RoundTripper{
-		Handlers: map[string]http.Handler{
-			cfg1.APIPublicURL.Hostname(): h1,
-			cfg2.APIPublicURL.Hostname(): h2,
-		},
-	}
-	http.DefaultClient.Transport = tt
-	defer func() {
-		http.DefaultClient.Transport = nil
-	}()
+		//setup permissions for test
+		perms := fmt.Sprintf("%s:test1authtenant,%s:test1authtenant", keppel.CanPullFromAccount, keppel.CanViewAccount)
+		s1.AD.GrantedPermissions = perms
+		s2.AD.GrantedPermissions = perms
 
-	//setup permissions for test
-	perms := fmt.Sprintf("%s:test1authtenant,%s:test1authtenant", keppel.CanPullFromAccount, keppel.CanViewAccount)
-	ad1.GrantedPermissions = perms
-	ad2.GrantedPermissions = perms
-
-	localService1 := cfg1.APIPublicURL.Hostname()
-	localService2 := cfg2.APIPublicURL.Hostname()
-	anycastService := cfg1.AnycastAPIPublicURL.Hostname()
-	anycastTestCases := []anycastTestCase{
-		//when asking for a local token (i.e. not giving the anycast hostname as
-		//service), no reverse-proxying is done and we only see the local accounts
-		{AccountName: "test1", Service: localService1, Handler: h1,
-			HasAccess: true, Issuer: localService1},
-		{AccountName: "test2", Service: localService1, Handler: h1,
-			HasAccess: false, Issuer: localService1},
-		{AccountName: "test1", Service: localService2, Handler: h2,
-			HasAccess: false, Issuer: localService2},
-		{AccountName: "test2", Service: localService2, Handler: h2,
-			HasAccess: true, Issuer: localService2},
-		//asking for a token for someone else's local service will never work
-		{AccountName: "test1", Service: localService2, Handler: h1,
-			ErrorMessage: fmt.Sprintf("cannot issue tokens for service: %q", localService2)},
-		{AccountName: "test2", Service: localService2, Handler: h1,
-			ErrorMessage: fmt.Sprintf("cannot issue tokens for service: %q", localService2)},
-		{AccountName: "test1", Service: localService1, Handler: h2,
-			ErrorMessage: fmt.Sprintf("cannot issue tokens for service: %q", localService1)},
-		{AccountName: "test2", Service: localService1, Handler: h2,
-			ErrorMessage: fmt.Sprintf("cannot issue tokens for service: %q", localService1)},
-		//when asking for an anycast token, the request if reverse-proxied if
-		//necessary and we will see the Keppel hosting the primary account as
-		//issuer
-		{AccountName: "test1", Service: anycastService, Handler: h1,
-			HasAccess: true, Issuer: localService1},
-		{AccountName: "test2", Service: anycastService, Handler: h1,
-			HasAccess: true, Issuer: localService2},
-		{AccountName: "test1", Service: anycastService, Handler: h2,
-			HasAccess: true, Issuer: localService1},
-		{AccountName: "test2", Service: anycastService, Handler: h2,
-			HasAccess: true, Issuer: localService2},
-		//asking for a token for an account that doesn't exist will never work
-		{AccountName: "test3", Service: localService1, Handler: h1,
-			HasAccess: false, Issuer: localService1},
-		{AccountName: "test3", Service: localService2, Handler: h2,
-			HasAccess: false, Issuer: localService2},
-		{AccountName: "test3", Service: anycastService, Handler: h1,
-			HasAccess: false, Issuer: localService1},
-		{AccountName: "test3", Service: anycastService, Handler: h2,
-			HasAccess: false, Issuer: localService2},
-	}
-
-	correctAuthHeader := map[string]string{
-		"Authorization": keppel.BuildBasicAuthHeader("correctusername", "correctpassword"),
-	}
-
-	for idx, c := range anycastTestCases {
-		t.Logf("----- testcase %d/%d -----\n", idx+1, len(anycastTestCases))
-
-		req := assert.HTTPRequest{
-			Method: "GET",
-			Path:   fmt.Sprintf("/keppel/v1/auth?scope=repository:%s/foo:pull&service=%s", c.AccountName, c.Service),
-			Header: correctAuthHeader,
+		localService1 := s1.Config.APIPublicURL.Hostname()
+		localService2 := s2.Config.APIPublicURL.Hostname()
+		anycastService := s1.Config.AnycastAPIPublicURL.Hostname()
+		anycastTestCases := []anycastTestCase{
+			//when asking for a local token (i.e. not giving the anycast hostname as
+			//service), no reverse-proxying is done and we only see the local accounts
+			{AccountName: "test1", Service: localService1, Handler: h1,
+				HasAccess: true, Issuer: localService1},
+			{AccountName: "test2", Service: localService1, Handler: h1,
+				HasAccess: false, Issuer: localService1},
+			{AccountName: "test1", Service: localService2, Handler: h2,
+				HasAccess: false, Issuer: localService2},
+			{AccountName: "test2", Service: localService2, Handler: h2,
+				HasAccess: true, Issuer: localService2},
+			//asking for a token for someone else's local service will never work
+			{AccountName: "test1", Service: localService2, Handler: h1,
+				ErrorMessage: fmt.Sprintf("cannot issue tokens for service: %q", localService2)},
+			{AccountName: "test2", Service: localService2, Handler: h1,
+				ErrorMessage: fmt.Sprintf("cannot issue tokens for service: %q", localService2)},
+			{AccountName: "test1", Service: localService1, Handler: h2,
+				ErrorMessage: fmt.Sprintf("cannot issue tokens for service: %q", localService1)},
+			{AccountName: "test2", Service: localService1, Handler: h2,
+				ErrorMessage: fmt.Sprintf("cannot issue tokens for service: %q", localService1)},
+			//when asking for an anycast token, the request if reverse-proxied if
+			//necessary and we will see the Keppel hosting the primary account as
+			//issuer
+			{AccountName: "test1", Service: anycastService, Handler: h1,
+				HasAccess: true, Issuer: localService1},
+			{AccountName: "test2", Service: anycastService, Handler: h1,
+				HasAccess: true, Issuer: localService2},
+			{AccountName: "test1", Service: anycastService, Handler: h2,
+				HasAccess: true, Issuer: localService1},
+			{AccountName: "test2", Service: anycastService, Handler: h2,
+				HasAccess: true, Issuer: localService2},
+			//asking for a token for an account that doesn't exist will never work
+			{AccountName: "test3", Service: localService1, Handler: h1,
+				HasAccess: false, Issuer: localService1},
+			{AccountName: "test3", Service: localService2, Handler: h2,
+				HasAccess: false, Issuer: localService2},
+			{AccountName: "test3", Service: anycastService, Handler: h1,
+				HasAccess: false, Issuer: localService1},
+			{AccountName: "test3", Service: anycastService, Handler: h2,
+				HasAccess: false, Issuer: localService2},
 		}
 
-		if c.ErrorMessage == "" {
-			req.ExpectStatus = http.StatusOK
+		correctAuthHeader := map[string]string{
+			"Authorization": keppel.BuildBasicAuthHeader("correctusername", "correctpassword"),
+		}
 
-			//build jwtContents struct to contain issued token against
-			expectedContents := jwtContents{
-				Audience: c.Service,
-				Issuer:   "keppel-api@" + c.Issuer,
+		for idx, c := range anycastTestCases {
+			t.Logf("----- testcase %d/%d -----\n", idx+1, len(anycastTestCases))
+
+			req := assert.HTTPRequest{
+				Method: "GET",
+				Path:   fmt.Sprintf("/keppel/v1/auth?scope=repository:%s/foo:pull&service=%s", c.AccountName, c.Service),
+				Header: correctAuthHeader,
+			}
+
+			if c.ErrorMessage == "" {
+				req.ExpectStatus = http.StatusOK
+
+				//build jwtContents struct to contain issued token against
+				expectedContents := jwtContents{
+					Audience: c.Service,
+					Issuer:   "keppel-api@" + c.Issuer,
+					Subject:  "correctusername",
+				}
+				if c.HasAccess {
+					expectedContents.Access = []jwtAccess{{
+						Type:    "repository",
+						Name:    fmt.Sprintf("%s/foo", c.AccountName),
+						Actions: []string{"pull"},
+					}}
+				}
+				req.ExpectBody = expectedContents
+
+			} else {
+				req.ExpectStatus = http.StatusBadRequest
+				req.ExpectBody = assert.JSONObject{"details": c.ErrorMessage}
+			}
+
+			req.Check(t, c.Handler)
+		}
+
+		//some additional testcases that don't fit nicely into the pattern of the loop above
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=registry:catalog:*", anycastService),
+			Header:       correctAuthHeader,
+			ExpectStatus: http.StatusOK,
+			ExpectBody: jwtContents{
+				Audience: anycastService,
+				Issuer:   "keppel-api@" + localService1,
 				Subject:  "correctusername",
-			}
-			if c.HasAccess {
-				expectedContents.Access = []jwtAccess{{
-					Type:    "repository",
-					Name:    fmt.Sprintf("%s/foo", c.AccountName),
-					Actions: []string{"pull"},
-				}}
-			}
-			req.ExpectBody = expectedContents
-
-		} else {
-			req.ExpectStatus = http.StatusBadRequest
-			req.ExpectBody = assert.JSONObject{"details": c.ErrorMessage}
-		}
-
-		req.Check(t, c.Handler)
-	}
-
-	//some additional testcases that don't fit nicely into the pattern of the loop above
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=registry:catalog:*", anycastService),
-		Header:       correctAuthHeader,
-		ExpectStatus: http.StatusOK,
-		ExpectBody: jwtContents{
-			Audience: anycastService,
-			Issuer:   "keppel-api@" + localService1,
-			Subject:  "correctusername",
-			Access:   nil, //catalog access is not allowed for anycast since we don't know which peer to ask for authentication
-		},
-	}.Check(t, h1)
+				Access:   nil, //catalog access is not allowed for anycast since we don't know which peer to ask for authentication
+			},
+		}.Check(t, h1)
+	})
 }
 
 func TestMultiScope(t *testing.T) {
@@ -799,8 +790,9 @@ func TestMultiScope(t *testing.T) {
 	//request, which produces a token with a union of all granted scopes. This
 	//test covers some basic cases of multi-scopes.
 
-	r, cfg, ad, _, _ := setupPrimary(t)
-	service := cfg.APIPublicURL.Hostname()
+	s := setupPrimary(t)
+	h := s.Handler
+	service := s.Config.APIPublicURL.Hostname()
 
 	//various shorthands for the testcases below
 	correctAuthHeader := map[string]string{
@@ -823,7 +815,7 @@ func TestMultiScope(t *testing.T) {
 	}
 
 	//case 1: multiple actions on the same resource and we get everything we ask for
-	ad.GrantedPermissions = makePerms(keppel.CanViewAccount, keppel.CanPullFromAccount, keppel.CanPushToAccount, keppel.CanDeleteFromAccount)
+	s.AD.GrantedPermissions = makePerms(keppel.CanViewAccount, keppel.CanPullFromAccount, keppel.CanPushToAccount, keppel.CanDeleteFromAccount)
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=repository:test1/foo:pull&scope=repository:test1/foo:push&scope=repository:test1/foo:delete", service),
@@ -834,10 +826,10 @@ func TestMultiScope(t *testing.T) {
 			Name:    "test1/foo",
 			Actions: []string{"pull", "push", "delete"},
 		}}),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//case 2: overlapping actions on the same resource and we get everything except "delete"
-	ad.GrantedPermissions = makePerms(keppel.CanViewAccount, keppel.CanPullFromAccount, keppel.CanPushToAccount)
+	s.AD.GrantedPermissions = makePerms(keppel.CanViewAccount, keppel.CanPullFromAccount, keppel.CanPushToAccount)
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=repository:test1/foo:pull,delete&scope=repository:test1/foo:pull,push&scope=repository:test1/foo:delete", service),
@@ -848,10 +840,10 @@ func TestMultiScope(t *testing.T) {
 			Name:    "test1/foo",
 			Actions: []string{"pull", "push"}, //"pull" was mentioned twice in the scopes - this verifies that it was deduplicated
 		}}),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//case 3: actions on multiple resources and we reject access to one of the resources entirely
-	ad.GrantedPermissions = makePerms(keppel.CanViewAccount, keppel.CanPullFromAccount, keppel.CanPushToAccount)
+	s.AD.GrantedPermissions = makePerms(keppel.CanViewAccount, keppel.CanPullFromAccount, keppel.CanPushToAccount)
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=repository:test1/foo:pull,push&scope=repository:test2/foo:pull,push&scope=registry:catalog:*", service),
@@ -874,5 +866,5 @@ func TestMultiScope(t *testing.T) {
 				Actions: []string{"view"},
 			},
 		}),
-	}.Check(t, r)
+	}.Check(t, h)
 }

@@ -45,15 +45,16 @@ func deterministicDummyVulnStatus(counter int) clair.VulnerabilityStatus {
 
 func TestManifestsAPI(t *testing.T) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
-		h, _, _, auditor, sd, db, _, claird := setup(t)
+		s := test.NewSetup(t, test.WithKeppelAPI, test.WithClairDouble)
+		h := s.Handler
 
 		//setup two test accounts
-		mustInsert(t, db, &keppel.Account{
+		mustInsert(t, s.DB, &keppel.Account{
 			Name:           "test1",
 			AuthTenantID:   "tenant1",
 			GCPoliciesJSON: "[]",
 		})
-		mustInsert(t, db, &keppel.Account{
+		mustInsert(t, s.DB, &keppel.Account{
 			Name:           "test2",
 			AuthTenantID:   "tenant2",
 			GCPoliciesJSON: "[]",
@@ -67,7 +68,7 @@ func TestManifestsAPI(t *testing.T) {
 			{Name: "repo2-1", AccountName: "test2"},
 		}
 		for _, repo := range repos {
-			mustInsert(t, db, repo)
+			mustInsert(t, s.DB, repo)
 		}
 
 		//test empty GET
@@ -101,9 +102,9 @@ func TestManifestsAPI(t *testing.T) {
 				if idx == 1 {
 					dbManifest.LastPulledAt = p2time(pushedAt.Add(100 * time.Second))
 				}
-				mustInsert(t, db, &dbManifest)
+				mustInsert(t, s.DB, &dbManifest)
 
-				err := sd.WriteManifest(
+				err := s.SD.WriteManifest(
 					keppel.Account{Name: repo.AccountName},
 					repo.Name, digest, []byte(strings.Repeat("x", int(sizeBytes))),
 				)
@@ -112,21 +113,21 @@ func TestManifestsAPI(t *testing.T) {
 				}
 			}
 			//one manifest is referenced by two tags, one is referenced by one tag
-			mustInsert(t, db, &keppel.Tag{
+			mustInsert(t, s.DB, &keppel.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "first",
 				Digest:       deterministicDummyDigest(repoID*10 + 1),
 				PushedAt:     time.Unix(20001, 0),
 				LastPulledAt: p2time(time.Unix(20101, 0)),
 			})
-			mustInsert(t, db, &keppel.Tag{
+			mustInsert(t, s.DB, &keppel.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "stillfirst",
 				Digest:       deterministicDummyDigest(repoID*10 + 1),
 				PushedAt:     time.Unix(20002, 0),
 				LastPulledAt: nil,
 			})
-			mustInsert(t, db, &keppel.Tag{
+			mustInsert(t, s.DB, &keppel.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "second",
 				Digest:       deterministicDummyDigest(repoID*10 + 2),
@@ -233,16 +234,16 @@ func TestManifestsAPI(t *testing.T) {
 		}.Check(t, h)
 
 		//test DELETE manifest happy case
-		easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/before-delete-manifest.sql")
+		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/before-delete-manifest.sql")
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11),
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
 			ExpectStatus: http.StatusNoContent,
 		}.Check(t, h)
-		easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/after-delete-manifest.sql")
+		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/after-delete-manifest.sql")
 
-		auditor.ExpectEvents(t, cadf.Event{
+		s.Auditor.ExpectEvents(t, cadf.Event{
 			RequestPath: "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11),
 			Action:      "delete",
 			Outcome:     "success",
@@ -262,9 +263,9 @@ func TestManifestsAPI(t *testing.T) {
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
 			ExpectStatus: http.StatusNoContent,
 		}.Check(t, h)
-		easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/after-delete-tag.sql")
+		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/after-delete-tag.sql")
 
-		auditor.ExpectEvents(t, cadf.Event{
+		s.Auditor.ExpectEvents(t, cadf.Event{
 			RequestPath: "/keppel/v1/accounts/test1/repositories/repo1-2/_tags/stillfirst",
 			Action:      "delete",
 			Outcome:     "success",
@@ -367,12 +368,12 @@ func TestManifestsAPI(t *testing.T) {
 			AccountName: "test1",
 			Digest:      deterministicDummyDigest(101),
 		}
-		mustInsert(t, db, &dummyBlob)
-		err := keppel.MountBlobIntoRepo(db, dummyBlob, *repos[0])
+		mustInsert(t, s.DB, &dummyBlob)
+		err := keppel.MountBlobIntoRepo(s.DB, dummyBlob, *repos[0])
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		_, err = db.Exec(
+		_, err = s.DB.Exec(
 			`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
 			repos[0].ID, deterministicDummyDigest(12), dummyBlob.ID,
 		)
@@ -381,8 +382,8 @@ func TestManifestsAPI(t *testing.T) {
 		}
 
 		//configure our ClairDouble to present a vulnerability report for our test manifest
-		claird.WasIndexSubmitted[deterministicDummyDigest(12)] = true
-		claird.ReportFixtures[deterministicDummyDigest(12)] = "fixtures/clair-report-vulnerable.json"
+		s.ClairDouble.WasIndexSubmitted[deterministicDummyDigest(12)] = true
+		s.ClairDouble.ReportFixtures[deterministicDummyDigest(12)] = "fixtures/clair-report-vulnerable.json"
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12) + "/vulnerability_report",

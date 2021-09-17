@@ -28,7 +28,9 @@ import (
 )
 
 func TestVersionCheckEndpoint(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
+	testWithPrimary(t, nil, func(s test.Setup) {
+		h := s.Handler
+
 		//without token, expect auth challenge
 		assert.HTTPRequest{
 			Method:       "GET",
@@ -49,7 +51,7 @@ func TestVersionCheckEndpoint(t *testing.T) {
 		}.Check(t, h)
 
 		//with token, expect status code 200
-		token := getToken(t, h, ad, "" /* , no permissions */)
+		token := getToken(t, h, s.AD, "" /* , no permissions */)
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/",
@@ -64,15 +66,16 @@ func TestKeppelAPIAuth(t *testing.T) {
 	//All the other tests use the conventional auth method using bearer tokens.
 	//This test provides test coverage for authenticating with the same
 	//AuthDriver-dependent mechanism used by the Keppel API.
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
+	testWithPrimary(t, nil, func(s test.Setup) {
 		//upload a manifest for testing (using bearer tokens since all our test
 		//helper functions use those)
-		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		h := s.Handler
+		token := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
-		clock.Step()
-		image.MustUpload(t, h, db, token, fooRepoRef, "first")
+		s.Clock.Step()
+		image.MustUpload(t, h, s.DB, token, fooRepoRef, "first")
 
 		//test scopeless endpoint: happy case
 		assert.HTTPRequest{

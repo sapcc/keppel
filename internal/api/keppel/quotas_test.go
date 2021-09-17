@@ -31,7 +31,8 @@ import (
 )
 
 func TestQuotasAPI(t *testing.T) {
-	r, _, _, auditor, _, db, _, _ := setup(t)
+	s := test.NewSetup(t, test.WithKeppelAPI)
+	h := s.Handler
 
 	//GET on auth tenant without more specific configuration shows default values
 	assert.HTTPRequest{
@@ -42,7 +43,7 @@ func TestQuotasAPI(t *testing.T) {
 		ExpectBody: assert.JSONObject{
 			"manifests": assert.JSONObject{"quota": 0, "usage": 0},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//GET basic error cases
 	assert.HTTPRequest{
@@ -50,13 +51,13 @@ func TestQuotasAPI(t *testing.T) {
 		Path:         "/keppel/v1/quotas/tenant1",
 		Header:       map[string]string{"X-Test-Perms": "viewquota:tenant2"},
 		ExpectStatus: http.StatusForbidden,
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/quotas/tenant1",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
 		ExpectStatus: http.StatusForbidden,
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//PUT happy case
 	for _, pass := range []int{1, 2, 3} {
@@ -71,11 +72,11 @@ func TestQuotasAPI(t *testing.T) {
 			ExpectBody: assert.JSONObject{
 				"manifests": assert.JSONObject{"quota": 100, "usage": 0},
 			},
-		}.Check(t, r)
+		}.Check(t, h)
 
 		//only the first pass should generate an audit event
 		if pass == 1 {
-			auditor.ExpectEvents(t, cadf.Event{
+			s.Auditor.ExpectEvents(t, cadf.Event{
 				RequestPath: "/keppel/v1/quotas/tenant1",
 				Action:      "update",
 				Outcome:     "success",
@@ -99,7 +100,7 @@ func TestQuotasAPI(t *testing.T) {
 				},
 			})
 		} else {
-			auditor.ExpectEvents(t /*, nothing */)
+			s.Auditor.ExpectEvents(t /*, nothing */)
 		}
 	}
 
@@ -112,21 +113,21 @@ func TestQuotasAPI(t *testing.T) {
 		ExpectBody: assert.JSONObject{
 			"manifests": assert.JSONObject{"quota": 100, "usage": 0},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//put some manifests in the DB, check thet GET reflects higher usage
-	mustInsert(t, db, &keppel.Account{
+	mustInsert(t, s.DB, &keppel.Account{
 		Name:           "test1",
 		AuthTenantID:   "tenant1",
 		GCPoliciesJSON: "[]",
 	})
-	mustInsert(t, db, &keppel.Repository{
+	mustInsert(t, s.DB, &keppel.Repository{
 		Name:        "repo1",
 		AccountName: "test1",
 	})
 	for idx := 1; idx <= 10; idx++ {
 		pushedAt := time.Unix(int64(10000+10*idx), 0)
-		mustInsert(t, db, &keppel.Manifest{
+		mustInsert(t, s.DB, &keppel.Manifest{
 			RepositoryID:        1,
 			Digest:              deterministicDummyDigest(idx),
 			MediaType:           "",
@@ -144,7 +145,7 @@ func TestQuotasAPI(t *testing.T) {
 		ExpectBody: assert.JSONObject{
 			"manifests": assert.JSONObject{"quota": 100, "usage": 10},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//PUT error cases
 	assert.HTTPRequest{
@@ -155,7 +156,7 @@ func TestQuotasAPI(t *testing.T) {
 			"manifests": assert.JSONObject{"quota": 100},
 		},
 		ExpectStatus: http.StatusForbidden,
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/quotas/tenant1",
@@ -165,7 +166,7 @@ func TestQuotasAPI(t *testing.T) {
 		},
 		ExpectStatus: http.StatusBadRequest,
 		ExpectBody:   assert.StringData("request body is not valid JSON: json: unknown field \"usage\"\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/quotas/tenant1",
@@ -175,8 +176,7 @@ func TestQuotasAPI(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("requested manifest quota (5) is below usage (10)\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//TODO audit events
-	_ = auditor
 }

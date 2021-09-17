@@ -28,8 +28,8 @@ import (
 )
 
 func TestSweepBlobMounts(t *testing.T) {
-	j, _, db, _, sd, clock, _ := setup(t)
-	clock.StepBy(1 * time.Hour)
+	j, s := setup(t)
+	s.Clock.StepBy(1 * time.Hour)
 
 	//setup an image manifest with some layers, so that we have some blob mounts
 	//that shall not be sweeped
@@ -37,12 +37,12 @@ func TestSweepBlobMounts(t *testing.T) {
 		test.GenerateExampleLayer(1),
 		test.GenerateExampleLayer(2),
 	)
-	layer1Blob := uploadBlob(t, db, sd, clock, image.Layers[0])
-	layer2Blob := uploadBlob(t, db, sd, clock, image.Layers[1])
-	configBlob := uploadBlob(t, db, sd, clock, image.Config)
-	uploadManifest(t, db, sd, clock, image.Manifest, image.SizeBytes())
+	layer1Blob := uploadBlob(t, s, image.Layers[0])
+	layer2Blob := uploadBlob(t, s, image.Layers[1])
+	configBlob := uploadBlob(t, s, image.Config)
+	uploadManifest(t, s, image.Manifest, image.SizeBytes())
 	for _, blobID := range []int64{layer1Blob.ID, layer2Blob.ID, configBlob.ID} {
-		mustExec(t, db,
+		mustExec(t, s.DB,
 			`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
 			blobID, image.Manifest.Digest.String(),
 		)
@@ -53,25 +53,25 @@ func TestSweepBlobMounts(t *testing.T) {
 	//repo
 	expectSuccess(t, j.SweepBlobMountsInNextRepo())
 	expectError(t, sql.ErrNoRows.Error(), j.SweepBlobMountsInNextRepo())
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-mount-sweep-001.sql")
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-mount-sweep-001.sql")
 
 	//upload two blobs that are not referenced by any manifest
-	clock.StepBy(2 * time.Hour)
+	s.Clock.StepBy(2 * time.Hour)
 	bogusBlob1 := test.GenerateExampleLayer(3)
 	bogusBlob2 := test.GenerateExampleLayer(4)
-	dbBogusBlob1 := uploadBlob(t, db, sd, clock, bogusBlob1)
-	dbBogusBlob2 := uploadBlob(t, db, sd, clock, bogusBlob2)
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-mount-sweep-002.sql")
+	dbBogusBlob1 := uploadBlob(t, s, bogusBlob1)
+	dbBogusBlob2 := uploadBlob(t, s, bogusBlob2)
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-mount-sweep-002.sql")
 
 	//the next sweep should mark those blob's mounts for deletion
 	expectSuccess(t, j.SweepBlobMountsInNextRepo())
 	expectError(t, sql.ErrNoRows.Error(), j.SweepBlobMountsInNextRepo())
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-mount-sweep-003.sql")
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-mount-sweep-003.sql")
 
 	//save one of those blob mounts from deletion by creating a manifest-blob
 	//reference for it (this reference is actually bogus and would be removed by
 	//ValidateNextManifest, but we're not testing that here)
-	mustExec(t, db,
+	mustExec(t, s.DB,
 		`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
 		dbBogusBlob2.ID, image.Manifest.Digest.String(),
 	)
@@ -81,8 +81,8 @@ func TestSweepBlobMounts(t *testing.T) {
 	//for deletion and is still not referenced by any manifest), but remove the
 	//mark on the mount for `bogusBlob2` (since it is now referenced by a
 	//manifest)
-	clock.StepBy(2 * time.Hour)
+	s.Clock.StepBy(2 * time.Hour)
 	expectSuccess(t, j.SweepBlobMountsInNextRepo())
 	expectError(t, sql.ErrNoRows.Error(), j.SweepBlobMountsInNextRepo())
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/blob-mount-sweep-004.sql")
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-mount-sweep-004.sql")
 }

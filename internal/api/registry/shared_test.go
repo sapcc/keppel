@@ -39,7 +39,7 @@ var (
 	barRepoRef = keppel.Repository{AccountName: "test1", Name: "bar"}
 )
 
-func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver, *test.FederationDriver, *test.Clock, *test.Auditor)) {
+func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(test.Setup)) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
 		for _, withAnycast := range []bool{false, true} {
 			s := test.NewSetup(t,
@@ -52,7 +52,7 @@ func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(http
 			currentlyWithAnycast = withAnycast
 
 			//run the tests for this scenario
-			action(s.Handler, s.Config, s.DB, s.AD, s.SD, s.FD, s.Clock, s.Auditor)
+			action(s)
 
 			//shutdown DB to free up connections (otherwise the test eventually fails
 			//with Postgres saying "too many clients already")
@@ -64,7 +64,7 @@ func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(http
 	})
 }
 
-func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.Clock, strategy string, action func(bool, http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver)) {
+func testWithReplica(t *testing.T, s1 test.Setup, strategy string, action func(firstPass bool, s2 test.Setup)) {
 	testAccount := keppel.Account{Name: "test1", AuthTenantID: "test1authtenant"}
 	switch strategy {
 	case "on_first_use":
@@ -77,9 +77,8 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 		t.Fatalf("unknown strategy: %q", strategy)
 	}
 
-	s1 := &test.Setup{Handler: h1, DB: db1, Clock: clock}
 	s := test.NewSetup(t,
-		test.IsSecondaryTo(s1),
+		test.IsSecondaryTo(&s1),
 		test.WithAnycast(currentlyWithAnycast),
 		test.WithAccount(testAccount),
 		test.WithQuotas,
@@ -87,7 +86,7 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 	)
 
 	defer func() {
-		_, err := db1.Exec(`DELETE FROM peers`)
+		_, err := s1.DB.Exec(`DELETE FROM peers`)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -97,7 +96,7 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 
 	//run the testcase once with the primary registry available
 	t.Logf("running first pass for strategy %s", strategy)
-	action(true, s.Handler, s.Config, s.DB, s.AD, s.SD)
+	action(true, s)
 	if t.Failed() {
 		t.FailNow()
 	}
@@ -105,17 +104,17 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 	//sever the network connection to the primary registry and re-run all testcases
 	t.Logf("running second pass for strategy %s", strategy)
 	test.WithoutRoundTripper(func() {
-		action(false, s.Handler, s.Config, s.DB, s.AD, s.SD)
+		action(false, s)
 	})
 	if t.Failed() {
 		t.FailNow()
 	}
 }
 
-func testWithAllReplicaTypes(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.Clock, action func(string, bool, http.Handler, keppel.Configuration, *keppel.DB, *test.AuthDriver, *test.StorageDriver)) {
+func testWithAllReplicaTypes(t *testing.T, s1 test.Setup, action func(strategy string, firstPass bool, s test.Setup)) {
 	for _, strategy := range []string{"on_first_use", "from_external_on_first_use"} {
-		testWithReplica(t, h1, db1, clock, strategy, func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
-			action(strategy, firstPass, h2, cfg2, db2, ad2, sd2)
+		testWithReplica(t, s1, strategy, func(firstPass bool, s2 test.Setup) {
+			action(strategy, firstPass, s2)
 		})
 	}
 }

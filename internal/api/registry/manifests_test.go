@@ -35,16 +35,17 @@ func TestImageManifestLifecycle(t *testing.T) {
 	image := test.GenerateImage( /* no layers */ )
 
 	for _, tagName := range []string{"latest", ""} {
-		testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
-			token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		testWithPrimary(t, nil, func(s test.Setup) {
+			h := s.Handler
+			token := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 				keppel.CanPullFromAccount,
 				keppel.CanPushToAccount)
-			readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull",
+			readOnlyToken := getToken(t, h, s.AD, "repository:test1/foo:pull",
 				keppel.CanPullFromAccount)
-			otherRepoToken := getToken(t, h, ad, "repository:test1/bar:pull,push",
+			otherRepoToken := getToken(t, h, s.AD, "repository:test1/bar:pull,push",
 				keppel.CanPullFromAccount,
 				keppel.CanPushToAccount)
-			deleteToken := getToken(t, h, ad, "repository:test1/foo:delete",
+			deleteToken := getToken(t, h, s.AD, "repository:test1/foo:delete",
 				keppel.CanDeleteFromAccount)
 
 			//on the API, we either reference the tag name (if uploading with tag) or the digest (if uploading without tag)
@@ -66,7 +67,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			}
 
 			//and even if it does...
-			_, err := keppel.FindOrCreateRepository(db, "foo", keppel.Account{Name: "test1"})
+			_, err := keppel.FindOrCreateRepository(s.DB, "foo", keppel.Account{Name: "test1"})
 			if err != nil {
 				t.Fatal(err.Error())
 			}
@@ -96,7 +97,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			}.Check(t, h)
 
 			//PUT failure case: cannot push while account is in maintenance
-			testWithAccountInMaintenance(t, db, "test1", func() {
+			testWithAccountInMaintenance(t, s.DB, "test1", func() {
 				assert.HTTPRequest{
 					Method: "PUT",
 					Path:   "/v2/test1/foo/manifests/" + ref,
@@ -153,8 +154,8 @@ func TestImageManifestLifecycle(t *testing.T) {
 			}.Check(t, h)
 
 			//failed requests should not retain anything in the storage
-			expectStorageEmpty(t, sd, db)
-			auditor.ExpectEvents(t /*, nothing */)
+			expectStorageEmpty(t, s.SD, s.DB)
+			s.Auditor.ExpectEvents(t /*, nothing */)
 
 			//PUT failure case: cannot upload manifest if referenced blob is uploaded, but
 			//in the wrong repo
@@ -179,8 +180,8 @@ func TestImageManifestLifecycle(t *testing.T) {
 					Header: map[string]string{
 						"Authorization":     "Bearer " + token,
 						"Content-Type":      image.Manifest.MediaType,
-						"X-Forwarded-Host":  cfg.AnycastAPIPublicURL.Host,
-						"X-Forwarded-Proto": cfg.AnycastAPIPublicURL.Scheme,
+						"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Host,
+						"X-Forwarded-Proto": s.Config.AnycastAPIPublicURL.Scheme,
 					},
 					Body:         assert.ByteData(image.Manifest.Contents),
 					ExpectStatus: http.StatusMethodNotAllowed,
@@ -190,25 +191,25 @@ func TestImageManifestLifecycle(t *testing.T) {
 			}
 
 			//there should still not be any manifests
-			auditor.ExpectEvents(t /*, nothing */)
+			s.Auditor.ExpectEvents(t /*, nothing */)
 
 			//PUT success case: upload manifest (and also the blob referenced by it);
 			//each PUT is executed twice to test idempotency
-			clock.Step()
-			easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-001-before-upload-blob.sql")
+			s.Clock.Step()
+			easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-001-before-upload-blob.sql")
 
 			image.Config.MustUpload(t, h, token, fooRepoRef)
 			image.Config.MustUpload(t, h, token, fooRepoRef)
-			clock.Step()
-			easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-002-after-upload-blob.sql")
+			s.Clock.Step()
+			easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-002-after-upload-blob.sql")
 
-			image.MustUpload(t, h, db, token, fooRepoRef, tagName)
-			image.MustUpload(t, h, db, token, fooRepoRef, tagName)
-			clock.Step()
+			image.MustUpload(t, h, s.DB, token, fooRepoRef, tagName)
+			image.MustUpload(t, h, s.DB, token, fooRepoRef, tagName)
+			s.Clock.Step()
 			if ref == "latest" {
-				easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-tag.sql")
+				easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-tag.sql")
 			} else {
-				easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-digest.sql")
+				easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-digest.sql")
 			}
 
 			//we did two PUTs, but only the first one will be logged since the second one did not change anything
@@ -238,7 +239,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 					},
 				})
 			}
-			auditor.ExpectEvents(t, auditEvents...)
+			s.Auditor.ExpectEvents(t, auditEvents...)
 
 			//check GET/HEAD: manifest should now be available under the reference
 			//where it was pushed to...
@@ -260,12 +261,13 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			//test GET via anycast
 			if currentlyWithAnycast {
-				testWithReplica(t, h, db, clock, "on_first_use", func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
-					testAnycast(t, firstPass, db2, func() {
-						anycastToken := getTokenForAnycast(t, h, ad, "repository:test1/foo:pull",
+				testWithReplica(t, s, "on_first_use", func(firstPass bool, s2 test.Setup) {
+					h2 := s2.Handler
+					testAnycast(t, firstPass, s2.DB, func() {
+						anycastToken := getTokenForAnycast(t, h, s.AD, "repository:test1/foo:pull",
 							keppel.CanPullFromAccount)
 						anycastHeaders := map[string]string{
-							"X-Forwarded-Host":  cfg.AnycastAPIPublicURL.Hostname(),
+							"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Hostname(),
 							"X-Forwarded-Proto": "https",
 						}
 						expectManifestExists(t, h, anycastToken, "test1/foo", image.Manifest, ref, anycastHeaders)
@@ -277,7 +279,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			}
 
 			//test display of custom headers during GET/HEAD
-			_, err = db.Exec(
+			_, err = s.DB.Exec(
 				`UPDATE manifests SET vuln_status = $1 WHERE digest = $2`,
 				clair.CleanSeverity, image.Manifest.Digest.String(),
 			)
@@ -328,7 +330,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			}.Check(t, h)
 
 			//no deletes were successful yet, so...
-			auditor.ExpectEvents(t /*, nothing */)
+			s.Auditor.ExpectEvents(t /*, nothing */)
 
 			//DELETE success case
 			assert.HTTPRequest{
@@ -338,11 +340,11 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectStatus: http.StatusAccepted,
 				ExpectHeader: test.VersionHeader,
 			}.Check(t, h)
-			clock.Step()
+			s.Clock.Step()
 			if ref == "latest" {
-				easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-004-after-delete-tag.sql")
+				easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-004-after-delete-tag.sql")
 			} else {
-				easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagemanifest-004-after-delete-manifest.sql")
+				easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-004-after-delete-manifest.sql")
 			}
 
 			//the DELETE will have logged an audit event
@@ -362,7 +364,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				event.Target.TypeURI = "docker-registry/account/repository/tag"
 				event.Target.Name = "test1/foo:latest"
 			}
-			auditor.ExpectEvents(t, event)
+			s.Auditor.ExpectEvents(t, event)
 		})
 
 	}
@@ -376,25 +378,26 @@ func bodyForMethod(method string, body assert.HTTPResponseBody) assert.HTTPRespo
 }
 
 func TestImageListManifestLifecycle(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
+	testWithPrimary(t, nil, func(s test.Setup) {
 		//This test builds on TestImageManifestLifecycle and provides test coverage
 		//for the parts of the manifest push workflow that check manifest-manifest
 		//references. (We don't have those in plain images, only in image lists.)
-		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		h := s.Handler
+		token := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
-		deleteToken := getToken(t, h, ad, "repository:test1/foo:delete",
+		deleteToken := getToken(t, h, s.AD, "repository:test1/foo:delete",
 			keppel.CanDeleteFromAccount)
 
 		//as a setup, upload two images and render a third image that's not uploaded
 		image1 := test.GenerateImage(test.GenerateExampleLayer(1))
 		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
 		image3 := test.GenerateImage(test.GenerateExampleLayer(3))
-		clock.Step()
-		image1.MustUpload(t, h, db, token, fooRepoRef, "first")
-		clock.Step()
-		image2.MustUpload(t, h, db, token, fooRepoRef, "second")
-		clock.Step()
+		s.Clock.Step()
+		image1.MustUpload(t, h, s.DB, token, fooRepoRef, "first")
+		s.Clock.Step()
+		image2.MustUpload(t, h, s.DB, token, fooRepoRef, "second")
+		s.Clock.Step()
 
 		//PUT failure case: cannot upload image list manifest referencing missing manifests
 		list1 := test.GenerateImageList(image1, image3)
@@ -412,10 +415,10 @@ func TestImageListManifestLifecycle(t *testing.T) {
 
 		//PUT success case: upload image list manifest referencing available manifests
 		list2 := test.GenerateImageList(image1, image2)
-		list2.MustUpload(t, h, db, token, fooRepoRef, "list")
+		list2.MustUpload(t, h, s.DB, token, fooRepoRef, "list")
 
-		clock.Step()
-		easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagelistmanifest-001-after-upload-manifest.sql")
+		s.Clock.Step()
+		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagelistmanifest-001-after-upload-manifest.sql")
 
 		//check GET for manifest list
 		expectManifestExists(t, h, token, "test1/foo", list2.Manifest, "list", nil)
@@ -450,25 +453,26 @@ func TestImageListManifestLifecycle(t *testing.T) {
 			ExpectStatus: http.StatusAccepted,
 			ExpectHeader: test.VersionHeader,
 		}.Check(t, h)
-		clock.Step()
-		easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/imagelistmanifest-002-after-delete-manifest.sql")
+		s.Clock.Step()
+		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagelistmanifest-002-after-delete-manifest.sql")
 	})
 }
 
 func TestManifestQuotaExceeded(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
-		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+	testWithPrimary(t, nil, func(s test.Setup) {
+		h := s.Handler
+		token := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 
 		//as a setup, upload two images
 		image1 := test.GenerateImage(test.GenerateExampleLayer(1))
 		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
-		image1.MustUpload(t, h, db, token, fooRepoRef, "first")
-		image2.MustUpload(t, h, db, token, fooRepoRef, "second")
+		image1.MustUpload(t, h, s.DB, token, fooRepoRef, "first")
+		image2.MustUpload(t, h, s.DB, token, fooRepoRef, "second")
 
 		//set quota below usage
-		_, err := db.Exec(`UPDATE quotas SET manifests = $1`, 1)
+		_, err := s.DB.Exec(`UPDATE quotas SET manifests = $1`, 1)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -502,8 +506,9 @@ func TestManifestQuotaExceeded(t *testing.T) {
 }
 
 func TestManifestRequiredLabels(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
-		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+	testWithPrimary(t, nil, func(s test.Setup) {
+		h := s.Handler
+		token := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 
@@ -529,7 +534,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 		blob.MustUpload(t, h, token, fooRepoRef)
 
 		//setup required labels on account for failure
-		_, err = db.Exec(
+		_, err = s.DB.Exec(
 			`UPDATE accounts SET required_labels = $1 WHERE name = $2`,
 			"foo,somethingelse,andalsothis", "test1",
 		)
@@ -552,7 +557,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 		}.Check(t, h)
 
 		//setup required labels on account for success
-		_, err = db.Exec(
+		_, err = s.DB.Exec(
 			`UPDATE accounts SET required_labels = $1 WHERE name = $2`,
 			"foo,bar", "test1",
 		)
@@ -575,7 +580,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 
 		//check that the labels_json field is populated correctly in the db
 		var dbManifests []keppel.Manifest
-		_, err = db.Select(&dbManifests,
+		_, err = s.DB.Select(&dbManifests,
 			`SELECT * FROM manifests`,
 		)
 		if err != nil {
@@ -599,8 +604,9 @@ func TestManifestRequiredLabels(t *testing.T) {
 }
 
 func TestImageManifestWrongBlobSize(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
-		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+	testWithPrimary(t, nil, func(s test.Setup) {
+		h := s.Handler
+		token := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 

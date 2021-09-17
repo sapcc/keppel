@@ -36,17 +36,9 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
-func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.FederationDriver, *test.Auditor, keppel.StorageDriver, *keppel.DB, *test.Clock, *test.ClairDouble) {
-	s := test.NewSetup(t,
-		test.WithClairDouble,
-		test.WithKeppelAPI,
-	)
-
-	return s.Handler, s.AD, s.FD, s.Auditor, s.SD, s.DB, s.Clock, s.ClairDouble
-}
-
 func TestAccountsAPI(t *testing.T) {
-	r, authDriver, fd, auditor, _, _, _, _ := setup(t)
+	s := test.NewSetup(t, test.WithKeppelAPI)
+	h := s.Handler
 
 	//test the /keppel/v1 endpoint
 	assert.HTTPRequest{
@@ -54,7 +46,7 @@ func TestAccountsAPI(t *testing.T) {
 		Path:         "/keppel/v1",
 		ExpectStatus: http.StatusOK,
 		ExpectBody:   assert.JSONObject{"auth_driver": "unittest"},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//no accounts right now
 	assert.HTTPRequest{
@@ -63,9 +55,9 @@ func TestAccountsAPI(t *testing.T) {
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
 		ExpectStatus: http.StatusOK,
 		ExpectBody:   assert.JSONObject{"accounts": []interface{}{}},
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.DeepEqual(t, "authDriver.AccountsThatWereSetUp",
-		authDriver.AccountsThatWereSetUp,
+		s.AD.AccountsThatWereSetUp,
 		[]keppel.Account(nil),
 	)
 	assert.HTTPRequest{
@@ -74,7 +66,7 @@ func TestAccountsAPI(t *testing.T) {
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
 		ExpectStatus: http.StatusNotFound,
 		ExpectBody:   assert.StringData("no such account\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//create an account (this request is executed twice to test idempotency)
 	for _, pass := range []int{1, 2} {
@@ -104,15 +96,15 @@ func TestAccountsAPI(t *testing.T) {
 					"rbac_policies": []assert.JSONObject{},
 				},
 			},
-		}.Check(t, r)
+		}.Check(t, h)
 		assert.DeepEqual(t, "authDriver.AccountsThatWereSetUp",
-			authDriver.AccountsThatWereSetUp,
+			s.AD.AccountsThatWereSetUp,
 			[]keppel.Account{{Name: "first", AuthTenantID: "tenant1", MetadataJSON: `{"bar":"barbar","foo":"foofoo"}`, GCPoliciesJSON: "[]"}},
 		)
 
 		//only the first pass should generate an audit event
 		if pass == 1 {
-			auditor.ExpectEvents(t, cadf.Event{
+			s.Auditor.ExpectEvents(t, cadf.Event{
 				RequestPath: "/keppel/v1/accounts/first",
 				Action:      "create",
 				Outcome:     "success",
@@ -124,7 +116,7 @@ func TestAccountsAPI(t *testing.T) {
 				},
 			})
 		} else {
-			auditor.ExpectEvents(t /*, nothing */)
+			s.Auditor.ExpectEvents(t /*, nothing */)
 		}
 	}
 
@@ -146,7 +138,7 @@ func TestAccountsAPI(t *testing.T) {
 				"rbac_policies": []assert.JSONObject{},
 			}},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/first",
@@ -164,7 +156,7 @@ func TestAccountsAPI(t *testing.T) {
 				"rbac_policies": []assert.JSONObject{},
 			},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//...but only when one has view permission on the correct tenant
 	assert.HTTPRequest{
@@ -175,14 +167,14 @@ func TestAccountsAPI(t *testing.T) {
 		ExpectBody: assert.JSONObject{
 			"accounts": []assert.JSONObject{},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/first",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant2"},
 		ExpectStatus: http.StatusNotFound,
 		ExpectBody:   assert.StringData("no such account\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//create an account with RBAC policies and GC policies (this request is executed twice to test idempotency)
 	gcPoliciesJSON := []assert.JSONObject{
@@ -230,9 +222,9 @@ func TestAccountsAPI(t *testing.T) {
 					"rbac_policies":  rbacPoliciesJSON,
 				},
 			},
-		}.Check(t, r)
+		}.Check(t, h)
 		assert.DeepEqual(t, "authDriver.AccountsThatWereSetUp",
-			authDriver.AccountsThatWereSetUp,
+			s.AD.AccountsThatWereSetUp,
 			[]keppel.Account{
 				{Name: "first", AuthTenantID: "tenant1", MetadataJSON: `{"bar":"barbar","foo":"foofoo"}`, GCPoliciesJSON: "[]"},
 				{Name: "second", AuthTenantID: "tenant1", GCPoliciesJSON: gcPoliciesToJSON(gcPoliciesJSON)},
@@ -241,7 +233,7 @@ func TestAccountsAPI(t *testing.T) {
 
 		//only the first pass should generate audit events
 		if pass == 1 {
-			auditor.ExpectEvents(t,
+			s.Auditor.ExpectEvents(t,
 				cadf.Event{
 					RequestPath: "/keppel/v1/accounts/second",
 					Action:      "create",
@@ -292,7 +284,7 @@ func TestAccountsAPI(t *testing.T) {
 				},
 			)
 		} else {
-			auditor.ExpectEvents(t /*, nothing */)
+			s.Auditor.ExpectEvents(t /*, nothing */)
 		}
 	}
 
@@ -324,7 +316,7 @@ func TestAccountsAPI(t *testing.T) {
 				},
 			},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/second",
@@ -340,7 +332,7 @@ func TestAccountsAPI(t *testing.T) {
 				"rbac_policies":  rbacPoliciesJSON,
 			},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//check editing of InMaintenance flag (this also tests editing of GC policies
 	//since we don't give any and thus clear the field)
@@ -366,7 +358,7 @@ func TestAccountsAPI(t *testing.T) {
 					"rbac_policies":  rbacPoliciesJSON,
 				},
 			},
-		}.Check(t, r)
+		}.Check(t, h)
 
 		assert.HTTPRequest{
 			Method:       "GET",
@@ -382,11 +374,11 @@ func TestAccountsAPI(t *testing.T) {
 					"rbac_policies":  rbacPoliciesJSON,
 				},
 			},
-		}.Check(t, r)
+		}.Check(t, h)
 
 		//the first pass also generates an audit event since we're touching the GCPolicies
 		if inMaintenance {
-			auditor.ExpectEvents(t,
+			s.Auditor.ExpectEvents(t,
 				cadf.Event{
 					RequestPath: "/keppel/v1/accounts/second",
 					Action:      "update",
@@ -400,7 +392,7 @@ func TestAccountsAPI(t *testing.T) {
 				},
 			)
 		} else {
-			auditor.ExpectEvents(t /*, nothing */)
+			s.Auditor.ExpectEvents(t /*, nothing */)
 		}
 	}
 
@@ -440,8 +432,8 @@ func TestAccountsAPI(t *testing.T) {
 				"rbac_policies":  newRBACPoliciesJSON,
 			},
 		},
-	}.Check(t, r)
-	auditor.ExpectEvents(t,
+	}.Check(t, h)
+	s.Auditor.ExpectEvents(t,
 		cadf.Event{
 			RequestPath: "/keppel/v1/accounts/second",
 			Action:      "update/rbac-policy",
@@ -523,7 +515,7 @@ func TestAccountsAPI(t *testing.T) {
 				},
 			},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//setting an empty validation policy should be equivalent to removing it
 	assert.HTTPRequest{
@@ -549,22 +541,23 @@ func TestAccountsAPI(t *testing.T) {
 				"rbac_policies":  newRBACPoliciesJSON,
 			},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//test POST /keppel/v1/:accounts/sublease success case (error cases are in
 	//TestPutAccountErrorCases and TestGetPutAccountReplicationOnFirstUse)
-	fd.NextSubleaseTokenSecretToIssue = "this-is-the-token"
+	s.FD.NextSubleaseTokenSecretToIssue = "this-is-the-token"
 	assert.HTTPRequest{
 		Method:       "POST",
 		Path:         "/keppel/v1/accounts/second/sublease",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
 		ExpectStatus: http.StatusOK,
 		ExpectBody:   assert.JSONObject{"sublease_token": makeSubleaseToken("second", "registry.example.org", "this-is-the-token")},
-	}.Check(t, r)
+	}.Check(t, h)
 }
 
 func TestGetAccountsErrorCases(t *testing.T) {
-	r, _, _, _, _, _, _, _ := setup(t)
+	s := test.NewSetup(t, test.WithKeppelAPI)
+	h := s.Handler
 
 	//test invalid authentication
 	assert.HTTPRequest{
@@ -572,13 +565,13 @@ func TestGetAccountsErrorCases(t *testing.T) {
 		Path:         "/keppel/v1/accounts",
 		ExpectStatus: http.StatusUnauthorized,
 		ExpectBody:   assert.StringData("missing X-Test-Perms header\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/first",
 		ExpectStatus: http.StatusUnauthorized,
 		ExpectBody:   assert.StringData("missing X-Test-Perms header\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
@@ -589,11 +582,12 @@ func TestGetAccountsErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnauthorized,
 		ExpectBody:   assert.StringData("missing X-Test-Perms header\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 }
 
 func TestPutAccountErrorCases(t *testing.T) {
-	r, _, fd, _, _, _, _, _ := setup(t)
+	s := test.NewSetup(t, test.WithKeppelAPI)
+	h := s.Handler
 
 	//preparation: create an account (so that we can check the error that the requested account name is taken)
 	assert.HTTPRequest{
@@ -615,7 +609,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"rbac_policies":  []assert.JSONObject{},
 			},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//test invalid inputs
 	assert.HTTPRequest{
@@ -624,7 +618,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
 		Body:         assert.StringData(`{"account":???}`),
 		ExpectStatus: http.StatusBadRequest,
-	}.Check(t, r)
+	}.Check(t, h)
 
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -637,7 +631,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("malformed attribute \"account.auth_tenant_id\" in request body: must not be \"invalid\"\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -650,7 +644,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("account names with the prefix \"keppel\" are reserved for internal use\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -663,7 +657,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusConflict,
 		ExpectBody:   assert.StringData("account name already in use by a different tenant\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//test invalid authentication/authorization
 	assert.HTTPRequest{
@@ -676,7 +670,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnauthorized,
 		ExpectBody:   assert.StringData("missing X-Test-Perms header\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -689,12 +683,12 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusForbidden,
 		ExpectBody:   assert.StringData("Forbidden\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//test rejection by federation driver (we test both user error and server
 	//error to validate that they generate the correct respective HTTP status
 	//codes)
-	fd.ClaimFailsBecauseOfUserError = true
+	s.FD.ClaimFailsBecauseOfUserError = true
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/second",
@@ -706,10 +700,10 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusForbidden,
 		ExpectBody:   assert.StringData("cannot assign name \"second\" to auth tenant \"tenant1\"\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
-	fd.ClaimFailsBecauseOfUserError = false
-	fd.ClaimFailsBecauseOfServerError = true
+	s.FD.ClaimFailsBecauseOfUserError = false
+	s.FD.ClaimFailsBecauseOfServerError = true
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/second",
@@ -721,7 +715,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusInternalServerError,
 		ExpectBody:   assert.StringData("failed to assign name \"second\" to auth tenant \"tenant1\"\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//test malformed GC policies
 	gcPolicyTestcases := []struct {
@@ -777,7 +771,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 			ExpectStatus: http.StatusUnprocessableEntity,
 			ExpectBody:   assert.StringData(tc.ErrorMessage + "\n"),
-		}.Check(t, r)
+		}.Check(t, h)
 	}
 
 	//test malformed RBAC policies
@@ -795,7 +789,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("RBAC policy must grant at least one permission\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
@@ -811,7 +805,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("\"foo\" is not a valid RBAC policy permission\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
@@ -826,7 +820,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("RBAC policy must have at least one \"match_...\" attribute\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -844,7 +838,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("RBAC policy with \"anonymous_pull\" may not have the \"match_username\" attribute\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
@@ -860,7 +854,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("RBAC policy with \"pull\" must have the \"match_username\" attribute\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
@@ -876,7 +870,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("RBAC policy with \"delete\" must have the \"match_username\" attribute\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
@@ -892,7 +886,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("RBAC policy with \"push\" must also grant \"pull\"\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -909,7 +903,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("\"*/library\" is not a valid regex: error parsing regexp: missing argument to repetition operator: `*`\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -927,7 +921,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("\"[a-z]++@tenant2\" is not a valid regex: error parsing regexp: invalid nested repetition operator: `++`\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//test unexpected platform filter
 	assert.HTTPRequest{
@@ -945,7 +939,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("platform filter is only allowed on replica accounts\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//test errors for sublease token issuance: missing authentication/authorization
 	assert.HTTPRequest{
@@ -953,28 +947,29 @@ func TestPutAccountErrorCases(t *testing.T) {
 		Path:         "/keppel/v1/accounts/first/sublease",
 		ExpectStatus: http.StatusUnauthorized,
 		ExpectBody:   assert.StringData("missing X-Test-Perms header\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method:       "POST",
 		Path:         "/keppel/v1/accounts/first/sublease",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
 		ExpectStatus: http.StatusForbidden,
 		ExpectBody:   assert.StringData("Forbidden\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method:       "POST",
 		Path:         "/keppel/v1/accounts/unknown/sublease", //account does not exist
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
 		ExpectStatus: http.StatusNotFound,
 		ExpectBody:   assert.StringData("no such account\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 }
 
 func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
-	r, _, fd, _, _, db, _, _ := setup(t)
+	s := test.NewSetup(t, test.WithKeppelAPI)
+	h := s.Handler
 
 	//configure a peer
-	err := db.Insert(&keppel.Peer{HostName: "peer.example.org"})
+	err := s.DB.Insert(&keppel.Peer{HostName: "peer.example.org"})
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -992,7 +987,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 		},
 		ExpectStatus: http.StatusBadRequest,
 		ExpectBody:   assert.StringData("request body is not valid JSON: do not know how to deserialize ReplicationPolicy with strategy \"yes_please\"\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
@@ -1008,7 +1003,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("unknown peer registry: \"someone-else.example.org\"\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -1025,9 +1020,9 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 		},
 		ExpectStatus: http.StatusForbidden,
 		ExpectBody:   assert.StringData("wrong sublease token\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
-	fd.ValidSubleaseTokenSecrets["first"] = "valid-token"
+	s.FD.ValidSubleaseTokenSecrets["first"] = "valid-token"
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
@@ -1046,7 +1041,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 		},
 		ExpectStatus: http.StatusForbidden,
 		ExpectBody:   assert.StringData("wrong sublease token\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//test PUT success case
 	assert.HTTPRequest{
@@ -1079,7 +1074,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 				},
 			},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//PUT on existing account with replication unspecified is okay, leaves
 	//replication settings unchanged
@@ -1106,7 +1101,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 				},
 			},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//cannot issue sublease token for replica account (only for primary accounts)
 	assert.HTTPRequest{
@@ -1115,7 +1110,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
 		ExpectStatus: http.StatusBadRequest,
 		ExpectBody:   assert.StringData("operation not allowed for replica accounts\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//PUT on existing account with different replication settings is not allowed
 	assert.HTTPRequest{
@@ -1137,7 +1132,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 				"rbac_policies":  []assert.JSONObject{},
 			},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/second",
@@ -1153,11 +1148,12 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 		},
 		ExpectStatus: http.StatusConflict,
 		ExpectBody:   assert.StringData("cannot change replication policy on existing account\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 }
 
 func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
-	r, _, fd, _, _, _, _, _ := setup(t)
+	s := test.NewSetup(t, test.WithKeppelAPI)
+	h := s.Handler
 
 	//test error cases on creation
 	assert.HTTPRequest{
@@ -1175,7 +1171,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		},
 		ExpectStatus: http.StatusBadRequest,
 		ExpectBody:   assert.StringData("request body is not valid JSON: json: cannot unmarshal string into Go struct field .account.replication of type keppelv1.ReplicationExternalPeerSpec\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
@@ -1193,7 +1189,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("missing upstream URL for \"from_external_on_first_use\" replication\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
@@ -1212,7 +1208,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("need either both username and password or neither for \"from_external_on_first_use\" replication\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
@@ -1231,7 +1227,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("need either both username and password or neither for \"from_external_on_first_use\" replication\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//test PUT success case
 	testPlatformFilter := []assert.JSONObject{
@@ -1278,7 +1274,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 				"platform_filter": testPlatformFilter,
 			},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//PUT on existing account with replication unspecified is okay, leaves
 	//replication settings unchanged
@@ -1308,7 +1304,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 				"platform_filter": testPlatformFilter,
 			},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//test PUT on existing account to update replication credentials
 	assert.HTTPRequest{
@@ -1346,7 +1342,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 				"platform_filter": testPlatformFilter,
 			},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//PUT on existing account with replication credentials section copied from
 	//GET is okay, leaves replication settings unchanged too (this is important
@@ -1390,7 +1386,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 				"platform_filter": testPlatformFilter,
 			},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//...but changing the username without also supplying a password is wrong
 	assert.HTTPRequest{
@@ -1415,18 +1411,18 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("cannot change username for \"from_external_on_first_use\" replication without also changing password\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//test sublease token issuance on account (external replicas count as primary
 	//accounts for the purposes of account name subleasing)
-	fd.NextSubleaseTokenSecretToIssue = "this-is-the-token"
+	s.FD.NextSubleaseTokenSecretToIssue = "this-is-the-token"
 	assert.HTTPRequest{
 		Method:       "POST",
 		Path:         "/keppel/v1/accounts/first/sublease",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
 		ExpectStatus: http.StatusOK,
 		ExpectBody:   assert.JSONObject{"sublease_token": makeSubleaseToken("first", "registry.example.org", "this-is-the-token")},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//PUT on existing account with different replication settings is not allowed
 	assert.HTTPRequest{
@@ -1448,7 +1444,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		},
 		ExpectStatus: http.StatusConflict,
 		ExpectBody:   assert.StringData("cannot change replication policy on existing account\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/second",
@@ -1468,7 +1464,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 				"rbac_policies":  []assert.JSONObject{},
 			},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/second",
@@ -1488,7 +1484,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		},
 		ExpectStatus: http.StatusConflict,
 		ExpectBody:   assert.StringData("cannot change replication policy on existing account\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//PUT on existing account with different platform filter is not allowed
 	assert.HTTPRequest{
@@ -1511,10 +1507,10 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		},
 		ExpectStatus: http.StatusConflict,
 		ExpectBody:   assert.StringData("cannot change platform filter on existing account\n"),
-	}.Check(t, r)
+	}.Check(t, h)
 }
 
-func uploadManifest(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock *test.Clock, account *keppel.Account, repo *keppel.Repository, manifest test.Bytes, sizeBytes uint64) keppel.Manifest {
+func uploadManifest(t *testing.T, s test.Setup, account *keppel.Account, repo *keppel.Repository, manifest test.Bytes, sizeBytes uint64) keppel.Manifest {
 	t.Helper()
 
 	dbManifest := keppel.Manifest{
@@ -1522,22 +1518,23 @@ func uploadManifest(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock 
 		Digest:              manifest.Digest.String(),
 		MediaType:           manifest.MediaType,
 		SizeBytes:           sizeBytes,
-		PushedAt:            clock.Now(),
-		ValidatedAt:         clock.Now(),
+		PushedAt:            s.Clock.Now(),
+		ValidatedAt:         s.Clock.Now(),
 		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
 	}
-	must(t, db.Insert(&dbManifest))
-	must(t, db.Insert(&keppel.ManifestContent{
+	must(t, s.DB.Insert(&dbManifest))
+	must(t, s.DB.Insert(&keppel.ManifestContent{
 		RepositoryID: repo.ID,
 		Digest:       manifest.Digest.String(),
 		Content:      manifest.Contents,
 	}))
-	must(t, sd.WriteManifest(*account, repo.Name, manifest.Digest.String(), manifest.Contents))
+	must(t, s.SD.WriteManifest(*account, repo.Name, manifest.Digest.String(), manifest.Contents))
 	return dbManifest
 }
 
 func TestDeleteAccount(t *testing.T) {
-	r, _, fd, _, sd, db, clock, _ := setup(t)
+	s := test.NewSetup(t, test.WithKeppelAPI)
+	h := s.Handler
 
 	//setup test accounts and repositories
 	nextBlobSweepAt := time.Unix(200, 0)
@@ -1547,14 +1544,14 @@ func TestDeleteAccount(t *testing.T) {
 		{Name: "test3", AuthTenantID: "tenant3", InMaintenance: true, GCPoliciesJSON: "[]"},
 	}
 	for _, account := range accounts {
-		mustInsert(t, db, account)
+		mustInsert(t, s.DB, account)
 	}
 	repos := []*keppel.Repository{
 		{AccountName: "test1", Name: "foo/bar"},
 		{AccountName: "test1", Name: "something-else"},
 	}
 	for _, repo := range repos {
-		mustInsert(t, db, repo)
+		mustInsert(t, s.DB, repo)
 	}
 
 	//upload a test image
@@ -1575,18 +1572,18 @@ func TestDeleteAccount(t *testing.T) {
 			PushedAt:    time.Unix(int64(idx), 0),
 			ValidatedAt: time.Unix(int64(idx), 0),
 		}
-		mustInsert(t, db, &blob)
+		mustInsert(t, s.DB, &blob)
 		blobs = append(blobs, blob)
 
-		err := sd.AppendToBlob(*accounts[0], storageID, 1, &blob.SizeBytes, bytes.NewReader(testBlob.Contents))
+		err := s.SD.AppendToBlob(*accounts[0], storageID, 1, &blob.SizeBytes, bytes.NewReader(testBlob.Contents))
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		err = sd.FinalizeBlob(*accounts[0], storageID, 1)
+		err = s.SD.FinalizeBlob(*accounts[0], storageID, 1)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		err = keppel.MountBlobIntoRepo(db, blob, *repos[0])
+		err = keppel.MountBlobIntoRepo(s.DB, blob, *repos[0])
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -1601,13 +1598,13 @@ func TestDeleteAccount(t *testing.T) {
 		ValidatedAt:         time.Unix(100, 0),
 		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
 	}
-	mustInsert(t, db, &manifest)
-	err := sd.WriteManifest(*accounts[0], repos[0].Name, image.Manifest.Digest.String(), image.Manifest.Contents)
+	mustInsert(t, s.DB, &manifest)
+	err := s.SD.WriteManifest(*accounts[0], repos[0].Name, image.Manifest.Digest.String(), image.Manifest.Contents)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	for _, blob := range blobs {
-		_, err := db.Exec(
+		_, err := s.DB.Exec(
 			`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
 			repos[0].ID, image.Manifest.Digest.String(), blob.ID,
 		)
@@ -1617,13 +1614,13 @@ func TestDeleteAccount(t *testing.T) {
 	}
 
 	imageList := test.GenerateImageList(image)
-	uploadManifest(t, db, sd, clock, accounts[0], repos[0], imageList.Manifest, imageList.SizeBytes())
-	mustExec(t, db,
+	uploadManifest(t, s, accounts[0], repos[0], imageList.Manifest, imageList.SizeBytes())
+	mustExec(t, s.DB,
 		`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES ($1, $2, $3)`,
 		repos[0].ID, imageList.Manifest.Digest.String(), image.Manifest.Digest.String(),
 	)
 
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/delete-account-000.sql")
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-000.sql")
 
 	//failure case: insufficient permissions (the "delete" permission refers to
 	//manifests within the account, not the account itself)
@@ -1632,10 +1629,10 @@ func TestDeleteAccount(t *testing.T) {
 		Path:         "/keppel/v1/accounts/test1",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
 		ExpectStatus: http.StatusForbidden,
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//failure case: account not in maintenance
-	_, err = db.Exec(`UPDATE accounts SET in_maintenance = FALSE`)
+	_, err = s.DB.Exec(`UPDATE accounts SET in_maintenance = FALSE`)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -1647,8 +1644,8 @@ func TestDeleteAccount(t *testing.T) {
 		ExpectBody: assert.JSONObject{
 			"error": "account must be set in maintenance first",
 		},
-	}.Check(t, r)
-	_, err = db.Exec(`UPDATE accounts SET in_maintenance = TRUE`)
+	}.Check(t, h)
+	_, err = s.DB.Exec(`UPDATE accounts SET in_maintenance = TRUE`)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -1668,10 +1665,10 @@ func TestDeleteAccount(t *testing.T) {
 				}},
 			},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//that didn't touch the DB
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/delete-account-000.sql")
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-000.sql")
 
 	//as indicated by the response, we need to delete the specified manifest to
 	//proceed with the account deletion
@@ -1683,7 +1680,7 @@ func TestDeleteAccount(t *testing.T) {
 		),
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
 		ExpectStatus: http.StatusNoContent,
-	}.Check(t, r)
+	}.Check(t, h)
 
 	assert.HTTPRequest{
 		Method:       "DELETE",
@@ -1699,7 +1696,7 @@ func TestDeleteAccount(t *testing.T) {
 				}},
 			},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	assert.HTTPRequest{
 		Method: "DELETE",
@@ -1709,8 +1706,8 @@ func TestDeleteAccount(t *testing.T) {
 		),
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
 		ExpectStatus: http.StatusNoContent,
-	}.Check(t, r)
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/delete-account-001.sql")
+	}.Check(t, h)
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-001.sql")
 
 	//phase 2: DELETE on account should complain about remaining blobs
 	assert.HTTPRequest{
@@ -1721,11 +1718,11 @@ func TestDeleteAccount(t *testing.T) {
 		ExpectBody: assert.JSONObject{
 			"remaining_blobs": assert.JSONObject{"count": 3},
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//but this will have cleaned up the blob mounts and scheduled a GC pass
 	//(replace time.Now() with a deterministic time before diffing the DB)
-	_, err = db.Exec(
+	_, err = s.DB.Exec(
 		`UPDATE accounts SET next_blob_sweep_at = $1 WHERE next_blob_sweep_at > $2 AND next_blob_sweep_at <= $3`,
 		time.Unix(300, 0),
 		time.Now().Add(-5*time.Second),
@@ -1735,7 +1732,7 @@ func TestDeleteAccount(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	//also all blobs will be marked for deletion
-	_, err = db.Exec(
+	_, err = s.DB.Exec(
 		`UPDATE blobs SET can_be_deleted_at = $1 WHERE can_be_deleted_at > $2 AND can_be_deleted_at <= $3`,
 		time.Unix(300, 0),
 		time.Now().Add(-5*time.Second),
@@ -1744,7 +1741,7 @@ func TestDeleteAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/delete-account-002.sql")
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-002.sql")
 
 	//phase 3: all blobs have been cleaned up, so the account can finally be
 	//deleted (we use fresh accounts for this because that's easier than
@@ -1754,9 +1751,9 @@ func TestDeleteAccount(t *testing.T) {
 		Path:         "/keppel/v1/accounts/test2",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant2,change:tenant2"},
 		ExpectStatus: http.StatusNoContent,
-	}.Check(t, r)
+	}.Check(t, h)
 
-	fd.ForfeitFails = true
+	s.FD.ForfeitFails = true
 	assert.HTTPRequest{
 		Method:       "DELETE",
 		Path:         "/keppel/v1/accounts/test3",
@@ -1765,10 +1762,10 @@ func TestDeleteAccount(t *testing.T) {
 		ExpectBody: assert.JSONObject{
 			"error": "ForfeitAccountName failing as requested",
 		},
-	}.Check(t, r)
+	}.Check(t, h)
 
 	//account "test2" should be gone now
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/delete-account-003.sql")
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-003.sql")
 }
 
 func makeSubleaseToken(accountName, primaryHostname, secret string) string {

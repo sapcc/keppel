@@ -31,6 +31,7 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/test"
 )
 
 func mustInsert(t *testing.T, db *keppel.DB, obj interface{}) {
@@ -62,15 +63,16 @@ func deterministicDummyDigest(counter int) string {
 }
 
 func TestReposAPI(t *testing.T) {
-	h, _, _, _, _, db, _, _ := setup(t)
+	s := test.NewSetup(t, test.WithKeppelAPI)
+	h := s.Handler
 
 	//setup two test accounts
-	mustInsert(t, db, &keppel.Account{
+	mustInsert(t, s.DB, &keppel.Account{
 		Name:           "test1",
 		AuthTenantID:   "tenant1",
 		GCPoliciesJSON: "[]",
 	})
-	mustInsert(t, db, &keppel.Account{
+	mustInsert(t, s.DB, &keppel.Account{
 		Name:           "test2",
 		AuthTenantID:   "tenant2",
 		GCPoliciesJSON: "[]",
@@ -90,11 +92,11 @@ func TestReposAPI(t *testing.T) {
 	//setup five repos in each account (the `test2` account only exists to
 	//validate that we don't accidentally list its repos as well)
 	for idx := 1; idx <= 5; idx++ {
-		mustInsert(t, db, &keppel.Repository{
+		mustInsert(t, s.DB, &keppel.Repository{
 			Name:        fmt.Sprintf("repo1-%d", idx),
 			AccountName: "test1",
 		})
-		mustInsert(t, db, &keppel.Repository{
+		mustInsert(t, s.DB, &keppel.Repository{
 			Name:        fmt.Sprintf("repo2-%d", idx),
 			AccountName: "test2",
 		})
@@ -113,8 +115,8 @@ func TestReposAPI(t *testing.T) {
 			PushedAt:    blobPushedAt,
 			ValidatedAt: blobPushedAt,
 		}
-		mustInsert(t, db, &blob)
-		err := keppel.MountBlobIntoRepo(db, blob, filledRepo)
+		mustInsert(t, s.DB, &blob)
+		err := keppel.MountBlobIntoRepo(s.DB, blob, filledRepo)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -125,7 +127,7 @@ func TestReposAPI(t *testing.T) {
 	for idx := 1; idx <= 10; idx++ {
 		digest := deterministicDummyDigest(idx)
 		manifestPushedAt := time.Unix(int64(10000+10*idx), 0)
-		mustInsert(t, db, &keppel.Manifest{
+		mustInsert(t, s.DB, &keppel.Manifest{
 			RepositoryID:        filledRepo.ID,
 			Digest:              digest,
 			MediaType:           "",
@@ -135,7 +137,7 @@ func TestReposAPI(t *testing.T) {
 			VulnerabilityStatus: clair.PendingVulnerabilityStatus,
 		})
 		if idx <= 3 {
-			mustInsert(t, db, &keppel.Tag{
+			mustInsert(t, s.DB, &keppel.Tag{
 				RepositoryID: 5, //repo1-3
 				Name:         fmt.Sprintf("tag%d", idx),
 				Digest:       digest,
@@ -216,14 +218,14 @@ func TestReposAPI(t *testing.T) {
 	}.Check(t, h)
 
 	//test DELETE happy case
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/before-delete-repo.sql")
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/before-delete-repo.sql")
 	assert.HTTPRequest{
 		Method:       "DELETE",
 		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1",
 		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
 		ExpectStatus: http.StatusNoContent,
 	}.Check(t, h)
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/after-delete-repo.sql")
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/after-delete-repo.sql")
 
 	//test DELETE failure cases
 	assert.HTTPRequest{

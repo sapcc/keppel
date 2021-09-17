@@ -32,10 +32,11 @@ import (
 )
 
 func TestBlobMonolithicUpload(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
-		readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
+	testWithPrimary(t, nil, func(s test.Setup) {
+		h := s.Handler
+		readOnlyToken := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount)
-		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		token := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 
@@ -57,7 +58,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 		}.Check(t, h)
 
 		//test failure cases: account is in maintenance
-		testWithAccountInMaintenance(t, db, "test1", func() {
+		testWithAccountInMaintenance(t, s.DB, "test1", func() {
 			assert.HTTPRequest{
 				Method: "POST",
 				Path:   "/v2/test1/foo/blobs/uploads/?digest=" + blob.Digest.String(),
@@ -119,8 +120,8 @@ func TestBlobMonolithicUpload(t *testing.T) {
 					"Authorization":     "Bearer " + token,
 					"Content-Length":    strconv.Itoa(len(blob.Contents)),
 					"Content-Type":      "application/octet-stream",
-					"X-Forwarded-Host":  cfg.AnycastAPIPublicURL.Host,
-					"X-Forwarded-Proto": cfg.AnycastAPIPublicURL.Scheme,
+					"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Host,
+					"X-Forwarded-Proto": s.Config.AnycastAPIPublicURL.Scheme,
 				},
 				Body:         assert.ByteData(blob.Contents),
 				ExpectStatus: http.StatusMethodNotAllowed,
@@ -130,7 +131,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 		}
 
 		//failed requests should not retain anything in the storage
-		expectStorageEmpty(t, sd, db)
+		expectStorageEmpty(t, s.SD, s.DB)
 
 		//test success case twice: should look the same also in the second pass
 		for range []int{1, 2} {
@@ -158,12 +159,13 @@ func TestBlobMonolithicUpload(t *testing.T) {
 
 		//test GET via anycast
 		if currentlyWithAnycast {
-			testWithReplica(t, h, db, clock, "on_first_use", func(firstPass bool, h2 http.Handler, cfg2 keppel.Configuration, db2 *keppel.DB, ad2 *test.AuthDriver, sd2 *test.StorageDriver) {
-				testAnycast(t, firstPass, db2, func() {
-					anycastToken := getTokenForAnycast(t, h, ad, "repository:test1/foo:pull",
+			testWithReplica(t, s, "on_first_use", func(firstPass bool, s2 test.Setup) {
+				testAnycast(t, firstPass, s2.DB, func() {
+					h2 := s2.Handler
+					anycastToken := getTokenForAnycast(t, h, s.AD, "repository:test1/foo:pull",
 						keppel.CanPullFromAccount)
 					anycastHeaders := map[string]string{
-						"X-Forwarded-Host":  cfg.AnycastAPIPublicURL.Hostname(),
+						"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Hostname(),
 						"X-Forwarded-Proto": "https",
 					}
 					expectBlobExists(t, h, anycastToken, "test1/foo", blob, anycastHeaders)
@@ -178,10 +180,11 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 	//run everything in this testcase once for streamed upload and once for chunked upload
 	for _, isChunked := range []bool{false, true} {
 
-		testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
-			readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		testWithPrimary(t, nil, func(s test.Setup) {
+			h := s.Handler
+			readOnlyToken := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 				keppel.CanPullFromAccount)
-			token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+			token := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 				keppel.CanPullFromAccount,
 				keppel.CanPushToAccount)
 
@@ -203,7 +206,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 
 			//create the "test1/foo" repository to ensure that we don't just always hit
 			//NAME_UNKNOWN errors
-			_, err := keppel.FindOrCreateRepository(db, "foo", keppel.Account{Name: "test1"})
+			_, err := keppel.FindOrCreateRepository(s.DB, "foo", keppel.Account{Name: "test1"})
 			if err != nil {
 				t.Fatal(err.Error())
 			}
@@ -224,7 +227,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			}.Check(t, h)
 
 			//test failure cases during POST: account is in maintenance
-			testWithAccountInMaintenance(t, db, "test1", func() {
+			testWithAccountInMaintenance(t, s.DB, "test1", func() {
 				assert.HTTPRequest{
 					Method: "POST",
 					Path:   "/v2/test1/foo/blobs/uploads/",
@@ -392,7 +395,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			}
 
 			//failed requests should not retain anything in the storage
-			expectStorageEmpty(t, sd, db)
+			expectStorageEmpty(t, s.SD, s.DB)
 
 			//test success case twice: should look the same also in the second pass
 			for range []int{1, 2} {
@@ -445,13 +448,14 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 }
 
 func TestGetBlobUpload(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
+	testWithPrimary(t, nil, func(s test.Setup) {
+		h := s.Handler
 		//NOTE: We only use the read-write token for driving the blob upload through
 		//its various stages. All the GET requests use the read-only token to verify
 		//that read-only tokens work here.
-		readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		readOnlyToken := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount)
-		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		token := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 
@@ -459,7 +463,7 @@ func TestGetBlobUpload(t *testing.T) {
 
 		//create the "test1/foo" repository to ensure that we don't just always hit
 		//NAME_UNKNOWN errors
-		_, err := keppel.FindOrCreateRepository(db, "foo", keppel.Account{Name: "test1"})
+		_, err := keppel.FindOrCreateRepository(s.DB, "foo", keppel.Account{Name: "test1"})
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -529,8 +533,8 @@ func TestGetBlobUpload(t *testing.T) {
 				Path:   "/v2/test1/foo/blobs/uploads/" + uploadUUID,
 				Header: map[string]string{
 					"Authorization":     "Bearer " + readOnlyToken,
-					"X-Forwarded-Host":  cfg.AnycastAPIPublicURL.Host,
-					"X-Forwarded-Proto": cfg.AnycastAPIPublicURL.Scheme,
+					"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Host,
+					"X-Forwarded-Proto": s.Config.AnycastAPIPublicURL.Scheme,
 				},
 				ExpectStatus: http.StatusMethodNotAllowed,
 				ExpectHeader: test.VersionHeader,
@@ -557,18 +561,19 @@ func TestGetBlobUpload(t *testing.T) {
 }
 
 func TestDeleteBlobUpload(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
-		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+	testWithPrimary(t, nil, func(s test.Setup) {
+		h := s.Handler
+		token := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
-		deleteToken := getToken(t, h, ad, "repository:test1/foo:delete",
+		deleteToken := getToken(t, h, s.AD, "repository:test1/foo:delete",
 			keppel.CanDeleteFromAccount)
 
 		blobContents := []byte("just some random data")
 
 		//create the "test1/foo" repository to ensure that we don't just always hit
 		//NAME_UNKNOWN errors
-		_, err := keppel.FindOrCreateRepository(db, "foo", keppel.Account{Name: "test1"})
+		_, err := keppel.FindOrCreateRepository(s.DB, "foo", keppel.Account{Name: "test1"})
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -641,18 +646,19 @@ func TestDeleteBlobUpload(t *testing.T) {
 		}.Check(t, h)
 
 		//since all uploads were eventually deleted, there should be nothing in the storage
-		expectStorageEmpty(t, sd, db)
+		expectStorageEmpty(t, s.SD, s.DB)
 	})
 }
 
 func TestDeleteBlob(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
-		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+	testWithPrimary(t, nil, func(s test.Setup) {
+		h := s.Handler
+		token := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
-		deleteToken := getToken(t, h, ad, "repository:test1/foo:delete",
+		deleteToken := getToken(t, h, s.AD, "repository:test1/foo:delete",
 			keppel.CanDeleteFromAccount)
-		otherRepoToken := getToken(t, h, ad, "repository:test1/bar:pull,push",
+		otherRepoToken := getToken(t, h, s.AD, "repository:test1/bar:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 
@@ -747,13 +753,14 @@ func TestDeleteBlob(t *testing.T) {
 }
 
 func TestCrossRepositoryBlobMount(t *testing.T) {
-	testWithPrimary(t, nil, func(h http.Handler, cfg keppel.Configuration, db *keppel.DB, ad *test.AuthDriver, sd *test.StorageDriver, fd *test.FederationDriver, clock *test.Clock, auditor *test.Auditor) {
-		readOnlyToken := getToken(t, h, ad, "repository:test1/foo:pull,push",
+	testWithPrimary(t, nil, func(s test.Setup) {
+		h := s.Handler
+		readOnlyToken := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount)
-		token := getToken(t, h, ad, "repository:test1/foo:pull,push",
+		token := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
-		otherRepoToken := getToken(t, h, ad, "repository:test1/bar:pull,push",
+		otherRepoToken := getToken(t, h, s.AD, "repository:test1/bar:pull,push",
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 

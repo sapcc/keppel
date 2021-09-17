@@ -82,38 +82,38 @@ func TestDeleteAbandonedUploadWithManyChunks(t *testing.T) {
 }
 
 func testDeleteUpload(t *testing.T, setupUploadObject func(keppel.StorageDriver, keppel.Account) keppel.Upload) {
-	j, _, db, _, sd, clock, _ := setup(t)
+	j, s := setup(t)
 	account := keppel.Account{Name: "test1"}
 
 	//right now, there are no upload objects, so DeleteNextAbandonedUpload should indicate that
-	clock.StepBy(48 * time.Hour)
+	s.Clock.StepBy(48 * time.Hour)
 	expectNoRows(t, j.DeleteNextAbandonedUpload())
 
 	//create the upload object for this test
-	upload := setupUploadObject(sd, account)
+	upload := setupUploadObject(s.SD, account)
 	//apply common attributes
 	upload.RepositoryID = 1
 	upload.UUID = testUploadUUID
 	upload.StorageID = testStorageID
-	upload.UpdatedAt = clock.Now()
-	err := db.Insert(&upload)
+	upload.UpdatedAt = s.Clock.Now()
+	err := s.DB.Insert(&upload)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
 	//DeleteNextAbandonedUpload should not do anything since this upload is fairly recent
-	clock.StepBy(3 * time.Hour)
+	s.Clock.StepBy(3 * time.Hour)
 	expectNoRows(t, j.DeleteNextAbandonedUpload())
 
 	//after a day has passed, DeleteNextAbandonedUpload should clean up this upload
-	clock.StepBy(24 * time.Hour)
+	s.Clock.StepBy(24 * time.Hour)
 	err = j.DeleteNextAbandonedUpload()
 	if err != nil {
 		t.Errorf("expected no error, but got: %s", err.Error())
 	}
 
 	//now the DB should not contain any traces of the upload, only the account and repo
-	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/after-delete-upload.sql")
+	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/after-delete-upload.sql")
 
 	//and once again, DeleteNextAbandonedUpload should indicate that there's nothing to do
 	expectNoRows(t, j.DeleteNextAbandonedUpload())
