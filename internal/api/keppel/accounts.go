@@ -783,7 +783,8 @@ var (
 			FROM manifests m
 			JOIN repos r ON m.repo_id = r.id
 			JOIN accounts a ON a.name = r.account_name
-		 WHERE a.name = $1
+			LEFT OUTER JOIN manifest_manifest_refs mmr ON mmr.repo_id = r.id AND m.digest = mmr.child_digest
+		 WHERE a.name = $1 AND parent_digest IS NULL
 		 LIMIT 10
 	`)
 	deleteAccountCountManifestsQuery = keppel.SimplifyWhitespaceInSQL(`

@@ -41,13 +41,28 @@ func mustInsert(t *testing.T, db *keppel.DB, obj interface{}) {
 	}
 }
 
+func must(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+}
+
+func mustExec(t *testing.T, db *keppel.DB, query string, args ...interface{}) {
+	t.Helper()
+	_, err := db.Exec(query, args...)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+}
+
 func deterministicDummyDigest(counter int) string {
 	hash := sha256.Sum256(bytes.Repeat([]byte{1}, counter))
 	return "sha256:" + hex.EncodeToString(hash[:])
 }
 
 func TestReposAPI(t *testing.T) {
-	h, _, _, _, _, db, _ := setup(t)
+	h, _, _, _, _, db, _, _ := setup(t)
 
 	//setup two test accounts
 	mustInsert(t, db, &keppel.Account{
