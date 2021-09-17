@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package keppelv1
+package keppelv1_test
 
 import (
 	"net/http"

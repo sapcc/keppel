@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package authapi
+package authapi_test
 
 import (
 	"net/http"
@@ -27,6 +27,7 @@ import (
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/keppel/internal/api"
+	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -50,7 +51,7 @@ func TestPeeringAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	h := api.Compose(NewAPI(cfg, ad, fd, db))
+	h := api.Compose(authapi.NewAPI(cfg, ad, fd, db))
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()

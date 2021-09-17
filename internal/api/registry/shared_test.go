@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package registryv2
+package registryv2_test
 
 import (
 	"crypto/sha256"
@@ -31,6 +31,7 @@ import (
 	"github.com/sapcc/keppel/internal/api"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	peerv1 "github.com/sapcc/keppel/internal/api/peer"
+	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 	"golang.org/x/crypto/bcrypt"
@@ -102,7 +103,7 @@ func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(http
 		clock := &test.Clock{}
 		sidGen := &test.StorageIDGenerator{}
 		h := api.Compose(
-			NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+			registryv2.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 			peerv1.NewAPI(cfg, db),
 			authapi.NewAPI(cfg, ad, fd, db),
 		)
@@ -206,7 +207,7 @@ func testWithReplica(t *testing.T, h1 http.Handler, db1 *keppel.DB, clock *test.
 	sidGen := &test.StorageIDGenerator{}
 	auditor := &test.Auditor{}
 	h2 := api.Compose(
-		NewAPI(cfg2, ad2, fd2, sd2, icd2, db2, auditor, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
+		registryv2.NewAPI(cfg2, ad2, fd2, sd2, icd2, db2, auditor, nil).OverrideTimeNow(clock.Now).OverrideGenerateStorageID(sidGen.Next),
 		peerv1.NewAPI(cfg2, db2),
 		authapi.NewAPI(cfg2, ad2, fd2, db2),
 	)

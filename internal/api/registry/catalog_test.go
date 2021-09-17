@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package registryv2
+package registryv2_test
 
 import (
 	"fmt"
@@ -27,6 +27,7 @@ import (
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/keppel/internal/api"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
+	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -67,7 +68,7 @@ func TestCatalogEndpoint(t *testing.T) {
 	}
 	h := api.Compose(
 		authapi.NewAPI(cfg, ad, fd, db),
-		NewAPI(cfg, ad, fd, nil, nil, db, nil, nil),
+		registryv2.NewAPI(cfg, ad, fd, nil, nil, db, nil, nil),
 	)
 
 	//testcases

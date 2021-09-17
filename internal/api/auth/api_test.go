@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package authapi
+package authapi_test
 
 import (
 	"bytes"
@@ -31,6 +31,7 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/keppel/internal/api"
+	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -441,7 +442,7 @@ func setupGeneric(t *testing.T, isSecondary bool, testAccount keppel.Account) (h
 	}
 	fd.RecordExistingAccount(testAccount, time.Unix(0, 0))
 
-	h := api.Compose(NewAPI(cfg, ad, fd, db))
+	h := api.Compose(authapi.NewAPI(cfg, ad, fd, db))
 	return h, cfg, ad, fd.(*test.FederationDriver), db
 }
 

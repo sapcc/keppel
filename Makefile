@@ -40,7 +40,7 @@ GO_ALLPKGS := $(shell go list ./...)
 # which files to test with static checkers (this contains a list of globs)
 GO_ALLFILES := $(addsuffix /*.go,$(patsubst $(shell go list .)%,.%,$(shell go list ./...)))
 # which packages to test with "go test"
-GO_TESTPKGS := $(shell go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./...)
+GO_TESTPKGS := $(shell go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...)
 # which packages to measure coverage for
 GO_COVERPKGS := $(shell go list ./... | grep -E '/internal' | grep -Ev '/drivers|/test/util')
 # to get around weird Makefile syntax restrictions, we need variables containing a space and comma

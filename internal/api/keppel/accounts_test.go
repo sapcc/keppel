@@ -17,7 +17,7 @@
 *
 *******************************************************************************/
 
-package keppelv1
+package keppelv1_test
 
 import (
 	"bytes"
@@ -33,6 +33,7 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/hermes/pkg/cadf"
 	"github.com/sapcc/keppel/internal/api"
+	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
@@ -71,7 +72,7 @@ func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.FederationDriver
 
 	clock := &test.Clock{}
 	auditor := &test.Auditor{}
-	h := api.Compose(NewAPI(cfg, ad, fd, sd, icd, db, auditor))
+	h := api.Compose(keppelv1.NewAPI(cfg, ad, fd, sd, icd, db, auditor))
 
 	//second half of the ClairDouble setup
 	tt := &test.RoundTripper{

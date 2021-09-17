@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package registryv2
+package registryv2_test
 
 import (
 	"encoding/json"
