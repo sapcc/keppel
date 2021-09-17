@@ -200,15 +200,13 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 	for _, desc := range manifestParsed.BlobReferences() {
 		manifest.SizeBytes += uint64(desc.Size)
 	}
-	for _, desc := range manifestParsed.ManifestReferences(account.PlatformFilter) {
-		manifest.SizeBytes += uint64(desc.Size)
-	}
 
 	return p.insideTransaction(func(tx *gorp.Transaction) error {
-		referencedBlobs, referencedManifestDigests, err := findManifestReferencedObjects(tx, account, repo, manifestParsed)
+		referencedBlobs, referencedManifestDigests, sumChildSizes, err := findManifestReferencedObjects(tx, account, repo, manifestParsed)
 		if err != nil {
 			return err
 		}
+		manifest.SizeBytes += sumChildSizes
 		//enforce account-specific validation rules on manifest, but only when
 		//pushing (not when validating at a later point in time, the set of
 		//RequiredLabels could have been changed by then)
@@ -262,7 +260,7 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 	})
 }
 
-func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account, repo keppel.Repository, manifest keppel.ParsedManifest) (blobRefs []blobRef, manifestDigests []string, returnErr error) {
+func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account, repo keppel.Repository, manifest keppel.ParsedManifest) (blobRefs []blobRef, manifestDigests []string, sumChildSizes uint64, returnErr error) {
 	//ensure that we don't insert duplicate entries into `blobRefs` and `manifestDigests`
 	wasHandled := make(map[string]bool)
 
@@ -274,16 +272,16 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 
 		blob, err := keppel.FindBlobByRepository(tx, desc.Digest, repo, account)
 		if err == sql.ErrNoRows {
-			return nil, nil, keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String())
+			return nil, nil, 0, keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String())
 		}
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, 0, err
 		}
 		if blob.SizeBytes != uint64(desc.Size) {
 			msg := fmt.Sprintf(
 				"manifest references blob %s with %d bytes, but blob actually contains %d bytes",
 				desc.Digest.String(), desc.Size, blob.SizeBytes)
-			return nil, nil, keppel.ErrManifestInvalid.With(msg)
+			return nil, nil, 0, keppel.ErrManifestInvalid.With(msg)
 		}
 		blobRefs = append(blobRefs, blobRef{blob.ID, desc.MediaType})
 	}
@@ -294,17 +292,18 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 		}
 		wasHandled[desc.Digest.String()] = true
 
-		_, err := keppel.FindManifest(tx, repo, desc.Digest.String())
+		manifest, err := keppel.FindManifest(tx, repo, desc.Digest.String())
 		if err == sql.ErrNoRows {
-			return nil, nil, keppel.ErrManifestUnknown.With("").WithDetail(desc.Digest.String())
+			return nil, nil, 0, keppel.ErrManifestUnknown.With("").WithDetail(desc.Digest.String())
 		}
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, 0, err
 		}
 		manifestDigests = append(manifestDigests, desc.Digest.String())
+		sumChildSizes += manifest.SizeBytes
 	}
 
-	return blobRefs, manifestDigests, nil
+	return blobRefs, manifestDigests, sumChildSizes, nil
 }
 
 //Returns the list of missing labels, or nil if everything is ok.
