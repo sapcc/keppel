@@ -39,12 +39,15 @@ var (
 	barRepoRef = keppel.Repository{AccountName: "test1", Name: "bar"}
 )
 
+//the auth tenant ID that all test accounts use
+const authTenantID = "test1authtenant"
+
 func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(test.Setup)) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
 		for _, withAnycast := range []bool{false, true} {
 			s := test.NewSetup(t,
 				test.WithAnycast(withAnycast),
-				test.WithAccount(keppel.Account{Name: "test1", AuthTenantID: "test1authtenant"}),
+				test.WithAccount(keppel.Account{Name: "test1", AuthTenantID: authTenantID}),
 				test.WithQuotas,
 				test.WithPeerAPI,
 				test.WithRateLimitEngine(rle),
@@ -65,7 +68,7 @@ func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(test
 }
 
 func testWithReplica(t *testing.T, s1 test.Setup, strategy string, action func(firstPass bool, s2 test.Setup)) {
-	testAccount := keppel.Account{Name: "test1", AuthTenantID: "test1authtenant"}
+	testAccount := keppel.Account{Name: "test1", AuthTenantID: authTenantID}
 	switch strategy {
 	case "on_first_use":
 		testAccount.UpstreamPeerHostName = "registry.example.org"
@@ -139,24 +142,6 @@ func testAnycast(t *testing.T, firstPass bool, db2 *keppel.DB, action func()) {
 
 ////////////////////////////////////////////////////////////////////////////////
 // helpers for setting up test scenarios
-
-func getToken(t *testing.T, h http.Handler, ad keppel.AuthDriver, scope string, perms ...keppel.Permission) string {
-	t.Helper()
-
-	return ad.(*test.AuthDriver).GetTokenForTest(t, h, "registry.example.org", scope, "test1authtenant", perms...)
-}
-
-func getTokenForSecondary(t *testing.T, h http.Handler, ad keppel.AuthDriver, scope string, perms ...keppel.Permission) string {
-	t.Helper()
-
-	return ad.(*test.AuthDriver).GetTokenForTest(t, h, "registry-secondary.example.org", scope, "test1authtenant", perms...)
-}
-
-func getTokenForAnycast(t *testing.T, h http.Handler, ad keppel.AuthDriver, scope string, perms ...keppel.Permission) string {
-	t.Helper()
-
-	return ad.(*test.AuthDriver).GetTokenForTest(t, h, "registry-global.example.org", scope, "test1authtenant", perms...)
-}
 
 func getBlobUpload(t *testing.T, h http.Handler, token, fullRepoName string) (uploadURL, uploadUUID string) {
 	t.Helper()

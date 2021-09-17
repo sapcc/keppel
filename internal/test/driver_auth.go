@@ -166,15 +166,7 @@ var authorizationHeader = "Basic " + base64.StdEncoding.EncodeToString(
 	[]byte("correctusername:correctpassword"),
 )
 
-//GetTokenForTest can be used by unit tests to obtain a token for use with the
-//Registry v2 API. `h` must serve an authapi.API that uses `d` as its auth
-//driver.
-//
-//`scope` is the token scope, e.g. "repository:test1/foo:pull". `authTenantID`
-//is the ID of the auth tenant backing the requested account. `perms` is the
-//set of permissions that the requesting user has (the AuthDriver will set up
-//mock permissions for the duration of the token request).
-func (d *AuthDriver) GetTokenForTest(t *testing.T, h http.Handler, service, scope, authTenantID string, perms ...keppel.Permission) string {
+func (d *AuthDriver) getTokenForTest(t *testing.T, h http.Handler, service, scope, authTenantID string, perms []keppel.Permission) string {
 	t.Helper()
 	//configure AuthDriver to allow access for this call
 	d.ExpectedUserName = "correctusername"

@@ -60,7 +60,7 @@ func TestRateLimits(t *testing.T) {
 		}
 
 		h := s.Handler
-		token := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
+		token := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID, authTenantID,
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 		bogusDigest := "sha256:" + sha256Of([]byte("something else"))
@@ -165,7 +165,7 @@ func TestAnycastRateLimits(t *testing.T) {
 
 		//upload the test blob
 		h := s.Handler
-		uploadToken := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
+		uploadToken := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 		blob.MustUpload(t, h, uploadToken, fooRepoRef)
@@ -176,7 +176,7 @@ func TestAnycastRateLimits(t *testing.T) {
 			s.Clock.StepBy(time.Hour) //reset all rate limits
 			testAnycast(t, firstPass, s2.DB, func() {
 
-				anycastToken := getTokenForAnycast(t, h, s.AD, "repository:test1/foo:pull",
+				anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull", authTenantID,
 					keppel.CanPullFromAccount)
 				anycastHeaders := map[string]string{
 					"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Hostname(),

@@ -36,7 +36,7 @@ func TestCatalogEndpoint(t *testing.T) {
 	for idx := 1; idx <= 3; idx++ {
 		err := s.DB.Insert(&keppel.Account{
 			Name:           fmt.Sprintf("test%d", idx),
-			AuthTenantID:   "test1authtenant",
+			AuthTenantID:   authTenantID,
 			GCPoliciesJSON: "[]",
 		})
 		if err != nil {
@@ -55,15 +55,16 @@ func TestCatalogEndpoint(t *testing.T) {
 	}
 
 	//testcases
-	testEmptyCatalog(t, s.Handler, s.AD)
-	testNonEmptyCatalog(t, s.Handler, s.AD)
-	testAuthErrorsForCatalog(t, s.Handler, s.AD)
+	testEmptyCatalog(t, s)
+	testNonEmptyCatalog(t, s)
+	testAuthErrorsForCatalog(t, s)
 }
 
-func testEmptyCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
+func testEmptyCatalog(t *testing.T, s test.Setup) {
 	//token without any permissions is able to call the endpoint, but cannot list
 	//repos in any account, so the list is empty
-	token := getToken(t, h, ad, "registry:catalog:*" /* , no permissions */)
+	h := s.Handler
+	token := s.GetToken(t, "registry:catalog:*", authTenantID /* , no permissions */)
 
 	req := assert.HTTPRequest{
 		Method:       "GET",
@@ -84,9 +85,10 @@ func testEmptyCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 	req.Check(t, h)
 }
 
-func testNonEmptyCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
+func testNonEmptyCatalog(t *testing.T, s test.Setup) {
 	//token with keppel.CanViewAccount can read all accounts' catalogs
-	token := getToken(t, h, ad, "registry:catalog:*", keppel.CanViewAccount)
+	h := s.Handler
+	token := s.GetToken(t, "registry:catalog:*", authTenantID, keppel.CanViewAccount)
 
 	allRepos := []string{
 		"test1/bar",
@@ -170,8 +172,9 @@ func testNonEmptyCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
 	}.Check(t, h)
 }
 
-func testAuthErrorsForCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver) {
+func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
 	//without token, expect auth challenge
+	h := s.Handler
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/_catalog",
@@ -186,7 +189,7 @@ func testAuthErrorsForCatalog(t *testing.T, h http.Handler, ad keppel.AuthDriver
 	}.Check(t, h)
 
 	//with token for wrong scope, expect Forbidden and renewed auth challenge
-	token := getToken(t, h, ad, "repository:test1/foo:pull", keppel.CanPullFromAccount)
+	token := s.GetToken(t, "repository:test1/foo:pull", authTenantID, keppel.CanPullFromAccount)
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/_catalog",

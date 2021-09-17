@@ -51,7 +51,7 @@ func TestVersionCheckEndpoint(t *testing.T) {
 		}.Check(t, h)
 
 		//with token, expect status code 200
-		token := getToken(t, h, s.AD, "" /* , no permissions */)
+		token := s.GetToken(t, "", authTenantID /* , no permissions */)
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/",
@@ -70,7 +70,7 @@ func TestKeppelAPIAuth(t *testing.T) {
 		//upload a manifest for testing (using bearer tokens since all our test
 		//helper functions use those)
 		h := s.Handler
-		token := getToken(t, h, s.AD, "repository:test1/foo:pull,push",
+		token := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
 			keppel.CanPullFromAccount,
 			keppel.CanPushToAccount)
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
