@@ -27,7 +27,7 @@ import (
 )
 
 func TestPeersAPI(t *testing.T) {
-	h, _, _, _, _, db, _ := setup(t)
+	h, _, _, _, _, db, _, _ := setup(t)
 
 	//check empty response when there are no peers in the DB
 	assert.HTTPRequest{

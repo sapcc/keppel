@@ -31,7 +31,7 @@ import (
 )
 
 func TestQuotasAPI(t *testing.T) {
-	r, _, _, auditor, _, db, _ := setup(t)
+	r, _, _, auditor, _, db, _, _ := setup(t)
 
 	//GET on auth tenant without more specific configuration shows default values
 	assert.HTTPRequest{

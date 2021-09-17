@@ -44,7 +44,7 @@ func deterministicDummyVulnStatus(counter int) clair.VulnerabilityStatus {
 }
 
 func TestManifestsAPI(t *testing.T) {
-	h, _, _, auditor, sd, db, claird := setup(t)
+	h, _, _, auditor, sd, db, _, claird := setup(t)
 
 	//setup two test accounts
 	mustInsert(t, db, &keppel.Account{

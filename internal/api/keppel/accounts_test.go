@@ -38,7 +38,7 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
-func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.FederationDriver, *test.Auditor, keppel.StorageDriver, *keppel.DB, *test.ClairDouble) {
+func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.FederationDriver, *test.Auditor, keppel.StorageDriver, *keppel.DB, *test.Clock, *test.ClairDouble) {
 	cfg, db := test.Setup(t, nil)
 
 	//setup a dummy ClairClient for testing the GET vulnerability report endpoint
@@ -69,6 +69,7 @@ func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.FederationDriver
 		t.Fatal(err.Error())
 	}
 
+	clock := &test.Clock{}
 	auditor := &test.Auditor{}
 	h := api.Compose(NewAPI(cfg, ad, fd, sd, icd, db, auditor))
 
@@ -81,11 +82,11 @@ func setup(t *testing.T) (http.Handler, *test.AuthDriver, *test.FederationDriver
 	}
 	http.DefaultClient.Transport = tt
 
-	return h, ad.(*test.AuthDriver), fd.(*test.FederationDriver), auditor, sd, db, claird
+	return h, ad.(*test.AuthDriver), fd.(*test.FederationDriver), auditor, sd, db, clock, claird
 }
 
 func TestAccountsAPI(t *testing.T) {
-	r, authDriver, fd, auditor, _, _, _ := setup(t)
+	r, authDriver, fd, auditor, _, _, _, _ := setup(t)
 
 	//test the /keppel/v1 endpoint
 	assert.HTTPRequest{
@@ -603,7 +604,7 @@ func TestAccountsAPI(t *testing.T) {
 }
 
 func TestGetAccountsErrorCases(t *testing.T) {
-	r, _, _, _, _, _, _ := setup(t)
+	r, _, _, _, _, _, _, _ := setup(t)
 
 	//test invalid authentication
 	assert.HTTPRequest{
@@ -632,7 +633,7 @@ func TestGetAccountsErrorCases(t *testing.T) {
 }
 
 func TestPutAccountErrorCases(t *testing.T) {
-	r, _, fd, _, _, _, _ := setup(t)
+	r, _, fd, _, _, _, _, _ := setup(t)
 
 	//preparation: create an account (so that we can check the error that the requested account name is taken)
 	assert.HTTPRequest{
@@ -1010,7 +1011,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 }
 
 func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
-	r, _, fd, _, _, db, _ := setup(t)
+	r, _, fd, _, _, db, _, _ := setup(t)
 
 	//configure a peer
 	err := db.Insert(&keppel.Peer{HostName: "peer.example.org"})
@@ -1196,7 +1197,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 }
 
 func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
-	r, _, fd, _, _, _, _ := setup(t)
+	r, _, fd, _, _, _, _, _ := setup(t)
 
 	//test error cases on creation
 	assert.HTTPRequest{
@@ -1553,8 +1554,30 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 	}.Check(t, r)
 }
 
+func uploadManifest(t *testing.T, db *keppel.DB, sd keppel.StorageDriver, clock *test.Clock, account *keppel.Account, repo *keppel.Repository, manifest test.Bytes, sizeBytes uint64) keppel.Manifest {
+	t.Helper()
+
+	dbManifest := keppel.Manifest{
+		RepositoryID:        repo.ID,
+		Digest:              manifest.Digest.String(),
+		MediaType:           manifest.MediaType,
+		SizeBytes:           sizeBytes,
+		PushedAt:            clock.Now(),
+		ValidatedAt:         clock.Now(),
+		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
+	}
+	must(t, db.Insert(&dbManifest))
+	must(t, db.Insert(&keppel.ManifestContent{
+		RepositoryID: repo.ID,
+		Digest:       manifest.Digest.String(),
+		Content:      manifest.Contents,
+	}))
+	must(t, sd.WriteManifest(*account, repo.Name, manifest.Digest.String(), manifest.Contents))
+	return dbManifest
+}
+
 func TestDeleteAccount(t *testing.T) {
-	r, _, fd, _, sd, db, _ := setup(t)
+	r, _, fd, _, sd, db, clock, _ := setup(t)
 
 	//setup test accounts and repositories
 	nextBlobSweepAt := time.Unix(200, 0)
@@ -1633,6 +1656,13 @@ func TestDeleteAccount(t *testing.T) {
 		}
 	}
 
+	imageList := test.GenerateImageList(image)
+	uploadManifest(t, db, sd, clock, accounts[0], repos[0], imageList.Manifest, imageList.SizeBytes())
+	mustExec(t, db,
+		`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES ($1, $2, $3)`,
+		repos[0].ID, imageList.Manifest.Digest.String(), image.Manifest.Digest.String(),
+	)
+
 	easypg.AssertDBContent(t, db.DbMap.Db, "fixtures/delete-account-000.sql")
 
 	//failure case: insufficient permissions (the "delete" permission refers to
@@ -1671,10 +1701,10 @@ func TestDeleteAccount(t *testing.T) {
 		ExpectStatus: http.StatusConflict,
 		ExpectBody: assert.JSONObject{
 			"remaining_manifests": assert.JSONObject{
-				"count": 1,
+				"count": 2,
 				"next": []assert.JSONObject{{
 					"repository": repos[0].Name,
-					"digest":     image.Manifest.Digest.String(),
+					"digest":     imageList.Manifest.Digest.String(),
 				}},
 			},
 		},
@@ -1685,6 +1715,32 @@ func TestDeleteAccount(t *testing.T) {
 
 	//as indicated by the response, we need to delete the specified manifest to
 	//proceed with the account deletion
+	assert.HTTPRequest{
+		Method: "DELETE",
+		Path: fmt.Sprintf(
+			"/keppel/v1/accounts/test1/repositories/%s/_manifests/%s",
+			repos[0].Name, "sha256:13493afd2a64d1a14fb5ca0d2fe312117239b935ea40dc35ca59c55931a86ab7",
+		),
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
+		ExpectStatus: http.StatusNoContent,
+	}.Check(t, r)
+
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
+		ExpectStatus: http.StatusConflict,
+		ExpectBody: assert.JSONObject{
+			"remaining_manifests": assert.JSONObject{
+				"count": 1,
+				"next": []assert.JSONObject{{
+					"repository": repos[0].Name,
+					"digest":     image.Manifest.Digest.String(),
+				}},
+			},
+		},
+	}.Check(t, r)
+
 	assert.HTTPRequest{
 		Method: "DELETE",
 		Path: fmt.Sprintf(

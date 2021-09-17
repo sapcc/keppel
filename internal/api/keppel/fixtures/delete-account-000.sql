@@ -14,6 +14,11 @@ INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, 'sha256:7ce
 INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, 'sha256:7ce8d2ddbc66e475563019803ff254fb78b7becafd39959dc735ace4efaf395e', 2);
 INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, 'sha256:7ce8d2ddbc66e475563019803ff254fb78b7becafd39959dc735ace4efaf395e', 3);
 
+INSERT INTO manifest_contents (repo_id, digest, content) VALUES (1, 'sha256:13493afd2a64d1a14fb5ca0d2fe312117239b935ea40dc35ca59c55931a86ab7', '{"manifests":[{"digest":"sha256:7ce8d2ddbc66e475563019803ff254fb78b7becafd39959dc735ace4efaf395e","mediaType":"application/vnd.docker.distribution.manifest.v2+json","platform":{"architecture":"amd64","os":"linux"},"size":592}],"mediaType":"application/vnd.docker.distribution.manifest.list.v2+json","schemaVersion":2}');
+
+INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, 'sha256:13493afd2a64d1a14fb5ca0d2fe312117239b935ea40dc35ca59c55931a86ab7', 'sha256:7ce8d2ddbc66e475563019803ff254fb78b7becafd39959dc735ace4efaf395e');
+
+INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message, last_pulled_at, next_vuln_check_at, vuln_status, vuln_scan_error, labels_json) VALUES (1, 'sha256:13493afd2a64d1a14fb5ca0d2fe312117239b935ea40dc35ca59c55931a86ab7', 'application/vnd.docker.distribution.manifest.list.v2+json', 909, 0, 0, '', NULL, NULL, 'Pending', '', '');
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message, last_pulled_at, next_vuln_check_at, vuln_status, vuln_scan_error, labels_json) VALUES (1, 'sha256:7ce8d2ddbc66e475563019803ff254fb78b7becafd39959dc735ace4efaf395e', 'application/vnd.docker.distribution.manifest.v2+json', 592, 100, 100, '', NULL, NULL, 'Pending', '', '');
 
 INSERT INTO repos (id, account_name, name, next_blob_mount_sweep_at, next_manifest_sync_at, next_gc_at) VALUES (1, 'test1', 'foo/bar', NULL, NULL, NULL);
