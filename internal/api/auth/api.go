@@ -66,8 +66,6 @@ func respondWithError(w http.ResponseWriter, code int, err error) bool {
 	return false
 }
 
-var errUnautorized = errors.New("incorrect username or password")
-
 func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/auth")
 
