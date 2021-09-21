@@ -107,7 +107,7 @@ func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration, ad keppel.
 		ourIssuerKey := audience.IssuerKey(cfg)
 		ourSigningMethod := ChooseSigningMethod(ourIssuerKey)
 		if !equalSigningMethods(ourSigningMethod, t.Method) {
-			return nil, fmt.Errorf("Unexpected signing method: %v", t.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
 
 		//jwt.Parse needs the public key for our issuer key to validate the token
