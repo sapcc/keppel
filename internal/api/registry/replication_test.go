@@ -34,11 +34,9 @@ import (
 func TestReplicationSimpleImage(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
 		//upload image to primary account
-		h1 := s1.Handler
-		token := s1.GetToken(t, "repository:test1/foo:pull,push")
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		s1.Clock.Step()
-		image.MustUpload(t, h1, s1.DB, token, fooRepoRef, "first")
+		image.MustUpload(t, s1, fooRepoRef, "first")
 
 		//test pull by manifest in secondary account
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
@@ -94,15 +92,13 @@ func TestReplicationSimpleImage(t *testing.T) {
 func TestReplicationImageList(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
 		//upload image list with two images to primary account
-		h1 := s1.Handler
-		token := s1.GetToken(t, "repository:test1/foo:pull,push")
 		image1 := test.GenerateImage(test.GenerateExampleLayer(1))
 		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
 		list := test.GenerateImageList(image1, image2)
 		s1.Clock.Step()
-		image1.MustUpload(t, h1, s1.DB, token, fooRepoRef, "first")
-		image2.MustUpload(t, h1, s1.DB, token, fooRepoRef, "second")
-		list.MustUpload(t, h1, s1.DB, token, fooRepoRef, "list")
+		image1.MustUpload(t, s1, fooRepoRef, "first")
+		image2.MustUpload(t, s1, fooRepoRef, "second")
+		list.MustUpload(t, s1, fooRepoRef, "list")
 
 		//test pull in secondary account
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
@@ -227,11 +223,9 @@ func TestReplicationForbidDirectUpload(t *testing.T) {
 func TestReplicationManifestQuotaExceeded(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
 		//upload image to primary account
-		h1 := s1.Handler
-		token := s1.GetToken(t, "repository:test1/foo:pull,push")
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		s1.Clock.Step()
-		image.MustUpload(t, h1, s1.DB, token, fooRepoRef, "first")
+		image.MustUpload(t, s1, fooRepoRef, "first")
 
 		//in secondary account...
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
@@ -268,11 +262,9 @@ func TestReplicationManifestQuotaExceeded(t *testing.T) {
 func TestReplicationUseCachedBlobMetadata(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
 		//upload image to primary account
-		h1 := s1.Handler
-		token := s1.GetToken(t, "repository:test1/foo:pull,push")
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		s1.Clock.Step()
-		image.MustUpload(t, h1, s1.DB, token, fooRepoRef, "first")
+		image.MustUpload(t, s1, fooRepoRef, "first")
 
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
 			//in the first pass, just replicate the manifest
@@ -304,12 +296,10 @@ func TestReplicationUseCachedBlobMetadata(t *testing.T) {
 func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
 		//upload image to primary account
-		h1 := s1.Handler
-		token := s1.GetToken(t, "repository:test1/foo:pull,push")
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		s1.Clock.Step()
-		image.MustUpload(t, h1, s1.DB, token, fooRepoRef, "first")
-		image.MustUpload(t, h1, s1.DB, token, fooRepoRef, "second")
+		image.MustUpload(t, s1, fooRepoRef, "first")
+		image.MustUpload(t, s1, fooRepoRef, "second")
 
 		testWithReplica(t, s1, "from_external_on_first_use", func(firstPass bool, s2 test.Setup) {
 			//need only one pass for this test
@@ -380,15 +370,13 @@ func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 		//This test is mostly identical to TestReplicationImageList(), but the
 		//replica will get a platform_filter and thus not replicate all
 		//submanifests.
-		h1 := s1.Handler
-		token := s1.GetToken(t, "repository:test1/foo:pull,push")
 		image1 := test.GenerateImage(test.GenerateExampleLayer(1))
 		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
 		list := test.GenerateImageList(image1, image2)
 		s1.Clock.Step()
-		image1.MustUpload(t, h1, s1.DB, token, fooRepoRef, "first")
-		image2.MustUpload(t, h1, s1.DB, token, fooRepoRef, "second")
-		list.MustUpload(t, h1, s1.DB, token, fooRepoRef, "list")
+		image1.MustUpload(t, s1, fooRepoRef, "first")
+		image2.MustUpload(t, s1, fooRepoRef, "second")
+		list.MustUpload(t, s1, fooRepoRef, "list")
 
 		//test pull in secondary account
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {

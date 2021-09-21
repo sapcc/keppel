@@ -35,7 +35,6 @@ import (
 func TestListTags(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		token := s.GetToken(t, "repository:test1/foo:pull,push")
 		readOnlyToken := s.GetToken(t, "repository:test1/foo:pull")
 
 		//test tag list for missing repo
@@ -50,7 +49,7 @@ func TestListTags(t *testing.T) {
 
 		//upload a test image without tagging it
 		image := test.GenerateImage( /* no layers */ )
-		image.MustUpload(t, h, s.DB, token, fooRepoRef, "")
+		image.MustUpload(t, s, fooRepoRef, "")
 
 		//test empty tag list for existing repo
 		req := assert.HTTPRequest{
@@ -80,7 +79,7 @@ func TestListTags(t *testing.T) {
 			allTagNames[i], allTagNames[j] = allTagNames[j], allTagNames[i]
 		})
 		for _, tagName := range allTagNames {
-			image.MustUpload(t, h, s.DB, token, fooRepoRef, tagName)
+			image.MustUpload(t, s, fooRepoRef, tagName)
 		}
 		//but when listing tags, we expect them in sorted order
 		sort.Strings(allTagNames)

@@ -128,10 +128,13 @@ type Setup struct {
 	SD           *StorageDriver
 	ICD          *InboundCacheDriver
 	Handler      http.Handler
-	ClairDouble  *ClairDouble
+	//fields that are only set if the respective With... setup option is included
+	ClairDouble *ClairDouble
 	//fields that are filled by WithAccount and WithRepo (in order)
 	Accounts []*keppel.Account
 	Repos    []*keppel.Repository
+	//fields that are only accessible to helper functions
+	tokenCache map[string]string
 }
 
 //these credentials are in global vars so that we don't have to recompute them
@@ -179,6 +182,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 			DatabaseURL:  *dbURL,
 			JWTIssuerKey: jwtIssuerKey,
 		},
+		tokenCache: make(map[string]string),
 	}
 
 	//setup a dummy ClairClient for testing interaction with the Clair API

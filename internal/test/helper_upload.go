@@ -45,7 +45,9 @@ var VersionHeader = map[string]string{VersionHeaderKey: VersionHeaderValue}
 //
 //`h` must serve the Registry V2 API.
 //`token` must be a Bearer token capable of pushing into the specified repo.
-func (b Bytes) MustUpload(t *testing.T, h http.Handler, token string, repo keppel.Repository) {
+func (b Bytes) MustUpload(t *testing.T, s Setup, repo keppel.Repository) {
+	token := s.GetToken(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
+
 	//create blob with a monolithic upload
 	assert.HTTPRequest{
 		Method: "POST",
@@ -57,7 +59,7 @@ func (b Bytes) MustUpload(t *testing.T, h http.Handler, token string, repo keppe
 		},
 		Body:         assert.ByteData(b.Contents),
 		ExpectStatus: http.StatusCreated,
-	}.Check(t, h)
+	}.Check(t, s.Handler)
 	if t.Failed() {
 		t.FailNow()
 	}
@@ -72,7 +74,7 @@ func (b Bytes) MustUpload(t *testing.T, h http.Handler, token string, repo keppe
 			VersionHeaderKey: VersionHeaderValue,
 			"Content-Length": strconv.Itoa(len(b.Contents)),
 		},
-	}.Check(t, h)
+	}.Check(t, s.Handler)
 	if t.Failed() {
 		t.FailNow()
 	}
@@ -85,18 +87,16 @@ var checkBlobExistsQuery = keppel.SimplifyWhitespaceInSQL(`
 //MustUpload uploads the image via the Registry V2 API. This also
 //uploads all referenced blobs that do not exist in the DB yet.
 //
-//`h` must serve the Registry V2 API.
-//`token` must be a Bearer token capable of pushing into the specified repo.
 //`tagName` may be empty if the image is to be uploaded without tagging.
-func (i Image) MustUpload(t *testing.T, h http.Handler, db *keppel.DB, token string, repo keppel.Repository, tagName string) {
+func (i Image) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName string) {
 	//upload missing blobs
 	for _, blob := range append(i.Layers, i.Config) {
-		count, err := db.SelectInt(checkBlobExistsQuery, repo.AccountName, blob.Digest.String())
+		count, err := s.DB.SelectInt(checkBlobExistsQuery, repo.AccountName, blob.Digest.String())
 		if err != nil {
 			t.Fatal(err.Error())
 		}
 		if count == 0 {
-			blob.MustUpload(t, h, token, repo)
+			blob.MustUpload(t, s, repo)
 		}
 	}
 	if t.Failed() {
@@ -109,6 +109,7 @@ func (i Image) MustUpload(t *testing.T, h http.Handler, db *keppel.DB, token str
 		ref = keppel.ManifestReference{Tag: tagName}
 	}
 	urlPath := fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), ref)
+	token := s.GetToken(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   urlPath,
@@ -118,7 +119,7 @@ func (i Image) MustUpload(t *testing.T, h http.Handler, db *keppel.DB, token str
 		},
 		Body:         assert.ByteData(i.Manifest.Contents),
 		ExpectStatus: http.StatusCreated,
-	}.Check(t, h)
+	}.Check(t, s.Handler)
 	if t.Failed() {
 		t.FailNow()
 	}
@@ -133,7 +134,7 @@ func (i Image) MustUpload(t *testing.T, h http.Handler, db *keppel.DB, token str
 			VersionHeaderKey: VersionHeaderValue,
 			"Content-Length": strconv.Itoa(len(i.Manifest.Contents)),
 		},
-	}.Check(t, h)
+	}.Check(t, s.Handler)
 	if t.Failed() {
 		t.FailNow()
 	}
@@ -148,18 +149,16 @@ var checkManifestExistsQuery = keppel.SimplifyWhitespaceInSQL(`
 //MustUpload uploads the image list via the Registry V2 API. This
 //also uploads all referenced images that do not exist in the DB yet.
 //
-//`h` must serve the Registry V2 API.
-//`token` must be a Bearer token capable of pushing into the specified repo.
 //`tagName` may be empty if the image is to be uploaded without tagging.
-func (l ImageList) MustUpload(t *testing.T, h http.Handler, db *keppel.DB, token string, repo keppel.Repository, tagName string) {
+func (l ImageList) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName string) {
 	//upload missing images
 	for _, image := range l.Images {
-		count, err := db.SelectInt(checkManifestExistsQuery, repo.AccountName, repo.Name, image.Manifest.Digest.String())
+		count, err := s.DB.SelectInt(checkManifestExistsQuery, repo.AccountName, repo.Name, image.Manifest.Digest.String())
 		if err != nil {
 			t.Fatal(err.Error())
 		}
 		if count == 0 {
-			image.MustUpload(t, h, db, token, repo, "")
+			image.MustUpload(t, s, repo, "")
 		}
 	}
 	if t.Failed() {
@@ -172,6 +171,7 @@ func (l ImageList) MustUpload(t *testing.T, h http.Handler, db *keppel.DB, token
 		ref = keppel.ManifestReference{Tag: tagName}
 	}
 	urlPath := fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), ref)
+	token := s.GetToken(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   urlPath,
@@ -181,7 +181,7 @@ func (l ImageList) MustUpload(t *testing.T, h http.Handler, db *keppel.DB, token
 		},
 		Body:         assert.ByteData(l.Manifest.Contents),
 		ExpectStatus: http.StatusCreated,
-	}.Check(t, h)
+	}.Check(t, s.Handler)
 	if t.Failed() {
 		t.FailNow()
 	}
@@ -196,7 +196,7 @@ func (l ImageList) MustUpload(t *testing.T, h http.Handler, db *keppel.DB, token
 			VersionHeaderKey: VersionHeaderValue,
 			"Content-Length": strconv.Itoa(len(l.Manifest.Contents)),
 		},
-	}.Check(t, h)
+	}.Check(t, s.Handler)
 	if t.Failed() {
 		t.FailNow()
 	}

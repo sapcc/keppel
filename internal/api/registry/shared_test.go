@@ -34,7 +34,7 @@ import (
 var (
 	currentlyWithAnycast bool
 
-	//only for use with .UploadToRegistryAPI()
+	//only for use with .MustUpload()
 	fooRepoRef = keppel.Repository{AccountName: "test1", Name: "foo"}
 	barRepoRef = keppel.Repository{AccountName: "test1", Name: "bar"}
 )

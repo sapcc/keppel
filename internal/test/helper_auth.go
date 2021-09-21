@@ -19,6 +19,7 @@
 package test
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -46,6 +47,12 @@ func (s Setup) GetAnycastToken(t *testing.T, scopes ...string) string {
 
 func (s Setup) getToken(t *testing.T, audience auth.Service, scopes ...string) string {
 	t.Helper()
+
+	//optimization: don't issue the same token twice in a single test run
+	cacheKey := strings.Join(append([]string{strconv.Itoa(int(audience))}, scopes...), "|")
+	if token, exists := s.tokenCache[cacheKey]; exists {
+		return token
+	}
 
 	//parse scopes
 	var ss auth.ScopeSet
@@ -116,6 +123,8 @@ func (s Setup) getToken(t *testing.T, audience auth.Service, scopes ...string) s
 		Access:   flatScopes,
 	}.Issue(s.Config)
 	must(t, err)
+
+	s.tokenCache[cacheKey] = issuedToken.SignedToken
 	return issuedToken.SignedToken
 }
 

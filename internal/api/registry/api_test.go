@@ -70,10 +70,9 @@ func TestKeppelAPIAuth(t *testing.T) {
 		//upload a manifest for testing (using bearer tokens since all our test
 		//helper functions use those)
 		h := s.Handler
-		token := s.GetToken(t, "repository:test1/foo:pull,push")
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		s.Clock.Step()
-		image.MustUpload(t, h, s.DB, token, fooRepoRef, "first")
+		image.MustUpload(t, s, fooRepoRef, "first")
 
 		//test scopeless endpoint: happy case
 		assert.HTTPRequest{

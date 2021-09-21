@@ -153,7 +153,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			//PUT failure case: cannot upload manifest if referenced blob is uploaded, but
 			//in the wrong repo
-			image.Config.MustUpload(t, h, otherRepoToken, barRepoRef)
+			image.Config.MustUpload(t, s, barRepoRef)
 			assert.HTTPRequest{
 				Method: "PUT",
 				Path:   "/v2/test1/foo/manifests/" + ref,
@@ -192,13 +192,13 @@ func TestImageManifestLifecycle(t *testing.T) {
 			s.Clock.Step()
 			easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-001-before-upload-blob.sql")
 
-			image.Config.MustUpload(t, h, token, fooRepoRef)
-			image.Config.MustUpload(t, h, token, fooRepoRef)
+			image.Config.MustUpload(t, s, fooRepoRef)
+			image.Config.MustUpload(t, s, fooRepoRef)
 			s.Clock.Step()
 			easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-002-after-upload-blob.sql")
 
-			image.MustUpload(t, h, s.DB, token, fooRepoRef, tagName)
-			image.MustUpload(t, h, s.DB, token, fooRepoRef, tagName)
+			image.MustUpload(t, s, fooRepoRef, tagName)
+			image.MustUpload(t, s, fooRepoRef, tagName)
 			s.Clock.Step()
 			if ref == "latest" {
 				easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-tag.sql")
@@ -384,9 +384,9 @@ func TestImageListManifestLifecycle(t *testing.T) {
 		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
 		image3 := test.GenerateImage(test.GenerateExampleLayer(3))
 		s.Clock.Step()
-		image1.MustUpload(t, h, s.DB, token, fooRepoRef, "first")
+		image1.MustUpload(t, s, fooRepoRef, "first")
 		s.Clock.Step()
-		image2.MustUpload(t, h, s.DB, token, fooRepoRef, "second")
+		image2.MustUpload(t, s, fooRepoRef, "second")
 		s.Clock.Step()
 
 		//PUT failure case: cannot upload image list manifest referencing missing manifests
@@ -405,7 +405,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 
 		//PUT success case: upload image list manifest referencing available manifests
 		list2 := test.GenerateImageList(image1, image2)
-		list2.MustUpload(t, h, s.DB, token, fooRepoRef, "list")
+		list2.MustUpload(t, s, fooRepoRef, "list")
 
 		s.Clock.Step()
 		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagelistmanifest-001-after-upload-manifest.sql")
@@ -456,8 +456,8 @@ func TestManifestQuotaExceeded(t *testing.T) {
 		//as a setup, upload two images
 		image1 := test.GenerateImage(test.GenerateExampleLayer(1))
 		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
-		image1.MustUpload(t, h, s.DB, token, fooRepoRef, "first")
-		image2.MustUpload(t, h, s.DB, token, fooRepoRef, "second")
+		image1.MustUpload(t, s, fooRepoRef, "first")
+		image2.MustUpload(t, s, fooRepoRef, "second")
 
 		//set quota below usage
 		_, err := s.DB.Exec(`UPDATE quotas SET manifests = $1`, 1)
@@ -517,7 +517,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 		}
 
 		//upload the config blob
-		blob.MustUpload(t, h, token, fooRepoRef)
+		blob.MustUpload(t, s, fooRepoRef)
 
 		//setup required labels on account for failure
 		_, err = s.DB.Exec(
@@ -596,11 +596,11 @@ func TestImageManifestWrongBlobSize(t *testing.T) {
 
 		//generate an image that references a layer, but the reference includes the wrong layer size
 		layer := test.GenerateExampleLayer(1)
-		layer.MustUpload(t, h, token, fooRepoRef)
+		layer.MustUpload(t, s, fooRepoRef)
 
 		layer.Contents = append(layer.Contents, []byte("something")...)
 		image := test.GenerateImage(layer)
-		image.Config.MustUpload(t, h, token, fooRepoRef)
+		image.Config.MustUpload(t, s, fooRepoRef)
 
 		assert.HTTPRequest{
 			Method: "PUT",

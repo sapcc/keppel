@@ -163,8 +163,7 @@ func TestAnycastRateLimits(t *testing.T) {
 
 		//upload the test blob
 		h := s.Handler
-		uploadToken := s.GetToken(t, "repository:test1/foo:pull,push")
-		blob.MustUpload(t, h, uploadToken, fooRepoRef)
+		blob.MustUpload(t, s, fooRepoRef)
 
 		//pull it via anycast
 		testWithReplica(t, s, "on_first_use", func(firstPass bool, s2 test.Setup) {
