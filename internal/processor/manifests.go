@@ -270,7 +270,7 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 		}
 		wasHandled[desc.Digest.String()] = true
 
-		blob, err := keppel.FindBlobByRepository(tx, desc.Digest, repo, account)
+		blob, err := keppel.FindBlobByRepository(tx, desc.Digest, repo)
 		if err == sql.ErrNoRows {
 			return nil, nil, 0, keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String())
 		}

@@ -163,7 +163,7 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
-	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *sourceRepo, account)
+	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *sourceRepo)
 	if err == sql.ErrNoRows {
 		keppel.ErrBlobUnknown.With("blob does not exist in source repository").WriteAsRegistryV2ResponseTo(w, r)
 		return

@@ -169,9 +169,9 @@ func FindBlobByRepositoryName(db gorp.SqlExecutor, blobDigest digest.Digest, rep
 
 //FindBlobByRepository is a convenience wrapper around db.SelectOne(). If
 //the blob in question does not exist, sql.ErrNoRows is returned.
-func FindBlobByRepository(db gorp.SqlExecutor, blobDigest digest.Digest, repo Repository, account Account) (*Blob, error) {
+func FindBlobByRepository(db gorp.SqlExecutor, blobDigest digest.Digest, repo Repository) (*Blob, error) {
 	var blob Blob
-	err := db.SelectOne(&blob, blobGetQueryByRepoID, account.Name, blobDigest.String(), repo.ID)
+	err := db.SelectOne(&blob, blobGetQueryByRepoID, repo.AccountName, blobDigest.String(), repo.ID)
 	return &blob, err
 }
 

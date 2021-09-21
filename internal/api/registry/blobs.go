@@ -58,7 +58,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//locate this blob from the DB
-	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *repo, *account)
+	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *repo)
 	if err == sql.ErrNoRows {
 		keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w, r)
 		return
@@ -197,7 +197,7 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *repo, *account)
+	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *repo)
 	if err == sql.ErrNoRows {
 		keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w, r)
 		return
