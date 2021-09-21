@@ -189,7 +189,7 @@ func (a JanitorAuthorization) SerializeToJSON() (typeName string, payload []byte
 
 //UserInfo implements the keppel.Authorization interface.
 func (a JanitorAuthorization) UserInfo() audittools.UserInfo {
-	return janitorUserInfo{a.TaskName}
+	return janitorUserInfo(a)
 }
 
 func deserializeJanitorAuthorization(in []byte, _ AuthDriver) (Authorization, error) {
