@@ -61,10 +61,10 @@ func TestCatalogEndpoint(t *testing.T) {
 }
 
 func testEmptyCatalog(t *testing.T, s test.Setup) {
-	//token without any permissions is able to call the endpoint, but cannot list
-	//repos in any account, so the list is empty
+	//token without any account-level permissions is able to call the endpoint,
+	//but cannot list repos in any account, so the list is empty
 	h := s.Handler
-	token := s.GetToken(t, "registry:catalog:*", authTenantID /* , no permissions */)
+	token := s.GetToken(t, "registry:catalog:*")
 
 	req := assert.HTTPRequest{
 		Method:       "GET",
@@ -88,7 +88,12 @@ func testEmptyCatalog(t *testing.T, s test.Setup) {
 func testNonEmptyCatalog(t *testing.T, s test.Setup) {
 	//token with keppel.CanViewAccount can read all accounts' catalogs
 	h := s.Handler
-	token := s.GetToken(t, "registry:catalog:*", authTenantID, keppel.CanViewAccount)
+	token := s.GetToken(t,
+		"registry:catalog:*",
+		"keppel_account:test1:view",
+		"keppel_account:test2:view",
+		"keppel_account:test3:view",
+	)
 
 	allRepos := []string{
 		"test1/bar",
@@ -189,7 +194,7 @@ func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
 	}.Check(t, h)
 
 	//with token for wrong scope, expect Forbidden and renewed auth challenge
-	token := s.GetToken(t, "repository:test1/foo:pull", authTenantID, keppel.CanPullFromAccount)
+	token := s.GetToken(t, "repository:test1/foo:pull")
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/_catalog",

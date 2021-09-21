@@ -37,16 +37,10 @@ func TestImageManifestLifecycle(t *testing.T) {
 	for _, tagName := range []string{"latest", ""} {
 		testWithPrimary(t, nil, func(s test.Setup) {
 			h := s.Handler
-			token := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
-				keppel.CanPullFromAccount,
-				keppel.CanPushToAccount)
-			readOnlyToken := s.GetToken(t, "repository:test1/foo:pull", authTenantID,
-				keppel.CanPullFromAccount)
-			otherRepoToken := s.GetToken(t, "repository:test1/bar:pull,push", authTenantID,
-				keppel.CanPullFromAccount,
-				keppel.CanPushToAccount)
-			deleteToken := s.GetToken(t, "repository:test1/foo:delete", authTenantID,
-				keppel.CanDeleteFromAccount)
+			token := s.GetToken(t, "repository:test1/foo:pull,push")
+			readOnlyToken := s.GetToken(t, "repository:test1/foo:pull")
+			otherRepoToken := s.GetToken(t, "repository:test1/bar:pull,push")
+			deleteToken := s.GetToken(t, "repository:test1/foo:delete")
 
 			//on the API, we either reference the tag name (if uploading with tag) or the digest (if uploading without tag)
 			ref := tagName
@@ -264,8 +258,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				testWithReplica(t, s, "on_first_use", func(firstPass bool, s2 test.Setup) {
 					h2 := s2.Handler
 					testAnycast(t, firstPass, s2.DB, func() {
-						anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull", authTenantID,
-							keppel.CanPullFromAccount)
+						anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull")
 						anycastHeaders := map[string]string{
 							"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Hostname(),
 							"X-Forwarded-Proto": "https",
@@ -383,11 +376,8 @@ func TestImageListManifestLifecycle(t *testing.T) {
 		//for the parts of the manifest push workflow that check manifest-manifest
 		//references. (We don't have those in plain images, only in image lists.)
 		h := s.Handler
-		token := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
-			keppel.CanPullFromAccount,
-			keppel.CanPushToAccount)
-		deleteToken := s.GetToken(t, "repository:test1/foo:delete", authTenantID,
-			keppel.CanDeleteFromAccount)
+		token := s.GetToken(t, "repository:test1/foo:pull,push")
+		deleteToken := s.GetToken(t, "repository:test1/foo:delete")
 
 		//as a setup, upload two images and render a third image that's not uploaded
 		image1 := test.GenerateImage(test.GenerateExampleLayer(1))
@@ -461,9 +451,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 func TestManifestQuotaExceeded(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		token := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
-			keppel.CanPullFromAccount,
-			keppel.CanPushToAccount)
+		token := s.GetToken(t, "repository:test1/foo:pull,push")
 
 		//as a setup, upload two images
 		image1 := test.GenerateImage(test.GenerateExampleLayer(1))
@@ -508,9 +496,7 @@ func TestManifestQuotaExceeded(t *testing.T) {
 func TestManifestRequiredLabels(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		token := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
-			keppel.CanPullFromAccount,
-			keppel.CanPushToAccount)
+		token := s.GetToken(t, "repository:test1/foo:pull,push")
 
 		//setup test data: image config with labels "foo" and "bar"
 		blob, err := test.NewBytesFromFile("fixtures/example-docker-image-config-with-labels.json")
@@ -606,9 +592,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 func TestImageManifestWrongBlobSize(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		token := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
-			keppel.CanPullFromAccount,
-			keppel.CanPushToAccount)
+		token := s.GetToken(t, "repository:test1/foo:pull,push")
 
 		//generate an image that references a layer, but the reference includes the wrong layer size
 		layer := test.GenerateExampleLayer(1)

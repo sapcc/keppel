@@ -19,25 +19,115 @@
 package test
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //GetToken obtains a token for use with the Registry V2 API.
 //
-//`scope` is the token scope, e.g. "repository:test1/foo:pull". `authTenantID`
-//is the ID of the auth tenant backing the requested account. `perms` is the
-//set of permissions that the requesting user has; the AuthDriver will set up
-//corresponding mock permissions for the duration of the token request.
-func (s Setup) GetToken(t *testing.T, scope, authTenantID string, perms ...keppel.Permission) string {
+//`scopes` is a list of token scopes, e.g. "repository:test1/foo:pull".
+//The necessary permissions will be inferred from the given scopes, and a
+//dummy Authorization object for the user called "correctusername" will be
+//embedded in the token.
+func (s Setup) GetToken(t *testing.T, scopes ...string) string {
 	t.Helper()
-	return s.AD.getTokenForTest(t, s.Handler, s.Config.APIPublicURL.Host, scope, authTenantID, perms)
+	return s.getToken(t, auth.LocalService, scopes...)
 }
 
 //GetAnycastToken is like GetToken, but instead returns a token for the anycast
 //endpoint.
-func (s Setup) GetAnycastToken(t *testing.T, scope, authTenantID string, perms ...keppel.Permission) string {
+func (s Setup) GetAnycastToken(t *testing.T, scopes ...string) string {
 	t.Helper()
-	return s.AD.getTokenForTest(t, s.Handler, "registry-global.example.org", scope, authTenantID, perms)
+	return s.getToken(t, auth.AnycastService, scopes...)
+}
+
+func (s Setup) getToken(t *testing.T, audience auth.Service, scopes ...string) string {
+	t.Helper()
+
+	//parse scopes
+	var ss auth.ScopeSet
+	for _, scopeStr := range scopes {
+		fields := strings.SplitN(scopeStr, ":", 3)
+		if len(fields) != 3 {
+			t.Fatalf("malformed scope %q: needs exactly three colon-separated fields", scopeStr)
+		}
+		ss.Add(auth.Scope{
+			ResourceType: fields[0],
+			ResourceName: fields[1],
+			Actions:      strings.Split(fields[2], ","),
+		})
+	}
+
+	//translate scopes into required permissions
+	perms := map[string]map[string]bool{
+		string(keppel.CanViewAccount):       make(map[string]bool),
+		string(keppel.CanPullFromAccount):   make(map[string]bool),
+		string(keppel.CanPushToAccount):     make(map[string]bool),
+		string(keppel.CanDeleteFromAccount): make(map[string]bool),
+	}
+	for _, scope := range ss {
+		switch scope.ResourceType {
+		case "registry":
+			if scope.String() != "registry:catalog:*" {
+				t.Fatalf("do not know how to handle scope %q", scope.String())
+			}
+		case "repository":
+			authTenantID, err := s.findAuthTenantIDForAccountName(strings.SplitN(scope.ResourceName, "/", 2)[0])
+			must(t, err)
+			perms[string(keppel.CanViewAccount)][authTenantID] = true
+			for _, action := range scope.Actions {
+				switch action {
+				case "pull":
+					perms[string(keppel.CanPullFromAccount)][authTenantID] = true
+				case "push":
+					perms[string(keppel.CanPushToAccount)][authTenantID] = true
+				case "delete":
+					perms[string(keppel.CanDeleteFromAccount)][authTenantID] = true
+				default:
+					t.Fatalf("do not know how to handle action %q in scope %q", action, scope.String())
+				}
+			}
+		case "keppel_account":
+			if strings.Join(scope.Actions, ",") != "view" {
+				t.Fatalf("do not know how to handle scope %q", scope.String())
+			}
+			authTenantID, err := s.findAuthTenantIDForAccountName(scope.ResourceName)
+			must(t, err)
+			perms[string(keppel.CanViewAccount)][authTenantID] = true
+		}
+	}
+
+	//convert []*auth.Scope into []auth.Scope
+	var flatScopes []auth.Scope
+	for _, scope := range ss {
+		flatScopes = append(flatScopes, *scope)
+	}
+
+	//issue token
+	issuedToken, err := auth.Token{
+		Authorization: authorization{
+			Username: "correctusername",
+			Perms:    perms,
+		},
+		Audience: audience,
+		Access:   flatScopes,
+	}.Issue(s.Config)
+	must(t, err)
+	return issuedToken.SignedToken
+}
+
+func (s Setup) findAuthTenantIDForAccountName(accountName string) (string, error) {
+	//optimization: if we can find this specific account in the list of
+	//pre-provisioned accounts, we can skip the DB lookup
+	for _, a := range s.Accounts {
+		if a.Name == accountName {
+			return a.AuthTenantID, nil
+		}
+	}
+
+	//base case: look up in the DB
+	return s.DB.SelectStr(`SELECT auth_tenant_id FROM accounts WHERE name = $1`, accountName)
 }

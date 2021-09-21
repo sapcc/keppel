@@ -35,11 +35,8 @@ import (
 func TestListTags(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		token := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
-			keppel.CanPullFromAccount,
-			keppel.CanPushToAccount)
-		readOnlyToken := s.GetToken(t, "repository:test1/foo:pull", authTenantID,
-			keppel.CanPullFromAccount)
+		token := s.GetToken(t, "repository:test1/foo:pull,push")
+		readOnlyToken := s.GetToken(t, "repository:test1/foo:pull")
 
 		//test tag list for missing repo
 		assert.HTTPRequest{
@@ -154,8 +151,7 @@ func TestListTags(t *testing.T) {
 			testWithReplica(t, s, "on_first_use", func(firstPass bool, s2 test.Setup) {
 				h2 := s2.Handler
 				testAnycast(t, firstPass, s2.DB, func() {
-					anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull", authTenantID,
-						keppel.CanPullFromAccount)
+					anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull")
 					req := assert.HTTPRequest{
 						Method: "GET",
 						Path:   "/v2/test1/foo/tags/list",

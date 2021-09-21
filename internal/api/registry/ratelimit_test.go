@@ -60,9 +60,7 @@ func TestRateLimits(t *testing.T) {
 		}
 
 		h := s.Handler
-		token := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID, authTenantID,
-			keppel.CanPullFromAccount,
-			keppel.CanPushToAccount)
+		token := s.GetToken(t, "repository:test1/foo:pull,push")
 		bogusDigest := "sha256:" + sha256Of([]byte("something else"))
 
 		//prepare some test requests that should be affected by rate limiting
@@ -165,9 +163,7 @@ func TestAnycastRateLimits(t *testing.T) {
 
 		//upload the test blob
 		h := s.Handler
-		uploadToken := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
-			keppel.CanPullFromAccount,
-			keppel.CanPushToAccount)
+		uploadToken := s.GetToken(t, "repository:test1/foo:pull,push")
 		blob.MustUpload(t, h, uploadToken, fooRepoRef)
 
 		//pull it via anycast
@@ -176,8 +172,7 @@ func TestAnycastRateLimits(t *testing.T) {
 			s.Clock.StepBy(time.Hour) //reset all rate limits
 			testAnycast(t, firstPass, s2.DB, func() {
 
-				anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull", authTenantID,
-					keppel.CanPullFromAccount)
+				anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull")
 				anycastHeaders := map[string]string{
 					"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Hostname(),
 					"X-Forwarded-Proto": "https",

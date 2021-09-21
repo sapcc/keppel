@@ -34,11 +34,8 @@ import (
 func TestBlobMonolithicUpload(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		readOnlyToken := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
-			keppel.CanPullFromAccount)
-		token := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
-			keppel.CanPullFromAccount,
-			keppel.CanPushToAccount)
+		readOnlyToken := s.GetToken(t, "repository:test1/foo:pull")
+		token := s.GetToken(t, "repository:test1/foo:pull,push")
 
 		blob := test.NewBytes([]byte("just some random data"))
 
@@ -162,8 +159,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 			testWithReplica(t, s, "on_first_use", func(firstPass bool, s2 test.Setup) {
 				testAnycast(t, firstPass, s2.DB, func() {
 					h2 := s2.Handler
-					anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull", authTenantID,
-						keppel.CanPullFromAccount)
+					anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull")
 					anycastHeaders := map[string]string{
 						"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Hostname(),
 						"X-Forwarded-Proto": "https",
@@ -182,11 +178,8 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 
 		testWithPrimary(t, nil, func(s test.Setup) {
 			h := s.Handler
-			readOnlyToken := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
-				keppel.CanPullFromAccount)
-			token := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
-				keppel.CanPullFromAccount,
-				keppel.CanPushToAccount)
+			readOnlyToken := s.GetToken(t, "repository:test1/foo:pull")
+			token := s.GetToken(t, "repository:test1/foo:pull,push")
 
 			blob := test.NewBytes([]byte("just some random data"))
 
@@ -453,11 +446,8 @@ func TestGetBlobUpload(t *testing.T) {
 		//NOTE: We only use the read-write token for driving the blob upload through
 		//its various stages. All the GET requests use the read-only token to verify
 		//that read-only tokens work here.
-		readOnlyToken := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
-			keppel.CanPullFromAccount)
-		token := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
-			keppel.CanPullFromAccount,
-			keppel.CanPushToAccount)
+		readOnlyToken := s.GetToken(t, "repository:test1/foo:pull")
+		token := s.GetToken(t, "repository:test1/foo:pull,push")
 
 		blob := test.NewBytes([]byte("just some random data"))
 
@@ -563,11 +553,8 @@ func TestGetBlobUpload(t *testing.T) {
 func TestDeleteBlobUpload(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		token := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
-			keppel.CanPullFromAccount,
-			keppel.CanPushToAccount)
-		deleteToken := s.GetToken(t, "repository:test1/foo:delete", authTenantID,
-			keppel.CanDeleteFromAccount)
+		token := s.GetToken(t, "repository:test1/foo:pull,push")
+		deleteToken := s.GetToken(t, "repository:test1/foo:delete")
 
 		blobContents := []byte("just some random data")
 
@@ -653,14 +640,9 @@ func TestDeleteBlobUpload(t *testing.T) {
 func TestDeleteBlob(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		token := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
-			keppel.CanPullFromAccount,
-			keppel.CanPushToAccount)
-		deleteToken := s.GetToken(t, "repository:test1/foo:delete", authTenantID,
-			keppel.CanDeleteFromAccount)
-		otherRepoToken := s.GetToken(t, "repository:test1/bar:pull,push", authTenantID,
-			keppel.CanPullFromAccount,
-			keppel.CanPushToAccount)
+		token := s.GetToken(t, "repository:test1/foo:pull,push")
+		deleteToken := s.GetToken(t, "repository:test1/foo:delete")
+		otherRepoToken := s.GetToken(t, "repository:test1/bar:pull,push")
 
 		blob := test.NewBytes([]byte("just some random data"))
 
@@ -755,14 +737,9 @@ func TestDeleteBlob(t *testing.T) {
 func TestCrossRepositoryBlobMount(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		readOnlyToken := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
-			keppel.CanPullFromAccount)
-		token := s.GetToken(t, "repository:test1/foo:pull,push", authTenantID,
-			keppel.CanPullFromAccount,
-			keppel.CanPushToAccount)
-		otherRepoToken := s.GetToken(t, "repository:test1/bar:pull,push", authTenantID,
-			keppel.CanPullFromAccount,
-			keppel.CanPushToAccount)
+		readOnlyToken := s.GetToken(t, "repository:test1/foo:pull")
+		token := s.GetToken(t, "repository:test1/foo:pull,push")
+		otherRepoToken := s.GetToken(t, "repository:test1/bar:pull,push")
 
 		blob := test.NewBytes([]byte("just some random data"))
 

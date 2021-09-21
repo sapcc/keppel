@@ -20,16 +20,12 @@
 package test
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/url"
 	"strings"
-	"testing"
 
 	"github.com/go-redis/redis"
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -160,46 +156,4 @@ func (dummyUserInfo) ProjectScopeUUID() string {
 
 func (dummyUserInfo) DomainScopeUUID() string {
 	return ""
-}
-
-var authorizationHeader = "Basic " + base64.StdEncoding.EncodeToString(
-	[]byte("correctusername:correctpassword"),
-)
-
-func (d *AuthDriver) getTokenForTest(t *testing.T, h http.Handler, service, scope, authTenantID string, perms []keppel.Permission) string {
-	t.Helper()
-	//configure AuthDriver to allow access for this call
-	d.ExpectedUserName = "correctusername"
-	d.ExpectedPassword = "correctpassword"
-	permStrs := make([]string, len(perms))
-	for idx, perm := range perms {
-		permStrs[idx] = string(perm) + ":" + authTenantID
-	}
-	d.GrantedPermissions = strings.Join(permStrs, ",")
-
-	//build a token request
-	query := url.Values{}
-	query.Set("service", service)
-	if scope != "" {
-		query.Set("scope", scope)
-	}
-	_, bodyBytes := assert.HTTPRequest{
-		Method: "GET",
-		Path:   "/keppel/v1/auth?" + query.Encode(),
-		Header: map[string]string{
-			"Authorization":     authorizationHeader,
-			"X-Forwarded-Host":  service,
-			"X-Forwarded-Proto": "https",
-		},
-		ExpectStatus: http.StatusOK,
-	}.Check(t, h)
-
-	var data struct {
-		Token string `json:"token"`
-	}
-	err := json.Unmarshal(bodyBytes, &data)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	return data.Token
 }
