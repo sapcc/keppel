@@ -38,7 +38,7 @@ type Manifest struct {
 	MediaType                     string                    `json:"media_type"`
 	SizeBytes                     uint64                    `json:"size_bytes"`
 	PushedAt                      int64                     `json:"pushed_at"`
-	LastPulledAt                  *int64                    `json:"last_pulled_at,keepempty"`
+	LastPulledAt                  *int64                    `json:"last_pulled_at"`
 	Tags                          []Tag                     `json:"tags,omitempty"`
 	LabelsJSON                    json.RawMessage           `json:"labels,omitempty"`
 	VulnerabilityStatus           clair.VulnerabilityStatus `json:"vulnerability_status"`
@@ -49,7 +49,7 @@ type Manifest struct {
 type Tag struct {
 	Name         string `json:"name"`
 	PushedAt     int64  `json:"pushed_at"`
-	LastPulledAt *int64 `json:"last_pulled_at,keepempty"`
+	LastPulledAt *int64 `json:"last_pulled_at"`
 }
 
 var manifestGetQuery = keppel.SimplifyWhitespaceInSQL(`
