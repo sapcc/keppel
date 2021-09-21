@@ -58,10 +58,6 @@ func init() {
 	})
 }
 
-func resetTestFederationDriver() {
-	federationDriversForThisUnitTest = nil
-}
-
 //ClaimAccountName implements the keppel.FederationDriver interface.
 func (d *FederationDriver) ClaimAccountName(account keppel.Account, authz keppel.Authorization, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	//simulated failures for primary accounts
