@@ -51,11 +51,11 @@ check: build-all static-check build/cover.html FORCE
 	@printf "\e[1;32m>> All checks successful.\e[0m\n"
 
 static-check: FORCE
-	@if ! hash golint 2>/dev/null; then printf "\e[1;36m>> Installing golint...\e[0m\n"; go install golang.org/x/lint/golint@latest; fi
+	@if ! hash staticcheck 2>/dev/null; then printf "\e[1;36m>> Installing staticcheck...\e[0m\n"; go install honnef.co/go/tools/cmd/staticcheck@latest; fi
 	@printf "\e[1;36m>> gofmt\e[0m\n"
 	@if s="$$(gofmt -s -d $(GO_ALLFILES) 2>/dev/null)" && test -n "$$s"; then echo "$$s"; false; fi
-	@printf "\e[1;36m>> golint\e[0m\n"
-	@if s="$$(golint $(GO_ALLPKGS) 2>/dev/null)" && test -n "$$s"; then echo "$$s"; false; fi
+	@printf "\e[1;36m>> staticcheck\e[0m\n"
+	@staticcheck -checks 'inherit,-ST1015' $(GO_ALLPKGS)
 	@printf "\e[1;36m>> go vet\e[0m\n"
 	@go vet $(GO_BUILDFLAGS) $(GO_ALLPKGS)
 
