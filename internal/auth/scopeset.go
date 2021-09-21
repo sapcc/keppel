@@ -97,6 +97,7 @@ func (ss ScopeSet) FilterAuthorized(authz keppel.Authorization, audience Service
 			} else {
 				filtered.Actions, err = filterRepoActions(*scope, authz, db)
 				if err != nil {
+					return nil, err
 				}
 			}
 		default:
