@@ -51,11 +51,11 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 
 	//find account
 	account, err := keppel.FindAccount(a.db, mux.Vars(r)["account"])
-	if err == sql.ErrNoRows {
-		http.Error(w, "not found", http.StatusNotFound)
+	if respondwith.ErrorText(w, err) {
 		return
 	}
-	if respondwith.ErrorText(w, err) {
+	if account == nil {
+		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 

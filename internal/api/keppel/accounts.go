@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -33,6 +34,7 @@ import (
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sre"
+	peerv1 "github.com/sapcc/keppel/internal/api/peer"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -540,6 +542,66 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			//server error
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+
+		// Copy PlatformFilter when creating an account with the Replication Policy on_first_use
+		if req.Account.ReplicationPolicy != nil {
+			rp := *req.Account.ReplicationPolicy
+			if rp.Strategy == "on_first_use" {
+				var peer keppel.Peer
+				err := a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, rp.UpstreamPeerHostName)
+				if err == sql.ErrNoRows {
+					http.Error(w, fmt.Sprintf(`unknown peer registry: %q`, rp.UpstreamPeerHostName), http.StatusUnprocessableEntity)
+					return
+				}
+				if respondwith.ErrorText(w, err) {
+					return
+				}
+
+				reqURL := fmt.Sprintf("https://%s/peer/v1/account-filter/%s", accountToCreate.UpstreamPeerHostName, accountToCreate.Name)
+				authReq, err := http.NewRequest("GET", reqURL, nil)
+				if respondwith.ErrorText(w, err) {
+					return
+				}
+				authReq.Header.Set("Authorization", keppel.BuildBasicAuthHeader(fmt.Sprintf("replication@%s", a.cfg.APIPublicURL.Hostname()), peer.OurPassword))
+
+				resp, err := http.DefaultClient.Do(authReq)
+				if err != nil {
+					http.Error(w, "could not fetch platform filter: "+err.Error(), http.StatusUnauthorized)
+					return
+				}
+				if resp.StatusCode != http.StatusOK {
+					http.Error(w, "could not fetch platform filter: expected 200 OK, but got "+resp.Status, http.StatusUnauthorized)
+					return
+				}
+
+				respBodyBytes, err := ioutil.ReadAll(resp.Body)
+				if err == nil {
+					err = resp.Body.Close()
+				} else {
+					resp.Body.Close()
+				}
+				if respondwith.ErrorText(w, err) {
+					return
+				}
+
+				var data peerv1.AccountFilter
+				err = json.Unmarshal(respBodyBytes, &data)
+				if respondwith.ErrorText(w, err) {
+					return
+				}
+
+				if req.Account.PlatformFilter == nil {
+					accountToCreate.PlatformFilter = data.Filter
+				} else if !reflect.DeepEqual(req.Account.PlatformFilter, data.Filter) {
+					// check if the peer PlatformFilter matches the primary account PlatformFilter
+					jsonPlatformFilter, _ := json.Marshal(req.Account.PlatformFilter)
+					jsonFilter, _ := json.Marshal(data.Filter)
+					msg := fmt.Sprintf("peer account filter needs to match primary account filter: primary account %s, peer account %s ", jsonPlatformFilter, jsonFilter)
+					http.Error(w, msg, http.StatusConflict)
+					return
+				}
+			}
 		}
 
 		tx, err := a.db.Begin()
