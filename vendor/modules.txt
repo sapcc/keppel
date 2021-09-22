@@ -5,9 +5,6 @@ github.com/cespare/xxhash/v2
 # github.com/databus23/goslo.policy v0.0.0-20170317131957-3ae74dd07ebf
 ## explicit
 github.com/databus23/goslo.policy
-# github.com/dgrijalva/jwt-go v3.2.0+incompatible
-## explicit
-github.com/dgrijalva/jwt-go
 # github.com/dlmiddlecote/sqlstats v1.0.2
 ## explicit
 github.com/dlmiddlecote/sqlstats
@@ -38,6 +35,9 @@ github.com/go-redis/redis/internal/util
 ## explicit
 # github.com/gofrs/uuid v3.2.0+incompatible
 github.com/gofrs/uuid
+# github.com/golang-jwt/jwt/v4 v4.0.0
+## explicit
+github.com/golang-jwt/jwt/v4
 # github.com/golang/protobuf v1.5.2
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
@@ -54,7 +54,6 @@ github.com/gophercloud/gophercloud/openstack/identity/v3/domains
 github.com/gophercloud/gophercloud/openstack/identity/v3/extensions/ec2tokens
 github.com/gophercloud/gophercloud/openstack/identity/v3/extensions/oauth1
 github.com/gophercloud/gophercloud/openstack/identity/v3/projects
-github.com/gophercloud/gophercloud/openstack/identity/v3/roles
 github.com/gophercloud/gophercloud/openstack/identity/v3/tokens
 github.com/gophercloud/gophercloud/openstack/utils
 github.com/gophercloud/gophercloud/pagination
@@ -76,10 +75,6 @@ github.com/hashicorp/golang-lru
 github.com/hashicorp/golang-lru/simplelru
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
-# github.com/jarcoal/httpmock v1.0.8
-## explicit
-github.com/jarcoal/httpmock
-github.com/jarcoal/httpmock/internal
 # github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629
 github.com/jpillora/longestcommon
 # github.com/lib/pq v1.2.0

@@ -28,7 +28,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v4"
 )
 
 //Client is a client for accessing the Clair vulnerability scanning service.
