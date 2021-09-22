@@ -20,6 +20,7 @@ package auth
 
 import (
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rsa"
 	"encoding/json"
 	"fmt"
@@ -164,6 +165,8 @@ func (t Token) Contains(s Scope) bool {
 func ChooseSigningMethod(key libtrust.PrivateKey) jwt.SigningMethod {
 	issuerKey := key.CryptoPrivateKey()
 	switch issuerKey.(type) {
+	case *ed25519.PrivateKey:
+		return jwt.SigningMethodEdDSA
 	case *ecdsa.PrivateKey:
 		return jwt.SigningMethodES256
 	case *rsa.PrivateKey:
@@ -175,6 +178,11 @@ func ChooseSigningMethod(key libtrust.PrivateKey) jwt.SigningMethod {
 
 func equalSigningMethods(m1, m2 jwt.SigningMethod) bool {
 	switch m1 := m1.(type) {
+	case *jwt.SigningMethodEd25519:
+		if m2, ok := m2.(*jwt.SigningMethodEd25519); ok {
+			return *m1 == *m2
+		}
+		return false
 	case *jwt.SigningMethodECDSA:
 		if m2, ok := m2.(*jwt.SigningMethodECDSA); ok {
 			return *m1 == *m2
