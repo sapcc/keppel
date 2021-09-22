@@ -27,8 +27,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/docker/libtrust"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/sapcc/keppel/internal/keppel"
 	uuid "github.com/satori/go.uuid"
 )
