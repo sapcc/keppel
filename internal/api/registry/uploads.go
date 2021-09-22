@@ -379,7 +379,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Content-Range") != "" {
 		val, err := a.parseContentRange(upload, r.Header)
 		if err != nil {
-			keppel.ErrSizeInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
+			keppel.ErrSizeInvalid.With(err.Error()).WithStatus(http.StatusRequestedRangeNotSatisfiable).WriteAsRegistryV2ResponseTo(w, r)
 
 			logg.Info("aborting upload because of error during parseContentRange()")
 			countAbortedBlobUpload(*account)
@@ -610,7 +610,7 @@ func (a *API) streamIntoUpload(account keppel.Account, upload *keppel.Upload, dw
 		msg := fmt.Sprintf("expected upload of %d bytes, but request contained only %d bytes",
 			*chunkSizeBytes, actualChunkSizeBytes,
 		)
-		return "", keppel.ErrSizeInvalid.With(msg)
+		return "", keppel.ErrSizeInvalid.With(msg).WithStatus(http.StatusRequestedRangeNotSatisfiable)
 	}
 
 	//serialize digest state for next resumeUpload() - note that we do this
