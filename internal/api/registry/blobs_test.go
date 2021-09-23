@@ -309,7 +309,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 							"Content-Type":   "application/octet-stream",
 						},
 						Body:         assert.ByteData(chunk2),
-						ExpectStatus: http.StatusBadRequest,
+						ExpectStatus: http.StatusRequestedRangeNotSatisfiable,
 						ExpectHeader: test.VersionHeader,
 						ExpectBody:   test.ErrorCode(keppel.ErrSizeInvalid),
 					}.Check(t, h)
@@ -364,8 +364,10 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				//ignored and the validation will fail later when the digest does not match
 				//because of the missing chunk
 				expectedError := test.ErrorCode(keppel.ErrSizeInvalid)
+				expectedStatus := http.StatusRequestedRangeNotSatisfiable
 				if wrongContentLength == "" || wrongContentLength == "0" {
 					expectedError = test.ErrorCode(keppel.ErrDigestInvalid)
+					expectedStatus = http.StatusBadRequest
 				}
 
 				assert.HTTPRequest{
@@ -377,7 +379,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 						"Content-Type":   "application/octet-stream",
 					},
 					Body:         assert.ByteData(chunk2),
-					ExpectStatus: http.StatusBadRequest,
+					ExpectStatus: expectedStatus,
 					ExpectHeader: test.VersionHeader,
 					ExpectBody:   expectedError,
 				}.Check(t, h)
