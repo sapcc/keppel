@@ -27,7 +27,6 @@ require (
 )
 
 require (
-	github.com/aws/aws-sdk-go v1.40.32 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/go-gorp/gorp v2.2.0+incompatible // indirect
