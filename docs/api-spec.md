@@ -462,7 +462,7 @@ The request body must be a JSON document like this:
 {
   "peer": "keppel.example.org",
   "username": "replication@keppel.example.com",
-  "password": "EaxiYoo8ju7Ohvukooch",
+  "password": "EaxiYoo8ju7Ohvukooch"
 }
 ```
 
