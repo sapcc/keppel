@@ -5,7 +5,7 @@ github.com/beorn7/perks/quantile
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
 # github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
-## explicit
+## explicit; go 1.16
 github.com/databus23/goslo.policy
 # github.com/dlmiddlecote/sqlstats v1.0.2
 ## explicit; go 1.11
@@ -133,7 +133,7 @@ github.com/prometheus/procfs/internal/util
 ## explicit; go 1.13
 github.com/rs/cors
 # github.com/sapcc/go-bits v0.0.0-20210929140247-281bcf017ba7
-## explicit
+## explicit; go 1.12
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
 github.com/sapcc/go-bits/easypg
@@ -149,7 +149,7 @@ github.com/sapcc/go-bits/httpext
 github.com/sapcc/go-bits/logg
 github.com/sapcc/go-bits/respondwith
 github.com/sapcc/go-bits/sre
-# github.com/sapcc/hermes v0.0.0-20210913152504-83abb5476ba6
+# github.com/sapcc/hermes v0.0.0-20210420164927-80b881d15d66
 ## explicit; go 1.13
 github.com/sapcc/hermes/pkg/cadf
 # github.com/satori/go.uuid v1.2.0
