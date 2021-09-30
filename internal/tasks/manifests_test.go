@@ -421,7 +421,7 @@ UPDATE tags SET last_pulled_at = %[1]d WHERE repo_id = 1 AND name = 'other';
 			//SyncManifestsInNextRepo should now complain since it wants to delete
 			//images[2].Manifest, but it can't because of the manifest-manifest ref to
 			//the image list
-			expectedError := fmt.Sprintf(`while syncing manifests in a replica repo: cannot remove deleted manifests [%s] in repo test1/foo because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)`,
+			expectedError := fmt.Sprintf(`while syncing manifests in the replica repo test1/foo: cannot remove deleted manifests [%s] in repo test1/foo because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)`,
 				images[2].Manifest.Digest.String(),
 			)
 			expectError(t, expectedError, j2.SyncManifestsInNextRepo())
@@ -480,7 +480,7 @@ UPDATE tags SET last_pulled_at = %[1]d WHERE repo_id = 1 AND name = 'other';
 			//SyncManifestsInNextRepo understands that this is a network issue and not
 			//caused by the manifest getting deleted, since the 404-generating endpoint
 			//does not render a proper MANIFEST_UNKNOWN error.
-			expectedError = fmt.Sprintf(`while syncing manifests in a replica repo: cannot check existence of manifest test1/foo/%s on primary account: during GET https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found`,
+			expectedError = fmt.Sprintf(`while syncing manifests in the replica repo test1/foo: cannot check existence of manifest test1/foo/%s on primary account: during GET https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found`,
 				images[1].Manifest.Digest.String(), //the only manifest that is left
 			)
 			expectError(t, expectedError, j2.SyncManifestsInNextRepo())
