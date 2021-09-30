@@ -60,11 +60,13 @@ func (r ImageReference) String() string {
 	return fmt.Sprintf("%s/%s", r.Host, result)
 }
 
-//The "with leading slash" simplifies the regex because we need not write the
+//The "with leading slash" simplifies the regex because we don't need to write the
 //regex for a path element twice.
 //
 //TODO code duplication with internal/api/registry/
 var repoNameWithLeadingSlashRx = regexp.MustCompile(`^(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)+$`)
+
+var ImageReferenceRegex = regexp.MustCompile(`^((?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)+)(?::([a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}))?(?:@(sha256:[a-z0-9]{64}))?$`)
 
 //ParseImageReference parses an image reference string like
 //"registry.example.org/alpine:3.9" into an ImageReference struct.
@@ -90,14 +92,14 @@ func ParseImageReference(input string) (ImageReference, string, error) {
 	var ref ImageReference
 	if strings.Contains(imageURL.Path, "@") {
 		//input references a digest
-		pathParts := strings.SplitN(imageURL.Path, "@", 2)
-		digest, err := digest.Parse(pathParts[1])
+		pathParts := ImageReferenceRegex.FindStringSubmatch(imageURL.Path)
+		digest, err := digest.Parse(pathParts[len(pathParts)-1])
 		if err != nil {
 			return ImageReference{}, input, fmt.Errorf("invalid digest: %q", ref.Reference)
 		}
 		ref = ImageReference{
 			Host:      imageURL.Host,
-			RepoName:  strings.TrimPrefix(pathParts[0], "/"),
+			RepoName:  strings.TrimPrefix(pathParts[1], "/"),
 			Reference: ManifestReference{Digest: digest},
 		}
 	} else if strings.Contains(imageURL.Path, ":") {

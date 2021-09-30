@@ -74,3 +74,23 @@ func TestParseImageReferenceSuccess(t *testing.T) {
 		}
 	}
 }
+
+func TestParseImageReferenceLabelDigestSuccess(t *testing.T) {
+	registry := "localhost:5000"
+	repo := "library/alpine"
+	digest := "sha256:e9707504ad0d4c119036b6d41ace4a33596139d3feb9ccb6617813ce48c3eeef"
+	// Check that the manifest reference :nonsense@digest is equal to @digest where :nonsense can be anything and is NOT checked.
+	// This mirrors the behaviour of the official docker client to maintain compatbility.
+	refActual := ImageReference{registry, repo, ParseManifestReference("nonsense@" + digest)}
+	refExpected := ImageReference{registry, repo, ParseManifestReference(digest)}
+
+	parsedRef, interpretation, err := ParseImageReference(refActual.String())
+	if err == nil {
+		if !assert.DeepEqual(t, "parse of %s", parsedRef, refExpected) {
+			t.Logf("input interpretation was: %s", interpretation)
+		}
+	} else {
+		t.Errorf("expected %s to parse, but got error: %s", refActual.String(), err.Error())
+		t.Logf("input interpretation was: %s", interpretation)
+	}
+}
