@@ -37,16 +37,7 @@ func TestSweepBlobMounts(t *testing.T) {
 		test.GenerateExampleLayer(1),
 		test.GenerateExampleLayer(2),
 	)
-	layer1Blob := uploadBlob(t, s, image.Layers[0])
-	layer2Blob := uploadBlob(t, s, image.Layers[1])
-	configBlob := uploadBlob(t, s, image.Config)
-	uploadManifest(t, s, image.Manifest, image.SizeBytes())
-	for _, blobID := range []int64{layer1Blob.ID, layer2Blob.ID, configBlob.ID} {
-		mustExec(t, s.DB,
-			`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
-			blobID, image.Manifest.Digest.String(),
-		)
-	}
+	image.MustUpload(t, s, fooRepoRef, "")
 
 	//the blob mount sweep should not mark any blob mount for deletion since they
 	//are all in use, but should set the blob_mounts_sweeped_at timestamp on the
@@ -59,8 +50,8 @@ func TestSweepBlobMounts(t *testing.T) {
 	s.Clock.StepBy(2 * time.Hour)
 	bogusBlob1 := test.GenerateExampleLayer(3)
 	bogusBlob2 := test.GenerateExampleLayer(4)
-	dbBogusBlob1 := uploadBlob(t, s, bogusBlob1)
-	dbBogusBlob2 := uploadBlob(t, s, bogusBlob2)
+	dbBogusBlob1 := bogusBlob1.MustUpload(t, s, fooRepoRef)
+	dbBogusBlob2 := bogusBlob2.MustUpload(t, s, fooRepoRef)
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-mount-sweep-002.sql")
 
 	//the next sweep should mark those blob's mounts for deletion

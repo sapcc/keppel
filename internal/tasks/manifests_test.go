@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/clair"
@@ -54,32 +55,21 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 			test.GenerateExampleLayer(int64(10*idx+1)),
 			test.GenerateExampleLayer(int64(10*idx+2)),
 		)
-		images[idx] = image
+		allBlobIDs = append(allBlobIDs,
+			image.Layers[0].MustUpload(t, s, fooRepoRef).ID,
+			image.Layers[1].MustUpload(t, s, fooRepoRef).ID,
+			image.Config.MustUpload(t, s, fooRepoRef).ID,
+		)
 
-		layer1Blob := uploadBlob(t, s, image.Layers[0])
-		layer2Blob := uploadBlob(t, s, image.Layers[1])
-		configBlob := uploadBlob(t, s, image.Config)
-		uploadManifest(t, s, image.Manifest, image.SizeBytes())
-		for _, blobID := range []int64{layer1Blob.ID, layer2Blob.ID, configBlob.ID} {
-			mustExec(t, s.DB,
-				`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
-				blobID, image.Manifest.Digest.String(),
-			)
-		}
-		allBlobIDs = append(allBlobIDs, layer1Blob.ID, layer2Blob.ID, configBlob.ID)
+		images[idx] = image
+		image.MustUpload(t, s, fooRepoRef, "")
 		allManifestDigests = append(allManifestDigests, image.Manifest.Digest.String())
 	}
 
 	//also setup an image list manifest containing those images (so that we have
 	//some manifest-manifest refs to play with)
 	imageList := test.GenerateImageList(images[0], images[1])
-	uploadManifest(t, s, imageList.Manifest, imageList.SizeBytes())
-	for _, image := range images {
-		mustExec(t, s.DB,
-			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
-			imageList.Manifest.Digest.String(), image.Manifest.Digest.String(),
-		)
-	}
+	imageList.MustUpload(t, s, fooRepoRef, "")
 	allManifestDigests = append(allManifestDigests, imageList.Manifest.Digest.String())
 
 	//since these manifests were just uploaded, validated_at is set to right now,
@@ -145,10 +135,25 @@ func TestValidateNextManifestFixesSuperfluousManifestManifestRefs(t *testing.T) 
 func TestValidateNextManifestError(t *testing.T) {
 	j, s := setup(t)
 
-	//setup a manifest that is missing a referenced blob
+	//setup a manifest that is missing a referenced blob (we need to do this
+	//manually since the MustUpload functions care about uploading stuff intact)
 	s.Clock.StepBy(1 * time.Hour)
 	image := test.GenerateImage( /* no layers */ )
-	uploadManifest(t, s, image.Manifest, image.SizeBytes())
+	must(t, s.DB.Insert(&keppel.Manifest{
+		RepositoryID:        1,
+		Digest:              image.Manifest.Digest.String(),
+		MediaType:           image.Manifest.MediaType,
+		SizeBytes:           image.SizeBytes(),
+		PushedAt:            s.Clock.Now(),
+		ValidatedAt:         s.Clock.Now(),
+		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
+	}))
+	must(t, s.DB.Insert(&keppel.ManifestContent{
+		RepositoryID: 1,
+		Digest:       image.Manifest.Digest.String(),
+		Content:      image.Manifest.Contents,
+	}))
+	must(t, s.SD.WriteManifest(*s.Accounts[0], "foo", image.Manifest.Digest.String(), image.Manifest.Contents))
 
 	//validation should yield an error
 	s.Clock.StepBy(36 * time.Hour)
@@ -163,7 +168,7 @@ func TestValidateNextManifestError(t *testing.T) {
 	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextManifest())
 
 	//upload missing blob so that we can test recovering from the validation error
-	uploadBlob(t, s, image.Config)
+	image.Config.MustUpload(t, s, fooRepoRef)
 
 	//next validation should be happy (and also create the missing refs)
 	s.Clock.StepBy(36 * time.Hour)
@@ -180,6 +185,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			j1, s1 := setup(t)
 			j2, s2 := setupReplica(t, s1, strategy)
 			s1.Clock.StepBy(1 * time.Hour)
+			replicaToken := s2.GetToken(t, "repository:test1/foo:pull")
 
 			//upload some manifests...
 			images := make([]test.Image, 4)
@@ -191,29 +197,17 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 				images[idx] = image
 
 				//...to the primary account...
-				layer1Blob := uploadBlob(t, s1, image.Layers[0])
-				layer2Blob := uploadBlob(t, s1, image.Layers[1])
-				configBlob := uploadBlob(t, s1, image.Config)
-				uploadManifest(t, s1, image.Manifest, image.SizeBytes())
-				for _, blobID := range []int64{layer1Blob.ID, layer2Blob.ID, configBlob.ID} {
-					mustExec(t, s1.DB,
-						`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
-						blobID, image.Manifest.Digest.String(),
-					)
-				}
+				image.MustUpload(t, s1, fooRepoRef, "")
 
 				//...and most of them also to the replica account (to simulate replication having taken place)
 				if idx != 0 {
-					layer1Blob := uploadBlob(t, s2, image.Layers[0])
-					layer2Blob := uploadBlob(t, s2, image.Layers[1])
-					configBlob := uploadBlob(t, s2, image.Config)
-					uploadManifest(t, s2, image.Manifest, image.SizeBytes())
-					for _, blobID := range []int64{layer1Blob.ID, layer2Blob.ID, configBlob.ID} {
-						mustExec(t, s2.DB,
-							`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
-							blobID, image.Manifest.Digest.String(),
-						)
-					}
+					assert.HTTPRequest{
+						Method:       "GET",
+						Path:         fmt.Sprintf("/v2/test1/foo/manifests/%s", image.Manifest.Digest.String()),
+						Header:       map[string]string{"Authorization": "Bearer " + replicaToken},
+						ExpectStatus: http.StatusOK,
+						ExpectBody:   assert.ByteData(image.Manifest.Contents),
+					}.Check(t, s2.Handler)
 				}
 			}
 
@@ -229,33 +223,18 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 				}
 			}
 
-			//we need some quota for this since the tag sync runs
-			//Processor.ReplicateManifest() which insists on running a quota check before
-			//storing manifests, even if the new manifest ends up an existing one and
-			//therefore doesn't affect the quota usage at all
-			mustExec(t, s2.DB,
-				`INSERT INTO quotas (auth_tenant_id, manifests) VALUES ($1, $2)`,
-				"test1authtenant", 10,
-			)
-
 			//also setup an image list manifest containing some of those images (so that we have
 			//some manifest-manifest refs to play with)
 			imageList := test.GenerateImageList(images[1], images[2])
-			uploadManifest(t, s1, imageList.Manifest, imageList.SizeBytes())
-			for _, img := range imageList.Images {
-				mustExec(t, s1.DB,
-					`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
-					imageList.Manifest.Digest.String(), img.Manifest.Digest.String(),
-				)
-			}
+			imageList.MustUpload(t, s1, fooRepoRef, "")
 			//this one is replicated as well
-			uploadManifest(t, s2, imageList.Manifest, imageList.SizeBytes())
-			for _, img := range imageList.Images {
-				mustExec(t, s2.DB,
-					`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
-					imageList.Manifest.Digest.String(), img.Manifest.Digest.String(),
-				)
-			}
+			assert.HTTPRequest{
+				Method:       "GET",
+				Path:         fmt.Sprintf("/v2/test1/foo/manifests/%s", imageList.Manifest.Digest.String()),
+				Header:       map[string]string{"Authorization": "Bearer " + replicaToken},
+				ExpectStatus: http.StatusOK,
+				ExpectBody:   assert.ByteData(imageList.Manifest.Contents),
+			}.Check(t, s2.Handler)
 
 			//set a well-known last_pulled_at timestamp on all manifests in the primary
 			//DB (we will later verify that this was not touched by the manifest sync)
@@ -268,6 +247,8 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			//set some of those to verify the merging behavior
 			earlierLastPulledAt := initialLastPulledAt.Add(-10 * time.Second)
 			laterLastPulledAt := initialLastPulledAt.Add(+10 * time.Second)
+			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = NULL`)
+			mustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = NULL`)
 			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, earlierLastPulledAt, images[1].Manifest.Digest.String())
 			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, laterLastPulledAt, images[2].Manifest.Digest.String())
 			mustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, earlierLastPulledAt, "latest")
@@ -545,32 +526,14 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	//the content since our Clair double doesn't care either)
 	images := make([]test.Image, 2)
 	for idx := range images {
-		image := test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
-		images[idx] = image
-
-		configBlob := uploadBlob(t, s, image.Config)
-		layerBlob := uploadBlob(t, s, image.Layers[0])
-		uploadManifest(t, s, image.Manifest, image.SizeBytes())
-		mustExec(t, s.DB,
-			`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
-			configBlob.ID, image.Manifest.Digest.String(),
-		)
-		mustExec(t, s.DB,
-			`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
-			layerBlob.ID, image.Manifest.Digest.String(),
-		)
+		images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
+		images[idx].MustUpload(t, s, fooRepoRef, "")
 	}
 
 	//also setup an image list manifest containing those images (so that we have
 	//some manifest-manifest refs to play with)
 	imageList := test.GenerateImageList(images[0], images[1])
-	uploadManifest(t, s, imageList.Manifest, imageList.SizeBytes())
-	for _, image := range images {
-		mustExec(t, s.DB,
-			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
-			imageList.Manifest.Digest.String(), image.Manifest.Digest.String(),
-		)
-	}
+	imageList.MustUpload(t, s, fooRepoRef, "")
 
 	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
 	tr0.AssertEqualToFile("fixtures/vulnerability-check-setup.sql")

@@ -295,6 +295,21 @@ func FindManifest(db gorp.SqlExecutor, repo Repository, digest string) (*Manifes
 	return &manifest, err
 }
 
+var manifestGetQueryByRepoName = SimplifyWhitespaceInSQL(`
+	SELECT m.*
+	  FROM manifests m
+	  JOIN repos r ON m.repo_id = r.id
+	 WHERE r.account_name = $1 AND r.name = $2 AND m.digest = $3
+`)
+
+//FindManifestByRepositoryName is a convenience wrapper around db.SelectOne().
+//If the manifest in question does not exist, sql.ErrNoRows is returned.
+func FindManifestByRepositoryName(db gorp.SqlExecutor, repoName string, account Account, digest string) (*Manifest, error) {
+	var manifest Manifest
+	err := db.SelectOne(&manifest, manifestGetQueryByRepoName, account.Name, repoName, digest)
+	return &manifest, err
+}
+
 //Tag contains a record from the `tags` table.
 type Tag struct {
 	RepositoryID int64      `db:"repo_id"`

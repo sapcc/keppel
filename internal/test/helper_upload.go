@@ -45,7 +45,7 @@ var VersionHeader = map[string]string{VersionHeaderKey: VersionHeaderValue}
 //
 //`h` must serve the Registry V2 API.
 //`token` must be a Bearer token capable of pushing into the specified repo.
-func (b Bytes) MustUpload(t *testing.T, s Setup, repo keppel.Repository) {
+func (b Bytes) MustUpload(t *testing.T, s Setup, repo keppel.Repository) keppel.Blob {
 	token := s.GetToken(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
 
 	//create blob with a monolithic upload
@@ -64,20 +64,17 @@ func (b Bytes) MustUpload(t *testing.T, s Setup, repo keppel.Repository) {
 		t.FailNow()
 	}
 
-	//validate blob
-	assert.HTTPRequest{
-		Method:       "HEAD",
-		Path:         fmt.Sprintf("/v2/%s/blobs/%s", repo.FullName(), b.Digest),
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusOK,
-		ExpectHeader: map[string]string{
-			VersionHeaderKey: VersionHeaderValue,
-			"Content-Length": strconv.Itoa(len(b.Contents)),
-		},
-	}.Check(t, s.Handler)
+	//validate uploaded blob (FindBlobByRepository does not work here because we
+	//are usually given a Repository instance that does not have the ID field
+	//filled)
+	account := keppel.Account{Name: repo.AccountName}
+	blob, err := keppel.FindBlobByRepositoryName(s.DB, b.Digest, repo.Name, account)
+	must(t, err)
+	s.ExpectBlobsExistInStorage(t, *blob)
 	if t.Failed() {
 		t.FailNow()
 	}
+	return *blob
 }
 
 var checkBlobExistsQuery = keppel.SimplifyWhitespaceInSQL(`
@@ -88,7 +85,7 @@ var checkBlobExistsQuery = keppel.SimplifyWhitespaceInSQL(`
 //uploads all referenced blobs that do not exist in the DB yet.
 //
 //`tagName` may be empty if the image is to be uploaded without tagging.
-func (i Image) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName string) {
+func (i Image) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName string) keppel.Manifest {
 	//upload missing blobs
 	for _, blob := range append(i.Layers, i.Config) {
 		count, err := s.DB.SelectInt(checkBlobExistsQuery, repo.AccountName, blob.Digest.String())
@@ -124,20 +121,15 @@ func (i Image) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName
 		t.FailNow()
 	}
 
-	//check uploaded manifest
-	assert.HTTPRequest{
-		Method:       "HEAD",
-		Path:         urlPath,
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusOK,
-		ExpectHeader: map[string]string{
-			VersionHeaderKey: VersionHeaderValue,
-			"Content-Length": strconv.Itoa(len(i.Manifest.Contents)),
-		},
-	}.Check(t, s.Handler)
+	//validate uploaded manifest
+	account := keppel.Account{Name: repo.AccountName}
+	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, account, i.Manifest.Digest.String())
+	must(t, err)
+	s.ExpectManifestsExistInStorage(t, *manifest)
 	if t.Failed() {
 		t.FailNow()
 	}
+	return *manifest
 }
 
 var checkManifestExistsQuery = keppel.SimplifyWhitespaceInSQL(`
@@ -150,7 +142,7 @@ var checkManifestExistsQuery = keppel.SimplifyWhitespaceInSQL(`
 //also uploads all referenced images that do not exist in the DB yet.
 //
 //`tagName` may be empty if the image is to be uploaded without tagging.
-func (l ImageList) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName string) {
+func (l ImageList) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName string) keppel.Manifest {
 	//upload missing images
 	for _, image := range l.Images {
 		count, err := s.DB.SelectInt(checkManifestExistsQuery, repo.AccountName, repo.Name, image.Manifest.Digest.String())
@@ -186,18 +178,13 @@ func (l ImageList) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tag
 		t.FailNow()
 	}
 
-	//check uploaded manifest
-	assert.HTTPRequest{
-		Method:       "HEAD",
-		Path:         urlPath,
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusOK,
-		ExpectHeader: map[string]string{
-			VersionHeaderKey: VersionHeaderValue,
-			"Content-Length": strconv.Itoa(len(l.Manifest.Contents)),
-		},
-	}.Check(t, s.Handler)
+	//validate uploaded manifest
+	account := keppel.Account{Name: repo.AccountName}
+	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, account, l.Manifest.Digest.String())
+	must(t, err)
+	s.ExpectManifestsExistInStorage(t, *manifest)
 	if t.Failed() {
 		t.FailNow()
 	}
+	return *manifest
 }

@@ -41,37 +41,28 @@ func setupStorageSweepTest(t *testing.T, j *Janitor, s test.Setup) (images []tes
 		)
 		images[idx] = image
 
-		layer1Blob := uploadBlob(t, s, image.Layers[0])
-		layer2Blob := uploadBlob(t, s, image.Layers[1])
-		configBlob := uploadBlob(t, s, image.Config)
-		healthyBlobs = append(healthyBlobs, configBlob, layer1Blob, layer2Blob)
+		healthyBlobs = append(healthyBlobs,
+			image.Layers[0].MustUpload(t, s, fooRepoRef),
+			image.Layers[1].MustUpload(t, s, fooRepoRef),
+			image.Config.MustUpload(t, s, fooRepoRef),
+		)
 		healthyManifests = append(healthyManifests,
-			uploadManifest(t, s, image.Manifest, image.SizeBytes()))
-		for _, blobID := range []int64{layer1Blob.ID, layer2Blob.ID, configBlob.ID} {
-			mustExec(t, s.DB,
-				`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
-				blobID, image.Manifest.Digest.String(),
-			)
-		}
+			image.MustUpload(t, s, fooRepoRef, ""),
+		)
 	}
 
 	imageList := test.GenerateImageList(images[0], images[1])
 	healthyManifests = append(healthyManifests,
-		uploadManifest(t, s, imageList.Manifest, imageList.SizeBytes()))
-	for _, image := range images {
-		mustExec(t, s.DB,
-			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
-			imageList.Manifest.Digest.String(), image.Manifest.Digest.String(),
-		)
-	}
+		imageList.MustUpload(t, s, fooRepoRef, ""),
+	)
 
 	//SweepStorageInNextAccount should run through, but not do anything besides
 	//setting the storage_sweeped_at timestamp on the account
 	expectSuccess(t, j.SweepStorageInNextAccount())
 	expectError(t, sql.ErrNoRows.Error(), j.SweepStorageInNextAccount())
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-000.sql")
-	expectBlobsExistInStorage(t, s.SD, healthyBlobs...)
-	expectManifestsExistInStorage(t, s.SD, healthyManifests...)
+	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
+	s.ExpectManifestsExistInStorage(t, healthyManifests...)
 
 	return images, healthyBlobs, healthyManifests
 }
@@ -122,14 +113,14 @@ func TestSweepStorageBlobs(t *testing.T) {
 	expectError(t, sql.ErrNoRows.Error(), j.SweepStorageInNextAccount())
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-blobs-001.sql")
 	//...but not delete anything yet
-	expectBlobsExistInStorage(t, s.SD, healthyBlobs...)
-	expectBlobsExistInStorage(t, s.SD,
-		keppel.Blob{Digest: testBlob1.Digest.String(), StorageID: testBlob1.Digest.Encoded()},
-		keppel.Blob{Digest: testBlob2.Digest.String(), StorageID: testBlob2.Digest.Encoded()},
-		keppel.Blob{Digest: testBlob3.Digest.String(), StorageID: testBlob3.Digest.Encoded()},
-		keppel.Blob{Digest: testBlob4.Digest.String(), StorageID: testBlob4.Digest.Encoded()},
+	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
+	s.ExpectBlobsExistInStorage(t,
+		keppel.Blob{AccountName: "test1", Digest: testBlob1.Digest.String(), StorageID: testBlob1.Digest.Encoded()},
+		keppel.Blob{AccountName: "test1", Digest: testBlob2.Digest.String(), StorageID: testBlob2.Digest.Encoded()},
+		keppel.Blob{AccountName: "test1", Digest: testBlob3.Digest.String(), StorageID: testBlob3.Digest.Encoded()},
+		keppel.Blob{AccountName: "test1", Digest: testBlob4.Digest.String(), StorageID: testBlob4.Digest.Encoded()},
 	)
-	expectManifestsExistInStorage(t, s.SD, healthyManifests...)
+	s.ExpectManifestsExistInStorage(t, healthyManifests...)
 
 	//create a DB entry for the first blob (to sort of simulate an upload that
 	//just got finished while SweepStorageInNextAccount was running: blob was
@@ -151,16 +142,16 @@ func TestSweepStorageBlobs(t *testing.T) {
 	expectSuccess(t, j.SweepStorageInNextAccount())
 	expectError(t, sql.ErrNoRows.Error(), j.SweepStorageInNextAccount())
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-blobs-002.sql")
-	expectBlobsExistInStorage(t, s.SD, healthyBlobs...)
-	expectBlobsExistInStorage(t, s.SD,
-		keppel.Blob{Digest: testBlob1.Digest.String(), StorageID: testBlob1.Digest.Encoded()},
-		keppel.Blob{Digest: testBlob3.Digest.String(), StorageID: testBlob3.Digest.Encoded()},
+	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
+	s.ExpectBlobsExistInStorage(t,
+		keppel.Blob{AccountName: "test1", Digest: testBlob1.Digest.String(), StorageID: testBlob1.Digest.Encoded()},
+		keppel.Blob{AccountName: "test1", Digest: testBlob3.Digest.String(), StorageID: testBlob3.Digest.Encoded()},
 	)
-	expectBlobsMissingInStorage(t, s.SD,
-		keppel.Blob{Digest: testBlob2.Digest.String(), StorageID: testBlob2.Digest.Encoded()},
-		keppel.Blob{Digest: testBlob4.Digest.String(), StorageID: testBlob4.Digest.Encoded()},
+	s.ExpectBlobsMissingInStorage(t,
+		keppel.Blob{AccountName: "test1", Digest: testBlob2.Digest.String(), StorageID: testBlob2.Digest.Encoded()},
+		keppel.Blob{AccountName: "test1", Digest: testBlob4.Digest.String(), StorageID: testBlob4.Digest.Encoded()},
 	)
-	expectManifestsExistInStorage(t, s.SD, healthyManifests...)
+	s.ExpectManifestsExistInStorage(t, healthyManifests...)
 }
 
 func TestSweepStorageManifests(t *testing.T) {
@@ -182,9 +173,9 @@ func TestSweepStorageManifests(t *testing.T) {
 	expectError(t, sql.ErrNoRows.Error(), j.SweepStorageInNextAccount())
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-manifests-001.sql")
 	//...but not delete anything yet
-	expectBlobsExistInStorage(t, s.SD, healthyBlobs...)
-	expectManifestsExistInStorage(t, s.SD, healthyManifests...)
-	expectManifestsExistInStorage(t, s.SD,
+	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
+	s.ExpectManifestsExistInStorage(t, healthyManifests...)
+	s.ExpectManifestsExistInStorage(t,
 		keppel.Manifest{RepositoryID: 1, Digest: testImageList1.Manifest.Digest.String()},
 		keppel.Manifest{RepositoryID: 1, Digest: testImageList2.Manifest.Digest.String()},
 	)
@@ -210,12 +201,12 @@ func TestSweepStorageManifests(t *testing.T) {
 	expectSuccess(t, j.SweepStorageInNextAccount())
 	expectError(t, sql.ErrNoRows.Error(), j.SweepStorageInNextAccount())
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-manifests-002.sql")
-	expectBlobsExistInStorage(t, s.SD, healthyBlobs...)
-	expectManifestsExistInStorage(t, s.SD, healthyManifests...)
-	expectManifestsExistInStorage(t, s.SD,
+	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
+	s.ExpectManifestsExistInStorage(t, healthyManifests...)
+	s.ExpectManifestsExistInStorage(t,
 		keppel.Manifest{RepositoryID: 1, Digest: testImageList1.Manifest.Digest.String()},
 	)
-	expectManifestsMissingInStorage(t, s.SD,
+	s.ExpectManifestsMissingInStorage(t,
 		keppel.Manifest{RepositoryID: 1, Digest: testImageList2.Manifest.Digest.String()},
 	)
 }

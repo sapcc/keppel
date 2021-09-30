@@ -38,8 +38,7 @@ func TestSweepBlobs(t *testing.T) {
 	var dbBlobs []keppel.Blob
 	for idx := int64(0); idx < 5; idx++ {
 		blob := test.GenerateExampleLayer(idx)
-		dbBlob := uploadBlob(t, s, blob)
-		dbBlobs = append(dbBlobs, dbBlob)
+		dbBlobs = append(dbBlobs, blob.MustUpload(t, s, fooRepoRef))
 	}
 
 	//since uploadBlob() mounts these blobs into the test1/foo repository, there
@@ -48,7 +47,7 @@ func TestSweepBlobs(t *testing.T) {
 	expectSuccess(t, j.SweepBlobsInNextAccount())
 	expectError(t, sql.ErrNoRows.Error(), j.SweepBlobsInNextAccount())
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-sweep-001.sql")
-	expectBlobsExistInStorage(t, s.SD, dbBlobs...)
+	s.ExpectBlobsExistInStorage(t, dbBlobs...)
 
 	//remove blob mounts for some blobs - SweepBlobsInNextAccount() should now
 	//mark them for deletion (but not actually delete them yet)
@@ -60,7 +59,7 @@ func TestSweepBlobs(t *testing.T) {
 	expectSuccess(t, j.SweepBlobsInNextAccount())
 	expectError(t, sql.ErrNoRows.Error(), j.SweepBlobsInNextAccount())
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-sweep-002.sql")
-	expectBlobsExistInStorage(t, s.SD, dbBlobs...)
+	s.ExpectBlobsExistInStorage(t, dbBlobs...)
 
 	//recreate one of these blob mounts - this should protect it from being
 	//deleted
@@ -74,8 +73,8 @@ func TestSweepBlobs(t *testing.T) {
 	expectSuccess(t, j.SweepBlobsInNextAccount())
 	expectError(t, sql.ErrNoRows.Error(), j.SweepBlobsInNextAccount())
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-sweep-003.sql")
-	expectBlobsMissingInStorage(t, s.SD, dbBlobs[0:2]...)
-	expectBlobsExistInStorage(t, s.SD, dbBlobs[2:]...)
+	s.ExpectBlobsMissingInStorage(t, dbBlobs[0:2]...)
+	s.ExpectBlobsExistInStorage(t, dbBlobs[2:]...)
 }
 
 func TestValidateBlobs(t *testing.T) {
@@ -89,7 +88,7 @@ func TestValidateBlobs(t *testing.T) {
 	for idx := range dbBlobs {
 		blob := test.GenerateExampleLayer(int64(idx))
 		s.Clock.Step()
-		dbBlobs[idx] = uploadBlob(t, s, blob)
+		dbBlobs[idx] = blob.MustUpload(t, s, fooRepoRef)
 	}
 
 	//ValidateNextBlob should be happy about these blobs

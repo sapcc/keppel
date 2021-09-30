@@ -38,27 +38,12 @@ func TestGCUntaggedImages(t *testing.T) {
 	)
 
 	//store two images, one tagged, one untagged
-	images := make([]test.Image, 2)
-	for idx := range images {
-		image := test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
-		images[idx] = image
-
-		configBlob := uploadBlob(t, s, image.Config)
-		layerBlob := uploadBlob(t, s, image.Layers[0])
-		uploadManifest(t, s, image.Manifest, image.SizeBytes())
-		mustExec(t, s.DB,
-			`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
-			configBlob.ID, image.Manifest.Digest.String(),
-		)
-		mustExec(t, s.DB,
-			`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
-			layerBlob.ID, image.Manifest.Digest.String(),
-		)
+	images := []test.Image{
+		test.GenerateImage(test.GenerateExampleLayer(0)),
+		test.GenerateImage(test.GenerateExampleLayer(1)),
 	}
-	mustExec(t, s.DB,
-		`INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, $1, $2, $3)`,
-		"first", images[0].Manifest.Digest.String(), j.timeNow(),
-	)
+	images[0].MustUpload(t, s, fooRepoRef, "first")
+	images[1].MustUpload(t, s, fooRepoRef, "")
 
 	//GC should not do anything right now because newly-pushed images are
 	//protected (to avoid deleting images that a client is about to tag)
@@ -86,17 +71,7 @@ func TestGCUntaggedImages(t *testing.T) {
 	)
 	//however now there's also a tagged image list referencing it
 	imageList := test.GenerateImageList(images[0], images[1])
-	uploadManifest(t, s, imageList.Manifest, imageList.SizeBytes())
-	for _, image := range images {
-		mustExec(t, s.DB,
-			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2)`,
-			imageList.Manifest.Digest.String(), image.Manifest.Digest.String(),
-		)
-	}
-	mustExec(t, s.DB,
-		`INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, $1, $2, $3)`,
-		"list", imageList.Manifest.Digest.String(), j.timeNow(),
-	)
+	imageList.MustUpload(t, s, fooRepoRef, "list")
 
 	//GC should not delete the untagged image since it's referenced by the tagged list image
 	expectSuccess(t, j.GarbageCollectManifestsInNextRepo())
