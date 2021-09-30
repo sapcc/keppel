@@ -42,17 +42,22 @@ var imageGCRepoDoneQuery = keppel.SimplifyWhitespaceInSQL(`
 
 //GarbageCollectManifestsInNextRepo finds the next repository where GC has not been performed for more than an hour, and
 func (j *Janitor) GarbageCollectManifestsInNextRepo() (returnErr error) {
+	var repo keppel.Repository
+
 	defer func() {
 		if returnErr == nil {
 			imageGCSuccessCounter.Inc()
 		} else if returnErr != sql.ErrNoRows {
 			imageGCFailedCounter.Inc()
-			returnErr = fmt.Errorf("while GCing manifests in a repo: %w", returnErr)
+			repoFullName := repo.FullName()
+			if repoFullName == "" {
+				repoFullName = "unknown"
+			}
+			returnErr = fmt.Errorf("while GCing manifests in the repo %s: %w", repoFullName, returnErr)
 		}
 	}()
 
 	//find repository to sync
-	var repo keppel.Repository
 	err := j.db.SelectOne(&repo, imageGCRepoSelectQuery, j.timeNow())
 	if err != nil {
 		if err == sql.ErrNoRows {
