@@ -59,6 +59,7 @@ func (t AuditTrail) Commit(rabbitmqQueueName string, rabbitmqURI amqp.URI) {
 	}
 
 	var pendingEvents []cadf.Event
+	//lint:ignore SA1015 Stays for the duration of the program and not an issue in real world usage
 	ticker := time.Tick(1 * time.Minute)
 	for {
 		select {

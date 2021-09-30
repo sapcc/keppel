@@ -398,8 +398,8 @@ github.com/russross/blackfriday/v2 v2.0.1/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQD
 github.com/ryanuber/columnize v0.0.0-20160712163229-9b3edd62028f/go.mod h1:sm1tb6uqfes/u+d4ooFouqFdy9/2g9QGwK3SQygK0Ts=
 github.com/sapcc/go-bits v0.0.0-20180828115508-ed29938ce01c/go.mod h1:KeP5OOqQIgrauiDb/8shKWOq1YoplBALYNvpV4jizPo=
 github.com/sapcc/go-bits v0.0.0-20190910095551-3863bd6b4943/go.mod h1:YpW83RbRSHPedMBfuvdfYJMQbejxSxzK1Kj/39szShw=
-github.com/sapcc/go-bits v0.0.0-20210518135053-8a9465bb1339 h1:h+QVpZmohPrpbHVZneUG8G8RBb+cRC+XvBQ2i+w7Gsg=
-github.com/sapcc/go-bits v0.0.0-20210518135053-8a9465bb1339/go.mod h1:K/nymIfebyify6kJ9K62XSQHFw/M5QNo8BmYNmuUJbk=
+github.com/sapcc/go-bits v0.0.0-20210929140247-281bcf017ba7 h1:6OgCUeRvvuF+nkUTBydHPAvMvHd8UX7AHQUG3WgZytY=
+github.com/sapcc/go-bits v0.0.0-20210929140247-281bcf017ba7/go.mod h1:I1bua+0NzvypvJMXLjo+I4CMuGzi/Zg2p28q1X0lnyY=
 github.com/sapcc/hermes v0.0.0-20190722215605-d772f40f9fc6/go.mod h1:WM5CVlqFCGM+AUE7lQgkLmPE89PWqJS3i+oRXaSztR8=
 github.com/sapcc/hermes v0.0.0-20210913152504-83abb5476ba6 h1:Z/95U0gshuBM/pQ6MrQCKyjQ/bgUXN0QPb53zUeY7EE=
 github.com/sapcc/hermes v0.0.0-20210913152504-83abb5476ba6/go.mod h1:1fxCUJjYnq0n63o61aXG+5G1oCKApPb667aiGawNvHQ=

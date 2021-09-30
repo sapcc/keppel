@@ -62,14 +62,14 @@ type Token struct {
 func (t *Token) Require(w http.ResponseWriter, rule string) bool {
 	if t.Err != nil {
 		if t.Context.Logger != nil {
-			t.Context.Logger("returning 401 because of error: " + t.Err.Error())
+			t.Context.Logger(fmt.Sprintf("returning %v because of error: %s", http.StatusUnauthorized, t.Err.Error()))
 		}
-		http.Error(w, "Unauthorized", 401)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return false
 	}
 
 	if !t.Enforcer.Enforce(rule, t.Context) {
-		http.Error(w, "Forbidden", 403)
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return false
 	}
 	return true
