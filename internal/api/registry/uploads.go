@@ -32,6 +32,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
@@ -257,28 +258,17 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	defer keppel.RollbackUnlessCommitted(tx)
 
 	blobPushedAt := a.timeNow()
-	blob := keppel.Blob{
-		AccountName: account.Name,
-		Digest:      blobDigest.String(),
-		SizeBytes:   sizeBytes,
-		StorageID:   upload.StorageID,
-		PushedAt:    blobPushedAt,
-		ValidatedAt: blobPushedAt,
-	}
-	onCommit, err := a.createOrUpdateBlobObject(tx, &blob, account)
+	blob, err := a.createOrUpdateBlobObject(tx, sizeBytes, upload.StorageID, blobDigest, blobPushedAt, account)
 	if respondWithError(w, r, err) {
 		return false
 	}
-	err = keppel.MountBlobIntoRepo(tx, blob, repo)
+	err = keppel.MountBlobIntoRepo(tx, *blob, repo)
 	if respondWithError(w, r, err) {
 		return false
 	}
 	err = tx.Commit()
 	if respondWithError(w, r, err) {
 		return false
-	}
-	if onCommit != nil {
-		onCommit()
 	}
 
 	//the spec wants a Blob-Upload-Session-Id header even though the upload is done, so just make something up
@@ -445,9 +435,31 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//convert the Upload object into a Blob
-	blob, err := a.finishUpload(*account, *repo, upload, query.Get("digest"))
+	//convert the Upload into a Blob in both the storage backend and the DB
+	//
+	//NOTE 1: This is written a bit funny to avoid duplicating error handling
+	//code for each step.
+	//NOTE 2: Since we finalize the blob in the storage first, there's a slight
+	//chance that unexpected errors could leave us with a dangling blob in the
+	//storage that the DB does not know about, but the storage sweep can clean
+	//that up later.
+	var blob *keppel.Blob
+	err := a.sd.FinalizeBlob(*account, upload.StorageID, upload.NumChunks)
+	if err == nil {
+		blob, err = a.createBlobFromUpload(*account, *repo, *upload, query.Get("digest"))
+	}
+
+	//if an error occurred anywhere during this last sequence of steps, do our best to clean up the mess we left behind
 	if respondWithError(w, r, err) {
+		countAbortedBlobUpload(*account)
+		_, err := a.db.Delete(upload)
+		if err != nil {
+			logg.Error("additional error encountered while deleting Upload from DB after late upload error: " + err.Error())
+		}
+		err = a.sd.DeleteBlob(*account, upload.StorageID)
+		if err != nil {
+			logg.Error("additional error encountered during DeleteBlob() after late upload error: " + err.Error())
+		}
 		return
 	}
 
@@ -632,28 +644,7 @@ func (a *API) streamIntoUpload(account keppel.Account, upload *keppel.Upload, dw
 	return base64.URLEncoding.EncodeToString(digestStateBytes), nil
 }
 
-func (a *API) finishUpload(account keppel.Account, repo keppel.Repository, upload *keppel.Upload, blobDigestStr string) (blob *keppel.Blob, returnErr error) {
-	//if anything happens during this operation, we likely have produced an
-	//inconsistent state between DB, storage backend and our internal book
-	//keeping (esp. the digestState in dw.Hash), so we will have to abort the
-	//upload entirely
-	defer func() {
-		if returnErr != nil {
-			//TODO: might have to use DeleteBlob instead of AbortBlobUpload if the
-			//error occurs after successful FinalizeBlob call
-			logg.Info("aborting upload because of error during finishUpload()")
-			countAbortedBlobUpload(account)
-			err := a.sd.AbortBlobUpload(account, upload.StorageID, upload.NumChunks)
-			if err != nil {
-				logg.Error("additional error encountered during AbortBlobUpload: " + err.Error())
-			}
-			_, err = a.db.Delete(upload)
-			if err != nil {
-				logg.Error("additional error encountered while deleting Upload from DB: " + err.Error())
-			}
-		}
-	}()
-
+func (a *API) createBlobFromUpload(account keppel.Account, repo keppel.Repository, upload keppel.Upload, blobDigestStr string) (blob *keppel.Blob, returnErr error) {
 	//validate the digest provided by the user
 	if blobDigestStr == "" {
 		return nil, keppel.ErrDigestInvalid.With("missing digest")
@@ -673,21 +664,13 @@ func (a *API) finishUpload(account keppel.Account, repo keppel.Repository, uploa
 	}
 	defer keppel.RollbackUnlessCommitted(tx)
 
-	_, err = tx.Delete(upload)
+	_, err = tx.Delete(&upload)
 	if err != nil {
 		return nil, err
 	}
 
 	blobPushedAt := a.timeNow()
-	blob = &keppel.Blob{
-		AccountName: account.Name,
-		Digest:      blobDigest.String(),
-		SizeBytes:   upload.SizeBytes,
-		StorageID:   upload.StorageID,
-		PushedAt:    blobPushedAt,
-		ValidatedAt: blobPushedAt,
-	}
-	onCommit, err := a.createOrUpdateBlobObject(tx, blob, account)
+	blob, err = a.createOrUpdateBlobObject(tx, upload.SizeBytes, upload.StorageID, blobDigest, blobPushedAt, account)
 	if err != nil {
 		return nil, err
 	}
@@ -695,53 +678,47 @@ func (a *API) finishUpload(account keppel.Account, repo keppel.Repository, uploa
 	if err != nil {
 		return nil, err
 	}
-
-	//finally commit the blob to the storage backend and to the DB
-	err = a.sd.FinalizeBlob(account, upload.StorageID, upload.NumChunks)
-	if err != nil {
-		return nil, err
-	}
-	err = tx.Commit()
-	if err != nil {
-		return nil, err
-	}
-	if onCommit != nil {
-		onCommit()
-	}
-	return blob, nil
+	return blob, tx.Commit()
 }
 
-//Insert a Blob object in the database. This is similar to tx.Insert(blob), but
-//handles a collision where another blob with the same account name and digest
-//already exists in the database.
-func (a *API) createOrUpdateBlobObject(tx *gorp.Transaction, blob *keppel.Blob, account keppel.Account) (onCommit func(), returnErr error) {
-	//check for collision
-	var otherBlob keppel.Blob
-	err := tx.SelectOne(&otherBlob,
-		`SELECT * FROM blobs WHERE account_name = $1 AND digest = $2`,
-		blob.AccountName, blob.Digest)
+var insertBlobIfMissingQuery = keppel.SimplifyWhitespaceInSQL(`
+	INSERT INTO blobs (account_name, digest, size_bytes, storage_id, pushed_at, validated_at)
+	VALUES ($1, $2, $3, $4, $5, $5)
+	ON CONFLICT DO NOTHING
+`)
 
-	switch err {
-	case sql.ErrNoRows:
-		//no collision - just insert the new blob
-		return nil, tx.Insert(blob)
-	case nil:
-		//collision - replace old blob with new blob (we trust the new blob more
-		//because we just verified its digest)
-		blob.ID = otherBlob.ID
-		_, err := tx.Update(blob)
-		onCommit := func() {
-			//when the UPDATE was committed, we need to cleanup the old blob's contents
-			err := a.sd.DeleteBlob(account, otherBlob.StorageID)
-			if err != nil {
-				logg.Error("additional error encountered while deleting duplicate blob %s from %s: %s", otherBlob.StorageID, account.Name, err.Error())
-			}
-		}
-		return onCommit, err
-	default:
-		//unexpected error during SELECT
+//Insert a Blob object in the database. This is similar to building a
+//keppel.Blob and doing tx.Insert(blob), but handles a collision where another
+//blob with the same account name and digest already exists in the database.
+func (a *API) createOrUpdateBlobObject(tx *gorp.Transaction, sizeBytes uint64, storageID string, blobDigest digest.Digest, blobPushedAt time.Time, account keppel.Account) (*keppel.Blob, error) {
+	//try to insert the blob atomically (I would like to SELECT the result
+	//directly via `RETURNING *`, but that gives sql.ErrNoRows when nothing was
+	//inserted because of ON CONFLICT, so in the general case, we need another
+	//SELECT to get the resulting blob anyway)
+	_, err := tx.Exec(insertBlobIfMissingQuery,
+		account.Name, blobDigest.String(), sizeBytes, storageID, blobPushedAt,
+	)
+	if err != nil {
 		return nil, err
 	}
+	blob, err := keppel.FindBlobByAccountName(tx, blobDigest, account)
+	if err != nil {
+		return nil, err
+	}
+
+	//if we already had a blob with this digest, there was a CONFLICT and we
+	//obtained the existing blob from the SELECT; since we already have the
+	//existing blob, we can discard the uploaded blob contents and reuse the
+	//existing blob instead
+	if blob.StorageID != storageID {
+		err := a.sd.DeleteBlob(account, storageID)
+		if err != nil {
+			return nil, fmt.Errorf("while deleting duplicate blob contents for %s at storage ID %s: %w",
+				blobDigest, storageID, err)
+		}
+	}
+
+	return blob, nil
 }
 
 //digestWriter is an io.Writer that writes into the given Hash and also tracks the number of bytes written.

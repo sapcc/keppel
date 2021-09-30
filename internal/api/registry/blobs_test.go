@@ -438,6 +438,10 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				//validate that the blob was stored at the specified location
 				expectBlobExists(t, h, token, "test1/foo", blob, nil)
 			}
+
+			if t.Failed() {
+				t.FailNow()
+			}
 		})
 	}
 }
