@@ -3,7 +3,7 @@ module github.com/sapcc/keppel
 go 1.17
 
 require (
-	github.com/databus23/goslo.policy v0.0.0-20170317131957-3ae74dd07ebf
+	github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7

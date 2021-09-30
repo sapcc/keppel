@@ -12,7 +12,7 @@ func(y yySymType) String() string {
 %}
 
 %union {
-  f   rule 
+  f   rule
   str string
   num int
   b   bool
@@ -20,27 +20,27 @@ func(y yySymType) String() string {
 
 %type <f> check expr
 
-%token '(' ')' '@' '!' ':' 
-%token and or not 
-%left or 
-%left and 
-%left not 
+%token '(' ')' '@' '!' ':'
+%token and or not
+%left or
+%left and
+%left not
 
 %token variable, unquotedStr, constStr, number, boolean
 %type <str> variable, unquotedStr, constStr
 %type <b> boolean
-%type <num> number 
+%type <num> number
 
 
 %%
 
 rule:
    {
-     var f rule = func(c Context ) bool {return true }
+     var f rule = func(c Context ) bool { return true }
      yylex.(*lexer).parseResult = f
    }
 |
-   expr 
+   expr
    {
       yylex.(*lexer).parseResult = $1
    }
@@ -55,8 +55,8 @@ expr:
   '(' expr ')'
   {
     f := $2
-    $$ = func(c Context) bool { return f(c) } 
-  } 
+    $$ = func(c Context) bool { return f(c) }
+  }
 |
   expr or expr
   {
@@ -67,7 +67,7 @@ expr:
   expr and expr
   {
     left,right := $1, $3
-    $$ = func(c Context) bool { return left(c) && right(c) } 
+    $$ = func(c Context) bool { return left(c) && right(c) }
   }
 |
   check
@@ -88,7 +88,7 @@ check:
     $$ = func(c Context) bool { return  c.genericCheck(left, right, false) }
   }
 |
-  unquotedStr ':' variable 
+  unquotedStr ':' variable
   {
     left,right := $1,$3
     $$ = func(c Context) bool { return c.genericCheck(left, right, true) }
@@ -110,4 +110,3 @@ check:
     $$ = func(_ Context) bool { return false }
   }
 %%
-

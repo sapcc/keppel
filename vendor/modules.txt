@@ -4,7 +4,7 @@ github.com/beorn7/perks/quantile
 # github.com/cespare/xxhash/v2 v2.1.1
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
-# github.com/databus23/goslo.policy v0.0.0-20170317131957-3ae74dd07ebf
+# github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
 ## explicit
 github.com/databus23/goslo.policy
 # github.com/dlmiddlecote/sqlstats v1.0.2
