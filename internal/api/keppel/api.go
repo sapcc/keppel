@@ -22,7 +22,6 @@ import (
 	"database/sql"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -163,14 +162,12 @@ func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, 
 	return repo
 }
 
-var repoPathComponentRx = regexp.MustCompile(`^[a-z0-9]+(?:[._-][a-z0-9]+)*$`)
-
 func isValidRepoName(name string) bool {
 	if name == "" {
 		return false
 	}
 	for _, pathComponent := range strings.Split(name, `/`) {
-		if !repoPathComponentRx.MatchString(pathComponent) {
+		if !keppel.RepoPathComponentRx.MatchString(pathComponent) {
 			return false
 		}
 	}

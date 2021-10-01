@@ -20,16 +20,11 @@
 package authapi
 
 import (
-	"regexp"
 	"strings"
 
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/auth"
-)
-
-var (
-	repoNameRx = `[a-z0-9]+(?:[._-][a-z0-9]+)*`
-	repoPathRx = regexp.MustCompile(`^` + repoNameRx + `(?:/` + repoNameRx + `)*$`)
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 func parseScope(input string) auth.Scope {
@@ -48,7 +43,7 @@ func parseScope(input string) auth.Scope {
 		if len(scope.ResourceName) > 256 {
 			logg.Info("rejecting overlong repository name: %q", scope.ResourceName)
 			scope.ResourceName = ""
-		} else if !repoPathRx.MatchString(scope.ResourceName) {
+		} else if !keppel.RepoPathRx.MatchString(scope.ResourceName) {
 			logg.Info("rejecting invalid repository name: %q", scope.ResourceName)
 			scope.ResourceName = ""
 		}

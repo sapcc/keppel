@@ -145,7 +145,7 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 		return
 	}
 	sourceRepoName := strings.TrimPrefix(sourceRepoFullName, account.Name+"/")
-	if !repoNameWithLeadingSlashRx.MatchString("/" + sourceRepoName) {
+	if !keppel.RepoNameWithLeadingSlashRx.MatchString("/" + sourceRepoName) {
 		keppel.ErrNameInvalid.With("source repository is invalid").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}

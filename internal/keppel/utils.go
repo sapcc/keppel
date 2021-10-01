@@ -21,9 +21,31 @@ package keppel
 import (
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
+
+var RepoNameRx = `[a-z0-9]+(?:[._-][a-z0-9]+)*`
+var RepoPathRx = regexp.MustCompile(`^` + RepoNameRx + `(?:/` + RepoNameRx + `)*$`)
+var RepoPathComponentRx = regexp.MustCompile(`^` + RepoNameRx + `$`)
+
+//The "with leading slash" simplifies the regex because we don't need to write the
+//regex for a path element twice.
+// Examples:
+// - /library/alpine
+// - /library/alpine:nonsense
+var RepoNameWithLeadingSlash = "(?:/" + RepoNameRx + ")+"
+var RepoNameWithLeadingSlashRx = regexp.MustCompile(`^` + RepoNameWithLeadingSlash + `$`)
+
+// Regex to match repo/account and optional tag and digest combination
+// Examples:
+// - /library/alpine
+// - /library/alpine:nonsense
+// - /library/alpine:e9707504ad0d4c119036b6d41ace4a33596139d3feb9ccb6617813ce48c3eeef
+// - /library/alpine@sha256:e9707504ad0d4c119036b6d41ace4a33596139d3feb9ccb6617813ce48c3eeef
+// - /library/alpine:nonsense@sha256:e9707504ad0d4c119036b6d41ace4a33596139d3feb9ccb6617813ce48c3eeef
+var ImageReferenceRx = regexp.MustCompile(`^(` + RepoNameWithLeadingSlash + `)(?::([a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}))?(?:@(sha256:[a-z0-9]{64}))?$`)
 
 //OriginalRequestURL returns the URL that the original requester used when
 //sending an HTTP request. This inspects the X-Forwarded-* set of headers to
