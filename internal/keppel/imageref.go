@@ -21,7 +21,6 @@ package keppel
 import (
 	"fmt"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"github.com/opencontainers/go-digest"
@@ -60,14 +59,6 @@ func (r ImageReference) String() string {
 	return fmt.Sprintf("%s/%s", r.Host, result)
 }
 
-//The "with leading slash" simplifies the regex because we don't need to write the
-//regex for a path element twice.
-//
-//TODO code duplication with internal/api/registry/
-var repoNameWithLeadingSlashRx = regexp.MustCompile(`^(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)+$`)
-
-var ImageReferenceRegex = regexp.MustCompile(`^((?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)+)(?::([a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}))?(?:@(sha256:[a-z0-9]{64}))?$`)
-
 //ParseImageReference parses an image reference string like
 //"registry.example.org/alpine:3.9" into an ImageReference struct.
 //Both on success and on error, an additional string is returned indicating how
@@ -92,7 +83,7 @@ func ParseImageReference(input string) (ImageReference, string, error) {
 	var ref ImageReference
 	if strings.Contains(imageURL.Path, "@") {
 		//input references a digest
-		pathParts := ImageReferenceRegex.FindStringSubmatch(imageURL.Path)
+		pathParts := ImageReferenceRx.FindStringSubmatch(imageURL.Path)
 		digest, err := digest.Parse(pathParts[len(pathParts)-1])
 		if err != nil {
 			return ImageReference{}, input, fmt.Errorf("invalid digest: %q", ref.Reference)
@@ -119,7 +110,7 @@ func ParseImageReference(input string) (ImageReference, string, error) {
 		}
 	}
 
-	if !repoNameWithLeadingSlashRx.MatchString("/" + ref.RepoName) {
+	if !RepoNameWithLeadingSlashRx.MatchString("/" + ref.RepoName) {
 		return ImageReference{}, input, fmt.Errorf("invalid repository name: %q", ref.RepoName)
 	}
 

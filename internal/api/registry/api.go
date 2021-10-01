@@ -22,7 +22,6 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strconv"
 	"time"
 
@@ -147,9 +146,6 @@ func respondWithError(w http.ResponseWriter, r *http.Request, err error) bool {
 	}
 }
 
-//The "with leading slash" simplifies the regex because we need not write the regex for a path element twice.
-var repoNameWithLeadingSlashRx = regexp.MustCompile(`^(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)+$`)
-
 type repoAccessStrategy int
 
 const (
@@ -190,7 +186,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	//check that repo name is wellformed
 	vars := mux.Vars(r)
 	accountName, repoName := vars["account"], vars["repository"]
-	if !repoNameWithLeadingSlashRx.MatchString("/" + repoName) {
+	if !keppel.RepoNameWithLeadingSlashRx.MatchString("/" + repoName) {
 		keppel.ErrNameInvalid.With("invalid repository name").WriteAsRegistryV2ResponseTo(w, r)
 		return nil, nil, nil
 	}
