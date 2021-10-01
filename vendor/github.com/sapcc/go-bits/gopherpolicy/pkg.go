@@ -32,6 +32,7 @@ import (
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
+	"gopkg.in/yaml.v2"
 )
 
 //Validator is the interface provided by TokenValidator. Application code
@@ -73,7 +74,7 @@ func (v *TokenValidator) LoadPolicyFile(path string) error {
 		return err
 	}
 	var rules map[string]string
-	err = json.Unmarshal(bytes, &rules)
+	err = yaml.Unmarshal(bytes, &rules)
 	if err != nil {
 		return err
 	}

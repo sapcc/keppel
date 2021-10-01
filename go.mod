@@ -3,7 +3,7 @@ module github.com/sapcc/keppel
 go 1.17
 
 require (
-	github.com/databus23/goslo.policy v0.0.0-20170317131957-3ae74dd07ebf
+	github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
@@ -16,8 +16,8 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/rs/cors v1.8.0
-	github.com/sapcc/go-bits v0.0.0-20210518135053-8a9465bb1339
-	github.com/sapcc/hermes v0.0.0-20210913152504-83abb5476ba6
+	github.com/sapcc/go-bits v0.0.0-20210929140247-281bcf017ba7
+	github.com/sapcc/hermes v0.0.0-20210420164927-80b881d15d66
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.2.1
 	github.com/streadway/amqp v1.0.1-0.20200716223359-e6b33f460591

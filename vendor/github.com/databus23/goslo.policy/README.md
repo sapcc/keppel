@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/databus23/goslo.policy.png?branch=master)](https://travis-ci.org/databus23/goslo.policy)
+[![Build Status](https://github.com/databus23/goslo.policy/actions/workflows/go.yml/badge.svg?branch=master)](https://github.com/databus23/goslo.policy/actions/)
 
 A go implementation of OpenStack's oslo.policy
 ==============================================
@@ -6,11 +6,11 @@ A go implementation of OpenStack's oslo.policy
 This repository provides a reimplementation of the original [oslo.policy](https://github.com/openstack/oslo.policy) library written in python. It is meant to provide the same RBAC semantics for OpenStack enabled applications written in go.
 
 You can view the API docs here:
-http://godoc.org/github.com/databus23/goslo.policy
+https://pkg.go.dev/github.com/databus23/goslo.policy
 
 Usage
 -----
-```
+```go
 package main
 
 import (
@@ -53,7 +53,7 @@ func main() {
 
 The package includes optional debug logging that can be enabled per context:
 
-```
+```go
 if os.Getenv("DEBUG") == "1" {
     ctx.Logger = log.Printf //or any other function with the same signature
 }

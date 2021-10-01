@@ -23,9 +23,9 @@ Keystone projects.
 | Variable | Default | Explanation |
 | -------- | ------- | ----------- |
 | `OS_...` | *(required)* | A full set of OpenStack auth environment variables for Keppel's service user. See [documentation for openstackclient][os-env] for details. |
-| `KEPPEL_OSLO_POLICY_PATH` | *(required)* | Path to the `policy.json` file for this service. |
+| `KEPPEL_OSLO_POLICY_PATH` | *(required)* | Path to the `policy.[json|yaml]` file for this service. |
 
-Keppel understands access rules in the [`oslo.policy` JSON format][os-pol]. An example can be seen at
+Keppel understands access rules in the [`oslo.policy` JSON][os-pol-json] and [`oslo.policy` YAML][os-pol-yaml] format. An example can be seen at
 [`docs/example-policy.json`](../example-policy.json). The following rules are expected:
 
 - `account:list` is required for any non-anonymous access to the API.
@@ -43,4 +43,5 @@ All policy rules (except for `keppel:admin`) can use the object attribute `%(tar
 See also: [List of available API attributes](https://github.com/sapcc/go-bits/blob/53eeb20fde03c3d0a35e76cf9c9a06b63a415e6b/gopherpolicy/pkg.go#L151-L164)
 
 [os-env]: https://docs.openstack.org/python-openstackclient/latest/cli/man/openstack.html
-[os-pol]: https://docs.openstack.org/oslo.policy/latest/admin/policy-json-file.html
+[os-pol-json]: https://docs.openstack.org/oslo.policy/latest/admin/policy-json-file.html
+[os-pol-yaml]: https://docs.openstack.org/oslo.policy/latest/admin/policy-yaml-file.html
