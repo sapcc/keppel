@@ -419,29 +419,6 @@ func setupSecondary(t *testing.T) test.Setup {
 	return s
 }
 
-//jwtAccess appears in type jwtToken.
-type jwtAccess struct {
-	Type    string   `json:"type"`
-	Name    string   `json:"name"`
-	Actions []string `json:"actions"`
-}
-
-//jwtToken contains the parsed contents of the payload section of a JWT token.
-type jwtToken struct {
-	Issuer    string      `json:"iss"`
-	Subject   string      `json:"sub"`
-	Audience  string      `json:"aud"`
-	ExpiresAt int64       `json:"exp"`
-	NotBefore int64       `json:"nbf"`
-	IssuedAt  int64       `json:"iat"`
-	TokenID   string      `json:"jti"`
-	Access    []jwtAccess `json:"access"`
-	//The EmbeddedAuthorization is ignored by this test. It will be exercised
-	//indirectly in the registry API tests since the registry API uses attributes
-	//from the EmbeddedAuthorization.
-	Ignored map[string]interface{} `json:"kea"`
-}
-
 //jwtContents contains what we expect in a JWT token payload section. This type
 //implements assert.HTTPResponseBody and can therefore be used with
 //assert.HTTPRequest.
@@ -449,7 +426,7 @@ type jwtContents struct {
 	Issuer   string
 	Subject  string
 	Audience string
-	Access   []jwtAccess
+	Access   []test.JwtAccess
 }
 
 //AssertResponseBody implements the assert.HTTPResponseBody interface.
@@ -488,7 +465,7 @@ func (c jwtContents) AssertResponseBody(t *testing.T, requestInfo string, respon
 	}
 
 	//decode token
-	var token jwtToken
+	var token test.JwtToken
 	dec = json.NewDecoder(bytes.NewReader(tokenBytes))
 	dec.DisallowUnknownFields()
 	err = dec.Decode(&token)
@@ -597,7 +574,7 @@ func TestIssueToken(t *testing.T) {
 		}
 		if c.GrantedActions != "" {
 			fields := strings.SplitN(c.Scope, ":", 3)
-			expectedContents.Access = []jwtAccess{{
+			expectedContents.Access = []test.JwtAccess{{
 				Type:    fields[0],
 				Name:    fields[1],
 				Actions: strings.Split(c.GrantedActions, ","),
@@ -606,7 +583,7 @@ func TestIssueToken(t *testing.T) {
 		if len(c.AdditionalScopes) > 0 {
 			for _, scope := range c.AdditionalScopes {
 				fields := strings.SplitN(scope, ":", 3)
-				expectedContents.Access = append(expectedContents.Access, jwtAccess{
+				expectedContents.Access = append(expectedContents.Access, test.JwtAccess{
 					Type:    fields[0],
 					Name:    fields[1],
 					Actions: strings.Split(fields[2], ","),
@@ -753,7 +730,7 @@ func TestAnycastToken(t *testing.T) {
 					Subject:  "correctusername",
 				}
 				if c.HasAccess {
-					expectedContents.Access = []jwtAccess{{
+					expectedContents.Access = []test.JwtAccess{{
 						Type:    "repository",
 						Name:    fmt.Sprintf("%s/foo", c.AccountName),
 						Actions: []string{"pull"},
@@ -798,7 +775,7 @@ func TestMultiScope(t *testing.T) {
 	correctAuthHeader := map[string]string{
 		"Authorization": keppel.BuildBasicAuthHeader("correctusername", "correctpassword"),
 	}
-	makeJWTContents := func(access []jwtAccess) jwtContents {
+	makeJWTContents := func(access []test.JwtAccess) jwtContents {
 		return jwtContents{
 			Audience: service,
 			Issuer:   "keppel-api@" + service,
@@ -821,7 +798,7 @@ func TestMultiScope(t *testing.T) {
 		Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=repository:test1/foo:pull&scope=repository:test1/foo:push&scope=repository:test1/foo:delete", service),
 		Header:       correctAuthHeader,
 		ExpectStatus: http.StatusOK,
-		ExpectBody: makeJWTContents([]jwtAccess{{
+		ExpectBody: makeJWTContents([]test.JwtAccess{{
 			Type:    "repository",
 			Name:    "test1/foo",
 			Actions: []string{"pull", "push", "delete"},
@@ -835,7 +812,7 @@ func TestMultiScope(t *testing.T) {
 		Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=repository:test1/foo:pull,delete&scope=repository:test1/foo:pull,push&scope=repository:test1/foo:delete", service),
 		Header:       correctAuthHeader,
 		ExpectStatus: http.StatusOK,
-		ExpectBody: makeJWTContents([]jwtAccess{{
+		ExpectBody: makeJWTContents([]test.JwtAccess{{
 			Type:    "repository",
 			Name:    "test1/foo",
 			Actions: []string{"pull", "push"}, //"pull" was mentioned twice in the scopes - this verifies that it was deduplicated
@@ -849,7 +826,7 @@ func TestMultiScope(t *testing.T) {
 		Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=repository:test1/foo:pull,push&scope=repository:test2/foo:pull,push&scope=registry:catalog:*", service),
 		Header:       correctAuthHeader,
 		ExpectStatus: http.StatusOK,
-		ExpectBody: makeJWTContents([]jwtAccess{
+		ExpectBody: makeJWTContents([]test.JwtAccess{
 			{
 				Type:    "repository",
 				Name:    "test1/foo",
