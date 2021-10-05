@@ -169,7 +169,11 @@ func (j *anycastMonitorJob) ValidateAnycastMembership(anycastURL, apiPublicHostn
 	if err != nil {
 		logg.Error("failed to unmarshal JWT: %s", err.Error())
 	}
-	token, err := base64.StdEncoding.DecodeString(strings.Split(data.Token, ".")[1])
+	jwtToken := strings.Split(data.Token, ".")
+	if len(jwtToken) != 3 {
+		logg.Error("jwtToken contains not enough section sapareted by .: %s", jwtToken)
+	}
+	token, err := base64.StdEncoding.DecodeString(jwtToken[1])
 	if err != nil {
 		logg.Error("failed to decode claim from token %s: %s", token, err.Error())
 	}
