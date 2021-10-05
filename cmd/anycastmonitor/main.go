@@ -122,7 +122,7 @@ func run(cmd *cobra.Command, args []string) {
 	//enter long-running check loop
 	manifestRef := keppel.ManifestReference{Tag: "latest"}
 	job.ValidateImages(manifestRef) //once immediately to initialize the metrics
-	job.ValidateAnycastMembership(apiPublicHostname)
+	job.ValidateAnycastMembership(anycastURL.String(), apiPublicHostname)
 	tick := time.Tick(30 * time.Second)
 	for {
 		select {
@@ -130,7 +130,7 @@ func run(cmd *cobra.Command, args []string) {
 			return
 		case <-tick:
 			job.ValidateImages(manifestRef)
-			job.ValidateAnycastMembership(apiPublicHostname)
+			job.ValidateAnycastMembership(anycastURL.String(), apiPublicHostname)
 		}
 	}
 }
@@ -154,8 +154,8 @@ func (j *anycastMonitorJob) ValidateImages(manifestRef keppel.ManifestReference)
 	}
 }
 
-func (j *anycastMonitorJob) ValidateAnycastMembership(apiPublicHostname string) {
-	resp, err := http.Get("https://keppel.global.cloud.sap/keppel/v1/auth?service=keppel.global.cloud.sap&scope=repository:foo/bar:pull")
+func (j *anycastMonitorJob) ValidateAnycastMembership(anycastURL, apiPublicHostname string) {
+	resp, err := http.Get(fmt.Sprintf("%s/keppel/v1/auth?service=%s&scope=repository:foo/bar:pull", anycastURL, strings.TrimPrefix(anycastURL, "https://")))
 	if err != nil {
 		logg.Error("failed getting anon token: %s", err.Error())
 	}
