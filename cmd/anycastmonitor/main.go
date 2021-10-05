@@ -153,42 +153,50 @@ func (j *anycastMonitorJob) ValidateImages(manifestRef keppel.ManifestReference)
 	}
 }
 
-func (j *anycastMonitorJob) ValidateAnycastMembership(anycastURL *url.URL, apiPublicHostname string) {
+func checkAnycastMembership(anycastURL *url.URL, apiPublicHostname string) (bool, error) {
 	resp, err := http.Get(fmt.Sprintf("%s://%s/keppel/v1/auth?service=%[2]s&scope=repository:foo/bar:pull", anycastURL.Scheme, anycastURL.Host))
 	if err != nil {
-		logg.Error("failed getting anon token: %s", err.Error())
+		return false, fmt.Errorf("failed getting anon token: %s", err.Error())
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		logg.Error("failed reading body: %s", err.Error())
+		return false, fmt.Errorf("failed reading body: %s", err.Error())
 	}
 
 	var data authapi.TokenResponse
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		logg.Error("failed to unmarshal JWT: %s", err.Error())
+		return false, fmt.Errorf("failed to unmarshal JWT: %s", err.Error())
 	}
 	jwtToken := strings.SplitN(data.Token, ".", 3)
 	if len(jwtToken) != 3 {
-		logg.Error("jwtToken contains not enough section separated by .: %s", jwtToken)
+		return false, fmt.Errorf("jwtToken contains not enough section separated by .: %s", jwtToken)
 	}
 	token, err := base64.StdEncoding.DecodeString(jwtToken[1])
 	if err != nil {
-		logg.Error("failed to decode claim from token %s: %s", token, err.Error())
+		return false, fmt.Errorf("failed to decode claim from token %s: %s", token, err.Error())
 	}
 	var tokenJSON struct {
 		Issuer string `json:"iss"`
 	}
 	err = json.Unmarshal([]byte(token), &tokenJSON)
 	if err != nil {
-		logg.Error("failed to unmarshal claim from token %s: %s", token, err.Error())
+		return false, fmt.Errorf("failed to unmarshal claim from token %s: %s", token, err.Error())
 	}
 
 	expectedIssuer := fmt.Sprintf("keppel-api@%s", apiPublicHostname)
-	if tokenJSON.Issuer == expectedIssuer && err == nil {
+	if tokenJSON.Issuer != expectedIssuer {
+		return false, fmt.Errorf("anycast membership wrong: expected %s, got %s", expectedIssuer, tokenJSON.Issuer)
+	}
+	return tokenJSON.Issuer == expectedIssuer, nil
+}
+
+func (j *anycastMonitorJob) ValidateAnycastMembership(anycastURL *url.URL, apiPublicHostname string) {
+	isAnycastMember, err := checkAnycastMembership(anycastURL, apiPublicHostname)
+
+	if isAnycastMember && err == nil {
 		anycastmonitorMemberGauge.Set(1)
 	} else {
-		logg.Error("anycast membership wrong: expected %s, got %s", expectedIssuer, tokenJSON.Issuer)
 		anycastmonitorMemberGauge.Set(0)
 		if err != nil {
 			logg.Error("member check failed: %s", err.Error())
