@@ -37,7 +37,6 @@ import (
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/test"
 	"github.com/spf13/cobra"
 )
 
@@ -177,7 +176,9 @@ func (j *anycastMonitorJob) ValidateAnycastMembership(anycastURL *url.URL, apiPu
 	if err != nil {
 		logg.Error("failed to decode claim from token %s: %s", token, err.Error())
 	}
-	var tokenJSON test.JwtToken
+	var tokenJSON struct {
+		Issuer string `json:"iss"`
+	}
 	err = json.Unmarshal([]byte(token), &tokenJSON)
 	if err != nil {
 		logg.Error("failed to unmarshal claim from token %s: %s", token, err.Error())
