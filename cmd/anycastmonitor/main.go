@@ -56,15 +56,15 @@ var listenAddress string
 var anycastmonitorResultGaugeVec = prometheus.NewGaugeVec(
 	prometheus.GaugeOpts{
 		Name: "keppel_anycastmonitor_result",
-		Help: "Result from the keppel anycastmonitor check.",
+		Help: "Healthcheck result: Whether we can pull from the given account via the anycast endpoint.",
 	},
 	[]string{"account"},
 )
 
 var anycastmonitorMemberGauge = prometheus.NewGauge(
 	prometheus.GaugeOpts{
-		Name: "keppel_anycastmonitor_member_result",
-		Help: "Result from the keppel anycastmonitor member check.",
+		Name: "keppel_anycastmonitor_membership",
+		Help: "Healthcheck result: Whether this Keppel is reachable via the anycast endpoint. Reachability is proven by obtaining a token and seeing that it was issued by ourselves.",
 	},
 )
 
