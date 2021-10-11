@@ -47,8 +47,8 @@ If the image is in a Keppel replica account, this ensures that the image is repl
 		Args: cobra.ExactArgs(1),
 		Run:  run,
 	}
-	cmd.PersistentFlags().StringVar(&authUserName, "username", "", "User name (only required for non-public images).")
-	cmd.PersistentFlags().StringVar(&authPassword, "password", "", "Password (only required for non-public images).")
+	cmd.PersistentFlags().StringVarP(&authUserName, "username", "u", "", "User name (only required for non-public images).")
+	cmd.PersistentFlags().StringVarP(&authPassword, "password", "p", "", "Password (only required for non-public images).")
 	cmd.PersistentFlags().StringVar(&platformFilterStr, "platform-filter", "[]", "When validating a multi-architecture image, only recurse into the contained images matching one of the given platforms. The filter must be given as a JSON array of objects matching each having the same format as the `manifests[].platform` field in the <https://github.com/opencontainers/image-spec/blob/master/image-index.md>.")
 	parent.AddCommand(cmd)
 }

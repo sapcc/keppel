@@ -63,7 +63,7 @@ func AddCommandTo(parent *cobra.Command) {
 		Args:  cobra.ExactArgs(1),
 		Run:   run,
 	}
-	cmd.PersistentFlags().StringVar(&listenAddress, "listen", ":8080", "Listen address for Prometheus metrics endpoint")
+	cmd.PersistentFlags().StringVarP(&listenAddress, "listen", "l", ":8080", "Listen address for Prometheus metrics endpoint")
 	parent.AddCommand(cmd)
 }
 
