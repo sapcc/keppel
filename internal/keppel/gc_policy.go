@@ -167,7 +167,7 @@ func (g GCPolicy) MatchesTimeConstraint(manifest Manifest, allManifestsInRepo []
 	sort.Slice(allManifestsInRepo, func(i, j int) bool {
 		lhs := allManifestsInRepo[i]
 		rhs := allManifestsInRepo[j]
-		return getAge(lhs) < getAge(rhs)
+		return getAge(lhs) > getAge(rhs)
 	})
 
 	//which manifests match? (note that we already know that
