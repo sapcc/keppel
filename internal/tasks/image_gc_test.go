@@ -20,6 +20,7 @@ package tasks
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -28,6 +29,12 @@ import (
 )
 
 func TestGCUntaggedImages(t *testing.T) {
+	//This is the original image GC testcase. It tests with just a single GC
+	//policy that deletes untagged images, but goes through all the phases of a
+	//manifest's lifecycle (as far as GC is concerned), covering some corner
+	//cases, such as no policies matching on a repo at all, or
+	//protected_by_recent_upload.
+
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
 
@@ -127,3 +134,73 @@ func TestGCUntaggedImages(t *testing.T) {
 		s.Clock.Now().Add(1*time.Hour).Unix(),
 	)
 }
+
+func TestGCMatchOnTag(t *testing.T) {
+	j, s := setup(t)
+
+	images := []test.Image{
+		test.GenerateImage(test.GenerateExampleLayer(0)),
+		test.GenerateImage(test.GenerateExampleLayer(1)),
+		test.GenerateImage(test.GenerateExampleLayer(2)),
+		test.GenerateImage(test.GenerateExampleLayer(3)),
+	}
+	//each image gets uploaded with four tags, e.g. "zerozero" through "zerothree" for images[0]
+	words := []string{"zero", "one", "two", "three"}
+	for idx, image := range images {
+		firstWord := words[idx]
+		for _, secondWord := range words {
+			image.MustUpload(t, s, fooRepoRef, firstWord+secondWord)
+		}
+	}
+
+	//skip an hour to avoid protected_by_recent_upload
+	s.Clock.StepBy(1 * time.Hour)
+
+	//setup GC policies such that the deletion policy would affect all images,
+	//but the tag-matching policies protect some of the images from deletion;
+	protectingGCPolicyJSON1 := `{"match_repository":"foo","match_tag":"one.*","action":"protect"}`
+	protectingGCPolicyJSON2 := `{"match_repository":"foo","match_tag":".*two","except_tag":"[zot][^w].*","action":"protect"}`
+	protectingGCPolicyJSON3 := `{"match_repository":"foo","except_tag":"zero.*|one.*|two.*","action":"protect"}`
+	deletingGCPolicyJSON := `{"match_repository":".*","time_constraint":{"on":"pushed_at","older_than":{"value":30,"unit":"m"}},"action":"delete"}`
+	mustExec(t, s.DB,
+		`UPDATE accounts SET gc_policies_json = $1`,
+		fmt.Sprintf("[%s,%s,%s,%s]",
+			protectingGCPolicyJSON1,
+			protectingGCPolicyJSON2,
+			protectingGCPolicyJSON3,
+			deletingGCPolicyJSON,
+		),
+	)
+	tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
+
+	//protectingGCPolicyJSON1 protects images[1], and so forth, so only images[0]
+	//should end up getting deleted
+	expectSuccess(t, j.GarbageCollectManifestsInNextRepo())
+	expectError(t, sql.ErrNoRows.Error(), j.GarbageCollectManifestsInNextRepo())
+	tr.DBChanges().AssertEqualf(`
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 1;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 2;
+			DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
+			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
+			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[6]s}' WHERE repo_id = 1 AND digest = '%[3]s';
+			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[5]s}' WHERE repo_id = 1 AND digest = '%[2]s';
+			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[7]s}' WHERE repo_id = 1 AND digest = '%[4]s';
+			UPDATE repos SET next_gc_at = %[8]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+			DELETE FROM tags WHERE repo_id = 1 AND name = 'zeroone';
+			DELETE FROM tags WHERE repo_id = 1 AND name = 'zerothree';
+			DELETE FROM tags WHERE repo_id = 1 AND name = 'zerotwo';
+			DELETE FROM tags WHERE repo_id = 1 AND name = 'zerozero';
+		`,
+		images[0].Manifest.Digest.String(),
+		images[1].Manifest.Digest.String(),
+		images[2].Manifest.Digest.String(),
+		images[3].Manifest.Digest.String(),
+		protectingGCPolicyJSON1,
+		protectingGCPolicyJSON2,
+		protectingGCPolicyJSON3,
+		s.Clock.Now().Add(1*time.Hour).Unix(),
+	)
+}
+
+//TODO TestGCProtectComesTooLate
+//TODO TestGCProtectOldestAndNewest
