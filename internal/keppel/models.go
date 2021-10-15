@@ -284,6 +284,8 @@ type Manifest struct {
 	VulnerabilityScanErrorMessage string                    `db:"vuln_scan_error"`
 	//LabelsJSON contains a JSON string of a map[string]string, or an empty string.
 	LabelsJSON string `db:"labels_json"`
+	//GCStatusJSON contains a keppel.GCStatus serialized into JSON, or an empty string.
+	GCStatusJSON string `db:"gc_status_json"`
 }
 
 //FindManifest is a convenience wrapper around db.SelectOne(). If the

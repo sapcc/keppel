@@ -143,3 +143,12 @@ func (a Account) ParseGCPolicies() ([]GCPolicy, error) {
 	err := json.Unmarshal([]byte(a.GCPoliciesJSON), &policies)
 	return policies, err
 }
+
+//GCStatus documents the current status of a manifest with regard to image GC.
+//It is stored in serialized form in the GCStatusJSON field of type Manifest.
+//
+//Since GCStatus objects describe images that currently exist in the DB, they
+//only describe policy decisions that led to no cleanup.
+type GCStatus struct {
+	ProtectedBy *GCPolicy `json:"protected_by,omitempty"`
+}
