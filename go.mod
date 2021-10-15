@@ -16,7 +16,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/rs/cors v1.8.0
-	github.com/sapcc/go-bits v0.0.0-20210929140247-281bcf017ba7
+	github.com/sapcc/go-bits v0.0.0-20211015211545-625078675165
 	github.com/sapcc/hermes v0.0.0-20210420164927-80b881d15d66
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.2.1
@@ -46,6 +46,7 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.26.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
+	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 // indirect

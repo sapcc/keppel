@@ -132,7 +132,7 @@ github.com/prometheus/procfs/internal/util
 # github.com/rs/cors v1.8.0
 ## explicit; go 1.13
 github.com/rs/cors
-# github.com/sapcc/go-bits v0.0.0-20210929140247-281bcf017ba7
+# github.com/sapcc/go-bits v0.0.0-20211015211545-625078675165
 ## explicit; go 1.12
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
@@ -155,6 +155,9 @@ github.com/sapcc/hermes/pkg/cadf
 # github.com/satori/go.uuid v1.2.0
 ## explicit
 github.com/satori/go.uuid
+# github.com/sergi/go-diff v1.2.0
+## explicit; go 1.12
+github.com/sergi/go-diff/diffmatchpatch
 # github.com/spf13/cobra v1.2.1
 ## explicit; go 1.14
 github.com/spf13/cobra
