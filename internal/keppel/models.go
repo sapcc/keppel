@@ -95,7 +95,7 @@ type RBACPolicy struct {
 //Matches evaluates the regexes in this policy.
 func (r RBACPolicy) Matches(repoName, userName string) bool {
 	if r.RepositoryPattern != "" {
-		rx, err := regexp.Compile(fmt.Sprintf(`^%s/%s$`,
+		rx, err := regexp.Compile(fmt.Sprintf(`^%s/(?:%s)$`,
 			regexp.QuoteMeta(r.AccountName),
 			r.RepositoryPattern,
 		))
@@ -105,7 +105,7 @@ func (r RBACPolicy) Matches(repoName, userName string) bool {
 	}
 
 	if r.UserNamePattern != "" {
-		rx, err := regexp.Compile(fmt.Sprintf(`^%s$`, r.UserNamePattern))
+		rx, err := regexp.Compile(fmt.Sprintf(`^(?:%s)$`, r.UserNamePattern))
 		if err != nil || !rx.MatchString(userName) {
 			return false
 		}

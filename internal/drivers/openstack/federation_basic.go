@@ -55,11 +55,11 @@ func init() {
 				return nil, errors.New(`KEPPEL_NAMECLAIM_WHITELIST must have the form "project1:accountName1,project2:accountName2,..."`)
 			}
 
-			projectNameRx, err := regexp.Compile(`^` + wlEntryFields[0] + `$`)
+			projectNameRx, err := regexp.Compile(`^(?:` + wlEntryFields[0] + `)$`)
 			if err != nil {
 				return nil, err
 			}
-			accountNameRx, err := regexp.Compile(`^` + wlEntryFields[1] + `$`)
+			accountNameRx, err := regexp.Compile(`^(?:` + wlEntryFields[1] + `)$`)
 			if err != nil {
 				return nil, err
 			}

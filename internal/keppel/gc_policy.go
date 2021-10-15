@@ -59,12 +59,12 @@ func (g GCPolicy) MatchesRepository(repoName string) bool {
 	//- Regex parse errors always make the match fail to avoid accidental overmatches.
 	//- NegativeRepositoryPattern takes precedence and is thus evaluated first.
 
-	rx, err := regexp.Compile(fmt.Sprintf(`^%s$`, g.NegativeRepositoryPattern))
+	rx, err := regexp.Compile(fmt.Sprintf(`^(?:%s)$`, g.NegativeRepositoryPattern))
 	if err != nil || rx.MatchString(repoName) {
 		return false
 	}
 
-	rx, err = regexp.Compile(fmt.Sprintf(`^%s$`, g.RepositoryPattern))
+	rx, err = regexp.Compile(fmt.Sprintf(`^(?:%s)$`, g.RepositoryPattern))
 	return err == nil && rx.MatchString(repoName)
 }
 
@@ -82,7 +82,7 @@ func (g GCPolicy) MatchesTags(tagNames []string) bool {
 	var err error
 	if g.NegativeTagPattern != "" {
 		if g.NegativeTagRx == nil {
-			g.NegativeTagRx, err = regexp.Compile(fmt.Sprintf(`^%s$`, g.NegativeTagPattern))
+			g.NegativeTagRx, err = regexp.Compile(fmt.Sprintf(`^(?:%s)$`, g.NegativeTagPattern))
 			if err != nil {
 				return false
 			}
@@ -96,7 +96,7 @@ func (g GCPolicy) MatchesTags(tagNames []string) bool {
 
 	if g.TagPattern != "" {
 		if g.TagRx == nil {
-			g.TagRx, err = regexp.Compile(fmt.Sprintf(`^%s$`, g.TagPattern))
+			g.TagRx, err = regexp.Compile(fmt.Sprintf(`^(?:%s)$`, g.TagPattern))
 			if err != nil {
 				return false
 			}
