@@ -15,7 +15,7 @@ INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, 'sha256:7c5
 
 INSERT INTO manifest_contents (repo_id, digest, content) VALUES (1, 'sha256:7c5ed02bcdf0dbddf6f1664e01d6a1505c880e296a599371eb919e0e053c0aef', '{"config":{"digest":"sha256:3399f8c47219da521dcabade3b328f086e1aeb57c107e5d5a1ec07f2a4f4b20b","mediaType":"application/vnd.docker.container.image.v1+json","size":1257},"layers":[{"digest":"sha256:3d309a098968afe810ee167e0c5b205ef3610829a6d34e0f0ba4ca66756c6f5e","mediaType":"application/vnd.docker.image.rootfs.diff.tar.gzip","size":1048576}],"mediaType":"application/vnd.docker.distribution.manifest.v2+json","schemaVersion":2}');
 
-INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message, last_pulled_at, next_vuln_check_at, vuln_status, vuln_scan_error, labels_json, gc_status_json) VALUES (1, 'sha256:7c5ed02bcdf0dbddf6f1664e01d6a1505c880e296a599371eb919e0e053c0aef', 'application/vnd.docker.distribution.manifest.v2+json', 1050261, 3600, 3600, '', NULL, NULL, 'Pending', '', '', '');
+INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, validation_error_message, last_pulled_at, next_vuln_check_at, vuln_status, vuln_scan_error, labels_json, gc_status_json) VALUES (1, 'sha256:7c5ed02bcdf0dbddf6f1664e01d6a1505c880e296a599371eb919e0e053c0aef', 'application/vnd.docker.distribution.manifest.v2+json', 1050261, 3600, 3600, '', NULL, NULL, 'Pending', '', '', '{"relevant_policies":[{"match_repository":".*","only_untagged":true,"action":"delete"}]}');
 
 INSERT INTO quotas (auth_tenant_id, manifests) VALUES ('test1authtenant', 100);
 

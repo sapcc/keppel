@@ -160,6 +160,7 @@ func deserializeAnonAuthorization(in []byte, _ AuthDriver) (Authorization, error
 //only used for generating audit events.)
 type JanitorAuthorization struct {
 	TaskName string
+	GCPolicy *GCPolicy
 }
 
 //UserName implements the keppel.Authorization interface.
@@ -184,7 +185,15 @@ func (JanitorAuthorization) IsReplicationUser() bool {
 
 //SerializeToJSON implements the keppel.Authorization interface.
 func (a JanitorAuthorization) SerializeToJSON() (typeName string, payload []byte, err error) {
-	return "janitor", []byte(a.TaskName), nil
+	serialized := []byte(a.TaskName)
+	if a.GCPolicy != nil {
+		policyJSON, err := json.Marshal(*a.GCPolicy)
+		if err != nil {
+			return "", nil, err
+		}
+		serialized = append(append(serialized, ':'), policyJSON...)
+	}
+	return "janitor", serialized, nil
 }
 
 //UserInfo implements the keppel.Authorization interface.
@@ -193,7 +202,16 @@ func (a JanitorAuthorization) UserInfo() audittools.UserInfo {
 }
 
 func deserializeJanitorAuthorization(in []byte, _ AuthDriver) (Authorization, error) {
-	return JanitorAuthorization{string(in)}, nil
+	//simple case: no GCPolicy, just a TaskName
+	fields := bytes.SplitN(in, []byte(":"), 2)
+	if len(fields) == 1 {
+		return JanitorAuthorization{string(in), nil}, nil
+	}
+
+	//with GCPolicy: TaskName and GCPolicyJSON separated by colon
+	var gcPolicy GCPolicy
+	err := json.Unmarshal(fields[1], &gcPolicy)
+	return JanitorAuthorization{string(fields[0]), &gcPolicy}, err
 }
 
 ////////////////////////////////////////////////////////////////////////////////

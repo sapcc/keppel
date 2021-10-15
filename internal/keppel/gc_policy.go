@@ -24,7 +24,9 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
+	"time"
 )
 
 //GCPolicy is a policy enabling optional garbage collection runs in an account.
@@ -36,6 +38,10 @@ type GCPolicy struct {
 	OnlyUntagged              bool              `json:"only_untagged,omitempty"`
 	TimeConstraint            *GCTimeConstraint `json:"time_constraint,omitempty"`
 	Action                    string            `json:"action"`
+
+	//cache for pre-compiled regexes, as an optimization for repeated calls to MatchesTags()
+	TagRx         *regexp.Regexp `json:"-"`
+	NegativeTagRx *regexp.Regexp `json:"-"`
 }
 
 //GCTimeConstraint appears in type GCPolicy.
@@ -60,6 +66,128 @@ func (g GCPolicy) MatchesRepository(repoName string) bool {
 
 	rx, err = regexp.Compile(fmt.Sprintf(`^%s$`, g.RepositoryPattern))
 	return err == nil && rx.MatchString(repoName)
+}
+
+//MatchesTags evaluates the tag regexes in this policy for a complete set of
+//tag names belonging to a single manifest.
+func (g GCPolicy) MatchesTags(tagNames []string) bool {
+	if g.OnlyUntagged && len(tagNames) > 0 {
+		return false
+	}
+
+	//NOTE 1: NegativeTagPattern takes precedence over TagPattern
+	//NOTE 2: The `if err != nil` branches are defense-in-depth. Callers are
+	//        supposed to Validate() policies when loading them, which will catch
+	//        syntax errors early.
+	var err error
+	if g.NegativeTagPattern != "" {
+		if g.NegativeTagRx == nil {
+			g.NegativeTagRx, err = regexp.Compile(fmt.Sprintf(`^%s$`, g.NegativeTagPattern))
+			if err != nil {
+				return false
+			}
+		}
+		for _, tagName := range tagNames {
+			if g.NegativeTagRx.MatchString(tagName) {
+				return false
+			}
+		}
+	}
+
+	if g.TagPattern != "" {
+		if g.TagRx == nil {
+			g.TagRx, err = regexp.Compile(fmt.Sprintf(`^%s$`, g.TagPattern))
+			if err != nil {
+				return false
+			}
+		}
+		for _, tagName := range tagNames {
+			if g.TagRx.MatchString(tagName) {
+				return true
+			}
+		}
+	}
+
+	//if we did not have any matching tags, the match is successful unless we
+	//required a positive tag match
+	return g.TagPattern == ""
+}
+
+//MatchesTimeConstraint evaluates the time constraint in this policy for the
+//given manifest. A full list of all manifests in this repo must be supplied in
+//order to evaluate "newest" and "oldest" time constraints. The final argument
+//must be equivalent to time.Now(); it is given explicitly to allow for
+//simulated clocks during unit tests.
+func (g GCPolicy) MatchesTimeConstraint(manifest Manifest, allManifestsInRepo []Manifest, now time.Time) bool {
+	//do we have a time constraint at all?
+	if g.TimeConstraint == nil {
+		return true
+	}
+	tc := *g.TimeConstraint
+	if tc.FieldName == "" {
+		return true
+	}
+
+	//select the right time field
+	var getTime func(Manifest) time.Time
+	switch tc.FieldName {
+	case "pushed_at":
+		getTime = func(m Manifest) time.Time { return m.PushedAt }
+	case "last_pulled_at":
+		getTime = func(m Manifest) time.Time {
+			if m.LastPulledAt == nil {
+				return time.Unix(0, 0)
+			}
+			return *m.LastPulledAt
+		}
+	default:
+		panic(fmt.Sprintf("unexpected GC policy time constraint target: %q (why was this not caught by Validate!?)", tc.FieldName))
+	}
+	getAge := func(m Manifest) Duration {
+		return Duration(now.Sub(getTime(m)))
+	}
+
+	//option 1: simple threshold-based time constraint
+	if tc.MinAge != 0 {
+		return getAge(manifest) >= tc.MinAge
+	}
+	if tc.MaxAge != 0 {
+		return getAge(manifest) <= tc.MaxAge
+	}
+
+	//option 2: order-based time constraint (we can skip all the sorting logic if we have less manifests than we want to match)
+	if tc.OldestCount != 0 && uint64(len(allManifestsInRepo)) < tc.OldestCount {
+		return true
+	}
+	if tc.NewestCount != 0 && uint64(len(allManifestsInRepo)) < tc.NewestCount {
+		return true
+	}
+
+	//sort manifests by the right time field
+	sort.Slice(allManifestsInRepo, func(i, j int) bool {
+		lhs := allManifestsInRepo[i]
+		rhs := allManifestsInRepo[j]
+		return getAge(lhs) < getAge(rhs)
+	})
+
+	//which manifests match? (note that we already know that
+	//len(allManifestsInRepo) is larger than the amount we want to match, so we
+	//don't have to check bounds any further)
+	var matchingManifests []Manifest
+	switch {
+	case tc.OldestCount != 0:
+		matchingManifests = allManifestsInRepo[:tc.OldestCount]
+	case tc.NewestCount != 0:
+		matchingManifests = allManifestsInRepo[uint64(len(allManifestsInRepo))-tc.NewestCount:]
+	default:
+		panic("unexpected GC policy time constraint: no threshold configured (why was this not caught by Validate!?)")
+	}
+	for _, m := range matchingManifests {
+		if m.Digest == manifest.Digest {
+			return true
+		}
+	}
+	return false
 }
 
 //Validate returns an error if this policy is invalid.
@@ -150,5 +278,21 @@ func (a Account) ParseGCPolicies() ([]GCPolicy, error) {
 //Since GCStatus objects describe images that currently exist in the DB, they
 //only describe policy decisions that led to no cleanup.
 type GCStatus struct {
-	ProtectedBy *GCPolicy `json:"protected_by,omitempty"`
+	//True if the manifest was uploaded less than 10 minutes ago and is therefore
+	//protected from GC.
+	ProtectedByRecentUpload bool `json:"protected_by_recent_upload,omitempty"`
+	//If a parent manifest references this manifest and thus protects it from GC,
+	//contains the parent manifest's digest.
+	ProtectedByParentManifest string `json:"protected_by_parent,omitempty"`
+	//If a policy with action "protect" applies to this image, contains the
+	//definition of the policy.
+	ProtectedByPolicy *GCPolicy `json:"protected_by_policy,omitempty"`
+	//If the image is not protected, contains all policies with action "delete"
+	//that could delete this image in the future.
+	RelevantPolicies []GCPolicy `json:"relevant_policies,omitempty"`
+}
+
+//IsProtected returns whether any of the ProtectedBy... fields is filled.
+func (s GCStatus) IsProtected() bool {
+	return s.ProtectedByRecentUpload || s.ProtectedByParentManifest != "" || s.ProtectedByPolicy != nil
 }
