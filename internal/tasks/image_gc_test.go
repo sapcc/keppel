@@ -136,6 +136,8 @@ func TestGCUntaggedImages(t *testing.T) {
 }
 
 func TestGCMatchOnTag(t *testing.T) {
+	//This test exercises all valid combinations of match_tag and except_tag.
+	//(The only_untagged match was already tested in TestGCUntaggedImages.)
 	j, s := setup(t)
 
 	images := []test.Image{
@@ -174,7 +176,8 @@ func TestGCMatchOnTag(t *testing.T) {
 	tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
 
 	//protectingGCPolicyJSON1 protects images[1], and so forth, so only images[0]
-	//should end up getting deleted
+	//should end up getting deleted (NOTE: in the DB diff, the manifests are not
+	//in order because easypg orders them by primary key, i.e. by digest)
 	expectSuccess(t, j.GarbageCollectManifestsInNextRepo())
 	expectError(t, sql.ErrNoRows.Error(), j.GarbageCollectManifestsInNextRepo())
 	tr.DBChanges().AssertEqualf(`
@@ -202,5 +205,93 @@ func TestGCMatchOnTag(t *testing.T) {
 	)
 }
 
+func TestGCProtectOldestAndNewest(t *testing.T) {
+	//This test exercises the various kinds of time constraints. The first pass
+	//("byCount") uses "oldest" and "newest" time constraints, whereas the second
+	//pass ("byThreshold") uses "older_than" and "newer_than" time constraints.
+	//
+	//Since both tests are otherwise very similar, they have been merged into one
+	//Test function to avoid code duplication.
+	for _, strategy := range []string{"byCount", "byThreshold"} {
+		j, s := setup(t)
+
+		//upload a few test images
+		images := make([]test.Image, 6)
+		for idx := range images {
+			image := test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
+			image.MustUpload(t, s, fooRepoRef, "")
+			images[idx] = image
+		}
+
+		//skip an hour to avoid protected_by_recent_upload, and also to make sure
+		//that all the last_pulled_at values that we set below are in the past (it
+		//should not matter, but let's be sure)
+		s.Clock.StepBy(1 * time.Hour)
+
+		//set up last_pulled_at in a precise order, including a NULL value to later
+		//check that NULL gets coerced into time.Unix(0, 0)
+		for idx, image := range images {
+			if idx == 0 {
+				mustExec(t, s.DB,
+					`UPDATE manifests SET last_pulled_at = NULL WHERE digest = $1`,
+					image.Manifest.Digest.String(),
+				)
+			} else {
+				mustExec(t, s.DB,
+					`UPDATE manifests SET last_pulled_at = $2 WHERE digest = $1`,
+					image.Manifest.Digest.String(),
+					j.timeNow().Add(-10*time.Minute*time.Duration(len(images)-idx)),
+				)
+			}
+		}
+
+		//setup GC policies such that images[0:2] are protected by "oldest/older_than" and
+		//images[4:5] are protected by "newest/newer_than"...
+		protectingGCPolicyJSON1 := `{"match_repository":".*","time_constraint":{"on":"last_pulled_at","oldest":3},"action":"protect"}`
+		protectingGCPolicyJSON2 := `{"match_repository":".*","time_constraint":{"on":"last_pulled_at","newest":2},"action":"protect"}`
+		if strategy == "byThreshold" { //instead of "byCount"
+			protectingGCPolicyJSON1 = `{"match_repository":".*","time_constraint":{"on":"last_pulled_at","older_than":{"value":35,"unit":"m"}},"action":"protect"}`
+			protectingGCPolicyJSON2 = `{"match_repository":".*","time_constraint":{"on":"last_pulled_at","newer_than":{"value":25,"unit":"m"}},"action":"protect"}`
+		}
+		deletingGCPolicyJSON := `{"match_repository":".*","time_constraint":{"on":"pushed_at","older_than":{"value":30,"unit":"m"}},"action":"delete"}`
+		mustExec(t, s.DB,
+			`UPDATE accounts SET gc_policies_json = $1`,
+			fmt.Sprintf("[%s,%s,%s]",
+				protectingGCPolicyJSON1,
+				protectingGCPolicyJSON2,
+				deletingGCPolicyJSON,
+			),
+		)
+		tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
+
+		//...so only images[3] gets garbage-collected (NOTE: in the DB diff, the
+		//manifests are not in order because easypg orders them by primary key, i.e.
+		//by digest)
+		expectSuccess(t, j.GarbageCollectManifestsInNextRepo())
+		expectError(t, sql.ErrNoRows.Error(), j.GarbageCollectManifestsInNextRepo())
+		tr.DBChanges().AssertEqualf(`
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[4]s' AND blob_id = 7;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[4]s' AND blob_id = 8;
+			DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[4]s';
+			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[7]s}' WHERE repo_id = 1 AND digest = '%[1]s';
+			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[7]s}' WHERE repo_id = 1 AND digest = '%[3]s';
+			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[8]s}' WHERE repo_id = 1 AND digest = '%[6]s';
+			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[7]s}' WHERE repo_id = 1 AND digest = '%[2]s';
+			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[4]s';
+			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[8]s}' WHERE repo_id = 1 AND digest = '%[5]s';
+			UPDATE repos SET next_gc_at = %[9]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+		`,
+			images[0].Manifest.Digest.String(),
+			images[1].Manifest.Digest.String(),
+			images[2].Manifest.Digest.String(),
+			images[3].Manifest.Digest.String(),
+			images[4].Manifest.Digest.String(),
+			images[5].Manifest.Digest.String(),
+			protectingGCPolicyJSON1,
+			protectingGCPolicyJSON2,
+			s.Clock.Now().Add(1*time.Hour).Unix(),
+		)
+	}
+}
+
 //TODO TestGCProtectComesTooLate
-//TODO TestGCProtectOldestAndNewest
