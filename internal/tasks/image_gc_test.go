@@ -245,8 +245,8 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 			}
 		}
 
-		//setup GC policies such that images[0:2] are protected by "oldest/older_than" and
-		//images[4:5] are protected by "newest/newer_than"...
+		//setup GC policies such that images[0:2] are protected by "oldest/older_than"
+		//and images[4:5] are protected by "newest/newer_than"...
 		protectingGCPolicyJSON1 := `{"match_repository":".*","time_constraint":{"on":"last_pulled_at","oldest":3},"action":"protect"}`
 		protectingGCPolicyJSON2 := `{"match_repository":".*","time_constraint":{"on":"last_pulled_at","newest":2},"action":"protect"}`
 		if strategy == "byThreshold" { //instead of "byCount"
@@ -294,4 +294,51 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 	}
 }
 
-//TODO TestGCProtectComesTooLate
+func TestGCProtectComesTooLate(t *testing.T) {
+	//This test checks that a "protect" policy is ineffective if an image has
+	//already been removed by an earlier "delete" policy.
+	j, s := setup(t)
+
+	//upload some test images
+	images := []test.Image{
+		test.GenerateImage(test.GenerateExampleLayer(0)),
+		test.GenerateImage(test.GenerateExampleLayer(1)),
+	}
+	images[0].MustUpload(t, s, fooRepoRef, "earliest")
+	images[1].MustUpload(t, s, fooRepoRef, "latest")
+
+	//skip an hour to avoid protected_by_recent_upload
+	s.Clock.StepBy(1 * time.Hour)
+
+	//setup GC policies such that images[0] is properly protected, but the protecting policy for images[1] comes too late
+	protectingGCPolicyJSON1 := `{"match_repository":".*","match_tag":"earliest","action":"protect"}`
+	protectingGCPolicyJSON2 := `{"match_repository":".*","match_tag":"latest","action":"protect"}`
+	deletingGCPolicyJSON := `{"match_repository":".*","time_constraint":{"on":"pushed_at","older_than":{"value":30,"unit":"m"}},"action":"delete"}`
+	mustExec(t, s.DB,
+		`UPDATE accounts SET gc_policies_json = $1`,
+		fmt.Sprintf("[%s,%s,%s]",
+			protectingGCPolicyJSON1,
+			deletingGCPolicyJSON,
+			protectingGCPolicyJSON2,
+		),
+	)
+	tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
+
+	//therefore, images[1] gets deleted
+	expectSuccess(t, j.GarbageCollectManifestsInNextRepo())
+	expectError(t, sql.ErrNoRows.Error(), j.GarbageCollectManifestsInNextRepo())
+	tr.DBChanges().AssertEqualf(`
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[2]s' AND blob_id = 3;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[2]s' AND blob_id = 4;
+			DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[2]s';
+			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[3]s}' WHERE repo_id = 1 AND digest = '%[1]s';
+			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[2]s';
+			UPDATE repos SET next_gc_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+			DELETE FROM tags WHERE repo_id = 1 AND name = 'latest';
+		`,
+		images[0].Manifest.Digest.String(),
+		images[1].Manifest.Digest.String(),
+		protectingGCPolicyJSON1,
+		s.Clock.Now().Add(1*time.Hour).Unix(),
+	)
+}
