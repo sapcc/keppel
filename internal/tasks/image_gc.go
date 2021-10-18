@@ -20,7 +20,9 @@ package tasks
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
@@ -34,6 +36,10 @@ var imageGCRepoSelectQuery = keppel.SimplifyWhitespaceInSQL(`
 	ORDER BY next_gc_at IS NULL DESC, next_gc_at ASC
 	-- only one repo at a time
 	LIMIT 1
+`)
+
+var imageGCResetStatusQuery = keppel.SimplifyWhitespaceInSQL(`
+	UPDATE manifests SET gc_status_json = '{"relevant_policies":[]}' WHERE repo_id = $1
 `)
 
 var imageGCRepoDoneQuery = keppel.SimplifyWhitespaceInSQL(`
@@ -67,7 +73,7 @@ func (j *Janitor) GarbageCollectManifestsInNextRepo() (returnErr error) {
 		return err
 	}
 
-	//load GC policies for this account
+	//load GC policies for this repository
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {
 		return fmt.Errorf("cannot find account for repo %s: %w", repo.FullName(), err)
@@ -76,27 +82,30 @@ func (j *Janitor) GarbageCollectManifestsInNextRepo() (returnErr error) {
 	if err != nil {
 		return fmt.Errorf("cannot load GC policies for account %s: %w", account.Name, err)
 	}
-
-	//find matching GC policies
-	doDeleteUntagged := false
-	for _, policy := range policies {
-		if !policy.Matches(repo.Name) {
-			continue
+	var policiesForRepo []keppel.GCPolicy
+	for idx, policy := range policies {
+		err := policy.Validate()
+		if err != nil {
+			return fmt.Errorf("GC policy #%d for account %s is invalid: %w", idx+1, account.Name, err)
 		}
-		switch policy.Strategy {
-		case "delete_untagged":
-			doDeleteUntagged = true
-		default:
-			logg.Info("ignoring GC policy for account %s with unknown strategy %q", account.Name, policy.Strategy)
+		if policy.MatchesRepository(repo.Name) {
+			policiesForRepo = append(policiesForRepo, policy)
 		}
 	}
 
-	//execute selected GC passes (we do this outside the above for loop to
-	//tightly control the order of passes)
-	if doDeleteUntagged {
-		err := j.deleteUntaggedImages(*account, repo)
+	//execute GC policies
+	if len(policiesForRepo) > 0 {
+		err = j.executeGCPolicies(*account, repo, policiesForRepo)
 		if err != nil {
-			return fmt.Errorf("while deleting untagged images: %w", err)
+			return err
+		}
+	} else {
+		//if there are no policies to apply, we can skip a whole bunch of work, but
+		//we still need to update the GCStatusJSON field on the repo's manifests to
+		//make sure those statuses don't refer to deleted GC policies
+		_, err = j.db.Exec(imageGCResetStatusQuery, repo.ID)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -104,34 +113,170 @@ func (j *Janitor) GarbageCollectManifestsInNextRepo() (returnErr error) {
 	return err
 }
 
-var untaggedImagesSelectQuery = keppel.SimplifyWhitespaceInSQL(`
-	SELECT * FROM manifests
-		WHERE repo_id = $1
-		-- only consider untagged images
-		AND digest NOT IN (SELECT digest FROM tags WHERE repo_id = $1)
-		-- never cleanup images that are part of another image
-		AND digest NOT IN (SELECT child_digest FROM manifest_manifest_refs WHERE repo_id = $1)
-		-- do not consider freshly pushed images (the client may still be working on pushing the tag)
-		AND pushed_at < $2
-`)
-
-func (j *Janitor) deleteUntaggedImages(account keppel.Account, repo keppel.Repository) error {
-	var manifests []keppel.Manifest
-	_, err := j.db.Select(&manifests, untaggedImagesSelectQuery, repo.ID, j.timeNow().Add(-5*time.Minute))
+func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Repository, policies []keppel.GCPolicy) error {
+	//load manifests in repo
+	var dbManifests []keppel.Manifest
+	_, err := j.db.Select(&dbManifests, `SELECT * FROM manifests WHERE repo_id = $1`, repo.ID)
 	if err != nil {
 		return err
 	}
 
-	proc := j.processor()
-	for _, manifest := range manifests {
-		err := proc.DeleteManifest(account, repo, manifest.Digest, keppel.AuditContext{
-			Authorization: keppel.JanitorAuthorization{TaskName: "gc-untagged-images"},
-			Request:       janitorDummyRequest,
+	//setup a bit of structure to track state in during the policy evaluation
+	type manifestData struct {
+		Manifest      keppel.Manifest
+		TagNames      []string
+		ParentDigests []string
+		GCStatus      keppel.GCStatus
+		IsDeleted     bool
+	}
+	var manifests []*manifestData
+	for _, m := range dbManifests {
+		manifests = append(manifests, &manifestData{
+			Manifest: m,
+			GCStatus: keppel.GCStatus{
+				ProtectedByRecentUpload: m.PushedAt.After(j.timeNow().Add(-10 * time.Minute)),
+			},
+			IsDeleted: false,
 		})
+	}
+
+	//load tags (for matching policies on match_tag, except_tag and only_untagged)
+	query := `SELECT digest, name FROM tags WHERE repo_id = $1`
+	err = keppel.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+		var (
+			digest  string
+			tagName string
+		)
+		err := rows.Scan(&digest, &tagName)
 		if err != nil {
 			return err
 		}
+		for _, m := range manifests {
+			if m.Manifest.Digest == digest {
+				m.TagNames = append(m.TagNames, tagName)
+				break
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
+	//check manifest-manifest relations to fill GCStatus.ProtectedByManifest
+	query = `SELECT parent_digest, child_digest FROM manifest_manifest_refs WHERE repo_id = $1`
+	err = keppel.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+		var (
+			parentDigest string
+			childDigest  string
+		)
+		err := rows.Scan(&parentDigest, &childDigest)
+		if err != nil {
+			return err
+		}
+		for _, m := range manifests {
+			if m.Manifest.Digest == childDigest {
+				m.ParentDigests = append(m.ParentDigests, parentDigest)
+				break
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	for _, m := range manifests {
+		if len(m.ParentDigests) > 0 {
+			sort.Strings(m.ParentDigests) //for deterministic test behavior
+			m.GCStatus.ProtectedByParentManifest = m.ParentDigests[0]
+		}
+	}
+
+	//evaulate policies in order
+	proc := j.processor()
+	for _, p := range policies {
+		//for some time constraint matches, we need to know which manifests are
+		//still alive
+		var aliveManifests []keppel.Manifest
+		for _, m := range manifests {
+			if !m.IsDeleted {
+				aliveManifests = append(aliveManifests, m.Manifest)
+			}
+		}
+
+		//evaluate policy for each manifest
+		for _, m := range manifests {
+			//skip those manifests that are already deleted, and those which are
+			//protected by an earlier policy or one of the baseline checks above
+			if m.IsDeleted || m.GCStatus.IsProtected() {
+				continue
+			}
+
+			//track matching "delete" policies in GCStatus to allow users insight
+			//into how policies match
+			if p.Action == "delete" {
+				m.GCStatus.RelevantPolicies = append(m.GCStatus.RelevantPolicies, p)
+			}
+
+			//evaluate constraints
+			if !p.MatchesTags(m.TagNames) {
+				continue
+			}
+			if !p.MatchesTimeConstraint(m.Manifest, aliveManifests, j.timeNow()) {
+				continue
+			}
+
+			//execute policy action
+			switch p.Action {
+			case "protect":
+				pCopied := p
+				m.GCStatus.ProtectedByPolicy = &pCopied
+			case "delete":
+				err := proc.DeleteManifest(account, repo, m.Manifest.Digest, keppel.AuditContext{
+					Authorization: keppel.JanitorAuthorization{
+						TaskName: "policy-driven-gc",
+						GCPolicy: &p,
+					},
+					Request: janitorDummyRequest,
+				})
+				if err != nil {
+					return err
+				}
+				m.IsDeleted = true
+				policyJSON, _ := json.Marshal(p)
+				logg.Info("GC on repo %s: deleted manifest %s because of policy %s", repo.FullName(), m.Manifest.Digest, string(policyJSON))
+			default:
+				//defense in depth: we already did p.Validate() earlier
+				return fmt.Errorf("unexpected GC policy action: %q (why was this not caught by Validate!?)", p.Action)
+			}
+		}
+	}
+
+	//finalize and persist GCStatus for all affected manifests
+	query = `UPDATE manifests SET gc_status_json = $1 WHERE repo_id = $2 AND digest = $3`
+	err = keppel.WithPreparedStatement(j.db, query, func(stmt *sql.Stmt) error {
+		for _, m := range manifests {
+			if m.IsDeleted {
+				continue
+			}
+			//to simplify UI, show only EITHER protection status OR relevant deleting
+			//policies, not both
+			if m.GCStatus.IsProtected() {
+				m.GCStatus.RelevantPolicies = nil
+			}
+			gcStatusJSON, err := json.Marshal(m.GCStatus)
+			if err != nil {
+				return err
+			}
+			_, err = stmt.Exec(string(gcStatusJSON), repo.ID, m.Manifest.Digest)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("while persisting GCStatus: %w", err)
+	}
 	return nil
 }

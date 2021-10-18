@@ -174,6 +174,11 @@ func (a Assertable) AssertEmpty() {
 	a.AssertEqual("")
 }
 
+//Ignore is a no-op. It is commonly used like `tr.DBChanges().Ignore()`, to
+//clarify that a certain set of DB changes is not asserted on.
+func (a Assertable) Ignore() {
+}
+
 func failOnErr(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {

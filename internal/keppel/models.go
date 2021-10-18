@@ -95,7 +95,7 @@ type RBACPolicy struct {
 //Matches evaluates the regexes in this policy.
 func (r RBACPolicy) Matches(repoName, userName string) bool {
 	if r.RepositoryPattern != "" {
-		rx, err := regexp.Compile(fmt.Sprintf(`^%s/%s$`,
+		rx, err := regexp.Compile(fmt.Sprintf(`^%s/(?:%s)$`,
 			regexp.QuoteMeta(r.AccountName),
 			r.RepositoryPattern,
 		))
@@ -105,7 +105,7 @@ func (r RBACPolicy) Matches(repoName, userName string) bool {
 	}
 
 	if r.UserNamePattern != "" {
-		rx, err := regexp.Compile(fmt.Sprintf(`^%s$`, r.UserNamePattern))
+		rx, err := regexp.Compile(fmt.Sprintf(`^(?:%s)$`, r.UserNamePattern))
 		if err != nil || !rx.MatchString(userName) {
 			return false
 		}
@@ -284,6 +284,9 @@ type Manifest struct {
 	VulnerabilityScanErrorMessage string                    `db:"vuln_scan_error"`
 	//LabelsJSON contains a JSON string of a map[string]string, or an empty string.
 	LabelsJSON string `db:"labels_json"`
+	//GCStatusJSON contains a keppel.GCStatus serialized into JSON, or an empty
+	//string if GC has not seen this manifest yet.
+	GCStatusJSON string `db:"gc_status_json"`
 }
 
 //FindManifest is a convenience wrapper around db.SelectOne(). If the

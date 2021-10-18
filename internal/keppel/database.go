@@ -433,6 +433,12 @@ var sqlMigrations = map[string]string{
 	"025_add_manifest_contents.down.sql": `
 		DROP TABLE manifest_contents;
 	`,
+	"026_add_manifests_gc_status_json.up.sql": `
+		ALTER TABLE manifests ADD COLUMN gc_status_json TEXT NOT NULL DEFAULT '';
+	`,
+	"026_add_manifests_gc_status_json.down.sql": `
+		ALTER TABLE manifests DROP COLUMN gc_status_json;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

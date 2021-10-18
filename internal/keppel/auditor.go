@@ -54,6 +54,7 @@ type AuditContext struct {
 //used via `var JanitorAuthorization`.
 type janitorUserInfo struct {
 	TaskName string
+	GCPolicy *GCPolicy
 }
 
 //UserUUID implements the audittools.UserInfo interface.
@@ -83,12 +84,21 @@ func (janitorUserInfo) DomainScopeUUID() string {
 
 //AsInitiator implements the audittools.NonStandardUserInfo interface.
 func (u janitorUserInfo) AsInitiator() cadf.Resource {
-	return cadf.Resource{
+	res := cadf.Resource{
 		TypeURI: "service/docker-registry/janitor-task",
 		Name:    u.TaskName,
 		Domain:  "keppel",
 		ID:      u.TaskName,
 	}
+	if u.GCPolicy != nil {
+		gcPolicyJSON, _ := json.Marshal(*u.GCPolicy)
+		res.Attachments = append(res.Attachments, cadf.Attachment{
+			Name:    "gc-policy",
+			TypeURI: "mime:application/json",
+			Content: gcPolicyJSON,
+		})
+	}
+	return res
 }
 
 ////////////////////////////////////////////////////////////////////////////////

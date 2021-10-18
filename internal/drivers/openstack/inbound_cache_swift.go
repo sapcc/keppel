@@ -66,7 +66,7 @@ func compileOptionalImplicitlyBoundedRegex(pattern string) (*regexp.Regexp, erro
 		return nil, nil
 	}
 
-	rx, err := regexp.Compile(`^` + pattern + `$`)
+	rx, err := regexp.Compile(`^(?:` + pattern + `)$`)
 	if err != nil {
 		return nil, fmt.Errorf("%q is not a valid regex: %w", pattern, err)
 	}
