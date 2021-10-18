@@ -72,13 +72,23 @@ func (a *Auditor) ExpectEvents(t *testing.T, expectedEvents ...cadf.Event) {
 	a.events = nil
 }
 
+//IgnoreEventsUntilNow clears the list of recorded events, so that the next
+//ExpectEvents() will only cover events generated after this point.
+func (a *Auditor) IgnoreEventsUntilNow() {
+	a.events = nil
+}
+
 func (a *Auditor) normalize(event cadf.Event) cadf.Event {
 	//overwrite some attributes where we don't care about variance
 	event.TypeURI = "http://schemas.dmtf.org/cloud/audit/1.0/event"
 	event.ID = "00000000-0000-0000-0000-000000000000"
 	event.EventTime = "2006-01-02T15:04:05.999999+00:00"
 	event.EventType = "activity"
-	event.Initiator = cadf.Resource{}
+	if event.Initiator.TypeURI != "service/docker-registry/janitor-task" {
+		//for janitor tasks, we *are* interested in the initiator because special
+		//attributes like relevant GC policies get encoded there
+		event.Initiator = cadf.Resource{}
+	}
 	event.Observer = cadf.Resource{}
 	return event
 }

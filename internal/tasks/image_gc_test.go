@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/hermes/pkg/cadf"
 	"github.com/sapcc/keppel/internal/test"
 )
 
@@ -38,7 +39,8 @@ func TestGCUntaggedImages(t *testing.T) {
 	s.Clock.StepBy(1 * time.Hour)
 
 	//setup GC policy for test
-	matchingGCPoliciesJSON := `[{"match_repository":".*","only_untagged":true,"action":"delete"}]`
+	matchingGCPolicyJSON := `{"match_repository":".*","only_untagged":true,"action":"delete"}`
+	matchingGCPoliciesJSON := fmt.Sprintf("[%s]", matchingGCPolicyJSON)
 	mustExec(t, s.DB,
 		`UPDATE accounts SET gc_policies_json = $1`,
 		matchingGCPoliciesJSON,
@@ -115,6 +117,7 @@ func TestGCUntaggedImages(t *testing.T) {
 		imageList.Manifest.Digest.String(),
 	)
 	tr.DBChanges().Ignore()
+	s.Auditor.IgnoreEventsUntilNow()
 
 	//GC should now delete the untagged image since nothing references it anymore
 	expectSuccess(t, j.GarbageCollectManifestsInNextRepo())
@@ -132,6 +135,31 @@ func TestGCUntaggedImages(t *testing.T) {
 		matchingGCPoliciesJSON,
 		s.Clock.Now().Add(1*time.Hour).Unix(),
 	)
+
+	//there should be an audit event for when GC deletes an image
+	s.Auditor.ExpectEvents(t, cadf.Event{
+		RequestPath: janitorDummyRequest.URL.String(),
+		Action:      "delete",
+		Outcome:     "success",
+		Reason:      test.CADFReasonOK,
+		Target: cadf.Resource{
+			TypeURI:   "docker-registry/account/repository/manifest",
+			Name:      "test1/foo@" + images[1].Manifest.Digest.String(),
+			ID:        images[1].Manifest.Digest.String(),
+			ProjectID: "test1authtenant",
+		},
+		Initiator: cadf.Resource{
+			TypeURI: "service/docker-registry/janitor-task",
+			ID:      "policy-driven-gc",
+			Name:    "policy-driven-gc",
+			Domain:  "keppel",
+			Attachments: []cadf.Attachment{{
+				Name:    "gc-policy",
+				TypeURI: "mime:application/json",
+				Content: matchingGCPolicyJSON,
+			}},
+		},
+	})
 }
 
 //TestGCMatchOnTag exercises all valid combinations of match_tag and except_tag.

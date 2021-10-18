@@ -95,7 +95,7 @@ func (u janitorUserInfo) AsInitiator() cadf.Resource {
 		res.Attachments = append(res.Attachments, cadf.Attachment{
 			Name:    "gc-policy",
 			TypeURI: "mime:application/json",
-			Content: gcPolicyJSON,
+			Content: string(gcPolicyJSON),
 		})
 	}
 	return res
