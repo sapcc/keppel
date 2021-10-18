@@ -50,7 +50,7 @@ func (ss *ScopeSet) Add(s Scope) {
 	*ss = append(*ss, &s)
 }
 
-func mergeAndDedupActions(lhs []string, rhs []string) (result []string) {
+func mergeAndDedupActions(lhs, rhs []string) (result []string) {
 	seen := make(map[string]bool)
 	for _, elem := range append(lhs, rhs...) {
 		if seen[elem] {

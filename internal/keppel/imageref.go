@@ -26,8 +26,10 @@ import (
 	"github.com/opencontainers/go-digest"
 )
 
-const defaultHostName = "registry-1.docker.io"
-const defaultTagName = "latest"
+const (
+	defaultHostName = "registry-1.docker.io"
+	defaultTagName  = "latest"
+)
 
 //ImageReference refers to an image that can be pulled from a registry.
 type ImageReference struct {

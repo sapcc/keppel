@@ -26,17 +26,21 @@ import (
 	"time"
 )
 
-var RepoNameRx = `[a-z0-9]+(?:[._-][a-z0-9]+)*`
-var RepoPathRx = regexp.MustCompile(`^` + RepoNameRx + `(?:/` + RepoNameRx + `)*$`)
-var RepoPathComponentRx = regexp.MustCompile(`^` + RepoNameRx + `$`)
+var (
+	RepoNameRx          = `[a-z0-9]+(?:[._-][a-z0-9]+)*`
+	RepoPathRx          = regexp.MustCompile(`^` + RepoNameRx + `(?:/` + RepoNameRx + `)*$`)
+	RepoPathComponentRx = regexp.MustCompile(`^` + RepoNameRx + `$`)
+)
 
 //The "with leading slash" simplifies the regex because we don't need to write the
 //regex for a path element twice.
 // Examples:
 // - /library/alpine
 // - /library/alpine:nonsense
-var RepoNameWithLeadingSlash = "(?:/" + RepoNameRx + ")+"
-var RepoNameWithLeadingSlashRx = regexp.MustCompile(`^` + RepoNameWithLeadingSlash + `$`)
+var (
+	RepoNameWithLeadingSlash   = "(?:/" + RepoNameRx + ")+"
+	RepoNameWithLeadingSlashRx = regexp.MustCompile(`^` + RepoNameWithLeadingSlash + `$`)
+)
 
 // Regex to match repo/account and optional tag and digest combination
 // Examples:

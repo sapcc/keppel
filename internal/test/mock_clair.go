@@ -95,7 +95,7 @@ func (c *ClairDouble) postIndexReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reqBodyBuf.WriteByte('\n')
-	err = ioutil.WriteFile(actualPathAbs, reqBodyBuf.Bytes(), 0666)
+	err = ioutil.WriteFile(actualPathAbs, reqBodyBuf.Bytes(), 0o666)
 	if respondwith.ErrorText(w, err) {
 		return
 	}

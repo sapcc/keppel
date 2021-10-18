@@ -715,7 +715,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 
 //Like reflect.DeepEqual, but ignores some fields that are allowed to be
 //updated after account creation.
-func replicationPoliciesFunctionallyEqual(lhs *ReplicationPolicy, rhs *ReplicationPolicy) bool {
+func replicationPoliciesFunctionallyEqual(lhs, rhs *ReplicationPolicy) bool {
 	//one nil and one non-nil is not equal
 	if (lhs == nil) != (rhs == nil) {
 		return false

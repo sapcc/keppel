@@ -153,6 +153,6 @@ func (d *keystoneClientDriver) SendHTTPRequest(req *http.Request) (*http.Respons
 }
 
 //CredentialsForRegistryAPI implements the client.AuthDriver interface.
-func (d *keystoneClientDriver) CredentialsForRegistryAPI() (userName string, password string) {
+func (d *keystoneClientDriver) CredentialsForRegistryAPI() (userName, password string) {
 	return d.RegistryUserName, d.RegistryPassword
 }
