@@ -28,13 +28,12 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
+//TestGCUntaggedImages is the original image GC testcase. It tests with just a
+//single GC policy that deletes untagged images, but goes through all the
+//phases of a manifest's lifecycle (as far as GC is concerned), covering some
+//corner cases, such as no policies matching on a repo at all, or
+//protected_by_recent_upload.
 func TestGCUntaggedImages(t *testing.T) {
-	//This is the original image GC testcase. It tests with just a single GC
-	//policy that deletes untagged images, but goes through all the phases of a
-	//manifest's lifecycle (as far as GC is concerned), covering some corner
-	//cases, such as no policies matching on a repo at all, or
-	//protected_by_recent_upload.
-
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
 
@@ -135,9 +134,9 @@ func TestGCUntaggedImages(t *testing.T) {
 	)
 }
 
+//TestGCMatchOnTag exercises all valid combinations of match_tag and except_tag.
+//(The only_untagged match was already tested in TestGCUntaggedImages.)
 func TestGCMatchOnTag(t *testing.T) {
-	//This test exercises all valid combinations of match_tag and except_tag.
-	//(The only_untagged match was already tested in TestGCUntaggedImages.)
 	j, s := setup(t)
 
 	images := []test.Image{
@@ -205,13 +204,14 @@ func TestGCMatchOnTag(t *testing.T) {
 	)
 }
 
+//TestGCProtectOldestAndNewest exercises the various kinds of time constraints.
+//The first pass ("byCount") uses "oldest" and "newest" time constraints,
+//whereas the second pass ("byThreshold") uses "older_than" and "newer_than"
+//time constraints.
+//
+//Since both tests are otherwise very similar, they have been merged into one
+//Test function to avoid code duplication.
 func TestGCProtectOldestAndNewest(t *testing.T) {
-	//This test exercises the various kinds of time constraints. The first pass
-	//("byCount") uses "oldest" and "newest" time constraints, whereas the second
-	//pass ("byThreshold") uses "older_than" and "newer_than" time constraints.
-	//
-	//Since both tests are otherwise very similar, they have been merged into one
-	//Test function to avoid code duplication.
 	for _, strategy := range []string{"byCount", "byThreshold"} {
 		j, s := setup(t)
 
@@ -294,9 +294,9 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 	}
 }
 
+//TestGCProtectComesTooLate checks that a "protect" policy is ineffective if an
+//image has already been removed by an earlier "delete" policy.
 func TestGCProtectComesTooLate(t *testing.T) {
-	//This test checks that a "protect" policy is ineffective if an image has
-	//already been removed by an earlier "delete" policy.
 	j, s := setup(t)
 
 	//upload some test images

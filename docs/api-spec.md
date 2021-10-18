@@ -88,7 +88,10 @@ On success, returns 200 and a JSON response body like this:
           "match_repository": ".*",
           "time_constraint": {
             "on": "last_pulled_at",
-            "newer_than": "7d"
+            "newer_than": {
+              "value": 7,
+              "unit": "d"
+            }
           },
           "action": "protect"
         },
@@ -126,7 +129,7 @@ The following fields may be returned:
 | `accounts[].name` | string | Name of this account. |
 | `accounts[].auth_tenant_id` | string | ID of auth tenant that regulates access to this account. |
 | `accounts[].gc_policies` | list of objects or omitted | Policies for garbage collection (automated deletion of images) for repositories in this account. GC policies apply in addition to the regular garbage collection runs performed by Keppel that clean up unreferenced objects of all kinds. GC policies are ordered by priority: Earlier policies take precedence over later policies. |
-| `accounts[].gc_policies[].match_repository` | string or omitted | The GC policy applies to all repositories in this account whose name matches this regex. The leading account name and slash is stripped from the repository name before matching. The notes on regexes below apply. |
+| `accounts[].gc_policies[].match_repository` | string | Required. The GC policy applies to all repositories in this account whose name matches this regex. The leading account name and slash is stripped from the repository name before matching. The notes on regexes below apply. |
 | `accounts[].gc_policies[].except_repository` | string or omitted | If given, matching repositories will be excluded from this GC policy, even if they match the `match_repository` regex. The syntax and mechanics of matching are otherwise identical to `match_repository` above. |
 | `accounts[].gc_policies[].match_tag` | string or omitted | The GC policy applies to all images in matching repositories that have a tag whose name matches this regex. The notes on regexes below apply. |
 | `accounts[].gc_policies[].except_tag` | string or omitted | If given, images with matching tag names will be excluded from this GC policy, even if they match the `match_tag` regex. The syntax and mechanics of matching are otherwise identical to `match_tag` above. |
