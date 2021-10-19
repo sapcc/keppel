@@ -38,11 +38,18 @@ import (
 var outdatedManifestSearchQuery = keppel.SimplifyWhitespaceInSQL(`
 	SELECT * FROM manifests
 		WHERE validated_at < $1 OR (validated_at < $2 AND validation_error_message != '')
-	ORDER BY validation_error_message != '' DESC, validated_at ASC
-		-- oldest blobs first, but always prefer to recheck a failed validation
+	ORDER BY validation_error_message != '' DESC, validated_at ASC, media_type DESC
+		-- oldest blobs first, but always prefer to recheck a failed validation (see below for why we sort by media_type)
 	LIMIT 1
 		-- one at a time
 `)
+
+//^ NOTE: The sorting by media_type is completely useless in real-world
+//situations since real-life manifests will always have validated_at timestamps
+//that differ at least by some nanoseconds. But in tests, this sorting ensures
+//that single-arch images get revalidated before multi-arch images, which is
+//important because multi-arch images take into account the size_bytes
+//attribute of their constituent images.
 
 //ValidateNextManifest validates manifests that have not been validated for more
 //than 6 hours. At most one manifest is validated per call. If no manifest

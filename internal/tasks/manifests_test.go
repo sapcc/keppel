@@ -95,9 +95,6 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 }
 
 func TestValidateNextManifestFixesWrongSize(t *testing.T) {
-	//FIXME: This test is indeterministic. If the list manifest gets revalidated
-	//first, it will read the then-still-incorrect SizeBytes from its child
-	//manifests to calculate its own SizeBytes and arrive at the wrong result.
 	testValidateNextManifestFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
 		mustExec(t, db, `UPDATE manifests SET size_bytes = 1337`)
 	})
