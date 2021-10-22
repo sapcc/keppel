@@ -405,6 +405,9 @@ response body like this:
       "labels": {
         "maintainers": "Stefan"
       },
+      "gc_status": {
+        "protected_by_recent_upload": true
+      },
       "vulnerability_status": "Clean"
     },
     {
@@ -433,6 +436,11 @@ The following fields may be returned:
 | `manifests[].tags[].pushed_at` | string | When this tag was last updated in the registry. |
 | `manifests[].tags[].last_pulled_at` | UNIX timestamp or null | When this manifest was last pulled from the registry using this tag name (or null if it was never pulled from this tag). |
 | `manifests[].labels` | object of strings | Free-form labels maintained by the user (labels are set on an image using the Dockerfile's `LABEL` command). The contents of this field may be interpreted by Keppel and might trigger special behavior, e.g. when `validation.required_labels` is configured for an account. |
+| `manifests[].gc_status` | object or omitted | Omitted if policy-guided garbage collection has not encountered this manifest yet. Otherwise contains a status report from the last GC run. If this object is shown, it will contain exactly one of the following attributes. |
+| `manifests[].gc_status.protected_by_recent_upload` | true or omitted | If true, this manifest was protected from deletion during the last GC run because it was uploaded too recently (within 10 minutes of the GC run). |
+| `manifests[].gc_status.protected_by_parent` | string or omitted | If shown, this manifest was protected from deletion during the last GC run because there is a parent manifest that references it. The field contains the parent manifest's digest. If the manifest is referenced by multiple parent manifests, it is not defined which parent manifest's digest will be shown. |
+| `manifests[].gc_status.protected_by_policy` | object or omitted | If shown, this manifest was protected from deletion during the last GC run because of a matching policy with the "protect" action. The object will contain the policy definition in the same format as described above for `accounts[].gc_policies[]`. |
+| `manifests[].gc_status.relevant_policies` | array of objects or omitted | If shown, this manifest was not protected from deletion during the last GC run, but no deleting policy matched either. The array will contain the definitions of all deleting policies that could apply to this manifest, in the same format as described above for `accounts[].gc_policies[]`. |
 | `manifests[].vulnerability_status` | string | Either `Clean` (no vulnerabilities have been found in this image), `Pending` (vulnerability scanning is not enabled on this server or is still in progress for this image or has failed for this image), `Error` (vulnerability scanning failed for this image or an image referenced in this manifest), or any of the severity strings defined by Clair (`Unknown`, `Negligible`, `Low`, `Medium`, `High`, `Critical`, `Defcon1`). The full vulnerability report can be retrieved with [a separate API call](#delete-keppelv1accountsnamerepositoriesname_manifestsdigestvulnerability_report). |
 | `manifests[].vulnerability_scan_error` | string | Only shown if `vulnerability_status` is `Error`. Contains the error message from Clair that explains why this image could not be scanned. When `vulnerability_status` is `Error` because scanning failed for an image referenced in this manifest, the error message will be shown on the referenced manifest instead of on this manifest. |
 | `truncated` | boolean | Indicates whether [marker-based pagination](#marker-based-pagination) must be used to retrieve the rest of the result. |

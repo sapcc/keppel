@@ -98,6 +98,7 @@ func TestManifestsAPI(t *testing.T) {
 					ValidatedAt:         pushedAt,
 					VulnerabilityStatus: deterministicDummyVulnStatus(idx),
 					LabelsJSON:          `{"foo":"is there"}`,
+					GCStatusJSON:        `{"protected_by_recent_upload":true}`,
 				}
 				if idx == 1 {
 					dbManifest.LastPulledAt = p2time(pushedAt.Add(100 * time.Second))
@@ -147,6 +148,7 @@ func TestManifestsAPI(t *testing.T) {
 				"pushed_at":            int64(1000 * (10 + idx)),
 				"last_pulled_at":       nil,
 				"labels":               assert.JSONObject{"foo": "is there"},
+				"gc_status":            assert.JSONObject{"protected_by_recent_upload": true},
 				"vulnerability_status": string(deterministicDummyVulnStatus(idx)),
 			}
 		}

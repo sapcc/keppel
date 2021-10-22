@@ -41,6 +41,7 @@ type Manifest struct {
 	LastPulledAt                  *int64                    `json:"last_pulled_at"`
 	Tags                          []Tag                     `json:"tags,omitempty"`
 	LabelsJSON                    json.RawMessage           `json:"labels,omitempty"`
+	GCStatusJSON                  json.RawMessage           `json:"gc_status,omitempty"`
 	VulnerabilityStatus           clair.VulnerabilityStatus `json:"vulnerability_status"`
 	VulnerabilityScanErrorMessage string                    `json:"vulnerability_scan_error,omitempty"`
 }
@@ -103,14 +104,14 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 			result.IsTruncated = true
 			break
 		}
-		labelsJSON := json.RawMessage(dbManifest.LabelsJSON)
 		result.Manifests = append(result.Manifests, &Manifest{
 			Digest:                        dbManifest.Digest,
 			MediaType:                     dbManifest.MediaType,
 			SizeBytes:                     dbManifest.SizeBytes,
 			PushedAt:                      dbManifest.PushedAt.Unix(),
 			LastPulledAt:                  keppel.MaybeTimeToUnix(dbManifest.LastPulledAt),
-			LabelsJSON:                    labelsJSON,
+			LabelsJSON:                    json.RawMessage(dbManifest.LabelsJSON),
+			GCStatusJSON:                  json.RawMessage(dbManifest.GCStatusJSON),
 			VulnerabilityStatus:           dbManifest.VulnerabilityStatus,
 			VulnerabilityScanErrorMessage: dbManifest.VulnerabilityScanErrorMessage,
 		})
