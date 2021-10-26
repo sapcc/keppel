@@ -85,7 +85,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//update our own last_pulled_at timestamps to cover pulls performed on the replica side
-	query := `UPDATE manifests SET last_pulled_at = $3 WHERE repo_id = $1 AND digest = $2 AND last_pulled_at < $3`
+	query := `UPDATE manifests SET last_pulled_at = $3 WHERE repo_id = $1 AND digest = $2 AND (last_pulled_at IS NULL OR last_pulled_at < $3)`
 	if hasManifestsLastPulledAt {
 		err = keppel.WithPreparedStatement(a.db, query, func(stmt *sql.Stmt) error {
 			for _, m := range req.Manifests {
@@ -104,7 +104,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	query = `UPDATE tags SET last_pulled_at = $4 WHERE repo_id = $1 AND digest = $2 AND name = $3 AND last_pulled_at < $4`
+	query = `UPDATE tags SET last_pulled_at = $4 WHERE repo_id = $1 AND digest = $2 AND name = $3 AND (last_pulled_at IS NULL OR last_pulled_at < $4)`
 	if hasTagsLastPulledAt {
 		err = keppel.WithPreparedStatement(a.db, query, func(stmt *sql.Stmt) error {
 			for _, m := range req.Manifests {

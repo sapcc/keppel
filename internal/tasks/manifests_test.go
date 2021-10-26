@@ -241,6 +241,9 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			initialLastPulledAt := time.Unix(42, 0)
 			mustExec(t, s1.DB, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
 			mustExec(t, s1.DB, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
+			//we set last_pulled_at to NULL on images[3] to verify that we can merge
+			//NULL with a non-NULL last_pulled_at from the replica side
+			mustExec(t, s1.DB, `UPDATE manifests SET last_pulled_at = NULL WHERE digest = $1`, images[3].Manifest.Digest.String())
 
 			//as an exception, in the on_first_use method, we can and want to merge
 			//last_pulled_at timestamps from the replica into those of the primary, so
@@ -251,6 +254,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			mustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = NULL`)
 			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, earlierLastPulledAt, images[1].Manifest.Digest.String())
 			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, laterLastPulledAt, images[2].Manifest.Digest.String())
+			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, initialLastPulledAt, images[3].Manifest.Digest.String())
 			mustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, earlierLastPulledAt, "latest")
 			mustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, laterLastPulledAt, "other")
 
@@ -266,8 +270,8 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			//ManifestsSyncedAt timestamp on the repo, but otherwise not do anything
 			expectSuccess(t, j2.SyncManifestsInNextRepo())
 			tr.DBChanges().AssertEqualf(`
-			UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
-		`,
+					UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+				`,
 				s1.Clock.Now().Add(1*time.Hour).Unix(),
 			)
 			//second run should not have anything else to do
@@ -279,11 +283,13 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			//max(primary.last_pulled_at, replica.last_pulled_at); this only touches
 			//the DB when the replica's last_pulled_at is after the primary's
 			if strategy == "on_first_use" {
-				trForPrimary.DBChanges().AssertEqualf(
-					`
-				UPDATE manifests SET last_pulled_at = %[1]d WHERE repo_id = 1 AND digest = '%[2]s';
-UPDATE tags SET last_pulled_at = %[1]d WHERE repo_id = 1 AND name = 'other';
-				`,
+				trForPrimary.DBChanges().AssertEqualf(`
+						UPDATE manifests SET last_pulled_at = %[1]d WHERE repo_id = 1 AND digest = '%[2]s';
+						UPDATE manifests SET last_pulled_at = %[3]d WHERE repo_id = 1 AND digest = '%[4]s';
+						UPDATE tags SET last_pulled_at = %[3]d WHERE repo_id = 1 AND name = 'other';
+					`,
+					initialLastPulledAt.Unix(),
+					images[3].Manifest.Digest.String(),
 					laterLastPulledAt.Unix(),
 					images[2].Manifest.Digest.String(),
 				)
