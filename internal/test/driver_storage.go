@@ -196,6 +196,27 @@ func (d *StorageDriver) ListStorageContents(account keppel.Account) ([]keppel.St
 	return blobs, manifests, nil
 }
 
+//CleanupAccount implements the keppel.StorageDriver interface.
+func (d *StorageDriver) CleanupAccount(account keppel.Account) error {
+	//double-check that cleanup order is right; when the account gets deleted,
+	//all blobs and manifests must have been deleted from it before
+	storedBlobs, storedManifests, err := d.ListStorageContents(account)
+	if len(storedBlobs) > 0 {
+		return fmt.Errorf(
+			"found undeleted blob during CleanupAccount: storageID = %q",
+			storedBlobs[0].StorageID,
+		)
+	}
+	if len(storedManifests) > 0 {
+		return fmt.Errorf(
+			"found undeleted manifest during CleanupAccount: %s@%s",
+			storedManifests[0].RepoName,
+			storedManifests[0].Digest,
+		)
+	}
+	return err
+}
+
 //BlobCount returns how many blobs exist in this storage driver. This is mostly
 //used to validate that failure cases do not commit data to the storage.
 func (d *StorageDriver) BlobCount() int {

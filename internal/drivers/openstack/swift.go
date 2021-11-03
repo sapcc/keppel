@@ -384,3 +384,12 @@ func mergeChunkCount(chunkCounts map[string]uint32, key string, chunkNumber uint
 		chunkCounts[key] = chunkNumber
 	}
 }
+
+//CleanupAccount implements the keppel.StorageDriver interface.
+func (d *swiftDriver) CleanupAccount(account keppel.Account) error {
+	c, err := d.getBackendConnection(account)
+	if err != nil {
+		return err
+	}
+	return c.Delete(nil)
+}

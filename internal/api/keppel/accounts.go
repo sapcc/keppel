@@ -926,7 +926,12 @@ func (a *API) deleteAccount(account keppel.Account) (*deleteAccountResponse, err
 		return nil, err
 	}
 
-	//before committing the transaction, confirm account deletion with the federation driver
+	//before committing the transaction, confirm account deletion with the
+	//storage driver and the federation driver
+	err = a.sd.CleanupAccount(account)
+	if err != nil {
+		return &deleteAccountResponse{Error: err.Error()}, nil
+	}
 	err = a.fd.ForfeitAccountName(account)
 	if err != nil {
 		return &deleteAccountResponse{Error: err.Error()}, nil

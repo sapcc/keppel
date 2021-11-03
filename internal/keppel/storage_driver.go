@@ -70,6 +70,12 @@ type StorageDriver interface {
 	//This is because storage implementations may be backed by object stores with
 	//eventual consistency.
 	ListStorageContents(account Account) (blobs []StoredBlobInfo, manifests []StoredManifestInfo, err error)
+
+	//This method can be used by the StorageDriver to perform last-minute cleanup
+	//on an account that we are about to delete. This cleanup should be
+	//reversible; we might bail out of the account deletion afterwards if the
+	//deletion in the DB fails.
+	CleanupAccount(account Account) error
 }
 
 //StoredBlobInfo is returned by StorageDriver.ListStorageContents().
