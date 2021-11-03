@@ -616,11 +616,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		//before committing this, add the required role assignments
-		err = a.authDriver.SetupAccount(*account, authz)
-		if respondwith.ErrorText(w, err) {
-			return
-		}
+		//commit the changes
 		err = tx.Commit()
 		if respondwith.ErrorText(w, err) {
 			return

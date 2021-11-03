@@ -131,11 +131,6 @@ func (d *keystoneDriver) ValidateTenantID(tenantID string) error {
 	return nil
 }
 
-//SetupAccount implements the keppel.AuthDriver interface.
-func (d *keystoneDriver) SetupAccount(account keppel.Account, authorization keppel.Authorization) error {
-	return nil
-}
-
 //AuthenticateUser implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Authorization, *keppel.RegistryV2Error) {
 	authOpts, rerr := parseUserNameAndPassword(userName, password)

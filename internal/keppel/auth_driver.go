@@ -64,12 +64,6 @@ type AuthDriver interface {
 	//"exists in the auth database".
 	ValidateTenantID(tenantID string) error
 
-	//SetupAccount sets up the given tenant so that it can be used for the given
-	//Keppel account. The caller must supply an Authorization that was obtained
-	//from one of the AuthenticateUserXXX methods of the same instance, because
-	//this operation may require more permissions than Keppel itself has.
-	SetupAccount(account Account, an Authorization) error
-
 	//AuthenticateUser authenticates the user identified by the given username
 	//and password. Note that usernames may not contain colons, because
 	//credentials are encoded by clients in the "username:password" format.

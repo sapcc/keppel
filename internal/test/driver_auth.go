@@ -32,8 +32,6 @@ import (
 
 //AuthDriver (driver ID "unittest") is a keppel.AuthDriver for unit tests.
 type AuthDriver struct {
-	//for SetupAccount
-	AccountsThatWereSetUp []keppel.Account
 	//for AuthenticateUser
 	ExpectedUserName   string
 	ExpectedPassword   string
@@ -55,12 +53,6 @@ func (d *AuthDriver) ValidateTenantID(tenantID string) error {
 	if tenantID == "invalid" {
 		return errors.New(`must not be "invalid"`)
 	}
-	return nil
-}
-
-//SetupAccount implements the keppel.AuthDriver interface.
-func (d *AuthDriver) SetupAccount(account keppel.Account, an keppel.Authorization) error {
-	d.AccountsThatWereSetUp = append(d.AccountsThatWereSetUp, account)
 	return nil
 }
 

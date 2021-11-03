@@ -56,10 +56,6 @@ func TestAccountsAPI(t *testing.T) {
 		ExpectStatus: http.StatusOK,
 		ExpectBody:   assert.JSONObject{"accounts": []interface{}{}},
 	}.Check(t, h)
-	assert.DeepEqual(t, "authDriver.AccountsThatWereSetUp",
-		s.AD.AccountsThatWereSetUp,
-		[]keppel.Account(nil),
-	)
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/first",
@@ -97,10 +93,6 @@ func TestAccountsAPI(t *testing.T) {
 				},
 			},
 		}.Check(t, h)
-		assert.DeepEqual(t, "authDriver.AccountsThatWereSetUp",
-			s.AD.AccountsThatWereSetUp,
-			[]keppel.Account{{Name: "first", AuthTenantID: "tenant1", MetadataJSON: `{"bar":"barbar","foo":"foofoo"}`, GCPoliciesJSON: "[]"}},
-		)
 
 		//only the first pass should generate an audit event
 		if pass == 1 {
@@ -231,13 +223,6 @@ func TestAccountsAPI(t *testing.T) {
 				},
 			},
 		}.Check(t, h)
-		assert.DeepEqual(t, "authDriver.AccountsThatWereSetUp",
-			s.AD.AccountsThatWereSetUp,
-			[]keppel.Account{
-				{Name: "first", AuthTenantID: "tenant1", MetadataJSON: `{"bar":"barbar","foo":"foofoo"}`, GCPoliciesJSON: "[]"},
-				{Name: "second", AuthTenantID: "tenant1", GCPoliciesJSON: gcPoliciesToJSON(gcPoliciesJSON)},
-			},
-		)
 
 		//only the first pass should generate audit events
 		if pass == 1 {
