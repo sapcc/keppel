@@ -51,9 +51,9 @@ func init() {
 }
 
 //ClaimAccountName implements the keppel.FederationDriver interface.
-func (fd *federationDriver) ClaimAccountName(account keppel.Account, authz keppel.Authorization, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (fd *federationDriver) ClaimAccountName(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	//the primary driver issued the sublease token secret, so this one has to verify it
-	claimResult, err := fd.Drivers[0].ClaimAccountName(account, authz, subleaseTokenSecret)
+	claimResult, err := fd.Drivers[0].ClaimAccountName(account, subleaseTokenSecret)
 	if err != nil || claimResult != keppel.ClaimSucceeded {
 		return claimResult, err
 	}

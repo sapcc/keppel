@@ -77,7 +77,7 @@ const (
 )
 
 //ClaimAccountName implements the keppel.FederationDriver interface.
-func (d *federationDriver) ClaimAccountName(account keppel.Account, authz keppel.Authorization, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (d *federationDriver) ClaimAccountName(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	if account.UpstreamPeerHostName != "" {
 		return d.claimReplicaAccount(account, subleaseTokenSecret)
 	}

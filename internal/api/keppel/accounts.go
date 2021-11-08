@@ -530,7 +530,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 
 		//check permission to claim account name (this only happens here because
 		//it's only relevant for account creations, not for updates)
-		claimResult, err := a.fd.ClaimAccountName(accountToCreate, authz, subleaseTokenSecret)
+		claimResult, err := a.fd.ClaimAccountName(accountToCreate, subleaseTokenSecret)
 		switch claimResult {
 		case keppel.ClaimSucceeded:
 			//nothing to do

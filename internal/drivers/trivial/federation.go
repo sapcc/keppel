@@ -33,7 +33,7 @@ func init() {
 }
 
 //ClaimAccountName implements the keppel.FederationDriver interface.
-func (federationDriver) ClaimAccountName(account keppel.Account, authz keppel.Authorization, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (federationDriver) ClaimAccountName(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	return keppel.ClaimSucceeded, nil
 }
 

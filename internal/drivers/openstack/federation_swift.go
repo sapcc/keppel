@@ -182,7 +182,7 @@ func (fd *federationDriverSwift) modifyAccountFile(accountName string, modify fu
 }
 
 //ClaimAccountName implements the keppel.FederationDriver interface.
-func (fd *federationDriverSwift) ClaimAccountName(account keppel.Account, authz keppel.Authorization, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (fd *federationDriverSwift) ClaimAccountName(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	var (
 		isUserError bool
 		err         error

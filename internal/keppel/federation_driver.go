@@ -46,8 +46,7 @@ var ErrNoSuchPrimaryAccount = errors.New("no such primary account")
 type FederationDriver interface {
 	//ClaimAccountName is called when creating a new account, and returns nil if
 	//and only if this Keppel is allowed to use `account.Name` for the given new
-	//`account`. Besides the fields of `account`, the implementation may inspect
-	//`authz`, the keppel.Authorization for the user requesting the claim.
+	//`account`.
 	//
 	//For some drivers, creating a replica account requires confirmation from the
 	//Keppel hosting the primary account. This is done by issuing a sublease
@@ -57,7 +56,7 @@ type FederationDriver interface {
 	//The implementation MUST be idempotent. If a call returned nil, a subsequent
 	//call with the same `account` must also return nil unless
 	//ForfeitAccountName() was called in between.
-	ClaimAccountName(account Account, authz Authorization, subleaseTokenSecret string) (ClaimResult, error)
+	ClaimAccountName(account Account, subleaseTokenSecret string) (ClaimResult, error)
 
 	//IssueSubleaseTokenSecret may only be called on existing primary accounts,
 	//not on replica accounts. It generates a secret one-time token that other
