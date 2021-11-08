@@ -29,9 +29,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sre"
-	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/processor"
+	"github.com/sapcc/keppel/internal/tokenauth"
 )
 
 //API contains state variables used by the Auth API endpoint.
@@ -193,7 +193,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 
 	//check authorization before FindAccount(); otherwise we might leak
 	//information about account existence to unauthorized users
-	scope := auth.Scope{
+	scope := tokenauth.Scope{
 		ResourceType: "repository",
 		ResourceName: fmt.Sprintf("%s/%s", accountName, repoName),
 	}

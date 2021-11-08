@@ -27,8 +27,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/tokenauth"
 )
 
 var (
@@ -51,7 +51,7 @@ func (a *API) checkAuthentication(authorizationHeader string) (keppel.Authorizat
 
 	if strings.HasPrefix(userName, "replication@") {
 		peerHostName := strings.TrimPrefix(userName, "replication@")
-		peer, err := auth.CheckPeerCredentials(a.db, peerHostName, password)
+		peer, err := tokenauth.CheckPeerCredentials(a.db, peerHostName, password)
 		if err != nil {
 			return nil, err
 		}
@@ -86,13 +86,13 @@ func (a *API) checkAuthentication(authorizationHeader string) (keppel.Authorizat
 
 //Request contains the query parameters in a token request.
 type Request struct {
-	Scopes           auth.ScopeSet
+	Scopes           tokenauth.ScopeSet
 	ClientID         string
 	OfflineToken     bool
-	IntendedAudience auth.Service
+	IntendedAudience tokenauth.Service
 	//the auth handler may add additional scopes in addition to the originally
 	//requested scope to encode access permissions, RBACs, etc.
-	CompiledScopes auth.ScopeSet
+	CompiledScopes tokenauth.ScopeSet
 }
 
 func parseRequest(rawQuery string, cfg keppel.Configuration) (Request, error) {
@@ -109,10 +109,10 @@ func parseRequest(rawQuery string, cfg keppel.Configuration) (Request, error) {
 	}
 
 	serviceHost := query.Get("service")
-	if serviceHost == auth.LocalService.Hostname(cfg) {
-		result.IntendedAudience = auth.LocalService
-	} else if cfg.AnycastAPIPublicURL != nil && serviceHost == auth.AnycastService.Hostname(cfg) {
-		result.IntendedAudience = auth.AnycastService
+	if serviceHost == tokenauth.LocalService.Hostname(cfg) {
+		result.IntendedAudience = tokenauth.LocalService
+	} else if cfg.AnycastAPIPublicURL != nil && serviceHost == tokenauth.AnycastService.Hostname(cfg) {
+		result.IntendedAudience = tokenauth.AnycastService
 	} else {
 		return Request{}, fmt.Errorf("cannot issue tokens for service: %q", serviceHost)
 	}
@@ -134,15 +134,15 @@ func decodeAuthHeader(base64data string) (username, password string) {
 }
 
 //ToToken creates a token that can be used to fulfill this token request.
-func (r Request) ToToken(authz keppel.Authorization) auth.Token {
-	var access []auth.Scope
+func (r Request) ToToken(authz keppel.Authorization) tokenauth.Token {
+	var access []tokenauth.Scope
 	for _, scope := range append(r.Scopes, r.CompiledScopes...) {
 		if len(scope.Actions) > 0 {
 			access = append(access, *scope)
 		}
 	}
 
-	return auth.Token{
+	return tokenauth.Token{
 		Authorization: authz,
 		Audience:      r.IntendedAudience,
 		Access:        access,

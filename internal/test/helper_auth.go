@@ -23,8 +23,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/tokenauth"
 )
 
 //GetToken obtains a token for use with the Registry V2 API.
@@ -35,17 +35,17 @@ import (
 //embedded in the token.
 func (s Setup) GetToken(t *testing.T, scopes ...string) string {
 	t.Helper()
-	return s.getToken(t, auth.LocalService, scopes...)
+	return s.getToken(t, tokenauth.LocalService, scopes...)
 }
 
 //GetAnycastToken is like GetToken, but instead returns a token for the anycast
 //endpoint.
 func (s Setup) GetAnycastToken(t *testing.T, scopes ...string) string {
 	t.Helper()
-	return s.getToken(t, auth.AnycastService, scopes...)
+	return s.getToken(t, tokenauth.AnycastService, scopes...)
 }
 
-func (s Setup) getToken(t *testing.T, audience auth.Service, scopes ...string) string {
+func (s Setup) getToken(t *testing.T, audience tokenauth.Service, scopes ...string) string {
 	t.Helper()
 
 	//optimization: don't issue the same token twice in a single test run
@@ -55,13 +55,13 @@ func (s Setup) getToken(t *testing.T, audience auth.Service, scopes ...string) s
 	}
 
 	//parse scopes
-	var ss auth.ScopeSet
+	var ss tokenauth.ScopeSet
 	for _, scopeStr := range scopes {
 		fields := strings.SplitN(scopeStr, ":", 3)
 		if len(fields) != 3 {
 			t.Fatalf("malformed scope %q: needs exactly three colon-separated fields", scopeStr)
 		}
-		ss.Add(auth.Scope{
+		ss.Add(tokenauth.Scope{
 			ResourceType: fields[0],
 			ResourceName: fields[1],
 			Actions:      strings.Split(fields[2], ","),
@@ -107,14 +107,14 @@ func (s Setup) getToken(t *testing.T, audience auth.Service, scopes ...string) s
 		}
 	}
 
-	//convert []*auth.Scope into []auth.Scope
-	var flatScopes []auth.Scope
+	//convert []*tokenauth.Scope into []tokenauth.Scope
+	var flatScopes []tokenauth.Scope
 	for _, scope := range ss {
 		flatScopes = append(flatScopes, *scope)
 	}
 
 	//issue token
-	issuedToken, err := auth.Token{
+	issuedToken, err := tokenauth.Token{
 		Authorization: authorization{
 			Username: "correctusername",
 			Perms:    perms,

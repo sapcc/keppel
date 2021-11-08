@@ -22,8 +22,8 @@ import (
 	"net/http"
 
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/tokenauth"
 )
 
 //APIAuthorization is the interface shared by the different token mechanisms
@@ -39,15 +39,15 @@ type APIAuthorization interface {
 	AccountsWithCatalogAccess(markerAccountName string) ([]string, error)
 }
 
-func (a *API) requireAuthorization(w http.ResponseWriter, r *http.Request, scope *auth.Scope) APIAuthorization {
+func (a *API) requireAuthorization(w http.ResponseWriter, r *http.Request, scope *tokenauth.Scope) APIAuthorization {
 	if r.Header.Get("Authorization") == "keppel" && !a.cfg.IsAnycastRequest(r) {
-		return a.requireKeppelAPIAuth(w, r, scope, auth.LocalService)
+		return a.requireKeppelAPIAuth(w, r, scope, tokenauth.LocalService)
 	}
 	//this is also called when requireKeppelAPIAuth() returned nil, in order to render the regular 401 response
 	return a.requireBearerToken(w, r, scope)
 }
 
-func isKeppelAccountViewScope(s auth.Scope) bool {
+func isKeppelAccountViewScope(s tokenauth.Scope) bool {
 	if s.ResourceType != "keppel_account" {
 		return false
 	}
@@ -65,14 +65,14 @@ func isKeppelAccountViewScope(s auth.Scope) bool {
 //bearerToken is an APIAuthorization through a supplied Bearer token (the
 //standard auth method on the Registry v2 API).
 type bearerToken struct {
-	t *auth.Token
+	t *tokenauth.Token
 }
 
-func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *auth.Scope) APIAuthorization {
+func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *tokenauth.Scope) APIAuthorization {
 	//for requests to the anycast endpoint, we need to use the anycast issuer key instead of the regular one
-	audience := auth.LocalService
+	audience := tokenauth.LocalService
 	if a.cfg.IsAnycastRequest(r) {
-		audience = auth.AnycastService
+		audience = tokenauth.AnycastService
 
 		//completely forbid write operations on the anycast API (only the local API
 		//may be used for writes and deletes)
@@ -83,13 +83,13 @@ func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *
 		}
 	}
 
-	token, err := auth.ParseTokenFromRequest(r, a.cfg, a.ad, audience)
+	token, err := tokenauth.ParseTokenFromRequest(r, a.cfg, a.ad, audience)
 	if err == nil && scope != nil && !token.Contains(*scope) {
 		err = keppel.ErrDenied.With("token does not cover scope %s", scope.String())
 	}
 	if err != nil {
 		logg.Debug("GET %s: %s", r.URL.Path, err.Error())
-		challenge := auth.Challenge{Service: audience, Scope: scope}
+		challenge := tokenauth.Challenge{Service: audience, Scope: scope}
 		requestURL := keppel.OriginalRequestURL(r)
 		challenge.OverrideAPIHost = requestURL.Host
 		challenge.OverrideAPIScheme = requestURL.Scheme
@@ -129,10 +129,10 @@ func (b bearerToken) AccountsWithCatalogAccess(markerAccountName string) ([]stri
 
 type keppelAPIAuth struct {
 	AuthZ         keppel.Authorization
-	GrantedScopes auth.ScopeSet
+	GrantedScopes tokenauth.ScopeSet
 }
 
-func (a *API) requireKeppelAPIAuth(w http.ResponseWriter, r *http.Request, scope *auth.Scope, audience auth.Service) APIAuthorization {
+func (a *API) requireKeppelAPIAuth(w http.ResponseWriter, r *http.Request, scope *tokenauth.Scope, audience tokenauth.Service) APIAuthorization {
 	authz, authErr := a.ad.AuthenticateUserFromRequest(r)
 	if authErr != nil {
 		//fallback to default auth to render 401 response including auth challenge
@@ -143,7 +143,7 @@ func (a *API) requireKeppelAPIAuth(w http.ResponseWriter, r *http.Request, scope
 		return keppelAPIAuth{authz, nil}
 	}
 
-	grantedScopes, err := auth.ScopeSet{scope}.FilterAuthorized(authz, audience, a.db)
+	grantedScopes, err := tokenauth.ScopeSet{scope}.FilterAuthorized(authz, audience, a.db)
 	if respondWithError(w, r, err) {
 		return nil
 	}

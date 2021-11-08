@@ -53,7 +53,7 @@ code is below `internal/`, organized into packages as follows: (listed roughly f
 | `internal/processor` | no | reusable parts of the API server implementation |
 | `internal/tasks` | yes | implementation of the janitor tasks |
 | `internal/client` | yes | library for client-side access to Keppel's APIs (used by client commands and by replication) |
-| `internal/auth` | no | reusable parts of the authentication workflow |
+| `internal/tokenauth` | no | reusable parts of the authentication workflow (mostly regarding the token-based auth workflow used by the Registry API) |
 | `internal/api/auth` | yes | implementation of the authentication workflow of the Distribution API |
 | `internal/api/keppel` | yes | implementation of the Keppel API |
 | `internal/api/registry` | yes | implementation of the Distribution API |

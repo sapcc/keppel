@@ -16,7 +16,7 @@
 *
 ******************************************************************************/
 
-package auth
+package tokenauth
 
 import (
 	"crypto/ecdsa"

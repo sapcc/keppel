@@ -23,13 +23,13 @@ import (
 	"strings"
 
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/tokenauth"
 )
 
-func parseScope(input string) auth.Scope {
+func parseScope(input string) tokenauth.Scope {
 	fields := strings.SplitN(input, ":", 3)
-	scope := auth.Scope{
+	scope := tokenauth.Scope{
 		ResourceType: fields[0],
 	}
 	if len(fields) > 1 {
@@ -51,8 +51,8 @@ func parseScope(input string) auth.Scope {
 	return scope
 }
 
-func parseScopes(inputs []string) auth.ScopeSet {
-	var ss auth.ScopeSet
+func parseScopes(inputs []string) tokenauth.ScopeSet {
+	var ss tokenauth.ScopeSet
 	for _, input := range inputs {
 		ss.Add(parseScope(input))
 	}

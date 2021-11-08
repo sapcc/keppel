@@ -22,8 +22,8 @@ package authapi
 import (
 	"time"
 
-	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/tokenauth"
 )
 
 //TokenResponse is the format expected by Docker in an auth response. The Token
@@ -36,7 +36,7 @@ type TokenResponse struct {
 
 //ToResponse renders this token as a Java Web Token and returns a JSON-serializable
 //struct in the format expected by Docker in an auth response.
-func makeTokenResponse(t auth.Token, cfg keppel.Configuration) (*TokenResponse, error) {
+func makeTokenResponse(t tokenauth.Token, cfg keppel.Configuration) (*TokenResponse, error) {
 	issuedToken, err := t.Issue(cfg)
 	if err != nil {
 		return nil, err

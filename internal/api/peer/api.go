@@ -26,8 +26,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sre"
-	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/tokenauth"
 )
 
 //API contains state variables used by the peer API. This is an internal API
@@ -63,7 +63,7 @@ func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request) *keppe
 	peerHostName := strings.TrimPrefix(userName, "replication@")
 
 	//check credentials
-	peer, err := auth.CheckPeerCredentials(a.db, peerHostName, password)
+	peer, err := tokenauth.CheckPeerCredentials(a.db, peerHostName, password)
 	if respondwith.ErrorText(w, err) {
 		return nil
 	}

@@ -17,7 +17,7 @@
 *
 *******************************************************************************/
 
-package auth
+package tokenauth
 
 import (
 	"github.com/sapcc/keppel/internal/keppel"
