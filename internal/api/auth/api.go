@@ -107,18 +107,18 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check authentication
-	authz, err := a.checkAuthentication(r.Header.Get("Authorization"))
+	uid, err := a.checkAuthentication(r.Header.Get("Authorization"))
 	if respondWithError(w, http.StatusUnauthorized, err) {
 		return
 	}
 
 	//check authorization
-	req.Scopes, err = tokenauth.FilterAuthorized(req.Scopes, authz, req.IntendedAudience, a.db)
+	req.Scopes, err = tokenauth.FilterAuthorized(req.Scopes, uid, req.IntendedAudience, a.db)
 	if respondWithError(w, http.StatusInternalServerError, err) {
 		return
 	}
 
-	tokenInfo, err := makeTokenResponse(req.ToToken(authz), a.cfg)
+	tokenInfo, err := makeTokenResponse(req.ToToken(uid), a.cfg)
 	if respondWithError(w, http.StatusBadRequest, err) {
 		return
 	}

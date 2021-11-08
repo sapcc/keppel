@@ -32,7 +32,7 @@ import (
 //
 //`scopes` is a list of token scopes, e.g. "repository:test1/foo:pull".
 //The necessary permissions will be inferred from the given scopes, and a
-//dummy Authorization object for the user called "correctusername" will be
+//dummy UserIdentity object for the user called "correctusername" will be
 //embedded in the token.
 func (s Setup) GetToken(t *testing.T, scopes ...string) string {
 	t.Helper()
@@ -116,7 +116,7 @@ func (s Setup) getToken(t *testing.T, audience tokenauth.Service, scopes ...stri
 
 	//issue token
 	issuedToken, err := tokenauth.Token{
-		Authorization: authorization{
+		UserIdentity: userIdentity{
 			Username: "correctusername",
 			Perms:    perms,
 		},

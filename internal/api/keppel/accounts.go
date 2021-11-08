@@ -278,7 +278,7 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 
 func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts")
-	authz, authErr := a.authDriver.AuthenticateUserFromRequest(r)
+	uid, authErr := a.authDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, authErr) {
 		return
 	}
@@ -292,7 +292,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	//restrict accounts to those visible in the current scope
 	var accountsFiltered []keppel.Account
 	for _, account := range accounts {
-		if authz.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
+		if uid.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
 			accountsFiltered = append(accountsFiltered, account)
 		}
 	}
@@ -457,11 +457,11 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check permission to create account
-	authz, authErr := a.authDriver.AuthenticateUserFromRequest(r)
+	uid, authErr := a.authDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, authErr) {
 		return
 	}
-	if !authz.HasPermission(keppel.CanChangeAccount, accountToCreate.AuthTenantID) {
+	if !uid.HasPermission(keppel.CanChangeAccount, accountToCreate.AuthTenantID) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -621,7 +621,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		if respondwith.ErrorText(w, err) {
 			return
 		}
-		if userInfo := authz.UserInfo(); userInfo != nil {
+		if userInfo := uid.UserInfo(); userInfo != nil {
 			a.auditor.Record(audittools.EventParameters{
 				Time:       time.Now(),
 				Request:    r,
@@ -667,7 +667,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if needsAudit {
-			if userInfo := authz.UserInfo(); userInfo != nil {
+			if userInfo := uid.UserInfo(); userInfo != nil {
 				a.auditor.Record(audittools.EventParameters{
 					Time:       time.Now(),
 					Request:    r,
@@ -681,7 +681,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	submitAudit := func(action string, target AuditRBACPolicy) {
-		if userInfo := authz.UserInfo(); userInfo != nil {
+		if userInfo := uid.UserInfo(); userInfo != nil {
 			a.auditor.Record(audittools.EventParameters{
 				Time:       time.Now(),
 				Request:    r,

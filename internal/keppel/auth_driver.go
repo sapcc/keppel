@@ -67,14 +67,14 @@ type AuthDriver interface {
 	//AuthenticateUser authenticates the user identified by the given username
 	//and password. Note that usernames may not contain colons, because
 	//credentials are encoded by clients in the "username:password" format.
-	AuthenticateUser(userName, password string) (Authorization, *RegistryV2Error)
+	AuthenticateUser(userName, password string) (UserIdentity, *RegistryV2Error)
 	//AuthenticateUserFromRequest reads credentials from the given incoming HTTP
 	//request to authenticate the user which makes this request. The
 	//implementation shall follow the conventions of the concrete backend, e.g. a
 	//OAuth backend could try to read a Bearer token from the Authorization
 	//header, whereas an OpenStack auth driver would look for a Keystone token in the
 	//X-Auth-Token header.
-	AuthenticateUserFromRequest(r *http.Request) (Authorization, *RegistryV2Error)
+	AuthenticateUserFromRequest(r *http.Request) (UserIdentity, *RegistryV2Error)
 }
 
 var authDriverFactories = make(map[string]func(*redis.Client) (AuthDriver, error))

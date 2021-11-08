@@ -94,8 +94,8 @@ func respondWithAuthError(w http.ResponseWriter, err *keppel.RegistryV2Error) bo
 	return true
 }
 
-func (a *API) authenticateAccountScopedRequest(w http.ResponseWriter, r *http.Request, perm keppel.Permission) (*keppel.Account, keppel.Authorization) {
-	authz, authErr := a.authDriver.AuthenticateUserFromRequest(r)
+func (a *API) authenticateAccountScopedRequest(w http.ResponseWriter, r *http.Request, perm keppel.Permission) (*keppel.Account, keppel.UserIdentity) {
+	uid, authErr := a.authDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, authErr) {
 		return nil, nil
 	}
@@ -108,7 +108,7 @@ func (a *API) authenticateAccountScopedRequest(w http.ResponseWriter, r *http.Re
 	}
 
 	//perform final authorization with that AuthTenantID
-	if account != nil && !authz.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
+	if account != nil && !uid.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
 		account = nil
 	}
 
@@ -120,28 +120,28 @@ func (a *API) authenticateAccountScopedRequest(w http.ResponseWriter, r *http.Re
 	}
 
 	//enforce permissions other than CanViewAccount if requested
-	if !authz.HasPermission(perm, account.AuthTenantID) {
+	if !uid.HasPermission(perm, account.AuthTenantID) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return nil, nil
 	}
 
-	return account, authz
+	return account, uid
 }
 
-func (a *API) authenticateAuthTenantScopedRequest(w http.ResponseWriter, r *http.Request, perm keppel.Permission) (authTenantID string, authz keppel.Authorization) {
-	authz, authErr := a.authDriver.AuthenticateUserFromRequest(r)
+func (a *API) authenticateAuthTenantScopedRequest(w http.ResponseWriter, r *http.Request, perm keppel.Permission) (authTenantID string, uid keppel.UserIdentity) {
+	uid, authErr := a.authDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, authErr) {
 		return "", nil
 	}
 
 	//enforce requested permissions
 	authTenantID = mux.Vars(r)["auth_tenant_id"]
-	if !authz.HasPermission(perm, authTenantID) {
+	if !uid.HasPermission(perm, authTenantID) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return "", nil
 	}
 
-	return authTenantID, authz
+	return authTenantID, uid
 }
 
 func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, account keppel.Account) *keppel.Repository {

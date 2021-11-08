@@ -46,14 +46,14 @@ func (a *API) AddTo(r *mux.Router) {
 }
 
 func (a *API) reverseProxyToClair(w http.ResponseWriter, r *http.Request) {
-	authz, authErr := a.ad.AuthenticateUserFromRequest(r)
+	uid, authErr := a.ad.AuthenticateUserFromRequest(r)
 	if authErr != nil {
 		authErr.WriteAsTextTo(w)
 		w.Write([]byte("\n"))
 		return
 	}
 
-	if !authz.HasPermission(keppel.CanAdministrateKeppel, "") {
+	if !uid.HasPermission(keppel.CanAdministrateKeppel, "") {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}

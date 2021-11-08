@@ -153,7 +153,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests/:digest")
-	account, authz := a.authenticateAccountScopedRequest(w, r, keppel.CanDeleteFromAccount)
+	account, uid := a.authenticateAccountScopedRequest(w, r, keppel.CanDeleteFromAccount)
 	if account == nil {
 		return
 	}
@@ -168,8 +168,8 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.processor().DeleteManifest(*account, *repo, digest.String(), keppel.AuditContext{
-		Authorization: authz,
-		Request:       r,
+		UserIdentity: uid,
+		Request:      r,
 	})
 	if err == sql.ErrNoRows {
 		http.Error(w, "no such manifest", http.StatusNotFound)
@@ -184,7 +184,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_tags/:name")
-	account, authz := a.authenticateAccountScopedRequest(w, r, keppel.CanDeleteFromAccount)
+	account, uid := a.authenticateAccountScopedRequest(w, r, keppel.CanDeleteFromAccount)
 	if account == nil {
 		return
 	}
@@ -195,8 +195,8 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	tagName := mux.Vars(r)["tag_name"]
 
 	err := a.processor().DeleteTag(*account, *repo, tagName, keppel.AuditContext{
-		Authorization: authz,
-		Request:       r,
+		UserIdentity: uid,
+		Request:      r,
 	})
 	if err == sql.ErrNoRows {
 		http.Error(w, "no such tag", http.StatusNotFound)

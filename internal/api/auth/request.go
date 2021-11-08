@@ -36,9 +36,9 @@ var (
 	errMalformedAuthHeader = errors.New("malformed Authorization header")
 )
 
-func (a *API) checkAuthentication(authorizationHeader string) (keppel.Authorization, error) {
+func (a *API) checkAuthentication(authorizationHeader string) (keppel.UserIdentity, error) {
 	if authorizationHeader == "" {
-		return keppel.AnonymousAuthorization, nil
+		return keppel.AnonymousUserIdentity, nil
 	}
 	if !strings.HasPrefix(authorizationHeader, "Basic ") {
 		return nil, errMalformedAuthHeader
@@ -59,14 +59,14 @@ func (a *API) checkAuthentication(authorizationHeader string) (keppel.Authorizat
 		if peer == nil {
 			return nil, sql.ErrNoRows
 		}
-		return keppel.ReplicationAuthorization{PeerHostName: peerHostName}, nil
+		return keppel.ReplicationUserIdentity{PeerHostName: peerHostName}, nil
 	}
 
-	authz, rerr := a.authDriver.AuthenticateUser(userName, password)
+	uid, rerr := a.authDriver.AuthenticateUser(userName, password)
 	if rerr != nil {
 		return nil, rerr
 	}
-	return authz, nil
+	return uid, nil
 
 	//WARNING: It's tempting to shorten the last paragraph to just
 	//
@@ -135,7 +135,7 @@ func decodeAuthHeader(base64data string) (username, password string) {
 }
 
 //ToToken creates a token that can be used to fulfill this token request.
-func (r Request) ToToken(authz keppel.Authorization) tokenauth.Token {
+func (r Request) ToToken(uid keppel.UserIdentity) tokenauth.Token {
 	var access []auth.Scope
 	for _, scope := range append(r.Scopes, r.CompiledScopes...) {
 		if len(scope.Actions) > 0 {
@@ -144,8 +144,8 @@ func (r Request) ToToken(authz keppel.Authorization) tokenauth.Token {
 	}
 
 	return tokenauth.Token{
-		Authorization: authz,
-		Audience:      r.IntendedAudience,
-		Access:        access,
+		UserIdentity: uid,
+		Audience:     r.IntendedAudience,
+		Access:       access,
 	}
 }

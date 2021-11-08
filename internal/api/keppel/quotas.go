@@ -77,7 +77,7 @@ func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/quotas/:auth_tenant_id")
-	authTenantID, authz := a.authenticateAuthTenantScopedRequest(w, r, keppel.CanChangeQuotas)
+	authTenantID, uid := a.authenticateAuthTenantScopedRequest(w, r, keppel.CanChangeQuotas)
 	if authTenantID == "" {
 		return
 	}
@@ -138,7 +138,7 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//record audit event when quotas have changed
-		if userInfo := authz.UserInfo(); userInfo != nil {
+		if userInfo := uid.UserInfo(); userInfo != nil {
 			a.auditor.Record(audittools.EventParameters{
 				Time:       time.Now(),
 				Request:    r,

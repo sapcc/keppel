@@ -39,7 +39,7 @@ type AuthDriver struct {
 }
 
 func init() {
-	keppel.RegisterAuthorization("unittest", deserializeUnittestAuthorization)
+	keppel.RegisterUserIdentity("unittest", deserializeUnittestUserIdentity)
 	keppel.RegisterAuthDriver("unittest", func(*redis.Client) (keppel.AuthDriver, error) { return &AuthDriver{}, nil })
 }
 
@@ -57,26 +57,26 @@ func (d *AuthDriver) ValidateTenantID(tenantID string) error {
 }
 
 //AuthenticateUser implements the keppel.AuthDriver interface.
-func (d *AuthDriver) AuthenticateUser(userName, password string) (keppel.Authorization, *keppel.RegistryV2Error) {
+func (d *AuthDriver) AuthenticateUser(userName, password string) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	is := func(a, b string) bool {
 		return a != "" && a == b
 	}
 	if is(userName, d.ExpectedUserName) && is(password, d.ExpectedPassword) {
-		return d.parseAuthorization(d.GrantedPermissions), nil
+		return d.parseUserIdentity(d.GrantedPermissions), nil
 	}
 	return nil, keppel.ErrUnauthorized.With("wrong credentials")
 }
 
 //AuthenticateUserFromRequest implements the keppel.AuthDriver interface.
-func (d *AuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Authorization, *keppel.RegistryV2Error) {
+func (d *AuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	hdr := r.Header.Get("X-Test-Perms")
 	if hdr == "" {
 		return nil, keppel.ErrUnauthorized.With("missing X-Test-Perms header")
 	}
-	return d.parseAuthorization(hdr), nil
+	return d.parseUserIdentity(hdr), nil
 }
 
-func (d *AuthDriver) parseAuthorization(permsHeader string) keppel.Authorization {
+func (d *AuthDriver) parseUserIdentity(permsHeader string) keppel.UserIdentity {
 	perms := make(map[string]map[string]bool)
 	if permsHeader != "" {
 		for _, field := range strings.Split(permsHeader, ",") {
@@ -87,45 +87,45 @@ func (d *AuthDriver) parseAuthorization(permsHeader string) keppel.Authorization
 			perms[fields[0]][fields[1]] = true
 		}
 	}
-	return authorization{d.ExpectedUserName, perms}
+	return userIdentity{d.ExpectedUserName, perms}
 }
 
-type authorization struct {
+type userIdentity struct {
 	Username string
 	Perms    map[string]map[string]bool
 }
 
-func (a authorization) UserName() string {
-	return a.Username
+func (uid userIdentity) UserName() string {
+	return uid.Username
 }
 
-func (a authorization) HasPermission(perm keppel.Permission, tenantID string) bool {
-	return a.Perms[string(perm)][tenantID]
+func (uid userIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
+	return uid.Perms[string(perm)][tenantID]
 }
 
-func (a authorization) IsRegularUser() bool {
+func (uid userIdentity) IsRegularUser() bool {
 	return true
 }
 
-func (a authorization) IsReplicationUser() bool {
+func (uid userIdentity) IsReplicationUser() bool {
 	return false
 }
 
-func (a authorization) UserInfo() audittools.UserInfo {
+func (uid userIdentity) UserInfo() audittools.UserInfo {
 	//return a dummy UserInfo to enable testing of audit events (a nil UserInfo
 	//will suppress audit event generation)
 	return dummyUserInfo{}
 }
 
-func (a authorization) SerializeToJSON() (typeName string, payload []byte, err error) {
-	payload, err = json.Marshal(a)
+func (uid userIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
+	payload, err = json.Marshal(uid)
 	return "unittest", payload, err
 }
 
-func deserializeUnittestAuthorization(in []byte, _ keppel.AuthDriver) (keppel.Authorization, error) {
-	var a authorization
-	err := json.Unmarshal(in, &a)
-	return a, err
+func deserializeUnittestUserIdentity(in []byte, _ keppel.AuthDriver) (keppel.UserIdentity, error) {
+	var uid userIdentity
+	err := json.Unmarshal(in, &uid)
+	return uid, err
 }
 
 type dummyUserInfo struct{}

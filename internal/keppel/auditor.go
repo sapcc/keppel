@@ -42,8 +42,8 @@ type Auditor interface {
 //AuditContext collects arguments that business logic methods need only for
 //generating audit events.
 type AuditContext struct {
-	Authorization Authorization
-	Request       *http.Request
+	UserIdentity UserIdentity
+	Request      *http.Request
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -51,7 +51,7 @@ type AuditContext struct {
 
 //janitorUserInfo is an audittools.NonStandardUserInfo representing the
 //keppel-janitor (who does not have a corresponding OpenStack user). It can be
-//used via `var JanitorAuthorization`.
+//used via `type JanitorUserIdentity`.
 type janitorUserInfo struct {
 	TaskName string
 	GCPolicy *GCPolicy

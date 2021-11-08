@@ -76,8 +76,8 @@ func (s Service) IssuerKey(cfg keppel.Configuration) libtrust.PrivateKey {
 //Token represents a JWT (Java Web Token), as used for authenticating on the
 //Registry v2 API.
 type Token struct {
-	//Authorization is the original Authorization object that is serialized within this token.
-	Authorization keppel.Authorization
+	//UserIdentity is the original UserIdentity object that is serialized within this token.
+	UserIdentity keppel.UserIdentity
 	//The service that this token can be used with.
 	Audience Service
 	//Access permissions for this token.
@@ -145,9 +145,9 @@ func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration, ad keppel.
 	}
 
 	return &Token{
-		Authorization: claims.EmbeddedAuthorization.Authorization,
-		Audience:      audience,
-		Access:        claims.Access,
+		UserIdentity: claims.EmbeddedAuthorization.UserIdentity,
+		Audience:     audience,
+		Access:       claims.Access,
 	}, nil
 }
 
@@ -221,7 +221,7 @@ func (t Token) Issue(cfg keppel.Configuration) (*IssuedToken, error) {
 			Id:        uuid.NewV4().String(),
 			Audience:  publicHost,
 			Issuer:    "keppel-api@" + cfg.APIPublicURL.Hostname(),
-			Subject:   t.Authorization.UserName(),
+			Subject:   t.UserIdentity.UserName(),
 			ExpiresAt: expiresAt.Unix(),
 			NotBefore: now.Unix(),
 			IssuedAt:  now.Unix(),
@@ -229,7 +229,7 @@ func (t Token) Issue(cfg keppel.Configuration) (*IssuedToken, error) {
 		//access permissions granted to this token
 		Access: t.Access,
 		EmbeddedAuthorization: keppel.EmbeddedAuthorization{
-			Authorization: t.Authorization,
+			UserIdentity: t.UserIdentity,
 		},
 	})
 

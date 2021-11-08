@@ -30,52 +30,60 @@ import (
 	"github.com/sapcc/go-bits/audittools"
 )
 
-//Authorization describes the access rights for a user. It is returned by
-//methods in the AuthDriver interface.
-type Authorization interface {
+//UserIdentity describes the identity and access rights of a user. For regular
+//users, it is returned by methods in the AuthDriver interface. Janitor tasks
+//may spawn UserIdentity instances solely for the purpose of audit logging.
+//
+//TODO do not use for anonymous user
+//TODO do not use for replication user
+type UserIdentity interface {
 	//Returns whether the given auth tenant grants the given permission to this user.
-	//The AnonymousAuthorization always returns false.
+	//The AnonymousUserIdentity always returns false.
 	HasPermission(perm Permission, tenantID string) bool
 
 	//IsRegularUser indicates if this token is for a regular user, not for an
 	//anonymous user or an internal service user.
+	//
+	//TODO remove
 	IsRegularUser() bool
 	//IsReplicationUser indicates if this token is for an internal service user
 	//used only for replication. (Some special rules apply for those service
 	//users, e.g. rate limit exemptions.)
+	//
+	//TODO remove
 	IsReplicationUser() bool
 
-	//SerializeToJSON serializes this Authorization instance into JSON for
+	//SerializeToJSON serializes this UserIdentity instance into JSON for
 	//inclusion in a token payload. The `typeName` must be identical to the
-	//`name` argument of the RegisterAuthorization call for this type.
+	//`name` argument of the RegisterUserIdentity call for this type.
 	SerializeToJSON() (typeName string, payload []byte, err error)
 
 	//Returns the name of the the user that was authenticated. This should be the
 	//same format that is given as the first argument of AuthenticateUser().
-	//The AnonymousAuthorization always returns the empty string.
+	//The AnonymousUserIdentity always returns the empty string.
 	UserName() string
 	//If this authorization is backed by a Keystone token, return a UserInfo for
-	//that token. Returns nil otherwise. The AnonymousAuthorization always returns nil.
+	//that token. Returns nil otherwise. The AnonymousUserIdentity always returns nil.
 	//
 	//If non-nil, the Keppel API will submit OpenStack CADF audit events.
 	UserInfo() audittools.UserInfo
 }
 
-var authzDeserializers = map[string]func([]byte, AuthDriver) (Authorization, error){
-	"anon":    deserializeAnonAuthorization,
-	"janitor": deserializeJanitorAuthorization,
-	"repl":    deserializeReplAuthorization,
+var authzDeserializers = map[string]func([]byte, AuthDriver) (UserIdentity, error){
+	"anon":    deserializeAnonUserIdentity,
+	"janitor": deserializeJanitorUserIdentity,
+	"repl":    deserializeReplUserIdentity,
 }
 
-//RegisterAuthorization registers a type implementing the Authorization
+//RegisterUserIdentity registers a type implementing the UserIdentity
 //interface. Call this from func init() of the package defining the type.
 //
 //The `deserialize` function is called whenever an instance of this type needs to
 //be deserialized from a token payload. It shall perform the exact reverse of
 //the type's SerializeToJSON method.
-func RegisterAuthorization(name string, deserialize func([]byte, AuthDriver) (Authorization, error)) {
+func RegisterUserIdentity(name string, deserialize func([]byte, AuthDriver) (UserIdentity, error)) {
 	if _, exists := authzDeserializers[name]; exists {
-		panic("attempted to register multiple Authorization types with name = " + name)
+		panic("attempted to register multiple UserIdentity types with name = " + name)
 	}
 	authzDeserializers[name] = deserialize
 }
@@ -84,7 +92,7 @@ type compressedPayload struct {
 	Contents []byte `json:"gzip"`
 }
 
-//CompressTokenPayload can be used by types implementing the Authorization
+//CompressTokenPayload can be used by types implementing the UserIdentity
 //interface to compress large token payloads with GZip or similar. (The exact
 //compression format is an implementation detail.) The result is a valid JSON
 //message that self-documents the compression algorithm that was used.
@@ -120,71 +128,71 @@ func DecompressTokenPayload(payload []byte) ([]byte, error) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// AnonymousAuthorization
+// AnonymousUserIdentity
 
-//AnonymousAuthorization is a keppel.Authorization for anonymous users.
-var AnonymousAuthorization = Authorization(anonAuthorization{})
+//AnonymousUserIdentity is a keppel.UserIdentity for anonymous users.
+var AnonymousUserIdentity = UserIdentity(anonUserIdentity{})
 
-type anonAuthorization struct{}
+type anonUserIdentity struct{}
 
-func (anonAuthorization) UserName() string {
+func (anonUserIdentity) UserName() string {
 	return ""
 }
-func (anonAuthorization) HasPermission(perm Permission, tenantID string) bool {
+func (anonUserIdentity) HasPermission(perm Permission, tenantID string) bool {
 	return false
 }
-func (anonAuthorization) IsRegularUser() bool {
+func (anonUserIdentity) IsRegularUser() bool {
 	return false
 }
-func (anonAuthorization) IsReplicationUser() bool {
+func (anonUserIdentity) IsReplicationUser() bool {
 	return false
 }
-func (anonAuthorization) SerializeToJSON() (typeName string, payload []byte, err error) {
+func (anonUserIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
 	return "anon", []byte("true"), nil
 }
-func (anonAuthorization) UserInfo() audittools.UserInfo {
+func (anonUserIdentity) UserInfo() audittools.UserInfo {
 	return nil
 }
 
-func deserializeAnonAuthorization(in []byte, _ AuthDriver) (Authorization, error) {
+func deserializeAnonUserIdentity(in []byte, _ AuthDriver) (UserIdentity, error) {
 	if string(in) != "true" {
-		return nil, fmt.Errorf("%q is not a valid payload for AnonymousAuthorization", string(in))
+		return nil, fmt.Errorf("%q is not a valid payload for AnonymousUserIdentity", string(in))
 	}
-	return AnonymousAuthorization, nil
+	return AnonymousUserIdentity, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// JanitorAuthorization
+// JanitorUserIdentity
 
-//JanitorAuthorization is a keppel.Authorization for the janitor user. (It's
+//JanitorUserIdentity is a keppel.UserIdentity for the janitor user. (It's
 //only used for generating audit events.)
-type JanitorAuthorization struct {
+type JanitorUserIdentity struct {
 	TaskName string
 	GCPolicy *GCPolicy
 }
 
-//UserName implements the keppel.Authorization interface.
-func (JanitorAuthorization) UserName() string {
+//UserName implements the keppel.UserIdentity interface.
+func (JanitorUserIdentity) UserName() string {
 	return ""
 }
 
-//HasPermission implements the keppel.Authorization interface.
-func (JanitorAuthorization) HasPermission(perm Permission, tenantID string) bool {
+//HasPermission implements the keppel.UserIdentity interface.
+func (JanitorUserIdentity) HasPermission(perm Permission, tenantID string) bool {
 	return false
 }
 
-//IsRegularUser implements the keppel.Authorization interface.
-func (JanitorAuthorization) IsRegularUser() bool {
+//IsRegularUser implements the keppel.UserIdentity interface.
+func (JanitorUserIdentity) IsRegularUser() bool {
 	return false
 }
 
-//IsReplicationUser implements the keppel.Authorization interface.
-func (JanitorAuthorization) IsReplicationUser() bool {
+//IsReplicationUser implements the keppel.UserIdentity interface.
+func (JanitorUserIdentity) IsReplicationUser() bool {
 	return false
 }
 
-//SerializeToJSON implements the keppel.Authorization interface.
-func (a JanitorAuthorization) SerializeToJSON() (typeName string, payload []byte, err error) {
+//SerializeToJSON implements the keppel.UserIdentity interface.
+func (a JanitorUserIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
 	serialized := []byte(a.TaskName)
 	if a.GCPolicy != nil {
 		policyJSON, err := json.Marshal(*a.GCPolicy)
@@ -196,84 +204,84 @@ func (a JanitorAuthorization) SerializeToJSON() (typeName string, payload []byte
 	return "janitor", serialized, nil
 }
 
-//UserInfo implements the keppel.Authorization interface.
-func (a JanitorAuthorization) UserInfo() audittools.UserInfo {
+//UserInfo implements the keppel.UserIdentity interface.
+func (a JanitorUserIdentity) UserInfo() audittools.UserInfo {
 	return janitorUserInfo(a)
 }
 
-func deserializeJanitorAuthorization(in []byte, _ AuthDriver) (Authorization, error) {
+func deserializeJanitorUserIdentity(in []byte, _ AuthDriver) (UserIdentity, error) {
 	//simple case: no GCPolicy, just a TaskName
 	fields := bytes.SplitN(in, []byte(":"), 2)
 	if len(fields) == 1 {
-		return JanitorAuthorization{string(in), nil}, nil
+		return JanitorUserIdentity{string(in), nil}, nil
 	}
 
 	//with GCPolicy: TaskName and GCPolicyJSON separated by colon
 	var gcPolicy GCPolicy
 	err := json.Unmarshal(fields[1], &gcPolicy)
-	return JanitorAuthorization{string(fields[0]), &gcPolicy}, err
+	return JanitorUserIdentity{string(fields[0]), &gcPolicy}, err
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// ReplicationAuthorization
+// ReplicationUserIdentity
 
-//ReplicationAuthorization is a keppel.Authorization for replication users with global pull access.
-type ReplicationAuthorization struct {
+//ReplicationUserIdentity is a keppel.UserIdentity for replication users with global pull access.
+type ReplicationUserIdentity struct {
 	PeerHostName string
 }
 
-//UserName implements the keppel.Authorization interface.
-func (a ReplicationAuthorization) UserName() string {
+//UserName implements the keppel.UserIdentity interface.
+func (a ReplicationUserIdentity) UserName() string {
 	return "replication@" + a.PeerHostName
 }
 
-//HasPermission implements the keppel.Authorization interface.
-func (a ReplicationAuthorization) HasPermission(perm Permission, tenantID string) bool {
+//HasPermission implements the keppel.UserIdentity interface.
+func (a ReplicationUserIdentity) HasPermission(perm Permission, tenantID string) bool {
 	return perm == CanViewAccount || perm == CanPullFromAccount
 }
 
-//IsRegularUser implements the keppel.Authorization interface.
-func (a ReplicationAuthorization) IsRegularUser() bool {
+//IsRegularUser implements the keppel.UserIdentity interface.
+func (a ReplicationUserIdentity) IsRegularUser() bool {
 	return false
 }
 
-//IsReplicationUser implements the keppel.Authorization interface.
-func (a ReplicationAuthorization) IsReplicationUser() bool {
+//IsReplicationUser implements the keppel.UserIdentity interface.
+func (a ReplicationUserIdentity) IsReplicationUser() bool {
 	return true
 }
 
-//SerializeToJSON implements the keppel.Authorization interface.
-func (a ReplicationAuthorization) SerializeToJSON() (typeName string, payload []byte, err error) {
+//SerializeToJSON implements the keppel.UserIdentity interface.
+func (a ReplicationUserIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
 	payload, err = json.Marshal(a.PeerHostName)
 	return "repl", payload, err
 }
 
-//UserInfo implements the keppel.Authorization interface.
-func (a ReplicationAuthorization) UserInfo() audittools.UserInfo {
+//UserInfo implements the keppel.UserIdentity interface.
+func (a ReplicationUserIdentity) UserInfo() audittools.UserInfo {
 	return nil
 }
 
-func deserializeReplAuthorization(in []byte, _ AuthDriver) (Authorization, error) {
+func deserializeReplUserIdentity(in []byte, _ AuthDriver) (UserIdentity, error) {
 	var peerHostName string
 	err := json.Unmarshal(in, &peerHostName)
-	return ReplicationAuthorization{peerHostName}, err
+	return ReplicationUserIdentity{peerHostName}, err
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // EmbeddedAuthorization
 
-//EmbeddedAuthorization wraps an Authorization such that it can be serialized into JSON.
+//EmbeddedAuthorization wraps an UserIdentity such that it can be serialized into JSON.
 type EmbeddedAuthorization struct {
-	Authorization Authorization
+	UserIdentity UserIdentity
 	//AuthDriver is ignored during serialization, but must be filled prior to
-	//deserialization because some types of Authorization require their
+	//deserialization because some types of UserIdentity require their
 	//respective AuthDriver to deserialize properly.
 	AuthDriver AuthDriver
 }
 
 //MarshalJSON implements the json.Marshaler interface.
 func (ea EmbeddedAuthorization) MarshalJSON() ([]byte, error) {
-	typeName, payload, err := ea.Authorization.SerializeToJSON()
+	typeName, payload, err := ea.UserIdentity.SerializeToJSON()
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +312,7 @@ func (ea *EmbeddedAuthorization) UnmarshalJSON(in []byte) error {
 		if deserializer == nil {
 			return fmt.Errorf("cannot unmarshal EmbeddedAuthorization with unknown payload type %q", typeName)
 		}
-		ea.Authorization, err = deserializer([]byte(payload), ea.AuthDriver)
+		ea.UserIdentity, err = deserializer([]byte(payload), ea.AuthDriver)
 		return err
 	}
 

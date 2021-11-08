@@ -56,7 +56,7 @@ type keystoneDriver struct {
 }
 
 func init() {
-	keppel.RegisterAuthorization("keystone", deserializeKeystoneAuthorization)
+	keppel.RegisterUserIdentity("keystone", deserializeKeystoneUserIdentity)
 	keppel.RegisterAuthDriver("keystone", func(rc *redis.Client) (keppel.AuthDriver, error) {
 		//authenticate service user
 		ao, err := clientconfig.AuthOptions(nil)
@@ -132,7 +132,7 @@ func (d *keystoneDriver) ValidateTenantID(tenantID string) error {
 }
 
 //AuthenticateUser implements the keppel.AuthDriver interface.
-func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Authorization, *keppel.RegistryV2Error) {
+func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	authOpts, rerr := parseUserNameAndPassword(userName, password)
 	if rerr != nil {
 		return nil, rerr
@@ -176,7 +176,7 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Aut
 			userName, t.Err.Error(),
 		)
 	}
-	return newKeystoneAuthorization(t), nil
+	return newKeystoneUserIdentity(t), nil
 }
 
 //possible formats for the username:
@@ -220,7 +220,7 @@ func parseUserNameAndPassword(userName, password string) (tokens.AuthOptions, *k
 }
 
 //AuthenticateUserFromRequest implements the keppel.AuthDriver interface.
-func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Authorization, *keppel.RegistryV2Error) {
+func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	t := d.TokenValidator.CheckToken(r)
 	if t.Err != nil {
 		return nil, keppel.ErrUnauthorized.With("X-Auth-Token validation failed: " + t.Err.Error())
@@ -228,25 +228,25 @@ func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Au
 
 	//t.Context.Request = mux.Vars(r) //not used at the moment
 
-	a := newKeystoneAuthorization(t)
+	a := newKeystoneUserIdentity(t)
 	if !a.t.Check("account:list") {
 		return nil, keppel.ErrDenied.With("").WithStatus(http.StatusForbidden)
 	}
 	return a, nil
 }
 
-type keystoneAuthorization struct {
+type keystoneUserIdentity struct {
 	t *gopherpolicy.Token
 	//^ WARNING: Token may not always contain everything you expect
 	//because of a serialization roundtrip. See SerializeToJSON() and
-	//deserializeKeystoneAuthorization() for details.
+	//deserializeKeystoneUserIdentity() for details.
 }
 
-func newKeystoneAuthorization(t *gopherpolicy.Token) keystoneAuthorization {
+func newKeystoneUserIdentity(t *gopherpolicy.Token) keystoneUserIdentity {
 	t.Context.Logger = logg.Debug
 	logg.Debug("token has auth = %v", t.Context.Auth)
 	logg.Debug("token has roles = %v", t.Context.Roles)
-	return keystoneAuthorization{t}
+	return keystoneUserIdentity{t}
 }
 
 var ruleForPerm = map[keppel.Permission]string{
@@ -260,8 +260,8 @@ var ruleForPerm = map[keppel.Permission]string{
 	keppel.CanAdministrateKeppel: "keppel:admin",
 }
 
-//UserName implements the keppel.Authorization interface.
-func (a keystoneAuthorization) UserName() string {
+//UserName implements the keppel.UserIdentity interface.
+func (a keystoneUserIdentity) UserName() string {
 	return fmt.Sprintf("%s@%s/%s@%s",
 		a.t.UserName(),
 		a.t.UserDomainName(),
@@ -270,8 +270,8 @@ func (a keystoneAuthorization) UserName() string {
 	)
 }
 
-//HasPermission implements the keppel.Authorization interface.
-func (a keystoneAuthorization) HasPermission(perm keppel.Permission, tenantID string) bool {
+//HasPermission implements the keppel.UserIdentity interface.
+func (a keystoneUserIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
 	a.t.Context.Request["target.project.id"] = tenantID
 	logg.Debug("token has object attributes = %v", a.t.Context.Request)
 
@@ -285,34 +285,34 @@ func (a keystoneAuthorization) HasPermission(perm keppel.Permission, tenantID st
 	return result
 }
 
-//IsRegularUser implements the keppel.Authorization interface.
-func (a keystoneAuthorization) IsRegularUser() bool {
+//IsRegularUser implements the keppel.UserIdentity interface.
+func (a keystoneUserIdentity) IsRegularUser() bool {
 	return true
 }
 
-//IsReplicationUser implements the keppel.Authorization interface.
-func (a keystoneAuthorization) IsReplicationUser() bool {
+//IsReplicationUser implements the keppel.UserIdentity interface.
+func (a keystoneUserIdentity) IsReplicationUser() bool {
 	return false
 }
 
-//UserInfo implements the keppel.Authorization interface.
-func (a keystoneAuthorization) UserInfo() audittools.UserInfo {
+//UserInfo implements the keppel.UserIdentity interface.
+func (a keystoneUserIdentity) UserInfo() audittools.UserInfo {
 	return a.t
 }
 
-type serializedKeystoneAuthorization struct {
+type serializedKeystoneUserIdentity struct {
 	Auth  map[string]string `json:"auth"`
 	Roles []string          `json:"roles"`
 }
 
-//SerializeToJSON implements the keppel.Authorization interface.
-func (a keystoneAuthorization) SerializeToJSON() (typeName string, payload []byte, err error) {
+//SerializeToJSON implements the keppel.UserIdentity interface.
+func (a keystoneUserIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
 	//We cannot serialize the entire gopherpolicy.Token, that would include the
 	//X-Auth-Token and possibly even the full token response including service
 	//catalog, and thus produce a rather massive payload. We skip the token and
 	//token response and only serialize what we need to make policy decisions and
 	//satisfy the audittools.UserInfo interface.
-	payload, err = json.Marshal(serializedKeystoneAuthorization{
+	payload, err = json.Marshal(serializedKeystoneUserIdentity{
 		Auth:  a.t.Context.Auth,
 		Roles: a.t.Context.Roles,
 	})
@@ -322,7 +322,7 @@ func (a keystoneAuthorization) SerializeToJSON() (typeName string, payload []byt
 	return "keystone", payload, err
 }
 
-func deserializeKeystoneAuthorization(in []byte, ad keppel.AuthDriver) (keppel.Authorization, error) {
+func deserializeKeystoneUserIdentity(in []byte, ad keppel.AuthDriver) (keppel.UserIdentity, error) {
 	d, ok := ad.(*keystoneDriver)
 	if !ok {
 		return nil, keppel.ErrAuthDriverMismatch
@@ -333,17 +333,17 @@ func deserializeKeystoneAuthorization(in []byte, ad keppel.AuthDriver) (keppel.A
 		return nil, err
 	}
 
-	var ska serializedKeystoneAuthorization
-	err = json.Unmarshal(in, &ska)
+	var skuid serializedKeystoneUserIdentity
+	err = json.Unmarshal(in, &skuid)
 	if err != nil {
 		return nil, err
 	}
 
-	return newKeystoneAuthorization(&gopherpolicy.Token{
+	return newKeystoneUserIdentity(&gopherpolicy.Token{
 		Enforcer: d.TokenValidator.Enforcer,
 		Context: policy.Context{
-			Auth:    ska.Auth,
-			Roles:   ska.Roles,
+			Auth:    skuid.Auth,
+			Roles:   skuid.Roles,
 			Request: make(map[string]string), //filled by HasPermission(); does not need to be serialized
 		},
 		ProviderClient: nil, //cannot be reasonably serialized; see comment above

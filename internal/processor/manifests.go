@@ -125,7 +125,7 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 	//would log an audit event everytime a manifest is validated or a tag is
 	//synced; before the introduction of this check, we generated millions of
 	//useless audit events per month)
-	if userInfo := actx.Authorization.UserInfo(); userInfo != nil {
+	if userInfo := actx.UserIdentity.UserInfo(); userInfo != nil {
 		record := func(target audittools.TargetRenderer) {
 			p.auditor.Record(audittools.EventParameters{
 				Time:       p.timeNow(),
@@ -795,7 +795,7 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 		return err
 	}
 
-	if userInfo := actx.Authorization.UserInfo(); userInfo != nil {
+	if userInfo := actx.UserIdentity.UserInfo(); userInfo != nil {
 		p.auditor.Record(audittools.EventParameters{
 			Time:       p.timeNow(),
 			Request:    actx.Request,
@@ -826,7 +826,7 @@ func (p *Processor) DeleteTag(account keppel.Account, repo keppel.Repository, ta
 		return sql.ErrNoRows
 	}
 
-	if userInfo := actx.Authorization.UserInfo(); userInfo != nil {
+	if userInfo := actx.UserIdentity.UserInfo(); userInfo != nil {
 		p.auditor.Record(audittools.EventParameters{
 			Time:       p.timeNow(),
 			Request:    actx.Request,

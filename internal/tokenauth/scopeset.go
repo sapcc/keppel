@@ -27,9 +27,9 @@ import (
 )
 
 //FilterAuthorized produces a new auth.ScopeSet containing only those scopes
-//that the given `authz` is permitted to access and only those actions therein
-//which this `authz` is permitted to perform.
-func FilterAuthorized(ss auth.ScopeSet, authz keppel.Authorization, audience Service, db *keppel.DB) (auth.ScopeSet, error) {
+//that the given `uid` is permitted to access and only those actions therein
+//which this `uid` is permitted to perform.
+func FilterAuthorized(ss auth.ScopeSet, uid keppel.UserIdentity, audience Service, db *keppel.DB) (auth.ScopeSet, error) {
 	result := make(auth.ScopeSet, 0, len(ss))
 	//make sure that additional scopes get appended at the end, on the offchance
 	//that a client might parse its token and look at access[0] to check for its
@@ -47,7 +47,7 @@ func FilterAuthorized(ss auth.ScopeSet, authz keppel.Authorization, audience Ser
 				filtered.Actions = nil
 			} else if scope.ResourceName == "catalog" && containsString(scope.Actions, "*") {
 				filtered.Actions = []string{"*"}
-				err = addCatalogAccess(&additional, authz, db)
+				err = addCatalogAccess(&additional, uid, db)
 				if err != nil {
 					return nil, err
 				}
@@ -59,7 +59,7 @@ func FilterAuthorized(ss auth.ScopeSet, authz keppel.Authorization, audience Ser
 				//just an account name does not make a repository name
 				filtered.Actions = nil
 			} else {
-				filtered.Actions, err = filterRepoActions(*scope, authz, db)
+				filtered.Actions, err = filterRepoActions(*scope, uid, db)
 				if err != nil {
 					return nil, err
 				}
@@ -82,7 +82,7 @@ func containsString(list []string, val string) bool {
 	return false
 }
 
-func addCatalogAccess(ss *auth.ScopeSet, authz keppel.Authorization, db *keppel.DB) error {
+func addCatalogAccess(ss *auth.ScopeSet, uid keppel.UserIdentity, db *keppel.DB) error {
 	var accounts []keppel.Account
 	_, err := db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
 	if err != nil {
@@ -90,7 +90,7 @@ func addCatalogAccess(ss *auth.ScopeSet, authz keppel.Authorization, db *keppel.
 	}
 
 	for _, account := range accounts {
-		if authz.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
+		if uid.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
 			ss.Add(auth.Scope{
 				ResourceType: "keppel_account",
 				ResourceName: account.Name,
@@ -102,7 +102,7 @@ func addCatalogAccess(ss *auth.ScopeSet, authz keppel.Authorization, db *keppel.
 	return nil
 }
 
-func filterRepoActions(scope auth.Scope, authz keppel.Authorization, db *keppel.DB) ([]string, error) {
+func filterRepoActions(scope auth.Scope, uid keppel.UserIdentity, db *keppel.DB) ([]string, error) {
 	account, err := keppel.FindAccount(db, scope.AccountName())
 	if err != nil {
 		return nil, err
@@ -112,9 +112,9 @@ func filterRepoActions(scope auth.Scope, authz keppel.Authorization, db *keppel.
 	}
 
 	isAllowedAction := map[string]bool{
-		"pull":   authz.HasPermission(keppel.CanPullFromAccount, account.AuthTenantID),
-		"push":   authz.HasPermission(keppel.CanPushToAccount, account.AuthTenantID),
-		"delete": authz.HasPermission(keppel.CanDeleteFromAccount, account.AuthTenantID),
+		"pull":   uid.HasPermission(keppel.CanPullFromAccount, account.AuthTenantID),
+		"push":   uid.HasPermission(keppel.CanPushToAccount, account.AuthTenantID),
+		"delete": uid.HasPermission(keppel.CanDeleteFromAccount, account.AuthTenantID),
 	}
 
 	var policies []keppel.RBACPolicy
@@ -122,19 +122,19 @@ func filterRepoActions(scope auth.Scope, authz keppel.Authorization, db *keppel.
 	if err != nil {
 		return nil, err
 	}
-	userName := authz.UserName()
+	userName := uid.UserName()
 	for _, policy := range policies {
 		if policy.Matches(scope.ResourceName, userName) {
 			if policy.CanPullAnonymously {
 				isAllowedAction["pull"] = true
 			}
-			if policy.CanPull && authz != keppel.AnonymousAuthorization {
+			if policy.CanPull && uid != keppel.AnonymousUserIdentity {
 				isAllowedAction["pull"] = true
 			}
-			if policy.CanPush && authz != keppel.AnonymousAuthorization {
+			if policy.CanPush && uid != keppel.AnonymousUserIdentity {
 				isAllowedAction["push"] = true
 			}
-			if policy.CanDelete && authz != keppel.AnonymousAuthorization {
+			if policy.CanDelete && uid != keppel.AnonymousUserIdentity {
 				isAllowedAction["delete"] = true
 			}
 		}

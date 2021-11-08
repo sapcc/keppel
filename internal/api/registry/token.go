@@ -30,10 +30,10 @@ import (
 //APIAuthorization is the interface shared by the different token mechanisms
 //supported by our Registry v2 API implementation.
 type APIAuthorization interface {
-	//Returns the underlying keppel.Authorization instance. This should not be
+	//Returns the underlying keppel.UserIdentity instance. This should not be
 	//used for permission checking, only for the other methods provided by the
-	//Authorization interface.
-	Authorization() keppel.Authorization
+	//UserIdentity interface.
+	UserIdentity() keppel.UserIdentity
 	//For use with the /v2/_catalog endpoint. Returns the names of all accounts
 	//that can be listed with this authorization. If `markerAccountName` is not
 	//empty, only accounts with `name > markerAccountName` will be returned.
@@ -104,9 +104,9 @@ func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *
 	return bearerToken{token}
 }
 
-//Authorization implements the APIAuthorization interface.
-func (b bearerToken) Authorization() keppel.Authorization {
-	return b.t.Authorization
+//UserIdentity implements the APIAuthorization interface.
+func (b bearerToken) UserIdentity() keppel.UserIdentity {
+	return b.t.UserIdentity
 }
 
 //AccountsWithCatalogAccess implements the APIAuthorization interface.
@@ -129,22 +129,22 @@ func (b bearerToken) AccountsWithCatalogAccess(markerAccountName string) ([]stri
 // type keppelAPIAuth
 
 type keppelAPIAuth struct {
-	AuthZ         keppel.Authorization
+	UID           keppel.UserIdentity
 	GrantedScopes auth.ScopeSet
 }
 
 func (a *API) requireKeppelAPIAuth(w http.ResponseWriter, r *http.Request, scope *auth.Scope, audience tokenauth.Service) APIAuthorization {
-	authz, authErr := a.ad.AuthenticateUserFromRequest(r)
+	uid, authErr := a.ad.AuthenticateUserFromRequest(r)
 	if authErr != nil {
 		//fallback to default auth to render 401 response including auth challenge
 		return a.requireBearerToken(w, r, scope)
 	}
 
 	if scope == nil {
-		return keppelAPIAuth{authz, nil}
+		return keppelAPIAuth{uid, nil}
 	}
 
-	grantedScopes, err := tokenauth.FilterAuthorized(auth.ScopeSet{scope}, authz, audience, a.db)
+	grantedScopes, err := tokenauth.FilterAuthorized(auth.ScopeSet{scope}, uid, audience, a.db)
 	if respondWithError(w, r, err) {
 		return nil
 	}
@@ -153,12 +153,12 @@ func (a *API) requireKeppelAPIAuth(w http.ResponseWriter, r *http.Request, scope
 		return a.requireBearerToken(w, r, scope)
 	}
 
-	return keppelAPIAuth{authz, grantedScopes}
+	return keppelAPIAuth{uid, grantedScopes}
 }
 
-//Authorization implements the APIAuthorization interface.
-func (a keppelAPIAuth) Authorization() keppel.Authorization {
-	return a.AuthZ
+//UserIdentity implements the APIAuthorization interface.
+func (a keppelAPIAuth) UserIdentity() keppel.UserIdentity {
+	return a.UID
 }
 
 //AccountsWithCatalogAccess implements the APIAuthorization interface.

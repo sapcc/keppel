@@ -62,16 +62,16 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		//from upstream (as an exception, other Keppels replicating from us always
 		//see the true 404 to properly replicate the non-existence of the manifest
 		//from this account into the replica account)
-		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.InMaintenance && !authz.Authorization().IsReplicationUser() {
+		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.InMaintenance && !authz.UserIdentity().IsReplicationUser() {
 			//when replicating from external, only authenticated users can trigger the replication
-			if account.ExternalPeerURL != "" && !authz.Authorization().IsRegularUser() {
+			if account.ExternalPeerURL != "" && !authz.UserIdentity().IsRegularUser() {
 				keppel.ErrDenied.With("image does not exist here, and anonymous users may not replicate images").WithStatus(http.StatusForbidden).WriteAsRegistryV2ResponseTo(w, r)
 				return
 			}
 
 			dbManifest, manifestBytes, err = a.processor().ReplicateManifest(*account, *repo, reference, keppel.AuditContext{
-				Authorization: authz.Authorization(),
-				Request:       r,
+				UserIdentity: authz.UserIdentity(),
+				Request:      r,
 			})
 			if respondWithError(w, r, err) {
 				return
@@ -252,8 +252,8 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	//delete tag or manifest from the database
 	ref := keppel.ParseManifestReference(mux.Vars(r)["reference"])
 	actx := keppel.AuditContext{
-		Authorization: authz.Authorization(),
-		Request:       r,
+		UserIdentity: authz.UserIdentity(),
+		Request:      r,
 	}
 	var err error
 	if ref.IsTag() {
@@ -319,8 +319,8 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		Contents:  manifestBytes,
 		PushedAt:  a.timeNow(),
 	}, keppel.AuditContext{
-		Authorization: authz.Authorization(),
-		Request:       r,
+		UserIdentity: authz.UserIdentity(),
+		Request:      r,
 	})
 	if respondWithError(w, r, err) {
 		return
