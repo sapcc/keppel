@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -74,7 +75,7 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	for _, policy := range policies {
-		if policy.Matches(repo.FullName(), keppel.AnonymousUserIdentity.UserName()) {
+		if policy.Matches(repo.FullName(), auth.AnonymousUserIdentity.UserName()) {
 			//do the redirect
 			s := g.urlStr
 			s = strings.Replace(s, "%AUTH_TENANT_ID%", account.AuthTenantID, -1)

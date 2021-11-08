@@ -285,14 +285,9 @@ func (a keystoneUserIdentity) HasPermission(perm keppel.Permission, tenantID str
 	return result
 }
 
-//IsRegularUser implements the keppel.UserIdentity interface.
-func (a keystoneUserIdentity) IsRegularUser() bool {
-	return true
-}
-
-//IsReplicationUser implements the keppel.UserIdentity interface.
-func (a keystoneUserIdentity) IsReplicationUser() bool {
-	return false
+//UserType implements the keppel.UserIdentity interface.
+func (a keystoneUserIdentity) UserType() keppel.UserType {
+	return keppel.RegularUser
 }
 
 //UserInfo implements the keppel.UserIdentity interface.

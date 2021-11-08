@@ -62,9 +62,9 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		//from upstream (as an exception, other Keppels replicating from us always
 		//see the true 404 to properly replicate the non-existence of the manifest
 		//from this account into the replica account)
-		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.InMaintenance && !authz.UserIdentity().IsReplicationUser() {
+		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.InMaintenance && authz.UserIdentity().UserType() != keppel.PeerUser {
 			//when replicating from external, only authenticated users can trigger the replication
-			if account.ExternalPeerURL != "" && !authz.UserIdentity().IsRegularUser() {
+			if account.ExternalPeerURL != "" && authz.UserIdentity().UserType() != keppel.RegularUser {
 				keppel.ErrDenied.With("image does not exist here, and anonymous users may not replicate images").WithStatus(http.StatusForbidden).WriteAsRegistryV2ResponseTo(w, r)
 				return
 			}

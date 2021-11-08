@@ -30,50 +30,51 @@ import (
 	"github.com/sapcc/go-bits/audittools"
 )
 
+//UserType is an enum that identifies the general type of user. User types are
+//important because certain API endpoints or certain behavior is restricted to
+//specific user types. For example, anonymous users may not cause implicit
+//replications to occur, and peer users are exempt from rate limits.
+type UserType int
+
+const (
+	//RegularUser is the UserType for regular users that authenticated via the AuthDriver.
+	RegularUser UserType = iota
+	//AnonymousUser is the UserType for unauthenticated users.
+	AnonymousUser
+	//PeerUser is the UserType for peer users, i.e. other Keppel instances using the API as a peer.
+	PeerUser
+	//JanitorUser is a dummy UserType for when the janitor needs an Authorization for audit logging purposes.
+	JanitorUser
+)
+
 //UserIdentity describes the identity and access rights of a user. For regular
-//users, it is returned by methods in the AuthDriver interface. Janitor tasks
-//may spawn UserIdentity instances solely for the purpose of audit logging.
-//
-//TODO do not use for anonymous user
-//TODO do not use for replication user
+//users, it is returned by methods in the AuthDriver interface. For all other
+//types of users, it is implicitly created in helper methods higher up in the
+//stack.
 type UserIdentity interface {
 	//Returns whether the given auth tenant grants the given permission to this user.
 	//The AnonymousUserIdentity always returns false.
 	HasPermission(perm Permission, tenantID string) bool
 
-	//IsRegularUser indicates if this token is for a regular user, not for an
-	//anonymous user or an internal service user.
+	//Identifies the type of user that was authenticated.
+	UserType() UserType
+	//Returns the name of the the user that was authenticated. This should be the
+	//same format that is given as the first argument of AuthenticateUser().
+	//The AnonymousUserIdentity always returns the empty string.
+	UserName() string
+	//If this identity is backed by a Keystone token, return a UserInfo for that
+	//token. Returns nil otherwise, especially for all anonymous and peer users.
 	//
-	//TODO remove
-	IsRegularUser() bool
-	//IsReplicationUser indicates if this token is for an internal service user
-	//used only for replication. (Some special rules apply for those service
-	//users, e.g. rate limit exemptions.)
-	//
-	//TODO remove
-	IsReplicationUser() bool
+	//If non-nil, the Keppel API will submit OpenStack CADF audit events.
+	UserInfo() audittools.UserInfo
 
 	//SerializeToJSON serializes this UserIdentity instance into JSON for
 	//inclusion in a token payload. The `typeName` must be identical to the
 	//`name` argument of the RegisterUserIdentity call for this type.
 	SerializeToJSON() (typeName string, payload []byte, err error)
-
-	//Returns the name of the the user that was authenticated. This should be the
-	//same format that is given as the first argument of AuthenticateUser().
-	//The AnonymousUserIdentity always returns the empty string.
-	UserName() string
-	//If this authorization is backed by a Keystone token, return a UserInfo for
-	//that token. Returns nil otherwise. The AnonymousUserIdentity always returns nil.
-	//
-	//If non-nil, the Keppel API will submit OpenStack CADF audit events.
-	UserInfo() audittools.UserInfo
 }
 
-var authzDeserializers = map[string]func([]byte, AuthDriver) (UserIdentity, error){
-	"anon":    deserializeAnonUserIdentity,
-	"janitor": deserializeJanitorUserIdentity,
-	"repl":    deserializeReplUserIdentity,
-}
+var authzDeserializers = make(map[string]func([]byte, AuthDriver) (UserIdentity, error))
 
 //RegisterUserIdentity registers a type implementing the UserIdentity
 //interface. Call this from func init() of the package defining the type.
@@ -128,147 +129,7 @@ func DecompressTokenPayload(payload []byte) ([]byte, error) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// AnonymousUserIdentity
-
-//AnonymousUserIdentity is a keppel.UserIdentity for anonymous users.
-var AnonymousUserIdentity = UserIdentity(anonUserIdentity{})
-
-type anonUserIdentity struct{}
-
-func (anonUserIdentity) UserName() string {
-	return ""
-}
-func (anonUserIdentity) HasPermission(perm Permission, tenantID string) bool {
-	return false
-}
-func (anonUserIdentity) IsRegularUser() bool {
-	return false
-}
-func (anonUserIdentity) IsReplicationUser() bool {
-	return false
-}
-func (anonUserIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
-	return "anon", []byte("true"), nil
-}
-func (anonUserIdentity) UserInfo() audittools.UserInfo {
-	return nil
-}
-
-func deserializeAnonUserIdentity(in []byte, _ AuthDriver) (UserIdentity, error) {
-	if string(in) != "true" {
-		return nil, fmt.Errorf("%q is not a valid payload for AnonymousUserIdentity", string(in))
-	}
-	return AnonymousUserIdentity, nil
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// JanitorUserIdentity
-
-//JanitorUserIdentity is a keppel.UserIdentity for the janitor user. (It's
-//only used for generating audit events.)
-type JanitorUserIdentity struct {
-	TaskName string
-	GCPolicy *GCPolicy
-}
-
-//UserName implements the keppel.UserIdentity interface.
-func (JanitorUserIdentity) UserName() string {
-	return ""
-}
-
-//HasPermission implements the keppel.UserIdentity interface.
-func (JanitorUserIdentity) HasPermission(perm Permission, tenantID string) bool {
-	return false
-}
-
-//IsRegularUser implements the keppel.UserIdentity interface.
-func (JanitorUserIdentity) IsRegularUser() bool {
-	return false
-}
-
-//IsReplicationUser implements the keppel.UserIdentity interface.
-func (JanitorUserIdentity) IsReplicationUser() bool {
-	return false
-}
-
-//SerializeToJSON implements the keppel.UserIdentity interface.
-func (a JanitorUserIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
-	serialized := []byte(a.TaskName)
-	if a.GCPolicy != nil {
-		policyJSON, err := json.Marshal(*a.GCPolicy)
-		if err != nil {
-			return "", nil, err
-		}
-		serialized = append(append(serialized, ':'), policyJSON...)
-	}
-	return "janitor", serialized, nil
-}
-
-//UserInfo implements the keppel.UserIdentity interface.
-func (a JanitorUserIdentity) UserInfo() audittools.UserInfo {
-	return janitorUserInfo(a)
-}
-
-func deserializeJanitorUserIdentity(in []byte, _ AuthDriver) (UserIdentity, error) {
-	//simple case: no GCPolicy, just a TaskName
-	fields := bytes.SplitN(in, []byte(":"), 2)
-	if len(fields) == 1 {
-		return JanitorUserIdentity{string(in), nil}, nil
-	}
-
-	//with GCPolicy: TaskName and GCPolicyJSON separated by colon
-	var gcPolicy GCPolicy
-	err := json.Unmarshal(fields[1], &gcPolicy)
-	return JanitorUserIdentity{string(fields[0]), &gcPolicy}, err
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// ReplicationUserIdentity
-
-//ReplicationUserIdentity is a keppel.UserIdentity for replication users with global pull access.
-type ReplicationUserIdentity struct {
-	PeerHostName string
-}
-
-//UserName implements the keppel.UserIdentity interface.
-func (a ReplicationUserIdentity) UserName() string {
-	return "replication@" + a.PeerHostName
-}
-
-//HasPermission implements the keppel.UserIdentity interface.
-func (a ReplicationUserIdentity) HasPermission(perm Permission, tenantID string) bool {
-	return perm == CanViewAccount || perm == CanPullFromAccount
-}
-
-//IsRegularUser implements the keppel.UserIdentity interface.
-func (a ReplicationUserIdentity) IsRegularUser() bool {
-	return false
-}
-
-//IsReplicationUser implements the keppel.UserIdentity interface.
-func (a ReplicationUserIdentity) IsReplicationUser() bool {
-	return true
-}
-
-//SerializeToJSON implements the keppel.UserIdentity interface.
-func (a ReplicationUserIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
-	payload, err = json.Marshal(a.PeerHostName)
-	return "repl", payload, err
-}
-
-//UserInfo implements the keppel.UserIdentity interface.
-func (a ReplicationUserIdentity) UserInfo() audittools.UserInfo {
-	return nil
-}
-
-func deserializeReplUserIdentity(in []byte, _ AuthDriver) (UserIdentity, error) {
-	var peerHostName string
-	err := json.Unmarshal(in, &peerHostName)
-	return ReplicationUserIdentity{peerHostName}, err
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// EmbeddedAuthorization
+// EmbeddedAuthorization (TODO move into package auth as private type)
 
 //EmbeddedAuthorization wraps an UserIdentity such that it can be serialized into JSON.
 type EmbeddedAuthorization struct {

@@ -38,7 +38,7 @@ var (
 
 func (a *API) checkAuthentication(authorizationHeader string) (keppel.UserIdentity, error) {
 	if authorizationHeader == "" {
-		return keppel.AnonymousUserIdentity, nil
+		return auth.AnonymousUserIdentity, nil
 	}
 	if !strings.HasPrefix(authorizationHeader, "Basic ") {
 		return nil, errMalformedAuthHeader
@@ -59,7 +59,7 @@ func (a *API) checkAuthentication(authorizationHeader string) (keppel.UserIdenti
 		if peer == nil {
 			return nil, sql.ErrNoRows
 		}
-		return keppel.ReplicationUserIdentity{PeerHostName: peerHostName}, nil
+		return auth.ReplicationUserIdentity{PeerHostName: peerHostName}, nil
 	}
 
 	uid, rerr := a.authDriver.AuthenticateUser(userName, password)

@@ -128,13 +128,13 @@ func filterRepoActions(scope auth.Scope, uid keppel.UserIdentity, db *keppel.DB)
 			if policy.CanPullAnonymously {
 				isAllowedAction["pull"] = true
 			}
-			if policy.CanPull && uid != keppel.AnonymousUserIdentity {
+			if policy.CanPull && uid.UserType() != keppel.AnonymousUser {
 				isAllowedAction["pull"] = true
 			}
-			if policy.CanPush && uid != keppel.AnonymousUserIdentity {
+			if policy.CanPush && uid.UserType() != keppel.AnonymousUser {
 				isAllowedAction["push"] = true
 			}
-			if policy.CanDelete && uid != keppel.AnonymousUserIdentity {
+			if policy.CanDelete && uid.UserType() != keppel.AnonymousUser {
 				isAllowedAction["delete"] = true
 			}
 		}

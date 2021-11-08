@@ -103,12 +103,8 @@ func (uid userIdentity) HasPermission(perm keppel.Permission, tenantID string) b
 	return uid.Perms[string(perm)][tenantID]
 }
 
-func (uid userIdentity) IsRegularUser() bool {
-	return true
-}
-
-func (uid userIdentity) IsReplicationUser() bool {
-	return false
+func (uid userIdentity) UserType() keppel.UserType {
+	return keppel.RegularUser
 }
 
 func (uid userIdentity) UserInfo() audittools.UserInfo {

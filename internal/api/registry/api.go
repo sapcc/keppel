@@ -249,7 +249,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	if strategy == createRepoIfMissing {
 		canCreateRepoIfMissing = true
 	} else if strategy == createRepoIfMissingAndReplica {
-		canCreateRepoIfMissing = account.UpstreamPeerHostName != "" || (account.ExternalPeerURL != "" && authz.UserIdentity().IsRegularUser())
+		canCreateRepoIfMissing = account.UpstreamPeerHostName != "" || (account.ExternalPeerURL != "" && authz.UserIdentity().UserType() == keppel.RegularUser)
 	}
 
 	var repo *keppel.Repository
@@ -277,7 +277,7 @@ func (a *API) checkRateLimit(w http.ResponseWriter, r *http.Request, account kep
 	//cluster-internal traffic is exempt from rate-limits (if the request is
 	//caused by a user API request, the rate-limit has been checked already
 	//before the cluster-internal request was sent)
-	if authz.UserIdentity().IsReplicationUser() {
+	if authz.UserIdentity().UserType() == keppel.PeerUser {
 		return true
 	}
 

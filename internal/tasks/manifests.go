@@ -347,7 +347,7 @@ TAG:
 		//just a ReplicateManifest() call
 		ref := keppel.ManifestReference{Tag: tag.Name}
 		_, _, err := p.ReplicateManifest(account, repo, ref, keppel.AuditContext{
-			UserIdentity: keppel.JanitorUserIdentity{TaskName: "tag-sync"},
+			UserIdentity: janitorUserIdentity{TaskName: "tag-sync"},
 			Request:      janitorDummyRequest,
 		})
 		if err != nil {
@@ -446,7 +446,7 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 
 			//no manifests left that reference this one - we can delete it
 			err := j.processor().DeleteManifest(account, repo, digest, keppel.AuditContext{
-				UserIdentity: keppel.JanitorUserIdentity{TaskName: "manifest-sync"},
+				UserIdentity: janitorUserIdentity{TaskName: "manifest-sync"},
 				Request:      janitorDummyRequest,
 			})
 			if err != nil {

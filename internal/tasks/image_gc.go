@@ -233,7 +233,7 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 				m.GCStatus.ProtectedByPolicy = &pCopied
 			case "delete":
 				err := proc.DeleteManifest(account, repo, m.Manifest.Digest, keppel.AuditContext{
-					UserIdentity: keppel.JanitorUserIdentity{
+					UserIdentity: janitorUserIdentity{
 						TaskName: "policy-driven-gc",
 						GCPolicy: &p,
 					},

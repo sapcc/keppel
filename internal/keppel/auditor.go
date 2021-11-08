@@ -47,61 +47,6 @@ type AuditContext struct {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// janitorUserInfo
-
-//janitorUserInfo is an audittools.NonStandardUserInfo representing the
-//keppel-janitor (who does not have a corresponding OpenStack user). It can be
-//used via `type JanitorUserIdentity`.
-type janitorUserInfo struct {
-	TaskName string
-	GCPolicy *GCPolicy
-}
-
-//UserUUID implements the audittools.UserInfo interface.
-func (janitorUserInfo) UserUUID() string {
-	return "" //unused
-}
-
-//UserName implements the audittools.UserInfo interface.
-func (janitorUserInfo) UserName() string {
-	return "" //unused
-}
-
-//UserDomainName implements the audittools.UserInfo interface.
-func (janitorUserInfo) UserDomainName() string {
-	return "" //unused
-}
-
-//ProjectScopeUUID implements the audittools.UserInfo interface.
-func (janitorUserInfo) ProjectScopeUUID() string {
-	return "" //unused
-}
-
-//DomainScopeUUID implements the audittools.UserInfo interface.
-func (janitorUserInfo) DomainScopeUUID() string {
-	return "" //unused
-}
-
-//AsInitiator implements the audittools.NonStandardUserInfo interface.
-func (u janitorUserInfo) AsInitiator() cadf.Resource {
-	res := cadf.Resource{
-		TypeURI: "service/docker-registry/janitor-task",
-		Name:    u.TaskName,
-		Domain:  "keppel",
-		ID:      u.TaskName,
-	}
-	if u.GCPolicy != nil {
-		gcPolicyJSON, _ := json.Marshal(*u.GCPolicy)
-		res.Attachments = append(res.Attachments, cadf.Attachment{
-			Name:    "gc-policy",
-			TypeURI: "mime:application/json",
-			Content: string(gcPolicyJSON),
-		})
-	}
-	return res
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // auditorImpl
 
 var (
