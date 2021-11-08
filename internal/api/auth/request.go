@@ -27,6 +27,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/tokenauth"
 )
@@ -86,13 +87,13 @@ func (a *API) checkAuthentication(authorizationHeader string) (keppel.Authorizat
 
 //Request contains the query parameters in a token request.
 type Request struct {
-	Scopes           tokenauth.ScopeSet
+	Scopes           auth.ScopeSet
 	ClientID         string
 	OfflineToken     bool
 	IntendedAudience tokenauth.Service
 	//the auth handler may add additional scopes in addition to the originally
 	//requested scope to encode access permissions, RBACs, etc.
-	CompiledScopes tokenauth.ScopeSet
+	CompiledScopes auth.ScopeSet
 }
 
 func parseRequest(rawQuery string, cfg keppel.Configuration) (Request, error) {
@@ -135,7 +136,7 @@ func decodeAuthHeader(base64data string) (username, password string) {
 
 //ToToken creates a token that can be used to fulfill this token request.
 func (r Request) ToToken(authz keppel.Authorization) tokenauth.Token {
-	var access []tokenauth.Scope
+	var access []auth.Scope
 	for _, scope := range append(r.Scopes, r.CompiledScopes...) {
 		if len(scope.Actions) > 0 {
 			access = append(access, *scope)

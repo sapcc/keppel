@@ -29,11 +29,11 @@ import (
 
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sre"
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/tokenauth"
 )
 
-var requiredScopeForCatalogEndpoint = tokenauth.Scope{
+var requiredScopeForCatalogEndpoint = auth.Scope{
 	ResourceType: "registry",
 	ResourceName: "catalog",
 	Actions:      []string{"*"},

@@ -23,6 +23,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/tokenauth"
 )
@@ -55,13 +56,13 @@ func (s Setup) getToken(t *testing.T, audience tokenauth.Service, scopes ...stri
 	}
 
 	//parse scopes
-	var ss tokenauth.ScopeSet
+	var ss auth.ScopeSet
 	for _, scopeStr := range scopes {
 		fields := strings.SplitN(scopeStr, ":", 3)
 		if len(fields) != 3 {
 			t.Fatalf("malformed scope %q: needs exactly three colon-separated fields", scopeStr)
 		}
-		ss.Add(tokenauth.Scope{
+		ss.Add(auth.Scope{
 			ResourceType: fields[0],
 			ResourceName: fields[1],
 			Actions:      strings.Split(fields[2], ","),
@@ -107,8 +108,8 @@ func (s Setup) getToken(t *testing.T, audience tokenauth.Service, scopes ...stri
 		}
 	}
 
-	//convert []*tokenauth.Scope into []tokenauth.Scope
-	var flatScopes []tokenauth.Scope
+	//convert []*auth.Scope into []auth.Scope
+	var flatScopes []auth.Scope
 	for _, scope := range ss {
 		flatScopes = append(flatScopes, *scope)
 	}

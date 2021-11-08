@@ -30,6 +30,7 @@ import (
 
 	"github.com/docker/libtrust"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	uuid "github.com/satori/go.uuid"
 )
@@ -80,13 +81,13 @@ type Token struct {
 	//The service that this token can be used with.
 	Audience Service
 	//Access permissions for this token.
-	Access []Scope
+	Access []auth.Scope
 }
 
 //TokenClaims is the type for JWT claims issued by Keppel.
 type TokenClaims struct {
 	jwt.StandardClaims
-	Access                []Scope                      `json:"access"`
+	Access                []auth.Scope                 `json:"access"`
 	EmbeddedAuthorization keppel.EmbeddedAuthorization `json:"kea"` //kea = keppel embedded authorization
 }
 
@@ -151,7 +152,7 @@ func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration, ad keppel.
 }
 
 //Contains returns true if the given token authorizes the user for this scope.
-func (t Token) Contains(s Scope) bool {
+func (t Token) Contains(s auth.Scope) bool {
 	for _, scope := range t.Access {
 		if scope.Contains(s) {
 			return true

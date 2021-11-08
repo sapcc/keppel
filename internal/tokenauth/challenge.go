@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -31,8 +32,8 @@ import (
 //response header.
 type Challenge struct {
 	Service Service
-	Scope   *Scope //optional
-	Error   string //optional
+	Scope   *auth.Scope //optional
+	Error   string      //optional
 
 	//optional: if set, asks for the client to use the /keppel/v1/auth port at
 	//this host (this allows the API to take into account which hostname and

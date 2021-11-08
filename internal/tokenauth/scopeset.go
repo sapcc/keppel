@@ -22,55 +22,19 @@ package tokenauth
 import (
 	"strings"
 
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//ScopeSet is a set of scopes.
-type ScopeSet []*Scope
-
-//Contains returns true if the given token authorizes the user for this scope.
-func (ss ScopeSet) Contains(s Scope) bool {
-	for _, scope := range ss {
-		if scope.Contains(s) {
-			return true
-		}
-	}
-	return false
-}
-
-//Add adds a scope to this ScopeSet. If the ScopeSet already contains a Scope
-//referring to the same resource, it is merged with the given scope.
-func (ss *ScopeSet) Add(s Scope) {
-	for _, other := range *ss {
-		if s.ResourceType == other.ResourceType && s.ResourceName == other.ResourceName {
-			other.Actions = mergeAndDedupActions(other.Actions, s.Actions)
-			return
-		}
-	}
-	*ss = append(*ss, &s)
-}
-
-func mergeAndDedupActions(lhs, rhs []string) (result []string) {
-	seen := make(map[string]bool)
-	for _, elem := range append(lhs, rhs...) {
-		if seen[elem] {
-			continue
-		}
-		result = append(result, elem)
-		seen[elem] = true
-	}
-	return
-}
-
-//FilterAuthorized produces a new ScopeSet containing only those scopes
+//FilterAuthorized produces a new auth.ScopeSet containing only those scopes
 //that the given `authz` is permitted to access and only those actions therein
 //which this `authz` is permitted to perform.
-func (ss ScopeSet) FilterAuthorized(authz keppel.Authorization, audience Service, db *keppel.DB) (ScopeSet, error) {
-	result := make(ScopeSet, 0, len(ss))
+func FilterAuthorized(ss auth.ScopeSet, authz keppel.Authorization, audience Service, db *keppel.DB) (auth.ScopeSet, error) {
+	result := make(auth.ScopeSet, 0, len(ss))
 	//make sure that additional scopes get appended at the end, on the offchance
 	//that a client might parse its token and look at access[0] to check for its
 	//authorization
-	var additional ScopeSet
+	var additional auth.ScopeSet
 
 	var err error
 	for _, scope := range ss {
@@ -83,7 +47,7 @@ func (ss ScopeSet) FilterAuthorized(authz keppel.Authorization, audience Service
 				filtered.Actions = nil
 			} else if scope.ResourceName == "catalog" && containsString(scope.Actions, "*") {
 				filtered.Actions = []string{"*"}
-				err = additional.addCatalogAccess(authz, db)
+				err = addCatalogAccess(&additional, authz, db)
 				if err != nil {
 					return nil, err
 				}
@@ -118,7 +82,7 @@ func containsString(list []string, val string) bool {
 	return false
 }
 
-func (ss *ScopeSet) addCatalogAccess(authz keppel.Authorization, db *keppel.DB) error {
+func addCatalogAccess(ss *auth.ScopeSet, authz keppel.Authorization, db *keppel.DB) error {
 	var accounts []keppel.Account
 	_, err := db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
 	if err != nil {
@@ -127,7 +91,7 @@ func (ss *ScopeSet) addCatalogAccess(authz keppel.Authorization, db *keppel.DB) 
 
 	for _, account := range accounts {
 		if authz.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
-			ss.Add(Scope{
+			ss.Add(auth.Scope{
 				ResourceType: "keppel_account",
 				ResourceName: account.Name,
 				Actions:      []string{"view"},
@@ -138,7 +102,7 @@ func (ss *ScopeSet) addCatalogAccess(authz keppel.Authorization, db *keppel.DB) 
 	return nil
 }
 
-func filterRepoActions(scope Scope, authz keppel.Authorization, db *keppel.DB) ([]string, error) {
+func filterRepoActions(scope auth.Scope, authz keppel.Authorization, db *keppel.DB) ([]string, error) {
 	account, err := keppel.FindAccount(db, scope.AccountName())
 	if err != nil {
 		return nil, err

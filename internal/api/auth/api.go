@@ -113,7 +113,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check authorization
-	req.Scopes, err = req.Scopes.FilterAuthorized(authz, req.IntendedAudience, a.db)
+	req.Scopes, err = tokenauth.FilterAuthorized(req.Scopes, authz, req.IntendedAudience, a.db)
 	if respondWithError(w, http.StatusInternalServerError, err) {
 		return
 	}
