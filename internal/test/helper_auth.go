@@ -36,17 +36,17 @@ import (
 //embedded in the token.
 func (s Setup) GetToken(t *testing.T, scopes ...string) string {
 	t.Helper()
-	return s.getToken(t, tokenauth.LocalService, scopes...)
+	return s.getToken(t, auth.LocalService, scopes...)
 }
 
 //GetAnycastToken is like GetToken, but instead returns a token for the anycast
 //endpoint.
 func (s Setup) GetAnycastToken(t *testing.T, scopes ...string) string {
 	t.Helper()
-	return s.getToken(t, tokenauth.AnycastService, scopes...)
+	return s.getToken(t, auth.AnycastService, scopes...)
 }
 
-func (s Setup) getToken(t *testing.T, audience tokenauth.Service, scopes ...string) string {
+func (s Setup) getToken(t *testing.T, audience auth.Service, scopes ...string) string {
 	t.Helper()
 
 	//optimization: don't issue the same token twice in a single test run

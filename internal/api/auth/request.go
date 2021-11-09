@@ -90,7 +90,7 @@ type Request struct {
 	Scopes           auth.ScopeSet
 	ClientID         string
 	OfflineToken     bool
-	IntendedAudience tokenauth.Service
+	IntendedAudience auth.Service
 	//the auth handler may add additional scopes in addition to the originally
 	//requested scope to encode access permissions, RBACs, etc.
 	CompiledScopes auth.ScopeSet
@@ -110,10 +110,10 @@ func parseRequest(rawQuery string, cfg keppel.Configuration) (Request, error) {
 	}
 
 	serviceHost := query.Get("service")
-	if serviceHost == tokenauth.LocalService.Hostname(cfg) {
-		result.IntendedAudience = tokenauth.LocalService
-	} else if cfg.AnycastAPIPublicURL != nil && serviceHost == tokenauth.AnycastService.Hostname(cfg) {
-		result.IntendedAudience = tokenauth.AnycastService
+	if serviceHost == auth.LocalService.Hostname(cfg) {
+		result.IntendedAudience = auth.LocalService
+	} else if cfg.AnycastAPIPublicURL != nil && serviceHost == auth.AnycastService.Hostname(cfg) {
+		result.IntendedAudience = auth.AnycastService
 	} else {
 		return Request{}, fmt.Errorf("cannot issue tokens for service: %q", serviceHost)
 	}

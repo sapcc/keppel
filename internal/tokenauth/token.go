@@ -35,51 +35,13 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-//Service enumerates the different audiences for which we can issue tokens.
-type Service int
-
-const (
-	//LocalService is the Service for tokens issued by this keppel-api for use
-	//only with the same keppel-api.
-	LocalService Service = 0
-	//AnycastService is the Service for tokens issued by this keppel-api or one
-	//of its peers for their shared anycast endpoint.
-	AnycastService Service = 1
-)
-
-//Hostname returns the hostname that is used as the "audience" value in tokens
-//and as the "service" value in auth challenges.
-func (s Service) Hostname(cfg keppel.Configuration) string {
-	switch s {
-	case LocalService:
-		return cfg.APIPublicURL.Hostname()
-	case AnycastService:
-		return cfg.AnycastAPIPublicURL.Hostname()
-	default:
-		panic(fmt.Sprintf("unknown auth service code: %d", s))
-	}
-}
-
-//IssuerKey returns the issuer key that is used to sign tokens for this
-//service.
-func (s Service) IssuerKey(cfg keppel.Configuration) libtrust.PrivateKey {
-	switch s {
-	case LocalService:
-		return cfg.JWTIssuerKey
-	case AnycastService:
-		return *cfg.AnycastJWTIssuerKey
-	default:
-		panic(fmt.Sprintf("unknown auth service code: %d", s))
-	}
-}
-
 //Token represents a JWT (Java Web Token), as used for authenticating on the
 //Registry v2 API.
 type Token struct {
 	//UserIdentity is the original UserIdentity object that is serialized within this token.
 	UserIdentity keppel.UserIdentity
 	//The service that this token can be used with.
-	Audience Service
+	Audience auth.Service
 	//Access permissions for this token.
 	Access []auth.Scope
 }
@@ -93,7 +55,7 @@ type TokenClaims struct {
 
 //ParseTokenFromRequest tries to parse the Bearer token supplied in the
 //request's Authorization header.
-func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration, ad keppel.AuthDriver, audience Service) (*Token, *keppel.RegistryV2Error) {
+func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration, ad keppel.AuthDriver, audience auth.Service) (*Token, *keppel.RegistryV2Error) {
 	//read Authorization request header
 	tokenStr := r.Header.Get("Authorization")
 	if !strings.HasPrefix(tokenStr, "Bearer ") { //e.g. because it's missing
@@ -133,7 +95,7 @@ func ParseTokenFromRequest(r *http.Request, cfg keppel.Configuration, ad keppel.
 		return nil, keppel.ErrUnauthorized.With("token not valid yet")
 	}
 	publicHost := audience.Hostname(cfg)
-	if audience == LocalService {
+	if audience == auth.LocalService {
 		if !claims.StandardClaims.VerifyIssuer("keppel-api@"+publicHost, true) {
 			return nil, keppel.ErrUnauthorized.With("token has wrong issuer (expected keppel-api@%s)", publicHost)
 		}

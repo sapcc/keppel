@@ -29,7 +29,7 @@ import (
 //FilterAuthorized produces a new auth.ScopeSet containing only those scopes
 //that the given `uid` is permitted to access and only those actions therein
 //which this `uid` is permitted to perform.
-func FilterAuthorized(ss auth.ScopeSet, uid keppel.UserIdentity, audience Service, db *keppel.DB) (auth.ScopeSet, error) {
+func FilterAuthorized(ss auth.ScopeSet, uid keppel.UserIdentity, audience auth.Service, db *keppel.DB) (auth.ScopeSet, error) {
 	result := make(auth.ScopeSet, 0, len(ss))
 	//make sure that additional scopes get appended at the end, on the offchance
 	//that a client might parse its token and look at access[0] to check for its
@@ -41,7 +41,7 @@ func FilterAuthorized(ss auth.ScopeSet, uid keppel.UserIdentity, audience Servic
 		filtered := *scope
 		switch scope.ResourceType {
 		case "registry":
-			if audience == AnycastService {
+			if audience == auth.AnycastService {
 				//we cannot allow catalog access on the anycast API since there is no way
 				//to decide which peer does the authentication in this case
 				filtered.Actions = nil

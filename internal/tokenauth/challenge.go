@@ -31,7 +31,7 @@ import (
 //Challenge describes an auth challenge that is posed in a Www-Authenticate
 //response header.
 type Challenge struct {
-	Service Service
+	Service auth.Service
 	Scope   *auth.Scope //optional
 	Error   string      //optional
 

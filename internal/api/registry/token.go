@@ -42,7 +42,7 @@ type APIAuthorization interface {
 
 func (a *API) requireAuthorization(w http.ResponseWriter, r *http.Request, scope *auth.Scope) APIAuthorization {
 	if r.Header.Get("Authorization") == "keppel" && !a.cfg.IsAnycastRequest(r) {
-		return a.requireKeppelAPIAuth(w, r, scope, tokenauth.LocalService)
+		return a.requireKeppelAPIAuth(w, r, scope, auth.LocalService)
 	}
 	//this is also called when requireKeppelAPIAuth() returned nil, in order to render the regular 401 response
 	return a.requireBearerToken(w, r, scope)
@@ -71,9 +71,9 @@ type bearerToken struct {
 
 func (a *API) requireBearerToken(w http.ResponseWriter, r *http.Request, scope *auth.Scope) APIAuthorization {
 	//for requests to the anycast endpoint, we need to use the anycast issuer key instead of the regular one
-	audience := tokenauth.LocalService
+	audience := auth.LocalService
 	if a.cfg.IsAnycastRequest(r) {
-		audience = tokenauth.AnycastService
+		audience = auth.AnycastService
 
 		//completely forbid write operations on the anycast API (only the local API
 		//may be used for writes and deletes)
@@ -133,7 +133,7 @@ type keppelAPIAuth struct {
 	GrantedScopes auth.ScopeSet
 }
 
-func (a *API) requireKeppelAPIAuth(w http.ResponseWriter, r *http.Request, scope *auth.Scope, audience tokenauth.Service) APIAuthorization {
+func (a *API) requireKeppelAPIAuth(w http.ResponseWriter, r *http.Request, scope *auth.Scope, audience auth.Service) APIAuthorization {
 	uid, authErr := a.ad.AuthenticateUserFromRequest(r)
 	if authErr != nil {
 		//fallback to default auth to render 401 response including auth challenge

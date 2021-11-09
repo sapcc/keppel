@@ -27,6 +27,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sre"
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/tokenauth"
 )
@@ -76,7 +77,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//special cases for anycast requests
-	if req.IntendedAudience == tokenauth.AnycastService {
+	if req.IntendedAudience == auth.AnycastService {
 		if len(req.Scopes) > 1 {
 			//NOTE: This is not a fundamental restriction, there was just no demand for
 			//it yet. If the requirement comes up, we could ask all relevant upstreams
