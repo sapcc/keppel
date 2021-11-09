@@ -282,6 +282,10 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	if respondWithAuthError(w, authErr) {
 		return
 	}
+	if uid == nil {
+		respondWithAuthError(w, keppel.ErrUnauthorized.With("unauthorized"))
+		return
+	}
 
 	var accounts []keppel.Account
 	_, err := a.db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
@@ -459,6 +463,10 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	//check permission to create account
 	uid, authErr := a.authDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, authErr) {
+		return
+	}
+	if uid == nil {
+		respondWithAuthError(w, keppel.ErrUnauthorized.With("unauthorized"))
 		return
 	}
 	if !uid.HasPermission(keppel.CanChangeAccount, accountToCreate.AuthTenantID) {

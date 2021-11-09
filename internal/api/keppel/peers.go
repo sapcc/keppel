@@ -53,8 +53,12 @@ func renderPeers(peers []keppel.Peer) []Peer {
 
 func (a *API) handleGetPeers(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/peers")
-	_, authErr := a.authDriver.AuthenticateUserFromRequest(r)
+	uid, authErr := a.authDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, authErr) {
+		return
+	}
+	if uid == nil {
+		respondWithAuthError(w, keppel.ErrUnauthorized.With("unauthorized"))
 		return
 	}
 

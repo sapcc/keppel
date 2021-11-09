@@ -135,7 +135,7 @@ type keppelAPIAuth struct {
 
 func (a *API) requireKeppelAPIAuth(w http.ResponseWriter, r *http.Request, scope *auth.Scope, audience auth.Service) APIAuthorization {
 	uid, authErr := a.ad.AuthenticateUserFromRequest(r)
-	if authErr != nil {
+	if uid == nil || authErr != nil {
 		//fallback to default auth to render 401 response including auth challenge
 		return a.requireBearerToken(w, r, scope)
 	}

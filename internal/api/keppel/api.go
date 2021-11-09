@@ -99,6 +99,10 @@ func (a *API) authenticateAccountScopedRequest(w http.ResponseWriter, r *http.Re
 	if respondWithAuthError(w, authErr) {
 		return nil, nil
 	}
+	if uid == nil {
+		respondWithAuthError(w, keppel.ErrUnauthorized.With("unauthorized"))
+		return nil, nil
+	}
 
 	//get account from DB to find its AuthTenantID
 	accountName := mux.Vars(r)["account"]
@@ -131,6 +135,10 @@ func (a *API) authenticateAccountScopedRequest(w http.ResponseWriter, r *http.Re
 func (a *API) authenticateAuthTenantScopedRequest(w http.ResponseWriter, r *http.Request, perm keppel.Permission) (authTenantID string, uid keppel.UserIdentity) {
 	uid, authErr := a.authDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, authErr) {
+		return "", nil
+	}
+	if uid == nil {
+		respondWithAuthError(w, keppel.ErrUnauthorized.With("unauthorized"))
 		return "", nil
 	}
 
