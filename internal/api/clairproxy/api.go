@@ -53,7 +53,7 @@ func (a *API) reverseProxyToClair(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !uid.HasPermission(keppel.CanAdministrateKeppel, "") {
+	if uid == nil || !uid.HasPermission(keppel.CanAdministrateKeppel, "") {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}

@@ -29,7 +29,6 @@ import (
 	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/tokenauth"
 )
 
 //API contains state variables used by the Auth API endpoint.
@@ -107,23 +106,23 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//check authentication
-	uid, err := a.checkAuthentication(r.Header.Get("Authorization"))
-	if respondWithError(w, http.StatusUnauthorized, err) {
+	authz, rerr := auth.IncomingRequest{
+		HTTPRequest:              r,
+		Scopes:                   req.Scopes,
+		AllowsAnycast:            true,
+		AudienceForTokenIssuance: req.IntendedAudience,
+		PartialAccessAllowed:     true,
+	}.Authorize(a.cfg, a.authDriver, a.db)
+	if rerr != nil {
+		rerr.WriteAsAuthResponseTo(w)
 		return
 	}
 
-	//check authorization
-	req.Scopes, err = tokenauth.FilterAuthorized(req.Scopes, uid, req.IntendedAudience, a.db)
-	if respondWithError(w, http.StatusInternalServerError, err) {
-		return
-	}
-
-	tokenInfo, err := makeTokenResponse(req.ToToken(uid), a.cfg)
+	tokenResponse, err := authz.IssueToken(a.cfg)
 	if respondWithError(w, http.StatusBadRequest, err) {
 		return
 	}
-	respondwith.JSON(w, http.StatusOK, tokenInfo)
+	respondwith.JSON(w, http.StatusOK, tokenResponse)
 }
 
 func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Request, tokenReq Request, accountName string) error {

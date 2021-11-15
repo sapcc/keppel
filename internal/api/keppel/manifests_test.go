@@ -75,7 +75,7 @@ func TestManifestsAPI(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusOK,
 			ExpectBody:   assert.JSONObject{"manifests": []assert.JSONObject{}},
 		}.Check(t, h)
@@ -168,14 +168,14 @@ func TestManifestsAPI(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusOK,
 			ExpectBody:   assert.JSONObject{"manifests": renderedManifests},
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=10",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusOK,
 			ExpectBody:   assert.JSONObject{"manifests": renderedManifests},
 		}.Check(t, h)
@@ -184,7 +184,7 @@ func TestManifestsAPI(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=5",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusOK,
 			ExpectBody: assert.JSONObject{
 				"manifests": renderedManifests[0:5],
@@ -194,7 +194,7 @@ func TestManifestsAPI(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=5&marker=" + renderedManifests[4]["digest"].(string),
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusOK,
 			ExpectBody:   assert.JSONObject{"manifests": renderedManifests[5:10]},
 		}.Check(t, h)
@@ -208,7 +208,7 @@ func TestManifestsAPI(t *testing.T) {
 			assert.HTTPRequest{
 				Method:       "GET",
 				Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=1&marker=" + renderedManifests[idx]["digest"].(string),
-				Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+				Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 				ExpectStatus: http.StatusOK,
 				ExpectBody:   expectedBody,
 			}.Check(t, h)
@@ -218,19 +218,20 @@ func TestManifestsAPI(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/doesnotexist/repositories/repo1-1/_manifests",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-			ExpectStatus: http.StatusNotFound,
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
+			ExpectStatus: http.StatusForbidden,
+			ExpectBody:   assert.StringData("no permission for repository:doesnotexist/repo1-1:pull\n"),
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/doesnotexist/_manifests",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusNotFound,
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=foo",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusBadRequest,
 			ExpectBody:   assert.StringData("strconv.ParseUint: parsing \"foo\": invalid syntax\n"),
 		}.Check(t, h)
@@ -284,25 +285,27 @@ func TestManifestsAPI(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/keppel/v1/accounts/test2/repositories/repo2-1/_manifests/" + deterministicDummyDigest(31),
-			Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
-			ExpectStatus: http.StatusNotFound,
+			Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1,pull:tenant1"},
+			ExpectStatus: http.StatusForbidden,
+			ExpectBody:   assert.StringData("no permission for repository:test2/repo2-1:delete\n"),
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-2/_manifests/" + deterministicDummyDigest(21),
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusForbidden,
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/keppel/v1/accounts/doesnotexist/repositories/repo1-2/_manifests/" + deterministicDummyDigest(11),
-			Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
-			ExpectStatus: http.StatusNotFound,
+			Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1,pull:tenant1"},
+			ExpectStatus: http.StatusForbidden,
+			ExpectBody:   assert.StringData("no permission for repository:doesnotexist/repo1-2:delete\n"),
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/keppel/v1/accounts/test1/repositories/doesnotexist/_manifests/" + deterministicDummyDigest(11),
-			Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
+			Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusNotFound,
 		}.Check(t, h)
 		assert.HTTPRequest{
@@ -328,7 +331,7 @@ func TestManifestsAPI(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-2/_tags/first",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusForbidden,
 		}.Check(t, h)
 		assert.HTTPRequest{
@@ -354,13 +357,13 @@ func TestManifestsAPI(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11) + "/vulnerability_report",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusNotFound, //this manifest was deleted above
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12) + "/vulnerability_report",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusMethodNotAllowed, //manifest cannot have vulnerability report because it does not have manifest-blob refs
 		}.Check(t, h)
 
@@ -389,7 +392,7 @@ func TestManifestsAPI(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12) + "/vulnerability_report",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusOK,
 			ExpectBody:   assert.JSONFixtureFile("fixtures/clair-report-vulnerable.json"),
 		}.Check(t, h)

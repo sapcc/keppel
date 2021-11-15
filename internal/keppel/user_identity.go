@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 
@@ -89,6 +88,16 @@ func RegisterUserIdentity(name string, deserialize func([]byte, AuthDriver) (Use
 	authzDeserializers[name] = deserialize
 }
 
+//DeserializeUserIdentity deserializes a UserIdentity payload. This is the
+//reverse of UserIdentity.SerializeToJSON().
+func DeserializeUserIdentity(typeName string, payload []byte, ad AuthDriver) (UserIdentity, error) {
+	deserializer := authzDeserializers[typeName]
+	if deserializer == nil {
+		return nil, fmt.Errorf("cannot unmarshal embedded authorization with unknown payload type %q", typeName)
+	}
+	return deserializer(payload, ad)
+}
+
 type compressedPayload struct {
 	Contents []byte `json:"gzip"`
 }
@@ -126,57 +135,4 @@ func DecompressTokenPayload(payload []byte) ([]byte, error) {
 		return nil, fmt.Errorf("cannot read GZip payload: %w", err)
 	}
 	return result, nil
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// EmbeddedAuthorization (TODO move into package auth as private type)
-
-//EmbeddedAuthorization wraps an UserIdentity such that it can be serialized into JSON.
-type EmbeddedAuthorization struct {
-	UserIdentity UserIdentity
-	//AuthDriver is ignored during serialization, but must be filled prior to
-	//deserialization because some types of UserIdentity require their
-	//respective AuthDriver to deserialize properly.
-	AuthDriver AuthDriver
-}
-
-//MarshalJSON implements the json.Marshaler interface.
-func (ea EmbeddedAuthorization) MarshalJSON() ([]byte, error) {
-	typeName, payload, err := ea.UserIdentity.SerializeToJSON()
-	if err != nil {
-		return nil, err
-	}
-
-	//The straight-forward approach would be to serialize as
-	//`{"type":"foo","payload":"something"}`, but we serialize as
-	//`{"foo":"something"}` instead to shave off a few bytes.
-	return json.Marshal(map[string]json.RawMessage{typeName: json.RawMessage(payload)})
-}
-
-//UnmarshalJSON implements the json.Marshaler interface.
-func (ea *EmbeddedAuthorization) UnmarshalJSON(in []byte) error {
-	if ea.AuthDriver == nil {
-		return errors.New("cannot unmarshal EmbeddedAuthorization without an AuthDriver")
-	}
-
-	m := make(map[string]json.RawMessage)
-	err := json.Unmarshal(in, &m)
-	if err != nil {
-		return err
-	}
-	if len(m) != 1 {
-		return fmt.Errorf("cannot unmarshal EmbeddedAuthorization with %d components", len(m))
-	}
-
-	for typeName, payload := range m {
-		deserializer := authzDeserializers[typeName]
-		if deserializer == nil {
-			return fmt.Errorf("cannot unmarshal EmbeddedAuthorization with unknown payload type %q", typeName)
-		}
-		ea.UserIdentity, err = deserializer([]byte(payload), ea.AuthDriver)
-		return err
-	}
-
-	//the loop body executes exactly once, therefore this location is unreachable
-	panic("unreachable")
 }

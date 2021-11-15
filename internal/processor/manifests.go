@@ -32,6 +32,7 @@ import (
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/hermes/pkg/cadf"
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
 	"gopkg.in/gorp.v2"
@@ -716,6 +717,13 @@ func (p *Processor) downloadManifestViaPullDelegation(imageRef keppel.ImageRefer
 		return nil, "", false
 	}
 
+	//get token for peer
+	peerToken, err := auth.GetPeerToken(p.cfg, peer, auth.PeerAPIScope)
+	if err != nil {
+		logg.Error("while trying to get a peer token for pull delegation: %s", err.Error())
+		return nil, "", false
+	}
+
 	//build request
 	reqURL := fmt.Sprintf("https://%s/peer/v1/delegatedpull/%s/v2/%s/manifests/%s",
 		peer.HostName, imageRef.Host, imageRef.RepoName, imageRef.Reference)
@@ -724,8 +732,7 @@ func (p *Processor) downloadManifestViaPullDelegation(imageRef keppel.ImageRefer
 		logg.Error("while trying to build a pull delegation request for %s: %s", imageRef.String(), err.Error())
 		return nil, "", false
 	}
-	ourUserName := fmt.Sprintf("replication@%s", p.cfg.APIPublicURL.Hostname())
-	req.Header.Set("Authorization", keppel.BuildBasicAuthHeader(ourUserName, peer.OurPassword))
+	req.Header.Set("Authorization", "Bearer "+peerToken)
 	req.Header.Set("X-Keppel-Delegated-Pull-Username", userName)
 	req.Header.Set("X-Keppel-Delegated-Pull-Password", password)
 

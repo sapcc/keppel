@@ -21,25 +21,23 @@ package peerv1
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/go-bits/sre"
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/tokenauth"
 )
 
 //API contains state variables used by the peer API. This is an internal API
 //that is only available to peered Keppel instances.
 type API struct {
 	cfg keppel.Configuration
+	ad  keppel.AuthDriver
 	db  *keppel.DB
 }
 
 //NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, db *keppel.DB) *API {
-	return &API{cfg, db}
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, db *keppel.DB) *API {
+	return &API{cfg, ad, db}
 }
 
 //AddTo implements the api.API interface.
@@ -49,53 +47,31 @@ func (a *API) AddTo(r *mux.Router) {
 	//to upstream, so there is an additional /v2/ in there in reference to the
 	//Registry V2 API.
 	r.Methods("GET").Path("/peer/v1/delegatedpull/{hostname}/v2/{repo:.+}/manifests/{reference}").HandlerFunc(a.handleDelegatedPullManifest)
-	r.Methods("GET").Path("/peer/v1/account-filter/{account}").HandlerFunc(a.handleAccountFilter)
 	r.Methods("POST").Path("/peer/v1/sync-replica/{account}/{repo:.+}").HandlerFunc(a.handleSyncReplica)
 }
 
 func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request) *keppel.Peer {
-	//expect basic auth credentials for a replication user
-	userName, password, ok := r.BasicAuth()
-	if !ok || !strings.HasPrefix(userName, "replication@") {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return nil
-	}
-	peerHostName := strings.TrimPrefix(userName, "replication@")
-
-	//check credentials
-	peer, err := tokenauth.CheckPeerCredentials(a.db, peerHostName, password)
-	if respondwith.ErrorText(w, err) {
-		return nil
-	}
-	if peer == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	authz, rerr := auth.IncomingRequest{
+		HTTPRequest: r,
+		Scopes:      auth.NewScopeSet(auth.PeerAPIScope),
+	}.Authorize(a.cfg, a.ad, a.db)
+	if rerr != nil {
+		rerr.WriteAsTextTo(w)
 		return nil
 	}
 
-	return peer
-}
-
-// AccountFilter endpoint json struct
-type AccountFilter struct {
-	Filter keppel.PlatformFilter
-}
-
-func (a *API) handleAccountFilter(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/peer/v1/account-filter/:account")
-	peer := a.authenticateRequest(w, r)
-	if peer == nil {
-		return
+	uid, ok := authz.UserIdentity.(auth.PeerUserIdentity)
+	if !ok {
+		keppel.ErrUnknown.With("unexpected UserIdentity type: %T", authz.UserIdentity).WriteAsTextTo(w)
+		return nil
 	}
 
-	//find account
-	account, err := keppel.FindAccount(a.db, mux.Vars(r)["account"])
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-	if account == nil {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
+	var peer keppel.Peer
+	err := a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, uid.PeerHostName)
+	if err != nil {
+		keppel.AsRegistryV2Error(err).WriteAsTextTo(w)
+		return nil
 	}
 
-	respondwith.JSON(w, http.StatusOK, AccountFilter{Filter: account.PlatformFilter})
+	return &peer
 }

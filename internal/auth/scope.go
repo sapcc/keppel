@@ -18,7 +18,9 @@
 
 package auth
 
-import "strings"
+import (
+	"strings"
+)
 
 //Scope contains the fields of the "scope" query parameter in a token request.
 type Scope struct {
@@ -64,4 +66,28 @@ func (s Scope) String() string {
 		s.ResourceName,
 		strings.Join(s.Actions, ","),
 	}, ":")
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// predefined scopes
+
+//CatalogEndpointScope is the Scope for `GET /v2/_catalog`.
+var CatalogEndpointScope = Scope{
+	ResourceType: "registry",
+	ResourceName: "catalog",
+	Actions:      []string{"*"},
+}
+
+//PeerAPIScope is the Scope for all endpoints below `/peer/`.
+var PeerAPIScope = Scope{
+	ResourceType: "keppel_api",
+	ResourceName: "peer",
+	Actions:      []string{"access"},
+}
+
+//InfoAPIScope is the Scope for all informational endpoints that are allowed for all non-anon users.
+var InfoAPIScope = Scope{
+	ResourceType: "keppel_api",
+	ResourceName: "info",
+	Actions:      []string{"access"},
 }

@@ -34,7 +34,7 @@ import (
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sre"
-	peerv1 "github.com/sapcc/keppel/internal/api/peer"
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -278,21 +278,26 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 
 func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts")
-	uid, authErr := a.authDriver.AuthenticateUserFromRequest(r)
-	if respondWithAuthError(w, authErr) {
-		return
-	}
-
 	var accounts []keppel.Account
 	_, err := a.db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
 	if respondwith.ErrorText(w, err) {
 		return
 	}
+	scopes := accountScopes(keppel.CanViewAccount, accounts...)
+
+	authz := a.authenticateRequest(w, r, scopes)
+	if authz == nil {
+		return
+	}
+	if authz.UserIdentity.UserType() == keppel.AnonymousUser {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	//restrict accounts to those visible in the current scope
 	var accountsFiltered []keppel.Account
-	for _, account := range accounts {
-		if uid.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
+	for idx, account := range accounts {
+		if authz.ScopeSet.Contains(*scopes[idx]) {
 			accountsFiltered = append(accountsFiltered, account)
 		}
 	}
@@ -314,7 +319,11 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
-	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanViewAccount)
+	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanViewAccount))
+	if authz == nil {
+		return
+	}
+	account := a.findAccountFromRequest(w, r)
 	if account == nil {
 		return
 	}
@@ -457,12 +466,8 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//check permission to create account
-	uid, authErr := a.authDriver.AuthenticateUserFromRequest(r)
-	if respondWithAuthError(w, authErr) {
-		return
-	}
-	if !uid.HasPermission(keppel.CanChangeAccount, accountToCreate.AuthTenantID) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanChangeAccount, accountToCreate.AuthTenantID))
+	if authz == nil {
 		return
 	}
 
@@ -558,12 +563,22 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				reqURL := fmt.Sprintf("https://%s/peer/v1/account-filter/%s", accountToCreate.UpstreamPeerHostName, accountToCreate.Name)
+				viewScope := auth.Scope{
+					ResourceType: "keppel_account",
+					ResourceName: accountToCreate.Name,
+					Actions:      []string{"view"},
+				}
+				peerToken, err := auth.GetPeerToken(a.cfg, peer, viewScope)
+				if respondwith.ErrorText(w, err) {
+					return
+				}
+
+				reqURL := fmt.Sprintf("https://%s/keppel/v1/accounts/%s", accountToCreate.UpstreamPeerHostName, accountToCreate.Name)
 				authReq, err := http.NewRequest("GET", reqURL, nil)
 				if respondwith.ErrorText(w, err) {
 					return
 				}
-				authReq.Header.Set("Authorization", keppel.BuildBasicAuthHeader(fmt.Sprintf("replication@%s", a.cfg.APIPublicURL.Hostname()), peer.OurPassword))
+				authReq.Header.Set("Authorization", "Bearer "+peerToken)
 
 				resp, err := http.DefaultClient.Do(authReq)
 				if err != nil {
@@ -585,18 +600,21 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				var data peerv1.AccountFilter
-				err = json.Unmarshal(respBodyBytes, &data)
+				var upstreamAccountData struct {
+					Account Account `json:"account"`
+				}
+				err = json.Unmarshal(respBodyBytes, &upstreamAccountData)
 				if respondwith.ErrorText(w, err) {
 					return
 				}
+				upstreamAccount := upstreamAccountData.Account
 
 				if req.Account.PlatformFilter == nil {
-					accountToCreate.PlatformFilter = data.Filter
-				} else if !reflect.DeepEqual(req.Account.PlatformFilter, data.Filter) {
+					accountToCreate.PlatformFilter = upstreamAccount.PlatformFilter
+				} else if !reflect.DeepEqual(req.Account.PlatformFilter, upstreamAccount.PlatformFilter) {
 					// check if the peer PlatformFilter matches the primary account PlatformFilter
 					jsonPlatformFilter, _ := json.Marshal(req.Account.PlatformFilter)
-					jsonFilter, _ := json.Marshal(data.Filter)
+					jsonFilter, _ := json.Marshal(upstreamAccount.PlatformFilter)
 					msg := fmt.Sprintf("peer account filter needs to match primary account filter: primary account %s, peer account %s ", jsonPlatformFilter, jsonFilter)
 					http.Error(w, msg, http.StatusConflict)
 					return
@@ -621,7 +639,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		if respondwith.ErrorText(w, err) {
 			return
 		}
-		if userInfo := uid.UserInfo(); userInfo != nil {
+		if userInfo := authz.UserIdentity.UserInfo(); userInfo != nil {
 			a.auditor.Record(audittools.EventParameters{
 				Time:       time.Now(),
 				Request:    r,
@@ -667,7 +685,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if needsAudit {
-			if userInfo := uid.UserInfo(); userInfo != nil {
+			if userInfo := authz.UserIdentity.UserInfo(); userInfo != nil {
 				a.auditor.Record(audittools.EventParameters{
 					Time:       time.Now(),
 					Request:    r,
@@ -681,7 +699,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	submitAudit := func(action string, target AuditRBACPolicy) {
-		if userInfo := uid.UserInfo(); userInfo != nil {
+		if userInfo := authz.UserIdentity.UserInfo(); userInfo != nil {
 			a.auditor.Record(audittools.EventParameters{
 				Time:       time.Now(),
 				Request:    r,
@@ -819,7 +837,11 @@ type deleteAccountResponse struct {
 
 func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
-	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanChangeAccount)
+	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
+	if authz == nil {
+		return
+	}
+	account := a.findAccountFromRequest(w, r)
 	if account == nil {
 		return
 	}
@@ -942,7 +964,11 @@ func (a *API) deleteAccount(account keppel.Account) (*deleteAccountResponse, err
 
 func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/sublease")
-	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanChangeAccount)
+	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
+	if authz == nil {
+		return
+	}
+	account := a.findAccountFromRequest(w, r)
 	if account == nil {
 		return
 	}

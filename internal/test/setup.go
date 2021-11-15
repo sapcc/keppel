@@ -293,7 +293,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		apis = append(apis, keppelv1.NewAPI(s.Config, ad, fd, sd, icd, s.DB, s.Auditor))
 	}
 	if params.WithPeerAPI {
-		apis = append(apis, peerv1.NewAPI(s.Config, s.DB))
+		apis = append(apis, peerv1.NewAPI(s.Config, ad, s.DB))
 	}
 	s.Handler = api.Compose(apis...)
 	if tt, ok := http.DefaultClient.Transport.(*RoundTripper); ok {

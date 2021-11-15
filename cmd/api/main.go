@@ -96,7 +96,7 @@ func run(cmd *cobra.Command, args []string) {
 		keppelv1.NewAPI(cfg, ad, fd, sd, icd, db, auditor),
 		auth.NewAPI(cfg, ad, fd, db),
 		registryv2.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle),
-		peerv1.NewAPI(cfg, db),
+		peerv1.NewAPI(cfg, ad, db),
 		clairproxy.NewAPI(cfg, ad),
 		&headerReflector{logg.ShowDebug}, //the header reflection endpoint is only enabled where debugging is enabled (i.e. usually in dev/QA only)
 		&guiRedirecter{db, os.Getenv("KEPPEL_GUI_URI")},

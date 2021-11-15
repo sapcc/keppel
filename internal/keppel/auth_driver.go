@@ -74,6 +74,9 @@ type AuthDriver interface {
 	//OAuth backend could try to read a Bearer token from the Authorization
 	//header, whereas an OpenStack auth driver would look for a Keystone token in the
 	//X-Auth-Token header.
+	//
+	//If the request contains no auth headers at all, (nil, nil) shall be
+	//returned to trigger the codepath for anonymous users.
 	AuthenticateUserFromRequest(r *http.Request) (UserIdentity, *RegistryV2Error)
 }
 

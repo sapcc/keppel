@@ -29,6 +29,7 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/processor"
@@ -223,6 +224,12 @@ func (j *Janitor) getReplicaSyncPayload(account keppel.Account, repo keppel.Repo
 		return nil, err
 	}
 
+	//get token for peer
+	peerToken, err := auth.GetPeerToken(j.cfg, peer, auth.PeerAPIScope)
+	if err != nil {
+		return nil, err
+	}
+
 	//assemble request body
 	tagsByDigest := make(map[string][]keppel.TagForSync)
 	query := `SELECT name, digest, last_pulled_at FROM tags WHERE repo_id = $1`
@@ -278,8 +285,7 @@ func (j *Janitor) getReplicaSyncPayload(account keppel.Account, repo keppel.Repo
 	if err != nil {
 		return nil, err
 	}
-	ourUserName := fmt.Sprintf("replication@%s", j.cfg.APIPublicURL.Hostname())
-	req.Header.Set("Authorization", keppel.BuildBasicAuthHeader(ourUserName, peer.OurPassword))
+	req.Header.Set("Authorization", "Bearer "+peerToken)
 
 	//execute request
 	resp, err := http.DefaultClient.Do(req)

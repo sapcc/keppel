@@ -207,7 +207,8 @@ func TestReposAPI(t *testing.T) {
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/doesnotexist/repositories",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusNotFound,
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   assert.StringData("no permission for keppel_account:doesnotexist:view\n"),
 	}.Check(t, h)
 	assert.HTTPRequest{
 		Method:       "GET",
@@ -232,7 +233,8 @@ func TestReposAPI(t *testing.T) {
 		Method:       "DELETE",
 		Path:         "/keppel/v1/accounts/test2/repositories/repo2-1",
 		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
-		ExpectStatus: http.StatusNotFound,
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   assert.StringData("no permission for repository:test2/repo2-1:delete\n"),
 	}.Check(t, h)
 	assert.HTTPRequest{
 		Method:       "DELETE",
@@ -244,7 +246,8 @@ func TestReposAPI(t *testing.T) {
 		Method:       "DELETE",
 		Path:         "/keppel/v1/accounts/doesnotexist/repositories/repo1-2",
 		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
-		ExpectStatus: http.StatusNotFound,
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   assert.StringData("no permission for repository:doesnotexist/repo1-2:delete\n"),
 	}.Check(t, h)
 	assert.HTTPRequest{
 		Method:       "DELETE",

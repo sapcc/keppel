@@ -70,7 +70,11 @@ var repositoryGetQuery = keppel.SimplifyWhitespaceInSQL(`
 
 func (a *API) handleGetRepositories(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories")
-	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanViewAccount)
+	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanViewAccount))
+	if authz == nil {
+		return
+	}
+	account := a.findAccountFromRequest(w, r)
 	if account == nil {
 		return
 	}
@@ -154,7 +158,11 @@ func maxTimeToUnix(x, y *time.Time) int64 {
 
 func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo")
-	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanDeleteFromAccount)
+	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanDeleteFromAccount))
+	if authz == nil {
+		return
+	}
+	account := a.findAccountFromRequest(w, r)
 	if account == nil {
 		return
 	}

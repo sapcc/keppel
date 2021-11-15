@@ -62,15 +62,15 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		//from upstream (as an exception, other Keppels replicating from us always
 		//see the true 404 to properly replicate the non-existence of the manifest
 		//from this account into the replica account)
-		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.InMaintenance && authz.UserIdentity().UserType() != keppel.PeerUser {
+		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.InMaintenance && authz.UserIdentity.UserType() != keppel.PeerUser {
 			//when replicating from external, only authenticated users can trigger the replication
-			if account.ExternalPeerURL != "" && authz.UserIdentity().UserType() != keppel.RegularUser {
+			if account.ExternalPeerURL != "" && authz.UserIdentity.UserType() != keppel.RegularUser {
 				keppel.ErrDenied.With("image does not exist here, and anonymous users may not replicate images").WithStatus(http.StatusForbidden).WriteAsRegistryV2ResponseTo(w, r)
 				return
 			}
 
 			dbManifest, manifestBytes, err = a.processor().ReplicateManifest(*account, *repo, reference, keppel.AuditContext{
-				UserIdentity: authz.UserIdentity(),
+				UserIdentity: authz.UserIdentity,
 				Request:      r,
 			})
 			if respondWithError(w, r, err) {
@@ -252,7 +252,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	//delete tag or manifest from the database
 	ref := keppel.ParseManifestReference(mux.Vars(r)["reference"])
 	actx := keppel.AuditContext{
-		UserIdentity: authz.UserIdentity(),
+		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	}
 	var err error
@@ -319,7 +319,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		Contents:  manifestBytes,
 		PushedAt:  a.timeNow(),
 	}, keppel.AuditContext{
-		UserIdentity: authz.UserIdentity(),
+		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
 	if respondWithError(w, r, err) {

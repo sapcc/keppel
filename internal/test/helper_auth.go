@@ -25,7 +25,6 @@ import (
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/tokenauth"
 )
 
 //GetToken obtains a token for use with the Registry V2 API.
@@ -108,25 +107,19 @@ func (s Setup) getToken(t *testing.T, audience auth.Service, scopes ...string) s
 		}
 	}
 
-	//convert []*auth.Scope into []auth.Scope
-	var flatScopes []auth.Scope
-	for _, scope := range ss {
-		flatScopes = append(flatScopes, *scope)
-	}
-
 	//issue token
-	issuedToken, err := tokenauth.Token{
+	tokenResp, err := auth.Authorization{
 		UserIdentity: userIdentity{
 			Username: "correctusername",
 			Perms:    perms,
 		},
-		Audience: audience,
-		Access:   flatScopes,
-	}.Issue(s.Config)
+		Service:  audience,
+		ScopeSet: ss,
+	}.IssueToken(s.Config)
 	must(t, err)
 
-	s.tokenCache[cacheKey] = issuedToken.SignedToken
-	return issuedToken.SignedToken
+	s.tokenCache[cacheKey] = tokenResp.Token
+	return tokenResp.Token
 }
 
 func (s Setup) findAuthTenantIDForAccountName(accountName string) (string, error) {
@@ -140,4 +133,17 @@ func (s Setup) findAuthTenantIDForAccountName(accountName string) (string, error
 
 	//base case: look up in the DB
 	return s.DB.SelectStr(`SELECT auth_tenant_id FROM accounts WHERE name = $1`, accountName)
+}
+
+//AddHeadersForCorrectAuthChallenge adds X-Forwarded-... headers to a request
+//to ensure that the correct auth challenge gets generated. It won't work
+//without these headers since the httptest library sets "Host: example.com" on
+//all simulated HTTP requests.
+func AddHeadersForCorrectAuthChallenge(hdr map[string]string) map[string]string {
+	if hdr == nil {
+		hdr = make(map[string]string)
+	}
+	hdr["X-Forwarded-Host"] = "registry.example.org"
+	hdr["X-Forwarded-Proto"] = "https"
+	return hdr
 }

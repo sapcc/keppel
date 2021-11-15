@@ -71,7 +71,7 @@ func (d *AuthDriver) AuthenticateUser(userName, password string) (keppel.UserIde
 func (d *AuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	hdr := r.Header.Get("X-Test-Perms")
 	if hdr == "" {
-		return nil, keppel.ErrUnauthorized.With("missing X-Test-Perms header")
+		return nil, nil
 	}
 	return d.parseUserIdentity(hdr), nil
 }

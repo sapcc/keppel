@@ -35,7 +35,7 @@ func TestVersionCheckEndpoint(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/",
-			Header:       addHeadersForCorrectAuthChallenge(nil),
+			Header:       test.AddHeadersForCorrectAuthChallenge(nil),
 			ExpectStatus: http.StatusUnauthorized,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey: test.VersionHeaderValue,
@@ -51,7 +51,7 @@ func TestVersionCheckEndpoint(t *testing.T) {
 		}.Check(t, h)
 
 		//with token, expect status code 200
-		token := s.GetToken(t /* , no scopes */)
+		token := s.GetToken(t, "keppel_api:info:access")
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/",
@@ -87,15 +87,16 @@ func TestKeppelAPIAuth(t *testing.T) {
 		}.Check(t, h)
 		//test scopeless endpoint: failure case ("Authorization: keppel" means that
 		//we want Keppel API auth, but then we don't pass the respective headers,
-		//so we get the usual 401 and auth challenge)
+		//so we get a 401; we do not get an auth challenge since Keppel API auth
+		//does not work with auth challenges)
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/",
-			Header:       addHeadersForCorrectAuthChallenge(map[string]string{"Authorization": "keppel"}),
+			Header:       test.AddHeadersForCorrectAuthChallenge(map[string]string{"Authorization": "keppel"}),
 			ExpectStatus: http.StatusUnauthorized,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey: test.VersionHeaderValue,
-				"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org"`,
+				"Www-Authenticate":    "",
 			},
 		}.Check(t, h)
 
@@ -144,14 +145,14 @@ func TestKeppelAPIAuth(t *testing.T) {
 		assert.HTTPRequest{
 			Method: "GET",
 			Path:   "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
-			Header: addHeadersForCorrectAuthChallenge(map[string]string{
+			Header: test.AddHeadersForCorrectAuthChallenge(map[string]string{
 				"Authorization": "keppel",
 				"X-Test-Perms":  "view:test1authtenant",
 			}),
 			ExpectStatus: http.StatusUnauthorized,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey: test.VersionHeaderValue,
-				"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull"`,
+				"Www-Authenticate":    "", //Keppel API auth does not use auth challenges
 			},
 		}.Check(t, h)
 	})

@@ -32,10 +32,10 @@ type Service int
 const (
 	//LocalService is the Service for tokens issued by this keppel-api for use
 	//only with the same keppel-api.
-	LocalService Service = 0
+	LocalService Service = 1
 	//AnycastService is the Service for tokens issued by this keppel-api or one
 	//of its peers for their shared anycast endpoint.
-	AnycastService Service = 1
+	AnycastService Service = 2
 )
 
 //Hostname returns the hostname that is used as the "audience" value in tokens

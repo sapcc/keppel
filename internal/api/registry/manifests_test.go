@@ -292,6 +292,35 @@ func TestImageManifestLifecycle(t *testing.T) {
 				}.Check(t, h)
 			}
 
+			//test GET with anonymous user (fails unless a pull_anonymous RBAC policy is set up)
+			assert.HTTPRequest{
+				Method:       "GET",
+				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
+				Header:       test.AddHeadersForCorrectAuthChallenge(nil),
+				ExpectStatus: http.StatusUnauthorized,
+				ExpectHeader: map[string]string{
+					test.VersionHeaderKey: test.VersionHeaderValue,
+					"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull"`,
+				},
+			}.Check(t, h)
+			_, err = s.DB.Exec(
+				`INSERT INTO rbac_policies (account_name, match_repository, match_username, can_anon_pull) VALUES ('test1', 'foo', '', TRUE)`,
+			)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			assert.HTTPRequest{
+				Method:       "GET",
+				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
+				ExpectStatus: http.StatusOK,
+				ExpectHeader: test.VersionHeader,
+				ExpectBody:   assert.ByteData(image.Manifest.Contents),
+			}.Check(t, h)
+			_, err = s.DB.Exec(`DELETE FROM rbac_policies`)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+
 			//DELETE failure case: no delete permission
 			assert.HTTPRequest{
 				Method:       "DELETE",

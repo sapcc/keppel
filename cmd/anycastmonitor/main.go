@@ -34,7 +34,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sapcc/go-bits/httpee"
 	"github.com/sapcc/go-bits/logg"
-	authapi "github.com/sapcc/keppel/internal/api/auth"
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/spf13/cobra"
@@ -163,7 +163,7 @@ func checkAnycastMembership(anycastURL *url.URL, apiPublicHostname string) (bool
 		return false, fmt.Errorf("failed reading body: %s", err.Error())
 	}
 
-	var data authapi.TokenResponse
+	var data auth.TokenResponse
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		return false, fmt.Errorf("failed to unmarshal JWT: %s", err.Error())
