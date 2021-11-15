@@ -289,7 +289,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	if authz.UserIdentity == auth.AnonymousUserIdentity {
+	if authz.UserIdentity.UserType() == keppel.AnonymousUser {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
