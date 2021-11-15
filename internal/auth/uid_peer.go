@@ -28,47 +28,49 @@ import (
 )
 
 func init() {
-	keppel.RegisterUserIdentity("repl", deserializeReplicationUserIdentity)
+	keppel.RegisterUserIdentity("repl", deserializePeerUserIdentity)
 }
 
-//ReplicationUserIdentity is a keppel.UserIdentity for replication users with global pull access.
+//PeerUserIdentity is a keppel.UserIdentity for peer users with global read
+//access and access to the specialized peer API.
 //
-//TODO generalize into PeerUserIdentity
-type ReplicationUserIdentity struct {
+//This type used to be called ReplicationUserIdentity, which is why usernames
+//start with `replication@` and why serialization uses the type name "repl".
+type PeerUserIdentity struct {
 	PeerHostName string
 }
 
 //HasPermission implements the keppel.UserIdentity interface.
-func (uid ReplicationUserIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
+func (uid PeerUserIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
 	//allow universal pull access for replication purposes
 	return perm == keppel.CanViewAccount || perm == keppel.CanPullFromAccount
 }
 
 //UserType implements the keppel.UserIdentity interface.
-func (uid ReplicationUserIdentity) UserType() keppel.UserType {
+func (uid PeerUserIdentity) UserType() keppel.UserType {
 	return keppel.PeerUser
 }
 
 //UserName implements the keppel.UserIdentity interface.
-func (uid ReplicationUserIdentity) UserName() string {
+func (uid PeerUserIdentity) UserName() string {
 	return "replication@" + uid.PeerHostName
 }
 
 //UserInfo implements the keppel.UserIdentity interface.
-func (uid ReplicationUserIdentity) UserInfo() audittools.UserInfo {
+func (uid PeerUserIdentity) UserInfo() audittools.UserInfo {
 	return nil
 }
 
 //SerializeToJSON implements the keppel.UserIdentity interface.
-func (uid ReplicationUserIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
+func (uid PeerUserIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
 	payload, err = json.Marshal(uid.PeerHostName)
 	return "repl", payload, err
 }
 
-func deserializeReplicationUserIdentity(in []byte, _ keppel.AuthDriver) (keppel.UserIdentity, error) {
+func deserializePeerUserIdentity(in []byte, _ keppel.AuthDriver) (keppel.UserIdentity, error) {
 	var peerHostName string
 	err := json.Unmarshal(in, &peerHostName)
-	return ReplicationUserIdentity{peerHostName}, err
+	return PeerUserIdentity{peerHostName}, err
 }
 
 //Returns whether the given peer credentials are valid. On success, the Peer

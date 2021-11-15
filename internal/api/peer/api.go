@@ -63,7 +63,7 @@ func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request) *keppe
 		return nil
 	}
 
-	uid, ok := authz.UserIdentity.(auth.ReplicationUserIdentity)
+	uid, ok := authz.UserIdentity.(auth.PeerUserIdentity)
 	if !ok {
 		keppel.ErrUnknown.With("unexpected UserIdentity type: %T", authz.UserIdentity).WriteAsTextTo(w)
 		return nil
