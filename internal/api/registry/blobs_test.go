@@ -174,7 +174,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/test1/foo/blobs/" + blob.Digest.String(),
-			Header:       addHeadersForCorrectAuthChallenge(nil),
+			Header:       test.AddHeadersForCorrectAuthChallenge(nil),
 			ExpectStatus: http.StatusUnauthorized,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey: test.VersionHeaderValue,

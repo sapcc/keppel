@@ -134,3 +134,16 @@ func (s Setup) findAuthTenantIDForAccountName(accountName string) (string, error
 	//base case: look up in the DB
 	return s.DB.SelectStr(`SELECT auth_tenant_id FROM accounts WHERE name = $1`, accountName)
 }
+
+//AddHeadersForCorrectAuthChallenge adds X-Forwarded-... headers to a request
+//to ensure that the correct auth challenge gets generated. It won't work
+//without these headers since the httptest library sets "Host: example.com" on
+//all simulated HTTP requests.
+func AddHeadersForCorrectAuthChallenge(hdr map[string]string) map[string]string {
+	if hdr == nil {
+		hdr = make(map[string]string)
+	}
+	hdr["X-Forwarded-Host"] = "registry.example.org"
+	hdr["X-Forwarded-Proto"] = "https"
+	return hdr
+}
