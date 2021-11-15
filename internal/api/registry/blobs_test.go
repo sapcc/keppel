@@ -234,6 +234,22 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				t.Fatal(err.Error())
 			}
 
+			//test failure cases during POST: anonymous is not allowed, should yield an auth challenge
+			assert.HTTPRequest{
+				Method: "POST",
+				Path:   "/v2/test1/foo/blobs/uploads/",
+				Header: test.AddHeadersForCorrectAuthChallenge(map[string]string{
+					"Content-Length": strconv.Itoa(len(blob.Contents)),
+					"Content-Type":   "application/octet-stream",
+				}),
+				Body:         assert.ByteData(blob.Contents),
+				ExpectStatus: http.StatusUnauthorized,
+				ExpectHeader: map[string]string{
+					test.VersionHeaderKey: test.VersionHeaderValue,
+					"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull,push"`,
+				},
+			}.Check(t, h)
+
 			//test failure cases during POST: token does not have push access
 			assert.HTTPRequest{
 				Method: "POST",

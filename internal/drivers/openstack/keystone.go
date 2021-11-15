@@ -221,6 +221,11 @@ func parseUserNameAndPassword(userName, password string) (tokens.AuthOptions, *k
 
 //AuthenticateUserFromRequest implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.UserIdentity, *keppel.RegistryV2Error) {
+	if r.Header.Get("X-Auth-Token") == "" {
+		//fallback to anonymous auth
+		return nil, nil
+	}
+
 	t := d.TokenValidator.CheckToken(r)
 	if t.Err != nil {
 		return nil, keppel.ErrUnauthorized.With("X-Auth-Token validation failed: " + t.Err.Error())
