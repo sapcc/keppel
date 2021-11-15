@@ -459,9 +459,12 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
 			tr.DBChanges().AssertEmpty()
 
-			//replace the primary registry's API with something that just answers 404 all the time
+			//replace the primary registry's API with something that just answers 404 most of the time
+			//
+			//(We do allow the /keppel/v1/auth endpoint to work properly because
+			//otherwise the error messages are not reproducible between passes.)
 			s1.Clock.StepBy(7 * time.Hour)
-			http.DefaultClient.Transport.(*test.RoundTripper).Handlers["registry.example.org"] = http.HandlerFunc(answerWith404)
+			http.DefaultClient.Transport.(*test.RoundTripper).Handlers["registry.example.org"] = answerMostWith404(s1.Handler)
 			//This is particularly devious since 404 is returned by the GET endpoint for
 			//a manifest when the manifest was deleted. We want to check that the next
 			//SyncManifestsInNextRepo understands that this is a network issue and not
@@ -517,8 +520,14 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 	})
 }
 
-func answerWith404(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not found", http.StatusNotFound)
+func answerMostWith404(h http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/keppel/v1/auth" {
+			h.ServeHTTP(w, r)
+		} else {
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

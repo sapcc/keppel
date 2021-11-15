@@ -125,6 +125,15 @@ type RegistryV2Error struct {
 	Headers http.Header `json:"-"`
 }
 
+//AsRegistryV2Error tries to cast `err` into RegistryV2Error. If `err` is not a
+//RegistryV2Error, it gets wrapped in ErrUnknown instead.
+func AsRegistryV2Error(err error) *RegistryV2Error {
+	if rerr, ok := err.(*RegistryV2Error); ok {
+		return rerr
+	}
+	return ErrUnknown.With(err.Error())
+}
+
 //WithDetail adds detail information to this error.
 func (e *RegistryV2Error) WithDetail(detail interface{}) *RegistryV2Error {
 	e.Detail = detail
@@ -186,8 +195,12 @@ func (e *RegistryV2Error) WriteAsTextTo(w http.ResponseWriter) {
 	for k, v := range e.Headers {
 		w.Header()[k] = v
 	}
-	w.WriteHeader(apiErrorStatusCodes[e.Code])
-	w.Write([]byte(e.Error()))
+	if e.Status == 0 {
+		w.WriteHeader(apiErrorStatusCodes[e.Code])
+	} else {
+		w.WriteHeader(e.Status)
+	}
+	w.Write([]byte(e.Error() + "\n"))
 }
 
 //Error implements the builtin/error interface.

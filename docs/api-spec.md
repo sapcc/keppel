@@ -18,7 +18,9 @@ The authentication method for this API depends on which auth driver is used by t
 
 The OCI Distribution API usually uses OAuth-like bearer tokens, but in Keppel, it can also be made to use the same
 authentication method as the API specified in this document. To do so, add the request header `Authorization: keppel`
-and the same request headers as on this API to a request for the OCI Distribution API.
+and the same request headers as on this API to a request for the OCI Distribution API. Conversely, the Keppel API can be
+used with the bearer token auth scheme prescribed by the OCI Distribution API. The Keppel API will render the respective
+auth challenges when API requests are made without any form of authentication.
 
 This document uses the terminology defined in the [README.md](../README.md#terminology).
 

@@ -25,7 +25,6 @@ import (
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/tokenauth"
 )
 
 //GetToken obtains a token for use with the Registry V2 API.
@@ -108,25 +107,19 @@ func (s Setup) getToken(t *testing.T, audience auth.Service, scopes ...string) s
 		}
 	}
 
-	//convert []*auth.Scope into []auth.Scope
-	var flatScopes []auth.Scope
-	for _, scope := range ss {
-		flatScopes = append(flatScopes, *scope)
-	}
-
 	//issue token
-	issuedToken, err := tokenauth.Token{
+	tokenResp, err := auth.Authorization{
 		UserIdentity: userIdentity{
 			Username: "correctusername",
 			Perms:    perms,
 		},
-		Audience: audience,
-		Access:   flatScopes,
-	}.Issue(s.Config)
+		Service:  audience,
+		ScopeSet: ss,
+	}.IssueToken(s.Config)
 	must(t, err)
 
-	s.tokenCache[cacheKey] = issuedToken.SignedToken
-	return issuedToken.SignedToken
+	s.tokenCache[cacheKey] = tokenResp.Token
+	return tokenResp.Token
 }
 
 func (s Setup) findAuthTenantIDForAccountName(accountName string) (string, error) {

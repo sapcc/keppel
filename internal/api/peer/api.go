@@ -21,25 +21,25 @@ package peerv1
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sre"
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/tokenauth"
 )
 
 //API contains state variables used by the peer API. This is an internal API
 //that is only available to peered Keppel instances.
 type API struct {
 	cfg keppel.Configuration
+	ad  keppel.AuthDriver
 	db  *keppel.DB
 }
 
 //NewAPI constructs a new API instance.
-func NewAPI(cfg keppel.Configuration, db *keppel.DB) *API {
-	return &API{cfg, db}
+func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, db *keppel.DB) *API {
+	return &API{cfg, ad, db}
 }
 
 //AddTo implements the api.API interface.
@@ -54,25 +54,29 @@ func (a *API) AddTo(r *mux.Router) {
 }
 
 func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request) *keppel.Peer {
-	//expect basic auth credentials for a replication user
-	userName, password, ok := r.BasicAuth()
-	if !ok || !strings.HasPrefix(userName, "replication@") {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return nil
-	}
-	peerHostName := strings.TrimPrefix(userName, "replication@")
-
-	//check credentials
-	peer, err := tokenauth.CheckPeerCredentials(a.db, peerHostName, password)
-	if respondwith.ErrorText(w, err) {
-		return nil
-	}
-	if peer == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	authz, rerr := auth.IncomingRequest{
+		HTTPRequest: r,
+		Scopes:      auth.NewScopeSet(auth.PeerAPIScope),
+	}.Authorize(a.cfg, a.ad, a.db)
+	if rerr != nil {
+		rerr.WriteAsTextTo(w)
 		return nil
 	}
 
-	return peer
+	uid, ok := authz.UserIdentity.(auth.ReplicationUserIdentity)
+	if !ok {
+		keppel.ErrUnknown.With("unexpected UserIdentity type: %T", authz.UserIdentity).WriteAsTextTo(w)
+		return nil
+	}
+
+	var peer keppel.Peer
+	err := a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, uid.PeerHostName)
+	if err != nil {
+		keppel.AsRegistryV2Error(err).WriteAsTextTo(w)
+		return nil
+	}
+
+	return &peer
 }
 
 // AccountFilter endpoint json struct

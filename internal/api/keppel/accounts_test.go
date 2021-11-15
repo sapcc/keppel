@@ -60,8 +60,8 @@ func TestAccountsAPI(t *testing.T) {
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/first",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusNotFound,
-		ExpectBody:   assert.StringData("no such account\n"),
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   assert.StringData("no permission for keppel_account:first:view\n"),
 	}.Check(t, h)
 
 	//create an account (this request is executed twice to test idempotency)
@@ -164,8 +164,8 @@ func TestAccountsAPI(t *testing.T) {
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/first",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant2"},
-		ExpectStatus: http.StatusNotFound,
-		ExpectBody:   assert.StringData("no such account\n"),
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   assert.StringData("no permission for keppel_account:first:view\n"),
 	}.Check(t, h)
 
 	//create an account with RBAC policies and GC policies (this request is executed twice to test idempotency)
@@ -552,7 +552,8 @@ func TestGetAccountsErrorCases(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
 
-	//test invalid authentication
+	//test invalid authentication (response includes auth challenges since the
+	//default auth scheme is bearer token auth)
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts",
@@ -562,8 +563,11 @@ func TestGetAccountsErrorCases(t *testing.T) {
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/first",
-		ExpectStatus: http.StatusUnauthorized,
-		ExpectBody:   assert.StringData("unauthorized\n"),
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   assert.StringData("no bearer token found in request headers\n"),
+		ExpectHeader: map[string]string{
+			"Www-Authenticate": `Bearer realm="http://example.com/keppel/v1/auth",service="registry.example.org",scope="keppel_account:first:view"`,
+		},
 	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -573,8 +577,11 @@ func TestGetAccountsErrorCases(t *testing.T) {
 				"auth_tenant_id": "tenant1",
 			},
 		},
-		ExpectStatus: http.StatusUnauthorized,
-		ExpectBody:   assert.StringData("unauthorized\n"),
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   assert.StringData("no bearer token found in request headers\n"),
+		ExpectHeader: map[string]string{
+			"Www-Authenticate": `Bearer realm="http://example.com/keppel/v1/auth",service="registry.example.org",scope="keppel_auth_tenant:tenant1:change"`,
+		},
 	}.Check(t, h)
 }
 
@@ -661,8 +668,12 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"auth_tenant_id": "tenant1",
 			},
 		},
-		ExpectStatus: http.StatusUnauthorized,
-		ExpectBody:   assert.StringData("unauthorized\n"),
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   assert.StringData("no bearer token found in request headers\n"),
+		ExpectHeader: map[string]string{
+			//default auth is bearer token auth, so an auth challenge gets rendered
+			"Www-Authenticate": `Bearer realm="http://example.com/keppel/v1/auth",service="registry.example.org",scope="keppel_auth_tenant:tenant1:change"`,
+		},
 	}.Check(t, h)
 
 	assert.HTTPRequest{
@@ -675,7 +686,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		},
 		ExpectStatus: http.StatusForbidden,
-		ExpectBody:   assert.StringData("Forbidden\n"),
+		ExpectBody:   assert.StringData("no permission for keppel_auth_tenant:tenant1:change\n"),
 	}.Check(t, h)
 
 	//test rejection by federation driver (we test both user error and server
@@ -1047,22 +1058,26 @@ func TestPutAccountErrorCases(t *testing.T) {
 	assert.HTTPRequest{
 		Method:       "POST",
 		Path:         "/keppel/v1/accounts/first/sublease",
-		ExpectStatus: http.StatusUnauthorized,
-		ExpectBody:   assert.StringData("unauthorized\n"),
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   assert.StringData("no bearer token found in request headers\n"),
+		ExpectHeader: map[string]string{
+			//default auth is bearer token auth, so an auth challenge gets rendered
+			"Www-Authenticate": `Bearer realm="http://example.com/keppel/v1/auth",service="registry.example.org",scope="keppel_account:first:change"`,
+		},
 	}.Check(t, h)
 	assert.HTTPRequest{
 		Method:       "POST",
 		Path:         "/keppel/v1/accounts/first/sublease",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
 		ExpectStatus: http.StatusForbidden,
-		ExpectBody:   assert.StringData("Forbidden\n"),
+		ExpectBody:   assert.StringData("no permission for keppel_account:first:change\n"),
 	}.Check(t, h)
 	assert.HTTPRequest{
 		Method:       "POST",
 		Path:         "/keppel/v1/accounts/unknown/sublease", //account does not exist
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
-		ExpectStatus: http.StatusNotFound,
-		ExpectBody:   assert.StringData("no such account\n"),
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   assert.StringData("no permission for keppel_account:unknown:change\n"),
 	}.Check(t, h)
 }
 

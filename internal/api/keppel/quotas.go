@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sre"
@@ -49,8 +50,9 @@ type quotaRequest struct {
 
 func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/quotas/:auth_tenant_id")
-	authTenantID, _ := a.authenticateAuthTenantScopedRequest(w, r, keppel.CanViewQuotas)
-	if authTenantID == "" {
+	authTenantID := mux.Vars(r)["auth_tenant_id"]
+	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanViewQuotas, authTenantID))
+	if authz == nil {
 		return
 	}
 
@@ -77,8 +79,9 @@ func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/quotas/:auth_tenant_id")
-	authTenantID, uid := a.authenticateAuthTenantScopedRequest(w, r, keppel.CanChangeQuotas)
-	if authTenantID == "" {
+	authTenantID := mux.Vars(r)["auth_tenant_id"]
+	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanChangeQuotas, authTenantID))
+	if authz == nil {
 		return
 	}
 
@@ -138,7 +141,7 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//record audit event when quotas have changed
-		if userInfo := uid.UserInfo(); userInfo != nil {
+		if userInfo := authz.UserIdentity.UserInfo(); userInfo != nil {
 			a.auditor.Record(audittools.EventParameters{
 				Time:       time.Now(),
 				Request:    r,

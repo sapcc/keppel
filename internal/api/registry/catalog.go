@@ -33,12 +33,6 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-var requiredScopeForCatalogEndpoint = auth.Scope{
-	ResourceType: "registry",
-	ResourceName: "catalog",
-	Actions:      []string{"*"},
-}
-
 const maxLimit = 100
 
 //This implements the GET /v2/_catalog endpoint.
@@ -54,7 +48,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authz := a.requireAuthorization(w, r, &requiredScopeForCatalogEndpoint)
+	authz := a.requireAuthorization(w, r, auth.CatalogEndpointScope)
 	if authz == nil {
 		return
 	}
@@ -95,10 +89,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//find accessible accounts
-	accountNames, err := authz.AccountsWithCatalogAccess(markerAccountName)
-	if respondWithError(w, r, err) {
-		return
-	}
+	accountNames := authz.ScopeSet.AccountsWithCatalogAccess(markerAccountName)
 	sort.Strings(accountNames)
 
 	//collect repository names from backend

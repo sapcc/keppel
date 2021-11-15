@@ -17,36 +17,45 @@
 *
 *******************************************************************************/
 
-package tokenauth
+package auth
 
 import (
 	"strings"
 
-	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//FilterAuthorized produces a new auth.ScopeSet containing only those scopes
-//that the given `uid` is permitted to access and only those actions therein
-//which this `uid` is permitted to perform.
-func FilterAuthorized(ss auth.ScopeSet, uid keppel.UserIdentity, audience auth.Service, db *keppel.DB) (auth.ScopeSet, error) {
-	result := make(auth.ScopeSet, 0, len(ss))
+//Produces a new ScopeSet containing only those scopes that the given
+//`uid` is permitted to access and only those actions therein which this `uid`
+//is permitted to perform.
+func filterAuthorized(ss ScopeSet, uid keppel.UserIdentity, audience Service, db *keppel.DB) (ScopeSet, error) {
+	result := make(ScopeSet, 0, len(ss))
 	//make sure that additional scopes get appended at the end, on the offchance
 	//that a client might parse its token and look at access[0] to check for its
 	//authorization
-	var additional auth.ScopeSet
+	var additional ScopeSet
 
 	var err error
 	for _, scope := range ss {
 		filtered := *scope
 		switch scope.ResourceType {
 		case "registry":
-			if audience == auth.AnycastService {
+			if audience == AnycastService {
 				//we cannot allow catalog access on the anycast API since there is no way
 				//to decide which peer does the authentication in this case
 				filtered.Actions = nil
-			} else if scope.ResourceName == "catalog" && containsString(scope.Actions, "*") {
-				filtered.Actions = []string{"*"}
+			} else if uid.UserType() == keppel.AnonymousUser {
+				//we don't allow catalog access to anonymous users:
+				//
+				//1. if we did, nobody would ever be presented with the auth challenge
+				//and thus all clients would assume that they get the same result
+				//without auth (which is very much not true)
+				//
+				//2. anon users do not get any keppel_account:*:view permissions, so it
+				//does not help them to get access to the catalog endpoint anyway
+				filtered.Actions = nil
+			} else if scope.Contains(CatalogEndpointScope) {
+				filtered.Actions = CatalogEndpointScope.Actions
 				err = addCatalogAccess(&additional, uid, db)
 				if err != nil {
 					return nil, err
@@ -54,6 +63,7 @@ func FilterAuthorized(ss auth.ScopeSet, uid keppel.UserIdentity, audience auth.S
 			} else {
 				filtered.Actions = nil
 			}
+
 		case "repository":
 			if !strings.Contains(scope.ResourceName, "/") {
 				//just an account name does not make a repository name
@@ -64,6 +74,30 @@ func FilterAuthorized(ss auth.ScopeSet, uid keppel.UserIdentity, audience auth.S
 					return nil, err
 				}
 			}
+
+		case "keppel_api":
+			if scope.Contains(PeerAPIScope) && uid.UserType() == keppel.PeerUser {
+				filtered.Actions = PeerAPIScope.Actions
+			} else if scope.Contains(InfoAPIScope) && uid.UserType() != keppel.AnonymousUser {
+				filtered.Actions = InfoAPIScope.Actions
+			} else {
+				filtered.Actions = nil
+			}
+
+		case "keppel_account":
+			account, err := keppel.FindAccount(db, scope.ResourceName)
+			if err != nil {
+				return nil, err
+			}
+			if account == nil {
+				filtered.Actions = nil
+			} else {
+				filtered.Actions = filterAuthTenantActions(account.AuthTenantID, scope.Actions, uid)
+			}
+
+		case "keppel_auth_tenant":
+			filtered.Actions = filterAuthTenantActions(scope.ResourceName, scope.Actions, uid)
+
 		default:
 			filtered.Actions = nil
 		}
@@ -73,16 +107,7 @@ func FilterAuthorized(ss auth.ScopeSet, uid keppel.UserIdentity, audience auth.S
 	return append(result, additional...), nil
 }
 
-func containsString(list []string, val string) bool {
-	for _, v := range list {
-		if v == val {
-			return true
-		}
-	}
-	return false
-}
-
-func addCatalogAccess(ss *auth.ScopeSet, uid keppel.UserIdentity, db *keppel.DB) error {
+func addCatalogAccess(ss *ScopeSet, uid keppel.UserIdentity, db *keppel.DB) error {
 	var accounts []keppel.Account
 	_, err := db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
 	if err != nil {
@@ -91,7 +116,7 @@ func addCatalogAccess(ss *auth.ScopeSet, uid keppel.UserIdentity, db *keppel.DB)
 
 	for _, account := range accounts {
 		if uid.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
-			ss.Add(auth.Scope{
+			ss.Add(Scope{
 				ResourceType: "keppel_account",
 				ResourceName: account.Name,
 				Actions:      []string{"view"},
@@ -102,7 +127,7 @@ func addCatalogAccess(ss *auth.ScopeSet, uid keppel.UserIdentity, db *keppel.DB)
 	return nil
 }
 
-func filterRepoActions(scope auth.Scope, uid keppel.UserIdentity, db *keppel.DB) ([]string, error) {
+func filterRepoActions(scope Scope, uid keppel.UserIdentity, db *keppel.DB) ([]string, error) {
 	account, err := keppel.FindAccount(db, scope.AccountName())
 	if err != nil {
 		return nil, err
@@ -147,4 +172,25 @@ func filterRepoActions(scope auth.Scope, uid keppel.UserIdentity, db *keppel.DB)
 		}
 	}
 	return result, nil
+}
+
+func filterAuthTenantActions(authTenantID string, actions []string, uid keppel.UserIdentity) []string {
+	if authTenantID == "" {
+		return nil
+	}
+
+	isAllowedAction := map[string]bool{
+		"view":        uid.HasPermission(keppel.CanViewAccount, authTenantID),
+		"change":      uid.HasPermission(keppel.CanChangeAccount, authTenantID),
+		"viewquota":   uid.HasPermission(keppel.CanViewQuotas, authTenantID),
+		"changequota": uid.HasPermission(keppel.CanChangeQuotas, authTenantID),
+	}
+
+	var result []string
+	for _, action := range actions {
+		if isAllowedAction[action] {
+			result = append(result, action)
+		}
+	}
+	return result
 }

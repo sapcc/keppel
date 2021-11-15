@@ -69,7 +69,11 @@ var tagGetQuery = keppel.SimplifyWhitespaceInSQL(`
 
 func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests")
-	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanViewAccount)
+	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanPullFromAccount))
+	if authz == nil {
+		return
+	}
+	account := a.findAccountFromRequest(w, r)
 	if account == nil {
 		return
 	}
@@ -153,7 +157,11 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests/:digest")
-	account, uid := a.authenticateAccountScopedRequest(w, r, keppel.CanDeleteFromAccount)
+	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanDeleteFromAccount))
+	if authz == nil {
+		return
+	}
+	account := a.findAccountFromRequest(w, r)
 	if account == nil {
 		return
 	}
@@ -168,7 +176,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.processor().DeleteManifest(*account, *repo, digest.String(), keppel.AuditContext{
-		UserIdentity: uid,
+		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
 	if err == sql.ErrNoRows {
@@ -184,7 +192,11 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_tags/:name")
-	account, uid := a.authenticateAccountScopedRequest(w, r, keppel.CanDeleteFromAccount)
+	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanDeleteFromAccount))
+	if authz == nil {
+		return
+	}
+	account := a.findAccountFromRequest(w, r)
 	if account == nil {
 		return
 	}
@@ -195,7 +207,7 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	tagName := mux.Vars(r)["tag_name"]
 
 	err := a.processor().DeleteTag(*account, *repo, tagName, keppel.AuditContext{
-		UserIdentity: uid,
+		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
 	if err == sql.ErrNoRows {
@@ -211,7 +223,11 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleGetVulnerabilityReport(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests/:digest/vulnerability_report")
-	account, _ := a.authenticateAccountScopedRequest(w, r, keppel.CanViewAccount)
+	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanPullFromAccount))
+	if authz == nil {
+		return
+	}
+	account := a.findAccountFromRequest(w, r)
 	if account == nil {
 		return
 	}

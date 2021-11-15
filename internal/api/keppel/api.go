@@ -20,6 +20,7 @@ package keppelv1
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/respondwith"
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/processor"
 )
@@ -94,62 +96,68 @@ func respondWithAuthError(w http.ResponseWriter, err *keppel.RegistryV2Error) bo
 	return true
 }
 
-func (a *API) authenticateAccountScopedRequest(w http.ResponseWriter, r *http.Request, perm keppel.Permission) (*keppel.Account, keppel.UserIdentity) {
-	uid, authErr := a.authDriver.AuthenticateUserFromRequest(r)
-	if respondWithAuthError(w, authErr) {
-		return nil, nil
-	}
-	if uid == nil {
-		respondWithAuthError(w, keppel.ErrUnauthorized.With("unauthorized"))
-		return nil, nil
-	}
+func authTenantScope(perm keppel.Permission, authTenantID string) auth.ScopeSet {
+	return auth.NewScopeSet(auth.Scope{
+		ResourceType: "keppel_auth_tenant",
+		ResourceName: authTenantID,
+		Actions:      []string{string(perm)},
+	})
+}
 
-	//get account from DB to find its AuthTenantID
+func accountScopeFromRequest(r *http.Request, perm keppel.Permission) auth.ScopeSet {
+	return auth.NewScopeSet(auth.Scope{
+		ResourceType: "keppel_account",
+		ResourceName: mux.Vars(r)["account"],
+		Actions:      []string{string(perm)},
+	})
+}
+
+func accountScopes(perm keppel.Permission, accounts ...keppel.Account) auth.ScopeSet {
+	scopes := make([]auth.Scope, len(accounts))
+	for idx, account := range accounts {
+		scopes[idx] = auth.Scope{
+			ResourceType: "keppel_account",
+			ResourceName: account.Name,
+			Actions:      []string{string(perm)},
+		}
+	}
+	return auth.NewScopeSet(scopes...)
+}
+
+func repoScopeFromRequest(r *http.Request, perm keppel.Permission) auth.ScopeSet {
+	vars := mux.Vars(r)
+	return auth.NewScopeSet(auth.Scope{
+		ResourceType: "repository",
+		ResourceName: fmt.Sprintf("%s/%s", vars["account"], vars["repo_name"]),
+		Actions:      []string{string(perm)},
+	})
+}
+
+func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request, ss auth.ScopeSet) *auth.Authorization {
+	authz, rerr := auth.IncomingRequest{
+		HTTPRequest:          r,
+		Scopes:               ss,
+		CorrectlyReturn403:   true,
+		PartialAccessAllowed: r.URL.Path == "/keppel/v1/accounts",
+	}.Authorize(a.cfg, a.authDriver, a.db)
+	if rerr != nil {
+		rerr.WriteAsTextTo(w)
+		return nil
+	}
+	return authz
+}
+
+func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request) *keppel.Account {
 	accountName := mux.Vars(r)["account"]
 	account, err := keppel.FindAccount(a.db, accountName)
 	if respondwith.ErrorText(w, err) {
-		return nil, nil
+		return nil
 	}
-
-	//perform final authorization with that AuthTenantID
-	if account != nil && !uid.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
-		account = nil
+	if err == sql.ErrNoRows {
+		http.Error(w, "not found", http.StatusNotFound)
+		return nil
 	}
-
-	//this returns 404 even if the real reason is lack of authorization in order
-	//to not leak information about which accounts exist for other tenants
-	if account == nil {
-		http.Error(w, "no such account", 404)
-		return nil, nil
-	}
-
-	//enforce permissions other than CanViewAccount if requested
-	if !uid.HasPermission(perm, account.AuthTenantID) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return nil, nil
-	}
-
-	return account, uid
-}
-
-func (a *API) authenticateAuthTenantScopedRequest(w http.ResponseWriter, r *http.Request, perm keppel.Permission) (authTenantID string, uid keppel.UserIdentity) {
-	uid, authErr := a.authDriver.AuthenticateUserFromRequest(r)
-	if respondWithAuthError(w, authErr) {
-		return "", nil
-	}
-	if uid == nil {
-		respondWithAuthError(w, keppel.ErrUnauthorized.With("unauthorized"))
-		return "", nil
-	}
-
-	//enforce requested permissions
-	authTenantID = mux.Vars(r)["auth_tenant_id"]
-	if !uid.HasPermission(perm, authTenantID) {
-		http.Error(w, "forbidden", http.StatusForbidden)
-		return "", nil
-	}
-
-	return authTenantID, uid
+	return account
 }
 
 func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, account keppel.Account) *keppel.Repository {
