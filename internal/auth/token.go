@@ -20,7 +20,7 @@
 package auth
 
 import (
-	"crypto/ecdsa"
+	"crypto"
 	"crypto/ed25519"
 	"crypto/rsa"
 	"encoding/json"
@@ -28,7 +28,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/docker/libtrust"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/sapcc/keppel/internal/keppel"
 	uuid "github.com/satori/go.uuid"
@@ -54,7 +53,7 @@ func parseToken(cfg keppel.Configuration, ad keppel.AuthDriver, audience Service
 		}
 
 		//jwt.Parse needs the public key for our issuer key to validate the token
-		return ourIssuerKey.PublicKey().CryptoPublicKey(), nil
+		return derivePublicKey(ourIssuerKey), nil
 	})
 	if err != nil {
 		return nil, keppel.ErrUnauthorized.With(err.Error())
@@ -115,7 +114,7 @@ func (a Authorization) IssueToken(cfg keppel.Configuration) (*TokenResponse, err
 	method := chooseSigningMethod(issuerKey)
 
 	publicHost := a.Service.Hostname(cfg)
-	token := jwt.NewWithClaims(method, tokenClaims{
+	token, err := jwt.NewWithClaims(method, tokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			Id:        uuid.NewV4().String(),
 			Audience:  publicHost,
@@ -128,37 +127,33 @@ func (a Authorization) IssueToken(cfg keppel.Configuration) (*TokenResponse, err
 		//access permissions granted to this token
 		Access:   a.ScopeSet.Flatten(),
 		Embedded: embeddedUserIdentity{UserIdentity: a.UserIdentity},
-	})
-
-	var (
-		jwkMessage json.RawMessage
-		err        error
-	)
-	jwkMessage, err = issuerKey.PublicKey().MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	token.Header["jwk"] = &jwkMessage
-
-	signed, err := token.SignedString(issuerKey.CryptoPrivateKey())
+	}).SignedString(issuerKey)
 	return &TokenResponse{
-		Token:     signed,
+		Token:     token,
 		ExpiresIn: uint64(expiresAt.Sub(now).Seconds()),
 		IssuedAt:  now.Format(time.RFC3339),
 	}, err
 }
 
-func chooseSigningMethod(key libtrust.PrivateKey) jwt.SigningMethod {
-	issuerKey := key.CryptoPrivateKey()
-	switch issuerKey.(type) {
-	case *ed25519.PrivateKey:
+func chooseSigningMethod(key crypto.PrivateKey) jwt.SigningMethod {
+	switch key.(type) {
+	case ed25519.PrivateKey:
 		return jwt.SigningMethodEdDSA
-	case *ecdsa.PrivateKey:
-		return jwt.SigningMethodES256
 	case *rsa.PrivateKey:
 		return jwt.SigningMethodRS256
 	default:
-		panic(fmt.Sprintf("do not know which JWT method to use for issuerKey.type = %T", issuerKey))
+		panic(fmt.Sprintf("do not know which JWT method to use for issuerKey.type = %T", key))
+	}
+}
+
+func derivePublicKey(key crypto.PrivateKey) crypto.PublicKey {
+	switch key := key.(type) {
+	case ed25519.PrivateKey:
+		return key.Public()
+	case *rsa.PrivateKey:
+		return key.Public()
+	default:
+		panic(fmt.Sprintf("do not know which JWT method to use for issuerKey.type = %T", key))
 	}
 }
 

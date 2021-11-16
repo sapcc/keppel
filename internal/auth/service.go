@@ -20,9 +20,9 @@
 package auth
 
 import (
+	"crypto"
 	"fmt"
 
-	"github.com/docker/libtrust"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -53,7 +53,7 @@ func (s Service) Hostname(cfg keppel.Configuration) string {
 
 //IssuerKey returns the issuer key that is used to sign tokens for this
 //service.
-func (s Service) IssuerKey(cfg keppel.Configuration) libtrust.PrivateKey {
+func (s Service) IssuerKey(cfg keppel.Configuration) crypto.PrivateKey {
 	switch s {
 	case LocalService:
 		return cfg.JWTIssuerKey
