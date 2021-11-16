@@ -48,8 +48,12 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authz := a.requireAuthorization(w, r, auth.CatalogEndpointScope)
-	if authz == nil {
+	authz, rerr := auth.IncomingRequest{
+		HTTPRequest: r,
+		Scopes:      auth.NewScopeSet(auth.CatalogEndpointScope),
+	}.Authorize(a.cfg, a.ad, a.db)
+	if rerr != nil {
+		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 

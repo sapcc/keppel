@@ -118,26 +118,26 @@ func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
-	if a.requireAuthorization(w, r, auth.InfoAPIScope) == nil {
+	_, rerr := auth.IncomingRequest{
+		HTTPRequest:   r,
+		AllowsAnycast: true,
+		//`docker login` will use this endpoint to get an auth challenge, so we
+		//cannot allow anonymous login here...
+		NoImplicitAnonymous: true,
+		//...but we also cannot require any token scopes because `docker login`
+		//will ignore the scope defined in the auth challenge, obtain a token
+		//without scopes, and then expect to be able to query this endpoint with
+		//it.
+		Scopes: auth.NewScopeSet(auth.InfoAPIScope),
+	}.Authorize(a.cfg, a.ad, a.db)
+	if rerr != nil {
+		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 
 	//The response is not defined beyond code 200, so reply in the same way as
 	//https://registry-1.docker.io/v2/, with an empty JSON object.
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{})
-}
-
-func (a *API) requireAuthorization(w http.ResponseWriter, r *http.Request, scope auth.Scope) *auth.Authorization {
-	authz, rerr := auth.IncomingRequest{
-		HTTPRequest:   r,
-		Scopes:        auth.NewScopeSet(scope),
-		AllowsAnycast: true,
-	}.Authorize(a.cfg, a.ad, a.db)
-	if rerr != nil {
-		rerr.WriteAsRegistryV2ResponseTo(w, r)
-		return nil
-	}
-	return authz
 }
 
 //Like respondwith.ErrorText(), but writes a RegistryV2Error instead of plain text.
@@ -218,8 +218,13 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	default:
 		scope.Actions = []string{"pull", "push"}
 	}
-	authz := a.requireAuthorization(w, r, scope)
-	if authz == nil {
+	authz, rerr := auth.IncomingRequest{
+		HTTPRequest:   r,
+		Scopes:        auth.NewScopeSet(scope),
+		AllowsAnycast: true,
+	}.Authorize(a.cfg, a.ad, a.db)
+	if rerr != nil {
+		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return nil, nil, nil
 	}
 

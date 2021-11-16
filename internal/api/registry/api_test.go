@@ -51,7 +51,7 @@ func TestVersionCheckEndpoint(t *testing.T) {
 		}.Check(t, h)
 
 		//with token, expect status code 200
-		token := s.GetToken(t, "keppel_api:info:access")
+		token := s.GetToken(t /*, no scopes */)
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/",

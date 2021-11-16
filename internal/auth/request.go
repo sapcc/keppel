@@ -50,6 +50,9 @@ type IncomingRequest struct {
 	//If true, Authorize() will not check if all requested scopes where
 	//authorized.
 	PartialAccessAllowed bool
+	//If true, Authorize() will not assume an AnonymousUserIdentity when no auth
+	//headers are provided. Users MUST present some sort of auth header.
+	NoImplicitAnonymous bool
 }
 
 //Authorize checks if the given incoming request has a proper Authorization.
@@ -116,6 +119,8 @@ func (ir IncomingRequest) Authorize(cfg keppel.Configuration, ad keppel.AuthDriv
 			if authHeader == "keppel" {
 				//do not fallback if we were explicitly instructed to only use driver auth
 				return nil, keppel.ErrUnauthorized.With("no credentials found in request")
+			} else if ir.NoImplicitAnonymous {
+				return nil, keppel.ErrUnauthorized.With("no bearer token found in request headers").WithHeader("Www-Authenticate", ir.buildAuthChallenge(cfg, audience, ""))
 			} else {
 				uid = AnonymousUserIdentity
 				allowChallenge = true
@@ -135,6 +140,14 @@ func (ir IncomingRequest) Authorize(cfg keppel.Configuration, ad keppel.AuthDriv
 	//check if requested scope is covered by Authorization
 	if !ir.PartialAccessAllowed {
 		for _, scope := range ir.Scopes {
+			//to ensure that GET /v2/ produces an auth challenge without any scopes,
+			//we do not render InfoAPIScope into auth challenges; conversely, since
+			//we don't challenge anyone to obtain tokens for InfoAPIScope, we need to
+			//skip this scope here as well
+			if InfoAPIScope.Contains(*scope) {
+				continue
+			}
+
 			if !authz.ScopeSet.Contains(*scope) {
 				//not covered -> generate error, possibly with auth challenge
 				rerr := keppel.ErrUnauthorized.With("no bearer token found in request headers")
