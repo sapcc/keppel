@@ -51,14 +51,16 @@ func (s Service) Hostname(cfg keppel.Configuration) string {
 	}
 }
 
-//IssuerKey returns the issuer key that is used to sign tokens for this
-//service.
-func (s Service) IssuerKey(cfg keppel.Configuration) crypto.PrivateKey {
+//IssuerKeys returns the issuer keys that are used to sign tokens for this
+//service. Index [0] contains the key that shall be used for new tokens, but
+//all keys are acceptable in existing tokens (to support seamless key
+//rotation).
+func (s Service) IssuerKeys(cfg keppel.Configuration) []crypto.PrivateKey {
 	switch s {
 	case LocalService:
-		return cfg.JWTIssuerKey
+		return cfg.JWTIssuerKeys
 	case AnycastService:
-		return *cfg.AnycastJWTIssuerKey
+		return cfg.AnycastJWTIssuerKeys
 	default:
 		panic(fmt.Sprintf("unknown auth service code: %d", s))
 	}

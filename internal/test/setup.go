@@ -20,6 +20,7 @@
 package test
 
 import (
+	"crypto"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -178,9 +179,9 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	must(t, err)
 	s := Setup{
 		Config: keppel.Configuration{
-			APIPublicURL: *apiPublicURL,
-			DatabaseURL:  *dbURL,
-			JWTIssuerKey: jwtIssuerKey,
+			APIPublicURL:  *apiPublicURL,
+			DatabaseURL:   *dbURL,
+			JWTIssuerKeys: []crypto.PrivateKey{jwtIssuerKey},
 		},
 		tokenCache: make(map[string]string),
 	}
@@ -255,7 +256,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 
 		anycastJWTIssuerKey, err := keppel.ParseIssuerKey(UnitTestAnycastIssuerPrivateKey)
 		must(t, err)
-		s.Config.AnycastJWTIssuerKey = &anycastJWTIssuerKey
+		s.Config.AnycastJWTIssuerKeys = []crypto.PrivateKey{anycastJWTIssuerKey}
 	}
 
 	//setup essential test doubles

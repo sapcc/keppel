@@ -40,12 +40,12 @@ import (
 //Configuration contains all configuration values that are not specific to a
 //certain driver.
 type Configuration struct {
-	APIPublicURL        url.URL
-	AnycastAPIPublicURL *url.URL
-	DatabaseURL         url.URL
-	JWTIssuerKey        crypto.PrivateKey
-	AnycastJWTIssuerKey *crypto.PrivateKey
-	ClairClient         *clair.Client
+	APIPublicURL         url.URL
+	AnycastAPIPublicURL  *url.URL
+	DatabaseURL          url.URL
+	JWTIssuerKeys        []crypto.PrivateKey
+	AnycastJWTIssuerKeys []crypto.PrivateKey
+	ClairClient          *clair.Client
 }
 
 //IsAnycastRequest returns true if this configuration has anycast enabled and
@@ -113,18 +113,25 @@ func ParseConfiguration() Configuration {
 		DatabaseURL:         getDbURL(),
 	}
 
-	var err error
-	cfg.JWTIssuerKey, err = ParseIssuerKey(MustGetenv("KEPPEL_ISSUER_KEY"))
-	if err != nil {
-		logg.Fatal("failed to read KEPPEL_ISSUER_KEY: " + err.Error())
+	parseIssuerKeys := func(prefix string) []crypto.PrivateKey {
+		key, err := ParseIssuerKey(MustGetenv(prefix + "_ISSUER_KEY"))
+		if err != nil {
+			logg.Fatal("failed to read %s_ISSUER_KEY: %s", prefix, err.Error())
+		}
+		prevKeyStr := os.Getenv(prefix + "_PREVIOUS_ISSUER_KEY")
+		if prevKeyStr == "" {
+			return []crypto.PrivateKey{key}
+		}
+		prevKey, err := ParseIssuerKey(prevKeyStr)
+		if err != nil {
+			logg.Fatal("failed to read %s_PREVIOUS_ISSUER_KEY: %s", prefix, err.Error())
+		}
+		return []crypto.PrivateKey{key, prevKey}
 	}
 
+	cfg.JWTIssuerKeys = parseIssuerKeys("KEPPEL")
 	if cfg.AnycastAPIPublicURL != nil {
-		key, err := ParseIssuerKey(MustGetenv("KEPPEL_ANYCAST_ISSUER_KEY"))
-		if err != nil {
-			logg.Fatal("failed to read KEPPEL_ANYCAST_ISSUER_KEY: " + err.Error())
-		}
-		cfg.AnycastJWTIssuerKey = &key
+		cfg.AnycastJWTIssuerKeys = parseIssuerKeys("KEPPEL_ANYCAST")
 	}
 
 	clairURL := mayGetenvURL("KEPPEL_CLAIR_URL")
