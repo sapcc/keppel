@@ -478,13 +478,13 @@ func (c jwtContents) AssertResponseBody(t *testing.T, requestInfo string, respon
 	//extract payload from token
 	tokenFields := strings.Split(responseBody.Token, ".")
 	if len(tokenFields) != 3 {
-		t.Logf("JWT is %s", string(responseBody.Token))
+		t.Logf("JWT is %s", responseBody.Token)
 		t.Errorf("%s: expected token with 3 parts, got %d parts", requestInfo, len(tokenFields))
 		return false
 	}
 	tokenBytes, err := base64.RawURLEncoding.DecodeString(tokenFields[1])
 	if err != nil {
-		t.Logf("JWT is %s", string(responseBody.Token))
+		t.Logf("JWT is %s", responseBody.Token)
 		t.Errorf("%s: cannot decode JWT payload section: %s", requestInfo, err.Error())
 		return false
 	}

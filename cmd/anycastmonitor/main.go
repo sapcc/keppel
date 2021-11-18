@@ -179,7 +179,7 @@ func checkAnycastMembership(anycastURL *url.URL, apiPublicHostname string) (bool
 	var tokenJSON struct {
 		Issuer string `json:"iss"`
 	}
-	err = json.Unmarshal([]byte(token), &tokenJSON)
+	err = json.Unmarshal(token, &tokenJSON)
 	if err != nil {
 		return false, fmt.Errorf("failed to unmarshal claim from token %s: %s", token, err.Error())
 	}
