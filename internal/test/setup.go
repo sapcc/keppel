@@ -20,7 +20,6 @@
 package test
 
 import (
-	"crypto"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -40,16 +39,18 @@ import (
 
 type setupParams struct {
 	//all false/empty by default
-	IsSecondary     bool
-	WithAnycast     bool
-	WithKeppelAPI   bool
-	WithPeerAPI     bool
-	WithClairDouble bool
-	WithQuotas      bool
-	RateLimitEngine *keppel.RateLimitEngine
-	SetupOfPrimary  *Setup
-	Accounts        []*keppel.Account
-	Repos           []*keppel.Repository
+	IsSecondary             bool
+	WithAnycast             bool
+	WithKeppelAPI           bool
+	WithPeerAPI             bool
+	WithClairDouble         bool
+	WithQuotas              bool
+	WithPreviousIssuerKey   bool
+	WithoutCurrentIssuerKey bool
+	RateLimitEngine         *keppel.RateLimitEngine
+	SetupOfPrimary          *Setup
+	Accounts                []*keppel.Account
+	Repos                   []*keppel.Repository
 }
 
 //SetupOption is an option that can be given to NewSetup().
@@ -73,7 +74,7 @@ func WithAnycast(withAnycast bool) SetupOption {
 	}
 }
 
-//WithKeppelAPI is a SetupOption that enables the peer API.
+//WithKeppelAPI is a SetupOption that enables the Keppel API.
 func WithKeppelAPI(params *setupParams) {
 	params.WithKeppelAPI = true
 }
@@ -114,6 +115,18 @@ func WithRepo(repo keppel.Repository) SetupOption {
 	return func(params *setupParams) {
 		params.Repos = append(params.Repos, &repo)
 	}
+}
+
+//WithPreviousIssuerKey is a SetupOption that will add the "previous" set of test issuer keys.
+func WithPreviousIssuerKey(params *setupParams) {
+	params.WithPreviousIssuerKey = true
+}
+
+//WithoutCurrentIssuerKey is a SetupOption that will not add the "current" set
+//of test issuer keys. Tokens will be issued with the "previous" set of issuer
+//keys instead, so WithPreviousIssuerKey must be given as well.
+func WithoutCurrentIssuerKey(params *setupParams) {
+	params.WithoutCurrentIssuerKey = true
 }
 
 //Setup contains all the pieces that are needed for most tests.
@@ -175,15 +188,27 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	must(t, err)
 	apiPublicURL, err := url.Parse(apiPublicURLStr)
 	must(t, err)
-	jwtIssuerKey, err := keppel.ParseIssuerKey(UnitTestIssuerPrivateKey)
-	must(t, err)
 	s := Setup{
 		Config: keppel.Configuration{
-			APIPublicURL:  *apiPublicURL,
-			DatabaseURL:   *dbURL,
-			JWTIssuerKeys: []crypto.PrivateKey{jwtIssuerKey},
+			APIPublicURL: *apiPublicURL,
+			DatabaseURL:  *dbURL,
 		},
 		tokenCache: make(map[string]string),
+	}
+
+	//select issuer keys
+	if params.WithoutCurrentIssuerKey && !params.WithPreviousIssuerKey {
+		t.Fatal("test.WithoutCurrentIssuerKey requires test.WithPreviousIssuerKey")
+	}
+	if params.WithPreviousIssuerKey {
+		key, err := keppel.ParseIssuerKey(UnitTestIssuerRSAPrivateKey)
+		must(t, err)
+		s.Config.JWTIssuerKeys = append(s.Config.JWTIssuerKeys, key)
+	}
+	if !params.WithoutCurrentIssuerKey {
+		jwtIssuerKey, err := keppel.ParseIssuerKey(UnitTestIssuerEd25519PrivateKey)
+		must(t, err)
+		s.Config.JWTIssuerKeys = append(s.Config.JWTIssuerKeys, jwtIssuerKey)
 	}
 
 	//setup a dummy ClairClient for testing interaction with the Clair API
@@ -254,9 +279,16 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		must(t, err)
 		s.Config.AnycastAPIPublicURL = anycastAPIPublicURL
 
-		anycastJWTIssuerKey, err := keppel.ParseIssuerKey(UnitTestAnycastIssuerPrivateKey)
-		must(t, err)
-		s.Config.AnycastJWTIssuerKeys = []crypto.PrivateKey{anycastJWTIssuerKey}
+		if params.WithPreviousIssuerKey {
+			key, err := keppel.ParseIssuerKey(UnitTestAnycastIssuerRSAPrivateKey)
+			must(t, err)
+			s.Config.AnycastJWTIssuerKeys = append(s.Config.AnycastJWTIssuerKeys, key)
+		}
+		if !params.WithoutCurrentIssuerKey {
+			jwtIssuerKey, err := keppel.ParseIssuerKey(UnitTestAnycastIssuerEd25519PrivateKey)
+			must(t, err)
+			s.Config.AnycastJWTIssuerKeys = append(s.Config.AnycastJWTIssuerKeys, jwtIssuerKey)
+		}
 	}
 
 	//setup essential test doubles
@@ -354,9 +386,15 @@ func must(t *testing.T, err error) {
 	}
 }
 
-//UnitTestIssuerPrivateKey is an RSA private key that can be used as
+//UnitTestIssuerEd25519PrivateKey is an ed25519 private key that can be used as
 //KEPPEL_ISSUER_KEY in unit tests. DO NOT USE IN PRODUCTION.
-const UnitTestIssuerPrivateKey = `-----BEGIN RSA PRIVATE KEY-----
+const UnitTestIssuerEd25519PrivateKey = `-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VwBCIEIJF8IUp7t4h64Xm9WDPtThzRHiQY5guceFs4z8QDrMQ0
+-----END PRIVATE KEY-----`
+
+//UnitTestIssuerRSAPrivateKey is an RSA private key that can be used as
+//KEPPEL_ISSUER_KEY in unit tests. DO NOT USE IN PRODUCTION.
+const UnitTestIssuerRSAPrivateKey = `-----BEGIN RSA PRIVATE KEY-----
 MIIJKgIBAAKCAgEApaFTmtIHzEg9dznhoFgOKqZseh4PcXTITEc0F/1Gjj/zQmKj
 0jOlbTQv/4IbmFPVP75dGB+Dw5qHh+4TR8uObx6VudnkSHrn8buPKD1n2T5r/SMY
 2mHATL40Tu+5RVmBCJfYTNhjYhOVc5si06CTIYhjBTitWsJcTiG0zcYYySizhqGg
@@ -408,9 +446,15 @@ cVD23BmXI3LgZ/sLRdZO4js/jT7C5FV9zBKooLnWn+UdMJNft3HHj4axeJZmBU17
 V/EtRMqfEOel+lTJXmLb0z7YOgfPmAT2ojk86CsjwbaWwn2rlNVmu+oB8CuSAg==
 -----END RSA PRIVATE KEY-----`
 
-//UnitTestAnycastIssuerPrivateKey is an RSA private key that can be used as
+//UnitTestAnycastIssuerEd25519PrivateKey is an ed25519 private key that can be used as
+//KEPPEL_ISSUER_KEY in unit tests. DO NOT USE IN PRODUCTION.
+const UnitTestAnycastIssuerEd25519PrivateKey = `-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VwBCIEIMk7vAS28DlAzYWG9yktmmAnla+wvvTo/Ah6qmXG6E+S
+-----END PRIVATE KEY-----`
+
+//UnitTestAnycastIssuerRSAPrivateKey is an RSA private key that can be used as
 //KEPPEL_ANYCAST_ISSUER_KEY in unit tests. DO NOT USE IN PRODUCTION.
-const UnitTestAnycastIssuerPrivateKey = `-----BEGIN RSA PRIVATE KEY-----
+const UnitTestAnycastIssuerRSAPrivateKey = `-----BEGIN RSA PRIVATE KEY-----
 MIIJJwIBAAKCAgEAt9jMLzDWOoPpxTOQbdvFdxiHGQETkQnca3uLAiTllx7AWkF7
 9R1T1V69rYAXacwyv+7dOGKD1FQzms7+uV72m8kjw+NvDMHjXQ9PtATy76J9FTPg
 hvwIVnK8nUIeK4Bj6GEIh8BpMXkFRgVt/QUnt+jygsi6oIEK9x9s0sTk22Ij9lxE
