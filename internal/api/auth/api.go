@@ -96,7 +96,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 				//if we don't have this account locally, but the request is an anycast
 				//request and one of our peers has the account, ask them to issue the token
 				if account == nil {
-					err := a.reverseProxyTokenReqToUpstream(w, r, req, scope.AccountName())
+					err := a.reverseProxyTokenReqToUpstream(w, r, scope.AccountName())
 					if err != keppel.ErrNoSuchPrimaryAccount {
 						respondWithError(w, http.StatusInternalServerError, err)
 						return
@@ -125,7 +125,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, tokenResponse)
 }
 
-func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Request, tokenReq Request, accountName string) error {
+func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Request, accountName string) error {
 	primaryHostName, err := a.fd.FindPrimaryAccount(accountName)
 	if err != nil {
 		return err

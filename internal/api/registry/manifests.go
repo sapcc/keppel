@@ -48,7 +48,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reference := keppel.ParseManifestReference(mux.Vars(r)["reference"])
-	dbManifest, err := a.findManifestInDB(*account, *repo, reference)
+	dbManifest, err := a.findManifestInDB(*repo, reference)
 	var manifestBytes []byte
 
 	if err != sql.ErrNoRows {
@@ -196,7 +196,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *API) findManifestInDB(account keppel.Account, repo keppel.Repository, reference keppel.ManifestReference) (*keppel.Manifest, error) {
+func (a *API) findManifestInDB(repo keppel.Repository, reference keppel.ManifestReference) (*keppel.Manifest, error) {
 	//resolve tag into digest if necessary
 	refDigest := reference.Digest
 	if reference.IsTag() {
