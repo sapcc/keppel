@@ -20,6 +20,7 @@
 package keppel
 
 import (
+	"crypto"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -30,8 +31,8 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/docker/libtrust"
 	"github.com/go-redis/redis"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/clair"
 )
@@ -39,12 +40,12 @@ import (
 //Configuration contains all configuration values that are not specific to a
 //certain driver.
 type Configuration struct {
-	APIPublicURL        url.URL
-	AnycastAPIPublicURL *url.URL
-	DatabaseURL         url.URL
-	JWTIssuerKey        libtrust.PrivateKey
-	AnycastJWTIssuerKey *libtrust.PrivateKey
-	ClairClient         *clair.Client
+	APIPublicURL         url.URL
+	AnycastAPIPublicURL  *url.URL
+	DatabaseURL          url.URL
+	JWTIssuerKeys        []crypto.PrivateKey
+	AnycastJWTIssuerKeys []crypto.PrivateKey
+	ClairClient          *clair.Client
 }
 
 //IsAnycastRequest returns true if this configuration has anycast enabled and
@@ -73,7 +74,7 @@ var (
 )
 
 //ParseIssuerKey parses the contents of the KEPPEL_ISSUER_KEY variable.
-func ParseIssuerKey(in string) (libtrust.PrivateKey, error) {
+func ParseIssuerKey(in string) (crypto.PrivateKey, error) {
 	//if it looks like PEM, it's probably PEM; otherwise it's a filename
 	var buf []byte
 	if looksLikePEMRx.MatchString(in) {
@@ -87,7 +88,20 @@ func ParseIssuerKey(in string) (libtrust.PrivateKey, error) {
 	}
 	buf = stripWhitespaceRx.ReplaceAll(buf, nil)
 
-	return libtrust.UnmarshalPrivateKeyPEM(buf)
+	//we support either ed25519 keys (preferred) or RSA keys (legacy), and we
+	//decide which one we have based on which parsing attempt does not fail
+	//
+	//TODO remove RSA support after all production instances have been migrated
+	//to ed25519
+	ed25519Key, err1 := jwt.ParseEdPrivateKeyFromPEM(buf)
+	if err1 == nil {
+		return ed25519Key, nil
+	}
+	rsaKey, err2 := jwt.ParseRSAPrivateKeyFromPEM(buf)
+	if err2 == nil {
+		return rsaKey, nil
+	}
+	return nil, fmt.Errorf("neither an ed25519 private key (%q) nor an RSA private key (%q)", err1.Error(), err2.Error())
 }
 
 //ParseConfiguration obtains a keppel.Configuration instance from the
@@ -99,18 +113,25 @@ func ParseConfiguration() Configuration {
 		DatabaseURL:         getDbURL(),
 	}
 
-	var err error
-	cfg.JWTIssuerKey, err = ParseIssuerKey(MustGetenv("KEPPEL_ISSUER_KEY"))
-	if err != nil {
-		logg.Fatal("failed to read KEPPEL_ISSUER_KEY: " + err.Error())
+	parseIssuerKeys := func(prefix string) []crypto.PrivateKey {
+		key, err := ParseIssuerKey(MustGetenv(prefix + "_ISSUER_KEY"))
+		if err != nil {
+			logg.Fatal("failed to read %s_ISSUER_KEY: %s", prefix, err.Error())
+		}
+		prevKeyStr := os.Getenv(prefix + "_PREVIOUS_ISSUER_KEY")
+		if prevKeyStr == "" {
+			return []crypto.PrivateKey{key}
+		}
+		prevKey, err := ParseIssuerKey(prevKeyStr)
+		if err != nil {
+			logg.Fatal("failed to read %s_PREVIOUS_ISSUER_KEY: %s", prefix, err.Error())
+		}
+		return []crypto.PrivateKey{key, prevKey}
 	}
 
+	cfg.JWTIssuerKeys = parseIssuerKeys("KEPPEL")
 	if cfg.AnycastAPIPublicURL != nil {
-		key, err := ParseIssuerKey(MustGetenv("KEPPEL_ANYCAST_ISSUER_KEY"))
-		if err != nil {
-			logg.Fatal("failed to read KEPPEL_ANYCAST_ISSUER_KEY: " + err.Error())
-		}
-		cfg.AnycastJWTIssuerKey = &key
+		cfg.AnycastJWTIssuerKeys = parseIssuerKeys("KEPPEL_ANYCAST")
 	}
 
 	clairURL := mayGetenvURL("KEPPEL_CLAIR_URL")

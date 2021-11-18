@@ -6,7 +6,6 @@ require (
 	github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/docker/distribution v2.7.1+incompatible
-	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/golang-jwt/jwt/v4 v4.0.0
 	github.com/gophercloud/gophercloud v0.21.0

@@ -181,7 +181,8 @@ The following configuration options are understood by both the API server and th
 | `KEPPEL_DRIVER_FEDERATION` | *(required)* | The name of a federation driver. For single-region deployments, the correct choice is probably `trivial`. |
 | `KEPPEL_DRIVER_INBOUND_CACHE` | *(required)* | The name of an inbound cache driver. The driver name `trivial` chooses a zero-sized cache that effectively disables caching entirely. |
 | `KEPPEL_DRIVER_STORAGE` | *(required)* | The name of a storage driver. |
-| `KEPPEL_ISSUER_KEY` | *(required)* | The private key (in PEM format, or given as a path to a PEM file) that keppel-api uses to sign auth tokens for Docker clients. Can be generated with `openssl genrsa -out privkey.pem 4096`. |
+| `KEPPEL_ISSUER_KEY` | *(required)* | The private key (in PEM format, or given as a path to a PEM file) that keppel-api uses to sign auth tokens for Docker clients. Can be generated with `openssl genrsa -out privkey.pem 4096` for RSA (legacy), or `openssl genpkey -algorithm ed25519 -out privkey.pem` for ed25519 (preferred). |
+| `KEPPEL_PREVIOUS_ISSUER_KEY` | *(optional)* | The previous `KEPPEL_ISSUER_KEY`. If given, tokens signed with this key will still be accepted. This can be used to rotate issuer keys without disrupting the validity of pre-existing tokens. |
 
 To choose drivers, refer to the [documentation for drivers](./drivers/). Note that some drivers require additional
 configuration as mentioned in their respective documentation.
@@ -193,6 +194,7 @@ These options are only understood by the API server.
 | Variable | Default | Explanation |
 | -------- | ------- | ----------- |
 | `KEPPEL_ANYCAST_ISSUER_KEY` | *(required if `KEPPEL_API_ANYCAST_URL` is configured)* | Like `KEPPEL_ISSUER_KEY`, but this key is used to sign tokens for access to the anycast-style endpoints. (See below for details.) This key must be the same for all keppel-api instances with the same anycast URL. |
+| `KEPPEL_ANYCAST_PREVIOUS_ISSUER_KEY` | *(optional)* | The previous `KEPPEL_ANYCAST_ISSUER_KEY`. If given, anycast tokens signed with this key will still be accepted. This can be used to rotate issuer keys without disrupting the validity of pre-existing tokens. |
 | `KEPPEL_API_ANYCAST_URL` | *(optional)* | URL where users reach any keppel-api from this Keppel's group of peers, usually through some sort of anycast mechanism (hence the name). When this keppel-api receives an API request directed to this URL or a path below, and the respective Keppel account does not exist locally, the request is reverse-proxied to the peer that holds the primary account. The anycast endpoints are limited to anonymous authorization and therefore cannot be used for pushing. |
 | `KEPPEL_API_LISTEN_ADDRESS` | :8080 | Listen address for HTTP server. |
 | `KEPPEL_DRIVER_RATELIMIT` | *(optional)* | The name of a rate limit driver. Leave empty to disable rate limiting. |

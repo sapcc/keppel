@@ -398,10 +398,12 @@ var testCases = []TestCase{
 
 //TODO expect refresh_token when offline_token=true is given
 
-func setupPrimary(t *testing.T) test.Setup {
+func setupPrimary(t *testing.T, extraOptions ...test.SetupOption) test.Setup {
 	s := test.NewSetup(t,
-		test.WithAnycast(true),
-		test.WithAccount(keppel.Account{Name: "test1", AuthTenantID: "test1authtenant"}),
+		append(extraOptions,
+			test.WithAnycast(true),
+			test.WithAccount(keppel.Account{Name: "test1", AuthTenantID: "test1authtenant"}),
+		)...,
 	)
 	s.AD.ExpectedUserName = "correctusername"
 	s.AD.ExpectedPassword = "correctpassword"
@@ -867,4 +869,65 @@ func TestMultiScope(t *testing.T) {
 			},
 		}),
 	}.Check(t, h)
+}
+
+func TestIssuerKeyRotation(t *testing.T) {
+	//phase 1: issue a token with the previous issuer key
+	s := setupPrimary(t, test.WithPreviousIssuerKey, test.WithoutCurrentIssuerKey)
+	_, respBodyBytes := assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/auth?service=registry.example.org&scope=keppel_api:info:access",
+		Header:       map[string]string{"Authorization": keppel.BuildBasicAuthHeader("correctusername", "correctpassword")},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: jwtContents{
+			Audience: "registry.example.org",
+			Issuer:   "keppel-api@registry.example.org",
+			Subject:  "correctusername",
+			Access: []jwtAccess{{
+				Type:    "keppel_api",
+				Name:    "info",
+				Actions: []string{"access"},
+			}},
+		},
+	}.Check(t, s.Handler)
+	var respBody struct {
+		Token string `json:"token"`
+	}
+	err := json.Unmarshal(respBodyBytes, &respBody)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	//test that it (obviously) gets accepted by the same API that issued it
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/v2/",
+		Header:       map[string]string{"Authorization": "Bearer " + respBody.Token},
+		ExpectStatus: http.StatusOK,
+	}.Check(t, s.Handler)
+
+	//phase 2: check that the token still gets accepted when a new key gets rotated in
+	s = setupPrimary(t, test.WithPreviousIssuerKey)
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/v2/",
+		Header:       map[string]string{"Authorization": "Bearer " + respBody.Token},
+		ExpectStatus: http.StatusOK,
+	}.Check(t, s.Handler)
+
+	//phase 3: check that the token does NOT get accepted anymore when the old key has rotated out
+	s = setupPrimary(t)
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/v2/",
+		Header:       map[string]string{"Authorization": "Bearer " + respBody.Token},
+		ExpectStatus: http.StatusUnauthorized,
+		ExpectBody: assert.JSONObject{
+			"errors": []assert.JSONObject{{
+				"code":    string(keppel.ErrUnauthorized),
+				"message": "token signed by unknown key",
+				"detail":  nil,
+			}},
+		},
+	}.Check(t, s.Handler)
 }
