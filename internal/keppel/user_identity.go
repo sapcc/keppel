@@ -24,7 +24,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 
 	"github.com/sapcc/go-bits/audittools"
 )
@@ -129,7 +129,7 @@ func DecompressTokenPayload(payload []byte) ([]byte, error) {
 	var result []byte
 	reader, err := gzip.NewReader(bytes.NewReader(data.Contents))
 	if err == nil {
-		result, err = ioutil.ReadAll(reader)
+		result, err = io.ReadAll(reader)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot read GZip payload: %w", err)

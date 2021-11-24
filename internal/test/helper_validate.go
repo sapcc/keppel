@@ -19,7 +19,7 @@
 package test
 
 import (
-	"io/ioutil"
+	"io"
 	"testing"
 
 	"github.com/opencontainers/go-digest"
@@ -36,7 +36,7 @@ func (s Setup) ExpectBlobsExistInStorage(t *testing.T, blobs ...keppel.Blob) {
 			t.Errorf("expected blob %s to exist in the storage, but got: %s", blob.Digest, err.Error())
 			continue
 		}
-		blobBytes, err := ioutil.ReadAll(readCloser)
+		blobBytes, err := io.ReadAll(readCloser)
 		if err == nil {
 			readCloser.Close()
 		} else {

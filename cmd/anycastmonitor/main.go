@@ -24,7 +24,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -158,7 +158,7 @@ func checkAnycastMembership(anycastURL *url.URL, apiPublicHostname string) (bool
 	if err != nil {
 		return false, fmt.Errorf("failed getting anon token: %s", err.Error())
 	}
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return false, fmt.Errorf("failed reading body: %s", err.Error())
 	}

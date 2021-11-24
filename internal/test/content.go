@@ -22,8 +22,8 @@ package test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
+	"os"
 	"time"
 
 	"github.com/opencontainers/go-digest"
@@ -49,7 +49,7 @@ func newBytesWithMediaType(contents []byte, mediaType string) Bytes {
 
 //NewBytesFromFile creates a Bytes instance with the contents of the given file.
 func NewBytesFromFile(path string) (Bytes, error) {
-	buf, err := ioutil.ReadFile(path)
+	buf, err := os.ReadFile(path)
 	return NewBytes(buf), err
 }
 

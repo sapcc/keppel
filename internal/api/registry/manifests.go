@@ -21,7 +21,7 @@ package registryv2
 import (
 	"database/sql"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -306,7 +306,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//read manifest from request
-	manifestBytes, err := ioutil.ReadAll(r.Body)
+	manifestBytes, err := io.ReadAll(r.Body)
 	if respondWithError(w, r, err) {
 		return
 	}

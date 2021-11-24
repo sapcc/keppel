@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -108,7 +108,7 @@ func (c AuthChallenge) GetToken(userName, password string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	respBytes, err := ioutil.ReadAll(resp.Body)
+	respBytes, err := io.ReadAll(resp.Body)
 	if err == nil {
 		err = resp.Body.Close()
 	} else {

@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -95,7 +94,7 @@ func (c *ClairDouble) postIndexReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reqBodyBuf.WriteByte('\n')
-	err = ioutil.WriteFile(actualPathAbs, reqBodyBuf.Bytes(), 0o666)
+	err = os.WriteFile(actualPathAbs, reqBodyBuf.Bytes(), 0o666)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -149,7 +148,7 @@ func (c *ClairDouble) getVulnerabilityReport(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	reportBytes, err := ioutil.ReadFile(fixturePath)
+	reportBytes, err := os.ReadFile(fixturePath)
 	if respondwith.ErrorText(w, err) {
 		return
 	}

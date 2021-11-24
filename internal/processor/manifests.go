@@ -22,7 +22,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -330,7 +330,7 @@ func getManifestLabels(tx *gorp.Transaction, sd keppel.StorageDriver, account ke
 	if err != nil {
 		return nil, err
 	}
-	blobContents, err := ioutil.ReadAll(blobReader)
+	blobContents, err := io.ReadAll(blobReader)
 	if err != nil {
 		return nil, err
 	}
@@ -742,7 +742,7 @@ func (p *Processor) downloadManifestViaPullDelegation(imageRef keppel.ImageRefer
 		return nil, "", false
 	}
 	defer resp.Body.Close()
-	respBytes, err := ioutil.ReadAll(resp.Body)
+	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logg.Error("during GET %s: %s", reqURL, err.Error())
 		return nil, "", false

@@ -23,7 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -590,7 +590,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				respBodyBytes, err := ioutil.ReadAll(resp.Body)
+				respBodyBytes, err := io.ReadAll(resp.Body)
 				if err == nil {
 					err = resp.Body.Close()
 				} else {

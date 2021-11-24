@@ -20,7 +20,6 @@ package client
 
 import (
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 
@@ -81,7 +80,7 @@ func (c *RepoClient) DownloadManifest(reference keppel.ManifestReference, opts *
 		return nil, "", err
 	}
 
-	respBytes, err := ioutil.ReadAll(resp.Body)
+	respBytes, err := io.ReadAll(resp.Body)
 	if err == nil {
 		err = resp.Body.Close()
 	} else {

@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"regexp"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -79,7 +78,7 @@ func (d *StorageDriver) AppendToBlob(account keppel.Account, storageID string, c
 		}
 	}
 
-	chunkBytes, err := ioutil.ReadAll(chunk)
+	chunkBytes, err := io.ReadAll(chunk)
 	if err != nil {
 		return err
 	}
@@ -113,7 +112,7 @@ func (d *StorageDriver) ReadBlob(account keppel.Account, storageID string) (io.R
 	if !exists {
 		return nil, 0, errNoSuchBlob
 	}
-	return ioutil.NopCloser(bytes.NewReader(contents)), uint64(len(contents)), nil
+	return io.NopCloser(bytes.NewReader(contents)), uint64(len(contents)), nil
 }
 
 //URLForBlob implements the keppel.StorageDriver interface.

@@ -23,7 +23,6 @@ import (
 	"crypto"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -81,7 +80,7 @@ func ParseIssuerKey(in string) (crypto.PrivateKey, error) {
 		buf = []byte(in)
 	} else {
 		var err error
-		buf, err = ioutil.ReadFile(in)
+		buf, err = os.ReadFile(in)
 		if err != nil {
 			return nil, err
 		}

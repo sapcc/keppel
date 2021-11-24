@@ -22,7 +22,7 @@ package clair
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -75,7 +75,7 @@ func (c *Client) doRequest(req *http.Request, respBody interface{}) error {
 	if err != nil {
 		return fmt.Errorf("cannot %s %s: %w", req.Method, req.URL.String(), err)
 	}
-	respBodyBytes, err := ioutil.ReadAll(resp.Body)
+	respBodyBytes, err := io.ReadAll(resp.Body)
 	if err == nil {
 		err = resp.Body.Close()
 	} else {

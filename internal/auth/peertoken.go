@@ -22,7 +22,7 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -43,7 +43,7 @@ func GetPeerToken(cfg keppel.Configuration, peer keppel.Peer, scope Scope) (stri
 	if err != nil {
 		return "", err
 	}
-	respBodyBytes, err := ioutil.ReadAll(resp.Body)
+	respBodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
