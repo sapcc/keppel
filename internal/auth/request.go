@@ -87,7 +87,10 @@ func (ir IncomingRequest) Authorize(cfg keppel.Configuration, ad keppel.AuthDriv
 	case strings.HasPrefix(authHeader, "Basic "):
 		//clearly a request for basic auth
 		if ir.AudienceForTokenIssuance == 0 {
-			return nil, keppel.ErrUnsupported.With("basic auth is not supported on this endpoint")
+			//I'm being deliberately harsh with the wording of this error message
+			//here; I've seen clients use basic auth on endpoints like GET /v2/ even
+			//though that is completely nonsensical
+			return nil, keppel.ErrUnauthorized.With("basic auth is not supported on this endpoint, your library's auth workflow is probably broken").WithHeader("Www-Authenticate", ir.buildAuthChallenge(cfg, audience, ""))
 		}
 		uid, err := checkBasicAuth(authHeader, ad, db)
 		if err != nil {
