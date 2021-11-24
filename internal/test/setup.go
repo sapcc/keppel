@@ -328,7 +328,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	if params.WithPeerAPI {
 		apis = append(apis, peerv1.NewAPI(s.Config, ad, s.DB))
 	}
-	s.Handler = api.Compose(apis...)
+	s.Handler = api.AddDomainRemapMiddleware(s.Config, api.Compose(apis...))
 	if tt, ok := http.DefaultClient.Transport.(*RoundTripper); ok {
 		tt.Handlers[s.Config.APIPublicURL.Host] = s.Handler
 	}
