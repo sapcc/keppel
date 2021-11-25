@@ -108,7 +108,7 @@ func (h domainRemapMiddleware) tryRewriteURL(u url.URL) (rewrittenURL *url.URL, 
 		return nil, hostParts[0], true
 	}
 
-	//perform rewrite
+	//perform rewrite (except for GET /v2/ which needs to be served as-is)
 	result := u
 	result.Host = hostParts[1]
 	if u.Path != "/v2/" {
