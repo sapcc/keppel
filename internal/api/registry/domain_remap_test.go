@@ -25,8 +25,46 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
+
+func TestRegistryAPIDomainRemap(t *testing.T) {
+	//test generic Registry API endpoints with request URLs having the account name in the hostname instead of in the path
+	testWithPrimary(t, nil, func(s test.Setup) {
+		h := s.Handler
+
+		//without token, expect auth challenge
+		assert.HTTPRequest{
+			Method: "GET",
+			Path:   "/v2/",
+			Header: map[string]string{
+				"X-Forwarded-Host":  "test1.registry.example.org",
+				"X-Forwarded-Proto": "https",
+			},
+			ExpectStatus: http.StatusUnauthorized,
+			ExpectHeader: map[string]string{
+				test.VersionHeaderKey: test.VersionHeaderValue,
+				"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org"`,
+			},
+			ExpectBody: test.ErrorCode(keppel.ErrUnauthorized),
+		}.Check(t, h)
+
+		//with token, expect status code 200
+		token := s.GetToken(t /*, no scopes */)
+		assert.HTTPRequest{
+			Method: "GET",
+			Path:   "/v2/",
+			Header: map[string]string{
+				"Authorization":     "Bearer " + token,
+				"X-Forwarded-Host":  "test1.registry.example.org",
+				"X-Forwarded-Proto": "https",
+			},
+			ExpectStatus: http.StatusOK,
+			ExpectHeader: test.VersionHeader,
+		}.Check(t, h)
+	})
+}
 
 func TestBlobAPIDomainRemap(t *testing.T) {
 	//test blob API with request URLs having the account name in the hostname instead of in the path

@@ -111,7 +111,9 @@ func (h domainRemapMiddleware) tryRewriteURL(u url.URL) (rewrittenURL *url.URL, 
 	//perform rewrite
 	result := u
 	result.Host = hostParts[1]
-	result.Path = fmt.Sprintf("/v2/%s/%s", hostParts[0], strings.TrimPrefix(u.Path, "/v2/"))
+	if u.Path != "/v2/" {
+		result.Path = fmt.Sprintf("/v2/%s/%s", hostParts[0], strings.TrimPrefix(u.Path, "/v2/"))
+	}
 	return &result, hostParts[0], true
 }
 
