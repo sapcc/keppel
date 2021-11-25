@@ -37,18 +37,18 @@ import (
 //    https://<public-hostname>/v2/<account>/<path>
 //
 func AddDomainRemapMiddleware(cfg keppel.Configuration, h http.Handler) http.Handler {
-	return domainRemap{cfg, h}
+	return domainRemapMiddleware{cfg, h}
 }
 
-type domainRemap struct {
+type domainRemapMiddleware struct {
 	cfg  keppel.Configuration
 	next http.Handler
 }
 
 //ServeHTTP implements the http.Handler interface.
-func (h domainRemap) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h domainRemapMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	//if request does not use domain remapping, forward to the next handler unchanged
-	rewrittenURL, matches := h.tryRewriteURL(keppel.OriginalRequestURL(r))
+	rewrittenURL, accountName, matches := h.tryRewriteURL(keppel.OriginalRequestURL(r))
 	if !matches {
 		h.next.ServeHTTP(w, r)
 		return
@@ -67,24 +67,27 @@ func (h domainRemap) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	reqCloned.Header.Set("X-Forwarded-Host", rewrittenURL.Host)
 	reqCloned.Header.Set("X-Forwarded-Proto", rewrittenURL.Scheme)
-	h.next.ServeHTTP(w, &reqCloned)
+
+	//we also need to intercept the ResponseWriter to rewrite URLs in the Location response header
+	wWrapped := domainRemapResponseWriter{w, accountName, false}
+	h.next.ServeHTTP(&wWrapped, &reqCloned)
 }
 
-func (h domainRemap) tryRewriteURL(u url.URL) (result url.URL, matches bool) {
+func (h domainRemapMiddleware) tryRewriteURL(u url.URL) (result url.URL, accountName string, matches bool) {
 	//can only rewrite requests for the Registry API
 	if !strings.HasPrefix(u.Path, "/v2/") {
-		return url.URL{}, false
+		return url.URL{}, "", false
 	}
 
 	//hostname must look like "<account>.<rest>"
 	hostParts := strings.SplitN(u.Host, ".", 2)
 	if len(hostParts) != 2 {
-		return url.URL{}, false
+		return url.URL{}, "", false
 	}
 
 	//head must look like an account name
 	if !keppel.RepoPathComponentRx.MatchString(hostParts[0]) {
-		return url.URL{}, false
+		return url.URL{}, "", false
 	}
 
 	//tail must be one of our public URL hostnames
@@ -95,12 +98,50 @@ func (h domainRemap) tryRewriteURL(u url.URL) (result url.URL, matches bool) {
 		//acceptable
 	default:
 		//nope
-		return url.URL{}, false
+		return url.URL{}, "", false
 	}
 
 	//perform rewrite
 	result = u
 	result.Host = hostParts[1]
 	result.Path = fmt.Sprintf("/v2/%s/%s", hostParts[0], strings.TrimPrefix(u.Path, "/v2/"))
-	return result, true
+	return result, hostParts[0], true
+}
+
+type domainRemapResponseWriter struct {
+	inner         http.ResponseWriter
+	accountName   string
+	headerWritten bool
+}
+
+//Header implements the http.ResponseWriter interface.
+func (w *domainRemapResponseWriter) Header() http.Header {
+	return w.inner.Header()
+}
+
+//WriteHeader implements the http.ResponseWriter interface.
+func (w *domainRemapResponseWriter) WriteHeader(statusCode int) {
+	if w.headerWritten {
+		return
+	}
+
+	//if the API generated a Location header with a relative URL, we need to
+	//rewrite its path to match the path structure of the remapped domain
+	locHeader := w.inner.Header().Get("Location")
+	accountPrefix := fmt.Sprintf("/v2/%s/", w.accountName)
+	if strings.HasPrefix(locHeader, accountPrefix) {
+		locHeader = "/v2/" + strings.TrimPrefix(locHeader, accountPrefix)
+		w.inner.Header().Set("Location", locHeader)
+	}
+
+	w.inner.WriteHeader(statusCode)
+	w.headerWritten = true
+}
+
+//Write implements the http.ResponseWriter interface.
+func (w *domainRemapResponseWriter) Write(buf []byte) (int, error) {
+	if !w.headerWritten {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.inner.Write(buf)
 }
