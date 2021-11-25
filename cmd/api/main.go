@@ -101,6 +101,7 @@ func run(cmd *cobra.Command, args []string) {
 		&headerReflector{logg.ShowDebug}, //the header reflection endpoint is only enabled where debugging is enabled (i.e. usually in dev/QA only)
 		&guiRedirecter{db, os.Getenv("KEPPEL_GUI_URI")},
 	)
+	handler = api.AddDomainRemapMiddleware(cfg, handler)
 	handler = logg.Middleware{}.Wrap(handler)
 	handler = cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
