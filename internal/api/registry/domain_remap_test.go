@@ -85,6 +85,7 @@ func TestManifestAPIDomainRemap(t *testing.T) {
 		token := s.GetToken(t, "repository:test1/foo:pull,push")
 		image.Config.MustUpload(t, s, fooRepoRef)
 
+		//test upload
 		assert.HTTPRequest{
 			Method: "PUT",
 			Path:   "/v2/foo/manifests/" + image.Manifest.Digest.String(),
@@ -99,6 +100,7 @@ func TestManifestAPIDomainRemap(t *testing.T) {
 			ExpectHeader: test.VersionHeader,
 		}.Check(t, h)
 
+		//test download
 		assert.HTTPRequest{
 			Method: "GET",
 			Path:   "/v2/foo/manifests/" + image.Manifest.Digest.String(),
@@ -114,6 +116,19 @@ func TestManifestAPIDomainRemap(t *testing.T) {
 				"Content-Length":      strconv.Itoa(len(image.Manifest.Contents)),
 				"Content-Type":        image.Manifest.MediaType,
 			},
+		}.Check(t, h)
+
+		//test that only Registry API is allowed on the domain-remapped hostname
+		assert.HTTPRequest{
+			Method: "GET",
+			Path:   "/keppel/v1/accounts/test1/repositories/foo/_manifests",
+			Header: map[string]string{
+				"Authorization":     "Bearer " + token,
+				"X-Forwarded-Host":  "test1.registry.example.org",
+				"X-Forwarded-Proto": "https",
+			},
+			ExpectStatus: http.StatusBadRequest,
+			ExpectBody:   assert.StringData("request path invalid for this hostname\n"),
 		}.Check(t, h)
 	})
 }

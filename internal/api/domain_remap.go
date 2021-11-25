@@ -54,6 +54,13 @@ func (h domainRemapMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	//if the request is for a domain-remapped hostname, but we don't know how to
+	//rewrite it, we reject it entirely
+	if rewrittenURL == nil {
+		http.Error(w, "request path invalid for this hostname", http.StatusBadRequest)
+		return
+	}
+
 	//otherwise, rewrite request object for the next handler (with a new Request
 	//object to ensure that previous handlers work properly after we return)
 	reqCloned := *r
@@ -73,21 +80,16 @@ func (h domainRemapMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	h.next.ServeHTTP(&wWrapped, &reqCloned)
 }
 
-func (h domainRemapMiddleware) tryRewriteURL(u url.URL) (result url.URL, accountName string, matches bool) {
-	//can only rewrite requests for the Registry API
-	if !strings.HasPrefix(u.Path, "/v2/") {
-		return url.URL{}, "", false
-	}
-
+func (h domainRemapMiddleware) tryRewriteURL(u url.URL) (rewrittenURL *url.URL, accountName string, matches bool) {
 	//hostname must look like "<account>.<rest>"
 	hostParts := strings.SplitN(u.Host, ".", 2)
 	if len(hostParts) != 2 {
-		return url.URL{}, "", false
+		return nil, "", false
 	}
 
 	//head must look like an account name
 	if !keppel.RepoPathComponentRx.MatchString(hostParts[0]) {
-		return url.URL{}, "", false
+		return nil, "", false
 	}
 
 	//tail must be one of our public URL hostnames
@@ -98,14 +100,19 @@ func (h domainRemapMiddleware) tryRewriteURL(u url.URL) (result url.URL, account
 		//acceptable
 	default:
 		//nope
-		return url.URL{}, "", false
+		return nil, "", false
+	}
+
+	//can only rewrite requests for the Registry API, otherwise the request is completely invalid
+	if !strings.HasPrefix(u.Path, "/v2/") {
+		return nil, hostParts[0], true
 	}
 
 	//perform rewrite
-	result = u
+	result := u
 	result.Host = hostParts[1]
 	result.Path = fmt.Sprintf("/v2/%s/%s", hostParts[0], strings.TrimPrefix(u.Path, "/v2/"))
-	return result, hostParts[0], true
+	return &result, hostParts[0], true
 }
 
 type domainRemapResponseWriter struct {
