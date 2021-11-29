@@ -51,13 +51,12 @@ func (c *Client) requestURL(pathElements ...string) string {
 func (c *Client) doRequest(req *http.Request, respBody interface{}) error {
 	//add auth token to request
 	now := time.Now()
-	//lint:ignore SA1019 jwt.RegisteredClaims is not backwards-compatible, so extra care may be needed
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
-		Audience:  c.BaseURL.Host,
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
+		Audience:  jwt.ClaimStrings{c.BaseURL.Host},
 		Issuer:    "keppel",
-		IssuedAt:  now.Unix(),
-		NotBefore: now.Unix(),
-		ExpiresAt: now.Add(1 * time.Hour).Unix(),
+		IssuedAt:  jwt.NewNumericDate(now),
+		NotBefore: jwt.NewNumericDate(now),
+		ExpiresAt: jwt.NewNumericDate(now.Add(1 * time.Hour)),
 	})
 	tokenStr, err := token.SignedString(c.PresharedKey)
 	if err != nil {

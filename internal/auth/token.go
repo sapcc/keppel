@@ -34,9 +34,14 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+func init() {
+	//required for backwards-compatibility with existing tokens
+	jwt.MarshalSingleStringAsArray = false
+}
+
 //Type representation for JWT claims issued by Keppel.
 type tokenClaims struct {
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 	Access   []Scope              `json:"access"`
 	Embedded embeddedUserIdentity `json:"kea"` //kea = keppel embedded authorization ("UserIdentity" used to be called "Authorization")
 }
@@ -73,22 +78,22 @@ func parseToken(cfg keppel.Configuration, ad keppel.AuthDriver, audience Service
 	}
 
 	//check claims (allow up to 3 seconds clock mismatch)
-	now := time.Now().Unix()
-	if !claims.StandardClaims.VerifyExpiresAt(now-3, true) {
+	now := time.Now()
+	if !claims.RegisteredClaims.VerifyExpiresAt(now.Add(-3*time.Second), true) {
 		return nil, keppel.ErrUnauthorized.With("token expired")
 	}
-	if !claims.StandardClaims.VerifyNotBefore(now+3, true) {
+	if !claims.RegisteredClaims.VerifyNotBefore(now.Add(+3*time.Second), true) {
 		return nil, keppel.ErrUnauthorized.With("token not valid yet")
 	}
 	publicHost := audience.Hostname(cfg)
 	if audience == LocalService {
-		if !claims.StandardClaims.VerifyIssuer("keppel-api@"+publicHost, true) {
+		if claims.RegisteredClaims.Issuer != "keppel-api@"+publicHost {
 			return nil, keppel.ErrUnauthorized.With("token has wrong issuer (expected keppel-api@%s)", publicHost)
 		}
 		//NOTE: For anycast tokens, we don't verify the issuer. Any of our peers
 		//could have issued the token.
 	}
-	if !claims.StandardClaims.VerifyAudience(publicHost, true) {
+	if !claims.RegisteredClaims.VerifyAudience(publicHost, true) {
 		return nil, keppel.ErrUnauthorized.With("token has wrong audience (expected %s)", publicHost)
 	}
 
@@ -127,15 +132,14 @@ func (a Authorization) IssueToken(cfg keppel.Configuration) (*TokenResponse, err
 
 	publicHost := a.Service.Hostname(cfg)
 	token := jwt.NewWithClaims(method, tokenClaims{
-		//lint:ignore SA1019 jwt.RegisteredClaims is not backwards-compatible, so extra care is needed (esp. Audience is now a list, not a string)
-		StandardClaims: jwt.StandardClaims{
-			Id:        uuid.NewV4().String(),
-			Audience:  publicHost,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.NewV4().String(),
+			Audience:  jwt.ClaimStrings{publicHost},
 			Issuer:    "keppel-api@" + cfg.APIPublicURL.Hostname(),
 			Subject:   a.UserIdentity.UserName(),
-			ExpiresAt: expiresAt.Unix(),
-			NotBefore: now.Unix(),
-			IssuedAt:  now.Unix(),
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
+			NotBefore: jwt.NewNumericDate(now),
+			IssuedAt:  jwt.NewNumericDate(now),
 		},
 		//access permissions granted to this token
 		Access:   a.ScopeSet.Flatten(),
