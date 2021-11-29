@@ -127,6 +127,7 @@ func (a Authorization) IssueToken(cfg keppel.Configuration) (*TokenResponse, err
 
 	publicHost := a.Service.Hostname(cfg)
 	token := jwt.NewWithClaims(method, tokenClaims{
+		//lint:ignore SA1019 jwt.RegisteredClaims is not backwards-compatible, so extra care is needed (esp. Audience is now a list, not a string)
 		StandardClaims: jwt.StandardClaims{
 			Id:        uuid.NewV4().String(),
 			Audience:  publicHost,

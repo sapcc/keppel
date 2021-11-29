@@ -22,7 +22,6 @@ package easypg
 import (
 	"database/sql"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,7 +34,7 @@ import (
 //It implies that every SQL statement is on a single line.
 func ExecSQLFile(t *testing.T, db *sql.DB, path string) {
 	t.Helper()
-	sqlBytes, err := ioutil.ReadFile(path)
+	sqlBytes, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +117,7 @@ func (a Assertable) AssertEqualToFile(fixtureFile string) {
 	//to the fixture path when a new test is added or an existing one is modified
 	fixturePath, _ := filepath.Abs(fixtureFile)
 	actualPath := fixturePath + ".actual"
-	failOnErr(a.t, ioutil.WriteFile(actualPath, []byte(a.payload), 0644))
+	failOnErr(a.t, os.WriteFile(actualPath, []byte(a.payload), 0644))
 
 	cmd := exec.Command("diff", "-u", fixturePath, actualPath)
 	cmd.Stdin = nil
@@ -148,12 +147,12 @@ func (a Assertable) AssertEqual(expected string) {
 	}
 
 	//slow path: show a diff
-	tmpDir, err := ioutil.TempDir("", "easypg-diff")
+	tmpDir, err := os.MkdirTemp("", "easypg-diff")
 	failOnErr(a.t, err)
 	actualPath := filepath.Join(tmpDir, "/actual")
-	failOnErr(a.t, ioutil.WriteFile(actualPath, []byte(actual), 0644))
+	failOnErr(a.t, os.WriteFile(actualPath, []byte(actual), 0644))
 	expectedPath := filepath.Join(tmpDir, "/expected")
-	failOnErr(a.t, ioutil.WriteFile(expectedPath, []byte(expected), 0644))
+	failOnErr(a.t, os.WriteFile(expectedPath, []byte(expected), 0644))
 
 	cmd := exec.Command("diff", "-u", expectedPath, actualPath)
 	cmd.Stdin = nil

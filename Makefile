@@ -4,10 +4,13 @@
 ################################################################################
 
 MAKEFLAGS=--warn-undefined-variables
+
 # /bin/sh is dash on Debian which does not support all features of ash/bash
 # to fix that we use /bin/bash only on Debian to not break Alpine
-ifneq ($(shell grep -c debian /etc/os-release),0)
-SHELL := /bin/bash
+ifneq (,$(wildcard /etc/os-release)) # check file existence
+	ifneq ($(shell grep -c debian /etc/os-release),0)
+		SHELL := /bin/bash
+	endif
 endif
 
 default: build-all
@@ -20,16 +23,16 @@ build-all: build/keppel
 
 GO_BUILDFLAGS = -mod vendor
 GO_LDFLAGS = -X github.com/sapcc/keppel/internal/keppel.Version=$(shell util/find_version.sh)
-GO_TESTENV = 
+GO_TESTENV =
 
 build/keppel: FORCE
 	go build $(GO_BUILDFLAGS) -ldflags '-s -w $(GO_LDFLAGS)' -o build/keppel .
 
 DESTDIR =
 ifeq ($(shell uname -s),Darwin)
-  PREFIX = /usr/local
+	PREFIX = /usr/local
 else
-  PREFIX = /usr
+	PREFIX = /usr
 endif
 
 install: FORCE build/keppel
@@ -42,7 +45,7 @@ GO_ALLFILES := $(addsuffix /*.go,$(patsubst $(shell go list .)%,.%,$(shell go li
 # which packages to test with "go test"
 GO_TESTPKGS := $(shell go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...)
 # which packages to measure coverage for
-GO_COVERPKGS := $(shell go list ./... | grep -E '/internal' | grep -Ev '/drivers|/test/util')
+GO_COVERPKGS := $(shell go list ./... | command grep -E '/internal' | command grep -Ev '/drivers|/test/util')
 # to get around weird Makefile syntax restrictions, we need variables containing a space and comma
 space := $(null) $(null)
 comma := ,
@@ -52,10 +55,22 @@ check: build-all static-check build/cover.html FORCE
 
 static-check: FORCE
 	@if ! hash staticcheck 2>/dev/null; then printf "\e[1;36m>> Installing staticcheck...\e[0m\n"; go install honnef.co/go/tools/cmd/staticcheck@latest; fi
+	@if ! hash exportloopref 2>/dev/null; then printf "\e[1;36m>> Installing exportloopref...\e[0m\n"; go install github.com/kyoh86/exportloopref/cmd/exportloopref@latest; fi
+	@if ! hash rowserrcheck 2>/dev/null; then printf "\e[1;36m>> Installing exportloopref...\e[0m\n"; go install github.com/jingyugao/rowserrcheck@latest; fi
+	@if ! hash unconvert 2>/dev/null; then printf "\e[1;36m>> Installing unparam...\e[0m\n"; go install github.com/mdempsky/unconvert@latest; fi
+	@if ! hash unparam 2>/dev/null; then printf "\e[1;36m>> Installing unparam...\e[0m\n"; go install mvdan.cc/unparam@latest; fi
 	@printf "\e[1;36m>> gofmt\e[0m\n"
 	@if s="$$(gofmt -s -d $(GO_ALLFILES) 2>/dev/null)" && test -n "$$s"; then echo "$$s"; false; fi
 	@printf "\e[1;36m>> staticcheck\e[0m\n"
 	@staticcheck -checks 'inherit,-ST1015' $(GO_ALLPKGS)
+	@printf "\e[1;36m>> exportloopref\e[0m\n"
+	@exportloopref $(GO_ALLPKGS)
+	@printf "\e[1;36m>> rowserrcheck\e[0m\n"
+	@rowserrcheck $(GO_ALLPKGS)
+	@printf "\e[1;36m>> unconvert\e[0m\n"
+	@unconvert $(GO_ALLPKGS)
+	@printf "\e[1;36m>> unparam\e[0m\n"
+	@unparam $(GO_ALLPKGS)
 	@printf "\e[1;36m>> go vet\e[0m\n"
 	@go vet $(GO_BUILDFLAGS) $(GO_ALLPKGS)
 
@@ -72,6 +87,11 @@ build:
 
 vendor: FORCE
 	go mod tidy
+	go mod vendor
+	go mod verify
+
+vendor-compat: FORCE
+	go mod tidy -compat=$(shell awk '$$1 == "go" { print $$2 }' < go.mod)
 	go mod vendor
 	go mod verify
 

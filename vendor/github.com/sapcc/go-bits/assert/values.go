@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -143,7 +142,7 @@ func (f FixtureFile) AssertResponseBody(t *testing.T, requestInfo string, respon
 	//to the fixture path when a new test is added or an existing one is modified
 	fixturePathAbs, _ := filepath.Abs(string(f))
 	actualPathAbs := fixturePathAbs + ".actual"
-	err := ioutil.WriteFile(actualPathAbs, responseBody, 0644)
+	err := os.WriteFile(actualPathAbs, responseBody, 0644)
 	if err != nil {
 		t.Fatal(err)
 		return false

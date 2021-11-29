@@ -1,3 +1,4 @@
+//go:build go1.9
 // +build go1.9
 
 package postgres
@@ -7,15 +8,14 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
-	"io/ioutil"
 	nurl "net/url"
 	"strconv"
 	"strings"
 
-	"github.com/sapcc/go-bits/easypg/migrate"
-	"github.com/sapcc/go-bits/easypg/migrate/database"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/lib/pq"
+	"github.com/sapcc/go-bits/easypg/migrate"
+	"github.com/sapcc/go-bits/easypg/migrate/database"
 )
 
 func init() {
@@ -180,7 +180,7 @@ func (p *Postgres) Unlock() error {
 }
 
 func (p *Postgres) Run(migration io.Reader) error {
-	migr, err := ioutil.ReadAll(migration)
+	migr, err := io.ReadAll(migration)
 	if err != nil {
 		return err
 	}

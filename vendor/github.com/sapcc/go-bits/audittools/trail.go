@@ -59,15 +59,15 @@ func (t AuditTrail) Commit(rabbitmqQueueName string, rabbitmqURI amqp.URI) {
 	}
 
 	var pendingEvents []cadf.Event
-	//lint:ignore SA1015 Stays for the duration of the program and not an issue in real world usage
-	ticker := time.Tick(1 * time.Minute)
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
 	for {
 		select {
 		case e := <-t.EventSink:
 			if successful := sendEvent(&e); !successful {
 				pendingEvents = append(pendingEvents, e)
 			}
-		case <-ticker:
+		case <-ticker.C:
 			for len(pendingEvents) > 0 {
 				successful := false // until proven otherwise
 

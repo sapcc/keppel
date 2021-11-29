@@ -24,8 +24,8 @@ package gopherpolicy
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 
 	policy "github.com/databus23/goslo.policy"
@@ -69,7 +69,7 @@ type TokenValidator struct {
 
 //LoadPolicyFile creates v.Enforcer from the given policy file.
 func (v *TokenValidator) LoadPolicyFile(path string) error {
-	bytes, err := ioutil.ReadFile(path)
+	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}

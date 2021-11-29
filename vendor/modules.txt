@@ -32,10 +32,10 @@ github.com/go-redis/redis/internal/proto
 github.com/go-redis/redis/internal/util
 # github.com/go-sql-driver/mysql v1.6.0
 ## explicit; go 1.10
-# github.com/gofrs/uuid v3.2.0+incompatible
+# github.com/gofrs/uuid v4.2.0+incompatible
 ## explicit
 github.com/gofrs/uuid
-# github.com/golang-jwt/jwt/v4 v4.0.0
+# github.com/golang-jwt/jwt/v4 v4.1.0
 ## explicit; go 1.15
 github.com/golang-jwt/jwt/v4
 # github.com/golang/protobuf v1.5.2
@@ -45,7 +45,7 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/gophercloud/gophercloud v0.21.0
+# github.com/gophercloud/gophercloud v0.23.0
 ## explicit; go 1.13
 github.com/gophercloud/gophercloud
 github.com/gophercloud/gophercloud/openstack
@@ -70,8 +70,8 @@ github.com/gorilla/mux
 # github.com/hashicorp/errwrap v1.0.0
 ## explicit
 github.com/hashicorp/errwrap
-# github.com/hashicorp/go-multierror v1.0.0
-## explicit
+# github.com/hashicorp/go-multierror v1.1.1
+## explicit; go 1.13
 github.com/hashicorp/go-multierror
 # github.com/hashicorp/golang-lru v0.5.4
 ## explicit; go 1.12
@@ -83,8 +83,8 @@ github.com/inconshreveable/mousetrap
 # github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629
 ## explicit
 github.com/jpillora/longestcommon
-# github.com/lib/pq v1.2.0
-## explicit
+# github.com/lib/pq v1.10.4
+## explicit; go 1.13
 github.com/lib/pq
 github.com/lib/pq/oid
 github.com/lib/pq/scram
@@ -102,7 +102,7 @@ github.com/mitchellh/go-homedir
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit; go 1.13
 github.com/opencontainers/go-digest
-# github.com/opencontainers/image-spec v1.0.1
+# github.com/opencontainers/image-spec v1.0.2
 ## explicit
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
@@ -129,8 +129,8 @@ github.com/prometheus/procfs/internal/util
 # github.com/rs/cors v1.8.0
 ## explicit; go 1.13
 github.com/rs/cors
-# github.com/sapcc/go-bits v0.0.0-20211015211545-625078675165
-## explicit; go 1.12
+# github.com/sapcc/go-bits v0.0.0-20211126202514-08dd631513c2
+## explicit; go 1.17
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
 github.com/sapcc/go-bits/easypg
@@ -146,7 +146,7 @@ github.com/sapcc/go-bits/httpext
 github.com/sapcc/go-bits/logg
 github.com/sapcc/go-bits/respondwith
 github.com/sapcc/go-bits/sre
-# github.com/sapcc/hermes v0.0.0-20210420164927-80b881d15d66
+# github.com/sapcc/hermes v0.0.0-20211124185454-5855fb4e75e5
 ## explicit; go 1.13
 github.com/sapcc/hermes/pkg/cadf
 # github.com/satori/go.uuid v1.2.0
@@ -161,7 +161,7 @@ github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/streadway/amqp v1.0.1-0.20200716223359-e6b33f460591
+# github.com/streadway/amqp v1.0.0
 ## explicit; go 1.10
 github.com/streadway/amqp
 # github.com/throttled/throttled/v2 v2.9.0
@@ -171,7 +171,7 @@ github.com/throttled/throttled/v2/store/goredisstore
 github.com/throttled/throttled/v2/store/memstore
 # github.com/ziutek/mymysql v1.5.4
 ## explicit
-# golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+# golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871
 ## explicit; go 1.17
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish

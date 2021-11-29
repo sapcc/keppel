@@ -22,7 +22,6 @@ package assert
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -87,7 +86,7 @@ func (r HTTPRequest) Check(t *testing.T, handler http.Handler) (resp *http.Respo
 	handler.ServeHTTP(recorder, request)
 
 	response := recorder.Result()
-	responseBytes, _ := ioutil.ReadAll(response.Body)
+	responseBytes, _ := io.ReadAll(response.Body)
 
 	hadErrors := false
 	bodyShown := false

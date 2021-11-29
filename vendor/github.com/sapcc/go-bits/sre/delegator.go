@@ -72,11 +72,13 @@ func (r *responseWriterDelegator) Write(b []byte) (int, error) {
 	return n, err
 }
 
-type closeNotifierDelegator struct{ *responseWriterDelegator }
-type flusherDelegator struct{ *responseWriterDelegator }
-type hijackerDelegator struct{ *responseWriterDelegator }
-type readerFromDelegator struct{ *responseWriterDelegator }
-type pusherDelegator struct{ *responseWriterDelegator }
+type (
+	closeNotifierDelegator struct{ *responseWriterDelegator }
+	flusherDelegator       struct{ *responseWriterDelegator }
+	hijackerDelegator      struct{ *responseWriterDelegator }
+	readerFromDelegator    struct{ *responseWriterDelegator }
+	pusherDelegator        struct{ *responseWriterDelegator }
+)
 
 func (d closeNotifierDelegator) CloseNotify() <-chan bool {
 	//lint:ignore SA1019 http.CloseNotifier is deprecated but we don't want to
