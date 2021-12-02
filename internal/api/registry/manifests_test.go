@@ -184,6 +184,22 @@ func TestImageManifestLifecycle(t *testing.T) {
 				}.Check(t, h)
 			}
 
+			//PUT failure case: cannot upload manifest without Content-Type, or with
+			//a faulty Content-Type (defense against attacks like CVE-2021-41190)
+			for _, wrongMediaType := range []string{"", "application/vnd.docker.distribution.manifest.list.v2+json"} {
+				assert.HTTPRequest{
+					Method: "PUT",
+					Path:   "/v2/test1/foo/manifests/" + ref,
+					Header: map[string]string{
+						"Authorization": "Bearer " + token,
+						"Content-Type":  wrongMediaType,
+					},
+					Body:         assert.ByteData(image.Manifest.Contents),
+					ExpectStatus: http.StatusBadRequest,
+					ExpectBody:   test.ErrorCode(keppel.ErrManifestInvalid),
+				}.Check(t, h)
+			}
+
 			//there should still not be any manifests
 			s.Auditor.ExpectEvents(t /*, nothing */)
 
