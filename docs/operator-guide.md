@@ -209,14 +209,7 @@ These options are only understood by the API server.
 
 ### API server: Domain remapping support
 
-Usually, Keppel exposes its APIs under the hostnames specified in `$KEPPEL_API_PUBLIC_URL` and `$KEPPEL_API_ANYCAST_URL`. However, if you wish, you can also configure your HTTPS reverse-proxy to serve the Keppel API on direct subdomains of these hostnames. In this case, the name of the subdomain will be interpreted as a Keppel account name, and the Registry API will be exposed on these subdomains without requiring the account name in the URL path.
-
-For example, if `KEPPEL_API_PUBLIC_URL=https://registry.example.com`, then the image `latest` in the repository `myrepo` in the account `myaccount` can be reached via the following URLs:
-
-- standard URL: `https://registry.example.com/v2/myaccount/myrepo/manifests/latest`
-- domain-remapped URL: `https://myaccount.registry.example.com/v2/myrepo/manifests/latest`
-
-This is particularly useful if you have an external replica account of Docker Hub, since dockerd only accepts plain hostnames in its `registry-mirrors` option. Therefore something like `registry.example.com/dockerhubmirror` would not work, but `dockerhubmirror.registry.example.com` does work.
+Usually, Keppel exposes its APIs under the hostnames specified in `$KEPPEL_API_PUBLIC_URL` and `$KEPPEL_API_ANYCAST_URL`. However, if you wish, you can also configure your HTTPS reverse-proxy to serve the Keppel API on direct subdomains of these hostnames. In this case, the name of the subdomain will be interpreted as a Keppel account name, and the Registry API will be exposed on these subdomains without requiring the account name in the URL path. This is explained in more detail [in the API spec](./api-spec.md#domain-remapping).
 
 ### Janitor configuration options
 
