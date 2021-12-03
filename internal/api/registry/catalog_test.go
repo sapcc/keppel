@@ -30,7 +30,7 @@ import (
 )
 
 func TestCatalogEndpoint(t *testing.T) {
-	s := test.NewSetup(t)
+	s := test.NewSetup(t, test.WithAnycast(true))
 
 	//set up dummy accounts for testing
 	for idx := 1; idx <= 3; idx++ {
@@ -58,6 +58,7 @@ func TestCatalogEndpoint(t *testing.T) {
 	testEmptyCatalog(t, s)
 	testNonEmptyCatalog(t, s)
 	testAuthErrorsForCatalog(t, s)
+	testNoCatalogOnAnycast(t, s)
 }
 
 func testEmptyCatalog(t *testing.T, s test.Setup) {
@@ -209,4 +210,20 @@ func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
 		//but DENIED is more logical.
 		ExpectBody: test.ErrorCode(keppel.ErrDenied),
 	}.Check(t, h)
+}
+
+func testNoCatalogOnAnycast(t *testing.T, s test.Setup) {
+	token := s.GetAnycastToken(t, "registry:catalog:*")
+	assert.HTTPRequest{
+		Method: "GET",
+		Path:   "/v2/_catalog",
+		Header: map[string]string{
+			"Authorization":     "Bearer " + token,
+			"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Hostname(),
+			"X-Forwarded-Proto": "https",
+		},
+		ExpectStatus: http.StatusMethodNotAllowed,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
+	}.Check(t, s.Handler)
 }

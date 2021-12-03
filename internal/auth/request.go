@@ -71,6 +71,11 @@ func (ir IncomingRequest) Authorize(cfg keppel.Configuration, ad keppel.AuthDriv
 			msg := "write access is not supported for anycast requests"
 			return nil, keppel.ErrUnsupported.With(msg)
 		}
+		//only allow anycast usage when the API explicitly permits it
+		if !ir.AllowsAnycast {
+			msg := fmt.Sprintf("%s %s endpoint is not supported for anycast requests", r.Method, r.URL.Path)
+			return nil, keppel.ErrUnsupported.With(msg)
+		}
 	}
 	if ir.AudienceForTokenIssuance != 0 {
 		audience = ir.AudienceForTokenIssuance

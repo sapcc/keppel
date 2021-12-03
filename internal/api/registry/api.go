@@ -221,7 +221,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	authz, rerr := auth.IncomingRequest{
 		HTTPRequest:   r,
 		Scopes:        auth.NewScopeSet(scope),
-		AllowsAnycast: true,
+		AllowsAnycast: anycastHandler != nil,
 	}.Authorize(a.cfg, a.ad, a.db)
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w, r)
