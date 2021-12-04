@@ -57,6 +57,7 @@ func TestCatalogEndpoint(t *testing.T) {
 	//testcases
 	testEmptyCatalog(t, s)
 	testNonEmptyCatalog(t, s)
+	testDomainRemappedCatalog(t, s)
 	testAuthErrorsForCatalog(t, s)
 	testNoCatalogOnAnycast(t, s)
 }
@@ -87,7 +88,6 @@ func testEmptyCatalog(t *testing.T, s test.Setup) {
 }
 
 func testNonEmptyCatalog(t *testing.T, s test.Setup) {
-	//token with keppel.CanViewAccount can read all accounts' catalogs
 	h := s.Handler
 	token := s.GetToken(t,
 		"registry:catalog:*",
@@ -178,6 +178,44 @@ func testNonEmptyCatalog(t *testing.T, s test.Setup) {
 	}.Check(t, h)
 }
 
+func testDomainRemappedCatalog(t *testing.T, s test.Setup) {
+	h := s.Handler
+	token := s.GetDomainRemappedToken(t, "test1",
+		"registry:catalog:*",
+		"keppel_account:test1:view",
+	)
+
+	//test unpaginated
+	assert.HTTPRequest{
+		Method: "GET",
+		Path:   "/v2/_catalog",
+		Header: map[string]string{
+			"Authorization":     "Bearer " + token,
+			"X-Forwarded-Host":  "test1.registry.example.org",
+			"X-Forwarded-Proto": "https",
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   assert.JSONObject{"repositories": []string{"bar", "foo", "qux"}},
+	}.Check(t, h)
+
+	//test paginated (only a very basic test: we already have most of the test
+	//coverage in testNonEmptyCatalog, this mostly checks that the "last"
+	//parameter is correctly interpreted as a bare repo name)
+	assert.HTTPRequest{
+		Method: "GET",
+		Path:   "/v2/_catalog?last=foo",
+		Header: map[string]string{
+			"Authorization":     "Bearer " + token,
+			"X-Forwarded-Host":  "test1.registry.example.org",
+			"X-Forwarded-Proto": "https",
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectHeader: test.VersionHeader,
+		ExpectBody:   assert.JSONObject{"repositories": []string{"qux"}},
+	}.Check(t, h)
+}
+
 func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
 	//without token, expect auth challenge
 	h := s.Handler
@@ -210,6 +248,24 @@ func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
 		//but DENIED is more logical.
 		ExpectBody: test.ErrorCode(keppel.ErrDenied),
 	}.Check(t, h)
+
+	//without token, expect auth challenge (test for domain-remapped API)
+	assert.HTTPRequest{
+		Method: "GET",
+		Path:   "/v2/_catalog",
+		Header: map[string]string{
+			"X-Forwarded-Host":  "test1.registry.example.org",
+			"X-Forwarded-Proto": "https",
+		},
+		ExpectStatus: http.StatusUnauthorized,
+		ExpectHeader: map[string]string{
+			test.VersionHeaderKey: test.VersionHeaderValue,
+			"Www-Authenticate":    `Bearer realm="https://test1.registry.example.org/keppel/v1/auth",service="test1.registry.example.org",scope="registry:catalog:*"`,
+			"Content-Type":        "application/json",
+		},
+		ExpectBody: test.ErrorCode(keppel.ErrUnauthorized),
+	}.Check(t, h)
+
 }
 
 func testNoCatalogOnAnycast(t *testing.T, s test.Setup) {

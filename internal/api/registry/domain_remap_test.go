@@ -157,5 +157,3 @@ func TestManifestAPIDomainRemap(t *testing.T) {
 		}.Check(t, h)
 	})
 }
-
-//TODO func TestCatalogAPIDomainRemap
