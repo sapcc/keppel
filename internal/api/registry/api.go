@@ -238,7 +238,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	}
 	if account == nil {
 		//if this is an anycast request, try forwarding it to the peer that has the primary account with this name
-		if anycastHandler != nil && a.cfg.IsAnycastRequest(r) {
+		if anycastHandler != nil && authz.Audience.IsAnycast {
 			primaryHostName, err := a.fd.FindPrimaryAccount(repoScope.AccountName)
 			switch err {
 			case error(nil):

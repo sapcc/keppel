@@ -24,7 +24,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"regexp"
@@ -45,25 +44,6 @@ type Configuration struct {
 	JWTIssuerKeys            []crypto.PrivateKey
 	AnycastJWTIssuerKeys     []crypto.PrivateKey
 	ClairClient              *clair.Client
-}
-
-//IsAnycastRequest returns true if this configuration has anycast enabled and
-//the given request is for the anycast API.
-func (c Configuration) IsAnycastRequest(r *http.Request) bool {
-	if c.AnycastAPIPublicHostname == "" {
-		return false
-	}
-
-	//case 1: anycast request explicitly reverse-proxied to us from the
-	//keppel-api that originally received it
-	forwardedBy := r.Header.Get("X-Keppel-Forwarded-By")
-	if forwardedBy != "" {
-		return true
-	}
-
-	//case 2: anycast request originating from the user
-	u := OriginalRequestURL(r)
-	return u.Hostname() == c.AnycastAPIPublicHostname
 }
 
 var (
