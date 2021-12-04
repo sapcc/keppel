@@ -156,8 +156,8 @@ func TestListTags(t *testing.T) {
 						Path:   "/v2/test1/foo/tags/list",
 						Header: map[string]string{
 							"Authorization":     "Bearer " + anycastToken,
-							"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Host,
-							"X-Forwarded-Proto": s.Config.AnycastAPIPublicURL.Scheme,
+							"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
+							"X-Forwarded-Proto": "https",
 						},
 						ExpectStatus: http.StatusOK,
 						ExpectHeader: test.VersionHeader,

@@ -527,7 +527,7 @@ func (c jwtContents) AssertResponseBody(t *testing.T, requestInfo string, respon
 
 func TestIssueToken(t *testing.T) {
 	s := setupPrimary(t)
-	service := s.Config.APIPublicURL.Hostname()
+	service := s.Config.APIPublicHostname
 
 	for idx, c := range testCases {
 		t.Logf("----- testcase %d/%d -----\n", idx+1, len(testCases))
@@ -625,7 +625,7 @@ func TestIssueToken(t *testing.T) {
 func TestInvalidCredentials(t *testing.T) {
 	s := setupPrimary(t)
 	h := s.Handler
-	service := s.Config.APIPublicURL.Hostname()
+	service := s.Config.APIPublicHostname
 
 	//execute normal GET requests that would result in a token with granted
 	//actions, if we didn't give the wrong username (in the first call) or
@@ -687,9 +687,9 @@ func TestAnycastToken(t *testing.T) {
 		s1.AD.GrantedPermissions = perms
 		s2.AD.GrantedPermissions = perms
 
-		localService1 := s1.Config.APIPublicURL.Hostname()
-		localService2 := s2.Config.APIPublicURL.Hostname()
-		anycastService := s1.Config.AnycastAPIPublicURL.Hostname()
+		localService1 := s1.Config.APIPublicHostname
+		localService2 := s2.Config.APIPublicHostname
+		anycastService := s1.Config.AnycastAPIPublicHostname
 		anycastTestCases := []anycastTestCase{
 			//when asking for a local token (i.e. not giving the anycast hostname as
 			//service), no reverse-proxying is done and we only see the local accounts
@@ -794,7 +794,7 @@ func TestMultiScope(t *testing.T) {
 
 	s := setupPrimary(t)
 	h := s.Handler
-	service := s.Config.APIPublicURL.Hostname()
+	service := s.Config.APIPublicHostname
 
 	//various shorthands for the testcases below
 	correctAuthHeader := map[string]string{

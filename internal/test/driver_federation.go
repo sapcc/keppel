@@ -50,7 +50,7 @@ type AccountRecordedByFederationDriver struct {
 func init() {
 	keppel.RegisterFederationDriver("unittest", func(_ keppel.AuthDriver, cfg keppel.Configuration) (keppel.FederationDriver, error) {
 		fd := &FederationDriver{
-			APIPublicHostName:         cfg.APIPublicURL.Hostname(),
+			APIPublicHostName:         cfg.APIPublicHostname,
 			ValidSubleaseTokenSecrets: make(map[string]string),
 		}
 		federationDriversForThisUnitTest = append(federationDriversForThisUnitTest, fd)

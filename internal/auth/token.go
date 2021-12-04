@@ -135,7 +135,7 @@ func (a Authorization) IssueToken(cfg keppel.Configuration) (*TokenResponse, err
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        uuid.NewV4().String(),
 			Audience:  jwt.ClaimStrings{publicHost},
-			Issuer:    "keppel-api@" + cfg.APIPublicURL.Hostname(),
+			Issuer:    "keppel-api@" + cfg.APIPublicHostname,
 			Subject:   a.UserIdentity.UserName(),
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			NotBefore: jwt.NewNumericDate(now),

@@ -43,9 +43,9 @@ const (
 func (s Service) Hostname(cfg keppel.Configuration) string {
 	switch s {
 	case LocalService:
-		return cfg.APIPublicURL.Hostname()
+		return cfg.APIPublicHostname
 	case AnycastService:
-		return cfg.AnycastAPIPublicURL.Hostname()
+		return cfg.AnycastAPIPublicHostname
 	default:
 		panic(fmt.Sprintf("unknown auth service code: %d", s))
 	}

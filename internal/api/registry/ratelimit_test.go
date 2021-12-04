@@ -173,7 +173,7 @@ func TestAnycastRateLimits(t *testing.T) {
 
 				anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull")
 				anycastHeaders := map[string]string{
-					"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Hostname(),
+					"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
 					"X-Forwarded-Proto": "https",
 				}
 
@@ -190,7 +190,7 @@ func TestAnycastRateLimits(t *testing.T) {
 					Path:   "/v2/test1/foo/blobs/" + blob.Digest.String(),
 					Header: map[string]string{
 						"Authorization":     "Bearer " + anycastToken,
-						"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Hostname(),
+						"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
 						"X-Forwarded-Proto": "https",
 					},
 					ExpectBody:   test.ErrorCode(keppel.ErrTooManyRequests),

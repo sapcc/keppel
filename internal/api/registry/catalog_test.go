@@ -219,7 +219,7 @@ func testNoCatalogOnAnycast(t *testing.T, s test.Setup) {
 		Path:   "/v2/_catalog",
 		Header: map[string]string{
 			"Authorization":     "Bearer " + token,
-			"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Hostname(),
+			"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
 			"X-Forwarded-Proto": "https",
 		},
 		ExpectStatus: http.StatusMethodNotAllowed,

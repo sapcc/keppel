@@ -169,15 +169,15 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 
 	//choose identity
 	var (
-		dbName          string
-		apiPublicURLStr string
+		dbName            string
+		apiPublicHostname string
 	)
 	if params.IsSecondary {
 		dbName = "keppel_secondary"
-		apiPublicURLStr = "https://registry-secondary.example.org"
+		apiPublicHostname = "registry-secondary.example.org"
 	} else {
 		dbName = "keppel"
-		apiPublicURLStr = "https://registry.example.org"
+		apiPublicHostname = "registry.example.org"
 	}
 
 	//suitable for use with ./testing/with-postgres-db.sh
@@ -186,12 +186,10 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	//build keppel.Configuration
 	dbURL, err := url.Parse(postgresURL)
 	must(t, err)
-	apiPublicURL, err := url.Parse(apiPublicURLStr)
-	must(t, err)
 	s := Setup{
 		Config: keppel.Configuration{
-			APIPublicURL: *apiPublicURL,
-			DatabaseURL:  *dbURL,
+			APIPublicHostname: apiPublicHostname,
+			DatabaseURL:       *dbURL,
 		},
 		tokenCache: make(map[string]string),
 	}
@@ -275,9 +273,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 
 	//setup anycast if requested
 	if params.WithAnycast {
-		anycastAPIPublicURL, err := url.Parse("https://registry-global.example.org")
-		must(t, err)
-		s.Config.AnycastAPIPublicURL = anycastAPIPublicURL
+		s.Config.AnycastAPIPublicHostname = "registry-global.example.org"
 
 		if params.WithPreviousIssuerKey {
 			key, err := keppel.ParseIssuerKey(UnitTestAnycastIssuerRSAPrivateKey)
@@ -330,7 +326,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	}
 	s.Handler = api.AddDomainRemapMiddleware(s.Config, api.Compose(apis...))
 	if tt, ok := http.DefaultClient.Transport.(*RoundTripper); ok {
-		tt.Handlers[s.Config.APIPublicURL.Host] = s.Handler
+		tt.Handlers[s.Config.APIPublicHostname] = s.Handler
 	}
 
 	//setup initial accounts/repos

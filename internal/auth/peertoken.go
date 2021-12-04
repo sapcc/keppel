@@ -36,7 +36,7 @@ func GetPeerToken(cfg keppel.Configuration, peer keppel.Peer, scope Scope) (stri
 	if err != nil {
 		return "", err
 	}
-	ourUserName := "replication@" + cfg.APIPublicURL.Hostname()
+	ourUserName := "replication@" + cfg.APIPublicHostname
 	req.Header.Set("Authorization", keppel.BuildBasicAuthHeader(ourUserName, peer.OurPassword))
 
 	resp, err := http.DefaultClient.Do(req)

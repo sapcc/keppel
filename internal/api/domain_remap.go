@@ -94,9 +94,9 @@ func (h domainRemapMiddleware) tryRewriteURL(u url.URL) (rewrittenURL *url.URL, 
 
 	//tail must be one of our public URL hostnames
 	switch {
-	case hostParts[1] == h.cfg.APIPublicURL.Host:
+	case hostParts[1] == h.cfg.APIPublicHostname:
 		//acceptable
-	case h.cfg.AnycastAPIPublicURL != nil && hostParts[1] == h.cfg.AnycastAPIPublicURL.Host:
+	case h.cfg.AnycastAPIPublicHostname != "" && hostParts[1] == h.cfg.AnycastAPIPublicHostname:
 		//acceptable
 	default:
 		//nope
