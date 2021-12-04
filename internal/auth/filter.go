@@ -20,8 +20,6 @@
 package auth
 
 import (
-	"strings"
-
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -65,14 +63,9 @@ func filterAuthorized(ss ScopeSet, uid keppel.UserIdentity, audience Audience, d
 			}
 
 		case "repository":
-			if !strings.Contains(scope.ResourceName, "/") {
-				//just an account name does not make a repository name
-				filtered.Actions = nil
-			} else {
-				filtered.Actions, err = filterRepoActions(*scope, uid, audience, db)
-				if err != nil {
-					return nil, err
-				}
+			filtered.Actions, err = filterRepoActions(*scope, uid, audience, db)
+			if err != nil {
+				return nil, err
 			}
 
 		case "keppel_api":

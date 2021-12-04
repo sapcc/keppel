@@ -675,7 +675,7 @@ type anycastTestCase struct {
 	Issuer       string
 }
 
-func TestAnycastToken(t *testing.T) {
+func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
 		s1 := setupPrimary(t)
 		s2 := setupSecondary(t)
@@ -703,13 +703,13 @@ func TestAnycastToken(t *testing.T) {
 				HasAccess: true, Issuer: localService2},
 			//asking for a token for someone else's local service will never work
 			{AccountName: "test1", Service: localService2, Handler: h1,
-				ErrorMessage: fmt.Sprintf("cannot issue tokens for service: %q", localService2)},
+				ErrorMessage: `cannot issue tokens for service: "%SERVICE%"`},
 			{AccountName: "test2", Service: localService2, Handler: h1,
-				ErrorMessage: fmt.Sprintf("cannot issue tokens for service: %q", localService2)},
+				ErrorMessage: `cannot issue tokens for service: "%SERVICE%"`},
 			{AccountName: "test1", Service: localService1, Handler: h2,
-				ErrorMessage: fmt.Sprintf("cannot issue tokens for service: %q", localService1)},
+				ErrorMessage: `cannot issue tokens for service: "%SERVICE%"`},
 			{AccountName: "test2", Service: localService1, Handler: h2,
-				ErrorMessage: fmt.Sprintf("cannot issue tokens for service: %q", localService1)},
+				ErrorMessage: `cannot issue tokens for service: "%SERVICE%"`},
 			//when asking for an anycast token, the request if reverse-proxied if
 			//necessary and we will see the Keppel hosting the primary account as
 			//issuer
@@ -737,41 +737,57 @@ func TestAnycastToken(t *testing.T) {
 		}
 
 		for idx, c := range anycastTestCases {
-			t.Logf("----- testcase %d/%d -----\n", idx+1, len(anycastTestCases))
+			for _, withDomainRemapping := range []bool{false, true} {
+				t.Logf("----- testcase %d/%d with domain remapping: %t -----\n", idx+1, len(anycastTestCases), withDomainRemapping)
 
-			req := assert.HTTPRequest{
-				Method: "GET",
-				Path:   fmt.Sprintf("/keppel/v1/auth?scope=repository:%s/foo:pull&service=%s", c.AccountName, c.Service),
-				Header: correctAuthHeader,
-			}
-
-			if c.ErrorMessage == "" {
-				req.ExpectStatus = http.StatusOK
-
-				//build jwtContents struct to contain issued token against
-				expectedContents := jwtContents{
-					Audience: c.Service,
-					Issuer:   "keppel-api@" + c.Issuer,
-					Subject:  "correctusername",
+				var (
+					domainPrefix  string
+					scopeRepoName string
+				)
+				if withDomainRemapping {
+					domainPrefix = c.AccountName + "."
+					scopeRepoName = "foo"
+				} else {
+					domainPrefix = ""
+					scopeRepoName = c.AccountName + "/foo"
 				}
-				if c.HasAccess {
-					expectedContents.Access = []jwtAccess{{
-						Type:    "repository",
-						Name:    fmt.Sprintf("%s/foo", c.AccountName),
-						Actions: []string{"pull"},
-					}}
+
+				req := assert.HTTPRequest{
+					Method: "GET",
+					Path:   fmt.Sprintf("/keppel/v1/auth?scope=repository:%s:pull&service=%s%s", scopeRepoName, domainPrefix, c.Service),
+					Header: correctAuthHeader,
 				}
-				req.ExpectBody = expectedContents
 
-			} else {
-				req.ExpectStatus = http.StatusBadRequest
-				req.ExpectBody = assert.JSONObject{"details": c.ErrorMessage}
+				if c.ErrorMessage == "" {
+					req.ExpectStatus = http.StatusOK
+
+					//build jwtContents struct to contain issued token against
+					expectedContents := jwtContents{
+						Audience: domainPrefix + c.Service,
+						Issuer:   "keppel-api@" + domainPrefix + c.Issuer,
+						Subject:  "correctusername",
+					}
+					if c.HasAccess {
+						expectedContents.Access = []jwtAccess{{
+							Type:    "repository",
+							Name:    scopeRepoName,
+							Actions: []string{"pull"},
+						}}
+					}
+					req.ExpectBody = expectedContents
+
+				} else {
+					msg := strings.Replace(c.ErrorMessage, "%SERVICE%", domainPrefix+c.Service, -1)
+					req.ExpectStatus = http.StatusBadRequest
+					req.ExpectBody = assert.JSONObject{"details": msg}
+				}
+
+				req.Check(t, c.Handler)
 			}
-
-			req.Check(t, c.Handler)
 		}
 
-		//some additional testcases that don't fit nicely into the pattern of the loop above
+		//test that catalog access is not allowed on anycast (since we don't know
+		//which peer to ask for authentication)
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=registry:catalog:*", anycastService),
@@ -781,7 +797,40 @@ func TestAnycastToken(t *testing.T) {
 				Audience: anycastService,
 				Issuer:   "keppel-api@" + localService1,
 				Subject:  "correctusername",
-				Access:   nil, //catalog access is not allowed for anycast since we don't know which peer to ask for authentication
+				Access:   nil,
+			},
+		}.Check(t, h1)
+
+		//test that catalog access is allowed for domain-remapped APIs, but only
+		//for the account name specified in the domain
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         fmt.Sprintf("/keppel/v1/auth?service=test1.%s&scope=registry:catalog:*", localService1),
+			Header:       correctAuthHeader,
+			ExpectStatus: http.StatusOK,
+			ExpectBody: jwtContents{
+				Audience: "test1." + localService1,
+				Issuer:   "keppel-api@test1." + localService1,
+				Subject:  "correctusername",
+				Access: []jwtAccess{
+					{Type: "registry", Name: "catalog", Actions: []string{"*"}},
+					{Type: "keppel_account", Name: "test1", Actions: []string{"view"}},
+				},
+			},
+		}.Check(t, h1)
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         fmt.Sprintf("/keppel/v1/auth?service=something-else.%s&scope=registry:catalog:*", localService1),
+			Header:       correctAuthHeader,
+			ExpectStatus: http.StatusOK,
+			ExpectBody: jwtContents{
+				Audience: "something-else." + localService1,
+				Issuer:   "keppel-api@something-else." + localService1,
+				Subject:  "correctusername",
+				Access: []jwtAccess{
+					{Type: "registry", Name: "catalog", Actions: []string{"*"}},
+					//no keppel_account:test1:view since the API is restricted to the non-existent account "something-else"
+				},
 			},
 		}.Check(t, h1)
 	})

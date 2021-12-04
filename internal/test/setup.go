@@ -326,7 +326,12 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	}
 	s.Handler = api.Compose(apis...)
 	if tt, ok := http.DefaultClient.Transport.(*RoundTripper); ok {
+		//make our own API reachable to other peers
 		tt.Handlers[s.Config.APIPublicHostname] = s.Handler
+		//if accounts are being set up, also expose their domain-remapped APIs
+		for _, account := range params.Accounts {
+			tt.Handlers[fmt.Sprintf("%s.%s", account.Name, s.Config.APIPublicHostname)] = s.Handler
+		}
 	}
 
 	//setup initial accounts/repos
