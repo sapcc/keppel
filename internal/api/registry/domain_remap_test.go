@@ -45,13 +45,13 @@ func TestRegistryAPIDomainRemap(t *testing.T) {
 			ExpectStatus: http.StatusUnauthorized,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey: test.VersionHeaderValue,
-				"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org"`,
+				"Www-Authenticate":    `Bearer realm="https://test1.registry.example.org/keppel/v1/auth",service="test1.registry.example.org"`,
 			},
 			ExpectBody: test.ErrorCode(keppel.ErrUnauthorized),
 		}.Check(t, h)
 
 		//with token, expect status code 200
-		token := s.GetToken(t /*, no scopes */)
+		token := s.GetDomainRemappedToken(t, "test1" /*, no scopes */)
 		assert.HTTPRequest{
 			Method: "GET",
 			Path:   "/v2/",
@@ -70,7 +70,7 @@ func TestBlobAPIDomainRemap(t *testing.T) {
 	//test blob API with request URLs having the account name in the hostname instead of in the path
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		token := s.GetToken(t, "repository:test1/foo:pull,push")
+		token := s.GetDomainRemappedToken(t, "test1", "repository:foo:pull,push")
 
 		blob := test.NewBytes([]byte("just some random data"))
 
@@ -120,7 +120,7 @@ func TestManifestAPIDomainRemap(t *testing.T) {
 	//test manifest API with request URLs having the account name in the hostname instead of in the path
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		token := s.GetToken(t, "repository:test1/foo:pull,push")
+		token := s.GetDomainRemappedToken(t, "test1", "repository:foo:pull,push")
 		image.Config.MustUpload(t, s, fooRepoRef)
 
 		//test upload
@@ -155,18 +155,7 @@ func TestManifestAPIDomainRemap(t *testing.T) {
 				"Content-Type":        image.Manifest.MediaType,
 			},
 		}.Check(t, h)
-
-		//test that only Registry API is allowed on the domain-remapped hostname
-		assert.HTTPRequest{
-			Method: "GET",
-			Path:   "/keppel/v1/accounts/test1/repositories/foo/_manifests",
-			Header: map[string]string{
-				"Authorization":     "Bearer " + token,
-				"X-Forwarded-Host":  "test1.registry.example.org",
-				"X-Forwarded-Proto": "https",
-			},
-			ExpectStatus: http.StatusBadRequest,
-			ExpectBody:   assert.StringData("request path invalid for this hostname\n"),
-		}.Check(t, h)
 	})
 }
+
+//TODO func TestCatalogAPIDomainRemap

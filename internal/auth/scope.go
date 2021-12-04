@@ -19,6 +19,7 @@
 package auth
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -29,13 +30,57 @@ type Scope struct {
 	Actions      []string `json:"actions"`
 }
 
-//AccountName returns the first path element of the resource name, if the
-//resource type is "repository", or the empty string otherwise.
-func (s Scope) AccountName() string {
+//ParsedRepositoryScope is returned by Scope.ParseRepositoryScope().
+type ParsedRepositoryScope struct {
+	AccountName        string
+	RepositoryName     string
+	FullRepositoryName string
+}
+
+//ParseRepositoryScope interprets the resource name of a scope with resource
+//type "repository".
+//
+//This is more complicated than it would appear in first sight since the
+//audience plays a role in how repository scopes look: On the regular APIs, the
+//scope "repository:foo/bar:pull" refers to the repository "bar" in the account
+//"foo". On the domain-remapped API for that account, the same repository would
+//be accessed with the scope "repository:bar:pull".
+//
+//I'm well aware that everything would be much easier if we used
+//"repository:foo/bar:pull" all the time, but our hand is being forced by the
+//Docker client here. It auto-guesses repository scopes based on the repository
+//URL, which for domain-remapped APIs only has the repository name in the URL
+//path.
+func (s Scope) ParseRepositoryScope(audience Audience) ParsedRepositoryScope {
 	if s.ResourceType != "repository" {
-		return ""
+		return ParsedRepositoryScope{}
 	}
-	return strings.SplitN(s.ResourceName, "/", 2)[0]
+
+	if audience.AccountName != "" {
+		return ParsedRepositoryScope{
+			AccountName:        audience.AccountName,
+			RepositoryName:     s.ResourceName,
+			FullRepositoryName: fmt.Sprintf("%s/%s", audience.AccountName, s.ResourceName),
+		}
+	}
+
+	parts := strings.SplitN(s.ResourceName, "/", 2)
+	if len(parts) == 1 {
+		//we're on a non-domain-remapped API, but there is no "/" in the full
+		//repository name, i.e. we have an account name without a corresponding
+		//repository name which is not allowed; generate a ParsedRepositoryScope
+		//that will never have any permissions given out for it
+		return ParsedRepositoryScope{
+			AccountName:        s.ResourceName,
+			RepositoryName:     "",
+			FullRepositoryName: s.ResourceName,
+		}
+	}
+	return ParsedRepositoryScope{
+		AccountName:        parts[0],
+		RepositoryName:     parts[1],
+		FullRepositoryName: s.ResourceName,
+	}
 }
 
 //Contains returns true if this scope is for the same resource as the other

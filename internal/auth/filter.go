@@ -28,7 +28,7 @@ import (
 //Produces a new ScopeSet containing only those scopes that the given
 //`uid` is permitted to access and only those actions therein which this `uid`
 //is permitted to perform.
-func filterAuthorized(ss ScopeSet, uid keppel.UserIdentity, audience Service, db *keppel.DB) (ScopeSet, error) {
+func filterAuthorized(ss ScopeSet, uid keppel.UserIdentity, audience Audience, db *keppel.DB) (ScopeSet, error) {
 	result := make(ScopeSet, 0, len(ss))
 	//make sure that additional scopes get appended at the end, on the offchance
 	//that a client might parse its token and look at access[0] to check for its
@@ -40,7 +40,7 @@ func filterAuthorized(ss ScopeSet, uid keppel.UserIdentity, audience Service, db
 		filtered := *scope
 		switch scope.ResourceType {
 		case "registry":
-			if audience == AnycastService {
+			if audience.IsAnycast {
 				//we cannot allow catalog access on the anycast API since there is no way
 				//to decide which peer does the authentication in this case
 				filtered.Actions = nil
@@ -56,7 +56,7 @@ func filterAuthorized(ss ScopeSet, uid keppel.UserIdentity, audience Service, db
 				filtered.Actions = nil
 			} else if scope.Contains(CatalogEndpointScope) {
 				filtered.Actions = CatalogEndpointScope.Actions
-				err = addCatalogAccess(&additional, uid, db)
+				err = addCatalogAccess(&additional, uid, audience, db)
 				if err != nil {
 					return nil, err
 				}
@@ -69,7 +69,7 @@ func filterAuthorized(ss ScopeSet, uid keppel.UserIdentity, audience Service, db
 				//just an account name does not make a repository name
 				filtered.Actions = nil
 			} else {
-				filtered.Actions, err = filterRepoActions(*scope, uid, db)
+				filtered.Actions, err = filterRepoActions(*scope, uid, audience, db)
 				if err != nil {
 					return nil, err
 				}
@@ -85,18 +85,35 @@ func filterAuthorized(ss ScopeSet, uid keppel.UserIdentity, audience Service, db
 			}
 
 		case "keppel_account":
-			account, err := keppel.FindAccount(db, scope.ResourceName)
-			if err != nil {
-				return nil, err
-			}
-			if account == nil {
+			if audience.AccountName != "" && scope.ResourceName != audience.AccountName {
+				//domain-remapped APIs only allow access to that API's account
+				filtered.Actions = nil
+			} else if audience.IsAnycast {
+				//defense in depth: any APIs requiring account-level permission are not anycastable anyway
 				filtered.Actions = nil
 			} else {
-				filtered.Actions = filterAuthTenantActions(account.AuthTenantID, scope.Actions, uid)
+				account, err := keppel.FindAccount(db, scope.ResourceName)
+				if err != nil {
+					return nil, err
+				}
+				if account == nil {
+					filtered.Actions = nil
+				} else {
+					filtered.Actions = filterAuthTenantActions(account.AuthTenantID, scope.Actions, uid)
+				}
 			}
 
 		case "keppel_auth_tenant":
-			filtered.Actions = filterAuthTenantActions(scope.ResourceName, scope.Actions, uid)
+			if audience.AccountName != "" {
+				//this type of scope is only used by the Keppel API, which does not
+				//allow domain-remapping anyway
+				filtered.Actions = nil
+			} else if audience.IsAnycast {
+				//defense in depth: any APIs requiring auth-tenant-level permission are not anycastable anyway
+				filtered.Actions = nil
+			} else {
+				filtered.Actions = filterAuthTenantActions(scope.ResourceName, scope.Actions, uid)
+			}
 
 		default:
 			filtered.Actions = nil
@@ -107,11 +124,23 @@ func filterAuthorized(ss ScopeSet, uid keppel.UserIdentity, audience Service, db
 	return append(result, additional...), nil
 }
 
-func addCatalogAccess(ss *ScopeSet, uid keppel.UserIdentity, db *keppel.DB) error {
+func addCatalogAccess(ss *ScopeSet, uid keppel.UserIdentity, audience Audience, db *keppel.DB) error {
 	var accounts []keppel.Account
-	_, err := db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
-	if err != nil {
-		return err
+	if audience.AccountName == "" {
+		//on the standard API, all accounts are potentially accessible
+		_, err := db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
+		if err != nil {
+			return err
+		}
+	} else {
+		//on a domain-remapped API, only that API's account is accessible (if it exists)
+		account, err := keppel.FindAccount(db, audience.AccountName)
+		if err != nil {
+			return err
+		}
+		if account != nil {
+			accounts = []keppel.Account{*account}
+		}
 	}
 
 	for _, account := range accounts {
@@ -127,8 +156,16 @@ func addCatalogAccess(ss *ScopeSet, uid keppel.UserIdentity, db *keppel.DB) erro
 	return nil
 }
 
-func filterRepoActions(scope Scope, uid keppel.UserIdentity, db *keppel.DB) ([]string, error) {
-	account, err := keppel.FindAccount(db, scope.AccountName())
+func filterRepoActions(scope Scope, uid keppel.UserIdentity, audience Audience, db *keppel.DB) ([]string, error) {
+	repoScope := scope.ParseRepositoryScope(audience)
+	if repoScope.RepositoryName == "" {
+		//this happens when we are not on a domain-remapped API and thus expect a
+		//scope.ResourceName of the form "account/repo", but we only got "account"
+		//without any slashes
+		return nil, nil
+	}
+
+	account, err := keppel.FindAccount(db, repoScope.AccountName)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +186,7 @@ func filterRepoActions(scope Scope, uid keppel.UserIdentity, db *keppel.DB) ([]s
 	}
 	userName := uid.UserName()
 	for _, policy := range policies {
-		if policy.Matches(scope.ResourceName, userName) {
+		if policy.Matches(repoScope.FullRepositoryName, userName) {
 			if policy.CanPullAnonymously {
 				isAllowedAction["pull"] = true
 			}

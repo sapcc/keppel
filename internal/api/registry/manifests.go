@@ -132,7 +132,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 			}
 			for _, subManifestDesc := range manifestParsed.ManifestReferences(account.PlatformFilter) {
 				if subManifestDesc.Platform.OS == "linux" && subManifestDesc.Platform.Architecture == "amd64" {
-					url := fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), subManifestDesc.Digest.String())
+					url := fmt.Sprintf("/v2/%s/manifests/%s", getRepoNameForURLPath(*repo, authz), subManifestDesc.Digest.String())
 					w.Header().Set("Docker-Content-Digest", subManifestDesc.Digest.String())
 					w.Header().Set("Location", url)
 					w.WriteHeader(http.StatusTemporaryRedirect)
@@ -332,6 +332,6 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Docker-Content-Digest", manifest.Digest)
-	w.Header().Set("Location", fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), manifest.Digest))
+	w.Header().Set("Location", fmt.Sprintf("/v2/%s/manifests/%s", getRepoNameForURLPath(*repo, authz), manifest.Digest))
 	w.WriteHeader(http.StatusCreated)
 }

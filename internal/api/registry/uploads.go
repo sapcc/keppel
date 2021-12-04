@@ -40,6 +40,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/api"
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/gorp.v2"
@@ -105,13 +106,13 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	//special case: request for cross-repo blob mount
 	query := r.URL.Query()
 	if sourceRepoFullName := query.Get("from"); sourceRepoFullName != "" {
-		a.performCrossRepositoryBlobMount(w, r, *account, *repo, sourceRepoFullName, query.Get("mount"))
+		a.performCrossRepositoryBlobMount(w, r, *account, *repo, authz, sourceRepoFullName, query.Get("mount"))
 		return
 	}
 
 	//special case: monolithic upload
 	if blobDigestStr := query.Get("digest"); blobDigestStr != "" {
-		a.performMonolithicUpload(w, r, *account, *repo, blobDigestStr)
+		a.performMonolithicUpload(w, r, *account, *repo, authz, blobDigestStr)
 		return
 	}
 
@@ -133,12 +134,12 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Blob-Upload-Session-Id", upload.UUID)
 	w.Header().Set("Content-Length", "0")
-	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/uploads/%s", repo.FullName(), upload.UUID))
+	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/uploads/%s", getRepoNameForURLPath(*repo, authz), upload.UUID))
 	w.Header().Set("Range", "0-0")
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Request, account keppel.Account, targetRepo keppel.Repository, sourceRepoFullName, blobDigestStr string) {
+func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Request, account keppel.Account, targetRepo keppel.Repository, authz *auth.Authorization, sourceRepoFullName, blobDigestStr string) {
 	//validate source repository
 	if !strings.HasPrefix(sourceRepoFullName, account.Name+"/") {
 		keppel.ErrUnsupported.With("cannot mount blobs across different accounts").WriteAsRegistryV2ResponseTo(w, r)
@@ -182,11 +183,11 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 	//the spec wants a Blob-Upload-Session-Id header even though the upload is done, so just make something up
 	w.Header().Set("Blob-Upload-Session-Id", uuid.NewV4().String())
 	w.Header().Set("Content-Length", "0")
-	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/%s", targetRepo.FullName(), blobDigest.String()))
+	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/%s", getRepoNameForURLPath(targetRepo, authz), blobDigest.String()))
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, account keppel.Account, repo keppel.Repository, blobDigestStr string) (ok bool) {
+func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, account keppel.Account, repo keppel.Repository, authz *auth.Authorization, blobDigestStr string) (ok bool) {
 	blobDigest, err := digest.Parse(blobDigestStr)
 	if err != nil {
 		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
@@ -274,7 +275,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	//the spec wants a Blob-Upload-Session-Id header even though the upload is done, so just make something up
 	w.Header().Set("Blob-Upload-Session-Id", uuid.NewV4().String())
 	w.Header().Set("Content-Length", "0")
-	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/%s", repo.FullName(), blobDigest.String()))
+	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/%s", getRepoNameForURLPath(repo, authz), blobDigest.String()))
 	w.WriteHeader(http.StatusCreated)
 	return true
 }
@@ -341,7 +342,7 @@ func (a *API) handleGetBlobUpload(w http.ResponseWriter, r *http.Request) {
 //This implements the PATCH /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
 func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
-	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
+	account, repo, authz := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
 		return
 	}
@@ -388,7 +389,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	query.Set("state", digestState)
 	w.Header().Set("Blob-Upload-Session-Id", upload.UUID)
 	w.Header().Set("Content-Length", "0")
-	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/uploads/%s?%s", repo.FullName(), upload.UUID, query.Encode()))
+	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/uploads/%s?%s", getRepoNameForURLPath(*repo, authz), upload.UUID, query.Encode()))
 	w.Header().Set("Range", makeRangeHeader(upload.SizeBytes))
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -396,7 +397,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 //This implements the PUT /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
 func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
-	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
+	account, repo, authz := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
 		return
 	}
@@ -463,7 +464,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Content-Range", makeRangeHeader(blob.SizeBytes))
 	w.Header().Set("Docker-Content-Digest", blob.Digest)
-	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/%s", repo.FullName(), blob.Digest))
+	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/%s", getRepoNameForURLPath(*repo, authz), blob.Digest))
 	w.WriteHeader(http.StatusCreated)
 }
 

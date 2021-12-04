@@ -19,7 +19,7 @@
 package test
 
 import (
-	"strconv"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -35,21 +35,30 @@ import (
 //embedded in the token.
 func (s Setup) GetToken(t *testing.T, scopes ...string) string {
 	t.Helper()
-	return s.getToken(t, auth.LocalService, scopes...)
+	return s.getToken(t, auth.Audience{IsAnycast: false}, scopes...)
 }
 
 //GetAnycastToken is like GetToken, but instead returns a token for the anycast
 //endpoint.
 func (s Setup) GetAnycastToken(t *testing.T, scopes ...string) string {
 	t.Helper()
-	return s.getToken(t, auth.AnycastService, scopes...)
+	return s.getToken(t, auth.Audience{IsAnycast: true}, scopes...)
 }
 
-func (s Setup) getToken(t *testing.T, audience auth.Service, scopes ...string) string {
+//GetDomainRemappedToken is like GetToken, but instead returns a token for a
+//domain-remapped API.
+func (s Setup) GetDomainRemappedToken(t *testing.T, accountName string, scopes ...string) string {
+	t.Helper()
+	return s.getToken(t, auth.Audience{IsAnycast: false, AccountName: accountName}, scopes...)
+}
+
+func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) string {
 	t.Helper()
 
 	//optimization: don't issue the same token twice in a single test run
-	cacheKey := strings.Join(append([]string{strconv.Itoa(int(audience))}, scopes...), "|")
+	audienceJSON, err := json.Marshal(audience)
+	must(t, err)
+	cacheKey := string(audienceJSON) + strings.Join(scopes, "|")
 	if token, exists := s.tokenCache[cacheKey]; exists {
 		return token
 	}
@@ -82,7 +91,8 @@ func (s Setup) getToken(t *testing.T, audience auth.Service, scopes ...string) s
 				t.Fatalf("do not know how to handle scope %q", scope.String())
 			}
 		case "repository":
-			authTenantID, err := s.findAuthTenantIDForAccountName(strings.SplitN(scope.ResourceName, "/", 2)[0])
+			repoScope := scope.ParseRepositoryScope(audience)
+			authTenantID, err := s.findAuthTenantIDForAccountName(repoScope.AccountName)
 			must(t, err)
 			perms[string(keppel.CanViewAccount)][authTenantID] = true
 			for _, action := range scope.Actions {
@@ -113,7 +123,7 @@ func (s Setup) getToken(t *testing.T, audience auth.Service, scopes ...string) s
 			Username: "correctusername",
 			Perms:    perms,
 		},
-		Service:  audience,
+		Audience: audience,
 		ScopeSet: ss,
 	}.IssueToken(s.Config)
 	must(t, err)

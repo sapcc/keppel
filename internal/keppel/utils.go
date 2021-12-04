@@ -51,6 +51,18 @@ var (
 // - /library/alpine:nonsense@sha256:e9707504ad0d4c119036b6d41ace4a33596139d3feb9ccb6617813ce48c3eeef
 var ImageReferenceRx = regexp.MustCompile(`^(` + RepoNameWithLeadingSlash + `)(?::([a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}))?(?:@(sha256:[a-z0-9]{64}))?$`)
 
+//IsAccountName returns whether the given string is a well-formed account name.
+//This does not check whether the account actually exists in the DB.
+func IsAccountName(input string) bool {
+	//account names are historically limited to 48 chars (because we used to put
+	//them in Postgres database names which are limited to 64 chars); we might
+	//lift this restriction in the future, but there is no immediate need for it
+	if len(input) > 48 {
+		return false
+	}
+	return RepoPathComponentRx.MatchString(input)
+}
+
 //OriginalRequestURL returns the URL that the original requester used when
 //sending an HTTP request. This inspects the X-Forwarded-* set of headers to
 //identify reverse proxying.

@@ -40,9 +40,11 @@ type IncomingRequest struct {
 	Scopes ScopeSet
 	//Whether anycast requests are acceptable on this endpoint.
 	AllowsAnycast bool
+	//Whether domain-remapped requests are acceptable on this endpoint.
+	AllowsDomainRemapping bool
 	//Filled when the user is trying to get a token from us. This enables basic
 	//auth with username+password, and overrides the usual audience-sensing logic.
-	AudienceForTokenIssuance Service
+	AudienceForTokenIssuance *Audience
 	//If this field is true, 403 is returned to indicate insufficient
 	//authorization. Most APIs return 401 instead to ensure bug-for-bug
 	//compatibility with Docker Registry.
@@ -60,11 +62,24 @@ type IncomingRequest struct {
 func (ir IncomingRequest) Authorize(cfg keppel.Configuration, ad keppel.AuthDriver, db *keppel.DB) (*Authorization, *keppel.RegistryV2Error) {
 	r := ir.HTTPRequest
 
-	//for requests to the anycast endpoint, we need to use the anycast issuer key instead of the regular one
-	audience := LocalService
-	if cfg.IsAnycastRequest(r) {
-		audience = AnycastService
+	//find audience
+	var audience Audience
+	if ir.AudienceForTokenIssuance != nil {
+		audience = *ir.AudienceForTokenIssuance
+	} else {
+		u := keppel.OriginalRequestURL(r)
+		audience = IdentifyAudience(u.Hostname(), cfg)
 
+		//special case: an anycast request was explicitly reverse-proxied to our
+		//non-anycast API by the keppel-api that originally received it
+		forwardedBy := r.Header.Get("X-Keppel-Forwarded-By")
+		if forwardedBy != "" {
+			audience.IsAnycast = true
+		}
+	}
+
+	//sanity checks
+	if audience.IsAnycast {
 		//completely forbid write operations on the anycast API (only the local API
 		//may be used for writes and deletes)
 		if r.Method != "HEAD" && r.Method != "GET" {
@@ -77,8 +92,9 @@ func (ir IncomingRequest) Authorize(cfg keppel.Configuration, ad keppel.AuthDriv
 			return nil, keppel.ErrUnsupported.With(msg)
 		}
 	}
-	if ir.AudienceForTokenIssuance != 0 {
-		audience = ir.AudienceForTokenIssuance
+	if audience.AccountName != "" && !ir.AllowsDomainRemapping {
+		msg := fmt.Sprintf("%s %s endpoint is not supported on domain-remapped APIs", r.Method, r.URL.Path)
+		return nil, keppel.ErrUnsupported.With(msg)
 	}
 
 	//obtain Authorization through one of the various supported methods
@@ -91,7 +107,7 @@ func (ir IncomingRequest) Authorize(cfg keppel.Configuration, ad keppel.AuthDriv
 	switch {
 	case strings.HasPrefix(authHeader, "Basic "):
 		//clearly a request for basic auth
-		if ir.AudienceForTokenIssuance == 0 {
+		if ir.AudienceForTokenIssuance == nil {
 			//I'm being deliberately harsh with the wording of this error message
 			//here; I've seen clients use basic auth on endpoints like GET /v2/ even
 			//though that is completely nonsensical
@@ -184,7 +200,7 @@ func (ir IncomingRequest) Authorize(cfg keppel.Configuration, ad keppel.AuthDriv
 	return authz, nil
 }
 
-func (ir IncomingRequest) buildAuthChallenge(cfg keppel.Configuration, audience Service, errorMessage string) string {
+func (ir IncomingRequest) buildAuthChallenge(cfg keppel.Configuration, audience Audience, errorMessage string) string {
 	requestURL := keppel.OriginalRequestURL(ir.HTTPRequest)
 	apiURL := (&url.URL{Scheme: requestURL.Scheme, Host: requestURL.Host}).String()
 
@@ -246,7 +262,7 @@ func safelyReturnRegistryError(rerr *keppel.RegistryV2Error) error {
 	return rerr
 }
 
-func (ir IncomingRequest) authorizeViaUserIdentity(uid keppel.UserIdentity, audience Service, db *keppel.DB) (*Authorization, error) {
+func (ir IncomingRequest) authorizeViaUserIdentity(uid keppel.UserIdentity, audience Audience, db *keppel.DB) (*Authorization, error) {
 	ss, err := filterAuthorized(ir.Scopes, uid, audience, db)
 	if err != nil {
 		return nil, err
@@ -254,7 +270,7 @@ func (ir IncomingRequest) authorizeViaUserIdentity(uid keppel.UserIdentity, audi
 
 	return &Authorization{
 		UserIdentity: uid,
-		Service:      audience,
+		Audience:     audience,
 		ScopeSet:     ss,
 	}, nil
 }
