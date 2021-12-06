@@ -48,7 +48,7 @@ func (cfg Configuration) ReverseProxyAnycastRequestToPeer(w http.ResponseWriter,
 
 	//make the forwarding visible in the other Keppel's log file
 	query := r.URL.Query()
-	query.Set("forwarded-by", cfg.APIPublicURL.Hostname())
+	query.Set("forwarded-by", cfg.APIPublicHostname)
 	reqURL.RawQuery = query.Encode()
 
 	//when sending proxy request, do not follow redirects (we want to pass on 3xx
@@ -66,7 +66,7 @@ func (cfg Configuration) ReverseProxyAnycastRequestToPeer(w http.ResponseWriter,
 	for _, headerName := range reverseProxyHeaders {
 		req.Header[headerName] = r.Header[headerName]
 	}
-	req.Header.Set("X-Keppel-Forwarded-By", cfg.APIPublicURL.Hostname())
+	req.Header.Set("X-Keppel-Forwarded-By", cfg.APIPublicHostname)
 	resp, err := client.Do(req)
 	if err != nil {
 		return err

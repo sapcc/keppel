@@ -70,41 +70,43 @@ func (a *API) OverrideGenerateStorageID(generateStorageID func() string) *API {
 func (a *API) AddTo(r *mux.Router) {
 	r.Methods("GET").Path("/v2/").HandlerFunc(a.handleToplevel)
 	r.Methods("GET").Path("/v2/_catalog").HandlerFunc(a.handleGetCatalog)
-	//see internal/api/keppel/accounts.go for why account name format is limited
-	rr := r.PathPrefix("/v2/{account:[a-z0-9-]{1,48}}/").Subrouter()
 
-	rr.Methods("DELETE").
-		Path("/{repository:.+}/blobs/{digest}").
+	//NOTE: We used to match account name and repository name separately here,
+	//but that is not possible anymore since domain-remapped APIs do not have the
+	//account name in the URL path. The "repository" variable is split later in
+	//checkAccountAccess().
+	r.Methods("DELETE").
+		Path("/v2/{repository:.+}/blobs/{digest}").
 		HandlerFunc(a.handleDeleteBlob)
-	rr.Methods("GET", "HEAD").
-		Path("/{repository:.+}/blobs/{digest}").
+	r.Methods("GET", "HEAD").
+		Path("/v2/{repository:.+}/blobs/{digest}").
 		HandlerFunc(a.handleGetOrHeadBlob)
-	rr.Methods("POST").
-		Path("/{repository:.+}/blobs/uploads/").
+	r.Methods("POST").
+		Path("/v2/{repository:.+}/blobs/uploads/").
 		HandlerFunc(a.handleStartBlobUpload)
-	rr.Methods("DELETE").
-		Path("/{repository:.+}/blobs/uploads/{uuid}").
+	r.Methods("DELETE").
+		Path("/v2/{repository:.+}/blobs/uploads/{uuid}").
 		HandlerFunc(a.handleDeleteBlobUpload)
-	rr.Methods("GET").
-		Path("/{repository:.+}/blobs/uploads/{uuid}").
+	r.Methods("GET").
+		Path("/v2/{repository:.+}/blobs/uploads/{uuid}").
 		HandlerFunc(a.handleGetBlobUpload)
-	rr.Methods("PATCH").
-		Path("/{repository:.+}/blobs/uploads/{uuid}").
+	r.Methods("PATCH").
+		Path("/v2/{repository:.+}/blobs/uploads/{uuid}").
 		HandlerFunc(a.handleContinueBlobUpload)
-	rr.Methods("PUT").
-		Path("/{repository:.+}/blobs/uploads/{uuid}").
+	r.Methods("PUT").
+		Path("/v2/{repository:.+}/blobs/uploads/{uuid}").
 		HandlerFunc(a.handleFinishBlobUpload)
-	rr.Methods("DELETE").
-		Path("/{repository:.+}/manifests/{reference}").
+	r.Methods("DELETE").
+		Path("/v2/{repository:.+}/manifests/{reference}").
 		HandlerFunc(a.handleDeleteManifest)
-	rr.Methods("GET", "HEAD").
-		Path("/{repository:.+}/manifests/{reference}").
+	r.Methods("GET", "HEAD").
+		Path("/v2/{repository:.+}/manifests/{reference}").
 		HandlerFunc(a.handleGetOrHeadManifest)
-	rr.Methods("PUT").
-		Path("/{repository:.+}/manifests/{reference}").
+	r.Methods("PUT").
+		Path("/v2/{repository:.+}/manifests/{reference}").
 		HandlerFunc(a.handlePutManifest)
-	rr.Methods("GET").
-		Path("/{repository:.+}/tags/list").
+	r.Methods("GET").
+		Path("/v2/{repository:.+}/tags/list").
 		HandlerFunc(a.handleListTags)
 }
 
@@ -119,8 +121,9 @@ func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
 	_, rerr := auth.IncomingRequest{
-		HTTPRequest:   r,
-		AllowsAnycast: true,
+		HTTPRequest:           r,
+		AllowsAnycast:         true,
+		AllowsDomainRemapping: true,
 		//`docker login` will use this endpoint to get an auth challenge, so we
 		//cannot allow anonymous login here...
 		NoImplicitAnonymous: true,
@@ -185,8 +188,8 @@ func (info anycastRequestInfo) AsPrometheusLabels() prometheus.Labels {
 	}
 }
 
-//A one-stop-shop authorization checker for all endpoints that set the mux vars
-//"account" and "repository". On success, returns the account and repository
+//A one-stop-shop authorization checker for all endpoints that set the mux
+//variable "repository". On success, returns the account and repository
 //that this request is about.
 //
 //If the account does not exist locally, but the request is for the anycast API
@@ -197,19 +200,17 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
 	//check that repo name is wellformed
-	vars := mux.Vars(r)
-	accountName, repoName := vars["account"], vars["repository"]
-	if !keppel.RepoNameWithLeadingSlashRx.MatchString("/" + repoName) {
+	scope := auth.Scope{
+		ResourceType: "repository",
+		ResourceName: mux.Vars(r)["repository"],
+	}
+	if !keppel.RepoNameWithLeadingSlashRx.MatchString("/" + scope.ResourceName) {
 		keppel.ErrNameInvalid.With("invalid repository name").WriteAsRegistryV2ResponseTo(w, r)
 		return nil, nil, nil
 	}
 
 	//check authorization before FindAccount(); otherwise we might leak
 	//information about account existence to unauthorized users
-	scope := auth.Scope{
-		ResourceType: "repository",
-		ResourceName: fmt.Sprintf("%s/%s", accountName, repoName),
-	}
 	switch r.Method {
 	case "DELETE":
 		scope.Actions = []string{"delete"}
@@ -219,9 +220,10 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		scope.Actions = []string{"pull", "push"}
 	}
 	authz, rerr := auth.IncomingRequest{
-		HTTPRequest:   r,
-		Scopes:        auth.NewScopeSet(scope),
-		AllowsAnycast: true,
+		HTTPRequest:           r,
+		Scopes:                auth.NewScopeSet(scope),
+		AllowsAnycast:         anycastHandler != nil,
+		AllowsDomainRemapping: true,
 	}.Authorize(a.cfg, a.ad, a.db)
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w, r)
@@ -229,24 +231,26 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	}
 
 	//we need to know the account to select the registry instance for this request
-	account, err := keppel.FindAccount(a.db, accountName)
+	repoScope := scope.ParseRepositoryScope(authz.Audience)
+	account, err := keppel.FindAccount(a.db, repoScope.AccountName)
 	if respondWithError(w, r, err) {
 		return nil, nil, nil
 	}
 	if account == nil {
 		//if this is an anycast request, try forwarding it to the peer that has the primary account with this name
-		if anycastHandler != nil && a.cfg.IsAnycastRequest(r) {
-			primaryHostName, err := a.fd.FindPrimaryAccount(accountName)
+		if anycastHandler != nil && authz.Audience.IsAnycast {
+			primaryHostName, err := a.fd.FindPrimaryAccount(repoScope.AccountName)
 			switch err {
 			case error(nil):
 				//protect against infinite forwarding loops in case different Keppels have
 				//different ideas about how is the primary account
 				if forwardedBy := r.URL.Query().Get("X-Keppel-Forwarded-By"); forwardedBy != "" {
 					msg := fmt.Sprintf("not forwarding anycast request for account %q to %s because request was already forwarded to us by %s",
-						accountName, primaryHostName, forwardedBy)
+						repoScope.AccountName, primaryHostName, forwardedBy)
 					keppel.ErrUnknown.With(msg).WriteAsRegistryV2ResponseTo(w, r)
 				} else {
-					anycastHandler(w, r, anycastRequestInfo{accountName, repoName, primaryHostName})
+					mappedPrimaryHostName := authz.Audience.MapPeerHostname(primaryHostName)
+					anycastHandler(w, r, anycastRequestInfo{repoScope.AccountName, repoScope.RepositoryName, mappedPrimaryHostName})
 				}
 				return nil, nil, nil
 			case keppel.ErrNoSuchPrimaryAccount:
@@ -272,9 +276,9 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 
 	var repo *keppel.Repository
 	if canCreateRepoIfMissing {
-		repo, err = keppel.FindOrCreateRepository(a.db, repoName, *account)
+		repo, err = keppel.FindOrCreateRepository(a.db, repoScope.RepositoryName, *account)
 	} else {
-		repo, err = keppel.FindRepository(a.db, repoName, *account)
+		repo, err = keppel.FindRepository(a.db, repoScope.RepositoryName, *account)
 	}
 	if err == sql.ErrNoRows || repo == nil {
 		keppel.ErrNameUnknown.With("repository not found").WriteAsRegistryV2ResponseTo(w, r)
@@ -310,4 +314,14 @@ func (a *API) checkRateLimit(w http.ResponseWriter, r *http.Request, account kep
 	}
 
 	return true
+}
+
+//Returns the repository name as it appears in URL paths for this API.
+func getRepoNameForURLPath(repo keppel.Repository, authz *auth.Authorization) string {
+	//on the regular API, the URL path includes the account name
+	if authz.Audience.AccountName == "" {
+		return repo.FullName()
+	}
+	//on domain-remapped APIs, the URL path contains only the bare repository name
+	return repo.Name
 }

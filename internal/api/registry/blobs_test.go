@@ -117,8 +117,8 @@ func TestBlobMonolithicUpload(t *testing.T) {
 					"Authorization":     "Bearer " + token,
 					"Content-Length":    strconv.Itoa(len(blob.Contents)),
 					"Content-Type":      "application/octet-stream",
-					"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Host,
-					"X-Forwarded-Proto": s.Config.AnycastAPIPublicURL.Scheme,
+					"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
+					"X-Forwarded-Proto": "https",
 				},
 				Body:         assert.ByteData(blob.Contents),
 				ExpectStatus: http.StatusMethodNotAllowed,
@@ -161,7 +161,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 					h2 := s2.Handler
 					anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull")
 					anycastHeaders := map[string]string{
-						"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Hostname(),
+						"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
 						"X-Forwarded-Proto": "https",
 					}
 					expectBlobExists(t, h, anycastToken, "test1/foo", blob, anycastHeaders)
@@ -575,8 +575,8 @@ func TestGetBlobUpload(t *testing.T) {
 				Path:   "/v2/test1/foo/blobs/uploads/" + uploadUUID,
 				Header: map[string]string{
 					"Authorization":     "Bearer " + readOnlyToken,
-					"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Host,
-					"X-Forwarded-Proto": s.Config.AnycastAPIPublicURL.Scheme,
+					"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
+					"X-Forwarded-Proto": "https",
 				},
 				ExpectStatus: http.StatusMethodNotAllowed,
 				ExpectHeader: test.VersionHeader,

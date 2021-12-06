@@ -76,7 +76,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//special cases for anycast requests
-	if req.IntendedAudience == auth.AnycastService {
+	if req.IntendedAudience.IsAnycast {
 		if len(req.Scopes) > 1 {
 			//NOTE: This is not a fundamental restriction, there was just no demand for
 			//it yet. If the requirement comes up, we could ask all relevant upstreams
@@ -88,7 +88,8 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		if len(req.Scopes) == 1 {
 			scope := req.Scopes[0]
 			if scope.ResourceType == "repository" {
-				account, err := keppel.FindAccount(a.db, scope.AccountName())
+				repoScope := scope.ParseRepositoryScope(req.IntendedAudience)
+				account, err := keppel.FindAccount(a.db, repoScope.AccountName)
 				if respondWithError(w, http.StatusInternalServerError, err) {
 					return
 				}
@@ -96,7 +97,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 				//if we don't have this account locally, but the request is an anycast
 				//request and one of our peers has the account, ask them to issue the token
 				if account == nil {
-					err := a.reverseProxyTokenReqToUpstream(w, r, scope.AccountName())
+					err := a.reverseProxyTokenReqToUpstream(w, r, req.IntendedAudience, repoScope.AccountName)
 					if err != keppel.ErrNoSuchPrimaryAccount {
 						respondWithError(w, http.StatusInternalServerError, err)
 						return
@@ -110,7 +111,8 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		HTTPRequest:              r,
 		Scopes:                   req.Scopes,
 		AllowsAnycast:            true,
-		AudienceForTokenIssuance: req.IntendedAudience,
+		AllowsDomainRemapping:    true,
+		AudienceForTokenIssuance: &req.IntendedAudience,
 		PartialAccessAllowed:     true,
 	}.Authorize(a.cfg, a.authDriver, a.db)
 	if rerr != nil {
@@ -125,7 +127,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, tokenResponse)
 }
 
-func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Request, accountName string) error {
+func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Request, audience auth.Audience, accountName string) error {
 	primaryHostName, err := a.fd.FindPrimaryAccount(accountName)
 	if err != nil {
 		return err
@@ -139,5 +141,5 @@ func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Requ
 		return errors.New("request blocked by reverse-proxy loop protection")
 	}
 
-	return a.cfg.ReverseProxyAnycastRequestToPeer(w, r, primaryHostName)
+	return a.cfg.ReverseProxyAnycastRequestToPeer(w, r, audience.MapPeerHostname(primaryHostName))
 }

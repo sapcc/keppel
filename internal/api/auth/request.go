@@ -32,7 +32,7 @@ type Request struct {
 	Scopes           auth.ScopeSet
 	ClientID         string
 	OfflineToken     bool
-	IntendedAudience auth.Service
+	IntendedAudience auth.Audience
 }
 
 func parseRequest(rawQuery string, cfg keppel.Configuration) (Request, error) {
@@ -49,11 +49,8 @@ func parseRequest(rawQuery string, cfg keppel.Configuration) (Request, error) {
 	}
 
 	serviceHost := query.Get("service")
-	if serviceHost == auth.LocalService.Hostname(cfg) {
-		result.IntendedAudience = auth.LocalService
-	} else if cfg.AnycastAPIPublicURL != nil && serviceHost == auth.AnycastService.Hostname(cfg) {
-		result.IntendedAudience = auth.AnycastService
-	} else {
+	result.IntendedAudience = auth.IdentifyAudience(serviceHost, cfg)
+	if result.IntendedAudience.Hostname(cfg) != serviceHost {
 		return Request{}, fmt.Errorf("cannot issue tokens for service: %q", serviceHost)
 	}
 

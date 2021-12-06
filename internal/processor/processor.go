@@ -154,7 +154,7 @@ func (p *Processor) getRepoClientForUpstream(account keppel.Account, repo keppel
 			Scheme:   "https",
 			Host:     peer.HostName,
 			RepoName: repo.FullName(),
-			UserName: "replication@" + p.cfg.APIPublicURL.Hostname(),
+			UserName: "replication@" + p.cfg.APIPublicHostname,
 			Password: peer.OurPassword,
 		}
 		p.repoClients[repo.FullName()] = c

@@ -48,7 +48,7 @@ func init() {
 			return nil, fmt.Errorf("cannot parse federation Redis URL: %s", err.Error())
 		}
 		return &federationDriver{
-			ownHostname: cfg.APIPublicURL.Hostname(),
+			ownHostname: cfg.APIPublicHostname,
 			prefix:      prefix,
 			rc:          redis.NewClient(opts),
 		}, nil

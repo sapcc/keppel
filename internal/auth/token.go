@@ -46,7 +46,7 @@ type tokenClaims struct {
 	Embedded embeddedUserIdentity `json:"kea"` //kea = keppel embedded authorization ("UserIdentity" used to be called "Authorization")
 }
 
-func parseToken(cfg keppel.Configuration, ad keppel.AuthDriver, audience Service, tokenStr string) (*Authorization, *keppel.RegistryV2Error) {
+func parseToken(cfg keppel.Configuration, ad keppel.AuthDriver, audience Audience, tokenStr string) (*Authorization, *keppel.RegistryV2Error) {
 	//parse JWT
 	var claims tokenClaims
 	claims.Embedded.AuthDriver = ad
@@ -86,7 +86,7 @@ func parseToken(cfg keppel.Configuration, ad keppel.AuthDriver, audience Service
 		return nil, keppel.ErrUnauthorized.With("token not valid yet")
 	}
 	publicHost := audience.Hostname(cfg)
-	if audience == LocalService {
+	if !audience.IsAnycast {
 		if claims.RegisteredClaims.Issuer != "keppel-api@"+publicHost {
 			return nil, keppel.ErrUnauthorized.With("token has wrong issuer (expected keppel-api@%s)", publicHost)
 		}
@@ -104,7 +104,7 @@ func parseToken(cfg keppel.Configuration, ad keppel.AuthDriver, audience Service
 	return &Authorization{
 		UserIdentity: claims.Embedded.UserIdentity,
 		ScopeSet:     ss,
-		Service:      audience,
+		Audience:     audience,
 	}, nil
 }
 
@@ -123,19 +123,23 @@ func (a Authorization) IssueToken(cfg keppel.Configuration) (*TokenResponse, err
 	expiresIn := 4 * time.Hour //NOTE: could be made configurable if the need arises
 	expiresAt := now.Add(expiresIn)
 
-	issuerKeys := a.Service.IssuerKeys(cfg)
+	issuerKeys := a.Audience.IssuerKeys(cfg)
 	if len(issuerKeys) == 0 {
 		return nil, errors.New("no issuer keys configured for this audience")
 	}
 	issuerKey := issuerKeys[0]
 	method := chooseSigningMethod(issuerKey)
 
-	publicHost := a.Service.Hostname(cfg)
+	//fill the "issuer" field with a dummy audience that has anycast forced to
+	//false to reveal the identity of the Keppel API that issued the token
+	issuer := Audience{IsAnycast: false, AccountName: a.Audience.AccountName}
+
+	publicHost := a.Audience.Hostname(cfg)
 	token := jwt.NewWithClaims(method, tokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        uuid.NewV4().String(),
 			Audience:  jwt.ClaimStrings{publicHost},
-			Issuer:    "keppel-api@" + cfg.APIPublicURL.Hostname(),
+			Issuer:    "keppel-api@" + issuer.Hostname(cfg),
 			Subject:   a.UserIdentity.UserName(),
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			NotBefore: jwt.NewNumericDate(now),

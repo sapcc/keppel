@@ -51,7 +51,7 @@ func init() {
 		container, err := initSwiftContainerConnection("KEPPEL_FEDERATION_")
 		return &federationDriverSwift{
 			Container:   container,
-			OwnHostName: cfg.APIPublicURL.Hostname(),
+			OwnHostName: cfg.APIPublicHostname,
 		}, err
 	})
 }

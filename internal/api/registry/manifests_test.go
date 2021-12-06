@@ -174,8 +174,8 @@ func TestImageManifestLifecycle(t *testing.T) {
 					Header: map[string]string{
 						"Authorization":     "Bearer " + token,
 						"Content-Type":      image.Manifest.MediaType,
-						"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Host,
-						"X-Forwarded-Proto": s.Config.AnycastAPIPublicURL.Scheme,
+						"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
+						"X-Forwarded-Proto": "https",
 					},
 					Body:         assert.ByteData(image.Manifest.Contents),
 					ExpectStatus: http.StatusMethodNotAllowed,
@@ -276,7 +276,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 					testAnycast(t, firstPass, s2.DB, func() {
 						anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull")
 						anycastHeaders := map[string]string{
-							"X-Forwarded-Host":  s.Config.AnycastAPIPublicURL.Hostname(),
+							"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
 							"X-Forwarded-Proto": "https",
 						}
 						expectManifestExists(t, h, anycastToken, "test1/foo", image.Manifest, ref, anycastHeaders)

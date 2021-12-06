@@ -5,25 +5,9 @@ for managing Keppel accounts.
 
 [oci-dist]: https://github.com/opencontainers/distribution-spec
 
-- Error responses always have `Content-Type: text/plain`.
-- Account names must conform to the regex `^[a-z0-9-]{1,48}$`, that is, they may not be longer than 48 chars and may
-  only contain lowercase letters, digits and dashes.
-
-The authentication method for this API depends on which auth driver is used by the Keppel instance in question:
-
-- When the auth driver is `keystone`, all endpoints require a Keystone token to be present in the `X-Auth-Token` header.
-  Only Keystone v3 is supported.
-- When the auth driver is `keystone`, Keppel's service URL can be found in the Keystone service catalog under the
-  service type `keppel`.
-
-The OCI Distribution API usually uses OAuth-like bearer tokens, but in Keppel, it can also be made to use the same
-authentication method as the API specified in this document. To do so, add the request header `Authorization: keppel`
-and the same request headers as on this API to a request for the OCI Distribution API. Conversely, the Keppel API can be
-used with the bearer token auth scheme prescribed by the OCI Distribution API. The Keppel API will render the respective
-auth challenges when API requests are made without any form of authentication.
-
-This document uses the terminology defined in the [README.md](../README.md#terminology).
-
+- [Concepts](#concepts)
+  - [Authentication](#authentication)
+  - [Domain remapping](#domain-remapping)
 - [GET /keppel/v1](#get-keppelv1)
 - [GET /keppel/v1/accounts](#get-keppelv1accounts)
   - [Replication strategies](#replication-strategies)
@@ -44,6 +28,47 @@ This document uses the terminology defined in the [README.md](../README.md#termi
 - [GET /keppel/v1/quotas/:auth\_tenant\_id](#get-keppelv1quotasauth_tenant_id)
 - [PUT /keppel/v1/quotas/:auth\_tenant\_id](#put-keppelv1quotasauth_tenant_id)
 - [GET /clair/:path](#get-clairpath)
+
+## Concepts
+
+This document uses the terminology defined in the [README.md](../README.md#terminology).
+
+- Error responses always have `Content-Type: text/plain`.
+- Account names must conform to the regex `^[a-z0-9-]{1,48}$`, that is, they may not be longer than 48 chars and may
+  only contain lowercase letters, digits and dashes.
+
+### Authentication
+
+The authentication method for this API depends on which auth driver is used by the Keppel instance in question:
+
+- When the auth driver is `keystone`, all endpoints require a Keystone token to be present in the `X-Auth-Token` header.
+  Only Keystone v3 is supported.
+- When the auth driver is `keystone`, Keppel's service URL can be found in the Keystone service catalog under the
+  service type `keppel`.
+
+The OCI Distribution API usually uses OAuth-like bearer tokens, but in Keppel, it can also be made to use the same
+authentication method as the API specified in this document. To do so, add the request header `Authorization: keppel`
+and the same request headers as on this API to a request for the OCI Distribution API. Conversely, the Keppel API can be
+used with the bearer token auth scheme prescribed by the OCI Distribution API. The Keppel API will render the respective
+auth challenges when API requests are made without any form of authentication.
+
+### Domain remapping
+
+By default, the OCI Distribution API is structured such that the account name is prepended to all repository names. For
+instance, a Docker image reference like `registry.example.com/foo/bar:latest` refers to the repository called `bar`
+within the account called `foo`.
+
+However, if the Keppel instance has been set up thusly, the OCI Distribution API is also offered for each account
+individually. This is called a **domain-remapped API** in Keppel, because it is inspired by a similar concept of the
+same name in OpenStack Swift. The domain-remapped analog of the example image reference above would be
+`foo.registry.example.com/bar:latest`, i.e. the account name has become part of the domain name.
+
+This is particularly useful if you have an external replica account of Docker Hub, since dockerd only accepts plain
+hostnames in its `registry-mirrors` option. Therefore something like `registry.example.com/dockerhubmirror` would not
+work, but `dockerhubmirror.registry.example.com` does work.
+
+The domain-remapped domain names only offer the OCI Distribution API and the `GET /keppel/v1/auth` endpoint. The Keppel
+API itself can only be accessed through the respective Keppel instance's main domain name.
 
 ## GET /keppel/v1
 

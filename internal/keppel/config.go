@@ -24,7 +24,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"regexp"
@@ -39,32 +38,12 @@ import (
 //Configuration contains all configuration values that are not specific to a
 //certain driver.
 type Configuration struct {
-	APIPublicURL         url.URL
-	AnycastAPIPublicURL  *url.URL
-	DatabaseURL          url.URL
-	JWTIssuerKeys        []crypto.PrivateKey
-	AnycastJWTIssuerKeys []crypto.PrivateKey
-	ClairClient          *clair.Client
-}
-
-//IsAnycastRequest returns true if this configuration has anycast enabled and
-//the given request is for the anycast API.
-func (c Configuration) IsAnycastRequest(r *http.Request) bool {
-	if c.AnycastAPIPublicURL == nil {
-		return false
-	}
-
-	//case 1: anycast request explicitly reverse-proxied to us from the
-	//keppel-api that originally received it
-	forwardedBy := r.Header.Get("X-Keppel-Forwarded-By")
-	if forwardedBy != "" {
-		return true
-	}
-
-	//case 2: anycast request originating from the user
-	u1 := OriginalRequestURL(r)
-	u2 := *c.AnycastAPIPublicURL
-	return u1.Scheme == u2.Scheme && u1.Host == u2.Host
+	APIPublicHostname        string
+	AnycastAPIPublicHostname string
+	DatabaseURL              url.URL
+	JWTIssuerKeys            []crypto.PrivateKey
+	AnycastJWTIssuerKeys     []crypto.PrivateKey
+	ClairClient              *clair.Client
 }
 
 var (
@@ -107,9 +86,9 @@ func ParseIssuerKey(in string) (crypto.PrivateKey, error) {
 //corresponding environment variables. Aborts on error.
 func ParseConfiguration() Configuration {
 	cfg := Configuration{
-		APIPublicURL:        mustGetenvURL("KEPPEL_API_PUBLIC_URL"),
-		AnycastAPIPublicURL: mayGetenvURL("KEPPEL_API_ANYCAST_URL"),
-		DatabaseURL:         getDbURL(),
+		APIPublicHostname:        MustGetenv("KEPPEL_API_PUBLIC_FQDN"),
+		AnycastAPIPublicHostname: os.Getenv("KEPPEL_API_ANYCAST_FQDN"),
+		DatabaseURL:              getDbURL(),
 	}
 
 	parseIssuerKeys := func(prefix string) []crypto.PrivateKey {
@@ -129,7 +108,7 @@ func ParseConfiguration() Configuration {
 	}
 
 	cfg.JWTIssuerKeys = parseIssuerKeys("KEPPEL")
-	if cfg.AnycastAPIPublicURL != nil {
+	if cfg.AnycastAPIPublicHostname != "" {
 		cfg.AnycastJWTIssuerKeys = parseIssuerKeys("KEPPEL_ANYCAST")
 	}
 
@@ -165,15 +144,6 @@ func MustGetenv(key string) string {
 		logg.Fatal("missing environment variable: %s", key)
 	}
 	return val
-}
-
-func mustGetenvURL(key string) url.URL {
-	val := MustGetenv(key)
-	parsed, err := url.Parse(val)
-	if err != nil {
-		logg.Fatal("malformed %s: %s", key, err.Error())
-	}
-	return *parsed
 }
 
 func mayGetenvURL(key string) *url.URL {

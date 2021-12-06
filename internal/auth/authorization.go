@@ -29,6 +29,6 @@ type Authorization struct {
 	//ScopeSet identifies the permissions granted to the user for the duration of
 	//this request.
 	ScopeSet ScopeSet
-	//Service identifies the API endpoint where the user sent the request.
-	Service Service
+	//Audience identifies the API endpoint where the user sent the request.
+	Audience Audience
 }

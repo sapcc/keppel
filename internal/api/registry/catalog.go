@@ -41,16 +41,11 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
-	//defense in depth: the auth API does not issue anycast tokens for registry:catalog:* anyway
-	if a.cfg.IsAnycastRequest(r) {
-		msg := "/v2/_catalog endpoint is not supported for anycast requests"
-		keppel.ErrUnsupported.With(msg).WriteAsRegistryV2ResponseTo(w, r)
-		return
-	}
-
 	authz, rerr := auth.IncomingRequest{
-		HTTPRequest: r,
-		Scopes:      auth.NewScopeSet(auth.CatalogEndpointScope),
+		HTTPRequest:           r,
+		Scopes:                auth.NewScopeSet(auth.CatalogEndpointScope),
+		AllowsAnycast:         false,
+		AllowsDomainRemapping: true,
 	}.Authorize(a.cfg, a.ad, a.db)
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w, r)
@@ -80,16 +75,24 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 		limit = maxLimit
 	}
 
+	//on domain-remapped APIs, do not include the account name in the repository
+	//names for the result list
+	includeAccountName := authz.Audience.AccountName == ""
+
 	//parse query: marker (parameter "last")
 	marker := query.Get("last")
 	markerAccountName := ""
 	if marker != "" {
-		fields := strings.SplitN(marker, "/", 2)
-		if len(fields) != 2 {
-			http.Error(w, `invalid value for "last": must contain a slash`, http.StatusBadRequest)
-			return
+		if includeAccountName {
+			fields := strings.SplitN(marker, "/", 2)
+			if len(fields) != 2 {
+				http.Error(w, `invalid value for "last": must contain a slash`, http.StatusBadRequest)
+				return
+			}
+			markerAccountName = fields[0]
+		} else {
+			markerAccountName = authz.Audience.AccountName
 		}
-		markerAccountName = fields[0]
 	}
 
 	//find accessible accounts
@@ -100,7 +103,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 	var allNames []string
 	partialResult := false
 	for idx, accountName := range accountNames {
-		names, err := a.getCatalogForAccount(accountName)
+		names, err := a.getCatalogForAccount(accountName, includeAccountName)
 		if respondWithError(w, r, err) {
 			return
 		}
@@ -143,14 +146,18 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 
 const catalogGetQuery = `SELECT name FROM repos WHERE account_name = $1 ORDER BY name`
 
-func (a *API) getCatalogForAccount(accountName string) ([]string, error) {
+func (a *API) getCatalogForAccount(accountName string, includeAccountName bool) ([]string, error) {
 	var result []string
 	err := keppel.ForeachRow(a.db, catalogGetQuery, []interface{}{accountName},
 		func(rows *sql.Rows) error {
 			var name string
 			err := rows.Scan(&name)
 			if err == nil {
-				result = append(result, fmt.Sprintf("%s/%s", accountName, name))
+				if includeAccountName {
+					result = append(result, fmt.Sprintf("%s/%s", accountName, name))
+				} else {
+					result = append(result, name)
+				}
 			}
 			return err
 		},
