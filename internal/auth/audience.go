@@ -50,6 +50,8 @@ func IdentifyAudience(hostname string, cfg keppel.Configuration) Audience {
 			return Audience{IsAnycast: false, AccountName: ""}
 		case cfg.AnycastAPIPublicHostname:
 			return Audience{IsAnycast: true, AccountName: ""}
+		default:
+			//try the other options
 		}
 	}
 
@@ -64,6 +66,8 @@ func IdentifyAudience(hostname string, cfg keppel.Configuration) Audience {
 				return Audience{IsAnycast: false, AccountName: hostnameParts[0]}
 			case cfg.AnycastAPIPublicHostname:
 				return Audience{IsAnycast: true, AccountName: hostnameParts[0]}
+			default:
+				//try the other options
 			}
 		}
 	}
