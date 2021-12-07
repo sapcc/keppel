@@ -271,8 +271,8 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 	if result.CanPullAnonymously && result.UserNamePattern != "" {
 		return result, errors.New(`RBAC policy with "anonymous_pull" may not have the "match_username" attribute`)
 	}
-	if result.CanPull && result.UserNamePattern == "" {
-		return result, errors.New(`RBAC policy with "pull" must have the "match_username" attribute`)
+	if result.CanPull && result.CidrPattern == "" && result.UserNamePattern == "" {
+		return result, errors.New(`RBAC policy with "pull" must have the "match_cidr" or "match_username" attribute`)
 	}
 	if result.CanPush && !result.CanPull {
 		return result, errors.New(`RBAC policy with "push" must also grant "pull"`)
@@ -780,7 +780,7 @@ func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPoli
 	//put existing set of policies in a map to allow diff with new set
 	mapKey := func(p keppel.RBACPolicy) string {
 		//this mapping is collision-free because RepositoryPattern and UserNamePattern are valid regexes
-		return fmt.Sprintf("%s[%s][%s]", p.AccountName, p.RepositoryPattern, p.UserNamePattern)
+		return fmt.Sprintf("%s[%s][%s][%s]", p.AccountName, p.CidrPattern, p.RepositoryPattern, p.UserNamePattern)
 	}
 	state := make(map[string]keppel.RBACPolicy)
 	for _, policy := range dbPolicies {

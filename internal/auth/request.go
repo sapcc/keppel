@@ -263,7 +263,7 @@ func safelyReturnRegistryError(rerr *keppel.RegistryV2Error) error {
 }
 
 func (ir IncomingRequest) authorizeViaUserIdentity(uid keppel.UserIdentity, audience Audience, db *keppel.DB) (*Authorization, error) {
-	ss, err := filterAuthorized(ir.Scopes, uid, audience, db)
+	ss, err := filterAuthorized(ir, uid, audience, db)
 	if err != nil {
 		return nil, err
 	}

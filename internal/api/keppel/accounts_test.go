@@ -966,7 +966,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("RBAC policy with \"pull\" must have the \"match_username\" attribute\n"),
+		ExpectBody:   assert.StringData("RBAC policy with \"pull\" must have the \"match_cidr\" or \"match_username\" attribute\n"),
 	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -1000,6 +1000,21 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("RBAC policy with \"push\" must also grant \"pull\"\n"),
 	}.Check(t, h)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies": []assert.JSONObject{{
+					"match_cidr": "0.0.0.0/64",
+				}},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("\"0.0.0.0/64\" is not a valid cidr\n"),
+	}.Check(t, h)
 
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -1017,7 +1032,6 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("\"*/library\" is not a valid regex: error parsing regexp: missing argument to repetition operator: `*`\n"),
 	}.Check(t, h)
-
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",

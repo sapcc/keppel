@@ -22,6 +22,7 @@ package keppel
 import (
 	"database/sql"
 	"fmt"
+	"net"
 	"regexp"
 	"time"
 
@@ -93,8 +94,15 @@ type RBACPolicy struct {
 	CanDelete          bool   `db:"can_delete"`
 }
 
-//Matches evaluates the regexes in this policy.
-func (r RBACPolicy) Matches(repoName, userName string) bool {
+//Matches evaluates the cidr and regexes in this policy.
+func (r RBACPolicy) Matches(ip, repoName, userName string) bool {
+	if r.CidrPattern != "" {
+		ip := net.ParseIP(ip)
+		_, net, err := net.ParseCIDR(r.CidrPattern)
+		if err != nil || !net.Contains(ip) {
+			return false
+		}
+	}
 	if r.RepositoryPattern != "" {
 		rx, err := regexp.Compile(fmt.Sprintf(`^%s/(?:%s)$`,
 			regexp.QuoteMeta(r.AccountName),
