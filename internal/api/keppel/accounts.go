@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -56,6 +57,7 @@ type Account struct {
 
 //RBACPolicy represents an RBAC policy in the API.
 type RBACPolicy struct {
+	CidrPattern       string   `json:"match_cidr,omitempty"`
 	RepositoryPattern string   `json:"match_repository,omitempty"`
 	UserNamePattern   string   `json:"match_username,omitempty"`
 	Permissions       []string `json:"permissions"`
@@ -202,6 +204,10 @@ func renderRBACPolicy(dbPolicy keppel.RBACPolicy) RBACPolicy {
 		RepositoryPattern: dbPolicy.RepositoryPattern,
 		UserNamePattern:   dbPolicy.UserNamePattern,
 	}
+	// treat cidr that matches everything as unset
+	if dbPolicy.CidrPattern != "0.0.0.0/0" {
+		result.CidrPattern = dbPolicy.CidrPattern
+	}
 	if dbPolicy.CanPullAnonymously {
 		result.Permissions = append(result.Permissions, "anonymous_pull")
 	}
@@ -227,6 +233,20 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 		RepositoryPattern: policy.RepositoryPattern,
 		UserNamePattern:   policy.UserNamePattern,
 	}
+	// validate cidr early to prevent errors
+	// this has also the nice side effect that we can use the cidr of the network incase an ip is used
+	if cidr := policy.CidrPattern; cidr != "" {
+		_, net, err := net.ParseCIDR(cidr)
+		if err != nil {
+			// err.Error() sadly does not contain any useful information why the cidr is invalid
+			return result, fmt.Errorf("%q is not a valid cidr", cidr)
+		}
+		if net.String() == "0.0.0.0/0" {
+			result.CidrPattern = ""
+		} else {
+			result.CidrPattern = net.String()
+		}
+	}
 	for _, perm := range policy.Permissions {
 		switch perm {
 		case "anonymous_pull":
@@ -245,7 +265,7 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 	if len(policy.Permissions) == 0 {
 		return result, errors.New(`RBAC policy must grant at least one permission`)
 	}
-	if result.UserNamePattern == "" && result.RepositoryPattern == "" {
+	if result.CidrPattern == "" && result.UserNamePattern == "" && result.RepositoryPattern == "" {
 		return result, errors.New(`RBAC policy must have at least one "match_..." attribute`)
 	}
 	if result.CanPullAnonymously && result.UserNamePattern != "" {
