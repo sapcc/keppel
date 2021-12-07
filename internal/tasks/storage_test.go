@@ -72,7 +72,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	s.Clock.StepBy(1 * time.Hour)
 	_, healthyBlobs, healthyManifests := setupStorageSweepTest(t, j, s)
 
-	//put some blobs in the storage without noting them in the DB
+	//put some blobs in the storage without adding them in the DB
 	account := keppel.Account{Name: "test1"}
 	testBlob1 := test.GenerateExampleLayer(30)
 	testBlob2 := test.GenerateExampleLayer(31)
@@ -159,7 +159,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	s.Clock.StepBy(1 * time.Hour)
 	images, healthyBlobs, healthyManifests := setupStorageSweepTest(t, j, s)
 
-	//put some manifests in the storage without nothing them in the DB
+	//put some manifests in the storage without adding them in the DB
 	account := keppel.Account{Name: "test1"}
 	testImageList1 := test.GenerateImageList(images[0])
 	testImageList2 := test.GenerateImageList(images[1])

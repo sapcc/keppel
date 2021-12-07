@@ -243,7 +243,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 			switch err {
 			case error(nil):
 				//protect against infinite forwarding loops in case different Keppels have
-				//different ideas about how is the primary account
+				//different ideas about who is the primary account
 				if forwardedBy := r.URL.Query().Get("X-Keppel-Forwarded-By"); forwardedBy != "" {
 					msg := fmt.Sprintf("not forwarding anycast request for account %q to %s because request was already forwarded to us by %s",
 						repoScope.AccountName, primaryHostName, forwardedBy)

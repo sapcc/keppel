@@ -338,7 +338,7 @@ Issues a **sublease token** for the given account. A sublease token can be redee
 account connected to this account in another Keppel instance. On success, returns 200 and a JSON response body like
 this:
 
-```
+```json
 {
   "sublease_token": "oingoojei6aejab0Too4"
 }
@@ -395,7 +395,9 @@ pagination**. If the `.truncated` field is present and true, only a partial resu
 can be obtained by resending the GET request with the query parameter `marker` set to the name of the last repository in
 the current result list, for instance
 
-    GET /keppel/v1/accounts/$ACCOUNT_NAME/repositories?marker=foo1000
+```
+GET /keppel/v1/accounts/$ACCOUNT_NAME/repositories?marker=foo1000
+```
 
 for the example response shown above. The last page of results will have `truncated` omitted or set to false.
 
