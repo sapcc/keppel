@@ -211,6 +211,9 @@ func renderRBACPolicy(dbPolicy keppel.RBACPolicy) RBACPolicy {
 	if dbPolicy.CanPullAnonymously {
 		result.Permissions = append(result.Permissions, "anonymous_pull")
 	}
+	if dbPolicy.CanFirstPullAnonymously {
+		result.Permissions = append(result.Permissions, "anonymous_first_pull")
+	}
 	if dbPolicy.CanPull {
 		result.Permissions = append(result.Permissions, "pull")
 	}
@@ -251,6 +254,8 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 		switch perm {
 		case "anonymous_pull":
 			result.CanPullAnonymously = true
+		case "anonymous_first_pull":
+			result.CanFirstPullAnonymously = true
 		case "pull":
 			result.CanPull = true
 		case "push":
@@ -268,8 +273,8 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 	if result.CidrPattern == "" && result.UserNamePattern == "" && result.RepositoryPattern == "" {
 		return result, errors.New(`RBAC policy must have at least one "match_..." attribute`)
 	}
-	if result.CanPullAnonymously && result.UserNamePattern != "" {
-		return result, errors.New(`RBAC policy with "anonymous_pull" may not have the "match_username" attribute`)
+	if (result.CanPullAnonymously || result.CanFirstPullAnonymously) && result.UserNamePattern != "" {
+		return result, errors.New(`RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`)
 	}
 	if result.CanPull && result.CidrPattern == "" && result.UserNamePattern == "" {
 		return result, errors.New(`RBAC policy with "pull" must have the "match_cidr" or "match_username" attribute`)
@@ -412,6 +417,11 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		rbacPolicies[idx], err = parseRBACPolicy(policy)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		rp := req.Account.ReplicationPolicy
+		if rbacPolicies[idx].CanFirstPullAnonymously && (rp == nil || rp.ExternalPeer.URL == "") {
+			http.Error(w, `RBAC policy with "can_anon_first_pull" may only be for external replica accounts`, http.StatusUnprocessableEntity)
 			return
 		}
 	}
