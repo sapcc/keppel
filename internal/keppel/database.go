@@ -455,6 +455,14 @@ var sqlMigrations = map[string]string{
 		ALTER TABLE rbac_policies
 			ADD PRIMARY KEY (account_name, match_repository, match_username);
 	`,
+	"028_add_rbac_policies_can_anon_first_pull.up.sql": `
+		ALTER TABLE rbac_policies
+			ADD COLUMN can_anon_first_pull BOOLEAN NOT NULL DEFAULT FALSE;
+	`,
+	"028_add_rbac_policies_can_anon_first_pull.down.sql": `
+		ALTER TABLE rbac_policies
+			DROP COLUMN can_anon_first_pull ;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

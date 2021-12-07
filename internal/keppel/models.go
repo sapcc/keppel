@@ -84,14 +84,15 @@ func FindAccount(db gorp.SqlExecutor, name string) (*Account, error) {
 
 //RBACPolicy contains a record from the `rbac_policies` table.
 type RBACPolicy struct {
-	AccountName        string `db:"account_name"`
-	CidrPattern        string `db:"match_cidr"`
-	RepositoryPattern  string `db:"match_repository"`
-	UserNamePattern    string `db:"match_username"`
-	CanPullAnonymously bool   `db:"can_anon_pull"`
-	CanPull            bool   `db:"can_pull"`
-	CanPush            bool   `db:"can_push"`
-	CanDelete          bool   `db:"can_delete"`
+	AccountName             string `db:"account_name"`
+	CidrPattern             string `db:"match_cidr"`
+	RepositoryPattern       string `db:"match_repository"`
+	UserNamePattern         string `db:"match_username"`
+	CanPullAnonymously      bool   `db:"can_anon_pull"`
+	CanFirstPullAnonymously bool   `db:"can_anon_first_pull"`
+	CanPull                 bool   `db:"can_pull"`
+	CanPush                 bool   `db:"can_push"`
+	CanDelete               bool   `db:"can_delete"`
 }
 
 //Matches evaluates the cidr and regexes in this policy.
