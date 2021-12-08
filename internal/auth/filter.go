@@ -185,6 +185,9 @@ func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience
 			if policy.CanPullAnonymously {
 				isAllowedAction["pull"] = true
 			}
+			if policy.CanFirstPullAnonymously {
+				isAllowedAction["anonymous_first_pull"] = true
+			}
 			if policy.CanPull && uid.UserType() != keppel.AnonymousUser {
 				isAllowedAction["pull"] = true
 			}
