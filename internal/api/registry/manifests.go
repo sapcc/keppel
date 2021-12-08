@@ -32,6 +32,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sre"
 	"github.com/sapcc/keppel/internal/api"
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/processor"
 )
@@ -65,8 +66,14 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.InMaintenance && authz.UserIdentity.UserType() != keppel.PeerUser {
 			//when replicating from external, only authenticated users can trigger the replication
 			if account.ExternalPeerURL != "" && authz.UserIdentity.UserType() != keppel.RegularUser {
-				keppel.ErrDenied.With("image does not exist here, and anonymous users may not replicate images").WithStatus(http.StatusForbidden).WriteAsRegistryV2ResponseTo(w, r)
-				return
+				if !authz.ScopeSet.Contains(auth.Scope{
+					ResourceType: "repository",
+					ResourceName: repo.FullName(),
+					Actions:      []string{"anonymous_first_pull"},
+				}) {
+					keppel.ErrDenied.With("image does not exist here, and anonymous users may not replicate images").WithStatus(http.StatusForbidden).WriteAsRegistryV2ResponseTo(w, r)
+					return
+				}
 			}
 
 			dbManifest, manifestBytes, err = a.processor().ReplicateManifest(*account, *repo, reference, keppel.AuditContext{

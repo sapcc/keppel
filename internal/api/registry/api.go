@@ -271,7 +271,12 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	if strategy == createRepoIfMissing {
 		canCreateRepoIfMissing = true
 	} else if strategy == createRepoIfMissingAndReplica {
-		canCreateRepoIfMissing = account.UpstreamPeerHostName != "" || (account.ExternalPeerURL != "" && authz.UserIdentity.UserType() == keppel.RegularUser)
+		canFirstPull := authz.ScopeSet.Contains(auth.Scope{
+			ResourceType: "repository",
+			ResourceName: scope.ResourceName,
+			Actions:      []string{"anonymous_first_pull"},
+		})
+		canCreateRepoIfMissing = account.UpstreamPeerHostName != "" || (account.ExternalPeerURL != "" && (authz.UserIdentity.UserType() == keppel.RegularUser || canFirstPull))
 	}
 
 	var repo *keppel.Repository
