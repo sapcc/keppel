@@ -360,7 +360,60 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "first", nil)
 			//...and once replicated, the anonymous token can pull as well
 			expectManifestExists(t, h2, anonToken, "test1/foo", image.Manifest, "first", nil)
+		})
+	})
+}
 
+func TestReplicationAllowAnonymousReplicationFromExternal(t *testing.T) {
+	testWithPrimary(t, nil, func(s1 test.Setup) {
+		//upload image to primary account
+		image := test.GenerateImage(test.GenerateExampleLayer(1))
+		s1.Clock.Step()
+		image.MustUpload(t, s1, fooRepoRef, "first")
+
+		testWithReplica(t, s1, "from_external_on_first_use", func(firstPass bool, s2 test.Setup) {
+			//need only one pass for this test
+			if !firstPass {
+				return
+			}
+
+			h2 := s2.Handler
+
+			// enable anonymous pull and replication on test1/bar
+			err := s2.DB.Insert(&keppel.RBACPolicy{
+				AccountName:             "test1",
+				RepositoryPattern:       "foo",
+				CanPullAnonymously:      true,
+				CanFirstPullAnonymously: true,
+			})
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+
+			//get an anonymous token (this is a bit unwieldy because usually all
+			//tests work with non-anonymous tokens, so we don't have helper functions
+			//for anonymous tokens)
+			// TODO: extract to s1.getAnonToken(t, "repository:test1/foo:pull")
+			_, tokenBodyBytes := assert.HTTPRequest{
+				Method: "GET",
+				Path:   "/keppel/v1/auth?service=registry-secondary.example.org&scope=repository:test1/foo:pull,anonymous_first_pull",
+				Header: map[string]string{
+					"X-Forwarded-Host":  "registry-secondary.example.org",
+					"X-Forwarded-Proto": "https",
+				},
+				ExpectStatus: http.StatusOK,
+			}.Check(t, h2)
+			var tokenBodyData struct {
+				Token string `json:"token"`
+			}
+			err = json.Unmarshal(tokenBodyBytes, &tokenBodyData)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			anonToken := tokenBodyData.Token
+
+			// the rbac policy allows to replicate test1/foo images
+			expectManifestExists(t, h2, anonToken, "test1/foo", image.Manifest, "first", nil)
 		})
 	})
 }
