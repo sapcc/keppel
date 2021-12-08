@@ -208,7 +208,7 @@ func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName stri
 
 		req := assert.HTTPRequest{
 			Method:       method,
-			Path:         "/v2/test1/foo/manifests/" + reference,
+			Path:         fmt.Sprintf("/v2/%s/manifests/%s", fullRepoName, reference),
 			Header:       map[string]string{"Authorization": "Bearer " + token},
 			ExpectStatus: http.StatusOK,
 			ExpectHeader: map[string]string{
