@@ -245,10 +245,9 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 			return result, fmt.Errorf("%q is not a valid cidr", cidr)
 		}
 		if net.String() == "0.0.0.0/0" {
-			result.CidrPattern = ""
-		} else {
-			result.CidrPattern = net.String()
+			return result, errors.New("0.0.0.0/0 cannot be used as cidr because it matches everything")
 		}
+		result.CidrPattern = net.String()
 	}
 	for _, perm := range policy.Permissions {
 		switch perm {
