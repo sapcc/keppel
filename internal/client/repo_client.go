@@ -20,6 +20,7 @@ package client
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -83,6 +84,9 @@ func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
 		c.token, err = authChallenge.GetToken(c.UserName, c.Password)
 		if err != nil {
 			return nil, fmt.Errorf("authentication failed: %s", err.Error())
+		}
+		if c.token == "" {
+			return nil, errors.New("authentication failed: no token was returned")
 		}
 
 		//...then resend the GET request with the token

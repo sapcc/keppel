@@ -58,7 +58,7 @@ func setupReplica(t *testing.T, s1 test.Setup, strategy string) (*Janitor, test.
 	case "from_external_on_first_use":
 		testAccount.ExternalPeerURL = "registry.example.org/test1"
 		testAccount.ExternalPeerUserName = "replication@registry-secondary.example.org"
-		testAccount.ExternalPeerPassword = test.ReplicationPassword
+		testAccount.ExternalPeerPassword = test.GetReplicationPassword()
 	default:
 		t.Fatalf("unknown strategy: %q", strategy)
 	}

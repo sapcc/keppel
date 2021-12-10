@@ -154,9 +154,22 @@ type Setup struct {
 //these credentials are in global vars so that we don't have to recompute them
 //in every test run (bcrypt is intentionally CPU-intensive)
 var (
-	ReplicationPassword     string
+	replicationPassword     string
 	replicationPasswordHash string
 )
+
+//GetReplicationPassword returns the password that the secondary registry can
+//use to replicate from the primary registry.
+func GetReplicationPassword() string {
+	if replicationPassword == "" {
+		//this password needs to be constant because it appears in some fixtures/*.sql
+		replicationPassword = "a4cb6fae5b8bb91b0b993486937103dab05eca93"
+
+		hashBytes, _ := bcrypt.GenerateFromPassword([]byte(replicationPassword), 8)
+		replicationPasswordHash = string(hashBytes)
+	}
+	return replicationPassword
+}
 
 //NewSetup prepares most or all pieces of Keppel for a test.
 func NewSetup(t *testing.T, opts ...SetupOption) Setup {
@@ -358,17 +371,9 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		s1 := params.SetupOfPrimary
 		if s1 != nil {
 			//give the secondary registry credentials for replicating from the primary
-			if ReplicationPassword == "" {
-				//this password needs to be constant because it appears in some fixtures/*.sql
-				ReplicationPassword = "a4cb6fae5b8bb91b0b993486937103dab05eca93"
-
-				hashBytes, _ := bcrypt.GenerateFromPassword([]byte(ReplicationPassword), 8)
-				replicationPasswordHash = string(hashBytes)
-			}
-
 			must(t, s.DB.Insert(&keppel.Peer{
 				HostName:    "registry.example.org",
-				OurPassword: ReplicationPassword,
+				OurPassword: GetReplicationPassword(),
 			}))
 			must(t, s1.DB.Insert(&keppel.Peer{
 				HostName:                 "registry-secondary.example.org",
