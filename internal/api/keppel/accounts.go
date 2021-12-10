@@ -136,7 +136,7 @@ func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
 	}
 
 	var dbPolicies []keppel.RBACPolicy
-	_, err = a.db.Select(&dbPolicies, `SELECT * FROM rbac_policies WHERE account_name = $1`, dbAccount.Name)
+	_, err = a.db.Select(&dbPolicies, `SELECT * FROM rbac_policies WHERE account_name = $1 ORDER BY account_name, match_repository, match_username`, dbAccount.Name)
 	if err != nil {
 		return Account{}, err
 	}
