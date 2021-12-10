@@ -439,6 +439,30 @@ var sqlMigrations = map[string]string{
 	"026_add_manifests_gc_status_json.down.sql": `
 		ALTER TABLE manifests DROP COLUMN gc_status_json;
 	`,
+	"027_add_rbac_policies_match_cidr.up.sql": `
+		ALTER TABLE rbac_policies
+			DROP CONSTRAINT rbac_policies_pkey;
+		ALTER TABLE rbac_policies
+			ADD COLUMN match_cidr TEXT NOT NULL DEFAULT '0.0.0.0/0';
+		ALTER TABLE rbac_policies
+			ADD PRIMARY KEY (account_name, match_cidr, match_repository, match_username);
+	`,
+	"027_add_rbac_policies_match_cidr.down.sql": `
+		ALTER TABLE rbac_policies
+			DROP CONSTRAINT rbac_policies_pkey;
+		ALTER TABLE rbac_policies
+			DROP COLUMN match_cidr;
+		ALTER TABLE rbac_policies
+			ADD PRIMARY KEY (account_name, match_repository, match_username);
+	`,
+	"028_add_rbac_policies_can_anon_first_pull.up.sql": `
+		ALTER TABLE rbac_policies
+			ADD COLUMN can_anon_first_pull BOOLEAN NOT NULL DEFAULT FALSE;
+	`,
+	"028_add_rbac_policies_can_anon_first_pull.down.sql": `
+		ALTER TABLE rbac_policies
+			DROP COLUMN can_anon_first_pull ;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

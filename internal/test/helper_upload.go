@@ -125,7 +125,7 @@ func (i Image) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName
 	account := keppel.Account{Name: repo.AccountName}
 	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, account, i.Manifest.Digest.String())
 	must(t, err)
-	s.ExpectManifestsExistInStorage(t, *manifest)
+	s.ExpectManifestsExistInStorage(t, repo.Name, *manifest)
 	if t.Failed() {
 		t.FailNow()
 	}
@@ -182,7 +182,7 @@ func (l ImageList) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tag
 	account := keppel.Account{Name: repo.AccountName}
 	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, account, l.Manifest.Digest.String())
 	must(t, err)
-	s.ExpectManifestsExistInStorage(t, *manifest)
+	s.ExpectManifestsExistInStorage(t, repo.Name, *manifest)
 	if t.Failed() {
 		t.FailNow()
 	}

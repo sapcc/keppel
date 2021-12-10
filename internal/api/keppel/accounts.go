@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -56,6 +57,7 @@ type Account struct {
 
 //RBACPolicy represents an RBAC policy in the API.
 type RBACPolicy struct {
+	CidrPattern       string   `json:"match_cidr,omitempty"`
 	RepositoryPattern string   `json:"match_repository,omitempty"`
 	UserNamePattern   string   `json:"match_username,omitempty"`
 	Permissions       []string `json:"permissions"`
@@ -202,8 +204,15 @@ func renderRBACPolicy(dbPolicy keppel.RBACPolicy) RBACPolicy {
 		RepositoryPattern: dbPolicy.RepositoryPattern,
 		UserNamePattern:   dbPolicy.UserNamePattern,
 	}
+	// treat cidr that matches everything as unset
+	if dbPolicy.CidrPattern != "0.0.0.0/0" {
+		result.CidrPattern = dbPolicy.CidrPattern
+	}
 	if dbPolicy.CanPullAnonymously {
 		result.Permissions = append(result.Permissions, "anonymous_pull")
+	}
+	if dbPolicy.CanFirstPullAnonymously {
+		result.Permissions = append(result.Permissions, "anonymous_first_pull")
 	}
 	if dbPolicy.CanPull {
 		result.Permissions = append(result.Permissions, "pull")
@@ -227,10 +236,26 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 		RepositoryPattern: policy.RepositoryPattern,
 		UserNamePattern:   policy.UserNamePattern,
 	}
+	// validate cidr early to prevent errors
+	// this has also the nice side effect that we can use the cidr of the network incase an ip is used
+	if cidr := policy.CidrPattern; cidr != "" {
+		_, net, err := net.ParseCIDR(cidr)
+		if err != nil {
+			// err.Error() sadly does not contain any useful information why the cidr is invalid
+			return result, fmt.Errorf("%q is not a valid cidr", cidr)
+		}
+		if net.String() == "0.0.0.0/0" {
+			result.CidrPattern = ""
+		} else {
+			result.CidrPattern = net.String()
+		}
+	}
 	for _, perm := range policy.Permissions {
 		switch perm {
 		case "anonymous_pull":
 			result.CanPullAnonymously = true
+		case "anonymous_first_pull":
+			result.CanFirstPullAnonymously = true
 		case "pull":
 			result.CanPull = true
 		case "push":
@@ -245,14 +270,14 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 	if len(policy.Permissions) == 0 {
 		return result, errors.New(`RBAC policy must grant at least one permission`)
 	}
-	if result.UserNamePattern == "" && result.RepositoryPattern == "" {
+	if result.CidrPattern == "" && result.UserNamePattern == "" && result.RepositoryPattern == "" {
 		return result, errors.New(`RBAC policy must have at least one "match_..." attribute`)
 	}
-	if result.CanPullAnonymously && result.UserNamePattern != "" {
-		return result, errors.New(`RBAC policy with "anonymous_pull" may not have the "match_username" attribute`)
+	if (result.CanPullAnonymously || result.CanFirstPullAnonymously) && result.UserNamePattern != "" {
+		return result, errors.New(`RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`)
 	}
-	if result.CanPull && result.UserNamePattern == "" {
-		return result, errors.New(`RBAC policy with "pull" must have the "match_username" attribute`)
+	if result.CanPull && result.CidrPattern == "" && result.UserNamePattern == "" {
+		return result, errors.New(`RBAC policy with "pull" must have the "match_cidr" or "match_username" attribute`)
 	}
 	if result.CanPush && !result.CanPull {
 		return result, errors.New(`RBAC policy with "push" must also grant "pull"`)
@@ -392,6 +417,11 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		rbacPolicies[idx], err = parseRBACPolicy(policy)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		rp := req.Account.ReplicationPolicy
+		if rbacPolicies[idx].CanFirstPullAnonymously && (rp == nil || rp.ExternalPeer.URL == "") {
+			http.Error(w, `RBAC policy with "can_anon_first_pull" may only be for external replica accounts`, http.StatusUnprocessableEntity)
 			return
 		}
 	}
@@ -760,7 +790,7 @@ func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPoli
 	//put existing set of policies in a map to allow diff with new set
 	mapKey := func(p keppel.RBACPolicy) string {
 		//this mapping is collision-free because RepositoryPattern and UserNamePattern are valid regexes
-		return fmt.Sprintf("%s[%s][%s]", p.AccountName, p.RepositoryPattern, p.UserNamePattern)
+		return fmt.Sprintf("%s[%s][%s][%s]", p.AccountName, p.CidrPattern, p.RepositoryPattern, p.UserNamePattern)
 	}
 	state := make(map[string]keppel.RBACPolicy)
 	for _, policy := range dbPolicies {

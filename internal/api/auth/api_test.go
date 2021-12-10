@@ -61,6 +61,11 @@ var (
 		RepositoryPattern:  "fo+",
 		CanPullAnonymously: true,
 	}
+	policyAnonFirstPull = keppel.RBACPolicy{
+		RepositoryPattern:       "fo+",
+		CanPullAnonymously:      true,
+		CanFirstPullAnonymously: true,
+	}
 	policyPullMatches = keppel.RBACPolicy{
 		RepositoryPattern: "fo+",
 		UserNamePattern:   "correct.*",
@@ -253,6 +258,22 @@ var testCases = []TestCase{
 	{Scope: "repository:test1/foo:delete",
 		RBACPolicy:     policyAnonPull,
 		GrantedActions: "delete"},
+	//anonymous first pull is allowed by a matching RBAC policy
+	{Scope: "repository:test1/foo:anonymous_first_pull", AnonymousLogin: true,
+		RBACPolicy:     policyAnonFirstPull,
+		GrantedActions: "anonymous_first_pull"},
+	{Scope: "repository:test1/foo:pull,anonymous_first_pull", AnonymousLogin: true,
+		RBACPolicy:     policyAnonFirstPull,
+		GrantedActions: "pull,anonymous_first_pull"},
+	{Scope: "repository:test1/foo:push", AnonymousLogin: true,
+		RBACPolicy:     policyAnonFirstPull,
+		GrantedActions: ""},
+	{Scope: "repository:test1/foo:pull,push", AnonymousLogin: true,
+		RBACPolicy:     policyAnonFirstPull,
+		GrantedActions: "pull"},
+	{Scope: "repository:test1/foo:delete", AnonymousLogin: true,
+		RBACPolicy:     policyAnonFirstPull,
+		GrantedActions: ""},
 	//RBAC policy with CanPull grants pull permissions to matching users
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, CannotDelete: true,

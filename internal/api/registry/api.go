@@ -243,7 +243,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 			switch err {
 			case error(nil):
 				//protect against infinite forwarding loops in case different Keppels have
-				//different ideas about how is the primary account
+				//different ideas about who is the primary account
 				if forwardedBy := r.URL.Query().Get("X-Keppel-Forwarded-By"); forwardedBy != "" {
 					msg := fmt.Sprintf("not forwarding anycast request for account %q to %s because request was already forwarded to us by %s",
 						repoScope.AccountName, primaryHostName, forwardedBy)
@@ -271,7 +271,12 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	if strategy == createRepoIfMissing {
 		canCreateRepoIfMissing = true
 	} else if strategy == createRepoIfMissingAndReplica {
-		canCreateRepoIfMissing = account.UpstreamPeerHostName != "" || (account.ExternalPeerURL != "" && authz.UserIdentity.UserType() == keppel.RegularUser)
+		canFirstPull := authz.ScopeSet.Contains(auth.Scope{
+			ResourceType: "repository",
+			ResourceName: scope.ResourceName,
+			Actions:      []string{"anonymous_first_pull"},
+		})
+		canCreateRepoIfMissing = account.UpstreamPeerHostName != "" || (account.ExternalPeerURL != "" && (authz.UserIdentity.UserType() == keppel.RegularUser || canFirstPull))
 	}
 
 	var repo *keppel.Repository

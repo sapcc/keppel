@@ -20,21 +20,22 @@
 package auth
 
 import (
+	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //Produces a new ScopeSet containing only those scopes that the given
 //`uid` is permitted to access and only those actions therein which this `uid`
 //is permitted to perform.
-func filterAuthorized(ss ScopeSet, uid keppel.UserIdentity, audience Audience, db *keppel.DB) (ScopeSet, error) {
-	result := make(ScopeSet, 0, len(ss))
+func filterAuthorized(ir IncomingRequest, uid keppel.UserIdentity, audience Audience, db *keppel.DB) (ScopeSet, error) {
+	result := make(ScopeSet, 0, len(ir.Scopes))
 	//make sure that additional scopes get appended at the end, on the offchance
 	//that a client might parse its token and look at access[0] to check for its
 	//authorization
 	var additional ScopeSet
 
 	var err error
-	for _, scope := range ss {
+	for _, scope := range ir.Scopes {
 		filtered := *scope
 		switch scope.ResourceType {
 		case "registry":
@@ -63,7 +64,8 @@ func filterAuthorized(ss ScopeSet, uid keppel.UserIdentity, audience Audience, d
 			}
 
 		case "repository":
-			filtered.Actions, err = filterRepoActions(*scope, uid, audience, db)
+			ip := httpext.GetRequesterIPFor(ir.HTTPRequest)
+			filtered.Actions, err = filterRepoActions(ip, *scope, uid, audience, db)
 			if err != nil {
 				return nil, err
 			}
@@ -149,7 +151,7 @@ func addCatalogAccess(ss *ScopeSet, uid keppel.UserIdentity, audience Audience, 
 	return nil
 }
 
-func filterRepoActions(scope Scope, uid keppel.UserIdentity, audience Audience, db *keppel.DB) ([]string, error) {
+func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience Audience, db *keppel.DB) ([]string, error) {
 	repoScope := scope.ParseRepositoryScope(audience)
 	if repoScope.RepositoryName == "" {
 		//this happens when we are not on a domain-remapped API and thus expect a
@@ -179,9 +181,12 @@ func filterRepoActions(scope Scope, uid keppel.UserIdentity, audience Audience, 
 	}
 	userName := uid.UserName()
 	for _, policy := range policies {
-		if policy.Matches(repoScope.FullRepositoryName, userName) {
+		if policy.Matches(ip, repoScope.FullRepositoryName, userName) {
 			if policy.CanPullAnonymously {
 				isAllowedAction["pull"] = true
+			}
+			if policy.CanFirstPullAnonymously {
+				isAllowedAction["anonymous_first_pull"] = true
 			}
 			if policy.CanPull && uid.UserType() != keppel.AnonymousUser {
 				isAllowedAction["pull"] = true

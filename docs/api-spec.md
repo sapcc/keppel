@@ -169,9 +169,10 @@ The following fields may be returned:
 | `accounts[].in_maintenance` | bool | Whether this account is in maintenance mode. [See below](#maintenance-mode) for details. |
 | `accounts[].metadata` | object of strings | Free-form metadata maintained by the user. The contents of this field are not interpreted by Keppel, but may trigger special behavior in applications using this API. |
 | `accounts[].rbac_policies` | list of objects | Policies for rule-based access control (RBAC) to repositories in this account. RBAC policies are evaluated in addition to the permissions granted by the auth tenant. |
+| `accounts[].rbac_policies[].match_cidr` | string | The RBAC policy applies to requests which originate from an IP address that matches the CIDR. |
 | `accounts[].rbac_policies[].match_repository` | string | The RBAC policy applies to all repositories in this account whose name matches this regex. The leading account name and slash is stripped from the repository name before matching. The notes on regexes below apply. |
 | `accounts[].rbac_policies[].match_username` | string | The RBAC policy applies to all users whose name matches this regex. Refer to the [documentation of your auth driver](./drivers/) for the syntax of usernames. The notes on regexes below apply. |
-| `accounts[].rbac_policies[].permissions` | list of strings | The permissions granted by the RBAC policy. Acceptable values include `pull`, `push`, `delete` and `anonymous_pull`. When `pull`, `push` or `delete` are included, `match_username` is not empty. When `anonymous_pull` is included, `match_username` is empty. |
+| `accounts[].rbac_policies[].permissions` | list of strings | The permissions granted by the RBAC policy. Acceptable values include `pull`, `push`, `delete`, `anonymous_pull` and `anonymous_first_pull`. When `pull`, `push` or `delete` are included, `match_username` is not empty. When `anonymous_pull` or `anonymous_first_pull` is included, `match_username` is empty. `anonymous_first_pull` is only relevant for external replica accounts and allows none authenticated users to replicate tags. It should always be combined with an appropriate `match_*` rule. |
 | `accounts[].replication` | object or omitted | Replication configuration for this account, if any. [See below](#replication-strategies) for details. |
 | `accounts[].platform_filter` | list of objects or omitted | Only allowed for replica accounts. If not empty, when replicating an image list manifest (i.e. a multi-architecture image), only submanifests matching one of the given platforms will be replicated. Each entry must have the same format as the `manifests[].platform` field in the [OCI Image Index Specification](https://github.com/opencontainers/image-spec/blob/master/image-index.md). |
 | `accounts[].validation` | object or omitted | Validation rules for this account. When included, pushing blobs and manifests not satisfying these validation rules may be rejected. |
@@ -338,7 +339,7 @@ Issues a **sublease token** for the given account. A sublease token can be redee
 account connected to this account in another Keppel instance. On success, returns 200 and a JSON response body like
 this:
 
-```
+```json
 {
   "sublease_token": "oingoojei6aejab0Too4"
 }
@@ -395,7 +396,9 @@ pagination**. If the `.truncated` field is present and true, only a partial resu
 can be obtained by resending the GET request with the query parameter `marker` set to the name of the last repository in
 the current result list, for instance
 
-    GET /keppel/v1/accounts/$ACCOUNT_NAME/repositories?marker=foo1000
+```
+GET /keppel/v1/accounts/$ACCOUNT_NAME/repositories?marker=foo1000
+```
 
 for the example response shown above. The last page of results will have `truncated` omitted or set to false.
 
