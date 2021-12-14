@@ -1108,7 +1108,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("RBAC policy with \"can_anon_first_pull\" may only be for external replica accounts\n"),
+		ExpectBody:   assert.StringData("RBAC policy with \"anonymous_first_pull\" may only be for external replica accounts\n"),
 	}.Check(t, h)
 
 	assert.HTTPRequest{

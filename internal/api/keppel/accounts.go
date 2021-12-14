@@ -418,11 +418,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
-		rp := req.Account.ReplicationPolicy
-		if rbacPolicies[idx].CanFirstPullAnonymously && (rp == nil || rp.ExternalPeer.URL == "") {
-			http.Error(w, `RBAC policy with "can_anon_first_pull" may only be for external replica accounts`, http.StatusUnprocessableEntity)
-			return
-		}
+		//NOTE: There are some delayed checks below which require the existing account to be loaded from the DB first.
 	}
 
 	metadataJSONStr := ""
@@ -547,6 +543,19 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	if account != nil && req.Account.PlatformFilter != nil && !reflect.DeepEqual(req.Account.PlatformFilter, account.PlatformFilter) {
 		http.Error(w, `cannot change platform filter on existing account`, http.StatusConflict)
 		return
+	}
+
+	//late RBAC policy validations (could not do these earlier because we did not
+	//have `account` yet)
+	isExternalReplica := req.Account.ReplicationPolicy != nil && req.Account.ReplicationPolicy.ExternalPeer.URL != ""
+	if account != nil {
+		isExternalReplica = account.ExternalPeerURL != ""
+	}
+	for _, policy := range rbacPolicies {
+		if policy.CanFirstPullAnonymously && !isExternalReplica {
+			http.Error(w, `RBAC policy with "anonymous_first_pull" may only be for external replica accounts`, http.StatusUnprocessableEntity)
+			return
+		}
 	}
 
 	//create account if required
