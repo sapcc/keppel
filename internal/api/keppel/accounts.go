@@ -136,7 +136,7 @@ func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
 	}
 
 	var dbPolicies []keppel.RBACPolicy
-	_, err = a.db.Select(&dbPolicies, `SELECT * FROM rbac_policies WHERE account_name = $1`, dbAccount.Name)
+	_, err = a.db.Select(&dbPolicies, `SELECT * FROM rbac_policies WHERE account_name = $1 ORDER BY account_name, match_repository, match_username`, dbAccount.Name)
 	if err != nil {
 		return Account{}, err
 	}
@@ -245,10 +245,9 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 			return result, fmt.Errorf("%q is not a valid cidr", cidr)
 		}
 		if net.String() == "0.0.0.0/0" {
-			result.CidrPattern = ""
-		} else {
-			result.CidrPattern = net.String()
+			return result, errors.New("0.0.0.0/0 cannot be used as cidr because it matches everything")
 		}
+		result.CidrPattern = net.String()
 	}
 	for _, perm := range policy.Permissions {
 		switch perm {

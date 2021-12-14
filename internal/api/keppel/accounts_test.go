@@ -1023,6 +1023,68 @@ func TestPutAccountErrorCases(t *testing.T) {
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
 				"rbac_policies": []assert.JSONObject{{
+					"match_cidr":       "0.0.0.0/0",
+					"match_repository": "test*",
+					"permissions":      []string{"pull"},
+				}},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("0.0.0.0/0 cannot be used as cidr because it matches everything\n"),
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies": []assert.JSONObject{{
+					"match_cidr":  "1.2.3.4/16",
+					"permissions": []string{"pull"},
+				}},
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"in_maintenance": false,
+				"metadata":       assert.JSONObject{},
+				"name":           "first",
+				"rbac_policies": []assert.JSONObject{{
+					"match_cidr":  "1.2.0.0/16",
+					"permissions": []string{"pull"},
+				}},
+			},
+		},
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts/first",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"in_maintenance": false,
+				"metadata":       assert.JSONObject{},
+				"name":           "first",
+				"rbac_policies": []assert.JSONObject{{
+					"match_cidr":  "1.2.0.0/16",
+					"permissions": []string{"pull"},
+				}},
+			},
+		},
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies": []assert.JSONObject{{
 					"match_repository": "library/.+",
 					"match_username":   "foo",
 					"permissions":      []string{"anonymous_first_pull"},
