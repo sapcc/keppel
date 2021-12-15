@@ -205,6 +205,9 @@ func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience
 		if isAllowedAction[action] {
 			result = append(result, action)
 		}
+		if action == "pull" && isAllowedAction["anonymous_first_pull"] {
+			result = append(result, "anonymous_first_pull")
+		}
 	}
 	return result, nil
 }
