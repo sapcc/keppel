@@ -39,6 +39,8 @@ import (
 func TestAccountsAPI(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
+	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
+	tr0.AssertEmpty()
 
 	//test the /keppel/v1 endpoint
 	assert.HTTPRequest{
@@ -326,6 +328,12 @@ func TestAccountsAPI(t *testing.T) {
 			},
 		},
 	}.Check(t, h)
+	tr.DBChanges().AssertEqual(`
+		INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, required_labels, metadata_json, next_blob_sweep_at, next_storage_sweep_at, next_federation_announcement_at, in_maintenance, external_peer_url, external_peer_username, external_peer_password, platform_filter, gc_policies_json) VALUES ('first', 'tenant1', '', '', '{"bar":"barbar","foo":"foofoo"}', NULL, NULL, NULL, FALSE, '', '', '', '', '[]');
+		INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, required_labels, metadata_json, next_blob_sweep_at, next_storage_sweep_at, next_federation_announcement_at, in_maintenance, external_peer_url, external_peer_username, external_peer_password, platform_filter, gc_policies_json) VALUES ('second', 'tenant1', '', '', '', NULL, NULL, NULL, FALSE, '', '', '', '', '[{"match_repository":".*/database","except_repository":"archive/.*","time_constraint":{"on":"pushed_at","newer_than":{"value":10,"unit":"d"}},"action":"protect"},{"match_repository":".*","only_untagged":true,"action":"delete"}]');
+		INSERT INTO rbac_policies (account_name, match_repository, match_username, can_anon_pull, can_pull, can_push, can_delete, match_cidr, can_anon_first_pull) VALUES ('second', 'library/.*', '', TRUE, FALSE, FALSE, FALSE, '0.0.0.0/0', FALSE);
+		INSERT INTO rbac_policies (account_name, match_repository, match_username, can_anon_pull, can_pull, can_push, can_delete, match_cidr, can_anon_first_pull) VALUES ('second', 'library/alpine', '.*@tenant2', FALSE, TRUE, TRUE, FALSE, '0.0.0.0/0', FALSE);
+	`)
 
 	//check editing of InMaintenance flag (this also tests editing of GC policies
 	//since we don't give any and thus clear the field)
@@ -546,6 +554,12 @@ func TestAccountsAPI(t *testing.T) {
 		ExpectStatus: http.StatusOK,
 		ExpectBody:   assert.JSONObject{"sublease_token": makeSubleaseToken("second", "registry.example.org", "this-is-the-token")},
 	}.Check(t, h)
+	tr.DBChanges().AssertEqual(`
+		UPDATE accounts SET gc_policies_json = '[]' WHERE name = 'second';
+		DELETE FROM rbac_policies WHERE account_name = 'second' AND match_repository = 'library/.*' AND match_username = '' AND match_cidr = '0.0.0.0/0';
+		UPDATE rbac_policies SET can_push = FALSE WHERE account_name = 'second' AND match_repository = 'library/alpine' AND match_username = '.*@tenant2' AND match_cidr = '0.0.0.0/0';
+		INSERT INTO rbac_policies (account_name, match_repository, match_username, can_anon_pull, can_pull, can_push, can_delete, match_cidr, can_anon_first_pull) VALUES ('second', 'library/alpine', '.*@tenant3', FALSE, TRUE, FALSE, TRUE, '0.0.0.0/0', FALSE);
+	`)
 }
 
 func TestGetAccountsErrorCases(t *testing.T) {
@@ -588,6 +602,8 @@ func TestGetAccountsErrorCases(t *testing.T) {
 func TestPutAccountErrorCases(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
+	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
+	tr0.AssertEmpty()
 
 	//preparation: create an account (so that we can check the error that the requested account name is taken)
 	assert.HTTPRequest{
@@ -1059,6 +1075,10 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		},
 	}.Check(t, h)
+	tr.DBChanges().AssertEqual(`
+		INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, required_labels, metadata_json, next_blob_sweep_at, next_storage_sweep_at, next_federation_announcement_at, in_maintenance, external_peer_url, external_peer_username, external_peer_password, platform_filter, gc_policies_json) VALUES ('first', 'tenant1', '', '', '', NULL, NULL, NULL, FALSE, '', '', '', '', '[]');
+		INSERT INTO rbac_policies (account_name, match_repository, match_username, can_anon_pull, can_pull, can_push, can_delete, match_cidr, can_anon_first_pull) VALUES ('first', '', '', FALSE, TRUE, FALSE, FALSE, '1.2.0.0/16', FALSE);
+	`)
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/first",

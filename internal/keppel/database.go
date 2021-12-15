@@ -461,7 +461,7 @@ var sqlMigrations = map[string]string{
 	`,
 	"028_add_rbac_policies_can_anon_first_pull.down.sql": `
 		ALTER TABLE rbac_policies
-			DROP COLUMN can_anon_first_pull ;
+			DROP COLUMN can_anon_first_pull;
 	`,
 }
 

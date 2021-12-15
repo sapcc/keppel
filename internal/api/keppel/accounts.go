@@ -238,7 +238,10 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 	}
 	// validate cidr early to prevent errors
 	// this has also the nice side effect that we can use the cidr of the network incase an ip is used
-	if cidr := policy.CidrPattern; cidr != "" {
+	if cidr := policy.CidrPattern; cidr == "" {
+		// hack to mimic default value in database
+		result.CidrPattern = "0.0.0.0/0"
+	} else {
 		_, net, err := net.ParseCIDR(cidr)
 		if err != nil {
 			// err.Error() sadly does not contain any useful information why the cidr is invalid
@@ -269,13 +272,13 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 	if len(policy.Permissions) == 0 {
 		return result, errors.New(`RBAC policy must grant at least one permission`)
 	}
-	if result.CidrPattern == "" && result.UserNamePattern == "" && result.RepositoryPattern == "" {
+	if result.CidrPattern == "0.0.0.0/0" && result.UserNamePattern == "" && result.RepositoryPattern == "" {
 		return result, errors.New(`RBAC policy must have at least one "match_..." attribute`)
 	}
 	if (result.CanPullAnonymously || result.CanFirstPullAnonymously) && result.UserNamePattern != "" {
 		return result, errors.New(`RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`)
 	}
-	if result.CanPull && result.CidrPattern == "" && result.UserNamePattern == "" {
+	if result.CanPull && result.CidrPattern == "0.0.0.0/0" && result.UserNamePattern == "" {
 		return result, errors.New(`RBAC policy with "pull" must have the "match_cidr" or "match_username" attribute`)
 	}
 	if result.CanPush && !result.CanPull {
