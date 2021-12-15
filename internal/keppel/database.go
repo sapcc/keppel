@@ -463,6 +463,16 @@ var sqlMigrations = map[string]string{
 		ALTER TABLE rbac_policies
 			DROP COLUMN can_anon_first_pull;
 	`,
+	"029_add_layer_created_at.up.sql": `
+		ALTER TABLE manifests
+			ADD COLUMN min_layer_created_at TIMESTAMPTZ DEFAULT NULL,
+			ADD COLUMN max_layer_created_at TIMESTAMPTZ DEFAULT NULL;
+	`,
+	"029_add_layer_created_at.down.sql": `
+		ALTER TABLE manifests
+			DROP COLUMN min_layer_created_at,
+			DROP COLUMN max_layer_created_at;
+	`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.

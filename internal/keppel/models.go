@@ -296,7 +296,9 @@ type Manifest struct {
 	LabelsJSON string `db:"labels_json"`
 	//GCStatusJSON contains a keppel.GCStatus serialized into JSON, or an empty
 	//string if GC has not seen this manifest yet.
-	GCStatusJSON string `db:"gc_status_json"`
+	GCStatusJSON      string     `db:"gc_status_json"`
+	MinLayerCreatedAt *time.Time `db:"min_layer_created_at"`
+	MaxLayerCreatedAt *time.Time `db:"max_layer_created_at"`
 }
 
 //FindManifest is a convenience wrapper around db.SelectOne(). If the
