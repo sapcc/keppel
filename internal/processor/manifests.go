@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/opencontainers/go-digest"
+	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/logg"
@@ -212,7 +213,7 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 		//pushing (not when validating at a later point in time, the set of
 		//RequiredLabels could have been changed by then)
 		labelsRequired := manifest.PushedAt == manifest.ValidatedAt && account.RequiredLabels != ""
-		labels, err := getManifestLabels(tx, p.sd, account, manifestParsed)
+		labels, minCreationTime, maxCreationTime, err := parseManifestConfig(tx, p.sd, account, manifestParsed)
 		if err != nil {
 			return err
 		}
@@ -242,6 +243,9 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 				return keppel.ErrManifestInvalid.With("missing required labels: %s", account.RequiredLabels)
 			}
 		}
+
+		manifest.MinLayerCreatedAt = minCreationTime
+		manifest.MaxLayerCreatedAt = maxCreationTime
 
 		//create or update database entries
 		err = upsertManifest(tx, *manifest, manifestBytes)
@@ -308,11 +312,11 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 }
 
 //Returns the list of missing labels, or nil if everything is ok.
-func getManifestLabels(tx *gorp.Transaction, sd keppel.StorageDriver, account keppel.Account, manifest keppel.ParsedManifest) (map[string]string, error) {
+func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account keppel.Account, manifest keppel.ParsedManifest) (map[string]string, *time.Time, *time.Time, error) {
 	//is this manifest an image that has labels?
 	configBlob := manifest.FindImageConfigBlob()
 	if configBlob == nil {
-		return nil, nil
+		return nil, nil, nil, nil
 	}
 
 	//load the config blob
@@ -321,44 +325,59 @@ func getManifestLabels(tx *gorp.Transaction, sd keppel.StorageDriver, account ke
 		account.Name, configBlob.Digest.String(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	if storageID == "" {
-		return nil, keppel.ErrManifestBlobUnknown.With("").WithDetail(configBlob.Digest.String())
+		return nil, nil, nil, keppel.ErrManifestBlobUnknown.With("").WithDetail(configBlob.Digest.String())
 	}
 	blobReader, _, err := sd.ReadBlob(account, storageID)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	blobContents, err := io.ReadAll(blobReader)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	err = blobReader.Close()
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	//the Docker v2 and OCI formats are very similar; they're both JSON and have
 	//the labels in the same place, so we can use a single code path for both
-	var data struct {
-		Config struct {
-			Labels map[string]string `json:"labels"`
-		} `json:"config"`
-	}
+	var data imagespec.Image
 	err = json.Unmarshal(blobContents, &data)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
-	return data.Config.Labels, nil
+	// collect layer creation times
+	var (
+		minCreationTime *time.Time
+		maxCreationTime *time.Time
+	)
+	if len(data.History) != 0 {
+		minCreationTime = data.History[0].Created
+		maxCreationTime = data.History[0].Created
+		for _, v := range data.History {
+			if v.Created.Before(*minCreationTime) {
+				minCreationTime = v.Created
+			}
+			if v.Created.After(*maxCreationTime) {
+				maxCreationTime = v.Created
+			}
+		}
+	}
+
+	return data.Config.Labels, minCreationTime, maxCreationTime, nil
 }
 
 var upsertManifestQuery = keppel.SimplifyWhitespaceInSQL(`
-	INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, labels_json)
-	VALUES ($1, $2, $3, $4, $5, $6, $7)
+	INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, labels_json, min_layer_created_at, max_layer_created_at)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	ON CONFLICT (repo_id, digest) DO UPDATE
-		SET size_bytes = EXCLUDED.size_bytes, validated_at = EXCLUDED.validated_at, labels_json = EXCLUDED.labels_json
+		SET size_bytes = EXCLUDED.size_bytes, validated_at = EXCLUDED.validated_at, labels_json = EXCLUDED.labels_json,
+		min_layer_created_at = EXCLUDED.min_layer_created_at, max_layer_created_at = EXCLUDED.max_layer_created_at
 `)
 
 var upsertManifestContentQuery = keppel.SimplifyWhitespaceInSQL(`
@@ -369,7 +388,7 @@ var upsertManifestContentQuery = keppel.SimplifyWhitespaceInSQL(`
 `)
 
 func upsertManifest(db gorp.SqlExecutor, m keppel.Manifest, manifestBytes []byte) error {
-	_, err := db.Exec(upsertManifestQuery, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.ValidatedAt, m.LabelsJSON)
+	_, err := db.Exec(upsertManifestQuery, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.ValidatedAt, m.LabelsJSON, m.MinLayerCreatedAt, m.MaxLayerCreatedAt)
 	if err != nil {
 		return err
 	}
