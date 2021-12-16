@@ -33,3 +33,6 @@ verbatim: |
   # This is for manual testing.
   run-api: build/keppel
     set -euo pipefail && source ./.env && $(CURDIR)/build/keppel server api
+
+  copy-fixtures:
+    find -name '*.actual' | xargs -I{} bash -c 'mv {} $$(echo {} | sed "s/.actual//g")'
