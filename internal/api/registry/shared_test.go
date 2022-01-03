@@ -28,6 +28,7 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 
+	"github.com/sapcc/keppel/internal/drivers/trivial"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -243,7 +244,7 @@ func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName stri
 	}
 }
 
-func expectStorageEmpty(t *testing.T, sd *test.StorageDriver, db *keppel.DB) {
+func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *keppel.DB) {
 	t.Helper()
 	//test that no blobs were yet committed to the DB...
 	count, err := db.SelectInt(`SELECT COUNT(*) FROM blobs`)

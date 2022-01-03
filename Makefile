@@ -21,6 +21,16 @@ run-api: build/keppel
 copy-fixtures:
 	find -name '*.actual' | xargs -I{} bash -c 'mv {} $$(echo {} | sed "s/.actual//g")'
 
+testing/oci-conformance/privkey.pem:
+	openssl genrsa -out $@ 4096
+
+OCI_DB_CMD := psql -U postgres -d keppel -h 127.0.0.1 -p 54321 -c "INSERT INTO accounts (name, auth_tenant_id) VALUES ('conformance-test', 'bogus') ON CONFLICT DO NOTHING;" -c "INSERT INTO quotas (auth_tenant_id, manifests) VALUES ('bogus', 100) ON CONFLICT DO NOTHING;"
+run-oci-conformance: build/keppel testing/oci-conformance/privkey.pem
+# little hack to populate the database
+	$(OCI_DB_CMD) || (set -euo pipefail && source testing/oci-conformance/env.sh && timeout 4 $(CURDIR)/build/keppel server api || true) && $(OCI_DB_CMD)
+	@echo "Ready to run distribution-spec"
+	set -euo pipefail && source testing/oci-conformance/env.sh && $(CURDIR)/build/keppel server api
+
 GO_BUILDFLAGS = -mod vendor
 GO_LDFLAGS = -X github.com/sapcc/keppel/internal/keppel.Version=$(shell util/find_version.sh)
 GO_TESTENV =
