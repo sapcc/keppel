@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
@@ -160,11 +161,20 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	maybeTimeToString := func(t *time.Time) string {
+		if t == nil {
+			return ""
+		}
+		return strconv.FormatInt(t.Unix(), 10)
+	}
+
 	//write response
 	w.Header().Set("Content-Length", strconv.FormatUint(uint64(len(manifestBytes)), 10))
 	w.Header().Set("Content-Type", dbManifest.MediaType)
 	w.Header().Set("Docker-Content-Digest", dbManifest.Digest)
 	w.Header().Set("X-Keppel-Vulnerability-Status", string(dbManifest.VulnerabilityStatus))
+	w.Header().Set("X-Keppel-MinLayerCreatedAt", maybeTimeToString(dbManifest.MinLayerCreatedAt))
+	w.Header().Set("X-Keppel-MaxLayerCreatedAt", maybeTimeToString(dbManifest.MaxLayerCreatedAt))
 	w.WriteHeader(http.StatusOK)
 	if r.Method != "HEAD" {
 		w.Write(manifestBytes)

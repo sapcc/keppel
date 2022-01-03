@@ -19,6 +19,9 @@ default: build-all
 run-api: build/keppel
 	set -euo pipefail && source ./.env && $(CURDIR)/build/keppel server api
 
+copy-fixtures:
+	find -name '*.actual' | xargs -I{} bash -c 'mv {} $$(echo {} | sed "s/.actual//g")'
+
 build-all: build/keppel
 
 GO_BUILDFLAGS = -mod vendor
@@ -78,7 +81,7 @@ static-check: prepare-static-check FORCE
 
 build/cover.out: build FORCE
 	@printf "\e[1;36m>> go test\e[0m\n"
-	@env $(GO_TESTENV) go test $(GO_BUILDFLAGS) -ldflags '-s -w $(GO_LDFLAGS)' -p 1 -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
+	@env $(GO_TESTENV) go test $(GO_BUILDFLAGS) -ldflags '-s -w $(GO_LDFLAGS)' -shuffle=on -p 1 -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
 
 build/cover.html: build/cover.out
 	@printf "\e[1;36m>> go tool cover > build/cover.html\e[0m\n"

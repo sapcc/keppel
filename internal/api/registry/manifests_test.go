@@ -304,6 +304,8 @@ func TestImageManifestLifecycle(t *testing.T) {
 					ExpectHeader: map[string]string{
 						test.VersionHeaderKey:           test.VersionHeaderValue,
 						"X-Keppel-Vulnerability-Status": string(clair.CleanSeverity),
+						"X-Keppel-MinLayerCreatedAt":    "0",
+						"X-Keppel-MaxLayerCreatedAt":    "0",
 					},
 				}.Check(t, h)
 			}
