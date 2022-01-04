@@ -161,10 +161,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	maybeTimeToString := func(t *time.Time) string {
-		if t == nil {
-			return ""
-		}
+	timeToString := func(t time.Time) string {
 		return strconv.FormatInt(t.Unix(), 10)
 	}
 
@@ -173,8 +170,12 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", dbManifest.MediaType)
 	w.Header().Set("Docker-Content-Digest", dbManifest.Digest)
 	w.Header().Set("X-Keppel-Vulnerability-Status", string(dbManifest.VulnerabilityStatus))
-	w.Header().Set("X-Keppel-MinLayerCreatedAt", maybeTimeToString(dbManifest.MinLayerCreatedAt))
-	w.Header().Set("X-Keppel-MaxLayerCreatedAt", maybeTimeToString(dbManifest.MaxLayerCreatedAt))
+	if dbManifest.MinLayerCreatedAt != nil {
+		w.Header().Set("X-Keppel-Min-Layer-Created-At", timeToString(*dbManifest.MinLayerCreatedAt))
+	}
+	if dbManifest.MaxLayerCreatedAt != nil {
+		w.Header().Set("X-Keppel-Max-Layer-Created-At", timeToString(*dbManifest.MaxLayerCreatedAt))
+	}
 	w.WriteHeader(http.StatusOK)
 	if r.Method != "HEAD" {
 		w.Write(manifestBytes)
