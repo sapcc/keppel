@@ -109,3 +109,33 @@ func MaybeTimeToUnix(t *time.Time) *int64 {
 	val := t.Unix()
 	return &val
 }
+
+func MinMaybeTime(t1, t2 *time.Time) *time.Time {
+	if t1 == nil {
+		return t2
+	}
+	if t2 == nil {
+		return t1
+	}
+
+	if t1.Before(*t2) {
+		return t1
+	} else {
+		return t2
+	}
+}
+
+func MaxMaybeTime(t1, t2 *time.Time) *time.Time {
+	if t1 == nil {
+		return t2
+	}
+	if t2 == nil {
+		return t1
+	}
+
+	if t1.After(*t2) {
+		return t1
+	} else {
+		return t2
+	}
+}
