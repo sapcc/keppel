@@ -360,11 +360,13 @@ func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account 
 		minCreationTime = data.History[0].Created
 		maxCreationTime = data.History[0].Created
 		for _, v := range data.History {
-			if v.Created.Before(*minCreationTime) {
-				minCreationTime = v.Created
-			}
-			if v.Created.After(*maxCreationTime) {
-				maxCreationTime = v.Created
+			if v.Created != nil {
+				if v.Created.Before(*minCreationTime) {
+					minCreationTime = v.Created
+				}
+				if v.Created.After(*maxCreationTime) {
+					maxCreationTime = v.Created
+				}
 			}
 		}
 	}
