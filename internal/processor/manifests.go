@@ -204,7 +204,7 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 	}
 
 	return p.insideTransaction(func(tx *gorp.Transaction) error {
-		referencedBlobs, referencedManifestDigests, sumChildSizes, err := findManifestReferencedObjects(tx, account, repo, manifestParsed)
+		referencedBlobs, referencedManifestDigests, referencedMinCreationTime, referencedMaxCreationTime, sumChildSizes, err := findManifestReferencedObjects(tx, account, repo, manifestParsed)
 		if err != nil {
 			return err
 		}
@@ -244,8 +244,8 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 			}
 		}
 
-		manifest.MinLayerCreatedAt = minCreationTime
-		manifest.MaxLayerCreatedAt = maxCreationTime
+		manifest.MinLayerCreatedAt = keppel.MinMaybeTime(referencedMinCreationTime, minCreationTime)
+		manifest.MaxLayerCreatedAt = keppel.MaxMaybeTime(referencedMaxCreationTime, maxCreationTime)
 
 		//create or update database entries
 		err = upsertManifest(tx, *manifest, manifestBytes)
@@ -265,7 +265,7 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 	})
 }
 
-func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account, repo keppel.Repository, manifest keppel.ParsedManifest) (blobRefs []blobRef, manifestDigests []string, sumChildSizes uint64, returnErr error) {
+func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account, repo keppel.Repository, manifest keppel.ParsedManifest) (blobRefs []blobRef, manifestDigests []string, referencedMinCreationTime, referencedMaxCreationTime *time.Time, sumChildSizes uint64, returnErr error) {
 	//ensure that we don't insert duplicate entries into `blobRefs` and `manifestDigests`
 	wasHandled := make(map[string]bool)
 
@@ -277,16 +277,16 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 
 		blob, err := keppel.FindBlobByRepository(tx, desc.Digest, repo)
 		if err == sql.ErrNoRows {
-			return nil, nil, 0, keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String())
+			return nil, nil, nil, nil, 0, keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String())
 		}
 		if err != nil {
-			return nil, nil, 0, err
+			return nil, nil, nil, nil, 0, err
 		}
 		if blob.SizeBytes != uint64(desc.Size) {
 			msg := fmt.Sprintf(
 				"manifest references blob %s with %d bytes, but blob actually contains %d bytes",
 				desc.Digest.String(), desc.Size, blob.SizeBytes)
-			return nil, nil, 0, keppel.ErrManifestInvalid.With(msg)
+			return nil, nil, nil, nil, 0, keppel.ErrManifestInvalid.With(msg)
 		}
 		blobRefs = append(blobRefs, blobRef{blob.ID, desc.MediaType})
 	}
@@ -299,16 +299,18 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 
 		manifest, err := keppel.FindManifest(tx, repo, desc.Digest.String())
 		if err == sql.ErrNoRows {
-			return nil, nil, 0, keppel.ErrManifestUnknown.With("").WithDetail(desc.Digest.String())
+			return nil, nil, nil, nil, 0, keppel.ErrManifestUnknown.With("").WithDetail(desc.Digest.String())
 		}
 		if err != nil {
-			return nil, nil, 0, err
+			return nil, nil, nil, nil, 0, err
 		}
 		manifestDigests = append(manifestDigests, desc.Digest.String())
+		referencedMinCreationTime = keppel.MinMaybeTime(referencedMinCreationTime, manifest.MinLayerCreatedAt)
+		referencedMaxCreationTime = keppel.MaxMaybeTime(referencedMaxCreationTime, manifest.MaxLayerCreatedAt)
 		sumChildSizes += manifest.SizeBytes
 	}
 
-	return blobRefs, manifestDigests, sumChildSizes, nil
+	return blobRefs, manifestDigests, referencedMinCreationTime, referencedMaxCreationTime, sumChildSizes, nil
 }
 
 //Returns the list of missing labels, or nil if everything is ok.
@@ -352,23 +354,10 @@ func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account 
 	}
 
 	// collect layer creation times
-	var (
-		minCreationTime *time.Time
-		maxCreationTime *time.Time
-	)
-	if len(data.History) != 0 {
-		minCreationTime = data.History[0].Created
-		maxCreationTime = data.History[0].Created
-		for _, v := range data.History {
-			if v.Created != nil {
-				if v.Created.Before(*minCreationTime) {
-					minCreationTime = v.Created
-				}
-				if v.Created.After(*maxCreationTime) {
-					maxCreationTime = v.Created
-				}
-			}
-		}
+	var minCreationTime, maxCreationTime *time.Time
+	for _, v := range data.History {
+		minCreationTime = keppel.MinMaybeTime(minCreationTime, v.Created)
+		maxCreationTime = keppel.MaxMaybeTime(maxCreationTime, v.Created)
 	}
 
 	return data.Config.Labels, minCreationTime, maxCreationTime, nil
