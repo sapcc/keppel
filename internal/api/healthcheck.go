@@ -23,7 +23,7 @@ import "net/http"
 //HealthCheckHandler provides the GET /healthcheck endpoint.
 func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	if r.URL.Path == "/healthcheck" && r.Method == "GET" {
+	if r.URL.Path == "/healthcheck" && (r.Method == "GET" || r.Method == "HEAD") {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	} else {
