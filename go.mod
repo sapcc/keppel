@@ -7,27 +7,28 @@ require (
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/go-redis/redis v6.15.9+incompatible
-	github.com/golang-jwt/jwt/v4 v4.1.0
-	github.com/gophercloud/gophercloud v0.23.0
+	github.com/golang-jwt/jwt/v4 v4.2.0
+	github.com/gophercloud/gophercloud v0.24.0
 	github.com/gophercloud/utils v0.0.0-20210909165623-d7085207ff6d
 	github.com/gorilla/mux v1.8.0
 	github.com/majewsky/schwift v1.0.0
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/prometheus/client_golang v1.11.0
-	github.com/rs/cors v1.8.0
-	github.com/sapcc/go-bits v0.0.0-20211126202514-08dd631513c2
-	github.com/sapcc/hermes v0.0.0-20211124185454-5855fb4e75e5
+	github.com/opencontainers/image-spec v1.0.2
+	github.com/prometheus/client_golang v1.12.1
+	github.com/rs/cors v1.8.2
+	github.com/sapcc/go-bits v0.0.0-20211217092338-513915db49d4
+	github.com/sapcc/hermes v0.0.0-20211212013121-4426e1b79ccc
 	github.com/satori/go.uuid v1.2.0
-	github.com/spf13/cobra v1.2.1
+	github.com/spf13/cobra v1.3.0
 	github.com/streadway/amqp v1.0.0
 	github.com/throttled/throttled/v2 v2.9.0
-	golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871
+	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838
 	gopkg.in/gorp.v2 v2.2.0
 )
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/cespare/xxhash/v2 v2.1.1 // indirect
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/go-gorp/gorp v2.2.0+incompatible // indirect
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/gofrs/uuid v4.2.0+incompatible // indirect
@@ -40,16 +41,15 @@ require (
 	github.com/lib/pq v1.10.4 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
-	github.com/opencontainers/image-spec v1.0.2 // indirect
 	github.com/poy/onpar v1.1.2 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
-	github.com/prometheus/common v0.26.0 // indirect
-	github.com/prometheus/procfs v0.6.0 // indirect
+	github.com/prometheus/common v0.32.1 // indirect
+	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
-	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 // indirect
-	golang.org/x/text v0.3.6 // indirect
-	google.golang.org/protobuf v1.26.0 // indirect
+	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
+	golang.org/x/text v0.3.7 // indirect
+	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

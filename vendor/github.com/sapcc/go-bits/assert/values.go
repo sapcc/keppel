@@ -22,12 +22,16 @@ package assert
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
 //ByteData implements the HTTPRequestBody and HTTPResponseBody for plain bytestrings.
@@ -38,14 +42,27 @@ func (b ByteData) GetRequestBody() (io.Reader, error) {
 	return bytes.NewReader([]byte(b)), nil
 }
 
+func logDiff(t *testing.T, expected, actual string) {
+	t.Helper()
+
+	prettyDiff, _ := strconv.ParseBool(os.Getenv("GOBITS_PRETTY_DIFF"))
+	if prettyDiff {
+		dmp := diffmatchpatch.New()
+		diffs := dmp.DiffMain(fmt.Sprintf("%q\n", expected), fmt.Sprintf("%q\n", actual), false)
+		t.Logf(dmp.DiffPrettyText(diffs))
+	} else {
+		t.Logf("\texpected = %q\n", string(expected))
+		t.Logf("\t  actual = %q\n", string(actual))
+	}
+}
+
 //AssertResponseBody implements the HTTPResponseBody interface.
 func (b ByteData) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
 	t.Helper()
 
 	if !bytes.Equal([]byte(b), responseBody) {
 		t.Error(requestInfo + ": got unexpected response body")
-		t.Logf("\texpected = %q\n", b)
-		t.Logf("\t  actual = %q\n", responseBody)
+		logDiff(t, string(b), string(responseBody))
 		return false
 	}
 
@@ -67,8 +84,7 @@ func (s StringData) AssertResponseBody(t *testing.T, requestInfo string, respons
 	responseStr := string(responseBody)
 	if responseStr != string(s) {
 		t.Errorf("%s: got unexpected response body", requestInfo)
-		t.Logf("\texpected = %q\n", string(s))
-		t.Logf("\t  actual = %q\n", responseStr)
+		logDiff(t, string(s), responseStr)
 		return false
 	}
 
@@ -103,8 +119,7 @@ func (o JSONObject) AssertResponseBody(t *testing.T, requestInfo string, respons
 
 	if string(responseBody) != string(buf) {
 		t.Errorf("%s: got unexpected response body", requestInfo)
-		t.Logf("\texpected = %q\n", string(buf))
-		t.Logf("\t  actual = %q\n", string(responseBody))
+		logDiff(t, string(buf), string(responseBody))
 		return false
 	}
 

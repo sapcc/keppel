@@ -21,7 +21,9 @@ package assert
 
 import (
 	"fmt"
+	"os"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
@@ -42,11 +44,16 @@ func DeepEqual(t *testing.T, variable string, actual, expected interface{}) bool
 	//	fmt.Sprintf("%+v\n", []string{})    == "[]\n"
 	//	fmt.Sprintf("%+v\n", []string(nil)) == "[]\n"
 	//
-	dmp := diffmatchpatch.New()
-	diffs := dmp.DiffMain(fmt.Sprintf("%#v\n", actual), fmt.Sprintf("%#v\n", expected), false)
-
 	t.Error("assert.DeepEqual failed for " + variable)
-	t.Logf(dmp.DiffPrettyText(diffs))
+	prettyDiff, _ := strconv.ParseBool(os.Getenv("GOBITS_PRETTY_DIFF"))
+	if prettyDiff {
+		dmp := diffmatchpatch.New()
+		diffs := dmp.DiffMain(fmt.Sprintf("%#v\n", actual), fmt.Sprintf("%#v\n", expected), false)
+		t.Logf(dmp.DiffPrettyText(diffs))
+	} else {
+		t.Logf("\texpected = %#v\n", expected)
+		t.Logf("\t  actual = %#v\n", actual)
+	}
 
 	return false
 }
