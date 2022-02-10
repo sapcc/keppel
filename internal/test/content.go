@@ -26,6 +26,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/docker/distribution/manifest/manifestlist"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -71,78 +72,86 @@ type Image struct {
 	Manifest Bytes
 }
 
-var baseImageConfig = map[string]interface{}{
-	"architecture": "amd64",
-	"config": map[string]interface{}{
-		"Hostname":     "",
-		"Domainname":   "",
-		"User":         "",
-		"AttachStdin":  false,
-		"AttachStdout": false,
-		"AttachStderr": false,
-		"Tty":          false,
-		"OpenStdin":    false,
-		"StdinOnce":    false,
-		"Env": []string{
-			"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-			"test_for=keppel",
-		},
-		"Cmd":        nil,
-		"Image":      "",
-		"Volumes":    nil,
-		"WorkingDir": "",
-		"Entrypoint": nil,
-		"OnBuild":    nil,
-		"Labels":     nil,
-	},
-	"container": "efd768c7229cf5030d391fb572f60cf4e22d5d85828fafb3aa5ff37997523c60",
-	"container_config": map[string]interface{}{
-		"Hostname":     "efd768c7229c",
-		"Domainname":   "",
-		"User":         "",
-		"AttachStdin":  false,
-		"AttachStdout": false,
-		"AttachStderr": false,
-		"Tty":          false,
-		"OpenStdin":    false,
-		"StdinOnce":    false,
-		"Env": []string{
-			"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-			"test_for=keppel",
-		},
-		"Cmd": []string{
-			"/bin/sh",
-			"-c",
-			"#(nop) ",
-			"ENV test_for=keppel",
-		},
-		"Image":      "",
-		"Volumes":    nil,
-		"WorkingDir": "",
-		"Entrypoint": nil,
-		"OnBuild":    nil,
-		"Labels":     nil,
-	},
-	"created":        makeTimestamp(86400),
-	"docker_version": "19.03.1-ce",
-	"history": []map[string]interface{}{
-		{
-			"created":     makeTimestamp(0),
-			"created_by":  "/bin/sh -c #(nop)  ENV test_for=keppel",
-			"empty_layer": true,
-		},
-	},
-	"os": "linux",
-	"rootfs": map[string]interface{}{
-		"type": "layers",
-	},
-}
-
 //GenerateImage makes an Image from the given bytes in a deterministic manner.
 func GenerateImage(layers ...Bytes) Image {
+	return GenerateImageWithCustomConfig(nil, layers...)
+}
+
+func GenerateImageWithCustomConfig(change func(map[string]interface{}), layers ...Bytes) Image {
+	config := map[string]interface{}{
+		"architecture": "amd64",
+		"config": map[string]interface{}{
+			"Hostname":     "",
+			"Domainname":   "",
+			"User":         "",
+			"AttachStdin":  false,
+			"AttachStdout": false,
+			"AttachStderr": false,
+			"Tty":          false,
+			"OpenStdin":    false,
+			"StdinOnce":    false,
+			"Env": []string{
+				"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+				"test_for=keppel",
+			},
+			"Cmd":        nil,
+			"Image":      "",
+			"Volumes":    nil,
+			"WorkingDir": "",
+			"Entrypoint": nil,
+			"OnBuild":    nil,
+			"Labels":     nil,
+		},
+		"container": "efd768c7229cf5030d391fb572f60cf4e22d5d85828fafb3aa5ff37997523c60",
+		"container_config": map[string]interface{}{
+			"Hostname":     "efd768c7229c",
+			"Domainname":   "",
+			"User":         "",
+			"AttachStdin":  false,
+			"AttachStdout": false,
+			"AttachStderr": false,
+			"Tty":          false,
+			"OpenStdin":    false,
+			"StdinOnce":    false,
+			"Env": []string{
+				"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+				"test_for=keppel",
+			},
+			"Cmd": []string{
+				"/bin/sh",
+				"-c",
+				"#(nop) ",
+				"ENV test_for=keppel",
+			},
+			"Image":      "",
+			"Volumes":    nil,
+			"WorkingDir": "",
+			"Entrypoint": nil,
+			"OnBuild":    nil,
+			"Labels":     nil,
+		},
+		"created":        makeTimestamp(86400),
+		"docker_version": "19.03.1-ce",
+		"history": []map[string]interface{}{
+			{
+				"created":     makeTimestamp(0),
+				"created_by":  "/bin/sh -c #(nop)  ENV test_for=keppel",
+				"empty_layer": true,
+			},
+		},
+		"os": "linux",
+		"rootfs": map[string]interface{}{
+			"type": "layers",
+		},
+	}
+
+	if change != nil {
+		change(config)
+	}
+
 	//build image config referencing the given layers
 	imageConfig := make(map[string]interface{})
-	for k, v := range baseImageConfig {
+	for k, v := range config {
 		imageConfig[k] = v
 	}
 	history := []map[string]interface{}{imageConfig["history"].([]map[string]interface{})[0]}
@@ -234,7 +243,7 @@ func GenerateImageList(images ...Image) ImageList {
 
 	manifestListBytes, err := json.Marshal(map[string]interface{}{
 		"schemaVersion": 2,
-		"mediaType":     "application/vnd.docker.distribution.manifest.list.v2+json",
+		"mediaType":     manifestlist.MediaTypeManifestList,
 		"manifests":     manifestDescs,
 	})
 	if err != nil {
@@ -243,7 +252,7 @@ func GenerateImageList(images ...Image) ImageList {
 
 	return ImageList{
 		Images:   images,
-		Manifest: newBytesWithMediaType(manifestListBytes, "application/vnd.docker.distribution.manifest.list.v2+json"),
+		Manifest: newBytesWithMediaType(manifestListBytes, manifestlist.MediaTypeManifestList),
 	}
 }
 

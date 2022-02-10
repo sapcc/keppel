@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/distribution/manifest/manifestlist"
 	"github.com/opencontainers/go-digest"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/prometheus/client_golang/prometheus"
@@ -209,10 +210,11 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 			return err
 		}
 		manifest.SizeBytes += sumChildSizes
-		//enforce account-specific validation rules on manifest, but only when
-		//pushing (not when validating at a later point in time, the set of
-		//RequiredLabels could have been changed by then)
-		labelsRequired := manifest.PushedAt == manifest.ValidatedAt && account.RequiredLabels != ""
+		//enforce account-specific validation rules on manifest, but not list manifest
+		//and only when pushing (not when validating at a later point in time,
+		//the set of RequiredLabels could have been changed by then)
+		labelsRequired := manifest.PushedAt == manifest.ValidatedAt && account.RequiredLabels != "" &&
+			manifest.MediaType != manifestlist.MediaTypeManifestList && manifest.MediaType != imagespec.MediaTypeImageManifest
 		labels, minCreationTime, maxCreationTime, err := parseManifestConfig(tx, p.sd, account, manifestParsed)
 		if err != nil {
 			return err
