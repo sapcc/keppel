@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/docker/distribution/manifest/manifestlist"
+	"github.com/docker/distribution/manifest/schema2"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/hermes/pkg/cadf"
@@ -470,7 +471,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 			Path:   "/v2/test1/foo/manifests/" + list2.Manifest.Digest.String(),
 			Header: map[string]string{
 				"Authorization": "Bearer " + token,
-				"Accept":        "application/vnd.docker.distribution.manifest.v2+json",
+				"Accept":        schema2.MediaTypeManifest,
 			},
 			ExpectStatus: http.StatusTemporaryRedirect,
 			ExpectHeader: map[string]string{
@@ -568,7 +569,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 			Path:   "/v2/test1/foo/manifests/latest",
 			Header: map[string]string{
 				"Authorization": "Bearer " + token,
-				"Content-Type":  "application/vnd.docker.distribution.manifest.v2+json",
+				"Content-Type":  schema2.MediaTypeManifest,
 			},
 			Body:         assert.ByteData(image.Manifest.Contents),
 			ExpectStatus: http.StatusBadRequest,
@@ -591,7 +592,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 			Path:   "/v2/test1/foo/manifests/latest",
 			Header: map[string]string{
 				"Authorization": "Bearer " + token,
-				"Content-Type":  "application/vnd.docker.distribution.manifest.v2+json",
+				"Content-Type":  schema2.MediaTypeManifest,
 			},
 			Body:         assert.ByteData(image.Manifest.Contents),
 			ExpectStatus: http.StatusCreated,

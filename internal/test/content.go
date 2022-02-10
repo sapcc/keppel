@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/docker/distribution/manifest/manifestlist"
+	"github.com/docker/distribution/manifest/schema2"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -61,7 +62,7 @@ func GenerateExampleLayer(seed int64) Bytes {
 	r := rand.New(rand.NewSource(seed))
 	buf := make([]byte, 1<<20)
 	r.Read(buf[:])
-	return newBytesWithMediaType(buf, "application/vnd.docker.image.rootfs.diff.tar.gzip")
+	return newBytesWithMediaType(buf, schema2.MediaTypeLayer)
 }
 
 //Image contains all the pieces of a Docker image. The Layers and Config must
@@ -166,7 +167,7 @@ func GenerateImageWithCustomConfig(change func(map[string]interface{}), layers .
 	if err != nil {
 		panic(err.Error())
 	}
-	imageConfigBytesObj := newBytesWithMediaType(imageConfigBytes, "application/vnd.docker.container.image.v1+json")
+	imageConfigBytesObj := newBytesWithMediaType(imageConfigBytes, schema2.MediaTypeImageConfig)
 
 	//build a manifest
 	layerDescs := []map[string]interface{}{}
@@ -179,7 +180,7 @@ func GenerateImageWithCustomConfig(change func(map[string]interface{}), layers .
 	}
 	manifestData := map[string]interface{}{
 		"schemaVersion": 2,
-		"mediaType":     "application/vnd.docker.distribution.manifest.v2+json",
+		"mediaType":     schema2.MediaTypeManifest,
 		"config": assert.JSONObject{
 			"mediaType": imageConfigBytesObj.MediaType,
 			"size":      len(imageConfigBytes),
@@ -195,7 +196,7 @@ func GenerateImageWithCustomConfig(change func(map[string]interface{}), layers .
 	return Image{
 		Layers:   layers,
 		Config:   imageConfigBytesObj,
-		Manifest: newBytesWithMediaType(manifestBytes, "application/vnd.docker.distribution.manifest.v2+json"),
+		Manifest: newBytesWithMediaType(manifestBytes, schema2.MediaTypeManifest),
 	}
 }
 

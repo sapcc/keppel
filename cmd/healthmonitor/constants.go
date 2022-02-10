@@ -53,8 +53,6 @@ const minimalManifest = `{
    ]
 }`
 
-const minimalManifestMediaType = "application/vnd.docker.distribution.manifest.v2+json"
-
 func minimalImageLayer() []byte {
 	buf, err := base64.StdEncoding.DecodeString(minimalImageLayerBase64)
 	if err != nil {
