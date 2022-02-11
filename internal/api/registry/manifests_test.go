@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/docker/distribution/manifest/manifestlist"
+	"github.com/docker/distribution/manifest/schema2"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/hermes/pkg/cadf"
@@ -186,7 +188,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			//PUT failure case: cannot upload manifest without Content-Type, or with
 			//a faulty Content-Type (defense against attacks like CVE-2021-41190)
-			for _, wrongMediaType := range []string{"", "application/vnd.docker.distribution.manifest.list.v2+json"} {
+			for _, wrongMediaType := range []string{"", manifestlist.MediaTypeManifestList} {
 				assert.HTTPRequest{
 					Method: "PUT",
 					Path:   "/v2/test1/foo/manifests/" + ref,
@@ -469,7 +471,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 			Path:   "/v2/test1/foo/manifests/" + list2.Manifest.Digest.String(),
 			Header: map[string]string{
 				"Authorization": "Bearer " + token,
-				"Accept":        "application/vnd.docker.distribution.manifest.v2+json",
+				"Accept":        schema2.MediaTypeManifest,
 			},
 			ExpectStatus: http.StatusTemporaryRedirect,
 			ExpectHeader: map[string]string{
@@ -545,29 +547,15 @@ func TestManifestRequiredLabels(t *testing.T) {
 		h := s.Handler
 		token := s.GetToken(t, "repository:test1/foo:pull,push")
 
-		//setup test data: image config with labels "foo" and "bar"
-		blob, err := test.NewBytesFromFile("fixtures/example-docker-image-config-with-labels.json")
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-
-		//setup test data: manifest referencing that image config
-		manifestData := assert.JSONObject{
-			"schemaVersion": 2,
-			"mediaType":     "application/vnd.docker.distribution.manifest.v2+json",
-			"config": assert.JSONObject{
-				"mediaType": "application/vnd.docker.container.image.v1+json",
-				"size":      len(blob.Contents),
-				"digest":    blob.Digest.String(),
-			},
-			"layers": []assert.JSONObject{},
-		}
-
-		//upload the config blob
-		blob.MustUpload(t, s, fooRepoRef)
+		image := test.GenerateImageWithCustomConfig(func(cfg map[string]interface{}) {
+			cfg["config"].(map[string]interface{})["Labels"] = map[string]string{"foo": "is there", "bar": "is there"}
+		}, test.GenerateExampleLayer(1))
+		image.Config.MustUpload(t, s, fooRepoRef)
+		image.Layers[0].MustUpload(t, s, fooRepoRef)
+		list := test.GenerateImageList(image)
 
 		//setup required labels on account for failure
-		_, err = s.DB.Exec(
+		_, err := s.DB.Exec(
 			`UPDATE accounts SET required_labels = $1 WHERE name = $2`,
 			"foo,somethingelse,andalsothis", "test1",
 		)
@@ -581,9 +569,9 @@ func TestManifestRequiredLabels(t *testing.T) {
 			Path:   "/v2/test1/foo/manifests/latest",
 			Header: map[string]string{
 				"Authorization": "Bearer " + token,
-				"Content-Type":  "application/vnd.docker.distribution.manifest.v2+json",
+				"Content-Type":  schema2.MediaTypeManifest,
 			},
-			Body:         manifestData,
+			Body:         assert.ByteData(image.Manifest.Contents),
 			ExpectStatus: http.StatusBadRequest,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrManifestInvalid),
@@ -604,9 +592,9 @@ func TestManifestRequiredLabels(t *testing.T) {
 			Path:   "/v2/test1/foo/manifests/latest",
 			Header: map[string]string{
 				"Authorization": "Bearer " + token,
-				"Content-Type":  "application/vnd.docker.distribution.manifest.v2+json",
+				"Content-Type":  schema2.MediaTypeManifest,
 			},
-			Body:         manifestData,
+			Body:         assert.ByteData(image.Manifest.Contents),
 			ExpectStatus: http.StatusCreated,
 			ExpectHeader: test.VersionHeader,
 		}.Check(t, h)
@@ -633,6 +621,18 @@ func TestManifestRequiredLabels(t *testing.T) {
 			"foo": "is there",
 		}
 		assert.DeepEqual(t, "labels_json", actual, expected)
+
+		assert.HTTPRequest{
+			Method: "PUT",
+			Path:   "/v2/test1/foo/manifests/latest",
+			Header: map[string]string{
+				"Authorization": "Bearer " + token,
+				"Content-Type":  manifestlist.MediaTypeManifestList,
+			},
+			Body:         assert.ByteData(list.Manifest.Contents),
+			ExpectStatus: http.StatusCreated,
+			ExpectHeader: test.VersionHeader,
+		}.Check(t, h)
 	})
 }
 

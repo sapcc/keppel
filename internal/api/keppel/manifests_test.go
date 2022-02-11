@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/distribution/manifest/schema2"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/hermes/pkg/cadf"
@@ -105,7 +106,7 @@ func TestManifestsAPI(t *testing.T) {
 				dbManifest := keppel.Manifest{
 					RepositoryID:        int64(repoID),
 					Digest:              digest,
-					MediaType:           "application/vnd.docker.distribution.manifest.v2+json",
+					MediaType:           schema2.MediaTypeManifest,
 					SizeBytes:           sizeBytes,
 					PushedAt:            pushedAt,
 					ValidatedAt:         pushedAt,
@@ -158,7 +159,7 @@ func TestManifestsAPI(t *testing.T) {
 		for idx := 1; idx <= 10; idx++ {
 			renderedManifests[idx-1] = assert.JSONObject{
 				"digest":               deterministicDummyDigest(10 + idx),
-				"media_type":           "application/vnd.docker.distribution.manifest.v2+json",
+				"media_type":           schema2.MediaTypeManifest,
 				"size_bytes":           uint64(1000 * idx),
 				"pushed_at":            int64(1000 * (10 + idx)),
 				"last_pulled_at":       nil,

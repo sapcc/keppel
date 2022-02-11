@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/distribution/manifest/manifestlist"
+	"github.com/docker/distribution/manifest/schema2"
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
@@ -120,8 +122,8 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 					accepted = true
 				}
 				// Accept: application/vnd.docker.distribution.manifest.v2+json is an ultra-special case (see below)
-				if acceptField == "application/vnd.docker.distribution.manifest.v2+json" {
-					if dbManifest.MediaType == "application/vnd.docker.distribution.manifest.list.v2+json" {
+				if acceptField == schema2.MediaTypeManifest {
+					if dbManifest.MediaType == manifestlist.MediaTypeManifestList {
 						acceptableByRecursingIntoDefaultImage = true
 					}
 				}
