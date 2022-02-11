@@ -214,7 +214,7 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 		//and only when pushing (not when validating at a later point in time,
 		//the set of RequiredLabels could have been changed by then)
 		labelsRequired := manifest.PushedAt == manifest.ValidatedAt && account.RequiredLabels != "" &&
-			manifest.MediaType != manifestlist.MediaTypeManifestList && manifest.MediaType != imagespec.MediaTypeImageManifest
+			manifest.MediaType != manifestlist.MediaTypeManifestList && manifest.MediaType != imagespec.MediaTypeImageIndex
 		labels, minCreationTime, maxCreationTime, err := parseManifestConfig(tx, p.sd, account, manifestParsed)
 		if err != nil {
 			return err
