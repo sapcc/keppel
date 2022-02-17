@@ -45,8 +45,14 @@ type UserInfo interface {
 	UserDomainName() string
 	//ProjectScopeUUID returns the empty string if the user's token is not for a project scope.
 	ProjectScopeUUID() string
+	//ProjectScopeName returns the empty string if the user's token is not for a project scope.
+	ProjectScopeName() string
+	//ProjectScopeDomainName returns the empty string if the user's token is not for a project scope.
+	ProjectScopeDomainName() string
 	//DomainScopeUUID returns the empty string if the user's token is not for a domain scope.
 	DomainScopeUUID() string
+	//DomainScopeName returns the empty string if the user's token is not for a domain scope.
+	DomainScopeName() string
 }
 
 //NonStandardUserInfo is an extension interface for type UserInfo that allows a
@@ -100,8 +106,11 @@ func NewEvent(p EventParameters) cadf.Event {
 				Agent:   p.Request.Header.Get("User-Agent"),
 			},
 			//information about user's scope (only one of both will be filled)
-			DomainID:  p.User.DomainScopeUUID(),
-			ProjectID: p.User.ProjectScopeUUID(),
+			DomainID:          p.User.DomainScopeUUID(),
+			DomainName:        p.User.DomainScopeName(),
+			ProjectID:         p.User.ProjectScopeUUID(),
+			ProjectName:       p.User.ProjectScopeName(),
+			ProjectDomainName: p.User.ProjectScopeDomainName(),
 		}
 	}
 

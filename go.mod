@@ -16,8 +16,8 @@ require (
 	github.com/opencontainers/image-spec v1.0.2
 	github.com/prometheus/client_golang v1.12.1
 	github.com/rs/cors v1.8.2
-	github.com/sapcc/go-bits v0.0.0-20211217092338-513915db49d4
-	github.com/sapcc/hermes v0.0.0-20211212013121-4426e1b79ccc
+	github.com/sapcc/go-bits v0.0.0-20220217100829-b28780f98e51
+	github.com/sapcc/hermes v0.0.0-20220216215340-12b4f661924a
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.3.0
 	github.com/streadway/amqp v1.0.0
@@ -48,7 +48,7 @@ require (
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
-	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
+	golang.org/x/sys v0.0.0-20220209214540-3681064d5158 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

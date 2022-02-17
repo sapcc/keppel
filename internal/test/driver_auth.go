@@ -142,6 +142,18 @@ func (dummyUserInfo) ProjectScopeUUID() string {
 	return "dummy-projectid"
 }
 
+func (dummyUserInfo) ProjectScopeName() string {
+	return "dummy-projectname"
+}
+
+func (dummyUserInfo) ProjectScopeDomainName() string {
+	return "dummy-projectdomainname"
+}
+
 func (dummyUserInfo) DomainScopeUUID() string {
+	return ""
+}
+
+func (dummyUserInfo) DomainScopeName() string {
 	return ""
 }

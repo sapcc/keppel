@@ -141,8 +141,23 @@ func (janitorUserInfo) ProjectScopeUUID() string {
 	return "" //unused
 }
 
+//ProjectScopeName implements the audittools.UserInfo interface.
+func (janitorUserInfo) ProjectScopeName() string {
+	return "" //unused
+}
+
+//ProjectScopeDomainName implements the audittools.UserInfo interface.
+func (janitorUserInfo) ProjectScopeDomainName() string {
+	return "" //unused
+}
+
 //DomainScopeUUID implements the audittools.UserInfo interface.
 func (janitorUserInfo) DomainScopeUUID() string {
+	return "" //unused
+}
+
+//DomainScopeName implements the audittools.UserInfo interface.
+func (janitorUserInfo) DomainScopeName() string {
 	return "" //unused
 }
 

@@ -74,6 +74,11 @@ type Resource struct {
 	// project_id and domain_id are OpenStack extensions (introduced by Keystone and keystone(audit)middleware)
 	ProjectID string `json:"project_id,omitempty"`
 	DomainID  string `json:"domain_id,omitempty"`
+	// project_name, project_domain_name, domain_name are Hermes extensions for initiator resources only (they
+	// all refer to the token scope; the initiating user's original domain is described by "domain")
+	ProjectName       string `json:"project_name,omitempty"`
+	ProjectDomainName string `json:"project_domain_name,omitempty"`
+	DomainName        string `json:"domain_name,omitempty"`
 }
 
 // Reason contains HTTP Code and Type, and is optional in the CADF spec
@@ -160,12 +165,18 @@ func (p EventParams) NewEvent() Event {
 			ReasonCode: strconv.Itoa(p.ReasonCode),
 		},
 		Initiator: Resource{
-			TypeURI:   "service/security/account/user",
-			Name:      p.Token.Context.Auth["user_name"],
-			ID:        p.Token.Context.Auth["user_id"],
-			Domain:    p.Token.Context.Auth["domain_name"],
-			DomainID:  p.Token.Context.Auth["domain_id"],
-			ProjectID: p.Token.Context.Auth["project_id"],
+			TypeURI: "service/security/account/user",
+			//user attributes
+			Name:   p.Token.Context.Auth["user_name"],
+			ID:     p.Token.Context.Auth["user_id"],
+			Domain: p.Token.Context.Auth["user_domain_name"],
+			//token scope attributes
+			DomainID:          p.Token.Context.Auth["domain_id"],
+			DomainName:        p.Token.Context.Auth["domain_name"],
+			ProjectID:         p.Token.Context.Auth["project_id"],
+			ProjectName:       p.Token.Context.Auth["project_name"],
+			ProjectDomainName: p.Token.Context.Auth["project_domain_name"],
+			//other attributes
 			Host: &Host{
 				Address: StripPort(p.Request.RemoteAddr),
 				Agent:   p.Request.Header.Get("User-Agent"),
