@@ -20,7 +20,9 @@ package keppel
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 
@@ -28,7 +30,6 @@ import (
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/hermes/pkg/cadf"
-	"github.com/streadway/amqp"
 )
 
 //Auditor is a component that forwards audit events to the appropriate logs.
@@ -84,13 +85,17 @@ func InitAuditTrail() Auditor {
 		if err != nil {
 			logg.Fatal("invalid value for KEPPEL_AUDIT_RABBITMQ_PORT: %s", err.Error())
 		}
-		rabbitURI := amqp.URI{
-			Scheme:   "amqp",
-			Host:     GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_HOSTNAME", "localhost"),
-			Port:     port,
-			Username: GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_USERNAME", "guest"),
-			Password: GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_PASSWORD", "guest"),
-			Vhost:    "/",
+		rabbitURI := url.URL{
+			Scheme: "amqp",
+			Host: net.JoinHostPort(
+				GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_HOSTNAME", "localhost"),
+				strconv.Itoa(port),
+			),
+			User: url.UserPassword(
+				GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_USERNAME", "guest"),
+				GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_PASSWORD", "guest"),
+			),
+			Path: "/",
 		}
 
 		eventSink = make(chan cadf.Event, 20)
@@ -101,7 +106,7 @@ func InitAuditTrail() Auditor {
 			EventSink:           eventSink,
 			OnSuccessfulPublish: func() { auditEventPublishSuccessCounter.Inc() },
 			OnFailedPublish:     func() { auditEventPublishFailedCounter.Inc() },
-		}.Commit(rabbitQueueName, rabbitURI)
+		}.Commit(rabbitQueueName, rabbitURI.String())
 	}
 
 	silent := ParseBool(os.Getenv("KEPPEL_AUDIT_SILENT"))

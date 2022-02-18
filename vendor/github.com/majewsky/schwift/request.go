@@ -98,7 +98,9 @@ func (r Request) URL(backend Backend, values url.Values) (string, error) {
 		if strings.Contains(r.ContainerName, "/") {
 			return "", ErrMalformedContainerName
 		}
-		uri.Path += r.ContainerName + "/" + r.ObjectName
+		// Encode path so that double slashes are encoded and handled correct by backend server
+		uri.RawPath = uri.Path + r.ContainerName + "/" + url.PathEscape(r.ObjectName)
+		uri.Path = uri.Path + r.ContainerName + "/" + r.ObjectName
 	}
 
 	uri.RawQuery = values.Encode()

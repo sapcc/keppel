@@ -5,24 +5,24 @@ go 1.17
 require (
 	github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
 	github.com/dlmiddlecote/sqlstats v1.0.2
-	github.com/docker/distribution v2.7.1+incompatible
+	github.com/docker/distribution v2.8.0+incompatible
 	github.com/go-redis/redis v6.15.9+incompatible
-	github.com/golang-jwt/jwt/v4 v4.2.0
+	github.com/golang-jwt/jwt/v4 v4.3.0
 	github.com/gophercloud/gophercloud v0.24.0
-	github.com/gophercloud/utils v0.0.0-20210909165623-d7085207ff6d
+	github.com/gophercloud/utils v0.0.0-20220209210848-d0ab9f2a8909
 	github.com/gorilla/mux v1.8.0
-	github.com/majewsky/schwift v1.0.0
+	github.com/majewsky/schwift v1.1.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.0.2
 	github.com/prometheus/client_golang v1.12.1
 	github.com/rs/cors v1.8.2
-	github.com/sapcc/go-bits v0.0.0-20220217100829-b28780f98e51
+	github.com/sapcc/go-bits v0.0.0-20220218092050-1bbdb2ca8131
 	github.com/sapcc/hermes v0.0.0-20220216215340-12b4f661924a
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.3.0
 	github.com/streadway/amqp v1.0.0
-	github.com/throttled/throttled/v2 v2.9.0
-	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838
+	github.com/throttled/throttled/v2 v2.9.1
+	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
 	gopkg.in/gorp.v2 v2.2.0
 )
 

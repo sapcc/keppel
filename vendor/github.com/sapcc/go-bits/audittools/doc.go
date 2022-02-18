@@ -29,6 +29,9 @@ One usage of the aforementioned implementation can be:
 	package yourPackageName
 
 	import (
+		"net/url"
+		...
+
 		"github.com/sapcc/go-bits/audittools"
 		...
 	)
@@ -60,20 +63,19 @@ One usage of the aforementioned implementation can be:
 		}
 
 		rabbitmqQueueName := "down-the-rabbit-hole"
-		rabbitmqURI := amqp.URI{
-			Scheme:   "amqp",
-			Host:     "localhost",
-			Port:     5672,
-			Username: "guest",
-			Password: "guest",
-			Vhost:    "/",
+		rabbitmqURI := url.URL{
+			Scheme: "amqp",
+			Host:   "localhost",
+			Port:   5672,
+			User:   url.UserPassword("guest", "guest"),
+			Path:   "/",
 		}
 
 		go audittools.AuditTrail{
 			EventSink:           s,
 			OnSuccessfulPublish: onSuccessFunc,
 			OnFailedPublish:     onFailFunc,
-		}.Commit(rabbitmqQueueName, rabbitmqURI)
+		}.Commit(rabbitmqURI.String(), rabbitmqQueueName)
 	}
 
 	func someFunction() {

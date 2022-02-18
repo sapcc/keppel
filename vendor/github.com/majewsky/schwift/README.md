@@ -6,10 +6,6 @@ This is a Go client library for [OpenStack Swift](https://github.com/openstack/s
 frustrated with the inflexible API design of [`ncw/swift`](https://github.com/ncw/swift); see [near the
 bottom](#why-another-swift-client-library) for details.
 
-This library is currently in **beta**: It's already used by some projects, and I'm working towards a
-stable 1.0 version with API compatibility promises, but [a few things are still
-missing](https://github.com/majewsky/schwift/issues/1).
-
 ## Installation
 
 You can get this with `go get github.com/majewsky/schwift`. When using this in an application, vendoring is recommended.

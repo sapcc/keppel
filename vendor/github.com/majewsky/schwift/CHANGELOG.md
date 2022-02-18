@@ -1,3 +1,13 @@
+# v1.1.0 (2022-02-07)
+
+Bugfixes:
+
+- Fix request URL when object name is not a well-formed path. For example, an
+  object name like "a///b" is not wrongly normalized into "a/b" anymore. If
+  your application relies on object names being normalized paths, consider
+  passing your object names through `path.Clean()` before giving them to
+  `Container.Object()`.
+
 # v1.0.0 (2021-05-28)
 
 Initial release. The library had been mostly feature-complete since 2018, but I
