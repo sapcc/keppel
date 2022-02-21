@@ -33,7 +33,6 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/clair"
-	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //Configuration contains all configuration values that are not specific to a
@@ -182,9 +181,9 @@ func getDbURL() url.URL {
 	}
 	hostname, err := os.Hostname()
 	if err == nil {
-		dbConnOpts.Set("application_name", fmt.Sprintf("%s@%s", keppel.Component, hostname))
+		dbConnOpts.Set("application_name", fmt.Sprintf("%s@%s", Component, hostname))
 	} else {
-		dbConnOpts.Set("application_name", keppel.Component)
+		dbConnOpts.Set("application_name", Component)
 	}
 
 	return url.URL{
