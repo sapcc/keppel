@@ -33,6 +33,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/keppel/internal/clair"
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //Configuration contains all configuration values that are not specific to a
@@ -174,14 +175,24 @@ func getDbURL() url.URL {
 	dbPass := os.Getenv("KEPPEL_DB_PASSWORD")
 	dbHost := GetenvOrDefault("KEPPEL_DB_HOSTNAME", "localhost")
 	dbPort := GetenvOrDefault("KEPPEL_DB_PORT", "5432")
-	dbConnOpts := os.Getenv("KEPPEL_DB_CONNECTION_OPTIONS")
+
+	dbConnOpts, err := url.ParseQuery(os.Getenv("KEPPEL_DB_CONNECTION_OPTIONS"))
+	if err != nil {
+		logg.Fatal("while parsing KEPPEL_DB_CONNECTION_OPTIONS: " + err.Error())
+	}
+	hostname, err := os.Hostname()
+	if err == nil {
+		dbConnOpts.Set("application_name", fmt.Sprintf("%s@%s", keppel.Component, hostname))
+	} else {
+		dbConnOpts.Set("application_name", keppel.Component)
+	}
 
 	return url.URL{
 		Scheme:   "postgres",
 		User:     url.UserPassword(dbUsername, dbPass),
 		Host:     net.JoinHostPort(dbHost, dbPort),
 		Path:     dbName,
-		RawQuery: dbConnOpts,
+		RawQuery: dbConnOpts.Encode(),
 	}
 }
 
