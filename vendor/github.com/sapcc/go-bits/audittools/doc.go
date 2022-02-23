@@ -65,8 +65,7 @@ One usage of the aforementioned implementation can be:
 		rabbitmqQueueName := "down-the-rabbit-hole"
 		rabbitmqURI := url.URL{
 			Scheme: "amqp",
-			Host:   "localhost",
-			Port:   5672,
+			Host:   net.JoinHostPort("localhost", "5672"),
 			User:   url.UserPassword("guest", "guest"),
 			Path:   "/",
 		}

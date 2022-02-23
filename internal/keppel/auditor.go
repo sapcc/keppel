@@ -106,7 +106,7 @@ func InitAuditTrail() Auditor {
 			EventSink:           eventSink,
 			OnSuccessfulPublish: func() { auditEventPublishSuccessCounter.Inc() },
 			OnFailedPublish:     func() { auditEventPublishFailedCounter.Inc() },
-		}.Commit(rabbitQueueName, rabbitURI.String())
+		}.Commit(rabbitURI, rabbitQueueName)
 	}
 
 	silent := ParseBool(os.Getenv("KEPPEL_AUDIT_SILENT"))

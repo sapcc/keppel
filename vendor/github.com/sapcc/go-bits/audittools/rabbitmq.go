@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/sapcc/hermes/pkg/cadf"
@@ -41,9 +42,9 @@ type RabbitConnection struct {
 
 // NewRabbitConnection returns a new RabbitConnection using the specified amqp URI
 // and queue name.
-func NewRabbitConnection(uri, queueName string) (*RabbitConnection, error) {
+func NewRabbitConnection(uri url.URL, queueName string) (*RabbitConnection, error) {
 	//establish a connection with the RabbitMQ server
-	conn, err := amqp.Dial(uri)
+	conn, err := amqp.Dial(uri.String())
 	if err != nil {
 		return nil, fmt.Errorf("audittools: rabbitmq: failed to establish a connection with the server: %s", err.Error())
 	}

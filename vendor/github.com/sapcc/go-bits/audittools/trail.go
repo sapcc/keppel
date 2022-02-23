@@ -20,6 +20,7 @@
 package audittools
 
 import (
+	"net/url"
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
@@ -38,7 +39,7 @@ type AuditTrail struct {
 // a specific RabbitMQ Connection using the specified amqp URI and queue name.
 // The OnSuccessfulPublish and OnFailedPublish closures are executed as per
 // their respective case.
-func (t AuditTrail) Commit(rabbitmqURI, rabbitmqQueueName string) {
+func (t AuditTrail) Commit(rabbitmqURI url.URL, rabbitmqQueueName string) {
 	rc, err := NewRabbitConnection(rabbitmqURI, rabbitmqQueueName)
 	if err != nil {
 		logg.Error(err.Error())
@@ -89,7 +90,7 @@ func (t AuditTrail) Commit(rabbitmqURI, rabbitmqQueueName string) {
 	}
 }
 
-func refreshConnectionIfClosedOrOld(rc *RabbitConnection, uri, queueName string) *RabbitConnection {
+func refreshConnectionIfClosedOrOld(rc *RabbitConnection, uri url.URL, queueName string) *RabbitConnection {
 	if !rc.IsNilOrClosed() {
 		if time.Since(rc.LastConnectedAt) < 5*time.Minute {
 			return rc

@@ -455,8 +455,8 @@ github.com/ryanuber/columnize v0.0.0-20160712163229-9b3edd62028f/go.mod h1:sm1tb
 github.com/sagikazarmark/crypt v0.3.0/go.mod h1:uD/D+6UF4SrIR1uGEv7bBNkNqLGqUr43MRiaGWX1Nig=
 github.com/sapcc/go-bits v0.0.0-20180828115508-ed29938ce01c/go.mod h1:KeP5OOqQIgrauiDb/8shKWOq1YoplBALYNvpV4jizPo=
 github.com/sapcc/go-bits v0.0.0-20190910095551-3863bd6b4943/go.mod h1:YpW83RbRSHPedMBfuvdfYJMQbejxSxzK1Kj/39szShw=
-github.com/sapcc/go-bits v0.0.0-20220218092050-1bbdb2ca8131 h1:JEJlTyr+7rz8drZz98XCK1OwrlzHo8yij/or9I7NBOk=
-github.com/sapcc/go-bits v0.0.0-20220218092050-1bbdb2ca8131/go.mod h1:v3z6vEhw5xtUJ3EO0ZjWKKIhtdCjnmMmhxHpb7Oioik=
+github.com/sapcc/go-bits v0.0.0-20220223123017-b00971956813 h1:NYRwXCEQYYF7uOHusq3R7d8B2HSFeGxNqIbDXxKPMns=
+github.com/sapcc/go-bits v0.0.0-20220223123017-b00971956813/go.mod h1:v3z6vEhw5xtUJ3EO0ZjWKKIhtdCjnmMmhxHpb7Oioik=
 github.com/sapcc/hermes v0.0.0-20190722215605-d772f40f9fc6/go.mod h1:WM5CVlqFCGM+AUE7lQgkLmPE89PWqJS3i+oRXaSztR8=
 github.com/sapcc/hermes v0.0.0-20220216215340-12b4f661924a h1:eugynT9mfMvVlEqt+EF3IlP2wC8OXSAfyPEjliP3vxs=
 github.com/sapcc/hermes v0.0.0-20220216215340-12b4f661924a/go.mod h1:1fxCUJjYnq0n63o61aXG+5G1oCKApPb667aiGawNvHQ=

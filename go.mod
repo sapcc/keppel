@@ -16,11 +16,10 @@ require (
 	github.com/opencontainers/image-spec v1.0.2
 	github.com/prometheus/client_golang v1.12.1
 	github.com/rs/cors v1.8.2
-	github.com/sapcc/go-bits v0.0.0-20220218092050-1bbdb2ca8131
+	github.com/sapcc/go-bits v0.0.0-20220223123017-b00971956813
 	github.com/sapcc/hermes v0.0.0-20220216215340-12b4f661924a
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.3.0
-	github.com/streadway/amqp v1.0.0
 	github.com/throttled/throttled/v2 v2.9.1
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
 	gopkg.in/gorp.v2 v2.2.0
@@ -47,6 +46,7 @@ require (
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/streadway/amqp v1.0.0 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/sys v0.0.0-20220209214540-3681064d5158 // indirect
 	golang.org/x/text v0.3.7 // indirect
