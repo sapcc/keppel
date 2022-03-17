@@ -118,9 +118,9 @@ func parseBurst(envVar string) (int, error) {
 			valStr = "5"
 		}
 	}
-	val, err := strconv.ParseUint(valStr, 10, 64)
+	val, err := strconv.Atoi(valStr)
 	if err != nil {
 		return 0, fmt.Errorf("malformed %s: %s", envVar, err.Error())
 	}
-	return int(val), nil
+	return val, nil
 }
