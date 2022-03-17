@@ -23,6 +23,8 @@ githubWorkflows:
     coveralls: true
     postgres:
       enabled: true
+  codeQL:
+    enabled: true
   license:
     enabled: true
   spellCheck:
