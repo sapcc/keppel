@@ -133,7 +133,7 @@ func ParseConfiguration() Configuration {
 
 // ParseBool is like strconv.ParseBool() but doesn't return any error.
 func ParseBool(str string) bool {
-	v, _ := strconv.ParseBool(str)
+	v, _ := strconv.ParseBool(str) //nolint:errcheck
 	return v
 }
 

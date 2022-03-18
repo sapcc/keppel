@@ -160,7 +160,7 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Use
 	}
 	throwAwayClient.SetThrowaway(true)
 	throwAwayClient.ReauthFunc = nil
-	throwAwayClient.SetTokenAndAuthResult(nil)
+	throwAwayClient.SetTokenAndAuthResult(nil) //nolint:errcheck
 
 	t := d.TokenValidator.CheckCredentials(
 		fmt.Sprintf("username=%s,password=%s", userName, password),
