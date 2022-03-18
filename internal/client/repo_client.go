@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"strings"
@@ -147,6 +148,6 @@ type unexpectedStatusCodeError struct {
 
 func (e unexpectedStatusCodeError) Error() string {
 	return fmt.Sprintf("during %s %s: expected status %d, but got %s",
-		e.req.Method, e.req.URL.String(), e.expectedStatus, e.actualStatus,
+		e.req.Method, html.EscapeString(e.req.URL.String()), e.expectedStatus, e.actualStatus,
 	)
 }
