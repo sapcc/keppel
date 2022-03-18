@@ -89,7 +89,7 @@ func ParseConfiguration() Configuration {
 	cfg := Configuration{
 		APIPublicHostname:        MustGetenv("KEPPEL_API_PUBLIC_FQDN"),
 		AnycastAPIPublicHostname: os.Getenv("KEPPEL_API_ANYCAST_FQDN"),
-		DatabaseURL:              getDbURL(),
+		DatabaseURL:              getDBURL(),
 	}
 
 	parseIssuerKeys := func(prefix string) []crypto.PrivateKey {
@@ -169,7 +169,7 @@ func GetenvOrDefault(key, defaultVal string) string {
 	return val
 }
 
-func getDbURL() url.URL {
+func getDBURL() url.URL {
 	dbName := GetenvOrDefault("KEPPEL_DB_NAME", "keppel")
 	dbUsername := GetenvOrDefault("KEPPEL_DB_USERNAME", "postgres")
 	dbPass := os.Getenv("KEPPEL_DB_PASSWORD")
