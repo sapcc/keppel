@@ -39,11 +39,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sre"
+	uuid "github.com/satori/go.uuid"
+	"gopkg.in/gorp.v2"
+
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
-	uuid "github.com/satori/go.uuid"
-	"gopkg.in/gorp.v2"
 )
 
 //This implements the POST /v2/<account>/<repository>/blobs/uploads/ endpoint.

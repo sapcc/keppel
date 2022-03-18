@@ -26,8 +26,9 @@ import (
 	"strings"
 
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/throttled/throttled/v2"
+
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //RateLimitDriver is the rate limit driver "basic".

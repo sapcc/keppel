@@ -23,6 +23,7 @@ import (
 	"io"
 
 	"github.com/opencontainers/go-digest"
+
 	"github.com/sapcc/keppel/internal/keppel"
 )
 

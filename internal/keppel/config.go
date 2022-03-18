@@ -32,6 +32,7 @@ import (
 	"github.com/go-redis/redis"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/sapcc/go-bits/logg"
+
 	"github.com/sapcc/keppel/internal/clair"
 )
 

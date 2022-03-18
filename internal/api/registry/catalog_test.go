@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-bits/assert"
+
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -265,7 +266,6 @@ func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
 		},
 		ExpectBody: test.ErrorCode(keppel.ErrUnauthorized),
 	}.Check(t, h)
-
 }
 
 func testNoCatalogOnAnycast(t *testing.T, s test.Setup) {

@@ -25,6 +25,7 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/hermes/pkg/cadf"
+
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"

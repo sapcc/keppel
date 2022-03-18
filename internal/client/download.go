@@ -25,6 +25,7 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/opencontainers/go-digest"
+
 	"github.com/sapcc/keppel/internal/keppel"
 )
 

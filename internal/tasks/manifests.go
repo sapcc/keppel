@@ -29,6 +29,7 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/logg"
+
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"

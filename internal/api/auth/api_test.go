@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/assert"
+
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -793,7 +794,6 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 						}}
 					}
 					req.ExpectBody = expectedContents
-
 				} else {
 					msg := strings.Replace(c.ErrorMessage, "%SERVICE%", domainPrefix+c.Service, -1)
 					req.ExpectStatus = http.StatusBadRequest

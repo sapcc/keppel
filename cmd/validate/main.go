@@ -25,9 +25,10 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/spf13/cobra"
+
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/spf13/cobra"
 )
 
 var (

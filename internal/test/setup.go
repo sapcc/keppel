@@ -27,6 +27,8 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-bits/logg"
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/sapcc/keppel/internal/api"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
@@ -34,7 +36,6 @@ import (
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type setupParams struct {

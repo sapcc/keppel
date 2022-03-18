@@ -38,6 +38,7 @@ import (
 	"github.com/majewsky/schwift"
 	"github.com/majewsky/schwift/gopherschwift"
 	"github.com/sapcc/go-bits/logg"
+
 	"github.com/sapcc/keppel/internal/keppel"
 )
 

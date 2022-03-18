@@ -30,8 +30,9 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/sapcc/keppel/internal/keppel"
 	uuid "github.com/satori/go.uuid"
+
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 func init() {

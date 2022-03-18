@@ -26,6 +26,7 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/easypg"
+
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )

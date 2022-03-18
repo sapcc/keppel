@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis"
+
 	"github.com/sapcc/keppel/internal/keppel"
 )
 

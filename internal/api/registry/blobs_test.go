@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-bits/assert"
+
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -198,14 +199,12 @@ func TestBlobMonolithicUpload(t *testing.T) {
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-
 	})
 }
 
 func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 	//run everything in this testcase once for streamed upload and once for chunked upload
 	for _, isChunked := range []bool{false, true} {
-
 		testWithPrimary(t, nil, func(s test.Setup) {
 			h := s.Handler
 			readOnlyToken := s.GetToken(t, "repository:test1/foo:pull")

@@ -25,12 +25,13 @@ import (
 	"os"
 
 	"github.com/sapcc/go-bits/logg"
+	"github.com/spf13/cobra"
+
 	anycastmonitorcmd "github.com/sapcc/keppel/cmd/anycastmonitor"
 	apicmd "github.com/sapcc/keppel/cmd/api"
 	healthmonitorcmd "github.com/sapcc/keppel/cmd/healthmonitor"
 	janitorcmd "github.com/sapcc/keppel/cmd/janitor"
 	validatecmd "github.com/sapcc/keppel/cmd/validate"
-	"github.com/spf13/cobra"
 
 	//include all known driver implementations
 	_ "github.com/sapcc/keppel/internal/drivers/basic"

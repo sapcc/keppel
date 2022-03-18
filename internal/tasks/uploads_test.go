@@ -27,8 +27,9 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/easypg"
-	"github.com/sapcc/keppel/internal/keppel"
 	uuid "github.com/satori/go.uuid"
+
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 var (

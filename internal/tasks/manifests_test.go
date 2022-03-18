@@ -28,6 +28,7 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"

@@ -27,8 +27,9 @@ import (
 	"time"
 
 	"github.com/opencontainers/go-digest"
-	"github.com/sapcc/keppel/internal/clair"
 	gorp "gopkg.in/gorp.v2"
+
+	"github.com/sapcc/keppel/internal/clair"
 )
 
 //Account contains a record from the `accounts` table.

@@ -29,10 +29,11 @@ import (
 	"net/url"
 
 	"github.com/sapcc/go-bits/logg"
-	authapi "github.com/sapcc/keppel/internal/api/auth"
-	"github.com/sapcc/keppel/internal/keppel"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/gorp.v2"
+
+	authapi "github.com/sapcc/keppel/internal/api/auth"
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //IssueNewPasswordForPeer issues a new replication password for the given peer.

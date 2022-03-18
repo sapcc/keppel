@@ -30,6 +30,7 @@ import (
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/assert"
+
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
