@@ -2032,6 +2032,7 @@ func TestDeleteAccount(t *testing.T) {
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-003.sql")
 }
 
+//nolint:unparam
 func makeSubleaseToken(accountName, primaryHostname, secret string) string {
 	buf, _ := json.Marshal(assert.JSONObject{
 		"account": accountName,

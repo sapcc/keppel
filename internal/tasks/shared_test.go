@@ -43,6 +43,7 @@ func setup(t *testing.T) (*Janitor, test.Setup) {
 	return j, s
 }
 
+//nolint:unparam
 func forAllReplicaTypes(t *testing.T, action func(string)) {
 	action("on_first_use")
 	action("from_external_on_first_use")
