@@ -15,7 +15,10 @@ variables:
 vendoring:
   enabled: true
 
-githubWorkflows:
+golangciLint:
+  createConfig: true
+
+githubWorkflow:
   global:
     ignorePaths: [ "**.md" ] # all Markdown files
   ci:
