@@ -29,6 +29,10 @@ linters-settings:
     check-blank: true
     # Report about not checking of errors in type assertions.
     check-type-assertions: true
+    exclude-functions:
+      - encoding/json.Marshal
+      - (net/http.ResponseWriter).Write
+      - (*github.com/spf13/cobra.Command).Help
   forbidigo:
     forbid:
       # ioutil package has been deprecated: https://github.com/golang/go/issues/42026

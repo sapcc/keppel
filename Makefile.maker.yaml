@@ -17,6 +17,11 @@ vendoring:
 
 golangciLint:
   createConfig: true
+  errcheckExcludes:
+    - encoding/json.Marshal
+    # Any error in HTTP handlers is handled by the server itself.
+    - (net/http.ResponseWriter).Write
+    - (*github.com/spf13/cobra.Command).Help
 
 githubWorkflow:
   global:
