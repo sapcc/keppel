@@ -5,24 +5,27 @@
 
 name: Spell
 "on":
-  pull_request:
-    branches:
-    - '*'
   push:
     branches:
-    - master
+      - master
+  pull_request:
+    branches:
+      - '*'
+permissions:
+  contents: read
 jobs:
   misspell:
     name: Check
+    permissions:
+      checks: write
     runs-on: ubuntu-latest
     steps:
-    - name: Check out code
-      uses: actions/checkout@v2
-    - name: Check for spelling errors
-      uses: reviewdog/action-misspell@v1
-      with:
-        exclude: ./vendor/*
-        fail_on_error: true
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        reporter: github-check
-
+      - name: Check out code
+        uses: actions/checkout@v3
+      - name: Check for spelling errors
+        uses: reviewdog/action-misspell@v1
+        with:
+          exclude: ./vendor/*
+          fail_on_error: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-check
