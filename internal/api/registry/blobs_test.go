@@ -381,7 +381,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 					Body:         assert.ByteData(blob.Contents),
 					ExpectStatus: http.StatusAccepted,
 				}.Check(t, h)
-				uploadURL := resp.Header.Get("Location")
+				uploadURL := resp.Header.Get("Location") //nolint:govet
 				assert.HTTPRequest{
 					Method:       "PUT",
 					Path:         keppel.AppendQuery(uploadURL, url.Values{"digest": {wrongDigest}}),
@@ -403,7 +403,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 					Body:         assert.ByteData(chunk1),
 					ExpectStatus: http.StatusAccepted,
 				}.Check(t, h)
-				uploadURL := resp.Header.Get("Location")
+				uploadURL := resp.Header.Get("Location") //nolint:govet
 
 				//when Content-Length is missing or 0, the request body will just be
 				//ignored and the validation will fail later when the digest does not match
