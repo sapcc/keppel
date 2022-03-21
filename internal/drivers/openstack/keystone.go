@@ -46,6 +46,7 @@ import (
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/go-bits/logg"
+
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -159,7 +160,7 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Use
 	}
 	throwAwayClient.SetThrowaway(true)
 	throwAwayClient.ReauthFunc = nil
-	throwAwayClient.SetTokenAndAuthResult(nil)
+	throwAwayClient.SetTokenAndAuthResult(nil) //nolint:errcheck
 
 	t := d.TokenValidator.CheckCredentials(
 		fmt.Sprintf("username=%s,password=%s", userName, password),

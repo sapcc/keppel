@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/assert"
+
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -60,7 +61,6 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 	expectAccountsAnnouncedJustNow(t, s, account2)
 	expectError(t, sql.ErrNoRows.Error(), j.AnnounceNextAccountToFederation())
 	expectAccountsAnnouncedJustNow(t, s /*, nothing */)
-
 }
 
 func expectAccountsAnnouncedJustNow(t *testing.T, s test.Setup, accounts ...keppel.Account) {

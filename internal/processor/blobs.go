@@ -32,9 +32,10 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/logg"
+	"gopkg.in/gorp.v2"
+
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
-	"gopkg.in/gorp.v2"
 )
 
 //ValidateExistingBlob validates the given blob that already exists in the DB.

@@ -42,7 +42,7 @@ var (
 	RepoNameWithLeadingSlashRx = regexp.MustCompile(`^` + RepoNameWithLeadingSlash + `$`)
 )
 
-// Regex to match repo/account and optional tag and digest combination
+// ImageReferenceRx is used to match repo/account and optional tag and digest combination
 // Examples:
 // - /library/alpine
 // - /library/alpine:nonsense

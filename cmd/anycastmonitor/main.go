@@ -34,10 +34,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sapcc/go-bits/httpee"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/spf13/cobra"
+
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/spf13/cobra"
 )
 
 var longDesc = strings.TrimSpace(`

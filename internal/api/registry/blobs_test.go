@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-bits/assert"
+
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -198,14 +199,12 @@ func TestBlobMonolithicUpload(t *testing.T) {
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-
 	})
 }
 
 func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 	//run everything in this testcase once for streamed upload and once for chunked upload
 	for _, isChunked := range []bool{false, true} {
-
 		testWithPrimary(t, nil, func(s test.Setup) {
 			h := s.Handler
 			readOnlyToken := s.GetToken(t, "repository:test1/foo:pull")
@@ -382,7 +381,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 					Body:         assert.ByteData(blob.Contents),
 					ExpectStatus: http.StatusAccepted,
 				}.Check(t, h)
-				uploadURL := resp.Header.Get("Location")
+				uploadURL := resp.Header.Get("Location") //nolint:govet
 				assert.HTTPRequest{
 					Method:       "PUT",
 					Path:         keppel.AppendQuery(uploadURL, url.Values{"digest": {wrongDigest}}),
@@ -404,7 +403,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 					Body:         assert.ByteData(chunk1),
 					ExpectStatus: http.StatusAccepted,
 				}.Check(t, h)
-				uploadURL := resp.Header.Get("Location")
+				uploadURL := resp.Header.Get("Location") //nolint:govet
 
 				//when Content-Length is missing or 0, the request body will just be
 				//ignored and the validation will fail later when the digest does not match

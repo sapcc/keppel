@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-bits/assert"
+
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -93,7 +94,7 @@ func testWithReplica(t *testing.T, s1 test.Setup, strategy string, action func(f
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		tt := http.DefaultClient.Transport.(*test.RoundTripper)
+		tt := http.DefaultClient.Transport.(*test.RoundTripper) //nolint:errcheck
 		tt.Handlers["registry-secondary.example.org"] = nil
 	}()
 
@@ -159,6 +160,7 @@ func getBlobUpload(t *testing.T, h http.Handler, token, fullRepoName string) (up
 	return resp.Header.Get("Location"), resp.Header.Get("Blob-Upload-Session-Id")
 }
 
+//nolint:unparam
 func getBlobUploadURL(t *testing.T, h http.Handler, token, fullRepoName string) string {
 	t.Helper()
 	u, _ := getBlobUpload(t, h, token, fullRepoName)
@@ -195,6 +197,7 @@ func expectBlobExists(t *testing.T, h http.Handler, token, fullRepoName string, 
 	}
 }
 
+//nolint:unparam
 func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName string, manifest test.Bytes, reference string, additionalHeaders map[string]string) {
 	t.Helper()
 	for _, method := range []string{"GET", "HEAD"} {
@@ -266,6 +269,7 @@ func expectStorageEmpty(t *testing.T, sd *test.StorageDriver, db *keppel.DB) {
 	}
 }
 
+//nolint:unparam
 func testWithAccountInMaintenance(t *testing.T, db *keppel.DB, accountName string, action func()) {
 	_, err := db.Exec("UPDATE accounts SET in_maintenance = TRUE WHERE name = $1", accountName)
 	if err != nil {

@@ -21,6 +21,7 @@ package auth
 
 import (
 	"github.com/sapcc/go-bits/httpext"
+
 	"github.com/sapcc/keppel/internal/keppel"
 )
 

@@ -34,10 +34,11 @@ import (
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/hermes/pkg/cadf"
+	"gopkg.in/gorp.v2"
+
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
-	"gopkg.in/gorp.v2"
 )
 
 //IncomingManifest contains information about a manifest uploaded by the user

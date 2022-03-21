@@ -21,9 +21,10 @@ package tasks
 import (
 	"testing"
 
+	"gopkg.in/gorp.v2"
+
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
-	"gopkg.in/gorp.v2"
 )
 
 var (
@@ -42,6 +43,7 @@ func setup(t *testing.T) (*Janitor, test.Setup) {
 	return j, s
 }
 
+//nolint:unparam
 func forAllReplicaTypes(t *testing.T, action func(string)) {
 	action("on_first_use")
 	action("from_external_on_first_use")

@@ -23,8 +23,9 @@ import (
 	"encoding/json"
 
 	"github.com/sapcc/go-bits/audittools"
-	"github.com/sapcc/keppel/internal/keppel"
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 func init() {

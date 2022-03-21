@@ -27,6 +27,7 @@ import (
 
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/domains"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/projects"
+
 	"github.com/sapcc/keppel/internal/keppel"
 )
 

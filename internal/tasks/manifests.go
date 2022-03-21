@@ -29,6 +29,7 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/logg"
+
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -616,7 +617,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 				return err
 			}
 			if clairReport == nil {
-				//lint:ignore ST1005 Clair is a proper name
+				//nolint:stylecheck // Clair is a proper name
 				return fmt.Errorf("Clair reports indexing of %s as finished, but vulnerability report is 404", manifest.Digest)
 			}
 			vulnStatuses = append(vulnStatuses, clairReport.VulnerabilityStatus())

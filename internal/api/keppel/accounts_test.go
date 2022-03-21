@@ -31,6 +31,7 @@ import (
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/hermes/pkg/cadf"
+
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
@@ -2031,6 +2032,7 @@ func TestDeleteAccount(t *testing.T) {
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-003.sql")
 }
 
+//nolint:unparam
 func makeSubleaseToken(accountName, primaryHostname, secret string) string {
 	buf, _ := json.Marshal(assert.JSONObject{
 		"account": accountName,

@@ -72,7 +72,7 @@ func (c *ClairDouble) postIndexReport(w http.ResponseWriter, r *http.Request) {
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-	digest := reqBody["hash"].(string)
+	digest := reqBody["hash"].(string) //nolint:errcheck
 
 	//only accept images that we anticipated
 	fixturePath := c.IndexFixtures[digest]
@@ -80,7 +80,7 @@ func (c *ClairDouble) postIndexReport(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unexpected digest: "+digest, http.StatusBadRequest)
 		return
 	}
-	fixturePathAbs, _ := filepath.Abs(fixturePath)
+	fixturePathAbs, _ := filepath.Abs(fixturePath) //nolint:errcheck
 	actualPathAbs := fixturePathAbs + ".actual"
 
 	//pretty-print actual request body into file

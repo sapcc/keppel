@@ -30,10 +30,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sapcc/go-bits/httpee"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/spf13/cobra"
+
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/tasks"
-	"github.com/spf13/cobra"
 )
 
 //AddCommandTo mounts this command into the command hierarchy.

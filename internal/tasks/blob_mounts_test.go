@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/easypg"
+
 	"github.com/sapcc/keppel/internal/test"
 )
 

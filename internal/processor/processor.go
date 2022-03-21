@@ -26,9 +26,10 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
+	"gopkg.in/gorp.v2"
+
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
-	"gopkg.in/gorp.v2"
 )
 
 //Processor is a higher-level interface wrapping keppel.DB and keppel.StorageDriver.

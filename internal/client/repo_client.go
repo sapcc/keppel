@@ -97,15 +97,15 @@ func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
 				return nil, err
 			}
 		}
-		req, err := http.NewRequest(r.Method, uri, r.Body)
+		reqWithToken, err := http.NewRequest(r.Method, uri, r.Body)
 		if err != nil {
 			return nil, err
 		}
 		for k, v := range r.Headers {
-			req.Header[k] = v
+			reqWithToken.Header[k] = v
 		}
-		req.Header.Set("Authorization", "Bearer "+c.token)
-		resp, err = http.DefaultClient.Do(req)
+		reqWithToken.Header.Set("Authorization", "Bearer "+c.token)
+		resp, err = http.DefaultClient.Do(reqWithToken)
 		if err != nil {
 			return nil, keppel.ErrUnavailable.With(err.Error())
 		}

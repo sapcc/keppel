@@ -30,8 +30,9 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/sapcc/keppel/internal/keppel"
 	uuid "github.com/satori/go.uuid"
+
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 func init() {
@@ -186,10 +187,10 @@ func derivePublicKey(key crypto.PrivateKey) crypto.PublicKey {
 func serializePublicKey(key crypto.PrivateKey) string {
 	switch key := key.(type) {
 	case ed25519.PrivateKey:
-		pubkey := key.Public().(ed25519.PublicKey)
+		pubkey := key.Public().(ed25519.PublicKey) //nolint:errcheck
 		return hex.EncodeToString([]byte(pubkey))
 	case *rsa.PrivateKey:
-		pubkey := key.Public().(*rsa.PublicKey)
+		pubkey := key.Public().(*rsa.PublicKey) //nolint:errcheck
 		return fmt.Sprintf("%x:%s", pubkey.E, pubkey.N.Text(16))
 	default:
 		panic(fmt.Sprintf("do not know which JWT method to use for issuerKey.type = %T", key))

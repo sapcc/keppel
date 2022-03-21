@@ -39,11 +39,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sre"
+	uuid "github.com/satori/go.uuid"
+	"gopkg.in/gorp.v2"
+
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
-	uuid "github.com/satori/go.uuid"
-	"gopkg.in/gorp.v2"
 )
 
 //This implements the POST /v2/<account>/<repository>/blobs/uploads/ endpoint.
@@ -417,7 +418,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 		contentLength, err := strconv.ParseUint(contentLengthStr, 10, 64)
 		if err != nil {
 			//COVERAGE: unreachable in unit tests because net/http validates Content-Length header format before sending
-			keppel.ErrSizeInvalid.With("malformed Content-Length: " + err.Error())
+			keppel.ErrSizeInvalid.With("malformed Content-Length: "+err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 			return
 		}
 		if contentLength > 0 {

@@ -27,6 +27,8 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-bits/logg"
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/sapcc/keppel/internal/api"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
@@ -34,7 +36,6 @@ import (
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type setupParams struct {
@@ -165,7 +166,7 @@ func GetReplicationPassword() string {
 		//this password needs to be constant because it appears in some fixtures/*.sql
 		replicationPassword = "a4cb6fae5b8bb91b0b993486937103dab05eca93"
 
-		hashBytes, _ := bcrypt.GenerateFromPassword([]byte(replicationPassword), 8)
+		hashBytes, _ := bcrypt.GenerateFromPassword([]byte(replicationPassword), 8) //nolint:errcheck
 		replicationPasswordHash = string(hashBytes)
 	}
 	return replicationPassword
@@ -313,16 +314,16 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	//setup essential drivers
 	ad, err := keppel.NewAuthDriver("unittest", nil)
 	must(t, err)
-	s.AD = ad.(*AuthDriver)
+	s.AD = ad.(*AuthDriver) //nolint:errcheck
 	fd, err := keppel.NewFederationDriver("unittest", ad, s.Config)
 	must(t, err)
-	s.FD = fd.(*FederationDriver)
+	s.FD = fd.(*FederationDriver) //nolint:errcheck
 	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, s.Config)
 	must(t, err)
-	s.SD = sd.(*StorageDriver)
+	s.SD = sd.(*StorageDriver) //nolint:errcheck
 	icd, err := keppel.NewInboundCacheDriver("unittest", s.Config)
 	must(t, err)
-	s.ICD = icd.(*InboundCacheDriver)
+	s.ICD = icd.(*InboundCacheDriver) //nolint:errcheck
 
 	//setup APIs
 	apis := []api.API{
@@ -351,7 +352,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	quotasSetFor := make(map[string]bool)
 	for _, account := range params.Accounts {
 		must(t, s.DB.Insert(account))
-		fd.RecordExistingAccount(*account, s.Clock.Now())
+		fd.RecordExistingAccount(*account, s.Clock.Now()) //nolint:errcheck
 		if params.WithQuotas && !quotasSetFor[account.AuthTenantID] {
 			must(t, s.DB.Insert(&keppel.Quotas{
 				AuthTenantID:  account.AuthTenantID,

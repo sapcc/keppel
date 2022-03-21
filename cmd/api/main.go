@@ -33,6 +33,9 @@ import (
 	"github.com/rs/cors"
 	"github.com/sapcc/go-bits/httpee"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/spf13/cobra"
+	"github.com/throttled/throttled/v2/store/goredisstore"
+
 	"github.com/sapcc/keppel/internal/api"
 	auth "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/api/clairproxy"
@@ -40,8 +43,6 @@ import (
 	peerv1 "github.com/sapcc/keppel/internal/api/peer"
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/spf13/cobra"
-	"github.com/throttled/throttled/v2/store/goredisstore"
 )
 
 //AddCommandTo mounts this command into the command hierarchy.

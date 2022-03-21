@@ -25,11 +25,12 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/assert"
+	"github.com/throttled/throttled/v2"
+	"github.com/throttled/throttled/v2/store/memstore"
+
 	"github.com/sapcc/keppel/internal/drivers/basic"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
-	"github.com/throttled/throttled/v2"
-	"github.com/throttled/throttled/v2/store/memstore"
 )
 
 func TestRateLimits(t *testing.T) {
@@ -170,7 +171,6 @@ func TestAnycastRateLimits(t *testing.T) {
 			h2 := s2.Handler
 			s.Clock.StepBy(time.Hour) //reset all rate limits
 			testAnycast(t, firstPass, s2.DB, func() {
-
 				anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull")
 				anycastHeaders := map[string]string{
 					"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,

@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 
 	"github.com/sapcc/hermes/pkg/cadf"
+
 	"github.com/sapcc/keppel/internal/keppel"
 )
 

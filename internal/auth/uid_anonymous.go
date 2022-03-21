@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	"github.com/sapcc/go-bits/audittools"
+
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
