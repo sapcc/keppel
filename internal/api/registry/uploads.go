@@ -418,10 +418,8 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 		contentLength, err := strconv.ParseUint(contentLengthStr, 10, 64)
 		if err != nil {
 			//COVERAGE: unreachable in unit tests because net/http validates Content-Length header format before sending
-			err = keppel.ErrSizeInvalid.With("malformed Content-Length: " + err.Error())
-			if respondWithError(w, r, err) {
-				return
-			}
+			keppel.ErrSizeInvalid.With("malformed Content-Length: "+err.Error()).WriteAsRegistryV2ResponseTo(w, r)
+			return
 		}
 		if contentLength > 0 {
 			_, err = a.streamIntoUpload(*account, upload, dw, r.Body, &contentLength)
