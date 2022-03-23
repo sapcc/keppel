@@ -114,6 +114,7 @@ func createProviderClient(ao gophercloud.AuthOptions) (*gophercloud.ProviderClie
 	if err == nil {
 		//use http.DefaultClient, esp. to pick up the KEPPEL_INSECURE flag
 		provider.HTTPClient = *http.DefaultClient
+		provider.UserAgent.Prepend(fmt.Sprintf("%s/%s", keppel.Component, keppel.Version))
 		err = openstack.Authenticate(provider, ao)
 	}
 	return provider, err
@@ -158,6 +159,7 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Use
 		},
 		Endpoint: d.IdentityV3.Endpoint,
 	}
+	throwAwayClient.UserAgent.Prepend(fmt.Sprintf("%s/%s", keppel.Component, keppel.Version))
 	throwAwayClient.SetThrowaway(true)
 	throwAwayClient.ReauthFunc = nil
 	throwAwayClient.SetTokenAndAuthResult(nil) //nolint:errcheck
