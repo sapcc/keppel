@@ -29,8 +29,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gofrs/uuid"
 	"github.com/golang-jwt/jwt/v4"
-	uuid "github.com/satori/go.uuid"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -135,10 +135,14 @@ func (a Authorization) IssueToken(cfg keppel.Configuration) (*TokenResponse, err
 	//false to reveal the identity of the Keppel API that issued the token
 	issuer := Audience{IsAnycast: false, AccountName: a.Audience.AccountName}
 
+	uuid, err := uuid.NewV4()
+	if err != nil {
+		return nil, err
+	}
 	publicHost := a.Audience.Hostname(cfg)
 	token := jwt.NewWithClaims(method, tokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        uuid.NewV4().String(),
+			ID:        uuid.String(),
 			Audience:  jwt.ClaimStrings{publicHost},
 			Issuer:    "keppel-api@" + issuer.Hostname(cfg),
 			Subject:   a.UserIdentity.UserName(),

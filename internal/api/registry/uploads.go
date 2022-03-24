@@ -34,12 +34,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gofrs/uuid"
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sre"
-	uuid "github.com/satori/go.uuid"
 	"gopkg.in/gorp.v2"
 
 	"github.com/sapcc/keppel/internal/api"
@@ -118,9 +118,13 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//start a new upload
+	uuid, err := uuid.NewV4()
+	if respondWithError(w, r, err) {
+		return
+	}
 	upload := keppel.Upload{
 		RepositoryID: repo.ID,
-		UUID:         uuid.NewV4().String(),
+		UUID:         uuid.String(),
 		StorageID:    a.generateStorageID(),
 		SizeBytes:    0,
 		Digest:       "",
@@ -182,7 +186,11 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 	}
 
 	//the spec wants a Blob-Upload-Session-Id header even though the upload is done, so just make something up
-	w.Header().Set("Blob-Upload-Session-Id", uuid.NewV4().String())
+	uuid, err := uuid.NewV4()
+	if respondWithError(w, r, err) {
+		return
+	}
+	w.Header().Set("Blob-Upload-Session-Id", uuid.String())
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/%s", getRepoNameForURLPath(targetRepo, authz), blobDigest.String()))
 	w.WriteHeader(http.StatusCreated)
@@ -274,7 +282,11 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	}
 
 	//the spec wants a Blob-Upload-Session-Id header even though the upload is done, so just make something up
-	w.Header().Set("Blob-Upload-Session-Id", uuid.NewV4().String())
+	uuid, err := uuid.NewV4()
+	if respondWithError(w, r, err) {
+		return
+	}
+	w.Header().Set("Blob-Upload-Session-Id", uuid.String())
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/%s", getRepoNameForURLPath(repo, authz), blobDigest.String()))
 	w.WriteHeader(http.StatusCreated)
