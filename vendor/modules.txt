@@ -149,9 +149,6 @@ github.com/sapcc/go-bits/sre
 # github.com/sapcc/hermes v0.0.0-20220216215340-12b4f661924a
 ## explicit; go 1.13
 github.com/sapcc/hermes/pkg/cadf
-# github.com/satori/go.uuid v1.2.0
-## explicit
-github.com/satori/go.uuid
 # github.com/sergi/go-diff v1.2.0
 ## explicit; go 1.12
 github.com/sergi/go-diff/diffmatchpatch
