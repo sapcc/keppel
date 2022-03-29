@@ -27,6 +27,8 @@ const (
 	ErrorVulnerabilityStatus VulnerabilityStatus = "Error"
 	//PendingVulnerabilityStatus is a VulnerabilityStatus which means that we're not done scanning vulnerabilities yet.
 	PendingVulnerabilityStatus VulnerabilityStatus = "Pending"
+	//UnsupportedVulnerabilityStatus is a VulnerabilityStatus which means that we're not support scanning this manifest.
+	UnsupportedVulnerabilityStatus VulnerabilityStatus = "Unsupprted"
 	//CleanSeverity is a VulnerabilityStatus which means that there are no vulnerabilities.
 	CleanSeverity VulnerabilityStatus = "Clean"
 	//UnknownSeverity is a VulnerabilityStatus which means that there are vulnerabilities, but their severity is unknown.
@@ -46,16 +48,17 @@ const (
 )
 
 var sevMap = map[VulnerabilityStatus]uint{
-	ErrorVulnerabilityStatus:   0,
-	PendingVulnerabilityStatus: 0,
-	CleanSeverity:              1,
-	UnknownSeverity:            2,
-	NegligibleSeverity:         3,
-	LowSeverity:                4,
-	MediumSeverity:             5,
-	HighSeverity:               6,
-	CriticalSeverity:           7,
-	Defcon1Severity:            8,
+	ErrorVulnerabilityStatus:       0,
+	PendingVulnerabilityStatus:     0,
+	UnsupportedVulnerabilityStatus: 0,
+	CleanSeverity:                  1,
+	UnknownSeverity:                2,
+	NegligibleSeverity:             3,
+	LowSeverity:                    4,
+	MediumSeverity:                 5,
+	HighSeverity:                   6,
+	CriticalSeverity:               7,
+	Defcon1Severity:                8,
 }
 
 //HasReport checks whether a manifest with this VulnerabilityStatus has a
