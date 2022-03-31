@@ -540,7 +540,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 
 	//setup two image manifests with just one content layer (we don't really care about
 	//the content since our Clair double doesn't care either)
-	images := make([]test.Image, 2)
+	images := make([]test.Image, 3)
 	for idx := range images {
 		images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
 		images[idx].MustUpload(t, s, fooRepoRef, "")
@@ -550,6 +550,9 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	//some manifest-manifest refs to play with)
 	imageList := test.GenerateImageList(images[0], images[1])
 	imageList.MustUpload(t, s, fooRepoRef, "")
+
+	//fake manifest size to check if to big ones (here 10 GiB) are rejected
+	mustExec(t, s.DB, `UPDATE manifests SET size_bytes = 10737418240 where digest = 'sha256:a1efa53bd4bbcc4878997c775688438b8ccfd29ccf71f110296dc62d5dabc42d'`)
 
 	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
 	tr0.AssertEqualToFile("fixtures/vulnerability-check-setup.sql")
@@ -585,9 +588,11 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest()) //once for each manifest
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
 	tr.DBChanges().AssertEqual(`
 		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = 'sha256:7c5ed02bcdf0dbddf6f1664e01d6a1505c880e296a599371eb919e0e053c0aef';
+		UPDATE manifests SET next_vuln_check_at = 9000, vuln_status = 'Unsupported', vuln_scan_error = 'vulnerability scanning is not supported for images above 5 GiB' WHERE repo_id = 1 AND digest = 'sha256:a1efa53bd4bbcc4878997c775688438b8ccfd29ccf71f110296dc62d5dabc42d';
 		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = 'sha256:be414f354c95cb5c3e26d604f5fc79523c68c3f86e0fae98060d5bbc8db466c3';
 		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = 'sha256:dbed29ef114646eb4018436b03c6081f63e8a2693a78e3557b0cd240494fa3c0';
 	`)

@@ -29,11 +29,23 @@ func TestMergeVulnerabilityStatuses(t *testing.T) {
 		}
 	}
 	expect(CleanSeverity, MergeVulnerabilityStatuses())
+	expect(CleanSeverity, MergeVulnerabilityStatuses(CleanSeverity))
+
 	expect(ErrorVulnerabilityStatus, MergeVulnerabilityStatuses(ErrorVulnerabilityStatus))
 	expect(ErrorVulnerabilityStatus, MergeVulnerabilityStatuses(ErrorVulnerabilityStatus, PendingVulnerabilityStatus))
+	expect(ErrorVulnerabilityStatus, MergeVulnerabilityStatuses(ErrorVulnerabilityStatus, UnsupportedVulnerabilityStatus))
+	expect(ErrorVulnerabilityStatus, MergeVulnerabilityStatuses(PendingVulnerabilityStatus, ErrorVulnerabilityStatus))
 	expect(ErrorVulnerabilityStatus, MergeVulnerabilityStatuses(ErrorVulnerabilityStatus, HighSeverity))
+
+	expect(UnsupportedVulnerabilityStatus, MergeVulnerabilityStatuses(UnsupportedVulnerabilityStatus))
+	expect(UnsupportedVulnerabilityStatus, MergeVulnerabilityStatuses(UnsupportedVulnerabilityStatus, HighSeverity))
+	expect(UnsupportedVulnerabilityStatus, MergeVulnerabilityStatuses(HighSeverity, UnsupportedVulnerabilityStatus))
+	expect(UnsupportedVulnerabilityStatus, MergeVulnerabilityStatuses(PendingVulnerabilityStatus, UnsupportedVulnerabilityStatus))
+
 	expect(PendingVulnerabilityStatus, MergeVulnerabilityStatuses(PendingVulnerabilityStatus))
 	expect(PendingVulnerabilityStatus, MergeVulnerabilityStatuses(PendingVulnerabilityStatus, HighSeverity))
+	expect(PendingVulnerabilityStatus, MergeVulnerabilityStatuses(HighSeverity, PendingVulnerabilityStatus))
+
 	expect(LowSeverity, MergeVulnerabilityStatuses(LowSeverity, LowSeverity))
 	expect(HighSeverity, MergeVulnerabilityStatuses(LowSeverity, HighSeverity))
 }

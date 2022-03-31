@@ -27,6 +27,8 @@ const (
 	ErrorVulnerabilityStatus VulnerabilityStatus = "Error"
 	//PendingVulnerabilityStatus is a VulnerabilityStatus which means that we're not done scanning vulnerabilities yet.
 	PendingVulnerabilityStatus VulnerabilityStatus = "Pending"
+	//UnsupportedVulnerabilityStatus is a VulnerabilityStatus which means that we're not support scanning this manifest.
+	UnsupportedVulnerabilityStatus VulnerabilityStatus = "Unsupported"
 	//CleanSeverity is a VulnerabilityStatus which means that there are no vulnerabilities.
 	CleanSeverity VulnerabilityStatus = "Clean"
 	//UnknownSeverity is a VulnerabilityStatus which means that there are vulnerabilities, but their severity is unknown.
@@ -46,16 +48,17 @@ const (
 )
 
 var sevMap = map[VulnerabilityStatus]uint{
-	ErrorVulnerabilityStatus:   0,
-	PendingVulnerabilityStatus: 0,
-	CleanSeverity:              1,
-	UnknownSeverity:            2,
-	NegligibleSeverity:         3,
-	LowSeverity:                4,
-	MediumSeverity:             5,
-	HighSeverity:               6,
-	CriticalSeverity:           7,
-	Defcon1Severity:            8,
+	ErrorVulnerabilityStatus:       0,
+	PendingVulnerabilityStatus:     0,
+	UnsupportedVulnerabilityStatus: 0,
+	CleanSeverity:                  1,
+	UnknownSeverity:                2,
+	NegligibleSeverity:             3,
+	LowSeverity:                    4,
+	MediumSeverity:                 5,
+	HighSeverity:                   6,
+	CriticalSeverity:               7,
+	Defcon1Severity:                8,
 }
 
 //HasReport checks whether a manifest with this VulnerabilityStatus has a
@@ -67,22 +70,32 @@ func (s VulnerabilityStatus) HasReport() bool {
 //MergeVulnerabilityStatuses combines multiple VulnerabilityStatus values into one.
 //
 //* Any ErrorVulnerabilityStatus input results in an ErrorVulnerabilityStatus result.
+//* Otherwise, any UnsupportedVulnerabilityStatus input results in an UnsupportedVulnerabilityStatus result.
 //* Otherwise, any PendingVulnerabilityStatus input results in a PendingVulnerabilityStatus result.
 //* Otherwise, the result is the same as the highest individual severity.
 func MergeVulnerabilityStatuses(sevs ...VulnerabilityStatus) VulnerabilityStatus {
+	hasSpecialSeverity := make(map[VulnerabilityStatus]bool)
 	result := CleanSeverity
 	for _, s := range sevs {
-		//if any part of vulnerability scanning fails, the entirety is considered failed
-		if s == ErrorVulnerabilityStatus {
-			return ErrorVulnerabilityStatus
-		}
 		if sevMap[s] == 0 {
-			//`s == PendingVulnerabilityStatus` or `s` is a string value not known to us
-			return PendingVulnerabilityStatus
-		}
-		if sevMap[s] > sevMap[result] {
+			hasSpecialSeverity[s] = true
+		} else if sevMap[s] > sevMap[result] {
 			result = s
 		}
 	}
+
+	//these special severities can override everything else, in the priority order stated here
+	overrides := []VulnerabilityStatus{
+		ErrorVulnerabilityStatus,
+		UnsupportedVulnerabilityStatus,
+		PendingVulnerabilityStatus,
+	}
+	for _, s := range overrides {
+		if hasSpecialSeverity[s] {
+			return s
+		}
+	}
+
+	//otherwise, we take the highest individual severity
 	return result
 }

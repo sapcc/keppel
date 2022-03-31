@@ -568,6 +568,14 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		return err
 	}
 
+	//skip when blobs add up to more than 5 GiB
+	if manifest.SizeBytes >= 5<<30 {
+		manifest.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
+		manifest.VulnerabilityScanErrorMessage = "vulnerability scanning is not supported for images above 5 GiB"
+		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(1 * time.Hour))
+		return nil
+	}
+
 	//can only validate when all blobs are present in the storage
 	for _, blob := range blobs {
 		if blob.StorageID == "" {
