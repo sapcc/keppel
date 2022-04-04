@@ -356,11 +356,18 @@ func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account 
 		return nil, nil, nil, err
 	}
 
-	// collect layer creation times
+	// collect layer creation times (but ignore layers with a creation timestamp
+	// equal to the Unix epoch, like for distroless [1], since such timestamps
+	// are caused by a reproducible build and not indicative of the actual build
+	// time)
+	//
+	// [1] Ref: <https://github.com/GoogleContainerTools/distroless/issues/112>
 	var minCreationTime, maxCreationTime *time.Time
 	for _, v := range data.History {
-		minCreationTime = keppel.MinMaybeTime(minCreationTime, v.Created)
-		maxCreationTime = keppel.MaxMaybeTime(maxCreationTime, v.Created)
+		if v.Created != nil && v.Created.Unix() != 0 {
+			minCreationTime = keppel.MinMaybeTime(minCreationTime, v.Created)
+			maxCreationTime = keppel.MaxMaybeTime(maxCreationTime, v.Created)
+		}
 	}
 
 	return data.Config.Labels, minCreationTime, maxCreationTime, nil

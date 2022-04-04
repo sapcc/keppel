@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/docker/distribution/manifest/manifestlist"
 	"github.com/docker/distribution/manifest/schema2"
@@ -292,8 +293,8 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			//test display of custom headers during GET/HEAD
 			_, err = s.DB.Exec(
-				`UPDATE manifests SET vuln_status = $1 WHERE digest = $2`,
-				clair.CleanSeverity, image.Manifest.Digest.String(),
+				`UPDATE manifests SET vuln_status = $1, min_layer_created_at = $2, max_layer_created_at = $3 WHERE digest = $4`,
+				clair.CleanSeverity, time.Unix(23, 0).UTC(), time.Unix(42, 0).UTC(), image.Manifest.Digest.String(),
 			)
 			if err != nil {
 				t.Fatal(err.Error())
@@ -307,8 +308,8 @@ func TestImageManifestLifecycle(t *testing.T) {
 					ExpectHeader: map[string]string{
 						test.VersionHeaderKey:           test.VersionHeaderValue,
 						"X-Keppel-Vulnerability-Status": string(clair.CleanSeverity),
-						"X-Keppel-Min-Layer-Created-At": "0",
-						"X-Keppel-Max-Layer-Created-At": "0",
+						"X-Keppel-Min-Layer-Created-At": "23",
+						"X-Keppel-Max-Layer-Created-At": "42",
 					},
 				}.Check(t, h)
 			}
