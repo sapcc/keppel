@@ -1,0 +1,16 @@
+{
+  "extends": [
+    "config:base",
+    "default:pinDigestsDisabled",
+    "docker:enableMajor",
+    "regexManagers:dockerfileVersions"
+  ],
+  "constraints": {
+    "go": "1.17"
+  },
+  "postUpdateOptions": [
+    "gomodTidy1.17",
+    "gomodUpdateImportPaths"
+  ],
+  "prHourlyLimit": 0
+}

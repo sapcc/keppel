@@ -1,3 +1,4 @@
+# renovate: datasource=docker depName=alpine versioning=docker
 ARG ALPINE_VERSION=3.15
 
 FROM golang:1.17.9-alpine${ALPINE_VERSION} as builder
