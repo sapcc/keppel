@@ -4,7 +4,6 @@
 ################################################################################
 
 MAKEFLAGS=--warn-undefined-variables
-
 # /bin/sh is dash on Debian which does not support all features of ash/bash
 # to fix that we use /bin/bash only on Debian to not break Alpine
 ifneq (,$(wildcard /etc/os-release)) # check file existence
@@ -22,11 +21,11 @@ run-api: build/keppel
 copy-fixtures:
 	find -name '*.actual' | xargs -I{} bash -c 'mv {} $$(echo {} | sed "s/.actual//g")'
 
-build-all: build/keppel
-
 GO_BUILDFLAGS = -mod vendor
 GO_LDFLAGS = -X github.com/sapcc/keppel/internal/keppel.Version=$(shell util/find_version.sh)
 GO_TESTENV =
+
+build-all: build/keppel
 
 build/keppel: FORCE
 	go build $(GO_BUILDFLAGS) -ldflags '-s -w $(GO_LDFLAGS)' -o build/keppel .
@@ -49,17 +48,17 @@ GO_COVERPKGS := $(shell go list ./... | command grep -E '/internal' | command gr
 space := $(null) $(null)
 comma := ,
 
-check: build-all static-check build/cover.html FORCE
+check: FORCE build-all static-check build/cover.html
 	@printf "\e[1;32m>> All checks successful.\e[0m\n"
 
 prepare-static-check: FORCE
 	@if ! hash golangci-lint 2>/dev/null; then printf "\e[1;36m>> Installing golangci-lint (this may take a while)...\e[0m\n"; go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; fi
 
-static-check: prepare-static-check FORCE
+static-check: FORCE prepare-static-check
 	@printf "\e[1;36m>> golangci-lint\e[0m\n"
 	@golangci-lint run
 
-build/cover.out: build FORCE
+build/cover.out: FORCE | build
 	@printf "\e[1;36m>> go test\e[0m\n"
 	@env $(GO_TESTENV) go test $(GO_BUILDFLAGS) -ldflags '-s -w $(GO_LDFLAGS)' -shuffle=on -p 1 -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
 
@@ -86,5 +85,31 @@ license-headers: FORCE
 
 clean: FORCE
 	git clean -dxf build
+
+help: FORCE
+	@printf "\n"
+	@printf "\e[1mUsage:\e[0m\n"
+	@printf "  make \e[36m<target>\e[0m\n"
+	@printf "\n"
+	@printf "\e[1mGeneral\e[0m\n"
+	@printf "  \e[36mhelp\e[0m                  Display this help.\n"
+	@printf "\n"
+	@printf "\e[1mBuild\e[0m\n"
+	@printf "  \e[36mbuild-all\e[0m             Build all binaries.\n"
+	@printf "  \e[36mbuild/keppel\e[0m          Build keppel.\n"
+	@printf "  \e[36minstall\e[0m               Install all binaries. This option understands the conventional 'DESTDIR' and 'PREFIX' environment variables for choosing install locations.\n"
+	@printf "\n"
+	@printf "\e[1mTest\e[0m\n"
+	@printf "  \e[36mcheck\e[0m                 Run the test suite (unit tests and golangci-lint).\n"
+	@printf "  \e[36mprepare-static-check\e[0m  Install golangci-lint. This is used in CI, you should probably install golangci-lint using your package manager.\n"
+	@printf "  \e[36mstatic-check\e[0m          Run golangci-lint.\n"
+	@printf "  \e[36mbuild/cover.out\e[0m       Run tests and generate coverage report.\n"
+	@printf "  \e[36mbuild/cover.html\e[0m      Generate an HTML file with source code annotations from the coverage report.\n"
+	@printf "\n"
+	@printf "\e[1mDevelopment\e[0m\n"
+	@printf "  \e[36mvendor\e[0m                Run go mod tidy, go mod verify, and go mod vendor.\n"
+	@printf "  \e[36mvendor-compat\e[0m         Same as 'make vendor' but go mod tidy will use '-compat' flag with the Go version from go.mod file as value.\n"
+	@printf "  \e[36mlicense-headers\e[0m       Add license headers to all .go files excluding the vendor directory.\n"
+	@printf "  \e[36mclean\e[0m                 Run git clean.\n"
 
 .PHONY: FORCE
