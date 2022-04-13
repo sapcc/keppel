@@ -1,4 +1,5 @@
-ARG ALPINE_VERSION=3.15
+# renovate: datasource=docker depName=alpine versioning=docker
+ARG ALPINE_VERSION=3.13
 
 FROM golang:1.17-alpine${ALPINE_VERSION} as builder
 RUN apk add --no-cache make gcc musl-dev
