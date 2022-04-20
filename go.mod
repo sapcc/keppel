@@ -21,7 +21,7 @@ require (
 	github.com/sapcc/hermes v0.0.0-20220216215340-12b4f661924a
 	github.com/spf13/cobra v1.3.0
 	github.com/throttled/throttled/v2 v2.9.1
-	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
+	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
 	gopkg.in/gorp.v2 v2.2.0
 )
 
