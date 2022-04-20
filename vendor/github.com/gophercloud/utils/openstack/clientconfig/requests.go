@@ -916,7 +916,7 @@ func NewServiceClient(service string, opts *ClientOpts) (*gophercloud.ServiceCli
 	case "sharev2":
 		return openstack.NewSharedFileSystemV2(pClient, eo)
 	case "volume":
-		volumeVersion := "2"
+		volumeVersion := "3"
 		if v := cloud.VolumeAPIVersion; v != "" {
 			volumeVersion = v
 		}
