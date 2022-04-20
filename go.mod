@@ -8,7 +8,7 @@ require (
 	github.com/docker/distribution v2.8.0+incompatible
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/gofrs/uuid v4.2.0+incompatible
-	github.com/golang-jwt/jwt/v4 v4.3.0
+	github.com/golang-jwt/jwt/v4 v4.4.1
 	github.com/gophercloud/gophercloud v0.24.0
 	github.com/gophercloud/utils v0.0.0-20220209210848-d0ab9f2a8909
 	github.com/gorilla/mux v1.8.0
