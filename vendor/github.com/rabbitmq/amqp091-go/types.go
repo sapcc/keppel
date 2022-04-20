@@ -1,13 +1,14 @@
-// Copyright (c) 2012, Sean Treadway, SoundCloud Ltd.
+// Copyright (c) 2021 VMware, Inc. or its affiliates. All Rights Reserved.
+// Copyright (c) 2012-2021, Sean Treadway, SoundCloud Ltd.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-// Source code and contact info at http://github.com/streadway/amqp
 
-package amqp
+package amqp091
 
 import (
 	"fmt"
 	"io"
+	"sync"
 	"time"
 )
 
@@ -29,7 +30,7 @@ var (
 	ErrChannelMax = &Error{Code: ChannelError, Reason: "channel id space exhausted"}
 
 	// ErrSASL is returned from Dial when the authentication mechanism could not
-	// be negoated.
+	// be negotiated.
 	ErrSASL = &Error{Code: AccessRefused, Reason: "SASL could not negotiate a shared mechanism"}
 
 	// ErrCredentials is returned when the authenticated client is not authorized
@@ -179,6 +180,15 @@ type Blocking struct {
 	Reason string // Server reason for activation
 }
 
+// DeferredConfirmation represents a future publisher confirm for a message. It
+// allows users to directly correlate a publishing to a confirmation. These are
+// returned from PublishWithDeferredConfirm on Channels.
+type DeferredConfirmation struct {
+	wg           sync.WaitGroup
+	DeliveryTag  uint64
+	confirmation Confirmation
+}
+
 // Confirmation notifies the acknowledgment or negative acknowledgement of a
 // publishing identified by its delivery tag.  Use NotifyPublish on the Channel
 // to consume these events.
@@ -198,6 +208,7 @@ type Decimal struct {
 //
 //   bool
 //   byte
+//   int8
 //   float32
 //   float64
 //   int
@@ -226,7 +237,7 @@ type Table map[string]interface{}
 
 func validateField(f interface{}) error {
 	switch fv := f.(type) {
-	case nil, bool, byte, int, int16, int32, int64, float32, float64, string, []byte, Decimal, time.Time:
+	case nil, bool, byte, int8, int, int16, int32, int64, float32, float64, string, []byte, Decimal, time.Time:
 		return nil
 
 	case []interface{}:

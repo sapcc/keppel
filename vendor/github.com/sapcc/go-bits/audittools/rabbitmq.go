@@ -26,8 +26,8 @@ import (
 	"net/url"
 	"time"
 
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/sapcc/hermes/pkg/cadf"
-	"github.com/streadway/amqp"
 )
 
 // RabbitConnection represents a unique connection to some RabbitMQ server with

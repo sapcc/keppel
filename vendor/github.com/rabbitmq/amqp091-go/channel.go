@@ -1,9 +1,9 @@
-// Copyright (c) 2012, Sean Treadway, SoundCloud Ltd.
+// Copyright (c) 2021 VMware, Inc. or its affiliates. All Rights Reserved.
+// Copyright (c) 2012-2021, Sean Treadway, SoundCloud Ltd.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-// Source code and contact info at http://github.com/streadway/amqp
 
-package amqp
+package amqp091
 
 import (
 	"reflect"
@@ -431,6 +431,12 @@ func (ch *Channel) Close() error {
 		&channelClose{ReplyCode: replySuccess},
 		&channelCloseOk{},
 	)
+}
+
+// IsClosed returns true if the channel is marked as closed, otherwise false
+// is returned.
+func (ch *Channel) IsClosed() bool {
+	return atomic.LoadInt32(&ch.closed) == 1
 }
 
 /*
@@ -1082,7 +1088,7 @@ func (ch *Channel) Consume(queue, consumer string, autoAck, exclusive, noLocal, 
 		return nil, err
 	}
 
-	return (<-chan Delivery)(deliveries), nil
+	return deliveries, nil
 }
 
 /*
@@ -1324,8 +1330,19 @@ internal counter for DeliveryTags with the first confirmation starts at 1.
 
 */
 func (ch *Channel) Publish(exchange, key string, mandatory, immediate bool, msg Publishing) error {
+	_, err := ch.PublishWithDeferredConfirm(exchange, key, mandatory, immediate, msg)
+	return err
+}
+
+/*
+PublishWithDeferredConfirm behaves identically to Publish but additionally returns a
+DeferredConfirmation, allowing the caller to wait on the publisher confirmation
+for this message. If the channel has not been put into confirm mode,
+the DeferredConfirmation will be nil.
+*/
+func (ch *Channel) PublishWithDeferredConfirm(exchange, key string, mandatory, immediate bool, msg Publishing) (*DeferredConfirmation, error) {
 	if err := msg.Headers.Validate(); err != nil {
-		return err
+		return nil, err
 	}
 
 	ch.m.Lock()
@@ -1353,14 +1370,14 @@ func (ch *Channel) Publish(exchange, key string, mandatory, immediate bool, msg 
 			AppId:           msg.AppId,
 		},
 	}); err != nil {
-		return err
+		return nil, err
 	}
 
 	if ch.confirming {
-		ch.confirms.Publish()
+		return ch.confirms.Publish(), nil
 	}
 
-	return nil
+	return nil, nil
 }
 
 /*
@@ -1590,4 +1607,13 @@ func (ch *Channel) Reject(tag uint64, requeue bool) error {
 		DeliveryTag: tag,
 		Requeue:     requeue,
 	})
+}
+
+// GetNextPublishSeqNo returns the sequence number of the next message to be
+// published, when in confirm mode.
+func (ch *Channel) GetNextPublishSeqNo() uint64 {
+	ch.confirms.m.Lock()
+	defer ch.confirms.m.Unlock()
+
+	return ch.confirms.published + 1
 }
