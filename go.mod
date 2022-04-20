@@ -17,8 +17,8 @@ require (
 	github.com/opencontainers/image-spec v1.0.2
 	github.com/prometheus/client_golang v1.12.1
 	github.com/rs/cors v1.8.2
-	github.com/sapcc/go-bits v0.0.0-20220327202728-0bec9049b55c
-	github.com/sapcc/hermes v0.0.0-20220325003036-ae3739880b29
+	github.com/sapcc/go-bits v0.0.0-20220420164641-de8a04267267
+	github.com/sapcc/hermes v0.0.0-20220420173150-ce9c7348dca6
 	github.com/spf13/cobra v1.4.0
 	github.com/throttled/throttled/v2 v2.9.1
 	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
@@ -36,14 +36,14 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629 // indirect
-	github.com/lib/pq v1.10.4 // indirect
+	github.com/lib/pq v1.10.5 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/poy/onpar v1.1.2 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
-	github.com/rabbitmq/amqp091-go v1.3.0 // indirect
+	github.com/rabbitmq/amqp091-go v1.3.4 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
