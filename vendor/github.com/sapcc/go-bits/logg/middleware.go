@@ -131,3 +131,10 @@ func (w *responseWriter) WriteHeader(status int) {
 		w.headersWritten = true
 	}
 }
+
+//Flush implements the http.Flusher interface.
+func (w *responseWriter) Flush() {
+	if flusher, ok := w.original.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
