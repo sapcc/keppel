@@ -460,8 +460,8 @@ github.com/sapcc/go-bits v0.0.0-20190910095551-3863bd6b4943/go.mod h1:YpW83RbRSH
 github.com/sapcc/go-bits v0.0.0-20220327202728-0bec9049b55c h1:gMSXlny9i98fvf5h82xQtwLsJU1Ncs/Cz4/HuxHa2CU=
 github.com/sapcc/go-bits v0.0.0-20220327202728-0bec9049b55c/go.mod h1:SJYlzUsUBS/PEbNfJ/mRg9P6nrVZTg1m+OyRjDcnjsU=
 github.com/sapcc/hermes v0.0.0-20190722215605-d772f40f9fc6/go.mod h1:WM5CVlqFCGM+AUE7lQgkLmPE89PWqJS3i+oRXaSztR8=
-github.com/sapcc/hermes v0.0.0-20220216215340-12b4f661924a h1:eugynT9mfMvVlEqt+EF3IlP2wC8OXSAfyPEjliP3vxs=
-github.com/sapcc/hermes v0.0.0-20220216215340-12b4f661924a/go.mod h1:1fxCUJjYnq0n63o61aXG+5G1oCKApPb667aiGawNvHQ=
+github.com/sapcc/hermes v0.0.0-20220325003036-ae3739880b29 h1:uiIoISLYfwNg/kKQOz5Y5fh2q+x1YWQ2yqCOcAnw7/g=
+github.com/sapcc/hermes v0.0.0-20220325003036-ae3739880b29/go.mod h1:1fxCUJjYnq0n63o61aXG+5G1oCKApPb667aiGawNvHQ=
 github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529/go.mod h1:DxrIzT+xaE7yg65j358z/aeFdxmN0P9QXhEzd20vsDc=
 github.com/sergi/go-diff v1.2.0 h1:XU+rvMAioB0UC3q1MFrIQy4Vo5/4VsRDQQXHsEya6xQ=
 github.com/sergi/go-diff v1.2.0/go.mod h1:STckp+ISIX8hZLjrqAeVduY0gWCT9IjLuqbuNXdaHfM=
