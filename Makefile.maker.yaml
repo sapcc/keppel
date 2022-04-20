@@ -25,19 +25,24 @@ golangciLint:
 
 githubWorkflow:
   global:
+    assignees:
+      - SuperSandro2000
     ignorePaths: [ "**.md" ] # all Markdown files
   ci:
     enabled: true
     coveralls: true
     postgres:
       enabled: true
-  codeQL:
-    enabled: true
   license:
+    enabled: true
+  securityChecks:
     enabled: true
   spellCheck:
     enabled: true
     ignorePaths: [] # override global setting so that nothing is ignored
+
+renovate:
+  enabled: true
 
 verbatim: |
   # This is for manual testing.
