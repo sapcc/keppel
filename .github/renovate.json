@@ -5,6 +5,9 @@
     "docker:enableMajor",
     "regexManagers:dockerfileVersions"
   ],
+  "assignees": [
+    "SuperSandro2000"
+  ],
   "constraints": {
     "go": "1.17"
   },
