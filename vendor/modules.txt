@@ -132,7 +132,7 @@ github.com/rabbitmq/amqp091-go
 # github.com/rs/cors v1.8.2
 ## explicit; go 1.13
 github.com/rs/cors
-# github.com/sapcc/go-bits v0.0.0-20220420164641-de8a04267267
+# github.com/sapcc/go-bits v0.0.0-20220421001326-5fc35d483379
 ## explicit; go 1.17
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
