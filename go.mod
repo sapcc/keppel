@@ -18,7 +18,7 @@ require (
 	github.com/prometheus/client_golang v1.12.1
 	github.com/rs/cors v1.8.2
 	github.com/sapcc/go-bits v0.0.0-20220421001326-5fc35d483379
-	github.com/sapcc/hermes v0.0.0-20220420173150-ce9c7348dca6
+	github.com/sapcc/hermes v0.0.0-20220421185221-22632bbd8e54
 	github.com/spf13/cobra v1.4.0
 	github.com/throttled/throttled/v2 v2.9.1
 	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
@@ -47,8 +47,8 @@ require (
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
-	golang.org/x/sys v0.0.0-20220209214540-3681064d5158 // indirect
+	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad // indirect
 	golang.org/x/text v0.3.7 // indirect
-	google.golang.org/protobuf v1.27.1 // indirect
+	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
