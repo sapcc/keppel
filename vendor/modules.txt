@@ -83,7 +83,7 @@ github.com/inconshreveable/mousetrap
 # github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629
 ## explicit
 github.com/jpillora/longestcommon
-# github.com/lib/pq v1.10.4
+# github.com/lib/pq v1.10.5
 ## explicit; go 1.13
 github.com/lib/pq
 github.com/lib/pq/oid
@@ -126,13 +126,13 @@ github.com/prometheus/common/model
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
-# github.com/rabbitmq/amqp091-go v1.3.0
+# github.com/rabbitmq/amqp091-go v1.3.4
 ## explicit; go 1.15
 github.com/rabbitmq/amqp091-go
 # github.com/rs/cors v1.8.2
 ## explicit; go 1.13
 github.com/rs/cors
-# github.com/sapcc/go-bits v0.0.0-20220327202728-0bec9049b55c
+# github.com/sapcc/go-bits v0.0.0-20220420164641-de8a04267267
 ## explicit; go 1.17
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
@@ -149,7 +149,7 @@ github.com/sapcc/go-bits/httpext
 github.com/sapcc/go-bits/logg
 github.com/sapcc/go-bits/respondwith
 github.com/sapcc/go-bits/sre
-# github.com/sapcc/hermes v0.0.0-20220325003036-ae3739880b29
+# github.com/sapcc/hermes v0.0.0-20220420173150-ce9c7348dca6
 ## explicit; go 1.13
 github.com/sapcc/hermes/pkg/cadf
 # github.com/sergi/go-diff v1.2.0
