@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sre"
@@ -687,7 +688,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 				Request:    r,
 				User:       userInfo,
 				ReasonCode: http.StatusOK,
-				Action:     "create",
+				Action:     cadf.CreateAction,
 				Target:     AuditAccount{Account: *account},
 			})
 		}
@@ -733,14 +734,14 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 					Request:    r,
 					User:       userInfo,
 					ReasonCode: http.StatusOK,
-					Action:     "update",
+					Action:     cadf.UpdateAction,
 					Target:     AuditAccount{Account: *account},
 				})
 			}
 		}
 	}
 
-	submitAudit := func(action string, target AuditRBACPolicy) {
+	submitAudit := func(action cadf.Action, target AuditRBACPolicy) {
 		if userInfo := authz.UserIdentity.UserInfo(); userInfo != nil {
 			a.auditor.Record(audittools.EventParameters{
 				Time:       time.Now(),
@@ -791,7 +792,7 @@ func replicationPoliciesFunctionallyEqual(lhs, rhs *ReplicationPolicy) bool {
 	return reflect.DeepEqual(lhsClone, rhsClone)
 }
 
-func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPolicy, submitAudit func(action string, target AuditRBACPolicy)) error {
+func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPolicy, submitAudit func(action cadf.Action, target AuditRBACPolicy)) error {
 	//enumerate existing policies
 	var dbPolicies []keppel.RBACPolicy
 	_, err := a.db.Select(&dbPolicies, `SELECT * FROM rbac_policies WHERE account_name = $1`, account.Name)

@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sre"
@@ -148,7 +149,7 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 				Request:    r,
 				User:       userInfo,
 				ReasonCode: http.StatusOK,
-				Action:     "update",
+				Action:     cadf.UpdateAction,
 				Target:     AuditQuotas{QuotasBefore: quotasBefore, QuotasAfter: *quotas},
 			})
 		}

@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
-	"github.com/sapcc/hermes/pkg/cadf"
 
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -79,7 +79,7 @@ func TestQuotasAPI(t *testing.T) {
 		if pass == 1 {
 			s.Auditor.ExpectEvents(t, cadf.Event{
 				RequestPath: "/keppel/v1/quotas/tenant1",
-				Action:      "update",
+				Action:      cadf.UpdateAction,
 				Outcome:     "success",
 				Reason:      test.CADFReasonOK,
 				Target: cadf.Resource{

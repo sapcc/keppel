@@ -23,8 +23,9 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/sapcc/go-api-declarations/cadf"
+
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/hermes/pkg/cadf"
 )
 
 // AuditTrail holds an event sink for receiving audit events and closure functions

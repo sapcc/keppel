@@ -26,9 +26,9 @@ import (
 	"time"
 
 	"github.com/docker/distribution/manifest/schema2"
+	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
-	"github.com/sapcc/hermes/pkg/cadf"
 
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -267,7 +267,7 @@ func TestManifestsAPI(t *testing.T) {
 
 		s.Auditor.ExpectEvents(t, cadf.Event{
 			RequestPath: "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11),
-			Action:      "delete",
+			Action:      cadf.DeleteAction,
 			Outcome:     "success",
 			Reason:      test.CADFReasonOK,
 			Target: cadf.Resource{
@@ -289,7 +289,7 @@ func TestManifestsAPI(t *testing.T) {
 
 		s.Auditor.ExpectEvents(t, cadf.Event{
 			RequestPath: "/keppel/v1/accounts/test1/repositories/repo1-2/_tags/stillfirst",
-			Action:      "delete",
+			Action:      cadf.DeleteAction,
 			Outcome:     "success",
 			Reason:      test.CADFReasonOK,
 			Target: cadf.Resource{

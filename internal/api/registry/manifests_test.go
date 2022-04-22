@@ -26,9 +26,9 @@ import (
 
 	"github.com/docker/distribution/manifest/manifestlist"
 	"github.com/docker/distribution/manifest/schema2"
+	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
-	"github.com/sapcc/hermes/pkg/cadf"
 
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -229,7 +229,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			//we did two PUTs, but only the first one will be logged since the second one did not change anything
 			auditEvents := []cadf.Event{{
 				RequestPath: "/v2/test1/foo/manifests/" + ref,
-				Action:      "create",
+				Action:      cadf.CreateAction,
 				Outcome:     "success",
 				Reason:      test.CADFReasonOK,
 				Target: cadf.Resource{
@@ -242,7 +242,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			if ref != image.Manifest.Digest.String() {
 				auditEvents = append(auditEvents, cadf.Event{
 					RequestPath: "/v2/test1/foo/manifests/" + ref,
-					Action:      "create",
+					Action:      cadf.CreateAction,
 					Outcome:     "success",
 					Reason:      test.CADFReasonOK,
 					Target: cadf.Resource{
@@ -394,7 +394,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			//the DELETE will have logged an audit event
 			event := cadf.Event{
 				RequestPath: "/v2/test1/foo/manifests/" + ref,
-				Action:      "delete",
+				Action:      cadf.DeleteAction,
 				Outcome:     "success",
 				Reason:      test.CADFReasonOK,
 				Target: cadf.Resource{

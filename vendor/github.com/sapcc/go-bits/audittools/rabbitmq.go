@@ -27,7 +27,7 @@ import (
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/sapcc/hermes/pkg/cadf"
+	"github.com/sapcc/go-api-declarations/cadf"
 )
 
 // RabbitConnection represents a unique connection to some RabbitMQ server with

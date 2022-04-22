@@ -23,9 +23,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/audittools"
-	"github.com/sapcc/hermes/pkg/cadf"
 )
 
 var (

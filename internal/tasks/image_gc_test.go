@@ -24,8 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/easypg"
-	"github.com/sapcc/hermes/pkg/cadf"
 
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -140,7 +140,7 @@ func TestGCUntaggedImages(t *testing.T) {
 	//there should be an audit event for when GC deletes an image
 	s.Auditor.ExpectEvents(t, cadf.Event{
 		RequestPath: janitorDummyRequest.URL.String(),
-		Action:      "delete",
+		Action:      cadf.DeleteAction,
 		Outcome:     "success",
 		Reason:      test.CADFReasonOK,
 		Target: cadf.Resource{

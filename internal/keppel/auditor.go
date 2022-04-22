@@ -27,9 +27,9 @@ import (
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/hermes/pkg/cadf"
 )
 
 //Auditor is a component that forwards audit events to the appropriate logs.

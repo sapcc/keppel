@@ -21,7 +21,7 @@ package keppelv1
 import (
 	"encoding/json"
 
-	"github.com/sapcc/hermes/pkg/cadf"
+	"github.com/sapcc/go-api-declarations/cadf"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )

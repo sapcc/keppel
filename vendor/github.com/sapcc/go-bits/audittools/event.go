@@ -25,9 +25,10 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
+	"github.com/sapcc/go-api-declarations/cadf"
+
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/hermes/pkg/cadf"
 )
 
 // TargetRenderer is the interface that different event types "must" implement
@@ -73,7 +74,7 @@ type EventParameters struct {
 	// ReasonCode is used to determine whether the Event.Outcome was a 'success' or 'failure'.
 	// It is recommended to use a constant from: https://golang.org/pkg/net/http/#pkg-constants
 	ReasonCode int
-	Action     string
+	Action     cadf.Action
 	Observer   struct {
 		TypeURI string
 		Name    string
@@ -86,9 +87,9 @@ type EventParameters struct {
 // Warning: this function uses GenerateUUID() to generate the Event.ID, if that fails
 // then the concerning error will be logged and it will result in program termination.
 func NewEvent(p EventParameters) cadf.Event {
-	outcome := "failure"
+	outcome := cadf.FailureOutcome
 	if p.ReasonCode >= 200 && p.ReasonCode < 300 {
-		outcome = "success"
+		outcome = cadf.SuccessOutcome
 	}
 
 	var initiator cadf.Resource

@@ -17,16 +17,14 @@
 *
 *******************************************************************************/
 
+// Package cadf provides data structures for working with CADF events as per the CADF spec.
+//
+// SAP CCloud developers wishing to publish audit events to Hermes are advised
+// to use the github.com/sapcc/go-bits/audittools package.
 package cadf
 
 import (
-	"net"
-	"net/http"
-	"strconv"
 	"time"
-
-	"github.com/gofrs/uuid"
-	"github.com/sapcc/go-bits/gopherpolicy"
 )
 
 // Event contains the CADF event according to CADF spec, section 6.6.1 Event (data)
@@ -47,10 +45,10 @@ type Event struct {
 	EventType string `json:"eventType"`
 
 	// CADF action mapping for GET call on an OpenStack REST API
-	Action string `json:"action"`
+	Action Action `json:"action"`
 
 	// Outcome of REST API call, eg. success/failure
-	Outcome string `json:"outcome"`
+	Outcome Outcome `json:"outcome"`
 
 	// Standard response for successful HTTP requests
 	Reason Reason `json:"reason,omitempty"`
@@ -142,91 +140,4 @@ func (t Timestamp) MarshalJSON() ([]byte, error) {
 func (t *Timestamp) UnmarshalJSON(data []byte) (err error) {
 	t.Time, err = time.Parse(`"2006-01-02T15:04:05.999Z"`, string(data))
 	return
-}
-
-//EventParams contains parameters for creating an audit event.
-type EventParams struct {
-	Token           *gopherpolicy.Token
-	Request         *http.Request
-	ReasonCode      int
-	Time            string
-	ObserverUUID    string
-	DomainID        string
-	ProjectID       string
-	ServiceType     string
-	ServiceTypeURI  string
-	ResourceName    string
-	ResourceTypeURI string
-	RejectReason    string
-}
-
-// NewEvent takes the necessary parameters and returns a new audit event.
-func (p EventParams) NewEvent() Event {
-	targetID := p.ProjectID
-	if p.ProjectID == "" {
-		targetID = p.DomainID
-	}
-
-	outcome := "failure"
-	if p.ReasonCode == http.StatusOK {
-		outcome = "success"
-	}
-
-	return Event{
-		TypeURI:   "http://schemas.dmtf.org/cloud/audit/1.0/event",
-		ID:        generateUUID(),
-		EventTime: p.Time,
-		EventType: "activity", // Activity is all we use for auditing. Activity/Monitor/Control
-		Action:    "update",   // Create/Update/Delete
-		Outcome:   outcome,    // Success/Failure/Pending
-		Reason: Reason{
-			ReasonType: "HTTP",
-			ReasonCode: strconv.Itoa(p.ReasonCode),
-		},
-		Initiator: Resource{
-			TypeURI: "service/security/account/user",
-			//user attributes
-			Name:   p.Token.Context.Auth["user_name"],
-			ID:     p.Token.Context.Auth["user_id"],
-			Domain: p.Token.Context.Auth["user_domain_name"],
-			//token scope attributes
-			DomainID:          p.Token.Context.Auth["domain_id"],
-			DomainName:        p.Token.Context.Auth["domain_name"],
-			ProjectID:         p.Token.Context.Auth["project_id"],
-			ProjectName:       p.Token.Context.Auth["project_name"],
-			ProjectDomainName: p.Token.Context.Auth["project_domain_name"],
-			//other attributes
-			Host: &Host{
-				Address: StripPort(p.Request.RemoteAddr),
-				Agent:   p.Request.Header.Get("User-Agent"),
-			},
-		},
-		Target: Resource{
-			TypeURI:   p.ResourceTypeURI,
-			ID:        targetID,
-			DomainID:  p.DomainID,
-			ProjectID: p.ProjectID,
-		},
-		Observer: Resource{
-			TypeURI: p.ServiceTypeURI,
-			Name:    p.ServiceType,
-			ID:      p.ObserverUUID,
-		},
-		RequestPath: p.Request.URL.String(),
-	}
-}
-
-//Generate an UUID based on random numbers (RFC 4122).
-func generateUUID() string {
-	u := uuid.Must(uuid.NewV4())
-	return u.String()
-}
-
-//StripPort returns a host without the port number
-func StripPort(hostPort string) string {
-	host, _, err := net.SplitHostPort(hostPort)
-	if err == nil {
-		return host
-	}
-	return hostPort
 }

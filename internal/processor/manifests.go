@@ -31,9 +31,9 @@ import (
 	"github.com/opencontainers/go-digest"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/hermes/pkg/cadf"
 	"gopkg.in/gorp.v2"
 
 	"github.com/sapcc/keppel/internal/auth"
@@ -136,7 +136,7 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 				Request:    actx.Request,
 				User:       userInfo,
 				ReasonCode: http.StatusOK,
-				Action:     "create",
+				Action:     cadf.CreateAction,
 				Target:     target,
 			})
 		}
@@ -828,7 +828,7 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 			Request:    actx.Request,
 			User:       userInfo,
 			ReasonCode: http.StatusOK,
-			Action:     "delete",
+			Action:     cadf.DeleteAction,
 			Target: auditManifest{
 				Account:    account,
 				Repository: repo,
@@ -859,7 +859,7 @@ func (p *Processor) DeleteTag(account keppel.Account, repo keppel.Repository, ta
 			Request:    actx.Request,
 			User:       userInfo,
 			ReasonCode: http.StatusOK,
-			Action:     "delete",
+			Action:     cadf.DeleteAction,
 			Target: auditTag{
 				Account:    account,
 				Repository: repo,
