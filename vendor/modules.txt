@@ -135,7 +135,7 @@ github.com/rs/cors
 # github.com/sapcc/go-api-declarations v1.1.0
 ## explicit; go 1.17
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20220422143146-28336182f358
+# github.com/sapcc/go-bits v0.0.0-20220426011237-e04e063832cc
 ## explicit; go 1.17
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
