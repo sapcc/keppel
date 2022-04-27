@@ -18,7 +18,7 @@ require (
 	github.com/prometheus/client_golang v1.12.1
 	github.com/rs/cors v1.8.2
 	github.com/sapcc/go-api-declarations v1.1.0
-	github.com/sapcc/go-bits v0.0.0-20220426011237-e04e063832cc
+	github.com/sapcc/go-bits v0.0.0-20220427115030-0d611a8923fc
 	github.com/spf13/cobra v1.4.0
 	github.com/throttled/throttled/v2 v2.9.1
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
@@ -47,6 +47,7 @@ require (
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
+	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad // indirect
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect

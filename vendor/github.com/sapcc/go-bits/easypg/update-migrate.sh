@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 set -xeuo pipefail
 
 ################################################################################
@@ -6,9 +6,6 @@ set -xeuo pipefail
 ################################################################################
 
 cd "$(dirname "$0")/vendoring-helper"
-
-# force usage of go.mod (not relevant for Go 1.13+)
-export GO111MODULE=on
 
 # ensure that vendoring-helper compiles and that its go.sum is up-to-date
 go build -o /dev/null .
