@@ -158,7 +158,7 @@ func TestValidateNextManifestError(t *testing.T) {
 
 	//validation should yield an error
 	s.Clock.StepBy(36 * time.Hour)
-	expectedError := "while validating a manifest: manifest blob unknown to registry: " + image.Config.Digest.String()
+	expectedError := fmt.Sprintf("while validating manifest %s in repo 1: manifest blob unknown to registry: %s", image.Manifest.Digest.String(), image.Config.Digest.String())
 	expectError(t, expectedError, j.ValidateNextManifest())
 
 	//check that validation error to be recorded in the DB

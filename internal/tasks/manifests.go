@@ -57,18 +57,23 @@ var outdatedManifestSearchQuery = keppel.SimplifyWhitespaceInSQL(`
 //than 6 hours. At most one manifest is validated per call. If no manifest
 //needs to be validated, sql.ErrNoRows is returned.
 func (j *Janitor) ValidateNextManifest() (returnErr error) {
+	var manifest keppel.Manifest
+
 	defer func() {
 		if returnErr == nil {
 			validateManifestSuccessCounter.Inc()
 		} else if returnErr != sql.ErrNoRows {
 			validateManifestFailedCounter.Inc()
-			returnErr = fmt.Errorf("while validating a manifest: %s", returnErr.Error())
+			if manifest.Digest == "" || manifest.RepositoryID == 0 {
+				returnErr = fmt.Errorf("while validating a manifest: %s", returnErr.Error())
+			} else {
+				returnErr = fmt.Errorf("while validating manifest %s in repo %d: %s", manifest.Digest, manifest.RepositoryID, returnErr.Error())
+			}
 		}
 	}()
 
 	//find manifest: validate once every 24 hours, but recheck after 10 minutes if
 	//validation failed
-	var manifest keppel.Manifest
 	maxSuccessfulValidatedAt := j.timeNow().Add(-24 * time.Hour)
 	maxFailedValidatedAt := j.timeNow().Add(-10 * time.Minute)
 	err := j.db.SelectOne(&manifest, outdatedManifestSearchQuery, maxSuccessfulValidatedAt, maxFailedValidatedAt)
