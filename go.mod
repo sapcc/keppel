@@ -21,7 +21,7 @@ require (
 	github.com/sapcc/go-bits v0.0.0-20220426011237-e04e063832cc
 	github.com/spf13/cobra v1.4.0
 	github.com/throttled/throttled/v2 v2.9.1
-	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
+	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
 	gopkg.in/gorp.v2 v2.2.0
 )
 
