@@ -350,7 +350,14 @@ func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account 
 
 	//the Docker v2 and OCI formats are very similar; they're both JSON and have
 	//the labels in the same place, so we can use a single code path for both
-	var data imagespec.Image
+	var data struct {
+		Config struct {
+			Labels map[string]string `json:"labels"`
+		} `json:"config"`
+		History []struct {
+			Created *time.Time `json:"created"`
+		} `json:"history"`
+	}
 	err = json.Unmarshal(blobContents, &data)
 	if err != nil {
 		return nil, nil, nil, err

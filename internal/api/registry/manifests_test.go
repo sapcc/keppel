@@ -32,6 +32,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/tasks"
 	"github.com/sapcc/keppel/internal/test"
 )
 
@@ -661,5 +662,23 @@ func TestImageManifestWrongBlobSize(t *testing.T) {
 			ExpectStatus: http.StatusBadRequest,
 			ExpectBody:   test.ErrorCode(keppel.ErrManifestInvalid),
 		}.Check(t, h)
+	})
+}
+
+func TestImageManifestCmdEntrypointAsString(t *testing.T) {
+	testWithPrimary(t, nil, func(s test.Setup) {
+		j := tasks.NewJanitor(s.Config, s.FD, s.SD, s.ICD, s.DB, s.Auditor).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next)
+
+		//generate an image that has strings as Entrypoint and Cmd
+		image := test.GenerateImageWithCustomConfig(func(cfg map[string]interface{}) {
+			cfg["config"].(map[string]interface{})["Cmd"] = "/usr/bin/env bash"
+		}, test.GenerateExampleLayer(1))
+		image.MustUpload(t, s, fooRepoRef, "first")
+
+		s.Clock.StepBy(36 * time.Hour)
+		err := j.ValidateNextManifest()
+		if err != nil {
+			t.Error("expected err = nil, but got: " + err.Error())
+		}
 	})
 }
