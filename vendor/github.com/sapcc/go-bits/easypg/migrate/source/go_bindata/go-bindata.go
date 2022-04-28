@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 
 	"github.com/sapcc/go-bits/easypg/migrate/source"
@@ -101,7 +102,7 @@ func (b *Bindata) ReadUp(version uint) (r io.ReadCloser, identifier string, err 
 		if err != nil {
 			return nil, "", err
 		}
-		return io.NopCloser(bytes.NewReader(body)), m.Identifier, nil
+		return ioutil.NopCloser(bytes.NewReader(body)), m.Identifier, nil
 	}
 	return nil, "", &os.PathError{Op: fmt.Sprintf("read version %v", version), Path: b.path, Err: os.ErrNotExist}
 }
@@ -112,7 +113,7 @@ func (b *Bindata) ReadDown(version uint) (r io.ReadCloser, identifier string, er
 		if err != nil {
 			return nil, "", err
 		}
-		return io.NopCloser(bytes.NewReader(body)), m.Identifier, nil
+		return ioutil.NopCloser(bytes.NewReader(body)), m.Identifier, nil
 	}
 	return nil, "", &os.PathError{Op: fmt.Sprintf("read version %v", version), Path: b.path, Err: os.ErrNotExist}
 }
