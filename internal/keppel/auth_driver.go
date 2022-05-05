@@ -24,7 +24,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 )
 
 //Permission is an enum used by AuthDriver.

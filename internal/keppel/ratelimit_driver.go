@@ -19,11 +19,14 @@
 package keppel
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
+	"time"
 
-	"github.com/throttled/throttled/v2"
+	"github.com/go-redis/redis/v8"
+	"github.com/go-redis/redis_rate/v9"
 )
 
 //RateLimitedAction is an enum of all actions that can be rate-limited.
@@ -48,7 +51,7 @@ const (
 //each account.
 type RateLimitDriver interface {
 	//GetRateLimit shall return nil if the given action has no rate limit.
-	GetRateLimit(account Account, action RateLimitedAction) *throttled.RateQuota
+	GetRateLimit(account Account, action RateLimitedAction) *redis_rate.Limit
 }
 
 var rateLimitDriverFactories = make(map[string]func(AuthDriver, Configuration) (RateLimitDriver, error))
@@ -82,28 +85,28 @@ func RegisterRateLimitDriver(name string, factory func(AuthDriver, Configuration
 //implementation.
 type RateLimitEngine struct {
 	Driver RateLimitDriver
-	Store  throttled.GCRAStore
+	Client *redis.Client
 }
 
 //RateLimitAllows checks whether the given action on the given account is allowed by
 //the account's rate limit.
-func (e RateLimitEngine) RateLimitAllows(account Account, action RateLimitedAction, amount uint64) (bool, throttled.RateLimitResult, error) {
+func (e RateLimitEngine) RateLimitAllows(account Account, action RateLimitedAction, amount uint64) (bool, *redis_rate.Result, error) {
 	rateQuota := e.Driver.GetRateLimit(account, action)
 	if rateQuota == nil {
 		//no rate limit for this account and action
-		return true, throttled.RateLimitResult{
-			Limit:      math.MaxInt64,
+		return true, &redis_rate.Result{
+			Limit:      redis_rate.Limit{Rate: math.MaxInt64, Period: time.Second},
 			Remaining:  math.MaxInt64,
 			ResetAfter: 0,
 			RetryAfter: -1,
 		}, nil
 	}
 
-	gcra, err := throttled.NewGCRARateLimiter(e.Store, *rateQuota)
+	limiter := redis_rate.NewLimiter(e.Client)
+	key := fmt.Sprintf("keppel-ratelimit-%s-%s", string(action), account.Name)
+	result, err := limiter.AllowN(context.Background(), key, *rateQuota, int(amount))
 	if err != nil {
-		return false, throttled.RateLimitResult{}, err
+		return false, &redis_rate.Result{}, err
 	}
-	key := fmt.Sprintf("ratelimit-%s-%s", string(action), account.Name)
-	limited, result, err := gcra.RateLimit(key, int(amount))
-	return !limited, result, err
+	return result.Allowed > 0, result, err
 }
