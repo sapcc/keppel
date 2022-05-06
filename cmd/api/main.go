@@ -27,14 +27,13 @@ import (
 	"time"
 
 	"github.com/dlmiddlecote/sqlstats"
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 	"github.com/sapcc/go-bits/httpee"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/spf13/cobra"
-	"github.com/throttled/throttled/v2/store/goredisstore"
 
 	"github.com/sapcc/keppel/internal/api"
 	auth "github.com/sapcc/keppel/internal/api/auth"
@@ -81,11 +80,9 @@ func run(cmd *cobra.Command, args []string) {
 
 	rle := (*keppel.RateLimitEngine)(nil)
 	if rc != nil {
-		store, err := goredisstore.New(rc, "keppel-")
-		must(err)
 		rld, err := keppel.NewRateLimitDriver(keppel.MustGetenv("KEPPEL_DRIVER_RATELIMIT"), ad, cfg)
 		must(err)
-		rle = &keppel.RateLimitEngine{Driver: rld, Store: store}
+		rle = &keppel.RateLimitEngine{Driver: rld, Client: rc}
 	}
 
 	//start background goroutines

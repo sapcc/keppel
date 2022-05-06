@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 	"github.com/sapcc/go-bits/audittools"
 
 	"github.com/sapcc/keppel/internal/keppel"

@@ -24,9 +24,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
+	"github.com/go-redis/redis/v8"
+	"github.com/go-redis/redis_rate/v9"
 	"github.com/sapcc/go-bits/assert"
-	"github.com/throttled/throttled/v2"
-	"github.com/throttled/throttled/v2/store/memstore"
 
 	"github.com/sapcc/keppel/internal/drivers/basic"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -34,28 +35,26 @@ import (
 )
 
 func TestRateLimits(t *testing.T) {
-	rateQuota := throttled.RateQuota{MaxRate: throttled.PerMin(2), MaxBurst: 3}
+	limit := redis_rate.Limit{Rate: 2, Period: time.Minute, Burst: 3}
 	rld := basic.RateLimitDriver{
-		Limits: map[keppel.RateLimitedAction]throttled.RateQuota{
-			keppel.BlobPullAction:     rateQuota,
-			keppel.BlobPushAction:     rateQuota,
-			keppel.ManifestPullAction: rateQuota,
-			keppel.ManifestPushAction: rateQuota,
+		Limits: map[keppel.RateLimitedAction]redis_rate.Limit{
+			keppel.BlobPullAction:     limit,
+			keppel.BlobPushAction:     limit,
+			keppel.ManifestPullAction: limit,
+			keppel.ManifestPushAction: limit,
 		},
 	}
-	rle := &keppel.RateLimitEngine{Driver: rld, Store: nil}
+	rle := &keppel.RateLimitEngine{Driver: rld, Client: nil}
 
 	testWithPrimary(t, rle, func(s test.Setup) {
-		rls, err := memstore.New(-1)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		rls.SetTimeNow(s.Clock.Now)
-		rle.Store = rls
+		sr := miniredis.RunT(t)
+		sr.SetTime(s.Clock.Now())
+		s.Clock.MiniRedis = sr
+		rle.Client = redis.NewClient(&redis.Options{Addr: sr.Addr()})
 
 		//create the "test1/foo" repository to ensure that we don't just always hit
 		//NAME_UNKNOWN errors
-		_, err = keppel.FindOrCreateRepository(s.DB, "foo", keppel.Account{Name: "test1"})
+		_, err := keppel.FindOrCreateRepository(s.DB, "foo", keppel.Account{Name: "test1"})
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -106,7 +105,7 @@ func TestRateLimits(t *testing.T) {
 
 			//we can always execute 1 request initially, and then we can burst on top
 			//of that
-			for i := 0; i < rateQuota.MaxBurst+1; i++ {
+			for i := 0; i < limit.Burst; i++ {
 				req.Check(t, h)
 				s.Clock.StepBy(time.Second)
 			}
@@ -117,12 +116,12 @@ func TestRateLimits(t *testing.T) {
 			failingReq.ExpectStatus = http.StatusTooManyRequests
 			failingReq.ExpectHeader = map[string]string{
 				test.VersionHeaderKey: test.VersionHeaderValue,
-				"Retry-After":         strconv.Itoa(29 - rateQuota.MaxBurst),
+				"Retry-After":         strconv.Itoa(30 - limit.Burst),
 			}
 			failingReq.Check(t, h)
 
 			//be impatient
-			s.Clock.StepBy(time.Duration(28-rateQuota.MaxBurst) * time.Second)
+			s.Clock.StepBy(time.Duration(29-limit.Burst) * time.Second)
 			failingReq.ExpectHeader["Retry-After"] = "1"
 			failingReq.Check(t, h)
 
@@ -142,25 +141,24 @@ func TestAnycastRateLimits(t *testing.T) {
 	blob := test.NewBytes([]byte("the blob for our test case"))
 
 	//set up rate limit such that we can pull this blob only twice in a row
-	rateQuota := throttled.RateQuota{MaxRate: throttled.PerMin(len(blob.Contents) * 2), MaxBurst: len(blob.Contents) * 2}
+	limit := redis_rate.Limit{Rate: len(blob.Contents) * 2, Period: time.Minute, Burst: len(blob.Contents) * 2}
+
 	rld := basic.RateLimitDriver{
-		Limits: map[keppel.RateLimitedAction]throttled.RateQuota{
-			keppel.AnycastBlobBytePullAction: rateQuota,
+		Limits: map[keppel.RateLimitedAction]redis_rate.Limit{
+			keppel.AnycastBlobBytePullAction: limit,
 			//all other rate limits are set to "unlimited"
 		},
 	}
-	rle := &keppel.RateLimitEngine{Driver: rld, Store: nil}
+	rle := &keppel.RateLimitEngine{Driver: rld, Client: nil}
 
 	testWithPrimary(t, rle, func(s test.Setup) {
 		if !currentlyWithAnycast {
 			return
 		}
-		rls, err := memstore.New(-1)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		rls.SetTimeNow(s.Clock.Now)
-		rle.Store = rls
+		sr := miniredis.RunT(t)
+		sr.SetTime(s.Clock.Now())
+		s.Clock.MiniRedis = sr
+		rle.Client = redis.NewClient(&redis.Options{Addr: sr.Addr()})
 
 		//upload the test blob
 		h := s.Handler
@@ -197,7 +195,7 @@ func TestAnycastRateLimits(t *testing.T) {
 					ExpectStatus: http.StatusTooManyRequests,
 					ExpectHeader: map[string]string{
 						test.VersionHeaderKey: test.VersionHeaderValue,
-						"Retry-After":         "28",
+						"Retry-After":         "30",
 					},
 				}.Check(t, h2)
 

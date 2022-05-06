@@ -25,15 +25,15 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-redis/redis_rate/v9"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/throttled/throttled/v2"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //RateLimitDriver is the rate limit driver "basic".
 type RateLimitDriver struct {
-	Limits map[keppel.RateLimitedAction]throttled.RateQuota
+	Limits map[keppel.RateLimitedAction]redis_rate.Limit
 }
 
 type envVarSet struct {
@@ -49,17 +49,17 @@ var (
 		keppel.ManifestPushAction:        {"KEPPEL_RATELIMIT_MANIFEST_PUSHES", "KEPPEL_BURST_MANIFEST_PUSHES"},
 		keppel.AnycastBlobBytePullAction: {"KEPPEL_RATELIMIT_ANYCAST_BLOB_PULL_BYTES", "KEPPEL_BURST_ANYCAST_BLOB_PULL_BYTES"},
 	}
-	valueRx          = regexp.MustCompile(`^\s*([0-9]+)\s*[Br]/([smh])\s*$`)
-	rateConstructors = map[string]func(int) throttled.Rate{
-		"s": throttled.PerSec,
-		"m": throttled.PerMin,
-		"h": throttled.PerHour,
+	valueRx           = regexp.MustCompile(`^\s*([0-9]+)\s*[Br]/([smh])\s*$`)
+	limitConstructors = map[string]func(int) redis_rate.Limit{
+		"s": redis_rate.PerSecond,
+		"m": redis_rate.PerMinute,
+		"h": redis_rate.PerHour,
 	}
 )
 
 func init() {
 	keppel.RegisterRateLimitDriver("basic", func(keppel.AuthDriver, keppel.Configuration) (keppel.RateLimitDriver, error) {
-		limits := make(map[keppel.RateLimitedAction]throttled.RateQuota)
+		limits := make(map[keppel.RateLimitedAction]redis_rate.Limit)
 		for action, envVars := range envVars {
 			rate, err := parseRateLimit(envVars.RateLimit)
 			if err != nil {
@@ -70,7 +70,7 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				limits[action] = throttled.RateQuota{MaxRate: *rate, MaxBurst: burst}
+				limits[action] = redis_rate.Limit{Rate: rate.Rate, Burst: burst}
 				logg.Debug("parsed rate quota for %s is %#v", action, limits[action])
 			}
 		}
@@ -79,7 +79,7 @@ func init() {
 }
 
 //GetRateLimit implements the keppel.RateLimitDriver interface.
-func (d RateLimitDriver) GetRateLimit(account keppel.Account, action keppel.RateLimitedAction) *throttled.RateQuota {
+func (d RateLimitDriver) GetRateLimit(account keppel.Account, action keppel.RateLimitedAction) *redis_rate.Limit {
 	quota, ok := d.Limits[action]
 	if ok {
 		return &quota
@@ -87,7 +87,7 @@ func (d RateLimitDriver) GetRateLimit(account keppel.Account, action keppel.Rate
 	return nil
 }
 
-func parseRateLimit(envVar string) (*throttled.Rate, error) {
+func parseRateLimit(envVar string) (*redis_rate.Limit, error) {
 	var valStr string
 	if strings.HasSuffix(envVar, "_BYTES") {
 		valStr = os.Getenv(envVar)
@@ -106,7 +106,7 @@ func parseRateLimit(envVar string) (*throttled.Rate, error) {
 	if err != nil {
 		return nil, fmt.Errorf("malformed %s: %s", envVar, err.Error())
 	}
-	rate := rateConstructors[match[2]](int(count))
+	rate := limitConstructors[match[2]](int(count))
 	return &rate, nil
 }
 

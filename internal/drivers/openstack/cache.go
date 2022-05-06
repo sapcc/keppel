@@ -19,11 +19,12 @@
 package openstack
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"time"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 	"github.com/sapcc/go-bits/logg"
 )
 
@@ -39,14 +40,14 @@ func hashCacheKey(cacheKey string) string {
 }
 
 func (c redisCacher) StoreTokenPayload(cacheKey string, payload []byte) {
-	err := c.Set(hashCacheKey(cacheKey), payload, 5*time.Minute).Err()
+	err := c.Set(context.Background(), hashCacheKey(cacheKey), payload, 5*time.Minute).Err()
 	if err != nil {
 		logg.Error("cannot cache token payload in Redis: %s", err.Error())
 	}
 }
 
 func (c redisCacher) LoadTokenPayload(cacheKey string) []byte {
-	payload, err := c.Get(hashCacheKey(cacheKey)).Bytes()
+	payload, err := c.Get(context.Background(), hashCacheKey(cacheKey)).Bytes()
 	if err == redis.Nil {
 		return nil
 	}

@@ -1,3 +1,13 @@
+# github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a
+## explicit
+github.com/alicebob/gopher-json
+# github.com/alicebob/miniredis/v2 v2.21.0
+## explicit; go 1.14
+github.com/alicebob/miniredis/v2
+github.com/alicebob/miniredis/v2/geohash
+github.com/alicebob/miniredis/v2/hyperloglog
+github.com/alicebob/miniredis/v2/metro
+github.com/alicebob/miniredis/v2/server
 # github.com/beorn7/perks v1.0.1
 ## explicit; go 1.11
 github.com/beorn7/perks/quantile
@@ -7,6 +17,9 @@ github.com/cespare/xxhash/v2
 # github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
 ## explicit; go 1.16
 github.com/databus23/goslo.policy
+# github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f
+## explicit
+github.com/dgryski/go-rendezvous
 # github.com/dlmiddlecote/sqlstats v1.0.2
 ## explicit; go 1.11
 github.com/dlmiddlecote/sqlstats
@@ -21,15 +34,19 @@ github.com/docker/distribution/manifest/schema2
 github.com/docker/distribution/reference
 # github.com/go-gorp/gorp v2.2.0+incompatible
 ## explicit
-# github.com/go-redis/redis v6.15.9+incompatible
-## explicit
-github.com/go-redis/redis
-github.com/go-redis/redis/internal
-github.com/go-redis/redis/internal/consistenthash
-github.com/go-redis/redis/internal/hashtag
-github.com/go-redis/redis/internal/pool
-github.com/go-redis/redis/internal/proto
-github.com/go-redis/redis/internal/util
+# github.com/go-redis/redis/v8 v8.11.5
+## explicit; go 1.17
+github.com/go-redis/redis/v8
+github.com/go-redis/redis/v8/internal
+github.com/go-redis/redis/v8/internal/hashtag
+github.com/go-redis/redis/v8/internal/hscan
+github.com/go-redis/redis/v8/internal/pool
+github.com/go-redis/redis/v8/internal/proto
+github.com/go-redis/redis/v8/internal/rand
+github.com/go-redis/redis/v8/internal/util
+# github.com/go-redis/redis_rate/v9 v9.1.2
+## explicit; go 1.17
+github.com/go-redis/redis_rate/v9
 # github.com/go-sql-driver/mysql v1.6.0
 ## explicit; go 1.10
 # github.com/gofrs/uuid v4.2.0+incompatible
@@ -162,11 +179,12 @@ github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/throttled/throttled/v2 v2.9.1
-## explicit; go 1.13
-github.com/throttled/throttled/v2
-github.com/throttled/throttled/v2/store/goredisstore
-github.com/throttled/throttled/v2/store/memstore
+# github.com/yuin/gopher-lua v0.0.0-20210529063254-f4c35e4016d9
+## explicit; go 1.14
+github.com/yuin/gopher-lua
+github.com/yuin/gopher-lua/ast
+github.com/yuin/gopher-lua/parse
+github.com/yuin/gopher-lua/pm
 # github.com/ziutek/mymysql v1.5.4
 ## explicit
 # go.uber.org/atomic v1.9.0

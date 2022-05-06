@@ -29,7 +29,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/sapcc/go-bits/logg"
 
