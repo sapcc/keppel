@@ -22,7 +22,7 @@ require (
 	github.com/sapcc/go-api-declarations v1.1.0
 	github.com/sapcc/go-bits v0.0.0-20220506231902-df94414a6255
 	github.com/spf13/cobra v1.4.0
-	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
+	golang.org/x/crypto v0.0.0-20220507011949-2cf3adece122
 	gopkg.in/gorp.v2 v2.2.0
 )
 
