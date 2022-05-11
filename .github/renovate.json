@@ -27,6 +27,13 @@
       "allowedVersions": "<0.23"
     },
     {
+      "enabled": false,
+      "matchPackageNames": [
+        "golang"
+      ],
+      "allowedVersions": "<1.17.99"
+    },
+    {
       "matchPackagePrefixes": [
         "github.com/sapcc/go-api-declarations",
         "github.com/sapcc/gophercloud-sapcc",
