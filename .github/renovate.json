@@ -20,18 +20,16 @@
   ],
   "packageRules": [
     {
-      "enabled": false,
       "matchPackagePrefixes": [
         "k8s.io/"
       ],
       "allowedVersions": "<0.23"
     },
     {
-      "enabled": false,
       "matchPackageNames": [
         "golang"
       ],
-      "allowedVersions": "<1.17.99"
+      "allowedVersions": "1.17.x"
     },
     {
       "matchPackagePrefixes": [
