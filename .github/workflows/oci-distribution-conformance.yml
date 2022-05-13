@@ -51,7 +51,7 @@ jobs:
         with:
           name: oci-test-results-${{ github.sha }}
           path: .out/
-        if: github.event == 'push'
+        if: always()
     services:
       postgres:
         image: postgres:12
