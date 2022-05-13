@@ -39,7 +39,7 @@ jobs:
           OCI_TEST_PULL: 1
           OCI_TEST_PUSH: 1
           OCI_TEST_CONTENT_DISCOVERY: 1
-          OCI_TEST_CONTENT_MANGEMENT: 1
+          OCI_TEST_CONTENT_MANAGEMENT: 1
           OCI_CROSSMOUNT_NAMESPACE: conformance-test/oci
           OCI_HIDE_SKIPPED_WORKFLOWS: 0
           OCI_DEBUG: 1
