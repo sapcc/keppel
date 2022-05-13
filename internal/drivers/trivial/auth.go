@@ -65,44 +65,8 @@ func (uid userIdentity) HasPermission(perm keppel.Permission, tenantID string) b
 	return true
 }
 
-type DummyUserInfo struct {
-	Username string
-}
-
-func (DummyUserInfo) UserUUID() string {
-	return ""
-}
-
-func (dui DummyUserInfo) UserName() string {
-	return dui.Username
-}
-
-func (DummyUserInfo) UserDomainName() string {
-	return ""
-}
-
-func (DummyUserInfo) ProjectScopeUUID() string {
-	return ""
-}
-
-func (DummyUserInfo) ProjectScopeName() string {
-	return ""
-}
-
-func (DummyUserInfo) ProjectScopeDomainName() string {
-	return ""
-}
-
-func (DummyUserInfo) DomainScopeUUID() string {
-	return ""
-}
-
-func (DummyUserInfo) DomainScopeName() string {
-	return ""
-}
-
 func (uid userIdentity) UserInfo() audittools.UserInfo {
-	return DummyUserInfo(uid)
+	return nil
 }
 
 func (uid userIdentity) UserName() string {

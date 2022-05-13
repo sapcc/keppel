@@ -28,7 +28,6 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/sapcc/go-bits/audittools"
 
-	"github.com/sapcc/keppel/internal/drivers/trivial"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -112,7 +111,7 @@ func (uid userIdentity) UserType() keppel.UserType {
 func (uid userIdentity) UserInfo() audittools.UserInfo {
 	//return a dummy UserInfo to enable testing of audit events (a nil UserInfo
 	//will suppress audit event generation)
-	return trivial.DummyUserInfo{}
+	return dummyUserInfo{}
 }
 
 func (uid userIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
@@ -124,4 +123,38 @@ func deserializeUnittestUserIdentity(in []byte, _ keppel.AuthDriver) (keppel.Use
 	var uid userIdentity
 	err := json.Unmarshal(in, &uid)
 	return uid, err
+}
+
+type dummyUserInfo struct{}
+
+func (dummyUserInfo) UserUUID() string {
+	return "dummy-userid"
+}
+
+func (dummyUserInfo) UserName() string {
+	return "dummy-username"
+}
+
+func (dummyUserInfo) UserDomainName() string {
+	return "dummy-domainname"
+}
+
+func (dummyUserInfo) ProjectScopeUUID() string {
+	return "dummy-projectid"
+}
+
+func (dummyUserInfo) ProjectScopeName() string {
+	return "dummy-projectname"
+}
+
+func (dummyUserInfo) ProjectScopeDomainName() string {
+	return "dummy-projectdomainname"
+}
+
+func (dummyUserInfo) DomainScopeUUID() string {
+	return ""
+}
+
+func (dummyUserInfo) DomainScopeName() string {
+	return ""
 }
