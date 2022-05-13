@@ -1,5 +1,5 @@
 export KEPPEL_API_PUBLIC_FQDN=localhost
-export KEPPEL_ISSUER_KEY=./privkey.pem
+export KEPPEL_ISSUER_KEY=./testing/oci-conformance/privkey.pem
 export KEPPEL_DB_CONNECTION_OPTIONS=sslmode=disable
 export KEPPEL_DB_PASSWORD=mysecretpassword
 export KEPPEL_DB_PORT=54321
