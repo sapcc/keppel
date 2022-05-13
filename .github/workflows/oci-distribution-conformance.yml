@@ -1,4 +1,4 @@
-name: CI
+name: Conformance Test
 "on":
   push:
     branches:
@@ -14,7 +14,7 @@ permissions:
   contents: read
 jobs:
   test:
-    name: OCI Distribution Conformance
+    name: OCI Distribution
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
