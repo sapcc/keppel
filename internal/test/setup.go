@@ -35,6 +35,7 @@ import (
 	peerv1 "github.com/sapcc/keppel/internal/api/peer"
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/clair"
+	"github.com/sapcc/keppel/internal/drivers/trivial"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -140,7 +141,7 @@ type Setup struct {
 	Auditor      *Auditor
 	AD           *AuthDriver
 	FD           *FederationDriver
-	SD           *StorageDriver
+	SD           *trivial.StorageDriver
 	ICD          *InboundCacheDriver
 	Handler      http.Handler
 	//fields that are only set if the respective With... setup option is included
@@ -320,7 +321,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	s.FD = fd.(*FederationDriver) //nolint:errcheck
 	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, s.Config)
 	must(t, err)
-	s.SD = sd.(*StorageDriver) //nolint:errcheck
+	s.SD = sd.(*trivial.StorageDriver) //nolint:errcheck
 	icd, err := keppel.NewInboundCacheDriver("unittest", s.Config)
 	must(t, err)
 	s.ICD = icd.(*InboundCacheDriver) //nolint:errcheck

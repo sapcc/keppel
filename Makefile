@@ -21,6 +21,16 @@ run-api: build/keppel
 copy-fixtures:
 	find -name '*.actual' | xargs -I{} bash -c 'mv {} $$(echo {} | sed "s/.actual//g")'
 
+testing/conformance-test/privkey.pem:
+	openssl genrsa -out $@ 4096
+
+# This is for running test suites like the OCI distribution API conformance test.
+# An account called "conformance-test" and a hardcoded username/password pair
+# (see env.sh mentioned below) will be pre-configured and ready to use for the test run.
+run-api-for-conformance-test: build/keppel testing/conformance-test/privkey.pem
+	@echo "Ready to run conformance test"
+	set -euo pipefail && source testing/conformance-test/env.sh && $(CURDIR)/build/keppel server api
+
 GO_BUILDFLAGS = -mod vendor
 GO_LDFLAGS = -X github.com/sapcc/keppel/internal/keppel.Version=$(shell util/find_version.sh)
 GO_TESTENV =
