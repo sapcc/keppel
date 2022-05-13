@@ -7,7 +7,7 @@
   ],
   "github-actions": {
     "fileMatch": [
-      ".github/workflows/oci-conformance.yaml"
+      ".github/workflows/oci-distribution-conformance.yml"
     ]
   },
   "assignees": [
