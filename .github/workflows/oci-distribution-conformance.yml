@@ -1,0 +1,61 @@
+name: oci-distribution-conformance
+"on":
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    branches:
+      - '*'
+    paths-ignore:
+      - '**.md'
+permissions:
+  contents: read
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: "1.17"
+      - name: Start keppel
+        run: |
+            make run-api-for-conformance-test
+            IP=$(hostname -I | awk '{print $1}')
+            echo "SERVER_URL=http://${IP}:8080" >> $GITHUB_ENV
+      - name: Run OCI Distribution Spec conformance tests
+        uses: opencontainers/distribution-spec@main
+        env:
+          OCI_ROOT_URL: ${{ env.SERVER_URL }}
+          OCI_NAMESPACE: conformance-test/oci
+          OCI_USERNAME: johndoe
+          OCI_PASSWORD: SuperSecret
+          OCI_TEST_PULL: 1
+          OCI_TEST_PUSH: 1
+          OCI_TEST_CONTENT_DISCOVERY: 1
+          OCI_TEST_CONTENT_MANGEMENT: 1
+          OCI_CROSSMOUNT_NAMESPACE: conformance-test/oci
+          OCI_HIDE_SKIPPED_WORKFLOWS: 0
+          OCI_DEBUG: 1
+          OCI_DELETE_MANIFEST_BEFORE_BLOBS: 1
+      - run: mkdir -p .out/ && mv {report.html,junit.xml} .out/
+        if: always()
+      - name: Upload test results zip as build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: oci-test-results-${{ github.sha }}
+          path: .out/
+        if: github.event == 'push'
+    services:
+      postgres:
+        image: postgres:12
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 54321:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
