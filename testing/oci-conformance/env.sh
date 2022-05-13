@@ -11,4 +11,6 @@ export KEPPEL_DRIVER_FEDERATION=trivial
 export KEPPEL_DRIVER_INBOUND_CACHE=trivial
 export KEPPEL_DRIVER_STORAGE=in-memory-for-testing
 
+export KEPPEL_RUN_DB_SETUP_FOR_CONFORMANCE_TEST=true
+
 # export KEPPEL_OSLO_POLICY_PATH=docs/example-policy.yaml

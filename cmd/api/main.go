@@ -65,6 +65,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	db, err := keppel.InitDB(cfg.DatabaseURL)
 	must(err)
+	must(setupDBIfRequested(db))
 	rc, err := initRedis()
 	must(err)
 	ad, err := keppel.NewAuthDriver(keppel.MustGetenv("KEPPEL_DRIVER_AUTH"), rc)
@@ -137,4 +138,33 @@ func initRedis() (*redis.Client, error) {
 		return nil, fmt.Errorf("cannot parse Redis URL: %s", err.Error())
 	}
 	return redis.NewClient(opts), nil
+}
+
+func setupDBIfRequested(db *keppel.DB) error {
+	//This method performs specialized first-time setup for conformance test
+	//scenarios where we always start with a fresh empty database.
+	//
+	//This setup cannot be done before keppel-api has been started, because the
+	//DB schema has not been populated yet at that point.
+	if keppel.ParseBool(os.Getenv("KEPPEL_RUN_DB_SETUP_FOR_CONFORMANCE_TEST")) {
+		queries := []string{
+			keppel.SimplifyWhitespaceInSQL(`
+				INSERT INTO accounts (name, auth_tenant_id) VALUES ('conformance-test', 'bogus')
+				ON CONFLICT DO NOTHING
+			`),
+			keppel.SimplifyWhitespaceInSQL(`
+				INSERT INTO quotas (auth_tenant_id, manifests) VALUES ('bogus', 100)
+				ON CONFLICT DO NOTHING
+			`),
+		}
+
+		for _, query := range queries {
+			_, err := db.Exec(query)
+			if err != nil {
+				return fmt.Errorf("while performing DB setup for conformance test: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
