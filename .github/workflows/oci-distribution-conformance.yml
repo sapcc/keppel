@@ -25,9 +25,10 @@ jobs:
           go-version: "1.17"
       - name: Start keppel
         run: |
-            RUNNER_TRACKING_ID="" && make run-api-for-conformance-test &
-            IP=$(hostname -I | awk '{print $1}')
-            echo "SERVER_URL=http://${IP}:8080" >> $GITHUB_ENV
+          make build/keppel
+          RUNNER_TRACKING_ID="" && make run-api-for-conformance-test &
+          IP=$(hostname -I | awk '{print $1}')
+          echo "SERVER_URL=http://${IP}:8080" >> $GITHUB_ENV
       - name: Run OCI Distribution Spec conformance tests
         uses: opencontainers/distribution-spec@main
         env:
