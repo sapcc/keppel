@@ -6,7 +6,9 @@
     "regexManagers:dockerfileVersions"
   ],
   "github-actions": {
-    "enabled": false
+    "fileMatch": [
+      ".github/workflows/oci-conformance.yaml"
+    ]
   },
   "assignees": [
     "SuperSandro2000"
