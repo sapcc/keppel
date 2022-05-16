@@ -558,6 +558,11 @@ func (j *Janitor) CheckVulnerabilitiesForNextManifest() (returnErr error) {
 	return err
 }
 
+var (
+	manifestSizeToBigGiB         float64 = 5
+	blobUncompressedSizeToBigGib float64 = 10
+)
+
 func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repository, manifest *keppel.Manifest) error {
 	//skip validation while account is in maintenance (maintenance mode blocks
 	//all kinds of activity on an account's contents)
@@ -576,9 +581,9 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 	}
 
 	//skip when blobs add up to more than 5 GiB
-	if manifest.SizeBytes >= 5<<30 {
+	if manifest.SizeBytes >= uint64(1<<30*manifestSizeToBigGiB) {
 		manifest.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
-		manifest.VulnerabilityScanErrorMessage = "vulnerability scanning is not supported for images above 5 GiB"
+		manifest.VulnerabilityScanErrorMessage = fmt.Sprintf("vulnerability scanning is not supported for images above %g GiB", manifestSizeToBigGiB)
 		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(24 * time.Hour))
 		return nil
 	}
@@ -622,12 +627,12 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 				return &b
 			}
 			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
-			blob.BlocksVulnScanning = b2p(numberBytes >= 10<<30)
+			blob.BlocksVulnScanning = b2p(numberBytes >= int64(1<<30*blobUncompressedSizeToBigGib))
 		}
 
 		if blob.BlocksVulnScanning != nil && *blob.BlocksVulnScanning {
 			manifest.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
-			manifest.VulnerabilityScanErrorMessage = "vulnerability scanning is not supported for uncompressed blobs above 5 GiB"
+			manifest.VulnerabilityScanErrorMessage = fmt.Sprintf("vulnerability scanning is not supported for uncompressed blobs above %g GiB", blobUncompressedSizeToBigGib)
 			manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(24 * time.Hour))
 			return nil
 		}

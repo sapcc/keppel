@@ -545,6 +545,8 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
 		images[idx].MustUpload(t, s, fooRepoRef, "")
 	}
+	images = append(images, test.GenerateImage(test.GenerateExampleLayerSize(int64(2), 2)))
+	images[3].MustUpload(t, s, fooRepoRef, "")
 
 	//also setup an image list manifest containing those images (so that we have
 	//some manifest-manifest refs to play with)
@@ -553,6 +555,8 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 
 	//fake manifest size to check if to big ones (here 10 GiB) are rejected
 	mustExec(t, s.DB, fmt.Sprintf(`UPDATE manifests SET size_bytes = 10737418240 where digest = '%s'`, imageList.Manifest.Digest))
+	manifestSizeToBigGiB = 0.002
+	blobUncompressedSizeToBigGib = 0.001
 
 	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
 	tr0.AssertEqualToFile("fixtures/vulnerability-check-setup.sql")
@@ -589,13 +593,15 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
-	tr.DBChanges().AssertEqual(fmt.Sprintf(`
-		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = '%s';
-		UPDATE manifests SET next_vuln_check_at = 91800, vuln_status = 'Unsupported', vuln_scan_error = 'vulnerability scanning is not supported for images above 5 GiB' WHERE repo_id = 1 AND digest = '%s';
-		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = '%s';
-		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = '%s';
-	`, images[0].Manifest.Digest, imageList.Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest))
+	tr.DBChanges().AssertEqualf(`
+		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = '%[3]s';
+		UPDATE manifests SET next_vuln_check_at = 91800, vuln_status = 'Unsupported', vuln_scan_error = 'vulnerability scanning is not supported for images above %[1]g GiB' WHERE repo_id = 1 AND digest = '%[4]s';
+		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = '%[6]s';
+		UPDATE manifests SET next_vuln_check_at = 91800, vuln_status = 'Unsupported', vuln_scan_error = 'vulnerability scanning is not supported for uncompressed blobs above %[2]g GiB' WHERE repo_id = 1 AND digest = '%[7]s';
+		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = '%[5]s';
+	`, manifestSizeToBigGiB, blobUncompressedSizeToBigGib, images[0].Manifest.Digest, imageList.Manifest.Digest, images[1].Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest)
 
 	//five minutes later, indexing is still not finished
 	s.Clock.StepBy(5 * time.Minute)
@@ -603,11 +609,11 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
-	tr.DBChanges().AssertEqual(fmt.Sprintf(`
+	tr.DBChanges().AssertEqualf(`
 		UPDATE manifests SET next_vuln_check_at = 5820 WHERE repo_id = 1 AND digest = '%s';
 		UPDATE manifests SET next_vuln_check_at = 5820 WHERE repo_id = 1 AND digest = '%s';
 		UPDATE manifests SET next_vuln_check_at = 5820 WHERE repo_id = 1 AND digest = '%s';
-	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest))
+	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
 
 	//five minutes later, indexing is finished now and ClairDouble provides vulnerability reports to us
 	claird.ReportFixtures[images[0].Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
@@ -617,11 +623,11 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
-	tr.DBChanges().AssertEqual(fmt.Sprintf(`
+	tr.DBChanges().AssertEqualf(`
 		UPDATE manifests SET next_vuln_check_at = 9600, vuln_status = 'Low' WHERE repo_id = 1 AND digest = '%s';
 		UPDATE manifests SET next_vuln_check_at = 6120 WHERE repo_id = 1 AND digest = '%s';
 		UPDATE manifests SET next_vuln_check_at = 9600, vuln_status = 'Clean' WHERE repo_id = 1 AND digest = '%s';
-	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest))
+	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
 }
 
 func mustParseURL(in string) url.URL {

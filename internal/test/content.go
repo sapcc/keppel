@@ -62,8 +62,15 @@ func NewBytesFromFile(path string) (Bytes, error) {
 //layer when constructing image manifests for unit tests. The contents are
 //generated deterministically from the given seed.
 func GenerateExampleLayer(seed int64) Bytes {
+	return GenerateExampleLayerSize(seed, 1)
+}
+
+//GenerateExampleLayerSize generates a blob of a configurable size that can be used like an image
+//layer when constructing image manifests for unit tests. The contents are
+//generated deterministically from the given seed.
+func GenerateExampleLayerSize(seed, sizeMiB int64) Bytes {
 	r := rand.New(rand.NewSource(seed))
-	buf := make([]byte, 1<<20)
+	buf := make([]byte, sizeMiB<<20)
 	r.Read(buf[:])
 
 	var bytes bytes.Buffer
