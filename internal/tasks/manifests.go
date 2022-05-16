@@ -20,11 +20,13 @@ package tasks
 
 import (
 	"bytes"
+	"compress/gzip"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/opencontainers/go-digest"
@@ -577,7 +579,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 	if manifest.SizeBytes >= 5<<30 {
 		manifest.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
 		manifest.VulnerabilityScanErrorMessage = "vulnerability scanning is not supported for images above 5 GiB"
-		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(1 * time.Hour))
+		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(24 * time.Hour))
 		return nil
 	}
 
@@ -597,6 +599,37 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			}
 			//after successful replication, restart this call to read the new blob with the correct StorageID from the DB
 			return j.doVulnerabilityCheck(account, repo, manifest)
+		}
+
+		if blob.BlocksVulnScanning == nil && strings.HasSuffix(blob.MediaType, "gzip") {
+			reader, _, err := j.sd.ReadBlob(account, blob.StorageID)
+			if err != nil {
+				return err
+			}
+			defer reader.Close()
+			gzipReader, err := gzip.NewReader(reader)
+			if err != nil {
+				return err
+			}
+			defer gzipReader.Close()
+
+			numberBytes, err := io.Copy(io.Discard, gzipReader)
+			if err != nil {
+				return err
+			}
+
+			b2p := func(b bool) *bool {
+				return &b
+			}
+			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
+			blob.BlocksVulnScanning = b2p(numberBytes >= 10<<30)
+		}
+
+		if blob.BlocksVulnScanning != nil && *blob.BlocksVulnScanning {
+			manifest.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
+			manifest.VulnerabilityScanErrorMessage = "vulnerability scanning is not supported for uncompressed blobs above 5 GiB"
+			manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(24 * time.Hour))
+			return nil
 		}
 	}
 

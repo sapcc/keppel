@@ -475,7 +475,7 @@ var sqlMigrations = map[string]string{
 	`,
 	"030_add_blobs_blocks_vuln_scanning.up.sql": `
 		ALTER TABLE blobs
-			ADD COLUMN blocks_vuln_scanning  BOOLEAN NOT NULL DEFAULT FALSE;
+			ADD COLUMN blocks_vuln_scanning BOOLEAN DEFAULT NULL;
 `,
 	"030_add_blobs:blocks_vuln_scanning.down.sql": `
 		ALTER TABLE blobs

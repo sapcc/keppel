@@ -20,6 +20,8 @@
 package test
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -63,7 +65,13 @@ func GenerateExampleLayer(seed int64) Bytes {
 	r := rand.New(rand.NewSource(seed))
 	buf := make([]byte, 1<<20)
 	r.Read(buf[:])
-	return newBytesWithMediaType(buf, schema2.MediaTypeLayer)
+
+	var bytes bytes.Buffer
+	w := gzip.NewWriter(&bytes)
+	w.Write(buf) // nolint: errcheck
+	w.Close()
+
+	return newBytesWithMediaType(bytes.Bytes(), schema2.MediaTypeLayer)
 }
 
 //Image contains all the pieces of a Docker image. The Layers and Config must

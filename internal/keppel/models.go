@@ -148,7 +148,7 @@ type Blob struct {
 	ValidatedAt            time.Time  `db:"validated_at"` //see tasks.ValidateNextBlob
 	ValidationErrorMessage string     `db:"validation_error_message"`
 	CanBeDeletedAt         *time.Time `db:"can_be_deleted_at"` //see tasks.SweepBlobsInNextAccount
-	BlocksVulnScanning     bool       `db:"blocks_vuln_scanning"`
+	BlocksVulnScanning     *bool      `db:"blocks_vuln_scanning"`
 }
 
 var blobGetQueryByRepoName = SimplifyWhitespaceInSQL(`
