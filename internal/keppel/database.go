@@ -473,6 +473,14 @@ var sqlMigrations = map[string]string{
 			DROP COLUMN min_layer_created_at,
 			DROP COLUMN max_layer_created_at;
 	`,
+	"030_add_blobs_blocks_vuln_scanning.up.sql": `
+		ALTER TABLE blobs
+			ADD COLUMN blocks_vuln_scanning  BOOLEAN NOT NULL DEFAULT FALSE;
+`,
+	"030_add_blobs:blocks_vuln_scanning.down.sql": `
+		ALTER TABLE blobs
+			DROP COLUMN blocks_vuln_scanning ;
+`,
 }
 
 //DB adds convenience functions on top of gorp.DbMap.
