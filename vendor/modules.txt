@@ -100,7 +100,7 @@ github.com/inconshreveable/mousetrap
 # github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629
 ## explicit
 github.com/jpillora/longestcommon
-# github.com/lib/pq v1.10.5
+# github.com/lib/pq v1.10.6
 ## explicit; go 1.13
 github.com/lib/pq
 github.com/lib/pq/oid
@@ -152,7 +152,7 @@ github.com/rs/cors
 # github.com/sapcc/go-api-declarations v1.1.0
 ## explicit; go 1.17
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20220513163648-283c57b10c36
+# github.com/sapcc/go-bits v0.0.0-20220517080651-baba74caa927
 ## explicit; go 1.17
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
