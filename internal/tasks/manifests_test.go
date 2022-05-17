@@ -545,6 +545,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
 		images[idx].MustUpload(t, s, fooRepoRef, "")
 	}
+	// generate a 2 MiB big image to run into blobUncompressedSizeTooBigGiB
 	images = append(images, test.GenerateImage(test.GenerateExampleLayerSize(int64(2), 2)))
 	images[3].MustUpload(t, s, fooRepoRef, "")
 
@@ -554,9 +555,12 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	imageList.MustUpload(t, s, fooRepoRef, "")
 
 	//fake manifest size to check if to big ones (here 10 GiB) are rejected
+	//when uncompressing it is still 1 MiB big those trigger manifestSizeTooBigGiB but not blobUncompressedSizeTooBigGiB
 	mustExec(t, s.DB, fmt.Sprintf(`UPDATE manifests SET size_bytes = 10737418240 where digest = '%s'`, imageList.Manifest.Digest))
-	manifestSizeToBigGiB = 0.002
-	blobUncompressedSizeToBigGib = 0.001
+
+	//adjust too big values down to make testing easier
+	manifestSizeTooBigGiB = 0.002
+	blobUncompressedSizeTooBigGiB = 0.001
 
 	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
 	tr0.AssertEqualToFile("fixtures/vulnerability-check-setup.sql")
@@ -599,9 +603,9 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = '%[3]s';
 		UPDATE manifests SET next_vuln_check_at = 91800, vuln_status = 'Unsupported', vuln_scan_error = 'vulnerability scanning is not supported for images above %[1]g GiB' WHERE repo_id = 1 AND digest = '%[4]s';
 		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = '%[6]s';
-		UPDATE manifests SET next_vuln_check_at = 91800, vuln_status = 'Unsupported', vuln_scan_error = 'vulnerability scanning is not supported for uncompressed blobs above %[2]g GiB' WHERE repo_id = 1 AND digest = '%[7]s';
+		UPDATE manifests SET next_vuln_check_at = 91800, vuln_status = 'Unsupported', vuln_scan_error = 'vulnerability scanning is not supported for uncompressed image layers above %[2]g GiB' WHERE repo_id = 1 AND digest = '%[7]s';
 		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = '%[5]s';
-	`, manifestSizeToBigGiB, blobUncompressedSizeToBigGib, images[0].Manifest.Digest, imageList.Manifest.Digest, images[1].Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest)
+	`, manifestSizeTooBigGiB, blobUncompressedSizeTooBigGiB, images[0].Manifest.Digest, imageList.Manifest.Digest, images[1].Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest)
 
 	//five minutes later, indexing is still not finished
 	s.Clock.StepBy(5 * time.Minute)

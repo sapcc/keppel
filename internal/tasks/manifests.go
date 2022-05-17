@@ -559,8 +559,8 @@ func (j *Janitor) CheckVulnerabilitiesForNextManifest() (returnErr error) {
 }
 
 var (
-	manifestSizeToBigGiB         float64 = 5
-	blobUncompressedSizeToBigGib float64 = 10
+	manifestSizeTooBigGiB         float64 = 5
+	blobUncompressedSizeTooBigGiB float64 = 10
 )
 
 func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repository, manifest *keppel.Manifest) error {
@@ -581,9 +581,9 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 	}
 
 	//skip when blobs add up to more than 5 GiB
-	if manifest.SizeBytes >= uint64(1<<30*manifestSizeToBigGiB) {
+	if manifest.SizeBytes >= uint64(1<<30*manifestSizeTooBigGiB) {
 		manifest.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
-		manifest.VulnerabilityScanErrorMessage = fmt.Sprintf("vulnerability scanning is not supported for images above %g GiB", manifestSizeToBigGiB)
+		manifest.VulnerabilityScanErrorMessage = fmt.Sprintf("vulnerability scanning is not supported for images above %g GiB", manifestSizeTooBigGiB)
 		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(24 * time.Hour))
 		return nil
 	}
@@ -623,16 +623,14 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 				return err
 			}
 
-			b2p := func(b bool) *bool {
-				return &b
-			}
 			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
-			blob.BlocksVulnScanning = b2p(numberBytes >= int64(1<<30*blobUncompressedSizeToBigGib))
+			blocksVulnScanning := numberBytes >= int64(1<<30*blobUncompressedSizeTooBigGiB)
+			blob.BlocksVulnScanning = &blocksVulnScanning
 		}
 
 		if blob.BlocksVulnScanning != nil && *blob.BlocksVulnScanning {
 			manifest.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
-			manifest.VulnerabilityScanErrorMessage = fmt.Sprintf("vulnerability scanning is not supported for uncompressed blobs above %g GiB", blobUncompressedSizeToBigGib)
+			manifest.VulnerabilityScanErrorMessage = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
 			manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(24 * time.Hour))
 			return nil
 		}
