@@ -20,6 +20,8 @@
 package test
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -60,10 +62,23 @@ func NewBytesFromFile(path string) (Bytes, error) {
 //layer when constructing image manifests for unit tests. The contents are
 //generated deterministically from the given seed.
 func GenerateExampleLayer(seed int64) Bytes {
+	return GenerateExampleLayerSize(seed, 1)
+}
+
+//GenerateExampleLayerSize generates a blob of a configurable size that can be used like an image
+//layer when constructing image manifests for unit tests. The contents are
+//generated deterministically from the given seed.
+func GenerateExampleLayerSize(seed, sizeMiB int64) Bytes {
 	r := rand.New(rand.NewSource(seed))
-	buf := make([]byte, 1<<20)
+	buf := make([]byte, sizeMiB<<20)
 	r.Read(buf[:])
-	return newBytesWithMediaType(buf, schema2.MediaTypeLayer)
+
+	var bytes bytes.Buffer
+	w := gzip.NewWriter(&bytes)
+	w.Write(buf) // nolint: errcheck
+	w.Close()
+
+	return newBytesWithMediaType(bytes.Bytes(), schema2.MediaTypeLayer)
 }
 
 //Image contains all the pieces of a Docker image. The Layers and Config must

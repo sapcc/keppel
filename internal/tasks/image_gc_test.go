@@ -101,8 +101,8 @@ func TestGCUntaggedImages(t *testing.T) {
 	expectError(t, sql.ErrNoRows.Error(), j.GarbageCollectManifestsInNextRepo())
 	tr.DBChanges().AssertEqualf(`
 			UPDATE manifests SET gc_status_json = '{"protected_by_parent":"%[1]s"}' WHERE repo_id = 1 AND digest = '%[2]s';
-			UPDATE manifests SET gc_status_json = '{"protected_by_parent":"%[1]s"}' WHERE repo_id = 1 AND digest = '%[3]s';
 			UPDATE manifests SET gc_status_json = '{"protected_by_recent_upload":true}' WHERE repo_id = 1 AND digest = '%[1]s';
+			UPDATE manifests SET gc_status_json = '{"protected_by_parent":"%[1]s"}' WHERE repo_id = 1 AND digest = '%[3]s';
 			UPDATE repos SET next_gc_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 		`,
 		imageList.Manifest.Digest.String(),
@@ -214,8 +214,8 @@ func TestGCMatchOnTag(t *testing.T) {
 			DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
 			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
 			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[6]s}' WHERE repo_id = 1 AND digest = '%[3]s';
-			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[5]s}' WHERE repo_id = 1 AND digest = '%[2]s';
 			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[7]s}' WHERE repo_id = 1 AND digest = '%[4]s';
+			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[5]s}' WHERE repo_id = 1 AND digest = '%[2]s';
 			UPDATE repos SET next_gc_at = %[8]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 			DELETE FROM tags WHERE repo_id = 1 AND name = 'zeroone';
 			DELETE FROM tags WHERE repo_id = 1 AND name = 'zerothree';
@@ -304,9 +304,9 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 			DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[4]s';
 			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[7]s}' WHERE repo_id = 1 AND digest = '%[1]s';
 			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[7]s}' WHERE repo_id = 1 AND digest = '%[3]s';
+			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[4]s';
 			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[8]s}' WHERE repo_id = 1 AND digest = '%[6]s';
 			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[7]s}' WHERE repo_id = 1 AND digest = '%[2]s';
-			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[4]s';
 			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[8]s}' WHERE repo_id = 1 AND digest = '%[5]s';
 			UPDATE repos SET next_gc_at = %[9]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 		`,

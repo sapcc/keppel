@@ -1940,7 +1940,7 @@ func TestDeleteAccount(t *testing.T) {
 		Method: "DELETE",
 		Path: fmt.Sprintf(
 			"/keppel/v1/accounts/test1/repositories/%s/_manifests/%s",
-			repos[0].Name, "sha256:13493afd2a64d1a14fb5ca0d2fe312117239b935ea40dc35ca59c55931a86ab7",
+			repos[0].Name, imageList.Manifest.Digest.String(),
 		),
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
 		ExpectStatus: http.StatusNoContent,

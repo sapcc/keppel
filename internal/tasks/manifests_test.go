@@ -379,8 +379,8 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 8;
 			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 9;
 			DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
-			%[5]sDELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
-			UPDATE manifests SET validated_at = %[2]d WHERE repo_id = 1 AND digest = '%[3]s';
+			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
+			%[5]sUPDATE manifests SET validated_at = %[2]d WHERE repo_id = 1 AND digest = '%[3]s';
 			UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 			UPDATE tags SET digest = '%[3]s', pushed_at = %[2]d, last_pulled_at = NULL WHERE repo_id = 1 AND name = 'latest';
 		`,
@@ -545,6 +545,9 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
 		images[idx].MustUpload(t, s, fooRepoRef, "")
 	}
+	// generate a 2 MiB big image to run into blobUncompressedSizeTooBigGiB
+	images = append(images, test.GenerateImage(test.GenerateExampleLayerSize(int64(2), 2)))
+	images[3].MustUpload(t, s, fooRepoRef, "")
 
 	//also setup an image list manifest containing those images (so that we have
 	//some manifest-manifest refs to play with)
@@ -552,7 +555,12 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	imageList.MustUpload(t, s, fooRepoRef, "")
 
 	//fake manifest size to check if to big ones (here 10 GiB) are rejected
-	mustExec(t, s.DB, `UPDATE manifests SET size_bytes = 10737418240 where digest = 'sha256:a1efa53bd4bbcc4878997c775688438b8ccfd29ccf71f110296dc62d5dabc42d'`)
+	//when uncompressing it is still 1 MiB big those trigger manifestSizeTooBigGiB but not blobUncompressedSizeTooBigGiB
+	mustExec(t, s.DB, fmt.Sprintf(`UPDATE manifests SET size_bytes = 10737418240 where digest = '%s'`, imageList.Manifest.Digest))
+
+	//adjust too big values down to make testing easier
+	manifestSizeTooBigGiB = 0.002
+	blobUncompressedSizeTooBigGiB = 0.001
 
 	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
 	tr0.AssertEqualToFile("fixtures/vulnerability-check-setup.sql")
@@ -589,13 +597,15 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
-	tr.DBChanges().AssertEqual(`
-		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = 'sha256:7c5ed02bcdf0dbddf6f1664e01d6a1505c880e296a599371eb919e0e053c0aef';
-		UPDATE manifests SET next_vuln_check_at = 9000, vuln_status = 'Unsupported', vuln_scan_error = 'vulnerability scanning is not supported for images above 5 GiB' WHERE repo_id = 1 AND digest = 'sha256:a1efa53bd4bbcc4878997c775688438b8ccfd29ccf71f110296dc62d5dabc42d';
-		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = 'sha256:be414f354c95cb5c3e26d604f5fc79523c68c3f86e0fae98060d5bbc8db466c3';
-		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = 'sha256:dbed29ef114646eb4018436b03c6081f63e8a2693a78e3557b0cd240494fa3c0';
-	`)
+	tr.DBChanges().AssertEqualf(`
+		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = '%[3]s';
+		UPDATE manifests SET next_vuln_check_at = 91800, vuln_status = 'Unsupported', vuln_scan_error = 'vulnerability scanning is not supported for images above %[1]g GiB' WHERE repo_id = 1 AND digest = '%[4]s';
+		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = '%[6]s';
+		UPDATE manifests SET next_vuln_check_at = 91800, vuln_status = 'Unsupported', vuln_scan_error = 'vulnerability scanning is not supported for uncompressed image layers above %[2]g GiB' WHERE repo_id = 1 AND digest = '%[7]s';
+		UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = '%[5]s';
+	`, manifestSizeTooBigGiB, blobUncompressedSizeTooBigGiB, images[0].Manifest.Digest, imageList.Manifest.Digest, images[1].Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest)
 
 	//five minutes later, indexing is still not finished
 	s.Clock.StepBy(5 * time.Minute)
@@ -603,11 +613,11 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
-	tr.DBChanges().AssertEqual(`
-		UPDATE manifests SET next_vuln_check_at = 5820 WHERE repo_id = 1 AND digest = 'sha256:7c5ed02bcdf0dbddf6f1664e01d6a1505c880e296a599371eb919e0e053c0aef';
-		UPDATE manifests SET next_vuln_check_at = 5820 WHERE repo_id = 1 AND digest = 'sha256:be414f354c95cb5c3e26d604f5fc79523c68c3f86e0fae98060d5bbc8db466c3';
-		UPDATE manifests SET next_vuln_check_at = 5820 WHERE repo_id = 1 AND digest = 'sha256:dbed29ef114646eb4018436b03c6081f63e8a2693a78e3557b0cd240494fa3c0';
-	`)
+	tr.DBChanges().AssertEqualf(`
+		UPDATE manifests SET next_vuln_check_at = 5820 WHERE repo_id = 1 AND digest = '%s';
+		UPDATE manifests SET next_vuln_check_at = 5820 WHERE repo_id = 1 AND digest = '%s';
+		UPDATE manifests SET next_vuln_check_at = 5820 WHERE repo_id = 1 AND digest = '%s';
+	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
 
 	//five minutes later, indexing is finished now and ClairDouble provides vulnerability reports to us
 	claird.ReportFixtures[images[0].Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
@@ -617,11 +627,11 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
-	tr.DBChanges().AssertEqual(`
-		UPDATE manifests SET next_vuln_check_at = 9600, vuln_status = 'Low' WHERE repo_id = 1 AND digest = 'sha256:7c5ed02bcdf0dbddf6f1664e01d6a1505c880e296a599371eb919e0e053c0aef';
-		UPDATE manifests SET next_vuln_check_at = 9600, vuln_status = 'Clean' WHERE repo_id = 1 AND digest = 'sha256:be414f354c95cb5c3e26d604f5fc79523c68c3f86e0fae98060d5bbc8db466c3';
-		UPDATE manifests SET next_vuln_check_at = 9600, vuln_status = 'Low' WHERE repo_id = 1 AND digest = 'sha256:dbed29ef114646eb4018436b03c6081f63e8a2693a78e3557b0cd240494fa3c0';
-	`)
+	tr.DBChanges().AssertEqualf(`
+		UPDATE manifests SET next_vuln_check_at = 9600, vuln_status = 'Low' WHERE repo_id = 1 AND digest = '%s';
+		UPDATE manifests SET next_vuln_check_at = 6120 WHERE repo_id = 1 AND digest = '%s';
+		UPDATE manifests SET next_vuln_check_at = 9600, vuln_status = 'Clean' WHERE repo_id = 1 AND digest = '%s';
+	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
 }
 
 func mustParseURL(in string) url.URL {

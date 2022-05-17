@@ -20,11 +20,13 @@ package tasks
 
 import (
 	"bytes"
+	"compress/gzip"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/opencontainers/go-digest"
@@ -556,6 +558,11 @@ func (j *Janitor) CheckVulnerabilitiesForNextManifest() (returnErr error) {
 	return err
 }
 
+var (
+	manifestSizeTooBigGiB         float64 = 5
+	blobUncompressedSizeTooBigGiB float64 = 10
+)
+
 func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repository, manifest *keppel.Manifest) error {
 	//skip validation while account is in maintenance (maintenance mode blocks
 	//all kinds of activity on an account's contents)
@@ -574,10 +581,10 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 	}
 
 	//skip when blobs add up to more than 5 GiB
-	if manifest.SizeBytes >= 5<<30 {
+	if manifest.SizeBytes >= uint64(1<<30*manifestSizeTooBigGiB) {
 		manifest.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
-		manifest.VulnerabilityScanErrorMessage = "vulnerability scanning is not supported for images above 5 GiB"
-		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(1 * time.Hour))
+		manifest.VulnerabilityScanErrorMessage = fmt.Sprintf("vulnerability scanning is not supported for images above %g GiB", manifestSizeTooBigGiB)
+		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(24 * time.Hour))
 		return nil
 	}
 
@@ -597,6 +604,35 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			}
 			//after successful replication, restart this call to read the new blob with the correct StorageID from the DB
 			return j.doVulnerabilityCheck(account, repo, manifest)
+		}
+
+		if blob.BlocksVulnScanning == nil && strings.HasSuffix(blob.MediaType, "gzip") {
+			reader, _, err := j.sd.ReadBlob(account, blob.StorageID)
+			if err != nil {
+				return err
+			}
+			defer reader.Close()
+			gzipReader, err := gzip.NewReader(reader)
+			if err != nil {
+				return err
+			}
+			defer gzipReader.Close()
+
+			numberBytes, err := io.Copy(io.Discard, gzipReader)
+			if err != nil {
+				return err
+			}
+
+			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
+			blocksVulnScanning := numberBytes >= int64(1<<30*blobUncompressedSizeTooBigGiB)
+			blob.BlocksVulnScanning = &blocksVulnScanning
+		}
+
+		if blob.BlocksVulnScanning != nil && *blob.BlocksVulnScanning {
+			manifest.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
+			manifest.VulnerabilityScanErrorMessage = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
+			manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(24 * time.Hour))
+			return nil
 		}
 	}
 
