@@ -630,6 +630,10 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
 			blocksVulnScanning := numberBytes >= limitBytes
 			blob.BlocksVulnScanning = &blocksVulnScanning
+			_, err = j.db.Exec(`UPDATE blobs SET blocks_vuln_scanning = $1 WHERE id = $2`, blocksVulnScanning, blob.ID)
+			if err != nil {
+				return err
+			}
 		}
 
 		if blob.BlocksVulnScanning != nil && *blob.BlocksVulnScanning {
