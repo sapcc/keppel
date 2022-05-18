@@ -607,6 +607,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		}
 
 		if blob.BlocksVulnScanning == nil && strings.HasSuffix(blob.MediaType, "gzip") {
+			//uncompress the blob to check if it's too large for Clair to handle
 			reader, _, err := j.sd.ReadBlob(account, blob.StorageID)
 			if err != nil {
 				return err
@@ -618,13 +619,16 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			}
 			defer gzipReader.Close()
 
-			numberBytes, err := io.Copy(io.Discard, gzipReader)
+			//when measuring uncompressed size, use LimitReader as a simple but
+			//effective guard against zip bombs
+			limitBytes := int64(1 << 30 * blobUncompressedSizeTooBigGiB)
+			numberBytes, err := io.Copy(io.Discard, io.LimitReader(gzipReader, limitBytes+1))
 			if err != nil {
 				return err
 			}
 
 			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
-			blocksVulnScanning := numberBytes >= int64(1<<30*blobUncompressedSizeTooBigGiB)
+			blocksVulnScanning := numberBytes >= limitBytes
 			blob.BlocksVulnScanning = &blocksVulnScanning
 		}
 
