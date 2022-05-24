@@ -1,5 +1,5 @@
 # renovate: datasource=docker depName=alpine versioning=docker
-ARG ALPINE_VERSION=3.15
+ARG ALPINE_VERSION=3.16
 # renovate: datasource=docker depName=golang versioning=docker
 ARG GOLANG_VERSION=1.17.10-alpine
 
