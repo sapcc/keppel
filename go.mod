@@ -11,7 +11,7 @@ require (
 	github.com/go-redis/redis_rate/v9 v9.1.2
 	github.com/gofrs/uuid v4.2.0+incompatible
 	github.com/golang-jwt/jwt/v4 v4.4.1
-	github.com/gophercloud/gophercloud v0.24.0
+	github.com/gophercloud/gophercloud v0.25.0
 	github.com/gophercloud/utils v0.0.0-20220307143606-8e7800759d16
 	github.com/gorilla/mux v1.8.0
 	github.com/majewsky/schwift v1.1.0
@@ -20,7 +20,7 @@ require (
 	github.com/prometheus/client_golang v1.12.2
 	github.com/rs/cors v1.8.2
 	github.com/sapcc/go-api-declarations v1.1.0
-	github.com/sapcc/go-bits v0.0.0-20220517080651-baba74caa927
+	github.com/sapcc/go-bits v0.0.0-20220530163628-4dafc5c6baa2
 	github.com/spf13/cobra v1.4.0
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 	gopkg.in/gorp.v2 v2.2.0
