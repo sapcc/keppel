@@ -1,6 +1,7 @@
 # Keppel, a multi-tenant container image registry
 
 [![CI](https://github.com/sapcc/keppel/actions/workflows/ci.yaml/badge.svg)](https://github.com/sapcc/keppel/actions/workflows/ci.yaml)
+[![Conformance Test](https://github.com/sapcc/keppel/actions/workflows/oci-distribution-conformance.yml/badge.svg)](https://github.com/sapcc/keppel/actions/workflows/oci-distribution-conformance.yml)
 [![Coverage Status](https://coveralls.io/repos/github/sapcc/keppel/badge.svg?branch=master)](https://coveralls.io/github/sapcc/keppel?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/sapcc/keppel)](https://goreportcard.com/report/github.com/sapcc/keppel)
 
