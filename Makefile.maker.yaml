@@ -54,6 +54,10 @@ githubWorkflow:
 
 renovate:
   enabled: true
+  packageRules:
+    - matchDepTypes: ["action"]
+      matchFiles: [".github/workflows/oci-distribution-conformance.yml"]
+      enabled: true
 
 verbatim: |
   # This is for manual testing.
