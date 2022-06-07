@@ -1,5 +1,8 @@
 # Configuration file for <https://github.com/sapcc/go-makefile-maker>
 
+metadata:
+  url: https://github.com/sapcc/keppel
+
 binaries:
   - name:        keppel
     fromPackage: .
@@ -14,6 +17,14 @@ variables:
 
 vendoring:
   enabled: true
+
+dockerfile:
+  enabled: true
+  extraIgnores:
+    - "*.actual"
+    - /*.json
+    - /*.yaml
+    - privkey.pem
 
 golangciLint:
   createConfig: true
