@@ -5,11 +5,6 @@
     "docker:enableMajor",
     "regexManagers:dockerfileVersions"
   ],
-  "github-actions": {
-    "fileMatch": [
-      ".github/workflows/oci-distribution-conformance.yml"
-    ]
-  },
   "assignees": [
     "SuperSandro2000"
   ],
@@ -25,7 +20,7 @@
       "matchPackagePrefixes": [
         "k8s.io/"
       ],
-      "allowedVersions": "<0.23"
+      "allowedVersions": "0.22.x"
     },
     {
       "matchPackageNames": [
@@ -40,6 +35,21 @@
         "github.com/sapcc/go-bits"
       ],
       "automerge": true
+    },
+    {
+      "matchDepTypes": [
+        "action"
+      ],
+      "enabled": false
+    },
+    {
+      "matchDepTypes": [
+        "action"
+      ],
+      "matchFiles": [
+        ".github/workflows/oci-distribution-conformance.yml"
+      ],
+      "enabled": true
     }
   ],
   "prHourlyLimit": 0,
