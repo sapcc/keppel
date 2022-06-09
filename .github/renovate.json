@@ -44,6 +44,12 @@
     },
     {
       "matchDepTypes": [
+        "dockerfile"
+      ],
+      "enabled": false
+    },
+    {
+      "matchDepTypes": [
         "action"
       ],
       "matchFiles": [
