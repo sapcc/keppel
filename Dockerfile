@@ -8,7 +8,7 @@ RUN make -C /src install PREFIX=/pkg GO_BUILDFLAGS='-mod vendor'
 
 FROM alpine:3.16
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates
 COPY --from=builder /pkg/ /usr/
 
 ARG COMMIT_ID=unknown
