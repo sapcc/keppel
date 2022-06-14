@@ -16,22 +16,17 @@
   ],
   "packageRules": [
     {
-      "matchDepTypes": [
-        "action"
-      ],
-      "enabled": false
-    },
-    {
-      "matchDepTypes": [
-        "dockerfile"
-      ],
-      "enabled": false
-    },
-    {
       "matchPackageNames": [
         "golang"
       ],
       "allowedVersions": "1.18.x"
+    },
+    {
+      "matchDepTypes": [
+        "action",
+        "dockerfile"
+      ],
+      "enabled": false
     },
     {
       "matchPackagePrefixes": [
