@@ -1,9 +1,7 @@
 {
   "extends": [
     "config:base",
-    "default:pinDigestsDisabled",
-    "docker:enableMajor",
-    "regexManagers:dockerfileVersions"
+    "default:pinDigestsDisabled"
   ],
   "assignees": [
     "majewsky",
@@ -18,26 +16,6 @@
   ],
   "packageRules": [
     {
-      "matchPackagePrefixes": [
-        "k8s.io/"
-      ],
-      "allowedVersions": "0.22.x"
-    },
-    {
-      "matchPackageNames": [
-        "golang"
-      ],
-      "allowedVersions": "1.18.x"
-    },
-    {
-      "matchPackagePrefixes": [
-        "github.com/sapcc/go-api-declarations",
-        "github.com/sapcc/gophercloud-sapcc",
-        "github.com/sapcc/go-bits"
-      ],
-      "automerge": true
-    },
-    {
       "matchDepTypes": [
         "action"
       ],
@@ -48,6 +26,19 @@
         "dockerfile"
       ],
       "enabled": false
+    },
+    {
+      "matchPackageNames": [
+        "golang"
+      ],
+      "allowedVersions": "1.18.x"
+    },
+    {
+      "matchPackagePrefixes": [
+        "github.com/sapcc/go-api-declarations",
+        "github.com/sapcc/go-bits"
+      ],
+      "automerge": true
     },
     {
       "matchDepTypes": [
