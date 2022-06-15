@@ -102,6 +102,7 @@ func (d *swiftDriver) getBackendConnection(account keppel.Account) (*schwift.Con
 		//get container metadata (404 is not a problem, in that case we will create the container down below)
 		hdr, err := c.Headers()
 		if err != nil && !schwift.Is(err, http.StatusNotFound) {
+			logg.Debug("getBackendConnection: err = %#v", err)
 			return nil, nil, err
 		}
 
