@@ -99,13 +99,9 @@ func (d *swiftDriver) getBackendConnection(account keppel.Account) (*schwift.Con
 	d.containerInfosMutex.RUnlock()
 
 	if info == nil || time.Since(info.CachedAt) > 5*time.Minute {
-		//this also ensures that the container exists
-		_, err := c.EnsureExists()
-		if err != nil {
-			return nil, nil, err
-		}
+		//get container metadata (404 is not a problem, in that case we will create the container down below)
 		hdr, err := c.Headers()
-		if err != nil {
+		if err != nil && !schwift.Is(err, http.StatusNotFound) {
 			return nil, nil, err
 		}
 
