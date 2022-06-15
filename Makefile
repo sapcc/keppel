@@ -59,7 +59,7 @@ install: FORCE build/keppel
 # which packages to test with "go test"
 GO_TESTPKGS := $(shell go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...)
 # which packages to measure coverage for
-GO_COVERPKGS := $(shell go list ./... | command grep -E '/internal' | command grep -Ev '/drivers|/test/util')
+GO_COVERPKGS := $(shell go list ./... | grep -E '/internal' | grep -Ev '/drivers|/test/util')
 # to get around weird Makefile syntax restrictions, we need variables containing a space and comma
 space := $(null) $(null)
 comma := ,
