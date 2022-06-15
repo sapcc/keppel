@@ -35,10 +35,16 @@ GO_BUILDFLAGS = -mod vendor
 GO_LDFLAGS = -X github.com/sapcc/keppel/internal/keppel.Version=$(shell util/find_version.sh)
 GO_TESTENV =
 
+# These definitions are overridable, e.g. to provide fixed version/commit values when
+# no .git directory is present or to provide a fixed build date for reproducability.
+BININFO_VERSION     ?= $(shell git describe --tags --always --abbrev=7)
+BININFO_COMMIT_HASH ?= $(shell git rev-parse --verify HEAD)
+BININFO_BUILD_DATE  ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+
 build-all: build/keppel
 
 build/keppel: FORCE
-	go build $(GO_BUILDFLAGS) -ldflags '-s -w $(GO_LDFLAGS)' -o build/keppel .
+	go build $(GO_BUILDFLAGS) -ldflags '-s -w -X github.com/sapcc/go-api-declarations/bininfo.binName=keppel -X github.com/sapcc/go-api-declarations/bininfo.version=$(BININFO_VERSION) -X github.com/sapcc/go-api-declarations/bininfo.commit=$(BININFO_COMMIT_HASH) -X github.com/sapcc/go-api-declarations/bininfo.buildDate=$(BININFO_BUILD_DATE) $(GO_LDFLAGS)' -o build/keppel .
 
 DESTDIR =
 ifeq ($(shell uname -s),Darwin)
@@ -70,7 +76,7 @@ static-check: FORCE prepare-static-check
 
 build/cover.out: FORCE | build
 	@printf "\e[1;36m>> go test\e[0m\n"
-	@env $(GO_TESTENV) go test $(GO_BUILDFLAGS) -ldflags '-s -w $(GO_LDFLAGS)' -shuffle=on -p 1 -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
+	@env $(GO_TESTENV) go test $(GO_BUILDFLAGS) -ldflags '-s -w -X github.com/sapcc/go-api-declarations/bininfo.binName=keppel -X github.com/sapcc/go-api-declarations/bininfo.version=$(BININFO_VERSION) -X github.com/sapcc/go-api-declarations/bininfo.commit=$(BININFO_COMMIT_HASH) -X github.com/sapcc/go-api-declarations/bininfo.buildDate=$(BININFO_BUILD_DATE) $(GO_LDFLAGS)' -shuffle=on -p 1 -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
 
 build/cover.html: build/cover.out
 	@printf "\e[1;36m>> go tool cover > build/cover.html\e[0m\n"
