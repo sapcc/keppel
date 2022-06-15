@@ -43,6 +43,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
 	"github.com/gophercloud/utils/openstack/clientconfig"
+	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/go-bits/logg"
@@ -114,7 +115,7 @@ func createProviderClient(ao gophercloud.AuthOptions) (*gophercloud.ProviderClie
 	if err == nil {
 		//use http.DefaultClient, esp. to pick up the KEPPEL_INSECURE flag
 		provider.HTTPClient = *http.DefaultClient
-		provider.UserAgent.Prepend(fmt.Sprintf("%s/%s", keppel.Component, keppel.Version))
+		provider.UserAgent.Prepend(fmt.Sprintf("%s/%s", bininfo.Component(), bininfo.Version()))
 		err = openstack.Authenticate(provider, ao)
 	}
 	return provider, err
@@ -159,7 +160,7 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Use
 		},
 		Endpoint: d.IdentityV3.Endpoint,
 	}
-	throwAwayClient.UserAgent.Prepend(fmt.Sprintf("%s/%s", keppel.Component, keppel.Version))
+	throwAwayClient.UserAgent.Prepend(fmt.Sprintf("%s/%s", bininfo.Component(), bininfo.Version()))
 	throwAwayClient.SetThrowaway(true)
 	throwAwayClient.ReauthFunc = nil
 	throwAwayClient.SetTokenAndAuthResult(nil) //nolint:errcheck

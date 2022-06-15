@@ -27,6 +27,7 @@ import (
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/logg"
@@ -120,7 +121,7 @@ func InitAuditTrail() Auditor {
 //Record implements the Auditor interface.
 func (a auditorImpl) Record(params audittools.EventParameters) {
 	params.Observer.TypeURI = "service/docker-registry"
-	params.Observer.Name = Component
+	params.Observer.Name = bininfo.Component()
 	params.Observer.ID = a.ObserverUUID
 
 	event := audittools.NewEvent(params)

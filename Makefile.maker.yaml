@@ -12,9 +12,6 @@ coverageTest:
   only: '/internal'
   except: '/drivers|/test/util'
 
-variables:
-  GO_LDFLAGS: '-X github.com/sapcc/keppel/internal/keppel.Version=$(shell util/find_version.sh)'
-
 vendoring:
   enabled: true
 

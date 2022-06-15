@@ -37,6 +37,7 @@ import (
 	"github.com/gophercloud/utils/openstack/clientconfig"
 	"github.com/majewsky/schwift"
 	"github.com/majewsky/schwift/gopherschwift"
+	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-bits/logg"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -82,7 +83,7 @@ func initSwiftContainerConnection(envPrefix string) (*schwift.Container, error) 
 
 	//create Swift container if necessary
 	swiftAccount, err := gopherschwift.Wrap(swiftV1, &gopherschwift.Options{
-		UserAgent: fmt.Sprintf("%s/%s", keppel.Component, keppel.Version),
+		UserAgent: fmt.Sprintf("%s/%s", bininfo.Component(), bininfo.Version()),
 	})
 	if err != nil {
 		return nil, err

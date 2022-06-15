@@ -32,7 +32,7 @@ run-api-for-conformance-test: build/keppel testing/conformance-test/privkey.pem
 	set -euo pipefail && source testing/conformance-test/env.sh && $(CURDIR)/build/keppel server api
 
 GO_BUILDFLAGS = -mod vendor
-GO_LDFLAGS = -X github.com/sapcc/keppel/internal/keppel.Version=$(shell util/find_version.sh)
+GO_LDFLAGS =
 GO_TESTENV =
 
 # These definitions are overridable, e.g. to provide fixed version/commit values when

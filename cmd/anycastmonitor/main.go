@@ -32,6 +32,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-bits/httpee"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/spf13/cobra"
@@ -86,7 +87,7 @@ type anycastMonitorJob struct {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	keppel.Component = "keppel-anycast-health-monitor"
+	bininfo.SetTaskName("anycast-health-monitor")
 	prometheus.MustRegister(anycastmonitorResultGaugeVec)
 	prometheus.MustRegister(anycastmonitorMemberGauge)
 

@@ -31,6 +31,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-bits/logg"
 
 	"github.com/sapcc/keppel/internal/clair"
@@ -182,9 +183,9 @@ func getDBURL() url.URL {
 	}
 	hostname, err := os.Hostname()
 	if err == nil {
-		dbConnOpts.Set("application_name", fmt.Sprintf("%s@%s", Component, hostname))
+		dbConnOpts.Set("application_name", fmt.Sprintf("%s@%s", bininfo.Component(), hostname))
 	} else {
-		dbConnOpts.Set("application_name", Component)
+		dbConnOpts.Set("application_name", bininfo.Component())
 	}
 
 	return url.URL{

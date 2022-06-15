@@ -31,6 +31,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
+	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-bits/httpee"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/spf13/cobra"
@@ -57,8 +58,8 @@ func AddCommandTo(parent *cobra.Command) {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	keppel.Component = "keppel-api"
-	logg.Info("starting keppel-api %s", keppel.Version)
+	bininfo.SetTaskName("api")
+	logg.Info("starting keppel-api %s", bininfo.Version())
 
 	cfg := keppel.ParseConfiguration()
 	auditor := keppel.InitAuditTrail()

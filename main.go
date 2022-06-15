@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/spf13/cobra"
 
@@ -61,7 +62,7 @@ func main() {
 		Use:     "keppel",
 		Short:   "Multi-tenant Docker registry",
 		Long:    "Keppel is a multi-tenant Docker registry. This binary contains both the server and client implementation.",
-		Version: keppel.Version,
+		Version: bininfo.Version(),
 		Args:    cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
@@ -94,6 +95,6 @@ type userAgentInjector struct {
 
 //RoundTrip implements the http.RoundTripper interface.
 func (uai userAgentInjector) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.Header.Set("User-Agent", fmt.Sprintf("%s/%s", keppel.Component, keppel.Version))
+	req.Header.Set("User-Agent", fmt.Sprintf("%s/%s", bininfo.Component(), bininfo.Version()))
 	return uai.Inner.RoundTrip(req)
 }
