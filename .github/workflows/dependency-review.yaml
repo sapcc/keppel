@@ -18,4 +18,4 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v3
       - name: Dependency Review
-        uses: actions/dependency-review-action@v1
+        uses: actions/dependency-review-action@v2
