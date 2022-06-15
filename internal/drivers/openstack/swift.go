@@ -117,7 +117,7 @@ func (d *swiftDriver) getBackendConnection(account keppel.Account) (*schwift.Con
 			}
 			hdr := schwift.NewContainerHeaders()
 			hdr.TempURLKey().Set(tempURLKey)
-			err = c.Create(hdr, nil)
+			err = c.Create(hdr.ToOpts())
 			if err != nil {
 				return nil, nil, err
 			}
