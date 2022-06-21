@@ -30,6 +30,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 )
 
@@ -66,6 +67,9 @@ func (c *ClairDouble) AddTo(r *mux.Router) {
 }
 
 func (c *ClairDouble) postIndexReport(w http.ResponseWriter, r *http.Request) {
+	httpapi.SkipRequestLog(r)
+	httpapi.IdentifyEndpoint(r, "/indexer/api/v1/index_report")
+
 	//get digest from request body
 	var reqBody map[string]interface{}
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
@@ -124,8 +128,10 @@ func (c *ClairDouble) postIndexReport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *ClairDouble) getIndexReport(w http.ResponseWriter, r *http.Request) {
-	digest := mux.Vars(r)["digest"]
+	httpapi.SkipRequestLog(r)
+	httpapi.IdentifyEndpoint(r, "/indexer/api/v1/index_report/{digest}")
 
+	digest := mux.Vars(r)["digest"]
 	if c.WasIndexSubmitted[digest] {
 		state := "CheckManifest"
 		if c.ReportFixtures[digest] != "" {
@@ -141,6 +147,9 @@ func (c *ClairDouble) getIndexReport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *ClairDouble) getVulnerabilityReport(w http.ResponseWriter, r *http.Request) {
+	httpapi.SkipRequestLog(r)
+	httpapi.IdentifyEndpoint(r, "/matcher/api/v1/vulnerability_report/{digest}")
+
 	digest := mux.Vars(r)["digest"]
 	fixturePath := c.ReportFixtures[digest]
 	if !c.WasIndexSubmitted[digest] || digest == "" {

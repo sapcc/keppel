@@ -31,7 +31,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sapcc/go-api-declarations/bininfo"
-	"github.com/sapcc/go-bits/httpee"
+	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/spf13/cobra"
 
@@ -115,12 +115,12 @@ func run(cmd *cobra.Command, args []string) {
 	//expose metrics endpoint
 	http.HandleFunc("/healthcheck", job.ReportHealthcheckResult)
 	http.Handle("/metrics", promhttp.Handler())
-	ctx := httpee.ContextWithSIGINT(context.Background(), 1*time.Second)
+	ctx := httpext.ContextWithSIGINT(context.Background(), 1*time.Second)
 	go func() {
 		logg.Info("listening on %s...", listenAddress)
-		err := httpee.ListenAndServeContext(ctx, listenAddress, nil)
+		err := httpext.ListenAndServeContext(ctx, listenAddress, nil)
 		if err != nil {
-			logg.Fatal("error returned from httpee.ListenAndServeContext(): %s", err.Error())
+			logg.Fatal("error returned from httpext.ListenAndServeContext(): %s", err.Error())
 		}
 	}()
 

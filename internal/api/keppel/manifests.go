@@ -26,8 +26,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/go-bits/sre"
 
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -71,7 +71,7 @@ var tagGetQuery = keppel.SimplifyWhitespaceInSQL(`
 `)
 
 func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests")
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests")
 	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanPullFromAccount))
 	if authz == nil {
 		return
@@ -161,7 +161,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests/:digest")
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests/:digest")
 	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanDeleteFromAccount))
 	if authz == nil {
 		return
@@ -196,7 +196,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_tags/:name")
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_tags/:name")
 	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanDeleteFromAccount))
 	if authz == nil {
 		return
@@ -227,7 +227,7 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleGetVulnerabilityReport(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests/:digest/vulnerability_report")
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests/:digest/vulnerability_report")
 	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanPullFromAccount))
 	if authz == nil {
 		return

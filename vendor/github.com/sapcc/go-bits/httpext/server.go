@@ -17,9 +17,7 @@
 *
 *******************************************************************************/
 
-//Package httpee provides some convenience functions on top of the "net/http"
-//package from the stdlib.
-package httpee
+package httpext
 
 import (
 	"context"

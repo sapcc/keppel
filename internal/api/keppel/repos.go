@@ -23,8 +23,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/go-bits/sre"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -70,7 +70,7 @@ var repositoryGetQuery = keppel.SimplifyWhitespaceInSQL(`
 `)
 
 func (a *API) handleGetRepositories(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories")
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories")
 	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanViewAccount))
 	if authz == nil {
 		return
@@ -158,7 +158,7 @@ func maxTimeToUnix(x, y *time.Time) int64 {
 }
 
 func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo")
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo")
 	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanDeleteFromAccount))
 	if authz == nil {
 		return

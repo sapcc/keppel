@@ -25,8 +25,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/go-bits/sre"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -40,7 +40,7 @@ type PeeringRequest struct {
 }
 
 func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/keppel/v1/auth/peering")
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/auth/peering")
 	//decode request body
 	var req PeeringRequest
 	decoder := json.NewDecoder(r.Body)

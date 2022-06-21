@@ -24,9 +24,9 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/go-bits/sre"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -68,7 +68,7 @@ func respondWithError(w http.ResponseWriter, code int, err error) bool {
 }
 
 func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/keppel/v1/auth")
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/auth")
 
 	//parse request
 	req, err := parseRequest(r.URL.RawQuery, a.cfg)

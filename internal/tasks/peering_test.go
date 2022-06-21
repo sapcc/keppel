@@ -26,8 +26,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/httpapi"
 
-	"github.com/sapcc/keppel/internal/api"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
@@ -42,7 +42,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 
 		//setup a mock for the peer that just swallows any password that we give to it
 		mockPeer := mockPeerReceivingPassword{}
-		tt.Handlers["peer.example.org"] = api.Compose(&mockPeer)
+		tt.Handlers["peer.example.org"] = httpapi.Compose(&mockPeer)
 
 		var issuedPasswords []string
 		for range []int{0, 1, 2, 3, 4} {
@@ -131,6 +131,9 @@ func (p *mockPeerReceivingPassword) AddTo(r *mux.Router) {
 }
 
 func (p *mockPeerReceivingPassword) handleReceivePassword(w http.ResponseWriter, r *http.Request) {
+	httpapi.SkipRequestLog(r)
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/auth/peering")
+
 	//I would prefer to use the actual implementation of this endpoint, but we
 	//only have one DB for the whole testcase, and using it for both ourselves
 	//and the peer is asking for trouble.

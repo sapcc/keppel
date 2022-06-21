@@ -26,15 +26,15 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/go-bits/sre"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //Implementation for the POST /peer/v1/sync-replica/:account/:repo endpoint.
 func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/peer/v1/sync-replica/:account/:repo")
+	httpapi.IdentifyEndpoint(r, "/peer/v1/sync-replica/:account/:repo")
 	peer := a.authenticateRequest(w, r)
 	if peer == nil {
 		return

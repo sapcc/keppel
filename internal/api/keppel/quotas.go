@@ -27,8 +27,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/go-bits/sre"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -51,7 +51,7 @@ type quotaRequest struct {
 }
 
 func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/keppel/v1/quotas/:auth_tenant_id")
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/quotas/:auth_tenant_id")
 	authTenantID := mux.Vars(r)["auth_tenant_id"]
 	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanViewQuotas, authTenantID))
 	if authz == nil {
@@ -80,7 +80,7 @@ func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/keppel/v1/quotas/:auth_tenant_id")
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/quotas/:auth_tenant_id")
 	authTenantID := mux.Vars(r)["auth_tenant_id"]
 	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanChangeQuotas, authTenantID))
 	if authz == nil {

@@ -28,8 +28,8 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/httpapi"
 
-	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
@@ -570,7 +570,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	tt := &test.RoundTripper{
 		Handlers: map[string]http.Handler{
 			"registry.example.org": s.Handler,
-			"clair.example.org":    api.Compose(claird),
+			"clair.example.org":    httpapi.Compose(claird),
 		},
 	}
 	http.DefaultClient.Transport = tt

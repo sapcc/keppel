@@ -26,10 +26,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/sapcc/keppel/internal/api"
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
 	peerv1 "github.com/sapcc/keppel/internal/api/peer"
@@ -235,7 +235,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 			PresharedKey: []byte("doesnotmatter"), //since the ClairDouble does not check the Authorization header
 		}
 		if tt, ok := http.DefaultClient.Transport.(*RoundTripper); ok {
-			tt.Handlers[clairURL.Host] = api.Compose(s.ClairDouble)
+			tt.Handlers[clairURL.Host] = httpapi.Compose(s.ClairDouble)
 		}
 	}
 
@@ -327,7 +327,8 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	s.ICD = icd.(*InboundCacheDriver) //nolint:errcheck
 
 	//setup APIs
-	apis := []api.API{
+	apis := []httpapi.API{
+		httpapi.WithoutLogging(),
 		//Registry API (and thus Auth API) are nearly always needed for
 		//Bytes.Upload, Image.Upload and ImageList.Upload
 		registryv2.NewAPI(s.Config, ad, fd, sd, icd, s.DB, s.Auditor, params.RateLimitEngine).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next),
@@ -339,7 +340,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	if params.WithPeerAPI {
 		apis = append(apis, peerv1.NewAPI(s.Config, ad, s.DB))
 	}
-	s.Handler = api.Compose(apis...)
+	s.Handler = httpapi.Compose(apis...)
 	if tt, ok := http.DefaultClient.Transport.(*RoundTripper); ok {
 		//make our own API reachable to other peers
 		tt.Handlers[s.Config.APIPublicHostname] = s.Handler

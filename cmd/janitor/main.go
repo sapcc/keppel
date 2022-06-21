@@ -29,11 +29,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sapcc/go-api-declarations/bininfo"
-	"github.com/sapcc/go-bits/httpee"
+	"github.com/sapcc/go-bits/httpapi"
+	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/spf13/cobra"
 
-	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/tasks"
 )
@@ -70,7 +70,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	prometheus.MustRegister(sqlstats.NewStatsCollector("keppel", db.DbMap.Db))
 
-	ctx := httpee.ContextWithSIGINT(context.Background(), 10*time.Second)
+	ctx := httpext.ContextWithSIGINT(context.Background(), 10*time.Second)
 
 	//start task loops
 	janitor := tasks.NewJanitor(cfg, fd, sd, icd, db, auditor)
@@ -88,16 +88,17 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	//start HTTP server for Prometheus metrics and health check
+	handler := httpapi.Compose(httpapi.HealthCheckAPI{SkipRequestLog: true})
+	http.Handle("/", handler)
 	http.Handle("/metrics", promhttp.Handler())
-	http.HandleFunc("/healthcheck", api.HealthCheckHandler)
 	listenAddress := os.Getenv("KEPPEL_JANITOR_LISTEN_ADDRESS")
 	if listenAddress == "" {
 		listenAddress = ":8080"
 	}
 	logg.Info("listening on " + listenAddress)
-	err = httpee.ListenAndServeContext(ctx, listenAddress, nil)
+	err = httpext.ListenAndServeContext(ctx, listenAddress, nil)
 	if err != nil {
-		logg.Fatal("error returned from httpee.ListenAndServeContext(): %s", err.Error())
+		logg.Fatal("error returned from httpext.ListenAndServeContext(): %s", err.Error())
 	}
 }
 

@@ -34,8 +34,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/go-bits/sre"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -306,7 +306,7 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 // handlers
 
 func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/keppel/v1/accounts")
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts")
 	var accounts []keppel.Account
 	_, err := a.db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
 	if respondwith.ErrorText(w, err) {
@@ -347,7 +347,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
 	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanViewAccount))
 	if authz == nil {
 		return
@@ -367,7 +367,7 @@ func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 var looksLikeAPIVersionRx = regexp.MustCompile(`^v[0-9][1-9]*$`)
 
 func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
 	//decode request body
 	var req struct {
 		Account struct {
@@ -879,7 +879,7 @@ type deleteAccountResponse struct {
 }
 
 func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
 	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
 	if authz == nil {
 		return
@@ -1006,7 +1006,7 @@ func (a *API) deleteAccount(account keppel.Account) (*deleteAccountResponse, err
 }
 
 func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/sublease")
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/sublease")
 	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
 	if authz == nil {
 		return

@@ -21,8 +21,8 @@ package keppelv1
 import (
 	"net/http"
 
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/go-bits/sre"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -53,7 +53,7 @@ func renderPeers(peers []keppel.Peer) []Peer {
 }
 
 func (a *API) handleGetPeers(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/keppel/v1/peers")
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/peers")
 	uid, authErr := a.authDriver.AuthenticateUserFromRequest(r)
 	if respondWithAuthError(w, authErr) {
 		return

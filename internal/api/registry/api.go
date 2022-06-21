@@ -27,8 +27,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/go-bits/sre"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -117,7 +117,7 @@ func (a *API) processor() *processor.Processor {
 
 //This implements the GET /v2/ endpoint.
 func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/v2/")
+	httpapi.IdentifyEndpoint(r, "/v2/")
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 

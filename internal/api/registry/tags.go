@@ -25,8 +25,8 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/go-bits/sre"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -38,7 +38,7 @@ var tagsListQuery = keppel.SimplifyWhitespaceInSQL(`
 `)
 
 func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/v2/:account/:repo/tags/list")
+	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/tags/list")
 	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, a.handleListTagsAnycast)
 	if account == nil {
 		return

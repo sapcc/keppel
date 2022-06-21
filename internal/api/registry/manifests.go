@@ -32,8 +32,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/go-bits/sre"
 
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/auth"
@@ -43,7 +43,7 @@ import (
 
 //This implements the HEAD/GET /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
+	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
 	account, repo, authz := a.checkAccountAccess(w, r, createRepoIfMissingAndReplica, a.handleGetOrHeadManifestAnycast)
 	if account == nil {
 		return
@@ -264,7 +264,7 @@ func (a *API) handleGetOrHeadManifestAnycast(w http.ResponseWriter, r *http.Requ
 
 //This implements the DELETE /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
+	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
 	account, repo, authz := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
 		return
@@ -295,7 +295,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 
 //This implements the PUT /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
+	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
 	account, repo, authz := a.checkAccountAccess(w, r, createRepoIfMissing, nil)
 	if account == nil {
 		return

@@ -32,11 +32,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 	"github.com/sapcc/go-api-declarations/bininfo"
-	"github.com/sapcc/go-bits/httpee"
+	"github.com/sapcc/go-bits/httpapi"
+	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/spf13/cobra"
 
-	"github.com/sapcc/keppel/internal/api"
 	auth "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/api/clairproxy"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
@@ -88,11 +88,16 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	//start background goroutines
-	ctx := httpee.ContextWithSIGINT(context.Background(), 10*time.Second)
+	ctx := httpext.ContextWithSIGINT(context.Background(), 10*time.Second)
 	runPeering(ctx, cfg, db)
 
 	//wire up HTTP handlers
-	handler := api.Compose(
+	corsMiddleware := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"HEAD", "GET", "POST", "PUT", "DELETE"},
+		AllowedHeaders: []string{"Content-Type", "User-Agent", "Authorization", "X-Auth-Token", "X-Keppel-Sublease-Token"},
+	})
+	handler := httpapi.Compose(
 		keppelv1.NewAPI(cfg, ad, fd, sd, icd, db, auditor),
 		auth.NewAPI(cfg, ad, fd, db),
 		registryv2.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle),
@@ -100,16 +105,11 @@ func run(cmd *cobra.Command, args []string) {
 		clairproxy.NewAPI(cfg, ad),
 		&headerReflector{logg.ShowDebug}, //the header reflection endpoint is only enabled where debugging is enabled (i.e. usually in dev/QA only)
 		&guiRedirecter{db, os.Getenv("KEPPEL_GUI_URI")},
+		httpapi.HealthCheckAPI{SkipRequestLog: true},
+		httpapi.WithGlobalMiddleware(corsMiddleware.Handler),
 	)
-	handler = logg.Middleware{}.Wrap(handler)
-	handler = cors.New(cors.Options{
-		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"HEAD", "GET", "POST", "PUT", "DELETE"},
-		AllowedHeaders: []string{"Content-Type", "User-Agent", "Authorization", "X-Auth-Token", "X-Keppel-Sublease-Token"},
-	}).Handler(handler)
 	http.Handle("/", handler)
 	http.Handle("/metrics", promhttp.Handler())
-	http.HandleFunc("/healthcheck", api.HealthCheckHandler)
 
 	//start HTTP server
 	apiListenAddress := os.Getenv("KEPPEL_API_LISTEN_ADDRESS")
@@ -117,9 +117,9 @@ func run(cmd *cobra.Command, args []string) {
 		apiListenAddress = ":8080"
 	}
 	logg.Info("listening on " + apiListenAddress)
-	err = httpee.ListenAndServeContext(ctx, apiListenAddress, nil)
+	err = httpext.ListenAndServeContext(ctx, apiListenAddress, nil)
 	if err != nil {
-		logg.Fatal("error returned from httpee.ListenAndServeContext(): %s", err.Error())
+		logg.Fatal("error returned from httpext.ListenAndServeContext(): %s", err.Error())
 	}
 }
 

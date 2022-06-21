@@ -38,8 +38,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/go-bits/sre"
 	"gopkg.in/gorp.v2"
 
 	"github.com/sapcc/keppel/internal/api"
@@ -49,7 +49,7 @@ import (
 
 //This implements the POST /v2/<account>/<repository>/blobs/uploads/ endpoint.
 func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/")
+	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/")
 	account, repo, authz := a.checkAccountAccess(w, r, createRepoIfMissing, nil)
 	if account == nil {
 		return
@@ -295,7 +295,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 
 //This implements the DELETE /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
 func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
+	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
 	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
 		return
@@ -335,7 +335,7 @@ func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
 
 //This implements the GET /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
 func (a *API) handleGetBlobUpload(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
+	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
 
 	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
@@ -354,7 +354,7 @@ func (a *API) handleGetBlobUpload(w http.ResponseWriter, r *http.Request) {
 
 //This implements the PATCH /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
 func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
+	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
 	account, repo, authz := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
 		return
@@ -409,7 +409,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 
 //This implements the PUT /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
 func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
+	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
 	account, repo, authz := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
 		return

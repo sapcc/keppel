@@ -28,8 +28,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/go-bits/sre"
 
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -43,7 +43,7 @@ var isImageConfigBlobMediaType = map[string]bool{
 
 //This implements the GET/HEAD /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
+	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
 	account, repo, authz := a.checkAccountAccess(w, r, failIfRepoMissing, a.handleGetOrHeadBlobAnycast)
 	if account == nil {
 		return
@@ -186,7 +186,7 @@ func (a *API) handleGetOrHeadBlobAnycast(w http.ResponseWriter, r *http.Request,
 
 //This implements the DELETE /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
+	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
 	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
 		return

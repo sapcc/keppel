@@ -27,8 +27,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/go-bits/sre"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -38,7 +38,7 @@ const maxLimit = 100
 
 //This implements the GET /v2/_catalog endpoint.
 func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/v2/_catalog")
+	httpapi.IdentifyEndpoint(r, "/v2/_catalog")
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 

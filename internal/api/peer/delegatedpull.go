@@ -24,8 +24,8 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/go-bits/sre"
 
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -33,7 +33,7 @@ import (
 
 //Implementation for the GET /peer/v1/delegatedpull/:hostname/v2/:repo/manifests/:reference endpoint.
 func (a *API) handleDelegatedPullManifest(w http.ResponseWriter, r *http.Request) {
-	sre.IdentifyEndpoint(r, "/peer/v1/delegatedpull/:hostname/v2/:repo/manifests/:reference")
+	httpapi.IdentifyEndpoint(r, "/peer/v1/delegatedpull/:hostname/v2/:repo/manifests/:reference")
 	peer := a.authenticateRequest(w, r)
 	if peer == nil {
 		return

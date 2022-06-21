@@ -34,7 +34,7 @@ func JSON(w http.ResponseWriter, code int, data interface{}) {
 	if err == nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(code)
-		w.Write(bytes)
+		w.Write(bytes) //nolint:errcheck
 	} else {
 		http.Error(w, err.Error(), 500)
 	}
