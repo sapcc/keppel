@@ -30,5 +30,6 @@ jobs:
           go-version: "1.18"
       - name: Check if source code files have license header
         run: |
+          shopt -s globstar
           go install github.com/google/addlicense@latest
-          find * \( -name vendor -type d -prune \) -o \( -name \*.go -exec addlicense --check -- {} + \)
+          addlicense --check -ignore "vendor/**" -- **/*.go
