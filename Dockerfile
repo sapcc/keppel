@@ -1,4 +1,7 @@
 FROM golang:1.18.3-alpine3.16 as builder
+
+ARG BININFO_BUILD_DATE BININFO_COMMIT_HASH BININFO_VERSION
+
 RUN apk add --no-cache gcc git make musl-dev
 
 COPY . /src
@@ -11,10 +14,12 @@ FROM alpine:3.16
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /pkg/ /usr/
 
-ARG COMMIT_ID=unknown
+ARG BININFO_BUILD_DATE BININFO_COMMIT_HASH BININFO_VERSION
 LABEL source_repository="https://github.com/sapcc/keppel" \
   org.opencontainers.image.url="https://github.com/sapcc/keppel" \
-  org.opencontainers.image.revision=${COMMIT_ID}
+  org.opencontainers.image.created=${BININFO_BUILD_DATE} \
+  org.opencontainers.image.revision=${BININFO_COMMIT_HASH} \
+  org.opencontainers.image.version=${BININFO_VERSION}
 
 USER nobody:nobody
 WORKDIR /var/empty
