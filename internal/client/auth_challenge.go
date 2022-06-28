@@ -119,8 +119,16 @@ func (c AuthChallenge) GetToken(userName, password string) (string, error) {
 	}
 
 	var data struct {
-		Token string `json:"token"`
+		AccessToken string `json:"access_token"`
+		Token       string `json:"token"`
 	}
 	err = json.Unmarshal(respBytes, &data)
-	return data.Token, err
+	switch {
+	case err != nil:
+		return "", err
+	case data.Token != "":
+		return data.Token, nil
+	default:
+		return data.AccessToken, nil
+	}
 }
