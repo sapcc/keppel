@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/tasks"
@@ -85,7 +86,7 @@ func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
 
 //WARNING: This must be run in a transaction, or else `FOR UPDATE SKIP LOCKED`
 //will not work as expected.
-var getNextPeerQuery = keppel.SimplifyWhitespaceInSQL(`
+var getNextPeerQuery = sqlext.SimplifyWhitespace(`
 	SELECT * FROM peers
 	 WHERE last_peered_at < $1 OR last_peered_at IS NULL
 	 ORDER BY COALESCE(last_peered_at, TO_TIMESTAMP(-1)) ASC LIMIT 1
@@ -97,7 +98,7 @@ func tryIssueNewPasswordForPeer(cfg keppel.Configuration, db *keppel.DB) error {
 	if err != nil {
 		return err
 	}
-	defer keppel.RollbackUnlessCommitted(tx)
+	defer sqlext.RollbackUnlessCommitted(tx)
 
 	//select next peer that needs a new password, if any
 	var peer keppel.Peer

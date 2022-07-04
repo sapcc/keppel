@@ -29,6 +29,7 @@ import (
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
+	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -113,7 +114,7 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-	defer keppel.RollbackUnlessCommitted(tx)
+	defer sqlext.RollbackUnlessCommitted(tx)
 
 	manifestCount, err := quotas.GetManifestUsage(tx)
 	if respondwith.ErrorText(w, err) {

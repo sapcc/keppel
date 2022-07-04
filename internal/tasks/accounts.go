@@ -24,11 +24,12 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-var accountAnnouncementSearchQuery = keppel.SimplifyWhitespaceInSQL(`
+var accountAnnouncementSearchQuery = sqlext.SimplifyWhitespace(`
 	SELECT * FROM accounts
 		WHERE next_federation_announcement_at IS NULL OR next_federation_announcement_at < $1
 	-- accounts without any announcements first, then sorted by last announcement
@@ -37,7 +38,7 @@ var accountAnnouncementSearchQuery = keppel.SimplifyWhitespaceInSQL(`
 	LIMIT 1
 `)
 
-var accountAnnouncementDoneQuery = keppel.SimplifyWhitespaceInSQL(`
+var accountAnnouncementDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE accounts SET next_federation_announcement_at = $2 WHERE name = $1
 `)
 

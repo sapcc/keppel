@@ -28,6 +28,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
+	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -56,7 +57,7 @@ type Tag struct {
 	LastPulledAt *int64 `json:"last_pulled_at"`
 }
 
-var manifestGetQuery = keppel.SimplifyWhitespaceInSQL(`
+var manifestGetQuery = sqlext.SimplifyWhitespace(`
 	SELECT *
 	  FROM manifests
 	 WHERE repo_id = $1 AND $CONDITION
@@ -64,7 +65,7 @@ var manifestGetQuery = keppel.SimplifyWhitespaceInSQL(`
 	 LIMIT $LIMIT
 `)
 
-var tagGetQuery = keppel.SimplifyWhitespaceInSQL(`
+var tagGetQuery = sqlext.SimplifyWhitespace(`
 	SELECT *
 	  FROM tags
 	 WHERE repo_id = $1 AND digest >= $2 AND digest <= $3

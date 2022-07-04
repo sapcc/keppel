@@ -26,11 +26,12 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-var imageGCRepoSelectQuery = keppel.SimplifyWhitespaceInSQL(`
+var imageGCRepoSelectQuery = sqlext.SimplifyWhitespace(`
 	SELECT * FROM repos
 		WHERE (next_gc_at IS NULL OR next_gc_at < $1)
 	-- repos without any syncs first, then sorted by last sync
@@ -39,11 +40,11 @@ var imageGCRepoSelectQuery = keppel.SimplifyWhitespaceInSQL(`
 	LIMIT 1
 `)
 
-var imageGCResetStatusQuery = keppel.SimplifyWhitespaceInSQL(`
+var imageGCResetStatusQuery = sqlext.SimplifyWhitespace(`
 	UPDATE manifests SET gc_status_json = '{"relevant_policies":[]}' WHERE repo_id = $1
 `)
 
-var imageGCRepoDoneQuery = keppel.SimplifyWhitespaceInSQL(`
+var imageGCRepoDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE repos SET next_gc_at = $2 WHERE id = $1
 `)
 
@@ -143,7 +144,7 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 
 	//load tags (for matching policies on match_tag, except_tag and only_untagged)
 	query := `SELECT digest, name FROM tags WHERE repo_id = $1`
-	err = keppel.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
 		var (
 			digest  string
 			tagName string
@@ -166,7 +167,7 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 
 	//check manifest-manifest relations to fill GCStatus.ProtectedByManifest
 	query = `SELECT parent_digest, child_digest FROM manifest_manifest_refs WHERE repo_id = $1`
-	err = keppel.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
 		var (
 			parentDigest string
 			childDigest  string
@@ -255,7 +256,7 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 
 	//finalize and persist GCStatus for all affected manifests
 	query = `UPDATE manifests SET gc_status_json = $1 WHERE repo_id = $2 AND digest = $3`
-	err = keppel.WithPreparedStatement(j.db, query, func(stmt *sql.Stmt) error {
+	err = sqlext.WithPreparedStatement(j.db, query, func(stmt *sql.Stmt) error {
 		for _, m := range manifests {
 			if m.IsDeleted {
 				continue

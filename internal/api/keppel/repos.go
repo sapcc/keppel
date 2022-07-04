@@ -25,6 +25,7 @@ import (
 
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
+	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -38,7 +39,7 @@ type Repository struct {
 	PushedAt      int64  `json:"pushed_at,omitempty"`
 }
 
-var repositoryGetQuery = keppel.SimplifyWhitespaceInSQL(`
+var repositoryGetQuery = sqlext.SimplifyWhitespace(`
 	WITH
 		blob_stats AS (
 			SELECT bm.repo_id AS repo_id, SUM(b.size_bytes) AS size_bytes
@@ -95,7 +96,7 @@ func (a *API) handleGetRepositories(w http.ResponseWriter, r *http.Request) {
 		Repos       []Repository `json:"repositories"`
 		IsTruncated bool         `json:"truncated,omitempty"`
 	}
-	err = keppel.ForeachRow(a.db, query, bindValues, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(a.db, query, bindValues, func(rows *sql.Rows) error {
 		var (
 			name                string
 			sizeBytes           *uint64
@@ -176,7 +177,7 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-	defer keppel.RollbackUnlessCommitted(tx)
+	defer sqlext.RollbackUnlessCommitted(tx)
 
 	//deleting a repo is only allowed if there is nothing in it
 	manifestCount, err := tx.SelectInt(

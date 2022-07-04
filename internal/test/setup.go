@@ -26,6 +26,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
 	"golang.org/x/crypto/bcrypt"
@@ -263,28 +264,8 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	}
 
 	//wipe the DB clean if there are any leftovers from the previous test run
-	for _, tableName := range []string{"manifest_blob_refs", "accounts", "peers", "quotas"} {
-		//NOTE: All tables not mentioned above are cleared via ON DELETE CASCADE.
-		//
-		//NOTE 2: `manifest_blob_refs` is technically not necessary because it
-		//would be cleared when `accounts` is cleared, but if we clear `accounts`
-		//directly, the deletions cascade down in the wrong order and trigger
-		//ON DELETE RESTRICT constraints.
-		_, err := s.DB.Exec("DELETE FROM " + tableName)
-		must(t, err)
-	}
-
-	//reset all primary key sequences for reproducible row IDs
-	for _, tableName := range []string{"blobs", "repos"} {
-		nextID, err := s.DB.SelectInt(fmt.Sprintf(
-			"SELECT 1 + COALESCE(MAX(id), 0) FROM %s", tableName,
-		))
-		must(t, err)
-
-		query := fmt.Sprintf(`ALTER SEQUENCE %s_id_seq RESTART WITH %d`, tableName, nextID)
-		_, err = s.DB.Exec(query)
-		must(t, err)
-	}
+	easypg.ClearTables(t, s.DB.Db, "manifest_blob_refs", "accounts", "peers", "quotas")
+	easypg.ResetPrimaryKeys(t, s.DB.Db, "blobs", "repos")
 
 	//setup anycast if requested
 	if params.WithAnycast {

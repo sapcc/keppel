@@ -28,6 +28,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
+	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -88,7 +89,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 	//update our own last_pulled_at timestamps to cover pulls performed on the replica side
 	query := `UPDATE manifests SET last_pulled_at = $3 WHERE repo_id = $1 AND digest = $2 AND (last_pulled_at IS NULL OR last_pulled_at < $3)`
 	if hasManifestsLastPulledAt {
-		err = keppel.WithPreparedStatement(a.db, query, func(stmt *sql.Stmt) error {
+		err = sqlext.WithPreparedStatement(a.db, query, func(stmt *sql.Stmt) error {
 			for _, m := range req.Manifests {
 				if m.LastPulledAt == nil {
 					continue
@@ -107,7 +108,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 
 	query = `UPDATE tags SET last_pulled_at = $4 WHERE repo_id = $1 AND digest = $2 AND name = $3 AND (last_pulled_at IS NULL OR last_pulled_at < $4)`
 	if hasTagsLastPulledAt {
-		err = keppel.WithPreparedStatement(a.db, query, func(stmt *sql.Stmt) error {
+		err = sqlext.WithPreparedStatement(a.db, query, func(stmt *sql.Stmt) error {
 			for _, m := range req.Manifests {
 				for _, t := range m.Tags {
 					if t.LastPulledAt == nil {
@@ -129,7 +130,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 	//gather the data for our side of the bargain
 	tagsByDigest := make(map[string][]keppel.TagForSync)
 	query = `SELECT name, digest FROM tags WHERE repo_id = $1`
-	err = keppel.ForeachRow(a.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(a.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
 		var (
 			name   string
 			digest string
@@ -147,7 +148,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 
 	var manifests []keppel.ManifestForSync
 	query = `SELECT digest FROM manifests WHERE repo_id = $1`
-	err = keppel.ForeachRow(a.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(a.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
 		var digest string
 		err = rows.Scan(&digest)
 		if err != nil {

@@ -34,6 +34,7 @@ import (
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/sqlext"
 	"gopkg.in/gorp.v2"
 
 	"github.com/sapcc/keppel/internal/auth"
@@ -50,10 +51,10 @@ type IncomingManifest struct {
 	PushedAt  time.Time //usually time.Now(), but can be different in unit tests
 }
 
-var checkManifestExistsQuery = keppel.SimplifyWhitespaceInSQL(`
+var checkManifestExistsQuery = sqlext.SimplifyWhitespace(`
 	SELECT COUNT(*) > 0 FROM manifests WHERE repo_id = $1 AND digest = $2
 `)
-var checkTagExistsAtSameDigestQuery = keppel.SimplifyWhitespaceInSQL(`
+var checkTagExistsAtSameDigestQuery = sqlext.SimplifyWhitespace(`
 	SELECT COUNT(*) > 0 FROM tags WHERE repo_id = $1 AND name = $2 AND digest = $3
 `)
 
@@ -380,7 +381,7 @@ func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account 
 	return data.Config.Labels, minCreationTime, maxCreationTime, nil
 }
 
-var upsertManifestQuery = keppel.SimplifyWhitespaceInSQL(`
+var upsertManifestQuery = sqlext.SimplifyWhitespace(`
 	INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, labels_json, min_layer_created_at, max_layer_created_at)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	ON CONFLICT (repo_id, digest) DO UPDATE
@@ -388,7 +389,7 @@ var upsertManifestQuery = keppel.SimplifyWhitespaceInSQL(`
 		min_layer_created_at = EXCLUDED.min_layer_created_at, max_layer_created_at = EXCLUDED.max_layer_created_at
 `)
 
-var upsertManifestContentQuery = keppel.SimplifyWhitespaceInSQL(`
+var upsertManifestContentQuery = sqlext.SimplifyWhitespace(`
 	INSERT INTO manifest_contents (repo_id, digest, content)
 	VALUES ($1, $2, $3)
 	ON CONFLICT (repo_id, digest) DO UPDATE
@@ -404,7 +405,7 @@ func upsertManifest(db gorp.SqlExecutor, m keppel.Manifest, manifestBytes []byte
 	return err
 }
 
-var upsertTagQuery = keppel.SimplifyWhitespaceInSQL(`
+var upsertTagQuery = sqlext.SimplifyWhitespace(`
 	INSERT INTO tags (repo_id, name, digest, pushed_at)
 	VALUES ($1, $2, $3, $4)
 	ON CONFLICT (repo_id, name) DO UPDATE
@@ -426,7 +427,7 @@ func maintainManifestBlobRefs(tx *gorp.Transaction, m keppel.Manifest, reference
 	//media type of each blob referenced therein; therefore now is our only
 	//chance to persist this information for future use)
 	query := `UPDATE blobs SET media_type = $1 WHERE id = $2 AND media_type != $1`
-	err := keppel.WithPreparedStatement(tx, query, func(stmt *sql.Stmt) error {
+	err := sqlext.WithPreparedStatement(tx, query, func(stmt *sql.Stmt) error {
 		for _, blobRef := range referencedBlobs {
 			_, err := stmt.Exec(blobRef.MediaType, blobRef.ID)
 			if err != nil {
@@ -442,7 +443,7 @@ func maintainManifestBlobRefs(tx *gorp.Transaction, m keppel.Manifest, reference
 	//find existing manifest_blob_refs entries for this manifest
 	isExistingBlobIDRef := make(map[int64]bool)
 	query = `SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`
-	err = keppel.ForeachRow(tx, query, []interface{}{m.RepositoryID, m.Digest}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(tx, query, []interface{}{m.RepositoryID, m.Digest}, func(rows *sql.Rows) error {
 		var blobID int64
 		err := rows.Scan(&blobID)
 		isExistingBlobIDRef[blobID] = true
@@ -454,7 +455,7 @@ func maintainManifestBlobRefs(tx *gorp.Transaction, m keppel.Manifest, reference
 
 	//create missing manifest_blob_refs
 	if len(referencedBlobs) > 0 {
-		err = keppel.WithPreparedStatement(tx,
+		err = sqlext.WithPreparedStatement(tx,
 			`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
 			func(stmt *sql.Stmt) error {
 				for _, blobRef := range referencedBlobs {
@@ -480,7 +481,7 @@ func maintainManifestBlobRefs(tx *gorp.Transaction, m keppel.Manifest, reference
 	//`isExistingBlobIDRef` in the previous loop, all entries left in it are
 	//definitely not in `referencedBlobIDs` and therefore need to be deleted)
 	if len(isExistingBlobIDRef) > 0 {
-		err = keppel.WithPreparedStatement(tx,
+		err = sqlext.WithPreparedStatement(tx,
 			`DELETE FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2 AND blob_id = $3`,
 			func(stmt *sql.Stmt) error {
 				for blobID := range isExistingBlobIDRef {
@@ -504,7 +505,7 @@ func maintainManifestManifestRefs(tx *gorp.Transaction, m keppel.Manifest, refer
 	//find existing manifest_manifest_refs entries for this manifest
 	isExistingManifestDigestRef := make(map[string]bool)
 	query := `SELECT child_digest FROM manifest_manifest_refs WHERE repo_id = $1 AND parent_digest = $2`
-	err := keppel.ForeachRow(tx, query, []interface{}{m.RepositoryID, m.Digest}, func(rows *sql.Rows) error {
+	err := sqlext.ForeachRow(tx, query, []interface{}{m.RepositoryID, m.Digest}, func(rows *sql.Rows) error {
 		var childDigest string
 		err := rows.Scan(&childDigest)
 		isExistingManifestDigestRef[childDigest] = true
@@ -516,7 +517,7 @@ func maintainManifestManifestRefs(tx *gorp.Transaction, m keppel.Manifest, refer
 
 	//create missing manifest_manifest_refs
 	if len(referencedManifestDigests) > 0 {
-		err = keppel.WithPreparedStatement(tx,
+		err = sqlext.WithPreparedStatement(tx,
 			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES ($1, $2, $3)`,
 			func(stmt *sql.Stmt) error {
 				for _, childDigest := range referencedManifestDigests {
@@ -543,7 +544,7 @@ func maintainManifestManifestRefs(tx *gorp.Transaction, m keppel.Manifest, refer
 	//are definitely not in `referencedManifestDigests` and therefore need to be
 	//deleted)
 	if len(isExistingManifestDigestRef) > 0 {
-		err = keppel.WithPreparedStatement(tx,
+		err = sqlext.WithPreparedStatement(tx,
 			`DELETE FROM manifest_manifest_refs WHERE repo_id = $1 AND parent_digest = $2 AND child_digest = $3`,
 			func(stmt *sql.Stmt) error {
 				for childDigest := range isExistingManifestDigestRef {

@@ -40,6 +40,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/sqlext"
 	"gopkg.in/gorp.v2"
 
 	"github.com/sapcc/keppel/internal/api"
@@ -265,7 +266,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	if respondWithError(w, r, err) {
 		return false
 	}
-	defer keppel.RollbackUnlessCommitted(tx)
+	defer sqlext.RollbackUnlessCommitted(tx)
 
 	blobPushedAt := a.timeNow()
 	blob, err := a.createOrUpdateBlobObject(tx, sizeBytes, upload.StorageID, blobDigest, blobPushedAt, account)
@@ -310,7 +311,7 @@ func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
 	if respondWithError(w, r, err) {
 		return
 	}
-	defer keppel.RollbackUnlessCommitted(tx)
+	defer sqlext.RollbackUnlessCommitted(tx)
 	_, err = tx.Delete(upload)
 	if respondWithError(w, r, err) {
 		return
@@ -668,7 +669,7 @@ func (a *API) createBlobFromUpload(account keppel.Account, repo keppel.Repositor
 	if err != nil {
 		return nil, err
 	}
-	defer keppel.RollbackUnlessCommitted(tx)
+	defer sqlext.RollbackUnlessCommitted(tx)
 
 	_, err = tx.Delete(&upload)
 	if err != nil {
@@ -687,7 +688,7 @@ func (a *API) createBlobFromUpload(account keppel.Account, repo keppel.Repositor
 	return blob, tx.Commit()
 }
 
-var insertBlobIfMissingQuery = keppel.SimplifyWhitespaceInSQL(`
+var insertBlobIfMissingQuery = sqlext.SimplifyWhitespace(`
 	INSERT INTO blobs (account_name, digest, size_bytes, storage_id, pushed_at, validated_at)
 	VALUES ($1, $2, $3, $4, $5, $5)
 	ON CONFLICT DO NOTHING

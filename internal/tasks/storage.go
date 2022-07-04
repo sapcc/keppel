@@ -24,11 +24,12 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-var storageSweepSearchQuery = keppel.SimplifyWhitespaceInSQL(`
+var storageSweepSearchQuery = sqlext.SimplifyWhitespace(`
 	SELECT * FROM accounts
 		WHERE next_storage_sweep_at IS NULL OR next_storage_sweep_at < $1
 	-- accounts without any sweeps first, then sorted by last sweep
@@ -37,7 +38,7 @@ var storageSweepSearchQuery = keppel.SimplifyWhitespaceInSQL(`
 	LIMIT 1
 `)
 
-var storageSweepDoneQuery = keppel.SimplifyWhitespaceInSQL(`
+var storageSweepDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE accounts SET next_storage_sweep_at = $2 WHERE name = $1
 `)
 
@@ -111,7 +112,7 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 	//enumerate blobs known to the DB
 	isKnownStorageID := make(map[string]bool)
 	query := `SELECT storage_id FROM blobs WHERE account_name = $1`
-	err := keppel.ForeachRow(j.db, query, []interface{}{account.Name}, func(rows *sql.Rows) error {
+	err := sqlext.ForeachRow(j.db, query, []interface{}{account.Name}, func(rows *sql.Rows) error {
 		var storageID string
 		err := rows.Scan(&storageID)
 		isKnownStorageID[storageID] = true
@@ -123,7 +124,7 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 
 	//blobs in the backing storage may also correspond to uploads in progress
 	query = `SELECT storage_id FROM uploads WHERE repo_id IN (SELECT id FROM repos WHERE account_name = $1)`
-	err = keppel.ForeachRow(j.db, query, []interface{}{account.Name}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(j.db, query, []interface{}{account.Name}, func(rows *sql.Rows) error {
 		var storageID string
 		err := rows.Scan(&storageID)
 		isKnownStorageID[storageID] = true
@@ -208,7 +209,7 @@ func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests [
 	//enumerate manifests known to the DB
 	isKnownManifest := make(map[keppel.StoredManifestInfo]bool)
 	query := `SELECT r.name, m.digest FROM repos r JOIN manifests m ON m.repo_id = r.id WHERE r.account_name = $1`
-	err := keppel.ForeachRow(j.db, query, []interface{}{account.Name}, func(rows *sql.Rows) error {
+	err := sqlext.ForeachRow(j.db, query, []interface{}{account.Name}, func(rows *sql.Rows) error {
 		var m keppel.StoredManifestInfo
 		err := rows.Scan(&m.RepoName, &m.Digest)
 		isKnownManifest[m] = true

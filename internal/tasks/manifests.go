@@ -31,6 +31,7 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/clair"
@@ -39,7 +40,7 @@ import (
 )
 
 //query that finds the next manifest to be validated
-var outdatedManifestSearchQuery = keppel.SimplifyWhitespaceInSQL(`
+var outdatedManifestSearchQuery = sqlext.SimplifyWhitespace(`
 	SELECT * FROM manifests
 		WHERE validated_at < $1 OR (validated_at < $2 AND validation_error_message != '')
 	ORDER BY validation_error_message != '' DESC, validated_at ASC, media_type DESC
@@ -128,7 +129,7 @@ func (j *Janitor) ValidateNextManifest() (returnErr error) {
 	return nil
 }
 
-var syncManifestRepoSelectQuery = keppel.SimplifyWhitespaceInSQL(`
+var syncManifestRepoSelectQuery = sqlext.SimplifyWhitespace(`
 	SELECT r.* FROM repos r
 		JOIN accounts a ON r.account_name = a.name
 		WHERE (r.next_manifest_sync_at IS NULL OR r.next_manifest_sync_at < $1)
@@ -140,15 +141,15 @@ var syncManifestRepoSelectQuery = keppel.SimplifyWhitespaceInSQL(`
 	LIMIT 1
 `)
 
-var syncManifestEnumerateRefsQuery = keppel.SimplifyWhitespaceInSQL(`
+var syncManifestEnumerateRefsQuery = sqlext.SimplifyWhitespace(`
 	SELECT parent_digest, child_digest FROM manifest_manifest_refs WHERE repo_id = $1
 `)
 
-var syncManifestDoneQuery = keppel.SimplifyWhitespaceInSQL(`
+var syncManifestDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE repos SET next_manifest_sync_at = $2 WHERE id = $1
 `)
 
-var syncManifestCleanupEmptyQuery = keppel.SimplifyWhitespaceInSQL(`
+var syncManifestCleanupEmptyQuery = sqlext.SimplifyWhitespace(`
 	DELETE FROM repos r WHERE id = $1 AND (SELECT COUNT(*) FROM manifests WHERE repo_id = r.id) = 0
 `)
 
@@ -241,7 +242,7 @@ func (j *Janitor) getReplicaSyncPayload(account keppel.Account, repo keppel.Repo
 	//assemble request body
 	tagsByDigest := make(map[string][]keppel.TagForSync)
 	query := `SELECT name, digest, last_pulled_at FROM tags WHERE repo_id = $1`
-	err = keppel.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
 		var (
 			name         string
 			digest       string
@@ -263,7 +264,7 @@ func (j *Janitor) getReplicaSyncPayload(account keppel.Account, repo keppel.Repo
 
 	var manifests []keppel.ManifestForSync
 	query = `SELECT digest, last_pulled_at FROM manifests WHERE repo_id = $1`
-	err = keppel.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
 		var (
 			digest       string
 			lastPulledAt *time.Time
@@ -383,7 +384,7 @@ TAG:
 	return nil
 }
 
-var repoUntaggedManifestsSelectQuery = keppel.SimplifyWhitespaceInSQL(`
+var repoUntaggedManifestsSelectQuery = sqlext.SimplifyWhitespace(`
 	SELECT m.* FROM manifests m
 		WHERE repo_id = $1
 		AND digest NOT IN (SELECT digest FROM tags WHERE repo_id = $1)
@@ -424,7 +425,7 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 
 	//enumerate manifest-manifest refs in this repo
 	parentDigestsOf := make(map[string][]string)
-	err = keppel.ForeachRow(j.db, syncManifestEnumerateRefsQuery, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(j.db, syncManifestEnumerateRefsQuery, []interface{}{repo.ID}, func(rows *sql.Rows) error {
 		var (
 			parentDigest string
 			childDigest  string
@@ -491,7 +492,7 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 	return nil
 }
 
-var vulnCheckSelectQuery = keppel.SimplifyWhitespaceInSQL(`
+var vulnCheckSelectQuery = sqlext.SimplifyWhitespace(`
 	SELECT m.* FROM manifests m
 		WHERE (m.next_vuln_check_at IS NULL OR m.next_vuln_check_at < $1)
 	-- manifests without any check first, then prefer manifests without a finished check, then sorted by schedule, then sorted by digest for deterministic behavior in unit test
@@ -500,13 +501,13 @@ var vulnCheckSelectQuery = keppel.SimplifyWhitespaceInSQL(`
 	LIMIT 1
 `)
 
-var vulnCheckBlobSelectQuery = keppel.SimplifyWhitespaceInSQL(`
+var vulnCheckBlobSelectQuery = sqlext.SimplifyWhitespace(`
 	SELECT b.* FROM blobs b
 	JOIN manifest_blob_refs r ON b.id = r.blob_id
 		WHERE r.repo_id = $1 AND r.digest = $2
 `)
 
-var vulnCheckSubmanifestInfoQuery = keppel.SimplifyWhitespaceInSQL(`
+var vulnCheckSubmanifestInfoQuery = sqlext.SimplifyWhitespace(`
 	SELECT m.vuln_status FROM manifests m
 	JOIN manifest_manifest_refs r ON m.digest = r.child_digest
 		WHERE r.parent_digest = $1
@@ -646,7 +647,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 
 	//collect vulnerability status of constituent images
 	var vulnStatuses []clair.VulnerabilityStatus
-	err = keppel.ForeachRow(j.db, vulnCheckSubmanifestInfoQuery, []interface{}{manifest.Digest}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(j.db, vulnCheckSubmanifestInfoQuery, []interface{}{manifest.Digest}, func(rows *sql.Rows) error {
 		var vulnStatus clair.VulnerabilityStatus
 		err := rows.Scan(&vulnStatus)
 		vulnStatuses = append(vulnStatuses, vulnStatus)

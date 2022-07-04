@@ -35,6 +35,7 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/sqlext"
 	"github.com/spf13/cobra"
 
 	auth "github.com/sapcc/keppel/internal/api/auth"
@@ -149,11 +150,11 @@ func setupDBIfRequested(db *keppel.DB) error {
 	//DB schema has not been populated yet at that point.
 	if keppel.ParseBool(os.Getenv("KEPPEL_RUN_DB_SETUP_FOR_CONFORMANCE_TEST")) {
 		queries := []string{
-			keppel.SimplifyWhitespaceInSQL(`
+			sqlext.SimplifyWhitespace(`
 				INSERT INTO accounts (name, auth_tenant_id) VALUES ('conformance-test', 'bogus')
 				ON CONFLICT DO NOTHING
 			`),
-			keppel.SimplifyWhitespaceInSQL(`
+			sqlext.SimplifyWhitespace(`
 				INSERT INTO quotas (auth_tenant_id, manifests) VALUES ('bogus', 100)
 				ON CONFLICT DO NOTHING
 			`),

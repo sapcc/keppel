@@ -29,9 +29,9 @@ import (
 
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
+	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/auth"
-	"github.com/sapcc/keppel/internal/keppel"
 )
 
 const maxLimit = 100
@@ -149,7 +149,7 @@ const catalogGetQuery = `SELECT name FROM repos WHERE account_name = $1 ORDER BY
 
 func (a *API) getCatalogForAccount(accountName string, includeAccountName bool) ([]string, error) {
 	var result []string
-	err := keppel.ForeachRow(a.db, catalogGetQuery, []interface{}{accountName},
+	err := sqlext.ForeachRow(a.db, catalogGetQuery, []interface{}{accountName},
 		func(rows *sql.Rows) error {
 			var name string
 			err := rows.Scan(&name)

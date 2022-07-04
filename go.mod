@@ -20,7 +20,7 @@ require (
 	github.com/prometheus/client_golang v1.12.2
 	github.com/rs/cors v1.8.2
 	github.com/sapcc/go-api-declarations v1.2.0
-	github.com/sapcc/go-bits v0.0.0-20220629144659-c89346237059
+	github.com/sapcc/go-bits v0.0.0-20220704133329-08fb282def7e
 	github.com/spf13/cobra v1.5.0
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
 	gopkg.in/gorp.v2 v2.2.0

@@ -27,11 +27,10 @@ import (
 
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
-
-	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/go-bits/sqlext"
 )
 
-var tagsListQuery = keppel.SimplifyWhitespaceInSQL(`
+var tagsListQuery = sqlext.SimplifyWhitespace(`
 	SELECT name FROM tags
 	 WHERE repo_id = $1 AND (name > $2 or $2 = '')
 	 ORDER BY name ASC LIMIT $3
@@ -72,7 +71,7 @@ func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 
 	//list tags (we request one more than `limit` to see if we need to paginate)
 	tags := []string{}
-	err = keppel.ForeachRow(a.db, tagsListQuery, []interface{}{repo.ID, marker, limit + 1}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(a.db, tagsListQuery, []interface{}{repo.ID, marker, limit + 1}, func(rows *sql.Rows) error {
 		var tagName string
 		err = rows.Scan(&tagName)
 		if err == nil {

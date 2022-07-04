@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -78,7 +79,7 @@ func (b Bytes) MustUpload(t *testing.T, s Setup, repo keppel.Repository) keppel.
 	return *blob
 }
 
-var checkBlobExistsQuery = keppel.SimplifyWhitespaceInSQL(`
+var checkBlobExistsQuery = sqlext.SimplifyWhitespace(`
 	SELECT COUNT(*) FROM blobs WHERE account_name = $1 AND digest = $2
 `)
 
@@ -133,7 +134,7 @@ func (i Image) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName
 	return *manifest
 }
 
-var checkManifestExistsQuery = keppel.SimplifyWhitespaceInSQL(`
+var checkManifestExistsQuery = sqlext.SimplifyWhitespace(`
 	SELECT COUNT(*) FROM manifests m
 	  JOIN repos r ON m.repo_id = r.id
 	 WHERE r.account_name = $1 AND r.name = $2 AND m.digest = $3

@@ -24,12 +24,13 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
 //query that finds the next upload to be cleaned up
-var abandonedUploadSearchQuery = keppel.SimplifyWhitespaceInSQL(`
+var abandonedUploadSearchQuery = sqlext.SimplifyWhitespace(`
 	SELECT * FROM uploads WHERE updated_at < $1
 	ORDER BY updated_at ASC -- oldest uploads first
 	FOR UPDATE SKIP LOCKED  -- block concurrent continuation of upload
@@ -37,7 +38,7 @@ var abandonedUploadSearchQuery = keppel.SimplifyWhitespaceInSQL(`
 `)
 
 //query that finds the account belonging to an repo object
-var findAccountForRepoQuery = keppel.SimplifyWhitespaceInSQL(`
+var findAccountForRepoQuery = sqlext.SimplifyWhitespace(`
 	SELECT a.* FROM accounts a
 	JOIN repos r ON r.account_name = a.name
 	WHERE r.id = $1
@@ -61,7 +62,7 @@ func (j *Janitor) DeleteNextAbandonedUpload() (returnErr error) {
 	if err != nil {
 		return err
 	}
-	defer keppel.RollbackUnlessCommitted(tx)
+	defer sqlext.RollbackUnlessCommitted(tx)
 
 	//find upload
 	var upload keppel.Upload

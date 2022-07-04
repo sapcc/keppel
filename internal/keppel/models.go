@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/opencontainers/go-digest"
+	"github.com/sapcc/go-bits/sqlext"
 	gorp "gopkg.in/gorp.v2"
 
 	"github.com/sapcc/keppel/internal/clair"
@@ -151,7 +152,7 @@ type Blob struct {
 	BlocksVulnScanning     *bool      `db:"blocks_vuln_scanning"`
 }
 
-var blobGetQueryByRepoName = SimplifyWhitespaceInSQL(`
+var blobGetQueryByRepoName = sqlext.SimplifyWhitespace(`
 	SELECT b.*
 	  FROM blobs b
 	  JOIN blob_mounts bm ON b.id = bm.blob_id
@@ -160,14 +161,14 @@ var blobGetQueryByRepoName = SimplifyWhitespaceInSQL(`
 	   AND r.account_name = $1 AND r.name = $3
 `)
 
-var blobGetQueryByRepoID = SimplifyWhitespaceInSQL(`
+var blobGetQueryByRepoID = sqlext.SimplifyWhitespace(`
 	SELECT b.*
 	  FROM blobs b
 	  JOIN blob_mounts bm ON b.id = bm.blob_id
 	 WHERE b.account_name = $1 AND b.digest = $2 AND bm.repo_id = $3
 `)
 
-var blobGetQueryByAccountName = SimplifyWhitespaceInSQL(`
+var blobGetQueryByAccountName = sqlext.SimplifyWhitespace(`
 	SELECT * FROM blobs WHERE account_name = $1 AND digest = $2
 `)
 
@@ -219,7 +220,7 @@ type Upload struct {
 	UpdatedAt    time.Time `db:"updated_at"`
 }
 
-var uploadGetQueryByRepoID = SimplifyWhitespaceInSQL(`
+var uploadGetQueryByRepoID = sqlext.SimplifyWhitespace(`
 	SELECT u.* FROM uploads u WHERE u.uuid = $1 AND repo_id = $2
 `)
 
@@ -312,7 +313,7 @@ func FindManifest(db gorp.SqlExecutor, repo Repository, digest string) (*Manifes
 	return &manifest, err
 }
 
-var manifestGetQueryByRepoName = SimplifyWhitespaceInSQL(`
+var manifestGetQueryByRepoName = sqlext.SimplifyWhitespace(`
 	SELECT m.*
 	  FROM manifests m
 	  JOIN repos r ON m.repo_id = r.id
@@ -373,7 +374,7 @@ func DefaultQuotas(authTenantID string) *Quotas {
 	}
 }
 
-var manifestUsageQuery = SimplifyWhitespaceInSQL(`
+var manifestUsageQuery = sqlext.SimplifyWhitespace(`
 	SELECT COUNT(m.digest)
 	  FROM manifests m
 	  JOIN repos r ON m.repo_id = r.id

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -32,7 +33,7 @@ import (
 //If a manifest fails validation, we cannot be sure that we're really seeing
 //all manifest_blob_refs. This could result in us mistakenly deleting blob
 //mounts even though they are referenced by a manifest.
-var blobMountSweepSearchQuery = keppel.SimplifyWhitespaceInSQL(`
+var blobMountSweepSearchQuery = sqlext.SimplifyWhitespace(`
 	SELECT * FROM repos
 		WHERE next_blob_mount_sweep_at IS NULL OR next_blob_mount_sweep_at < $1
 		AND id NOT IN (SELECT repo_id FROM manifests WHERE validation_error_message != '')
@@ -42,25 +43,25 @@ var blobMountSweepSearchQuery = keppel.SimplifyWhitespaceInSQL(`
 	LIMIT 1
 `)
 
-var blobMountMarkQuery = keppel.SimplifyWhitespaceInSQL(`
+var blobMountMarkQuery = sqlext.SimplifyWhitespace(`
 	UPDATE blob_mounts SET can_be_deleted_at = $2
 	WHERE repo_id = $1 AND can_be_deleted_at IS NULL AND blob_id NOT IN (
 		SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1
 	)
 `)
 
-var blobMountUnmarkQuery = keppel.SimplifyWhitespaceInSQL(`
+var blobMountUnmarkQuery = sqlext.SimplifyWhitespace(`
 	UPDATE blob_mounts SET can_be_deleted_at = NULL
 	WHERE repo_id = $1 AND blob_id IN (
 		SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1
 	)
 `)
 
-var blobMountSweepMarkedQuery = keppel.SimplifyWhitespaceInSQL(`
+var blobMountSweepMarkedQuery = sqlext.SimplifyWhitespace(`
 	DELETE FROM blob_mounts WHERE repo_id = $1 AND can_be_deleted_at < $2
 `)
 
-var blobMountSweepDoneQuery = keppel.SimplifyWhitespaceInSQL(`
+var blobMountSweepDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE repos SET next_blob_mount_sweep_at = $2 WHERE id = $1
 `)
 

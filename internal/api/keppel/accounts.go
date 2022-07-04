@@ -36,6 +36,7 @@ import (
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
+	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -669,7 +670,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		if respondwith.ErrorText(w, err) {
 			return
 		}
-		defer keppel.RollbackUnlessCommitted(tx)
+		defer sqlext.RollbackUnlessCommitted(tx)
 
 		account = &accountToCreate
 		err = tx.Insert(account)
@@ -901,7 +902,7 @@ func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 var (
-	deleteAccountFindManifestsQuery = keppel.SimplifyWhitespaceInSQL(`
+	deleteAccountFindManifestsQuery = sqlext.SimplifyWhitespace(`
 		SELECT r.name, m.digest
 			FROM manifests m
 			JOIN repos r ON m.repo_id = r.id
@@ -910,7 +911,7 @@ var (
 		 WHERE a.name = $1 AND parent_digest IS NULL
 		 LIMIT 10
 	`)
-	deleteAccountCountManifestsQuery = keppel.SimplifyWhitespaceInSQL(`
+	deleteAccountCountManifestsQuery = sqlext.SimplifyWhitespace(`
 		SELECT COUNT(m.digest)
 			FROM manifests m
 			JOIN repos r ON m.repo_id = r.id
@@ -932,7 +933,7 @@ func (a *API) deleteAccount(account keppel.Account) (*deleteAccountResponse, err
 
 	//can only delete account when user has deleted all manifests from it
 	var nextManifests []deleteAccountRemainingManifest
-	err := keppel.ForeachRow(a.db, deleteAccountFindManifestsQuery, []interface{}{account.Name},
+	err := sqlext.ForeachRow(a.db, deleteAccountFindManifestsQuery, []interface{}{account.Name},
 		func(rows *sql.Rows) error {
 			var m deleteAccountRemainingManifest
 			err := rows.Scan(&m.RepositoryName, &m.Digest)
@@ -985,7 +986,7 @@ func (a *API) deleteAccount(account keppel.Account) (*deleteAccountResponse, err
 	if err != nil {
 		return nil, err
 	}
-	defer keppel.RollbackUnlessCommitted(tx)
+	defer sqlext.RollbackUnlessCommitted(tx)
 	_, err = tx.Delete(&account)
 	if err != nil {
 		return nil, err

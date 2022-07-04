@@ -30,6 +30,38 @@ import (
 	"testing"
 )
 
+//ClearTables removes all rows from the given tables.
+func ClearTables(t *testing.T, db *sql.DB, tableNames ...string) {
+	t.Helper()
+	for _, tableName := range tableNames {
+		_, err := db.Exec("DELETE FROM " + tableName)
+		if err != nil {
+			t.Fatalf("while clearing table %s: %s", tableName, err.Error())
+		}
+	}
+}
+
+//ResetPrimaryKeys resets the sequences for the "id" column of the given tables
+//to start at 1 again (or if there are entries in the table, to start right
+//after the entry with the highest ID).
+func ResetPrimaryKeys(t *testing.T, db *sql.DB, tableNames ...string) {
+	t.Helper()
+	for _, tableName := range tableNames {
+		var nextID int64
+		query := fmt.Sprintf("SELECT 1 + COALESCE(MAX(id), 0) FROM %s", tableName)
+		err := db.QueryRow(query).Scan(&nextID)
+		if err != nil {
+			t.Fatalf("while checking IDs in table %s: %s", tableName, err.Error())
+		}
+
+		query = fmt.Sprintf(`ALTER SEQUENCE %s_id_seq RESTART WITH %d`, tableName, nextID)
+		_, err = db.Exec(query)
+		if err != nil {
+			t.Fatalf("while resetting ID sequence on table %s: %s", tableName, err.Error())
+		}
+	}
+}
+
 //ExecSQLFile loads a file containing SQL statements and executes them all.
 //It implies that every SQL statement is on a single line.
 func ExecSQLFile(t *testing.T, db *sql.DB, path string) {

@@ -24,11 +24,12 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-var blobSweepSearchQuery = keppel.SimplifyWhitespaceInSQL(`
+var blobSweepSearchQuery = sqlext.SimplifyWhitespace(`
 	SELECT * FROM accounts
 		WHERE next_blob_sweep_at IS NULL OR next_blob_sweep_at < $1
 	-- accounts without any sweeps first, then sorted by last sweep
@@ -37,7 +38,7 @@ var blobSweepSearchQuery = keppel.SimplifyWhitespaceInSQL(`
 	LIMIT 1
 `)
 
-var blobMarkQuery = keppel.SimplifyWhitespaceInSQL(`
+var blobMarkQuery = sqlext.SimplifyWhitespace(`
 	UPDATE blobs SET can_be_deleted_at = $2
 	WHERE account_name = $1 AND can_be_deleted_at IS NULL AND id NOT IN (
 		SELECT m.blob_id FROM blob_mounts m JOIN repos r ON m.repo_id = r.id
@@ -45,7 +46,7 @@ var blobMarkQuery = keppel.SimplifyWhitespaceInSQL(`
 	)
 `)
 
-var blobUnmarkQuery = keppel.SimplifyWhitespaceInSQL(`
+var blobUnmarkQuery = sqlext.SimplifyWhitespace(`
 	UPDATE blobs SET can_be_deleted_at = NULL
 	WHERE account_name = $1 AND id IN (
 		SELECT m.blob_id FROM blob_mounts m JOIN repos r ON m.repo_id = r.id
@@ -53,11 +54,11 @@ var blobUnmarkQuery = keppel.SimplifyWhitespaceInSQL(`
 	)
 `)
 
-var blobSelectMarkedQuery = keppel.SimplifyWhitespaceInSQL(`
+var blobSelectMarkedQuery = sqlext.SimplifyWhitespace(`
 	SELECT * FROM blobs WHERE account_name = $1 AND can_be_deleted_at < $2
 `)
 
-var blobSweepDoneQuery = keppel.SimplifyWhitespaceInSQL(`
+var blobSweepDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE accounts SET next_blob_sweep_at = $2 WHERE name = $1
 `)
 
@@ -150,7 +151,7 @@ func (j *Janitor) SweepBlobsInNextAccount() (returnErr error) {
 	return err
 }
 
-var validateBlobSearchQuery = keppel.SimplifyWhitespaceInSQL(`
+var validateBlobSearchQuery = sqlext.SimplifyWhitespace(`
 	SELECT * FROM blobs
 		WHERE storage_id != '' AND (validated_at < $1 OR (validated_at < $2 AND validation_error_message != ''))
 	ORDER BY validation_error_message != '' DESC, validated_at ASC

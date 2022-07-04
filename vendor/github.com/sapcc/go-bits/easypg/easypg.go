@@ -35,6 +35,7 @@ import (
 	"github.com/sapcc/go-bits/easypg/migrate/database"
 	"github.com/sapcc/go-bits/easypg/migrate/database/postgres"
 	bindata "github.com/sapcc/go-bits/easypg/migrate/source/go_bindata"
+	"github.com/sapcc/go-bits/sqlext"
 
 	//enable postgres driver for database/sql
 	_ "github.com/lib/pq"
@@ -170,16 +171,11 @@ func runMigration(m *migrate.Migrate, err error) error {
 	return err
 }
 
-var sqlCommentRx = regexp.MustCompile(`--.*?(\n|$)`)
-
 func stripWhitespace(in map[string]string) map[string]string {
 	out := make(map[string]string, len(in))
 	for filename, sql := range in {
-		sqlWithoutComments := sqlCommentRx.ReplaceAllString(sql, "")
-		out[filename] = strings.Replace(
-			strings.Join(strings.Fields(sqlWithoutComments), " "),
-			"; ", ";\n", -1,
-		)
+		sqlSimplified := sqlext.SimplifyWhitespace(sql)
+		out[filename] = strings.Replace(sqlSimplified, "; ", ";\n", -1)
 	}
 	return out
 }
