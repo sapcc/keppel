@@ -12,7 +12,7 @@ require (
 	github.com/gofrs/uuid v4.2.0+incompatible
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/gophercloud/gophercloud v0.25.0
-	github.com/gophercloud/utils v0.0.0-20220627134740-f82c2a154887
+	github.com/gophercloud/utils v0.0.0-20220704184730-55bdbbaec4ba
 	github.com/gorilla/mux v1.8.0
 	github.com/majewsky/schwift v1.1.0
 	github.com/opencontainers/go-digest v1.0.0
