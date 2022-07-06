@@ -494,9 +494,9 @@ func (db *DB) SelectBool(query string, args ...interface{}) (bool, error) {
 }
 
 //InitDB connects to the Postgres database.
-func InitDB(dbURL url.URL) (*DB, error) {
+func InitDB(dbURL *url.URL) (*DB, error) {
 	db, err := easypg.Connect(easypg.Configuration{
-		PostgresURL: &dbURL,
+		PostgresURL: dbURL,
 		Migrations:  sqlMigrations,
 	})
 	if err != nil {

@@ -31,8 +31,10 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/sapcc/go-api-declarations/bininfo"
+	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/must"
+	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/clair"
 )
@@ -42,7 +44,7 @@ import (
 type Configuration struct {
 	APIPublicHostname        string
 	AnycastAPIPublicHostname string
-	DatabaseURL              url.URL
+	DatabaseURL              *url.URL
 	JWTIssuerKeys            []crypto.PrivateKey
 	AnycastJWTIssuerKeys     []crypto.PrivateKey
 	ClairClient              *clair.Client
@@ -90,8 +92,15 @@ func ParseConfiguration() Configuration {
 	cfg := Configuration{
 		APIPublicHostname:        MustGetenv("KEPPEL_API_PUBLIC_FQDN"),
 		AnycastAPIPublicHostname: os.Getenv("KEPPEL_API_ANYCAST_FQDN"),
-		DatabaseURL:              getDBURL(),
 	}
+	cfg.DatabaseURL = must.Return(easypg.URLFrom(easypg.URLParts{
+		HostName:          osext.GetenvOrDefault("KEPPEL_DB_HOSTNAME", "localhost"),
+		Port:              osext.GetenvOrDefault("KEPPEL_DB_PORT", "5432"),
+		UserName:          osext.GetenvOrDefault("KEPPEL_DB_USERNAME", "postgres"),
+		Password:          os.Getenv("KEPPEL_DB_PASSWORD"),
+		ConnectionOptions: os.Getenv("KEPPEL_DB_CONNECTION_OPTIONS"),
+		DatabaseName:      osext.GetenvOrDefault("KEPPEL_DB_NAME", "keppel"),
+	}))
 
 	parseIssuerKeys := func(prefix string) []crypto.PrivateKey {
 		key, err := ParseIssuerKey(MustGetenv(prefix + "_ISSUER_KEY"))
@@ -168,33 +177,6 @@ func GetenvOrDefault(key, defaultVal string) string {
 		val = defaultVal
 	}
 	return val
-}
-
-func getDBURL() url.URL {
-	dbName := GetenvOrDefault("KEPPEL_DB_NAME", "keppel")
-	dbUsername := GetenvOrDefault("KEPPEL_DB_USERNAME", "postgres")
-	dbPass := os.Getenv("KEPPEL_DB_PASSWORD")
-	dbHost := GetenvOrDefault("KEPPEL_DB_HOSTNAME", "localhost")
-	dbPort := GetenvOrDefault("KEPPEL_DB_PORT", "5432")
-
-	dbConnOpts, err := url.ParseQuery(os.Getenv("KEPPEL_DB_CONNECTION_OPTIONS"))
-	if err != nil {
-		logg.Fatal("while parsing KEPPEL_DB_CONNECTION_OPTIONS: " + err.Error())
-	}
-	hostname, err := os.Hostname()
-	if err == nil {
-		dbConnOpts.Set("application_name", fmt.Sprintf("%s@%s", bininfo.Component(), hostname))
-	} else {
-		dbConnOpts.Set("application_name", bininfo.Component())
-	}
-
-	return url.URL{
-		Scheme:   "postgres",
-		User:     url.UserPassword(dbUsername, dbPass),
-		Host:     net.JoinHostPort(dbHost, dbPort),
-		Path:     dbName,
-		RawQuery: dbConnOpts.Encode(),
-	}
 }
 
 // GetRedisOptions returns a redis.Options by getting the required parameters

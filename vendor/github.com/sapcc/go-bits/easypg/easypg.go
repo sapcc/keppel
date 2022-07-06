@@ -100,12 +100,12 @@ func Connect(cfg Configuration) (*sql.DB, error) {
 
 	db, dbd, err := connectToPostgres(cfg.PostgresURL, cfg.OverrideDriverName)
 	if err != nil {
-		return nil, fmt.Errorf("cannot connect to Postgres: %s", err.Error())
+		return nil, fmt.Errorf("cannot connect to Postgres: %w", err)
 	}
 
 	err = runMigration(migrate.NewWithInstance("go-bindata", sourceDriver, "postgres", dbd))
 	if err != nil {
-		return nil, fmt.Errorf("cannot apply database schema: %s", err.Error())
+		return nil, fmt.Errorf("cannot apply database schema: %w", err)
 	}
 	return db, nil
 }

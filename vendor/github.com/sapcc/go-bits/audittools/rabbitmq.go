@@ -46,13 +46,13 @@ func NewRabbitConnection(uri url.URL, queueName string) (*RabbitConnection, erro
 	//establish a connection with the RabbitMQ server
 	conn, err := amqp.Dial(uri.String())
 	if err != nil {
-		return nil, fmt.Errorf("audittools: rabbitmq: failed to establish a connection with the server: %s", err.Error())
+		return nil, fmt.Errorf("audittools: rabbitmq: failed to establish a connection with the server: %w", err)
 	}
 
 	//open a unique, concurrent server channel to process the bulk of AMQP messages
 	ch, err := conn.Channel()
 	if err != nil {
-		return nil, fmt.Errorf("audittools: rabbitmq: failed to open a channel: %s", err.Error())
+		return nil, fmt.Errorf("audittools: rabbitmq: failed to open a channel: %w", err)
 	}
 
 	//declare a queue to hold and deliver messages to consumers
@@ -65,7 +65,7 @@ func NewRabbitConnection(uri url.URL, queueName string) (*RabbitConnection, erro
 		nil,       // arguments for advanced config
 	)
 	if err != nil {
-		return nil, fmt.Errorf("audittools: rabbitmq: failed to declare a queue: %s", err.Error())
+		return nil, fmt.Errorf("audittools: rabbitmq: failed to declare a queue: %w", err)
 	}
 
 	return &RabbitConnection{

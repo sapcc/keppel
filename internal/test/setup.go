@@ -205,7 +205,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	s := Setup{
 		Config: keppel.Configuration{
 			APIPublicHostname: apiPublicHostname,
-			DatabaseURL:       *dbURL,
+			DatabaseURL:       dbURL,
 		},
 		tokenCache: make(map[string]string),
 	}
