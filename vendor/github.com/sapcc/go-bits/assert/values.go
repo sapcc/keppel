@@ -27,11 +27,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
+
+	"github.com/sapcc/go-bits/osext"
 )
 
 //ByteData implements the HTTPRequestBody and HTTPResponseBody for plain bytestrings.
@@ -45,8 +46,7 @@ func (b ByteData) GetRequestBody() (io.Reader, error) {
 func logDiff(t *testing.T, expected, actual string) {
 	t.Helper()
 
-	prettyDiff, _ := strconv.ParseBool(os.Getenv("GOBITS_PRETTY_DIFF"))
-	if prettyDiff {
+	if osext.GetenvBool("GOBITS_PRETTY_DIFF") {
 		dmp := diffmatchpatch.New()
 		diffs := dmp.DiffMain(fmt.Sprintf("%q\n", expected), fmt.Sprintf("%q\n", actual), false)
 		t.Logf(dmp.DiffPrettyText(diffs))

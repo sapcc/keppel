@@ -24,6 +24,7 @@ package gopherpolicy
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -71,15 +72,18 @@ type TokenValidator struct {
 func (v *TokenValidator) LoadPolicyFile(path string) error {
 	bytes, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return err //no fmt.Errorf() necessary, errors from package os are already very descriptive
 	}
 	var rules map[string]string
 	err = yaml.Unmarshal(bytes, &rules)
 	if err != nil {
-		return err
+		return fmt.Errorf("while parsing structure of %s: %w", path, err)
 	}
 	v.Enforcer, err = policy.NewEnforcer(rules)
-	return err
+	if err != nil {
+		return fmt.Errorf("while parsing policy rules found in %s: %w", path, err)
+	}
+	return nil
 }
 
 //CheckToken checks the validity of the request's X-Auth-Token in Keystone, and
