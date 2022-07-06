@@ -31,6 +31,7 @@ import (
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/osext"
 )
 
 //Auditor is a component that forwards audit events to the appropriate logs.
@@ -81,7 +82,7 @@ func InitAuditTrail() Auditor {
 
 	var eventSink chan cadf.Event
 	if rabbitQueueName := os.Getenv("KEPPEL_AUDIT_RABBITMQ_QUEUE_NAME"); rabbitQueueName != "" {
-		portStr := GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_PORT", "5672")
+		portStr := osext.GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_PORT", "5672")
 		port, err := strconv.Atoi(portStr)
 		if err != nil {
 			logg.Fatal("invalid value for KEPPEL_AUDIT_RABBITMQ_PORT: %s", err.Error())
@@ -89,12 +90,12 @@ func InitAuditTrail() Auditor {
 		rabbitURI := url.URL{
 			Scheme: "amqp",
 			Host: net.JoinHostPort(
-				GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_HOSTNAME", "localhost"),
+				osext.GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_HOSTNAME", "localhost"),
 				strconv.Itoa(port),
 			),
 			User: url.UserPassword(
-				GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_USERNAME", "guest"),
-				GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_PASSWORD", "guest"),
+				osext.GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_USERNAME", "guest"),
+				osext.GetenvOrDefault("KEPPEL_AUDIT_RABBITMQ_PASSWORD", "guest"),
 			),
 			Path: "/",
 		}
@@ -110,9 +111,8 @@ func InitAuditTrail() Auditor {
 		}.Commit(rabbitURI, rabbitQueueName)
 	}
 
-	silent := ParseBool(os.Getenv("KEPPEL_AUDIT_SILENT"))
 	return auditorImpl{
-		OnStdout:     !silent,
+		OnStdout:     !osext.GetenvBool("KEPPEL_AUDIT_SILENT"),
 		EventSink:    eventSink,
 		ObserverUUID: audittools.GenerateUUID(),
 	}

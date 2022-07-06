@@ -1786,13 +1786,13 @@ func uploadManifest(t *testing.T, s test.Setup, account *keppel.Account, repo *k
 		ValidatedAt:         s.Clock.Now(),
 		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
 	}
-	must(t, s.DB.Insert(&dbManifest))
-	must(t, s.DB.Insert(&keppel.ManifestContent{
+	mustDo(t, s.DB.Insert(&dbManifest))
+	mustDo(t, s.DB.Insert(&keppel.ManifestContent{
 		RepositoryID: repo.ID,
 		Digest:       manifest.Digest.String(),
 		Content:      manifest.Contents,
 	}))
-	must(t, s.SD.WriteManifest(*account, repo.Name, manifest.Digest.String(), manifest.Contents))
+	mustDo(t, s.SD.WriteManifest(*account, repo.Name, manifest.Digest.String(), manifest.Contents))
 	return dbManifest
 }
 

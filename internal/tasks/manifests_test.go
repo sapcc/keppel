@@ -29,6 +29,7 @@ import (
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httpapi"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -140,7 +141,7 @@ func TestValidateNextManifestError(t *testing.T) {
 	//manually since the MustUpload functions care about uploading stuff intact)
 	s.Clock.StepBy(1 * time.Hour)
 	image := test.GenerateImage( /* no layers */ )
-	must(t, s.DB.Insert(&keppel.Manifest{
+	mustDo(t, s.DB.Insert(&keppel.Manifest{
 		RepositoryID:        1,
 		Digest:              image.Manifest.Digest.String(),
 		MediaType:           image.Manifest.MediaType,
@@ -149,12 +150,12 @@ func TestValidateNextManifestError(t *testing.T) {
 		ValidatedAt:         s.Clock.Now(),
 		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
 	}))
-	must(t, s.DB.Insert(&keppel.ManifestContent{
+	mustDo(t, s.DB.Insert(&keppel.ManifestContent{
 		RepositoryID: 1,
 		Digest:       image.Manifest.Digest.String(),
 		Content:      image.Manifest.Contents,
 	}))
-	must(t, s.SD.WriteManifest(*s.Accounts[0], "foo", image.Manifest.Digest.String(), image.Manifest.Contents))
+	mustDo(t, s.SD.WriteManifest(*s.Accounts[0], "foo", image.Manifest.Digest.String(), image.Manifest.Contents))
 
 	//validation should yield an error
 	s.Clock.StepBy(36 * time.Hour)
@@ -574,8 +575,9 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		},
 	}
 	http.DefaultClient.Transport = tt
+	clairBaseURL := must.Return(url.Parse("https://clair.example.org/"))
 	j.cfg.ClairClient = &clair.Client{
-		BaseURL:      mustParseURL("https://clair.example.org/"),
+		BaseURL:      *clairBaseURL,
 		PresharedKey: []byte("doesnotmatter"), //since the ClairDouble does not check the Authorization header
 	}
 
@@ -641,12 +643,4 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		UPDATE manifests SET next_vuln_check_at = 6120 WHERE repo_id = 1 AND digest = '%s';
 		UPDATE manifests SET next_vuln_check_at = 9600, vuln_status = 'Clean' WHERE repo_id = 1 AND digest = '%s';
 	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
-}
-
-func mustParseURL(in string) url.URL {
-	u, err := url.Parse(in)
-	if err != nil {
-		panic(err.Error())
-	}
-	return *u
 }

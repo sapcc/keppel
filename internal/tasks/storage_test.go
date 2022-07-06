@@ -80,8 +80,8 @@ func TestSweepStorageBlobs(t *testing.T) {
 	for _, blob := range []test.Bytes{testBlob1, testBlob2} {
 		storageID := blob.Digest.Encoded()
 		sizeBytes := uint64(len(blob.Contents))
-		must(t, s.SD.AppendToBlob(account, storageID, 1, &sizeBytes, bytes.NewReader(blob.Contents)))
-		must(t, s.SD.FinalizeBlob(account, storageID, 1))
+		mustDo(t, s.SD.AppendToBlob(account, storageID, 1, &sizeBytes, bytes.NewReader(blob.Contents)))
+		mustDo(t, s.SD.FinalizeBlob(account, storageID, 1))
 	}
 
 	//create a blob that's mid-upload; this one should be protected from sweeping
@@ -89,9 +89,9 @@ func TestSweepStorageBlobs(t *testing.T) {
 	testBlob3 := test.GenerateExampleLayer(32)
 	storageID := testBlob3.Digest.Encoded()
 	sizeBytes := uint64(len(testBlob3.Contents))
-	must(t, s.SD.AppendToBlob(account, storageID, 1, &sizeBytes, bytes.NewReader(testBlob3.Contents)))
+	mustDo(t, s.SD.AppendToBlob(account, storageID, 1, &sizeBytes, bytes.NewReader(testBlob3.Contents)))
 	//^ but no FinalizeBlob() since we're still uploading!
-	must(t, s.DB.Insert(&keppel.Upload{
+	mustDo(t, s.DB.Insert(&keppel.Upload{
 		RepositoryID: 1,
 		UUID:         "a29d525c-2273-44ba-83a8-eafd447f1cb8", //chosen at random, but fixed
 		StorageID:    storageID,
@@ -106,7 +106,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	testBlob4 := test.GenerateExampleLayer(33)
 	storageID = testBlob4.Digest.Encoded()
 	sizeBytes = uint64(len(testBlob4.Contents))
-	must(t, s.SD.AppendToBlob(account, storageID, 1, &sizeBytes, bytes.NewReader(testBlob4.Contents)))
+	mustDo(t, s.SD.AppendToBlob(account, storageID, 1, &sizeBytes, bytes.NewReader(testBlob4.Contents)))
 
 	//next SweepStorageInNextAccount should mark them for deletion...
 	s.Clock.StepBy(8 * time.Hour)
@@ -135,7 +135,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 		PushedAt:    s.Clock.Now(),
 		ValidatedAt: s.Clock.Now(),
 	}
-	must(t, s.DB.Insert(&dbTestBlob1))
+	mustDo(t, s.DB.Insert(&dbTestBlob1))
 
 	//next SweepStorageInNextAccount should unmark blob 1 (because it's now in
 	//the DB) and sweep blobs 2 and 4 (since it is still not in the DB)
@@ -165,7 +165,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	testImageList1 := test.GenerateImageList(images[0])
 	testImageList2 := test.GenerateImageList(images[1])
 	for _, manifest := range []test.Bytes{testImageList1.Manifest, testImageList2.Manifest} {
-		must(t, s.SD.WriteManifest(account, "foo", manifest.Digest.String(), manifest.Contents))
+		mustDo(t, s.SD.WriteManifest(account, "foo", manifest.Digest.String(), manifest.Contents))
 	}
 
 	//next SweepStorageInNextAccount should mark them for deletion...
@@ -194,7 +194,7 @@ func TestSweepStorageManifests(t *testing.T) {
 		ValidatedAt:         s.Clock.Now(),
 		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
 	}
-	must(t, s.DB.Insert(&dbTestManifest1))
+	mustDo(t, s.DB.Insert(&dbTestManifest1))
 
 	//next SweepStorageInNextAccount should unmark manifest 1 (because it's now in
 	//the DB) and sweep manifest 2 (since it is still not in the DB)

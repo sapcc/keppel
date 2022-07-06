@@ -24,10 +24,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -40,18 +40,14 @@ type federationDriver struct {
 
 func init() {
 	keppel.RegisterFederationDriver("redis", func(_ keppel.AuthDriver, cfg keppel.Configuration) (keppel.FederationDriver, error) {
-		prefix := os.Getenv("KEPPEL_FEDERATION_REDIS_PREFIX")
-		if prefix == "" {
-			prefix = "keppel"
-		}
-		keppel.MustGetenv("KEPPEL_FEDERATION_REDIS_HOSTNAME") // check config
+		osext.MustGetenv("KEPPEL_FEDERATION_REDIS_HOSTNAME") // check config
 		opts, err := keppel.GetRedisOptions("KEPPEL_FEDERATION")
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse federation Redis URL: %s", err.Error())
 		}
 		return &federationDriver{
 			ownHostname: cfg.APIPublicHostname,
-			prefix:      prefix,
+			prefix:      osext.GetenvOrDefault("KEPPEL_FEDERATION_REDIS_PREFIX", "keppel"),
 			rc:          redis.NewClient(opts),
 		}, nil
 	})

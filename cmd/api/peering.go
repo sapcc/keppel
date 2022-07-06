@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -48,21 +49,18 @@ func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
 
 	//add missing entries to `peers` table
 	for peerHostName := range isPeerHostName {
-		_, err := db.Exec(
+		_ = must.Return(db.Exec(
 			`INSERT INTO peers (hostname) VALUES ($1) ON CONFLICT DO NOTHING`,
 			peerHostName,
-		)
-		must(err)
+		))
 	}
 
 	//remove old entries from `peers` table
 	var allPeers []keppel.Peer
-	_, err := db.Select(&allPeers, `SELECT * FROM peers`)
-	must(err)
+	_ = must.Return(db.Select(&allPeers, `SELECT * FROM peers`))
 	for _, peer := range allPeers {
 		if !isPeerHostName[peer.HostName] {
-			_, err := db.Delete(&peer)
-			must(err)
+			_ = must.Return(db.Delete(&peer))
 		}
 	}
 

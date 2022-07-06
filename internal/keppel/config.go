@@ -90,7 +90,7 @@ func ParseIssuerKey(in string) (crypto.PrivateKey, error) {
 //corresponding environment variables. Aborts on error.
 func ParseConfiguration() Configuration {
 	cfg := Configuration{
-		APIPublicHostname:        MustGetenv("KEPPEL_API_PUBLIC_FQDN"),
+		APIPublicHostname:        osext.MustGetenv("KEPPEL_API_PUBLIC_FQDN"),
 		AnycastAPIPublicHostname: os.Getenv("KEPPEL_API_ANYCAST_FQDN"),
 	}
 	cfg.DatabaseURL = must.Return(easypg.URLFrom(easypg.URLParts{
@@ -103,7 +103,7 @@ func ParseConfiguration() Configuration {
 	}))
 
 	parseIssuerKeys := func(prefix string) []crypto.PrivateKey {
-		key, err := ParseIssuerKey(MustGetenv(prefix + "_ISSUER_KEY"))
+		key, err := ParseIssuerKey(osext.MustGetenv(prefix + "_ISSUER_KEY"))
 		if err != nil {
 			logg.Fatal("failed to read %s_ISSUER_KEY: %s", prefix, err.Error())
 		}
@@ -128,7 +128,7 @@ func ParseConfiguration() Configuration {
 		//Clair does a base64 decode of the key given in its configuration; I find
 		//this quite unnecessary and surprising, but in order to not cause any
 		//additional confusion, we do the same thing
-		key, err := base64.StdEncoding.DecodeString(MustGetenv("KEPPEL_CLAIR_PRESHARED_KEY"))
+		key, err := base64.StdEncoding.DecodeString(osext.MustGetenv("KEPPEL_CLAIR_PRESHARED_KEY"))
 		if err != nil {
 			logg.Fatal("failed to read KEPPEL_CLAIR_PRESHARED_KEY: " + err.Error())
 		}
@@ -139,22 +139,6 @@ func ParseConfiguration() Configuration {
 	}
 
 	return cfg
-}
-
-// ParseBool is like strconv.ParseBool() but doesn't return any error.
-func ParseBool(str string) bool {
-	v, _ := strconv.ParseBool(str) //nolint:errcheck
-	return v
-}
-
-//MustGetenv is like os.Getenv, but aborts with an error message if the given
-//environment variable is missing or empty.
-func MustGetenv(key string) string {
-	val := os.Getenv(key)
-	if val == "" {
-		logg.Fatal("missing environment variable: %s", key)
-	}
-	return val
 }
 
 func mayGetenvURL(key string) *url.URL {
@@ -169,16 +153,6 @@ func mayGetenvURL(key string) *url.URL {
 	return parsed
 }
 
-//GetenvOrDefault is like os.Getenv but it also takes a default value which is
-//returned if the given environment variable is missing or empty.
-func GetenvOrDefault(key, defaultVal string) string {
-	val := os.Getenv(key)
-	if val == "" {
-		val = defaultVal
-	}
-	return val
-}
-
 // GetRedisOptions returns a redis.Options by getting the required parameters
 // from environment variables:
 //   REDIS_PASSWORD, REDIS_HOSTNAME, REDIS_PORT, and REDIS_DB_NUM.
@@ -187,9 +161,9 @@ func GetenvOrDefault(key, defaultVal string) string {
 func GetRedisOptions(prefix string) (*redis.Options, error) {
 	prefix = prefix + "_REDIS"
 	pass := os.Getenv(prefix + "_PASSWORD")
-	host := GetenvOrDefault(prefix+"_HOSTNAME", "localhost")
-	port := GetenvOrDefault(prefix+"_PORT", "6379")
-	dbNum := GetenvOrDefault(prefix+"_DB_NUM", "0")
+	host := osext.GetenvOrDefault(prefix+"_HOSTNAME", "localhost")
+	port := osext.GetenvOrDefault(prefix+"_PORT", "6379")
+	dbNum := osext.GetenvOrDefault(prefix+"_DB_NUM", "0")
 	db, err := strconv.Atoi(dbNum)
 	if err != nil {
 		return nil, fmt.Errorf("invalid value for %s: %q", prefix+"_DB_NUM", dbNum)

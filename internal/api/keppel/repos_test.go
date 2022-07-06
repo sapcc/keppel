@@ -43,7 +43,7 @@ func mustInsert(t *testing.T, db *keppel.DB, obj interface{}) {
 	}
 }
 
-func must(t *testing.T, err error) {
+func mustDo(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err.Error())

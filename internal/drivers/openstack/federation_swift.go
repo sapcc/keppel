@@ -39,6 +39,7 @@ import (
 	"github.com/majewsky/schwift/gopherschwift"
 	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -88,7 +89,7 @@ func initSwiftContainerConnection(envPrefix string) (*schwift.Container, error) 
 	if err != nil {
 		return nil, err
 	}
-	container, err := swiftAccount.Container(keppel.MustGetenv(envPrefix + "SWIFT_CONTAINER")).EnsureExists()
+	container, err := swiftAccount.Container(osext.MustGetenv(envPrefix + "SWIFT_CONTAINER")).EnsureExists()
 	if err != nil {
 		return nil, err
 	}

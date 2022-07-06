@@ -35,6 +35,8 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/must"
+	"github.com/sapcc/go-bits/osext"
 	"github.com/sapcc/go-bits/sqlext"
 	"github.com/spf13/cobra"
 
@@ -65,26 +67,19 @@ func run(cmd *cobra.Command, args []string) {
 	cfg := keppel.ParseConfiguration()
 	auditor := keppel.InitAuditTrail()
 
-	db, err := keppel.InitDB(cfg.DatabaseURL)
-	must(err)
-	must(setupDBIfRequested(db))
-	rc, err := initRedis()
-	must(err)
-	ad, err := keppel.NewAuthDriver(keppel.MustGetenv("KEPPEL_DRIVER_AUTH"), rc)
-	must(err)
-	fd, err := keppel.NewFederationDriver(keppel.MustGetenv("KEPPEL_DRIVER_FEDERATION"), ad, cfg)
-	must(err)
-	sd, err := keppel.NewStorageDriver(keppel.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
-	must(err)
-	icd, err := keppel.NewInboundCacheDriver(keppel.MustGetenv("KEPPEL_DRIVER_FEDERATION"), cfg)
-	must(err)
+	db := must.Return(keppel.InitDB(cfg.DatabaseURL))
+	must.Succeed(setupDBIfRequested(db))
+	rc := must.Return(initRedis())
+	ad := must.Return(keppel.NewAuthDriver(osext.MustGetenv("KEPPEL_DRIVER_AUTH"), rc))
+	fd := must.Return(keppel.NewFederationDriver(osext.MustGetenv("KEPPEL_DRIVER_FEDERATION"), ad, cfg))
+	sd := must.Return(keppel.NewStorageDriver(osext.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg))
+	icd := must.Return(keppel.NewInboundCacheDriver(osext.MustGetenv("KEPPEL_DRIVER_INBOUND_CACHE"), cfg))
 
 	prometheus.MustRegister(sqlstats.NewStatsCollector("keppel", db.DbMap.Db))
 
 	rle := (*keppel.RateLimitEngine)(nil)
 	if rc != nil {
-		rld, err := keppel.NewRateLimitDriver(keppel.MustGetenv("KEPPEL_DRIVER_RATELIMIT"), ad, cfg)
-		must(err)
+		rld := must.Return(keppel.NewRateLimitDriver(osext.MustGetenv("KEPPEL_DRIVER_RATELIMIT"), ad, cfg))
 		rle = &keppel.RateLimitEngine{Driver: rld, Client: rc}
 	}
 
@@ -113,26 +108,17 @@ func run(cmd *cobra.Command, args []string) {
 	http.Handle("/metrics", promhttp.Handler())
 
 	//start HTTP server
-	apiListenAddress := os.Getenv("KEPPEL_API_LISTEN_ADDRESS")
-	if apiListenAddress == "" {
-		apiListenAddress = ":8080"
-	}
+	apiListenAddress := osext.GetenvOrDefault("KEPPEL_API_LISTEN_ADDRESS", ":8080")
 	logg.Info("listening on " + apiListenAddress)
-	err = httpext.ListenAndServeContext(ctx, apiListenAddress, nil)
+	err := httpext.ListenAndServeContext(ctx, apiListenAddress, nil)
 	if err != nil {
 		logg.Fatal("error returned from httpext.ListenAndServeContext(): %s", err.Error())
 	}
 }
 
-func must(err error) {
-	if err != nil {
-		logg.Fatal(err.Error())
-	}
-}
-
 //Note that, since Redis is optional, this may return (nil, nil).
 func initRedis() (*redis.Client, error) {
-	if !keppel.ParseBool("KEPPEL_REDIS_ENABLE") {
+	if !osext.GetenvBool("KEPPEL_REDIS_ENABLE") {
 		return nil, nil
 	}
 	opts, err := keppel.GetRedisOptions("KEPPEL")
@@ -148,7 +134,7 @@ func setupDBIfRequested(db *keppel.DB) error {
 	//
 	//This setup cannot be done before keppel-api has been started, because the
 	//DB schema has not been populated yet at that point.
-	if keppel.ParseBool(os.Getenv("KEPPEL_RUN_DB_SETUP_FOR_CONFORMANCE_TEST")) {
+	if osext.GetenvBool("KEPPEL_RUN_DB_SETUP_FOR_CONFORMANCE_TEST") {
 		queries := []string{
 			sqlext.SimplifyWhitespace(`
 				INSERT INTO accounts (name, auth_tenant_id) VALUES ('conformance-test', 'bogus')

@@ -27,6 +27,7 @@ import (
 
 	"github.com/go-redis/redis_rate/v9"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -95,7 +96,7 @@ func parseRateLimit(envVar string) (*redis_rate.Limit, error) {
 			return nil, nil
 		}
 	} else {
-		valStr = keppel.MustGetenv(envVar)
+		valStr = osext.MustGetenv(envVar)
 	}
 
 	match := valueRx.FindStringSubmatch(valStr)
