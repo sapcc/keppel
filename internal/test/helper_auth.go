@@ -57,7 +57,7 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 
 	//optimization: don't issue the same token twice in a single test run
 	audienceJSON, err := json.Marshal(audience)
-	must(t, err)
+	mustDo(t, err)
 	cacheKey := string(audienceJSON) + strings.Join(scopes, "|")
 	if token, exists := s.tokenCache[cacheKey]; exists {
 		return token
@@ -93,7 +93,7 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 		case "repository":
 			repoScope := scope.ParseRepositoryScope(audience)
 			authTenantID, err := s.findAuthTenantIDForAccountName(repoScope.AccountName)
-			must(t, err)
+			mustDo(t, err)
 			perms[string(keppel.CanViewAccount)][authTenantID] = true
 			for _, action := range scope.Actions {
 				switch action {
@@ -112,7 +112,7 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 				t.Fatalf("do not know how to handle scope %q", scope.String())
 			}
 			authTenantID, err := s.findAuthTenantIDForAccountName(scope.ResourceName)
-			must(t, err)
+			mustDo(t, err)
 			perms[string(keppel.CanViewAccount)][authTenantID] = true
 		}
 	}
@@ -126,7 +126,7 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 		Audience: audience,
 		ScopeSet: ss,
 	}.IssueToken(s.Config)
-	must(t, err)
+	mustDo(t, err)
 
 	s.tokenCache[cacheKey] = tokenResp.Token
 	return tokenResp.Token

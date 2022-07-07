@@ -71,7 +71,7 @@ func (b Bytes) MustUpload(t *testing.T, s Setup, repo keppel.Repository) keppel.
 	//filled)
 	account := keppel.Account{Name: repo.AccountName}
 	blob, err := keppel.FindBlobByRepositoryName(s.DB, b.Digest, repo.Name, account)
-	must(t, err)
+	mustDo(t, err)
 	s.ExpectBlobsExistInStorage(t, *blob)
 	if t.Failed() {
 		t.FailNow()
@@ -126,7 +126,7 @@ func (i Image) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName
 	//validate uploaded manifest
 	account := keppel.Account{Name: repo.AccountName}
 	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, account, i.Manifest.Digest.String())
-	must(t, err)
+	mustDo(t, err)
 	s.ExpectManifestsExistInStorage(t, repo.Name, *manifest)
 	if t.Failed() {
 		t.FailNow()
@@ -183,7 +183,7 @@ func (l ImageList) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tag
 	//validate uploaded manifest
 	account := keppel.Account{Name: repo.AccountName}
 	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, account, l.Manifest.Digest.String())
-	must(t, err)
+	mustDo(t, err)
 	s.ExpectManifestsExistInStorage(t, repo.Name, *manifest)
 	if t.Failed() {
 		t.FailNow()

@@ -35,7 +35,7 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 	s.Clock.StepBy(1 * time.Hour)
 
 	var account1 keppel.Account
-	must(t, s.DB.SelectOne(&account1, `SELECT * FROM accounts`))
+	mustDo(t, s.DB.SelectOne(&account1, `SELECT * FROM accounts`))
 
 	//with just one account set up, AnnounceNextAccountToFederation should
 	//announce that account, then start doing nothing
@@ -47,7 +47,7 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 	//setup another account; only that one should need announcing initially
 	s.Clock.StepBy(5 * time.Minute)
 	account2 := keppel.Account{Name: "test2", AuthTenantID: "test2authtenant", GCPoliciesJSON: "[]"}
-	must(t, s.DB.Insert(&account2))
+	mustDo(t, s.DB.Insert(&account2))
 	expectSuccess(t, j.AnnounceNextAccountToFederation())
 	expectAccountsAnnouncedJustNow(t, s, account2)
 	expectError(t, sql.ErrNoRows.Error(), j.AnnounceNextAccountToFederation())

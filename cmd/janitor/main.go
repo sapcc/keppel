@@ -22,7 +22,6 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/dlmiddlecote/sqlstats"
@@ -32,6 +31,8 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/must"
+	"github.com/sapcc/go-bits/osext"
 	"github.com/spf13/cobra"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -57,16 +58,11 @@ func run(cmd *cobra.Command, args []string) {
 	cfg := keppel.ParseConfiguration()
 	auditor := keppel.InitAuditTrail()
 
-	db, err := keppel.InitDB(cfg.DatabaseURL)
-	must(err)
-	ad, err := keppel.NewAuthDriver(keppel.MustGetenv("KEPPEL_DRIVER_AUTH"), nil)
-	must(err)
-	fd, err := keppel.NewFederationDriver(keppel.MustGetenv("KEPPEL_DRIVER_FEDERATION"), ad, cfg)
-	must(err)
-	sd, err := keppel.NewStorageDriver(keppel.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg)
-	must(err)
-	icd, err := keppel.NewInboundCacheDriver(keppel.MustGetenv("KEPPEL_DRIVER_FEDERATION"), cfg)
-	must(err)
+	db := must.Return(keppel.InitDB(cfg.DatabaseURL))
+	ad := must.Return(keppel.NewAuthDriver(osext.MustGetenv("KEPPEL_DRIVER_AUTH"), nil))
+	fd := must.Return(keppel.NewFederationDriver(osext.MustGetenv("KEPPEL_DRIVER_FEDERATION"), ad, cfg))
+	sd := must.Return(keppel.NewStorageDriver(osext.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg))
+	icd := must.Return(keppel.NewInboundCacheDriver(osext.MustGetenv("KEPPEL_DRIVER_INBOUND_CACHE"), cfg))
 
 	prometheus.MustRegister(sqlstats.NewStatsCollector("keppel", db.DbMap.Db))
 
@@ -91,12 +87,9 @@ func run(cmd *cobra.Command, args []string) {
 	handler := httpapi.Compose(httpapi.HealthCheckAPI{SkipRequestLog: true})
 	http.Handle("/", handler)
 	http.Handle("/metrics", promhttp.Handler())
-	listenAddress := os.Getenv("KEPPEL_JANITOR_LISTEN_ADDRESS")
-	if listenAddress == "" {
-		listenAddress = ":8080"
-	}
+	listenAddress := osext.GetenvOrDefault("KEPPEL_JANITOR_LISTEN_ADDRESS", ":8080")
 	logg.Info("listening on " + listenAddress)
-	err = httpext.ListenAndServeContext(ctx, listenAddress, nil)
+	err := httpext.ListenAndServeContext(ctx, listenAddress, nil)
 	if err != nil {
 		logg.Fatal("error returned from httpext.ListenAndServeContext(): %s", err.Error())
 	}
@@ -119,11 +112,5 @@ func jobLoop(task func() error) {
 			//slow down a bit after an error to avoid hammering the DB during outages
 			time.Sleep(2 * time.Second)
 		}
-	}
-}
-
-func must(err error) {
-	if err != nil {
-		logg.Fatal(err.Error())
 	}
 }

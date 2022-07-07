@@ -22,6 +22,7 @@ package authapi
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -41,11 +42,11 @@ func parseRequest(rawQuery string, cfg keppel.Configuration) (Request, error) {
 		return Request{}, fmt.Errorf("cannot parse query string: %s", err.Error())
 	}
 
-	offlineToken := keppel.ParseBool(query.Get("offline_token"))
+	offlineToken, err := strconv.ParseBool(query.Get("offline_token"))
 	result := Request{
 		ClientID:     query.Get("client_id"),
 		Scopes:       parseScopes(query["scope"]),
-		OfflineToken: offlineToken,
+		OfflineToken: offlineToken && err == nil,
 	}
 
 	serviceHost := query.Get("service")

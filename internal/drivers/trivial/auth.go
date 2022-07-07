@@ -20,14 +20,13 @@ package trivial
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
-	"os"
 
 	"github.com/sapcc/keppel/internal/keppel"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/sapcc/go-bits/audittools"
+	"github.com/sapcc/go-bits/osext"
 )
 
 type AuthDriver struct {
@@ -38,16 +37,10 @@ type AuthDriver struct {
 func init() {
 	keppel.RegisterUserIdentity("trivial", deserializeTrivialUserIdentity)
 	keppel.RegisterAuthDriver("trivial", func(rc *redis.Client) (keppel.AuthDriver, error) {
-		userName := os.Getenv("KEPPEL_USERNAME")
-		if userName == "" {
-			return &AuthDriver{}, errors.New("KEPPEL_USERNAME env cannot be empty when using trivial auth")
-		}
-
-		password := os.Getenv("KEPPEL_PASSWORD")
-		if password == "" {
-			return nil, errors.New("KEPPEL_PASSWORD env cannot be empty when using trivial auth")
-		}
-		return &AuthDriver{userName: userName, password: password}, nil
+		return &AuthDriver{
+			userName: osext.MustGetenv("KEPPEL_USERNAME"),
+			password: osext.MustGetenv("KEPPEL_PASSWORD"),
+		}, nil
 	})
 }
 

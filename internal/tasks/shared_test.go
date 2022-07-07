@@ -77,7 +77,7 @@ func setupReplica(t *testing.T, s1 test.Setup, strategy string) (*Janitor, test.
 	return j2, s
 }
 
-func must(t *testing.T, err error) {
+func mustDo(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err.Error())

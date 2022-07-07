@@ -23,12 +23,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"testing"
 
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/osext"
 	"golang.org/x/crypto/bcrypt"
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
@@ -177,7 +177,7 @@ func GetReplicationPassword() string {
 //NewSetup prepares most or all pieces of Keppel for a test.
 func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	t.Helper()
-	logg.ShowDebug = keppel.ParseBool(os.Getenv("KEPPEL_DEBUG"))
+	logg.ShowDebug = osext.GetenvBool("KEPPEL_DEBUG")
 	var params setupParams
 	for _, option := range opts {
 		option(&params)
@@ -201,11 +201,11 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 
 	//build keppel.Configuration
 	dbURL, err := url.Parse(postgresURL)
-	must(t, err)
+	mustDo(t, err)
 	s := Setup{
 		Config: keppel.Configuration{
 			APIPublicHostname: apiPublicHostname,
-			DatabaseURL:       *dbURL,
+			DatabaseURL:       dbURL,
 		},
 		tokenCache: make(map[string]string),
 	}
@@ -216,12 +216,12 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	}
 	if params.WithPreviousIssuerKey {
 		key, err := keppel.ParseIssuerKey(UnitTestIssuerRSAPrivateKey)
-		must(t, err)
+		mustDo(t, err)
 		s.Config.JWTIssuerKeys = append(s.Config.JWTIssuerKeys, key)
 	}
 	if !params.WithoutCurrentIssuerKey {
 		jwtIssuerKey, err := keppel.ParseIssuerKey(UnitTestIssuerEd25519PrivateKey)
-		must(t, err)
+		mustDo(t, err)
 		s.Config.JWTIssuerKeys = append(s.Config.JWTIssuerKeys, jwtIssuerKey)
 	}
 
@@ -229,7 +229,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	if params.WithClairDouble {
 		s.ClairDouble = NewClairDouble()
 		clairURL, err := url.Parse("https://clair.example.org/")
-		must(t, err)
+		mustDo(t, err)
 
 		s.Config.ClairClient = &clair.Client{
 			BaseURL:      *clairURL,
@@ -255,9 +255,9 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	//constraints and fail)
 	for {
 		result, err := s.DB.Exec(`DELETE FROM manifest_manifest_refs WHERE parent_digest NOT IN (SELECT child_digest FROM manifest_manifest_refs)`)
-		must(t, err)
+		mustDo(t, err)
 		rowsDeleted, err := result.RowsAffected()
-		must(t, err)
+		mustDo(t, err)
 		if rowsDeleted == 0 {
 			break
 		}
@@ -273,12 +273,12 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 
 		if params.WithPreviousIssuerKey {
 			key, err := keppel.ParseIssuerKey(UnitTestAnycastIssuerRSAPrivateKey)
-			must(t, err)
+			mustDo(t, err)
 			s.Config.AnycastJWTIssuerKeys = append(s.Config.AnycastJWTIssuerKeys, key)
 		}
 		if !params.WithoutCurrentIssuerKey {
 			jwtIssuerKey, err := keppel.ParseIssuerKey(UnitTestAnycastIssuerEd25519PrivateKey)
-			must(t, err)
+			mustDo(t, err)
 			s.Config.AnycastJWTIssuerKeys = append(s.Config.AnycastJWTIssuerKeys, jwtIssuerKey)
 		}
 	}
@@ -295,16 +295,16 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 
 	//setup essential drivers
 	ad, err := keppel.NewAuthDriver("unittest", nil)
-	must(t, err)
+	mustDo(t, err)
 	s.AD = ad.(*AuthDriver) //nolint:errcheck
 	fd, err := keppel.NewFederationDriver("unittest", ad, s.Config)
-	must(t, err)
+	mustDo(t, err)
 	s.FD = fd.(*FederationDriver) //nolint:errcheck
 	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, s.Config)
-	must(t, err)
+	mustDo(t, err)
 	s.SD = sd.(*trivial.StorageDriver) //nolint:errcheck
 	icd, err := keppel.NewInboundCacheDriver("unittest", s.Config)
-	must(t, err)
+	mustDo(t, err)
 	s.ICD = icd.(*InboundCacheDriver) //nolint:errcheck
 
 	//setup APIs
@@ -334,10 +334,10 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	//setup initial accounts/repos
 	quotasSetFor := make(map[string]bool)
 	for _, account := range params.Accounts {
-		must(t, s.DB.Insert(account))
+		mustDo(t, s.DB.Insert(account))
 		fd.RecordExistingAccount(*account, s.Clock.Now()) //nolint:errcheck
 		if params.WithQuotas && !quotasSetFor[account.AuthTenantID] {
-			must(t, s.DB.Insert(&keppel.Quotas{
+			mustDo(t, s.DB.Insert(&keppel.Quotas{
 				AuthTenantID:  account.AuthTenantID,
 				ManifestCount: 100,
 			}))
@@ -346,7 +346,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	}
 	s.Accounts = params.Accounts
 	for _, repo := range params.Repos {
-		must(t, s.DB.Insert(repo))
+		mustDo(t, s.DB.Insert(repo))
 	}
 	s.Repos = params.Repos
 
@@ -355,11 +355,11 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		s1 := params.SetupOfPrimary
 		if s1 != nil {
 			//give the secondary registry credentials for replicating from the primary
-			must(t, s.DB.Insert(&keppel.Peer{
+			mustDo(t, s.DB.Insert(&keppel.Peer{
 				HostName:    "registry.example.org",
 				OurPassword: GetReplicationPassword(),
 			}))
-			must(t, s1.DB.Insert(&keppel.Peer{
+			mustDo(t, s1.DB.Insert(&keppel.Peer{
 				HostName:                 "registry-secondary.example.org",
 				TheirCurrentPasswordHash: replicationPasswordHash,
 			}))
@@ -369,7 +369,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	return s
 }
 
-func must(t *testing.T, err error) {
+func mustDo(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err.Error())

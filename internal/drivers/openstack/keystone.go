@@ -47,6 +47,7 @@ import (
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -84,7 +85,7 @@ func init() {
 
 		//load oslo.policy
 		tv := &gopherpolicy.TokenValidator{IdentityV3: identityV3}
-		err = tv.LoadPolicyFile(mustGetenv("KEPPEL_OSLO_POLICY_PATH"))
+		err = tv.LoadPolicyFile(osext.MustGetenv("KEPPEL_OSLO_POLICY_PATH"))
 		if err != nil {
 			return nil, err
 		}
@@ -100,14 +101,6 @@ func init() {
 			TokenValidator: tv,
 		}, nil
 	})
-}
-
-func mustGetenv(key string) string {
-	val := os.Getenv(key)
-	if val == "" {
-		logg.Fatal("missing environment variable: %s", key)
-	}
-	return val
 }
 
 func createProviderClient(ao gophercloud.AuthOptions) (*gophercloud.ProviderClient, error) {

@@ -22,10 +22,11 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/must"
+	"github.com/sapcc/go-bits/osext"
 	"github.com/spf13/cobra"
 
 	anycastmonitorcmd "github.com/sapcc/keppel/cmd/anycastmonitor"
@@ -40,18 +41,17 @@ import (
 	_ "github.com/sapcc/keppel/internal/drivers/openstack"
 	_ "github.com/sapcc/keppel/internal/drivers/redis"
 	_ "github.com/sapcc/keppel/internal/drivers/trivial"
-	"github.com/sapcc/keppel/internal/keppel"
 )
 
 func main() {
-	logg.ShowDebug = keppel.ParseBool(os.Getenv("KEPPEL_DEBUG"))
+	logg.ShowDebug = osext.GetenvBool("KEPPEL_DEBUG")
 
 	//The KEPPEL_INSECURE flag can be used to get Keppel to work through
 	//mitmproxy (which is very useful for development and debugging). (It's very
 	//important that this is not the standard "KEPPEL_DEBUG" variable. That one
 	//is meant to be useful for production systems, where you definitely don't
 	//want to turn off certificate verification.)
-	if keppel.ParseBool(os.Getenv("KEPPEL_INSECURE")) {
+	if osext.GetenvBool("KEPPEL_INSECURE") {
 		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: true,
 		}
@@ -84,9 +84,7 @@ func main() {
 	janitorcmd.AddCommandTo(serverCmd)
 	rootCmd.AddCommand(serverCmd)
 
-	if err := rootCmd.Execute(); err != nil {
-		logg.Fatal(err.Error())
-	}
+	must.Succeed(rootCmd.Execute())
 }
 
 type userAgentInjector struct {

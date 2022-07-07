@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sapcc/go-bits/osext"
+
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -34,7 +36,7 @@ type federationDriver struct {
 func init() {
 	keppel.RegisterFederationDriver("multi", func(ad keppel.AuthDriver, cfg keppel.Configuration) (keppel.FederationDriver, error) {
 		fd := &federationDriver{}
-		driverNames := strings.Split(keppel.MustGetenv("KEPPEL_FEDERATION_MULTI_DRIVERS"), ",")
+		driverNames := strings.Split(osext.MustGetenv("KEPPEL_FEDERATION_MULTI_DRIVERS"), ",")
 		for _, driverName := range driverNames {
 			if driverName == "multi" {
 				//prevent infinite loops

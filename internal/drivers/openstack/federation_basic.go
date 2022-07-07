@@ -27,6 +27,7 @@ import (
 
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/domains"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/projects"
+	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -49,7 +50,7 @@ func init() {
 		}
 		result := &federationDriverBasic{AuthDriver: k}
 
-		wlStr := strings.TrimSuffix(mustGetenv("KEPPEL_NAMECLAIM_WHITELIST"), ",")
+		wlStr := strings.TrimSuffix(osext.MustGetenv("KEPPEL_NAMECLAIM_WHITELIST"), ",")
 		for _, wlEntryStr := range strings.Split(wlStr, ",") {
 			wlEntryFields := strings.SplitN(wlEntryStr, ":", 2)
 			if len(wlEntryFields) != 2 {
