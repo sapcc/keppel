@@ -466,7 +466,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			//(We do allow the /keppel/v1/auth endpoint to work properly because
 			//otherwise the error messages are not reproducible between passes.)
 			s1.Clock.StepBy(7 * time.Hour)
-			http.DefaultClient.Transport.(*test.RoundTripper).Handlers["registry.example.org"] = answerMostWith404(s1.Handler)
+			http.DefaultTransport.(*test.RoundTripper).Handlers["registry.example.org"] = answerMostWith404(s1.Handler)
 			//This is particularly devious since 404 is returned by the GET endpoint for
 			//a manifest when the manifest was deleted. We want to check that the next
 			//SyncManifestsInNextRepo understands that this is a network issue and not
@@ -490,7 +490,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			}
 
 			//flip back to the actual primary registry's API
-			http.DefaultClient.Transport.(*test.RoundTripper).Handlers["registry.example.org"] = s1.Handler
+			http.DefaultTransport.(*test.RoundTripper).Handlers["registry.example.org"] = s1.Handler
 			//delete the entire repository on the primary
 			s1.Clock.StepBy(7 * time.Hour)
 			mustExec(t, s1.DB, `DELETE FROM manifests`)
@@ -574,7 +574,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 			"clair.example.org":    httpapi.Compose(claird),
 		},
 	}
-	http.DefaultClient.Transport = tt
+	http.DefaultTransport = tt
 	clairBaseURL := must.Return(url.Parse("https://clair.example.org/"))
 	j.cfg.ClairClient = &clair.Client{
 		BaseURL:      *clairBaseURL,

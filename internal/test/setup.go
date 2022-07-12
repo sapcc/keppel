@@ -235,7 +235,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 			BaseURL:      *clairURL,
 			PresharedKey: []byte("doesnotmatter"), //since the ClairDouble does not check the Authorization header
 		}
-		if tt, ok := http.DefaultClient.Transport.(*RoundTripper); ok {
+		if tt, ok := http.DefaultTransport.(*RoundTripper); ok {
 			tt.Handlers[clairURL.Host] = httpapi.Compose(s.ClairDouble)
 		}
 	}
@@ -322,7 +322,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		apis = append(apis, peerv1.NewAPI(s.Config, ad, s.DB))
 	}
 	s.Handler = httpapi.Compose(apis...)
-	if tt, ok := http.DefaultClient.Transport.(*RoundTripper); ok {
+	if tt, ok := http.DefaultTransport.(*RoundTripper); ok {
 		//make our own API reachable to other peers
 		tt.Handlers[s.Config.APIPublicHostname] = s.Handler
 		//if accounts are being set up, also expose their domain-remapped APIs

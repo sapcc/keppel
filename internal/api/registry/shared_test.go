@@ -95,7 +95,7 @@ func testWithReplica(t *testing.T, s1 test.Setup, strategy string, action func(f
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		tt := http.DefaultClient.Transport.(*test.RoundTripper) //nolint:errcheck
+		tt := http.DefaultTransport.(*test.RoundTripper) //nolint:errcheck
 		tt.Handlers["registry-secondary.example.org"] = nil
 	}()
 
