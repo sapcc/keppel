@@ -106,8 +106,6 @@ func init() {
 func createProviderClient(ao gophercloud.AuthOptions) (*gophercloud.ProviderClient, error) {
 	provider, err := openstack.NewClient(ao.IdentityEndpoint)
 	if err == nil {
-		//use http.DefaultClient, esp. to pick up the KEPPEL_INSECURE flag
-		provider.HTTPClient = *http.DefaultClient
 		provider.UserAgent.Prepend(fmt.Sprintf("%s/%s", bininfo.Component(), bininfo.Version()))
 		err = openstack.Authenticate(provider, ao)
 	}
@@ -147,9 +145,8 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Use
 	//response will trigger a useless reauthentication of the service user
 	throwAwayClient := gophercloud.ServiceClient{
 		ProviderClient: &gophercloud.ProviderClient{
-			HTTPClient: *http.DefaultClient,
-			Throwaway:  true,
-			Context:    ctx,
+			Throwaway: true,
+			Context:   ctx,
 		},
 		Endpoint: d.IdentityV3.Endpoint,
 	}
