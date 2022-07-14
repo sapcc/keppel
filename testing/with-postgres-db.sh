@@ -2,6 +2,7 @@
 # shellcheck shell=ash
 set -euo pipefail
 
+# Darwin compatibility
 if hash greadlink >/dev/null 2>/dev/null; then
   readlink() { greadlink "$@"; }
 fi
@@ -27,8 +28,16 @@ sed -ie '/^#\?\(external_pid_file\|unix_socket_directories\|port\)\b/d' testing/
   echo "port = 54321"
 ) >> testing/postgresql-data/postgresql.conf
 
+stop_postgres() {
+  EXIT_CODE=$?
+  step "Stopping PostgreSQL"
+  pg_ctl stop -D testing/postgresql-data/ -w -s
+  exit "${EXIT_CODE}"
+}
+
 step "Starting PostgreSQL"
 rm -f -- testing/postgresql.log
+trap stop_postgres EXIT INT TERM
 pg_ctl start -D testing/postgresql-data/ -l testing/postgresql.log -w -s
 
 step "Running command: $*"
@@ -36,8 +45,5 @@ set +e
 "$@"
 EXIT_CODE=$?
 set -e
-
-step "Stopping PostgreSQL"
-pg_ctl stop -D testing/postgresql-data/ -w -s
 
 exit "${EXIT_CODE}"
