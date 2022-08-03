@@ -41,7 +41,7 @@ var isImageConfigBlobMediaType = map[string]bool{
 	"application/vnd.oci.image.config.v1+json":       true,
 }
 
-//This implements the GET/HEAD /v2/<account>/<repository>/blobs/<digest> endpoint.
+// This implements the GET/HEAD /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
 	account, repo, authz := a.checkAccountAccess(w, r, failIfRepoMissing, a.handleGetOrHeadBlobAnycast)
@@ -184,7 +184,7 @@ func (a *API) handleGetOrHeadBlobAnycast(w http.ResponseWriter, r *http.Request,
 	api.BlobsPulledCounter.With(info.AsPrometheusLabels()).Inc()
 }
 
-//This implements the DELETE /v2/<account>/<repository>/blobs/<digest> endpoint.
+// This implements the DELETE /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
 	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)

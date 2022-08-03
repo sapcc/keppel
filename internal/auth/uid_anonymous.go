@@ -31,32 +31,32 @@ func init() {
 	keppel.RegisterUserIdentity("anon", deserializeAnonUserIdentity)
 }
 
-//AnonymousUserIdentity is a keppel.UserIdentity for anonymous users.
+// AnonymousUserIdentity is a keppel.UserIdentity for anonymous users.
 var AnonymousUserIdentity = keppel.UserIdentity(anonUserIdentity{})
 
 type anonUserIdentity struct{}
 
-//HasPermission implements the keppel.UserIdentity interface.
+// HasPermission implements the keppel.UserIdentity interface.
 func (anonUserIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
 	return false
 }
 
-//UserType implements the keppel.UserIdentity interface.
+// UserType implements the keppel.UserIdentity interface.
 func (anonUserIdentity) UserType() keppel.UserType {
 	return keppel.AnonymousUser
 }
 
-//UserName implements the keppel.UserIdentity interface.
+// UserName implements the keppel.UserIdentity interface.
 func (anonUserIdentity) UserName() string {
 	return ""
 }
 
-//UserInfo implements the keppel.UserIdentity interface.
+// UserInfo implements the keppel.UserIdentity interface.
 func (anonUserIdentity) UserInfo() audittools.UserInfo {
 	return nil
 }
 
-//SerializeToJSON implements the keppel.UserIdentity interface.
+// SerializeToJSON implements the keppel.UserIdentity interface.
 func (anonUserIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
 	return "anon", []byte("true"), nil
 }

@@ -62,16 +62,16 @@ var blobSweepDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE accounts SET next_blob_sweep_at = $2 WHERE name = $1
 `)
 
-//SweepBlobsInNextAccount finds the next account where blobs need to be
-//garbage-collected, and performs the GC. This entails a marking of all blobs
-//that are not mounted in any repo, and a sweeping of all blobs that were
-//marked in the previous pass and which are still not mounted anywhere.
+// SweepBlobsInNextAccount finds the next account where blobs need to be
+// garbage-collected, and performs the GC. This entails a marking of all blobs
+// that are not mounted in any repo, and a sweeping of all blobs that were
+// marked in the previous pass and which are still not mounted anywhere.
 //
-//This staged mark-and-sweep ensures that we don't remove fresh blobs
-//that were just pushed and have not been mounted anywhere.
+// This staged mark-and-sweep ensures that we don't remove fresh blobs
+// that were just pushed and have not been mounted anywhere.
 //
-//Blobs are sweeped in each account at most once per hour. If no accounts need
-//to be sweeped, sql.ErrNoRows is returned to instruct the caller to slow down.
+// Blobs are sweeped in each account at most once per hour. If no accounts need
+// to be sweeped, sql.ErrNoRows is returned to instruct the caller to slow down.
 func (j *Janitor) SweepBlobsInNextAccount() (returnErr error) {
 	var account keppel.Account
 	defer func() {
@@ -160,8 +160,8 @@ var validateBlobSearchQuery = sqlext.SimplifyWhitespace(`
 		-- one at a time
 `)
 
-//ValidateNextBlob validates the next blob that has not been validated for more
-//than 7 days. If no manifest needs to be validated, sql.ErrNoRows is returned.
+// ValidateNextBlob validates the next blob that has not been validated for more
+// than 7 days. If no manifest needs to be validated, sql.ErrNoRows is returned.
 func (j *Janitor) ValidateNextBlob() (returnErr error) {
 	defer func() {
 		if returnErr == nil {

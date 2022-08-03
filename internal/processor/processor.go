@@ -32,9 +32,9 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//Processor is a higher-level interface wrapping keppel.DB and keppel.StorageDriver.
-//It abstracts DB accesses into high-level interactions and keeps DB updates in
-//lockstep with StorageDriver accesses.
+// Processor is a higher-level interface wrapping keppel.DB and keppel.StorageDriver.
+// It abstracts DB accesses into high-level interactions and keeps DB updates in
+// lockstep with StorageDriver accesses.
 type Processor struct {
 	cfg         keppel.Configuration
 	db          *keppel.DB
@@ -48,39 +48,39 @@ type Processor struct {
 	generateStorageID func() string
 }
 
-//New creates a new Processor.
+// New creates a new Processor.
 func New(cfg keppel.Configuration, db *keppel.DB, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, auditor keppel.Auditor) *Processor {
 	return &Processor{cfg, db, sd, icd, auditor, make(map[string]*client.RepoClient), time.Now, keppel.GenerateStorageID}
 }
 
-//OverrideTimeNow replaces time.Now with a test double.
+// OverrideTimeNow replaces time.Now with a test double.
 func (p *Processor) OverrideTimeNow(timeNow func() time.Time) *Processor {
 	p.timeNow = timeNow
 	return p
 }
 
-//OverrideGenerateStorageID replaces keppel.GenerateStorageID with a test double.
+// OverrideGenerateStorageID replaces keppel.GenerateStorageID with a test double.
 func (p *Processor) OverrideGenerateStorageID(generateStorageID func() string) *Processor {
 	p.generateStorageID = generateStorageID
 	return p
 }
 
-//WithLowlevelAccess lets the caller access the low-level interfaces wrapped by
-//this Processor instance. The existence of this method means that the
-//low-level interfaces are basically public, but having to use this method
-//makes it more obvious when code bypasses the interface of Processor.
+// WithLowlevelAccess lets the caller access the low-level interfaces wrapped by
+// this Processor instance. The existence of this method means that the
+// low-level interfaces are basically public, but having to use this method
+// makes it more obvious when code bypasses the interface of Processor.
 //
-//NOTE: This method is not used widely at the moment because callers usually
-//have direct access to `db` and `sd`, but my plan is to convert most or all DB
-//accesses into methods on type Processor eventually.
+// NOTE: This method is not used widely at the moment because callers usually
+// have direct access to `db` and `sd`, but my plan is to convert most or all DB
+// accesses into methods on type Processor eventually.
 func (p *Processor) WithLowlevelAccess(action func(*keppel.DB, keppel.StorageDriver) error) error {
 	return action(p.db, p.sd)
 }
 
-//Executes the action callback within a database transaction.  If the action
-//callback returns success (i.e. a nil error), the transaction will be
-//committed.  If it returns an error or panics, the transaction will be rolled
-//back.
+// Executes the action callback within a database transaction.  If the action
+// callback returns success (i.e. a nil error), the transaction will be
+// committed.  If it returns an error or panics, the transaction will be rolled
+// back.
 func (p *Processor) insideTransaction(action func(*gorp.Transaction) error) error {
 	tx, err := p.db.Begin()
 	if err != nil {
@@ -112,7 +112,7 @@ func (p *Processor) insideTransaction(action func(*gorp.Transaction) error) erro
 ////////////////////////////////////////////////////////////////////////////////
 // helper functions used by multiple Processor methods
 
-//Returns nil if and only if the user can push another manifest.
+// Returns nil if and only if the user can push another manifest.
 func (p *Processor) checkQuotaForManifestPush(account keppel.Account) error {
 	//check if user has enough quota to push a manifest
 	quotas, err := keppel.FindQuotas(p.db, account.AuthTenantID)
@@ -135,8 +135,8 @@ func (p *Processor) checkQuotaForManifestPush(account keppel.Account) error {
 	return nil
 }
 
-//Takes a repo in a replica account and returns a RepoClient for accessing its
-//the upstream repo in the corresponding primary account.
+// Takes a repo in a replica account and returns a RepoClient for accessing its
+// the upstream repo in the corresponding primary account.
 func (p *Processor) getRepoClientForUpstream(account keppel.Account, repo keppel.Repository) (*client.RepoClient, error) {
 	//use cached client if possible (this one probably already contains a valid
 	//pull token)

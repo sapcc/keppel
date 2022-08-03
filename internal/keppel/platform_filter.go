@@ -28,11 +28,11 @@ import (
 	"github.com/docker/distribution/manifest/manifestlist"
 )
 
-//PlatformFilter appears in type Account. For replica accounts, it restricts
-//which submanifests get replicated when a list manifest is replicated.
+// PlatformFilter appears in type Account. For replica accounts, it restricts
+// which submanifests get replicated when a list manifest is replicated.
 type PlatformFilter []manifestlist.PlatformSpec
 
-//Scan implements the sql.Scanner interface.
+// Scan implements the sql.Scanner interface.
 func (f *PlatformFilter) Scan(src interface{}) error {
 	in, ok := src.(string)
 	if !ok {
@@ -56,7 +56,7 @@ func (f *PlatformFilter) Scan(src interface{}) error {
 	return nil
 }
 
-//Value implements the driver.Valuer interface.
+// Value implements the driver.Valuer interface.
 func (f PlatformFilter) Value() (driver.Value, error) {
 	//default value: no filter == empty string
 	if len(f) == 0 {
@@ -67,7 +67,7 @@ func (f PlatformFilter) Value() (driver.Value, error) {
 	return json.Marshal(f)
 }
 
-//Includes checks whether the given platform is included in this filter.
+// Includes checks whether the given platform is included in this filter.
 func (f PlatformFilter) Includes(platform manifestlist.PlatformSpec) bool {
 	//default value: empty filter accepts everything
 	if len(f) == 0 {

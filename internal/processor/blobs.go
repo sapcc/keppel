@@ -38,9 +38,9 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//ValidateExistingBlob validates the given blob that already exists in the DB.
-//Validation includes computing the digest of the blob contents and comparing
-//to the digest in the DB. On success, nil is returned.
+// ValidateExistingBlob validates the given blob that already exists in the DB.
+// Validation includes computing the digest of the blob contents and comparing
+// to the digest in the DB. On success, nil is returned.
 func (p *Processor) ValidateExistingBlob(account keppel.Account, blob keppel.Blob) (returnErr error) {
 	blobDigest, err := digest.Parse(blob.Digest)
 	if err != nil {
@@ -81,7 +81,7 @@ func (p *Processor) ValidateExistingBlob(account keppel.Account, blob keppel.Blo
 	return nil
 }
 
-//An io.Writer that just counts how many bytes were written into it.
+// An io.Writer that just counts how many bytes were written into it.
 type byteCountingWriter struct {
 	bytesWritten int
 }
@@ -91,10 +91,10 @@ func (w *byteCountingWriter) Write(buf []byte) (int, error) {
 	return len(buf), nil
 }
 
-//FindBlobOrInsertUnbackedBlob is used by the replication code path. If the
-//requested blob does not exist, a blob record with an empty storage ID will be
-//inserted into the DB. This indicates to the registry API handler that this
-//blob shall be replicated when it is first pulled.
+// FindBlobOrInsertUnbackedBlob is used by the replication code path. If the
+// requested blob does not exist, a blob record with an empty storage ID will be
+// inserted into the DB. This indicates to the registry API handler that this
+// blob shall be replicated when it is first pulled.
 func (p *Processor) FindBlobOrInsertUnbackedBlob(desc distribution.Descriptor, account keppel.Account) (*keppel.Blob, error) {
 	var blob *keppel.Blob
 	err := p.insideTransaction(func(tx *gorp.Transaction) error {
@@ -123,13 +123,13 @@ var (
 	ErrConcurrentReplication = errors.New("currently replicating")
 )
 
-//ReplicateBlob replicates the given blob from its account's upstream registry.
+// ReplicateBlob replicates the given blob from its account's upstream registry.
 //
-//If a ResponseWriter is given, the response to the GET request to the upstream
-//registry is also copied into it as the blob contents are being streamed into
-//our local registry. The result value `responseWasWritten` indicates whether
-//this happened. It may be false if an error occurred before writing into the
-//ResponseWriter took place.
+// If a ResponseWriter is given, the response to the GET request to the upstream
+// registry is also copied into it as the blob contents are being streamed into
+// our local registry. The result value `responseWasWritten` indicates whether
+// this happened. It may be false if an error occurred before writing into the
+// ResponseWriter took place.
 func (p *Processor) ReplicateBlob(blob keppel.Blob, account keppel.Account, repo keppel.Repository, w http.ResponseWriter) (responseWasWritten bool, returnErr error) {
 	//mark this blob as currently being replicated
 	pendingBlob := keppel.PendingBlob{
@@ -249,14 +249,14 @@ func (p *Processor) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, 
 	return err
 }
 
-//AppendToBlob appends bytes to a blob upload, and updates the upload's
-//SizeBytes and NumChunks fields appropriately. Chunking of large uploads is
-//implemented at this level, to accommodate storage drivers that have a size
-//restriction on blob chunks.
+// AppendToBlob appends bytes to a blob upload, and updates the upload's
+// SizeBytes and NumChunks fields appropriately. Chunking of large uploads is
+// implemented at this level, to accommodate storage drivers that have a size
+// restriction on blob chunks.
 //
-//Warning: The upload's Digest field is *not* read or written. For chunked
-//uploads, the caller is responsible for performing and validating the digest
-//computation.
+// Warning: The upload's Digest field is *not* read or written. For chunked
+// uploads, the caller is responsible for performing and validating the digest
+// computation.
 func (p *Processor) AppendToBlob(account keppel.Account, upload *keppel.Upload, contents io.Reader, lengthBytes *uint64) error {
 	//case 1: we know the length of the input and don't have to guess when to chunk
 	if lengthBytes != nil {
@@ -279,7 +279,7 @@ func (p *Processor) AppendToBlob(account keppel.Account, upload *keppel.Upload, 
 
 const chunkSizeBytes = 500 << 20 // 500 MiB
 
-//This function contains the logic for splitting `contents` (containing `lengthBytes`) into chunks of `chunkSizeBytes` max.
+// This function contains the logic for splitting `contents` (containing `lengthBytes`) into chunks of `chunkSizeBytes` max.
 func foreachChunkWithKnownSize(contents io.Reader, lengthBytes uint64, action func(io.Reader, uint64) error) error {
 	//NOTE: This function is written such that `action` is called at least once,
 	//even when `contents` is empty.
@@ -294,7 +294,7 @@ func foreachChunkWithKnownSize(contents io.Reader, lengthBytes uint64, action fu
 	return action(contents, remainingBytes)
 }
 
-//Like foreachChunkWithKnownSize, but this one is for when we don't know how many bytes are in the original reader.
+// Like foreachChunkWithKnownSize, but this one is for when we don't know how many bytes are in the original reader.
 func foreachChunkWithUnknownSize(contents *chunkingTrackingReader, action func(io.Reader) error) error {
 	//NOTE: This function is written such that `action` is called at least once,
 	//even when `contents` is empty.
@@ -309,22 +309,21 @@ func foreachChunkWithUnknownSize(contents *chunkingTrackingReader, action func(i
 	}
 }
 
-//This reader is used by AppendToBlob() when we have a reader with an unknown
-//amount of bytes in it. It serves two purposes:
+// This reader is used by AppendToBlob() when we have a reader with an unknown
+// amount of bytes in it. It serves two purposes:
 //
-//1. While its underlying reader is being read from, it tracks how many bytes
-//   were read. We need this information to update upload.SizeBytes afterwards.
+//  1. While its underlying reader is being read from, it tracks how many bytes
+//     were read. We need this information to update upload.SizeBytes afterwards.
 //
-//2. It has a IsEOF() method for checking if EOF has been reached. This
-//   information is used to determine when to stop chunking.
-//
+//  2. It has a IsEOF() method for checking if EOF has been reached. This
+//     information is used to determine when to stop chunking.
 type chunkingTrackingReader struct {
 	wrapped   io.Reader
 	peeked    *byte //may contain a byte that we read in advance from `wrapped` to check for EOF
 	bytesRead uint64
 }
 
-//Read implements the io.Reader interface.
+// Read implements the io.Reader interface.
 func (r *chunkingTrackingReader) Read(buf []byte) (int, error) {
 	if len(buf) == 0 {
 		return 0, nil

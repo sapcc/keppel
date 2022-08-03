@@ -23,16 +23,16 @@ import (
 	"net/http/httptest"
 )
 
-//RoundTripper is a http.RoundTripper that redirects some domains to
-//http.Handler instances.
+// RoundTripper is a http.RoundTripper that redirects some domains to
+// http.Handler instances.
 type RoundTripper struct {
 	Handlers map[string]http.Handler
 }
 
 var originalDefaultTransport http.RoundTripper
 
-//WithRoundTripper sets up a RoundTripper instance as the default HTTP
-//transport for the duration of the given action.
+// WithRoundTripper sets up a RoundTripper instance as the default HTTP
+// transport for the duration of the given action.
 func WithRoundTripper(action func(*RoundTripper)) {
 	if originalDefaultTransport != nil {
 		panic("WithRoundTripper calls may not be nested")
@@ -46,7 +46,7 @@ func WithRoundTripper(action func(*RoundTripper)) {
 	originalDefaultTransport = nil
 }
 
-//WithoutRoundTripper can be used during WithRoundTripper() to temporarily revert back to the
+// WithoutRoundTripper can be used during WithRoundTripper() to temporarily revert back to the
 func WithoutRoundTripper(action func()) {
 	if originalDefaultTransport == nil {
 		panic("WithoutRoundTripper must be called from within WithRoundTripper")
@@ -58,7 +58,7 @@ func WithoutRoundTripper(action func()) {
 	http.DefaultTransport = prevTransport
 }
 
-//RoundTrip implements the http.RoundTripper interface.
+// RoundTrip implements the http.RoundTripper interface.
 func (t *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	//only intercept requests when the target host is known to us
 	h := t.Handlers[req.URL.Host]

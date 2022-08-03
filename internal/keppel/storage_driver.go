@@ -26,8 +26,8 @@ import (
 	"io"
 )
 
-//StorageDriver is the abstract interface for a multi-tenant-capable storage
-//backend.
+// StorageDriver is the abstract interface for a multi-tenant-capable storage
+// backend.
 type StorageDriver interface {
 	//`storageID` identifies blobs within an account. (The storage ID is
 	//different from the digest: The storage ID gets chosen at the start of the
@@ -78,7 +78,7 @@ type StorageDriver interface {
 	CleanupAccount(account Account) error
 }
 
-//StoredBlobInfo is returned by StorageDriver.ListStorageContents().
+// StoredBlobInfo is returned by StorageDriver.ListStorageContents().
 type StoredBlobInfo struct {
 	StorageID string
 	//ChunkCount is 0 for finalized blobs (that can be deleted with DeleteBlob)
@@ -86,23 +86,23 @@ type StoredBlobInfo struct {
 	ChunkCount uint32
 }
 
-//StoredManifestInfo is returned by StorageDriver.ListStorageContents().
+// StoredManifestInfo is returned by StorageDriver.ListStorageContents().
 type StoredManifestInfo struct {
 	RepoName string
 	Digest   string
 }
 
-//ErrAuthDriverMismatch can be returned by StorageDriver and NameClaimDriver.
+// ErrAuthDriverMismatch can be returned by StorageDriver and NameClaimDriver.
 var ErrAuthDriverMismatch = errors.New("given AuthDriver is not supported by this driver")
 
-//ErrCannotGenerateURL is returned by StorageDriver.URLForBlob() when the
-//StorageDriver does not support blob URLs.
+// ErrCannotGenerateURL is returned by StorageDriver.URLForBlob() when the
+// StorageDriver does not support blob URLs.
 var ErrCannotGenerateURL = errors.New("URLForBlob() is not supported")
 
 var storageDriverFactories = make(map[string]func(AuthDriver, Configuration) (StorageDriver, error))
 
-//NewStorageDriver creates a new StorageDriver using one of the factory functions
-//registered with RegisterStorageDriver().
+// NewStorageDriver creates a new StorageDriver using one of the factory functions
+// registered with RegisterStorageDriver().
 func NewStorageDriver(name string, authDriver AuthDriver, cfg Configuration) (StorageDriver, error) {
 	factory := storageDriverFactories[name]
 	if factory != nil {
@@ -111,12 +111,12 @@ func NewStorageDriver(name string, authDriver AuthDriver, cfg Configuration) (St
 	return nil, errors.New("no such storage driver: " + name)
 }
 
-//RegisterStorageDriver registers an StorageDriver. Call this from func init() of the
-//package defining the StorageDriver.
+// RegisterStorageDriver registers an StorageDriver. Call this from func init() of the
+// package defining the StorageDriver.
 //
-//Factory implementations should inspect the auth driver to ensure that the
-//storage backend can work with this authentication method, returning
-//ErrAuthDriverMismatch otherwise.
+// Factory implementations should inspect the auth driver to ensure that the
+// storage backend can work with this authentication method, returning
+// ErrAuthDriverMismatch otherwise.
 func RegisterStorageDriver(name string, factory func(AuthDriver, Configuration) (StorageDriver, error)) {
 	if _, exists := storageDriverFactories[name]; exists {
 		panic("attempted to register multiple storage drivers with name = " + name)
@@ -124,7 +124,7 @@ func RegisterStorageDriver(name string, factory func(AuthDriver, Configuration) 
 	storageDriverFactories[name] = factory
 }
 
-//GenerateStorageID generates a new random storage ID for use with keppel.StorageDriver.AppendToBlob().
+// GenerateStorageID generates a new random storage ID for use with keppel.StorageDriver.AppendToBlob().
 func GenerateStorageID() string {
 	buf := make([]byte, 32)
 	_, err := rand.Read(buf)

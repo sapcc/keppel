@@ -39,7 +39,7 @@ import (
 	"github.com/sapcc/keppel/internal/processor"
 )
 
-//query that finds the next manifest to be validated
+// query that finds the next manifest to be validated
 var outdatedManifestSearchQuery = sqlext.SimplifyWhitespace(`
 	SELECT * FROM manifests
 		WHERE validated_at < $1 OR (validated_at < $2 AND validation_error_message != '')
@@ -56,9 +56,9 @@ var outdatedManifestSearchQuery = sqlext.SimplifyWhitespace(`
 //important because multi-arch images take into account the size_bytes
 //attribute of their constituent images.
 
-//ValidateNextManifest validates manifests that have not been validated for more
-//than 6 hours. At most one manifest is validated per call. If no manifest
-//needs to be validated, sql.ErrNoRows is returned.
+// ValidateNextManifest validates manifests that have not been validated for more
+// than 6 hours. At most one manifest is validated per call. If no manifest
+// needs to be validated, sql.ErrNoRows is returned.
 func (j *Janitor) ValidateNextManifest() (returnErr error) {
 	var manifest keppel.Manifest
 
@@ -153,12 +153,12 @@ var syncManifestCleanupEmptyQuery = sqlext.SimplifyWhitespace(`
 	DELETE FROM repos r WHERE id = $1 AND (SELECT COUNT(*) FROM manifests WHERE repo_id = r.id) = 0
 `)
 
-//SyncManifestsInNextRepo finds the next repository in a replica account where
-//manifests have not been synced for more than an hour, and syncs its manifests.
-//Syncing involves checking with the primary account which manifests have been
-//deleted there, and replicating the deletions on our side.
+// SyncManifestsInNextRepo finds the next repository in a replica account where
+// manifests have not been synced for more than an hour, and syncs its manifests.
+// Syncing involves checking with the primary account which manifests have been
+// deleted there, and replicating the deletions on our side.
 //
-//If no repo needs syncing, sql.ErrNoRows is returned.
+// If no repo needs syncing, sql.ErrNoRows is returned.
 func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
 	var repo keppel.Repository
 
@@ -215,11 +215,11 @@ func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
 	return err
 }
 
-//When performing a manifest/tag sync, and the upstream is one of our peers,
-//we can use the replica-sync API instead of polling each manifest and tag
-//individually. This also synchronizes our own last_pulled_at timestamps into
-//the primary account. The primary therefore gains a complete picture of pull
-//activity, which is required for some GC policies to work correctly.
+// When performing a manifest/tag sync, and the upstream is one of our peers,
+// we can use the replica-sync API instead of polling each manifest and tag
+// individually. This also synchronizes our own last_pulled_at timestamps into
+// the primary account. The primary therefore gains a complete picture of pull
+// activity, which is required for some GC policies to work correctly.
 func (j *Janitor) getReplicaSyncPayload(account keppel.Account, repo keppel.Repository) (*keppel.ReplicaSyncPayload, error) {
 	//the replica-sync API is only available when upstream is a peer
 	if account.UpstreamPeerHostName == "" {
@@ -513,13 +513,13 @@ var vulnCheckSubmanifestInfoQuery = sqlext.SimplifyWhitespace(`
 		WHERE r.parent_digest = $1
 `)
 
-//CheckVulnerabilitiesForNextManifest finds the next manifest that has not been
-//checked for vulnerabilities yet (or within the last hour), and runs the
-//vulnerability check by submitting the image to Clair.
+// CheckVulnerabilitiesForNextManifest finds the next manifest that has not been
+// checked for vulnerabilities yet (or within the last hour), and runs the
+// vulnerability check by submitting the image to Clair.
 //
-//This assumes that `j.cfg.Clair != nil`.
+// This assumes that `j.cfg.Clair != nil`.
 //
-//If no manifest needs checking, sql.ErrNoRows is returned.
+// If no manifest needs checking, sql.ErrNoRows is returned.
 func (j *Janitor) CheckVulnerabilitiesForNextManifest() (returnErr error) {
 	defer func() {
 		if returnErr == nil {

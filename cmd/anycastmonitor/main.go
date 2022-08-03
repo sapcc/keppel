@@ -69,7 +69,7 @@ var anycastmonitorMemberGauge = prometheus.NewGauge(
 	},
 )
 
-//AddCommandTo mounts this command into the command hierarchy.
+// AddCommandTo mounts this command into the command hierarchy.
 func AddCommandTo(parent *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:   "anycastmonitor <anycast-url> <api-public-hostname> <peer=account>...",
@@ -136,7 +136,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 }
 
-//Validates the uploaded images and emits the keppel_anycastmonitor_result metric accordingly.
+// Validates the uploaded images and emits the keppel_anycastmonitor_result metric accordingly.
 func (j *anycastMonitorJob) ValidateImages(manifestRef keppel.ManifestReference) {
 	for accountName, repoClient := range j.RepoClients {
 		labels := prometheus.Labels{"account": accountName}

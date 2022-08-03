@@ -28,7 +28,7 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//Request contains the query parameters in a token request.
+// Request contains the query parameters in a token request.
 type Request struct {
 	Scopes           auth.ScopeSet
 	ClientID         string

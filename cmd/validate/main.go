@@ -37,7 +37,7 @@ var (
 	platformFilterStr string
 )
 
-//AddCommandTo mounts this command into the command hierarchy.
+// AddCommandTo mounts this command into the command hierarchy.
 func AddCommandTo(parent *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:     "validate <image>",
@@ -56,7 +56,7 @@ If the image is in a Keppel replica account, this ensures that the image is repl
 
 type logger struct{}
 
-//LogManifest implements the client.ValidationLogger interface.
+// LogManifest implements the client.ValidationLogger interface.
 func (l logger) LogManifest(reference keppel.ManifestReference, level int, err error) {
 	indent := strings.Repeat("  ", level)
 	if err == nil {
@@ -66,7 +66,7 @@ func (l logger) LogManifest(reference keppel.ManifestReference, level int, err e
 	}
 }
 
-//LogBlob implements the client.ValidationLogger interface.
+// LogBlob implements the client.ValidationLogger interface.
 func (l logger) LogBlob(d digest.Digest, level int, err error) {
 	indent := strings.Repeat("  ", level)
 	if err == nil {

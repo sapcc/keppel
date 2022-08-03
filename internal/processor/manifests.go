@@ -42,8 +42,8 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//IncomingManifest contains information about a manifest uploaded by the user
-//(or downloaded from a peer registry in the case of replication).
+// IncomingManifest contains information about a manifest uploaded by the user
+// (or downloaded from a peer registry in the case of replication).
 type IncomingManifest struct {
 	Reference keppel.ManifestReference
 	MediaType string
@@ -58,9 +58,9 @@ var checkTagExistsAtSameDigestQuery = sqlext.SimplifyWhitespace(`
 	SELECT COUNT(*) > 0 FROM tags WHERE repo_id = $1 AND name = $2 AND digest = $3
 `)
 
-//ValidateAndStoreManifest validates the given manifest and stores it under the
-//given reference. If the reference is a digest, it is validated. Otherwise, a
-//tag with that name is created that points to the new manifest.
+// ValidateAndStoreManifest validates the given manifest and stores it under the
+// given reference. If the reference is a digest, it is validated. Otherwise, a
+// tag with that name is created that points to the new manifest.
 func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel.Repository, m IncomingManifest, actx keppel.AuditContext) (*keppel.Manifest, error) {
 	//check if the objects we want to create already exist in the database; this
 	//check is not 100% reliable since it does not run in the same transaction as
@@ -160,9 +160,9 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 	return manifest, nil
 }
 
-//ValidateExistingManifest validates the given manifest that already exists in the DB.
-//The `now` argument will be used instead of time.Now() to accommodate unit
-//tests that use a different clock.
+// ValidateExistingManifest validates the given manifest that already exists in the DB.
+// The `now` argument will be used instead of time.Now() to accommodate unit
+// tests that use a different clock.
 func (p *Processor) ValidateExistingManifest(account keppel.Account, repo keppel.Repository, manifest *keppel.Manifest, now time.Time) error {
 	manifestBytes, err := p.sd.ReadManifest(account, repo.Name, manifest.Digest)
 	if err != nil {
@@ -317,7 +317,7 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 	return blobRefs, manifestDigests, referencedMinCreationTime, referencedMaxCreationTime, sumChildSizes, nil
 }
 
-//Returns the list of missing labels, or nil if everything is ok.
+// Returns the list of missing labels, or nil if everything is ok.
 func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account keppel.Account, manifest keppel.ParsedManifest) (map[string]string, *time.Time, *time.Time, error) {
 	//is this manifest an image that has labels?
 	configBlob := manifest.FindImageConfigBlob()
@@ -564,20 +564,20 @@ func maintainManifestManifestRefs(tx *gorp.Transaction, m keppel.Manifest, refer
 	return nil
 }
 
-//UpstreamManifestMissingError is returned from ReplicateManifest when a
-//manifest is legitimately nonexistent on upstream (i.e. returning a valid 404 error in the correct format).
+// UpstreamManifestMissingError is returned from ReplicateManifest when a
+// manifest is legitimately nonexistent on upstream (i.e. returning a valid 404 error in the correct format).
 type UpstreamManifestMissingError struct {
 	Ref   keppel.ManifestReference
 	Inner error
 }
 
-//Error implements the builtin/error interface.
+// Error implements the builtin/error interface.
 func (e UpstreamManifestMissingError) Error() string {
 	return e.Inner.Error()
 }
 
-//ReplicateManifest replicates the manifest from its account's upstream registry.
-//On success, the manifest's metadata and contents are returned.
+// ReplicateManifest replicates the manifest from its account's upstream registry.
+// On success, the manifest's metadata and contents are returned.
 func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Repository, reference keppel.ManifestReference, actx keppel.AuditContext) (*keppel.Manifest, []byte, error) {
 	manifestBytes, manifestMediaType, err := p.downloadManifestViaInboundCache(account, repo, reference)
 	if err != nil {
@@ -646,9 +646,9 @@ func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Reposi
 	return manifest, manifestBytes, err
 }
 
-//CheckManifestOnPrimary checks if the given manifest exists on its account's
-//upstream registry. If not, false is returned, An error is returned only if
-//the account is not a replica, or if the upstream registry cannot be queried.
+// CheckManifestOnPrimary checks if the given manifest exists on its account's
+// upstream registry. If not, false is returned, An error is returned only if
+// the account is not a replica, or if the upstream registry cannot be queried.
 func (p *Processor) CheckManifestOnPrimary(account keppel.Account, repo keppel.Repository, reference keppel.ManifestReference) (bool, error) {
 	_, _, err := p.downloadManifestViaInboundCache(account, repo, reference)
 	if err != nil {
@@ -677,8 +677,8 @@ func errorIsUpstreamRateLimit(err error) bool {
 	return false
 }
 
-//Downloads a manifest from an account's upstream using
-//RepoClient.DownloadManifest(), but also takes into account the inbound cache.
+// Downloads a manifest from an account's upstream using
+// RepoClient.DownloadManifest(), but also takes into account the inbound cache.
 func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo keppel.Repository, ref keppel.ManifestReference) ([]byte, string, error) {
 	c, err := p.getRepoClientForUpstream(account, repo)
 	if err != nil {
@@ -729,9 +729,9 @@ func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo
 	return manifestBytes, manifestMediaType, nil
 }
 
-//Uses the peering API to ask another peer to downloads a manifest from an
-//external registry for us. This gets used when the external registry denies
-//the pull to us because we hit our rate limit.
+// Uses the peering API to ask another peer to downloads a manifest from an
+// external registry for us. This gets used when the external registry denies
+// the pull to us because we hit our rate limit.
 func (p *Processor) downloadManifestViaPullDelegation(imageRef keppel.ImageReference, userName, password string) ([]byte, string, bool) {
 	//select a peer at random
 	var peer keppel.Peer
@@ -784,10 +784,10 @@ func (p *Processor) downloadManifestViaPullDelegation(imageRef keppel.ImageRefer
 	return respBytes, resp.Header.Get("Content-Type"), true
 }
 
-//DeleteManifest deletes the given manifest from both the database and the
-//backing storage.
+// DeleteManifest deletes the given manifest from both the database and the
+// backing storage.
 //
-//If the manifest does not exist, sql.ErrNoRows is returned.
+// If the manifest does not exist, sql.ErrNoRows is returned.
 func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repository, digest string, actx keppel.AuditContext) error {
 	result, err := p.db.Exec(
 		//this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
@@ -848,8 +848,8 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 	return nil
 }
 
-//DeleteTag deletes the given tag from the database. The manifest is not deleted.
-//If the tag does not exist, sql.ErrNoRows is returned.
+// DeleteTag deletes the given tag from the database. The manifest is not deleted.
+// If the tag does not exist, sql.ErrNoRows is returned.
 func (p *Processor) DeleteTag(account keppel.Account, repo keppel.Repository, tagName string, actx keppel.AuditContext) error {
 	digest, err := p.db.SelectStr(
 		`DELETE FROM tags WHERE repo_id = $1 AND name = $2 RETURNING digest`,
@@ -880,14 +880,14 @@ func (p *Processor) DeleteTag(account keppel.Account, repo keppel.Repository, ta
 	return nil
 }
 
-//auditManifest is an audittools.TargetRenderer.
+// auditManifest is an audittools.TargetRenderer.
 type auditManifest struct {
 	Account    keppel.Account
 	Repository keppel.Repository
 	Digest     string
 }
 
-//Render implements the audittools.TargetRenderer interface.
+// Render implements the audittools.TargetRenderer interface.
 func (a auditManifest) Render() cadf.Resource {
 	return cadf.Resource{
 		TypeURI:   "docker-registry/account/repository/manifest",
@@ -897,7 +897,7 @@ func (a auditManifest) Render() cadf.Resource {
 	}
 }
 
-//auditTag is an audittools.TargetRenderer.
+// auditTag is an audittools.TargetRenderer.
 type auditTag struct {
 	Account    keppel.Account
 	Repository keppel.Repository
@@ -905,7 +905,7 @@ type auditTag struct {
 	TagName    string
 }
 
-//Render implements the audittools.TargetRenderer interface.
+// Render implements the audittools.TargetRenderer interface.
 func (a auditTag) Render() cadf.Resource {
 	return cadf.Resource{
 		TypeURI:   "docker-registry/account/repository/tag",

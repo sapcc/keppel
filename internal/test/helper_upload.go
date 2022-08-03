@@ -39,14 +39,14 @@ const (
 	VersionHeaderValue = "registry/2.0"
 )
 
-//VersionHeader is the standard version header included in all Registry v2 API
-//responses.
+// VersionHeader is the standard version header included in all Registry v2 API
+// responses.
 var VersionHeader = map[string]string{VersionHeaderKey: VersionHeaderValue}
 
-//MustUpload uploads the blob via the Registry V2 API.
+// MustUpload uploads the blob via the Registry V2 API.
 //
-//`h` must serve the Registry V2 API.
-//`token` must be a Bearer token capable of pushing into the specified repo.
+// `h` must serve the Registry V2 API.
+// `token` must be a Bearer token capable of pushing into the specified repo.
 func (b Bytes) MustUpload(t *testing.T, s Setup, repo keppel.Repository) keppel.Blob {
 	token := s.GetToken(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
 
@@ -83,10 +83,10 @@ var checkBlobExistsQuery = sqlext.SimplifyWhitespace(`
 	SELECT COUNT(*) FROM blobs WHERE account_name = $1 AND digest = $2
 `)
 
-//MustUpload uploads the image via the Registry V2 API. This also
-//uploads all referenced blobs that do not exist in the DB yet.
+// MustUpload uploads the image via the Registry V2 API. This also
+// uploads all referenced blobs that do not exist in the DB yet.
 //
-//`tagName` may be empty if the image is to be uploaded without tagging.
+// `tagName` may be empty if the image is to be uploaded without tagging.
 func (i Image) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName string) keppel.Manifest {
 	//upload missing blobs
 	for _, blob := range append(i.Layers, i.Config) {
@@ -140,10 +140,10 @@ var checkManifestExistsQuery = sqlext.SimplifyWhitespace(`
 	 WHERE r.account_name = $1 AND r.name = $2 AND m.digest = $3
 `)
 
-//MustUpload uploads the image list via the Registry V2 API. This
-//also uploads all referenced images that do not exist in the DB yet.
+// MustUpload uploads the image list via the Registry V2 API. This
+// also uploads all referenced images that do not exist in the DB yet.
 //
-//`tagName` may be empty if the image is to be uploaded without tagging.
+// `tagName` may be empty if the image is to be uploaded without tagging.
 func (l ImageList) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName string) keppel.Manifest {
 	//upload missing images
 	for _, image := range l.Images {

@@ -19,10 +19,10 @@
 
 package auth
 
-//ScopeSet is a set of scopes.
+// ScopeSet is a set of scopes.
 type ScopeSet []*Scope
 
-//NewScopeSet initializes a ScopeSet.
+// NewScopeSet initializes a ScopeSet.
 func NewScopeSet(scopes ...Scope) (ss ScopeSet) {
 	for _, s := range scopes {
 		ss.Add(s)
@@ -30,7 +30,7 @@ func NewScopeSet(scopes ...Scope) (ss ScopeSet) {
 	return ss
 }
 
-//Contains returns true if the given token authorizes the user for this scope.
+// Contains returns true if the given token authorizes the user for this scope.
 func (ss ScopeSet) Contains(s Scope) bool {
 	for _, scope := range ss {
 		if scope.Contains(s) {
@@ -40,8 +40,8 @@ func (ss ScopeSet) Contains(s Scope) bool {
 	return false
 }
 
-//Add adds a scope to this ScopeSet. If the ScopeSet already contains a Scope
-//referring to the same resource, it is merged with the given scope.
+// Add adds a scope to this ScopeSet. If the ScopeSet already contains a Scope
+// referring to the same resource, it is merged with the given scope.
 func (ss *ScopeSet) Add(s Scope) {
 	if len(s.Actions) == 0 {
 		return
@@ -67,7 +67,7 @@ func mergeAndDedupActions(lhs, rhs []string) (result []string) {
 	return
 }
 
-//Flatten returns the scope set as a plain list of scopes.
+// Flatten returns the scope set as a plain list of scopes.
 func (ss ScopeSet) Flatten() []Scope {
 	if len(ss) == 0 {
 		return nil
@@ -79,11 +79,11 @@ func (ss ScopeSet) Flatten() []Scope {
 	return result
 }
 
-//AccountsWithCatalogAccess returns the names of all accounts whose contents
-//can be listed with the access level in this ScopeSet. If `markerAccountName`
-//is not empty, only accounts with `name > markerAccountName` will be returned.
+// AccountsWithCatalogAccess returns the names of all accounts whose contents
+// can be listed with the access level in this ScopeSet. If `markerAccountName`
+// is not empty, only accounts with `name > markerAccountName` will be returned.
 //
-//For use with the /v2/_catalog endpoint.
+// For use with the /v2/_catalog endpoint.
 func (ss ScopeSet) AccountsWithCatalogAccess(markerAccountName string) []string {
 	var result []string
 	for _, scope := range ss {

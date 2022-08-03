@@ -48,7 +48,7 @@ var imageGCRepoDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE repos SET next_gc_at = $2 WHERE id = $1
 `)
 
-//GarbageCollectManifestsInNextRepo finds the next repository where GC has not been performed for more than an hour, and
+// GarbageCollectManifestsInNextRepo finds the next repository where GC has not been performed for more than an hour, and
 func (j *Janitor) GarbageCollectManifestsInNextRepo() (returnErr error) {
 	var repo keppel.Repository
 

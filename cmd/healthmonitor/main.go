@@ -57,7 +57,7 @@ var healthmonitorResultGauge = prometheus.NewGauge(
 	},
 )
 
-//AddCommandTo mounts this command into the command hierarchy.
+// AddCommandTo mounts this command into the command hierarchy.
 func AddCommandTo(parent *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:   "healthmonitor <account>",
@@ -137,7 +137,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 }
 
-//Creates the Keppel account for this job if it does not exist yet.
+// Creates the Keppel account for this job if it does not exist yet.
 func (j *healthMonitorJob) PrepareKeppelAccount() error {
 	reqBody := map[string]interface{}{
 		"account": map[string]interface{}{
@@ -165,7 +165,7 @@ func (j *healthMonitorJob) PrepareKeppelAccount() error {
 	return nil
 }
 
-//Uploads a minimal complete image (one config blob, one layer blob and one manifest) for testing.
+// Uploads a minimal complete image (one config blob, one layer blob and one manifest) for testing.
 func (j *healthMonitorJob) UploadImage() (keppel.ManifestReference, error) {
 	_, err := j.RepoClient.UploadMonolithicBlob([]byte(minimalImageConfiguration))
 	if err != nil {
@@ -179,7 +179,7 @@ func (j *healthMonitorJob) UploadImage() (keppel.ManifestReference, error) {
 	return keppel.ManifestReference{Digest: digest}, err
 }
 
-//Validates the uploaded image and emits the keppel_healthmonitor_result metric accordingly.
+// Validates the uploaded image and emits the keppel_healthmonitor_result metric accordingly.
 func (j *healthMonitorJob) ValidateImage(manifestRef keppel.ManifestReference) {
 	err := j.RepoClient.ValidateManifest(manifestRef, nil, nil)
 	if err == nil {
@@ -206,7 +206,7 @@ func (j *healthMonitorJob) recordHealthcheckResult(ok bool) {
 	j.LastResultLock.Unlock()
 }
 
-//Provides the GET /healthcheck endpoint.
+// Provides the GET /healthcheck endpoint.
 func (j *healthMonitorJob) ReportHealthcheckResult(w http.ResponseWriter, r *http.Request) {
 	j.LastResultLock.RLock()
 	lastResult := j.LastResult

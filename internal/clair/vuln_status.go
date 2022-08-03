@@ -19,7 +19,7 @@
 
 package clair
 
-//VulnerabilityStatus enumerates the possible values for a manifest's vulnerability status.
+// VulnerabilityStatus enumerates the possible values for a manifest's vulnerability status.
 type VulnerabilityStatus string
 
 const (
@@ -61,18 +61,18 @@ var sevMap = map[VulnerabilityStatus]uint{
 	Defcon1Severity:                8,
 }
 
-//HasReport checks whether a manifest with this VulnerabilityStatus has a
-//vulnerability report available.
+// HasReport checks whether a manifest with this VulnerabilityStatus has a
+// vulnerability report available.
 func (s VulnerabilityStatus) HasReport() bool {
 	return sevMap[s] > 0
 }
 
-//MergeVulnerabilityStatuses combines multiple VulnerabilityStatus values into one.
+// MergeVulnerabilityStatuses combines multiple VulnerabilityStatus values into one.
 //
-//* Any ErrorVulnerabilityStatus input results in an ErrorVulnerabilityStatus result.
-//* Otherwise, any UnsupportedVulnerabilityStatus input results in an UnsupportedVulnerabilityStatus result.
-//* Otherwise, any PendingVulnerabilityStatus input results in a PendingVulnerabilityStatus result.
-//* Otherwise, the result is the same as the highest individual severity.
+// * Any ErrorVulnerabilityStatus input results in an ErrorVulnerabilityStatus result.
+// * Otherwise, any UnsupportedVulnerabilityStatus input results in an UnsupportedVulnerabilityStatus result.
+// * Otherwise, any PendingVulnerabilityStatus input results in a PendingVulnerabilityStatus result.
+// * Otherwise, the result is the same as the highest individual severity.
 func MergeVulnerabilityStatuses(sevs ...VulnerabilityStatus) VulnerabilityStatus {
 	hasSpecialSeverity := make(map[VulnerabilityStatus]bool)
 	result := CleanSeverity

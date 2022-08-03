@@ -29,7 +29,7 @@ import (
 	"time"
 )
 
-//GCPolicy is a policy enabling optional garbage collection runs in an account.
+// GCPolicy is a policy enabling optional garbage collection runs in an account.
 type GCPolicy struct {
 	RepositoryPattern         string            `json:"match_repository"`
 	NegativeRepositoryPattern string            `json:"except_repository,omitempty"`
@@ -44,7 +44,7 @@ type GCPolicy struct {
 	NegativeTagRx *regexp.Regexp `json:"-"`
 }
 
-//GCTimeConstraint appears in type GCPolicy.
+// GCTimeConstraint appears in type GCPolicy.
 type GCTimeConstraint struct {
 	FieldName   string   `json:"on"`
 	OldestCount uint64   `json:"oldest,omitempty"`
@@ -53,7 +53,7 @@ type GCTimeConstraint struct {
 	MaxAge      Duration `json:"newer_than,omitempty"`
 }
 
-//MatchesRepository evaluates the repository regexes in this policy.
+// MatchesRepository evaluates the repository regexes in this policy.
 func (g GCPolicy) MatchesRepository(repoName string) bool {
 	//Notes:
 	//- Regex parse errors always make the match fail to avoid accidental overmatches.
@@ -68,8 +68,8 @@ func (g GCPolicy) MatchesRepository(repoName string) bool {
 	return err == nil && rx.MatchString(repoName)
 }
 
-//MatchesTags evaluates the tag regexes in this policy for a complete set of
-//tag names belonging to a single manifest.
+// MatchesTags evaluates the tag regexes in this policy for a complete set of
+// tag names belonging to a single manifest.
 func (g GCPolicy) MatchesTags(tagNames []string) bool {
 	if g.OnlyUntagged && len(tagNames) > 0 {
 		return false
@@ -113,11 +113,11 @@ func (g GCPolicy) MatchesTags(tagNames []string) bool {
 	return g.TagPattern == ""
 }
 
-//MatchesTimeConstraint evaluates the time constraint in this policy for the
-//given manifest. A full list of all manifests in this repo must be supplied in
-//order to evaluate "newest" and "oldest" time constraints. The final argument
-//must be equivalent to time.Now(); it is given explicitly to allow for
-//simulated clocks during unit tests.
+// MatchesTimeConstraint evaluates the time constraint in this policy for the
+// given manifest. A full list of all manifests in this repo must be supplied in
+// order to evaluate "newest" and "oldest" time constraints. The final argument
+// must be equivalent to time.Now(); it is given explicitly to allow for
+// simulated clocks during unit tests.
 func (g GCPolicy) MatchesTimeConstraint(manifest Manifest, allManifestsInRepo []Manifest, now time.Time) bool {
 	//do we have a time constraint at all?
 	if g.TimeConstraint == nil {
@@ -190,7 +190,7 @@ func (g GCPolicy) MatchesTimeConstraint(manifest Manifest, allManifestsInRepo []
 	return false
 }
 
-//Validate returns an error if this policy is invalid.
+// Validate returns an error if this policy is invalid.
 func (g GCPolicy) Validate() error {
 	if g.RepositoryPattern == "" {
 		return errors.New(`GC policy must have the "match_repository" attribute`)
@@ -262,7 +262,7 @@ func (g GCPolicy) Validate() error {
 	}
 }
 
-//ParseGCPolicies parses the GC policies for the given account.
+// ParseGCPolicies parses the GC policies for the given account.
 func (a Account) ParseGCPolicies() ([]GCPolicy, error) {
 	if a.GCPoliciesJSON == "" || a.GCPoliciesJSON == "[]" {
 		return nil, nil
@@ -272,11 +272,11 @@ func (a Account) ParseGCPolicies() ([]GCPolicy, error) {
 	return policies, err
 }
 
-//GCStatus documents the current status of a manifest with regard to image GC.
-//It is stored in serialized form in the GCStatusJSON field of type Manifest.
+// GCStatus documents the current status of a manifest with regard to image GC.
+// It is stored in serialized form in the GCStatusJSON field of type Manifest.
 //
-//Since GCStatus objects describe images that currently exist in the DB, they
-//only describe policy decisions that led to no cleanup.
+// Since GCStatus objects describe images that currently exist in the DB, they
+// only describe policy decisions that led to no cleanup.
 type GCStatus struct {
 	//True if the manifest was uploaded less than 10 minutes ago and is therefore
 	//protected from GC.
@@ -292,7 +292,7 @@ type GCStatus struct {
 	RelevantPolicies []GCPolicy `json:"relevant_policies,omitempty"`
 }
 
-//IsProtected returns whether any of the ProtectedBy... fields is filled.
+// IsProtected returns whether any of the ProtectedBy... fields is filled.
 func (s GCStatus) IsProtected() bool {
 	return s.ProtectedByRecentUpload || s.ProtectedByParentManifest != "" || s.ProtectedByPolicy != nil
 }

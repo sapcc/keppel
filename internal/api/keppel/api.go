@@ -34,7 +34,7 @@ import (
 	"github.com/sapcc/keppel/internal/processor"
 )
 
-//API contains state variables used by the Keppel V1 API implementation.
+// API contains state variables used by the Keppel V1 API implementation.
 type API struct {
 	cfg        keppel.Configuration
 	authDriver keppel.AuthDriver
@@ -45,12 +45,12 @@ type API struct {
 	auditor    keppel.Auditor
 }
 
-//NewAPI constructs a new API instance.
+// NewAPI constructs a new API instance.
 func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *keppel.DB, auditor keppel.Auditor) *API {
 	return &API{cfg, ad, fd, sd, icd, db, auditor}
 }
 
-//AddTo implements the api.API interface.
+// AddTo implements the api.API interface.
 func (a *API) AddTo(r *mux.Router) {
 	r.Methods("GET").Path("/keppel/v1").HandlerFunc(a.handleGetAPIInfo)
 

@@ -39,8 +39,8 @@ import (
 	"github.com/sapcc/keppel/internal/clair"
 )
 
-//Configuration contains all configuration values that are not specific to a
-//certain driver.
+// Configuration contains all configuration values that are not specific to a
+// certain driver.
 type Configuration struct {
 	APIPublicHostname        string
 	AnycastAPIPublicHostname string
@@ -55,7 +55,7 @@ var (
 	stripWhitespaceRx = regexp.MustCompile(`(?m)^\s*|\s*$`)
 )
 
-//ParseIssuerKey parses the contents of the KEPPEL_ISSUER_KEY variable.
+// ParseIssuerKey parses the contents of the KEPPEL_ISSUER_KEY variable.
 func ParseIssuerKey(in string) (crypto.PrivateKey, error) {
 	//if it looks like PEM, it's probably PEM; otherwise it's a filename
 	var buf []byte
@@ -86,8 +86,8 @@ func ParseIssuerKey(in string) (crypto.PrivateKey, error) {
 	return nil, fmt.Errorf("neither an ed25519 private key (%q) nor an RSA private key (%q)", err1.Error(), err2.Error())
 }
 
-//ParseConfiguration obtains a keppel.Configuration instance from the
-//corresponding environment variables. Aborts on error.
+// ParseConfiguration obtains a keppel.Configuration instance from the
+// corresponding environment variables. Aborts on error.
 func ParseConfiguration() Configuration {
 	cfg := Configuration{
 		APIPublicHostname:        osext.MustGetenv("KEPPEL_API_PUBLIC_FQDN"),
@@ -155,7 +155,8 @@ func mayGetenvURL(key string) *url.URL {
 
 // GetRedisOptions returns a redis.Options by getting the required parameters
 // from environment variables:
-//   REDIS_PASSWORD, REDIS_HOSTNAME, REDIS_PORT, and REDIS_DB_NUM.
+//
+//	REDIS_PASSWORD, REDIS_HOSTNAME, REDIS_PORT, and REDIS_DB_NUM.
 //
 // The environment variable keys are prefixed with the provided prefix.
 func GetRedisOptions(prefix string) (*redis.Options, error) {

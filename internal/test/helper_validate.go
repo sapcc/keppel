@@ -27,7 +27,7 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//ExpectBlobsExistInStorage is a test assertion.
+// ExpectBlobsExistInStorage is a test assertion.
 func (s Setup) ExpectBlobsExistInStorage(t *testing.T, blobs ...keppel.Blob) {
 	t.Helper()
 	for _, blob := range blobs {
@@ -66,7 +66,7 @@ func (s Setup) ExpectBlobsExistInStorage(t *testing.T, blobs ...keppel.Blob) {
 	}
 }
 
-//ExpectBlobsMissingInStorage is a test assertion.
+// ExpectBlobsMissingInStorage is a test assertion.
 func (s Setup) ExpectBlobsMissingInStorage(t *testing.T, blobs ...keppel.Blob) {
 	t.Helper()
 	for _, blob := range blobs {
@@ -79,7 +79,7 @@ func (s Setup) ExpectBlobsMissingInStorage(t *testing.T, blobs ...keppel.Blob) {
 	}
 }
 
-//ExpectManifestsExistInStorage is a test assertion.
+// ExpectManifestsExistInStorage is a test assertion.
 func (s Setup) ExpectManifestsExistInStorage(t *testing.T, repoName string, manifests ...keppel.Manifest) {
 	t.Helper()
 	for _, manifest := range manifests {
@@ -104,7 +104,7 @@ func (s Setup) ExpectManifestsExistInStorage(t *testing.T, repoName string, mani
 	}
 }
 
-//ExpectManifestsMissingInStorage is a test assertion.
+// ExpectManifestsMissingInStorage is a test assertion.
 func (s Setup) ExpectManifestsMissingInStorage(t *testing.T, manifests ...keppel.Manifest) {
 	t.Helper()
 	for _, manifest := range manifests {

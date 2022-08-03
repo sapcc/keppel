@@ -74,7 +74,7 @@ const (
 	`
 )
 
-//ClaimAccountName implements the keppel.FederationDriver interface.
+// ClaimAccountName implements the keppel.FederationDriver interface.
 func (d *federationDriver) ClaimAccountName(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	if account.UpstreamPeerHostName != "" {
 		return d.claimReplicaAccount(account, subleaseTokenSecret)
@@ -138,7 +138,7 @@ func (d *federationDriver) claimReplicaAccount(account keppel.Account, subleaseT
 	return keppel.ClaimSucceeded, nil
 }
 
-//IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
+// IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
 func (d *federationDriver) IssueSubleaseTokenSecret(account keppel.Account) (string, error) {
 	//defense in depth - the caller should already have verified this
 	if account.UpstreamPeerHostName != "" {
@@ -167,7 +167,7 @@ func (d *federationDriver) IssueSubleaseTokenSecret(account keppel.Account) (str
 	return tokenStr, nil
 }
 
-//ForfeitAccountName implements the keppel.FederationDriver interface.
+// ForfeitAccountName implements the keppel.FederationDriver interface.
 func (d *federationDriver) ForfeitAccountName(account keppel.Account) error {
 	//case 1: replica account -> just remove ourselves from the set of replicas
 	if account.UpstreamPeerHostName != "" {
@@ -204,7 +204,7 @@ func (d *federationDriver) ForfeitAccountName(account keppel.Account) error {
 	return d.rc.Del(context.Background(), d.primaryKey(account.Name)).Err()
 }
 
-//RecordExistingAccount implements the keppel.FederationDriver interface.
+// RecordExistingAccount implements the keppel.FederationDriver interface.
 func (d *federationDriver) RecordExistingAccount(account keppel.Account, now time.Time) error {
 	//record this account in Redis using idempotent operations (SETNX for primary, SADD for replica)
 	var expectedPrimaryHostname string
@@ -249,7 +249,7 @@ func (d *federationDriver) validatePrimaryHostname(account keppel.Account, expec
 	return nil
 }
 
-//FindPrimaryAccount implements the keppel.FederationDriver interface.
+// FindPrimaryAccount implements the keppel.FederationDriver interface.
 func (d *federationDriver) FindPrimaryAccount(accountName string) (string, error) {
 	primaryHostname, err := d.rc.Get(context.Background(), d.primaryKey(accountName)).Result()
 	if err == redis.Nil {

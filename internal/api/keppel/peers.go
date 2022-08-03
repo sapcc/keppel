@@ -30,7 +30,7 @@ import (
 ////////////////////////////////////////////////////////////////////////////////
 // data types
 
-//Peer represents a peer in the API.
+// Peer represents a peer in the API.
 type Peer struct {
 	HostName string `json:"hostname"`
 }

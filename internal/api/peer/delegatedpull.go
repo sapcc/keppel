@@ -31,7 +31,7 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//Implementation for the GET /peer/v1/delegatedpull/:hostname/v2/:repo/manifests/:reference endpoint.
+// Implementation for the GET /peer/v1/delegatedpull/:hostname/v2/:repo/manifests/:reference endpoint.
 func (a *API) handleDelegatedPullManifest(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/peer/v1/delegatedpull/:hostname/v2/:repo/manifests/:reference")
 	peer := a.authenticateRequest(w, r)

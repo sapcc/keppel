@@ -35,7 +35,7 @@ import (
 	"github.com/sapcc/keppel/internal/processor"
 )
 
-//API contains state variables used by the Auth API endpoint.
+// API contains state variables used by the Auth API endpoint.
 type API struct {
 	cfg     keppel.Configuration
 	ad      keppel.AuthDriver
@@ -50,24 +50,24 @@ type API struct {
 	generateStorageID func() string
 }
 
-//NewAPI constructs a new API instance.
+// NewAPI constructs a new API instance.
 func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *keppel.DB, auditor keppel.Auditor, rle *keppel.RateLimitEngine) *API {
 	return &API{cfg, ad, fd, sd, icd, db, auditor, rle, time.Now, keppel.GenerateStorageID}
 }
 
-//OverrideTimeNow replaces time.Now with a test double.
+// OverrideTimeNow replaces time.Now with a test double.
 func (a *API) OverrideTimeNow(timeNow func() time.Time) *API {
 	a.timeNow = timeNow
 	return a
 }
 
-//OverrideGenerateStorageID replaces keppel.GenerateStorageID with a test double.
+// OverrideGenerateStorageID replaces keppel.GenerateStorageID with a test double.
 func (a *API) OverrideGenerateStorageID(generateStorageID func() string) *API {
 	a.generateStorageID = generateStorageID
 	return a
 }
 
-//AddTo implements the api.API interface.
+// AddTo implements the api.API interface.
 func (a *API) AddTo(r *mux.Router) {
 	r.Methods("GET").Path("/v2/").HandlerFunc(a.handleToplevel)
 	r.Methods("GET").Path("/v2/_catalog").HandlerFunc(a.handleGetCatalog)
@@ -115,7 +115,7 @@ func (a *API) processor() *processor.Processor {
 	return processor.New(a.cfg, a.db, a.sd, a.icd, a.auditor).OverrideTimeNow(a.timeNow).OverrideGenerateStorageID(a.generateStorageID)
 }
 
-//This implements the GET /v2/ endpoint.
+// This implements the GET /v2/ endpoint.
 func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/")
 	//must be set even for 401 responses!
@@ -144,7 +144,7 @@ func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{})
 }
 
-//Like respondwith.ErrorText(), but writes a RegistryV2Error instead of plain text.
+// Like respondwith.ErrorText(), but writes a RegistryV2Error instead of plain text.
 func respondWithError(w http.ResponseWriter, r *http.Request, err error) bool {
 	switch err := err.(type) {
 	case nil:
@@ -189,13 +189,13 @@ func (info anycastRequestInfo) AsPrometheusLabels() prometheus.Labels {
 	}
 }
 
-//A one-stop-shop authorization checker for all endpoints that set the mux
-//variable "repository". On success, returns the account and repository
-//that this request is about.
+// A one-stop-shop authorization checker for all endpoints that set the mux
+// variable "repository". On success, returns the account and repository
+// that this request is about.
 //
-//If the account does not exist locally, but the request is for the anycast API
-//and the account exists elsewhere, the `anycastHandler` is invoked if given
-//instead of giving a 404 response.
+// If the account does not exist locally, but the request is for the anycast API
+// and the account exists elsewhere, the `anycastHandler` is invoked if given
+// instead of giving a 404 response.
 func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy, anycastHandler func(http.ResponseWriter, *http.Request, anycastRequestInfo)) (*keppel.Account, *keppel.Repository, *auth.Authorization) {
 	//must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
@@ -322,7 +322,7 @@ func (a *API) checkRateLimit(w http.ResponseWriter, r *http.Request, account kep
 	return true
 }
 
-//Returns the repository name as it appears in URL paths for this API.
+// Returns the repository name as it appears in URL paths for this API.
 func getRepoNameForURLPath(repo keppel.Repository, authz *auth.Authorization) string {
 	//on the regular API, the URL path includes the account name
 	if authz.Audience.AccountName == "" {

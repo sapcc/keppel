@@ -41,7 +41,7 @@ var (
 	barRepoRef = keppel.Repository{AccountName: "test1", Name: "bar"}
 )
 
-//the auth tenant ID that all test accounts use
+// the auth tenant ID that all test accounts use
 const authTenantID = "test1authtenant"
 
 func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(test.Setup)) {
@@ -124,8 +124,8 @@ func testWithAllReplicaTypes(t *testing.T, s1 test.Setup, action func(strategy s
 	}
 }
 
-//To be called inside testWithReplica() if the test is specifically about
-//testing how anycast requests are redirected between peers.
+// To be called inside testWithReplica() if the test is specifically about
+// testing how anycast requests are redirected between peers.
 func testAnycast(t *testing.T, firstPass bool, db2 *keppel.DB, action func()) {
 	t.Helper()
 

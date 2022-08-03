@@ -31,7 +31,7 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//AuthDriver (driver ID "unittest") is a keppel.AuthDriver for unit tests.
+// AuthDriver (driver ID "unittest") is a keppel.AuthDriver for unit tests.
 type AuthDriver struct {
 	//for AuthenticateUser
 	ExpectedUserName   string
@@ -44,12 +44,12 @@ func init() {
 	keppel.RegisterAuthDriver("unittest", func(*redis.Client) (keppel.AuthDriver, error) { return &AuthDriver{}, nil })
 }
 
-//DriverName implements the keppel.AuthDriver interface.
+// DriverName implements the keppel.AuthDriver interface.
 func (d *AuthDriver) DriverName() string {
 	return "unittest"
 }
 
-//ValidateTenantID implements the keppel.AuthDriver interface.
+// ValidateTenantID implements the keppel.AuthDriver interface.
 func (d *AuthDriver) ValidateTenantID(tenantID string) error {
 	if tenantID == "invalid" {
 		return errors.New(`must not be "invalid"`)
@@ -57,7 +57,7 @@ func (d *AuthDriver) ValidateTenantID(tenantID string) error {
 	return nil
 }
 
-//AuthenticateUser implements the keppel.AuthDriver interface.
+// AuthenticateUser implements the keppel.AuthDriver interface.
 func (d *AuthDriver) AuthenticateUser(userName, password string) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	is := func(a, b string) bool {
 		return a != "" && a == b
@@ -68,7 +68,7 @@ func (d *AuthDriver) AuthenticateUser(userName, password string) (keppel.UserIde
 	return nil, keppel.ErrUnauthorized.With("wrong credentials")
 }
 
-//AuthenticateUserFromRequest implements the keppel.AuthDriver interface.
+// AuthenticateUserFromRequest implements the keppel.AuthDriver interface.
 func (d *AuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	hdr := r.Header.Get("X-Test-Perms")
 	if hdr == "" {

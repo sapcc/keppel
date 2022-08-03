@@ -28,18 +28,18 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//API contains state variables used by the Clair API proxy.
+// API contains state variables used by the Clair API proxy.
 type API struct {
 	cfg keppel.Configuration
 	ad  keppel.AuthDriver
 }
 
-//NewAPI constructs a new API instance.
+// NewAPI constructs a new API instance.
 func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver) *API {
 	return &API{cfg, ad}
 }
 
-//AddTo implements the api.API interface.
+// AddTo implements the api.API interface.
 func (a *API) AddTo(r *mux.Router) {
 	if a.cfg.ClairClient != nil {
 		r.Methods("GET", "HEAD").Path("/clair/{path:.+}").HandlerFunc(a.reverseProxyToClair)

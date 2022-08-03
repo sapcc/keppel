@@ -24,13 +24,13 @@ import (
 	"strconv"
 )
 
-//StorageIDGenerator provides realistic-looking, but deterministic storage IDs
-//for unit tests.
+// StorageIDGenerator provides realistic-looking, but deterministic storage IDs
+// for unit tests.
 type StorageIDGenerator struct {
 	n uint64
 }
 
-//Next returns the next storage ID.
+// Next returns the next storage ID.
 func (g *StorageIDGenerator) Next() string {
 	g.n++
 	inputStr := strconv.FormatUint(g.n, 10)

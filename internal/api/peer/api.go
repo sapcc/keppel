@@ -28,20 +28,20 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//API contains state variables used by the peer API. This is an internal API
-//that is only available to peered Keppel instances.
+// API contains state variables used by the peer API. This is an internal API
+// that is only available to peered Keppel instances.
 type API struct {
 	cfg keppel.Configuration
 	ad  keppel.AuthDriver
 	db  *keppel.DB
 }
 
-//NewAPI constructs a new API instance.
+// NewAPI constructs a new API instance.
 func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, db *keppel.DB) *API {
 	return &API{cfg, ad, db}
 }
 
-//AddTo implements the api.API interface.
+// AddTo implements the api.API interface.
 func (a *API) AddTo(r *mux.Router) {
 	//All endpoints shall be grouped into /peer/v1/. For the "delegated pull"
 	//subset of endpoints, the end of the path reflects the request that we make

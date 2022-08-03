@@ -21,8 +21,8 @@ package auth
 
 import "github.com/sapcc/keppel/internal/keppel"
 
-//Authorization describes the access rights of a particular user session, i.e.
-//in the scope of an individual API request.
+// Authorization describes the access rights of a particular user session, i.e.
+// in the scope of an individual API request.
 type Authorization struct {
 	//UserIdentity identifies the user that sent the request.
 	UserIdentity keppel.UserIdentity

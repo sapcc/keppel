@@ -31,8 +31,8 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//PeeringRequest is the structure of the JSON request body sent to the POST
-///keppel/v1/auth/peering endpoint.
+// PeeringRequest is the structure of the JSON request body sent to the POST
+// /keppel/v1/auth/peering endpoint.
 type PeeringRequest struct {
 	PeerHostName string `json:"peer"`
 	UserName     string `json:"username"`

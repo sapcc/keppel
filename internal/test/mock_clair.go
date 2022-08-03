@@ -34,7 +34,7 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 )
 
-//ClairDouble acts as a test double for a Clair API.
+// ClairDouble acts as a test double for a Clair API.
 type ClairDouble struct {
 	T *testing.T
 	//key = manifest digest, value = path to JSON fixture file containing `clair.Manifest` for this image
@@ -44,7 +44,7 @@ type ClairDouble struct {
 	ReportFixtures map[string]string
 }
 
-//NewClairDouble creates a ClairDouble.
+// NewClairDouble creates a ClairDouble.
 func NewClairDouble() *ClairDouble {
 	return &ClairDouble{
 		IndexFixtures:     make(map[string]string),
@@ -53,7 +53,7 @@ func NewClairDouble() *ClairDouble {
 	}
 }
 
-//AddTo implements the api.API interface.
+// AddTo implements the api.API interface.
 func (c *ClairDouble) AddTo(r *mux.Router) {
 	r.Methods("POST").
 		Path("/indexer/api/v1/index_report").

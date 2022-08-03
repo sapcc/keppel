@@ -29,10 +29,10 @@ import (
 	"github.com/sapcc/go-bits/audittools"
 )
 
-//UserType is an enum that identifies the general type of user. User types are
-//important because certain API endpoints or certain behavior is restricted to
-//specific user types. For example, anonymous users may not cause implicit
-//replications to occur, and peer users are exempt from rate limits.
+// UserType is an enum that identifies the general type of user. User types are
+// important because certain API endpoints or certain behavior is restricted to
+// specific user types. For example, anonymous users may not cause implicit
+// replications to occur, and peer users are exempt from rate limits.
 type UserType int
 
 const (
@@ -46,10 +46,10 @@ const (
 	JanitorUser
 )
 
-//UserIdentity describes the identity and access rights of a user. For regular
-//users, it is returned by methods in the AuthDriver interface. For all other
-//types of users, it is implicitly created in helper methods higher up in the
-//stack.
+// UserIdentity describes the identity and access rights of a user. For regular
+// users, it is returned by methods in the AuthDriver interface. For all other
+// types of users, it is implicitly created in helper methods higher up in the
+// stack.
 type UserIdentity interface {
 	//Returns whether the given auth tenant grants the given permission to this user.
 	//The AnonymousUserIdentity always returns false.
@@ -75,12 +75,12 @@ type UserIdentity interface {
 
 var authzDeserializers = make(map[string]func([]byte, AuthDriver) (UserIdentity, error))
 
-//RegisterUserIdentity registers a type implementing the UserIdentity
-//interface. Call this from func init() of the package defining the type.
+// RegisterUserIdentity registers a type implementing the UserIdentity
+// interface. Call this from func init() of the package defining the type.
 //
-//The `deserialize` function is called whenever an instance of this type needs to
-//be deserialized from a token payload. It shall perform the exact reverse of
-//the type's SerializeToJSON method.
+// The `deserialize` function is called whenever an instance of this type needs to
+// be deserialized from a token payload. It shall perform the exact reverse of
+// the type's SerializeToJSON method.
 func RegisterUserIdentity(name string, deserialize func([]byte, AuthDriver) (UserIdentity, error)) {
 	if _, exists := authzDeserializers[name]; exists {
 		panic("attempted to register multiple UserIdentity types with name = " + name)
@@ -88,8 +88,8 @@ func RegisterUserIdentity(name string, deserialize func([]byte, AuthDriver) (Use
 	authzDeserializers[name] = deserialize
 }
 
-//DeserializeUserIdentity deserializes a UserIdentity payload. This is the
-//reverse of UserIdentity.SerializeToJSON().
+// DeserializeUserIdentity deserializes a UserIdentity payload. This is the
+// reverse of UserIdentity.SerializeToJSON().
 func DeserializeUserIdentity(typeName string, payload []byte, ad AuthDriver) (UserIdentity, error) {
 	deserializer := authzDeserializers[typeName]
 	if deserializer == nil {
@@ -102,10 +102,10 @@ type compressedPayload struct {
 	Contents []byte `json:"gzip"`
 }
 
-//CompressTokenPayload can be used by types implementing the UserIdentity
-//interface to compress large token payloads with GZip or similar. (The exact
-//compression format is an implementation detail.) The result is a valid JSON
-//message that self-documents the compression algorithm that was used.
+// CompressTokenPayload can be used by types implementing the UserIdentity
+// interface to compress large token payloads with GZip or similar. (The exact
+// compression format is an implementation detail.) The result is a valid JSON
+// message that self-documents the compression algorithm that was used.
 func CompressTokenPayload(payload []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	writer := gzip.NewWriter(&buf)
@@ -119,7 +119,7 @@ func CompressTokenPayload(payload []byte) ([]byte, error) {
 	return json.Marshal(compressedPayload{buf.Bytes()})
 }
 
-//DecompressTokenPayload is the exact reverse of CompressTokenPayload.
+// DecompressTokenPayload is the exact reverse of CompressTokenPayload.
 func DecompressTokenPayload(payload []byte) ([]byte, error) {
 	var data compressedPayload
 	err := json.Unmarshal(payload, &data)

@@ -29,7 +29,7 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//query that finds the next upload to be cleaned up
+// query that finds the next upload to be cleaned up
 var abandonedUploadSearchQuery = sqlext.SimplifyWhitespace(`
 	SELECT * FROM uploads WHERE updated_at < $1
 	ORDER BY updated_at ASC -- oldest uploads first
@@ -37,16 +37,16 @@ var abandonedUploadSearchQuery = sqlext.SimplifyWhitespace(`
 	LIMIT 1                 -- one at a time
 `)
 
-//query that finds the account belonging to an repo object
+// query that finds the account belonging to an repo object
 var findAccountForRepoQuery = sqlext.SimplifyWhitespace(`
 	SELECT a.* FROM accounts a
 	JOIN repos r ON r.account_name = a.name
 	WHERE r.id = $1
 `)
 
-//DeleteNextAbandonedUpload cleans up uploads that have not been updated for more
-//than a day. At most one upload is cleaned up per call. If no upload needs to
-//be cleaned up, sql.ErrNoRows is returned.
+// DeleteNextAbandonedUpload cleans up uploads that have not been updated for more
+// than a day. At most one upload is cleaned up per call. If no upload needs to
+// be cleaned up, sql.ErrNoRows is returned.
 func (j *Janitor) DeleteNextAbandonedUpload() (returnErr error) {
 	defer func() {
 		if returnErr == nil {

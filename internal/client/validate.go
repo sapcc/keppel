@@ -27,8 +27,8 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//ValidationLogger can be passed to ValidateManifest, primarily to allow the
-//caller to log the progress of the validation operation.
+// ValidationLogger can be passed to ValidateManifest, primarily to allow the
+// caller to log the progress of the validation operation.
 type ValidationLogger interface {
 	LogManifest(reference keppel.ManifestReference, level int, validationResult error)
 	LogBlob(d digest.Digest, level int, validationResult error)
@@ -39,9 +39,9 @@ type noopLogger struct{}
 func (noopLogger) LogManifest(keppel.ManifestReference, int, error) {}
 func (noopLogger) LogBlob(digest.Digest, int, error)                {}
 
-//ValidateManifest fetches the given manifest from the repo and verifies that
-//it parses correctly. It also validates all references manifests and blobs
-//recursively.
+// ValidateManifest fetches the given manifest from the repo and verifies that
+// it parses correctly. It also validates all references manifests and blobs
+// recursively.
 func (c *RepoClient) ValidateManifest(reference keppel.ManifestReference, logger ValidationLogger, platformFilter keppel.PlatformFilter) error {
 	cache := make(map[string]error)
 	if logger == nil {
@@ -100,8 +100,8 @@ func (c *RepoClient) doValidateManifest(reference keppel.ManifestReference, leve
 	return nil
 }
 
-//ValidateBlobContents fetches the given blob from the repo and verifies that
-//the contents produce the correct digest.
+// ValidateBlobContents fetches the given blob from the repo and verifies that
+// the contents produce the correct digest.
 func (c *RepoClient) ValidateBlobContents(blobDigest digest.Digest) (returnErr error) {
 	readCloser, _, err := c.DownloadBlob(blobDigest)
 	if err != nil {

@@ -42,10 +42,10 @@ var accountAnnouncementDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE accounts SET next_federation_announcement_at = $2 WHERE name = $1
 `)
 
-//AnnounceNextAccountToFederation finds the next account that has not been
-//announced to the FederationDriver in more than an hour, and announces it. If
-//no accounts need to be announced, sql.ErrNoRows is returned to instruct the
-//caller to slow down.
+// AnnounceNextAccountToFederation finds the next account that has not been
+// announced to the FederationDriver in more than an hour, and announces it. If
+// no accounts need to be announced, sql.ErrNoRows is returned to instruct the
+// caller to slow down.
 func (j *Janitor) AnnounceNextAccountToFederation() (returnErr error) {
 	var account keppel.Account
 	defer func() {

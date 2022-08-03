@@ -32,37 +32,37 @@ func init() {
 	keppel.RegisterUserIdentity("repl", deserializePeerUserIdentity)
 }
 
-//PeerUserIdentity is a keppel.UserIdentity for peer users with global read
-//access and access to the specialized peer API.
+// PeerUserIdentity is a keppel.UserIdentity for peer users with global read
+// access and access to the specialized peer API.
 //
-//This type used to be called ReplicationUserIdentity, which is why usernames
-//start with `replication@` and why serialization uses the type name "repl".
+// This type used to be called ReplicationUserIdentity, which is why usernames
+// start with `replication@` and why serialization uses the type name "repl".
 type PeerUserIdentity struct {
 	PeerHostName string
 }
 
-//HasPermission implements the keppel.UserIdentity interface.
+// HasPermission implements the keppel.UserIdentity interface.
 func (uid PeerUserIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
 	//allow universal pull access for replication purposes
 	return perm == keppel.CanViewAccount || perm == keppel.CanPullFromAccount
 }
 
-//UserType implements the keppel.UserIdentity interface.
+// UserType implements the keppel.UserIdentity interface.
 func (uid PeerUserIdentity) UserType() keppel.UserType {
 	return keppel.PeerUser
 }
 
-//UserName implements the keppel.UserIdentity interface.
+// UserName implements the keppel.UserIdentity interface.
 func (uid PeerUserIdentity) UserName() string {
 	return "replication@" + uid.PeerHostName
 }
 
-//UserInfo implements the keppel.UserIdentity interface.
+// UserInfo implements the keppel.UserIdentity interface.
 func (uid PeerUserIdentity) UserInfo() audittools.UserInfo {
 	return nil
 }
 
-//SerializeToJSON implements the keppel.UserIdentity interface.
+// SerializeToJSON implements the keppel.UserIdentity interface.
 func (uid PeerUserIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
 	payload, err = json.Marshal(uid.PeerHostName)
 	return "repl", payload, err
@@ -74,9 +74,9 @@ func deserializePeerUserIdentity(in []byte, _ keppel.AuthDriver) (keppel.UserIde
 	return PeerUserIdentity{peerHostName}, err
 }
 
-//Returns whether the given peer credentials are valid. On success, the Peer
-//instance is returned. If the credentials do not match, (nil, nil) is
-//returned. Error values are only returned for unexpected failures.
+// Returns whether the given peer credentials are valid. On success, the Peer
+// instance is returned. If the credentials do not match, (nil, nil) is
+// returned. Error values are only returned for unexpected failures.
 func checkPeerCredentials(db *keppel.DB, peerHostName, password string) (*keppel.Peer, error) {
 	//NOTE: This function is technically vulnerable to a timing side-channel attack.
 	//It returns much faster if `peerHostName` refers to a peer that does not exist,

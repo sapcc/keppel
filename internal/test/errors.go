@@ -26,24 +26,24 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//ErrorCode wraps keppel.RegistryV2ErrorCode with an implementation of the
-//assert.HTTPResponseBody interface.
+// ErrorCode wraps keppel.RegistryV2ErrorCode with an implementation of the
+// assert.HTTPResponseBody interface.
 type ErrorCode keppel.RegistryV2ErrorCode
 
-//AssertResponseBody implements the assert.HTTPResponseBody interface.
+// AssertResponseBody implements the assert.HTTPResponseBody interface.
 func (e ErrorCode) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
 	t.Helper()
 	wrapped := ErrorCodeWithMessage{keppel.RegistryV2ErrorCode(e), ""}
 	return wrapped.AssertResponseBody(t, requestInfo, responseBody)
 }
 
-//ErrorCodeWithMessage extends ErrorCode with an expected detail message.
+// ErrorCodeWithMessage extends ErrorCode with an expected detail message.
 type ErrorCodeWithMessage struct {
 	Code    keppel.RegistryV2ErrorCode
 	Message string
 }
 
-//AssertResponseBody implements the assert.HTTPResponseBody interface.
+// AssertResponseBody implements the assert.HTTPResponseBody interface.
 func (e ErrorCodeWithMessage) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
 	t.Helper()
 	var data struct {

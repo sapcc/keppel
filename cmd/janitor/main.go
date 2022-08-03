@@ -39,7 +39,7 @@ import (
 	"github.com/sapcc/keppel/internal/tasks"
 )
 
-//AddCommandTo mounts this command into the command hierarchy.
+// AddCommandTo mounts this command into the command hierarchy.
 func AddCommandTo(parent *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:   "janitor",
@@ -95,9 +95,9 @@ func run(cmd *cobra.Command, args []string) {
 	}
 }
 
-//Execute a task repeatedly, but slow down when sql.ErrNoRows is returned by it.
-//(Tasks use this error value to indicate that nothing needs scraping, so we
-//can back off a bit to avoid useless database load.)
+// Execute a task repeatedly, but slow down when sql.ErrNoRows is returned by it.
+// (Tasks use this error value to indicate that nothing needs scraping, so we
+// can back off a bit to avoid useless database load.)
 func jobLoop(task func() error) {
 	for {
 		err := task()

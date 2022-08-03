@@ -29,8 +29,8 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//DownloadBlob fetches a blob's contents from this repository. If an error is
-//returned, it's usually a *keppel.RegistryV2Error.
+// DownloadBlob fetches a blob's contents from this repository. If an error is
+// returned, it's usually a *keppel.RegistryV2Error.
 func (c *RepoClient) DownloadBlob(blobDigest digest.Digest) (contents io.ReadCloser, sizeBytes uint64, returnErr error) {
 	resp, err := c.doRequest(repoRequest{
 		Method:       "GET",
@@ -48,14 +48,14 @@ func (c *RepoClient) DownloadBlob(blobDigest digest.Digest) (contents io.ReadClo
 	return resp.Body, sizeBytes, nil
 }
 
-//DownloadManifestOpts appears in func DownloadManifest.
+// DownloadManifestOpts appears in func DownloadManifest.
 type DownloadManifestOpts struct {
 	DoNotCountTowardsLastPulled bool
 	ExtraHeaders                http.Header
 }
 
-//DownloadManifest fetches a manifest from this repository. If an error is
-//returned, it's usually a *keppel.RegistryV2Error.
+// DownloadManifest fetches a manifest from this repository. If an error is
+// returned, it's usually a *keppel.RegistryV2Error.
 func (c *RepoClient) DownloadManifest(reference keppel.ManifestReference, opts *DownloadManifestOpts) (contents []byte, mediaType string, returnErr error) {
 	if opts == nil {
 		opts = &DownloadManifestOpts{}

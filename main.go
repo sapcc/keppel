@@ -91,7 +91,7 @@ type userAgentInjector struct {
 	Inner http.RoundTripper
 }
 
-//RoundTrip implements the http.RoundTripper interface.
+// RoundTrip implements the http.RoundTripper interface.
 func (uai userAgentInjector) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.Header.Set("User-Agent", fmt.Sprintf("%s/%s", bininfo.Component(), bininfo.Version()))
 	return uai.Inner.RoundTrip(req)

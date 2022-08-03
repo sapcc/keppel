@@ -34,9 +34,9 @@ func init() {
 	})
 }
 
-//StorageDriver (driver ID "in-memory-for-testing") is a keppel.StorageDriver
-//for use in test suites where each keppel-registry stores its contents in RAM
-//only, without any persistence.
+// StorageDriver (driver ID "in-memory-for-testing") is a keppel.StorageDriver
+// for use in test suites where each keppel-registry stores its contents in RAM
+// only, without any persistence.
 type StorageDriver struct {
 	blobs           map[string][]byte
 	blobChunkCounts map[string]uint32 //previous chunkNumber for running upload, 0 when finished (same semantics as keppel.StoredBlobInfo.ChunkCount field)
@@ -59,7 +59,7 @@ func manifestKey(account keppel.Account, repoName, digest string) string {
 	return fmt.Sprintf("%s/%s/%s", account.Name, repoName, digest)
 }
 
-//AppendToBlob implements the keppel.StorageDriver interface.
+// AppendToBlob implements the keppel.StorageDriver interface.
 func (d *StorageDriver) AppendToBlob(account keppel.Account, storageID string, chunkNumber uint32, chunkLength *uint64, chunk io.Reader) error {
 	k := blobKey(account, storageID)
 
@@ -87,7 +87,7 @@ func (d *StorageDriver) AppendToBlob(account keppel.Account, storageID string, c
 	return nil
 }
 
-//FinalizeBlob implements the keppel.StorageDriver interface.
+// FinalizeBlob implements the keppel.StorageDriver interface.
 func (d *StorageDriver) FinalizeBlob(account keppel.Account, storageID string, chunkCount uint32) error {
 	k := blobKey(account, storageID)
 	_, exists := d.blobs[k]
@@ -98,7 +98,7 @@ func (d *StorageDriver) FinalizeBlob(account keppel.Account, storageID string, c
 	return nil
 }
 
-//AbortBlobUpload implements the keppel.StorageDriver interface.
+// AbortBlobUpload implements the keppel.StorageDriver interface.
 func (d *StorageDriver) AbortBlobUpload(account keppel.Account, storageID string, chunkCount uint32) error {
 	if d.blobChunkCounts[blobKey(account, storageID)] == 0 {
 		return errAbortBlobUploadAfterFinalize
@@ -106,7 +106,7 @@ func (d *StorageDriver) AbortBlobUpload(account keppel.Account, storageID string
 	return d.DeleteBlob(account, storageID)
 }
 
-//ReadBlob implements the keppel.StorageDriver interface.
+// ReadBlob implements the keppel.StorageDriver interface.
 func (d *StorageDriver) ReadBlob(account keppel.Account, storageID string) (io.ReadCloser, uint64, error) {
 	contents, exists := d.blobs[blobKey(account, storageID)]
 	if !exists {
@@ -115,7 +115,7 @@ func (d *StorageDriver) ReadBlob(account keppel.Account, storageID string) (io.R
 	return io.NopCloser(bytes.NewReader(contents)), uint64(len(contents)), nil
 }
 
-//URLForBlob implements the keppel.StorageDriver interface.
+// URLForBlob implements the keppel.StorageDriver interface.
 func (d *StorageDriver) URLForBlob(account keppel.Account, storageID string) (string, error) {
 	if d.AllowDummyURLs {
 		return "blob://" + storageID, nil
@@ -123,7 +123,7 @@ func (d *StorageDriver) URLForBlob(account keppel.Account, storageID string) (st
 	return "", keppel.ErrCannotGenerateURL
 }
 
-//DeleteBlob implements the keppel.StorageDriver interface.
+// DeleteBlob implements the keppel.StorageDriver interface.
 func (d *StorageDriver) DeleteBlob(account keppel.Account, storageID string) error {
 	k := blobKey(account, storageID)
 	_, exists := d.blobs[k]
@@ -135,7 +135,7 @@ func (d *StorageDriver) DeleteBlob(account keppel.Account, storageID string) err
 	return nil
 }
 
-//ReadManifest implements the keppel.StorageDriver interface.
+// ReadManifest implements the keppel.StorageDriver interface.
 func (d *StorageDriver) ReadManifest(account keppel.Account, repoName, digest string) ([]byte, error) {
 	k := manifestKey(account, repoName, digest)
 	contents, exists := d.manifests[k]
@@ -145,14 +145,14 @@ func (d *StorageDriver) ReadManifest(account keppel.Account, repoName, digest st
 	return contents, nil
 }
 
-//WriteManifest implements the keppel.StorageDriver interface.
+// WriteManifest implements the keppel.StorageDriver interface.
 func (d *StorageDriver) WriteManifest(account keppel.Account, repoName, digest string, contents []byte) error {
 	k := manifestKey(account, repoName, digest)
 	d.manifests[k] = contents
 	return nil
 }
 
-//DeleteManifest implements the keppel.StorageDriver interface.
+// DeleteManifest implements the keppel.StorageDriver interface.
 func (d *StorageDriver) DeleteManifest(account keppel.Account, repoName, digest string) error {
 	k := manifestKey(account, repoName, digest)
 	_, exists := d.manifests[k]
@@ -163,7 +163,7 @@ func (d *StorageDriver) DeleteManifest(account keppel.Account, repoName, digest 
 	return nil
 }
 
-//ListStorageContents implements the keppel.StorageDriver interface.
+// ListStorageContents implements the keppel.StorageDriver interface.
 func (d *StorageDriver) ListStorageContents(account keppel.Account) ([]keppel.StoredBlobInfo, []keppel.StoredManifestInfo, error) {
 	var (
 		blobs     []keppel.StoredBlobInfo
@@ -195,7 +195,7 @@ func (d *StorageDriver) ListStorageContents(account keppel.Account) ([]keppel.St
 	return blobs, manifests, nil
 }
 
-//CleanupAccount implements the keppel.StorageDriver interface.
+// CleanupAccount implements the keppel.StorageDriver interface.
 func (d *StorageDriver) CleanupAccount(account keppel.Account) error {
 	//double-check that cleanup order is right; when the account gets deleted,
 	//all blobs and manifests must have been deleted from it before
@@ -216,14 +216,14 @@ func (d *StorageDriver) CleanupAccount(account keppel.Account) error {
 	return err
 }
 
-//BlobCount returns how many blobs exist in this storage driver. This is mostly
-//used to validate that failure cases do not commit data to the storage.
+// BlobCount returns how many blobs exist in this storage driver. This is mostly
+// used to validate that failure cases do not commit data to the storage.
 func (d *StorageDriver) BlobCount() int {
 	return len(d.blobs)
 }
 
-//ManifestCount returns how many manifests exist in this storage driver. This is mostly
-//used to validate that failure cases do not commit data to the storage.
+// ManifestCount returns how many manifests exist in this storage driver. This is mostly
+// used to validate that failure cases do not commit data to the storage.
 func (d *StorageDriver) ManifestCount() int {
 	return len(d.manifests)
 }

@@ -39,8 +39,8 @@ import (
 ////////////////////////////////////////////////////////////////////////////////
 // tests for ValidateNextManifest
 
-//Base behavior for various unit tests that start with the same image list, destroy
-//it in various ways, and check that ValidateNextManifest correctly fixes it.
+// Base behavior for various unit tests that start with the same image list, destroy
+// it in various ways, and check that ValidateNextManifest correctly fixes it.
 func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel.DB, []int64, []string)) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)

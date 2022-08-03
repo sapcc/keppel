@@ -48,7 +48,7 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//This implements the POST /v2/<account>/<repository>/blobs/uploads/ endpoint.
+// This implements the POST /v2/<account>/<repository>/blobs/uploads/ endpoint.
 func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/")
 	account, repo, authz := a.checkAccountAccess(w, r, createRepoIfMissing, nil)
@@ -294,7 +294,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	return true
 }
 
-//This implements the DELETE /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
+// This implements the DELETE /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
 func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
 	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
@@ -334,7 +334,7 @@ func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-//This implements the GET /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
+// This implements the GET /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
 func (a *API) handleGetBlobUpload(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
 
@@ -353,7 +353,7 @@ func (a *API) handleGetBlobUpload(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-//This implements the PATCH /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
+// This implements the PATCH /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
 func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
 	account, repo, authz := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
@@ -408,7 +408,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-//This implements the PUT /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
+// This implements the PUT /v2/<account>/<repository>/blobs/uploads/<uuid> endpoint.
 func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
 	account, repo, authz := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
@@ -559,7 +559,7 @@ func (a *API) resumeUpload(account keppel.Account, upload *keppel.Upload, stateS
 
 var contentRangeRx = regexp.MustCompile(`^([0-9]+)-([0-9]+)$`)
 
-//On success, returns the number of bytes that should be in this request's body.
+// On success, returns the number of bytes that should be in this request's body.
 func (a *API) parseContentRange(upload *keppel.Upload, hdr http.Header) (uint64, error) {
 	//some clients format Content-Range as `bytes=123-456` instead of just `123-456`
 	contentRangeStr := strings.TrimPrefix(hdr.Get("Content-Range"), "bytes=")
@@ -694,9 +694,9 @@ var insertBlobIfMissingQuery = sqlext.SimplifyWhitespace(`
 	ON CONFLICT DO NOTHING
 `)
 
-//Insert a Blob object in the database. This is similar to building a
-//keppel.Blob and doing tx.Insert(blob), but handles a collision where another
-//blob with the same account name and digest already exists in the database.
+// Insert a Blob object in the database. This is similar to building a
+// keppel.Blob and doing tx.Insert(blob), but handles a collision where another
+// blob with the same account name and digest already exists in the database.
 func (a *API) createOrUpdateBlobObject(tx *gorp.Transaction, sizeBytes uint64, storageID string, blobDigest digest.Digest, blobPushedAt time.Time, account keppel.Account) (*keppel.Blob, error) {
 	//try to insert the blob atomically (I would like to SELECT the result
 	//directly via `RETURNING *`, but that gives sql.ErrNoRows when nothing was
@@ -728,7 +728,7 @@ func (a *API) createOrUpdateBlobObject(tx *gorp.Transaction, sizeBytes uint64, s
 	return blob, nil
 }
 
-//digestWriter is an io.Writer that writes into the given Hash and also tracks the number of bytes written.
+// digestWriter is an io.Writer that writes into the given Hash and also tracks the number of bytes written.
 type digestWriter struct {
 	hash.Hash
 	bytesWritten uint64

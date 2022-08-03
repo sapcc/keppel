@@ -26,10 +26,10 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//InboundCacheDriver (driver ID "unittest") is a keppel.InboundCacheDriver for
-//unit tests. It remembers all manifests ever pushed into it in-memory (which
-//is a really bad idea for an production driver because of the potentially
-//unbounded memory footprint).
+// InboundCacheDriver (driver ID "unittest") is a keppel.InboundCacheDriver for
+// unit tests. It remembers all manifests ever pushed into it in-memory (which
+// is a really bad idea for an production driver because of the potentially
+// unbounded memory footprint).
 type InboundCacheDriver struct {
 	MaxAge  time.Duration
 	Entries map[keppel.ImageReference]inboundCacheEntry
@@ -48,7 +48,7 @@ func init() {
 	})
 }
 
-//LoadManifest implements the keppel.InboundCacheDriver interface.
+// LoadManifest implements the keppel.InboundCacheDriver interface.
 func (d *InboundCacheDriver) LoadManifest(location keppel.ImageReference, now time.Time) (contents []byte, mediaType string, err error) {
 	maxInsertedAt := now.Add(-d.MaxAge)
 	entry, ok := d.Entries[location]
@@ -58,7 +58,7 @@ func (d *InboundCacheDriver) LoadManifest(location keppel.ImageReference, now ti
 	return nil, "", sql.ErrNoRows
 }
 
-//StoreManifest implements the keppel.InboundCacheDriver interface.
+// StoreManifest implements the keppel.InboundCacheDriver interface.
 func (d *InboundCacheDriver) StoreManifest(location keppel.ImageReference, contents []byte, mediaType string, now time.Time) error {
 	d.Entries[location] = inboundCacheEntry{contents, mediaType, now}
 	return nil

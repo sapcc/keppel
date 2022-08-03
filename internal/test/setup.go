@@ -56,13 +56,13 @@ type setupParams struct {
 	Repos                   []*keppel.Repository
 }
 
-//SetupOption is an option that can be given to NewSetup().
+// SetupOption is an option that can be given to NewSetup().
 type SetupOption func(*setupParams)
 
-//IsSecondaryTo is a SetupOption that configures registry-secondary.example.org
-//instead of registry.example.org. If a non-nil Setup instance is given, that's
-//the Setup for the corresponding primary instance, and both sides will be
-//configured to peer with each other.
+// IsSecondaryTo is a SetupOption that configures registry-secondary.example.org
+// instead of registry.example.org. If a non-nil Setup instance is given, that's
+// the Setup for the corresponding primary instance, and both sides will be
+// configured to peer with each other.
 func IsSecondaryTo(s *Setup) SetupOption {
 	return func(params *setupParams) {
 		params.IsSecondary = true
@@ -70,41 +70,41 @@ func IsSecondaryTo(s *Setup) SetupOption {
 	}
 }
 
-//WithAnycast is a SetupOption that fills the anycast fields in keppel.Configuration if true is given.
+// WithAnycast is a SetupOption that fills the anycast fields in keppel.Configuration if true is given.
 func WithAnycast(withAnycast bool) SetupOption {
 	return func(params *setupParams) {
 		params.WithAnycast = withAnycast
 	}
 }
 
-//WithKeppelAPI is a SetupOption that enables the Keppel API.
+// WithKeppelAPI is a SetupOption that enables the Keppel API.
 func WithKeppelAPI(params *setupParams) {
 	params.WithKeppelAPI = true
 }
 
-//WithPeerAPI is a SetupOption that enables the peer API.
+// WithPeerAPI is a SetupOption that enables the peer API.
 func WithPeerAPI(params *setupParams) {
 	params.WithPeerAPI = true
 }
 
-//WithClairDouble is a SetupOption that sets up a ClairDouble at clair.example.org.
+// WithClairDouble is a SetupOption that sets up a ClairDouble at clair.example.org.
 func WithClairDouble(params *setupParams) {
 	params.WithClairDouble = true
 }
 
-//WithQuotas is a SetupOption that sets up ample quota for all configured accounts.
+// WithQuotas is a SetupOption that sets up ample quota for all configured accounts.
 func WithQuotas(params *setupParams) {
 	params.WithQuotas = true
 }
 
-//WithRateLimitEngine is a SetupOption to use a RateLimitEngine in enabled APIs.
+// WithRateLimitEngine is a SetupOption to use a RateLimitEngine in enabled APIs.
 func WithRateLimitEngine(rle *keppel.RateLimitEngine) SetupOption {
 	return func(params *setupParams) {
 		params.RateLimitEngine = rle
 	}
 }
 
-//WithAccount is a SetupOption that adds the given keppel.Account to the DB during NewSetup().
+// WithAccount is a SetupOption that adds the given keppel.Account to the DB during NewSetup().
 func WithAccount(account keppel.Account) SetupOption {
 	return func(params *setupParams) {
 		//this field has a default value that's not the zero value
@@ -113,26 +113,26 @@ func WithAccount(account keppel.Account) SetupOption {
 	}
 }
 
-//WithRepo is a SetupOption that adds the given keppel.Repository to the DB during NewSetup().
+// WithRepo is a SetupOption that adds the given keppel.Repository to the DB during NewSetup().
 func WithRepo(repo keppel.Repository) SetupOption {
 	return func(params *setupParams) {
 		params.Repos = append(params.Repos, &repo)
 	}
 }
 
-//WithPreviousIssuerKey is a SetupOption that will add the "previous" set of test issuer keys.
+// WithPreviousIssuerKey is a SetupOption that will add the "previous" set of test issuer keys.
 func WithPreviousIssuerKey(params *setupParams) {
 	params.WithPreviousIssuerKey = true
 }
 
-//WithoutCurrentIssuerKey is a SetupOption that will not add the "current" set
-//of test issuer keys. Tokens will be issued with the "previous" set of issuer
-//keys instead, so WithPreviousIssuerKey must be given as well.
+// WithoutCurrentIssuerKey is a SetupOption that will not add the "current" set
+// of test issuer keys. Tokens will be issued with the "previous" set of issuer
+// keys instead, so WithPreviousIssuerKey must be given as well.
 func WithoutCurrentIssuerKey(params *setupParams) {
 	params.WithoutCurrentIssuerKey = true
 }
 
-//Setup contains all the pieces that are needed for most tests.
+// Setup contains all the pieces that are needed for most tests.
 type Setup struct {
 	//fields that are always set
 	Config       keppel.Configuration
@@ -154,15 +154,15 @@ type Setup struct {
 	tokenCache map[string]string
 }
 
-//these credentials are in global vars so that we don't have to recompute them
-//in every test run (bcrypt is intentionally CPU-intensive)
+// these credentials are in global vars so that we don't have to recompute them
+// in every test run (bcrypt is intentionally CPU-intensive)
 var (
 	replicationPassword     string
 	replicationPasswordHash string
 )
 
-//GetReplicationPassword returns the password that the secondary registry can
-//use to replicate from the primary registry.
+// GetReplicationPassword returns the password that the secondary registry can
+// use to replicate from the primary registry.
 func GetReplicationPassword() string {
 	if replicationPassword == "" {
 		//this password needs to be constant because it appears in some fixtures/*.sql
@@ -174,7 +174,7 @@ func GetReplicationPassword() string {
 	return replicationPassword
 }
 
-//NewSetup prepares most or all pieces of Keppel for a test.
+// NewSetup prepares most or all pieces of Keppel for a test.
 func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	t.Helper()
 	logg.ShowDebug = osext.GetenvBool("KEPPEL_DEBUG")
@@ -376,14 +376,14 @@ func mustDo(t *testing.T, err error) {
 	}
 }
 
-//UnitTestIssuerEd25519PrivateKey is an ed25519 private key that can be used as
-//KEPPEL_ISSUER_KEY in unit tests. DO NOT USE IN PRODUCTION.
+// UnitTestIssuerEd25519PrivateKey is an ed25519 private key that can be used as
+// KEPPEL_ISSUER_KEY in unit tests. DO NOT USE IN PRODUCTION.
 const UnitTestIssuerEd25519PrivateKey = `-----BEGIN PRIVATE KEY-----
 MC4CAQAwBQYDK2VwBCIEIJF8IUp7t4h64Xm9WDPtThzRHiQY5guceFs4z8QDrMQ0
 -----END PRIVATE KEY-----`
 
-//UnitTestIssuerRSAPrivateKey is an RSA private key that can be used as
-//KEPPEL_ISSUER_KEY in unit tests. DO NOT USE IN PRODUCTION.
+// UnitTestIssuerRSAPrivateKey is an RSA private key that can be used as
+// KEPPEL_ISSUER_KEY in unit tests. DO NOT USE IN PRODUCTION.
 const UnitTestIssuerRSAPrivateKey = `-----BEGIN RSA PRIVATE KEY-----
 MIIJKgIBAAKCAgEApaFTmtIHzEg9dznhoFgOKqZseh4PcXTITEc0F/1Gjj/zQmKj
 0jOlbTQv/4IbmFPVP75dGB+Dw5qHh+4TR8uObx6VudnkSHrn8buPKD1n2T5r/SMY
@@ -436,14 +436,14 @@ cVD23BmXI3LgZ/sLRdZO4js/jT7C5FV9zBKooLnWn+UdMJNft3HHj4axeJZmBU17
 V/EtRMqfEOel+lTJXmLb0z7YOgfPmAT2ojk86CsjwbaWwn2rlNVmu+oB8CuSAg==
 -----END RSA PRIVATE KEY-----`
 
-//UnitTestAnycastIssuerEd25519PrivateKey is an ed25519 private key that can be used as
-//KEPPEL_ISSUER_KEY in unit tests. DO NOT USE IN PRODUCTION.
+// UnitTestAnycastIssuerEd25519PrivateKey is an ed25519 private key that can be used as
+// KEPPEL_ISSUER_KEY in unit tests. DO NOT USE IN PRODUCTION.
 const UnitTestAnycastIssuerEd25519PrivateKey = `-----BEGIN PRIVATE KEY-----
 MC4CAQAwBQYDK2VwBCIEIMk7vAS28DlAzYWG9yktmmAnla+wvvTo/Ah6qmXG6E+S
 -----END PRIVATE KEY-----`
 
-//UnitTestAnycastIssuerRSAPrivateKey is an RSA private key that can be used as
-//KEPPEL_ANYCAST_ISSUER_KEY in unit tests. DO NOT USE IN PRODUCTION.
+// UnitTestAnycastIssuerRSAPrivateKey is an RSA private key that can be used as
+// KEPPEL_ANYCAST_ISSUER_KEY in unit tests. DO NOT USE IN PRODUCTION.
 const UnitTestAnycastIssuerRSAPrivateKey = `-----BEGIN RSA PRIVATE KEY-----
 MIIJJwIBAAKCAgEAt9jMLzDWOoPpxTOQbdvFdxiHGQETkQnca3uLAiTllx7AWkF7
 9R1T1V69rYAXacwyv+7dOGKD1FQzms7+uV72m8kjw+NvDMHjXQ9PtATy76J9FTPg

@@ -34,13 +34,13 @@ func init() {
 	})
 }
 
-//LoadManifest implements the keppel.InboundCacheDriver interface.
+// LoadManifest implements the keppel.InboundCacheDriver interface.
 func (inboundCacheDriver) LoadManifest(location keppel.ImageReference, now time.Time) (contents []byte, mediaType string, err error) {
 	//always return a cache miss
 	return nil, "", sql.ErrNoRows
 }
 
-//StoreManifest implements the keppel.InboundCacheDriver interface.
+// StoreManifest implements the keppel.InboundCacheDriver interface.
 func (inboundCacheDriver) StoreManifest(location keppel.ImageReference, contents []byte, mediaType string, now time.Time) error {
 	//no-op
 	return nil

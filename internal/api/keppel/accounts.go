@@ -45,7 +45,7 @@ import (
 ////////////////////////////////////////////////////////////////////////////////
 // data types
 
-//Account represents an account in the API.
+// Account represents an account in the API.
 type Account struct {
 	Name              string                `json:"name"`
 	AuthTenantID      string                `json:"auth_tenant_id"`
@@ -58,7 +58,7 @@ type Account struct {
 	PlatformFilter    keppel.PlatformFilter `json:"platform_filter,omitempty"`
 }
 
-//RBACPolicy represents an RBAC policy in the API.
+// RBACPolicy represents an RBAC policy in the API.
 type RBACPolicy struct {
 	CidrPattern       string   `json:"match_cidr,omitempty"`
 	RepositoryPattern string   `json:"match_repository,omitempty"`
@@ -66,7 +66,7 @@ type RBACPolicy struct {
 	Permissions       []string `json:"permissions"`
 }
 
-//ReplicationPolicy represents a replication policy in the API.
+// ReplicationPolicy represents a replication policy in the API.
 type ReplicationPolicy struct {
 	Strategy string
 	//only for `on_first_use`
@@ -75,19 +75,19 @@ type ReplicationPolicy struct {
 	ExternalPeer ReplicationExternalPeerSpec
 }
 
-//ReplicationExternalPeerSpec appears in type ReplicationPolicy.
+// ReplicationExternalPeerSpec appears in type ReplicationPolicy.
 type ReplicationExternalPeerSpec struct {
 	URL      string `json:"url"`
 	UserName string `json:"username,omitempty"`
 	Password string `json:"password,omitempty"`
 }
 
-//ValidationPolicy represents a validation policy in the API.
+// ValidationPolicy represents a validation policy in the API.
 type ValidationPolicy struct {
 	RequiredLabels []string `json:"required_labels,omitempty"`
 }
 
-//MarshalJSON implements the json.Marshaler interface.
+// MarshalJSON implements the json.Marshaler interface.
 func (r ReplicationPolicy) MarshalJSON() ([]byte, error) {
 	switch r.Strategy {
 	case "on_first_use":
@@ -107,7 +107,7 @@ func (r ReplicationPolicy) MarshalJSON() ([]byte, error) {
 	}
 }
 
-//UnmarshalJSON implements the json.Unmarshaler interface.
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (r *ReplicationPolicy) UnmarshalJSON(buf []byte) error {
 	var s struct {
 		Strategy string          `json:"strategy"`
@@ -771,8 +771,8 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"account": accountRendered})
 }
 
-//Like reflect.DeepEqual, but ignores some fields that are allowed to be
-//updated after account creation.
+// Like reflect.DeepEqual, but ignores some fields that are allowed to be
+// updated after account creation.
 func replicationPoliciesFunctionallyEqual(lhs, rhs *ReplicationPolicy) bool {
 	//one nil and one non-nil is not equal
 	if (lhs == nil) != (rhs == nil) {

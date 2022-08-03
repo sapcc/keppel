@@ -32,27 +32,27 @@ func init() {
 	})
 }
 
-//ClaimAccountName implements the keppel.FederationDriver interface.
+// ClaimAccountName implements the keppel.FederationDriver interface.
 func (federationDriver) ClaimAccountName(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	return keppel.ClaimSucceeded, nil
 }
 
-//IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
+// IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
 func (federationDriver) IssueSubleaseTokenSecret(account keppel.Account) (string, error) {
 	return "", nil
 }
 
-//ForfeitAccountName implements the keppel.FederationDriver interface.
+// ForfeitAccountName implements the keppel.FederationDriver interface.
 func (federationDriver) ForfeitAccountName(account keppel.Account) error {
 	return nil
 }
 
-//RecordExistingAccount implements the keppel.FederationDriver interface.
+// RecordExistingAccount implements the keppel.FederationDriver interface.
 func (federationDriver) RecordExistingAccount(account keppel.Account, now time.Time) error {
 	return nil
 }
 
-//FindPrimaryAccount implements the keppel.FederationDriver interface.
+// FindPrimaryAccount implements the keppel.FederationDriver interface.
 func (federationDriver) FindPrimaryAccount(accountName string) (string, error) {
 	return "", keppel.ErrNoSuchPrimaryAccount
 }

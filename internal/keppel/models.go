@@ -33,7 +33,7 @@ import (
 	"github.com/sapcc/keppel/internal/clair"
 )
 
-//Account contains a record from the `accounts` table.
+// Account contains a record from the `accounts` table.
 type Account struct {
 	Name         string `db:"name"`
 	AuthTenantID string `db:"auth_tenant_id"`
@@ -64,14 +64,14 @@ type Account struct {
 	NextFederationAnnouncementAt *time.Time `db:"next_federation_announcement_at"` //see tasks.AnnounceNextAccountToFederation
 }
 
-//SwiftContainerName returns the name of the Swift container backing this
-//Keppel account.
+// SwiftContainerName returns the name of the Swift container backing this
+// Keppel account.
 func (a Account) SwiftContainerName() string {
 	return "keppel-" + a.Name
 }
 
-//FindAccount works similar to db.SelectOne(), but returns nil instead of
-//sql.ErrNoRows if no account exists with this name.
+// FindAccount works similar to db.SelectOne(), but returns nil instead of
+// sql.ErrNoRows if no account exists with this name.
 func FindAccount(db gorp.SqlExecutor, name string) (*Account, error) {
 	var account Account
 	err := db.SelectOne(&account,
@@ -84,7 +84,7 @@ func FindAccount(db gorp.SqlExecutor, name string) (*Account, error) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-//RBACPolicy contains a record from the `rbac_policies` table.
+// RBACPolicy contains a record from the `rbac_policies` table.
 type RBACPolicy struct {
 	AccountName             string `db:"account_name"`
 	CidrPattern             string `db:"match_cidr"`
@@ -97,7 +97,7 @@ type RBACPolicy struct {
 	CanDelete               bool   `db:"can_delete"`
 }
 
-//Matches evaluates the cidr and regexes in this policy.
+// Matches evaluates the cidr and regexes in this policy.
 func (r RBACPolicy) Matches(ip, repoName, userName string) bool {
 	if r.CidrPattern != "" {
 		ip := net.ParseIP(ip)
@@ -128,16 +128,16 @@ func (r RBACPolicy) Matches(ip, repoName, userName string) bool {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-//Blob contains a record from the `blobs` table.
+// Blob contains a record from the `blobs` table.
 //
-//In the `blobs` table, blobs are only bound to an account. This makes
-//cross-repo blob mounts cheap and easy to implement. The actual connection to
-//repos is in the `blob_mounts` table.
+// In the `blobs` table, blobs are only bound to an account. This makes
+// cross-repo blob mounts cheap and easy to implement. The actual connection to
+// repos is in the `blob_mounts` table.
 //
-//StorageID is used to construct the filename (or equivalent) for this blob
-//in the StorageDriver. We cannot use the digest for this since the StorageID
-//needs to be chosen at the start of the blob upload, when the digest is not
-//known yet.
+// StorageID is used to construct the filename (or equivalent) for this blob
+// in the StorageDriver. We cannot use the digest for this since the StorageID
+// needs to be chosen at the start of the blob upload, when the digest is not
+// known yet.
 type Blob struct {
 	ID                     int64      `db:"id"`
 	AccountName            string     `db:"account_name"`
@@ -172,31 +172,31 @@ var blobGetQueryByAccountName = sqlext.SimplifyWhitespace(`
 	SELECT * FROM blobs WHERE account_name = $1 AND digest = $2
 `)
 
-//FindBlobByRepositoryName is a convenience wrapper around db.SelectOne(). If
-//the blob in question does not exist, sql.ErrNoRows is returned.
+// FindBlobByRepositoryName is a convenience wrapper around db.SelectOne(). If
+// the blob in question does not exist, sql.ErrNoRows is returned.
 func FindBlobByRepositoryName(db gorp.SqlExecutor, blobDigest digest.Digest, repoName string, account Account) (*Blob, error) {
 	var blob Blob
 	err := db.SelectOne(&blob, blobGetQueryByRepoName, account.Name, blobDigest.String(), repoName)
 	return &blob, err
 }
 
-//FindBlobByRepository is a convenience wrapper around db.SelectOne(). If
-//the blob in question does not exist, sql.ErrNoRows is returned.
+// FindBlobByRepository is a convenience wrapper around db.SelectOne(). If
+// the blob in question does not exist, sql.ErrNoRows is returned.
 func FindBlobByRepository(db gorp.SqlExecutor, blobDigest digest.Digest, repo Repository) (*Blob, error) {
 	var blob Blob
 	err := db.SelectOne(&blob, blobGetQueryByRepoID, repo.AccountName, blobDigest.String(), repo.ID)
 	return &blob, err
 }
 
-//FindBlobByAccountName is a convenience wrapper around db.SelectOne(). If the
-//blob in question does not exist, sql.ErrNoRows is returned.
+// FindBlobByAccountName is a convenience wrapper around db.SelectOne(). If the
+// blob in question does not exist, sql.ErrNoRows is returned.
 func FindBlobByAccountName(db gorp.SqlExecutor, blobDigest digest.Digest, account Account) (*Blob, error) {
 	var blob Blob
 	err := db.SelectOne(&blob, blobGetQueryByAccountName, account.Name, blobDigest.String())
 	return &blob, err
 }
 
-//MountBlobIntoRepo creates an entry in the blob_mounts database table.
+// MountBlobIntoRepo creates an entry in the blob_mounts database table.
 func MountBlobIntoRepo(db gorp.SqlExecutor, blob Blob, repo Repository) error {
 	_, err := db.Exec(
 		`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
@@ -205,11 +205,11 @@ func MountBlobIntoRepo(db gorp.SqlExecutor, blob Blob, repo Repository) error {
 	return err
 }
 
-//Upload contains a record from the `uploads` table.
+// Upload contains a record from the `uploads` table.
 //
-//Digest contains the SHA256 digest of everything that has been uploaded so
-//far. This is used to validate that we're resuming at the right position in
-//the next PUT/PATCH.
+// Digest contains the SHA256 digest of everything that has been uploaded so
+// far. This is used to validate that we're resuming at the right position in
+// the next PUT/PATCH.
 type Upload struct {
 	RepositoryID int64     `db:"repo_id"`
 	UUID         string    `db:"uuid"`
@@ -224,8 +224,8 @@ var uploadGetQueryByRepoID = sqlext.SimplifyWhitespace(`
 	SELECT u.* FROM uploads u WHERE u.uuid = $1 AND repo_id = $2
 `)
 
-//FindUploadByRepository is a convenience wrapper around db.SelectOne(). If
-//the upload in question does not exist, sql.ErrNoRows is returned.
+// FindUploadByRepository is a convenience wrapper around db.SelectOne(). If
+// the upload in question does not exist, sql.ErrNoRows is returned.
 func FindUploadByRepository(db gorp.SqlExecutor, uuid string, repo Repository) (*Upload, error) {
 	var upload Upload
 	err := db.SelectOne(&upload, uploadGetQueryByRepoID, uuid, repo.ID)
@@ -234,7 +234,7 @@ func FindUploadByRepository(db gorp.SqlExecutor, uuid string, repo Repository) (
 
 ////////////////////////////////////////////////////////////////////////////////
 
-//Repository contains a record from the `repos` table.
+// Repository contains a record from the `repos` table.
 type Repository struct {
 	ID                      int64      `db:"id"`
 	AccountName             string     `db:"account_name"`
@@ -244,8 +244,8 @@ type Repository struct {
 	NextGarbageCollectionAt *time.Time `db:"next_gc_at"`               //see tasks.GarbageCollectManifestsInNextRepo
 }
 
-//FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a
-//Repository record when none exists yet.
+// FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a
+// Repository record when none exists yet.
 func FindOrCreateRepository(db gorp.SqlExecutor, name string, account Account) (*Repository, error) {
 	var repo Repository
 	err := db.SelectOne(&repo,
@@ -257,8 +257,8 @@ func FindOrCreateRepository(db gorp.SqlExecutor, name string, account Account) (
 	return &repo, err
 }
 
-//FindRepository is a convenience wrapper around db.SelectOne(). If the
-//repository in question does not exist, sql.ErrNoRows is returned.
+// FindRepository is a convenience wrapper around db.SelectOne(). If the
+// repository in question does not exist, sql.ErrNoRows is returned.
 func FindRepository(db gorp.SqlExecutor, name string, account Account) (*Repository, error) {
 	var repo Repository
 	err := db.SelectOne(&repo,
@@ -266,8 +266,8 @@ func FindRepository(db gorp.SqlExecutor, name string, account Account) (*Reposit
 	return &repo, err
 }
 
-//FindRepositoryByID is a convenience wrapper around db.SelectOne(). If the
-//repository in question does not exist, sql.ErrNoRows is returned.
+// FindRepositoryByID is a convenience wrapper around db.SelectOne(). If the
+// repository in question does not exist, sql.ErrNoRows is returned.
 func FindRepositoryByID(db gorp.SqlExecutor, id int64) (*Repository, error) {
 	var repo Repository
 	err := db.SelectOne(&repo,
@@ -275,14 +275,14 @@ func FindRepositoryByID(db gorp.SqlExecutor, id int64) (*Repository, error) {
 	return &repo, err
 }
 
-//FullName prepends the account name to the repository name.
+// FullName prepends the account name to the repository name.
 func (r Repository) FullName() string {
 	return r.AccountName + `/` + r.Name
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-//Manifest contains a record from the `manifests` table.
+// Manifest contains a record from the `manifests` table.
 type Manifest struct {
 	RepositoryID                  int64                     `db:"repo_id"`
 	Digest                        string                    `db:"digest"`
@@ -304,8 +304,8 @@ type Manifest struct {
 	MaxLayerCreatedAt *time.Time `db:"max_layer_created_at"`
 }
 
-//FindManifest is a convenience wrapper around db.SelectOne(). If the
-//manifest in question does not exist, sql.ErrNoRows is returned.
+// FindManifest is a convenience wrapper around db.SelectOne(). If the
+// manifest in question does not exist, sql.ErrNoRows is returned.
 func FindManifest(db gorp.SqlExecutor, repo Repository, digest string) (*Manifest, error) {
 	var manifest Manifest
 	err := db.SelectOne(&manifest,
@@ -320,15 +320,15 @@ var manifestGetQueryByRepoName = sqlext.SimplifyWhitespace(`
 	 WHERE r.account_name = $1 AND r.name = $2 AND m.digest = $3
 `)
 
-//FindManifestByRepositoryName is a convenience wrapper around db.SelectOne().
-//If the manifest in question does not exist, sql.ErrNoRows is returned.
+// FindManifestByRepositoryName is a convenience wrapper around db.SelectOne().
+// If the manifest in question does not exist, sql.ErrNoRows is returned.
 func FindManifestByRepositoryName(db gorp.SqlExecutor, repoName string, account Account, digest string) (*Manifest, error) {
 	var manifest Manifest
 	err := db.SelectOne(&manifest, manifestGetQueryByRepoName, account.Name, repoName, digest)
 	return &manifest, err
 }
 
-//Tag contains a record from the `tags` table.
+// Tag contains a record from the `tags` table.
 type Tag struct {
 	RepositoryID int64      `db:"repo_id"`
 	Name         string     `db:"name"`
@@ -337,7 +337,7 @@ type Tag struct {
 	LastPulledAt *time.Time `db:"last_pulled_at"`
 }
 
-//ManifestContent contains a record from the `manifest_contents` table.
+// ManifestContent contains a record from the `manifest_contents` table.
 type ManifestContent struct {
 	RepositoryID int64  `db:"repo_id"`
 	Digest       string `db:"digest"`
@@ -346,14 +346,14 @@ type ManifestContent struct {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-//Quotas contains a record from the `quotas` table.
+// Quotas contains a record from the `quotas` table.
 type Quotas struct {
 	AuthTenantID  string `db:"auth_tenant_id"`
 	ManifestCount uint64 `db:"manifests"`
 }
 
-//FindQuotas works similar to db.SelectOne(), but returns nil instead of
-//sql.ErrNoRows if no quota set exists for this auth tenant.
+// FindQuotas works similar to db.SelectOne(), but returns nil instead of
+// sql.ErrNoRows if no quota set exists for this auth tenant.
 func FindQuotas(db gorp.SqlExecutor, authTenantID string) (*Quotas, error) {
 	var quotas Quotas
 	err := db.SelectOne(&quotas,
@@ -364,7 +364,7 @@ func FindQuotas(db gorp.SqlExecutor, authTenantID string) (*Quotas, error) {
 	return &quotas, err
 }
 
-//DefaultQuotas creates a new Quotas instance with the default quotas.
+// DefaultQuotas creates a new Quotas instance with the default quotas.
 func DefaultQuotas(authTenantID string) *Quotas {
 	//Right now, the default quota is always 0. The value of having this function
 	//is to ensure that we only need to change this place if this ever changes.
@@ -382,8 +382,8 @@ var manifestUsageQuery = sqlext.SimplifyWhitespace(`
 	 WHERE a.auth_tenant_id = $1
 `)
 
-//GetManifestUsage returns how many manifests currently exist in repos in
-//accounts connected to this quota set's auth tenant.
+// GetManifestUsage returns how many manifests currently exist in repos in
+// accounts connected to this quota set's auth tenant.
 func (q Quotas) GetManifestUsage(db gorp.SqlExecutor) (uint64, error) {
 	manifestCount, err := db.SelectInt(manifestUsageQuery, q.AuthTenantID)
 	return uint64(manifestCount), err
@@ -391,7 +391,7 @@ func (q Quotas) GetManifestUsage(db gorp.SqlExecutor) (uint64, error) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-//Peer contains a record from the `peers` table.
+// Peer contains a record from the `peers` table.
 type Peer struct {
 	HostName string `db:"hostname"`
 
@@ -412,7 +412,7 @@ type Peer struct {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-//PendingBlob contains a record from the `pending_blobs` table.
+// PendingBlob contains a record from the `pending_blobs` table.
 type PendingBlob struct {
 	AccountName  string        `db:"account_name"`
 	Digest       string        `db:"digest"`
@@ -420,7 +420,7 @@ type PendingBlob struct {
 	PendingSince time.Time     `db:"since"`
 }
 
-//PendingReason is an enum that explains why a blob is pending.
+// PendingReason is an enum that explains why a blob is pending.
 type PendingReason string
 
 const (
@@ -431,19 +431,19 @@ const (
 
 ////////////////////////////////////////////////////////////////////////////////
 
-//UnknownBlob contains a record from the `unknown_blobs` table.
-//This is only used by tasks.SweepStorageInNextAccount().
+// UnknownBlob contains a record from the `unknown_blobs` table.
+// This is only used by tasks.SweepStorageInNextAccount().
 type UnknownBlob struct {
 	AccountName    string    `db:"account_name"`
 	StorageID      string    `db:"storage_id"`
 	CanBeDeletedAt time.Time `db:"can_be_deleted_at"`
 }
 
-//UnknownManifest contains a record from the `unknown_manifests` table.
-//This is only used by tasks.SweepStorageInNextAccount().
+// UnknownManifest contains a record from the `unknown_manifests` table.
+// This is only used by tasks.SweepStorageInNextAccount().
 //
-//NOTE: We don't use repository IDs here because unknown manifests may exist in
-//repositories that are also not known to the database.
+// NOTE: We don't use repository IDs here because unknown manifests may exist in
+// repositories that are also not known to the database.
 type UnknownManifest struct {
 	AccountName    string    `db:"account_name"`
 	RepositoryName string    `db:"repo_name"`

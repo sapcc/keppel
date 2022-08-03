@@ -25,9 +25,9 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//Produces a new ScopeSet containing only those scopes that the given
-//`uid` is permitted to access and only those actions therein which this `uid`
-//is permitted to perform.
+// Produces a new ScopeSet containing only those scopes that the given
+// `uid` is permitted to access and only those actions therein which this `uid`
+// is permitted to perform.
 func filterAuthorized(ir IncomingRequest, uid keppel.UserIdentity, audience Audience, db *keppel.DB) (ScopeSet, error) {
 	result := make(ScopeSet, 0, len(ir.Scopes))
 	//make sure that additional scopes get appended at the end, on the offchance

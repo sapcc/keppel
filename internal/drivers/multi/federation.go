@@ -52,7 +52,7 @@ func init() {
 	})
 }
 
-//ClaimAccountName implements the keppel.FederationDriver interface.
+// ClaimAccountName implements the keppel.FederationDriver interface.
 func (fd *federationDriver) ClaimAccountName(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	//the primary driver issued the sublease token secret, so this one has to verify it
 	claimResult, err := fd.Drivers[0].ClaimAccountName(account, subleaseTokenSecret)
@@ -72,12 +72,12 @@ func (fd *federationDriver) ClaimAccountName(account keppel.Account, subleaseTok
 	return keppel.ClaimSucceeded, nil
 }
 
-//IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
+// IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
 func (fd *federationDriver) IssueSubleaseTokenSecret(account keppel.Account) (string, error) {
 	return fd.Drivers[0].IssueSubleaseTokenSecret(account)
 }
 
-//ForfeitAccountName implements the keppel.FederationDriver interface.
+// ForfeitAccountName implements the keppel.FederationDriver interface.
 func (fd *federationDriver) ForfeitAccountName(account keppel.Account) error {
 	for _, driver := range fd.Drivers {
 		err := driver.ForfeitAccountName(account)
@@ -88,7 +88,7 @@ func (fd *federationDriver) ForfeitAccountName(account keppel.Account) error {
 	return nil
 }
 
-//RecordExistingAccount implements the keppel.FederationDriver interface.
+// RecordExistingAccount implements the keppel.FederationDriver interface.
 func (fd *federationDriver) RecordExistingAccount(account keppel.Account, now time.Time) error {
 	for _, driver := range fd.Drivers {
 		err := driver.RecordExistingAccount(account, now)
@@ -99,7 +99,7 @@ func (fd *federationDriver) RecordExistingAccount(account keppel.Account, now ti
 	return nil
 }
 
-//FindPrimaryAccount implements the keppel.FederationDriver interface.
+// FindPrimaryAccount implements the keppel.FederationDriver interface.
 func (fd *federationDriver) FindPrimaryAccount(accountName string) (peerHostName string, err error) {
 	return fd.Drivers[0].FindPrimaryAccount(accountName)
 }

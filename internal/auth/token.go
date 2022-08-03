@@ -40,7 +40,7 @@ func init() {
 	jwt.MarshalSingleStringAsArray = false
 }
 
-//Type representation for JWT claims issued by Keppel.
+// Type representation for JWT claims issued by Keppel.
 type tokenClaims struct {
 	jwt.RegisteredClaims
 	Access   []Scope              `json:"access"`
@@ -109,16 +109,16 @@ func parseToken(cfg keppel.Configuration, ad keppel.AuthDriver, audience Audienc
 	}, nil
 }
 
-//TokenResponse is the format expected by Docker in an auth response. The Token
-//field contains a Java Web Token (JWT).
+// TokenResponse is the format expected by Docker in an auth response. The Token
+// field contains a Java Web Token (JWT).
 type TokenResponse struct {
 	Token     string `json:"token"`
 	ExpiresIn uint64 `json:"expires_in"`
 	IssuedAt  string `json:"issued_at"`
 }
 
-//IssueToken renders the given Authorization into a JWT token that can be used
-//as a Bearer token to authenticate on Keppel's various APIs.
+// IssueToken renders the given Authorization into a JWT token that can be used
+// as a Bearer token to authenticate on Keppel's various APIs.
 func (a Authorization) IssueToken(cfg keppel.Configuration) (*TokenResponse, error) {
 	now := time.Now()
 	expiresIn := 4 * time.Hour //NOTE: could be made configurable if the need arises
@@ -226,7 +226,7 @@ func equalSigningMethods(m1, m2 jwt.SigningMethod) bool {
 ////////////////////////////////////////////////////////////////////////////////
 // type embeddedUserIdentity
 
-//Wraps an UserIdentity such that it can be serialized into JSON.
+// Wraps an UserIdentity such that it can be serialized into JSON.
 type embeddedUserIdentity struct {
 	UserIdentity keppel.UserIdentity
 	//AuthDriver is ignored during serialization, but must be filled prior to
@@ -235,7 +235,7 @@ type embeddedUserIdentity struct {
 	AuthDriver keppel.AuthDriver
 }
 
-//MarshalJSON implements the json.Marshaler interface.
+// MarshalJSON implements the json.Marshaler interface.
 func (e embeddedUserIdentity) MarshalJSON() ([]byte, error) {
 	typeName, payload, err := e.UserIdentity.SerializeToJSON()
 	if err != nil {
@@ -248,7 +248,7 @@ func (e embeddedUserIdentity) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]json.RawMessage{typeName: json.RawMessage(payload)})
 }
 
-//UnmarshalJSON implements the json.Marshaler interface.
+// UnmarshalJSON implements the json.Marshaler interface.
 func (e *embeddedUserIdentity) UnmarshalJSON(in []byte) error {
 	if e.AuthDriver == nil {
 		return errors.New("cannot unmarshal EmbeddedAuthorization without an AuthDriver")

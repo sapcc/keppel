@@ -32,14 +32,14 @@ import (
 	"github.com/sapcc/keppel/internal/processor"
 )
 
-//janitorDummyRequest can be put in the Request field of type keppel.AuditContext.
+// janitorDummyRequest can be put in the Request field of type keppel.AuditContext.
 var janitorDummyRequest = &http.Request{URL: &url.URL{
 	Scheme: "http",
 	Host:   "localhost",
 	Path:   "keppel-janitor",
 }}
 
-//Janitor contains the toolbox of the keppel-janitor process.
+// Janitor contains the toolbox of the keppel-janitor process.
 type Janitor struct {
 	cfg     keppel.Configuration
 	fd      keppel.FederationDriver
@@ -53,20 +53,20 @@ type Janitor struct {
 	generateStorageID func() string
 }
 
-//NewJanitor creates a new Janitor.
+// NewJanitor creates a new Janitor.
 func NewJanitor(cfg keppel.Configuration, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *keppel.DB, auditor keppel.Auditor) *Janitor {
 	j := &Janitor{cfg, fd, sd, icd, db, auditor, time.Now, keppel.GenerateStorageID}
 	j.initializeCounters()
 	return j
 }
 
-//OverrideTimeNow replaces time.Now with a test double.
+// OverrideTimeNow replaces time.Now with a test double.
 func (j *Janitor) OverrideTimeNow(timeNow func() time.Time) *Janitor {
 	j.timeNow = timeNow
 	return j
 }
 
-//OverrideGenerateStorageID replaces keppel.GenerateStorageID with a test double.
+// OverrideGenerateStorageID replaces keppel.GenerateStorageID with a test double.
 func (j *Janitor) OverrideGenerateStorageID(generateStorageID func() string) *Janitor {
 	j.generateStorageID = generateStorageID
 	return j
@@ -79,34 +79,34 @@ func (j *Janitor) processor() *processor.Processor {
 ////////////////////////////////////////////////////////////////////////////////
 // janitorUserIdentity
 
-//janitorUserIdentity is a keppel.UserIdentity for the janitor user. It is only
-//used for generating audit events.
+// janitorUserIdentity is a keppel.UserIdentity for the janitor user. It is only
+// used for generating audit events.
 type janitorUserIdentity struct {
 	TaskName string
 	GCPolicy *keppel.GCPolicy
 }
 
-//HasPermission implements the keppel.UserIdentity interface.
+// HasPermission implements the keppel.UserIdentity interface.
 func (uid janitorUserIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
 	return false
 }
 
-//UserType implements the keppel.UserIdentity interface.
+// UserType implements the keppel.UserIdentity interface.
 func (uid janitorUserIdentity) UserType() keppel.UserType {
 	return keppel.JanitorUser
 }
 
-//UserName implements the keppel.UserIdentity interface.
+// UserName implements the keppel.UserIdentity interface.
 func (uid janitorUserIdentity) UserName() string {
 	return ""
 }
 
-//UserInfo implements the keppel.UserIdentity interface.
+// UserInfo implements the keppel.UserIdentity interface.
 func (uid janitorUserIdentity) UserInfo() audittools.UserInfo {
 	return janitorUserInfo(uid)
 }
 
-//SerializeToJSON implements the keppel.UserIdentity interface.
+// SerializeToJSON implements the keppel.UserIdentity interface.
 func (uid janitorUserIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
 	return "", nil, errors.New("janitorUserIdentity.SerializeToJSON is not allowed")
 }
@@ -114,55 +114,55 @@ func (uid janitorUserIdentity) SerializeToJSON() (typeName string, payload []byt
 ////////////////////////////////////////////////////////////////////////////////
 // janitorUserInfo
 
-//janitorUserInfo is an audittools.NonStandardUserInfo representing the
-//keppel-janitor (who does not have a corresponding OpenStack user). It can be
-//used via `type JanitorUserIdentity`.
+// janitorUserInfo is an audittools.NonStandardUserInfo representing the
+// keppel-janitor (who does not have a corresponding OpenStack user). It can be
+// used via `type JanitorUserIdentity`.
 type janitorUserInfo struct {
 	TaskName string
 	GCPolicy *keppel.GCPolicy
 }
 
-//UserUUID implements the audittools.UserInfo interface.
+// UserUUID implements the audittools.UserInfo interface.
 func (janitorUserInfo) UserUUID() string {
 	return "" //unused
 }
 
-//UserName implements the audittools.UserInfo interface.
+// UserName implements the audittools.UserInfo interface.
 func (janitorUserInfo) UserName() string {
 	return "" //unused
 }
 
-//UserDomainName implements the audittools.UserInfo interface.
+// UserDomainName implements the audittools.UserInfo interface.
 func (janitorUserInfo) UserDomainName() string {
 	return "" //unused
 }
 
-//ProjectScopeUUID implements the audittools.UserInfo interface.
+// ProjectScopeUUID implements the audittools.UserInfo interface.
 func (janitorUserInfo) ProjectScopeUUID() string {
 	return "" //unused
 }
 
-//ProjectScopeName implements the audittools.UserInfo interface.
+// ProjectScopeName implements the audittools.UserInfo interface.
 func (janitorUserInfo) ProjectScopeName() string {
 	return "" //unused
 }
 
-//ProjectScopeDomainName implements the audittools.UserInfo interface.
+// ProjectScopeDomainName implements the audittools.UserInfo interface.
 func (janitorUserInfo) ProjectScopeDomainName() string {
 	return "" //unused
 }
 
-//DomainScopeUUID implements the audittools.UserInfo interface.
+// DomainScopeUUID implements the audittools.UserInfo interface.
 func (janitorUserInfo) DomainScopeUUID() string {
 	return "" //unused
 }
 
-//DomainScopeName implements the audittools.UserInfo interface.
+// DomainScopeName implements the audittools.UserInfo interface.
 func (janitorUserInfo) DomainScopeName() string {
 	return "" //unused
 }
 
-//AsInitiator implements the audittools.NonStandardUserInfo interface.
+// AsInitiator implements the audittools.NonStandardUserInfo interface.
 func (u janitorUserInfo) AsInitiator() cadf.Resource {
 	res := cadf.Resource{
 		TypeURI: "service/docker-registry/janitor-task",

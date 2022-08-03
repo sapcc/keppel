@@ -34,7 +34,7 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//Manifest represents a manifest in the API.
+// Manifest represents a manifest in the API.
 type Manifest struct {
 	Digest                        string                    `json:"digest"`
 	MediaType                     string                    `json:"media_type"`
@@ -50,7 +50,7 @@ type Manifest struct {
 	MaxLayerCreatedAt             *int64                    `json:"max_layer_created_at"`
 }
 
-//Tag represents a tag in the API.
+// Tag represents a tag in the API.
 type Tag struct {
 	Name         string `json:"name"`
 	PushedAt     int64  `json:"pushed_at"`

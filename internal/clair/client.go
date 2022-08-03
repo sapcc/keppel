@@ -31,7 +31,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-//Client is a client for accessing the Clair vulnerability scanning service.
+// Client is a client for accessing the Clair vulnerability scanning service.
 type Client struct {
 	//BaseURL is where the Clair API is running.
 	BaseURL url.URL
@@ -97,9 +97,9 @@ func (c *Client) doRequest(req *http.Request, respBody interface{}) error {
 	return nil
 }
 
-//SendRequest sends an arbitrary request without request body or special
-//headers (so probably only GET or HEAD) to Clair with proper auth. This
-//interface is only used by the Clair API proxy.
+// SendRequest sends an arbitrary request without request body or special
+// headers (so probably only GET or HEAD) to Clair with proper auth. This
+// interface is only used by the Clair API proxy.
 func (c *Client) SendRequest(method, path string, responseBody interface{}) error {
 	req, err := http.NewRequest(method, c.requestURL(path), nil)
 	if err != nil {

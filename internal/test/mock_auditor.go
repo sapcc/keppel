@@ -36,8 +36,8 @@ var (
 	}
 )
 
-//ToJSON is a more compact equivalent of json.Marshal() that panics on error
-//instead of returning it, and which returns string instead of []byte.
+// ToJSON is a more compact equivalent of json.Marshal() that panics on error
+// instead of returning it, and which returns string instead of []byte.
 func ToJSON(x interface{}) string {
 	result, err := json.Marshal(x)
 	if err != nil {
@@ -46,17 +46,17 @@ func ToJSON(x interface{}) string {
 	return string(result)
 }
 
-//Auditor is a test recorder that satisfies the keppel.Auditor interface.
+// Auditor is a test recorder that satisfies the keppel.Auditor interface.
 type Auditor struct {
 	events []cadf.Event
 }
 
-//Record implements the keppel.Auditor interface.
+// Record implements the keppel.Auditor interface.
 func (a *Auditor) Record(params audittools.EventParameters) {
 	a.events = append(a.events, a.normalize(audittools.NewEvent(params)))
 }
 
-//ExpectEvents checks that the recorded events are equivalent to the supplied expectation.
+// ExpectEvents checks that the recorded events are equivalent to the supplied expectation.
 func (a *Auditor) ExpectEvents(t *testing.T, expectedEvents ...cadf.Event) {
 	t.Helper()
 	if len(expectedEvents) == 0 {
@@ -72,8 +72,8 @@ func (a *Auditor) ExpectEvents(t *testing.T, expectedEvents ...cadf.Event) {
 	a.events = nil
 }
 
-//IgnoreEventsUntilNow clears the list of recorded events, so that the next
-//ExpectEvents() will only cover events generated after this point.
+// IgnoreEventsUntilNow clears the list of recorded events, so that the next
+// ExpectEvents() will only cover events generated after this point.
 func (a *Auditor) IgnoreEventsUntilNow() {
 	a.events = nil
 }

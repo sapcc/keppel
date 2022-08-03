@@ -48,7 +48,7 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//AddCommandTo mounts this command into the command hierarchy.
+// AddCommandTo mounts this command into the command hierarchy.
 func AddCommandTo(parent *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:   "api",
@@ -116,7 +116,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 }
 
-//Note that, since Redis is optional, this may return (nil, nil).
+// Note that, since Redis is optional, this may return (nil, nil).
 func initRedis() (*redis.Client, error) {
 	if !osext.GetenvBool("KEPPEL_REDIS_ENABLE") {
 		return nil, nil

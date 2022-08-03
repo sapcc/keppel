@@ -32,7 +32,7 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//API contains state variables used by the Auth API endpoint.
+// API contains state variables used by the Auth API endpoint.
 type API struct {
 	cfg        keppel.Configuration
 	authDriver keppel.AuthDriver
@@ -40,12 +40,12 @@ type API struct {
 	db         *keppel.DB
 }
 
-//NewAPI constructs a new API instance.
+// NewAPI constructs a new API instance.
 func NewAPI(cfg keppel.Configuration, ad keppel.AuthDriver, fd keppel.FederationDriver, db *keppel.DB) *API {
 	return &API{cfg, ad, fd, db}
 }
 
-//AddTo implements the api.API interface.
+// AddTo implements the api.API interface.
 func (a *API) AddTo(r *mux.Router) {
 	r.Methods("GET").Path("/keppel/v1/auth").HandlerFunc(a.handleGetAuth)
 	r.Methods("POST").Path("/keppel/v1/auth/peering").HandlerFunc(a.handlePostPeering)

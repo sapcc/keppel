@@ -26,18 +26,18 @@ import (
 	"github.com/sapcc/go-bits/logg"
 )
 
-//When reverse-proxying, these headers from the client request will be
-//forwarded. All other client headers will be discarded.
+// When reverse-proxying, these headers from the client request will be
+// forwarded. All other client headers will be discarded.
 var reverseProxyHeaders = []string{
 	"Accept",
 	"Authorization",
 }
 
-//ReverseProxyAnycastRequestToPeer takes a http.Request for the anycast API and
-//reverse-proxies it to a different keppel-api in this Keppel's peer group.
+// ReverseProxyAnycastRequestToPeer takes a http.Request for the anycast API and
+// reverse-proxies it to a different keppel-api in this Keppel's peer group.
 //
-//If an error is returned, no response has been written and the caller is
-//responsible for producing the error response.
+// If an error is returned, no response has been written and the caller is
+// responsible for producing the error response.
 func (cfg Configuration) ReverseProxyAnycastRequestToPeer(w http.ResponseWriter, r *http.Request, peerHostName string) error {
 	//build request URL
 	reqURL := url.URL{

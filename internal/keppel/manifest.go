@@ -35,7 +35,7 @@ import (
 //anymore since it's legacy anyway and the implementation is a lot simpler
 //when we don't have to rewrite manifests between schema1 and schema2.
 
-//IsManifestMediaType returns whether the given media type is for a manifest.
+// IsManifestMediaType returns whether the given media type is for a manifest.
 func IsManifestMediaType(mediaType string) bool {
 	for _, mt := range distribution.ManifestMediaTypes() {
 		if mt == mediaType {
@@ -45,8 +45,8 @@ func IsManifestMediaType(mediaType string) bool {
 	return false
 }
 
-//ParsedManifest is an interface that can interrogate manifests about the blobs
-//and submanifests referenced therein.
+// ParsedManifest is an interface that can interrogate manifests about the blobs
+// and submanifests referenced therein.
 type ParsedManifest interface {
 	//FindImageConfigBlob returns the descriptor of the blob containing this
 	//manifest's image configuration, or nil if the manifest does not have an image
@@ -61,7 +61,7 @@ type ParsedManifest interface {
 	ManifestReferences(pf PlatformFilter) []manifestlist.ManifestDescriptor
 }
 
-//ParseManifest parses a manifest. It also returns a Descriptor describing the manifest itself.
+// ParseManifest parses a manifest. It also returns a Descriptor describing the manifest itself.
 func ParseManifest(mediaType string, contents []byte) (ParsedManifest, distribution.Descriptor, error) {
 	m, desc, err := distribution.UnmarshalManifest(mediaType, contents)
 	if err != nil {
@@ -79,7 +79,7 @@ func ParseManifest(mediaType string, contents []byte) (ParsedManifest, distribut
 	}
 }
 
-//v2ManifestAdapter provides the ParsedManifest interface for the contained type.
+// v2ManifestAdapter provides the ParsedManifest interface for the contained type.
 type v2ManifestAdapter struct {
 	m *schema2.DeserializedManifest
 }
@@ -100,7 +100,7 @@ func (a v2ManifestAdapter) ManifestReferences(pf PlatformFilter) []manifestlist.
 	return nil
 }
 
-//ociManifestAdapter provides the ParsedManifest interface for the contained type.
+// ociManifestAdapter provides the ParsedManifest interface for the contained type.
 type ociManifestAdapter struct {
 	m *ocischema.DeserializedManifest
 }
@@ -121,7 +121,7 @@ func (a ociManifestAdapter) ManifestReferences(pf PlatformFilter) []manifestlist
 	return nil
 }
 
-//listManifestAdapter provides the ParsedManifest interface for the contained type.
+// listManifestAdapter provides the ParsedManifest interface for the contained type.
 type listManifestAdapter struct {
 	m *manifestlist.DeserializedManifestList
 }

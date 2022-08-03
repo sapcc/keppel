@@ -157,12 +157,12 @@ func manifestObject(c *schwift.Container, repoName, digest string) *schwift.Obje
 	return c.Object(fmt.Sprintf("%s/_manifests/%s", repoName, digest))
 }
 
-//Like schwift.Object.Upload(), but does a HEAD request on the object
-//beforehand to ensure that we have a valid token. There seems to be a problem
-//in gopherschwift with restarting requests with request bodies after
-//reauthentication, even though [1] is supposed to handle this case.
+// Like schwift.Object.Upload(), but does a HEAD request on the object
+// beforehand to ensure that we have a valid token. There seems to be a problem
+// in gopherschwift with restarting requests with request bodies after
+// reauthentication, even though [1] is supposed to handle this case.
 //
-//[1] https://github.com/majewsky/schwift/blob/3857990bb9f705ed06f8ac2a18ba7d4a732f4274/gopherschwift/package.go#L124-L135
+// [1] https://github.com/majewsky/schwift/blob/3857990bb9f705ed06f8ac2a18ba7d4a732f4274/gopherschwift/package.go#L124-L135
 func uploadToObject(o *schwift.Object, content io.Reader, opts *schwift.UploadOptions, ropts *schwift.RequestOptions) error {
 	_, err := o.Headers()
 	if err != nil && !schwift.Is(err, http.StatusNotFound) {
@@ -171,7 +171,7 @@ func uploadToObject(o *schwift.Object, content io.Reader, opts *schwift.UploadOp
 	return o.Upload(content, opts, ropts)
 }
 
-//AppendToBlob implements the keppel.StorageDriver interface.
+// AppendToBlob implements the keppel.StorageDriver interface.
 func (d *swiftDriver) AppendToBlob(account keppel.Account, storageID string, chunkNumber uint32, chunkLength *uint64, chunk io.Reader) error {
 	c, _, err := d.getBackendConnection(account)
 	if err != nil {
@@ -185,7 +185,7 @@ func (d *swiftDriver) AppendToBlob(account keppel.Account, storageID string, chu
 	return uploadToObject(o, chunk, nil, hdr.ToOpts())
 }
 
-//FinalizeBlob implements the keppel.StorageDriver interface.
+// FinalizeBlob implements the keppel.StorageDriver interface.
 func (d *swiftDriver) FinalizeBlob(account keppel.Account, storageID string, chunkCount uint32) error {
 	c, _, err := d.getBackendConnection(account)
 	if err != nil {
@@ -221,7 +221,7 @@ func (d *swiftDriver) FinalizeBlob(account keppel.Account, storageID string, chu
 	return lo.WriteManifest(nil)
 }
 
-//AbortBlobUpload implements the keppel.StorageDriver interface.
+// AbortBlobUpload implements the keppel.StorageDriver interface.
 func (d *swiftDriver) AbortBlobUpload(account keppel.Account, storageID string, chunkCount uint32) error {
 	c, _, err := d.getBackendConnection(account)
 	if err != nil {
@@ -247,7 +247,7 @@ func (d *swiftDriver) AbortBlobUpload(account keppel.Account, storageID string, 
 	return firstError
 }
 
-//ReadBlob implements the keppel.StorageDriver interface.
+// ReadBlob implements the keppel.StorageDriver interface.
 func (d *swiftDriver) ReadBlob(account keppel.Account, storageID string) (io.ReadCloser, uint64, error) {
 	c, _, err := d.getBackendConnection(account)
 	if err != nil {
@@ -262,7 +262,7 @@ func (d *swiftDriver) ReadBlob(account keppel.Account, storageID string) (io.Rea
 	return reader, hdr.SizeBytes().Get(), err
 }
 
-//URLForBlob implements the keppel.StorageDriver interface.
+// URLForBlob implements the keppel.StorageDriver interface.
 func (d *swiftDriver) URLForBlob(account keppel.Account, storageID string) (string, error) {
 	c, info, err := d.getBackendConnection(account)
 	if err != nil {
@@ -273,7 +273,7 @@ func (d *swiftDriver) URLForBlob(account keppel.Account, storageID string) (stri
 	return blobObject(c, storageID).TempURL(info.TempURLKey, "GET", expiresAt)
 }
 
-//DeleteBlob implements the keppel.StorageDriver interface.
+// DeleteBlob implements the keppel.StorageDriver interface.
 func (d *swiftDriver) DeleteBlob(account keppel.Account, storageID string) error {
 	c, _, err := d.getBackendConnection(account)
 	if err != nil {
@@ -296,7 +296,7 @@ func reportObjectErrorsIfAny(operation string, err error) {
 	}
 }
 
-//ReadManifest implements the keppel.StorageDriver interface.
+// ReadManifest implements the keppel.StorageDriver interface.
 func (d *swiftDriver) ReadManifest(account keppel.Account, repoName, digest string) ([]byte, error) {
 	c, _, err := d.getBackendConnection(account)
 	if err != nil {
@@ -306,7 +306,7 @@ func (d *swiftDriver) ReadManifest(account keppel.Account, repoName, digest stri
 	return o.Download(nil).AsByteSlice()
 }
 
-//WriteManifest implements the keppel.StorageDriver interface.
+// WriteManifest implements the keppel.StorageDriver interface.
 func (d *swiftDriver) WriteManifest(account keppel.Account, repoName, digest string, contents []byte) error {
 	c, _, err := d.getBackendConnection(account)
 	if err != nil {
@@ -316,7 +316,7 @@ func (d *swiftDriver) WriteManifest(account keppel.Account, repoName, digest str
 	return uploadToObject(o, bytes.NewReader(contents), nil, nil)
 }
 
-//DeleteManifest implements the keppel.StorageDriver interface.
+// DeleteManifest implements the keppel.StorageDriver interface.
 func (d *swiftDriver) DeleteManifest(account keppel.Account, repoName, digest string) error {
 	c, _, err := d.getBackendConnection(account)
 	if err != nil {
@@ -336,7 +336,7 @@ var (
 	manifestObjectNameRx = regexp.MustCompile(`^(.+)/_manifests/([^/]+)$`)
 )
 
-//ListStorageContents implements the keppel.StorageDriver interface.
+// ListStorageContents implements the keppel.StorageDriver interface.
 func (d *swiftDriver) ListStorageContents(account keppel.Account) ([]keppel.StoredBlobInfo, []keppel.StoredManifestInfo, error) {
 	c, _, err := d.getBackendConnection(account)
 	if err != nil {
@@ -385,7 +385,7 @@ func (d *swiftDriver) ListStorageContents(account keppel.Account) ([]keppel.Stor
 	return blobs, manifests, nil
 }
 
-//See comment on keppel.StoredBlobInfo.ChunkCount for explanation of semantics.
+// See comment on keppel.StoredBlobInfo.ChunkCount for explanation of semantics.
 func mergeChunkCount(chunkCounts map[string]uint32, key string, chunkNumber uint32) {
 	prevCount, exists := chunkCounts[key]
 	if !exists {
@@ -405,7 +405,7 @@ func mergeChunkCount(chunkCounts map[string]uint32, key string, chunkNumber uint
 	}
 }
 
-//CleanupAccount implements the keppel.StorageDriver interface.
+// CleanupAccount implements the keppel.StorageDriver interface.
 func (d *swiftDriver) CleanupAccount(account keppel.Account) error {
 	c, _, err := d.getBackendConnection(account)
 	if err != nil {

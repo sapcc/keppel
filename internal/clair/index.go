@@ -28,21 +28,21 @@ import (
 	"github.com/sapcc/go-bits/logg"
 )
 
-//Manifest is the representation of an image manifest that gets submitted to
-//Clair for indexing.
+// Manifest is the representation of an image manifest that gets submitted to
+// Clair for indexing.
 type Manifest struct {
 	Digest string  `json:"hash"`
 	Layers []Layer `json:"layers"`
 }
 
-//Layer appears in type Manifest.
+// Layer appears in type Manifest.
 type Layer struct {
 	Digest  string      `json:"hash"`
 	URL     string      `json:"uri"`
 	Headers http.Header `json:"headers,omitempty"`
 }
 
-//ManifestState is returned by CheckManifestState.
+// ManifestState is returned by CheckManifestState.
 type ManifestState struct {
 	IsIndexed    bool
 	IsErrored    bool
@@ -64,9 +64,9 @@ func (r indexReport) IntoManifestState() ManifestState {
 	}
 }
 
-//CheckManifestState submits the manifest to clair for indexing if not done
-//yet, and checks if the indexing has finished. Since the manifest rendering is
-//costly, it's wrapped in a callback that this method only calls when needed.
+// CheckManifestState submits the manifest to clair for indexing if not done
+// yet, and checks if the indexing has finished. Since the manifest rendering is
+// costly, it's wrapped in a callback that this method only calls when needed.
 func (c *Client) CheckManifestState(digest string, renderManifest func() (Manifest, error)) (ManifestState, error) {
 	req, err := http.NewRequest("GET", c.requestURL("indexer", "api", "v1", "index_report", digest), nil)
 	if err != nil {

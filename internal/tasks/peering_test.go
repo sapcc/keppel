@@ -125,7 +125,7 @@ type mockPeerReceivingPassword struct {
 	Password string
 }
 
-//AddTo implements the api.API interface.
+// AddTo implements the api.API interface.
 func (p *mockPeerReceivingPassword) AddTo(r *mux.Router) {
 	r.Methods("POST").Path("/keppel/v1/auth/peering").HandlerFunc(p.handleReceivePassword)
 }

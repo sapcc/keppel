@@ -27,11 +27,11 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 )
 
-//RegistryV2ErrorCode is the closed set of error codes that can appear in type
-//RegistryV2Error.
+// RegistryV2ErrorCode is the closed set of error codes that can appear in type
+// RegistryV2Error.
 type RegistryV2ErrorCode string
 
-//Possible values for RegistryV2ErrorCode.
+// Possible values for RegistryV2ErrorCode.
 const (
 	ErrBlobUnknown         RegistryV2ErrorCode = "BLOB_UNKNOWN"
 	ErrBlobUploadInvalid   RegistryV2ErrorCode = "BLOB_UPLOAD_INVALID"
@@ -55,7 +55,7 @@ const (
 	ErrTooManyRequests RegistryV2ErrorCode = "TOOMANYREQUESTS"
 )
 
-//With is a convenience function for constructing type RegistryV2Error.
+// With is a convenience function for constructing type RegistryV2Error.
 func (c RegistryV2ErrorCode) With(msg string, args ...interface{}) *RegistryV2Error {
 	if msg == "" {
 		msg = apiErrorMessages[c]
@@ -112,8 +112,8 @@ var apiErrorStatusCodes = map[RegistryV2ErrorCode]int{
 	ErrTooManyRequests:     http.StatusTooManyRequests,
 }
 
-//RegistryV2Error is the error type expected by clients of the docker-registry
-//v2 API.
+// RegistryV2Error is the error type expected by clients of the docker-registry
+// v2 API.
 type RegistryV2Error struct {
 	Code    RegistryV2ErrorCode `json:"code"`
 	Message string              `json:"message"`
@@ -125,8 +125,8 @@ type RegistryV2Error struct {
 	Headers http.Header `json:"-"`
 }
 
-//AsRegistryV2Error tries to cast `err` into RegistryV2Error. If `err` is not a
-//RegistryV2Error, it gets wrapped in ErrUnknown instead.
+// AsRegistryV2Error tries to cast `err` into RegistryV2Error. If `err` is not a
+// RegistryV2Error, it gets wrapped in ErrUnknown instead.
 func AsRegistryV2Error(err error) *RegistryV2Error {
 	if rerr, ok := err.(*RegistryV2Error); ok {
 		return rerr
@@ -134,19 +134,19 @@ func AsRegistryV2Error(err error) *RegistryV2Error {
 	return ErrUnknown.With(err.Error())
 }
 
-//WithDetail adds detail information to this error.
+// WithDetail adds detail information to this error.
 func (e *RegistryV2Error) WithDetail(detail interface{}) *RegistryV2Error {
 	e.Detail = detail
 	return e
 }
 
-//WithStatus changes the HTTP status code for this error.
+// WithStatus changes the HTTP status code for this error.
 func (e *RegistryV2Error) WithStatus(status int) *RegistryV2Error {
 	e.Status = status
 	return e
 }
 
-//WithHeader adds a HTTP response header to this error.
+// WithHeader adds a HTTP response header to this error.
 func (e *RegistryV2Error) WithHeader(key string, values ...string) *RegistryV2Error {
 	if e.Headers == nil {
 		e.Headers = make(http.Header)
@@ -155,8 +155,8 @@ func (e *RegistryV2Error) WithHeader(key string, values ...string) *RegistryV2Er
 	return e
 }
 
-//WriteAsRegistryV2ResponseTo reports this error in the format used by the
-//Registry V2 API.
+// WriteAsRegistryV2ResponseTo reports this error in the format used by the
+// Registry V2 API.
 func (e *RegistryV2Error) WriteAsRegistryV2ResponseTo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	for k, v := range e.Headers {
@@ -177,8 +177,8 @@ func (e *RegistryV2Error) WriteAsRegistryV2ResponseTo(w http.ResponseWriter, r *
 	}
 }
 
-//WriteAsAuthResponseTo reports this error in the format used by the Auth API
-//endpoint.
+// WriteAsAuthResponseTo reports this error in the format used by the Auth API
+// endpoint.
 func (e *RegistryV2Error) WriteAsAuthResponseTo(w http.ResponseWriter) {
 	for k, v := range e.Headers {
 		w.Header()[k] = v
@@ -190,7 +190,7 @@ func (e *RegistryV2Error) WriteAsAuthResponseTo(w http.ResponseWriter) {
 	respondwith.JSON(w, status, map[string]string{"details": e.Error()})
 }
 
-//WriteAsTextTo reports this error in a plain text format.
+// WriteAsTextTo reports this error in a plain text format.
 func (e *RegistryV2Error) WriteAsTextTo(w http.ResponseWriter) {
 	for k, v := range e.Headers {
 		w.Header()[k] = v
@@ -203,7 +203,7 @@ func (e *RegistryV2Error) WriteAsTextTo(w http.ResponseWriter) {
 	w.Write([]byte(e.Error() + "\n"))
 }
 
-//Error implements the builtin/error interface.
+// Error implements the builtin/error interface.
 func (e *RegistryV2Error) Error() string {
 	text := e.Message
 	if e.Detail != nil {

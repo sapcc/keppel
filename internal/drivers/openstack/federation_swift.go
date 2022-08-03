@@ -108,7 +108,7 @@ func (fd *federationDriverSwift) accountFileObj(accountName string) *schwift.Obj
 	return fd.Container.Object(fmt.Sprintf("accounts/%s.json", accountName))
 }
 
-//Downloads and parses an account file from the Swift container.
+// Downloads and parses an account file from the Swift container.
 func (fd *federationDriverSwift) readAccountFile(accountName string) (accountFile, error) {
 	buf, err := fd.accountFileObj(accountName).Download(nil).AsByteSlice()
 	if err != nil {
@@ -125,10 +125,10 @@ func (fd *federationDriverSwift) readAccountFile(accountName string) (accountFil
 	return file, err
 }
 
-//Base implementation for all write operations performed by this driver. Swift
-//does not have strong consistency, so we reduce the likelihood of accidental
-//inconsistencies by performing a write once, then reading the result back
-//after a short wait and checking whether our write was persisted.
+// Base implementation for all write operations performed by this driver. Swift
+// does not have strong consistency, so we reduce the likelihood of accidental
+// inconsistencies by performing a write once, then reading the result back
+// after a short wait and checking whether our write was persisted.
 func (fd *federationDriverSwift) modifyAccountFile(accountName string, modify func(file *accountFile, firstPass bool) error) error {
 	fileOld, err := fd.readAccountFile(accountName)
 	if err != nil {
@@ -184,7 +184,7 @@ func (fd *federationDriverSwift) modifyAccountFile(accountName string, modify fu
 	return nil
 }
 
-//ClaimAccountName implements the keppel.FederationDriver interface.
+// ClaimAccountName implements the keppel.FederationDriver interface.
 func (fd *federationDriverSwift) ClaimAccountName(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	var (
 		isUserError bool
@@ -253,7 +253,7 @@ func (fd *federationDriverSwift) claimReplicaAccount(account keppel.Account, sub
 	return isUserError, err
 }
 
-//IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
+// IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
 func (fd *federationDriverSwift) IssueSubleaseTokenSecret(account keppel.Account) (string, error) {
 	//generate a random token with 16 Base64 chars
 	tokenBytes := make([]byte, 12)
@@ -280,7 +280,7 @@ func (fd *federationDriverSwift) IssueSubleaseTokenSecret(account keppel.Account
 	})
 }
 
-//ForfeitAccountName implements the keppel.FederationDriver interface.
+// ForfeitAccountName implements the keppel.FederationDriver interface.
 func (fd *federationDriverSwift) ForfeitAccountName(account keppel.Account) error {
 	//case 1: replica account -> just remove ourselves from the set of replicas
 	if account.UpstreamPeerHostName != "" {
@@ -305,7 +305,7 @@ func (fd *federationDriverSwift) ForfeitAccountName(account keppel.Account) erro
 	return fd.accountFileObj(account.Name).Delete(nil, nil)
 }
 
-//RecordExistingAccount implements the keppel.FederationDriver interface.
+// RecordExistingAccount implements the keppel.FederationDriver interface.
 func (fd *federationDriverSwift) RecordExistingAccount(account keppel.Account, now time.Time) error {
 	//Inconsistencies can arise since we have multiple sources of truth in the
 	//Keppels' own database and in the shared Swift container. These
@@ -346,7 +346,7 @@ func (fd *federationDriverSwift) verifyAccountOwnership(file accountFile, expect
 	return nil
 }
 
-//FindPrimaryAccount implements the keppel.FederationDriver interface.
+// FindPrimaryAccount implements the keppel.FederationDriver interface.
 func (fd *federationDriverSwift) FindPrimaryAccount(accountName string) (peerHostName string, err error) {
 	file, err := fd.readAccountFile(accountName)
 	if err != nil {

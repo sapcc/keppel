@@ -30,7 +30,7 @@ var (
 	federationDriversForThisUnitTest []*FederationDriver
 )
 
-//FederationDriver (driver ID "unittest") is a keppel.FederationDriver for unit tests.
+// FederationDriver (driver ID "unittest") is a keppel.FederationDriver for unit tests.
 type FederationDriver struct {
 	APIPublicHostName              string
 	ClaimFailsBecauseOfUserError   bool
@@ -41,7 +41,7 @@ type FederationDriver struct {
 	RecordedAccounts               []AccountRecordedByFederationDriver
 }
 
-//AccountRecordedByFederationDriver appears in type FederationDriver.
+// AccountRecordedByFederationDriver appears in type FederationDriver.
 type AccountRecordedByFederationDriver struct {
 	Account    keppel.Account
 	RecordedAt time.Time
@@ -58,7 +58,7 @@ func init() {
 	})
 }
 
-//ClaimAccountName implements the keppel.FederationDriver interface.
+// ClaimAccountName implements the keppel.FederationDriver interface.
 func (d *FederationDriver) ClaimAccountName(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	//simulated failures for primary accounts
 	if d.ClaimFailsBecauseOfUserError {
@@ -81,7 +81,7 @@ func (d *FederationDriver) ClaimAccountName(account keppel.Account, subleaseToke
 	return keppel.ClaimSucceeded, nil
 }
 
-//IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
+// IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
 func (d *FederationDriver) IssueSubleaseTokenSecret(account keppel.Account) (string, error) {
 	//issue each sublease token only once
 	t := d.NextSubleaseTokenSecretToIssue
@@ -89,7 +89,7 @@ func (d *FederationDriver) IssueSubleaseTokenSecret(account keppel.Account) (str
 	return t, nil
 }
 
-//ForfeitAccountName implements the keppel.FederationDriver interface.
+// ForfeitAccountName implements the keppel.FederationDriver interface.
 func (d *FederationDriver) ForfeitAccountName(account keppel.Account) error {
 	if d.ForfeitFails {
 		return errors.New("ForfeitAccountName failing as requested")
@@ -97,7 +97,7 @@ func (d *FederationDriver) ForfeitAccountName(account keppel.Account) error {
 	return nil
 }
 
-//RecordExistingAccount implements the keppel.FederationDriver interface.
+// RecordExistingAccount implements the keppel.FederationDriver interface.
 func (d *FederationDriver) RecordExistingAccount(account keppel.Account, now time.Time) error {
 	account.NextFederationAnnouncementAt = nil // this pointer type is poison for DeepEqual tests
 
@@ -108,7 +108,7 @@ func (d *FederationDriver) RecordExistingAccount(account keppel.Account, now tim
 	return nil
 }
 
-//FindPrimaryAccount implements the keppel.FederationDriver interface.
+// FindPrimaryAccount implements the keppel.FederationDriver interface.
 func (d *FederationDriver) FindPrimaryAccount(accountName string) (string, error) {
 	for _, fd := range federationDriversForThisUnitTest {
 		for _, a := range fd.RecordedAccounts {

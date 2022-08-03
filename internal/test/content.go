@@ -36,14 +36,14 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//Bytes groups a bytestring with its digest.
+// Bytes groups a bytestring with its digest.
 type Bytes struct {
 	Contents  []byte
 	Digest    digest.Digest
 	MediaType string
 }
 
-//NewBytes makes a new Bytes instance.
+// NewBytes makes a new Bytes instance.
 func NewBytes(contents []byte) Bytes {
 	return newBytesWithMediaType(contents, "application/octet-stream")
 }
@@ -52,22 +52,22 @@ func newBytesWithMediaType(contents []byte, mediaType string) Bytes {
 	return Bytes{contents, digest.Canonical.FromBytes(contents), mediaType}
 }
 
-//NewBytesFromFile creates a Bytes instance with the contents of the given file.
+// NewBytesFromFile creates a Bytes instance with the contents of the given file.
 func NewBytesFromFile(path string) (Bytes, error) {
 	buf, err := os.ReadFile(path)
 	return NewBytes(buf), err
 }
 
-//GenerateExampleLayer generates a blob of 1 MiB that can be used like an image
-//layer when constructing image manifests for unit tests. The contents are
-//generated deterministically from the given seed.
+// GenerateExampleLayer generates a blob of 1 MiB that can be used like an image
+// layer when constructing image manifests for unit tests. The contents are
+// generated deterministically from the given seed.
 func GenerateExampleLayer(seed int64) Bytes {
 	return GenerateExampleLayerSize(seed, 1)
 }
 
-//GenerateExampleLayerSize generates a blob of a configurable size that can be used like an image
-//layer when constructing image manifests for unit tests. The contents are
-//generated deterministically from the given seed.
+// GenerateExampleLayerSize generates a blob of a configurable size that can be used like an image
+// layer when constructing image manifests for unit tests. The contents are
+// generated deterministically from the given seed.
 func GenerateExampleLayerSize(seed, sizeMiB int64) Bytes {
 	r := rand.New(rand.NewSource(seed))
 	buf := make([]byte, sizeMiB<<20)
@@ -81,15 +81,15 @@ func GenerateExampleLayerSize(seed, sizeMiB int64) Bytes {
 	return newBytesWithMediaType(bytes.Bytes(), schema2.MediaTypeLayer)
 }
 
-//Image contains all the pieces of a Docker image. The Layers and Config must
-//be uploaded to the registry as blobs.
+// Image contains all the pieces of a Docker image. The Layers and Config must
+// be uploaded to the registry as blobs.
 type Image struct {
 	Layers   []Bytes
 	Config   Bytes
 	Manifest Bytes
 }
 
-//GenerateImage makes an Image from the given bytes in a deterministic manner.
+// GenerateImage makes an Image from the given bytes in a deterministic manner.
 func GenerateImage(layers ...Bytes) Image {
 	return GenerateImageWithCustomConfig(nil, layers...)
 }
@@ -216,8 +216,8 @@ func GenerateImageWithCustomConfig(change func(map[string]interface{}), layers .
 	}
 }
 
-//SizeBytes returns the value that we expect in the DB column
-//`manifests.size_bytes` for this image.
+// SizeBytes returns the value that we expect in the DB column
+// `manifests.size_bytes` for this image.
 func (i Image) SizeBytes() uint64 {
 	imageSize := len(i.Manifest.Contents) + len(i.Config.Contents)
 	for _, layer := range i.Layers {
@@ -226,23 +226,23 @@ func (i Image) SizeBytes() uint64 {
 	return uint64(imageSize)
 }
 
-//DigestRef returns the ManifestReference for this manifest's digest.
+// DigestRef returns the ManifestReference for this manifest's digest.
 func (i Image) DigestRef() keppel.ManifestReference {
 	return keppel.ManifestReference{
 		Digest: i.Manifest.Digest,
 	}
 }
 
-//ImageList contains all the pieces of a multi-architecture Docker image. This
-//type is used for testing the behavior of Keppel with manifests that reference
-//other manifests.
+// ImageList contains all the pieces of a multi-architecture Docker image. This
+// type is used for testing the behavior of Keppel with manifests that reference
+// other manifests.
 type ImageList struct {
 	Images   []Image
 	Manifest Bytes
 }
 
-//GenerateImageList makes an ImageList containing the given images in a
-//deterministic manner.
+// GenerateImageList makes an ImageList containing the given images in a
+// deterministic manner.
 func GenerateImageList(images ...Image) ImageList {
 	manifestDescs := []map[string]interface{}{}
 	testArchStrings := []string{"amd64", "arm", "arm64", "386", "ppc64le", "s390x"}
@@ -273,8 +273,8 @@ func GenerateImageList(images ...Image) ImageList {
 	}
 }
 
-//SizeBytes returns the value that we expect in the DB column
-//`manifests.size_bytes` for this image.
+// SizeBytes returns the value that we expect in the DB column
+// `manifests.size_bytes` for this image.
 func (l ImageList) SizeBytes() uint64 {
 	imageSize := len(l.Manifest.Contents)
 	for _, i := range l.Images {
@@ -283,7 +283,7 @@ func (l ImageList) SizeBytes() uint64 {
 	return uint64(imageSize)
 }
 
-//DigestRef returns the ManifestReference for this manifest's digest.
+// DigestRef returns the ManifestReference for this manifest's digest.
 func (l ImageList) DigestRef() keppel.ManifestReference {
 	return keppel.ManifestReference{
 		Digest: l.Manifest.Digest,

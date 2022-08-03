@@ -23,34 +23,34 @@ import (
 	"strings"
 )
 
-//Scope contains the fields of the "scope" query parameter in a token request.
+// Scope contains the fields of the "scope" query parameter in a token request.
 type Scope struct {
 	ResourceType string   `json:"type"`
 	ResourceName string   `json:"name"`
 	Actions      []string `json:"actions"`
 }
 
-//ParsedRepositoryScope is returned by Scope.ParseRepositoryScope().
+// ParsedRepositoryScope is returned by Scope.ParseRepositoryScope().
 type ParsedRepositoryScope struct {
 	AccountName        string
 	RepositoryName     string
 	FullRepositoryName string
 }
 
-//ParseRepositoryScope interprets the resource name of a scope with resource
-//type "repository".
+// ParseRepositoryScope interprets the resource name of a scope with resource
+// type "repository".
 //
-//This is more complicated than it would appear in first sight since the
-//audience plays a role in how repository scopes look: On the regular APIs, the
-//scope "repository:foo/bar:pull" refers to the repository "bar" in the account
-//"foo". On the domain-remapped API for that account, the same repository would
-//be accessed with the scope "repository:bar:pull".
+// This is more complicated than it would appear in first sight since the
+// audience plays a role in how repository scopes look: On the regular APIs, the
+// scope "repository:foo/bar:pull" refers to the repository "bar" in the account
+// "foo". On the domain-remapped API for that account, the same repository would
+// be accessed with the scope "repository:bar:pull".
 //
-//I'm well aware that everything would be much easier if we used
-//"repository:foo/bar:pull" all the time, but our hand is being forced by the
-//Docker client here. It auto-guesses repository scopes based on the repository
-//URL, which for domain-remapped APIs only has the repository name in the URL
-//path.
+// I'm well aware that everything would be much easier if we used
+// "repository:foo/bar:pull" all the time, but our hand is being forced by the
+// Docker client here. It auto-guesses repository scopes based on the repository
+// URL, which for domain-remapped APIs only has the repository name in the URL
+// path.
 func (s Scope) ParseRepositoryScope(audience Audience) ParsedRepositoryScope {
 	if s.ResourceType != "repository" {
 		return ParsedRepositoryScope{}
@@ -83,8 +83,8 @@ func (s Scope) ParseRepositoryScope(audience Audience) ParsedRepositoryScope {
 	}
 }
 
-//Contains returns true if this scope is for the same resource as the other
-//scope, and if it contains all the actions that the other contains.
+// Contains returns true if this scope is for the same resource as the other
+// scope, and if it contains all the actions that the other contains.
 func (s Scope) Contains(other Scope) bool {
 	if s.ResourceType != other.ResourceType {
 		return false
@@ -104,7 +104,7 @@ func (s Scope) Contains(other Scope) bool {
 	return true
 }
 
-//String serializes this scope into the format used in the Docker auth API.
+// String serializes this scope into the format used in the Docker auth API.
 func (s Scope) String() string {
 	return strings.Join([]string{
 		s.ResourceType,
@@ -116,21 +116,21 @@ func (s Scope) String() string {
 ////////////////////////////////////////////////////////////////////////////////
 // predefined scopes
 
-//CatalogEndpointScope is the Scope for `GET /v2/_catalog`.
+// CatalogEndpointScope is the Scope for `GET /v2/_catalog`.
 var CatalogEndpointScope = Scope{
 	ResourceType: "registry",
 	ResourceName: "catalog",
 	Actions:      []string{"*"},
 }
 
-//PeerAPIScope is the Scope for all endpoints below `/peer/`.
+// PeerAPIScope is the Scope for all endpoints below `/peer/`.
 var PeerAPIScope = Scope{
 	ResourceType: "keppel_api",
 	ResourceName: "peer",
 	Actions:      []string{"access"},
 }
 
-//InfoAPIScope is the Scope for all informational endpoints that are allowed for all non-anon users.
+// InfoAPIScope is the Scope for all informational endpoints that are allowed for all non-anon users.
 var InfoAPIScope = Scope{
 	ResourceType: "keppel_api",
 	ResourceName: "info",

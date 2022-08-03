@@ -26,8 +26,8 @@ import (
 	"github.com/opencontainers/go-digest"
 )
 
-//UploadMonolithicBlob performs a monolithic blob upload. On success, the
-//blob's digest is returned.
+// UploadMonolithicBlob performs a monolithic blob upload. On success, the
+// blob's digest is returned.
 func (c *RepoClient) UploadMonolithicBlob(contents []byte) (digest.Digest, error) {
 	d := digest.Canonical.FromBytes(contents)
 
@@ -46,9 +46,9 @@ func (c *RepoClient) UploadMonolithicBlob(contents []byte) (digest.Digest, error
 	return d, err
 }
 
-//UploadManifest uploads a manifest. If `tagName` is not empty, this tag name
-//is used, otherwise the manifest is uploaded to its canonical digest. On
-//success, the manifest's digest is returned.
+// UploadManifest uploads a manifest. If `tagName` is not empty, this tag name
+// is used, otherwise the manifest is uploaded to its canonical digest. On
+// success, the manifest's digest is returned.
 func (c *RepoClient) UploadManifest(contents []byte, mediaType, tagName string) (digest.Digest, error) {
 	d := digest.Canonical.FromBytes(contents)
 	ref := tagName

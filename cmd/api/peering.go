@@ -82,8 +82,8 @@ func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
 	}()
 }
 
-//WARNING: This must be run in a transaction, or else `FOR UPDATE SKIP LOCKED`
-//will not work as expected.
+// WARNING: This must be run in a transaction, or else `FOR UPDATE SKIP LOCKED`
+// will not work as expected.
 var getNextPeerQuery = sqlext.SimplifyWhitespace(`
 	SELECT * FROM peers
 	 WHERE last_peered_at < $1 OR last_peered_at IS NULL

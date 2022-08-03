@@ -74,7 +74,7 @@ func compileOptionalImplicitlyBoundedRegex(pattern string) (*regexp.Regexp, erro
 	return rx, nil
 }
 
-//LoadManifest implements the keppel.InboundCacheDriver interface.
+// LoadManifest implements the keppel.InboundCacheDriver interface.
 func (d *inboundCacheDriverSwift) LoadManifest(location keppel.ImageReference, now time.Time) (contents []byte, mediaType string, returnedError error) {
 	if d.skip(location) {
 		return nil, "", sql.ErrNoRows
@@ -103,7 +103,7 @@ func (d *inboundCacheDriverSwift) LoadManifest(location keppel.ImageReference, n
 	return contents, hdr.ContentType().Get(), nil
 }
 
-//StoreManifest implements the keppel.InboundCacheDriver interface.
+// StoreManifest implements the keppel.InboundCacheDriver interface.
 func (d *inboundCacheDriverSwift) StoreManifest(location keppel.ImageReference, contents []byte, mediaType string, now time.Time) error {
 	if d.skip(location) {
 		return nil

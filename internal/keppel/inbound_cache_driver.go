@@ -24,8 +24,8 @@ import (
 	"time"
 )
 
-//InboundCacheDriver is the abstract interface for a caching strategy for
-//manifests and tags residing in an external registry.
+// InboundCacheDriver is the abstract interface for a caching strategy for
+// manifests and tags residing in an external registry.
 type InboundCacheDriver interface {
 	//LoadManifest pulls a manifest from the cache. If the given manifest is not
 	//cached, or if the cache entry has expired, sql.ErrNoRows shall be returned.
@@ -42,8 +42,8 @@ type InboundCacheDriver interface {
 
 var inboundCacheDriverFactories = make(map[string]func(Configuration) (InboundCacheDriver, error))
 
-//NewInboundCacheDriver creates a new InboundCacheDriver using one of the
-//factory functions registered with RegisterInboundCacheDriver().
+// NewInboundCacheDriver creates a new InboundCacheDriver using one of the
+// factory functions registered with RegisterInboundCacheDriver().
 func NewInboundCacheDriver(name string, cfg Configuration) (InboundCacheDriver, error) {
 	factory := inboundCacheDriverFactories[name]
 	if factory != nil {
@@ -52,8 +52,8 @@ func NewInboundCacheDriver(name string, cfg Configuration) (InboundCacheDriver, 
 	return nil, errors.New("no such inbound cache driver: " + name)
 }
 
-//RegisterInboundCacheDriver registers an InboundCacheDriver. Call this from
-//func init() of the package defining the InboundCacheDriver.
+// RegisterInboundCacheDriver registers an InboundCacheDriver. Call this from
+// func init() of the package defining the InboundCacheDriver.
 func RegisterInboundCacheDriver(name string, factory func(Configuration) (InboundCacheDriver, error)) {
 	if _, exists := inboundCacheDriverFactories[name]; exists {
 		panic("attempted to register multiple inbound cache drivers with name = " + name)

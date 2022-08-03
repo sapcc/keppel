@@ -25,10 +25,10 @@ import (
 	"time"
 )
 
-//Duration is a time.Duration with custom JSON marshalling/unmarshalling logic.
+// Duration is a time.Duration with custom JSON marshalling/unmarshalling logic.
 type Duration time.Duration
 
-//JSON format for type Duration.
+// JSON format for type Duration.
 type durationObj struct {
 	Value int64  `json:"value"`
 	Unit  string `json:"unit"`
@@ -47,7 +47,7 @@ var units = []struct {
 	{"s", Duration(time.Second)},
 }
 
-//MarshalJSON implements the json.Marshaler interface.
+// MarshalJSON implements the json.Marshaler interface.
 func (d Duration) MarshalJSON() ([]byte, error) {
 	//special case (without this, the following loop would render 0 as "0 years"
 	//which is a bit odd)
@@ -65,7 +65,7 @@ func (d Duration) MarshalJSON() ([]byte, error) {
 	return nil, fmt.Errorf("duration is not a multiple of 1 second: %q", time.Duration(d).String())
 }
 
-//UnmarshalJSON implements the json.Unmarshaler interface.
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (d *Duration) UnmarshalJSON(src []byte) error {
 	var obj durationObj
 	err := json.Unmarshal(src, &obj)

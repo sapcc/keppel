@@ -27,26 +27,26 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//GetToken obtains a token for use with the Registry V2 API.
+// GetToken obtains a token for use with the Registry V2 API.
 //
-//`scopes` is a list of token scopes, e.g. "repository:test1/foo:pull".
-//The necessary permissions will be inferred from the given scopes, and a
-//dummy UserIdentity object for the user called "correctusername" will be
-//embedded in the token.
+// `scopes` is a list of token scopes, e.g. "repository:test1/foo:pull".
+// The necessary permissions will be inferred from the given scopes, and a
+// dummy UserIdentity object for the user called "correctusername" will be
+// embedded in the token.
 func (s Setup) GetToken(t *testing.T, scopes ...string) string {
 	t.Helper()
 	return s.getToken(t, auth.Audience{IsAnycast: false}, scopes...)
 }
 
-//GetAnycastToken is like GetToken, but instead returns a token for the anycast
-//endpoint.
+// GetAnycastToken is like GetToken, but instead returns a token for the anycast
+// endpoint.
 func (s Setup) GetAnycastToken(t *testing.T, scopes ...string) string {
 	t.Helper()
 	return s.getToken(t, auth.Audience{IsAnycast: true}, scopes...)
 }
 
-//GetDomainRemappedToken is like GetToken, but instead returns a token for a
-//domain-remapped API.
+// GetDomainRemappedToken is like GetToken, but instead returns a token for a
+// domain-remapped API.
 func (s Setup) GetDomainRemappedToken(t *testing.T, accountName string, scopes ...string) string {
 	t.Helper()
 	return s.getToken(t, auth.Audience{IsAnycast: false, AccountName: accountName}, scopes...)
@@ -145,10 +145,10 @@ func (s Setup) findAuthTenantIDForAccountName(accountName string) (string, error
 	return s.DB.SelectStr(`SELECT auth_tenant_id FROM accounts WHERE name = $1`, accountName)
 }
 
-//AddHeadersForCorrectAuthChallenge adds X-Forwarded-... headers to a request
-//to ensure that the correct auth challenge gets generated. It won't work
-//without these headers since the httptest library sets "Host: example.com" on
-//all simulated HTTP requests.
+// AddHeadersForCorrectAuthChallenge adds X-Forwarded-... headers to a request
+// to ensure that the correct auth challenge gets generated. It won't work
+// without these headers since the httptest library sets "Host: example.com" on
+// all simulated HTTP requests.
 func AddHeadersForCorrectAuthChallenge(hdr map[string]string) map[string]string {
 	if hdr == nil {
 		hdr = make(map[string]string)

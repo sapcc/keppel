@@ -34,16 +34,16 @@ import (
 	"github.com/sapcc/go-bits/osext"
 )
 
-//Auditor is a component that forwards audit events to the appropriate logs.
-//It is used by some of the API modules.
+// Auditor is a component that forwards audit events to the appropriate logs.
+// It is used by some of the API modules.
 type Auditor interface {
 	//Record forwards the given audit event to the audit log.
 	//EventParameters.Observer will be filled by the auditor.
 	Record(params audittools.EventParameters)
 }
 
-//AuditContext collects arguments that business logic methods need only for
-//generating audit events.
+// AuditContext collects arguments that business logic methods need only for
+// generating audit events.
 type AuditContext struct {
 	UserIdentity UserIdentity
 	Request      *http.Request
@@ -65,17 +65,17 @@ var (
 		})
 )
 
-//auditorImpl is the productive implementation of the Auditor interface.
-//(We only expose the interface publicly because we want to be able to
-//substitute a double in unit tests.)
+// auditorImpl is the productive implementation of the Auditor interface.
+// (We only expose the interface publicly because we want to be able to
+// substitute a double in unit tests.)
 type auditorImpl struct {
 	OnStdout     bool
 	EventSink    chan<- cadf.Event //nil if not wanted
 	ObserverUUID string
 }
 
-//InitAuditTrail initializes a Auditor from the configuration variables
-//found in the environment.
+// InitAuditTrail initializes a Auditor from the configuration variables
+// found in the environment.
 func InitAuditTrail() Auditor {
 	prometheus.MustRegister(auditEventPublishSuccessCounter)
 	prometheus.MustRegister(auditEventPublishFailedCounter)
@@ -118,7 +118,7 @@ func InitAuditTrail() Auditor {
 	}
 }
 
-//Record implements the Auditor interface.
+// Record implements the Auditor interface.
 func (a auditorImpl) Record(params audittools.EventParameters) {
 	params.Observer.TypeURI = "service/docker-registry"
 	params.Observer.Name = bininfo.Component()

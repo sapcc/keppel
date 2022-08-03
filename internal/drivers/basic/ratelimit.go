@@ -32,7 +32,7 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//RateLimitDriver is the rate limit driver "basic".
+// RateLimitDriver is the rate limit driver "basic".
 type RateLimitDriver struct {
 	Limits map[keppel.RateLimitedAction]redis_rate.Limit
 }
@@ -79,7 +79,7 @@ func init() {
 	})
 }
 
-//GetRateLimit implements the keppel.RateLimitDriver interface.
+// GetRateLimit implements the keppel.RateLimitDriver interface.
 func (d RateLimitDriver) GetRateLimit(account keppel.Account, action keppel.RateLimitedAction) *redis_rate.Limit {
 	quota, ok := d.Limits[action]
 	if ok {

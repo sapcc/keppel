@@ -30,7 +30,7 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//RepoClient contains methods for interacting with a repository on a registry server.
+// RepoClient contains methods for interacting with a repository on a registry server.
 type RepoClient struct {
 	Scheme   string //either "http" or "https"
 	Host     string //either a plain hostname or a host:port like "example.org:443"

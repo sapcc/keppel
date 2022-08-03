@@ -30,7 +30,7 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//Repository represents a repository in the API.
+// Repository represents a repository in the API.
 type Repository struct {
 	Name          string `json:"name"`
 	ManifestCount uint64 `json:"manifest_count"`
@@ -143,8 +143,8 @@ func unpackUint64OrZero(x *uint64) uint64 {
 	return *x
 }
 
-//Returns the Unix timestamp corresponding to the later of the input times (or
-//0 if both are nil).
+// Returns the Unix timestamp corresponding to the later of the input times (or
+// 0 if both are nil).
 func maxTimeToUnix(x, y *time.Time) int64 {
 	val := int64(0)
 	if x != nil {

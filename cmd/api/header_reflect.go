@@ -25,12 +25,12 @@ import (
 	"github.com/gorilla/mux"
 )
 
-//guiRedirecter is an api.API that implements the GET /debug/reflect-headers endpoint.
+// guiRedirecter is an api.API that implements the GET /debug/reflect-headers endpoint.
 type headerReflector struct {
 	Enabled bool //usually only on dev/QA systems
 }
 
-//AddTo implements the api.API interface.
+// AddTo implements the api.API interface.
 func (hr *headerReflector) AddTo(r *mux.Router) {
 	if hr.Enabled {
 		r.Methods("GET").Path("/debug/reflect-headers").HandlerFunc(reflectHeaders)

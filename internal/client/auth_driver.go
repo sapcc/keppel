@@ -25,9 +25,9 @@ import (
 	"github.com/sapcc/go-bits/logg"
 )
 
-//AuthDriver is the client-side counterpart of keppel.AuthDriver. It implements
-//support for talking to the Keppel API using the corresponding server-side
-//authentication driver.
+// AuthDriver is the client-side counterpart of keppel.AuthDriver. It implements
+// support for talking to the Keppel API using the corresponding server-side
+// authentication driver.
 type AuthDriver interface {
 	//MatchesEnvironment checks the process's environment variables to see if
 	//they contain credentials for this authentication method. This is how we
@@ -60,8 +60,8 @@ type AuthDriver interface {
 
 var authDriverFactories = make(map[string]func() AuthDriver)
 
-//RegisterAuthDriver registers an AuthDriver. Call this from func init() of the
-//package defining the AuthDriver.
+// RegisterAuthDriver registers an AuthDriver. Call this from func init() of the
+// package defining the AuthDriver.
 func RegisterAuthDriver(name string, factory func() AuthDriver) {
 	if _, exists := authDriverFactories[name]; exists {
 		panic("attempted to register multiple auth drivers with name = " + name)
@@ -71,7 +71,7 @@ func RegisterAuthDriver(name string, factory func() AuthDriver) {
 
 var errNoMatchingAuthDriver = errors.New("no auth driver selected (did you set all the required environment variables?)")
 
-//NewAuthDriver selects the correct AuthDriver and executes its Connect() method.
+// NewAuthDriver selects the correct AuthDriver and executes its Connect() method.
 func NewAuthDriver() (AuthDriver, error) {
 	for id, factory := range authDriverFactories {
 		ad := factory()

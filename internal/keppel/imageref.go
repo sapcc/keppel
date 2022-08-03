@@ -31,14 +31,14 @@ const (
 	defaultTagName  = "latest"
 )
 
-//ImageReference refers to an image that can be pulled from a registry.
+// ImageReference refers to an image that can be pulled from a registry.
 type ImageReference struct {
 	Host      string //either a plain hostname or a host:port like "example.org:443"
 	RepoName  string
 	Reference ManifestReference
 }
 
-//String returns the most compact string representation of this reference.
+// String returns the most compact string representation of this reference.
 func (r ImageReference) String() string {
 	var result string
 	if r.Reference.IsDigest() {
@@ -61,11 +61,11 @@ func (r ImageReference) String() string {
 	return fmt.Sprintf("%s/%s", r.Host, result)
 }
 
-//ParseImageReference parses an image reference string like
-//"registry.example.org/alpine:3.9" into an ImageReference struct.
-//Both on success and on error, an additional string is returned indicating how
-//the input was interpreted (e.g. which defaults were inferred). This can be
-//shown to the user to help them understand how the reference was parsed.
+// ParseImageReference parses an image reference string like
+// "registry.example.org/alpine:3.9" into an ImageReference struct.
+// Both on success and on error, an additional string is returned indicating how
+// the input was interpreted (e.g. which defaults were inferred). This can be
+// shown to the user to help them understand how the reference was parsed.
 func ParseImageReference(input string) (ImageReference, string, error) {
 	//prepend hostname for default registry if input does not include a hostname or host:port
 	inputParts := strings.SplitN(input, "/", 2)

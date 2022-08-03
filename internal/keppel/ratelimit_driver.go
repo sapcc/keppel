@@ -29,7 +29,7 @@ import (
 	"github.com/go-redis/redis_rate/v9"
 )
 
-//RateLimitedAction is an enum of all actions that can be rate-limited.
+// RateLimitedAction is an enum of all actions that can be rate-limited.
 type RateLimitedAction string
 
 const (
@@ -47,8 +47,8 @@ const (
 	AnycastBlobBytePullAction RateLimitedAction = "pullblobbytesanycast"
 )
 
-//RateLimitDriver is a pluggable strategy that determines the rate limits of
-//each account.
+// RateLimitDriver is a pluggable strategy that determines the rate limits of
+// each account.
 type RateLimitDriver interface {
 	//GetRateLimit shall return nil if the given action has no rate limit.
 	GetRateLimit(account Account, action RateLimitedAction) *redis_rate.Limit
@@ -56,8 +56,8 @@ type RateLimitDriver interface {
 
 var rateLimitDriverFactories = make(map[string]func(AuthDriver, Configuration) (RateLimitDriver, error))
 
-//NewRateLimitDriver creates a new RateLimitDriver using one of the factory functions
-//registered with RegisterRateLimitDriver().
+// NewRateLimitDriver creates a new RateLimitDriver using one of the factory functions
+// registered with RegisterRateLimitDriver().
 func NewRateLimitDriver(name string, authDriver AuthDriver, cfg Configuration) (RateLimitDriver, error) {
 	factory := rateLimitDriverFactories[name]
 	if factory != nil {
@@ -66,12 +66,12 @@ func NewRateLimitDriver(name string, authDriver AuthDriver, cfg Configuration) (
 	return nil, errors.New("no such rate-limit driver: " + name)
 }
 
-//RegisterRateLimitDriver registers an RateLimitDriver. Call this from func init() of the
-//package defining the RateLimitDriver.
+// RegisterRateLimitDriver registers an RateLimitDriver. Call this from func init() of the
+// package defining the RateLimitDriver.
 //
-//Factory implementations should inspect the auth driver to ensure that the
-//rate-limit driver can work with this authentication method, returning
-//ErrAuthDriverMismatch otherwise.
+// Factory implementations should inspect the auth driver to ensure that the
+// rate-limit driver can work with this authentication method, returning
+// ErrAuthDriverMismatch otherwise.
 func RegisterRateLimitDriver(name string, factory func(AuthDriver, Configuration) (RateLimitDriver, error)) {
 	if _, exists := rateLimitDriverFactories[name]; exists {
 		panic("attempted to register multiple rate-limit drivers with name = " + name)
@@ -81,15 +81,15 @@ func RegisterRateLimitDriver(name string, factory func(AuthDriver, Configuration
 
 ////////////////////////////////////////////////////////////////////////////////
 
-//RateLimitEngine provides the rate-limiting interface used by the API
-//implementation.
+// RateLimitEngine provides the rate-limiting interface used by the API
+// implementation.
 type RateLimitEngine struct {
 	Driver RateLimitDriver
 	Client *redis.Client
 }
 
-//RateLimitAllows checks whether the given action on the given account is allowed by
-//the account's rate limit.
+// RateLimitAllows checks whether the given action on the given account is allowed by
+// the account's rate limit.
 func (e RateLimitEngine) RateLimitAllows(account Account, action RateLimitedAction, amount uint64) (bool, *redis_rate.Result, error) {
 	rateQuota := e.Driver.GetRateLimit(account, action)
 	if rateQuota == nil {

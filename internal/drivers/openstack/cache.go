@@ -28,8 +28,8 @@ import (
 	"github.com/sapcc/go-bits/logg"
 )
 
-//redisCacher is an adapter around *redis.Client that implements the
-//gopherpolicy.Cacher interface.
+// redisCacher is an adapter around *redis.Client that implements the
+// gopherpolicy.Cacher interface.
 type redisCacher struct {
 	*redis.Client
 }

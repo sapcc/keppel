@@ -29,13 +29,13 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//guiRedirecter is an api.API that implements the GUI redirect.
+// guiRedirecter is an api.API that implements the GUI redirect.
 type guiRedirecter struct {
 	db     *keppel.DB
 	urlStr string
 }
 
-//AddTo implements the api.API interface.
+// AddTo implements the api.API interface.
 func (g *guiRedirecter) AddTo(r *mux.Router) {
 	//check if this feature is enabled
 	if g.urlStr == "" {

@@ -27,7 +27,7 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-//Permission is an enum used by AuthDriver.
+// Permission is an enum used by AuthDriver.
 type Permission string
 
 const (
@@ -49,9 +49,9 @@ const (
 	CanAdministrateKeppel Permission = "keppeladmin"
 )
 
-//AuthDriver represents an authentication backend that supports multiple
-//tenants. A tenant is a scope where users can be authorized to perform certain
-//actions. For example, in OpenStack, a Keppel tenant is a Keystone project.
+// AuthDriver represents an authentication backend that supports multiple
+// tenants. A tenant is a scope where users can be authorized to perform certain
+// actions. For example, in OpenStack, a Keppel tenant is a Keystone project.
 type AuthDriver interface {
 	//DriverName returns the name of the auth driver as specified in
 	//RegisterAuthDriver() and, therefore, the KEPPEL_AUTH_DRIVER variable.
@@ -82,8 +82,8 @@ type AuthDriver interface {
 
 var authDriverFactories = make(map[string]func(*redis.Client) (AuthDriver, error))
 
-//NewAuthDriver creates a new AuthDriver using one of the factory functions
-//registered with RegisterAuthDriver().
+// NewAuthDriver creates a new AuthDriver using one of the factory functions
+// registered with RegisterAuthDriver().
 func NewAuthDriver(name string, rc *redis.Client) (AuthDriver, error) {
 	factory := authDriverFactories[name]
 	if factory != nil {
@@ -92,11 +92,11 @@ func NewAuthDriver(name string, rc *redis.Client) (AuthDriver, error) {
 	return nil, errors.New("no such auth driver: " + name)
 }
 
-//RegisterAuthDriver registers an AuthDriver. Call this from func init() of the
-//package defining the AuthDriver.
+// RegisterAuthDriver registers an AuthDriver. Call this from func init() of the
+// package defining the AuthDriver.
 //
-//Warning: The *redis.Client argument of the factory function is optional! Only
-//use it for caching authorizations if it is non-nil.
+// Warning: The *redis.Client argument of the factory function is optional! Only
+// use it for caching authorizations if it is non-nil.
 func RegisterAuthDriver(name string, factory func(*redis.Client) (AuthDriver, error)) {
 	if _, exists := authDriverFactories[name]; exists {
 		panic("attempted to register multiple auth drivers with name = " + name)
@@ -104,7 +104,7 @@ func RegisterAuthDriver(name string, factory func(*redis.Client) (AuthDriver, er
 	authDriverFactories[name] = factory
 }
 
-//BuildBasicAuthHeader constructs the value of an "Authorization" HTTP header for the given basic auth credentials.
+// BuildBasicAuthHeader constructs the value of an "Authorization" HTTP header for the given basic auth credentials.
 func BuildBasicAuthHeader(userName, password string) string {
 	creds := userName + ":" + password
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(creds))

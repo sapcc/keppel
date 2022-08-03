@@ -33,7 +33,7 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//Implementation for the POST /peer/v1/sync-replica/:account/:repo endpoint.
+// Implementation for the POST /peer/v1/sync-replica/:account/:repo endpoint.
 func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/peer/v1/sync-replica/:account/:repo")
 	peer := a.authenticateRequest(w, r)

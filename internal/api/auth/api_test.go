@@ -440,14 +440,14 @@ func setupSecondary(t *testing.T) test.Setup {
 	return s
 }
 
-//jwtAccess appears in type jwtToken.
+// jwtAccess appears in type jwtToken.
 type jwtAccess struct {
 	Type    string   `json:"type"`
 	Name    string   `json:"name"`
 	Actions []string `json:"actions"`
 }
 
-//jwtToken contains the parsed contents of the payload section of a JWT token.
+// jwtToken contains the parsed contents of the payload section of a JWT token.
 type jwtToken struct {
 	Issuer    string      `json:"iss"`
 	Subject   string      `json:"sub"`
@@ -463,9 +463,9 @@ type jwtToken struct {
 	Ignored map[string]interface{} `json:"kea"`
 }
 
-//jwtContents contains what we expect in a JWT token payload section. This type
-//implements assert.HTTPResponseBody and can therefore be used with
-//assert.HTTPRequest.
+// jwtContents contains what we expect in a JWT token payload section. This type
+// implements assert.HTTPResponseBody and can therefore be used with
+// assert.HTTPRequest.
 type jwtContents struct {
 	Issuer   string
 	Subject  string
@@ -473,7 +473,7 @@ type jwtContents struct {
 	Access   []jwtAccess
 }
 
-//AssertResponseBody implements the assert.HTTPResponseBody interface.
+// AssertResponseBody implements the assert.HTTPResponseBody interface.
 func (c jwtContents) AssertResponseBody(t *testing.T, requestInfo string, responseBodyBytes []byte) (ok bool) {
 	t.Helper()
 

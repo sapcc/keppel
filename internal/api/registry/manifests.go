@@ -41,7 +41,7 @@ import (
 	"github.com/sapcc/keppel/internal/processor"
 )
 
-//This implements the HEAD/GET /v2/<repo>/manifests/<reference> endpoint.
+// This implements the HEAD/GET /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
 	account, repo, authz := a.checkAccountAccess(w, r, createRepoIfMissingAndReplica, a.handleGetOrHeadManifestAnycast)
@@ -262,7 +262,7 @@ func (a *API) handleGetOrHeadManifestAnycast(w http.ResponseWriter, r *http.Requ
 	api.ManifestsPulledCounter.With(info.AsPrometheusLabels()).Inc()
 }
 
-//This implements the DELETE /v2/<repo>/manifests/<reference> endpoint.
+// This implements the DELETE /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
 	account, repo, authz := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
@@ -293,7 +293,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-//This implements the PUT /v2/<repo>/manifests/<reference> endpoint.
+// This implements the PUT /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
 	account, repo, authz := a.checkAccountAccess(w, r, createRepoIfMissing, nil)

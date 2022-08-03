@@ -29,10 +29,10 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//NOTE: This skips over repos where some or all manifests have failed validation.
-//If a manifest fails validation, we cannot be sure that we're really seeing
-//all manifest_blob_refs. This could result in us mistakenly deleting blob
-//mounts even though they are referenced by a manifest.
+// NOTE: This skips over repos where some or all manifests have failed validation.
+// If a manifest fails validation, we cannot be sure that we're really seeing
+// all manifest_blob_refs. This could result in us mistakenly deleting blob
+// mounts even though they are referenced by a manifest.
 var blobMountSweepSearchQuery = sqlext.SimplifyWhitespace(`
 	SELECT * FROM repos
 		WHERE next_blob_mount_sweep_at IS NULL OR next_blob_mount_sweep_at < $1
@@ -65,17 +65,17 @@ var blobMountSweepDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE repos SET next_blob_mount_sweep_at = $2 WHERE id = $1
 `)
 
-//SweepBlobMountsInNextRepo finds the next repo where blob mounts need to be
-//garbage-collected, and performs the GC. This entails a marking of all blob
-//mounts that are not used by any manifest, and a sweeping of all blob mounts
-//that were marked in the previous pass and which are still not used by any
-//manifest.
+// SweepBlobMountsInNextRepo finds the next repo where blob mounts need to be
+// garbage-collected, and performs the GC. This entails a marking of all blob
+// mounts that are not used by any manifest, and a sweeping of all blob mounts
+// that were marked in the previous pass and which are still not used by any
+// manifest.
 //
-//This staged mark-and-sweep ensures that we don't remove fresh blob mounts
-//that were just created, but where the manifest has not yet been pushed.
+// This staged mark-and-sweep ensures that we don't remove fresh blob mounts
+// that were just created, but where the manifest has not yet been pushed.
 //
-//Blob mounts are sweeped in each repo at most once per hour. If no repos need
-//to be sweeped, sql.ErrNoRows is returned to instruct the caller to slow down.
+// Blob mounts are sweeped in each repo at most once per hour. If no repos need
+// to be sweeped, sql.ErrNoRows is returned to instruct the caller to slow down.
 func (j *Janitor) SweepBlobMountsInNextRepo() (returnErr error) {
 	var repo keppel.Repository
 	defer func() {

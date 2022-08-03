@@ -31,8 +31,8 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//AuthChallenge contains the parsed contents of a Www-Authenticate header
-//returned by a registry.
+// AuthChallenge contains the parsed contents of a Www-Authenticate header
+// returned by a registry.
 type AuthChallenge struct {
 	Realm   string
 	Service string
@@ -41,8 +41,8 @@ type AuthChallenge struct {
 
 var challengeFieldRx = regexp.MustCompile(`^(\w+)\s*=\s*"([^"]*)"\s*,?\s*`)
 
-//ParseAuthChallenge parses the auth challenge from the response headers of an
-//unauthenticated request to a registry API.
+// ParseAuthChallenge parses the auth challenge from the response headers of an
+// unauthenticated request to a registry API.
 func ParseAuthChallenge(hdr http.Header) (AuthChallenge, error) {
 	input := hdr.Get("Www-Authenticate")
 	if input == "" {
@@ -90,7 +90,7 @@ func ParseAuthChallenge(hdr http.Header) (AuthChallenge, error) {
 	return c, nil
 }
 
-//GetToken obtains a token that satisfies this challenge.
+// GetToken obtains a token that satisfies this challenge.
 func (c AuthChallenge) GetToken(userName, password string) (string, error) {
 	req, err := http.NewRequest("GET", c.Realm, nil)
 	if err != nil {

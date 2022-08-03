@@ -29,8 +29,8 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//IncomingRequest describes everything we need to know about an incoming API
-//request in order to check for Authorization.
+// IncomingRequest describes everything we need to know about an incoming API
+// request in order to check for Authorization.
 type IncomingRequest struct {
 	//The incoming request.
 	HTTPRequest *http.Request
@@ -57,8 +57,8 @@ type IncomingRequest struct {
 	NoImplicitAnonymous bool
 }
 
-//Authorize checks if the given incoming request has a proper Authorization.
-//If an error is returned, the given `errHeaders` must be added to the HTTP response.
+// Authorize checks if the given incoming request has a proper Authorization.
+// If an error is returned, the given `errHeaders` must be added to the HTTP response.
 func (ir IncomingRequest) Authorize(cfg keppel.Configuration, ad keppel.AuthDriver, db *keppel.DB) (*Authorization, *keppel.RegistryV2Error) {
 	r := ir.HTTPRequest
 

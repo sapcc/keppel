@@ -36,12 +36,12 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-//IssueNewPasswordForPeer issues a new replication password for the given peer.
+// IssueNewPasswordForPeer issues a new replication password for the given peer.
 //
-//The `tx` argument can be given if the caller already has a transaction open
-//for this operation. This is useful because it is the caller's responsibility
-//to lock the database row for the peer to prevent concurrent issuances for the
-//same peer by different keppel-api instances.
+// The `tx` argument can be given if the caller already has a transaction open
+// for this operation. This is useful because it is the caller's responsibility
+// to lock the database row for the peer to prevent concurrent issuances for the
+// same peer by different keppel-api instances.
 func IssueNewPasswordForPeer(cfg keppel.Configuration, db *keppel.DB, tx *gorp.Transaction, peer keppel.Peer) (resultErr error) {
 	newPasswordBytes := make([]byte, 20)
 	_, err := rand.Read(newPasswordBytes)

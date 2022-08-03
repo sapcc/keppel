@@ -46,12 +46,12 @@ func init() {
 	})
 }
 
-//MatchesEnvironment implements the client.AuthDriver interface.
+// MatchesEnvironment implements the client.AuthDriver interface.
 func (d *keystoneClientDriver) MatchesEnvironment() bool {
 	return os.Getenv("OS_AUTH_URL") != ""
 }
 
-//Connect implements the client.AuthDriver interface.
+// Connect implements the client.AuthDriver interface.
 func (d *keystoneClientDriver) Connect() error {
 	ao, err := clientconfig.AuthOptions(nil)
 	if err != nil {
@@ -107,12 +107,12 @@ func (d *keystoneClientDriver) Connect() error {
 	return nil
 }
 
-//CurrentAuthTenantID implements the client.AuthDriver interface.
+// CurrentAuthTenantID implements the client.AuthDriver interface.
 func (d *keystoneClientDriver) CurrentAuthTenantID() string {
 	return d.CurrentProjectID
 }
 
-//ServerHost implements the client.AuthDriver interface.
+// ServerHost implements the client.AuthDriver interface.
 func (d *keystoneClientDriver) ServerHost() string {
 	if d.Client == nil {
 		panic("called before Connect()")
@@ -124,7 +124,7 @@ func (d *keystoneClientDriver) ServerHost() string {
 	return ""
 }
 
-//ServerScheme implements the client.AuthDriver interface.
+// ServerScheme implements the client.AuthDriver interface.
 func (d *keystoneClientDriver) ServerScheme() string {
 	if d.Client == nil {
 		panic("called before Connect()")
@@ -136,7 +136,7 @@ func (d *keystoneClientDriver) ServerScheme() string {
 	return ""
 }
 
-//SendHTTPRequest implements the client.AuthDriver interface.
+// SendHTTPRequest implements the client.AuthDriver interface.
 func (d *keystoneClientDriver) SendHTTPRequest(req *http.Request) (*http.Response, error) {
 	opts := gophercloud.RequestOpts{
 		RawBody: req.Body,
@@ -153,7 +153,7 @@ func (d *keystoneClientDriver) SendHTTPRequest(req *http.Request) (*http.Respons
 	return d.Client.Request(req.Method, d.Client.ServiceURL(pathComponents...), &opts)
 }
 
-//CredentialsForRegistryAPI implements the client.AuthDriver interface.
+// CredentialsForRegistryAPI implements the client.AuthDriver interface.
 func (d *keystoneClientDriver) CredentialsForRegistryAPI() (userName, password string) {
 	return d.RegistryUserName, d.RegistryPassword
 }

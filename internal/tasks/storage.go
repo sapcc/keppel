@@ -42,19 +42,19 @@ var storageSweepDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE accounts SET next_storage_sweep_at = $2 WHERE name = $1
 `)
 
-//SweepStorageInNextAccount finds the next account where the backing storage
-//needs to be garbage-collected, and performs the GC. This entails a marking of
-//all blobs and manifests that exist in the backing storage, but not in the
-//database; and a sweeping of all items that were marked in the previous pass
-//and which are still not entered in the database.
+// SweepStorageInNextAccount finds the next account where the backing storage
+// needs to be garbage-collected, and performs the GC. This entails a marking of
+// all blobs and manifests that exist in the backing storage, but not in the
+// database; and a sweeping of all items that were marked in the previous pass
+// and which are still not entered in the database.
 //
-//This staged mark-and-sweep ensures that we don't remove fresh blobs and
-//manifests that were just pushed, but where the entry in the database is still
-//being created.
+// This staged mark-and-sweep ensures that we don't remove fresh blobs and
+// manifests that were just pushed, but where the entry in the database is still
+// being created.
 //
-//The storage of each account is sweeped at most once every 6 hours. If no
-//accounts need to be sweeped, sql.ErrNoRows is returned to instruct the caller
-//to slow down.
+// The storage of each account is sweeped at most once every 6 hours. If no
+// accounts need to be sweeped, sql.ErrNoRows is returned to instruct the caller
+// to slow down.
 func (j *Janitor) SweepStorageInNextAccount() (returnErr error) {
 	var account keppel.Account
 	defer func() {

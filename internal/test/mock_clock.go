@@ -24,19 +24,19 @@ import (
 	"github.com/alicebob/miniredis/v2"
 )
 
-//Clock is a deterministic clock for unit tests. It starts at the Unix epoch
-//and only advances when Clock.Step() is called.
+// Clock is a deterministic clock for unit tests. It starts at the Unix epoch
+// and only advances when Clock.Step() is called.
 type Clock struct {
 	currentTime int64
 	MiniRedis   *miniredis.Miniredis
 }
 
-//Now reads the clock.
+// Now reads the clock.
 func (c *Clock) Now() time.Time {
 	return time.Unix(c.currentTime, 0).UTC()
 }
 
-//Step advances the clock by one second.
+// Step advances the clock by one second.
 func (c *Clock) Step() {
 	c.currentTime++
 	if c.MiniRedis != nil {
@@ -44,7 +44,7 @@ func (c *Clock) Step() {
 	}
 }
 
-//StepBy advances the clock by the given duration.
+// StepBy advances the clock by the given duration.
 func (c *Clock) StepBy(d time.Duration) {
 	c.currentTime += int64(d / time.Second)
 	if c.MiniRedis != nil {

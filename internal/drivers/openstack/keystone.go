@@ -17,13 +17,13 @@
 *
 *******************************************************************************/
 
-//Package openstack contains:
+// Package openstack contains:
 //
-//- the AuthDriver "keystone": Keppel tenants are Keystone projects. Incoming HTTP requests are authenticated by reading a Keystone token from the X-Auth-Token request header.
+// - the AuthDriver "keystone": Keppel tenants are Keystone projects. Incoming HTTP requests are authenticated by reading a Keystone token from the X-Auth-Token request header.
 //
-//- the StorageDriver "swift": Data for a Keppel account is stored in the Swift container "keppel-<accountname>" in the tenant's Swift account.
+// - the StorageDriver "swift": Data for a Keppel account is stored in the Swift container "keppel-<accountname>" in the tenant's Swift account.
 //
-//- the NameClaimDriver "openstack-basic": A static whitelist is used to check which project can claim which account names.
+// - the NameClaimDriver "openstack-basic": A static whitelist is used to check which project can claim which account names.
 package openstack
 
 import (
@@ -112,12 +112,12 @@ func createProviderClient(ao gophercloud.AuthOptions) (*gophercloud.ProviderClie
 	return provider, err
 }
 
-//DriverName implements the keppel.AuthDriver interface.
+// DriverName implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) DriverName() string {
 	return "keystone"
 }
 
-//ValidateTenantID implements the keppel.AuthDriver interface.
+// ValidateTenantID implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) ValidateTenantID(tenantID string) error {
 	if tenantID == "" {
 		return errors.New("may not be empty")
@@ -125,7 +125,7 @@ func (d *keystoneDriver) ValidateTenantID(tenantID string) error {
 	return nil
 }
 
-//AuthenticateUser implements the keppel.AuthDriver interface.
+// AuthenticateUser implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	authOpts, rerr := parseUserNameAndPassword(userName, password)
 	if rerr != nil {
@@ -173,13 +173,12 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Use
 	return newKeystoneUserIdentity(t), nil
 }
 
-//possible formats for the username:
+// possible formats for the username:
 //
-//		${USER}@${DOMAIN}/${PROJECT}@${DOMAIN}
-//		${USER}@${DOMAIN}/${PROJECT}
+//	${USER}@${DOMAIN}/${PROJECT}@${DOMAIN}
+//	${USER}@${DOMAIN}/${PROJECT}
 //
-//		applicationcredential-${APPLICATION_CREDENTIAL_ID}
-//
+//	applicationcredential-${APPLICATION_CREDENTIAL_ID}
 var userNameRx = regexp.MustCompile(`^([^/@]+)@([^/@]+)/([^/@]+)(?:@([^/@]+))?$`)
 
 //                                    ^------^ ^------^ ^------^    ^------^
@@ -213,7 +212,7 @@ func parseUserNameAndPassword(userName, password string) (tokens.AuthOptions, *k
 	return ao, nil
 }
 
-//AuthenticateUserFromRequest implements the keppel.AuthDriver interface.
+// AuthenticateUserFromRequest implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	if r.Header.Get("X-Auth-Token") == "" {
 		//fallback to anonymous auth
@@ -259,7 +258,7 @@ var ruleForPerm = map[keppel.Permission]string{
 	keppel.CanAdministrateKeppel: "keppel:admin",
 }
 
-//UserName implements the keppel.UserIdentity interface.
+// UserName implements the keppel.UserIdentity interface.
 func (a keystoneUserIdentity) UserName() string {
 	return fmt.Sprintf("%s@%s/%s@%s",
 		a.t.UserName(),
@@ -269,7 +268,7 @@ func (a keystoneUserIdentity) UserName() string {
 	)
 }
 
-//HasPermission implements the keppel.UserIdentity interface.
+// HasPermission implements the keppel.UserIdentity interface.
 func (a keystoneUserIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
 	a.t.Context.Request["target.project.id"] = tenantID
 	logg.Debug("token has object attributes = %v", a.t.Context.Request)
@@ -284,12 +283,12 @@ func (a keystoneUserIdentity) HasPermission(perm keppel.Permission, tenantID str
 	return result
 }
 
-//UserType implements the keppel.UserIdentity interface.
+// UserType implements the keppel.UserIdentity interface.
 func (a keystoneUserIdentity) UserType() keppel.UserType {
 	return keppel.RegularUser
 }
 
-//UserInfo implements the keppel.UserIdentity interface.
+// UserInfo implements the keppel.UserIdentity interface.
 func (a keystoneUserIdentity) UserInfo() audittools.UserInfo {
 	return a.t
 }
@@ -299,7 +298,7 @@ type serializedKeystoneUserIdentity struct {
 	Roles []string          `json:"roles"`
 }
 
-//SerializeToJSON implements the keppel.UserIdentity interface.
+// SerializeToJSON implements the keppel.UserIdentity interface.
 func (a keystoneUserIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
 	//We cannot serialize the entire gopherpolicy.Token, that would include the
 	//X-Auth-Token and possibly even the full token response including service

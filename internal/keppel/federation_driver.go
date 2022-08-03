@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-//ClaimResult is an enum returned by FederationDriver.ClaimAccountName().
+// ClaimResult is an enum returned by FederationDriver.ClaimAccountName().
 type ClaimResult int
 
 const (
@@ -37,12 +37,12 @@ const (
 	ClaimErrored
 )
 
-//ErrNoSuchPrimaryAccount is returned by FederationDriver.FindPrimaryAccount if
-//no peer has the given primary account.
+// ErrNoSuchPrimaryAccount is returned by FederationDriver.FindPrimaryAccount if
+// no peer has the given primary account.
 var ErrNoSuchPrimaryAccount = errors.New("no such primary account")
 
-//FederationDriver is the abstract interface for a strategy that coordinates
-//the claiming of account names across Keppel deployments.
+// FederationDriver is the abstract interface for a strategy that coordinates
+// the claiming of account names across Keppel deployments.
 type FederationDriver interface {
 	//ClaimAccountName is called when creating a new account, and returns nil if
 	//and only if this Keppel is allowed to use `account.Name` for the given new
@@ -91,8 +91,8 @@ type FederationDriver interface {
 
 var federationDriverFactories = make(map[string]func(AuthDriver, Configuration) (FederationDriver, error))
 
-//NewFederationDriver creates a new FederationDriver using one of the factory
-//functions registered with RegisterFederationDriver().
+// NewFederationDriver creates a new FederationDriver using one of the factory
+// functions registered with RegisterFederationDriver().
 func NewFederationDriver(name string, ad AuthDriver, cfg Configuration) (FederationDriver, error) {
 	factory := federationDriverFactories[name]
 	if factory != nil {
@@ -101,12 +101,12 @@ func NewFederationDriver(name string, ad AuthDriver, cfg Configuration) (Federat
 	return nil, errors.New("no such federation driver: " + name)
 }
 
-//RegisterFederationDriver registers an FederationDriver. Call this from func
-//init() of the package defining the FederationDriver.
+// RegisterFederationDriver registers an FederationDriver. Call this from func
+// init() of the package defining the FederationDriver.
 //
-//Factory implementations should inspect the auth driver to ensure that the
-//federation driver can work with this authentication method, returning
-//ErrAuthDriverMismatch otherwise.
+// Factory implementations should inspect the auth driver to ensure that the
+// federation driver can work with this authentication method, returning
+// ErrAuthDriverMismatch otherwise.
 func RegisterFederationDriver(name string, factory func(AuthDriver, Configuration) (FederationDriver, error)) {
 	if _, exists := federationDriverFactories[name]; exists {
 		panic("attempted to register multiple federation drivers with name = " + name)
