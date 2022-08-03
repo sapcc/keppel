@@ -23,7 +23,7 @@ import (
 	"github.com/sapcc/go-api-declarations/bininfo"
 )
 
-//MetricsConfig contains configuration options for ConfigureMetrics().
+// MetricsConfig contains configuration options for ConfigureMetrics().
 type MetricsConfig struct {
 	AppName                  string //leave empty to use bininfo.Component()
 	FirstByteDurationBuckets []float64
@@ -52,9 +52,9 @@ func testSetRegisterer(r prometheus.Registerer) {
 	metricsConfigured = false
 }
 
-//ConfigureMetrics sets up the metrics emitted by this package. This function
-//must be called exactly once before the first call to Compose(), but only if
-//the default configuration needs to be overridden.
+// ConfigureMetrics sets up the metrics emitted by this package. This function
+// must be called exactly once before the first call to Compose(), but only if
+// the default configuration needs to be overridden.
 func ConfigureMetrics(cfg MetricsConfig) {
 	if metricsConfigured {
 		panic("ConfigureMetrics called multiple times or after Compose")

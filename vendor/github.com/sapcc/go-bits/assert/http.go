@@ -27,14 +27,14 @@ import (
 	"testing"
 )
 
-//HTTPRequestBody is the type of field HTTPRequest.RequestBody.
-//It is implemented by StringData and JSONObject.
+// HTTPRequestBody is the type of field HTTPRequest.RequestBody.
+// It is implemented by StringData and JSONObject.
 type HTTPRequestBody interface {
 	GetRequestBody() (io.Reader, error)
 }
 
-//HTTPResponseBody is the type of field HTTPRequest.ExpectBody.
-//It is implemented by StringData and JSONObject.
+// HTTPResponseBody is the type of field HTTPRequest.ExpectBody.
+// It is implemented by StringData and JSONObject.
 type HTTPResponseBody interface {
 	//Checks that the given actual response body is equal to this expected value.
 	//`request` contains a user-readable representation of the original request,
@@ -44,7 +44,7 @@ type HTTPResponseBody interface {
 	AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool
 }
 
-//HTTPRequest is a HTTP request that gets executed by a unit test.
+// HTTPRequest is a HTTP request that gets executed by a unit test.
 type HTTPRequest struct {
 	//request properties
 	Method string
@@ -57,13 +57,13 @@ type HTTPRequest struct {
 	ExpectHeader map[string]string
 }
 
-//Check performs the HTTP request described by this HTTPRequest against the
-//given http.Handler and compares the response with the expectations in the
-//HTTPRequest.
+// Check performs the HTTP request described by this HTTPRequest against the
+// given http.Handler and compares the response with the expectations in the
+// HTTPRequest.
 //
-//The HTTP response is returned, along with the response body. (resp.Body is
-//already exhausted when the function returns.) This is useful for tests that
-//want to do further checks on `resp` or want to use data from the response.
+// The HTTP response is returned, along with the response body. (resp.Body is
+// already exhausted when the function returns.) This is useful for tests that
+// want to do further checks on `resp` or want to use data from the response.
 func (r HTTPRequest) Check(t *testing.T, handler http.Handler) (resp *http.Response, responseBody []byte) {
 	t.Helper()
 

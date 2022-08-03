@@ -17,8 +17,8 @@
 *
 *******************************************************************************/
 
-//Package gopherpolicy provides integration between goslo.policy and
-//Gophercloud for services that need to validate OpenStack tokens and check permissions.
+// Package gopherpolicy provides integration between goslo.policy and
+// Gophercloud for services that need to validate OpenStack tokens and check permissions.
 package gopherpolicy
 
 import (
@@ -36,9 +36,9 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-//Validator is the interface provided by TokenValidator. Application code
-//should prefer to reference this interface to allow for substituation by a
-//test double.
+// Validator is the interface provided by TokenValidator. Application code
+// should prefer to reference this interface to allow for substituation by a
+// test double.
 type Validator interface {
 	//CheckToken checks the validity of the request's X-Auth-Token in Keystone, and
 	//returns a Token instance for checking authorization. Any errors that occur
@@ -46,7 +46,7 @@ type Validator interface {
 	CheckToken(r *http.Request) *Token
 }
 
-//Cacher is the generic interface for a token cache.
+// Cacher is the generic interface for a token cache.
 type Cacher interface {
 	//StoreTokenPayload attempts to store the token payload corresponding to the
 	//given credentials in the cache. Implementations shall treat `credentials`
@@ -58,8 +58,8 @@ type Cacher interface {
 	LoadTokenPayload(credentials string) []byte
 }
 
-//TokenValidator combines an Identity v3 client to validate tokens (AuthN), and
-//a policy.Enforcer to check access permissions (AuthZ).
+// TokenValidator combines an Identity v3 client to validate tokens (AuthN), and
+// a policy.Enforcer to check access permissions (AuthZ).
 type TokenValidator struct {
 	IdentityV3 *gophercloud.ServiceClient
 	//Enforcer can also be initialized with the LoadPolicyFile method.
@@ -68,7 +68,7 @@ type TokenValidator struct {
 	Cacher Cacher
 }
 
-//LoadPolicyFile creates v.Enforcer from the given policy file.
+// LoadPolicyFile creates v.Enforcer from the given policy file.
 func (v *TokenValidator) LoadPolicyFile(path string) error {
 	bytes, err := os.ReadFile(path)
 	if err != nil {
@@ -86,9 +86,9 @@ func (v *TokenValidator) LoadPolicyFile(path string) error {
 	return nil
 }
 
-//CheckToken checks the validity of the request's X-Auth-Token in Keystone, and
-//returns a Token instance for checking authorization. Any errors that occur
-//during this function are deferred until Require() is called.
+// CheckToken checks the validity of the request's X-Auth-Token in Keystone, and
+// returns a Token instance for checking authorization. Any errors that occur
+// during this function are deferred until Require() is called.
 func (v *TokenValidator) CheckToken(r *http.Request) *Token {
 	tokenStr := r.Header.Get("X-Auth-Token")
 	if tokenStr == "" {
@@ -100,16 +100,16 @@ func (v *TokenValidator) CheckToken(r *http.Request) *Token {
 	})
 }
 
-//CheckCredentials is a more generic version of CheckToken that can also be
-//used when the user supplies credentials instead of a Keystone token.
+// CheckCredentials is a more generic version of CheckToken that can also be
+// used when the user supplies credentials instead of a Keystone token.
 //
-//The `check` argument contains the logic for actually checking the user's
-//credentials, usually by calling tokens.Create() or tokens.Get() from package
-//github.com/gophercloud/gophercloud/openstack/identity/v3/tokens.
+// The `check` argument contains the logic for actually checking the user's
+// credentials, usually by calling tokens.Create() or tokens.Get() from package
+// github.com/gophercloud/gophercloud/openstack/identity/v3/tokens.
 //
-//The `cacheKey` argument shall be a string that identifies the given
-//credentials. This key is used for caching the TokenResult in `v.Cacher` if
-//that is non-nil.
+// The `cacheKey` argument shall be a string that identifies the given
+// credentials. This key is used for caching the TokenResult in `v.Cacher` if
+// that is non-nil.
 func (v *TokenValidator) CheckCredentials(cacheKey string, check func() TokenResult) *Token {
 	//prefer cached token payload over actually talking to Keystone (but fallback
 	//to Keystone if the token payload deserialization fails)
@@ -140,9 +140,9 @@ func (v *TokenValidator) CheckCredentials(cacheKey string, check func() TokenRes
 	return t
 }
 
-//TokenFromGophercloudResult creates a Token instance from a gophercloud Result
-//from the tokens.Create() or tokens.Get() requests from package
-//github.com/gophercloud/gophercloud/openstack/identity/v3/tokens.
+// TokenFromGophercloudResult creates a Token instance from a gophercloud Result
+// from the tokens.Create() or tokens.Get() requests from package
+// github.com/gophercloud/gophercloud/openstack/identity/v3/tokens.
 func (v *TokenValidator) TokenFromGophercloudResult(result TokenResult) *Token {
 	//use a custom token struct instead of tokens.Token which is way incomplete
 	var tokenData keystoneToken
@@ -180,11 +180,11 @@ func (v *TokenValidator) TokenFromGophercloudResult(result TokenResult) *Token {
 	}
 }
 
-//TokenResult is the interface type for the argument of
-//TokenValidator.TokenFromGophercloudResult().
+// TokenResult is the interface type for the argument of
+// TokenValidator.TokenFromGophercloudResult().
 //
-//Notable implementors are tokens.CreateResult or tokens.GetResult from package
-//github.com/gophercloud/gophercloud/openstack/identity/v3/tokens.
+// Notable implementors are tokens.CreateResult or tokens.GetResult from package
+// github.com/gophercloud/gophercloud/openstack/identity/v3/tokens.
 type TokenResult interface {
 	ExtractInto(value interface{}) error
 	Extract() (*tokens.Token, error)

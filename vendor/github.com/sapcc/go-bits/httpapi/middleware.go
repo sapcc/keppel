@@ -31,13 +31,13 @@ import (
 	"github.com/sapcc/go-bits/logg"
 )
 
-//A http.Handler middleware that adds all the special behavior for this package.
+// A http.Handler middleware that adds all the special behavior for this package.
 type middleware struct {
 	inner       http.Handler
 	skipAllLogs bool
 }
 
-//ServeHTTP implements the http.Handler interface.
+// ServeHTTP implements the http.Handler interface.
 func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	skipLog := false
 	endpointID := "unknown"
@@ -119,8 +119,8 @@ func stringOrDefault(defaultValue, value string) string {
 	return value
 }
 
-//A custom response writer that collects information about the response to
-//later render the request log line.
+// A custom response writer that collects information about the response to
+// later render the request log line.
 type responseWriter struct {
 	original        http.ResponseWriter
 	bytesWritten    uint64
@@ -130,12 +130,12 @@ type responseWriter struct {
 	firstByteSentAt *time.Time
 }
 
-//Header implements the http.ResponseWriter interface.
+// Header implements the http.ResponseWriter interface.
 func (w *responseWriter) Header() http.Header {
 	return w.original.Header()
 }
 
-//Write implements the http.ResponseWriter interface.
+// Write implements the http.ResponseWriter interface.
 func (w *responseWriter) Write(buf []byte) (int, error) {
 	if !w.headersWritten {
 		w.WriteHeader(http.StatusOK)
@@ -153,7 +153,7 @@ func (w *responseWriter) Write(buf []byte) (int, error) {
 	return n, err
 }
 
-//WriteHeader implements the http.ResponseWriter interface.
+// WriteHeader implements the http.ResponseWriter interface.
 func (w *responseWriter) WriteHeader(status int) {
 	if !w.headersWritten {
 		w.original.WriteHeader(status)
@@ -162,7 +162,7 @@ func (w *responseWriter) WriteHeader(status int) {
 	}
 }
 
-//Flush implements the http.Flusher interface.
+// Flush implements the http.Flusher interface.
 func (w *responseWriter) Flush() {
 	if flusher, ok := w.original.(http.Flusher); ok {
 		flusher.Flush()

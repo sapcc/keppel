@@ -16,5 +16,5 @@
 *
 ******************************************************************************/
 
-//Package osext contains extensions to the standard library package "os".
+// Package osext contains extensions to the standard library package "os".
 package osext

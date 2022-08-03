@@ -24,9 +24,9 @@ import (
 	"github.com/gorilla/mux"
 )
 
-//Compose constructs an http.Handler serving all the provided APIs. The Handler
-//contains a few standard middlewares, as described by the package
-//documentation.
+// Compose constructs an http.Handler serving all the provided APIs. The Handler
+// contains a few standard middlewares, as described by the package
+// documentation.
 func Compose(apis ...API) http.Handler {
 	autoConfigureMetricsIfNecessary()
 
@@ -51,15 +51,15 @@ type oobKey string
 
 const OOB_KEY oobKey = "gobits-httpapi-oob"
 
-//An out-of-band message that can be sent from the middleware to the request
-//through one of the functions below.
+// An out-of-band message that can be sent from the middleware to the request
+// through one of the functions below.
 type oobMessage struct {
 	SkipLog    bool
 	EndpointID string
 }
 
-//SkipRequestLog indicates that this request shall not have a
-//"REQUEST" log line written for it.
+// SkipRequestLog indicates that this request shall not have a
+// "REQUEST" log line written for it.
 func SkipRequestLog(r *http.Request) {
 	fn, ok := r.Context().Value(OOB_KEY).(func(oobMessage))
 	if !ok {
@@ -70,9 +70,9 @@ func SkipRequestLog(r *http.Request) {
 	})
 }
 
-//IdentifyEndpoint must be called by each endpoint handler in an API that is
-//provided to Compose(). It identifies the endpoint for the purpose of HTTP
-//request/response metrics.
+// IdentifyEndpoint must be called by each endpoint handler in an API that is
+// provided to Compose(). It identifies the endpoint for the purpose of HTTP
+// request/response metrics.
 func IdentifyEndpoint(r *http.Request, endpoint string) {
 	fn, ok := r.Context().Value(OOB_KEY).(func(oobMessage))
 	if !ok {

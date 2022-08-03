@@ -20,6 +20,7 @@
 package audittools
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -104,7 +105,8 @@ func (c *RabbitConnection) PublishEvent(event *cadf.Event) error {
 		return err
 	}
 
-	return c.Channel.Publish(
+	return c.Channel.PublishWithContext(
+		context.Background(),
 		"",          // exchange: publish to default
 		c.QueueName, // routing key: same as queue name
 		false,       // mandatory: don't publish if no queue is bound that matches the routing key

@@ -29,8 +29,8 @@ import (
 	"github.com/sapcc/go-bits/osext"
 )
 
-//DeepEqual checks if the actual and expected value are equal as
-//determined by reflect.DeepEqual(), and t.Error()s otherwise.
+// DeepEqual checks if the actual and expected value are equal as
+// determined by reflect.DeepEqual(), and t.Error()s otherwise.
 func DeepEqual(t *testing.T, variable string, actual, expected interface{}) bool {
 	t.Helper()
 	if reflect.DeepEqual(actual, expected) {
