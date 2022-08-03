@@ -16,5 +16,5 @@
 *
 ******************************************************************************/
 
-//Package sqlext contains helper functions for SQL queries that are not specific to PostgreSQL.
+// Package sqlext contains helper functions for SQL queries that are not specific to PostgreSQL.
 package sqlext

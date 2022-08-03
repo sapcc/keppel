@@ -17,9 +17,9 @@
 *
 *******************************************************************************/
 
-//Package easypg is a database library for applications that use PostgreSQL.
-//It imports the libpq SQL driver and integrates
-//github.com/golang-migrate/migrate for data definition.
+// Package easypg is a database library for applications that use PostgreSQL.
+// It imports the libpq SQL driver and integrates
+// github.com/golang-migrate/migrate for data definition.
 package easypg
 
 import (
@@ -41,22 +41,21 @@ import (
 	_ "github.com/lib/pq"
 )
 
-//Configuration contains settings for Init(). The field Migrations needs to have keys
-//matching the filename format expected by github.com/golang-migrate/migrate
-//(see documentation there for details), for example:
+// Configuration contains settings for Init(). The field Migrations needs to have keys
+// matching the filename format expected by github.com/golang-migrate/migrate
+// (see documentation there for details), for example:
 //
-//    cfg.Migrations = map[string]string{
-//        "001_initial.up.sql": `
-//            CREATE TABLE things (
-//                id   BIGSERIAL NOT NULL PRIMARY KEY,
-//                name TEXT NOT NULL,
-//            );
-//        `,
-//        "001_initial.down.sql": `
-//            DROP TABLE things;
-//        `,
-//    }
-//
+//	cfg.Migrations = map[string]string{
+//	    "001_initial.up.sql": `
+//	        CREATE TABLE things (
+//	            id   BIGSERIAL NOT NULL PRIMARY KEY,
+//	            name TEXT NOT NULL,
+//	        );
+//	    `,
+//	    "001_initial.down.sql": `
+//	        DROP TABLE things;
+//	    `,
+//	}
 type Configuration struct {
 	//(required) A libpq connection URL, see:
 	//<https://www.postgresql.org/docs/9.6/static/libpq-connect.html#LIBPQ-CONNSTRING>
@@ -70,7 +69,7 @@ type Configuration struct {
 
 var errNoPostgresURL = errors.New("no PostgresURL given")
 
-//Connect connects to a Postgres database.
+// Connect connects to a Postgres database.
 func Connect(cfg Configuration) (*sql.DB, error) {
 	if cfg.PostgresURL == nil {
 		return nil, errNoPostgresURL

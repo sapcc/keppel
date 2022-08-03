@@ -56,10 +56,10 @@ type UserInfo interface {
 	DomainScopeName() string
 }
 
-//NonStandardUserInfo is an extension interface for type UserInfo that allows a
-//UserInfo instance to render its own cadf.Resource. This is useful for
-//UserInfo implementors representing special roles that are not backed by a
-//Keystone user.
+// NonStandardUserInfo is an extension interface for type UserInfo that allows a
+// UserInfo instance to render its own cadf.Resource. This is useful for
+// UserInfo implementors representing special roles that are not backed by a
+// Keystone user.
 type NonStandardUserInfo interface {
 	UserInfo
 	AsInitiator() cadf.Resource

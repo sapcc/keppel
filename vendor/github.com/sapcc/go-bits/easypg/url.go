@@ -28,8 +28,8 @@ import (
 	"github.com/sapcc/go-api-declarations/bininfo"
 )
 
-//URLParts contains the arguments for func URLFrom(), see documentation over
-//there.
+// URLParts contains the arguments for func URLFrom(), see documentation over
+// there.
 type URLParts struct {
 	HostName          string //required
 	Port              string //optional (default value = 5432 for postgres:// scheme)
@@ -39,11 +39,11 @@ type URLParts struct {
 	DatabaseName      string //required
 }
 
-//This will be modified during unit tests to replace os.Hostname() with a test double.
+// This will be modified during unit tests to replace os.Hostname() with a test double.
 var osHostname = os.Hostname
 
-//URLFrom constructs a libpq connection URL from the provided parts. The parts
-//are typically retrieved from environment variables, for example:
+// URLFrom constructs a libpq connection URL from the provided parts. The parts
+// are typically retrieved from environment variables, for example:
 //
 //	cfg.PostgresURL = easypg.URLFrom(easypg.URLParts {
 //		HostName:          osext.GetenvOrDefault("FOOBAR_DB_HOSTNAME", "localhost"),
@@ -54,10 +54,10 @@ var osHostname = os.Hostname
 //		DatabaseName:      osext.GetenvOrDefault("FOOBAR_DB_NAME", "foobar"),
 //	})
 //
-//We provide URLFrom() as a separate function, instead of just putting the
-//fields of URLParts into the Configuration struct, to accommodate applications
-//that may want to accept a fully-formed postgres:// URL from outside instead
-//of building it up from individual parts.
+// We provide URLFrom() as a separate function, instead of just putting the
+// fields of URLParts into the Configuration struct, to accommodate applications
+// that may want to accept a fully-formed postgres:// URL from outside instead
+// of building it up from individual parts.
 func URLFrom(parts URLParts) (*url.URL, error) {
 	connOpts, err := url.ParseQuery(parts.ConnectionOptions)
 	if err != nil {

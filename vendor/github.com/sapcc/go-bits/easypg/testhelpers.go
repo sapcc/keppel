@@ -30,7 +30,7 @@ import (
 	"testing"
 )
 
-//ClearTables removes all rows from the given tables.
+// ClearTables removes all rows from the given tables.
 func ClearTables(t *testing.T, db *sql.DB, tableNames ...string) {
 	t.Helper()
 	for _, tableName := range tableNames {
@@ -41,9 +41,9 @@ func ClearTables(t *testing.T, db *sql.DB, tableNames ...string) {
 	}
 }
 
-//ResetPrimaryKeys resets the sequences for the "id" column of the given tables
-//to start at 1 again (or if there are entries in the table, to start right
-//after the entry with the highest ID).
+// ResetPrimaryKeys resets the sequences for the "id" column of the given tables
+// to start at 1 again (or if there are entries in the table, to start right
+// after the entry with the highest ID).
 func ResetPrimaryKeys(t *testing.T, db *sql.DB, tableNames ...string) {
 	t.Helper()
 	for _, tableName := range tableNames {
@@ -62,8 +62,8 @@ func ResetPrimaryKeys(t *testing.T, db *sql.DB, tableNames ...string) {
 	}
 }
 
-//ExecSQLFile loads a file containing SQL statements and executes them all.
-//It implies that every SQL statement is on a single line.
+// ExecSQLFile loads a file containing SQL statements and executes them all.
+// It implies that every SQL statement is on a single line.
 func ExecSQLFile(t *testing.T, db *sql.DB, path string) {
 	t.Helper()
 	sqlBytes, err := os.ReadFile(path)
@@ -84,47 +84,47 @@ func ExecSQLFile(t *testing.T, db *sql.DB, path string) {
 	}
 }
 
-//AssertDBContent makes a dump of the database contents (as a sequence of
-//INSERT statements) and runs diff(1) against the given file, producing a test
-//error if these two are different from each other.
+// AssertDBContent makes a dump of the database contents (as a sequence of
+// INSERT statements) and runs diff(1) against the given file, producing a test
+// error if these two are different from each other.
 func AssertDBContent(t *testing.T, db *sql.DB, fixtureFile string) {
 	t.Helper()
 	_, a := NewTracker(t, db)
 	a.AssertEqualToFile(fixtureFile)
 }
 
-//Tracker keeps a copy of the database contents and allows for checking the
-//database contents (or changes made to them) during tests.
+// Tracker keeps a copy of the database contents and allows for checking the
+// database contents (or changes made to them) during tests.
 type Tracker struct {
 	t    *testing.T
 	db   *sql.DB
 	snap dbSnapshot
 }
 
-//NewTracker creates a new Tracker.
+// NewTracker creates a new Tracker.
 //
-//Since the initial creation involves taking a snapshot, this snapshot is
-//returned as a second value. This is an optimization, since it is often
-//desired to assert on the full DB contents when creating the tracker. Calling
-//Tracker.DBContent() directly after NewTracker() would do a useless second
-//snapshot.
+// Since the initial creation involves taking a snapshot, this snapshot is
+// returned as a second value. This is an optimization, since it is often
+// desired to assert on the full DB contents when creating the tracker. Calling
+// Tracker.DBContent() directly after NewTracker() would do a useless second
+// snapshot.
 func NewTracker(t *testing.T, db *sql.DB) (*Tracker, Assertable) {
 	t.Helper()
 	snap := newDBSnapshot(t, db)
 	return &Tracker{t, db, snap}, Assertable{t, snap.ToSQL(nil)}
 }
 
-//DBContent produces a dump of the current database contents, as a sequence of
-//INSERT statements on which test assertions can be executed.
+// DBContent produces a dump of the current database contents, as a sequence of
+// INSERT statements on which test assertions can be executed.
 func (t *Tracker) DBContent() Assertable {
 	t.t.Helper()
 	t.snap = newDBSnapshot(t.t, t.db)
 	return Assertable{t.t, t.snap.ToSQL(nil)}
 }
 
-//DBChanges produces a diff of the current database contents against the state
-//at the last Tracker call, as a sequence of INSERT/UPDATE/DELETE statements on
-//which test assertions can be executed.
+// DBChanges produces a diff of the current database contents against the state
+// at the last Tracker call, as a sequence of INSERT/UPDATE/DELETE statements on
+// which test assertions can be executed.
 func (t *Tracker) DBChanges() Assertable {
 	t.t.Helper()
 	snap := newDBSnapshot(t.t, t.db)
@@ -133,15 +133,15 @@ func (t *Tracker) DBChanges() Assertable {
 	return Assertable{t.t, diff}
 }
 
-//Assertable contains a set of SQL statements. Instances are produced by
-//methods on type Tracker.
+// Assertable contains a set of SQL statements. Instances are produced by
+// methods on type Tracker.
 type Assertable struct {
 	t       *testing.T
 	payload string
 }
 
-//AssertEqualToFile compares the set of SQL statements to those in the given
-//file. A test error is generated in case of differences.
+// AssertEqualToFile compares the set of SQL statements to those in the given
+// file. A test error is generated in case of differences.
 func (a Assertable) AssertEqualToFile(fixtureFile string) {
 	a.t.Helper()
 
@@ -160,10 +160,10 @@ func (a Assertable) AssertEqualToFile(fixtureFile string) {
 
 var whitespaceAtStartOfLineRx = regexp.MustCompile(`(?m)^\s+`)
 
-//AssertEqual compares the set of SQL statements to those in the given string
-//literal. A test error is generated in case of differences. This assertion
-//is lenient with regards to whitespace to enable callers to format their
-//string literals in a way that fits nicely in the surrounding code.
+// AssertEqual compares the set of SQL statements to those in the given string
+// literal. A test error is generated in case of differences. This assertion
+// is lenient with regards to whitespace to enable callers to format their
+// string literals in a way that fits nicely in the surrounding code.
 func (a Assertable) AssertEqual(expected string) {
 	a.t.Helper()
 	//cleanup indentation and empty lines in `expected`
@@ -193,20 +193,20 @@ func (a Assertable) AssertEqual(expected string) {
 	failOnErr(a.t, cmd.Run())
 }
 
-//AssertEqualf is a shorthand for AssertEqual(fmt.Sprintf(...)).
+// AssertEqualf is a shorthand for AssertEqual(fmt.Sprintf(...)).
 func (a Assertable) AssertEqualf(format string, args ...interface{}) {
 	a.t.Helper()
 	a.AssertEqual(fmt.Sprintf(format, args...))
 }
 
-//AssertEmpty is a shorthand for AssertEqual("").
+// AssertEmpty is a shorthand for AssertEqual("").
 func (a Assertable) AssertEmpty() {
 	a.t.Helper()
 	a.AssertEqual("")
 }
 
-//Ignore is a no-op. It is commonly used like `tr.DBChanges().Ignore()`, to
-//clarify that a certain set of DB changes is not asserted on.
+// Ignore is a no-op. It is commonly used like `tr.DBChanges().Ignore()`, to
+// clarify that a certain set of DB changes is not asserted on.
 func (a Assertable) Ignore() {
 }
 

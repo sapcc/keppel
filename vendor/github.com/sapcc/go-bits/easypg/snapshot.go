@@ -35,7 +35,7 @@ import (
 ////////////////////////////////////////////////////////////////////////////////
 // type dbSnapshot
 
-//dbSnapshot is a map with table names as keys and table snapshots as values.
+// dbSnapshot is a map with table names as keys and table snapshots as values.
 type dbSnapshot map[string]tableSnapshot
 
 const (
@@ -88,9 +88,9 @@ func newDBSnapshot(t *testing.T, db *sql.DB) dbSnapshot {
 	return result
 }
 
-//ToSQL returns a set of SQL statements that reproduce this snapshot when
-//starting from `prev`. If `prev` is nil, only INSERT statements will be
-//returned.
+// ToSQL returns a set of SQL statements that reproduce this snapshot when
+// starting from `prev`. If `prev` is nil, only INSERT statements will be
+// returned.
 func (d dbSnapshot) ToSQL(prev dbSnapshot) string {
 	tableNames := make([]string, len(d))
 	for tableName := range d {
@@ -117,7 +117,7 @@ func (d dbSnapshot) ToSQL(prev dbSnapshot) string {
 ////////////////////////////////////////////////////////////////////////////////
 // type tableSnapshot
 
-//tableSnapshot contains the state of a table.
+// tableSnapshot contains the state of a table.
 type tableSnapshot struct {
 	ColumnNames    []string
 	KeyColumnNames []string
@@ -173,9 +173,9 @@ func newTableSnapshot(t *testing.T, db *sql.DB, tableName string, keyColumnNames
 	return result
 }
 
-//ToSQL returns a set of SQL statements that reproduce this snapshot when
-//starting from `prev`. If `prev` is nil, only INSERT statements will be
-//returned.
+// ToSQL returns a set of SQL statements that reproduce this snapshot when
+// starting from `prev`. If `prev` is nil, only INSERT statements will be
+// returned.
 func (t tableSnapshot) ToSQL(tableName string, prev *tableSnapshot) string {
 	allRowKeys := make([]string, 0, len(t.Rows))
 	for key := range t.Rows {
@@ -213,11 +213,11 @@ func (t tableSnapshot) ToSQL(tableName string, prev *tableSnapshot) string {
 ////////////////////////////////////////////////////////////////////////////////
 // type rowSnapshot
 
-//rowSnapshot is a map with column names as keys and SQL literals as values.
+// rowSnapshot is a map with column names as keys and SQL literals as values.
 type rowSnapshot map[string]string
 
-//Key returns a serialization of this row's key column values as a SQL
-//condition (e.g. `foo_id = 1 AND name = 'bar'`).
+// Key returns a serialization of this row's key column values as a SQL
+// condition (e.g. `foo_id = 1 AND name = 'bar'`).
 func (r rowSnapshot) Key(keyColumnNames []string) string {
 	exprs := make([]string, len(keyColumnNames))
 	for idx, columnName := range keyColumnNames {
@@ -226,7 +226,7 @@ func (r rowSnapshot) Key(keyColumnNames []string) string {
 	return strings.Join(exprs, " AND ")
 }
 
-//ToSQLInsert renders an INSERT statement that reproduces this row.
+// ToSQLInsert renders an INSERT statement that reproduces this row.
 func (r rowSnapshot) ToSQLInsert(tableName string, columnNames []string) string {
 	values := make([]string, len(columnNames))
 	for idx, columnName := range columnNames {
@@ -239,7 +239,7 @@ func (r rowSnapshot) ToSQLInsert(tableName string, columnNames []string) string 
 	)
 }
 
-//ToSQLUpdateSet renders the SET part of an UPDATE statement that produces this row out of `prev`.
+// ToSQLUpdateSet renders the SET part of an UPDATE statement that produces this row out of `prev`.
 func (r rowSnapshot) ToSQLUpdateSet(columnNames []string, prev rowSnapshot) string {
 	var results []string
 	for _, columnName := range columnNames {
@@ -258,7 +258,7 @@ type sqlValueSerializer struct {
 	Serialized string
 }
 
-//Scan implements the sql.Scanner interface.
+// Scan implements the sql.Scanner interface.
 func (s *sqlValueSerializer) Scan(src interface{}) error {
 	switch val := src.(type) {
 	case int64:

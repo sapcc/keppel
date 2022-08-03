@@ -35,10 +35,10 @@ import (
 	"github.com/sapcc/go-bits/osext"
 )
 
-//ByteData implements the HTTPRequestBody and HTTPResponseBody for plain bytestrings.
+// ByteData implements the HTTPRequestBody and HTTPResponseBody for plain bytestrings.
 type ByteData []byte
 
-//GetRequestBody implements the HTTPRequestBody interface.
+// GetRequestBody implements the HTTPRequestBody interface.
 func (b ByteData) GetRequestBody() (io.Reader, error) {
 	return bytes.NewReader([]byte(b)), nil
 }
@@ -56,7 +56,7 @@ func logDiff(t *testing.T, expected, actual string) {
 	}
 }
 
-//AssertResponseBody implements the HTTPResponseBody interface.
+// AssertResponseBody implements the HTTPResponseBody interface.
 func (b ByteData) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
 	t.Helper()
 
@@ -69,15 +69,15 @@ func (b ByteData) AssertResponseBody(t *testing.T, requestInfo string, responseB
 	return true
 }
 
-//StringData implements HTTPRequestBody and HTTPResponseBody for plain strings.
+// StringData implements HTTPRequestBody and HTTPResponseBody for plain strings.
 type StringData string
 
-//GetRequestBody implements the HTTPRequestBody interface.
+// GetRequestBody implements the HTTPRequestBody interface.
 func (s StringData) GetRequestBody() (io.Reader, error) {
 	return strings.NewReader(string(s)), nil
 }
 
-//AssertResponseBody implements the HTTPResponseBody interface.
+// AssertResponseBody implements the HTTPResponseBody interface.
 func (s StringData) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
 	t.Helper()
 
@@ -91,16 +91,16 @@ func (s StringData) AssertResponseBody(t *testing.T, requestInfo string, respons
 	return true
 }
 
-//JSONObject implements HTTPRequestBody and HTTPResponseBody for JSON objects.
+// JSONObject implements HTTPRequestBody and HTTPResponseBody for JSON objects.
 type JSONObject map[string]interface{}
 
-//GetRequestBody implements the HTTPRequestBody interface.
+// GetRequestBody implements the HTTPRequestBody interface.
 func (o JSONObject) GetRequestBody() (io.Reader, error) {
 	buf, err := json.Marshal(o)
 	return bytes.NewReader(buf), err
 }
 
-//AssertResponseBody implements the HTTPResponseBody interface.
+// AssertResponseBody implements the HTTPResponseBody interface.
 func (o JSONObject) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
 	t.Helper()
 
@@ -126,11 +126,11 @@ func (o JSONObject) AssertResponseBody(t *testing.T, requestInfo string, respons
 	return true
 }
 
-//JSONFixtureFile implements HTTPResponseBody by locating the expected JSON
-//response body in the given file.
+// JSONFixtureFile implements HTTPResponseBody by locating the expected JSON
+// response body in the given file.
 type JSONFixtureFile string
 
-//AssertResponseBody implements the HTTPResponseBody interface.
+// AssertResponseBody implements the HTTPResponseBody interface.
 func (f JSONFixtureFile) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
 	t.Helper()
 
@@ -145,11 +145,11 @@ func (f JSONFixtureFile) AssertResponseBody(t *testing.T, requestInfo string, re
 	return FixtureFile(f).AssertResponseBody(t, requestInfo, buf.Bytes())
 }
 
-//FixtureFile implements HTTPResponseBody by locating the expected
-//plain-text response body in the given file.
+// FixtureFile implements HTTPResponseBody by locating the expected
+// plain-text response body in the given file.
 type FixtureFile string
 
-//AssertResponseBody implements the HTTPResponseBody interface.
+// AssertResponseBody implements the HTTPResponseBody interface.
 func (f FixtureFile) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
 	t.Helper()
 

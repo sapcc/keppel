@@ -28,15 +28,15 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
 )
 
-//Enforcer contains the Enforce method that struct Token requires to check
-//access permissions. This interface is satisfied by struct Enforcer from
-//goslo.policy.
+// Enforcer contains the Enforce method that struct Token requires to check
+// access permissions. This interface is satisfied by struct Enforcer from
+// goslo.policy.
 type Enforcer interface {
 	Enforce(rule string, c policy.Context) bool
 }
 
-//Token represents a validated Keystone v3 token. It is returned from
-//Validator.CheckToken().
+// Token represents a validated Keystone v3 token. It is returned from
+// Validator.CheckToken().
 type Token struct {
 	//The enforcer that checks access permissions for this client token. Usually
 	//an instance of struct Enforcer from goslo.policy. Usually inherited from
@@ -56,9 +56,9 @@ type Token struct {
 	serializable serializableToken
 }
 
-//Require checks if the given token has the given permission according to the
-//policy.json that is in effect. If not, an error response is written and false
-//is returned.
+// Require checks if the given token has the given permission according to the
+// policy.json that is in effect. If not, an error response is written and false
+// is returned.
 func (t *Token) Require(w http.ResponseWriter, rule string) bool {
 	if t.Err != nil {
 		if t.Context.Logger != nil {
@@ -75,67 +75,67 @@ func (t *Token) Require(w http.ResponseWriter, rule string) bool {
 	return true
 }
 
-//Check is like Require, but does not write error responses.
+// Check is like Require, but does not write error responses.
 func (t *Token) Check(rule string) bool {
 	return t.Err == nil && t.Enforcer.Enforce(rule, t.Context)
 }
 
-//UserUUID returns the UUID of the user for whom this token was issued, or ""
-//if the token was invalid.
+// UserUUID returns the UUID of the user for whom this token was issued, or ""
+// if the token was invalid.
 func (t *Token) UserUUID() string {
 	return t.Context.Auth["user_id"]
 }
 
-//UserName returns the name of the user for whom this token was issued, or ""
-//if the token was invalid.
+// UserName returns the name of the user for whom this token was issued, or ""
+// if the token was invalid.
 func (t *Token) UserName() string {
 	return t.Context.Auth["user_name"]
 }
 
-//UserDomainName returns the name of the domain containing the user for whom
-//this token was issued, or "" if the token was invalid.
+// UserDomainName returns the name of the domain containing the user for whom
+// this token was issued, or "" if the token was invalid.
 func (t *Token) UserDomainName() string {
 	return t.Context.Auth["user_domain_name"]
 }
 
-//UserDomainUUID returns the UUID of the domain containing the user for whom
-//this token was issued, or "" if the token was invalid.
+// UserDomainUUID returns the UUID of the domain containing the user for whom
+// this token was issued, or "" if the token was invalid.
 func (t *Token) UserDomainUUID() string {
 	return t.Context.Auth["user_domain_id"]
 }
 
-//ProjectScopeUUID returns the UUID of this token's project scope, or "" if the token is
-//invalid or not scoped to a project.
+// ProjectScopeUUID returns the UUID of this token's project scope, or "" if the token is
+// invalid or not scoped to a project.
 func (t *Token) ProjectScopeUUID() string {
 	return t.Context.Auth["project_id"]
 }
 
-//ProjectScopeName returns the name of this token's project scope, or "" if the token is
-//invalid or not scoped to a project.
+// ProjectScopeName returns the name of this token's project scope, or "" if the token is
+// invalid or not scoped to a project.
 func (t *Token) ProjectScopeName() string {
 	return t.Context.Auth["project_name"]
 }
 
-//ProjectScopeDomainUUID returns the UUID of this token's project scope domain, or ""
-//if the token is invalid or not scoped to a project.
+// ProjectScopeDomainUUID returns the UUID of this token's project scope domain, or ""
+// if the token is invalid or not scoped to a project.
 func (t *Token) ProjectScopeDomainUUID() string {
 	return t.Context.Auth["project_domain_id"]
 }
 
-//ProjectScopeDomainName returns the name of this token's project scope domain, or ""
-//if the token is invalid or not scoped to a project.
+// ProjectScopeDomainName returns the name of this token's project scope domain, or ""
+// if the token is invalid or not scoped to a project.
 func (t *Token) ProjectScopeDomainName() string {
 	return t.Context.Auth["project_domain_name"]
 }
 
-//DomainScopeUUID returns the UUID of this token's domain scope, or "" if the token is
-//invalid or not scoped to a domain.
+// DomainScopeUUID returns the UUID of this token's domain scope, or "" if the token is
+// invalid or not scoped to a domain.
 func (t *Token) DomainScopeUUID() string {
 	return t.Context.Auth["domain_id"]
 }
 
-//DomainScopeName returns the name of this token's domain scope, or "" if the token is
-//invalid or not scoped to a domain.
+// DomainScopeName returns the name of this token's domain scope, or "" if the token is
+// invalid or not scoped to a domain.
 func (t *Token) DomainScopeName() string {
 	return t.Context.Auth["domain_name"]
 }
@@ -149,7 +149,7 @@ type serializableToken struct {
 	ServiceCatalog []tokens.CatalogEntry `json:"catalog"`
 }
 
-//ExtractInto implements the TokenResult interface.
+// ExtractInto implements the TokenResult interface.
 func (s serializableToken) ExtractInto(value interface{}) error {
 	//TokenResult.ExtractInto is only ever called with a value of type
 	//*keystoneToken, so this is okay
@@ -161,12 +161,12 @@ func (s serializableToken) ExtractInto(value interface{}) error {
 	return nil
 }
 
-//Extract implements the TokenResult interface.
+// Extract implements the TokenResult interface.
 func (s serializableToken) Extract() (*tokens.Token, error) {
 	return &s.Token, nil
 }
 
-//ExtractServiceCatalog implements the TokenResult interface.
+// ExtractServiceCatalog implements the TokenResult interface.
 func (s serializableToken) ExtractServiceCatalog() (*tokens.ServiceCatalog, error) {
 	return &tokens.ServiceCatalog{Entries: s.ServiceCatalog}, nil
 }

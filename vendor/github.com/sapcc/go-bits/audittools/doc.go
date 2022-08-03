@@ -26,6 +26,7 @@ of an application to a RabbitMQ server, or it can be used as a reference to buil
 own.
 
 One usage of the aforementioned implementation can be:
+
 	package yourPackageName
 
 	import (

@@ -17,8 +17,8 @@
 *
 *******************************************************************************/
 
-//Package httpext provides some convenience functions on top of the "net/http"
-//package from the stdlib.
+// Package httpext provides some convenience functions on top of the "net/http"
+// package from the stdlib.
 package httpext
 
 import (
@@ -26,9 +26,9 @@ import (
 	"net/http"
 )
 
-//GetRequesterIPFor inspects an http.Request and returns the IP address of the
-//machine where the request originated (or the empty string if no IP can be
-//found in the request).
+// GetRequesterIPFor inspects an http.Request and returns the IP address of the
+// machine where the request originated (or the empty string if no IP can be
+// found in the request).
 func GetRequesterIPFor(r *http.Request) string {
 	remoteAddr := r.RemoteAddr
 	if xForwardedFor := r.Header.Get("X-Forwarded-For"); xForwardedFor != "" {

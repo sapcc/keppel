@@ -17,9 +17,9 @@
 *
 *******************************************************************************/
 
-//Package respondwith contains some helper functions for generating responses
-//in HTTP handlers. Its name is like that because it pairs up with the function
-//names in this package, e.g. "respondwith.ErrorText" or "respondwith.JSON".
+// Package respondwith contains some helper functions for generating responses
+// in HTTP handlers. Its name is like that because it pairs up with the function
+// names in this package, e.g. "respondwith.ErrorText" or "respondwith.JSON".
 package respondwith
 
 import (
@@ -27,8 +27,8 @@ import (
 	"net/http"
 )
 
-//JSON serializes the given data into an HTTP response body
-//The `code` argument specifies the HTTP response code, usually 200.
+// JSON serializes the given data into an HTTP response body
+// The `code` argument specifies the HTTP response code, usually 200.
 func JSON(w http.ResponseWriter, code int, data interface{}) {
 	bytes, err := json.Marshal(&data)
 	if err == nil {
@@ -40,9 +40,9 @@ func JSON(w http.ResponseWriter, code int, data interface{}) {
 	}
 }
 
-//ErrorText produces an error response with HTTP status code 500 and
-//Content-Type text/plain if the given error is non-nil. Otherwise, nothing is
-//done and false is returned. Idiomatic usage looks like this:
+// ErrorText produces an error response with HTTP status code 500 and
+// Content-Type text/plain if the given error is non-nil. Otherwise, nothing is
+// done and false is returned. Idiomatic usage looks like this:
 //
 //	value, err := thisMayFail()
 //	if respondwith.ErrorText(w, err) {
@@ -50,7 +50,6 @@ func JSON(w http.ResponseWriter, code int, data interface{}) {
 //	}
 //
 //	useValue(value)
-//
 func ErrorText(w http.ResponseWriter, err error) bool {
 	if err == nil {
 		return false
