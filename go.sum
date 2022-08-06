@@ -301,8 +301,8 @@ github.com/russross/blackfriday/v2 v2.0.1/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQD
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/sapcc/go-api-declarations v1.2.0 h1:ypzrA7dc18VgtOLVaZnJ8vJ26T3ZFskr/2JLzgInd9s=
 github.com/sapcc/go-api-declarations v1.2.0/go.mod h1:zS+2xqmbtAyQxQz1liJp0qxDgop78fb4Sfk/IB0PvH0=
-github.com/sapcc/go-bits v0.0.0-20220803132021-fd783720dde3 h1:MVmSNXYQ1xEUuI2pr3KBuR5yfvvCSJoPo9Ug3gEfsg8=
-github.com/sapcc/go-bits v0.0.0-20220803132021-fd783720dde3/go.mod h1:5meYUEGbuENN+THdKSQ3f4GXagi2GMHLOOjldlWa3YY=
+github.com/sapcc/go-bits v0.0.0-20220806113733-304e620cef60 h1:8myjz+E8YBJqFRMGG0HijCC8QgY4y08brRtItTU49DQ=
+github.com/sapcc/go-bits v0.0.0-20220806113733-304e620cef60/go.mod h1:nD1KaopEUstj07W5bAQ8N+aqXogG1QQ6a/G1zs6wRZE=
 github.com/sergi/go-diff v1.2.0 h1:XU+rvMAioB0UC3q1MFrIQy4Vo5/4VsRDQQXHsEya6xQ=
 github.com/sergi/go-diff v1.2.0/go.mod h1:STckp+ISIX8hZLjrqAeVduY0gWCT9IjLuqbuNXdaHfM=
 github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=
