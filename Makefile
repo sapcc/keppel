@@ -54,7 +54,8 @@ else
 endif
 
 install: FORCE build/keppel
-	install -D -m 0755 build/keppel "$(DESTDIR)$(PREFIX)/bin/keppel"
+	install -d -m 0755 "$(DESTDIR)$(PREFIX)/bin"
+	install -m 0755 build/keppel "$(DESTDIR)$(PREFIX)/bin/keppel"
 
 # which packages to test with "go test"
 GO_TESTPKGS := $(shell go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...)
