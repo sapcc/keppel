@@ -20,7 +20,7 @@ require (
 	github.com/prometheus/client_golang v1.13.0
 	github.com/rs/cors v1.8.2
 	github.com/sapcc/go-api-declarations v1.2.0
-	github.com/sapcc/go-bits v0.0.0-20220806113733-304e620cef60
+	github.com/sapcc/go-bits v0.0.0-20220815140959-384e4e0b2d84
 	github.com/spf13/cobra v1.5.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
 	gopkg.in/gorp.v2 v2.2.0
@@ -51,7 +51,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/yuin/gopher-lua v0.0.0-20210529063254-f4c35e4016d9 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
-	go.uber.org/atomic v1.9.0 // indirect
+	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect

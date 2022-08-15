@@ -150,7 +150,7 @@ github.com/rs/cors
 ## explicit; go 1.17
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20220806113733-304e620cef60
+# github.com/sapcc/go-bits v0.0.0-20220815140959-384e4e0b2d84
 ## explicit; go 1.18
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
@@ -187,8 +187,8 @@ github.com/yuin/gopher-lua/parse
 github.com/yuin/gopher-lua/pm
 # github.com/ziutek/mymysql v1.5.4
 ## explicit
-# go.uber.org/atomic v1.9.0
-## explicit; go 1.13
+# go.uber.org/atomic v1.10.0
+## explicit; go 1.18
 go.uber.org/atomic
 # golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
 ## explicit; go 1.17
