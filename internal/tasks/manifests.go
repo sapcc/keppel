@@ -290,7 +290,7 @@ func (j *Janitor) getReplicaSyncPayload(account keppel.Account, repo keppel.Repo
 		return nil, err
 	}
 	reqURL := fmt.Sprintf("https://%s/peer/v1/sync-replica/%s", peer.HostName, repo.FullName())
-	req, err := http.NewRequest("POST", reqURL, bytes.NewReader(reqBodyBytes))
+	req, err := http.NewRequest(http.MethodPost, reqURL, bytes.NewReader(reqBodyBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +345,7 @@ TAG:
 				continue TAG
 			case "":
 				//the tag was deleted - replicate the tag deletion into our replica
-				_, err := j.db.Delete(&tag)
+				_, err := j.db.Delete(&tag) //nolint:gosec // Delete is not holding onto the pointer after it returns
 				if err != nil {
 					return err
 				}
@@ -370,7 +370,7 @@ TAG:
 			//tag deletion into our replica
 			err404, ok := err.(processor.UpstreamManifestMissingError)
 			if ok && err404.Ref == ref {
-				_, err := j.db.Delete(&tag)
+				_, err := j.db.Delete(&tag) //nolint:gosec // Delete is not holding onto the pointer after it returns
 				if err != nil {
 					return err
 				}

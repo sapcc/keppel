@@ -70,7 +70,7 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 
 	//check that these credentials work
 	authURL := fmt.Sprintf("https://%s/keppel/v1/auth?service=%[1]s", req.PeerHostName)
-	authReq, err := http.NewRequest("GET", authURL, nil)
+	authReq, err := http.NewRequest(http.MethodGet, authURL, http.NoBody)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -81,6 +81,7 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not validate credentials: "+err.Error(), http.StatusUnauthorized)
 		return
 	}
+	defer authResp.Body.Close()
 	if authResp.StatusCode != http.StatusOK {
 		http.Error(w, "could not validate credentials: expected 200 OK, but got "+authResp.Status, http.StatusUnauthorized)
 		return

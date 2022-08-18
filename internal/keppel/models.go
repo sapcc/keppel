@@ -101,8 +101,8 @@ type RBACPolicy struct {
 func (r RBACPolicy) Matches(ip, repoName, userName string) bool {
 	if r.CidrPattern != "" {
 		ip := net.ParseIP(ip)
-		_, net, err := net.ParseCIDR(r.CidrPattern)
-		if err != nil || !net.Contains(ip) {
+		_, network, err := net.ParseCIDR(r.CidrPattern)
+		if err != nil || !network.Contains(ip) {
 			return false
 		}
 	}
@@ -306,10 +306,10 @@ type Manifest struct {
 
 // FindManifest is a convenience wrapper around db.SelectOne(). If the
 // manifest in question does not exist, sql.ErrNoRows is returned.
-func FindManifest(db gorp.SqlExecutor, repo Repository, digest string) (*Manifest, error) {
+func FindManifest(db gorp.SqlExecutor, repo Repository, digestStr string) (*Manifest, error) {
 	var manifest Manifest
 	err := db.SelectOne(&manifest,
-		"SELECT * FROM manifests WHERE repo_id = $1 AND digest = $2", repo.ID, digest)
+		"SELECT * FROM manifests WHERE repo_id = $1 AND digest = $2", repo.ID, digestStr)
 	return &manifest, err
 }
 
@@ -322,9 +322,9 @@ var manifestGetQueryByRepoName = sqlext.SimplifyWhitespace(`
 
 // FindManifestByRepositoryName is a convenience wrapper around db.SelectOne().
 // If the manifest in question does not exist, sql.ErrNoRows is returned.
-func FindManifestByRepositoryName(db gorp.SqlExecutor, repoName string, account Account, digest string) (*Manifest, error) {
+func FindManifestByRepositoryName(db gorp.SqlExecutor, repoName string, account Account, digestStr string) (*Manifest, error) {
 	var manifest Manifest
-	err := db.SelectOne(&manifest, manifestGetQueryByRepoName, account.Name, repoName, digest)
+	err := db.SelectOne(&manifest, manifestGetQueryByRepoName, account.Name, repoName, digestStr)
 	return &manifest, err
 }
 

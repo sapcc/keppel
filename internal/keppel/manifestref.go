@@ -32,9 +32,9 @@ type ManifestReference struct {
 // a digest, it will be interpreted as a digest. Otherwise it will be
 // interpreted as a tag name.
 func ParseManifestReference(reference string) ManifestReference {
-	digest, err := digest.Parse(reference)
+	parsedDigest, err := digest.Parse(reference)
 	if err == nil {
-		return ManifestReference{Digest: digest}
+		return ManifestReference{Digest: parsedDigest}
 	}
 	return ManifestReference{Tag: reference}
 }

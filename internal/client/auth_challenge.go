@@ -92,7 +92,7 @@ func ParseAuthChallenge(hdr http.Header) (AuthChallenge, error) {
 
 // GetToken obtains a token that satisfies this challenge.
 func (c AuthChallenge) GetToken(userName, password string) (string, error) {
-	req, err := http.NewRequest("GET", c.Realm, nil)
+	req, err := http.NewRequest(http.MethodGet, c.Realm, http.NoBody)
 	if err != nil {
 		return "", err
 	}

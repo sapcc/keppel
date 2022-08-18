@@ -69,16 +69,16 @@ func GenerateExampleLayer(seed int64) Bytes {
 // layer when constructing image manifests for unit tests. The contents are
 // generated deterministically from the given seed.
 func GenerateExampleLayerSize(seed, sizeMiB int64) Bytes {
-	r := rand.New(rand.NewSource(seed))
+	r := rand.New(rand.NewSource(seed)) //nolint:gosec // random data from hardcoded seed to generate data for tests
 	buf := make([]byte, sizeMiB<<20)
 	r.Read(buf[:])
 
-	var bytes bytes.Buffer
-	w := gzip.NewWriter(&bytes)
-	w.Write(buf) // nolint: errcheck
+	var byteBuffer bytes.Buffer
+	w := gzip.NewWriter(&byteBuffer)
+	w.Write(buf) //nolint: errcheck
 	w.Close()
 
-	return newBytesWithMediaType(bytes.Bytes(), schema2.MediaTypeLayer)
+	return newBytesWithMediaType(byteBuffer.Bytes(), schema2.MediaTypeLayer)
 }
 
 // Image contains all the pieces of a Docker image. The Layers and Config must

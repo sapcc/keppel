@@ -68,7 +68,7 @@ func (r indexReport) IntoManifestState() ManifestState {
 // yet, and checks if the indexing has finished. Since the manifest rendering is
 // costly, it's wrapped in a callback that this method only calls when needed.
 func (c *Client) CheckManifestState(digest string, renderManifest func() (Manifest, error)) (ManifestState, error) {
-	req, err := http.NewRequest("GET", c.requestURL("indexer", "api", "v1", "index_report", digest), nil)
+	req, err := http.NewRequest(http.MethodGet, c.requestURL("indexer", "api", "v1", "index_report", digest), http.NoBody)
 	if err != nil {
 		return ManifestState{}, err
 	}
@@ -107,7 +107,7 @@ func (c *Client) submitManifest(renderManifest func() (Manifest, error)) (indexR
 	logg.Debug("sending indexing request to Clair: %s", string(jsonBytes))
 
 	req, err := http.NewRequest(
-		"POST",
+		http.MethodPost,
 		c.requestURL("indexer", "api", "v1", "index_report"),
 		bytes.NewReader(jsonBytes),
 	)

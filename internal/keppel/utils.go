@@ -94,11 +94,11 @@ func OriginalRequestURL(r *http.Request) url.URL {
 }
 
 // AppendQuery adds additional query parameters to an existing unparsed URL.
-func AppendQuery(url string, query url.Values) string {
-	if strings.Contains(url, "?") {
-		return url + "&" + query.Encode()
+func AppendQuery(urlStr string, query url.Values) string {
+	if strings.Contains(urlStr, "?") {
+		return urlStr + "&" + query.Encode()
 	}
-	return url + "?" + query.Encode()
+	return urlStr + "?" + query.Encode()
 }
 
 // MaybeTimeToUnix casts a time.Time instance into its UNIX timestamp while preserving nil-ness.

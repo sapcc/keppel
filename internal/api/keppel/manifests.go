@@ -175,13 +175,13 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	if repo == nil {
 		return
 	}
-	digest, err := digest.Parse(mux.Vars(r)["digest"])
+	parsedDigest, err := digest.Parse(mux.Vars(r)["digest"])
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 
-	err = a.processor().DeleteManifest(*account, *repo, digest.String(), keppel.AuditContext{
+	err = a.processor().DeleteManifest(*account, *repo, parsedDigest.String(), keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
@@ -241,13 +241,13 @@ func (a *API) handleGetVulnerabilityReport(w http.ResponseWriter, r *http.Reques
 	if repo == nil {
 		return
 	}
-	digest, err := digest.Parse(mux.Vars(r)["digest"])
+	parsedDigest, err := digest.Parse(mux.Vars(r)["digest"])
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 
-	manifest, err := keppel.FindManifest(a.db, *repo, digest.String())
+	manifest, err := keppel.FindManifest(a.db, *repo, parsedDigest.String())
 	if err == sql.ErrNoRows {
 		http.Error(w, "not found", http.StatusNotFound)
 		return

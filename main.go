@@ -53,7 +53,7 @@ func main() {
 	//want to turn off certificate verification.)
 	if osext.GetenvBool("KEPPEL_INSECURE") {
 		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: true, //nolint:gosec // only used in development environments
 		}
 		http.DefaultTransport = userAgentInjector{http.DefaultTransport}
 	}

@@ -104,10 +104,11 @@ func IssueNewPasswordForPeer(cfg keppel.Configuration, db *keppel.DB, tx *gorp.T
 		Password:     newPassword,
 	})
 	peerURL := fmt.Sprintf("https://%s/keppel/v1/auth/peering", peer.HostName)
-	resp, err := http.Post(peerURL, "application/json", bytes.NewReader(bodyBytes))
+	resp, err := http.Post(peerURL, "application/json", bytes.NewReader(bodyBytes)) //nolint:gosec // the URL is read from static configuration files
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
 		return &url.Error{
 			Op:  "Post",

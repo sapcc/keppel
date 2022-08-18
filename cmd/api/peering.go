@@ -60,7 +60,7 @@ func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
 	_ = must.Return(db.Select(&allPeers, `SELECT * FROM peers`))
 	for _, peer := range allPeers {
 		if !isPeerHostName[peer.HostName] {
-			_ = must.Return(db.Delete(&peer))
+			_ = must.Return(db.Delete(&peer)) //nolint:gosec // Delete is not holding onto the pointer after it returns
 		}
 	}
 
