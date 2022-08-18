@@ -135,14 +135,14 @@ func (a Authorization) IssueToken(cfg keppel.Configuration) (*TokenResponse, err
 	//false to reveal the identity of the Keppel API that issued the token
 	issuer := Audience{IsAnycast: false, AccountName: a.Audience.AccountName}
 
-	uuid, err := uuid.NewV4()
+	uuidV4, err := uuid.NewV4()
 	if err != nil {
 		return nil, err
 	}
 	publicHost := a.Audience.Hostname(cfg)
 	token := jwt.NewWithClaims(method, tokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        uuid.String(),
+			ID:        uuidV4.String(),
 			Audience:  jwt.ClaimStrings{publicHost},
 			Issuer:    "keppel-api@" + issuer.Hostname(cfg),
 			Subject:   a.UserIdentity.UserName(),

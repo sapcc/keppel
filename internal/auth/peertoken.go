@@ -32,7 +32,7 @@ import (
 // GetPeerToken returns a token that can be used for the Peer API (or any other API endpoint that accepts the
 func GetPeerToken(cfg keppel.Configuration, peer keppel.Peer, scope Scope) (string, error) {
 	reqURL := fmt.Sprintf("https://%[1]s/keppel/v1/auth?service=%[1]s&scope=%[2]s", peer.HostName, scope.String())
-	req, err := http.NewRequest("GET", reqURL, nil)
+	req, err := http.NewRequest(http.MethodGet, reqURL, http.NoBody)
 	if err != nil {
 		return "", err
 	}

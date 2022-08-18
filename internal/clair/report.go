@@ -103,7 +103,7 @@ func (c *Client) GetVulnerabilityReport(digest string) (*VulnerabilityReport, er
 		}, nil
 	}
 
-	req, err := http.NewRequest("GET", c.requestURL("matcher", "api", "v1", "vulnerability_report", digest), nil)
+	req, err := http.NewRequest(http.MethodGet, c.requestURL("matcher", "api", "v1", "vulnerability_report", digest), http.NoBody)
 	if err != nil {
 		return nil, err
 	}

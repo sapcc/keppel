@@ -61,7 +61,7 @@ func (b Bytes) MustUpload(t *testing.T, s Setup, repo keppel.Repository) keppel.
 		},
 		Body:         assert.ByteData(b.Contents),
 		ExpectStatus: http.StatusCreated,
-	}.Check(t, s.Handler)
+	}.Check(t, s.Handler) //nolint:bodyclose // only used in testing
 	if t.Failed() {
 		t.FailNow()
 	}
@@ -118,7 +118,7 @@ func (i Image) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName
 		},
 		Body:         assert.ByteData(i.Manifest.Contents),
 		ExpectStatus: http.StatusCreated,
-	}.Check(t, s.Handler)
+	}.Check(t, s.Handler) //nolint:bodyclose // only used in testing
 	if t.Failed() {
 		t.FailNow()
 	}
@@ -175,7 +175,7 @@ func (l ImageList) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tag
 		},
 		Body:         assert.ByteData(l.Manifest.Contents),
 		ExpectStatus: http.StatusCreated,
-	}.Check(t, s.Handler)
+	}.Check(t, s.Handler) //nolint:bodyclose // only used in testing
 	if t.Failed() {
 		t.FailNow()
 	}

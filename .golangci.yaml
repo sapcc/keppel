@@ -12,13 +12,17 @@ output:
   print-issued-lines: false
 
 issues:
-  # '0' disables the following options.
-  max-issues-per-linter: 0
-  max-same-issues: 0
   exclude:
     # It is idiomatic Go to reuse the name 'err' with ':=' for subsequent errors.
     # Ref: https://go.dev/doc/effective_go#redeclaration
     - 'declaration of "err" shadows declaration at'
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - bodyclose
+  # '0' disables the following options.
+  max-issues-per-linter: 0
+  max-same-issues: 0
 
 linters-settings:
   dupl:
@@ -37,12 +41,50 @@ linters-settings:
     forbid:
       # ioutil package has been deprecated: https://github.com/golang/go/issues/42026
       - ^ioutil\..*$
+  gocritic:
+    enabled-checks:
+      - boolExprSimplify
+      - builtinShadow
+      - emptyStringTest
+      - evalOrder
+      - httpNoBody
+      - importShadow
+      - initClause
+      - methodExprCall
+      - paramTypeCombine
+      - preferFilepathJoin
+      - ptrToRefParam
+      - redundantSprint
+      - returnAfterHttpError
+      - stringConcatSimplify
+      - timeExprSimplify
+      - truncateCmp
+      - typeAssertChain
+      - typeUnparen
+      - unnamedResult
+      - unnecessaryBlock
+      - unnecessaryDefer
+      - weakCond
+      - yodaStyleExpr
   goimports:
     # Put local imports after 3rd-party packages.
     local-prefixes: github.com/sapcc/keppel
+  gosec:
+    excludes:
+      - G306
   govet:
     # Report about shadowed variables.
     check-shadowing: true
+  nolintlint:
+    require-specific: true
+  usestdlibvars:
+      http-method: true
+      http-status-code: true
+      time-weekday: true
+      time-month: true
+      time-layout: true
+      crypto-hash: true
+      default-rpc-path: true
   whitespace:
     # Enforce newlines (or comments) after multi-line function signatures.
     multi-func: true
@@ -52,18 +94,23 @@ linters:
   # does not introduce new linters unexpectedly.
   disable-all: true
   enable:
+    - bodyclose
     - deadcode
     - dupl
     - errcheck
     - exportloopref
     - forbidigo
+    - gocritic
     - gofmt
     - goimports
+    - gosec
     - gosimple
     - govet
     - ineffassign
     - misspell
+    - nolintlint
     - rowserrcheck
+    - sqlclosecheck
     - staticcheck
     - structcheck
     - stylecheck
@@ -71,5 +118,6 @@ linters:
     - unconvert
     - unparam
     - unused
+    - usestdlibvars
     - varcheck
     - whitespace

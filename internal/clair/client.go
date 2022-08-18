@@ -100,8 +100,8 @@ func (c *Client) doRequest(req *http.Request, respBody interface{}) error {
 // SendRequest sends an arbitrary request without request body or special
 // headers (so probably only GET or HEAD) to Clair with proper auth. This
 // interface is only used by the Clair API proxy.
-func (c *Client) SendRequest(method, path string, responseBody interface{}) error {
-	req, err := http.NewRequest(method, c.requestURL(path), nil)
+func (c *Client) SendRequest(method, urlPath string, responseBody interface{}) error {
+	req, err := http.NewRequest(method, c.requestURL(urlPath), http.NoBody)
 	if err != nil {
 		return err
 	}

@@ -166,7 +166,7 @@ var (
 func GetReplicationPassword() string {
 	if replicationPassword == "" {
 		//this password needs to be constant because it appears in some fixtures/*.sql
-		replicationPassword = "a4cb6fae5b8bb91b0b993486937103dab05eca93"
+		replicationPassword = "a4cb6fae5b8bb91b0b993486937103dab05eca93" //nolint:gosec // hardcoded password for test fixtures
 
 		hashBytes, _ := bcrypt.GenerateFromPassword([]byte(replicationPassword), 8) //nolint:errcheck
 		replicationPasswordHash = string(hashBytes)

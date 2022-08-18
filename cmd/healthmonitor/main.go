@@ -151,7 +151,7 @@ func (j *healthMonitorJob) PrepareKeppelAccount() error {
 	}
 	reqBodyBytes, _ := json.Marshal(reqBody)
 
-	req, err := http.NewRequest("PUT", "/keppel/v1/accounts/"+j.AccountName, bytes.NewReader(reqBodyBytes))
+	req, err := http.NewRequest(http.MethodPut, "/keppel/v1/accounts/"+j.AccountName, bytes.NewReader(reqBodyBytes))
 	if err != nil {
 		return err
 	}

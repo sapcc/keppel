@@ -245,15 +245,15 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 		// hack to mimic default value in database
 		result.CidrPattern = "0.0.0.0/0"
 	} else {
-		_, net, err := net.ParseCIDR(cidr)
+		_, network, err := net.ParseCIDR(cidr)
 		if err != nil {
 			// err.Error() sadly does not contain any useful information why the cidr is invalid
 			return result, fmt.Errorf("%q is not a valid cidr", cidr)
 		}
-		if net.String() == "0.0.0.0/0" {
+		if network.String() == "0.0.0.0/0" {
 			return result, errors.New("0.0.0.0/0 cannot be used as cidr because it matches everything")
 		}
-		result.CidrPattern = net.String()
+		result.CidrPattern = network.String()
 	}
 	for _, perm := range policy.Permissions {
 		switch perm {
@@ -618,7 +618,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 				}
 
 				reqURL := fmt.Sprintf("https://%s/keppel/v1/accounts/%s", accountToCreate.UpstreamPeerHostName, accountToCreate.Name)
-				authReq, err := http.NewRequest("GET", reqURL, nil)
+				authReq, err := http.NewRequest(http.MethodGet, reqURL, http.NoBody)
 				if respondwith.ErrorText(w, err) {
 					return
 				}
@@ -817,7 +817,7 @@ func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPoli
 		if policyInDB, exists := state[key]; exists {
 			//update if necessary
 			if policy != policyInDB {
-				_, err := a.db.Update(&policy)
+				_, err := a.db.Update(&policy) //nolint:gosec // Update is not holding onto the pointer after it returns
 				if err != nil {
 					return err
 				}
@@ -829,7 +829,7 @@ func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPoli
 			}
 		} else {
 			//insert missing policy
-			err := a.db.Insert(&policy)
+			err := a.db.Insert(&policy) //nolint:gosec // Update is not holding onto the pointer after it returns
 			if err != nil {
 				return err
 			}
@@ -846,7 +846,7 @@ func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPoli
 	//because of delete() up there, `state` now only contains policies that are
 	//not in `policies` and which have to be deleted
 	for _, policy := range state {
-		_, err := a.db.Delete(&policy)
+		_, err := a.db.Delete(&policy) //nolint:gosec // Delete is not holding onto the pointer after it returns
 		if err != nil {
 			return err
 		}

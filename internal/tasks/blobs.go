@@ -135,7 +135,8 @@ func (j *Janitor) SweepBlobsInNextAccount() (returnErr error) {
 		logg.Info("sweeping %d blobs in account %s", len(blobs), account.Name)
 	}
 	for _, blob := range blobs {
-		_, err := j.db.Delete(&blob) //without transaction: we need this committed right now
+		//without transaction: we need this committed right now
+		_, err := j.db.Delete(&blob) //nolint:gosec // Delete is not holding onto the pointer after it returns
 		if err != nil {
 			return err
 		}

@@ -245,11 +245,11 @@ func (a *API) findManifestInDB(repo keppel.Repository, reference keppel.Manifest
 	return &dbManifest, err
 }
 
-func (a *API) getManifestContentFromDB(repoID int64, digest string) ([]byte, error) {
+func (a *API) getManifestContentFromDB(repoID int64, digestStr string) ([]byte, error) {
 	var result []byte
 	err := a.db.SelectOne(&result,
 		`SELECT content FROM manifest_contents WHERE repo_id = $1 AND digest = $2`,
-		repoID, digest,
+		repoID, digestStr,
 	)
 	return result, err
 }

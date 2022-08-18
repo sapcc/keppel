@@ -119,13 +119,13 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//start a new upload
-	uuid, err := uuid.NewV4()
+	uuidV4, err := uuid.NewV4()
 	if respondWithError(w, r, err) {
 		return
 	}
 	upload := keppel.Upload{
 		RepositoryID: repo.ID,
-		UUID:         uuid.String(),
+		UUID:         uuidV4.String(),
 		StorageID:    a.generateStorageID(),
 		SizeBytes:    0,
 		Digest:       "",
@@ -187,11 +187,11 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 	}
 
 	//the spec wants a Blob-Upload-Session-Id header even though the upload is done, so just make something up
-	uuid, err := uuid.NewV4()
+	uuidV4, err := uuid.NewV4()
 	if respondWithError(w, r, err) {
 		return
 	}
-	w.Header().Set("Blob-Upload-Session-Id", uuid.String())
+	w.Header().Set("Blob-Upload-Session-Id", uuidV4.String())
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/%s", getRepoNameForURLPath(targetRepo, authz), blobDigest.String()))
 	w.WriteHeader(http.StatusCreated)
@@ -283,11 +283,11 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	}
 
 	//the spec wants a Blob-Upload-Session-Id header even though the upload is done, so just make something up
-	uuid, err := uuid.NewV4()
+	uuidV4, err := uuid.NewV4()
 	if respondWithError(w, r, err) {
 		return
 	}
-	w.Header().Set("Blob-Upload-Session-Id", uuid.String())
+	w.Header().Set("Blob-Upload-Session-Id", uuidV4.String())
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/%s", getRepoNameForURLPath(repo, authz), blobDigest.String()))
 	w.WriteHeader(http.StatusCreated)
@@ -529,8 +529,8 @@ func (a *API) resumeUpload(account keppel.Account, upload *keppel.Upload, stateS
 	if err != nil {
 		return nil, keppel.ErrBlobUploadInvalid.With("malformed session state")
 	}
-	hash := sha256.New()
-	err = hash.(encoding.BinaryUnmarshaler).UnmarshalBinary(stateBytes)
+	hashWriter := sha256.New()
+	err = hashWriter.(encoding.BinaryUnmarshaler).UnmarshalBinary(stateBytes)
 	if err != nil {
 		//COVERAGE: I've tried, but couldn't build a test where the session state
 		//is corrupted specifically to go through the Base64 decoding, but not
@@ -539,22 +539,22 @@ func (a *API) resumeUpload(account keppel.Account, upload *keppel.Upload, stateS
 	}
 
 	//...and the digest from the data up until this point should be equal to upload.Digest
-	stateDigest := digest.NewDigest(digest.SHA256, hash)
+	stateDigest := digest.NewDigest(digest.SHA256, hashWriter)
 	if stateDigest.String() != upload.Digest {
 		return nil, keppel.ErrBlobUploadInvalid.With("provided session state did not match uploaded content")
 	}
 
 	//we need to unmarshal the digest state once more because taking a Sum over
 	//this hash may have altered the state
-	hash = sha256.New()
-	err = hash.(encoding.BinaryUnmarshaler).UnmarshalBinary(stateBytes)
+	hashWriter = sha256.New()
+	err = hashWriter.(encoding.BinaryUnmarshaler).UnmarshalBinary(stateBytes)
 	if err != nil {
 		//COVERAGE: This branch is defense in depth. We unmarshaled the same state
 		//above, so hitting an error just here should be impossible.
 		return nil, keppel.ErrBlobUploadInvalid.With("broken session state")
 	}
 
-	return &digestWriter{hash, upload.SizeBytes}, nil
+	return &digestWriter{hashWriter, upload.SizeBytes}, nil
 }
 
 var contentRangeRx = regexp.MustCompile(`^([0-9]+)-([0-9]+)$`)

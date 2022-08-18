@@ -66,19 +66,19 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 	//check is not 100% reliable since it does not run in the same transaction as
 	//the actual upsert, so results should be taken with a grain of salt; but the
 	//result is accurate enough to avoid most duplicate audit events
-	digest := digest.Canonical.FromBytes(m.Contents)
-	manifestExistsAlready, err := p.db.SelectBool(checkManifestExistsQuery, repo.ID, digest.String())
+	contentsDigest := digest.Canonical.FromBytes(m.Contents)
+	manifestExistsAlready, err := p.db.SelectBool(checkManifestExistsQuery, repo.ID, contentsDigest.String())
 	if err != nil {
 		return nil, err
 	}
-	logg.Debug("ValidateAndStoreManifest: in repo %d, manifest %s already exists = %t", repo.ID, digest.String(), manifestExistsAlready)
+	logg.Debug("ValidateAndStoreManifest: in repo %d, manifest %s already exists = %t", repo.ID, contentsDigest.String(), manifestExistsAlready)
 	var tagExistsAlready bool
 	if m.Reference.IsTag() {
-		tagExistsAlready, err = p.db.SelectBool(checkTagExistsAtSameDigestQuery, repo.ID, m.Reference.Tag, digest.String())
+		tagExistsAlready, err = p.db.SelectBool(checkTagExistsAtSameDigestQuery, repo.ID, m.Reference.Tag, contentsDigest.String())
 		if err != nil {
 			return nil, err
 		}
-		logg.Debug("ValidateAndStoreManifest: in repo %d, tag %s @%s already exists = %t", repo.ID, m.Reference.Tag, digest.String(), tagExistsAlready)
+		logg.Debug("ValidateAndStoreManifest: in repo %d, tag %s @%s already exists = %t", repo.ID, m.Reference.Tag, contentsDigest.String(), tagExistsAlready)
 	}
 
 	//the quota check can be skipped if we are sure that we won't need to insert
@@ -318,7 +318,7 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 }
 
 // Returns the list of missing labels, or nil if everything is ok.
-func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account keppel.Account, manifest keppel.ParsedManifest) (map[string]string, *time.Time, *time.Time, error) {
+func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account keppel.Account, manifest keppel.ParsedManifest) (labels map[string]string, minCreationTime, maxCreationTime *time.Time, err error) {
 	//is this manifest an image that has labels?
 	configBlob := manifest.FindImageConfigBlob()
 	if configBlob == nil {
@@ -370,7 +370,6 @@ func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account 
 	// time)
 	//
 	// [1] Ref: <https://github.com/GoogleContainerTools/distroless/issues/112>
-	var minCreationTime, maxCreationTime *time.Time
 	for _, v := range data.History {
 		if v.Created != nil && v.Created.Unix() != 0 {
 			minCreationTime = keppel.MinMaybeTime(minCreationTime, v.Created)
@@ -679,7 +678,7 @@ func errorIsUpstreamRateLimit(err error) bool {
 
 // Downloads a manifest from an account's upstream using
 // RepoClient.DownloadManifest(), but also takes into account the inbound cache.
-func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo keppel.Repository, ref keppel.ManifestReference) ([]byte, string, error) {
+func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo keppel.Repository, ref keppel.ManifestReference) (manifestBytes []byte, manifestMediaType string, err error) {
 	c, err := p.getRepoClientForUpstream(account, repo)
 	if err != nil {
 		return nil, "", err
@@ -692,7 +691,7 @@ func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo
 		Reference: ref,
 	}
 	labels := prometheus.Labels{"external_hostname": c.Host}
-	manifestBytes, manifestMediaType, err := p.icd.LoadManifest(imageRef, p.timeNow())
+	manifestBytes, manifestMediaType, err = p.icd.LoadManifest(imageRef, p.timeNow())
 	if err == nil {
 		InboundManifestCacheHitCounter.With(labels).Inc()
 		return manifestBytes, manifestMediaType, nil
@@ -732,7 +731,7 @@ func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo
 // Uses the peering API to ask another peer to downloads a manifest from an
 // external registry for us. This gets used when the external registry denies
 // the pull to us because we hit our rate limit.
-func (p *Processor) downloadManifestViaPullDelegation(imageRef keppel.ImageReference, userName, password string) ([]byte, string, bool) {
+func (p *Processor) downloadManifestViaPullDelegation(imageRef keppel.ImageReference, userName, password string) (respBytes []byte, contentType string, success bool) {
 	//select a peer at random
 	var peer keppel.Peer
 	err := p.db.SelectOne(&peer, `SELECT * FROM peers WHERE our_password != '' ORDER BY RANDOM() LIMIT 1`)
@@ -755,7 +754,7 @@ func (p *Processor) downloadManifestViaPullDelegation(imageRef keppel.ImageRefer
 	//build request
 	reqURL := fmt.Sprintf("https://%s/peer/v1/delegatedpull/%s/v2/%s/manifests/%s",
 		peer.HostName, imageRef.Host, imageRef.RepoName, imageRef.Reference)
-	req, err := http.NewRequest("GET", reqURL, nil)
+	req, err := http.NewRequest(http.MethodGet, reqURL, http.NoBody)
 	if err != nil {
 		logg.Error("while trying to build a pull delegation request for %s: %s", imageRef.String(), err.Error())
 		return nil, "", false
@@ -770,7 +769,7 @@ func (p *Processor) downloadManifestViaPullDelegation(imageRef keppel.ImageRefer
 		return nil, "", false
 	}
 	defer resp.Body.Close()
-	respBytes, err := io.ReadAll(resp.Body)
+	respBytes, err = io.ReadAll(resp.Body)
 	if err != nil {
 		logg.Error("during GET %s: %s", reqURL, err.Error())
 		return nil, "", false
@@ -788,15 +787,15 @@ func (p *Processor) downloadManifestViaPullDelegation(imageRef keppel.ImageRefer
 // backing storage.
 //
 // If the manifest does not exist, sql.ErrNoRows is returned.
-func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repository, digest string, actx keppel.AuditContext) error {
+func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repository, digestStr string, actx keppel.AuditContext) error {
 	result, err := p.db.Exec(
 		//this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
 		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
-		repo.ID, digest)
+		repo.ID, digestStr)
 	if err != nil {
 		otherDigest, err2 := p.db.SelectStr(
 			`SELECT parent_digest FROM manifest_manifest_refs WHERE repo_id = $1 AND child_digest = $2`,
-			repo.ID, digest)
+			repo.ID, digestStr)
 		// more than one manifest is referenced by another manifest
 		if otherDigest != "" && err2 == nil {
 			return fmt.Errorf("cannot delete a manifest which is referenced by the manifest %s", otherDigest)
@@ -825,7 +824,7 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 	//manifest reference in the meantime. If that happens, and we have already
 	//deleted the manifest in the backing storage, we've caused an inconsistency
 	//that we cannot recover from.
-	err = p.sd.DeleteManifest(account, repo.Name, digest)
+	err = p.sd.DeleteManifest(account, repo.Name, digestStr)
 	if err != nil {
 		return err
 	}
@@ -840,7 +839,7 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 			Target: auditManifest{
 				Account:    account,
 				Repository: repo,
-				Digest:     digest,
+				Digest:     digestStr,
 			},
 		})
 	}
@@ -851,13 +850,13 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 // DeleteTag deletes the given tag from the database. The manifest is not deleted.
 // If the tag does not exist, sql.ErrNoRows is returned.
 func (p *Processor) DeleteTag(account keppel.Account, repo keppel.Repository, tagName string, actx keppel.AuditContext) error {
-	digest, err := p.db.SelectStr(
+	parsedDigest, err := p.db.SelectStr(
 		`DELETE FROM tags WHERE repo_id = $1 AND name = $2 RETURNING digest`,
 		repo.ID, tagName)
 	if err != nil {
 		return err
 	}
-	if digest == "" {
+	if parsedDigest == "" {
 		return sql.ErrNoRows
 	}
 
@@ -871,7 +870,7 @@ func (p *Processor) DeleteTag(account keppel.Account, repo keppel.Repository, ta
 			Target: auditTag{
 				Account:    account,
 				Repository: repo,
-				Digest:     digest,
+				Digest:     parsedDigest,
 				TagName:    tagName,
 			},
 		})

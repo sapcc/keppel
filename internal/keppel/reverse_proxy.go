@@ -59,7 +59,7 @@ func (cfg Configuration) ReverseProxyAnycastRequestToPeer(w http.ResponseWriter,
 	}
 
 	//send proxy request
-	req, err := http.NewRequest(r.Method, reqURL.String(), nil)
+	req, err := http.NewRequest(r.Method, reqURL.String(), http.NoBody)
 	if err != nil {
 		return err
 	}
