@@ -86,6 +86,7 @@ func (r HTTPRequest) Check(t *testing.T, handler http.Handler) (resp *http.Respo
 	handler.ServeHTTP(recorder, request)
 
 	response := recorder.Result()
+	defer response.Body.Close()
 	responseBytes, _ := io.ReadAll(response.Body)
 
 	hadErrors := false
