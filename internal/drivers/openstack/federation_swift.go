@@ -37,7 +37,6 @@ import (
 	"github.com/gophercloud/utils/openstack/clientconfig"
 	"github.com/majewsky/schwift"
 	"github.com/majewsky/schwift/gopherschwift"
-	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/osext"
 
@@ -66,7 +65,7 @@ func initSwiftContainerConnection(envPrefix string) (*schwift.Container, error) 
 		return nil, errors.New("cannot find OpenStack credentials for federation driver: " + err.Error())
 	}
 	ao.AllowReauth = true
-	provider, err := createProviderClient(*ao)
+	provider, err := openstack.AuthenticatedClient(*ao)
 	if err != nil {
 		return nil, errors.New("cannot connect to OpenStack for federation driver: " + err.Error())
 	}
@@ -83,9 +82,7 @@ func initSwiftContainerConnection(envPrefix string) (*schwift.Container, error) 
 	}
 
 	//create Swift container if necessary
-	swiftAccount, err := gopherschwift.Wrap(swiftV1, &gopherschwift.Options{
-		UserAgent: fmt.Sprintf("%s/%s", bininfo.Component(), bininfo.Version()),
-	})
+	swiftAccount, err := gopherschwift.Wrap(swiftV1, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/logg"
 )
@@ -44,7 +45,7 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	//provide a back-channel for our custom out-of-band messages to the request handler
 	//(this is used by SkipRequestLog etc.)
-	ctx := context.WithValue(r.Context(), OOB_KEY, func(msg oobMessage) {
+	ctx := context.WithValue(r.Context(), oobFunctionKey, func(msg oobMessage) {
 		if msg.SkipLog {
 			skipLog = true
 		}

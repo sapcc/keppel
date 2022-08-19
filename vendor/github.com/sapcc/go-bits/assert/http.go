@@ -85,12 +85,17 @@ func (r HTTPRequest) Check(t *testing.T, handler http.Handler) (resp *http.Respo
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 
-	response := recorder.Result()
-	defer response.Body.Close()
-	responseBytes, _ := io.ReadAll(response.Body)
-
 	hadErrors := false
 	bodyShown := false
+
+	response := recorder.Result()
+	defer response.Body.Close()
+	responseBytes, err := io.ReadAll(response.Body)
+
+	if err != nil {
+		hadErrors = true
+		t.Errorf("Reading response body failed: %s", err.Error())
+	}
 
 	if response.StatusCode != r.ExpectStatus {
 		hadErrors = true

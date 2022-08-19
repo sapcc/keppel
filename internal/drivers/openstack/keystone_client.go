@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
 	"github.com/gophercloud/utils/openstack/clientconfig"
 
@@ -58,7 +59,7 @@ func (d *keystoneClientDriver) Connect() error {
 		return errors.New("cannot find OpenStack credentials: " + err.Error())
 	}
 	ao.AllowReauth = true
-	provider, err := createProviderClient(*ao)
+	provider, err := openstack.AuthenticatedClient(*ao)
 	if err != nil {
 		return errors.New("cannot connect to OpenStack: " + err.Error())
 	}

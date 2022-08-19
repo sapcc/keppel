@@ -51,8 +51,8 @@ func logDiff(t *testing.T, expected, actual string) {
 		diffs := dmp.DiffMain(fmt.Sprintf("%q\n", expected), fmt.Sprintf("%q\n", actual), false)
 		t.Logf(dmp.DiffPrettyText(diffs))
 	} else {
-		t.Logf("\texpected = %q\n", string(expected))
-		t.Logf("\t  actual = %q\n", string(actual))
+		t.Logf("\texpected = %q\n", expected)
+		t.Logf("\t  actual = %q\n", actual)
 	}
 }
 
@@ -114,7 +114,11 @@ func (o JSONObject) AssertResponseBody(t *testing.T, requestInfo string, respons
 	var data map[string]interface{}
 	err = json.Unmarshal(responseBody, &data)
 	if err == nil {
-		responseBody, _ = json.Marshal(data)
+		responseBody, err = json.Marshal(data)
+		if err != nil {
+			t.Errorf("JSON marshalling failed: %s", err.Error())
+			return false
+		}
 	}
 
 	if string(responseBody) != string(buf) {
@@ -155,9 +159,13 @@ func (f FixtureFile) AssertResponseBody(t *testing.T, requestInfo string, respon
 
 	//write actual content to file to make it easy to copy the computed result over
 	//to the fixture path when a new test is added or an existing one is modified
-	fixturePathAbs, _ := filepath.Abs(string(f))
+	fixturePathAbs, err := filepath.Abs(string(f))
+	if err != nil {
+		t.Fatal(err)
+		return false
+	}
 	actualPathAbs := fixturePathAbs + ".actual"
-	err := os.WriteFile(actualPathAbs, responseBody, 0644)
+	err = os.WriteFile(actualPathAbs, responseBody, 0o666)
 	if err != nil {
 		t.Fatal(err)
 		return false

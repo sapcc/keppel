@@ -36,7 +36,6 @@ import (
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/majewsky/schwift"
 	"github.com/majewsky/schwift/gopherschwift"
-	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-bits/logg"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -70,9 +69,7 @@ func init() {
 			return nil, err
 		}
 
-		swiftAccount, err := gopherschwift.Wrap(client, &gopherschwift.Options{
-			UserAgent: fmt.Sprintf("%s/%s", bininfo.Component(), bininfo.Version()),
-		})
+		swiftAccount, err := gopherschwift.Wrap(client, nil)
 		if err != nil {
 			return nil, err
 		}

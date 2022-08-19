@@ -32,7 +32,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/spf13/cobra"
@@ -87,7 +86,7 @@ type anycastMonitorJob struct {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	bininfo.SetTaskName("anycast-health-monitor")
+	keppel.SetTaskName("anycast-health-monitor")
 	prometheus.MustRegister(anycastmonitorResultGaugeVec)
 	prometheus.MustRegister(anycastmonitorMemberGauge)
 
@@ -113,7 +112,6 @@ func run(cmd *cobra.Command, args []string) {
 	http.Handle("/metrics", promhttp.Handler())
 	ctx := httpext.ContextWithSIGINT(context.Background(), 1*time.Second)
 	go func() {
-		logg.Info("listening on %s...", listenAddress)
 		err := httpext.ListenAndServeContext(ctx, listenAddress, nil)
 		if err != nil {
 			logg.Fatal("error returned from httpext.ListenAndServeContext(): %s", err.Error())

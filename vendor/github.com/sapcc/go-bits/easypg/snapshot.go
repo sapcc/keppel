@@ -128,7 +128,7 @@ type tableSnapshot struct {
 func newTableSnapshot(t *testing.T, db *sql.DB, tableName string, keyColumnNames []string) tableSnapshot {
 	t.Helper()
 
-	rows, err := db.Query(`SELECT * FROM ` + tableName)
+	rows, err := db.Query(`SELECT * FROM ` + tableName) //nolint:gosec // cannot provide tableName as bind parameter
 	failOnErr(t, err)
 	columnNames, err := rows.Columns()
 	failOnErr(t, err)

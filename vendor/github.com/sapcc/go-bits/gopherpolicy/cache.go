@@ -35,6 +35,7 @@ type inMemoryCacher struct {
 func InMemoryCacher() Cacher {
 	//lru.New() only fails if a non-negative size is given, so it's safe to
 	//ignore the error here
+	//nolint:errcheck
 	c, _ := lru.New(256)
 	return inMemoryCacher{c}
 }

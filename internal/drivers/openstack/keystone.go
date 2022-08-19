@@ -67,7 +67,7 @@ func init() {
 			return nil, errors.New("cannot find OpenStack credentials: " + err.Error())
 		}
 		ao.AllowReauth = true
-		provider, err := createProviderClient(*ao)
+		provider, err := openstack.AuthenticatedClient(*ao)
 		if err != nil {
 			return nil, errors.New("cannot connect to OpenStack: " + err.Error())
 		}
@@ -101,15 +101,6 @@ func init() {
 			TokenValidator: tv,
 		}, nil
 	})
-}
-
-func createProviderClient(ao gophercloud.AuthOptions) (*gophercloud.ProviderClient, error) {
-	provider, err := openstack.NewClient(ao.IdentityEndpoint)
-	if err == nil {
-		provider.UserAgent.Prepend(fmt.Sprintf("%s/%s", bininfo.Component(), bininfo.Version()))
-		err = openstack.Authenticate(provider, ao)
-	}
-	return provider, err
 }
 
 // DriverName implements the keppel.AuthDriver interface.

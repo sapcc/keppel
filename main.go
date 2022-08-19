@@ -19,10 +19,6 @@
 package main
 
 import (
-	"crypto/tls"
-	"fmt"
-	"net/http"
-
 	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/must"
@@ -41,22 +37,12 @@ import (
 	_ "github.com/sapcc/keppel/internal/drivers/openstack"
 	_ "github.com/sapcc/keppel/internal/drivers/redis"
 	_ "github.com/sapcc/keppel/internal/drivers/trivial"
+	"github.com/sapcc/keppel/internal/keppel"
 )
 
 func main() {
 	logg.ShowDebug = osext.GetenvBool("KEPPEL_DEBUG")
-
-	//The KEPPEL_INSECURE flag can be used to get Keppel to work through
-	//mitmproxy (which is very useful for development and debugging). (It's very
-	//important that this is not the standard "KEPPEL_DEBUG" variable. That one
-	//is meant to be useful for production systems, where you definitely don't
-	//want to turn off certificate verification.)
-	if osext.GetenvBool("KEPPEL_INSECURE") {
-		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true, //nolint:gosec // only used in development environments
-		}
-		http.DefaultTransport = userAgentInjector{http.DefaultTransport}
-	}
+	keppel.SetupHTTPClient()
 
 	rootCmd := &cobra.Command{
 		Use:     "keppel",
@@ -85,14 +71,4 @@ func main() {
 	rootCmd.AddCommand(serverCmd)
 
 	must.Succeed(rootCmd.Execute())
-}
-
-type userAgentInjector struct {
-	Inner http.RoundTripper
-}
-
-// RoundTrip implements the http.RoundTripper interface.
-func (uai userAgentInjector) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.Header.Set("User-Agent", fmt.Sprintf("%s/%s", bininfo.Component(), bininfo.Version()))
-	return uai.Inner.RoundTrip(req)
 }

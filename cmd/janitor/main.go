@@ -27,7 +27,6 @@ import (
 	"github.com/dlmiddlecote/sqlstats"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/logg"
@@ -52,8 +51,7 @@ func AddCommandTo(parent *cobra.Command) {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	bininfo.SetTaskName("janitor")
-	logg.Info("starting keppel-janitor %s", bininfo.Version())
+	keppel.SetTaskName("janitor")
 
 	cfg := keppel.ParseConfiguration()
 	auditor := keppel.InitAuditTrail()
@@ -88,7 +86,6 @@ func run(cmd *cobra.Command, args []string) {
 	http.Handle("/", handler)
 	http.Handle("/metrics", promhttp.Handler())
 	listenAddress := osext.GetenvOrDefault("KEPPEL_JANITOR_LISTEN_ADDRESS", ":8080")
-	logg.Info("listening on " + listenAddress)
 	err := httpext.ListenAndServeContext(ctx, listenAddress, nil)
 	if err != nil {
 		logg.Fatal("error returned from httpext.ListenAndServeContext(): %s", err.Error())

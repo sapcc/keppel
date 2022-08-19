@@ -34,6 +34,8 @@ import (
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
 	"gopkg.in/yaml.v2"
+
+	"github.com/sapcc/go-bits/logg"
 )
 
 // Validator is the interface provided by TokenValidator. Application code
@@ -95,9 +97,13 @@ func (v *TokenValidator) CheckToken(r *http.Request) *Token {
 		return &Token{Err: errors.New("X-Auth-Token header missing")}
 	}
 
-	return v.CheckCredentials(tokenStr, func() TokenResult {
+	token := v.CheckCredentials(tokenStr, func() TokenResult {
 		return tokens.Get(v.IdentityV3, tokenStr)
 	})
+	token.Context.Logger = logg.Debug
+	logg.Debug("token has auth = %v", token.Context.Auth)
+	logg.Debug("token has roles = %v", token.Context.Roles)
+	return token
 }
 
 // CheckCredentials is a more generic version of CheckToken that can also be

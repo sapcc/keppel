@@ -30,7 +30,6 @@ import (
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/spf13/cobra"
@@ -80,7 +79,7 @@ type healthMonitorJob struct {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	bininfo.SetTaskName("health-monitor")
+	keppel.SetTaskName("health-monitor")
 	prometheus.MustRegister(healthmonitorResultGauge)
 
 	ad, err := client.NewAuthDriver()
@@ -117,7 +116,6 @@ func run(cmd *cobra.Command, args []string) {
 	http.Handle("/metrics", promhttp.Handler())
 	ctx := httpext.ContextWithSIGINT(context.Background(), 1*time.Second)
 	go func() {
-		logg.Info("listening on %s...", listenAddress)
 		err := httpext.ListenAndServeContext(ctx, listenAddress, nil)
 		if err != nil {
 			logg.Fatal("error returned from httpext.ListenAndServeContext(): %s", err.Error())

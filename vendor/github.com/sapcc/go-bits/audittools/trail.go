@@ -99,11 +99,11 @@ func refreshConnectionIfClosedOrOld(rc *RabbitConnection, uri url.URL, queueName
 		rc.Disconnect()
 	}
 
-	new, err := NewRabbitConnection(uri, queueName)
+	connection, err := NewRabbitConnection(uri, queueName)
 	if err != nil {
 		logg.Error(err.Error())
 		return nil
 	}
 
-	return new
+	return connection
 }

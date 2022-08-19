@@ -34,7 +34,7 @@ import (
 func ClearTables(t *testing.T, db *sql.DB, tableNames ...string) {
 	t.Helper()
 	for _, tableName := range tableNames {
-		_, err := db.Exec("DELETE FROM " + tableName)
+		_, err := db.Exec("DELETE FROM " + tableName) //nolint:gosec // cannot provide tableName as bind parameter
 		if err != nil {
 			t.Fatalf("while clearing table %s: %s", tableName, err.Error())
 		}
@@ -48,7 +48,7 @@ func ResetPrimaryKeys(t *testing.T, db *sql.DB, tableNames ...string) {
 	t.Helper()
 	for _, tableName := range tableNames {
 		var nextID int64
-		query := fmt.Sprintf("SELECT 1 + COALESCE(MAX(id), 0) FROM %s", tableName)
+		query := fmt.Sprintf("SELECT 1 + COALESCE(MAX(id), 0) FROM %s", tableName) //nolint:gosec // cannot provide tableName as bind parameter
 		err := db.QueryRow(query).Scan(&nextID)
 		if err != nil {
 			t.Fatalf("while checking IDs in table %s: %s", tableName, err.Error())
@@ -147,9 +147,10 @@ func (a Assertable) AssertEqualToFile(fixtureFile string) {
 
 	//write actual content to file to make it easy to copy the computed result over
 	//to the fixture path when a new test is added or an existing one is modified
-	fixturePath, _ := filepath.Abs(fixtureFile)
+	fixturePath, err := filepath.Abs(fixtureFile)
+	failOnErr(a.t, err)
 	actualPath := fixturePath + ".actual"
-	failOnErr(a.t, os.WriteFile(actualPath, []byte(a.payload), 0644))
+	failOnErr(a.t, os.WriteFile(actualPath, []byte(a.payload), 0o666))
 
 	cmd := exec.Command("diff", "-u", fixturePath, actualPath)
 	cmd.Stdin = nil
@@ -182,9 +183,9 @@ func (a Assertable) AssertEqual(expected string) {
 	tmpDir, err := os.MkdirTemp("", "easypg-diff")
 	failOnErr(a.t, err)
 	actualPath := filepath.Join(tmpDir, "/actual")
-	failOnErr(a.t, os.WriteFile(actualPath, []byte(actual), 0644))
+	failOnErr(a.t, os.WriteFile(actualPath, []byte(actual), 0o666))
 	expectedPath := filepath.Join(tmpDir, "/expected")
-	failOnErr(a.t, os.WriteFile(expectedPath, []byte(expected), 0644))
+	failOnErr(a.t, os.WriteFile(expectedPath, []byte(expected), 0o666))
 
 	cmd := exec.Command("diff", "-u", expectedPath, actualPath)
 	cmd.Stdin = nil

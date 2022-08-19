@@ -31,7 +31,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
-	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/logg"
@@ -61,8 +60,7 @@ func AddCommandTo(parent *cobra.Command) {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	bininfo.SetTaskName("api")
-	logg.Info("starting keppel-api %s", bininfo.Version())
+	keppel.SetTaskName("api")
 
 	cfg := keppel.ParseConfiguration()
 	auditor := keppel.InitAuditTrail()
@@ -109,7 +107,6 @@ func run(cmd *cobra.Command, args []string) {
 
 	//start HTTP server
 	apiListenAddress := osext.GetenvOrDefault("KEPPEL_API_LISTEN_ADDRESS", ":8080")
-	logg.Info("listening on " + apiListenAddress)
 	err := httpext.ListenAndServeContext(ctx, apiListenAddress, nil)
 	if err != nil {
 		logg.Fatal("error returned from httpext.ListenAndServeContext(): %s", err.Error())

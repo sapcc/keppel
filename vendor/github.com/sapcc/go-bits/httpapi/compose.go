@@ -49,7 +49,7 @@ func Compose(apis ...API) http.Handler {
 
 type oobKey string
 
-const OOB_KEY oobKey = "gobits-httpapi-oob"
+const oobFunctionKey oobKey = "gobits-httpapi-oob"
 
 // An out-of-band message that can be sent from the middleware to the request
 // through one of the functions below.
@@ -61,7 +61,7 @@ type oobMessage struct {
 // SkipRequestLog indicates that this request shall not have a
 // "REQUEST" log line written for it.
 func SkipRequestLog(r *http.Request) {
-	fn, ok := r.Context().Value(OOB_KEY).(func(oobMessage))
+	fn, ok := r.Context().Value(oobFunctionKey).(func(oobMessage))
 	if !ok {
 		panic("httpapi.SkipRequestLog called from request handler outside of httpapi.Compose()!")
 	}
@@ -74,7 +74,7 @@ func SkipRequestLog(r *http.Request) {
 // provided to Compose(). It identifies the endpoint for the purpose of HTTP
 // request/response metrics.
 func IdentifyEndpoint(r *http.Request, endpoint string) {
-	fn, ok := r.Context().Value(OOB_KEY).(func(oobMessage))
+	fn, ok := r.Context().Value(oobFunctionKey).(func(oobMessage))
 	if !ok {
 		panic("httpapi.IdentifyEndpoint called from request handler outside of httpapi.Compose()!")
 	}
