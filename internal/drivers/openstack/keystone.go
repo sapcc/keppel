@@ -43,7 +43,6 @@ import (
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
 	"github.com/gophercloud/utils/openstack/clientconfig"
-	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/go-bits/logg"
@@ -141,7 +140,6 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Use
 		},
 		Endpoint: d.IdentityV3.Endpoint,
 	}
-	throwAwayClient.UserAgent.Prepend(fmt.Sprintf("%s/%s", bininfo.Component(), bininfo.Version()))
 	throwAwayClient.SetThrowaway(true)
 	throwAwayClient.ReauthFunc = nil
 	throwAwayClient.SetTokenAndAuthResult(nil) //nolint:errcheck
@@ -161,7 +159,7 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Use
 			userName, t.Err.Error(),
 		)
 	}
-	return newKeystoneUserIdentity(t), nil
+	return keystoneUserIdentity{t}, nil
 }
 
 // possible formats for the username:
@@ -217,7 +215,7 @@ func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Us
 
 	//t.Context.Request = mux.Vars(r) //not used at the moment
 
-	a := newKeystoneUserIdentity(t)
+	a := keystoneUserIdentity{t}
 	if !a.t.Check("account:list") {
 		return nil, keppel.ErrDenied.With("").WithStatus(http.StatusForbidden)
 	}
@@ -229,13 +227,6 @@ type keystoneUserIdentity struct {
 	//^ WARNING: Token may not always contain everything you expect
 	//because of a serialization roundtrip. See SerializeToJSON() and
 	//deserializeKeystoneUserIdentity() for details.
-}
-
-func newKeystoneUserIdentity(t *gopherpolicy.Token) keystoneUserIdentity {
-	t.Context.Logger = logg.Debug
-	logg.Debug("token has auth = %v", t.Context.Auth)
-	logg.Debug("token has roles = %v", t.Context.Roles)
-	return keystoneUserIdentity{t}
 }
 
 var ruleForPerm = map[keppel.Permission]string{
@@ -323,7 +314,7 @@ func deserializeKeystoneUserIdentity(in []byte, ad keppel.AuthDriver) (keppel.Us
 		return nil, err
 	}
 
-	return newKeystoneUserIdentity(&gopherpolicy.Token{
+	return keystoneUserIdentity{&gopherpolicy.Token{
 		Enforcer: d.TokenValidator.Enforcer,
 		Context: policy.Context{
 			Auth:    skuid.Auth,
@@ -332,5 +323,5 @@ func deserializeKeystoneUserIdentity(in []byte, ad keppel.AuthDriver) (keppel.Us
 		},
 		ProviderClient: nil, //cannot be reasonably serialized; see comment above
 		Err:            nil,
-	}), nil
+	}}, nil
 }
