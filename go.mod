@@ -19,8 +19,8 @@ require (
 	github.com/opencontainers/image-spec v1.0.2
 	github.com/prometheus/client_golang v1.13.0
 	github.com/rs/cors v1.8.2
-	github.com/sapcc/go-api-declarations v1.2.0
-	github.com/sapcc/go-bits v0.0.0-20220819141629-31b96bd61763
+	github.com/sapcc/go-api-declarations v1.3.0
+	github.com/sapcc/go-bits v0.0.0-20220823141731-fd7850ce8cb7
 	github.com/spf13/cobra v1.5.0
 	golang.org/x/crypto v0.0.0-20220817201139-bc19a97f63c8
 	gopkg.in/gorp.v2 v2.2.0

@@ -16,19 +16,19 @@
 *
 ******************************************************************************/
 
-//Package bininfo contains information about the current binary and process.
-//Most of the information available through this interface is filled at build
-//time using the -X linker flag.
+// Package bininfo contains information about the current binary and process.
+// Most of the information available through this interface is filled at build
+// time using the -X linker flag.
 //
-//This package can be considered an interface between the application (which
-//provides the requisite data at build time and runtime) and various places
-//around our internal libraries (which use this data, e.g. to construct
-//User-Agent headers or log messages).
+// This package can be considered an interface between the application (which
+// provides the requisite data at build time and runtime) and various places
+// around our internal libraries (which use this data, e.g. to construct
+// User-Agent headers or log messages).
 //
-//When using <https://github.com/sapcc/go-makefile-maker>, go-makefile-maker
-//will detect when go-api-declarations is listed as a dependency in the
-//application's go.mod file and generate the appropriate linker flags
-//automatically.
+// When using <https://github.com/sapcc/go-makefile-maker>, go-makefile-maker
+// will detect when go-api-declarations is listed as a dependency in the
+// application's go.mod file and generate the appropriate linker flags
+// automatically.
 package bininfo
 
 import "fmt"
@@ -44,12 +44,12 @@ var (
 	taskName string
 )
 
-//Component returns the name of the current binary, followed by the name of the
-//current process's task if one has provided via SetTaskName(). This string can
-//be used to identify the current process, e.g. in User-Agent headers.
+// Component returns the name of the current binary, followed by the name of the
+// current process's task if one has provided via SetTaskName(). This string can
+// be used to identify the current process, e.g. in User-Agent headers.
 //
-//For example, the command `tenso worker` calls `SetTaskName("worker")`, so
-//Component() will return "tenso-worker".
+// For example, the command `tenso worker` calls `SetTaskName("worker")`, so
+// Component() will return "tenso-worker".
 func Component() string {
 	if taskName == "" {
 		return binName
@@ -57,20 +57,20 @@ func Component() string {
 	return fmt.Sprintf("%s-%s", binName, taskName)
 }
 
-//SetTaskName identifies the subcommand selected for the current process. This
-//setting influences the output of Component().
+// SetTaskName identifies the subcommand selected for the current process. This
+// setting influences the output of Component().
 func SetTaskName(name string) {
 	taskName = name
 }
 
-//Version returns the version string provided at build time, or "" if none was
-//provided.
+// Version returns the version string provided at build time, or "" if none was
+// provided.
 func Version() string {
 	return version
 }
 
-//VersionOr returns the version string provided at build time, or the fallback
-//value if none was provided. A common invocation is `VersionOr("unknown")`.
+// VersionOr returns the version string provided at build time, or the fallback
+// value if none was provided. A common invocation is `VersionOr("unknown")`.
 func VersionOr(fallback string) string {
 	if version == "" {
 		return fallback
@@ -78,14 +78,14 @@ func VersionOr(fallback string) string {
 	return version
 }
 
-//Commit returns the commit string provided at build time, or "" if none was
-//provided.
+// Commit returns the commit string provided at build time, or "" if none was
+// provided.
 func Commit() string {
 	return commit
 }
 
-//CommitOr returns the commit string provided at build time, or the fallback
-//value if none was provided. A common invocation is `CommitOr("unknown")`.
+// CommitOr returns the commit string provided at build time, or the fallback
+// value if none was provided. A common invocation is `CommitOr("unknown")`.
 func CommitOr(fallback string) string {
 	if commit == "" {
 		return fallback
@@ -93,14 +93,14 @@ func CommitOr(fallback string) string {
 	return commit
 }
 
-//BuildDate returns the buildDate string provided at build time, or "" if none was
-//provided.
+// BuildDate returns the buildDate string provided at build time, or "" if none was
+// provided.
 func BuildDate() string {
 	return buildDate
 }
 
-//BuildDateOr returns the build date string, or the fallback value if none is
-//known. A common invocation is `BuildDateOr("unknown")`.
+// BuildDateOr returns the build date string, or the fallback value if none is
+// known. A common invocation is `BuildDateOr("unknown")`.
 func BuildDateOr(fallback string) string {
 	if buildDate == "" {
 		return fallback
