@@ -496,7 +496,7 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 			image := test.GenerateImage(test.GenerateExampleLayer(1))
 			requestCounter := 0
 			tertiaryHandler := func(w http.ResponseWriter, r *http.Request) {
-				if r.Method != "GET" {
+				if r.Method != http.MethodGet {
 					http.Error(w, r.Method+"not allowed", http.StatusMethodNotAllowed)
 					return
 				}

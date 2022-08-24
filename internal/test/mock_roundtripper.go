@@ -73,7 +73,7 @@ func (t *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	//in practice, most HTTP handlers for GET/HEAD requests write into the
 	//response body regardless of whether the method was GET or HEAD; strip the
 	//response body from HEAD responses to align with net/http's actual behavior
-	if req.Method == "HEAD" {
+	if req.Method == http.MethodHead {
 		resp.Body = nil
 	}
 

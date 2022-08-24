@@ -180,12 +180,12 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Keppel-Max-Layer-Created-At", timeToString(*dbManifest.MaxLayerCreatedAt))
 	}
 	w.WriteHeader(http.StatusOK)
-	if r.Method != "HEAD" {
+	if r.Method != http.MethodHead {
 		w.Write(manifestBytes)
 	}
 
 	//count the pull
-	if r.Method == "GET" && r.Header.Get("X-Keppel-No-Count-Towards-Last-Pulled") != "1" {
+	if r.Method == http.MethodGet && r.Header.Get("X-Keppel-No-Count-Towards-Last-Pulled") != "1" {
 		l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 		api.ManifestsPulledCounter.With(l).Inc()
 

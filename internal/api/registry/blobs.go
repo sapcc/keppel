@@ -77,7 +77,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//...answer HEAD requests with the metadata that we obtained when replicating the manifest...
-		if r.Method == "HEAD" {
+		if r.Method == http.MethodHead {
 			w.Header().Set("Content-Length", strconv.FormatUint(blob.SizeBytes, 10))
 			w.Header().Set("Content-Type", "application/octet-stream")
 			w.Header().Set("Docker-Content-Digest", blob.Digest)
@@ -115,7 +115,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	if isAnycast {
 		//AnycastBlobBytePullAction is only relevant for GET requests since it
 		//limits the size of the response body (which is empty for HEAD)
-		if r.Method == "GET" {
+		if r.Method == http.MethodGet {
 			if !a.checkRateLimit(w, r, *account, authz, keppel.AnycastBlobBytePullAction, blob.SizeBytes) {
 				return
 			}
@@ -123,7 +123,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//before we branch into different code paths, count the pull
-	if r.Method == "GET" {
+	if r.Method == http.MethodGet {
 		l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 		if authz.UserIdentity.UserType() == keppel.PeerUser {
 			l["method"] = "replication"
@@ -166,7 +166,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Docker-Content-Digest", blob.Digest)
 	w.WriteHeader(http.StatusOK)
-	if r.Method != "HEAD" {
+	if r.Method != http.MethodHead {
 		_, err = io.Copy(w, reader)
 		if err != nil {
 			logg.Error("unexpected error from io.Copy() while sending blob to client: %s", err.Error())

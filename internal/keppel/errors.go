@@ -167,7 +167,7 @@ func (e *RegistryV2Error) WriteAsRegistryV2ResponseTo(w http.ResponseWriter, r *
 	} else {
 		w.WriteHeader(e.Status)
 	}
-	if r.Method != "HEAD" {
+	if r.Method != http.MethodHead {
 		buf, _ := json.Marshal(struct {
 			Errors []*RegistryV2Error `json:"errors"`
 		}{

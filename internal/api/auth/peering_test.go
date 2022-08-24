@@ -54,7 +54,7 @@ func TestPeeringAPI(t *testing.T) {
 				http.Error(w, "not found", http.StatusNotFound)
 				return
 			}
-			if r.Method != "GET" {
+			if r.Method != http.MethodGet {
 				http.Error(w, "not allowed", http.StatusMethodNotAllowed)
 				return
 			}

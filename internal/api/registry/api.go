@@ -213,9 +213,9 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	//check authorization before FindAccount(); otherwise we might leak
 	//information about account existence to unauthorized users
 	switch r.Method {
-	case "DELETE":
+	case http.MethodDelete:
 		scope.Actions = []string{"delete"}
-	case "GET", "HEAD":
+	case http.MethodGet, http.MethodHead:
 		scope.Actions = []string{"pull"}
 	default:
 		scope.Actions = []string{"pull", "push"}
