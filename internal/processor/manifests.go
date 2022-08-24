@@ -207,40 +207,39 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 			return err
 		}
 		manifest.SizeBytes += refsInfo.SumChildSizes
+
+		configInfo, err := parseManifestConfig(tx, p.sd, account, manifestParsed)
+		if err != nil {
+			return err
+		}
+
 		//enforce account-specific validation rules on manifest, but not list manifest
 		//and only when pushing (not when validating at a later point in time,
 		//the set of RequiredLabels could have been changed by then)
 		labelsRequired := manifest.PushedAt == manifest.ValidatedAt && account.RequiredLabels != "" &&
 			manifest.MediaType != manifestlist.MediaTypeManifestList && manifest.MediaType != imagespec.MediaTypeImageIndex
-		configInfo, err := parseManifestConfig(tx, p.sd, account, manifestParsed)
-		if err != nil {
-			return err
+		if labelsRequired {
+			requiredLabels := strings.Split(account.RequiredLabels, ",")
+			var missingLabels []string
+			for _, l := range requiredLabels {
+				if _, exists := configInfo.Labels[l]; !exists {
+					missingLabels = append(missingLabels, l)
+				}
+			}
+			if len(missingLabels) > 0 {
+				msg := "missing required labels: " + strings.Join(missingLabels, ", ")
+				return keppel.ErrManifestInvalid.With(msg)
+			}
 		}
+
 		if len(configInfo.Labels) > 0 {
 			labelsJSON, err := json.Marshal(configInfo.Labels)
 			if err != nil {
 				return err
 			}
 			manifest.LabelsJSON = string(labelsJSON)
-
-			if labelsRequired {
-				requiredLabels := strings.Split(account.RequiredLabels, ",")
-				var missingLabels []string
-				for _, l := range requiredLabels {
-					if _, exists := configInfo.Labels[l]; !exists {
-						missingLabels = append(missingLabels, l)
-					}
-				}
-				if len(missingLabels) > 0 {
-					msg := "missing required labels: " + strings.Join(missingLabels, ", ")
-					return keppel.ErrManifestInvalid.With(msg)
-				}
-			}
 		} else {
 			manifest.LabelsJSON = ""
-			if labelsRequired {
-				return keppel.ErrManifestInvalid.With("missing required labels: %s", account.RequiredLabels)
-			}
 		}
 
 		manifest.MinLayerCreatedAt = keppel.MinMaybeTime(refsInfo.MinCreationTime, configInfo.MinCreationTime)

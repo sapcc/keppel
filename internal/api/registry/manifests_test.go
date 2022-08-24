@@ -576,7 +576,10 @@ func TestManifestRequiredLabels(t *testing.T) {
 			Body:         assert.ByteData(image.Manifest.Contents),
 			ExpectStatus: http.StatusBadRequest,
 			ExpectHeader: test.VersionHeader,
-			ExpectBody:   test.ErrorCode(keppel.ErrManifestInvalid),
+			ExpectBody: test.ErrorCodeWithMessage{
+				Code:    keppel.ErrManifestInvalid,
+				Message: "missing required labels: somethingelse, andalsothis",
+			},
 		}.Check(t, h)
 
 		//setup required labels on account for success
