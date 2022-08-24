@@ -61,11 +61,8 @@ func ContextWithSIGINT(ctx context.Context, delay time.Duration) context.Context
 // shuts down the HTTP server gracefully when the context expires, or if an error occurs.
 func ListenAndServeContext(ctx context.Context, addr string, handler http.Handler) error {
 	logg.Info("Listening on %s...", addr)
-	server := &http.Server{
-		Addr:              addr,
-		Handler:           handler,
-		ReadHeaderTimeout: 10 * time.Second,
-	}
+	//nolint:gosec // gosec wants us to set a short ReadHeaderTimeout to avoid Slowloris attacks, but doing so would expose us to Keep-Alive race conditions (see <https://iximiuz.com/en/posts/reverse-proxy-http-keep-alive-and-502s/>)
+	server := &http.Server{Addr: addr, Handler: handler}
 
 	// waitForServerShutdown channel serves two purposes:
 	// 1. It is used to block until server.Shutdown() returns to prevent
