@@ -232,8 +232,15 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 			}
 		}
 
-		if len(configInfo.Labels) > 0 {
-			labelsJSON, err := json.Marshal(configInfo.Labels)
+		//for plain manifests, we report the labels from the manifest config; for
+		//list manifests (which do not have a config), we instead report all the
+		//labels that the constituent manifests agree on
+		reportedLabels := configInfo.Labels
+		if manifest.MediaType == manifestlist.MediaTypeManifestList || manifest.MediaType == imagespec.MediaTypeImageIndex {
+			reportedLabels = refsInfo.CommonLabels
+		}
+		if len(reportedLabels) > 0 {
+			labelsJSON, err := json.Marshal(reportedLabels)
 			if err != nil {
 				return err
 			}
@@ -272,6 +279,7 @@ type blobRef struct {
 type manifestRefsInfo struct {
 	BlobRefs        []blobRef
 	ManifestDigests []string
+	CommonLabels    map[string]string
 	MinCreationTime *time.Time
 	MaxCreationTime *time.Time
 	SumChildSizes   uint64
@@ -281,12 +289,14 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 	//ensure that we don't insert duplicate entries into `blobRefs` and `manifestDigests`
 	wasHandled := make(map[string]bool)
 
+	//for all blobs referenced by this manifest...
 	for _, desc := range manifest.BlobReferences() {
 		if wasHandled[desc.Digest.String()] {
 			continue
 		}
 		wasHandled[desc.Digest.String()] = true
 
+		//check that the blob exists
 		blob, err := keppel.FindBlobByRepository(tx, desc.Digest, repo)
 		if err == sql.ErrNoRows {
 			return manifestRefsInfo{}, keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String())
@@ -294,6 +304,8 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 		if err != nil {
 			return manifestRefsInfo{}, err
 		}
+
+		//check that the blob size matches what the manifest says
 		if blob.SizeBytes != uint64(desc.Size) {
 			msg := fmt.Sprintf(
 				"manifest references blob %s with %d bytes, but blob actually contains %d bytes",
@@ -303,12 +315,14 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 		result.BlobRefs = append(result.BlobRefs, blobRef{blob.ID, desc.MediaType})
 	}
 
-	for _, desc := range manifest.ManifestReferences(account.PlatformFilter) {
+	//for all manifests referenced by this manifest...
+	for idx, desc := range manifest.ManifestReferences(account.PlatformFilter) {
 		if wasHandled[desc.Digest.String()] {
 			continue
 		}
 		wasHandled[desc.Digest.String()] = true
 
+		//check that the child manifest exists
 		manifest, err := keppel.FindManifest(tx, repo, desc.Digest.String())
 		if err == sql.ErrNoRows {
 			return manifestRefsInfo{}, keppel.ErrManifestUnknown.With("").WithDetail(desc.Digest.String())
@@ -316,6 +330,29 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 		if err != nil {
 			return manifestRefsInfo{}, err
 		}
+
+		//compute the set of label values that all child manifests agree on
+		var labels map[string]string
+		if manifest.LabelsJSON != "" {
+			err := json.Unmarshal([]byte(manifest.LabelsJSON), &labels)
+			if err != nil {
+				return manifestRefsInfo{}, err
+			}
+		}
+		if idx == 0 {
+			//start with the labels of the first child manifest
+			result.CommonLabels = labels
+		} else {
+			//for each other child manifest, drop the labels where values do not match
+			for key, thisValue := range labels {
+				commonValue, exists := result.CommonLabels[key]
+				if exists && commonValue != thisValue {
+					delete(result.CommonLabels, key)
+				}
+			}
+		}
+
+		//compute aggregate information for all child manifests
 		result.ManifestDigests = append(result.ManifestDigests, desc.Digest.String())
 		result.MinCreationTime = keppel.MinMaybeTime(result.MinCreationTime, manifest.MinLayerCreatedAt)
 		result.MaxCreationTime = keppel.MaxMaybeTime(result.MaxCreationTime, manifest.MaxLayerCreatedAt)

@@ -26,6 +26,7 @@ import (
 
 	"github.com/docker/distribution/manifest/manifestlist"
 	"github.com/docker/distribution/manifest/schema2"
+	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
@@ -554,7 +555,6 @@ func TestManifestRequiredLabels(t *testing.T) {
 		}, test.GenerateExampleLayer(1))
 		image.Config.MustUpload(t, s, fooRepoRef)
 		image.Layers[0].MustUpload(t, s, fooRepoRef)
-		list := test.GenerateImageList(image)
 
 		//setup required labels on account for failure
 		_, err := s.DB.Exec(
@@ -604,32 +604,26 @@ func TestManifestRequiredLabels(t *testing.T) {
 			ExpectHeader: test.VersionHeader,
 		}.Check(t, h)
 
-		//check that the labels_json field is populated correctly in the db
-		var dbManifests []keppel.Manifest
-		_, err = s.DB.Select(&dbManifests,
-			`SELECT * FROM manifests`,
+		//check that the labels_json field is populated correctly in the DB
+		expectLabelsJSONOnManifest(
+			t, s.DB, image.Manifest.Digest,
+			map[string]string{"bar": "is there", "foo": "is there"},
 		)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		if len(dbManifests) != 1 {
-			t.Fatalf("expected 1 manifest entry in db, got: %d", len(dbManifests))
-		}
 
-		var actual map[string]string
-		err = json.Unmarshal([]byte(dbManifests[0].LabelsJSON), &actual)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		expected := map[string]string{
-			"bar": "is there",
-			"foo": "is there",
-		}
-		assert.DeepEqual(t, "labels_json", actual, expected)
+		//upload another image with similar (but not identical) labels as
+		//preparation for the image list test below
+		otherImage := test.GenerateImageWithCustomConfig(func(cfg map[string]interface{}) {
+			cfg["config"].(map[string]interface{})["Labels"] = map[string]string{"foo": "is there", "bar": "is different"}
+		}, image.Layers[0])
+		otherImage.MustUpload(t, s, fooRepoRef, "other")
 
+		//required_labels does not apply to image lists (since image list manifests
+		//do not have labels at all), so we can upload this list manifest without
+		//any additional considerations
+		list := test.GenerateImageList(image, otherImage)
 		assert.HTTPRequest{
 			Method: "PUT",
-			Path:   "/v2/test1/foo/manifests/latest",
+			Path:   "/v2/test1/foo/manifests/list",
 			Header: map[string]string{
 				"Authorization": "Bearer " + token,
 				"Content-Type":  manifestlist.MediaTypeManifestList,
@@ -638,7 +632,28 @@ func TestManifestRequiredLabels(t *testing.T) {
 			ExpectStatus: http.StatusCreated,
 			ExpectHeader: test.VersionHeader,
 		}.Check(t, h)
+
+		//check the labels_json field on the list manifest
+		expectLabelsJSONOnManifest(
+			t, s.DB, list.Manifest.Digest,
+			map[string]string{"foo": "is there"}, //the "bar" label differs between `image` and `otherImage`
+		)
 	})
+}
+
+func expectLabelsJSONOnManifest(t *testing.T, db *keppel.DB, manifestDigest digest.Digest, expected map[string]string) {
+	t.Helper()
+	labelsJSONStr, err := db.SelectStr(`SELECT labels_json FROM manifests WHERE digest = $1`, manifestDigest.String())
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	var actual map[string]string
+	err = json.Unmarshal([]byte(labelsJSONStr), &actual)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	assert.DeepEqual(t, "labels_json", actual, expected)
 }
 
 func TestImageManifestWrongBlobSize(t *testing.T) {
