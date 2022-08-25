@@ -178,11 +178,6 @@ func (p *Processor) ValidateExistingManifest(account keppel.Account, repo keppel
 	)
 }
 
-type blobRef struct {
-	ID        int64
-	MediaType string
-}
-
 func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo keppel.Repository, manifest *keppel.Manifest, manifestBytes []byte, actionBeforeCommit func(*gorp.Transaction) error) error {
 	//parse manifest
 	manifestParsed, manifestDesc, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
@@ -207,60 +202,66 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 	}
 
 	return p.insideTransaction(func(tx *gorp.Transaction) error {
-		referencedBlobs, referencedManifestDigests, referencedMinCreationTime, referencedMaxCreationTime, sumChildSizes, err := findManifestReferencedObjects(tx, account, repo, manifestParsed)
+		refsInfo, err := findManifestReferencedObjects(tx, account, repo, manifestParsed)
 		if err != nil {
 			return err
 		}
-		manifest.SizeBytes += sumChildSizes
+		manifest.SizeBytes += refsInfo.SumChildSizes
+
+		configInfo, err := parseManifestConfig(tx, p.sd, account, manifestParsed)
+		if err != nil {
+			return err
+		}
+
 		//enforce account-specific validation rules on manifest, but not list manifest
 		//and only when pushing (not when validating at a later point in time,
 		//the set of RequiredLabels could have been changed by then)
 		labelsRequired := manifest.PushedAt == manifest.ValidatedAt && account.RequiredLabels != "" &&
 			manifest.MediaType != manifestlist.MediaTypeManifestList && manifest.MediaType != imagespec.MediaTypeImageIndex
-		labels, minCreationTime, maxCreationTime, err := parseManifestConfig(tx, p.sd, account, manifestParsed)
-		if err != nil {
-			return err
+		if labelsRequired {
+			requiredLabels := strings.Split(account.RequiredLabels, ",")
+			var missingLabels []string
+			for _, l := range requiredLabels {
+				if _, exists := configInfo.Labels[l]; !exists {
+					missingLabels = append(missingLabels, l)
+				}
+			}
+			if len(missingLabels) > 0 {
+				msg := "missing required labels: " + strings.Join(missingLabels, ", ")
+				return keppel.ErrManifestInvalid.With(msg)
+			}
 		}
-		if len(labels) > 0 {
-			labelsJSON, err := json.Marshal(labels)
+
+		//for plain manifests, we report the labels from the manifest config; for
+		//list manifests (which do not have a config), we instead report all the
+		//labels that the constituent manifests agree on
+		reportedLabels := configInfo.Labels
+		if manifest.MediaType == manifestlist.MediaTypeManifestList || manifest.MediaType == imagespec.MediaTypeImageIndex {
+			reportedLabels = refsInfo.CommonLabels
+		}
+		if len(reportedLabels) > 0 {
+			labelsJSON, err := json.Marshal(reportedLabels)
 			if err != nil {
 				return err
 			}
 			manifest.LabelsJSON = string(labelsJSON)
-
-			if labelsRequired {
-				requiredLabels := strings.Split(account.RequiredLabels, ",")
-				var missingLabels []string
-				for _, l := range requiredLabels {
-					if _, exists := labels[l]; !exists {
-						missingLabels = append(missingLabels, l)
-					}
-				}
-				if len(missingLabels) > 0 {
-					msg := "missing required labels: " + strings.Join(missingLabels, ", ")
-					return keppel.ErrManifestInvalid.With(msg)
-				}
-			}
 		} else {
 			manifest.LabelsJSON = ""
-			if labelsRequired {
-				return keppel.ErrManifestInvalid.With("missing required labels: %s", account.RequiredLabels)
-			}
 		}
 
-		manifest.MinLayerCreatedAt = keppel.MinMaybeTime(referencedMinCreationTime, minCreationTime)
-		manifest.MaxLayerCreatedAt = keppel.MaxMaybeTime(referencedMaxCreationTime, maxCreationTime)
+		manifest.MinLayerCreatedAt = keppel.MinMaybeTime(refsInfo.MinCreationTime, configInfo.MinCreationTime)
+		manifest.MaxLayerCreatedAt = keppel.MaxMaybeTime(refsInfo.MaxCreationTime, configInfo.MaxCreationTime)
 
 		//create or update database entries
 		err = upsertManifest(tx, *manifest, manifestBytes)
 		if err != nil {
 			return err
 		}
-		err = maintainManifestBlobRefs(tx, *manifest, referencedBlobs)
+		err = maintainManifestBlobRefs(tx, *manifest, refsInfo.BlobRefs)
 		if err != nil {
 			return err
 		}
-		err = maintainManifestManifestRefs(tx, *manifest, referencedManifestDigests)
+		err = maintainManifestManifestRefs(tx, *manifest, refsInfo.ManifestDigests)
 		if err != nil {
 			return err
 		}
@@ -269,60 +270,111 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 	})
 }
 
-func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account, repo keppel.Repository, manifest keppel.ParsedManifest) (blobRefs []blobRef, manifestDigests []string, referencedMinCreationTime, referencedMaxCreationTime *time.Time, sumChildSizes uint64, returnErr error) {
+type blobRef struct {
+	ID        int64
+	MediaType string
+}
+
+// Accumulated information about all the manifests and blobs referenced by a specific manifest.
+type manifestRefsInfo struct {
+	BlobRefs        []blobRef
+	ManifestDigests []string
+	CommonLabels    map[string]string
+	MinCreationTime *time.Time
+	MaxCreationTime *time.Time
+	SumChildSizes   uint64
+}
+
+func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account, repo keppel.Repository, manifest keppel.ParsedManifest) (result manifestRefsInfo, err error) {
 	//ensure that we don't insert duplicate entries into `blobRefs` and `manifestDigests`
 	wasHandled := make(map[string]bool)
 
+	//for all blobs referenced by this manifest...
 	for _, desc := range manifest.BlobReferences() {
 		if wasHandled[desc.Digest.String()] {
 			continue
 		}
 		wasHandled[desc.Digest.String()] = true
 
+		//check that the blob exists
 		blob, err := keppel.FindBlobByRepository(tx, desc.Digest, repo)
 		if err == sql.ErrNoRows {
-			return nil, nil, nil, nil, 0, keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String())
+			return manifestRefsInfo{}, keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String())
 		}
 		if err != nil {
-			return nil, nil, nil, nil, 0, err
+			return manifestRefsInfo{}, err
 		}
+
+		//check that the blob size matches what the manifest says
 		if blob.SizeBytes != uint64(desc.Size) {
 			msg := fmt.Sprintf(
 				"manifest references blob %s with %d bytes, but blob actually contains %d bytes",
 				desc.Digest.String(), desc.Size, blob.SizeBytes)
-			return nil, nil, nil, nil, 0, keppel.ErrManifestInvalid.With(msg)
+			return manifestRefsInfo{}, keppel.ErrManifestInvalid.With(msg)
 		}
-		blobRefs = append(blobRefs, blobRef{blob.ID, desc.MediaType})
+		result.BlobRefs = append(result.BlobRefs, blobRef{blob.ID, desc.MediaType})
 	}
 
-	for _, desc := range manifest.ManifestReferences(account.PlatformFilter) {
+	//for all manifests referenced by this manifest...
+	for idx, desc := range manifest.ManifestReferences(account.PlatformFilter) {
 		if wasHandled[desc.Digest.String()] {
 			continue
 		}
 		wasHandled[desc.Digest.String()] = true
 
+		//check that the child manifest exists
 		manifest, err := keppel.FindManifest(tx, repo, desc.Digest.String())
 		if err == sql.ErrNoRows {
-			return nil, nil, nil, nil, 0, keppel.ErrManifestUnknown.With("").WithDetail(desc.Digest.String())
+			return manifestRefsInfo{}, keppel.ErrManifestUnknown.With("").WithDetail(desc.Digest.String())
 		}
 		if err != nil {
-			return nil, nil, nil, nil, 0, err
+			return manifestRefsInfo{}, err
 		}
-		manifestDigests = append(manifestDigests, desc.Digest.String())
-		referencedMinCreationTime = keppel.MinMaybeTime(referencedMinCreationTime, manifest.MinLayerCreatedAt)
-		referencedMaxCreationTime = keppel.MaxMaybeTime(referencedMaxCreationTime, manifest.MaxLayerCreatedAt)
-		sumChildSizes += manifest.SizeBytes
+
+		//compute the set of label values that all child manifests agree on
+		var labels map[string]string
+		if manifest.LabelsJSON != "" {
+			err := json.Unmarshal([]byte(manifest.LabelsJSON), &labels)
+			if err != nil {
+				return manifestRefsInfo{}, err
+			}
+		}
+		if idx == 0 {
+			//start with the labels of the first child manifest
+			result.CommonLabels = labels
+		} else {
+			//for each other child manifest, drop the labels where values do not match
+			for key, thisValue := range labels {
+				commonValue, exists := result.CommonLabels[key]
+				if exists && commonValue != thisValue {
+					delete(result.CommonLabels, key)
+				}
+			}
+		}
+
+		//compute aggregate information for all child manifests
+		result.ManifestDigests = append(result.ManifestDigests, desc.Digest.String())
+		result.MinCreationTime = keppel.MinMaybeTime(result.MinCreationTime, manifest.MinLayerCreatedAt)
+		result.MaxCreationTime = keppel.MaxMaybeTime(result.MaxCreationTime, manifest.MaxLayerCreatedAt)
+		result.SumChildSizes += manifest.SizeBytes
 	}
 
-	return blobRefs, manifestDigests, referencedMinCreationTime, referencedMaxCreationTime, sumChildSizes, nil
+	return result, nil
+}
+
+// Information about a manifest's config blob.
+type manifestConfigInfo struct {
+	Labels          map[string]string
+	MinCreationTime *time.Time //across all layers
+	MaxCreationTime *time.Time //across all layers
 }
 
 // Returns the list of missing labels, or nil if everything is ok.
-func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account keppel.Account, manifest keppel.ParsedManifest) (labels map[string]string, minCreationTime, maxCreationTime *time.Time, err error) {
+func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account keppel.Account, manifest keppel.ParsedManifest) (result manifestConfigInfo, err error) {
 	//is this manifest an image that has labels?
 	configBlob := manifest.FindImageConfigBlob()
 	if configBlob == nil {
-		return nil, nil, nil, nil
+		return manifestConfigInfo{}, nil
 	}
 
 	//load the config blob
@@ -331,22 +383,22 @@ func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account 
 		account.Name, configBlob.Digest.String(),
 	)
 	if err != nil {
-		return nil, nil, nil, err
+		return manifestConfigInfo{}, err
 	}
 	if storageID == "" {
-		return nil, nil, nil, keppel.ErrManifestBlobUnknown.With("").WithDetail(configBlob.Digest.String())
+		return manifestConfigInfo{}, keppel.ErrManifestBlobUnknown.With("").WithDetail(configBlob.Digest.String())
 	}
 	blobReader, _, err := sd.ReadBlob(account, storageID)
 	if err != nil {
-		return nil, nil, nil, err
+		return manifestConfigInfo{}, err
 	}
 	blobContents, err := io.ReadAll(blobReader)
 	if err != nil {
-		return nil, nil, nil, err
+		return manifestConfigInfo{}, err
 	}
 	err = blobReader.Close()
 	if err != nil {
-		return nil, nil, nil, err
+		return manifestConfigInfo{}, err
 	}
 
 	//the Docker v2 and OCI formats are very similar; they're both JSON and have
@@ -361,8 +413,9 @@ func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account 
 	}
 	err = json.Unmarshal(blobContents, &data)
 	if err != nil {
-		return nil, nil, nil, err
+		return manifestConfigInfo{}, err
 	}
+	result.Labels = data.Config.Labels
 
 	// collect layer creation times (but ignore layers with a creation timestamp
 	// equal to the Unix epoch, like for distroless [1], since such timestamps
@@ -372,12 +425,12 @@ func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account 
 	// [1] Ref: <https://github.com/GoogleContainerTools/distroless/issues/112>
 	for _, v := range data.History {
 		if v.Created != nil && v.Created.Unix() != 0 {
-			minCreationTime = keppel.MinMaybeTime(minCreationTime, v.Created)
-			maxCreationTime = keppel.MaxMaybeTime(maxCreationTime, v.Created)
+			result.MinCreationTime = keppel.MinMaybeTime(result.MinCreationTime, v.Created)
+			result.MaxCreationTime = keppel.MaxMaybeTime(result.MaxCreationTime, v.Created)
 		}
 	}
 
-	return data.Config.Labels, minCreationTime, maxCreationTime, nil
+	return result, nil
 }
 
 var upsertManifestQuery = sqlext.SimplifyWhitespace(`
