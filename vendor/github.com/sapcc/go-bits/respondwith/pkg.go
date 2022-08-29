@@ -36,7 +36,7 @@ func JSON(w http.ResponseWriter, code int, data interface{}) {
 		w.WriteHeader(code)
 		w.Write(bytes) //nolint:errcheck
 	} else {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
@@ -55,6 +55,6 @@ func ErrorText(w http.ResponseWriter, err error) bool {
 		return false
 	}
 
-	http.Error(w, err.Error(), 500)
+	http.Error(w, err.Error(), http.StatusInternalServerError)
 	return true
 }
