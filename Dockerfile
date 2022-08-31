@@ -20,6 +20,6 @@ LABEL source_repository="https://github.com/sapcc/keppel" \
   org.opencontainers.image.revision=${BININFO_COMMIT_HASH} \
   org.opencontainers.image.version=${BININFO_VERSION}
 
-USER root:root
+USER nobody:nobody
 WORKDIR /var/empty
 ENTRYPOINT [ "/usr/bin/keppel" ]
