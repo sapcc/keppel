@@ -22,6 +22,9 @@ dockerfile:
     - /*.json
     - /*.yaml
     - privkey.pem
+  # docker allows the nobody user to listen on port 80 by setting net.ipv4.ip_unprivileged_port_start=0 by default
+  # containerd does not do that by default which causes the container to fail to start. It is planned to change that setting, though.
+  user: root
 
 golangciLint:
   createConfig: true
