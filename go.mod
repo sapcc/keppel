@@ -20,7 +20,7 @@ require (
 	github.com/prometheus/client_golang v1.13.0
 	github.com/rs/cors v1.8.2
 	github.com/sapcc/go-api-declarations v1.3.0
-	github.com/sapcc/go-bits v0.0.0-20220829144248-42b88f9c5789
+	github.com/sapcc/go-bits v0.0.0-20220908182641-3f500a62345d
 	github.com/spf13/cobra v1.5.0
 	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
 	gopkg.in/gorp.v2 v2.2.0
@@ -46,7 +46,7 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
-	github.com/rabbitmq/amqp091-go v1.4.0 // indirect
+	github.com/rabbitmq/amqp091-go v1.5.0 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/yuin/gopher-lua v0.0.0-20210529063254-f4c35e4016d9 // indirect
