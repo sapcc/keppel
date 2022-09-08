@@ -12,8 +12,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -27,8 +27,8 @@ const (
 
 	defaultHeartbeat         = 10 * time.Second
 	defaultConnectionTimeout = 30 * time.Second
-	defaultProduct           = "Amqp 0.9.1 Client"
-	buildVersion             = "1.4.0"
+	defaultProduct           = "AMQP 0.9.1 Client"
+	buildVersion             = "1.5.0"
 	platform                 = "golang"
 	// Safer default that makes channel leaks a lot easier to spot
 	// before they create operational headaches. See https://github.com/rabbitmq/rabbitmq-server/issues/1593.
@@ -74,6 +74,13 @@ type Config struct {
 	// If Dial is nil, net.DialTimeout with a 30s connection and 30s deadline is
 	// used during TLS and AMQP handshaking.
 	Dial func(network, addr string) (net.Conn, error)
+}
+
+// NewConnectionProperties initialises an amqp.Table struct to empty value. This
+// amqp.Table can be used as Properties in amqp.Config to set the connection
+// name, using amqp.DialConfig()
+func NewConnectionProperties() Table {
+	return make(Table)
 }
 
 // Connection manages the serialization and deserialization of frames from IO
@@ -257,6 +264,22 @@ func Open(conn io.ReadWriteCloser, config Config) (*Connection, error) {
 	}
 	go c.reader(conn)
 	return c, c.open(config)
+}
+
+/*
+UpdateSecret updates the secret used to authenticate this connection. It is used when
+secrets have an expiration date and need to be renewed, like OAuth 2 tokens.
+
+It returns an error if the operation is not successful, or if the connection is closed.
+*/
+func (c *Connection) UpdateSecret(newSecret, reason string) error {
+	if c.IsClosed() {
+		return ErrClosed
+	}
+	return c.call(&connectionUpdateSecret{
+		NewSecret: newSecret,
+		Reason:    reason,
+	}, &connectionUpdateSecretOk{})
 }
 
 /*
@@ -802,6 +825,8 @@ func (c *Connection) openTune(config Config, auth Authentication) error {
 	config.Properties["capabilities"] = Table{
 		"connection.blocked":     true,
 		"consumer_cancel_notify": true,
+		"basic.nack": true,
+		"publisher_confirms": true,
 	}
 
 	ok := &connectionStartOk{
@@ -891,7 +916,7 @@ func (c *Connection) openComplete() error {
 func tlsConfigFromURI(uri URI) (*tls.Config, error) {
 	var certPool *x509.CertPool
 	if uri.CACertFile != "" {
-		data, err := ioutil.ReadFile(uri.CACertFile)
+		data, err := os.ReadFile(uri.CACertFile)
 		if err != nil {
 			return nil, fmt.Errorf("read CA certificate: %w", err)
 		}
