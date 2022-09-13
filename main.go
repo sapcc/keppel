@@ -33,6 +33,7 @@ import (
 
 	//include all known driver implementations
 	_ "github.com/sapcc/keppel/internal/drivers/basic"
+	_ "github.com/sapcc/keppel/internal/drivers/filesystem"
 	_ "github.com/sapcc/keppel/internal/drivers/multi"
 	_ "github.com/sapcc/keppel/internal/drivers/openstack"
 	_ "github.com/sapcc/keppel/internal/drivers/redis"
