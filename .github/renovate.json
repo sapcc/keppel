@@ -35,13 +35,6 @@
       "enabled": false
     },
     {
-      "matchPackagePrefixes": [
-        "github.com/sapcc/go-api-declarations",
-        "github.com/sapcc/go-bits"
-      ],
-      "automerge": true
-    },
-    {
       "matchDepTypes": [
         "action"
       ],
