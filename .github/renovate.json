@@ -23,9 +23,19 @@
     },
     {
       "matchPackagePatterns": [
+        "^github\\.com\\/sapcc\\/.*"
+      ],
+      "automerge": true,
+      "groupName": "github.com/sapcc"
+    },
+    {
+      "excludePackagePatterns": [
+        "^github\\.com\\/sapcc\\/.*"
+      ],
+      "matchPackagePatterns": [
         ".*"
       ],
-      "groupName": "all"
+      "groupName": "External dependencies"
     },
     {
       "matchDepTypes": [
