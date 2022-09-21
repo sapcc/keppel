@@ -325,9 +325,9 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			mustExec(t, s2.DB, `UPDATE accounts SET in_maintenance = TRUE`)
 			expectSuccess(t, j2.SyncManifestsInNextRepo())
 			tr.DBChanges().AssertEqualf(`
-			UPDATE accounts SET in_maintenance = TRUE WHERE name = 'test1';
-			UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
-		`,
+					UPDATE accounts SET in_maintenance = TRUE WHERE name = 'test1';
+					UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+				`,
 				s1.Clock.Now().Add(1*time.Hour).Unix(),
 			)
 			expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
@@ -347,9 +347,9 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 				s1.Clock.StepBy(2 * time.Hour)
 				expectSuccess(t, j2.SyncManifestsInNextRepo())
 				tr.DBChanges().AssertEqualf(`
-			UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';
-			UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
-		`,
+						UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';
+						UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+					`,
 					s1.Clock.Now().Unix(),
 					images[1].Manifest.Digest.String(),
 					s1.Clock.Now().Add(1*time.Hour).Unix(),
@@ -376,15 +376,15 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 				manifestValidationBecauseOfExistingTag = ""
 			}
 			tr.DBChanges().AssertEqualf(`
-			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 7;
-			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 8;
-			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 9;
-			DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
-			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
-			%[5]sUPDATE manifests SET validated_at = %[2]d WHERE repo_id = 1 AND digest = '%[3]s';
-			UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
-			UPDATE tags SET digest = '%[3]s', pushed_at = %[2]d, last_pulled_at = NULL WHERE repo_id = 1 AND name = 'latest';
-		`,
+					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 7;
+					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 8;
+					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 9;
+					DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
+					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
+					%[5]sUPDATE manifests SET validated_at = %[2]d WHERE repo_id = 1 AND digest = '%[3]s';
+					UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+					UPDATE tags SET digest = '%[3]s', pushed_at = %[2]d, last_pulled_at = NULL WHERE repo_id = 1 AND name = 'latest';
+				`,
 				images[3].Manifest.Digest.String(), //the deleted manifest
 				s1.Clock.Now().Unix(),
 				images[2].Manifest.Digest.String(), //the manifest now tagged as "latest"
@@ -441,18 +441,18 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			//should succeed now and remove both deleted manifests from the DB
 			expectSuccess(t, j2.SyncManifestsInNextRepo())
 			tr.DBChanges().AssertEqualf(`
-			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 4;
-			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 5;
-			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 6;
-			DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
-			DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[2]s';
-			DELETE FROM manifest_manifest_refs WHERE repo_id = 1 AND parent_digest = '%[2]s' AND child_digest = '%[3]s';
-			DELETE FROM manifest_manifest_refs WHERE repo_id = 1 AND parent_digest = '%[2]s' AND child_digest = '%[1]s';
-			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
-			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[2]s';
-			UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
-			DELETE FROM tags WHERE repo_id = 1 AND name = 'other';
-		`,
+					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 4;
+					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 5;
+					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 6;
+					DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
+					DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[2]s';
+					DELETE FROM manifest_manifest_refs WHERE repo_id = 1 AND parent_digest = '%[2]s' AND child_digest = '%[3]s';
+					DELETE FROM manifest_manifest_refs WHERE repo_id = 1 AND parent_digest = '%[2]s' AND child_digest = '%[1]s';
+					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
+					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[2]s';
+					UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+					DELETE FROM tags WHERE repo_id = 1 AND name = 'other';
+				`,
 				images[2].Manifest.Digest.String(),
 				imageList.Manifest.Digest.String(),
 				images[1].Manifest.Digest.String(),
@@ -498,22 +498,22 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			//the manifest sync should reflect the repository deletion on the replica
 			expectSuccess(t, j2.SyncManifestsInNextRepo())
 			tr.DBChanges().AssertEqualf(`
-			DELETE FROM blob_mounts WHERE blob_id = 1 AND repo_id = 1;
-			DELETE FROM blob_mounts WHERE blob_id = 2 AND repo_id = 1;
-			DELETE FROM blob_mounts WHERE blob_id = 3 AND repo_id = 1;
-			DELETE FROM blob_mounts WHERE blob_id = 4 AND repo_id = 1;
-			DELETE FROM blob_mounts WHERE blob_id = 5 AND repo_id = 1;
-			DELETE FROM blob_mounts WHERE blob_id = 6 AND repo_id = 1;
-			DELETE FROM blob_mounts WHERE blob_id = 7 AND repo_id = 1;
-			DELETE FROM blob_mounts WHERE blob_id = 8 AND repo_id = 1;
-			DELETE FROM blob_mounts WHERE blob_id = 9 AND repo_id = 1;
-			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 1;
-			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 2;
-			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 3;
-			DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
-			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
-			DELETE FROM repos WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
-		`,
+					DELETE FROM blob_mounts WHERE blob_id = 1 AND repo_id = 1;
+					DELETE FROM blob_mounts WHERE blob_id = 2 AND repo_id = 1;
+					DELETE FROM blob_mounts WHERE blob_id = 3 AND repo_id = 1;
+					DELETE FROM blob_mounts WHERE blob_id = 4 AND repo_id = 1;
+					DELETE FROM blob_mounts WHERE blob_id = 5 AND repo_id = 1;
+					DELETE FROM blob_mounts WHERE blob_id = 6 AND repo_id = 1;
+					DELETE FROM blob_mounts WHERE blob_id = 7 AND repo_id = 1;
+					DELETE FROM blob_mounts WHERE blob_id = 8 AND repo_id = 1;
+					DELETE FROM blob_mounts WHERE blob_id = 9 AND repo_id = 1;
+					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 1;
+					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 2;
+					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 3;
+					DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
+					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
+					DELETE FROM repos WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+				`,
 				images[1].Manifest.Digest.String(),
 			)
 			expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
@@ -643,4 +643,21 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		UPDATE manifests SET next_vuln_check_at = 6120 WHERE repo_id = 1 AND digest = '%s';
 		UPDATE manifests SET next_vuln_check_at = 9600, vuln_status = 'Clean' WHERE repo_id = 1 AND digest = '%s';
 	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
+
+	// check retry on transient errors
+	imageError := test.GenerateImage(test.GenerateExampleLayer(3))
+	imageError.MustUpload(t, s, fooRepoRef, "")
+	tr.DBChanges().Ignore()
+
+	claird.IndexFixtures[imageError.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
+	mustExec(t, s.DB, fmt.Sprintf(`UPDATE manifests SET vuln_status = 'Error' where digest = '%s'`, imageError.Manifest.Digest))
+	mustExec(t, s.DB, fmt.Sprintf(`UPDATE manifests SET vuln_scan_error = 'failed to scan all layer contents: failed to connect to host=clair-postgresql user=postgres database=clair: dial error (dial tcp 10.30.50.60:5432: connect: connection refused)' where digest = '%s'`, imageError.Manifest.Digest))
+
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
+	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
+
+	tr.DBChanges().AssertEqualf(`
+    UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 9 AND account_name = 'test1' AND digest = '%[2]s';
+    UPDATE manifests SET next_vuln_check_at = 6120 WHERE repo_id = 1 AND digest = '%[1]s';
+	`, imageError.Manifest.Digest, imageError.Layers[0].Digest)
 }

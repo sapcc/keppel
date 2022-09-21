@@ -90,6 +90,10 @@ func (c *Client) doRequest(req *http.Request, respBody interface{}) error {
 		return fmt.Errorf("cannot %s %s: got %d response: %q", req.Method, req.URL.String(), resp.StatusCode, string(respBodyBytes))
 	}
 
+	if resp.StatusCode == http.StatusNoContent {
+		return nil
+	}
+
 	err = json.Unmarshal(respBodyBytes, &respBody)
 	if err != nil {
 		return fmt.Errorf("cannot %s %s: cannot decode response body: %w", req.Method, req.URL.String(), err)
