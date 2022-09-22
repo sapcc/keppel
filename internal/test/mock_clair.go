@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -40,6 +41,9 @@ type ClairDouble struct {
 	//key = manifest digest, value = path to JSON fixture file containing `clair.Manifest` for this image
 	IndexFixtures     map[string]string
 	WasIndexSubmitted map[string]bool
+	//key = manifest digest, value = path to JSON fixture file containing `clair.IndexReport` for this image
+	IndexReportFixtures map[string]string
+	IndexDeleteCounter  int
 	//key = manifest digest, value = path to JSON fixture file containing `clair.VulnerabilityReport` for this image
 	ReportFixtures map[string]string
 }
@@ -47,9 +51,10 @@ type ClairDouble struct {
 // NewClairDouble creates a ClairDouble.
 func NewClairDouble() *ClairDouble {
 	return &ClairDouble{
-		IndexFixtures:     make(map[string]string),
-		WasIndexSubmitted: make(map[string]bool),
-		ReportFixtures:    make(map[string]string),
+		IndexFixtures:       make(map[string]string),
+		IndexReportFixtures: make(map[string]string),
+		WasIndexSubmitted:   make(map[string]bool),
+		ReportFixtures:      make(map[string]string),
 	}
 }
 
@@ -61,13 +66,15 @@ func (c *ClairDouble) AddTo(r *mux.Router) {
 	r.Methods("GET").
 		Path("/indexer/api/v1/index_report/{digest}").
 		HandlerFunc(c.getIndexReport)
+	r.Methods("DELETE").
+		Path("/indexer/api/v1/index_report/{digest}").
+		HandlerFunc(c.deleteIndexReport)
 	r.Methods("GET").
 		Path("/matcher/api/v1/vulnerability_report/{digest}").
 		HandlerFunc(c.getVulnerabilityReport)
 }
 
 func (c *ClairDouble) postIndexReport(w http.ResponseWriter, r *http.Request) {
-	httpapi.SkipRequestLog(r)
 	httpapi.IdentifyEndpoint(r, "/indexer/api/v1/index_report")
 
 	//get digest from request body
@@ -128,26 +135,66 @@ func (c *ClairDouble) postIndexReport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *ClairDouble) getIndexReport(w http.ResponseWriter, r *http.Request) {
-	httpapi.SkipRequestLog(r)
 	httpapi.IdentifyEndpoint(r, "/indexer/api/v1/index_report/{digest}")
 
 	digest := mux.Vars(r)["digest"]
-	if c.WasIndexSubmitted[digest] {
-		state := "CheckManifest"
-		if c.ReportFixtures[digest] != "" {
-			state = "IndexFinished"
-		}
-		respondwith.JSON(w, http.StatusCreated, map[string]interface{}{
-			"manifest_hash": digest,
-			"state":         state,
-		})
-	} else {
+
+	if !c.WasIndexSubmitted[digest] {
 		http.Error(w, "not found", http.StatusNotFound)
+		return
 	}
+
+	indexReportFixture := c.IndexReportFixtures[digest]
+	if indexReportFixture != "" {
+		file, err := os.Open(indexReportFixture)
+		if respondwith.ErrorText(w, err) {
+			return
+		}
+		content, err := io.ReadAll(file)
+		if respondwith.ErrorText(w, err) {
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(content)
+		return
+	}
+
+	state := "CheckManifest"
+	if c.ReportFixtures[digest] != "" {
+		state = "IndexFinished"
+	}
+	respondwith.JSON(w, http.StatusCreated, map[string]interface{}{
+		"manifest_hash": digest,
+		"state":         state,
+	})
+}
+
+func (c *ClairDouble) deleteIndexReport(w http.ResponseWriter, r *http.Request) {
+	httpapi.IdentifyEndpoint(r, "/indexer/api/v1/index_report/{digest}")
+
+	digest := mux.Vars(r)["digest"]
+
+	// only accept images that we anticipated
+	if c.IndexFixtures[digest] == "" {
+		http.Error(w, "unexpected digest: "+digest, http.StatusBadRequest)
+		return
+	}
+
+	// only accept deletes if the index was submitted before
+	if !c.WasIndexSubmitted[digest] {
+		http.Error(w, "digest was not submitted before: "+digest, http.StatusBadRequest)
+		return
+	}
+
+	c.WasIndexSubmitted[digest] = false
+	c.IndexDeleteCounter += 1
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (c *ClairDouble) getVulnerabilityReport(w http.ResponseWriter, r *http.Request) {
-	httpapi.SkipRequestLog(r)
 	httpapi.IdentifyEndpoint(r, "/matcher/api/v1/vulnerability_report/{digest}")
 
 	digest := mux.Vars(r)["digest"]

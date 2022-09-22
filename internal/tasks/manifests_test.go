@@ -580,6 +580,8 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		BaseURL:      *clairBaseURL,
 		PresharedKey: []byte("doesnotmatter"), //since the ClairDouble does not check the Authorization header
 	}
+	//Clair support currently requires a storage driver that can do URLForBlob()
+	s.SD.AllowDummyURLs = true
 
 	//ClairDouble wants to know which image manifests to expect (only the
 	//non-list manifests are relevant here; the list manifest does not contain
@@ -588,8 +590,6 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	for idx, image := range images {
 		claird.IndexFixtures[image.Manifest.Digest.String()] = fmt.Sprintf("fixtures/clair/manifest-%03d.json", idx+1)
 	}
-	//Clair support currently requires a storage driver that can do URLForBlob()
-	s.SD.AllowDummyURLs = true
 
 	//first round of CheckVulnerabilitiesForNextManifest should submit manifests
 	//to Clair for indexing, but since Clair is not done indexing yet, images
@@ -643,21 +643,66 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		UPDATE manifests SET next_vuln_check_at = 6120 WHERE repo_id = 1 AND digest = '%s';
 		UPDATE manifests SET next_vuln_check_at = 9600, vuln_status = 'Clean' WHERE repo_id = 1 AND digest = '%s';
 	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
+}
 
+func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 	// check retry on transient errors
-	imageError := test.GenerateImage(test.GenerateExampleLayer(3))
-	imageError.MustUpload(t, s, fooRepoRef, "")
+
+	j, s := setup(t)
+	s.Clock.StepBy(1 * time.Hour)
+	tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
+
+	//setup our Clair API double (TODO use test.WithClairDouble instead)
+	claird := test.NewClairDouble()
+	tt := &test.RoundTripper{
+		Handlers: map[string]http.Handler{
+			"registry.example.org": s.Handler,
+			"clair.example.org":    httpapi.Compose(claird),
+		},
+	}
+	http.DefaultTransport = tt
+	clairBaseURL := must.Return(url.Parse("https://clair.example.org/"))
+	j.cfg.ClairClient = &clair.Client{
+		BaseURL:      *clairBaseURL,
+		PresharedKey: []byte("doesnotmatter"), //since the ClairDouble does not check the Authorization header
+	}
+	//Clair support currently requires a storage driver that can do URLForBlob()
+	s.SD.AllowDummyURLs = true
+
+	image := test.GenerateImage(test.GenerateExampleLayer(4))
+	image.MustUpload(t, s, fooRepoRef, "")
 	tr.DBChanges().Ignore()
 
-	claird.IndexFixtures[imageError.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
-	mustExec(t, s.DB, fmt.Sprintf(`UPDATE manifests SET vuln_status = 'Error' where digest = '%s'`, imageError.Manifest.Digest))
-	mustExec(t, s.DB, fmt.Sprintf(`UPDATE manifests SET vuln_scan_error = 'failed to scan all layer contents: failed to connect to host=clair-postgresql user=postgres database=clair: dial error (dial tcp 10.30.50.60:5432: connect: connection refused)' where digest = '%s'`, imageError.Manifest.Digest))
-
+	// submit manifest to clair
+	claird.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
-
 	tr.DBChanges().AssertEqualf(`
-    UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 9 AND account_name = 'test1' AND digest = '%[2]s';
-    UPDATE manifests SET next_vuln_check_at = 6120 WHERE repo_id = 1 AND digest = '%[1]s';
-	`, imageError.Manifest.Digest, imageError.Layers[0].Digest)
+		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
+		UPDATE manifests SET next_vuln_check_at = %[3]d WHERE repo_id = 1 AND digest = '%[2]s';
+	`, image.Layers[0].Digest, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix())
+	assert.DeepEqual(t, "delete counter", claird.IndexDeleteCounter, 0)
+
+	// simulate transient error
+	s.Clock.StepBy(30 * time.Minute)
+	claird.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
+	claird.IndexReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-error.json"
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
+	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
+	tr.DBChanges().AssertEqualf(`
+		UPDATE manifests SET next_vuln_check_at = %[2]d WHERE repo_id = 1 AND digest = '%[1]s';
+	`, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix())
+	assert.DeepEqual(t, "delete counter", claird.IndexDeleteCounter, 1)
+
+	// transient error fixed itself after deletion
+	s.Clock.StepBy(30 * time.Minute)
+	claird.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
+	claird.IndexReportFixtures[image.Manifest.Digest.String()] = ""
+	claird.ReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
+	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
+	tr.DBChanges().AssertEqualf(`
+	UPDATE manifests SET next_vuln_check_at = %[2]d, vuln_status = 'Low' WHERE repo_id = 1 AND digest = '%[1]s';
+	`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix())
+	assert.DeepEqual(t, "delete counter", claird.IndexDeleteCounter, 1)
 }
