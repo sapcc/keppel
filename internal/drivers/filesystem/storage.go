@@ -68,13 +68,13 @@ func (d *StorageDriver) getManifestPath(account keppel.Account, repoName, digest
 func (d *StorageDriver) AppendToBlob(account keppel.Account, storageID string, chunkNumber uint32, chunkLength *uint64, chunk io.Reader) error {
 	path := d.getBlobPath(account, storageID)
 	tmpPath := path + ".tmp"
-	flags := os.O_APPEND
+	flags := os.O_APPEND | os.O_WRONLY
 	if chunkNumber == 1 {
 		err := os.MkdirAll(filepath.Dir(tmpPath), 0777)
 		if err != nil {
 			return err
 		}
-		flags = flags | os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+		flags = flags | os.O_CREATE | os.O_TRUNC
 	}
 	f, err := os.OpenFile(tmpPath, flags, 0666)
 	if err != nil {
