@@ -26,16 +26,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/sapcc/go-bits/osext"
+
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
 func init() {
 	keppel.RegisterStorageDriver("filesystem", func(_ keppel.AuthDriver, _ keppel.Configuration) (keppel.StorageDriver, error) {
-		rootPath := os.Getenv("KEPPEL_FILESYSTEM_PATH")
-		if rootPath == "" {
-			return nil, fmt.Errorf("the KEPPEL_FILESYSTEM_PATH environment variable must not be empty")
-		}
-		rootPath, err := filepath.Abs(rootPath)
+		rootPath, err := filepath.Abs(osext.MustGetenv("KEPPEL_FILESYSTEM_PATH"))
 		if err != nil {
 			return nil, err
 		}
@@ -51,56 +49,53 @@ type StorageDriver struct {
 }
 
 func (d *StorageDriver) getBlobBasePath(account keppel.Account) string {
-	return fmt.Sprintf("%s/%s/%s/b", d.rootPath, account.AuthTenantID, account.Name)
+	return fmt.Sprintf("%s/%s/%s/blobs", d.rootPath, account.AuthTenantID, account.Name)
 }
 
 func (d *StorageDriver) getBlobPath(account keppel.Account, storageID string) string {
-	return fmt.Sprintf("%s/%s/%s/b/%s", d.rootPath, account.AuthTenantID, account.Name, storageID)
+	return fmt.Sprintf("%s/%s/%s/blobs/%s", d.rootPath, account.AuthTenantID, account.Name, storageID)
 }
 
 func (d *StorageDriver) getManifestBasePath(account keppel.Account) string {
-	return fmt.Sprintf("%s/%s/%s/m", d.rootPath, account.AuthTenantID, account.Name)
+	return fmt.Sprintf("%s/%s/%s/manifests", d.rootPath, account.AuthTenantID, account.Name)
 }
 
 func (d *StorageDriver) getManifestPath(account keppel.Account, repoName, digest string) string {
-	return fmt.Sprintf("%s/%s/%s/m/%s/%s", d.rootPath, account.AuthTenantID, account.Name, repoName, digest)
+	return fmt.Sprintf("%s/%s/%s/manifests/%s/%s", d.rootPath, account.AuthTenantID, account.Name, repoName, digest)
 }
 
 // AppendToBlob implements the keppel.StorageDriver interface.
 func (d *StorageDriver) AppendToBlob(account keppel.Account, storageID string, chunkNumber uint32, chunkLength *uint64, chunk io.Reader) error {
 	path := d.getBlobPath(account, storageID)
-	tmpPath := fmt.Sprintf("%s.tmp", path)
+	tmpPath := path + ".tmp"
 	flags := os.O_APPEND
 	if chunkNumber == 1 {
-		err := os.MkdirAll(filepath.Dir(tmpPath), 0700)
+		err := os.MkdirAll(filepath.Dir(tmpPath), 0777)
 		if err != nil {
 			return err
 		}
 		flags = flags | os.O_WRONLY | os.O_CREATE | os.O_TRUNC
 	}
-	f, err := os.OpenFile(tmpPath, flags, 0600)
+	f, err := os.OpenFile(tmpPath, flags, 0666)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	_, err = io.Copy(f, chunk)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // FinalizeBlob implements the keppel.StorageDriver interface.
 func (d *StorageDriver) FinalizeBlob(account keppel.Account, storageID string, chunkCount uint32) error {
 	path := d.getBlobPath(account, storageID)
-	tmpPath := fmt.Sprintf("%s.tmp", path)
+	tmpPath := path + ".tmp"
 	return os.Rename(tmpPath, path)
 }
 
 // AbortBlobUpload implements the keppel.StorageDriver interface.
 func (d *StorageDriver) AbortBlobUpload(account keppel.Account, storageID string, chunkCount uint32) error {
 	path := d.getBlobPath(account, storageID)
-	tmpPath := fmt.Sprintf("%s.tmp", path)
+	tmpPath := path + ".tmp"
 	return os.Remove(tmpPath)
 }
 
@@ -139,12 +134,12 @@ func (d *StorageDriver) ReadManifest(account keppel.Account, repoName, digest st
 // WriteManifest implements the keppel.StorageDriver interface.
 func (d *StorageDriver) WriteManifest(account keppel.Account, repoName, digest string, contents []byte) error {
 	path := d.getManifestPath(account, repoName, digest)
-	tmpPath := fmt.Sprintf("%s.tmp", path)
-	err := os.MkdirAll(filepath.Dir(tmpPath), 0700)
+	tmpPath := path + ".tmp"
+	err := os.MkdirAll(filepath.Dir(tmpPath), 0777)
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(tmpPath, contents, 0600)
+	err = os.WriteFile(tmpPath, contents, 0666)
 	if err != nil {
 		return err
 	}
