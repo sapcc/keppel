@@ -7,6 +7,7 @@ privkey.pem
 
 # testing artifacts
 report.html
+testing/conformance-test/storage/
 testing/postgresql-data/
 testing/postgresql-run/
 testing/postgresql.log

@@ -9,7 +9,14 @@ export KEPPEL_PASSWORD=SuperSecret
 export KEPPEL_DRIVER_AUTH=trivial
 export KEPPEL_DRIVER_FEDERATION=trivial
 export KEPPEL_DRIVER_INBOUND_CACHE=trivial
-export KEPPEL_DRIVER_STORAGE=in-memory-for-testing
+export KEPPEL_DRIVER_STORAGE=filesystem
+export KEPPEL_FILESYSTEM_PATH=./testing/conformance-test/storage
+
+# clean out the backing storage from the previous run (the `test -d` is a
+# safety net to ensure that we don't delete something unintended by accident)
+if [ -d "${KEPPEL_FILESYSTEM_PATH}/bogus/conformance-test" ]; then
+  rm -rf -- "${KEPPEL_FILESYSTEM_PATH}"
+fi
 
 export KEPPEL_RUN_DB_SETUP_FOR_CONFORMANCE_TEST=true
 
