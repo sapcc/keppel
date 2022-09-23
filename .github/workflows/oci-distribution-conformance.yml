@@ -54,7 +54,7 @@ jobs:
         if: always()
     services:
       postgres:
-        image: postgres:12
+        image: postgres:14
         env:
           POSTGRES_PASSWORD: mysecretpassword
         ports:
