@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/sapcc/go-bits/logg"
@@ -64,6 +65,11 @@ func (r indexReport) IntoManifestState() ManifestState {
 	}
 }
 
+// common transient errors which should be retried later:
+// failed to scan all layer contents: failed to connect to host=clair-postgresql user=postgres database=clair: dial error (dial tcp 10.30.50.60:5432: connect: connection refused)
+// failed to fetch layers: encountered error while fetching a layer: read tcp 10.20.30.40:55555->10.20.30.50:443: read: connection reset by peer
+var clairTransientErrorsRgx = regexp.MustCompile(`(?:read: connection reset by peer|connect: connection refused)`)
+
 // CheckManifestState submits the manifest to clair for indexing if not done
 // yet, and checks if the indexing has finished. Since the manifest rendering is
 // costly, it's wrapped in a callback that this method only calls when needed.
@@ -72,11 +78,33 @@ func (c *Client) CheckManifestState(digest string, renderManifest func() (Manife
 	if err != nil {
 		return ManifestState{}, err
 	}
+
 	var result indexReport
 	err = c.doRequest(req, &result)
 	if err != nil && strings.Contains(err.Error(), "got 404 response") {
 		result, err = c.submitManifest(renderManifest)
 	}
+	if err != nil {
+		return ManifestState{}, err
+	}
+
+	if clairTransientErrorsRgx.MatchString(result.ErrorMessage) {
+		// delete index_report in clear before resubmitting
+		req, err := http.NewRequest(http.MethodDelete, c.requestURL("indexer", "api", "v1", "index_report", digest), http.NoBody)
+		if err != nil {
+			return ManifestState{}, err
+		}
+		err = c.doRequest(req, nil)
+		if err != nil {
+			return ManifestState{}, err
+		}
+
+		result, err = c.submitManifest(renderManifest)
+		if err != nil {
+			return ManifestState{}, err
+		}
+	}
+
 	return result.IntoManifestState(), err
 }
 
