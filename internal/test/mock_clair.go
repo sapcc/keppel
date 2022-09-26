@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -146,11 +145,7 @@ func (c *ClairDouble) getIndexReport(w http.ResponseWriter, r *http.Request) {
 
 	indexReportFixture := c.IndexReportFixtures[digest]
 	if indexReportFixture != "" {
-		file, err := os.Open(indexReportFixture)
-		if respondwith.ErrorText(w, err) {
-			return
-		}
-		content, err := io.ReadAll(file)
+		content, err := os.ReadFile(indexReportFixture)
 		if respondwith.ErrorText(w, err) {
 			return
 		}
