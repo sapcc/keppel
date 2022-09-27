@@ -68,7 +68,8 @@ func (r indexReport) IntoManifestState() ManifestState {
 // common transient errors which should be retried later:
 // failed to scan all layer contents: failed to connect to host=clair-postgresql user=postgres database=clair: dial error (dial tcp 10.30.50.60:5432: connect: connection refused)
 // failed to fetch layers: encountered error while fetching a layer: read tcp 10.20.30.40:55555->10.20.30.50:443: read: connection reset by peer
-var clairTransientErrorsRgx = regexp.MustCompile(`(?:read: connection reset by peer|connect: connection refused)`)
+// failed to fetch layers: encountered error while fetching a layer: fetcher: request failed: Get "https://objectstore.example.com/...": dial tcp 10.20.30.40:443: i/o timeout
+var clairTransientErrorsRgx = regexp.MustCompile(`(?:read: connection reset by peer|connect: connection refused|dial tcp [0-9.]+:[0-9]+: i/o timeout)`)
 
 // CheckManifestState submits the manifest to clair for indexing if not done
 // yet, and checks if the indexing has finished. Since the manifest rendering is
