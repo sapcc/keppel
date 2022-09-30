@@ -12,7 +12,7 @@ require (
 	github.com/gofrs/uuid v4.3.0+incompatible
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/gophercloud/gophercloud v1.0.0
-	github.com/gophercloud/utils v0.0.0-20220704184730-55bdbbaec4ba
+	github.com/gophercloud/utils v0.0.0-20220927104426-4113af8d2663
 	github.com/gorilla/mux v1.8.0
 	github.com/majewsky/schwift v1.1.0
 	github.com/opencontainers/go-digest v1.0.0
@@ -22,7 +22,7 @@ require (
 	github.com/sapcc/go-api-declarations v1.3.0
 	github.com/sapcc/go-bits v0.0.0-20220919133313-cbe76a8983ac
 	github.com/spf13/cobra v1.5.0
-	golang.org/x/crypto v0.0.0-20220919173607-35f4265a4bc0
+	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be
 	gopkg.in/gorp.v2 v2.2.0
 )
 
