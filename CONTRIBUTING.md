@@ -20,6 +20,12 @@ export KEPPEL_DB_CONNECTION_OPTIONS=sslmode=disable
 export KEPPEL_DB_PASSWORD=mysecretpassword
 export KEPPEL_DRIVER_FEDERATION=trivial
 export KEPPEL_DRIVER_INBOUND_CACHE=trivial
+export KEPPEL_API_PUBLIC_FQDN=localhost
+export KEPPEL_DRIVER_AUTH=trivial
+export KEPPEL_USERNAME=johndoe
+export KEPPEL_PASSWORD=SuperSecret
+export KEPPEL_DRIVER_STORAGE=filesystem
+export KEPPEL_FILESYSTEM_PATH=./keppel
 ```
 
 In addition to that the following extra steps are required:
