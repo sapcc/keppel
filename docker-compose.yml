@@ -1,0 +1,56 @@
+version: "3.7"  # optional since v1.27.0
+
+volumes:
+  db-data:
+
+networks:
+  postgres:
+    driver: bridge
+
+services:
+  db:
+    user: postgres
+    container_name: postgres
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: mysecretpassword
+      POSTGRES_DB: keppel
+    volumes:
+      - "db-data:/var/postgresql/data"
+    ports:
+      - "5432:5432"
+    networks:
+      - postgres
+
+  keppel:
+    container_name: keppel
+    build:
+      context: .
+    image: localhost/keppel-local:latest
+    command:
+      - "server"
+      - "api"
+    ports:
+      - "8080:8080"
+    volumes:
+      - type: bind
+        source: ./privkey.pem
+        target: /var/empty/privkey.pem
+    environment:
+      KEPPEL_API_PUBLIC_URL: http://localhost:8080
+      KEPPEL_ISSUER_KEY: ./privkey.pem
+      KEPPEL_DB_CONNECTION_OPTIONS: sslmode=disable
+      KEPPEL_DB_PASSWORD: mysecretpassword
+      KEPPEL_DB_HOSTNAME: db
+      KEPPEL_DRIVER_FEDERATION: trivial
+      KEPPEL_DRIVER_INBOUND_CACHE: trivial
+      KEPPEL_API_PUBLIC_FQDN: localhost
+      KEPPEL_DRIVER_AUTH: trivial
+      KEPPEL_USERNAME: johndoe
+      KEPPEL_PASSWORD: SuperSecret
+      KEPPEL_DRIVER_STORAGE: filesystem
+      KEPPEL_FILESYSTEM_PATH: ./keppel
+    depends_on:
+      - db
+    networks:
+      - postgres
