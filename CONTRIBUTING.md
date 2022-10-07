@@ -29,9 +29,23 @@ export KEPPEL_FILESYSTEM_PATH=./keppel
 ```
 
 In addition to that the following extra steps are required:
-- A private key in PEM format is required to to sign auth token for Docker clients. It can be generated with `openssl genrsa -out privkey.pem 4096`.
+- A private key in PEM format is required to sign auth token for Docker clients. It can be generated with `openssl genrsa -out privkey.pem 4096`.
 - A local postgresql instance. You can start one in docker with the following command: `docker run --name postgres -e POSTGRES_PASSWORD=mysecretpassword -e POSTGRES_DB=keppel -p 127.0.0.1:5432:5432 -d postgres`
 - `KEPPEL_DRIVER_AUTH` and `KEPPEL_DRIVER_STORAGE` need to be configured and exported. Best look them up in an existing Keppel installation.
+
+### Run Keppel with docker-compose
+
+1. Generate private key locally:
+
+```bash
+openssl genrsa -out privkey.pem 4096
+```
+
+2. Run docker-compose
+
+```bash
+docker-compose up
+```
 
 ### Run the test suite
 
