@@ -666,6 +666,9 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		if err != nil {
 			return err
 		}
+		if clairState.IndexingWasRestarted {
+			checkVulnerabilityRetriedCounter.Inc()
+		}
 		if clairState.IsErrored {
 			vulnStatuses = append(vulnStatuses, clair.ErrorVulnerabilityStatus)
 			manifest.VulnerabilityScanErrorMessage = clairState.ErrorMessage

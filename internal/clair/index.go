@@ -45,9 +45,10 @@ type Layer struct {
 
 // ManifestState is returned by CheckManifestState.
 type ManifestState struct {
-	IsIndexed    bool
-	IsErrored    bool
-	ErrorMessage string
+	IsIndexed            bool
+	IndexingWasRestarted bool
+	IsErrored            bool
+	ErrorMessage         string
 }
 
 type indexReport struct {
@@ -57,11 +58,12 @@ type indexReport struct {
 	//there are more fields, but we are not interested in them
 }
 
-func (r indexReport) IntoManifestState() ManifestState {
+func (r indexReport) IntoManifestState(indexingWasRestarted bool) ManifestState {
 	return ManifestState{
-		IsIndexed:    r.State == "IndexFinished",
-		IsErrored:    r.State == "IndexError",
-		ErrorMessage: r.ErrorMessage,
+		IsIndexed:            r.State == "IndexFinished",
+		IndexingWasRestarted: indexingWasRestarted,
+		IsErrored:            r.State == "IndexError",
+		ErrorMessage:         r.ErrorMessage,
 	}
 }
 
@@ -75,7 +77,8 @@ var clairTransientErrorsRgx = regexp.MustCompile(`(?:read: connection reset by p
 // yet, and checks if the indexing has finished. Since the manifest rendering is
 // costly, it's wrapped in a callback that this method only calls when needed.
 func (c *Client) CheckManifestState(digest string, renderManifest func() (Manifest, error)) (ManifestState, error) {
-	req, err := http.NewRequest(http.MethodGet, c.requestURL("indexer", "api", "v1", "index_report", digest), http.NoBody)
+	reqURL := c.requestURL("indexer", "api", "v1", "index_report", digest)
+	req, err := http.NewRequest(http.MethodGet, reqURL, http.NoBody)
 	if err != nil {
 		return ManifestState{}, err
 	}
@@ -89,9 +92,10 @@ func (c *Client) CheckManifestState(digest string, renderManifest func() (Manife
 		return ManifestState{}, err
 	}
 
+	indexingWasRestarted := false
 	if clairTransientErrorsRgx.MatchString(result.ErrorMessage) {
 		// delete index_report in clear before resubmitting
-		req, err := http.NewRequest(http.MethodDelete, c.requestURL("indexer", "api", "v1", "index_report", digest), http.NoBody)
+		req, err := http.NewRequest(http.MethodDelete, reqURL, http.NoBody)
 		if err != nil {
 			return ManifestState{}, err
 		}
@@ -104,9 +108,10 @@ func (c *Client) CheckManifestState(digest string, renderManifest func() (Manife
 		if err != nil {
 			return ManifestState{}, err
 		}
+		indexingWasRestarted = true
 	}
 
-	return result.IntoManifestState(), err
+	return result.IntoManifestState(indexingWasRestarted), err
 }
 
 func (c *Client) submitManifest(renderManifest func() (Manifest, error)) (indexReport, error) {
