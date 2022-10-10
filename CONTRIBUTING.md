@@ -9,23 +9,29 @@ In the following parts is described how to run Keppel locally and the test suite
 
 ### Run Keppel locally
 
-You can start Keppel locally with `make run-api` but without the correct environment variables in `.env` it will stop really fast.
+You can start Keppel locally with `make run-api` but without the correct environment variables in the `.env` file it will stop really fast.
 
-An example `.env` to get Keppel up and running is shown below:
+The content of an `.env` file to get Keppel up and running is shown below:
 
 ```bash
+export KEPPEL_API_PUBLIC_FQDN=localhost
 export KEPPEL_API_PUBLIC_URL=http://localhost:8080
-export KEPPEL_ISSUER_KEY=./privkey.pem
 export KEPPEL_DB_CONNECTION_OPTIONS=sslmode=disable
 export KEPPEL_DB_PASSWORD=mysecretpassword
+export KEPPEL_DRIVER_AUTH=trivial
 export KEPPEL_DRIVER_FEDERATION=trivial
 export KEPPEL_DRIVER_INBOUND_CACHE=trivial
+export KEPPEL_DRIVER_STORAGE=filesystem
+export KEPPEL_FILESYSTEM_PATH=./keppel
+export KEPPEL_ISSUER_KEY=./privkey.pem
+export KEPPEL_PASSWORD=SuperSecret
+export KEPPEL_USERNAME=johndoe
 ```
 
 In addition to that the following extra steps are required:
-- A private key in PEM format is required to to sign auth token for Docker clients. It can be generated with `openssl genrsa -out privkey.pem 4096`.
+- A private key in PEM format is required to sign auth token for Docker clients. It can be generated with `openssl genrsa -out privkey.pem 4096`.
 - A local postgresql instance. You can start one in docker with the following command: `docker run --name postgres -e POSTGRES_PASSWORD=mysecretpassword -e POSTGRES_DB=keppel -p 127.0.0.1:5432:5432 -d postgres`
-- `KEPPEL_DRIVER_AUTH` and `KEPPEL_DRIVER_STORAGE` need to be configured and exported. Best look them up in an existing Keppel installation.
+- An ephemeral postgresql instance can also be started with `./testing/with-postgres-db.sh make run-api`. This requires adding `export KEPPEL_DB_PORT=54321` to the `.env` file.
 
 ### Run the test suite
 
