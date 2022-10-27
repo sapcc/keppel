@@ -285,7 +285,7 @@ func TestReplicationUseCachedBlobMetadata(t *testing.T) {
 					ExpectHeader: map[string]string{
 						test.VersionHeaderKey:   test.VersionHeaderValue,
 						"Content-Length":        strconv.Itoa(len(blob.Contents)),
-						"Content-Type":          "application/octet-stream",
+						"Content-Type":          blob.MediaType,
 						"Docker-Content-Digest": blob.Digest.String(),
 					},
 				}.Check(t, h2)

@@ -186,7 +186,7 @@ func expectBlobExists(t *testing.T, h http.Handler, token, fullRepoName string, 
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey:   test.VersionHeaderValue,
 				"Content-Length":        strconv.Itoa(len(blob.Contents)),
-				"Content-Type":          "application/octet-stream",
+				"Content-Type":          blob.MediaType,
 				"Docker-Content-Digest": blob.Digest.String(),
 			},
 			ExpectBody: assert.ByteData(respBody),

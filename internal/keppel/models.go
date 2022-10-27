@@ -205,6 +205,14 @@ func MountBlobIntoRepo(db gorp.SqlExecutor, blob Blob, repo Repository) error {
 	return err
 }
 
+// SafeMediaType returns the MediaType field, but falls back to "application/octet-stream" if it is empty.
+func (b Blob) SafeMediaType() string {
+	if b.MediaType == "" {
+		return "application/octet-stream"
+	}
+	return b.MediaType
+}
+
 // Upload contains a record from the `uploads` table.
 //
 // Digest contains the SHA256 digest of everything that has been uploaded so

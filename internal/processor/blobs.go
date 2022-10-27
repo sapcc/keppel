@@ -107,6 +107,7 @@ func (p *Processor) FindBlobOrInsertUnbackedBlob(desc distribution.Descriptor, a
 		blob = &keppel.Blob{
 			AccountName: account.Name,
 			Digest:      desc.Digest.String(),
+			MediaType:   desc.MediaType,
 			SizeBytes:   uint64(desc.Size),
 			StorageID:   "", //unbacked
 			PushedAt:    time.Unix(0, 0),
@@ -178,7 +179,7 @@ func (p *Processor) ReplicateBlob(blob keppel.Blob, account keppel.Account, repo
 	//stream into `w` if requested
 	blobReader := io.Reader(blobReadCloser)
 	if w != nil {
-		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Type", blob.SafeMediaType()) //we know the media type because we have already replicated a referencing manifest
 		w.Header().Set("Docker-Content-Digest", blob.Digest)
 		w.Header().Set("Content-Length", strconv.FormatUint(blobLengthBytes, 10))
 		w.WriteHeader(http.StatusOK)
