@@ -240,6 +240,11 @@ func (d *StorageDriver) getRepoManifests(account keppel.Account, repo string) ([
 	return manifests, nil
 }
 
+// CanSetupAccount implements the keppel.StorageDriver interface.
+func (d *StorageDriver) CanSetupAccount(account keppel.Account) error {
+	return nil //this driver does not perform any preflight checks here
+}
+
 // CleanupAccount implements the keppel.StorageDriver interface.
 func (d *StorageDriver) CleanupAccount(account keppel.Account) error {
 	//double-check that cleanup order is right; when the account gets deleted,

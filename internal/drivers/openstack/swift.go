@@ -402,6 +402,11 @@ func mergeChunkCount(chunkCounts map[string]uint32, key string, chunkNumber uint
 	}
 }
 
+// CanSetupAccount implements the keppel.StorageDriver interface.
+func (d *swiftDriver) CanSetupAccount(account keppel.Account) error {
+	return nil //this driver does not perform any preflight checks here
+}
+
 // CleanupAccount implements the keppel.StorageDriver interface.
 func (d *swiftDriver) CleanupAccount(account keppel.Account) error {
 	c, _, err := d.getBackendConnection(account)

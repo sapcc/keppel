@@ -666,6 +666,12 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		err = a.sd.CanSetupAccount(accountToCreate)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
+
 		tx, err := a.db.Begin()
 		if respondwith.ErrorText(w, err) {
 			return

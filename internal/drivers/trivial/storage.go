@@ -30,7 +30,7 @@ import (
 
 func init() {
 	keppel.RegisterStorageDriver("in-memory-for-testing", func(_ keppel.AuthDriver, _ keppel.Configuration) (keppel.StorageDriver, error) {
-		return &StorageDriver{make(map[string][]byte), make(map[string]uint32), make(map[string][]byte), false}, nil
+		return &StorageDriver{make(map[string][]byte), make(map[string]uint32), make(map[string][]byte), false, false}, nil
 	})
 }
 
@@ -38,10 +38,11 @@ func init() {
 // for use in test suites where each keppel-registry stores its contents in RAM
 // only, without any persistence.
 type StorageDriver struct {
-	blobs           map[string][]byte
-	blobChunkCounts map[string]uint32 //previous chunkNumber for running upload, 0 when finished (same semantics as keppel.StoredBlobInfo.ChunkCount field)
-	manifests       map[string][]byte
-	AllowDummyURLs  bool
+	blobs             map[string][]byte
+	blobChunkCounts   map[string]uint32 //previous chunkNumber for running upload, 0 when finished (same semantics as keppel.StoredBlobInfo.ChunkCount field)
+	manifests         map[string][]byte
+	AllowDummyURLs    bool
+	ForbidNewAccounts bool
 }
 
 var (
@@ -193,6 +194,14 @@ func (d *StorageDriver) ListStorageContents(account keppel.Account) ([]keppel.St
 	}
 
 	return blobs, manifests, nil
+}
+
+// CanSetupAccount implements the keppel.StorageDriver interface.
+func (d *StorageDriver) CanSetupAccount(account keppel.Account) error {
+	if d.ForbidNewAccounts {
+		return errors.New("CanSetupAccount failed as requested")
+	}
+	return nil
 }
 
 // CleanupAccount implements the keppel.StorageDriver interface.

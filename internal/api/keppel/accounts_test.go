@@ -722,8 +722,8 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectStatus: http.StatusForbidden,
 		ExpectBody:   assert.StringData("cannot assign name \"second\" to auth tenant \"tenant1\"\n"),
 	}.Check(t, h)
-
 	s.FD.ClaimFailsBecauseOfUserError = false
+
 	s.FD.ClaimFailsBecauseOfServerError = true
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -737,6 +737,23 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectStatus: http.StatusInternalServerError,
 		ExpectBody:   assert.StringData("failed to assign name \"second\" to auth tenant \"tenant1\"\n"),
 	}.Check(t, h)
+	s.FD.ClaimFailsBecauseOfServerError = false
+
+	//test rejection by storage driver
+	s.SD.ForbidNewAccounts = true
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/second",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+			},
+		},
+		ExpectStatus: http.StatusConflict,
+		ExpectBody:   assert.StringData("CanSetupAccount failed as requested\n"),
+	}.Check(t, h)
+	s.SD.ForbidNewAccounts = false
 
 	//test malformed GC policies
 	gcPolicyTestcases := []struct {

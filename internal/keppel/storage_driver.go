@@ -71,6 +71,10 @@ type StorageDriver interface {
 	//eventual consistency.
 	ListStorageContents(account Account) (blobs []StoredBlobInfo, manifests []StoredManifestInfo, err error)
 
+	//This method is called before a new account is set up in the DB. The
+	//StorageDriver can use this opportunity to check for any reasons why the
+	//account would not be functional once it is persisted in our DB.
+	CanSetupAccount(account Account) error
 	//This method can be used by the StorageDriver to perform last-minute cleanup
 	//on an account that we are about to delete. This cleanup should be
 	//reversible; we might bail out of the account deletion afterwards if the
