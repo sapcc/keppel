@@ -751,7 +751,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		},
 		ExpectStatus: http.StatusConflict,
-		ExpectBody:   assert.StringData("CanSetupAccount failed as requested\n"),
+		ExpectBody:   assert.StringData("cannot set up backing storage for this account: CanSetupAccount failed as requested\n"),
 	}.Check(t, h)
 	s.SD.ForbidNewAccounts = false
 

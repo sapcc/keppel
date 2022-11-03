@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -84,8 +85,12 @@ func init() {
 //TODO translate errors from Swift into keppel.RegistryV2Error where
 //appropriate (esp. keppel.ErrSizeInvalid and keppel.ErrTooManyRequests)
 
+func (d *swiftDriver) getBackendAccount(account keppel.Account) *schwift.Account {
+	return d.mainAccount.SwitchAccount("AUTH_" + account.AuthTenantID)
+}
+
 func (d *swiftDriver) getBackendConnection(account keppel.Account) (*schwift.Container, *swiftContainerInfo, error) {
-	c := d.mainAccount.SwitchAccount("AUTH_" + account.AuthTenantID).Container(account.SwiftContainerName())
+	c := d.getBackendAccount(account).Container(account.SwiftContainerName())
 
 	//we want to cache the tempurl key to speed up URLForBlob() calls; but we
 	//cannot cache it indefinitely because the Keppel account (and hence the
@@ -404,7 +409,19 @@ func mergeChunkCount(chunkCounts map[string]uint32, key string, chunkNumber uint
 
 // CanSetupAccount implements the keppel.StorageDriver interface.
 func (d *swiftDriver) CanSetupAccount(account keppel.Account) error {
-	return nil //this driver does not perform any preflight checks here
+	//check that the Swift account is accessible
+	_, err := d.getBackendAccount(account).Headers()
+	switch {
+	case err == nil:
+		return nil
+	case schwift.Is(err, http.StatusNotFound):
+		//404 can happen when Swift does not have account autocreation enabled. In
+		//this case, the account needs to be created, usually through some
+		//administrative process.
+		return errors.New("Swift storage is not enabled in this project") //nolint:stylecheck // "Swift" is a product name and must be capitalized
+	default:
+		return err
+	}
 }
 
 // CleanupAccount implements the keppel.StorageDriver interface.
