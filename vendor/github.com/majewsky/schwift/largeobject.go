@@ -20,7 +20,7 @@ package schwift
 
 import (
 	"bytes"
-	"crypto/md5"
+	"crypto/md5" //nolint:gosec // Etag uses md5
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -40,21 +40,21 @@ import (
 	"github.com/jpillora/longestcommon"
 )
 
-//SegmentInfo describes a segment of a large object.
+// SegmentInfo describes a segment of a large object.
 //
-//For .RangeLength == 0, the segment consists of all the bytes in the backing
-//object, after skipping the first .RangeOffset bytes. The default
-//(.RangeOffset == 0) is to include the entire contents of the backing object.
+// For .RangeLength == 0, the segment consists of all the bytes in the backing
+// object, after skipping the first .RangeOffset bytes. The default
+// (.RangeOffset == 0) is to include the entire contents of the backing object.
 //
-//For .RangeLength > 0, the segment consists of that many bytes from the
-//backing object, again after skipping the first .RangeOffset bytes.
+// For .RangeLength > 0, the segment consists of that many bytes from the
+// backing object, again after skipping the first .RangeOffset bytes.
 //
-//However, for .RangeOffset < 0, the segment consists of .RangeLength many bytes
-//from the *end* of the backing object. (The concrete value for .RangeOffset is
-//disregarded.) .RangeLength must be non-zero in this case.
+// However, for .RangeOffset < 0, the segment consists of .RangeLength many bytes
+// from the *end* of the backing object. (The concrete value for .RangeOffset is
+// disregarded.) .RangeLength must be non-zero in this case.
 //
-//Sorry that specifying a range is that involved. I was just following orders ^W
-//RFC 7233, section 3.1 here.
+// Sorry that specifying a range is that involved. I was just following orders ^W
+// RFC 7233, section 3.1 here.
 type SegmentInfo struct {
 	Object      *Object
 	SizeBytes   uint64
@@ -79,14 +79,14 @@ type sloSegmentInfo struct {
 	DataBase64 string `json:"data,omitempty"`
 }
 
-//LargeObjectStrategy enumerates segmenting strategies supported by Swift.
+// LargeObjectStrategy enumerates segmenting strategies supported by Swift.
 type LargeObjectStrategy int
 
-//A value of 0 for LargeObjectStrategy will instruct Schwift to choose a
-//strategy itself. Right now, Schwift always chooses StaticLargeObject, but
-//this behavior may change in future versions of Schwift, esp. if new
-//strategies become available. The choice may also start to depend on the
-//capabilities advertised by the server.
+// A value of 0 for LargeObjectStrategy will instruct Schwift to choose a
+// strategy itself. Right now, Schwift always chooses StaticLargeObject, but
+// this behavior may change in future versions of Schwift, esp. if new
+// strategies become available. The choice may also start to depend on the
+// capabilities advertised by the server.
 const (
 	//StaticLargeObject is the default LargeObjectStrategy used by Schwift.
 	StaticLargeObject LargeObjectStrategy = iota + 1
@@ -96,20 +96,20 @@ const (
 	DynamicLargeObject
 )
 
-//SegmentingOptions describes how an object is segmented. It is passed to
-//Object.AsNewLargeObject().
+// SegmentingOptions describes how an object is segmented. It is passed to
+// Object.AsNewLargeObject().
 //
-//If Strategy is not set, a reasonable strategy is chosen; see documentation on
-//LargeObjectStrategy for details.
+// If Strategy is not set, a reasonable strategy is chosen; see documentation on
+// LargeObjectStrategy for details.
 //
-//SegmentContainer must not be nil. A value of nil will cause Schwift to panic.
-//If the SegmentContainer is not in the same account as the large object,
-//ErrAccountMismatch will be returned by Schwift.
+// SegmentContainer must not be nil. A value of nil will cause Schwift to panic.
+// If the SegmentContainer is not in the same account as the large object,
+// ErrAccountMismatch will be returned by Schwift.
 //
-//If SegmentPrefix is empty, a reasonable default will be computed by
-//Object.AsNewLargeObject(), using the format
-//"<object-name>/<strategy>/<timestamp>", where strategy is either "slo" or
-//"dlo".
+// If SegmentPrefix is empty, a reasonable default will be computed by
+// Object.AsNewLargeObject(), using the format
+// "<object-name>/<strategy>/<timestamp>", where strategy is either "slo" or
+// "dlo".
 type SegmentingOptions struct {
 	Strategy         LargeObjectStrategy
 	SegmentContainer *Container
@@ -118,13 +118,13 @@ type SegmentingOptions struct {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-//LargeObject is a wrapper for type Object that performs operations specific to
-//large objects, i.e. those objects which are uploaded in segments rather than
-//all at once. It can be constructed with the Object.AsLargeObject() and
-//Object.AsNewLargeObject() methods.
+// LargeObject is a wrapper for type Object that performs operations specific to
+// large objects, i.e. those objects which are uploaded in segments rather than
+// all at once. It can be constructed with the Object.AsLargeObject() and
+// Object.AsNewLargeObject() methods.
 //
-//The following example shows how to upload a large file from the filesystem to
-//Swift (error handling elided for brevity):
+// The following example shows how to upload a large file from the filesystem to
+// Swift (error handling elided for brevity):
 //
 //	file, err := os.Open(sourcePath)
 //	segmentContainer, err := account.Container("segments").EnsureExists()
@@ -140,14 +140,14 @@ type SegmentingOptions struct {
 //	err = lo.Append(contents, 1<<30) // 1<30 bytes = 1 GiB per segment
 //	err = lo.WriteManifest(nil)
 //
-//Append() has a more low-level counterpart, AddSegment(). Both methods can be
-//freely intermixed. AddSegment() is useful when you want to control the
-//segments' metadata or use advanced features like range segments or data
-//segments; see documentation over there.
+// Append() has a more low-level counterpart, AddSegment(). Both methods can be
+// freely intermixed. AddSegment() is useful when you want to control the
+// segments' metadata or use advanced features like range segments or data
+// segments; see documentation over there.
 //
-//Writing to a large object must always be concluded by a call to
-//WriteManifest() to link the new segments to the large object on the server
-//side.
+// Writing to a large object must always be concluded by a call to
+// WriteManifest() to link the new segments to the large object on the server
+// side.
 type LargeObject struct {
 	object           *Object
 	segmentContainer *Container
@@ -156,45 +156,45 @@ type LargeObject struct {
 	segments         []SegmentInfo
 }
 
-//Object returns the location of this large object (where its manifest is stored).
+// Object returns the location of this large object (where its manifest is stored).
 func (lo *LargeObject) Object() *Object {
 	return lo.object
 }
 
-//SegmentContainer returns the container in which this object's segments are
-//stored. For static large objects, some segments may also be located in
-//different containers.
+// SegmentContainer returns the container in which this object's segments are
+// stored. For static large objects, some segments may also be located in
+// different containers.
 func (lo *LargeObject) SegmentContainer() *Container {
 	return lo.segmentContainer
 }
 
-//SegmentPrefix returns the prefix shared by the names of all segments of this
-//object. For static large objects, some segments may not be located in this
-//prefix.
+// SegmentPrefix returns the prefix shared by the names of all segments of this
+// object. For static large objects, some segments may not be located in this
+// prefix.
 func (lo *LargeObject) SegmentPrefix() string {
 	return lo.segmentPrefix
 }
 
-//Strategy returns the LargeObjectStrategy used by this object.
+// Strategy returns the LargeObjectStrategy used by this object.
 func (lo *LargeObject) Strategy() LargeObjectStrategy {
 	return lo.strategy
 }
 
-//Segments returns a list of all segments for this object, in order.
+// Segments returns a list of all segments for this object, in order.
 func (lo *LargeObject) Segments() ([]SegmentInfo, error) {
 	//NOTE: This method has an error return value because we might later switch
 	//to loading segments lazily inside this method.
 	return lo.segments, nil
 }
 
-//SegmentObjects returns a list of all segment objects referenced by this large
-//object. Note that, in general,
+// SegmentObjects returns a list of all segment objects referenced by this large
+// object. Note that, in general,
 //
 //	len(lo.SegmentObjects()) <= len(lo.Segments())
 //
-//since one object may be backing multiple segments, and data segments are not
-//backed by any object at all. No guarantee is made about the order in which
-//objects appear in this list.
+// since one object may be backing multiple segments, and data segments are not
+// backed by any object at all. No guarantee is made about the order in which
+// objects appear in this list.
 func (lo *LargeObject) SegmentObjects() []*Object {
 	seen := make(map[string]bool)
 	result := make([]*Object, 0, len(lo.segments))
@@ -211,9 +211,9 @@ func (lo *LargeObject) SegmentObjects() []*Object {
 	return result
 }
 
-//AsLargeObject opens an existing large object. If the given object does not
-//exist, or if it is not a large object, ErrNotLarge will be returned. In this
-//case, Object.AsNewLargeObject() needs to be used instead.
+// AsLargeObject opens an existing large object. If the given object does not
+// exist, or if it is not a large object, ErrNotLarge will be returned. In this
+// case, Object.AsNewLargeObject() needs to be used instead.
 func (o *Object) AsLargeObject() (*LargeObject, error) {
 	exists, err := o.Exists()
 	if err != nil {
@@ -401,14 +401,14 @@ func parseHTTPRange(str string) (offsetVal int64, lengthVal uint64, ok bool) {
 	return int64(firstByte), lastByte - firstByte + 1, true
 }
 
-//AsNewLargeObject opens an object as a large object. SegmentingOptions are
-//always required, see the documentation on type SegmentingOptions for details.
+// AsNewLargeObject opens an object as a large object. SegmentingOptions are
+// always required, see the documentation on type SegmentingOptions for details.
 //
-//This function can be used regardless of whether the object exists or not.
-//If the object exists and is a large object, this function behaves like
-//Object.AsLargeObject() followed by Truncate(), except that segmenting options
-//are initialized from the method's SegmentingOptions argument rather than from
-//the existing manifest.
+// This function can be used regardless of whether the object exists or not.
+// If the object exists and is a large object, this function behaves like
+// Object.AsLargeObject() followed by Truncate(), except that segmenting options
+// are initialized from the method's SegmentingOptions argument rather than from
+// the existing manifest.
 func (o *Object) AsNewLargeObject(sopts SegmentingOptions, topts *TruncateOptions) (*LargeObject, error) {
 	//we only need to load the existing large object if we want to do something
 	//with the old segments
@@ -422,7 +422,6 @@ func (o *Object) AsNewLargeObject(sopts SegmentingOptions, topts *TruncateOption
 			}
 		case ErrNotLarge:
 			//not an error, continue down below
-			err = nil
 		default:
 			return nil, err //unexpected error
 		}
@@ -463,8 +462,8 @@ func (o *Object) AsNewLargeObject(sopts SegmentingOptions, topts *TruncateOption
 	return lo, nil
 }
 
-//TruncateOptions contains options that can be passed to LargeObject.Truncate()
-//and Object.AsNewLargeObject().
+// TruncateOptions contains options that can be passed to LargeObject.Truncate()
+// and Object.AsNewLargeObject().
 type TruncateOptions struct {
 	//When truncating a large object's manifest, delete its segments.
 	//This will cause Truncate() to call into BulkDelete(), so a BulkError may be
@@ -473,9 +472,9 @@ type TruncateOptions struct {
 	DeleteSegments bool
 }
 
-//Truncate removes all segments from a large object's manifest. The manifest is
-//not written by this call, so WriteManifest() usually needs to be called
-//afterwards.
+// Truncate removes all segments from a large object's manifest. The manifest is
+// not written by this call, so WriteManifest() usually needs to be called
+// afterwards.
 func (lo *LargeObject) Truncate(opts *TruncateOptions) error {
 	_, _, err := lo.object.c.a.BulkDelete(lo.SegmentObjects(), nil, nil)
 	if err == nil {
@@ -484,33 +483,33 @@ func (lo *LargeObject) Truncate(opts *TruncateOptions) error {
 	return err
 }
 
-//NextSegmentObject suggests where to upload the next segment.
+// NextSegmentObject suggests where to upload the next segment.
 //
-//WARNING: This is a low-level function. Most callers will want to use
-//Append(). You will only need to upload segments manually when you want to
-//control the segments' metadata.
+// WARNING: This is a low-level function. Most callers will want to use
+// Append(). You will only need to upload segments manually when you want to
+// control the segments' metadata.
 //
-//If the name of the current final segment ends with a counter, that counter is
-//incremented, otherwise a counter is appended to its name. When looking for a
-//counter in an existing segment name, the regex /[0-9]+$/ is used. For example,
-//given:
+// If the name of the current final segment ends with a counter, that counter is
+// incremented, otherwise a counter is appended to its name. When looking for a
+// counter in an existing segment name, the regex /[0-9]+$/ is used. For example,
+// given:
 //
 //	segments := lo.segments()
 //	lastSegmentName := segments[len(segments)-1].Name()
 //	nextSegmentName := lo.NextSegmentObject().Name()
 //
-//If lastSegmentName is "segments/archive/segment0001", then nextSegmentName is
-//"segments/archive/segment0002". If lastSegmentName is
-//"segments/archive/first", then nextSegmentName is
-//"segments/archive/first0000000000000001".
+// If lastSegmentName is "segments/archive/segment0001", then nextSegmentName is
+// "segments/archive/segment0002". If lastSegmentName is
+// "segments/archive/first", then nextSegmentName is
+// "segments/archive/first0000000000000001".
 //
-//However, the last segment's name will only be considered if it lies within
-//lo.segmentContainer below lo.segmentPrefix. If that is not the case, the name
-//of the last segment that does will be used instead.
+// However, the last segment's name will only be considered if it lies within
+// lo.segmentContainer below lo.segmentPrefix. If that is not the case, the name
+// of the last segment that does will be used instead.
 //
-//If there are no segments yet, or if all segments are located outside the
-//lo.segmentContainer and lo.segmentPrefix, the first segment name is chosen as
-//lo.segmentPrefix + "0000000000000001".
+// If there are no segments yet, or if all segments are located outside the
+// lo.segmentContainer and lo.segmentPrefix, the first segment name is chosen as
+// lo.segmentPrefix + "0000000000000001".
 func (lo *LargeObject) NextSegmentObject() *Object {
 	//find the name of the last-most segment that is within the designated
 	//segment container and prefix
@@ -540,9 +539,9 @@ func (lo *LargeObject) NextSegmentObject() *Object {
 var splitSegmentIndexRx = regexp.MustCompile(`^(.*?)([0-9]+$)`)
 var initialIndex = "0000000000000001"
 
-//Given the object name of a previous large object segment, compute a suitable
-//name for the next segment. See doc for LargeObject.NextSegmentObject()
-//for how this works.
+// Given the object name of a previous large object segment, compute a suitable
+// name for the next segment. See doc for LargeObject.NextSegmentObject()
+// for how this works.
 func nextSegmentName(segmentName string) string {
 	match := splitSegmentIndexRx.FindStringSubmatch(segmentName)
 	if match == nil {
@@ -563,31 +562,31 @@ func nextSegmentName(segmentName string) string {
 	return base + fmt.Sprintf(formatStr, idx+1)
 }
 
-//AddSegment appends a segment to this object. The segment must already have
-//been uploaded.
+// AddSegment appends a segment to this object. The segment must already have
+// been uploaded.
 //
-//WARNING: This is a low-level function. Most callers will want to use
-//Append(). You will only need to add segments manually when you want to
-//control the segments' metadata, or when using advanced features such as
-//range-limited segments or data segments.
+// WARNING: This is a low-level function. Most callers will want to use
+// Append(). You will only need to add segments manually when you want to
+// control the segments' metadata, or when using advanced features such as
+// range-limited segments or data segments.
 //
-//This method returns ErrAccountMismatch if the segment is not located in a
-//container in the same account.
+// This method returns ErrAccountMismatch if the segment is not located in a
+// container in the same account.
 //
-//For dynamic large objects, this method returns ErrContainerMismatch if the
-//segment is not located in the correct container below the correct prefix.
+// For dynamic large objects, this method returns ErrContainerMismatch if the
+// segment is not located in the correct container below the correct prefix.
 //
-//This method returns ErrSegmentInvalid if:
+// This method returns ErrSegmentInvalid if:
 //
-//- a range is specified in the SegmentInfo, but it is invalid or the
-//LargeObject is a dynamic large object (DLOs do not support ranges), or
+// - a range is specified in the SegmentInfo, but it is invalid or the
+// LargeObject is a dynamic large object (DLOs do not support ranges), or
 //
-//- the SegmentInfo's Data attribute is set and any other attribute is also
-//set (segments cannot be backed by objects and be data segments at the same
-//time), or
+// - the SegmentInfo's Data attribute is set and any other attribute is also
+// set (segments cannot be backed by objects and be data segments at the same
+// time), or
 //
-//- the SegmentInfo's Data attribute is set, but the LargeObject is a dynamic
-//large objects (DLOs do not support data segments).
+// - the SegmentInfo's Data attribute is set, but the LargeObject is a dynamic
+// large objects (DLOs do not support data segments).
 func (lo *LargeObject) AddSegment(segment SegmentInfo) error {
 	if len(segment.Data) == 0 {
 		//validate segments backed by objects
@@ -636,13 +635,13 @@ func (lo *LargeObject) AddSegment(segment SegmentInfo) error {
 	return nil
 }
 
-//Append uploads the contents of the given io.Reader as segment objects of the
-//given segment size. (The last segment will be shorter than the segment size
-//unless the reader yields an exact multiple of the segment size.) The reader
-//is consumed until EOF, or until an error occurs.
+// Append uploads the contents of the given io.Reader as segment objects of the
+// given segment size. (The last segment will be shorter than the segment size
+// unless the reader yields an exact multiple of the segment size.) The reader
+// is consumed until EOF, or until an error occurs.
 //
-//If you do not have an io.Reader, but you have a []byte or string instance
-//containing the data, wrap it in a *bytes.Reader instance like so:
+// If you do not have an io.Reader, but you have a []byte or string instance
+// containing the data, wrap it in a *bytes.Reader instance like so:
 //
 //	var buffer []byte
 //	lo.Append(bytes.NewReader(buffer), segmentSizeBytes)
@@ -651,16 +650,16 @@ func (lo *LargeObject) AddSegment(segment SegmentInfo) error {
 //	var buffer string
 //	lo.Append(bytes.NewReader([]byte(buffer)), segmentSizeBytes)
 //
-//If segmentSizeBytes is zero, Append() defaults to the maximum file size
-//reported by Account.Capabilities().
+// If segmentSizeBytes is zero, Append() defaults to the maximum file size
+// reported by Account.Capabilities().
 //
-//Calls to Append() and its low-level counterpart, AddSegment(), can be freely
-//intermixed. AddSegment() is useful when you want to control the segments'
-//metadata or use advanced features like range segments or data segments; see
-//documentation over there.
+// Calls to Append() and its low-level counterpart, AddSegment(), can be freely
+// intermixed. AddSegment() is useful when you want to control the segments'
+// metadata or use advanced features like range segments or data segments; see
+// documentation over there.
 //
-//This function uploads segment objects, so it may return any error that
-//Object.Upload() returns, see documentation over there.
+// This function uploads segment objects, so it may return any error that
+// Object.Upload() returns, see documentation over there.
 func (lo *LargeObject) Append(contents io.Reader, segmentSizeBytes int64, opts *RequestOptions) error {
 	if segmentSizeBytes < 0 {
 		panic("segmentSizeBytes may not be negative")
@@ -686,7 +685,7 @@ func (lo *LargeObject) Append(contents io.Reader, segmentSizeBytes int64, opts *
 
 		tracker := lengthAndEtagTrackingReader{
 			Reader: segment,
-			Hasher: md5.New(),
+			Hasher: md5.New(), //nolint:gosec // Etag uses md5
 		}
 
 		obj := lo.NextSegmentObject()
@@ -751,12 +750,12 @@ func (r *lengthAndEtagTrackingReader) Read(buf []byte) (int, error) {
 	return n, err
 }
 
-//WriteManifest creates this large object by writing a manifest to its
-//location using a PUT request.
+// WriteManifest creates this large object by writing a manifest to its
+// location using a PUT request.
 //
-//For dynamic large objects, this method does not generate a PUT request
-//if the object already exists and has the correct manifest (i.e.
-//SegmentContainer and SegmentPrefix have not been changed).
+// For dynamic large objects, this method does not generate a PUT request
+// if the object already exists and has the correct manifest (i.e.
+// SegmentContainer and SegmentPrefix have not been changed).
 func (lo *LargeObject) WriteManifest(opts *RequestOptions) error {
 	switch lo.strategy {
 	case StaticLargeObject:

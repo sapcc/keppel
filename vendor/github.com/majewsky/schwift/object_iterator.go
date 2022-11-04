@@ -24,10 +24,10 @@ import (
 	"time"
 )
 
-//ObjectInfo is a result type returned by ObjectIterator for detailed
-//object listings. The metadata in this type is a subset of Object.Headers(),
-//but since it is returned as part of the detailed object listing, it can be
-//obtained without making additional HEAD requests on the object(s).
+// ObjectInfo is a result type returned by ObjectIterator for detailed
+// object listings. The metadata in this type is a subset of Object.Headers(),
+// but since it is returned as part of the detailed object listing, it can be
+// obtained without making additional HEAD requests on the object(s).
 type ObjectInfo struct {
 	Object       *Object
 	SizeBytes    uint64
@@ -43,8 +43,8 @@ type ObjectInfo struct {
 	SubDirectory string
 }
 
-//ObjectIterator iterates over the objects in a container. It is typically
-//constructed with the Container.Objects() method. For example:
+// ObjectIterator iterates over the objects in a container. It is typically
+// constructed with the Container.Objects() method. For example:
 //
 //	//either this...
 //	iter := container.Objects()
@@ -57,21 +57,21 @@ type ObjectInfo struct {
 //		Prefix: "test-",
 //	}.Collect()
 //
-//When listing objects via a GET request on the container, you can choose to
-//receive object names only (via the methods without the "Detailed" suffix),
-//or object names plus some basic metadata fields (via the methods with the
-//"Detailed" suffix). See struct ObjectInfo for which metadata is returned.
+// When listing objects via a GET request on the container, you can choose to
+// receive object names only (via the methods without the "Detailed" suffix),
+// or object names plus some basic metadata fields (via the methods with the
+// "Detailed" suffix). See struct ObjectInfo for which metadata is returned.
 //
-//To obtain any other metadata, you can call Object.Headers() on the result
-//object, but this will issue a separate HEAD request for each object.
+// To obtain any other metadata, you can call Object.Headers() on the result
+// object, but this will issue a separate HEAD request for each object.
 //
-//Use the "Detailed" methods only when you use the extra metadata in struct
-//ObjectInfo; detailed GET requests are more expensive than simple ones that
-//return only object names.
+// Use the "Detailed" methods only when you use the extra metadata in struct
+// ObjectInfo; detailed GET requests are more expensive than simple ones that
+// return only object names.
 //
-//Note that, when Delimiter is set, instances of *Object that you receive from
-//the iterator may refer to a pseudo-directory instead of an actual object, in
-//which case Exists() will return false.
+// Note that, when Delimiter is set, instances of *Object that you receive from
+// the iterator may refer to a pseudo-directory instead of an actual object, in
+// which case Exists() will return false.
 type ObjectIterator struct {
 	Container *Container
 	//When Prefix is set, only objects whose name starts with this string are
@@ -94,15 +94,15 @@ func (i *ObjectIterator) getBase() *iteratorBase {
 	return i.base
 }
 
-//NextPage queries Swift for the next page of object names. If limit is
-//>= 0, not more than that many object names will be returned at once. Note
-//that the server also has a limit for how many objects to list in one
-//request; the lower limit wins.
+// NextPage queries Swift for the next page of object names. If limit is
+// >= 0, not more than that many object names will be returned at once. Note
+// that the server also has a limit for how many objects to list in one
+// request; the lower limit wins.
 //
-//The end of the object listing is reached when an empty list is returned.
+// The end of the object listing is reached when an empty list is returned.
 //
-//This method offers maximal flexibility, but most users will prefer the
-//simpler interfaces offered by Collect() and Foreach().
+// This method offers maximal flexibility, but most users will prefer the
+// simpler interfaces offered by Collect() and Foreach().
 func (i *ObjectIterator) NextPage(limit int) ([]*Object, error) {
 	names, err := i.getBase().nextPage(limit)
 	if err != nil {
@@ -116,10 +116,10 @@ func (i *ObjectIterator) NextPage(limit int) ([]*Object, error) {
 	return result, nil
 }
 
-//The symlink_path attribute looks like "/v1/AUTH_foo/containername/obje/ctna/me".
+// The symlink_path attribute looks like "/v1/AUTH_foo/containername/obje/ctna/me".
 var symlinkPathRx = regexp.MustCompile(`^/v1/([^/]+)/([^/]+)/(.+)$`)
 
-//NextPageDetailed is like NextPage, but includes basic metadata.
+// NextPageDetailed is like NextPage, but includes basic metadata.
 func (i *ObjectIterator) NextPageDetailed(limit int) ([]ObjectInfo, error) {
 	b := i.getBase()
 
@@ -155,13 +155,13 @@ func (i *ObjectIterator) NextPageDetailed(limit int) ([]ObjectInfo, error) {
 			result[idx].LastModified, err = time.Parse(time.RFC3339Nano, data.LastModifiedStr+"Z")
 			if err != nil {
 				//this error is sufficiently obscure that we don't need to expose a type for it
-				return nil, fmt.Errorf("Bad field objects[%d].last_modified: %s", idx, err.Error())
+				return nil, fmt.Errorf("bad field objects[%d].last_modified: %s", idx, err.Error())
 			}
 			if data.SymlinkPath != "" {
 				match := symlinkPathRx.FindStringSubmatch(data.SymlinkPath)
 				if match == nil {
 					//like above
-					return nil, fmt.Errorf("Bad field objects[%d].symlink_path: %q", idx, data.SymlinkPath)
+					return nil, fmt.Errorf("bad field objects[%d].symlink_path: %q", idx, data.SymlinkPath)
 				}
 				a := i.Container.a
 				if a.Name() != match[1] {
@@ -179,9 +179,9 @@ func (i *ObjectIterator) NextPageDetailed(limit int) ([]ObjectInfo, error) {
 	return result, nil
 }
 
-//Foreach lists the object names matching this iterator and calls the
-//callback once for every object. Iteration is aborted when a GET request fails,
-//or when the callback returns a non-nil error.
+// Foreach lists the object names matching this iterator and calls the
+// callback once for every object. Iteration is aborted when a GET request fails,
+// or when the callback returns a non-nil error.
 func (i *ObjectIterator) Foreach(callback func(*Object) error) error {
 	for {
 		objects, err := i.NextPage(-1)
@@ -200,7 +200,7 @@ func (i *ObjectIterator) Foreach(callback func(*Object) error) error {
 	}
 }
 
-//ForeachDetailed is like Foreach, but includes basic metadata.
+// ForeachDetailed is like Foreach, but includes basic metadata.
 func (i *ObjectIterator) ForeachDetailed(callback func(ObjectInfo) error) error {
 	for {
 		infos, err := i.NextPageDetailed(-1)
@@ -219,9 +219,9 @@ func (i *ObjectIterator) ForeachDetailed(callback func(ObjectInfo) error) error 
 	}
 }
 
-//Collect lists all object names matching this iterator. For large sets of
-//objects that cannot be retrieved at once, Collect handles paging behind
-//the scenes. The return value is always the complete set of objects.
+// Collect lists all object names matching this iterator. For large sets of
+// objects that cannot be retrieved at once, Collect handles paging behind
+// the scenes. The return value is always the complete set of objects.
 func (i *ObjectIterator) Collect() ([]*Object, error) {
 	var result []*Object
 	for {
@@ -236,7 +236,7 @@ func (i *ObjectIterator) Collect() ([]*Object, error) {
 	}
 }
 
-//CollectDetailed is like Collect, but includes basic metadata.
+// CollectDetailed is like Collect, but includes basic metadata.
 func (i *ObjectIterator) CollectDetailed() ([]ObjectInfo, error) {
 	var result []ObjectInfo
 	for {

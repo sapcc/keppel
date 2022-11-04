@@ -59,25 +59,25 @@ package schwift
 
 {{- range $htype, $hmeta := . }}
 
-//{{$htype}}Headers contains the headers for a schwift.{{$htype}} instance.
+// {{$htype}}Headers contains the headers for a schwift.{{$htype}} instance.
 //
-//To read and write well-known headers, use the methods on this type.
-//To read and write arbitary headers, use the methods on the Headers supertype.
+// To read and write well-known headers, use the methods on this type.
+// To read and write arbitrary headers, use the methods on the Headers supertype.
 type {{$htype}}Headers struct {
 	Headers
 }
 
-//New{{$htype}}Headers creates a new {{$htype}}Headers instance. The return value
-//will have the Headers attribute initialized to a non-nil map.
+// New{{$htype}}Headers creates a new {{$htype}}Headers instance. The return value
+// will have the Headers attribute initialized to a non-nil map.
 func New{{$htype}}Headers() {{$htype}}Headers {
 	return {{$htype}}Headers{make(Headers)}
 }
 
-//Validate returns MalformedHeaderError if the value of any well-known header
-//does not conform to its data type. This is called automatically by Schwift
-//when preparing an {{$htype}}Headers instance from a GET/HEAD response, so you
-//usually do not need to do it yourself. You will get the validation error from
-//the {{$htype}} method doing the request, e.g. Headers().
+// Validate returns MalformedHeaderError if the value of any well-known header
+// does not conform to its data type. This is called automatically by Schwift
+// when preparing an {{$htype}}Headers instance from a GET/HEAD response, so you
+// usually do not need to do it yourself. You will get the validation error from
+// the {{$htype}} method doing the request, e.g. Headers().
 func (h {{$htype}}Headers) Validate() error {
 {{- range $field := $hmeta.Fields }}
 	if err := h.{{$field.Attribute}}().validate(); err != nil {
@@ -89,7 +89,7 @@ func (h {{$htype}}Headers) Validate() error {
 
 {{- range $field := $hmeta.Fields }}
 
-//{{$field.Attribute}} provides type-safe access to {{$field.Header}} headers.
+// {{$field.Attribute}} provides type-safe access to {{$field.Header}} headers.
 func (h {{$htype}}Headers) {{$field.Attribute}}() Field{{$field.Type}} {
 	return Field{{$field.Type}}{h.Headers, "{{$field.Header}}"}
 }

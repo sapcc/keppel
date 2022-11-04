@@ -25,8 +25,8 @@ import (
 	"strings"
 )
 
-//iteratorInterface allows iteratorBase to access public attributes of
-//ContainerIterator/ObjectIterator.
+// iteratorInterface allows iteratorBase to access public attributes of
+// ContainerIterator/ObjectIterator.
 type iteratorInterface interface {
 	getAccount() *Account
 	getContainerName() string
@@ -68,7 +68,7 @@ func (i ObjectIterator) putHeader(hdr http.Header) error {
 	return nil
 }
 
-//iteratorBase provides shared behavior for ContainerIterator and ObjectIterator.
+// iteratorBase provides shared behavior for ContainerIterator and ObjectIterator.
 type iteratorBase struct {
 	i      iteratorInterface
 	marker string

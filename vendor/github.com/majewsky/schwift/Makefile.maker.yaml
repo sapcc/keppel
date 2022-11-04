@@ -1,0 +1,17 @@
+# Configuration file for <https://github.com/sapcc/go-makefile-maker>
+
+metadata:
+  url: https://github.com/majewsky/schwift
+
+coverageTest:
+  except: '/util'
+
+golangciLint:
+  createConfig: true
+
+verbatim: |
+  generate: generated.go
+
+  %: %.in | util/render_template.go
+      @echo ./util/render_template.go < $< > $@
+      @./util/render_template.go < $< > $@.new && mv $@.new $@ || (rm $@.new; false)
