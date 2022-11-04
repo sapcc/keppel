@@ -17,7 +17,6 @@
 ******************************************************************************/
 
 /*
-
 Package gopherschwift contains a Gophercloud backend for Schwift.
 
 If your application uses Gophercloud (https://github.com/gophercloud/gophercloud),
@@ -37,29 +36,28 @@ so you only need to obtain a client token once using Gophercloud. For example:
 
 Using this schwift.Account instance, you have access to all of schwift's API.
 Refer to the documentation in the parent package for details.
-
 */
 package gopherschwift
 
 import (
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/gophercloud/gophercloud"
+
 	"github.com/majewsky/schwift"
 )
 
-//Options contains additional options that can be passed to Wrap().
+// Options contains additional options that can be passed to Wrap().
 type Options struct {
 	//If set, this User-Agent will be reported in HTTP requests instead of
 	//schwift.DefaultUserAgent.
 	UserAgent string
 }
 
-//Wrap creates a schwift.Account that uses the given service client as its
-//backend. The service client must refer to a Swift endpoint, i.e. it should
-//have been created by openstack.NewObjectStorageV1().
+// Wrap creates a schwift.Account that uses the given service client as its
+// backend. The service client must refer to a Swift endpoint, i.e. it should
+// have been created by openstack.NewObjectStorageV1().
 func Wrap(client *gophercloud.ServiceClient, opts *Options) (*schwift.Account, error) {
 	b := &backend{
 		c:         client,
@@ -108,7 +106,7 @@ func (g *backend) do(req *http.Request, afterReauth bool) (*http.Response, error
 
 	//detect expired token
 	if resp.StatusCode == http.StatusUnauthorized && !afterReauth {
-		_, err := io.Copy(ioutil.Discard, resp.Body)
+		_, err := io.Copy(io.Discard, resp.Body)
 		if err != nil {
 			return nil, err
 		}

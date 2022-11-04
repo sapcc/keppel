@@ -17,11 +17,10 @@
 ******************************************************************************/
 
 /*
-
 Package schwift is a client library for OpenStack Swift
 (https://github.com/openstack/swift, https://openstack.org).
 
-Authentication with Gophercloud
+# Authentication with Gophercloud
 
 Schwift does not implement authentication (neither Keystone nor Swift v1), but
 can be plugged into any library that does. The most common choice is
@@ -62,14 +61,14 @@ For example, to download an object's contents into a string:
 
 	text, err := account.Container("foo").Object("bar.txt").Download(nil).AsString()
 
-Authentication with a different OpenStack library
+# Authentication with a different OpenStack library
 
 If you use a different Go library to handle Keystone/Swift authentication, take
 the client object that it provides and wrap it into something that implements
 the schwift.Backend interface. Then use schwift.InitializeAccount() to obtain a
 schwift.Account.
 
-Caching
+# Caching
 
 When a GET or HEAD request is sent by an Account, Container or Object instance,
 the headers associated with that thing will be stored in that instance and not
@@ -86,7 +85,7 @@ caches on any Account, Container or Object instance. Some methods that modify
 the instance on the server call Invalidate() automatically, e.g. Object.Upload(),
 Update() or Delete(). This will be indicated in the method's documentation.
 
-Error handling
+# Error handling
 
 When a method on an Account, Container or Object instance makes a HTTP request
 to Swift and Swift returns an unexpected status code, a
@@ -107,6 +106,5 @@ The documentation for a method may indicate certain common error conditions
 that can be detected this way by stating that "This method fails with
 http.StatusXXX if ...". Because of the wide variety of failure modes in Swift,
 this information is not guaranteed to be exhaustive.
-
 */
 package schwift

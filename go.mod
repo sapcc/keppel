@@ -9,15 +9,15 @@ require (
 	github.com/docker/distribution v2.8.1+incompatible
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-redis/redis_rate/v9 v9.1.2
-	github.com/gofrs/uuid v4.3.0+incompatible
+	github.com/gofrs/uuid v4.3.1+incompatible
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/gophercloud/gophercloud v1.0.0
 	github.com/gophercloud/utils v0.0.0-20220927104426-4113af8d2663
 	github.com/gorilla/mux v1.8.0
-	github.com/majewsky/schwift v1.1.0
+	github.com/majewsky/schwift v1.2.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.0.2
-	github.com/prometheus/client_golang v1.13.0
+	github.com/prometheus/client_golang v1.13.1
 	github.com/rs/cors v1.8.2
 	github.com/sapcc/go-api-declarations v1.4.1
 	github.com/sapcc/go-bits v0.0.0-20221101210225-82a3f52a69ee

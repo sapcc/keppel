@@ -56,16 +56,16 @@ var (
 	ErrSegmentInvalid = errors.New("segment invalid or incompatible with large object strategy")
 )
 
-//UnexpectedStatusCodeError is generated when a request to Swift does not yield
-//a response with the expected successful status code. The actual status code
-//can be checked with the Is() function; see documentation over there.
+// UnexpectedStatusCodeError is generated when a request to Swift does not yield
+// a response with the expected successful status code. The actual status code
+// can be checked with the Is() function; see documentation over there.
 type UnexpectedStatusCodeError struct {
 	ExpectedStatusCodes []int
 	ActualResponse      *http.Response
 	ResponseBody        []byte
 }
 
-//Error implements the builtin/error interface.
+// Error implements the builtin/error interface.
 func (e UnexpectedStatusCodeError) Error() string {
 	codeStrs := make([]string, len(e.ExpectedStatusCodes))
 	for idx, code := range e.ExpectedStatusCodes {
@@ -81,15 +81,15 @@ func (e UnexpectedStatusCodeError) Error() string {
 	return msg
 }
 
-//BulkObjectError is the error message for a single object in a bulk operation.
-//It is not generated individually, only as part of BulkError.
+// BulkObjectError is the error message for a single object in a bulk operation.
+// It is not generated individually, only as part of BulkError.
 type BulkObjectError struct {
 	ContainerName string
 	ObjectName    string
 	StatusCode    int
 }
 
-//Error implements the builtin/error interface.
+// Error implements the builtin/error interface.
 func (e BulkObjectError) Error() string {
 	return fmt.Sprintf("%s/%s: %d %s",
 		e.ContainerName, e.ObjectName,
@@ -97,10 +97,10 @@ func (e BulkObjectError) Error() string {
 	)
 }
 
-//BulkError is returned by Account.BulkUpload() when the archive was
-//uploaded and unpacked successfully, but some (or all) objects could not be
-//saved in Swift; and by Account.BulkDelete() when not all requested objects
-//could be deleted.
+// BulkError is returned by Account.BulkUpload() when the archive was
+// uploaded and unpacked successfully, but some (or all) objects could not be
+// saved in Swift; and by Account.BulkDelete() when not all requested objects
+// could be deleted.
 type BulkError struct {
 	//StatusCode contains the overall HTTP status code of the operation.
 	StatusCode int
@@ -112,8 +112,8 @@ type BulkError struct {
 	ObjectErrors []BulkObjectError
 }
 
-//Error implements the builtin/error interface. To fit into one line, it
-//condenses the ObjectErrors into a count.
+// Error implements the builtin/error interface. To fit into one line, it
+// condenses the ObjectErrors into a count.
 func (e BulkError) Error() string {
 	result := fmt.Sprintf("%d %s", e.StatusCode, http.StatusText(e.StatusCode))
 	if e.OverallError != "" {
@@ -125,8 +125,8 @@ func (e BulkError) Error() string {
 	return result
 }
 
-//Is checks if the given error is an UnexpectedStatusCodeError for that status
-//code. For example:
+// Is checks if the given error is an UnexpectedStatusCodeError for that status
+// code. For example:
 //
 //	err := container.Delete(nil)
 //	if err != nil {
@@ -139,7 +139,7 @@ func (e BulkError) Error() string {
 //	    }
 //	}
 //
-//It is safe to pass a nil error, in which case Is() always returns false.
+// It is safe to pass a nil error, in which case Is() always returns false.
 func Is(err error, code int) bool {
 	if e, ok := err.(UnexpectedStatusCodeError); ok {
 		return e.ActualResponse.StatusCode == code
@@ -147,14 +147,14 @@ func Is(err error, code int) bool {
 	return false
 }
 
-//MalformedHeaderError is generated when a response from Swift contains a
-//malformed header.
+// MalformedHeaderError is generated when a response from Swift contains a
+// malformed header.
 type MalformedHeaderError struct {
 	Key        string
 	ParseError error
 }
 
-//Error implements the builtin/error interface.
+// Error implements the builtin/error interface.
 func (e MalformedHeaderError) Error() string {
 	return "Bad header " + e.Key + ": " + e.ParseError.Error()
 }

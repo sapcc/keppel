@@ -22,9 +22,9 @@ import (
 	"net/http"
 )
 
-//Backend is the interface between Schwift and the libraries providing
-//authentication for it. Each instance of Backend represents a particular Swift
-//account.
+// Backend is the interface between Schwift and the libraries providing
+// authentication for it. Each instance of Backend represents a particular Swift
+// account.
 type Backend interface {
 	//EndpointURL returns the endpoint URL from the Keystone catalog for the
 	//Swift account that this backend operates on. It should look like
@@ -43,6 +43,6 @@ type Backend interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-//DefaultUserAgent is the User-Agent string that Backend implementations should
-//use if the user does not provide their own User-Agent string.
+// DefaultUserAgent is the User-Agent string that Backend implementations should
+// use if the user does not provide their own User-Agent string.
 const DefaultUserAgent = "schwift/" + Version

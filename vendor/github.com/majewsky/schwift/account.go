@@ -23,31 +23,33 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"sync"
 )
 
-//Account represents a Swift account. Instances are usually obtained by
-//connecting to a backend (see package-level documentation), or by traversing
-//upwards from a container with Container.Account().
+// Account represents a Swift account. Instances are usually obtained by
+// connecting to a backend (see package-level documentation), or by traversing
+// upwards from a container with Container.Account().
 type Account struct {
 	backend Backend
 	//URL parts
 	baseURL string
 	name    string
 	//cache
-	headers *AccountHeaders
-	caps    *Capabilities
+	headers   *AccountHeaders
+	caps      *Capabilities
+	capsMutex sync.Mutex
 }
 
-//IsEqualTo returns true if both Account instances refer to the same account.
+// IsEqualTo returns true if both Account instances refer to the same account.
 func (a *Account) IsEqualTo(other *Account) bool {
 	return other.baseURL == a.baseURL && other.name == a.name
 }
 
 var endpointURLRegexp = regexp.MustCompile(`^(.*/)v1/(.*)/$`)
 
-//InitializeAccount takes something that implements the Backend interface, and
-//returns the Account instance corresponding to the account/project that this
-//backend is connected to.
+// InitializeAccount takes something that implements the Backend interface, and
+// returns the Account instance corresponding to the account/project that this
+// backend is connected to.
 func InitializeAccount(backend Backend) (*Account, error) {
 	match := endpointURLRegexp.FindStringSubmatch(backend.EndpointURL())
 	if match == nil {
@@ -60,13 +62,13 @@ func InitializeAccount(backend Backend) (*Account, error) {
 	}, nil
 }
 
-//SwitchAccount returns a handle to a different account on the same server. Note
-//that you need reseller permissions to access accounts other than that where
-//you originally authenticated. This method does not check whether the account
-//actually exists.
+// SwitchAccount returns a handle to a different account on the same server. Note
+// that you need reseller permissions to access accounts other than that where
+// you originally authenticated. This method does not check whether the account
+// actually exists.
 //
-//The account name is usually the Keystone project ID with an additional "AUTH_"
-//prefix.
+// The account name is usually the Keystone project ID with an additional "AUTH_"
+// prefix.
 func (a *Account) SwitchAccount(accountName string) *Account {
 	newEndpointURL := a.baseURL + "v1/" + accountName + "/"
 	return &Account{
@@ -76,25 +78,25 @@ func (a *Account) SwitchAccount(accountName string) *Account {
 	}
 }
 
-//Name returns the name of the account (usually the prefix "AUTH_" followed by
-//the Keystone project ID).
+// Name returns the name of the account (usually the prefix "AUTH_" followed by
+// the Keystone project ID).
 func (a *Account) Name() string {
 	return a.name
 }
 
-//Backend returns the backend which is used to make requests against this
-//account.
+// Backend returns the backend which is used to make requests against this
+// account.
 func (a *Account) Backend() Backend {
 	return a.backend
 }
 
-//Headers returns the AccountHeaders for this account. If the AccountHeaders
-//has not been cached yet, a HEAD request is issued on the account.
+// Headers returns the AccountHeaders for this account. If the AccountHeaders
+// has not been cached yet, a HEAD request is issued on the account.
 //
-//This operation fails with http.StatusNotFound if the account does not exist.
+// This operation fails with http.StatusNotFound if the account does not exist.
 //
-//WARNING: This method is not thread-safe. Calling it concurrently on the same
-//object results in undefined behavior.
+// WARNING: This method is not thread-safe. Calling it concurrently on the same
+// object results in undefined behavior.
 func (a *Account) Headers() (AccountHeaders, error) {
 	if a.headers != nil {
 		return *a.headers, nil
@@ -117,19 +119,19 @@ func (a *Account) Headers() (AccountHeaders, error) {
 	return *a.headers, nil
 }
 
-//Invalidate clears the internal cache of this Account instance. The next call
-//to Headers() on this instance will issue a HEAD request on the account.
+// Invalidate clears the internal cache of this Account instance. The next call
+// to Headers() on this instance will issue a HEAD request on the account.
 //
-//WARNING: This method is not thread-safe. Calling it concurrently on the same
-//object results in undefined behavior.
+// WARNING: This method is not thread-safe. Calling it concurrently on the same
+// object results in undefined behavior.
 func (a *Account) Invalidate() {
 	a.headers = nil
 }
 
-//Update updates the account using a POST request. The headers in the headers
-//attribute take precedence over those in opts.Headers.
+// Update updates the account using a POST request. The headers in the headers
+// attribute take precedence over those in opts.Headers.
 //
-//A successful POST request implies Invalidate() since it may change metadata.
+// A successful POST request implies Invalidate() since it may change metadata.
 func (a *Account) Update(headers AccountHeaders, opts *RequestOptions) error {
 	_, err := Request{
 		Method:            "POST",
@@ -142,10 +144,10 @@ func (a *Account) Update(headers AccountHeaders, opts *RequestOptions) error {
 	return err
 }
 
-//Create creates the account using a PUT request. This operation is only
-//available to reseller admins, not to regular users.
+// Create creates the account using a PUT request. This operation is only
+// available to reseller admins, not to regular users.
 //
-//A successful PUT request implies Invalidate() since it may change metadata.
+// A successful PUT request implies Invalidate() since it may change metadata.
 func (a *Account) Create(opts *RequestOptions) error {
 	_, err := Request{
 		Method:            "PUT",
@@ -159,35 +161,34 @@ func (a *Account) Create(opts *RequestOptions) error {
 	return err
 }
 
-//Containers returns a ContainerIterator that lists the containers in this
-//account. The most common use case is:
+// Containers returns a ContainerIterator that lists the containers in this
+// account. The most common use case is:
 //
 //	containers, err := account.Containers().Collect()
 //
-//You can extend this by configuring the iterator before collecting the results:
+// You can extend this by configuring the iterator before collecting the results:
 //
 //	iter := account.Containers()
 //	iter.Prefix = "test-"
 //	containers, err := iter.Collect()
 //
-//Or you can use a different iteration method:
+// Or you can use a different iteration method:
 //
 //	err := account.Containers().ForeachDetailed(func (ci ContainerInfo) error {
 //		log.Printf("container %s contains %d objects!\n",
 //			ci.Container.Name(), ci.ObjectCount)
 //	})
-//
 func (a *Account) Containers() *ContainerIterator {
 	return &ContainerIterator{Account: a}
 }
 
-//Capabilities queries the GET /info endpoint of the Swift server providing
-//this account. Capabilities are cached, so the GET request will only be sent
-//once during the first call to this method.
-//
-//WARNING: This method is not thread-safe. Calling it concurrently on the same
-//object results in undefined behavior.
+// Capabilities queries the GET /info endpoint of the Swift server providing
+// this account. Capabilities are cached, so the GET request will only be sent
+// once during the first call to this method.
 func (a *Account) Capabilities() (Capabilities, error) {
+	a.capsMutex.Lock()
+	defer a.capsMutex.Unlock()
+
 	if a.caps != nil {
 		return *a.caps, nil
 	}
@@ -207,13 +208,13 @@ func (a *Account) Capabilities() (Capabilities, error) {
 	return caps, nil
 }
 
-//RawCapabilities queries the GET /info endpoint of the Swift server providing
-//this account, and returns the response body. Unlike Account.Capabilities,
-//this method does not employ any caching.
+// RawCapabilities queries the GET /info endpoint of the Swift server providing
+// this account, and returns the response body. Unlike Account.Capabilities,
+// this method does not employ any caching.
 func (a *Account) RawCapabilities() ([]byte, error) {
 	//This method is the only one in Schwift that bypasses struct Request since
 	//the request URL is not below the endpoint URL.
-	req, err := http.NewRequest("GET", a.baseURL+"info", nil)
+	req, err := http.NewRequest(http.MethodGet, a.baseURL+"info", http.NoBody)
 	if err != nil {
 		return nil, err
 	}

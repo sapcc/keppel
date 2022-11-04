@@ -18,14 +18,14 @@
 
 package schwift
 
-//Capabilities describes a subset of the capabilities that Swift can report
-//under its /info endpoint. This struct is obtained through the
-//Account.Capabilities() method. To query capabilities not represented in this
-//struct, see Account.QueryCapabilities().
+// Capabilities describes a subset of the capabilities that Swift can report
+// under its /info endpoint. This struct is obtained through the
+// Account.Capabilities() method. To query capabilities not represented in this
+// struct, see Account.QueryCapabilities().
 //
-//All direct members of struct Capabilities, except for "Swift", are pointers.
-//If any of these is nil, it indicates that the middleware corresponding to
-//that field is not available on this server.
+// All direct members of struct Capabilities, except for "Swift", are pointers.
+// If any of these is nil, it indicates that the middleware corresponding to
+// that field is not available on this server.
 type Capabilities struct {
 	BulkDelete *struct {
 		MaximumDeletesPerRequest uint `json:"max_deletes_per_request"`
@@ -74,6 +74,7 @@ type Capabilities struct {
 		AccountACLs bool `json:"account_acls"`
 	} `json:"tempauth"`
 	TempURL *struct {
+		AllowedDigests        []string `json:"allowed_digests"`
 		IncomingAllowHeaders  []string `json:"incoming_allow_headers"`
 		IncomingRemoveHeaders []string `json:"incoming_remove_headers"`
 		Methods               []string `json:"methods"`
@@ -82,7 +83,7 @@ type Capabilities struct {
 	} `json:"tempurl"`
 }
 
-//StoragePolicySpec is a subtype that appears in struct Capabilities.
+// StoragePolicySpec is a subtype that appears in struct Capabilities.
 type StoragePolicySpec struct {
 	Name    string `json:"name"`
 	Aliases string `json:"aliases"`

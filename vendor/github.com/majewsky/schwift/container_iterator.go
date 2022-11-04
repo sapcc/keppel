@@ -23,10 +23,10 @@ import (
 	"time"
 )
 
-//ContainerInfo is a result type returned by ContainerIterator for detailed
-//container listings. The metadata in this type is a subset of Container.Headers(),
-//but since it is returned as part of the detailed container listing, it can be
-//obtained without making additional HEAD requests on the container(s).
+// ContainerInfo is a result type returned by ContainerIterator for detailed
+// container listings. The metadata in this type is a subset of Container.Headers(),
+// but since it is returned as part of the detailed container listing, it can be
+// obtained without making additional HEAD requests on the container(s).
 type ContainerInfo struct {
 	Container    *Container
 	ObjectCount  uint64
@@ -34,8 +34,8 @@ type ContainerInfo struct {
 	LastModified time.Time
 }
 
-//ContainerIterator iterates over the accounts in a container. It is typically
-//constructed with the Account.Containers() method. For example:
+// ContainerIterator iterates over the accounts in a container. It is typically
+// constructed with the Account.Containers() method. For example:
 //
 //	//either this...
 //	iter := account.Containers()
@@ -48,17 +48,17 @@ type ContainerInfo struct {
 //		Prefix: "test-",
 //	}.Collect()
 //
-//When listing containers via a GET request on the account, you can choose to
-//receive container names only (via the methods without the "Detailed" suffix),
-//or container names plus some basic metadata fields (via the methods with the
-//"Detailed" suffix). See struct ContainerInfo for which metadata is returned.
+// When listing containers via a GET request on the account, you can choose to
+// receive container names only (via the methods without the "Detailed" suffix),
+// or container names plus some basic metadata fields (via the methods with the
+// "Detailed" suffix). See struct ContainerInfo for which metadata is returned.
 //
-//To obtain any other metadata, you can call Container.Headers() on the result
-//container, but this will issue a separate HEAD request for each container.
+// To obtain any other metadata, you can call Container.Headers() on the result
+// container, but this will issue a separate HEAD request for each container.
 //
-//Use the "Detailed" methods only when you use the extra metadata in struct
-//ContainerInfo; detailed GET requests are more expensive than simple ones that
-//return only container names.
+// Use the "Detailed" methods only when you use the extra metadata in struct
+// ContainerInfo; detailed GET requests are more expensive than simple ones that
+// return only container names.
 type ContainerIterator struct {
 	Account *Account
 	//When Prefix is set, only containers whose name starts with this string are
@@ -77,15 +77,15 @@ func (i *ContainerIterator) getBase() *iteratorBase {
 	return i.base
 }
 
-//NextPage queries Swift for the next page of container names. If limit is
-//>= 0, not more than that many container names will be returned at once. Note
-//that the server also has a limit for how many containers to list in one
-//request; the lower limit wins.
+// NextPage queries Swift for the next page of container names. If limit is
+// >= 0, not more than that many container names will be returned at once. Note
+// that the server also has a limit for how many containers to list in one
+// request; the lower limit wins.
 //
-//The end of the container listing is reached when an empty list is returned.
+// The end of the container listing is reached when an empty list is returned.
 //
-//This method offers maximal flexibility, but most users will prefer the
-//simpler interfaces offered by Collect() and Foreach().
+// This method offers maximal flexibility, but most users will prefer the
+// simpler interfaces offered by Collect() and Foreach().
 func (i *ContainerIterator) NextPage(limit int) ([]*Container, error) {
 	names, err := i.getBase().nextPage(limit)
 	if err != nil {
@@ -99,7 +99,7 @@ func (i *ContainerIterator) NextPage(limit int) ([]*Container, error) {
 	return result, nil
 }
 
-//NextPageDetailed is like NextPage, but includes basic metadata.
+// NextPageDetailed is like NextPage, but includes basic metadata.
 func (i *ContainerIterator) NextPageDetailed(limit int) ([]ContainerInfo, error) {
 	b := i.getBase()
 
@@ -126,7 +126,7 @@ func (i *ContainerIterator) NextPageDetailed(limit int) ([]ContainerInfo, error)
 		result[idx].LastModified, err = time.Parse(time.RFC3339Nano, data.LastModifiedStr+"Z")
 		if err != nil {
 			//this error is sufficiently obscure that we don't need to expose a type for it
-			return nil, fmt.Errorf("Bad field containers[%d].last_modified: %s", idx, err.Error())
+			return nil, fmt.Errorf("bad field containers[%d].last_modified: %s", idx, err.Error())
 		}
 	}
 
@@ -134,9 +134,9 @@ func (i *ContainerIterator) NextPageDetailed(limit int) ([]ContainerInfo, error)
 	return result, nil
 }
 
-//Foreach lists the container names matching this iterator and calls the
-//callback once for every container. Iteration is aborted when a GET request fails,
-//or when the callback returns a non-nil error.
+// Foreach lists the container names matching this iterator and calls the
+// callback once for every container. Iteration is aborted when a GET request fails,
+// or when the callback returns a non-nil error.
 func (i *ContainerIterator) Foreach(callback func(*Container) error) error {
 	for {
 		containers, err := i.NextPage(-1)
@@ -155,7 +155,7 @@ func (i *ContainerIterator) Foreach(callback func(*Container) error) error {
 	}
 }
 
-//ForeachDetailed is like Foreach, but includes basic metadata.
+// ForeachDetailed is like Foreach, but includes basic metadata.
 func (i *ContainerIterator) ForeachDetailed(callback func(ContainerInfo) error) error {
 	for {
 		infos, err := i.NextPageDetailed(-1)
@@ -174,9 +174,9 @@ func (i *ContainerIterator) ForeachDetailed(callback func(ContainerInfo) error) 
 	}
 }
 
-//Collect lists all container names matching this iterator. For large sets of
-//containers that cannot be retrieved at once, Collect handles paging behind
-//the scenes. The return value is always the complete set of containers.
+// Collect lists all container names matching this iterator. For large sets of
+// containers that cannot be retrieved at once, Collect handles paging behind
+// the scenes. The return value is always the complete set of containers.
 func (i *ContainerIterator) Collect() ([]*Container, error) {
 	var result []*Container
 	for {
@@ -191,7 +191,7 @@ func (i *ContainerIterator) Collect() ([]*Container, error) {
 	}
 }
 
-//CollectDetailed is like Collect, but includes basic metadata.
+// CollectDetailed is like Collect, but includes basic metadata.
 func (i *ContainerIterator) CollectDetailed() ([]ContainerInfo, error) {
 	var result []ContainerInfo
 	for {

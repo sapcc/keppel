@@ -24,13 +24,13 @@ import (
 	"time"
 )
 
-//FieldHTTPTimeReadonly is a helper type that provides type-safe access to a
-//readonly Swift header whose value is a HTTP timestamp like this:
+// FieldHTTPTimeReadonly is a helper type that provides type-safe access to a
+// readonly Swift header whose value is a HTTP timestamp like this:
 //
 //	Mon, 02 Jan 2006 15:04:05 GMT
 //
-//It cannot be directly constructed, but methods on the Headers types return
-//this type. For example:
+// It cannot be directly constructed, but methods on the Headers types return
+// this type. For example:
 //
 //	//suppose you have:
 //	hdr, err := obj.Headers()
@@ -41,21 +41,21 @@ import (
 //	//or you can just:
 //	time := hdr.UpdatedAt().Get()
 //
-//Don't worry about the missing `err` in the last line. When the header fails
-//to parse, Object.Headers() already returns the corresponding
-//MalformedHeaderError.
+// Don't worry about the missing `err` in the last line. When the header fails
+// to parse, Object.Headers() already returns the corresponding
+// MalformedHeaderError.
 type FieldHTTPTimeReadonly struct {
 	h Headers
 	k string
 }
 
-//Exists checks whether there is a value for this header.
+// Exists checks whether there is a value for this header.
 func (f FieldHTTPTimeReadonly) Exists() bool {
 	return f.h.Get(f.k) != ""
 }
 
-//Get returns the value for this header, or the zero value if there is no value
-//(or if it is not a valid timestamp).
+// Get returns the value for this header, or the zero value if there is no value
+// (or if it is not a valid timestamp).
 func (f FieldHTTPTimeReadonly) Get() time.Time {
 	t, err := http.ParseTime(f.h.Get(f.k))
 	if err != nil {
@@ -78,9 +78,9 @@ func (f FieldHTTPTimeReadonly) validate() error {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-//FieldUnixTime is a helper type that provides type-safe access to a Swift
-//header whose value is a UNIX timestamp. It cannot be directly constructed,
-//but methods on the Headers types return this type. For example:
+// FieldUnixTime is a helper type that provides type-safe access to a Swift
+// header whose value is a UNIX timestamp. It cannot be directly constructed,
+// but methods on the Headers types return this type. For example:
 //
 //	//suppose you have:
 //	hdr, err := obj.Headers()
@@ -92,21 +92,21 @@ func (f FieldHTTPTimeReadonly) validate() error {
 //	//or you can just:
 //	time := hdr.ExpiresAt().Get()
 //
-//Don't worry about the missing `err` in the last line. When the header fails
-//to parse, Object.Headers() already returns the corresponding
-//MalformedHeaderError.
+// Don't worry about the missing `err` in the last line. When the header fails
+// to parse, Object.Headers() already returns the corresponding
+// MalformedHeaderError.
 type FieldUnixTime struct {
 	h Headers
 	k string
 }
 
-//Exists checks whether there is a value for this header.
+// Exists checks whether there is a value for this header.
 func (f FieldUnixTime) Exists() bool {
 	return f.h.Get(f.k) != ""
 }
 
-//Get returns the value for this header, or the zero value if there is no value
-//(or if it is not a valid timestamp).
+// Get returns the value for this header, or the zero value if there is no value
+// (or if it is not a valid timestamp).
 func (f FieldUnixTime) Get() time.Time {
 	v, err := strconv.ParseFloat(f.h.Get(f.k), 64)
 	if err != nil {
@@ -115,20 +115,20 @@ func (f FieldUnixTime) Get() time.Time {
 	return time.Unix(0, int64(1e9*v))
 }
 
-//Set writes a new value for this header into the corresponding headers
-//instance.
+// Set writes a new value for this header into the corresponding headers
+// instance.
 func (f FieldUnixTime) Set(value time.Time) {
 	f.h.Set(f.k, strconv.FormatUint(uint64(value.UnixNano())/1e9, 10))
 }
 
-//Del removes this key from the original headers instance, so that the key will
-//remain unchanged on the server during Update().
+// Del removes this key from the original headers instance, so that the key will
+// remain unchanged on the server during Update().
 func (f FieldUnixTime) Del() {
 	f.h.Del(f.k)
 }
 
-//Clear sets this key to an empty string in the original headers instance, so
-//that the key will be removed on the server during Update().
+// Clear sets this key to an empty string in the original headers instance, so
+// that the key will be removed on the server during Update().
 func (f FieldUnixTime) Clear() {
 	f.h.Clear(f.k)
 }
@@ -147,24 +147,24 @@ func (f FieldUnixTime) validate() error {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-//FieldUnixTimeReadonly is a readonly variant of FieldUnixTime. It is used for
-//fields that cannot be set by the client.
+// FieldUnixTimeReadonly is a readonly variant of FieldUnixTime. It is used for
+// fields that cannot be set by the client.
 type FieldUnixTimeReadonly struct {
 	h Headers
 	k string
 }
 
-//Exists checks whether there is a value for this header.
+// Exists checks whether there is a value for this header.
 func (f FieldUnixTimeReadonly) Exists() bool {
 	return f.h.Get(f.k) != ""
 }
 
-//Get returns the value for this header, or the zero value if there is no value
-//(or if it is not a valid timestamp).
+// Get returns the value for this header, or the zero value if there is no value
+// (or if it is not a valid timestamp).
 func (f FieldUnixTimeReadonly) Get() time.Time {
-	return FieldUnixTime{f.h, f.k}.Get()
+	return FieldUnixTime(f).Get()
 }
 
 func (f FieldUnixTimeReadonly) validate() error {
-	return FieldUnixTime{f.h, f.k}.validate()
+	return FieldUnixTime(f).validate()
 }

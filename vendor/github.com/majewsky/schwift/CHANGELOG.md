@@ -1,3 +1,14 @@
+# v1.2.0 (2022-10-28)
+
+New features:
+
+- Digest signing now uses sha256 and sha512 (preference in that order) if
+  enabled by Swift.
+
+Changes:
+
+- Added golangci-lint to `make test`. All new errors and lints were addressed.
+
 # v1.1.0 (2022-02-07)
 
 Bugfixes:
