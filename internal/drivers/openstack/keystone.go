@@ -59,52 +59,51 @@ type keystoneDriver struct {
 
 func init() {
 	keppel.RegisterUserIdentity("keystone", deserializeKeystoneUserIdentity)
-	keppel.RegisterAuthDriver("keystone", func(rc *redis.Client) (keppel.AuthDriver, error) {
-		//authenticate service user
-		ao, err := clientconfig.AuthOptions(nil)
-		if err != nil {
-			return nil, errors.New("cannot find OpenStack credentials: " + err.Error())
-		}
-		ao.AllowReauth = true
-		provider, err := openstack.AuthenticatedClient(*ao)
-		if err != nil {
-			return nil, errors.New("cannot connect to OpenStack: " + err.Error())
-		}
-
-		//find Identity V3 endpoint
-		eo := gophercloud.EndpointOpts{
-			//note that empty values are acceptable in both fields
-			Region:       os.Getenv("OS_REGION_NAME"),
-			Availability: gophercloud.Availability(os.Getenv("OS_INTERFACE")),
-		}
-		identityV3, err := openstack.NewIdentityV3(provider, eo)
-		if err != nil {
-			return nil, errors.New("cannot find Keystone V3 API: " + err.Error())
-		}
-
-		//load oslo.policy
-		tv := &gopherpolicy.TokenValidator{IdentityV3: identityV3}
-		err = tv.LoadPolicyFile(osext.MustGetenv("KEPPEL_OSLO_POLICY_PATH"))
-		if err != nil {
-			return nil, err
-		}
-		if rc == nil {
-			tv.Cacher = gopherpolicy.InMemoryCacher()
-		} else {
-			tv.Cacher = redisCacher{rc}
-		}
-
-		return &keystoneDriver{
-			Provider:       provider,
-			IdentityV3:     identityV3,
-			TokenValidator: tv,
-		}, nil
-	})
+	keppel.AuthDriverRegistry.Add(func() keppel.AuthDriver { return &keystoneDriver{} })
 }
 
-// DriverName implements the keppel.AuthDriver interface.
-func (d *keystoneDriver) DriverName() string {
+// PluginTypeID implements the keppel.AuthDriver interface.
+func (d *keystoneDriver) PluginTypeID() string {
 	return "keystone"
+}
+
+// Init implements the keppel.AuthDriver interface.
+func (d *keystoneDriver) Init(rc *redis.Client) error {
+	//authenticate service user
+	ao, err := clientconfig.AuthOptions(nil)
+	if err != nil {
+		return errors.New("cannot find OpenStack credentials: " + err.Error())
+	}
+	ao.AllowReauth = true
+	d.Provider, err = openstack.AuthenticatedClient(*ao)
+	if err != nil {
+		return errors.New("cannot connect to OpenStack: " + err.Error())
+	}
+
+	//find Identity V3 endpoint
+	eo := gophercloud.EndpointOpts{
+		//note that empty values are acceptable in both fields
+		Region:       os.Getenv("OS_REGION_NAME"),
+		Availability: gophercloud.Availability(os.Getenv("OS_INTERFACE")),
+	}
+	d.IdentityV3, err = openstack.NewIdentityV3(d.Provider, eo)
+	if err != nil {
+		return errors.New("cannot find Keystone V3 API: " + err.Error())
+	}
+
+	//load oslo.policy
+	d.TokenValidator = &gopherpolicy.TokenValidator{IdentityV3: d.IdentityV3}
+	err = d.TokenValidator.LoadPolicyFile(osext.MustGetenv("KEPPEL_OSLO_POLICY_PATH"))
+	if err != nil {
+		return err
+	}
+	if rc == nil {
+		d.TokenValidator.Cacher = gopherpolicy.InMemoryCacher()
+	} else {
+		d.TokenValidator.Cacher = redisCacher{rc}
+	}
+
+	return nil
 }
 
 // ValidateTenantID implements the keppel.AuthDriver interface.

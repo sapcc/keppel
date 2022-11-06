@@ -36,12 +36,7 @@ type AuthDriver struct {
 
 func init() {
 	keppel.RegisterUserIdentity("trivial", deserializeTrivialUserIdentity)
-	keppel.RegisterAuthDriver("trivial", func(rc *redis.Client) (keppel.AuthDriver, error) {
-		return &AuthDriver{
-			userName: osext.MustGetenv("KEPPEL_USERNAME"),
-			password: osext.MustGetenv("KEPPEL_PASSWORD"),
-		}, nil
-	})
+	keppel.AuthDriverRegistry.Add(func() keppel.AuthDriver { return &AuthDriver{} })
 }
 
 func deserializeTrivialUserIdentity(in []byte, _ keppel.AuthDriver) (keppel.UserIdentity, error) {
@@ -75,6 +70,16 @@ func (uid userIdentity) SerializeToJSON() (typeName string, payload []byte, err 
 	return "trivial", payload, err
 }
 
+func (d *AuthDriver) PluginTypeID() string {
+	return "trivial"
+}
+
+func (d *AuthDriver) Init(rc *redis.Client) error {
+	d.userName = osext.MustGetenv("KEPPEL_USERNAME")
+	d.password = osext.MustGetenv("KEPPEL_PASSWORD")
+	return nil
+}
+
 func (d *AuthDriver) AuthenticateUser(userName, password string) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	if d.userName == userName && d.password == password {
 		return userIdentity{Username: userName}, nil
@@ -85,10 +90,6 @@ func (d *AuthDriver) AuthenticateUser(userName, password string) (keppel.UserIde
 
 func (d *AuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	return userIdentity{Username: d.userName}, nil
-}
-
-func (d *AuthDriver) DriverName() string {
-	return "trivial"
 }
 
 func (d *AuthDriver) ValidateTenantID(tenantID string) error {

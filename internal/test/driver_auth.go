@@ -41,12 +41,17 @@ type AuthDriver struct {
 
 func init() {
 	keppel.RegisterUserIdentity("unittest", deserializeUnittestUserIdentity)
-	keppel.RegisterAuthDriver("unittest", func(*redis.Client) (keppel.AuthDriver, error) { return &AuthDriver{}, nil })
+	keppel.AuthDriverRegistry.Add(func() keppel.AuthDriver { return &AuthDriver{} })
 }
 
-// DriverName implements the keppel.AuthDriver interface.
-func (d *AuthDriver) DriverName() string {
+// PluginTypeID implements the keppel.AuthDriver interface.
+func (d *AuthDriver) PluginTypeID() string {
 	return "unittest"
+}
+
+// Init implements the keppel.AuthDriver interface.
+func (d *AuthDriver) Init(rc *redis.Client) error {
+	return nil
 }
 
 // ValidateTenantID implements the keppel.AuthDriver interface.
