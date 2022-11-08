@@ -27,6 +27,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/go-redis/redis_rate/v9"
+	"github.com/sapcc/go-bits/pluggable"
 )
 
 // RateLimitedAction is an enum of all actions that can be rate-limited.
@@ -50,33 +51,30 @@ const (
 // RateLimitDriver is a pluggable strategy that determines the rate limits of
 // each account.
 type RateLimitDriver interface {
+	pluggable.Plugin
+	//Init is called before any other interface methods, and allows the plugin to
+	//perform first-time initialization.
+	//
+	//Implementations should inspect the auth driver to ensure that the
+	//federation driver can work with this authentication method, or return
+	//ErrAuthDriverMismatch otherwise.
+	Init(AuthDriver, Configuration) error
+
 	//GetRateLimit shall return nil if the given action has no rate limit.
 	GetRateLimit(account Account, action RateLimitedAction) *redis_rate.Limit
 }
 
-var rateLimitDriverFactories = make(map[string]func(AuthDriver, Configuration) (RateLimitDriver, error))
+// RateLimitDriverRegistry is a pluggable.Registry for RateLimitDriver implementations.
+var RateLimitDriverRegistry pluggable.Registry[RateLimitDriver]
 
-// NewRateLimitDriver creates a new RateLimitDriver using one of the factory functions
-// registered with RegisterRateLimitDriver().
-func NewRateLimitDriver(name string, authDriver AuthDriver, cfg Configuration) (RateLimitDriver, error) {
-	factory := rateLimitDriverFactories[name]
-	if factory != nil {
-		return factory(authDriver, cfg)
+// NewRateLimitDriver creates a new RateLimitDriver using one of the plugins
+// registered with RateLimitDriverRegistry.
+func NewRateLimitDriver(pluginTypeID string, ad AuthDriver, cfg Configuration) (RateLimitDriver, error) {
+	rld := RateLimitDriverRegistry.Instantiate(pluginTypeID)
+	if rld == nil {
+		return nil, errors.New("no such rate-limit driver: " + pluginTypeID)
 	}
-	return nil, errors.New("no such rate-limit driver: " + name)
-}
-
-// RegisterRateLimitDriver registers an RateLimitDriver. Call this from func init() of the
-// package defining the RateLimitDriver.
-//
-// Factory implementations should inspect the auth driver to ensure that the
-// rate-limit driver can work with this authentication method, returning
-// ErrAuthDriverMismatch otherwise.
-func RegisterRateLimitDriver(name string, factory func(AuthDriver, Configuration) (RateLimitDriver, error)) {
-	if _, exists := rateLimitDriverFactories[name]; exists {
-		panic("attempted to register multiple rate-limit drivers with name = " + name)
-	}
-	rateLimitDriverFactories[name] = factory
+	return rld, rld.Init(ad, cfg)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

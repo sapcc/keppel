@@ -59,24 +59,31 @@ var (
 )
 
 func init() {
-	keppel.RegisterRateLimitDriver("basic", func(keppel.AuthDriver, keppel.Configuration) (keppel.RateLimitDriver, error) {
-		limits := make(map[keppel.RateLimitedAction]redis_rate.Limit)
-		for action, envVars := range envVars {
-			rate, err := parseRateLimit(envVars.RateLimit)
-			if err != nil {
-				return nil, err
-			}
-			if rate != nil {
-				burst, err := parseBurst(envVars.Burst)
-				if err != nil {
-					return nil, err
-				}
-				limits[action] = redis_rate.Limit{Rate: rate.Rate, Burst: burst}
-				logg.Debug("parsed rate quota for %s is %#v", action, limits[action])
-			}
-		}
-		return RateLimitDriver{limits}, nil
+	keppel.RateLimitDriverRegistry.Add(func() keppel.RateLimitDriver {
+		return RateLimitDriver{make(map[keppel.RateLimitedAction]redis_rate.Limit)}
 	})
+}
+
+// PluginTypeID implements the keppel.FederationDriver interface.
+func (d RateLimitDriver) PluginTypeID() string { return "basic" }
+
+// Init implements the keppel.FederationDriver interface.
+func (d RateLimitDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
+	for action, envVars := range envVars {
+		rate, err := parseRateLimit(envVars.RateLimit)
+		if err != nil {
+			return err
+		}
+		if rate != nil {
+			burst, err := parseBurst(envVars.Burst)
+			if err != nil {
+				return err
+			}
+			d.Limits[action] = redis_rate.Limit{Rate: rate.Rate, Burst: burst}
+			logg.Debug("parsed rate quota for %s is %#v", action, d.Limits[action])
+		}
+	}
+	return nil
 }
 
 // GetRateLimit implements the keppel.RateLimitDriver interface.
