@@ -24,11 +24,22 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+
+	"github.com/sapcc/go-bits/pluggable"
 )
 
 // StorageDriver is the abstract interface for a multi-tenant-capable storage
 // backend.
 type StorageDriver interface {
+	pluggable.Plugin
+	//Init is called before any other interface methods, and allows the plugin to
+	//perform first-time initialization.
+	//
+	//Implementations should inspect the auth driver to ensure that the
+	//federation driver can work with this authentication method, or return
+	//ErrAuthDriverMismatch otherwise.
+	Init(AuthDriver, Configuration) error
+
 	//`storageID` identifies blobs within an account. (The storage ID is
 	//different from the digest: The storage ID gets chosen at the start of the
 	//upload, when we don't know the full digest yet.) `chunkNumber` identifies
@@ -96,39 +107,30 @@ type StoredManifestInfo struct {
 	Digest   string
 }
 
-// ErrAuthDriverMismatch can be returned by StorageDriver and NameClaimDriver.
+// ErrAuthDriverMismatch is returned by Init() methods on most driver
+// interfaces, to indicate that the driver in question does not work with the
+// selected AuthDriver.
 var ErrAuthDriverMismatch = errors.New("given AuthDriver is not supported by this driver")
 
 // ErrCannotGenerateURL is returned by StorageDriver.URLForBlob() when the
 // StorageDriver does not support blob URLs.
 var ErrCannotGenerateURL = errors.New("URLForBlob() is not supported")
 
-var storageDriverFactories = make(map[string]func(AuthDriver, Configuration) (StorageDriver, error))
+// StorageDriverRegistry is a pluggable.Registry for StorageDriver implementations.
+var StorageDriverRegistry pluggable.Registry[StorageDriver]
 
 // NewStorageDriver creates a new StorageDriver using one of the factory functions
 // registered with RegisterStorageDriver().
-func NewStorageDriver(name string, authDriver AuthDriver, cfg Configuration) (StorageDriver, error) {
-	factory := storageDriverFactories[name]
-	if factory != nil {
-		return factory(authDriver, cfg)
+func NewStorageDriver(pluginTypeID string, ad AuthDriver, cfg Configuration) (StorageDriver, error) {
+	sd := StorageDriverRegistry.Instantiate(pluginTypeID)
+	if sd == nil {
+		return nil, errors.New("no such storage driver: " + pluginTypeID)
 	}
-	return nil, errors.New("no such storage driver: " + name)
+	return sd, sd.Init(ad, cfg)
 }
 
-// RegisterStorageDriver registers an StorageDriver. Call this from func init() of the
-// package defining the StorageDriver.
-//
-// Factory implementations should inspect the auth driver to ensure that the
-// storage backend can work with this authentication method, returning
-// ErrAuthDriverMismatch otherwise.
-func RegisterStorageDriver(name string, factory func(AuthDriver, Configuration) (StorageDriver, error)) {
-	if _, exists := storageDriverFactories[name]; exists {
-		panic("attempted to register multiple storage drivers with name = " + name)
-	}
-	storageDriverFactories[name] = factory
-}
-
-// GenerateStorageID generates a new random storage ID for use with keppel.StorageDriver.AppendToBlob().
+// GenerateStorageID generates a new random storage ID for use with
+// keppel.StorageDriver.AppendToBlob().
 func GenerateStorageID() string {
 	buf := make([]byte, 32)
 	_, err := rand.Read(buf)

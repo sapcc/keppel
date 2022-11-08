@@ -29,9 +29,7 @@ import (
 )
 
 func init() {
-	keppel.RegisterStorageDriver("in-memory-for-testing", func(_ keppel.AuthDriver, _ keppel.Configuration) (keppel.StorageDriver, error) {
-		return &StorageDriver{make(map[string][]byte), make(map[string]uint32), make(map[string][]byte), false, false}, nil
-	})
+	keppel.StorageDriverRegistry.Add(func() keppel.StorageDriver { return &StorageDriver{} })
 }
 
 // StorageDriver (driver ID "in-memory-for-testing") is a keppel.StorageDriver
@@ -43,6 +41,17 @@ type StorageDriver struct {
 	manifests         map[string][]byte
 	AllowDummyURLs    bool
 	ForbidNewAccounts bool
+}
+
+// PluginTypeID implements the keppel.StorageDriver interface.
+func (d *StorageDriver) PluginTypeID() string { return "in-memory-for-testing" }
+
+// Init implements the keppel.StorageDriver interface.
+func (d *StorageDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
+	d.blobs = make(map[string][]byte)
+	d.blobChunkCounts = make(map[string]uint32)
+	d.manifests = make(map[string][]byte)
+	return nil
 }
 
 var (
