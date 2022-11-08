@@ -28,13 +28,18 @@ import (
 )
 
 func init() {
-	keppel.RegisterUserIdentity("anon", deserializeAnonUserIdentity)
+	keppel.UserIdentityRegistry.Add(func() keppel.UserIdentity { return AnonymousUserIdentity })
 }
 
 // AnonymousUserIdentity is a keppel.UserIdentity for anonymous users.
 var AnonymousUserIdentity = keppel.UserIdentity(anonUserIdentity{})
 
 type anonUserIdentity struct{}
+
+// PluginTypeID implements the keppel.UserIdentity interface.
+func (anonUserIdentity) PluginTypeID() string {
+	return "anon"
+}
 
 // HasPermission implements the keppel.UserIdentity interface.
 func (anonUserIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
@@ -57,13 +62,14 @@ func (anonUserIdentity) UserInfo() audittools.UserInfo {
 }
 
 // SerializeToJSON implements the keppel.UserIdentity interface.
-func (anonUserIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
-	return "anon", []byte("true"), nil
+func (anonUserIdentity) SerializeToJSON() (payload []byte, err error) {
+	return []byte("true"), nil
 }
 
-func deserializeAnonUserIdentity(in []byte, _ keppel.AuthDriver) (keppel.UserIdentity, error) {
+// DeserializeFromJSON implements the keppel.UserIdentity interface.
+func (anonUserIdentity) DeserializeFromJSON(in []byte, _ keppel.AuthDriver) error {
 	if string(in) != "true" {
-		return nil, fmt.Errorf("%q is not a valid payload for AnonymousUserIdentity", string(in))
+		return fmt.Errorf("%q is not a valid payload for AnonymousUserIdentity", string(in))
 	}
-	return AnonymousUserIdentity, nil
+	return nil
 }

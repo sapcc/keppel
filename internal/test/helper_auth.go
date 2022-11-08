@@ -119,7 +119,7 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 
 	//issue token
 	tokenResp, err := auth.Authorization{
-		UserIdentity: userIdentity{
+		UserIdentity: &userIdentity{
 			Username: "correctusername",
 			Perms:    perms,
 		},

@@ -29,7 +29,7 @@ import (
 )
 
 func init() {
-	keppel.RegisterUserIdentity("repl", deserializePeerUserIdentity)
+	keppel.UserIdentityRegistry.Add(func() keppel.UserIdentity { return &PeerUserIdentity{} })
 }
 
 // PeerUserIdentity is a keppel.UserIdentity for peer users with global read
@@ -41,37 +41,40 @@ type PeerUserIdentity struct {
 	PeerHostName string
 }
 
+// UserType implements the keppel.UserIdentity interface.
+func (uid *PeerUserIdentity) PluginTypeID() string {
+	return "repl"
+}
+
 // HasPermission implements the keppel.UserIdentity interface.
-func (uid PeerUserIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
+func (uid *PeerUserIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
 	//allow universal pull access for replication purposes
 	return perm == keppel.CanViewAccount || perm == keppel.CanPullFromAccount
 }
 
 // UserType implements the keppel.UserIdentity interface.
-func (uid PeerUserIdentity) UserType() keppel.UserType {
+func (uid *PeerUserIdentity) UserType() keppel.UserType {
 	return keppel.PeerUser
 }
 
 // UserName implements the keppel.UserIdentity interface.
-func (uid PeerUserIdentity) UserName() string {
+func (uid *PeerUserIdentity) UserName() string {
 	return "replication@" + uid.PeerHostName
 }
 
 // UserInfo implements the keppel.UserIdentity interface.
-func (uid PeerUserIdentity) UserInfo() audittools.UserInfo {
+func (uid *PeerUserIdentity) UserInfo() audittools.UserInfo {
 	return nil
 }
 
 // SerializeToJSON implements the keppel.UserIdentity interface.
-func (uid PeerUserIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
-	payload, err = json.Marshal(uid.PeerHostName)
-	return "repl", payload, err
+func (uid *PeerUserIdentity) SerializeToJSON() (payload []byte, err error) {
+	return json.Marshal(uid.PeerHostName)
 }
 
-func deserializePeerUserIdentity(in []byte, _ keppel.AuthDriver) (keppel.UserIdentity, error) {
-	var peerHostName string
-	err := json.Unmarshal(in, &peerHostName)
-	return PeerUserIdentity{peerHostName}, err
+// DeserializeFromJSON implements the keppel.UserIdentity interface.
+func (uid *PeerUserIdentity) DeserializeFromJSON(in []byte, _ keppel.AuthDriver) error {
+	return json.Unmarshal(in, &uid.PeerHostName)
 }
 
 // Returns whether the given peer credentials are valid. On success, the Peer

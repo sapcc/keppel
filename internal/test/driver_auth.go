@@ -40,8 +40,8 @@ type AuthDriver struct {
 }
 
 func init() {
-	keppel.RegisterUserIdentity("unittest", deserializeUnittestUserIdentity)
 	keppel.AuthDriverRegistry.Add(func() keppel.AuthDriver { return &AuthDriver{} })
+	keppel.UserIdentityRegistry.Add(func() keppel.UserIdentity { return &userIdentity{} })
 }
 
 // PluginTypeID implements the keppel.AuthDriver interface.
@@ -93,7 +93,7 @@ func (d *AuthDriver) parseUserIdentity(permsHeader string) keppel.UserIdentity {
 			perms[fields[0]][fields[1]] = true
 		}
 	}
-	return userIdentity{d.ExpectedUserName, perms}
+	return &userIdentity{d.ExpectedUserName, perms}
 }
 
 type userIdentity struct {
@@ -101,33 +101,34 @@ type userIdentity struct {
 	Perms    map[string]map[string]bool
 }
 
-func (uid userIdentity) UserName() string {
+func (uid *userIdentity) PluginTypeID() string {
+	return "unittest"
+}
+
+func (uid *userIdentity) UserName() string {
 	return uid.Username
 }
 
-func (uid userIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
+func (uid *userIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
 	return uid.Perms[string(perm)][tenantID]
 }
 
-func (uid userIdentity) UserType() keppel.UserType {
+func (uid *userIdentity) UserType() keppel.UserType {
 	return keppel.RegularUser
 }
 
-func (uid userIdentity) UserInfo() audittools.UserInfo {
+func (uid *userIdentity) UserInfo() audittools.UserInfo {
 	//return a dummy UserInfo to enable testing of audit events (a nil UserInfo
 	//will suppress audit event generation)
 	return dummyUserInfo{}
 }
 
-func (uid userIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
-	payload, err = json.Marshal(uid)
-	return "unittest", payload, err
+func (uid *userIdentity) SerializeToJSON() (payload []byte, err error) {
+	return json.Marshal(uid)
 }
 
-func deserializeUnittestUserIdentity(in []byte, _ keppel.AuthDriver) (keppel.UserIdentity, error) {
-	var uid userIdentity
-	err := json.Unmarshal(in, &uid)
-	return uid, err
+func (uid *userIdentity) DeserializeFromJSON(in []byte, _ keppel.AuthDriver) error {
+	return json.Unmarshal(in, &uid)
 }
 
 type dummyUserInfo struct{}

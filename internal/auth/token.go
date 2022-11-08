@@ -237,7 +237,7 @@ type embeddedUserIdentity struct {
 
 // MarshalJSON implements the json.Marshaler interface.
 func (e embeddedUserIdentity) MarshalJSON() ([]byte, error) {
-	typeName, payload, err := e.UserIdentity.SerializeToJSON()
+	payload, err := e.UserIdentity.SerializeToJSON()
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +245,8 @@ func (e embeddedUserIdentity) MarshalJSON() ([]byte, error) {
 	//The straight-forward approach would be to serialize as
 	//`{"type":"foo","payload":"something"}`, but we serialize as
 	//`{"foo":"something"}` instead to shave off a few bytes.
-	return json.Marshal(map[string]json.RawMessage{typeName: json.RawMessage(payload)})
+	typeID := e.UserIdentity.PluginTypeID()
+	return json.Marshal(map[string]json.RawMessage{typeID: json.RawMessage(payload)})
 }
 
 // UnmarshalJSON implements the json.Marshaler interface.
@@ -263,8 +264,8 @@ func (e *embeddedUserIdentity) UnmarshalJSON(in []byte) error {
 		return fmt.Errorf("cannot unmarshal EmbeddedAuthorization with %d components", len(m))
 	}
 
-	for typeName, payload := range m {
-		e.UserIdentity, err = keppel.DeserializeUserIdentity(typeName, []byte(payload), e.AuthDriver)
+	for typeID, payload := range m {
+		e.UserIdentity, err = keppel.DeserializeUserIdentity(typeID, []byte(payload), e.AuthDriver)
 		return err
 	}
 
