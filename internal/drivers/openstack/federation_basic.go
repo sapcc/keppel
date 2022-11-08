@@ -43,36 +43,42 @@ type federationDriverBasic struct {
 }
 
 func init() {
-	keppel.RegisterFederationDriver("openstack-basic", func(ad keppel.AuthDriver, _ keppel.Configuration) (keppel.FederationDriver, error) {
-		k, ok := ad.(*keystoneDriver)
-		if !ok {
-			return nil, keppel.ErrAuthDriverMismatch
-		}
-		result := &federationDriverBasic{AuthDriver: k}
+	keppel.FederationDriverRegistry.Add(func() keppel.FederationDriver { return &federationDriverBasic{} })
+}
 
-		wlStr := strings.TrimSuffix(osext.MustGetenv("KEPPEL_NAMECLAIM_WHITELIST"), ",")
-		for _, wlEntryStr := range strings.Split(wlStr, ",") {
-			wlEntryFields := strings.SplitN(wlEntryStr, ":", 2)
-			if len(wlEntryFields) != 2 {
-				return nil, errors.New(`KEPPEL_NAMECLAIM_WHITELIST must have the form "project1:accountName1,project2:accountName2,..."`)
-			}
+// PluginTypeID implements the keppel.FederationDriver interface.
+func (d *federationDriverBasic) PluginTypeID() string { return "openstack-basic" }
 
-			projectNameRx, err := regexp.Compile(`^(?:` + wlEntryFields[0] + `)$`)
-			if err != nil {
-				return nil, err
-			}
-			accountNameRx, err := regexp.Compile(`^(?:` + wlEntryFields[1] + `)$`)
-			if err != nil {
-				return nil, err
-			}
-			result.Whitelist = append(result.Whitelist, nameClaimWhitelistEntry{
-				ProjectName: projectNameRx,
-				AccountName: accountNameRx,
-			})
+// Init implements the keppel.FederationDriver interface.
+func (d *federationDriverBasic) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
+	var ok bool
+	d.AuthDriver, ok = ad.(*keystoneDriver)
+	if !ok {
+		return keppel.ErrAuthDriverMismatch
+	}
+
+	wlStr := strings.TrimSuffix(osext.MustGetenv("KEPPEL_NAMECLAIM_WHITELIST"), ",")
+	for _, wlEntryStr := range strings.Split(wlStr, ",") {
+		wlEntryFields := strings.SplitN(wlEntryStr, ":", 2)
+		if len(wlEntryFields) != 2 {
+			return errors.New(`KEPPEL_NAMECLAIM_WHITELIST must have the form "project1:accountName1,project2:accountName2,..."`)
 		}
 
-		return result, nil
-	})
+		projectNameRx, err := regexp.Compile(`^(?:` + wlEntryFields[0] + `)$`)
+		if err != nil {
+			return err
+		}
+		accountNameRx, err := regexp.Compile(`^(?:` + wlEntryFields[1] + `)$`)
+		if err != nil {
+			return err
+		}
+		d.Whitelist = append(d.Whitelist, nameClaimWhitelistEntry{
+			ProjectName: projectNameRx,
+			AccountName: accountNameRx,
+		})
+	}
+
+	return nil
 }
 
 // ClaimAccountName implements the keppel.FederationDriver interface.

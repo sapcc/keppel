@@ -34,22 +34,27 @@ type federationDriver struct {
 }
 
 func init() {
-	keppel.RegisterFederationDriver("multi", func(ad keppel.AuthDriver, cfg keppel.Configuration) (keppel.FederationDriver, error) {
-		fd := &federationDriver{}
-		driverNames := strings.Split(osext.MustGetenv("KEPPEL_FEDERATION_MULTI_DRIVERS"), ",")
-		for _, driverName := range driverNames {
-			if driverName == "multi" {
-				//prevent infinite loops
-				return nil, errors.New(`cannot nest "multi" federation driver within itself`)
-			}
-			subdriver, err := keppel.NewFederationDriver(strings.TrimSpace(driverName), ad, cfg)
-			if err != nil {
-				return nil, err
-			}
-			fd.Drivers = append(fd.Drivers, subdriver)
+	keppel.FederationDriverRegistry.Add(func() keppel.FederationDriver { return &federationDriver{} })
+}
+
+// PluginTypeID implements the keppel.FederationDriver interface.
+func (fd *federationDriver) PluginTypeID() string { return "multi" }
+
+// Init implements the keppel.FederationDriver interface.
+func (fd *federationDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
+	driverNames := strings.Split(osext.MustGetenv("KEPPEL_FEDERATION_MULTI_DRIVERS"), ",")
+	for _, driverName := range driverNames {
+		if driverName == "multi" {
+			//prevent infinite loops
+			return errors.New(`cannot nest "multi" federation driver within itself`)
 		}
-		return fd, nil
-	})
+		subdriver, err := keppel.NewFederationDriver(strings.TrimSpace(driverName), ad, cfg)
+		if err != nil {
+			return err
+		}
+		fd.Drivers = append(fd.Drivers, subdriver)
+	}
+	return nil
 }
 
 // ClaimAccountName implements the keppel.FederationDriver interface.

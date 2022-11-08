@@ -27,9 +27,15 @@ import (
 type federationDriver struct{}
 
 func init() {
-	keppel.RegisterFederationDriver("trivial", func(_ keppel.AuthDriver, _ keppel.Configuration) (keppel.FederationDriver, error) {
-		return federationDriver{}, nil
-	})
+	keppel.FederationDriverRegistry.Add(func() keppel.FederationDriver { return federationDriver{} })
+}
+
+// PluginTypeID implements the keppel.FederationDriver interface.
+func (federationDriver) PluginTypeID() string { return "trivial" }
+
+// Init implements the keppel.FederationDriver interface.
+func (federationDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
+	return nil
 }
 
 // ClaimAccountName implements the keppel.FederationDriver interface.
