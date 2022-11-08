@@ -40,26 +40,24 @@ type inboundCacheDriverSwift struct {
 }
 
 func init() {
-	keppel.RegisterInboundCacheDriver("swift", func(_ keppel.Configuration) (keppel.InboundCacheDriver, error) {
-		container, err := initSwiftContainerConnection("KEPPEL_INBOUND_CACHE_")
-		if err != nil {
-			return nil, err
-		}
-		hostInclusionRx, err := compileOptionalImplicitlyBoundedRegex(os.Getenv("KEPPEL_INBOUND_CACHE_ONLY_HOSTS"))
-		if err != nil {
-			return nil, err
-		}
-		hostExclusionRx, err := compileOptionalImplicitlyBoundedRegex(os.Getenv("KEPPEL_INBOUND_CACHE_EXCEPT_HOSTS"))
-		if err != nil {
-			return nil, err
-		}
+	keppel.InboundCacheDriverRegistry.Add(func() keppel.InboundCacheDriver { return &inboundCacheDriverSwift{} })
+}
 
-		return &inboundCacheDriverSwift{
-			Container:       container,
-			HostInclusionRx: hostInclusionRx,
-			HostExclusionRx: hostExclusionRx,
-		}, err
-	})
+// PluginTypeID implements the keppel.InboundCacheDriver interface.
+func (d *inboundCacheDriverSwift) PluginTypeID() string { return "swift" }
+
+// Init implements the keppel.InboundCacheDriver interface.
+func (d *inboundCacheDriverSwift) Init(cfg keppel.Configuration) (err error) {
+	d.HostInclusionRx, err = compileOptionalImplicitlyBoundedRegex(os.Getenv("KEPPEL_INBOUND_CACHE_ONLY_HOSTS"))
+	if err != nil {
+		return err
+	}
+	d.HostExclusionRx, err = compileOptionalImplicitlyBoundedRegex(os.Getenv("KEPPEL_INBOUND_CACHE_EXCEPT_HOSTS"))
+	if err != nil {
+		return err
+	}
+	d.Container, err = initSwiftContainerConnection("KEPPEL_INBOUND_CACHE_")
+	return err
 }
 
 func compileOptionalImplicitlyBoundedRegex(pattern string) (*regexp.Regexp, error) {

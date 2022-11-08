@@ -22,11 +22,18 @@ package keppel
 import (
 	"errors"
 	"time"
+
+	"github.com/sapcc/go-bits/pluggable"
 )
 
 // InboundCacheDriver is the abstract interface for a caching strategy for
 // manifests and tags residing in an external registry.
 type InboundCacheDriver interface {
+	pluggable.Plugin
+	//Init is called before any other interface methods, and allows the plugin to
+	//perform first-time initialization.
+	Init(Configuration) error
+
 	//LoadManifest pulls a manifest from the cache. If the given manifest is not
 	//cached, or if the cache entry has expired, sql.ErrNoRows shall be returned.
 	//
@@ -40,23 +47,15 @@ type InboundCacheDriver interface {
 	StoreManifest(location ImageReference, contents []byte, mediaType string, now time.Time) error
 }
 
-var inboundCacheDriverFactories = make(map[string]func(Configuration) (InboundCacheDriver, error))
+// InboundCacheDriverRegistry is a pluggable.Registry for InboundCacheDriver implementations.
+var InboundCacheDriverRegistry pluggable.Registry[InboundCacheDriver]
 
 // NewInboundCacheDriver creates a new InboundCacheDriver using one of the
-// factory functions registered with RegisterInboundCacheDriver().
-func NewInboundCacheDriver(name string, cfg Configuration) (InboundCacheDriver, error) {
-	factory := inboundCacheDriverFactories[name]
-	if factory != nil {
-		return factory(cfg)
+// plugins registered with InboundCacheDriverRegistry.
+func NewInboundCacheDriver(pluginTypeID string, cfg Configuration) (InboundCacheDriver, error) {
+	icd := InboundCacheDriverRegistry.Instantiate(pluginTypeID)
+	if icd == nil {
+		return nil, errors.New("no such inbound cache driver: " + pluginTypeID)
 	}
-	return nil, errors.New("no such inbound cache driver: " + name)
-}
-
-// RegisterInboundCacheDriver registers an InboundCacheDriver. Call this from
-// func init() of the package defining the InboundCacheDriver.
-func RegisterInboundCacheDriver(name string, factory func(Configuration) (InboundCacheDriver, error)) {
-	if _, exists := inboundCacheDriverFactories[name]; exists {
-		panic("attempted to register multiple inbound cache drivers with name = " + name)
-	}
-	inboundCacheDriverFactories[name] = factory
+	return icd, icd.Init(cfg)
 }

@@ -29,9 +29,15 @@ import (
 type inboundCacheDriver struct{}
 
 func init() {
-	keppel.RegisterInboundCacheDriver("trivial", func(_ keppel.Configuration) (keppel.InboundCacheDriver, error) {
-		return inboundCacheDriver{}, nil
-	})
+	keppel.InboundCacheDriverRegistry.Add(func() keppel.InboundCacheDriver { return inboundCacheDriver{} })
+}
+
+// PluginTypeID implements the keppel.InboundCacheDriver interface.
+func (inboundCacheDriver) PluginTypeID() string { return "trivial" }
+
+// Init implements the keppel.InboundCacheDriver interface.
+func (inboundCacheDriver) Init(cfg keppel.Configuration) error {
+	return nil
 }
 
 // LoadManifest implements the keppel.InboundCacheDriver interface.
