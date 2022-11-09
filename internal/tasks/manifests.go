@@ -622,7 +622,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		}
 
 		manifest.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
-		manifest.VulnerabilityScanErrorMessage = fmt.Sprintf("vulnerability scanning is not supported for media type %s, only supported for docker and oci images.", blob.MediaType)
+		manifest.VulnerabilityScanErrorMessage = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
 		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(24 * time.Hour))
 		return nil
 	}
