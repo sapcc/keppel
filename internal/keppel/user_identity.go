@@ -27,6 +27,7 @@ import (
 	"io"
 
 	"github.com/sapcc/go-bits/audittools"
+	"github.com/sapcc/go-bits/pluggable"
 )
 
 // UserType is an enum that identifies the general type of user. User types are
@@ -51,6 +52,8 @@ const (
 // types of users, it is implicitly created in helper methods higher up in the
 // stack.
 type UserIdentity interface {
+	pluggable.Plugin
+
 	//Returns whether the given auth tenant grants the given permission to this user.
 	//The AnonymousUserIdentity always returns false.
 	HasPermission(perm Permission, tenantID string) bool
@@ -68,34 +71,26 @@ type UserIdentity interface {
 	UserInfo() audittools.UserInfo
 
 	//SerializeToJSON serializes this UserIdentity instance into JSON for
-	//inclusion in a token payload. The `typeName` must be identical to the
-	//`name` argument of the RegisterUserIdentity call for this type.
-	SerializeToJSON() (typeName string, payload []byte, err error)
+	//inclusion in a token payload.
+	SerializeToJSON() (payload []byte, err error)
+	//DeserializeFromJSON deserializes the given token payload (as returned by
+	//SerializeToJSON) into the callee. This is always called on a fresh
+	//instance created by UserIdentityFactory.Instantiate().
+	DeserializeFromJSON(payload []byte, ad AuthDriver) error
 }
 
-var authzDeserializers = make(map[string]func([]byte, AuthDriver) (UserIdentity, error))
-
-// RegisterUserIdentity registers a type implementing the UserIdentity
-// interface. Call this from func init() of the package defining the type.
-//
-// The `deserialize` function is called whenever an instance of this type needs to
-// be deserialized from a token payload. It shall perform the exact reverse of
-// the type's SerializeToJSON method.
-func RegisterUserIdentity(name string, deserialize func([]byte, AuthDriver) (UserIdentity, error)) {
-	if _, exists := authzDeserializers[name]; exists {
-		panic("attempted to register multiple UserIdentity types with name = " + name)
-	}
-	authzDeserializers[name] = deserialize
-}
+// UserIdentityRegistry is a pluggable.Registry for UserIdentity implementations.
+var UserIdentityRegistry pluggable.Registry[UserIdentity]
 
 // DeserializeUserIdentity deserializes a UserIdentity payload. This is the
 // reverse of UserIdentity.SerializeToJSON().
-func DeserializeUserIdentity(typeName string, payload []byte, ad AuthDriver) (UserIdentity, error) {
-	deserializer := authzDeserializers[typeName]
-	if deserializer == nil {
-		return nil, fmt.Errorf("cannot unmarshal embedded authorization with unknown payload type %q", typeName)
+func DeserializeUserIdentity(typeID string, payload []byte, ad AuthDriver) (UserIdentity, error) {
+	uid := UserIdentityRegistry.Instantiate(typeID)
+	if uid == nil {
+		return nil, fmt.Errorf("cannot unmarshal embedded authorization with unknown payload type %q", typeID)
 	}
-	return deserializer(payload, ad)
+	err := uid.DeserializeFromJSON(payload, ad)
+	return uid, err
 }
 
 type compressedPayload struct {

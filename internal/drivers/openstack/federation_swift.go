@@ -49,13 +49,17 @@ type federationDriverSwift struct {
 }
 
 func init() {
-	keppel.RegisterFederationDriver("swift", func(_ keppel.AuthDriver, cfg keppel.Configuration) (keppel.FederationDriver, error) {
-		container, err := initSwiftContainerConnection("KEPPEL_FEDERATION_")
-		return &federationDriverSwift{
-			Container:   container,
-			OwnHostName: cfg.APIPublicHostname,
-		}, err
-	})
+	keppel.FederationDriverRegistry.Add(func() keppel.FederationDriver { return &federationDriverSwift{} })
+}
+
+// PluginTypeID implements the keppel.FederationDriver interface.
+func (fd *federationDriverSwift) PluginTypeID() string { return "swift" }
+
+// Init implements the keppel.FederationDriver interface.
+func (fd *federationDriverSwift) Init(ad keppel.AuthDriver, cfg keppel.Configuration) (err error) {
+	fd.OwnHostName = cfg.APIPublicHostname
+	fd.Container, err = initSwiftContainerConnection("KEPPEL_FEDERATION_")
+	return err
 }
 
 func initSwiftContainerConnection(envPrefix string) (*schwift.Container, error) {

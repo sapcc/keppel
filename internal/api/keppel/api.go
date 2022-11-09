@@ -84,7 +84,7 @@ func (a *API) handleGetAPIInfo(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, struct {
 		AuthDriverName string `json:"auth_driver"`
 	}{
-		AuthDriverName: a.authDriver.DriverName(),
+		AuthDriverName: a.authDriver.PluginTypeID(),
 	})
 }
 

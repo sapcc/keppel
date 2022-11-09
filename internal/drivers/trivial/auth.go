@@ -29,66 +29,74 @@ import (
 	"github.com/sapcc/go-bits/osext"
 )
 
-type AuthDriver struct {
-	userName string
-	password string
-}
-
 func init() {
-	keppel.RegisterUserIdentity("trivial", deserializeTrivialUserIdentity)
-	keppel.RegisterAuthDriver("trivial", func(rc *redis.Client) (keppel.AuthDriver, error) {
-		return &AuthDriver{
-			userName: osext.MustGetenv("KEPPEL_USERNAME"),
-			password: osext.MustGetenv("KEPPEL_PASSWORD"),
-		}, nil
-	})
+	keppel.AuthDriverRegistry.Add(func() keppel.AuthDriver { return &AuthDriver{} })
+	keppel.UserIdentityRegistry.Add(func() keppel.UserIdentity { return &userIdentity{} })
 }
 
-func deserializeTrivialUserIdentity(in []byte, _ keppel.AuthDriver) (keppel.UserIdentity, error) {
-	var uid userIdentity
-	err := json.Unmarshal(in, &uid)
-	return uid, err
-}
+////////////////////////////////////////////////////////////////////////////////
+// type userIdentity
 
 type userIdentity struct {
 	Username string
 }
 
-func (uid userIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
+func (uid *userIdentity) PluginTypeID() string {
+	return "trivial"
+}
+
+func (uid *userIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
 	return true
 }
 
-func (uid userIdentity) UserInfo() audittools.UserInfo {
+func (uid *userIdentity) UserInfo() audittools.UserInfo {
 	return nil
 }
 
-func (uid userIdentity) UserName() string {
+func (uid *userIdentity) UserName() string {
 	return uid.Username
 }
 
-func (uid userIdentity) UserType() keppel.UserType {
+func (uid *userIdentity) UserType() keppel.UserType {
 	return keppel.RegularUser
 }
 
-func (uid userIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
-	payload, err = json.Marshal(uid)
-	return "trivial", payload, err
+func (uid *userIdentity) SerializeToJSON() (payload []byte, err error) {
+	return json.Marshal(uid.Username)
+}
+
+func (uid *userIdentity) DeserializeFromJSON(in []byte, _ keppel.AuthDriver) error {
+	return json.Unmarshal(in, &uid.Username)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// type AuthDriver
+
+type AuthDriver struct {
+	userName string
+	password string
+}
+
+func (d *AuthDriver) PluginTypeID() string {
+	return "trivial"
+}
+
+func (d *AuthDriver) Init(rc *redis.Client) error {
+	d.userName = osext.MustGetenv("KEPPEL_USERNAME")
+	d.password = osext.MustGetenv("KEPPEL_PASSWORD")
+	return nil
 }
 
 func (d *AuthDriver) AuthenticateUser(userName, password string) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	if d.userName == userName && d.password == password {
-		return userIdentity{Username: userName}, nil
+		return &userIdentity{Username: userName}, nil
 	}
 
 	return nil, keppel.ErrUnauthorized.With(`invalid username or password`)
 }
 
 func (d *AuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.UserIdentity, *keppel.RegistryV2Error) {
-	return userIdentity{Username: d.userName}, nil
-}
-
-func (d *AuthDriver) DriverName() string {
-	return "trivial"
+	return &userIdentity{Username: d.userName}, nil
 }
 
 func (d *AuthDriver) ValidateTenantID(tenantID string) error {

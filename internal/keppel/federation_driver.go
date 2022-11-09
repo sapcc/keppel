@@ -21,6 +21,8 @@ package keppel
 import (
 	"errors"
 	"time"
+
+	"github.com/sapcc/go-bits/pluggable"
 )
 
 // ClaimResult is an enum returned by FederationDriver.ClaimAccountName().
@@ -44,6 +46,15 @@ var ErrNoSuchPrimaryAccount = errors.New("no such primary account")
 // FederationDriver is the abstract interface for a strategy that coordinates
 // the claiming of account names across Keppel deployments.
 type FederationDriver interface {
+	pluggable.Plugin
+	//Init is called before any other interface methods, and allows the plugin to
+	//perform first-time initialization.
+	//
+	//Implementations should inspect the auth driver to ensure that the
+	//federation driver can work with this authentication method, or return
+	//ErrAuthDriverMismatch otherwise.
+	Init(AuthDriver, Configuration) error
+
 	//ClaimAccountName is called when creating a new account, and returns nil if
 	//and only if this Keppel is allowed to use `account.Name` for the given new
 	//`account`.
@@ -89,27 +100,15 @@ type FederationDriver interface {
 	FindPrimaryAccount(accountName string) (peerHostName string, err error)
 }
 
-var federationDriverFactories = make(map[string]func(AuthDriver, Configuration) (FederationDriver, error))
+// FederationDriverRegistry is a pluggable.Registry for FederationDriver implementations.
+var FederationDriverRegistry pluggable.Registry[FederationDriver]
 
-// NewFederationDriver creates a new FederationDriver using one of the factory
-// functions registered with RegisterFederationDriver().
-func NewFederationDriver(name string, ad AuthDriver, cfg Configuration) (FederationDriver, error) {
-	factory := federationDriverFactories[name]
-	if factory != nil {
-		return factory(ad, cfg)
+// NewFederationDriver creates a new FederationDriver using one of the plugins
+// registered with FederationDriverRegistry.
+func NewFederationDriver(pluginTypeID string, ad AuthDriver, cfg Configuration) (FederationDriver, error) {
+	fd := FederationDriverRegistry.Instantiate(pluginTypeID)
+	if fd == nil {
+		return nil, errors.New("no such federation driver: " + pluginTypeID)
 	}
-	return nil, errors.New("no such federation driver: " + name)
-}
-
-// RegisterFederationDriver registers an FederationDriver. Call this from func
-// init() of the package defining the FederationDriver.
-//
-// Factory implementations should inspect the auth driver to ensure that the
-// federation driver can work with this authentication method, returning
-// ErrAuthDriverMismatch otherwise.
-func RegisterFederationDriver(name string, factory func(AuthDriver, Configuration) (FederationDriver, error)) {
-	if _, exists := federationDriverFactories[name]; exists {
-		panic("attempted to register multiple federation drivers with name = " + name)
-	}
-	federationDriverFactories[name] = factory
+	return fd, fd.Init(ad, cfg)
 }

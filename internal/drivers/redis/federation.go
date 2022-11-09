@@ -39,18 +39,23 @@ type federationDriver struct {
 }
 
 func init() {
-	keppel.RegisterFederationDriver("redis", func(_ keppel.AuthDriver, cfg keppel.Configuration) (keppel.FederationDriver, error) {
-		osext.MustGetenv("KEPPEL_FEDERATION_REDIS_HOSTNAME") // check config
-		opts, err := keppel.GetRedisOptions("KEPPEL_FEDERATION")
-		if err != nil {
-			return nil, fmt.Errorf("cannot parse federation Redis URL: %s", err.Error())
-		}
-		return &federationDriver{
-			ownHostname: cfg.APIPublicHostname,
-			prefix:      osext.GetenvOrDefault("KEPPEL_FEDERATION_REDIS_PREFIX", "keppel"),
-			rc:          redis.NewClient(opts),
-		}, nil
-	})
+	keppel.FederationDriverRegistry.Add(func() keppel.FederationDriver { return &federationDriver{} })
+}
+
+// PluginTypeID implements the keppel.FederationDriver interface.
+func (d *federationDriver) PluginTypeID() string { return "redis" }
+
+// Init implements the keppel.FederationDriver interface.
+func (d *federationDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
+	osext.MustGetenv("KEPPEL_FEDERATION_REDIS_HOSTNAME") // check config
+	opts, err := keppel.GetRedisOptions("KEPPEL_FEDERATION")
+	if err != nil {
+		return fmt.Errorf("cannot parse federation Redis URL: %s", err.Error())
+	}
+	d.ownHostname = cfg.APIPublicHostname
+	d.prefix = osext.GetenvOrDefault("KEPPEL_FEDERATION_REDIS_PREFIX", "keppel")
+	d.rc = redis.NewClient(opts)
+	return nil
 }
 
 func (d *federationDriver) primaryKey(accountName string) string {

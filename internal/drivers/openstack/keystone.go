@@ -58,53 +58,52 @@ type keystoneDriver struct {
 }
 
 func init() {
-	keppel.RegisterUserIdentity("keystone", deserializeKeystoneUserIdentity)
-	keppel.RegisterAuthDriver("keystone", func(rc *redis.Client) (keppel.AuthDriver, error) {
-		//authenticate service user
-		ao, err := clientconfig.AuthOptions(nil)
-		if err != nil {
-			return nil, errors.New("cannot find OpenStack credentials: " + err.Error())
-		}
-		ao.AllowReauth = true
-		provider, err := openstack.AuthenticatedClient(*ao)
-		if err != nil {
-			return nil, errors.New("cannot connect to OpenStack: " + err.Error())
-		}
-
-		//find Identity V3 endpoint
-		eo := gophercloud.EndpointOpts{
-			//note that empty values are acceptable in both fields
-			Region:       os.Getenv("OS_REGION_NAME"),
-			Availability: gophercloud.Availability(os.Getenv("OS_INTERFACE")),
-		}
-		identityV3, err := openstack.NewIdentityV3(provider, eo)
-		if err != nil {
-			return nil, errors.New("cannot find Keystone V3 API: " + err.Error())
-		}
-
-		//load oslo.policy
-		tv := &gopherpolicy.TokenValidator{IdentityV3: identityV3}
-		err = tv.LoadPolicyFile(osext.MustGetenv("KEPPEL_OSLO_POLICY_PATH"))
-		if err != nil {
-			return nil, err
-		}
-		if rc == nil {
-			tv.Cacher = gopherpolicy.InMemoryCacher()
-		} else {
-			tv.Cacher = redisCacher{rc}
-		}
-
-		return &keystoneDriver{
-			Provider:       provider,
-			IdentityV3:     identityV3,
-			TokenValidator: tv,
-		}, nil
-	})
+	keppel.AuthDriverRegistry.Add(func() keppel.AuthDriver { return &keystoneDriver{} })
+	keppel.UserIdentityRegistry.Add(func() keppel.UserIdentity { return &keystoneUserIdentity{} })
 }
 
-// DriverName implements the keppel.AuthDriver interface.
-func (d *keystoneDriver) DriverName() string {
+// PluginTypeID implements the keppel.AuthDriver interface.
+func (d *keystoneDriver) PluginTypeID() string {
 	return "keystone"
+}
+
+// Init implements the keppel.AuthDriver interface.
+func (d *keystoneDriver) Init(rc *redis.Client) error {
+	//authenticate service user
+	ao, err := clientconfig.AuthOptions(nil)
+	if err != nil {
+		return errors.New("cannot find OpenStack credentials: " + err.Error())
+	}
+	ao.AllowReauth = true
+	d.Provider, err = openstack.AuthenticatedClient(*ao)
+	if err != nil {
+		return errors.New("cannot connect to OpenStack: " + err.Error())
+	}
+
+	//find Identity V3 endpoint
+	eo := gophercloud.EndpointOpts{
+		//note that empty values are acceptable in both fields
+		Region:       os.Getenv("OS_REGION_NAME"),
+		Availability: gophercloud.Availability(os.Getenv("OS_INTERFACE")),
+	}
+	d.IdentityV3, err = openstack.NewIdentityV3(d.Provider, eo)
+	if err != nil {
+		return errors.New("cannot find Keystone V3 API: " + err.Error())
+	}
+
+	//load oslo.policy
+	d.TokenValidator = &gopherpolicy.TokenValidator{IdentityV3: d.IdentityV3}
+	err = d.TokenValidator.LoadPolicyFile(osext.MustGetenv("KEPPEL_OSLO_POLICY_PATH"))
+	if err != nil {
+		return err
+	}
+	if rc == nil {
+		d.TokenValidator.Cacher = gopherpolicy.InMemoryCacher()
+	} else {
+		d.TokenValidator.Cacher = redisCacher{rc}
+	}
+
+	return nil
 }
 
 // ValidateTenantID implements the keppel.AuthDriver interface.
@@ -159,7 +158,7 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Use
 			userName, t.Err.Error(),
 		)
 	}
-	return keystoneUserIdentity{t}, nil
+	return &keystoneUserIdentity{t}, nil
 }
 
 // possible formats for the username:
@@ -215,7 +214,7 @@ func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Us
 
 	//t.Context.Request = mux.Vars(r) //not used at the moment
 
-	a := keystoneUserIdentity{t}
+	a := &keystoneUserIdentity{t}
 	if !a.t.Check("account:list") {
 		return nil, keppel.ErrDenied.With("").WithStatus(http.StatusForbidden)
 	}
@@ -226,7 +225,7 @@ type keystoneUserIdentity struct {
 	t *gopherpolicy.Token
 	//^ WARNING: Token may not always contain everything you expect
 	//because of a serialization roundtrip. See SerializeToJSON() and
-	//deserializeKeystoneUserIdentity() for details.
+	//DeserializeFromJSON() for details.
 }
 
 var ruleForPerm = map[keppel.Permission]string{
@@ -240,8 +239,11 @@ var ruleForPerm = map[keppel.Permission]string{
 	keppel.CanAdministrateKeppel: "keppel:admin",
 }
 
+// PluginTypeID implements the keppel.UserIdentity interface.
+func (a *keystoneUserIdentity) PluginTypeID() string { return "keystone" }
+
 // UserName implements the keppel.UserIdentity interface.
-func (a keystoneUserIdentity) UserName() string {
+func (a *keystoneUserIdentity) UserName() string {
 	return fmt.Sprintf("%s@%s/%s@%s",
 		a.t.UserName(),
 		a.t.UserDomainName(),
@@ -251,7 +253,7 @@ func (a keystoneUserIdentity) UserName() string {
 }
 
 // HasPermission implements the keppel.UserIdentity interface.
-func (a keystoneUserIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
+func (a *keystoneUserIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
 	a.t.Context.Request["target.project.id"] = tenantID
 	logg.Debug("token has object attributes = %v", a.t.Context.Request)
 
@@ -266,12 +268,12 @@ func (a keystoneUserIdentity) HasPermission(perm keppel.Permission, tenantID str
 }
 
 // UserType implements the keppel.UserIdentity interface.
-func (a keystoneUserIdentity) UserType() keppel.UserType {
+func (a *keystoneUserIdentity) UserType() keppel.UserType {
 	return keppel.RegularUser
 }
 
 // UserInfo implements the keppel.UserIdentity interface.
-func (a keystoneUserIdentity) UserInfo() audittools.UserInfo {
+func (a *keystoneUserIdentity) UserInfo() audittools.UserInfo {
 	return a.t
 }
 
@@ -281,7 +283,7 @@ type serializedKeystoneUserIdentity struct {
 }
 
 // SerializeToJSON implements the keppel.UserIdentity interface.
-func (a keystoneUserIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
+func (a *keystoneUserIdentity) SerializeToJSON() (payload []byte, err error) {
 	//We cannot serialize the entire gopherpolicy.Token, that would include the
 	//X-Auth-Token and possibly even the full token response including service
 	//catalog, and thus produce a rather massive payload. We skip the token and
@@ -291,30 +293,31 @@ func (a keystoneUserIdentity) SerializeToJSON() (typeName string, payload []byte
 		Auth:  a.t.Context.Auth,
 		Roles: a.t.Context.Roles,
 	})
-	if err == nil {
-		payload, err = keppel.CompressTokenPayload(payload)
+	if err != nil {
+		return nil, err
 	}
-	return "keystone", payload, err
+	return keppel.CompressTokenPayload(payload)
 }
 
-func deserializeKeystoneUserIdentity(in []byte, ad keppel.AuthDriver) (keppel.UserIdentity, error) {
+// DeserializeFromJSON implements the keppel.UserIdentity interface.
+func (a *keystoneUserIdentity) DeserializeFromJSON(in []byte, ad keppel.AuthDriver) error {
 	d, ok := ad.(*keystoneDriver)
 	if !ok {
-		return nil, keppel.ErrAuthDriverMismatch
+		return keppel.ErrAuthDriverMismatch
 	}
 
 	in, err := keppel.DecompressTokenPayload(in)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var skuid serializedKeystoneUserIdentity
 	err = json.Unmarshal(in, &skuid)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return keystoneUserIdentity{&gopherpolicy.Token{
+	a.t = &gopherpolicy.Token{
 		Enforcer: d.TokenValidator.Enforcer,
 		Context: policy.Context{
 			Auth:    skuid.Auth,
@@ -323,5 +326,6 @@ func deserializeKeystoneUserIdentity(in []byte, ad keppel.AuthDriver) (keppel.Us
 		},
 		ProviderClient: nil, //cannot be reasonably serialized; see comment above
 		Err:            nil,
-	}}, nil
+	}
+	return nil
 }

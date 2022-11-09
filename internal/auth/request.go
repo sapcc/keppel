@@ -243,7 +243,7 @@ func checkBasicAuth(authHeader string, ad keppel.AuthDriver, db *keppel.DB) (kep
 		if peer == nil {
 			return nil, keppel.ErrUnauthorized.With("invalid peer credentials")
 		}
-		return PeerUserIdentity{PeerHostName: peerHostName}, nil
+		return &PeerUserIdentity{PeerHostName: peerHostName}, nil
 	}
 
 	//recognize regular user credentials

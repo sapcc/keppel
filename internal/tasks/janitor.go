@@ -86,6 +86,11 @@ type janitorUserIdentity struct {
 	GCPolicy *keppel.GCPolicy
 }
 
+// PluginTypeID implements the keppel.UserIdentity interface.
+func (uid janitorUserIdentity) PluginTypeID() string {
+	return "janitor"
+}
+
 // HasPermission implements the keppel.UserIdentity interface.
 func (uid janitorUserIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
 	return false
@@ -107,8 +112,13 @@ func (uid janitorUserIdentity) UserInfo() audittools.UserInfo {
 }
 
 // SerializeToJSON implements the keppel.UserIdentity interface.
-func (uid janitorUserIdentity) SerializeToJSON() (typeName string, payload []byte, err error) {
-	return "", nil, errors.New("janitorUserIdentity.SerializeToJSON is not allowed")
+func (uid janitorUserIdentity) SerializeToJSON() (payload []byte, err error) {
+	return nil, errors.New("janitorUserIdentity.SerializeToJSON is not allowed")
+}
+
+// DeserializeFromJSON implements the keppel.UserIdentity interface.
+func (uid janitorUserIdentity) DeserializeFromJSON(in []byte, ad keppel.AuthDriver) error {
+	return errors.New("janitorUserIdentity.DeserializeFromJSON is not allowed")
 }
 
 ////////////////////////////////////////////////////////////////////////////////

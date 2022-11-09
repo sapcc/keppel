@@ -42,10 +42,17 @@ type inboundCacheEntry struct {
 }
 
 func init() {
-	keppel.RegisterInboundCacheDriver("unittest", func(_ keppel.Configuration) (keppel.InboundCacheDriver, error) {
-		defaultMaxAge := 6 * time.Hour
-		return &InboundCacheDriver{defaultMaxAge, make(map[keppel.ImageReference]inboundCacheEntry)}, nil
-	})
+	keppel.InboundCacheDriverRegistry.Add(func() keppel.InboundCacheDriver { return &InboundCacheDriver{} })
+}
+
+// PluginTypeID implements the keppel.InboundCacheDriver interface.
+func (d *InboundCacheDriver) PluginTypeID() string { return "unittest" }
+
+// Init implements the keppel.InboundCacheDriver interface.
+func (d *InboundCacheDriver) Init(cfg keppel.Configuration) error {
+	d.MaxAge = 6 * time.Hour
+	d.Entries = make(map[keppel.ImageReference]inboundCacheEntry)
+	return nil
 }
 
 // LoadManifest implements the keppel.InboundCacheDriver interface.

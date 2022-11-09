@@ -54,32 +54,35 @@ type swiftDriver struct {
 }
 
 func init() {
-	keppel.RegisterStorageDriver("swift", func(driver keppel.AuthDriver, cfg keppel.Configuration) (keppel.StorageDriver, error) {
-		k, ok := driver.(*keystoneDriver)
-		if !ok {
-			return nil, keppel.ErrAuthDriverMismatch
-		}
+	keppel.StorageDriverRegistry.Add(func() keppel.StorageDriver { return &swiftDriver{} })
+}
 
-		eo := gophercloud.EndpointOpts{
-			//note that empty values are acceptable in both fields
-			Region:       os.Getenv("OS_REGION_NAME"),
-			Availability: gophercloud.Availability(os.Getenv("OS_INTERFACE")),
-		}
-		client, err := openstack.NewObjectStorageV1(k.Provider, eo)
-		if err != nil {
-			return nil, err
-		}
+// PluginTypeID implements the keppel.StorageDriver interface.
+func (d *swiftDriver) PluginTypeID() string { return "swift" }
 
-		swiftAccount, err := gopherschwift.Wrap(client, nil)
-		if err != nil {
-			return nil, err
-		}
+// Init implements the keppel.StorageDriver interface.
+func (d *swiftDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
+	k, ok := ad.(*keystoneDriver)
+	if !ok {
+		return keppel.ErrAuthDriverMismatch
+	}
 
-		return &swiftDriver{
-			mainAccount:    swiftAccount,
-			containerInfos: make(map[string]*swiftContainerInfo),
-		}, nil
-	})
+	eo := gophercloud.EndpointOpts{
+		//note that empty values are acceptable in both fields
+		Region:       os.Getenv("OS_REGION_NAME"),
+		Availability: gophercloud.Availability(os.Getenv("OS_INTERFACE")),
+	}
+	client, err := openstack.NewObjectStorageV1(k.Provider, eo)
+	if err != nil {
+		return err
+	}
+
+	d.mainAccount, err = gopherschwift.Wrap(client, nil)
+	if err != nil {
+		return err
+	}
+	d.containerInfos = make(map[string]*swiftContainerInfo)
+	return nil
 }
 
 //TODO translate errors from Swift into keppel.RegistryV2Error where

@@ -25,6 +25,7 @@ import (
 	"net/http"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/sapcc/go-bits/pluggable"
 )
 
 // Permission is an enum used by AuthDriver.
@@ -53,9 +54,11 @@ const (
 // tenants. A tenant is a scope where users can be authorized to perform certain
 // actions. For example, in OpenStack, a Keppel tenant is a Keystone project.
 type AuthDriver interface {
-	//DriverName returns the name of the auth driver as specified in
-	//RegisterAuthDriver() and, therefore, the KEPPEL_AUTH_DRIVER variable.
-	DriverName() string
+	pluggable.Plugin
+	//Init is called before any other interface methods, and allows the plugin to
+	//perform first-time initialization. The supplied *redis.Client can be stored
+	//for caching authorizations, but only if it is non-nil.
+	Init(*redis.Client) error
 
 	//ValidateTenantID checks if the given string is a valid tenant ID. If so,
 	//nil shall be returned. If not, the returned error shall explain why the ID
@@ -80,28 +83,17 @@ type AuthDriver interface {
 	AuthenticateUserFromRequest(r *http.Request) (UserIdentity, *RegistryV2Error)
 }
 
-var authDriverFactories = make(map[string]func(*redis.Client) (AuthDriver, error))
+// AuthDriverRegistry is a pluggable.Registry for AuthDriver implementations.
+var AuthDriverRegistry pluggable.Registry[AuthDriver]
 
-// NewAuthDriver creates a new AuthDriver using one of the factory functions
-// registered with RegisterAuthDriver().
-func NewAuthDriver(name string, rc *redis.Client) (AuthDriver, error) {
-	factory := authDriverFactories[name]
-	if factory != nil {
-		return factory(rc)
+// NewAuthDriver creates a new AuthDriver using one of the plugins registered
+// with AuthDriverRegistry.
+func NewAuthDriver(pluginTypeID string, rc *redis.Client) (AuthDriver, error) {
+	ad := AuthDriverRegistry.Instantiate(pluginTypeID)
+	if ad == nil {
+		return nil, errors.New("no such auth driver: " + pluginTypeID)
 	}
-	return nil, errors.New("no such auth driver: " + name)
-}
-
-// RegisterAuthDriver registers an AuthDriver. Call this from func init() of the
-// package defining the AuthDriver.
-//
-// Warning: The *redis.Client argument of the factory function is optional! Only
-// use it for caching authorizations if it is non-nil.
-func RegisterAuthDriver(name string, factory func(*redis.Client) (AuthDriver, error)) {
-	if _, exists := authDriverFactories[name]; exists {
-		panic("attempted to register multiple auth drivers with name = " + name)
-	}
-	authDriverFactories[name] = factory
+	return ad, ad.Init(rc)
 }
 
 // BuildBasicAuthHeader constructs the value of an "Authorization" HTTP header for the given basic auth credentials.

@@ -32,20 +32,21 @@ import (
 )
 
 func init() {
-	keppel.RegisterStorageDriver("filesystem", func(_ keppel.AuthDriver, _ keppel.Configuration) (keppel.StorageDriver, error) {
-		rootPath, err := filepath.Abs(osext.MustGetenv("KEPPEL_FILESYSTEM_PATH"))
-		if err != nil {
-			return nil, err
-		}
-		return &StorageDriver{
-			rootPath: rootPath,
-		}, nil
-	})
+	keppel.StorageDriverRegistry.Add(func() keppel.StorageDriver { return &StorageDriver{} })
 }
 
 // StorageDriver (driver ID "filesystem") is a keppel.StorageDriver that stores its contents in the local filesystem.
 type StorageDriver struct {
 	rootPath string
+}
+
+// PluginTypeID implements the keppel.StorageDriver interface.
+func (d *StorageDriver) PluginTypeID() string { return "filesystem" }
+
+// Init implements the keppel.StorageDriver interface.
+func (d *StorageDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) (err error) {
+	d.rootPath, err = filepath.Abs(osext.MustGetenv("KEPPEL_FILESYSTEM_PATH"))
+	return err
 }
 
 func (d *StorageDriver) getBlobBasePath(account keppel.Account) string {
