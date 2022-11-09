@@ -29,7 +29,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/distribution/manifest/schema2"
 	"github.com/opencontainers/go-digest"
+	imageSpecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 
@@ -564,6 +566,42 @@ var (
 	blobUncompressedSizeTooBigGiB float64 = 10
 )
 
+func (j *Janitor) collectManifestReferencedBlobs(account keppel.Account, repo keppel.Repository, manifest *keppel.Manifest) (layerBlobs []keppel.Blob, err error) {
+	//we need all blobs directly referenced by this manifest (we do not care
+	//about submanifests at this level, the reports from those will be merged
+	//later on in the API)
+	var blobs []keppel.Blob
+	_, err = j.db.Select(&blobs, vulnCheckBlobSelectQuery, manifest.RepositoryID, manifest.Digest)
+	if err != nil {
+		return nil, err
+	}
+
+	//the Clair manifest can only include blobs that are actual image layers, so we need to parse the manifest contents
+	manifestBytes, err := j.sd.ReadManifest(account, repo.Name, manifest.Digest)
+	if err != nil {
+		return nil, err
+	}
+	manifestParsed, manifestDesc, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
+	if err != nil {
+		return nil, keppel.ErrManifestInvalid.With(err.Error())
+	}
+	if manifest.Digest != "" && manifestDesc.Digest.String() != manifest.Digest {
+		return nil, keppel.ErrDigestInvalid.With("actual manifest digest is " + manifestDesc.Digest.String())
+	}
+	isLayer := make(map[string]bool)
+	for _, desc := range manifestParsed.FindImageLayerBlobs() {
+		isLayer[desc.Digest.String()] = true
+	}
+
+	for _, blob := range blobs {
+		if isLayer[blob.Digest] {
+			layerBlobs = append(layerBlobs, blob)
+		}
+	}
+
+	return
+}
+
 func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repository, manifest *keppel.Manifest) error {
 	//skip validation while account is in maintenance (maintenance mode blocks
 	//all kinds of activity on an account's contents)
@@ -572,13 +610,21 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		return nil
 	}
 
-	//we need all blobs directly referenced by this manifest (we do not care
-	//about submanifests at this level, the reports from those will be merged
-	//later on in the API)
-	var blobs []keppel.Blob
-	_, err := j.db.Select(&blobs, vulnCheckBlobSelectQuery, manifest.RepositoryID, manifest.Digest)
+	layerBlobs, err := j.collectManifestReferencedBlobs(account, repo, manifest)
 	if err != nil {
 		return err
+	}
+
+	// filter media types that clair is known to support
+	for _, blob := range layerBlobs {
+		if blob.MediaType == schema2.MediaTypeLayer || blob.MediaType == imageSpecs.MediaTypeImageLayerGzip {
+			continue
+		}
+
+		manifest.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
+		manifest.VulnerabilityScanErrorMessage = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
+		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(24 * time.Hour))
+		return nil
 	}
 
 	//skip when blobs add up to more than 5 GiB
@@ -590,7 +636,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 	}
 
 	//can only validate when all blobs are present in the storage
-	for _, blob := range blobs {
+	for _, blob := range layerBlobs {
 		if blob.StorageID == "" {
 			//if the manifest is fairly new, the user who replicated it is probably
 			//still replicating it; give them 10 minutes to finish replicating it
@@ -659,9 +705,9 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 
 	//ask Clair for vulnerability status of blobs in this image
 	manifest.VulnerabilityScanErrorMessage = "" //unless it gets set to something else below
-	if len(blobs) > 0 {
+	if len(layerBlobs) > 0 {
 		clairState, err := j.cfg.ClairClient.CheckManifestState(manifest.Digest, func() (clair.Manifest, error) {
-			return j.buildClairManifest(account, repo, *manifest, blobs)
+			return j.buildClairManifest(account, *manifest, layerBlobs)
 		})
 		if err != nil {
 			return err
@@ -700,32 +746,12 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 	return nil
 }
 
-func (j *Janitor) buildClairManifest(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, blobs []keppel.Blob) (clair.Manifest, error) {
+func (j *Janitor) buildClairManifest(account keppel.Account, manifest keppel.Manifest, layerBlobs []keppel.Blob) (clair.Manifest, error) {
 	result := clair.Manifest{
 		Digest: manifest.Digest,
 	}
 
-	//the Clair manifest can only include blobs that are actual image layers, so we need to parse the manifest contents
-	manifestBytes, err := j.sd.ReadManifest(account, repo.Name, manifest.Digest)
-	if err != nil {
-		return clair.Manifest{}, err
-	}
-	manifestParsed, manifestDesc, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
-	if err != nil {
-		return clair.Manifest{}, keppel.ErrManifestInvalid.With(err.Error())
-	}
-	if manifest.Digest != "" && manifestDesc.Digest.String() != manifest.Digest {
-		return clair.Manifest{}, keppel.ErrDigestInvalid.With("actual manifest digest is " + manifestDesc.Digest.String())
-	}
-	isLayer := make(map[string]bool)
-	for _, desc := range manifestParsed.FindImageLayerBlobs() {
-		isLayer[desc.Digest.String()] = true
-	}
-
-	for _, blob := range blobs {
-		if !isLayer[blob.Digest] {
-			continue
-		}
+	for _, blob := range layerBlobs {
 		blobURL, err := j.sd.URLForBlob(account, blob.StorageID)
 		//TODO handle ErrCannotGenerateURL (currently not a problem because all storage drivers can make URLs)
 		if err != nil {
