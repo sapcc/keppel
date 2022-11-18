@@ -73,6 +73,8 @@ var clairTransientErrorsRxs = []*regexp.Regexp{
 	regexp.MustCompile(`connect: connection refused`),
 	// failed to scan all layer contents: failed to connect to `host=clair-postgresql user=postgres database=clair`: server error (FATAL: sorry, too many clients already (SQLSTATE 53300))
 	regexp.MustCompile(`sorry, too many clients already \(SQLSTATE 53300\)`),
+	// failed to scan all layer contents: store:indexRepositories failed to commit tx: conn closed
+	regexp.MustCompile(`failed to commit tx: conn closed$`),
 	// failed to fetch layers: encountered error while fetching a layer: read tcp 10.20.30.40:55555->10.20.30.50:443: read: connection reset by peer
 	regexp.MustCompile(`read: connection reset by peer`),
 	// failed to fetch layers: encountered error while fetching a layer: fetcher: request failed: Get "https://objectstore.example.com/...": dial tcp 10.20.30.40:443: i/o timeout
