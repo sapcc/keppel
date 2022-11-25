@@ -686,6 +686,7 @@ func TestImageManifestWrongBlobSize(t *testing.T) {
 func TestImageManifestCmdEntrypointAsString(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		j := tasks.NewJanitor(s.Config, s.FD, s.SD, s.ICD, s.DB, s.Auditor).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next)
+		j.DisableJitter()
 
 		//generate an image that has strings as Entrypoint and Cmd
 		image := test.GenerateImageWithCustomConfig(func(cfg map[string]interface{}) {

@@ -148,7 +148,7 @@ func (j *Janitor) SweepBlobsInNextAccount() (returnErr error) {
 		}
 	}
 
-	_, err = j.db.Exec(blobSweepDoneQuery, account.Name, j.timeNow().Add(1*time.Hour))
+	_, err = j.db.Exec(blobSweepDoneQuery, account.Name, j.timeNow().Add(j.addJitter(1*time.Hour)))
 	return err
 }
 

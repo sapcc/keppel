@@ -99,7 +99,7 @@ func (j *Janitor) SweepStorageInNextAccount() (returnErr error) {
 		return err
 	}
 
-	_, err = j.db.Exec(storageSweepDoneQuery, account.Name, j.timeNow().Add(6*time.Hour))
+	_, err = j.db.Exec(storageSweepDoneQuery, account.Name, j.timeNow().Add(j.addJitter(6*time.Hour)))
 	return err
 }
 
