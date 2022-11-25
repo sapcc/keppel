@@ -209,7 +209,7 @@ func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
 		}
 	}
 
-	_, err = j.db.Exec(syncManifestDoneQuery, repo.ID, j.timeNow().Add(1*time.Hour))
+	_, err = j.db.Exec(syncManifestDoneQuery, repo.ID, j.timeNow().Add(j.addJitter(1*time.Hour)))
 	if err != nil {
 		return err
 	}
@@ -606,7 +606,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 	//skip validation while account is in maintenance (maintenance mode blocks
 	//all kinds of activity on an account's contents)
 	if account.InMaintenance {
-		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(1 * time.Hour))
+		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(j.addJitter(1 * time.Hour)))
 		return nil
 	}
 
@@ -623,7 +623,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 
 		manifest.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
 		manifest.VulnerabilityScanErrorMessage = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
-		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(24 * time.Hour))
+		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(j.addJitter(24 * time.Hour)))
 		return nil
 	}
 
@@ -631,7 +631,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 	if manifest.SizeBytes >= uint64(1<<30*manifestSizeTooBigGiB) {
 		manifest.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
 		manifest.VulnerabilityScanErrorMessage = fmt.Sprintf("vulnerability scanning is not supported for images above %g GiB", manifestSizeTooBigGiB)
-		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(24 * time.Hour))
+		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(j.addJitter(24 * time.Hour)))
 		return nil
 	}
 
@@ -640,7 +640,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		if blob.StorageID == "" {
 			//if the manifest is fairly new, the user who replicated it is probably
 			//still replicating it; give them 10 minutes to finish replicating it
-			manifest.NextVulnerabilityCheckAt = p2time(manifest.PushedAt.Add(10 * time.Minute))
+			manifest.NextVulnerabilityCheckAt = p2time(manifest.PushedAt.Add(j.addJitter(10 * time.Minute)))
 			if manifest.NextVulnerabilityCheckAt.After(j.timeNow()) {
 				return nil
 			}
@@ -686,7 +686,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		if blob.BlocksVulnScanning != nil && *blob.BlocksVulnScanning {
 			manifest.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
 			manifest.VulnerabilityScanErrorMessage = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
-			manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(24 * time.Hour))
+			manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(j.addJitter(24 * time.Hour)))
 			return nil
 		}
 	}
@@ -738,10 +738,10 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 	if manifest.VulnerabilityStatus == clair.PendingVulnerabilityStatus {
 		logg.Info("skipping vulnerability check for %s: indexing is not finished yet", manifest.Digest)
 		//wait a bit for indexing to finish, then come back to update the vulnerability status
-		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(2 * time.Minute))
+		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(j.addJitter(2 * time.Minute)))
 	} else {
 		//regular recheck loop (vulnerability status might change if Clair adds new vulnerabilities to its DB)
-		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(1 * time.Hour))
+		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(j.addJitter(1 * time.Hour)))
 	}
 	return nil
 }

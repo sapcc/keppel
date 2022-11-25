@@ -111,7 +111,7 @@ func (j *Janitor) GarbageCollectManifestsInNextRepo() (returnErr error) {
 		}
 	}
 
-	_, err = j.db.Exec(imageGCRepoDoneQuery, repo.ID, j.timeNow().Add(1*time.Hour))
+	_, err = j.db.Exec(imageGCRepoDoneQuery, repo.ID, j.timeNow().Add(j.addJitter(1*time.Hour)))
 	return err
 }
 

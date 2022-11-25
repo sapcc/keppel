@@ -21,6 +21,7 @@ package tasks
 import (
 	"encoding/json"
 	"errors"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"time"
@@ -51,11 +52,12 @@ type Janitor struct {
 	//non-pure functions that can be replaced by deterministic doubles for unit tests
 	timeNow           func() time.Time
 	generateStorageID func() string
+	addJitter         func(time.Duration) time.Duration
 }
 
 // NewJanitor creates a new Janitor.
 func NewJanitor(cfg keppel.Configuration, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *keppel.DB, auditor keppel.Auditor) *Janitor {
-	j := &Janitor{cfg, fd, sd, icd, db, auditor, time.Now, keppel.GenerateStorageID}
+	j := &Janitor{cfg, fd, sd, icd, db, auditor, time.Now, keppel.GenerateStorageID, addJitter}
 	j.initializeCounters()
 	return j
 }
@@ -70,6 +72,21 @@ func (j *Janitor) OverrideTimeNow(timeNow func() time.Time) *Janitor {
 func (j *Janitor) OverrideGenerateStorageID(generateStorageID func() string) *Janitor {
 	j.generateStorageID = generateStorageID
 	return j
+}
+
+// DisableJitter replaces addJitter with a no-op for this Janitor.
+func (j *Janitor) DisableJitter() {
+	j.addJitter = func(d time.Duration) time.Duration { return d }
+}
+
+// addJitter returns a random duration within +/- 10% of the requested value.
+// This can be used to even out the load on a scheduled job over time, by
+// spreading jobs that would normally be scheduled right next to each other out
+// over time without corrupting the individual schedules too much.
+func addJitter(duration time.Duration) time.Duration {
+	//nolint:gosec // This is not crypto-relevant, so math/rand is okay.
+	r := rand.Float64() //NOTE: 0 <= r < 1
+	return time.Duration(float64(duration) * (0.9 + 0.2*r))
 }
 
 func (j *Janitor) processor() *processor.Processor {

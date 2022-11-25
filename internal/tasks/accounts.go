@@ -75,6 +75,6 @@ func (j *Janitor) AnnounceNextAccountToFederation() (returnErr error) {
 		logg.Error("cannot announce account %q to federation: %s", account.Name, err.Error())
 	}
 
-	_, err = j.db.Exec(accountAnnouncementDoneQuery, account.Name, j.timeNow().Add(1*time.Hour))
+	_, err = j.db.Exec(accountAnnouncementDoneQuery, account.Name, j.timeNow().Add(j.addJitter(1*time.Hour)))
 	return err
 }
