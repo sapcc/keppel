@@ -39,13 +39,6 @@
     },
     {
       "matchDepTypes": [
-        "action",
-        "dockerfile"
-      ],
-      "enabled": false
-    },
-    {
-      "matchDepTypes": [
         "action"
       ],
       "matchFiles": [
