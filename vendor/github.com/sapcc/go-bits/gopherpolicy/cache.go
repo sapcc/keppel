@@ -22,11 +22,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 )
 
 type inMemoryCacher struct {
-	*lru.Cache
+	*lru.Cache[string, []byte]
 }
 
 // InMemoryCacher builds a Cacher that stores token payloads in memory. At most
@@ -36,7 +36,7 @@ func InMemoryCacher() Cacher {
 	//lru.New() only fails if a non-negative size is given, so it's safe to
 	//ignore the error here
 	//nolint:errcheck
-	c, _ := lru.New(256)
+	c, _ := lru.New[string, []byte](256)
 	return inMemoryCacher{c}
 }
 
@@ -45,11 +45,7 @@ func (c inMemoryCacher) StoreTokenPayload(token string, payload []byte) {
 }
 
 func (c inMemoryCacher) LoadTokenPayload(token string) []byte {
-	val, ok := c.Get(cacheKeyFor(token))
-	if !ok {
-		return nil
-	}
-	payload, ok := val.([]byte)
+	payload, ok := c.Get(cacheKeyFor(token))
 	if !ok {
 		return nil
 	}
