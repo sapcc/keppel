@@ -10,9 +10,9 @@ require (
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-redis/redis_rate/v9 v9.1.2
 	github.com/gofrs/uuid v4.3.1+incompatible
-	github.com/golang-jwt/jwt/v4 v4.4.2
-	github.com/gophercloud/gophercloud v1.0.0
-	github.com/gophercloud/utils v0.0.0-20220927104426-4113af8d2663
+	github.com/golang-jwt/jwt/v4 v4.4.3
+	github.com/gophercloud/gophercloud v1.1.0
+	github.com/gophercloud/utils v0.0.0-20221128194715-5caf33c866da
 	github.com/gorilla/mux v1.8.0
 	github.com/majewsky/schwift v1.2.0
 	github.com/opencontainers/go-digest v1.0.0
