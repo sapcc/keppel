@@ -595,6 +595,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	//to Clair for indexing, but since Clair is not done indexing yet, images
 	//stay in vulnerability status "Pending" for now
 	s.Clock.StepBy(30 * time.Minute)
+	expectError(t, sql.ErrNoRows.Error(), j.CheckForNewVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest()) //once for each manifest
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
@@ -620,6 +621,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 
 	//five minutes later, indexing is still not finished
 	s.Clock.StepBy(5 * time.Minute)
+	expectError(t, sql.ErrNoRows.Error(), j.CheckForNewVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest()) //once for each manifest
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
@@ -634,6 +636,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	claird.ReportFixtures[images[0].Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
 	claird.ReportFixtures[images[1].Manifest.Digest.String()] = "fixtures/clair/report-clean.json"
 	s.Clock.StepBy(5 * time.Minute)
+	expectError(t, sql.ErrNoRows.Error(), j.CheckForNewVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest()) //once for each manifest
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
@@ -643,6 +646,13 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		UPDATE manifests SET next_vuln_check_at = 6120 WHERE repo_id = 1 AND digest = '%s';
 		UPDATE manifests SET next_vuln_check_at = 9600, vuln_status = 'Clean' WHERE repo_id = 1 AND digest = '%s';
 	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
+
+	s.Clock.StepBy(120 * time.Minute)
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
+	expectSuccess(t, j.CheckForNewVulnerabilitiesForNextManifest()) //once for each manifest
+	expectSuccess(t, j.CheckForNewVulnerabilitiesForNextManifest())
+	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
+	expectError(t, sql.ErrNoRows.Error(), j.CheckForNewVulnerabilitiesForNextManifest())
 }
 
 func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
@@ -675,6 +685,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 
 	// submit manifest to clair
 	claird.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
+	expectError(t, sql.ErrNoRows.Error(), j.CheckForNewVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
 	tr.DBChanges().AssertEqualf(`
@@ -687,6 +698,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 	s.Clock.StepBy(30 * time.Minute)
 	claird.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
 	claird.IndexReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-error.json"
+	expectError(t, sql.ErrNoRows.Error(), j.CheckForNewVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
 	tr.DBChanges().AssertEqualf(`
@@ -699,6 +711,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 	claird.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
 	claird.IndexReportFixtures[image.Manifest.Digest.String()] = ""
 	claird.ReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
+	expectError(t, sql.ErrNoRows.Error(), j.CheckForNewVulnerabilitiesForNextManifest())
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
 	tr.DBChanges().AssertEqualf(`

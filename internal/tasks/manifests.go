@@ -496,9 +496,18 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 
 var vulnCheckSelectQuery = sqlext.SimplifyWhitespace(`
 	SELECT m.* FROM manifests m
-		WHERE (m.next_vuln_check_at IS NULL OR m.next_vuln_check_at < $1)
-	-- manifests without any check first, then prefer manifests without a finished check, then sorted by schedule, then sorted by digest for deterministic behavior in unit test
-	ORDER BY m.next_vuln_check_at IS NULL DESC, m.vuln_status = 'Pending' DESC, m.next_vuln_check_at ASC, m.digest ASC
+		WHERE (m.next_vuln_check_at IS NULL OR m.next_vuln_check_at < $1) AND m.vuln_status = 'Pending'
+	-- manifests without any check first, then sorted by schedule, then sorted by digest for deterministic behavior in unit test
+	ORDER BY m.next_vuln_check_at IS NULL DESC, m.next_vuln_check_at ASC, m.digest ASC
+	-- only one manifests at a time
+	LIMIT 1
+`)
+
+var vulnCheckAgainSelectQuery = sqlext.SimplifyWhitespace(`
+	SELECT m.* FROM manifests m
+		WHERE (m.next_vuln_check_at IS NULL OR m.next_vuln_check_at < $1) AND m.vuln_status != 'Pending'
+	-- manifests without any check first, then sorted by schedule, then sorted by digest for deterministic behavior in unit test
+	ORDER BY m.next_vuln_check_at IS NULL DESC, m.next_vuln_check_at ASC, m.digest ASC
 	-- only one manifests at a time
 	LIMIT 1
 `)
@@ -532,12 +541,32 @@ func (j *Janitor) CheckVulnerabilitiesForNextManifest() (returnErr error) {
 		}
 	}()
 
-	//find manifest to sync
+	return j.checkVulnerabilitiesForManifest(vulnCheckSelectQuery)
+}
+
+// CheckForNewVulnerabilitiesForNextManifest is very similar to CheckVulnerabilitiesForNextManifest
+// with the exception that it only checks for already to clair submitted manifests which are still
+// in vuln_status Pending
+func (j *Janitor) CheckForNewVulnerabilitiesForNextManifest() (returnErr error) {
+	defer func() {
+		if returnErr == nil {
+			checkForNewVulnerabilitySuccessCounter.Inc()
+		} else if returnErr != sql.ErrNoRows {
+			checkForNewVulnerabilityFailedCounter.Inc()
+			returnErr = fmt.Errorf("while updating vulnerability status for a pending manifest: %s", returnErr.Error())
+		}
+	}()
+
+	return j.checkVulnerabilitiesForManifest(vulnCheckAgainSelectQuery)
+}
+
+func (j *Janitor) checkVulnerabilitiesForManifest(query string) error {
+	//find pending manifest to sync
 	var manifest keppel.Manifest
-	err := j.db.SelectOne(&manifest, vulnCheckSelectQuery, j.timeNow())
+	err := j.db.SelectOne(&manifest, query, j.timeNow())
 	if err != nil {
 		if err == sql.ErrNoRows {
-			logg.Debug("no manifests to update vulnerability status for - slowing down...")
+			logg.Debug("no pending manifests to update vulnerability status for - slowing down...")
 			return sql.ErrNoRows
 		}
 		return err
