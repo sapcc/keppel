@@ -1,4 +1,4 @@
-FROM golang:1.19.3-alpine3.16 as builder
+FROM golang:1.19.3-alpine3.17 as builder
 
 RUN apk add --no-cache gcc git make musl-dev
 
@@ -8,7 +8,7 @@ RUN make -C /src install PREFIX=/pkg GO_BUILDFLAGS='-mod vendor'
 
 ################################################################################
 
-FROM alpine:3.16
+FROM alpine:3.17
 
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /pkg/ /usr/
