@@ -96,6 +96,11 @@ func (d *AuthDriver) AuthenticateUser(userName, password string) (keppel.UserIde
 }
 
 func (d *AuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.UserIdentity, *keppel.RegistryV2Error) {
+	if r.Header.Get("Authorization") == "" {
+		// fallback to anonymous auth
+		return nil, nil
+	}
+
 	return &userIdentity{Username: d.userName}, nil
 }
 
