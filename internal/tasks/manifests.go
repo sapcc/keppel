@@ -389,7 +389,7 @@ TAG:
 var repoUntaggedManifestsSelectQuery = sqlext.SimplifyWhitespace(`
 	SELECT m.* FROM manifests m
 		WHERE repo_id = $1
-		AND digest NOT IN (SELECT digest FROM tags WHERE repo_id = $1)
+		AND digest NOT IN (SELECT DISTINCT digest FROM tags WHERE repo_id = $1)
 `)
 
 func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Repository, syncPayload *keppel.ReplicaSyncPayload) error {

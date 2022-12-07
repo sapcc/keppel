@@ -36,7 +36,7 @@ import (
 var blobMountSweepSearchQuery = sqlext.SimplifyWhitespace(`
 	SELECT * FROM repos
 		WHERE next_blob_mount_sweep_at IS NULL OR next_blob_mount_sweep_at < $1
-		AND id NOT IN (SELECT repo_id FROM manifests WHERE validation_error_message != '')
+		AND id NOT IN (SELECT DISTINCT repo_id FROM manifests WHERE validation_error_message != '')
 	-- repos without any sweeps first, then sorted by last sweep
 	ORDER BY next_blob_mount_sweep_at IS NULL DESC, next_blob_mount_sweep_at ASC
 	-- only one repo at a time
@@ -46,14 +46,14 @@ var blobMountSweepSearchQuery = sqlext.SimplifyWhitespace(`
 var blobMountMarkQuery = sqlext.SimplifyWhitespace(`
 	UPDATE blob_mounts SET can_be_deleted_at = $2
 	WHERE repo_id = $1 AND can_be_deleted_at IS NULL AND blob_id NOT IN (
-		SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1
+		SELECT DISTINCT blob_id FROM manifest_blob_refs WHERE repo_id = $1
 	)
 `)
 
 var blobMountUnmarkQuery = sqlext.SimplifyWhitespace(`
 	UPDATE blob_mounts SET can_be_deleted_at = NULL
 	WHERE repo_id = $1 AND blob_id IN (
-		SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1
+		SELECT DISTINCT blob_id FROM manifest_blob_refs WHERE repo_id = $1
 	)
 `)
 
