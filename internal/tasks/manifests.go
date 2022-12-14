@@ -107,7 +107,7 @@ func (j *Janitor) ValidateNextManifest() (returnErr error) {
 		//update `validated_at` and reset error message
 		_, err := j.db.Exec(`
 			UPDATE manifests SET validated_at = $1, validation_error_message = ''
-			 WHERE repo_id = $2 AND digest = $3`,
+				WHERE repo_id = $2 AND digest = $3`,
 			j.timeNow(), repo.ID, manifest.Digest,
 		)
 		if err != nil {
@@ -119,7 +119,7 @@ func (j *Janitor) ValidateNextManifest() (returnErr error) {
 		//stuck on this one
 		_, updateErr := j.db.Exec(`
 			UPDATE manifests SET validated_at = $1, validation_error_message = $2
-			 WHERE repo_id = $3 AND digest = $4`,
+				WHERE repo_id = $3 AND digest = $4`,
 			j.timeNow(), err.Error(), repo.ID, manifest.Digest,
 		)
 		if updateErr != nil {
@@ -495,10 +495,10 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 }
 
 var vulnCheckSelectQuery = sqlext.SimplifyWhitespace(`
-	SELECT m.* FROM manifests m
-		WHERE (m.next_vuln_check_at IS NULL OR m.next_vuln_check_at < $1)
+	SELECT v.* FROM vuln_info v
+		WHERE v.next_check_at <= $1
 	-- manifests without any check first, then prefer manifests without a finished check, then sorted by schedule, then sorted by digest for deterministic behavior in unit test
-	ORDER BY m.next_vuln_check_at IS NULL DESC, m.vuln_status = 'Pending' DESC, m.next_vuln_check_at ASC, m.digest ASC
+	ORDER BY v.next_check_at IS NULL DESC, v.status = 'Pending' DESC, v.next_check_at ASC, v.digest ASC
 	-- only one manifests at a time
 	LIMIT 1
 `)
@@ -510,8 +510,9 @@ var vulnCheckBlobSelectQuery = sqlext.SimplifyWhitespace(`
 `)
 
 var vulnCheckSubmanifestInfoQuery = sqlext.SimplifyWhitespace(`
-	SELECT m.vuln_status FROM manifests m
+	SELECT v.status FROM manifests m
 	JOIN manifest_manifest_refs r ON m.digest = r.child_digest
+	JOIN vuln_info v ON m.digest = v.digest
 		WHERE r.parent_digest = $1
 `)
 
@@ -532,32 +533,36 @@ func (j *Janitor) CheckVulnerabilitiesForNextManifest() (returnErr error) {
 		}
 	}()
 
-	//find manifest to sync
-	var manifest keppel.Manifest
-	err := j.db.SelectOne(&manifest, vulnCheckSelectQuery, j.timeNow())
+	//find vulnInfo to sync
+	var vulnInfo keppel.VulnerabilityInfo
+	err := j.db.SelectOne(&vulnInfo, vulnCheckSelectQuery, j.timeNow())
 	if err != nil {
 		if err == sql.ErrNoRows {
-			logg.Debug("no manifests to update vulnerability status for - slowing down...")
+			logg.Debug("no vulnerability to update status for - slowing down...")
 			return sql.ErrNoRows
 		}
 		return err
 	}
 
-	//load corresponding repo and account
-	repo, err := keppel.FindRepositoryByID(j.db, manifest.RepositoryID)
+	//load corresponding repo, account and manifest
+	repo, err := keppel.FindRepositoryByID(j.db, vulnInfo.RepositoryID)
 	if err != nil {
-		return fmt.Errorf("cannot find repo for manifest %s: %s", manifest.Digest, err.Error())
+		return fmt.Errorf("cannot find repo for manifest %s: %s", vulnInfo.Digest, err.Error())
 	}
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {
 		return fmt.Errorf("cannot find account for repo %s: %s", repo.FullName(), err.Error())
 	}
+	manifest, err := keppel.FindManifest(j.db, *repo, vulnInfo.Digest)
+	if err != nil {
+		return fmt.Errorf("cannot find manifest for repo %s and digest %s: %s", repo.FullName(), vulnInfo.Digest, err.Error())
+	}
 
-	err = j.doVulnerabilityCheck(*account, *repo, &manifest)
+	err = j.doVulnerabilityCheck(*account, *repo, *manifest, &vulnInfo)
 	if err != nil {
 		return err
 	}
-	_, err = j.db.Update(&manifest)
+	_, err = j.db.Update(&vulnInfo)
 	return err
 }
 
@@ -566,7 +571,7 @@ var (
 	blobUncompressedSizeTooBigGiB float64 = 10
 )
 
-func (j *Janitor) collectManifestReferencedBlobs(account keppel.Account, repo keppel.Repository, manifest *keppel.Manifest) (layerBlobs []keppel.Blob, err error) {
+func (j *Janitor) collectManifestReferencedBlobs(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest) (layerBlobs []keppel.Blob, err error) {
 	//we need all blobs directly referenced by this manifest (we do not care
 	//about submanifests at this level, the reports from those will be merged
 	//later on in the API)
@@ -602,11 +607,11 @@ func (j *Janitor) collectManifestReferencedBlobs(account keppel.Account, repo ke
 	return
 }
 
-func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repository, manifest *keppel.Manifest) error {
+func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, vulnInfo *keppel.VulnerabilityInfo) error {
 	//skip validation while account is in maintenance (maintenance mode blocks
 	//all kinds of activity on an account's contents)
 	if account.InMaintenance {
-		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(j.addJitter(1 * time.Hour)))
+		vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(1 * time.Hour))
 		return nil
 	}
 
@@ -621,17 +626,17 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			continue
 		}
 
-		manifest.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
-		manifest.VulnerabilityScanErrorMessage = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
-		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(j.addJitter(24 * time.Hour)))
+		vulnInfo.Status = clair.UnsupportedVulnerabilityStatus
+		vulnInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
+		vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
 		return nil
 	}
 
 	//skip when blobs add up to more than 5 GiB
 	if manifest.SizeBytes >= uint64(1<<30*manifestSizeTooBigGiB) {
-		manifest.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
-		manifest.VulnerabilityScanErrorMessage = fmt.Sprintf("vulnerability scanning is not supported for images above %g GiB", manifestSizeTooBigGiB)
-		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(j.addJitter(24 * time.Hour)))
+		vulnInfo.Status = clair.UnsupportedVulnerabilityStatus
+		vulnInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for images above %g GiB", manifestSizeTooBigGiB)
+		vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
 		return nil
 	}
 
@@ -640,8 +645,8 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		if blob.StorageID == "" {
 			//if the manifest is fairly new, the user who replicated it is probably
 			//still replicating it; give them 10 minutes to finish replicating it
-			manifest.NextVulnerabilityCheckAt = p2time(manifest.PushedAt.Add(j.addJitter(10 * time.Minute)))
-			if manifest.NextVulnerabilityCheckAt.After(j.timeNow()) {
+			vulnInfo.NextCheckAt = manifest.PushedAt.Add(j.addJitter(10 * time.Minute))
+			if vulnInfo.NextCheckAt.After(j.timeNow()) {
 				return nil
 			}
 			//otherwise we do the replication ourselves
@@ -650,7 +655,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 				return err
 			}
 			//after successful replication, restart this call to read the new blob with the correct StorageID from the DB
-			return j.doVulnerabilityCheck(account, repo, manifest)
+			return j.doVulnerabilityCheck(account, repo, manifest, vulnInfo)
 		}
 
 		if blob.BlocksVulnScanning == nil && strings.HasSuffix(blob.MediaType, "gzip") {
@@ -684,9 +689,9 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		}
 
 		if blob.BlocksVulnScanning != nil && *blob.BlocksVulnScanning {
-			manifest.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
-			manifest.VulnerabilityScanErrorMessage = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
-			manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(j.addJitter(24 * time.Hour)))
+			vulnInfo.Status = clair.UnsupportedVulnerabilityStatus
+			vulnInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
+			vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
 			return nil
 		}
 	}
@@ -704,10 +709,10 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 	}
 
 	//ask Clair for vulnerability status of blobs in this image
-	manifest.VulnerabilityScanErrorMessage = "" //unless it gets set to something else below
+	vulnInfo.Message = "" //unless it gets set to something else below
 	if len(layerBlobs) > 0 {
 		clairState, err := j.cfg.ClairClient.CheckManifestState(manifest.Digest, func() (clair.Manifest, error) {
-			return j.buildClairManifest(account, *manifest, layerBlobs)
+			return j.buildClairManifest(account, manifest, layerBlobs)
 		})
 		if err != nil {
 			return err
@@ -717,7 +722,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		}
 		if clairState.IsErrored {
 			vulnStatuses = append(vulnStatuses, clair.ErrorVulnerabilityStatus)
-			manifest.VulnerabilityScanErrorMessage = clairState.ErrorMessage
+			vulnInfo.Message = clairState.ErrorMessage
 		} else if clairState.IsIndexed {
 			clairReport, err := j.cfg.ClairClient.GetVulnerabilityReport(manifest.Digest)
 			if err != nil {
@@ -734,14 +739,14 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 	}
 
 	//merge all vulnerability statuses
-	manifest.VulnerabilityStatus = clair.MergeVulnerabilityStatuses(vulnStatuses...)
-	if manifest.VulnerabilityStatus == clair.PendingVulnerabilityStatus {
+	vulnInfo.Status = clair.MergeVulnerabilityStatuses(vulnStatuses...)
+	if vulnInfo.Status == clair.PendingVulnerabilityStatus {
 		logg.Info("skipping vulnerability check for %s: indexing is not finished yet", manifest.Digest)
 		//wait a bit for indexing to finish, then come back to update the vulnerability status
-		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(j.addJitter(2 * time.Minute)))
+		vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(2 * time.Minute))
 	} else {
 		//regular recheck loop (vulnerability status might change if Clair adds new vulnerabilities to its DB)
-		manifest.NextVulnerabilityCheckAt = p2time(j.timeNow().Add(j.addJitter(1 * time.Hour)))
+		vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(1 * time.Hour))
 	}
 	return nil
 }
@@ -764,8 +769,4 @@ func (j *Janitor) buildClairManifest(account keppel.Account, manifest keppel.Man
 	}
 
 	return result, nil
-}
-
-func p2time(x time.Time) *time.Time {
-	return &x
 }

@@ -295,12 +295,17 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			//test display of custom headers during GET/HEAD
 			_, err = s.DB.Exec(
-				`UPDATE manifests SET vuln_status = $1, min_layer_created_at = $2, max_layer_created_at = $3 WHERE digest = $4`,
-				clair.CleanSeverity, time.Unix(23, 0).UTC(), time.Unix(42, 0).UTC(), image.Manifest.Digest.String(),
+				`UPDATE manifests SET min_layer_created_at = $1, max_layer_created_at = $2 WHERE digest = $3`,
+				time.Unix(23, 0).UTC(), time.Unix(42, 0).UTC(), image.Manifest.Digest.String(),
 			)
 			if err != nil {
 				t.Fatal(err.Error())
 			}
+			_, err = s.DB.Exec(`UPDATE vuln_info SET status = $1 WHERE digest = $2`, clair.CleanSeverity, image.Manifest.Digest.String())
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+
 			for _, method := range []string{"GET", "HEAD"} {
 				assert.HTTPRequest{
 					Method:       method,

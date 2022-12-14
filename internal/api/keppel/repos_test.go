@@ -129,13 +129,18 @@ func TestReposAPI(t *testing.T) {
 		digest := deterministicDummyDigest(idx)
 		manifestPushedAt := time.Unix(int64(10000+10*idx), 0)
 		mustInsert(t, s.DB, &keppel.Manifest{
-			RepositoryID:        filledRepo.ID,
-			Digest:              digest,
-			MediaType:           "",
-			SizeBytes:           uint64(1000 * idx),
-			PushedAt:            manifestPushedAt,
-			ValidatedAt:         manifestPushedAt,
-			VulnerabilityStatus: clair.PendingVulnerabilityStatus,
+			RepositoryID: filledRepo.ID,
+			Digest:       digest,
+			MediaType:    "",
+			SizeBytes:    uint64(1000 * idx),
+			PushedAt:     manifestPushedAt,
+			ValidatedAt:  manifestPushedAt,
+		})
+		mustInsert(t, s.DB, &keppel.VulnerabilityInfo{
+			RepositoryID: filledRepo.ID,
+			Digest:       digest,
+			Status:       clair.PendingVulnerabilityStatus,
+			NextCheckAt:  time.Unix(0, 0),
 		})
 		if idx <= 3 {
 			mustInsert(t, s.DB, &keppel.Tag{

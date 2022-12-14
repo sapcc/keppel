@@ -105,17 +105,16 @@ func TestManifestsAPI(t *testing.T) {
 				pushedAt := time.Unix(int64(1000*(repoID*10+idx)), 0)
 
 				dbManifest := keppel.Manifest{
-					RepositoryID:        int64(repoID),
-					Digest:              digest,
-					MediaType:           schema2.MediaTypeManifest,
-					SizeBytes:           sizeBytes,
-					PushedAt:            pushedAt,
-					ValidatedAt:         pushedAt,
-					VulnerabilityStatus: deterministicDummyVulnStatus(idx),
-					LabelsJSON:          `{"foo":"is there"}`,
-					GCStatusJSON:        `{"protected_by_recent_upload":true}`,
-					MinLayerCreatedAt:   p2time(time.Unix(20001, 0)),
-					MaxLayerCreatedAt:   p2time(time.Unix(20002, 0)),
+					RepositoryID:      int64(repoID),
+					Digest:            digest,
+					MediaType:         schema2.MediaTypeManifest,
+					SizeBytes:         sizeBytes,
+					PushedAt:          pushedAt,
+					ValidatedAt:       pushedAt,
+					LabelsJSON:        `{"foo":"is there"}`,
+					GCStatusJSON:      `{"protected_by_recent_upload":true}`,
+					MinLayerCreatedAt: p2time(time.Unix(20001, 0)),
+					MaxLayerCreatedAt: p2time(time.Unix(20002, 0)),
 				}
 				if idx == 1 {
 					dbManifest.LastPulledAt = p2time(pushedAt.Add(100 * time.Second))
@@ -129,6 +128,12 @@ func TestManifestsAPI(t *testing.T) {
 				if err != nil {
 					t.Fatal(err.Error())
 				}
+				mustInsert(t, s.DB, &keppel.VulnerabilityInfo{
+					RepositoryID: int64(repoID),
+					Digest:       digest,
+					Status:       deterministicDummyVulnStatus(idx),
+					NextCheckAt:  time.Unix(0, 0),
+				})
 			}
 			//one manifest is referenced by two tags, one is referenced by one tag
 			mustInsert(t, s.DB, &keppel.Tag{

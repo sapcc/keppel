@@ -142,18 +142,23 @@ func TestValidateNextManifestError(t *testing.T) {
 	s.Clock.StepBy(1 * time.Hour)
 	image := test.GenerateImage( /* no layers */ )
 	mustDo(t, s.DB.Insert(&keppel.Manifest{
-		RepositoryID:        1,
-		Digest:              image.Manifest.Digest.String(),
-		MediaType:           image.Manifest.MediaType,
-		SizeBytes:           image.SizeBytes(),
-		PushedAt:            s.Clock.Now(),
-		ValidatedAt:         s.Clock.Now(),
-		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
+		RepositoryID: 1,
+		Digest:       image.Manifest.Digest.String(),
+		MediaType:    image.Manifest.MediaType,
+		SizeBytes:    image.SizeBytes(),
+		PushedAt:     s.Clock.Now(),
+		ValidatedAt:  s.Clock.Now(),
 	}))
 	mustDo(t, s.DB.Insert(&keppel.ManifestContent{
 		RepositoryID: 1,
 		Digest:       image.Manifest.Digest.String(),
 		Content:      image.Manifest.Contents,
+	}))
+	mustDo(t, s.DB.Insert(&keppel.VulnerabilityInfo{
+		RepositoryID: 1,
+		Digest:       image.Manifest.Digest.String(),
+		NextCheckAt:  time.Unix(0, 0),
+		Status:       clair.PendingVulnerabilityStatus,
 	}))
 	mustDo(t, s.SD.WriteManifest(*s.Accounts[0], "foo", image.Manifest.Digest.String(), image.Manifest.Contents))
 
@@ -384,6 +389,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 					%[5]sUPDATE manifests SET validated_at = %[2]d WHERE repo_id = 1 AND digest = '%[3]s';
 					UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 					UPDATE tags SET digest = '%[3]s', pushed_at = %[2]d, last_pulled_at = NULL WHERE repo_id = 1 AND name = 'latest';
+					DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[1]s';
 				`,
 				images[3].Manifest.Digest.String(), //the deleted manifest
 				s1.Clock.Now().Unix(),
@@ -452,6 +458,8 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[2]s';
 					UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 					DELETE FROM tags WHERE repo_id = 1 AND name = 'other';
+					DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[1]s';
+					DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[2]s';
 				`,
 				images[2].Manifest.Digest.String(),
 				imageList.Manifest.Digest.String(),
@@ -513,6 +521,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 					DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM repos WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+					DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[1]s';
 				`,
 				images[1].Manifest.Digest.String(),
 			)
@@ -602,16 +611,16 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
 	tr.DBChanges().AssertEqualf(`
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[8]s';
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 3 AND account_name = 'test1' AND digest = '%[9]s';
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 5 AND account_name = 'test1' AND digest = '%[10]s';
-			UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 7 AND account_name = 'test1' AND digest = '%[11]s';
-			UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = '%[4]s';
-			UPDATE manifests SET next_vuln_check_at = 91800, vuln_status = 'Unsupported', vuln_scan_error = 'vulnerability scanning is not supported for images above %[1]g GiB' WHERE repo_id = 1 AND digest = '%[3]s';
-			UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = '%[6]s';
-			UPDATE manifests SET next_vuln_check_at = 91800, vuln_status = 'Unsupported', vuln_scan_error = 'vulnerability scanning is not supported for uncompressed image layers above %[2]g GiB' WHERE repo_id = 1 AND digest = '%[7]s';
-			UPDATE manifests SET next_vuln_check_at = 5520 WHERE repo_id = 1 AND digest = '%[5]s';
-		`,
+		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[8]s';
+		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 3 AND account_name = 'test1' AND digest = '%[9]s';
+		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 5 AND account_name = 'test1' AND digest = '%[10]s';
+		UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 7 AND account_name = 'test1' AND digest = '%[11]s';
+		UPDATE vuln_info SET next_check_at = 5520 WHERE repo_id = 1 AND digest = '%[4]s';
+		UPDATE vuln_info SET status = 'Unsupported', message = 'vulnerability scanning is not supported for images above %[1]g GiB', next_check_at = 91800 WHERE repo_id = 1 AND digest = '%[3]s';
+		UPDATE vuln_info SET next_check_at = 5520 WHERE repo_id = 1 AND digest = '%[6]s';
+		UPDATE vuln_info SET status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[2]g GiB', next_check_at = 91800 WHERE repo_id = 1 AND digest = '%[7]s';
+		UPDATE vuln_info SET next_check_at = 5520 WHERE repo_id = 1 AND digest = '%[5]s';
+	`,
 		manifestSizeTooBigGiB, blobUncompressedSizeTooBigGiB,
 		imageList.Manifest.Digest,
 		images[0].Manifest.Digest, images[1].Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest,
@@ -625,9 +634,9 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
 	tr.DBChanges().AssertEqualf(`
-		UPDATE manifests SET next_vuln_check_at = 5820 WHERE repo_id = 1 AND digest = '%s';
-		UPDATE manifests SET next_vuln_check_at = 5820 WHERE repo_id = 1 AND digest = '%s';
-		UPDATE manifests SET next_vuln_check_at = 5820 WHERE repo_id = 1 AND digest = '%s';
+		UPDATE vuln_info SET next_check_at = 5820 WHERE repo_id = 1 AND digest = '%s';
+		UPDATE vuln_info SET next_check_at = 5820 WHERE repo_id = 1 AND digest = '%s';
+		UPDATE vuln_info SET next_check_at = 5820 WHERE repo_id = 1 AND digest = '%s';
 	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
 
 	//five minutes later, indexing is finished now and ClairDouble provides vulnerability reports to us
@@ -639,9 +648,9 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
 	tr.DBChanges().AssertEqualf(`
-		UPDATE manifests SET next_vuln_check_at = 9600, vuln_status = 'Low' WHERE repo_id = 1 AND digest = '%s';
-		UPDATE manifests SET next_vuln_check_at = 6120 WHERE repo_id = 1 AND digest = '%s';
-		UPDATE manifests SET next_vuln_check_at = 9600, vuln_status = 'Clean' WHERE repo_id = 1 AND digest = '%s';
+		UPDATE vuln_info SET status = 'Low', next_check_at = 9600 WHERE repo_id = 1 AND digest = '%s';
+		UPDATE vuln_info SET next_check_at = 6120 WHERE repo_id = 1 AND digest = '%s';
+		UPDATE vuln_info SET status = 'Clean', next_check_at = 9600 WHERE repo_id = 1 AND digest = '%s';
 	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
 }
 
@@ -679,7 +688,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
 	tr.DBChanges().AssertEqualf(`
 		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
-		UPDATE manifests SET next_vuln_check_at = %[3]d WHERE repo_id = 1 AND digest = '%[2]s';
+		UPDATE vuln_info SET next_check_at = %[3]d WHERE repo_id = 1 AND digest = '%[2]s';
 	`, image.Layers[0].Digest, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix())
 	assert.DeepEqual(t, "delete counter", claird.IndexDeleteCounter, 0)
 
@@ -690,7 +699,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
 	tr.DBChanges().AssertEqualf(`
-		UPDATE manifests SET next_vuln_check_at = %[2]d WHERE repo_id = 1 AND digest = '%[1]s';
+		UPDATE vuln_info SET next_check_at = %[2]d WHERE repo_id = 1 AND digest = '%[1]s';
 	`, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix())
 	assert.DeepEqual(t, "delete counter", claird.IndexDeleteCounter, 1)
 
@@ -702,7 +711,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
 	tr.DBChanges().AssertEqualf(`
-	UPDATE manifests SET next_vuln_check_at = %[2]d, vuln_status = 'Low' WHERE repo_id = 1 AND digest = '%[1]s';
+		UPDATE vuln_info SET status = 'Low', next_check_at = %[2]d WHERE repo_id = 1 AND digest = '%[1]s';
 	`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix())
 	assert.DeepEqual(t, "delete counter", claird.IndexDeleteCounter, 1)
 }

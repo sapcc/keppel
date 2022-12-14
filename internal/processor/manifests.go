@@ -38,6 +38,7 @@ import (
 	"gopkg.in/gorp.v2"
 
 	"github.com/sapcc/keppel/internal/auth"
+	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -253,7 +254,7 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 		manifest.MaxLayerCreatedAt = keppel.MaxMaybeTime(refsInfo.MaxCreationTime, configInfo.MaxCreationTime)
 
 		//create or update database entries
-		err = upsertManifest(tx, *manifest, manifestBytes)
+		err = upsertManifest(tx, *manifest, manifestBytes, p.timeNow())
 		if err != nil {
 			return err
 		}
@@ -448,12 +449,23 @@ var upsertManifestContentQuery = sqlext.SimplifyWhitespace(`
 		SET content = EXCLUDED.content
 `)
 
-func upsertManifest(db gorp.SqlExecutor, m keppel.Manifest, manifestBytes []byte) error {
+var upsertManifestVulnerabilityInfo = sqlext.SimplifyWhitespace(`
+	INSERT INTO vuln_info (repo_id, digest, status, message, next_check_at)
+	VALUES ($1, $2, $3, $4, $5)
+	ON CONFLICT DO NOTHING
+`)
+
+func upsertManifest(db gorp.SqlExecutor, m keppel.Manifest, manifestBytes []byte, timeNow time.Time) error {
 	_, err := db.Exec(upsertManifestQuery, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.ValidatedAt, m.LabelsJSON, m.MinLayerCreatedAt, m.MaxLayerCreatedAt)
 	if err != nil {
 		return err
 	}
 	_, err = db.Exec(upsertManifestContentQuery, m.RepositoryID, m.Digest, manifestBytes)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec(upsertManifestVulnerabilityInfo, m.RepositoryID, m.Digest, clair.PendingVulnerabilityStatus, "", timeNow)
 	return err
 }
 

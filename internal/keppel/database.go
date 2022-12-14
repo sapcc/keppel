@@ -473,11 +473,48 @@ var sqlMigrations = map[string]string{
 	"030_add_blobs_blocks_vuln_scanning.up.sql": `
 		ALTER TABLE blobs
 			ADD COLUMN blocks_vuln_scanning BOOLEAN DEFAULT NULL;
-`,
-	"030_add_blobs:blocks_vuln_scanning.down.sql": `
+	`,
+	"030_add_blobs_blocks_vuln_scanning.down.sql": `
 		ALTER TABLE blobs
-			DROP COLUMN blocks_vuln_scanning ;
-`,
+			DROP COLUMN blocks_vuln_scanning;
+	`,
+	"031_add_vuln_info_table.up.sql": `
+		CREATE TABLE vuln_info (
+			repo_id             BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
+			digest              TEXT        NOT NULL,
+			status              TEXT        NOT NULL,
+			message             TEXT        NOT NULL,
+			next_check_at       TIMESTAMPTZ NOT NULL,
+			checked_at          TIMESTAMPTZ DEFAULT NULL,        -- NULL before first check
+			index_started_at    TIMESTAMPTZ DEFAULT NULL,        -- NULL if not submitted to Clair yet
+			index_finished_at   TIMESTAMPTZ DEFAULT NULL,        -- NULL until index report is ready
+			index_state         TEXT        NOT NULL DEFAULT '',
+			check_duration_secs REAL        DEFAULT NULL,        -- NULL before first check
+			FOREIGN KEY (repo_id, digest) REFERENCES manifests ON DELETE CASCADE,
+			UNIQUE (repo_id, digest)
+		);
+
+		INSERT INTO vuln_info(repo_id, digest, status, message, next_check_at)
+			select repo_id, digest, vuln_status, vuln_scan_error, next_vuln_check_at from manifests;
+
+		ALTER TABLE manifests
+			DROP COLUMN next_vuln_check_at,
+			DROP COLUMN vuln_status,
+			DROP COLUMN vuln_scan_error;
+	`,
+	"031_add_vuln_info_table.down.sql": `
+		ALTER TABLE manifests
+			ADD COLUMN next_vuln_check_at TIMESTAMPTZ DEFAULT NULL,
+			ADD COLUMN vuln_status TEXT NOT NULL DEFAULT 'Unknown',
+			ADD COLUMN vuln_scan_error TEXT NOT NULL DEFAULT '';
+
+		UPDATE manifests m SET
+			next_vuln_check_at = (SELECT v.next_check_at FROM vuln_info v WHERE v.repo_id = m.repo_id AND v.digest = m.digest),
+			vuln_status = (SELECT v.status FROM vuln_info v WHERE v.repo_id = m.repo_id AND v.digest = m.digest)
+			vuln_scan_error = (SELECT v.message FROM vuln_info v WHERE v.repo_id = m.repo_id AND v.digest = m.digest);
+
+		DROP TABLE vuln_info;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.

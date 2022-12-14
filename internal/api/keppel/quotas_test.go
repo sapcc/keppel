@@ -129,13 +129,18 @@ func TestQuotasAPI(t *testing.T) {
 	for idx := 1; idx <= 10; idx++ {
 		pushedAt := time.Unix(int64(10000+10*idx), 0)
 		mustInsert(t, s.DB, &keppel.Manifest{
-			RepositoryID:        1,
-			Digest:              deterministicDummyDigest(idx),
-			MediaType:           "",
-			SizeBytes:           uint64(1000 * idx),
-			PushedAt:            pushedAt,
-			ValidatedAt:         pushedAt,
-			VulnerabilityStatus: clair.PendingVulnerabilityStatus,
+			RepositoryID: 1,
+			Digest:       deterministicDummyDigest(idx),
+			MediaType:    "",
+			SizeBytes:    uint64(1000 * idx),
+			PushedAt:     pushedAt,
+			ValidatedAt:  pushedAt,
+		})
+		mustInsert(t, s.DB, &keppel.VulnerabilityInfo{
+			RepositoryID: 1,
+			Digest:       deterministicDummyDigest(idx),
+			Status:       clair.PendingVulnerabilityStatus,
+			NextCheckAt:  time.Unix(0, 0),
 		})
 	}
 	assert.HTTPRequest{
