@@ -26,7 +26,6 @@
       "matchPackagePatterns": [
         "^github\\.com\\/sapcc\\/.*"
       ],
-      "automerge": true,
       "groupName": "github.com/sapcc"
     },
     {
