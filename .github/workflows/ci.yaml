@@ -69,7 +69,7 @@ jobs:
           goveralls -service=github -coverprofile=build/cover.out
     services:
       postgres:
-        image: postgres:12
+        image: postgres:15
         env:
           POSTGRES_PASSWORD: postgres
         ports:
