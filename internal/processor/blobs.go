@@ -29,10 +29,10 @@ import (
 	"time"
 
 	"github.com/docker/distribution"
+	"github.com/go-gorp/gorp/v3"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/logg"
-	"gopkg.in/gorp.v2"
 
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"

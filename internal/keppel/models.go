@@ -26,9 +26,9 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/go-gorp/gorp/v3"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/sqlext"
-	gorp "gopkg.in/gorp.v2"
 
 	"github.com/sapcc/keppel/internal/clair"
 )

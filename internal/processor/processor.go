@@ -25,8 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-gorp/gorp/v3"
 	"github.com/sapcc/go-bits/logg"
-	"gopkg.in/gorp.v2"
 
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"

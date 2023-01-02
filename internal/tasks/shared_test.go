@@ -21,7 +21,7 @@ package tasks
 import (
 	"testing"
 
-	"gopkg.in/gorp.v2"
+	"github.com/go-gorp/gorp/v3"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"

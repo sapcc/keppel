@@ -28,9 +28,9 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/go-gorp/gorp/v3"
 	"github.com/sapcc/go-bits/logg"
 	"golang.org/x/crypto/bcrypt"
-	"gopkg.in/gorp.v2"
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"

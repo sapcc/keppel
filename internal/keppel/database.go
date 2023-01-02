@@ -22,8 +22,8 @@ package keppel
 import (
 	"net/url"
 
+	"github.com/go-gorp/gorp/v3"
 	"github.com/sapcc/go-bits/easypg"
-	gorp "gopkg.in/gorp.v2"
 )
 
 var sqlMigrations = map[string]string{

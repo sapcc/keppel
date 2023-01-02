@@ -34,6 +34,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-gorp/gorp/v3"
 	"github.com/gofrs/uuid"
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
@@ -41,7 +42,6 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
-	"gopkg.in/gorp.v2"
 
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/auth"
