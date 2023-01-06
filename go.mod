@@ -23,7 +23,7 @@ require (
 	github.com/sapcc/go-api-declarations v1.4.2
 	github.com/sapcc/go-bits v0.0.0-20230101201537-12465ca06570
 	github.com/spf13/cobra v1.6.1
-	golang.org/x/crypto v0.4.0
+	golang.org/x/crypto v0.5.0
 )
 
 require (
@@ -50,8 +50,8 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/yuin/gopher-lua v0.0.0-20220504180219-658193537a64 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
-	golang.org/x/sys v0.3.0 // indirect
-	golang.org/x/text v0.5.0 // indirect
+	golang.org/x/sys v0.4.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
