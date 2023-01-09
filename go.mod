@@ -21,7 +21,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/rs/cors v1.8.3
 	github.com/sapcc/go-api-declarations v1.4.2
-	github.com/sapcc/go-bits v0.0.0-20230101201537-12465ca06570
+	github.com/sapcc/go-bits v0.0.0-20230106150032-a47ac4215fc5
 	github.com/spf13/cobra v1.6.1
 	golang.org/x/crypto v0.5.0
 )

@@ -48,6 +48,10 @@ const (
 		SELECT table_name, column_name FROM information_schema.key_column_usage
 		WHERE table_schema = 'public' AND table_name != 'schema_migrations' AND position_in_unique_constraint IS NULL
 	`
+	listColumnDefaultsQuery = `
+		SELECT table_name, column_name, is_nullable, column_default FROM information_schema.columns
+		WHERE table_schema = 'public' AND table_name != 'schema_migrations'
+	`
 )
 
 func newDBSnapshot(t *testing.T, db *sql.DB) dbSnapshot {
@@ -80,10 +84,41 @@ func newDBSnapshot(t *testing.T, db *sql.DB) dbSnapshot {
 	failOnErr(t, rows.Err())
 	failOnErr(t, rows.Close())
 
+	//list column default values for all tables
+	columnDefaults := make(map[string]map[string]string)
+	rows, err = db.Query(listColumnDefaultsQuery)
+	failOnErr(t, err)
+	for rows.Next() {
+		var (
+			tableName     string
+			columnName    string
+			isNullableStr string //either "NO" or "YES"
+			defaultExpr   *string
+		)
+		failOnErr(t, rows.Scan(&tableName, &columnName, &isNullableStr, &defaultExpr))
+		if columnDefaults[tableName] == nil {
+			columnDefaults[tableName] = make(map[string]string)
+		}
+
+		if defaultExpr == nil || *defaultExpr == "" {
+			if isNullableStr == "YES" {
+				columnDefaults[tableName][columnName] = "NULL"
+			} else {
+				//no default value and NOT NULL, i.e. a value must always be supplied explicitly
+				continue
+			}
+		} else if strings.Contains(*defaultExpr, "nextval") {
+			//default value is computed from a sequence object and must always be snapshotted
+			continue
+		} else {
+			columnDefaults[tableName][columnName] = computeValueOfSQLExpression(t, db, *defaultExpr).Serialized
+		}
+	}
+
 	//snapshot all tables
 	result := make(dbSnapshot, len(tableNames))
 	for _, tableName := range tableNames {
-		result[tableName] = newTableSnapshot(t, db, tableName, keyColumnNames[tableName])
+		result[tableName] = newTableSnapshot(t, db, tableName, keyColumnNames[tableName], columnDefaults[tableName])
 	}
 	return result
 }
@@ -121,11 +156,12 @@ func (d dbSnapshot) ToSQL(prev dbSnapshot) string {
 type tableSnapshot struct {
 	ColumnNames    []string
 	KeyColumnNames []string
+	ColumnDefaults map[string]string
 	//The map key is computed by rowSnapshot.Key().
 	Rows map[string]rowSnapshot
 }
 
-func newTableSnapshot(t *testing.T, db *sql.DB, tableName string, keyColumnNames []string) tableSnapshot {
+func newTableSnapshot(t *testing.T, db *sql.DB, tableName string, keyColumnNames []string, columnDefaults map[string]string) tableSnapshot {
 	t.Helper()
 
 	rows, err := db.Query(`SELECT * FROM ` + tableName) //nolint:gosec // cannot provide tableName as bind parameter
@@ -151,6 +187,7 @@ func newTableSnapshot(t *testing.T, db *sql.DB, tableName string, keyColumnNames
 	result := tableSnapshot{
 		ColumnNames:    columnNames,
 		KeyColumnNames: keyColumnNames,
+		ColumnDefaults: columnDefaults,
 		Rows:           make(map[string]rowSnapshot),
 	}
 
@@ -193,7 +230,7 @@ func (t tableSnapshot) ToSQL(tableName string, prev *tableSnapshot) string {
 	results := make([]string, len(allRowKeys))
 	for idx, key := range allRowKeys {
 		if prev == nil || prev.Rows[key] == nil {
-			results[idx] = t.Rows[key].ToSQLInsert(tableName, t.ColumnNames)
+			results[idx] = t.Rows[key].ToSQLInsert(tableName, t.ColumnNames, t.ColumnDefaults)
 			continue
 		}
 		currRow := t.Rows[key]
@@ -227,15 +264,21 @@ func (r rowSnapshot) Key(keyColumnNames []string) string {
 }
 
 // ToSQLInsert renders an INSERT statement that reproduces this row.
-func (r rowSnapshot) ToSQLInsert(tableName string, columnNames []string) string {
-	values := make([]string, len(columnNames))
-	for idx, columnName := range columnNames {
-		values[idx] = r[columnName]
+func (r rowSnapshot) ToSQLInsert(tableName string, columnNames []string, columnDefaults map[string]string) string {
+	displayColumnNames := make([]string, 0, len(columnNames))
+	displayValues := make([]string, 0, len(columnNames))
+	for _, columnName := range columnNames {
+		//values are only displayed if they deviate from the column's default value (or if there is no default value)
+		if columnDefaults[columnName] == "" || columnDefaults[columnName] != r[columnName] {
+			displayColumnNames = append(displayColumnNames, columnName)
+			displayValues = append(displayValues, r[columnName])
+		}
 	}
+
 	return fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s);\n",
 		tableName,
-		strings.Join(columnNames, ", "),
-		strings.Join(values, ", "),
+		strings.Join(displayColumnNames, ", "),
+		strings.Join(displayValues, ", "),
 	)
 }
 
@@ -280,4 +323,20 @@ func (s *sqlValueSerializer) Scan(src interface{}) error {
 		s.Serialized = "NULL"
 	}
 	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// func computeValueOfSQLExpression
+
+var sqlExpressionCache = make(map[string]sqlValueSerializer)
+
+func computeValueOfSQLExpression(t *testing.T, db *sql.DB, expr string) (result sqlValueSerializer) {
+	t.Helper()
+
+	result, exists := sqlExpressionCache[expr]
+	if !exists {
+		failOnErr(t, db.QueryRow("SELECT "+expr).Scan(&result))
+		sqlExpressionCache[expr] = result
+	}
+	return result
 }
