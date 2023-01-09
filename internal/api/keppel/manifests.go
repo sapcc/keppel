@@ -21,6 +21,7 @@ package keppelv1
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sort"
 
@@ -65,6 +66,13 @@ var manifestGetQuery = sqlext.SimplifyWhitespace(`
 	 LIMIT $LIMIT
 `)
 
+var vulnInfoGetQuery = sqlext.SimplifyWhitespace(`
+	SELECT * FROM vuln_info
+	WHERE repo_id = $1 AND $CONDITION
+	ORDER BY digest ASC
+	LIMIT $LIMIT
+`)
+
 var tagGetQuery = sqlext.SimplifyWhitespace(`
 	SELECT *
 	  FROM tags
@@ -86,7 +94,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query, bindValues, limit, err := paginatedQuery{
+	manifestQuery, bindValues, manifestLimit, err := paginatedQuery{
 		SQL:         manifestGetQuery,
 		MarkerField: "digest",
 		Options:     r.URL.Query(),
@@ -98,9 +106,31 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var dbManifests []keppel.Manifest
-	_, err = a.db.Select(&dbManifests, query, bindValues...)
+	_, err = a.db.Select(&dbManifests, manifestQuery, bindValues...)
 	if respondwith.ErrorText(w, err) {
 		return
+	}
+
+	vulnInfoQuery, bindValues, _, err := paginatedQuery{
+		SQL:         vulnInfoGetQuery,
+		MarkerField: "digest",
+		Options:     r.URL.Query(),
+		BindValues:  []interface{}{repo.ID},
+	}.Prepare()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var dbVulnInfos []keppel.VulnerabilityInfo
+	_, err = a.db.Select(&dbVulnInfos, vulnInfoQuery, bindValues...)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
+	vulnInfos := make(map[string]keppel.VulnerabilityInfo, len(dbVulnInfos))
+	for _, vulnInfo := range dbVulnInfos {
+		vulnInfos[vulnInfo.Digest] = vulnInfo
 	}
 
 	var result struct {
@@ -108,10 +138,20 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		IsTruncated bool        `json:"truncated,omitempty"`
 	}
 	for _, dbManifest := range dbManifests {
-		if uint64(len(result.Manifests)) >= limit {
+		if uint64(len(result.Manifests)) >= manifestLimit {
 			result.IsTruncated = true
 			break
 		}
+
+		var (
+			vulnerability keppel.VulnerabilityInfo
+			ok            bool
+		)
+		if vulnerability, ok = vulnInfos[dbManifest.Digest]; !ok {
+			http.Error(w, fmt.Sprintf("missing vulnerability report for digest %s", dbManifest.Digest), http.StatusInternalServerError)
+			return
+		}
+
 		result.Manifests = append(result.Manifests, &Manifest{
 			Digest:                        dbManifest.Digest,
 			MediaType:                     dbManifest.MediaType,
@@ -120,8 +160,8 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 			LastPulledAt:                  keppel.MaybeTimeToUnix(dbManifest.LastPulledAt),
 			LabelsJSON:                    json.RawMessage(dbManifest.LabelsJSON),
 			GCStatusJSON:                  json.RawMessage(dbManifest.GCStatusJSON),
-			VulnerabilityStatus:           dbManifest.VulnerabilityStatus,
-			VulnerabilityScanErrorMessage: dbManifest.VulnerabilityScanErrorMessage,
+			VulnerabilityStatus:           vulnerability.Status,
+			VulnerabilityScanErrorMessage: vulnerability.Message,
 			MinLayerCreatedAt:             keppel.MaybeTimeToUnix(dbManifest.MinLayerCreatedAt),
 			MaxLayerCreatedAt:             keppel.MaybeTimeToUnix(dbManifest.MaxLayerCreatedAt),
 		})
@@ -256,6 +296,15 @@ func (a *API) handleGetVulnerabilityReport(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	vulnerability, err := keppel.GetVulnerabilityInfo(a.db, repo.ID, parsedDigest.String())
+	if err == sql.ErrNoRows {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
 	//there is no vulnerability report if:
 	//- we don't have vulnerability scanning enabled at all
 	//- vulnerability scanning is not done yet
@@ -267,7 +316,7 @@ func (a *API) handleGetVulnerabilityReport(w http.ResponseWriter, r *http.Reques
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-	if a.cfg.ClairClient == nil || !manifest.VulnerabilityStatus.HasReport() || blobCount == 0 {
+	if a.cfg.ClairClient == nil || !vulnerability.Status.HasReport() || blobCount == 0 {
 		http.Error(w, "no vulnerability report found", http.StatusMethodNotAllowed)
 		return
 	}

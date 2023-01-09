@@ -1795,15 +1795,20 @@ func uploadManifest(t *testing.T, s test.Setup, account *keppel.Account, repo *k
 	t.Helper()
 
 	dbManifest := keppel.Manifest{
-		RepositoryID:        repo.ID,
-		Digest:              manifest.Digest.String(),
-		MediaType:           manifest.MediaType,
-		SizeBytes:           sizeBytes,
-		PushedAt:            s.Clock.Now(),
-		ValidatedAt:         s.Clock.Now(),
-		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
+		RepositoryID: repo.ID,
+		Digest:       manifest.Digest.String(),
+		MediaType:    manifest.MediaType,
+		SizeBytes:    sizeBytes,
+		PushedAt:     s.Clock.Now(),
+		ValidatedAt:  s.Clock.Now(),
 	}
 	mustDo(t, s.DB.Insert(&dbManifest))
+	mustDo(t, s.DB.Insert(&keppel.VulnerabilityInfo{
+		RepositoryID: repo.ID,
+		Digest:       manifest.Digest.String(),
+		NextCheckAt:  time.Unix(0, 0),
+		Status:       clair.PendingVulnerabilityStatus,
+	}))
 	mustDo(t, s.DB.Insert(&keppel.ManifestContent{
 		RepositoryID: repo.ID,
 		Digest:       manifest.Digest.String(),
@@ -1870,16 +1875,20 @@ func TestDeleteAccount(t *testing.T) {
 		}
 	}
 
-	manifest := keppel.Manifest{
-		RepositoryID:        repos[0].ID,
-		Digest:              image.Manifest.Digest.String(),
-		MediaType:           image.Manifest.MediaType,
-		SizeBytes:           uint64(len(image.Manifest.Contents)),
-		PushedAt:            time.Unix(100, 0),
-		ValidatedAt:         time.Unix(100, 0),
-		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
-	}
-	mustInsert(t, s.DB, &manifest)
+	mustInsert(t, s.DB, &keppel.Manifest{
+		RepositoryID: repos[0].ID,
+		Digest:       image.Manifest.Digest.String(),
+		MediaType:    image.Manifest.MediaType,
+		SizeBytes:    uint64(len(image.Manifest.Contents)),
+		PushedAt:     time.Unix(100, 0),
+		ValidatedAt:  time.Unix(100, 0),
+	})
+	mustInsert(t, s.DB, &keppel.VulnerabilityInfo{
+		RepositoryID: repos[0].ID,
+		Digest:       image.Manifest.Digest.String(),
+		NextCheckAt:  time.Unix(0, 0),
+		Status:       clair.PendingVulnerabilityStatus,
+	})
 	err := s.SD.WriteManifest(*accounts[0], repos[0].Name, image.Manifest.Digest.String(), image.Manifest.Contents)
 	if err != nil {
 		t.Fatal(err.Error())

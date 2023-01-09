@@ -292,17 +292,14 @@ func (r Repository) FullName() string {
 
 // Manifest contains a record from the `manifests` table.
 type Manifest struct {
-	RepositoryID                  int64                     `db:"repo_id"`
-	Digest                        string                    `db:"digest"`
-	MediaType                     string                    `db:"media_type"`
-	SizeBytes                     uint64                    `db:"size_bytes"`
-	PushedAt                      time.Time                 `db:"pushed_at"`
-	ValidatedAt                   time.Time                 `db:"validated_at"` //see tasks.ValidateNextManifest
-	ValidationErrorMessage        string                    `db:"validation_error_message"`
-	LastPulledAt                  *time.Time                `db:"last_pulled_at"`
-	NextVulnerabilityCheckAt      *time.Time                `db:"next_vuln_check_at"` //see tasks.CheckVulnerabilitiesForNextManifest
-	VulnerabilityStatus           clair.VulnerabilityStatus `db:"vuln_status"`
-	VulnerabilityScanErrorMessage string                    `db:"vuln_scan_error"`
+	RepositoryID           int64      `db:"repo_id"`
+	Digest                 string     `db:"digest"`
+	MediaType              string     `db:"media_type"`
+	SizeBytes              uint64     `db:"size_bytes"`
+	PushedAt               time.Time  `db:"pushed_at"`
+	ValidatedAt            time.Time  `db:"validated_at"` //see tasks.ValidateNextManifest
+	ValidationErrorMessage string     `db:"validation_error_message"`
+	LastPulledAt           *time.Time `db:"last_pulled_at"`
 	//LabelsJSON contains a JSON string of a map[string]string, or an empty string.
 	LabelsJSON string `db:"labels_json"`
 	//GCStatusJSON contains a keppel.GCStatus serialized into JSON, or an empty
@@ -461,6 +458,33 @@ type UnknownManifest struct {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+type VulnerabilityInfo struct {
+	RepositoryID      int64                     `db:"repo_id"`
+	Digest            string                    `db:"digest"`
+	Status            clair.VulnerabilityStatus `db:"status"`
+	Message           string                    `db:"message"`
+	NextCheckAt       time.Time                 `db:"next_check_at"` //see tasks.CheckVulnerabilitiesForNextManifest
+	CheckedAt         *time.Time                `db:"checked_at"`
+	IndexStartedAt    *time.Time                `db:"index_started_at"`
+	IndexFinishedAt   *time.Time                `db:"index_finished_at"`
+	IndexState        string                    `db:"index_state"`
+	CheckDurationSecs *float64                  `db:"check_duration_secs"`
+}
+
+// GetVulnerabilityInfo works similar to db.SelectOne(), but creates a VulnerabilityInfo instead of returning
+// sql.ErrNoRows if none existed.
+func GetVulnerabilityInfo(db gorp.SqlExecutor, repoID int64, manifestDigest string) (*VulnerabilityInfo, error) {
+	var vulnInfo *VulnerabilityInfo
+	err := db.SelectOne(&vulnInfo,
+		"SELECT * FROM vuln_info WHERE repo_id = $1 and digest = $2",
+		repoID, manifestDigest,
+	)
+
+	return vulnInfo, err
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(Account{}, "accounts").SetKeys(false, "name")
 	db.AddTableWithName(RBACPolicy{}, "rbac_policies").SetKeys(false, "account_name", "match_repository", "match_username")
@@ -475,4 +499,5 @@ func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(PendingBlob{}, "pending_blobs").SetKeys(false, "account_name", "digest")
 	db.AddTableWithName(UnknownBlob{}, "unknown_blobs").SetKeys(false, "account_name", "storage_id")
 	db.AddTableWithName(UnknownManifest{}, "unknown_manifests").SetKeys(false, "account_name", "repo_name", "digest")
+	db.AddTableWithName(VulnerabilityInfo{}, "vuln_info").SetKeys(false, "repo_id", "digest")
 }

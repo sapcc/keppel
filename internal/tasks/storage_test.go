@@ -185,16 +185,20 @@ func TestSweepStorageManifests(t *testing.T) {
 	//upload that happened while SweepStorageInNextAccount: manifest was written
 	//to storage already, but not yet to DB)
 	s.Clock.StepBy(1 * time.Hour)
-	dbTestManifest1 := keppel.Manifest{
-		RepositoryID:        1,
-		Digest:              testImageList1.Manifest.Digest.String(),
-		MediaType:           testImageList1.Manifest.MediaType,
-		SizeBytes:           uint64(len(testImageList1.Manifest.Contents)),
-		PushedAt:            s.Clock.Now(),
-		ValidatedAt:         s.Clock.Now(),
-		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
-	}
-	mustDo(t, s.DB.Insert(&dbTestManifest1))
+	mustDo(t, s.DB.Insert(&keppel.Manifest{
+		RepositoryID: 1,
+		Digest:       testImageList1.Manifest.Digest.String(),
+		MediaType:    testImageList1.Manifest.MediaType,
+		SizeBytes:    uint64(len(testImageList1.Manifest.Contents)),
+		PushedAt:     s.Clock.Now(),
+		ValidatedAt:  s.Clock.Now(),
+	}))
+	mustDo(t, s.DB.Insert(&keppel.VulnerabilityInfo{
+		RepositoryID: 1,
+		Digest:       testImageList1.Manifest.Digest.String(),
+		Status:       clair.PendingVulnerabilityStatus,
+		NextCheckAt:  s.Clock.Now(),
+	}))
 
 	//next SweepStorageInNextAccount should unmark manifest 1 (because it's now in
 	//the DB) and sweep manifest 2 (since it is still not in the DB)
