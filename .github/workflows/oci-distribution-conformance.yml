@@ -25,6 +25,7 @@ jobs:
           go-version: "1.19"
       - name: Start keppel
         run: |
+          set -x
           make build/keppel
           RUNNER_TRACKING_ID="" && make run-api-for-conformance-test &
           until curl -s http://localhost:8080/healthcheck; sleep 0.1; done
