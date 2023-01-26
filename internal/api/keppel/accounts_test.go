@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -774,7 +775,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"only_untagged":    true,
 				"action":           "delete",
 			},
-			ErrorMessage: "\"*/library\" is not a valid regex: error parsing regexp: missing argument to repetition operator: `*`",
+			ErrorMessage: "request body is not valid JSON: \"*/library\" is not a valid regexp: error parsing regexp: missing argument to repetition operator: `*`",
 		},
 		{
 			GCPolicyJSON: assert.JSONObject{
@@ -783,7 +784,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"only_untagged":     true,
 				"action":            "delete",
 			},
-			ErrorMessage: "\"*/library\" is not a valid regex: error parsing regexp: missing argument to repetition operator: `*`",
+			ErrorMessage: "request body is not valid JSON: \"*/library\" is not a valid regexp: error parsing regexp: missing argument to repetition operator: `*`",
 		},
 		{
 			GCPolicyJSON: assert.JSONObject{
@@ -806,7 +807,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"match_tag":        "*-foo",
 				"action":           "delete",
 			},
-			ErrorMessage: "\"*-foo\" is not a valid regex: error parsing regexp: missing argument to repetition operator: `*`",
+			ErrorMessage: "request body is not valid JSON: \"*-foo\" is not a valid regexp: error parsing regexp: missing argument to repetition operator: `*`",
 		},
 		{
 			GCPolicyJSON: assert.JSONObject{
@@ -815,7 +816,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"except_tag":       "*-bar",
 				"action":           "delete",
 			},
-			ErrorMessage: "\"*-bar\" is not a valid regex: error parsing regexp: missing argument to repetition operator: `*`",
+			ErrorMessage: "request body is not valid JSON: \"*-bar\" is not a valid regexp: error parsing regexp: missing argument to repetition operator: `*`",
 		},
 		{
 			GCPolicyJSON: assert.JSONObject{
@@ -906,6 +907,10 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 	}
 	for _, tc := range gcPolicyTestcases {
+		expectedStatus := http.StatusUnprocessableEntity
+		if strings.Contains(tc.ErrorMessage, "not valid JSON") {
+			expectedStatus = http.StatusBadRequest
+		}
 		assert.HTTPRequest{
 			Method: "PUT",
 			Path:   "/keppel/v1/accounts/first",
@@ -916,7 +921,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 					"gc_policies":    []assert.JSONObject{tc.GCPolicyJSON},
 				},
 			},
-			ExpectStatus: http.StatusUnprocessableEntity,
+			ExpectStatus: expectedStatus,
 			ExpectBody:   assert.StringData(tc.ErrorMessage + "\n"),
 		}.Check(t, h)
 	}
@@ -1162,8 +1167,8 @@ func TestPutAccountErrorCases(t *testing.T) {
 				}},
 			},
 		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("\"*/library\" is not a valid regex: error parsing regexp: missing argument to repetition operator: `*`\n"),
+		ExpectStatus: http.StatusBadRequest,
+		ExpectBody:   assert.StringData("request body is not valid JSON: \"*/library\" is not a valid regexp: error parsing regexp: missing argument to repetition operator: `*`\n"),
 	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -1179,8 +1184,8 @@ func TestPutAccountErrorCases(t *testing.T) {
 				}},
 			},
 		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("\"[a-z]++@tenant2\" is not a valid regex: error parsing regexp: invalid nested repetition operator: `++`\n"),
+		ExpectStatus: http.StatusBadRequest,
+		ExpectBody:   assert.StringData("request body is not valid JSON: \"[a-z]++@tenant2\" is not a valid regexp: error parsing regexp: invalid nested repetition operator: `++`\n"),
 	}.Check(t, h)
 
 	//test unexpected platform filter

@@ -23,25 +23,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/sapcc/go-bits/regexpext"
 )
 
 // GCPolicy is a policy enabling optional garbage collection runs in an account.
 type GCPolicy struct {
-	RepositoryPattern         string            `json:"match_repository"`
-	NegativeRepositoryPattern string            `json:"except_repository,omitempty"`
-	TagPattern                string            `json:"match_tag,omitempty"`
-	NegativeTagPattern        string            `json:"except_tag,omitempty"`
-	OnlyUntagged              bool              `json:"only_untagged,omitempty"`
-	TimeConstraint            *GCTimeConstraint `json:"time_constraint,omitempty"`
-	Action                    string            `json:"action"`
-
-	//cache for pre-compiled regexes, as an optimization for repeated calls to MatchesTags()
-	TagRx         *regexp.Regexp `json:"-"`
-	NegativeTagRx *regexp.Regexp `json:"-"`
+	RepositoryRx         regexpext.BoundedRegexp `json:"match_repository"`
+	NegativeRepositoryRx regexpext.BoundedRegexp `json:"except_repository,omitempty"`
+	TagRx                regexpext.BoundedRegexp `json:"match_tag,omitempty"`
+	NegativeTagRx        regexpext.BoundedRegexp `json:"except_tag,omitempty"`
+	OnlyUntagged         bool                    `json:"only_untagged,omitempty"`
+	TimeConstraint       *GCTimeConstraint       `json:"time_constraint,omitempty"`
+	Action               string                  `json:"action"`
 }
 
 // GCTimeConstraint appears in type GCPolicy.
@@ -55,17 +52,11 @@ type GCTimeConstraint struct {
 
 // MatchesRepository evaluates the repository regexes in this policy.
 func (g GCPolicy) MatchesRepository(repoName string) bool {
-	//Notes:
-	//- Regex parse errors always make the match fail to avoid accidental overmatches.
-	//- NegativeRepositoryPattern takes precedence and is thus evaluated first.
-
-	rx, err := regexp.Compile(fmt.Sprintf(`^(?:%s)$`, g.NegativeRepositoryPattern))
-	if err != nil || rx.MatchString(repoName) {
+	//NOTE: NegativeRepositoryRx takes precedence and is thus evaluated first.
+	if g.NegativeRepositoryRx != "" && g.NegativeRepositoryRx.MatchString(repoName) {
 		return false
 	}
-
-	rx, err = regexp.Compile(fmt.Sprintf(`^(?:%s)$`, g.RepositoryPattern))
-	return err == nil && rx.MatchString(repoName)
+	return g.RepositoryRx.MatchString(repoName)
 }
 
 // MatchesTags evaluates the tag regexes in this policy for a complete set of
@@ -75,32 +66,15 @@ func (g GCPolicy) MatchesTags(tagNames []string) bool {
 		return false
 	}
 
-	//NOTE 1: NegativeTagPattern takes precedence over TagPattern
-	//NOTE 2: The `if err != nil` branches are defense-in-depth. Callers are
-	//        supposed to Validate() policies when loading them, which will catch
-	//        syntax errors early.
-	var err error
-	if g.NegativeTagPattern != "" {
-		if g.NegativeTagRx == nil {
-			g.NegativeTagRx, err = regexp.Compile(fmt.Sprintf(`^(?:%s)$`, g.NegativeTagPattern))
-			if err != nil {
-				return false
-			}
-		}
+	//NOTE: NegativeTagRx takes precedence over TagRx and is thus evaluated first.
+	if g.NegativeTagRx != "" {
 		for _, tagName := range tagNames {
 			if g.NegativeTagRx.MatchString(tagName) {
 				return false
 			}
 		}
 	}
-
-	if g.TagPattern != "" {
-		if g.TagRx == nil {
-			g.TagRx, err = regexp.Compile(fmt.Sprintf(`^(?:%s)$`, g.TagPattern))
-			if err != nil {
-				return false
-			}
-		}
+	if g.TagRx != "" {
 		for _, tagName := range tagNames {
 			if g.TagRx.MatchString(tagName) {
 				return true
@@ -110,7 +84,7 @@ func (g GCPolicy) MatchesTags(tagNames []string) bool {
 
 	//if we did not have any matching tags, the match is successful unless we
 	//required a positive tag match
-	return g.TagPattern == ""
+	return g.TagRx == ""
 }
 
 // MatchesTimeConstraint evaluates the time constraint in this policy for the
@@ -192,24 +166,15 @@ func (g GCPolicy) MatchesTimeConstraint(manifest Manifest, allManifestsInRepo []
 
 // Validate returns an error if this policy is invalid.
 func (g GCPolicy) Validate() error {
-	if g.RepositoryPattern == "" {
+	if g.RepositoryRx == "" {
 		return errors.New(`GC policy must have the "match_repository" attribute`)
 	}
 
-	for _, pattern := range []string{g.RepositoryPattern, g.NegativeRepositoryPattern, g.TagPattern, g.NegativeTagPattern} {
-		if pattern == "" {
-			continue
-		}
-		if _, err := regexp.Compile(pattern); err != nil {
-			return fmt.Errorf("%q is not a valid regex: %s", pattern, err.Error())
-		}
-	}
-
 	if g.OnlyUntagged {
-		if g.TagPattern != "" {
+		if g.TagRx != "" {
 			return fmt.Errorf(`GC policy cannot have the "match_tag" attribute when "only_untagged" is set`)
 		}
-		if g.NegativeTagPattern != "" {
+		if g.NegativeTagRx != "" {
 			return fmt.Errorf(`GC policy cannot have the "except_tag" attribute when "only_untagged" is set`)
 		}
 	}

@@ -50,7 +50,7 @@ github.com/go-redis/redis/v8/internal/util
 github.com/go-redis/redis_rate/v9
 # github.com/go-sql-driver/mysql v1.7.0
 ## explicit; go 1.13
-# github.com/gofrs/uuid v4.3.1+incompatible
+# github.com/gofrs/uuid v4.4.0+incompatible
 ## explicit
 github.com/gofrs/uuid
 # github.com/golang-jwt/jwt/v4 v4.4.3
@@ -139,7 +139,7 @@ github.com/prometheus/common/model
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
-# github.com/rabbitmq/amqp091-go v1.5.0
+# github.com/rabbitmq/amqp091-go v1.6.0
 ## explicit; go 1.16
 github.com/rabbitmq/amqp091-go
 # github.com/rogpeppe/go-internal v1.9.0
@@ -147,11 +147,11 @@ github.com/rabbitmq/amqp091-go
 # github.com/rs/cors v1.8.3
 ## explicit; go 1.13
 github.com/rs/cors
-# github.com/sapcc/go-api-declarations v1.4.2
+# github.com/sapcc/go-api-declarations v1.4.3
 ## explicit; go 1.19
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20230118133144-113f64a2d7cb
+# github.com/sapcc/go-bits v0.0.0-20230126153021-8e21336fc7f8
 ## explicit; go 1.19
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
@@ -170,9 +170,10 @@ github.com/sapcc/go-bits/logg
 github.com/sapcc/go-bits/must
 github.com/sapcc/go-bits/osext
 github.com/sapcc/go-bits/pluggable
+github.com/sapcc/go-bits/regexpext
 github.com/sapcc/go-bits/respondwith
 github.com/sapcc/go-bits/sqlext
-# github.com/sergi/go-diff v1.2.0
+# github.com/sergi/go-diff v1.3.1
 ## explicit; go 1.12
 github.com/sergi/go-diff/diffmatchpatch
 # github.com/spf13/cobra v1.6.1

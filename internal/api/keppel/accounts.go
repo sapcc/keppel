@@ -35,6 +35,7 @@ import (
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/httpapi"
+	"github.com/sapcc/go-bits/regexpext"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
 
@@ -60,10 +61,10 @@ type Account struct {
 
 // RBACPolicy represents an RBAC policy in the API.
 type RBACPolicy struct {
-	CidrPattern       string   `json:"match_cidr,omitempty"`
-	RepositoryPattern string   `json:"match_repository,omitempty"`
-	UserNamePattern   string   `json:"match_username,omitempty"`
-	Permissions       []string `json:"permissions"`
+	CidrPattern       string                `json:"match_cidr,omitempty"`
+	RepositoryPattern regexpext.PlainRegexp `json:"match_repository,omitempty"`
+	UserNamePattern   regexpext.PlainRegexp `json:"match_username,omitempty"`
+	Permissions       []string              `json:"permissions"`
 }
 
 // ReplicationPolicy represents a replication policy in the API.
@@ -204,8 +205,8 @@ func renderValidationPolicy(dbAccount keppel.Account) *ValidationPolicy {
 
 func renderRBACPolicy(dbPolicy keppel.RBACPolicy) RBACPolicy {
 	result := RBACPolicy{
-		RepositoryPattern: dbPolicy.RepositoryPattern,
-		UserNamePattern:   dbPolicy.UserNamePattern,
+		RepositoryPattern: regexpext.PlainRegexp(dbPolicy.RepositoryPattern),
+		UserNamePattern:   regexpext.PlainRegexp(dbPolicy.UserNamePattern),
 	}
 	// treat cidr that matches everything as unset
 	if dbPolicy.CidrPattern != "0.0.0.0/0" {
@@ -236,8 +237,8 @@ func renderRBACPolicyPtr(dbPolicy keppel.RBACPolicy) *RBACPolicy {
 
 func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 	result := keppel.RBACPolicy{
-		RepositoryPattern: policy.RepositoryPattern,
-		UserNamePattern:   policy.UserNamePattern,
+		RepositoryPattern: string(policy.RepositoryPattern),
+		UserNamePattern:   string(policy.UserNamePattern),
 	}
 	// validate cidr early to prevent errors
 	// this has also the nice side effect that we can use the cidr of the network incase an ip is used
@@ -289,15 +290,6 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 	}
 	if result.CanDelete && result.UserNamePattern == "" {
 		return result, errors.New(`RBAC policy with "delete" must have the "match_username" attribute`)
-	}
-
-	for _, pattern := range []string{policy.RepositoryPattern, policy.UserNamePattern} {
-		if pattern == "" {
-			continue
-		}
-		if _, err := regexp.Compile(pattern); err != nil {
-			return result, fmt.Errorf("%q is not a valid regex: %s", pattern, err.Error())
-		}
 	}
 
 	return result, nil
