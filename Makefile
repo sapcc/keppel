@@ -61,7 +61,8 @@ install: FORCE build/keppel
 GO_TESTPKGS := $(shell go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...)
 # which packages to measure coverage for
 GO_COVERPKGS := $(shell go list ./... | grep -E '/internal' | grep -Ev '/drivers|/test/util')
-# to get around weird Makefile syntax restrictions, we need variables containing a space and comma
+# to get around weird Makefile syntax restrictions, we need variables containing nothing, a space and comma
+null :=
 space := $(null) $(null)
 comma := ,
 
@@ -103,12 +104,24 @@ license-headers: FORCE
 clean: FORCE
 	git clean -dxf build
 
+vars: FORCE
+	@printf "BININFO_BUILD_DATE=$(BININFO_BUILD_DATE)\n"
+	@printf "BININFO_COMMIT_HASH=$(BININFO_COMMIT_HASH)\n"
+	@printf "BININFO_VERSION=$(BININFO_VERSION)\n"
+	@printf "DESTDIR=$(DESTDIR)\n"
+	@printf "GO_BUILDFLAGS=$(GO_BUILDFLAGS)\n"
+	@printf "GO_COVERPKGS=$(GO_COVERPKGS)\n"
+	@printf "GO_LDFLAGS=$(GO_LDFLAGS)\n"
+	@printf "GO_TESTENV=$(GO_TESTENV)\n"
+	@printf "GO_TESTPKGS=$(GO_TESTPKGS)\n"
+	@printf "PREFIX=$(PREFIX)\n"
 help: FORCE
 	@printf "\n"
 	@printf "\e[1mUsage:\e[0m\n"
 	@printf "  make \e[36m<target>\e[0m\n"
 	@printf "\n"
 	@printf "\e[1mGeneral\e[0m\n"
+	@printf "  \e[36mvars\e[0m                  Display values of relevant Makefile variables.\n"
 	@printf "  \e[36mhelp\e[0m                  Display this help.\n"
 	@printf "\n"
 	@printf "\e[1mBuild\e[0m\n"
