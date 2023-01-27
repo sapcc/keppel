@@ -9,7 +9,7 @@ require (
 	github.com/docker/distribution v2.8.1+incompatible
 	github.com/go-gorp/gorp/v3 v3.1.0
 	github.com/go-redis/redis/v8 v8.11.5
-	github.com/go-redis/redis_rate/v9 v9.1.2
+	github.com/go-redis/redis_rate/v10 v10.0.0
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/golang-jwt/jwt/v4 v4.4.3
 	github.com/gophercloud/gophercloud v1.1.1
