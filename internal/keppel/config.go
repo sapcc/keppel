@@ -29,8 +29,8 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/must"

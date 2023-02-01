@@ -24,7 +24,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/keppel"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/osext"
 )

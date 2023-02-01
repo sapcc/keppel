@@ -38,11 +38,11 @@ import (
 	"time"
 
 	policy "github.com/databus23/goslo.policy"
-	"github.com/go-redis/redis/v8"
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
 	"github.com/gophercloud/utils/openstack/clientconfig"
+	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/go-bits/logg"
