@@ -140,6 +140,13 @@ func (t *Token) DomainScopeName() string {
 	return t.Context.Auth["domain_name"]
 }
 
+// ApplicationCredentialID returns the ID of the application credential that
+// was used to create this token, or "" if the token was created through a
+// different authentication method.
+func (t *Token) ApplicationCredentialID() string {
+	return t.Context.Auth["application_credential_id"]
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // type serializableToken
 

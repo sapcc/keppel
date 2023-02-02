@@ -54,6 +54,8 @@ type UserInfo interface {
 	DomainScopeUUID() string
 	//DomainScopeName returns the empty string if the user's token is not for a domain scope.
 	DomainScopeName() string
+	//ApplicationCredentialID returns the empty string if the user's token was created through a different authentication method.
+	ApplicationCredentialID() string
 }
 
 // NonStandardUserInfo is an extension interface for type UserInfo that allows a
@@ -112,6 +114,7 @@ func NewEvent(p EventParameters) cadf.Event {
 			ProjectID:         p.User.ProjectScopeUUID(),
 			ProjectName:       p.User.ProjectScopeName(),
 			ProjectDomainName: p.User.ProjectScopeDomainName(),
+			AppCredentialID:   p.User.ApplicationCredentialID(),
 		}
 	}
 

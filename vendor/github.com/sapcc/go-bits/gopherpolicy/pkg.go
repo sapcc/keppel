@@ -202,6 +202,8 @@ type keystoneToken struct {
 	ProjectScope keystoneTokenThingInDomain `json:"project"`
 	Roles        []keystoneTokenThing       `json:"roles"`
 	User         keystoneTokenThingInDomain `json:"user"`
+	//NOTE: `.token.application_credential` is a non-standard extension in SAP Converged Cloud.
+	ApplicationCredential keystoneTokenThing `json:"application_credential"`
 }
 
 type keystoneTokenThing struct {
@@ -218,20 +220,22 @@ func (t *keystoneToken) ToContext() policy.Context {
 	c := policy.Context{
 		Roles: make([]string, 0, len(t.Roles)),
 		Auth: map[string]string{
-			"user_id":             t.User.ID,
-			"user_name":           t.User.Name,
-			"user_domain_id":      t.User.Domain.ID,
-			"user_domain_name":    t.User.Domain.Name,
-			"domain_id":           t.DomainScope.ID,
-			"domain_name":         t.DomainScope.Name,
-			"project_id":          t.ProjectScope.ID,
-			"project_name":        t.ProjectScope.Name,
-			"project_domain_id":   t.ProjectScope.Domain.ID,
-			"project_domain_name": t.ProjectScope.Domain.Name,
-			"tenant_id":           t.ProjectScope.ID,
-			"tenant_name":         t.ProjectScope.Name,
-			"tenant_domain_id":    t.ProjectScope.Domain.ID,
-			"tenant_domain_name":  t.ProjectScope.Domain.Name,
+			"user_id":                     t.User.ID,
+			"user_name":                   t.User.Name,
+			"user_domain_id":              t.User.Domain.ID,
+			"user_domain_name":            t.User.Domain.Name,
+			"domain_id":                   t.DomainScope.ID,
+			"domain_name":                 t.DomainScope.Name,
+			"project_id":                  t.ProjectScope.ID,
+			"project_name":                t.ProjectScope.Name,
+			"project_domain_id":           t.ProjectScope.Domain.ID,
+			"project_domain_name":         t.ProjectScope.Domain.Name,
+			"tenant_id":                   t.ProjectScope.ID,
+			"tenant_name":                 t.ProjectScope.Name,
+			"tenant_domain_id":            t.ProjectScope.Domain.ID,
+			"tenant_domain_name":          t.ProjectScope.Domain.Name,
+			"application_credential_id":   t.ApplicationCredential.ID,
+			"application_credential_name": t.ApplicationCredential.Name,
 		},
 		Request: nil,
 	}
