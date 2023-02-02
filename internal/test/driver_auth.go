@@ -164,3 +164,7 @@ func (dummyUserInfo) DomainScopeUUID() string {
 func (dummyUserInfo) DomainScopeName() string {
 	return ""
 }
+
+func (dummyUserInfo) ApplicationCredentialID() string {
+	return ""
+}

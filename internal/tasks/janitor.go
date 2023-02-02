@@ -189,6 +189,11 @@ func (janitorUserInfo) DomainScopeName() string {
 	return "" //unused
 }
 
+// ApplicationCredentialID implements the audittools.UserInfo interface.
+func (janitorUserInfo) ApplicationCredentialID() string {
+	return "" //unused
+}
+
 // AsInitiator implements the audittools.NonStandardUserInfo interface.
 func (u janitorUserInfo) AsInitiator() cadf.Resource {
 	res := cadf.Resource{
