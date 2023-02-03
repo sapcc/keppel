@@ -11,7 +11,7 @@ require (
 	github.com/go-redis/redis_rate/v10 v10.0.0
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/golang-jwt/jwt/v4 v4.4.3
-	github.com/gophercloud/gophercloud v1.1.1
+	github.com/gophercloud/gophercloud v1.2.0
 	github.com/gophercloud/utils v0.0.0-20221207145018-e8fba78967ca
 	github.com/gorilla/mux v1.8.0
 	github.com/majewsky/schwift v1.2.0
