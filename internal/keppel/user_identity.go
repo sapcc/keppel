@@ -60,7 +60,7 @@ type UserIdentity interface {
 
 	//Identifies the type of user that was authenticated.
 	UserType() UserType
-	//Returns the name of the the user that was authenticated. This should be the
+	//Returns the name of the user that was authenticated. This should be the
 	//same format that is given as the first argument of AuthenticateUser().
 	//The AnonymousUserIdentity always returns the empty string.
 	UserName() string

@@ -38,8 +38,6 @@ github.com/go-gorp/gorp/v3
 # github.com/go-redis/redis_rate/v10 v10.0.0
 ## explicit; go 1.19
 github.com/go-redis/redis_rate/v10
-# github.com/go-sql-driver/mysql v1.7.0
-## explicit; go 1.13
 # github.com/gofrs/uuid v4.4.0+incompatible
 ## explicit
 github.com/gofrs/uuid
@@ -129,7 +127,7 @@ github.com/prometheus/common/model
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
-# github.com/rabbitmq/amqp091-go v1.6.0
+# github.com/rabbitmq/amqp091-go v1.6.1
 ## explicit; go 1.16
 github.com/rabbitmq/amqp091-go
 # github.com/redis/go-redis/v9 v9.0.2
@@ -151,7 +149,7 @@ github.com/rs/cors
 ## explicit; go 1.19
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20230127160334-4cfcb11b2ecb
+# github.com/sapcc/go-bits v0.0.0-20230209151354-919fea25b3f4
 ## explicit; go 1.19
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
@@ -191,16 +189,16 @@ github.com/yuin/gopher-lua/pm
 # go.uber.org/atomic v1.10.0
 ## explicit; go 1.18
 go.uber.org/atomic
-# golang.org/x/crypto v0.5.0
+# golang.org/x/crypto v0.6.0
 ## explicit; go 1.17
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
-# golang.org/x/sys v0.4.0
+# golang.org/x/sys v0.5.0
 ## explicit; go 1.17
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/text v0.6.0
+# golang.org/x/text v0.7.0
 ## explicit; go 1.17
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
