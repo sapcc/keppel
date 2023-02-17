@@ -7,6 +7,9 @@ set -xeuo pipefail
 
 cd "$(dirname "$0")/vendoring-helper"
 
+# make sure go.mod is up to date and tidied
+go mod tidy
+
 # ensure that vendoring-helper compiles and that its go.sum is up-to-date
 go build -o /dev/null .
 

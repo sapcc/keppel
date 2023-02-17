@@ -67,7 +67,7 @@ func newDBSnapshot(t *testing.T, db *sql.DB) dbSnapshot {
 		tableNames = append(tableNames, name)
 	}
 	failOnErr(t, rows.Err())
-	failOnErr(t, rows.Close())
+	failOnErr(t, rows.Close()) //nolint:sqlclosecheck
 
 	//list key columns for all tables
 	keyColumnNames := make(map[string][]string)
@@ -82,11 +82,11 @@ func newDBSnapshot(t *testing.T, db *sql.DB) dbSnapshot {
 		keyColumnNames[tableName] = append(keyColumnNames[tableName], columnName)
 	}
 	failOnErr(t, rows.Err())
-	failOnErr(t, rows.Close())
+	failOnErr(t, rows.Close()) //nolint:sqlclosecheck
 
 	//list column default values for all tables
 	columnDefaults := make(map[string]map[string]string)
-	rows, err = db.Query(listColumnDefaultsQuery)
+	rows, err = db.Query(listColumnDefaultsQuery) //nolint:sqlclosecheck
 	failOnErr(t, err)
 	for rows.Next() {
 		var (
@@ -205,7 +205,7 @@ func newTableSnapshot(t *testing.T, db *sql.DB, tableName string, keyColumnNames
 		result.Rows[row.Key(result.KeyColumnNames)] = row
 	}
 	failOnErr(t, rows.Err())
-	failOnErr(t, rows.Close())
+	failOnErr(t, rows.Close()) //nolint:sqlclosecheck
 
 	return result
 }

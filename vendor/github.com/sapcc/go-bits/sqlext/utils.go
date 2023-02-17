@@ -44,24 +44,24 @@ import (
 //	    return nil
 //	  },
 //	)
-func ForeachRow(db Executor, query string, args []any, action func(*sql.Rows) error) error {
+func ForeachRow(db Executor, query string, args []any, action func(*sql.Rows) error) (returnedErr error) {
 	rows, err := db.Query(query, args...)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err := rows.Close()
+		if returnedErr == nil {
+			returnedErr = err
+		}
+	}()
 	for rows.Next() {
 		err = action(rows)
 		if err != nil {
-			rows.Close()
 			return err
 		}
 	}
-	err = rows.Err()
-	if err != nil {
-		rows.Close()
-		return err
-	}
-	return rows.Close()
+	return rows.Err()
 }
 
 // RollbackUnlessCommitted calls Rollback() on a transaction if it hasn't been
@@ -113,15 +113,16 @@ func SimplifyWhitespace(query string) string {
 //	    return nil
 //	  },
 //	)
-func WithPreparedStatement(db Executor, query string, action func(*sql.Stmt) error) error {
+func WithPreparedStatement(db Executor, query string, action func(*sql.Stmt) error) (returnedErr error) {
 	stmt, err := db.Prepare(query)
 	if err != nil {
 		return err
 	}
-	err = action(stmt)
-	if err != nil {
-		stmt.Close()
-		return err
-	}
-	return stmt.Close()
+	defer func() {
+		err := stmt.Close()
+		if returnedErr == nil {
+			returnedErr = err
+		}
+	}()
+	return action(stmt)
 }

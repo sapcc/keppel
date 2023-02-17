@@ -17,11 +17,11 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/hashicorp/go-multierror"
-	"github.com/lib/pq"
 	"github.com/sapcc/go-bits/easypg/migrate"
 	"github.com/sapcc/go-bits/easypg/migrate/database"
 	"github.com/sapcc/go-bits/easypg/migrate/database/multistmt"
+	"github.com/hashicorp/go-multierror"
+	"github.com/lib/pq"
 )
 
 func init() {
