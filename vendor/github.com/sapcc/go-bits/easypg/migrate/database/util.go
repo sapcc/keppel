@@ -21,7 +21,7 @@ func GenerateAdvisoryLockId(databaseName string, additionalNames ...string) (str
 
 // CasRestoreOnErr CAS wrapper to automatically restore the lock state on error
 func CasRestoreOnErr(lock *atomic.Bool, o, n bool, casErr error, f func() error) error {
-	if !lock.CAS(o, n) { // nolint: staticcheck
+	if !lock.CAS(o, n) {
 		return casErr
 	}
 	if err := f(); err != nil {
