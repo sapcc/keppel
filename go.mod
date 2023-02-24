@@ -21,7 +21,7 @@ require (
 	github.com/redis/go-redis/v9 v9.0.2
 	github.com/rs/cors v1.8.3
 	github.com/sapcc/go-api-declarations v1.4.3
-	github.com/sapcc/go-bits v0.0.0-20230214152353-488475370fbb
+	github.com/sapcc/go-bits v0.0.0-20230217073628-aeeff1f2933c
 	github.com/spf13/cobra v1.6.1
 	golang.org/x/crypto v0.6.0
 )
