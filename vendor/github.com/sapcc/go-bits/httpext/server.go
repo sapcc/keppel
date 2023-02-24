@@ -21,6 +21,7 @@ package httpext
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -92,11 +93,18 @@ func ListenAndServeContext(ctx context.Context, addr string, handler http.Handle
 
 	shutdownErr := <-waitForServerShutdown
 	if listenAndServeErr == http.ErrServerClosed {
-		return shutdownErr
+		return addPrefix(shutdownErr, "ListenAndServeContext: could not shutdown HTTP server")
 	}
 
 	if shutdownErr != nil {
 		logg.Error("Additional error encountered while shutting down server: %s", shutdownErr.Error())
 	}
-	return listenAndServeErr
+	return addPrefix(listenAndServeErr, "ListenAndServeContext failed")
+}
+
+func addPrefix(err error, prefix string) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s: %w", prefix, err)
 }
