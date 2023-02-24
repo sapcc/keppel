@@ -36,6 +36,7 @@ import (
 )
 
 func init() {
+	jwt.DecodeStrict = true
 	//required for backwards-compatibility with existing tokens
 	jwt.MarshalSingleStringAsArray = false
 }
