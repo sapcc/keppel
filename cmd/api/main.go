@@ -107,10 +107,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	//start HTTP server
 	apiListenAddress := osext.GetenvOrDefault("KEPPEL_API_LISTEN_ADDRESS", ":8080")
-	err := httpext.ListenAndServeContext(ctx, apiListenAddress, nil)
-	if err != nil {
-		logg.Fatal("error returned from httpext.ListenAndServeContext(): %s", err.Error())
-	}
+	must.Succeed(httpext.ListenAndServeContext(ctx, apiListenAddress, nil))
 }
 
 // Note that, since Redis is optional, this may return (nil, nil).

@@ -32,6 +32,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/must"
 	"github.com/spf13/cobra"
 
 	"github.com/sapcc/keppel/internal/client"
@@ -115,12 +116,7 @@ func run(cmd *cobra.Command, args []string) {
 	http.HandleFunc("/healthcheck", job.ReportHealthcheckResult)
 	http.Handle("/metrics", promhttp.Handler())
 	ctx := httpext.ContextWithSIGINT(context.Background(), 1*time.Second)
-	go func() {
-		err := httpext.ListenAndServeContext(ctx, listenAddress, nil)
-		if err != nil {
-			logg.Fatal("error returned from httpext.ListenAndServeContext(): %s", err.Error())
-		}
-	}()
+	go must.Succeed(httpext.ListenAndServeContext(ctx, listenAddress, nil))
 
 	//enter long-running check loop
 	job.ValidateImage(manifestRef) //once immediately to initialize the metric

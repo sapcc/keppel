@@ -86,10 +86,7 @@ func run(cmd *cobra.Command, args []string) {
 	http.Handle("/", handler)
 	http.Handle("/metrics", promhttp.Handler())
 	listenAddress := osext.GetenvOrDefault("KEPPEL_JANITOR_LISTEN_ADDRESS", ":8080")
-	err := httpext.ListenAndServeContext(ctx, listenAddress, nil)
-	if err != nil {
-		logg.Fatal("error returned from httpext.ListenAndServeContext(): %s", err.Error())
-	}
+	must.Succeed(httpext.ListenAndServeContext(ctx, listenAddress, nil))
 }
 
 // Execute a task repeatedly, but slow down when sql.ErrNoRows is returned by it.
