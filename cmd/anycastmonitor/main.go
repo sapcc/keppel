@@ -112,7 +112,9 @@ func run(cmd *cobra.Command, args []string) {
 	//expose metrics endpoint
 	http.Handle("/metrics", promhttp.Handler())
 	ctx := httpext.ContextWithSIGINT(context.Background(), 1*time.Second)
-	go must.Succeed(httpext.ListenAndServeContext(ctx, listenAddress, nil))
+	go func() {
+		must.Succeed(httpext.ListenAndServeContext(ctx, listenAddress, nil))
+	}()
 
 	//enter long-running check loop
 	manifestRef := keppel.ManifestReference{Tag: "latest"}

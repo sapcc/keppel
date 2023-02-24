@@ -116,7 +116,9 @@ func run(cmd *cobra.Command, args []string) {
 	http.HandleFunc("/healthcheck", job.ReportHealthcheckResult)
 	http.Handle("/metrics", promhttp.Handler())
 	ctx := httpext.ContextWithSIGINT(context.Background(), 1*time.Second)
-	go must.Succeed(httpext.ListenAndServeContext(ctx, listenAddress, nil))
+	go func() {
+		must.Succeed(httpext.ListenAndServeContext(ctx, listenAddress, nil))
+	}()
 
 	//enter long-running check loop
 	job.ValidateImage(manifestRef) //once immediately to initialize the metric
