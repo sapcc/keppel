@@ -115,6 +115,7 @@ func (d *swiftDriver) getBackendConnection(account keppel.Account) (*schwift.Con
 		if tempURLKey == "" {
 			tempURLKey = hdr.TempURLKey2().Get()
 		}
+		//nolint:errcheck //in case of error, False will be returned therefore no need to check.
 		writeRestricted, _ := strconv.ParseBool(hdr.Metadata().Get("Write-Restricted"))
 		if tempURLKey == "" || !writeRestricted {
 			hdr := schwift.NewContainerHeaders()
