@@ -90,12 +90,7 @@ func initSwiftContainerConnection(envPrefix string) (*schwift.Container, error) 
 	if err != nil {
 		return nil, err
 	}
-	container := swiftAccount.Container(osext.MustGetenv(envPrefix + "SWIFT_CONTAINER"))
-	//add the 'X-Container-Meta-Write-Restricted' metadata header to restrict writes only
-	//to allowed users. See: https://github.com/sapcc/swift-addons/tree/master#write-restriction
-	hdr := schwift.NewContainerHeaders()
-	hdr.Metadata().Set("Write-Restricted", "true")
-	err = container.Create(hdr.ToOpts())
+	container, err := swiftAccount.Container(osext.MustGetenv(envPrefix + "SWIFT_CONTAINER")).EnsureExists()
 	if err != nil {
 		return nil, err
 	}
