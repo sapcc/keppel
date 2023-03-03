@@ -115,14 +115,23 @@ func (d *swiftDriver) getBackendConnection(account keppel.Account) (*schwift.Con
 		if tempURLKey == "" {
 			tempURLKey = hdr.TempURLKey2().Get()
 		}
-		if tempURLKey == "" {
-			//generate tempurl key on first startup
-			tempURLKey, err = generateSecret()
-			if err != nil {
-				return nil, nil, err
-			}
+		//nolint:errcheck //in case of error, False will be returned therefore no need to check.
+		writeRestricted, _ := strconv.ParseBool(hdr.Metadata().Get("Write-Restricted"))
+		if tempURLKey == "" || !writeRestricted {
 			hdr := schwift.NewContainerHeaders()
-			hdr.TempURLKey().Set(tempURLKey)
+			//generate tempurl key on first startup
+			if tempURLKey == "" {
+				tempURLKey, err = generateSecret()
+				if err != nil {
+					return nil, nil, err
+				}
+				hdr.TempURLKey().Set(tempURLKey)
+			}
+			//add the 'X-Container-Meta-Write-Restricted' metadata header to restrict writes only
+			//to allowed users. See: https://github.com/sapcc/swift-addons/tree/master#write-restriction
+			if !writeRestricted {
+				hdr.Metadata().Set("Write-Restricted", "true")
+			}
 			err = c.Create(hdr.ToOpts())
 			if err != nil {
 				return nil, nil, err
