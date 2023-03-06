@@ -1,6 +1,6 @@
 FROM golang:1.20.1-alpine3.17 as builder
 
-RUN apk add --no-cache gcc git make musl-dev
+RUN apk add --no-cache --no-progress gcc git make musl-dev
 
 COPY . /src
 ARG BININFO_BUILD_DATE BININFO_COMMIT_HASH BININFO_VERSION # provided to 'make install'
@@ -10,7 +10,7 @@ RUN make -C /src install PREFIX=/pkg GO_BUILDFLAGS='-mod vendor'
 
 FROM alpine:3.17
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache --no-progress ca-certificates
 COPY --from=builder /pkg/ /usr/
 
 ARG BININFO_BUILD_DATE BININFO_COMMIT_HASH BININFO_VERSION
