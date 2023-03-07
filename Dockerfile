@@ -10,6 +10,8 @@ RUN make -C /src install PREFIX=/pkg GO_BUILDFLAGS='-mod vendor'
 
 FROM alpine:3.17
 
+RUN addgroup -g 4200 appgroup
+RUN adduser -h /home/appuser -s /sbin/nologin -G appgroup -D -u 4200 appuser
 RUN apk add --no-cache --no-progress ca-certificates
 COPY --from=builder /pkg/ /usr/
 
@@ -20,6 +22,6 @@ LABEL source_repository="https://github.com/sapcc/keppel" \
   org.opencontainers.image.revision=${BININFO_COMMIT_HASH} \
   org.opencontainers.image.version=${BININFO_VERSION}
 
-USER nobody:nobody
+USER 4200:4200
 WORKDIR /var/empty
 ENTRYPOINT [ "/usr/bin/keppel" ]
