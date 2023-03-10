@@ -24,16 +24,14 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
-	"github.com/docker/distribution/manifest/manifestlist"
-	"github.com/docker/distribution/manifest/schema2"
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
+	accept "github.com/timewasted/go-accept-headers"
 
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/auth"
@@ -108,41 +106,34 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//verify Accept header, if any
-	if r.Header.Get("Accept") != "" {
-		accepted := false
-		acceptableByRecursingIntoDefaultImage := false
-		for _, acceptHeader := range r.Header["Accept"] {
-			for _, acceptField := range strings.Split(acceptHeader, ",") {
-				acceptField = strings.SplitN(acceptField, ";", 2)[0]
-				acceptField = strings.TrimSpace(acceptField)
-				// Accept: */* is used by curl(1)
-				// Accept: application/json is used by go-containerregistry
-				//         (they also send application/vnd.docker.distribution.manifest.v2+json
-				//         with higher prio, but that doesn't help when we have an image list manifest)
-				if acceptField == dbManifest.MediaType || acceptField == "application/json" || acceptField == "*/*" {
-					accepted = true
-				}
-				// Accept: application/vnd.docker.distribution.manifest.v2+json is an ultra-special case (see below)
-				if acceptField == schema2.MediaTypeManifest {
-					if dbManifest.MediaType == manifestlist.MediaTypeManifestList {
-						acceptableByRecursingIntoDefaultImage = true
-					}
-				}
-			}
+	if acceptHeader := r.Header.Get("Accept"); acceptHeader != "" {
+		acceptRules := accept.Parse(acceptHeader)
+
+		//does the Accept header cover the manifest itself?
+		negotiatedMediaType, err := acceptRules.Negotiate(
+			dbManifest.MediaType,
+			//go-containerregistry can take any type of manifest when it accepts
+			//"application/json" (it also explicitly accepts
+			//"application/vnd.docker.distribution.manifest.v2+json" with higher
+			//priority, but that doesn't help when we have an image list manifest)
+			"application/json",
+		)
+		if err != nil {
+			//the Accept header was malformed
+			keppel.ErrManifestUnknown.With(err.Error()).WithStatus(http.StatusBadRequest).WriteAsRegistryV2ResponseTo(w, r)
+			return
 		}
 
-		if !accepted && acceptableByRecursingIntoDefaultImage {
-			//We have an application/vnd.docker.distribution.manifest.list.v2+json manifest, but the
-			//client only accepts application/vnd.docker.distribution.manifest.v2+json. To stay
-			//compatible with the reference implementation of Docker Hub, we serve this case by recursing
-			//into the image list and returning the linux/amd64 manifest to the client.
+		if negotiatedMediaType == "" {
+			//we cannot serve the manifest itself, but maybe we can redirect into one of the acceptable
+			//alternates
 			manifestParsed, _, err := keppel.ParseManifest(dbManifest.MediaType, manifestBytes)
 			if err != nil {
 				keppel.ErrManifestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 				return
 			}
-			for _, subManifestDesc := range manifestParsed.ManifestReferences(account.PlatformFilter) {
-				if subManifestDesc.Platform.OS == "linux" && subManifestDesc.Platform.Architecture == "amd64" {
+			for _, subManifestDesc := range manifestParsed.AcceptableAlternates(account.PlatformFilter) {
+				if acceptRules.Accepts(subManifestDesc.MediaType) {
 					url := fmt.Sprintf("/v2/%s/manifests/%s", getRepoNameForURLPath(*repo, authz), subManifestDesc.Digest.String())
 					w.Header().Set("Docker-Content-Digest", subManifestDesc.Digest.String())
 					w.Header().Set("Location", url)
@@ -150,16 +141,11 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
-		}
 
-		if !accepted {
-			if logg.ShowDebug {
-				for _, acceptHeader := range r.Header["Accept"] {
-					logg.Debug("manifest type %s is not covered by Accept: %s", dbManifest.MediaType, acceptHeader)
-				}
-			}
-			msg := fmt.Sprintf("manifest type %s is not covered by Accept header", dbManifest.MediaType)
-			keppel.ErrManifestUnknown.With(msg).WriteAsRegistryV2ResponseTo(w, r)
+			//there is not even an acceptable alternate, so we need to bail out
+			msg := fmt.Sprintf("manifest type %s is not covered by Accept: %s", dbManifest.MediaType, acceptHeader)
+			logg.Debug(msg)
+			keppel.ErrManifestUnknown.With(msg).WithStatus(http.StatusNotAcceptable).WriteAsRegistryV2ResponseTo(w, r)
 			return
 		}
 	}

@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/docker/distribution"
 	"github.com/opencontainers/go-digest"
@@ -61,7 +62,8 @@ func (c *RepoClient) DownloadManifest(reference keppel.ManifestReference, opts *
 		opts = &DownloadManifestOpts{}
 	}
 
-	hdr := http.Header{"Accept": distribution.ManifestMediaTypes()}
+	hdr := make(http.Header)
+	hdr.Set("Accept", strings.Join(distribution.ManifestMediaTypes(), ", "))
 	if opts.DoNotCountTowardsLastPulled {
 		hdr.Set("X-Keppel-No-Count-Towards-Last-Pulled", "1")
 	}

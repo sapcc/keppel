@@ -59,6 +59,11 @@ type ParsedManifest interface {
 	BlobReferences() []distribution.Descriptor
 	//ManifestReferences returns all manifests referenced by this manifest.
 	ManifestReferences(pf PlatformFilter) []manifestlist.ManifestDescriptor
+	//AcceptableAlternates returns the subset of ManifestReferences() that is
+	//acceptable as alternate representations of this manifest. When a client
+	//asks for this manifest, but the Accept header does not match the manifest
+	//itself, the API will look for an acceptable alternate to serve instead.
+	AcceptableAlternates(pf PlatformFilter) []manifestlist.ManifestDescriptor
 }
 
 // ParseManifest parses a manifest. It also returns a Descriptor describing the manifest itself.
@@ -100,6 +105,10 @@ func (a v2ManifestAdapter) ManifestReferences(pf PlatformFilter) []manifestlist.
 	return nil
 }
 
+func (a v2ManifestAdapter) AcceptableAlternates(pf PlatformFilter) []manifestlist.ManifestDescriptor {
+	return nil
+}
+
 // ociManifestAdapter provides the ParsedManifest interface for the contained type.
 type ociManifestAdapter struct {
 	m *ocischema.DeserializedManifest
@@ -118,6 +127,10 @@ func (a ociManifestAdapter) BlobReferences() []distribution.Descriptor {
 }
 
 func (a ociManifestAdapter) ManifestReferences(pf PlatformFilter) []manifestlist.ManifestDescriptor {
+	return nil
+}
+
+func (a ociManifestAdapter) AcceptableAlternates(pf PlatformFilter) []manifestlist.ManifestDescriptor {
 	return nil
 }
 
@@ -143,6 +156,24 @@ func (a listManifestAdapter) ManifestReferences(pf PlatformFilter) []manifestlis
 	for _, m := range a.m.Manifests {
 		if pf.Includes(m.Platform) {
 			result = append(result, m)
+		}
+	}
+	return result
+}
+
+func (a listManifestAdapter) AcceptableAlternates(pf PlatformFilter) []manifestlist.ManifestDescriptor {
+	var result []manifestlist.ManifestDescriptor
+	for _, m := range a.ManifestReferences(pf) {
+		//If we have an application/vnd.docker.distribution.manifest.list.v2+json manifest, but the
+		//client only accepts application/vnd.docker.distribution.manifest.v2+json, in order to stay
+		//compatible with the reference implementation of Docker Hub, we serve this case by recursing
+		//into the image list and returning the linux/amd64 manifest to the client.
+		//
+		//This case is relevant for the support of tagged multi-arch images in `docker pull`.
+		if a.m.Versioned.MediaType == manifestlist.MediaTypeManifestList && m.MediaType == schema2.MediaTypeManifest {
+			if m.Platform.OS == "linux" && m.Platform.Architecture == "amd64" {
+				result = append(result, m)
+			}
 		}
 	}
 	return result
