@@ -615,11 +615,11 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 3 AND account_name = 'test1' AND digest = '%[9]s';
 		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 5 AND account_name = 'test1' AND digest = '%[10]s';
 		UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 7 AND account_name = 'test1' AND digest = '%[11]s';
-		UPDATE vuln_info SET next_check_at = 5520 WHERE repo_id = 1 AND digest = '%[4]s';
+		UPDATE vuln_info SET next_check_at = 5520, index_started_at = 5400 WHERE repo_id = 1 AND digest = '%[4]s';
 		UPDATE vuln_info SET status = 'Unsupported', message = 'vulnerability scanning is not supported for images above %[1]g GiB', next_check_at = 91800 WHERE repo_id = 1 AND digest = '%[3]s';
-		UPDATE vuln_info SET next_check_at = 5520 WHERE repo_id = 1 AND digest = '%[6]s';
+		UPDATE vuln_info SET next_check_at = 5520, index_started_at = 5400 WHERE repo_id = 1 AND digest = '%[6]s';
 		UPDATE vuln_info SET status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[2]g GiB', next_check_at = 91800 WHERE repo_id = 1 AND digest = '%[7]s';
-		UPDATE vuln_info SET next_check_at = 5520 WHERE repo_id = 1 AND digest = '%[5]s';
+		UPDATE vuln_info SET next_check_at = 5520, index_started_at = 5400 WHERE repo_id = 1 AND digest = '%[5]s';
 	`,
 		manifestSizeTooBigGiB, blobUncompressedSizeTooBigGiB,
 		imageList.Manifest.Digest,
@@ -648,9 +648,9 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
 	tr.DBChanges().AssertEqualf(`
-		UPDATE vuln_info SET status = 'Low', next_check_at = 9600 WHERE repo_id = 1 AND digest = '%s';
+		UPDATE vuln_info SET status = 'Low', next_check_at = 9600, index_finished_at = 6000 WHERE repo_id = 1 AND digest = '%s';
 		UPDATE vuln_info SET next_check_at = 6120 WHERE repo_id = 1 AND digest = '%s';
-		UPDATE vuln_info SET status = 'Clean', next_check_at = 9600 WHERE repo_id = 1 AND digest = '%s';
+		UPDATE vuln_info SET status = 'Clean', next_check_at = 9600, index_finished_at = 6000 WHERE repo_id = 1 AND digest = '%s';
 	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
 }
 
@@ -688,8 +688,8 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
 	tr.DBChanges().AssertEqualf(`
 		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
-		UPDATE vuln_info SET next_check_at = %[3]d WHERE repo_id = 1 AND digest = '%[2]s';
-	`, image.Layers[0].Digest, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix())
+		UPDATE vuln_info SET next_check_at = %[3]d, index_started_at = %[4]d WHERE repo_id = 1 AND digest = '%[2]s';
+	`, image.Layers[0].Digest, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix(), s.Clock.Now().Unix())
 	assert.DeepEqual(t, "delete counter", claird.IndexDeleteCounter, 0)
 
 	// simulate transient error
@@ -699,8 +699,8 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
 	tr.DBChanges().AssertEqualf(`
-		UPDATE vuln_info SET next_check_at = %[2]d WHERE repo_id = 1 AND digest = '%[1]s';
-	`, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix())
+		UPDATE vuln_info SET next_check_at = %[2]d, index_started_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
+	`, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix(), s.Clock.Now().Unix())
 	assert.DeepEqual(t, "delete counter", claird.IndexDeleteCounter, 1)
 
 	// transient error fixed itself after deletion
@@ -711,7 +711,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
 	tr.DBChanges().AssertEqualf(`
-		UPDATE vuln_info SET status = 'Low', next_check_at = %[2]d WHERE repo_id = 1 AND digest = '%[1]s';
-	`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix())
+		UPDATE vuln_info SET status = 'Low', next_check_at = %[2]d, index_finished_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
+	`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix())
 	assert.DeepEqual(t, "delete counter", claird.IndexDeleteCounter, 1)
 }

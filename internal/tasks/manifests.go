@@ -717,13 +717,22 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		if err != nil {
 			return err
 		}
+		now := j.timeNow()
+		if vulnInfo.IndexStartedAt == nil {
+			vulnInfo.IndexStartedAt = &now
+		}
 		if clairState.IndexingWasRestarted {
+			vulnInfo.IndexStartedAt = &now
 			checkVulnerabilityRetriedCounter.Inc()
 		}
 		if clairState.IsErrored {
 			vulnStatuses = append(vulnStatuses, clair.ErrorVulnerabilityStatus)
 			vulnInfo.Message = clairState.ErrorMessage
 		} else if clairState.IsIndexed {
+			if vulnInfo.IndexFinishedAt == nil {
+				vulnInfo.IndexFinishedAt = &now
+			}
+
 			clairReport, err := j.cfg.ClairClient.GetVulnerabilityReport(manifest.Digest)
 			if err != nil {
 				return err
