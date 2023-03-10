@@ -276,6 +276,11 @@ func TestManifestsAPI(t *testing.T) {
 			Outcome:     "success",
 			Reason:      test.CADFReasonOK,
 			Target: cadf.Resource{
+				Attachments: []cadf.Attachment{{
+					Name:    "tags",
+					TypeURI: "mime:application/json",
+					Content: "[\"first\",\"stillfirst\"]",
+				}},
 				TypeURI:   "docker-registry/account/repository/manifest",
 				Name:      "test1/repo1-1@" + deterministicDummyDigest(11),
 				ID:        deterministicDummyDigest(11),

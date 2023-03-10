@@ -853,6 +853,21 @@ func (p *Processor) downloadManifestViaPullDelegation(imageRef keppel.ImageRefer
 //
 // If the manifest does not exist, sql.ErrNoRows is returned.
 func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repository, digestStr string, actx keppel.AuditContext) error {
+	var (
+		tagResults []keppel.Tag
+		tags       []string
+	)
+
+	_, err := p.db.Select(&tagResults,
+		`SELECT * FROM tags WHERE repo_id = $1 AND digest = $2`,
+		repo.ID, digestStr)
+	if err != nil {
+		return err
+	}
+	for _, tagResult := range tagResults {
+		tags = append(tags, tagResult.Name)
+	}
+
 	result, err := p.db.Exec(
 		//this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
 		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
@@ -905,6 +920,7 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 				Account:    account,
 				Repository: repo,
 				Digest:     digestStr,
+				Tags:       tags,
 			},
 		})
 	}
@@ -949,16 +965,28 @@ type auditManifest struct {
 	Account    keppel.Account
 	Repository keppel.Repository
 	Digest     string
+	Tags       []string
 }
 
 // Render implements the audittools.TargetRenderer interface.
 func (a auditManifest) Render() cadf.Resource {
-	return cadf.Resource{
+	res := cadf.Resource{
 		TypeURI:   "docker-registry/account/repository/manifest",
 		Name:      fmt.Sprintf("%s@%s", a.Repository.FullName(), a.Digest),
 		ID:        a.Digest,
 		ProjectID: a.Account.AuthTenantID,
 	}
+
+	if len(a.Tags) > 0 {
+		tagsJSON, _ := json.Marshal(a.Tags)
+		res.Attachments = []cadf.Attachment{{
+			Name:    "tags",
+			TypeURI: "mime:application/json",
+			Content: string(tagsJSON),
+		}}
+	}
+
+	return res
 }
 
 // auditTag is an audittools.TargetRenderer.
