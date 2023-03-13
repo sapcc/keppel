@@ -23,6 +23,7 @@ require (
 	github.com/sapcc/go-api-declarations v1.4.3
 	github.com/sapcc/go-bits v0.0.0-20230309085702-cdeffa7432aa
 	github.com/spf13/cobra v1.6.1
+	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	golang.org/x/crypto v0.7.0
 )
 
