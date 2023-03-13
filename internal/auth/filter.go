@@ -40,28 +40,9 @@ func filterAuthorized(ir IncomingRequest, uid keppel.UserIdentity, audience Audi
 		filtered := *scope
 		switch scope.ResourceType {
 		case "registry":
-			if audience.IsAnycast {
-				//we cannot allow catalog access on the anycast API since there is no way
-				//to decide which peer does the authentication in this case
-				filtered.Actions = nil
-			} else if uid.UserType() == keppel.AnonymousUser {
-				//we don't allow catalog access to anonymous users:
-				//
-				//1. if we did, nobody would ever be presented with the auth challenge
-				//and thus all clients would assume that they get the same result
-				//without auth (which is very much not true)
-				//
-				//2. anon users do not get any keppel_account:*:view permissions, so it
-				//does not help them to get access to the catalog endpoint anyway
-				filtered.Actions = nil
-			} else if scope.Contains(CatalogEndpointScope) {
-				filtered.Actions = CatalogEndpointScope.Actions
-				err = addCatalogAccess(&additional, uid, audience, db)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				filtered.Actions = nil
+			filtered.Actions, err = filterRegistryActions(uid, audience, db, scope, &additional)
+			if err != nil {
+				return nil, err
 			}
 
 		case "repository":
@@ -81,22 +62,9 @@ func filterAuthorized(ir IncomingRequest, uid keppel.UserIdentity, audience Audi
 			}
 
 		case "keppel_account":
-			if audience.AccountName != "" && scope.ResourceName != audience.AccountName {
-				//domain-remapped APIs only allow access to that API's account
-				filtered.Actions = nil
-			} else if audience.IsAnycast {
-				//defense in depth: any APIs requiring account-level permission are not anycastable anyway
-				filtered.Actions = nil
-			} else {
-				account, err := keppel.FindAccount(db, scope.ResourceName)
-				if err != nil {
-					return nil, err
-				}
-				if account == nil {
-					filtered.Actions = nil
-				} else {
-					filtered.Actions = filterAuthTenantActions(account.AuthTenantID, scope.Actions, uid)
-				}
+			filtered.Actions, err = filterKeppelAccountActions(uid, audience, db, scope)
+			if err != nil {
+				return nil, err
 			}
 
 		case "keppel_auth_tenant":
@@ -150,6 +118,38 @@ func addCatalogAccess(ss *ScopeSet, uid keppel.UserIdentity, audience Audience, 
 	}
 
 	return nil
+}
+
+func filterRegistryActions(uid keppel.UserIdentity, audience Audience, db *keppel.DB, scope *Scope, additional *ScopeSet) ([]string, error) {
+	var filtered []string
+
+	if audience.IsAnycast {
+		//we cannot allow catalog access on the anycast API since there is no way
+		//to decide which peer does the authentication in this case
+		return nil, nil
+	}
+
+	if uid.UserType() == keppel.AnonymousUser {
+		//we don't allow catalog access to anonymous users:
+		//
+		//1. if we did, nobody would ever be presented with the auth challenge
+		//and thus all clients would assume that they get the same result
+		//without auth (which is very much not true)
+		//
+		//2. anon users do not get any keppel_account:*:view permissions, so it
+		//does not help them to get access to the catalog endpoint anyway
+		return nil, nil
+	}
+
+	if scope.Contains(CatalogEndpointScope) {
+		filtered = CatalogEndpointScope.Actions
+		err := addCatalogAccess(additional, uid, audience, db)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return filtered, nil
 }
 
 func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience Audience, db *keppel.DB) ([]string, error) {
@@ -215,6 +215,28 @@ func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience
 		}
 	}
 	return result, nil
+}
+
+func filterKeppelAccountActions(uid keppel.UserIdentity, audience Audience, db *keppel.DB, scope *Scope) ([]string, error) {
+	if audience.AccountName != "" && scope.ResourceName != audience.AccountName {
+		//domain-remapped APIs only allow access to that API's account
+		return nil, nil
+	}
+
+	if audience.IsAnycast {
+		//defense in depth: any APIs requiring account-level permission are not anycastable anyway
+		return nil, nil
+	}
+
+	account, err := keppel.FindAccount(db, scope.ResourceName)
+	if err != nil {
+		return nil, err
+	}
+	if account == nil {
+		return nil, nil
+	}
+
+	return filterAuthTenantActions(account.AuthTenantID, scope.Actions, uid), nil
 }
 
 func filterAuthTenantActions(authTenantID string, actions []string, uid keppel.UserIdentity) []string {
