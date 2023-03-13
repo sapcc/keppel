@@ -182,20 +182,24 @@ func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience
 	}
 	userName := uid.UserName()
 	for _, policy := range policies {
-		if policy.Matches(ip, repoScope.FullRepositoryName, userName) {
-			if policy.CanPullAnonymously {
+		if !policy.Matches(ip, repoScope.FullRepositoryName, userName) {
+			continue
+		}
+
+		if policy.CanPullAnonymously {
+			isAllowedAction["pull"] = true
+		}
+		if policy.CanFirstPullAnonymously {
+			isAllowedAction["anonymous_first_pull"] = true
+		}
+		if uid.UserType() != keppel.AnonymousUser {
+			if policy.CanPull {
 				isAllowedAction["pull"] = true
 			}
-			if policy.CanFirstPullAnonymously {
-				isAllowedAction["anonymous_first_pull"] = true
-			}
-			if policy.CanPull && uid.UserType() != keppel.AnonymousUser {
-				isAllowedAction["pull"] = true
-			}
-			if policy.CanPush && uid.UserType() != keppel.AnonymousUser {
+			if policy.CanPush {
 				isAllowedAction["push"] = true
 			}
-			if policy.CanDelete && uid.UserType() != keppel.AnonymousUser {
+			if policy.CanDelete {
 				isAllowedAction["delete"] = true
 			}
 		}
