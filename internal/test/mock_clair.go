@@ -29,6 +29,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/sapcc/keppel/internal/clair"
+
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
@@ -45,13 +47,17 @@ type ClairDouble struct {
 	IndexDeleteCounter  int
 	//key = manifest digest, value = path to JSON fixture file containing `clair.VulnerabilityReport` for this image
 	ReportFixtures map[string]string
+	IndexState     string
 }
+
+const IndexStateHash = "aae368a064d7c5a433d0bf2c4f5554cc"
 
 // NewClairDouble creates a ClairDouble.
 func NewClairDouble() *ClairDouble {
 	return &ClairDouble{
 		IndexFixtures:       make(map[string]string),
 		IndexReportFixtures: make(map[string]string),
+		IndexState:          IndexStateHash,
 		WasIndexSubmitted:   make(map[string]bool),
 		ReportFixtures:      make(map[string]string),
 	}
@@ -68,6 +74,9 @@ func (c *ClairDouble) AddTo(r *mux.Router) {
 	r.Methods("DELETE").
 		Path("/indexer/api/v1/index_report/{digest}").
 		HandlerFunc(c.deleteIndexReport)
+	r.Methods("GET").
+		Path("/indexer/api/v1/index_state").
+		HandlerFunc(c.getIndexState)
 	r.Methods("GET").
 		Path("/matcher/api/v1/vulnerability_report/{digest}").
 		HandlerFunc(c.getVulnerabilityReport)
@@ -204,4 +213,10 @@ func (c *ClairDouble) getVulnerabilityReport(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	respondwith.JSON(w, http.StatusOK, json.RawMessage(reportBytes))
+}
+
+func (c *ClairDouble) getIndexState(w http.ResponseWriter, r *http.Request) {
+	httpapi.IdentifyEndpoint(r, "/matcher/api/v1/index_state")
+
+	respondwith.JSON(w, http.StatusOK, clair.IndexState{State: c.IndexState})
 }
