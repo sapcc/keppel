@@ -720,9 +720,11 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		now := j.timeNow()
 		if vulnInfo.IndexStartedAt == nil {
 			vulnInfo.IndexStartedAt = &now
+			vulnInfo.IndexState = clairState.IndexState
 		}
 		if clairState.IndexingWasRestarted {
 			vulnInfo.IndexStartedAt = &now
+			vulnInfo.IndexState = clairState.IndexState
 			checkVulnerabilityRetriedCounter.Inc()
 		}
 		if clairState.IsErrored {

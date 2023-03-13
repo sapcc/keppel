@@ -49,6 +49,7 @@ type ManifestState struct {
 	IndexingWasRestarted bool
 	IsErrored            bool
 	ErrorMessage         string
+	IndexState           string
 }
 
 type indexReport struct {
@@ -58,12 +59,17 @@ type indexReport struct {
 	//there are more fields, but we are not interested in them
 }
 
-func (r indexReport) IntoManifestState(indexingWasRestarted bool) ManifestState {
+type IndexState struct {
+	State string `json:"state"`
+}
+
+func (r indexReport) IntoManifestState(indexingWasRestarted bool, indexState string) ManifestState {
 	return ManifestState{
 		IsIndexed:            r.State == "IndexFinished",
 		IndexingWasRestarted: indexingWasRestarted,
 		IsErrored:            r.State == "IndexError",
 		ErrorMessage:         r.ErrorMessage,
+		IndexState:           indexState,
 	}
 }
 
@@ -102,17 +108,20 @@ func (c *Client) CheckManifestState(digest string, renderManifest func() (Manife
 		return ManifestState{}, err
 	}
 
-	var result indexReport
-	err = c.doRequest(req, &result)
+	var (
+		indexReportResult indexReport
+		indexState        string
+	)
+	err = c.doRequest(req, &indexReportResult)
 	if err != nil && strings.Contains(err.Error(), "got 404 response") {
-		result, err = c.submitManifest(renderManifest)
+		indexReportResult, indexState, err = c.submitManifest(renderManifest)
 	}
 	if err != nil {
 		return ManifestState{}, err
 	}
 
 	indexingWasRestarted := false
-	if isClairTransientError(result.ErrorMessage) {
+	if isClairTransientError(indexReportResult.ErrorMessage) {
 		// delete index_report in clear before resubmitting
 		req, err := http.NewRequest(http.MethodDelete, reqURL, http.NoBody)
 		if err != nil {
@@ -123,20 +132,20 @@ func (c *Client) CheckManifestState(digest string, renderManifest func() (Manife
 			return ManifestState{}, err
 		}
 
-		result, err = c.submitManifest(renderManifest)
+		indexReportResult, indexState, err = c.submitManifest(renderManifest)
 		if err != nil {
 			return ManifestState{}, err
 		}
 		indexingWasRestarted = true
 	}
 
-	return result.IntoManifestState(indexingWasRestarted), err
+	return indexReportResult.IntoManifestState(indexingWasRestarted, indexState), err
 }
 
-func (c *Client) submitManifest(renderManifest func() (Manifest, error)) (indexReport, error) {
+func (c *Client) submitManifest(renderManifest func() (Manifest, error)) (indexReport, string, error) {
 	m, err := renderManifest()
 	if err != nil {
-		return indexReport{}, err
+		return indexReport{}, "", err
 	}
 
 	//Clair does not like manifests with no contents, but those do exist (for
@@ -150,12 +159,12 @@ func (c *Client) submitManifest(renderManifest func() (Manifest, error)) (indexR
 		return indexReport{
 			Digest: m.Digest,
 			State:  "IndexFinished",
-		}, nil
+		}, "", nil
 	}
 
 	jsonBytes, err := json.Marshal(m)
 	if err != nil {
-		return indexReport{}, err
+		return indexReport{}, "", err
 	}
 	logg.Debug("sending indexing request to Clair: %s", string(jsonBytes))
 
@@ -165,9 +174,30 @@ func (c *Client) submitManifest(renderManifest func() (Manifest, error)) (indexR
 		bytes.NewReader(jsonBytes),
 	)
 	if err != nil {
-		return indexReport{}, err
+		return indexReport{}, "", err
 	}
-	var result indexReport
-	err = c.doRequest(req, &result)
-	return result, err
+
+	var indexReportResult indexReport
+	err = c.doRequest(req, &indexReportResult)
+	if err != nil {
+		return indexReport{}, "", err
+	}
+
+	// get and return index state hash to later resubmit reports if the configuration changed
+	req, err = http.NewRequest(
+		http.MethodGet,
+		c.requestURL("indexer", "api", "v1", "index_state"),
+		http.NoBody,
+	)
+	if err != nil {
+		return indexReport{}, "", err
+	}
+
+	var indexStateResult IndexState
+	err = c.doRequest(req, &indexStateResult)
+	if err != nil {
+		return indexReport{}, "", err
+	}
+
+	return indexReportResult, indexStateResult.State, err
 }

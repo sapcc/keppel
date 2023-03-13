@@ -615,16 +615,16 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 3 AND account_name = 'test1' AND digest = '%[9]s';
 		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 5 AND account_name = 'test1' AND digest = '%[10]s';
 		UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 7 AND account_name = 'test1' AND digest = '%[11]s';
-		UPDATE vuln_info SET next_check_at = 5520, index_started_at = 5400 WHERE repo_id = 1 AND digest = '%[4]s';
+		UPDATE vuln_info SET next_check_at = 5520, index_started_at = 5400, index_state = '%[12]s' WHERE repo_id = 1 AND digest = '%[4]s';
 		UPDATE vuln_info SET status = 'Unsupported', message = 'vulnerability scanning is not supported for images above %[1]g GiB', next_check_at = 91800 WHERE repo_id = 1 AND digest = '%[3]s';
-		UPDATE vuln_info SET next_check_at = 5520, index_started_at = 5400 WHERE repo_id = 1 AND digest = '%[6]s';
+		UPDATE vuln_info SET next_check_at = 5520, index_started_at = 5400, index_state = '%[12]s' WHERE repo_id = 1 AND digest = '%[6]s';
 		UPDATE vuln_info SET status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[2]g GiB', next_check_at = 91800 WHERE repo_id = 1 AND digest = '%[7]s';
-		UPDATE vuln_info SET next_check_at = 5520, index_started_at = 5400 WHERE repo_id = 1 AND digest = '%[5]s';
+		UPDATE vuln_info SET next_check_at = 5520, index_started_at = 5400, index_state = '%[12]s' WHERE repo_id = 1 AND digest = '%[5]s';
 	`,
-		manifestSizeTooBigGiB, blobUncompressedSizeTooBigGiB,
-		imageList.Manifest.Digest,
+		manifestSizeTooBigGiB, blobUncompressedSizeTooBigGiB, imageList.Manifest.Digest,
 		images[0].Manifest.Digest, images[1].Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest,
 		images[0].Layers[0].Digest, images[1].Layers[0].Digest, images[2].Layers[0].Digest, images[3].Layers[0].Digest,
+		test.IndexStateHash,
 	)
 
 	//five minutes later, indexing is still not finished
@@ -651,6 +651,19 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		UPDATE vuln_info SET status = 'Low', next_check_at = 9600, index_finished_at = 6000 WHERE repo_id = 1 AND digest = '%s';
 		UPDATE vuln_info SET next_check_at = 6120 WHERE repo_id = 1 AND digest = '%s';
 		UPDATE vuln_info SET status = 'Clean', next_check_at = 9600, index_finished_at = 6000 WHERE repo_id = 1 AND digest = '%s';
+	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
+
+	// check that a changed vulnerability status does not have side effects
+	claird.ReportFixtures[images[1].Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
+	s.Clock.StepBy(1 * time.Hour)
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest()) //once for each manifest
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
+	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
+	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
+	tr.DBChanges().AssertEqualf(`
+		UPDATE vuln_info SET next_check_at = 13200 WHERE repo_id = 1 AND digest = '%[1]s';
+		UPDATE vuln_info SET next_check_at = 9720 WHERE repo_id = 1 AND digest = '%[2]s';
+		UPDATE vuln_info SET status = 'Low', next_check_at = 13200 WHERE repo_id = 1 AND digest = '%[3]s';
 	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
 }
 
@@ -688,8 +701,8 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
 	tr.DBChanges().AssertEqualf(`
 		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
-		UPDATE vuln_info SET next_check_at = %[3]d, index_started_at = %[4]d WHERE repo_id = 1 AND digest = '%[2]s';
-	`, image.Layers[0].Digest, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix(), s.Clock.Now().Unix())
+		UPDATE vuln_info SET next_check_at = %[3]d, index_started_at = %[4]d, index_state = '%[5]s' WHERE repo_id = 1 AND digest = '%[2]s';
+	`, image.Layers[0].Digest, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix(), s.Clock.Now().Unix(), test.IndexStateHash)
 	assert.DeepEqual(t, "delete counter", claird.IndexDeleteCounter, 0)
 
 	// simulate transient error
