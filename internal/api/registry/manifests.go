@@ -107,6 +107,11 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 
 	//verify Accept header, if any
 	if acceptHeader := r.Header.Get("Accept"); acceptHeader != "" {
+		//TODO: this is a short-lived check to interrogate client behavior in the wild; remove this when you see it
+		if len(r.Header["Accept"]) > 1 {
+			logg.Info("User-Agent %s provided multiple Accept headers: %#v", r.Header.Get("User-Agent"), r.Header["Accept"])
+		}
+
 		acceptRules := accept.Parse(acceptHeader)
 
 		//does the Accept header cover the manifest itself?
