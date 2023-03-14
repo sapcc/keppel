@@ -19,13 +19,10 @@
 package tasks
 
 import (
-	"bytes"
 	"compress/gzip"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"strings"
 	"time"
 
@@ -37,6 +34,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/clair"
+	peerclient "github.com/sapcc/keppel/internal/client/peer"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/processor"
 )
@@ -236,7 +234,7 @@ func (j *Janitor) getReplicaSyncPayload(account keppel.Account, repo keppel.Repo
 	}
 
 	//get token for peer
-	peerToken, err := auth.GetPeerToken(j.cfg, peer, auth.PeerAPIScope)
+	client, err := peerclient.New(j.cfg, peer, auth.PeerAPIScope)
 	if err != nil {
 		return nil, err
 	}
@@ -286,47 +284,7 @@ func (j *Janitor) getReplicaSyncPayload(account keppel.Account, repo keppel.Repo
 		return nil, err
 	}
 
-	//build request
-	reqBodyBytes, err := json.Marshal(keppel.ReplicaSyncPayload{Manifests: manifests})
-	if err != nil {
-		return nil, err
-	}
-	reqURL := fmt.Sprintf("https://%s/peer/v1/sync-replica/%s", peer.HostName, repo.FullName())
-	req, err := http.NewRequest(http.MethodPost, reqURL, bytes.NewReader(reqBodyBytes))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+peerToken)
-
-	//execute request
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("during POST %s: %w", reqURL, err)
-	}
-	defer resp.Body.Close()
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("during POST %s: %w", reqURL, err)
-	}
-	if resp.StatusCode == http.StatusNotFound {
-		//404 can occur when the repo has been deleted on primary; in this case,
-		//fall back to verifying the deletion explicitly using the normal API
-		return nil, nil
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("during POST %s: expected 200, got %d with response: %s",
-			req.URL, resp.StatusCode, string(respBytes))
-	}
-
-	//parse response body
-	var payload keppel.ReplicaSyncPayload
-	decoder := json.NewDecoder(bytes.NewReader(respBytes))
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&payload)
-	if err != nil {
-		return nil, fmt.Errorf("while parsing response for POST %s: %w", reqURL, err)
-	}
-	return &payload, nil
+	return client.PerformReplicaSync(repo.FullName(), keppel.ReplicaSyncPayload{Manifests: manifests})
 }
 
 func (j *Janitor) performTagSync(account keppel.Account, repo keppel.Repository, syncPayload *keppel.ReplicaSyncPayload) error {

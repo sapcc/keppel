@@ -40,6 +40,7 @@ import (
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/client"
+	peerclient "github.com/sapcc/keppel/internal/client/peer"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -809,43 +810,17 @@ func (p *Processor) downloadManifestViaPullDelegation(imageRef keppel.ImageRefer
 		return nil, "", false
 	}
 
-	//get token for peer
-	peerToken, err := auth.GetPeerToken(p.cfg, peer, auth.PeerAPIScope)
+	peerClient, err := peerclient.New(p.cfg, peer, auth.PeerAPIScope)
 	if err != nil {
-		logg.Error("while trying to get a peer token for pull delegation: %s", err.Error())
+		logg.Error(err.Error())
 		return nil, "", false
 	}
-
-	//build request
-	reqURL := fmt.Sprintf("https://%s/peer/v1/delegatedpull/%s/v2/%s/manifests/%s",
-		peer.HostName, imageRef.Host, imageRef.RepoName, imageRef.Reference)
-	req, err := http.NewRequest(http.MethodGet, reqURL, http.NoBody)
+	respBytes, contentType, err = peerClient.DownloadManifestViaPullDelegation(imageRef, userName, password)
 	if err != nil {
-		logg.Error("while trying to build a pull delegation request for %s: %s", imageRef.String(), err.Error())
+		logg.Error(err.Error())
 		return nil, "", false
 	}
-	req.Header.Set("Authorization", "Bearer "+peerToken)
-	req.Header.Set("X-Keppel-Delegated-Pull-Username", userName)
-	req.Header.Set("X-Keppel-Delegated-Pull-Password", password)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		logg.Error("during GET %s: %s", reqURL, err.Error())
-		return nil, "", false
-	}
-	defer resp.Body.Close()
-	respBytes, err = io.ReadAll(resp.Body)
-	if err != nil {
-		logg.Error("during GET %s: %s", reqURL, err.Error())
-		return nil, "", false
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		logg.Error("during GET %s: expected 200, got %d with response: %s",
-			req.URL, resp.StatusCode, string(respBytes))
-		return nil, "", false
-	}
-	return respBytes, resp.Header.Get("Content-Type"), true
+	return respBytes, contentType, true
 }
 
 // DeleteManifest deletes the given manifest from both the database and the
