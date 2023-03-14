@@ -112,6 +112,8 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		//entries, but some user agents that exist in the wild provide each entry
 		//as a separate Accept header. The accept library only takes a single
 		//header, so if multiple headers are given, we join them explicitly.
+		//
+		//See also: <https://github.com/moby/moby/blob/5e9ecffb4fe966c19b606dc7ccee921de2e8ba31/plugin/fetch_linux.go#L82-L92>
 		acceptHeader := strings.Join(r.Header["Accept"], ", ")
 		acceptRules := accept.Parse(acceptHeader)
 
