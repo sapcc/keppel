@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -106,12 +107,12 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//verify Accept header, if any
-	if acceptHeader := r.Header.Get("Accept"); acceptHeader != "" {
-		//TODO: this is a short-lived check to interrogate client behavior in the wild; remove this when you see it
-		if len(r.Header["Accept"]) > 1 {
-			logg.Info("User-Agent %s provided multiple Accept headers: %#v", r.Header.Get("User-Agent"), r.Header["Accept"])
-		}
-
+	if r.Header.Get("Accept") != "" {
+		//Most user agents provide a single Accept header with comma-separated
+		//entries, but some user agents that exist in the wild provide each entry
+		//as a separate Accept header. The accept library only takes a single
+		//header, so if multiple headers are given, we join them explicitly.
+		acceptHeader := strings.Join(r.Header["Accept"], ", ")
 		acceptRules := accept.Parse(acceptHeader)
 
 		//does the Accept header cover the manifest itself?
