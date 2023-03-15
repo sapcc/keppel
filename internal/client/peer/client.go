@@ -39,33 +39,26 @@ type Client struct {
 // New obtains a token for API access to the given peer (using our peering
 // credentials), and wraps it into a Client instance.
 func New(cfg keppel.Configuration, peer keppel.Peer, scope auth.Scope) (Client, error) {
-	token, err := getToken(cfg, peer, scope)
-	return Client{peer, token}, err
+	c := Client{peer, ""}
+	err := c.initToken(cfg, scope)
+	if err != nil {
+		return Client{}, fmt.Errorf("while trying to obtain a peer token for %s in scope %s: %w",
+			peer.HostName, scope.String(), err)
+	}
+	return c, nil
 }
 
-func getToken(cfg keppel.Configuration, peer keppel.Peer, scope auth.Scope) (string, error) {
-	reqURL := fmt.Sprintf("https://%[1]s/keppel/v1/auth?service=%[1]s&scope=%[2]s", peer.HostName, scope.String())
-	req, err := http.NewRequest(http.MethodGet, reqURL, http.NoBody)
-	if err != nil {
-		return "", err
-	}
+func (c *Client) initToken(cfg keppel.Configuration, scope auth.Scope) error {
+	reqURL := c.buildRequestURL(fmt.Sprintf("keppel/v1/auth?service=%[1]s&scope=%[2]s", c.peer.HostName, scope.String()))
 	ourUserName := "replication@" + cfg.APIPublicHostname
-	req.Header.Set("Authorization", keppel.BuildBasicAuthHeader(ourUserName, peer.OurPassword))
+	authHeader := map[string]string{"Authorization": keppel.BuildBasicAuthHeader(ourUserName, c.peer.OurPassword)}
 
-	resp, err := http.DefaultClient.Do(req)
+	respBodyBytes, respStatusCode, _, err := c.doRequest(http.MethodGet, reqURL, http.NoBody, authHeader)
 	if err != nil {
-		return "", err
+		return err
 	}
-	respBodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	err = resp.Body.Close()
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("could not get peer token: expected 200 OK, but got %s: %s", resp.Status, strings.TrimSpace(string(respBodyBytes)))
+	if respStatusCode != http.StatusOK {
+		return fmt.Errorf("expected 200 OK, but got %d: %s", respStatusCode, strings.TrimSpace(string(respBodyBytes)))
 	}
 
 	var data struct {
@@ -73,9 +66,10 @@ func getToken(cfg keppel.Configuration, peer keppel.Peer, scope auth.Scope) (str
 	}
 	err = json.Unmarshal(respBodyBytes, &data)
 	if err != nil {
-		return "", fmt.Errorf("could not get peer token: %w", err)
+		return err
 	}
-	return data.Token, nil
+	c.token = data.Token
+	return nil
 }
 
 func (c Client) buildRequestURL(path string) string {
@@ -87,7 +81,9 @@ func (c Client) doRequest(method, url string, body io.Reader, headers map[string
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("during %s %s: %w", method, url, err)
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	if c.token != "" { //empty token occurs only during initToken()
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
