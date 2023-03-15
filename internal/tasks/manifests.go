@@ -351,17 +351,7 @@ var repoUntaggedManifestsSelectQuery = sqlext.SimplifyWhitespace(`
 		AND digest NOT IN (SELECT DISTINCT digest FROM tags WHERE repo_id = $1)
 `)
 
-func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
-	//enumerate manifests in this repo (this only needs to consider untagged
-	//manifests: we run right after performTagSync, therefore all images that are
-	//tagged right now were already confirmed to still be good)
-	var manifests []keppel.Manifest
-	_, err := j.db.Select(&manifests, repoUntaggedManifestsSelectQuery, repo.ID)
-	if err != nil {
-		return fmt.Errorf("cannot list manifests in repo %s: %s", repo.FullName(), err.Error())
-	}
-
-	//check which manifests need to be deleted
+func (j *Janitor) collectShallDeleteManifest(account keppel.Account, repo keppel.Repository, syncPayload *keppel.ReplicaSyncPayload, manifests []keppel.Manifest) (map[string]bool, error) {
 	shallDeleteManifest := make(map[string]bool)
 	p := j.processor()
 	for _, manifest := range manifests {
@@ -377,21 +367,24 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 		ref := keppel.ManifestReference{Digest: digest.Digest(manifest.Digest)}
 		exists, err := p.CheckManifestOnPrimary(account, repo, ref)
 		if err != nil {
-			return fmt.Errorf("cannot check existence of manifest %s/%s on primary account: %s", repo.FullName(), manifest.Digest, err.Error())
+			return nil, fmt.Errorf("cannot check existence of manifest %s/%s on primary account: %s", repo.FullName(), manifest.Digest, err.Error())
 		}
 		if !exists {
 			shallDeleteManifest[manifest.Digest] = true
 		}
 	}
 
-	//enumerate manifest-manifest refs in this repo
+	return shallDeleteManifest, nil
+}
+
+func (j *Janitor) enumerateManifestManifestRefs(repo keppel.Repository) (map[string][]string, error) {
 	parentDigestsOf := make(map[string][]string)
-	err = sqlext.ForeachRow(j.db, syncManifestEnumerateRefsQuery, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+	err := sqlext.ForeachRow(j.db, syncManifestEnumerateRefsQuery, []interface{}{repo.ID}, func(rows *sql.Rows) error {
 		var (
 			parentDigest string
 			childDigest  string
 		)
-		err = rows.Scan(&parentDigest, &childDigest)
+		err := rows.Scan(&parentDigest, &childDigest)
 		if err != nil {
 			return err
 		}
@@ -399,12 +392,13 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("cannot enumerate manifest-manifest refs in repo %s: %s", repo.FullName(), err.Error())
+		return nil, fmt.Errorf("cannot enumerate manifest-manifest refs in repo %s: %s", repo.FullName(), err.Error())
 	}
 
-	//delete manifests in correct order (if there is a parent-child relationship,
-	//we always need to delete the parent manifest first, otherwise the database
-	//will complain because of its consistency checks)
+	return parentDigestsOf, err
+}
+
+func (j *Janitor) deleteManifestsInOrder(account keppel.Account, repo keppel.Repository, shallDeleteManifest map[string]bool, parentDigestsOf map[string][]string) error {
 	if len(shallDeleteManifest) > 0 {
 		logg.Info("deleting %d manifests in repo %s that were deleted on corresponding primary account", len(shallDeleteManifest), repo.FullName())
 	}
@@ -451,6 +445,34 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 	}
 
 	return nil
+}
+
+func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
+	//enumerate manifests in this repo (this only needs to consider untagged
+	//manifests: we run right after performTagSync, therefore all images that are
+	//tagged right now were already confirmed to still be good)
+	var manifests []keppel.Manifest
+	_, err := j.db.Select(&manifests, repoUntaggedManifestsSelectQuery, repo.ID)
+	if err != nil {
+		return fmt.Errorf("cannot list manifests in repo %s: %s", repo.FullName(), err.Error())
+	}
+
+	//check which manifests need to be deleted
+	shallDeleteManifest, err := j.collectShallDeleteManifest(account, repo, syncPayload, manifests)
+	if err != nil {
+		return err
+	}
+
+	//enumerate manifest-manifest refs in this repo
+	parentDigestsOf, err := j.enumerateManifestManifestRefs(repo)
+	if err != nil {
+		return err
+	}
+
+	//delete manifests in correct order (if there is a parent-child relationship,
+	//we always need to delete the parent manifest first, otherwise the database
+	//will complain because of its consistency checks)
+	return j.deleteManifestsInOrder(account, repo, shallDeleteManifest, parentDigestsOf)
 }
 
 var vulnCheckSelectQuery = sqlext.SimplifyWhitespace(`
