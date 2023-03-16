@@ -52,6 +52,67 @@ type repoRequest struct {
 	ExpectStatus int
 }
 
+func (c *RepoClient) doAuthChallenge(r repoRequest, resp *http.Response, uri string) (*http.Response, error) {
+	authChallenge, err := ParseAuthChallenge(resp.Header)
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse auth challenge from 401 response to %s %s: %s", r.Method, uri, err.Error())
+	}
+	c.token, err = authChallenge.GetToken(c.UserName, c.Password)
+	if err != nil {
+		return nil, fmt.Errorf("authentication failed: %s", err.Error())
+	}
+	if c.token == "" {
+		return nil, errors.New("authentication failed: no token was returned")
+	}
+
+	//...then resend the GET request with the token
+	if r.Body != nil {
+		_, err = r.Body.Seek(0, io.SeekStart)
+		if err != nil {
+			return nil, err
+		}
+	}
+	reqWithToken, err := http.NewRequest(r.Method, uri, r.Body)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range r.Headers {
+		reqWithToken.Header[k] = v
+	}
+	reqWithToken.Header.Set("Authorization", "Bearer "+c.token)
+	resp, err = http.DefaultClient.Do(reqWithToken)
+	if err != nil {
+		return nil, keppel.ErrUnavailable.With(err.Error())
+	}
+	// resp.Body.Close()
+
+	return resp, nil
+}
+
+func tryToParseAndProxyError(r repoRequest, req *http.Request, resp *http.Response) error {
+	//on error, try to parse the upstream RegistryV2Error so that we can proxy it
+	//through to the client correctly
+	//
+	//NOTE: We use HasPrefix here because the actual Content-Type is usually
+	//"application/json; charset=utf-8".
+	if r.Method != "HEAD" && strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
+		var respData struct {
+			Errors []*keppel.RegistryV2Error `json:"errors"`
+		}
+		err := json.NewDecoder(resp.Body).Decode(&respData)
+		if err == nil {
+			err = resp.Body.Close()
+		} else {
+			resp.Body.Close()
+		}
+		if err == nil && len(respData.Errors) > 0 {
+			return respData.Errors[0].WithStatus(resp.StatusCode)
+		}
+	}
+	resp.Body.Close()
+	return unexpectedStatusCodeError{req, http.StatusOK, resp.Status}
+}
+
 func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
 	if c.Scheme == "" {
 		c.Scheme = "https"
@@ -78,61 +139,14 @@ func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
 
 	//if it's a 401, do the auth challenge...
 	if resp.StatusCode == http.StatusUnauthorized {
-		authChallenge, err := ParseAuthChallenge(resp.Header)
-		if err != nil {
-			return nil, fmt.Errorf("cannot parse auth challenge from 401 response to %s %s: %s", r.Method, uri, err.Error())
-		}
-		c.token, err = authChallenge.GetToken(c.UserName, c.Password)
-		if err != nil {
-			return nil, fmt.Errorf("authentication failed: %s", err.Error())
-		}
-		if c.token == "" {
-			return nil, errors.New("authentication failed: no token was returned")
-		}
-
-		//...then resend the GET request with the token
-		if r.Body != nil {
-			_, err = r.Body.Seek(0, io.SeekStart)
-			if err != nil {
-				return nil, err
-			}
-		}
-		reqWithToken, err := http.NewRequest(r.Method, uri, r.Body)
+		resp, err = c.doAuthChallenge(r, resp, uri)
 		if err != nil {
 			return nil, err
-		}
-		for k, v := range r.Headers {
-			reqWithToken.Header[k] = v
-		}
-		reqWithToken.Header.Set("Authorization", "Bearer "+c.token)
-		resp, err = http.DefaultClient.Do(reqWithToken)
-		if err != nil {
-			return nil, keppel.ErrUnavailable.With(err.Error())
 		}
 	}
 
 	if resp.StatusCode != r.ExpectStatus {
-		//on error, try to parse the upstream RegistryV2Error so that we can proxy it
-		//through to the client correctly
-		//
-		//NOTE: We use HasPrefix here because the actual Content-Type is usually
-		//"application/json; charset=utf-8".
-		if r.Method != "HEAD" && strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
-			var respData struct {
-				Errors []*keppel.RegistryV2Error `json:"errors"`
-			}
-			err := json.NewDecoder(resp.Body).Decode(&respData)
-			if err == nil {
-				err = resp.Body.Close()
-			} else {
-				resp.Body.Close()
-			}
-			if err == nil && len(respData.Errors) > 0 {
-				return nil, respData.Errors[0].WithStatus(resp.StatusCode)
-			}
-		}
-		resp.Body.Close()
-		return nil, unexpectedStatusCodeError{req, http.StatusOK, resp.Status}
+		return nil, tryToParseAndProxyError(r, req, resp)
 	}
 
 	return resp, nil
