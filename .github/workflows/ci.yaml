@@ -27,7 +27,7 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v3
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: "1.19"
       - name: Make build
@@ -39,7 +39,7 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v3
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: "1.19"
       - name: Run golangci-lint
@@ -55,7 +55,7 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v3
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: "1.19"
       - name: Run tests and generate coverage report
