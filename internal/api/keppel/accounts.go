@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"reflect"
@@ -40,6 +39,7 @@ import (
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/auth"
+	peerclient "github.com/sapcc/keppel/internal/client/peer"
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -604,46 +604,16 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 					ResourceName: accountToCreate.Name,
 					Actions:      []string{"view"},
 				}
-				peerToken, err := auth.GetPeerToken(a.cfg, peer, viewScope)
+				client, err := peerclient.New(a.cfg, peer, viewScope)
 				if respondwith.ErrorText(w, err) {
 					return
 				}
 
-				reqURL := fmt.Sprintf("https://%s/keppel/v1/accounts/%s", accountToCreate.UpstreamPeerHostName, accountToCreate.Name)
-				authReq, err := http.NewRequest(http.MethodGet, reqURL, http.NoBody)
+				var upstreamAccount Account
+				err = client.GetForeignAccountConfigurationInto(&upstreamAccount, accountToCreate.Name)
 				if respondwith.ErrorText(w, err) {
 					return
 				}
-				authReq.Header.Set("Authorization", "Bearer "+peerToken)
-
-				resp, err := http.DefaultClient.Do(authReq)
-				if err != nil {
-					http.Error(w, "could not fetch platform filter: "+err.Error(), http.StatusUnauthorized)
-					return
-				}
-				if resp.StatusCode != http.StatusOK {
-					http.Error(w, "could not fetch platform filter: expected 200 OK, but got "+resp.Status, http.StatusUnauthorized)
-					return
-				}
-
-				respBodyBytes, err := io.ReadAll(resp.Body)
-				if err == nil {
-					err = resp.Body.Close()
-				} else {
-					resp.Body.Close()
-				}
-				if respondwith.ErrorText(w, err) {
-					return
-				}
-
-				var upstreamAccountData struct {
-					Account Account `json:"account"`
-				}
-				err = json.Unmarshal(respBodyBytes, &upstreamAccountData)
-				if respondwith.ErrorText(w, err) {
-					return
-				}
-				upstreamAccount := upstreamAccountData.Account
 
 				if req.Account.PlatformFilter == nil {
 					accountToCreate.PlatformFilter = upstreamAccount.PlatformFilter
