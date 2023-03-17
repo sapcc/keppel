@@ -35,16 +35,6 @@ import (
 //anymore since it's legacy anyway and the implementation is a lot simpler
 //when we don't have to rewrite manifests between schema1 and schema2.
 
-// IsManifestMediaType returns whether the given media type is for a manifest.
-func IsManifestMediaType(mediaType string) bool {
-	for _, mt := range distribution.ManifestMediaTypes() {
-		if mt == mediaType {
-			return true
-		}
-	}
-	return false
-}
-
 // ParsedManifest is an interface that can interrogate manifests about the blobs
 // and submanifests referenced therein.
 type ParsedManifest interface {
