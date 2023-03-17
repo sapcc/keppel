@@ -28,6 +28,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/sapcc/go-bits/osext"
 )
 
 // ClearTables removes all rows from the given tables.
@@ -187,7 +189,13 @@ func (a Assertable) AssertEqual(expected string) {
 	expectedPath := filepath.Join(tmpDir, "/expected")
 	failOnErr(a.t, os.WriteFile(expectedPath, []byte(expected), 0o666))
 
-	cmd := exec.Command("diff", "-u", expectedPath, actualPath)
+	diffCmd := osext.GetenvOrDefault("GOBITS_DIFF_CMD", "diff")
+	diffCmdSlice := []string{}
+	if diffCmd == "diff" {
+		diffCmdSlice = append(diffCmdSlice, "-u", "--color=always")
+	}
+	diffCmdSlice = append(diffCmdSlice, expectedPath, actualPath)
+	cmd := exec.Command(diffCmd, diffCmdSlice...)
 	cmd.Stdin = nil
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
