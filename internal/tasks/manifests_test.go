@@ -616,9 +616,9 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 5 AND account_name = 'test1' AND digest = '%[10]s';
 		UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 7 AND account_name = 'test1' AND digest = '%[11]s';
 		UPDATE vuln_info SET next_check_at = 5520, checked_at = 5400, index_started_at = 5400, index_state = '%[12]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[4]s';
-		UPDATE vuln_info SET status = 'Unsupported', message = 'vulnerability scanning is not supported for images above %[1]g GiB', next_check_at = 91800, checked_at = 5400, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[3]s';
+		UPDATE vuln_info SET status = 'Unsupported', message = 'vulnerability scanning is not supported for images above %[1]g GiB', next_check_at = 91800 WHERE repo_id = 1 AND digest = '%[3]s';
 		UPDATE vuln_info SET next_check_at = 5520, checked_at = 5400, index_started_at = 5400, index_state = '%[12]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[6]s';
-		UPDATE vuln_info SET status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[2]g GiB', next_check_at = 91800, checked_at = 5400, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[7]s';
+		UPDATE vuln_info SET status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[2]g GiB', next_check_at = 91800 WHERE repo_id = 1 AND digest = '%[7]s';
 		UPDATE vuln_info SET next_check_at = 5520, checked_at = 5400, index_started_at = 5400, index_state = '%[12]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[5]s';
 	`,
 		manifestSizeTooBigGiB, blobUncompressedSizeTooBigGiB, imageList.Manifest.Digest,

@@ -608,6 +608,11 @@ func (j *Janitor) collectManifestReferencedBlobs(account keppel.Account, repo ke
 }
 
 func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, vulnInfo *keppel.VulnerabilityInfo) (returnedError error) {
+	//clear timing information (this will be filled down below once we actually talk to Clair;
+	//if any preflight check fails, the fields stay at nil)
+	vulnInfo.CheckedAt = nil
+	vulnInfo.CheckDurationSecs = nil
+
 	//skip validation while account is in maintenance (maintenance mode blocks
 	//all kinds of activity on an account's contents)
 	if account.InMaintenance {
@@ -705,10 +710,6 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			vulnInfo.CheckedAt = &checkFinishedAt
 			duration := checkFinishedAt.Sub(checkStartedAt).Seconds()
 			vulnInfo.CheckDurationSecs = &duration
-		} else {
-			//on error, clear obsolete timing information
-			vulnInfo.CheckedAt = nil
-			vulnInfo.CheckDurationSecs = nil
 		}
 	}()
 
