@@ -603,6 +603,86 @@ func (j *Janitor) collectManifestReferencedBlobs(account keppel.Account, repo ke
 	return
 }
 
+func (j *Janitor) checkPreConditionsForClair(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, vulnInfo *keppel.VulnerabilityInfo, layerBlobs []keppel.Blob) (bool, error) {
+	// filter media types that clair is known to support
+	for _, blob := range layerBlobs {
+		if blob.MediaType == schema2.MediaTypeLayer || blob.MediaType == imageSpecs.MediaTypeImageLayerGzip {
+			continue
+		}
+
+		vulnInfo.Status = clair.UnsupportedVulnerabilityStatus
+		vulnInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
+		vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
+		return false, nil
+	}
+
+	//skip when blobs add up to more than 5 GiB
+	if manifest.SizeBytes >= uint64(1<<30*manifestSizeTooBigGiB) {
+		vulnInfo.Status = clair.UnsupportedVulnerabilityStatus
+		vulnInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for images above %g GiB", manifestSizeTooBigGiB)
+		vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
+		return false, nil
+	}
+
+	//can only validate when all blobs are present in the storage
+	for _, blob := range layerBlobs {
+		if blob.StorageID == "" {
+			//if the manifest is fairly new, the user who replicated it is probably
+			//still replicating it; give them 10 minutes to finish replicating it
+			vulnInfo.NextCheckAt = manifest.PushedAt.Add(j.addJitter(10 * time.Minute))
+			if vulnInfo.NextCheckAt.After(j.timeNow()) {
+				return false, nil
+			}
+			//otherwise we do the replication ourselves
+			_, err := j.processor().ReplicateBlob(blob, account, repo, nil)
+			if err != nil {
+				return false, err
+			}
+			//after successful replication, restart this call to read the new blob with the correct StorageID from the DB
+			return j.checkPreConditionsForClair(account, repo, manifest, vulnInfo, layerBlobs)
+		}
+
+		if blob.BlocksVulnScanning == nil && strings.HasSuffix(blob.MediaType, "gzip") {
+			//uncompress the blob to check if it's too large for Clair to handle
+			reader, _, err := j.sd.ReadBlob(account, blob.StorageID)
+			if err != nil {
+				return false, err
+			}
+			defer reader.Close()
+			gzipReader, err := gzip.NewReader(reader)
+			if err != nil {
+				return false, err
+			}
+			defer gzipReader.Close()
+
+			//when measuring uncompressed size, use LimitReader as a simple but
+			//effective guard against zip bombs
+			limitBytes := int64(1 << 30 * blobUncompressedSizeTooBigGiB)
+			numberBytes, err := io.Copy(io.Discard, io.LimitReader(gzipReader, limitBytes+1))
+			if err != nil {
+				return false, err
+			}
+
+			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
+			blocksVulnScanning := numberBytes >= limitBytes
+			blob.BlocksVulnScanning = &blocksVulnScanning
+			_, err = j.db.Exec(`UPDATE blobs SET blocks_vuln_scanning = $1 WHERE id = $2`, blocksVulnScanning, blob.ID)
+			if err != nil {
+				return false, err
+			}
+		}
+
+		if blob.BlocksVulnScanning != nil && *blob.BlocksVulnScanning {
+			vulnInfo.Status = clair.UnsupportedVulnerabilityStatus
+			vulnInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
+			vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
 func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, vulnInfo *keppel.VulnerabilityInfo) (returnedError error) {
 	//clear timing information (this will be filled down below once we actually talk to Clair;
 	//if any preflight check fails, the fields stay at nil)
@@ -621,80 +701,12 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		return err
 	}
 
-	// filter media types that clair is known to support
-	for _, blob := range layerBlobs {
-		if blob.MediaType == schema2.MediaTypeLayer || blob.MediaType == imageSpecs.MediaTypeImageLayerGzip {
-			continue
-		}
-
-		vulnInfo.Status = clair.UnsupportedVulnerabilityStatus
-		vulnInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
-		vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
-		return nil
+	continueCheck, err := j.checkPreConditionsForClair(account, repo, manifest, vulnInfo, layerBlobs)
+	if err != nil {
+		return err
 	}
-
-	//skip when blobs add up to more than 5 GiB
-	if manifest.SizeBytes >= uint64(1<<30*manifestSizeTooBigGiB) {
-		vulnInfo.Status = clair.UnsupportedVulnerabilityStatus
-		vulnInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for images above %g GiB", manifestSizeTooBigGiB)
-		vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
+	if !continueCheck {
 		return nil
-	}
-
-	//can only validate when all blobs are present in the storage
-	for _, blob := range layerBlobs {
-		if blob.StorageID == "" {
-			//if the manifest is fairly new, the user who replicated it is probably
-			//still replicating it; give them 10 minutes to finish replicating it
-			vulnInfo.NextCheckAt = manifest.PushedAt.Add(j.addJitter(10 * time.Minute))
-			if vulnInfo.NextCheckAt.After(j.timeNow()) {
-				return nil
-			}
-			//otherwise we do the replication ourselves
-			_, err := j.processor().ReplicateBlob(blob, account, repo, nil)
-			if err != nil {
-				return err
-			}
-			//after successful replication, restart this call to read the new blob with the correct StorageID from the DB
-			return j.doVulnerabilityCheck(account, repo, manifest, vulnInfo)
-		}
-
-		if blob.BlocksVulnScanning == nil && strings.HasSuffix(blob.MediaType, "gzip") {
-			//uncompress the blob to check if it's too large for Clair to handle
-			reader, _, err := j.sd.ReadBlob(account, blob.StorageID)
-			if err != nil {
-				return err
-			}
-			defer reader.Close()
-			gzipReader, err := gzip.NewReader(reader)
-			if err != nil {
-				return err
-			}
-			defer gzipReader.Close()
-
-			//when measuring uncompressed size, use LimitReader as a simple but
-			//effective guard against zip bombs
-			limitBytes := int64(1 << 30 * blobUncompressedSizeTooBigGiB)
-			numberBytes, err := io.Copy(io.Discard, io.LimitReader(gzipReader, limitBytes+1))
-			if err != nil {
-				return err
-			}
-
-			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
-			blocksVulnScanning := numberBytes >= limitBytes
-			blob.BlocksVulnScanning = &blocksVulnScanning
-			_, err = j.db.Exec(`UPDATE blobs SET blocks_vuln_scanning = $1 WHERE id = $2`, blocksVulnScanning, blob.ID)
-			if err != nil {
-				return err
-			}
-		}
-
-		if blob.BlocksVulnScanning != nil && *blob.BlocksVulnScanning {
-			vulnInfo.Status = clair.UnsupportedVulnerabilityStatus
-			vulnInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
-			vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
-			return nil
-		}
 	}
 
 	//we know that this image will not be "Unsupported", so the rest is the part where we actually
