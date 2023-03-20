@@ -558,16 +558,10 @@ func (j *Janitor) CheckVulnerabilitiesForNextManifest() (returnErr error) {
 		return fmt.Errorf("cannot find manifest for repo %s and digest %s: %s", repo.FullName(), vulnInfo.Digest, err.Error())
 	}
 
-	checkStartedAt, err := j.doVulnerabilityCheck(*account, *repo, *manifest, &vulnInfo)
+	err = j.doVulnerabilityCheck(*account, *repo, *manifest, &vulnInfo)
 	if err != nil {
 		return err
 	}
-
-	now := j.timeNow()
-	vulnInfo.CheckedAt = &now
-	duration := now.Sub(*checkStartedAt).Seconds()
-	vulnInfo.CheckDurationSecs = &duration
-
 	_, err = j.db.Update(&vulnInfo)
 	return err
 }
@@ -613,19 +607,30 @@ func (j *Janitor) collectManifestReferencedBlobs(account keppel.Account, repo ke
 	return
 }
 
-func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, vulnInfo *keppel.VulnerabilityInfo) (*time.Time, error) {
+func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, vulnInfo *keppel.VulnerabilityInfo) (returnedError error) {
 	//skip validation while account is in maintenance (maintenance mode blocks
 	//all kinds of activity on an account's contents)
 	if account.InMaintenance {
 		vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(1 * time.Hour))
-		return nil, nil
+		return nil
 	}
 
 	checkStartedAt := j.timeNow()
+	defer func() {
+		if returnedError == nil {
+			checkFinishedAt := j.timeNow()
+			vulnInfo.CheckedAt = &checkFinishedAt
+			duration := checkFinishedAt.Sub(checkStartedAt).Seconds()
+			vulnInfo.CheckDurationSecs = &duration
+		} else {
+			vulnInfo.CheckedAt = nil
+			vulnInfo.CheckDurationSecs = nil
+		}
+	}()
 
 	layerBlobs, err := j.collectManifestReferencedBlobs(account, repo, manifest)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// filter media types that clair is known to support
@@ -637,7 +642,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		vulnInfo.Status = clair.UnsupportedVulnerabilityStatus
 		vulnInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
 		vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
-		return &checkStartedAt, nil
+		return nil
 	}
 
 	//skip when blobs add up to more than 5 GiB
@@ -645,7 +650,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		vulnInfo.Status = clair.UnsupportedVulnerabilityStatus
 		vulnInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for images above %g GiB", manifestSizeTooBigGiB)
 		vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
-		return &checkStartedAt, nil
+		return nil
 	}
 
 	//can only validate when all blobs are present in the storage
@@ -655,12 +660,12 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			//still replicating it; give them 10 minutes to finish replicating it
 			vulnInfo.NextCheckAt = manifest.PushedAt.Add(j.addJitter(10 * time.Minute))
 			if vulnInfo.NextCheckAt.After(j.timeNow()) {
-				return &checkStartedAt, nil
+				return nil
 			}
 			//otherwise we do the replication ourselves
 			_, err := j.processor().ReplicateBlob(blob, account, repo, nil)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			//after successful replication, restart this call to read the new blob with the correct StorageID from the DB
 			return j.doVulnerabilityCheck(account, repo, manifest, vulnInfo)
@@ -670,12 +675,12 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			//uncompress the blob to check if it's too large for Clair to handle
 			reader, _, err := j.sd.ReadBlob(account, blob.StorageID)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			defer reader.Close()
 			gzipReader, err := gzip.NewReader(reader)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			defer gzipReader.Close()
 
@@ -684,7 +689,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			limitBytes := int64(1 << 30 * blobUncompressedSizeTooBigGiB)
 			numberBytes, err := io.Copy(io.Discard, io.LimitReader(gzipReader, limitBytes+1))
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
@@ -692,7 +697,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			blob.BlocksVulnScanning = &blocksVulnScanning
 			_, err = j.db.Exec(`UPDATE blobs SET blocks_vuln_scanning = $1 WHERE id = $2`, blocksVulnScanning, blob.ID)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 
@@ -700,7 +705,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			vulnInfo.Status = clair.UnsupportedVulnerabilityStatus
 			vulnInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
 			vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
-			return &checkStartedAt, nil
+			return nil
 		}
 	}
 
@@ -713,7 +718,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		return err
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	//ask Clair for vulnerability status of blobs in this image
@@ -723,7 +728,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			return j.buildClairManifest(account, manifest, layerBlobs)
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
 		now := j.timeNow()
 		if vulnInfo.IndexStartedAt == nil {
@@ -745,11 +750,11 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 
 			clairReport, err := j.cfg.ClairClient.GetVulnerabilityReport(manifest.Digest)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			if clairReport == nil {
 				//nolint:stylecheck // Clair is a proper name
-				return nil, fmt.Errorf("Clair reports indexing of %s as finished, but vulnerability report is 404", manifest.Digest)
+				return fmt.Errorf("Clair reports indexing of %s as finished, but vulnerability report is 404", manifest.Digest)
 			}
 			vulnStatuses = append(vulnStatuses, clairReport.VulnerabilityStatus())
 		} else {
@@ -767,7 +772,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		//regular recheck loop (vulnerability status might change if Clair adds new vulnerabilities to its DB)
 		vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(1 * time.Hour))
 	}
-	return &checkStartedAt, nil
+	return nil
 }
 
 func (j *Janitor) buildClairManifest(account keppel.Account, manifest keppel.Manifest, layerBlobs []keppel.Blob) (clair.Manifest, error) {
