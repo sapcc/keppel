@@ -615,19 +615,6 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		return nil
 	}
 
-	checkStartedAt := j.timeNow()
-	defer func() {
-		if returnedError == nil {
-			checkFinishedAt := j.timeNow()
-			vulnInfo.CheckedAt = &checkFinishedAt
-			duration := checkFinishedAt.Sub(checkStartedAt).Seconds()
-			vulnInfo.CheckDurationSecs = &duration
-		} else {
-			vulnInfo.CheckedAt = nil
-			vulnInfo.CheckDurationSecs = nil
-		}
-	}()
-
 	layerBlobs, err := j.collectManifestReferencedBlobs(account, repo, manifest)
 	if err != nil {
 		return err
@@ -708,6 +695,22 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			return nil
 		}
 	}
+
+	//we know that this image will not be "Unsupported", so the rest is the part where we actually
+	//talk to Clair (well, mostly anyway), so that part deserves to be measured for performance
+	checkStartedAt := j.timeNow()
+	defer func() {
+		if returnedError == nil {
+			checkFinishedAt := j.timeNow()
+			vulnInfo.CheckedAt = &checkFinishedAt
+			duration := checkFinishedAt.Sub(checkStartedAt).Seconds()
+			vulnInfo.CheckDurationSecs = &duration
+		} else {
+			//on error, clear obsolete timing information
+			vulnInfo.CheckedAt = nil
+			vulnInfo.CheckDurationSecs = nil
+		}
+	}()
 
 	//collect vulnerability status of constituent images
 	var vulnStatuses []clair.VulnerabilityStatus
