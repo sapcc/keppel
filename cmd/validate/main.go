@@ -40,12 +40,12 @@ var (
 // AddCommandTo mounts this command into the command hierarchy.
 func AddCommandTo(parent *cobra.Command) {
 	cmd := &cobra.Command{
-		Use:     "validate <image>",
+		Use:     "validate <image>...",
 		Example: "  keppel validate registry.example.org/library/alpine:3.9",
 		Short:   "Pulls an image and validates that its contents are intact.",
 		Long: `Pulls an image and validates that its contents are intact.
 If the image is in a Keppel replica account, this ensures that the image is replicated as a side effect.`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MinimumNArgs(1),
 		Run:  run,
 	}
 	cmd.PersistentFlags().StringVarP(&authUserName, "username", "u", "", "User name (only required for non-public images).")
@@ -57,22 +57,30 @@ If the image is in a Keppel replica account, this ensures that the image is repl
 type logger struct{}
 
 // LogManifest implements the client.ValidationLogger interface.
-func (l logger) LogManifest(reference keppel.ManifestReference, level int, err error) {
+func (l logger) LogManifest(reference keppel.ManifestReference, level int, err error, isCached bool) {
 	indent := strings.Repeat("  ", level)
+	suffix := ""
+	if isCached {
+		suffix = " (cached result)"
+	}
 	if err == nil {
-		logg.Info("%smanifest %s looks good", indent, reference.String())
+		logg.Info("%smanifest %s looks good%s", indent, reference.String(), suffix)
 	} else {
-		logg.Error("%smanifest %s validation failed: %s", indent, reference.String(), err.Error())
+		logg.Error("%smanifest %s validation failed: %s%s", indent, reference.String(), err.Error(), suffix)
 	}
 }
 
 // LogBlob implements the client.ValidationLogger interface.
-func (l logger) LogBlob(d digest.Digest, level int, err error) {
+func (l logger) LogBlob(d digest.Digest, level int, err error, isCached bool) {
 	indent := strings.Repeat("  ", level)
+	suffix := ""
+	if isCached {
+		suffix = " (cached result)"
+	}
 	if err == nil {
-		logg.Info("%sblob     %s looks good", indent, d.String())
+		logg.Info("%sblob     %s looks good%s", indent, d.String(), suffix)
 	} else {
-		logg.Error("%sblob     %s validation failed: %s", indent, d.String(), err.Error())
+		logg.Error("%sblob     %s validation failed: %s%s", indent, d.String(), err.Error(), suffix)
 	}
 }
 
@@ -83,20 +91,26 @@ func run(cmd *cobra.Command, args []string) {
 		logg.Fatal("cannot parse platform filter: " + err.Error())
 	}
 
-	ref, interpretation, err := keppel.ParseImageReference(args[0])
-	logg.Info("interpreting %s as %s", args[0], interpretation)
-	if err != nil {
-		logg.Fatal(err.Error())
+	session := client.ValidationSession{
+		Logger: logger{},
 	}
 
-	c := &client.RepoClient{
-		Host:     ref.Host,
-		RepoName: ref.RepoName,
-		UserName: authUserName,
-		Password: authPassword,
-	}
-	err = c.ValidateManifest(ref.Reference, logger{}, platformFilter)
-	if err != nil {
-		os.Exit(1)
+	for _, arg := range args {
+		ref, interpretation, err := keppel.ParseImageReference(arg)
+		logg.Info("interpreting %s as %s", arg, interpretation)
+		if err != nil {
+			logg.Fatal(err.Error())
+		}
+
+		c := &client.RepoClient{
+			Host:     ref.Host,
+			RepoName: ref.RepoName,
+			UserName: authUserName,
+			Password: authPassword,
+		}
+		err = c.ValidateManifest(ref.Reference, &session, platformFilter)
+		if err != nil {
+			os.Exit(1)
+		}
 	}
 }
