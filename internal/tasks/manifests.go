@@ -565,7 +565,12 @@ func (j *Janitor) collectManifestReferencedBlobs(account keppel.Account, repo ke
 	return
 }
 
-func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, vulnInfo *keppel.VulnerabilityInfo) error {
+func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, vulnInfo *keppel.VulnerabilityInfo) (returnedError error) {
+	//clear timing information (this will be filled down below once we actually talk to Clair;
+	//if any preflight check fails, the fields stay at nil)
+	vulnInfo.CheckedAt = nil
+	vulnInfo.CheckDurationSecs = nil
+
 	//skip validation while account is in maintenance (maintenance mode blocks
 	//all kinds of activity on an account's contents)
 	if account.InMaintenance {
@@ -653,6 +658,18 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			return nil
 		}
 	}
+
+	//we know that this image will not be "Unsupported", so the rest is the part where we actually
+	//talk to Clair (well, mostly anyway), so that part deserves to be measured for performance
+	checkStartedAt := j.timeNow()
+	defer func() {
+		if returnedError == nil {
+			checkFinishedAt := j.timeNow()
+			vulnInfo.CheckedAt = &checkFinishedAt
+			duration := checkFinishedAt.Sub(checkStartedAt).Seconds()
+			vulnInfo.CheckDurationSecs = &duration
+		}
+	}()
 
 	//collect vulnerability status of constituent images
 	var vulnStatuses []clair.VulnerabilityStatus
