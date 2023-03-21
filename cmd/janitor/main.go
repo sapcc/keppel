@@ -77,6 +77,7 @@ func run(cmd *cobra.Command, args []string) {
 	go jobLoop(janitor.SyncManifestsInNextRepo)
 	go jobLoop(janitor.ValidateNextBlob)
 	go jobLoop(janitor.ValidateNextManifest)
+	go cronJobLoop(1*time.Minute, janitor.CheckClairManifestState)
 	if cfg.ClairClient != nil {
 		go tasks.GoQueuedJobLoop(ctx, 3, janitor.CheckVulnerabilitiesForNextManifest())
 	}
@@ -106,5 +107,15 @@ func jobLoop(task func() error) {
 			//slow down a bit after an error to avoid hammering the DB during outages
 			time.Sleep(2 * time.Second)
 		}
+	}
+}
+
+func cronJobLoop(interval time.Duration, task func() error) {
+	for {
+		err := task()
+		if err != nil {
+			logg.Error(err.Error())
+		}
+		time.Sleep(interval)
 	}
 }

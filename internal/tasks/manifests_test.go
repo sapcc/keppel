@@ -724,7 +724,32 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 	tr.DBChanges().AssertEqualf(`
-		UPDATE vuln_info SET status = 'Low', next_check_at = %[2]d, checked_at = %[3]d, index_finished_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
-	`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix())
+		UPDATE vuln_info SET status = '%[4]s', next_check_at = %[2]d, checked_at = %[3]d, index_finished_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
+	`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), clair.LowSeverity)
 	assert.DeepEqual(t, "delete counter", claird.IndexDeleteCounter, 1)
+
+	// also the clair configuration was updated to make transient errors less likely to happen
+	s.Clock.StepBy(10 * time.Minute)
+	claird.IndexState = "a8b9e94aa9c8e4bb2818af1f52507b0b"
+	expectSuccess(t, j.CheckClairManifestState())
+	tr.DBChanges().AssertEqualf(`
+		UPDATE vuln_info SET status = '%[3]s', next_check_at = %[2]d, index_state = '' WHERE repo_id = 1 AND digest = '%[1]s';
+	`, image.Manifest.Digest, s.Clock.Now().Unix(), clair.PendingVulnerabilityStatus)
+	assert.DeepEqual(t, "delete counter", claird.IndexDeleteCounter, 2)
+
+	// clair is not done yet creating the report
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+	tr.DBChanges().AssertEqualf(`
+		UPDATE vuln_info SET next_check_at = %[2]d, checked_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
+	`, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix(), s.Clock.Now().Unix())
+
+	// now clair is done
+	s.Clock.StepBy(10 * time.Minute)
+	claird.ReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+	tr.DBChanges().AssertEqualf(`
+		UPDATE vuln_info SET status = '%[4]s', next_check_at = %[2]d, checked_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
+	`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), clair.LowSeverity)
 }
