@@ -604,12 +604,12 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	//to Clair for indexing, but since Clair is not done indexing yet, images
 	//stay in vulnerability status "Pending" for now
 	s.Clock.StepBy(30 * time.Minute)
-	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest()) //once for each manifest
-	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
-	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
-	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
-	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
-	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest())) //once for each manifest
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 	tr.DBChanges().AssertEqualf(`
 		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[8]s';
 		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 3 AND account_name = 'test1' AND digest = '%[9]s';
@@ -629,10 +629,10 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 
 	//five minutes later, indexing is still not finished
 	s.Clock.StepBy(5 * time.Minute)
-	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest()) //once for each manifest
-	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
-	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
-	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest())) //once for each manifest
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 	tr.DBChanges().AssertEqualf(`
 		UPDATE vuln_info SET next_check_at = 5820, checked_at = 5700 WHERE repo_id = 1 AND digest = '%s';
 		UPDATE vuln_info SET next_check_at = 5820, checked_at = 5700 WHERE repo_id = 1 AND digest = '%s';
@@ -643,10 +643,10 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	claird.ReportFixtures[images[0].Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
 	claird.ReportFixtures[images[1].Manifest.Digest.String()] = "fixtures/clair/report-clean.json"
 	s.Clock.StepBy(5 * time.Minute)
-	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest()) //once for each manifest
-	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
-	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
-	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest())) //once for each manifest
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 	tr.DBChanges().AssertEqualf(`
 		UPDATE vuln_info SET status = 'Low', next_check_at = 9600, checked_at = 6000, index_finished_at = 6000 WHERE repo_id = 1 AND digest = '%s';
 		UPDATE vuln_info SET next_check_at = 6120, checked_at = 6000 WHERE repo_id = 1 AND digest = '%s';
@@ -656,10 +656,10 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	// check that a changed vulnerability status does not have side effects
 	claird.ReportFixtures[images[1].Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
 	s.Clock.StepBy(1 * time.Hour)
-	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest()) //once for each manifest
-	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
-	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
-	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest())) //once for each manifest
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 	tr.DBChanges().AssertEqualf(`
 		UPDATE vuln_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%[1]s';
 		UPDATE vuln_info SET next_check_at = 9720, checked_at = 9600 WHERE repo_id = 1 AND digest = '%[2]s';
@@ -697,8 +697,8 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 
 	// submit manifest to clair
 	claird.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
-	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
-	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 	tr.DBChanges().AssertEqualf(`
 		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
 		UPDATE vuln_info SET next_check_at = %[3]d, checked_at = %[4]d, index_started_at = %[4]d, index_state = '%[5]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[2]s';
@@ -709,8 +709,8 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 	s.Clock.StepBy(30 * time.Minute)
 	claird.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
 	claird.IndexReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-error.json"
-	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
-	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 	tr.DBChanges().AssertEqualf(`
 		UPDATE vuln_info SET next_check_at = %[2]d, checked_at = %[3]d, index_started_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
 	`, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix(), s.Clock.Now().Unix())
@@ -721,8 +721,8 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 	claird.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
 	claird.IndexReportFixtures[image.Manifest.Digest.String()] = ""
 	claird.ReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
-	expectSuccess(t, j.CheckVulnerabilitiesForNextManifest())
-	expectError(t, sql.ErrNoRows.Error(), j.CheckVulnerabilitiesForNextManifest())
+	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 	tr.DBChanges().AssertEqualf(`
 		UPDATE vuln_info SET status = 'Low', next_check_at = %[2]d, checked_at = %[3]d, index_finished_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
 	`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix())
