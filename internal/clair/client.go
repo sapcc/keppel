@@ -26,8 +26,10 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"reflect"
 	"time"
 
+	"github.com/gofrs/uuid"
 	"github.com/golang-jwt/jwt/v4"
 )
 
@@ -40,6 +42,8 @@ type Client struct {
 	//isEmptyManifest tracks when we did not submit a manifest because it does
 	//not contain any actual layers.
 	isEmptyManifest map[string]bool
+	// secret that needs to be delivered by the clair notifier in the KEPPEL_CLAIR_NOTIFICATION_SECRET header
+	NotificationSecret string
 }
 
 func (c *Client) requestURL(pathElements ...string) string {
@@ -49,6 +53,10 @@ func (c *Client) requestURL(pathElements ...string) string {
 }
 
 func (c *Client) doRequest(req *http.Request, respBody interface{}) error {
+	if respBody != nil && reflect.ValueOf(respBody).Kind() != reflect.Pointer {
+		panic("doRequest only takes nil or a pointer as a second argument!")
+	}
+
 	//add auth token to request
 	now := time.Now()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
@@ -110,4 +118,48 @@ func (c *Client) SendRequest(method, urlPath string, responseBody interface{}) e
 		return err
 	}
 	return c.doRequest(req, responseBody)
+}
+
+// Based on upstream type https://github.com/quay/clair/blob/main/httptransport/notification_v1.go
+type Page struct {
+	Next *uuid.UUID `json:"next,omitempty"`
+	Size int        `json:"size"`
+}
+type NotificationResponse struct {
+	Page          Page           `json:"page"`
+	Notifications []Notification `json:"notifications"`
+}
+type Notification struct {
+	ID             string `json:"id"`
+	ManifestDigest string `json:"manifest"`
+}
+
+func (c *Client) GetNotification(callbackPath, pageID string) (NotificationResponse, error) {
+	req, err := http.NewRequest(http.MethodGet, c.requestURL(callbackPath), http.NoBody)
+	if err != nil {
+		return NotificationResponse{}, err
+	}
+
+	if pageID != "" {
+		query := url.Values{"next": []string{pageID}}
+		req.URL.RawQuery = query.Encode()
+	}
+
+	var notificationResp NotificationResponse
+	err = c.doRequest(req, &notificationResp)
+	if err != nil {
+		return NotificationResponse{}, err
+	}
+
+	return notificationResp, nil
+}
+
+func (c *Client) DeleteNotification(id string) error {
+	req, err := http.NewRequest(http.MethodDelete, c.requestURL("notifier", "api", "v1", "notification", id), http.NoBody)
+	if err != nil {
+		return err
+	}
+
+	err = c.doRequest(req, nil)
+	return err
 }

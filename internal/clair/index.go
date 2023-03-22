@@ -30,14 +30,15 @@ import (
 	"github.com/sapcc/go-bits/logg"
 )
 
-// Manifest is the representation of an image manifest that gets submitted to
-// Clair for indexing.
+// Manifest is the representation of an image manifest that gets submitted to Clair for indexing.
+// Based on upstream type with the same name https://github.com/quay/claircore/blob/main/manifest.go
 type Manifest struct {
 	Digest string  `json:"hash"`
 	Layers []Layer `json:"layers"`
 }
 
 // Layer appears in type Manifest.
+// Based on upstream type with the same name https://github.com/quay/claircore/blob/main/layer.go
 type Layer struct {
 	Digest  string      `json:"hash"`
 	URL     string      `json:"uri"`
@@ -53,22 +54,28 @@ type ManifestState struct {
 	IndexState           string
 }
 
+// Based on upstream type with the same name https://github.com/quay/claircore/blob/main/indexreport.go
 type indexReport struct {
 	Digest       string `json:"manifest_hash"`
 	State        string `json:"state"`
 	ErrorMessage string `json:"err"`
-	//there are more fields, but we are not interested in them
 }
 
 type IndexState struct {
 	State string `json:"state"`
 }
 
+// based on upstream types but vendored to avoid extra dependency https://github.com/quay/claircore/blob/main/indexer/controller/state.go
+const (
+	IndexError    = "IndexError"
+	IndexFinished = "IndexFinished"
+)
+
 func (r indexReport) IntoManifestState(indexingWasRestarted bool, indexState string) ManifestState {
 	return ManifestState{
-		IsIndexed:            r.State == "IndexFinished",
+		IsIndexed:            r.State == IndexFinished,
 		IndexingWasRestarted: indexingWasRestarted,
-		IsErrored:            r.State == "IndexError",
+		IsErrored:            r.State == IndexError,
 		ErrorMessage:         r.ErrorMessage,
 		IndexState:           indexState,
 	}
@@ -142,6 +149,7 @@ func (c *Client) CheckManifestState(ctx context.Context, digest string, renderMa
 	return indexReportResult.IntoManifestState(indexingWasRestarted, indexState), err
 }
 
+// TODO: bulk https://quay.github.io/clair/reference/api.html#delete-the-indexreport-and-associated-information-for-the-given-manifest-hashes-if-they-exist
 func (c *Client) DeleteManifest(ctx context.Context, digest string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.getIndexReportURL(digest), http.NoBody)
 	if err != nil {
@@ -185,7 +193,7 @@ func (c *Client) submitManifest(ctx context.Context, renderManifest func() (Mani
 		c.isEmptyManifest[m.Digest] = true //remind ourselves to also fake the VulnerabilityReport later
 		return indexReport{
 			Digest: m.Digest,
-			State:  "IndexFinished",
+			State:  IndexFinished,
 		}, "", nil
 	}
 

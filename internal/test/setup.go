@@ -32,6 +32,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
+	"github.com/sapcc/keppel/internal/api/clairintegration"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
 	peerv1 "github.com/sapcc/keppel/internal/api/peer"
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
@@ -47,6 +48,7 @@ type setupParams struct {
 	WithKeppelAPI           bool
 	WithPeerAPI             bool
 	WithClairDouble         bool
+	WithClairIntegrationAPI bool
 	WithQuotas              bool
 	WithPreviousIssuerKey   bool
 	WithoutCurrentIssuerKey bool
@@ -90,6 +92,11 @@ func WithPeerAPI(params *setupParams) {
 // WithClairDouble is a SetupOption that sets up a ClairDouble at clair.example.org.
 func WithClairDouble(params *setupParams) {
 	params.WithClairDouble = true
+}
+
+// WithClairIntegrationAPI is a SetupOption that enables the clair integration API.
+func WithClairIntegrationAPI(params *setupParams) {
+	params.WithClairIntegrationAPI = true
 }
 
 // WithQuotas is a SetupOption that sets up ample quota for all configured accounts.
@@ -232,8 +239,9 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		mustDo(t, err)
 
 		s.Config.ClairClient = &clair.Client{
-			BaseURL:      *clairURL,
-			PresharedKey: []byte("doesnotmatter"), //since the ClairDouble does not check the Authorization header
+			BaseURL:            *clairURL,
+			PresharedKey:       []byte("doesnotmatter"), //since the ClairDouble does not check the Authorization header
+			NotificationSecret: "doesnotmatter",
 		}
 		if tt, ok := http.DefaultTransport.(*RoundTripper); ok {
 			tt.Handlers[clairURL.Host] = httpapi.Compose(s.ClairDouble)
@@ -325,6 +333,9 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	}
 	if params.WithPeerAPI {
 		apis = append(apis, peerv1.NewAPI(s.Config, ad, s.DB))
+	}
+	if params.WithClairIntegrationAPI {
+		apis = append(apis, clairintegration.NewAPI(s.Config, ad, s.DB).OverrideTimeNow(s.Clock.Now))
 	}
 	s.Handler = httpapi.Compose(apis...)
 	if tt, ok := http.DefaultTransport.(*RoundTripper); ok {

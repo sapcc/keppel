@@ -868,25 +868,9 @@ func (j *Janitor) CheckClairManifestState() error {
 				return err
 			}
 
-			err = j.setManifestAndParentsToPending(ctx, digest)
+			err = j.processor().SetManifestAndParentsToPending(ctx, digest)
 			return err
 		},
 	)
-	return err
-}
-
-func (j *Janitor) setManifestAndParentsToPending(ctx context.Context, manifestDigest string) error {
-	err := j.cfg.ClairClient.DeleteManifest(ctx, manifestDigest)
-	if err != nil {
-		return err
-	}
-
-	_, err = j.db.Exec(sqlext.SimplifyWhitespace(`
-		UPDATE vuln_info SET status = $1, index_state = '', next_check_at = $2
-		WHERE digest = $3 OR digest IN (
-			SELECT parent_digest FROM manifest_manifest_refs WHERE child_digest = $3
-		)`),
-		clair.PendingVulnerabilityStatus, j.timeNow(), manifestDigest)
-
 	return err
 }

@@ -43,8 +43,9 @@ type ClairDouble struct {
 	IndexFixtures     map[string]string
 	WasIndexSubmitted map[string]bool
 	//key = manifest digest, value = path to JSON fixture file containing `clair.IndexReport` for this image
-	IndexReportFixtures map[string]string
-	IndexDeleteCounter  int
+	IndexReportFixtures        map[string]string
+	IndexDeleteCounter         int
+	NotificationManifestDigest string
 	//key = manifest digest, value = path to JSON fixture file containing `clair.VulnerabilityReport` for this image
 	ReportFixtures map[string]string
 	IndexState     string
@@ -80,6 +81,12 @@ func (c *ClairDouble) AddTo(r *mux.Router) {
 	r.Methods("GET").
 		Path("/matcher/api/v1/vulnerability_report/{digest}").
 		HandlerFunc(c.getVulnerabilityReport)
+	r.Methods("GET").
+		Path("/notifier/api/v1/notifications/{id}").
+		HandlerFunc(c.getNotification)
+	r.Methods("DELETE").
+		Path("/notifier/api/v1/notifications/{id}").
+		HandlerFunc(c.deleteNotification)
 }
 
 func (c *ClairDouble) postIndexReport(w http.ResponseWriter, r *http.Request) {
@@ -134,7 +141,7 @@ func (c *ClairDouble) postIndexReport(w http.ResponseWriter, r *http.Request) {
 	c.WasIndexSubmitted[digest] = true
 	state := "CheckManifest"
 	if c.ReportFixtures[digest] != "" {
-		state = "IndexFinished"
+		state = clair.IndexFinished
 	}
 	respondwith.JSON(w, http.StatusCreated, map[string]interface{}{
 		"manifest_hash": digest,
@@ -167,7 +174,7 @@ func (c *ClairDouble) getIndexReport(w http.ResponseWriter, r *http.Request) {
 
 	state := "CheckManifest"
 	if c.ReportFixtures[digest] != "" {
-		state = "IndexFinished"
+		state = clair.IndexFinished
 	}
 	respondwith.JSON(w, http.StatusCreated, map[string]interface{}{
 		"manifest_hash": digest,
@@ -220,4 +227,22 @@ func (c *ClairDouble) getIndexState(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/matcher/api/v1/index_state")
 
 	respondwith.JSON(w, http.StatusOK, clair.IndexState{State: c.IndexState})
+}
+
+func (c *ClairDouble) getNotification(w http.ResponseWriter, r *http.Request) {
+	httpapi.IdentifyEndpoint(r, "/notifier/api/v1/notifications/{id}")
+
+	id := mux.Vars(r)["id"]
+	respondwith.JSON(w, http.StatusOK, clair.NotificationResponse{
+		Notifications: []clair.Notification{{
+			ID:             id,
+			ManifestDigest: c.NotificationManifestDigest,
+		}},
+	})
+}
+
+func (c *ClairDouble) deleteNotification(w http.ResponseWriter, r *http.Request) {
+	httpapi.IdentifyEndpoint(r, "/notifier/api/v1/notifications/{id}")
+
+	w.WriteHeader(http.StatusNoContent)
 }

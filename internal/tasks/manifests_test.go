@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gofrs/uuid"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 
@@ -660,7 +661,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		tr.DBChanges().AssertEqualf(`
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
 			UPDATE vuln_info SET next_check_at = %[3]d, checked_at = %[4]d, index_started_at = %[4]d, index_state = '%[5]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[2]s';
-	`, image.Layers[0].Digest, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix(), s.Clock.Now().Unix(), test.IndexStateHash)
+		`, image.Layers[0].Digest, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix(), s.Clock.Now().Unix(), test.IndexStateHash)
 		assert.DeepEqual(t, "delete counter", s.ClairDouble.IndexDeleteCounter, 0)
 
 		// simulate transient error
@@ -710,5 +711,55 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		tr.DBChanges().AssertEqualf(`
 			UPDATE vuln_info SET status = '%[4]s', next_check_at = %[2]d, checked_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
 		`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), clair.LowSeverity)
+	})
+}
+
+func TestClairNotifier(t *testing.T) {
+	test.WithRoundTripper(func(_ *test.RoundTripper) {
+		j, s := setup(t, test.WithClairDouble, test.WithClairIntegrationAPI)
+		s.Clock.StepBy(1 * time.Hour)
+
+		image := test.GenerateImage(test.GenerateExampleLayer(0))
+		image.MustUpload(t, s, fooRepoRef, "")
+
+		tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
+		tr0.AssertEqualToFile("fixtures/notifier-check-setup.sql")
+
+		s.ClairDouble.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-001.json"
+		s.ClairDouble.IndexReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-clean.json"
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		tr.DBChanges().AssertEqualf(`
+			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
+			UPDATE vuln_info SET next_check_at = %[2]d, checked_at = 3600, index_started_at = 3600, index_state = '%[3]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[4]s';
+		`, image.Layers[0].Digest.String(), s.Clock.Now().Add(2*time.Minute).Unix(), s.ClairDouble.IndexState, image.Manifest.Digest)
+
+		s.Clock.StepBy(10 * time.Minute)
+		s.ClairDouble.NotificationManifestDigest = image.Manifest.Digest.String()
+		id := uuid.Must(uuid.NewV4())
+		// see https://quay.github.io/clair/concepts/notifications.html
+		assert.HTTPRequest{
+			Method: "POST",
+			Path:   "/clair-notification",
+			Header: map[string]string{"X-KEPPEL-CLAIR-NOTIFICATION-SECRET": s.Config.ClairClient.NotificationSecret},
+			Body: assert.JSONObject{
+				"notification_id": id,
+				"callback":        fmt.Sprintf("http://%s/notifier/api/v1/notifications/%s", s.Config.ClairClient.BaseURL.Host, id),
+			},
+			ExpectStatus: http.StatusOK,
+			ExpectBody:   assert.ByteData(""),
+		}.Check(t, s.Handler)
+		tr.DBChanges().AssertEqualf(`
+			UPDATE vuln_info SET next_check_at = %d, index_state = '' WHERE repo_id = 1 AND digest = '%s';
+		`, s.Clock.Now().Unix(), image.Manifest.Digest)
+
+		s.ClairDouble.ReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
+		s.Clock.StepBy(10 * time.Minute)
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		tr.DBChanges().AssertEqualf(`
+			UPDATE vuln_info SET status = '%s', next_check_at = %d, checked_at = %[3]d, index_finished_at = %[3]d WHERE repo_id = 1 AND digest = '%s';
+		`, clair.LowSeverity, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
+		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 	})
 }

@@ -19,6 +19,8 @@
 package keppel
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -138,4 +140,11 @@ func MaxMaybeTime(t1, t2 *time.Time) *time.Time {
 	} else {
 		return t2
 	}
+}
+
+// Like yaml.UnmarshalStrict(), but for JSON.
+func JSONUnmarshalStrict(buf []byte, target any) error {
+	dec := json.NewDecoder(bytes.NewReader(buf))
+	dec.DisallowUnknownFields()
+	return dec.Decode(target)
 }

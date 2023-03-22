@@ -133,8 +133,9 @@ func ParseConfiguration() Configuration {
 			logg.Fatal("failed to read KEPPEL_CLAIR_PRESHARED_KEY: " + err.Error())
 		}
 		cfg.ClairClient = &clair.Client{
-			BaseURL:      *clairURL,
-			PresharedKey: key,
+			BaseURL:            *clairURL,
+			PresharedKey:       key,
+			NotificationSecret: osext.MustGetenv("KEPPEL_CLAIR_NOTIFICATION_SECRET"),
 		}
 	}
 
