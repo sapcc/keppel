@@ -33,9 +33,6 @@ golangciLint:
 
 githubWorkflow:
   global:
-    assignees:
-      - majewsky
-      - SuperSandro2000
     ignorePaths: [ "**.md" ] # all Markdown files
   ci:
     enabled: true
@@ -52,6 +49,9 @@ githubWorkflow:
 
 renovate:
   enabled: true
+  assignees:
+    - majewsky
+    - SuperSandro2000
   packageRules:
     - matchDepTypes: ["action"]
       matchFiles: [".github/workflows/oci-distribution-conformance.yml"]
