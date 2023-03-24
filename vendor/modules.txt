@@ -127,7 +127,7 @@ github.com/prometheus/common/model
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
-# github.com/rabbitmq/amqp091-go v1.7.0
+# github.com/rabbitmq/amqp091-go v1.8.0
 ## explicit; go 1.16
 github.com/rabbitmq/amqp091-go
 # github.com/redis/go-redis/v9 v9.0.2
@@ -149,7 +149,7 @@ github.com/rs/cors
 ## explicit; go 1.19
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20230316103846-e4db5274bdc9
+# github.com/sapcc/go-bits v0.0.0-20230323091343-206e6dcb3e83
 ## explicit; go 1.19
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools

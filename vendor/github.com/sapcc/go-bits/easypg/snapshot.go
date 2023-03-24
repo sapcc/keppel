@@ -86,7 +86,7 @@ func newDBSnapshot(t *testing.T, db *sql.DB) dbSnapshot {
 
 	//list column default values for all tables
 	columnDefaults := make(map[string]map[string]string)
-	rows, err = db.Query(listColumnDefaultsQuery) //nolint:sqlclosecheck
+	rows, err = db.Query(listColumnDefaultsQuery)
 	failOnErr(t, err)
 	for rows.Next() {
 		var (
@@ -114,6 +114,8 @@ func newDBSnapshot(t *testing.T, db *sql.DB) dbSnapshot {
 			columnDefaults[tableName][columnName] = computeValueOfSQLExpression(t, db, *defaultExpr).Serialized
 		}
 	}
+	failOnErr(t, rows.Err())
+	failOnErr(t, rows.Close()) //nolint:sqlclosecheck
 
 	//snapshot all tables
 	result := make(dbSnapshot, len(tableNames))
