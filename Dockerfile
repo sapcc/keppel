@@ -23,5 +23,5 @@ LABEL source_repository="https://github.com/sapcc/keppel" \
   org.opencontainers.image.version=${BININFO_VERSION}
 
 USER 4200:4200
-WORKDIR /var/empty
+WORKDIR /home/appuser
 ENTRYPOINT [ "/usr/bin/keppel" ]
