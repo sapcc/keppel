@@ -735,12 +735,13 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			vulnInfo.IndexStartedAt = &now
 			vulnInfo.IndexState = clairState.IndexState
 		}
+
 		if clairState.IndexingWasRestarted {
+			vulnStatuses = append(vulnStatuses, clair.PendingVulnerabilityStatus)
 			vulnInfo.IndexStartedAt = &now
 			vulnInfo.IndexState = clairState.IndexState
 			checkVulnerabilityRetriedCounter.Inc()
-		}
-		if clairState.IsErrored {
+		} else if clairState.IsErrored {
 			vulnStatuses = append(vulnStatuses, clair.ErrorVulnerabilityStatus)
 			vulnInfo.Message = clairState.ErrorMessage
 		} else if clairState.IsIndexed {
@@ -793,4 +794,69 @@ func (j *Janitor) buildClairManifest(account keppel.Account, manifest keppel.Man
 	}
 
 	return result, nil
+}
+
+var getDigestForIndexStatesToResubmitQuery = sqlext.SimplifyWhitespace(fmt.Sprintf(`
+	SELECT digest from vuln_info
+	WHERE index_finished_at IS NOT NULL
+		AND index_state != $1
+		AND status != '%s'
+	LIMIT $2;
+`, clair.PendingVulnerabilityStatus))
+
+func (j *Janitor) CheckClairManifestState() error {
+	indexStateHash, err := j.cfg.ClairClient.GetIndexStateHash()
+	if err != nil {
+		return err
+	}
+
+	var total, inPending int64
+	query := fmt.Sprintf("SELECT COUNT(*), COUNT(CASE WHEN status = '%s' THEN TRUE ELSE NULL END) FROM vuln_info", clair.PendingVulnerabilityStatus)
+	err = j.db.QueryRow(query).Scan(&total, &inPending)
+	if err != nil {
+		return err
+	}
+
+	// only schedule up to 1% or at minimum 10
+	concurrent := (total / 100)
+	if concurrent < 10 {
+		concurrent = 10
+	}
+
+	scheduleNew := concurrent - inPending
+
+	// if nothing new can be scheduled, wait and exit early
+	if scheduleNew <= 0 {
+		return nil
+	}
+
+	err = sqlext.ForeachRow(j.db, getDigestForIndexStatesToResubmitQuery, []any{indexStateHash, scheduleNew},
+		func(rows *sql.Rows) error {
+			var digest string
+			err := rows.Scan(&digest)
+			if err != nil {
+				return err
+			}
+
+			err = j.setManifestAndParentsToPending(digest)
+			return err
+		},
+	)
+	return err
+}
+
+func (j *Janitor) setManifestAndParentsToPending(manifestDigest string) error {
+	err := j.cfg.ClairClient.DeleteManifest(manifestDigest)
+	if err != nil {
+		return err
+	}
+
+	_, err = j.db.Exec(sqlext.SimplifyWhitespace(`
+		UPDATE vuln_info SET status = $1, index_state = '', next_check_at = $2
+		WHERE digest = $3 OR digest IN (
+			SELECT parent_digest FROM manifest_manifest_refs WHERE child_digest = $3
+		)`),
+		clair.PendingVulnerabilityStatus, j.timeNow(), manifestDigest)
+
+	return err
 }

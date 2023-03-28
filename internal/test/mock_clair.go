@@ -193,6 +193,7 @@ func (c *ClairDouble) deleteIndexReport(w http.ResponseWriter, r *http.Request) 
 	}
 
 	c.WasIndexSubmitted[digest] = false
+	c.ReportFixtures[digest] = ""
 	c.IndexDeleteCounter += 1
 
 	w.WriteHeader(http.StatusNoContent)

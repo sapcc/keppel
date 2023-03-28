@@ -98,12 +98,15 @@ func isClairTransientError(msg string) bool {
 	return false
 }
 
+func (c *Client) getIndexReportURL(digest string) string {
+	return c.requestURL("indexer", "api", "v1", "index_report", digest)
+}
+
 // CheckManifestState submits the manifest to clair for indexing if not done
 // yet, and checks if the indexing has finished. Since the manifest rendering is
 // costly, it's wrapped in a callback that this method only calls when needed.
 func (c *Client) CheckManifestState(digest string, renderManifest func() (Manifest, error)) (ManifestState, error) {
-	reqURL := c.requestURL("indexer", "api", "v1", "index_report", digest)
-	req, err := http.NewRequest(http.MethodGet, reqURL, http.NoBody)
+	req, err := http.NewRequest(http.MethodGet, c.getIndexReportURL(digest), http.NoBody)
 	if err != nil {
 		return ManifestState{}, err
 	}
@@ -123,11 +126,7 @@ func (c *Client) CheckManifestState(digest string, renderManifest func() (Manife
 	indexingWasRestarted := false
 	if isClairTransientError(indexReportResult.ErrorMessage) {
 		// delete index_report in clear before resubmitting
-		req, err := http.NewRequest(http.MethodDelete, reqURL, http.NoBody)
-		if err != nil {
-			return ManifestState{}, err
-		}
-		err = c.doRequest(req, nil)
+		err := c.DeleteManifest(digest)
 		if err != nil {
 			return ManifestState{}, err
 		}
@@ -140,6 +139,33 @@ func (c *Client) CheckManifestState(digest string, renderManifest func() (Manife
 	}
 
 	return indexReportResult.IntoManifestState(indexingWasRestarted, indexState), err
+}
+
+func (c *Client) DeleteManifest(digest string) error {
+	req, err := http.NewRequest(http.MethodDelete, c.getIndexReportURL(digest), http.NoBody)
+	if err != nil {
+		return err
+	}
+	return c.doRequest(req, nil)
+}
+
+func (c *Client) GetIndexStateHash() (string, error) {
+	req, err := http.NewRequest(
+		http.MethodGet,
+		c.requestURL("indexer", "api", "v1", "index_state"),
+		http.NoBody,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	var indexStateResult IndexState
+	err = c.doRequest(req, &indexStateResult)
+	if err != nil {
+		return "", err
+	}
+
+	return indexStateResult.State, nil
 }
 
 func (c *Client) submitManifest(renderManifest func() (Manifest, error)) (indexReport, string, error) {
@@ -184,20 +210,10 @@ func (c *Client) submitManifest(renderManifest func() (Manifest, error)) (indexR
 	}
 
 	// get and return index state hash to later resubmit reports if the configuration changed
-	req, err = http.NewRequest(
-		http.MethodGet,
-		c.requestURL("indexer", "api", "v1", "index_state"),
-		http.NoBody,
-	)
+	indexStateHash, err := c.GetIndexStateHash()
 	if err != nil {
 		return indexReport{}, "", err
 	}
 
-	var indexStateResult IndexState
-	err = c.doRequest(req, &indexStateResult)
-	if err != nil {
-		return indexReport{}, "", err
-	}
-
-	return indexReportResult, indexStateResult.State, err
+	return indexReportResult, indexStateHash, err
 }
