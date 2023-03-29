@@ -32,13 +32,14 @@ var (
 	fooRepoRef = keppel.Repository{AccountName: "test1", Name: "foo"}
 )
 
-func setup(t *testing.T) (*Janitor, test.Setup) {
-	s := test.NewSetup(t,
+func setup(t *testing.T, opts ...test.SetupOption) (*Janitor, test.Setup) {
+	params := []test.SetupOption{
 		test.WithPeerAPI,
 		test.WithAccount(keppel.Account{Name: "test1", AuthTenantID: "test1authtenant"}),
 		test.WithRepo(keppel.Repository{AccountName: "test1", Name: "foo"}),
 		test.WithQuotas,
-	)
+	}
+	s := test.NewSetup(t, append(params, opts...)...)
 	j := NewJanitor(s.Config, s.FD, s.SD, s.ICD, s.DB, s.Auditor).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next)
 	j.DisableJitter()
 	return j, s

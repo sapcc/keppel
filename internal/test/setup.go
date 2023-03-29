@@ -238,6 +238,9 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		if tt, ok := http.DefaultTransport.(*RoundTripper); ok {
 			tt.Handlers[clairURL.Host] = httpapi.Compose(s.ClairDouble)
 		}
+
+		//Clair support currently requires a storage driver that can do URLForBlob()
+		s.SD.AllowDummyURLs = true
 	}
 
 	//connect to DB

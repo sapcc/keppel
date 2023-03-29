@@ -22,14 +22,11 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
-	"net/url"
 	"testing"
 	"time"
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
-	"github.com/sapcc/go-bits/httpapi"
-	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -545,211 +542,179 @@ func answerMostWith404(h http.Handler) http.HandlerFunc {
 // tests for CheckVulnerabilitiesForNextManifest
 
 func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
-	j, s := setup(t)
-	s.Clock.StepBy(1 * time.Hour)
+	test.WithRoundTripper(func(_ *test.RoundTripper) {
+		j, s := setup(t, test.WithClairDouble)
+		s.Clock.StepBy(1 * time.Hour)
 
-	//setup two image manifests with just one content layer (we don't really care about
-	//the content since our Clair double doesn't care either)
-	images := make([]test.Image, 3)
-	for idx := range images {
-		images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
-		images[idx].MustUpload(t, s, fooRepoRef, "")
-	}
-	// generate a 2 MiB big image to run into blobUncompressedSizeTooBigGiB
-	images = append(images, test.GenerateImage(test.GenerateExampleLayerSize(int64(2), 2)))
-	images[3].MustUpload(t, s, fooRepoRef, "")
+		//setup two image manifests with just one content layer (we don't really care about
+		//the content since our Clair double doesn't care either)
+		images := make([]test.Image, 3)
+		for idx := range images {
+			images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
+			images[idx].MustUpload(t, s, fooRepoRef, "")
+		}
+		// generate a 2 MiB big image to run into blobUncompressedSizeTooBigGiB
+		images = append(images, test.GenerateImage(test.GenerateExampleLayerSize(int64(2), 2)))
+		images[3].MustUpload(t, s, fooRepoRef, "")
 
-	//also setup an image list manifest containing those images (so that we have
-	//some manifest-manifest refs to play with)
-	imageList := test.GenerateImageList(images[0], images[1])
-	imageList.MustUpload(t, s, fooRepoRef, "")
+		//also setup an image list manifest containing those images (so that we have
+		//some manifest-manifest refs to play with)
+		imageList := test.GenerateImageList(images[0], images[1])
+		imageList.MustUpload(t, s, fooRepoRef, "")
 
-	//fake manifest size to check if to big ones (here 10 GiB) are rejected
-	//when uncompressing it is still 1 MiB big those trigger manifestSizeTooBigGiB but not blobUncompressedSizeTooBigGiB
-	mustExec(t, s.DB, fmt.Sprintf(`UPDATE manifests SET size_bytes = 10737418240 where digest = '%s'`, imageList.Manifest.Digest))
+		//fake manifest size to check if to big ones (here 10 GiB) are rejected
+		//when uncompressing it is still 1 MiB big those trigger manifestSizeTooBigGiB but not blobUncompressedSizeTooBigGiB
+		mustExec(t, s.DB, fmt.Sprintf(`UPDATE manifests SET size_bytes = 10737418240 where digest = '%s'`, imageList.Manifest.Digest))
 
-	//adjust too big values down to make testing easier
-	manifestSizeTooBigGiB = 0.002
-	blobUncompressedSizeTooBigGiB = 0.001
+		//adjust too big values down to make testing easier
+		manifestSizeTooBigGiB = 0.002
+		blobUncompressedSizeTooBigGiB = 0.001
 
-	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
-	tr0.AssertEqualToFile("fixtures/vulnerability-check-setup.sql")
+		tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
+		tr0.AssertEqualToFile("fixtures/vulnerability-check-setup.sql")
 
-	//setup our Clair API double (TODO use test.WithClairDouble instead)
-	claird := test.NewClairDouble()
-	tt := &test.RoundTripper{
-		Handlers: map[string]http.Handler{
-			"registry.example.org": s.Handler,
-			"clair.example.org":    httpapi.Compose(claird),
-		},
-	}
-	http.DefaultTransport = tt
-	clairBaseURL := must.Return(url.Parse("https://clair.example.org/"))
-	j.cfg.ClairClient = &clair.Client{
-		BaseURL:      *clairBaseURL,
-		PresharedKey: []byte("doesnotmatter"), //since the ClairDouble does not check the Authorization header
-	}
-	//Clair support currently requires a storage driver that can do URLForBlob()
-	s.SD.AllowDummyURLs = true
+		//ClairDouble wants to know which image manifests to expect (only the
+		//non-list manifests are relevant here; the list manifest does not contain
+		//any blobs and thus only aggregates its submanifests' vulnerability
+		//statuses)
+		for idx, image := range images {
+			s.ClairDouble.IndexFixtures[image.Manifest.Digest.String()] = fmt.Sprintf("fixtures/clair/manifest-%03d.json", idx+1)
+		}
 
-	//ClairDouble wants to know which image manifests to expect (only the
-	//non-list manifests are relevant here; the list manifest does not contain
-	//any blobs and thus only aggregates its submanifests' vulnerability
-	//statuses)
-	for idx, image := range images {
-		claird.IndexFixtures[image.Manifest.Digest.String()] = fmt.Sprintf("fixtures/clair/manifest-%03d.json", idx+1)
-	}
+		//first round of CheckVulnerabilitiesForNextManifest should submit manifests
+		//to Clair for indexing, but since Clair is not done indexing yet, images
+		//stay in vulnerability status "Pending" for now
+		s.Clock.StepBy(30 * time.Minute)
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest())) //once for each manifest
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		tr.DBChanges().AssertEqualf(`
+			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[8]s';
+			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 3 AND account_name = 'test1' AND digest = '%[9]s';
+			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 5 AND account_name = 'test1' AND digest = '%[10]s';
+			UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 7 AND account_name = 'test1' AND digest = '%[11]s';
+			UPDATE vuln_info SET next_check_at = 5520, checked_at = 5400, index_started_at = 5400, index_state = '%[12]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[4]s';
+			UPDATE vuln_info SET status = 'Unsupported', message = 'vulnerability scanning is not supported for images above %[1]g GiB', next_check_at = 91800 WHERE repo_id = 1 AND digest = '%[3]s';
+			UPDATE vuln_info SET next_check_at = 5520, checked_at = 5400, index_started_at = 5400, index_state = '%[12]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[6]s';
+			UPDATE vuln_info SET status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[2]g GiB', next_check_at = 91800 WHERE repo_id = 1 AND digest = '%[7]s';
+			UPDATE vuln_info SET next_check_at = 5520, checked_at = 5400, index_started_at = 5400, index_state = '%[12]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[5]s';
+		`,
+			manifestSizeTooBigGiB, blobUncompressedSizeTooBigGiB, imageList.Manifest.Digest,
+			images[0].Manifest.Digest, images[1].Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest,
+			images[0].Layers[0].Digest, images[1].Layers[0].Digest, images[2].Layers[0].Digest, images[3].Layers[0].Digest,
+			test.IndexStateHash,
+		)
 
-	//first round of CheckVulnerabilitiesForNextManifest should submit manifests
-	//to Clair for indexing, but since Clair is not done indexing yet, images
-	//stay in vulnerability status "Pending" for now
-	s.Clock.StepBy(30 * time.Minute)
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest())) //once for each manifest
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	tr.DBChanges().AssertEqualf(`
-		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[8]s';
-		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 3 AND account_name = 'test1' AND digest = '%[9]s';
-		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 5 AND account_name = 'test1' AND digest = '%[10]s';
-		UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 7 AND account_name = 'test1' AND digest = '%[11]s';
-		UPDATE vuln_info SET next_check_at = 5520, checked_at = 5400, index_started_at = 5400, index_state = '%[12]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[4]s';
-		UPDATE vuln_info SET status = 'Unsupported', message = 'vulnerability scanning is not supported for images above %[1]g GiB', next_check_at = 91800 WHERE repo_id = 1 AND digest = '%[3]s';
-		UPDATE vuln_info SET next_check_at = 5520, checked_at = 5400, index_started_at = 5400, index_state = '%[12]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[6]s';
-		UPDATE vuln_info SET status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[2]g GiB', next_check_at = 91800 WHERE repo_id = 1 AND digest = '%[7]s';
-		UPDATE vuln_info SET next_check_at = 5520, checked_at = 5400, index_started_at = 5400, index_state = '%[12]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[5]s';
-	`,
-		manifestSizeTooBigGiB, blobUncompressedSizeTooBigGiB, imageList.Manifest.Digest,
-		images[0].Manifest.Digest, images[1].Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest,
-		images[0].Layers[0].Digest, images[1].Layers[0].Digest, images[2].Layers[0].Digest, images[3].Layers[0].Digest,
-		test.IndexStateHash,
-	)
+		//five minutes later, indexing is still not finished
+		s.Clock.StepBy(5 * time.Minute)
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest())) //once for each manifest
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		tr.DBChanges().AssertEqualf(`
+			UPDATE vuln_info SET next_check_at = 5820, checked_at = 5700 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE vuln_info SET next_check_at = 5820, checked_at = 5700 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE vuln_info SET next_check_at = 5820, checked_at = 5700 WHERE repo_id = 1 AND digest = '%s';
+		`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
 
-	//five minutes later, indexing is still not finished
-	s.Clock.StepBy(5 * time.Minute)
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest())) //once for each manifest
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	tr.DBChanges().AssertEqualf(`
-		UPDATE vuln_info SET next_check_at = 5820, checked_at = 5700 WHERE repo_id = 1 AND digest = '%s';
-		UPDATE vuln_info SET next_check_at = 5820, checked_at = 5700 WHERE repo_id = 1 AND digest = '%s';
-		UPDATE vuln_info SET next_check_at = 5820, checked_at = 5700 WHERE repo_id = 1 AND digest = '%s';
-	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
+		//five minutes later, indexing is finished now and ClairDouble provides vulnerability reports to us
+		s.ClairDouble.ReportFixtures[images[0].Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
+		s.ClairDouble.ReportFixtures[images[1].Manifest.Digest.String()] = "fixtures/clair/report-clean.json"
+		s.Clock.StepBy(5 * time.Minute)
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest())) //once for each manifest
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		tr.DBChanges().AssertEqualf(`
+			UPDATE vuln_info SET status = 'Low', next_check_at = 9600, checked_at = 6000, index_finished_at = 6000 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE vuln_info SET next_check_at = 6120, checked_at = 6000 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE vuln_info SET status = 'Clean', next_check_at = 9600, checked_at = 6000, index_finished_at = 6000 WHERE repo_id = 1 AND digest = '%s';
+		`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
 
-	//five minutes later, indexing is finished now and ClairDouble provides vulnerability reports to us
-	claird.ReportFixtures[images[0].Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
-	claird.ReportFixtures[images[1].Manifest.Digest.String()] = "fixtures/clair/report-clean.json"
-	s.Clock.StepBy(5 * time.Minute)
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest())) //once for each manifest
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	tr.DBChanges().AssertEqualf(`
-		UPDATE vuln_info SET status = 'Low', next_check_at = 9600, checked_at = 6000, index_finished_at = 6000 WHERE repo_id = 1 AND digest = '%s';
-		UPDATE vuln_info SET next_check_at = 6120, checked_at = 6000 WHERE repo_id = 1 AND digest = '%s';
-		UPDATE vuln_info SET status = 'Clean', next_check_at = 9600, checked_at = 6000, index_finished_at = 6000 WHERE repo_id = 1 AND digest = '%s';
-	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
-
-	// check that a changed vulnerability status does not have side effects
-	claird.ReportFixtures[images[1].Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
-	s.Clock.StepBy(1 * time.Hour)
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest())) //once for each manifest
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	tr.DBChanges().AssertEqualf(`
-		UPDATE vuln_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%[1]s';
-		UPDATE vuln_info SET next_check_at = 9720, checked_at = 9600 WHERE repo_id = 1 AND digest = '%[2]s';
-		UPDATE vuln_info SET status = 'Low', next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%[3]s';
-	`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
+		// check that a changed vulnerability status does not have side effects
+		s.ClairDouble.ReportFixtures[images[1].Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
+		s.Clock.StepBy(1 * time.Hour)
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest())) //once for each manifest
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		tr.DBChanges().AssertEqualf(`
+			UPDATE vuln_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%[1]s';
+			UPDATE vuln_info SET next_check_at = 9720, checked_at = 9600 WHERE repo_id = 1 AND digest = '%[2]s';
+			UPDATE vuln_info SET status = 'Low', next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%[3]s';
+		`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
+	})
 }
 
 func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
-	// check retry on transient errors
+	test.WithRoundTripper(func(_ *test.RoundTripper) {
+		j, s := setup(t, test.WithClairDouble)
+		s.Clock.StepBy(1 * time.Hour)
+		tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
 
-	j, s := setup(t)
-	s.Clock.StepBy(1 * time.Hour)
-	tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
+		image := test.GenerateImage(test.GenerateExampleLayer(4))
+		image.MustUpload(t, s, fooRepoRef, "")
+		tr.DBChanges().Ignore()
 
-	//setup our Clair API double (TODO use test.WithClairDouble instead)
-	claird := test.NewClairDouble()
-	tt := &test.RoundTripper{
-		Handlers: map[string]http.Handler{
-			"registry.example.org": s.Handler,
-			"clair.example.org":    httpapi.Compose(claird),
-		},
-	}
-	http.DefaultTransport = tt
-	clairBaseURL := must.Return(url.Parse("https://clair.example.org/"))
-	j.cfg.ClairClient = &clair.Client{
-		BaseURL:      *clairBaseURL,
-		PresharedKey: []byte("doesnotmatter"), //since the ClairDouble does not check the Authorization header
-	}
-	//Clair support currently requires a storage driver that can do URLForBlob()
-	s.SD.AllowDummyURLs = true
-
-	image := test.GenerateImage(test.GenerateExampleLayer(4))
-	image.MustUpload(t, s, fooRepoRef, "")
-	tr.DBChanges().Ignore()
-
-	// submit manifest to clair
-	claird.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	tr.DBChanges().AssertEqualf(`
-		UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
-		UPDATE vuln_info SET next_check_at = %[3]d, checked_at = %[4]d, index_started_at = %[4]d, index_state = '%[5]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[2]s';
+		// submit manifest to clair
+		s.ClairDouble.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		tr.DBChanges().AssertEqualf(`
+			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
+			UPDATE vuln_info SET next_check_at = %[3]d, checked_at = %[4]d, index_started_at = %[4]d, index_state = '%[5]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[2]s';
 	`, image.Layers[0].Digest, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix(), s.Clock.Now().Unix(), test.IndexStateHash)
-	assert.DeepEqual(t, "delete counter", claird.IndexDeleteCounter, 0)
+		assert.DeepEqual(t, "delete counter", s.ClairDouble.IndexDeleteCounter, 0)
 
-	// simulate transient error
-	s.Clock.StepBy(30 * time.Minute)
-	claird.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
-	claird.IndexReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-error.json"
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	tr.DBChanges().AssertEqualf(`
-		UPDATE vuln_info SET next_check_at = %[2]d, checked_at = %[3]d, index_started_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
-	`, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix(), s.Clock.Now().Unix())
-	assert.DeepEqual(t, "delete counter", claird.IndexDeleteCounter, 1)
+		// simulate transient error
+		s.Clock.StepBy(30 * time.Minute)
+		s.ClairDouble.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
+		s.ClairDouble.IndexReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-error.json"
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		tr.DBChanges().AssertEqualf(`
+			UPDATE vuln_info SET next_check_at = %[2]d, checked_at = %[3]d, index_started_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
+		`, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix(), s.Clock.Now().Unix())
+		assert.DeepEqual(t, "delete counter", s.ClairDouble.IndexDeleteCounter, 1)
 
-	// transient error fixed itself after deletion
-	s.Clock.StepBy(30 * time.Minute)
-	claird.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
-	claird.IndexReportFixtures[image.Manifest.Digest.String()] = ""
-	claird.ReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	tr.DBChanges().AssertEqualf(`
-		UPDATE vuln_info SET status = '%[4]s', next_check_at = %[2]d, checked_at = %[3]d, index_finished_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
-	`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), clair.LowSeverity)
-	assert.DeepEqual(t, "delete counter", claird.IndexDeleteCounter, 1)
+		// transient error fixed itself after deletion
+		s.Clock.StepBy(30 * time.Minute)
+		s.ClairDouble.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
+		s.ClairDouble.IndexReportFixtures[image.Manifest.Digest.String()] = ""
+		s.ClairDouble.ReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		tr.DBChanges().AssertEqualf(`
+			UPDATE vuln_info SET status = '%[4]s', next_check_at = %[2]d, checked_at = %[3]d, index_finished_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
+		`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), clair.LowSeverity)
+		assert.DeepEqual(t, "delete counter", s.ClairDouble.IndexDeleteCounter, 1)
 
-	// also the clair configuration was updated to make transient errors less likely to happen
-	s.Clock.StepBy(10 * time.Minute)
-	claird.IndexState = "a8b9e94aa9c8e4bb2818af1f52507b0b"
-	expectSuccess(t, j.CheckClairManifestState())
-	tr.DBChanges().AssertEqualf(`
-		UPDATE vuln_info SET status = '%[3]s', next_check_at = %[2]d, index_state = '' WHERE repo_id = 1 AND digest = '%[1]s';
-	`, image.Manifest.Digest, s.Clock.Now().Unix(), clair.PendingVulnerabilityStatus)
-	assert.DeepEqual(t, "delete counter", claird.IndexDeleteCounter, 2)
+		// also the clair configuration was updated to make transient errors less likely to happen
+		s.Clock.StepBy(10 * time.Minute)
+		s.ClairDouble.IndexState = "a8b9e94aa9c8e4bb2818af1f52507b0b"
+		expectSuccess(t, j.CheckClairManifestState())
+		tr.DBChanges().AssertEqualf(`
+			UPDATE vuln_info SET status = '%[3]s', next_check_at = %[2]d, index_state = '' WHERE repo_id = 1 AND digest = '%[1]s';
+		`, image.Manifest.Digest, s.Clock.Now().Unix(), clair.PendingVulnerabilityStatus)
+		assert.DeepEqual(t, "delete counter", s.ClairDouble.IndexDeleteCounter, 2)
 
-	// clair is not done yet creating the report
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	tr.DBChanges().AssertEqualf(`
-		UPDATE vuln_info SET next_check_at = %[2]d, checked_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
-	`, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix(), s.Clock.Now().Unix())
+		// clair is not done yet creating the report
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		tr.DBChanges().AssertEqualf(`
+			UPDATE vuln_info SET next_check_at = %[2]d, checked_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
+		`, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix(), s.Clock.Now().Unix())
 
-	// now clair is done
-	s.Clock.StepBy(10 * time.Minute)
-	claird.ReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
-	expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-	tr.DBChanges().AssertEqualf(`
-		UPDATE vuln_info SET status = '%[4]s', next_check_at = %[2]d, checked_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
-	`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), clair.LowSeverity)
+		// now clair is done
+		s.Clock.StepBy(10 * time.Minute)
+		s.ClairDouble.ReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
+		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		tr.DBChanges().AssertEqualf(`
+			UPDATE vuln_info SET status = '%[4]s', next_check_at = %[2]d, checked_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
+		`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), clair.LowSeverity)
+	})
 }
