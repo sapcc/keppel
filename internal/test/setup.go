@@ -238,9 +238,6 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		if tt, ok := http.DefaultTransport.(*RoundTripper); ok {
 			tt.Handlers[clairURL.Host] = httpapi.Compose(s.ClairDouble)
 		}
-
-		//Clair support currently requires a storage driver that can do URLForBlob()
-		s.SD.AllowDummyURLs = true
 	}
 
 	//connect to DB
@@ -309,6 +306,11 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	icd, err := keppel.NewInboundCacheDriver("unittest", s.Config)
 	mustDo(t, err)
 	s.ICD = icd.(*InboundCacheDriver) //nolint:errcheck
+
+	if params.WithClairDouble {
+		//Clair support currently requires a storage driver that can do URLForBlob()
+		s.SD.AllowDummyURLs = true
+	}
 
 	//setup APIs
 	apis := []httpapi.API{

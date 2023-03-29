@@ -282,9 +282,23 @@ func GoQueuedJobLoop(ctx context.Context, numGoroutines int, poll JobPoller) {
 //
 // TODO: move into go-bits!
 func ExecuteOne(p JobPoller) error {
-	j, err := p()
-	if err != nil {
-		return err
+	return ExecuteN(p, 1)
+}
+
+// ExecuteN is used by unit tests to find and execute n amount of instance of
+// the given type of Job. sql.ErrNoRows is returned when there are no jobs of
+// that type waiting.
+func ExecuteN(p JobPoller, n int) error {
+	for i := 0; i < n; i++ {
+		j, err := p()
+		if err != nil {
+			return err
+		}
+		err = j.Execute()
+		if err != nil {
+			return err
+		}
 	}
-	return j.Execute()
+
+	return nil
 }
