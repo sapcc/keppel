@@ -20,6 +20,7 @@ package tasks
 
 import (
 	"compress/gzip"
+	"context"
 	"database/sql"
 	"fmt"
 	"io"
@@ -720,6 +721,10 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 			vulnInfo.CheckDurationSecs = &duration
 		}
 	}()
+	//also we don't allow Clair to take more than 10 minutes on a single image (which is already an
+	//insanely generous timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
 
 	//collect vulnerability status of constituent images
 	var vulnStatuses []clair.VulnerabilityStatus
@@ -736,7 +741,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 	//ask Clair for vulnerability status of blobs in this image
 	vulnInfo.Message = "" //unless it gets set to something else below
 	if len(layerBlobs) > 0 {
-		clairState, err := j.cfg.ClairClient.CheckManifestState(manifest.Digest, func() (clair.Manifest, error) {
+		clairState, err := j.cfg.ClairClient.CheckManifestState(ctx, manifest.Digest, func() (clair.Manifest, error) {
 			return j.buildClairManifest(account, manifest, layerBlobs)
 		})
 		if err != nil {
@@ -761,7 +766,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 				vulnInfo.IndexFinishedAt = &now
 			}
 
-			clairReport, err := j.cfg.ClairClient.GetVulnerabilityReport(manifest.Digest)
+			clairReport, err := j.cfg.ClairClient.GetVulnerabilityReport(ctx, manifest.Digest)
 			if err != nil {
 				return err
 			}
@@ -818,7 +823,11 @@ var getDigestForIndexStatesToResubmitQuery = sqlext.SimplifyWhitespace(fmt.Sprin
 `, clair.PendingVulnerabilityStatus))
 
 func (j *Janitor) CheckClairManifestState() error {
-	indexStateHash, err := j.cfg.ClairClient.GetIndexStateHash()
+	//limit the total runtime of this task
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	indexStateHash, err := j.cfg.ClairClient.GetIndexStateHash(ctx)
 	if err != nil {
 		return err
 	}
@@ -851,15 +860,15 @@ func (j *Janitor) CheckClairManifestState() error {
 				return err
 			}
 
-			err = j.setManifestAndParentsToPending(digest)
+			err = j.setManifestAndParentsToPending(ctx, digest)
 			return err
 		},
 	)
 	return err
 }
 
-func (j *Janitor) setManifestAndParentsToPending(manifestDigest string) error {
-	err := j.cfg.ClairClient.DeleteManifest(manifestDigest)
+func (j *Janitor) setManifestAndParentsToPending(ctx context.Context, manifestDigest string) error {
+	err := j.cfg.ClairClient.DeleteManifest(ctx, manifestDigest)
 	if err != nil {
 		return err
 	}

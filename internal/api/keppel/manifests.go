@@ -321,7 +321,7 @@ func (a *API) handleGetVulnerabilityReport(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	clairReport, err := a.cfg.ClairClient.GetVulnerabilityReport(manifest.Digest)
+	clairReport, err := a.cfg.ClairClient.GetVulnerabilityReport(r.Context(), manifest.Digest)
 	if respondwith.ErrorText(w, err) {
 		return
 	}

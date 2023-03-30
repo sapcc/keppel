@@ -20,6 +20,7 @@
 package clair
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -88,7 +89,7 @@ func (v *Vulnerability) UnmarshalJSON(buf []byte) error {
 // GetVulnerabilityReport retrieves a vulnerability report for this manifest
 // from Clair. `(nil, nil)` is returned in case of 404, i.e. if the manifest has
 // not been fully indexed yet.
-func (c *Client) GetVulnerabilityReport(digest string) (*VulnerabilityReport, error) {
+func (c *Client) GetVulnerabilityReport(ctx context.Context, digest string) (*VulnerabilityReport, error) {
 	//if we faked the indexing report, we also need to fake the vulnerability
 	//report (see comment in c.submitManifest())
 	if c.isEmptyManifest[digest] {
@@ -103,7 +104,8 @@ func (c *Client) GetVulnerabilityReport(digest string) (*VulnerabilityReport, er
 		}, nil
 	}
 
-	req, err := http.NewRequest(http.MethodGet, c.requestURL("matcher", "api", "v1", "vulnerability_report", digest), http.NoBody)
+	reqURL := c.requestURL("matcher", "api", "v1", "vulnerability_report", digest)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
 	if err != nil {
 		return nil, err
 	}

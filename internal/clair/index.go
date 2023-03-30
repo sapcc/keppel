@@ -21,6 +21,7 @@ package clair
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"regexp"
@@ -105,8 +106,8 @@ func (c *Client) getIndexReportURL(digest string) string {
 // CheckManifestState submits the manifest to clair for indexing if not done
 // yet, and checks if the indexing has finished. Since the manifest rendering is
 // costly, it's wrapped in a callback that this method only calls when needed.
-func (c *Client) CheckManifestState(digest string, renderManifest func() (Manifest, error)) (ManifestState, error) {
-	req, err := http.NewRequest(http.MethodGet, c.getIndexReportURL(digest), http.NoBody)
+func (c *Client) CheckManifestState(ctx context.Context, digest string, renderManifest func() (Manifest, error)) (ManifestState, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.getIndexReportURL(digest), http.NoBody)
 	if err != nil {
 		return ManifestState{}, err
 	}
@@ -117,7 +118,7 @@ func (c *Client) CheckManifestState(digest string, renderManifest func() (Manife
 	)
 	err = c.doRequest(req, &indexReportResult)
 	if err != nil && strings.Contains(err.Error(), "got 404 response") {
-		indexReportResult, indexState, err = c.submitManifest(renderManifest)
+		indexReportResult, indexState, err = c.submitManifest(ctx, renderManifest)
 	}
 	if err != nil {
 		return ManifestState{}, err
@@ -126,12 +127,12 @@ func (c *Client) CheckManifestState(digest string, renderManifest func() (Manife
 	indexingWasRestarted := false
 	if isClairTransientError(indexReportResult.ErrorMessage) {
 		// delete index_report in clear before resubmitting
-		err := c.DeleteManifest(digest)
+		err := c.DeleteManifest(ctx, digest)
 		if err != nil {
 			return ManifestState{}, err
 		}
 
-		indexReportResult, indexState, err = c.submitManifest(renderManifest)
+		indexReportResult, indexState, err = c.submitManifest(ctx, renderManifest)
 		if err != nil {
 			return ManifestState{}, err
 		}
@@ -141,16 +142,16 @@ func (c *Client) CheckManifestState(digest string, renderManifest func() (Manife
 	return indexReportResult.IntoManifestState(indexingWasRestarted, indexState), err
 }
 
-func (c *Client) DeleteManifest(digest string) error {
-	req, err := http.NewRequest(http.MethodDelete, c.getIndexReportURL(digest), http.NoBody)
+func (c *Client) DeleteManifest(ctx context.Context, digest string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.getIndexReportURL(digest), http.NoBody)
 	if err != nil {
 		return err
 	}
 	return c.doRequest(req, nil)
 }
 
-func (c *Client) GetIndexStateHash() (string, error) {
-	req, err := http.NewRequest(
+func (c *Client) GetIndexStateHash(ctx context.Context) (string, error) {
+	req, err := http.NewRequestWithContext(ctx,
 		http.MethodGet,
 		c.requestURL("indexer", "api", "v1", "index_state"),
 		http.NoBody,
@@ -168,7 +169,7 @@ func (c *Client) GetIndexStateHash() (string, error) {
 	return indexStateResult.State, nil
 }
 
-func (c *Client) submitManifest(renderManifest func() (Manifest, error)) (indexReport, string, error) {
+func (c *Client) submitManifest(ctx context.Context, renderManifest func() (Manifest, error)) (indexReport, string, error) {
 	m, err := renderManifest()
 	if err != nil {
 		return indexReport{}, "", err
@@ -194,7 +195,7 @@ func (c *Client) submitManifest(renderManifest func() (Manifest, error)) (indexR
 	}
 	logg.Debug("sending indexing request to Clair: %s", string(jsonBytes))
 
-	req, err := http.NewRequest(
+	req, err := http.NewRequestWithContext(ctx,
 		http.MethodPost,
 		c.requestURL("indexer", "api", "v1", "index_report"),
 		bytes.NewReader(jsonBytes),
@@ -210,7 +211,7 @@ func (c *Client) submitManifest(renderManifest func() (Manifest, error)) (indexR
 	}
 
 	// get and return index state hash to later resubmit reports if the configuration changed
-	indexStateHash, err := c.GetIndexStateHash()
+	indexStateHash, err := c.GetIndexStateHash(ctx)
 	if err != nil {
 		return indexReport{}, "", err
 	}
