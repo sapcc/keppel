@@ -77,7 +77,9 @@ func run(cmd *cobra.Command, args []string) {
 	go jobLoop(janitor.SyncManifestsInNextRepo)
 	go jobLoop(janitor.ValidateNextBlob)
 	go jobLoop(janitor.ValidateNextManifest)
-	go cronJobLoop(1*time.Minute, janitor.CheckClairManifestState)
+	if !osext.GetenvBool("KEPPEL_CLAIR_IGNORE_STALE_INDEX_REPORTS") {
+		go cronJobLoop(1*time.Minute, janitor.CheckClairManifestState)
+	}
 	if cfg.ClairClient != nil {
 		go tasks.GoQueuedJobLoop(ctx, 3, janitor.CheckVulnerabilitiesForNextManifest())
 	}
