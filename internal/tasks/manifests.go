@@ -811,9 +811,10 @@ func (j *Janitor) buildClairManifest(account keppel.Account, manifest keppel.Man
 var getDigestForIndexStatesToResubmitQuery = sqlext.SimplifyWhitespace(fmt.Sprintf(`
 	SELECT digest from vuln_info
 	WHERE index_finished_at IS NOT NULL
-		AND index_state != $1
+		AND next_check_at > $1 -- do not delete index reports that the vulnerability check loop is currently inspecting or about to inspect
+		AND index_state != $2
 		AND status != '%s'
-	LIMIT $2;
+	LIMIT $3
 `, clair.PendingVulnerabilityStatus))
 
 func (j *Janitor) CheckClairManifestState() error {
@@ -842,7 +843,7 @@ func (j *Janitor) CheckClairManifestState() error {
 		return nil
 	}
 
-	err = sqlext.ForeachRow(j.db, getDigestForIndexStatesToResubmitQuery, []any{indexStateHash, scheduleNew},
+	err = sqlext.ForeachRow(j.db, getDigestForIndexStatesToResubmitQuery, []any{j.timeNow().Add(1 * time.Minute), indexStateHash, scheduleNew},
 		func(rows *sql.Rows) error {
 			var digest string
 			err := rows.Scan(&digest)
