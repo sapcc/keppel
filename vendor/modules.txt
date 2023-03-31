@@ -48,7 +48,7 @@ github.com/golang-jwt/jwt/v4
 ## explicit; go 1.9
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/gophercloud/gophercloud v1.2.0
+# github.com/gophercloud/gophercloud v1.3.0
 ## explicit; go 1.14
 github.com/gophercloud/gophercloud
 github.com/gophercloud/gophercloud/openstack
@@ -145,11 +145,11 @@ github.com/redis/go-redis/v9/internal/util
 # github.com/rs/cors v1.8.3
 ## explicit; go 1.13
 github.com/rs/cors
-# github.com/sapcc/go-api-declarations v1.4.3
+# github.com/sapcc/go-api-declarations v1.5.0
 ## explicit; go 1.19
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20230323091343-206e6dcb3e83
+# github.com/sapcc/go-bits v0.0.0-20230330081034-6c004b82649f
 ## explicit; go 1.19
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
