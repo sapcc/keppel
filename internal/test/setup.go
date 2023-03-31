@@ -307,6 +307,11 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	mustDo(t, err)
 	s.ICD = icd.(*InboundCacheDriver) //nolint:errcheck
 
+	if params.WithClairDouble {
+		//Clair support currently requires a storage driver that can do URLForBlob()
+		s.SD.AllowDummyURLs = true
+	}
+
 	//setup APIs
 	apis := []httpapi.API{
 		httpapi.WithoutLogging(),
