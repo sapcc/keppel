@@ -604,7 +604,19 @@ func (j *Janitor) collectManifestReferencedBlobs(account keppel.Account, repo ke
 	return
 }
 
-func (j *Janitor) checkPreConditionsForClair(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, vulnInfo *keppel.VulnerabilityInfo, layerBlobs []keppel.Blob) (bool, error) {
+func (j *Janitor) checkPreConditionsForClair(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, vulnInfo *keppel.VulnerabilityInfo) (layerBlobs []keppel.Blob, ok bool, err error) {
+	//NOTE: On success, `layerBlobs` is returned to the caller because doVulnerabilityCheck() also needs this list.
+	//
+	//We used to pre-compute `layerBlobs` before calling this function, but this
+	//does not work because we want to restart this call after being done with
+	//blob replication. The new call needs to see the updated blobs list,
+	//otherwise it will try to replicate the same blobs again and end up in an
+	//endless loop.
+	layerBlobs, err = j.collectManifestReferencedBlobs(account, repo, manifest)
+	if err != nil {
+		return nil, false, err
+	}
+
 	// filter media types that clair is known to support
 	for _, blob := range layerBlobs {
 		if blob.MediaType == schema2.MediaTypeLayer || blob.MediaType == imageSpecs.MediaTypeImageLayerGzip {
@@ -614,7 +626,7 @@ func (j *Janitor) checkPreConditionsForClair(account keppel.Account, repo keppel
 		vulnInfo.Status = clair.UnsupportedVulnerabilityStatus
 		vulnInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
 		vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
-		return false, nil
+		return nil, false, nil
 	}
 
 	//skip when blobs add up to more than 5 GiB
@@ -622,7 +634,7 @@ func (j *Janitor) checkPreConditionsForClair(account keppel.Account, repo keppel
 		vulnInfo.Status = clair.UnsupportedVulnerabilityStatus
 		vulnInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for images above %g GiB", manifestSizeTooBigGiB)
 		vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
-		return false, nil
+		return nil, false, nil
 	}
 
 	//can only validate when all blobs are present in the storage
@@ -632,27 +644,27 @@ func (j *Janitor) checkPreConditionsForClair(account keppel.Account, repo keppel
 			//still replicating it; give them 10 minutes to finish replicating it
 			vulnInfo.NextCheckAt = manifest.PushedAt.Add(j.addJitter(10 * time.Minute))
 			if vulnInfo.NextCheckAt.After(j.timeNow()) {
-				return false, nil
+				return nil, false, nil
 			}
 			//otherwise we do the replication ourselves
 			_, err := j.processor().ReplicateBlob(blob, account, repo, nil)
 			if err != nil {
-				return false, err
+				return nil, false, err
 			}
 			//after successful replication, restart this call to read the new blob with the correct StorageID from the DB
-			return j.checkPreConditionsForClair(account, repo, manifest, vulnInfo, layerBlobs)
+			return j.checkPreConditionsForClair(account, repo, manifest, vulnInfo)
 		}
 
 		if blob.BlocksVulnScanning == nil && strings.HasSuffix(blob.MediaType, "gzip") {
 			//uncompress the blob to check if it's too large for Clair to handle
 			reader, _, err := j.sd.ReadBlob(account, blob.StorageID)
 			if err != nil {
-				return false, err
+				return nil, false, err
 			}
 			defer reader.Close()
 			gzipReader, err := gzip.NewReader(reader)
 			if err != nil {
-				return false, err
+				return nil, false, err
 			}
 			defer gzipReader.Close()
 
@@ -661,7 +673,7 @@ func (j *Janitor) checkPreConditionsForClair(account keppel.Account, repo keppel
 			limitBytes := int64(1 << 30 * blobUncompressedSizeTooBigGiB)
 			numberBytes, err := io.Copy(io.Discard, io.LimitReader(gzipReader, limitBytes+1))
 			if err != nil {
-				return false, err
+				return nil, false, err
 			}
 
 			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
@@ -669,7 +681,7 @@ func (j *Janitor) checkPreConditionsForClair(account keppel.Account, repo keppel
 			blob.BlocksVulnScanning = &blocksVulnScanning
 			_, err = j.db.Exec(`UPDATE blobs SET blocks_vuln_scanning = $1 WHERE id = $2`, blocksVulnScanning, blob.ID)
 			if err != nil {
-				return false, err
+				return nil, false, err
 			}
 		}
 
@@ -677,11 +689,11 @@ func (j *Janitor) checkPreConditionsForClair(account keppel.Account, repo keppel
 			vulnInfo.Status = clair.UnsupportedVulnerabilityStatus
 			vulnInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
 			vulnInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
-			return false, nil
+			return nil, false, nil
 		}
 	}
 
-	return true, nil
+	return layerBlobs, true, nil
 }
 
 func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, vulnInfo *keppel.VulnerabilityInfo) (returnedError error) {
@@ -697,12 +709,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 		return nil
 	}
 
-	layerBlobs, err := j.collectManifestReferencedBlobs(account, repo, manifest)
-	if err != nil {
-		return err
-	}
-
-	continueCheck, err := j.checkPreConditionsForClair(account, repo, manifest, vulnInfo, layerBlobs)
+	layerBlobs, continueCheck, err := j.checkPreConditionsForClair(account, repo, manifest, vulnInfo)
 	if err != nil {
 		return err
 	}
