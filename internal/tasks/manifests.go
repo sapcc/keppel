@@ -33,6 +33,8 @@ import (
 	imageSpecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/clair"
@@ -385,6 +387,11 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 		}
 	}
 
+	//if nothing needs to be deleted, we're done here
+	if len(shallDeleteManifest) == 0 {
+		return nil
+	}
+
 	//enumerate manifest-manifest refs in this repo
 	parentDigestsOf := make(map[string][]string)
 	err = sqlext.ForeachRow(j.db, syncManifestEnumerateRefsQuery, []interface{}{repo.ID}, func(rows *sql.Rows) error {
@@ -414,11 +421,9 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 		deletedSomething := false
 	MANIFEST:
 		for digest := range shallDeleteManifest {
-			for _, parentDigest := range parentDigestsOf[digest] {
-				if !manifestWasDeleted[parentDigest] {
-					//cannot delete this manifest yet because it's still being referenced - retry in next iteration
-					continue MANIFEST
-				}
+			if slices.ContainsFunc(parentDigestsOf[digest], func(parentDigest string) bool { return !manifestWasDeleted[parentDigest] }) {
+				//cannot delete this manifest yet because it's still being referenced - retry in next iteration
+				continue MANIFEST
 			}
 
 			//no manifests left that reference this one - we can delete it
@@ -442,12 +447,8 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 
 		//we should be deleting something in each iteration, otherwise we will get stuck in an infinite loop
 		if !deletedSomething {
-			undeletedDigests := make([]string, 0, len(shallDeleteManifest))
-			for digest := range shallDeleteManifest {
-				undeletedDigests = append(undeletedDigests, digest)
-			}
 			return fmt.Errorf("cannot remove deleted manifests %v in repo %s because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)",
-				undeletedDigests, repo.FullName())
+				maps.Keys(shallDeleteManifest), repo.FullName())
 		}
 	}
 
