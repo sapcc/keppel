@@ -52,18 +52,10 @@ type repoRequest struct {
 	ExpectStatus int
 }
 
-func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
-	if c.Scheme == "" {
-		c.Scheme = "https"
-	}
-
-	uri := fmt.Sprintf("%s://%s/v2/%s/%s",
-		c.Scheme, c.Host, c.RepoName, r.Path)
-
-	//send GET request for manifest
+func (c *RepoClient) sendRequest(r repoRequest, uri string) (*http.Response, *http.Request, error) {
 	req, err := http.NewRequest(r.Method, uri, r.Body)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for k, v := range r.Headers {
 		req.Header[k] = v
@@ -73,7 +65,23 @@ func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, keppel.ErrUnavailable.With(err.Error())
+		return nil, nil, keppel.ErrUnavailable.With(err.Error())
+	}
+
+	return resp, req, nil
+}
+
+func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
+	if c.Scheme == "" {
+		c.Scheme = "https"
+	}
+
+	uri := fmt.Sprintf("%s://%s/v2/%s/%s", c.Scheme, c.Host, c.RepoName, r.Path)
+
+	//send GET request for manifest
+	resp, req, err := c.sendRequest(r, uri)
+	if err != nil {
+		return nil, err
 	}
 
 	//if it's a 401, do the auth challenge...
@@ -97,17 +105,9 @@ func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
 				return nil, err
 			}
 		}
-		reqWithToken, err := http.NewRequest(r.Method, uri, r.Body)
+		resp, _, err = c.sendRequest(r, uri)
 		if err != nil {
 			return nil, err
-		}
-		for k, v := range r.Headers {
-			reqWithToken.Header[k] = v
-		}
-		reqWithToken.Header.Set("Authorization", "Bearer "+c.token)
-		resp, err = http.DefaultClient.Do(reqWithToken)
-		if err != nil {
-			return nil, keppel.ErrUnavailable.With(err.Error())
 		}
 	}
 
