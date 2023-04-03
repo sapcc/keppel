@@ -8,7 +8,7 @@ require (
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/docker/distribution v2.8.1+incompatible
 	github.com/go-gorp/gorp/v3 v3.1.0
-	github.com/go-redis/redis_rate/v10 v10.0.0
+	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/gophercloud/gophercloud v1.3.0
@@ -18,7 +18,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.0.2
 	github.com/prometheus/client_golang v1.14.0
-	github.com/redis/go-redis/v9 v9.0.2
+	github.com/redis/go-redis/v9 v9.0.3
 	github.com/rs/cors v1.8.3
 	github.com/sapcc/go-api-declarations v1.5.0
 	github.com/sapcc/go-bits v0.0.0-20230330081034-6c004b82649f
