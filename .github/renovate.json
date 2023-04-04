@@ -10,7 +10,7 @@
     "SuperSandro2000"
   ],
   "constraints": {
-    "go": "1.19"
+    "go": "1.20"
   },
   "postUpdateOptions": [
     "gomodTidy",
@@ -21,7 +21,7 @@
       "matchPackageNames": [
         "golang"
       ],
-      "allowedVersions": "1.19.x"
+      "allowedVersions": "1.20.x"
     },
     {
       "matchPackagePatterns": [
