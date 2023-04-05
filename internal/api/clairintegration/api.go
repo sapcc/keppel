@@ -17,7 +17,7 @@
 *
 *******************************************************************************/
 
-package clairproxy
+package clairintegration
 
 import (
 	"net/http"
