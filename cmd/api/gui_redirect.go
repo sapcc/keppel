@@ -60,7 +60,12 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 		respondNotFound(w, r)
 		return
 	}
-	repo, err := keppel.FindRepository(g.db, vars["repository"], *account)
+	repoRef, _, err := keppel.ParseImageReference(vars["repository"])
+	if err != nil {
+		respondNotFound(w, r)
+		return
+	}
+	repo, err := keppel.FindRepository(g.db, repoRef.RepoName, *account)
 	if err != nil || repo == nil {
 		respondNotFound(w, r)
 		return
