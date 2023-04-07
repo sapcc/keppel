@@ -149,8 +149,8 @@ github.com/rs/cors
 ## explicit; go 1.19
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20230330081034-6c004b82649f
-## explicit; go 1.19
+# github.com/sapcc/go-bits v0.0.0-20230404144215-11076993c8aa
+## explicit; go 1.20
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
 github.com/sapcc/go-bits/easypg
