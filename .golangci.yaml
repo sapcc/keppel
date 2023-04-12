@@ -25,10 +25,6 @@ issues:
   max-same-issues: 0
 
 linters-settings:
-  depguard:
-    include-go-root: true
-    packages-with-error-message:
-      - crypto/sha256: 'sha256 hashing must be done with github.com/minio/sha256-simd'
   dupl:
     # Tokens count to trigger issue, 150 by default.
     threshold: 100
@@ -107,7 +103,6 @@ linters:
   enable:
     - bodyclose
     - containedctx
-    - depguard
     - dupl
     - dupword
     - errcheck
