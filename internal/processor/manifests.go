@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -953,6 +954,7 @@ func (a auditManifest) Render() cadf.Resource {
 	}
 
 	if len(a.Tags) > 0 {
+		sort.Strings(a.Tags)
 		tagsJSON, _ := json.Marshal(a.Tags)
 		res.Attachments = []cadf.Attachment{{
 			Name:    "tags",

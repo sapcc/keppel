@@ -19,7 +19,6 @@
 package registryv2
 
 import (
-	"crypto/sha256"
 	"database/sql"
 	"encoding"
 	"encoding/base64"
@@ -37,6 +36,7 @@ import (
 	"github.com/go-gorp/gorp/v3"
 	"github.com/gofrs/uuid"
 	"github.com/gorilla/mux"
+	"github.com/minio/sha256-simd"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/httpapi"

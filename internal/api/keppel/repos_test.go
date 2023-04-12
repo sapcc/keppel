@@ -20,13 +20,13 @@ package keppelv1_test
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/minio/sha256-simd"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 

@@ -19,9 +19,10 @@
 package test
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"strconv"
+
+	"github.com/minio/sha256-simd"
 )
 
 // StorageIDGenerator provides realistic-looking, but deterministic storage IDs
