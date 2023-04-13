@@ -128,7 +128,9 @@ func (c AuthChallenge) GetToken(userName, password string) (string, error) {
 		return "", err
 	case data.Token != "":
 		return data.Token, nil
-	default:
+	case data.AccessToken != "":
 		return data.AccessToken, nil
+	default:
+		return "", errors.New("no token was returned")
 	}
 }
