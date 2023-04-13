@@ -60,12 +60,8 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 		respondNotFound(w, r)
 		return
 	}
-	repoRef, _, err := keppel.ParseImageReference(vars["repository"])
-	if err != nil {
-		respondNotFound(w, r)
-		return
-	}
-	repo, err := keppel.FindRepository(g.db, repoRef.RepoName, *account)
+	repoName := stripTagAndDigest(vars["repository"])
+	repo, err := keppel.FindRepository(g.db, repoName, *account)
 	if err != nil || repo == nil {
 		respondNotFound(w, r)
 		return
@@ -96,6 +92,12 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 	}
 
 	respondNotFound(w, r)
+}
+
+func stripTagAndDigest(repoRef string) string {
+	repoRef, _, _ = strings.Cut(repoRef, ":")
+	repoRef, _, _ = strings.Cut(repoRef, "@")
+	return repoRef
 }
 
 func respondNotFound(w http.ResponseWriter, r *http.Request) {
