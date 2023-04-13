@@ -108,6 +108,8 @@ func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
 	}
 
 	if resp.StatusCode != r.ExpectStatus {
+		defer resp.Body.Close()
+
 		//on error, try to parse the upstream RegistryV2Error so that we can proxy it
 		//through to the client correctly
 		//
@@ -118,16 +120,11 @@ func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
 				Errors []*keppel.RegistryV2Error `json:"errors"`
 			}
 			err := json.NewDecoder(resp.Body).Decode(&respData)
-			if err == nil {
-				err = resp.Body.Close()
-			} else {
-				resp.Body.Close()
-			}
 			if err == nil && len(respData.Errors) > 0 {
 				return nil, respData.Errors[0].WithStatus(resp.StatusCode)
 			}
 		}
-		resp.Body.Close()
+
 		return nil, unexpectedStatusCodeError{req, http.StatusOK, resp.Status}
 	}
 
