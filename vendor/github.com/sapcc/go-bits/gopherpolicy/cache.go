@@ -19,10 +19,10 @@
 package gopherpolicy
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 
 	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/minio/sha256-simd"
 )
 
 type inMemoryCacher struct {
