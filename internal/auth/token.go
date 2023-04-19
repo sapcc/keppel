@@ -30,13 +30,12 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
 func init() {
-	jwt.DecodeStrict = true
 	//required for backwards-compatibility with existing tokens
 	jwt.MarshalSingleStringAsArray = false
 }
@@ -49,10 +48,8 @@ type tokenClaims struct {
 }
 
 func parseToken(cfg keppel.Configuration, ad keppel.AuthDriver, audience Audience, tokenStr string) (*Authorization, *keppel.RegistryV2Error) {
-	//parse JWT
-	var claims tokenClaims
-	claims.Embedded.AuthDriver = ad
-	token, err := jwt.ParseWithClaims(tokenStr, &claims, func(t *jwt.Token) (interface{}, error) {
+	//this function is used by jwt.ParseWithClaims() to select which public key to use for validation
+	keyFunc := func(t *jwt.Token) (interface{}, error) {
 		//check the token header to see which key we used for signing
 		ourIssuerKeys := audience.IssuerKeys(cfg)
 		for _, ourIssuerKey := range ourIssuerKeys {
@@ -69,7 +66,24 @@ func parseToken(cfg keppel.Configuration, ad keppel.AuthDriver, audience Audienc
 		}
 
 		return nil, errors.New("token signed by unknown key")
-	})
+	}
+
+	//parse JWT
+	publicHost := audience.Hostname(cfg)
+	parserOpts := []jwt.ParserOption{
+		jwt.WithStrictDecoding(),
+		jwt.WithLeeway(3 * time.Second),
+		jwt.WithAudience(publicHost),
+	}
+	if !audience.IsAnycast {
+		//For anycast tokens, we don't verify the issuer. Any of our peers could
+		//have issued the token.
+		parserOpts = append(parserOpts, jwt.WithIssuer("keppel-api@"+publicHost))
+	}
+
+	var claims tokenClaims
+	claims.Embedded.AuthDriver = ad
+	token, err := jwt.ParseWithClaims(tokenStr, &claims, keyFunc, parserOpts...)
 	if err != nil {
 		return nil, keppel.ErrUnauthorized.With(err.Error())
 	}
@@ -77,26 +91,6 @@ func parseToken(cfg keppel.Configuration, ad keppel.AuthDriver, audience Audienc
 		//NOTE: This branch is defense in depth. As of the time of this writing,
 		//token.Valid == false if and only if err != nil.
 		return nil, keppel.ErrUnauthorized.With("token invalid")
-	}
-
-	//check claims (allow up to 3 seconds clock mismatch)
-	now := time.Now()
-	if !claims.RegisteredClaims.VerifyExpiresAt(now.Add(-3*time.Second), true) {
-		return nil, keppel.ErrUnauthorized.With("token expired")
-	}
-	if !claims.RegisteredClaims.VerifyNotBefore(now.Add(+3*time.Second), true) {
-		return nil, keppel.ErrUnauthorized.With("token not valid yet")
-	}
-	publicHost := audience.Hostname(cfg)
-	if !audience.IsAnycast {
-		if claims.RegisteredClaims.Issuer != "keppel-api@"+publicHost {
-			return nil, keppel.ErrUnauthorized.With("token has wrong issuer (expected keppel-api@%s)", publicHost)
-		}
-		//NOTE: For anycast tokens, we don't verify the issuer. Any of our peers
-		//could have issued the token.
-	}
-	if !claims.RegisteredClaims.VerifyAudience(publicHost, true) {
-		return nil, keppel.ErrUnauthorized.With("token has wrong audience (expected %s)", publicHost)
 	}
 
 	var ss ScopeSet

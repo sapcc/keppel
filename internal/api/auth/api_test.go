@@ -992,7 +992,7 @@ func TestIssuerKeyRotation(t *testing.T) {
 		ExpectBody: assert.JSONObject{
 			"errors": []assert.JSONObject{{
 				"code":    string(keppel.ErrUnauthorized),
-				"message": "token signed by unknown key",
+				"message": "token is unverifiable: error while executing keyfunc: token signed by unknown key",
 				"detail":  nil,
 			}},
 		},
