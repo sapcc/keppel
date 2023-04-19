@@ -29,6 +29,7 @@ import (
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/processor"
 )
 
 var imageGCRepoSelectQuery = sqlext.SimplifyWhitespace(`
@@ -115,6 +116,14 @@ func (j *Janitor) GarbageCollectManifestsInNextRepo() (returnErr error) {
 	return err
 }
 
+type manifestData struct {
+	Manifest      keppel.Manifest
+	TagNames      []string
+	ParentDigests []string
+	GCStatus      keppel.GCStatus
+	IsDeleted     bool
+}
+
 func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Repository, policies []keppel.GCPolicy) error {
 	//load manifests in repo
 	var dbManifests []keppel.Manifest
@@ -124,13 +133,6 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 	}
 
 	//setup a bit of structure to track state in during the policy evaluation
-	type manifestData struct {
-		Manifest      keppel.Manifest
-		TagNames      []string
-		ParentDigests []string
-		GCStatus      keppel.GCStatus
-		IsDeleted     bool
-	}
 	var manifests []*manifestData
 	for _, m := range dbManifests {
 		manifests = append(manifests, &manifestData{
@@ -194,69 +196,82 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 		}
 	}
 
-	//evaulate policies in order
+	//evaluate policies in order
 	proc := j.processor()
-	for _, p := range policies {
-		//for some time constraint matches, we need to know which manifests are
-		//still alive
-		var aliveManifests []keppel.Manifest
-		for _, m := range manifests {
-			if !m.IsDeleted {
-				aliveManifests = append(aliveManifests, m.Manifest)
-			}
-		}
-
-		//evaluate policy for each manifest
-		for _, m := range manifests {
-			//skip those manifests that are already deleted, and those which are
-			//protected by an earlier policy or one of the baseline checks above
-			if m.IsDeleted || m.GCStatus.IsProtected() {
-				continue
-			}
-
-			//track matching "delete" policies in GCStatus to allow users insight
-			//into how policies match
-			if p.Action == "delete" {
-				m.GCStatus.RelevantPolicies = append(m.GCStatus.RelevantPolicies, p)
-			}
-
-			//evaluate constraints
-			if !p.MatchesTags(m.TagNames) {
-				continue
-			}
-			if !p.MatchesTimeConstraint(m.Manifest, aliveManifests, j.timeNow()) {
-				continue
-			}
-
-			pCopied := p
-			//execute policy action
-			switch p.Action {
-			case "protect":
-				m.GCStatus.ProtectedByPolicy = &pCopied
-			case "delete":
-				err := proc.DeleteManifest(account, repo, m.Manifest.Digest, keppel.AuditContext{
-					UserIdentity: janitorUserIdentity{
-						TaskName: "policy-driven-gc",
-						GCPolicy: &pCopied,
-					},
-					Request: janitorDummyRequest,
-				})
-				if err != nil {
-					return err
-				}
-				m.IsDeleted = true
-				policyJSON, _ := json.Marshal(p)
-				logg.Info("GC on repo %s: deleted manifest %s because of policy %s", repo.FullName(), m.Manifest.Digest, string(policyJSON))
-			default:
-				//defense in depth: we already did p.Validate() earlier
-				return fmt.Errorf("unexpected GC policy action: %q (why was this not caught by Validate!?)", p.Action)
-			}
+	for _, policy := range policies {
+		err := j.evaluatePolicy(proc, manifests, account, repo, policy)
+		if err != nil {
+			return err
 		}
 	}
 
+	return j.persistGCStatus(manifests, repo.ID)
+}
+
+func (j *Janitor) evaluatePolicy(proc *processor.Processor, manifests []*manifestData, account keppel.Account, repo keppel.Repository, policy keppel.GCPolicy) error {
+	//for some time constraint matches, we need to know which manifests are
+	//still alive
+	var aliveManifests []keppel.Manifest
+	for _, m := range manifests {
+		if !m.IsDeleted {
+			aliveManifests = append(aliveManifests, m.Manifest)
+		}
+	}
+
+	//evaluate policy for each manifest
+	for _, m := range manifests {
+		//skip those manifests that are already deleted, and those which are
+		//protected by an earlier policy or one of the baseline checks above
+		if m.IsDeleted || m.GCStatus.IsProtected() {
+			continue
+		}
+
+		//track matching "delete" policies in GCStatus to allow users insight
+		//into how policies match
+		if policy.Action == "delete" {
+			m.GCStatus.RelevantPolicies = append(m.GCStatus.RelevantPolicies, policy)
+		}
+
+		//evaluate constraints
+		if !policy.MatchesTags(m.TagNames) {
+			continue
+		}
+		if !policy.MatchesTimeConstraint(m.Manifest, aliveManifests, j.timeNow()) {
+			continue
+		}
+
+		pCopied := policy
+		//execute policy action
+		switch policy.Action {
+		case "protect":
+			m.GCStatus.ProtectedByPolicy = &pCopied
+		case "delete":
+			err := proc.DeleteManifest(account, repo, m.Manifest.Digest, keppel.AuditContext{
+				UserIdentity: janitorUserIdentity{
+					TaskName: "policy-driven-gc",
+					GCPolicy: &pCopied,
+				},
+				Request: janitorDummyRequest,
+			})
+			if err != nil {
+				return err
+			}
+			m.IsDeleted = true
+			policyJSON, _ := json.Marshal(policy)
+			logg.Info("GC on repo %s: deleted manifest %s because of policy %s", repo.FullName(), m.Manifest.Digest, string(policyJSON))
+		default:
+			//defense in depth: we already did p.Validate() earlier
+			return fmt.Errorf("unexpected GC policy action: %q (why was this not caught by Validate!?)", policy.Action)
+		}
+	}
+
+	return nil
+}
+
+func (j *Janitor) persistGCStatus(manifests []*manifestData, repoID int64) error {
 	//finalize and persist GCStatus for all affected manifests
-	query = `UPDATE manifests SET gc_status_json = $1 WHERE repo_id = $2 AND digest = $3`
-	err = sqlext.WithPreparedStatement(j.db, query, func(stmt *sql.Stmt) error {
+	query := `UPDATE manifests SET gc_status_json = $1 WHERE repo_id = $2 AND digest = $3`
+	err := sqlext.WithPreparedStatement(j.db, query, func(stmt *sql.Stmt) error {
 		for _, m := range manifests {
 			if m.IsDeleted {
 				continue
@@ -270,7 +285,7 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 			if err != nil {
 				return err
 			}
-			_, err = stmt.Exec(string(gcStatusJSON), repo.ID, m.Manifest.Digest)
+			_, err = stmt.Exec(string(gcStatusJSON), repoID, m.Manifest.Digest)
 			if err != nil {
 				return err
 			}
