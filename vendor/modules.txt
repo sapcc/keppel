@@ -89,7 +89,7 @@ github.com/jpillora/longestcommon
 # github.com/klauspost/cpuid/v2 v2.0.4
 ## explicit; go 1.13
 github.com/klauspost/cpuid/v2
-# github.com/lib/pq v1.10.7
+# github.com/lib/pq v1.10.8
 ## explicit; go 1.13
 github.com/lib/pq
 github.com/lib/pq/oid
@@ -146,16 +146,14 @@ github.com/redis/go-redis/v9/internal/pool
 github.com/redis/go-redis/v9/internal/proto
 github.com/redis/go-redis/v9/internal/rand
 github.com/redis/go-redis/v9/internal/util
-# github.com/rogpeppe/go-internal v1.10.0
-## explicit; go 1.19
 # github.com/rs/cors v1.9.0
 ## explicit; go 1.13
 github.com/rs/cors
-# github.com/sapcc/go-api-declarations v1.5.0
-## explicit; go 1.19
+# github.com/sapcc/go-api-declarations v1.5.1
+## explicit; go 1.20
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20230413144132-bee3aa4c8293
+# github.com/sapcc/go-bits v0.0.0-20230420083834-e3870701a14b
 ## explicit; go 1.20
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools

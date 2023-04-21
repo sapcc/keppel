@@ -21,8 +21,8 @@ require (
 	github.com/prometheus/client_golang v1.15.0
 	github.com/redis/go-redis/v9 v9.0.3
 	github.com/rs/cors v1.9.0
-	github.com/sapcc/go-api-declarations v1.5.0
-	github.com/sapcc/go-bits v0.0.0-20230413144132-bee3aa4c8293
+	github.com/sapcc/go-api-declarations v1.5.1
+	github.com/sapcc/go-bits v0.0.0-20230420083834-e3870701a14b
 	github.com/spf13/cobra v1.7.0
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	golang.org/x/crypto v0.8.0
@@ -41,14 +41,13 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.4 // indirect
-	github.com/lib/pq v1.10.7 // indirect
+	github.com/lib/pq v1.10.8 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.42.0 // indirect
 	github.com/prometheus/procfs v0.9.0 // indirect
 	github.com/rabbitmq/amqp091-go v1.8.0 // indirect
-	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/yuin/gopher-lua v1.1.0 // indirect
