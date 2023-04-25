@@ -269,10 +269,11 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	}
 
 	canCreateRepoIfMissing := false
+	canFirstPull := false
 	if strategy == createRepoIfMissing {
 		canCreateRepoIfMissing = true
 	} else if strategy == createRepoIfMissingAndReplica {
-		canFirstPull := authz.ScopeSet.Contains(auth.Scope{
+		canFirstPull = authz.ScopeSet.Contains(auth.Scope{
 			ResourceType: "repository",
 			ResourceName: scope.ResourceName,
 			Actions:      []string{"anonymous_first_pull"},
@@ -287,7 +288,11 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		repo, err = keppel.FindRepository(a.db, repoScope.RepositoryName, *account)
 	}
 	if err == sql.ErrNoRows || repo == nil {
-		keppel.ErrNameUnknown.With("repository not found").WriteAsRegistryV2ResponseTo(w, r)
+		if canFirstPull {
+			keppel.ErrNameUnknown.With("repository does not exist here, and anonymous users may not create new repositories").WriteAsRegistryV2ResponseTo(w, r)
+		} else {
+			keppel.ErrNameUnknown.With("repository not found").WriteAsRegistryV2ResponseTo(w, r)
+		}
 		return nil, nil, nil
 	} else if respondWithError(w, r, err) {
 		return nil, nil, nil
