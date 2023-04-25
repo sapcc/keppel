@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	"github.com/docker/distribution"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 
 	//distribution.UnmarshalManifest() relies on the following packages
 	//registering their manifest schemas.
@@ -80,7 +81,15 @@ type v2ManifestAdapter struct {
 }
 
 func (a v2ManifestAdapter) FindImageConfigBlob() *distribution.Descriptor {
-	return &a.m.Config
+	//Standard OCI images have this specific MediaType for their config blob, and
+	//this is the format that we can inspect.
+	if a.m.Config.MediaType == v1.MediaTypeImageConfig {
+		return &a.m.Config
+	}
+	//ORAS images have applicaiton-specific MediaTypes that we do not know how to
+	//inspect (e.g. `application/vnd.aquasec.trivy.config.v1+json` for Trivy
+	//vulnerability DBs). We have to ignore these since we cannot parse them.
+	return nil
 }
 
 func (a v2ManifestAdapter) FindImageLayerBlobs() []distribution.Descriptor {
