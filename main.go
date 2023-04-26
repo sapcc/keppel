@@ -24,12 +24,14 @@ import (
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 	"github.com/spf13/cobra"
+	"go.uber.org/automaxprocs/maxprocs"
 
 	anycastmonitorcmd "github.com/sapcc/keppel/cmd/anycastmonitor"
 	apicmd "github.com/sapcc/keppel/cmd/api"
 	healthmonitorcmd "github.com/sapcc/keppel/cmd/healthmonitor"
 	janitorcmd "github.com/sapcc/keppel/cmd/janitor"
 	validatecmd "github.com/sapcc/keppel/cmd/validate"
+	"github.com/sapcc/keppel/internal/keppel"
 
 	//include all known driver implementations
 	_ "github.com/sapcc/keppel/internal/drivers/basic"
@@ -38,11 +40,12 @@ import (
 	_ "github.com/sapcc/keppel/internal/drivers/openstack"
 	_ "github.com/sapcc/keppel/internal/drivers/redis"
 	_ "github.com/sapcc/keppel/internal/drivers/trivial"
-	"github.com/sapcc/keppel/internal/keppel"
 )
 
 func main() {
 	logg.ShowDebug = osext.GetenvBool("KEPPEL_DEBUG")
+	undoMaxprocs := must.Return(maxprocs.Set(maxprocs.Logger(logg.Debug)))
+	defer undoMaxprocs()
 	keppel.SetupHTTPClient()
 
 	rootCmd := &cobra.Command{
