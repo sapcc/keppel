@@ -34,6 +34,7 @@ const (
 	//UnknownSeverity is a VulnerabilityStatus which means that there are vulnerabilities, but their severity is unknown.
 	UnknownSeverity VulnerabilityStatus = "Unknown"
 	//NegligibleSeverity is a VulnerabilityStatus.
+	// TODO: remove when clair is removed
 	NegligibleSeverity VulnerabilityStatus = "Negligible"
 	//LowSeverity is a VulnerabilityStatus.
 	LowSeverity VulnerabilityStatus = "Low"
@@ -44,6 +45,7 @@ const (
 	//CriticalSeverity is a VulnerabilityStatus.
 	CriticalSeverity VulnerabilityStatus = "Critical"
 	//Defcon1Severity is a VulnerabilityStatus.
+	// TODO: remove when clair is removed
 	Defcon1Severity VulnerabilityStatus = "Defcon1"
 )
 

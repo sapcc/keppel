@@ -830,6 +830,7 @@ var getDigestForIndexStatesToResubmitQuery = sqlext.SimplifyWhitespace(fmt.Sprin
 	LIMIT $3
 `, clair.PendingVulnerabilityStatus))
 
+// TODO: remove when clair is removed
 func (j *Janitor) CheckClairManifestState() error {
 	//limit the total runtime of this task
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)

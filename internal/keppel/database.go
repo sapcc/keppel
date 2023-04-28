@@ -225,6 +225,25 @@ var sqlMigrations = map[string]string{
 		DROP TABLE rbac_policies;
 		DROP TABLE accounts;
 	`,
+	"032_trivy.up.sql": `
+		CREATE TABLE trivy_security_info (
+			repo_id             BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
+			digest              TEXT        NOT NULL,
+			status              TEXT        NOT NULL,
+			message             TEXT        NOT NULL,
+			next_check_at       TIMESTAMPTZ NOT NULL,
+			checked_at          TIMESTAMPTZ DEFAULT NULL,        -- NULL before first check
+			check_duration_secs REAL        DEFAULT NULL,        -- NULL before first check
+			FOREIGN KEY (repo_id, digest) REFERENCES manifests ON DELETE CASCADE,
+			UNIQUE (repo_id, digest)
+		);
+
+		INSERT INTO trivy_security_info(repo_id, digest, status, message, next_check_at)
+			select repo_id, digest, 'Pending', '', NOW() from manifests;
+	`,
+	"032_trivy.down.sql": `
+		DROP TABLE trivy_security_info;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.
