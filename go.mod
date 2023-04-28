@@ -27,7 +27,7 @@ require (
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.5.2
 	golang.org/x/crypto v0.8.0
-	golang.org/x/exp v0.0.0-20230420155640-133eef4313cb
+	golang.org/x/exp v0.0.0-20230425010034-47ecfdc1ba53
 )
 
 require (
