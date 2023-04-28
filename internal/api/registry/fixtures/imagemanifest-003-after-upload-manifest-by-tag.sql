@@ -18,4 +18,6 @@ INSERT INTO repos (id, account_name, name) VALUES (6, 'test1', 'bar');
 
 INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, 'latest', 'sha256:8a9217f1887083297faf37cb2c1808f71289f0cd722d6e5157a07be1c362945f', 2);
 
+INSERT INTO trivy_security_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:8a9217f1887083297faf37cb2c1808f71289f0cd722d6e5157a07be1c362945f', 'Pending', '', 2);
+
 INSERT INTO vuln_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:8a9217f1887083297faf37cb2c1808f71289f0cd722d6e5157a07be1c362945f', 'Pending', '', 2);

@@ -386,6 +386,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 					%[5]sUPDATE manifests SET validated_at = %[2]d WHERE repo_id = 1 AND digest = '%[3]s';
 					UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 					UPDATE tags SET digest = '%[3]s', pushed_at = %[2]d, last_pulled_at = NULL WHERE repo_id = 1 AND name = 'latest';
+					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[1]s';
 				`,
 				images[3].Manifest.Digest.String(), //the deleted manifest
@@ -455,6 +456,8 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[2]s';
 					UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 					DELETE FROM tags WHERE repo_id = 1 AND name = 'other';
+					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
+					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[2]s';
 					DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[2]s';
 				`,
@@ -518,6 +521,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 					DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM repos WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[1]s';
 				`,
 				images[1].Manifest.Digest.String(),
