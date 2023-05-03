@@ -207,8 +207,14 @@ var sqlMigrations = map[string]string{
 		);
 	`,
 	"031_rollup.down.sql": `
+		DROP TABLE unknown_manifests;
+		DROP table unknown_blobs;
 		DROP TABLE pending_blobs;
+		DROP TABLE vuln_info;
 		DROP TABLE tags;
+		DROP TABLE manifest_manifest_refs;
+		DROP TABLE manifest_blob_refs;
+		DROP TABLE manifest_contents;
 		DROP TABLE manifests;
 		DROP TABLE uploads;
 		DROP TABLE blob_mounts;
