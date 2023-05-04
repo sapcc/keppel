@@ -10,9 +10,11 @@ RUN make -C /src install PREFIX=/pkg GO_BUILDFLAGS='-mod vendor'
 
 FROM alpine:3.17
 
-RUN addgroup -g 4200 appgroup
-RUN adduser -h /home/appuser -s /sbin/nologin -G appgroup -D -u 4200 appuser
-RUN apk add --no-cache --no-progress ca-certificates
+RUN addgroup -g 4200 appgroup \
+  && adduser -h /home/appuser -s /sbin/nologin -G appgroup -D -u 4200 appuser
+# upgrade all installed packages to fix potential CVEs in advance
+RUN apk upgrade --no-cache --no-progress \
+  && apk add --no-cache --no-progress ca-certificates
 COPY --from=builder /pkg/ /usr/
 
 ARG BININFO_BUILD_DATE BININFO_COMMIT_HASH BININFO_VERSION
