@@ -37,29 +37,31 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 	var account1 keppel.Account
 	mustDo(t, s.DB.SelectOne(&account1, `SELECT * FROM accounts`))
 
+	accountJob := j.AnnounceAccountToFederationJob(s.Registry)
+
 	//with just one account set up, AnnounceNextAccountToFederation should
 	//announce that account, then start doing nothing
-	expectSuccess(t, j.AnnounceNextAccountToFederation())
+	expectSuccess(t, accountJob.ProcessOne())
 	expectAccountsAnnouncedJustNow(t, s, account1)
-	expectError(t, sql.ErrNoRows.Error(), j.AnnounceNextAccountToFederation())
+	expectError(t, sql.ErrNoRows.Error(), accountJob.ProcessOne())
 	expectAccountsAnnouncedJustNow(t, s /*, nothing */)
 
 	//setup another account; only that one should need announcing initially
 	s.Clock.StepBy(5 * time.Minute)
 	account2 := keppel.Account{Name: "test2", AuthTenantID: "test2authtenant", GCPoliciesJSON: "[]"}
 	mustDo(t, s.DB.Insert(&account2))
-	expectSuccess(t, j.AnnounceNextAccountToFederation())
+	expectSuccess(t, accountJob.ProcessOne())
 	expectAccountsAnnouncedJustNow(t, s, account2)
-	expectError(t, sql.ErrNoRows.Error(), j.AnnounceNextAccountToFederation())
+	expectError(t, sql.ErrNoRows.Error(), accountJob.ProcessOne())
 	expectAccountsAnnouncedJustNow(t, s /*, nothing */)
 
 	//do another full round of announcements
 	s.Clock.StepBy(65 * time.Minute)
-	expectSuccess(t, j.AnnounceNextAccountToFederation())
+	expectSuccess(t, accountJob.ProcessOne())
 	expectAccountsAnnouncedJustNow(t, s, account1)
-	expectSuccess(t, j.AnnounceNextAccountToFederation())
+	expectSuccess(t, accountJob.ProcessOne())
 	expectAccountsAnnouncedJustNow(t, s, account2)
-	expectError(t, sql.ErrNoRows.Error(), j.AnnounceNextAccountToFederation())
+	expectError(t, sql.ErrNoRows.Error(), accountJob.ProcessOne())
 	expectAccountsAnnouncedJustNow(t, s /*, nothing */)
 }
 

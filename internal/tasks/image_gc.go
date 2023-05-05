@@ -25,6 +25,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 
@@ -49,33 +51,25 @@ var imageGCRepoDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE repos SET next_gc_at = $2 WHERE id = $1
 `)
 
-// GarbageCollectManifestsInNextRepo finds the next repository where GC has not been performed for more than an hour, and
-func (j *Janitor) GarbageCollectManifestsInNextRepo() (returnErr error) {
-	var repo keppel.Repository
+// GarbageCollectManifestsInNextRepo finds the next repository where GC has not been performed for more than an hour
+func (j *Janitor) GarbageCollectManifestsJob(registerer prometheus.Registerer) jobloop.Job {
+	return (&jobloop.ProducerConsumerJob[keppel.Repository]{
+		Metadata: jobloop.JobMetadata{
+			ReadableName: "garbage collect manifest",
+			CounterOpts: prometheus.CounterOpts{
+				Name: "keppel_image_garbage_collections",
+				Help: "Counter for garbage collection runs in repos.",
+			},
+		},
+		DiscoverTask: func(_ prometheus.Labels) (repo keppel.Repository, err error) {
+			err = j.db.SelectOne(&repo, imageGCRepoSelectQuery, j.timeNow())
+			return repo, err
+		},
+		ProcessTask: j.processGarbageCollectManifest,
+	}).Setup(registerer)
+}
 
-	defer func() {
-		if returnErr == nil {
-			imageGCSuccessCounter.Inc()
-		} else if returnErr != sql.ErrNoRows {
-			imageGCFailedCounter.Inc()
-			repoFullName := repo.FullName()
-			if repoFullName == "" {
-				repoFullName = "unknown"
-			}
-			returnErr = fmt.Errorf("while GCing manifests in the repo %s: %w", repoFullName, returnErr)
-		}
-	}()
-
-	//find repository to sync
-	err := j.db.SelectOne(&repo, imageGCRepoSelectQuery, j.timeNow())
-	if err != nil {
-		if err == sql.ErrNoRows {
-			logg.Debug("no accounts to sync manifests in - slowing down...")
-			return sql.ErrNoRows
-		}
-		return err
-	}
-
+func (j *Janitor) processGarbageCollectManifest(repo keppel.Repository, labels prometheus.Labels) (returnErr error) {
 	//load GC policies for this repository
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {

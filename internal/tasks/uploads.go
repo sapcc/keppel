@@ -19,11 +19,12 @@
 package tasks
 
 import (
-	"database/sql"
 	"fmt"
 	"time"
 
-	"github.com/sapcc/go-bits/logg"
+	"github.com/go-gorp/gorp/v3"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -47,43 +48,29 @@ var findAccountForRepoQuery = sqlext.SimplifyWhitespace(`
 // DeleteNextAbandonedUpload cleans up uploads that have not been updated for more
 // than a day. At most one upload is cleaned up per call. If no upload needs to
 // be cleaned up, sql.ErrNoRows is returned.
-func (j *Janitor) DeleteNextAbandonedUpload() (returnErr error) {
-	defer func() {
-		if returnErr == nil {
-			cleanupAbandonedUploadSuccessCounter.Inc()
-		} else if returnErr != sql.ErrNoRows {
-			cleanupAbandonedUploadFailedCounter.Inc()
-			returnErr = fmt.Errorf("while deleting an abandoned upload: %s", returnErr.Error())
-		}
-	}()
+func (j *Janitor) DeleteAbandonedUploadJob(registerer prometheus.Registerer) jobloop.Job {
+	return (&jobloop.TxGuardedJob[*gorp.Transaction, keppel.Upload]{
+		Metadata: jobloop.JobMetadata{
+			ReadableName: "delete abandoned upload",
+			CounterOpts: prometheus.CounterOpts{
+				Name: "keppel_abandoned_upload_cleanups",
+				Help: "Counter for announcements of existing accounts to the federation driver.",
+			},
+		},
+		BeginTx: j.db.Begin,
+		DiscoverRow: func(tx *gorp.Transaction, _ prometheus.Labels) (upload keppel.Upload, err error) {
+			maxUpdatedAt := j.timeNow().Add(-24 * time.Hour)
+			err = tx.SelectOne(&upload, abandonedUploadSearchQuery, maxUpdatedAt)
+			return upload, err
+		},
+		ProcessRow: j.processAbandonedUpload,
+	}).Setup(registerer)
+}
 
-	//we need a database transaction to be able to lock the `uploads` table row
-	tx, err := j.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer sqlext.RollbackUnlessCommitted(tx)
-
-	//find upload
-	var upload keppel.Upload
-	maxUpdatedAt := j.timeNow().Add(-24 * time.Hour)
-	err = tx.SelectOne(&upload, abandonedUploadSearchQuery, maxUpdatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			logg.Debug("no abandoned uploads to clean up - slowing down...")
-			//explicit rollback to avoid spamming the log with "implicit rollback done" logs
-			err := tx.Rollback()
-			if err != nil {
-				return err
-			}
-			return sql.ErrNoRows
-		}
-		return err
-	}
-
+func (j *Janitor) processAbandonedUpload(tx *gorp.Transaction, upload keppel.Upload, labels prometheus.Labels) error {
 	//find corresponding account
 	var account keppel.Account
-	err = tx.SelectOne(&account, findAccountForRepoQuery, upload.RepositoryID)
+	err := tx.SelectOne(&account, findAccountForRepoQuery, upload.RepositoryID)
 	if err != nil {
 		return fmt.Errorf("cannot find account for abandoned upload %s: %s", upload.UUID, err.Error())
 	}

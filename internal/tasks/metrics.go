@@ -21,14 +21,6 @@ package tasks
 import "github.com/prometheus/client_golang/prometheus"
 
 var (
-	announceAccountToFederationSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_successful_account_federation_announcements",
-		Help: "Counter for successful announcements of existing accounts to the federation driver.",
-	})
-	announceAccountToFederationFailedCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_failed_account_federation_announcements",
-		Help: "Counter for failed announcements of existing accounts to the federation driver.",
-	})
 	checkVulnerabilitySuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "keppel_successful_vulnerability_checks",
 		Help: "Counter for successful updates of the vulnerability status of a manifest.",
@@ -40,22 +32,6 @@ var (
 	checkVulnerabilityRetriedCounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "keppel_retried_vulnerability_checks",
 		Help: "Counter for vulnerability checks that were retried due to transient errors in Clair.",
-	})
-	cleanupAbandonedUploadSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_successful_abandoned_upload_cleanups",
-		Help: "Counter for successful cleanup of abandoned uploads.",
-	})
-	cleanupAbandonedUploadFailedCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_failed_abandoned_upload_cleanups",
-		Help: "Counter for failed cleanup of abandoned uploads.",
-	})
-	imageGCSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_successful_image_garbage_collections",
-		Help: "Counter for successful garbage collection runs in repos.",
-	})
-	imageGCFailedCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_failed_image_garbage_collections",
-		Help: "Counter for failed garbage collection runs in repos.",
 	})
 	sweepBlobMountsSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "keppel_successful_blob_mount_sweeps",
@@ -112,15 +88,9 @@ var (
 func (j *Janitor) initializeCounters() {
 	if !metricsRegistered {
 		metricsRegistered = true
-		prometheus.MustRegister(announceAccountToFederationSuccessCounter)
-		prometheus.MustRegister(announceAccountToFederationFailedCounter)
 		prometheus.MustRegister(checkVulnerabilitySuccessCounter)
 		prometheus.MustRegister(checkVulnerabilityFailedCounter)
 		prometheus.MustRegister(checkVulnerabilityRetriedCounter)
-		prometheus.MustRegister(cleanupAbandonedUploadSuccessCounter)
-		prometheus.MustRegister(cleanupAbandonedUploadFailedCounter)
-		prometheus.MustRegister(imageGCSuccessCounter)
-		prometheus.MustRegister(imageGCFailedCounter)
 		prometheus.MustRegister(sweepBlobMountsSuccessCounter)
 		prometheus.MustRegister(sweepBlobMountsFailedCounter)
 		prometheus.MustRegister(sweepBlobsSuccessCounter)
@@ -136,15 +106,9 @@ func (j *Janitor) initializeCounters() {
 	}
 
 	//add 0 to all counters to ensure that the relevant timeseries exist
-	announceAccountToFederationSuccessCounter.Add(0)
-	announceAccountToFederationFailedCounter.Add(0)
 	checkVulnerabilitySuccessCounter.Add(0)
 	checkVulnerabilityFailedCounter.Add(0)
 	checkVulnerabilityRetriedCounter.Add(0)
-	cleanupAbandonedUploadSuccessCounter.Add(0)
-	cleanupAbandonedUploadFailedCounter.Add(0)
-	imageGCSuccessCounter.Add(0)
-	imageGCFailedCounter.Add(0)
 	sweepBlobMountsSuccessCounter.Add(0)
 	sweepBlobMountsFailedCounter.Add(0)
 	sweepBlobsSuccessCounter.Add(0)
