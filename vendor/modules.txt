@@ -139,7 +139,7 @@ github.com/prometheus/procfs/internal/util
 # github.com/rabbitmq/amqp091-go v1.8.0
 ## explicit; go 1.16
 github.com/rabbitmq/amqp091-go
-# github.com/redis/go-redis/v9 v9.0.3
+# github.com/redis/go-redis/v9 v9.0.4
 ## explicit; go 1.18
 github.com/redis/go-redis/v9
 github.com/redis/go-redis/v9/internal
