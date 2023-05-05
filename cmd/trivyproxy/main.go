@@ -89,11 +89,11 @@ func NewAPI(dbMirrorPrefix, token, trivyURL string) *API {
 
 // AddTo implements the api.API interface.
 func (a *API) AddTo(r *mux.Router) {
-	r.Methods("GET").Path("/").HandlerFunc(a.proxyToTrivy)
+	r.Methods("GET").Path("/trivy").HandlerFunc(a.proxyToTrivy)
 }
 
 func (a *API) proxyToTrivy(w http.ResponseWriter, r *http.Request) {
-	httpapi.IdentifyEndpoint(r, "/")
+	httpapi.IdentifyEndpoint(r, "/trivy")
 
 	secretHeader := r.Header[http.CanonicalHeaderKey("Trivy-Token")]
 	if !slices.Contains(secretHeader, a.token) {
