@@ -457,6 +457,12 @@ var upsertManifestVulnerabilityInfo = sqlext.SimplifyWhitespace(`
 	ON CONFLICT DO NOTHING
 `)
 
+var upsertManifestSecurityInfo = sqlext.SimplifyWhitespace(`
+	INSERT INTO trivy_security_info (repo_id, digest, status, message, next_check_at)
+	VALUES ($1, $2, $3, $4, $5)
+	ON CONFLICT DO NOTHING
+`)
+
 func upsertManifest(db gorp.SqlExecutor, m keppel.Manifest, manifestBytes []byte, timeNow time.Time) error {
 	_, err := db.Exec(upsertManifestQuery, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.ValidatedAt, m.LabelsJSON, m.MinLayerCreatedAt, m.MaxLayerCreatedAt)
 	if err != nil {
@@ -468,6 +474,11 @@ func upsertManifest(db gorp.SqlExecutor, m keppel.Manifest, manifestBytes []byte
 	}
 
 	_, err = db.Exec(upsertManifestVulnerabilityInfo, m.RepositoryID, m.Digest, clair.PendingVulnerabilityStatus, "", timeNow)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec(upsertManifestSecurityInfo, m.RepositoryID, m.Digest, clair.PendingVulnerabilityStatus, "", timeNow)
 	return err
 }
 

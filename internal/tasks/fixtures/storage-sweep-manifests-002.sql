@@ -37,6 +37,10 @@ INSERT INTO quotas (auth_tenant_id, manifests) VALUES ('test1authtenant', 100);
 
 INSERT INTO repos (id, account_name, name) VALUES (1, 'test1', 'foo');
 
+INSERT INTO trivy_security_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:207a16511ab28a6c3ff0ad6e483ba79fb59a9ebf3721c94e4b91b825bfecf223', 'Pending', '', 3600);
+INSERT INTO trivy_security_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:b0ab79e83bdb2090b5b78f523b6d88272b1a68bdbae8b3705dad0a487ba65d17', 'Pending', '', 3600);
+INSERT INTO trivy_security_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:e255ca60e7cfef94adfcd95d78f1eb44404c4f5887cbf506dd5799489a42606c', 'Pending', '', 3600);
+
 INSERT INTO vuln_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:207a16511ab28a6c3ff0ad6e483ba79fb59a9ebf3721c94e4b91b825bfecf223', 'Pending', '', 3600);
 INSERT INTO vuln_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:6aa9f3d5659c999fecab6df26efb864792763a2c7ae7580edf5dc11df2882ea5', 'Pending', '', 36000);
 INSERT INTO vuln_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:b0ab79e83bdb2090b5b78f523b6d88272b1a68bdbae8b3705dad0a487ba65d17', 'Pending', '', 3600);

@@ -36,6 +36,10 @@ INSERT INTO quotas (auth_tenant_id, manifests) VALUES ('test1authtenant', 100);
 
 INSERT INTO repos (id, account_name, name) VALUES (1, 'test1', 'foo');
 
+INSERT INTO trivy_security_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:207a16511ab28a6c3ff0ad6e483ba79fb59a9ebf3721c94e4b91b825bfecf223', 'Pending', '', 3600);
+INSERT INTO trivy_security_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:b0ab79e83bdb2090b5b78f523b6d88272b1a68bdbae8b3705dad0a487ba65d17', 'Pending', '', 3600);
+INSERT INTO trivy_security_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:e255ca60e7cfef94adfcd95d78f1eb44404c4f5887cbf506dd5799489a42606c', 'Pending', '', 3600);
+
 INSERT INTO unknown_blobs (account_name, storage_id, can_be_deleted_at) VALUES ('test1', '908c681fdc861d81d3f2cf3c760b52c66b126f7e54354d93b7df9a8a2b94e3f2', 46800);
 INSERT INTO unknown_blobs (account_name, storage_id, can_be_deleted_at) VALUES ('test1', 'c039c0ce0398b7151ae95ac792e2572e9a4129975d2ccdb98d39ff322ecc0d0a', 46800);
 INSERT INTO unknown_blobs (account_name, storage_id, can_be_deleted_at) VALUES ('test1', 'd186d49221740f592265e86bb1cc6f5d643fefef145fe4c57147b726561bb511', 46800);

@@ -30,6 +30,7 @@ import (
 	apicmd "github.com/sapcc/keppel/cmd/api"
 	healthmonitorcmd "github.com/sapcc/keppel/cmd/healthmonitor"
 	janitorcmd "github.com/sapcc/keppel/cmd/janitor"
+	trivyproxycmd "github.com/sapcc/keppel/cmd/trivyproxy"
 	validatecmd "github.com/sapcc/keppel/cmd/validate"
 	"github.com/sapcc/keppel/internal/keppel"
 
@@ -72,6 +73,7 @@ func main() {
 	apicmd.AddCommandTo(serverCmd)
 	healthmonitorcmd.AddCommandTo(serverCmd)
 	janitorcmd.AddCommandTo(serverCmd)
+	trivyproxycmd.AddCommandTo(serverCmd)
 	rootCmd.AddCommand(serverCmd)
 
 	must.Succeed(rootCmd.Execute())
