@@ -33,14 +33,6 @@ var (
 		Name: "keppel_retried_vulnerability_checks",
 		Help: "Counter for vulnerability checks that were retried due to transient errors in Clair.",
 	})
-	cleanupAbandonedUploadSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_successful_abandoned_upload_cleanups",
-		Help: "Counter for successful cleanup of abandoned uploads.",
-	})
-	cleanupAbandonedUploadFailedCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_failed_abandoned_upload_cleanups",
-		Help: "Counter for failed cleanup of abandoned uploads.",
-	})
 	imageGCSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "keppel_successful_image_garbage_collections",
 		Help: "Counter for successful garbage collection runs in repos.",
@@ -107,8 +99,6 @@ func (j *Janitor) initializeCounters() {
 		prometheus.MustRegister(checkVulnerabilitySuccessCounter)
 		prometheus.MustRegister(checkVulnerabilityFailedCounter)
 		prometheus.MustRegister(checkVulnerabilityRetriedCounter)
-		prometheus.MustRegister(cleanupAbandonedUploadSuccessCounter)
-		prometheus.MustRegister(cleanupAbandonedUploadFailedCounter)
 		prometheus.MustRegister(imageGCSuccessCounter)
 		prometheus.MustRegister(imageGCFailedCounter)
 		prometheus.MustRegister(sweepBlobMountsSuccessCounter)
@@ -129,8 +119,6 @@ func (j *Janitor) initializeCounters() {
 	checkVulnerabilitySuccessCounter.Add(0)
 	checkVulnerabilityFailedCounter.Add(0)
 	checkVulnerabilityRetriedCounter.Add(0)
-	cleanupAbandonedUploadSuccessCounter.Add(0)
-	cleanupAbandonedUploadFailedCounter.Add(0)
 	imageGCSuccessCounter.Add(0)
 	imageGCFailedCounter.Add(0)
 	sweepBlobMountsSuccessCounter.Add(0)
