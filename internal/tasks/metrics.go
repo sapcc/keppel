@@ -21,14 +21,6 @@ package tasks
 import "github.com/prometheus/client_golang/prometheus"
 
 var (
-	announceAccountToFederationSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_successful_account_federation_announcements",
-		Help: "Counter for successful announcements of existing accounts to the federation driver.",
-	})
-	announceAccountToFederationFailedCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_failed_account_federation_announcements",
-		Help: "Counter for failed announcements of existing accounts to the federation driver.",
-	})
 	checkVulnerabilitySuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "keppel_successful_vulnerability_checks",
 		Help: "Counter for successful updates of the vulnerability status of a manifest.",
@@ -112,8 +104,6 @@ var (
 func (j *Janitor) initializeCounters() {
 	if !metricsRegistered {
 		metricsRegistered = true
-		prometheus.MustRegister(announceAccountToFederationSuccessCounter)
-		prometheus.MustRegister(announceAccountToFederationFailedCounter)
 		prometheus.MustRegister(checkVulnerabilitySuccessCounter)
 		prometheus.MustRegister(checkVulnerabilityFailedCounter)
 		prometheus.MustRegister(checkVulnerabilityRetriedCounter)
@@ -136,8 +126,6 @@ func (j *Janitor) initializeCounters() {
 	}
 
 	//add 0 to all counters to ensure that the relevant timeseries exist
-	announceAccountToFederationSuccessCounter.Add(0)
-	announceAccountToFederationFailedCounter.Add(0)
 	checkVulnerabilitySuccessCounter.Add(0)
 	checkVulnerabilityFailedCounter.Add(0)
 	checkVulnerabilityRetriedCounter.Add(0)

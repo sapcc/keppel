@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
@@ -152,6 +153,7 @@ type Setup struct {
 	Repos    []*keppel.Repository
 	//fields that are only accessible to helper functions
 	tokenCache map[string]string
+	Registry   *prometheus.Registry
 }
 
 // these credentials are in global vars so that we don't have to recompute them
@@ -370,6 +372,8 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 			}))
 		}
 	}
+
+	s.Registry = prometheus.NewPedanticRegistry()
 
 	return s
 }

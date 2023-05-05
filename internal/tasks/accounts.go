@@ -19,10 +19,10 @@
 package tasks
 
 import (
-	"database/sql"
-	"fmt"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 
@@ -46,29 +46,25 @@ var accountAnnouncementDoneQuery = sqlext.SimplifyWhitespace(`
 // announced to the FederationDriver in more than an hour, and announces it. If
 // no accounts need to be announced, sql.ErrNoRows is returned to instruct the
 // caller to slow down.
-func (j *Janitor) AnnounceNextAccountToFederation() (returnErr error) {
-	var account keppel.Account
-	defer func() {
-		if returnErr == nil {
-			announceAccountToFederationSuccessCounter.Inc()
-		} else if returnErr != sql.ErrNoRows {
-			announceAccountToFederationFailedCounter.Inc()
-			returnErr = fmt.Errorf("while announcing account %q to federation: %s",
-				account.Name, returnErr.Error())
-		}
-	}()
+func (j *Janitor) AnnounceAccountToFederationJob(registerer prometheus.Registerer) jobloop.Job {
+	return (&jobloop.ProducerConsumerJob[keppel.Account]{
+		Metadata: jobloop.JobMetadata{
+			ReadableName: "announce accounts to federation",
+			CounterOpts: prometheus.CounterOpts{
+				Name: "keppel_account_federation_announcements",
+				Help: "Counter for announcements of existing accounts to the federation driver.",
+			},
+		},
+		DiscoverTask: func(_ prometheus.Labels) (account keppel.Account, err error) {
+			err = j.db.SelectOne(&account, accountAnnouncementSearchQuery, j.timeNow())
+			return account, err
+		},
+		ProcessTask: j.processFederationAnnouncement,
+	}).Setup(registerer)
+}
 
-	//find account to announce
-	err := j.db.SelectOne(&account, accountAnnouncementSearchQuery, j.timeNow())
-	if err != nil {
-		if err == sql.ErrNoRows {
-			logg.Debug("no accounts to announce to federation - slowing down...")
-			return sql.ErrNoRows
-		}
-		return err
-	}
-
-	err = j.fd.RecordExistingAccount(account, j.timeNow())
+func (j *Janitor) processFederationAnnouncement(account keppel.Account, labels prometheus.Labels) error {
+	err := j.fd.RecordExistingAccount(account, j.timeNow())
 	if err != nil {
 		//since the announcement is not critical for day-to-day operation, we
 		//accept that it can fail and move on regardless
