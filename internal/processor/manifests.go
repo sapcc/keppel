@@ -425,9 +425,12 @@ func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account 
 	// are caused by a reproducible build and not indicative of the actual build
 	// time)
 	//
+	// NOTE: Check was extended from `.Unix() != 0` to `.Unix() > 0` because we now
+	// observed distroless images with a timestamp around year 0.
+	//
 	// [1] Ref: <https://github.com/GoogleContainerTools/distroless/issues/112>
 	for _, v := range data.History {
-		if v.Created != nil && v.Created.Unix() != 0 {
+		if v.Created != nil && v.Created.Unix() > 0 {
 			result.MinCreationTime = keppel.MinMaybeTime(result.MinCreationTime, v.Created)
 			result.MaxCreationTime = keppel.MaxMaybeTime(result.MaxCreationTime, v.Created)
 		}
