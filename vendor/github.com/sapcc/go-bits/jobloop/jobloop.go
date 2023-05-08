@@ -23,6 +23,7 @@ package jobloop
 
 import (
 	"context"
+	"fmt"
 )
 
 // TODO upstream this package into go-bits once proven in here
@@ -35,4 +36,19 @@ type Job interface {
 	// Run blocks the current goroutine and executes tasks until `ctx` expires.
 	// The runtime behavior of the job can be configured through Option arguments.
 	Run(ctx context.Context, opts ...Option)
+}
+
+// ProcessMany finds and executes a given amount of tasks. If not enough tasks are available to
+// be executed, `sql.ErrNoRows` is returned. If any error is encountered, processing stops early.
+//
+// If only go would support member functions on interfaces...
+func ProcessMany(j Job, count int) error {
+	for i := 1; i <= count; i++ {
+		err := j.ProcessOne()
+		if err != nil {
+			return fmt.Errorf("failed in iteration %d: %w", i, err)
+		}
+	}
+
+	return nil
 }

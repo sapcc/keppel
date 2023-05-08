@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/trivy"
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -95,7 +96,7 @@ func (a *API) AddTo(r *mux.Router) {
 func (a *API) proxyToTrivy(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/trivy")
 
-	secretHeader := r.Header[http.CanonicalHeaderKey("Trivy-Token")]
+	secretHeader := r.Header[http.CanonicalHeaderKey(trivy.TokenHeader)]
 	if !slices.Contains(secretHeader, a.token) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
@@ -108,7 +109,9 @@ func (a *API) proxyToTrivy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stdout, stderr, err := a.runTrivy(r.Context(), imageURL)
+	keppelToken := r.Header.Get(trivy.KeppelTokenHeader)
+
+	stdout, stderr, err := a.runTrivy(r.Context(), imageURL, keppelToken)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("trivy: %s:\n%s", err, stderr), http.StatusInternalServerError)
 		return
@@ -119,7 +122,7 @@ func (a *API) proxyToTrivy(w http.ResponseWriter, r *http.Request) {
 	w.Write(stdout)
 }
 
-func (a *API) runTrivy(ctx context.Context, imageURL string) (stdout, stderr []byte, err error) {
+func (a *API) runTrivy(ctx context.Context, imageURL, keppelToken string) (stdout, stderr []byte, err error) {
 	//nolint:gosec //intented behaviour
 	cmd := exec.CommandContext(ctx,
 		"trivy", "image",
@@ -128,6 +131,7 @@ func (a *API) runTrivy(ctx context.Context, imageURL string) (stdout, stderr []b
 		// remove when https://github.com/aquasecurity/trivy/issues/3560 is resolved
 		"--java-db-repository", a.dbMirrorPrefix+"/aquasecurity/trivy-java-db",
 		"--server", a.trivyURL,
+		"--registry-token", keppelToken,
 		"--format", "json",
 		"--token", a.token,
 		imageURL)

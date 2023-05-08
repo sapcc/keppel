@@ -233,6 +233,15 @@ func (i Image) DigestRef() keppel.ManifestReference {
 	}
 }
 
+// ImageRef returns the ImageReference for this images.
+func (i Image) ImageRef(s Setup, repo keppel.Repository) keppel.ImageReference {
+	return keppel.ImageReference{
+		Host:      s.Config.APIPublicHostname,
+		RepoName:  fmt.Sprintf("%s/%s", repo.AccountName, repo.Name),
+		Reference: i.DigestRef(),
+	}
+}
+
 // ImageList contains all the pieces of a multi-architecture Docker image. This
 // type is used for testing the behavior of Keppel with manifests that reference
 // other manifests.
@@ -287,6 +296,15 @@ func (l ImageList) SizeBytes() uint64 {
 func (l ImageList) DigestRef() keppel.ManifestReference {
 	return keppel.ManifestReference{
 		Digest: l.Manifest.Digest,
+	}
+}
+
+// ImageRef returns the ImageReference for this ImageList.
+func (l ImageList) ImageRef(s Setup, repo keppel.Repository) keppel.ImageReference {
+	return keppel.ImageReference{
+		Host:      s.Config.APIPublicHostname,
+		RepoName:  fmt.Sprintf("%s/%s", repo.AccountName, repo.Name),
+		Reference: l.DigestRef(),
 	}
 }
 

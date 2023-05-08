@@ -31,6 +31,8 @@ import (
 	"github.com/go-gorp/gorp/v3"
 	"github.com/opencontainers/go-digest"
 	imageSpecs "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 	"golang.org/x/exp/maps"
@@ -72,9 +74,9 @@ func (j *Janitor) ValidateNextManifest() (returnErr error) {
 		} else if returnErr != sql.ErrNoRows {
 			validateManifestFailedCounter.Inc()
 			if manifest.Digest == "" || manifest.RepositoryID == 0 {
-				returnErr = fmt.Errorf("while validating a manifest: %s", returnErr.Error())
+				returnErr = fmt.Errorf("while validating a manifest: %w", returnErr)
 			} else {
-				returnErr = fmt.Errorf("while validating manifest %s in repo %d: %s", manifest.Digest, manifest.RepositoryID, returnErr.Error())
+				returnErr = fmt.Errorf("while validating manifest %s in repo %d: %w", manifest.Digest, manifest.RepositoryID, returnErr)
 			}
 		}
 	}()
@@ -96,11 +98,11 @@ func (j *Janitor) ValidateNextManifest() (returnErr error) {
 	var repo keppel.Repository
 	err = j.db.SelectOne(&repo, `SELECT * FROM repos WHERE id = $1`, manifest.RepositoryID)
 	if err != nil {
-		return fmt.Errorf("cannot find repo %d for manifest %s: %s", manifest.RepositoryID, manifest.Digest, err.Error())
+		return fmt.Errorf("cannot find repo %d for manifest %s: %w", manifest.RepositoryID, manifest.Digest, err)
 	}
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {
-		return fmt.Errorf("cannot find account for manifest %s/%s: %s", repo.FullName(), manifest.Digest, err.Error())
+		return fmt.Errorf("cannot find account for manifest %s/%s: %w", repo.FullName(), manifest.Digest, err)
 	}
 
 	//perform validation
@@ -125,7 +127,7 @@ func (j *Janitor) ValidateNextManifest() (returnErr error) {
 			j.timeNow(), err.Error(), repo.ID, manifest.Digest,
 		)
 		if updateErr != nil {
-			err = fmt.Errorf("%s (additional error encountered while recording validation error: %s)", err.Error(), updateErr.Error())
+			err = fmt.Errorf("%w (additional error encountered while recording validation error: %w)", err, updateErr)
 		}
 		return err
 	}
@@ -175,7 +177,7 @@ func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
 			if repoFullName == "" {
 				repoFullName = "unknown"
 			}
-			returnErr = fmt.Errorf("while syncing manifests in the replica repo %s: %s", repoFullName, returnErr.Error())
+			returnErr = fmt.Errorf("while syncing manifests in the replica repo %s: %w", repoFullName, returnErr)
 		}
 	}()
 
@@ -192,7 +194,7 @@ func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
 	//find corresponding account
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {
-		return fmt.Errorf("cannot find account for repo %s: %s", repo.FullName(), err.Error())
+		return fmt.Errorf("cannot find account for repo %s: %w", repo.FullName(), err)
 	}
 
 	//do not perform manifest sync while account is in maintenance (maintenance mode blocks all kinds of replication)
@@ -295,7 +297,7 @@ func (j *Janitor) performTagSync(account keppel.Account, repo keppel.Repository,
 	var tags []keppel.Tag
 	_, err := j.db.Select(&tags, `SELECT * FROM tags WHERE repo_id = $1`, repo.ID)
 	if err != nil {
-		return fmt.Errorf("cannot list tags in repo %s: %s", repo.FullName(), err.Error())
+		return fmt.Errorf("cannot list tags in repo %s: %w", repo.FullName(), err)
 	}
 
 	p := j.processor()
@@ -361,7 +363,7 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 	var manifests []keppel.Manifest
 	_, err := j.db.Select(&manifests, repoUntaggedManifestsSelectQuery, repo.ID)
 	if err != nil {
-		return fmt.Errorf("cannot list manifests in repo %s: %s", repo.FullName(), err.Error())
+		return fmt.Errorf("cannot list manifests in repo %s: %w", repo.FullName(), err)
 	}
 
 	//check which manifests need to be deleted
@@ -380,7 +382,7 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 		ref := keppel.ManifestReference{Digest: manifest.Digest}
 		exists, err := p.CheckManifestOnPrimary(account, repo, ref)
 		if err != nil {
-			return fmt.Errorf("cannot check existence of manifest %s/%s on primary account: %s", repo.FullName(), manifest.Digest, err.Error())
+			return fmt.Errorf("cannot check existence of manifest %s/%s on primary account: %w", repo.FullName(), manifest.Digest, err)
 		}
 		if !exists {
 			shallDeleteManifest[manifest.Digest] = true
@@ -407,7 +409,7 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("cannot enumerate manifest-manifest refs in repo %s: %s", repo.FullName(), err.Error())
+		return fmt.Errorf("cannot enumerate manifest-manifest refs in repo %s: %w", repo.FullName(), err)
 	}
 
 	//delete manifests in correct order (if there is a parent-child relationship,
@@ -493,7 +495,7 @@ func (j *Janitor) CheckVulnerabilitiesForNextManifest() JobPoller {
 				checkVulnerabilitySuccessCounter.Inc()
 			} else if returnErr != sql.ErrNoRows {
 				checkVulnerabilityFailedCounter.Inc()
-				returnErr = fmt.Errorf("while updating vulnerability status for a manifest: %s", returnErr.Error())
+				returnErr = fmt.Errorf("while updating vulnerability status for a manifest: %w", returnErr)
 			}
 		}()
 
@@ -541,15 +543,15 @@ func (job checkVulnerabilitiesJob) Execute() (returnError error) {
 	//load corresponding repo, account and manifest
 	repo, err := keppel.FindRepositoryByID(tx, vulnInfo.RepositoryID)
 	if err != nil {
-		return fmt.Errorf("cannot find repo for manifest %s: %s", vulnInfo.Digest, err.Error())
+		return fmt.Errorf("cannot find repo for manifest %s: %w", vulnInfo.Digest, err)
 	}
 	account, err := keppel.FindAccount(tx, repo.AccountName)
 	if err != nil {
-		return fmt.Errorf("cannot find account for repo %s: %s", repo.FullName(), err.Error())
+		return fmt.Errorf("cannot find account for repo %s: %w", repo.FullName(), err)
 	}
 	manifest, err := keppel.FindManifest(tx, *repo, vulnInfo.Digest)
 	if err != nil {
-		return fmt.Errorf("cannot find manifest for repo %s and digest %s: %s", repo.FullName(), vulnInfo.Digest, err.Error())
+		return fmt.Errorf("cannot find manifest for repo %s and digest %s: %w", repo.FullName(), vulnInfo.Digest, err)
 	}
 
 	err = j.doVulnerabilityCheck(*account, *repo, *manifest, &vulnInfo)
@@ -890,4 +892,182 @@ func (j *Janitor) setManifestAndParentsToPending(ctx context.Context, manifestDi
 		clair.PendingVulnerabilityStatus, j.timeNow(), manifestDigest)
 
 	return err
+}
+
+var securityCheckSelectQuery = sqlext.SimplifyWhitespace(`
+	SELECT * FROM trivy_security_info
+	WHERE next_check_at <= $1
+	-- manifests without any check first, then sorted by schedule, then sorted by digest for deterministic behavior in unit test
+	ORDER BY next_check_at IS NULL DESC, next_check_at ASC, digest ASC
+	-- only one manifests at a time
+	LIMIT 1
+	-- prevent other job loops from working on the same asset concurrently
+	FOR UPDATE SKIP LOCKED
+`)
+
+func (j *Janitor) CheckTrivySecurityStatus(registerer prometheus.Registerer) jobloop.Job {
+	return (&jobloop.TxGuardedJob[*gorp.Transaction, keppel.TrivySecurityInfo]{
+		Metadata: jobloop.JobMetadata{
+			ReadableName: "check trivy security status",
+			CounterOpts: prometheus.CounterOpts{
+				Name: "keppel_trivy_security_status_checks",
+				Help: "Counter for Trivy security checks runs in manifests.",
+			},
+		},
+		BeginTx: j.db.Begin,
+		DiscoverRow: func(tx *gorp.Transaction, _ prometheus.Labels) (securityInfo keppel.TrivySecurityInfo, err error) {
+			err = tx.SelectOne(&securityInfo, securityCheckSelectQuery, j.timeNow())
+			return securityInfo, err
+		},
+		ProcessRow: j.processTrivySecurityInfo,
+	}).Setup(registerer)
+}
+
+func (j *Janitor) processTrivySecurityInfo(tx *gorp.Transaction, securityInfo keppel.TrivySecurityInfo, labels prometheus.Labels) error {
+	//load corresponding repo, account and manifest
+	repo, err := keppel.FindRepositoryByID(tx, securityInfo.RepositoryID)
+	if err != nil {
+		return fmt.Errorf("cannot find repo for manifest %s: %w", securityInfo.Digest, err)
+	}
+	account, err := keppel.FindAccount(tx, repo.AccountName)
+	if err != nil {
+		return fmt.Errorf("cannot find account for repo %s: %w", repo.FullName(), err)
+	}
+	manifest, err := keppel.FindManifest(tx, *repo, securityInfo.Digest)
+	if err != nil {
+		return fmt.Errorf("cannot find manifest for repo %s and digest %s: %w", repo.FullName(), securityInfo.Digest, err)
+	}
+
+	err = j.doSecurityCheck(*account, *repo, *manifest, &securityInfo)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Update(&securityInfo)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (j *Janitor) doSecurityCheck(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, securityInfo *keppel.TrivySecurityInfo) (returnedError error) {
+	//clear timing information (this will be filled down below once we actually talk to Trivy;
+	//if any preflight check fails, the fields stay at nil)
+	securityInfo.CheckedAt = nil
+	securityInfo.CheckDurationSecs = nil
+
+	//skip validation while account is in maintenance (maintenance mode blocks
+	//all kinds of activity on an account's contents)
+	if account.InMaintenance {
+		securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(1 * time.Hour))
+		return nil
+	}
+
+	continueCheck, err := j.checkPreConditionsForTrivy(account, repo, manifest, securityInfo)
+	if err != nil {
+		return err
+	}
+	if !continueCheck {
+		return nil
+	}
+
+	//we know that this image will not be "Unsupported", so the rest is the part where we actually
+	//talk to Trivy (well, mostly anyway), so that part deserves to be measured for performance
+	checkStartedAt := j.timeNow()
+	defer func() {
+		if returnedError == nil {
+			checkFinishedAt := j.timeNow()
+			securityInfo.CheckedAt = &checkFinishedAt
+			duration := checkFinishedAt.Sub(checkStartedAt).Seconds()
+			securityInfo.CheckDurationSecs = &duration
+		} else {
+			securityInfo.Message = err.Error()
+			securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(5 * time.Minute))
+			securityInfo.Status = clair.ErrorVulnerabilityStatus
+		}
+	}()
+
+	imageRef := keppel.ImageReference{
+		Host:      j.cfg.APIPublicHostname,
+		RepoName:  fmt.Sprintf("%s/%s", account.Name, repo.Name),
+		Reference: keppel.ManifestReference{Digest: manifest.Digest},
+	}
+
+	tokenResp, err := auth.Authorization{
+		UserIdentity: auth.AnonymousUserIdentity,
+		Audience:     auth.Audience{},
+		ScopeSet: auth.NewScopeSet(auth.Scope{
+			ResourceType: "repository",
+			ResourceName: repo.FullName(),
+			Actions:      []string{"pull"},
+		}),
+	}.IssueTokenWithExpires(j.cfg, 20*time.Minute)
+	if err != nil {
+		return err
+	}
+
+	//ask Trivy for the security status of the manifest
+	securityInfo.Message = "" //unless it gets set to something else below
+	trivyReport, err := j.cfg.Trivy.ScanManifest(imageRef.String(), tokenResp.Token)
+	if err != nil {
+		return err
+	}
+
+	var securityStatuses []clair.VulnerabilityStatus
+	for _, result := range trivyReport.Results {
+		for _, vulnerability := range result.Vulnerabilities {
+			if securityStatus, ok := clair.MapToTrivySeverity[vulnerability.Severity]; ok {
+				securityStatuses = append(securityStatuses, securityStatus)
+			} else {
+				return fmt.Errorf("vulnerability severity with name %s returned from trivy is unknown and cannot be mapped", securityStatus)
+			}
+		}
+	}
+
+	//merge all vulnerability statuses
+	securityInfo.Status = clair.MergeVulnerabilityStatuses(securityStatuses...)
+	//regular recheck loop (vulnerability status might change if Clair adds new vulnerabilities to its DB)
+	securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(1 * time.Hour))
+
+	return nil
+}
+
+func (j *Janitor) checkPreConditionsForTrivy(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, securityInfo *keppel.TrivySecurityInfo) (continueCheck bool, err error) {
+	layerBlobs, err := j.collectManifestReferencedBlobs(account, repo, manifest)
+	if err != nil {
+		return false, err
+	}
+
+	// filter media types that trivy is known to support
+	for _, blob := range layerBlobs {
+		if blob.MediaType == schema2.MediaTypeLayer || blob.MediaType == imageSpecs.MediaTypeImageLayerGzip {
+			continue
+		}
+
+		securityInfo.Status = clair.UnsupportedVulnerabilityStatus
+		securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
+		securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
+		return false, nil
+	}
+
+	//can only validate when all blobs are present in the storage
+	for _, blob := range layerBlobs {
+		if blob.StorageID == "" {
+			//if the manifest is fairly new, the user who replicated it is probably
+			//still replicating it; give them 10 minutes to finish replicating it
+			securityInfo.NextCheckAt = manifest.PushedAt.Add(j.addJitter(10 * time.Minute))
+			if securityInfo.NextCheckAt.After(j.timeNow()) {
+				return false, nil
+			}
+			//otherwise we do the replication ourselves
+			_, err := j.processor().ReplicateBlob(blob, account, repo, nil)
+			if err != nil {
+				return false, err
+			}
+			//after successful replication, restart this call to read the new blob with the correct StorageID from the DB
+			return j.checkPreConditionsForTrivy(account, repo, manifest, securityInfo)
+		}
+	}
+
+	return true, nil
 }

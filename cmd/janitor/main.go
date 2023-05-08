@@ -83,6 +83,10 @@ func run(cmd *cobra.Command, args []string) {
 	if cfg.ClairClient != nil {
 		go tasks.GoQueuedJobLoop(ctx, 3, janitor.CheckVulnerabilitiesForNextManifest())
 	}
+	if cfg.Trivy != nil {
+		// TODO: scale this up into multiple go routines after we get some performance numbers
+		go janitor.CheckTrivySecurityStatus(nil).Run(ctx)
+	}
 
 	//start HTTP server for Prometheus metrics and health check
 	handler := httpapi.Compose(httpapi.HealthCheckAPI{SkipRequestLog: true})
