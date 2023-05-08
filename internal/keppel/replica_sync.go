@@ -19,6 +19,8 @@
 
 package keppel
 
+import "github.com/opencontainers/go-digest"
+
 // ReplicaSyncPayload is the format for request bodies and response bodies of
 // the sync-replica API endpoint.
 //
@@ -33,9 +35,9 @@ type ReplicaSyncPayload struct {
 // (This type is declared in this package because it gets used in both
 // internal/api/peer and internal/tasks.)
 type ManifestForSync struct {
-	Digest       string       `json:"digest"`
-	LastPulledAt *int64       `json:"last_pulled_at,omitempty"`
-	Tags         []TagForSync `json:"tags,omitempty"`
+	Digest       digest.Digest `json:"digest"`
+	LastPulledAt *int64        `json:"last_pulled_at,omitempty"`
+	Tags         []TagForSync  `json:"tags,omitempty"`
 }
 
 // TagForSync represents a tag in the _sync_replica API endpoint.
@@ -49,9 +51,9 @@ type TagForSync struct {
 
 // HasManifest returns whether there is a manifest with the given digest in this
 // payload.
-func (p ReplicaSyncPayload) HasManifest(digest string) bool {
+func (p ReplicaSyncPayload) HasManifest(manifestDigest digest.Digest) bool {
 	for _, m := range p.Manifests {
-		if m.Digest == digest {
+		if m.Digest == manifestDigest {
 			return true
 		}
 	}
@@ -60,7 +62,7 @@ func (p ReplicaSyncPayload) HasManifest(digest string) bool {
 
 // DigestForTag returns the digest of the manifest that this tag points to, or
 // the empty string if the tag does not exist in this payload.
-func (p ReplicaSyncPayload) DigestForTag(name string) string {
+func (p ReplicaSyncPayload) DigestForTag(name string) digest.Digest {
 	for _, m := range p.Manifests {
 		for _, t := range m.Tags {
 			if t.Name == name {

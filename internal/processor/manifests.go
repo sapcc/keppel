@@ -103,7 +103,7 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 	if m.Reference.IsDigest() {
 		//allow validateAndStoreManifestCommon() to validate the user-supplied
 		//digest against the actual manifest data
-		manifest.Digest = m.Reference.Digest.String()
+		manifest.Digest = m.Reference.Digest
 	}
 	err = p.validateAndStoreManifestCommon(account, repo, manifest, m.Contents,
 		func(tx *gorp.Transaction) error {
@@ -187,13 +187,13 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 	if err != nil {
 		return keppel.ErrManifestInvalid.With(err.Error())
 	}
-	if manifest.Digest != "" && manifestDesc.Digest.String() != manifest.Digest {
+	if manifest.Digest != "" && manifestDesc.Digest != manifest.Digest {
 		return keppel.ErrDigestInvalid.With("actual manifest digest is " + manifestDesc.Digest.String())
 	}
 
 	//fill in the fields of `manifest` that ValidateAndStoreManifest() could not
 	//fill in yet ()
-	manifest.Digest = manifestDesc.Digest.String()
+	manifest.Digest = manifestDesc.Digest
 	// ^ This field was empty until now when the user pushed a tag and therefore
 	// did not supply a digest.
 	manifest.MediaType = manifestDesc.MediaType
@@ -326,7 +326,7 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 		wasHandled[desc.Digest.String()] = true
 
 		//check that the child manifest exists
-		manifest, err := keppel.FindManifest(tx, repo, desc.Digest.String())
+		manifest, err := keppel.FindManifest(tx, repo, desc.Digest)
 		if err == sql.ErrNoRows {
 			return manifestRefsInfo{}, keppel.ErrManifestUnknown.With("").WithDetail(desc.Digest.String())
 		}
@@ -675,7 +675,7 @@ func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Reposi
 
 	//replicate referenced manifests recursively if required
 	for _, desc := range manifestParsed.ManifestReferences(account.PlatformFilter) {
-		_, err := keppel.FindManifest(p.db, repo, desc.Digest.String())
+		_, err := keppel.FindManifest(p.db, repo, desc.Digest)
 		if err == sql.ErrNoRows {
 			_, _, err = p.ReplicateManifest(account, repo, keppel.ManifestReference{Digest: desc.Digest}, actx)
 		}
@@ -842,7 +842,7 @@ func (p *Processor) downloadManifestViaPullDelegation(imageRef keppel.ImageRefer
 // backing storage.
 //
 // If the manifest does not exist, sql.ErrNoRows is returned.
-func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repository, digestStr string, actx keppel.AuditContext) error {
+func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repository, manifestDigest digest.Digest, actx keppel.AuditContext) error {
 	var (
 		tagResults []keppel.Tag
 		tags       []string
@@ -850,7 +850,7 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 
 	_, err := p.db.Select(&tagResults,
 		`SELECT * FROM tags WHERE repo_id = $1 AND digest = $2`,
-		repo.ID, digestStr)
+		repo.ID, manifestDigest)
 	if err != nil {
 		return err
 	}
@@ -861,11 +861,11 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 	result, err := p.db.Exec(
 		//this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
 		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
-		repo.ID, digestStr)
+		repo.ID, manifestDigest)
 	if err != nil {
 		otherDigest, err2 := p.db.SelectStr(
 			`SELECT parent_digest FROM manifest_manifest_refs WHERE repo_id = $1 AND child_digest = $2`,
-			repo.ID, digestStr)
+			repo.ID, manifestDigest)
 		// more than one manifest is referenced by another manifest
 		if otherDigest != "" && err2 == nil {
 			return fmt.Errorf("cannot delete a manifest which is referenced by the manifest %s", otherDigest)
@@ -894,7 +894,7 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 	//manifest reference in the meantime. If that happens, and we have already
 	//deleted the manifest in the backing storage, we've caused an inconsistency
 	//that we cannot recover from.
-	err = p.sd.DeleteManifest(account, repo.Name, digestStr)
+	err = p.sd.DeleteManifest(account, repo.Name, manifestDigest)
 	if err != nil {
 		return err
 	}
@@ -909,7 +909,7 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 			Target: auditManifest{
 				Account:    account,
 				Repository: repo,
-				Digest:     digestStr,
+				Digest:     manifestDigest,
 				Tags:       tags,
 			},
 		})
@@ -921,14 +921,19 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 // DeleteTag deletes the given tag from the database. The manifest is not deleted.
 // If the tag does not exist, sql.ErrNoRows is returned.
 func (p *Processor) DeleteTag(account keppel.Account, repo keppel.Repository, tagName string, actx keppel.AuditContext) error {
-	parsedDigest, err := p.db.SelectStr(
+	digestStr, err := p.db.SelectStr(
 		`DELETE FROM tags WHERE repo_id = $1 AND name = $2 RETURNING digest`,
 		repo.ID, tagName)
 	if err != nil {
 		return err
 	}
-	if parsedDigest == "" {
+	if digestStr == "" {
 		return sql.ErrNoRows
+	}
+
+	tagDigest, err := digest.Parse(digestStr)
+	if err != nil {
+		return err
 	}
 
 	if userInfo := actx.UserIdentity.UserInfo(); userInfo != nil {
@@ -941,7 +946,7 @@ func (p *Processor) DeleteTag(account keppel.Account, repo keppel.Repository, ta
 			Target: auditTag{
 				Account:    account,
 				Repository: repo,
-				Digest:     parsedDigest,
+				Digest:     tagDigest,
 				TagName:    tagName,
 			},
 		})
@@ -954,7 +959,7 @@ func (p *Processor) DeleteTag(account keppel.Account, repo keppel.Repository, ta
 type auditManifest struct {
 	Account    keppel.Account
 	Repository keppel.Repository
-	Digest     string
+	Digest     digest.Digest
 	Tags       []string
 }
 
@@ -963,7 +968,7 @@ func (a auditManifest) Render() cadf.Resource {
 	res := cadf.Resource{
 		TypeURI:   "docker-registry/account/repository/manifest",
 		Name:      fmt.Sprintf("%s@%s", a.Repository.FullName(), a.Digest),
-		ID:        a.Digest,
+		ID:        a.Digest.String(),
 		ProjectID: a.Account.AuthTenantID,
 	}
 
@@ -984,7 +989,7 @@ func (a auditManifest) Render() cadf.Resource {
 type auditTag struct {
 	Account    keppel.Account
 	Repository keppel.Repository
-	Digest     string
+	Digest     digest.Digest
 	TagName    string
 }
 
@@ -993,7 +998,7 @@ func (a auditTag) Render() cadf.Resource {
 	return cadf.Resource{
 		TypeURI:   "docker-registry/account/repository/tag",
 		Name:      fmt.Sprintf("%s:%s", a.Repository.FullName(), a.TagName),
-		ID:        a.Digest,
+		ID:        a.Digest.String(),
 		ProjectID: a.Account.AuthTenantID,
 	}
 }

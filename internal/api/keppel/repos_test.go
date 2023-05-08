@@ -20,13 +20,12 @@ package keppelv1_test
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/minio/sha256-simd"
+	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 
@@ -58,9 +57,8 @@ func mustExec(t *testing.T, db *keppel.DB, query string, args ...interface{}) {
 	}
 }
 
-func deterministicDummyDigest(counter int) string {
-	hash := sha256.Sum256(bytes.Repeat([]byte{1}, counter))
-	return "sha256:" + hex.EncodeToString(hash[:])
+func deterministicDummyDigest(counter int) digest.Digest {
+	return digest.SHA256.FromBytes(bytes.Repeat([]byte{1}, counter))
 }
 
 func TestReposAPI(t *testing.T) {
@@ -107,11 +105,11 @@ func TestReposAPI(t *testing.T) {
 	//blob size statistics
 	filledRepo := keppel.Repository{ID: 5} //repo1-3
 	for idx := 1; idx <= 10; idx++ {
-		digest := deterministicDummyDigest(1000 + idx)
+		dummyDigest := deterministicDummyDigest(1000 + idx)
 		blobPushedAt := time.Unix(int64(1000+10*idx), 0)
 		blob := keppel.Blob{
 			AccountName: "test1",
-			Digest:      digest,
+			Digest:      dummyDigest,
 			SizeBytes:   uint64(2000 * idx),
 			PushedAt:    blobPushedAt,
 			ValidatedAt: blobPushedAt,
@@ -126,11 +124,11 @@ func TestReposAPI(t *testing.T) {
 	//insert some dummy manifests and tags into one of the repos to check the
 	//manifest/tag counting
 	for idx := 1; idx <= 10; idx++ {
-		digest := deterministicDummyDigest(idx)
+		dummyDigest := deterministicDummyDigest(idx)
 		manifestPushedAt := time.Unix(int64(10000+10*idx), 0)
 		mustInsert(t, s.DB, &keppel.Manifest{
 			RepositoryID: filledRepo.ID,
-			Digest:       digest,
+			Digest:       dummyDigest,
 			MediaType:    "",
 			SizeBytes:    uint64(1000 * idx),
 			PushedAt:     manifestPushedAt,
@@ -138,7 +136,7 @@ func TestReposAPI(t *testing.T) {
 		})
 		mustInsert(t, s.DB, &keppel.VulnerabilityInfo{
 			RepositoryID: filledRepo.ID,
-			Digest:       digest,
+			Digest:       dummyDigest,
 			Status:       clair.PendingVulnerabilityStatus,
 			NextCheckAt:  time.Unix(0, 0),
 		})
@@ -146,7 +144,7 @@ func TestReposAPI(t *testing.T) {
 			mustInsert(t, s.DB, &keppel.Tag{
 				RepositoryID: 5, //repo1-3
 				Name:         fmt.Sprintf("tag%d", idx),
-				Digest:       digest,
+				Digest:       dummyDigest,
 				PushedAt:     time.Unix(int64(20000+10*idx), 0),
 			})
 		}

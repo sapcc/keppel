@@ -37,7 +37,7 @@ import (
 
 // Manifest represents a manifest in the API.
 type Manifest struct {
-	Digest                        string                    `json:"digest"`
+	Digest                        digest.Digest             `json:"digest"`
 	MediaType                     string                    `json:"media_type"`
 	SizeBytes                     uint64                    `json:"size_bytes"`
 	PushedAt                      int64                     `json:"pushed_at"`
@@ -128,7 +128,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vulnInfos := make(map[string]keppel.VulnerabilityInfo, len(dbVulnInfos))
+	vulnInfos := make(map[digest.Digest]keppel.VulnerabilityInfo, len(dbVulnInfos))
 	for _, vulnInfo := range dbVulnInfos {
 		vulnInfos[vulnInfo.Digest] = vulnInfo
 	}
@@ -181,7 +181,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		tagsByDigest := make(map[string][]Tag)
+		tagsByDigest := make(map[digest.Digest][]Tag)
 		for _, dbTag := range dbTags {
 			tagsByDigest[dbTag.Digest] = append(tagsByDigest[dbTag.Digest], Tag{
 				Name:         dbTag.Name,
@@ -221,7 +221,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.processor().DeleteManifest(*account, *repo, parsedDigest.String(), keppel.AuditContext{
+	err = a.processor().DeleteManifest(*account, *repo, parsedDigest, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
@@ -287,7 +287,7 @@ func (a *API) handleGetVulnerabilityReport(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	manifest, err := keppel.FindManifest(a.db, *repo, parsedDigest.String())
+	manifest, err := keppel.FindManifest(a.db, *repo, parsedDigest)
 	if err == sql.ErrNoRows {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
@@ -296,7 +296,7 @@ func (a *API) handleGetVulnerabilityReport(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	vulnerability, err := keppel.GetVulnerabilityInfo(a.db, repo.ID, parsedDigest.String())
+	vulnerability, err := keppel.GetVulnerabilityInfo(a.db, repo.ID, parsedDigest)
 	if err == sql.ErrNoRows {
 		http.Error(w, "not found", http.StatusNotFound)
 		return

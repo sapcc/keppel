@@ -140,7 +140,7 @@ func TestValidateNextManifestError(t *testing.T) {
 	image := test.GenerateImage( /* no layers */ )
 	mustDo(t, s.DB.Insert(&keppel.Manifest{
 		RepositoryID: 1,
-		Digest:       image.Manifest.Digest.String(),
+		Digest:       image.Manifest.Digest,
 		MediaType:    image.Manifest.MediaType,
 		SizeBytes:    image.SizeBytes(),
 		PushedAt:     s.Clock.Now(),
@@ -153,11 +153,11 @@ func TestValidateNextManifestError(t *testing.T) {
 	}))
 	mustDo(t, s.DB.Insert(&keppel.VulnerabilityInfo{
 		RepositoryID: 1,
-		Digest:       image.Manifest.Digest.String(),
+		Digest:       image.Manifest.Digest,
 		NextCheckAt:  time.Unix(0, 0),
 		Status:       clair.PendingVulnerabilityStatus,
 	}))
-	mustDo(t, s.SD.WriteManifest(*s.Accounts[0], "foo", image.Manifest.Digest.String(), image.Manifest.Contents))
+	mustDo(t, s.SD.WriteManifest(*s.Accounts[0], "foo", image.Manifest.Digest, image.Manifest.Contents))
 
 	//validation should yield an error
 	s.Clock.StepBy(36 * time.Hour)
@@ -582,7 +582,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		//any blobs and thus only aggregates its submanifests' vulnerability
 		//statuses)
 		for idx, image := range images {
-			s.ClairDouble.IndexFixtures[image.Manifest.Digest.String()] = fmt.Sprintf("fixtures/clair/manifest-%03d.json", idx+1)
+			s.ClairDouble.IndexFixtures[image.Manifest.Digest] = fmt.Sprintf("fixtures/clair/manifest-%03d.json", idx+1)
 		}
 
 		//first round of CheckVulnerabilitiesForNextManifest should submit manifests
@@ -621,8 +621,8 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
 
 		//five minutes later, indexing is finished now and ClairDouble provides vulnerability reports to us
-		s.ClairDouble.ReportFixtures[images[0].Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
-		s.ClairDouble.ReportFixtures[images[1].Manifest.Digest.String()] = "fixtures/clair/report-clean.json"
+		s.ClairDouble.ReportFixtures[images[0].Manifest.Digest] = "fixtures/clair/report-vulnerable.json"
+		s.ClairDouble.ReportFixtures[images[1].Manifest.Digest] = "fixtures/clair/report-clean.json"
 		s.Clock.StepBy(5 * time.Minute)
 		//once for each manifest
 		expectSuccess(t, ExecuteN(j.CheckVulnerabilitiesForNextManifest(), 3))
@@ -634,7 +634,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
 
 		// check that a changed vulnerability status does not have side effects
-		s.ClairDouble.ReportFixtures[images[1].Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
+		s.ClairDouble.ReportFixtures[images[1].Manifest.Digest] = "fixtures/clair/report-vulnerable.json"
 		s.Clock.StepBy(1 * time.Hour)
 		//once for each manifest
 		expectSuccess(t, ExecuteN(j.CheckVulnerabilitiesForNextManifest(), 3))
@@ -658,7 +658,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		tr.DBChanges().Ignore()
 
 		// submit manifest to clair
-		s.ClairDouble.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
+		s.ClairDouble.IndexFixtures[image.Manifest.Digest] = "fixtures/clair/manifest-004.json"
 		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		tr.DBChanges().AssertEqualf(`
@@ -669,8 +669,8 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 
 		// simulate transient error
 		s.Clock.StepBy(30 * time.Minute)
-		s.ClairDouble.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
-		s.ClairDouble.IndexReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-error.json"
+		s.ClairDouble.IndexFixtures[image.Manifest.Digest] = "fixtures/clair/manifest-004.json"
+		s.ClairDouble.IndexReportFixtures[image.Manifest.Digest] = "fixtures/clair/report-error.json"
 		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		tr.DBChanges().AssertEqualf(`
@@ -680,9 +680,9 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 
 		// transient error fixed itself after deletion
 		s.Clock.StepBy(30 * time.Minute)
-		s.ClairDouble.IndexFixtures[image.Manifest.Digest.String()] = "fixtures/clair/manifest-004.json"
-		s.ClairDouble.IndexReportFixtures[image.Manifest.Digest.String()] = ""
-		s.ClairDouble.ReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
+		s.ClairDouble.IndexFixtures[image.Manifest.Digest] = "fixtures/clair/manifest-004.json"
+		s.ClairDouble.IndexReportFixtures[image.Manifest.Digest] = ""
+		s.ClairDouble.ReportFixtures[image.Manifest.Digest] = "fixtures/clair/report-vulnerable.json"
 		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		tr.DBChanges().AssertEqualf(`
@@ -708,7 +708,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 
 		// now clair is done
 		s.Clock.StepBy(10 * time.Minute)
-		s.ClairDouble.ReportFixtures[image.Manifest.Digest.String()] = "fixtures/clair/report-vulnerable.json"
+		s.ClairDouble.ReportFixtures[image.Manifest.Digest] = "fixtures/clair/report-vulnerable.json"
 		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		tr.DBChanges().AssertEqualf(`

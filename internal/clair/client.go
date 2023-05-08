@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/opencontainers/go-digest"
 )
 
 // Client is a client for accessing the Clair vulnerability scanning service.
@@ -39,7 +40,7 @@ type Client struct {
 	PresharedKey []byte
 	//isEmptyManifest tracks when we did not submit a manifest because it does
 	//not contain any actual layers.
-	isEmptyManifest map[string]bool
+	isEmptyManifest map[digest.Digest]bool
 }
 
 func (c *Client) requestURL(pathElements ...string) string {

@@ -30,7 +30,6 @@ import (
 
 	"github.com/docker/distribution"
 	"github.com/go-gorp/gorp/v3"
-	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/logg"
 
@@ -42,7 +41,7 @@ import (
 // Validation includes computing the digest of the blob contents and comparing
 // to the digest in the DB. On success, nil is returned.
 func (p *Processor) ValidateExistingBlob(account keppel.Account, blob keppel.Blob) (returnErr error) {
-	blobDigest, err := digest.Parse(blob.Digest)
+	err := blob.Digest.Validate()
 	if err != nil {
 		return fmt.Errorf("cannot parse blob digest: %s", err.Error())
 	}
@@ -62,11 +61,11 @@ func (p *Processor) ValidateExistingBlob(account keppel.Account, blob keppel.Blo
 	bcw := &byteCountingWriter{}
 	reader := io.TeeReader(readCloser, bcw)
 
-	actualDigest, err := blobDigest.Algorithm().FromReader(reader)
+	actualDigest, err := blob.Digest.Algorithm().FromReader(reader)
 	if err != nil {
 		return err
 	}
-	if actualDigest != blobDigest {
+	if actualDigest != blob.Digest {
 		return fmt.Errorf("expected digest %s, but got %s",
 			blob.Digest, actualDigest.String(),
 		)
@@ -106,7 +105,7 @@ func (p *Processor) FindBlobOrInsertUnbackedBlob(desc distribution.Descriptor, a
 
 		blob = &keppel.Blob{
 			AccountName: account.Name,
-			Digest:      desc.Digest.String(),
+			Digest:      desc.Digest,
 			MediaType:   desc.MediaType,
 			SizeBytes:   uint64(desc.Size),
 			StorageID:   "", //unbacked
@@ -170,7 +169,7 @@ func (p *Processor) ReplicateBlob(blob keppel.Blob, account keppel.Account, repo
 	if err != nil {
 		return false, err
 	}
-	blobReadCloser, blobLengthBytes, err := client.DownloadBlob(digest.Digest(blob.Digest))
+	blobReadCloser, blobLengthBytes, err := client.DownloadBlob(blob.Digest)
 	if err != nil {
 		return false, err
 	}
@@ -180,7 +179,7 @@ func (p *Processor) ReplicateBlob(blob keppel.Blob, account keppel.Account, repo
 	blobReader := io.Reader(blobReadCloser)
 	if w != nil {
 		w.Header().Set("Content-Type", blob.SafeMediaType()) //we know the media type because we have already replicated a referencing manifest
-		w.Header().Set("Docker-Content-Digest", blob.Digest)
+		w.Header().Set("Docker-Content-Digest", blob.Digest.String())
 		w.Header().Set("Content-Length", strconv.FormatUint(blobLengthBytes, 10))
 		w.WriteHeader(http.StatusOK)
 		blobReader = io.TeeReader(blobReader, w)

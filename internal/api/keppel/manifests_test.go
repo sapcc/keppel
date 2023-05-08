@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/docker/distribution/manifest/schema2"
+	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
@@ -100,13 +101,13 @@ func TestManifestsAPI(t *testing.T) {
 			repo := repos[repoID-1]
 
 			for idx := 1; idx <= 10; idx++ {
-				digest := deterministicDummyDigest(repoID*10 + idx)
+				dummyDigest := deterministicDummyDigest(repoID*10 + idx)
 				sizeBytes := uint64(1000 * idx)
 				pushedAt := time.Unix(int64(1000*(repoID*10+idx)), 0)
 
 				dbManifest := keppel.Manifest{
 					RepositoryID:      int64(repoID),
-					Digest:            digest,
+					Digest:            dummyDigest,
 					MediaType:         schema2.MediaTypeManifest,
 					SizeBytes:         sizeBytes,
 					PushedAt:          pushedAt,
@@ -123,14 +124,14 @@ func TestManifestsAPI(t *testing.T) {
 
 				err := s.SD.WriteManifest(
 					keppel.Account{Name: repo.AccountName},
-					repo.Name, digest, []byte(strings.Repeat("x", int(sizeBytes))),
+					repo.Name, dummyDigest, []byte(strings.Repeat("x", int(sizeBytes))),
 				)
 				if err != nil {
 					t.Fatal(err.Error())
 				}
 				mustInsert(t, s.DB, &keppel.VulnerabilityInfo{
 					RepositoryID: int64(repoID),
-					Digest:       digest,
+					Digest:       dummyDigest,
 					Status:       deterministicDummyVulnStatus(idx),
 					NextCheckAt:  time.Unix(0, 0),
 				})
@@ -185,7 +186,7 @@ func TestManifestsAPI(t *testing.T) {
 			{"name": "second", "pushed_at": 20003, "last_pulled_at": nil},
 		}
 		sort.Slice(renderedManifests, func(i, j int) bool {
-			return renderedManifests[i]["digest"].(string) < renderedManifests[j]["digest"].(string)
+			return renderedManifests[i]["digest"].(digest.Digest) < renderedManifests[j]["digest"].(digest.Digest)
 		})
 
 		//test GET without pagination
@@ -217,7 +218,7 @@ func TestManifestsAPI(t *testing.T) {
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=5&marker=" + renderedManifests[4]["digest"].(string),
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=5&marker=" + renderedManifests[4]["digest"].(digest.Digest).String(),
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusOK,
 			ExpectBody:   assert.JSONObject{"manifests": renderedManifests[5:10]},
@@ -231,7 +232,7 @@ func TestManifestsAPI(t *testing.T) {
 			}
 			assert.HTTPRequest{
 				Method:       "GET",
-				Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=1&marker=" + renderedManifests[idx]["digest"].(string),
+				Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=1&marker=" + renderedManifests[idx]["digest"].(digest.Digest).String(),
 				Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 				ExpectStatus: http.StatusOK,
 				ExpectBody:   expectedBody,
@@ -264,14 +265,14 @@ func TestManifestsAPI(t *testing.T) {
 		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/before-delete-manifest.sql")
 		assert.HTTPRequest{
 			Method:       "DELETE",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11),
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11).String(),
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
 			ExpectStatus: http.StatusNoContent,
 		}.Check(t, h)
 		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/after-delete-manifest.sql")
 
 		s.Auditor.ExpectEvents(t, cadf.Event{
-			RequestPath: "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11),
+			RequestPath: "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11).String(),
 			Action:      cadf.DeleteAction,
 			Outcome:     "success",
 			Reason:      test.CADFReasonOK,
@@ -282,8 +283,8 @@ func TestManifestsAPI(t *testing.T) {
 					Content: "[\"first\",\"stillfirst\"]",
 				}},
 				TypeURI:   "docker-registry/account/repository/manifest",
-				Name:      "test1/repo1-1@" + deterministicDummyDigest(11),
-				ID:        deterministicDummyDigest(11),
+				Name:      "test1/repo1-1@" + deterministicDummyDigest(11).String(),
+				ID:        deterministicDummyDigest(11).String(),
 				ProjectID: "tenant1",
 			},
 		})
@@ -305,7 +306,7 @@ func TestManifestsAPI(t *testing.T) {
 			Target: cadf.Resource{
 				TypeURI:   "docker-registry/account/repository/tag",
 				Name:      "test1/repo1-2:stillfirst",
-				ID:        deterministicDummyDigest(21),
+				ID:        deterministicDummyDigest(21).String(),
 				ProjectID: "tenant1",
 			},
 		})
@@ -313,33 +314,33 @@ func TestManifestsAPI(t *testing.T) {
 		//test DELETE manifest failure cases
 		assert.HTTPRequest{
 			Method:       "DELETE",
-			Path:         "/keppel/v1/accounts/test2/repositories/repo2-1/_manifests/" + deterministicDummyDigest(31),
+			Path:         "/keppel/v1/accounts/test2/repositories/repo2-1/_manifests/" + deterministicDummyDigest(31).String(),
 			Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusForbidden,
 			ExpectBody:   assert.StringData("no permission for repository:test2/repo2-1:delete\n"),
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "DELETE",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-2/_manifests/" + deterministicDummyDigest(21),
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-2/_manifests/" + deterministicDummyDigest(21).String(),
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusForbidden,
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "DELETE",
-			Path:         "/keppel/v1/accounts/doesnotexist/repositories/repo1-2/_manifests/" + deterministicDummyDigest(11),
+			Path:         "/keppel/v1/accounts/doesnotexist/repositories/repo1-2/_manifests/" + deterministicDummyDigest(11).String(),
 			Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusForbidden,
 			ExpectBody:   assert.StringData("no permission for repository:doesnotexist/repo1-2:delete\n"),
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "DELETE",
-			Path:         "/keppel/v1/accounts/test1/repositories/doesnotexist/_manifests/" + deterministicDummyDigest(11),
+			Path:         "/keppel/v1/accounts/test1/repositories/doesnotexist/_manifests/" + deterministicDummyDigest(11).String(),
 			Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusNotFound,
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "DELETE",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11),
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11).String(),
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
 			ExpectStatus: http.StatusNotFound,
 		}.Check(t, h)
@@ -365,7 +366,7 @@ func TestManifestsAPI(t *testing.T) {
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "DELETE",
-			Path:         "/keppel/v1/accounts/test2/repositories/repo2-1/_tags/" + deterministicDummyDigest(31), //this endpoint only works with tags
+			Path:         "/keppel/v1/accounts/test2/repositories/repo2-1/_tags/" + deterministicDummyDigest(31).String(), //this endpoint only works with tags
 			Header:       map[string]string{"X-Test-Perms": "delete:tenant2,view:tenant2"},
 			ExpectStatus: http.StatusNotFound,
 		}.Check(t, h)
@@ -385,13 +386,13 @@ func TestManifestsAPI(t *testing.T) {
 		//test GET vulnerability report failure cases
 		assert.HTTPRequest{
 			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11) + "/vulnerability_report",
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11).String() + "/vulnerability_report",
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusNotFound, //this manifest was deleted above
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12) + "/vulnerability_report",
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12).String() + "/vulnerability_report",
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusMethodNotAllowed, //manifest cannot have vulnerability report because it does not have manifest-blob refs
 		}.Check(t, h)
@@ -420,7 +421,7 @@ func TestManifestsAPI(t *testing.T) {
 		s.ClairDouble.ReportFixtures[deterministicDummyDigest(12)] = "fixtures/clair-report-vulnerable.json"
 		assert.HTTPRequest{
 			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12) + "/vulnerability_report",
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12).String() + "/vulnerability_report",
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusOK,
 			ExpectBody:   assert.JSONFixtureFile("fixtures/clair-report-vulnerable.json"),

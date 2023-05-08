@@ -37,6 +37,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/majewsky/schwift"
 	"github.com/majewsky/schwift/gopherschwift"
+	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/logg"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -167,8 +168,8 @@ func chunkObject(c *schwift.Container, storageID string, chunkNumber uint32) *sc
 	return c.Object(fmt.Sprintf("_chunks/%s/%s/%s/%010d", storageID[0:2], storageID[2:4], storageID[4:], chunkNumber))
 }
 
-func manifestObject(c *schwift.Container, repoName, digest string) *schwift.Object {
-	return c.Object(fmt.Sprintf("%s/_manifests/%s", repoName, digest))
+func manifestObject(c *schwift.Container, repoName string, manifestDigest digest.Digest) *schwift.Object {
+	return c.Object(fmt.Sprintf("%s/_manifests/%s", repoName, manifestDigest))
 }
 
 // Like schwift.Object.Upload(), but does a HEAD request on the object
@@ -311,32 +312,32 @@ func reportObjectErrorsIfAny(operation string, err error) {
 }
 
 // ReadManifest implements the keppel.StorageDriver interface.
-func (d *swiftDriver) ReadManifest(account keppel.Account, repoName, digest string) ([]byte, error) {
+func (d *swiftDriver) ReadManifest(account keppel.Account, repoName string, manifestDigest digest.Digest) ([]byte, error) {
 	c, _, err := d.getBackendConnection(account)
 	if err != nil {
 		return nil, err
 	}
-	o := manifestObject(c, repoName, digest)
+	o := manifestObject(c, repoName, manifestDigest)
 	return o.Download(nil).AsByteSlice()
 }
 
 // WriteManifest implements the keppel.StorageDriver interface.
-func (d *swiftDriver) WriteManifest(account keppel.Account, repoName, digest string, contents []byte) error {
+func (d *swiftDriver) WriteManifest(account keppel.Account, repoName string, manifestDigest digest.Digest, contents []byte) error {
 	c, _, err := d.getBackendConnection(account)
 	if err != nil {
 		return err
 	}
-	o := manifestObject(c, repoName, digest)
+	o := manifestObject(c, repoName, manifestDigest)
 	return uploadToObject(o, bytes.NewReader(contents), nil, nil)
 }
 
 // DeleteManifest implements the keppel.StorageDriver interface.
-func (d *swiftDriver) DeleteManifest(account keppel.Account, repoName, digest string) error {
+func (d *swiftDriver) DeleteManifest(account keppel.Account, repoName string, manifestDigest digest.Digest) error {
 	c, _, err := d.getBackendConnection(account)
 	if err != nil {
 		return err
 	}
-	o := manifestObject(c, repoName, digest)
+	o := manifestObject(c, repoName, manifestDigest)
 	return o.Delete(nil, nil)
 }
 
@@ -376,9 +377,14 @@ func (d *swiftDriver) ListStorageContents(account keppel.Account) ([]keppel.Stor
 			return nil
 		}
 		if match := manifestObjectNameRx.FindStringSubmatch(o.Name()); match != nil {
+			manifestDigest, err := digest.Parse(match[2])
+			if err != nil {
+				return err
+			}
+
 			manifests = append(manifests, keppel.StoredManifestInfo{
 				RepoName: match[1],
-				Digest:   match[2],
+				Digest:   manifestDigest,
 			})
 			return nil
 		}

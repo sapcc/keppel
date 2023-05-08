@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -61,8 +62,8 @@ func (d *StorageDriver) getManifestBasePath(account keppel.Account) string {
 	return fmt.Sprintf("%s/%s/%s/manifests", d.rootPath, account.AuthTenantID, account.Name)
 }
 
-func (d *StorageDriver) getManifestPath(account keppel.Account, repoName, digest string) string {
-	return fmt.Sprintf("%s/%s/%s/manifests/%s/%s", d.rootPath, account.AuthTenantID, account.Name, repoName, digest)
+func (d *StorageDriver) getManifestPath(account keppel.Account, repoName string, manifestDigest digest.Digest) string {
+	return fmt.Sprintf("%s/%s/%s/manifests/%s/%s", d.rootPath, account.AuthTenantID, account.Name, repoName, manifestDigest)
 }
 
 // AppendToBlob implements the keppel.StorageDriver interface.
@@ -127,14 +128,14 @@ func (d *StorageDriver) DeleteBlob(account keppel.Account, storageID string) err
 }
 
 // ReadManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ReadManifest(account keppel.Account, repoName, digest string) ([]byte, error) {
-	path := d.getManifestPath(account, repoName, digest)
+func (d *StorageDriver) ReadManifest(account keppel.Account, repoName string, manifestDigest digest.Digest) ([]byte, error) {
+	path := d.getManifestPath(account, repoName, manifestDigest)
 	return os.ReadFile(path)
 }
 
 // WriteManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) WriteManifest(account keppel.Account, repoName, digest string, contents []byte) error {
-	path := d.getManifestPath(account, repoName, digest)
+func (d *StorageDriver) WriteManifest(account keppel.Account, repoName string, manifestDigest digest.Digest, contents []byte) error {
+	path := d.getManifestPath(account, repoName, manifestDigest)
 	tmpPath := path + ".tmp"
 	err := os.MkdirAll(filepath.Dir(tmpPath), 0777)
 	if err != nil {
@@ -148,8 +149,8 @@ func (d *StorageDriver) WriteManifest(account keppel.Account, repoName, digest s
 }
 
 // DeleteManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) DeleteManifest(account keppel.Account, repoName, digest string) error {
-	path := d.getManifestPath(account, repoName, digest)
+func (d *StorageDriver) DeleteManifest(account keppel.Account, repoName string, manifestDigest digest.Digest) error {
+	path := d.getManifestPath(account, repoName, manifestDigest)
 	return os.Remove(path)
 }
 
@@ -229,13 +230,19 @@ func (d *StorageDriver) getRepoManifests(account keppel.Account, repo string) ([
 	if err != nil {
 		return nil, err
 	}
-	for _, digest := range digests {
-		if strings.HasSuffix(digest, ".tmp") {
+	for _, digestStr := range digests {
+		if strings.HasSuffix(digestStr, ".tmp") {
 			continue
 		}
+
+		manifestDigest, err := digest.Parse(digestStr)
+		if err != nil {
+			return nil, err
+		}
+
 		manifests = append(manifests, keppel.StoredManifestInfo{
 			RepoName: repo,
-			Digest:   digest,
+			Digest:   manifestDigest,
 		})
 	}
 	return manifests, nil
