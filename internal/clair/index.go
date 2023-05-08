@@ -88,6 +88,10 @@ var clairTransientErrorsRxs = []*regexp.Regexp{
 	regexp.MustCompile(`dial tcp [0-9.]+:[0-9]+: i/o timeout`),
 	// failed to fetch layers: encountered error while fetching a layer: unexpected EOF
 	regexp.MustCompile(`: unexpected EOF$`),
+	// failed to fetch layers: encountered error while fetching a layer: error realizing layer sha256:6050c53611330485acb45b2a6c407ba08f19b384a001f80bcaf86bfade6d7432: read tcp 10.20.30.40:48000->10.20.30.50:443: read: connection timed out
+	regexp.MustCompile(`: connection timed out$`),
+	// ref: <https://github.com/quay/clair/issues/1698>
+	regexp.MustCompile(`^failed to scan all layer contents: rhel: unable to create a mappingFile object$`),
 }
 
 func isClairTransientError(msg string) bool {
