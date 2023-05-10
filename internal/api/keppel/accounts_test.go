@@ -1801,7 +1801,7 @@ func uploadManifest(t *testing.T, s test.Setup, account *keppel.Account, repo *k
 
 	dbManifest := keppel.Manifest{
 		RepositoryID: repo.ID,
-		Digest:       manifest.Digest.String(),
+		Digest:       manifest.Digest,
 		MediaType:    manifest.MediaType,
 		SizeBytes:    sizeBytes,
 		PushedAt:     s.Clock.Now(),
@@ -1810,7 +1810,7 @@ func uploadManifest(t *testing.T, s test.Setup, account *keppel.Account, repo *k
 	mustDo(t, s.DB.Insert(&dbManifest))
 	mustDo(t, s.DB.Insert(&keppel.VulnerabilityInfo{
 		RepositoryID: repo.ID,
-		Digest:       manifest.Digest.String(),
+		Digest:       manifest.Digest,
 		NextCheckAt:  time.Unix(0, 0),
 		Status:       clair.PendingVulnerabilityStatus,
 	}))
@@ -1819,7 +1819,7 @@ func uploadManifest(t *testing.T, s test.Setup, account *keppel.Account, repo *k
 		Digest:       manifest.Digest.String(),
 		Content:      manifest.Contents,
 	}))
-	mustDo(t, s.SD.WriteManifest(*account, repo.Name, manifest.Digest.String(), manifest.Contents))
+	mustDo(t, s.SD.WriteManifest(*account, repo.Name, manifest.Digest, manifest.Contents))
 	return dbManifest
 }
 
@@ -1857,7 +1857,7 @@ func TestDeleteAccount(t *testing.T) {
 		storageID := sidGen.Next()
 		blob := keppel.Blob{
 			AccountName: accounts[0].Name,
-			Digest:      testBlob.Digest.String(),
+			Digest:      testBlob.Digest,
 			SizeBytes:   uint64(len(testBlob.Contents)),
 			StorageID:   storageID,
 			PushedAt:    time.Unix(int64(idx), 0),
@@ -1882,7 +1882,7 @@ func TestDeleteAccount(t *testing.T) {
 
 	mustInsert(t, s.DB, &keppel.Manifest{
 		RepositoryID: repos[0].ID,
-		Digest:       image.Manifest.Digest.String(),
+		Digest:       image.Manifest.Digest,
 		MediaType:    image.Manifest.MediaType,
 		SizeBytes:    uint64(len(image.Manifest.Contents)),
 		PushedAt:     time.Unix(100, 0),
@@ -1890,11 +1890,11 @@ func TestDeleteAccount(t *testing.T) {
 	})
 	mustInsert(t, s.DB, &keppel.VulnerabilityInfo{
 		RepositoryID: repos[0].ID,
-		Digest:       image.Manifest.Digest.String(),
+		Digest:       image.Manifest.Digest,
 		NextCheckAt:  time.Unix(0, 0),
 		Status:       clair.PendingVulnerabilityStatus,
 	})
-	err := s.SD.WriteManifest(*accounts[0], repos[0].Name, image.Manifest.Digest.String(), image.Manifest.Contents)
+	err := s.SD.WriteManifest(*accounts[0], repos[0].Name, image.Manifest.Digest, image.Manifest.Contents)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

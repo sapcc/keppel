@@ -25,6 +25,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
@@ -142,7 +143,7 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 	query := `SELECT digest, name FROM tags WHERE repo_id = $1`
 	err = sqlext.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
 		var (
-			digest  string
+			digest  digest.Digest
 			tagName string
 		)
 		err := rows.Scan(&digest, &tagName)
@@ -166,7 +167,7 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 	err = sqlext.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
 		var (
 			parentDigest string
-			childDigest  string
+			childDigest  digest.Digest
 		)
 		err := rows.Scan(&parentDigest, &childDigest)
 		if err != nil {

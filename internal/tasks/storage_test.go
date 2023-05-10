@@ -116,10 +116,10 @@ func TestSweepStorageBlobs(t *testing.T) {
 	//...but not delete anything yet
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectBlobsExistInStorage(t,
-		keppel.Blob{AccountName: "test1", Digest: testBlob1.Digest.String(), StorageID: testBlob1.Digest.Encoded()},
-		keppel.Blob{AccountName: "test1", Digest: testBlob2.Digest.String(), StorageID: testBlob2.Digest.Encoded()},
-		keppel.Blob{AccountName: "test1", Digest: testBlob3.Digest.String(), StorageID: testBlob3.Digest.Encoded()},
-		keppel.Blob{AccountName: "test1", Digest: testBlob4.Digest.String(), StorageID: testBlob4.Digest.Encoded()},
+		keppel.Blob{AccountName: "test1", Digest: testBlob1.Digest, StorageID: testBlob1.Digest.Encoded()},
+		keppel.Blob{AccountName: "test1", Digest: testBlob2.Digest, StorageID: testBlob2.Digest.Encoded()},
+		keppel.Blob{AccountName: "test1", Digest: testBlob3.Digest, StorageID: testBlob3.Digest.Encoded()},
+		keppel.Blob{AccountName: "test1", Digest: testBlob4.Digest, StorageID: testBlob4.Digest.Encoded()},
 	)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 
@@ -129,7 +129,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	s.Clock.StepBy(1 * time.Hour)
 	dbTestBlob1 := keppel.Blob{
 		AccountName: "test1",
-		Digest:      testBlob1.Digest.String(),
+		Digest:      testBlob1.Digest,
 		SizeBytes:   uint64(len(testBlob1.Contents)),
 		StorageID:   testBlob1.Digest.Encoded(),
 		PushedAt:    s.Clock.Now(),
@@ -145,12 +145,12 @@ func TestSweepStorageBlobs(t *testing.T) {
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-blobs-002.sql")
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectBlobsExistInStorage(t,
-		keppel.Blob{AccountName: "test1", Digest: testBlob1.Digest.String(), StorageID: testBlob1.Digest.Encoded()},
-		keppel.Blob{AccountName: "test1", Digest: testBlob3.Digest.String(), StorageID: testBlob3.Digest.Encoded()},
+		keppel.Blob{AccountName: "test1", Digest: testBlob1.Digest, StorageID: testBlob1.Digest.Encoded()},
+		keppel.Blob{AccountName: "test1", Digest: testBlob3.Digest, StorageID: testBlob3.Digest.Encoded()},
 	)
 	s.ExpectBlobsMissingInStorage(t,
-		keppel.Blob{AccountName: "test1", Digest: testBlob2.Digest.String(), StorageID: testBlob2.Digest.Encoded()},
-		keppel.Blob{AccountName: "test1", Digest: testBlob4.Digest.String(), StorageID: testBlob4.Digest.Encoded()},
+		keppel.Blob{AccountName: "test1", Digest: testBlob2.Digest, StorageID: testBlob2.Digest.Encoded()},
+		keppel.Blob{AccountName: "test1", Digest: testBlob4.Digest, StorageID: testBlob4.Digest.Encoded()},
 	)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 }
@@ -165,7 +165,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	testImageList1 := test.GenerateImageList(images[0])
 	testImageList2 := test.GenerateImageList(images[1])
 	for _, manifest := range []test.Bytes{testImageList1.Manifest, testImageList2.Manifest} {
-		mustDo(t, s.SD.WriteManifest(account, "foo", manifest.Digest.String(), manifest.Contents))
+		mustDo(t, s.SD.WriteManifest(account, "foo", manifest.Digest, manifest.Contents))
 	}
 
 	//next SweepStorageInNextAccount should mark them for deletion...
@@ -177,8 +177,8 @@ func TestSweepStorageManifests(t *testing.T) {
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 	s.ExpectManifestsExistInStorage(t, "foo",
-		keppel.Manifest{RepositoryID: 1, Digest: testImageList1.Manifest.Digest.String()},
-		keppel.Manifest{RepositoryID: 1, Digest: testImageList2.Manifest.Digest.String()},
+		keppel.Manifest{RepositoryID: 1, Digest: testImageList1.Manifest.Digest},
+		keppel.Manifest{RepositoryID: 1, Digest: testImageList2.Manifest.Digest},
 	)
 
 	//create a DB entry for the first manifest (to sort of simulate a manifest
@@ -187,7 +187,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	s.Clock.StepBy(1 * time.Hour)
 	mustDo(t, s.DB.Insert(&keppel.Manifest{
 		RepositoryID: 1,
-		Digest:       testImageList1.Manifest.Digest.String(),
+		Digest:       testImageList1.Manifest.Digest,
 		MediaType:    testImageList1.Manifest.MediaType,
 		SizeBytes:    uint64(len(testImageList1.Manifest.Contents)),
 		PushedAt:     s.Clock.Now(),
@@ -195,7 +195,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	}))
 	mustDo(t, s.DB.Insert(&keppel.VulnerabilityInfo{
 		RepositoryID: 1,
-		Digest:       testImageList1.Manifest.Digest.String(),
+		Digest:       testImageList1.Manifest.Digest,
 		Status:       clair.PendingVulnerabilityStatus,
 		NextCheckAt:  s.Clock.Now(),
 	}))
@@ -209,9 +209,9 @@ func TestSweepStorageManifests(t *testing.T) {
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 	s.ExpectManifestsExistInStorage(t, "foo",
-		keppel.Manifest{RepositoryID: 1, Digest: testImageList1.Manifest.Digest.String()},
+		keppel.Manifest{RepositoryID: 1, Digest: testImageList1.Manifest.Digest},
 	)
 	s.ExpectManifestsMissingInStorage(t,
-		keppel.Manifest{RepositoryID: 1, Digest: testImageList2.Manifest.Digest.String()},
+		keppel.Manifest{RepositoryID: 1, Digest: testImageList2.Manifest.Digest},
 	)
 }

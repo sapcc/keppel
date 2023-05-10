@@ -25,6 +25,8 @@ import (
 	"io"
 	"regexp"
 
+	"github.com/opencontainers/go-digest"
+
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -65,8 +67,8 @@ func blobKey(account keppel.Account, storageID string) string {
 	return fmt.Sprintf("%s/%s", account.Name, storageID)
 }
 
-func manifestKey(account keppel.Account, repoName, digest string) string {
-	return fmt.Sprintf("%s/%s/%s", account.Name, repoName, digest)
+func manifestKey(account keppel.Account, repoName string, manifestDigest digest.Digest) string {
+	return fmt.Sprintf("%s/%s/%s", account.Name, repoName, manifestDigest)
 }
 
 // AppendToBlob implements the keppel.StorageDriver interface.
@@ -146,8 +148,8 @@ func (d *StorageDriver) DeleteBlob(account keppel.Account, storageID string) err
 }
 
 // ReadManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ReadManifest(account keppel.Account, repoName, digest string) ([]byte, error) {
-	k := manifestKey(account, repoName, digest)
+func (d *StorageDriver) ReadManifest(account keppel.Account, repoName string, manifestDigest digest.Digest) ([]byte, error) {
+	k := manifestKey(account, repoName, manifestDigest)
 	contents, exists := d.manifests[k]
 	if !exists {
 		return nil, errNoSuchManifest
@@ -156,15 +158,15 @@ func (d *StorageDriver) ReadManifest(account keppel.Account, repoName, digest st
 }
 
 // WriteManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) WriteManifest(account keppel.Account, repoName, digest string, contents []byte) error {
-	k := manifestKey(account, repoName, digest)
+func (d *StorageDriver) WriteManifest(account keppel.Account, repoName string, manifestDigest digest.Digest, contents []byte) error {
+	k := manifestKey(account, repoName, manifestDigest)
 	d.manifests[k] = contents
 	return nil
 }
 
 // DeleteManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) DeleteManifest(account keppel.Account, repoName, digest string) error {
-	k := manifestKey(account, repoName, digest)
+func (d *StorageDriver) DeleteManifest(account keppel.Account, repoName string, manifestDigest digest.Digest) error {
+	k := manifestKey(account, repoName, manifestDigest)
 	_, exists := d.manifests[k]
 	if !exists {
 		return errNoSuchManifest
@@ -195,9 +197,13 @@ func (d *StorageDriver) ListStorageContents(account keppel.Account) ([]keppel.St
 	for key := range d.manifests {
 		match := rx.FindStringSubmatch(key)
 		if match != nil {
+			manifestDigest, err := digest.Parse(match[2])
+			if err != nil {
+				return nil, nil, err
+			}
 			manifests = append(manifests, keppel.StoredManifestInfo{
 				RepoName: match[1],
-				Digest:   match[2],
+				Digest:   manifestDigest,
 			})
 		}
 	}

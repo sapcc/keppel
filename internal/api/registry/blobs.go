@@ -80,7 +80,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodHead {
 			w.Header().Set("Content-Length", strconv.FormatUint(blob.SizeBytes, 10))
 			w.Header().Set("Content-Type", blob.SafeMediaType())
-			w.Header().Set("Docker-Content-Digest", blob.Digest)
+			w.Header().Set("Docker-Content-Digest", blob.Digest.String())
 			w.WriteHeader(http.StatusOK)
 			return
 		}
@@ -144,7 +144,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	if !isImageConfigBlobMediaType[blob.MediaType] {
 		url, err := a.sd.URLForBlob(*account, blob.StorageID)
 		if err == nil {
-			w.Header().Set("Docker-Content-Digest", blob.Digest)
+			w.Header().Set("Docker-Content-Digest", blob.Digest.String())
 			w.Header().Set("Location", url)
 			w.WriteHeader(http.StatusTemporaryRedirect)
 			return
@@ -163,7 +163,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	defer reader.Close()
 	w.Header().Set("Content-Length", strconv.FormatUint(lengthBytes, 10))
 	w.Header().Set("Content-Type", blob.SafeMediaType())
-	w.Header().Set("Docker-Content-Digest", blob.Digest)
+	w.Header().Set("Docker-Content-Digest", blob.Digest.String())
 	w.WriteHeader(http.StatusOK)
 	if r.Method != http.MethodHead {
 		_, err = io.Copy(w, reader)
@@ -228,6 +228,6 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Length", "0")
-	w.Header().Set("Docker-Content-Digest", blob.Digest)
+	w.Header().Set("Docker-Content-Digest", blob.Digest.String())
 	w.WriteHeader(http.StatusAccepted)
 }

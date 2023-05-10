@@ -29,6 +29,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/opencontainers/go-digest"
+
 	"github.com/sapcc/keppel/internal/clair"
 
 	"github.com/gorilla/mux"
@@ -40,13 +42,13 @@ import (
 type ClairDouble struct {
 	T *testing.T
 	//key = manifest digest, value = path to JSON fixture file containing `clair.Manifest` for this image
-	IndexFixtures     map[string]string
-	WasIndexSubmitted map[string]bool
+	IndexFixtures     map[digest.Digest]string
+	WasIndexSubmitted map[digest.Digest]bool
 	//key = manifest digest, value = path to JSON fixture file containing `clair.IndexReport` for this image
-	IndexReportFixtures map[string]string
+	IndexReportFixtures map[digest.Digest]string
 	IndexDeleteCounter  int
 	//key = manifest digest, value = path to JSON fixture file containing `clair.VulnerabilityReport` for this image
-	ReportFixtures map[string]string
+	ReportFixtures map[digest.Digest]string
 	IndexState     string
 }
 
@@ -55,11 +57,11 @@ const IndexStateHash = "aae368a064d7c5a433d0bf2c4f5554cc"
 // NewClairDouble creates a ClairDouble.
 func NewClairDouble() *ClairDouble {
 	return &ClairDouble{
-		IndexFixtures:       make(map[string]string),
-		IndexReportFixtures: make(map[string]string),
+		IndexFixtures:       make(map[digest.Digest]string),
+		IndexReportFixtures: make(map[digest.Digest]string),
 		IndexState:          IndexStateHash,
-		WasIndexSubmitted:   make(map[string]bool),
-		ReportFixtures:      make(map[string]string),
+		WasIndexSubmitted:   make(map[digest.Digest]bool),
+		ReportFixtures:      make(map[digest.Digest]string),
 	}
 }
 
@@ -91,12 +93,15 @@ func (c *ClairDouble) postIndexReport(w http.ResponseWriter, r *http.Request) {
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-	digest := reqBody["hash"].(string) //nolint:errcheck
+	indexDigest, err := digest.Parse(reqBody["hash"].(string))
+	if respondwith.ErrorText(w, err) {
+		return
+	}
 
 	//only accept images that we anticipated
-	fixturePath := c.IndexFixtures[digest]
+	fixturePath := c.IndexFixtures[indexDigest]
 	if fixturePath == "" {
-		http.Error(w, "unexpected digest: "+digest, http.StatusBadRequest)
+		http.Error(w, "unexpected digest: "+indexDigest.String(), http.StatusBadRequest)
 		return
 	}
 	fixturePathAbs, _ := filepath.Abs(fixturePath) //nolint:errcheck
@@ -125,19 +130,19 @@ func (c *ClairDouble) postIndexReport(w http.ResponseWriter, r *http.Request) {
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
 	if err != nil {
-		msg := fmt.Sprintf("manifest for %s does not match fixture at %s (see diff output above)", digest, fixturePath)
+		msg := fmt.Sprintf("manifest for %s does not match fixture at %s (see diff output above)", indexDigest, fixturePath)
 		http.Error(w, msg, http.StatusBadRequest)
 		return
 	}
 
 	//minimal valid response to keep Keppel going
-	c.WasIndexSubmitted[digest] = true
+	c.WasIndexSubmitted[indexDigest] = true
 	state := "CheckManifest"
-	if c.ReportFixtures[digest] != "" {
+	if c.ReportFixtures[indexDigest] != "" {
 		state = "IndexFinished"
 	}
 	respondwith.JSON(w, http.StatusCreated, map[string]interface{}{
-		"manifest_hash": digest,
+		"manifest_hash": indexDigest,
 		"state":         state,
 	})
 }
@@ -145,14 +150,17 @@ func (c *ClairDouble) postIndexReport(w http.ResponseWriter, r *http.Request) {
 func (c *ClairDouble) getIndexReport(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/indexer/api/v1/index_report/{digest}")
 
-	digest := mux.Vars(r)["digest"]
+	indexDigest, err := digest.Parse(mux.Vars(r)["digest"])
+	if respondwith.ErrorText(w, err) {
+		return
+	}
 
-	if !c.WasIndexSubmitted[digest] {
+	if !c.WasIndexSubmitted[indexDigest] {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 
-	indexReportFixture := c.IndexReportFixtures[digest]
+	indexReportFixture := c.IndexReportFixtures[indexDigest]
 	if indexReportFixture != "" {
 		content, err := os.ReadFile(indexReportFixture)
 		if respondwith.ErrorText(w, err) {
@@ -166,11 +174,11 @@ func (c *ClairDouble) getIndexReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	state := "CheckManifest"
-	if c.ReportFixtures[digest] != "" {
+	if c.ReportFixtures[indexDigest] != "" {
 		state = "IndexFinished"
 	}
 	respondwith.JSON(w, http.StatusCreated, map[string]interface{}{
-		"manifest_hash": digest,
+		"manifest_hash": indexDigest,
 		"state":         state,
 	})
 }
@@ -178,22 +186,25 @@ func (c *ClairDouble) getIndexReport(w http.ResponseWriter, r *http.Request) {
 func (c *ClairDouble) deleteIndexReport(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/indexer/api/v1/index_report/{digest}")
 
-	digest := mux.Vars(r)["digest"]
+	indexDigest, err := digest.Parse(mux.Vars(r)["digest"])
+	if respondwith.ErrorText(w, err) {
+		return
+	}
 
 	// only accept images that we anticipated
-	if c.IndexFixtures[digest] == "" {
-		http.Error(w, "unexpected digest: "+digest, http.StatusBadRequest)
+	if c.IndexFixtures[indexDigest] == "" {
+		http.Error(w, "unexpected digest: "+indexDigest.String(), http.StatusBadRequest)
 		return
 	}
 
 	// only accept deletes if the index was submitted before
-	if !c.WasIndexSubmitted[digest] {
-		http.Error(w, "digest was not submitted before: "+digest, http.StatusBadRequest)
+	if !c.WasIndexSubmitted[indexDigest] {
+		http.Error(w, "digest was not submitted before: "+indexDigest.String(), http.StatusBadRequest)
 		return
 	}
 
-	c.WasIndexSubmitted[digest] = false
-	c.ReportFixtures[digest] = ""
+	c.WasIndexSubmitted[indexDigest] = false
+	c.ReportFixtures[indexDigest] = ""
 	c.IndexDeleteCounter += 1
 
 	w.WriteHeader(http.StatusNoContent)
@@ -202,9 +213,13 @@ func (c *ClairDouble) deleteIndexReport(w http.ResponseWriter, r *http.Request) 
 func (c *ClairDouble) getVulnerabilityReport(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/matcher/api/v1/vulnerability_report/{digest}")
 
-	digest := mux.Vars(r)["digest"]
-	fixturePath := c.ReportFixtures[digest]
-	if !c.WasIndexSubmitted[digest] || digest == "" {
+	reportDigest, err := digest.Parse(mux.Vars(r)["digest"])
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
+	fixturePath := c.ReportFixtures[reportDigest]
+	if !c.WasIndexSubmitted[reportDigest] || reportDigest == "" {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}

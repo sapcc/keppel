@@ -139,17 +139,17 @@ func (r RBACPolicy) Matches(ip, repoName, userName string) bool {
 // needs to be chosen at the start of the blob upload, when the digest is not
 // known yet.
 type Blob struct {
-	ID                     int64      `db:"id"`
-	AccountName            string     `db:"account_name"`
-	Digest                 string     `db:"digest"`
-	SizeBytes              uint64     `db:"size_bytes"`
-	StorageID              string     `db:"storage_id"`
-	MediaType              string     `db:"media_type"`
-	PushedAt               time.Time  `db:"pushed_at"`
-	ValidatedAt            time.Time  `db:"validated_at"` //see tasks.ValidateNextBlob
-	ValidationErrorMessage string     `db:"validation_error_message"`
-	CanBeDeletedAt         *time.Time `db:"can_be_deleted_at"` //see tasks.SweepBlobsInNextAccount
-	BlocksVulnScanning     *bool      `db:"blocks_vuln_scanning"`
+	ID                     int64         `db:"id"`
+	AccountName            string        `db:"account_name"`
+	Digest                 digest.Digest `db:"digest"`
+	SizeBytes              uint64        `db:"size_bytes"`
+	StorageID              string        `db:"storage_id"`
+	MediaType              string        `db:"media_type"`
+	PushedAt               time.Time     `db:"pushed_at"`
+	ValidatedAt            time.Time     `db:"validated_at"` //see tasks.ValidateNextBlob
+	ValidationErrorMessage string        `db:"validation_error_message"`
+	CanBeDeletedAt         *time.Time    `db:"can_be_deleted_at"` //see tasks.SweepBlobsInNextAccount
+	BlocksVulnScanning     *bool         `db:"blocks_vuln_scanning"`
 }
 
 var blobGetQueryByRepoName = sqlext.SimplifyWhitespace(`
@@ -292,14 +292,14 @@ func (r Repository) FullName() string {
 
 // Manifest contains a record from the `manifests` table.
 type Manifest struct {
-	RepositoryID           int64      `db:"repo_id"`
-	Digest                 string     `db:"digest"`
-	MediaType              string     `db:"media_type"`
-	SizeBytes              uint64     `db:"size_bytes"`
-	PushedAt               time.Time  `db:"pushed_at"`
-	ValidatedAt            time.Time  `db:"validated_at"` //see tasks.ValidateNextManifest
-	ValidationErrorMessage string     `db:"validation_error_message"`
-	LastPulledAt           *time.Time `db:"last_pulled_at"`
+	RepositoryID           int64         `db:"repo_id"`
+	Digest                 digest.Digest `db:"digest"`
+	MediaType              string        `db:"media_type"`
+	SizeBytes              uint64        `db:"size_bytes"`
+	PushedAt               time.Time     `db:"pushed_at"`
+	ValidatedAt            time.Time     `db:"validated_at"` //see tasks.ValidateNextManifest
+	ValidationErrorMessage string        `db:"validation_error_message"`
+	LastPulledAt           *time.Time    `db:"last_pulled_at"`
 	//LabelsJSON contains a JSON string of a map[string]string, or an empty string.
 	LabelsJSON string `db:"labels_json"`
 	//GCStatusJSON contains a keppel.GCStatus serialized into JSON, or an empty
@@ -311,10 +311,10 @@ type Manifest struct {
 
 // FindManifest is a convenience wrapper around db.SelectOne(). If the
 // manifest in question does not exist, sql.ErrNoRows is returned.
-func FindManifest(db gorp.SqlExecutor, repo Repository, digestStr string) (*Manifest, error) {
+func FindManifest(db gorp.SqlExecutor, repo Repository, manifestDigest digest.Digest) (*Manifest, error) {
 	var manifest Manifest
 	err := db.SelectOne(&manifest,
-		"SELECT * FROM manifests WHERE repo_id = $1 AND digest = $2", repo.ID, digestStr)
+		"SELECT * FROM manifests WHERE repo_id = $1 AND digest = $2", repo.ID, manifestDigest)
 	return &manifest, err
 }
 
@@ -327,19 +327,19 @@ var manifestGetQueryByRepoName = sqlext.SimplifyWhitespace(`
 
 // FindManifestByRepositoryName is a convenience wrapper around db.SelectOne().
 // If the manifest in question does not exist, sql.ErrNoRows is returned.
-func FindManifestByRepositoryName(db gorp.SqlExecutor, repoName string, account Account, digestStr string) (*Manifest, error) {
+func FindManifestByRepositoryName(db gorp.SqlExecutor, repoName string, account Account, manifestDigest string) (*Manifest, error) {
 	var manifest Manifest
-	err := db.SelectOne(&manifest, manifestGetQueryByRepoName, account.Name, repoName, digestStr)
+	err := db.SelectOne(&manifest, manifestGetQueryByRepoName, account.Name, repoName, manifestDigest)
 	return &manifest, err
 }
 
 // Tag contains a record from the `tags` table.
 type Tag struct {
-	RepositoryID int64      `db:"repo_id"`
-	Name         string     `db:"name"`
-	Digest       string     `db:"digest"`
-	PushedAt     time.Time  `db:"pushed_at"`
-	LastPulledAt *time.Time `db:"last_pulled_at"`
+	RepositoryID int64         `db:"repo_id"`
+	Name         string        `db:"name"`
+	Digest       digest.Digest `db:"digest"`
+	PushedAt     time.Time     `db:"pushed_at"`
+	LastPulledAt *time.Time    `db:"last_pulled_at"`
 }
 
 // ManifestContent contains a record from the `manifest_contents` table.
@@ -420,7 +420,7 @@ type Peer struct {
 // PendingBlob contains a record from the `pending_blobs` table.
 type PendingBlob struct {
 	AccountName  string        `db:"account_name"`
-	Digest       string        `db:"digest"`
+	Digest       digest.Digest `db:"digest"`
 	Reason       PendingReason `db:"reason"`
 	PendingSince time.Time     `db:"since"`
 }
@@ -450,17 +450,17 @@ type UnknownBlob struct {
 // NOTE: We don't use repository IDs here because unknown manifests may exist in
 // repositories that are also not known to the database.
 type UnknownManifest struct {
-	AccountName    string    `db:"account_name"`
-	RepositoryName string    `db:"repo_name"`
-	Digest         string    `db:"digest"`
-	CanBeDeletedAt time.Time `db:"can_be_deleted_at"`
+	AccountName    string        `db:"account_name"`
+	RepositoryName string        `db:"repo_name"`
+	Digest         digest.Digest `db:"digest"`
+	CanBeDeletedAt time.Time     `db:"can_be_deleted_at"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type VulnerabilityInfo struct {
 	RepositoryID      int64                     `db:"repo_id"`
-	Digest            string                    `db:"digest"`
+	Digest            digest.Digest             `db:"digest"`
 	Status            clair.VulnerabilityStatus `db:"status"`
 	Message           string                    `db:"message"`
 	NextCheckAt       time.Time                 `db:"next_check_at"` //see tasks.CheckVulnerabilitiesForNextManifest
@@ -473,7 +473,7 @@ type VulnerabilityInfo struct {
 
 // GetVulnerabilityInfo works similar to db.SelectOne(), but creates a VulnerabilityInfo instead of returning
 // sql.ErrNoRows if none existed.
-func GetVulnerabilityInfo(db gorp.SqlExecutor, repoID int64, manifestDigest string) (*VulnerabilityInfo, error) {
+func GetVulnerabilityInfo(db gorp.SqlExecutor, repoID int64, manifestDigest digest.Digest) (*VulnerabilityInfo, error) {
 	var vulnInfo *VulnerabilityInfo
 	err := db.SelectOne(&vulnInfo,
 		"SELECT * FROM vuln_info WHERE repo_id = $1 and digest = $2",
@@ -487,7 +487,7 @@ func GetVulnerabilityInfo(db gorp.SqlExecutor, repoID int64, manifestDigest stri
 
 type TrivySecurityInfo struct {
 	RepositoryID      int64                     `db:"repo_id"`
-	Digest            string                    `db:"digest"`
+	Digest            digest.Digest             `db:"digest"`
 	Status            clair.VulnerabilityStatus `db:"status"`
 	Message           string                    `db:"message"`
 	NextCheckAt       time.Time                 `db:"next_check_at"` //see tasks.CheckVulnerabilitiesForNextManifest

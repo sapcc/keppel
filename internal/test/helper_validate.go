@@ -22,8 +22,6 @@ import (
 	"io"
 	"testing"
 
-	"github.com/opencontainers/go-digest"
-
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -53,13 +51,14 @@ func (s Setup) ExpectBlobsExistInStorage(t *testing.T, blobs ...keppel.Blob) {
 			continue
 		}
 
-		expectedDigest, err := digest.Parse(blob.Digest)
+		err = blob.Digest.Validate()
 		if err != nil {
 			t.Errorf("blob digest %q is not a digest: %s", blob.Digest, err.Error())
 			continue
 		}
-		actualDigest := expectedDigest.Algorithm().FromBytes(blobBytes)
-		if actualDigest != expectedDigest {
+
+		actualDigest := blob.Digest.Algorithm().FromBytes(blobBytes)
+		if actualDigest != blob.Digest {
 			t.Errorf("blob %s has corrupted contents: actual digest is %s", blob.Digest, actualDigest)
 			continue
 		}
@@ -91,13 +90,13 @@ func (s Setup) ExpectManifestsExistInStorage(t *testing.T, repoName string, mani
 			t.Errorf("expected manifest %s to exist in the storage, but got: %s", manifest.Digest, err.Error())
 			continue
 		}
-		expectedDigest, err := digest.Parse(manifest.Digest)
+		err = manifest.Digest.Validate()
 		if err != nil {
 			t.Errorf("manifest digest %q is not a digest: %s", manifest.Digest, err.Error())
 			continue
 		}
-		actualDigest := expectedDigest.Algorithm().FromBytes(manifestBytes)
-		if actualDigest != expectedDigest {
+		actualDigest := manifest.Digest.Algorithm().FromBytes(manifestBytes)
+		if actualDigest != manifest.Digest {
 			t.Errorf("manifest %s has corrupted contents: actual digest is %s", manifest.Digest, actualDigest)
 			continue
 		}

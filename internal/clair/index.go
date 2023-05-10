@@ -27,21 +27,22 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/logg"
 )
 
 // Manifest is the representation of an image manifest that gets submitted to
 // Clair for indexing.
 type Manifest struct {
-	Digest string  `json:"hash"`
-	Layers []Layer `json:"layers"`
+	Digest digest.Digest `json:"hash"`
+	Layers []Layer       `json:"layers"`
 }
 
 // Layer appears in type Manifest.
 type Layer struct {
-	Digest  string      `json:"hash"`
-	URL     string      `json:"uri"`
-	Headers http.Header `json:"headers,omitempty"`
+	Digest  digest.Digest `json:"hash"`
+	URL     string        `json:"uri"`
+	Headers http.Header   `json:"headers,omitempty"`
 }
 
 // ManifestState is returned by CheckManifestState.
@@ -54,9 +55,9 @@ type ManifestState struct {
 }
 
 type indexReport struct {
-	Digest       string `json:"manifest_hash"`
-	State        string `json:"state"`
-	ErrorMessage string `json:"err"`
+	Digest       digest.Digest `json:"manifest_hash"`
+	State        string        `json:"state"`
+	ErrorMessage string        `json:"err"`
 	//there are more fields, but we are not interested in them
 }
 
@@ -103,15 +104,15 @@ func isClairTransientError(msg string) bool {
 	return false
 }
 
-func (c *Client) getIndexReportURL(digest string) string {
-	return c.requestURL("indexer", "api", "v1", "index_report", digest)
+func (c *Client) getIndexReportURL(reportDigest digest.Digest) string {
+	return c.requestURL("indexer", "api", "v1", "index_report", reportDigest.String())
 }
 
 // CheckManifestState submits the manifest to clair for indexing if not done
 // yet, and checks if the indexing has finished. Since the manifest rendering is
 // costly, it's wrapped in a callback that this method only calls when needed.
-func (c *Client) CheckManifestState(ctx context.Context, digest string, renderManifest func() (Manifest, error)) (ManifestState, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.getIndexReportURL(digest), http.NoBody)
+func (c *Client) CheckManifestState(ctx context.Context, manifestDigest digest.Digest, renderManifest func() (Manifest, error)) (ManifestState, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.getIndexReportURL(manifestDigest), http.NoBody)
 	if err != nil {
 		return ManifestState{}, err
 	}
@@ -131,7 +132,7 @@ func (c *Client) CheckManifestState(ctx context.Context, digest string, renderMa
 	indexingWasRestarted := false
 	if isClairTransientError(indexReportResult.ErrorMessage) {
 		// delete index_report in clear before resubmitting
-		err := c.DeleteManifest(ctx, digest)
+		err := c.DeleteManifest(ctx, manifestDigest)
 		if err != nil {
 			return ManifestState{}, err
 		}
@@ -146,8 +147,8 @@ func (c *Client) CheckManifestState(ctx context.Context, digest string, renderMa
 	return indexReportResult.IntoManifestState(indexingWasRestarted, indexState), err
 }
 
-func (c *Client) DeleteManifest(ctx context.Context, digest string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.getIndexReportURL(digest), http.NoBody)
+func (c *Client) DeleteManifest(ctx context.Context, manifestDigest digest.Digest) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.getIndexReportURL(manifestDigest), http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -184,7 +185,7 @@ func (c *Client) submitManifest(ctx context.Context, renderManifest func() (Mani
 	//those
 	if len(m.Layers) == 0 {
 		if c.isEmptyManifest == nil {
-			c.isEmptyManifest = make(map[string]bool)
+			c.isEmptyManifest = make(map[digest.Digest]bool)
 		}
 		c.isEmptyManifest[m.Digest] = true //remind ourselves to also fake the VulnerabilityReport later
 		return indexReport{

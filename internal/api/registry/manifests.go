@@ -172,7 +172,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	//write response
 	w.Header().Set("Content-Length", strconv.FormatUint(uint64(len(manifestBytes)), 10))
 	w.Header().Set("Content-Type", dbManifest.MediaType)
-	w.Header().Set("Docker-Content-Digest", dbManifest.Digest)
+	w.Header().Set("Docker-Content-Digest", dbManifest.Digest.String())
 	if vulnerability != nil {
 		w.Header().Set("X-Keppel-Vulnerability-Status", string(vulnerability.Status))
 	}
@@ -248,7 +248,7 @@ func (a *API) findManifestInDB(repo keppel.Repository, reference keppel.Manifest
 	return &dbManifest, err
 }
 
-func (a *API) getManifestContentFromDB(repoID int64, digestStr string) ([]byte, error) {
+func (a *API) getManifestContentFromDB(repoID int64, digestStr digest.Digest) ([]byte, error) {
 	var result []byte
 	err := a.db.SelectOne(&result,
 		`SELECT content FROM manifest_contents WHERE repo_id = $1 AND digest = $2`,
@@ -283,7 +283,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	if ref.IsTag() {
 		err = a.processor().DeleteTag(*account, *repo, ref.Tag, actx)
 	} else {
-		err = a.processor().DeleteManifest(*account, *repo, ref.Digest.String(), actx)
+		err = a.processor().DeleteManifest(*account, *repo, ref.Digest, actx)
 	}
 	if err == sql.ErrNoRows {
 		keppel.ErrManifestUnknown.With("no such manifest").WriteAsRegistryV2ResponseTo(w, r)
@@ -355,7 +355,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	api.ManifestsPushedCounter.With(l).Inc()
 
 	w.Header().Set("Content-Length", "0")
-	w.Header().Set("Docker-Content-Digest", manifest.Digest)
+	w.Header().Set("Docker-Content-Digest", manifest.Digest.String())
 	w.Header().Set("Location", fmt.Sprintf("/v2/%s/manifests/%s", getRepoNameForURLPath(*repo, authz), manifest.Digest))
 	w.WriteHeader(http.StatusCreated)
 }

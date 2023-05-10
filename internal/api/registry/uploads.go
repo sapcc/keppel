@@ -257,7 +257,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 
 	actualDigest := digest.NewDigest(digest.SHA256, dw.Hash)
 	if actualDigest != blobDigest {
-		keppel.ErrDigestInvalid.With("expected %s, but actual digest was %s", blobDigestStr, actualDigest.String()).WriteAsRegistryV2ResponseTo(w, r)
+		keppel.ErrDigestInvalid.With("expected %s, but actual digest was %s", blobDigest.String(), actualDigest.String()).WriteAsRegistryV2ResponseTo(w, r)
 		return false
 	}
 
@@ -477,7 +477,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Content-Range", makeRangeHeader(blob.SizeBytes))
-	w.Header().Set("Docker-Content-Digest", blob.Digest)
+	w.Header().Set("Docker-Content-Digest", blob.Digest.String())
 	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/%s", getRepoNameForURLPath(*repo, authz), blob.Digest))
 	w.WriteHeader(http.StatusCreated)
 }

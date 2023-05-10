@@ -25,6 +25,7 @@ import (
 	"errors"
 	"io"
 
+	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/pluggable"
 )
 
@@ -70,9 +71,9 @@ type StorageDriver interface {
 	//instead.
 	DeleteBlob(account Account, storageID string) error
 
-	ReadManifest(account Account, repoName, digest string) ([]byte, error)
-	WriteManifest(account Account, repoName, digest string, contents []byte) error
-	DeleteManifest(account Account, repoName, digest string) error
+	ReadManifest(account Account, repoName string, digest digest.Digest) ([]byte, error)
+	WriteManifest(account Account, repoName string, digest digest.Digest, contents []byte) error
+	DeleteManifest(account Account, repoName string, digest digest.Digest) error
 
 	//This method shall only be used as a positive signal for the existence of a
 	//blob or manifest in the storage, not as a negative signal: If we expect a
@@ -104,7 +105,7 @@ type StoredBlobInfo struct {
 // StoredManifestInfo is returned by StorageDriver.ListStorageContents().
 type StoredManifestInfo struct {
 	RepoName string
-	Digest   string
+	Digest   digest.Digest
 }
 
 // ErrAuthDriverMismatch is returned by Init() methods on most driver

@@ -244,12 +244,12 @@ func (j *Janitor) getReplicaSyncPayload(account keppel.Account, repo keppel.Repo
 	}
 
 	//assemble request body
-	tagsByDigest := make(map[string][]keppel.TagForSync)
+	tagsByDigest := make(map[digest.Digest][]keppel.TagForSync)
 	query := `SELECT name, digest, last_pulled_at FROM tags WHERE repo_id = $1`
 	err = sqlext.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
 		var (
 			name         string
-			digest       string
+			digest       digest.Digest
 			lastPulledAt *time.Time
 		)
 		err = rows.Scan(&name, &digest, &lastPulledAt)
@@ -270,7 +270,7 @@ func (j *Janitor) getReplicaSyncPayload(account keppel.Account, repo keppel.Repo
 	query = `SELECT digest, last_pulled_at FROM manifests WHERE repo_id = $1`
 	err = sqlext.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
 		var (
-			digest       string
+			digest       digest.Digest
 			lastPulledAt *time.Time
 		)
 		err = rows.Scan(&digest, &lastPulledAt)
@@ -365,7 +365,7 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 	}
 
 	//check which manifests need to be deleted
-	shallDeleteManifest := make(map[string]bool)
+	shallDeleteManifest := make(map[digest.Digest]bool)
 	p := j.processor()
 	for _, manifest := range manifests {
 		//if we have a ReplicaSyncPayload available, use it to check manifest existence
@@ -377,7 +377,7 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 		}
 
 		//when querying an external registry, we have to check each manifest one-by-one
-		ref := keppel.ManifestReference{Digest: digest.Digest(manifest.Digest)}
+		ref := keppel.ManifestReference{Digest: manifest.Digest}
 		exists, err := p.CheckManifestOnPrimary(account, repo, ref)
 		if err != nil {
 			return fmt.Errorf("cannot check existence of manifest %s/%s on primary account: %s", repo.FullName(), manifest.Digest, err.Error())
@@ -393,11 +393,11 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 	}
 
 	//enumerate manifest-manifest refs in this repo
-	parentDigestsOf := make(map[string][]string)
+	parentDigestsOf := make(map[digest.Digest][]digest.Digest)
 	err = sqlext.ForeachRow(j.db, syncManifestEnumerateRefsQuery, []interface{}{repo.ID}, func(rows *sql.Rows) error {
 		var (
-			parentDigest string
-			childDigest  string
+			parentDigest digest.Digest
+			childDigest  digest.Digest
 		)
 		err = rows.Scan(&parentDigest, &childDigest)
 		if err != nil {
@@ -416,30 +416,30 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 	if len(shallDeleteManifest) > 0 {
 		logg.Info("deleting %d manifests in repo %s that were deleted on corresponding primary account", len(shallDeleteManifest), repo.FullName())
 	}
-	manifestWasDeleted := make(map[string]bool)
+	manifestWasDeleted := make(map[digest.Digest]bool)
 	for len(shallDeleteManifest) > 0 {
 		deletedSomething := false
 	MANIFEST:
-		for digest := range shallDeleteManifest {
-			if slices.ContainsFunc(parentDigestsOf[digest], func(parentDigest string) bool { return !manifestWasDeleted[parentDigest] }) {
+		for digestToBeDeleted := range shallDeleteManifest {
+			if slices.ContainsFunc(parentDigestsOf[digestToBeDeleted], func(parentDigest digest.Digest) bool { return !manifestWasDeleted[parentDigest] }) {
 				//cannot delete this manifest yet because it's still being referenced - retry in next iteration
 				continue MANIFEST
 			}
 
 			//no manifests left that reference this one - we can delete it
-			err := j.processor().DeleteManifest(account, repo, digest, keppel.AuditContext{
+			err := j.processor().DeleteManifest(account, repo, digestToBeDeleted, keppel.AuditContext{
 				UserIdentity: janitorUserIdentity{TaskName: "manifest-sync"},
 				Request:      janitorDummyRequest,
 			})
 			if err != nil {
-				return fmt.Errorf("cannot remove deleted manifest %s in repo %s: %w", digest, repo.FullName(), err)
+				return fmt.Errorf("cannot remove deleted manifest %s in repo %s: %w", digestToBeDeleted, repo.FullName(), err)
 			}
 
 			//remove deletion from work queue (so that we can eventually exit from the outermost loop)
-			delete(shallDeleteManifest, digest)
+			delete(shallDeleteManifest, digestToBeDeleted)
 
 			//track deletion (so that we can eventually start deleting manifests referenced by this one)
-			manifestWasDeleted[digest] = true
+			manifestWasDeleted[digestToBeDeleted] = true
 
 			//track that we're making progress
 			deletedSomething = true
@@ -588,12 +588,12 @@ func (j *Janitor) collectManifestReferencedBlobs(account keppel.Account, repo ke
 	if err != nil {
 		return nil, keppel.ErrManifestInvalid.With(err.Error())
 	}
-	if manifest.Digest != "" && manifestDesc.Digest.String() != manifest.Digest {
+	if manifest.Digest != "" && manifestDesc.Digest != manifest.Digest {
 		return nil, keppel.ErrDigestInvalid.With("actual manifest digest is " + manifestDesc.Digest.String())
 	}
-	isLayer := make(map[string]bool)
+	isLayer := make(map[digest.Digest]bool)
 	for _, desc := range manifestParsed.FindImageLayerBlobs() {
-		isLayer[desc.Digest.String()] = true
+		isLayer[desc.Digest] = true
 	}
 
 	for _, blob := range blobs {
@@ -863,7 +863,7 @@ func (j *Janitor) CheckClairManifestState() error {
 
 	err = sqlext.ForeachRow(j.db, getDigestForIndexStatesToResubmitQuery, []any{j.timeNow().Add(1 * time.Minute), indexStateHash, scheduleNew},
 		func(rows *sql.Rows) error {
-			var digest string
+			var digest digest.Digest
 			err := rows.Scan(&digest)
 			if err != nil {
 				return err
@@ -876,7 +876,7 @@ func (j *Janitor) CheckClairManifestState() error {
 	return err
 }
 
-func (j *Janitor) setManifestAndParentsToPending(ctx context.Context, manifestDigest string) error {
+func (j *Janitor) setManifestAndParentsToPending(ctx context.Context, manifestDigest digest.Digest) error {
 	err := j.cfg.ClairClient.DeleteManifest(ctx, manifestDigest)
 	if err != nil {
 		return err

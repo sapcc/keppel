@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
@@ -128,12 +129,12 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//gather the data for our side of the bargain
-	tagsByDigest := make(map[string][]keppel.TagForSync)
+	tagsByDigest := make(map[digest.Digest][]keppel.TagForSync)
 	query = `SELECT name, digest FROM tags WHERE repo_id = $1`
 	err = sqlext.ForeachRow(a.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
 		var (
 			name   string
-			digest string
+			digest digest.Digest
 		)
 		err = rows.Scan(&name, &digest)
 		if err != nil {
@@ -149,7 +150,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 	var manifests []keppel.ManifestForSync
 	query = `SELECT digest FROM manifests WHERE repo_id = $1`
 	err = sqlext.ForeachRow(a.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
-		var digest string
+		var digest digest.Digest
 		err = rows.Scan(&digest)
 		if err != nil {
 			return err
