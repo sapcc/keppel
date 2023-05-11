@@ -6,7 +6,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.30.2
 	github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
 	github.com/dlmiddlecote/sqlstats v1.0.2
-	github.com/docker/distribution v2.8.1+incompatible
+	github.com/docker/distribution v2.8.2+incompatible
 	github.com/go-gorp/gorp/v3 v3.1.0
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/gofrs/uuid v4.4.0+incompatible
