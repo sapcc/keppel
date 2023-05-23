@@ -560,12 +560,12 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		}
 		// generate a 2 MiB big image to run into blobUncompressedSizeTooBigGiB
 		images = append(images, test.GenerateImage(test.GenerateExampleLayerSize(int64(2), 2)))
-		images[3].MustUpload(t, s, fooRepoRef, "4")
+		images[3].MustUpload(t, s, fooRepoRef, "")
 
 		//also setup an image list manifest containing those images (so that we have
 		//some manifest-manifest refs to play with)
 		imageList := test.GenerateImageList(images[0], images[1])
-		imageList.MustUpload(t, s, fooRepoRef, "5")
+		imageList.MustUpload(t, s, fooRepoRef, "")
 
 		//fake manifest size to check if to big ones (here 10 GiB) are rejected
 		//when uncompressing it is still 1 MiB big those trigger manifestSizeTooBigGiB but not blobUncompressedSizeTooBigGiB
