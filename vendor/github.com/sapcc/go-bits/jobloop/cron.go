@@ -45,6 +45,10 @@ type CronJob struct {
 // metric. At runtime, `nil` can be given to use the default registry. In
 // tests, a test-local prometheus.Registry instance should be used instead.
 func (j *CronJob) Setup(registerer prometheus.Registerer) Job {
+	if j.Task == nil {
+		panic("Task must be set!")
+	}
+
 	j.Metadata.setup(registerer)
 	// NOTE: We wrap `j` into a private type instead of implementing the
 	// Job interface directly on `j` to enforce that callers run Setup().

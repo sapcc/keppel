@@ -492,8 +492,6 @@ type TrivySecurityInfo struct {
 	Message           string                    `db:"message"`
 	NextCheckAt       time.Time                 `db:"next_check_at"` //see tasks.CheckVulnerabilitiesForNextManifest
 	CheckedAt         *time.Time                `db:"checked_at"`
-	IndexStartedAt    *time.Time                `db:"index_started_at"`
-	IndexFinishedAt   *time.Time                `db:"index_finished_at"`
 	CheckDurationSecs *float64                  `db:"check_duration_secs"`
 }
 

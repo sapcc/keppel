@@ -29,6 +29,7 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 	"golang.org/x/crypto/bcrypt"
 
@@ -39,6 +40,7 @@ import (
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/drivers/trivial"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 type setupParams struct {
@@ -48,6 +50,7 @@ type setupParams struct {
 	WithKeppelAPI           bool
 	WithPeerAPI             bool
 	WithClairDouble         bool
+	WithTrivyDouble         bool
 	WithQuotas              bool
 	WithPreviousIssuerKey   bool
 	WithoutCurrentIssuerKey bool
@@ -91,6 +94,11 @@ func WithPeerAPI(params *setupParams) {
 // WithClairDouble is a SetupOption that sets up a ClairDouble at clair.example.org.
 func WithClairDouble(params *setupParams) {
 	params.WithClairDouble = true
+}
+
+// WithTrivyDouble is a SetupOption that sets up a TrivyDouble at trivy.example.org.
+func WithTrivyDouble(params *setupParams) {
+	params.WithTrivyDouble = true
 }
 
 // WithQuotas is a SetupOption that sets up ample quota for all configured accounts.
@@ -148,6 +156,7 @@ type Setup struct {
 	Handler      http.Handler
 	//fields that are only set if the respective With... setup option is included
 	ClairDouble *ClairDouble
+	TrivyDouble *TrivyDouble
 	//fields that are filled by WithAccount and WithRepo (in order)
 	Accounts []*keppel.Account
 	Repos    []*keppel.Repository
@@ -230,8 +239,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	//setup a dummy ClairClient for testing interaction with the Clair API
 	if params.WithClairDouble {
 		s.ClairDouble = NewClairDouble()
-		clairURL, err := url.Parse("https://clair.example.org/")
-		mustDo(t, err)
+		clairURL := must.Return(url.Parse("https://clair.example.org/"))
 
 		s.Config.ClairClient = &clair.Client{
 			BaseURL:      *clairURL,
@@ -239,6 +247,18 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		}
 		if tt, ok := http.DefaultTransport.(*RoundTripper); ok {
 			tt.Handlers[clairURL.Host] = httpapi.Compose(s.ClairDouble)
+		}
+	}
+
+	if params.WithTrivyDouble {
+		s.TrivyDouble = NewTrivyDouble()
+		trivyURL := must.Return(url.Parse("https://trivy.example.org/"))
+
+		s.Config.Trivy = &trivy.Config{
+			URL: *trivyURL,
+		}
+		if tt, ok := http.DefaultTransport.(*RoundTripper); ok {
+			tt.Handlers[trivyURL.Host] = httpapi.Compose(s.TrivyDouble)
 		}
 	}
 

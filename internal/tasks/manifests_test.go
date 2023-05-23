@@ -27,6 +27,7 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/jobloop"
 
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -547,7 +548,7 @@ func answerMostWith404(h http.Handler) http.HandlerFunc {
 
 func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	test.WithRoundTripper(func(_ *test.RoundTripper) {
-		j, s := setup(t, test.WithClairDouble)
+		j, s := setup(t, test.WithClairDouble, test.WithTrivyDouble)
 		s.Clock.StepBy(1 * time.Hour)
 
 		//setup two image manifests with just one content layer (we don't really care about
@@ -585,6 +586,8 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 			s.ClairDouble.IndexFixtures[image.Manifest.Digest] = fmt.Sprintf("fixtures/clair/manifest-%03d.json", idx+1)
 		}
 
+		trivyJob := j.CheckTrivySecurityStatus(s.Registry)
+
 		//first round of CheckVulnerabilitiesForNextManifest should submit manifests
 		//to Clair for indexing, but since Clair is not done indexing yet, images
 		//stay in vulnerability status "Pending" for now
@@ -620,41 +623,65 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 			UPDATE vuln_info SET next_check_at = 5820, checked_at = 5700 WHERE repo_id = 1 AND digest = '%s';
 		`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
 
-		//five minutes later, indexing is finished now and ClairDouble provides vulnerability reports to us
+		// five minutes later, indexing is finished now and ClairDouble provides vulnerability reports to us
+		// trivy is checked here first because it returns result immediately and the above code will be removed when clair support is removed
 		s.ClairDouble.ReportFixtures[images[0].Manifest.Digest] = "fixtures/clair/report-vulnerable.json"
 		s.ClairDouble.ReportFixtures[images[1].Manifest.Digest] = "fixtures/clair/report-clean.json"
+		s.TrivyDouble.ReportFixtures[imageList.ImageRef(s, fooRepoRef).String()] = "fixtures/trivy/report-vulnerable.json"
+		s.TrivyDouble.ReportFixtures[images[0].ImageRef(s, fooRepoRef).String()] = "fixtures/trivy/report-vulnerable.json"
+		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef).String()] = "fixtures/trivy/report-clean.json"
+		s.TrivyDouble.ReportFixtures[images[2].ImageRef(s, fooRepoRef).String()] = "fixtures/trivy/report-vulnerable.json"
+		s.TrivyDouble.ReportFixtures[images[3].ImageRef(s, fooRepoRef).String()] = "fixtures/trivy/report-clean.json"
 		s.Clock.StepBy(5 * time.Minute)
 		//once for each manifest
 		expectSuccess(t, ExecuteN(j.CheckVulnerabilitiesForNextManifest(), 3))
+		expectSuccess(t, jobloop.ProcessMany(trivyJob, 5))
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne())
 		tr.DBChanges().AssertEqualf(`
+			UPDATE trivy_security_info SET status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET status = 'Clean', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET status = 'Clean', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE vuln_info SET status = 'Low', next_check_at = 9600, checked_at = 6000, index_finished_at = 6000 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE vuln_info SET next_check_at = 6120, checked_at = 6000 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE vuln_info SET status = 'Clean', next_check_at = 9600, checked_at = 6000, index_finished_at = 6000 WHERE repo_id = 1 AND digest = '%s';
-		`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
+		`, images[0].Manifest.Digest, imageList.Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest, images[1].Manifest.Digest,
+			images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
 
 		// check that a changed vulnerability status does not have side effects
 		s.ClairDouble.ReportFixtures[images[1].Manifest.Digest] = "fixtures/clair/report-vulnerable.json"
+		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef).String()] = "fixtures/trivy/report-vulnerable.json"
 		s.Clock.StepBy(1 * time.Hour)
 		//once for each manifest
 		expectSuccess(t, ExecuteN(j.CheckVulnerabilitiesForNextManifest(), 3))
+		expectSuccess(t, jobloop.ProcessMany(trivyJob, 5))
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne())
 		tr.DBChanges().AssertEqualf(`
-			UPDATE vuln_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%[1]s';
-			UPDATE vuln_info SET next_check_at = 9720, checked_at = 9600 WHERE repo_id = 1 AND digest = '%[2]s';
-			UPDATE vuln_info SET status = 'Low', next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%[3]s';
-		`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
+			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET status = 'Critical', next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE vuln_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE vuln_info SET next_check_at = 9720, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE vuln_info SET status = 'Low', next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
+		`, images[0].Manifest.Digest, imageList.Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest, images[1].Manifest.Digest,
+			images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
 	})
 }
 
 func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 	test.WithRoundTripper(func(_ *test.RoundTripper) {
-		j, s := setup(t, test.WithClairDouble)
+		j, s := setup(t, test.WithClairDouble, test.WithTrivyDouble)
 		s.Clock.StepBy(1 * time.Hour)
 		tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
+		trivyJob := j.CheckTrivySecurityStatus(s.Registry)
 
 		image := test.GenerateImage(test.GenerateExampleLayer(4))
-		image.MustUpload(t, s, fooRepoRef, "")
+		image.MustUpload(t, s, fooRepoRef, "latest")
 		tr.DBChanges().Ignore()
 
 		// submit manifest to clair
@@ -671,7 +698,9 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		s.Clock.StepBy(30 * time.Minute)
 		s.ClairDouble.IndexFixtures[image.Manifest.Digest] = "fixtures/clair/manifest-004.json"
 		s.ClairDouble.IndexReportFixtures[image.Manifest.Digest] = "fixtures/clair/report-error.json"
+		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef).String()] = true
 		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectError(t, "could not process task for job \"check trivy security status\": trivy proxy did not return 200: 500 simulated error\n", trivyJob.ProcessOne())
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		tr.DBChanges().AssertEqualf(`
 			UPDATE vuln_info SET next_check_at = %[2]d, checked_at = %[3]d, index_started_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
@@ -683,9 +712,14 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		s.ClairDouble.IndexFixtures[image.Manifest.Digest] = "fixtures/clair/manifest-004.json"
 		s.ClairDouble.IndexReportFixtures[image.Manifest.Digest] = ""
 		s.ClairDouble.ReportFixtures[image.Manifest.Digest] = "fixtures/clair/report-vulnerable.json"
+		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef).String()] = false
+		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef).String()] = "fixtures/trivy/report-vulnerable.json"
 		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectSuccess(t, trivyJob.ProcessOne())
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
+		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne())
 		tr.DBChanges().AssertEqualf(`
+			UPDATE trivy_security_info SET status = 'Critical', next_check_at = %[2]d, checked_at = %[3]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[1]s';
 			UPDATE vuln_info SET status = '%[4]s', next_check_at = %[2]d, checked_at = %[3]d, index_finished_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
 		`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), clair.LowSeverity)
 		assert.DeepEqual(t, "delete counter", s.ClairDouble.IndexDeleteCounter, 1)

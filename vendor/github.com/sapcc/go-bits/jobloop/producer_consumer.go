@@ -86,6 +86,13 @@ type ProducerConsumerJob[T any] struct {
 // metric. At runtime, `nil` can be given to use the default registry. In
 // tests, a test-local prometheus.Registry instance should be used instead.
 func (j *ProducerConsumerJob[T]) Setup(registerer prometheus.Registerer) Job {
+	if j.DiscoverTask == nil {
+		panic("DiscoverTask must be set!")
+	}
+	if j.ProcessTask == nil {
+		panic("ProcessTask must be set!")
+	}
+
 	j.Metadata.setup(registerer)
 	// NOTE: We wrap `j` into a private type instead of implementing the
 	// Job interface directly on `j` to enforce that callers run Setup().

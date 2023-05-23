@@ -115,8 +115,13 @@ type TokenResponse struct {
 // IssueToken renders the given Authorization into a JWT token that can be used
 // as a Bearer token to authenticate on Keppel's various APIs.
 func (a Authorization) IssueToken(cfg keppel.Configuration) (*TokenResponse, error) {
+	return a.IssueTokenWithExpires(cfg, 4*time.Hour)
+}
+
+// IssueTokenWithExpires renders the given Authorization into a JWT token that can be used
+// as a Bearer token to authenticate on Keppel's various APIs with configurable expiring time
+func (a Authorization) IssueTokenWithExpires(cfg keppel.Configuration, expiresIn time.Duration) (*TokenResponse, error) {
 	now := time.Now()
-	expiresIn := 4 * time.Hour //NOTE: could be made configurable if the need arises
 	expiresAt := now.Add(expiresIn)
 
 	issuerKeys := a.Audience.IssuerKeys(cfg)

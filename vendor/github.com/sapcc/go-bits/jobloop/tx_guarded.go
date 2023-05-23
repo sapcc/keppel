@@ -84,6 +84,16 @@ type TxGuardedJob[Tx sqlext.Rollbacker, P any] struct {
 // metric. At runtime, `nil` can be given to use the default registry. In
 // tests, a test-local prometheus.Registry instance should be used instead.
 func (j *TxGuardedJob[Tx, P]) Setup(registerer prometheus.Registerer) Job {
+	if j.BeginTx == nil {
+		panic("BeginTx must be set!")
+	}
+	if j.DiscoverRow == nil {
+		panic("DiscoverRow must be set!")
+	}
+	if j.ProcessRow == nil {
+		panic("ProcessRow must be set!")
+	}
+
 	return (&ProducerConsumerJob[*txGuardedTask[Tx, P]]{
 		Metadata:     j.Metadata,
 		DiscoverTask: j.discoverTask,

@@ -37,6 +37,7 @@ import (
 	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/clair"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 // Configuration contains all configuration values that are not specific to a
@@ -48,6 +49,7 @@ type Configuration struct {
 	JWTIssuerKeys            []crypto.PrivateKey
 	AnycastJWTIssuerKeys     []crypto.PrivateKey
 	ClairClient              *clair.Client
+	Trivy                    *trivy.Config
 }
 
 var (
@@ -135,6 +137,14 @@ func ParseConfiguration() Configuration {
 		cfg.ClairClient = &clair.Client{
 			BaseURL:      *clairURL,
 			PresharedKey: key,
+		}
+	}
+
+	trivyURL := mayGetenvURL("KEPPEL_TRIVY_URL")
+	if trivyURL != nil {
+		cfg.Trivy = &trivy.Config{
+			URL:   *trivyURL,
+			Token: osext.MustGetenv("KEPPEL_TRIVY_TOKEN"),
 		}
 	}
 
