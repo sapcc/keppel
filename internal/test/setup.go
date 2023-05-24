@@ -20,6 +20,7 @@
 package test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -154,6 +155,7 @@ type Setup struct {
 	SD           *trivial.StorageDriver
 	ICD          *InboundCacheDriver
 	Handler      http.Handler
+	Ctx          context.Context //nolint: containedctx  // only used in tests
 	//fields that are only set if the respective With... setup option is included
 	ClairDouble *ClairDouble
 	TrivyDouble *TrivyDouble
@@ -218,6 +220,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 			APIPublicHostname: apiPublicHostname,
 			DatabaseURL:       dbURL,
 		},
+		Ctx:        context.Background(),
 		tokenCache: make(map[string]string),
 	}
 

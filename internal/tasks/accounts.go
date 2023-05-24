@@ -19,6 +19,7 @@
 package tasks
 
 import (
+	"context"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -46,7 +47,7 @@ var accountAnnouncementDoneQuery = sqlext.SimplifyWhitespace(`
 // announced to the FederationDriver in more than an hour, and announces it. If
 // no accounts need to be announced, sql.ErrNoRows is returned to instruct the
 // caller to slow down.
-func (j *Janitor) AnnounceAccountToFederationJob(registerer prometheus.Registerer) jobloop.Job {
+func (j *Janitor) AnnounceAccountToFederationJob(registerer prometheus.Registerer) jobloop.Job { //nolint: dupl // interface implementation of different things
 	return (&jobloop.ProducerConsumerJob[keppel.Account]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "announce accounts to federation",
@@ -55,7 +56,7 @@ func (j *Janitor) AnnounceAccountToFederationJob(registerer prometheus.Registere
 				Help: "Counter for announcements of existing accounts to the federation driver.",
 			},
 		},
-		DiscoverTask: func(_ prometheus.Labels) (account keppel.Account, err error) {
+		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (account keppel.Account, err error) {
 			err = j.db.SelectOne(&account, accountAnnouncementSearchQuery, j.timeNow())
 			return account, err
 		},
@@ -63,7 +64,7 @@ func (j *Janitor) AnnounceAccountToFederationJob(registerer prometheus.Registere
 	}).Setup(registerer)
 }
 
-func (j *Janitor) processFederationAnnouncement(account keppel.Account, labels prometheus.Labels) error {
+func (j *Janitor) processFederationAnnouncement(_ context.Context, account keppel.Account, labels prometheus.Labels) error {
 	err := j.fd.RecordExistingAccount(account, j.timeNow())
 	if err != nil {
 		//since the announcement is not critical for day-to-day operation, we

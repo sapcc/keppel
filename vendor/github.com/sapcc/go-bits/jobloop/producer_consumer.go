@@ -71,7 +71,7 @@ type ProducerConsumerJob[T any] struct {
 	// Metadata.CounterLabels and all label values set to "early-db-access". The
 	// implementation is expected to substitute the actual label values as soon
 	// as they become known.
-	DiscoverTask func(prometheus.Labels) (T, error)
+	DiscoverTask func(context.Context, prometheus.Labels) (T, error)
 	// A function that will be used to process a task that has been discovered
 	// within this job.
 	//
@@ -79,7 +79,7 @@ type ProducerConsumerJob[T any] struct {
 	// Metadata.CounterLabels and all label values set to "early-db-access". The
 	// implementation is expected to substitute the actual label values as soon
 	// as they become known.
-	ProcessTask func(T, prometheus.Labels) error
+	ProcessTask func(context.Context, T, prometheus.Labels) error
 }
 
 // Setup builds the Job interface for this job and registers the counter
@@ -105,9 +105,9 @@ type producerConsumerJobImpl[T any] struct {
 
 // Core producer-side behavior. This is used by ProcessOne in unit tests, as
 // well as by runSingleThreaded and runMultiThreaded in production.
-func (j *ProducerConsumerJob[T]) produceOne() (T, prometheus.Labels, error) {
+func (j *ProducerConsumerJob[T]) produceOne(ctx context.Context) (T, prometheus.Labels, error) {
 	labels := j.Metadata.makeLabels()
-	task, err := j.DiscoverTask(labels)
+	task, err := j.DiscoverTask(ctx, labels)
 	if err != nil && err != sql.ErrNoRows {
 		err = fmt.Errorf("could not select task for job %q: %w", j.Metadata.ReadableName, err)
 		j.Metadata.countTask(labels, err)
@@ -117,8 +117,8 @@ func (j *ProducerConsumerJob[T]) produceOne() (T, prometheus.Labels, error) {
 
 // Core consumer-side behavior. This is used by ProcessOne in unit tests, as
 // well as by runSingleThreaded and runMultiThreaded in production.
-func (j *ProducerConsumerJob[T]) consumeOne(task T, labels prometheus.Labels) error {
-	err := j.ProcessTask(task, labels)
+func (j *ProducerConsumerJob[T]) consumeOne(ctx context.Context, task T, labels prometheus.Labels) error {
+	err := j.ProcessTask(ctx, task, labels)
 	if err != nil {
 		err = fmt.Errorf("could not process task for job %q: %w", j.Metadata.ReadableName, err)
 	}
@@ -127,14 +127,14 @@ func (j *ProducerConsumerJob[T]) consumeOne(task T, labels prometheus.Labels) er
 }
 
 // ProcessOne implements the jobloop.Job interface.
-func (i producerConsumerJobImpl[T]) ProcessOne() error {
+func (i producerConsumerJobImpl[T]) ProcessOne(ctx context.Context) error {
 	j := i.j
 
-	task, labels, err := j.produceOne()
+	task, labels, err := j.produceOne(ctx)
 	if err != nil {
 		return err
 	}
-	return j.consumeOne(task, labels)
+	return j.consumeOne(ctx, task, labels)
 }
 
 // Run implements the jobloop.Job interface.
@@ -157,7 +157,7 @@ func (i producerConsumerJobImpl[T]) Run(ctx context.Context, opts ...Option) {
 // Implementation of Run() for `cfg.NumGoroutines == 1`.
 func (i producerConsumerJobImpl[T]) runSingleThreaded(ctx context.Context) {
 	for ctx.Err() == nil { //while ctx has not expired
-		err := i.ProcessOne()
+		err := i.ProcessOne(ctx)
 		logAndSlowDownOnError(err)
 	}
 }
@@ -178,7 +178,7 @@ func (i producerConsumerJobImpl[T]) runMultiThreaded(ctx context.Context, numGor
 	go func(ch chan<- taskWithLabels[T]) {
 		defer wg.Done()
 		for ctx.Err() == nil { //while ctx has not expired
-			task, labels, err := j.produceOne()
+			task, labels, err := j.produceOne(ctx)
 			if err == nil {
 				ch <- taskWithLabels[T]{task, labels}
 			} else {
@@ -199,7 +199,7 @@ func (i producerConsumerJobImpl[T]) runMultiThreaded(ctx context.Context, numGor
 		go func(ch <-chan taskWithLabels[T]) {
 			defer wg.Done()
 			for item := range ch {
-				err := j.consumeOne(item.Task, item.Labels)
+				err := j.consumeOne(ctx, item.Task, item.Labels)
 				if err != nil {
 					logg.Error(err.Error())
 				}

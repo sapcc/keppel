@@ -59,8 +59,8 @@ func TestGCUntaggedImages(t *testing.T) {
 
 	//GC should not do anything right now because newly-pushed images are
 	//protected (to avoid deleting images that a client is about to tag)
-	expectSuccess(t, garbageJob.ProcessOne())
-	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne())
+	expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
 	tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
 
 	//setup GC policy that does not match
@@ -73,8 +73,8 @@ func TestGCUntaggedImages(t *testing.T) {
 
 	//GC should only update the next_gc_at timestamp and the gc_status_json field
 	//(indicating that no policies match), and otherwise not do anything
-	expectSuccess(t, garbageJob.ProcessOne())
-	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne())
+	expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET gc_policies_json = '%[1]s' WHERE name = 'test1';
 			UPDATE manifests SET gc_status_json = '{"relevant_policies":[]}' WHERE repo_id = 1 AND digest = '%[2]s';
@@ -99,8 +99,8 @@ func TestGCUntaggedImages(t *testing.T) {
 	tr.DBChanges().Ignore()
 
 	//GC should not delete the untagged image since it's referenced by the tagged list image
-	expectSuccess(t, garbageJob.ProcessOne())
-	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne())
+	expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
 			UPDATE manifests SET gc_status_json = '{"protected_by_parent":"%[1]s"}' WHERE repo_id = 1 AND digest = '%[2]s';
 			UPDATE manifests SET gc_status_json = '{"protected_by_recent_upload":true}' WHERE repo_id = 1 AND digest = '%[1]s';
@@ -123,8 +123,8 @@ func TestGCUntaggedImages(t *testing.T) {
 	s.Auditor.IgnoreEventsUntilNow()
 
 	//GC should now delete the untagged image since nothing references it anymore
-	expectSuccess(t, garbageJob.ProcessOne())
-	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne())
+	expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
 			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[2]s' AND blob_id = 3;
 			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[2]s' AND blob_id = 4;
@@ -212,8 +212,8 @@ func TestGCMatchOnTag(t *testing.T) {
 	//protectingGCPolicyJSON1 protects images[1], and so forth, so only images[0]
 	//should end up getting deleted (NOTE: in the DB diff, the manifests are not
 	//in order because easypg orders them by primary key, i.e. by digest)
-	expectSuccess(t, garbageJob.ProcessOne())
-	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne())
+	expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
 			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 1;
 			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 2;
@@ -306,8 +306,8 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 		//...so only images[3] gets garbage-collected (NOTE: in the DB diff, the
 		//manifests are not in order because easypg orders them by primary key, i.e.
 		//by digest)
-		expectSuccess(t, garbageJob.ProcessOne())
-		expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne())
+		expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
+		expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
 			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[4]s' AND blob_id = 7;
 			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[4]s' AND blob_id = 8;
@@ -368,8 +368,8 @@ func TestGCProtectComesTooLate(t *testing.T) {
 	garbageJob := j.GarbageCollectManifestsJob(s.Registry)
 
 	//therefore, images[1] gets deleted
-	expectSuccess(t, garbageJob.ProcessOne())
-	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne())
+	expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
 			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[2]s' AND blob_id = 3;
 			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[2]s' AND blob_id = 4;

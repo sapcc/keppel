@@ -635,9 +635,9 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		s.Clock.StepBy(5 * time.Minute)
 		//once for each manifest
 		expectSuccess(t, ExecuteN(j.CheckVulnerabilitiesForNextManifest(), 3))
-		expectSuccess(t, jobloop.ProcessMany(trivyJob, 5))
+		expectSuccess(t, jobloop.ProcessMany(trivyJob, s.Ctx, 5))
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne())
+		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
 			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
@@ -656,9 +656,9 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		s.Clock.StepBy(1 * time.Hour)
 		//once for each manifest
 		expectSuccess(t, ExecuteN(j.CheckVulnerabilitiesForNextManifest(), 3))
-		expectSuccess(t, jobloop.ProcessMany(trivyJob, 5))
+		expectSuccess(t, jobloop.ProcessMany(trivyJob, s.Ctx, 5))
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne())
+		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
 			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
@@ -700,7 +700,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		s.ClairDouble.IndexReportFixtures[image.Manifest.Digest] = "fixtures/clair/report-error.json"
 		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef).String()] = true
 		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-		expectError(t, "could not process task for job \"check trivy security status\": trivy proxy did not return 200: 500 simulated error\n", trivyJob.ProcessOne())
+		expectError(t, "could not process task for job \"check trivy security status\": trivy proxy did not return 200: 500 simulated error\n", trivyJob.ProcessOne(s.Ctx))
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		tr.DBChanges().AssertEqualf(`
 			UPDATE vuln_info SET next_check_at = %[2]d, checked_at = %[3]d, index_started_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
@@ -715,9 +715,9 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef).String()] = false
 		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef).String()] = "fixtures/trivy/report-vulnerable.json"
 		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-		expectSuccess(t, trivyJob.ProcessOne())
+		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne())
+		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
 			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[2]d, checked_at = %[3]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[1]s';
 			UPDATE vuln_info SET status = '%[4]s', next_check_at = %[2]d, checked_at = %[3]d, index_finished_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
