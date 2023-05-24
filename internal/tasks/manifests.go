@@ -983,7 +983,7 @@ func (j *Janitor) doSecurityCheck(account keppel.Account, repo keppel.Repository
 		} else {
 			securityInfo.Message = err.Error()
 			securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(5 * time.Minute))
-			securityInfo.Status = clair.ErrorVulnerabilityStatus
+			securityInfo.VulnerabilityStatus = clair.ErrorVulnerabilityStatus
 		}
 	}()
 
@@ -1025,7 +1025,7 @@ func (j *Janitor) doSecurityCheck(account keppel.Account, repo keppel.Repository
 	}
 
 	//merge all vulnerability statuses
-	securityInfo.Status = clair.MergeVulnerabilityStatuses(securityStatuses...)
+	securityInfo.VulnerabilityStatus = clair.MergeVulnerabilityStatuses(securityStatuses...)
 	//regular recheck loop (vulnerability status might change if Clair adds new vulnerabilities to its DB)
 	securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(1 * time.Hour))
 
@@ -1044,7 +1044,7 @@ func (j *Janitor) checkPreConditionsForTrivy(account keppel.Account, repo keppel
 			continue
 		}
 
-		securityInfo.Status = clair.UnsupportedVulnerabilityStatus
+		securityInfo.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
 		securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
 		securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
 		return false, nil

@@ -461,7 +461,7 @@ var upsertManifestVulnerabilityInfo = sqlext.SimplifyWhitespace(`
 `)
 
 var upsertManifestSecurityInfo = sqlext.SimplifyWhitespace(`
-	INSERT INTO trivy_security_info (repo_id, digest, status, message, next_check_at)
+	INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at)
 	VALUES ($1, $2, $3, $4, $5)
 	ON CONFLICT DO NOTHING
 `)

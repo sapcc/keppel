@@ -244,6 +244,12 @@ var sqlMigrations = map[string]string{
 	"032_trivy.down.sql": `
 		DROP TABLE trivy_security_info;
 	`,
+	"033_trivy.up.sql": `
+		ALTER TABLE trivy_security_info RENAME COLUMN status TO vuln_status;
+	`,
+	"033_trivy.down.sql": `
+		ALTER TABLE trivy_security_info RENAME COLUMN vuln_status TO status;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.

@@ -486,13 +486,13 @@ func GetVulnerabilityInfo(db gorp.SqlExecutor, repoID int64, manifestDigest dige
 ////////////////////////////////////////////////////////////////////////////////
 
 type TrivySecurityInfo struct {
-	RepositoryID      int64                     `db:"repo_id"`
-	Digest            digest.Digest             `db:"digest"`
-	Status            clair.VulnerabilityStatus `db:"status"`
-	Message           string                    `db:"message"`
-	NextCheckAt       time.Time                 `db:"next_check_at"` //see tasks.CheckVulnerabilitiesForNextManifest
-	CheckedAt         *time.Time                `db:"checked_at"`
-	CheckDurationSecs *float64                  `db:"check_duration_secs"`
+	RepositoryID        int64                     `db:"repo_id"`
+	Digest              digest.Digest             `db:"digest"`
+	VulnerabilityStatus clair.VulnerabilityStatus `db:"vuln_status"`
+	Message             string                    `db:"message"`
+	NextCheckAt         time.Time                 `db:"next_check_at"` //see tasks.CheckVulnerabilitiesForNextManifest
+	CheckedAt           *time.Time                `db:"checked_at"`
+	CheckDurationSecs   *float64                  `db:"check_duration_secs"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////
