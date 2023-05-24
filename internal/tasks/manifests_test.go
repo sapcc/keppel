@@ -639,11 +639,11 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne())
 		tr.DBChanges().AssertEqualf(`
-			UPDATE trivy_security_info SET status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE trivy_security_info SET status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE trivy_security_info SET status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE trivy_security_info SET status = 'Clean', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE trivy_security_info SET status = 'Clean', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET vuln_status = 'Clean', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET vuln_status = 'Clean', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE vuln_info SET status = 'Low', next_check_at = 9600, checked_at = 6000, index_finished_at = 6000 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE vuln_info SET next_check_at = 6120, checked_at = 6000 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE vuln_info SET status = 'Clean', next_check_at = 9600, checked_at = 6000, index_finished_at = 6000 WHERE repo_id = 1 AND digest = '%s';
@@ -664,7 +664,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE trivy_security_info SET status = 'Critical', next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE vuln_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE vuln_info SET next_check_at = 9720, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE vuln_info SET status = 'Low', next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
@@ -719,7 +719,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne())
 		tr.DBChanges().AssertEqualf(`
-			UPDATE trivy_security_info SET status = 'Critical', next_check_at = %[2]d, checked_at = %[3]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[1]s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[2]d, checked_at = %[3]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[1]s';
 			UPDATE vuln_info SET status = '%[4]s', next_check_at = %[2]d, checked_at = %[3]d, index_finished_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
 		`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), clair.LowSeverity)
 		assert.DeepEqual(t, "delete counter", s.ClairDouble.IndexDeleteCounter, 1)

@@ -305,6 +305,10 @@ func TestImageManifestLifecycle(t *testing.T) {
 			if err != nil {
 				t.Fatal(err.Error())
 			}
+			_, err = s.DB.Exec(`UPDATE trivy_security_info SET vuln_status = $1 WHERE digest = $2`, clair.CleanSeverity, image.Manifest.Digest.String())
+			if err != nil {
+				t.Fatal(err.Error())
+			}
 
 			for _, method := range []string{"GET", "HEAD"} {
 				assert.HTTPRequest{
@@ -313,10 +317,11 @@ func TestImageManifestLifecycle(t *testing.T) {
 					Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
 					ExpectStatus: http.StatusOK,
 					ExpectHeader: map[string]string{
-						test.VersionHeaderKey:           test.VersionHeaderValue,
-						"X-Keppel-Vulnerability-Status": string(clair.CleanSeverity),
-						"X-Keppel-Min-Layer-Created-At": "23",
-						"X-Keppel-Max-Layer-Created-At": "42",
+						test.VersionHeaderKey:                 test.VersionHeaderValue,
+						"X-Keppel-Vulnerability-Status":       string(clair.CleanSeverity),
+						"X-Keppel-Trivy-Vulnerability-Status": string(clair.CleanSeverity),
+						"X-Keppel-Min-Layer-Created-At":       "23",
+						"X-Keppel-Max-Layer-Created-At":       "42",
 					},
 				}.Check(t, h)
 			}

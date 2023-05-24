@@ -52,10 +52,10 @@ INSERT INTO repos (id, account_name, name) VALUES (1, 'test1', 'foo');
 INSERT INTO tags (repo_id, name, digest, pushed_at, last_pulled_at) VALUES (1, 'latest', 'sha256:207a16511ab28a6c3ff0ad6e483ba79fb59a9ebf3721c94e4b91b825bfecf223', 3600, 32);
 INSERT INTO tags (repo_id, name, digest, pushed_at, last_pulled_at) VALUES (1, 'other', 'sha256:207a16511ab28a6c3ff0ad6e483ba79fb59a9ebf3721c94e4b91b825bfecf223', 3600, 52);
 
-INSERT INTO trivy_security_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:0b5b811e448f3003b03549e2f2c58c89ca8ea944b4594c20c4ca7ea0885024cb', 'Pending', '', 3600);
-INSERT INTO trivy_security_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:207a16511ab28a6c3ff0ad6e483ba79fb59a9ebf3721c94e4b91b825bfecf223', 'Pending', '', 3600);
-INSERT INTO trivy_security_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:7cefe08689844ee549c7168fd99cf844a7c6117e09e1b728cdd6a18e4645d8b3', 'Pending', '', 3600);
-INSERT INTO trivy_security_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:edc51c987fd8b320a7496ca6bd97c9e5534368f8f8ee9d7ede8a489ee93fec18', 'Pending', '', 3600);
+INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (1, 'sha256:0b5b811e448f3003b03549e2f2c58c89ca8ea944b4594c20c4ca7ea0885024cb', 'Pending', '', 3600);
+INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (1, 'sha256:207a16511ab28a6c3ff0ad6e483ba79fb59a9ebf3721c94e4b91b825bfecf223', 'Pending', '', 3600);
+INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (1, 'sha256:7cefe08689844ee549c7168fd99cf844a7c6117e09e1b728cdd6a18e4645d8b3', 'Pending', '', 3600);
+INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (1, 'sha256:edc51c987fd8b320a7496ca6bd97c9e5534368f8f8ee9d7ede8a489ee93fec18', 'Pending', '', 3600);
 
 INSERT INTO vuln_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:0b5b811e448f3003b03549e2f2c58c89ca8ea944b4594c20c4ca7ea0885024cb', 'Pending', '', 3600);
 INSERT INTO vuln_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:207a16511ab28a6c3ff0ad6e483ba79fb59a9ebf3721c94e4b91b825bfecf223', 'Pending', '', 3600);
