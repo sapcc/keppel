@@ -109,9 +109,14 @@ func (a *API) proxyToTrivy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	format := query.Get("format")
+	if format == "" {
+		format = "json"
+	}
+
 	keppelToken := r.Header.Get(trivy.KeppelTokenHeader)
 
-	stdout, stderr, err := a.runTrivy(r.Context(), imageURL, keppelToken)
+	stdout, stderr, err := a.runTrivy(r.Context(), imageURL, format, keppelToken)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("trivy: %s:\n%s", err, stderr), http.StatusInternalServerError)
 		return
@@ -122,7 +127,7 @@ func (a *API) proxyToTrivy(w http.ResponseWriter, r *http.Request) {
 	w.Write(stdout)
 }
 
-func (a *API) runTrivy(ctx context.Context, imageURL, keppelToken string) (stdout, stderr []byte, err error) {
+func (a *API) runTrivy(ctx context.Context, imageURL, format, keppelToken string) (stdout, stderr []byte, err error) {
 	//nolint:gosec //intented behaviour
 	cmd := exec.CommandContext(ctx,
 		"trivy", "image",
@@ -132,7 +137,7 @@ func (a *API) runTrivy(ctx context.Context, imageURL, keppelToken string) (stdou
 		"--java-db-repository", a.dbMirrorPrefix+"/aquasecurity/trivy-java-db",
 		"--server", a.trivyURL,
 		"--registry-token", keppelToken,
-		"--format", "json",
+		"--format", format,
 		"--token", a.token,
 		imageURL)
 	var stdoutBuf, stderrBuf bytes.Buffer

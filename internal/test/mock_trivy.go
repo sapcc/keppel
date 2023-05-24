@@ -29,20 +29,22 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
+
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // TrivyDouble acts as a test double for a Trivy API.
 type TrivyDouble struct {
 	T              *testing.T
-	ReportError    map[string]bool
-	ReportFixtures map[string]string
+	ReportError    map[models.ImageReference]bool
+	ReportFixtures map[models.ImageReference]string
 }
 
 // NewTrivyDouble creates a TrivyDouble.
 func NewTrivyDouble() *TrivyDouble {
 	return &TrivyDouble{
-		ReportError:    make(map[string]bool),
-		ReportFixtures: make(map[string]string),
+		ReportError:    make(map[models.ImageReference]bool),
+		ReportFixtures: make(map[models.ImageReference]string),
 	}
 }
 
@@ -56,16 +58,20 @@ func (t *TrivyDouble) AddTo(r *mux.Router) {
 func (t *TrivyDouble) mockRunTrivy(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/trivy")
 
-	image := r.URL.Query().Get("image")
+	imageRef, _, err := models.ParseImageReference(r.URL.Query().Get("image"))
+	if err != nil {
+		http.Error(w, fmt.Sprintf("can't parse image reference: %s", err.Error()), http.StatusUnprocessableEntity)
+		return
+	}
 
-	if t.ReportError[image] {
+	if t.ReportError[imageRef] {
 		http.Error(w, "simulated error", http.StatusInternalServerError)
 		return
 	}
 
-	fixturePath := t.ReportFixtures[image]
+	fixturePath := t.ReportFixtures[imageRef]
 	if fixturePath == "" {
-		http.Error(w, fmt.Sprintf("fixture for image '%s' not found", image), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("fixture for image '%s' not found", imageRef), http.StatusInternalServerError)
 		return
 	}
 

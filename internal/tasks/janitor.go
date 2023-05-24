@@ -100,7 +100,7 @@ func (j *Janitor) processor() *processor.Processor {
 // janitorUserIdentity
 
 // janitorUserIdentity is a keppel.UserIdentity for the janitor user. It is only
-// used for generating audit events.
+// used for generating audit events and issuing tokens for internal services like Trivy.
 type janitorUserIdentity struct {
 	TaskName string
 	GCPolicy *keppel.GCPolicy
@@ -133,12 +133,15 @@ func (uid janitorUserIdentity) UserInfo() audittools.UserInfo {
 
 // SerializeToJSON implements the keppel.UserIdentity interface.
 func (uid janitorUserIdentity) SerializeToJSON() (payload []byte, err error) {
-	return nil, errors.New("janitorUserIdentity.SerializeToJSON is not allowed")
+	if uid.GCPolicy != nil {
+		return nil, errors.New("janitorUserIdentity.SerializeToJSON is not allowed")
+	}
+	return json.Marshal(uid.TaskName)
 }
 
 // DeserializeFromJSON implements the keppel.UserIdentity interface.
 func (uid janitorUserIdentity) DeserializeFromJSON(in []byte, ad keppel.AuthDriver) error {
-	return errors.New("janitorUserIdentity.DeserializeFromJSON is not allowed")
+	return json.Unmarshal(in, &uid.TaskName)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

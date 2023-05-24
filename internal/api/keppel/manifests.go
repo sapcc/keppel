@@ -22,8 +22,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
@@ -33,6 +35,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // Manifest represents a manifest in the API.
@@ -326,4 +329,88 @@ func (a *API) handleGetVulnerabilityReport(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	respondwith.JSON(w, http.StatusOK, clairReport)
+}
+
+func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests/:digest/trivy_report")
+	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanPullFromAccount))
+	if authz == nil {
+		return
+	}
+	account := a.findAccountFromRequest(w, r, authz)
+	if account == nil {
+		return
+	}
+	repo := a.findRepositoryFromRequest(w, r, *account)
+	if repo == nil {
+		return
+	}
+	parsedDigest, err := digest.Parse(mux.Vars(r)["digest"])
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	manifest, err := keppel.FindManifest(a.db, *repo, parsedDigest)
+	if err == sql.ErrNoRows {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
+	securityInfo, err := keppel.GetSecurityInfo(a.db, repo.ID, parsedDigest)
+	if err == sql.ErrNoRows {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
+	//there is no vulnerability report if:
+	//- we don't have vulnerability scanning enabled at all
+	//- vulnerability scanning is not done yet
+	//- the image does not have any blobs that could be scanned for vulnerabilities
+	blobCount, err := a.db.SelectInt(
+		`SELECT COUNT(*) FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`,
+		repo.ID, manifest.Digest,
+	)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	if a.cfg.Trivy == nil || !securityInfo.VulnerabilityStatus.HasReport() || blobCount == 0 {
+		http.Error(w, "no vulnerability report found", http.StatusMethodNotAllowed)
+		return
+	}
+
+	imageRef := models.ImageReference{
+		Host:      a.cfg.APIPublicHostname,
+		RepoName:  fmt.Sprintf("%s/%s", account.Name, repo.Name),
+		Reference: models.ManifestReference{Digest: manifest.Digest},
+	}
+
+	token, err := authz.IssueTokenWithExpires(a.cfg, 20*time.Minute)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
+	format := r.URL.Query().Get("format")
+	if format == "" {
+		format = "json"
+	}
+
+	if format != "json" && format != "spdx-json" {
+		http.Error(w, fmt.Sprintf("format %s not supported", html.EscapeString(format)), http.StatusBadRequest)
+		return
+	}
+
+	report, err := a.cfg.Trivy.ScanManifest(r.Context(), token.Token, imageRef, format)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(report)
 }
