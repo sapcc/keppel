@@ -471,8 +471,6 @@ type VulnerabilityInfo struct {
 	CheckDurationSecs *float64                  `db:"check_duration_secs"`
 }
 
-// GetVulnerabilityInfo works similar to db.SelectOne(), but creates a VulnerabilityInfo instead of returning
-// sql.ErrNoRows if none existed.
 func GetVulnerabilityInfo(db gorp.SqlExecutor, repoID int64, manifestDigest digest.Digest) (*VulnerabilityInfo, error) {
 	var vulnInfo *VulnerabilityInfo
 	err := db.SelectOne(&vulnInfo,
@@ -493,6 +491,16 @@ type TrivySecurityInfo struct {
 	NextCheckAt         time.Time                 `db:"next_check_at"` //see tasks.CheckVulnerabilitiesForNextManifest
 	CheckedAt           *time.Time                `db:"checked_at"`
 	CheckDurationSecs   *float64                  `db:"check_duration_secs"`
+}
+
+func GetSecurityInfo(db gorp.SqlExecutor, repoID int64, manifestDigest digest.Digest) (*TrivySecurityInfo, error) {
+	var securityInfo *TrivySecurityInfo
+	err := db.SelectOne(&securityInfo,
+		"SELECT * FROM trivy_security_info WHERE repo_id = $1 and digest = $2",
+		repoID, manifestDigest,
+	)
+
+	return securityInfo, err
 }
 
 ////////////////////////////////////////////////////////////////////////////////

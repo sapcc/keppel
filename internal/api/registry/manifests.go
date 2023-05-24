@@ -169,12 +169,22 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	securityInfo, err := keppel.GetSecurityInfo(a.db, dbManifest.RepositoryID, dbManifest.Digest)
+	if err != sql.ErrNoRows {
+		if respondWithError(w, r, err) {
+			return
+		}
+	}
+
 	//write response
 	w.Header().Set("Content-Length", strconv.FormatUint(uint64(len(manifestBytes)), 10))
 	w.Header().Set("Content-Type", dbManifest.MediaType)
 	w.Header().Set("Docker-Content-Digest", dbManifest.Digest.String())
 	if vulnerability != nil {
 		w.Header().Set("X-Keppel-Vulnerability-Status", string(vulnerability.Status))
+	}
+	if securityInfo != nil {
+		w.Header().Set("X-Keppel-Trivy-Vulnerability-Status", string(securityInfo.VulnerabilityStatus))
 	}
 	if dbManifest.MinLayerCreatedAt != nil {
 		w.Header().Set("X-Keppel-Min-Layer-Created-At", timeToString(*dbManifest.MinLayerCreatedAt))
