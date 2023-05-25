@@ -89,7 +89,7 @@ func testDeleteUpload(t *testing.T, setupUploadObject func(keppel.StorageDriver,
 
 	//right now, there are no upload objects, so DeleteNextAbandonedUpload should indicate that
 	s.Clock.StepBy(48 * time.Hour)
-	expectNoRows(t, uploadJob.ProcessOne())
+	expectNoRows(t, uploadJob.ProcessOne(s.Ctx))
 
 	//create the upload object for this test
 	upload := setupUploadObject(s.SD, account)
@@ -105,11 +105,11 @@ func testDeleteUpload(t *testing.T, setupUploadObject func(keppel.StorageDriver,
 
 	//DeleteNextAbandonedUpload should not do anything since this upload is fairly recent
 	s.Clock.StepBy(3 * time.Hour)
-	expectNoRows(t, uploadJob.ProcessOne())
+	expectNoRows(t, uploadJob.ProcessOne(s.Ctx))
 
 	//after a day has passed, DeleteNextAbandonedUpload should clean up this upload
 	s.Clock.StepBy(24 * time.Hour)
-	err = uploadJob.ProcessOne()
+	err = uploadJob.ProcessOne(s.Ctx)
 	if err != nil {
 		t.Errorf("expected no error, but got: %s", err.Error())
 	}
@@ -118,7 +118,7 @@ func testDeleteUpload(t *testing.T, setupUploadObject func(keppel.StorageDriver,
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/after-delete-upload.sql")
 
 	//and once again, DeleteNextAbandonedUpload should indicate that there's nothing to do
-	expectNoRows(t, uploadJob.ProcessOne())
+	expectNoRows(t, uploadJob.ProcessOne(s.Ctx))
 }
 
 func expectNoRows(t *testing.T, err error) {

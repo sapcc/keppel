@@ -19,6 +19,7 @@
 package tasks
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -53,7 +54,7 @@ var imageGCRepoDoneQuery = sqlext.SimplifyWhitespace(`
 `)
 
 // GarbageCollectManifestsInNextRepo finds the next repository where GC has not been performed for more than an hour
-func (j *Janitor) GarbageCollectManifestsJob(registerer prometheus.Registerer) jobloop.Job {
+func (j *Janitor) GarbageCollectManifestsJob(registerer prometheus.Registerer) jobloop.Job { //nolint: dupl // interface implementation of different things
 	return (&jobloop.ProducerConsumerJob[keppel.Repository]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "garbage collect manifest",
@@ -62,7 +63,7 @@ func (j *Janitor) GarbageCollectManifestsJob(registerer prometheus.Registerer) j
 				Help: "Counter for garbage collection runs in repos.",
 			},
 		},
-		DiscoverTask: func(_ prometheus.Labels) (repo keppel.Repository, err error) {
+		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (repo keppel.Repository, err error) {
 			err = j.db.SelectOne(&repo, imageGCRepoSelectQuery, j.timeNow())
 			return repo, err
 		},
@@ -70,7 +71,7 @@ func (j *Janitor) GarbageCollectManifestsJob(registerer prometheus.Registerer) j
 	}).Setup(registerer)
 }
 
-func (j *Janitor) processGarbageCollectManifest(repo keppel.Repository, labels prometheus.Labels) (returnErr error) {
+func (j *Janitor) processGarbageCollectManifest(_ context.Context, repo keppel.Repository, labels prometheus.Labels) (returnErr error) {
 	//load GC policies for this repository
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {

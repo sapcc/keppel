@@ -915,7 +915,7 @@ func (j *Janitor) CheckTrivySecurityStatus(registerer prometheus.Registerer) job
 			},
 		},
 		BeginTx: j.db.Begin,
-		DiscoverRow: func(tx *gorp.Transaction, _ prometheus.Labels) (securityInfo keppel.TrivySecurityInfo, err error) {
+		DiscoverRow: func(_ context.Context, tx *gorp.Transaction, _ prometheus.Labels) (securityInfo keppel.TrivySecurityInfo, err error) {
 			err = tx.SelectOne(&securityInfo, securityCheckSelectQuery, j.timeNow())
 			return securityInfo, err
 		},
@@ -923,7 +923,7 @@ func (j *Janitor) CheckTrivySecurityStatus(registerer prometheus.Registerer) job
 	}).Setup(registerer)
 }
 
-func (j *Janitor) processTrivySecurityInfo(tx *gorp.Transaction, securityInfo keppel.TrivySecurityInfo, labels prometheus.Labels) error {
+func (j *Janitor) processTrivySecurityInfo(_ context.Context, tx *gorp.Transaction, securityInfo keppel.TrivySecurityInfo, labels prometheus.Labels) error {
 	//load corresponding repo, account and manifest
 	repo, err := keppel.FindRepositoryByID(tx, securityInfo.RepositoryID)
 	if err != nil {

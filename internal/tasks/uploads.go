@@ -19,6 +19,7 @@
 package tasks
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -58,7 +59,7 @@ func (j *Janitor) DeleteAbandonedUploadJob(registerer prometheus.Registerer) job
 			},
 		},
 		BeginTx: j.db.Begin,
-		DiscoverRow: func(tx *gorp.Transaction, _ prometheus.Labels) (upload keppel.Upload, err error) {
+		DiscoverRow: func(_ context.Context, tx *gorp.Transaction, _ prometheus.Labels) (upload keppel.Upload, err error) {
 			maxUpdatedAt := j.timeNow().Add(-24 * time.Hour)
 			err = tx.SelectOne(&upload, abandonedUploadSearchQuery, maxUpdatedAt)
 			return upload, err
@@ -67,7 +68,7 @@ func (j *Janitor) DeleteAbandonedUploadJob(registerer prometheus.Registerer) job
 	}).Setup(registerer)
 }
 
-func (j *Janitor) processAbandonedUpload(tx *gorp.Transaction, upload keppel.Upload, labels prometheus.Labels) error {
+func (j *Janitor) processAbandonedUpload(_ context.Context, tx *gorp.Transaction, upload keppel.Upload, labels prometheus.Labels) error {
 	//find corresponding account
 	var account keppel.Account
 	err := tx.SelectOne(&account, findAccountForRepoQuery, upload.RepositoryID)

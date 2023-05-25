@@ -38,7 +38,7 @@ type CronJob struct {
 	// Metadata.CounterLabels and all label values set to "early-db-access".
 	// The implementation is expected to substitute the actual label values as
 	// soon as they become known.
-	Task func(prometheus.Labels) error
+	Task func(context.Context, prometheus.Labels) error
 }
 
 // Setup builds the Job interface for this job and registers the counter
@@ -60,11 +60,11 @@ type cronJobImpl struct {
 }
 
 // ProcessOne implements the Job interface.
-func (i cronJobImpl) ProcessOne() error {
+func (i cronJobImpl) ProcessOne(ctx context.Context) error {
 	j := i.j
 
 	labels := j.Metadata.makeLabels()
-	err := j.Task(labels)
+	err := j.Task(ctx, labels)
 	j.Metadata.countTask(labels, err)
 	return err
 }
@@ -79,7 +79,7 @@ func (i cronJobImpl) Run(ctx context.Context, opts ...Option) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			err := i.ProcessOne()
+			err := i.ProcessOne(ctx)
 			if err != nil {
 				logg.Error("could not run task for job %q: %s", i.j.Metadata.ReadableName, err.Error())
 			}
