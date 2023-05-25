@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // Audience is an audience for which we can issue tokens.
@@ -59,7 +60,7 @@ func IdentifyAudience(hostname string, cfg keppel.Configuration) Audience {
 	hostnameParts := strings.SplitN(hostname, ".", 2)
 	if len(hostnameParts) == 2 && hostnameParts[0] != "" && hostnameParts[1] != "" {
 		//head must look like an account name...
-		if keppel.IsAccountName(hostnameParts[0]) {
+		if models.IsAccountName(hostnameParts[0]) {
 			//...and tail must be one of the well-known hostnames
 			switch hostnameParts[1] {
 			case cfg.APIPublicHostname:

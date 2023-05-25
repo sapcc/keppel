@@ -23,21 +23,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/sapcc/keppel/internal/models"
 )
-
-// IsAccountName returns whether the given string is a well-formed account name.
-// This does not check whether the account actually exists in the DB.
-func IsAccountName(input string) bool {
-	//account names are historically limited to 48 chars (because we used to put
-	//them in Postgres database names which are limited to 64 chars); we might
-	//lift this restriction in the future, but there is no immediate need for it
-	if len(input) > 48 {
-		return false
-	}
-	return models.RepoPathComponentRx.MatchString(input)
-}
 
 // OriginalRequestURL returns the URL that the original requester used when
 // sending an HTTP request. This inspects the X-Forwarded-* set of headers to
