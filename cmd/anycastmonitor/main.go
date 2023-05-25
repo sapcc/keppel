@@ -147,7 +147,7 @@ func (j *anycastMonitorJob) ValidateImages(manifestRef models.ManifestReference)
 				RepoName:  repoClient.RepoName,
 				Reference: manifestRef,
 			}
-			logg.Error("validation of %s failed: %s", imageRef.String(), err.Error())
+			logg.Error("validation of %s failed: %s", imageRef, err.Error())
 		}
 	}
 }

@@ -37,10 +37,10 @@ func TestAddJitter(t *testing.T) {
 		d := addJitter(baseDuration)
 		//no sample should be outside the +/-10% range of the base duration
 		if d < lowerBound {
-			t.Errorf("expected jittered duration to be above %s, but got %s", lowerBound.String(), d.String())
+			t.Errorf("expected jittered duration to be above %s, but got %s", lowerBound, d)
 		}
 		if d > upperBound {
-			t.Errorf("expected jittered duration to be below %s, but got %s", upperBound.String(), d.String())
+			t.Errorf("expected jittered duration to be below %s, but got %s", upperBound, d)
 		}
 		//count samples into two simple buckets
 		if d < baseDuration {

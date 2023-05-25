@@ -67,7 +67,7 @@ func (p *Processor) ValidateExistingBlob(account keppel.Account, blob keppel.Blo
 	}
 	if actualDigest != blob.Digest {
 		return fmt.Errorf("expected digest %s, but got %s",
-			blob.Digest, actualDigest.String(),
+			blob.Digest, actualDigest,
 		)
 	}
 

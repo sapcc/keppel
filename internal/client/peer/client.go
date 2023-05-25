@@ -43,13 +43,13 @@ func New(cfg keppel.Configuration, peer keppel.Peer, scope auth.Scope) (Client, 
 	err := c.initToken(cfg, scope)
 	if err != nil {
 		return Client{}, fmt.Errorf("while trying to obtain a peer token for %s in scope %s: %w",
-			peer.HostName, scope.String(), err)
+			peer.HostName, scope, err)
 	}
 	return c, nil
 }
 
 func (c *Client) initToken(cfg keppel.Configuration, scope auth.Scope) error {
-	reqURL := c.buildRequestURL(fmt.Sprintf("keppel/v1/auth?service=%[1]s&scope=%[2]s", c.peer.HostName, scope.String()))
+	reqURL := c.buildRequestURL(fmt.Sprintf("keppel/v1/auth?service=%[1]s&scope=%[2]s", c.peer.HostName, scope))
 	ourUserName := "replication@" + cfg.APIPublicHostname
 	authHeader := map[string]string{"Authorization": keppel.BuildBasicAuthHeader(ourUserName, c.peer.OurPassword)}
 

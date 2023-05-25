@@ -162,7 +162,7 @@ func TestValidateNextManifestError(t *testing.T) {
 
 	//validation should yield an error
 	s.Clock.StepBy(36 * time.Hour)
-	expectedError := fmt.Sprintf("while validating manifest %s in repo 1: manifest blob unknown to registry: %s", image.Manifest.Digest.String(), image.Config.Digest.String())
+	expectedError := fmt.Sprintf("while validating manifest %s in repo 1: manifest blob unknown to registry: %s", image.Manifest.Digest, image.Config.Digest)
 	expectError(t, expectedError, j.ValidateNextManifest())
 
 	//check that validation error to be recorded in the DB
@@ -208,7 +208,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 				if idx != 0 {
 					assert.HTTPRequest{
 						Method:       "GET",
-						Path:         fmt.Sprintf("/v2/test1/foo/manifests/%s", image.Manifest.Digest.String()),
+						Path:         fmt.Sprintf("/v2/test1/foo/manifests/%s", image.Manifest.Digest),
 						Header:       map[string]string{"Authorization": "Bearer " + replicaToken},
 						ExpectStatus: http.StatusOK,
 						ExpectBody:   assert.ByteData(image.Manifest.Contents),
@@ -222,7 +222,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 					mustExec(t, db,
 						`INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, $1, $2, $3)`,
 						tagName,
-						images[1].Manifest.Digest.String(),
+						images[1].Manifest.Digest,
 						s1.Clock.Now(),
 					)
 				}
@@ -235,7 +235,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			//this one is replicated as well
 			assert.HTTPRequest{
 				Method:       "GET",
-				Path:         fmt.Sprintf("/v2/test1/foo/manifests/%s", imageList.Manifest.Digest.String()),
+				Path:         fmt.Sprintf("/v2/test1/foo/manifests/%s", imageList.Manifest.Digest),
 				Header:       map[string]string{"Authorization": "Bearer " + replicaToken},
 				ExpectStatus: http.StatusOK,
 				ExpectBody:   assert.ByteData(imageList.Manifest.Contents),
@@ -248,7 +248,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			mustExec(t, s1.DB, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
 			//we set last_pulled_at to NULL on images[3] to verify that we can merge
 			//NULL with a non-NULL last_pulled_at from the replica side
-			mustExec(t, s1.DB, `UPDATE manifests SET last_pulled_at = NULL WHERE digest = $1`, images[3].Manifest.Digest.String())
+			mustExec(t, s1.DB, `UPDATE manifests SET last_pulled_at = NULL WHERE digest = $1`, images[3].Manifest.Digest)
 
 			//as an exception, in the on_first_use method, we can and want to merge
 			//last_pulled_at timestamps from the replica into those of the primary, so
@@ -257,9 +257,9 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			laterLastPulledAt := initialLastPulledAt.Add(+10 * time.Second)
 			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = NULL`)
 			mustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = NULL`)
-			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, earlierLastPulledAt, images[1].Manifest.Digest.String())
-			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, laterLastPulledAt, images[2].Manifest.Digest.String())
-			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, initialLastPulledAt, images[3].Manifest.Digest.String())
+			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, earlierLastPulledAt, images[1].Manifest.Digest)
+			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, laterLastPulledAt, images[2].Manifest.Digest)
+			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, initialLastPulledAt, images[3].Manifest.Digest)
 			mustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, earlierLastPulledAt, "latest")
 			mustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, laterLastPulledAt, "other")
 
@@ -294,9 +294,9 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 						UPDATE tags SET last_pulled_at = %[3]d WHERE repo_id = 1 AND name = 'other';
 					`,
 					initialLastPulledAt.Unix(),
-					images[3].Manifest.Digest.String(),
+					images[3].Manifest.Digest,
 					laterLastPulledAt.Unix(),
-					images[2].Manifest.Digest.String(),
+					images[2].Manifest.Digest,
 				)
 				//reset all timestamps to prevent divergences in the rest of the test
 				mustExec(t, s1.DB, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
@@ -312,12 +312,12 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			s1.Clock.StepBy(2 * time.Hour)
 			mustExec(t, s1.DB,
 				`DELETE FROM manifests WHERE digest = $1`,
-				images[3].Manifest.Digest.String(),
+				images[3].Manifest.Digest,
 			)
 			//move a tag on the primary side
 			mustExec(t, s1.DB,
 				`UPDATE tags SET digest = $1 WHERE name = 'latest'`,
-				images[2].Manifest.Digest.String(),
+				images[2].Manifest.Digest,
 			)
 
 			//again, nothing to do on the primary side
@@ -354,7 +354,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 						UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 					`,
 					s1.Clock.Now().Unix(),
-					images[1].Manifest.Digest.String(),
+					images[1].Manifest.Digest,
 					s1.Clock.Now().Add(1*time.Hour).Unix(),
 				)
 				expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
@@ -373,7 +373,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			manifestValidationBecauseOfExistingTag := fmt.Sprintf(
 				//this validation is skipped in "on_first_use" because the respective tag is unchanged
 				`UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';`+"\n",
-				s1.Clock.Now().Unix(), images[1].Manifest.Digest.String(),
+				s1.Clock.Now().Unix(), images[1].Manifest.Digest,
 			)
 			if strategy == "on_first_use" {
 				manifestValidationBecauseOfExistingTag = ""
@@ -390,9 +390,9 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[1]s';
 				`,
-				images[3].Manifest.Digest.String(), //the deleted manifest
+				images[3].Manifest.Digest, //the deleted manifest
 				s1.Clock.Now().Unix(),
-				images[2].Manifest.Digest.String(), //the manifest now tagged as "latest"
+				images[2].Manifest.Digest, //the manifest now tagged as "latest"
 				s1.Clock.Now().Add(1*time.Hour).Unix(),
 				manifestValidationBecauseOfExistingTag,
 			)
@@ -405,18 +405,18 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			s1.Clock.StepBy(7 * time.Hour)
 			mustExec(t, s1.DB,
 				`DELETE FROM manifest_manifest_refs WHERE child_digest = $1`,
-				images[2].Manifest.Digest.String(),
+				images[2].Manifest.Digest,
 			)
 			mustExec(t, s1.DB,
 				`DELETE FROM manifests WHERE digest = $1`,
-				images[2].Manifest.Digest.String(),
+				images[2].Manifest.Digest,
 			)
 
 			//SyncManifestsInNextRepo should now complain since it wants to delete
 			//images[2].Manifest, but it can't because of the manifest-manifest ref to
 			//the image list
 			expectedError := fmt.Sprintf(`while syncing manifests in the replica repo test1/foo: cannot remove deleted manifests [%s] in repo test1/foo because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)`,
-				images[2].Manifest.Digest.String(),
+				images[2].Manifest.Digest,
 			)
 			expectError(t, expectedError, j2.SyncManifestsInNextRepo())
 			//the tag sync went through though, so the tag should be gone (the manifest
@@ -424,7 +424,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			manifestValidationBecauseOfExistingTag = fmt.Sprintf(
 				//this validation is skipped in "on_first_use" because the respective tag is unchanged
 				`UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';`+"\n",
-				s1.Clock.Now().Unix(), images[1].Manifest.Digest.String(),
+				s1.Clock.Now().Unix(), images[1].Manifest.Digest,
 			)
 			if strategy == "on_first_use" {
 				manifestValidationBecauseOfExistingTag = ""
@@ -437,7 +437,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			s1.Clock.StepBy(7 * time.Hour)
 			mustExec(t, s1.DB,
 				`DELETE FROM manifests WHERE digest = $1`,
-				imageList.Manifest.Digest.String(),
+				imageList.Manifest.Digest,
 			)
 			//and remove the other tag (this is required for the 404 error message in the next step but one to be deterministic)
 			mustExec(t, s1.DB, `DELETE FROM tags`)
@@ -462,9 +462,9 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 					DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[2]s';
 				`,
-				images[2].Manifest.Digest.String(),
-				imageList.Manifest.Digest.String(),
-				images[1].Manifest.Digest.String(),
+				images[2].Manifest.Digest,
+				imageList.Manifest.Digest,
+				images[1].Manifest.Digest,
 				s1.Clock.Now().Add(1*time.Hour).Unix(),
 			)
 			expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
@@ -482,7 +482,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			//caused by the manifest getting deleted, since the 404-generating endpoint
 			//does not render a proper MANIFEST_UNKNOWN error.
 			expectedError = fmt.Sprintf(`while syncing manifests in the replica repo test1/foo: cannot check existence of manifest test1/foo/%s on primary account: during GET https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found`,
-				images[1].Manifest.Digest.String(), //the only manifest that is left
+				images[1].Manifest.Digest, //the only manifest that is left
 			)
 			expectError(t, expectedError, j2.SyncManifestsInNextRepo())
 			tr.DBChanges().AssertEmpty()
@@ -525,7 +525,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[1]s';
 				`,
-				images[1].Manifest.Digest.String(),
+				images[1].Manifest.Digest,
 			)
 			expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
 			tr.DBChanges().AssertEmpty()

@@ -82,8 +82,8 @@ func TestGCUntaggedImages(t *testing.T) {
 			UPDATE repos SET next_gc_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 		`,
 		ineffectiveGCPoliciesJSON,
-		images[0].Manifest.Digest.String(),
-		images[1].Manifest.Digest.String(),
+		images[0].Manifest.Digest,
+		images[1].Manifest.Digest,
 		s.Clock.Now().Add(1*time.Hour).Unix(),
 	)
 
@@ -107,9 +107,9 @@ func TestGCUntaggedImages(t *testing.T) {
 			UPDATE manifests SET gc_status_json = '{"protected_by_parent":"%[1]s"}' WHERE repo_id = 1 AND digest = '%[3]s';
 			UPDATE repos SET next_gc_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 		`,
-		imageList.Manifest.Digest.String(),
-		images[0].Manifest.Digest.String(),
-		images[1].Manifest.Digest.String(),
+		imageList.Manifest.Digest,
+		images[0].Manifest.Digest,
+		images[1].Manifest.Digest,
 		s.Clock.Now().Add(1*time.Hour).Unix(),
 	)
 
@@ -117,7 +117,7 @@ func TestGCUntaggedImages(t *testing.T) {
 	s.Clock.StepBy(2 * time.Hour)
 	mustExec(t, s.DB,
 		`DELETE FROM manifests WHERE digest = $1`,
-		imageList.Manifest.Digest.String(),
+		imageList.Manifest.Digest,
 	)
 	tr.DBChanges().Ignore()
 	s.Auditor.IgnoreEventsUntilNow()
@@ -135,8 +135,8 @@ func TestGCUntaggedImages(t *testing.T) {
 			DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[2]s';
 			DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[2]s';
 		`,
-		images[0].Manifest.Digest.String(),
-		images[1].Manifest.Digest.String(),
+		images[0].Manifest.Digest,
+		images[1].Manifest.Digest,
 		matchingGCPoliciesJSON,
 		s.Clock.Now().Add(1*time.Hour).Unix(),
 	)
@@ -230,10 +230,10 @@ func TestGCMatchOnTag(t *testing.T) {
 			DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
 			DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[1]s';
 		`,
-		images[0].Manifest.Digest.String(),
-		images[1].Manifest.Digest.String(),
-		images[2].Manifest.Digest.String(),
-		images[3].Manifest.Digest.String(),
+		images[0].Manifest.Digest,
+		images[1].Manifest.Digest,
+		images[2].Manifest.Digest,
+		images[3].Manifest.Digest,
 		protectingGCPolicyJSON1,
 		protectingGCPolicyJSON2,
 		protectingGCPolicyJSON3,
@@ -271,12 +271,12 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 			if idx == 0 {
 				mustExec(t, s.DB,
 					`UPDATE manifests SET last_pulled_at = NULL WHERE digest = $1`,
-					image.Manifest.Digest.String(),
+					image.Manifest.Digest,
 				)
 			} else {
 				mustExec(t, s.DB,
 					`UPDATE manifests SET last_pulled_at = $2 WHERE digest = $1`,
-					image.Manifest.Digest.String(),
+					image.Manifest.Digest,
 					j.timeNow().Add(-10*time.Minute*time.Duration(len(images)-idx)),
 				)
 			}
@@ -322,12 +322,12 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 			DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[4]s';
 			DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[4]s';
 		`,
-			images[0].Manifest.Digest.String(),
-			images[1].Manifest.Digest.String(),
-			images[2].Manifest.Digest.String(),
-			images[3].Manifest.Digest.String(),
-			images[4].Manifest.Digest.String(),
-			images[5].Manifest.Digest.String(),
+			images[0].Manifest.Digest,
+			images[1].Manifest.Digest,
+			images[2].Manifest.Digest,
+			images[3].Manifest.Digest,
+			images[4].Manifest.Digest,
+			images[5].Manifest.Digest,
 			protectingGCPolicyJSON1,
 			protectingGCPolicyJSON2,
 			s.Clock.Now().Add(1*time.Hour).Unix(),
@@ -381,8 +381,8 @@ func TestGCProtectComesTooLate(t *testing.T) {
 			DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[2]s';
 			DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[2]s';
 		`,
-		images[0].Manifest.Digest.String(),
-		images[1].Manifest.Digest.String(),
+		images[0].Manifest.Digest,
+		images[1].Manifest.Digest,
 		protectingGCPolicyJSON1,
 		s.Clock.Now().Add(1*time.Hour).Unix(),
 	)

@@ -177,9 +177,9 @@ func (ir IncomingRequest) Authorize(cfg keppel.Configuration, ad keppel.AuthDriv
 				rerr := keppel.ErrUnauthorized.With("no bearer token found in request headers")
 				if authz.UserIdentity.UserType() != keppel.AnonymousUser {
 					if tokenFound {
-						rerr = keppel.ErrDenied.With("token does not cover scope %s", scope.String())
+						rerr = keppel.ErrDenied.With("token does not cover scope %s", scope)
 					} else {
-						rerr = keppel.ErrDenied.With("no permission for %s", scope.String())
+						rerr = keppel.ErrDenied.With("no permission for %s", scope)
 					}
 				}
 				if allowChallenge {
@@ -202,7 +202,7 @@ func (ir IncomingRequest) Authorize(cfg keppel.Configuration, ad keppel.AuthDriv
 
 func (ir IncomingRequest) buildAuthChallenge(cfg keppel.Configuration, audience Audience, errorMessage string) string {
 	requestURL := keppel.OriginalRequestURL(ir.HTTPRequest)
-	apiURL := (&url.URL{Scheme: requestURL.Scheme, Host: requestURL.Host}).String()
+	apiURL := (&url.URL{Scheme: requestURL.Scheme, Host: requestURL.Host})
 
 	fields := fmt.Sprintf(
 		`realm="%s/keppel/v1/auth",service="%s"`,
@@ -210,7 +210,7 @@ func (ir IncomingRequest) buildAuthChallenge(cfg keppel.Configuration, audience 
 	)
 	for _, scope := range ir.Scopes {
 		if !scope.Contains(InfoAPIScope) {
-			fields += fmt.Sprintf(`,scope="%s"`, scope.String())
+			fields += fmt.Sprintf(`,scope="%s"`, scope)
 		}
 	}
 	if errorMessage != "" {
