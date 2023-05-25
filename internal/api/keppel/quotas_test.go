@@ -142,6 +142,12 @@ func TestQuotasAPI(t *testing.T) {
 			Status:       clair.PendingVulnerabilityStatus,
 			NextCheckAt:  time.Unix(0, 0),
 		})
+		mustInsert(t, s.DB, &keppel.TrivySecurityInfo{
+			RepositoryID:        1,
+			Digest:              deterministicDummyDigest(idx),
+			VulnerabilityStatus: clair.PendingVulnerabilityStatus,
+			NextCheckAt:         time.Unix(0, 0),
+		})
 	}
 	assert.HTTPRequest{
 		Method:       "GET",

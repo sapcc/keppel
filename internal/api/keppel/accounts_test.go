@@ -1814,6 +1814,12 @@ func uploadManifest(t *testing.T, s test.Setup, account *keppel.Account, repo *k
 		NextCheckAt:  time.Unix(0, 0),
 		Status:       clair.PendingVulnerabilityStatus,
 	}))
+	mustDo(t, s.DB.Insert(&keppel.TrivySecurityInfo{
+		RepositoryID:        repo.ID,
+		Digest:              manifest.Digest,
+		NextCheckAt:         time.Unix(0, 0),
+		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
+	}))
 	mustDo(t, s.DB.Insert(&keppel.ManifestContent{
 		RepositoryID: repo.ID,
 		Digest:       manifest.Digest.String(),
@@ -1893,6 +1899,12 @@ func TestDeleteAccount(t *testing.T) {
 		Digest:       image.Manifest.Digest,
 		NextCheckAt:  time.Unix(0, 0),
 		Status:       clair.PendingVulnerabilityStatus,
+	})
+	mustInsert(t, s.DB, &keppel.TrivySecurityInfo{
+		RepositoryID:        repos[0].ID,
+		Digest:              image.Manifest.Digest,
+		NextCheckAt:         time.Unix(0, 0),
+		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
 	})
 	err := s.SD.WriteManifest(*accounts[0], repos[0].Name, image.Manifest.Digest, image.Manifest.Contents)
 	if err != nil {

@@ -158,6 +158,12 @@ func TestValidateNextManifestError(t *testing.T) {
 		NextCheckAt:  time.Unix(0, 0),
 		Status:       clair.PendingVulnerabilityStatus,
 	}))
+	mustDo(t, s.DB.Insert(&keppel.TrivySecurityInfo{
+		RepositoryID:        1,
+		Digest:              image.Manifest.Digest,
+		NextCheckAt:         time.Unix(0, 0),
+		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
+	}))
 	mustDo(t, s.SD.WriteManifest(*s.Accounts[0], "foo", image.Manifest.Digest, image.Manifest.Contents))
 
 	//validation should yield an error
