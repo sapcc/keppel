@@ -156,7 +156,7 @@ func (c *ClairDouble) getIndexReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !c.WasIndexSubmitted[indexDigest] {
-		http.Error(w, "not found", http.StatusNotFound)
+		http.Error(w, "index not found", http.StatusNotFound)
 		return
 	}
 
@@ -220,7 +220,7 @@ func (c *ClairDouble) getVulnerabilityReport(w http.ResponseWriter, r *http.Requ
 
 	fixturePath := c.ReportFixtures[reportDigest]
 	if !c.WasIndexSubmitted[reportDigest] || reportDigest == "" {
-		http.Error(w, "not found", http.StatusNotFound)
+		http.Error(w, "report not found", http.StatusNotFound)
 		return
 	}
 

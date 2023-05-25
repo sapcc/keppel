@@ -217,7 +217,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	}
 	parsedDigest, err := digest.Parse(mux.Vars(r)["digest"])
 	if err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
+		http.Error(w, "digest not found", http.StatusNotFound)
 		return
 	}
 
@@ -283,13 +283,13 @@ func (a *API) handleGetVulnerabilityReport(w http.ResponseWriter, r *http.Reques
 	}
 	parsedDigest, err := digest.Parse(mux.Vars(r)["digest"])
 	if err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
+		http.Error(w, "digest not found", http.StatusNotFound)
 		return
 	}
 
 	manifest, err := keppel.FindManifest(a.db, *repo, parsedDigest)
 	if err == sql.ErrNoRows {
-		http.Error(w, "not found", http.StatusNotFound)
+		http.Error(w, "manifest not found", http.StatusNotFound)
 		return
 	}
 	if respondwith.ErrorText(w, err) {
@@ -298,7 +298,7 @@ func (a *API) handleGetVulnerabilityReport(w http.ResponseWriter, r *http.Reques
 
 	vulnerability, err := keppel.GetVulnerabilityInfo(a.db, repo.ID, parsedDigest)
 	if err == sql.ErrNoRows {
-		http.Error(w, "not found", http.StatusNotFound)
+		http.Error(w, "vulnerability not found", http.StatusNotFound)
 		return
 	}
 	if respondwith.ErrorText(w, err) {

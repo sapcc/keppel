@@ -58,14 +58,14 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if account == nil {
-		http.Error(w, "not found", http.StatusNotFound)
+		http.Error(w, "account not found", http.StatusNotFound)
 		return
 	}
 
 	//find repository
 	repo, err := keppel.FindRepository(a.db, mux.Vars(r)["repo"], *account)
 	if err == sql.ErrNoRows {
-		http.Error(w, "not found", http.StatusNotFound)
+		http.Error(w, "repo not found", http.StatusNotFound)
 		return
 	}
 	if respondwith.ErrorText(w, err) {

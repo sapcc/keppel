@@ -155,7 +155,7 @@ func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request) *ke
 		return nil
 	}
 	if err == sql.ErrNoRows {
-		http.Error(w, "not found", http.StatusNotFound)
+		http.Error(w, "account not found", http.StatusNotFound)
 		return nil
 	}
 	return account
@@ -164,13 +164,13 @@ func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request) *ke
 func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, account keppel.Account) *keppel.Repository {
 	repoName := mux.Vars(r)["repo_name"]
 	if !isValidRepoName(repoName) {
-		http.Error(w, "not found", http.StatusNotFound)
+		http.Error(w, "repo name invalid", http.StatusUnprocessableEntity)
 		return nil
 	}
 
 	repo, err := keppel.FindRepository(a.db, repoName, account)
 	if err == sql.ErrNoRows {
-		http.Error(w, "not found", http.StatusNotFound)
+		http.Error(w, "repo not found", http.StatusNotFound)
 		return nil
 	}
 	if respondwith.ErrorText(w, err) {
