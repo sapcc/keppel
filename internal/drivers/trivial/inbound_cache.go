@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 type inboundCacheDriver struct{}
@@ -41,13 +42,13 @@ func (inboundCacheDriver) Init(cfg keppel.Configuration) error {
 }
 
 // LoadManifest implements the keppel.InboundCacheDriver interface.
-func (inboundCacheDriver) LoadManifest(location keppel.ImageReference, now time.Time) (contents []byte, mediaType string, err error) {
+func (inboundCacheDriver) LoadManifest(location models.ImageReference, now time.Time) (contents []byte, mediaType string, err error) {
 	//always return a cache miss
 	return nil, "", sql.ErrNoRows
 }
 
 // StoreManifest implements the keppel.InboundCacheDriver interface.
-func (inboundCacheDriver) StoreManifest(location keppel.ImageReference, contents []byte, mediaType string, now time.Time) error {
+func (inboundCacheDriver) StoreManifest(location models.ImageReference, contents []byte, mediaType string, now time.Time) error {
 	//no-op
 	return nil
 }

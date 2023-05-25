@@ -46,6 +46,7 @@ import (
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // This implements the POST /v2/<account>/<repository>/blobs/uploads/ endpoint.
@@ -152,7 +153,7 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 		return
 	}
 	sourceRepoName := strings.TrimPrefix(sourceRepoFullName, account.Name+"/")
-	if !keppel.RepoNameWithLeadingSlashRx.MatchString("/" + sourceRepoName) {
+	if !models.RepoNameWithLeadingSlashRx.MatchString("/" + sourceRepoName) {
 		keppel.ErrNameInvalid.With("source repository is invalid").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}

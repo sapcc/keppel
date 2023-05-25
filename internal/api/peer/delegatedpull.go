@@ -29,6 +29,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // Implementation for the GET /peer/v1/delegatedpull/:hostname/v2/:repo/manifests/:reference endpoint.
@@ -54,7 +55,7 @@ func (a *API) handleDelegatedPullManifest(w http.ResponseWriter, r *http.Request
 		UserName: r.Header.Get("X-Keppel-Delegated-Pull-Username"), //may be empty
 		Password: r.Header.Get("X-Keppel-Delegated-Pull-Password"), //may be empty
 	}
-	ref := keppel.ParseManifestReference(vars["reference"])
+	ref := models.ParseManifestReference(vars["reference"])
 	manifestBytes, manifestMediaType, err := rc.DownloadManifest(ref, &opts)
 	switch err := err.(type) {
 	case nil:

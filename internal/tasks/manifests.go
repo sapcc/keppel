@@ -42,6 +42,7 @@ import (
 	"github.com/sapcc/keppel/internal/clair"
 	peerclient "github.com/sapcc/keppel/internal/client/peer"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/processor"
 )
 
@@ -326,7 +327,7 @@ TAG:
 		//we want to check if upstream still has the tag, and if it has moved to a
 		//different manifest, replicate that manifest; all of that boils down to
 		//just a ReplicateManifest() call
-		ref := keppel.ManifestReference{Tag: tag.Name}
+		ref := models.ManifestReference{Tag: tag.Name}
 		_, _, err := p.ReplicateManifest(account, repo, ref, keppel.AuditContext{
 			UserIdentity: janitorUserIdentity{TaskName: "tag-sync"},
 			Request:      janitorDummyRequest,
@@ -379,7 +380,7 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 		}
 
 		//when querying an external registry, we have to check each manifest one-by-one
-		ref := keppel.ManifestReference{Digest: manifest.Digest}
+		ref := models.ManifestReference{Digest: manifest.Digest}
 		exists, err := p.CheckManifestOnPrimary(account, repo, ref)
 		if err != nil {
 			return fmt.Errorf("cannot check existence of manifest %s/%s on primary account: %w", repo.FullName(), manifest.Digest, err)
@@ -987,10 +988,10 @@ func (j *Janitor) doSecurityCheck(account keppel.Account, repo keppel.Repository
 		}
 	}()
 
-	imageRef := keppel.ImageReference{
+	imageRef := models.ImageReference{
 		Host:      j.cfg.APIPublicHostname,
 		RepoName:  fmt.Sprintf("%s/%s", account.Name, repo.Name),
-		Reference: keppel.ManifestReference{Digest: manifest.Digest},
+		Reference: models.ManifestReference{Digest: manifest.Digest},
 	}
 
 	tokenResp, err := auth.Authorization{

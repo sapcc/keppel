@@ -25,18 +25,19 @@ import (
 	"github.com/opencontainers/go-digest"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // ValidationLogger can be passed to ValidateManifest, primarily to allow the
 // caller to log the progress of the validation operation.
 type ValidationLogger interface {
-	LogManifest(reference keppel.ManifestReference, level int, validationResult error, resultFromCache bool)
+	LogManifest(reference models.ManifestReference, level int, validationResult error, resultFromCache bool)
 	LogBlob(d digest.Digest, level int, validationResult error, resultFromCache bool)
 }
 
 type noopLogger struct{}
 
-func (noopLogger) LogManifest(keppel.ManifestReference, int, error, bool) {}
+func (noopLogger) LogManifest(models.ManifestReference, int, error, bool) {}
 func (noopLogger) LogBlob(digest.Digest, int, error, bool)                {}
 
 // ValidationSession holds state and caches intermediate results over the
@@ -76,11 +77,11 @@ func (c *RepoClient) validationCacheKey(digestOrTagName string) string {
 // ValidateManifest fetches the given manifest from the repo and verifies that
 // it parses correctly. It also validates all references manifests and blobs
 // recursively.
-func (c *RepoClient) ValidateManifest(reference keppel.ManifestReference, session *ValidationSession, platformFilter keppel.PlatformFilter) error {
+func (c *RepoClient) ValidateManifest(reference models.ManifestReference, session *ValidationSession, platformFilter keppel.PlatformFilter) error {
 	return c.doValidateManifest(reference, 0, session.applyDefaults(), platformFilter)
 }
 
-func (c *RepoClient) doValidateManifest(reference keppel.ManifestReference, level int, session *ValidationSession, platformFilter keppel.PlatformFilter) (returnErr error) {
+func (c *RepoClient) doValidateManifest(reference models.ManifestReference, level int, session *ValidationSession, platformFilter keppel.PlatformFilter) (returnErr error) {
 	if session.isValid[c.validationCacheKey(reference.String())] {
 		session.Logger.LogManifest(reference, level, nil, true)
 		return nil
@@ -103,7 +104,7 @@ func (c *RepoClient) doValidateManifest(reference keppel.ManifestReference, leve
 	}
 
 	//the manifest itself looks good...
-	session.Logger.LogManifest(keppel.ManifestReference{Digest: manifestDesc.Digest}, level, nil, false)
+	session.Logger.LogManifest(models.ManifestReference{Digest: manifestDesc.Digest}, level, nil, false)
 	logged = true
 
 	//...now recurse into the manifests and blobs that it references
@@ -114,7 +115,7 @@ func (c *RepoClient) doValidateManifest(reference keppel.ManifestReference, leve
 		}
 	}
 	for _, desc := range manifest.ManifestReferences(platformFilter) {
-		err := c.doValidateManifest(keppel.ManifestReference{Digest: desc.Digest}, level+1, session, platformFilter)
+		err := c.doValidateManifest(models.ManifestReference{Digest: desc.Digest}, level+1, session, platformFilter)
 		if err != nil {
 			return err
 		}

@@ -34,6 +34,7 @@ import (
 	"github.com/sapcc/go-bits/assert"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // Bytes groups a bytestring with its digest.
@@ -227,15 +228,15 @@ func (i Image) SizeBytes() uint64 {
 }
 
 // DigestRef returns the ManifestReference for this manifest's digest.
-func (i Image) DigestRef() keppel.ManifestReference {
-	return keppel.ManifestReference{
+func (i Image) DigestRef() models.ManifestReference {
+	return models.ManifestReference{
 		Digest: i.Manifest.Digest,
 	}
 }
 
 // ImageRef returns the ImageReference for this images.
-func (i Image) ImageRef(s Setup, repo keppel.Repository) keppel.ImageReference {
-	return keppel.ImageReference{
+func (i Image) ImageRef(s Setup, repo keppel.Repository) models.ImageReference {
+	return models.ImageReference{
 		Host:      s.Config.APIPublicHostname,
 		RepoName:  fmt.Sprintf("%s/%s", repo.AccountName, repo.Name),
 		Reference: i.DigestRef(),
@@ -293,15 +294,15 @@ func (l ImageList) SizeBytes() uint64 {
 }
 
 // DigestRef returns the ManifestReference for this manifest's digest.
-func (l ImageList) DigestRef() keppel.ManifestReference {
-	return keppel.ManifestReference{
+func (l ImageList) DigestRef() models.ManifestReference {
+	return models.ManifestReference{
 		Digest: l.Manifest.Digest,
 	}
 }
 
 // ImageRef returns the ImageReference for this ImageList.
-func (l ImageList) ImageRef(s Setup, repo keppel.Repository) keppel.ImageReference {
-	return keppel.ImageReference{
+func (l ImageList) ImageRef(s Setup, repo keppel.Repository) models.ImageReference {
+	return models.ImageReference{
 		Host:      s.Config.APIPublicHostname,
 		RepoName:  fmt.Sprintf("%s/%s", repo.AccountName, repo.Name),
 		Reference: l.DigestRef(),

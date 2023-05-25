@@ -31,6 +31,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/processor"
 )
 
@@ -187,7 +188,7 @@ func isValidRepoName(name string) bool {
 		return false
 	}
 	for _, pathComponent := range strings.Split(name, `/`) {
-		if !keppel.RepoPathComponentRx.MatchString(pathComponent) {
+		if !models.RepoPathComponentRx.MatchString(pathComponent) {
 			return false
 		}
 	}

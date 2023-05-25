@@ -37,6 +37,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 var longDesc = strings.TrimSpace(`
@@ -162,27 +163,27 @@ func (j *healthMonitorJob) PrepareKeppelAccount() error {
 }
 
 // Uploads a minimal complete image (one config blob, one layer blob and one manifest) for testing.
-func (j *healthMonitorJob) UploadImage() (keppel.ManifestReference, error) {
+func (j *healthMonitorJob) UploadImage() (models.ManifestReference, error) {
 	_, err := j.RepoClient.UploadMonolithicBlob([]byte(minimalImageConfiguration))
 	if err != nil {
-		return keppel.ManifestReference{}, err
+		return models.ManifestReference{}, err
 	}
 	_, err = j.RepoClient.UploadMonolithicBlob(minimalImageLayer())
 	if err != nil {
-		return keppel.ManifestReference{}, err
+		return models.ManifestReference{}, err
 	}
 	digest, err := j.RepoClient.UploadManifest([]byte(minimalManifest), schema2.MediaTypeManifest, "latest")
-	return keppel.ManifestReference{Digest: digest}, err
+	return models.ManifestReference{Digest: digest}, err
 }
 
 // Validates the uploaded image and emits the keppel_healthmonitor_result metric accordingly.
-func (j *healthMonitorJob) ValidateImage(manifestRef keppel.ManifestReference) {
+func (j *healthMonitorJob) ValidateImage(manifestRef models.ManifestReference) {
 	err := j.RepoClient.ValidateManifest(manifestRef, nil, nil)
 	if err == nil {
 		j.recordHealthcheckResult(true)
 	} else {
 		j.recordHealthcheckResult(false)
-		imageRef := keppel.ImageReference{
+		imageRef := models.ImageReference{
 			Host:      j.RepoClient.Host,
 			RepoName:  j.RepoClient.RepoName,
 			Reference: manifestRef,

@@ -25,7 +25,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 
 	"github.com/sapcc/keppel/internal/auth"
-	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 func parseScope(input string) auth.Scope {
@@ -44,7 +44,7 @@ func parseScope(input string) auth.Scope {
 		if len(scope.ResourceName) > 256 {
 			logg.Info("rejecting overlong repository name: %q", scope.ResourceName)
 			scope.ResourceName = ""
-		} else if !keppel.RepoPathRx.MatchString(scope.ResourceName) {
+		} else if !models.RepoPathRx.MatchString(scope.ResourceName) {
 			logg.Info("rejecting invalid repository name: %q", scope.ResourceName)
 			scope.ResourceName = ""
 		}

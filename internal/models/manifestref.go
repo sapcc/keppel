@@ -17,7 +17,7 @@
 *
 *******************************************************************************/
 
-package keppel
+package models
 
 import "github.com/opencontainers/go-digest"
 

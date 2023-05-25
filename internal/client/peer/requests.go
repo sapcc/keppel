@@ -25,12 +25,13 @@ import (
 	"net/http"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // DownloadManifestViaPullDelegation asks the peer to download a manifest from
 // an external registry for us. This gets used when the external registry
 // denies the pull to us because we hit our rate limit.
-func (c Client) DownloadManifestViaPullDelegation(imageRef keppel.ImageReference, userName, password string) (respBodyBytes []byte, contentType string, err error) {
+func (c Client) DownloadManifestViaPullDelegation(imageRef models.ImageReference, userName, password string) (respBodyBytes []byte, contentType string, err error) {
 	reqURL := c.buildRequestURL(fmt.Sprintf(
 		"peer/v1/delegatedpull/%s/v2/%s/manifests/%s",
 		imageRef.Host, imageRef.RepoName, imageRef.Reference,

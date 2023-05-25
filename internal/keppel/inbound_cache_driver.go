@@ -24,6 +24,8 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/pluggable"
+
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // InboundCacheDriver is the abstract interface for a caching strategy for
@@ -39,12 +41,12 @@ type InboundCacheDriver interface {
 	//
 	//time.Now() is given in the second argument to allow for tests to use an
 	//artificial wall clock.
-	LoadManifest(location ImageReference, now time.Time) (contents []byte, mediaType string, err error)
+	LoadManifest(location models.ImageReference, now time.Time) (contents []byte, mediaType string, err error)
 	//StoreManifest places a manifest in the cache for later retrieval.
 	//
 	//time.Now() is given in the last argument to allow for tests to use an
 	//artificial wall clock.
-	StoreManifest(location ImageReference, contents []byte, mediaType string, now time.Time) error
+	StoreManifest(location models.ImageReference, contents []byte, mediaType string, now time.Time) error
 }
 
 // InboundCacheDriverRegistry is a pluggable.Registry for InboundCacheDriver implementations.

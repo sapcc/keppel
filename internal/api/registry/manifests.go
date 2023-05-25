@@ -37,6 +37,7 @@ import (
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/processor"
 )
 
@@ -51,7 +52,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reference := keppel.ParseManifestReference(mux.Vars(r)["reference"])
+	reference := models.ParseManifestReference(mux.Vars(r)["reference"])
 	dbManifest, err := a.findManifestInDB(*repo, reference)
 	var manifestBytes []byte
 
@@ -230,7 +231,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *API) findManifestInDB(repo keppel.Repository, reference keppel.ManifestReference) (*keppel.Manifest, error) {
+func (a *API) findManifestInDB(repo keppel.Repository, reference models.ManifestReference) (*keppel.Manifest, error) {
 	//resolve tag into digest if necessary
 	refDigest := reference.Digest
 	if reference.IsTag() {
@@ -284,7 +285,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//delete tag or manifest from the database
-	ref := keppel.ParseManifestReference(mux.Vars(r)["reference"])
+	ref := models.ParseManifestReference(mux.Vars(r)["reference"])
 	actx := keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
@@ -346,7 +347,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//validate and store manifest
-	ref := keppel.ParseManifestReference(mux.Vars(r)["reference"])
+	ref := models.ParseManifestReference(mux.Vars(r)["reference"])
 	manifest, err := a.processor().ValidateAndStoreManifest(*account, *repo, processor.IncomingManifest{
 		Reference: ref,
 		MediaType: r.Header.Get("Content-Type"),

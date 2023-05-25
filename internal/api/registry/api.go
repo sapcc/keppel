@@ -32,6 +32,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/processor"
 )
 
@@ -205,7 +206,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		ResourceType: "repository",
 		ResourceName: mux.Vars(r)["repository"],
 	}
-	if !keppel.RepoNameWithLeadingSlashRx.MatchString("/" + scope.ResourceName) {
+	if !models.RepoNameWithLeadingSlashRx.MatchString("/" + scope.ResourceName) {
 		keppel.ErrNameInvalid.With("invalid repository name").WriteAsRegistryV2ResponseTo(w, r)
 		return nil, nil, nil
 	}

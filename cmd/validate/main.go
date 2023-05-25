@@ -29,6 +29,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 var (
@@ -57,7 +58,7 @@ If the image is in a Keppel replica account, this ensures that the image is repl
 type logger struct{}
 
 // LogManifest implements the client.ValidationLogger interface.
-func (l logger) LogManifest(reference keppel.ManifestReference, level int, err error, isCached bool) {
+func (l logger) LogManifest(reference models.ManifestReference, level int, err error, isCached bool) {
 	indent := strings.Repeat("  ", level)
 	suffix := ""
 	if isCached {
@@ -96,7 +97,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	for _, arg := range args {
-		ref, interpretation, err := keppel.ParseImageReference(arg)
+		ref, interpretation, err := models.ParseImageReference(arg)
 		logg.Info("interpreting %s as %s", arg, interpretation)
 		if err != nil {
 			logg.Fatal(err.Error())

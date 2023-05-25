@@ -40,6 +40,7 @@ import (
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 var longDesc = strings.TrimSpace(`
@@ -117,7 +118,7 @@ func run(cmd *cobra.Command, args []string) {
 	}()
 
 	//enter long-running check loop
-	manifestRef := keppel.ManifestReference{Tag: "latest"}
+	manifestRef := models.ManifestReference{Tag: "latest"}
 	job.ValidateImages(manifestRef) //once immediately to initialize the metrics
 	job.ValidateAnycastMembership(anycastURL, apiPublicHostname)
 	tick := time.Tick(30 * time.Second)
@@ -133,7 +134,7 @@ func run(cmd *cobra.Command, args []string) {
 }
 
 // Validates the uploaded images and emits the keppel_anycastmonitor_result metric accordingly.
-func (j *anycastMonitorJob) ValidateImages(manifestRef keppel.ManifestReference) {
+func (j *anycastMonitorJob) ValidateImages(manifestRef models.ManifestReference) {
 	for accountName, repoClient := range j.RepoClients {
 		labels := prometheus.Labels{"account": accountName}
 		err := repoClient.ValidateManifest(manifestRef, nil, nil)
@@ -141,7 +142,7 @@ func (j *anycastMonitorJob) ValidateImages(manifestRef keppel.ManifestReference)
 			anycastmonitorResultGaugeVec.With(labels).Set(1)
 		} else {
 			anycastmonitorResultGaugeVec.With(labels).Set(0)
-			imageRef := keppel.ImageReference{
+			imageRef := models.ImageReference{
 				Host:      repoClient.Host,
 				RepoName:  repoClient.RepoName,
 				Reference: manifestRef,

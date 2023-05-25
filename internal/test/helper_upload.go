@@ -28,6 +28,7 @@ import (
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 const (
@@ -105,7 +106,7 @@ func (i Image) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName
 	//upload manifest
 	ref := i.DigestRef()
 	if tagName != "" {
-		ref = keppel.ManifestReference{Tag: tagName}
+		ref = models.ManifestReference{Tag: tagName}
 	}
 	urlPath := fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), ref)
 	token := s.GetToken(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
@@ -162,7 +163,7 @@ func (l ImageList) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tag
 	//upload manifest
 	ref := l.DigestRef()
 	if tagName != "" {
-		ref = keppel.ManifestReference{Tag: tagName}
+		ref = models.ManifestReference{Tag: tagName}
 	}
 	urlPath := fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), ref)
 	token := s.GetToken(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
