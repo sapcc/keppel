@@ -85,7 +85,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r)
+	account := a.findAccountFromRequest(w, r, authz)
 	if account == nil {
 		return
 	}
@@ -207,7 +207,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r)
+	account := a.findAccountFromRequest(w, r, authz)
 	if account == nil {
 		return
 	}
@@ -242,7 +242,7 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r)
+	account := a.findAccountFromRequest(w, r, authz)
 	if account == nil {
 		return
 	}
@@ -273,7 +273,7 @@ func (a *API) handleGetVulnerabilityReport(w http.ResponseWriter, r *http.Reques
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r)
+	account := a.findAccountFromRequest(w, r, authz)
 	if account == nil {
 		return
 	}

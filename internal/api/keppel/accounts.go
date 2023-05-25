@@ -345,7 +345,7 @@ func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r)
+	account := a.findAccountFromRequest(w, r, authz)
 	if account == nil {
 		return
 	}
@@ -854,7 +854,7 @@ func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r)
+	account := a.findAccountFromRequest(w, r, authz)
 	if account == nil {
 		return
 	}
@@ -981,7 +981,7 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r)
+	account := a.findAccountFromRequest(w, r, authz)
 	if account == nil {
 		return
 	}

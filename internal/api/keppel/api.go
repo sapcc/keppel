@@ -148,7 +148,10 @@ func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request, ss aut
 	return authz
 }
 
-func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request) *keppel.Account {
+// NOTE: The *auth.Authorization argument is only used to ensure that we call authenticateRequest
+// first. This is important because this function may otherwise leak information about whether
+// accounts exist or not to unauthorized users.
+func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request, _ *auth.Authorization) *keppel.Account {
 	accountName := mux.Vars(r)["account"]
 	account, err := keppel.FindAccount(a.db, accountName)
 	if respondwith.ErrorText(w, err) {
