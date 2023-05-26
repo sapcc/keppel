@@ -1010,9 +1010,8 @@ func (j *Janitor) doSecurityCheck(account keppel.Account, repo keppel.Repository
 	//ask Trivy for the security status of the manifest
 	securityInfo.Message = "" //unless it gets set to something else below
 
-	//we don't allow Trivy to take more than 10 minutes on a single image (which is already an
-	//insanely generous timeout)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	// Trivy has an internal timeout we set to 10m per image (which is already an insanely generous timeout) and we give it a bit of headroom to start
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute+30*time.Second)
 	defer cancel()
 
 	parsedTrivyReport, err := j.cfg.Trivy.ScanManifestAndParse(ctx, tokenResp.Token, imageRef, "json")
