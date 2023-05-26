@@ -995,7 +995,7 @@ func (j *Janitor) doSecurityCheck(account keppel.Account, repo keppel.Repository
 	}
 
 	tokenResp, err := auth.Authorization{
-		UserIdentity: auth.AnonymousUserIdentity,
+		UserIdentity: janitorUserIdentity{TaskName: "trivy-scan"},
 		Audience:     auth.Audience{},
 		ScopeSet: auth.NewScopeSet(auth.Scope{
 			ResourceType: "repository",
@@ -1009,13 +1009,19 @@ func (j *Janitor) doSecurityCheck(account keppel.Account, repo keppel.Repository
 
 	//ask Trivy for the security status of the manifest
 	securityInfo.Message = "" //unless it gets set to something else below
-	trivyReport, err := j.cfg.Trivy.ScanManifest(imageRef.String(), tokenResp.Token)
+
+	//we don't allow Trivy to take more than 10 minutes on a single image (which is already an
+	//insanely generous timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	parsedTrivyReport, err := j.cfg.Trivy.ScanManifestAndParse(ctx, tokenResp.Token, imageRef, "json")
 	if err != nil {
 		return err
 	}
 
 	var securityStatuses []clair.VulnerabilityStatus
-	for _, result := range trivyReport.Results {
+	for _, result := range parsedTrivyReport.Results {
 		for _, vulnerability := range result.Vulnerabilities {
 			if securityStatus, ok := clair.MapToTrivySeverity[vulnerability.Severity]; ok {
 				securityStatuses = append(securityStatuses, securityStatus)

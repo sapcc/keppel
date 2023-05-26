@@ -33,6 +33,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
 )
 
@@ -48,7 +49,7 @@ func deterministicDummyVulnStatus(counter int) clair.VulnerabilityStatus {
 
 func TestManifestsAPI(t *testing.T) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
-		s := test.NewSetup(t, test.WithKeppelAPI, test.WithClairDouble)
+		s := test.NewSetup(t, test.WithKeppelAPI, test.WithClairDouble, test.WithTrivyDouble)
 		h := s.Handler
 
 		//setup two test accounts
@@ -135,6 +136,12 @@ func TestManifestsAPI(t *testing.T) {
 					Status:       deterministicDummyVulnStatus(idx),
 					NextCheckAt:  time.Unix(0, 0),
 				})
+				mustInsert(t, s.DB, &keppel.TrivySecurityInfo{
+					RepositoryID:        int64(repoID),
+					Digest:              dummyDigest,
+					VulnerabilityStatus: deterministicDummyVulnStatus(idx),
+					NextCheckAt:         time.Unix(0, 0),
+				})
 			}
 			//one manifest is referenced by two tags, one is referenced by one tag
 			mustInsert(t, s.DB, &keppel.Tag{
@@ -165,16 +172,17 @@ func TestManifestsAPI(t *testing.T) {
 		renderedManifests := make([]assert.JSONObject, 10)
 		for idx := 1; idx <= 10; idx++ {
 			renderedManifests[idx-1] = assert.JSONObject{
-				"digest":               deterministicDummyDigest(10 + idx),
-				"media_type":           schema2.MediaTypeManifest,
-				"size_bytes":           uint64(1000 * idx),
-				"pushed_at":            int64(1000 * (10 + idx)),
-				"last_pulled_at":       nil,
-				"labels":               assert.JSONObject{"foo": "is there"},
-				"gc_status":            assert.JSONObject{"protected_by_recent_upload": true},
-				"vulnerability_status": string(deterministicDummyVulnStatus(idx)),
-				"min_layer_created_at": 20001,
-				"max_layer_created_at": 20002,
+				"digest":                     deterministicDummyDigest(10 + idx),
+				"media_type":                 schema2.MediaTypeManifest,
+				"size_bytes":                 uint64(1000 * idx),
+				"pushed_at":                  int64(1000 * (10 + idx)),
+				"last_pulled_at":             nil,
+				"labels":                     assert.JSONObject{"foo": "is there"},
+				"gc_status":                  assert.JSONObject{"protected_by_recent_upload": true},
+				"vulnerability_status":       string(deterministicDummyVulnStatus(idx)),
+				"trivy_vulnerability_status": string(deterministicDummyVulnStatus(idx)),
+				"min_layer_created_at":       20001,
+				"max_layer_created_at":       20002,
 			}
 		}
 		renderedManifests[0]["last_pulled_at"] = 11100
@@ -396,6 +404,18 @@ func TestManifestsAPI(t *testing.T) {
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusMethodNotAllowed, //manifest cannot have vulnerability report because it does not have manifest-blob refs
 		}.Check(t, h)
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11).String() + "/trivy_report",
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
+			ExpectStatus: http.StatusNotFound, //this manifest was deleted above
+		}.Check(t, h)
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12).String() + "/trivy_report",
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
+			ExpectStatus: http.StatusMethodNotAllowed, //manifest cannot have vulnerability report because it does not have manifest-blob refs
+		}.Check(t, h)
 
 		//setup a dummy blob that's correctly mounted and linked to our test manifest
 		//so that the vulnerability report can actually be shown
@@ -425,6 +445,19 @@ func TestManifestsAPI(t *testing.T) {
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusOK,
 			ExpectBody:   assert.JSONFixtureFile("fixtures/clair-report-vulnerable.json"),
+		}.Check(t, h)
+
+		imageRef, _, err := models.ParseImageReference("registry.example.org/test1/repo1-1@" + deterministicDummyDigest(12).String())
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		s.TrivyDouble.ReportFixtures[imageRef] = "../../tasks/fixtures/trivy/report-vulnerable.json"
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12).String() + "/trivy_report",
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
+			ExpectStatus: http.StatusOK,
+			ExpectBody:   assert.JSONFixtureFile("../../tasks/fixtures/trivy/report-vulnerable.json"),
 		}.Check(t, h)
 	})
 }

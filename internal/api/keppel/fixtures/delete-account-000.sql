@@ -24,5 +24,8 @@ INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, valid
 INSERT INTO repos (id, account_name, name) VALUES (1, 'test1', 'foo/bar');
 INSERT INTO repos (id, account_name, name) VALUES (2, 'test1', 'something-else');
 
+INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (1, 'sha256:6aa9f3d5659c999fecab6df26efb864792763a2c7ae7580edf5dc11df2882ea5', 'Pending', '', 0);
+INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (1, 'sha256:e255ca60e7cfef94adfcd95d78f1eb44404c4f5887cbf506dd5799489a42606c', 'Pending', '', 0);
+
 INSERT INTO vuln_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:6aa9f3d5659c999fecab6df26efb864792763a2c7ae7580edf5dc11df2882ea5', 'Pending', '', 0);
 INSERT INTO vuln_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:e255ca60e7cfef94adfcd95d78f1eb44404c4f5887cbf506dd5799489a42606c', 'Pending', '', 0);

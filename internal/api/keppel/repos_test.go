@@ -140,6 +140,12 @@ func TestReposAPI(t *testing.T) {
 			Status:       clair.PendingVulnerabilityStatus,
 			NextCheckAt:  time.Unix(0, 0),
 		})
+		mustInsert(t, s.DB, &keppel.TrivySecurityInfo{
+			RepositoryID:        filledRepo.ID,
+			Digest:              dummyDigest,
+			VulnerabilityStatus: clair.PendingVulnerabilityStatus,
+			NextCheckAt:         time.Unix(0, 0),
+		})
 		if idx <= 3 {
 			mustInsert(t, s.DB, &keppel.Tag{
 				RepositoryID: 5, //repo1-3

@@ -26,7 +26,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"time"
+
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // see https://github.com/aquasecurity/trivy/blob/main/pkg/flag/remote_flags.go#L11
@@ -40,7 +41,7 @@ type Config struct {
 	Token string
 }
 
-type securityResponse struct {
+type parsedTrivyReport struct {
 	Results []struct {
 		Vulnerabilities []struct {
 			Severity string `json:"Severity"`
@@ -48,19 +49,17 @@ type securityResponse struct {
 	} `json:"Results"`
 }
 
-func (tc *Config) ScanManifest(manifestRefString, keppelToken string) (trivyReport securityResponse, returnedError error) {
-	//we don't allow Trivy to take more than 10 minutes on a single image (which is already an
-	//insanely generous timeout)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
-
+func (tc *Config) ScanManifest(ctx context.Context, keppelToken string, manifestRef models.ImageReference, format string) ([]byte, error) {
 	requestURL := tc.URL
 	requestURL.Path = "/trivy"
-	requestURL.RawQuery = url.Values{"image": {manifestRefString}}.Encode()
+	requestURL.RawQuery = url.Values{
+		"image":  {manifestRef.String()},
+		"format": {format},
+	}.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), http.NoBody)
 	if err != nil {
-		return securityResponse{}, err
+		return nil, err
 	}
 
 	req.Header.Set(TokenHeader, tc.Token)
@@ -68,17 +67,27 @@ func (tc *Config) ScanManifest(manifestRefString, keppelToken string) (trivyRepo
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return securityResponse{}, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return securityResponse{}, err
+		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return securityResponse{}, fmt.Errorf("trivy proxy did not return 200: %d %s", resp.StatusCode, respBody)
+		return nil, fmt.Errorf("trivy proxy did not return 200: %d %s", resp.StatusCode, respBody)
 	}
 
-	err = json.Unmarshal(respBody, &trivyReport)
-	return trivyReport, err
+	return respBody, nil
+}
+
+func (tc *Config) ScanManifestAndParse(ctx context.Context, keppelToken string, manifestRef models.ImageReference, format string) (parsedTrivyReport, error) {
+	report, err := tc.ScanManifest(ctx, keppelToken, manifestRef, format)
+	if err != nil {
+		return parsedTrivyReport{}, err
+	}
+
+	var parsedReport parsedTrivyReport
+	err = json.Unmarshal(report, &parsedReport)
+	return parsedReport, err
 }

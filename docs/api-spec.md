@@ -438,7 +438,8 @@ response body like this:
       "gc_status": {
         "protected_by_recent_upload": true
       },
-      "vulnerability_status": "Clean"
+      "vulnerability_status": "Clean",
+      "trivy_vulnerability_status": "Low"
     },
     {
       "digest": "sha256:5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03",
@@ -446,7 +447,8 @@ response body like this:
       "size_bytes": 2791084,
       "pushed_at": 1575467980,
       "last_pulled_at": null,
-      "vulnerability_status": "High"
+      "vulnerability_status": "High",
+      "trivy_vulnerability_status": "Critical"
     }
   ]
 }
@@ -472,6 +474,7 @@ The following fields may be returned:
 | `manifests[].gc_status.protected_by_policy` | object or omitted | If shown, this manifest was protected from deletion during the last GC run because of a matching policy with the "protect" action. The object will contain the policy definition in the same format as described above for `accounts[].gc_policies[]`. |
 | `manifests[].gc_status.relevant_policies` | array of objects or omitted | If shown, this manifest was not protected from deletion during the last GC run, but no deleting policy matched either. The array will contain the definitions of all deleting policies that could apply to this manifest, in the same format as described above for `accounts[].gc_policies[]`. |
 | `manifests[].vulnerability_status` | string | Either `Clean` (no vulnerabilities have been found in this image), `Pending` (vulnerability scanning is not enabled on this server or is still in progress for this image or has failed for this image), `Error` (vulnerability scanning failed for this image or an image referenced in this manifest), or any of the severity strings defined by Clair (`Unknown`, `Negligible`, `Low`, `Medium`, `High`, `Critical`, `Defcon1`). The full vulnerability report can be retrieved with [a separate API call](#delete-keppelv1accountsnamerepositoriesname_manifestsdigestvulnerability_report). |
+| `manifests[].trivy_vulnerability_status` | string | Either `Clean` (no vulnerabilities have been found in this image), `Pending` (vulnerability scanning is not enabled on this server or is still in progress for this image or has failed for this image), `Error` (vulnerability scanning failed for this image or an image referenced in this manifest), or any of the severity strings defined by Clair (`Unknown`, `Low`, `Medium`, `High`, `Critical`). The full vulnerability report can be retrieved with [a separate API call](#delete-keppelv1accountsnamerepositoriesname_manifestsdigesttrivy_report). |
 | `manifests[].vulnerability_scan_error` | string | Only shown if `vulnerability_status` is `Error`. Contains the error message from Clair that explains why this image could not be scanned. When `vulnerability_status` is `Error` because scanning failed for an image referenced in this manifest, the error message will be shown on the referenced manifest instead of on this manifest. |
 | `truncated` | boolean | Indicates whether [marker-based pagination](#marker-based-pagination) must be used to retrieve the rest of the result. |
 
@@ -491,6 +494,25 @@ Otherwise, returns 204 (No Content) if the manifest does not directly reference 
 Otherwise, returns 405 (Method Not Allowed) if the manifest exists, but its vulnerability status (see above) is either `Pending` or `Error`. (This case should technically also be a 404, but the different status code allows clients to disambiguate the nonexistence of the manifest from the nonexistence of the vulnerability report.)
 
 Note that, when manifests reference other manifests (the most common case being multi-arch images referencing their constituent single-arch images), the vulnerability status of the parent manifest aggregates over the vulnerability statuses of its child manifests, but its vulnerability report only covers image layers directly referenced by the parent manifest. Clients displaying the vulnerability report for a multi-arch image manifest or any other manifest referencing child manifests should recursively fetch the vulnerability reports of all child manifests and show a merged representation as appropriate for their use case.
+
+## GET /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest/trivy\_report
+
+If this Keppel is configured to use its bundled [Trivy security scanner](https://aquasecurity.github.io/trivy), this endpoint retrieves the vulnerability report or the OCI manifests SBOM in spdx format from trivy for the specified manifest.
+If the manifest exists and a vulnerability report is available for it, returns 200 (OK) and a JSON response body containing the vulnerability report in the [format defined by Trivy](https://aquasecurity.github.io/trivy/latest/docs/configuration/reporting/#json).
+
+With the `format` query parameter the output format can be changed. Supported values are [`json`](https://aquasecurity.github.io/trivy/latest/docs/configuration/reporting/#json) (default) and [`spdx-json`](https://aquasecurity.github.io/trivy/latest/docs/target/sbom/#spdx).
+
+Returns 404 (Not Found) if the specified manifest does not exist.
+
+Otherwise, returns 204 (No Content) if the manifest does not directly reference any image layers and thus cannot be scanned for vulnerabilities itself.
+
+Otherwise, returns 405 (Method Not Allowed) if the manifest exists, but its vulnerability status (see above) is either `Pending` or `Error`.
+(This case should technically also be a 404, but the different status code allows clients to disambiguate the nonexistence of the manifest from the nonexistence of the vulnerability report.)
+
+Note that, when manifests reference other manifests (the most common case being multi-arch images referencing their constituent single-arch images), the vulnerability
+status of the parent manifest aggregates over the vulnerability statuses of its child manifests, but its vulnerability report only covers image layers directly referenced
+by the parent manifest. Clients displaying the vulnerability report for a multi-arch image manifest or any other manifest referencing child manifests should recursively
+fetch the vulnerability reports of all child manifests and show a merged representation as appropriate for their use case.
 
 ## DELETE /keppel/v1/accounts/:name/repositories/:name/\_tags/:name
 

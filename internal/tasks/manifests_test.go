@@ -158,6 +158,12 @@ func TestValidateNextManifestError(t *testing.T) {
 		NextCheckAt:  time.Unix(0, 0),
 		Status:       clair.PendingVulnerabilityStatus,
 	}))
+	mustDo(t, s.DB.Insert(&keppel.TrivySecurityInfo{
+		RepositoryID:        1,
+		Digest:              image.Manifest.Digest,
+		NextCheckAt:         time.Unix(0, 0),
+		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
+	}))
 	mustDo(t, s.SD.WriteManifest(*s.Accounts[0], "foo", image.Manifest.Digest, image.Manifest.Contents))
 
 	//validation should yield an error
@@ -627,11 +633,11 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		// trivy is checked here first because it returns result immediately and the above code will be removed when clair support is removed
 		s.ClairDouble.ReportFixtures[images[0].Manifest.Digest] = "fixtures/clair/report-vulnerable.json"
 		s.ClairDouble.ReportFixtures[images[1].Manifest.Digest] = "fixtures/clair/report-clean.json"
-		s.TrivyDouble.ReportFixtures[imageList.ImageRef(s, fooRepoRef).String()] = "fixtures/trivy/report-vulnerable.json"
-		s.TrivyDouble.ReportFixtures[images[0].ImageRef(s, fooRepoRef).String()] = "fixtures/trivy/report-vulnerable.json"
-		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef).String()] = "fixtures/trivy/report-clean.json"
-		s.TrivyDouble.ReportFixtures[images[2].ImageRef(s, fooRepoRef).String()] = "fixtures/trivy/report-vulnerable.json"
-		s.TrivyDouble.ReportFixtures[images[3].ImageRef(s, fooRepoRef).String()] = "fixtures/trivy/report-clean.json"
+		s.TrivyDouble.ReportFixtures[imageList.ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
+		s.TrivyDouble.ReportFixtures[images[0].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
+		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-clean.json"
+		s.TrivyDouble.ReportFixtures[images[2].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
+		s.TrivyDouble.ReportFixtures[images[3].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-clean.json"
 		s.Clock.StepBy(5 * time.Minute)
 		//once for each manifest
 		expectSuccess(t, ExecuteN(j.CheckVulnerabilitiesForNextManifest(), 3))
@@ -652,7 +658,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 
 		// check that a changed vulnerability status does not have side effects
 		s.ClairDouble.ReportFixtures[images[1].Manifest.Digest] = "fixtures/clair/report-vulnerable.json"
-		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef).String()] = "fixtures/trivy/report-vulnerable.json"
+		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		s.Clock.StepBy(1 * time.Hour)
 		//once for each manifest
 		expectSuccess(t, ExecuteN(j.CheckVulnerabilitiesForNextManifest(), 3))
@@ -698,7 +704,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		s.Clock.StepBy(30 * time.Minute)
 		s.ClairDouble.IndexFixtures[image.Manifest.Digest] = "fixtures/clair/manifest-004.json"
 		s.ClairDouble.IndexReportFixtures[image.Manifest.Digest] = "fixtures/clair/report-error.json"
-		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef).String()] = true
+		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef)] = true
 		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		expectError(t, "could not process task for job \"check trivy security status\": trivy proxy did not return 200: 500 simulated error\n", trivyJob.ProcessOne(s.Ctx))
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
@@ -712,8 +718,8 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		s.ClairDouble.IndexFixtures[image.Manifest.Digest] = "fixtures/clair/manifest-004.json"
 		s.ClairDouble.IndexReportFixtures[image.Manifest.Digest] = ""
 		s.ClairDouble.ReportFixtures[image.Manifest.Digest] = "fixtures/clair/report-vulnerable.json"
-		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef).String()] = false
-		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef).String()] = "fixtures/trivy/report-vulnerable.json"
+		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef)] = false
+		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))

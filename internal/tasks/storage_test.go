@@ -199,6 +199,12 @@ func TestSweepStorageManifests(t *testing.T) {
 		Status:       clair.PendingVulnerabilityStatus,
 		NextCheckAt:  s.Clock.Now(),
 	}))
+	mustDo(t, s.DB.Insert(&keppel.TrivySecurityInfo{
+		RepositoryID:        1,
+		Digest:              testImageList1.Manifest.Digest,
+		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
+		NextCheckAt:         s.Clock.Now(),
+	}))
 
 	//next SweepStorageInNextAccount should unmark manifest 1 (because it's now in
 	//the DB) and sweep manifest 2 (since it is still not in the DB)
