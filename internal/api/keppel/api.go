@@ -62,6 +62,8 @@ func (a *API) AddTo(r *mux.Router) {
 	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(a.handlePutAccount)
 	r.Methods("DELETE").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(a.handleDeleteAccount)
 	r.Methods("POST").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/sublease").HandlerFunc(a.handlePostAccountSublease)
+	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/security_scan_policies").HandlerFunc(a.handleGetSecurityScanPolicies)
+	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/security_scan_policies").HandlerFunc(a.handlePutSecurityScanPolicies)
 
 	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/repositories/{repo_name:.+}/_manifests").HandlerFunc(a.handleGetManifests)
 	r.Methods("DELETE").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/repositories/{repo_name:.+}/_manifests/{digest}").HandlerFunc(a.handleDeleteManifest)

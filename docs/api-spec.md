@@ -347,7 +347,7 @@ respective account. On success, returns 200 and a JSON response body like this:
     {
       "managed_by_user": "mytechnicaluser@mydomain",
       "match_repository": "my-python-app|my-other-image",
-      "match_vulnerability": "CVE-2022-40897",
+      "match_vulnerability_id": "CVE-2022-40897",
       "action": {
         "severity": "Low",
         "assessment": "adjusted severity: python-setuptools cannot be invoked through user requests"
@@ -364,7 +364,9 @@ The following fields may be returned:
 | `policies` | array of objects | Each policy matches a certain set of vulnerabilities on images in a certain set of repositories. Policies can be used to adjust the severity of vulnerabilities or ignore them altogether in certain situations. |
 | `policies[].managed_by_user` | string or omitted | If shown, the policy can only be edited by the user account with the given name. |
 | `policies[].match_repository` | string | The policy applies to all repositories in this account whose name matches this regex. The leading account name and slash is stripped from the repository name before matching. The notes on regexes below apply. |
+| `policies[].except_repository` | string or omitted | If given, matching repositories will be excluded from this policy, even if they match the `match_repository` regex. The syntax and mechanics of matching are otherwise identical to `match_repository` above. |
 | `policies[].match_vulnerability_id` | string | The policy applies to all vulnerabilities whose ID (as shown in the `VulnerabilityID` field of Trivy's JSON report format) matches this regex. In most cases, the vulnerability ID is a CVE number like `CVE-2014-0160`. The notes on regexes below apply. |
+| `policies[].except_vulnerability_id` | string or omitted | If given, matching vulnerabilities will be excluded from this policy, even if they match the `match_vulnerability_id` regex. The syntax and mechanics of matching are otherwise identical to `match_vulnerability_id` above. |
 | `policies[].except_fix_released` | bool or omitted | If true, the policy applies only to those vulnerabilities for which no fixed version has been released to the distribution repository (that is, the `FixedVersion` field is missing in Trivy's JSON report format). |
 | `policies[].action` | object | The effect that this policy will have on matching vulnerabilities reported for images in matching repositories.  |
 | `policies[].action.assessment` | string | A human-readable description of the reasoning behind this policy (maximum 1 KiB). |
@@ -385,10 +387,8 @@ endpoint replaces the list of user-defined policies for how Keppel processes rep
 the respective account. The request body must be a JSON document following the same schema as the response from the
 corresponding GET endpoint, except that:
 
-- `policies[].managed_by_user` may not be present, and
-- `policies[].managed_by_me` may be a bool value. If true, the policy will have its `managed_by_user` attribute set to
-  the name of the user that sent the PUT request. If false, the `managed_by_user` attribute of the policy will be
-  cleared.
+- `policies[].managed_by_user` may contain the special value `$REQUESTER` to indicate the requesting user. This value
+  will be replaced with the actual name of the requesting user.
 
 On success, returns 200 and a JSON response body like from the corresponding GET endpoint.
 
