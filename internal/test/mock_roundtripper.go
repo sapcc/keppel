@@ -41,9 +41,14 @@ func WithRoundTripper(action func(*RoundTripper)) {
 	t := RoundTripper{Handlers: make(map[string]http.Handler)}
 	originalDefaultTransport = http.DefaultTransport
 	http.DefaultTransport = &t
+	//The cleanup is in a defer, rather than just at the end of the function,
+	//in order to work correctly even if action() does a t.Fatal() or panic().
+	defer func() {
+		http.DefaultTransport = originalDefaultTransport
+		originalDefaultTransport = nil
+	}()
+
 	action(&t)
-	http.DefaultTransport = originalDefaultTransport
-	originalDefaultTransport = nil
 }
 
 // WithoutRoundTripper can be used during WithRoundTripper() to temporarily revert back to the
