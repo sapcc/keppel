@@ -58,6 +58,8 @@ type Account struct {
 	MetadataJSON string `db:"metadata_json"`
 	//GCPoliciesJSON contains a JSON string of []keppel.GCPolicy, or the empty string.
 	GCPoliciesJSON string `db:"gc_policies_json"`
+	//SecurityScanPoliciesJSON contains a JSON string of []keppel.SecurityScanPolicy, or the empty string.
+	SecurityScanPoliciesJSON string `db:"security_scan_policies_json"`
 
 	NextBlobSweepedAt            *time.Time `db:"next_blob_sweep_at"`              //see tasks.SweepBlobsInNextAccount
 	NextStorageSweepedAt         *time.Time `db:"next_storage_sweep_at"`           //see tasks.SweepStorageInNextAccount

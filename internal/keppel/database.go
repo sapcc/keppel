@@ -250,6 +250,12 @@ var sqlMigrations = map[string]string{
 	"033_trivy.down.sql": `
 		ALTER TABLE trivy_security_info RENAME COLUMN vuln_status TO status;
 	`,
+	"034_security_scan_policies.up.sql": `
+		ALTER TABLE accounts ADD COLUMN security_scan_policies_json TEXT NOT NULL DEFAULT '[]';
+	`,
+	"034_security_scan_policies.down.sql": `
+		ALTER TABLE accounts DROP COLUMN security_scan_policies_json;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.

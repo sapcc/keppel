@@ -67,14 +67,16 @@ func TestReposAPI(t *testing.T) {
 
 	//setup two test accounts
 	mustInsert(t, s.DB, &keppel.Account{
-		Name:           "test1",
-		AuthTenantID:   "tenant1",
-		GCPoliciesJSON: "[]",
+		Name:                     "test1",
+		AuthTenantID:             "tenant1",
+		GCPoliciesJSON:           "[]",
+		SecurityScanPoliciesJSON: "[]",
 	})
 	mustInsert(t, s.DB, &keppel.Account{
-		Name:           "test2",
-		AuthTenantID:   "tenant2",
-		GCPoliciesJSON: "[]",
+		Name:                     "test2",
+		AuthTenantID:             "tenant2",
+		GCPoliciesJSON:           "[]",
+		SecurityScanPoliciesJSON: "[]",
 	})
 
 	//test empty result
