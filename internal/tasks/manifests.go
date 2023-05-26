@@ -592,7 +592,7 @@ func (j *Janitor) collectManifestReferencedBlobs(account keppel.Account, repo ke
 		return nil, keppel.ErrManifestInvalid.With(err.Error())
 	}
 	if manifest.Digest != "" && manifestDesc.Digest != manifest.Digest {
-		return nil, keppel.ErrDigestInvalid.With("actual manifest digest is " + manifestDesc.Digest.String())
+		return nil, keppel.ErrDigestInvalid.With("actual manifest digest is %s", manifestDesc.Digest)
 	}
 	isLayer := make(map[digest.Digest]bool)
 	for _, desc := range manifestParsed.FindImageLayerBlobs() {

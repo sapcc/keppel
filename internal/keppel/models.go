@@ -327,9 +327,9 @@ var manifestGetQueryByRepoName = sqlext.SimplifyWhitespace(`
 
 // FindManifestByRepositoryName is a convenience wrapper around db.SelectOne().
 // If the manifest in question does not exist, sql.ErrNoRows is returned.
-func FindManifestByRepositoryName(db gorp.SqlExecutor, repoName string, account Account, manifestDigest string) (*Manifest, error) {
+func FindManifestByRepositoryName(db gorp.SqlExecutor, repoName string, account Account, manifestDigest digest.Digest) (*Manifest, error) {
 	var manifest Manifest
-	err := db.SelectOne(&manifest, manifestGetQueryByRepoName, account.Name, repoName, manifestDigest)
+	err := db.SelectOne(&manifest, manifestGetQueryByRepoName, account.Name, repoName, manifestDigest.String())
 	return &manifest, err
 }
 

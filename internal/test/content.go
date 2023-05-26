@@ -176,7 +176,7 @@ func GenerateImageWithCustomConfig(change func(map[string]interface{}), layers .
 	for idx, layer := range layers {
 		history = append(history, map[string]interface{}{
 			"created":    makeTimestamp(idx),
-			"created_by": fmt.Sprintf("/bin/sh -c #(nop) ADD file:%s in / ", layer.Digest.String()),
+			"created_by": fmt.Sprintf("/bin/sh -c #(nop) ADD file:%s in / ", layer.Digest),
 		})
 	}
 	imageConfig["history"] = history
@@ -192,7 +192,7 @@ func GenerateImageWithCustomConfig(change func(map[string]interface{}), layers .
 		layerDescs = append(layerDescs, map[string]interface{}{
 			"mediaType": layer.MediaType,
 			"size":      len(layer.Contents),
-			"digest":    layer.Digest.String(),
+			"digest":    layer.Digest,
 		})
 	}
 	manifestData := map[string]interface{}{
@@ -201,7 +201,7 @@ func GenerateImageWithCustomConfig(change func(map[string]interface{}), layers .
 		"config": assert.JSONObject{
 			"mediaType": imageConfigBytesObj.MediaType,
 			"size":      len(imageConfigBytes),
-			"digest":    imageConfigBytesObj.Digest.String(),
+			"digest":    imageConfigBytesObj.Digest,
 		},
 		"layers": layerDescs,
 	}
@@ -260,7 +260,7 @@ func GenerateImageList(images ...Image) ImageList {
 		manifestDescs = append(manifestDescs, map[string]interface{}{
 			"mediaType": img.Manifest.MediaType,
 			"size":      len(img.Manifest.Contents),
-			"digest":    img.Manifest.Digest.String(),
+			"digest":    img.Manifest.Digest,
 			"platform": map[string]string{
 				"os":           "linux",
 				"architecture": testArchStrings[idx],

@@ -61,7 +61,7 @@ func (c *Client) doRequest(req *http.Request, respBody interface{}) error {
 	})
 	tokenStr, err := token.SignedString(c.PresharedKey)
 	if err != nil {
-		return fmt.Errorf("cannot issue token for %s %s: %w", req.Method, req.URL.String(), err)
+		return fmt.Errorf("cannot issue token for %s %s: %w", req.Method, req.URL, err)
 	}
 	req.Header.Set("Authorization", "Bearer "+tokenStr)
 
@@ -74,7 +74,7 @@ func (c *Client) doRequest(req *http.Request, respBody interface{}) error {
 	//run request
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("cannot %s %s: %w", req.Method, req.URL.String(), err)
+		return fmt.Errorf("cannot %s %s: %w", req.Method, req.URL, err)
 	}
 	respBodyBytes, err := io.ReadAll(resp.Body)
 	if err == nil {
@@ -83,12 +83,12 @@ func (c *Client) doRequest(req *http.Request, respBody interface{}) error {
 		resp.Body.Close()
 	}
 	if err != nil {
-		return fmt.Errorf("cannot %s %s: %w", req.Method, req.URL.String(), err)
+		return fmt.Errorf("cannot %s %s: %w", req.Method, req.URL, err)
 	}
 
 	//expect 2xx response
 	if resp.StatusCode >= 299 {
-		return fmt.Errorf("cannot %s %s: got %d response: %q", req.Method, req.URL.String(), resp.StatusCode, string(respBodyBytes))
+		return fmt.Errorf("cannot %s %s: got %d response: %q", req.Method, req.URL, resp.StatusCode, string(respBodyBytes))
 	}
 
 	if resp.StatusCode == http.StatusNoContent {
@@ -97,7 +97,7 @@ func (c *Client) doRequest(req *http.Request, respBody interface{}) error {
 
 	err = json.Unmarshal(respBodyBytes, &respBody)
 	if err != nil {
-		return fmt.Errorf("cannot %s %s: cannot decode response body: %w", req.Method, req.URL.String(), err)
+		return fmt.Errorf("cannot %s %s: cannot decode response body: %w", req.Method, req.URL, err)
 	}
 	return nil
 }

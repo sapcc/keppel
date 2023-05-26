@@ -65,9 +65,9 @@ func (l logger) LogManifest(reference models.ManifestReference, level int, err e
 		suffix = " (cached result)"
 	}
 	if err == nil {
-		logg.Info("%smanifest %s looks good%s", indent, reference.String(), suffix)
+		logg.Info("%smanifest %s looks good%s", indent, reference, suffix)
 	} else {
-		logg.Error("%smanifest %s validation failed: %s%s", indent, reference.String(), err.Error(), suffix)
+		logg.Error("%smanifest %s validation failed: %s%s", indent, reference, err.Error(), suffix)
 	}
 }
 
@@ -79,9 +79,9 @@ func (l logger) LogBlob(d digest.Digest, level int, err error, isCached bool) {
 		suffix = " (cached result)"
 	}
 	if err == nil {
-		logg.Info("%sblob     %s looks good%s", indent, d.String(), suffix)
+		logg.Info("%sblob     %s looks good%s", indent, d, suffix)
 	} else {
-		logg.Error("%sblob     %s validation failed: %s%s", indent, d.String(), err.Error(), suffix)
+		logg.Error("%sblob     %s validation failed: %s%s", indent, d, err.Error(), suffix)
 	}
 }
 

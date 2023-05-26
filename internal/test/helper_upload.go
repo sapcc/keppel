@@ -126,7 +126,7 @@ func (i Image) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName
 
 	//validate uploaded manifest
 	account := keppel.Account{Name: repo.AccountName}
-	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, account, i.Manifest.Digest.String())
+	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, account, i.Manifest.Digest)
 	mustDo(t, err)
 	s.ExpectManifestsExistInStorage(t, repo.Name, *manifest)
 	if t.Failed() {
@@ -148,7 +148,7 @@ var checkManifestExistsQuery = sqlext.SimplifyWhitespace(`
 func (l ImageList) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName string) keppel.Manifest {
 	//upload missing images
 	for _, image := range l.Images {
-		count, err := s.DB.SelectInt(checkManifestExistsQuery, repo.AccountName, repo.Name, image.Manifest.Digest.String())
+		count, err := s.DB.SelectInt(checkManifestExistsQuery, repo.AccountName, repo.Name, image.Manifest.Digest)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -183,7 +183,7 @@ func (l ImageList) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tag
 
 	//validate uploaded manifest
 	account := keppel.Account{Name: repo.AccountName}
-	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, account, l.Manifest.Digest.String())
+	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, account, l.Manifest.Digest)
 	mustDo(t, err)
 	s.ExpectManifestsExistInStorage(t, repo.Name, *manifest)
 	if t.Failed() {

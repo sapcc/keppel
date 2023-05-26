@@ -188,7 +188,7 @@ func (j *healthMonitorJob) ValidateImage(manifestRef models.ManifestReference) {
 			RepoName:  j.RepoClient.RepoName,
 			Reference: manifestRef,
 		}
-		logg.Error("validation of %s failed: %s", imageRef.String(), err.Error())
+		logg.Error("validation of %s failed: %s", imageRef, err.Error())
 	}
 }
 

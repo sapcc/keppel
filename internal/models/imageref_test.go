@@ -67,7 +67,7 @@ func TestParseImageReferenceSuccess(t *testing.T) {
 						t.Logf("input interpretation was: %s", interpretation)
 					}
 				} else {
-					t.Errorf("expected %s to parse, but got error: %s", ref.String(), err.Error())
+					t.Errorf("expected %s to parse, but got error: %s", ref, err.Error())
 					t.Logf("input interpretation was: %s", interpretation)
 				}
 			}
@@ -90,7 +90,7 @@ func TestParseImageReferenceLabelDigestSuccess(t *testing.T) {
 			t.Logf("input interpretation was: %s", interpretation)
 		}
 	} else {
-		t.Errorf("expected %s to parse, but got error: %s", refActual.String(), err.Error())
+		t.Errorf("expected %s to parse, but got error: %s", refActual, err.Error())
 		t.Logf("input interpretation was: %s", interpretation)
 	}
 }

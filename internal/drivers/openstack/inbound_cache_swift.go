@@ -127,7 +127,7 @@ func (d *inboundCacheDriverSwift) objectFor(imageRef models.ImageReference) *sch
 			imageRef.Host, imageRef.RepoName, imageRef.Reference.Tag)
 	} else {
 		name = fmt.Sprintf("%s/%s/_manifests/%s",
-			imageRef.Host, imageRef.RepoName, imageRef.Reference.Digest.String())
+			imageRef.Host, imageRef.RepoName, imageRef.Reference.Digest)
 	}
 	return d.Container.Object(name)
 }

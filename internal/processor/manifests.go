@@ -75,14 +75,14 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 	if err != nil {
 		return nil, err
 	}
-	logg.Debug("ValidateAndStoreManifest: in repo %d, manifest %s already exists = %t", repo.ID, contentsDigest.String(), manifestExistsAlready)
+	logg.Debug("ValidateAndStoreManifest: in repo %d, manifest %s already exists = %t", repo.ID, contentsDigest, manifestExistsAlready)
 	var tagExistsAlready bool
 	if m.Reference.IsTag() {
 		tagExistsAlready, err = p.db.SelectBool(checkTagExistsAtSameDigestQuery, repo.ID, m.Reference.Tag, contentsDigest.String())
 		if err != nil {
 			return nil, err
 		}
-		logg.Debug("ValidateAndStoreManifest: in repo %d, tag %s @%s already exists = %t", repo.ID, m.Reference.Tag, contentsDigest.String(), tagExistsAlready)
+		logg.Debug("ValidateAndStoreManifest: in repo %d, tag %s @%s already exists = %t", repo.ID, m.Reference.Tag, contentsDigest, tagExistsAlready)
 	}
 
 	//the quota check can be skipped if we are sure that we won't need to insert
@@ -291,14 +291,14 @@ type manifestRefsInfo struct {
 
 func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account, repo keppel.Repository, manifest keppel.ParsedManifest) (result manifestRefsInfo, err error) {
 	//ensure that we don't insert duplicate entries into `blobRefs` and `manifestDigests`
-	wasHandled := make(map[string]bool)
+	wasHandled := make(map[digest.Digest]bool)
 
 	//for all blobs referenced by this manifest...
 	for _, desc := range manifest.BlobReferences() {
-		if wasHandled[desc.Digest.String()] {
+		if wasHandled[desc.Digest] {
 			continue
 		}
-		wasHandled[desc.Digest.String()] = true
+		wasHandled[desc.Digest] = true
 
 		//check that the blob exists
 		blob, err := keppel.FindBlobByRepository(tx, desc.Digest, repo)
@@ -313,7 +313,7 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 		if blob.SizeBytes != uint64(desc.Size) {
 			msg := fmt.Sprintf(
 				"manifest references blob %s with %d bytes, but blob actually contains %d bytes",
-				desc.Digest.String(), desc.Size, blob.SizeBytes)
+				desc.Digest, desc.Size, blob.SizeBytes)
 			return manifestRefsInfo{}, keppel.ErrManifestInvalid.With(msg)
 		}
 		result.BlobRefs = append(result.BlobRefs, blobRef{blob.ID, desc.MediaType})
@@ -321,10 +321,10 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 
 	//for all manifests referenced by this manifest...
 	for idx, desc := range manifest.ManifestReferences(account.PlatformFilter) {
-		if wasHandled[desc.Digest.String()] {
+		if wasHandled[desc.Digest] {
 			continue
 		}
-		wasHandled[desc.Digest.String()] = true
+		wasHandled[desc.Digest] = true
 
 		//check that the child manifest exists
 		manifest, err := keppel.FindManifest(tx, repo, desc.Digest)

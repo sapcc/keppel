@@ -43,7 +43,7 @@ func (r ImageReference) String() string {
 	var result string
 	if r.Reference.IsDigest() {
 		//digests are appended with "@"
-		result = fmt.Sprintf("%s@%s", r.RepoName, r.Reference.Digest.String())
+		result = fmt.Sprintf("%s@%s", r.RepoName, r.Reference.Digest)
 	} else {
 		//tag names are appended with ":"
 		if r.Reference.Tag == defaultTagName {
