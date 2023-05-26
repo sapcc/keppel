@@ -648,7 +648,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE trivy_security_info SET vuln_status = 'Clean', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above 0.001 GiB', next_check_at = 92400 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE trivy_security_info SET vuln_status = 'Clean', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE vuln_info SET status = 'Low', next_check_at = 9600, checked_at = 6000, index_finished_at = 6000 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE vuln_info SET next_check_at = 6120, checked_at = 6000 WHERE repo_id = 1 AND digest = '%s';
@@ -662,11 +662,10 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		s.Clock.StepBy(1 * time.Hour)
 		//once for each manifest
 		expectSuccess(t, ExecuteN(j.CheckVulnerabilitiesForNextManifest(), 3))
-		expectSuccess(t, jobloop.ProcessMany(trivyJob, s.Ctx, 5))
+		expectSuccess(t, jobloop.ProcessMany(trivyJob, s.Ctx, 4))
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
-			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
@@ -674,7 +673,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 			UPDATE vuln_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE vuln_info SET next_check_at = 9720, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE vuln_info SET status = 'Low', next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
-		`, images[0].Manifest.Digest, imageList.Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest, images[1].Manifest.Digest,
+		`, images[0].Manifest.Digest, imageList.Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest,
 			images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
 	})
 }

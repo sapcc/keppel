@@ -1074,6 +1074,43 @@ func (j *Janitor) checkPreConditionsForTrivy(account keppel.Account, repo keppel
 			//after successful replication, restart this call to read the new blob with the correct StorageID from the DB
 			return j.checkPreConditionsForTrivy(account, repo, manifest, securityInfo)
 		}
+
+		if blob.BlocksVulnScanning == nil && strings.HasSuffix(blob.MediaType, "gzip") {
+			//uncompress the blob to check if it's too large for Clair to handle
+			reader, _, err := j.sd.ReadBlob(account, blob.StorageID)
+			if err != nil {
+				return false, err
+			}
+			defer reader.Close()
+			gzipReader, err := gzip.NewReader(reader)
+			if err != nil {
+				return false, err
+			}
+			defer gzipReader.Close()
+
+			//when measuring uncompressed size, use LimitReader as a simple but
+			//effective guard against zip bombs
+			limitBytes := int64(1 << 30 * blobUncompressedSizeTooBigGiB)
+			numberBytes, err := io.Copy(io.Discard, io.LimitReader(gzipReader, limitBytes+1))
+			if err != nil {
+				return false, err
+			}
+
+			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
+			blocksVulnScanning := numberBytes >= limitBytes
+			blob.BlocksVulnScanning = &blocksVulnScanning
+			_, err = j.db.Exec(`UPDATE blobs SET blocks_vuln_scanning = $1 WHERE id = $2`, blocksVulnScanning, blob.ID)
+			if err != nil {
+				return false, err
+			}
+		}
+
+		if blob.BlocksVulnScanning != nil && *blob.BlocksVulnScanning {
+			securityInfo.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
+			securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
+			securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
+			return false, nil
+		}
 	}
 
 	return true, nil
