@@ -20,11 +20,13 @@ package keppel
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/regexpext"
 
 	"github.com/sapcc/keppel/internal/clair"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 // SecurityScanPolicy is a policy enabling user-defined adjustments to
@@ -109,4 +111,77 @@ func isSeverityKnownByTrivy(severity clair.VulnerabilityStatus) bool {
 		}
 	}
 	return false
+}
+
+// VulnerabilityStatus returns the status that this policy forces for matching
+// vulnerabilities in matching repos.
+func (p SecurityScanPolicy) VulnerabilityStatus() clair.VulnerabilityStatus {
+	//NOTE: Validate() ensures that either `Action.Ignore` or `Action.Severity` is set.
+	if p.Action.Ignore {
+		return clair.CleanSeverity
+	}
+	return p.Action.Severity
+}
+
+// MatchesRepository evaluates the repository regexes in this policy.
+func (p SecurityScanPolicy) MatchesRepository(repo Repository) bool {
+	//NOTE: NegativeRepositoryRx takes precedence and is thus evaluated first.
+	if p.NegativeRepositoryRx != "" && p.NegativeRepositoryRx.MatchString(repo.Name) {
+		return false
+	}
+	return p.RepositoryRx.MatchString(repo.Name)
+}
+
+// MatchesVulnerability evaluates the vulnerability regexes and checkin this policy.
+func (p SecurityScanPolicy) MatchesVulnerability(vuln trivy.ReportedVulnerability) bool {
+	fixIsReleased := vuln.FixedVersion != ""
+	if p.ExceptFixReleased && fixIsReleased {
+		return false
+	}
+
+	//NOTE: NegativeRepositoryRx takes precedence and is thus evaluated first.
+	if p.NegativeVulnerabilityIDRx != "" && p.NegativeVulnerabilityIDRx.MatchString(vuln.VulnerabilityID) {
+		return false
+	}
+	return p.VulnerabilityIDRx.MatchString(vuln.VulnerabilityID)
+}
+
+// SecurityScanPolicySet contains convenience functions for operating on a list
+// of SecurityScanPolicy (like those found in Account.SecurityScanPoliciesJSON).
+type SecurityScanPolicySet []SecurityScanPolicy
+
+// SecurityScanPoliciesFor deserializes this account's security scan policies
+// and returns the subset that match the given repository.
+func (a Account) SecurityScanPoliciesFor(repo Repository) (SecurityScanPolicySet, error) {
+	if repo.AccountName != a.Name {
+		//defense in depth
+		panic(fmt.Sprintf(
+			"Account.SecurityScanPoliciesFor called with repo.AccountName = %q, but a.Name = %q!",
+			repo.AccountName, a.Name))
+	}
+
+	var policies SecurityScanPolicySet
+	err := json.Unmarshal([]byte(a.SecurityScanPoliciesJSON), &policies)
+	if err != nil {
+		return nil, fmt.Errorf("cannot unmarshal SecurityScanPoliciesJSON for account %q: %w", a.Name, err)
+	}
+
+	var result SecurityScanPolicySet
+	for _, p := range policies {
+		if p.MatchesRepository(repo) {
+			result = append(result, p)
+		}
+	}
+	return result, nil
+}
+
+// PolicyForVulnerability returns the first policy from this set that matches
+// the vulnerability, or nil if no policy matches.
+func (s SecurityScanPolicySet) PolicyForVulnerability(vuln trivy.ReportedVulnerability) *SecurityScanPolicy {
+	for _, p := range s {
+		if p.MatchesVulnerability(vuln) {
+			return &p
+		}
+	}
+	return nil
 }
