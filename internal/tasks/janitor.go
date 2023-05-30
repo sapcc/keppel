@@ -37,11 +37,10 @@ import (
 )
 
 func init() {
-	keppel.UserIdentityRegistry.Add(func() keppel.UserIdentity { return JanitorUserIdentity })
+	keppel.UserIdentityRegistry.Add(func() keppel.UserIdentity {
+		return keppel.UserIdentity(janitorUserIdentity{})
+	})
 }
-
-// JanitorUserIdentity is a keppel.UserIdentity used by the janitor to authorize other components eg. trivy to pull images
-var JanitorUserIdentity = keppel.UserIdentity(janitorUserIdentity{})
 
 // janitorDummyRequest can be put in the Request field of type keppel.AuditContext.
 var janitorDummyRequest = &http.Request{URL: &url.URL{
