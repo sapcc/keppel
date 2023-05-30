@@ -1075,15 +1075,15 @@ func (j *Janitor) checkPreConditionsForTrivy(account keppel.Account, repo keppel
 		}
 
 		if blob.BlocksVulnScanning == nil && strings.HasSuffix(blob.MediaType, "gzip") {
-			//uncompress the blob to check if it's too large for Clair to handle
+			//uncompress the blob to check if it's too large for Trivy to handle within its allotted timeout
 			reader, _, err := j.sd.ReadBlob(account, blob.StorageID)
 			if err != nil {
-				return false, err
+				return false, fmt.Errorf("cannot read blob %s: %w", blob.Digest, err)
 			}
 			defer reader.Close()
 			gzipReader, err := gzip.NewReader(reader)
 			if err != nil {
-				return false, err
+				return false, fmt.Errorf("cannot unzip blob %s: %w", blob.Digest, err)
 			}
 			defer gzipReader.Close()
 
@@ -1092,7 +1092,7 @@ func (j *Janitor) checkPreConditionsForTrivy(account keppel.Account, repo keppel
 			limitBytes := int64(1 << 30 * blobUncompressedSizeTooBigGiB)
 			numberBytes, err := io.Copy(io.Discard, io.LimitReader(gzipReader, limitBytes+1))
 			if err != nil {
-				return false, err
+				return false, fmt.Errorf("cannot unzip blob %s: %w", blob.Digest, err)
 			}
 
 			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
