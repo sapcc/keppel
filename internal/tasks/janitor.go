@@ -36,6 +36,12 @@ import (
 	"github.com/sapcc/keppel/internal/processor"
 )
 
+func init() {
+	keppel.UserIdentityRegistry.Add(func() keppel.UserIdentity {
+		return keppel.UserIdentity(janitorUserIdentity{})
+	})
+}
+
 // janitorDummyRequest can be put in the Request field of type keppel.AuditContext.
 var janitorDummyRequest = &http.Request{URL: &url.URL{
 	Scheme: "http",

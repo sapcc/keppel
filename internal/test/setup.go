@@ -156,6 +156,7 @@ type Setup struct {
 	ICD          *InboundCacheDriver
 	Handler      http.Handler
 	Ctx          context.Context //nolint: containedctx  // only used in tests
+	Registry     *prometheus.Registry
 	//fields that are only set if the respective With... setup option is included
 	ClairDouble *ClairDouble
 	TrivyDouble *TrivyDouble
@@ -164,7 +165,6 @@ type Setup struct {
 	Repos    []*keppel.Repository
 	//fields that are only accessible to helper functions
 	tokenCache map[string]string
-	Registry   *prometheus.Registry
 }
 
 // these credentials are in global vars so that we don't have to recompute them
@@ -221,6 +221,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 			DatabaseURL:       dbURL,
 		},
 		Ctx:        context.Background(),
+		Registry:   prometheus.NewPedanticRegistry(),
 		tokenCache: make(map[string]string),
 	}
 
@@ -395,8 +396,6 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 			}))
 		}
 	}
-
-	s.Registry = prometheus.NewPedanticRegistry()
 
 	return s
 }
