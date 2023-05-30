@@ -243,7 +243,7 @@ func TestAccountsAPI(t *testing.T) {
 						Attachments: []cadf.Attachment{{
 							Name:    "gc-policies",
 							TypeURI: "mime:application/json",
-							Content: gcPoliciesToJSON(gcPoliciesJSON),
+							Content: toJSONVia[[]keppel.GCPolicy](gcPoliciesJSON),
 						}},
 					},
 				},
@@ -2085,21 +2085,33 @@ func makeSubleaseToken(accountName, primaryHostname, secret string) string {
 	return base64.StdEncoding.EncodeToString(buf)
 }
 
-func gcPoliciesToJSON(in []assert.JSONObject) string {
+func toJSONVia[T any](in any) string {
 	//This is mostly the same as `test.ToJSON(in)`, but deserializes into
-	//keppel.GCPolicy in an intermediate step to render the JSON with the correct
-	//field order.
+	//T in an intermediate step to render the JSON with the correct field order.
+	//Used for the GCPolicy and SecurityScanPolicy audit event matches.
 	buf, _ := json.Marshal(in)
-	var policies []keppel.GCPolicy
-	err := json.Unmarshal(buf, &policies)
+	var intermediate T
+	err := json.Unmarshal(buf, &intermediate)
 	if err != nil {
 		panic(err.Error())
 	}
-	buf, err = json.Marshal(policies)
+	buf, err = json.Marshal(intermediate)
 	if err != nil {
 		panic(err.Error())
 	}
 	return string(buf)
+}
+
+func deepCopyViaJSON[T any](in T) (out T) {
+	buf, err := json.Marshal(in)
+	if err != nil {
+		panic(err.Error())
+	}
+	err = json.Unmarshal(buf, &out)
+	if err != nil {
+		panic(err.Error())
+	}
+	return out
 }
 
 func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
@@ -2251,4 +2263,386 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 			ExpectBody:   assert.StringData("peer account filter needs to match primary account filter: primary account [{\"architecture\":\"arm64\",\"os\":\"linux\",\"variant\":\"v8\"}], peer account [{\"architecture\":\"amd64\",\"os\":\"linux\"}] \n"),
 		}.Check(t, s2.Handler)
 	})
+}
+
+func TestSecurityScanPoliciesHappyPath(t *testing.T) {
+	s := test.NewSetup(t,
+		test.WithKeppelAPI,
+	)
+
+	//we need to set test.AuthDriver.ExpectedUserName because this username is
+	//matched against the managed_by_user field of our policies
+	s.AD.ExpectedUserName = "exampleuser"
+
+	//create a fresh account for testing
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{"auth_tenant_id": "tenant1"},
+		},
+		ExpectStatus: http.StatusOK,
+	}.Check(t, s.Handler)
+
+	//a freshly-created account should have no policies at all
+	assert.HTTPRequest{
+		Method:       "GET",
+		Path:         "/keppel/v1/accounts/first/security_scan_policies",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		ExpectStatus: http.StatusOK,
+		ExpectBody:   assert.JSONObject{"policies": []assert.JSONObject{}},
+	}.Check(t, s.Handler)
+	s.Auditor.IgnoreEventsUntilNow()
+
+	//helper function for testing a successful PUT of policies, followed by a GET
+	//that returns those same policies
+	expectPoliciesToBeApplied := func(policies ...assert.JSONObject) {
+		assert.HTTPRequest{
+			Method:       "PUT",
+			Path:         "/keppel/v1/accounts/first/security_scan_policies",
+			Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
+			Body:         assert.JSONObject{"policies": policies},
+			ExpectStatus: http.StatusOK,
+			ExpectBody:   assert.JSONObject{"policies": policies},
+		}.Check(t, s.Handler)
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/keppel/v1/accounts/first/security_scan_policies",
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+			ExpectStatus: http.StatusOK,
+			ExpectBody:   assert.JSONObject{"policies": policies},
+		}.Check(t, s.Handler)
+	}
+
+	//PUT with no policies is okay, does nothing
+	expectPoliciesToBeApplied( /* nothing */ )
+	s.Auditor.ExpectEvents(t /*, nothing */)
+
+	//add the policies from the API spec example
+	policy1 := assert.JSONObject{
+		"match_repository":       ".*",
+		"match_vulnerability_id": ".*",
+		"except_fix_released":    true,
+		"action": assert.JSONObject{
+			"ignore":     true,
+			"assessment": "risk accepted: vulnerabilities without an available fix are not actionable",
+		},
+	}
+	policy2 := assert.JSONObject{
+		"managed_by_user":        "exampleuser",
+		"match_repository":       "my-python-app|my-other-image",
+		"match_vulnerability_id": "CVE-2022-40897",
+		"action": assert.JSONObject{
+			"severity":   "Low",
+			"assessment": "adjusted severity: python-setuptools cannot be invoked through user requests",
+		},
+	}
+	expectPoliciesToBeApplied(policy1, policy2)
+
+	//adding two policies generates one create event per policy
+	expectedEventForPolicy := func(action cadf.Action, policy assert.JSONObject) cadf.Event {
+		return cadf.Event{
+			RequestPath: "/keppel/v1/accounts/first/security_scan_policies",
+			Action:      action,
+			Outcome:     "success",
+			Reason:      test.CADFReasonOK,
+			Target: cadf.Resource{
+				TypeURI:   "docker-registry/account",
+				ID:        "first",
+				ProjectID: "tenant1",
+				Attachments: []cadf.Attachment{{
+					Name:    "payload",
+					TypeURI: "mime:application/json",
+					Content: toJSONVia[keppel.SecurityScanPolicy](policy),
+				}},
+			},
+		}
+	}
+	s.Auditor.ExpectEvents(t,
+		expectedEventForPolicy("create/security-scan-policy", policy1),
+		expectedEventForPolicy("create/security-scan-policy", policy2),
+	)
+
+	//update a policy -> one deletion event, one creation event
+	policy1New := deepCopyViaJSON(policy1)
+	policy1New["match_repository"] = "foo.*"
+	expectPoliciesToBeApplied(policy1New, policy2)
+	s.Auditor.ExpectEvents(t,
+		expectedEventForPolicy("create/security-scan-policy", policy1New),
+		expectedEventForPolicy("delete/security-scan-policy", policy1),
+	)
+
+	//update a policy managed by the current user -> same behavior
+	policy2New := deepCopyViaJSON(policy2)
+	policy2New["action"].(map[string]any)["severity"] = "Medium"
+	expectPoliciesToBeApplied(policy1New, policy2New)
+	s.Auditor.ExpectEvents(t,
+		expectedEventForPolicy("create/security-scan-policy", policy2New),
+		expectedEventForPolicy("delete/security-scan-policy", policy2),
+	)
+
+	//test deleting all policies
+	expectPoliciesToBeApplied( /* nothing */ )
+	s.Auditor.ExpectEvents(t,
+		expectedEventForPolicy("delete/security-scan-policy", policy1New),
+		expectedEventForPolicy("delete/security-scan-policy", policy2New),
+	)
+
+	//test expansion of "$REQUESTER" in "managed_by_user" field (this cannot use
+	//expectPoliciesToBeApplied() since the response body is different from the
+	//request body)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first/security_scan_policies",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{"policies": []assert.JSONObject{{
+			"managed_by_user":        "$REQUESTER",
+			"match_repository":       ".*",
+			"match_vulnerability_id": ".*",
+			"except_fix_released":    true,
+			"action": assert.JSONObject{
+				"ignore":     true,
+				"assessment": "risk accepted: vulnerabilities without an available fix are not actionable",
+			}},
+		}},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{"policies": []assert.JSONObject{{
+			"managed_by_user":        "exampleuser",
+			"match_repository":       ".*",
+			"match_vulnerability_id": ".*",
+			"except_fix_released":    true,
+			"action": assert.JSONObject{
+				"ignore":     true,
+				"assessment": "risk accepted: vulnerabilities without an available fix are not actionable",
+			}},
+		}},
+	}.Check(t, s.Handler)
+	s.Auditor.IgnoreEventsUntilNow()
+}
+
+func TestSecurityScanPoliciesValidationErrors(t *testing.T) {
+	s := test.NewSetup(t,
+		test.WithKeppelAPI,
+		test.WithAccount(keppel.Account{Name: "first", AuthTenantID: "tenant1"}),
+	)
+
+	//we need to set test.AuthDriver.ExpectedUserName because this username is
+	//matched against the managed_by_user field of our policies
+	s.AD.ExpectedUserName = "exampleuser"
+
+	//check unmarshalling errors
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first/security_scan_policies",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{"policies": []assert.JSONObject{
+			{
+				"match_repository":       ".*",
+				"match_vulnerability_id": ".*",
+				"action": assert.JSONObject{
+					"severity":   "Low",
+					"assessment": "not important",
+				},
+				"unknown_field": 42,
+			},
+		}},
+		ExpectStatus: http.StatusBadRequest,
+		ExpectBody:   assert.StringData("request body is not valid JSON: json: unknown field \"unknown_field\"\n"),
+	}.Check(t, s.Handler)
+
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first/security_scan_policies",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{"policies": []assert.JSONObject{
+			{
+				"match_repository":       ".*",
+				"match_vulnerability_id": "(.*",
+				"action": assert.JSONObject{
+					"severity":   "Low",
+					"assessment": "not important",
+				},
+			},
+		}},
+		ExpectStatus: http.StatusBadRequest,
+		ExpectBody:   assert.StringData("request body is not valid JSON: \"(.*\" is not a valid regexp: error parsing regexp: missing closing ): `^(?:(.*)$`\n"),
+	}.Check(t, s.Handler)
+
+	//check all policy-local validations (every policy has exactly one error)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first/security_scan_policies",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{"policies": []assert.JSONObject{
+			{
+				// missing "match_repository"
+				"match_vulnerability_id": ".*",
+				"action": assert.JSONObject{
+					"severity":   "Low",
+					"assessment": "not important",
+				},
+			},
+			{
+				// missing "match_vulnerability"
+				"match_repository": ".*",
+				"action": assert.JSONObject{
+					"severity":   "Low",
+					"assessment": "not important",
+				},
+			},
+			{
+				// missing "assessment"
+				"match_repository":       ".*",
+				"match_vulnerability_id": ".*",
+				"action": assert.JSONObject{
+					"severity": "Low",
+				},
+			},
+			{
+				// overlong "assessment"
+				"match_repository":       ".*",
+				"match_vulnerability_id": ".*",
+				"action": assert.JSONObject{
+					"severity":   "Low",
+					"assessment": strings.Repeat("a", 1025),
+				},
+			},
+			{
+				// both "severity" and "ignore"
+				"match_repository":       ".*",
+				"match_vulnerability_id": ".*",
+				"action": assert.JSONObject{
+					"severity":   "Clean",
+					"ignore":     true,
+					"assessment": "not important",
+				},
+			},
+			{
+				// neither "severity" nor "ignore"
+				"match_repository":       ".*",
+				"match_vulnerability_id": ".*",
+				"action": assert.JSONObject{
+					"assessment": "not important",
+				},
+			},
+			{
+				// unknown value for "severity"
+				"match_repository":       ".*",
+				"match_vulnerability_id": ".*",
+				"action": assert.JSONObject{
+					"severity":   "Pending",
+					"assessment": "not important",
+				},
+			},
+			{
+				// unacceptable value for "severity" (must be an explicit value)
+				"match_repository":       ".*",
+				"match_vulnerability_id": ".*",
+				"action": assert.JSONObject{
+					"severity":   "Unknown",
+					"assessment": "not important",
+				},
+			},
+		}},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody: assert.StringData(strings.Join([]string{
+			`policies[0] must have the "match_repository" attribute`,
+			`policies[1] must have the "match_vulnerability_id" attribute`,
+			`policies[2].action must have the "assessment" attribute`,
+			`policies[3].action.assessment cannot be larger than 1 KiB`,
+			`policies[4].action cannot have the "severity" attribute when "ignore" is set`,
+			`policies[5].action must have the "severity" attribute when "ignore" is not set`,
+			`policies[6].action.severity contains the invalid value "Pending"`,
+			`policies[7].action.severity contains the invalid value "Unknown"`,
+		}, "\n") + "\n"),
+	}.Check(t, s.Handler)
+
+	// t.Error("TODO: fail on missing auth, fail on all validations in PUT")
+}
+
+func TestSecurityScanPoliciesAuthorizationErrors(t *testing.T) {
+	s := test.NewSetup(t,
+		test.WithKeppelAPI,
+		test.WithAccount(keppel.Account{Name: "first", AuthTenantID: "tenant1"}),
+	)
+
+	//we need to set test.AuthDriver.ExpectedUserName because this username is
+	//matched against the managed_by_user field of our policies
+	s.AD.ExpectedUserName = "exampleuser"
+
+	//PUT requires CanChangeAccount
+	assert.HTTPRequest{
+		Method:       "PUT",
+		Path:         "/keppel/v1/accounts/first/security_scan_policies",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		Body:         assert.JSONObject{"policies": []assert.JSONObject{}},
+		ExpectStatus: http.StatusForbidden,
+	}.Check(t, s.Handler)
+
+	//we should not be allowed to put in policies under a different user's name
+	foreignPolicy := assert.JSONObject{
+		"managed_by_user":        "johndoe",
+		"match_repository":       ".*",
+		"match_vulnerability_id": ".*",
+		"action": assert.JSONObject{
+			"assessment": "not important",
+			"severity":   "Low",
+		},
+	}
+	foreignPolicyJSON := toJSONVia[keppel.SecurityScanPolicy](foreignPolicy)
+	assert.HTTPRequest{
+		Method:       "PUT",
+		Path:         "/keppel/v1/accounts/first/security_scan_policies",
+		Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body:         assert.JSONObject{"policies": []assert.JSONObject{foreignPolicy}},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody: assert.StringData(
+			fmt.Sprintf("cannot apply this new or updated policy that is managed by a different user: %s\n", foreignPolicyJSON),
+		),
+	}.Check(t, s.Handler)
+
+	//as preparation for the next test, put in a pre-existing policy managed by a
+	//different user
+	_, err := s.DB.Exec(`UPDATE accounts SET security_scan_policies_json = $1`,
+		fmt.Sprintf("[%s]", foreignPolicyJSON))
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	//it's okay if we leave that policy untouched...
+	assert.HTTPRequest{
+		Method:       "PUT",
+		Path:         "/keppel/v1/accounts/first/security_scan_policies",
+		Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body:         assert.JSONObject{"policies": []assert.JSONObject{foreignPolicy}},
+		ExpectStatus: http.StatusOK,
+		ExpectBody:   assert.JSONObject{"policies": []assert.JSONObject{foreignPolicy}},
+	}.Check(t, s.Handler)
+
+	//...but updating is not okay...
+	delete(foreignPolicy, "managed_by_user")
+	foreignPolicy["match_repository"] = "definitely-not-the-old-value"
+	assert.HTTPRequest{
+		Method:       "PUT",
+		Path:         "/keppel/v1/accounts/first/security_scan_policies",
+		Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body:         assert.JSONObject{"policies": []assert.JSONObject{foreignPolicy}},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody: assert.StringData(
+			fmt.Sprintf("cannot update or delete this existing policy that is managed by a different user: %s\n", foreignPolicyJSON),
+		),
+	}.Check(t, s.Handler)
+
+	//...and deleting is also not okay
+	assert.HTTPRequest{
+		Method:       "PUT",
+		Path:         "/keppel/v1/accounts/first/security_scan_policies",
+		Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body:         assert.JSONObject{"policies": []assert.JSONObject{}},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody: assert.StringData(
+			fmt.Sprintf("cannot update or delete this existing policy that is managed by a different user: %s\n", foreignPolicyJSON),
+		),
+	}.Check(t, s.Handler)
 }

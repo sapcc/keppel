@@ -32,7 +32,7 @@ import (
 type SecurityScanPolicy struct {
 	//NOTE: We have code that uses slices.Contains() to locate policies. Be careful
 	//when adding fields that cannot be meaningfully compared with the == operator.
-	ManagingUserName          string                   `json:"managed_by_user"`
+	ManagingUserName          string                   `json:"managed_by_user,omitempty"`
 	RepositoryRx              regexpext.BoundedRegexp  `json:"match_repository"`
 	NegativeRepositoryRx      regexpext.BoundedRegexp  `json:"except_repository,omitempty"`
 	VulnerabilityIDRx         regexpext.BoundedRegexp  `json:"match_vulnerability_id"`
@@ -51,7 +51,8 @@ type SecurityScanPolicyAction struct {
 // String returns the JSON representation of this policy (for use in log and
 // error messages).
 func (p SecurityScanPolicy) String() string {
-	//we only obtain SecurityScanPolicy instances through unmarshaling, so it is safe to assume that they will marshal without error
+	//we only obtain SecurityScanPolicy instances through unmarshaling, so it is
+	//safe to assume that they will marshal without error
 	buf, err := json.Marshal(p)
 	if err != nil {
 		panic(err.Error())
@@ -88,9 +89,8 @@ func (p SecurityScanPolicy) Validate(path string) (errs errext.ErrorSet) {
 		}
 	} else {
 		if p.Action.Severity == "" {
-			errs.Addf(`%s.action must have the "severity" attribute`, path)
-		}
-		if !isSeverityKnownByTrivy(p.Action.Severity) {
+			errs.Addf(`%s.action must have the "severity" attribute when "ignore" is not set`, path)
+		} else if !isSeverityKnownByTrivy(p.Action.Severity) {
 			errs.Addf(`%s.action.severity contains the invalid value %q`, path, p.Action.Severity)
 		}
 	}

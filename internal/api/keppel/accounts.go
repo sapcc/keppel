@@ -1019,7 +1019,7 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 
 func (a *API) handleGetSecurityScanPolicies(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/security_scan_policies")
-	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
+	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanViewAccount))
 	if authz == nil {
 		return
 	}
@@ -1068,8 +1068,7 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 		path := fmt.Sprintf("policies[%d]", idx)
 		errs.Append(policy.Validate(path))
 
-		managingUserName := req.Policies[idx].ManagingUserName
-		switch managingUserName {
+		switch policy.ManagingUserName {
 		case "$REQUESTER":
 			req.Policies[idx].ManagingUserName = currentUserName
 		case "", currentUserName:

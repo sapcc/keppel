@@ -338,6 +338,7 @@ respective account. On success, returns 200 and a JSON response body like this:
   "policies": [
     {
       "match_repository": ".*",
+      "match_vulnerability_id": ".*",
       "except_fix_released": true,
       "action": {
         "ignore": true,
