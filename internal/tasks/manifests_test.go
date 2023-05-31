@@ -592,7 +592,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 			s.ClairDouble.IndexFixtures[image.Manifest.Digest] = fmt.Sprintf("fixtures/clair/manifest-%03d.json", idx+1)
 		}
 
-		trivyJob := j.CheckTrivySecurityStatus(s.Registry)
+		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
 		//first round of CheckVulnerabilitiesForNextManifest should submit manifests
 		//to Clair for indexing, but since Clair is not done indexing yet, images
@@ -683,7 +683,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		j, s := setup(t, test.WithClairDouble, test.WithTrivyDouble)
 		s.Clock.StepBy(1 * time.Hour)
 		tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
-		trivyJob := j.CheckTrivySecurityStatus(s.Registry)
+		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
 		image := test.GenerateImage(test.GenerateExampleLayer(4))
 		image.MustUpload(t, s, fooRepoRef, "latest")

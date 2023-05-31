@@ -906,7 +906,7 @@ var securityCheckSelectQuery = sqlext.SimplifyWhitespace(`
 	FOR UPDATE SKIP LOCKED
 `)
 
-func (j *Janitor) CheckTrivySecurityStatus(registerer prometheus.Registerer) jobloop.Job {
+func (j *Janitor) CheckTrivySecurityStatusJob(registerer prometheus.Registerer) jobloop.Job {
 	return (&jobloop.TxGuardedJob[*gorp.Transaction, keppel.TrivySecurityInfo]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "check trivy security status",

@@ -85,7 +85,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 	if cfg.Trivy != nil {
 		// TODO: scale this up into multiple go routines after we get some performance numbers
-		go janitor.CheckTrivySecurityStatus(nil).Run(ctx)
+		go janitor.CheckTrivySecurityStatusJob(nil).Run(ctx)
 	}
 
 	//start HTTP server for Prometheus metrics and health check
