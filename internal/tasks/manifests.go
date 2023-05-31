@@ -941,7 +941,7 @@ func (j *Janitor) processTrivySecurityInfo(_ context.Context, tx *gorp.Transacti
 
 	err = j.doSecurityCheck(*account, *repo, *manifest, &securityInfo)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot check manifest %s@%s: %w", repo.FullName(), securityInfo.Digest, err)
 	}
 	_, err = tx.Update(&securityInfo)
 	if err != nil {
