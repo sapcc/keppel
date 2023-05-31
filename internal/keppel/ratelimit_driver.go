@@ -88,7 +88,7 @@ type RateLimitEngine struct {
 
 // RateLimitAllows checks whether the given action on the given account is allowed by
 // the account's rate limit.
-func (e RateLimitEngine) RateLimitAllows(account Account, action RateLimitedAction, amount uint64) (bool, *redis_rate.Result, error) {
+func (e RateLimitEngine) RateLimitAllows(ctx context.Context, account Account, action RateLimitedAction, amount uint64) (bool, *redis_rate.Result, error) {
 	rateQuota := e.Driver.GetRateLimit(account, action)
 	if rateQuota == nil {
 		//no rate limit for this account and action
@@ -102,7 +102,7 @@ func (e RateLimitEngine) RateLimitAllows(account Account, action RateLimitedActi
 
 	limiter := redis_rate.NewLimiter(e.Client)
 	key := fmt.Sprintf("keppel-ratelimit-%s-%s", string(action), account.Name)
-	result, err := limiter.AllowN(context.Background(), key, *rateQuota, int(amount))
+	result, err := limiter.AllowN(ctx, key, *rateQuota, int(amount))
 	if err != nil {
 		return false, &redis_rate.Result{}, err
 	}

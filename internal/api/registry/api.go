@@ -315,7 +315,7 @@ func (a *API) checkRateLimit(w http.ResponseWriter, r *http.Request, account kep
 		return true
 	}
 
-	allowed, result, err := a.rle.RateLimitAllows(account, action, amount)
+	allowed, result, err := a.rle.RateLimitAllows(r.Context(), account, action, amount)
 	if respondWithError(w, r, err) {
 		return false
 	}
