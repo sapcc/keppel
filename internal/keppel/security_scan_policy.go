@@ -134,8 +134,7 @@ func (p SecurityScanPolicy) MatchesRepository(repo Repository) bool {
 
 // MatchesVulnerability evaluates the vulnerability regexes and checkin this policy.
 func (p SecurityScanPolicy) MatchesVulnerability(vuln trivy.ReportedVulnerability) bool {
-	fixIsReleased := vuln.FixedVersion != ""
-	if p.ExceptFixReleased && fixIsReleased {
+	if p.ExceptFixReleased && vuln.FixIsReleased() {
 		return false
 	}
 

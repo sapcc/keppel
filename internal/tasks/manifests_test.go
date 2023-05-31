@@ -761,7 +761,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 
 func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 	test.WithRoundTripper(func(_ *test.RoundTripper) {
-		j, s := setup(t, test.WithClairDouble, test.WithTrivyDouble)
+		j, s := setup(t, test.WithTrivyDouble)
 		tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
