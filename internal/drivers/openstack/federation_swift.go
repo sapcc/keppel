@@ -21,6 +21,7 @@ package openstack
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -186,7 +187,7 @@ func (fd *federationDriverSwift) modifyAccountFile(accountName string, modify fu
 }
 
 // ClaimAccountName implements the keppel.FederationDriver interface.
-func (fd *federationDriverSwift) ClaimAccountName(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (fd *federationDriverSwift) ClaimAccountName(ctx context.Context, account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	var (
 		isUserError bool
 		err         error
@@ -255,7 +256,7 @@ func (fd *federationDriverSwift) claimReplicaAccount(account keppel.Account, sub
 }
 
 // IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
-func (fd *federationDriverSwift) IssueSubleaseTokenSecret(account keppel.Account) (string, error) {
+func (fd *federationDriverSwift) IssueSubleaseTokenSecret(ctx context.Context, account keppel.Account) (string, error) {
 	//generate a random token with 16 Base64 chars
 	tokenBytes := make([]byte, 12)
 	_, err := rand.Read(tokenBytes)
@@ -282,7 +283,7 @@ func (fd *federationDriverSwift) IssueSubleaseTokenSecret(account keppel.Account
 }
 
 // ForfeitAccountName implements the keppel.FederationDriver interface.
-func (fd *federationDriverSwift) ForfeitAccountName(account keppel.Account) error {
+func (fd *federationDriverSwift) ForfeitAccountName(ctx context.Context, account keppel.Account) error {
 	//case 1: replica account -> just remove ourselves from the set of replicas
 	if account.UpstreamPeerHostName != "" {
 		return fd.modifyAccountFile(account.Name, func(file *accountFile, _ bool) error {
@@ -307,7 +308,7 @@ func (fd *federationDriverSwift) ForfeitAccountName(account keppel.Account) erro
 }
 
 // RecordExistingAccount implements the keppel.FederationDriver interface.
-func (fd *federationDriverSwift) RecordExistingAccount(account keppel.Account, now time.Time) error {
+func (fd *federationDriverSwift) RecordExistingAccount(ctx context.Context, account keppel.Account, now time.Time) error {
 	//Inconsistencies can arise since we have multiple sources of truth in the
 	//Keppels' own database and in the shared Swift container. These
 	//inconsistencies are incredibly unlikely, however, so making this driver
@@ -348,7 +349,7 @@ func (fd *federationDriverSwift) verifyAccountOwnership(file accountFile, expect
 }
 
 // FindPrimaryAccount implements the keppel.FederationDriver interface.
-func (fd *federationDriverSwift) FindPrimaryAccount(accountName string) (peerHostName string, err error) {
+func (fd *federationDriverSwift) FindPrimaryAccount(ctx context.Context, accountName string) (peerHostName string, err error) {
 	file, err := fd.readAccountFile(accountName)
 	if err != nil {
 		return "", err

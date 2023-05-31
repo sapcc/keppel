@@ -20,6 +20,7 @@
 package keppel
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"net/http"
@@ -70,7 +71,7 @@ type AuthDriver interface {
 	//AuthenticateUser authenticates the user identified by the given username
 	//and password. Note that usernames may not contain colons, because
 	//credentials are encoded by clients in the "username:password" format.
-	AuthenticateUser(userName, password string) (UserIdentity, *RegistryV2Error)
+	AuthenticateUser(ctx context.Context, userName, password string) (UserIdentity, *RegistryV2Error)
 	//AuthenticateUserFromRequest reads credentials from the given incoming HTTP
 	//request to authenticate the user which makes this request. The
 	//implementation shall follow the conventions of the concrete backend, e.g. a

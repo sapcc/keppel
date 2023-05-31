@@ -64,8 +64,8 @@ func (j *Janitor) AnnounceAccountToFederationJob(registerer prometheus.Registere
 	}).Setup(registerer)
 }
 
-func (j *Janitor) processFederationAnnouncement(_ context.Context, account keppel.Account, labels prometheus.Labels) error {
-	err := j.fd.RecordExistingAccount(account, j.timeNow())
+func (j *Janitor) processFederationAnnouncement(ctx context.Context, account keppel.Account, labels prometheus.Labels) error {
+	err := j.fd.RecordExistingAccount(ctx, account, j.timeNow())
 	if err != nil {
 		//since the announcement is not critical for day-to-day operation, we
 		//accept that it can fail and move on regardless

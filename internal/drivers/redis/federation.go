@@ -80,14 +80,14 @@ const (
 )
 
 // ClaimAccountName implements the keppel.FederationDriver interface.
-func (d *federationDriver) ClaimAccountName(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (d *federationDriver) ClaimAccountName(ctx context.Context, account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	if account.UpstreamPeerHostName != "" {
-		return d.claimReplicaAccount(account, subleaseTokenSecret)
+		return d.claimReplicaAccount(ctx, account, subleaseTokenSecret)
 	}
-	return d.claimPrimaryAccount(account, subleaseTokenSecret)
+	return d.claimPrimaryAccount(ctx, account, subleaseTokenSecret)
 }
 
-func (d *federationDriver) claimPrimaryAccount(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (d *federationDriver) claimPrimaryAccount(ctx context.Context, account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	//defense in depth - the caller should already have verified this
 	if subleaseTokenSecret != "" {
 		return keppel.ClaimFailed, errors.New("cannot check sublease token when claiming a primary account")
@@ -99,12 +99,12 @@ func (d *federationDriver) claimPrimaryAccount(account keppel.Account, subleaseT
 	//3. someone else has a claim -> SETNX does nothing and GET returns their hostname -> error
 
 	key := d.primaryKey(account.Name)
-	err := d.rc.SetNX(context.Background(), key, d.ownHostname, 0).Err()
+	err := d.rc.SetNX(ctx, key, d.ownHostname, 0).Err()
 	if err != nil {
 		return keppel.ClaimErrored, err
 	}
 
-	primaryHostname, err := d.rc.Get(context.Background(), key).Result()
+	primaryHostname, err := d.rc.Get(ctx, key).Result()
 	if err != nil {
 		return keppel.ClaimErrored, err
 	}
@@ -114,14 +114,14 @@ func (d *federationDriver) claimPrimaryAccount(account keppel.Account, subleaseT
 	return keppel.ClaimSucceeded, nil
 }
 
-func (d *federationDriver) claimReplicaAccount(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (d *federationDriver) claimReplicaAccount(ctx context.Context, account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	//defense in depth - the caller should already have verified this
 	if subleaseTokenSecret == "" {
 		return keppel.ClaimFailed, errors.New("missing sublease token")
 	}
 
 	//validate the sublease token secret
-	ok, err := d.rc.Eval(context.Background(), checkAndClearScript, []string{d.tokenKey(account.Name)}, subleaseTokenSecret).Bool()
+	ok, err := d.rc.Eval(ctx, checkAndClearScript, []string{d.tokenKey(account.Name)}, subleaseTokenSecret).Bool()
 	if err != nil {
 		return keppel.ClaimErrored, err
 	}
@@ -130,13 +130,13 @@ func (d *federationDriver) claimReplicaAccount(account keppel.Account, subleaseT
 	}
 
 	//validate the primary account
-	err = d.validatePrimaryHostname(account, account.UpstreamPeerHostName)
+	err = d.validatePrimaryHostname(ctx, account, account.UpstreamPeerHostName)
 	if err != nil {
 		return keppel.ClaimErrored, err
 	}
 
 	//all good - add ourselves to the set of replicas
-	err = d.rc.SAdd(context.Background(), d.replicasKey(account.Name), d.ownHostname).Err()
+	err = d.rc.SAdd(ctx, d.replicasKey(account.Name), d.ownHostname).Err()
 	if err != nil {
 		return keppel.ClaimErrored, err
 	}
@@ -144,14 +144,14 @@ func (d *federationDriver) claimReplicaAccount(account keppel.Account, subleaseT
 }
 
 // IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
-func (d *federationDriver) IssueSubleaseTokenSecret(account keppel.Account) (string, error) {
+func (d *federationDriver) IssueSubleaseTokenSecret(ctx context.Context, account keppel.Account) (string, error) {
 	//defense in depth - the caller should already have verified this
 	if account.UpstreamPeerHostName != "" {
 		return "", errors.New("operation not allowed for replica accounts")
 	}
 
 	//more defense in depth
-	err := d.validatePrimaryHostname(account, d.ownHostname)
+	err := d.validatePrimaryHostname(ctx, account, d.ownHostname)
 	if err != nil {
 		return "", err
 	}
@@ -165,7 +165,7 @@ func (d *federationDriver) IssueSubleaseTokenSecret(account keppel.Account) (str
 	tokenStr := base64.StdEncoding.EncodeToString(tokenBytes)
 
 	//store the random token in Redis
-	err = d.rc.Set(context.Background(), d.tokenKey(account.Name), tokenStr, 0).Err()
+	err = d.rc.Set(ctx, d.tokenKey(account.Name), tokenStr, 0).Err()
 	if err != nil {
 		return "", fmt.Errorf("could not store token: %s", err.Error())
 	}
@@ -173,20 +173,20 @@ func (d *federationDriver) IssueSubleaseTokenSecret(account keppel.Account) (str
 }
 
 // ForfeitAccountName implements the keppel.FederationDriver interface.
-func (d *federationDriver) ForfeitAccountName(account keppel.Account) error {
+func (d *federationDriver) ForfeitAccountName(ctx context.Context, account keppel.Account) error {
 	//case 1: replica account -> just remove ourselves from the set of replicas
 	if account.UpstreamPeerHostName != "" {
-		return d.rc.SRem(context.Background(), d.replicasKey(account.Name), d.ownHostname).Err()
+		return d.rc.SRem(ctx, d.replicasKey(account.Name), d.ownHostname).Err()
 	}
 
 	//case 2: primary account -> double-check that we really own it
-	err := d.validatePrimaryHostname(account, d.ownHostname)
+	err := d.validatePrimaryHostname(ctx, account, d.ownHostname)
 	if err != nil {
 		return err
 	}
 
 	//cannot delete primary account while replicas are still attached to it
-	replicaCount, err := d.rc.SCard(context.Background(), d.replicasKey(account.Name)).Result()
+	replicaCount, err := d.rc.SCard(ctx, d.replicasKey(account.Name)).Result()
 	if err != nil {
 		return err
 	}
@@ -198,47 +198,47 @@ func (d *federationDriver) ForfeitAccountName(account keppel.Account) error {
 	//
 	//NOTE: Dynomite does not play well with multi-key DEL commands, so we delete
 	//one key at a time
-	err = d.rc.Del(context.Background(), d.tokenKey(account.Name)).Err()
+	err = d.rc.Del(ctx, d.tokenKey(account.Name)).Err()
 	if err != nil {
 		return err
 	}
-	err = d.rc.Del(context.Background(), d.replicasKey(account.Name)).Err()
+	err = d.rc.Del(ctx, d.replicasKey(account.Name)).Err()
 	if err != nil {
 		return err
 	}
-	return d.rc.Del(context.Background(), d.primaryKey(account.Name)).Err()
+	return d.rc.Del(ctx, d.primaryKey(account.Name)).Err()
 }
 
 // RecordExistingAccount implements the keppel.FederationDriver interface.
-func (d *federationDriver) RecordExistingAccount(account keppel.Account, now time.Time) error {
+func (d *federationDriver) RecordExistingAccount(ctx context.Context, account keppel.Account, now time.Time) error {
 	//record this account in Redis using idempotent operations (SETNX for primary, SADD for replica)
 	var expectedPrimaryHostname string
 	if account.UpstreamPeerHostName == "" {
 		expectedPrimaryHostname = d.ownHostname
-		err := d.rc.SetNX(context.Background(), d.primaryKey(account.Name), d.ownHostname, 0).Err()
+		err := d.rc.SetNX(ctx, d.primaryKey(account.Name), d.ownHostname, 0).Err()
 		if err != nil {
 			return err
 		}
 	} else {
 		expectedPrimaryHostname = account.UpstreamPeerHostName
-		err := d.rc.SAdd(context.Background(), d.replicasKey(account.Name), d.ownHostname).Err()
+		err := d.rc.SAdd(ctx, d.replicasKey(account.Name), d.ownHostname).Err()
 		if err != nil {
 			return err
 		}
 	}
 
 	//check our expectations against the Redis
-	return d.validatePrimaryHostname(account, expectedPrimaryHostname)
+	return d.validatePrimaryHostname(ctx, account, expectedPrimaryHostname)
 }
 
-func (d *federationDriver) validatePrimaryHostname(account keppel.Account, expectedPrimaryHostname string) error {
+func (d *federationDriver) validatePrimaryHostname(ctx context.Context, account keppel.Account, expectedPrimaryHostname string) error {
 	//Inconsistencies can arise since we have multiple sources of truth in the
 	//Keppels' own database and in the shared Redis. These inconsistencies are
 	//incredibly unlikely, however, so making this driver more complicated to
 	//better guard against them is a bad tradeoff in my opinion. Instead, we just
 	//make sure that the driver loudly complains once it finds an inconsistency,
 	//so the operator can take care of fixing it.
-	primaryHostname, err := d.rc.Get(context.Background(), d.primaryKey(account.Name)).Result()
+	primaryHostname, err := d.rc.Get(ctx, d.primaryKey(account.Name)).Result()
 	if err == redis.Nil {
 		primaryHostname = ""
 		err = nil
@@ -255,8 +255,8 @@ func (d *federationDriver) validatePrimaryHostname(account keppel.Account, expec
 }
 
 // FindPrimaryAccount implements the keppel.FederationDriver interface.
-func (d *federationDriver) FindPrimaryAccount(accountName string) (string, error) {
-	primaryHostname, err := d.rc.Get(context.Background(), d.primaryKey(accountName)).Result()
+func (d *federationDriver) FindPrimaryAccount(ctx context.Context, accountName string) (string, error) {
+	primaryHostname, err := d.rc.Get(ctx, d.primaryKey(accountName)).Result()
 	if err == redis.Nil {
 		return "", keppel.ErrNoSuchPrimaryAccount
 	}

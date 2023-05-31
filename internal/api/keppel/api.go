@@ -142,7 +142,7 @@ func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request, ss aut
 		Scopes:               ss,
 		CorrectlyReturn403:   true,
 		PartialAccessAllowed: r.URL.Path == "/keppel/v1/accounts",
-	}.Authorize(a.cfg, a.authDriver, a.db)
+	}.Authorize(r.Context(), a.cfg, a.authDriver, a.db)
 	if rerr != nil {
 		rerr.WriteAsTextTo(w)
 		return nil

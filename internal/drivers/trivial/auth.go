@@ -19,6 +19,7 @@
 package trivial
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -87,7 +88,7 @@ func (d *AuthDriver) Init(rc *redis.Client) error {
 	return nil
 }
 
-func (d *AuthDriver) AuthenticateUser(userName, password string) (keppel.UserIdentity, *keppel.RegistryV2Error) {
+func (d *AuthDriver) AuthenticateUser(ctx context.Context, userName, password string) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	if d.userName == userName && d.password == password {
 		return &userIdentity{Username: userName}, nil
 	}

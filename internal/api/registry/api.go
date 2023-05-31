@@ -134,7 +134,7 @@ func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
 		//without scopes, and then expect to be able to query this endpoint with
 		//it.
 		Scopes: auth.NewScopeSet(auth.InfoAPIScope),
-	}.Authorize(a.cfg, a.ad, a.db)
+	}.Authorize(r.Context(), a.cfg, a.ad, a.db)
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return
@@ -226,7 +226,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		Scopes:                auth.NewScopeSet(scope),
 		AllowsAnycast:         anycastHandler != nil,
 		AllowsDomainRemapping: true,
-	}.Authorize(a.cfg, a.ad, a.db)
+	}.Authorize(r.Context(), a.cfg, a.ad, a.db)
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return nil, nil, nil
@@ -241,7 +241,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	if account == nil {
 		//if this is an anycast request, try forwarding it to the peer that has the primary account with this name
 		if anycastHandler != nil && authz.Audience.IsAnycast {
-			primaryHostName, err := a.fd.FindPrimaryAccount(repoScope.AccountName)
+			primaryHostName, err := a.fd.FindPrimaryAccount(r.Context(), repoScope.AccountName)
 			switch err {
 			case error(nil):
 				//protect against infinite forwarding loops in case different Keppels have

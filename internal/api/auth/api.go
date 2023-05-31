@@ -115,7 +115,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		AllowsDomainRemapping:    true,
 		AudienceForTokenIssuance: &req.IntendedAudience,
 		PartialAccessAllowed:     true,
-	}.Authorize(a.cfg, a.authDriver, a.db)
+	}.Authorize(r.Context(), a.cfg, a.authDriver, a.db)
 	if rerr != nil {
 		rerr.WriteAsAuthResponseTo(w)
 		return
@@ -129,7 +129,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Request, audience auth.Audience, accountName string) error {
-	primaryHostName, err := a.fd.FindPrimaryAccount(accountName)
+	primaryHostName, err := a.fd.FindPrimaryAccount(r.Context(), accountName)
 	if err != nil {
 		return err
 	}

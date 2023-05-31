@@ -20,6 +20,7 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -63,7 +64,7 @@ func (d *AuthDriver) ValidateTenantID(tenantID string) error {
 }
 
 // AuthenticateUser implements the keppel.AuthDriver interface.
-func (d *AuthDriver) AuthenticateUser(userName, password string) (keppel.UserIdentity, *keppel.RegistryV2Error) {
+func (d *AuthDriver) AuthenticateUser(ctx context.Context, userName, password string) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	is := func(a, b string) bool {
 		return a != "" && a == b
 	}
