@@ -20,6 +20,7 @@ package tasks
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"testing"
@@ -28,6 +29,7 @@ import (
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/jobloop"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -754,5 +756,138 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		tr.DBChanges().AssertEqualf(`
 			UPDATE vuln_info SET status = '%[4]s', next_check_at = %[2]d, checked_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
 		`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), clair.LowSeverity)
+	})
+}
+
+func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
+	test.WithRoundTripper(func(_ *test.RoundTripper) {
+		j, s := setup(t, test.WithTrivyDouble)
+		tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
+		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
+
+		//upload an example image
+		image := test.GenerateImage(test.GenerateExampleLayer(4))
+		image.MustUpload(t, s, fooRepoRef, "latest")
+		tr.DBChanges().Ignore()
+		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable-with-fixes.json"
+
+		//test baseline without policies
+		s.Clock.StepBy(1 * time.Hour)
+		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
+		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+		tr.DBChanges().AssertEqualf(`
+			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
+			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = %[3]d, checked_at = %[4]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[5]s';
+		`,
+			image.Layers[0].Digest,
+			clair.CriticalSeverity, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
+
+		//the actual checks in this test all look similar: we update the policies
+		//on the account, then check the resulting vuln_status on the image
+		expect := func(severity clair.VulnerabilityStatus, policies ...keppel.SecurityScanPolicy) {
+			t.Helper()
+			policyJSON := must.Return(json.Marshal(policies))
+			mustExec(t, s.DB, `UPDATE accounts SET security_scan_policies_json = $1`, string(policyJSON))
+			//ensure that `SET vuln_status = ...` always shows up in the diff below
+			mustExec(t, s.DB, `UPDATE trivy_security_info SET vuln_status = $1`, clair.PendingVulnerabilityStatus)
+			tr.DBChanges().Ignore()
+
+			s.Clock.StepBy(1 * time.Hour)
+			expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
+			expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+
+			tr.DBChanges().AssertEqualf(`
+				UPDATE trivy_security_info SET vuln_status = '%[1]s', next_check_at = %[2]d, checked_at = %[3]d WHERE repo_id = 1 AND digest = '%[4]s';
+			`, severity, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
+		}
+
+		//set a policy that downgrades the one "Critical" vuln -> this downgrades
+		//the overall status to "High" since there are also several "High" vulns
+		//
+		//Most of the following testcases are alterations of this policy.
+		expect(clair.HighSeverity, keppel.SecurityScanPolicy{
+			RepositoryRx:      ".*",
+			VulnerabilityIDRx: "CVE-2019-8457",
+			Action: keppel.SecurityScanPolicyAction{
+				Assessment: "we accept the risk",
+				Severity:   clair.LowSeverity,
+			},
+		})
+
+		//test Action.Ignore -> same result
+		expect(clair.HighSeverity, keppel.SecurityScanPolicy{
+			RepositoryRx:      ".*",
+			VulnerabilityIDRx: "CVE-2019-8457",
+			Action: keppel.SecurityScanPolicyAction{
+				Assessment: "we accept the risk",
+				Ignore:     true,
+			},
+		})
+
+		//test RepositoryRx
+		expect(clair.CriticalSeverity, keppel.SecurityScanPolicy{
+			RepositoryRx:      "bar", //does not match our test repo
+			VulnerabilityIDRx: "CVE-2019-8457",
+			Action: keppel.SecurityScanPolicyAction{
+				Assessment: "we accept the risk",
+				Severity:   clair.LowSeverity,
+			},
+		})
+
+		//test NegativeRepositoryRx
+		expect(clair.CriticalSeverity, keppel.SecurityScanPolicy{
+			RepositoryRx:         ".*",
+			NegativeRepositoryRx: "foo", //matches our test repo
+			VulnerabilityIDRx:    "CVE-2019-8457",
+			Action: keppel.SecurityScanPolicyAction{
+				Assessment: "we accept the risk",
+				Severity:   clair.LowSeverity,
+			},
+		})
+
+		//test NegativeVulnerabilityIDRx
+		expect(clair.CriticalSeverity, keppel.SecurityScanPolicy{
+			RepositoryRx:              ".*",
+			VulnerabilityIDRx:         ".*",
+			NegativeVulnerabilityIDRx: "CVE-2019-8457",
+			Action: keppel.SecurityScanPolicyAction{
+				Assessment: "we accept the risk",
+				Severity:   clair.LowSeverity,
+			},
+		})
+
+		//test ExceptFixReleased on its own (the highest vulnerability with a
+		//released fix is "High")
+		expect(clair.HighSeverity, keppel.SecurityScanPolicy{
+			RepositoryRx:      ".*",
+			VulnerabilityIDRx: ".*",
+			ExceptFixReleased: true,
+			Action: keppel.SecurityScanPolicyAction{
+				Assessment: "we can only update if a fix is available",
+				Ignore:     true,
+			},
+		})
+
+		//test ExceptFixReleased together with an ignore of all high-severity fixed
+		//vulns (the next highest vulnerability with a released fix is "Medium")
+		expect(clair.MediumSeverity,
+			keppel.SecurityScanPolicy{
+				RepositoryRx:      ".*",
+				VulnerabilityIDRx: ".*",
+				ExceptFixReleased: true,
+				Action: keppel.SecurityScanPolicyAction{
+					Assessment: "we can only update if a fix is available",
+					Ignore:     true,
+				},
+			},
+			keppel.SecurityScanPolicy{
+				RepositoryRx:      ".*",
+				VulnerabilityIDRx: "CVE-2022-29458", //matches vulnerabilities in multiple packages
+				Action: keppel.SecurityScanPolicyAction{
+					Assessment: "will fix tomorrow, I swear",
+					Severity:   clair.LowSeverity,
+				},
+			},
+		)
 	})
 }

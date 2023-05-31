@@ -34,10 +34,12 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
+	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/regexpext"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
+	"golang.org/x/exp/slices"
 
 	"github.com/sapcc/keppel/internal/auth"
 	peerclient "github.com/sapcc/keppel/internal/client/peer"
@@ -433,11 +435,12 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accountToCreate := keppel.Account{
-		Name:           accountName,
-		AuthTenantID:   req.Account.AuthTenantID,
-		InMaintenance:  req.Account.InMaintenance,
-		MetadataJSON:   metadataJSONStr,
-		GCPoliciesJSON: gcPoliciesJSONStr,
+		Name:                     accountName,
+		AuthTenantID:             req.Account.AuthTenantID,
+		InMaintenance:            req.Account.InMaintenance,
+		MetadataJSON:             metadataJSONStr,
+		GCPoliciesJSON:           gcPoliciesJSONStr,
+		SecurityScanPoliciesJSON: "[]",
 	}
 
 	//validate replication policy
@@ -1012,4 +1015,129 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 	}
 
 	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"sublease_token": serialized})
+}
+
+func (a *API) handleGetSecurityScanPolicies(w http.ResponseWriter, r *http.Request) {
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/security_scan_policies")
+	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanViewAccount))
+	if authz == nil {
+		return
+	}
+	account := a.findAccountFromRequest(w, r, authz)
+	if account == nil {
+		return
+	}
+
+	respondwith.JSON(w, http.StatusOK, map[string]any{"policies": json.RawMessage(account.SecurityScanPoliciesJSON)})
+}
+
+func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Request) {
+	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/security_scan_policies")
+	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
+	if authz == nil {
+		return
+	}
+	account := a.findAccountFromRequest(w, r, authz)
+	if account == nil {
+		return
+	}
+
+	//decode existing policies
+	var dbPolicies []keppel.SecurityScanPolicy
+	err := json.Unmarshal([]byte(account.SecurityScanPoliciesJSON), &dbPolicies)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
+	//decode request body
+	var req struct {
+		Policies []keppel.SecurityScanPolicy `json:"policies"`
+	}
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	err = decoder.Decode(&req)
+	if err != nil {
+		http.Error(w, "request body is not valid JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	//apply computed values and validate each input policy on its own
+	currentUserName := authz.UserIdentity.UserName()
+	var errs errext.ErrorSet
+	for idx, policy := range req.Policies {
+		path := fmt.Sprintf("policies[%d]", idx)
+		errs.Append(policy.Validate(path))
+
+		switch policy.ManagingUserName {
+		case "$REQUESTER":
+			req.Policies[idx].ManagingUserName = currentUserName
+		case "", currentUserName:
+			//acceptable
+		default:
+			if !slices.Contains(dbPolicies, policy) {
+				errs.Addf("cannot apply this new or updated policy that is managed by a different user: %s", policy)
+			}
+		}
+	}
+
+	//check that updated or deleted policies are either unmanaged or managed by
+	//the requester
+	for _, dbPolicy := range dbPolicies {
+		if slices.Contains(req.Policies, dbPolicy) {
+			continue
+		}
+		managingUserName := dbPolicy.ManagingUserName
+		if managingUserName != "" && managingUserName != currentUserName {
+			errs.Addf("cannot update or delete this existing policy that is managed by a different user: %s", dbPolicy)
+		}
+	}
+
+	//report validation errors
+	if !errs.IsEmpty() {
+		http.Error(w, errs.Join("\n"), http.StatusUnprocessableEntity)
+		return
+	}
+
+	//update policies in DB
+	jsonBuf, err := json.Marshal(req.Policies)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	_, err = a.db.Exec(`UPDATE accounts SET security_scan_policies_json = $1 WHERE name = $2`,
+		string(jsonBuf), account.Name)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
+	//generate audit events
+	submitAudit := func(action cadf.Action, target audittools.TargetRenderer) {
+		if userInfo := authz.UserIdentity.UserInfo(); userInfo != nil {
+			a.auditor.Record(audittools.EventParameters{
+				Time:       time.Now(),
+				Request:    r,
+				User:       userInfo,
+				ReasonCode: http.StatusOK,
+				Action:     action,
+				Target:     target,
+			})
+		}
+	}
+	for _, policy := range req.Policies {
+		if !slices.Contains(dbPolicies, policy) {
+			submitAudit("create/security-scan-policy", AuditSecurityScanPolicy{
+				Account: *account,
+				Policy:  policy,
+			})
+		}
+	}
+	for _, policy := range dbPolicies {
+		if !slices.Contains(req.Policies, policy) {
+			submitAudit("delete/security-scan-policy", AuditSecurityScanPolicy{
+				Account: *account,
+				Policy:  policy,
+			})
+		}
+	}
+
+	respondwith.JSON(w, http.StatusOK, map[string]any{"policies": req.Policies})
 }

@@ -17,17 +17,5 @@
 *
 *******************************************************************************/
 
-package clair
-
-// This is a bit ugly but avoids import loops...
-
-// MapToTrivySeverity maps Trivy severity levels to the ones used by clair
-// see https://github.com/aquasecurity/trivy/blob/main/pkg/report/table/misconfig.go#L19-L24
-// TODO: clean this up after clair removal
-var MapToTrivySeverity = map[string]VulnerabilityStatus{
-	"UNKNOWN":  UnknownSeverity,
-	"LOW":      LowSeverity,
-	"MEDIUM":   MediumSeverity,
-	"HIGH":     HighSeverity,
-	"CRITICAL": CriticalSeverity,
-}
+// Package errext contains convenience functions for handling and propagating errors.
+package errext

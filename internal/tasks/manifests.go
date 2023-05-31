@@ -972,6 +972,11 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, r
 		return nil
 	}
 
+	relevantPolicies, err := account.SecurityScanPoliciesFor(repo)
+	if err != nil {
+		return err
+	}
+
 	//we know that this image will not be "Unsupported", so the rest is the part where we actually
 	//talk to Trivy (well, mostly anyway), so that part deserves to be measured for performance
 	checkStartedAt := j.timeNow()
@@ -1010,7 +1015,8 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, r
 	//ask Trivy for the security status of the manifest
 	securityInfo.Message = "" //unless it gets set to something else below
 
-	// Trivy has an internal timeout we set to 10m per image (which is already an insanely generous timeout) and we give it a bit of headroom to start
+	// Trivy has an internal timeout we set to 10m per image (which is already an
+	// insanely generous timeout) and we give it a bit of headroom to start
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute+30*time.Second)
 	defer cancel()
 
@@ -1021,12 +1027,17 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, r
 
 	var securityStatuses []clair.VulnerabilityStatus
 	for _, result := range parsedTrivyReport.Results {
-		for _, vulnerability := range result.Vulnerabilities {
-			if securityStatus, ok := clair.MapToTrivySeverity[vulnerability.Severity]; ok {
-				securityStatuses = append(securityStatuses, securityStatus)
-			} else {
+		for _, vuln := range result.Vulnerabilities {
+			securityStatus, ok := clair.MapToTrivySeverity[vuln.Severity]
+			if !ok {
 				return fmt.Errorf("vulnerability severity with name %s returned from trivy is unknown and cannot be mapped", securityStatus)
 			}
+
+			policy := relevantPolicies.PolicyForVulnerability(vuln)
+			if policy != nil {
+				securityStatus = policy.VulnerabilityStatus()
+			}
+			securityStatuses = append(securityStatuses, securityStatus)
 		}
 	}
 

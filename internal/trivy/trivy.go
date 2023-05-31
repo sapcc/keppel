@@ -36,19 +36,14 @@ const (
 	KeppelTokenHeader = "Keppel-Token"
 )
 
+// Config contains credentials for talking to a Trivy server through a
+// trivy-proxy deployment.
 type Config struct {
 	URL   url.URL
 	Token string
 }
 
-type parsedTrivyReport struct {
-	Results []struct {
-		Vulnerabilities []struct {
-			Severity string `json:"Severity"`
-		} `json:"Vulnerabilities"`
-	} `json:"Results"`
-}
-
+// ScanManifest queries the Trivy server for a report on the given manifest.
 func (tc *Config) ScanManifest(ctx context.Context, keppelToken string, manifestRef models.ImageReference, format string) ([]byte, error) {
 	requestURL := tc.URL
 	requestURL.Path = "/trivy"
@@ -81,13 +76,15 @@ func (tc *Config) ScanManifest(ctx context.Context, keppelToken string, manifest
 	return respBody, nil
 }
 
-func (tc *Config) ScanManifestAndParse(ctx context.Context, keppelToken string, manifestRef models.ImageReference, format string) (parsedTrivyReport, error) {
+// ScanManifest is like ScanManifestAndParse, except that the result is parsed
+// instead of being returned as a bytestring.
+func (tc *Config) ScanManifestAndParse(ctx context.Context, keppelToken string, manifestRef models.ImageReference, format string) (VulnerabilityReport, error) {
 	report, err := tc.ScanManifest(ctx, keppelToken, manifestRef, format)
 	if err != nil {
-		return parsedTrivyReport{}, err
+		return VulnerabilityReport{}, err
 	}
 
-	var parsedReport parsedTrivyReport
+	var parsedReport VulnerabilityReport
 	err = json.Unmarshal(report, &parsedReport)
 	return parsedReport, err
 }

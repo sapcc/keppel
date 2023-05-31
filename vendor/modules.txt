@@ -167,6 +167,7 @@ github.com/sapcc/go-bits/easypg/migrate/database/postgres
 github.com/sapcc/go-bits/easypg/migrate/internal/url
 github.com/sapcc/go-bits/easypg/migrate/source
 github.com/sapcc/go-bits/easypg/migrate/source/go_bindata
+github.com/sapcc/go-bits/errext
 github.com/sapcc/go-bits/gopherpolicy
 github.com/sapcc/go-bits/httpapi
 github.com/sapcc/go-bits/httpext
