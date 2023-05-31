@@ -705,7 +705,8 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		s.ClairDouble.IndexReportFixtures[image.Manifest.Digest] = "fixtures/clair/report-error.json"
 		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef)] = true
 		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-		expectError(t, "could not process task for job \"check trivy security status\": trivy proxy did not return 200: 500 simulated error\n", trivyJob.ProcessOne(s.Ctx))
+		expectedError := fmt.Sprintf("could not process task for job \"check trivy security status\": cannot check manifest test1/foo@%s: trivy proxy did not return 200: 500 simulated error\n", image.Manifest.Digest)
+		expectError(t, expectedError, trivyJob.ProcessOne(s.Ctx))
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		tr.DBChanges().AssertEqualf(`
 			UPDATE vuln_info SET next_check_at = %[2]d, checked_at = %[3]d, index_started_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
