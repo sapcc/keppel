@@ -534,7 +534,7 @@ type checkVulnerabilitiesJob struct {
 	vulnInfo keppel.VulnerabilityInfo
 }
 
-func (job checkVulnerabilitiesJob) Execute() (returnError error) {
+func (job checkVulnerabilitiesJob) Execute(ctx context.Context) (returnError error) {
 	j := job.j
 	tx := job.tx
 	vulnInfo := job.vulnInfo
@@ -555,7 +555,7 @@ func (job checkVulnerabilitiesJob) Execute() (returnError error) {
 		return fmt.Errorf("cannot find manifest for repo %s and digest %s: %w", repo.FullName(), vulnInfo.Digest, err)
 	}
 
-	err = j.doVulnerabilityCheck(*account, *repo, *manifest, &vulnInfo)
+	err = j.doVulnerabilityCheck(ctx, *account, *repo, *manifest, &vulnInfo)
 	if err != nil {
 		return err
 	}
@@ -700,7 +700,7 @@ func (j *Janitor) checkPreConditionsForClair(account keppel.Account, repo keppel
 	return layerBlobs, true, nil
 }
 
-func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, vulnInfo *keppel.VulnerabilityInfo) (returnedError error) {
+func (j *Janitor) doVulnerabilityCheck(ctx context.Context, account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, vulnInfo *keppel.VulnerabilityInfo) (returnedError error) {
 	//clear timing information (this will be filled down below once we actually talk to Clair;
 	//if any preflight check fails, the fields stay at nil)
 	vulnInfo.CheckedAt = nil
@@ -734,7 +734,7 @@ func (j *Janitor) doVulnerabilityCheck(account keppel.Account, repo keppel.Repos
 	}()
 	//also we don't allow Clair to take more than 10 minutes on a single image (which is already an
 	//insanely generous timeout)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
 	//collect vulnerability status of constituent images
