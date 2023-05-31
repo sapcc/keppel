@@ -924,7 +924,7 @@ func (j *Janitor) CheckTrivySecurityStatus(registerer prometheus.Registerer) job
 	}).Setup(registerer)
 }
 
-func (j *Janitor) processTrivySecurityInfo(_ context.Context, tx *gorp.Transaction, securityInfo keppel.TrivySecurityInfo, labels prometheus.Labels) error {
+func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *gorp.Transaction, securityInfo keppel.TrivySecurityInfo, labels prometheus.Labels) error {
 	//load corresponding repo, account and manifest
 	repo, err := keppel.FindRepositoryByID(tx, securityInfo.RepositoryID)
 	if err != nil {
@@ -939,7 +939,7 @@ func (j *Janitor) processTrivySecurityInfo(_ context.Context, tx *gorp.Transacti
 		return fmt.Errorf("cannot find manifest for repo %s and digest %s: %w", repo.FullName(), securityInfo.Digest, err)
 	}
 
-	err = j.doSecurityCheck(*account, *repo, *manifest, &securityInfo)
+	err = j.doSecurityCheck(ctx, *account, *repo, *manifest, &securityInfo)
 	if err != nil {
 		return err
 	}
@@ -951,7 +951,7 @@ func (j *Janitor) processTrivySecurityInfo(_ context.Context, tx *gorp.Transacti
 	return tx.Commit()
 }
 
-func (j *Janitor) doSecurityCheck(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, securityInfo *keppel.TrivySecurityInfo) (returnedError error) {
+func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, securityInfo *keppel.TrivySecurityInfo) (returnedError error) {
 	//clear timing information (this will be filled down below once we actually talk to Trivy;
 	//if any preflight check fails, the fields stay at nil)
 	securityInfo.CheckedAt = nil
@@ -1011,7 +1011,7 @@ func (j *Janitor) doSecurityCheck(account keppel.Account, repo keppel.Repository
 	securityInfo.Message = "" //unless it gets set to something else below
 
 	// Trivy has an internal timeout we set to 10m per image (which is already an insanely generous timeout) and we give it a bit of headroom to start
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute+30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute+30*time.Second)
 	defer cancel()
 
 	parsedTrivyReport, err := j.cfg.Trivy.ScanManifestAndParse(ctx, tokenResp.Token, imageRef, "json")
