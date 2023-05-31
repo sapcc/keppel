@@ -20,6 +20,7 @@
 package multi
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"time"
@@ -58,9 +59,9 @@ func (fd *federationDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration)
 }
 
 // ClaimAccountName implements the keppel.FederationDriver interface.
-func (fd *federationDriver) ClaimAccountName(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (fd *federationDriver) ClaimAccountName(ctx context.Context, account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	//the primary driver issued the sublease token secret, so this one has to verify it
-	claimResult, err := fd.Drivers[0].ClaimAccountName(account, subleaseTokenSecret)
+	claimResult, err := fd.Drivers[0].ClaimAccountName(ctx, account, subleaseTokenSecret)
 	if err != nil || claimResult != keppel.ClaimSucceeded {
 		return claimResult, err
 	}
@@ -68,7 +69,7 @@ func (fd *federationDriver) ClaimAccountName(account keppel.Account, subleaseTok
 	//all other drivers are just informed that the claim happened
 	now := time.Now()
 	for _, driver := range fd.Drivers[1:] {
-		err := driver.RecordExistingAccount(account, now)
+		err := driver.RecordExistingAccount(ctx, account, now)
 		if err != nil {
 			return keppel.ClaimErrored, err
 		}
@@ -78,14 +79,14 @@ func (fd *federationDriver) ClaimAccountName(account keppel.Account, subleaseTok
 }
 
 // IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
-func (fd *federationDriver) IssueSubleaseTokenSecret(account keppel.Account) (string, error) {
-	return fd.Drivers[0].IssueSubleaseTokenSecret(account)
+func (fd *federationDriver) IssueSubleaseTokenSecret(ctx context.Context, account keppel.Account) (string, error) {
+	return fd.Drivers[0].IssueSubleaseTokenSecret(ctx, account)
 }
 
 // ForfeitAccountName implements the keppel.FederationDriver interface.
-func (fd *federationDriver) ForfeitAccountName(account keppel.Account) error {
+func (fd *federationDriver) ForfeitAccountName(ctx context.Context, account keppel.Account) error {
 	for _, driver := range fd.Drivers {
-		err := driver.ForfeitAccountName(account)
+		err := driver.ForfeitAccountName(ctx, account)
 		if err != nil {
 			return err
 		}
@@ -94,9 +95,9 @@ func (fd *federationDriver) ForfeitAccountName(account keppel.Account) error {
 }
 
 // RecordExistingAccount implements the keppel.FederationDriver interface.
-func (fd *federationDriver) RecordExistingAccount(account keppel.Account, now time.Time) error {
+func (fd *federationDriver) RecordExistingAccount(ctx context.Context, account keppel.Account, now time.Time) error {
 	for _, driver := range fd.Drivers {
-		err := driver.RecordExistingAccount(account, now)
+		err := driver.RecordExistingAccount(ctx, account, now)
 		if err != nil {
 			return err
 		}
@@ -105,6 +106,6 @@ func (fd *federationDriver) RecordExistingAccount(account keppel.Account, now ti
 }
 
 // FindPrimaryAccount implements the keppel.FederationDriver interface.
-func (fd *federationDriver) FindPrimaryAccount(accountName string) (peerHostName string, err error) {
-	return fd.Drivers[0].FindPrimaryAccount(accountName)
+func (fd *federationDriver) FindPrimaryAccount(ctx context.Context, accountName string) (peerHostName string, err error) {
+	return fd.Drivers[0].FindPrimaryAccount(ctx, accountName)
 }

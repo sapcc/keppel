@@ -20,6 +20,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -59,7 +60,7 @@ type IncomingRequest struct {
 
 // Authorize checks if the given incoming request has a proper Authorization.
 // If an error is returned, the given `errHeaders` must be added to the HTTP response.
-func (ir IncomingRequest) Authorize(cfg keppel.Configuration, ad keppel.AuthDriver, db *keppel.DB) (*Authorization, *keppel.RegistryV2Error) {
+func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuration, ad keppel.AuthDriver, db *keppel.DB) (*Authorization, *keppel.RegistryV2Error) {
 	r := ir.HTTPRequest
 
 	//find audience
@@ -113,7 +114,7 @@ func (ir IncomingRequest) Authorize(cfg keppel.Configuration, ad keppel.AuthDriv
 			//though that is completely nonsensical
 			return nil, keppel.ErrUnauthorized.With("basic auth is not supported on this endpoint, your library's auth workflow is probably broken").WithHeader("Www-Authenticate", ir.buildAuthChallenge(cfg, audience, ""))
 		}
-		uid, err := checkBasicAuth(authHeader, ad, db)
+		uid, err := checkBasicAuth(ctx, authHeader, ad, db)
 		if err != nil {
 			return nil, keppel.AsRegistryV2Error(err)
 		}
@@ -221,7 +222,7 @@ func (ir IncomingRequest) buildAuthChallenge(cfg keppel.Configuration, audience 
 
 var errMalformedAuthHeader = keppel.ErrUnauthorized.With("malformed Authorization header")
 
-func checkBasicAuth(authHeader string, ad keppel.AuthDriver, db *keppel.DB) (keppel.UserIdentity, error) {
+func checkBasicAuth(ctx context.Context, authHeader string, ad keppel.AuthDriver, db *keppel.DB) (keppel.UserIdentity, error) {
 	//decode auth header into username/password pair
 	bytes, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(authHeader, "Basic "))
 	if err != nil {
@@ -247,7 +248,7 @@ func checkBasicAuth(authHeader string, ad keppel.AuthDriver, db *keppel.DB) (kep
 	}
 
 	//recognize regular user credentials
-	uid, rerr := ad.AuthenticateUser(userName, password)
+	uid, rerr := ad.AuthenticateUser(ctx, userName, password)
 	return uid, safelyReturnRegistryError(rerr)
 }
 

@@ -19,6 +19,7 @@
 package trivial
 
 import (
+	"context"
 	"time"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -39,26 +40,26 @@ func (federationDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) err
 }
 
 // ClaimAccountName implements the keppel.FederationDriver interface.
-func (federationDriver) ClaimAccountName(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (federationDriver) ClaimAccountName(ctx context.Context, account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	return keppel.ClaimSucceeded, nil
 }
 
 // IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
-func (federationDriver) IssueSubleaseTokenSecret(account keppel.Account) (string, error) {
+func (federationDriver) IssueSubleaseTokenSecret(ctx context.Context, account keppel.Account) (string, error) {
 	return "", nil
 }
 
 // ForfeitAccountName implements the keppel.FederationDriver interface.
-func (federationDriver) ForfeitAccountName(account keppel.Account) error {
+func (federationDriver) ForfeitAccountName(ctx context.Context, account keppel.Account) error {
 	return nil
 }
 
 // RecordExistingAccount implements the keppel.FederationDriver interface.
-func (federationDriver) RecordExistingAccount(account keppel.Account, now time.Time) error {
+func (federationDriver) RecordExistingAccount(ctx context.Context, account keppel.Account, now time.Time) error {
 	return nil
 }
 
 // FindPrimaryAccount implements the keppel.FederationDriver interface.
-func (federationDriver) FindPrimaryAccount(accountName string) (string, error) {
+func (federationDriver) FindPrimaryAccount(ctx context.Context, accountName string) (string, error) {
 	return "", keppel.ErrNoSuchPrimaryAccount
 }

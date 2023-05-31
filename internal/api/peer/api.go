@@ -55,7 +55,7 @@ func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request) *keppe
 	authz, rerr := auth.IncomingRequest{
 		HTTPRequest: r,
 		Scopes:      auth.NewScopeSet(auth.PeerAPIScope),
-	}.Authorize(a.cfg, a.ad, a.db)
+	}.Authorize(r.Context(), a.cfg, a.ad, a.db)
 	if rerr != nil {
 		rerr.WriteAsTextTo(w)
 		return nil

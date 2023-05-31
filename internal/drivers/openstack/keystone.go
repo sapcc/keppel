@@ -115,7 +115,7 @@ func (d *keystoneDriver) ValidateTenantID(tenantID string) error {
 }
 
 // AuthenticateUser implements the keppel.AuthDriver interface.
-func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.UserIdentity, *keppel.RegistryV2Error) {
+func (d *keystoneDriver) AuthenticateUser(ctx context.Context, userName, password string) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	authOpts, rerr := parseUserNameAndPassword(userName, password)
 	if rerr != nil {
 		return nil, rerr
@@ -127,7 +127,7 @@ func (d *keystoneDriver) AuthenticateUser(userName, password string) (keppel.Use
 	//to show a useful error message before we run into our own timeouts (usually
 	//the loadbalancer or whatever's in front of us will have a timeout of 60
 	//seconds)
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel() //silence govet
 
 	//perform the authentication with a fresh ServiceClient, otherwise a 401

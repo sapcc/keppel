@@ -19,6 +19,7 @@
 package keppelv1
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -571,7 +572,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 
 		//check permission to claim account name (this only happens here because
 		//it's only relevant for account creations, not for updates)
-		claimResult, err := a.fd.ClaimAccountName(accountToCreate, subleaseTokenSecret)
+		claimResult, err := a.fd.ClaimAccountName(r.Context(), accountToCreate, subleaseTokenSecret)
 		switch claimResult {
 		case keppel.ClaimSucceeded:
 			//nothing to do
@@ -859,7 +860,7 @@ func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := a.deleteAccount(*account)
+	resp, err := a.deleteAccount(r.Context(), *account)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -893,7 +894,7 @@ var (
 	deleteAccountMarkAllBlobsForDeletionQuery = `UPDATE blobs SET can_be_deleted_at = $2 WHERE account_name = $1`
 )
 
-func (a *API) deleteAccount(account keppel.Account) (*deleteAccountResponse, error) {
+func (a *API) deleteAccount(ctx context.Context, account keppel.Account) (*deleteAccountResponse, error) {
 	if !account.InMaintenance {
 		return &deleteAccountResponse{
 			Error: "account must be set in maintenance first",
@@ -967,7 +968,7 @@ func (a *API) deleteAccount(account keppel.Account) (*deleteAccountResponse, err
 	if err != nil {
 		return &deleteAccountResponse{Error: err.Error()}, nil
 	}
-	err = a.fd.ForfeitAccountName(account)
+	err = a.fd.ForfeitAccountName(ctx, account)
 	if err != nil {
 		return &deleteAccountResponse{Error: err.Error()}, nil
 	}
@@ -997,7 +998,7 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var err error
-	st.Secret, err = a.fd.IssueSubleaseTokenSecret(*account)
+	st.Secret, err = a.fd.IssueSubleaseTokenSecret(r.Context(), *account)
 	if respondwith.ErrorText(w, err) {
 		return
 	}

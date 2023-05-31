@@ -19,6 +19,7 @@
 package openstack
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -82,7 +83,7 @@ func (d *federationDriverBasic) Init(ad keppel.AuthDriver, cfg keppel.Configurat
 }
 
 // ClaimAccountName implements the keppel.FederationDriver interface.
-func (d *federationDriverBasic) ClaimAccountName(account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (d *federationDriverBasic) ClaimAccountName(ctx context.Context, account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	project, err := projects.Get(d.AuthDriver.IdentityV3, account.AuthTenantID).Extract()
 	if err != nil {
 		return keppel.ClaimErrored, err
@@ -107,21 +108,21 @@ func (d *federationDriverBasic) ClaimAccountName(account keppel.Account, subleas
 }
 
 // IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
-func (d *federationDriverBasic) IssueSubleaseTokenSecret(account keppel.Account) (string, error) {
+func (d *federationDriverBasic) IssueSubleaseTokenSecret(ctx context.Context, account keppel.Account) (string, error) {
 	return "", nil
 }
 
 // ForfeitAccountName implements the keppel.FederationDriver interface.
-func (d *federationDriverBasic) ForfeitAccountName(account keppel.Account) error {
+func (d *federationDriverBasic) ForfeitAccountName(ctx context.Context, account keppel.Account) error {
 	return nil
 }
 
 // RecordExistingAccount implements the keppel.FederationDriver interface.
-func (d *federationDriverBasic) RecordExistingAccount(account keppel.Account, now time.Time) error {
+func (d *federationDriverBasic) RecordExistingAccount(ctx context.Context, account keppel.Account, now time.Time) error {
 	return nil
 }
 
 // FindPrimaryAccount implements the keppel.FederationDriver interface.
-func (d *federationDriverBasic) FindPrimaryAccount(accountName string) (string, error) {
+func (d *federationDriverBasic) FindPrimaryAccount(ctx context.Context, accountName string) (string, error) {
 	return "", keppel.ErrNoSuchPrimaryAccount
 }

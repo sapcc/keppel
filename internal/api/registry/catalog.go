@@ -47,7 +47,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 		Scopes:                auth.NewScopeSet(auth.CatalogEndpointScope),
 		AllowsAnycast:         false,
 		AllowsDomainRemapping: true,
-	}.Authorize(a.cfg, a.ad, a.db)
+	}.Authorize(r.Context(), a.cfg, a.ad, a.db)
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return

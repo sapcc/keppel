@@ -239,7 +239,7 @@ type JobPoller func() (Job, error)
 //
 // TODO: move into go-bits!
 type Job interface {
-	Execute() error
+	Execute(context.Context) error
 }
 
 // Execute a task repeatedly, but slow down when sql.ErrNoRows is returned by it.
@@ -276,7 +276,7 @@ func GoQueuedJobLoop(ctx context.Context, numGoroutines int, poll JobPoller) {
 	for i := 0; i < numGoroutines-1; i++ {
 		go func(ch <-chan Job) {
 			for job := range ch {
-				err := job.Execute()
+				err := job.Execute(ctx)
 				if err != nil {
 					logg.Error(err.Error())
 				}
@@ -303,7 +303,7 @@ func ExecuteN(p JobPoller, n int) error {
 		if err != nil {
 			return err
 		}
-		err = j.Execute()
+		err = j.Execute(context.Background())
 		if err != nil {
 			return err
 		}
