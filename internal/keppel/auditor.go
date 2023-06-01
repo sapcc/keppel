@@ -77,6 +77,8 @@ type auditorImpl struct {
 // InitAuditTrail initializes a Auditor from the configuration variables
 // found in the environment.
 func InitAuditTrail() Auditor {
+	logg.Debug("initializing audit trail...")
+
 	prometheus.MustRegister(auditEventPublishSuccessCounter)
 	prometheus.MustRegister(auditEventPublishFailedCounter)
 

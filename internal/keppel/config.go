@@ -91,6 +91,8 @@ func ParseIssuerKey(in string) (crypto.PrivateKey, error) {
 // ParseConfiguration obtains a keppel.Configuration instance from the
 // corresponding environment variables. Aborts on error.
 func ParseConfiguration() Configuration {
+	logg.Debug("parsing configuration...")
+
 	cfg := Configuration{
 		APIPublicHostname:        osext.MustGetenv("KEPPEL_API_PUBLIC_FQDN"),
 		AnycastAPIPublicHostname: os.Getenv("KEPPEL_API_ANYCAST_FQDN"),

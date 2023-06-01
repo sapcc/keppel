@@ -26,6 +26,7 @@ import (
 	"io"
 
 	"github.com/opencontainers/go-digest"
+	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
 )
 
@@ -123,6 +124,8 @@ var StorageDriverRegistry pluggable.Registry[StorageDriver]
 // NewStorageDriver creates a new StorageDriver using one of the factory functions
 // registered with RegisterStorageDriver().
 func NewStorageDriver(pluginTypeID string, ad AuthDriver, cfg Configuration) (StorageDriver, error) {
+	logg.Debug("initializing storage driver %q...", pluginTypeID)
+
 	sd := StorageDriverRegistry.Instantiate(pluginTypeID)
 	if sd == nil {
 		return nil, errors.New("no such storage driver: " + pluginTypeID)

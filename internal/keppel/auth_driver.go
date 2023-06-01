@@ -26,6 +26,7 @@ import (
 	"net/http"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
 )
 
@@ -90,6 +91,8 @@ var AuthDriverRegistry pluggable.Registry[AuthDriver]
 // NewAuthDriver creates a new AuthDriver using one of the plugins registered
 // with AuthDriverRegistry.
 func NewAuthDriver(pluginTypeID string, rc *redis.Client) (AuthDriver, error) {
+	logg.Debug("initializing auth driver %q...", pluginTypeID)
+
 	ad := AuthDriverRegistry.Instantiate(pluginTypeID)
 	if ad == nil {
 		return nil, errors.New("no such auth driver: " + pluginTypeID)

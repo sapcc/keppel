@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-gorp/gorp/v3"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/logg"
 )
 
 var sqlMigrations = map[string]string{
@@ -273,6 +274,8 @@ func (db *DB) SelectBool(query string, args ...interface{}) (bool, error) {
 
 // InitDB connects to the Postgres database.
 func InitDB(dbURL *url.URL) (*DB, error) {
+	logg.Debug("initializing DB connection...")
+
 	db, err := easypg.Connect(easypg.Configuration{
 		PostgresURL: dbURL,
 		Migrations:  sqlMigrations,

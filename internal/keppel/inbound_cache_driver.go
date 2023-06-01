@@ -23,6 +23,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
 
 	"github.com/sapcc/keppel/internal/models"
@@ -55,6 +56,8 @@ var InboundCacheDriverRegistry pluggable.Registry[InboundCacheDriver]
 // NewInboundCacheDriver creates a new InboundCacheDriver using one of the
 // plugins registered with InboundCacheDriverRegistry.
 func NewInboundCacheDriver(pluginTypeID string, cfg Configuration) (InboundCacheDriver, error) {
+	logg.Debug("initializing inbound cache driver %q...", pluginTypeID)
+
 	icd := InboundCacheDriverRegistry.Instantiate(pluginTypeID)
 	if icd == nil {
 		return nil, errors.New("no such inbound cache driver: " + pluginTypeID)

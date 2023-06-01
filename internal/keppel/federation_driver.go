@@ -23,6 +23,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
 )
 
@@ -107,6 +108,8 @@ var FederationDriverRegistry pluggable.Registry[FederationDriver]
 // NewFederationDriver creates a new FederationDriver using one of the plugins
 // registered with FederationDriverRegistry.
 func NewFederationDriver(pluginTypeID string, ad AuthDriver, cfg Configuration) (FederationDriver, error) {
+	logg.Debug("initializing federation driver %q...", pluginTypeID)
+
 	fd := FederationDriverRegistry.Instantiate(pluginTypeID)
 	if fd == nil {
 		return nil, errors.New("no such federation driver: " + pluginTypeID)

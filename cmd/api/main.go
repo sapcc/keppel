@@ -115,6 +115,8 @@ func initRedis() (*redis.Client, error) {
 	if !osext.GetenvBool("KEPPEL_REDIS_ENABLE") {
 		return nil, nil
 	}
+	logg.Debug("initializing Redis connection...")
+
 	opts, err := keppel.GetRedisOptions("KEPPEL")
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse Redis URL: %s", err.Error())

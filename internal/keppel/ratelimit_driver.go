@@ -27,6 +27,7 @@ import (
 
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/redis/go-redis/v9"
+	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
 )
 
@@ -70,6 +71,8 @@ var RateLimitDriverRegistry pluggable.Registry[RateLimitDriver]
 // NewRateLimitDriver creates a new RateLimitDriver using one of the plugins
 // registered with RateLimitDriverRegistry.
 func NewRateLimitDriver(pluginTypeID string, ad AuthDriver, cfg Configuration) (RateLimitDriver, error) {
+	logg.Debug("initializing rate-limit driver %q...", pluginTypeID)
+
 	rld := RateLimitDriverRegistry.Instantiate(pluginTypeID)
 	if rld == nil {
 		return nil, errors.New("no such rate-limit driver: " + pluginTypeID)
