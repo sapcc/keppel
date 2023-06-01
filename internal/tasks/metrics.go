@@ -33,14 +33,6 @@ var (
 		Name: "keppel_retried_vulnerability_checks",
 		Help: "Counter for vulnerability checks that were retried due to transient errors in Clair.",
 	})
-	sweepStorageSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_successful_storage_sweeps",
-		Help: "Counter for successful garbage collections of an account's backing storage.",
-	})
-	sweepStorageFailedCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_failed_storage_sweeps",
-		Help: "Counter for failed garbage collections of an account's backing storage.",
-	})
 	syncManifestsSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "keppel_successful_manifest_syncs",
 		Help: "Counter for successful manifest syncs in replica repos.",
@@ -75,8 +67,6 @@ func (j *Janitor) initializeCounters() {
 		prometheus.MustRegister(checkVulnerabilitySuccessCounter)
 		prometheus.MustRegister(checkVulnerabilityFailedCounter)
 		prometheus.MustRegister(checkVulnerabilityRetriedCounter)
-		prometheus.MustRegister(sweepStorageSuccessCounter)
-		prometheus.MustRegister(sweepStorageFailedCounter)
 		prometheus.MustRegister(syncManifestsSuccessCounter)
 		prometheus.MustRegister(syncManifestsFailedCounter)
 		prometheus.MustRegister(validateBlobSuccessCounter)
@@ -89,8 +79,6 @@ func (j *Janitor) initializeCounters() {
 	checkVulnerabilitySuccessCounter.Add(0)
 	checkVulnerabilityFailedCounter.Add(0)
 	checkVulnerabilityRetriedCounter.Add(0)
-	sweepStorageSuccessCounter.Add(0)
-	sweepStorageFailedCounter.Add(0)
 	syncManifestsSuccessCounter.Add(0)
 	syncManifestsFailedCounter.Add(0)
 	validateBlobSuccessCounter.Add(0)

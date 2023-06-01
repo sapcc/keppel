@@ -19,10 +19,12 @@
 package tasks
 
 import (
+	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 
@@ -52,31 +54,25 @@ var storageSweepDoneQuery = sqlext.SimplifyWhitespace(`
 // manifests that were just pushed, but where the entry in the database is still
 // being created.
 //
-// The storage of each account is sweeped at most once every 6 hours. If no
-// accounts need to be sweeped, sql.ErrNoRows is returned to instruct the caller
-// to slow down.
-func (j *Janitor) SweepStorageInNextAccount() (returnErr error) {
-	var account keppel.Account
-	defer func() {
-		if returnErr == nil {
-			sweepStorageSuccessCounter.Inc()
-		} else if returnErr != sql.ErrNoRows {
-			sweepStorageFailedCounter.Inc()
-			returnErr = fmt.Errorf("while sweeping storage in account %q: %s",
-				account.Name, returnErr.Error())
-		}
-	}()
+// The storage of each account is sweeped at most once every 6 hours.
+func (j *Janitor) SweepStorageJob(registerer prometheus.Registerer) jobloop.Job { //nolint:dupl // false positive
+	return (&jobloop.ProducerConsumerJob[keppel.Account]{
+		Metadata: jobloop.JobMetadata{
+			ReadableName: "sweep storage",
+			CounterOpts: prometheus.CounterOpts{
+				Name: "keppel_storage_sweeps",
+				Help: "Counter for garbage collections of an account's backing storage.",
+			},
+		},
+		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (account keppel.Account, err error) {
+			err = j.db.SelectOne(&account, storageSweepSearchQuery, j.timeNow())
+			return account, err
+		},
+		ProcessTask: j.processSweepStorage,
+	}).Setup(registerer)
+}
 
-	//find account to sweep
-	err := j.db.SelectOne(&account, storageSweepSearchQuery, j.timeNow())
-	if err != nil {
-		if err == sql.ErrNoRows {
-			logg.Debug("no storages to sweep - slowing down...")
-			return sql.ErrNoRows
-		}
-		return err
-	}
-
+func (j *Janitor) processSweepStorage(_ context.Context, account keppel.Account, _ prometheus.Labels) error {
 	//enumerate blobs and manifests in the backing storage
 	actualBlobs, actualManifests, err := j.sd.ListStorageContents(account)
 	if err != nil {

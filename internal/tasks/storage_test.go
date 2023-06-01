@@ -25,13 +25,14 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/jobloop"
 
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
 
-func setupStorageSweepTest(t *testing.T, j *Janitor, s test.Setup) (images []test.Image, healthyBlobs []keppel.Blob, healthyManifests []keppel.Manifest) {
+func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.Job) (images []test.Image, healthyBlobs []keppel.Blob, healthyManifests []keppel.Manifest) {
 	//setup some manifests and blobs as a baseline that should never be touched by
 	//SweepStorageInNextAccount
 	images = make([]test.Image, 2)
@@ -59,8 +60,8 @@ func setupStorageSweepTest(t *testing.T, j *Janitor, s test.Setup) (images []tes
 
 	//SweepStorageInNextAccount should run through, but not do anything besides
 	//setting the storage_sweeped_at timestamp on the account
-	expectSuccess(t, j.SweepStorageInNextAccount())
-	expectError(t, sql.ErrNoRows.Error(), j.SweepStorageInNextAccount())
+	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-000.sql")
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
@@ -71,7 +72,8 @@ func setupStorageSweepTest(t *testing.T, j *Janitor, s test.Setup) (images []tes
 func TestSweepStorageBlobs(t *testing.T) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
-	_, healthyBlobs, healthyManifests := setupStorageSweepTest(t, j, s)
+	sweepStorageJob := j.SweepStorageJob(s.Registry)
+	_, healthyBlobs, healthyManifests := setupStorageSweepTest(t, s, sweepStorageJob)
 
 	//put some blobs in the storage without adding them in the DB
 	account := keppel.Account{Name: "test1"}
@@ -110,8 +112,8 @@ func TestSweepStorageBlobs(t *testing.T) {
 
 	//next SweepStorageInNextAccount should mark them for deletion...
 	s.Clock.StepBy(8 * time.Hour)
-	expectSuccess(t, j.SweepStorageInNextAccount())
-	expectError(t, sql.ErrNoRows.Error(), j.SweepStorageInNextAccount())
+	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-blobs-001.sql")
 	//...but not delete anything yet
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
@@ -140,8 +142,8 @@ func TestSweepStorageBlobs(t *testing.T) {
 	//next SweepStorageInNextAccount should unmark blob 1 (because it's now in
 	//the DB) and sweep blobs 2 and 4 (since it is still not in the DB)
 	s.Clock.StepBy(8 * time.Hour)
-	expectSuccess(t, j.SweepStorageInNextAccount())
-	expectError(t, sql.ErrNoRows.Error(), j.SweepStorageInNextAccount())
+	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-blobs-002.sql")
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectBlobsExistInStorage(t,
@@ -158,7 +160,8 @@ func TestSweepStorageBlobs(t *testing.T) {
 func TestSweepStorageManifests(t *testing.T) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
-	images, healthyBlobs, healthyManifests := setupStorageSweepTest(t, j, s)
+	sweepStorageJob := j.SweepStorageJob(s.Registry)
+	images, healthyBlobs, healthyManifests := setupStorageSweepTest(t, s, sweepStorageJob)
 
 	//put some manifests in the storage without adding them in the DB
 	account := keppel.Account{Name: "test1"}
@@ -170,8 +173,8 @@ func TestSweepStorageManifests(t *testing.T) {
 
 	//next SweepStorageInNextAccount should mark them for deletion...
 	s.Clock.StepBy(8 * time.Hour)
-	expectSuccess(t, j.SweepStorageInNextAccount())
-	expectError(t, sql.ErrNoRows.Error(), j.SweepStorageInNextAccount())
+	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-manifests-001.sql")
 	//...but not delete anything yet
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
@@ -209,8 +212,8 @@ func TestSweepStorageManifests(t *testing.T) {
 	//next SweepStorageInNextAccount should unmark manifest 1 (because it's now in
 	//the DB) and sweep manifest 2 (since it is still not in the DB)
 	s.Clock.StepBy(8 * time.Hour)
-	expectSuccess(t, j.SweepStorageInNextAccount())
-	expectError(t, sql.ErrNoRows.Error(), j.SweepStorageInNextAccount())
+	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-manifests-002.sql")
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
