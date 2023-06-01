@@ -19,10 +19,13 @@
 package tasks
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 
@@ -70,30 +73,25 @@ var blobSweepDoneQuery = sqlext.SimplifyWhitespace(`
 // This staged mark-and-sweep ensures that we don't remove fresh blobs
 // that were just pushed and have not been mounted anywhere.
 //
-// Blobs are sweeped in each account at most once per hour. If no accounts need
-// to be sweeped, sql.ErrNoRows is returned to instruct the caller to slow down.
-func (j *Janitor) SweepBlobsInNextAccount() (returnErr error) {
-	var account keppel.Account
-	defer func() {
-		if returnErr == nil {
-			sweepBlobsSuccessCounter.Inc()
-		} else if returnErr != sql.ErrNoRows {
-			sweepBlobsFailedCounter.Inc()
-			returnErr = fmt.Errorf("while sweeping blobs in account %q: %s",
-				account.Name, returnErr.Error())
-		}
-	}()
+// Blobs are sweeped in each account at most once per hour.
+func (j *Janitor) SweepBlobsJob(registerer prometheus.Registerer) jobloop.Job { //nolint:dupl // false positive
+	return (&jobloop.ProducerConsumerJob[keppel.Account]{
+		Metadata: jobloop.JobMetadata{
+			ReadableName: "sweep blobs",
+			CounterOpts: prometheus.CounterOpts{
+				Name: "keppel_blob_sweeps",
+				Help: "Counter for garbage collections on blobs in an account.",
+			},
+		},
+		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (account keppel.Account, err error) {
+			err = j.db.SelectOne(&account, blobSweepSearchQuery, j.timeNow())
+			return account, err
+		},
+		ProcessTask: j.processSweepBlobs,
+	}).Setup(registerer)
+}
 
-	//find account to sweep
-	err := j.db.SelectOne(&account, blobSweepSearchQuery, j.timeNow())
-	if err != nil {
-		if err == sql.ErrNoRows {
-			logg.Debug("no blobs to sweep - slowing down...")
-			return sql.ErrNoRows
-		}
-		return err
-	}
-
+func (j *Janitor) processSweepBlobs(_ context.Context, account keppel.Account, _ prometheus.Labels) error {
 	//allow next pass in 1 hour to delete the newly marked blob mounts, but use a
 	//slighly earlier cut-off time to account for the marking taking some time
 	canBeDeletedAt := j.timeNow().Add(30 * time.Minute)
@@ -103,7 +101,7 @@ func (j *Janitor) SweepBlobsInNextAccount() (returnErr error) {
 	//metadata, and the sweep only touches stuff that was marked in the
 	//*previous* sweep. The only thing that we need to make sure is that unmark
 	//is strictly ordered before sweep.
-	_, err = j.db.Exec(blobMarkQuery, account.Name, canBeDeletedAt)
+	_, err := j.db.Exec(blobMarkQuery, account.Name, canBeDeletedAt)
 	if err != nil {
 		return err
 	}

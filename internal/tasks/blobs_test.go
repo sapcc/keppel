@@ -35,6 +35,8 @@ func TestSweepBlobs(t *testing.T) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
 
+	sweepBlobsJob := j.SweepBlobsJob(s.Registry)
+
 	//insert some blobs into the DB
 	var dbBlobs []keppel.Blob
 	for idx := int64(0); idx < 5; idx++ {
@@ -45,8 +47,8 @@ func TestSweepBlobs(t *testing.T) {
 	//since uploadBlob() mounts these blobs into the test1/foo repository, there
 	//should be nothing to clean up; SweepBlobsInNextAccount() should only set
 	//the blobs_sweeped_at timestamp on the account
-	expectSuccess(t, j.SweepBlobsInNextAccount())
-	expectError(t, sql.ErrNoRows.Error(), j.SweepBlobsInNextAccount())
+	expectSuccess(t, sweepBlobsJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), sweepBlobsJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-sweep-001.sql")
 	s.ExpectBlobsExistInStorage(t, dbBlobs...)
 
@@ -57,8 +59,8 @@ func TestSweepBlobs(t *testing.T) {
 		`DELETE FROM blob_mounts WHERE blob_id IN ($1,$2,$3)`,
 		dbBlobs[0].ID, dbBlobs[1].ID, dbBlobs[2].ID,
 	)
-	expectSuccess(t, j.SweepBlobsInNextAccount())
-	expectError(t, sql.ErrNoRows.Error(), j.SweepBlobsInNextAccount())
+	expectSuccess(t, sweepBlobsJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), sweepBlobsJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-sweep-002.sql")
 	s.ExpectBlobsExistInStorage(t, dbBlobs...)
 
@@ -71,8 +73,8 @@ func TestSweepBlobs(t *testing.T) {
 
 	//the other two blobs should get deleted in the next sweep
 	s.Clock.StepBy(2 * time.Hour)
-	expectSuccess(t, j.SweepBlobsInNextAccount())
-	expectError(t, sql.ErrNoRows.Error(), j.SweepBlobsInNextAccount())
+	expectSuccess(t, sweepBlobsJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), sweepBlobsJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-sweep-003.sql")
 	s.ExpectBlobsMissingInStorage(t, dbBlobs[0:2]...)
 	s.ExpectBlobsExistInStorage(t, dbBlobs[2:]...)
