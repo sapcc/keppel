@@ -164,34 +164,24 @@ var syncManifestCleanupEmptyQuery = sqlext.SimplifyWhitespace(`
 // manifests have not been synced for more than an hour, and syncs its manifests.
 // Syncing involves checking with the primary account which manifests have been
 // deleted there, and replicating the deletions on our side.
-//
-// If no repo needs syncing, sql.ErrNoRows is returned.
-func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
-	var repo keppel.Repository
+func (j *Janitor) SyncManifestsJob(registerer prometheus.Registerer) jobloop.Job { //nolint:dupl // false positive
+	return (&jobloop.ProducerConsumerJob[keppel.Repository]{
+		Metadata: jobloop.JobMetadata{
+			ReadableName: "manifest syncs in replica repos",
+			CounterOpts: prometheus.CounterOpts{
+				Name: "keppel_manifest_syncs",
+				Help: "Counter for manifest syncs in replica repos.",
+			},
+		},
+		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (repo keppel.Repository, err error) {
+			err = j.db.SelectOne(&repo, syncManifestRepoSelectQuery, j.timeNow())
+			return repo, err
+		},
+		ProcessTask: j.processSyncManifests,
+	}).Setup(registerer)
+}
 
-	defer func() {
-		if returnErr == nil {
-			syncManifestsSuccessCounter.Inc()
-		} else if returnErr != sql.ErrNoRows {
-			syncManifestsFailedCounter.Inc()
-			repoFullName := repo.FullName()
-			if repoFullName == "" {
-				repoFullName = "unknown"
-			}
-			returnErr = fmt.Errorf("while syncing manifests in the replica repo %s: %w", repoFullName, returnErr)
-		}
-	}()
-
-	//find repository to sync
-	err := j.db.SelectOne(&repo, syncManifestRepoSelectQuery, j.timeNow())
-	if err != nil {
-		if err == sql.ErrNoRows {
-			logg.Debug("no accounts to sync manifests in - slowing down...")
-			return sql.ErrNoRows
-		}
-		return err
-	}
-
+func (j *Janitor) processSyncManifests(_ context.Context, repo keppel.Repository, _ prometheus.Labels) error {
 	//find corresponding account
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {

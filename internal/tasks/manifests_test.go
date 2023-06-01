@@ -199,6 +199,8 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			j2, s2 := setupReplica(t, s1, strategy)
 			s1.Clock.StepBy(1 * time.Hour)
 			replicaToken := s2.GetToken(t, "repository:test1/foo:pull")
+			syncManifestsJob1 := j1.SyncManifestsJob(s1.Registry)
+			syncManifestsJob2 := j2.SyncManifestsJob(s2.Registry)
 
 			//upload some manifests...
 			images := make([]test.Image, 4)
@@ -277,18 +279,18 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 
 			//SyncManifestsInNextRepo on the primary registry should have nothing to do
 			//since there are no replica accounts
-			expectError(t, sql.ErrNoRows.Error(), j1.SyncManifestsInNextRepo())
+			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob1.ProcessOne(s1.Ctx))
 			trForPrimary.DBChanges().AssertEmpty()
 			//SyncManifestsInNextRepo on the secondary registry should set the
 			//ManifestsSyncedAt timestamp on the repo, but otherwise not do anything
-			expectSuccess(t, j2.SyncManifestsInNextRepo())
+			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEqualf(`
 					UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 				`,
 				s1.Clock.Now().Add(1*time.Hour).Unix(),
 			)
 			//second run should not have anything else to do
-			expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEmpty()
 
 			//in on_first_use, the sync should have merged the replica's last_pulled_at
@@ -329,19 +331,19 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			)
 
 			//again, nothing to do on the primary side
-			expectError(t, sql.ErrNoRows.Error(), j1.SyncManifestsInNextRepo())
+			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob1.ProcessOne(s1.Ctx))
 			//SyncManifestsInNextRepo on the replica side should not do anything while
 			//the account is in maintenance; only the timestamp is updated to make sure
 			//that the job loop progresses to the next repo
 			mustExec(t, s2.DB, `UPDATE accounts SET in_maintenance = TRUE`)
-			expectSuccess(t, j2.SyncManifestsInNextRepo())
+			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEqualf(`
 					UPDATE accounts SET in_maintenance = TRUE WHERE name = 'test1';
 					UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 				`,
 				s1.Clock.Now().Add(1*time.Hour).Unix(),
 			)
-			expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEmpty()
 
 			//end maintenance
@@ -356,7 +358,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 				//happen (only the tag gets synced, which includes a validation of the
 				//referenced manifest)
 				s1.Clock.StepBy(2 * time.Hour)
-				expectSuccess(t, j2.SyncManifestsInNextRepo())
+				expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 				tr.DBChanges().AssertEqualf(`
 						UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';
 						UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
@@ -365,7 +367,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 					images[1].Manifest.Digest,
 					s1.Clock.Now().Add(1*time.Hour).Unix(),
 				)
-				expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+				expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
 				tr.DBChanges().AssertEmpty()
 			}
 
@@ -377,7 +379,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			//account, and also replicate the tag change (which includes a validation
 			//of the tagged manifests)
 			s1.Clock.StepBy(7 * time.Hour)
-			expectSuccess(t, j2.SyncManifestsInNextRepo())
+			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 			manifestValidationBecauseOfExistingTag := fmt.Sprintf(
 				//this validation is skipped in "on_first_use" because the respective tag is unchanged
 				`UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';`+"\n",
@@ -404,7 +406,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 				s1.Clock.Now().Add(1*time.Hour).Unix(),
 				manifestValidationBecauseOfExistingTag,
 			)
-			expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEmpty()
 
 			//cause a deliberate inconsistency on the primary side: delete a manifest that
@@ -423,10 +425,10 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			//SyncManifestsInNextRepo should now complain since it wants to delete
 			//images[2].Manifest, but it can't because of the manifest-manifest ref to
 			//the image list
-			expectedError := fmt.Sprintf(`while syncing manifests in the replica repo test1/foo: cannot remove deleted manifests [%s] in repo test1/foo because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)`,
+			expectedError := fmt.Sprintf(`could not process task for job "manifest syncs in replica repos": cannot remove deleted manifests [%s] in repo test1/foo because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)`,
 				images[2].Manifest.Digest,
 			)
-			expectError(t, expectedError, j2.SyncManifestsInNextRepo())
+			expectError(t, expectedError, syncManifestsJob2.ProcessOne(s2.Ctx))
 			//the tag sync went through though, so the tag should be gone (the manifest
 			//validation is because of the "other" tag that still exists)
 			manifestValidationBecauseOfExistingTag = fmt.Sprintf(
@@ -452,7 +454,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 
 			//this makes the primary side consistent again, so SyncManifestsInNextRepo
 			//should succeed now and remove both deleted manifests from the DB
-			expectSuccess(t, j2.SyncManifestsInNextRepo())
+			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEqualf(`
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 4;
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 5;
@@ -475,7 +477,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 				images[1].Manifest.Digest,
 				s1.Clock.Now().Add(1*time.Hour).Unix(),
 			)
-			expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEmpty()
 
 			//replace the primary registry's API with something that just answers 404 most of the time
@@ -489,10 +491,10 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			//SyncManifestsInNextRepo understands that this is a network issue and not
 			//caused by the manifest getting deleted, since the 404-generating endpoint
 			//does not render a proper MANIFEST_UNKNOWN error.
-			expectedError = fmt.Sprintf(`while syncing manifests in the replica repo test1/foo: cannot check existence of manifest test1/foo/%s on primary account: during GET https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found`,
+			expectedError = fmt.Sprintf(`could not process task for job "manifest syncs in replica repos": cannot check existence of manifest test1/foo/%s on primary account: during GET https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found`,
 				images[1].Manifest.Digest, //the only manifest that is left
 			)
-			expectError(t, expectedError, j2.SyncManifestsInNextRepo())
+			expectError(t, expectedError, syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEmpty()
 
 			//check that the manifest sync did not update the last_pulled_at timestamps
@@ -513,7 +515,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			mustExec(t, s1.DB, `DELETE FROM manifests`)
 			mustExec(t, s1.DB, `DELETE FROM repos`)
 			//the manifest sync should reflect the repository deletion on the replica
-			expectSuccess(t, j2.SyncManifestsInNextRepo())
+			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEqualf(`
 					DELETE FROM blob_mounts WHERE blob_id = 1 AND repo_id = 1;
 					DELETE FROM blob_mounts WHERE blob_id = 2 AND repo_id = 1;
@@ -535,7 +537,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 				`,
 				images[1].Manifest.Digest,
 			)
-			expectError(t, sql.ErrNoRows.Error(), j2.SyncManifestsInNextRepo())
+			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEmpty()
 		})
 	})
