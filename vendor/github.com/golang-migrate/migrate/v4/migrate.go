@@ -13,9 +13,9 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"github.com/sapcc/go-bits/easypg/migrate/database"
-	iurl "github.com/sapcc/go-bits/easypg/migrate/internal/url"
-	"github.com/sapcc/go-bits/easypg/migrate/source"
+	"github.com/golang-migrate/migrate/v4/database"
+	iurl "github.com/golang-migrate/migrate/v4/internal/url"
+	"github.com/golang-migrate/migrate/v4/source"
 )
 
 // DefaultPrefetchMigrations sets the number of migrations to pre-read

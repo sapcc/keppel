@@ -44,6 +44,15 @@ github.com/gofrs/uuid
 # github.com/golang-jwt/jwt/v5 v5.0.0
 ## explicit; go 1.18
 github.com/golang-jwt/jwt/v5
+# github.com/golang-migrate/migrate/v4 v4.16.0
+## explicit; go 1.18
+github.com/golang-migrate/migrate/v4
+github.com/golang-migrate/migrate/v4/database
+github.com/golang-migrate/migrate/v4/database/multistmt
+github.com/golang-migrate/migrate/v4/database/postgres
+github.com/golang-migrate/migrate/v4/internal/url
+github.com/golang-migrate/migrate/v4/source
+github.com/golang-migrate/migrate/v4/source/go_bindata
 # github.com/golang/protobuf v1.5.3
 ## explicit; go 1.9
 github.com/golang/protobuf/proto
@@ -69,7 +78,7 @@ github.com/gophercloud/utils/openstack/clientconfig
 # github.com/gorilla/mux v1.8.0
 ## explicit; go 1.12
 github.com/gorilla/mux
-# github.com/hashicorp/errwrap v1.0.0
+# github.com/hashicorp/errwrap v1.1.0
 ## explicit
 github.com/hashicorp/errwrap
 # github.com/hashicorp/go-multierror v1.1.1
@@ -155,18 +164,11 @@ github.com/rs/cors
 ## explicit; go 1.20
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20230525104154-4ee9a7b263f9
+# github.com/sapcc/go-bits v0.0.0-20230601094646-819288b07996
 ## explicit; go 1.20
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
 github.com/sapcc/go-bits/easypg
-github.com/sapcc/go-bits/easypg/migrate
-github.com/sapcc/go-bits/easypg/migrate/database
-github.com/sapcc/go-bits/easypg/migrate/database/multistmt
-github.com/sapcc/go-bits/easypg/migrate/database/postgres
-github.com/sapcc/go-bits/easypg/migrate/internal/url
-github.com/sapcc/go-bits/easypg/migrate/source
-github.com/sapcc/go-bits/easypg/migrate/source/go_bindata
 github.com/sapcc/go-bits/errext
 github.com/sapcc/go-bits/gopherpolicy
 github.com/sapcc/go-bits/httpapi
