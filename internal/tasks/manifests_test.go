@@ -44,6 +44,7 @@ import (
 func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel.DB, []int64, []string)) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
+	validateManifestJob := j.ValidateManifestJob(s.Registry)
 
 	var (
 		allBlobIDs         []int64
@@ -76,23 +77,23 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 
 	//since these manifests were just uploaded, validated_at is set to right now,
 	//so ValidateNextManifest will report that there is nothing to do
-	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextManifest())
+	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
 
 	//once they need validating, they validate successfully
 	s.Clock.StepBy(36 * time.Hour)
-	expectSuccess(t, j.ValidateNextManifest())
-	expectSuccess(t, j.ValidateNextManifest())
-	expectSuccess(t, j.ValidateNextManifest())
-	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextManifest())
+	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
+	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
+	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-001-before-disturbance.sql")
 
 	//disturb the DB state, then rerun ValidateNextManifest to fix it
 	s.Clock.StepBy(36 * time.Hour)
 	disturb(s.DB, allBlobIDs, allManifestDigests)
-	expectSuccess(t, j.ValidateNextManifest())
-	expectSuccess(t, j.ValidateNextManifest())
-	expectSuccess(t, j.ValidateNextManifest())
-	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextManifest())
+	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
+	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
+	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-002-after-fix.sql")
 }
 
@@ -136,6 +137,7 @@ func TestValidateNextManifestFixesSuperfluousManifestManifestRefs(t *testing.T) 
 
 func TestValidateNextManifestError(t *testing.T) {
 	j, s := setup(t)
+	validateManifestJob := j.ValidateManifestJob(s.Registry)
 
 	//setup a manifest that is missing a referenced blob (we need to do this
 	//manually since the MustUpload functions care about uploading stuff intact)
@@ -170,22 +172,25 @@ func TestValidateNextManifestError(t *testing.T) {
 
 	//validation should yield an error
 	s.Clock.StepBy(36 * time.Hour)
-	expectedError := fmt.Sprintf("while validating manifest %s in repo 1: manifest blob unknown to registry: %s", image.Manifest.Digest, image.Config.Digest)
-	expectError(t, expectedError, j.ValidateNextManifest())
+	expectedError := fmt.Sprintf(
+		`could not process task for job "validate manifests": while validating manifest %s in repo 1: manifest blob unknown to registry: %s`,
+		image.Manifest.Digest, image.Config.Digest,
+	)
+	expectError(t, expectedError, validateManifestJob.ProcessOne(s.Ctx))
 
 	//check that validation error to be recorded in the DB
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-error-001.sql")
 
 	//expect next ValidateNextManifest run to skip over this manifest since it
 	//was recently validated
-	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextManifest())
+	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
 
 	//upload missing blob so that we can test recovering from the validation error
 	image.Config.MustUpload(t, s, fooRepoRef)
 
 	//next validation should be happy (and also create the missing refs)
 	s.Clock.StepBy(36 * time.Hour)
-	expectSuccess(t, j.ValidateNextManifest())
+	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-error-002.sql")
 }
 

@@ -43,8 +43,6 @@ func (j *Janitor) initializeCounters() {
 		prometheus.MustRegister(checkVulnerabilitySuccessCounter)
 		prometheus.MustRegister(checkVulnerabilityFailedCounter)
 		prometheus.MustRegister(checkVulnerabilityRetriedCounter)
-		prometheus.MustRegister(validateManifestSuccessCounter)
-		prometheus.MustRegister(validateManifestFailedCounter)
 	}
 
 	//add 0 to all counters to ensure that the relevant timeseries exist

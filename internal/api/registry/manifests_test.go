@@ -697,6 +697,7 @@ func TestImageManifestCmdEntrypointAsString(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		j := tasks.NewJanitor(s.Config, s.FD, s.SD, s.ICD, s.DB, s.Auditor).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next)
 		j.DisableJitter()
+		validateManifestJob := j.ValidateManifestJob(s.Registry)
 
 		//generate an image that has strings as Entrypoint and Cmd
 		image := test.GenerateImageWithCustomConfig(func(cfg map[string]interface{}) {
@@ -705,7 +706,7 @@ func TestImageManifestCmdEntrypointAsString(t *testing.T) {
 		image.MustUpload(t, s, fooRepoRef, "first")
 
 		s.Clock.StepBy(36 * time.Hour)
-		err := j.ValidateNextManifest()
+		err := validateManifestJob.ProcessOne(s.Ctx)
 		if err != nil {
 			t.Error("expected err = nil, but got: " + err.Error())
 		}
