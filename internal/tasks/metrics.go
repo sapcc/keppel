@@ -33,14 +33,6 @@ var (
 		Name: "keppel_retried_vulnerability_checks",
 		Help: "Counter for vulnerability checks that were retried due to transient errors in Clair.",
 	})
-	sweepBlobMountsSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_successful_blob_mount_sweeps",
-		Help: "Counter for successful garbage collections on blob mounts in a repo.",
-	})
-	sweepBlobMountsFailedCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_failed_blob_mount_sweeps",
-		Help: "Counter for failed garbage collections on blob mounts in a repo.",
-	})
 	sweepBlobsSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "keppel_successful_blob_sweeps",
 		Help: "Counter for successful garbage collections on blobs in an account.",
@@ -91,8 +83,6 @@ func (j *Janitor) initializeCounters() {
 		prometheus.MustRegister(checkVulnerabilitySuccessCounter)
 		prometheus.MustRegister(checkVulnerabilityFailedCounter)
 		prometheus.MustRegister(checkVulnerabilityRetriedCounter)
-		prometheus.MustRegister(sweepBlobMountsSuccessCounter)
-		prometheus.MustRegister(sweepBlobMountsFailedCounter)
 		prometheus.MustRegister(sweepBlobsSuccessCounter)
 		prometheus.MustRegister(sweepBlobsFailedCounter)
 		prometheus.MustRegister(sweepStorageSuccessCounter)
@@ -109,8 +99,6 @@ func (j *Janitor) initializeCounters() {
 	checkVulnerabilitySuccessCounter.Add(0)
 	checkVulnerabilityFailedCounter.Add(0)
 	checkVulnerabilityRetriedCounter.Add(0)
-	sweepBlobMountsSuccessCounter.Add(0)
-	sweepBlobMountsFailedCounter.Add(0)
 	sweepBlobsSuccessCounter.Add(0)
 	sweepBlobsFailedCounter.Add(0)
 	sweepStorageSuccessCounter.Add(0)

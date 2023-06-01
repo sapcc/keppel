@@ -19,10 +19,11 @@
 package tasks
 
 import (
-	"database/sql"
-	"fmt"
+	"context"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 
@@ -74,30 +75,25 @@ var blobMountSweepDoneQuery = sqlext.SimplifyWhitespace(`
 // This staged mark-and-sweep ensures that we don't remove fresh blob mounts
 // that were just created, but where the manifest has not yet been pushed.
 //
-// Blob mounts are sweeped in each repo at most once per hour. If no repos need
-// to be sweeped, sql.ErrNoRows is returned to instruct the caller to slow down.
-func (j *Janitor) SweepBlobMountsInNextRepo() (returnErr error) {
-	var repo keppel.Repository
-	defer func() {
-		if returnErr == nil {
-			sweepBlobMountsSuccessCounter.Inc()
-		} else if returnErr != sql.ErrNoRows {
-			sweepBlobMountsFailedCounter.Inc()
-			returnErr = fmt.Errorf("while sweeping blob mounts in repo %q: %s",
-				repo.FullName(), returnErr.Error())
-		}
-	}()
+// Blob mounts are sweeped in each repo at most once per hour.
+func (j *Janitor) SweepBlobMountsJob(registerer prometheus.Registerer) jobloop.Job { //nolint:dupl // false positive
+	return (&jobloop.ProducerConsumerJob[keppel.Repository]{
+		Metadata: jobloop.JobMetadata{
+			ReadableName: "garbage collect blob mounts in repos",
+			CounterOpts: prometheus.CounterOpts{
+				Name: "keppel_blob_mount_sweeps",
+				Help: "Counter for garbage collections on blob mounts in a repo.",
+			},
+		},
+		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (repo keppel.Repository, err error) {
+			err = j.db.SelectOne(&repo, blobMountSweepSearchQuery, j.timeNow())
+			return repo, err
+		},
+		ProcessTask: j.processSweepBlobMounts,
+	}).Setup(registerer)
+}
 
-	//find repo to sweep
-	err := j.db.SelectOne(&repo, blobMountSweepSearchQuery, j.timeNow())
-	if err != nil {
-		if err == sql.ErrNoRows {
-			logg.Debug("no blob mounts to sweep - slowing down...")
-			return sql.ErrNoRows
-		}
-		return err
-	}
-
+func (j *Janitor) processSweepBlobMounts(_ context.Context, repo keppel.Repository, _ prometheus.Labels) error {
 	//allow next pass in 1 hour to delete the newly marked blob mounts, but use a
 	//slighly earlier cut-off time to account for the marking taking some time
 	canBeDeletedAt := j.timeNow().Add(30 * time.Minute)
@@ -107,7 +103,7 @@ func (j *Janitor) SweepBlobMountsInNextRepo() (returnErr error) {
 	//metadata, and the sweep only touches stuff that was marked in the
 	//*previous* sweep. The only thing that we need to make sure is that unmark
 	//is strictly ordered before sweep.
-	_, err = j.db.Exec(blobMountMarkQuery, repo.ID, canBeDeletedAt)
+	_, err := j.db.Exec(blobMountMarkQuery, repo.ID, canBeDeletedAt)
 	if err != nil {
 		return err
 	}

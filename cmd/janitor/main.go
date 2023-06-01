@@ -71,7 +71,7 @@ func run(cmd *cobra.Command, args []string) {
 	go janitor.AnnounceAccountToFederationJob(nil).Run(ctx)
 	go janitor.DeleteAbandonedUploadJob(nil).Run(ctx)
 	go janitor.GarbageCollectManifestsJob(nil).Run(ctx)
-	go jobLoop(janitor.SweepBlobMountsInNextRepo)
+	go janitor.SweepBlobMountsJob(nil).Run(ctx)
 	go jobLoop(janitor.SweepBlobsInNextAccount)
 	go jobLoop(janitor.SweepStorageInNextAccount)
 	go jobLoop(janitor.SyncManifestsInNextRepo)

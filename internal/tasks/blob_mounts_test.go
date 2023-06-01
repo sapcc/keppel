@@ -32,6 +32,8 @@ func TestSweepBlobMounts(t *testing.T) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
 
+	sweepBlobMountsJob := j.SweepBlobMountsJob(s.Registry)
+
 	//setup an image manifest with some layers, so that we have some blob mounts
 	//that shall not be sweeped
 	image := test.GenerateImage(
@@ -43,8 +45,8 @@ func TestSweepBlobMounts(t *testing.T) {
 	//the blob mount sweep should not mark any blob mount for deletion since they
 	//are all in use, but should set the blob_mounts_sweeped_at timestamp on the
 	//repo
-	expectSuccess(t, j.SweepBlobMountsInNextRepo())
-	expectError(t, sql.ErrNoRows.Error(), j.SweepBlobMountsInNextRepo())
+	expectSuccess(t, sweepBlobMountsJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), sweepBlobMountsJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-mount-sweep-001.sql")
 
 	//upload two blobs that are not referenced by any manifest
@@ -56,8 +58,8 @@ func TestSweepBlobMounts(t *testing.T) {
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-mount-sweep-002.sql")
 
 	//the next sweep should mark those blob's mounts for deletion
-	expectSuccess(t, j.SweepBlobMountsInNextRepo())
-	expectError(t, sql.ErrNoRows.Error(), j.SweepBlobMountsInNextRepo())
+	expectSuccess(t, sweepBlobMountsJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), sweepBlobMountsJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-mount-sweep-003.sql")
 
 	//save one of those blob mounts from deletion by creating a manifest-blob
@@ -74,7 +76,7 @@ func TestSweepBlobMounts(t *testing.T) {
 	//mark on the mount for `bogusBlob2` (since it is now referenced by a
 	//manifest)
 	s.Clock.StepBy(2 * time.Hour)
-	expectSuccess(t, j.SweepBlobMountsInNextRepo())
-	expectError(t, sql.ErrNoRows.Error(), j.SweepBlobMountsInNextRepo())
+	expectSuccess(t, sweepBlobMountsJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), sweepBlobMountsJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-mount-sweep-004.sql")
 }
