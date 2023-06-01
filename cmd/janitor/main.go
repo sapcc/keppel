@@ -75,7 +75,7 @@ func run(cmd *cobra.Command, args []string) {
 	go janitor.SweepBlobsJob(nil).Run(ctx)
 	go janitor.SweepStorageJob(nil).Run(ctx)
 	go janitor.SyncManifestsJob(nil).Run(ctx)
-	go jobLoop(janitor.ValidateNextBlob)
+	go janitor.ValidateBlobJob(nil).Run(ctx)
 	go jobLoop(janitor.ValidateNextManifest)
 	if !osext.GetenvBool("KEPPEL_CLAIR_IGNORE_STALE_INDEX_REPORTS") {
 		go cronJobLoop(1*time.Minute, janitor.CheckClairManifestState)

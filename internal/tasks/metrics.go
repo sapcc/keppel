@@ -33,22 +33,6 @@ var (
 		Name: "keppel_retried_vulnerability_checks",
 		Help: "Counter for vulnerability checks that were retried due to transient errors in Clair.",
 	})
-	validateBlobSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_successful_blob_validations",
-		Help: "Counter for successful blob validations.",
-	})
-	validateBlobFailedCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_failed_blob_validations",
-		Help: "Counter for failed blob validations.",
-	})
-	validateManifestSuccessCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_successful_manifest_validations",
-		Help: "Counter for successful manifest validations.",
-	})
-	validateManifestFailedCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "keppel_failed_manifest_validations",
-		Help: "Counter for failed manifest validations.",
-	})
 
 	metricsRegistered = false
 )
@@ -59,8 +43,6 @@ func (j *Janitor) initializeCounters() {
 		prometheus.MustRegister(checkVulnerabilitySuccessCounter)
 		prometheus.MustRegister(checkVulnerabilityFailedCounter)
 		prometheus.MustRegister(checkVulnerabilityRetriedCounter)
-		prometheus.MustRegister(validateBlobSuccessCounter)
-		prometheus.MustRegister(validateBlobFailedCounter)
 		prometheus.MustRegister(validateManifestSuccessCounter)
 		prometheus.MustRegister(validateManifestFailedCounter)
 	}
@@ -69,8 +51,4 @@ func (j *Janitor) initializeCounters() {
 	checkVulnerabilitySuccessCounter.Add(0)
 	checkVulnerabilityFailedCounter.Add(0)
 	checkVulnerabilityRetriedCounter.Add(0)
-	validateBlobSuccessCounter.Add(0)
-	validateBlobFailedCounter.Add(0)
-	validateManifestSuccessCounter.Add(0)
-	validateManifestFailedCounter.Add(0)
 }

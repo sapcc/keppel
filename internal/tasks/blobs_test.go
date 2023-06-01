@@ -55,8 +55,7 @@ func TestSweepBlobs(t *testing.T) {
 	//remove blob mounts for some blobs - SweepBlobsInNextAccount() should now
 	//mark them for deletion (but not actually delete them yet)
 	s.Clock.StepBy(2 * time.Hour)
-	mustExec(t, s.DB,
-		`DELETE FROM blob_mounts WHERE blob_id IN ($1,$2,$3)`,
+	mustExec(t, s.DB, `DELETE FROM blob_mounts WHERE blob_id IN ($1,$2,$3)`,
 		dbBlobs[0].ID, dbBlobs[1].ID, dbBlobs[2].ID,
 	)
 	expectSuccess(t, sweepBlobsJob.ProcessOne(s.Ctx))
@@ -66,10 +65,7 @@ func TestSweepBlobs(t *testing.T) {
 
 	//recreate one of these blob mounts - this should protect it from being
 	//deleted
-	mustExec(t, s.DB,
-		`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1,1)`,
-		dbBlobs[2].ID,
-	)
+	mustExec(t, s.DB, `INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1,1)`, dbBlobs[2].ID)
 
 	//the other two blobs should get deleted in the next sweep
 	s.Clock.StepBy(2 * time.Hour)
@@ -83,6 +79,7 @@ func TestSweepBlobs(t *testing.T) {
 func TestValidateBlobs(t *testing.T) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
+	validateBlobJob := j.ValidateBlobJob(s.Registry)
 
 	//upload some blobs (we need to step the clock after each upload to ensure
 	//that ValidateNextBlob later goes through them in a particular order, to
@@ -96,12 +93,12 @@ func TestValidateBlobs(t *testing.T) {
 
 	//ValidateNextBlob should be happy about these blobs
 	s.Clock.StepBy(8*24*time.Hour - 2*time.Second)
-	expectSuccess(t, j.ValidateNextBlob())
+	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
 	s.Clock.Step()
-	expectSuccess(t, j.ValidateNextBlob())
+	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
 	s.Clock.Step()
-	expectSuccess(t, j.ValidateNextBlob())
-	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextBlob())
+	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), validateBlobJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-validate-001.sql")
 
 	//deliberately destroy one of the blob's digests
@@ -114,20 +111,19 @@ func TestValidateBlobs(t *testing.T) {
 	//not so happy now, huh?
 	s.Clock.StepBy(8*24*time.Hour - 2*time.Second)
 	expectedError := fmt.Sprintf(
-		`while validating a blob: expected digest %s, but got %s`,
+		`could not process task for job "validates manifest's blobs": expected digest %s, but got %s`,
 		wrongDigest.String(), dbBlobs[2].Digest,
 	)
-	expectSuccess(t, j.ValidateNextBlob())
+	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
 	s.Clock.Step()
-	expectSuccess(t, j.ValidateNextBlob())
+	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
 	s.Clock.Step()
-	expectError(t, expectedError, j.ValidateNextBlob())
-	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextBlob())
+	expectError(t, expectedError, validateBlobJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), validateBlobJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-validate-002.sql")
 
 	//fix the issue
-	mustExec(t, s.DB,
-		`UPDATE blobs SET digest = $1 WHERE digest = $2`,
+	mustExec(t, s.DB, `UPDATE blobs SET digest = $1 WHERE digest = $2`,
 		dbBlobs[2].Digest, wrongDigest.String(),
 	)
 
@@ -135,11 +131,11 @@ func TestValidateBlobs(t *testing.T) {
 	//(note that the order in which blobs are checked differs this time because
 	//blobs with an existing validation error are chosen with higher priority)
 	s.Clock.StepBy(8*24*time.Hour - 2*time.Second)
-	expectSuccess(t, j.ValidateNextBlob())
+	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
 	s.Clock.Step()
-	expectSuccess(t, j.ValidateNextBlob())
+	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
 	s.Clock.Step()
-	expectSuccess(t, j.ValidateNextBlob())
-	expectError(t, sql.ErrNoRows.Error(), j.ValidateNextBlob())
+	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), validateBlobJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-validate-003.sql")
 }

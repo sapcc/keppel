@@ -20,7 +20,6 @@ package tasks
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
@@ -160,31 +159,28 @@ var validateBlobSearchQuery = sqlext.SimplifyWhitespace(`
 `)
 
 // ValidateNextBlob validates the next blob that has not been validated for more
-// than 7 days. If no manifest needs to be validated, sql.ErrNoRows is returned.
-func (j *Janitor) ValidateNextBlob() (returnErr error) {
-	defer func() {
-		if returnErr == nil {
-			validateBlobSuccessCounter.Inc()
-		} else if returnErr != sql.ErrNoRows {
-			validateBlobFailedCounter.Inc()
-			returnErr = fmt.Errorf("while validating a blob: %s", returnErr.Error())
-		}
-	}()
+// than 7 days. If no manifest needs to be validated.
+func (j *Janitor) ValidateBlobJob(registerer prometheus.Registerer) jobloop.Job {
+	return (&jobloop.ProducerConsumerJob[keppel.Blob]{
+		Metadata: jobloop.JobMetadata{
+			ReadableName: "validates manifest's blobs",
+			CounterOpts: prometheus.CounterOpts{
+				Name: "keppel_blob_validations",
+				Help: "Counter for blob validations.",
+			},
+		},
+		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (blob keppel.Blob, err error) {
+			//find blob: validate once every 7 days, but recheck after 10 minutes if validation failed
+			maxSuccessfulValidatedAt := j.timeNow().Add(-7 * 24 * time.Hour)
+			maxFailedValidatedAt := j.timeNow().Add(-10 * time.Minute)
+			err = j.db.SelectOne(&blob, validateBlobSearchQuery, maxSuccessfulValidatedAt, maxFailedValidatedAt)
+			return blob, err
+		},
+		ProcessTask: j.processValidateBlob,
+	}).Setup(registerer)
+}
 
-	//find blob: validate once every 7 days, but recheck after 10 minutes if
-	//validation failed
-	var blob keppel.Blob
-	maxSuccessfulValidatedAt := j.timeNow().Add(-7 * 24 * time.Hour)
-	maxFailedValidatedAt := j.timeNow().Add(-10 * time.Minute)
-	err := j.db.SelectOne(&blob, validateBlobSearchQuery, maxSuccessfulValidatedAt, maxFailedValidatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			logg.Debug("no blobs to validate - slowing down...")
-			return sql.ErrNoRows
-		}
-		return err
-	}
-
+func (j *Janitor) processValidateBlob(_ context.Context, blob keppel.Blob, _ prometheus.Labels) error {
 	//find corresponding account
 	account, err := keppel.FindAccount(j.db, blob.AccountName)
 	if err != nil {
