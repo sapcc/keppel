@@ -891,3 +891,29 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 		)
 	})
 }
+
+func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
+	test.WithRoundTripper(func(_ *test.RoundTripper) {
+		j, s := setup(t, test.WithTrivyDouble)
+		tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
+		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
+
+		//upload an example image
+		image := test.GenerateImage(test.GenerateExampleLayer(4))
+		image.MustUpload(t, s, fooRepoRef, "latest")
+		tr.DBChanges().Ignore()
+		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-eosl.json"
+
+		//there are vulnerabilities up to "Critical", but since the base distro is
+		//EOSL, the vulnerability status gets overridden into "Rotten"
+		s.Clock.StepBy(1 * time.Hour)
+		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
+		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+		tr.DBChanges().AssertEqualf(`
+			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
+			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = %[3]d, checked_at = %[4]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[5]s';
+		`,
+			image.Layers[0].Digest,
+			clair.RottenVulnerabilityStatus, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
+	})
+}

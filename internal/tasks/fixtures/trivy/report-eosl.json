@@ -1,0 +1,3569 @@
+{
+  "SchemaVersion": 2,
+  "ArtifactName": "debian:jessie",
+  "ArtifactType": "container_image",
+  "Metadata": {
+    "OS": {
+      "Family": "debian",
+      "Name": "8.11",
+      "EOSL": true
+    },
+    "ImageID": "sha256:3aaeab7a47777b5ca21fc6de40a6f9e7ee7ebb7302e7a025795eb9e73200c404",
+    "DiffIDs": [
+      "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+    ],
+    "RepoTags": [
+      "debian:jessie"
+    ],
+    "RepoDigests": [
+      "debian@sha256:32ad5050caffb2c7e969dac873bce2c370015c2256ff984b70c1c08b3a2816a0"
+    ],
+    "ImageConfig": {
+      "architecture": "amd64",
+      "container": "4b4f98a17678adfdd4901cd89ce1b39d4cc812786f9019e46fe789863f968073",
+      "created": "2021-03-26T15:21:15.456665624Z",
+      "docker_version": "19.03.12",
+      "history": [
+        {
+          "created": "2021-03-26T15:21:14.787213704Z",
+          "created_by": "/bin/sh -c #(nop) ADD file:561abd5e82ee4d792053061020f96b6feffe1c5892e9acfaa1eac5251f5e8803 in / "
+        },
+        {
+          "created": "2021-03-26T15:21:15.456665624Z",
+          "created_by": "/bin/sh -c #(nop)  CMD [\"bash\"]",
+          "empty_layer": true
+        }
+      ],
+      "os": "linux",
+      "rootfs": {
+        "type": "layers",
+        "diff_ids": [
+          "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+        ]
+      },
+      "config": {
+        "Cmd": [
+          "bash"
+        ],
+        "Env": [
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        ],
+        "Image": "sha256:eedb0883564d1fb64754f6f59dc9cef65fd911c6ad4d136cdeefd312b0c89631"
+      }
+    }
+  },
+  "Results": [
+    {
+      "Target": "debian:jessie (debian 8.11)",
+      "Class": "os-pkgs",
+      "Type": "debian",
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2016-2779",
+          "PkgID": "bsdutils@1:2.25.2-6",
+          "PkgName": "bsdutils",
+          "InstalledVersion": "1:2.25.2-6",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2016-2779",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "util-linux: runuser tty hijack via TIOCSTI ioctl",
+          "Description": "runuser in util-linux allows local users to escape to the parent session via a crafted TIOCSTI ioctl call, which pushes characters to the terminal's input buffer.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-264"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 7.2,
+              "V3Score": 7.8
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:H/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:H",
+              "V2Score": 6.2,
+              "V3Score": 8.6
+            }
+          },
+          "References": [
+            "http://www.openwall.com/lists/oss-security/2016/02/27/1",
+            "http://www.openwall.com/lists/oss-security/2016/02/27/2",
+            "https://access.redhat.com/security/cve/CVE-2016-2779",
+            "https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=815922",
+            "https://nvd.nist.gov/vuln/detail/CVE-2016-2779",
+            "https://www.cve.org/CVERecord?id=CVE-2016-2779"
+          ],
+          "PublishedDate": "2017-02-07T15:59:00Z",
+          "LastModifiedDate": "2019-01-04T14:14:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2016-5011",
+          "PkgID": "bsdutils@1:2.25.2-6",
+          "PkgName": "bsdutils",
+          "InstalledVersion": "1:2.25.2-6",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2016-5011",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "util-linux: Extended partition loop in MBR partition table leads to DOS",
+          "Description": "The parse_dos_extended function in partitions/dos.c in the libblkid library in util-linux allows physically proximate attackers to cause a denial of service (memory consumption) via a crafted MSDOS partition table with an extended partition boot record at zero offset.",
+          "Severity": "MEDIUM",
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:N/I:N/A:C",
+              "V3Vector": "CVSS:3.1/AV:P/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 4.9,
+              "V3Score": 4.6
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:N/I:N/A:C",
+              "V3Vector": "CVSS:3.0/AV:P/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 4.9,
+              "V3Score": 4.6
+            }
+          },
+          "References": [
+            "http://rhn.redhat.com/errata/RHSA-2016-2605.html",
+            "http://www-01.ibm.com/support/docview.wss?uid=isg3T1024543",
+            "http://www-01.ibm.com/support/docview.wss?uid=nas8N1021801",
+            "http://www.openwall.com/lists/oss-security/2016/07/11/2",
+            "http://www.securityfocus.com/bid/91683",
+            "http://www.securitytracker.com/id/1036272",
+            "https://access.redhat.com/security/cve/CVE-2016-5011",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-5011",
+            "https://git.kernel.org/pub/scm/utils/util-linux/util-linux.git/commit/?id=7164a1c3",
+            "https://linux.oracle.com/cve/CVE-2016-5011.html",
+            "https://linux.oracle.com/errata/ELSA-2016-2605.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2016-5011",
+            "https://ubuntu.com/security/notices/USN-5478-1",
+            "https://www.cve.org/CVERecord?id=CVE-2016-5011"
+          ],
+          "PublishedDate": "2017-04-11T15:59:00Z",
+          "LastModifiedDate": "2020-09-11T15:22:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2016-2781",
+          "PkgID": "coreutils@8.23-4",
+          "PkgName": "coreutils",
+          "InstalledVersion": "8.23-4",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2016-2781",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "coreutils: Non-privileged session can escape to the parent session in chroot",
+          "Description": "chroot in GNU coreutils, when used with --userspec, allows local users to escape to the parent session via a crafted TIOCSTI ioctl call, which pushes characters to the terminal's input buffer.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-20"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:N/I:P/A:N",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:C/C:N/I:H/A:N",
+              "V2Score": 2.1,
+              "V3Score": 6.5
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:H/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:H",
+              "V2Score": 6.2,
+              "V3Score": 8.6
+            }
+          },
+          "References": [
+            "http://seclists.org/oss-sec/2016/q1/452",
+            "http://www.openwall.com/lists/oss-security/2016/02/28/2",
+            "http://www.openwall.com/lists/oss-security/2016/02/28/3",
+            "https://access.redhat.com/security/cve/CVE-2016-2781",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-2781",
+            "https://lists.apache.org/thread.html/rf9fa47ab66495c78bb4120b0754dd9531ca2ff0430f6685ac9b07772@%3Cdev.mina.apache.org%3E",
+            "https://lore.kernel.org/patchwork/patch/793178/",
+            "https://nvd.nist.gov/vuln/detail/CVE-2016-2781",
+            "https://www.cve.org/CVERecord?id=CVE-2016-2781"
+          ],
+          "PublishedDate": "2017-02-07T15:59:00Z",
+          "LastModifiedDate": "2021-02-25T17:15:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2020-8991",
+          "PkgID": "dmsetup@2:1.02.90-2.2+deb8u1",
+          "PkgName": "dmsetup",
+          "InstalledVersion": "2:1.02.90-2.2+deb8u1",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2020-8991",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "lvm2: memory leak in vg_lookup in daemons/lvmetad/lvmetad-core.c",
+          "Description": "** DISPUTED ** vg_lookup in daemons/lvmetad/lvmetad-core.c in LVM2 2.02 mismanages memory, leading to an lvmetad memory leak, as demonstrated by running pvs. NOTE: RedHat disputes CVE-2020-8991 as not being a vulnerability since there’s no apparent route to either privilege escalation or to denial of service through the bug.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-401"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:N/I:N/A:L",
+              "V2Score": 2.1,
+              "V3Score": 2.3
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:N/I:N/A:L",
+              "V3Score": 2.3
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2020-8991",
+            "https://nvd.nist.gov/vuln/detail/CVE-2020-8991",
+            "https://sourceware.org/git/?p=lvm2.git;a=commit;h=bcf9556b8fcd16ad8997f80cc92785f295c66701",
+            "https://www.cve.org/CVERecord?id=CVE-2020-8991"
+          ],
+          "PublishedDate": "2020-02-14T05:15:00Z",
+          "LastModifiedDate": "2022-01-01T19:52:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-12886",
+          "PkgID": "gcc-4.8-base@4.8.4-1",
+          "PkgName": "gcc-4.8-base",
+          "InstalledVersion": "4.8.4-1",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-12886",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "gcc: spilling of stack protection address in cfgexpand.c and function.c leads to stack-overflow protection bypass",
+          "Description": "stack_protect_prologue in cfgexpand.c and stack_protect_epilogue in function.c in GNU Compiler Collection (GCC) 4.1 through 8 (under certain circumstances) generate instruction sequences when targeting ARM targets that spill the address of the stack protector guard, which allows an attacker to bypass the protection of -fstack-protector, -fstack-protector-all, -fstack-protector-strong, and -fstack-protector-explicit against stack overflow by controlling what the stack canary is compared against.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-209"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:P/I:P/A:P",
+              "V3Vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 6.8,
+              "V3Score": 8.1
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:H",
+              "V3Score": 6.8
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2018-12886",
+            "https://gcc.gnu.org/viewcvs/gcc/trunk/gcc/config/arm/arm-protos.h?revision=266379\u0026view=markup",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-12886",
+            "https://www.cve.org/CVERecord?id=CVE-2018-12886",
+            "https://www.gnu.org/software/gcc/gcc-8/changes.html"
+          ],
+          "PublishedDate": "2019-05-22T19:29:00Z",
+          "LastModifiedDate": "2020-08-24T17:37:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2017-11671",
+          "PkgID": "gcc-4.8-base@4.8.4-1",
+          "PkgName": "gcc-4.8-base",
+          "InstalledVersion": "4.8.4-1",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2017-11671",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "gcc: GCC generates incorrect code for RDRAND/RDSEED intrinsics",
+          "Description": "Under certain circumstances, the ix86_expand_builtin function in i386.c in GNU Compiler Collection (GCC) version 4.6, 4.7, 4.8, 4.9, 5 before 5.5, and 6 before 6.4 will generate instruction sequences that clobber the status flag of the RDRAND and RDSEED intrinsics before it can be read, potentially causing failures of these instructions to go unreported. This could potentially lead to less randomness in random number generation.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-338"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:P/I:N/A:N",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+              "V2Score": 2.1,
+              "V3Score": 4
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L",
+              "V3Score": 5.6
+            }
+          },
+          "References": [
+            "http://openwall.com/lists/oss-security/2017/07/27/2",
+            "http://www.openwall.com/lists/oss-security/2017/07/27/2",
+            "http://www.securityfocus.com/bid/100018",
+            "https://access.redhat.com/errata/RHSA-2018:0849",
+            "https://access.redhat.com/security/cve/CVE-2017-11671",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-11671",
+            "https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80180",
+            "https://gcc.gnu.org/ml/gcc-patches/2017-03/msg01349.html",
+            "https://linux.oracle.com/cve/CVE-2017-11671.html",
+            "https://linux.oracle.com/errata/ELSA-2018-0849.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2017-11671",
+            "https://ubuntu.com/security/notices/USN-5770-1",
+            "https://www.cve.org/CVERecord?id=CVE-2017-11671"
+          ],
+          "PublishedDate": "2017-07-26T21:29:00Z",
+          "LastModifiedDate": "2018-04-12T01:29:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-12886",
+          "PkgID": "gcc-4.9-base@4.9.2-10+deb8u2",
+          "PkgName": "gcc-4.9-base",
+          "InstalledVersion": "4.9.2-10+deb8u2",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-12886",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "gcc: spilling of stack protection address in cfgexpand.c and function.c leads to stack-overflow protection bypass",
+          "Description": "stack_protect_prologue in cfgexpand.c and stack_protect_epilogue in function.c in GNU Compiler Collection (GCC) 4.1 through 8 (under certain circumstances) generate instruction sequences when targeting ARM targets that spill the address of the stack protector guard, which allows an attacker to bypass the protection of -fstack-protector, -fstack-protector-all, -fstack-protector-strong, and -fstack-protector-explicit against stack overflow by controlling what the stack canary is compared against.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-209"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:P/I:P/A:P",
+              "V3Vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 6.8,
+              "V3Score": 8.1
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:H",
+              "V3Score": 6.8
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2018-12886",
+            "https://gcc.gnu.org/viewcvs/gcc/trunk/gcc/config/arm/arm-protos.h?revision=266379\u0026view=markup",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-12886",
+            "https://www.cve.org/CVERecord?id=CVE-2018-12886",
+            "https://www.gnu.org/software/gcc/gcc-8/changes.html"
+          ],
+          "PublishedDate": "2019-05-22T19:29:00Z",
+          "LastModifiedDate": "2020-08-24T17:37:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2015-5276",
+          "PkgID": "gcc-4.9-base@4.9.2-10+deb8u2",
+          "PkgName": "gcc-4.9-base",
+          "InstalledVersion": "4.9.2-10+deb8u2",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2015-5276",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "gcc: Predictable randomness from std::random_device",
+          "Description": "The std::random_device class in libstdc++ in the GNU Compiler Collection (aka GCC) before 4.9.4 does not properly handle short reads from blocking sources, which makes it easier for context-dependent attackers to predict the random values via unspecified vectors.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-200"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:P/I:N/A:N",
+              "V2Score": 5
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:M/Au:N/C:P/I:P/A:N",
+              "V2Score": 3.3
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-updates/2015-11/msg00054.html",
+            "http://lists.opensuse.org/opensuse-updates/2016-04/msg00052.html",
+            "http://www.securitytracker.com/id/1034375",
+            "https://access.redhat.com/security/cve/CVE-2015-5276",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1262846",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2015-5276",
+            "https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65142",
+            "https://gcc.gnu.org/ml/gcc-patches/2015-09/msg01050.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2015-5276",
+            "https://www.cve.org/CVERecord?id=CVE-2015-5276"
+          ],
+          "PublishedDate": "2015-11-17T15:59:00Z",
+          "LastModifiedDate": "2019-02-12T19:05:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2017-11671",
+          "PkgID": "gcc-4.9-base@4.9.2-10+deb8u2",
+          "PkgName": "gcc-4.9-base",
+          "InstalledVersion": "4.9.2-10+deb8u2",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2017-11671",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "gcc: GCC generates incorrect code for RDRAND/RDSEED intrinsics",
+          "Description": "Under certain circumstances, the ix86_expand_builtin function in i386.c in GNU Compiler Collection (GCC) version 4.6, 4.7, 4.8, 4.9, 5 before 5.5, and 6 before 6.4 will generate instruction sequences that clobber the status flag of the RDRAND and RDSEED intrinsics before it can be read, potentially causing failures of these instructions to go unreported. This could potentially lead to less randomness in random number generation.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-338"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:P/I:N/A:N",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+              "V2Score": 2.1,
+              "V3Score": 4
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L",
+              "V3Score": 5.6
+            }
+          },
+          "References": [
+            "http://openwall.com/lists/oss-security/2017/07/27/2",
+            "http://www.openwall.com/lists/oss-security/2017/07/27/2",
+            "http://www.securityfocus.com/bid/100018",
+            "https://access.redhat.com/errata/RHSA-2018:0849",
+            "https://access.redhat.com/security/cve/CVE-2017-11671",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-11671",
+            "https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80180",
+            "https://gcc.gnu.org/ml/gcc-patches/2017-03/msg01349.html",
+            "https://linux.oracle.com/cve/CVE-2017-11671.html",
+            "https://linux.oracle.com/errata/ELSA-2018-0849.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2017-11671",
+            "https://ubuntu.com/security/notices/USN-5770-1",
+            "https://www.cve.org/CVERecord?id=CVE-2017-11671"
+          ],
+          "PublishedDate": "2017-07-26T21:29:00Z",
+          "LastModifiedDate": "2018-04-12T01:29:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2019-14855",
+          "PkgID": "gnupg@1.4.18-7+deb8u5",
+          "PkgName": "gnupg",
+          "InstalledVersion": "1.4.18-7+deb8u5",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2019-14855",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "gnupg2: OpenPGP Key Certification Forgeries with SHA-1",
+          "Description": "A flaw was found in the way certificate signatures could be forged using collisions found in the SHA-1 algorithm. An attacker could use this weakness to create forged certificate signatures. This issue affects GnuPG versions before 2.2.18.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-326"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:P/I:N/A:N",
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+              "V2Score": 5,
+              "V3Score": 7.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N",
+              "V3Score": 5.3
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2019-14855",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=CVE-2019-14855",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-14855",
+            "https://dev.gnupg.org/T4755",
+            "https://eprint.iacr.org/2020/014.pdf",
+            "https://lists.gnupg.org/pipermail/gnupg-announce/2019q4/000442.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2019-14855",
+            "https://rwc.iacr.org/2020/slides/Leurent.pdf",
+            "https://ubuntu.com/security/notices/USN-4516-1",
+            "https://usn.ubuntu.com/4516-1/",
+            "https://www.cve.org/CVERecord?id=CVE-2019-14855"
+          ],
+          "PublishedDate": "2020-03-20T16:15:00Z",
+          "LastModifiedDate": "2022-11-08T02:28:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2019-14855",
+          "PkgID": "gpgv@1.4.18-7+deb8u5",
+          "PkgName": "gpgv",
+          "InstalledVersion": "1.4.18-7+deb8u5",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2019-14855",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "gnupg2: OpenPGP Key Certification Forgeries with SHA-1",
+          "Description": "A flaw was found in the way certificate signatures could be forged using collisions found in the SHA-1 algorithm. An attacker could use this weakness to create forged certificate signatures. This issue affects GnuPG versions before 2.2.18.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-326"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:P/I:N/A:N",
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+              "V2Score": 5,
+              "V3Score": 7.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N",
+              "V3Score": 5.3
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2019-14855",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=CVE-2019-14855",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-14855",
+            "https://dev.gnupg.org/T4755",
+            "https://eprint.iacr.org/2020/014.pdf",
+            "https://lists.gnupg.org/pipermail/gnupg-announce/2019q4/000442.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2019-14855",
+            "https://rwc.iacr.org/2020/slides/Leurent.pdf",
+            "https://ubuntu.com/security/notices/USN-4516-1",
+            "https://usn.ubuntu.com/4516-1/",
+            "https://www.cve.org/CVERecord?id=CVE-2019-14855"
+          ],
+          "PublishedDate": "2020-03-20T16:15:00Z",
+          "LastModifiedDate": "2022-11-08T02:28:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2016-2779",
+          "PkgID": "libblkid1@2.25.2-6",
+          "PkgName": "libblkid1",
+          "InstalledVersion": "2.25.2-6",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2016-2779",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "util-linux: runuser tty hijack via TIOCSTI ioctl",
+          "Description": "runuser in util-linux allows local users to escape to the parent session via a crafted TIOCSTI ioctl call, which pushes characters to the terminal's input buffer.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-264"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 7.2,
+              "V3Score": 7.8
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:H/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:H",
+              "V2Score": 6.2,
+              "V3Score": 8.6
+            }
+          },
+          "References": [
+            "http://www.openwall.com/lists/oss-security/2016/02/27/1",
+            "http://www.openwall.com/lists/oss-security/2016/02/27/2",
+            "https://access.redhat.com/security/cve/CVE-2016-2779",
+            "https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=815922",
+            "https://nvd.nist.gov/vuln/detail/CVE-2016-2779",
+            "https://www.cve.org/CVERecord?id=CVE-2016-2779"
+          ],
+          "PublishedDate": "2017-02-07T15:59:00Z",
+          "LastModifiedDate": "2019-01-04T14:14:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2016-5011",
+          "PkgID": "libblkid1@2.25.2-6",
+          "PkgName": "libblkid1",
+          "InstalledVersion": "2.25.2-6",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2016-5011",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "util-linux: Extended partition loop in MBR partition table leads to DOS",
+          "Description": "The parse_dos_extended function in partitions/dos.c in the libblkid library in util-linux allows physically proximate attackers to cause a denial of service (memory consumption) via a crafted MSDOS partition table with an extended partition boot record at zero offset.",
+          "Severity": "MEDIUM",
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:N/I:N/A:C",
+              "V3Vector": "CVSS:3.1/AV:P/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 4.9,
+              "V3Score": 4.6
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:N/I:N/A:C",
+              "V3Vector": "CVSS:3.0/AV:P/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 4.9,
+              "V3Score": 4.6
+            }
+          },
+          "References": [
+            "http://rhn.redhat.com/errata/RHSA-2016-2605.html",
+            "http://www-01.ibm.com/support/docview.wss?uid=isg3T1024543",
+            "http://www-01.ibm.com/support/docview.wss?uid=nas8N1021801",
+            "http://www.openwall.com/lists/oss-security/2016/07/11/2",
+            "http://www.securityfocus.com/bid/91683",
+            "http://www.securitytracker.com/id/1036272",
+            "https://access.redhat.com/security/cve/CVE-2016-5011",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-5011",
+            "https://git.kernel.org/pub/scm/utils/util-linux/util-linux.git/commit/?id=7164a1c3",
+            "https://linux.oracle.com/cve/CVE-2016-5011.html",
+            "https://linux.oracle.com/errata/ELSA-2016-2605.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2016-5011",
+            "https://ubuntu.com/security/notices/USN-5478-1",
+            "https://www.cve.org/CVERecord?id=CVE-2016-5011"
+          ],
+          "PublishedDate": "2017-04-11T15:59:00Z",
+          "LastModifiedDate": "2020-09-11T15:22:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2020-8991",
+          "PkgID": "libdevmapper1.02.1@2:1.02.90-2.2+deb8u1",
+          "PkgName": "libdevmapper1.02.1",
+          "InstalledVersion": "2:1.02.90-2.2+deb8u1",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2020-8991",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "lvm2: memory leak in vg_lookup in daemons/lvmetad/lvmetad-core.c",
+          "Description": "** DISPUTED ** vg_lookup in daemons/lvmetad/lvmetad-core.c in LVM2 2.02 mismanages memory, leading to an lvmetad memory leak, as demonstrated by running pvs. NOTE: RedHat disputes CVE-2020-8991 as not being a vulnerability since there’s no apparent route to either privilege escalation or to denial of service through the bug.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-401"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:N/I:N/A:L",
+              "V2Score": 2.1,
+              "V3Score": 2.3
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:N/I:N/A:L",
+              "V3Score": 2.3
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2020-8991",
+            "https://nvd.nist.gov/vuln/detail/CVE-2020-8991",
+            "https://sourceware.org/git/?p=lvm2.git;a=commit;h=bcf9556b8fcd16ad8997f80cc92785f295c66701",
+            "https://www.cve.org/CVERecord?id=CVE-2020-8991"
+          ],
+          "PublishedDate": "2020-02-14T05:15:00Z",
+          "LastModifiedDate": "2022-01-01T19:52:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-12886",
+          "PkgID": "libgcc1@1:4.9.2-10+deb8u2",
+          "PkgName": "libgcc1",
+          "InstalledVersion": "1:4.9.2-10+deb8u2",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-12886",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "gcc: spilling of stack protection address in cfgexpand.c and function.c leads to stack-overflow protection bypass",
+          "Description": "stack_protect_prologue in cfgexpand.c and stack_protect_epilogue in function.c in GNU Compiler Collection (GCC) 4.1 through 8 (under certain circumstances) generate instruction sequences when targeting ARM targets that spill the address of the stack protector guard, which allows an attacker to bypass the protection of -fstack-protector, -fstack-protector-all, -fstack-protector-strong, and -fstack-protector-explicit against stack overflow by controlling what the stack canary is compared against.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-209"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:P/I:P/A:P",
+              "V3Vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 6.8,
+              "V3Score": 8.1
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:H",
+              "V3Score": 6.8
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2018-12886",
+            "https://gcc.gnu.org/viewcvs/gcc/trunk/gcc/config/arm/arm-protos.h?revision=266379\u0026view=markup",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-12886",
+            "https://www.cve.org/CVERecord?id=CVE-2018-12886",
+            "https://www.gnu.org/software/gcc/gcc-8/changes.html"
+          ],
+          "PublishedDate": "2019-05-22T19:29:00Z",
+          "LastModifiedDate": "2020-08-24T17:37:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2015-5276",
+          "PkgID": "libgcc1@1:4.9.2-10+deb8u2",
+          "PkgName": "libgcc1",
+          "InstalledVersion": "1:4.9.2-10+deb8u2",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2015-5276",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "gcc: Predictable randomness from std::random_device",
+          "Description": "The std::random_device class in libstdc++ in the GNU Compiler Collection (aka GCC) before 4.9.4 does not properly handle short reads from blocking sources, which makes it easier for context-dependent attackers to predict the random values via unspecified vectors.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-200"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:P/I:N/A:N",
+              "V2Score": 5
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:M/Au:N/C:P/I:P/A:N",
+              "V2Score": 3.3
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-updates/2015-11/msg00054.html",
+            "http://lists.opensuse.org/opensuse-updates/2016-04/msg00052.html",
+            "http://www.securitytracker.com/id/1034375",
+            "https://access.redhat.com/security/cve/CVE-2015-5276",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1262846",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2015-5276",
+            "https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65142",
+            "https://gcc.gnu.org/ml/gcc-patches/2015-09/msg01050.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2015-5276",
+            "https://www.cve.org/CVERecord?id=CVE-2015-5276"
+          ],
+          "PublishedDate": "2015-11-17T15:59:00Z",
+          "LastModifiedDate": "2019-02-12T19:05:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2017-11671",
+          "PkgID": "libgcc1@1:4.9.2-10+deb8u2",
+          "PkgName": "libgcc1",
+          "InstalledVersion": "1:4.9.2-10+deb8u2",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2017-11671",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "gcc: GCC generates incorrect code for RDRAND/RDSEED intrinsics",
+          "Description": "Under certain circumstances, the ix86_expand_builtin function in i386.c in GNU Compiler Collection (GCC) version 4.6, 4.7, 4.8, 4.9, 5 before 5.5, and 6 before 6.4 will generate instruction sequences that clobber the status flag of the RDRAND and RDSEED intrinsics before it can be read, potentially causing failures of these instructions to go unreported. This could potentially lead to less randomness in random number generation.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-338"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:P/I:N/A:N",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+              "V2Score": 2.1,
+              "V3Score": 4
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L",
+              "V3Score": 5.6
+            }
+          },
+          "References": [
+            "http://openwall.com/lists/oss-security/2017/07/27/2",
+            "http://www.openwall.com/lists/oss-security/2017/07/27/2",
+            "http://www.securityfocus.com/bid/100018",
+            "https://access.redhat.com/errata/RHSA-2018:0849",
+            "https://access.redhat.com/security/cve/CVE-2017-11671",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-11671",
+            "https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80180",
+            "https://gcc.gnu.org/ml/gcc-patches/2017-03/msg01349.html",
+            "https://linux.oracle.com/cve/CVE-2017-11671.html",
+            "https://linux.oracle.com/errata/ELSA-2018-0849.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2017-11671",
+            "https://ubuntu.com/security/notices/USN-5770-1",
+            "https://www.cve.org/CVERecord?id=CVE-2017-11671"
+          ],
+          "PublishedDate": "2017-07-26T21:29:00Z",
+          "LastModifiedDate": "2018-04-12T01:29:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-16868",
+          "PkgID": "libgnutls-deb0-28@3.3.30-0+deb8u1",
+          "PkgName": "libgnutls-deb0-28",
+          "InstalledVersion": "3.3.30-0+deb8u1",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-16868",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "gnutls: Bleichenbacher-like side channel leakage in PKCS#1 v1.5 verification and padding oracle verification",
+          "Description": "A Bleichenbacher type side-channel based padding oracle attack was found in the way gnutls handles verification of RSA decrypted PKCS#1 v1.5 data. An attacker who is able to run process on the same physical core as the victim process, could use this to extract plaintext or in some cases downgrade any TLS connections to a vulnerable server.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-203"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:M/Au:N/C:P/I:P/A:N",
+              "V3Vector": "CVSS:3.1/AV:P/AC:H/PR:L/UI:N/S:C/C:H/I:L/A:N",
+              "V2Score": 3.3,
+              "V3Score": 5.6
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:P/AC:H/PR:H/UI:N/S:C/C:H/I:N/A:N",
+              "V3Score": 4.7
+            }
+          },
+          "References": [
+            "http://cat.eyalro.net/",
+            "http://lists.opensuse.org/opensuse-security-announce/2019-05/msg00017.html",
+            "http://lists.opensuse.org/opensuse-security-announce/2019-05/msg00068.html",
+            "http://www.securityfocus.com/bid/106080",
+            "https://access.redhat.com/security/cve/CVE-2018-16868",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=CVE-2018-16868",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-16868",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-16868",
+            "https://www.cve.org/CVERecord?id=CVE-2018-16868"
+          ],
+          "PublishedDate": "2018-12-03T14:29:00Z",
+          "LastModifiedDate": "2022-11-30T21:20:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-16868",
+          "PkgID": "libgnutls-openssl27@3.3.30-0+deb8u1",
+          "PkgName": "libgnutls-openssl27",
+          "InstalledVersion": "3.3.30-0+deb8u1",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-16868",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "gnutls: Bleichenbacher-like side channel leakage in PKCS#1 v1.5 verification and padding oracle verification",
+          "Description": "A Bleichenbacher type side-channel based padding oracle attack was found in the way gnutls handles verification of RSA decrypted PKCS#1 v1.5 data. An attacker who is able to run process on the same physical core as the victim process, could use this to extract plaintext or in some cases downgrade any TLS connections to a vulnerable server.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-203"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:M/Au:N/C:P/I:P/A:N",
+              "V3Vector": "CVSS:3.1/AV:P/AC:H/PR:L/UI:N/S:C/C:H/I:L/A:N",
+              "V2Score": 3.3,
+              "V3Score": 5.6
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:P/AC:H/PR:H/UI:N/S:C/C:H/I:N/A:N",
+              "V3Score": 4.7
+            }
+          },
+          "References": [
+            "http://cat.eyalro.net/",
+            "http://lists.opensuse.org/opensuse-security-announce/2019-05/msg00017.html",
+            "http://lists.opensuse.org/opensuse-security-announce/2019-05/msg00068.html",
+            "http://www.securityfocus.com/bid/106080",
+            "https://access.redhat.com/security/cve/CVE-2018-16868",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=CVE-2018-16868",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-16868",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-16868",
+            "https://www.cve.org/CVERecord?id=CVE-2018-16868"
+          ],
+          "PublishedDate": "2018-12-03T14:29:00Z",
+          "LastModifiedDate": "2022-11-30T21:20:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-16869",
+          "PkgID": "libhogweed2@2.7.1-5+deb8u2",
+          "PkgName": "libhogweed2",
+          "InstalledVersion": "2.7.1-5+deb8u2",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-16869",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "nettle: Leaky data conversion exposing a manager oracle",
+          "Description": "A Bleichenbacher type side-channel based padding oracle attack was found in the way nettle handles endian conversion of RSA decrypted PKCS#1 v1.5 data. An attacker who is able to run a process on the same physical core as the victim process, could use this flaw extract plaintext or in some cases downgrade any TLS connections to a vulnerable server.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-203"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:M/Au:N/C:P/I:P/A:N",
+              "V3Vector": "CVSS:3.1/AV:P/AC:H/PR:N/UI:N/S:C/C:H/I:L/A:N",
+              "V2Score": 3.3,
+              "V3Score": 5.7
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:P/AC:H/PR:H/UI:N/S:C/C:H/I:N/A:N",
+              "V3Score": 4.7
+            }
+          },
+          "References": [
+            "http://cat.eyalro.net/",
+            "http://www.securityfocus.com/bid/106092",
+            "https://access.redhat.com/security/cve/CVE-2018-16869",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=CVE-2018-16869",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-16869",
+            "https://lists.debian.org/debian-lts/2019/03/msg00021.html",
+            "https://lists.lysator.liu.se/pipermail/nettle-bugs/2018/007363.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-16869",
+            "https://ubuntu.com/security/notices/USN-4990-1",
+            "https://www.cve.org/CVERecord?id=CVE-2018-16869"
+          ],
+          "PublishedDate": "2018-12-03T14:29:00Z",
+          "LastModifiedDate": "2023-02-03T14:25:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2016-2779",
+          "PkgID": "libmount1@2.25.2-6",
+          "PkgName": "libmount1",
+          "InstalledVersion": "2.25.2-6",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2016-2779",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "util-linux: runuser tty hijack via TIOCSTI ioctl",
+          "Description": "runuser in util-linux allows local users to escape to the parent session via a crafted TIOCSTI ioctl call, which pushes characters to the terminal's input buffer.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-264"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 7.2,
+              "V3Score": 7.8
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:H/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:H",
+              "V2Score": 6.2,
+              "V3Score": 8.6
+            }
+          },
+          "References": [
+            "http://www.openwall.com/lists/oss-security/2016/02/27/1",
+            "http://www.openwall.com/lists/oss-security/2016/02/27/2",
+            "https://access.redhat.com/security/cve/CVE-2016-2779",
+            "https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=815922",
+            "https://nvd.nist.gov/vuln/detail/CVE-2016-2779",
+            "https://www.cve.org/CVERecord?id=CVE-2016-2779"
+          ],
+          "PublishedDate": "2017-02-07T15:59:00Z",
+          "LastModifiedDate": "2019-01-04T14:14:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2016-5011",
+          "PkgID": "libmount1@2.25.2-6",
+          "PkgName": "libmount1",
+          "InstalledVersion": "2.25.2-6",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2016-5011",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "util-linux: Extended partition loop in MBR partition table leads to DOS",
+          "Description": "The parse_dos_extended function in partitions/dos.c in the libblkid library in util-linux allows physically proximate attackers to cause a denial of service (memory consumption) via a crafted MSDOS partition table with an extended partition boot record at zero offset.",
+          "Severity": "MEDIUM",
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:N/I:N/A:C",
+              "V3Vector": "CVSS:3.1/AV:P/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 4.9,
+              "V3Score": 4.6
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:N/I:N/A:C",
+              "V3Vector": "CVSS:3.0/AV:P/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 4.9,
+              "V3Score": 4.6
+            }
+          },
+          "References": [
+            "http://rhn.redhat.com/errata/RHSA-2016-2605.html",
+            "http://www-01.ibm.com/support/docview.wss?uid=isg3T1024543",
+            "http://www-01.ibm.com/support/docview.wss?uid=nas8N1021801",
+            "http://www.openwall.com/lists/oss-security/2016/07/11/2",
+            "http://www.securityfocus.com/bid/91683",
+            "http://www.securitytracker.com/id/1036272",
+            "https://access.redhat.com/security/cve/CVE-2016-5011",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-5011",
+            "https://git.kernel.org/pub/scm/utils/util-linux/util-linux.git/commit/?id=7164a1c3",
+            "https://linux.oracle.com/cve/CVE-2016-5011.html",
+            "https://linux.oracle.com/errata/ELSA-2016-2605.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2016-5011",
+            "https://ubuntu.com/security/notices/USN-5478-1",
+            "https://www.cve.org/CVERecord?id=CVE-2016-5011"
+          ],
+          "PublishedDate": "2017-04-11T15:59:00Z",
+          "LastModifiedDate": "2020-09-11T15:22:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-19211",
+          "PkgID": "libncurses5@5.9+20140913-1+deb8u3",
+          "PkgName": "libncurses5",
+          "InstalledVersion": "5.9+20140913-1+deb8u3",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-19211",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "ncurses: Null pointer dereference at function _nc_parse_entry in parse_entry.c",
+          "Description": "In ncurses 6.1, there is a NULL pointer dereference at function _nc_parse_entry in parse_entry.c that will lead to a denial of service attack. The product proceeds to the dereference code path even after a \"dubious character `*' in name or alias field\" detection.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-476"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H",
+              "V2Score": 4.3,
+              "V3Score": 5.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:H/PR:N/UI:R/S:U/C:N/I:N/A:H",
+              "V3Score": 4.7
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2018-19211",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1643754",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-19211",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-19211",
+            "https://ubuntu.com/security/notices/USN-5477-1",
+            "https://www.cve.org/CVERecord?id=CVE-2018-19211"
+          ],
+          "PublishedDate": "2018-11-12T19:29:00Z",
+          "LastModifiedDate": "2019-04-23T13:15:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2019-17594",
+          "PkgID": "libncurses5@5.9+20140913-1+deb8u3",
+          "PkgName": "libncurses5",
+          "InstalledVersion": "5.9+20140913-1+deb8u3",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2019-17594",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "ncurses: heap-based buffer overflow in the _nc_find_entry function in tinfo/comp_hash.c",
+          "Description": "There is a heap-based buffer over-read in the _nc_find_entry function in tinfo/comp_hash.c in the terminfo library in ncurses before 6.1-20191012.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-125"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:P/I:P/A:P",
+              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L",
+              "V2Score": 4.6,
+              "V3Score": 5.3
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L",
+              "V3Score": 5.3
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00059.html",
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00061.html",
+            "https://access.redhat.com/security/cve/CVE-2019-17594",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766617",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766745",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17594",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17595",
+            "https://errata.almalinux.org/8/ALSA-2021-4426.html",
+            "https://errata.rockylinux.org/RLSA-2021:4426",
+            "https://linux.oracle.com/cve/CVE-2019-17594.html",
+            "https://linux.oracle.com/errata/ELSA-2021-4426.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00017.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00045.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2019-17594",
+            "https://security.gentoo.org/glsa/202101-28",
+            "https://ubuntu.com/security/notices/USN-5477-1",
+            "https://ubuntu.com/security/notices/USN-6099-1",
+            "https://www.cve.org/CVERecord?id=CVE-2019-17594"
+          ],
+          "PublishedDate": "2019-10-14T21:15:00Z",
+          "LastModifiedDate": "2021-02-10T15:13:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2019-17595",
+          "PkgID": "libncurses5@5.9+20140913-1+deb8u3",
+          "PkgName": "libncurses5",
+          "InstalledVersion": "5.9+20140913-1+deb8u3",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2019-17595",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "ncurses: heap-based buffer overflow in the fmt_entry function in tinfo/comp_hash.c",
+          "Description": "There is a heap-based buffer over-read in the fmt_entry function in tinfo/comp_hash.c in the terminfo library in ncurses before 6.1-20191012.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-125"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:P/I:N/A:P",
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:L",
+              "V2Score": 5.8,
+              "V3Score": 5.4
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:L",
+              "V3Score": 5.4
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00059.html",
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00061.html",
+            "https://access.redhat.com/security/cve/CVE-2019-17595",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766617",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766745",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17594",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17595",
+            "https://errata.almalinux.org/8/ALSA-2021-4426.html",
+            "https://errata.rockylinux.org/RLSA-2021:4426",
+            "https://linux.oracle.com/cve/CVE-2019-17595.html",
+            "https://linux.oracle.com/errata/ELSA-2021-4426.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00013.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00045.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2019-17595",
+            "https://security.gentoo.org/glsa/202101-28",
+            "https://ubuntu.com/security/notices/USN-5477-1",
+            "https://ubuntu.com/security/notices/USN-6099-1",
+            "https://www.cve.org/CVERecord?id=CVE-2019-17595"
+          ],
+          "PublishedDate": "2019-10-14T21:15:00Z",
+          "LastModifiedDate": "2021-02-08T20:52:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-19211",
+          "PkgID": "libncursesw5@5.9+20140913-1+deb8u3",
+          "PkgName": "libncursesw5",
+          "InstalledVersion": "5.9+20140913-1+deb8u3",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-19211",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "ncurses: Null pointer dereference at function _nc_parse_entry in parse_entry.c",
+          "Description": "In ncurses 6.1, there is a NULL pointer dereference at function _nc_parse_entry in parse_entry.c that will lead to a denial of service attack. The product proceeds to the dereference code path even after a \"dubious character `*' in name or alias field\" detection.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-476"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H",
+              "V2Score": 4.3,
+              "V3Score": 5.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:H/PR:N/UI:R/S:U/C:N/I:N/A:H",
+              "V3Score": 4.7
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2018-19211",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1643754",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-19211",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-19211",
+            "https://ubuntu.com/security/notices/USN-5477-1",
+            "https://www.cve.org/CVERecord?id=CVE-2018-19211"
+          ],
+          "PublishedDate": "2018-11-12T19:29:00Z",
+          "LastModifiedDate": "2019-04-23T13:15:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2019-17594",
+          "PkgID": "libncursesw5@5.9+20140913-1+deb8u3",
+          "PkgName": "libncursesw5",
+          "InstalledVersion": "5.9+20140913-1+deb8u3",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2019-17594",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "ncurses: heap-based buffer overflow in the _nc_find_entry function in tinfo/comp_hash.c",
+          "Description": "There is a heap-based buffer over-read in the _nc_find_entry function in tinfo/comp_hash.c in the terminfo library in ncurses before 6.1-20191012.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-125"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:P/I:P/A:P",
+              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L",
+              "V2Score": 4.6,
+              "V3Score": 5.3
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L",
+              "V3Score": 5.3
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00059.html",
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00061.html",
+            "https://access.redhat.com/security/cve/CVE-2019-17594",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766617",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766745",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17594",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17595",
+            "https://errata.almalinux.org/8/ALSA-2021-4426.html",
+            "https://errata.rockylinux.org/RLSA-2021:4426",
+            "https://linux.oracle.com/cve/CVE-2019-17594.html",
+            "https://linux.oracle.com/errata/ELSA-2021-4426.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00017.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00045.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2019-17594",
+            "https://security.gentoo.org/glsa/202101-28",
+            "https://ubuntu.com/security/notices/USN-5477-1",
+            "https://ubuntu.com/security/notices/USN-6099-1",
+            "https://www.cve.org/CVERecord?id=CVE-2019-17594"
+          ],
+          "PublishedDate": "2019-10-14T21:15:00Z",
+          "LastModifiedDate": "2021-02-10T15:13:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2019-17595",
+          "PkgID": "libncursesw5@5.9+20140913-1+deb8u3",
+          "PkgName": "libncursesw5",
+          "InstalledVersion": "5.9+20140913-1+deb8u3",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2019-17595",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "ncurses: heap-based buffer overflow in the fmt_entry function in tinfo/comp_hash.c",
+          "Description": "There is a heap-based buffer over-read in the fmt_entry function in tinfo/comp_hash.c in the terminfo library in ncurses before 6.1-20191012.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-125"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:P/I:N/A:P",
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:L",
+              "V2Score": 5.8,
+              "V3Score": 5.4
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:L",
+              "V3Score": 5.4
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00059.html",
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00061.html",
+            "https://access.redhat.com/security/cve/CVE-2019-17595",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766617",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766745",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17594",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17595",
+            "https://errata.almalinux.org/8/ALSA-2021-4426.html",
+            "https://errata.rockylinux.org/RLSA-2021:4426",
+            "https://linux.oracle.com/cve/CVE-2019-17595.html",
+            "https://linux.oracle.com/errata/ELSA-2021-4426.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00013.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00045.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2019-17595",
+            "https://security.gentoo.org/glsa/202101-28",
+            "https://ubuntu.com/security/notices/USN-5477-1",
+            "https://ubuntu.com/security/notices/USN-6099-1",
+            "https://www.cve.org/CVERecord?id=CVE-2019-17595"
+          ],
+          "PublishedDate": "2019-10-14T21:15:00Z",
+          "LastModifiedDate": "2021-02-08T20:52:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-16869",
+          "PkgID": "libnettle4@2.7.1-5+deb8u2",
+          "PkgName": "libnettle4",
+          "InstalledVersion": "2.7.1-5+deb8u2",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-16869",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "nettle: Leaky data conversion exposing a manager oracle",
+          "Description": "A Bleichenbacher type side-channel based padding oracle attack was found in the way nettle handles endian conversion of RSA decrypted PKCS#1 v1.5 data. An attacker who is able to run a process on the same physical core as the victim process, could use this flaw extract plaintext or in some cases downgrade any TLS connections to a vulnerable server.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-203"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:M/Au:N/C:P/I:P/A:N",
+              "V3Vector": "CVSS:3.1/AV:P/AC:H/PR:N/UI:N/S:C/C:H/I:L/A:N",
+              "V2Score": 3.3,
+              "V3Score": 5.7
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:P/AC:H/PR:H/UI:N/S:C/C:H/I:N/A:N",
+              "V3Score": 4.7
+            }
+          },
+          "References": [
+            "http://cat.eyalro.net/",
+            "http://www.securityfocus.com/bid/106092",
+            "https://access.redhat.com/security/cve/CVE-2018-16869",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=CVE-2018-16869",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-16869",
+            "https://lists.debian.org/debian-lts/2019/03/msg00021.html",
+            "https://lists.lysator.liu.se/pipermail/nettle-bugs/2018/007363.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-16869",
+            "https://ubuntu.com/security/notices/USN-4990-1",
+            "https://www.cve.org/CVERecord?id=CVE-2018-16869"
+          ],
+          "PublishedDate": "2018-12-03T14:29:00Z",
+          "LastModifiedDate": "2023-02-03T14:25:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2015-3217",
+          "PkgID": "libpcre3@2:8.35-3.3+deb8u4",
+          "PkgName": "libpcre3",
+          "InstalledVersion": "2:8.35-3.3+deb8u4",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2015-3217",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "pcre: stack overflow caused by mishandled group empty match (8.38/11)",
+          "Description": "PCRE 7.8 and 8.32 through 8.37, and PCRE2 10.10 mishandle group empty matches, which might allow remote attackers to cause a denial of service (stack-based buffer overflow) via a crafted regular expression, as demonstrated by /^(?:(?(1)\\\\.|([^\\\\\\\\W_])?)+)+$/.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-119"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 5,
+              "V3Score": 7.5
+            },
+            "redhat": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:N/I:N/A:P",
+              "V2Score": 4.3
+            }
+          },
+          "References": [
+            "http://rhn.redhat.com/errata/RHSA-2016-1025.html",
+            "http://rhn.redhat.com/errata/RHSA-2016-2750.html",
+            "http://vcs.pcre.org/pcre?view=revision\u0026revision=1566",
+            "http://www-01.ibm.com/support/docview.wss?uid=isg3T1023886",
+            "http://www.openwall.com/lists/oss-security/2015/06/03/7",
+            "http://www.oracle.com/technetwork/topics/security/linuxbulletinapr2016-2952096.html",
+            "http://www.securityfocus.com/bid/75018",
+            "https://access.redhat.com/errata/RHSA-2016:1132",
+            "https://access.redhat.com/security/cve/CVE-2015-3217",
+            "https://bugs.exim.org/show_bug.cgi?id=1638",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1228283",
+            "https://linux.oracle.com/cve/CVE-2015-3217.html",
+            "https://linux.oracle.com/errata/ELSA-2016-1025.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2015-3217",
+            "https://www.cve.org/CVERecord?id=CVE-2015-3217"
+          ],
+          "PublishedDate": "2016-12-13T16:59:00Z",
+          "LastModifiedDate": "2018-05-18T01:29:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2017-7186",
+          "PkgID": "libpcre3@2:8.35-3.3+deb8u4",
+          "PkgName": "libpcre3",
+          "InstalledVersion": "2:8.35-3.3+deb8u4",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2017-7186",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "pcre: Invalid Unicode property lookup (8.41/7, 10.24/2)",
+          "Description": "libpcre1 in PCRE 8.40 and libpcre2 in PCRE2 10.23 allow remote attackers to cause a denial of service (segmentation violation for read access, and application crash) by triggering an invalid Unicode property lookup.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-119"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 5,
+              "V3Score": 7.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            }
+          },
+          "References": [
+            "http://www.securityfocus.com/bid/97030",
+            "https://access.redhat.com/errata/RHSA-2018:2486",
+            "https://access.redhat.com/security/cve/CVE-2017-7186",
+            "https://blogs.gentoo.org/ago/2017/03/14/libpcre-invalid-memory-read-in-match-pcre_exec-c/",
+            "https://bugs.exim.org/show_bug.cgi?id=2052",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-7186",
+            "https://nvd.nist.gov/vuln/detail/CVE-2017-7186",
+            "https://security.gentoo.org/glsa/201710-09",
+            "https://security.gentoo.org/glsa/201710-25",
+            "https://ubuntu.com/security/notices/USN-5665-1",
+            "https://vcs.pcre.org/pcre/code/trunk/pcre_internal.h?r1=1649\u0026r2=1688\u0026sortby=date",
+            "https://vcs.pcre.org/pcre/code/trunk/pcre_ucd.c?r1=1490\u0026r2=1688\u0026sortby=date",
+            "https://vcs.pcre.org/pcre2/code/trunk/src/pcre2_internal.h?r1=600\u0026r2=670\u0026sortby=date",
+            "https://vcs.pcre.org/pcre2/code/trunk/src/pcre2_ucd.c?r1=316\u0026r2=670\u0026sortby=date",
+            "https://www.cve.org/CVERecord?id=CVE-2017-7186"
+          ],
+          "PublishedDate": "2017-03-20T00:59:00Z",
+          "LastModifiedDate": "2018-08-17T10:29:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2017-7244",
+          "PkgID": "libpcre3@2:8.35-3.3+deb8u4",
+          "PkgName": "libpcre3",
+          "InstalledVersion": "2:8.35-3.3+deb8u4",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2017-7244",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "pcre: invalid memory read in _pcre32_xclass (pcre_xclass.c)",
+          "Description": "The _pcre32_xclass function in pcre_xclass.c in libpcre1 in PCRE 8.40 allows remote attackers to cause a denial of service (invalid memory read) via a crafted file.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-125"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H",
+              "V2Score": 4.3,
+              "V3Score": 5.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:L",
+              "V3Score": 3.7
+            }
+          },
+          "References": [
+            "http://www.securityfocus.com/bid/97067",
+            "https://access.redhat.com/errata/RHSA-2018:2486",
+            "https://access.redhat.com/security/cve/CVE-2017-7244",
+            "https://blogs.gentoo.org/ago/2017/03/20/libpcre-invalid-memory-read-in-_pcre32_xclass-pcre_xclass-c/",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-7244",
+            "https://nvd.nist.gov/vuln/detail/CVE-2017-7244",
+            "https://security.gentoo.org/glsa/201710-25",
+            "https://www.cve.org/CVERecord?id=CVE-2017-7244"
+          ],
+          "PublishedDate": "2017-03-23T21:59:00Z",
+          "LastModifiedDate": "2018-08-17T10:29:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2020-14155",
+          "PkgID": "libpcre3@2:8.35-3.3+deb8u4",
+          "PkgName": "libpcre3",
+          "InstalledVersion": "2:8.35-3.3+deb8u4",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2020-14155",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "pcre: Integer overflow when parsing callout numeric arguments",
+          "Description": "libpcre in PCRE before 8.44 allows an integer overflow via a large number after a (?C substring.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-190"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+              "V2Score": 5,
+              "V3Score": 5.3
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+              "V3Score": 5.3
+            }
+          },
+          "References": [
+            "http://seclists.org/fulldisclosure/2020/Dec/32",
+            "http://seclists.org/fulldisclosure/2021/Feb/14",
+            "https://about.gitlab.com/releases/2020/07/01/security-release-13-1-2-release/",
+            "https://access.redhat.com/security/cve/CVE-2020-14155",
+            "https://bugs.gentoo.org/717920",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1848436",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1848444",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-20838",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-14155",
+            "https://errata.almalinux.org/8/ALSA-2021-4373.html",
+            "https://errata.rockylinux.org/RLSA-2021:4373",
+            "https://linux.oracle.com/cve/CVE-2020-14155.html",
+            "https://linux.oracle.com/errata/ELSA-2021-4373.html",
+            "https://lists.apache.org/thread.html/rf9fa47ab66495c78bb4120b0754dd9531ca2ff0430f6685ac9b07772@%3Cdev.mina.apache.org%3E",
+            "https://nvd.nist.gov/vuln/detail/CVE-2020-14155",
+            "https://security.netapp.com/advisory/ntap-20221028-0010/",
+            "https://support.apple.com/kb/HT211931",
+            "https://support.apple.com/kb/HT212147",
+            "https://ubuntu.com/security/notices/USN-5425-1",
+            "https://www.cve.org/CVERecord?id=CVE-2020-14155",
+            "https://www.oracle.com/security-alerts/cpuapr2022.html",
+            "https://www.pcre.org/original/changelog.txt"
+          ],
+          "PublishedDate": "2020-06-15T17:15:00Z",
+          "LastModifiedDate": "2022-12-03T03:00:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2017-7245",
+          "PkgID": "libpcre3@2:8.35-3.3+deb8u4",
+          "PkgName": "libpcre3",
+          "InstalledVersion": "2:8.35-3.3+deb8u4",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2017-7245",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "pcre: stack-based buffer overflow write in pcre32_copy_substring",
+          "Description": "Stack-based buffer overflow in the pcre32_copy_substring function in pcre_get.c in libpcre1 in PCRE 8.40 allows remote attackers to cause a denial of service (WRITE of size 4) or possibly have unspecified other impact via a crafted file.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-119"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:P/I:P/A:P",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H",
+              "V2Score": 6.8,
+              "V3Score": 7.8
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:L",
+              "V3Score": 3.7
+            }
+          },
+          "References": [
+            "http://www.securityfocus.com/bid/97067",
+            "https://access.redhat.com/errata/RHSA-2018:2486",
+            "https://access.redhat.com/security/cve/CVE-2017-7245",
+            "https://blogs.gentoo.org/ago/2017/03/20/libpcre-two-stack-based-buffer-overflow-write-in-pcre32_copy_substring-pcre_get-c/",
+            "https://nvd.nist.gov/vuln/detail/CVE-2017-7245",
+            "https://security.gentoo.org/glsa/201710-25",
+            "https://www.cve.org/CVERecord?id=CVE-2017-7245"
+          ],
+          "PublishedDate": "2017-03-23T21:59:00Z",
+          "LastModifiedDate": "2018-08-17T10:29:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2017-7246",
+          "PkgID": "libpcre3@2:8.35-3.3+deb8u4",
+          "PkgName": "libpcre3",
+          "InstalledVersion": "2:8.35-3.3+deb8u4",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2017-7246",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "pcre: stack-based buffer overflow write in pcre32_copy_substring",
+          "Description": "Stack-based buffer overflow in the pcre32_copy_substring function in pcre_get.c in libpcre1 in PCRE 8.40 allows remote attackers to cause a denial of service (WRITE of size 268) or possibly have unspecified other impact via a crafted file.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-119"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:P/I:P/A:P",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H",
+              "V2Score": 6.8,
+              "V3Score": 7.8
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:L",
+              "V3Score": 3.7
+            }
+          },
+          "References": [
+            "http://www.securityfocus.com/bid/97067",
+            "https://access.redhat.com/errata/RHSA-2018:2486",
+            "https://access.redhat.com/security/cve/CVE-2017-7246",
+            "https://blogs.gentoo.org/ago/2017/03/20/libpcre-two-stack-based-buffer-overflow-write-in-pcre32_copy_substring-pcre_get-c/",
+            "https://nvd.nist.gov/vuln/detail/CVE-2017-7246",
+            "https://security.gentoo.org/glsa/201710-25",
+            "https://www.cve.org/CVERecord?id=CVE-2017-7246"
+          ],
+          "PublishedDate": "2017-03-23T21:59:00Z",
+          "LastModifiedDate": "2018-08-17T10:29:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2016-2779",
+          "PkgID": "libsmartcols1@2.25.2-6",
+          "PkgName": "libsmartcols1",
+          "InstalledVersion": "2.25.2-6",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2016-2779",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "util-linux: runuser tty hijack via TIOCSTI ioctl",
+          "Description": "runuser in util-linux allows local users to escape to the parent session via a crafted TIOCSTI ioctl call, which pushes characters to the terminal's input buffer.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-264"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 7.2,
+              "V3Score": 7.8
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:H/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:H",
+              "V2Score": 6.2,
+              "V3Score": 8.6
+            }
+          },
+          "References": [
+            "http://www.openwall.com/lists/oss-security/2016/02/27/1",
+            "http://www.openwall.com/lists/oss-security/2016/02/27/2",
+            "https://access.redhat.com/security/cve/CVE-2016-2779",
+            "https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=815922",
+            "https://nvd.nist.gov/vuln/detail/CVE-2016-2779",
+            "https://www.cve.org/CVERecord?id=CVE-2016-2779"
+          ],
+          "PublishedDate": "2017-02-07T15:59:00Z",
+          "LastModifiedDate": "2019-01-04T14:14:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2016-5011",
+          "PkgID": "libsmartcols1@2.25.2-6",
+          "PkgName": "libsmartcols1",
+          "InstalledVersion": "2.25.2-6",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2016-5011",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "util-linux: Extended partition loop in MBR partition table leads to DOS",
+          "Description": "The parse_dos_extended function in partitions/dos.c in the libblkid library in util-linux allows physically proximate attackers to cause a denial of service (memory consumption) via a crafted MSDOS partition table with an extended partition boot record at zero offset.",
+          "Severity": "MEDIUM",
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:N/I:N/A:C",
+              "V3Vector": "CVSS:3.1/AV:P/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 4.9,
+              "V3Score": 4.6
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:N/I:N/A:C",
+              "V3Vector": "CVSS:3.0/AV:P/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 4.9,
+              "V3Score": 4.6
+            }
+          },
+          "References": [
+            "http://rhn.redhat.com/errata/RHSA-2016-2605.html",
+            "http://www-01.ibm.com/support/docview.wss?uid=isg3T1024543",
+            "http://www-01.ibm.com/support/docview.wss?uid=nas8N1021801",
+            "http://www.openwall.com/lists/oss-security/2016/07/11/2",
+            "http://www.securityfocus.com/bid/91683",
+            "http://www.securitytracker.com/id/1036272",
+            "https://access.redhat.com/security/cve/CVE-2016-5011",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-5011",
+            "https://git.kernel.org/pub/scm/utils/util-linux/util-linux.git/commit/?id=7164a1c3",
+            "https://linux.oracle.com/cve/CVE-2016-5011.html",
+            "https://linux.oracle.com/errata/ELSA-2016-2605.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2016-5011",
+            "https://ubuntu.com/security/notices/USN-5478-1",
+            "https://www.cve.org/CVERecord?id=CVE-2016-5011"
+          ],
+          "PublishedDate": "2017-04-11T15:59:00Z",
+          "LastModifiedDate": "2020-09-11T15:22:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-12886",
+          "PkgID": "libstdc++6@4.9.2-10+deb8u2",
+          "PkgName": "libstdc++6",
+          "InstalledVersion": "4.9.2-10+deb8u2",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-12886",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "gcc: spilling of stack protection address in cfgexpand.c and function.c leads to stack-overflow protection bypass",
+          "Description": "stack_protect_prologue in cfgexpand.c and stack_protect_epilogue in function.c in GNU Compiler Collection (GCC) 4.1 through 8 (under certain circumstances) generate instruction sequences when targeting ARM targets that spill the address of the stack protector guard, which allows an attacker to bypass the protection of -fstack-protector, -fstack-protector-all, -fstack-protector-strong, and -fstack-protector-explicit against stack overflow by controlling what the stack canary is compared against.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-209"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:P/I:P/A:P",
+              "V3Vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 6.8,
+              "V3Score": 8.1
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:H",
+              "V3Score": 6.8
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2018-12886",
+            "https://gcc.gnu.org/viewcvs/gcc/trunk/gcc/config/arm/arm-protos.h?revision=266379\u0026view=markup",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-12886",
+            "https://www.cve.org/CVERecord?id=CVE-2018-12886",
+            "https://www.gnu.org/software/gcc/gcc-8/changes.html"
+          ],
+          "PublishedDate": "2019-05-22T19:29:00Z",
+          "LastModifiedDate": "2020-08-24T17:37:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2015-5276",
+          "PkgID": "libstdc++6@4.9.2-10+deb8u2",
+          "PkgName": "libstdc++6",
+          "InstalledVersion": "4.9.2-10+deb8u2",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2015-5276",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "gcc: Predictable randomness from std::random_device",
+          "Description": "The std::random_device class in libstdc++ in the GNU Compiler Collection (aka GCC) before 4.9.4 does not properly handle short reads from blocking sources, which makes it easier for context-dependent attackers to predict the random values via unspecified vectors.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-200"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:P/I:N/A:N",
+              "V2Score": 5
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:M/Au:N/C:P/I:P/A:N",
+              "V2Score": 3.3
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-updates/2015-11/msg00054.html",
+            "http://lists.opensuse.org/opensuse-updates/2016-04/msg00052.html",
+            "http://www.securitytracker.com/id/1034375",
+            "https://access.redhat.com/security/cve/CVE-2015-5276",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1262846",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2015-5276",
+            "https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65142",
+            "https://gcc.gnu.org/ml/gcc-patches/2015-09/msg01050.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2015-5276",
+            "https://www.cve.org/CVERecord?id=CVE-2015-5276"
+          ],
+          "PublishedDate": "2015-11-17T15:59:00Z",
+          "LastModifiedDate": "2019-02-12T19:05:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2017-11671",
+          "PkgID": "libstdc++6@4.9.2-10+deb8u2",
+          "PkgName": "libstdc++6",
+          "InstalledVersion": "4.9.2-10+deb8u2",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2017-11671",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "gcc: GCC generates incorrect code for RDRAND/RDSEED intrinsics",
+          "Description": "Under certain circumstances, the ix86_expand_builtin function in i386.c in GNU Compiler Collection (GCC) version 4.6, 4.7, 4.8, 4.9, 5 before 5.5, and 6 before 6.4 will generate instruction sequences that clobber the status flag of the RDRAND and RDSEED intrinsics before it can be read, potentially causing failures of these instructions to go unreported. This could potentially lead to less randomness in random number generation.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-338"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:P/I:N/A:N",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+              "V2Score": 2.1,
+              "V3Score": 4
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L",
+              "V3Score": 5.6
+            }
+          },
+          "References": [
+            "http://openwall.com/lists/oss-security/2017/07/27/2",
+            "http://www.openwall.com/lists/oss-security/2017/07/27/2",
+            "http://www.securityfocus.com/bid/100018",
+            "https://access.redhat.com/errata/RHSA-2018:0849",
+            "https://access.redhat.com/security/cve/CVE-2017-11671",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-11671",
+            "https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80180",
+            "https://gcc.gnu.org/ml/gcc-patches/2017-03/msg01349.html",
+            "https://linux.oracle.com/cve/CVE-2017-11671.html",
+            "https://linux.oracle.com/errata/ELSA-2018-0849.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2017-11671",
+            "https://ubuntu.com/security/notices/USN-5770-1",
+            "https://www.cve.org/CVERecord?id=CVE-2017-11671"
+          ],
+          "PublishedDate": "2017-07-26T21:29:00Z",
+          "LastModifiedDate": "2018-04-12T01:29:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-16888",
+          "PkgID": "libsystemd0@215-17+deb8u13",
+          "PkgName": "libsystemd0",
+          "InstalledVersion": "215-17+deb8u13",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-16888",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "systemd: kills privileged process if unprivileged PIDFile was tampered",
+          "Description": "It was discovered systemd does not correctly check the content of PIDFile files before using it to kill processes. When a service is run from an unprivileged user (e.g. User field set in the service file), a local attacker who is able to write to the PIDFile of the mentioned service may use this flaw to trick systemd into killing other services and/or privileged processes. Versions before v237 are vulnerable.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-269"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:M/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 1.9,
+              "V3Score": 4.7
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:H/PR:L/UI:R/S:U/C:N/I:N/A:H",
+              "V3Score": 4.4
+            }
+          },
+          "References": [
+            "https://access.redhat.com/errata/RHSA-2019:2091",
+            "https://access.redhat.com/security/cve/CVE-2018-16888",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=CVE-2018-16888",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-16888",
+            "https://linux.oracle.com/cve/CVE-2018-16888.html",
+            "https://linux.oracle.com/errata/ELSA-2019-2091.html",
+            "https://lists.apache.org/thread.html/5960a34a524848cd722fd7ab7e2227eac10107b0f90d9d1e9c3caa74@%3Cuser.cassandra.apache.org%3E",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-16888",
+            "https://security.netapp.com/advisory/ntap-20190307-0007/",
+            "https://ubuntu.com/security/notices/USN-4269-1",
+            "https://usn.ubuntu.com/4269-1/",
+            "https://www.cve.org/CVERecord?id=CVE-2018-16888"
+          ],
+          "PublishedDate": "2019-01-14T22:29:00Z",
+          "LastModifiedDate": "2022-01-31T18:37:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-6954",
+          "PkgID": "libsystemd0@215-17+deb8u13",
+          "PkgName": "libsystemd0",
+          "InstalledVersion": "215-17+deb8u13",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-6954",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "systemd: Mishandled symlinks in systemd-tmpfiles allows local users to obtain ownership of arbitrary files",
+          "Description": "systemd-tmpfiles in systemd through 237 mishandles symlinks present in non-terminal path components, which allows local users to obtain ownership of arbitrary files via vectors involving creation of a directory and a file under that directory, and later replacing that directory with a symlink. This occurs even if the fs.protected_symlinks sysctl is turned on.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-59"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 7.2,
+              "V3Score": 7.8
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "V3Score": 7
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-security-announce/2019-05/msg00062.html",
+            "https://access.redhat.com/security/cve/CVE-2018-6954",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-6954",
+            "https://github.com/systemd/systemd/issues/7986",
+            "https://lists.apache.org/thread.html/r58af02e294bd07f487e2c64ffc0a29b837db5600e33b6e698b9d696b@%3Cissues.bookkeeper.apache.org%3E",
+            "https://lists.apache.org/thread.html/rf4c02775860db415b4955778a131c2795223f61cb8c6a450893651e4@%3Cissues.bookkeeper.apache.org%3E",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-6954",
+            "https://ubuntu.com/security/notices/USN-3816-1",
+            "https://ubuntu.com/security/notices/USN-3816-2",
+            "https://usn.ubuntu.com/3816-1/",
+            "https://usn.ubuntu.com/3816-2/",
+            "https://www.cve.org/CVERecord?id=CVE-2018-6954"
+          ],
+          "PublishedDate": "2018-02-13T20:29:00Z",
+          "LastModifiedDate": "2022-01-31T18:25:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-19211",
+          "PkgID": "libtinfo5@5.9+20140913-1+deb8u3",
+          "PkgName": "libtinfo5",
+          "InstalledVersion": "5.9+20140913-1+deb8u3",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-19211",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "ncurses: Null pointer dereference at function _nc_parse_entry in parse_entry.c",
+          "Description": "In ncurses 6.1, there is a NULL pointer dereference at function _nc_parse_entry in parse_entry.c that will lead to a denial of service attack. The product proceeds to the dereference code path even after a \"dubious character `*' in name or alias field\" detection.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-476"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H",
+              "V2Score": 4.3,
+              "V3Score": 5.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:H/PR:N/UI:R/S:U/C:N/I:N/A:H",
+              "V3Score": 4.7
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2018-19211",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1643754",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-19211",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-19211",
+            "https://ubuntu.com/security/notices/USN-5477-1",
+            "https://www.cve.org/CVERecord?id=CVE-2018-19211"
+          ],
+          "PublishedDate": "2018-11-12T19:29:00Z",
+          "LastModifiedDate": "2019-04-23T13:15:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2019-17594",
+          "PkgID": "libtinfo5@5.9+20140913-1+deb8u3",
+          "PkgName": "libtinfo5",
+          "InstalledVersion": "5.9+20140913-1+deb8u3",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2019-17594",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "ncurses: heap-based buffer overflow in the _nc_find_entry function in tinfo/comp_hash.c",
+          "Description": "There is a heap-based buffer over-read in the _nc_find_entry function in tinfo/comp_hash.c in the terminfo library in ncurses before 6.1-20191012.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-125"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:P/I:P/A:P",
+              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L",
+              "V2Score": 4.6,
+              "V3Score": 5.3
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L",
+              "V3Score": 5.3
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00059.html",
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00061.html",
+            "https://access.redhat.com/security/cve/CVE-2019-17594",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766617",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766745",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17594",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17595",
+            "https://errata.almalinux.org/8/ALSA-2021-4426.html",
+            "https://errata.rockylinux.org/RLSA-2021:4426",
+            "https://linux.oracle.com/cve/CVE-2019-17594.html",
+            "https://linux.oracle.com/errata/ELSA-2021-4426.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00017.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00045.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2019-17594",
+            "https://security.gentoo.org/glsa/202101-28",
+            "https://ubuntu.com/security/notices/USN-5477-1",
+            "https://ubuntu.com/security/notices/USN-6099-1",
+            "https://www.cve.org/CVERecord?id=CVE-2019-17594"
+          ],
+          "PublishedDate": "2019-10-14T21:15:00Z",
+          "LastModifiedDate": "2021-02-10T15:13:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2019-17595",
+          "PkgID": "libtinfo5@5.9+20140913-1+deb8u3",
+          "PkgName": "libtinfo5",
+          "InstalledVersion": "5.9+20140913-1+deb8u3",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2019-17595",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "ncurses: heap-based buffer overflow in the fmt_entry function in tinfo/comp_hash.c",
+          "Description": "There is a heap-based buffer over-read in the fmt_entry function in tinfo/comp_hash.c in the terminfo library in ncurses before 6.1-20191012.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-125"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:P/I:N/A:P",
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:L",
+              "V2Score": 5.8,
+              "V3Score": 5.4
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:L",
+              "V3Score": 5.4
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00059.html",
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00061.html",
+            "https://access.redhat.com/security/cve/CVE-2019-17595",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766617",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766745",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17594",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17595",
+            "https://errata.almalinux.org/8/ALSA-2021-4426.html",
+            "https://errata.rockylinux.org/RLSA-2021:4426",
+            "https://linux.oracle.com/cve/CVE-2019-17595.html",
+            "https://linux.oracle.com/errata/ELSA-2021-4426.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00013.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00045.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2019-17595",
+            "https://security.gentoo.org/glsa/202101-28",
+            "https://ubuntu.com/security/notices/USN-5477-1",
+            "https://ubuntu.com/security/notices/USN-6099-1",
+            "https://www.cve.org/CVERecord?id=CVE-2019-17595"
+          ],
+          "PublishedDate": "2019-10-14T21:15:00Z",
+          "LastModifiedDate": "2021-02-08T20:52:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-16888",
+          "PkgID": "libudev1@215-17+deb8u13",
+          "PkgName": "libudev1",
+          "InstalledVersion": "215-17+deb8u13",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-16888",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "systemd: kills privileged process if unprivileged PIDFile was tampered",
+          "Description": "It was discovered systemd does not correctly check the content of PIDFile files before using it to kill processes. When a service is run from an unprivileged user (e.g. User field set in the service file), a local attacker who is able to write to the PIDFile of the mentioned service may use this flaw to trick systemd into killing other services and/or privileged processes. Versions before v237 are vulnerable.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-269"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:M/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 1.9,
+              "V3Score": 4.7
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:H/PR:L/UI:R/S:U/C:N/I:N/A:H",
+              "V3Score": 4.4
+            }
+          },
+          "References": [
+            "https://access.redhat.com/errata/RHSA-2019:2091",
+            "https://access.redhat.com/security/cve/CVE-2018-16888",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=CVE-2018-16888",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-16888",
+            "https://linux.oracle.com/cve/CVE-2018-16888.html",
+            "https://linux.oracle.com/errata/ELSA-2019-2091.html",
+            "https://lists.apache.org/thread.html/5960a34a524848cd722fd7ab7e2227eac10107b0f90d9d1e9c3caa74@%3Cuser.cassandra.apache.org%3E",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-16888",
+            "https://security.netapp.com/advisory/ntap-20190307-0007/",
+            "https://ubuntu.com/security/notices/USN-4269-1",
+            "https://usn.ubuntu.com/4269-1/",
+            "https://www.cve.org/CVERecord?id=CVE-2018-16888"
+          ],
+          "PublishedDate": "2019-01-14T22:29:00Z",
+          "LastModifiedDate": "2022-01-31T18:37:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-6954",
+          "PkgID": "libudev1@215-17+deb8u13",
+          "PkgName": "libudev1",
+          "InstalledVersion": "215-17+deb8u13",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-6954",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "systemd: Mishandled symlinks in systemd-tmpfiles allows local users to obtain ownership of arbitrary files",
+          "Description": "systemd-tmpfiles in systemd through 237 mishandles symlinks present in non-terminal path components, which allows local users to obtain ownership of arbitrary files via vectors involving creation of a directory and a file under that directory, and later replacing that directory with a symlink. This occurs even if the fs.protected_symlinks sysctl is turned on.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-59"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 7.2,
+              "V3Score": 7.8
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "V3Score": 7
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-security-announce/2019-05/msg00062.html",
+            "https://access.redhat.com/security/cve/CVE-2018-6954",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-6954",
+            "https://github.com/systemd/systemd/issues/7986",
+            "https://lists.apache.org/thread.html/r58af02e294bd07f487e2c64ffc0a29b837db5600e33b6e698b9d696b@%3Cissues.bookkeeper.apache.org%3E",
+            "https://lists.apache.org/thread.html/rf4c02775860db415b4955778a131c2795223f61cb8c6a450893651e4@%3Cissues.bookkeeper.apache.org%3E",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-6954",
+            "https://ubuntu.com/security/notices/USN-3816-1",
+            "https://ubuntu.com/security/notices/USN-3816-2",
+            "https://usn.ubuntu.com/3816-1/",
+            "https://usn.ubuntu.com/3816-2/",
+            "https://www.cve.org/CVERecord?id=CVE-2018-6954"
+          ],
+          "PublishedDate": "2018-02-13T20:29:00Z",
+          "LastModifiedDate": "2022-01-31T18:25:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2016-2779",
+          "PkgID": "libuuid1@2.25.2-6",
+          "PkgName": "libuuid1",
+          "InstalledVersion": "2.25.2-6",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2016-2779",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "util-linux: runuser tty hijack via TIOCSTI ioctl",
+          "Description": "runuser in util-linux allows local users to escape to the parent session via a crafted TIOCSTI ioctl call, which pushes characters to the terminal's input buffer.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-264"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 7.2,
+              "V3Score": 7.8
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:H/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:H",
+              "V2Score": 6.2,
+              "V3Score": 8.6
+            }
+          },
+          "References": [
+            "http://www.openwall.com/lists/oss-security/2016/02/27/1",
+            "http://www.openwall.com/lists/oss-security/2016/02/27/2",
+            "https://access.redhat.com/security/cve/CVE-2016-2779",
+            "https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=815922",
+            "https://nvd.nist.gov/vuln/detail/CVE-2016-2779",
+            "https://www.cve.org/CVERecord?id=CVE-2016-2779"
+          ],
+          "PublishedDate": "2017-02-07T15:59:00Z",
+          "LastModifiedDate": "2019-01-04T14:14:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2016-5011",
+          "PkgID": "libuuid1@2.25.2-6",
+          "PkgName": "libuuid1",
+          "InstalledVersion": "2.25.2-6",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2016-5011",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "util-linux: Extended partition loop in MBR partition table leads to DOS",
+          "Description": "The parse_dos_extended function in partitions/dos.c in the libblkid library in util-linux allows physically proximate attackers to cause a denial of service (memory consumption) via a crafted MSDOS partition table with an extended partition boot record at zero offset.",
+          "Severity": "MEDIUM",
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:N/I:N/A:C",
+              "V3Vector": "CVSS:3.1/AV:P/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 4.9,
+              "V3Score": 4.6
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:N/I:N/A:C",
+              "V3Vector": "CVSS:3.0/AV:P/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 4.9,
+              "V3Score": 4.6
+            }
+          },
+          "References": [
+            "http://rhn.redhat.com/errata/RHSA-2016-2605.html",
+            "http://www-01.ibm.com/support/docview.wss?uid=isg3T1024543",
+            "http://www-01.ibm.com/support/docview.wss?uid=nas8N1021801",
+            "http://www.openwall.com/lists/oss-security/2016/07/11/2",
+            "http://www.securityfocus.com/bid/91683",
+            "http://www.securitytracker.com/id/1036272",
+            "https://access.redhat.com/security/cve/CVE-2016-5011",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-5011",
+            "https://git.kernel.org/pub/scm/utils/util-linux/util-linux.git/commit/?id=7164a1c3",
+            "https://linux.oracle.com/cve/CVE-2016-5011.html",
+            "https://linux.oracle.com/errata/ELSA-2016-2605.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2016-5011",
+            "https://ubuntu.com/security/notices/USN-5478-1",
+            "https://www.cve.org/CVERecord?id=CVE-2016-5011"
+          ],
+          "PublishedDate": "2017-04-11T15:59:00Z",
+          "LastModifiedDate": "2020-09-11T15:22:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2017-12424",
+          "PkgID": "login@1:4.2-3+deb8u4",
+          "PkgName": "login",
+          "InstalledVersion": "1:4.2-3+deb8u4",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2017-12424",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "shadow-utils: Buffer overflow via newusers tool",
+          "Description": "In shadow before 4.5, the newusers tool could be made to manipulate internal data structures in ways unintended by the authors. Malformed input may lead to crashes (with a buffer overflow or other memory corruption) or other unspecified behaviors. This crosses a privilege boundary in, for example, certain web-hosting environments in which a Control Panel allows an unprivileged user account to create subaccounts.",
+          "Severity": "CRITICAL",
+          "CweIDs": [
+            "CWE-119"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 7.5,
+              "V3Score": 9.8
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:H/PR:L/UI:N/S:U/C:L/I:L/A:L",
+              "V3Score": 4.5
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2017-12424",
+            "https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=756630",
+            "https://bugs.launchpad.net/ubuntu/+source/shadow/+bug/1266675",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-12424",
+            "https://github.com/shadow-maint/shadow/commit/954e3d2e7113e9ac06632aee3c69b8d818cc8952",
+            "https://lists.debian.org/debian-lts-announce/2021/03/msg00020.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2017-12424",
+            "https://security.gentoo.org/glsa/201710-16",
+            "https://ubuntu.com/security/notices/USN-5254-1",
+            "https://www.cve.org/CVERecord?id=CVE-2017-12424"
+          ],
+          "PublishedDate": "2017-08-04T09:29:00Z",
+          "LastModifiedDate": "2021-03-23T20:02:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-7169",
+          "PkgID": "login@1:4.2-3+deb8u4",
+          "PkgName": "login",
+          "InstalledVersion": "1:4.2-3+deb8u4",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-7169",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "shadow-utils: newgidmap allows unprivileged user to drop supplementary groups potentially allowing privilege escalation",
+          "Description": "An issue was discovered in shadow 4.5. newgidmap (in shadow-utils) is setuid and allows an unprivileged user to be placed in a user namespace where setgroups(2) is permitted. This allows an attacker to remove themselves from a supplementary group, which may allow access to certain filesystem paths if the administrator has used \"group blacklisting\" (e.g., chmod g-rwx) to restrict access to paths. This flaw effectively reverts a security feature in the kernel (in particular, the /proc/self/setgroups knob) to prevent this sort of privilege escalation.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-732"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:P/I:N/A:N",
+              "V3Vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+              "V2Score": 5,
+              "V3Score": 5.3
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:N",
+              "V3Score": 4.4
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2018-7169",
+            "https://bugs.launchpad.net/ubuntu/+source/shadow/+bug/1729357",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-7169",
+            "https://github.com/shadow-maint/shadow/pull/97",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-7169",
+            "https://security.gentoo.org/glsa/201805-09",
+            "https://ubuntu.com/security/notices/USN-5254-1",
+            "https://www.cve.org/CVERecord?id=CVE-2018-7169"
+          ],
+          "PublishedDate": "2018-02-15T20:29:00Z",
+          "LastModifiedDate": "2019-10-03T00:03:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2016-2779",
+          "PkgID": "mount@2.25.2-6",
+          "PkgName": "mount",
+          "InstalledVersion": "2.25.2-6",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2016-2779",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "util-linux: runuser tty hijack via TIOCSTI ioctl",
+          "Description": "runuser in util-linux allows local users to escape to the parent session via a crafted TIOCSTI ioctl call, which pushes characters to the terminal's input buffer.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-264"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 7.2,
+              "V3Score": 7.8
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:H/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:H",
+              "V2Score": 6.2,
+              "V3Score": 8.6
+            }
+          },
+          "References": [
+            "http://www.openwall.com/lists/oss-security/2016/02/27/1",
+            "http://www.openwall.com/lists/oss-security/2016/02/27/2",
+            "https://access.redhat.com/security/cve/CVE-2016-2779",
+            "https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=815922",
+            "https://nvd.nist.gov/vuln/detail/CVE-2016-2779",
+            "https://www.cve.org/CVERecord?id=CVE-2016-2779"
+          ],
+          "PublishedDate": "2017-02-07T15:59:00Z",
+          "LastModifiedDate": "2019-01-04T14:14:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2016-5011",
+          "PkgID": "mount@2.25.2-6",
+          "PkgName": "mount",
+          "InstalledVersion": "2.25.2-6",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2016-5011",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "util-linux: Extended partition loop in MBR partition table leads to DOS",
+          "Description": "The parse_dos_extended function in partitions/dos.c in the libblkid library in util-linux allows physically proximate attackers to cause a denial of service (memory consumption) via a crafted MSDOS partition table with an extended partition boot record at zero offset.",
+          "Severity": "MEDIUM",
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:N/I:N/A:C",
+              "V3Vector": "CVSS:3.1/AV:P/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 4.9,
+              "V3Score": 4.6
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:N/I:N/A:C",
+              "V3Vector": "CVSS:3.0/AV:P/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 4.9,
+              "V3Score": 4.6
+            }
+          },
+          "References": [
+            "http://rhn.redhat.com/errata/RHSA-2016-2605.html",
+            "http://www-01.ibm.com/support/docview.wss?uid=isg3T1024543",
+            "http://www-01.ibm.com/support/docview.wss?uid=nas8N1021801",
+            "http://www.openwall.com/lists/oss-security/2016/07/11/2",
+            "http://www.securityfocus.com/bid/91683",
+            "http://www.securitytracker.com/id/1036272",
+            "https://access.redhat.com/security/cve/CVE-2016-5011",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-5011",
+            "https://git.kernel.org/pub/scm/utils/util-linux/util-linux.git/commit/?id=7164a1c3",
+            "https://linux.oracle.com/cve/CVE-2016-5011.html",
+            "https://linux.oracle.com/errata/ELSA-2016-2605.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2016-5011",
+            "https://ubuntu.com/security/notices/USN-5478-1",
+            "https://www.cve.org/CVERecord?id=CVE-2016-5011"
+          ],
+          "PublishedDate": "2017-04-11T15:59:00Z",
+          "LastModifiedDate": "2020-09-11T15:22:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-19211",
+          "PkgID": "ncurses-base@5.9+20140913-1+deb8u3",
+          "PkgName": "ncurses-base",
+          "InstalledVersion": "5.9+20140913-1+deb8u3",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-19211",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "ncurses: Null pointer dereference at function _nc_parse_entry in parse_entry.c",
+          "Description": "In ncurses 6.1, there is a NULL pointer dereference at function _nc_parse_entry in parse_entry.c that will lead to a denial of service attack. The product proceeds to the dereference code path even after a \"dubious character `*' in name or alias field\" detection.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-476"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H",
+              "V2Score": 4.3,
+              "V3Score": 5.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:H/PR:N/UI:R/S:U/C:N/I:N/A:H",
+              "V3Score": 4.7
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2018-19211",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1643754",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-19211",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-19211",
+            "https://ubuntu.com/security/notices/USN-5477-1",
+            "https://www.cve.org/CVERecord?id=CVE-2018-19211"
+          ],
+          "PublishedDate": "2018-11-12T19:29:00Z",
+          "LastModifiedDate": "2019-04-23T13:15:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2019-17594",
+          "PkgID": "ncurses-base@5.9+20140913-1+deb8u3",
+          "PkgName": "ncurses-base",
+          "InstalledVersion": "5.9+20140913-1+deb8u3",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2019-17594",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "ncurses: heap-based buffer overflow in the _nc_find_entry function in tinfo/comp_hash.c",
+          "Description": "There is a heap-based buffer over-read in the _nc_find_entry function in tinfo/comp_hash.c in the terminfo library in ncurses before 6.1-20191012.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-125"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:P/I:P/A:P",
+              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L",
+              "V2Score": 4.6,
+              "V3Score": 5.3
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L",
+              "V3Score": 5.3
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00059.html",
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00061.html",
+            "https://access.redhat.com/security/cve/CVE-2019-17594",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766617",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766745",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17594",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17595",
+            "https://errata.almalinux.org/8/ALSA-2021-4426.html",
+            "https://errata.rockylinux.org/RLSA-2021:4426",
+            "https://linux.oracle.com/cve/CVE-2019-17594.html",
+            "https://linux.oracle.com/errata/ELSA-2021-4426.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00017.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00045.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2019-17594",
+            "https://security.gentoo.org/glsa/202101-28",
+            "https://ubuntu.com/security/notices/USN-5477-1",
+            "https://ubuntu.com/security/notices/USN-6099-1",
+            "https://www.cve.org/CVERecord?id=CVE-2019-17594"
+          ],
+          "PublishedDate": "2019-10-14T21:15:00Z",
+          "LastModifiedDate": "2021-02-10T15:13:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2019-17595",
+          "PkgID": "ncurses-base@5.9+20140913-1+deb8u3",
+          "PkgName": "ncurses-base",
+          "InstalledVersion": "5.9+20140913-1+deb8u3",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2019-17595",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "ncurses: heap-based buffer overflow in the fmt_entry function in tinfo/comp_hash.c",
+          "Description": "There is a heap-based buffer over-read in the fmt_entry function in tinfo/comp_hash.c in the terminfo library in ncurses before 6.1-20191012.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-125"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:P/I:N/A:P",
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:L",
+              "V2Score": 5.8,
+              "V3Score": 5.4
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:L",
+              "V3Score": 5.4
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00059.html",
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00061.html",
+            "https://access.redhat.com/security/cve/CVE-2019-17595",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766617",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766745",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17594",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17595",
+            "https://errata.almalinux.org/8/ALSA-2021-4426.html",
+            "https://errata.rockylinux.org/RLSA-2021:4426",
+            "https://linux.oracle.com/cve/CVE-2019-17595.html",
+            "https://linux.oracle.com/errata/ELSA-2021-4426.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00013.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00045.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2019-17595",
+            "https://security.gentoo.org/glsa/202101-28",
+            "https://ubuntu.com/security/notices/USN-5477-1",
+            "https://ubuntu.com/security/notices/USN-6099-1",
+            "https://www.cve.org/CVERecord?id=CVE-2019-17595"
+          ],
+          "PublishedDate": "2019-10-14T21:15:00Z",
+          "LastModifiedDate": "2021-02-08T20:52:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-19211",
+          "PkgID": "ncurses-bin@5.9+20140913-1+deb8u3",
+          "PkgName": "ncurses-bin",
+          "InstalledVersion": "5.9+20140913-1+deb8u3",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-19211",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "ncurses: Null pointer dereference at function _nc_parse_entry in parse_entry.c",
+          "Description": "In ncurses 6.1, there is a NULL pointer dereference at function _nc_parse_entry in parse_entry.c that will lead to a denial of service attack. The product proceeds to the dereference code path even after a \"dubious character `*' in name or alias field\" detection.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-476"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H",
+              "V2Score": 4.3,
+              "V3Score": 5.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:H/PR:N/UI:R/S:U/C:N/I:N/A:H",
+              "V3Score": 4.7
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2018-19211",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1643754",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-19211",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-19211",
+            "https://ubuntu.com/security/notices/USN-5477-1",
+            "https://www.cve.org/CVERecord?id=CVE-2018-19211"
+          ],
+          "PublishedDate": "2018-11-12T19:29:00Z",
+          "LastModifiedDate": "2019-04-23T13:15:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2019-17594",
+          "PkgID": "ncurses-bin@5.9+20140913-1+deb8u3",
+          "PkgName": "ncurses-bin",
+          "InstalledVersion": "5.9+20140913-1+deb8u3",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2019-17594",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "ncurses: heap-based buffer overflow in the _nc_find_entry function in tinfo/comp_hash.c",
+          "Description": "There is a heap-based buffer over-read in the _nc_find_entry function in tinfo/comp_hash.c in the terminfo library in ncurses before 6.1-20191012.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-125"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:P/I:P/A:P",
+              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L",
+              "V2Score": 4.6,
+              "V3Score": 5.3
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L",
+              "V3Score": 5.3
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00059.html",
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00061.html",
+            "https://access.redhat.com/security/cve/CVE-2019-17594",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766617",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766745",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17594",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17595",
+            "https://errata.almalinux.org/8/ALSA-2021-4426.html",
+            "https://errata.rockylinux.org/RLSA-2021:4426",
+            "https://linux.oracle.com/cve/CVE-2019-17594.html",
+            "https://linux.oracle.com/errata/ELSA-2021-4426.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00017.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00045.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2019-17594",
+            "https://security.gentoo.org/glsa/202101-28",
+            "https://ubuntu.com/security/notices/USN-5477-1",
+            "https://ubuntu.com/security/notices/USN-6099-1",
+            "https://www.cve.org/CVERecord?id=CVE-2019-17594"
+          ],
+          "PublishedDate": "2019-10-14T21:15:00Z",
+          "LastModifiedDate": "2021-02-10T15:13:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2019-17595",
+          "PkgID": "ncurses-bin@5.9+20140913-1+deb8u3",
+          "PkgName": "ncurses-bin",
+          "InstalledVersion": "5.9+20140913-1+deb8u3",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2019-17595",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "ncurses: heap-based buffer overflow in the fmt_entry function in tinfo/comp_hash.c",
+          "Description": "There is a heap-based buffer over-read in the fmt_entry function in tinfo/comp_hash.c in the terminfo library in ncurses before 6.1-20191012.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-125"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:M/Au:N/C:P/I:N/A:P",
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:N/A:L",
+              "V2Score": 5.8,
+              "V3Score": 5.4
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:L",
+              "V3Score": 5.4
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00059.html",
+            "http://lists.opensuse.org/opensuse-security-announce/2019-11/msg00061.html",
+            "https://access.redhat.com/security/cve/CVE-2019-17595",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766617",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1766745",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17594",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-17595",
+            "https://errata.almalinux.org/8/ALSA-2021-4426.html",
+            "https://errata.rockylinux.org/RLSA-2021:4426",
+            "https://linux.oracle.com/cve/CVE-2019-17595.html",
+            "https://linux.oracle.com/errata/ELSA-2021-4426.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00013.html",
+            "https://lists.gnu.org/archive/html/bug-ncurses/2019-10/msg00045.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2019-17595",
+            "https://security.gentoo.org/glsa/202101-28",
+            "https://ubuntu.com/security/notices/USN-5477-1",
+            "https://ubuntu.com/security/notices/USN-6099-1",
+            "https://www.cve.org/CVERecord?id=CVE-2019-17595"
+          ],
+          "PublishedDate": "2019-10-14T21:15:00Z",
+          "LastModifiedDate": "2021-02-08T20:52:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2017-12424",
+          "PkgID": "passwd@1:4.2-3+deb8u4",
+          "PkgName": "passwd",
+          "InstalledVersion": "1:4.2-3+deb8u4",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2017-12424",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "shadow-utils: Buffer overflow via newusers tool",
+          "Description": "In shadow before 4.5, the newusers tool could be made to manipulate internal data structures in ways unintended by the authors. Malformed input may lead to crashes (with a buffer overflow or other memory corruption) or other unspecified behaviors. This crosses a privilege boundary in, for example, certain web-hosting environments in which a Control Panel allows an unprivileged user account to create subaccounts.",
+          "Severity": "CRITICAL",
+          "CweIDs": [
+            "CWE-119"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 7.5,
+              "V3Score": 9.8
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:H/PR:L/UI:N/S:U/C:L/I:L/A:L",
+              "V3Score": 4.5
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2017-12424",
+            "https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=756630",
+            "https://bugs.launchpad.net/ubuntu/+source/shadow/+bug/1266675",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-12424",
+            "https://github.com/shadow-maint/shadow/commit/954e3d2e7113e9ac06632aee3c69b8d818cc8952",
+            "https://lists.debian.org/debian-lts-announce/2021/03/msg00020.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2017-12424",
+            "https://security.gentoo.org/glsa/201710-16",
+            "https://ubuntu.com/security/notices/USN-5254-1",
+            "https://www.cve.org/CVERecord?id=CVE-2017-12424"
+          ],
+          "PublishedDate": "2017-08-04T09:29:00Z",
+          "LastModifiedDate": "2021-03-23T20:02:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-7169",
+          "PkgID": "passwd@1:4.2-3+deb8u4",
+          "PkgName": "passwd",
+          "InstalledVersion": "1:4.2-3+deb8u4",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-7169",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "shadow-utils: newgidmap allows unprivileged user to drop supplementary groups potentially allowing privilege escalation",
+          "Description": "An issue was discovered in shadow 4.5. newgidmap (in shadow-utils) is setuid and allows an unprivileged user to be placed in a user namespace where setgroups(2) is permitted. This allows an attacker to remove themselves from a supplementary group, which may allow access to certain filesystem paths if the administrator has used \"group blacklisting\" (e.g., chmod g-rwx) to restrict access to paths. This flaw effectively reverts a security feature in the kernel (in particular, the /proc/self/setgroups knob) to prevent this sort of privilege escalation.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-732"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:P/I:N/A:N",
+              "V3Vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+              "V2Score": 5,
+              "V3Score": 5.3
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:N",
+              "V3Score": 4.4
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2018-7169",
+            "https://bugs.launchpad.net/ubuntu/+source/shadow/+bug/1729357",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-7169",
+            "https://github.com/shadow-maint/shadow/pull/97",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-7169",
+            "https://security.gentoo.org/glsa/201805-09",
+            "https://ubuntu.com/security/notices/USN-5254-1",
+            "https://www.cve.org/CVERecord?id=CVE-2018-7169"
+          ],
+          "PublishedDate": "2018-02-15T20:29:00Z",
+          "LastModifiedDate": "2019-10-03T00:03:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-6797",
+          "PkgID": "perl-base@5.20.2-3+deb8u12",
+          "PkgName": "perl-base",
+          "InstalledVersion": "5.20.2-3+deb8u12",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-6797",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "perl: heap write overflow in regcomp.c",
+          "Description": "An issue was discovered in Perl 5.18 through 5.26. A crafted regular expression can cause a heap-based buffer overflow, with control over the bytes written.",
+          "Severity": "CRITICAL",
+          "CweIDs": [
+            "CWE-787"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+              "V3Vector": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 7.5,
+              "V3Score": 9.8
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "V3Score": 8.1
+            }
+          },
+          "References": [
+            "http://www.securitytracker.com/id/1040681",
+            "http://www.securitytracker.com/id/1042004",
+            "https://access.redhat.com/errata/RHSA-2018:1192",
+            "https://access.redhat.com/security/cve/CVE-2018-6797",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-6797",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-6797",
+            "https://rt.perl.org/Public/Bug/Display.html?id=132227",
+            "https://security.gentoo.org/glsa/201909-01",
+            "https://ubuntu.com/security/notices/USN-3625-1",
+            "https://usn.ubuntu.com/3625-1/",
+            "https://www.cve.org/CVERecord?id=CVE-2018-6797",
+            "https://www.debian.org/security/2018/dsa-4172",
+            "https://www.oracle.com/security-alerts/cpujul2020.html"
+          ],
+          "PublishedDate": "2018-04-17T20:29:00Z",
+          "LastModifiedDate": "2020-08-24T17:37:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-16888",
+          "PkgID": "systemd@215-17+deb8u13",
+          "PkgName": "systemd",
+          "InstalledVersion": "215-17+deb8u13",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-16888",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "systemd: kills privileged process if unprivileged PIDFile was tampered",
+          "Description": "It was discovered systemd does not correctly check the content of PIDFile files before using it to kill processes. When a service is run from an unprivileged user (e.g. User field set in the service file), a local attacker who is able to write to the PIDFile of the mentioned service may use this flaw to trick systemd into killing other services and/or privileged processes. Versions before v237 are vulnerable.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-269"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:M/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 1.9,
+              "V3Score": 4.7
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:H/PR:L/UI:R/S:U/C:N/I:N/A:H",
+              "V3Score": 4.4
+            }
+          },
+          "References": [
+            "https://access.redhat.com/errata/RHSA-2019:2091",
+            "https://access.redhat.com/security/cve/CVE-2018-16888",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=CVE-2018-16888",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-16888",
+            "https://linux.oracle.com/cve/CVE-2018-16888.html",
+            "https://linux.oracle.com/errata/ELSA-2019-2091.html",
+            "https://lists.apache.org/thread.html/5960a34a524848cd722fd7ab7e2227eac10107b0f90d9d1e9c3caa74@%3Cuser.cassandra.apache.org%3E",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-16888",
+            "https://security.netapp.com/advisory/ntap-20190307-0007/",
+            "https://ubuntu.com/security/notices/USN-4269-1",
+            "https://usn.ubuntu.com/4269-1/",
+            "https://www.cve.org/CVERecord?id=CVE-2018-16888"
+          ],
+          "PublishedDate": "2019-01-14T22:29:00Z",
+          "LastModifiedDate": "2022-01-31T18:37:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-6954",
+          "PkgID": "systemd@215-17+deb8u13",
+          "PkgName": "systemd",
+          "InstalledVersion": "215-17+deb8u13",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-6954",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "systemd: Mishandled symlinks in systemd-tmpfiles allows local users to obtain ownership of arbitrary files",
+          "Description": "systemd-tmpfiles in systemd through 237 mishandles symlinks present in non-terminal path components, which allows local users to obtain ownership of arbitrary files via vectors involving creation of a directory and a file under that directory, and later replacing that directory with a symlink. This occurs even if the fs.protected_symlinks sysctl is turned on.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-59"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 7.2,
+              "V3Score": 7.8
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "V3Score": 7
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-security-announce/2019-05/msg00062.html",
+            "https://access.redhat.com/security/cve/CVE-2018-6954",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-6954",
+            "https://github.com/systemd/systemd/issues/7986",
+            "https://lists.apache.org/thread.html/r58af02e294bd07f487e2c64ffc0a29b837db5600e33b6e698b9d696b@%3Cissues.bookkeeper.apache.org%3E",
+            "https://lists.apache.org/thread.html/rf4c02775860db415b4955778a131c2795223f61cb8c6a450893651e4@%3Cissues.bookkeeper.apache.org%3E",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-6954",
+            "https://ubuntu.com/security/notices/USN-3816-1",
+            "https://ubuntu.com/security/notices/USN-3816-2",
+            "https://usn.ubuntu.com/3816-1/",
+            "https://usn.ubuntu.com/3816-2/",
+            "https://www.cve.org/CVERecord?id=CVE-2018-6954"
+          ],
+          "PublishedDate": "2018-02-13T20:29:00Z",
+          "LastModifiedDate": "2022-01-31T18:25:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-16888",
+          "PkgID": "systemd-sysv@215-17+deb8u13",
+          "PkgName": "systemd-sysv",
+          "InstalledVersion": "215-17+deb8u13",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-16888",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "systemd: kills privileged process if unprivileged PIDFile was tampered",
+          "Description": "It was discovered systemd does not correctly check the content of PIDFile files before using it to kill processes. When a service is run from an unprivileged user (e.g. User field set in the service file), a local attacker who is able to write to the PIDFile of the mentioned service may use this flaw to trick systemd into killing other services and/or privileged processes. Versions before v237 are vulnerable.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-269"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:M/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 1.9,
+              "V3Score": 4.7
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:H/PR:L/UI:R/S:U/C:N/I:N/A:H",
+              "V3Score": 4.4
+            }
+          },
+          "References": [
+            "https://access.redhat.com/errata/RHSA-2019:2091",
+            "https://access.redhat.com/security/cve/CVE-2018-16888",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=CVE-2018-16888",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-16888",
+            "https://linux.oracle.com/cve/CVE-2018-16888.html",
+            "https://linux.oracle.com/errata/ELSA-2019-2091.html",
+            "https://lists.apache.org/thread.html/5960a34a524848cd722fd7ab7e2227eac10107b0f90d9d1e9c3caa74@%3Cuser.cassandra.apache.org%3E",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-16888",
+            "https://security.netapp.com/advisory/ntap-20190307-0007/",
+            "https://ubuntu.com/security/notices/USN-4269-1",
+            "https://usn.ubuntu.com/4269-1/",
+            "https://www.cve.org/CVERecord?id=CVE-2018-16888"
+          ],
+          "PublishedDate": "2019-01-14T22:29:00Z",
+          "LastModifiedDate": "2022-01-31T18:37:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-6954",
+          "PkgID": "systemd-sysv@215-17+deb8u13",
+          "PkgName": "systemd-sysv",
+          "InstalledVersion": "215-17+deb8u13",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-6954",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "systemd: Mishandled symlinks in systemd-tmpfiles allows local users to obtain ownership of arbitrary files",
+          "Description": "systemd-tmpfiles in systemd through 237 mishandles symlinks present in non-terminal path components, which allows local users to obtain ownership of arbitrary files via vectors involving creation of a directory and a file under that directory, and later replacing that directory with a symlink. This occurs even if the fs.protected_symlinks sysctl is turned on.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-59"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 7.2,
+              "V3Score": 7.8
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "V3Score": 7
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-security-announce/2019-05/msg00062.html",
+            "https://access.redhat.com/security/cve/CVE-2018-6954",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-6954",
+            "https://github.com/systemd/systemd/issues/7986",
+            "https://lists.apache.org/thread.html/r58af02e294bd07f487e2c64ffc0a29b837db5600e33b6e698b9d696b@%3Cissues.bookkeeper.apache.org%3E",
+            "https://lists.apache.org/thread.html/rf4c02775860db415b4955778a131c2795223f61cb8c6a450893651e4@%3Cissues.bookkeeper.apache.org%3E",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-6954",
+            "https://ubuntu.com/security/notices/USN-3816-1",
+            "https://ubuntu.com/security/notices/USN-3816-2",
+            "https://usn.ubuntu.com/3816-1/",
+            "https://usn.ubuntu.com/3816-2/",
+            "https://www.cve.org/CVERecord?id=CVE-2018-6954"
+          ],
+          "PublishedDate": "2018-02-13T20:29:00Z",
+          "LastModifiedDate": "2022-01-31T18:25:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-16888",
+          "PkgID": "udev@215-17+deb8u13",
+          "PkgName": "udev",
+          "InstalledVersion": "215-17+deb8u13",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-16888",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "systemd: kills privileged process if unprivileged PIDFile was tampered",
+          "Description": "It was discovered systemd does not correctly check the content of PIDFile files before using it to kill processes. When a service is run from an unprivileged user (e.g. User field set in the service file), a local attacker who is able to write to the PIDFile of the mentioned service may use this flaw to trick systemd into killing other services and/or privileged processes. Versions before v237 are vulnerable.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-269"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:M/Au:N/C:N/I:N/A:P",
+              "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 1.9,
+              "V3Score": 4.7
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:H/PR:L/UI:R/S:U/C:N/I:N/A:H",
+              "V3Score": 4.4
+            }
+          },
+          "References": [
+            "https://access.redhat.com/errata/RHSA-2019:2091",
+            "https://access.redhat.com/security/cve/CVE-2018-16888",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=CVE-2018-16888",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-16888",
+            "https://linux.oracle.com/cve/CVE-2018-16888.html",
+            "https://linux.oracle.com/errata/ELSA-2019-2091.html",
+            "https://lists.apache.org/thread.html/5960a34a524848cd722fd7ab7e2227eac10107b0f90d9d1e9c3caa74@%3Cuser.cassandra.apache.org%3E",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-16888",
+            "https://security.netapp.com/advisory/ntap-20190307-0007/",
+            "https://ubuntu.com/security/notices/USN-4269-1",
+            "https://usn.ubuntu.com/4269-1/",
+            "https://www.cve.org/CVERecord?id=CVE-2018-16888"
+          ],
+          "PublishedDate": "2019-01-14T22:29:00Z",
+          "LastModifiedDate": "2022-01-31T18:37:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2018-6954",
+          "PkgID": "udev@215-17+deb8u13",
+          "PkgName": "udev",
+          "InstalledVersion": "215-17+deb8u13",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "debian",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2018-6954",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "systemd: Mishandled symlinks in systemd-tmpfiles allows local users to obtain ownership of arbitrary files",
+          "Description": "systemd-tmpfiles in systemd through 237 mishandles symlinks present in non-terminal path components, which allows local users to obtain ownership of arbitrary files via vectors involving creation of a directory and a file under that directory, and later replacing that directory with a symlink. This occurs even if the fs.protected_symlinks sysctl is turned on.",
+          "Severity": "LOW",
+          "CweIDs": [
+            "CWE-59"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 7.2,
+              "V3Score": 7.8
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.0/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "V3Score": 7
+            }
+          },
+          "References": [
+            "http://lists.opensuse.org/opensuse-security-announce/2019-05/msg00062.html",
+            "https://access.redhat.com/security/cve/CVE-2018-6954",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-6954",
+            "https://github.com/systemd/systemd/issues/7986",
+            "https://lists.apache.org/thread.html/r58af02e294bd07f487e2c64ffc0a29b837db5600e33b6e698b9d696b@%3Cissues.bookkeeper.apache.org%3E",
+            "https://lists.apache.org/thread.html/rf4c02775860db415b4955778a131c2795223f61cb8c6a450893651e4@%3Cissues.bookkeeper.apache.org%3E",
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-6954",
+            "https://ubuntu.com/security/notices/USN-3816-1",
+            "https://ubuntu.com/security/notices/USN-3816-2",
+            "https://usn.ubuntu.com/3816-1/",
+            "https://usn.ubuntu.com/3816-2/",
+            "https://www.cve.org/CVERecord?id=CVE-2018-6954"
+          ],
+          "PublishedDate": "2018-02-13T20:29:00Z",
+          "LastModifiedDate": "2022-01-31T18:25:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2016-2779",
+          "PkgID": "util-linux@2.25.2-6",
+          "PkgName": "util-linux",
+          "InstalledVersion": "2.25.2-6",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2016-2779",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "util-linux: runuser tty hijack via TIOCSTI ioctl",
+          "Description": "runuser in util-linux allows local users to escape to the parent session via a crafted TIOCSTI ioctl call, which pushes characters to the terminal's input buffer.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-264"
+          ],
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 7.2,
+              "V3Score": 7.8
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:H/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.0/AV:L/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:H",
+              "V2Score": 6.2,
+              "V3Score": 8.6
+            }
+          },
+          "References": [
+            "http://www.openwall.com/lists/oss-security/2016/02/27/1",
+            "http://www.openwall.com/lists/oss-security/2016/02/27/2",
+            "https://access.redhat.com/security/cve/CVE-2016-2779",
+            "https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=815922",
+            "https://nvd.nist.gov/vuln/detail/CVE-2016-2779",
+            "https://www.cve.org/CVERecord?id=CVE-2016-2779"
+          ],
+          "PublishedDate": "2017-02-07T15:59:00Z",
+          "LastModifiedDate": "2019-01-04T14:14:00Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2016-5011",
+          "PkgID": "util-linux@2.25.2-6",
+          "PkgName": "util-linux",
+          "InstalledVersion": "2.25.2-6",
+          "Layer": {
+            "Digest": "sha256:b82b9923b08dfd4c2a83d1669b67a3a0c12f2d17fc989315c05f201eabc33b52",
+            "DiffID": "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+          },
+          "SeveritySource": "nvd",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2016-5011",
+          "DataSource": {
+            "ID": "debian",
+            "Name": "Debian Security Tracker",
+            "URL": "https://salsa.debian.org/security-tracker-team/security-tracker"
+          },
+          "Title": "util-linux: Extended partition loop in MBR partition table leads to DOS",
+          "Description": "The parse_dos_extended function in partitions/dos.c in the libblkid library in util-linux allows physically proximate attackers to cause a denial of service (memory consumption) via a crafted MSDOS partition table with an extended partition boot record at zero offset.",
+          "Severity": "MEDIUM",
+          "CVSS": {
+            "nvd": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:N/I:N/A:C",
+              "V3Vector": "CVSS:3.1/AV:P/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 4.9,
+              "V3Score": 4.6
+            },
+            "redhat": {
+              "V2Vector": "AV:L/AC:L/Au:N/C:N/I:N/A:C",
+              "V3Vector": "CVSS:3.0/AV:P/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V2Score": 4.9,
+              "V3Score": 4.6
+            }
+          },
+          "References": [
+            "http://rhn.redhat.com/errata/RHSA-2016-2605.html",
+            "http://www-01.ibm.com/support/docview.wss?uid=isg3T1024543",
+            "http://www-01.ibm.com/support/docview.wss?uid=nas8N1021801",
+            "http://www.openwall.com/lists/oss-security/2016/07/11/2",
+            "http://www.securityfocus.com/bid/91683",
+            "http://www.securitytracker.com/id/1036272",
+            "https://access.redhat.com/security/cve/CVE-2016-5011",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-5011",
+            "https://git.kernel.org/pub/scm/utils/util-linux/util-linux.git/commit/?id=7164a1c3",
+            "https://linux.oracle.com/cve/CVE-2016-5011.html",
+            "https://linux.oracle.com/errata/ELSA-2016-2605.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2016-5011",
+            "https://ubuntu.com/security/notices/USN-5478-1",
+            "https://www.cve.org/CVERecord?id=CVE-2016-5011"
+          ],
+          "PublishedDate": "2017-04-11T15:59:00Z",
+          "LastModifiedDate": "2020-09-11T15:22:00Z"
+        }
+      ]
+    }
+  ]
+}

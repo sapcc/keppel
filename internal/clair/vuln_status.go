@@ -27,7 +27,7 @@ const (
 	ErrorVulnerabilityStatus VulnerabilityStatus = "Error"
 	//PendingVulnerabilityStatus is a VulnerabilityStatus which means that we're not done scanning vulnerabilities yet.
 	PendingVulnerabilityStatus VulnerabilityStatus = "Pending"
-	//UnsupportedVulnerabilityStatus is a VulnerabilityStatus which means that we're not support scanning this manifest.
+	//UnsupportedVulnerabilityStatus is a VulnerabilityStatus which means that we don't support scanning this manifest.
 	UnsupportedVulnerabilityStatus VulnerabilityStatus = "Unsupported"
 	//CleanSeverity is a VulnerabilityStatus which means that there are no vulnerabilities.
 	CleanSeverity VulnerabilityStatus = "Clean"
@@ -47,6 +47,8 @@ const (
 	//Defcon1Severity is a VulnerabilityStatus.
 	// TODO: remove when clair is removed
 	Defcon1Severity VulnerabilityStatus = "Defcon1"
+	//RottenVulnerabilityStatus is a VulnerabilityStatus indicating that vulnerability scan results are incomplete because of EOSL on the base distro.
+	RottenVulnerabilityStatus VulnerabilityStatus = "Rotten"
 )
 
 var sevMap = map[VulnerabilityStatus]uint{
@@ -61,6 +63,8 @@ var sevMap = map[VulnerabilityStatus]uint{
 	HighSeverity:                   6,
 	CriticalSeverity:               7,
 	Defcon1Severity:                8,
+	// We consider "Rotten" worse than "Critical" because of the high level of uncertainty associated with incomplete vulnerability scans.
+	RottenVulnerabilityStatus: 9,
 }
 
 // HasReport checks whether a manifest with this VulnerabilityStatus has a

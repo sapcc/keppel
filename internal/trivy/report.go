@@ -22,6 +22,11 @@ package trivy
 // VulnerabilityReport contains selected fields from the Trivy vulnerability
 // report (i.e. what Trivy calls `--format json`).
 type VulnerabilityReport struct {
+	Metadata struct {
+		OS struct {
+			EOSL bool `json:"EOSL"`
+		} `json:"OS"`
+	} `json:"Metadata"`
 	Results []struct {
 		Vulnerabilities []ReportedVulnerability `json:"Vulnerabilities"`
 	} `json:"Results"`

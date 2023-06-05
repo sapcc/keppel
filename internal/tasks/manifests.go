@@ -1026,6 +1026,9 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, r
 	}
 
 	var securityStatuses []clair.VulnerabilityStatus
+	if parsedTrivyReport.Metadata.OS.EOSL {
+		securityStatuses = append(securityStatuses, clair.RottenVulnerabilityStatus)
+	}
 	for _, result := range parsedTrivyReport.Results {
 		for _, vuln := range result.Vulnerabilities {
 			securityStatus, ok := clair.MapToTrivySeverity[vuln.Severity]
