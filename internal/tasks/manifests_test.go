@@ -648,7 +648,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
 			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above 0.001 GiB', next_check_at = 92400 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE trivy_security_info SET vuln_status = 'Clean', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
@@ -669,7 +669,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
 			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
 			UPDATE vuln_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
