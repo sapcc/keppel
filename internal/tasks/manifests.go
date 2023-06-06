@@ -994,7 +994,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, r
 			duration := checkFinishedAt.Sub(checkStartedAt).Seconds()
 			securityInfo.CheckDurationSecs = &duration
 		} else {
-			securityInfo.Message = err.Error()
+			securityInfo.Message = returnedError.Error()
 			securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(5 * time.Minute))
 			securityInfo.VulnerabilityStatus = clair.ErrorVulnerabilityStatus
 		}
