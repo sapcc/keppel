@@ -951,6 +951,13 @@ func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *gorp.Transac
 	return tx.Commit()
 }
 
+var securityInfoCheckSubmanifestInfoQuery = sqlext.SimplifyWhitespace(`
+	SELECT t.vuln_status FROM manifests m
+	JOIN manifest_manifest_refs r ON m.digest = r.child_digest
+	JOIN trivy_security_info t ON m.digest = t.digest
+		WHERE r.parent_digest = $1
+`)
+
 func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, securityInfo *keppel.TrivySecurityInfo) (returnedError error) {
 	//clear timing information (this will be filled down below once we actually talk to Trivy;
 	//if any preflight check fails, the fields stay at nil)
@@ -964,7 +971,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, r
 		return nil
 	}
 
-	continueCheck, err := j.checkPreConditionsForTrivy(account, repo, manifest, securityInfo)
+	continueCheck, layerBlobs, err := j.checkPreConditionsForTrivy(account, repo, manifest, securityInfo)
 	if err != nil {
 		return err
 	}
@@ -987,7 +994,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, r
 			duration := checkFinishedAt.Sub(checkStartedAt).Seconds()
 			securityInfo.CheckDurationSecs = &duration
 		} else {
-			securityInfo.Message = err.Error()
+			securityInfo.Message = returnedError.Error()
 			securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(5 * time.Minute))
 			securityInfo.VulnerabilityStatus = clair.ErrorVulnerabilityStatus
 		}
@@ -1020,28 +1027,43 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, r
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute+30*time.Second)
 	defer cancel()
 
-	parsedTrivyReport, err := j.cfg.Trivy.ScanManifestAndParse(ctx, tokenResp.Token, imageRef, "json")
+	var securityStatuses []clair.VulnerabilityStatus
+
+	if len(layerBlobs) > 0 {
+		parsedTrivyReport, err := j.cfg.Trivy.ScanManifestAndParse(ctx, tokenResp.Token, imageRef, "json")
+		if err != nil {
+			logg.Error(err.Error())
+			return err
+		}
+
+		if parsedTrivyReport.Metadata.OS.EOSL {
+			securityStatuses = append(securityStatuses, clair.RottenVulnerabilityStatus)
+		}
+		for _, result := range parsedTrivyReport.Results {
+			for _, vuln := range result.Vulnerabilities {
+				securityStatus, ok := clair.MapToTrivySeverity[vuln.Severity]
+				if !ok {
+					return fmt.Errorf("vulnerability severity with name %s returned from trivy is unknown and cannot be mapped", securityStatus)
+				}
+
+				policy := relevantPolicies.PolicyForVulnerability(vuln)
+				if policy != nil {
+					securityStatus = policy.VulnerabilityStatus()
+				}
+				securityStatuses = append(securityStatuses, securityStatus)
+			}
+		}
+	}
+
+	//collect vulnerability status of constituent images
+	err = sqlext.ForeachRow(j.db, securityInfoCheckSubmanifestInfoQuery, []interface{}{manifest.Digest}, func(rows *sql.Rows) error {
+		var vulnStatus clair.VulnerabilityStatus
+		err := rows.Scan(&vulnStatus)
+		securityStatuses = append(securityStatuses, vulnStatus)
+		return err
+	})
 	if err != nil {
 		return err
-	}
-
-	var securityStatuses []clair.VulnerabilityStatus
-	if parsedTrivyReport.Metadata.OS.EOSL {
-		securityStatuses = append(securityStatuses, clair.RottenVulnerabilityStatus)
-	}
-	for _, result := range parsedTrivyReport.Results {
-		for _, vuln := range result.Vulnerabilities {
-			securityStatus, ok := clair.MapToTrivySeverity[vuln.Severity]
-			if !ok {
-				return fmt.Errorf("vulnerability severity with name %s returned from trivy is unknown and cannot be mapped", securityStatus)
-			}
-
-			policy := relevantPolicies.PolicyForVulnerability(vuln)
-			if policy != nil {
-				securityStatus = policy.VulnerabilityStatus()
-			}
-			securityStatuses = append(securityStatuses, securityStatus)
-		}
 	}
 
 	//merge all vulnerability statuses
@@ -1052,10 +1074,10 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, r
 	return nil
 }
 
-func (j *Janitor) checkPreConditionsForTrivy(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, securityInfo *keppel.TrivySecurityInfo) (continueCheck bool, err error) {
-	layerBlobs, err := j.collectManifestReferencedBlobs(account, repo, manifest)
+func (j *Janitor) checkPreConditionsForTrivy(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, securityInfo *keppel.TrivySecurityInfo) (continueCheck bool, layerBlobs []keppel.Blob, err error) {
+	layerBlobs, err = j.collectManifestReferencedBlobs(account, repo, manifest)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 
 	// filter media types that trivy is known to support
@@ -1067,7 +1089,7 @@ func (j *Janitor) checkPreConditionsForTrivy(account keppel.Account, repo keppel
 		securityInfo.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
 		securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
 		securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
-		return false, nil
+		return false, layerBlobs, nil
 	}
 
 	//can only validate when all blobs are present in the storage
@@ -1077,12 +1099,12 @@ func (j *Janitor) checkPreConditionsForTrivy(account keppel.Account, repo keppel
 			//still replicating it; give them 10 minutes to finish replicating it
 			securityInfo.NextCheckAt = manifest.PushedAt.Add(j.addJitter(10 * time.Minute))
 			if securityInfo.NextCheckAt.After(j.timeNow()) {
-				return false, nil
+				return false, layerBlobs, nil
 			}
 			//otherwise we do the replication ourselves
 			_, err := j.processor().ReplicateBlob(blob, account, repo, nil)
 			if err != nil {
-				return false, err
+				return false, layerBlobs, err
 			}
 			//after successful replication, restart this call to read the new blob with the correct StorageID from the DB
 			return j.checkPreConditionsForTrivy(account, repo, manifest, securityInfo)
@@ -1092,12 +1114,12 @@ func (j *Janitor) checkPreConditionsForTrivy(account keppel.Account, repo keppel
 			//uncompress the blob to check if it's too large for Trivy to handle within its allotted timeout
 			reader, _, err := j.sd.ReadBlob(account, blob.StorageID)
 			if err != nil {
-				return false, fmt.Errorf("cannot read blob %s: %w", blob.Digest, err)
+				return false, layerBlobs, fmt.Errorf("cannot read blob %s: %w", blob.Digest, err)
 			}
 			defer reader.Close()
 			gzipReader, err := gzip.NewReader(reader)
 			if err != nil {
-				return false, fmt.Errorf("cannot unzip blob %s: %w", blob.Digest, err)
+				return false, layerBlobs, fmt.Errorf("cannot unzip blob %s: %w", blob.Digest, err)
 			}
 			defer gzipReader.Close()
 
@@ -1106,7 +1128,7 @@ func (j *Janitor) checkPreConditionsForTrivy(account keppel.Account, repo keppel
 			limitBytes := int64(1 << 30 * blobUncompressedSizeTooBigGiB)
 			numberBytes, err := io.Copy(io.Discard, io.LimitReader(gzipReader, limitBytes+1))
 			if err != nil {
-				return false, fmt.Errorf("cannot unzip blob %s: %w", blob.Digest, err)
+				return false, layerBlobs, fmt.Errorf("cannot unzip blob %s: %w", blob.Digest, err)
 			}
 
 			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
@@ -1114,7 +1136,7 @@ func (j *Janitor) checkPreConditionsForTrivy(account keppel.Account, repo keppel
 			blob.BlocksVulnScanning = &blocksVulnScanning
 			_, err = j.db.Exec(`UPDATE blobs SET blocks_vuln_scanning = $1 WHERE id = $2`, blocksVulnScanning, blob.ID)
 			if err != nil {
-				return false, err
+				return false, layerBlobs, err
 			}
 		}
 
@@ -1122,9 +1144,9 @@ func (j *Janitor) checkPreConditionsForTrivy(account keppel.Account, repo keppel
 			securityInfo.VulnerabilityStatus = clair.UnsupportedVulnerabilityStatus
 			securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
 			securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
-			return false, nil
+			return false, layerBlobs, nil
 		}
 	}
 
-	return true, nil
+	return true, layerBlobs, nil
 }
