@@ -30,7 +30,9 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 
+	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/models"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 // TrivyDouble acts as a test double for a Trivy API.
@@ -61,6 +63,17 @@ func (t *TrivyDouble) mockRunTrivy(w http.ResponseWriter, r *http.Request) {
 	imageRef, _, err := models.ParseImageReference(r.URL.Query().Get("image"))
 	if err != nil {
 		http.Error(w, fmt.Sprintf("can't parse image reference: %s", err.Error()), http.StatusUnprocessableEntity)
+		return
+	}
+
+	// simulate manifest download by trivy
+	c := &client.RepoClient{
+		Host:     imageRef.Host,
+		RepoName: imageRef.RepoName,
+	}
+	c.SetToken(r.Header[http.CanonicalHeaderKey(trivy.KeppelTokenHeader)][0])
+	_, _, err = c.DownloadManifest(imageRef.Reference, &client.DownloadManifestOpts{})
+	if respondwith.ErrorText(w, err) {
 		return
 	}
 

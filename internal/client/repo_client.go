@@ -51,6 +51,10 @@ type repoRequest struct {
 	ExpectStatus int
 }
 
+func (c *RepoClient) SetToken(token string) {
+	c.token = token
+}
+
 func (c *RepoClient) sendRequest(r repoRequest, uri string) (*http.Response, *http.Request, error) {
 	req, err := http.NewRequest(r.Method, uri, r.Body)
 	if err != nil {
