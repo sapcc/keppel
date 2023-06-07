@@ -635,7 +635,6 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		// trivy is checked here first because it returns result immediately and the above code will be removed when clair support is removed
 		s.ClairDouble.ReportFixtures[images[0].Manifest.Digest] = "fixtures/clair/report-vulnerable.json"
 		s.ClairDouble.ReportFixtures[images[1].Manifest.Digest] = "fixtures/clair/report-clean.json"
-		s.TrivyDouble.ReportFixtures[imageList.ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		s.TrivyDouble.ReportFixtures[images[0].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-clean.json"
 		s.TrivyDouble.ReportFixtures[images[2].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
