@@ -51,6 +51,8 @@ type repoRequest struct {
 	ExpectStatus int
 }
 
+// SetToken can be used in tests to inject a pre-computed token and bypass the
+// username/password requirement.
 func (c *RepoClient) SetToken(token string) {
 	c.token = token
 }

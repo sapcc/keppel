@@ -66,7 +66,8 @@ func (t *TrivyDouble) mockRunTrivy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// simulate manifest download by trivy
+	// simulate manifest download by Trivy (this implicitly verifies that pulls
+	// using the Trivy token do not count towards last_pulled_at)
 	c := &client.RepoClient{
 		Host:     imageRef.Host,
 		RepoName: imageRef.RepoName,
