@@ -446,7 +446,17 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 	if respondwith.ErrorText(w, err) {
 		return
 	}
+
+	relevantPolicies, err := account.SecurityScanPoliciesFor(*repo)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+	err = relevantPolicies.EnrichReport(&report)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(report)
+	w.Write(report.Contents)
 }

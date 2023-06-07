@@ -539,10 +539,16 @@ Note that, when manifests reference other manifests (the most common case being 
 
 ## GET /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest/trivy\_report
 
-If this Keppel is configured to use its bundled [Trivy security scanner](https://aquasecurity.github.io/trivy), this endpoint retrieves the vulnerability report or the OCI manifests SBOM in spdx format from trivy for the specified manifest.
-If the manifest exists and a vulnerability report is available for it, returns 200 (OK) and a JSON response body containing the vulnerability report in the [format defined by Trivy](https://aquasecurity.github.io/trivy/latest/docs/configuration/reporting/#json).
+If this Keppel is configured to use its bundled [Trivy security scanner](https://aquasecurity.github.io/trivy), this
+endpoint retrieves a report for the specified manifest from Trivy. If the manifest exists and a vulnerability report is
+available for it, returns 200 (OK) and a JSON response body containing the vulnerability report in the [format defined
+by Trivy](https://aquasecurity.github.io/trivy/latest/docs/configuration/reporting/#json), possibly enriched as
+described below.
 
-With the `format` query parameter the output format can be changed. Supported values are [`json`](https://aquasecurity.github.io/trivy/latest/docs/configuration/reporting/#json) (default) and [`spdx-json`](https://aquasecurity.github.io/trivy/latest/docs/target/sbom/#spdx).
+The output format can be selected with the `format` query parameter. Supported values include:
+
+- [`json`](https://aquasecurity.github.io/trivy/latest/docs/configuration/reporting/#json) (default) for Trivy's default vulnerability report format, and
+- [`spdx-json`](https://aquasecurity.github.io/trivy/latest/docs/target/sbom/#spdx) for the image's SBOM in the SPDX-compliant JSON format.
 
 Returns 404 (Not Found) if the specified manifest does not exist.
 
@@ -555,6 +561,15 @@ Note that, when manifests reference other manifests (the most common case being 
 status of the parent manifest aggregates over the vulnerability statuses of its child manifests, but its vulnerability report only covers image layers directly referenced
 by the parent manifest. Clients displaying the vulnerability report for a multi-arch image manifest or any other manifest referencing child manifests should recursively
 fetch the vulnerability reports of all child manifests and show a merged representation as appropriate for their use case.
+
+### Report enrichment
+
+Reports in the format `json` can be enriched by Keppel by adding the top-level key `X-Keppel-Applicable-Policies`. This
+key appears if security scan policies are maintained on the account containing the image manifest, and at least one
+policy applies to at least one vulnerability that exists in the report. If the key exists, it contains an object whose
+keys are vulnerability IDs, with each respective value being the policy that applies to the vulnerabilities with this
+ID. This information can be used by user agents to understand how Keppel computed the vulnerability status of the full
+image manifest from the individual vulnerabilities.
 
 ## DELETE /keppel/v1/accounts/:name/repositories/:name/\_tags/:name
 

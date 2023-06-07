@@ -1030,7 +1030,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, r
 	var securityStatuses []clair.VulnerabilityStatus
 
 	if len(layerBlobs) > 0 {
-		parsedTrivyReport, err := j.cfg.Trivy.ScanManifestAndParse(ctx, tokenResp.Token, imageRef, "json")
+		parsedTrivyReport, err := j.cfg.Trivy.ScanManifestAndParse(ctx, tokenResp.Token, imageRef)
 		if err != nil {
 			logg.Error(err.Error())
 			return err

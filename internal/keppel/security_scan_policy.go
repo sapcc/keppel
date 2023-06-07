@@ -19,6 +19,7 @@
 package keppel
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 
@@ -182,5 +183,60 @@ func (s SecurityScanPolicySet) PolicyForVulnerability(vuln trivy.ReportedVulnera
 			return &p
 		}
 	}
+	return nil
+}
+
+// EnrichReport computes and inserts the "X-Keppel-Applicable-Policies" field
+// if the report is `--format json`. Other formats are not altered.
+func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload) error {
+	if payload.Format != "json" {
+		return nil
+	}
+
+	//decode relevant fields from report
+	var parsedReport trivy.VulnerabilityReport
+	err := json.Unmarshal(payload.Contents, &parsedReport)
+	if err != nil {
+		return fmt.Errorf("cannot parse Trivy vulnerability report: %w", err)
+	}
+
+	//compute X-Keppel-Applicable-Policies set
+	applicablePolicies := make(map[string]SecurityScanPolicy)
+	for _, result := range parsedReport.Results {
+		for _, vuln := range result.Vulnerabilities {
+			policy := s.PolicyForVulnerability(vuln)
+			if policy != nil {
+				applicablePolicies[vuln.VulnerabilityID] = *policy
+			}
+		}
+	}
+	if len(applicablePolicies) == 0 {
+		//the report is fine as-is
+		return nil
+	}
+
+	//we cannot just update and remarshal `parsedReport` because it covers only a
+	//small fraction of the full report; the following adds our custom field to
+	//the report nondestructively
+	//
+	//NOTE: This is not using json.Unmarshal() + update + json.Marshal() because
+	//that reorders fields in the existing report, which then breaks
+	//assert.JSONFixtureFile matching. Because I don't want to rebuild how
+	//assert.JSONFixtureFile works, this appends a field to the report without
+	//unmarshalling it:
+	//
+	//    {...} -> {...,"X-Keppel-Applicable-Policies":{...}}
+	applicablePoliciesJSON, err := json.Marshal(applicablePolicies)
+	if err != nil {
+		return fmt.Errorf("cannot marshal X-Keppel-Applicable-Policies: %w", err)
+	}
+	payload.Contents = bytes.Join([][]byte{
+		//this trim cannot fail because we already did a successful json.Unmarshal above
+		bytes.TrimSuffix(bytes.TrimSpace(payload.Contents), []byte("}")),
+		[]byte(`,"X-Keppel-Applicable-Policies":`),
+		applicablePoliciesJSON,
+		[]byte("}\n"),
+	}, nil)
+
 	return nil
 }
