@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/aquasecurity/trivy/pkg/types"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/regexpext"
 
@@ -134,8 +135,8 @@ func (p SecurityScanPolicy) MatchesRepository(repo Repository) bool {
 }
 
 // MatchesVulnerability evaluates the vulnerability regexes and checkin this policy.
-func (p SecurityScanPolicy) MatchesVulnerability(vuln trivy.ReportedVulnerability) bool {
-	if p.ExceptFixReleased && vuln.FixIsReleased() {
+func (p SecurityScanPolicy) MatchesVulnerability(vuln types.DetectedVulnerability) bool {
+	if p.ExceptFixReleased && trivy.FixIsReleased(vuln) {
 		return false
 	}
 
@@ -177,7 +178,7 @@ func (a Account) SecurityScanPoliciesFor(repo Repository) (SecurityScanPolicySet
 
 // PolicyForVulnerability returns the first policy from this set that matches
 // the vulnerability, or nil if no policy matches.
-func (s SecurityScanPolicySet) PolicyForVulnerability(vuln trivy.ReportedVulnerability) *SecurityScanPolicy {
+func (s SecurityScanPolicySet) PolicyForVulnerability(vuln types.DetectedVulnerability) *SecurityScanPolicy {
 	for _, p := range s {
 		if p.MatchesVulnerability(vuln) {
 			return &p
@@ -194,7 +195,7 @@ func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload) error 
 	}
 
 	//decode relevant fields from report
-	var parsedReport trivy.VulnerabilityReport
+	var parsedReport types.Report
 	err := json.Unmarshal(payload.Contents, &parsedReport)
 	if err != nil {
 		return fmt.Errorf("cannot parse Trivy vulnerability report: %w", err)

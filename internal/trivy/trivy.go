@@ -27,6 +27,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/aquasecurity/trivy/pkg/types"
+
 	"github.com/sapcc/keppel/internal/models"
 )
 
@@ -86,13 +88,19 @@ func (tc *Config) ScanManifest(ctx context.Context, keppelToken string, manifest
 // ScanManifest is like ScanManifestAndParse, except that the result is parsed
 // instead of being returned as a bytestring. The report format "json" is
 // implied in order to match the return type.
-func (tc *Config) ScanManifestAndParse(ctx context.Context, keppelToken string, manifestRef models.ImageReference) (VulnerabilityReport, error) {
+func (tc *Config) ScanManifestAndParse(ctx context.Context, keppelToken string, manifestRef models.ImageReference) (types.Report, error) {
 	report, err := tc.ScanManifest(ctx, keppelToken, manifestRef, "json")
 	if err != nil {
-		return VulnerabilityReport{}, err
+		return types.Report{}, err
 	}
 
-	var parsedReport VulnerabilityReport
+	var parsedReport types.Report
 	err = json.Unmarshal(report.Contents, &parsedReport)
 	return parsedReport, err
+}
+
+// FixIsReleased returns whether FixedVersion is non-empty. (This particular
+// method name reads better in some situations than `FixedVersion != ""`.)
+func FixIsReleased(v types.DetectedVulnerability) bool {
+	return v.FixedVersion != ""
 }

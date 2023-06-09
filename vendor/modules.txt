@@ -8,6 +8,18 @@ github.com/alicebob/miniredis/v2/geohash
 github.com/alicebob/miniredis/v2/hyperloglog
 github.com/alicebob/miniredis/v2/metro
 github.com/alicebob/miniredis/v2/server
+# github.com/anchore/go-struct-converter v0.0.0-20221118182256-c68fdcfa2092
+## explicit; go 1.18
+github.com/anchore/go-struct-converter
+# github.com/aquasecurity/trivy v0.42.1
+## explicit; go 1.19
+github.com/aquasecurity/trivy/pkg/digest
+github.com/aquasecurity/trivy/pkg/fanal/analyzer/os
+github.com/aquasecurity/trivy/pkg/fanal/types
+github.com/aquasecurity/trivy/pkg/types
+# github.com/aquasecurity/trivy-db v0.0.0-20230515061101-378ab9ed302c
+## explicit; go 1.17
+github.com/aquasecurity/trivy-db/pkg/types
 # github.com/beorn7/perks v1.0.1
 ## explicit; go 1.11
 github.com/beorn7/perks/quantile
@@ -56,6 +68,10 @@ github.com/golang-migrate/migrate/v4/source/go_bindata
 # github.com/golang/protobuf v1.5.3
 ## explicit; go 1.9
 github.com/golang/protobuf/proto
+# github.com/google/go-containerregistry v0.14.0
+## explicit; go 1.18
+github.com/google/go-containerregistry/pkg/v1
+github.com/google/go-containerregistry/pkg/v1/types
 # github.com/gophercloud/gophercloud v1.4.0
 ## explicit; go 1.14
 github.com/gophercloud/gophercloud
@@ -122,8 +138,8 @@ github.com/mitchellh/go-homedir
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit; go 1.13
 github.com/opencontainers/go-digest
-# github.com/opencontainers/image-spec v1.0.2
-## explicit
+# github.com/opencontainers/image-spec v1.1.0-rc2.0.20221020182949-4df8887994e8
+## explicit; go 1.17
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
 # github.com/prometheus/client_golang v1.15.1
@@ -160,6 +176,9 @@ github.com/redis/go-redis/v9/internal/util
 # github.com/rs/cors v1.9.0
 ## explicit; go 1.13
 github.com/rs/cors
+# github.com/samber/lo v1.38.1
+## explicit; go 1.18
+github.com/samber/lo
 # github.com/sapcc/go-api-declarations v1.5.1
 ## explicit; go 1.20
 github.com/sapcc/go-api-declarations/bininfo
@@ -184,6 +203,11 @@ github.com/sapcc/go-bits/sqlext
 # github.com/sergi/go-diff v1.3.1
 ## explicit; go 1.12
 github.com/sergi/go-diff/diffmatchpatch
+# github.com/spdx/tools-golang v0.5.0
+## explicit; go 1.13
+github.com/spdx/tools-golang/spdx
+github.com/spdx/tools-golang/spdx/v2/common
+github.com/spdx/tools-golang/spdx/v2/v2_3
 # github.com/spf13/cobra v1.7.0
 ## explicit; go 1.15
 github.com/spf13/cobra
@@ -228,6 +252,10 @@ golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/internal
 golang.org/x/text/encoding/internal/identifier
 golang.org/x/text/transform
+# golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2
+## explicit; go 1.17
+golang.org/x/xerrors
+golang.org/x/xerrors/internal
 # google.golang.org/protobuf v1.30.0
 ## explicit; go 1.11
 google.golang.org/protobuf/encoding/prototext
