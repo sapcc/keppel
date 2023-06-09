@@ -99,8 +99,8 @@ func (tc *Config) ScanManifestAndParse(ctx context.Context, keppelToken string, 
 	return parsedReport, err
 }
 
-// FixIsReleased returns whether FixedVersion is non-empty. (This particular
-// method name reads better in some situations than `FixedVersion != ""`.)
+// FixIsReleased returns whether v.FixedVersion is non-empty. (This particular
+// method name reads better in some situations than `v.FixedVersion != ""`.)
 func FixIsReleased(v types.DetectedVulnerability) bool {
 	return v.FixedVersion != ""
 }

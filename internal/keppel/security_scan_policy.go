@@ -19,10 +19,10 @@
 package keppel
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 
+	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/types"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/regexpext"
@@ -187,6 +187,21 @@ func (s SecurityScanPolicySet) PolicyForVulnerability(vuln types.DetectedVulnera
 	return nil
 }
 
+// enrichedReport has the same fields as types.Report, plus the fields that our
+// EnrichReport adds.
+//
+// We cannot just inline the existing type because that's not supported by the
+// encoding/json library: <https://github.com/golang/go/issues/6213>
+type enrichedReport struct {
+	SchemaVersion int                 `json:",omitempty"`
+	ArtifactName  string              `json:",omitempty"`
+	ArtifactType  ftypes.ArtifactType `json:",omitempty"`
+	Metadata      types.Metadata      `json:",omitempty"`
+	Results       types.Results       `json:",omitempty"`
+
+	ApplicablePolicies map[string]SecurityScanPolicy `json:"X-Keppel-Applicable-Policies,omitempty"`
+}
+
 // EnrichReport computes and inserts the "X-Keppel-Applicable-Policies" field
 // if the report is `--format json`. Other formats are not altered.
 func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload) error {
@@ -195,7 +210,7 @@ func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload) error 
 	}
 
 	//decode relevant fields from report
-	var parsedReport types.Report
+	var parsedReport enrichedReport
 	err := json.Unmarshal(payload.Contents, &parsedReport)
 	if err != nil {
 		return fmt.Errorf("cannot parse Trivy vulnerability report: %w", err)
@@ -211,33 +226,16 @@ func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload) error 
 			}
 		}
 	}
+
+	//remarshal report if it has changed
 	if len(applicablePolicies) == 0 {
-		//the report is fine as-is
 		return nil
 	}
-
-	//we cannot just update and remarshal `parsedReport` because it covers only a
-	//small fraction of the full report; the following adds our custom field to
-	//the report nondestructively
-	//
-	//NOTE: This is not using json.Unmarshal() + update + json.Marshal() because
-	//that reorders fields in the existing report, which then breaks
-	//assert.JSONFixtureFile matching. Because I don't want to rebuild how
-	//assert.JSONFixtureFile works, this appends a field to the report without
-	//unmarshalling it:
-	//
-	//    {...} -> {...,"X-Keppel-Applicable-Policies":{...}}
-	applicablePoliciesJSON, err := json.Marshal(applicablePolicies)
+	parsedReport.ApplicablePolicies = applicablePolicies
+	payload.Contents, err = json.Marshal(parsedReport)
 	if err != nil {
-		return fmt.Errorf("cannot marshal X-Keppel-Applicable-Policies: %w", err)
+		return fmt.Errorf("cannot serialize enriched Trivy vulnerability report: %w", err)
 	}
-	payload.Contents = bytes.Join([][]byte{
-		//this trim cannot fail because we already did a successful json.Unmarshal above
-		bytes.TrimSuffix(bytes.TrimSpace(payload.Contents), []byte("}")),
-		[]byte(`,"X-Keppel-Applicable-Policies":`),
-		applicablePoliciesJSON,
-		[]byte("}\n"),
-	}, nil)
 
 	return nil
 }
