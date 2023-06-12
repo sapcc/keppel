@@ -1036,7 +1036,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, r
 			return err
 		}
 
-		if parsedTrivyReport.Metadata.OS.Eosl {
+		if parsedTrivyReport.Metadata.OS != nil && parsedTrivyReport.Metadata.OS.Eosl {
 			securityStatuses = append(securityStatuses, clair.RottenVulnerabilityStatus)
 		}
 		for _, result := range parsedTrivyReport.Results {
