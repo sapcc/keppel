@@ -22,6 +22,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
+	"github.com/aquasecurity/trivy/pkg/types"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/regexpext"
 
@@ -133,8 +135,8 @@ func (p SecurityScanPolicy) MatchesRepository(repo Repository) bool {
 }
 
 // MatchesVulnerability evaluates the vulnerability regexes and checkin this policy.
-func (p SecurityScanPolicy) MatchesVulnerability(vuln trivy.ReportedVulnerability) bool {
-	if p.ExceptFixReleased && vuln.FixIsReleased() {
+func (p SecurityScanPolicy) MatchesVulnerability(vuln types.DetectedVulnerability) bool {
+	if p.ExceptFixReleased && trivy.FixIsReleased(vuln) {
 		return false
 	}
 
@@ -176,11 +178,64 @@ func (a Account) SecurityScanPoliciesFor(repo Repository) (SecurityScanPolicySet
 
 // PolicyForVulnerability returns the first policy from this set that matches
 // the vulnerability, or nil if no policy matches.
-func (s SecurityScanPolicySet) PolicyForVulnerability(vuln trivy.ReportedVulnerability) *SecurityScanPolicy {
+func (s SecurityScanPolicySet) PolicyForVulnerability(vuln types.DetectedVulnerability) *SecurityScanPolicy {
 	for _, p := range s {
 		if p.MatchesVulnerability(vuln) {
 			return &p
 		}
 	}
+	return nil
+}
+
+// enrichedReport has the same fields as types.Report, plus the fields that our
+// EnrichReport adds.
+//
+// We cannot just inline the existing type because that's not supported by the
+// encoding/json library: <https://github.com/golang/go/issues/6213>
+type enrichedReport struct {
+	SchemaVersion int                 `json:",omitempty"`
+	ArtifactName  string              `json:",omitempty"`
+	ArtifactType  ftypes.ArtifactType `json:",omitempty"`
+	Metadata      types.Metadata      `json:",omitempty"`
+	Results       types.Results       `json:",omitempty"`
+
+	ApplicablePolicies map[string]SecurityScanPolicy `json:"X-Keppel-Applicable-Policies,omitempty"`
+}
+
+// EnrichReport computes and inserts the "X-Keppel-Applicable-Policies" field
+// if the report is `--format json`. Other formats are not altered.
+func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload) error {
+	if payload.Format != "json" {
+		return nil
+	}
+
+	//decode relevant fields from report
+	var parsedReport enrichedReport
+	err := json.Unmarshal(payload.Contents, &parsedReport)
+	if err != nil {
+		return fmt.Errorf("cannot parse Trivy vulnerability report: %w", err)
+	}
+
+	//compute X-Keppel-Applicable-Policies set
+	applicablePolicies := make(map[string]SecurityScanPolicy)
+	for _, result := range parsedReport.Results {
+		for _, vuln := range result.Vulnerabilities {
+			policy := s.PolicyForVulnerability(vuln)
+			if policy != nil {
+				applicablePolicies[vuln.VulnerabilityID] = *policy
+			}
+		}
+	}
+
+	//remarshal report if it has changed
+	if len(applicablePolicies) == 0 {
+		return nil
+	}
+	parsedReport.ApplicablePolicies = applicablePolicies
+	payload.Contents, err = json.Marshal(parsedReport)
+	if err != nil {
+		return fmt.Errorf("cannot serialize enriched Trivy vulnerability report: %w", err)
+	}
+
 	return nil
 }

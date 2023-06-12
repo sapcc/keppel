@@ -19,6 +19,7 @@
 package keppelv1_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"sort"
 	"strings"
@@ -30,6 +31,7 @@ import (
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -453,13 +455,44 @@ func TestManifestsAPI(t *testing.T) {
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		s.TrivyDouble.ReportFixtures[imageRef] = "../../tasks/fixtures/trivy/report-vulnerable.json"
+		s.TrivyDouble.ReportFixtures[imageRef] = "../../tasks/fixtures/trivy/report-vulnerable-with-fixes.json"
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12).String() + "/trivy_report",
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusOK,
-			ExpectBody:   assert.JSONFixtureFile("../../tasks/fixtures/trivy/report-vulnerable.json"),
+			ExpectBody:   assert.JSONFixtureFile("../../tasks/fixtures/trivy/report-vulnerable-with-fixes.json"),
+		}.Check(t, h)
+
+		//with security scan policies configured, we expect the Trivy report to be
+		//enriched with the X-Keppel-Applicable-Policies field (the rest of the report is untouched)
+		policyJSON := must.Return(json.Marshal([]keppel.SecurityScanPolicy{
+			{
+				RepositoryRx:      ".*",
+				VulnerabilityIDRx: "CVE-2019-8457",
+				Action: keppel.SecurityScanPolicyAction{
+					Assessment: "we accept the risk",
+					Severity:   clair.LowSeverity,
+				},
+			},
+			{
+				RepositoryRx:      ".*",
+				VulnerabilityIDRx: ".*",
+				ExceptFixReleased: true,
+				Action: keppel.SecurityScanPolicyAction{
+					Assessment: "we can only update if a fix is available",
+					Ignore:     true,
+				},
+			},
+		}))
+		mustExec(t, s.DB, `UPDATE accounts SET security_scan_policies_json = $1`, string(policyJSON))
+
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12).String() + "/trivy_report",
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
+			ExpectStatus: http.StatusOK,
+			ExpectBody:   assert.JSONFixtureFile("../../tasks/fixtures/trivy/report-vulnerable-with-fixes-enriched.json"),
 		}.Check(t, h)
 	})
 }

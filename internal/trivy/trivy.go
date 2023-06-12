@@ -27,6 +27,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/aquasecurity/trivy/pkg/types"
+
 	"github.com/sapcc/keppel/internal/models"
 )
 
@@ -43,8 +45,15 @@ type Config struct {
 	Token string
 }
 
+// ReportPayload contains a report that was returned by Trivy (and potentially
+// enhanced by Keppel).
+type ReportPayload struct {
+	Format   string
+	Contents []byte
+}
+
 // ScanManifest queries the Trivy server for a report on the given manifest.
-func (tc *Config) ScanManifest(ctx context.Context, keppelToken string, manifestRef models.ImageReference, format string) ([]byte, error) {
+func (tc *Config) ScanManifest(ctx context.Context, keppelToken string, manifestRef models.ImageReference, format string) (ReportPayload, error) {
 	requestURL := tc.URL
 	requestURL.Path = "/trivy"
 	requestURL.RawQuery = url.Values{
@@ -54,7 +63,7 @@ func (tc *Config) ScanManifest(ctx context.Context, keppelToken string, manifest
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), http.NoBody)
 	if err != nil {
-		return nil, err
+		return ReportPayload{}, err
 	}
 
 	req.Header.Set(TokenHeader, tc.Token)
@@ -62,29 +71,36 @@ func (tc *Config) ScanManifest(ctx context.Context, keppelToken string, manifest
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return ReportPayload{}, err
 	}
 	defer resp.Body.Close()
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return ReportPayload{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("trivy proxy did not return 200: %d %s", resp.StatusCode, respBody)
+		return ReportPayload{}, fmt.Errorf("trivy proxy did not return 200: %d %s", resp.StatusCode, respBody)
 	}
 
-	return respBody, nil
+	return ReportPayload{Format: format, Contents: respBody}, nil
 }
 
 // ScanManifest is like ScanManifestAndParse, except that the result is parsed
-// instead of being returned as a bytestring.
-func (tc *Config) ScanManifestAndParse(ctx context.Context, keppelToken string, manifestRef models.ImageReference, format string) (VulnerabilityReport, error) {
-	report, err := tc.ScanManifest(ctx, keppelToken, manifestRef, format)
+// instead of being returned as a bytestring. The report format "json" is
+// implied in order to match the return type.
+func (tc *Config) ScanManifestAndParse(ctx context.Context, keppelToken string, manifestRef models.ImageReference) (types.Report, error) {
+	report, err := tc.ScanManifest(ctx, keppelToken, manifestRef, "json")
 	if err != nil {
-		return VulnerabilityReport{}, err
+		return types.Report{}, err
 	}
 
-	var parsedReport VulnerabilityReport
-	err = json.Unmarshal(report, &parsedReport)
+	var parsedReport types.Report
+	err = json.Unmarshal(report.Contents, &parsedReport)
 	return parsedReport, err
+}
+
+// FixIsReleased returns whether v.FixedVersion is non-empty. (This particular
+// method name reads better in some situations than `v.FixedVersion != ""`.)
+func FixIsReleased(v types.DetectedVulnerability) bool {
+	return v.FixedVersion != ""
 }
