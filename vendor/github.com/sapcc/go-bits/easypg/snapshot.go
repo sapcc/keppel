@@ -193,7 +193,7 @@ func newTableSnapshot(t *testing.T, db *sql.DB, tableName string, keyColumnNames
 		Rows:           make(map[string]rowSnapshot),
 	}
 
-	scanTarget := make([]interface{}, len(columnNames))
+	scanTarget := make([]any, len(columnNames))
 	for idx := range scanTarget {
 		scanTarget[idx] = &sqlValueSerializer{}
 	}
@@ -304,7 +304,7 @@ type sqlValueSerializer struct {
 }
 
 // Scan implements the sql.Scanner interface.
-func (s *sqlValueSerializer) Scan(src interface{}) error {
+func (s *sqlValueSerializer) Scan(src any) error {
 	switch val := src.(type) {
 	case int64:
 		s.Serialized = fmt.Sprintf("%#v", val)

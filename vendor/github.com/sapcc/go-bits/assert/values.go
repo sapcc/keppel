@@ -92,7 +92,7 @@ func (s StringData) AssertResponseBody(t *testing.T, requestInfo string, respons
 }
 
 // JSONObject implements HTTPRequestBody and HTTPResponseBody for JSON objects.
-type JSONObject map[string]interface{}
+type JSONObject map[string]any
 
 // GetRequestBody implements the HTTPRequestBody interface.
 func (o JSONObject) GetRequestBody() (io.Reader, error) {
@@ -111,7 +111,7 @@ func (o JSONObject) AssertResponseBody(t *testing.T, requestInfo string, respons
 	}
 
 	//need to decode and re-encode the responseBody to ensure identical ordering of keys
-	var data map[string]interface{}
+	var data map[string]any
 	err = json.Unmarshal(responseBody, &data)
 	if err == nil {
 		responseBody, err = json.Marshal(data)

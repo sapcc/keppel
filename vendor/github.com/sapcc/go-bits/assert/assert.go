@@ -31,7 +31,7 @@ import (
 
 // DeepEqual checks if the actual and expected value are equal as
 // determined by reflect.DeepEqual(), and t.Error()s otherwise.
-func DeepEqual(t *testing.T, variable string, actual, expected interface{}) bool {
+func DeepEqual(t *testing.T, variable string, actual, expected any) bool {
 	t.Helper()
 	if reflect.DeepEqual(actual, expected) {
 		return true
