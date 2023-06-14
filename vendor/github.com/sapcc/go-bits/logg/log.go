@@ -59,34 +59,34 @@ func SetLogger(l *stdlog.Logger) {
 }
 
 // Fatal logs a fatal error and terminates the program.
-func Fatal(msg string, args ...interface{}) {
+func Fatal(msg string, args ...any) {
 	doLog("FATAL: "+msg, args)
 	os.Exit(1)
 }
 
 // Error logs a non-fatal error.
-func Error(msg string, args ...interface{}) {
+func Error(msg string, args ...any) {
 	doLog("ERROR: "+msg, args)
 }
 
 // Info logs an informational message.
-func Info(msg string, args ...interface{}) {
+func Info(msg string, args ...any) {
 	doLog("INFO: "+msg, args)
 }
 
 // Debug logs a debug message if debug logging is enabled.
-func Debug(msg string, args ...interface{}) {
+func Debug(msg string, args ...any) {
 	if ShowDebug {
 		doLog("DEBUG: "+msg, args)
 	}
 }
 
 // Other logs a message with a custom log level.
-func Other(level, msg string, args ...interface{}) {
+func Other(level, msg string, args ...any) {
 	doLog(level+": "+msg, args)
 }
 
-func doLog(msg string, args []interface{}) {
+func doLog(msg string, args []any) {
 	msg = strings.TrimSpace(msg)                //most importantly, skip trailing '\n'
 	msg = strings.Replace(msg, "\n", "\\n", -1) //avoid multiline log messages
 	if len(args) > 0 {

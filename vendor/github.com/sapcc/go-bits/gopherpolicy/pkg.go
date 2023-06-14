@@ -192,7 +192,7 @@ func (v *TokenValidator) TokenFromGophercloudResult(result TokenResult) *Token {
 // Notable implementors are tokens.CreateResult or tokens.GetResult from package
 // github.com/gophercloud/gophercloud/openstack/identity/v3/tokens.
 type TokenResult interface {
-	ExtractInto(value interface{}) error
+	ExtractInto(value any) error
 	Extract() (*tokens.Token, error)
 	ExtractServiceCatalog() (*tokens.ServiceCatalog, error)
 }

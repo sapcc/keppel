@@ -29,7 +29,7 @@ import (
 
 // JSON serializes the given data into an HTTP response body
 // The `code` argument specifies the HTTP response code, usually 200.
-func JSON(w http.ResponseWriter, code int, data interface{}) {
+func JSON(w http.ResponseWriter, code int, data any) {
 	bytes, err := json.Marshal(&data)
 	if err == nil {
 		w.Header().Set("Content-Type", "application/json")

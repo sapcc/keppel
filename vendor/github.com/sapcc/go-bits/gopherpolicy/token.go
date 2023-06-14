@@ -157,7 +157,7 @@ type serializableToken struct {
 }
 
 // ExtractInto implements the TokenResult interface.
-func (s serializableToken) ExtractInto(value interface{}) error {
+func (s serializableToken) ExtractInto(value any) error {
 	//TokenResult.ExtractInto is only ever called with a value of type
 	//*keystoneToken, so this is okay
 	kd, ok := value.(*keystoneToken)

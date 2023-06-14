@@ -203,7 +203,7 @@ func (a Assertable) AssertEqual(expected string) {
 }
 
 // AssertEqualf is a shorthand for AssertEqual(fmt.Sprintf(...)).
-func (a Assertable) AssertEqualf(format string, args ...interface{}) {
+func (a Assertable) AssertEqualf(format string, args ...any) {
 	a.t.Helper()
 	a.AssertEqual(fmt.Sprintf(format, args...))
 }
