@@ -34,7 +34,7 @@ import (
 
 func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.Job) (images []test.Image, healthyBlobs []keppel.Blob, healthyManifests []keppel.Manifest) {
 	//setup some manifests and blobs as a baseline that should never be touched by
-	//SweepStorageInNextAccount
+	//StorageSweepJob
 	images = make([]test.Image, 2)
 	for idx := range images {
 		image := test.GenerateImage(
@@ -58,7 +58,7 @@ func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.J
 		imageList.MustUpload(t, s, fooRepoRef, ""),
 	)
 
-	//SweepStorageInNextAccount should run through, but not do anything besides
+	//StorageSweepJob should run through, but not do anything besides
 	//setting the storage_sweeped_at timestamp on the account
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
@@ -72,7 +72,7 @@ func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.J
 func TestSweepStorageBlobs(t *testing.T) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
-	sweepStorageJob := j.SweepStorageJob(s.Registry)
+	sweepStorageJob := j.StorageSweepJob(s.Registry)
 	_, healthyBlobs, healthyManifests := setupStorageSweepTest(t, s, sweepStorageJob)
 
 	//put some blobs in the storage without adding them in the DB
@@ -110,7 +110,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	sizeBytes = uint64(len(testBlob4.Contents))
 	mustDo(t, s.SD.AppendToBlob(account, storageID, 1, &sizeBytes, bytes.NewReader(testBlob4.Contents)))
 
-	//next SweepStorageInNextAccount should mark them for deletion...
+	//next StorageSweepJob should mark them for deletion...
 	s.Clock.StepBy(8 * time.Hour)
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
@@ -126,7 +126,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 
 	//create a DB entry for the first blob (to sort of simulate an upload that
-	//just got finished while SweepStorageInNextAccount was running: blob was
+	//just got finished while StorageSweepJob was running: blob was
 	//written to storage already, but not yet to DB)
 	s.Clock.StepBy(1 * time.Hour)
 	dbTestBlob1 := keppel.Blob{
@@ -139,7 +139,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	}
 	mustDo(t, s.DB.Insert(&dbTestBlob1))
 
-	//next SweepStorageInNextAccount should unmark blob 1 (because it's now in
+	//next StorageSweepJob should unmark blob 1 (because it's now in
 	//the DB) and sweep blobs 2 and 4 (since it is still not in the DB)
 	s.Clock.StepBy(8 * time.Hour)
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
@@ -160,7 +160,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 func TestSweepStorageManifests(t *testing.T) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
-	sweepStorageJob := j.SweepStorageJob(s.Registry)
+	sweepStorageJob := j.StorageSweepJob(s.Registry)
 	images, healthyBlobs, healthyManifests := setupStorageSweepTest(t, s, sweepStorageJob)
 
 	//put some manifests in the storage without adding them in the DB
@@ -171,7 +171,7 @@ func TestSweepStorageManifests(t *testing.T) {
 		mustDo(t, s.SD.WriteManifest(account, "foo", manifest.Digest, manifest.Contents))
 	}
 
-	//next SweepStorageInNextAccount should mark them for deletion...
+	//next StorageSweepJob should mark them for deletion...
 	s.Clock.StepBy(8 * time.Hour)
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
@@ -185,7 +185,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	)
 
 	//create a DB entry for the first manifest (to sort of simulate a manifest
-	//upload that happened while SweepStorageInNextAccount: manifest was written
+	//upload that happened while StorageSweepJob: manifest was written
 	//to storage already, but not yet to DB)
 	s.Clock.StepBy(1 * time.Hour)
 	mustDo(t, s.DB.Insert(&keppel.Manifest{
@@ -209,7 +209,7 @@ func TestSweepStorageManifests(t *testing.T) {
 		NextCheckAt:         s.Clock.Now(),
 	}))
 
-	//next SweepStorageInNextAccount should unmark manifest 1 (because it's now in
+	//next StorageSweepJob should unmark manifest 1 (because it's now in
 	//the DB) and sweep manifest 2 (since it is still not in the DB)
 	s.Clock.StepBy(8 * time.Hour)
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))

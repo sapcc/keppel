@@ -37,7 +37,7 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 	var account1 keppel.Account
 	mustDo(t, s.DB.SelectOne(&account1, `SELECT * FROM accounts`))
 
-	accountJob := j.AnnounceAccountToFederationJob(s.Registry)
+	accountJob := j.AccountFederationAnnouncementJob(s.Registry)
 
 	//with just one account set up, AnnounceNextAccountToFederation should
 	//announce that account, then start doing nothing

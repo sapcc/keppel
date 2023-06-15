@@ -67,15 +67,15 @@ func run(cmd *cobra.Command, args []string) {
 
 	//start task loops
 	janitor := tasks.NewJanitor(cfg, fd, sd, icd, db, auditor)
-	go janitor.AnnounceAccountToFederationJob(nil).Run(ctx)
-	go janitor.DeleteAbandonedUploadJob(nil).Run(ctx)
-	go janitor.GarbageCollectManifestsJob(nil).Run(ctx)
-	go janitor.SweepBlobMountsJob(nil).Run(ctx)
-	go janitor.SweepBlobsJob(nil).Run(ctx)
-	go janitor.SweepStorageJob(nil).Run(ctx)
-	go janitor.SyncManifestsJob(nil).Run(ctx)
-	go janitor.ValidateBlobJob(nil).Run(ctx)
-	go janitor.ValidateManifestJob(nil).Run(ctx)
+	go janitor.AccountFederationAnnouncementJob(nil).Run(ctx)
+	go janitor.AbandonedUploadCleanupJob(nil).Run(ctx)
+	go janitor.ManifestGarbageCollectionJob(nil).Run(ctx)
+	go janitor.BlobMountSweepJob(nil).Run(ctx)
+	go janitor.BlobSweepJob(nil).Run(ctx)
+	go janitor.StorageSweepJob(nil).Run(ctx)
+	go janitor.ManifestSyncJob(nil).Run(ctx)
+	go janitor.BlobValidationJob(nil).Run(ctx)
+	go janitor.ManifestValidationJob(nil).Run(ctx)
 	if !osext.GetenvBool("KEPPEL_CLAIR_IGNORE_STALE_INDEX_REPORTS") {
 		go cronJobLoop(1*time.Minute, janitor.CheckClairManifestState)
 	}

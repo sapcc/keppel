@@ -46,16 +46,15 @@ var findAccountForRepoQuery = sqlext.SimplifyWhitespace(`
 	WHERE r.id = $1
 `)
 
-// DeleteNextAbandonedUpload cleans up uploads that have not been updated for more
-// than a day. At most one upload is cleaned up per call. If no upload needs to
-// be cleaned up, sql.ErrNoRows is returned.
-func (j *Janitor) DeleteAbandonedUploadJob(registerer prometheus.Registerer) jobloop.Job {
+// AbandonedUploadCleanupJob is a job. Each task finds an upload that has not
+// been updated for more than a day, and cleans it up.
+func (j *Janitor) AbandonedUploadCleanupJob(registerer prometheus.Registerer) jobloop.Job {
 	return (&jobloop.TxGuardedJob[*gorp.Transaction, keppel.Upload]{
 		Metadata: jobloop.JobMetadata{
-			ReadableName: "delete abandoned upload",
+			ReadableName: "cleanup of abandoned uploads",
 			CounterOpts: prometheus.CounterOpts{
 				Name: "keppel_abandoned_upload_cleanups",
-				Help: "Counter for announcements of existing accounts to the federation driver.",
+				Help: "Counter for cleanup operations for abandoned uploads.",
 			},
 		},
 		BeginTx: j.db.Begin,
@@ -64,11 +63,11 @@ func (j *Janitor) DeleteAbandonedUploadJob(registerer prometheus.Registerer) job
 			err = tx.SelectOne(&upload, abandonedUploadSearchQuery, maxUpdatedAt)
 			return upload, err
 		},
-		ProcessRow: j.processAbandonedUpload,
+		ProcessRow: j.deleteAbandonedUpload,
 	}).Setup(registerer)
 }
 
-func (j *Janitor) processAbandonedUpload(_ context.Context, tx *gorp.Transaction, upload keppel.Upload, labels prometheus.Labels) error {
+func (j *Janitor) deleteAbandonedUpload(_ context.Context, tx *gorp.Transaction, upload keppel.Upload, labels prometheus.Labels) error {
 	//find corresponding account
 	var account keppel.Account
 	err := tx.SelectOne(&account, findAccountForRepoQuery, upload.RepositoryID)

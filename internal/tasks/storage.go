@@ -44,7 +44,7 @@ var storageSweepDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE accounts SET next_storage_sweep_at = $2 WHERE name = $1
 `)
 
-// SweepStorageInNextAccount finds the next account where the backing storage
+// SweepStorageJob is a job. Each task finds an account where the backing storage
 // needs to be garbage-collected, and performs the GC. This entails a marking of
 // all blobs and manifests that exist in the backing storage, but not in the
 // database; and a sweeping of all items that were marked in the previous pass
@@ -55,10 +55,10 @@ var storageSweepDoneQuery = sqlext.SimplifyWhitespace(`
 // being created.
 //
 // The storage of each account is sweeped at most once every 6 hours.
-func (j *Janitor) SweepStorageJob(registerer prometheus.Registerer) jobloop.Job { //nolint:dupl // false positive
+func (j *Janitor) StorageSweepJob(registerer prometheus.Registerer) jobloop.Job { //nolint:dupl // false positive
 	return (&jobloop.ProducerConsumerJob[keppel.Account]{
 		Metadata: jobloop.JobMetadata{
-			ReadableName: "sweep storage",
+			ReadableName: "storage sweep",
 			CounterOpts: prometheus.CounterOpts{
 				Name: "keppel_storage_sweeps",
 				Help: "Counter for garbage collections of an account's backing storage.",
@@ -68,11 +68,11 @@ func (j *Janitor) SweepStorageJob(registerer prometheus.Registerer) jobloop.Job 
 			err = j.db.SelectOne(&account, storageSweepSearchQuery, j.timeNow())
 			return account, err
 		},
-		ProcessTask: j.processSweepStorage,
+		ProcessTask: j.sweepStorage,
 	}).Setup(registerer)
 }
 
-func (j *Janitor) processSweepStorage(_ context.Context, account keppel.Account, _ prometheus.Labels) error {
+func (j *Janitor) sweepStorage(_ context.Context, account keppel.Account, _ prometheus.Labels) error {
 	//enumerate blobs and manifests in the backing storage
 	actualBlobs, actualManifests, err := j.sd.ListStorageContents(account)
 	if err != nil {

@@ -64,7 +64,7 @@ var blobSweepDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE accounts SET next_blob_sweep_at = $2 WHERE name = $1
 `)
 
-// SweepBlobsInNextAccount finds the next account where blobs need to be
+// BlobSweepJob is a job. Each task finds one account where blobs need to be
 // garbage-collected, and performs the GC. This entails a marking of all blobs
 // that are not mounted in any repo, and a sweeping of all blobs that were
 // marked in the previous pass and which are still not mounted anywhere.
@@ -73,7 +73,7 @@ var blobSweepDoneQuery = sqlext.SimplifyWhitespace(`
 // that were just pushed and have not been mounted anywhere.
 //
 // Blobs are sweeped in each account at most once per hour.
-func (j *Janitor) SweepBlobsJob(registerer prometheus.Registerer) jobloop.Job { //nolint:dupl // false positive
+func (j *Janitor) BlobSweepJob(registerer prometheus.Registerer) jobloop.Job { //nolint:dupl // false positive
 	return (&jobloop.ProducerConsumerJob[keppel.Account]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "sweep blobs",
@@ -86,11 +86,11 @@ func (j *Janitor) SweepBlobsJob(registerer prometheus.Registerer) jobloop.Job { 
 			err = j.db.SelectOne(&account, blobSweepSearchQuery, j.timeNow())
 			return account, err
 		},
-		ProcessTask: j.processSweepBlobs,
+		ProcessTask: j.sweepBlobsInRepo,
 	}).Setup(registerer)
 }
 
-func (j *Janitor) processSweepBlobs(_ context.Context, account keppel.Account, _ prometheus.Labels) error {
+func (j *Janitor) sweepBlobsInRepo(_ context.Context, account keppel.Account, _ prometheus.Labels) error {
 	//allow next pass in 1 hour to delete the newly marked blob mounts, but use a
 	//slighly earlier cut-off time to account for the marking taking some time
 	canBeDeletedAt := j.timeNow().Add(30 * time.Minute)
@@ -125,7 +125,7 @@ func (j *Janitor) processSweepBlobs(_ context.Context, account keppel.Account, _
 	//other way around. In this way, we could have an inconsistency where the
 	//blob is deleted from the database, but still present in the backing
 	//storage. But this inconsistency is easier to recover from:
-	//SweepStorageInNextAccount will take care of it soon enough. Also the user
+	//StorageSweepJob will take care of it soon enough. Also the user
 	//will not notice this inconsistency because the DB is our primary source of
 	//truth.
 	if len(blobs) > 0 {
@@ -158,12 +158,12 @@ var validateBlobSearchQuery = sqlext.SimplifyWhitespace(`
 		-- one at a time
 `)
 
-// ValidateNextBlob validates the next blob that has not been validated for more
-// than 7 days. If no manifest needs to be validated.
-func (j *Janitor) ValidateBlobJob(registerer prometheus.Registerer) jobloop.Job {
+// BlobValidationJob is a job. Each task validates a blob that has not been validated for more
+// than 7 days.
+func (j *Janitor) BlobValidationJob(registerer prometheus.Registerer) jobloop.Job {
 	return (&jobloop.ProducerConsumerJob[keppel.Blob]{
 		Metadata: jobloop.JobMetadata{
-			ReadableName: "validates manifest's blobs",
+			ReadableName: "validation of blob contents",
 			CounterOpts: prometheus.CounterOpts{
 				Name: "keppel_blob_validations",
 				Help: "Counter for blob validations.",
@@ -176,11 +176,11 @@ func (j *Janitor) ValidateBlobJob(registerer prometheus.Registerer) jobloop.Job 
 			err = j.db.SelectOne(&blob, validateBlobSearchQuery, maxSuccessfulValidatedAt, maxFailedValidatedAt)
 			return blob, err
 		},
-		ProcessTask: j.processValidateBlob,
+		ProcessTask: j.validateBlob,
 	}).Setup(registerer)
 }
 
-func (j *Janitor) processValidateBlob(_ context.Context, blob keppel.Blob, _ prometheus.Labels) error {
+func (j *Janitor) validateBlob(_ context.Context, blob keppel.Blob, _ prometheus.Labels) error {
 	//find corresponding account
 	account, err := keppel.FindAccount(j.db, blob.AccountName)
 	if err != nil {
@@ -201,7 +201,7 @@ func (j *Janitor) processValidateBlob(_ context.Context, blob keppel.Blob, _ pro
 		}
 	} else {
 		//attempt to log the error message, and also update the `validated_at`
-		//timestamp to ensure that the ValidateNextBlob() loop does not get stuck
+		//timestamp to ensure that the BlobValidationJob loop does not get stuck
 		//on this one
 		_, updateErr := j.db.Exec(`
 			UPDATE blobs SET validated_at = $1, validation_error_message = $2

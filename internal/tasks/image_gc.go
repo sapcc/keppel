@@ -53,25 +53,27 @@ var imageGCRepoDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE repos SET next_gc_at = $2 WHERE id = $1
 `)
 
-// GarbageCollectManifestsInNextRepo finds the next repository where GC has not been performed for more than an hour
-func (j *Janitor) GarbageCollectManifestsJob(registerer prometheus.Registerer) jobloop.Job { //nolint: dupl // interface implementation of different things
+// ManifestGarbageCollectionJob is a job. Each task finds the a where GC has
+// not been performed for more than an hour, and performs GC based on the GC
+// policies configured on the repo's account.
+func (j *Janitor) ManifestGarbageCollectionJob(registerer prometheus.Registerer) jobloop.Job { //nolint: dupl // interface implementation of different things
 	return (&jobloop.ProducerConsumerJob[keppel.Repository]{
 		Metadata: jobloop.JobMetadata{
-			ReadableName: "garbage collect manifest",
+			ReadableName: "manifest garbage collection",
 			CounterOpts: prometheus.CounterOpts{
 				Name: "keppel_image_garbage_collections",
-				Help: "Counter for garbage collection runs in repos.",
+				Help: "Counter for image garbage collection runs in repos.",
 			},
 		},
 		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (repo keppel.Repository, err error) {
 			err = j.db.SelectOne(&repo, imageGCRepoSelectQuery, j.timeNow())
 			return repo, err
 		},
-		ProcessTask: j.processGarbageCollectManifest,
+		ProcessTask: j.garbageCollectManifestsInRepo,
 	}).Setup(registerer)
 }
 
-func (j *Janitor) processGarbageCollectManifest(_ context.Context, repo keppel.Repository, labels prometheus.Labels) (returnErr error) {
+func (j *Janitor) garbageCollectManifestsInRepo(_ context.Context, repo keppel.Repository, labels prometheus.Labels) (returnErr error) {
 	//load GC policies for this repository
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {

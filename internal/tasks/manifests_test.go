@@ -37,14 +37,14 @@ import (
 )
 
 ////////////////////////////////////////////////////////////////////////////////
-// tests for ValidateNextManifest
+// tests for ManifestValidationJob
 
 // Base behavior for various unit tests that start with the same image list, destroy
-// it in various ways, and check that ValidateNextManifest correctly fixes it.
-func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel.DB, []int64, []string)) {
+// it in various ways, and check that ManifestValidationJob correctly fixes it.
+func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*keppel.DB, []int64, []string)) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
-	validateManifestJob := j.ValidateManifestJob(s.Registry)
+	validateManifestJob := j.ManifestValidationJob(s.Registry)
 
 	var (
 		allBlobIDs         []int64
@@ -76,7 +76,7 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 	allManifestDigests = append(allManifestDigests, imageList.Manifest.Digest.String())
 
 	//since these manifests were just uploaded, validated_at is set to right now,
-	//so ValidateNextManifest will report that there is nothing to do
+	//so ManifestValidationJob will report that there is nothing to do
 	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
 
 	//once they need validating, they validate successfully
@@ -87,7 +87,7 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-001-before-disturbance.sql")
 
-	//disturb the DB state, then rerun ValidateNextManifest to fix it
+	//disturb the DB state, then rerun ManifestValidationJob to fix it
 	s.Clock.StepBy(36 * time.Hour)
 	disturb(s.DB, allBlobIDs, allManifestDigests)
 	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
@@ -97,26 +97,26 @@ func testValidateNextManifestFixesDisturbance(t *testing.T, disturb func(*keppel
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-002-after-fix.sql")
 }
 
-func TestValidateNextManifestFixesWrongSize(t *testing.T) {
-	testValidateNextManifestFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+func TestManifestValidationJobFixesWrongSize(t *testing.T) {
+	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
 		mustExec(t, db, `UPDATE manifests SET size_bytes = 1337`)
 	})
 }
 
-func TestValidateNextManifestFixesMissingManifestBlobRefs(t *testing.T) {
-	testValidateNextManifestFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+func TestManifestValidationJobFixesMissingManifestBlobRefs(t *testing.T) {
+	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
 		mustExec(t, db, `DELETE FROM manifest_blob_refs WHERE blob_id % 2 = 0`)
 	})
 }
 
-func TestValidateNextManifestFixesMissingManifestManifestRefs(t *testing.T) {
-	testValidateNextManifestFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+func TestManifestValidationJobFixesMissingManifestManifestRefs(t *testing.T) {
+	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
 		mustExec(t, db, `DELETE FROM manifest_manifest_refs`)
 	})
 }
 
-func TestValidateNextManifestFixesSuperfluousManifestBlobRefs(t *testing.T) {
-	testValidateNextManifestFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+func TestManifestValidationJobFixesSuperfluousManifestBlobRefs(t *testing.T) {
+	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
 		for _, id := range allBlobIDs {
 			for _, d := range allManifestDigests {
 				mustExec(t, db, `INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, $1, $2) ON CONFLICT DO NOTHING`, d, id)
@@ -125,8 +125,8 @@ func TestValidateNextManifestFixesSuperfluousManifestBlobRefs(t *testing.T) {
 	})
 }
 
-func TestValidateNextManifestFixesSuperfluousManifestManifestRefs(t *testing.T) {
-	testValidateNextManifestFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+func TestManifestValidationJobFixesSuperfluousManifestManifestRefs(t *testing.T) {
+	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
 		for _, d1 := range allManifestDigests {
 			for _, d2 := range allManifestDigests {
 				mustExec(t, db, `INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2) ON CONFLICT DO NOTHING`, d1, d2)
@@ -135,9 +135,9 @@ func TestValidateNextManifestFixesSuperfluousManifestManifestRefs(t *testing.T) 
 	})
 }
 
-func TestValidateNextManifestError(t *testing.T) {
+func TestManifestValidationJobError(t *testing.T) {
 	j, s := setup(t)
-	validateManifestJob := j.ValidateManifestJob(s.Registry)
+	validateManifestJob := j.ManifestValidationJob(s.Registry)
 
 	//setup a manifest that is missing a referenced blob (we need to do this
 	//manually since the MustUpload functions care about uploading stuff intact)
@@ -173,7 +173,7 @@ func TestValidateNextManifestError(t *testing.T) {
 	//validation should yield an error
 	s.Clock.StepBy(36 * time.Hour)
 	expectedError := fmt.Sprintf(
-		`could not process task for job "validate manifests": while validating manifest %s in repo 1: manifest blob unknown to registry: %s`,
+		`could not process task for job "manifest validation": while validating manifest %s in repo 1: manifest blob unknown to registry: %s`,
 		image.Manifest.Digest, image.Config.Digest,
 	)
 	expectError(t, expectedError, validateManifestJob.ProcessOne(s.Ctx))
@@ -181,7 +181,7 @@ func TestValidateNextManifestError(t *testing.T) {
 	//check that validation error to be recorded in the DB
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-error-001.sql")
 
-	//expect next ValidateNextManifest run to skip over this manifest since it
+	//expect next ManifestValidationJob run to skip over this manifest since it
 	//was recently validated
 	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
 
@@ -195,17 +195,17 @@ func TestValidateNextManifestError(t *testing.T) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// tests for SyncManifestsInNextRepo
+// tests for ManifestSyncJob
 
-func TestSyncManifestsInNextRepo(t *testing.T) {
+func TestManifestSyncJob(t *testing.T) {
 	forAllReplicaTypes(t, func(strategy string) {
 		test.WithRoundTripper(func(tt *test.RoundTripper) {
 			j1, s1 := setup(t)
 			j2, s2 := setupReplica(t, s1, strategy)
 			s1.Clock.StepBy(1 * time.Hour)
 			replicaToken := s2.GetToken(t, "repository:test1/foo:pull")
-			syncManifestsJob1 := j1.SyncManifestsJob(s1.Registry)
-			syncManifestsJob2 := j2.SyncManifestsJob(s2.Registry)
+			syncManifestsJob1 := j1.ManifestSyncJob(s1.Registry)
+			syncManifestsJob2 := j2.ManifestSyncJob(s2.Registry)
 
 			//upload some manifests...
 			images := make([]test.Image, 4)
@@ -282,11 +282,11 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			tr0.AssertEqualToFile(fmt.Sprintf("fixtures/manifest-sync-setup-%s.sql", strategy))
 			trForPrimary, _ := easypg.NewTracker(t, s1.DB.DbMap.Db)
 
-			//SyncManifestsInNextRepo on the primary registry should have nothing to do
+			//ManifestSyncJob on the primary registry should have nothing to do
 			//since there are no replica accounts
 			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob1.ProcessOne(s1.Ctx))
 			trForPrimary.DBChanges().AssertEmpty()
-			//SyncManifestsInNextRepo on the secondary registry should set the
+			//ManifestSyncJob on the secondary registry should set the
 			//ManifestsSyncedAt timestamp on the repo, but otherwise not do anything
 			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEqualf(`
@@ -337,7 +337,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 
 			//again, nothing to do on the primary side
 			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob1.ProcessOne(s1.Ctx))
-			//SyncManifestsInNextRepo on the replica side should not do anything while
+			//ManifestSyncJob on the replica side should not do anything while
 			//the account is in maintenance; only the timestamp is updated to make sure
 			//that the job loop progresses to the next repo
 			mustExec(t, s2.DB, `UPDATE accounts SET in_maintenance = TRUE`)
@@ -358,7 +358,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			//test that replication from external uses the inbound cache
 			if strategy == "from_external_on_first_use" {
 				//after the end of the maintenance, we would naively expect
-				//SyncManifestsInNextRepo to actually replicate the deletion, BUT we have an
+				//ManifestSyncJob to actually replicate the deletion, BUT we have an
 				//inbound cache with a lifetime of 6 hours, so actually nothing should
 				//happen (only the tag gets synced, which includes a validation of the
 				//referenced manifest)
@@ -379,7 +379,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			//From now on, we will go in clock increments of 7 hours to force the
 			//inbound cache to never hit.
 
-			//after the end of the maintenance, SyncManifestsInNextRepo on the replica
+			//after the end of the maintenance, ManifestSyncJob on the replica
 			//side should delete the same manifest that we deleted in the primary
 			//account, and also replicate the tag change (which includes a validation
 			//of the tagged manifests)
@@ -427,10 +427,10 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 				images[2].Manifest.Digest,
 			)
 
-			//SyncManifestsInNextRepo should now complain since it wants to delete
+			//ManifestSyncJob should now complain since it wants to delete
 			//images[2].Manifest, but it can't because of the manifest-manifest ref to
 			//the image list
-			expectedError := fmt.Sprintf(`could not process task for job "manifest syncs in replica repos": cannot remove deleted manifests [%s] in repo test1/foo because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)`,
+			expectedError := fmt.Sprintf(`could not process task for job "manifest sync in replica repos": cannot remove deleted manifests [%s] in repo test1/foo because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)`,
 				images[2].Manifest.Digest,
 			)
 			expectError(t, expectedError, syncManifestsJob2.ProcessOne(s2.Ctx))
@@ -457,7 +457,7 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			//and remove the other tag (this is required for the 404 error message in the next step but one to be deterministic)
 			mustExec(t, s1.DB, `DELETE FROM tags`)
 
-			//this makes the primary side consistent again, so SyncManifestsInNextRepo
+			//this makes the primary side consistent again, so ManifestSyncJob
 			//should succeed now and remove both deleted manifests from the DB
 			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEqualf(`
@@ -493,10 +493,10 @@ func TestSyncManifestsInNextRepo(t *testing.T) {
 			http.DefaultTransport.(*test.RoundTripper).Handlers["registry.example.org"] = answerMostWith404(s1.Handler)
 			//This is particularly devious since 404 is returned by the GET endpoint for
 			//a manifest when the manifest was deleted. We want to check that the next
-			//SyncManifestsInNextRepo understands that this is a network issue and not
+			//ManifestSyncJob understands that this is a network issue and not
 			//caused by the manifest getting deleted, since the 404-generating endpoint
 			//does not render a proper MANIFEST_UNKNOWN error.
-			expectedError = fmt.Sprintf(`could not process task for job "manifest syncs in replica repos": cannot check existence of manifest test1/foo/%s on primary account: during GET https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found`,
+			expectedError = fmt.Sprintf(`could not process task for job "manifest sync in replica repos": cannot check existence of manifest test1/foo/%s on primary account: during GET https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found`,
 				images[1].Manifest.Digest, //the only manifest that is left
 			)
 			expectError(t, expectedError, syncManifestsJob2.ProcessOne(s2.Ctx))

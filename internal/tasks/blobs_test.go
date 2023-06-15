@@ -35,7 +35,7 @@ func TestSweepBlobs(t *testing.T) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
 
-	sweepBlobsJob := j.SweepBlobsJob(s.Registry)
+	sweepBlobsJob := j.BlobSweepJob(s.Registry)
 
 	//insert some blobs into the DB
 	var dbBlobs []keppel.Blob
@@ -45,14 +45,14 @@ func TestSweepBlobs(t *testing.T) {
 	}
 
 	//since uploadBlob() mounts these blobs into the test1/foo repository, there
-	//should be nothing to clean up; SweepBlobsInNextAccount() should only set
+	//should be nothing to clean up; BlobSweepJob should only set
 	//the blobs_sweeped_at timestamp on the account
 	expectSuccess(t, sweepBlobsJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepBlobsJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-sweep-001.sql")
 	s.ExpectBlobsExistInStorage(t, dbBlobs...)
 
-	//remove blob mounts for some blobs - SweepBlobsInNextAccount() should now
+	//remove blob mounts for some blobs - BlobSweepJob should now
 	//mark them for deletion (but not actually delete them yet)
 	s.Clock.StepBy(2 * time.Hour)
 	mustExec(t, s.DB, `DELETE FROM blob_mounts WHERE blob_id IN ($1,$2,$3)`,
@@ -79,10 +79,10 @@ func TestSweepBlobs(t *testing.T) {
 func TestValidateBlobs(t *testing.T) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
-	validateBlobJob := j.ValidateBlobJob(s.Registry)
+	validateBlobJob := j.BlobValidationJob(s.Registry)
 
 	//upload some blobs (we need to step the clock after each upload to ensure
-	//that ValidateNextBlob later goes through them in a particular order, to
+	//that BlobValidationJob later goes through them in a particular order, to
 	//make the testcase deterministic)
 	dbBlobs := make([]keppel.Blob, 3)
 	for idx := range dbBlobs {
@@ -91,7 +91,7 @@ func TestValidateBlobs(t *testing.T) {
 		dbBlobs[idx] = blob.MustUpload(t, s, fooRepoRef)
 	}
 
-	//ValidateNextBlob should be happy about these blobs
+	//BlobValidationJob should be happy about these blobs
 	s.Clock.StepBy(8*24*time.Hour - 2*time.Second)
 	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
 	s.Clock.Step()
@@ -111,7 +111,7 @@ func TestValidateBlobs(t *testing.T) {
 	//not so happy now, huh?
 	s.Clock.StepBy(8*24*time.Hour - 2*time.Second)
 	expectedError := fmt.Sprintf(
-		`could not process task for job "validates manifest's blobs": expected digest %s, but got %s`,
+		`could not process task for job "validation of blob contents": expected digest %s, but got %s`,
 		wrongDigest.String(), dbBlobs[2].Digest,
 	)
 	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))

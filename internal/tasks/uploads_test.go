@@ -85,7 +85,7 @@ func TestDeleteAbandonedUploadWithManyChunks(t *testing.T) {
 func testDeleteUpload(t *testing.T, setupUploadObject func(keppel.StorageDriver, keppel.Account) keppel.Upload) {
 	j, s := setup(t)
 	account := keppel.Account{Name: "test1"}
-	uploadJob := j.DeleteAbandonedUploadJob(s.Registry)
+	uploadJob := j.AbandonedUploadCleanupJob(s.Registry)
 
 	//right now, there are no upload objects, so DeleteNextAbandonedUpload should indicate that
 	s.Clock.StepBy(48 * time.Hour)

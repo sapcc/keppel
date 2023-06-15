@@ -63,12 +63,12 @@ var outdatedManifestSearchQuery = sqlext.SimplifyWhitespace(`
 //important because multi-arch images take into account the size_bytes
 //attribute of their constituent images.
 
-// ValidateNextManifest validates manifests that have not been validated for more
-// than 6 hours. At most one manifest is validated per call.
-func (j *Janitor) ValidateManifestJob(registerer prometheus.Registerer) jobloop.Job {
+// ManifestValidationJob is a job. Each task validates a manifest that has not been validated for more
+// than 24 hours.
+func (j *Janitor) ManifestValidationJob(registerer prometheus.Registerer) jobloop.Job {
 	return (&jobloop.ProducerConsumerJob[keppel.Manifest]{
 		Metadata: jobloop.JobMetadata{
-			ReadableName: "validate manifests",
+			ReadableName: "manifest validation",
 			CounterOpts: prometheus.CounterOpts{
 				Name: "keppel_manifest_validations",
 				Help: "Counter for manifest validations.",
@@ -81,11 +81,11 @@ func (j *Janitor) ValidateManifestJob(registerer prometheus.Registerer) jobloop.
 			err = j.db.SelectOne(&manifest, outdatedManifestSearchQuery, maxSuccessfulValidatedAt, maxFailedValidatedAt)
 			return manifest, err
 		},
-		ProcessTask: j.processValidateManifest,
+		ProcessTask: j.validateManifest,
 	}).Setup(registerer)
 }
 
-func (j *Janitor) processValidateManifest(_ context.Context, manifest keppel.Manifest, _ prometheus.Labels) error {
+func (j *Janitor) validateManifest(_ context.Context, manifest keppel.Manifest, _ prometheus.Labels) error {
 	//find corresponding account and repo
 	var repo keppel.Repository
 	err := j.db.SelectOne(&repo, `SELECT * FROM repos WHERE id = $1`, manifest.RepositoryID)
@@ -101,7 +101,7 @@ func (j *Janitor) processValidateManifest(_ context.Context, manifest keppel.Man
 	err = j.processor().ValidateExistingManifest(*account, repo, &manifest, j.timeNow())
 	if err != nil {
 		//attempt to log the error message, and also update the `validated_at`
-		//timestamp to ensure that the ValidateNextManifest() loop does not get
+		//timestamp to ensure that the ManifestValidationJob does not get
 		//stuck on this one
 		_, updateErr := j.db.Exec(`
 			UPDATE manifests SET validated_at = $1, validation_error_message = $2
@@ -147,14 +147,14 @@ var syncManifestCleanupEmptyQuery = sqlext.SimplifyWhitespace(`
 	DELETE FROM repos r WHERE id = $1 AND (SELECT COUNT(*) FROM manifests WHERE repo_id = r.id) = 0
 `)
 
-// SyncManifestsInNextRepo finds the next repository in a replica account where
+// ManifestSyncJob is a job. Each task finds a repository in a replica account where
 // manifests have not been synced for more than an hour, and syncs its manifests.
 // Syncing involves checking with the primary account which manifests have been
 // deleted there, and replicating the deletions on our side.
-func (j *Janitor) SyncManifestsJob(registerer prometheus.Registerer) jobloop.Job { //nolint:dupl // false positive
+func (j *Janitor) ManifestSyncJob(registerer prometheus.Registerer) jobloop.Job { //nolint:dupl // false positive
 	return (&jobloop.ProducerConsumerJob[keppel.Repository]{
 		Metadata: jobloop.JobMetadata{
-			ReadableName: "manifest syncs in replica repos",
+			ReadableName: "manifest sync in replica repos",
 			CounterOpts: prometheus.CounterOpts{
 				Name: "keppel_manifest_syncs",
 				Help: "Counter for manifest syncs in replica repos.",
@@ -164,11 +164,11 @@ func (j *Janitor) SyncManifestsJob(registerer prometheus.Registerer) jobloop.Job
 			err = j.db.SelectOne(&repo, syncManifestRepoSelectQuery, j.timeNow())
 			return repo, err
 		},
-		ProcessTask: j.processSyncManifests,
+		ProcessTask: j.syncManifestsInReplicaRepo,
 	}).Setup(registerer)
 }
 
-func (j *Janitor) processSyncManifests(_ context.Context, repo keppel.Repository, _ prometheus.Labels) error {
+func (j *Janitor) syncManifestsInReplicaRepo(_ context.Context, repo keppel.Repository, _ prometheus.Labels) error {
 	//find corresponding account
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {

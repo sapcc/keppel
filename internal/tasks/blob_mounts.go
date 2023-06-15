@@ -66,7 +66,7 @@ var blobMountSweepDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE repos SET next_blob_mount_sweep_at = $2 WHERE id = $1
 `)
 
-// SweepBlobMountsInNextRepo finds the next repo where blob mounts need to be
+// BlobMountSweepJob is a job. Each task finds one repo where blob mounts need to be
 // garbage-collected, and performs the GC. This entails a marking of all blob
 // mounts that are not used by any manifest, and a sweeping of all blob mounts
 // that were marked in the previous pass and which are still not used by any
@@ -76,7 +76,7 @@ var blobMountSweepDoneQuery = sqlext.SimplifyWhitespace(`
 // that were just created, but where the manifest has not yet been pushed.
 //
 // Blob mounts are sweeped in each repo at most once per hour.
-func (j *Janitor) SweepBlobMountsJob(registerer prometheus.Registerer) jobloop.Job { //nolint:dupl // false positive
+func (j *Janitor) BlobMountSweepJob(registerer prometheus.Registerer) jobloop.Job { //nolint:dupl // false positive
 	return (&jobloop.ProducerConsumerJob[keppel.Repository]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "garbage collect blob mounts in repos",
@@ -89,11 +89,11 @@ func (j *Janitor) SweepBlobMountsJob(registerer prometheus.Registerer) jobloop.J
 			err = j.db.SelectOne(&repo, blobMountSweepSearchQuery, j.timeNow())
 			return repo, err
 		},
-		ProcessTask: j.processSweepBlobMounts,
+		ProcessTask: j.sweepBlobMountsInRepo,
 	}).Setup(registerer)
 }
 
-func (j *Janitor) processSweepBlobMounts(_ context.Context, repo keppel.Repository, _ prometheus.Labels) error {
+func (j *Janitor) sweepBlobMountsInRepo(_ context.Context, repo keppel.Repository, _ prometheus.Labels) error {
 	//allow next pass in 1 hour to delete the newly marked blob mounts, but use a
 	//slighly earlier cut-off time to account for the marking taking some time
 	canBeDeletedAt := j.timeNow().Add(30 * time.Minute)

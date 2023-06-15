@@ -32,7 +32,7 @@ func TestSweepBlobMounts(t *testing.T) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
 
-	sweepBlobMountsJob := j.SweepBlobMountsJob(s.Registry)
+	sweepBlobMountsJob := j.BlobMountSweepJob(s.Registry)
 
 	//setup an image manifest with some layers, so that we have some blob mounts
 	//that shall not be sweeped
@@ -64,7 +64,7 @@ func TestSweepBlobMounts(t *testing.T) {
 
 	//save one of those blob mounts from deletion by creating a manifest-blob
 	//reference for it (this reference is actually bogus and would be removed by
-	//ValidateNextManifest, but we're not testing that here)
+	//the ManifestValidationJob, but we're not testing that here)
 	mustExec(t, s.DB,
 		`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
 		dbBogusBlob2.ID, image.Manifest.Digest.String(),
