@@ -22,7 +22,7 @@ require (
 	github.com/prometheus/client_golang v1.15.1
 	github.com/redis/go-redis/v9 v9.0.5
 	github.com/rs/cors v1.9.0
-	github.com/sapcc/go-api-declarations v1.5.1
+	github.com/sapcc/go-api-declarations v1.6.0
 	github.com/sapcc/go-bits v0.0.0-20230614140115-83eb3a701632
 	github.com/spf13/cobra v1.7.0
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
