@@ -19,7 +19,7 @@ require (
 	github.com/minio/sha256-simd v1.0.1
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc3
-	github.com/prometheus/client_golang v1.15.1
+	github.com/prometheus/client_golang v1.16.0
 	github.com/redis/go-redis/v9 v9.0.5
 	github.com/rs/cors v1.9.0
 	github.com/sapcc/go-api-declarations v1.6.0
@@ -53,7 +53,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/prometheus/client_model v0.4.0 // indirect
 	github.com/prometheus/common v0.44.0 // indirect
-	github.com/prometheus/procfs v0.9.0 // indirect
+	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/rabbitmq/amqp091-go v1.8.1 // indirect
 	github.com/samber/lo v1.38.1 // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
