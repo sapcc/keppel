@@ -55,7 +55,7 @@ func TestGCUntaggedImages(t *testing.T) {
 	images[0].MustUpload(t, s, fooRepoRef, "first")
 	images[1].MustUpload(t, s, fooRepoRef, "")
 
-	garbageJob := j.GarbageCollectManifestsJob(s.Registry)
+	garbageJob := j.ManifestGarbageCollectionJob(s.Registry)
 
 	//GC should not do anything right now because newly-pushed images are
 	//protected (to avoid deleting images that a client is about to tag)
@@ -207,7 +207,7 @@ func TestGCMatchOnTag(t *testing.T) {
 	)
 	tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
 
-	garbageJob := j.GarbageCollectManifestsJob(s.Registry)
+	garbageJob := j.ManifestGarbageCollectionJob(s.Registry)
 
 	//protectingGCPolicyJSON1 protects images[1], and so forth, so only images[0]
 	//should end up getting deleted (NOTE: in the DB diff, the manifests are not
@@ -301,7 +301,7 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 		)
 		tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
 
-		garbageJob := j.GarbageCollectManifestsJob(s.Registry)
+		garbageJob := j.ManifestGarbageCollectionJob(s.Registry)
 
 		//...so only images[3] gets garbage-collected (NOTE: in the DB diff, the
 		//manifests are not in order because easypg orders them by primary key, i.e.
@@ -365,7 +365,7 @@ func TestGCProtectComesTooLate(t *testing.T) {
 	)
 	tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
 
-	garbageJob := j.GarbageCollectManifestsJob(s.Registry)
+	garbageJob := j.ManifestGarbageCollectionJob(s.Registry)
 
 	//therefore, images[1] gets deleted
 	expectSuccess(t, garbageJob.ProcessOne(s.Ctx))

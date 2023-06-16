@@ -43,14 +43,14 @@ var accountAnnouncementDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE accounts SET next_federation_announcement_at = $2 WHERE name = $1
 `)
 
-// AnnounceNextAccountToFederation finds the next account that has not been
+// AccountFederationAnnouncementJob is a job. Each task finds an account that has not been
 // announced to the FederationDriver in more than an hour, and announces it. If
 // no accounts need to be announced, sql.ErrNoRows is returned to instruct the
 // caller to slow down.
-func (j *Janitor) AnnounceAccountToFederationJob(registerer prometheus.Registerer) jobloop.Job { //nolint: dupl // interface implementation of different things
+func (j *Janitor) AccountFederationAnnouncementJob(registerer prometheus.Registerer) jobloop.Job { //nolint: dupl // interface implementation of different things
 	return (&jobloop.ProducerConsumerJob[keppel.Account]{
 		Metadata: jobloop.JobMetadata{
-			ReadableName: "announce accounts to federation",
+			ReadableName: "account federation announcement",
 			CounterOpts: prometheus.CounterOpts{
 				Name: "keppel_account_federation_announcements",
 				Help: "Counter for announcements of existing accounts to the federation driver.",
@@ -60,11 +60,11 @@ func (j *Janitor) AnnounceAccountToFederationJob(registerer prometheus.Registere
 			err = j.db.SelectOne(&account, accountAnnouncementSearchQuery, j.timeNow())
 			return account, err
 		},
-		ProcessTask: j.processFederationAnnouncement,
+		ProcessTask: j.announceAccountToFederation,
 	}).Setup(registerer)
 }
 
-func (j *Janitor) processFederationAnnouncement(ctx context.Context, account keppel.Account, labels prometheus.Labels) error {
+func (j *Janitor) announceAccountToFederation(ctx context.Context, account keppel.Account, labels prometheus.Labels) error {
 	err := j.fd.RecordExistingAccount(ctx, account, j.timeNow())
 	if err != nil {
 		//since the announcement is not critical for day-to-day operation, we

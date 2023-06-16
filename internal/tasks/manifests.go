@@ -63,41 +63,32 @@ var outdatedManifestSearchQuery = sqlext.SimplifyWhitespace(`
 //important because multi-arch images take into account the size_bytes
 //attribute of their constituent images.
 
-// ValidateNextManifest validates manifests that have not been validated for more
-// than 6 hours. At most one manifest is validated per call. If no manifest
-// needs to be validated, sql.ErrNoRows is returned.
-func (j *Janitor) ValidateNextManifest() (returnErr error) {
-	var manifest keppel.Manifest
+// ManifestValidationJob is a job. Each task validates a manifest that has not been validated for more
+// than 24 hours.
+func (j *Janitor) ManifestValidationJob(registerer prometheus.Registerer) jobloop.Job {
+	return (&jobloop.ProducerConsumerJob[keppel.Manifest]{
+		Metadata: jobloop.JobMetadata{
+			ReadableName: "manifest validation",
+			CounterOpts: prometheus.CounterOpts{
+				Name: "keppel_manifest_validations",
+				Help: "Counter for manifest validations.",
+			},
+		},
+		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (manifest keppel.Manifest, err error) {
+			//find manifest: validate once every 24 hours, but recheck after 10 minutes if validation failed
+			maxSuccessfulValidatedAt := j.timeNow().Add(-24 * time.Hour)
+			maxFailedValidatedAt := j.timeNow().Add(-10 * time.Minute)
+			err = j.db.SelectOne(&manifest, outdatedManifestSearchQuery, maxSuccessfulValidatedAt, maxFailedValidatedAt)
+			return manifest, err
+		},
+		ProcessTask: j.validateManifest,
+	}).Setup(registerer)
+}
 
-	defer func() {
-		if returnErr == nil {
-			validateManifestSuccessCounter.Inc()
-		} else if returnErr != sql.ErrNoRows {
-			validateManifestFailedCounter.Inc()
-			if manifest.Digest == "" || manifest.RepositoryID == 0 {
-				returnErr = fmt.Errorf("while validating a manifest: %w", returnErr)
-			} else {
-				returnErr = fmt.Errorf("while validating manifest %s in repo %d: %w", manifest.Digest, manifest.RepositoryID, returnErr)
-			}
-		}
-	}()
-
-	//find manifest: validate once every 24 hours, but recheck after 10 minutes if
-	//validation failed
-	maxSuccessfulValidatedAt := j.timeNow().Add(-24 * time.Hour)
-	maxFailedValidatedAt := j.timeNow().Add(-10 * time.Minute)
-	err := j.db.SelectOne(&manifest, outdatedManifestSearchQuery, maxSuccessfulValidatedAt, maxFailedValidatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			logg.Debug("no manifests to validate - slowing down...")
-			return sql.ErrNoRows
-		}
-		return err
-	}
-
+func (j *Janitor) validateManifest(_ context.Context, manifest keppel.Manifest, _ prometheus.Labels) error {
 	//find corresponding account and repo
 	var repo keppel.Repository
-	err = j.db.SelectOne(&repo, `SELECT * FROM repos WHERE id = $1`, manifest.RepositoryID)
+	err := j.db.SelectOne(&repo, `SELECT * FROM repos WHERE id = $1`, manifest.RepositoryID)
 	if err != nil {
 		return fmt.Errorf("cannot find repo %d for manifest %s: %w", manifest.RepositoryID, manifest.Digest, err)
 	}
@@ -108,19 +99,9 @@ func (j *Janitor) ValidateNextManifest() (returnErr error) {
 
 	//perform validation
 	err = j.processor().ValidateExistingManifest(*account, repo, &manifest, j.timeNow())
-	if err == nil {
-		//update `validated_at` and reset error message
-		_, err := j.db.Exec(`
-			UPDATE manifests SET validated_at = $1, validation_error_message = ''
-				WHERE repo_id = $2 AND digest = $3`,
-			j.timeNow(), repo.ID, manifest.Digest,
-		)
-		if err != nil {
-			return err
-		}
-	} else {
+	if err != nil {
 		//attempt to log the error message, and also update the `validated_at`
-		//timestamp to ensure that the ValidateNextManifest() loop does not get
+		//timestamp to ensure that the ManifestValidationJob does not get
 		//stuck on this one
 		_, updateErr := j.db.Exec(`
 			UPDATE manifests SET validated_at = $1, validation_error_message = $2
@@ -130,10 +111,16 @@ func (j *Janitor) ValidateNextManifest() (returnErr error) {
 		if updateErr != nil {
 			err = fmt.Errorf("%w (additional error encountered while recording validation error: %w)", err, updateErr)
 		}
-		return err
+		return fmt.Errorf("while validating manifest %s in repo %d: %w", manifest.Digest, manifest.RepositoryID, err)
 	}
 
-	return nil
+	//update `validated_at` and reset error message
+	_, err = j.db.Exec(`
+			UPDATE manifests SET validated_at = $1, validation_error_message = ''
+				WHERE repo_id = $2 AND digest = $3`,
+		j.timeNow(), repo.ID, manifest.Digest,
+	)
+	return err
 }
 
 var syncManifestRepoSelectQuery = sqlext.SimplifyWhitespace(`
@@ -160,38 +147,28 @@ var syncManifestCleanupEmptyQuery = sqlext.SimplifyWhitespace(`
 	DELETE FROM repos r WHERE id = $1 AND (SELECT COUNT(*) FROM manifests WHERE repo_id = r.id) = 0
 `)
 
-// SyncManifestsInNextRepo finds the next repository in a replica account where
+// ManifestSyncJob is a job. Each task finds a repository in a replica account where
 // manifests have not been synced for more than an hour, and syncs its manifests.
 // Syncing involves checking with the primary account which manifests have been
 // deleted there, and replicating the deletions on our side.
-//
-// If no repo needs syncing, sql.ErrNoRows is returned.
-func (j *Janitor) SyncManifestsInNextRepo() (returnErr error) {
-	var repo keppel.Repository
+func (j *Janitor) ManifestSyncJob(registerer prometheus.Registerer) jobloop.Job { //nolint:dupl // false positive
+	return (&jobloop.ProducerConsumerJob[keppel.Repository]{
+		Metadata: jobloop.JobMetadata{
+			ReadableName: "manifest sync in replica repos",
+			CounterOpts: prometheus.CounterOpts{
+				Name: "keppel_manifest_syncs",
+				Help: "Counter for manifest syncs in replica repos.",
+			},
+		},
+		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (repo keppel.Repository, err error) {
+			err = j.db.SelectOne(&repo, syncManifestRepoSelectQuery, j.timeNow())
+			return repo, err
+		},
+		ProcessTask: j.syncManifestsInReplicaRepo,
+	}).Setup(registerer)
+}
 
-	defer func() {
-		if returnErr == nil {
-			syncManifestsSuccessCounter.Inc()
-		} else if returnErr != sql.ErrNoRows {
-			syncManifestsFailedCounter.Inc()
-			repoFullName := repo.FullName()
-			if repoFullName == "" {
-				repoFullName = "unknown"
-			}
-			returnErr = fmt.Errorf("while syncing manifests in the replica repo %s: %w", repoFullName, returnErr)
-		}
-	}()
-
-	//find repository to sync
-	err := j.db.SelectOne(&repo, syncManifestRepoSelectQuery, j.timeNow())
-	if err != nil {
-		if err == sql.ErrNoRows {
-			logg.Debug("no accounts to sync manifests in - slowing down...")
-			return sql.ErrNoRows
-		}
-		return err
-	}
-
+func (j *Janitor) syncManifestsInReplicaRepo(_ context.Context, repo keppel.Repository, _ prometheus.Labels) error {
 	//find corresponding account
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {

@@ -61,9 +61,9 @@ type Account struct {
 	//SecurityScanPoliciesJSON contains a JSON string of []keppel.SecurityScanPolicy, or the empty string.
 	SecurityScanPoliciesJSON string `db:"security_scan_policies_json"`
 
-	NextBlobSweepedAt            *time.Time `db:"next_blob_sweep_at"`              //see tasks.SweepBlobsInNextAccount
-	NextStorageSweepedAt         *time.Time `db:"next_storage_sweep_at"`           //see tasks.SweepStorageInNextAccount
-	NextFederationAnnouncementAt *time.Time `db:"next_federation_announcement_at"` //see tasks.AnnounceNextAccountToFederation
+	NextBlobSweepedAt            *time.Time `db:"next_blob_sweep_at"`              //see tasks.BlobSweepJob
+	NextStorageSweepedAt         *time.Time `db:"next_storage_sweep_at"`           //see tasks.StorageSweepJob
+	NextFederationAnnouncementAt *time.Time `db:"next_federation_announcement_at"` //see tasks.AnnounceAccountToFederationJob
 }
 
 // SwiftContainerName returns the name of the Swift container backing this
@@ -148,9 +148,9 @@ type Blob struct {
 	StorageID              string        `db:"storage_id"`
 	MediaType              string        `db:"media_type"`
 	PushedAt               time.Time     `db:"pushed_at"`
-	ValidatedAt            time.Time     `db:"validated_at"` //see tasks.ValidateNextBlob
+	ValidatedAt            time.Time     `db:"validated_at"` //see tasks.BlobValidationJob
 	ValidationErrorMessage string        `db:"validation_error_message"`
-	CanBeDeletedAt         *time.Time    `db:"can_be_deleted_at"` //see tasks.SweepBlobsInNextAccount
+	CanBeDeletedAt         *time.Time    `db:"can_be_deleted_at"` //see tasks.BlobSweepJob
 	BlocksVulnScanning     *bool         `db:"blocks_vuln_scanning"`
 }
 
@@ -249,9 +249,9 @@ type Repository struct {
 	ID                      int64      `db:"id"`
 	AccountName             string     `db:"account_name"`
 	Name                    string     `db:"name"`
-	NextBlobMountSweepAt    *time.Time `db:"next_blob_mount_sweep_at"` //see tasks.SweepBlobMountsInNextRepo
-	NextManifestSyncAt      *time.Time `db:"next_manifest_sync_at"`    //see tasks.SyncManifestsInNextRepo (only set for replica accounts)
-	NextGarbageCollectionAt *time.Time `db:"next_gc_at"`               //see tasks.GarbageCollectManifestsInNextRepo
+	NextBlobMountSweepAt    *time.Time `db:"next_blob_mount_sweep_at"` //see tasks.BlobMountSweepJob
+	NextManifestSyncAt      *time.Time `db:"next_manifest_sync_at"`    //see tasks.ManifestSyncJob (only set for replica accounts)
+	NextGarbageCollectionAt *time.Time `db:"next_gc_at"`               //see tasks.GarbageCollectManifestsJob
 }
 
 // FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a
@@ -299,7 +299,7 @@ type Manifest struct {
 	MediaType              string        `db:"media_type"`
 	SizeBytes              uint64        `db:"size_bytes"`
 	PushedAt               time.Time     `db:"pushed_at"`
-	ValidatedAt            time.Time     `db:"validated_at"` //see tasks.ValidateNextManifest
+	ValidatedAt            time.Time     `db:"validated_at"` //see tasks.ManifestValidationJob
 	ValidationErrorMessage string        `db:"validation_error_message"`
 	LastPulledAt           *time.Time    `db:"last_pulled_at"`
 	//LabelsJSON contains a JSON string of a map[string]string, or an empty string.
@@ -439,7 +439,7 @@ const (
 ////////////////////////////////////////////////////////////////////////////////
 
 // UnknownBlob contains a record from the `unknown_blobs` table.
-// This is only used by tasks.SweepStorageInNextAccount().
+// This is only used by tasks.StorageSweepJob().
 type UnknownBlob struct {
 	AccountName    string    `db:"account_name"`
 	StorageID      string    `db:"storage_id"`
@@ -447,7 +447,7 @@ type UnknownBlob struct {
 }
 
 // UnknownManifest contains a record from the `unknown_manifests` table.
-// This is only used by tasks.SweepStorageInNextAccount().
+// This is only used by tasks.StorageSweepJob().
 //
 // NOTE: We don't use repository IDs here because unknown manifests may exist in
 // repositories that are also not known to the database.
@@ -490,7 +490,7 @@ type TrivySecurityInfo struct {
 	Digest              digest.Digest             `db:"digest"`
 	VulnerabilityStatus clair.VulnerabilityStatus `db:"vuln_status"`
 	Message             string                    `db:"message"`
-	NextCheckAt         time.Time                 `db:"next_check_at"` //see tasks.CheckVulnerabilitiesForNextManifest
+	NextCheckAt         time.Time                 `db:"next_check_at"` //see tasks.CheckTrivySecurityStatusJob
 	CheckedAt           *time.Time                `db:"checked_at"`
 	CheckDurationSecs   *float64                  `db:"check_duration_secs"`
 }

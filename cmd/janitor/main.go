@@ -20,7 +20,6 @@ package janitorcmd
 
 import (
 	"context"
-	"database/sql"
 	"net/http"
 	"time"
 
@@ -68,15 +67,15 @@ func run(cmd *cobra.Command, args []string) {
 
 	//start task loops
 	janitor := tasks.NewJanitor(cfg, fd, sd, icd, db, auditor)
-	go janitor.AnnounceAccountToFederationJob(nil).Run(ctx)
-	go janitor.DeleteAbandonedUploadJob(nil).Run(ctx)
-	go janitor.GarbageCollectManifestsJob(nil).Run(ctx)
-	go jobLoop(janitor.SweepBlobMountsInNextRepo)
-	go jobLoop(janitor.SweepBlobsInNextAccount)
-	go jobLoop(janitor.SweepStorageInNextAccount)
-	go jobLoop(janitor.SyncManifestsInNextRepo)
-	go jobLoop(janitor.ValidateNextBlob)
-	go jobLoop(janitor.ValidateNextManifest)
+	go janitor.AccountFederationAnnouncementJob(nil).Run(ctx)
+	go janitor.AbandonedUploadCleanupJob(nil).Run(ctx)
+	go janitor.ManifestGarbageCollectionJob(nil).Run(ctx)
+	go janitor.BlobMountSweepJob(nil).Run(ctx)
+	go janitor.BlobSweepJob(nil).Run(ctx)
+	go janitor.StorageSweepJob(nil).Run(ctx)
+	go janitor.ManifestSyncJob(nil).Run(ctx)
+	go janitor.BlobValidationJob(nil).Run(ctx)
+	go janitor.ManifestValidationJob(nil).Run(ctx)
 	if !osext.GetenvBool("KEPPEL_CLAIR_IGNORE_STALE_INDEX_REPORTS") {
 		go cronJobLoop(1*time.Minute, janitor.CheckClairManifestState)
 	}
@@ -94,26 +93,6 @@ func run(cmd *cobra.Command, args []string) {
 	http.Handle("/metrics", promhttp.Handler())
 	listenAddress := osext.GetenvOrDefault("KEPPEL_JANITOR_LISTEN_ADDRESS", ":8080")
 	must.Succeed(httpext.ListenAndServeContext(ctx, listenAddress, nil))
-}
-
-// Execute a task repeatedly, but slow down when sql.ErrNoRows is returned by it.
-// (Tasks use this error value to indicate that nothing needs scraping, so we
-// can back off a bit to avoid useless database load.)
-func jobLoop(task func() error) {
-	for {
-		err := task()
-		switch err {
-		case nil:
-			//nothing to do here
-		case sql.ErrNoRows:
-			//nothing to do right now - slow down a bit to avoid useless DB polling
-			time.Sleep(10 * time.Second)
-		default:
-			logg.Error(err.Error())
-			//slow down a bit after an error to avoid hammering the DB during outages
-			time.Sleep(2 * time.Second)
-		}
-	}
 }
 
 func cronJobLoop(interval time.Duration, task func() error) {
