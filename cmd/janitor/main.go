@@ -28,6 +28,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httpext"
+	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
@@ -80,11 +81,11 @@ func run(cmd *cobra.Command, args []string) {
 		go cronJobLoop(1*time.Minute, janitor.CheckClairManifestState)
 	}
 	if cfg.ClairClient != nil {
-		go tasks.GoQueuedJobLoop(ctx, 3, janitor.CheckVulnerabilitiesForNextManifest())
+		go tasks.GoQueuedJobLoop(ctx, 1, janitor.CheckVulnerabilitiesForNextManifest())
 	}
 	if cfg.Trivy != nil {
 		// TODO: scale this up into multiple go routines after we get some performance numbers
-		go janitor.CheckTrivySecurityStatusJob(nil).Run(ctx)
+		go janitor.CheckTrivySecurityStatusJob(nil).Run(ctx, jobloop.NumGoroutines(4))
 	}
 
 	//start HTTP server for Prometheus metrics and health check
