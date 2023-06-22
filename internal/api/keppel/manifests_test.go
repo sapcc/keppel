@@ -137,7 +137,7 @@ func TestManifestsAPI(t *testing.T) {
 				mustInsert(t, s.DB, &keppel.VulnerabilityInfo{
 					RepositoryID: int64(repoID),
 					Digest:       dummyDigest,
-					Status:       deterministicDummyVulnStatus(idx),
+					Status:       clair.PendingVulnerabilityStatus, //this table should not be used anymore, so it does not matter what we put in
 					NextCheckAt:  time.Unix(0, 0),
 				})
 				mustInsert(t, s.DB, &keppel.TrivySecurityInfo{
@@ -441,6 +441,14 @@ func TestManifestsAPI(t *testing.T) {
 		}
 
 		//configure our ClairDouble to present a vulnerability report for our test manifest
+		//(also we need a vuln_info.status other than "Pending" to get the vulnerability_report endpoint going)
+		_, err = s.DB.Exec(
+			`UPDATE vuln_info SET status = $1 WHERE digest = $2`,
+			deterministicDummyVulnStatus(12), deterministicDummyDigest(12),
+		)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
 		s.ClairDouble.WasIndexSubmitted[deterministicDummyDigest(12)] = true
 		s.ClairDouble.ReportFixtures[deterministicDummyDigest(12)] = "fixtures/clair-report-vulnerable.json"
 		assert.HTTPRequest{

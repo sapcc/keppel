@@ -71,13 +71,6 @@ var manifestGetQuery = sqlext.SimplifyWhitespace(`
 	 LIMIT $LIMIT
 `)
 
-var vulnInfoGetQuery = sqlext.SimplifyWhitespace(`
-	SELECT * FROM vuln_info
-	WHERE repo_id = $1 AND $CONDITION
-	ORDER BY digest ASC
-	LIMIT $LIMIT
-`)
-
 var securityInfoGetQuery = sqlext.SimplifyWhitespace(`
 	SELECT * FROM trivy_security_info
 	WHERE repo_id = $1 AND $CONDITION
@@ -123,17 +116,6 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vulnInfoQuery, vulnBindValues, _, err := paginatedQuery{
-		SQL:         vulnInfoGetQuery,
-		MarkerField: "digest",
-		Options:     r.URL.Query(),
-		BindValues:  []interface{}{repo.ID},
-	}.Prepare()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
 	securityInfoQuery, securityBindValues, _, err := paginatedQuery{
 		SQL:         securityInfoGetQuery,
 		MarkerField: "digest",
@@ -145,21 +127,10 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var dbVulnInfos []keppel.VulnerabilityInfo
-	_, err = a.db.Select(&dbVulnInfos, vulnInfoQuery, vulnBindValues...)
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-
 	var dbSecurityInfos []keppel.TrivySecurityInfo
 	_, err = a.db.Select(&dbSecurityInfos, securityInfoQuery, securityBindValues...)
 	if respondwith.ErrorText(w, err) {
 		return
-	}
-
-	vulnInfos := make(map[digest.Digest]keppel.VulnerabilityInfo, len(dbVulnInfos))
-	for _, vulnInfo := range dbVulnInfos {
-		vulnInfos[vulnInfo.Digest] = vulnInfo
 	}
 
 	securityInfos := make(map[digest.Digest]keppel.TrivySecurityInfo, len(dbSecurityInfos))
@@ -178,14 +149,9 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var (
-			vulnerability keppel.VulnerabilityInfo
-			securityInfo  keppel.TrivySecurityInfo
-			ok            bool
+			securityInfo keppel.TrivySecurityInfo
+			ok           bool
 		)
-		if vulnerability, ok = vulnInfos[dbManifest.Digest]; !ok {
-			http.Error(w, fmt.Sprintf("missing vulnerability report for digest %s", dbManifest.Digest), http.StatusInternalServerError)
-			return
-		}
 		if securityInfo, ok = securityInfos[dbManifest.Digest]; !ok {
 			http.Error(w, fmt.Sprintf("missing trivy vulnerability report for digest %s", dbManifest.Digest), http.StatusInternalServerError)
 			return
@@ -199,9 +165,9 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 			LastPulledAt:                  keppel.MaybeTimeToUnix(dbManifest.LastPulledAt),
 			LabelsJSON:                    json.RawMessage(dbManifest.LabelsJSON),
 			GCStatusJSON:                  json.RawMessage(dbManifest.GCStatusJSON),
-			VulnerabilityStatus:           vulnerability.Status,
+			VulnerabilityStatus:           securityInfo.VulnerabilityStatus,
 			TrivyVulnerabilityStatus:      securityInfo.VulnerabilityStatus,
-			VulnerabilityScanErrorMessage: vulnerability.Message,
+			VulnerabilityScanErrorMessage: securityInfo.Message,
 			TrivyScanErrorMessage:         securityInfo.Message,
 			MinLayerCreatedAt:             keppel.MaybeTimeToUnix(dbManifest.MinLayerCreatedAt),
 			MaxLayerCreatedAt:             keppel.MaybeTimeToUnix(dbManifest.MaxLayerCreatedAt),

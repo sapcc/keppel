@@ -301,10 +301,6 @@ func TestImageManifestLifecycle(t *testing.T) {
 			if err != nil {
 				t.Fatal(err.Error())
 			}
-			_, err = s.DB.Exec(`UPDATE vuln_info SET status = $1 WHERE digest = $2`, clair.CleanSeverity, image.Manifest.Digest.String())
-			if err != nil {
-				t.Fatal(err.Error())
-			}
 			_, err = s.DB.Exec(`UPDATE trivy_security_info SET vuln_status = $1 WHERE digest = $2`, clair.CleanSeverity, image.Manifest.Digest.String())
 			if err != nil {
 				t.Fatal(err.Error())
