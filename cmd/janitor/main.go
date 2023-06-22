@@ -81,7 +81,7 @@ func run(cmd *cobra.Command, args []string) {
 		go cronJobLoop(1*time.Minute, janitor.CheckClairManifestState)
 	}
 	if cfg.ClairClient != nil {
-		go tasks.GoQueuedJobLoop(ctx, 1, janitor.CheckVulnerabilitiesForNextManifest())
+		go tasks.GoQueuedJobLoop(ctx, 2, janitor.CheckVulnerabilitiesForNextManifest())
 	}
 	if cfg.Trivy != nil {
 		// TODO: scale this up into multiple go routines after we get some performance numbers
