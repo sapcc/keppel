@@ -886,7 +886,8 @@ var securityCheckSelectQuery = sqlext.SimplifyWhitespace(`
 func (j *Janitor) CheckTrivySecurityStatusJob(registerer prometheus.Registerer) jobloop.Job {
 	return (&jobloop.TxGuardedJob[*gorp.Transaction, keppel.TrivySecurityInfo]{
 		Metadata: jobloop.JobMetadata{
-			ReadableName: "check trivy security status",
+			ReadableName:    "check trivy security status",
+			ConcurrencySafe: true,
 			CounterOpts: prometheus.CounterOpts{
 				Name: "keppel_trivy_security_status_checks",
 				Help: "Counter for Trivy security checks runs in manifests.",
