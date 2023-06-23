@@ -12,7 +12,7 @@ require (
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/golang-jwt/jwt/v5 v5.0.0
-	github.com/gophercloud/gophercloud v1.4.0
+	github.com/gophercloud/gophercloud v1.5.0
 	github.com/gophercloud/utils v0.0.0-20230523080330-de873b9cf00d
 	github.com/gorilla/mux v1.8.0
 	github.com/majewsky/schwift v1.2.0
@@ -23,7 +23,7 @@ require (
 	github.com/redis/go-redis/v9 v9.0.5
 	github.com/rs/cors v1.9.0
 	github.com/sapcc/go-api-declarations v1.6.0
-	github.com/sapcc/go-bits v0.0.0-20230614140115-83eb3a701632
+	github.com/sapcc/go-bits v0.0.0-20230622213651-f0dc22861208
 	github.com/spf13/cobra v1.7.0
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.5.2
@@ -44,7 +44,7 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
-	github.com/hashicorp/golang-lru/v2 v2.0.3 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.4 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
