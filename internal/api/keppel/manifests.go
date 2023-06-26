@@ -49,9 +49,7 @@ type Manifest struct {
 	LabelsJSON                    json.RawMessage           `json:"labels,omitempty"`
 	GCStatusJSON                  json.RawMessage           `json:"gc_status,omitempty"`
 	VulnerabilityStatus           clair.VulnerabilityStatus `json:"vulnerability_status"`
-	TrivyVulnerabilityStatus      clair.VulnerabilityStatus `json:"trivy_vulnerability_status"`
 	VulnerabilityScanErrorMessage string                    `json:"vulnerability_scan_error,omitempty"`
-	TrivyScanErrorMessage         string                    `json:"trivy_scan_error,omitempty"`
 	MinLayerCreatedAt             *int64                    `json:"min_layer_created_at"`
 	MaxLayerCreatedAt             *int64                    `json:"max_layer_created_at"`
 }
@@ -166,9 +164,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 			LabelsJSON:                    json.RawMessage(dbManifest.LabelsJSON),
 			GCStatusJSON:                  json.RawMessage(dbManifest.GCStatusJSON),
 			VulnerabilityStatus:           securityInfo.VulnerabilityStatus,
-			TrivyVulnerabilityStatus:      securityInfo.VulnerabilityStatus,
 			VulnerabilityScanErrorMessage: securityInfo.Message,
-			TrivyScanErrorMessage:         securityInfo.Message,
 			MinLayerCreatedAt:             keppel.MaybeTimeToUnix(dbManifest.MinLayerCreatedAt),
 			MaxLayerCreatedAt:             keppel.MaybeTimeToUnix(dbManifest.MaxLayerCreatedAt),
 		})

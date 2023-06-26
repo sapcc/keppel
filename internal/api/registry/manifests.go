@@ -176,7 +176,6 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Docker-Content-Digest", dbManifest.Digest.String())
 	if securityInfo != nil {
 		w.Header().Set("X-Keppel-Vulnerability-Status", string(securityInfo.VulnerabilityStatus))
-		w.Header().Set("X-Keppel-Trivy-Vulnerability-Status", string(securityInfo.VulnerabilityStatus))
 	}
 	if dbManifest.MinLayerCreatedAt != nil {
 		w.Header().Set("X-Keppel-Min-Layer-Created-At", timeToString(*dbManifest.MinLayerCreatedAt))

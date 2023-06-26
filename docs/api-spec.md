@@ -480,8 +480,7 @@ response body like this:
       "gc_status": {
         "protected_by_recent_upload": true
       },
-      "vulnerability_status": "Clean",
-      "trivy_vulnerability_status": "Low"
+      "vulnerability_status": "Clean"
     },
     {
       "digest": "sha256:5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03",
@@ -489,8 +488,7 @@ response body like this:
       "size_bytes": 2791084,
       "pushed_at": 1575467980,
       "last_pulled_at": null,
-      "vulnerability_status": "High",
-      "trivy_vulnerability_status": "Critical"
+      "vulnerability_status": "High"
     }
   ]
 }
@@ -517,8 +515,6 @@ The following fields may be returned:
 | `manifests[].gc_status.relevant_policies` | array of objects or omitted | If shown, this manifest was not protected from deletion during the last GC run, but no deleting policy matched either. The array will contain the definitions of all deleting policies that could apply to this manifest, in the same format as described above for `accounts[].gc_policies[]`. |
 | `manifests[].vulnerability_status` | string | Either `Clean` (no vulnerabilities have been found in this image), `Pending` (vulnerability scanning is not enabled on this server or is still in progress for this image or has failed for this image), `Error` (vulnerability scanning failed for this image or an image referenced in this manifest), or any of the following severity strings: `Unknown`, `Low`, `Medium`, `High`, `Critical`. The full vulnerability report can be retrieved with [a separate API call](#delete-keppelv1accountsnamerepositoriesname_manifestsdigesttrivy_report). |
 | `manifests[].vulnerability_scan_error` | string | Only shown if `vulnerability_status` is `Error` or `Unsupported`. Contains the error message from Trivy that explains why this image could not be scanned (for status `Error`) or an error message from Keppel that explains why this image was not submitted to Trivy (for status `Unsupported`). When `vulnerability_status` is `Error` or `Unsupported` because scanning failed for an image referenced in this manifest, the error message will be shown on the referenced manifest instead of on this manifest. |
-| `manifests[].trivy_vulnerability_status` | string | The same value as `vulnerability_status`. This field is deprecated and will be removed shortly. |
-| `manifests[].trivy_scan_error` | string | The same value as `vulnerability_scan_error`. This field is deprecated and will be removed shortly. |
 | `truncated` | boolean | Indicates whether [marker-based pagination](#marker-based-pagination) must be used to retrieve the rest of the result. |
 
 ## DELETE /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest
@@ -527,6 +523,8 @@ Deletes the specified manifest and all tags pointing to it. Returns 204 (No Cont
 The digest that identifies the manifest must be that manifest's canonical digest, otherwise 404 is returned.
 
 ## GET /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest/vulnerability\_report
+
+**Deprecated:** Will be removed in a few weeks (along with the entire Clair integration).
 
 Retrieves the vulnerability report for the specified manifest. If the manifest exists and a vulnerability report is available for it, returns 200 (OK) and a JSON response body containing the vulnerability report in the [format defined by Clair](https://quay.github.io/clair/reference/api.html#schemavulnerabilityreport).
 
