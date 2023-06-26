@@ -313,11 +313,10 @@ func TestImageManifestLifecycle(t *testing.T) {
 					Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
 					ExpectStatus: http.StatusOK,
 					ExpectHeader: map[string]string{
-						test.VersionHeaderKey:                 test.VersionHeaderValue,
-						"X-Keppel-Vulnerability-Status":       string(clair.CleanSeverity),
-						"X-Keppel-Trivy-Vulnerability-Status": string(clair.CleanSeverity),
-						"X-Keppel-Min-Layer-Created-At":       "23",
-						"X-Keppel-Max-Layer-Created-At":       "42",
+						test.VersionHeaderKey:           test.VersionHeaderValue,
+						"X-Keppel-Vulnerability-Status": string(clair.CleanSeverity),
+						"X-Keppel-Min-Layer-Created-At": "23",
+						"X-Keppel-Max-Layer-Created-At": "42",
 					},
 				}.Check(t, h)
 			}
