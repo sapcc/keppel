@@ -3,8 +3,8 @@ module github.com/sapcc/keppel
 go 1.20
 
 require (
-	github.com/alicebob/miniredis/v2 v2.30.3
-	github.com/aquasecurity/trivy v0.42.1
+	github.com/alicebob/miniredis/v2 v2.30.4
+	github.com/aquasecurity/trivy v0.43.0
 	github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/docker/distribution v2.8.2+incompatible
@@ -40,7 +40,7 @@ require (
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/golang-migrate/migrate/v4 v4.16.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/google/go-containerregistry v0.14.0 // indirect
+	github.com/google/go-containerregistry v0.15.2 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
