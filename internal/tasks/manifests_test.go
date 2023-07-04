@@ -28,7 +28,6 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
-	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/clair"
@@ -649,7 +648,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		s.Clock.StepBy(5 * time.Minute)
 		//once for each manifest
 		expectSuccess(t, ExecuteN(j.CheckVulnerabilitiesForNextManifest(), 3))
-		expectSuccess(t, jobloop.ProcessMany(trivyJob, s.Ctx, 5))
+		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
@@ -670,7 +669,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		s.Clock.StepBy(1 * time.Hour)
 		//once for each manifest
 		expectSuccess(t, ExecuteN(j.CheckVulnerabilitiesForNextManifest(), 3))
-		expectSuccess(t, jobloop.ProcessMany(trivyJob, s.Ctx, 4))
+		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
@@ -713,10 +712,11 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		s.ClairDouble.IndexReportFixtures[image.Manifest.Digest] = "fixtures/clair/report-error.json"
 		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef)] = true
 		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-		expectedError := fmt.Sprintf("could not process task for job \"check trivy security status\": cannot check manifest test1/foo@%s: trivy proxy did not return 200: 500 simulated error\n", image.Manifest.Digest)
+		expectedError := fmt.Sprintf("could not process task for job \"check trivy security status\": cannot check manifest test1/foo@%s: scan error 4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce", image.Manifest.Digest)
 		expectError(t, expectedError, trivyJob.ProcessOne(s.Ctx))
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		tr.DBChanges().AssertEqualf(`
+			UPDATE trivy_security_info SET vuln_status = 'Error', message = 'scan error 4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce', next_check_at = 5700 WHERE repo_id = 1 AND digest = '%[1]s';
 			UPDATE vuln_info SET next_check_at = %[2]d, checked_at = %[3]d, index_started_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
 		`, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix(), s.Clock.Now().Unix())
 		assert.DeepEqual(t, "delete counter", s.ClairDouble.IndexDeleteCounter, 1)
@@ -733,7 +733,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
-			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[2]d, checked_at = %[3]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[1]s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', message = '', next_check_at = %[2]d, checked_at = %[3]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[1]s';
 			UPDATE vuln_info SET status = '%[4]s', next_check_at = %[2]d, checked_at = %[3]d, index_finished_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
 		`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), clair.LowSeverity)
 		assert.DeepEqual(t, "delete counter", s.ClairDouble.IndexDeleteCounter, 1)

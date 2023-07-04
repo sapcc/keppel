@@ -22,9 +22,11 @@ import (
 	"compress/gzip"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/docker/distribution/manifest/schema2"
@@ -32,6 +34,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	imageSpecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
@@ -872,19 +875,24 @@ func (j *Janitor) setManifestAndParentsToPending(ctx context.Context, manifestDi
 	return err
 }
 
-var securityCheckSelectQuery = sqlext.SimplifyWhitespace(`
+const (
+	trivySecurityInfoBatchSize = 50
+	trivySecurityInfoThreads   = 10
+)
+
+var securityCheckSelectQuery = sqlext.SimplifyWhitespace(fmt.Sprintf(`
 	SELECT * FROM trivy_security_info
 	WHERE next_check_at <= $1
 	-- manifests without any check first, then sorted by schedule, then sorted by digest for deterministic behavior in unit test
 	ORDER BY next_check_at IS NULL DESC, next_check_at ASC, digest ASC
 	-- only one manifests at a time
-	LIMIT 1
+	LIMIT %d
 	-- prevent other job loops from working on the same asset concurrently
 	FOR UPDATE SKIP LOCKED
-`)
+`, trivySecurityInfoBatchSize))
 
 func (j *Janitor) CheckTrivySecurityStatusJob(registerer prometheus.Registerer) jobloop.Job {
-	return (&jobloop.TxGuardedJob[*gorp.Transaction, keppel.TrivySecurityInfo]{
+	return (&jobloop.TxGuardedJob[*gorp.Transaction, []keppel.TrivySecurityInfo]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName:    "check trivy security status",
 			ConcurrencySafe: true,
@@ -894,39 +902,92 @@ func (j *Janitor) CheckTrivySecurityStatusJob(registerer prometheus.Registerer) 
 			},
 		},
 		BeginTx: j.db.Begin,
-		DiscoverRow: func(_ context.Context, tx *gorp.Transaction, _ prometheus.Labels) (securityInfo keppel.TrivySecurityInfo, err error) {
-			err = tx.SelectOne(&securityInfo, securityCheckSelectQuery, j.timeNow())
-			return securityInfo, err
+		DiscoverRow: func(_ context.Context, tx *gorp.Transaction, _ prometheus.Labels) (securityInfos []keppel.TrivySecurityInfo, err error) {
+			_, err = tx.Select(&securityInfos, securityCheckSelectQuery, j.timeNow())
+
+			// jobloop expects to receive errNoRows instead of an empty result
+			if len(securityInfos) == 0 {
+				err = sql.ErrNoRows
+			}
+
+			return securityInfos, err
 		},
 		ProcessRow: j.processTrivySecurityInfo,
 	}).Setup(registerer)
 }
 
-func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *gorp.Transaction, securityInfo keppel.TrivySecurityInfo, labels prometheus.Labels) error {
-	//load corresponding repo, account and manifest
-	repo, err := keppel.FindRepositoryByID(tx, securityInfo.RepositoryID)
-	if err != nil {
-		return fmt.Errorf("cannot find repo for manifest %s: %w", securityInfo.Digest, err)
-	}
-	account, err := keppel.FindAccount(tx, repo.AccountName)
-	if err != nil {
-		return fmt.Errorf("cannot find account for repo %s: %w", repo.FullName(), err)
-	}
-	manifest, err := keppel.FindManifest(tx, *repo, securityInfo.Digest)
-	if err != nil {
-		return fmt.Errorf("cannot find manifest for repo %s and digest %s: %w", repo.FullName(), securityInfo.Digest, err)
+// processTrivySecurityInfo parallelises the CheckTrivySecurityStatusJob jobloop without requiring extra database connections.
+// It processes SecurityInfos in batches maximum the size of trivySecurityInfoBatchSize and runs the value of trivySecurityInfoThreads in parallel.
+func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *gorp.Transaction, securityInfos []keppel.TrivySecurityInfo, labels prometheus.Labels) error {
+	// prevent deadlocks by waiting for more securityInfos in range below
+	batchSize := trivySecurityInfoBatchSize
+	lenSecurityInfo := len(securityInfos)
+	if batchSize < lenSecurityInfo {
+		batchSize = lenSecurityInfo
 	}
 
-	err = j.doSecurityCheck(ctx, *account, *repo, *manifest, &securityInfo)
-	if err != nil {
-		return fmt.Errorf("cannot check manifest %s@%s: %w", repo.FullName(), securityInfo.Digest, err)
+	inputChan := make(chan keppel.TrivySecurityInfo, batchSize)
+	for _, securityInfo := range securityInfos {
+		inputChan <- securityInfo
 	}
-	_, err = tx.Update(&securityInfo)
-	if err != nil {
-		return err
+	close(inputChan)
+
+	threads := trivySecurityInfoThreads
+	// don't start more threads than we possible can saturate
+	if threads < lenSecurityInfo {
+		threads = lenSecurityInfo
 	}
 
-	return tx.Commit()
+	type chanReturnStruct struct {
+		securityInfo keppel.TrivySecurityInfo
+		err          error
+	}
+
+	// create a channel the size of the threads we are going to spawn to not deadlock when raning over it
+	returnChan := make(chan chanReturnStruct, threads)
+	// The WaitGroup keeps track of the opened go routines and makes sure the returnChan is closed when all started go routines exited.
+	var wg sync.WaitGroup
+
+	for i := 0; i < threads; i++ {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			// inputChan acts as a queue here and each go routine picks the next SecurityInfo task when it is done with the previous
+			for securityInfo := range inputChan {
+				err := j.doSecurityCheck(ctx, &securityInfo)
+				returnChan <- chanReturnStruct{
+					securityInfo: securityInfo,
+					err:          err,
+				}
+			}
+		}()
+	}
+
+	// make sure the below range over the returnChan is not blocking forever
+	go func() {
+		wg.Wait()
+		close(returnChan)
+	}()
+
+	var errs errext.ErrorSet
+	for returned := range returnChan {
+		if returned.err != nil {
+			errs.Add(returned.err)
+		}
+
+		_, err := tx.Update(&returned.securityInfo)
+		errs.Add(err)
+	}
+
+	errs.Add(tx.Commit())
+
+	if !errs.IsEmpty() {
+		return errors.New(errs.Join(", "))
+	}
+
+	return nil
 }
 
 var securityInfoCheckSubmanifestInfoQuery = sqlext.SimplifyWhitespace(`
@@ -936,7 +997,21 @@ var securityInfoCheckSubmanifestInfoQuery = sqlext.SimplifyWhitespace(`
 		WHERE r.parent_digest = $1
 `)
 
-func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, securityInfo *keppel.TrivySecurityInfo) (returnedError error) {
+func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.TrivySecurityInfo) (returnedError error) {
+	// load corresponding repo, account and manifest
+	repo, err := keppel.FindRepositoryByID(j.db, securityInfo.RepositoryID)
+	if err != nil {
+		return fmt.Errorf("cannot find repo for manifest %s: %w", securityInfo.Digest, err)
+	}
+	account, err := keppel.FindAccount(j.db, repo.AccountName)
+	if err != nil {
+		return fmt.Errorf("cannot find account for repo %s: %w", repo.FullName(), err)
+	}
+	manifest, err := keppel.FindManifest(j.db, *repo, securityInfo.Digest)
+	if err != nil {
+		return fmt.Errorf("cannot find manifest for repo %s and digest %s: %w", repo.FullName(), securityInfo.Digest, err)
+	}
+
 	//clear timing information (this will be filled down below once we actually talk to Trivy;
 	//if any preflight check fails, the fields stay at nil)
 	securityInfo.CheckedAt = nil
@@ -949,7 +1024,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, r
 		return nil
 	}
 
-	continueCheck, layerBlobs, err := j.checkPreConditionsForTrivy(account, repo, manifest, securityInfo)
+	continueCheck, layerBlobs, err := j.checkPreConditionsForTrivy(*account, *repo, *manifest, securityInfo)
 	if err != nil {
 		return err
 	}
@@ -957,7 +1032,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, r
 		return nil
 	}
 
-	relevantPolicies, err := account.SecurityScanPoliciesFor(repo)
+	relevantPolicies, err := account.SecurityScanPoliciesFor(*repo)
 	if err != nil {
 		return err
 	}
@@ -975,6 +1050,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, r
 			securityInfo.Message = returnedError.Error()
 			securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(5 * time.Minute))
 			securityInfo.VulnerabilityStatus = clair.ErrorVulnerabilityStatus
+			returnedError = fmt.Errorf("cannot check manifest %s@%s: %w", repo.FullName(), securityInfo.Digest, returnedError)
 		}
 	}()
 
@@ -1009,9 +1085,12 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, account keppel.Account, r
 
 	if len(layerBlobs) > 0 {
 		parsedTrivyReport, err := j.cfg.Trivy.ScanManifestAndParse(ctx, tokenResp.Token, imageRef)
+		// errors returned from trivy a rather large compared to our usual errors and most likel transienst
+		// instead of writing them into the db we generate a UUID and log them away
 		if err != nil {
-			logg.Error(err.Error())
-			return err
+			errorID := j.generateStorageID()
+			logg.Error("scan error %s: %s", errorID, err.Error())
+			return fmt.Errorf("scan error %s", errorID)
 		}
 
 		if parsedTrivyReport.Metadata.OS != nil && parsedTrivyReport.Metadata.OS.Eosl {
