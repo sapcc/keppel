@@ -67,7 +67,6 @@ type Janitor struct {
 // NewJanitor creates a new Janitor.
 func NewJanitor(cfg keppel.Configuration, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *keppel.DB, auditor keppel.Auditor) *Janitor {
 	j := &Janitor{cfg, fd, sd, icd, db, auditor, time.Now, keppel.GenerateStorageID, addJitter}
-	j.initializeCounters()
 	return j
 }
 

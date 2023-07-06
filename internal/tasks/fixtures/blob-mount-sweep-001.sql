@@ -21,5 +21,3 @@ INSERT INTO quotas (auth_tenant_id, manifests) VALUES ('test1authtenant', 100);
 INSERT INTO repos (id, account_name, name, next_blob_mount_sweep_at) VALUES (1, 'test1', 'foo', 7200);
 
 INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (1, 'sha256:e255ca60e7cfef94adfcd95d78f1eb44404c4f5887cbf506dd5799489a42606c', 'Pending', '', 3600);
-
-INSERT INTO vuln_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:e255ca60e7cfef94adfcd95d78f1eb44404c4f5887cbf506dd5799489a42606c', 'Pending', '', 3600);

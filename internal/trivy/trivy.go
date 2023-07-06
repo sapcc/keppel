@@ -32,6 +32,16 @@ import (
 	"github.com/sapcc/keppel/internal/models"
 )
 
+// MapToTrivySeverity maps Trivy severity levels to ours
+// see https://github.com/aquasecurity/trivy/blob/main/pkg/report/table/misconfig.go#L19-L24
+var MapToTrivySeverity = map[string]VulnerabilityStatus{
+	"UNKNOWN":  UnknownSeverity,
+	"LOW":      LowSeverity,
+	"MEDIUM":   MediumSeverity,
+	"HIGH":     HighSeverity,
+	"CRITICAL": CriticalSeverity,
+}
+
 // see https://github.com/aquasecurity/trivy/blob/main/pkg/flag/remote_flags.go#L11
 const (
 	TokenHeader       = "Trivy-Token"

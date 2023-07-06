@@ -1,5 +1,0 @@
-{
-  "manifest_hash": "sha256:6220b0aeffd442e4394750a4855d1f3f92ec28133af83d99e036949bd7a2050a",
-  "state": "",
-  "err":"failed to scan all layer contents: failed to connect to host=clair-postgresql user=postgres database=clair: dial error (dial tcp 10.30.50.60:5432: connect: connection refused)"
-}

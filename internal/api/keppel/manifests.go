@@ -33,9 +33,9 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
 
-	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 // Manifest represents a manifest in the API.
@@ -48,7 +48,7 @@ type Manifest struct {
 	Tags                          []Tag                     `json:"tags,omitempty"`
 	LabelsJSON                    json.RawMessage           `json:"labels,omitempty"`
 	GCStatusJSON                  json.RawMessage           `json:"gc_status,omitempty"`
-	VulnerabilityStatus           clair.VulnerabilityStatus `json:"vulnerability_status"`
+	VulnerabilityStatus           trivy.VulnerabilityStatus `json:"vulnerability_status"`
 	VulnerabilityScanErrorMessage string                    `json:"vulnerability_scan_error,omitempty"`
 	MinLayerCreatedAt             *int64                    `json:"min_layer_created_at"`
 	MaxLayerCreatedAt             *int64                    `json:"max_layer_created_at"`
@@ -268,67 +268,6 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func (a *API) handleGetVulnerabilityReport(w http.ResponseWriter, r *http.Request) {
-	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests/:digest/vulnerability_report")
-	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanPullFromAccount))
-	if authz == nil {
-		return
-	}
-	account := a.findAccountFromRequest(w, r, authz)
-	if account == nil {
-		return
-	}
-	repo := a.findRepositoryFromRequest(w, r, *account)
-	if repo == nil {
-		return
-	}
-	parsedDigest, err := digest.Parse(mux.Vars(r)["digest"])
-	if err != nil {
-		http.Error(w, "digest not found", http.StatusNotFound)
-		return
-	}
-
-	manifest, err := keppel.FindManifest(a.db, *repo, parsedDigest)
-	if err == sql.ErrNoRows {
-		http.Error(w, "manifest not found", http.StatusNotFound)
-		return
-	}
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-
-	vulnerability, err := keppel.GetVulnerabilityInfo(a.db, repo.ID, parsedDigest)
-	if err == sql.ErrNoRows {
-		http.Error(w, "vulnerability not found", http.StatusNotFound)
-		return
-	}
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-
-	//there is no vulnerability report if:
-	//- we don't have vulnerability scanning enabled at all
-	//- vulnerability scanning is not done yet
-	//- the image does not have any blobs that could be scanned for vulnerabilities
-	blobCount, err := a.db.SelectInt(
-		`SELECT COUNT(*) FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`,
-		repo.ID, manifest.Digest,
-	)
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-	if a.cfg.ClairClient == nil || !vulnerability.Status.HasReport() || blobCount == 0 {
-		http.Error(w, "no vulnerability report found", http.StatusMethodNotAllowed)
-		return
-	}
-
-	clairReport, err := a.cfg.ClairClient.GetVulnerabilityReport(r.Context(), manifest.Digest)
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-	respondwith.JSON(w, http.StatusOK, clairReport)
 }
 
 func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {

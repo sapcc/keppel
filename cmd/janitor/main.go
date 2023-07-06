@@ -29,7 +29,6 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/jobloop"
-	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 	"github.com/spf13/cobra"
@@ -77,12 +76,6 @@ func run(cmd *cobra.Command, args []string) {
 	go janitor.ManifestSyncJob(nil).Run(ctx)
 	go janitor.BlobValidationJob(nil).Run(ctx)
 	go janitor.ManifestValidationJob(nil).Run(ctx)
-	if cfg.ClairClient != nil {
-		if !osext.GetenvBool("KEPPEL_CLAIR_IGNORE_STALE_INDEX_REPORTS") {
-			go cronJobLoop(1*time.Minute, janitor.CheckClairManifestState)
-		}
-		go tasks.GoQueuedJobLoop(ctx, 2, janitor.CheckVulnerabilitiesForNextManifest())
-	}
 	if cfg.Trivy != nil {
 		go janitor.CheckTrivySecurityStatusJob(nil).Run(ctx, jobloop.NumGoroutines(3))
 	}
@@ -93,14 +86,4 @@ func run(cmd *cobra.Command, args []string) {
 	http.Handle("/metrics", promhttp.Handler())
 	listenAddress := osext.GetenvOrDefault("KEPPEL_JANITOR_LISTEN_ADDRESS", ":8080")
 	must.Succeed(httpext.ListenAndServeContext(ctx, listenAddress, nil))
-}
-
-func cronJobLoop(interval time.Duration, task func() error) {
-	for {
-		err := task()
-		if err != nil {
-			logg.Error(err.Error())
-		}
-		time.Sleep(interval)
-	}
 }

@@ -27,7 +27,6 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/jobloop"
 
-	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -195,18 +194,6 @@ func TestSweepStorageManifests(t *testing.T) {
 		SizeBytes:    uint64(len(testImageList1.Manifest.Contents)),
 		PushedAt:     s.Clock.Now(),
 		ValidatedAt:  s.Clock.Now(),
-	}))
-	mustDo(t, s.DB.Insert(&keppel.VulnerabilityInfo{
-		RepositoryID: 1,
-		Digest:       testImageList1.Manifest.Digest,
-		Status:       clair.PendingVulnerabilityStatus,
-		NextCheckAt:  s.Clock.Now(),
-	}))
-	mustDo(t, s.DB.Insert(&keppel.TrivySecurityInfo{
-		RepositoryID:        1,
-		Digest:              testImageList1.Manifest.Digest,
-		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
-		NextCheckAt:         s.Clock.Now(),
 	}))
 
 	//next StorageSweepJob should unmark manifest 1 (because it's now in

@@ -522,20 +522,6 @@ The following fields may be returned:
 Deletes the specified manifest and all tags pointing to it. Returns 204 (No Content) on success.
 The digest that identifies the manifest must be that manifest's canonical digest, otherwise 404 is returned.
 
-## GET /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest/vulnerability\_report
-
-**Deprecated:** Will be removed in a few weeks (along with the entire Clair integration).
-
-Retrieves the vulnerability report for the specified manifest. If the manifest exists and a vulnerability report is available for it, returns 200 (OK) and a JSON response body containing the vulnerability report in the [format defined by Clair](https://quay.github.io/clair/reference/api.html#schemavulnerabilityreport).
-
-Returns 404 (Not Found) if the specified manifest does not exist.
-
-Otherwise, returns 204 (No Content) if the manifest does not directly reference any image layers and thus cannot be scanned for vulnerabilities itself.
-
-Otherwise, returns 405 (Method Not Allowed) if the manifest exists, but its vulnerability status (see above) is either `Pending` or `Error`. (This case should technically also be a 404, but the different status code allows clients to disambiguate the nonexistence of the manifest from the nonexistence of the vulnerability report.)
-
-Note that, when manifests reference other manifests (the most common case being multi-arch images referencing their constituent single-arch images), the vulnerability status of the parent manifest aggregates over the vulnerability statuses of its child manifests, but its vulnerability report only covers image layers directly referenced by the parent manifest. Clients displaying the vulnerability report for a multi-arch image manifest or any other manifest referencing child manifests should recursively fetch the vulnerability reports of all child manifests and show a merged representation as appropriate for their use case.
-
 ## GET /keppel/v1/accounts/:name/repositories/:name/\_manifests/:digest/trivy\_report
 
 If this Keppel is configured to use its bundled [Trivy security scanner](https://aquasecurity.github.io/trivy), this
@@ -651,10 +637,3 @@ Updates the configuration for this auth tenant. The request body must be a JSON 
 as the response from the corresponding GET endpoint, except that the `.usage` fields may not be present.
 
 On success, returns 200 and a JSON response body like from the corresponding GET endpoint.
-
-## GET /clair/:path
-
-When Keppel is set up with a Clair instance for vulnerability scanning, all GET/HEAD requests for paths under `/clair/`
-get reverse-proxied into the Clair API. The user must have administrative access to Keppel. This reverse-proxying is
-useful because a Clair instance associated with Keppel usually only responds to requests with tokens issued by Keppel,
-and Keppel does not hand out those tokens at all.

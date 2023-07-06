@@ -30,7 +30,6 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 	"golang.org/x/crypto/bcrypt"
 
@@ -38,7 +37,6 @@ import (
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
 	peerv1 "github.com/sapcc/keppel/internal/api/peer"
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
-	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/drivers/trivial"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/trivy"
@@ -50,7 +48,6 @@ type setupParams struct {
 	WithAnycast             bool
 	WithKeppelAPI           bool
 	WithPeerAPI             bool
-	WithClairDouble         bool
 	WithTrivyDouble         bool
 	WithQuotas              bool
 	WithPreviousIssuerKey   bool
@@ -90,11 +87,6 @@ func WithKeppelAPI(params *setupParams) {
 // WithPeerAPI is a SetupOption that enables the peer API.
 func WithPeerAPI(params *setupParams) {
 	params.WithPeerAPI = true
-}
-
-// WithClairDouble is a SetupOption that sets up a ClairDouble at clair.example.org.
-func WithClairDouble(params *setupParams) {
-	params.WithClairDouble = true
 }
 
 // WithTrivyDouble is a SetupOption that sets up a TrivyDouble at trivy.example.org.
@@ -163,7 +155,6 @@ type Setup struct {
 	Ctx          context.Context //nolint: containedctx  // only used in tests
 	Registry     *prometheus.Registry
 	//fields that are only set if the respective With... setup option is included
-	ClairDouble *ClairDouble
 	TrivyDouble *TrivyDouble
 	//fields that are filled by WithAccount and WithRepo (in order)
 	Accounts []*keppel.Account
@@ -245,23 +236,12 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		s.Config.JWTIssuerKeys = append(s.Config.JWTIssuerKeys, jwtIssuerKey)
 	}
 
-	//setup a dummy ClairClient for testing interaction with the Clair API
-	if params.WithClairDouble {
-		s.ClairDouble = NewClairDouble()
-		clairURL := must.Return(url.Parse("https://clair.example.org/"))
-
-		s.Config.ClairClient = &clair.Client{
-			BaseURL:      *clairURL,
-			PresharedKey: []byte("doesnotmatter"), //since the ClairDouble does not check the Authorization header
-		}
-		if tt, ok := http.DefaultTransport.(*RoundTripper); ok {
-			tt.Handlers[clairURL.Host] = httpapi.Compose(s.ClairDouble)
-		}
-	}
-
 	if params.WithTrivyDouble {
 		s.TrivyDouble = NewTrivyDouble()
-		trivyURL := must.Return(url.Parse("https://trivy.example.org/"))
+		trivyURL, err := url.Parse("https://trivy.example.org/")
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		s.Config.Trivy = &trivy.Config{
 			URL: *trivyURL,
@@ -337,11 +317,6 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	icd, err := keppel.NewInboundCacheDriver("unittest", s.Config)
 	mustDo(t, err)
 	s.ICD = icd.(*InboundCacheDriver) //nolint:errcheck
-
-	if params.WithClairDouble {
-		//Clair support currently requires a storage driver that can do URLForBlob()
-		s.SD.AllowDummyURLs = true
-	}
 
 	//setup APIs
 	apis := []httpapi.API{

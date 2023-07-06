@@ -36,7 +36,7 @@ Keppel understands access rules in the [`oslo.policy` JSON][os-pol-json] and [`o
 - `account:edit` enables write access to an account's configuration.
 - `quota:show` enables read access to a project's quotas and usage statistics.
 - `quota:edit` enables write access to a project's quotas.
-- `keppel:admin` enables access to certain global APIs for Keppel administrators, such as the Clair API reverse proxy.
+- `keppel:admin` enables access to certain global APIs for Keppel administrators
 
 All policy rules (except for `keppel:admin`) can use the object attribute `%(target.project.id)s`.
 

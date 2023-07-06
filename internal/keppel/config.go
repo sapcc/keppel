@@ -21,7 +21,6 @@ package keppel
 
 import (
 	"crypto"
-	"encoding/base64"
 	"fmt"
 	"net"
 	"net/url"
@@ -36,7 +35,6 @@ import (
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 
-	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/trivy"
 )
 
@@ -48,7 +46,6 @@ type Configuration struct {
 	DatabaseURL              *url.URL
 	JWTIssuerKeys            []crypto.PrivateKey
 	AnycastJWTIssuerKeys     []crypto.PrivateKey
-	ClairClient              *clair.Client
 	Trivy                    *trivy.Config
 }
 
@@ -125,21 +122,6 @@ func ParseConfiguration() Configuration {
 	cfg.JWTIssuerKeys = parseIssuerKeys("KEPPEL")
 	if cfg.AnycastAPIPublicHostname != "" {
 		cfg.AnycastJWTIssuerKeys = parseIssuerKeys("KEPPEL_ANYCAST")
-	}
-
-	clairURL := mayGetenvURL("KEPPEL_CLAIR_URL")
-	if clairURL != nil {
-		//Clair does a base64 decode of the key given in its configuration; I find
-		//this quite unnecessary and surprising, but in order to not cause any
-		//additional confusion, we do the same thing
-		key, err := base64.StdEncoding.DecodeString(osext.MustGetenv("KEPPEL_CLAIR_PRESHARED_KEY"))
-		if err != nil {
-			logg.Fatal("failed to read KEPPEL_CLAIR_PRESHARED_KEY: " + err.Error())
-		}
-		cfg.ClairClient = &clair.Client{
-			BaseURL:      *clairURL,
-			PresharedKey: key,
-		}
 	}
 
 	trivyURL := mayGetenvURL("KEPPEL_TRIVY_URL")

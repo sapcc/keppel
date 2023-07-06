@@ -30,6 +30,3 @@ INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, 'second', 'sha256
 
 INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (1, 'sha256:4c4f2bca300e74786a04590aa15cfcbfa1f3ec64c15fad0a0df8a6674dcbf34b', 'Pending', '', 2);
 INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (1, 'sha256:e3c1e46560a7ce30e3d107791e1f60a588eda9554564a5d17aa365e53dd6ae58', 'Pending', '', 1);
-
-INSERT INTO vuln_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:4c4f2bca300e74786a04590aa15cfcbfa1f3ec64c15fad0a0df8a6674dcbf34b', 'Pending', '', 2);
-INSERT INTO vuln_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:e3c1e46560a7ce30e3d107791e1f60a588eda9554564a5d17aa365e53dd6ae58', 'Pending', '', 1);

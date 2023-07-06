@@ -33,9 +33,9 @@ import (
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 
-	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 func TestAccountsAPI(t *testing.T) {
@@ -1808,17 +1808,11 @@ func uploadManifest(t *testing.T, s test.Setup, account *keppel.Account, repo *k
 		ValidatedAt:  s.Clock.Now(),
 	}
 	mustDo(t, s.DB.Insert(&dbManifest))
-	mustDo(t, s.DB.Insert(&keppel.VulnerabilityInfo{
-		RepositoryID: repo.ID,
-		Digest:       manifest.Digest,
-		NextCheckAt:  time.Unix(0, 0),
-		Status:       clair.PendingVulnerabilityStatus,
-	}))
 	mustDo(t, s.DB.Insert(&keppel.TrivySecurityInfo{
 		RepositoryID:        repo.ID,
 		Digest:              manifest.Digest,
 		NextCheckAt:         time.Unix(0, 0),
-		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
+		VulnerabilityStatus: trivy.PendingVulnerabilityStatus,
 	}))
 	mustDo(t, s.DB.Insert(&keppel.ManifestContent{
 		RepositoryID: repo.ID,
@@ -1894,17 +1888,11 @@ func TestDeleteAccount(t *testing.T) {
 		PushedAt:     time.Unix(100, 0),
 		ValidatedAt:  time.Unix(100, 0),
 	})
-	mustInsert(t, s.DB, &keppel.VulnerabilityInfo{
-		RepositoryID: repos[0].ID,
-		Digest:       image.Manifest.Digest,
-		NextCheckAt:  time.Unix(0, 0),
-		Status:       clair.PendingVulnerabilityStatus,
-	})
 	mustInsert(t, s.DB, &keppel.TrivySecurityInfo{
 		RepositoryID:        repos[0].ID,
 		Digest:              image.Manifest.Digest,
 		NextCheckAt:         time.Unix(0, 0),
-		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
+		VulnerabilityStatus: trivy.PendingVulnerabilityStatus,
 	})
 	err := s.SD.WriteManifest(*accounts[0], repos[0].Name, image.Manifest.Digest, image.Manifest.Contents)
 	if err != nil {
