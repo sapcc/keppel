@@ -77,10 +77,10 @@ func run(cmd *cobra.Command, args []string) {
 	go janitor.ManifestSyncJob(nil).Run(ctx)
 	go janitor.BlobValidationJob(nil).Run(ctx)
 	go janitor.ManifestValidationJob(nil).Run(ctx)
-	if !osext.GetenvBool("KEPPEL_CLAIR_IGNORE_STALE_INDEX_REPORTS") {
-		go cronJobLoop(1*time.Minute, janitor.CheckClairManifestState)
-	}
 	if cfg.ClairClient != nil {
+		if !osext.GetenvBool("KEPPEL_CLAIR_IGNORE_STALE_INDEX_REPORTS") {
+			go cronJobLoop(1*time.Minute, janitor.CheckClairManifestState)
+		}
 		go tasks.GoQueuedJobLoop(ctx, 2, janitor.CheckVulnerabilitiesForNextManifest())
 	}
 	if cfg.Trivy != nil {
