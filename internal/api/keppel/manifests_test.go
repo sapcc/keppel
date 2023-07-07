@@ -421,6 +421,7 @@ func TestManifestsAPI(t *testing.T) {
 			t.Fatal(err.Error())
 		}
 
+		//test GET vulnerability report success case
 		imageRef, _, err := models.ParseImageReference("registry.example.org/test1/repo1-1@" + deterministicDummyDigest(12).String())
 		if err != nil {
 			t.Fatal(err.Error())

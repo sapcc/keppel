@@ -444,17 +444,14 @@ var vulnCheckBlobSelectQuery = sqlext.SimplifyWhitespace(`
 		WHERE r.repo_id = $1 AND r.digest = $2
 `)
 
-func (j *Janitor) collectManifestReferencedBlobs(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest) (layerBlobs []keppel.Blob, err error) {
-	//we need all blobs directly referenced by this manifest (we do not care
-	//about submanifests at this level, the reports from those will be merged
-	//later on in the API)
+func (j *Janitor) collectManifestLayerBlobs(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest) (layerBlobs []keppel.Blob, err error) {
 	var blobs []keppel.Blob
 	_, err = j.db.Select(&blobs, vulnCheckBlobSelectQuery, manifest.RepositoryID, manifest.Digest)
 	if err != nil {
 		return nil, err
 	}
 
-	// we want to collect all blobs to do checks on them so we need to parse the manifest
+	// we only care about blobs that are image layers; the manifest tells us which blobs are layers
 	manifestBytes, err := j.sd.ReadManifest(account, repo.Name, manifest.Digest)
 	if err != nil {
 		return nil, err
@@ -739,7 +736,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 var blobUncompressedSizeTooBigGiB float64 = 10
 
 func (j *Janitor) checkPreConditionsForTrivy(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, securityInfo *keppel.TrivySecurityInfo) (continueCheck bool, layerBlobs []keppel.Blob, err error) {
-	layerBlobs, err = j.collectManifestReferencedBlobs(account, repo, manifest)
+	layerBlobs, err = j.collectManifestLayerBlobs(account, repo, manifest)
 	if err != nil {
 		return false, nil, err
 	}

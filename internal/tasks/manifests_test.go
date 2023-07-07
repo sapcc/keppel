@@ -556,7 +556,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		s.Clock.StepBy(1 * time.Hour)
 
 		//setup two image manifests with just one content layer (we don't really care about
-		//the content since our security scanner doesn't care either)
+		//the content since our Trivy double doesn't care either)
 		images := make([]test.Image, 3)
 		for idx := range images {
 			images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
@@ -571,6 +571,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		imageList := test.GenerateImageList(images[0], images[1])
 		imageList.MustUpload(t, s, fooRepoRef, "")
 
+		//adjust too big values down to make testing easier
 		blobUncompressedSizeTooBigGiB = 0.001
 
 		tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
@@ -578,12 +579,12 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
+		//check that security check updates vulnerability status
 		s.TrivyDouble.ReportFixtures[images[0].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-clean.json"
 		s.TrivyDouble.ReportFixtures[images[2].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		s.TrivyDouble.ReportFixtures[images[3].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-clean.json"
 		s.Clock.StepBy(5 * time.Minute)
-		//once for each manifest
 		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
@@ -603,7 +604,6 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		// check that a changed vulnerability status does not have side effects
 		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		s.Clock.StepBy(1 * time.Hour)
-		//once for each manifest
 		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
