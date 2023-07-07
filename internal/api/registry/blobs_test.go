@@ -530,6 +530,7 @@ func TestGetBlobUpload(t *testing.T) {
 				test.VersionHeaderKey:    test.VersionHeaderValue,
 				"Blob-Upload-Session-Id": uploadUUID,
 				"Content-Length":         "0",
+				"Location":               uploadURL,
 				"Range":                  "0-0",
 			},
 			ExpectBody: assert.StringData(""),
@@ -563,6 +564,25 @@ func TestGetBlobUpload(t *testing.T) {
 				"Blob-Upload-Session-Id": uploadUUID,
 				"Content-Length":         "0",
 				"Range":                  fmt.Sprintf("0-%d", len(blob.Contents)-1),
+				//This does not show "Location" because we don't have a way to recover
+				//the digest state that's included in the query part of `uploadURL`.
+			},
+			ExpectBody: assert.StringData(""),
+		}.Check(t, h)
+
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         uploadURL,
+			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+			ExpectStatus: http.StatusNoContent,
+			ExpectHeader: map[string]string{
+				test.VersionHeaderKey:    test.VersionHeaderValue,
+				"Blob-Upload-Session-Id": uploadUUID,
+				"Content-Length":         "0",
+				"Range":                  fmt.Sprintf("0-%d", len(blob.Contents)-1),
+				//This DOES show "Location" (as the OCI Distribution Spec demands)
+				//since we have the digest state available from the request URL.
+				"Location": uploadURL,
 			},
 			ExpectBody: assert.StringData(""),
 		}.Check(t, h)
