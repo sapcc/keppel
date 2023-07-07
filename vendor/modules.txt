@@ -11,14 +11,14 @@ github.com/alicebob/miniredis/v2/server
 # github.com/anchore/go-struct-converter v0.0.0-20221118182256-c68fdcfa2092
 ## explicit; go 1.18
 github.com/anchore/go-struct-converter
-# github.com/aquasecurity/trivy v0.43.0
+# github.com/aquasecurity/trivy v0.43.1
 ## explicit; go 1.19
 github.com/aquasecurity/trivy/pkg/digest
 github.com/aquasecurity/trivy/pkg/fanal/analyzer/os
 github.com/aquasecurity/trivy/pkg/fanal/types
 github.com/aquasecurity/trivy/pkg/types
-# github.com/aquasecurity/trivy-db v0.0.0-20230515061101-378ab9ed302c
-## explicit; go 1.17
+# github.com/aquasecurity/trivy-db v0.0.0-20230703082116-dc52e83376ce
+## explicit; go 1.19
 github.com/aquasecurity/trivy-db/pkg/types
 # github.com/beorn7/perks v1.0.1
 ## explicit; go 1.11
@@ -256,7 +256,7 @@ golang.org/x/text/transform
 ## explicit; go 1.17
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
-# google.golang.org/protobuf v1.30.0
+# google.golang.org/protobuf v1.31.0
 ## explicit; go 1.11
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
