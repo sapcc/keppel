@@ -19,8 +19,6 @@
 package tasks
 
 import (
-	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"math/rand"
@@ -30,7 +28,6 @@ import (
 
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
-	"github.com/sapcc/go-bits/logg"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/processor"
@@ -222,91 +219,4 @@ func (u janitorUserInfo) AsInitiator() cadf.Resource {
 		})
 	}
 	return res
-}
-
-// JobPoller is a function, usually a member function of type Context, that can
-// be called repeatedly to obtain Job instances.
-//
-// If there are no jobs to work on right now, sql.ErrNoRows shall be returned
-// to signal to the caller to slow down the polling.
-//
-// TODO: move into go-bits!
-type JobPoller func() (Job, error)
-
-// Job is a job that can be transferred to a worker goroutine to be executed
-// there.
-//
-// TODO: move into go-bits!
-type Job interface {
-	Execute(context.Context) error
-}
-
-// Execute a task repeatedly, but slow down when sql.ErrNoRows is returned by it.
-// (Tasks use this error value to indicate that nothing needs scraping, so we
-// can back off a bit to avoid useless database load.)
-//
-// TODO: move into go-bits!
-func GoQueuedJobLoop(ctx context.Context, numGoroutines int, poll JobPoller) {
-	ch := make(chan Job) //unbuffered!
-
-	//one goroutine to select tasks from the DB
-	go func(ch chan<- Job) {
-		for ctx.Err() == nil {
-			job, err := poll()
-			switch err {
-			case nil:
-				ch <- job
-			case sql.ErrNoRows:
-				//no jobs waiting right now - slow down a bit to avoid useless DB load
-				time.Sleep(3 * time.Second)
-			default:
-				logg.Error(err.Error())
-			}
-		}
-
-		//`ctx` has expired -> tell workers to shutdown
-		close(ch)
-	}(ch)
-
-	//multiple goroutines to execute tasks
-	//
-	//We use `numGoroutines-1` here since we already have spawned one goroutine
-	//for the polling above.
-	for i := 0; i < numGoroutines-1; i++ {
-		go func(ch <-chan Job) {
-			for job := range ch {
-				err := job.Execute(ctx)
-				if err != nil {
-					logg.Error(err.Error())
-				}
-			}
-		}(ch)
-	}
-}
-
-// ExecuteOne is used by unit tests to find and execute exactly one instance of
-// the given type of Job. sql.ErrNoRows is returned when there are no jobs of
-// that type waiting.
-//
-// TODO: move into go-bits!
-func ExecuteOne(p JobPoller) error {
-	return ExecuteN(p, 1)
-}
-
-// ExecuteN is used by unit tests to find and execute n amount of instance of
-// the given type of Job. sql.ErrNoRows is returned when there are no jobs of
-// that type waiting.
-func ExecuteN(p JobPoller, n int) error {
-	for i := 0; i < n; i++ {
-		j, err := p()
-		if err != nil {
-			return err
-		}
-		err = j.Execute(context.Background())
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
