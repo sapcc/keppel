@@ -339,7 +339,7 @@ func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
 func (a *API) handleGetBlobUpload(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/uploads/:uuid")
 
-	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
+	account, repo, authz := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
 		return
 	}
@@ -351,6 +351,24 @@ func (a *API) handleGetBlobUpload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Blob-Upload-Session-Id", upload.UUID)
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Range", makeRangeHeader(upload.SizeBytes))
+
+	//if the request URL is from the "Location" header of a previous upload chunk,
+	//the OCI Distribution Spec as of v1.1.0 requires us to display the upload
+	//URL in the "Location" header
+	if upload.SizeBytes == 0 {
+		//case 1: if the upload did not have any data sent into it, we can build
+		//the upload URL from our DB alone
+		w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/uploads/%s",
+			getRepoNameForURLPath(*repo, authz), upload.UUID,
+		))
+	} else if stateStr := r.URL.Query().Get("state"); stateStr != "" {
+		//case 2: if the upload had data sent into it, we need the hash state
+		//that's included in the Location URL
+		w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/uploads/%s?%s",
+			getRepoNameForURLPath(*repo, authz), upload.UUID, url.Values{"state": {stateStr}}.Encode(),
+		))
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
