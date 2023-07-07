@@ -20,5 +20,3 @@ INSERT INTO quotas (auth_tenant_id, manifests) VALUES ('test1authtenant', 100);
 INSERT INTO repos (id, account_name, name) VALUES (1, 'test1', 'foo');
 
 INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (1, 'sha256:e3c1e46560a7ce30e3d107791e1f60a588eda9554564a5d17aa365e53dd6ae58', 'Pending', '', 2);
-
-INSERT INTO vuln_info (repo_id, digest, status, message, next_check_at) VALUES (1, 'sha256:e3c1e46560a7ce30e3d107791e1f60a588eda9554564a5d17aa365e53dd6ae58', 'Pending', '', 2);

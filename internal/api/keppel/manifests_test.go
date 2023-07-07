@@ -33,25 +33,25 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/must"
 
-	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
-func deterministicDummyVulnStatus(counter int) clair.VulnerabilityStatus {
+func deterministicDummyVulnStatus(counter int) trivy.VulnerabilityStatus {
 	if counter%5 == 0 {
-		return clair.PendingVulnerabilityStatus
+		return trivy.PendingVulnerabilityStatus
 	}
 	if counter%3 == 0 {
-		return clair.HighSeverity
+		return trivy.HighSeverity
 	}
-	return clair.CleanSeverity
+	return trivy.CleanSeverity
 }
 
 func TestManifestsAPI(t *testing.T) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
-		s := test.NewSetup(t, test.WithKeppelAPI, test.WithClairDouble, test.WithTrivyDouble)
+		s := test.NewSetup(t, test.WithKeppelAPI, test.WithTrivyDouble)
 		h := s.Handler
 
 		//setup two test accounts
@@ -134,12 +134,6 @@ func TestManifestsAPI(t *testing.T) {
 				if err != nil {
 					t.Fatal(err.Error())
 				}
-				mustInsert(t, s.DB, &keppel.VulnerabilityInfo{
-					RepositoryID: int64(repoID),
-					Digest:       dummyDigest,
-					Status:       clair.PendingVulnerabilityStatus, //this table should not be used anymore, so it does not matter what we put in
-					NextCheckAt:  time.Unix(0, 0),
-				})
 				mustInsert(t, s.DB, &keppel.TrivySecurityInfo{
 					RepositoryID:        int64(repoID),
 					Digest:              dummyDigest,
@@ -397,18 +391,6 @@ func TestManifestsAPI(t *testing.T) {
 		//test GET vulnerability report failure cases
 		assert.HTTPRequest{
 			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11).String() + "/vulnerability_report",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
-			ExpectStatus: http.StatusNotFound, //this manifest was deleted above
-		}.Check(t, h)
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12).String() + "/vulnerability_report",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
-			ExpectStatus: http.StatusMethodNotAllowed, //manifest cannot have vulnerability report because it does not have manifest-blob refs
-		}.Check(t, h)
-		assert.HTTPRequest{
-			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11).String() + "/trivy_report",
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusNotFound, //this manifest was deleted above
@@ -439,25 +421,7 @@ func TestManifestsAPI(t *testing.T) {
 			t.Fatal(err.Error())
 		}
 
-		//configure our ClairDouble to present a vulnerability report for our test manifest
-		//(also we need a vuln_info.status other than "Pending" to get the vulnerability_report endpoint going)
-		_, err = s.DB.Exec(
-			`UPDATE vuln_info SET status = $1 WHERE digest = $2`,
-			deterministicDummyVulnStatus(12), deterministicDummyDigest(12),
-		)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		s.ClairDouble.WasIndexSubmitted[deterministicDummyDigest(12)] = true
-		s.ClairDouble.ReportFixtures[deterministicDummyDigest(12)] = "fixtures/clair-report-vulnerable.json"
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12).String() + "/vulnerability_report",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
-			ExpectStatus: http.StatusOK,
-			ExpectBody:   assert.JSONFixtureFile("fixtures/clair-report-vulnerable.json"),
-		}.Check(t, h)
-
+		//test GET vulnerability report success case
 		imageRef, _, err := models.ParseImageReference("registry.example.org/test1/repo1-1@" + deterministicDummyDigest(12).String())
 		if err != nil {
 			t.Fatal(err.Error())
@@ -479,7 +443,7 @@ func TestManifestsAPI(t *testing.T) {
 				VulnerabilityIDRx: "CVE-2019-8457",
 				Action: keppel.SecurityScanPolicyAction{
 					Assessment: "we accept the risk",
-					Severity:   clair.LowSeverity,
+					Severity:   trivy.LowSeverity,
 				},
 			},
 			{

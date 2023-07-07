@@ -48,8 +48,6 @@ const (
 	CanViewQuotas Permission = "viewquota"
 	//CanChangeQuotas is the permission for changing an auth tenant's quotas.
 	CanChangeQuotas Permission = "changequota"
-	//CanAdministrateKeppel is a global permission (not tied to any auth tenant) for certain administrative tasks in Keppel.
-	CanAdministrateKeppel Permission = "keppeladmin"
 )
 
 // AuthDriver represents an authentication backend that supports multiple

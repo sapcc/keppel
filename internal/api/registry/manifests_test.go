@@ -31,10 +31,10 @@ import (
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 
-	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/tasks"
 	"github.com/sapcc/keppel/internal/test"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 func TestImageManifestLifecycle(t *testing.T) {
@@ -301,7 +301,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			if err != nil {
 				t.Fatal(err.Error())
 			}
-			_, err = s.DB.Exec(`UPDATE trivy_security_info SET vuln_status = $1 WHERE digest = $2`, clair.CleanSeverity, image.Manifest.Digest.String())
+			_, err = s.DB.Exec(`UPDATE trivy_security_info SET vuln_status = $1 WHERE digest = $2`, trivy.CleanSeverity, image.Manifest.Digest.String())
 			if err != nil {
 				t.Fatal(err.Error())
 			}
@@ -314,7 +314,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 					ExpectStatus: http.StatusOK,
 					ExpectHeader: map[string]string{
 						test.VersionHeaderKey:           test.VersionHeaderValue,
-						"X-Keppel-Vulnerability-Status": string(clair.CleanSeverity),
+						"X-Keppel-Vulnerability-Status": string(trivy.CleanSeverity),
 						"X-Keppel-Min-Layer-Created-At": "23",
 						"X-Keppel-Max-Layer-Created-At": "42",
 					},

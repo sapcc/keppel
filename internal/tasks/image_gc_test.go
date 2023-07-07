@@ -133,7 +133,6 @@ func TestGCUntaggedImages(t *testing.T) {
 			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[2]s';
 			UPDATE repos SET next_gc_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 			DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[2]s';
-			DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[2]s';
 		`,
 		images[0].Manifest.Digest,
 		images[1].Manifest.Digest,
@@ -228,7 +227,6 @@ func TestGCMatchOnTag(t *testing.T) {
 			DELETE FROM tags WHERE repo_id = 1 AND name = 'zerotwo';
 			DELETE FROM tags WHERE repo_id = 1 AND name = 'zerozero';
 			DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
-			DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[1]s';
 		`,
 		images[0].Manifest.Digest,
 		images[1].Manifest.Digest,
@@ -320,7 +318,6 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 			UPDATE manifests SET gc_status_json = '{"protected_by_policy":%[8]s}' WHERE repo_id = 1 AND digest = '%[5]s';
 			UPDATE repos SET next_gc_at = %[9]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 			DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[4]s';
-			DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[4]s';
 		`,
 			images[0].Manifest.Digest,
 			images[1].Manifest.Digest,
@@ -379,7 +376,6 @@ func TestGCProtectComesTooLate(t *testing.T) {
 			UPDATE repos SET next_gc_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 			DELETE FROM tags WHERE repo_id = 1 AND name = 'latest';
 			DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[2]s';
-			DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[2]s';
 		`,
 		images[0].Manifest.Digest,
 		images[1].Manifest.Digest,

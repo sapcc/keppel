@@ -91,7 +91,7 @@ tasks performed by the janitor.
 | Image GC | Evaluates all GC policies configured by users on their accounts (see respective section in API spec for details).<br><br>*Rhythm:* every hour (per repository)<br>*Clock:* database field `repos.next_gc_at`<br>*Signal:* Prometheus counter `keppel_image_garbage_collections` |
 | Cleanup of abandoned uploads | Takes a blob upload that is still technically in progress, but has not been touched by the user in 24 hours, and removes it from the database and backing storage.<br><br>*Rhythm:* 24 hours after upload was last touched (per upload)<br>*Clock:* database field `uploads.updated_at`<br>*Signal:* Prometheus counter `keppel_abandoned_upload_cleanups` |
 | Account federation announcement | Takes an account and announces its existence to the federation driver. This is a no-op for the simpler federation driver implementations. For federation drivers that track account existence in a global-scoped storage, this validation ensures that all existing accounts are correctly tracked there. This is most useful when switching to a different federation driver and populating its storage.<br><br>*Rhythm:* every hour (per account)<br>*Clock:* database field `accounts.next_federation_announcement_at`<br>*Signal:* Prometheus counter `keppel_account_federation_announcements` |
-| Vulnerability scanning | Only if a Clair instance has been configured (see below). Takes a manifest and updates its vulnerability status according to the result of its vulnerability scan in Clair. If the image has not been scanned by Clair yet, it gets submitted to clair and the vulnerability status remains in `Pending` until scanning finishes.<br><br>*Rhythm:* every hour (per manifest)<br>*Clock:* database field `manifests.next_vuln_check_at`<br>*Signal:* Prometheus counter `keppel_vulnerability_checks` |
+| Security scanning | Only if a Trivy instance has been configured (see below). Takes a manifest and updates its vulnerability status according to the result of its security scan in Trivy.<br><br>*Rhythm:* every hour (per manifest)<br>*Clock:* database field `trivy_security_info.next_check_at`<br>*Signal:* Prometheus counter `keppel_trivy_security_status_checks` |
 
 In this table:
 
@@ -170,8 +170,6 @@ The following configuration options are understood by both the API server and th
 | `KEPPEL_AUDIT_RABBITMQ_HOSTNAME` | `localhost` | Hostname of the RabbitMQ server. |
 | `KEPPEL_AUDIT_RABBITMQ_PORT` | `5672` |  Port number to which the underlying connection is made. |
 | `KEPPEL_AUDIT_SILENT` | *(optional)* | Whether to disable audit event logging to standard output. |
-| `KEPPEL_CLAIR_PRESHARED_KEY` | *(required if `KEPPEL_CLAIR_URL` is given)* | Secret key for authenticating with Clair. Keppel expects Clair to have the same PSK configured in its `auth.psk.key` config option. Furthermore, the `auth.psk.iss` option must be set to `[ "keppel" ]`. |
-| `KEPPEL_CLAIR_URL` | *(optional)* | URL where Keppel can reach a [Clair](https://quay.github.io/clair/) instance for vulnerability scanning. If not given, Keppel will not have vulnerability scanning capabilities. |
 | `KEPPEL_DB_NAME` | `keppel` | The name of the database. |
 | `KEPPEL_DB_USERNAME` | `postgres` | Username of the user that Keppel should use to connect to the database. |
 | `KEPPEL_DB_PASSWORD` | *(optional)* | Password for the specified user. |

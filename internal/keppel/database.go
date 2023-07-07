@@ -257,6 +257,25 @@ var sqlMigrations = map[string]string{
 	"034_security_scan_policies.down.sql": `
 		ALTER TABLE accounts DROP COLUMN security_scan_policies_json;
 	`,
+	"035_bye_bye_clair.up.sql": `
+		DROP TABLE vuln_info;
+	`,
+	"035_bye_bye_clair.down.sql": `
+		CREATE TABLE vuln_info (
+			repo_id             BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
+			digest              TEXT        NOT NULL,
+			status              TEXT        NOT NULL,
+			message             TEXT        NOT NULL,
+			next_check_at       TIMESTAMPTZ NOT NULL,
+			checked_at          TIMESTAMPTZ DEFAULT NULL,        -- NULL before first check
+			index_started_at    TIMESTAMPTZ DEFAULT NULL,        -- NULL if not submitted to Clair yet
+			index_finished_at   TIMESTAMPTZ DEFAULT NULL,        -- NULL until index report is ready
+			index_state         TEXT        NOT NULL DEFAULT '',
+			check_duration_secs REAL        DEFAULT NULL,        -- NULL before first check
+			FOREIGN KEY (repo_id, digest) REFERENCES manifests ON DELETE CASCADE,
+			UNIQUE (repo_id, digest)
+		);
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.

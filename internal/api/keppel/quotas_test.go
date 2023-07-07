@@ -26,9 +26,9 @@ import (
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 
-	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 func TestQuotasAPI(t *testing.T) {
@@ -137,16 +137,10 @@ func TestQuotasAPI(t *testing.T) {
 			PushedAt:     pushedAt,
 			ValidatedAt:  pushedAt,
 		})
-		mustInsert(t, s.DB, &keppel.VulnerabilityInfo{
-			RepositoryID: 1,
-			Digest:       deterministicDummyDigest(idx),
-			Status:       clair.PendingVulnerabilityStatus,
-			NextCheckAt:  time.Unix(0, 0),
-		})
 		mustInsert(t, s.DB, &keppel.TrivySecurityInfo{
 			RepositoryID:        1,
 			Digest:              deterministicDummyDigest(idx),
-			VulnerabilityStatus: clair.PendingVulnerabilityStatus,
+			VulnerabilityStatus: trivy.PendingVulnerabilityStatus,
 			NextCheckAt:         time.Unix(0, 0),
 		})
 	}

@@ -30,7 +30,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/sqlext"
 
-	"github.com/sapcc/keppel/internal/clair"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 // Account contains a record from the `accounts` table.
@@ -460,35 +460,10 @@ type UnknownManifest struct {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type VulnerabilityInfo struct {
-	RepositoryID      int64                     `db:"repo_id"`
-	Digest            digest.Digest             `db:"digest"`
-	Status            clair.VulnerabilityStatus `db:"status"`
-	Message           string                    `db:"message"`
-	NextCheckAt       time.Time                 `db:"next_check_at"` //see tasks.CheckVulnerabilitiesForNextManifest
-	CheckedAt         *time.Time                `db:"checked_at"`
-	IndexStartedAt    *time.Time                `db:"index_started_at"`
-	IndexFinishedAt   *time.Time                `db:"index_finished_at"`
-	IndexState        string                    `db:"index_state"`
-	CheckDurationSecs *float64                  `db:"check_duration_secs"`
-}
-
-func GetVulnerabilityInfo(db gorp.SqlExecutor, repoID int64, manifestDigest digest.Digest) (*VulnerabilityInfo, error) {
-	var vulnInfo *VulnerabilityInfo
-	err := db.SelectOne(&vulnInfo,
-		"SELECT * FROM vuln_info WHERE repo_id = $1 and digest = $2",
-		repoID, manifestDigest,
-	)
-
-	return vulnInfo, err
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 type TrivySecurityInfo struct {
 	RepositoryID        int64                     `db:"repo_id"`
 	Digest              digest.Digest             `db:"digest"`
-	VulnerabilityStatus clair.VulnerabilityStatus `db:"vuln_status"`
+	VulnerabilityStatus trivy.VulnerabilityStatus `db:"vuln_status"`
 	Message             string                    `db:"message"`
 	NextCheckAt         time.Time                 `db:"next_check_at"` //see tasks.CheckTrivySecurityStatusJob
 	CheckedAt           *time.Time                `db:"checked_at"`
@@ -521,6 +496,5 @@ func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(PendingBlob{}, "pending_blobs").SetKeys(false, "account_name", "digest")
 	db.AddTableWithName(UnknownBlob{}, "unknown_blobs").SetKeys(false, "account_name", "storage_id")
 	db.AddTableWithName(UnknownManifest{}, "unknown_manifests").SetKeys(false, "account_name", "repo_name", "digest")
-	db.AddTableWithName(VulnerabilityInfo{}, "vuln_info").SetKeys(false, "repo_id", "digest")
 	db.AddTableWithName(TrivySecurityInfo{}, "trivy_security_info").SetKeys(false, "repo_id", "digest")
 }

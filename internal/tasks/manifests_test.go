@@ -30,9 +30,9 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/must"
 
-	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -155,17 +155,11 @@ func TestManifestValidationJobError(t *testing.T) {
 		Digest:       image.Manifest.Digest.String(),
 		Content:      image.Manifest.Contents,
 	}))
-	mustDo(t, s.DB.Insert(&keppel.VulnerabilityInfo{
-		RepositoryID: 1,
-		Digest:       image.Manifest.Digest,
-		NextCheckAt:  time.Unix(0, 0),
-		Status:       clair.PendingVulnerabilityStatus,
-	}))
 	mustDo(t, s.DB.Insert(&keppel.TrivySecurityInfo{
 		RepositoryID:        1,
 		Digest:              image.Manifest.Digest,
 		NextCheckAt:         time.Unix(0, 0),
-		VulnerabilityStatus: clair.PendingVulnerabilityStatus,
+		VulnerabilityStatus: trivy.PendingVulnerabilityStatus,
 	}))
 	mustDo(t, s.SD.WriteManifest(*s.Accounts[0], "foo", image.Manifest.Digest, image.Manifest.Contents))
 
@@ -402,7 +396,6 @@ func TestManifestSyncJob(t *testing.T) {
 					UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 					UPDATE tags SET digest = '%[3]s', pushed_at = %[2]d, last_pulled_at = NULL WHERE repo_id = 1 AND name = 'latest';
 					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
-					DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[1]s';
 				`,
 				images[3].Manifest.Digest, //the deleted manifest
 				s1.Clock.Now().Unix(),
@@ -473,8 +466,6 @@ func TestManifestSyncJob(t *testing.T) {
 					DELETE FROM tags WHERE repo_id = 1 AND name = 'other';
 					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[2]s';
-					DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[1]s';
-					DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[2]s';
 				`,
 				images[2].Manifest.Digest,
 				imageList.Manifest.Digest,
@@ -537,7 +528,6 @@ func TestManifestSyncJob(t *testing.T) {
 					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM repos WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
-					DELETE FROM vuln_info WHERE repo_id = 1 AND digest = '%[1]s';
 				`,
 				images[1].Manifest.Digest,
 			)
@@ -562,11 +552,11 @@ func answerMostWith404(h http.Handler) http.HandlerFunc {
 
 func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 	test.WithRoundTripper(func(_ *test.RoundTripper) {
-		j, s := setup(t, test.WithClairDouble, test.WithTrivyDouble)
+		j, s := setup(t, test.WithTrivyDouble)
 		s.Clock.StepBy(1 * time.Hour)
 
 		//setup two image manifests with just one content layer (we don't really care about
-		//the content since our Clair double doesn't care either)
+		//the content since our Trivy double doesn't care either)
 		images := make([]test.Image, 3)
 		for idx := range images {
 			images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
@@ -581,113 +571,55 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		imageList := test.GenerateImageList(images[0], images[1])
 		imageList.MustUpload(t, s, fooRepoRef, "")
 
-		//fake manifest size to check if to big ones (here 10 GiB) are rejected
-		//when uncompressing it is still 1 MiB big those trigger manifestSizeTooBigGiB but not blobUncompressedSizeTooBigGiB
-		mustExec(t, s.DB, fmt.Sprintf(`UPDATE manifests SET size_bytes = 10737418240 where digest = '%s'`, imageList.Manifest.Digest))
-
 		//adjust too big values down to make testing easier
-		manifestSizeTooBigGiB = 0.002
 		blobUncompressedSizeTooBigGiB = 0.001
 
 		tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
 		tr0.AssertEqualToFile("fixtures/vulnerability-check-setup.sql")
 
-		//ClairDouble wants to know which image manifests to expect (only the
-		//non-list manifests are relevant here; the list manifest does not contain
-		//any blobs and thus only aggregates its submanifests' vulnerability
-		//statuses)
-		for idx, image := range images {
-			s.ClairDouble.IndexFixtures[image.Manifest.Digest] = fmt.Sprintf("fixtures/clair/manifest-%03d.json", idx+1)
-		}
-
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
-		//first round of CheckVulnerabilitiesForNextManifest should submit manifests
-		//to Clair for indexing, but since Clair is not done indexing yet, images
-		//stay in vulnerability status "Pending" for now
-		s.Clock.StepBy(30 * time.Minute)
-		//once for each manifest
-		expectSuccess(t, ExecuteN(j.CheckVulnerabilitiesForNextManifest(), 5))
-		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-		tr.DBChanges().AssertEqualf(`
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[8]s';
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 3 AND account_name = 'test1' AND digest = '%[9]s';
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 5 AND account_name = 'test1' AND digest = '%[10]s';
-			UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 7 AND account_name = 'test1' AND digest = '%[11]s';
-			UPDATE vuln_info SET next_check_at = 5520, checked_at = 5400, index_started_at = 5400, index_state = '%[12]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[4]s';
-			UPDATE vuln_info SET status = 'Unsupported', message = 'vulnerability scanning is not supported for images above %[1]g GiB', next_check_at = 91800 WHERE repo_id = 1 AND digest = '%[3]s';
-			UPDATE vuln_info SET next_check_at = 5520, checked_at = 5400, index_started_at = 5400, index_state = '%[12]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[6]s';
-			UPDATE vuln_info SET status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[2]g GiB', next_check_at = 91800 WHERE repo_id = 1 AND digest = '%[7]s';
-			UPDATE vuln_info SET next_check_at = 5520, checked_at = 5400, index_started_at = 5400, index_state = '%[12]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[5]s';
-		`,
-			manifestSizeTooBigGiB, blobUncompressedSizeTooBigGiB, imageList.Manifest.Digest,
-			images[0].Manifest.Digest, images[1].Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest,
-			images[0].Layers[0].Digest, images[1].Layers[0].Digest, images[2].Layers[0].Digest, images[3].Layers[0].Digest,
-			test.IndexStateHash,
-		)
-
-		//five minutes later, indexing is still not finished
-		s.Clock.StepBy(5 * time.Minute)
-		//once for each manifest
-		expectSuccess(t, ExecuteN(j.CheckVulnerabilitiesForNextManifest(), 3))
-		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-		tr.DBChanges().AssertEqualf(`
-			UPDATE vuln_info SET next_check_at = 5820, checked_at = 5700 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE vuln_info SET next_check_at = 5820, checked_at = 5700 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE vuln_info SET next_check_at = 5820, checked_at = 5700 WHERE repo_id = 1 AND digest = '%s';
-		`, images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
-
-		// five minutes later, indexing is finished now and ClairDouble provides vulnerability reports to us
-		// trivy is checked here first because it returns result immediately and the above code will be removed when clair support is removed
-		s.ClairDouble.ReportFixtures[images[0].Manifest.Digest] = "fixtures/clair/report-vulnerable.json"
-		s.ClairDouble.ReportFixtures[images[1].Manifest.Digest] = "fixtures/clair/report-clean.json"
+		//check that security check updates vulnerability status
 		s.TrivyDouble.ReportFixtures[images[0].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-clean.json"
 		s.TrivyDouble.ReportFixtures[images[2].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		s.TrivyDouble.ReportFixtures[images[3].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-clean.json"
 		s.Clock.StepBy(5 * time.Minute)
-		//once for each manifest
-		expectSuccess(t, ExecuteN(j.CheckVulnerabilitiesForNextManifest(), 3))
 		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
-		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
-			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE trivy_security_info SET next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above 0.001 GiB', next_check_at = 92400 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE trivy_security_info SET vuln_status = 'Clean', next_check_at = 9600, checked_at = 6000, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE vuln_info SET status = 'Low', next_check_at = 9600, checked_at = 6000, index_finished_at = 6000 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE vuln_info SET next_check_at = 6120, checked_at = 6000 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE vuln_info SET status = 'Clean', next_check_at = 9600, checked_at = 6000, index_finished_at = 6000 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[10]s';
+			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 3 AND account_name = 'test1' AND digest = '%[11]s';
+			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 5 AND account_name = 'test1' AND digest = '%[12]s';
+			UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 7 AND account_name = 'test1' AND digest = '%[13]s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[7]d, checked_at = %[6]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[1]s';
+			UPDATE trivy_security_info SET next_check_at = %[7]d, checked_at = %[6]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[2]s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[7]d, checked_at = %[6]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[3]s';
+			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[9]g GiB', next_check_at = %[8]d WHERE repo_id = 1 AND digest = '%[4]s';
+			UPDATE trivy_security_info SET vuln_status = 'Clean', next_check_at = %[7]d, checked_at = %[6]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[5]s';
 		`, images[0].Manifest.Digest, imageList.Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest, images[1].Manifest.Digest,
-			images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
+			s.Clock.Now().Unix(), s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Add(24*time.Hour).Unix(), blobUncompressedSizeTooBigGiB,
+			images[0].Layers[0].Digest, images[1].Layers[0].Digest, images[2].Layers[0].Digest, images[3].Layers[0].Digest)
 
 		// check that a changed vulnerability status does not have side effects
-		s.ClairDouble.ReportFixtures[images[1].Manifest.Digest] = "fixtures/clair/report-vulnerable.json"
 		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		s.Clock.StepBy(1 * time.Hour)
-		//once for each manifest
-		expectSuccess(t, ExecuteN(j.CheckVulnerabilitiesForNextManifest(), 3))
 		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
-		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
-			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE trivy_security_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE vuln_info SET next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE vuln_info SET next_check_at = 9720, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
-			UPDATE vuln_info SET status = 'Low', next_check_at = 13200, checked_at = 9600 WHERE repo_id = 1 AND digest = '%s';
+			UPDATE trivy_security_info SET next_check_at = %[6]d, checked_at = %[5]d WHERE repo_id = 1 AND digest = '%[1]s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[6]d, checked_at = %[5]d WHERE repo_id = 1 AND digest = '%[2]s';
+			UPDATE trivy_security_info SET next_check_at = %[6]d, checked_at = %[5]d WHERE repo_id = 1 AND digest = '%[3]s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[6]d, checked_at = %[5]d WHERE repo_id = 1 AND digest = '%[4]s';
 		`, images[0].Manifest.Digest, imageList.Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest,
-			images[0].Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest)
+			s.Clock.Now().Unix(), s.Clock.Now().Add(1*time.Hour).Unix(),
+		)
 	})
 }
 
 func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 	test.WithRoundTripper(func(_ *test.RoundTripper) {
-		j, s := setup(t, test.WithClairDouble, test.WithTrivyDouble)
+		j, s := setup(t, test.WithTrivyDouble)
 		s.Clock.StepBy(1 * time.Hour)
 		tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
@@ -696,72 +628,25 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		image.MustUpload(t, s, fooRepoRef, "latest")
 		tr.DBChanges().Ignore()
 
-		// submit manifest to clair
-		s.ClairDouble.IndexFixtures[image.Manifest.Digest] = "fixtures/clair/manifest-004.json"
-		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-		tr.DBChanges().AssertEqualf(`
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
-			UPDATE vuln_info SET next_check_at = %[3]d, checked_at = %[4]d, index_started_at = %[4]d, index_state = '%[5]s', check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[2]s';
-	`, image.Layers[0].Digest, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix(), s.Clock.Now().Unix(), test.IndexStateHash)
-		assert.DeepEqual(t, "delete counter", s.ClairDouble.IndexDeleteCounter, 0)
-
 		// simulate transient error
 		s.Clock.StepBy(30 * time.Minute)
-		s.ClairDouble.IndexFixtures[image.Manifest.Digest] = "fixtures/clair/manifest-004.json"
-		s.ClairDouble.IndexReportFixtures[image.Manifest.Digest] = "fixtures/clair/report-error.json"
 		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef)] = true
-		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		expectedError := fmt.Sprintf("could not process task for job \"check trivy security status\": cannot check manifest test1/foo@%s: scan error 4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce", image.Manifest.Digest)
 		expectError(t, expectedError, trivyJob.ProcessOne(s.Ctx))
-		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		tr.DBChanges().AssertEqualf(`
-			UPDATE trivy_security_info SET vuln_status = 'Error', message = 'scan error 4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce', next_check_at = 5700 WHERE repo_id = 1 AND digest = '%[1]s';
-			UPDATE vuln_info SET next_check_at = %[2]d, checked_at = %[3]d, index_started_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
-		`, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix(), s.Clock.Now().Unix())
-		assert.DeepEqual(t, "delete counter", s.ClairDouble.IndexDeleteCounter, 1)
+			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
+			UPDATE trivy_security_info SET vuln_status = 'Error', message = 'scan error 4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce', next_check_at = 5700 WHERE repo_id = 1 AND digest = '%[2]s';
+		`, image.Layers[0].Digest, image.Manifest.Digest)
 
 		// transient error fixed itself after deletion
 		s.Clock.StepBy(30 * time.Minute)
-		s.ClairDouble.IndexFixtures[image.Manifest.Digest] = "fixtures/clair/manifest-004.json"
-		s.ClairDouble.IndexReportFixtures[image.Manifest.Digest] = ""
-		s.ClairDouble.ReportFixtures[image.Manifest.Digest] = "fixtures/clair/report-vulnerable.json"
 		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef)] = false
 		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
-		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
-		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
 			UPDATE trivy_security_info SET vuln_status = 'Critical', message = '', next_check_at = %[2]d, checked_at = %[3]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[1]s';
-			UPDATE vuln_info SET status = '%[4]s', next_check_at = %[2]d, checked_at = %[3]d, index_finished_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
-		`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), clair.LowSeverity)
-		assert.DeepEqual(t, "delete counter", s.ClairDouble.IndexDeleteCounter, 1)
-
-		// also the clair configuration was updated to make transient errors less likely to happen
-		s.Clock.StepBy(10 * time.Minute)
-		s.ClairDouble.IndexState = "a8b9e94aa9c8e4bb2818af1f52507b0b"
-		expectSuccess(t, j.CheckClairManifestState())
-		tr.DBChanges().AssertEqualf(`
-			UPDATE vuln_info SET status = '%[3]s', next_check_at = %[2]d, index_state = '' WHERE repo_id = 1 AND digest = '%[1]s';
-		`, image.Manifest.Digest, s.Clock.Now().Unix(), clair.PendingVulnerabilityStatus)
-		assert.DeepEqual(t, "delete counter", s.ClairDouble.IndexDeleteCounter, 2)
-
-		// clair is not done yet creating the report
-		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-		tr.DBChanges().AssertEqualf(`
-			UPDATE vuln_info SET next_check_at = %[2]d, checked_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
-		`, image.Manifest.Digest, s.Clock.Now().Add(2*time.Minute).Unix(), s.Clock.Now().Unix())
-
-		// now clair is done
-		s.Clock.StepBy(10 * time.Minute)
-		s.ClairDouble.ReportFixtures[image.Manifest.Digest] = "fixtures/clair/report-vulnerable.json"
-		expectSuccess(t, ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-		expectError(t, sql.ErrNoRows.Error(), ExecuteOne(j.CheckVulnerabilitiesForNextManifest()))
-		tr.DBChanges().AssertEqualf(`
-			UPDATE vuln_info SET status = '%[4]s', next_check_at = %[2]d, checked_at = %[3]d WHERE repo_id = 1 AND digest = '%[1]s';
-		`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), clair.LowSeverity)
+		`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), trivy.LowSeverity)
 	})
 }
 
@@ -784,18 +669,16 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 		tr.DBChanges().AssertEqualf(`
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
 			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = %[3]d, checked_at = %[4]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[5]s';
-		`,
-			image.Layers[0].Digest,
-			clair.CriticalSeverity, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
+		`, image.Layers[0].Digest, trivy.CriticalSeverity, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
 
 		//the actual checks in this test all look similar: we update the policies
 		//on the account, then check the resulting vuln_status on the image
-		expect := func(severity clair.VulnerabilityStatus, policies ...keppel.SecurityScanPolicy) {
+		expect := func(severity trivy.VulnerabilityStatus, policies ...keppel.SecurityScanPolicy) {
 			t.Helper()
 			policyJSON := must.Return(json.Marshal(policies))
 			mustExec(t, s.DB, `UPDATE accounts SET security_scan_policies_json = $1`, string(policyJSON))
 			//ensure that `SET vuln_status = ...` always shows up in the diff below
-			mustExec(t, s.DB, `UPDATE trivy_security_info SET vuln_status = $1`, clair.PendingVulnerabilityStatus)
+			mustExec(t, s.DB, `UPDATE trivy_security_info SET vuln_status = $1`, trivy.PendingVulnerabilityStatus)
 			tr.DBChanges().Ignore()
 
 			s.Clock.StepBy(1 * time.Hour)
@@ -811,17 +694,17 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 		//the overall status to "High" since there are also several "High" vulns
 		//
 		//Most of the following testcases are alterations of this policy.
-		expect(clair.HighSeverity, keppel.SecurityScanPolicy{
+		expect(trivy.HighSeverity, keppel.SecurityScanPolicy{
 			RepositoryRx:      ".*",
 			VulnerabilityIDRx: "CVE-2019-8457",
 			Action: keppel.SecurityScanPolicyAction{
 				Assessment: "we accept the risk",
-				Severity:   clair.LowSeverity,
+				Severity:   trivy.LowSeverity,
 			},
 		})
 
 		//test Action.Ignore -> same result
-		expect(clair.HighSeverity, keppel.SecurityScanPolicy{
+		expect(trivy.HighSeverity, keppel.SecurityScanPolicy{
 			RepositoryRx:      ".*",
 			VulnerabilityIDRx: "CVE-2019-8457",
 			Action: keppel.SecurityScanPolicyAction{
@@ -831,40 +714,40 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 		})
 
 		//test RepositoryRx
-		expect(clair.CriticalSeverity, keppel.SecurityScanPolicy{
+		expect(trivy.CriticalSeverity, keppel.SecurityScanPolicy{
 			RepositoryRx:      "bar", //does not match our test repo
 			VulnerabilityIDRx: "CVE-2019-8457",
 			Action: keppel.SecurityScanPolicyAction{
 				Assessment: "we accept the risk",
-				Severity:   clair.LowSeverity,
+				Severity:   trivy.LowSeverity,
 			},
 		})
 
 		//test NegativeRepositoryRx
-		expect(clair.CriticalSeverity, keppel.SecurityScanPolicy{
+		expect(trivy.CriticalSeverity, keppel.SecurityScanPolicy{
 			RepositoryRx:         ".*",
 			NegativeRepositoryRx: "foo", //matches our test repo
 			VulnerabilityIDRx:    "CVE-2019-8457",
 			Action: keppel.SecurityScanPolicyAction{
 				Assessment: "we accept the risk",
-				Severity:   clair.LowSeverity,
+				Severity:   trivy.LowSeverity,
 			},
 		})
 
 		//test NegativeVulnerabilityIDRx
-		expect(clair.CriticalSeverity, keppel.SecurityScanPolicy{
+		expect(trivy.CriticalSeverity, keppel.SecurityScanPolicy{
 			RepositoryRx:              ".*",
 			VulnerabilityIDRx:         ".*",
 			NegativeVulnerabilityIDRx: "CVE-2019-8457",
 			Action: keppel.SecurityScanPolicyAction{
 				Assessment: "we accept the risk",
-				Severity:   clair.LowSeverity,
+				Severity:   trivy.LowSeverity,
 			},
 		})
 
 		//test ExceptFixReleased on its own (the highest vulnerability with a
 		//released fix is "High")
-		expect(clair.HighSeverity, keppel.SecurityScanPolicy{
+		expect(trivy.HighSeverity, keppel.SecurityScanPolicy{
 			RepositoryRx:      ".*",
 			VulnerabilityIDRx: ".*",
 			ExceptFixReleased: true,
@@ -876,7 +759,7 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 
 		//test ExceptFixReleased together with an ignore of all high-severity fixed
 		//vulns (the next highest vulnerability with a released fix is "Medium")
-		expect(clair.MediumSeverity,
+		expect(trivy.MediumSeverity,
 			keppel.SecurityScanPolicy{
 				RepositoryRx:      ".*",
 				VulnerabilityIDRx: ".*",
@@ -891,7 +774,7 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 				VulnerabilityIDRx: "CVE-2022-29458", //matches vulnerabilities in multiple packages
 				Action: keppel.SecurityScanPolicyAction{
 					Assessment: "will fix tomorrow, I swear",
-					Severity:   clair.LowSeverity,
+					Severity:   trivy.LowSeverity,
 				},
 			},
 		)
@@ -918,8 +801,6 @@ func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
 		tr.DBChanges().AssertEqualf(`
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
 			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = %[3]d, checked_at = %[4]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[5]s';
-		`,
-			image.Layers[0].Digest,
-			clair.RottenVulnerabilityStatus, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
+		`, image.Layers[0].Digest, trivy.RottenVulnerabilityStatus, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
 	})
 }

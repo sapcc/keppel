@@ -43,8 +43,7 @@ about repositories, manifests and tags. Other unique features of Keppel include:
   different instances.
 - **online garbage collection**: Unlike Docker Registry, Keppel can perform all garbage collection tasks without
   scheduled downtime or any other form of operator intervention.
-- **vulnerability scanning**: Keppel can use [Clair](https://quay.github.io/clair/) to perform vulnerability scans on
-  its contents.
+- **vulnerability scanning**: Keppel can use [Trivy](https://trivy.dev/) to perform vulnerability scans on its contents.
 
 [dist-api]: https://github.com/opencontainers/distribution-spec
 

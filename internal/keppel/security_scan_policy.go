@@ -27,7 +27,6 @@ import (
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/regexpext"
 
-	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/trivy"
 )
 
@@ -49,7 +48,7 @@ type SecurityScanPolicy struct {
 type SecurityScanPolicyAction struct {
 	Assessment string                    `json:"assessment"`
 	Ignore     bool                      `json:"ignore,omitempty"`
-	Severity   clair.VulnerabilityStatus `json:"severity,omitempty"`
+	Severity   trivy.VulnerabilityStatus `json:"severity,omitempty"`
 }
 
 // String returns the JSON representation of this policy (for use in log and
@@ -102,12 +101,12 @@ func (p SecurityScanPolicy) Validate(path string) (errs errext.ErrorSet) {
 	return
 }
 
-func isSeverityKnownByTrivy(severity clair.VulnerabilityStatus) bool {
+func isSeverityKnownByTrivy(severity trivy.VulnerabilityStatus) bool {
 	// We don't allow downgrading a severity to "Unknown" through a policy.
-	if severity == clair.UnknownSeverity {
+	if severity == trivy.UnknownSeverity {
 		return false
 	}
-	for _, vulnStatus := range clair.MapToTrivySeverity {
+	for _, vulnStatus := range trivy.MapToTrivySeverity {
 		if severity == vulnStatus {
 			return true
 		}
@@ -117,10 +116,10 @@ func isSeverityKnownByTrivy(severity clair.VulnerabilityStatus) bool {
 
 // VulnerabilityStatus returns the status that this policy forces for matching
 // vulnerabilities in matching repos.
-func (p SecurityScanPolicy) VulnerabilityStatus() clair.VulnerabilityStatus {
+func (p SecurityScanPolicy) VulnerabilityStatus() trivy.VulnerabilityStatus {
 	//NOTE: Validate() ensures that either `Action.Ignore` or `Action.Severity` is set.
 	if p.Action.Ignore {
-		return clair.CleanSeverity
+		return trivy.CleanSeverity
 	}
 	return p.Action.Severity
 }

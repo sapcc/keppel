@@ -39,11 +39,11 @@ import (
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/auth"
-	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/client"
 	peerclient "github.com/sapcc/keppel/internal/client/peer"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 // IncomingManifest contains information about a manifest uploaded by the user
@@ -455,12 +455,6 @@ var upsertManifestContentQuery = sqlext.SimplifyWhitespace(`
 		SET content = EXCLUDED.content
 `)
 
-var upsertManifestVulnerabilityInfo = sqlext.SimplifyWhitespace(`
-	INSERT INTO vuln_info (repo_id, digest, status, message, next_check_at)
-	VALUES ($1, $2, $3, $4, $5)
-	ON CONFLICT DO NOTHING
-`)
-
 var upsertManifestSecurityInfo = sqlext.SimplifyWhitespace(`
 	INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at)
 	VALUES ($1, $2, $3, $4, $5)
@@ -477,12 +471,7 @@ func upsertManifest(db gorp.SqlExecutor, m keppel.Manifest, manifestBytes []byte
 		return err
 	}
 
-	_, err = db.Exec(upsertManifestVulnerabilityInfo, m.RepositoryID, m.Digest, clair.PendingVulnerabilityStatus, "", timeNow)
-	if err != nil {
-		return err
-	}
-
-	_, err = db.Exec(upsertManifestSecurityInfo, m.RepositoryID, m.Digest, clair.PendingVulnerabilityStatus, "", timeNow)
+	_, err = db.Exec(upsertManifestSecurityInfo, m.RepositoryID, m.Digest, trivy.PendingVulnerabilityStatus, "", timeNow)
 	return err
 }
 

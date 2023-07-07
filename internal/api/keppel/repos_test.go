@@ -29,9 +29,9 @@ import (
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 
-	"github.com/sapcc/keppel/internal/clair"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 func mustInsert(t *testing.T, db *keppel.DB, obj interface{}) {
@@ -136,16 +136,10 @@ func TestReposAPI(t *testing.T) {
 			PushedAt:     manifestPushedAt,
 			ValidatedAt:  manifestPushedAt,
 		})
-		mustInsert(t, s.DB, &keppel.VulnerabilityInfo{
-			RepositoryID: filledRepo.ID,
-			Digest:       dummyDigest,
-			Status:       clair.PendingVulnerabilityStatus,
-			NextCheckAt:  time.Unix(0, 0),
-		})
 		mustInsert(t, s.DB, &keppel.TrivySecurityInfo{
 			RepositoryID:        filledRepo.ID,
 			Digest:              dummyDigest,
-			VulnerabilityStatus: clair.PendingVulnerabilityStatus,
+			VulnerabilityStatus: trivy.PendingVulnerabilityStatus,
 			NextCheckAt:         time.Unix(0, 0),
 		})
 		if idx <= 3 {
