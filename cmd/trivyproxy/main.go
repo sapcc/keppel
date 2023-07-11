@@ -140,6 +140,7 @@ func (a *API) runTrivy(ctx context.Context, imageURL, format, keppelToken string
 		"--format", format,
 		"--token", a.token,
 		"--timeout", "10m", // default is 5m
+		"--image-src", "remote", // don't try to use a container runtime which is not installed anyway
 		imageURL)
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = &stdoutBuf
