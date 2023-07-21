@@ -198,11 +198,14 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 			`UPDATE manifests SET last_pulled_at = $1 WHERE repo_id = $2 AND digest = $3`,
 			a.timeNow(), dbManifest.RepositoryID, dbManifest.Digest,
 		)
-		if err != nil {
-			logg.Error(
-				"could not update last_pulled_at timestamp on manifest %s@%s: %s",
-				repo.FullName(), dbManifest.Digest, err.Error(),
-			)
+
+		if err == nil {
+			if dbManifest.LastPulledAt != nil && a.timeNow().Add(-7*24*time.Hour).Before(*dbManifest.LastPulledAt) {
+				logg.Info("last_pulled_at timestamp of manifest %s@%s got updated by more than 7 days by user %s",
+					repo.FullName(), dbManifest.Digest, authz.UserIdentity.UserName())
+			}
+		} else {
+			logg.Error("could not update last_pulled_at timestamp on manifest %s@%s: %s", repo.FullName(), dbManifest.Digest, err.Error())
 		}
 
 		//also update tags.last_pulled_at if applicable
@@ -212,10 +215,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				a.timeNow(), dbManifest.RepositoryID, dbManifest.Digest, reference.Tag,
 			)
 			if err != nil {
-				logg.Error(
-					"could not update last_pulled_at timestamp on tag %s/%s: %s",
-					repo.FullName(), reference.Tag, err.Error(),
-				)
+				logg.Error("could not update last_pulled_at timestamp on tag %s/%s: %s", repo.FullName(), reference.Tag, err.Error())
 			}
 		}
 	}
