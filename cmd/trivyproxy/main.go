@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net/http"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -118,7 +119,8 @@ func (a *API) proxyToTrivy(w http.ResponseWriter, r *http.Request) {
 
 	stdout, stderr, err := a.runTrivy(r.Context(), imageURL, format, keppelToken)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("trivy: %s:\n%s", err, stderr), http.StatusInternalServerError)
+		cleanedErr := strings.ReplaceAll(strings.TrimSpace(string(stderr)), "\n", " ")
+		http.Error(w, fmt.Sprintf("trivy: %s: %s", err, cleanedErr), http.StatusInternalServerError)
 		return
 	}
 
