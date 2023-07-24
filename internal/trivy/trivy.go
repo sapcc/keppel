@@ -26,6 +26,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/aquasecurity/trivy/pkg/types"
 
@@ -89,7 +90,7 @@ func (tc *Config) ScanManifest(ctx context.Context, keppelToken string, manifest
 		return ReportPayload{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return ReportPayload{}, fmt.Errorf("trivy proxy did not return 200: %d %s", resp.StatusCode, respBody)
+		return ReportPayload{}, fmt.Errorf("trivy proxy did not return 200: %d %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
 	}
 
 	return ReportPayload{Format: format, Contents: respBody}, nil

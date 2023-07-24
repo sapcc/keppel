@@ -631,11 +631,11 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		// simulate transient error
 		s.Clock.StepBy(30 * time.Minute)
 		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef)] = true
-		expectedError := fmt.Sprintf("could not process task for job \"check trivy security status\": cannot check manifest test1/foo@%s: scan error 4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce", image.Manifest.Digest)
+		expectedError := fmt.Sprintf("could not process task for job \"check trivy security status\": cannot check manifest test1/foo@%s: scan error: trivy proxy did not return 200: 500 simulated error", image.Manifest.Digest)
 		expectError(t, expectedError, trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
-			UPDATE trivy_security_info SET vuln_status = 'Error', message = 'scan error 4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce', next_check_at = 5700 WHERE repo_id = 1 AND digest = '%[2]s';
+			UPDATE trivy_security_info SET vuln_status = 'Error', message = 'scan error: trivy proxy did not return 200: 500 simulated error', next_check_at = 5700 WHERE repo_id = 1 AND digest = '%[2]s';
 		`, image.Layers[0].Digest, image.Manifest.Digest)
 
 		// transient error fixed itself after deletion
