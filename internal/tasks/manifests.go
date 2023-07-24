@@ -687,12 +687,8 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 
 	if len(layerBlobs) > 0 {
 		parsedTrivyReport, err := j.cfg.Trivy.ScanManifestAndParse(ctx, tokenResp.Token, imageRef)
-		// errors returned from trivy a rather large compared to our usual errors and most likel transienst
-		// instead of writing them into the db we generate a UUID and log them away
 		if err != nil {
-			errorID := j.generateStorageID()
-			logg.Error("scan error %s: %s", errorID, err.Error())
-			return fmt.Errorf("scan error %s", errorID)
+			return fmt.Errorf("scan error: %w", err)
 		}
 
 		if parsedTrivyReport.Metadata.OS != nil && parsedTrivyReport.Metadata.OS.Eosl {
