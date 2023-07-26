@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	"github.com/aquasecurity/trivy/pkg/types"
+	prettyText "github.com/jedib0t/go-pretty/v6/text"
 
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -90,7 +91,9 @@ func (tc *Config) ScanManifest(ctx context.Context, keppelToken string, manifest
 		return ReportPayload{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return ReportPayload{}, fmt.Errorf("trivy proxy did not return 200: %d %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+		// from inner to outer: cast to string, remove extra new lines, remove color escape codes, replace multiple consecutive spaces with one
+		respCleaned := strings.Join(strings.Fields(prettyText.StripEscape(strings.TrimSpace(string(respBody)))), " ")
+		return ReportPayload{}, fmt.Errorf("trivy proxy did not return 200: %d %s", resp.StatusCode, respCleaned)
 	}
 
 	return ReportPayload{Format: format, Contents: respBody}, nil
