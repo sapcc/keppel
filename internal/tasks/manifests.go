@@ -662,8 +662,11 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 		Reference: models.ManifestReference{Digest: manifest.Digest},
 	}
 
+	//issue a token for Trivy to pull the image with (this needs to use the
+	//specialized TrivyUserIdentity to avoid updating the image's
+	//"last_pulled_at" timestamp)
 	tokenResp, err := auth.Authorization{
-		UserIdentity: janitorUserIdentity{TaskName: "trivy-scan"},
+		UserIdentity: &auth.TrivyUserIdentity{},
 		Audience:     auth.Audience{},
 		ScopeSet: auth.NewScopeSet(auth.Scope{
 			ResourceType: "repository",

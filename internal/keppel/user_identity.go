@@ -43,6 +43,8 @@ const (
 	AnonymousUser
 	//PeerUser is the UserType for peer users, i.e. other Keppel instances using the API as a peer.
 	PeerUser
+	//TrivyUser is the UserType for tokens issued to Trivy.
+	TrivyUser
 	//JanitorUser is a dummy UserType for when the janitor needs an Authorization for audit logging purposes.
 	JanitorUser
 )

@@ -311,7 +311,8 @@ func (a *API) checkRateLimit(w http.ResponseWriter, r *http.Request, account kep
 	//cluster-internal traffic is exempt from rate-limits (if the request is
 	//caused by a user API request, the rate-limit has been checked already
 	//before the cluster-internal request was sent)
-	if authz.UserIdentity.UserType() == keppel.PeerUser {
+	userType := authz.UserIdentity.UserType()
+	if userType == keppel.PeerUser || userType == keppel.TrivyUser {
 		return true
 	}
 
