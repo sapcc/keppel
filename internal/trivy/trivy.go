@@ -26,6 +26,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/aquasecurity/trivy/pkg/types"
@@ -90,10 +91,19 @@ func (tc *Config) ScanManifest(ctx context.Context, keppelToken string, manifest
 		return ReportPayload{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return ReportPayload{}, fmt.Errorf("trivy proxy did not return 200: %d %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+		// from inner to outer: cast to string, remove extra new lines, remove color escape codes, replace multiple consecutive spaces with one
+		respCleaned := strings.Join(strings.Fields(stripColor(strings.TrimSpace(string(respBody)))), " ")
+		return ReportPayload{}, fmt.Errorf("trivy proxy did not return 200: %d %s", resp.StatusCode, respCleaned)
 	}
 
 	return ReportPayload{Format: format, Contents: respBody}, nil
+}
+
+// A regexp that matches ANSI escape sequences of the type SGR.
+var ansiColorCodeRx = regexp.MustCompile("\x1B" + `\[[0-9;]*m`)
+
+func stripColor(in string) string {
+	return ansiColorCodeRx.ReplaceAllString(in, "")
 }
 
 // ScanManifest is like ScanManifestAndParse, except that the result is parsed

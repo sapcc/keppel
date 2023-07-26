@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -599,6 +600,22 @@ var securityInfoCheckSubmanifestInfoQuery = sqlext.SimplifyWhitespace(`
 		WHERE r.parent_digest = $1
 `)
 
+var trivyTransientErrorsRxs = []*regexp.Regexp{
+	regexp.MustCompile(`connect: connection refused$`),
+	regexp.MustCompile(`i/o timeout$`),
+	regexp.MustCompile(`unexpected status code 502 Bad Gateway$`),
+	regexp.MustCompile(`unexpected status code 503 Service Unavailable$`),
+}
+
+func isTrivyTransientError(msg string) bool {
+	for _, rx := range trivyTransientErrorsRxs {
+		if rx.MatchString(msg) {
+			return true
+		}
+	}
+	return false
+}
+
 func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.TrivySecurityInfo) (returnedError error) {
 	// load corresponding repo, account and manifest
 	repo, err := keppel.FindRepositoryByID(j.db, securityInfo.RepositoryID)
@@ -648,12 +665,18 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 			securityInfo.CheckedAt = &checkFinishedAt
 			duration := checkFinishedAt.Sub(checkStartedAt).Seconds()
 			securityInfo.CheckDurationSecs = &duration
-		} else {
-			securityInfo.Message = returnedError.Error()
-			securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(5 * time.Minute))
-			securityInfo.VulnerabilityStatus = trivy.ErrorVulnerabilityStatus
-			returnedError = fmt.Errorf("cannot check manifest %s@%s: %w", repo.FullName(), securityInfo.Digest, returnedError)
+			return
 		}
+
+		// retry in a bit again but only write down the error if it is not transient
+		securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(5 * time.Minute))
+
+		if !isTrivyTransientError(returnedError.Error()) {
+			securityInfo.Message = returnedError.Error()
+			securityInfo.VulnerabilityStatus = trivy.ErrorVulnerabilityStatus
+		}
+
+		returnedError = fmt.Errorf("cannot check manifest %s@%s: %w", repo.FullName(), securityInfo.Digest, returnedError)
 	}()
 
 	imageRef := models.ImageReference{
