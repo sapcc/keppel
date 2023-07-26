@@ -201,9 +201,13 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		)
 
 		if err == nil {
-			if dbManifest.LastPulledAt != nil && a.timeNow().Add(-7*24*time.Hour).Before(*dbManifest.LastPulledAt) {
-				logg.Info("last_pulled_at timestamp of manifest %s@%s got updated by more than 7 days by user %s",
-					repo.FullName(), dbManifest.Digest, authz.UserIdentity.UserName())
+			if dbManifest.LastPulledAt != nil && dbManifest.LastPulledAt.Before(a.timeNow().Add(-7*24*time.Hour)) {
+				userNameDisplay := authz.UserIdentity.UserName()
+				if authz.UserIdentity.UserType() == keppel.AnonymousUser {
+					userNameDisplay = "<anonymous>"
+				}
+				logg.Info("last_pulled_at timestamp of manifest %s@%s got updated by more than 7 days by user %q",
+					repo.FullName(), dbManifest.Digest, userNameDisplay)
 			}
 		} else {
 			logg.Error("could not update last_pulled_at timestamp on manifest %s@%s: %s", repo.FullName(), dbManifest.Digest, err.Error())
