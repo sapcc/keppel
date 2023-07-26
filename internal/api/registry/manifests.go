@@ -67,9 +67,10 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		//from upstream (as an exception, other Keppels replicating from us always
 		//see the true 404 to properly replicate the non-existence of the manifest
 		//from this account into the replica account)
-		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.InMaintenance && authz.UserIdentity.UserType() != keppel.PeerUser {
+		userType := authz.UserIdentity.UserType()
+		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.InMaintenance && (userType != keppel.PeerUser && userType != keppel.TrivyUser) {
 			//when replicating from external, only authenticated users can trigger the replication
-			if account.ExternalPeerURL != "" && authz.UserIdentity.UserType() != keppel.RegularUser {
+			if account.ExternalPeerURL != "" && userType != keppel.RegularUser {
 				if !authz.ScopeSet.Contains(auth.Scope{
 					ResourceType: "repository",
 					ResourceName: repo.FullName(),
@@ -188,8 +189,8 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		w.Write(manifestBytes)
 	}
 
-	//count the pull unless a special header is set or the token was issued by the janitor user identity used by the trivy proxy
-	if r.Method == http.MethodGet && r.Header.Get("X-Keppel-No-Count-Towards-Last-Pulled") != "1" && authz.UserIdentity.UserType() != keppel.JanitorUser {
+	//count the pull unless a special header is set or the pull is performed by Trivy as part of our security scanning
+	if r.Method == http.MethodGet && r.Header.Get("X-Keppel-No-Count-Towards-Last-Pulled") != "1" && authz.UserIdentity.UserType() != keppel.TrivyUser {
 		l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 		api.ManifestsPulledCounter.With(l).Inc()
 

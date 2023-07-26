@@ -33,6 +33,7 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
 
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/trivy"
@@ -330,11 +331,6 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		Reference: models.ManifestReference{Digest: manifest.Digest},
 	}
 
-	token, err := authz.IssueTokenWithExpires(a.cfg, 20*time.Minute)
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-
 	format := r.URL.Query().Get("format")
 	if format == "" {
 		format = "json"
@@ -345,7 +341,22 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	report, err := a.cfg.Trivy.ScanManifest(r.Context(), token.Token, imageRef, format)
+	//issue a token for Trivy to pull the image with (this needs to use the specialized
+	//TrivyUserIdentity to avoid updating the image's "last_pulled_at" timestamp)
+	tokenResp, err := auth.Authorization{
+		UserIdentity: &auth.TrivyUserIdentity{},
+		Audience:     auth.Audience{},
+		ScopeSet: auth.NewScopeSet(auth.Scope{
+			ResourceType: "repository",
+			ResourceName: repo.FullName(),
+			Actions:      []string{"pull"},
+		}),
+	}.IssueTokenWithExpires(a.cfg, 20*time.Minute)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
+	report, err := a.cfg.Trivy.ScanManifest(r.Context(), tokenResp.Token, imageRef, format)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
