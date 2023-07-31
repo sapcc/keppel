@@ -49,6 +49,7 @@ var (
 		keppel.ManifestPullAction:        {"KEPPEL_RATELIMIT_MANIFEST_PULLS", "KEPPEL_BURST_MANIFEST_PULLS"},
 		keppel.ManifestPushAction:        {"KEPPEL_RATELIMIT_MANIFEST_PUSHES", "KEPPEL_BURST_MANIFEST_PUSHES"},
 		keppel.AnycastBlobBytePullAction: {"KEPPEL_RATELIMIT_ANYCAST_BLOB_PULL_BYTES", "KEPPEL_BURST_ANYCAST_BLOB_PULL_BYTES"},
+		keppel.TrivyReportRetrieveAction: {"KEPPEL_RATELIMIT_TRIVY_REPORT_RETRIEVALS", "KEPPEL_BURST_TRIVY_REPORT_RETRIEVALS"},
 	}
 	valueRx           = regexp.MustCompile(`^\s*([0-9]+)\s*[Br]/([smh])\s*$`)
 	limitConstructors = map[string]func(int) redis_rate.Limit{

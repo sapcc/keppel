@@ -49,7 +49,9 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	if account == nil {
 		return
 	}
-	if !a.checkRateLimit(w, r, *account, authz, keppel.ManifestPullAction, 1) {
+
+	err := api.CheckRateLimit(r, a.rle, *account, authz, keppel.ManifestPullAction, 1)
+	if respondWithError(w, r, err) {
 		return
 	}
 
@@ -310,7 +312,9 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	if account == nil {
 		return
 	}
-	if !a.checkRateLimit(w, r, *account, authz, keppel.ManifestPushAction, 1) {
+
+	err := api.CheckRateLimit(r, a.rle, *account, authz, keppel.ManifestPushAction, 1)
+	if respondWithError(w, r, err) {
 		return
 	}
 

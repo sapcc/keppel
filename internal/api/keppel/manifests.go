@@ -34,6 +34,7 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
 
+	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -282,6 +283,12 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 	if account == nil {
 		return
 	}
+
+	err := api.CheckRateLimit(r, a.rle, *account, authz, keppel.TrivyReportRetrieveAction, 1)
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
 	repo := a.findRepositoryFromRequest(w, r, *account)
 	if repo == nil {
 		return

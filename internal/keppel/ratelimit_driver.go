@@ -43,10 +43,13 @@ const (
 	ManifestPullAction RateLimitedAction = "pullmanifest"
 	//ManifestPushAction is a RateLimitedAction.
 	ManifestPushAction RateLimitedAction = "pushmanifest"
-	//AnycastBlobBytePullAction is a RateLimitedAction. It refers to blobs being
-	//pulled from other regions via anycast. The `amount` given to
-	//RateLimitAllows() shall be the blob size in bytes.
+	//AnycastBlobBytePullAction is a RateLimitedAction.
+	//It refers to blobs being pulled from other regions via anycast.
+	//The `amount` given to RateLimitAllows() shall be the blob size in bytes.
 	AnycastBlobBytePullAction RateLimitedAction = "pullblobbytesanycast"
+	// TrivyReportRetrieveAction is a RateLimitedAction.
+	// It refers to reports being retrieved from keppel through the trivy proxy from trivy itself.
+	TrivyReportRetrieveAction RateLimitedAction = "retrievetrivyreport"
 )
 
 // RateLimitDriver is a pluggable strategy that determines the rate limits of

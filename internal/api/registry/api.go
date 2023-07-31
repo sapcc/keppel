@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -301,33 +300,6 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	}
 
 	return account, repo, authz
-}
-
-func (a *API) checkRateLimit(w http.ResponseWriter, r *http.Request, account keppel.Account, authz *auth.Authorization, action keppel.RateLimitedAction, amount uint64) bool {
-	//rate-limiting is optional
-	if a.rle == nil {
-		return true
-	}
-
-	//cluster-internal traffic is exempt from rate-limits (if the request is
-	//caused by a user API request, the rate-limit has been checked already
-	//before the cluster-internal request was sent)
-	userType := authz.UserIdentity.UserType()
-	if userType == keppel.PeerUser || userType == keppel.TrivyUser {
-		return true
-	}
-
-	allowed, result, err := a.rle.RateLimitAllows(r.Context(), account, action, amount)
-	if respondWithError(w, r, err) {
-		return false
-	}
-	if !allowed {
-		retryAfterStr := strconv.FormatUint(uint64(result.RetryAfter/time.Second), 10)
-		respondWithError(w, r, keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr))
-		return false
-	}
-
-	return true
 }
 
 // Returns the repository name as it appears in URL paths for this API.
