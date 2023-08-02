@@ -90,7 +90,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 		}
 
 		//test failing issuance of password
-		tt.Handlers["peer.example.org"] = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tt.Handlers["peer.example.org"] = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		})
 		peerBeforeFailedIssue := getPeerFromDB(t, s.DB)

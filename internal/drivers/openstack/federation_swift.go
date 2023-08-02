@@ -215,6 +215,8 @@ func (fd *federationDriverSwift) claimPrimaryAccount(account keppel.Account, sub
 
 	isUserError = false
 	err = fd.modifyAccountFile(account.Name, func(file *accountFile, firstPass bool) error {
+		_ = firstPass
+
 		if file.PrimaryHostName == "" || file.PrimaryHostName == fd.OwnHostName {
 			file.PrimaryHostName = fd.OwnHostName
 			return nil
@@ -266,6 +268,8 @@ func (fd *federationDriverSwift) IssueSubleaseTokenSecret(ctx context.Context, a
 	tokenStr := base64.StdEncoding.EncodeToString(tokenBytes)
 
 	return tokenStr, fd.modifyAccountFile(account.Name, func(file *accountFile, firstPass bool) error {
+		_ = firstPass
+
 		//defense in depth - the caller should already have verified this
 		if account.UpstreamPeerHostName != "" {
 			return errors.New("operation not allowed for replica accounts")
