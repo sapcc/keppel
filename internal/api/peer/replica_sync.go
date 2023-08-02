@@ -22,6 +22,7 @@ package peerv1
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -64,7 +65,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 
 	//find repository
 	repo, err := keppel.FindRepository(a.db, mux.Vars(r)["repo"], *account)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "repo not found", http.StatusNotFound)
 		return
 	}

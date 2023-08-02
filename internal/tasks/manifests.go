@@ -314,9 +314,8 @@ TAG:
 			Request:      janitorDummyRequest,
 		})
 		if err != nil {
-			//if the tag itself (and only the tag itself!) 404s, we can replicate the
-			//tag deletion into our replica
-			err404, ok := err.(processor.UpstreamManifestMissingError)
+			//if the tag itself (and only the tag itself!) 404s, we can replicate the tag deletion into our replica
+			err404, ok := errext.As[processor.UpstreamManifestMissingError](err)
 			if ok && err404.Ref == ref {
 				_, err := j.db.Delete(&tag) //nolint:gosec // Delete is not holding onto the pointer after it returns
 				if err != nil {

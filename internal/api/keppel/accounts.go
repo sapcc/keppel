@@ -595,7 +595,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			if rp.Strategy == "on_first_use" {
 				var peer keppel.Peer
 				err := a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, rp.UpstreamPeerHostName)
-				if err == sql.ErrNoRows {
+				if errors.Is(err, sql.ErrNoRows) {
 					http.Error(w, fmt.Sprintf(`unknown peer registry: %q`, rp.UpstreamPeerHostName), http.StatusUnprocessableEntity)
 					return
 				}

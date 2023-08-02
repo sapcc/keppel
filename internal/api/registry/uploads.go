@@ -158,7 +158,7 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 		return
 	}
 	sourceRepo, err := keppel.FindRepository(a.db, sourceRepoName, account)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		keppel.ErrNameUnknown.With("source repository does not exist").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
@@ -173,7 +173,7 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 		return
 	}
 	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *sourceRepo)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		keppel.ErrBlobUnknown.With("blob does not exist in source repository").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
@@ -505,7 +505,7 @@ func (a *API) findUpload(w http.ResponseWriter, r *http.Request, repo keppel.Rep
 	uploadUUID := mux.Vars(r)["uuid"]
 
 	upload, err := keppel.FindUploadByRepository(a.db, uploadUUID, repo)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		keppel.ErrBlobUploadUnknown.With("no such upload: "+uploadUUID).WriteAsRegistryV2ResponseTo(w, r)
 		return nil
 	}

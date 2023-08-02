@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/respondwith"
 )
 
@@ -128,7 +129,7 @@ type RegistryV2Error struct {
 // AsRegistryV2Error tries to cast `err` into RegistryV2Error. If `err` is not a
 // RegistryV2Error, it gets wrapped in ErrUnknown instead.
 func AsRegistryV2Error(err error) *RegistryV2Error {
-	if rerr, ok := err.(*RegistryV2Error); ok {
+	if rerr, ok := errext.As[*RegistryV2Error](err); ok {
 		return rerr
 	}
 	return ErrUnknown.With(err.Error())

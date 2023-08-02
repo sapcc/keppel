@@ -60,7 +60,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 
 	//locate this blob from the DB
 	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *repo)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
@@ -93,7 +93,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 				//we cannot write to `w` if br.Execute() wrote a response there already
 				logg.Error("while trying to replicate blob %s in %s/%s: %s",
 					blob.Digest, account.Name, repo.Name, err.Error())
-			} else if err == processor.ErrConcurrentReplication {
+			} else if errors.Is(err, processor.ErrConcurrentReplication) {
 				//special handling for GET during ongoing replication (429 Too Many
 				//Requests is not a perfect match, but it's my best guess for getting
 				//clients to automatically retry the request after a few seconds)
@@ -149,7 +149,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusTemporaryRedirect)
 			return
 		}
-		if err != keppel.ErrCannotGenerateURL {
+		if !errors.Is(err, keppel.ErrCannotGenerateURL) {
 			respondWithError(w, r, err)
 			return
 		}
@@ -198,7 +198,7 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *repo)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}

@@ -32,6 +32,10 @@ type CronJob struct {
 	Metadata JobMetadata
 	Interval time.Duration
 
+	// By default, the job will wait out a full Interval before running for the first time.
+	// If an earlier first run is desired, InitialDelay can be set to a non-zero value that is smaller than Interval.
+	InitialDelay time.Duration
+
 	// A function that will be executed by this job once per Interval.
 	//
 	// The provided label set will have been prefilled with the labels from
@@ -71,6 +75,11 @@ func (i cronJobImpl) ProcessOne(ctx context.Context) error {
 
 // Run implements the Job interface.
 func (i cronJobImpl) Run(ctx context.Context, opts ...Option) {
+	if i.j.InitialDelay != 0 {
+		time.Sleep(i.j.InitialDelay)
+		i.runOnce(ctx)
+	}
+
 	ticker := time.NewTicker(i.j.Interval)
 	defer ticker.Stop()
 
@@ -79,10 +88,14 @@ func (i cronJobImpl) Run(ctx context.Context, opts ...Option) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			err := i.ProcessOne(ctx)
-			if err != nil {
-				logg.Error("could not run task for job %q: %s", i.j.Metadata.ReadableName, err.Error())
-			}
+			i.runOnce(ctx)
 		}
+	}
+}
+
+func (i cronJobImpl) runOnce(ctx context.Context) {
+	err := i.ProcessOne(ctx)
+	if err != nil {
+		logg.Error("could not run task for job %q: %s", i.j.Metadata.ReadableName, err.Error())
 	}
 }

@@ -21,6 +21,7 @@ package keppelv1
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
@@ -229,7 +230,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "no such manifest", http.StatusNotFound)
 		return
 	}
@@ -260,7 +261,7 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "no such tag", http.StatusNotFound)
 		return
 	}
@@ -292,7 +293,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	manifest, err := keppel.FindManifest(a.db, *repo, parsedDigest)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -301,7 +302,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	securityInfo, err := keppel.GetSecurityInfo(a.db, repo.ID, parsedDigest)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}

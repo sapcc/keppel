@@ -22,6 +22,7 @@ package openstack
 import (
 	"bytes"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -80,7 +81,7 @@ func (d *inboundCacheDriverSwift) LoadManifest(location models.ImageReference, n
 	}
 
 	defer func() {
-		if returnedError != nil && returnedError != sql.ErrNoRows {
+		if returnedError != nil && !errors.Is(returnedError, sql.ErrNoRows) {
 			returnedError = fmt.Errorf("while performing a lookup in the inbound cache: %w", returnedError)
 		}
 	}()

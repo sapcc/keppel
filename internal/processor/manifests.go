@@ -22,6 +22,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -36,6 +37,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
+	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 
@@ -303,7 +305,7 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 
 		//check that the blob exists
 		blob, err := keppel.FindBlobByRepository(tx, desc.Digest, repo)
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return manifestRefsInfo{}, keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String())
 		}
 		if err != nil {
@@ -329,7 +331,7 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 
 		//check that the child manifest exists
 		manifest, err := keppel.FindManifest(tx, repo, desc.Digest)
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return manifestRefsInfo{}, keppel.ErrManifestUnknown.With("").WithDetail(desc.Digest.String())
 		}
 		if err != nil {
@@ -667,7 +669,7 @@ func (p *Processor) ReplicateManifest(ctx context.Context, account keppel.Accoun
 	//replicate referenced manifests recursively if required
 	for _, desc := range manifestParsed.ManifestReferences(account.PlatformFilter) {
 		_, err := keppel.FindManifest(p.db, repo, desc.Digest)
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			_, _, err = p.ReplicateManifest(ctx, account, repo, models.ManifestReference{Digest: desc.Digest}, actx)
 		}
 		if err != nil {
@@ -732,7 +734,7 @@ func (p *Processor) CheckManifestOnPrimary(ctx context.Context, account keppel.A
 }
 
 func errorIsManifestNotFound(err error) bool {
-	if rerr, ok := err.(*keppel.RegistryV2Error); ok {
+	if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok {
 		//ErrManifestUnknown: manifest was deleted
 		//ErrNameUnknown: repo was deleted
 		//"NOT_FOUND": not defined by the spec, but observed in the wild with Harbor
@@ -742,7 +744,7 @@ func errorIsManifestNotFound(err error) bool {
 }
 
 func errorIsUpstreamRateLimit(err error) bool {
-	if rerr, ok := err.(*keppel.RegistryV2Error); ok {
+	if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok {
 		return rerr.Code == keppel.ErrTooManyRequests
 	}
 	return false
@@ -768,7 +770,7 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 		InboundManifestCacheHitCounter.With(labels).Inc()
 		return manifestBytes, manifestMediaType, nil
 	}
-	if err != sql.ErrNoRows {
+	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, "", err
 	}
 
@@ -807,7 +809,7 @@ func (p *Processor) downloadManifestViaPullDelegation(ctx context.Context, image
 	//select a peer at random
 	var peer keppel.Peer
 	err := p.db.SelectOne(&peer, `SELECT * FROM peers WHERE our_password != '' ORDER BY RANDOM() LIMIT 1`)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		//no peers set up - just skip this step without logging anything
 		return nil, "", false
 	}

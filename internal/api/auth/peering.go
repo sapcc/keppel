@@ -22,6 +22,7 @@ package authapi
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -60,7 +61,7 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 	//do we even know that guy? :)
 	var peer keppel.Peer
 	err = a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, req.PeerHostName)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "unknown issuer", http.StatusBadRequest)
 		return
 	}

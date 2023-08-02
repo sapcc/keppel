@@ -24,6 +24,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 
@@ -57,15 +58,15 @@ func (a *API) handleDelegatedPullManifest(w http.ResponseWriter, r *http.Request
 	}
 	ref := models.ParseManifestReference(vars["reference"])
 	manifestBytes, manifestMediaType, err := rc.DownloadManifest(r.Context(), ref, &opts)
-	switch err := err.(type) {
-	case nil:
-		break
-	case *keppel.RegistryV2Error:
-		err.WriteAsRegistryV2ResponseTo(w, r)
-		return
-	default:
-		respondwith.ErrorText(w, err)
-		return
+
+	if err != nil {
+		if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok {
+			rerr.WriteAsRegistryV2ResponseTo(w, r)
+			return
+		} else {
+			respondwith.ErrorText(w, err)
+			return
+		}
 	}
 
 	w.Header().Set("Content-Type", manifestMediaType)

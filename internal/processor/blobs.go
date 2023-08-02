@@ -100,7 +100,7 @@ func (p *Processor) FindBlobOrInsertUnbackedBlob(desc distribution.Descriptor, a
 	err := p.insideTransaction(func(tx *gorp.Transaction) error {
 		var err error
 		blob, err = keppel.FindBlobByAccountName(tx, desc.Digest, account)
-		if err != sql.ErrNoRows { //either success or unexpected error
+		if !errors.Is(err, sql.ErrNoRows) { //either success or unexpected error
 			return err
 		}
 

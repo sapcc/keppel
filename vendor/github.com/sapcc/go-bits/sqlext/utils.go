@@ -20,6 +20,7 @@ package sqlext
 
 import (
 	"database/sql"
+	"errors"
 	"regexp"
 
 	"github.com/sapcc/go-bits/logg"
@@ -69,12 +70,12 @@ func ForeachRow(db Executor, query string, args []any, action func(*sql.Rows) er
 // that a transaction is automatically rolled back when a function fails.
 func RollbackUnlessCommitted(tx Rollbacker) {
 	err := tx.Rollback()
-	switch err {
-	case nil:
+	switch {
+	case err == nil:
 		//rolled back successfully
 		logg.Info("implicit rollback done")
 		return
-	case sql.ErrTxDone:
+	case errors.Is(err, sql.ErrTxDone):
 		//already committed or rolled back - nothing to do
 		return
 	default:
