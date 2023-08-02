@@ -86,7 +86,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//...and answer GET requests by replicating the blob contents
-		responseWasWritten, err := a.processor().ReplicateBlob(*blob, *account, *repo, w)
+		responseWasWritten, err := a.processor().ReplicateBlob(r.Context(), *blob, *account, *repo, w)
 
 		if err != nil {
 			if responseWasWritten {

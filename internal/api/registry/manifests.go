@@ -81,7 +81,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			dbManifest, manifestBytes, err = a.processor().ReplicateManifest(*account, *repo, reference, keppel.AuditContext{
+			dbManifest, manifestBytes, err = a.processor().ReplicateManifest(r.Context(), *account, *repo, reference, keppel.AuditContext{
 				UserIdentity: authz.UserIdentity,
 				Request:      r,
 			})

@@ -19,6 +19,7 @@
 package client
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -57,8 +58,8 @@ func (c *RepoClient) SetToken(token string) {
 	c.token = token
 }
 
-func (c *RepoClient) sendRequest(r repoRequest, uri string) (*http.Response, *http.Request, error) {
-	req, err := http.NewRequest(r.Method, uri, r.Body)
+func (c *RepoClient) sendRequest(ctx context.Context, r repoRequest, uri string) (*http.Response, *http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, r.Method, uri, r.Body)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -76,7 +77,7 @@ func (c *RepoClient) sendRequest(r repoRequest, uri string) (*http.Response, *ht
 	return resp, req, nil
 }
 
-func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
+func (c *RepoClient) doRequest(ctx context.Context, r repoRequest) (*http.Response, error) {
 	if c.Scheme == "" {
 		c.Scheme = "https"
 	}
@@ -84,7 +85,7 @@ func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
 	uri := fmt.Sprintf("%s://%s/v2/%s/%s", c.Scheme, c.Host, c.RepoName, r.Path)
 
 	//send GET request for manifest
-	resp, req, err := c.sendRequest(r, uri)
+	resp, req, err := c.sendRequest(ctx, r, uri)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +96,7 @@ func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse auth challenge from 401 response to %s %s: %w", r.Method, uri, err)
 		}
-		c.token, err = authChallenge.GetToken(c.UserName, c.Password)
+		c.token, err = authChallenge.GetToken(ctx, c.UserName, c.Password)
 		if err != nil {
 			return nil, fmt.Errorf("authentication failed: %w", err)
 		}
@@ -107,7 +108,7 @@ func (c *RepoClient) doRequest(r repoRequest) (*http.Response, error) {
 				return nil, err
 			}
 		}
-		resp, _, err = c.sendRequest(r, uri)
+		resp, _, err = c.sendRequest(ctx, r, uri)
 		if err != nil {
 			return nil, err
 		}

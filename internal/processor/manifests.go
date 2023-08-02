@@ -19,6 +19,7 @@
 package processor
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -648,8 +649,8 @@ func (e UpstreamManifestMissingError) Error() string {
 
 // ReplicateManifest replicates the manifest from its account's upstream registry.
 // On success, the manifest's metadata and contents are returned.
-func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Repository, reference models.ManifestReference, actx keppel.AuditContext) (*keppel.Manifest, []byte, error) {
-	manifestBytes, manifestMediaType, err := p.downloadManifestViaInboundCache(account, repo, reference)
+func (p *Processor) ReplicateManifest(ctx context.Context, account keppel.Account, repo keppel.Repository, reference models.ManifestReference, actx keppel.AuditContext) (*keppel.Manifest, []byte, error) {
+	manifestBytes, manifestMediaType, err := p.downloadManifestViaInboundCache(ctx, account, repo, reference)
 	if err != nil {
 		if errorIsManifestNotFound(err) {
 			return nil, nil, UpstreamManifestMissingError{reference, err}
@@ -667,7 +668,7 @@ func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Reposi
 	for _, desc := range manifestParsed.ManifestReferences(account.PlatformFilter) {
 		_, err := keppel.FindManifest(p.db, repo, desc.Digest)
 		if err == sql.ErrNoRows {
-			_, _, err = p.ReplicateManifest(account, repo, models.ManifestReference{Digest: desc.Digest}, actx)
+			_, _, err = p.ReplicateManifest(ctx, account, repo, models.ManifestReference{Digest: desc.Digest}, actx)
 		}
 		if err != nil {
 			return nil, nil, err
@@ -700,7 +701,7 @@ func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Reposi
 			return nil, nil, err
 		}
 		if configBlob.StorageID == "" {
-			_, err = p.ReplicateBlob(*configBlob, account, repo, nil)
+			_, err = p.ReplicateBlob(ctx, *configBlob, account, repo, nil)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -719,8 +720,8 @@ func (p *Processor) ReplicateManifest(account keppel.Account, repo keppel.Reposi
 // CheckManifestOnPrimary checks if the given manifest exists on its account's
 // upstream registry. If not, false is returned, An error is returned only if
 // the account is not a replica, or if the upstream registry cannot be queried.
-func (p *Processor) CheckManifestOnPrimary(account keppel.Account, repo keppel.Repository, reference models.ManifestReference) (bool, error) {
-	_, _, err := p.downloadManifestViaInboundCache(account, repo, reference)
+func (p *Processor) CheckManifestOnPrimary(ctx context.Context, account keppel.Account, repo keppel.Repository, reference models.ManifestReference) (bool, error) {
+	_, _, err := p.downloadManifestViaInboundCache(ctx, account, repo, reference)
 	if err != nil {
 		if errorIsManifestNotFound(err) {
 			return false, nil
@@ -749,7 +750,7 @@ func errorIsUpstreamRateLimit(err error) bool {
 
 // Downloads a manifest from an account's upstream using
 // RepoClient.DownloadManifest(), but also takes into account the inbound cache.
-func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo keppel.Repository, ref models.ManifestReference) (manifestBytes []byte, manifestMediaType string, err error) {
+func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account keppel.Account, repo keppel.Repository, ref models.ManifestReference) (manifestBytes []byte, manifestMediaType string, err error) {
 	c, err := p.getRepoClientForUpstream(account, repo)
 	if err != nil {
 		return nil, "", err
@@ -772,7 +773,7 @@ func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo
 	}
 
 	//cache miss -> download from actual upstream registry
-	manifestBytes, manifestMediaType, err = c.DownloadManifest(ref, &client.DownloadManifestOpts{
+	manifestBytes, manifestMediaType, err = c.DownloadManifest(ctx, ref, &client.DownloadManifestOpts{
 		DoNotCountTowardsLastPulled: true,
 	})
 	if err != nil && account.ExternalPeerURL != "" && errorIsUpstreamRateLimit(err) {
@@ -780,7 +781,7 @@ func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo
 		//random peer to retry the pull for us; they might be successful since
 		//rate limits are usually per source IP
 		var ok bool
-		manifestBytes, manifestMediaType, ok = p.downloadManifestViaPullDelegation(imageRef, account.ExternalPeerUserName, account.ExternalPeerPassword)
+		manifestBytes, manifestMediaType, ok = p.downloadManifestViaPullDelegation(ctx, imageRef, account.ExternalPeerUserName, account.ExternalPeerPassword)
 		if ok {
 			err = nil
 		}
@@ -802,7 +803,7 @@ func (p *Processor) downloadManifestViaInboundCache(account keppel.Account, repo
 // Uses the peering API to ask another peer to downloads a manifest from an
 // external registry for us. This gets used when the external registry denies
 // the pull to us because we hit our rate limit.
-func (p *Processor) downloadManifestViaPullDelegation(imageRef models.ImageReference, userName, password string) (respBytes []byte, contentType string, success bool) {
+func (p *Processor) downloadManifestViaPullDelegation(ctx context.Context, imageRef models.ImageReference, userName, password string) (respBytes []byte, contentType string, success bool) {
 	//select a peer at random
 	var peer keppel.Peer
 	err := p.db.SelectOne(&peer, `SELECT * FROM peers WHERE our_password != '' ORDER BY RANDOM() LIMIT 1`)
@@ -815,12 +816,12 @@ func (p *Processor) downloadManifestViaPullDelegation(imageRef models.ImageRefer
 		return nil, "", false
 	}
 
-	peerClient, err := peerclient.New(p.cfg, peer, auth.PeerAPIScope)
+	peerClient, err := peerclient.New(ctx, p.cfg, peer, auth.PeerAPIScope)
 	if err != nil {
 		logg.Error(err.Error())
 		return nil, "", false
 	}
-	respBytes, contentType, err = peerClient.DownloadManifestViaPullDelegation(imageRef, userName, password)
+	respBytes, contentType, err = peerClient.DownloadManifestViaPullDelegation(ctx, imageRef, userName, password)
 	if err != nil {
 		logg.Error(err.Error())
 		return nil, "", false

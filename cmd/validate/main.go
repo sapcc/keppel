@@ -109,7 +109,7 @@ func run(cmd *cobra.Command, args []string) {
 			UserName: authUserName,
 			Password: authPassword,
 		}
-		err = c.ValidateManifest(ref.Reference, &session, platformFilter)
+		err = c.ValidateManifest(cmd.Context(), ref.Reference, &session, platformFilter)
 		if err != nil {
 			os.Exit(1)
 		}

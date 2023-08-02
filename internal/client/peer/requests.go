@@ -20,6 +20,7 @@ package peerclient
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -31,7 +32,7 @@ import (
 // DownloadManifestViaPullDelegation asks the peer to download a manifest from
 // an external registry for us. This gets used when the external registry
 // denies the pull to us because we hit our rate limit.
-func (c Client) DownloadManifestViaPullDelegation(imageRef models.ImageReference, userName, password string) (respBodyBytes []byte, contentType string, err error) {
+func (c Client) DownloadManifestViaPullDelegation(ctx context.Context, imageRef models.ImageReference, userName, password string) (respBodyBytes []byte, contentType string, err error) {
 	reqURL := c.buildRequestURL(fmt.Sprintf(
 		"peer/v1/delegatedpull/%s/v2/%s/manifests/%s",
 		imageRef.Host, imageRef.RepoName, imageRef.Reference,
@@ -41,7 +42,7 @@ func (c Client) DownloadManifestViaPullDelegation(imageRef models.ImageReference
 		"X-Keppel-Delegated-Pull-Password": password,
 	}
 
-	respBodyBytes, respStatusCode, respHeader, err := c.doRequest(http.MethodGet, reqURL, http.NoBody, reqHeaders)
+	respBodyBytes, respStatusCode, respHeader, err := c.doRequest(ctx, http.MethodGet, reqURL, http.NoBody, reqHeaders)
 	if err != nil {
 		return nil, "", err
 	}
@@ -59,10 +60,10 @@ func (c Client) DownloadManifestViaPullDelegation(imageRef models.ImageReference
 // The configuration is deserialized into `target`, which must have the type
 // `*keppelv1.Account`. We cannot return this type explicitly because that
 // would create an import cycle between this package and package keppelv1.
-func (c Client) GetForeignAccountConfigurationInto(target any, accountName string) error {
+func (c Client) GetForeignAccountConfigurationInto(ctx context.Context, target any, accountName string) error {
 	reqURL := c.buildRequestURL("keppel/v1/accounts/" + accountName)
 
-	respBodyBytes, respStatusCode, _, err := c.doRequest(http.MethodGet, reqURL, http.NoBody, nil)
+	respBodyBytes, respStatusCode, _, err := c.doRequest(ctx, http.MethodGet, reqURL, http.NoBody, nil)
 	if err != nil {
 		return err
 	}
@@ -87,14 +88,14 @@ func (c Client) GetForeignAccountConfigurationInto(target any, accountName strin
 // If the repo is deleted on upstream (i.e. 404 is returned), this function
 // will return (nil, nil) to signal to the caller that a detailed deletion
 // check should be performed.
-func (c Client) PerformReplicaSync(fullRepoName string, payload keppel.ReplicaSyncPayload) (*keppel.ReplicaSyncPayload, error) {
+func (c Client) PerformReplicaSync(ctx context.Context, fullRepoName string, payload keppel.ReplicaSyncPayload) (*keppel.ReplicaSyncPayload, error) {
 	reqURL := c.buildRequestURL("peer/v1/sync-replica/" + fullRepoName)
 	reqBodyBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("during POST %s: %w", reqURL, err)
 	}
 
-	respBodyBytes, respStatusCode, _, err := c.doRequest(http.MethodPost, reqURL, bytes.NewReader(reqBodyBytes), nil)
+	respBodyBytes, respStatusCode, _, err := c.doRequest(ctx, http.MethodPost, reqURL, bytes.NewReader(reqBodyBytes), nil)
 	if err != nil {
 		return nil, err
 	}

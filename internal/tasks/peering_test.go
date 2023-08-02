@@ -52,7 +52,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 			if err != nil {
 				t.Error(err.Error())
 			}
-			err = IssueNewPasswordForPeer(s.Config, s.DB, tx, getPeerFromDB(t, s.DB))
+			err = IssueNewPasswordForPeer(s.Ctx, s.Config, s.DB, tx, getPeerFromDB(t, s.DB))
 			if err != nil {
 				t.Error(err.Error())
 			}
@@ -98,7 +98,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		err = IssueNewPasswordForPeer(s.Config, s.DB, tx, getPeerFromDB(t, s.DB))
+		err = IssueNewPasswordForPeer(s.Ctx, s.Config, s.DB, tx, getPeerFromDB(t, s.DB))
 		if err == nil {
 			t.Error("expected IssueNewPasswordForPeer to fail, but got err = nil")
 		}

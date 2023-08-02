@@ -73,7 +73,7 @@ func (t *TrivyDouble) mockRunTrivy(w http.ResponseWriter, r *http.Request) {
 		RepoName: imageRef.RepoName,
 	}
 	c.SetToken(r.Header[http.CanonicalHeaderKey(trivy.KeppelTokenHeader)][0])
-	_, _, err = c.DownloadManifest(imageRef.Reference, &client.DownloadManifestOpts{})
+	_, _, err = c.DownloadManifest(r.Context(), imageRef.Reference, &client.DownloadManifestOpts{})
 	if respondwith.ErrorText(w, err) {
 		return
 	}

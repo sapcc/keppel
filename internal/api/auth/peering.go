@@ -70,7 +70,7 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 
 	//check that these credentials work
 	authURL := fmt.Sprintf("https://%s/keppel/v1/auth?service=%[1]s", req.PeerHostName)
-	authReq, err := http.NewRequest(http.MethodGet, authURL, http.NoBody)
+	authReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, authURL, http.NoBody)
 	if respondwith.ErrorText(w, err) {
 		return
 	}

@@ -56,7 +56,7 @@ func (a *API) handleDelegatedPullManifest(w http.ResponseWriter, r *http.Request
 		Password: r.Header.Get("X-Keppel-Delegated-Pull-Password"), //may be empty
 	}
 	ref := models.ParseManifestReference(vars["reference"])
-	manifestBytes, manifestMediaType, err := rc.DownloadManifest(ref, &opts)
+	manifestBytes, manifestMediaType, err := rc.DownloadManifest(r.Context(), ref, &opts)
 	switch err := err.(type) {
 	case nil:
 		break

@@ -172,7 +172,7 @@ func (j *Janitor) ManifestSyncJob(registerer prometheus.Registerer) jobloop.Job 
 	}).Setup(registerer)
 }
 
-func (j *Janitor) syncManifestsInReplicaRepo(_ context.Context, repo keppel.Repository, _ prometheus.Labels) error {
+func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo keppel.Repository, _ prometheus.Labels) error {
 	//find corresponding account
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {
@@ -181,15 +181,15 @@ func (j *Janitor) syncManifestsInReplicaRepo(_ context.Context, repo keppel.Repo
 
 	//do not perform manifest sync while account is in maintenance (maintenance mode blocks all kinds of replication)
 	if !account.InMaintenance {
-		syncPayload, err := j.getReplicaSyncPayload(*account, repo)
+		syncPayload, err := j.getReplicaSyncPayload(ctx, *account, repo)
 		if err != nil {
 			return err
 		}
-		err = j.performTagSync(*account, repo, syncPayload)
+		err = j.performTagSync(ctx, *account, repo, syncPayload)
 		if err != nil {
 			return err
 		}
-		err = j.performManifestSync(*account, repo, syncPayload)
+		err = j.performManifestSync(ctx, *account, repo, syncPayload)
 		if err != nil {
 			return err
 		}
@@ -208,7 +208,7 @@ func (j *Janitor) syncManifestsInReplicaRepo(_ context.Context, repo keppel.Repo
 // individually. This also synchronizes our own last_pulled_at timestamps into
 // the primary account. The primary therefore gains a complete picture of pull
 // activity, which is required for some GC policies to work correctly.
-func (j *Janitor) getReplicaSyncPayload(account keppel.Account, repo keppel.Repository) (*keppel.ReplicaSyncPayload, error) {
+func (j *Janitor) getReplicaSyncPayload(ctx context.Context, account keppel.Account, repo keppel.Repository) (*keppel.ReplicaSyncPayload, error) {
 	//the replica-sync API is only available when upstream is a peer
 	if account.UpstreamPeerHostName == "" {
 		return nil, nil
@@ -222,7 +222,7 @@ func (j *Janitor) getReplicaSyncPayload(account keppel.Account, repo keppel.Repo
 	}
 
 	//get token for peer
-	client, err := peerclient.New(j.cfg, peer, auth.PeerAPIScope)
+	client, err := peerclient.New(ctx, j.cfg, peer, auth.PeerAPIScope)
 	if err != nil {
 		return nil, err
 	}
@@ -272,10 +272,10 @@ func (j *Janitor) getReplicaSyncPayload(account keppel.Account, repo keppel.Repo
 		return nil, err
 	}
 
-	return client.PerformReplicaSync(repo.FullName(), keppel.ReplicaSyncPayload{Manifests: manifests})
+	return client.PerformReplicaSync(ctx, repo.FullName(), keppel.ReplicaSyncPayload{Manifests: manifests})
 }
 
-func (j *Janitor) performTagSync(account keppel.Account, repo keppel.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
+func (j *Janitor) performTagSync(ctx context.Context, account keppel.Account, repo keppel.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
 	var tags []keppel.Tag
 	_, err := j.db.Select(&tags, `SELECT * FROM tags WHERE repo_id = $1`, repo.ID)
 	if err != nil {
@@ -309,7 +309,7 @@ TAG:
 		//different manifest, replicate that manifest; all of that boils down to
 		//just a ReplicateManifest() call
 		ref := models.ManifestReference{Tag: tag.Name}
-		_, _, err := p.ReplicateManifest(account, repo, ref, keppel.AuditContext{
+		_, _, err := p.ReplicateManifest(ctx, account, repo, ref, keppel.AuditContext{
 			UserIdentity: janitorUserIdentity{TaskName: "tag-sync"},
 			Request:      janitorDummyRequest,
 		})
@@ -338,7 +338,7 @@ var repoUntaggedManifestsSelectQuery = sqlext.SimplifyWhitespace(`
 		AND digest NOT IN (SELECT DISTINCT digest FROM tags WHERE repo_id = $1)
 `)
 
-func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
+func (j *Janitor) performManifestSync(ctx context.Context, account keppel.Account, repo keppel.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
 	//enumerate manifests in this repo (this only needs to consider untagged
 	//manifests: we run right after performTagSync, therefore all images that are
 	//tagged right now were already confirmed to still be good)
@@ -362,7 +362,7 @@ func (j *Janitor) performManifestSync(account keppel.Account, repo keppel.Reposi
 
 		//when querying an external registry, we have to check each manifest one-by-one
 		ref := models.ManifestReference{Digest: manifest.Digest}
-		exists, err := p.CheckManifestOnPrimary(account, repo, ref)
+		exists, err := p.CheckManifestOnPrimary(ctx, account, repo, ref)
 		if err != nil {
 			return fmt.Errorf("cannot check existence of manifest %s/%s on primary account: %w", repo.FullName(), manifest.Digest, err)
 		}
@@ -643,7 +643,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 		return nil
 	}
 
-	continueCheck, layerBlobs, err := j.checkPreConditionsForTrivy(*account, *repo, *manifest, securityInfo)
+	continueCheck, layerBlobs, err := j.checkPreConditionsForTrivy(ctx, *account, *repo, *manifest, securityInfo)
 	if err != nil {
 		return err
 	}
@@ -757,7 +757,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 
 var blobUncompressedSizeTooBigGiB float64 = 10
 
-func (j *Janitor) checkPreConditionsForTrivy(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, securityInfo *keppel.TrivySecurityInfo) (continueCheck bool, layerBlobs []keppel.Blob, err error) {
+func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, securityInfo *keppel.TrivySecurityInfo) (continueCheck bool, layerBlobs []keppel.Blob, err error) {
 	layerBlobs, err = j.collectManifestLayerBlobs(account, repo, manifest)
 	if err != nil {
 		return false, nil, err
@@ -785,12 +785,12 @@ func (j *Janitor) checkPreConditionsForTrivy(account keppel.Account, repo keppel
 				return false, layerBlobs, nil
 			}
 			//otherwise we do the replication ourselves
-			_, err := j.processor().ReplicateBlob(blob, account, repo, nil)
+			_, err := j.processor().ReplicateBlob(ctx, blob, account, repo, nil)
 			if err != nil {
 				return false, layerBlobs, err
 			}
 			//after successful replication, restart this call to read the new blob with the correct StorageID from the DB
-			return j.checkPreConditionsForTrivy(account, repo, manifest, securityInfo)
+			return j.checkPreConditionsForTrivy(ctx, account, repo, manifest, securityInfo)
 		}
 
 		if blob.BlocksVulnScanning == nil && strings.HasSuffix(blob.MediaType, "gzip") {

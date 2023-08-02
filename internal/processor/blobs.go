@@ -20,6 +20,7 @@
 package processor
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -130,7 +131,7 @@ var (
 // our local registry. The result value `responseWasWritten` indicates whether
 // this happened. It may be false if an error occurred before writing into the
 // ResponseWriter took place.
-func (p *Processor) ReplicateBlob(blob keppel.Blob, account keppel.Account, repo keppel.Repository, w http.ResponseWriter) (responseWasWritten bool, returnErr error) {
+func (p *Processor) ReplicateBlob(ctx context.Context, blob keppel.Blob, account keppel.Account, repo keppel.Repository, w http.ResponseWriter) (responseWasWritten bool, returnErr error) {
 	//mark this blob as currently being replicated
 	pendingBlob := keppel.PendingBlob{
 		AccountName:  account.Name,
@@ -169,7 +170,7 @@ func (p *Processor) ReplicateBlob(blob keppel.Blob, account keppel.Account, repo
 	if err != nil {
 		return false, err
 	}
-	blobReadCloser, blobLengthBytes, err := client.DownloadBlob(blob.Digest)
+	blobReadCloser, blobLengthBytes, err := client.DownloadBlob(ctx, blob.Digest)
 	if err != nil {
 		return false, err
 	}

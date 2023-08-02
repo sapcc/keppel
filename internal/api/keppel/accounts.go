@@ -608,13 +608,13 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 					ResourceName: accountToCreate.Name,
 					Actions:      []string{"view"},
 				}
-				client, err := peerclient.New(a.cfg, peer, viewScope)
+				client, err := peerclient.New(r.Context(), a.cfg, peer, viewScope)
 				if respondwith.ErrorText(w, err) {
 					return
 				}
 
 				var upstreamAccount Account
-				err = client.GetForeignAccountConfigurationInto(&upstreamAccount, accountToCreate.Name)
+				err = client.GetForeignAccountConfigurationInto(r.Context(), &upstreamAccount, accountToCreate.Name)
 				if respondwith.ErrorText(w, err) {
 					return
 				}

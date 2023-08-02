@@ -73,7 +73,7 @@ func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				err := tryIssueNewPasswordForPeer(cfg, db)
+				err := tryIssueNewPasswordForPeer(ctx, cfg, db)
 				if err != nil {
 					logg.Error("cannot issue new peer password: " + err.Error())
 				}
@@ -91,7 +91,7 @@ var getNextPeerQuery = sqlext.SimplifyWhitespace(`
 	   FOR UPDATE SKIP LOCKED
 `)
 
-func tryIssueNewPasswordForPeer(cfg keppel.Configuration, db *keppel.DB) error {
+func tryIssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -112,5 +112,5 @@ func tryIssueNewPasswordForPeer(cfg keppel.Configuration, db *keppel.DB) error {
 	}
 
 	//issue password (this will also commit the transaction)
-	return tasks.IssueNewPasswordForPeer(cfg, db, tx, peer)
+	return tasks.IssueNewPasswordForPeer(ctx, cfg, db, tx, peer)
 }
