@@ -21,6 +21,7 @@ package keppel
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net"
 	"regexp"
@@ -78,7 +79,7 @@ func FindAccount(db gorp.SqlExecutor, name string) (*Account, error) {
 	var account Account
 	err := db.SelectOne(&account,
 		"SELECT * FROM accounts WHERE name = $1", name)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	return &account, err
@@ -260,7 +261,7 @@ func FindOrCreateRepository(db gorp.SqlExecutor, name string, account Account) (
 	var repo Repository
 	err := db.SelectOne(&repo,
 		"INSERT INTO repos (account_name, name) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *", account.Name, name)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		//the row already existed, so we did not insert it and hence nothing was returned
 		return FindRepository(db, name, account)
 	}
@@ -365,7 +366,7 @@ func FindQuotas(db gorp.SqlExecutor, authTenantID string) (*Quotas, error) {
 	var quotas Quotas
 	err := db.SelectOne(&quotas,
 		"SELECT * FROM quotas WHERE auth_tenant_id = $1", authTenantID)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	return &quotas, err

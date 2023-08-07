@@ -38,6 +38,7 @@ import (
 	"github.com/majewsky/schwift"
 	"github.com/majewsky/schwift/gopherschwift"
 	"github.com/opencontainers/go-digest"
+	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/logg"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -154,7 +155,7 @@ func (d *swiftDriver) getBackendConnection(account keppel.Account) (*schwift.Con
 func generateSecret() (string, error) {
 	var secretBytes [32]byte
 	if _, err := rand.Read(secretBytes[:]); err != nil {
-		return "", fmt.Errorf("could not generate random bytes for Swift secret key: %v", err)
+		return "", fmt.Errorf("could not generate random bytes for Swift secret key: %w", err)
 	}
 	return hex.EncodeToString(secretBytes[:]), nil
 }
@@ -300,7 +301,7 @@ func (d *swiftDriver) DeleteBlob(account keppel.Account, storageID string) error
 }
 
 func reportObjectErrorsIfAny(operation string, err error) {
-	if berr, ok := err.(schwift.BulkError); ok {
+	if berr, ok := errext.As[schwift.BulkError](err); ok {
 		//When we return this `err` to the Keppel core, it will only look at
 		//Error() which prints only the summary (e.g. "400 Bad Request (+2 object
 		//errors)"). This method ensures that the individual object errors also

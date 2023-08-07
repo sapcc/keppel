@@ -20,6 +20,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"strconv"
 
@@ -28,10 +29,10 @@ import (
 
 // UploadMonolithicBlob performs a monolithic blob upload. On success, the
 // blob's digest is returned.
-func (c *RepoClient) UploadMonolithicBlob(contents []byte) (digest.Digest, error) {
+func (c *RepoClient) UploadMonolithicBlob(ctx context.Context, contents []byte) (digest.Digest, error) {
 	d := digest.Canonical.FromBytes(contents)
 
-	resp, err := c.doRequest(repoRequest{
+	resp, err := c.doRequest(ctx, repoRequest{
 		Method: "POST",
 		Path:   "blobs/uploads/?digest=" + d.String(),
 		Headers: http.Header{
@@ -49,14 +50,14 @@ func (c *RepoClient) UploadMonolithicBlob(contents []byte) (digest.Digest, error
 // UploadManifest uploads a manifest. If `tagName` is not empty, this tag name
 // is used, otherwise the manifest is uploaded to its canonical digest. On
 // success, the manifest's digest is returned.
-func (c *RepoClient) UploadManifest(contents []byte, mediaType, tagName string) (digest.Digest, error) {
+func (c *RepoClient) UploadManifest(ctx context.Context, contents []byte, mediaType, tagName string) (digest.Digest, error) {
 	d := digest.Canonical.FromBytes(contents)
 	ref := tagName
 	if tagName == "" {
 		ref = d.String()
 	}
 
-	resp, err := c.doRequest(repoRequest{
+	resp, err := c.doRequest(ctx, repoRequest{
 		Method: "PUT",
 		Path:   "manifests/" + ref,
 		Headers: http.Header{

@@ -20,6 +20,7 @@ package registryv2
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -56,13 +57,13 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	dbManifest, err := a.findManifestInDB(*repo, reference)
 	var manifestBytes []byte
 
-	if err != sql.ErrNoRows {
+	if !errors.Is(err, sql.ErrNoRows) {
 		if respondWithError(w, r, err) {
 			return
 		}
 	}
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		//if the manifest does not exist there, we may have the option of replicating
 		//from upstream (as an exception, other Keppels replicating from us always
 		//see the true 404 to properly replicate the non-existence of the manifest
@@ -81,7 +82,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			dbManifest, manifestBytes, err = a.processor().ReplicateManifest(*account, *repo, reference, keppel.AuditContext{
+			dbManifest, manifestBytes, err = a.processor().ReplicateManifest(r.Context(), *account, *repo, reference, keppel.AuditContext{
 				UserIdentity: authz.UserIdentity,
 				Request:      r,
 			})
@@ -97,7 +98,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		//back to the storage if the DB entry is not there for some reason)
 		manifestBytes, err = a.getManifestContentFromDB(repo.ID, dbManifest.Digest)
 		if err != nil {
-			if err != sql.ErrNoRows {
+			if !errors.Is(err, sql.ErrNoRows) {
 				logg.Info("could not read manifest %s@%s from DB (falling back to read from storage): %s",
 					repo.FullName(), dbManifest.Digest, err.Error())
 			}
@@ -165,7 +166,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	securityInfo, err := keppel.GetSecurityInfo(a.db, dbManifest.RepositoryID, dbManifest.Digest)
-	if err != sql.ErrNoRows {
+	if !errors.Is(err, sql.ErrNoRows) {
 		if respondWithError(w, r, err) {
 			return
 		}
@@ -291,7 +292,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	} else {
 		err = a.processor().DeleteManifest(*account, *repo, ref.Digest, actx)
 	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		keppel.ErrManifestUnknown.With("no such manifest").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}

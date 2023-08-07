@@ -22,6 +22,7 @@ package authapi
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -60,7 +61,7 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 	//do we even know that guy? :)
 	var peer keppel.Peer
 	err = a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, req.PeerHostName)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "unknown issuer", http.StatusBadRequest)
 		return
 	}
@@ -70,7 +71,7 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 
 	//check that these credentials work
 	authURL := fmt.Sprintf("https://%s/keppel/v1/auth?service=%[1]s", req.PeerHostName)
-	authReq, err := http.NewRequest(http.MethodGet, authURL, http.NoBody)
+	authReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, authURL, http.NoBody)
 	if respondwith.ErrorText(w, err) {
 		return
 	}

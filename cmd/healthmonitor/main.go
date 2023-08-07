@@ -103,12 +103,14 @@ func run(cmd *cobra.Command, args []string) {
 		LastResultLock: &sync.RWMutex{},
 	}
 
+	ctx := httpext.ContextWithSIGINT(context.Background(), 1*time.Second)
+
 	//run one-time preparations
-	err = job.PrepareKeppelAccount()
+	err = job.PrepareKeppelAccount(ctx)
 	if err != nil {
 		logg.Fatal("while preparing Keppel account: %s", err.Error())
 	}
-	manifestRef, err := job.UploadImage()
+	manifestRef, err := job.UploadImage(ctx)
 	if err != nil {
 		logg.Fatal("while uploading test image: %s", err.Error())
 	}
@@ -116,26 +118,25 @@ func run(cmd *cobra.Command, args []string) {
 	//expose metrics endpoint
 	http.HandleFunc("/healthcheck", job.ReportHealthcheckResult)
 	http.Handle("/metrics", promhttp.Handler())
-	ctx := httpext.ContextWithSIGINT(context.Background(), 1*time.Second)
 	go func() {
 		must.Succeed(httpext.ListenAndServeContext(ctx, listenAddress, nil))
 	}()
 
 	//enter long-running check loop
-	job.ValidateImage(manifestRef) //once immediately to initialize the metric
+	job.ValidateImage(ctx, manifestRef) //once immediately to initialize the metric
 	tick := time.Tick(30 * time.Second)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-tick:
-			job.ValidateImage(manifestRef)
+			job.ValidateImage(ctx, manifestRef)
 		}
 	}
 }
 
 // Creates the Keppel account for this job if it does not exist yet.
-func (j *healthMonitorJob) PrepareKeppelAccount() error {
+func (j *healthMonitorJob) PrepareKeppelAccount(ctx context.Context) error {
 	reqBody := map[string]interface{}{
 		"account": map[string]interface{}{
 			"auth_tenant_id": j.AuthDriver.CurrentAuthTenantID(),
@@ -148,7 +149,7 @@ func (j *healthMonitorJob) PrepareKeppelAccount() error {
 	}
 	reqBodyBytes, _ := json.Marshal(reqBody)
 
-	req, err := http.NewRequest(http.MethodPut, "/keppel/v1/accounts/"+j.AccountName, bytes.NewReader(reqBodyBytes))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, "/keppel/v1/accounts/"+j.AccountName, bytes.NewReader(reqBodyBytes))
 	if err != nil {
 		return err
 	}
@@ -163,22 +164,22 @@ func (j *healthMonitorJob) PrepareKeppelAccount() error {
 }
 
 // Uploads a minimal complete image (one config blob, one layer blob and one manifest) for testing.
-func (j *healthMonitorJob) UploadImage() (models.ManifestReference, error) {
-	_, err := j.RepoClient.UploadMonolithicBlob([]byte(minimalImageConfiguration))
+func (j *healthMonitorJob) UploadImage(ctx context.Context) (models.ManifestReference, error) {
+	_, err := j.RepoClient.UploadMonolithicBlob(ctx, []byte(minimalImageConfiguration))
 	if err != nil {
 		return models.ManifestReference{}, err
 	}
-	_, err = j.RepoClient.UploadMonolithicBlob(minimalImageLayer())
+	_, err = j.RepoClient.UploadMonolithicBlob(ctx, minimalImageLayer())
 	if err != nil {
 		return models.ManifestReference{}, err
 	}
-	digest, err := j.RepoClient.UploadManifest([]byte(minimalManifest), schema2.MediaTypeManifest, "latest")
+	digest, err := j.RepoClient.UploadManifest(ctx, []byte(minimalManifest), schema2.MediaTypeManifest, "latest")
 	return models.ManifestReference{Digest: digest}, err
 }
 
 // Validates the uploaded image and emits the keppel_healthmonitor_result metric accordingly.
-func (j *healthMonitorJob) ValidateImage(manifestRef models.ManifestReference) {
-	err := j.RepoClient.ValidateManifest(manifestRef, nil, nil)
+func (j *healthMonitorJob) ValidateImage(ctx context.Context, manifestRef models.ManifestReference) {
+	err := j.RepoClient.ValidateManifest(ctx, manifestRef, nil, nil)
 	if err == nil {
 		j.recordHealthcheckResult(true)
 	} else {

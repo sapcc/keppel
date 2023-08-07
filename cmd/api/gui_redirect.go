@@ -100,6 +100,6 @@ func stripTagAndDigest(repoRef string) string {
 	return repoRef
 }
 
-func respondNotFound(w http.ResponseWriter, r *http.Request) {
+func respondNotFound(w http.ResponseWriter, _ *http.Request) {
 	http.Error(w, "404 page not found", http.StatusNotFound)
 }

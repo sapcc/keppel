@@ -20,6 +20,7 @@ package registryv2
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 
@@ -147,21 +149,20 @@ func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
 
 // Like respondwith.ErrorText(), but writes a RegistryV2Error instead of plain text.
 func respondWithError(w http.ResponseWriter, r *http.Request, err error) bool {
-	switch err := err.(type) {
-	case nil:
+	if err == nil {
 		return false
-	case processor.UpstreamManifestMissingError:
-		return respondWithError(w, r, err.Inner)
-	case *keppel.RegistryV2Error:
-		if err == nil {
+	} else if perr, ok := errext.As[processor.UpstreamManifestMissingError](err); ok {
+		return respondWithError(w, r, perr.Inner)
+	} else if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok {
+		if rerr == nil {
 			return false
 		}
-		err.WriteAsRegistryV2ResponseTo(w, r)
-		return true
-	default:
-		keppel.ErrUnknown.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
+		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return true
 	}
+
+	keppel.ErrUnknown.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
+	return true
 }
 
 type repoAccessStrategy int
@@ -242,8 +243,8 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		//if this is an anycast request, try forwarding it to the peer that has the primary account with this name
 		if anycastHandler != nil && authz.Audience.IsAnycast {
 			primaryHostName, err := a.fd.FindPrimaryAccount(r.Context(), repoScope.AccountName)
-			switch err {
-			case error(nil):
+			switch {
+			case err == nil:
 				//protect against infinite forwarding loops in case different Keppels have
 				//different ideas about who is the primary account
 				if forwardedBy := r.URL.Query().Get("X-Keppel-Forwarded-By"); forwardedBy != "" {
@@ -255,7 +256,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 					anycastHandler(w, r, anycastRequestInfo{repoScope.AccountName, repoScope.RepositoryName, mappedPrimaryHostName})
 				}
 				return nil, nil, nil
-			case keppel.ErrNoSuchPrimaryAccount:
+			case errors.Is(err, keppel.ErrNoSuchPrimaryAccount):
 				//fall through to the standard 404 handling below
 			default:
 				respondWithError(w, r, err)
@@ -288,7 +289,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	} else {
 		repo, err = keppel.FindRepository(a.db, repoScope.RepositoryName, *account)
 	}
-	if err == sql.ErrNoRows || repo == nil {
+	if errors.Is(err, sql.ErrNoRows) || repo == nil {
 		if canFirstPull {
 			keppel.ErrNameUnknown.With("repository does not exist here, and anonymous users may not create new repositories").WriteAsRegistryV2ResponseTo(w, r)
 		} else {

@@ -44,6 +44,7 @@ import (
 	"github.com/gophercloud/utils/openstack/clientconfig"
 	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-bits/audittools"
+	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/osext"
@@ -149,7 +150,7 @@ func (d *keystoneDriver) AuthenticateUser(ctx context.Context, userName, passwor
 	)
 
 	if t.Err != nil {
-		if err, ok := t.Err.(gophercloud.ErrDefault429); ok {
+		if err, ok := errext.As[gophercloud.ErrDefault429](t.Err); ok {
 			retryAfterStr := err.ResponseHeader.Get("Retry-After")
 			return nil, keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr)
 		}

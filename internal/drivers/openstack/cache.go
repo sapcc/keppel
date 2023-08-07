@@ -21,6 +21,7 @@ package openstack
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"time"
 
 	"github.com/minio/sha256-simd"
@@ -48,7 +49,7 @@ func (c redisCacher) StoreTokenPayload(cacheKey string, payload []byte) {
 
 func (c redisCacher) LoadTokenPayload(cacheKey string) []byte {
 	payload, err := c.Get(context.Background(), hashCacheKey(cacheKey)).Bytes()
-	if err == redis.Nil {
+	if errors.Is(err, redis.Nil) {
 		return nil
 	}
 	if err != nil {

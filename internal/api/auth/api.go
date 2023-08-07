@@ -24,6 +24,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
@@ -52,7 +53,7 @@ func (a *API) AddTo(r *mux.Router) {
 }
 
 func respondWithError(w http.ResponseWriter, code int, err error) bool {
-	if rerr, ok := err.(*keppel.RegistryV2Error); ok {
+	if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok {
 		if rerr != nil {
 			rerr.WriteAsAuthResponseTo(w)
 			return true
@@ -99,7 +100,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 				//request and one of our peers has the account, ask them to issue the token
 				if account == nil {
 					err := a.reverseProxyTokenReqToUpstream(w, r, req.IntendedAudience, repoScope.AccountName)
-					if err != keppel.ErrNoSuchPrimaryAccount {
+					if !errors.Is(err, keppel.ErrNoSuchPrimaryAccount) {
 						respondWithError(w, http.StatusInternalServerError, err)
 						return
 					}

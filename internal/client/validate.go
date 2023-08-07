@@ -19,6 +19,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -77,11 +78,11 @@ func (c *RepoClient) validationCacheKey(digestOrTagName string) string {
 // ValidateManifest fetches the given manifest from the repo and verifies that
 // it parses correctly. It also validates all references manifests and blobs
 // recursively.
-func (c *RepoClient) ValidateManifest(reference models.ManifestReference, session *ValidationSession, platformFilter keppel.PlatformFilter) error {
-	return c.doValidateManifest(reference, 0, session.applyDefaults(), platformFilter)
+func (c *RepoClient) ValidateManifest(ctx context.Context, reference models.ManifestReference, session *ValidationSession, platformFilter keppel.PlatformFilter) error {
+	return c.doValidateManifest(ctx, reference, 0, session.applyDefaults(), platformFilter)
 }
 
-func (c *RepoClient) doValidateManifest(reference models.ManifestReference, level int, session *ValidationSession, platformFilter keppel.PlatformFilter) (returnErr error) {
+func (c *RepoClient) doValidateManifest(ctx context.Context, reference models.ManifestReference, level int, session *ValidationSession, platformFilter keppel.PlatformFilter) (returnErr error) {
 	if session.isValid[c.validationCacheKey(reference.String())] {
 		session.Logger.LogManifest(reference, level, nil, true)
 		return nil
@@ -94,7 +95,7 @@ func (c *RepoClient) doValidateManifest(reference models.ManifestReference, leve
 		}
 	}()
 
-	manifestBytes, manifestMediaType, err := c.DownloadManifest(reference, nil)
+	manifestBytes, manifestMediaType, err := c.DownloadManifest(ctx, reference, nil)
 	if err != nil {
 		return err
 	}
@@ -109,13 +110,13 @@ func (c *RepoClient) doValidateManifest(reference models.ManifestReference, leve
 
 	//...now recurse into the manifests and blobs that it references
 	for _, desc := range manifest.BlobReferences() {
-		err := c.doValidateBlobContents(desc.Digest, level+1, session)
+		err := c.doValidateBlobContents(ctx, desc.Digest, level+1, session)
 		if err != nil {
 			return err
 		}
 	}
 	for _, desc := range manifest.ManifestReferences(platformFilter) {
-		err := c.doValidateManifest(models.ManifestReference{Digest: desc.Digest}, level+1, session, platformFilter)
+		err := c.doValidateManifest(ctx, models.ManifestReference{Digest: desc.Digest}, level+1, session, platformFilter)
 		if err != nil {
 			return err
 		}
@@ -129,11 +130,11 @@ func (c *RepoClient) doValidateManifest(reference models.ManifestReference, leve
 
 // ValidateBlobContents fetches the given blob from the repo and verifies that
 // the contents produce the correct digest.
-func (c *RepoClient) ValidateBlobContents(blobDigest digest.Digest, session *ValidationSession) error {
-	return c.doValidateBlobContents(blobDigest, 0, session.applyDefaults())
+func (c *RepoClient) ValidateBlobContents(ctx context.Context, blobDigest digest.Digest, session *ValidationSession) error {
+	return c.doValidateBlobContents(ctx, blobDigest, 0, session.applyDefaults())
 }
 
-func (c *RepoClient) doValidateBlobContents(blobDigest digest.Digest, level int, session *ValidationSession) (returnErr error) {
+func (c *RepoClient) doValidateBlobContents(ctx context.Context, blobDigest digest.Digest, level int, session *ValidationSession) (returnErr error) {
 	cacheKey := c.validationCacheKey(blobDigest.String())
 	if session.isValid[cacheKey] {
 		session.Logger.LogBlob(blobDigest, level, nil, true)
@@ -143,7 +144,7 @@ func (c *RepoClient) doValidateBlobContents(blobDigest digest.Digest, level int,
 		session.Logger.LogBlob(blobDigest, level, returnErr, false)
 	}()
 
-	readCloser, _, err := c.DownloadBlob(blobDigest)
+	readCloser, _, err := c.DownloadBlob(ctx, blobDigest)
 	if err != nil {
 		return err
 	}

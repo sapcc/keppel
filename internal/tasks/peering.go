@@ -20,6 +20,7 @@ package tasks
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -42,7 +43,7 @@ import (
 // for this operation. This is useful because it is the caller's responsibility
 // to lock the database row for the peer to prevent concurrent issuances for the
 // same peer by different keppel-api instances.
-func IssueNewPasswordForPeer(cfg keppel.Configuration, db *keppel.DB, tx *gorp.Transaction, peer keppel.Peer) (resultErr error) {
+func IssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, db *keppel.DB, tx *gorp.Transaction, peer keppel.Peer) (resultErr error) {
 	newPasswordBytes := make([]byte, 20)
 	_, err := rand.Read(newPasswordBytes)
 	if err != nil {
@@ -104,7 +105,13 @@ func IssueNewPasswordForPeer(cfg keppel.Configuration, db *keppel.DB, tx *gorp.T
 		Password:     newPassword,
 	})
 	peerURL := fmt.Sprintf("https://%s/keppel/v1/auth/peering", peer.HostName)
-	resp, err := http.Post(peerURL, "application/json", bytes.NewReader(bodyBytes)) //nolint:gosec // the URL is read from static configuration files
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, peerURL, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}

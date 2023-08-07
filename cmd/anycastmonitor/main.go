@@ -119,25 +119,25 @@ func run(cmd *cobra.Command, args []string) {
 
 	//enter long-running check loop
 	manifestRef := models.ManifestReference{Tag: "latest"}
-	job.ValidateImages(manifestRef) //once immediately to initialize the metrics
-	job.ValidateAnycastMembership(anycastURL, apiPublicHostname)
+	job.ValidateImages(ctx, manifestRef) //once immediately to initialize the metrics
+	job.ValidateAnycastMembership(ctx, anycastURL, apiPublicHostname)
 	tick := time.Tick(30 * time.Second)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-tick:
-			job.ValidateImages(manifestRef)
-			job.ValidateAnycastMembership(anycastURL, apiPublicHostname)
+			job.ValidateImages(ctx, manifestRef)
+			job.ValidateAnycastMembership(ctx, anycastURL, apiPublicHostname)
 		}
 	}
 }
 
 // Validates the uploaded images and emits the keppel_anycastmonitor_result metric accordingly.
-func (j *anycastMonitorJob) ValidateImages(manifestRef models.ManifestReference) {
+func (j *anycastMonitorJob) ValidateImages(ctx context.Context, manifestRef models.ManifestReference) {
 	for accountName, repoClient := range j.RepoClients {
 		labels := prometheus.Labels{"account": accountName}
-		err := repoClient.ValidateManifest(manifestRef, nil, nil)
+		err := repoClient.ValidateManifest(ctx, manifestRef, nil, nil)
 		if err == nil {
 			anycastmonitorResultGaugeVec.With(labels).Set(1)
 		} else {
@@ -152,8 +152,12 @@ func (j *anycastMonitorJob) ValidateImages(manifestRef models.ManifestReference)
 	}
 }
 
-func checkAnycastMembership(anycastURL *url.URL, apiPublicHostname string) (bool, error) {
-	resp, err := http.Get(fmt.Sprintf("%s://%s/keppel/v1/auth?service=%[2]s&scope=repository:foo/bar:pull", anycastURL.Scheme, anycastURL.Host))
+func checkAnycastMembership(ctx context.Context, anycastURL *url.URL, apiPublicHostname string) (bool, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s://%s/keppel/v1/auth?service=%[2]s&scope=repository:foo/bar:pull", anycastURL.Scheme, anycastURL.Host), http.NoBody)
+	if err != nil {
+		return false, fmt.Errorf("failed creating request: %s", err.Error())
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return false, fmt.Errorf("failed getting anon token: %s", err.Error())
 	}
@@ -191,8 +195,8 @@ func checkAnycastMembership(anycastURL *url.URL, apiPublicHostname string) (bool
 	return tokenJSON.Issuer == expectedIssuer, nil
 }
 
-func (j *anycastMonitorJob) ValidateAnycastMembership(anycastURL *url.URL, apiPublicHostname string) {
-	isAnycastMember, err := checkAnycastMembership(anycastURL, apiPublicHostname)
+func (j *anycastMonitorJob) ValidateAnycastMembership(ctx context.Context, anycastURL *url.URL, apiPublicHostname string) {
+	isAnycastMember, err := checkAnycastMembership(ctx, anycastURL, apiPublicHostname)
 
 	if isAnycastMember && err == nil {
 		anycastmonitorMemberGauge.Set(1)

@@ -239,7 +239,7 @@ func (d *federationDriver) validatePrimaryHostname(ctx context.Context, account 
 	//make sure that the driver loudly complains once it finds an inconsistency,
 	//so the operator can take care of fixing it.
 	primaryHostname, err := d.rc.Get(ctx, d.primaryKey(account.Name)).Result()
-	if err == redis.Nil {
+	if errors.Is(err, redis.Nil) {
 		primaryHostname = ""
 		err = nil
 	}
@@ -257,7 +257,7 @@ func (d *federationDriver) validatePrimaryHostname(ctx context.Context, account 
 // FindPrimaryAccount implements the keppel.FederationDriver interface.
 func (d *federationDriver) FindPrimaryAccount(ctx context.Context, accountName string) (string, error) {
 	primaryHostname, err := d.rc.Get(ctx, d.primaryKey(accountName)).Result()
-	if err == redis.Nil {
+	if errors.Is(err, redis.Nil) {
 		return "", keppel.ErrNoSuchPrimaryAccount
 	}
 	return primaryHostname, err

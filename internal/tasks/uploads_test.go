@@ -21,6 +21,7 @@ package tasks
 import (
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -123,10 +124,10 @@ func testDeleteUpload(t *testing.T, setupUploadObject func(keppel.StorageDriver,
 
 func expectNoRows(t *testing.T, err error) {
 	t.Helper()
-	switch err {
-	case sql.ErrNoRows:
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
 		return
-	case nil:
+	case err == nil:
 		t.Error("expected sql.ErrNoRows, but got no error")
 	default:
 		t.Errorf("expected sql.ErrNoRows, but got: %s", err.Error())

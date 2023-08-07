@@ -98,18 +98,21 @@ func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*keppe
 
 func TestManifestValidationJobFixesWrongSize(t *testing.T) {
 	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+		_, _ = allBlobIDs, allManifestDigests
 		mustExec(t, db, `UPDATE manifests SET size_bytes = 1337`)
 	})
 }
 
 func TestManifestValidationJobFixesMissingManifestBlobRefs(t *testing.T) {
 	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+		_, _ = allBlobIDs, allManifestDigests
 		mustExec(t, db, `DELETE FROM manifest_blob_refs WHERE blob_id % 2 = 0`)
 	})
 }
 
 func TestManifestValidationJobFixesMissingManifestManifestRefs(t *testing.T) {
 	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+		_, _ = allBlobIDs, allManifestDigests
 		mustExec(t, db, `DELETE FROM manifest_manifest_refs`)
 	})
 }
@@ -126,6 +129,7 @@ func TestManifestValidationJobFixesSuperfluousManifestBlobRefs(t *testing.T) {
 
 func TestManifestValidationJobFixesSuperfluousManifestManifestRefs(t *testing.T) {
 	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+		_ = allBlobIDs
 		for _, d1 := range allManifestDigests {
 			for _, d2 := range allManifestDigests {
 				mustExec(t, db, `INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2) ON CONFLICT DO NOTHING`, d1, d2)
@@ -192,7 +196,7 @@ func TestManifestValidationJobError(t *testing.T) {
 
 func TestManifestSyncJob(t *testing.T) {
 	forAllReplicaTypes(t, func(strategy string) {
-		test.WithRoundTripper(func(tt *test.RoundTripper) {
+		test.WithRoundTripper(func(_ *test.RoundTripper) {
 			j1, s1 := setup(t)
 			j2, s2 := setupReplica(t, s1, strategy)
 			s1.Clock.StepBy(1 * time.Hour)

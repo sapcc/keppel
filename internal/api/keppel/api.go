@@ -20,6 +20,7 @@ package keppelv1
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -160,7 +161,7 @@ func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request, _ *
 	if respondwith.ErrorText(w, err) {
 		return nil
 	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "account not found", http.StatusNotFound)
 		return nil
 	}
@@ -175,7 +176,7 @@ func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, 
 	}
 
 	repo, err := keppel.FindRepository(a.db, repoName, account)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "repo not found", http.StatusNotFound)
 		return nil
 	}

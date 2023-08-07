@@ -19,6 +19,7 @@
 package client
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -91,8 +92,8 @@ func ParseAuthChallenge(hdr http.Header) (AuthChallenge, error) {
 }
 
 // GetToken obtains a token that satisfies this challenge.
-func (c AuthChallenge) GetToken(userName, password string) (string, error) {
-	req, err := http.NewRequest(http.MethodGet, c.Realm, http.NoBody)
+func (c AuthChallenge) GetToken(ctx context.Context, userName, password string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.Realm, http.NoBody)
 	if err != nil {
 		return "", err
 	}

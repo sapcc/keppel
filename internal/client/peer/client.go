@@ -19,6 +19,7 @@
 package peerclient
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -38,9 +39,9 @@ type Client struct {
 
 // New obtains a token for API access to the given peer (using our peering
 // credentials), and wraps it into a Client instance.
-func New(cfg keppel.Configuration, peer keppel.Peer, scope auth.Scope) (Client, error) {
+func New(ctx context.Context, cfg keppel.Configuration, peer keppel.Peer, scope auth.Scope) (Client, error) {
 	c := Client{peer, ""}
-	err := c.initToken(cfg, scope)
+	err := c.initToken(ctx, cfg, scope)
 	if err != nil {
 		return Client{}, fmt.Errorf("while trying to obtain a peer token for %s in scope %s: %w",
 			peer.HostName, scope, err)
@@ -48,12 +49,12 @@ func New(cfg keppel.Configuration, peer keppel.Peer, scope auth.Scope) (Client, 
 	return c, nil
 }
 
-func (c *Client) initToken(cfg keppel.Configuration, scope auth.Scope) error {
+func (c *Client) initToken(ctx context.Context, cfg keppel.Configuration, scope auth.Scope) error {
 	reqURL := c.buildRequestURL(fmt.Sprintf("keppel/v1/auth?service=%[1]s&scope=%[2]s", c.peer.HostName, scope))
 	ourUserName := "replication@" + cfg.APIPublicHostname
 	authHeader := map[string]string{"Authorization": keppel.BuildBasicAuthHeader(ourUserName, c.peer.OurPassword)}
 
-	respBodyBytes, respStatusCode, _, err := c.doRequest(http.MethodGet, reqURL, http.NoBody, authHeader)
+	respBodyBytes, respStatusCode, _, err := c.doRequest(ctx, http.MethodGet, reqURL, http.NoBody, authHeader)
 	if err != nil {
 		return err
 	}
@@ -76,8 +77,8 @@ func (c Client) buildRequestURL(path string) string {
 	return fmt.Sprintf("https://%s/%s", c.peer.HostName, path)
 }
 
-func (c Client) doRequest(method, url string, body io.Reader, headers map[string]string) (respBodyBytes []byte, respStatusCode int, respHeader http.Header, err error) {
-	req, err := http.NewRequest(method, url, body)
+func (c Client) doRequest(ctx context.Context, method, url string, body io.Reader, headers map[string]string) (respBodyBytes []byte, respStatusCode int, respHeader http.Header, err error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("during %s %s: %w", method, url, err)
 	}

@@ -164,7 +164,7 @@ func runMigration(m *migrate.Migrate, err error) error {
 		return err
 	}
 	err = m.Up()
-	if err == migrate.ErrNoChange {
+	if errors.Is(err, migrate.ErrNoChange) {
 		//no idea why this is an error
 		return nil
 	}
