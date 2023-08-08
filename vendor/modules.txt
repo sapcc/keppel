@@ -235,7 +235,7 @@ go.uber.org/automaxprocs/maxprocs
 ## explicit; go 1.17
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
-# golang.org/x/exp v0.0.0-20230801115018-d63ba01acd4b
+# golang.org/x/exp v0.0.0-20230807204917-050eac23e9de
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
