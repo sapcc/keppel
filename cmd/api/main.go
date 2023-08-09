@@ -93,7 +93,7 @@ func run(cmd *cobra.Command, args []string) {
 		AllowedHeaders: []string{"Content-Type", "User-Agent", "Authorization", "X-Auth-Token", "X-Keppel-Sublease-Token"},
 	})
 	handler := httpapi.Compose(
-		keppelv1.NewAPI(cfg, ad, fd, sd, icd, db, auditor),
+		keppelv1.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle),
 		auth.NewAPI(cfg, ad, fd, db),
 		registryv2.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle),
 		peerv1.NewAPI(cfg, ad, db),

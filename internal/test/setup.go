@@ -327,7 +327,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		authapi.NewAPI(s.Config, ad, fd, s.DB),
 	}
 	if params.WithKeppelAPI {
-		apis = append(apis, keppelv1.NewAPI(s.Config, ad, fd, sd, icd, s.DB, s.Auditor))
+		apis = append(apis, keppelv1.NewAPI(s.Config, ad, fd, sd, icd, s.DB, s.Auditor, params.RateLimitEngine))
 	}
 	if params.WithPeerAPI {
 		apis = append(apis, peerv1.NewAPI(s.Config, ad, s.DB))
