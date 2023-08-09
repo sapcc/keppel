@@ -19,13 +19,13 @@
 package registryv2_test
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strconv"
 	"testing"
 
-	"github.com/minio/sha256-simd"
 	"github.com/sapcc/go-bits/assert"
 
 	"github.com/sapcc/keppel/internal/drivers/trivial"

@@ -19,6 +19,7 @@
 package tasks
 
 import (
+	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"errors"
@@ -27,7 +28,6 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
-	"github.com/minio/sha256-simd"
 	"github.com/sapcc/go-bits/easypg"
 
 	"github.com/sapcc/keppel/internal/keppel"
