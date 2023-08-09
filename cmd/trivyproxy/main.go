@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net/http"
 	"os/exec"
+	"slices"
 	"strings"
 	"time"
 
@@ -37,7 +38,6 @@ import (
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 	"github.com/spf13/cobra"
-	"golang.org/x/exp/slices"
 )
 
 func AddCommandTo(parent *cobra.Command) {
