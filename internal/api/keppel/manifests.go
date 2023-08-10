@@ -30,6 +30,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
+	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
@@ -285,8 +286,13 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := api.CheckRateLimit(r, a.rle, *account, authz, keppel.TrivyReportRetrieveAction, 1)
-	if respondwith.ErrorText(w, err) {
-		return
+	if err != nil {
+		if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok && rerr != nil {
+			rerr.WriteAsRegistryV2ResponseTo(w, r)
+			return
+		} else if respondwith.ErrorText(w, err) {
+			return
+		}
 	}
 
 	repo := a.findRepositoryFromRequest(w, r, *account)
