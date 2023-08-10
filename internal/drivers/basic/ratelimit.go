@@ -80,7 +80,7 @@ func (d RateLimitDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) er
 			if err != nil {
 				return err
 			}
-			d.Limits[action] = redis_rate.Limit{Rate: rate.Rate, Burst: burst}
+			d.Limits[action] = redis_rate.Limit{Rate: rate.Rate, Burst: burst, Period: rate.Period}
 			logg.Debug("parsed rate quota for %s is %#v", action, d.Limits[action])
 		}
 	}
