@@ -395,7 +395,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	//parse and validate them
 	chunkSizeBytes := (*uint64)(nil)
 	if r.Header.Get("Content-Range") != "" {
-		val, err := a.parseContentRange(upload, r.Header)
+		lengthBytes, err := a.parseContentRange(upload, r.Header)
 		if err != nil {
 			keppel.ErrSizeInvalid.With(err.Error()).WithStatus(http.StatusRequestedRangeNotSatisfiable).WriteAsRegistryV2ResponseTo(w, r)
 
@@ -411,7 +411,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
-		chunkSizeBytes = &val
+		chunkSizeBytes = &lengthBytes
 	}
 
 	//append request body to upload
@@ -553,10 +553,7 @@ func (a *API) resumeUpload(account keppel.Account, upload *keppel.Upload, stateS
 	hashWriter := sha256.New()
 	err = hashWriter.(encoding.BinaryUnmarshaler).UnmarshalBinary(stateBytes)
 	if err != nil {
-		//COVERAGE: I've tried, but couldn't build a test where the session state
-		//is corrupted specifically to go through the Base64 decoding, but not
-		//through this step.
-		return nil, keppel.ErrBlobUploadInvalid.With("broken session state")
+		return nil, keppel.ErrBlobUploadInvalid.With("broken session state").WithStatus(http.StatusRequestedRangeNotSatisfiable)
 	}
 
 	//...and the digest from the data up until this point should be equal to upload.Digest
@@ -572,7 +569,7 @@ func (a *API) resumeUpload(account keppel.Account, upload *keppel.Upload, stateS
 	if err != nil {
 		//COVERAGE: This branch is defense in depth. We unmarshaled the same state
 		//above, so hitting an error just here should be impossible.
-		return nil, keppel.ErrBlobUploadInvalid.With("broken session state")
+		return nil, keppel.ErrBlobUploadInvalid.With("broken session state").WithStatus(http.StatusRequestedRangeNotSatisfiable)
 	}
 
 	return &digestWriter{hashWriter, upload.SizeBytes}, nil
@@ -644,10 +641,10 @@ func (a *API) streamIntoUpload(account keppel.Account, upload *keppel.Upload, dw
 		return "", err
 	}
 
-	//if chunkSizeBytes is known, check that we wrote that many bytes
+	//if chunkSizeBytes is known, check that we wrote that many bytes, not more, not less
 	actualChunkSizeBytes := dw.bytesWritten - sizeBytesBefore
 	if chunkSizeBytes != nil && *chunkSizeBytes != actualChunkSizeBytes {
-		msg := fmt.Sprintf("expected upload of %d bytes, but request contained only %d bytes",
+		msg := fmt.Sprintf("expected upload of %d bytes, but request contained %d bytes",
 			*chunkSizeBytes, actualChunkSizeBytes,
 		)
 		return "", keppel.ErrSizeInvalid.With(msg).WithStatus(http.StatusRequestedRangeNotSatisfiable)

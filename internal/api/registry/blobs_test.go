@@ -307,10 +307,46 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				ExpectBody:   test.ErrorCode(keppel.ErrBlobUploadInvalid),
 			}.Check(t, h)
 
+			// upload with mismatched content length header to trigger a broken session state
+			uploadURL := getBlobUploadURL(t, h, token, "test1/foo")
+			assert.HTTPRequest{
+				Method:       "PATCH",
+				Path:         uploadURL,
+				Header:       getHeadersForPATCH(0, len(blob.Contents)),
+				Body:         assert.ByteData(blob.Contents),
+				ExpectStatus: http.StatusAccepted,
+			}.Check(t, h)
+			assert.HTTPRequest{
+				Method:       "PATCH",
+				Path:         uploadURL,
+				Header:       getHeadersForPATCH(len(blob.Contents)-5, len(blob.Contents)),
+				Body:         assert.ByteData(blob.Contents),
+				ExpectStatus: http.StatusRequestedRangeNotSatisfiable,
+			}.Check(t, h)
+
+			// test that content-length header matches which can only occur when doing chunked uploads
+			if isChunked {
+				uploadURL = getBlobUploadURL(t, h, token, "test1/foo")
+				assert.HTTPRequest{
+					Method:       "PATCH",
+					Path:         uploadURL,
+					Header:       getHeadersForPATCH(0, len(blob.Contents)-10),
+					Body:         assert.ByteData(blob.Contents),
+					ExpectStatus: http.StatusRequestedRangeNotSatisfiable,
+					ExpectBody: assert.JSONObject{
+						"errors": []assert.JSONObject{{
+							"code":    string(keppel.ErrSizeInvalid),
+							"message": "expected upload of 11 bytes, but request contained 21 bytes",
+							"detail":  nil,
+						}},
+					},
+				}.Check(t, h)
+			}
+
 			//test failure cases during PATCH: malformed session state (this requires a
 			//successful PATCH first, otherwise the API would not expect to find session
 			//state in our request)
-			uploadURL := getBlobUploadURL(t, h, token, "test1/foo")
+			uploadURL = getBlobUploadURL(t, h, token, "test1/foo")
 			assert.HTTPRequest{
 				Method:       "PATCH",
 				Path:         uploadURL,
