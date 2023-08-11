@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -41,7 +42,7 @@ func CheckRateLimit(r *http.Request, rle *keppel.RateLimitEngine, account keppel
 		return nil
 	}
 
-	allowed, result, err := rle.RateLimitAllows(r.Context(), account, action, amount)
+	allowed, result, err := rle.RateLimitAllows(r.Context(), httpext.GetRequesterIPFor(r), account, action, amount)
 	if err != nil {
 		return err
 	}
