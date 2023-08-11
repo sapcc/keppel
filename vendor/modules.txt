@@ -1,7 +1,7 @@
 # github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a
 ## explicit
 github.com/alicebob/gopher-json
-# github.com/alicebob/miniredis/v2 v2.30.4
+# github.com/alicebob/miniredis/v2 v2.30.5
 ## explicit; go 1.14
 github.com/alicebob/miniredis/v2
 github.com/alicebob/miniredis/v2/geohash
@@ -11,7 +11,7 @@ github.com/alicebob/miniredis/v2/server
 # github.com/anchore/go-struct-converter v0.0.0-20221118182256-c68fdcfa2092
 ## explicit; go 1.18
 github.com/anchore/go-struct-converter
-# github.com/aquasecurity/trivy v0.44.0
+# github.com/aquasecurity/trivy v0.44.1
 ## explicit; go 1.19
 github.com/aquasecurity/trivy/pkg/digest
 github.com/aquasecurity/trivy/pkg/fanal/analyzer/os
@@ -229,7 +229,7 @@ go.uber.org/automaxprocs/maxprocs
 ## explicit; go 1.17
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
-# golang.org/x/exp v0.0.0-20230807204917-050eac23e9de
+# golang.org/x/exp v0.0.0-20230810033253-352e893a4cad
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
