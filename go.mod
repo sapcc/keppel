@@ -3,8 +3,8 @@ module github.com/sapcc/keppel
 go 1.21
 
 require (
-	github.com/alicebob/miniredis/v2 v2.30.4
-	github.com/aquasecurity/trivy v0.44.0
+	github.com/alicebob/miniredis/v2 v2.30.5
+	github.com/aquasecurity/trivy v0.44.1
 	github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/docker/distribution v2.8.2+incompatible
@@ -27,7 +27,7 @@ require (
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.5.3
 	golang.org/x/crypto v0.12.0
-	golang.org/x/exp v0.0.0-20230807204917-050eac23e9de
+	golang.org/x/exp v0.0.0-20230810033253-352e893a4cad
 )
 
 require (
