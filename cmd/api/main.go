@@ -36,7 +36,6 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
-	"github.com/sapcc/go-bits/sqlext"
 	"github.com/spf13/cobra"
 
 	auth "github.com/sapcc/keppel/internal/api/auth"
@@ -131,15 +130,25 @@ func setupDBIfRequested(db *keppel.DB) error {
 	//This setup cannot be done before keppel-api has been started, because the
 	//DB schema has not been populated yet at that point.
 	if osext.GetenvBool("KEPPEL_RUN_DB_SETUP_FOR_CONFORMANCE_TEST") {
+		// clear out database before running conformance tests to be not out of sync with cleared out storage filedriver
+		// borrowed from test setup
+		for {
+			result := must.Return(db.Exec(`DELETE FROM manifest_manifest_refs WHERE parent_digest NOT IN (SELECT child_digest FROM manifest_manifest_refs)`))
+			rowsDeleted := must.Return(result.RowsAffected())
+			if rowsDeleted == 0 {
+				break
+			}
+		}
+
 		queries := []string{
-			sqlext.SimplifyWhitespace(`
-				INSERT INTO accounts (name, auth_tenant_id) VALUES ('conformance-test', 'bogus')
-				ON CONFLICT DO NOTHING
-			`),
-			sqlext.SimplifyWhitespace(`
-				INSERT INTO quotas (auth_tenant_id, manifests) VALUES ('bogus', 100)
-				ON CONFLICT DO NOTHING
-			`),
+			// clean out all other tables before inserting account
+			"DELETE FROM manifest_blob_refs",
+			"DELETE FROM accounts",
+			"DELETE FROM peers",
+			"DELETE FROM quotas",
+
+			"INSERT INTO accounts (name, auth_tenant_id) VALUES ('conformance-test', 'bogus')",
+			"INSERT INTO quotas (auth_tenant_id, manifests) VALUES ('bogus', 100)",
 		}
 
 		for _, query := range queries {
