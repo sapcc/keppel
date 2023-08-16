@@ -48,8 +48,7 @@ func TestRateLimits(t *testing.T) {
 
 	testWithPrimary(t, rle, func(s test.Setup) {
 		sr := miniredis.RunT(t)
-		sr.SetTime(s.Clock.Now())
-		s.Clock.MiniRedis = sr
+		s.Clock.AddListener(sr.SetTime)
 		rle.Client = redis.NewClient(&redis.Options{Addr: sr.Addr()})
 
 		//create the "test1/foo" repository to ensure that we don't just always hit
@@ -156,8 +155,7 @@ func TestAnycastRateLimits(t *testing.T) {
 			return
 		}
 		sr := miniredis.RunT(t)
-		sr.SetTime(s.Clock.Now())
-		s.Clock.MiniRedis = sr
+		s.Clock.AddListener(sr.SetTime)
 		rle.Client = redis.NewClient(&redis.Options{Addr: sr.Addr()})
 
 		//upload the test blob

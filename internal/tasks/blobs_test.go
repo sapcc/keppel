@@ -87,16 +87,16 @@ func TestValidateBlobs(t *testing.T) {
 	dbBlobs := make([]keppel.Blob, 3)
 	for idx := range dbBlobs {
 		blob := test.GenerateExampleLayer(int64(idx))
-		s.Clock.Step()
+		s.Clock.StepBy(time.Second)
 		dbBlobs[idx] = blob.MustUpload(t, s, fooRepoRef)
 	}
 
 	//BlobValidationJob should be happy about these blobs
 	s.Clock.StepBy(8*24*time.Hour - 2*time.Second)
 	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
-	s.Clock.Step()
+	s.Clock.StepBy(time.Second)
 	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
-	s.Clock.Step()
+	s.Clock.StepBy(time.Second)
 	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), validateBlobJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-validate-001.sql")
@@ -115,9 +115,9 @@ func TestValidateBlobs(t *testing.T) {
 		wrongDigest.String(), dbBlobs[2].Digest,
 	)
 	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
-	s.Clock.Step()
+	s.Clock.StepBy(time.Second)
 	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
-	s.Clock.Step()
+	s.Clock.StepBy(time.Second)
 	expectError(t, expectedError, validateBlobJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), validateBlobJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-validate-002.sql")
@@ -132,9 +132,9 @@ func TestValidateBlobs(t *testing.T) {
 	//blobs with an existing validation error are chosen with higher priority)
 	s.Clock.StepBy(8*24*time.Hour - 2*time.Second)
 	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
-	s.Clock.Step()
+	s.Clock.StepBy(time.Second)
 	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
-	s.Clock.Step()
+	s.Clock.StepBy(time.Second)
 	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), validateBlobJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-validate-003.sql")

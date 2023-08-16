@@ -21,6 +21,7 @@ package registryv2_test
 import (
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/sapcc/go-bits/assert"
 
@@ -72,7 +73,7 @@ func TestKeppelAPIAuth(t *testing.T) {
 		//helper functions use those)
 		h := s.Handler
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
-		s.Clock.Step()
+		s.Clock.StepBy(time.Second)
 		image.MustUpload(t, s, fooRepoRef, "first")
 
 		//test scopeless endpoint: happy case

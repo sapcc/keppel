@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
@@ -36,7 +37,7 @@ func TestReplicationSimpleImage(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
 		//upload image to primary account
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
-		s1.Clock.Step()
+		s1.Clock.StepBy(time.Second)
 		image.MustUpload(t, s1, fooRepoRef, "first")
 
 		//test pull by manifest in secondary account
@@ -63,14 +64,14 @@ func TestReplicationSimpleImage(t *testing.T) {
 				})
 			}
 
-			s1.Clock.Step()
+			s1.Clock.StepBy(time.Second)
 			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, image.Manifest.Digest.String(), nil)
 
 			if firstPass && strategy == "on_first_use" {
 				easypg.AssertDBContent(t, s2.DB.DbMap.Db, "fixtures/imagemanifest-replication-001-after-pull-manifest.sql")
 			}
 
-			s1.Clock.Step()
+			s1.Clock.StepBy(time.Second)
 			expectBlobExists(t, h2, token, "test1/foo", image.Config, nil)
 			expectBlobExists(t, h2, token, "test1/foo", image.Layers[0], nil)
 
@@ -96,7 +97,7 @@ func TestReplicationImageList(t *testing.T) {
 		image1 := test.GenerateImage(test.GenerateExampleLayer(1))
 		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
 		list := test.GenerateImageList(image1, image2)
-		s1.Clock.Step()
+		s1.Clock.StepBy(time.Second)
 		image1.MustUpload(t, s1, fooRepoRef, "first")
 		image2.MustUpload(t, s1, fooRepoRef, "second")
 		list.MustUpload(t, s1, fooRepoRef, "list")
@@ -109,7 +110,7 @@ func TestReplicationImageList(t *testing.T) {
 			if firstPass {
 				//do not step the clock in the second pass, otherwise the AssertDBContent
 				//will fail on the changed last_pulled_at timestamp
-				s1.Clock.Step()
+				s1.Clock.StepBy(time.Second)
 			}
 			expectManifestExists(t, h2, token, "test1/foo", list.Manifest, "list", nil)
 
@@ -225,7 +226,7 @@ func TestReplicationManifestQuotaExceeded(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
 		//upload image to primary account
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
-		s1.Clock.Step()
+		s1.Clock.StepBy(time.Second)
 		image.MustUpload(t, s1, fooRepoRef, "first")
 
 		//in secondary account...
@@ -264,7 +265,7 @@ func TestReplicationUseCachedBlobMetadata(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
 		//upload image to primary account
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
-		s1.Clock.Step()
+		s1.Clock.StepBy(time.Second)
 		image.MustUpload(t, s1, fooRepoRef, "first")
 
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
@@ -298,7 +299,7 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
 		//upload image to primary account
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
-		s1.Clock.Step()
+		s1.Clock.StepBy(time.Second)
 		image.MustUpload(t, s1, fooRepoRef, "first")
 		image.MustUpload(t, s1, fooRepoRef, "second")
 
@@ -369,7 +370,7 @@ func TestReplicationAllowAnonymousReplicationFromExternal(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
 		//upload image to primary account
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
-		s1.Clock.Step()
+		s1.Clock.StepBy(time.Second)
 		image.MustUpload(t, s1, fooRepoRef, "first")
 
 		testWithReplica(t, s1, "from_external_on_first_use", func(firstPass bool, s2 test.Setup) {
@@ -427,7 +428,7 @@ func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 		image1 := test.GenerateImage(test.GenerateExampleLayer(1))
 		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
 		list := test.GenerateImageList(image1, image2)
-		s1.Clock.Step()
+		s1.Clock.StepBy(time.Second)
 		image1.MustUpload(t, s1, fooRepoRef, "first")
 		image2.MustUpload(t, s1, fooRepoRef, "second")
 		list.MustUpload(t, s1, fooRepoRef, "list")
@@ -447,7 +448,7 @@ func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 			if firstPass {
 				//do not step the clock in the second pass, otherwise the AssertDBContent
 				//will fail on the changed last_pulled_at timestamp
-				s1.Clock.Step()
+				s1.Clock.StepBy(time.Second)
 			}
 			expectManifestExists(t, h2, token, "test1/foo", list.Manifest, "list", nil)
 

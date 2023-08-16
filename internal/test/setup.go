@@ -30,6 +30,7 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/mock"
 	"github.com/sapcc/go-bits/osext"
 	"golang.org/x/crypto/bcrypt"
 
@@ -144,7 +145,7 @@ type Setup struct {
 	//fields that are always set
 	Config       keppel.Configuration
 	DB           *keppel.DB
-	Clock        *Clock
+	Clock        *mock.Clock
 	SIDGenerator *StorageIDGenerator
 	Auditor      *Auditor
 	AD           *AuthDriver
@@ -295,7 +296,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	}
 
 	//setup essential test doubles
-	s.Clock = &Clock{}
+	s.Clock = mock.NewClock()
 	s.SIDGenerator = &StorageIDGenerator{}
 	s.Auditor = &Auditor{}
 
