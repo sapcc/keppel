@@ -178,7 +178,7 @@ github.com/samber/lo
 ## explicit; go 1.21
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20230816124253-7ed3dcbc093f
+# github.com/sapcc/go-bits v0.0.0-20230817142210-d6d2e72f3d0a
 ## explicit; go 1.21
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools

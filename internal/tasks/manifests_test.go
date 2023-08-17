@@ -170,7 +170,7 @@ func TestManifestValidationJobError(t *testing.T) {
 	//validation should yield an error
 	s.Clock.StepBy(36 * time.Hour)
 	expectedError := fmt.Sprintf(
-		`could not process task for job "manifest validation": while validating manifest %s in repo 1: manifest blob unknown to registry: %s`,
+		"while validating manifest %s in repo 1: manifest blob unknown to registry: %s",
 		image.Manifest.Digest, image.Config.Digest,
 	)
 	expectError(t, expectedError, validateManifestJob.ProcessOne(s.Ctx))
@@ -426,7 +426,7 @@ func TestManifestSyncJob(t *testing.T) {
 			//ManifestSyncJob should now complain since it wants to delete
 			//images[2].Manifest, but it can't because of the manifest-manifest ref to
 			//the image list
-			expectedError := fmt.Sprintf(`could not process task for job "manifest sync in replica repos": cannot remove deleted manifests [%s] in repo test1/foo because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)`,
+			expectedError := fmt.Sprintf("cannot remove deleted manifests [%s] in repo test1/foo because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)",
 				images[2].Manifest.Digest,
 			)
 			expectError(t, expectedError, syncManifestsJob2.ProcessOne(s2.Ctx))
@@ -490,7 +490,7 @@ func TestManifestSyncJob(t *testing.T) {
 			//ManifestSyncJob understands that this is a network issue and not
 			//caused by the manifest getting deleted, since the 404-generating endpoint
 			//does not render a proper MANIFEST_UNKNOWN error.
-			expectedError = fmt.Sprintf(`could not process task for job "manifest sync in replica repos": cannot check existence of manifest test1/foo/%s on primary account: during GET https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found`,
+			expectedError = fmt.Sprintf("cannot check existence of manifest test1/foo/%s on primary account: during GET https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found",
 				images[1].Manifest.Digest, //the only manifest that is left
 			)
 			expectError(t, expectedError, syncManifestsJob2.ProcessOne(s2.Ctx))
@@ -635,7 +635,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		// simulate transient error
 		s.Clock.StepBy(30 * time.Minute)
 		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef)] = true
-		expectedError := fmt.Sprintf("could not process task for job \"check trivy security status\": cannot check manifest test1/foo@%s: scan error: trivy proxy did not return 200: 500 simulated error", image.Manifest.Digest)
+		expectedError := fmt.Sprintf("cannot check manifest test1/foo@%s: scan error: trivy proxy did not return 200: 500 simulated error", image.Manifest.Digest)
 		expectError(t, expectedError, trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';

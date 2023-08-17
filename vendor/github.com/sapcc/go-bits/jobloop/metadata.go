@@ -74,10 +74,13 @@ func (m *JobMetadata) setup(registerer prometheus.Registerer) {
 
 // Internal API for job implementations: Fills a fresh label set with default
 // values for all labels defined for this job's CounterVec.
-func (m *JobMetadata) makeLabels() prometheus.Labels {
+func (m *JobMetadata) makeLabels(cfg jobConfig) prometheus.Labels {
 	labels := make(prometheus.Labels, len(m.CounterLabels)+1)
 	for _, label := range m.CounterLabels {
 		labels[label] = "early-db-access"
+	}
+	for label, value := range cfg.PrefilledLabels {
+		labels[label] = value
 	}
 	return labels
 }

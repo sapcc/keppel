@@ -111,7 +111,7 @@ func TestValidateBlobs(t *testing.T) {
 	//not so happy now, huh?
 	s.Clock.StepBy(8*24*time.Hour - 2*time.Second)
 	expectedError := fmt.Sprintf(
-		`could not process task for job "validation of blob contents": expected digest %s, but got %s`,
+		"expected digest %s, but got %s",
 		wrongDigest.String(), dbBlobs[2].Digest,
 	)
 	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))

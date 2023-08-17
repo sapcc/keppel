@@ -63,21 +63,35 @@ type cronJobImpl struct {
 	j *CronJob
 }
 
-// ProcessOne implements the Job interface.
-func (i cronJobImpl) ProcessOne(ctx context.Context) error {
+// Core behavior of ProcessOne(). This is a separate function because it is reused in runOnce().
+func (i cronJobImpl) processOne(ctx context.Context, cfg jobConfig) error {
 	j := i.j
 
-	labels := j.Metadata.makeLabels()
+	labels := j.Metadata.makeLabels(cfg)
 	err := j.Task(ctx, labels)
 	j.Metadata.countTask(labels, err)
 	return err
 }
 
+// ProcessOne implements the Job interface.
+func (i cronJobImpl) ProcessOne(ctx context.Context, opts ...Option) error {
+	return i.processOne(ctx, newJobConfig(opts))
+}
+
 // Run implements the Job interface.
 func (i cronJobImpl) Run(ctx context.Context, opts ...Option) {
+	cfg := newJobConfig(opts)
+	runOnce := func() {
+		err := i.processOne(ctx, cfg)
+		if err != nil {
+			logg.Error("could not run task%s for job %q: %s",
+				cfg.PrefilledLabelsAsString(), i.j.Metadata.ReadableName, err.Error())
+		}
+	}
+
 	if i.j.InitialDelay != 0 {
 		time.Sleep(i.j.InitialDelay)
-		i.runOnce(ctx)
+		runOnce()
 	}
 
 	ticker := time.NewTicker(i.j.Interval)
@@ -88,14 +102,7 @@ func (i cronJobImpl) Run(ctx context.Context, opts ...Option) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			i.runOnce(ctx)
+			runOnce()
 		}
-	}
-}
-
-func (i cronJobImpl) runOnce(ctx context.Context) {
-	err := i.ProcessOne(ctx)
-	if err != nil {
-		logg.Error("could not run task for job %q: %s", i.j.Metadata.ReadableName, err.Error())
 	}
 }

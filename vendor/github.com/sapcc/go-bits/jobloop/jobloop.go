@@ -32,7 +32,8 @@ import (
 type Job interface {
 	// ProcessOne finds and executes exactly one task, aborting early if `ctx` expires.
 	// If no task is available to be executed, `sql.ErrNoRows` is returned.
-	ProcessOne(ctx context.Context) error
+	// The runtime behavior of the job can be configured through Option arguments.
+	ProcessOne(ctx context.Context, opts ...Option) error
 	// Run blocks the current goroutine and executes tasks until `ctx` expires.
 	// The runtime behavior of the job can be configured through Option arguments.
 	Run(ctx context.Context, opts ...Option)
@@ -42,9 +43,9 @@ type Job interface {
 // be executed, `sql.ErrNoRows` is returned. If any error is encountered, processing stops early.
 //
 // If only go would support member functions on interfaces...
-func ProcessMany(j Job, ctx context.Context, count int) error {
+func ProcessMany(j Job, ctx context.Context, count int, opts ...Option) error {
 	for i := 1; i <= count; i++ {
-		err := j.ProcessOne(ctx)
+		err := j.ProcessOne(ctx, opts...)
 		if err != nil {
 			return fmt.Errorf("failed in iteration %d: %w", i, err)
 		}
