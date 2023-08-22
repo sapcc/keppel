@@ -568,7 +568,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		}
 		// generate a 2 MiB big image to run into blobUncompressedSizeTooBigGiB
 		images = append(images, test.GenerateImage(test.GenerateExampleLayerSize(int64(2), 2)))
-		images[3].MustUpload(t, s, fooRepoRef, "")
+		images[3].MustUpload(t, s, fooRepoRef, "") //nolint:gosec // slice size is hardcoded, no out of bounds access possible
 
 		//also setup an image list manifest containing those images (so that we have
 		//some manifest-manifest refs to play with)
@@ -587,7 +587,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		s.TrivyDouble.ReportFixtures[images[0].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-clean.json"
 		s.TrivyDouble.ReportFixtures[images[2].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
-		s.TrivyDouble.ReportFixtures[images[3].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-clean.json"
+		s.TrivyDouble.ReportFixtures[images[3].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-clean.json" //nolint:gosec // slice size is hardcoded, no out of bounds access possible
 		s.Clock.StepBy(5 * time.Minute)
 		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
@@ -601,9 +601,9 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[7]d, checked_at = %[6]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[3]s';
 			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[9]g GiB', next_check_at = %[8]d WHERE repo_id = 1 AND digest = '%[4]s';
 			UPDATE trivy_security_info SET vuln_status = 'Clean', next_check_at = %[7]d, checked_at = %[6]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[5]s';
-		`, images[0].Manifest.Digest, imageList.Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest, images[1].Manifest.Digest,
+		`, images[0].Manifest.Digest, imageList.Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest, images[1].Manifest.Digest, //nolint:gosec // slice size is hardcoded, no out of bounds access possible
 			s.Clock.Now().Unix(), s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Add(24*time.Hour).Unix(), blobUncompressedSizeTooBigGiB,
-			images[0].Layers[0].Digest, images[1].Layers[0].Digest, images[2].Layers[0].Digest, images[3].Layers[0].Digest)
+			images[0].Layers[0].Digest, images[1].Layers[0].Digest, images[2].Layers[0].Digest, images[3].Layers[0].Digest) //nolint:gosec // slice size is hardcoded, no out of bounds access possible
 
 		// check that a changed vulnerability status does not have side effects
 		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"

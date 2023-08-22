@@ -78,7 +78,7 @@ func TestParseImageReferenceSuccess(t *testing.T) {
 func TestParseImageReferenceLabelDigestSuccess(t *testing.T) {
 	registry := "localhost:5000"
 	repo := "library/alpine"
-	digest := "sha256:e9707504ad0d4c119036b6d41ace4a33596139d3feb9ccb6617813ce48c3eeef"
+	digest := "sha256:e9707504ad0d4c119036b6d41ace4a33596139d3feb9ccb6617813ce48c3eeef" //nolint:gosec // false positive, this hash is not a credential
 	// Check that the manifest reference :nonsense@digest is equal to @digest where :nonsense can be anything and is NOT checked.
 	// This mirrors the behaviour of the official docker client to maintain compatbility.
 	refActual := ImageReference{registry, repo, ParseManifestReference("nonsense@" + digest)}
