@@ -260,6 +260,13 @@ func (d *swiftDriver) AbortBlobUpload(account keppel.Account, storageID string, 
 		}
 	}
 
+	// don't fail when encountering a missing segment because an error could have happened before the first segment made it to swift
+	if statusErr, ok := errext.As[schwift.UnexpectedStatusCodeError](firstError); ok {
+		if statusErr.ActualResponse.StatusCode == http.StatusNotFound {
+			return nil
+		}
+	}
+
 	return firstError
 }
 
