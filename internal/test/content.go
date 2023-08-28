@@ -59,11 +59,23 @@ func NewBytesFromFile(path string) (Bytes, error) {
 	return NewBytes(buf), err
 }
 
+// Results from GenerateExampleLayer are frequently recalculated between tests,
+// so it makes sense to memoize them to shave a bit of runtime off the tests.
+var exampleLayerCache = make(map[int64]Bytes)
+
 // GenerateExampleLayer generates a blob of 1 MiB that can be used like an image
 // layer when constructing image manifests for unit tests. The contents are
 // generated deterministically from the given seed.
 func GenerateExampleLayer(seed int64) Bytes {
-	return GenerateExampleLayerSize(seed, 1)
+	layer, ok := exampleLayerCache[seed]
+	if !ok {
+		layer = GenerateExampleLayerSize(seed, 1)
+		if seed >= 0 && seed < 10 {
+			//only the most commonly requested layers are cached to avoid excessive memory usage
+			exampleLayerCache[seed] = layer
+		}
+	}
+	return layer
 }
 
 // GenerateExampleLayerSize generates a blob of a configurable size that can be used like an image
