@@ -30,7 +30,7 @@ jobs:
         uses: actions/dependency-review-action@v3
         with:
           base-ref: ${{ github.event.pull_request.base.sha || 'master' }}
-          deny-licenses: AGPL-1.0, AGPL-3.0, GPL-1.0, GPL-2.0, GPL-3.0, LGPL-2.0, LGPL-2.1, LGPL-3.0
+          deny-licenses: AGPL-1.0, AGPL-3.0, GPL-1.0, GPL-2.0, GPL-3.0, LGPL-2.0, LGPL-2.1, LGPL-3.0, BUSL-1.1
           fail-on-severity: moderate
           head-ref: ${{ github.event.pull_request.head.sha || github.ref }}
       - name: Run govulncheck
