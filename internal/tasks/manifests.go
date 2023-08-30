@@ -187,11 +187,11 @@ func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo keppel.Re
 		}
 		err = j.performTagSync(ctx, *account, repo, syncPayload)
 		if err != nil {
-			return err
+			return fmt.Errorf("while syncing tags in repo %s: %w", repo.FullName(), err)
 		}
 		err = j.performManifestSync(ctx, *account, repo, syncPayload)
 		if err != nil {
-			return err
+			return fmt.Errorf("while syncing manifests in repo %s: %w", repo.FullName(), err)
 		}
 	}
 
@@ -279,7 +279,7 @@ func (j *Janitor) performTagSync(ctx context.Context, account keppel.Account, re
 	var tags []keppel.Tag
 	_, err := j.db.Select(&tags, `SELECT * FROM tags WHERE repo_id = $1`, repo.ID)
 	if err != nil {
-		return fmt.Errorf("cannot list tags in repo %s: %w", repo.FullName(), err)
+		return fmt.Errorf("cannot list tags: %w", err)
 	}
 
 	p := j.processor()
@@ -344,7 +344,7 @@ func (j *Janitor) performManifestSync(ctx context.Context, account keppel.Accoun
 	var manifests []keppel.Manifest
 	_, err := j.db.Select(&manifests, repoUntaggedManifestsSelectQuery, repo.ID)
 	if err != nil {
-		return fmt.Errorf("cannot list manifests in repo %s: %w", repo.FullName(), err)
+		return fmt.Errorf("cannot list manifests: %w", err)
 	}
 
 	//check which manifests need to be deleted
@@ -363,7 +363,7 @@ func (j *Janitor) performManifestSync(ctx context.Context, account keppel.Accoun
 		ref := models.ManifestReference{Digest: manifest.Digest}
 		exists, err := p.CheckManifestOnPrimary(ctx, account, repo, ref)
 		if err != nil {
-			return fmt.Errorf("cannot check existence of manifest %s/%s on primary account: %w", repo.FullName(), manifest.Digest, err)
+			return fmt.Errorf("cannot check existence of manifest %s on primary account: %w", manifest.Digest, err)
 		}
 		if !exists {
 			shallDeleteManifest[manifest.Digest] = true
@@ -390,7 +390,7 @@ func (j *Janitor) performManifestSync(ctx context.Context, account keppel.Accoun
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("cannot enumerate manifest-manifest refs in repo %s: %w", repo.FullName(), err)
+		return fmt.Errorf("cannot enumerate manifest-manifest refs: %w", err)
 	}
 
 	//delete manifests in correct order (if there is a parent-child relationship,
@@ -415,7 +415,7 @@ func (j *Janitor) performManifestSync(ctx context.Context, account keppel.Accoun
 				Request:      janitorDummyRequest,
 			})
 			if err != nil {
-				return fmt.Errorf("cannot remove deleted manifest %s in repo %s: %w", digestToBeDeleted, repo.FullName(), err)
+				return fmt.Errorf("cannot remove deleted manifest %s: %w", digestToBeDeleted, err)
 			}
 
 			//remove deletion from work queue (so that we can eventually exit from the outermost loop)
@@ -430,8 +430,8 @@ func (j *Janitor) performManifestSync(ctx context.Context, account keppel.Accoun
 
 		//we should be deleting something in each iteration, otherwise we will get stuck in an infinite loop
 		if !deletedSomething {
-			return fmt.Errorf("cannot remove deleted manifests %v in repo %s because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)",
-				maps.Keys(shallDeleteManifest), repo.FullName())
+			return fmt.Errorf("cannot remove deleted manifests %v because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)",
+				maps.Keys(shallDeleteManifest))
 		}
 	}
 

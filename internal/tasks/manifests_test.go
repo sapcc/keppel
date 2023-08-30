@@ -426,7 +426,7 @@ func TestManifestSyncJob(t *testing.T) {
 			//ManifestSyncJob should now complain since it wants to delete
 			//images[2].Manifest, but it can't because of the manifest-manifest ref to
 			//the image list
-			expectedError := fmt.Sprintf("cannot remove deleted manifests [%s] in repo test1/foo because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)",
+			expectedError := fmt.Sprintf("while syncing manifests in repo test1/foo: cannot remove deleted manifests [%s] because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)",
 				images[2].Manifest.Digest,
 			)
 			expectError(t, expectedError, syncManifestsJob2.ProcessOne(s2.Ctx))
@@ -490,7 +490,7 @@ func TestManifestSyncJob(t *testing.T) {
 			//ManifestSyncJob understands that this is a network issue and not
 			//caused by the manifest getting deleted, since the 404-generating endpoint
 			//does not render a proper MANIFEST_UNKNOWN error.
-			expectedError = fmt.Sprintf("cannot check existence of manifest test1/foo/%s on primary account: during GET https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found",
+			expectedError = fmt.Sprintf("while syncing manifests in repo test1/foo: cannot check existence of manifest %s on primary account: during GET https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found",
 				images[1].Manifest.Digest, //the only manifest that is left
 			)
 			expectError(t, expectedError, syncManifestsJob2.ProcessOne(s2.Ctx))
