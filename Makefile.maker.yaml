@@ -12,8 +12,9 @@ coverageTest:
   only: '/internal'
   except: '/drivers|/test/util'
 
-vendoring:
-  enabled: true
+golang:
+  enableVendoring: true
+  setGoModVersion: true
 
 dockerfile:
   enabled: true
