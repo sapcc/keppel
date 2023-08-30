@@ -116,10 +116,11 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	//expose metrics endpoint
-	http.HandleFunc("/healthcheck", job.ReportHealthcheckResult)
-	http.Handle("/metrics", promhttp.Handler())
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthcheck", job.ReportHealthcheckResult)
+	mux.Handle("/metrics", promhttp.Handler())
 	go func() {
-		must.Succeed(httpext.ListenAndServeContext(ctx, listenAddress, nil))
+		must.Succeed(httpext.ListenAndServeContext(ctx, listenAddress, mux))
 	}()
 
 	//enter long-running check loop

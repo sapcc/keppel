@@ -101,12 +101,13 @@ func run(cmd *cobra.Command, args []string) {
 		httpapi.HealthCheckAPI{SkipRequestLog: true},
 		httpapi.WithGlobalMiddleware(corsMiddleware.Handler),
 	)
-	http.Handle("/", handler)
-	http.Handle("/metrics", promhttp.Handler())
+	mux := http.NewServeMux()
+	mux.Handle("/", handler)
+	mux.Handle("/metrics", promhttp.Handler())
 
 	//start HTTP server
 	apiListenAddress := osext.GetenvOrDefault("KEPPEL_API_LISTEN_ADDRESS", ":8080")
-	must.Succeed(httpext.ListenAndServeContext(ctx, apiListenAddress, nil))
+	must.Succeed(httpext.ListenAndServeContext(ctx, apiListenAddress, mux))
 }
 
 // Note that, since Redis is optional, this may return (nil, nil).

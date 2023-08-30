@@ -82,8 +82,9 @@ func run(cmd *cobra.Command, args []string) {
 
 	//start HTTP server for Prometheus metrics and health check
 	handler := httpapi.Compose(httpapi.HealthCheckAPI{SkipRequestLog: true})
-	http.Handle("/", handler)
-	http.Handle("/metrics", promhttp.Handler())
+	mux := http.NewServeMux()
+	mux.Handle("/", handler)
+	mux.Handle("/metrics", promhttp.Handler())
 	listenAddress := osext.GetenvOrDefault("KEPPEL_JANITOR_LISTEN_ADDRESS", ":8080")
-	must.Succeed(httpext.ListenAndServeContext(ctx, listenAddress, nil))
+	must.Succeed(httpext.ListenAndServeContext(ctx, listenAddress, mux))
 }

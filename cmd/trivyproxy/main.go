@@ -66,11 +66,12 @@ func run(cmd *cobra.Command, args []string) {
 		NewAPI(dbMirrorPrefix, token, trivyURL),
 		httpapi.HealthCheckAPI{SkipRequestLog: true},
 	)
-	http.Handle("/", handler)
-	http.Handle("/metrics", promhttp.Handler())
+	smux := http.NewServeMux()
+	smux.Handle("/", handler)
+	smux.Handle("/metrics", promhttp.Handler())
 
 	apiListenAddress := osext.GetenvOrDefault("KEPPEL_API_LISTEN_ADDRESS", ":8080")
-	must.Succeed(httpext.ListenAndServeContext(ctx, apiListenAddress, nil))
+	must.Succeed(httpext.ListenAndServeContext(ctx, apiListenAddress, smux))
 }
 
 // API contains state variables used by the Trivy API proxy.
