@@ -76,7 +76,7 @@ type Event struct {
 // Resource contains attributes describing a (OpenStack-) Resource
 type Resource struct {
 	TypeURI   string `json:"typeURI"`
-	Name      string `json:"name"`
+	Name      string `json:"name,omitempty"`
 	Domain    string `json:"domain,omitempty"`
 	ID        string `json:"id"`
 	Addresses []struct {

@@ -34,6 +34,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sapcc/go-bits/httpapi"
+	"github.com/sapcc/go-bits/httpapi/pprofapi"
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
@@ -65,6 +66,7 @@ func run(cmd *cobra.Command, args []string) {
 	handler := httpapi.Compose(
 		NewAPI(dbMirrorPrefix, token, trivyURL),
 		httpapi.HealthCheckAPI{SkipRequestLog: true},
+		pprofapi.API{IsAuthorized: pprofapi.IsRequestFromLocalhost},
 	)
 	smux := http.NewServeMux()
 	smux.Handle("/", handler)

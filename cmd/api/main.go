@@ -32,6 +32,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/cors"
 	"github.com/sapcc/go-bits/httpapi"
+	"github.com/sapcc/go-bits/httpapi/pprofapi"
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/must"
@@ -100,6 +101,7 @@ func run(cmd *cobra.Command, args []string) {
 		&guiRedirecter{db, os.Getenv("KEPPEL_GUI_URI")},
 		httpapi.HealthCheckAPI{SkipRequestLog: true},
 		httpapi.WithGlobalMiddleware(corsMiddleware.Handler),
+		pprofapi.API{IsAuthorized: pprofapi.IsRequestFromLocalhost},
 	)
 	mux := http.NewServeMux()
 	mux.Handle("/", handler)
