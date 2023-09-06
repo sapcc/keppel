@@ -249,7 +249,8 @@ func (d *swiftDriver) AbortBlobUpload(account keppel.Account, storageID string, 
 	for chunkNumber := uint32(1); chunkNumber <= chunkCount; chunkNumber++ {
 		err := chunkObject(c, storageID, chunkNumber).Delete(nil, nil)
 		//keep going even when some segments cannot be deleted, to clean up as much as we can
-		if err != nil {
+		//(404 errors are ignored entirely; they are not really an error since we want the objects to be not there anyway)
+		if err != nil && !schwift.Is(err, http.StatusNotFound) {
 			if firstError == nil {
 				firstError = err
 			} else {
