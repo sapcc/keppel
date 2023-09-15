@@ -109,9 +109,11 @@ type producerConsumerJobImpl[T any] struct {
 func (j *ProducerConsumerJob[T]) produceOne(ctx context.Context, cfg jobConfig, annotateErrors bool) (T, prometheus.Labels, error) {
 	labels := j.Metadata.makeLabels(cfg)
 	task, err := j.DiscoverTask(ctx, labels)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) && annotateErrors {
-		err = fmt.Errorf("could not select task%s for job %q: %w",
-			cfg.PrefilledLabelsAsString(), j.Metadata.ReadableName, err)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		if annotateErrors {
+			err = fmt.Errorf("could not select task%s for job %q: %w",
+				cfg.PrefilledLabelsAsString(), j.Metadata.ReadableName, err)
+		}
 		j.Metadata.countTask(labels, err)
 	}
 	return task, labels, err
