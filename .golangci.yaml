@@ -84,6 +84,10 @@ linters-settings:
     check-shadowing: true
   nolintlint:
     require-specific: true
+  stylecheck:
+    dot-import-whitelist:
+      - github.com/onsi/ginkgo/v2
+      - github.com/onsi/gomega
   usestdlibvars:
     constant-kind: true
     crypto-hash: true
@@ -114,6 +118,7 @@ linters:
     - errorlint
     - exportloopref
     - forbidigo
+    - ginkgolinter
     - gocheckcompilerdirectives
     - gocritic
     - gofmt
