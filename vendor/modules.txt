@@ -11,7 +11,7 @@ github.com/alicebob/miniredis/v2/server
 # github.com/anchore/go-struct-converter v0.0.0-20221118182256-c68fdcfa2092
 ## explicit; go 1.18
 github.com/anchore/go-struct-converter
-# github.com/aquasecurity/trivy v0.45.0
+# github.com/aquasecurity/trivy v0.45.1
 ## explicit; go 1.20
 github.com/aquasecurity/trivy/pkg/digest
 github.com/aquasecurity/trivy/pkg/fanal/analyzer/os
@@ -158,7 +158,7 @@ github.com/prometheus/procfs/internal/util
 # github.com/rabbitmq/amqp091-go v1.8.1
 ## explicit; go 1.16
 github.com/rabbitmq/amqp091-go
-# github.com/redis/go-redis/v9 v9.1.0
+# github.com/redis/go-redis/v9 v9.2.0
 ## explicit; go 1.18
 github.com/redis/go-redis/v9
 github.com/redis/go-redis/v9/internal
