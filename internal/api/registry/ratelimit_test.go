@@ -45,8 +45,11 @@ func TestRateLimits(t *testing.T) {
 		},
 	}
 	rle := &keppel.RateLimitEngine{Driver: rld, Client: nil}
+	setupOptions := []test.SetupOption{
+		test.WithRateLimitEngine(rle),
+	}
 
-	testWithPrimary(t, rle, func(s test.Setup) {
+	testWithPrimary(t, setupOptions, func(s test.Setup) {
 		sr := miniredis.RunT(t)
 		s.Clock.AddListener(sr.SetTime)
 		rle.Client = redis.NewClient(&redis.Options{Addr: sr.Addr()})
@@ -148,8 +151,11 @@ func TestAnycastRateLimits(t *testing.T) {
 		},
 	}
 	rle := &keppel.RateLimitEngine{Driver: rld, Client: nil}
+	setupOptions := []test.SetupOption{
+		test.WithRateLimitEngine(rle),
+	}
 
-	testWithPrimary(t, rle, func(s test.Setup) {
+	testWithPrimary(t, setupOptions, func(s test.Setup) {
 		if !currentlyWithAnycast {
 			return
 		}

@@ -19,8 +19,6 @@
 package registryv2_test
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -44,16 +42,15 @@ var (
 // the auth tenant ID that all test accounts use
 const authTenantID = "test1authtenant"
 
-func testWithPrimary(t *testing.T, rle *keppel.RateLimitEngine, action func(test.Setup)) {
+func testWithPrimary(t *testing.T, setupOptions []test.SetupOption, action func(test.Setup)) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
 		for _, withAnycast := range []bool{false, true} {
-			s := test.NewSetup(t,
+			options := append(setupOptions,
 				test.WithAnycast(withAnycast),
 				test.WithAccount(keppel.Account{Name: "test1", AuthTenantID: authTenantID}),
 				test.WithQuotas,
-				test.WithPeerAPI,
-				test.WithRateLimitEngine(rle),
 			)
+			s := test.NewSetup(t, options...)
 			currentlyWithAnycast = withAnycast
 
 			//run the tests for this scenario
