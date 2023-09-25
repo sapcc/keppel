@@ -106,7 +106,7 @@ func TestManifestsAPI(t *testing.T) {
 			repo := repos[repoID-1]
 
 			for idx := 1; idx <= 10; idx++ {
-				dummyDigest := deterministicDummyDigest(repoID*10 + idx)
+				dummyDigest := test.DeterministicDummyDigest(repoID*10 + idx)
 				sizeBytes := uint64(1000 * idx)
 				pushedAt := time.Unix(int64(1000*(repoID*10+idx)), 0)
 
@@ -145,21 +145,21 @@ func TestManifestsAPI(t *testing.T) {
 			mustInsert(t, s.DB, &keppel.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "first",
-				Digest:       deterministicDummyDigest(repoID*10 + 1),
+				Digest:       test.DeterministicDummyDigest(repoID*10 + 1),
 				PushedAt:     time.Unix(20001, 0),
 				LastPulledAt: p2time(time.Unix(20101, 0)),
 			})
 			mustInsert(t, s.DB, &keppel.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "stillfirst",
-				Digest:       deterministicDummyDigest(repoID*10 + 1),
+				Digest:       test.DeterministicDummyDigest(repoID*10 + 1),
 				PushedAt:     time.Unix(20002, 0),
 				LastPulledAt: nil,
 			})
 			mustInsert(t, s.DB, &keppel.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "second",
-				Digest:       deterministicDummyDigest(repoID*10 + 2),
+				Digest:       test.DeterministicDummyDigest(repoID*10 + 2),
 				PushedAt:     time.Unix(20003, 0),
 				LastPulledAt: nil,
 			})
@@ -170,7 +170,7 @@ func TestManifestsAPI(t *testing.T) {
 		renderedManifests := make([]assert.JSONObject, 10)
 		for idx := 1; idx <= 10; idx++ {
 			renderedManifests[idx-1] = assert.JSONObject{
-				"digest":               deterministicDummyDigest(10 + idx),
+				"digest":               test.DeterministicDummyDigest(10 + idx),
 				"media_type":           schema2.MediaTypeManifest,
 				"size_bytes":           uint64(1000 * idx),
 				"pushed_at":            int64(1000 * (10 + idx)),
@@ -270,14 +270,14 @@ func TestManifestsAPI(t *testing.T) {
 		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/before-delete-manifest.sql")
 		assert.HTTPRequest{
 			Method:       "DELETE",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11).String(),
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + test.DeterministicDummyDigest(11).String(),
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
 			ExpectStatus: http.StatusNoContent,
 		}.Check(t, h)
 		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/after-delete-manifest.sql")
 
 		s.Auditor.ExpectEvents(t, cadf.Event{
-			RequestPath: "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11).String(),
+			RequestPath: "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + test.DeterministicDummyDigest(11).String(),
 			Action:      cadf.DeleteAction,
 			Outcome:     "success",
 			Reason:      test.CADFReasonOK,
@@ -288,8 +288,8 @@ func TestManifestsAPI(t *testing.T) {
 					Content: "[\"first\",\"stillfirst\"]",
 				}},
 				TypeURI:   "docker-registry/account/repository/manifest",
-				Name:      "test1/repo1-1@" + deterministicDummyDigest(11).String(),
-				ID:        deterministicDummyDigest(11).String(),
+				Name:      "test1/repo1-1@" + test.DeterministicDummyDigest(11).String(),
+				ID:        test.DeterministicDummyDigest(11).String(),
 				ProjectID: "tenant1",
 			},
 		})
@@ -311,7 +311,7 @@ func TestManifestsAPI(t *testing.T) {
 			Target: cadf.Resource{
 				TypeURI:   "docker-registry/account/repository/tag",
 				Name:      "test1/repo1-2:stillfirst",
-				ID:        deterministicDummyDigest(21).String(),
+				ID:        test.DeterministicDummyDigest(21).String(),
 				ProjectID: "tenant1",
 			},
 		})
@@ -319,33 +319,33 @@ func TestManifestsAPI(t *testing.T) {
 		//test DELETE manifest failure cases
 		assert.HTTPRequest{
 			Method:       "DELETE",
-			Path:         "/keppel/v1/accounts/test2/repositories/repo2-1/_manifests/" + deterministicDummyDigest(31).String(),
+			Path:         "/keppel/v1/accounts/test2/repositories/repo2-1/_manifests/" + test.DeterministicDummyDigest(31).String(),
 			Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusForbidden,
 			ExpectBody:   assert.StringData("no permission for repository:test2/repo2-1:delete\n"),
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "DELETE",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-2/_manifests/" + deterministicDummyDigest(21).String(),
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-2/_manifests/" + test.DeterministicDummyDigest(21).String(),
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusForbidden,
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "DELETE",
-			Path:         "/keppel/v1/accounts/doesnotexist/repositories/repo1-2/_manifests/" + deterministicDummyDigest(11).String(),
+			Path:         "/keppel/v1/accounts/doesnotexist/repositories/repo1-2/_manifests/" + test.DeterministicDummyDigest(11).String(),
 			Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusForbidden,
 			ExpectBody:   assert.StringData("no permission for repository:doesnotexist/repo1-2:delete\n"),
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "DELETE",
-			Path:         "/keppel/v1/accounts/test1/repositories/doesnotexist/_manifests/" + deterministicDummyDigest(11).String(),
+			Path:         "/keppel/v1/accounts/test1/repositories/doesnotexist/_manifests/" + test.DeterministicDummyDigest(11).String(),
 			Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusNotFound,
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "DELETE",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11).String(),
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + test.DeterministicDummyDigest(11).String(),
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
 			ExpectStatus: http.StatusNotFound,
 		}.Check(t, h)
@@ -371,7 +371,7 @@ func TestManifestsAPI(t *testing.T) {
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "DELETE",
-			Path:         "/keppel/v1/accounts/test2/repositories/repo2-1/_tags/" + deterministicDummyDigest(31).String(), //this endpoint only works with tags
+			Path:         "/keppel/v1/accounts/test2/repositories/repo2-1/_tags/" + test.DeterministicDummyDigest(31).String(), //this endpoint only works with tags
 			Header:       map[string]string{"X-Test-Perms": "delete:tenant2,view:tenant2"},
 			ExpectStatus: http.StatusNotFound,
 		}.Check(t, h)
@@ -391,13 +391,13 @@ func TestManifestsAPI(t *testing.T) {
 		//test GET vulnerability report failure cases
 		assert.HTTPRequest{
 			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(11).String() + "/trivy_report",
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + test.DeterministicDummyDigest(11).String() + "/trivy_report",
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusNotFound, //this manifest was deleted above
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12).String() + "/trivy_report",
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + test.DeterministicDummyDigest(12).String() + "/trivy_report",
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusMethodNotAllowed, //manifest cannot have vulnerability report because it does not have manifest-blob refs
 		}.Check(t, h)
@@ -406,7 +406,7 @@ func TestManifestsAPI(t *testing.T) {
 		//so that the vulnerability report can actually be shown
 		dummyBlob := keppel.Blob{
 			AccountName: "test1",
-			Digest:      deterministicDummyDigest(101),
+			Digest:      test.DeterministicDummyDigest(101),
 		}
 		mustInsert(t, s.DB, &dummyBlob)
 		err := keppel.MountBlobIntoRepo(s.DB, dummyBlob, *repos[0])
@@ -415,21 +415,21 @@ func TestManifestsAPI(t *testing.T) {
 		}
 		_, err = s.DB.Exec(
 			`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
-			repos[0].ID, deterministicDummyDigest(12), dummyBlob.ID,
+			repos[0].ID, test.DeterministicDummyDigest(12), dummyBlob.ID,
 		)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
 
 		//test GET vulnerability report success case
-		imageRef, _, err := models.ParseImageReference("registry.example.org/test1/repo1-1@" + deterministicDummyDigest(12).String())
+		imageRef, _, err := models.ParseImageReference("registry.example.org/test1/repo1-1@" + test.DeterministicDummyDigest(12).String())
 		if err != nil {
 			t.Fatal(err.Error())
 		}
 		s.TrivyDouble.ReportFixtures[imageRef] = "../../tasks/fixtures/trivy/report-vulnerable-with-fixes.json"
 		assert.HTTPRequest{
 			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12).String() + "/trivy_report",
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + test.DeterministicDummyDigest(12).String() + "/trivy_report",
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusOK,
 			ExpectBody:   assert.JSONFixtureFile("../../tasks/fixtures/trivy/report-vulnerable-with-fixes.json"),
@@ -460,7 +460,7 @@ func TestManifestsAPI(t *testing.T) {
 
 		assert.HTTPRequest{
 			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + deterministicDummyDigest(12).String() + "/trivy_report",
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + test.DeterministicDummyDigest(12).String() + "/trivy_report",
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusOK,
 			ExpectBody:   assert.JSONFixtureFile("../../tasks/fixtures/trivy/report-vulnerable-with-fixes-enriched.json"),

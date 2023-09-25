@@ -60,7 +60,7 @@ func TestRateLimits(t *testing.T) {
 
 		h := s.Handler
 		token := s.GetToken(t, "repository:test1/foo:pull,push")
-		bogusDigest := "sha256:" + sha256Of([]byte("something else"))
+		bogusDigest := test.DeterministicDummyDigest(1).String()
 
 		//prepare some test requests that should be affected by rate limiting
 		//(some of these fail with 404 or 400, but that's okay; the important part is
@@ -102,8 +102,7 @@ func TestRateLimits(t *testing.T) {
 		for _, req := range testRequests {
 			s.Clock.StepBy(time.Hour)
 
-			//we can always execute 1 request initially, and then we can burst on top
-			//of that
+			//we can always execute 1 request initially, and then we can burst on top of that
 			for i := 0; i < limit.Burst; i++ {
 				req.Check(t, h)
 				s.Clock.StepBy(time.Second)

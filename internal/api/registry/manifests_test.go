@@ -130,7 +130,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			//PUT failure case: wrong digest
 			assert.HTTPRequest{
 				Method: "PUT",
-				Path:   "/v2/test1/foo/manifests/sha256:" + sha256Of([]byte("something else")),
+				Path:   "/v2/test1/foo/manifests/" + test.DeterministicDummyDigest(1).String(),
 				Header: map[string]string{
 					"Authorization": "Bearer " + token,
 					"Content-Type":  image.Manifest.MediaType,
@@ -363,7 +363,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			//DELETE failure case: unknown manifest
 			assert.HTTPRequest{
 				Method:       "DELETE",
-				Path:         "/v2/test1/foo/manifests/sha256:" + sha256Of([]byte("something else")),
+				Path:         "/v2/test1/foo/manifests/" + test.DeterministicDummyDigest(1).String(),
 				Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
 				ExpectStatus: http.StatusNotFound,
 				ExpectHeader: test.VersionHeader,

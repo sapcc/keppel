@@ -324,3 +324,7 @@ func (l ImageList) ImageRef(s Setup, repo keppel.Repository) models.ImageReferen
 func makeTimestamp(seconds int) string {
 	return time.Unix(int64(seconds), 0).UTC().Format(time.RFC3339Nano)
 }
+
+func DeterministicDummyDigest(counter int) digest.Digest {
+	return digest.SHA256.FromBytes(bytes.Repeat([]byte{1}, counter))
+}

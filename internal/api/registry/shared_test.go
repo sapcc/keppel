@@ -282,10 +282,3 @@ func testWithAccountInMaintenance(t *testing.T, db *keppel.DB, accountName strin
 		t.Fatal(err.Error())
 	}
 }
-
-////////////////////////////////////////////////////////////////////////////////
-
-func sha256Of(data []byte) string {
-	sha256Hash := sha256.Sum256(data)
-	return hex.EncodeToString(sha256Hash[:])
-}

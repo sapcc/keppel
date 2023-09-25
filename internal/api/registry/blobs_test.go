@@ -76,7 +76,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 		})
 
 		//test failure cases: digest is wrong
-		for _, wrongDigest := range []string{"wrong", "sha256:" + sha256Of([]byte("something else"))} {
+		for _, wrongDigest := range []string{"wrong", test.DeterministicDummyDigest(1).String()} {
 			assert.HTTPRequest{
 				Method: "POST",
 				Path:   "/v2/test1/foo/blobs/uploads/?digest=" + wrongDigest,
@@ -408,7 +408,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			}
 
 			//test failure cases during PUT: digest is missing or wrong
-			for _, wrongDigest := range []string{"", "wrong", "sha256:" + sha256Of([]byte("something else"))} {
+			for _, wrongDigest := range []string{"", "wrong", test.DeterministicDummyDigest(2).String()} {
 				//upload all the blob contents at once (we're only interested in the final PUT)
 				resp, _ := assert.HTTPRequest{
 					Method:       "PATCH",
@@ -793,10 +793,9 @@ func TestDeleteBlob(t *testing.T) {
 		}.Check(t, h)
 
 		//test failure case: no such blob
-		bogusDigest := "sha256:" + sha256Of([]byte("something else"))
 		assert.HTTPRequest{
 			Method:       "DELETE",
-			Path:         "/v2/test1/foo/blobs/" + bogusDigest,
+			Path:         "/v2/test1/foo/blobs/" + test.DeterministicDummyDigest(1).String(),
 			Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
 			ExpectStatus: http.StatusNotFound,
 			ExpectHeader: test.VersionHeader,
@@ -892,7 +891,6 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 		}.Check(t, h)
 
 		//test failure cases: digest is malformed or wrong
-		bogusDigest := "sha256:" + sha256Of([]byte("something else"))
 		assert.HTTPRequest{
 			Method:       "POST",
 			Path:         "/v2/test1/foo/blobs/uploads/?from=test1/bar&mount=wrong",
@@ -903,7 +901,7 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "POST",
-			Path:         "/v2/test1/foo/blobs/uploads/?from=test1/bar&mount=" + bogusDigest,
+			Path:         "/v2/test1/foo/blobs/uploads/?from=test1/bar&mount=" + test.DeterministicDummyDigest(1).String(),
 			Header:       map[string]string{"Authorization": "Bearer " + token},
 			ExpectStatus: http.StatusNotFound,
 			ExpectHeader: test.VersionHeader,

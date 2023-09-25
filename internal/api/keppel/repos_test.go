@@ -19,13 +19,11 @@
 package keppelv1_test
 
 import (
-	"bytes"
 	"fmt"
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 
@@ -55,10 +53,6 @@ func mustExec(t *testing.T, db *keppel.DB, query string, args ...interface{}) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-}
-
-func deterministicDummyDigest(counter int) digest.Digest {
-	return digest.SHA256.FromBytes(bytes.Repeat([]byte{1}, counter))
 }
 
 func TestReposAPI(t *testing.T) {
@@ -107,7 +101,7 @@ func TestReposAPI(t *testing.T) {
 	//blob size statistics
 	filledRepo := keppel.Repository{ID: 5} //repo1-3
 	for idx := 1; idx <= 10; idx++ {
-		dummyDigest := deterministicDummyDigest(1000 + idx)
+		dummyDigest := test.DeterministicDummyDigest(1000 + idx)
 		blobPushedAt := time.Unix(int64(1000+10*idx), 0)
 		blob := keppel.Blob{
 			AccountName: "test1",
@@ -126,7 +120,7 @@ func TestReposAPI(t *testing.T) {
 	//insert some dummy manifests and tags into one of the repos to check the
 	//manifest/tag counting
 	for idx := 1; idx <= 10; idx++ {
-		dummyDigest := deterministicDummyDigest(idx)
+		dummyDigest := test.DeterministicDummyDigest(idx)
 		manifestPushedAt := time.Unix(int64(10000+10*idx), 0)
 		mustInsert(t, s.DB, &keppel.Manifest{
 			RepositoryID: filledRepo.ID,
