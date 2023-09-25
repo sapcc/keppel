@@ -20,19 +20,25 @@ package keppelv1_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/docker/distribution/manifest/schema2"
+	"github.com/go-redis/redis_rate/v10"
 	"github.com/opencontainers/go-digest"
+	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/must"
 
+	"github.com/sapcc/keppel/internal/drivers/basic"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
@@ -470,4 +476,75 @@ func TestManifestsAPI(t *testing.T) {
 
 func p2time(x time.Time) *time.Time {
 	return &x
+}
+
+func TestRateLimitsTrivyReport(t *testing.T) {
+	limit := redis_rate.Limit{Rate: 2, Period: time.Minute, Burst: 3}
+	rld := basic.RateLimitDriver{
+		Limits: map[keppel.RateLimitedAction]redis_rate.Limit{
+			keppel.TrivyReportRetrieveAction: limit,
+		},
+	}
+	rle := &keppel.RateLimitEngine{Driver: rld, Client: nil}
+
+	test.WithRoundTripper(func(tt *test.RoundTripper) {
+		s := test.NewSetup(t,
+			test.WithKeppelAPI,
+			test.WithTrivyDouble,
+			test.WithRateLimitEngine(rle),
+			test.WithAccount(keppel.Account{Name: "test1"}),
+		)
+		h := s.Handler
+
+		sr := miniredis.RunT(t)
+		s.Clock.AddListener(sr.SetTime)
+		rle.Client = redis.NewClient(&redis.Options{Addr: sr.Addr()})
+
+		_, err := keppel.FindOrCreateRepository(s.DB, "foo", keppel.Account{Name: "test1"})
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+
+		token := s.GetToken(t, "repository:test1/foo:pull,push")
+
+		req := assert.HTTPRequest{
+			Method:       "GET",
+			Path:         fmt.Sprintf("/keppel/v1/accounts/test1/repositories/foo/_manifests/%s/trivy_report", test.DeterministicDummyDigest(1)),
+			Header:       map[string]string{"Authorization": "Bearer " + token},
+			ExpectStatus: http.StatusNotFound,
+			ExpectHeader: map[string]string{},
+			ExpectBody:   assert.StringData("not found\n"),
+		}
+
+		s.Clock.StepBy(time.Hour)
+
+		//we can always execute 1 request initially, and then we can burst on top of that
+		for i := 0; i < limit.Burst; i++ {
+			req.Check(t, h)
+			s.Clock.StepBy(time.Second)
+		}
+
+		//then the next request should be rate-limited
+		failingReq := req
+		failingReq.ExpectBody = test.ErrorCode(keppel.ErrTooManyRequests)
+		failingReq.ExpectStatus = http.StatusTooManyRequests
+		failingReq.ExpectHeader = map[string]string{
+			"Retry-After": strconv.Itoa(30 - limit.Burst),
+		}
+		failingReq.Check(t, h)
+
+		//be impatient
+		s.Clock.StepBy(time.Duration(29-limit.Burst) * time.Second)
+		failingReq.ExpectHeader["Retry-After"] = "1"
+		failingReq.Check(t, h)
+
+		//finally!
+		s.Clock.StepBy(time.Second)
+		req.Check(t, h)
+
+		//aaaand... we're rate-limited again immediately because we haven't
+		//recovered our burst budget yet
+		failingReq.ExpectHeader["Retry-After"] = "30"
+		failingReq.Check(t, h)
+	})
 }
