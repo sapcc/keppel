@@ -23,7 +23,6 @@ import (
 	"math/rand"
 	"net/http"
 	"sort"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -71,8 +70,9 @@ func TestListTags(t *testing.T) {
 
 		//generate pseudo-random, but deterministic tag names
 		allTagNames := make([]string, 10)
+		sidGen := test.StorageIDGenerator{}
 		for idx := range allTagNames {
-			allTagNames[idx] = sha256Of([]byte(strconv.Itoa(idx)))
+			allTagNames[idx] = sidGen.Next()
 		}
 
 		//upload test image under all of them (in randomized order!)

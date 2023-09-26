@@ -482,7 +482,11 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 	//- "test1" is reconfigured into an external replica of tertiary on both primary and secondary.
 	//- Tertiary rejects the first pull to trigger the pull delegation code path.
 
-	testWithPrimary(t, nil, func(s1 test.Setup) {
+	setupOptions := []test.SetupOption{
+		test.WithPeerAPI,
+	}
+
+	testWithPrimary(t, setupOptions, func(s1 test.Setup) {
 		testWithReplica(t, s1, "on_first_use", func(firstPass bool, s2 test.Setup) {
 			if !firstPass {
 				return //no second pass needed

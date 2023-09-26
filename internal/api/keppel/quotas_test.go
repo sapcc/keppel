@@ -131,7 +131,7 @@ func TestQuotasAPI(t *testing.T) {
 		pushedAt := time.Unix(int64(10000+10*idx), 0)
 		mustInsert(t, s.DB, &keppel.Manifest{
 			RepositoryID: 1,
-			Digest:       deterministicDummyDigest(idx),
+			Digest:       test.DeterministicDummyDigest(idx),
 			MediaType:    "",
 			SizeBytes:    uint64(1000 * idx),
 			PushedAt:     pushedAt,
@@ -139,7 +139,7 @@ func TestQuotasAPI(t *testing.T) {
 		})
 		mustInsert(t, s.DB, &keppel.TrivySecurityInfo{
 			RepositoryID:        1,
-			Digest:              deterministicDummyDigest(idx),
+			Digest:              test.DeterministicDummyDigest(idx),
 			VulnerabilityStatus: trivy.PendingVulnerabilityStatus,
 			NextCheckAt:         time.Unix(0, 0),
 		})
