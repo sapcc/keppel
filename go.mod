@@ -19,7 +19,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc5
 	github.com/prometheus/client_golang v1.17.0
-	github.com/redis/go-redis/v9 v9.2.0
+	github.com/redis/go-redis/v9 v9.2.1
 	github.com/rs/cors v1.10.0
 	github.com/sapcc/go-api-declarations v1.8.3
 	github.com/sapcc/go-bits v0.0.0-20230928220509-f2536e6449cf
