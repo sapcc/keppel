@@ -12,17 +12,17 @@ require (
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/golang-jwt/jwt/v5 v5.0.0
-	github.com/gophercloud/gophercloud v1.6.0
+	github.com/gophercloud/gophercloud v1.7.0
 	github.com/gophercloud/utils v0.0.0-20230523080330-de873b9cf00d
 	github.com/gorilla/mux v1.8.0
 	github.com/majewsky/schwift v1.2.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc5
-	github.com/prometheus/client_golang v1.16.0
+	github.com/prometheus/client_golang v1.17.0
 	github.com/redis/go-redis/v9 v9.2.0
 	github.com/rs/cors v1.10.0
 	github.com/sapcc/go-api-declarations v1.8.3
-	github.com/sapcc/go-bits v0.0.0-20230920131001-bf2c07577372
+	github.com/sapcc/go-bits v0.0.0-20230928220509-f2536e6449cf
 	github.com/spf13/cobra v1.7.0
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.5.3
@@ -49,9 +49,9 @@ require (
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
-	github.com/prometheus/client_model v0.4.0 // indirect
+	github.com/prometheus/client_model v0.4.1-0.20230718164431-9a2bf3000d16 // indirect
 	github.com/prometheus/common v0.44.0 // indirect
-	github.com/prometheus/procfs v0.10.1 // indirect
+	github.com/prometheus/procfs v0.11.1 // indirect
 	github.com/rabbitmq/amqp091-go v1.8.1 // indirect
 	github.com/samber/lo v1.38.1 // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
