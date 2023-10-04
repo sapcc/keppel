@@ -28,6 +28,8 @@ sed -ie '/^#\?\(external_pid_file\|unix_socket_directories\|port\)\b/d' testing/
   echo "port = 54321"
 ) >> testing/postgresql-data/postgresql.conf
 
+# usage in trap is not recognized
+# shellcheck disable=SC2317
 stop_postgres() {
   EXIT_CODE=$?
   step "Stopping PostgreSQL"
