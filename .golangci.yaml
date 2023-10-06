@@ -41,10 +41,8 @@ linters-settings:
     forbid:
       # ioutil package has been deprecated: https://github.com/golang/go/issues/42026
       - ^ioutil\..*$
-      # Using http.DefaultServeMux is discouraged because it's a global variable
-      # that some packages silently and magically add handlers to (esp. net/http/pprof).
-      # Applications wishing to use http.ServeMux should obtain local instances
-      # through http.NewServeMux() instead of using the global default instance.
+      # Using http.DefaultServeMux is discouraged because it's a global variable that some packages silently and magically add handlers to (esp. net/http/pprof).
+      # Applications wishing to use http.ServeMux should obtain local instances through http.NewServeMux() instead of using the global default instance.
       - ^http.DefaultServeMux$
       - ^http.Handle(?:Func)?$
   gocritic:
@@ -77,9 +75,7 @@ linters-settings:
     local-prefixes: github.com/sapcc/keppel
   gosec:
     excludes:
-      # gosec wants us to set a short ReadHeaderTimeout to avoid Slowloris attacks,
-      # but doing so would expose us to Keep-Alive race conditions.
-      # See: https://iximiuz.com/en/posts/reverse-proxy-http-keep-alive-and-502s/
+      # gosec wants us to set a short ReadHeaderTimeout to avoid Slowloris attacks, but doing so would expose us to Keep-Alive race conditions (see https://iximiuz.com/en/posts/reverse-proxy-http-keep-alive-and-502s/)
       - G112
       # created file permissions are restricted by umask if necessary
       - G306
