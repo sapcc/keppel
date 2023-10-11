@@ -99,7 +99,12 @@ func run(cmd *cobra.Command, args []string) {
 		peerv1.NewAPI(cfg, ad, db),
 		&headerReflector{logg.ShowDebug}, //the header reflection endpoint is only enabled where debugging is enabled (i.e. usually in dev/QA only)
 		&guiRedirecter{db, os.Getenv("KEPPEL_GUI_URI")},
-		httpapi.HealthCheckAPI{SkipRequestLog: true},
+		httpapi.HealthCheckAPI{
+			SkipRequestLog: true,
+			Check: func() error {
+				return db.Db.PingContext(ctx)
+			},
+		},
 		httpapi.WithGlobalMiddleware(corsMiddleware.Handler),
 		pprofapi.API{IsAuthorized: pprofapi.IsRequestFromLocalhost},
 	)
