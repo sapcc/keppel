@@ -26,7 +26,8 @@ const (
 	msgOutOfRange           = "ERR index out of range"
 	msgInvalidCursor        = "ERR invalid cursor"
 	msgXXandNX              = "ERR XX and NX options at the same time are not compatible"
-	msgNegTimeout           = "ERR timeout is negative"
+	msgTimeoutNegative      = "ERR timeout is negative"
+	msgTimeoutIsOutOfRange  = "ERR timeout is out of range"
 	msgInvalidSETime        = "ERR invalid expire time in set"
 	msgInvalidSETEXTime     = "ERR invalid expire time in setex"
 	msgInvalidPSETEXTime    = "ERR invalid expire time in psetex"
@@ -44,7 +45,7 @@ const (
 	msgStreamIDZero         = "ERR The ID specified in XADD must be greater than 0-0"
 	msgNoScriptFound        = "NOSCRIPT No matching script. Please use EVAL."
 	msgUnsupportedUnit      = "ERR unsupported unit provided. please use m, km, ft, mi"
-	msgXreadUnbalanced      = "ERR Unbalanced XREAD list of streams: for each stream key an ID or '$' must be specified."
+	msgXreadUnbalanced      = "ERR Unbalanced 'xread' list of streams: for each stream key an ID or '$' must be specified."
 	msgXgroupKeyNotFound    = "ERR The XGROUP subcommand requires the key to exist. Note that for CREATE you may want to use the MKSTREAM option to create an empty stream automatically."
 	msgXtrimInvalidStrategy = "ERR unsupported XTRIM strategy. Please use MAXLEN, MINID"
 	msgXtrimInvalidMaxLen   = "ERR value is not an integer or out of range"
@@ -54,6 +55,7 @@ const (
 	msgRankIsZero           = "ERR RANK can't be zero: use 1 to start from the first match, 2 from the second ... or use negative to start from the end of the list"
 	msgCountIsNegative      = "ERR COUNT can't be negative"
 	msgMaxLengthIsNegative  = "ERR MAXLEN can't be negative"
+	msgMemorySubcommand     = "ERR unknown subcommand '%s'. Try MEMORY HELP."
 )
 
 func errWrongNumber(cmd string) string {
