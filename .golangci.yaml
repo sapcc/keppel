@@ -43,8 +43,8 @@ linters-settings:
       - ^ioutil\..*$
       # Using http.DefaultServeMux is discouraged because it's a global variable that some packages silently and magically add handlers to (esp. net/http/pprof).
       # Applications wishing to use http.ServeMux should obtain local instances through http.NewServeMux() instead of using the global default instance.
-      - ^http.DefaultServeMux$
-      - ^http.Handle(?:Func)?$
+      - ^http\.DefaultServeMux$
+      - ^http\.Handle(?:Func)?$
   gocritic:
     enabled-checks:
       - boolExprSimplify
