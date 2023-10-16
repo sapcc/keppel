@@ -65,15 +65,15 @@ func (j *Janitor) ManifestGarbageCollectionJob(registerer prometheus.Registerer)
 				Help: "Counter for image garbage collection runs in repos.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (repo keppel.Repository, err error) {
-			err = j.db.SelectOne(&repo, imageGCRepoSelectQuery, j.timeNow())
+		DiscoverTask: func(ctx context.Context, _ prometheus.Labels) (repo keppel.Repository, err error) {
+			err = j.db.WithContext(ctx).SelectOne(&repo, imageGCRepoSelectQuery, j.timeNow())
 			return repo, err
 		},
 		ProcessTask: j.garbageCollectManifestsInRepo,
 	}).Setup(registerer)
 }
 
-func (j *Janitor) garbageCollectManifestsInRepo(_ context.Context, repo keppel.Repository, labels prometheus.Labels) (returnErr error) {
+func (j *Janitor) garbageCollectManifestsInRepo(ctx context.Context, repo keppel.Repository, labels prometheus.Labels) (returnErr error) {
 	//load GC policies for this repository
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {
@@ -94,9 +94,10 @@ func (j *Janitor) garbageCollectManifestsInRepo(_ context.Context, repo keppel.R
 		}
 	}
 
+	db := j.db.WithContext(ctx)
 	//execute GC policies
 	if len(policiesForRepo) > 0 {
-		err = j.executeGCPolicies(*account, repo, policiesForRepo)
+		err = j.executeGCPolicies(ctx, *account, repo, policiesForRepo)
 		if err != nil {
 			return err
 		}
@@ -104,13 +105,13 @@ func (j *Janitor) garbageCollectManifestsInRepo(_ context.Context, repo keppel.R
 		//if there are no policies to apply, we can skip a whole bunch of work, but
 		//we still need to update the GCStatusJSON field on the repo's manifests to
 		//make sure those statuses don't refer to deleted GC policies
-		_, err = j.db.Exec(imageGCResetStatusQuery, repo.ID)
+		_, err = db.Exec(imageGCResetStatusQuery, repo.ID)
 		if err != nil {
 			return err
 		}
 	}
 
-	_, err = j.db.Exec(imageGCRepoDoneQuery, repo.ID, j.timeNow().Add(j.addJitter(1*time.Hour)))
+	_, err = db.Exec(imageGCRepoDoneQuery, repo.ID, j.timeNow().Add(j.addJitter(1*time.Hour)))
 	return err
 }
 
@@ -122,10 +123,10 @@ type manifestData struct {
 	IsDeleted     bool
 }
 
-func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Repository, policies []keppel.GCPolicy) error {
+func (j *Janitor) executeGCPolicies(ctx context.Context, account keppel.Account, repo keppel.Repository, policies []keppel.GCPolicy) error {
 	//load manifests in repo
 	var dbManifests []keppel.Manifest
-	_, err := j.db.Select(&dbManifests, `SELECT * FROM manifests WHERE repo_id = $1`, repo.ID)
+	_, err := j.db.WithContext(ctx).Select(&dbManifests, `SELECT * FROM manifests WHERE repo_id = $1`, repo.ID)
 	if err != nil {
 		return err
 	}
@@ -197,7 +198,7 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 	//evaluate policies in order
 	proc := j.processor()
 	for _, policy := range policies {
-		err := j.evaluatePolicy(proc, manifests, account, repo, policy)
+		err := j.evaluatePolicy(ctx, proc, manifests, account, repo, policy)
 		if err != nil {
 			return err
 		}
@@ -206,7 +207,7 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 	return j.persistGCStatus(manifests, repo.ID)
 }
 
-func (j *Janitor) evaluatePolicy(proc *processor.Processor, manifests []*manifestData, account keppel.Account, repo keppel.Repository, policy keppel.GCPolicy) error {
+func (j *Janitor) evaluatePolicy(ctx context.Context, proc *processor.Processor, manifests []*manifestData, account keppel.Account, repo keppel.Repository, policy keppel.GCPolicy) error {
 	//for some time constraint matches, we need to know which manifests are
 	//still alive
 	var aliveManifests []keppel.Manifest
@@ -244,7 +245,7 @@ func (j *Janitor) evaluatePolicy(proc *processor.Processor, manifests []*manifes
 		case "protect":
 			m.GCStatus.ProtectedByPolicy = &pCopied
 		case "delete":
-			err := proc.DeleteManifest(account, repo, m.Manifest.Digest, keppel.AuditContext{
+			err := proc.DeleteManifest(ctx, account, repo, m.Manifest.Digest, keppel.AuditContext{
 				UserIdentity: janitorUserIdentity{
 					TaskName: "policy-driven-gc",
 					GCPolicy: &pCopied,

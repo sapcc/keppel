@@ -19,6 +19,7 @@
 package registryv2
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -56,7 +57,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reference := models.ParseManifestReference(mux.Vars(r)["reference"])
-	dbManifest, err := a.findManifestInDB(*repo, reference)
+	dbManifest, err := a.findManifestInDB(r.Context(), *repo, reference)
 	var manifestBytes []byte
 
 	if !errors.Is(err, sql.ErrNoRows) {
@@ -98,7 +99,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	} else {
 		//if manifest was found in our DB, fetch the contents from the DB (or fall
 		//back to the storage if the DB entry is not there for some reason)
-		manifestBytes, err = a.getManifestContentFromDB(repo.ID, dbManifest.Digest)
+		manifestBytes, err = a.getManifestContentFromDB(r.Context(), repo.ID, dbManifest.Digest)
 		if err != nil {
 			if !errors.Is(err, sql.ErrNoRows) {
 				logg.Info("could not read manifest %s@%s from DB (falling back to read from storage): %s",
@@ -197,8 +198,9 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 		api.ManifestsPulledCounter.With(l).Inc()
 
+		db := a.db.WithContext(r.Context())
 		//update manifests.last_pulled_at
-		_, err := a.db.Exec(
+		_, err := db.Exec(
 			`UPDATE manifests SET last_pulled_at = $1 WHERE repo_id = $2 AND digest = $3`,
 			a.timeNow(), dbManifest.RepositoryID, dbManifest.Digest,
 		)
@@ -218,7 +220,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 
 		//also update tags.last_pulled_at if applicable
 		if reference.IsTag() {
-			_, err := a.db.Exec(
+			_, err := db.Exec(
 				`UPDATE tags SET last_pulled_at = $1 WHERE repo_id = $2 AND digest = $3 AND name = $4`,
 				a.timeNow(), dbManifest.RepositoryID, dbManifest.Digest, reference.Tag,
 			)
@@ -229,11 +231,12 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *API) findManifestInDB(repo keppel.Repository, reference models.ManifestReference) (*keppel.Manifest, error) {
+func (a *API) findManifestInDB(ctx context.Context, repo keppel.Repository, reference models.ManifestReference) (*keppel.Manifest, error) {
+	db := a.db.WithContext(ctx)
 	//resolve tag into digest if necessary
 	refDigest := reference.Digest
 	if reference.IsTag() {
-		digestStr, err := a.db.SelectStr(
+		digestStr, err := db.SelectStr(
 			`SELECT digest FROM tags WHERE repo_id = $1 AND name = $2`,
 			repo.ID, reference.Tag,
 		)
@@ -250,16 +253,16 @@ func (a *API) findManifestInDB(repo keppel.Repository, reference models.Manifest
 	}
 
 	var dbManifest keppel.Manifest
-	err := a.db.SelectOne(&dbManifest,
+	err := db.SelectOne(&dbManifest,
 		`SELECT * FROM manifests WHERE repo_id = $1 AND digest = $2`,
 		repo.ID, refDigest.String(),
 	)
 	return &dbManifest, err
 }
 
-func (a *API) getManifestContentFromDB(repoID int64, digestStr digest.Digest) ([]byte, error) {
+func (a *API) getManifestContentFromDB(ctx context.Context, repoID int64, digestStr digest.Digest) ([]byte, error) {
 	var result []byte
-	err := a.db.SelectOne(&result,
+	err := a.db.WithContext(ctx).SelectOne(&result,
 		`SELECT content FROM manifest_contents WHERE repo_id = $1 AND digest = $2`,
 		repoID, digestStr,
 	)
@@ -290,9 +293,9 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	}
 	var err error
 	if ref.IsTag() {
-		err = a.processor().DeleteTag(*account, *repo, ref.Tag, actx)
+		err = a.processor().DeleteTag(r.Context(), *account, *repo, ref.Tag, actx)
 	} else {
-		err = a.processor().DeleteManifest(*account, *repo, ref.Digest, actx)
+		err = a.processor().DeleteManifest(r.Context(), *account, *repo, ref.Digest, actx)
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		keppel.ErrManifestUnknown.With("no such manifest").WriteAsRegistryV2ResponseTo(w, r)

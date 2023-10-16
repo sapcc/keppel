@@ -20,6 +20,8 @@
 package auth
 
 import (
+	"context"
+
 	"github.com/sapcc/go-bits/httpext"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -40,14 +42,14 @@ func filterAuthorized(ir IncomingRequest, uid keppel.UserIdentity, audience Audi
 		filtered := *scope
 		switch scope.ResourceType {
 		case "registry":
-			filtered.Actions, err = filterRegistryActions(uid, audience, db, scope, &additional)
+			filtered.Actions, err = filterRegistryActions(ir.HTTPRequest.Context(), uid, audience, db, scope, &additional)
 			if err != nil {
 				return nil, err
 			}
 
 		case "repository":
 			ip := httpext.GetRequesterIPFor(ir.HTTPRequest)
-			filtered.Actions, err = filterRepoActions(ip, *scope, uid, audience, db)
+			filtered.Actions, err = filterRepoActions(ir.HTTPRequest.Context(), ip, *scope, uid, audience, db)
 			if err != nil {
 				return nil, err
 			}
@@ -88,11 +90,11 @@ func filterAuthorized(ir IncomingRequest, uid keppel.UserIdentity, audience Audi
 	return append(result, additional...), nil
 }
 
-func addCatalogAccess(ss *ScopeSet, uid keppel.UserIdentity, audience Audience, db *keppel.DB) error {
+func addCatalogAccess(ctx context.Context, ss *ScopeSet, uid keppel.UserIdentity, audience Audience, db *keppel.DB) error {
 	var accounts []keppel.Account
 	if audience.AccountName == "" {
 		//on the standard API, all accounts are potentially accessible
-		_, err := db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
+		_, err := db.WithContext(ctx).Select(&accounts, "SELECT * FROM accounts ORDER BY name")
 		if err != nil {
 			return err
 		}
@@ -120,7 +122,7 @@ func addCatalogAccess(ss *ScopeSet, uid keppel.UserIdentity, audience Audience, 
 	return nil
 }
 
-func filterRegistryActions(uid keppel.UserIdentity, audience Audience, db *keppel.DB, scope *Scope, additional *ScopeSet) ([]string, error) {
+func filterRegistryActions(ctx context.Context, uid keppel.UserIdentity, audience Audience, db *keppel.DB, scope *Scope, additional *ScopeSet) ([]string, error) {
 	var filtered []string
 
 	if audience.IsAnycast {
@@ -143,7 +145,7 @@ func filterRegistryActions(uid keppel.UserIdentity, audience Audience, db *keppe
 
 	if scope.Contains(CatalogEndpointScope) {
 		filtered = CatalogEndpointScope.Actions
-		err := addCatalogAccess(additional, uid, audience, db)
+		err := addCatalogAccess(ctx, additional, uid, audience, db)
 		if err != nil {
 			return nil, err
 		}
@@ -152,7 +154,7 @@ func filterRegistryActions(uid keppel.UserIdentity, audience Audience, db *keppe
 	return filtered, nil
 }
 
-func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience Audience, db *keppel.DB) ([]string, error) {
+func filterRepoActions(ctx context.Context, ip string, scope Scope, uid keppel.UserIdentity, audience Audience, db *keppel.DB) ([]string, error) {
 	repoScope := scope.ParseRepositoryScope(audience)
 	if repoScope.RepositoryName == "" {
 		//this happens when we are not on a domain-remapped API and thus expect a
@@ -176,7 +178,7 @@ func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience
 	}
 
 	var policies []keppel.RBACPolicy
-	_, err = db.Select(&policies, "SELECT * FROM rbac_policies WHERE account_name = $1", account.Name)
+	_, err = db.WithContext(ctx).Select(&policies, "SELECT * FROM rbac_policies WHERE account_name = $1", account.Name)
 	if err != nil {
 		return nil, err
 	}

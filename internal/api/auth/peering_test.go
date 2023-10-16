@@ -19,6 +19,7 @@
 package authapi_test
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"testing"
@@ -38,7 +39,7 @@ func TestPeeringAPI(t *testing.T) {
 
 		//set up peer.example.org as a peer of us, otherwise we will reject peering
 		//attempts from that source
-		err := s.DB.Insert(&keppel.Peer{HostName: "peer.example.org"})
+		err := s.DB.WithContext(context.TODO()).Insert(&keppel.Peer{HostName: "peer.example.org"})
 		if err != nil {
 			t.Fatal(err.Error())
 		}

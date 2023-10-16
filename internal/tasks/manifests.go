@@ -78,21 +78,22 @@ func (j *Janitor) ManifestValidationJob(registerer prometheus.Registerer) jobloo
 				Help: "Counter for manifest validations.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (manifest keppel.Manifest, err error) {
+		DiscoverTask: func(ctx context.Context, _ prometheus.Labels) (manifest keppel.Manifest, err error) {
 			//find manifest: validate once every 24 hours, but recheck after 10 minutes if validation failed
 			maxSuccessfulValidatedAt := j.timeNow().Add(-24 * time.Hour)
 			maxFailedValidatedAt := j.timeNow().Add(-10 * time.Minute)
-			err = j.db.SelectOne(&manifest, outdatedManifestSearchQuery, maxSuccessfulValidatedAt, maxFailedValidatedAt)
+			err = j.db.WithContext(ctx).SelectOne(&manifest, outdatedManifestSearchQuery, maxSuccessfulValidatedAt, maxFailedValidatedAt)
 			return manifest, err
 		},
 		ProcessTask: j.validateManifest,
 	}).Setup(registerer)
 }
 
-func (j *Janitor) validateManifest(_ context.Context, manifest keppel.Manifest, _ prometheus.Labels) error {
+func (j *Janitor) validateManifest(ctx context.Context, manifest keppel.Manifest, _ prometheus.Labels) error {
+	db := j.db.WithContext(ctx)
 	//find corresponding account and repo
 	var repo keppel.Repository
-	err := j.db.SelectOne(&repo, `SELECT * FROM repos WHERE id = $1`, manifest.RepositoryID)
+	err := db.SelectOne(&repo, `SELECT * FROM repos WHERE id = $1`, manifest.RepositoryID)
 	if err != nil {
 		return fmt.Errorf("cannot find repo %d for manifest %s: %w", manifest.RepositoryID, manifest.Digest, err)
 	}
@@ -107,7 +108,7 @@ func (j *Janitor) validateManifest(_ context.Context, manifest keppel.Manifest, 
 		//attempt to log the error message, and also update the `validated_at`
 		//timestamp to ensure that the ManifestValidationJob does not get
 		//stuck on this one
-		_, updateErr := j.db.Exec(`
+		_, updateErr := db.Exec(`
 			UPDATE manifests SET validated_at = $1, validation_error_message = $2
 				WHERE repo_id = $3 AND digest = $4`,
 			j.timeNow(), err.Error(), repo.ID, manifest.Digest,
@@ -119,7 +120,7 @@ func (j *Janitor) validateManifest(_ context.Context, manifest keppel.Manifest, 
 	}
 
 	//update `validated_at` and reset error message
-	_, err = j.db.Exec(`
+	_, err = db.Exec(`
 			UPDATE manifests SET validated_at = $1, validation_error_message = ''
 				WHERE repo_id = $2 AND digest = $3`,
 		j.timeNow(), repo.ID, manifest.Digest,
@@ -164,8 +165,8 @@ func (j *Janitor) ManifestSyncJob(registerer prometheus.Registerer) jobloop.Job 
 				Help: "Counter for manifest syncs in replica repos.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (repo keppel.Repository, err error) {
-			err = j.db.SelectOne(&repo, syncManifestRepoSelectQuery, j.timeNow())
+		DiscoverTask: func(ctx context.Context, _ prometheus.Labels) (repo keppel.Repository, err error) {
+			err = j.db.WithContext(ctx).SelectOne(&repo, syncManifestRepoSelectQuery, j.timeNow())
 			return repo, err
 		},
 		ProcessTask: j.syncManifestsInReplicaRepo,
@@ -195,11 +196,12 @@ func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo keppel.Re
 		}
 	}
 
-	_, err = j.db.Exec(syncManifestDoneQuery, repo.ID, j.timeNow().Add(j.addJitter(1*time.Hour)))
+	db := j.db.WithContext(ctx)
+	_, err = db.Exec(syncManifestDoneQuery, repo.ID, j.timeNow().Add(j.addJitter(1*time.Hour)))
 	if err != nil {
 		return err
 	}
-	_, err = j.db.Exec(syncManifestCleanupEmptyQuery, repo.ID)
+	_, err = db.Exec(syncManifestCleanupEmptyQuery, repo.ID)
 	return err
 }
 
@@ -216,7 +218,7 @@ func (j *Janitor) getReplicaSyncPayload(ctx context.Context, account keppel.Acco
 
 	//get peer
 	var peer keppel.Peer
-	err := j.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, account.UpstreamPeerHostName)
+	err := j.db.WithContext(ctx).SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, account.UpstreamPeerHostName)
 	if err != nil {
 		return nil, err
 	}
@@ -276,8 +278,10 @@ func (j *Janitor) getReplicaSyncPayload(ctx context.Context, account keppel.Acco
 }
 
 func (j *Janitor) performTagSync(ctx context.Context, account keppel.Account, repo keppel.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
+	db := j.db.WithContext(ctx)
+
 	var tags []keppel.Tag
-	_, err := j.db.Select(&tags, `SELECT * FROM tags WHERE repo_id = $1`, repo.ID)
+	_, err := db.Select(&tags, `SELECT * FROM tags WHERE repo_id = $1`, repo.ID)
 	if err != nil {
 		return fmt.Errorf("cannot list tags: %w", err)
 	}
@@ -293,7 +297,7 @@ TAG:
 				continue TAG
 			case "":
 				//the tag was deleted - replicate the tag deletion into our replica
-				_, err := j.db.Delete(&tag) //nolint:gosec // Delete is not holding onto the pointer after it returns
+				_, err := db.Delete(&tag) //nolint:gosec // Delete is not holding onto the pointer after it returns
 				if err != nil {
 					return err
 				}
@@ -317,7 +321,7 @@ TAG:
 			//if the tag itself (and only the tag itself!) 404s, we can replicate the tag deletion into our replica
 			err404, ok := errext.As[processor.UpstreamManifestMissingError](err)
 			if ok && err404.Ref == ref {
-				_, err := j.db.Delete(&tag) //nolint:gosec // Delete is not holding onto the pointer after it returns
+				_, err := db.Delete(&tag) //nolint:gosec // Delete is not holding onto the pointer after it returns
 				if err != nil {
 					return err
 				}
@@ -342,7 +346,7 @@ func (j *Janitor) performManifestSync(ctx context.Context, account keppel.Accoun
 	//manifests: we run right after performTagSync, therefore all images that are
 	//tagged right now were already confirmed to still be good)
 	var manifests []keppel.Manifest
-	_, err := j.db.Select(&manifests, repoUntaggedManifestsSelectQuery, repo.ID)
+	_, err := j.db.WithContext(ctx).Select(&manifests, repoUntaggedManifestsSelectQuery, repo.ID)
 	if err != nil {
 		return fmt.Errorf("cannot list manifests: %w", err)
 	}
@@ -410,7 +414,7 @@ func (j *Janitor) performManifestSync(ctx context.Context, account keppel.Accoun
 			}
 
 			//no manifests left that reference this one - we can delete it
-			err := j.processor().DeleteManifest(account, repo, digestToBeDeleted, keppel.AuditContext{
+			err := j.processor().DeleteManifest(ctx, account, repo, digestToBeDeleted, keppel.AuditContext{
 				UserIdentity: janitorUserIdentity{TaskName: "manifest-sync"},
 				Request:      janitorDummyRequest,
 			})
@@ -444,9 +448,9 @@ var vulnCheckBlobSelectQuery = sqlext.SimplifyWhitespace(`
 		WHERE r.repo_id = $1 AND r.digest = $2
 `)
 
-func (j *Janitor) collectManifestLayerBlobs(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest) (layerBlobs []keppel.Blob, err error) {
+func (j *Janitor) collectManifestLayerBlobs(ctx context.Context, account keppel.Account, repo keppel.Repository, manifest keppel.Manifest) (layerBlobs []keppel.Blob, err error) {
 	var blobs []keppel.Blob
-	_, err = j.db.Select(&blobs, vulnCheckBlobSelectQuery, manifest.RepositoryID, manifest.Digest)
+	_, err = j.db.WithContext(ctx).Select(&blobs, vulnCheckBlobSelectQuery, manifest.RepositoryID, manifest.Digest)
 	if err != nil {
 		return nil, err
 	}
@@ -746,7 +750,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 var blobUncompressedSizeTooBigGiB float64 = 10
 
 func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, securityInfo *keppel.TrivySecurityInfo) (continueCheck bool, layerBlobs []keppel.Blob, err error) {
-	layerBlobs, err = j.collectManifestLayerBlobs(account, repo, manifest)
+	layerBlobs, err = j.collectManifestLayerBlobs(ctx, account, repo, manifest)
 	if err != nil {
 		return false, nil, err
 	}
@@ -805,7 +809,7 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account keppel
 			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
 			blocksVulnScanning := numberBytes >= limitBytes
 			blob.BlocksVulnScanning = &blocksVulnScanning
-			_, err = j.db.Exec(`UPDATE blobs SET blocks_vuln_scanning = $1 WHERE id = $2`, blocksVulnScanning, blob.ID)
+			_, err = j.db.WithContext(ctx).Exec(`UPDATE blobs SET blocks_vuln_scanning = $1 WHERE id = $2`, blocksVulnScanning, blob.ID)
 			if err != nil {
 				return false, layerBlobs, err
 			}

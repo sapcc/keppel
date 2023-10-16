@@ -136,14 +136,15 @@ func (r *ReplicationPolicy) UnmarshalJSON(buf []byte) error {
 ////////////////////////////////////////////////////////////////////////////////
 // data conversion/validation functions
 
-func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
+func (a *API) renderAccount(ctx context.Context, dbAccount keppel.Account) (Account, error) {
 	gcPolicies, err := dbAccount.ParseGCPolicies()
 	if err != nil {
 		return Account{}, err
 	}
 
+	db := a.db.WithContext(ctx)
 	var dbPolicies []keppel.RBACPolicy
-	_, err = a.db.Select(&dbPolicies, `SELECT * FROM rbac_policies WHERE account_name = $1 ORDER BY account_name, match_repository, match_username`, dbAccount.Name)
+	_, err = db.Select(&dbPolicies, `SELECT * FROM rbac_policies WHERE account_name = $1 ORDER BY account_name, match_repository, match_username`, dbAccount.Name)
 	if err != nil {
 		return Account{}, err
 	}
@@ -304,7 +305,7 @@ func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
 func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts")
 	var accounts []keppel.Account
-	_, err := a.db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
+	_, err := a.db.WithContext(r.Context()).Select(&accounts, "SELECT * FROM accounts ORDER BY name")
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -334,7 +335,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	//render accounts to JSON
 	accountsRendered := make([]Account, len(accountsFiltered))
 	for idx, account := range accountsFiltered {
-		accountsRendered[idx], err = a.renderAccount(account)
+		accountsRendered[idx], err = a.renderAccount(r.Context(), account)
 		if respondwith.ErrorText(w, err) {
 			return
 		}
@@ -353,7 +354,7 @@ func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accountRendered, err := a.renderAccount(*account)
+	accountRendered, err := a.renderAccount(r.Context(), *account)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -443,13 +444,15 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		SecurityScanPoliciesJSON: "[]",
 	}
 
+	db := a.db.WithContext(r.Context())
+
 	//validate replication policy
 	if req.Account.ReplicationPolicy != nil {
 		rp := *req.Account.ReplicationPolicy
 
 		switch rp.Strategy {
 		case "on_first_use":
-			peerCount, err := a.db.SelectInt(`SELECT COUNT(*) FROM peers WHERE hostname = $1`, rp.UpstreamPeerHostName)
+			peerCount, err := db.SelectInt(`SELECT COUNT(*) FROM peers WHERE hostname = $1`, rp.UpstreamPeerHostName)
 			if respondwith.ErrorText(w, err) {
 				return
 			}
@@ -594,7 +597,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			rp := *req.Account.ReplicationPolicy
 			if rp.Strategy == "on_first_use" {
 				var peer keppel.Peer
-				err := a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, rp.UpstreamPeerHostName)
+				err := db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, rp.UpstreamPeerHostName)
 				if errors.Is(err, sql.ErrNoRows) {
 					http.Error(w, fmt.Sprintf(`unknown peer registry: %q`, rp.UpstreamPeerHostName), http.StatusUnprocessableEntity)
 					return
@@ -696,7 +699,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			needsUpdate = true
 		}
 		if needsUpdate {
-			_, err := a.db.Update(account)
+			_, err := db.Update(account)
 			if respondwith.ErrorText(w, err) {
 				return
 			}
@@ -732,12 +735,12 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		policy.AccountName = account.Name
 		rbacPolicies[idx] = policy
 	}
-	err = a.putRBACPolicies(*account, rbacPolicies, submitAudit)
+	err = a.putRBACPolicies(r.Context(), *account, rbacPolicies, submitAudit)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
 
-	accountRendered, err := a.renderAccount(*account)
+	accountRendered, err := a.renderAccount(r.Context(), *account)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -766,10 +769,11 @@ func replicationPoliciesFunctionallyEqual(lhs, rhs *ReplicationPolicy) bool {
 	return reflect.DeepEqual(lhsClone, rhsClone)
 }
 
-func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPolicy, submitAudit func(action cadf.Action, target AuditRBACPolicy)) error {
+func (a *API) putRBACPolicies(ctx context.Context, account keppel.Account, policies []keppel.RBACPolicy, submitAudit func(action cadf.Action, target AuditRBACPolicy)) error {
+	db := a.db.WithContext(ctx)
 	//enumerate existing policies
 	var dbPolicies []keppel.RBACPolicy
-	_, err := a.db.Select(&dbPolicies, `SELECT * FROM rbac_policies WHERE account_name = $1`, account.Name)
+	_, err := db.Select(&dbPolicies, `SELECT * FROM rbac_policies WHERE account_name = $1`, account.Name)
 	if err != nil {
 		return err
 	}
@@ -790,7 +794,7 @@ func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPoli
 		if policyInDB, exists := state[key]; exists {
 			//update if necessary
 			if policy != policyInDB {
-				_, err := a.db.Update(&policy) //nolint:gosec // Update is not holding onto the pointer after it returns
+				_, err := db.Update(&policy) //nolint:gosec // Update is not holding onto the pointer after it returns
 				if err != nil {
 					return err
 				}
@@ -802,7 +806,7 @@ func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPoli
 			}
 		} else {
 			//insert missing policy
-			err := a.db.Insert(&policy) //nolint:gosec // Update is not holding onto the pointer after it returns
+			err := db.Insert(&policy) //nolint:gosec // Update is not holding onto the pointer after it returns
 			if err != nil {
 				return err
 			}
@@ -819,7 +823,7 @@ func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPoli
 	//because of delete() up there, `state` now only contains policies that are
 	//not in `policies` and which have to be deleted
 	for _, policy := range state {
-		_, err := a.db.Delete(&policy) //nolint:gosec // Delete is not holding onto the pointer after it returns
+		_, err := db.Delete(&policy) //nolint:gosec // Delete is not holding onto the pointer after it returns
 		if err != nil {
 			return err
 		}
@@ -918,7 +922,7 @@ func (a *API) deleteAccount(ctx context.Context, account keppel.Account) (*delet
 		return nil, err
 	}
 	if len(nextManifests) > 0 {
-		manifestCount, err := a.db.SelectInt(deleteAccountCountManifestsQuery, account.Name)
+		manifestCount, err := a.db.WithContext(ctx).SelectInt(deleteAccountCountManifestsQuery, account.Name)
 		return &deleteAccountResponse{
 			RemainingManifests: &deleteAccountRemainingManifests{
 				Count: uint64(manifestCount),
@@ -927,25 +931,26 @@ func (a *API) deleteAccount(ctx context.Context, account keppel.Account) (*delet
 		}, err
 	}
 
+	db := a.db.WithContext(ctx)
 	//delete all repos (and therefore, all blob mounts), so that blob sweeping
 	//can immediately take place
-	_, err = a.db.Exec(deleteAccountReposQuery, account.Name)
+	_, err = db.Exec(deleteAccountReposQuery, account.Name)
 	if err != nil {
 		return nil, err
 	}
 
 	//can only delete account when all blobs have been deleted
-	blobCount, err := a.db.SelectInt(deleteAccountCountBlobsQuery, account.Name)
+	blobCount, err := db.SelectInt(deleteAccountCountBlobsQuery, account.Name)
 	if err != nil {
 		return nil, err
 	}
 	if blobCount > 0 {
 		//make sure that blob sweep runs immediately
-		_, err := a.db.Exec(deleteAccountMarkAllBlobsForDeletionQuery, account.Name, time.Now())
+		_, err := db.Exec(deleteAccountMarkAllBlobsForDeletionQuery, account.Name, time.Now())
 		if err != nil {
 			return nil, err
 		}
-		_, err = a.db.Exec(deleteAccountScheduleBlobSweepQuery, account.Name, time.Now())
+		_, err = db.Exec(deleteAccountScheduleBlobSweepQuery, account.Name, time.Now())
 		if err != nil {
 			return nil, err
 		}
@@ -1103,7 +1108,7 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-	_, err = a.db.Exec(`UPDATE accounts SET security_scan_policies_json = $1 WHERE name = $2`,
+	_, err = a.db.WithContext(r.Context()).Exec(`UPDATE accounts SET security_scan_policies_json = $1 WHERE name = $2`,
 		string(jsonBuf), account.Name)
 	if respondwith.ErrorText(w, err) {
 		return

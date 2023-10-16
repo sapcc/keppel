@@ -209,8 +209,9 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	db := a.db.WithContext(r.Context())
 	//can only delete blob mount if it's not used by any manifests
-	refCount, err := a.db.SelectInt(`SELECT COUNT(*) FROM manifest_blob_refs WHERE blob_id = $1 AND repo_id = $2`, blob.ID, repo.ID)
+	refCount, err := db.SelectInt(`SELECT COUNT(*) FROM manifest_blob_refs WHERE blob_id = $1 AND repo_id = $2`, blob.ID, repo.ID)
 	if respondWithError(w, r, err) {
 		return
 	}
@@ -225,7 +226,7 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 	//unmount the blob from this particular repo (if it is mounted in other
 	//repos, it will still be accessible there; otherwise keppel-janitor will
 	//clean it up soon)
-	_, err = a.db.Exec(`DELETE FROM blob_mounts WHERE blob_id = $1 AND repo_id = $2`, blob.ID, repo.ID)
+	_, err = db.Exec(`DELETE FROM blob_mounts WHERE blob_id = $1 AND repo_id = $2`, blob.ID, repo.ID)
 	if respondWithError(w, r, err) {
 		return
 	}

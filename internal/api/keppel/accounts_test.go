@@ -21,6 +21,7 @@ package keppelv1_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -1235,6 +1236,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 
 func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
+		_ = tt
 		s1 := test.NewSetup(t, test.WithKeppelAPI, test.WithPeerAPI)
 		s2 := test.NewSetup(t, test.WithKeppelAPI, test.IsSecondaryTo(&s1))
 
@@ -1798,6 +1800,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 
 func uploadManifest(t *testing.T, s test.Setup, account *keppel.Account, repo *keppel.Repository, manifest test.Bytes, sizeBytes uint64) keppel.Manifest {
 	t.Helper()
+	db := s.DB.WithContext(context.TODO())
 
 	dbManifest := keppel.Manifest{
 		RepositoryID: repo.ID,
@@ -1807,14 +1810,14 @@ func uploadManifest(t *testing.T, s test.Setup, account *keppel.Account, repo *k
 		PushedAt:     s.Clock.Now(),
 		ValidatedAt:  s.Clock.Now(),
 	}
-	mustDo(t, s.DB.Insert(&dbManifest))
-	mustDo(t, s.DB.Insert(&keppel.TrivySecurityInfo{
+	mustDo(t, db.Insert(&dbManifest))
+	mustDo(t, db.Insert(&keppel.TrivySecurityInfo{
 		RepositoryID:        repo.ID,
 		Digest:              manifest.Digest,
 		NextCheckAt:         time.Unix(0, 0),
 		VulnerabilityStatus: trivy.PendingVulnerabilityStatus,
 	}))
-	mustDo(t, s.DB.Insert(&keppel.ManifestContent{
+	mustDo(t, db.Insert(&keppel.ManifestContent{
 		RepositoryID: repo.ID,
 		Digest:       manifest.Digest.String(),
 		Content:      manifest.Contents,
@@ -1898,8 +1901,9 @@ func TestDeleteAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	db := s.DB.WithContext(s.Ctx)
 	for _, blob := range blobs {
-		_, err := s.DB.Exec(
+		_, err := db.Exec(
 			`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
 			repos[0].ID, image.Manifest.Digest.String(), blob.ID,
 		)
@@ -1927,7 +1931,7 @@ func TestDeleteAccount(t *testing.T) {
 	}.Check(t, h)
 
 	//failure case: account not in maintenance
-	_, err = s.DB.Exec(`UPDATE accounts SET in_maintenance = FALSE`)
+	_, err = db.Exec(`UPDATE accounts SET in_maintenance = FALSE`)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -1940,7 +1944,7 @@ func TestDeleteAccount(t *testing.T) {
 			"error": "account must be set in maintenance first",
 		},
 	}.Check(t, h)
-	_, err = s.DB.Exec(`UPDATE accounts SET in_maintenance = TRUE`)
+	_, err = db.Exec(`UPDATE accounts SET in_maintenance = TRUE`)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -2017,7 +2021,7 @@ func TestDeleteAccount(t *testing.T) {
 
 	//but this will have cleaned up the blob mounts and scheduled a GC pass
 	//(replace time.Now() with a deterministic time before diffing the DB)
-	_, err = s.DB.Exec(
+	_, err = db.Exec(
 		`UPDATE accounts SET next_blob_sweep_at = $1 WHERE next_blob_sweep_at > $2 AND next_blob_sweep_at <= $3`,
 		time.Unix(300, 0),
 		time.Now().Add(-5*time.Second),
@@ -2027,7 +2031,7 @@ func TestDeleteAccount(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	//also all blobs will be marked for deletion
-	_, err = s.DB.Exec(
+	_, err = db.Exec(
 		`UPDATE blobs SET can_be_deleted_at = $1 WHERE can_be_deleted_at > $2 AND can_be_deleted_at <= $3`,
 		time.Unix(300, 0),
 		time.Now().Add(-5*time.Second),
@@ -2104,6 +2108,7 @@ func deepCopyViaJSON[T any](in T) (out T) {
 
 func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
+		_ = tt
 		s1 := test.NewSetup(t, test.WithKeppelAPI, test.WithPeerAPI)
 		s2 := test.NewSetup(t, test.WithKeppelAPI, test.IsSecondaryTo(&s1))
 
@@ -2592,7 +2597,7 @@ func TestSecurityScanPoliciesAuthorizationErrors(t *testing.T) {
 
 	//as preparation for the next test, put in a pre-existing policy managed by a
 	//different user
-	_, err := s.DB.Exec(`UPDATE accounts SET security_scan_policies_json = $1`,
+	_, err := s.DB.WithContext(s.Ctx).Exec(`UPDATE accounts SET security_scan_policies_json = $1`,
 		fmt.Sprintf("[%s]", foreignPolicyJSON))
 	if err != nil {
 		t.Fatal(err.Error())

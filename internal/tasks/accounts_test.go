@@ -33,9 +33,10 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 	j, s := setup(t)
 	s.FD.RecordedAccounts = nil
 	s.Clock.StepBy(1 * time.Hour)
+	db := s.DB.WithContext(s.Ctx)
 
 	var account1 keppel.Account
-	mustDo(t, s.DB.SelectOne(&account1, `SELECT * FROM accounts`))
+	mustDo(t, db.SelectOne(&account1, `SELECT * FROM accounts`))
 
 	accountJob := j.AccountFederationAnnouncementJob(s.Registry)
 
@@ -49,7 +50,7 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 	//setup another account; only that one should need announcing initially
 	s.Clock.StepBy(5 * time.Minute)
 	account2 := keppel.Account{Name: "test2", AuthTenantID: "test2authtenant", GCPoliciesJSON: "[]"}
-	mustDo(t, s.DB.Insert(&account2))
+	mustDo(t, db.Insert(&account2))
 	expectSuccess(t, accountJob.ProcessOne(s.Ctx))
 	expectAccountsAnnouncedJustNow(t, s, account2)
 	expectError(t, sql.ErrNoRows.Error(), accountJob.ProcessOne(s.Ctx))

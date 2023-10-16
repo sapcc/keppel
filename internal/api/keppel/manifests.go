@@ -111,8 +111,9 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	db := a.db.WithContext(r.Context())
 	var dbManifests []keppel.Manifest
-	_, err = a.db.Select(&dbManifests, manifestQuery, vulnBindValues...)
+	_, err = db.Select(&dbManifests, manifestQuery, vulnBindValues...)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -129,7 +130,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var dbSecurityInfos []keppel.TrivySecurityInfo
-	_, err = a.db.Select(&dbSecurityInfos, securityInfoQuery, securityBindValues...)
+	_, err = db.Select(&dbSecurityInfos, securityInfoQuery, securityBindValues...)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -182,7 +183,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		firstDigest := result.Manifests[0].Digest
 		lastDigest := result.Manifests[len(result.Manifests)-1].Digest
 		var dbTags []keppel.Tag
-		_, err = a.db.Select(&dbTags, tagGetQuery, repo.ID, firstDigest, lastDigest)
+		_, err = db.Select(&dbTags, tagGetQuery, repo.ID, firstDigest, lastDigest)
 		if respondwith.ErrorText(w, err) {
 			return
 		}
@@ -227,7 +228,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.processor().DeleteManifest(*account, *repo, parsedDigest, keppel.AuditContext{
+	err = a.processor().DeleteManifest(r.Context(), *account, *repo, parsedDigest, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
@@ -258,7 +259,7 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	}
 	tagName := mux.Vars(r)["tag_name"]
 
-	err := a.processor().DeleteTag(*account, *repo, tagName, keppel.AuditContext{
+	err := a.processor().DeleteTag(r.Context(), *account, *repo, tagName, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
@@ -326,7 +327,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 	//- we don't have vulnerability scanning enabled at all
 	//- vulnerability scanning is not done yet
 	//- the image does not have any blobs that could be scanned for vulnerabilities
-	blobCount, err := a.db.SelectInt(
+	blobCount, err := a.db.WithContext(r.Context()).SelectInt(
 		`SELECT COUNT(*) FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`,
 		repo.ID, manifest.Digest,
 	)

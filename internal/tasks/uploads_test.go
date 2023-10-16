@@ -99,7 +99,7 @@ func testDeleteUpload(t *testing.T, setupUploadObject func(keppel.StorageDriver,
 	upload.UUID = testUploadUUID
 	upload.StorageID = testStorageID
 	upload.UpdatedAt = s.Clock.Now()
-	err := s.DB.Insert(&upload)
+	err := s.DB.WithContext(s.Ctx).Insert(&upload)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

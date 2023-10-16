@@ -64,15 +64,15 @@ func (j *Janitor) StorageSweepJob(registerer prometheus.Registerer) jobloop.Job 
 				Help: "Counter for garbage collections of an account's backing storage.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (account keppel.Account, err error) {
-			err = j.db.SelectOne(&account, storageSweepSearchQuery, j.timeNow())
+		DiscoverTask: func(ctx context.Context, _ prometheus.Labels) (account keppel.Account, err error) {
+			err = j.db.WithContext(ctx).SelectOne(&account, storageSweepSearchQuery, j.timeNow())
 			return account, err
 		},
 		ProcessTask: j.sweepStorage,
 	}).Setup(registerer)
 }
 
-func (j *Janitor) sweepStorage(_ context.Context, account keppel.Account, _ prometheus.Labels) error {
+func (j *Janitor) sweepStorage(ctx context.Context, account keppel.Account, _ prometheus.Labels) error {
 	//enumerate blobs and manifests in the backing storage
 	actualBlobs, actualManifests, err := j.sd.ListStorageContents(account)
 	if err != nil {
@@ -86,20 +86,20 @@ func (j *Janitor) sweepStorage(_ context.Context, account keppel.Account, _ prom
 	canBeDeletedAt := j.timeNow().Add(4 * time.Hour)
 
 	//handle blobs and manifests separately
-	err = j.sweepBlobStorage(account, actualBlobs, canBeDeletedAt)
+	err = j.sweepBlobStorage(ctx, account, actualBlobs, canBeDeletedAt)
 	if err != nil {
 		return err
 	}
-	err = j.sweepManifestStorage(account, actualManifests, canBeDeletedAt)
+	err = j.sweepManifestStorage(ctx, account, actualManifests, canBeDeletedAt)
 	if err != nil {
 		return err
 	}
 
-	_, err = j.db.Exec(storageSweepDoneQuery, account.Name, j.timeNow().Add(j.addJitter(6*time.Hour)))
+	_, err = j.db.WithContext(ctx).Exec(storageSweepDoneQuery, account.Name, j.timeNow().Add(j.addJitter(6*time.Hour)))
 	return err
 }
 
-func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.StoredBlobInfo, canBeDeletedAt time.Time) error {
+func (j *Janitor) sweepBlobStorage(ctx context.Context, account keppel.Account, actualBlobs []keppel.StoredBlobInfo, canBeDeletedAt time.Time) error {
 	actualBlobsByStorageID := make(map[string]keppel.StoredBlobInfo, len(actualBlobs))
 	for _, blobInfo := range actualBlobs {
 		actualBlobsByStorageID[blobInfo.StorageID] = blobInfo
@@ -130,9 +130,10 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 		return err
 	}
 
+	db := j.db.WithContext(ctx)
 	//unmark/sweep phase: enumerate all unknown blobs
 	var unknownBlobs []keppel.UnknownBlob
-	_, err = j.db.Select(&unknownBlobs, `SELECT * FROM unknown_blobs WHERE account_name = $1`, account.Name)
+	_, err = db.Select(&unknownBlobs, `SELECT * FROM unknown_blobs WHERE account_name = $1`, account.Name)
 	if err != nil {
 		return err
 	}
@@ -140,7 +141,7 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 	for _, unknownBlob := range unknownBlobs {
 		//unmark blobs that have been recorded in the database in the meantime
 		if isKnownStorageID[unknownBlob.StorageID] {
-			_, err = j.db.Delete(&unknownBlob) //nolint:gosec // Delete is not holding onto the pointer after it returns
+			_, err = db.Delete(&unknownBlob) //nolint:gosec // Delete is not holding onto the pointer after it returns
 			if err != nil {
 				return err
 			}
@@ -171,7 +172,7 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 					return err
 				}
 			}
-			_, err = j.db.Delete(&unknownBlob) //nolint:gosec // Delete is not holding onto the pointer after it returns
+			_, err = db.Delete(&unknownBlob) //nolint:gosec // Delete is not holding onto the pointer after it returns
 			if err != nil {
 				return err
 			}
@@ -183,7 +184,7 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 		if isKnownStorageID[storageID] || isMarkedStorageID[storageID] {
 			continue
 		}
-		err := j.db.Insert(&keppel.UnknownBlob{
+		err := db.Insert(&keppel.UnknownBlob{
 			AccountName:    account.Name,
 			StorageID:      storageID,
 			CanBeDeletedAt: canBeDeletedAt,
@@ -196,7 +197,7 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 	return nil
 }
 
-func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests []keppel.StoredManifestInfo, canBeDeletedAt time.Time) error {
+func (j *Janitor) sweepManifestStorage(ctx context.Context, account keppel.Account, actualManifests []keppel.StoredManifestInfo, canBeDeletedAt time.Time) error {
 	isActualManifest := make(map[keppel.StoredManifestInfo]bool, len(actualManifests))
 	for _, m := range actualManifests {
 		isActualManifest[m] = true
@@ -215,9 +216,10 @@ func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests [
 		return err
 	}
 
+	db := j.db.WithContext(ctx)
 	//unmark/sweep phase: enumerate all unknown manifests
 	var unknownManifests []keppel.UnknownManifest
-	_, err = j.db.Select(&unknownManifests, `SELECT * FROM unknown_manifests WHERE account_name = $1`, account.Name)
+	_, err = db.Select(&unknownManifests, `SELECT * FROM unknown_manifests WHERE account_name = $1`, account.Name)
 	if err != nil {
 		return err
 	}
@@ -230,7 +232,7 @@ func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests [
 
 		//unmark manifests that have been recorded in the database in the meantime
 		if isKnownManifest[unknownManifestInfo] {
-			_, err = j.db.Delete(&unknownManifest) //nolint:gosec // Delete is not holding onto the pointer after it returns
+			_, err = db.Delete(&unknownManifest) //nolint:gosec // Delete is not holding onto the pointer after it returns
 			if err != nil {
 				return err
 			}
@@ -253,7 +255,7 @@ func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests [
 					return err
 				}
 			}
-			_, err = j.db.Delete(&unknownManifest) //nolint:gosec // Delete is not holding onto the pointer after it returns
+			_, err = db.Delete(&unknownManifest) //nolint:gosec // Delete is not holding onto the pointer after it returns
 			if err != nil {
 				return err
 			}
@@ -265,7 +267,7 @@ func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests [
 		if isKnownManifest[manifest] || isMarkedManifest[manifest] {
 			continue
 		}
-		err := j.db.Insert(&keppel.UnknownManifest{
+		err := db.Insert(&keppel.UnknownManifest{
 			AccountName:    account.Name,
 			RepositoryName: manifest.RepoName,
 			Digest:         manifest.Digest,

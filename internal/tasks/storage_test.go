@@ -92,7 +92,8 @@ func TestSweepStorageBlobs(t *testing.T) {
 	sizeBytes := uint64(len(testBlob3.Contents))
 	mustDo(t, s.SD.AppendToBlob(account, storageID, 1, &sizeBytes, bytes.NewReader(testBlob3.Contents)))
 	//^ but no FinalizeBlob() since we're still uploading!
-	mustDo(t, s.DB.Insert(&keppel.Upload{
+	db := s.DB.WithContext(s.Ctx)
+	mustDo(t, db.Insert(&keppel.Upload{
 		RepositoryID: 1,
 		UUID:         "a29d525c-2273-44ba-83a8-eafd447f1cb8", //chosen at random, but fixed
 		StorageID:    storageID,
@@ -136,7 +137,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 		PushedAt:    s.Clock.Now(),
 		ValidatedAt: s.Clock.Now(),
 	}
-	mustDo(t, s.DB.Insert(&dbTestBlob1))
+	mustDo(t, db.Insert(&dbTestBlob1))
 
 	//next StorageSweepJob should unmark blob 1 (because it's now in
 	//the DB) and sweep blobs 2 and 4 (since it is still not in the DB)
@@ -187,7 +188,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	//upload that happened while StorageSweepJob: manifest was written
 	//to storage already, but not yet to DB)
 	s.Clock.StepBy(1 * time.Hour)
-	mustDo(t, s.DB.Insert(&keppel.Manifest{
+	mustDo(t, s.DB.WithContext(s.Ctx).Insert(&keppel.Manifest{
 		RepositoryID: 1,
 		Digest:       testImageList1.Manifest.Digest,
 		MediaType:    testImageList1.Manifest.MediaType,

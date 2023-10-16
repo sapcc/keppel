@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-gorp/gorp/v3"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 
@@ -82,6 +83,7 @@ func TestReplicationSimpleImage(t *testing.T) {
 
 		//test pull by tag in secondary account
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
+			_, _ = strategy, firstPass
 			h2 := s2.Handler
 			token := s2.GetToken(t, "repository:test1/foo:pull")
 			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "first", nil)
@@ -138,6 +140,7 @@ func TestReplicationMissingEntities(t *testing.T) {
 		}
 
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
+			_ = strategy
 			var (
 				expectedStatus        = http.StatusNotFound
 				expectedManifestError = keppel.ErrManifestUnknown
@@ -189,6 +192,7 @@ func TestReplicationMissingEntities(t *testing.T) {
 func TestReplicationForbidDirectUpload(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
+			_ = firstPass
 			h2 := s2.Handler
 			token := s2.GetToken(t, "repository:test1/foo:pull,push")
 
@@ -231,12 +235,13 @@ func TestReplicationManifestQuotaExceeded(t *testing.T) {
 
 		//in secondary account...
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
+			_ = strategy
 			if !firstPass {
 				return
 			}
 
 			//...lower quotas so that replication will fail
-			_, err := s2.DB.Exec(`UPDATE quotas SET manifests = $1`, 0)
+			_, err := s2.DB.WithContext(s2.Ctx).Exec(`UPDATE quotas SET manifests = $1`, 0)
 			if err != nil {
 				t.Fatal(err.Error())
 			}
@@ -269,6 +274,7 @@ func TestReplicationUseCachedBlobMetadata(t *testing.T) {
 		image.MustUpload(t, s1, fooRepoRef, "first")
 
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
+			_, _ = strategy, firstPass
 			//in the first pass, just replicate the manifest
 			h2 := s2.Handler
 			token := s2.GetToken(t, "repository:test1/foo:pull")
@@ -316,7 +322,7 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "second", nil)
 
 			//enable anonymous pull on the account
-			err := s2.DB.Insert(&keppel.RBACPolicy{
+			err := s2.DB.WithContext(s2.Ctx).Insert(&keppel.RBACPolicy{
 				AccountName:        "test1",
 				RepositoryPattern:  ".*",
 				CanPullAnonymously: true,
@@ -382,7 +388,7 @@ func TestReplicationAllowAnonymousReplicationFromExternal(t *testing.T) {
 			h2 := s2.Handler
 
 			// enable anonymous pull and replication on test1/bar
-			err := s2.DB.Insert(&keppel.RBACPolicy{
+			err := s2.DB.WithContext(s2.Ctx).Insert(&keppel.RBACPolicy{
 				AccountName:             "test1",
 				RepositoryPattern:       "foo",
 				CanPullAnonymously:      true,
@@ -437,7 +443,7 @@ func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
 			//setup the platform_filter that differentiates this test from
 			//TestReplicationImageList()
-			_, err := s2.DB.Exec(`UPDATE accounts SET platform_filter = $1`, `[{"os":"linux","architecture":"amd64"}]`)
+			_, err := s2.DB.WithContext(s2.Ctx).Exec(`UPDATE accounts SET platform_filter = $1`, `[{"os":"linux","architecture":"amd64"}]`)
 			if err != nil {
 				t.Fatal(err.Error())
 			}
@@ -530,7 +536,7 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 			http.DefaultTransport.(*test.RoundTripper).Handlers["registry-tertiary.example.org"] = http.HandlerFunc(tertiaryHandler)
 
 			//reconfigure "test1" into an external replica of tertiary
-			for _, db := range []*keppel.DB{s1.DB, s2.DB} {
+			for _, db := range []gorp.SqlExecutor{s1.DB.WithContext(s1.Ctx), s2.DB.WithContext(s2.Ctx)} {
 				_, err := db.Exec(`UPDATE accounts SET upstream_peer_hostname = '', external_peer_url = $2 WHERE name = $1`,
 					"test1", "registry-tertiary.example.org")
 				if err != nil {

@@ -19,6 +19,7 @@
 package tasks
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -38,7 +39,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 		s := test.NewSetup(t)
 
 		//setup a peer
-		mustDo(t, s.DB.Insert(&keppel.Peer{HostName: "peer.example.org"}))
+		mustDo(t, s.DB.WithContext(s.Ctx).Insert(&keppel.Peer{HostName: "peer.example.org"}))
 
 		//setup a mock for the peer that just swallows any password that we give to it
 		mockPeer := mockPeerReceivingPassword{}
@@ -114,7 +115,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 func getPeerFromDB(t *testing.T, db *keppel.DB) keppel.Peer {
 	t.Helper()
 	var peer keppel.Peer
-	err := db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, "peer.example.org")
+	err := db.WithContext(context.TODO()).SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, "peer.example.org")
 	if err != nil {
 		t.Fatal(err.Error())
 	}

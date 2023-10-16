@@ -20,6 +20,8 @@
 package keppel
 
 import (
+	"context"
+	"database/sql"
 	"net/url"
 
 	"github.com/go-gorp/gorp/v3"
@@ -278,16 +280,93 @@ var sqlMigrations = map[string]string{
 	`,
 }
 
-// DB adds convenience functions on top of gorp.DbMap.
+// DB adds convenience functions on top of gorp.DbMap and reimplements the SqlExecutor interface to enforce context'ed function calls
 type DB struct {
 	gorp.DbMap
 }
+
+// Deprecated: use db.withContext!
+func (db *DB) Get(i interface{}, keys ...interface{}) (interface{}, error) {
+	return db.WithContext(context.TODO()).Get(i, keys)
+}
+
+// Deprecated: use db.withContext!
+func (db *DB) Insert(list ...interface{}) error {
+	return db.WithContext(context.TODO()).Insert(list...)
+}
+
+// Deprecated: use db.withContext!
+func (db *DB) Update(list ...interface{}) (int64, error) {
+	return db.WithContext(context.TODO()).Update(list...)
+}
+
+// Deprecated: use db.withContext!
+func (db *DB) Delete(list ...interface{}) (int64, error) {
+	return db.WithContext(context.TODO()).Delete(list...)
+}
+
+// Deprecated: use db.withContext!
+func (db *DB) Exec(query string, args ...interface{}) (sql.Result, error) {
+	return db.WithContext(context.TODO()).Exec(query, args...)
+}
+
+// Deprecated: use db.withContext!
+func (db *DB) Select(i interface{}, query string, args ...interface{}) ([]interface{}, error) {
+	return db.WithContext(context.TODO()).Select(i, query, args...)
+}
+
+// Deprecated: use db.withContext!
+func (db *DB) SelectInt(query string, args ...interface{}) (int64, error) {
+	return db.WithContext(context.TODO()).SelectInt(query, args...)
+}
+
+// Deprecated: use db.withContext!
+func (db *DB) SelectNullInt(query string, args ...interface{}) (sql.NullInt64, error) {
+	return db.WithContext(context.TODO()).SelectNullInt(query, args...)
+}
+
+// Deprecated: use db.withContext!
+func (db *DB) SelectFloat(query string, args ...interface{}) (float64, error) {
+	return db.WithContext(context.TODO()).SelectFloat(query, args...)
+}
+
+// Deprecated: use db.withContext!
+func (db *DB) SelectNullFloat(query string, args ...interface{}) (sql.NullFloat64, error) {
+	return db.WithContext(context.TODO()).SelectNullFloat(query, args...)
+}
+
+// Deprecated: use db.withContext!
+func (db *DB) SelectStr(query string, args ...interface{}) (string, error) {
+	return db.WithContext(context.TODO()).SelectStr(query, args...)
+}
+
+// Deprecated: use db.withContext!
+func (db *DB) SelectNullStr(query string, args ...interface{}) (sql.NullString, error) {
+	return db.WithContext(context.TODO()).SelectNullStr(query, args...)
+}
+
+// Deprecated: use db.withContext!
+func (db *DB) SelectOne(holder interface{}, query string, args ...interface{}) error {
+	return db.WithContext(context.TODO()).SelectOne(holder, query, args...)
+}
+
+// Deprecated: use db.withContext!
+func (db *DB) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	return db.WithContext(context.TODO()).Query(query, args...)
+}
+
+// Deprecated: use db.withContext!
+func (db *DB) QueryRow(query string, args ...interface{}) *sql.Row {
+	return db.WithContext(context.TODO()).QueryRow(query, args...)
+}
+
+// convience functions
 
 // SelectBool is analogous to the other SelectFoo() functions from gorp.DbMap
 // like SelectFloat, SelectInt, SelectStr, etc.
 func (db *DB) SelectBool(query string, args ...interface{}) (bool, error) {
 	var result bool
-	err := db.QueryRow(query, args...).Scan(&result)
+	err := db.WithContext(context.TODO()).QueryRow(query, args...).Scan(&result)
 	return result, err
 }
 

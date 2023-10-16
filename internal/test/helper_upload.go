@@ -91,7 +91,7 @@ var checkBlobExistsQuery = sqlext.SimplifyWhitespace(`
 func (i Image) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName string) keppel.Manifest {
 	//upload missing blobs
 	for _, blob := range append(i.Layers, i.Config) {
-		count, err := s.DB.SelectInt(checkBlobExistsQuery, repo.AccountName, blob.Digest.String())
+		count, err := s.DB.WithContext(s.Ctx).SelectInt(checkBlobExistsQuery, repo.AccountName, blob.Digest.String())
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -148,7 +148,7 @@ var checkManifestExistsQuery = sqlext.SimplifyWhitespace(`
 func (l ImageList) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName string) keppel.Manifest {
 	//upload missing images
 	for _, image := range l.Images {
-		count, err := s.DB.SelectInt(checkManifestExistsQuery, repo.AccountName, repo.Name, image.Manifest.Digest)
+		count, err := s.DB.WithContext(s.Ctx).SelectInt(checkManifestExistsQuery, repo.AccountName, repo.Name, image.Manifest.Digest)
 		if err != nil {
 			t.Fatal(err.Error())
 		}

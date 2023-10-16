@@ -753,7 +753,7 @@ func errorIsUpstreamRateLimit(err error) bool {
 // Downloads a manifest from an account's upstream using
 // RepoClient.DownloadManifest(), but also takes into account the inbound cache.
 func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account keppel.Account, repo keppel.Repository, ref models.ManifestReference) (manifestBytes []byte, manifestMediaType string, err error) {
-	c, err := p.getRepoClientForUpstream(account, repo)
+	c, err := p.getRepoClientForUpstream(ctx, account, repo)
 	if err != nil {
 		return nil, "", err
 	}
@@ -808,7 +808,7 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 func (p *Processor) downloadManifestViaPullDelegation(ctx context.Context, imageRef models.ImageReference, userName, password string) (respBytes []byte, contentType string, success bool) {
 	//select a peer at random
 	var peer keppel.Peer
-	err := p.db.SelectOne(&peer, `SELECT * FROM peers WHERE our_password != '' ORDER BY RANDOM() LIMIT 1`)
+	err := p.db.WithContext(ctx).SelectOne(&peer, `SELECT * FROM peers WHERE our_password != '' ORDER BY RANDOM() LIMIT 1`)
 	if errors.Is(err, sql.ErrNoRows) {
 		//no peers set up - just skip this step without logging anything
 		return nil, "", false
@@ -835,13 +835,15 @@ func (p *Processor) downloadManifestViaPullDelegation(ctx context.Context, image
 // backing storage.
 //
 // If the manifest does not exist, sql.ErrNoRows is returned.
-func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repository, manifestDigest digest.Digest, actx keppel.AuditContext) error {
+func (p *Processor) DeleteManifest(ctx context.Context, account keppel.Account, repo keppel.Repository, manifestDigest digest.Digest, actx keppel.AuditContext) error {
 	var (
 		tagResults []keppel.Tag
 		tags       []string
 	)
 
-	_, err := p.db.Select(&tagResults,
+	db := p.db.WithContext(ctx)
+
+	_, err := db.Select(&tagResults,
 		`SELECT * FROM tags WHERE repo_id = $1 AND digest = $2`,
 		repo.ID, manifestDigest)
 	if err != nil {
@@ -851,12 +853,12 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 		tags = append(tags, tagResult.Name)
 	}
 
-	result, err := p.db.Exec(
+	result, err := db.Exec(
 		//this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
 		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
 		repo.ID, manifestDigest)
 	if err != nil {
-		otherDigest, err2 := p.db.SelectStr(
+		otherDigest, err2 := db.SelectStr(
 			`SELECT parent_digest FROM manifest_manifest_refs WHERE repo_id = $1 AND child_digest = $2`,
 			repo.ID, manifestDigest)
 		// more than one manifest is referenced by another manifest
@@ -913,8 +915,8 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 
 // DeleteTag deletes the given tag from the database. The manifest is not deleted.
 // If the tag does not exist, sql.ErrNoRows is returned.
-func (p *Processor) DeleteTag(account keppel.Account, repo keppel.Repository, tagName string, actx keppel.AuditContext) error {
-	digestStr, err := p.db.SelectStr(
+func (p *Processor) DeleteTag(ctx context.Context, account keppel.Account, repo keppel.Repository, tagName string, actx keppel.AuditContext) error {
+	digestStr, err := p.db.WithContext(ctx).SelectStr(
 		`DELETE FROM tags WHERE repo_id = $1 AND name = $2 RETURNING digest`,
 		repo.ID, tagName)
 	if err != nil {

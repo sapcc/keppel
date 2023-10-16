@@ -68,7 +68,7 @@ func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request) *keppe
 	}
 
 	var peer keppel.Peer
-	err := a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, uid.PeerHostName)
+	err := a.db.WithContext(r.Context()).SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, uid.PeerHostName)
 	if err != nil {
 		keppel.AsRegistryV2Error(err).WriteAsTextTo(w)
 		return nil

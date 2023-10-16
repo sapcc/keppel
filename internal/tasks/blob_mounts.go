@@ -85,34 +85,36 @@ func (j *Janitor) BlobMountSweepJob(registerer prometheus.Registerer) jobloop.Jo
 				Help: "Counter for garbage collections on blob mounts in a repo.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (repo keppel.Repository, err error) {
-			err = j.db.SelectOne(&repo, blobMountSweepSearchQuery, j.timeNow())
+		DiscoverTask: func(ctx context.Context, _ prometheus.Labels) (repo keppel.Repository, err error) {
+			err = j.db.WithContext(ctx).SelectOne(&repo, blobMountSweepSearchQuery, j.timeNow())
 			return repo, err
 		},
 		ProcessTask: j.sweepBlobMountsInRepo,
 	}).Setup(registerer)
 }
 
-func (j *Janitor) sweepBlobMountsInRepo(_ context.Context, repo keppel.Repository, _ prometheus.Labels) error {
+func (j *Janitor) sweepBlobMountsInRepo(ctx context.Context, repo keppel.Repository, _ prometheus.Labels) error {
 	//allow next pass in 1 hour to delete the newly marked blob mounts, but use a
 	//slighly earlier cut-off time to account for the marking taking some time
 	canBeDeletedAt := j.timeNow().Add(30 * time.Minute)
+
+	db := j.db.WithContext(ctx)
 
 	//NOTE: We don't need to pack the following steps in a single transaction, so
 	//we won't. The mark and unmark are obviously safe since they only update
 	//metadata, and the sweep only touches stuff that was marked in the
 	//*previous* sweep. The only thing that we need to make sure is that unmark
 	//is strictly ordered before sweep.
-	_, err := j.db.Exec(blobMountMarkQuery, repo.ID, canBeDeletedAt)
+	_, err := db.Exec(blobMountMarkQuery, repo.ID, canBeDeletedAt)
 	if err != nil {
 		return err
 	}
-	_, err = j.db.Exec(blobMountUnmarkQuery, repo.ID)
+	_, err = db.Exec(blobMountUnmarkQuery, repo.ID)
 	if err != nil {
 		return err
 	}
 	//delete blob-mounts that were marked in the last run
-	result, err := j.db.Exec(blobMountSweepMarkedQuery, repo.ID, j.timeNow())
+	result, err := db.Exec(blobMountSweepMarkedQuery, repo.ID, j.timeNow())
 	if err != nil {
 		return err
 	}
@@ -124,6 +126,6 @@ func (j *Janitor) sweepBlobMountsInRepo(_ context.Context, repo keppel.Repositor
 		logg.Info("%d blob mounts sweeped in repo %s", rowsDeleted, repo.FullName())
 	}
 
-	_, err = j.db.Exec(blobMountSweepDoneQuery, repo.ID, j.timeNow().Add(j.addJitter(1*time.Hour)))
+	_, err = db.Exec(blobMountSweepDoneQuery, repo.ID, j.timeNow().Add(j.addJitter(1*time.Hour)))
 	return err
 }

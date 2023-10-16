@@ -20,6 +20,7 @@ package authapi_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -547,19 +548,20 @@ func (c jwtContents) AssertResponseBody(t *testing.T, requestInfo string, respon
 func TestIssueToken(t *testing.T) {
 	s := setupPrimary(t)
 	service := s.Config.APIPublicHostname
+	db := s.DB.WithContext(context.TODO())
 
 	for idx, c := range testCases {
 		t.Logf("----- testcase %d/%d -----\n", idx+1, len(testCases))
 
 		//setup RBAC policies for test
-		_, err := s.DB.Exec(`DELETE FROM rbac_policies WHERE account_name = $1`, "test1")
+		_, err := db.Exec(`DELETE FROM rbac_policies WHERE account_name = $1`, "test1")
 		if err != nil {
 			t.Fatal(err.Error())
 		}
 		if c.RBACPolicy != (keppel.RBACPolicy{}) {
 			policy := c.RBACPolicy //take a clone for modifying
 			policy.AccountName = "test1"
-			err := s.DB.Insert(&policy)
+			err := db.Insert(&policy)
 			if err != nil {
 				t.Fatal(err.Error())
 			}
@@ -696,6 +698,7 @@ type anycastTestCase struct {
 
 func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
+		_ = tt
 		s1 := setupPrimary(t)
 		s2 := setupSecondary(t)
 		h1 := s1.Handler

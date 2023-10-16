@@ -58,9 +58,10 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	db := a.db.WithContext(r.Context())
 	//do we even know that guy? :)
 	var peer keppel.Peer
-	err = a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, req.PeerHostName)
+	err = db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, req.PeerHostName)
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "unknown issuer", http.StatusBadRequest)
 		return
@@ -89,7 +90,7 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//update database
-	_, err = a.db.Exec(
+	_, err = db.Exec(
 		`UPDATE peers SET our_password = $1 WHERE hostname = $2`,
 		req.Password, req.PeerHostName,
 	)
