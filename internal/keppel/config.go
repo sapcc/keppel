@@ -27,6 +27,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
@@ -126,9 +127,11 @@ func ParseConfiguration() Configuration {
 
 	trivyURL := mayGetenvURL("KEPPEL_TRIVY_URL")
 	if trivyURL != nil {
+		additionalPullableRepos := strings.Split(os.Getenv("KEPPEL_TRIVY_ADDITIONAL_PULLABLE_REPOS"), ",")
 		cfg.Trivy = &trivy.Config{
-			URL:   *trivyURL,
-			Token: osext.MustGetenv("KEPPEL_TRIVY_TOKEN"),
+			AdditionalPullableRepos: additionalPullableRepos,
+			Token:                   osext.MustGetenv("KEPPEL_TRIVY_TOKEN"),
+			URL:                     *trivyURL,
 		}
 	}
 

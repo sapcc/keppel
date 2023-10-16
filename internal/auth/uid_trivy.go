@@ -21,6 +21,7 @@ package auth
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/sapcc/go-bits/audittools"
 
@@ -72,4 +73,28 @@ func (uid *TrivyUserIdentity) DeserializeFromJSON(in []byte, _ keppel.AuthDriver
 		return fmt.Errorf("%q is not a valid payload for TrivyUserIdentity", string(in))
 	}
 	return nil
+}
+
+// IssueTokenForTrivy issues a token for Trivy to pull the image and it's databases with.
+// This needs to use the specialized TrivyUserIdentity to avoid updating the image's "last_pulled_at" timestamp.
+func IssueTokenForTrivy(cfg keppel.Configuration, repoFullName string) (*TokenResponse, error) {
+	scopes := []Scope{{
+		ResourceType: "repository",
+		ResourceName: repoFullName,
+		Actions:      []string{"pull"},
+	}}
+
+	for _, repo := range cfg.Trivy.AdditionalPullableRepos {
+		scopes = append(scopes, Scope{
+			ResourceType: "repository",
+			ResourceName: repo,
+			Actions:      []string{"pull"},
+		})
+	}
+
+	return Authorization{
+		UserIdentity: &TrivyUserIdentity{},
+		Audience:     Audience{},
+		ScopeSet:     NewScopeSet(scopes...),
+	}.IssueTokenWithExpires(cfg, 20*time.Minute)
 }
