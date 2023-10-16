@@ -26,7 +26,6 @@ import (
 	"html"
 	"net/http"
 	"sort"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
@@ -355,17 +354,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//issue a token for Trivy to pull the image with (this needs to use the specialized
-	//TrivyUserIdentity to avoid updating the image's "last_pulled_at" timestamp)
-	tokenResp, err := auth.Authorization{
-		UserIdentity: &auth.TrivyUserIdentity{},
-		Audience:     auth.Audience{},
-		ScopeSet: auth.NewScopeSet(auth.Scope{
-			ResourceType: "repository",
-			ResourceName: repo.FullName(),
-			Actions:      []string{"pull"},
-		}),
-	}.IssueTokenWithExpires(a.cfg, 20*time.Minute)
+	tokenResp, err := auth.IssueTokenForTrivy(a.cfg, repo.FullName())
 	if respondwith.ErrorText(w, err) {
 		return
 	}

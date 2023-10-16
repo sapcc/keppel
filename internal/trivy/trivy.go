@@ -53,8 +53,9 @@ const (
 // Config contains credentials for talking to a Trivy server through a
 // trivy-proxy deployment.
 type Config struct {
-	URL   url.URL
-	Token string
+	AdditionalPullableRepos []string
+	Token                   string
+	URL                     url.URL
 }
 
 // ReportPayload contains a report that was returned by Trivy (and potentially
