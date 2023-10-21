@@ -396,6 +396,8 @@ MC4CAQAwBQYDK2VwBCIEIJF8IUp7t4h64Xm9WDPtThzRHiQY5guceFs4z8QDrMQ0
 
 // UnitTestIssuerRSAPrivateKey is an RSA private key that can be used as
 // KEPPEL_ISSUER_KEY in unit tests. DO NOT USE IN PRODUCTION.
+//
+//nolint:gosec // snakeoil certs for tests
 const UnitTestIssuerRSAPrivateKey = `-----BEGIN RSA PRIVATE KEY-----
 MIIJKgIBAAKCAgEApaFTmtIHzEg9dznhoFgOKqZseh4PcXTITEc0F/1Gjj/zQmKj
 0jOlbTQv/4IbmFPVP75dGB+Dw5qHh+4TR8uObx6VudnkSHrn8buPKD1n2T5r/SMY
@@ -456,6 +458,8 @@ MC4CAQAwBQYDK2VwBCIEIMk7vAS28DlAzYWG9yktmmAnla+wvvTo/Ah6qmXG6E+S
 
 // UnitTestAnycastIssuerRSAPrivateKey is an RSA private key that can be used as
 // KEPPEL_ANYCAST_ISSUER_KEY in unit tests. DO NOT USE IN PRODUCTION.
+//
+//nolint:gosec // snakeoil certs for tests
 const UnitTestAnycastIssuerRSAPrivateKey = `-----BEGIN RSA PRIVATE KEY-----
 MIIJJwIBAAKCAgEAt9jMLzDWOoPpxTOQbdvFdxiHGQETkQnca3uLAiTllx7AWkF7
 9R1T1V69rYAXacwyv+7dOGKD1FQzms7+uV72m8kjw+NvDMHjXQ9PtATy76J9FTPg
