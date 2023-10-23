@@ -142,7 +142,7 @@ func TestAnycastRateLimits(t *testing.T) {
 	blob := test.NewBytes([]byte("the blob for our test case"))
 
 	//set up rate limit such that we can pull this blob only twice in a row
-	limit := redis_rate.Limit{Rate: len(blob.Contents) * 2, Period: time.Minute, Burst: len(blob.Contents) * 2}
+	limit := redis_rate.Limit{Rate: 2, Period: time.Minute, Burst: 2}
 
 	rld := basic.RateLimitDriver{
 		Limits: map[keppel.RateLimitedAction]redis_rate.Limit{

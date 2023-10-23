@@ -94,12 +94,12 @@ type RateLimitEngine struct {
 
 // RateLimitAllows checks whether the given action on the given account is allowed by
 // the account's rate limit.
-func (e RateLimitEngine) RateLimitAllows(ctx context.Context, remoteAddr string, account Account, action RateLimitedAction, amount uint64) (bool, *redis_rate.Result, error) {
+func (e RateLimitEngine) RateLimitAllows(ctx context.Context, remoteAddr string, account Account, action RateLimitedAction, amount uint32) (bool, *redis_rate.Result, error) {
 	rateQuota := e.Driver.GetRateLimit(account, action)
 	if rateQuota == nil {
 		//no rate limit for this account and action
 		return true, &redis_rate.Result{
-			Limit:      redis_rate.Limit{Rate: math.MaxInt64, Period: time.Second},
+			Limit:      redis_rate.Limit{Rate: math.MaxInt32, Period: time.Second},
 			Remaining:  math.MaxInt64,
 			ResetAfter: 0,
 			RetryAfter: -1,

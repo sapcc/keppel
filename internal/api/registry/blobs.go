@@ -118,7 +118,13 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		//AnycastBlobBytePullAction is only relevant for GET requests since it
 		//limits the size of the response body (which is empty for HEAD)
 		if r.Method == http.MethodGet {
-			err = api.CheckRateLimit(r, a.rle, *account, authz, keppel.AnycastBlobBytePullAction, blob.SizeBytes)
+			blobSizeMB := uint32(blob.SizeBytes / 1024)
+			// if a blob is smaller than 1 MB we just round up to not make it free :)
+			if blobSizeMB == 0 {
+				blobSizeMB = 1
+			}
+
+			err = api.CheckRateLimit(r, a.rle, *account, authz, keppel.AnycastBlobBytePullAction, blobSizeMB)
 			if respondWithError(w, r, err) {
 				return
 			}
