@@ -111,11 +111,11 @@ func parseRateLimit(envVar string) (*redis_rate.Limit, error) {
 	if match == nil {
 		return nil, fmt.Errorf("malformed %s: %q", envVar, os.Getenv(envVar))
 	}
-	count, err := strconv.ParseUint(match[1], 10, 32)
+	count, err := strconv.Atoi(match[1])
 	if err != nil {
 		return nil, fmt.Errorf("malformed %s: %s", envVar, err.Error())
 	}
-	rate := limitConstructors[match[2]](int(count))
+	rate := limitConstructors[match[2]](count)
 	return &rate, nil
 }
 
