@@ -323,7 +323,7 @@ TAG:
 				}
 			} else {
 				//all other errors fail the sync
-				return err
+				return fmt.Errorf("while syncing tag %s: %w", tag.Name, err)
 			}
 		}
 	}
