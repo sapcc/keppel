@@ -239,6 +239,17 @@ downloaded and validated every 30 seconds. The result of the test is published a
 the test fails, a detailed error message is logged in stderr. If the setup phase fails, an error message is logged as
 well and the program immediately exits with non-zero status.
 
+### Trivy Proxy configuration options
+
+These options are only useful when the Trivy proxy is deployed but the Keppel API and janitor are also influenced by them.
+
+| Variable | Default | Explanation |
+| -------- | ------- | ----------- |
+| `KEPPEL_TRIVY_ADDITIONAL_PULLABLE_REPOS` | *(optional)* | It adds additional scopes to the token issued by the API and the janitor which is meant to allow the trivy components to pull their DB OCI images from the respective repos. |
+| `KEPPEL_TRIVY_DB_MIRROR_PREFIX` | *(required)* | Prefix under which trivy can find its database. This might be a mirror or ghcr.io. |
+| `KEPPEL_TRIVY_TOKEN` | *(required)* | Static secret given out by the Keppel API and janitor to the trivy client to authenticate against the trivy server. |
+| `KEPPEL_TRIVY_URL` | *(required)* | The URL under which the trivy proxy can be reached. |
+
 ## Prometheus metrics
 
 All server components emit Prometheus metrics on the HTTP endpoint `/metrics`.
