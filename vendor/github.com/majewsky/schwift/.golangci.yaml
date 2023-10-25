@@ -37,6 +37,10 @@ linters-settings:
     forbid:
       # ioutil package has been deprecated: https://github.com/golang/go/issues/42026
       - ^ioutil\..*$
+      # Using http.DefaultServeMux is discouraged because it's a global variable that some packages silently and magically add handlers to (esp. net/http/pprof).
+      # Applications wishing to use http.ServeMux should obtain local instances through http.NewServeMux() instead of using the global default instance.
+      - ^http.DefaultServeMux$
+      - ^http.Handle(?:Func)?$
   gocritic:
     enabled-checks:
       - boolExprSimplify
@@ -76,14 +80,22 @@ linters-settings:
     check-shadowing: true
   nolintlint:
     require-specific: true
+  stylecheck:
+    dot-import-whitelist:
+      - github.com/onsi/ginkgo/v2
+      - github.com/onsi/gomega
   usestdlibvars:
-      http-method: true
-      http-status-code: true
-      time-weekday: true
-      time-month: true
-      time-layout: true
-      crypto-hash: true
-      default-rpc-path: true
+    constant-kind: true
+    crypto-hash: true
+    default-rpc-path: true
+    http-method: true
+    http-status-code: true
+    os-dev-null: true
+    rpc-default-path: true
+    time-weekday: true
+    time-month: true
+    time-layout: true
+    tls-signature-scheme: true
   whitespace:
     # Enforce newlines (or comments) after multi-line function signatures.
     multi-func: true
@@ -93,10 +105,17 @@ linters:
   # does not introduce new linters unexpectedly.
   disable-all: true
   enable:
+    - bodyclose
+    - containedctx
     - dupl
+    - dupword
+    - durationcheck
     - errcheck
+    - errorlint
     - exportloopref
     - forbidigo
+    - ginkgolinter
+    - gocheckcompilerdirectives
     - gocritic
     - gofmt
     - goimports
@@ -105,11 +124,14 @@ linters:
     - govet
     - ineffassign
     - misspell
+    - noctx
     - nolintlint
+    - nosprintfhostport
     - rowserrcheck
     - sqlclosecheck
     - staticcheck
     - stylecheck
+    - tenv
     - typecheck
     - unconvert
     - unparam

@@ -90,6 +90,7 @@ func (c *Container) Headers() (ContainerHeaders, error) {
 	if err != nil {
 		return ContainerHeaders{}, err
 	}
+	defer resp.Body.Close()
 
 	headers := ContainerHeaders{headersFromHTTP(resp.Header)}
 	err = headers.Validate()
@@ -107,7 +108,7 @@ func (c *Container) Headers() (ContainerHeaders, error) {
 //
 // A successful POST request implies Invalidate() since it may change metadata.
 func (c *Container) Update(headers ContainerHeaders, opts *RequestOptions) error {
-	_, err := Request{
+	resp, err := Request{
 		Method:            "POST",
 		ContainerName:     c.name,
 		Options:           cloneRequestOptions(opts, headers.Headers),
@@ -115,6 +116,7 @@ func (c *Container) Update(headers ContainerHeaders, opts *RequestOptions) error
 	}.Do(c.a.backend)
 	if err == nil {
 		c.Invalidate()
+		resp.Body.Close()
 	}
 	return err
 }
@@ -126,7 +128,7 @@ func (c *Container) Update(headers ContainerHeaders, opts *RequestOptions) error
 //
 // A successful PUT request implies Invalidate() since it may change metadata.
 func (c *Container) Create(opts *RequestOptions) error {
-	_, err := Request{
+	resp, err := Request{
 		Method:            "PUT",
 		ContainerName:     c.name,
 		Options:           opts,
@@ -135,6 +137,7 @@ func (c *Container) Create(opts *RequestOptions) error {
 	}.Do(c.a.backend)
 	if err == nil {
 		c.Invalidate()
+		resp.Body.Close()
 	}
 	return err
 }
@@ -148,7 +151,7 @@ func (c *Container) Create(opts *RequestOptions) error {
 //
 // A successful DELETE request implies Invalidate().
 func (c *Container) Delete(opts *RequestOptions) error {
-	_, err := Request{
+	resp, err := Request{
 		Method:            "DELETE",
 		ContainerName:     c.name,
 		Options:           opts,
@@ -156,6 +159,7 @@ func (c *Container) Delete(opts *RequestOptions) error {
 	}.Do(c.a.backend)
 	if err == nil {
 		c.Invalidate()
+		resp.Body.Close()
 	}
 	return err
 }
@@ -177,12 +181,15 @@ func (c *Container) Invalidate() {
 //
 //	container, err := account.Container("documents").EnsureExists()
 func (c *Container) EnsureExists() (*Container, error) {
-	_, err := Request{
+	resp, err := Request{
 		Method:            "PUT",
 		ContainerName:     c.name,
 		ExpectStatusCodes: []int{201, 202},
 		DrainResponseBody: true,
 	}.Do(c.a.backend)
+	if err == nil {
+		resp.Body.Close()
+	}
 	return c, err
 }
 

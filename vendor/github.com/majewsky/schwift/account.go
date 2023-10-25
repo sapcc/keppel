@@ -19,6 +19,7 @@
 package schwift
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -109,6 +110,7 @@ func (a *Account) Headers() (AccountHeaders, error) {
 	if err != nil {
 		return AccountHeaders{}, err
 	}
+	defer resp.Body.Close()
 
 	headers := AccountHeaders{headersFromHTTP(resp.Header)}
 	err = headers.Validate()
@@ -133,13 +135,14 @@ func (a *Account) Invalidate() {
 //
 // A successful POST request implies Invalidate() since it may change metadata.
 func (a *Account) Update(headers AccountHeaders, opts *RequestOptions) error {
-	_, err := Request{
+	resp, err := Request{
 		Method:            "POST",
 		Options:           cloneRequestOptions(opts, headers.Headers),
 		ExpectStatusCodes: []int{204},
 	}.Do(a.backend)
 	if err == nil {
 		a.Invalidate()
+		resp.Body.Close()
 	}
 	return err
 }
@@ -149,7 +152,7 @@ func (a *Account) Update(headers AccountHeaders, opts *RequestOptions) error {
 //
 // A successful PUT request implies Invalidate() since it may change metadata.
 func (a *Account) Create(opts *RequestOptions) error {
-	_, err := Request{
+	resp, err := Request{
 		Method:            "PUT",
 		Options:           opts,
 		ExpectStatusCodes: []int{201, 202},
@@ -157,6 +160,7 @@ func (a *Account) Create(opts *RequestOptions) error {
 	}.Do(a.backend)
 	if err == nil {
 		a.Invalidate()
+		resp.Body.Close()
 	}
 	return err
 }
@@ -214,7 +218,7 @@ func (a *Account) Capabilities() (Capabilities, error) {
 func (a *Account) RawCapabilities() ([]byte, error) {
 	//This method is the only one in Schwift that bypasses struct Request since
 	//the request URL is not below the endpoint URL.
-	req, err := http.NewRequest(http.MethodGet, a.baseURL+"info", http.NoBody)
+	req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, a.baseURL+"info", http.NoBody)
 	if err != nil {
 		return nil, err
 	}

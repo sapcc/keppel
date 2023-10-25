@@ -25,6 +25,7 @@ import (
 	"crypto/sha1" //nolint:gosec // Used by swift
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"hash"
 	"io"
@@ -135,6 +136,7 @@ func (o *Object) fetchHeaders(opts *RequestOptions) (*ObjectHeaders, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	headers := ObjectHeaders{headersFromHTTP(resp.Header)}
 	return &headers, headers.Validate()
@@ -147,7 +149,7 @@ func (o *Object) fetchHeaders(opts *RequestOptions) (*ObjectHeaders, error) {
 //
 // A successful POST request implies Invalidate() since it may change metadata.
 func (o *Object) Update(headers ObjectHeaders, opts *RequestOptions) error {
-	_, err := Request{
+	resp, err := Request{
 		Method:            "POST",
 		ContainerName:     o.c.name,
 		ObjectName:        o.name,
@@ -156,6 +158,7 @@ func (o *Object) Update(headers ObjectHeaders, opts *RequestOptions) error {
 	}.Do(o.c.a.backend)
 	if err == nil {
 		o.Invalidate()
+		resp.Body.Close()
 	}
 	return err
 }
@@ -245,10 +248,10 @@ func (o *Object) Upload(content io.Reader, opts *UploadOptions, ropts *RequestOp
 		//chance of an inconsistent state following an upload error
 		var err error
 		lo, err = o.AsLargeObject()
-		switch err {
-		case nil:
+		switch {
+		case err == nil:
 			//okay, delete segments at the end
-		case ErrNotLarge:
+		case errors.Is(err, ErrNotLarge):
 			//okay, do not try to delete segments
 			lo = nil
 		default:
@@ -270,6 +273,7 @@ func (o *Object) Upload(content io.Reader, opts *UploadOptions, ropts *RequestOp
 		return err
 	}
 	o.Invalidate()
+	defer resp.Body.Close()
 
 	if hasher != nil {
 		expectedEtag := hex.EncodeToString(hasher.Sum(nil))
@@ -393,13 +397,13 @@ func (o *Object) Delete(opts *DeleteOptions, ropts *RequestOptions) error {
 		}
 		if exists {
 			lo, err := o.AsLargeObject()
-			switch err {
-			case nil:
+			switch {
+			case err == nil:
 				//is large object - delete segments and the object itself in one step
 				_, _, err := o.c.a.BulkDelete(append(lo.SegmentObjects(), o), nil, nil)
 				o.Invalidate()
 				return err
-			case ErrNotLarge:
+			case errors.Is(err, ErrNotLarge):
 				//not a large object - use regular DELETE request
 			default:
 				//unexpected error
@@ -408,7 +412,7 @@ func (o *Object) Delete(opts *DeleteOptions, ropts *RequestOptions) error {
 		}
 	}
 
-	_, err := Request{
+	resp, err := Request{
 		Method:            "DELETE",
 		ContainerName:     o.c.name,
 		ObjectName:        o.name,
@@ -417,6 +421,7 @@ func (o *Object) Delete(opts *DeleteOptions, ropts *RequestOptions) error {
 	}.Do(o.c.a.backend)
 	if err == nil {
 		o.Invalidate()
+		resp.Body.Close()
 	}
 	return err
 }
@@ -453,7 +458,7 @@ func (o *Object) Download(opts *RequestOptions) DownloadedObject {
 		ObjectName:        o.name,
 		Options:           opts,
 		ExpectStatusCodes: []int{http.StatusOK},
-	}.Do(o.c.a.backend)
+	}.Do(o.c.a.backend) //nolint:bodyclose // body is returned and must be closed by the user
 	var body io.ReadCloser
 	if err == nil {
 		newHeaders := ObjectHeaders{headersFromHTTP(resp.Header)}
@@ -498,7 +503,7 @@ func (o *Object) CopyTo(target *Object, opts *CopyOptions, ropts *RequestOptions
 		}
 	}
 
-	_, err := Request{
+	resp, err := Request{
 		Method:            "COPY",
 		ContainerName:     o.c.name,
 		ObjectName:        o.name,
@@ -508,6 +513,7 @@ func (o *Object) CopyTo(target *Object, opts *CopyOptions, ropts *RequestOptions
 	}.Do(o.c.a.backend)
 	if err == nil {
 		target.Invalidate()
+		resp.Body.Close()
 	}
 	return err
 }

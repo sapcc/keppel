@@ -24,6 +24,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/majewsky/schwift/internal/errext"
 )
 
 var (
@@ -60,6 +62,8 @@ var (
 // a response with the expected successful status code. The actual status code
 // can be checked with the Is() function; see documentation over there.
 type UnexpectedStatusCodeError struct {
+	Method              string //e.g. http.MethodGet
+	Target              string //either "<account>" or "$CONTAINER_NAME" or "$CONTAINER_NAME/$OBJECT_NAME"
 	ExpectedStatusCodes []int
 	ActualResponse      *http.Response
 	ResponseBody        []byte
@@ -75,6 +79,11 @@ func (e UnexpectedStatusCodeError) Error() string {
 		strings.Join(codeStrs, "/"),
 		e.ActualResponse.StatusCode,
 	)
+	if e.Method != "" && e.Target != "" {
+		//NOTE: Method and Target were added in a minor version change,
+		//and may not be filled if `e` was constructed outside the library.
+		msg = fmt.Sprintf("could not %s %q in Swift: %s", e.Method, e.Target, msg)
+	}
 	if len(e.ResponseBody) > 0 {
 		msg += ": " + string(e.ResponseBody)
 	}
@@ -141,7 +150,7 @@ func (e BulkError) Error() string {
 //
 // It is safe to pass a nil error, in which case Is() always returns false.
 func Is(err error, code int) bool {
-	if e, ok := err.(UnexpectedStatusCodeError); ok {
+	if e, ok := errext.As[UnexpectedStatusCodeError](err); ok {
 		return e.ActualResponse.StatusCode == code
 	}
 	return false

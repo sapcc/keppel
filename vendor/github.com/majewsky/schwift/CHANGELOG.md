@@ -1,3 +1,12 @@
+# v1.3.0 (2023-10-25)
+
+New features:
+
+- The error message of `type UnexpectedStatusCodeError` now includes the
+  request method and target object name. This will make those errors more
+  plausible when returned from complex operations that involve several Swift
+  API calls.
+
 # v1.2.0 (2022-10-28)
 
 New features:

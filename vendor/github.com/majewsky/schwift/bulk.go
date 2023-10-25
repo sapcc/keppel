@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	"github.com/majewsky/schwift/capabilities"
+	"github.com/majewsky/schwift/internal/errext"
 )
 
 // BulkUploadFormat enumerates possible archive formats for Container.BulkUpload().
@@ -88,7 +89,7 @@ func (a *Account) BulkUpload(uploadPath string, format BulkUploadFormat, content
 		req.ObjectName = fields[1]
 	}
 
-	resp, err := req.Do(a.backend)
+	resp, err := req.Do(a.backend) //nolint:bodyclose // parseBulkResponse does the close
 	if err != nil {
 		return 0, err
 	}
@@ -214,7 +215,7 @@ func (a *Account) bulkDeleteSingle(objects []*Object, containers []*Container, o
 			numNotFound++
 			return nil
 		}
-		if statusErr, ok := err.(UnexpectedStatusCodeError); ok {
+		if statusErr, ok := errext.As[UnexpectedStatusCodeError](err); ok {
 			errs = append(errs, BulkObjectError{
 				ContainerName: containerName,
 				ObjectName:    objectName,
@@ -265,7 +266,7 @@ func (a *Account) bulkDelete(names []string, opts *RequestOptions) (numDeleted, 
 	req.Options.Headers.Set("Accept", "application/json")
 	req.Options.Headers.Set("Content-Type", "text/plain")
 	req.Options.Values.Set("bulk-delete", "true")
-	resp, err := req.Do(a.backend)
+	resp, err := req.Do(a.backend) //nolint:bodyclose // parseBulkResponse does the close
 	if err != nil {
 		return 0, 0, err
 	}

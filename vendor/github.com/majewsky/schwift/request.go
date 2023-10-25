@@ -40,7 +40,7 @@ import (
 type RequestOptions struct {
 	Headers Headers
 	Values  url.Values
-	Context context.Context
+	Context context.Context //nolint: containedctx // ignored for now to not break the API
 }
 
 func cloneRequestOptions(orig *RequestOptions, additional Headers) *RequestOptions {
@@ -161,9 +161,23 @@ func (r Request) Do(backend Backend) (*http.Response, error) {
 		return nil, err
 	}
 	return nil, UnexpectedStatusCodeError{
+		Method:              r.Method,
+		Target:              describeTarget(r.ContainerName, r.ObjectName),
 		ExpectedStatusCodes: r.ExpectStatusCodes,
 		ActualResponse:      resp,
 		ResponseBody:        buf,
+	}
+}
+
+// Builds a value for the UnexpectedStatusCodeError.Target attribute.
+func describeTarget(containerName, objectName string) string {
+	switch {
+	case containerName == "":
+		return "<account>"
+	case objectName == "":
+		return containerName
+	default:
+		return containerName + "/" + objectName
 	}
 }
 

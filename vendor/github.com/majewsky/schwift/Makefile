@@ -29,7 +29,8 @@ GO_TESTENV =
 GO_TESTPKGS := $(shell go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...)
 # which packages to measure coverage for
 GO_COVERPKGS := $(shell go list ./... | grep -Ev '/util')
-# to get around weird Makefile syntax restrictions, we need variables containing a space and comma
+# to get around weird Makefile syntax restrictions, we need variables containing nothing, a space and comma
+null :=
 space := $(null) $(null)
 comma := ,
 
@@ -58,19 +59,22 @@ tidy-deps: FORCE
 	go mod tidy
 	go mod verify
 
-license-headers: FORCE
-	@if ! hash addlicense 2>/dev/null; then printf "\e[1;36m>> Installing addlicense...\e[0m\n"; go install github.com/google/addlicense@latest; fi
-	find * \( -name vendor -type d -prune \) -o \( -name \*.go -exec addlicense -c "SAP SE" -- {} + \)
-
 clean: FORCE
 	git clean -dxf build
 
+vars: FORCE
+	@printf "GO_BUILDFLAGS=$(GO_BUILDFLAGS)\n"
+	@printf "GO_COVERPKGS=$(GO_COVERPKGS)\n"
+	@printf "GO_LDFLAGS=$(GO_LDFLAGS)\n"
+	@printf "GO_TESTENV=$(GO_TESTENV)\n"
+	@printf "GO_TESTPKGS=$(GO_TESTPKGS)\n"
 help: FORCE
 	@printf "\n"
 	@printf "\e[1mUsage:\e[0m\n"
 	@printf "  make \e[36m<target>\e[0m\n"
 	@printf "\n"
 	@printf "\e[1mGeneral\e[0m\n"
+	@printf "  \e[36mvars\e[0m                  Display values of relevant Makefile variables.\n"
 	@printf "  \e[36mhelp\e[0m                  Display this help.\n"
 	@printf "\n"
 	@printf "\e[1mTest\e[0m\n"
@@ -82,7 +86,6 @@ help: FORCE
 	@printf "\n"
 	@printf "\e[1mDevelopment\e[0m\n"
 	@printf "  \e[36mtidy-deps\e[0m             Run go mod tidy and go mod verify.\n"
-	@printf "  \e[36mlicense-headers\e[0m       Add license headers to all .go files excluding the vendor directory.\n"
 	@printf "  \e[36mclean\e[0m                 Run git clean.\n"
 
 .PHONY: FORCE

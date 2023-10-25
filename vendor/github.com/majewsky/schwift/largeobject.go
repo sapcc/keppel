@@ -414,13 +414,13 @@ func (o *Object) AsNewLargeObject(sopts SegmentingOptions, topts *TruncateOption
 	//with the old segments
 	if topts != nil && topts.DeleteSegments {
 		lo, err := o.AsLargeObject()
-		switch err {
-		case nil:
+		switch {
+		case err == nil:
 			err := lo.Truncate(topts)
 			if err != nil {
 				return nil, err
 			}
-		case ErrNotLarge:
+		case errors.Is(err, ErrNotLarge):
 			//not an error, continue down below
 		default:
 			return nil, err //unexpected error
