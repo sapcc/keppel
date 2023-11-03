@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/alicebob/miniredis/v2 v2.31.0
-	github.com/aquasecurity/trivy v0.46.0
+	github.com/aquasecurity/trivy v0.46.1
 	github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/docker/distribution v2.8.3+incompatible
@@ -19,7 +19,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0-rc5
 	github.com/prometheus/client_golang v1.17.0
-	github.com/redis/go-redis/v9 v9.2.1
+	github.com/redis/go-redis/v9 v9.3.0
 	github.com/rs/cors v1.10.1
 	github.com/sapcc/go-api-declarations v1.10.3
 	github.com/sapcc/go-bits v0.0.0-20231102041756-024a91cb6958
