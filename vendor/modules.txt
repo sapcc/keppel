@@ -52,9 +52,9 @@ github.com/go-gorp/gorp/v3
 # github.com/go-redis/redis_rate/v10 v10.0.1
 ## explicit; go 1.19
 github.com/go-redis/redis_rate/v10
-# github.com/gofrs/uuid v4.4.0+incompatible
-## explicit
-github.com/gofrs/uuid
+# github.com/gofrs/uuid/v5 v5.0.0
+## explicit; go 1.19
+github.com/gofrs/uuid/v5
 # github.com/golang-jwt/jwt/v5 v5.0.0
 ## explicit; go 1.18
 github.com/golang-jwt/jwt/v5
@@ -178,7 +178,7 @@ github.com/samber/lo
 ## explicit; go 1.21
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20231106115523-46d3c87595c6
+# github.com/sapcc/go-bits v0.0.0-20231106151414-f5f780233936
 ## explicit; go 1.21
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools

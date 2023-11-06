@@ -35,7 +35,7 @@ import (
 	"time"
 
 	"github.com/go-gorp/gorp/v3"
-	"github.com/gofrs/uuid"
+	"github.com/gofrs/uuid/v5"
 	"github.com/gorilla/mux"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
