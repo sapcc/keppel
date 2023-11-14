@@ -43,9 +43,6 @@ githubWorkflow:
     enabled: true
   securityChecks:
     enabled: true
-  spellCheck:
-    enabled: true
-
 renovate:
   enabled: true
   assignees:
