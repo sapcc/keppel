@@ -106,6 +106,20 @@ func (e RateLimitEngine) RateLimitAllows(ctx context.Context, remoteAddr string,
 		}, nil
 	}
 
+	//AllowN needs to take `amount` as an int; if this cast overflows, we fail
+	//the entire ratelimit check to be safe (this should never be a problem in
+	//practice because int is 64 bits wide)
+	if amount > math.MaxInt {
+		return false, &redis_rate.Result{
+			Limit:     *rateQuota,
+			Remaining: 0,
+			// These limits are somewhat arbitrarily chosen, but we can't have them
+			// be zero because clients need to back off to a reasonable degree.
+			ResetAfter: 30 * time.Second,
+			RetryAfter: 30 * time.Second,
+		}, nil
+	}
+
 	limiter := redis_rate.NewLimiter(e.Client)
 	key := fmt.Sprintf("keppel-ratelimit-%s-%s-%s", remoteAddr, account.Name, string(action))
 	result, err := limiter.AllowN(ctx, key, *rateQuota, int(amount))
