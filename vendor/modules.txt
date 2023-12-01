@@ -71,7 +71,7 @@ github.com/golang-migrate/migrate/v4/source/go_bindata
 ## explicit; go 1.18
 github.com/google/go-containerregistry/pkg/v1
 github.com/google/go-containerregistry/pkg/v1/types
-# github.com/gophercloud/gophercloud v1.7.0
+# github.com/gophercloud/gophercloud v1.8.0
 ## explicit; go 1.14
 github.com/gophercloud/gophercloud
 github.com/gophercloud/gophercloud/openstack
@@ -178,7 +178,7 @@ github.com/samber/lo
 ## explicit; go 1.21
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20231114102838-b69ff7fedd7f
+# github.com/sapcc/go-bits v0.0.0-20231130134726-6ee9377708fc
 ## explicit; go 1.21
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
