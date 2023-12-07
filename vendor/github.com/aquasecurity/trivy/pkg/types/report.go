@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"time"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1" // nolint: goimports
 
@@ -11,6 +12,7 @@ import (
 // Report represents a scan result
 type Report struct {
 	SchemaVersion int                 `json:",omitempty"`
+	CreatedAt     time.Time           `json:",omitempty"`
 	ArtifactName  string              `json:",omitempty"`
 	ArtifactType  ftypes.ArtifactType `json:",omitempty"`
 	Metadata      Metadata            `json:",omitempty"`
@@ -117,13 +119,6 @@ func (r *Result) MarshalJSON() ([]byte, error) {
 	// It would be noisy to users, so it should be removed from the JSON output.
 	for i := range r.Vulnerabilities {
 		r.Vulnerabilities[i].VendorSeverity = nil
-	}
-
-	// remove the Highlighted attribute from the json results
-	for i := range r.Misconfigurations {
-		for li := range r.Misconfigurations[i].CauseMetadata.Code.Lines {
-			r.Misconfigurations[i].CauseMetadata.Code.Lines[li].Highlighted = ""
-		}
 	}
 
 	// Notice the Alias struct prevents MarshalJSON being called infinitely
