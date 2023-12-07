@@ -3,9 +3,10 @@
 package common
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/spdx/tools-golang/json/marshal"
 )
 
 type Supplier struct {
@@ -43,9 +44,9 @@ func (s *Supplier) UnmarshalJSON(data []byte) error {
 // This function is also used when marshalling to YAML
 func (s Supplier) MarshalJSON() ([]byte, error) {
 	if s.Supplier == "NOASSERTION" {
-		return json.Marshal(s.Supplier)
+		return marshal.JSON(s.Supplier)
 	} else if s.SupplierType != "" && s.Supplier != "" {
-		return json.Marshal(fmt.Sprintf("%s: %s", s.SupplierType, s.Supplier))
+		return marshal.JSON(fmt.Sprintf("%s: %s", s.SupplierType, s.Supplier))
 	}
 
 	return []byte{}, fmt.Errorf("failed to marshal invalid Supplier: %+v", s)
@@ -70,15 +71,13 @@ func (o *Originator) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	originatorFields := strings.SplitN(originatorStr, ": ", 2)
-
+	originatorFields := strings.SplitN(originatorStr, ":", 2)
 	if len(originatorFields) != 2 {
 		return fmt.Errorf("failed to parse Originator '%s'", originatorStr)
 	}
 
 	o.OriginatorType = originatorFields[0]
-	o.Originator = originatorFields[1]
-
+	o.Originator = strings.TrimLeft(originatorFields[1], " \t")
 	return nil
 }
 
@@ -86,9 +85,9 @@ func (o *Originator) UnmarshalJSON(data []byte) error {
 // This function is also used when marshalling to YAML
 func (o Originator) MarshalJSON() ([]byte, error) {
 	if o.Originator == "NOASSERTION" {
-		return json.Marshal(o.Originator)
+		return marshal.JSON(o.Originator)
 	} else if o.Originator != "" {
-		return json.Marshal(fmt.Sprintf("%s: %s", o.OriginatorType, o.Originator))
+		return marshal.JSON(fmt.Sprintf("%s: %s", o.OriginatorType, o.Originator))
 	}
 
 	return []byte{}, nil

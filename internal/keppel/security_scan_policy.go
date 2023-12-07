@@ -21,6 +21,7 @@ package keppel
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
 	"github.com/aquasecurity/trivy/pkg/types"
@@ -193,6 +194,7 @@ func (s SecurityScanPolicySet) PolicyForVulnerability(vuln types.DetectedVulnera
 // encoding/json library: <https://github.com/golang/go/issues/6213>
 type enrichedReport struct {
 	SchemaVersion int                 `json:",omitempty"`
+	CreatedAt     time.Time           `json:",omitempty"`
 	ArtifactName  string              `json:",omitempty"`
 	ArtifactType  ftypes.ArtifactType `json:",omitempty"`
 	Metadata      types.Metadata      `json:",omitempty"`

@@ -1,5 +1,6 @@
 {
   "SchemaVersion": 2,
+  "CreatedAt": "0001-01-01T00:00:00Z",
   "ArtifactName": "python:3.10.10-slim-bullseye",
   "ArtifactType": "container_image",
   "Metadata": {
