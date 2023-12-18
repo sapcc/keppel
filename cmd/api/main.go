@@ -105,6 +105,7 @@ func run(cmd *cobra.Command, args []string) {
 				return db.Db.PingContext(ctx)
 			},
 		},
+		httpapi.WithGlobalMiddleware(reportClientIP),
 		httpapi.WithGlobalMiddleware(corsMiddleware.Handler),
 		pprofapi.API{IsAuthorized: pprofapi.IsRequestFromLocalhost},
 	)
@@ -168,4 +169,14 @@ func setupDBIfRequested(db *keppel.DB) error {
 	}
 
 	return nil
+}
+
+func reportClientIP(inner http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		//This middleware adds the X-Keppel-Your-Ip header to all requests, which is used:
+		//1. by end users to understand which IPs they need to put in their RBAC policies
+		//2. by Keppel operators to check if X-Forwarded-For is transported correctly through reverse proxies
+		w.Header().Set("X-Keppel-Your-Ip", httpext.GetRequesterIPFor(r))
+		inner.ServeHTTP(w, r)
+	})
 }
