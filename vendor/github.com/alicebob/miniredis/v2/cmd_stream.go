@@ -121,7 +121,7 @@ func (m *Miniredis) cmdXadd(c *server.Peer, cmd string, args []string) {
 		if minID != "" {
 			s.trimBefore(minID)
 		}
-		db.keyVersion[key]++
+		db.incr(key)
 
 		c.WriteBulk(newID)
 	})
@@ -931,7 +931,7 @@ func (m *Miniredis) cmdXdel(c *server.Peer, cmd string, args []string) {
 			c.WriteError(err.Error())
 			return
 		}
-		db.keyVersion[stream]++
+		db.incr(stream)
 		c.WriteInt(n)
 	})
 }
