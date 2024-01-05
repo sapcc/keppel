@@ -13,7 +13,7 @@ github.com/alicebob/miniredis/v2/size
 # github.com/anchore/go-struct-converter v0.0.0-20221118182256-c68fdcfa2092
 ## explicit; go 1.18
 github.com/anchore/go-struct-converter
-# github.com/aquasecurity/trivy v0.48.1
+# github.com/aquasecurity/trivy v0.48.2
 ## explicit; go 1.21
 github.com/aquasecurity/trivy/pkg/digest
 github.com/aquasecurity/trivy/pkg/fanal/types
@@ -233,7 +233,7 @@ go.uber.org/automaxprocs/maxprocs
 ## explicit; go 1.18
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
-# golang.org/x/exp v0.0.0-20231226003508-02704c960a9b
+# golang.org/x/exp v0.0.0-20240103183307-be819d1f06fc
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
