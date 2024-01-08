@@ -111,7 +111,7 @@ check-license-headers: FORCE prepare-addlicense
 check-dependency-licenses: FORCE
 	@printf "\e[1;36m>> go-licence-detector\e[0m\n"
 	@if ! hash go-licence-detector 2>/dev/null; then printf "\e[1;36m>> Installing go-licence-detector...\e[0m\n"; go install go.elastic.co/go-licence-detector@latest; fi
-	@go list -m -mod=mod -json all | go-licence-detector -includeIndirect -rules .license-scan-rules.json -overrides .license-scan-overrides.jsonl
+	@go list -m -mod=readonly -json all | go-licence-detector -includeIndirect -rules .license-scan-rules.json -overrides .license-scan-overrides.jsonl
 
 clean: FORCE
 	git clean -dxf build
