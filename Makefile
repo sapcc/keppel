@@ -103,11 +103,11 @@ vendor-compat: FORCE
 
 license-headers: FORCE prepare-static-check
 	@printf "\e[1;36m>> addlicense\e[0m\n"
-	@addlicense -c "SAP SE" -ignore "vendor/**" -- **/*.go
+	@addlicense -c "SAP SE"  -- $(patsubst $(shell go list .)%,.%/*.go,$(shell go list ./...))
 
 check-license-headers: FORCE prepare-static-check
-	@printf "\e[1;36m>> addlicense\e[0m\n"
-	@bash -c 'shopt -s globstar; addlicense --check -ignore "vendor/**" -- **/*.go'
+	@printf "\e[1;36m>> addlicense --check\e[0m\n"
+	@addlicense --check  -- $(patsubst $(shell go list .)%,.%/*.go,$(shell go list ./...))
 
 check-dependency-licenses: FORCE prepare-static-check
 	@printf "\e[1;36m>> go-licence-detector\e[0m\n"
@@ -152,8 +152,8 @@ help: FORCE
 	@printf "\e[1mDevelopment\e[0m\n"
 	@printf "  \e[36mvendor\e[0m                     Run go mod tidy, go mod verify, and go mod vendor.\n"
 	@printf "  \e[36mvendor-compat\e[0m              Same as 'make vendor' but go mod tidy will use '-compat' flag with the Go version from go.mod file as value.\n"
-	@printf "  \e[36mlicense-headers\e[0m            Add license headers to all .go files excluding the vendor directory.\n"
-	@printf "  \e[36mcheck-license-headers\e[0m      Check license headers in all .go files excluding the vendor directory.\n"
+	@printf "  \e[36mlicense-headers\e[0m            Add license headers to all non-vendored .go files.\n"
+	@printf "  \e[36mcheck-license-headers\e[0m      Check license headers in all non-vendored .go files.\n"
 	@printf "  \e[36mcheck-dependency-licenses\e[0m  Check all dependency licenses using go-licence-detector.\n"
 	@printf "  \e[36mclean\e[0m                      Run git clean.\n"
 
