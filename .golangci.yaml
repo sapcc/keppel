@@ -95,6 +95,8 @@ linters-settings:
     http-method: true
     http-status-code: true
     os-dev-null: true
+    sql-isolation-level: true
+    syslog-priority: true
     time-weekday: true
     time-month: true
     time-layout: true
