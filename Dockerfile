@@ -1,6 +1,6 @@
 FROM golang:1.21.6-alpine3.19 as builder
 
-RUN apk add --no-cache --no-progress gcc git make musl-dev
+RUN apk add --no-cache --no-progress ca-certificates gcc git make musl-dev
 
 COPY . /src
 ARG BININFO_BUILD_DATE BININFO_COMMIT_HASH BININFO_VERSION # provided to 'make install'
@@ -13,10 +13,11 @@ FROM alpine:3.19
 RUN addgroup -g 4200 appgroup \
   && adduser -h /home/appuser -s /sbin/nologin -G appgroup -D -u 4200 appuser
 
+COPY --from=builder /etc/ssl/certs/ /etc/ssl/certs/
+
 # upgrade all installed packages to fix potential CVEs in advance
-# also remove apk package manager to hopefully remove dependecy on openssl 🤞
+# also remove apk package manager to hopefully remove dependency on OpenSSL 🤞
 RUN apk upgrade --no-cache --no-progress \
-  && apk add --no-cache --no-progress ca-certificates \
   && apk del --no-cache --no-progress apk-tools alpine-keys
 
 COPY --from=builder /pkg/ /usr/
