@@ -13,14 +13,13 @@ FROM alpine:3.19
 RUN addgroup -g 4200 appgroup \
   && adduser -h /home/appuser -s /sbin/nologin -G appgroup -D -u 4200 appuser
 
-COPY --from=builder /etc/ssl/certs/ /etc/ssl/certs/
-COPY --from=builder /etc/ssl/cert.pem /etc/ssl/cert.pem
-
 # upgrade all installed packages to fix potential CVEs in advance
 # also remove apk package manager to hopefully remove dependency on OpenSSL 🤞
 RUN apk upgrade --no-cache --no-progress \
   && apk del --no-cache --no-progress apk-tools alpine-keys
 
+COPY --from=builder /etc/ssl/certs/ /etc/ssl/certs/
+COPY --from=builder /etc/ssl/cert.pem /etc/ssl/cert.pem
 COPY --from=builder /pkg/ /usr/
 
 ARG BININFO_BUILD_DATE BININFO_COMMIT_HASH BININFO_VERSION
