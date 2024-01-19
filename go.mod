@@ -17,7 +17,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/majewsky/schwift v1.3.0
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/opencontainers/image-spec v1.1.0-rc5
+	github.com/opencontainers/image-spec v1.1.0-rc6
 	github.com/prometheus/client_golang v1.18.0
 	github.com/redis/go-redis/v9 v9.4.0
 	github.com/rs/cors v1.10.1
@@ -27,7 +27,7 @@ require (
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.5.3
 	golang.org/x/crypto v0.18.0
-	golang.org/x/exp v0.0.0-20240110193028-0dcbfd608b1e
+	golang.org/x/exp v0.0.0-20240112132812-db7319d0e0e3
 )
 
 require (
