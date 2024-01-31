@@ -56,8 +56,8 @@ func (j *Janitor) AccountFederationAnnouncementJob(registerer prometheus.Registe
 				Help: "Counter for announcements of existing accounts to the federation driver.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (account keppel.Account, err error) {
-			err = j.db.SelectOne(&account, accountAnnouncementSearchQuery, j.timeNow())
+		DiscoverTask: func(ctx context.Context, _ prometheus.Labels) (account keppel.Account, err error) {
+			err = j.db.WithContext(ctx).SelectOne(&account, accountAnnouncementSearchQuery, j.timeNow())
 			return account, err
 		},
 		ProcessTask: j.announceAccountToFederation,
@@ -72,6 +72,6 @@ func (j *Janitor) announceAccountToFederation(ctx context.Context, account keppe
 		logg.Error("cannot announce account %q to federation: %s", account.Name, err.Error())
 	}
 
-	_, err = j.db.Exec(accountAnnouncementDoneQuery, account.Name, j.timeNow().Add(j.addJitter(1*time.Hour)))
+	_, err = j.db.WithContext(ctx).Exec(accountAnnouncementDoneQuery, account.Name, j.timeNow().Add(j.addJitter(1*time.Hour)))
 	return err
 }

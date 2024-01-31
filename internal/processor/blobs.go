@@ -139,10 +139,11 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob keppel.Blob, account
 		Reason:       keppel.PendingBecauseOfReplication,
 		PendingSince: p.timeNow(),
 	}
-	err := p.db.Insert(&pendingBlob)
+	db := p.db.WithContext(ctx)
+	err := db.Insert(&pendingBlob)
 	if err != nil {
 		//did we get a duplicate-key error because this blob is already being replicated?
-		count, err := p.db.SelectInt(
+		count, err := db.SelectInt(
 			`SELECT COUNT(*) FROM pending_blobs WHERE account_name = $1 AND digest = $2`,
 			account.Name, blob.Digest,
 		)
@@ -156,7 +157,7 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob keppel.Blob, account
 	//to unblock others who are waiting for this replication to come to an end
 	//(one way or the other)
 	defer func() {
-		_, err := p.db.Exec(
+		_, err := db.Exec(
 			`DELETE FROM pending_blobs WHERE account_name = $1 AND digest = $2`,
 			account.Name, blob.Digest,
 		)
@@ -166,7 +167,7 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob keppel.Blob, account
 	}()
 
 	//query upstream for the blob
-	client, err := p.getRepoClientForUpstream(account, repo)
+	client, err := p.getRepoClientForUpstream(ctx, account, repo)
 	if err != nil {
 		return false, err
 	}
@@ -186,7 +187,7 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob keppel.Blob, account
 		blobReader = io.TeeReader(blobReader, w)
 	}
 
-	err = p.uploadBlobToLocal(blob, account, blobReader, blobLengthBytes)
+	err = p.uploadBlobToLocal(ctx, blob, account, blobReader, blobLengthBytes)
 	if err != nil {
 		return true, err
 	}
@@ -197,7 +198,7 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob keppel.Blob, account
 	return true, nil
 }
 
-func (p *Processor) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, blobReader io.Reader, blobLengthBytes uint64) (returnErr error) {
+func (p *Processor) uploadBlobToLocal(ctx context.Context, blob keppel.Blob, account keppel.Account, blobReader io.Reader, blobLengthBytes uint64) (returnErr error) {
 	defer func() {
 		//if blob upload fails, count an aborted upload
 		if returnErr != nil {
@@ -246,7 +247,7 @@ func (p *Processor) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, 
 	blob.StorageID = upload.StorageID
 	blob.PushedAt = p.timeNow()
 	blob.ValidatedAt = blob.PushedAt
-	_, err = p.db.Update(&blob)
+	_, err = p.db.WithContext(ctx).Update(&blob)
 	return err
 }
 

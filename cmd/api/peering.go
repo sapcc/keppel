@@ -34,7 +34,7 @@ import (
 	"github.com/sapcc/keppel/internal/tasks"
 )
 
-func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
+func runPeering(ctx context.Context, cfg keppel.Configuration, kdb *keppel.DB) {
 	isPeerHostName := make(map[string]bool)
 	for _, hostName := range strings.Split(os.Getenv("KEPPEL_PEERS"), ",") {
 		hostName = strings.TrimSpace(hostName)
@@ -47,6 +47,8 @@ func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
 		//nothing to do
 		return
 	}
+
+	db := kdb.WithContext(ctx)
 
 	//add missing entries to `peers` table
 	for peerHostName := range isPeerHostName {
@@ -74,7 +76,7 @@ func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				err := tryIssueNewPasswordForPeer(ctx, cfg, db)
+				err := tryIssueNewPasswordForPeer(ctx, cfg, kdb)
 				if err != nil {
 					logg.Error("cannot issue new peer password: " + err.Error())
 				}

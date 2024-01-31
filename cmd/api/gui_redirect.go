@@ -69,7 +69,7 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 
 	//is it publicly readable?
 	var policies []keppel.RBACPolicy
-	_, err = g.db.Select(&policies,
+	_, err = g.db.WithContext(r.Context()).Select(&policies,
 		"SELECT * FROM rbac_policies WHERE can_anon_pull AND account_name = $1",
 		account.Name,
 	)

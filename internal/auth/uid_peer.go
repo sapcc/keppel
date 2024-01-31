@@ -20,6 +20,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/sapcc/go-bits/audittools"
@@ -80,7 +81,7 @@ func (uid *PeerUserIdentity) DeserializeFromJSON(in []byte, _ keppel.AuthDriver)
 // Returns whether the given peer credentials are valid. On success, the Peer
 // instance is returned. If the credentials do not match, (nil, nil) is
 // returned. Error values are only returned for unexpected failures.
-func checkPeerCredentials(db *keppel.DB, peerHostName, password string) (*keppel.Peer, error) {
+func checkPeerCredentials(ctx context.Context, db *keppel.DB, peerHostName, password string) (*keppel.Peer, error) {
 	//NOTE: This function is technically vulnerable to a timing side-channel attack.
 	//It returns much faster if `peerHostName` refers to a peer that does not exist,
 	//so an attacker could use it to infer which peers exist. I don't consider
@@ -88,7 +89,7 @@ func checkPeerCredentials(db *keppel.DB, peerHostName, password string) (*keppel
 	//In fact, it's literally exposed in an API call in the Keppel API.
 
 	var peer keppel.Peer
-	err := db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, peerHostName)
+	err := db.WithContext(ctx).SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, peerHostName)
 	if err != nil {
 		return nil, err
 	}

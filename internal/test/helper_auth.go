@@ -142,7 +142,7 @@ func (s Setup) findAuthTenantIDForAccountName(accountName string) (string, error
 	}
 
 	//base case: look up in the DB
-	return s.DB.SelectStr(`SELECT auth_tenant_id FROM accounts WHERE name = $1`, accountName)
+	return s.DB.WithContext(s.Ctx).SelectStr(`SELECT auth_tenant_id FROM accounts WHERE name = $1`, accountName)
 }
 
 // AddHeadersForCorrectAuthChallenge adds X-Forwarded-... headers to a request

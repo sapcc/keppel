@@ -19,6 +19,7 @@
 package registryv2_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -44,6 +45,7 @@ const authTenantID = "test1authtenant"
 
 func testWithPrimary(t *testing.T, setupOptions []test.SetupOption, action func(test.Setup)) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
+		_ = tt
 		for _, withAnycast := range []bool{false, true} {
 			options := append(setupOptions,
 				test.WithAnycast(withAnycast),
@@ -88,7 +90,7 @@ func testWithReplica(t *testing.T, s1 test.Setup, strategy string, action func(f
 	)
 
 	defer func() {
-		_, err := s1.DB.Exec(`DELETE FROM peers`)
+		_, err := s1.DB.WithContext(s1.Ctx).Exec(`DELETE FROM peers`)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -131,7 +133,7 @@ func testAnycast(t *testing.T, firstPass bool, db2 *keppel.DB, action func()) {
 		return
 	}
 	//to make sure that we actually anycast, the replica must not have the "test1" account
-	_, err := db2.Exec(`DELETE FROM accounts`)
+	_, err := db2.WithContext(context.TODO()).Exec(`DELETE FROM accounts`)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -241,8 +243,10 @@ func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName stri
 	}
 }
 
-func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *keppel.DB) {
+func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, kdb *keppel.DB) {
 	t.Helper()
+	db := kdb.WithContext(context.TODO())
+
 	//test that no blobs were yet committed to the DB...
 	count, err := db.SelectInt(`SELECT COUNT(*) FROM blobs`)
 	if err != nil {
@@ -268,7 +272,9 @@ func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *keppel.DB) 
 }
 
 //nolint:unparam
-func testWithAccountInMaintenance(t *testing.T, db *keppel.DB, accountName string, action func()) {
+func testWithAccountInMaintenance(t *testing.T, kdb *keppel.DB, accountName string, action func()) {
+	db := kdb.WithContext(context.TODO())
+
 	_, err := db.Exec("UPDATE accounts SET in_maintenance = TRUE WHERE name = $1", accountName)
 	if err != nil {
 		t.Fatal(err.Error())

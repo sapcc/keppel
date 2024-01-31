@@ -19,6 +19,7 @@
 package keppelv1_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -34,7 +35,7 @@ import (
 
 func mustInsert(t *testing.T, db *keppel.DB, obj interface{}) {
 	t.Helper()
-	err := db.Insert(obj)
+	err := db.WithContext(context.TODO()).Insert(obj)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -49,7 +50,7 @@ func mustDo(t *testing.T, err error) {
 
 func mustExec(t *testing.T, db *keppel.DB, query string, args ...interface{}) {
 	t.Helper()
-	_, err := db.Exec(query, args...)
+	_, err := db.WithContext(context.TODO()).Exec(query, args...)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

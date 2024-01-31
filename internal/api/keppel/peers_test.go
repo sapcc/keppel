@@ -19,6 +19,7 @@
 package keppelv1_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -47,7 +48,7 @@ func TestPeersAPI(t *testing.T) {
 		{"hostname": "keppel.example.org"},
 	}
 	for _, peer := range expectedPeers {
-		err := s.DB.Insert(&keppel.Peer{HostName: peer["hostname"].(string)})
+		err := s.DB.WithContext(context.TODO()).Insert(&keppel.Peer{HostName: peer["hostname"].(string)})
 		if err != nil {
 			t.Fatal(err)
 		}

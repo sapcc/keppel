@@ -19,6 +19,7 @@
 package registryv2_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -293,15 +294,16 @@ func TestImageManifestLifecycle(t *testing.T) {
 				})
 			}
 
+			db := s.DB.WithContext(s.Ctx)
 			//test display of custom headers during GET/HEAD
-			_, err = s.DB.Exec(
+			_, err = db.Exec(
 				`UPDATE manifests SET min_layer_created_at = $1, max_layer_created_at = $2 WHERE digest = $3`,
 				time.Unix(23, 0).UTC(), time.Unix(42, 0).UTC(), image.Manifest.Digest.String(),
 			)
 			if err != nil {
 				t.Fatal(err.Error())
 			}
-			_, err = s.DB.Exec(`UPDATE trivy_security_info SET vuln_status = $1 WHERE digest = $2`, trivy.CleanSeverity, image.Manifest.Digest.String())
+			_, err = db.Exec(`UPDATE trivy_security_info SET vuln_status = $1 WHERE digest = $2`, trivy.CleanSeverity, image.Manifest.Digest.String())
 			if err != nil {
 				t.Fatal(err.Error())
 			}
@@ -332,7 +334,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 					"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull"`,
 				},
 			}.Check(t, h)
-			_, err = s.DB.Exec(
+			_, err = db.Exec(
 				`INSERT INTO rbac_policies (account_name, match_repository, match_username, can_anon_pull) VALUES ('test1', 'foo', '', TRUE)`,
 			)
 			if err != nil {
@@ -345,7 +347,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectHeader: test.VersionHeader,
 				ExpectBody:   assert.ByteData(image.Manifest.Contents),
 			}.Check(t, h)
-			_, err = s.DB.Exec(`DELETE FROM rbac_policies`)
+			_, err = s.DB.WithContext(s.Ctx).Exec(`DELETE FROM rbac_policies`)
 			if err != nil {
 				t.Fatal(err.Error())
 			}
@@ -517,7 +519,7 @@ func TestManifestQuotaExceeded(t *testing.T) {
 		image2.MustUpload(t, s, fooRepoRef, "second")
 
 		//set quota below usage
-		_, err := s.DB.Exec(`UPDATE quotas SET manifests = $1`, 1)
+		_, err := s.DB.WithContext(s.Ctx).Exec(`UPDATE quotas SET manifests = $1`, 1)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -561,8 +563,10 @@ func TestManifestRequiredLabels(t *testing.T) {
 		image.Config.MustUpload(t, s, fooRepoRef)
 		image.Layers[0].MustUpload(t, s, fooRepoRef)
 
+		db := s.DB.WithContext(s.Ctx)
+
 		//setup required labels on account for failure
-		_, err := s.DB.Exec(
+		_, err := db.Exec(
 			`UPDATE accounts SET required_labels = $1 WHERE name = $2`,
 			"foo,somethingelse,andalsothis", "test1",
 		)
@@ -588,7 +592,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 		}.Check(t, h)
 
 		//setup required labels on account for success
-		_, err = s.DB.Exec(
+		_, err = db.Exec(
 			`UPDATE accounts SET required_labels = $1 WHERE name = $2`,
 			"foo,bar", "test1",
 		)
@@ -648,7 +652,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 
 func expectLabelsJSONOnManifest(t *testing.T, db *keppel.DB, manifestDigest digest.Digest, expected map[string]string) {
 	t.Helper()
-	labelsJSONStr, err := db.SelectStr(`SELECT labels_json FROM manifests WHERE digest = $1`, manifestDigest.String())
+	labelsJSONStr, err := db.WithContext(context.TODO()).SelectStr(`SELECT labels_json FROM manifests WHERE digest = $1`, manifestDigest.String())
 	if err != nil {
 		t.Fatal(err.Error())
 	}

@@ -20,6 +20,7 @@
 package processor
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -137,7 +138,7 @@ func (p *Processor) checkQuotaForManifestPush(account keppel.Account) error {
 
 // Takes a repo in a replica account and returns a RepoClient for accessing its
 // the upstream repo in the corresponding primary account.
-func (p *Processor) getRepoClientForUpstream(account keppel.Account, repo keppel.Repository) (*client.RepoClient, error) {
+func (p *Processor) getRepoClientForUpstream(ctx context.Context, account keppel.Account, repo keppel.Repository) (*client.RepoClient, error) {
 	//use cached client if possible (this one probably already contains a valid
 	//pull token)
 	if c, ok := p.repoClients[repo.FullName()]; ok {
@@ -146,7 +147,7 @@ func (p *Processor) getRepoClientForUpstream(account keppel.Account, repo keppel
 
 	if account.UpstreamPeerHostName != "" {
 		var peer keppel.Peer
-		err := p.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, account.UpstreamPeerHostName)
+		err := p.db.WithContext(ctx).SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, account.UpstreamPeerHostName)
 		if err != nil {
 			return nil, err
 		}

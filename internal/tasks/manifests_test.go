@@ -146,7 +146,8 @@ func TestManifestValidationJobError(t *testing.T) {
 	//manually since the MustUpload functions care about uploading stuff intact)
 	s.Clock.StepBy(1 * time.Hour)
 	image := test.GenerateImage( /* no layers */ )
-	mustDo(t, s.DB.Insert(&keppel.Manifest{
+	db := s.DB.WithContext(s.Ctx)
+	mustDo(t, db.Insert(&keppel.Manifest{
 		RepositoryID: 1,
 		Digest:       image.Manifest.Digest,
 		MediaType:    image.Manifest.MediaType,
@@ -154,12 +155,12 @@ func TestManifestValidationJobError(t *testing.T) {
 		PushedAt:     s.Clock.Now(),
 		ValidatedAt:  s.Clock.Now(),
 	}))
-	mustDo(t, s.DB.Insert(&keppel.ManifestContent{
+	mustDo(t, db.Insert(&keppel.ManifestContent{
 		RepositoryID: 1,
 		Digest:       image.Manifest.Digest.String(),
 		Content:      image.Manifest.Contents,
 	}))
-	mustDo(t, s.DB.Insert(&keppel.TrivySecurityInfo{
+	mustDo(t, db.Insert(&keppel.TrivySecurityInfo{
 		RepositoryID:        1,
 		Digest:              image.Manifest.Digest,
 		NextCheckAt:         time.Unix(0, 0),

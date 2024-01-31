@@ -19,6 +19,7 @@
 package registryv2
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding"
@@ -136,7 +137,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:    a.timeNow(),
 	}
 
-	err = a.db.Insert(&upload)
+	err = a.db.WithContext(r.Context()).Insert(&upload)
 	if respondWithError(w, r, err) {
 		return
 	}
@@ -385,7 +386,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	if upload == nil {
 		return
 	}
-	dw, rerr := a.resumeUpload(*account, upload, r.URL.Query().Get("state"))
+	dw, rerr := a.resumeUpload(r.Context(), *account, upload, r.URL.Query().Get("state"))
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return
@@ -405,7 +406,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				logg.Error("additional error encountered during AbortBlobUpload: " + err.Error())
 			}
-			_, err = a.db.Delete(upload)
+			_, err = a.db.WithContext(r.Context()).Delete(upload)
 			if err != nil {
 				logg.Error("additional error encountered while deleting Upload from DB: " + err.Error())
 			}
@@ -415,7 +416,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//append request body to upload
-	digestState, err := a.streamIntoUpload(*account, upload, dw, r.Body, chunkSizeBytes)
+	digestState, err := a.streamIntoUpload(r.Context(), *account, upload, dw, r.Body, chunkSizeBytes)
 	if respondWithError(w, r, err) {
 		return
 	}
@@ -441,7 +442,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	query := r.URL.Query()
-	dw, rerr := a.resumeUpload(*account, upload, query.Get("state"))
+	dw, rerr := a.resumeUpload(r.Context(), *account, upload, query.Get("state"))
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return
@@ -456,7 +457,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if contentLength > 0 {
-			_, err = a.streamIntoUpload(*account, upload, dw, r.Body, &contentLength)
+			_, err = a.streamIntoUpload(r.Context(), *account, upload, dw, r.Body, &contentLength)
 			if respondWithError(w, r, err) {
 				return
 			}
@@ -480,7 +481,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	//if an error occurred anywhere during this last sequence of steps, do our best to clean up the mess we left behind
 	if respondWithError(w, r, err) {
 		countAbortedBlobUpload(*account)
-		_, err := a.db.Delete(upload)
+		_, err := a.db.WithContext(r.Context()).Delete(upload)
 		if err != nil {
 			logg.Error("additional error encountered while deleting Upload from DB after late upload error: " + err.Error())
 		}
@@ -518,7 +519,7 @@ func (a *API) findUpload(w http.ResponseWriter, r *http.Request, repo keppel.Rep
 	return upload
 }
 
-func (a *API) resumeUpload(account keppel.Account, upload *keppel.Upload, stateStr string) (dw *digestWriter, returnErr *keppel.RegistryV2Error) {
+func (a *API) resumeUpload(ctx context.Context, account keppel.Account, upload *keppel.Upload, stateStr string) (dw *digestWriter, returnErr *keppel.RegistryV2Error) {
 	//when encountering an error, cancel the upload entirely
 	defer func() {
 		if returnErr != nil {
@@ -528,7 +529,7 @@ func (a *API) resumeUpload(account keppel.Account, upload *keppel.Upload, stateS
 			if err != nil {
 				logg.Error("additional error encountered during AbortBlobUpload: " + err.Error())
 			}
-			_, err = a.db.Delete(upload)
+			_, err = a.db.WithContext(ctx).Delete(upload)
 			if err != nil {
 				logg.Error("additional error encountered while deleting Upload from DB: " + err.Error())
 			}
@@ -614,7 +615,9 @@ func (a *API) parseContentRange(upload *keppel.Upload, hdr http.Header) (uint64,
 	return length, nil
 }
 
-func (a *API) streamIntoUpload(account keppel.Account, upload *keppel.Upload, dw *digestWriter, chunk io.Reader, chunkSizeBytes *uint64) (digestState string, returnErr error) {
+func (a *API) streamIntoUpload(ctx context.Context, account keppel.Account, upload *keppel.Upload, dw *digestWriter, chunk io.Reader, chunkSizeBytes *uint64) (digestState string, returnErr error) {
+	db := a.db.WithContext(ctx)
+
 	//if anything happens during this operation, we likely have produced an
 	//inconsistent state between DB, storage backend and our internal book
 	//keeping (esp. the digestState in dw.Hash), so we will have to abort the
@@ -627,7 +630,7 @@ func (a *API) streamIntoUpload(account keppel.Account, upload *keppel.Upload, dw
 			if err != nil {
 				logg.Error("additional error encountered during AbortBlobUpload: " + err.Error())
 			}
-			_, err = a.db.Delete(upload)
+			_, err = db.Delete(upload)
 			if err != nil {
 				logg.Error("additional error encountered while deleting Upload from DB: " + err.Error())
 			}
@@ -661,7 +664,7 @@ func (a *API) streamIntoUpload(account keppel.Account, upload *keppel.Upload, dw
 	//update Upload object in DB
 	upload.Digest = digest.NewDigest(digest.SHA256, dw.Hash).String()
 	upload.UpdatedAt = a.timeNow()
-	_, err = a.db.Update(upload)
+	_, err = db.Update(upload)
 	if err != nil {
 		return "", err
 	}

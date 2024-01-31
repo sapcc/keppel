@@ -265,8 +265,9 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	//constraints are so entangled that any attempt to cascade a deletion from
 	//higher up in the hierarchy will run into some ON DELETE RESTRICT
 	//constraints and fail)
+	db := s.DB.WithContext(s.Ctx)
 	for {
-		result, err := s.DB.Exec(`DELETE FROM manifest_manifest_refs WHERE parent_digest NOT IN (SELECT child_digest FROM manifest_manifest_refs)`)
+		result, err := db.Exec(`DELETE FROM manifest_manifest_refs WHERE parent_digest NOT IN (SELECT child_digest FROM manifest_manifest_refs)`)
 		mustDo(t, err)
 		rowsDeleted, err := result.RowsAffected()
 		mustDo(t, err)
@@ -346,10 +347,10 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	//setup initial accounts/repos
 	quotasSetFor := make(map[string]bool)
 	for _, account := range params.Accounts {
-		mustDo(t, s.DB.Insert(account))
+		mustDo(t, db.Insert(account))
 		fd.RecordExistingAccount(context.Background(), *account, s.Clock.Now()) //nolint:errcheck
 		if params.WithQuotas && !quotasSetFor[account.AuthTenantID] {
-			mustDo(t, s.DB.Insert(&keppel.Quotas{
+			mustDo(t, db.Insert(&keppel.Quotas{
 				AuthTenantID:  account.AuthTenantID,
 				ManifestCount: 100,
 			}))
@@ -358,7 +359,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	}
 	s.Accounts = params.Accounts
 	for _, repo := range params.Repos {
-		mustDo(t, s.DB.Insert(repo))
+		mustDo(t, db.Insert(repo))
 	}
 	s.Repos = params.Repos
 
@@ -367,11 +368,11 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		s1 := params.SetupOfPrimary
 		if s1 != nil {
 			//give the secondary registry credentials for replicating from the primary
-			mustDo(t, s.DB.Insert(&keppel.Peer{
+			mustDo(t, db.Insert(&keppel.Peer{
 				HostName:    "registry.example.org",
 				OurPassword: GetReplicationPassword(),
 			}))
-			mustDo(t, s1.DB.Insert(&keppel.Peer{
+			mustDo(t, s1.DB.WithContext(s1.Ctx).Insert(&keppel.Peer{
 				HostName:                 "registry-secondary.example.org",
 				TheirCurrentPasswordHash: replicationPasswordHash,
 			}))

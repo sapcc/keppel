@@ -57,6 +57,7 @@ func deterministicDummyVulnStatus(counter int) trivy.VulnerabilityStatus {
 
 func TestManifestsAPI(t *testing.T) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
+		_ = tt
 		s := test.NewSetup(t, test.WithKeppelAPI, test.WithTrivyDouble)
 		h := s.Handler
 
@@ -419,7 +420,7 @@ func TestManifestsAPI(t *testing.T) {
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		_, err = s.DB.Exec(
+		_, err = s.DB.WithContext(s.Ctx).Exec(
 			`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
 			repos[0].ID, test.DeterministicDummyDigest(12), dummyBlob.ID,
 		)
@@ -488,6 +489,7 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 	rle := &keppel.RateLimitEngine{Driver: rld, Client: nil}
 
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
+		_ = tt
 		s := test.NewSetup(t,
 			test.WithKeppelAPI,
 			test.WithTrivyDouble,

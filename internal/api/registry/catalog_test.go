@@ -19,6 +19,7 @@
 package registryv2_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -32,10 +33,11 @@ import (
 
 func TestCatalogEndpoint(t *testing.T) {
 	s := test.NewSetup(t, test.WithAnycast(true))
+	db := s.DB.WithContext(context.TODO())
 
 	//set up dummy accounts for testing
 	for idx := 1; idx <= 3; idx++ {
-		err := s.DB.Insert(&keppel.Account{
+		err := db.Insert(&keppel.Account{
 			Name:                     fmt.Sprintf("test%d", idx),
 			AuthTenantID:             authTenantID,
 			GCPoliciesJSON:           "[]",
@@ -46,7 +48,7 @@ func TestCatalogEndpoint(t *testing.T) {
 		}
 
 		for _, repoName := range []string{"foo", "bar", "qux"} {
-			err := s.DB.Insert(&keppel.Repository{
+			err := db.Insert(&keppel.Repository{
 				Name:        repoName,
 				AccountName: fmt.Sprintf("test%d", idx),
 			})

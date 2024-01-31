@@ -85,7 +85,7 @@ func IssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, db *
 		if resultErr == nil {
 			return
 		}
-		_, err := db.Exec(`
+		_, err := db.WithContext(ctx).Exec(`
 			UPDATE peers SET
 				their_current_password_hash = $1,
 				their_previous_password_hash = $2,
