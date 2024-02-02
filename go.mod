@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/alicebob/miniredis/v2 v2.31.1
-	github.com/aquasecurity/trivy v0.48.3
+	github.com/aquasecurity/trivy v0.49.0
 	github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/docker/distribution v2.8.3+incompatible
@@ -48,11 +48,12 @@ require (
 	github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
+	github.com/package-url/packageurl-go v0.1.2 // indirect
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.46.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/rabbitmq/amqp091-go v1.9.0 // indirect
-	github.com/samber/lo v1.38.1 // indirect
+	github.com/samber/lo v1.39.0 // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
 	github.com/spdx/tools-golang v0.5.4-0.20231108154018-0c0f394b5e1a // indirect
 	github.com/spf13/pflag v1.0.5 // indirect

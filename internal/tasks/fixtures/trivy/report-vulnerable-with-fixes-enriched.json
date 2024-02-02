@@ -149,6 +149,7 @@
           "VulnerabilityID": "CVE-2011-3374",
           "PkgID": "apt@2.2.4",
           "PkgName": "apt",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.2.4",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -191,6 +192,7 @@
           "VulnerabilityID": "CVE-2022-3715",
           "PkgID": "bash@5.1-2+deb11u1",
           "PkgName": "bash",
+          "PkgIdentifier": {},
           "InstalledVersion": "5.1-2+deb11u1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -240,6 +242,7 @@
           "VulnerabilityID": "CVE-2022-0563",
           "PkgID": "bsdutils@1:2.36.1-8+deb11u1",
           "PkgName": "bsdutils",
+          "PkgIdentifier": {},
           "InstalledVersion": "1:2.36.1-8+deb11u1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -285,6 +288,7 @@
           "VulnerabilityID": "CVE-2016-2781",
           "PkgID": "coreutils@8.32-4+b1",
           "PkgName": "coreutils",
+          "PkgIdentifier": {},
           "InstalledVersion": "8.32-4+b1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -335,6 +339,7 @@
           "VulnerabilityID": "CVE-2017-18018",
           "PkgID": "coreutils@8.32-4+b1",
           "PkgName": "coreutils",
+          "PkgIdentifier": {},
           "InstalledVersion": "8.32-4+b1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -378,6 +383,7 @@
           "VulnerabilityID": "CVE-2022-1304",
           "PkgID": "e2fsprogs@1.46.2-2",
           "PkgName": "e2fsprogs",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.46.2-2",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -431,6 +437,7 @@
           "VulnerabilityID": "CVE-2022-3219",
           "PkgID": "gpgv@2.2.27-2+deb11u2",
           "PkgName": "gpgv",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.2.27-2+deb11u2",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -477,6 +484,7 @@
           "VulnerabilityID": "CVE-2011-3374",
           "PkgID": "libapt-pkg6.0@2.2.4",
           "PkgName": "libapt-pkg6.0",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.2.4",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -519,6 +527,7 @@
           "VulnerabilityID": "CVE-2022-0563",
           "PkgID": "libblkid1@2.36.1-8+deb11u1",
           "PkgName": "libblkid1",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.36.1-8+deb11u1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -564,6 +573,7 @@
           "VulnerabilityID": "CVE-2010-4756",
           "PkgID": "libc-bin@2.31-13+deb11u5",
           "PkgName": "libc-bin",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.31-13+deb11u5",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -609,6 +619,7 @@
           "VulnerabilityID": "CVE-2018-20796",
           "PkgID": "libc-bin@2.31-13+deb11u5",
           "PkgName": "libc-bin",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.31-13+deb11u5",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -656,6 +667,7 @@
           "VulnerabilityID": "CVE-2019-1010022",
           "PkgID": "libc-bin@2.31-13+deb11u5",
           "PkgName": "libc-bin",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.31-13+deb11u5",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -698,6 +710,7 @@
           "VulnerabilityID": "CVE-2019-1010023",
           "PkgID": "libc-bin@2.31-13+deb11u5",
           "PkgName": "libc-bin",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.31-13+deb11u5",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -742,6 +755,7 @@
           "VulnerabilityID": "CVE-2019-1010024",
           "PkgID": "libc-bin@2.31-13+deb11u5",
           "PkgName": "libc-bin",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.31-13+deb11u5",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -790,6 +804,7 @@
           "VulnerabilityID": "CVE-2019-1010025",
           "PkgID": "libc-bin@2.31-13+deb11u5",
           "PkgName": "libc-bin",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.31-13+deb11u5",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -837,6 +852,7 @@
           "VulnerabilityID": "CVE-2019-9192",
           "PkgID": "libc-bin@2.31-13+deb11u5",
           "PkgName": "libc-bin",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.31-13+deb11u5",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -881,6 +897,7 @@
           "VulnerabilityID": "CVE-2010-4756",
           "PkgID": "libc6@2.31-13+deb11u5",
           "PkgName": "libc6",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.31-13+deb11u5",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -926,6 +943,7 @@
           "VulnerabilityID": "CVE-2018-20796",
           "PkgID": "libc6@2.31-13+deb11u5",
           "PkgName": "libc6",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.31-13+deb11u5",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -973,6 +991,7 @@
           "VulnerabilityID": "CVE-2019-1010022",
           "PkgID": "libc6@2.31-13+deb11u5",
           "PkgName": "libc6",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.31-13+deb11u5",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -1015,6 +1034,7 @@
           "VulnerabilityID": "CVE-2019-1010023",
           "PkgID": "libc6@2.31-13+deb11u5",
           "PkgName": "libc6",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.31-13+deb11u5",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -1059,6 +1079,7 @@
           "VulnerabilityID": "CVE-2019-1010024",
           "PkgID": "libc6@2.31-13+deb11u5",
           "PkgName": "libc6",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.31-13+deb11u5",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -1107,6 +1128,7 @@
           "VulnerabilityID": "CVE-2019-1010025",
           "PkgID": "libc6@2.31-13+deb11u5",
           "PkgName": "libc6",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.31-13+deb11u5",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -1154,6 +1176,7 @@
           "VulnerabilityID": "CVE-2019-9192",
           "PkgID": "libc6@2.31-13+deb11u5",
           "PkgName": "libc6",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.31-13+deb11u5",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -1198,6 +1221,7 @@
           "VulnerabilityID": "CVE-2022-1304",
           "PkgID": "libcom-err2@1.46.2-2",
           "PkgName": "libcom-err2",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.46.2-2",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -1251,6 +1275,7 @@
           "VulnerabilityID": "CVE-2019-8457",
           "PkgID": "libdb5.3@5.3.28+dfsg1-0.8",
           "PkgName": "libdb5.3",
+          "PkgIdentifier": {},
           "InstalledVersion": "5.3.28+dfsg1-0.8",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -1315,6 +1340,7 @@
           "VulnerabilityID": "CVE-2013-0340",
           "PkgID": "libexpat1@2.2.10-2+deb11u5",
           "PkgName": "libexpat1",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.2.10-2+deb11u5",
           "Layer": {
             "Digest": "sha256:b0e67886e6a040e430cc3680b3ef299ec8efbad7feb3c7c582cc2bc7eed6a795",
@@ -1379,6 +1405,7 @@
           "VulnerabilityID": "CVE-2022-1304",
           "PkgID": "libext2fs2@1.46.2-2",
           "PkgName": "libext2fs2",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.46.2-2",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -1432,6 +1459,7 @@
           "VulnerabilityID": "CVE-2021-33560",
           "PkgID": "libgcrypt20@1.8.7-6",
           "PkgName": "libgcrypt20",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.8.7-6",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -1494,6 +1522,7 @@
           "VulnerabilityID": "CVE-2018-6829",
           "PkgID": "libgcrypt20@1.8.7-6",
           "PkgName": "libgcrypt20",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.8.7-6",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -1540,6 +1569,7 @@
           "VulnerabilityID": "CVE-2011-3389",
           "PkgID": "libgnutls30@3.7.1-5+deb11u3",
           "PkgName": "libgnutls30",
+          "PkgIdentifier": {},
           "InstalledVersion": "3.7.1-5+deb11u3",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -1674,6 +1704,7 @@
           "VulnerabilityID": "CVE-2018-5709",
           "PkgID": "libgssapi-krb5-2@1.18.3-6+deb11u3",
           "PkgName": "libgssapi-krb5-2",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.18.3-6+deb11u3",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -1718,6 +1749,7 @@
           "VulnerabilityID": "CVE-2018-5709",
           "PkgID": "libk5crypto3@1.18.3-6+deb11u3",
           "PkgName": "libk5crypto3",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.18.3-6+deb11u3",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -1762,6 +1794,7 @@
           "VulnerabilityID": "CVE-2018-5709",
           "PkgID": "libkrb5-3@1.18.3-6+deb11u3",
           "PkgName": "libkrb5-3",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.18.3-6+deb11u3",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -1806,6 +1839,7 @@
           "VulnerabilityID": "CVE-2018-5709",
           "PkgID": "libkrb5support0@1.18.3-6+deb11u3",
           "PkgName": "libkrb5support0",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.18.3-6+deb11u3",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -1850,6 +1884,7 @@
           "VulnerabilityID": "CVE-2022-0563",
           "PkgID": "libmount1@2.36.1-8+deb11u1",
           "PkgName": "libmount1",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.36.1-8+deb11u1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -1895,6 +1930,7 @@
           "VulnerabilityID": "CVE-2022-29458",
           "PkgID": "libncursesw6@6.2+20201114-2",
           "PkgName": "libncursesw6",
+          "PkgIdentifier": {},
           "InstalledVersion": "6.2+20201114-2",
           "FixedVersion": "6.2+20201114-2+deb11u1",
           "Layer": {
@@ -1947,6 +1983,7 @@
           "VulnerabilityID": "CVE-2023-29491",
           "PkgID": "libncursesw6@6.2+20201114-2",
           "PkgName": "libncursesw6",
+          "PkgIdentifier": {},
           "InstalledVersion": "6.2+20201114-2",
           "Layer": {
             "Digest": "sha256:b0e67886e6a040e430cc3680b3ef299ec8efbad7feb3c7c582cc2bc7eed6a795",
@@ -1996,6 +2033,7 @@
           "VulnerabilityID": "CVE-2017-11164",
           "PkgID": "libpcre3@2:8.39-13",
           "PkgName": "libpcre3",
+          "PkgIdentifier": {},
           "InstalledVersion": "2:8.39-13",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -2044,6 +2082,7 @@
           "VulnerabilityID": "CVE-2017-16231",
           "PkgID": "libpcre3@2:8.39-13",
           "PkgName": "libpcre3",
+          "PkgIdentifier": {},
           "InstalledVersion": "2:8.39-13",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -2094,6 +2133,7 @@
           "VulnerabilityID": "CVE-2017-7245",
           "PkgID": "libpcre3@2:8.39-13",
           "PkgName": "libpcre3",
+          "PkgIdentifier": {},
           "InstalledVersion": "2:8.39-13",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -2140,6 +2180,7 @@
           "VulnerabilityID": "CVE-2017-7246",
           "PkgID": "libpcre3@2:8.39-13",
           "PkgName": "libpcre3",
+          "PkgIdentifier": {},
           "InstalledVersion": "2:8.39-13",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -2186,6 +2227,7 @@
           "VulnerabilityID": "CVE-2019-20838",
           "PkgID": "libpcre3@2:8.39-13",
           "PkgName": "libpcre3",
+          "PkgIdentifier": {},
           "InstalledVersion": "2:8.39-13",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -2244,6 +2286,7 @@
           "VulnerabilityID": "CVE-2021-36084",
           "PkgID": "libsepol1@3.1-1",
           "PkgName": "libsepol1",
+          "PkgIdentifier": {},
           "InstalledVersion": "3.1-1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -2303,6 +2346,7 @@
           "VulnerabilityID": "CVE-2021-36085",
           "PkgID": "libsepol1@3.1-1",
           "PkgName": "libsepol1",
+          "PkgIdentifier": {},
           "InstalledVersion": "3.1-1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -2362,6 +2406,7 @@
           "VulnerabilityID": "CVE-2021-36086",
           "PkgID": "libsepol1@3.1-1",
           "PkgName": "libsepol1",
+          "PkgIdentifier": {},
           "InstalledVersion": "3.1-1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -2421,6 +2466,7 @@
           "VulnerabilityID": "CVE-2021-36087",
           "PkgID": "libsepol1@3.1-1",
           "PkgName": "libsepol1",
+          "PkgIdentifier": {},
           "InstalledVersion": "3.1-1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -2481,6 +2527,7 @@
           "VulnerabilityID": "CVE-2022-0563",
           "PkgID": "libsmartcols1@2.36.1-8+deb11u1",
           "PkgName": "libsmartcols1",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.36.1-8+deb11u1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -2526,6 +2573,7 @@
           "VulnerabilityID": "CVE-2021-31239",
           "PkgID": "libsqlite3-0@3.34.1-3",
           "PkgName": "libsqlite3-0",
+          "PkgIdentifier": {},
           "InstalledVersion": "3.34.1-3",
           "Layer": {
             "Digest": "sha256:b0e67886e6a040e430cc3680b3ef299ec8efbad7feb3c7c582cc2bc7eed6a795",
@@ -2571,6 +2619,7 @@
           "VulnerabilityID": "CVE-2021-36690",
           "PkgID": "libsqlite3-0@3.34.1-3",
           "PkgName": "libsqlite3-0",
+          "PkgIdentifier": {},
           "InstalledVersion": "3.34.1-3",
           "Layer": {
             "Digest": "sha256:b0e67886e6a040e430cc3680b3ef299ec8efbad7feb3c7c582cc2bc7eed6a795",
@@ -2616,6 +2665,7 @@
           "VulnerabilityID": "CVE-2021-45346",
           "PkgID": "libsqlite3-0@3.34.1-3",
           "PkgName": "libsqlite3-0",
+          "PkgIdentifier": {},
           "InstalledVersion": "3.34.1-3",
           "Layer": {
             "Digest": "sha256:b0e67886e6a040e430cc3680b3ef299ec8efbad7feb3c7c582cc2bc7eed6a795",
@@ -2663,6 +2713,7 @@
           "VulnerabilityID": "CVE-2022-35737",
           "PkgID": "libsqlite3-0@3.34.1-3",
           "PkgName": "libsqlite3-0",
+          "PkgIdentifier": {},
           "InstalledVersion": "3.34.1-3",
           "Layer": {
             "Digest": "sha256:b0e67886e6a040e430cc3680b3ef299ec8efbad7feb3c7c582cc2bc7eed6a795",
@@ -2727,6 +2778,7 @@
           "VulnerabilityID": "CVE-2022-1304",
           "PkgID": "libss2@1.46.2-2",
           "PkgName": "libss2",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.46.2-2",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -2780,6 +2832,7 @@
           "VulnerabilityID": "CVE-2023-0464",
           "PkgID": "libssl1.1@1.1.1n-0+deb11u4",
           "PkgName": "libssl1.1",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.1.1n-0+deb11u4",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -2827,6 +2880,7 @@
           "VulnerabilityID": "CVE-2023-0465",
           "PkgID": "libssl1.1@1.1.1n-0+deb11u4",
           "PkgName": "libssl1.1",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.1.1n-0+deb11u4",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -2875,6 +2929,7 @@
           "VulnerabilityID": "CVE-2023-0466",
           "PkgID": "libssl1.1@1.1.1n-0+deb11u4",
           "PkgName": "libssl1.1",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.1.1n-0+deb11u4",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -2923,6 +2978,7 @@
           "VulnerabilityID": "CVE-2007-6755",
           "PkgID": "libssl1.1@1.1.1n-0+deb11u4",
           "PkgName": "libssl1.1",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.1.1n-0+deb11u4",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -2971,6 +3027,7 @@
           "VulnerabilityID": "CVE-2010-0928",
           "PkgID": "libssl1.1@1.1.1n-0+deb11u4",
           "PkgName": "libssl1.1",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.1.1n-0+deb11u4",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -3013,6 +3070,7 @@
           "VulnerabilityID": "CVE-2022-3821",
           "PkgID": "libsystemd0@247.3-7+deb11u1",
           "PkgName": "libsystemd0",
+          "PkgIdentifier": {},
           "InstalledVersion": "247.3-7+deb11u1",
           "FixedVersion": "247.3-7+deb11u2",
           "Layer": {
@@ -3068,6 +3126,7 @@
           "VulnerabilityID": "CVE-2022-4415",
           "PkgID": "libsystemd0@247.3-7+deb11u1",
           "PkgName": "libsystemd0",
+          "PkgIdentifier": {},
           "InstalledVersion": "247.3-7+deb11u1",
           "FixedVersion": "247.3-7+deb11u2",
           "Layer": {
@@ -3120,6 +3179,7 @@
           "VulnerabilityID": "CVE-2013-4392",
           "PkgID": "libsystemd0@247.3-7+deb11u1",
           "PkgName": "libsystemd0",
+          "PkgIdentifier": {},
           "InstalledVersion": "247.3-7+deb11u1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -3163,6 +3223,7 @@
           "VulnerabilityID": "CVE-2020-13529",
           "PkgID": "libsystemd0@247.3-7+deb11u1",
           "PkgName": "libsystemd0",
+          "PkgIdentifier": {},
           "InstalledVersion": "247.3-7+deb11u1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -3217,6 +3278,7 @@
           "VulnerabilityID": "CVE-2022-29458",
           "PkgID": "libtinfo6@6.2+20201114-2",
           "PkgName": "libtinfo6",
+          "PkgIdentifier": {},
           "InstalledVersion": "6.2+20201114-2",
           "FixedVersion": "6.2+20201114-2+deb11u1",
           "Layer": {
@@ -3269,6 +3331,7 @@
           "VulnerabilityID": "CVE-2023-29491",
           "PkgID": "libtinfo6@6.2+20201114-2",
           "PkgName": "libtinfo6",
+          "PkgIdentifier": {},
           "InstalledVersion": "6.2+20201114-2",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -3318,6 +3381,7 @@
           "VulnerabilityID": "CVE-2022-3821",
           "PkgID": "libudev1@247.3-7+deb11u1",
           "PkgName": "libudev1",
+          "PkgIdentifier": {},
           "InstalledVersion": "247.3-7+deb11u1",
           "FixedVersion": "247.3-7+deb11u2",
           "Layer": {
@@ -3373,6 +3437,7 @@
           "VulnerabilityID": "CVE-2022-4415",
           "PkgID": "libudev1@247.3-7+deb11u1",
           "PkgName": "libudev1",
+          "PkgIdentifier": {},
           "InstalledVersion": "247.3-7+deb11u1",
           "FixedVersion": "247.3-7+deb11u2",
           "Layer": {
@@ -3425,6 +3490,7 @@
           "VulnerabilityID": "CVE-2013-4392",
           "PkgID": "libudev1@247.3-7+deb11u1",
           "PkgName": "libudev1",
+          "PkgIdentifier": {},
           "InstalledVersion": "247.3-7+deb11u1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -3468,6 +3534,7 @@
           "VulnerabilityID": "CVE-2020-13529",
           "PkgID": "libudev1@247.3-7+deb11u1",
           "PkgName": "libudev1",
+          "PkgIdentifier": {},
           "InstalledVersion": "247.3-7+deb11u1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -3522,6 +3589,7 @@
           "VulnerabilityID": "CVE-2022-0563",
           "PkgID": "libuuid1@2.36.1-8+deb11u1",
           "PkgName": "libuuid1",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.36.1-8+deb11u1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -3567,6 +3635,7 @@
           "VulnerabilityID": "CVE-2022-4899",
           "PkgID": "libzstd1@1.4.8+dfsg-2.1",
           "PkgName": "libzstd1",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.4.8+dfsg-2.1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -3609,6 +3678,7 @@
           "VulnerabilityID": "CVE-2007-5686",
           "PkgID": "login@1:4.8.1-1",
           "PkgName": "login",
+          "PkgIdentifier": {},
           "InstalledVersion": "1:4.8.1-1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -3648,6 +3718,7 @@
           "VulnerabilityID": "CVE-2013-4235",
           "PkgID": "login@1:4.8.1-1",
           "PkgName": "login",
+          "PkgIdentifier": {},
           "InstalledVersion": "1:4.8.1-1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -3703,6 +3774,7 @@
           "VulnerabilityID": "CVE-2019-19882",
           "PkgID": "login@1:4.8.1-1",
           "PkgName": "login",
+          "PkgIdentifier": {},
           "InstalledVersion": "1:4.8.1-1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -3751,6 +3823,7 @@
           "VulnerabilityID": "CVE-2023-29383",
           "PkgID": "login@1:4.8.1-1",
           "PkgName": "login",
+          "PkgIdentifier": {},
           "InstalledVersion": "1:4.8.1-1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -3796,6 +3869,7 @@
           "VulnerabilityID": "CVE-2022-1304",
           "PkgID": "logsave@1.46.2-2",
           "PkgName": "logsave",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.46.2-2",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -3849,6 +3923,7 @@
           "VulnerabilityID": "CVE-2022-0563",
           "PkgID": "mount@2.36.1-8+deb11u1",
           "PkgName": "mount",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.36.1-8+deb11u1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -3894,6 +3969,7 @@
           "VulnerabilityID": "CVE-2022-29458",
           "PkgID": "ncurses-base@6.2+20201114-2",
           "PkgName": "ncurses-base",
+          "PkgIdentifier": {},
           "InstalledVersion": "6.2+20201114-2",
           "FixedVersion": "6.2+20201114-2+deb11u1",
           "Layer": {
@@ -3946,6 +4022,7 @@
           "VulnerabilityID": "CVE-2023-29491",
           "PkgID": "ncurses-base@6.2+20201114-2",
           "PkgName": "ncurses-base",
+          "PkgIdentifier": {},
           "InstalledVersion": "6.2+20201114-2",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -3995,6 +4072,7 @@
           "VulnerabilityID": "CVE-2022-29458",
           "PkgID": "ncurses-bin@6.2+20201114-2",
           "PkgName": "ncurses-bin",
+          "PkgIdentifier": {},
           "InstalledVersion": "6.2+20201114-2",
           "FixedVersion": "6.2+20201114-2+deb11u1",
           "Layer": {
@@ -4047,6 +4125,7 @@
           "VulnerabilityID": "CVE-2023-29491",
           "PkgID": "ncurses-bin@6.2+20201114-2",
           "PkgName": "ncurses-bin",
+          "PkgIdentifier": {},
           "InstalledVersion": "6.2+20201114-2",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -4096,6 +4175,7 @@
           "VulnerabilityID": "CVE-2023-0464",
           "PkgID": "openssl@1.1.1n-0+deb11u4",
           "PkgName": "openssl",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.1.1n-0+deb11u4",
           "Layer": {
             "Digest": "sha256:2d2b016608857911079186690549bb03798585a3f2310e34bc878db7fa0fcd80",
@@ -4143,6 +4223,7 @@
           "VulnerabilityID": "CVE-2023-0465",
           "PkgID": "openssl@1.1.1n-0+deb11u4",
           "PkgName": "openssl",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.1.1n-0+deb11u4",
           "Layer": {
             "Digest": "sha256:2d2b016608857911079186690549bb03798585a3f2310e34bc878db7fa0fcd80",
@@ -4191,6 +4272,7 @@
           "VulnerabilityID": "CVE-2023-0466",
           "PkgID": "openssl@1.1.1n-0+deb11u4",
           "PkgName": "openssl",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.1.1n-0+deb11u4",
           "Layer": {
             "Digest": "sha256:2d2b016608857911079186690549bb03798585a3f2310e34bc878db7fa0fcd80",
@@ -4239,6 +4321,7 @@
           "VulnerabilityID": "CVE-2007-6755",
           "PkgID": "openssl@1.1.1n-0+deb11u4",
           "PkgName": "openssl",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.1.1n-0+deb11u4",
           "Layer": {
             "Digest": "sha256:2d2b016608857911079186690549bb03798585a3f2310e34bc878db7fa0fcd80",
@@ -4287,6 +4370,7 @@
           "VulnerabilityID": "CVE-2010-0928",
           "PkgID": "openssl@1.1.1n-0+deb11u4",
           "PkgName": "openssl",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.1.1n-0+deb11u4",
           "Layer": {
             "Digest": "sha256:2d2b016608857911079186690549bb03798585a3f2310e34bc878db7fa0fcd80",
@@ -4329,6 +4413,7 @@
           "VulnerabilityID": "CVE-2007-5686",
           "PkgID": "passwd@1:4.8.1-1",
           "PkgName": "passwd",
+          "PkgIdentifier": {},
           "InstalledVersion": "1:4.8.1-1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -4368,6 +4453,7 @@
           "VulnerabilityID": "CVE-2013-4235",
           "PkgID": "passwd@1:4.8.1-1",
           "PkgName": "passwd",
+          "PkgIdentifier": {},
           "InstalledVersion": "1:4.8.1-1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -4423,6 +4509,7 @@
           "VulnerabilityID": "CVE-2019-19882",
           "PkgID": "passwd@1:4.8.1-1",
           "PkgName": "passwd",
+          "PkgIdentifier": {},
           "InstalledVersion": "1:4.8.1-1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -4471,6 +4558,7 @@
           "VulnerabilityID": "CVE-2023-29383",
           "PkgID": "passwd@1:4.8.1-1",
           "PkgName": "passwd",
+          "PkgIdentifier": {},
           "InstalledVersion": "1:4.8.1-1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -4516,6 +4604,7 @@
           "VulnerabilityID": "CVE-2020-16156",
           "PkgID": "perl-base@5.32.1-4+deb11u2",
           "PkgName": "perl-base",
+          "PkgIdentifier": {},
           "InstalledVersion": "5.32.1-4+deb11u2",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -4566,6 +4655,7 @@
           "VulnerabilityID": "CVE-2023-31484",
           "PkgID": "perl-base@5.32.1-4+deb11u2",
           "PkgName": "perl-base",
+          "PkgIdentifier": {},
           "InstalledVersion": "5.32.1-4+deb11u2",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -4610,6 +4700,7 @@
           "VulnerabilityID": "CVE-2011-4116",
           "PkgID": "perl-base@5.32.1-4+deb11u2",
           "PkgName": "perl-base",
+          "PkgIdentifier": {},
           "InstalledVersion": "5.32.1-4+deb11u2",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -4657,6 +4748,7 @@
           "VulnerabilityID": "CVE-2023-31486",
           "PkgID": "perl-base@5.32.1-4+deb11u2",
           "PkgName": "perl-base",
+          "PkgIdentifier": {},
           "InstalledVersion": "5.32.1-4+deb11u2",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -4699,6 +4791,7 @@
           "VulnerabilityID": "CVE-2005-2541",
           "PkgID": "tar@1.34+dfsg-1",
           "PkgName": "tar",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.34+dfsg-1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -4738,6 +4831,7 @@
           "VulnerabilityID": "CVE-2022-48303",
           "PkgID": "tar@1.34+dfsg-1",
           "PkgName": "tar",
+          "PkgIdentifier": {},
           "InstalledVersion": "1.34+dfsg-1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",
@@ -4792,6 +4886,7 @@
           "VulnerabilityID": "CVE-2022-0563",
           "PkgID": "util-linux@2.36.1-8+deb11u1",
           "PkgName": "util-linux",
+          "PkgIdentifier": {},
           "InstalledVersion": "2.36.1-8+deb11u1",
           "Layer": {
             "Digest": "sha256:f1f26f5702560b7e591bef5c4d840f76a232bf13fd5aefc4e22077a1ae4440c7",

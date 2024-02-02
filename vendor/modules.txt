@@ -13,7 +13,7 @@ github.com/alicebob/miniredis/v2/size
 # github.com/anchore/go-struct-converter v0.0.0-20221118182256-c68fdcfa2092
 ## explicit; go 1.18
 github.com/anchore/go-struct-converter
-# github.com/aquasecurity/trivy v0.48.3
+# github.com/aquasecurity/trivy v0.49.0
 ## explicit; go 1.21
 github.com/aquasecurity/trivy/pkg/digest
 github.com/aquasecurity/trivy/pkg/fanal/types
@@ -134,6 +134,9 @@ github.com/opencontainers/go-digest
 ## explicit; go 1.18
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
+# github.com/package-url/packageurl-go v0.1.2
+## explicit; go 1.17
+github.com/package-url/packageurl-go
 # github.com/prometheus/client_golang v1.18.0
 ## explicit; go 1.19
 github.com/prometheus/client_golang/prometheus
@@ -168,7 +171,7 @@ github.com/redis/go-redis/v9/internal/util
 # github.com/rs/cors v1.10.1
 ## explicit; go 1.13
 github.com/rs/cors
-# github.com/samber/lo v1.38.1
+# github.com/samber/lo v1.39.0
 ## explicit; go 1.18
 github.com/samber/lo
 # github.com/sapcc/go-api-declarations v1.10.7
