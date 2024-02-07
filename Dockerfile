@@ -21,6 +21,8 @@ RUN apk upgrade --no-cache --no-progress \
 COPY --from=builder /etc/ssl/certs/ /etc/ssl/certs/
 COPY --from=builder /etc/ssl/cert.pem /etc/ssl/cert.pem
 COPY --from=builder /pkg/ /usr/
+# make sure the binary can be executed
+RUN "/usr/bin/keppel" --help 2>/dev/null
 
 ARG BININFO_BUILD_DATE BININFO_COMMIT_HASH BININFO_VERSION
 LABEL source_repository="https://github.com/sapcc/keppel" \
