@@ -36,7 +36,7 @@ GO_LDFLAGS =
 GO_TESTENV =
 
 # These definitions are overridable, e.g. to provide fixed version/commit values when
-# no .git directory is present or to provide a fixed build date for reproducability.
+# no .git directory is present or to provide a fixed build date for reproducibility.
 BININFO_VERSION     ?= $(shell git describe --tags --always --abbrev=7)
 BININFO_COMMIT_HASH ?= $(shell git rev-parse --verify HEAD)
 BININFO_BUILD_DATE  ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
