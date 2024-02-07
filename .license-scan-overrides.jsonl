@@ -1,2 +1,3 @@
+{"name": "github.com/chzyer/logex", "licenceType": "MIT"}
 {"name": "github.com/jpillora/longestcommon", "licenceType": "MIT"}
 {"name": "github.com/spdx/tools-golang", "licenceTextOverrideFile": "vendor/github.com/spdx/tools-golang/LICENSE.code"}
