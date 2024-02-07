@@ -172,10 +172,10 @@ func (g GCPolicy) Validate() error {
 
 	if g.OnlyUntagged {
 		if g.TagRx != "" {
-			return fmt.Errorf(`GC policy cannot have the "match_tag" attribute when "only_untagged" is set`)
+			return errors.New(`GC policy cannot have the "match_tag" attribute when "only_untagged" is set`)
 		}
 		if g.NegativeTagRx != "" {
-			return fmt.Errorf(`GC policy cannot have the "except_tag" attribute when "only_untagged" is set`)
+			return errors.New(`GC policy cannot have the "except_tag" attribute when "only_untagged" is set`)
 		}
 	}
 
@@ -206,7 +206,7 @@ func (g GCPolicy) Validate() error {
 			return errors.New(`GC policy time constraint must have the "on" attribute`)
 		case "last_pulled_at", "pushed_at":
 			if len(tcFilledFields) == 0 {
-				return fmt.Errorf(`GC policy time constraint needs to set at least one attribute other than "on"`)
+				return errors.New(`GC policy time constraint needs to set at least one attribute other than "on"`)
 			}
 			if len(tcFilledFields) > 1 {
 				return fmt.Errorf(`GC policy time constraint cannot set all these attributes at once: %s`, strings.Join(tcFilledFields, ", "))

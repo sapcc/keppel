@@ -62,7 +62,7 @@ func (t *TrivyDouble) mockRunTrivy(w http.ResponseWriter, r *http.Request) {
 
 	imageRef, _, err := models.ParseImageReference(r.URL.Query().Get("image"))
 	if err != nil {
-		http.Error(w, fmt.Sprintf("can't parse image reference: %s", err.Error()), http.StatusUnprocessableEntity)
+		http.Error(w, "can't parse image reference: "+err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 

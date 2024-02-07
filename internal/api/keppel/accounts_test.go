@@ -2118,7 +2118,7 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 		for _, name := range []string{"first", "second", "third"} {
 			assert.HTTPRequest{
 				Method: "PUT",
-				Path:   fmt.Sprintf("/keppel/v1/accounts/%s", name),
+				Path:   "/keppel/v1/accounts/" + name,
 				Header: map[string]string{"X-Test-Perms": "change:tenant1"},
 				Body: assert.JSONObject{
 					"account": assert.JSONObject{

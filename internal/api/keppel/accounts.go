@@ -634,7 +634,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 
 		err = a.sd.CanSetupAccount(accountToCreate)
 		if err != nil {
-			msg := fmt.Sprintf("cannot set up backing storage for this account: %s", err.Error())
+			msg := "cannot set up backing storage for this account: " + err.Error()
 			http.Error(w, msg, http.StatusConflict)
 			return
 		}

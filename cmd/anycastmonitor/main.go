@@ -189,7 +189,7 @@ func checkAnycastMembership(ctx context.Context, anycastURL *url.URL, apiPublicH
 		return false, fmt.Errorf("failed to unmarshal claim from token %s: %s", token, err.Error())
 	}
 
-	expectedIssuer := fmt.Sprintf("keppel-api@%s", apiPublicHostname)
+	expectedIssuer := "keppel-api@" + apiPublicHostname
 	if tokenJSON.Issuer != expectedIssuer {
 		return false, fmt.Errorf("anycast membership wrong: expected %s, got %s", expectedIssuer, tokenJSON.Issuer)
 	}
