@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"os/exec"
 	"slices"
 	"strings"
@@ -148,8 +149,10 @@ func (a *API) runTrivy(ctx context.Context, imageURL, format, keppelToken string
 		"--image-src", "remote", // don't try to use a container runtime which is not installed anyway
 		imageURL)
 	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Cancel = func() error { return cmd.Process.Signal(os.Interrupt) }
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
+	cmd.WaitDelay = 3 * time.Second
 	err = cmd.Run()
 
 	return stdoutBuf.Bytes(), stderrBuf.Bytes(), err
