@@ -50,7 +50,7 @@ func ResetPrimaryKeys(t *testing.T, db *sql.DB, tableNames ...string) {
 	t.Helper()
 	for _, tableName := range tableNames {
 		var nextID int64
-		query := fmt.Sprintf("SELECT 1 + COALESCE(MAX(id), 0) FROM %s", tableName) //nolint:gosec // cannot provide tableName as bind parameter
+		query := "SELECT 1 + COALESCE(MAX(id), 0) FROM " + tableName //nolint:gosec // cannot provide tableName as bind parameter
 		err := db.QueryRow(query).Scan(&nextID)
 		if err != nil {
 			t.Fatalf("while checking IDs in table %s: %s", tableName, err.Error())
