@@ -31,6 +31,11 @@ run-api-for-conformance-test: build/keppel testing/conformance-test/privkey.pem
 	@echo "Ready to run conformance test"
 	set -euo pipefail && source testing/conformance-test/env.sh && $(CURDIR)/build/keppel server api
 
+prepare-static-check: FORCE
+	@if ! hash golangci-lint 2>/dev/null; then printf "\e[1;36m>> Installing golangci-lint (this may take a while)...\e[0m\n"; go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; fi
+	@if ! hash go-licence-detector 2>/dev/null; then printf "\e[1;36m>> Installing go-licence-detector...\e[0m\n"; go install go.elastic.co/go-licence-detector@latest; fi
+	@if ! hash addlicense 2>/dev/null; then  printf "\e[1;36m>> Installing addlicense...\e[0m\n";  go install github.com/google/addlicense@latest; fi
+
 GO_BUILDFLAGS = -mod vendor
 GO_LDFLAGS =
 GO_TESTENV =
@@ -57,7 +62,7 @@ install: FORCE build/keppel
 	install -d -m 0755 "$(DESTDIR)$(PREFIX)/bin"
 	install -m 0755 build/keppel "$(DESTDIR)$(PREFIX)/bin/keppel"
 
-# which packages to test with "go test"
+# which packages to test with test runner
 GO_TESTPKGS := $(shell go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...)
 # which packages to measure coverage for
 GO_COVERPKGS := $(shell go list ./... | grep -E '/internal' | grep -Ev '/drivers|/test/util')
@@ -69,18 +74,13 @@ comma := ,
 check: FORCE static-check build/cover.html build-all
 	@printf "\e[1;32m>> All checks successful.\e[0m\n"
 
-prepare-static-check: FORCE
-	@if ! hash golangci-lint 2>/dev/null; then printf "\e[1;36m>> Installing golangci-lint (this may take a while)...\e[0m\n"; go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; fi
-	@if ! hash go-licence-detector 2>/dev/null; then printf "\e[1;36m>> Installing go-licence-detector...\e[0m\n"; go install go.elastic.co/go-licence-detector@latest; fi
-	@if ! hash addlicense 2>/dev/null; then  printf "\e[1;36m>> Installing addlicense...\e[0m\n";  go install github.com/google/addlicense@latest; fi
-
 run-golangci-lint: FORCE prepare-static-check
 	@printf "\e[1;36m>> golangci-lint\e[0m\n"
 	@golangci-lint run
 
 build/cover.out: FORCE | build
-	@printf "\e[1;36m>> go test\e[0m\n"
-	@env $(GO_TESTENV) go test $(GO_BUILDFLAGS) -ldflags '-s -w -X github.com/sapcc/go-api-declarations/bininfo.binName=keppel -X github.com/sapcc/go-api-declarations/bininfo.version=$(BININFO_VERSION) -X github.com/sapcc/go-api-declarations/bininfo.commit=$(BININFO_COMMIT_HASH) -X github.com/sapcc/go-api-declarations/bininfo.buildDate=$(BININFO_BUILD_DATE) $(GO_LDFLAGS)' -shuffle=on -p 1 -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
+	@printf "\e[1;36m>> Running tests\e[0m\n"
+	@env $(GO_TESTENV) go test -shuffle=on $(GO_BUILDFLAGS) -ldflags '-s -w -X github.com/sapcc/go-api-declarations/bininfo.binName=keppel -X github.com/sapcc/go-api-declarations/bininfo.version=$(BININFO_VERSION) -X github.com/sapcc/go-api-declarations/bininfo.commit=$(BININFO_COMMIT_HASH) -X github.com/sapcc/go-api-declarations/bininfo.buildDate=$(BININFO_BUILD_DATE) $(GO_LDFLAGS)' -p 1 -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
 
 build/cover.html: build/cover.out
 	@printf "\e[1;36m>> go tool cover > build/cover.html\e[0m\n"
@@ -136,6 +136,9 @@ help: FORCE
 	@printf "  \e[36mvars\e[0m                       Display values of relevant Makefile variables.\n"
 	@printf "  \e[36mhelp\e[0m                       Display this help.\n"
 	@printf "\n"
+	@printf "\e[1mPrepare\e[0m\n"
+	@printf "  \e[36mprepare-static-check\e[0m       Install any tools required by static-check. This is used in CI before dropping privileges, you should probably install all the tools using your package manager\n"
+	@printf "\n"
 	@printf "\e[1mBuild\e[0m\n"
 	@printf "  \e[36mbuild-all\e[0m                  Build all binaries.\n"
 	@printf "  \e[36mbuild/keppel\e[0m               Build keppel.\n"
@@ -143,7 +146,6 @@ help: FORCE
 	@printf "\n"
 	@printf "\e[1mTest\e[0m\n"
 	@printf "  \e[36mcheck\e[0m                      Run the test suite (unit tests and golangci-lint).\n"
-	@printf "  \e[36mprepare-static-check\e[0m       Install any tools required by static-check. This is used in CI before dropping privileges, you should probably install all the tools using your package manager\n"
 	@printf "  \e[36mrun-golangci-lint\e[0m          Install and run golangci-lint. Installing is used in CI, but you should probably install golangci-lint using your package manager.\n"
 	@printf "  \e[36mbuild/cover.out\e[0m            Run tests and generate coverage report.\n"
 	@printf "  \e[36mbuild/cover.html\e[0m           Generate an HTML file with source code annotations from the coverage report.\n"

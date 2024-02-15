@@ -1,3 +1,4 @@
 {"name": "github.com/chzyer/logex", "licenceType": "MIT"}
+{"name": "github.com/hashicorp/vault/api/auth/approle", "licenceType": "MPL-2.0"}
 {"name": "github.com/jpillora/longestcommon", "licenceType": "MIT"}
 {"name": "github.com/spdx/tools-golang", "licenceTextOverrideFile": "vendor/github.com/spdx/tools-golang/LICENSE.code"}
