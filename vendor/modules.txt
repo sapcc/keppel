@@ -131,7 +131,7 @@ github.com/mitchellh/go-homedir
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit; go 1.13
 github.com/opencontainers/go-digest
-# github.com/opencontainers/image-spec v1.1.0-rc6
+# github.com/opencontainers/image-spec v1.1.0
 ## explicit; go 1.18
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
@@ -179,7 +179,7 @@ github.com/samber/lo
 ## explicit; go 1.21
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20240208161424-5cb4409b5a2e
+# github.com/sapcc/go-bits v0.0.0-20240212161259-3df536cae9cd
 ## explicit; go 1.21
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
@@ -234,7 +234,7 @@ go.uber.org/automaxprocs/maxprocs
 ## explicit; go 1.18
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
-# golang.org/x/exp v0.0.0-20240205201215-2c58cdc269a3
+# golang.org/x/exp v0.0.0-20240213143201-ec583247a57a
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
