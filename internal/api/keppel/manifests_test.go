@@ -28,11 +28,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alicebob/miniredis/v2"
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/opencontainers/go-digest"
-	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
@@ -485,7 +483,7 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 			keppel.TrivyReportRetrieveAction: limit,
 		},
 	}
-	rle := &keppel.RateLimitEngine{Driver: rld, Client: nil}
+	rle := &keppel.RateLimitEngine{Driver: rld}
 
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
 		s := test.NewSetup(t,
@@ -495,10 +493,6 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 			test.WithAccount(keppel.Account{Name: "test1"}),
 		)
 		h := s.Handler
-
-		sr := miniredis.RunT(t)
-		s.Clock.AddListener(sr.SetTime)
-		rle.Client = redis.NewClient(&redis.Options{Addr: sr.Addr()})
 
 		_, err := keppel.FindOrCreateRepository(s.DB, "foo", keppel.Account{Name: "test1"})
 		if err != nil {
