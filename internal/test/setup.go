@@ -26,7 +26,9 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
@@ -318,6 +320,16 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	icd, err := keppel.NewInboundCacheDriver("unittest", s.Config)
 	mustDo(t, err)
 	s.ICD = icd.(*InboundCacheDriver) //nolint:errcheck
+
+	if params.RateLimitEngine != nil {
+		sr := miniredis.RunT(t)
+		s.Clock.AddListener(sr.SetTime)
+		params.RateLimitEngine.Client = redis.NewClient(&redis.Options{
+			Addr: sr.Addr(),
+			// SETINFO not supported by miniredis
+			DisableIndentity: true,
+		})
+	}
 
 	//setup APIs
 	apis := []httpapi.API{

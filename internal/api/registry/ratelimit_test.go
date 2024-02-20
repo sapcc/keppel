@@ -24,9 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alicebob/miniredis/v2"
 	"github.com/go-redis/redis_rate/v10"
-	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-bits/assert"
 
 	"github.com/sapcc/keppel/internal/drivers/basic"
@@ -50,10 +48,6 @@ func TestRateLimits(t *testing.T) {
 	}
 
 	testWithPrimary(t, setupOptions, func(s test.Setup) {
-		sr := miniredis.RunT(t)
-		s.Clock.AddListener(sr.SetTime)
-		rle.Client = redis.NewClient(&redis.Options{Addr: sr.Addr()})
-
 		//create the "test1/foo" repository to ensure that we don't just always hit
 		//NAME_UNKNOWN errors
 		_, err := keppel.FindOrCreateRepository(s.DB, "foo", keppel.Account{Name: "test1"})
@@ -159,9 +153,6 @@ func TestAnycastRateLimits(t *testing.T) {
 		if !currentlyWithAnycast {
 			return
 		}
-		sr := miniredis.RunT(t)
-		s.Clock.AddListener(sr.SetTime)
-		rle.Client = redis.NewClient(&redis.Options{Addr: sr.Addr()})
 
 		//upload the test blob
 		h := s.Handler

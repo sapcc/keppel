@@ -31,6 +31,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
+	"github.com/sapcc/go-api-declarations/bininfo"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/must"
@@ -168,9 +169,10 @@ func GetRedisOptions(prefix string) (*redis.Options, error) {
 	}
 
 	return &redis.Options{
-		Network:  "tcp",
-		Password: pass,
-		Addr:     net.JoinHostPort(host, port),
-		DB:       db,
+		Network:    "tcp",
+		Password:   pass,
+		Addr:       net.JoinHostPort(host, port),
+		ClientName: bininfo.Component(),
+		DB:         db,
 	}, nil
 }
