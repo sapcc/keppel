@@ -28,9 +28,9 @@ import (
 )
 
 var sqlMigrations = map[string]string{
-	//NOTE: Migrations 1 through 31 have been rolled up into one at 2023-03-14
+	//NOTE: Migrations 1 through 35 have been rolled up into one at 2024-02-26
 	//to better represent the current baseline of the DB schema.
-	"031_rollup.up.sql": `
+	"035_rollup.up.sql": `
 		CREATE TABLE accounts (
 			name                            TEXT        NOT NULL PRIMARY KEY,
 			auth_tenant_id                  TEXT        NOT NULL,
@@ -45,7 +45,8 @@ var sqlMigrations = map[string]string{
 			external_peer_username          TEXT        NOT NULL DEFAULT '',
 			external_peer_password          TEXT        NOT NULL DEFAULT '',
 			platform_filter                 TEXT        NOT NULL DEFAULT '',
-			gc_policies_json                TEXT        NOT NULL DEFAULT '[]'
+			gc_policies_json                TEXT        NOT NULL DEFAULT '[]',
+			security_scan_policies_json     TEXT        NOT NULL DEFAULT '[]'
 		);
 
 		CREATE TABLE rbac_policies (
@@ -169,16 +170,13 @@ var sqlMigrations = map[string]string{
 			FOREIGN KEY (repo_id, digest) REFERENCES manifests ON DELETE CASCADE
 		);
 
-		CREATE TABLE vuln_info (
+		CREATE TABLE trivy_security_info (
 			repo_id             BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
 			digest              TEXT        NOT NULL,
-			status              TEXT        NOT NULL,
+			vuln_status         TEXT        NOT NULL,
 			message             TEXT        NOT NULL,
 			next_check_at       TIMESTAMPTZ NOT NULL,
 			checked_at          TIMESTAMPTZ DEFAULT NULL,        -- NULL before first check
-			index_started_at    TIMESTAMPTZ DEFAULT NULL,        -- NULL if not submitted to Clair yet
-			index_finished_at   TIMESTAMPTZ DEFAULT NULL,        -- NULL until index report is ready
-			index_state         TEXT        NOT NULL DEFAULT '',
 			check_duration_secs REAL        DEFAULT NULL,        -- NULL before first check
 			FOREIGN KEY (repo_id, digest) REFERENCES manifests ON DELETE CASCADE,
 			UNIQUE (repo_id, digest)
@@ -207,11 +205,11 @@ var sqlMigrations = map[string]string{
 			PRIMARY KEY (account_name, repo_name, digest)
 		);
 	`,
-	"031_rollup.down.sql": `
+	"035_rollup.down.sql": `
 		DROP TABLE unknown_manifests;
 		DROP table unknown_blobs;
 		DROP TABLE pending_blobs;
-		DROP TABLE vuln_info;
+		DROP TABLE trivy_security_info;
 		DROP TABLE tags;
 		DROP TABLE manifest_manifest_refs;
 		DROP TABLE manifest_blob_refs;
@@ -225,56 +223,6 @@ var sqlMigrations = map[string]string{
 		DROP TABLE quotas;
 		DROP TABLE rbac_policies;
 		DROP TABLE accounts;
-	`,
-	"032_trivy.up.sql": `
-		CREATE TABLE trivy_security_info (
-			repo_id             BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
-			digest              TEXT        NOT NULL,
-			status              TEXT        NOT NULL,
-			message             TEXT        NOT NULL,
-			next_check_at       TIMESTAMPTZ NOT NULL,
-			checked_at          TIMESTAMPTZ DEFAULT NULL,        -- NULL before first check
-			check_duration_secs REAL        DEFAULT NULL,        -- NULL before first check
-			FOREIGN KEY (repo_id, digest) REFERENCES manifests ON DELETE CASCADE,
-			UNIQUE (repo_id, digest)
-		);
-
-		INSERT INTO trivy_security_info(repo_id, digest, status, message, next_check_at)
-			select repo_id, digest, 'Pending', '', NOW() from manifests;
-	`,
-	"032_trivy.down.sql": `
-		DROP TABLE trivy_security_info;
-	`,
-	"033_trivy.up.sql": `
-		ALTER TABLE trivy_security_info RENAME COLUMN status TO vuln_status;
-	`,
-	"033_trivy.down.sql": `
-		ALTER TABLE trivy_security_info RENAME COLUMN vuln_status TO status;
-	`,
-	"034_security_scan_policies.up.sql": `
-		ALTER TABLE accounts ADD COLUMN security_scan_policies_json TEXT NOT NULL DEFAULT '[]';
-	`,
-	"034_security_scan_policies.down.sql": `
-		ALTER TABLE accounts DROP COLUMN security_scan_policies_json;
-	`,
-	"035_bye_bye_clair.up.sql": `
-		DROP TABLE vuln_info;
-	`,
-	"035_bye_bye_clair.down.sql": `
-		CREATE TABLE vuln_info (
-			repo_id             BIGINT      NOT NULL REFERENCES repos ON DELETE CASCADE,
-			digest              TEXT        NOT NULL,
-			status              TEXT        NOT NULL,
-			message             TEXT        NOT NULL,
-			next_check_at       TIMESTAMPTZ NOT NULL,
-			checked_at          TIMESTAMPTZ DEFAULT NULL,        -- NULL before first check
-			index_started_at    TIMESTAMPTZ DEFAULT NULL,        -- NULL if not submitted to Clair yet
-			index_finished_at   TIMESTAMPTZ DEFAULT NULL,        -- NULL until index report is ready
-			index_state         TEXT        NOT NULL DEFAULT '',
-			check_duration_secs REAL        DEFAULT NULL,        -- NULL before first check
-			FOREIGN KEY (repo_id, digest) REFERENCES manifests ON DELETE CASCADE,
-			UNIQUE (repo_id, digest)
-		);
 	`,
 }
 
