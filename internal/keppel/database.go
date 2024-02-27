@@ -224,6 +224,14 @@ var sqlMigrations = map[string]string{
 		DROP TABLE rbac_policies;
 		DROP TABLE accounts;
 	`,
+	"036_add_accounts_rbac_policies_json.up.sql": `
+		ALTER TABLE accounts
+			ADD COLUMN rbac_policies_json TEXT NOT NULL DEFAULT '';
+	`,
+	"036_add_accounts_rbac_policies_json.down.sql": `
+		ALTER TABLE accounts
+			DROP COLUMN rbac_policies_json;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.

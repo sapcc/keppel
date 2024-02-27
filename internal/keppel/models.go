@@ -57,6 +57,8 @@ type Account struct {
 
 	//MetadataJSON contains a JSON string of a map[string]string, or the empty string.
 	MetadataJSON string `db:"metadata_json"`
+	//RBACPoliciesJSON contains a JSON string of []keppel.RBACPolicy, or the empty string.
+	RBACPoliciesJSON string `db:"rbac_policies_json"`
 	//GCPoliciesJSON contains a JSON string of []keppel.GCPolicy, or the empty string.
 	GCPoliciesJSON string `db:"gc_policies_json"`
 	//SecurityScanPoliciesJSON contains a JSON string of []keppel.SecurityScanPolicy, or the empty string.
@@ -88,6 +90,8 @@ func FindAccount(db gorp.SqlExecutor, name string) (*Account, error) {
 ////////////////////////////////////////////////////////////////////////////////
 
 // RBACPolicy contains a record from the `rbac_policies` table.
+//
+// TODO Replace this DB table with the new `accounts.rbac_policies_json` field.
 type RBACPolicy struct {
 	AccountName             string `db:"account_name"`
 	CidrPattern             string `db:"match_cidr"`

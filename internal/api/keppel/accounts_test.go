@@ -332,7 +332,7 @@ func TestAccountsAPI(t *testing.T) {
 	}.Check(t, h)
 	tr.DBChanges().AssertEqual(`
 		INSERT INTO accounts (name, auth_tenant_id, metadata_json) VALUES ('first', 'tenant1', '{"bar":"barbar","foo":"foofoo"}');
-		INSERT INTO accounts (name, auth_tenant_id, gc_policies_json) VALUES ('second', 'tenant1', '[{"match_repository":".*/database","except_repository":"archive/.*","time_constraint":{"on":"pushed_at","newer_than":{"value":10,"unit":"d"}},"action":"protect"},{"match_repository":".*","only_untagged":true,"action":"delete"}]');
+		INSERT INTO accounts (name, auth_tenant_id, gc_policies_json, rbac_policies_json) VALUES ('second', 'tenant1', '[{"match_repository":".*/database","except_repository":"archive/.*","time_constraint":{"on":"pushed_at","newer_than":{"value":10,"unit":"d"}},"action":"protect"},{"match_repository":".*","only_untagged":true,"action":"delete"}]', '[{"match_repository":"library/.*","permissions":["anonymous_pull"]},{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull","push"]}]');
 		INSERT INTO rbac_policies (account_name, match_repository, match_username, can_anon_pull) VALUES ('second', 'library/.*', '', TRUE);
 		INSERT INTO rbac_policies (account_name, match_repository, match_username, can_pull, can_push) VALUES ('second', 'library/alpine', '.*@tenant2', TRUE, TRUE);
 	`)
@@ -557,7 +557,7 @@ func TestAccountsAPI(t *testing.T) {
 		ExpectBody:   assert.JSONObject{"sublease_token": makeSubleaseToken("second", "registry.example.org", "this-is-the-token")},
 	}.Check(t, h)
 	tr.DBChanges().AssertEqual(`
-		UPDATE accounts SET gc_policies_json = '[]' WHERE name = 'second';
+		UPDATE accounts SET gc_policies_json = '[]', rbac_policies_json = '[{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull"]},{"match_repository":"library/alpine","match_username":".*@tenant3","permissions":["pull","delete"]}]' WHERE name = 'second';
 		DELETE FROM rbac_policies WHERE account_name = 'second' AND match_repository = 'library/.*' AND match_username = '' AND match_cidr = '0.0.0.0/0';
 		UPDATE rbac_policies SET can_push = FALSE WHERE account_name = 'second' AND match_repository = 'library/alpine' AND match_username = '.*@tenant2' AND match_cidr = '0.0.0.0/0';
 		INSERT INTO rbac_policies (account_name, match_repository, match_username, can_pull, can_delete) VALUES ('second', 'library/alpine', '.*@tenant3', TRUE, TRUE);
@@ -1099,7 +1099,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 	}.Check(t, h)
 	tr.DBChanges().AssertEqual(`
-		INSERT INTO accounts (name, auth_tenant_id) VALUES ('first', 'tenant1');
+		INSERT INTO accounts (name, auth_tenant_id, rbac_policies_json) VALUES ('first', 'tenant1', '[{"match_cidr":"1.2.0.0/16","permissions":["pull"]}]');
 		INSERT INTO rbac_policies (account_name, match_repository, match_username, can_pull, match_cidr) VALUES ('first', '', '', TRUE, '1.2.0.0/16');
 	`)
 	assert.HTTPRequest{
