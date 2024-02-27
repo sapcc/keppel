@@ -31,6 +31,7 @@ import (
 )
 
 // GCPolicy is a policy enabling optional garbage collection runs in an account.
+// It is stored in serialized form in the GCPoliciesJSON field of type Account.
 type GCPolicy struct {
 	RepositoryRx         regexpext.BoundedRegexp `json:"match_repository"`
 	NegativeRepositoryRx regexpext.BoundedRegexp `json:"except_repository,omitempty"`

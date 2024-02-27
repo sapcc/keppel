@@ -153,6 +153,14 @@ func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
 		policies[idx] = renderRBACPolicy(p)
 	}
 
+	//use this opportunity to populate the new accounts.rbac_policies_json field if necessary
+	if (dbAccount.RBACPoliciesJSON == "" || dbAccount.RBACPoliciesJSON == "[]") && len(dbPolicies) > 0 {
+		err := a.fillNewStyleRBACPolicies(dbAccount, dbPolicies)
+		if err != nil {
+			return Account{}, err
+		}
+	}
+
 	metadata := make(map[string]string)
 	if dbAccount.MetadataJSON != "" {
 		err := json.Unmarshal([]byte(dbAccount.MetadataJSON), &metadata)
@@ -829,6 +837,44 @@ func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPoli
 		})
 	}
 
+	//sync new accounts.rbac_policies_json field with the state of the rbac_policies table
+	return a.fillNewStyleRBACPolicies(account, policies)
+}
+
+func (a *API) fillNewStyleRBACPolicies(account keppel.Account, policies []keppel.RBACPolicy) error {
+	// convert from old format to new format
+	var newPolicies []keppel.NewRBACPolicy
+	for _, policy := range policies {
+		apiPolicy := renderRBACPolicy(policy)
+		newPolicies = append(newPolicies, keppel.NewRBACPolicy(apiPolicy))
+	}
+
+	// ensure same sorting as in SQL (ORDER BY account_name, match_repository, match_username, match_cidr)
+	slices.SortFunc(newPolicies, func(lhs, rhs keppel.NewRBACPolicy) int {
+		cmp := strings.Compare(string(lhs.RepositoryPattern), string(rhs.RepositoryPattern))
+		if cmp != 0 {
+			return cmp
+		}
+		cmp = strings.Compare(string(lhs.UserNamePattern), string(rhs.UserNamePattern))
+		if cmp != 0 {
+			return cmp
+		}
+		return strings.Compare(lhs.CidrPattern, rhs.CidrPattern)
+	})
+
+	newPoliciesStr := ""
+	if len(newPolicies) > 0 {
+		buf, err := json.Marshal(newPolicies)
+		if err != nil {
+			return err
+		}
+		newPoliciesStr = string(buf)
+	}
+
+	_, err := a.db.Exec(`UPDATE accounts SET rbac_policies_json = $1 WHERE name = $2`, newPoliciesStr, account.Name)
+	if err != nil {
+		return fmt.Errorf("while writing accounts.rbac_policies_json: %w", err)
+	}
 	return nil
 }
 
