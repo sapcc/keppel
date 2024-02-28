@@ -316,11 +316,12 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "second", nil)
 
 			//enable anonymous pull on the account
-			err := s2.DB.Insert(&keppel.RBACPolicy{
-				AccountName:        "test1",
-				RepositoryPattern:  ".*",
-				CanPullAnonymously: true,
-			})
+			_, err := s2.DB.Exec(`UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
+				test.ToJSON([]keppel.RBACPolicy{{
+					RepositoryPattern: ".*",
+					Permissions:       []keppel.RBACPermission{keppel.GrantsAnonymousPull},
+				}}),
+			)
 			if err != nil {
 				t.Fatal(err.Error())
 			}
@@ -382,12 +383,12 @@ func TestReplicationAllowAnonymousReplicationFromExternal(t *testing.T) {
 			h2 := s2.Handler
 
 			// enable anonymous pull and replication on test1/bar
-			err := s2.DB.Insert(&keppel.RBACPolicy{
-				AccountName:             "test1",
-				RepositoryPattern:       "foo",
-				CanPullAnonymously:      true,
-				CanFirstPullAnonymously: true,
-			})
+			_, err := s2.DB.Exec(`UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
+				test.ToJSON([]keppel.RBACPolicy{{
+					RepositoryPattern: "foo",
+					Permissions:       []keppel.RBACPermission{keppel.GrantsAnonymousPull, keppel.GrantsAnonymousFirstPull},
+				}}),
+			)
 			if err != nil {
 				t.Fatal(err.Error())
 			}

@@ -51,7 +51,7 @@ type TestCase struct {
 	CannotPush   bool
 	CannotPull   bool
 	CannotDelete bool
-	RBACPolicy   keppel.RBACPolicy
+	RBACPolicy   *keppel.RBACPolicy
 	//result
 	GrantedActions   string
 	AdditionalScopes []string
@@ -59,47 +59,42 @@ type TestCase struct {
 
 var (
 	policyAnonPull = keppel.RBACPolicy{
-		RepositoryPattern:  "fo+",
-		CanPullAnonymously: true,
+		RepositoryPattern: "fo+",
+		Permissions:       []keppel.RBACPermission{keppel.GrantsAnonymousPull},
 	}
 	policyAnonFirstPull = keppel.RBACPolicy{
-		RepositoryPattern:       "fo+",
-		CanPullAnonymously:      true,
-		CanFirstPullAnonymously: true,
+		RepositoryPattern: "fo+",
+		Permissions:       []keppel.RBACPermission{keppel.GrantsAnonymousPull, keppel.GrantsAnonymousFirstPull},
 	}
 	policyPullMatches = keppel.RBACPolicy{
 		RepositoryPattern: "fo+",
 		UserNamePattern:   "correct.*",
-		CanPull:           true,
+		Permissions:       []keppel.RBACPermission{keppel.GrantsPull},
 	}
 	policyPushMatches = keppel.RBACPolicy{
 		RepositoryPattern: "fo+",
 		UserNamePattern:   "correct.*",
-		CanPull:           true,
-		CanPush:           true,
+		Permissions:       []keppel.RBACPermission{keppel.GrantsPull, keppel.GrantsPush},
 	}
 	policyDeleteMatches = keppel.RBACPolicy{
 		RepositoryPattern: "fo+",
 		UserNamePattern:   "correct.*",
-		CanPull:           true,
-		CanDelete:         true,
+		Permissions:       []keppel.RBACPermission{keppel.GrantsPull, keppel.GrantsDelete},
 	}
 	policyPullDoesNotMatch = keppel.RBACPolicy{
 		RepositoryPattern: "fo+",
 		UserNamePattern:   "doesnotmatch",
-		CanPull:           true,
+		Permissions:       []keppel.RBACPermission{keppel.GrantsPull},
 	}
 	policyPushDoesNotMatch = keppel.RBACPolicy{
 		RepositoryPattern: "doesnotmatch",
 		UserNamePattern:   "correct.*",
-		CanPull:           true,
-		CanPush:           true,
+		Permissions:       []keppel.RBACPermission{keppel.GrantsPull, keppel.GrantsPush},
 	}
 	policyDeleteDoesNotMatch = keppel.RBACPolicy{
 		RepositoryPattern: "fo+",
 		UserNamePattern:   "doesnotmatch",
-		CanPull:           true,
-		CanDelete:         true,
+		Permissions:       []keppel.RBACPermission{keppel.GrantsPull, keppel.GrantsDelete},
 	}
 )
 
@@ -205,213 +200,213 @@ var testCases = []TestCase{
 		GrantedActions: ""},
 	//anonymous pull (but not push) is allowed by a matching RBAC policy
 	{Scope: "repository:test1/foo:pull", AnonymousLogin: true,
-		RBACPolicy:     policyAnonPull,
+		RBACPolicy:     &policyAnonPull,
 		GrantedActions: "pull"},
 	{Scope: "repository:test1/foo:push", AnonymousLogin: true,
-		RBACPolicy:     policyAnonPull,
+		RBACPolicy:     &policyAnonPull,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foo:pull,push", AnonymousLogin: true,
-		RBACPolicy:     policyAnonPull,
+		RBACPolicy:     &policyAnonPull,
 		GrantedActions: "pull"},
 	{Scope: "repository:test1/foo:delete", AnonymousLogin: true,
-		RBACPolicy:     policyAnonPull,
+		RBACPolicy:     &policyAnonPull,
 		GrantedActions: ""},
 	//RBAC policy with RepositoryPattern only works when repository name matches
 	{Scope: "repository:test1/foobar:pull", AnonymousLogin: true,
-		RBACPolicy:     policyAnonPull,
+		RBACPolicy:     &policyAnonPull,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foobar:push", AnonymousLogin: true,
-		RBACPolicy:     policyAnonPull,
+		RBACPolicy:     &policyAnonPull,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foobar:pull,push", AnonymousLogin: true,
-		RBACPolicy:     policyAnonPull,
+		RBACPolicy:     &policyAnonPull,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foobar:delete", AnonymousLogin: true,
-		RBACPolicy:     policyAnonPull,
+		RBACPolicy:     &policyAnonPull,
 		GrantedActions: ""},
 	//RBAC policy for anonymous pull also enables pull access for all authenticated users
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyAnonPull,
+		RBACPolicy:     &policyAnonPull,
 		GrantedActions: "pull"},
 	{Scope: "repository:test1/foo:push",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyAnonPull,
+		RBACPolicy:     &policyAnonPull,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foo:pull,push",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyAnonPull,
+		RBACPolicy:     &policyAnonPull,
 		GrantedActions: "pull"},
 	{Scope: "repository:test1/foo:delete",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyAnonPull,
+		RBACPolicy:     &policyAnonPull,
 		GrantedActions: ""},
 	//RBAC policy for anonymous pull does not change anything if the user already has pull access
 	{Scope: "repository:test1/foo:pull",
-		RBACPolicy:     policyAnonPull,
+		RBACPolicy:     &policyAnonPull,
 		GrantedActions: "pull"},
 	{Scope: "repository:test1/foo:push",
-		RBACPolicy:     policyAnonPull,
+		RBACPolicy:     &policyAnonPull,
 		GrantedActions: "push"},
 	{Scope: "repository:test1/foo:pull,push",
-		RBACPolicy:     policyAnonPull,
+		RBACPolicy:     &policyAnonPull,
 		GrantedActions: "pull,push"},
 	{Scope: "repository:test1/foo:delete",
-		RBACPolicy:     policyAnonPull,
+		RBACPolicy:     &policyAnonPull,
 		GrantedActions: "delete"},
 	//anonymous first pull is allowed by a matching RBAC policy
 	{Scope: "repository:test1/foo:pull", AnonymousLogin: true,
-		RBACPolicy:     policyAnonFirstPull,
+		RBACPolicy:     &policyAnonFirstPull,
 		GrantedActions: "pull,anonymous_first_pull"},
 	{Scope: "repository:test1/foo:push", AnonymousLogin: true,
-		RBACPolicy:     policyAnonFirstPull,
+		RBACPolicy:     &policyAnonFirstPull,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foo:pull,push", AnonymousLogin: true,
-		RBACPolicy:     policyAnonFirstPull,
+		RBACPolicy:     &policyAnonFirstPull,
 		GrantedActions: "pull,anonymous_first_pull"},
 	{Scope: "repository:test1/foo:delete", AnonymousLogin: true,
-		RBACPolicy:     policyAnonFirstPull,
+		RBACPolicy:     &policyAnonFirstPull,
 		GrantedActions: ""},
 	//RBAC policy with CanPull grants pull permissions to matching users
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyPullMatches,
+		RBACPolicy:     &policyPullMatches,
 		GrantedActions: "pull"},
 	{Scope: "repository:test1/foo:push",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyPullMatches,
+		RBACPolicy:     &policyPullMatches,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foo:pull,push",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyPullMatches,
+		RBACPolicy:     &policyPullMatches,
 		GrantedActions: "pull"},
 	{Scope: "repository:test1/foo:delete",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyPullMatches,
+		RBACPolicy:     &policyPullMatches,
 		GrantedActions: ""},
 	//RBAC policy with CanPull does not grant permissions if it does not match
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyPullDoesNotMatch,
+		RBACPolicy:     &policyPullDoesNotMatch,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foo:push",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyPullDoesNotMatch,
+		RBACPolicy:     &policyPullDoesNotMatch,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foo:pull,push",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyPullDoesNotMatch,
+		RBACPolicy:     &policyPullDoesNotMatch,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foo:delete",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyPullDoesNotMatch,
+		RBACPolicy:     &policyPullDoesNotMatch,
 		GrantedActions: ""},
 	//RBAC policy with CanPull does not change anything if the user already has pull access
 	{Scope: "repository:test1/foo:pull",
-		RBACPolicy:     policyPullMatches,
+		RBACPolicy:     &policyPullMatches,
 		GrantedActions: "pull"},
 	{Scope: "repository:test1/foo:push",
-		RBACPolicy:     policyPullMatches,
+		RBACPolicy:     &policyPullMatches,
 		GrantedActions: "push"},
 	{Scope: "repository:test1/foo:pull,push",
-		RBACPolicy:     policyPullMatches,
+		RBACPolicy:     &policyPullMatches,
 		GrantedActions: "pull,push"},
 	{Scope: "repository:test1/foo:delete",
-		RBACPolicy:     policyPullMatches,
+		RBACPolicy:     &policyPullMatches,
 		GrantedActions: "delete"},
 	//RBAC policy with CanPull/CanPush grants pull/push permissions to matching users
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyPushMatches,
+		RBACPolicy:     &policyPushMatches,
 		GrantedActions: "pull"},
 	{Scope: "repository:test1/foo:push",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyPushMatches,
+		RBACPolicy:     &policyPushMatches,
 		GrantedActions: "push"},
 	{Scope: "repository:test1/foo:pull,push",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyPushMatches,
+		RBACPolicy:     &policyPushMatches,
 		GrantedActions: "pull,push"},
 	{Scope: "repository:test1/foo:delete",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyPushMatches,
+		RBACPolicy:     &policyPushMatches,
 		GrantedActions: ""},
 	//RBAC policy with CanPull/CanPush does not grant permissions if it does not match
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyPushDoesNotMatch,
+		RBACPolicy:     &policyPushDoesNotMatch,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foo:push",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyPushDoesNotMatch,
+		RBACPolicy:     &policyPushDoesNotMatch,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foo:pull,push",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyPushDoesNotMatch,
+		RBACPolicy:     &policyPushDoesNotMatch,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foo:delete",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyPushDoesNotMatch,
+		RBACPolicy:     &policyPushDoesNotMatch,
 		GrantedActions: ""},
 	//RBAC policy with CanPull/CanPush does not change anything if the user already has pull/push access
 	{Scope: "repository:test1/foo:pull",
-		RBACPolicy:     policyPushMatches,
+		RBACPolicy:     &policyPushMatches,
 		GrantedActions: "pull"},
 	{Scope: "repository:test1/foo:push",
-		RBACPolicy:     policyPushMatches,
+		RBACPolicy:     &policyPushMatches,
 		GrantedActions: "push"},
 	{Scope: "repository:test1/foo:pull,push",
-		RBACPolicy:     policyPushMatches,
+		RBACPolicy:     &policyPushMatches,
 		GrantedActions: "pull,push"},
 	{Scope: "repository:test1/foo:delete",
-		RBACPolicy:     policyPushMatches,
+		RBACPolicy:     &policyPushMatches,
 		GrantedActions: "delete"},
 	//RBAC policy with CanPull/CanDelete grants pull/delete permissions to matching users
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyDeleteMatches,
+		RBACPolicy:     &policyDeleteMatches,
 		GrantedActions: "pull"},
 	{Scope: "repository:test1/foo:push",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyDeleteMatches,
+		RBACPolicy:     &policyDeleteMatches,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foo:pull,push",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyDeleteMatches,
+		RBACPolicy:     &policyDeleteMatches,
 		GrantedActions: "pull"},
 	{Scope: "repository:test1/foo:delete",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyDeleteMatches,
+		RBACPolicy:     &policyDeleteMatches,
 		GrantedActions: "delete"},
 	//RBAC policy with CanPull/CanDelete does not grant permissions if it does not match
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyDeleteDoesNotMatch,
+		RBACPolicy:     &policyDeleteDoesNotMatch,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foo:push",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyDeleteDoesNotMatch,
+		RBACPolicy:     &policyDeleteDoesNotMatch,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foo:pull,push",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyDeleteDoesNotMatch,
+		RBACPolicy:     &policyDeleteDoesNotMatch,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foo:delete",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
-		RBACPolicy:     policyDeleteDoesNotMatch,
+		RBACPolicy:     &policyDeleteDoesNotMatch,
 		GrantedActions: ""},
 	//RBAC policy with CanPull/CanDelete does not change anything if the user already has pull/push access
 	{Scope: "repository:test1/foo:pull",
-		RBACPolicy:     policyDeleteMatches,
+		RBACPolicy:     &policyDeleteMatches,
 		GrantedActions: "pull"},
 	{Scope: "repository:test1/foo:push",
-		RBACPolicy:     policyDeleteMatches,
+		RBACPolicy:     &policyDeleteMatches,
 		GrantedActions: "push"},
 	{Scope: "repository:test1/foo:pull,push",
-		RBACPolicy:     policyDeleteMatches,
+		RBACPolicy:     &policyDeleteMatches,
 		GrantedActions: "pull,push"},
 	{Scope: "repository:test1/foo:delete",
-		RBACPolicy:     policyDeleteMatches,
+		RBACPolicy:     &policyDeleteMatches,
 		GrantedActions: "delete"},
 }
 
@@ -552,17 +547,17 @@ func TestIssueToken(t *testing.T) {
 		t.Logf("----- testcase %d/%d -----\n", idx+1, len(testCases))
 
 		//setup RBAC policies for test
-		_, err := s.DB.Exec(`DELETE FROM rbac_policies WHERE account_name = $1`, "test1")
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		if c.RBACPolicy != (keppel.RBACPolicy{}) {
-			policy := c.RBACPolicy //take a clone for modifying
-			policy.AccountName = "test1"
-			err := s.DB.Insert(&policy)
+		rbacPoliciesJSONStr := ""
+		if c.RBACPolicy != nil {
+			buf, err := json.Marshal([]keppel.RBACPolicy{*c.RBACPolicy})
 			if err != nil {
 				t.Fatal(err.Error())
 			}
+			rbacPoliciesJSONStr = string(buf)
+		}
+		_, err := s.DB.Exec(`UPDATE accounts SET rbac_policies_json = $1 WHERE name = $2`, rbacPoliciesJSONStr, "test1")
+		if err != nil {
+			t.Fatal(err.Error())
 		}
 
 		//setup permissions for test

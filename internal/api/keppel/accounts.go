@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -37,7 +36,6 @@ import (
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
-	"github.com/sapcc/go-bits/regexpext"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
 
@@ -56,18 +54,10 @@ type Account struct {
 	InMaintenance     bool                  `json:"in_maintenance"`
 	Metadata          map[string]string     `json:"metadata"`
 	GCPolicies        []keppel.GCPolicy     `json:"gc_policies,omitempty"`
-	RBACPolicies      []RBACPolicy          `json:"rbac_policies"`
+	RBACPolicies      []keppel.RBACPolicy   `json:"rbac_policies"`
 	ReplicationPolicy *ReplicationPolicy    `json:"replication,omitempty"`
 	ValidationPolicy  *ValidationPolicy     `json:"validation,omitempty"`
 	PlatformFilter    keppel.PlatformFilter `json:"platform_filter,omitempty"`
-}
-
-// RBACPolicy represents an RBAC policy in the API.
-type RBACPolicy struct {
-	CidrPattern       string                `json:"match_cidr,omitempty"`
-	RepositoryPattern regexpext.PlainRegexp `json:"match_repository,omitempty"`
-	UserNamePattern   regexpext.PlainRegexp `json:"match_username,omitempty"`
-	Permissions       []string              `json:"permissions"`
 }
 
 // ReplicationPolicy represents a replication policy in the API.
@@ -141,24 +131,13 @@ func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
 	if err != nil {
 		return Account{}, err
 	}
-
-	var dbPolicies []keppel.RBACPolicy
-	_, err = a.db.Select(&dbPolicies, `SELECT * FROM rbac_policies WHERE account_name = $1 ORDER BY account_name, match_repository, match_username, match_cidr`, dbAccount.Name)
+	rbacPolicies, err := dbAccount.ParseRBACPolicies()
 	if err != nil {
 		return Account{}, err
 	}
-
-	policies := make([]RBACPolicy, len(dbPolicies))
-	for idx, p := range dbPolicies {
-		policies[idx] = renderRBACPolicy(p)
-	}
-
-	//use this opportunity to populate the new accounts.rbac_policies_json field if necessary
-	if (dbAccount.RBACPoliciesJSON == "" || dbAccount.RBACPoliciesJSON == "[]") && len(dbPolicies) > 0 {
-		err := a.fillNewStyleRBACPolicies(dbAccount, dbPolicies)
-		if err != nil {
-			return Account{}, err
-		}
+	if rbacPolicies == nil {
+		//do not render "null" in this field
+		rbacPolicies = []keppel.RBACPolicy{}
 	}
 
 	metadata := make(map[string]string)
@@ -175,7 +154,7 @@ func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
 		GCPolicies:        gcPolicies,
 		InMaintenance:     dbAccount.InMaintenance,
 		Metadata:          metadata,
-		RBACPolicies:      policies,
+		RBACPolicies:      rbacPolicies,
 		ReplicationPolicy: renderReplicationPolicy(dbAccount),
 		ValidationPolicy:  renderValidationPolicy(dbAccount),
 		PlatformFilter:    dbAccount.PlatformFilter,
@@ -212,98 +191,6 @@ func renderValidationPolicy(dbAccount keppel.Account) *ValidationPolicy {
 	return &ValidationPolicy{
 		RequiredLabels: strings.Split(dbAccount.RequiredLabels, ","),
 	}
-}
-
-func renderRBACPolicy(dbPolicy keppel.RBACPolicy) RBACPolicy {
-	result := RBACPolicy{
-		RepositoryPattern: regexpext.PlainRegexp(dbPolicy.RepositoryPattern),
-		UserNamePattern:   regexpext.PlainRegexp(dbPolicy.UserNamePattern),
-	}
-	// treat cidr that matches everything as unset
-	if dbPolicy.CidrPattern != "0.0.0.0/0" {
-		result.CidrPattern = dbPolicy.CidrPattern
-	}
-	if dbPolicy.CanPullAnonymously {
-		result.Permissions = append(result.Permissions, "anonymous_pull")
-	}
-	if dbPolicy.CanFirstPullAnonymously {
-		result.Permissions = append(result.Permissions, "anonymous_first_pull")
-	}
-	if dbPolicy.CanPull {
-		result.Permissions = append(result.Permissions, "pull")
-	}
-	if dbPolicy.CanPush {
-		result.Permissions = append(result.Permissions, "push")
-	}
-	if dbPolicy.CanDelete {
-		result.Permissions = append(result.Permissions, "delete")
-	}
-	return result
-}
-
-func renderRBACPolicyPtr(dbPolicy keppel.RBACPolicy) *RBACPolicy {
-	policy := renderRBACPolicy(dbPolicy)
-	return &policy
-}
-
-func parseRBACPolicy(policy RBACPolicy) (keppel.RBACPolicy, error) {
-	result := keppel.RBACPolicy{
-		RepositoryPattern: string(policy.RepositoryPattern),
-		UserNamePattern:   string(policy.UserNamePattern),
-	}
-	// validate cidr early to prevent errors
-	// this has also the nice side effect that we can use the cidr of the network incase an ip is used
-	if cidr := policy.CidrPattern; cidr == "" {
-		// hack to mimic default value in database
-		result.CidrPattern = "0.0.0.0/0"
-	} else {
-		_, network, err := net.ParseCIDR(cidr)
-		if err != nil {
-			// err.Error() sadly does not contain any useful information why the cidr is invalid
-			return result, fmt.Errorf("%q is not a valid cidr", cidr)
-		}
-		if network.String() == "0.0.0.0/0" {
-			return result, errors.New("0.0.0.0/0 cannot be used as cidr because it matches everything")
-		}
-		result.CidrPattern = network.String()
-	}
-	for _, perm := range policy.Permissions {
-		switch perm {
-		case "anonymous_pull":
-			result.CanPullAnonymously = true
-		case "anonymous_first_pull":
-			result.CanFirstPullAnonymously = true
-		case "pull":
-			result.CanPull = true
-		case "push":
-			result.CanPush = true
-		case "delete":
-			result.CanDelete = true
-		default:
-			return result, fmt.Errorf("%q is not a valid RBAC policy permission", perm)
-		}
-	}
-
-	if len(policy.Permissions) == 0 {
-		return result, errors.New(`RBAC policy must grant at least one permission`)
-	}
-	if result.CidrPattern == "0.0.0.0/0" && result.UserNamePattern == "" && result.RepositoryPattern == "" {
-		return result, errors.New(`RBAC policy must have at least one "match_..." attribute`)
-	}
-	if (result.CanPullAnonymously || result.CanFirstPullAnonymously) && result.UserNamePattern != "" {
-		return result, errors.New(`RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`)
-	}
-	if result.CanPull && result.CidrPattern == "0.0.0.0/0" && result.UserNamePattern == "" {
-		return result, errors.New(`RBAC policy with "pull" must have the "match_cidr" or "match_username" attribute`)
-	}
-	if result.CanPush && !result.CanPull {
-		return result, errors.New(`RBAC policy with "push" must also grant "pull"`)
-	}
-	if result.CanDelete && result.UserNamePattern == "" {
-		return result, errors.New(`RBAC policy with "delete" must have the "match_username" attribute`)
-	}
-
-	return result, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -379,7 +266,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			GCPolicies        []keppel.GCPolicy     `json:"gc_policies"`
 			InMaintenance     bool                  `json:"in_maintenance"`
 			Metadata          map[string]string     `json:"metadata"`
-			RBACPolicies      []RBACPolicy          `json:"rbac_policies"`
+			RBACPolicies      []keppel.RBACPolicy   `json:"rbac_policies"`
 			ReplicationPolicy *ReplicationPolicy    `json:"replication"`
 			ValidationPolicy  *ValidationPolicy     `json:"validation"`
 			PlatformFilter    keppel.PlatformFilter `json:"platform_filter"`
@@ -420,14 +307,13 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	rbacPolicies := make([]keppel.RBACPolicy, len(req.Account.RBACPolicies))
 	for idx, policy := range req.Account.RBACPolicies {
-		rbacPolicies[idx], err = parseRBACPolicy(policy)
+		err := policy.ValidateAndNormalize()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
-		//NOTE: There are some delayed checks below which require the existing account to be loaded from the DB first.
+		req.Account.RBACPolicies[idx] = policy
 	}
 
 	metadataJSONStr := ""
@@ -442,12 +328,19 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		gcPoliciesJSONStr = string(gcPoliciesJSON)
 	}
 
+	rbacPoliciesJSONStr := ""
+	if len(req.Account.RBACPolicies) > 0 {
+		rbacPoliciesJSON, _ := json.Marshal(req.Account.RBACPolicies)
+		rbacPoliciesJSONStr = string(rbacPoliciesJSON)
+	}
+
 	accountToCreate := keppel.Account{
 		Name:                     accountName,
 		AuthTenantID:             req.Account.AuthTenantID,
 		InMaintenance:            req.Account.InMaintenance,
 		MetadataJSON:             metadataJSONStr,
 		GCPoliciesJSON:           gcPoliciesJSONStr,
+		RBACPoliciesJSON:         rbacPoliciesJSONStr,
 		SecurityScanPoliciesJSON: "[]",
 	}
 
@@ -561,8 +454,8 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	if account != nil {
 		isExternalReplica = account.ExternalPeerURL != ""
 	}
-	for _, policy := range rbacPolicies {
-		if policy.CanFirstPullAnonymously && !isExternalReplica {
+	for _, policy := range req.Account.RBACPolicies {
+		if slices.Contains(policy.Permissions, keppel.GrantsAnonymousFirstPull) && !isExternalReplica {
 			http.Error(w, `RBAC policy with "anonymous_first_pull" may only be for external replica accounts`, http.StatusUnprocessableEntity)
 			return
 		}
@@ -691,6 +584,11 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			needsUpdate = true
 			needsAudit = true
 		}
+		if account.RBACPoliciesJSON != accountToCreate.RBACPoliciesJSON {
+			account.RBACPoliciesJSON = accountToCreate.RBACPoliciesJSON
+			needsUpdate = true
+			needsAudit = true
+		}
 		if account.RequiredLabels != accountToCreate.RequiredLabels {
 			account.RequiredLabels = accountToCreate.RequiredLabels
 			needsUpdate = true
@@ -723,28 +621,6 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	submitAudit := func(action cadf.Action, target AuditRBACPolicy) {
-		if userInfo := authz.UserIdentity.UserInfo(); userInfo != nil {
-			a.auditor.Record(audittools.EventParameters{
-				Time:       time.Now(),
-				Request:    r,
-				User:       userInfo,
-				ReasonCode: http.StatusOK,
-				Action:     action,
-				Target:     target,
-			})
-		}
-	}
-
-	for idx, policy := range rbacPolicies {
-		policy.AccountName = account.Name
-		rbacPolicies[idx] = policy
-	}
-	err = a.putRBACPolicies(*account, rbacPolicies, submitAudit)
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-
 	accountRendered, err := a.renderAccount(*account)
 	if respondwith.ErrorText(w, err) {
 		return
@@ -772,110 +648,6 @@ func replicationPoliciesFunctionallyEqual(lhs, rhs *ReplicationPolicy) bool {
 	rhsClone.ExternalPeer.UserName = ""
 	rhsClone.ExternalPeer.Password = ""
 	return reflect.DeepEqual(lhsClone, rhsClone)
-}
-
-func (a *API) putRBACPolicies(account keppel.Account, policies []keppel.RBACPolicy, submitAudit func(action cadf.Action, target AuditRBACPolicy)) error {
-	//enumerate existing policies
-	var dbPolicies []keppel.RBACPolicy
-	_, err := a.db.Select(&dbPolicies, `SELECT * FROM rbac_policies WHERE account_name = $1`, account.Name)
-	if err != nil {
-		return err
-	}
-
-	//put existing set of policies in a map to allow diff with new set
-	mapKey := func(p keppel.RBACPolicy) string {
-		//this mapping is collision-free because RepositoryPattern and UserNamePattern are valid regexes
-		return fmt.Sprintf("%s[%s][%s][%s]", p.AccountName, p.CidrPattern, p.RepositoryPattern, p.UserNamePattern)
-	}
-	state := make(map[string]keppel.RBACPolicy)
-	for _, policy := range dbPolicies {
-		state[mapKey(policy)] = policy
-	}
-
-	//insert or update policies as needed
-	for _, policy := range policies {
-		key := mapKey(policy)
-		if policyInDB, exists := state[key]; exists {
-			//update if necessary
-			if policy != policyInDB {
-				_, err := a.db.Update(&policy) //nolint:gosec // Update is not holding onto the pointer after it returns
-				if err != nil {
-					return err
-				}
-				submitAudit("update/rbac-policy", AuditRBACPolicy{
-					Account: account,
-					Before:  renderRBACPolicyPtr(policyInDB),
-					After:   renderRBACPolicyPtr(policy),
-				})
-			}
-		} else {
-			//insert missing policy
-			err := a.db.Insert(&policy) //nolint:gosec // Update is not holding onto the pointer after it returns
-			if err != nil {
-				return err
-			}
-			submitAudit("create/rbac-policy", AuditRBACPolicy{
-				Account: account,
-				After:   renderRBACPolicyPtr(policy),
-			})
-		}
-
-		//remove all updated policies from `state`
-		delete(state, key)
-	}
-
-	//because of delete() up there, `state` now only contains policies that are
-	//not in `policies` and which have to be deleted
-	for _, policy := range state {
-		_, err := a.db.Delete(&policy) //nolint:gosec // Delete is not holding onto the pointer after it returns
-		if err != nil {
-			return err
-		}
-		submitAudit("delete/rbac-policy", AuditRBACPolicy{
-			Account: account,
-			Before:  renderRBACPolicyPtr(policy),
-		})
-	}
-
-	//sync new accounts.rbac_policies_json field with the state of the rbac_policies table
-	return a.fillNewStyleRBACPolicies(account, policies)
-}
-
-func (a *API) fillNewStyleRBACPolicies(account keppel.Account, policies []keppel.RBACPolicy) error {
-	// convert from old format to new format
-	var newPolicies []keppel.NewRBACPolicy
-	for _, policy := range policies {
-		apiPolicy := renderRBACPolicy(policy)
-		newPolicies = append(newPolicies, keppel.NewRBACPolicy(apiPolicy))
-	}
-
-	// ensure same sorting as in SQL (ORDER BY account_name, match_repository, match_username, match_cidr)
-	slices.SortFunc(newPolicies, func(lhs, rhs keppel.NewRBACPolicy) int {
-		cmp := strings.Compare(string(lhs.RepositoryPattern), string(rhs.RepositoryPattern))
-		if cmp != 0 {
-			return cmp
-		}
-		cmp = strings.Compare(string(lhs.UserNamePattern), string(rhs.UserNamePattern))
-		if cmp != 0 {
-			return cmp
-		}
-		return strings.Compare(lhs.CidrPattern, rhs.CidrPattern)
-	})
-
-	newPoliciesStr := ""
-	if len(newPolicies) > 0 {
-		buf, err := json.Marshal(newPolicies)
-		if err != nil {
-			return err
-		}
-		newPoliciesStr = string(buf)
-	}
-
-	_, err := a.db.Exec(`UPDATE accounts SET rbac_policies_json = $1 WHERE name = $2`, newPoliciesStr, account.Name)
-	if err != nil {
-		return fmt.Errorf("while writing accounts.rbac_policies_json: %w", err)
-	}
-	return nil
 }
 
 type deleteAccountRemainingManifest struct {

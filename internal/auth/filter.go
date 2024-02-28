@@ -20,6 +20,8 @@
 package auth
 
 import (
+	"fmt"
+
 	"github.com/sapcc/go-bits/httpext"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -175,31 +177,35 @@ func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience
 		"delete": uid.HasPermission(keppel.CanDeleteFromAccount, account.AuthTenantID),
 	}
 
-	var policies []keppel.RBACPolicy
-	_, err = db.Select(&policies, "SELECT * FROM rbac_policies WHERE account_name = $1", account.Name)
+	policies, err := account.ParseRBACPolicies()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("while parsing account RBAC policies: %w", err)
 	}
 	userName := uid.UserName()
 	for _, policy := range policies {
-		if !policy.Matches(ip, repoScope.FullRepositoryName, userName) {
+		if !policy.Matches(ip, repoScope.RepositoryName, userName) {
 			continue
 		}
 
-		if policy.CanPullAnonymously {
+		hasPerm := make(map[keppel.RBACPermission]bool)
+		for _, perm := range policy.Permissions {
+			hasPerm[perm] = true
+		}
+
+		if hasPerm[keppel.GrantsAnonymousPull] {
 			isAllowedAction["pull"] = true
 		}
-		if policy.CanFirstPullAnonymously {
+		if hasPerm[keppel.GrantsAnonymousFirstPull] {
 			isAllowedAction["anonymous_first_pull"] = true
 		}
 		if uid.UserType() != keppel.AnonymousUser {
-			if policy.CanPull {
+			if hasPerm[keppel.GrantsPull] {
 				isAllowedAction["pull"] = true
 			}
-			if policy.CanPush {
+			if hasPerm[keppel.GrantsPush] {
 				isAllowedAction["push"] = true
 			}
-			if policy.CanDelete {
+			if hasPerm[keppel.GrantsDelete] {
 				isAllowedAction["delete"] = true
 			}
 		}

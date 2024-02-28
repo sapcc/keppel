@@ -22,9 +22,6 @@ package keppel
 import (
 	"database/sql"
 	"errors"
-	"fmt"
-	"net"
-	"regexp"
 	"time"
 
 	"github.com/go-gorp/gorp/v3"
@@ -85,52 +82,6 @@ func FindAccount(db gorp.SqlExecutor, name string) (*Account, error) {
 		return nil, nil
 	}
 	return &account, err
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-// RBACPolicy contains a record from the `rbac_policies` table.
-//
-// TODO Replace this DB table with the new `accounts.rbac_policies_json` field.
-type RBACPolicy struct {
-	AccountName             string `db:"account_name"`
-	CidrPattern             string `db:"match_cidr"`
-	RepositoryPattern       string `db:"match_repository"`
-	UserNamePattern         string `db:"match_username"`
-	CanPullAnonymously      bool   `db:"can_anon_pull"`
-	CanFirstPullAnonymously bool   `db:"can_anon_first_pull"`
-	CanPull                 bool   `db:"can_pull"`
-	CanPush                 bool   `db:"can_push"`
-	CanDelete               bool   `db:"can_delete"`
-}
-
-// Matches evaluates the cidr and regexes in this policy.
-func (r RBACPolicy) Matches(ip, repoName, userName string) bool {
-	if r.CidrPattern != "" {
-		ip := net.ParseIP(ip)
-		_, network, err := net.ParseCIDR(r.CidrPattern)
-		if err != nil || !network.Contains(ip) {
-			return false
-		}
-	}
-	if r.RepositoryPattern != "" {
-		rx, err := regexp.Compile(fmt.Sprintf(`^%s/(?:%s)$`,
-			regexp.QuoteMeta(r.AccountName),
-			r.RepositoryPattern,
-		))
-		if err != nil || !rx.MatchString(repoName) {
-			return false
-		}
-	}
-
-	if r.UserNamePattern != "" {
-		rx, err := regexp.Compile(fmt.Sprintf(`^(?:%s)$`, r.UserNamePattern))
-		if err != nil || !rx.MatchString(userName) {
-			return false
-		}
-	}
-
-	return true
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -489,7 +440,6 @@ func GetSecurityInfo(db gorp.SqlExecutor, repoID int64, manifestDigest digest.Di
 
 func initModels(db *gorp.DbMap) {
 	db.AddTableWithName(Account{}, "accounts").SetKeys(false, "name")
-	db.AddTableWithName(RBACPolicy{}, "rbac_policies").SetKeys(false, "account_name", "match_repository", "match_username")
 	db.AddTableWithName(Blob{}, "blobs").SetKeys(true, "id")
 	db.AddTableWithName(Upload{}, "uploads").SetKeys(false, "repo_id", "uuid")
 	db.AddTableWithName(Repository{}, "repos").SetKeys(true, "id")

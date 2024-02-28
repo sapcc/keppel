@@ -182,8 +182,11 @@ func TestBlobMonolithicUpload(t *testing.T) {
 				"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull"`,
 			},
 		}.Check(t, h)
-		_, err := s.DB.Exec(
-			`INSERT INTO rbac_policies (account_name, match_repository, match_username, can_anon_pull) VALUES ('test1', 'foo', '', TRUE)`,
+		_, err := s.DB.Exec(`UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
+			test.ToJSON([]keppel.RBACPolicy{{
+				RepositoryPattern: "foo",
+				Permissions:       []keppel.RBACPermission{keppel.GrantsAnonymousPull},
+			}}),
 		)
 		if err != nil {
 			t.Fatal(err.Error())
@@ -195,7 +198,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   assert.ByteData(blob.Contents),
 		}.Check(t, h)
-		_, err = s.DB.Exec(`DELETE FROM rbac_policies`)
+		_, err = s.DB.Exec(`UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1", "")
 		if err != nil {
 			t.Fatal(err.Error())
 		}

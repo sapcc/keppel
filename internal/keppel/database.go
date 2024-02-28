@@ -232,6 +232,23 @@ var sqlMigrations = map[string]string{
 		ALTER TABLE accounts
 			DROP COLUMN rbac_policies_json;
 	`,
+	"037_drop_rbac_policies_table.up.sql": `
+		DROP TABLE rbac_policies;
+	`,
+	"037_drop_rbac_policies_table.down.sql": `
+		CREATE TABLE rbac_policies (
+			account_name        TEXT    NOT NULL REFERENCES accounts ON DELETE CASCADE,
+			match_repository    TEXT    NOT NULL,
+			match_username      TEXT    NOT NULL,
+			can_anon_pull       BOOLEAN NOT NULL DEFAULT FALSE,
+			can_pull            BOOLEAN NOT NULL DEFAULT FALSE,
+			can_push            BOOLEAN NOT NULL DEFAULT FALSE,
+			can_delete          BOOLEAN NOT NULL DEFAULT FALSE,
+			match_cidr          TEXT    NOT NULL DEFAULT '0.0.0.0/0',
+			can_anon_first_pull BOOLEAN NOT NULL DEFAULT FALSE,
+			PRIMARY KEY (account_name, match_cidr, match_repository, match_username)
+		);
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.

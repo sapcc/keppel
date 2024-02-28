@@ -48,6 +48,15 @@ func (a AuditAccount) Render() cadf.Resource {
 		})
 	}
 
+	rbacPoliciesJSON := a.Account.RBACPoliciesJSON
+	if rbacPoliciesJSON != "" && rbacPoliciesJSON != "[]" {
+		res.Attachments = append(res.Attachments, cadf.Attachment{
+			Name:    "rbac-policies",
+			TypeURI: "mime:application/json",
+			Content: a.Account.RBACPoliciesJSON,
+		})
+	}
+
 	return res
 }
 
@@ -86,47 +95,6 @@ func quotasToJSON(q keppel.Quotas) string {
 	}
 	buf, _ := json.Marshal(data)
 	return string(buf)
-}
-
-// AuditRBACPolicy is an audittools.TargetRenderer.
-type AuditRBACPolicy struct {
-	Account keppel.Account
-	Before  *RBACPolicy //give nil for newly created policies
-	After   *RBACPolicy //give nil for deleted policies
-}
-
-// Render implements the audittools.TargetRenderer interface.
-func (a AuditRBACPolicy) Render() cadf.Resource {
-	var attachments []cadf.Attachment
-
-	if a.After != nil {
-		content, _ := json.Marshal(*a.After)
-		attachments = append(attachments, cadf.Attachment{
-			Name:    "payload",
-			TypeURI: "mime:application/json",
-			Content: string(content),
-		})
-	}
-
-	if a.Before != nil {
-		content, _ := json.Marshal(*a.Before)
-		name := "payload"
-		if a.After != nil {
-			name = "payload-before"
-		}
-		attachments = append(attachments, cadf.Attachment{
-			Name:    name,
-			TypeURI: "mime:application/json",
-			Content: string(content),
-		})
-	}
-
-	return cadf.Resource{
-		TypeURI:     "docker-registry/account",
-		ID:          a.Account.Name,
-		ProjectID:   a.Account.AuthTenantID,
-		Attachments: attachments,
-	}
 }
 
 // AuditSecurityScanPolicy is an audittools.TargetRenderer.
