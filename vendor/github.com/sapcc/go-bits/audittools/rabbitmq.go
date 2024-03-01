@@ -112,9 +112,8 @@ func (c *RabbitConnection) PublishEvent(event *cadf.Event) error {
 		false,       // mandatory: don't publish if no queue is bound that matches the routing key
 		false,       // immediate: don't publish if no consumer on the matched queue is ready to accept the delivery
 		amqp.Publishing{
-			ContentType:  "text/plain",
-			Body:         b,
-			DeliveryMode: amqp.Persistent, // Ensure message persistence
+			ContentType: "text/plain",
+			Body:        b,
 		},
 	)
 }
