@@ -33,6 +33,15 @@ import (
 
 var shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
 
+// ShutdownTimeout is the timeout that ListenAndServeContext() will impose on
+// server.Shutdown() before forcefully terminating request handlers that are
+// still in progress.
+//
+// The default timeout is quite lenient to accommodate long-running requests,
+// but it can be lowered for servers running in an interactive terminal session
+// where a quick response to Ctrl-C is more important.
+var ShutdownTimeout = 30 * time.Second
+
 // ContextWithSIGINT creates a new context.Context using the provided Context, and
 // launches a goroutine that cancels the Context when an interrupt signal is caught.
 //
@@ -80,7 +89,7 @@ func ListenAndServeContext(ctx context.Context, addr string, handler http.Handle
 
 		logg.Info("Shutting down HTTP server...")
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
 		err := server.Shutdown(ctx)
 		cancel()
 		waitForServerShutdown <- err
