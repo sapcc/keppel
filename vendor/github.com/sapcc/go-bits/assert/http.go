@@ -20,7 +20,6 @@
 package assert
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -115,11 +114,6 @@ func (r HTTPRequest) Check(t *testing.T, handler http.Handler) (resp *http.Respo
 	}
 
 	if r.ExpectBody != nil {
-		//json.Encoder.Encode() adds a stupid extra newline that we want to ignore
-		if response.Header.Get("Content-Type") == "application/json" {
-			responseBytes = bytes.TrimSuffix(responseBytes, []byte("\n"))
-		}
-
 		requestInfo := fmt.Sprintf("%s %s", r.Method, r.Path)
 		if !r.ExpectBody.AssertResponseBody(t, requestInfo, responseBytes) {
 			hadErrors = true
