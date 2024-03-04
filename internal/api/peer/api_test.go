@@ -33,7 +33,6 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 	h := s.Handler
 
 	//anonymous auth is never allowed, generates an auth challenge for auth.PeerAPIScope
-	//test anonymous auth: fails without RBAC policy, succeeds with RBAC policy
 	assert.HTTPRequest{
 		Method:       "POST",
 		Path:         "/peer/v1/sync-replica/test1/foo",

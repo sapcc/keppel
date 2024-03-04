@@ -20,6 +20,7 @@ package apicmd
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -68,18 +69,17 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 	}
 
 	//is it publicly readable?
-	var policies []keppel.RBACPolicy
-	_, err = g.db.Select(&policies,
-		"SELECT * FROM rbac_policies WHERE can_anon_pull AND account_name = $1",
-		account.Name,
-	)
+	policies, err := account.ParseRBACPolicies()
 	if err != nil {
 		respondNotFound(w, r)
 		return
 	}
 	for _, policy := range policies {
+		if !slices.Contains(policy.Permissions, keppel.GrantsAnonymousPull) {
+			continue
+		}
 		ip := httpext.GetRequesterIPFor(r)
-		if policy.Matches(ip, repo.FullName(), auth.AnonymousUserIdentity.UserName()) {
+		if policy.Matches(ip, repo.Name, auth.AnonymousUserIdentity.UserName()) {
 			//do the redirect
 			s := g.urlStr
 			s = strings.Replace(s, "%AUTH_TENANT_ID%", account.AuthTenantID, -1)

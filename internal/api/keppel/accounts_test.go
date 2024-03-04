@@ -240,43 +240,18 @@ func TestAccountsAPI(t *testing.T) {
 						TypeURI:   "docker-registry/account",
 						ID:        "second",
 						ProjectID: "tenant1",
-						Attachments: []cadf.Attachment{{
-							Name:    "gc-policies",
-							TypeURI: "mime:application/json",
-							Content: toJSONVia[[]keppel.GCPolicy](gcPoliciesJSON),
-						}},
-					},
-				},
-				cadf.Event{
-					RequestPath: "/keppel/v1/accounts/second",
-					Action:      "create/rbac-policy",
-					Outcome:     "success",
-					Reason:      test.CADFReasonOK,
-					Target: cadf.Resource{
-						TypeURI:   "docker-registry/account",
-						ID:        "second",
-						ProjectID: "tenant1",
-						Attachments: []cadf.Attachment{{
-							Name:    "payload",
-							TypeURI: "mime:application/json",
-							Content: test.ToJSON(rbacPoliciesJSON[0]),
-						}},
-					},
-				},
-				cadf.Event{
-					RequestPath: "/keppel/v1/accounts/second",
-					Action:      "create/rbac-policy",
-					Outcome:     "success",
-					Reason:      test.CADFReasonOK,
-					Target: cadf.Resource{
-						TypeURI:   "docker-registry/account",
-						ID:        "second",
-						ProjectID: "tenant1",
-						Attachments: []cadf.Attachment{{
-							Name:    "payload",
-							TypeURI: "mime:application/json",
-							Content: test.ToJSON(rbacPoliciesJSON[1]),
-						}},
+						Attachments: []cadf.Attachment{
+							{
+								Name:    "gc-policies",
+								TypeURI: "mime:application/json",
+								Content: toJSONVia[[]keppel.GCPolicy](gcPoliciesJSON),
+							},
+							{
+								Name:    "rbac-policies",
+								TypeURI: "mime:application/json",
+								Content: toJSONVia[[]keppel.RBACPolicy](rbacPoliciesJSON),
+							},
+						},
 					},
 				},
 			)
@@ -333,8 +308,6 @@ func TestAccountsAPI(t *testing.T) {
 	tr.DBChanges().AssertEqual(`
 		INSERT INTO accounts (name, auth_tenant_id, metadata_json) VALUES ('first', 'tenant1', '{"bar":"barbar","foo":"foofoo"}');
 		INSERT INTO accounts (name, auth_tenant_id, gc_policies_json, rbac_policies_json) VALUES ('second', 'tenant1', '[{"match_repository":".*/database","except_repository":"archive/.*","time_constraint":{"on":"pushed_at","newer_than":{"value":10,"unit":"d"}},"action":"protect"},{"match_repository":".*","only_untagged":true,"action":"delete"}]', '[{"match_repository":"library/.*","permissions":["anonymous_pull"]},{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull","push"]}]');
-		INSERT INTO rbac_policies (account_name, match_repository, match_username, can_anon_pull) VALUES ('second', 'library/.*', '', TRUE);
-		INSERT INTO rbac_policies (account_name, match_repository, match_username, can_pull, can_push) VALUES ('second', 'library/alpine', '.*@tenant2', TRUE, TRUE);
 	`)
 
 	//check editing of InMaintenance flag (this also tests editing of GC policies
@@ -391,6 +364,11 @@ func TestAccountsAPI(t *testing.T) {
 						TypeURI:   "docker-registry/account",
 						ID:        "second",
 						ProjectID: "tenant1",
+						Attachments: []cadf.Attachment{{
+							Name:    "rbac-policies",
+							TypeURI: "mime:application/json",
+							Content: toJSONVia[[]keppel.RBACPolicy](rbacPoliciesJSON),
+						}},
 					},
 				},
 			)
@@ -439,7 +417,7 @@ func TestAccountsAPI(t *testing.T) {
 	s.Auditor.ExpectEvents(t,
 		cadf.Event{
 			RequestPath: "/keppel/v1/accounts/second",
-			Action:      "update/rbac-policy",
+			Action:      cadf.UpdateAction,
 			Outcome:     "success",
 			Reason:      test.CADFReasonOK,
 			Target: cadf.Resource{
@@ -447,45 +425,9 @@ func TestAccountsAPI(t *testing.T) {
 				ID:        "second",
 				ProjectID: "tenant1",
 				Attachments: []cadf.Attachment{{
-					Name:    "payload",
+					Name:    "rbac-policies",
 					TypeURI: "mime:application/json",
-					Content: test.ToJSON(newRBACPoliciesJSON[0]),
-				}, {
-					Name:    "payload-before",
-					TypeURI: "mime:application/json",
-					Content: test.ToJSON(rbacPoliciesJSON[1]),
-				}},
-			},
-		},
-		cadf.Event{
-			RequestPath: "/keppel/v1/accounts/second",
-			Action:      "create/rbac-policy",
-			Outcome:     "success",
-			Reason:      test.CADFReasonOK,
-			Target: cadf.Resource{
-				TypeURI:   "docker-registry/account",
-				ID:        "second",
-				ProjectID: "tenant1",
-				Attachments: []cadf.Attachment{{
-					Name:    "payload",
-					TypeURI: "mime:application/json",
-					Content: test.ToJSON(newRBACPoliciesJSON[1]),
-				}},
-			},
-		},
-		cadf.Event{
-			RequestPath: "/keppel/v1/accounts/second",
-			Action:      "delete/rbac-policy",
-			Outcome:     "success",
-			Reason:      test.CADFReasonOK,
-			Target: cadf.Resource{
-				TypeURI:   "docker-registry/account",
-				ID:        "second",
-				ProjectID: "tenant1",
-				Attachments: []cadf.Attachment{{
-					Name:    "payload",
-					TypeURI: "mime:application/json",
-					Content: test.ToJSON(rbacPoliciesJSON[0]),
+					Content: toJSONVia[[]keppel.RBACPolicy](newRBACPoliciesJSON),
 				}},
 			},
 		},
@@ -558,9 +500,6 @@ func TestAccountsAPI(t *testing.T) {
 	}.Check(t, h)
 	tr.DBChanges().AssertEqual(`
 		UPDATE accounts SET gc_policies_json = '[]', rbac_policies_json = '[{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull"]},{"match_repository":"library/alpine","match_username":".*@tenant3","permissions":["pull","delete"]}]' WHERE name = 'second';
-		DELETE FROM rbac_policies WHERE account_name = 'second' AND match_repository = 'library/.*' AND match_username = '' AND match_cidr = '0.0.0.0/0';
-		UPDATE rbac_policies SET can_push = FALSE WHERE account_name = 'second' AND match_repository = 'library/alpine' AND match_username = '.*@tenant2' AND match_cidr = '0.0.0.0/0';
-		INSERT INTO rbac_policies (account_name, match_repository, match_username, can_pull, can_delete) VALUES ('second', 'library/alpine', '.*@tenant3', TRUE, TRUE);
 	`)
 }
 
@@ -1052,7 +991,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("\"0.0.0.0/64\" is not a valid cidr\n"),
+		ExpectBody:   assert.StringData("\"0.0.0.0/64\" is not a valid CIDR\n"),
 	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -1069,7 +1008,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("0.0.0.0/0 cannot be used as cidr because it matches everything\n"),
+		ExpectBody:   assert.StringData("0.0.0.0/0 cannot be used as CIDR because it matches everything\n"),
 	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -1100,7 +1039,6 @@ func TestPutAccountErrorCases(t *testing.T) {
 	}.Check(t, h)
 	tr.DBChanges().AssertEqual(`
 		INSERT INTO accounts (name, auth_tenant_id, rbac_policies_json) VALUES ('first', 'tenant1', '[{"match_cidr":"1.2.0.0/16","permissions":["pull"]}]');
-		INSERT INTO rbac_policies (account_name, match_repository, match_username, can_pull, match_cidr) VALUES ('first', '', '', TRUE, '1.2.0.0/16');
 	`)
 	assert.HTTPRequest{
 		Method:       "GET",
@@ -2076,7 +2014,7 @@ func makeSubleaseToken(accountName, primaryHostname, secret string) string {
 func toJSONVia[T any](in any) string {
 	//This is mostly the same as `test.ToJSON(in)`, but deserializes into
 	//T in an intermediate step to render the JSON with the correct field order.
-	//Used for the GCPolicy and SecurityScanPolicy audit event matches.
+	//Used for the GCPolicy, RBACPolicy and SecurityScanPolicy audit event matches.
 	buf, _ := json.Marshal(in)
 	var intermediate T
 	err := json.Unmarshal(buf, &intermediate)
