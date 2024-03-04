@@ -38,7 +38,7 @@ var (
 
 // ToJSON is a more compact equivalent of json.Marshal() that panics on error
 // instead of returning it, and which returns string instead of []byte.
-func ToJSON(x interface{}) string {
+func ToJSON(x any) string {
 	result, err := json.Marshal(x)
 	if err != nil {
 		panic(err.Error())

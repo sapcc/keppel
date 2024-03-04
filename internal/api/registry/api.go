@@ -143,7 +143,7 @@ func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
 
 	//The response is not defined beyond code 200, so reply in the same way as
 	//https://registry-1.docker.io/v2/, with an empty JSON object.
-	respondwith.JSON(w, http.StatusOK, map[string]interface{}{})
+	respondwith.JSON(w, http.StatusOK, map[string]any{})
 }
 
 // Like respondwith.ErrorText(), but writes a RegistryV2Error instead of plain text.

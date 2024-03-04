@@ -132,7 +132,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 	//gather the data for our side of the bargain
 	tagsByDigest := make(map[digest.Digest][]keppel.TagForSync)
 	query = `SELECT name, digest FROM tags WHERE repo_id = $1`
-	err = sqlext.ForeachRow(a.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(a.db, query, []any{repo.ID}, func(rows *sql.Rows) error {
 		var (
 			name   string
 			digest digest.Digest
@@ -150,7 +150,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 
 	var manifests []keppel.ManifestForSync
 	query = `SELECT digest FROM manifests WHERE repo_id = $1`
-	err = sqlext.ForeachRow(a.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(a.db, query, []any{repo.ID}, func(rows *sql.Rows) error {
 		var digest digest.Digest
 		err = rows.Scan(&digest)
 		if err != nil {

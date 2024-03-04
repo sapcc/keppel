@@ -258,7 +258,7 @@ type DB struct {
 
 // SelectBool is analogous to the other SelectFoo() functions from gorp.DbMap
 // like SelectFloat, SelectInt, SelectStr, etc.
-func (db *DB) SelectBool(query string, args ...interface{}) (bool, error) {
+func (db *DB) SelectBool(query string, args ...any) (bool, error) {
 	var result bool
 	err := db.QueryRow(query, args...).Scan(&result)
 	return result, err

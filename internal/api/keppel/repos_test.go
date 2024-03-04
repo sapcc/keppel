@@ -32,7 +32,7 @@ import (
 	"github.com/sapcc/keppel/internal/trivy"
 )
 
-func mustInsert(t *testing.T, db *keppel.DB, obj interface{}) {
+func mustInsert(t *testing.T, db *keppel.DB, obj any) {
 	t.Helper()
 	err := db.Insert(obj)
 	if err != nil {
@@ -47,7 +47,7 @@ func mustDo(t *testing.T, err error) {
 	}
 }
 
-func mustExec(t *testing.T, db *keppel.DB, query string, args ...interface{}) {
+func mustExec(t *testing.T, db *keppel.DB, query string, args ...any) {
 	t.Helper()
 	_, err := db.Exec(query, args...)
 	if err != nil {

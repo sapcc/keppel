@@ -85,7 +85,7 @@ func (a *API) handleGetRepositories(w http.ResponseWriter, r *http.Request) {
 		SQL:         repositoryGetQuery,
 		MarkerField: "r.name",
 		Options:     r.URL.Query(),
-		BindValues:  []interface{}{account.Name},
+		BindValues:  []any{account.Name},
 	}.Prepare()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

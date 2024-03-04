@@ -203,10 +203,10 @@ type paginatedQuery struct {
 	SQL         string
 	MarkerField string
 	Options     url.Values
-	BindValues  []interface{}
+	BindValues  []any
 }
 
-func (q paginatedQuery) Prepare() (modifiedSQLQuery string, modifiedBindValues []interface{}, limit uint64, err error) {
+func (q paginatedQuery) Prepare() (modifiedSQLQuery string, modifiedBindValues []any, limit uint64, err error) {
 	//hidden feature: allow lowering the default limit with ?limit= (we only
 	//really use this for the unit tests)
 	limit = uint64(1000)

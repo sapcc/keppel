@@ -140,7 +140,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 	if len(allNames) == 0 {
 		allNames = []string{}
 	}
-	respondwith.JSON(w, http.StatusOK, map[string]interface{}{
+	respondwith.JSON(w, http.StatusOK, map[string]any{
 		"repositories": allNames,
 	})
 }
@@ -149,7 +149,7 @@ const catalogGetQuery = `SELECT name FROM repos WHERE account_name = $1 ORDER BY
 
 func (a *API) getCatalogForAccount(accountName string, includeAccountName bool) ([]string, error) {
 	var result []string
-	err := sqlext.ForeachRow(a.db, catalogGetQuery, []interface{}{accountName},
+	err := sqlext.ForeachRow(a.db, catalogGetQuery, []any{accountName},
 		func(rows *sql.Rows) error {
 			var name string
 			err := rows.Scan(&name)

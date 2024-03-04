@@ -516,7 +516,7 @@ func maintainManifestBlobRefs(tx *gorp.Transaction, m keppel.Manifest, reference
 	//find existing manifest_blob_refs entries for this manifest
 	isExistingBlobIDRef := make(map[int64]bool)
 	query = `SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`
-	err = sqlext.ForeachRow(tx, query, []interface{}{m.RepositoryID, m.Digest}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(tx, query, []any{m.RepositoryID, m.Digest}, func(rows *sql.Rows) error {
 		var blobID int64
 		err := rows.Scan(&blobID)
 		isExistingBlobIDRef[blobID] = true
@@ -578,7 +578,7 @@ func maintainManifestManifestRefs(tx *gorp.Transaction, m keppel.Manifest, refer
 	//find existing manifest_manifest_refs entries for this manifest
 	isExistingManifestDigestRef := make(map[string]bool)
 	query := `SELECT child_digest FROM manifest_manifest_refs WHERE repo_id = $1 AND parent_digest = $2`
-	err := sqlext.ForeachRow(tx, query, []interface{}{m.RepositoryID, m.Digest}, func(rows *sql.Rows) error {
+	err := sqlext.ForeachRow(tx, query, []any{m.RepositoryID, m.Digest}, func(rows *sql.Rows) error {
 		var childDigest string
 		err := rows.Scan(&childDigest)
 		isExistingManifestDigestRef[childDigest] = true

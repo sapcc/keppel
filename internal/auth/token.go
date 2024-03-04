@@ -49,7 +49,7 @@ type tokenClaims struct {
 
 func parseToken(cfg keppel.Configuration, ad keppel.AuthDriver, audience Audience, tokenStr string) (*Authorization, *keppel.RegistryV2Error) {
 	//this function is used by jwt.ParseWithClaims() to select which public key to use for validation
-	keyFunc := func(t *jwt.Token) (interface{}, error) {
+	keyFunc := func(t *jwt.Token) (any, error) {
 		//check the token header to see which key we used for signing
 		ourIssuerKeys := audience.IssuerKeys(cfg)
 		for _, ourIssuerKey := range ourIssuerKeys {

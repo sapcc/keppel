@@ -104,7 +104,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		SQL:         manifestGetQuery,
 		MarkerField: "digest",
 		Options:     r.URL.Query(),
-		BindValues:  []interface{}{repo.ID},
+		BindValues:  []any{repo.ID},
 	}.Prepare()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -121,7 +121,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		SQL:         securityInfoGetQuery,
 		MarkerField: "digest",
 		Options:     r.URL.Query(),
-		BindValues:  []interface{}{repo.ID},
+		BindValues:  []any{repo.ID},
 	}.Prepare()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

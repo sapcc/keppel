@@ -38,7 +38,7 @@ func TestPeersAPI(t *testing.T) {
 		Path:         "/keppel/v1/peers",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
 		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"peers": []interface{}{}},
+		ExpectBody:   assert.JSONObject{"peers": []any{}},
 	}.Check(t, h)
 
 	//add some peers

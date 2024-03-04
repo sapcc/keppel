@@ -138,11 +138,11 @@ func run(cmd *cobra.Command, args []string) {
 
 // Creates the Keppel account for this job if it does not exist yet.
 func (j *healthMonitorJob) PrepareKeppelAccount(ctx context.Context) error {
-	reqBody := map[string]interface{}{
-		"account": map[string]interface{}{
+	reqBody := map[string]any{
+		"account": map[string]any{
 			"auth_tenant_id": j.AuthDriver.CurrentAuthTenantID(),
 			//anonymous pull access is needed for `keppel server anycastmonitor`
-			"rbac_policies": []map[string]interface{}{{
+			"rbac_policies": []map[string]any{{
 				"match_repository": "healthcheck",
 				"permissions":      []string{"anonymous_pull"},
 			}},

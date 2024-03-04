@@ -107,10 +107,10 @@ func GenerateImage(layers ...Bytes) Image {
 	return GenerateImageWithCustomConfig(nil, layers...)
 }
 
-func GenerateImageWithCustomConfig(change func(map[string]interface{}), layers ...Bytes) Image {
-	config := map[string]interface{}{
+func GenerateImageWithCustomConfig(change func(map[string]any), layers ...Bytes) Image {
+	config := map[string]any{
 		"architecture": "amd64",
-		"config": map[string]interface{}{
+		"config": map[string]any{
 			"Hostname":     "",
 			"Domainname":   "",
 			"User":         "",
@@ -133,7 +133,7 @@ func GenerateImageWithCustomConfig(change func(map[string]interface{}), layers .
 			"Labels":     nil,
 		},
 		"container": "efd768c7229cf5030d391fb572f60cf4e22d5d85828fafb3aa5ff37997523c60",
-		"container_config": map[string]interface{}{
+		"container_config": map[string]any{
 			"Hostname":     "efd768c7229c",
 			"Domainname":   "",
 			"User":         "",
@@ -162,7 +162,7 @@ func GenerateImageWithCustomConfig(change func(map[string]interface{}), layers .
 		},
 		"created":        makeTimestamp(86400),
 		"docker_version": "19.03.1-ce",
-		"history": []map[string]interface{}{
+		"history": []map[string]any{
 			{
 				"created":     makeTimestamp(0),
 				"created_by":  "/bin/sh -c #(nop)  ENV test_for=keppel",
@@ -170,7 +170,7 @@ func GenerateImageWithCustomConfig(change func(map[string]interface{}), layers .
 			},
 		},
 		"os": "linux",
-		"rootfs": map[string]interface{}{
+		"rootfs": map[string]any{
 			"type": "layers",
 		},
 	}
@@ -180,13 +180,13 @@ func GenerateImageWithCustomConfig(change func(map[string]interface{}), layers .
 	}
 
 	//build image config referencing the given layers
-	imageConfig := make(map[string]interface{})
+	imageConfig := make(map[string]any)
 	for k, v := range config {
 		imageConfig[k] = v
 	}
-	history := []map[string]interface{}{imageConfig["history"].([]map[string]interface{})[0]}
+	history := []map[string]any{imageConfig["history"].([]map[string]interface{})[0]}
 	for idx, layer := range layers {
-		history = append(history, map[string]interface{}{
+		history = append(history, map[string]any{
 			"created":    makeTimestamp(idx),
 			"created_by": fmt.Sprintf("/bin/sh -c #(nop) ADD file:%s in / ", layer.Digest),
 		})
@@ -199,15 +199,15 @@ func GenerateImageWithCustomConfig(change func(map[string]interface{}), layers .
 	imageConfigBytesObj := newBytesWithMediaType(imageConfigBytes, schema2.MediaTypeImageConfig)
 
 	//build a manifest
-	layerDescs := []map[string]interface{}{}
+	layerDescs := []map[string]any{}
 	for _, layer := range layers {
-		layerDescs = append(layerDescs, map[string]interface{}{
+		layerDescs = append(layerDescs, map[string]any{
 			"mediaType": layer.MediaType,
 			"size":      len(layer.Contents),
 			"digest":    layer.Digest,
 		})
 	}
-	manifestData := map[string]interface{}{
+	manifestData := map[string]any{
 		"schemaVersion": 2,
 		"mediaType":     schema2.MediaTypeManifest,
 		"config": assert.JSONObject{
@@ -266,10 +266,10 @@ type ImageList struct {
 // GenerateImageList makes an ImageList containing the given images in a
 // deterministic manner.
 func GenerateImageList(images ...Image) ImageList {
-	manifestDescs := []map[string]interface{}{}
+	manifestDescs := []map[string]any{}
 	testArchStrings := []string{"amd64", "arm", "arm64", "386", "ppc64le", "s390x"}
 	for idx, img := range images {
-		manifestDescs = append(manifestDescs, map[string]interface{}{
+		manifestDescs = append(manifestDescs, map[string]any{
 			"mediaType": img.Manifest.MediaType,
 			"size":      len(img.Manifest.Contents),
 			"digest":    img.Manifest.Digest,
@@ -280,7 +280,7 @@ func GenerateImageList(images ...Image) ImageList {
 		})
 	}
 
-	manifestListBytes, err := json.Marshal(map[string]interface{}{
+	manifestListBytes, err := json.Marshal(map[string]any{
 		"schemaVersion": 2,
 		"mediaType":     manifestlist.MediaTypeManifestList,
 		"manifests":     manifestDescs,

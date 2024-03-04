@@ -87,7 +87,7 @@ func mustDo(t *testing.T, err error) {
 	}
 }
 
-func mustExec(t *testing.T, db gorp.SqlExecutor, query string, args ...interface{}) {
+func mustExec(t *testing.T, db gorp.SqlExecutor, query string, args ...any) {
 	t.Helper()
 	_, err := db.Exec(query, args...)
 	if err != nil {

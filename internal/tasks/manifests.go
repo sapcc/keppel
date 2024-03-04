@@ -230,7 +230,7 @@ func (j *Janitor) getReplicaSyncPayload(ctx context.Context, account keppel.Acco
 	//assemble request body
 	tagsByDigest := make(map[digest.Digest][]keppel.TagForSync)
 	query := `SELECT name, digest, last_pulled_at FROM tags WHERE repo_id = $1`
-	err = sqlext.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(j.db, query, []any{repo.ID}, func(rows *sql.Rows) error {
 		var (
 			name         string
 			digest       digest.Digest
@@ -252,7 +252,7 @@ func (j *Janitor) getReplicaSyncPayload(ctx context.Context, account keppel.Acco
 
 	var manifests []keppel.ManifestForSync
 	query = `SELECT digest, last_pulled_at FROM manifests WHERE repo_id = $1`
-	err = sqlext.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(j.db, query, []any{repo.ID}, func(rows *sql.Rows) error {
 		var (
 			digest       digest.Digest
 			lastPulledAt *time.Time
@@ -377,7 +377,7 @@ func (j *Janitor) performManifestSync(ctx context.Context, account keppel.Accoun
 
 	//enumerate manifest-manifest refs in this repo
 	parentDigestsOf := make(map[digest.Digest][]digest.Digest)
-	err = sqlext.ForeachRow(j.db, syncManifestEnumerateRefsQuery, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(j.db, syncManifestEnumerateRefsQuery, []any{repo.ID}, func(rows *sql.Rows) error {
 		var (
 			parentDigest digest.Digest
 			childDigest  digest.Digest
@@ -725,7 +725,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 	}
 
 	//collect vulnerability status of constituent images
-	err = sqlext.ForeachRow(j.db, securityInfoCheckSubmanifestInfoQuery, []interface{}{manifest.Digest}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(j.db, securityInfoCheckSubmanifestInfoQuery, []any{manifest.Digest}, func(rows *sql.Rows) error {
 		var vulnStatus trivy.VulnerabilityStatus
 		err := rows.Scan(&vulnStatus)
 		securityStatuses = append(securityStatuses, vulnStatus)

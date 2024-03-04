@@ -144,7 +144,7 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 
 	//load tags (for matching policies on match_tag, except_tag and only_untagged)
 	query := `SELECT digest, name FROM tags WHERE repo_id = $1`
-	err = sqlext.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(j.db, query, []any{repo.ID}, func(rows *sql.Rows) error {
 		var (
 			digest  digest.Digest
 			tagName string
@@ -167,7 +167,7 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 
 	//check manifest-manifest relations to fill GCStatus.ProtectedByManifest
 	query = `SELECT parent_digest, child_digest FROM manifest_manifest_refs WHERE repo_id = $1`
-	err = sqlext.ForeachRow(j.db, query, []interface{}{repo.ID}, func(rows *sql.Rows) error {
+	err = sqlext.ForeachRow(j.db, query, []any{repo.ID}, func(rows *sql.Rows) error {
 		var (
 			parentDigest string
 			childDigest  digest.Digest

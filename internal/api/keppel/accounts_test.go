@@ -58,7 +58,7 @@ func TestAccountsAPI(t *testing.T) {
 		Path:         "/keppel/v1/accounts",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
 		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"accounts": []interface{}{}},
+		ExpectBody:   assert.JSONObject{"accounts": []any{}},
 	}.Check(t, h)
 	assert.HTTPRequest{
 		Method:       "GET",

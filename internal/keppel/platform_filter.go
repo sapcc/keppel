@@ -33,7 +33,7 @@ import (
 type PlatformFilter []manifestlist.PlatformSpec
 
 // Scan implements the sql.Scanner interface.
-func (f *PlatformFilter) Scan(src interface{}) error {
+func (f *PlatformFilter) Scan(src any) error {
 	in, ok := src.(string)
 	if !ok {
 		return fmt.Errorf("cannot deserialize %T into %T", src, f)

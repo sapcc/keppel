@@ -234,7 +234,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"accounts": accountsRendered})
+	respondwith.JSON(w, http.StatusOK, map[string]any{"accounts": accountsRendered})
 }
 
 func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
@@ -252,7 +252,7 @@ func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"account": accountRendered})
+	respondwith.JSON(w, http.StatusOK, map[string]any{"account": accountRendered})
 }
 
 var looksLikeAPIVersionRx = regexp.MustCompile(`^v[0-9][1-9]*$`)
@@ -625,7 +625,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"account": accountRendered})
+	respondwith.JSON(w, http.StatusOK, map[string]any{"account": accountRendered})
 }
 
 // Like reflect.DeepEqual, but ignores some fields that are allowed to be
@@ -724,7 +724,7 @@ func (a *API) deleteAccount(ctx context.Context, account keppel.Account) (*delet
 
 	//can only delete account when user has deleted all manifests from it
 	var nextManifests []deleteAccountRemainingManifest
-	err := sqlext.ForeachRow(a.db, deleteAccountFindManifestsQuery, []interface{}{account.Name},
+	err := sqlext.ForeachRow(a.db, deleteAccountFindManifestsQuery, []any{account.Name},
 		func(rows *sql.Rows) error {
 			var m deleteAccountRemainingManifest
 			err := rows.Scan(&m.RepositoryName, &m.Digest)
@@ -832,7 +832,7 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 		serialized = st.Serialize()
 	}
 
-	respondwith.JSON(w, http.StatusOK, map[string]interface{}{"sublease_token": serialized})
+	respondwith.JSON(w, http.StatusOK, map[string]any{"sublease_token": serialized})
 }
 
 func (a *API) handleGetSecurityScanPolicies(w http.ResponseWriter, r *http.Request) {

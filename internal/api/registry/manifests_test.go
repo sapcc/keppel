@@ -558,8 +558,8 @@ func TestManifestRequiredLabels(t *testing.T) {
 		h := s.Handler
 		token := s.GetToken(t, "repository:test1/foo:pull,push")
 
-		image := test.GenerateImageWithCustomConfig(func(cfg map[string]interface{}) {
-			cfg["config"].(map[string]interface{})["Labels"] = map[string]string{"foo": "is there", "bar": "is there"}
+		image := test.GenerateImageWithCustomConfig(func(cfg map[string]any) {
+			cfg["config"].(map[string]any)["Labels"] = map[string]string{"foo": "is there", "bar": "is there"}
 		}, test.GenerateExampleLayer(1))
 		image.Config.MustUpload(t, s, fooRepoRef)
 		image.Layers[0].MustUpload(t, s, fooRepoRef)
@@ -620,8 +620,8 @@ func TestManifestRequiredLabels(t *testing.T) {
 
 		//upload another image with similar (but not identical) labels as
 		//preparation for the image list test below
-		otherImage := test.GenerateImageWithCustomConfig(func(cfg map[string]interface{}) {
-			cfg["config"].(map[string]interface{})["Labels"] = map[string]string{"foo": "is there", "bar": "is different"}
+		otherImage := test.GenerateImageWithCustomConfig(func(cfg map[string]any) {
+			cfg["config"].(map[string]any)["Labels"] = map[string]string{"foo": "is there", "bar": "is different"}
 		}, image.Layers[0])
 		otherImage.MustUpload(t, s, fooRepoRef, "other")
 
@@ -698,8 +698,8 @@ func TestImageManifestCmdEntrypointAsString(t *testing.T) {
 		validateManifestJob := j.ManifestValidationJob(s.Registry)
 
 		//generate an image that has strings as Entrypoint and Cmd
-		image := test.GenerateImageWithCustomConfig(func(cfg map[string]interface{}) {
-			cfg["config"].(map[string]interface{})["Cmd"] = "/usr/bin/env bash"
+		image := test.GenerateImageWithCustomConfig(func(cfg map[string]any) {
+			cfg["config"].(map[string]any)["Cmd"] = "/usr/bin/env bash"
 		}, test.GenerateExampleLayer(1))
 		image.MustUpload(t, s, fooRepoRef, "first")
 
