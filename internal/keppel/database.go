@@ -249,6 +249,14 @@ var sqlMigrations = map[string]string{
 			PRIMARY KEY (account_name, match_cidr, match_repository, match_username)
 		);
 	`,
+	"038_add_accounts_is_managed.up.sql": `
+    ALTER TABLE accounts
+      ADD COLUMN is_managed BOOLEAN NOT NULL DEFAULT FALSE;
+  `,
+	"038_add_accounts_is_managed.down.sql": `
+    ALTER TABLE accounts
+      DROP COLUMN is_managed;
+  `,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.

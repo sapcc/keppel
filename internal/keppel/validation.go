@@ -22,7 +22,7 @@ import "strings"
 
 // ValidationPolicy represents a validation policy in the API.
 type ValidationPolicy struct {
-	RequiredLabels []string `json:"required_labels,omitempty"`
+	RequiredLabels []string `json:"required_labels,omitempty" yaml:"required_labels,omitempty"`
 }
 
 func (v ValidationPolicy) JoinRequiredLabels() string {

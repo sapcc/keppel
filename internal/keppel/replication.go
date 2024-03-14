@@ -27,18 +27,18 @@ import (
 
 // ReplicationPolicy represents a replication policy in the API.
 type ReplicationPolicy struct {
-	Strategy string `json:"strategy"`
-	//only for `on_first_use`
-	UpstreamPeerHostName string `json:"upstream_peer_hostname"`
-	//only for `from_external_on_first_use`
-	ExternalPeer ReplicationExternalPeerSpec `json:"external_peer"`
+	Strategy string `json:"strategy" yaml:"strategy"`
+	// only for `on_first_use`
+	UpstreamPeerHostName string `json:"upstream_peer_hostname" yaml:"upstream_peer_hostname"`
+	// only for `from_external_on_first_use`
+	ExternalPeer ReplicationExternalPeerSpec `json:"external_peer" yaml:"external_peer"`
 }
 
 // ReplicationExternalPeerSpec appears in type ReplicationPolicy.
 type ReplicationExternalPeerSpec struct {
-	URL      string `json:"url"`
-	UserName string `json:"username,omitempty"`
-	Password string `json:"password,omitempty"`
+	URL      string `json:"url" yaml:"url"`
+	UserName string `json:"username,omitempty" yaml:"username,omitempty"`
+	Password string `json:"password,omitempty" yaml:"password,omitempty"`
 }
 
 // MarshalJSON implements the json.Marshaler interface.

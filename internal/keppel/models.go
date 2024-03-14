@@ -52,6 +52,8 @@ type Account struct {
 	RequiredLabels string `db:"required_labels"`
 	// InMaintenance indicates whether the account is in maintenance mode (as defined in the API spec).
 	InMaintenance bool `db:"in_maintenance"`
+	// IsManaged indicates if the account was created by AccountManagementDriver
+	IsManaged bool `db:"is_managed"`
 
 	// MetadataJSON contains a JSON string of a map[string]string, or the empty string.
 	MetadataJSON string `db:"metadata_json"`
