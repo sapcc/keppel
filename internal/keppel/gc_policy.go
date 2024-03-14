@@ -35,22 +35,22 @@ import (
 // GCPolicy is a policy enabling optional garbage collection runs in an account.
 // It is stored in serialized form in the GCPoliciesJSON field of type Account.
 type GCPolicy struct {
-	RepositoryRx         regexpext.BoundedRegexp `json:"match_repository"`
-	NegativeRepositoryRx regexpext.BoundedRegexp `json:"except_repository,omitempty"`
-	TagRx                regexpext.BoundedRegexp `json:"match_tag,omitempty"`
-	NegativeTagRx        regexpext.BoundedRegexp `json:"except_tag,omitempty"`
-	OnlyUntagged         bool                    `json:"only_untagged,omitempty"`
-	TimeConstraint       *GCTimeConstraint       `json:"time_constraint,omitempty"`
-	Action               string                  `json:"action"`
+	RepositoryRx         regexpext.BoundedRegexp `json:"match_repository" yaml:"match_repository"`
+	NegativeRepositoryRx regexpext.BoundedRegexp `json:"except_repository,omitempty" yaml:"except_repository,omitempty"`
+	TagRx                regexpext.BoundedRegexp `json:"match_tag,omitempty" yaml:"match_tag,omitempty"`
+	NegativeTagRx        regexpext.BoundedRegexp `json:"except_tag,omitempty" yaml:"except_tag,omitempty"`
+	OnlyUntagged         bool                    `json:"only_untagged,omitempty" yaml:"only_untagged,omitempty"`
+	TimeConstraint       *GCTimeConstraint       `json:"time_constraint,omitempty" yaml:"time_constraint,omitempty"`
+	Action               string                  `json:"action" yaml:"action"`
 }
 
 // GCTimeConstraint appears in type GCPolicy.
 type GCTimeConstraint struct {
-	FieldName   string   `json:"on"`
-	OldestCount uint64   `json:"oldest,omitempty"`
-	NewestCount uint64   `json:"newest,omitempty"`
-	MinAge      Duration `json:"older_than,omitempty"`
-	MaxAge      Duration `json:"newer_than,omitempty"`
+	FieldName   string   `json:"on" yaml:"on"`
+	OldestCount uint64   `json:"oldest,omitempty" yaml:"oldest,omitempty"`
+	NewestCount uint64   `json:"newest,omitempty" yaml:"newest,omitempty"`
+	MinAge      Duration `json:"older_than,omitempty" yaml:"older_than,omitempty"`
+	MaxAge      Duration `json:"newer_than,omitempty" yaml:"newer_than,omitempty"`
 }
 
 // MatchesRepository evaluates the repository regexes in this policy.

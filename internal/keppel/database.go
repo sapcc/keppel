@@ -287,6 +287,15 @@ var sqlMigrations = map[string]string{
 		DROP INDEX blob_mounts_can_be_deleted_at_repo_id_idx;
 		DROP INDEX manifests_validation_error_message_idx;
 	`,
+	"041_add_accounts_is_managed.up.sql": `
+    ALTER TABLE accounts
+      ADD COLUMN is_managed BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN next_account_enforcement_at TIMESTAMPTZ DEFAULT NULL;
+  `,
+	"041_add_accounts_is_managed.down.sql": `
+    ALTER TABLE accounts
+      DROP COLUMN is_managed, next_account_enforcement_at;
+  `,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.

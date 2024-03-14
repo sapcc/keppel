@@ -33,10 +33,10 @@ import (
 // RBACPolicy is a policy granting user-defined access to repos in an account.
 // It is stored in serialized form in the RBACPoliciesJSON field of type Account.
 type RBACPolicy struct {
-	CidrPattern       string                  `json:"match_cidr,omitempty"`
-	RepositoryPattern regexpext.BoundedRegexp `json:"match_repository,omitempty"`
-	UserNamePattern   regexpext.BoundedRegexp `json:"match_username,omitempty"`
-	Permissions       []RBACPermission        `json:"permissions"`
+	CidrPattern       string                  `json:"match_cidr,omitempty" yaml:"match_cidr,omitempty"`
+	RepositoryPattern regexpext.BoundedRegexp `json:"match_repository,omitempty" yaml:"match_repository,omitempty"`
+	UserNamePattern   regexpext.BoundedRegexp `json:"match_username,omitempty" yaml:"match_username,omitempty"`
+	Permissions       []RBACPermission        `json:"permissions" yaml:"permissions"`
 }
 
 // RBACPermission enumerates permissions that can be granted by an RBAC policy.

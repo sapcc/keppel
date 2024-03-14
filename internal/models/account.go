@@ -44,6 +44,8 @@ type Account struct {
 	RequiredLabels string `db:"required_labels"`
 	// InMaintenance indicates whether the account is in maintenance mode (as defined in the API spec).
 	InMaintenance bool `db:"in_maintenance"`
+	// IsManaged indicates if the account was created by AccountManagementDriver
+	IsManaged bool `db:"is_managed"`
 
 	// MetadataJSON contains a JSON string of a map[string]string, or the empty string.
 	MetadataJSON string `db:"metadata_json"`
@@ -55,6 +57,7 @@ type Account struct {
 	SecurityScanPoliciesJSON string `db:"security_scan_policies_json"`
 
 	NextBlobSweepedAt            *time.Time `db:"next_blob_sweep_at"`              // see tasks.BlobSweepJob
+	NextAccountEnforcementAt     *time.Time `db:"next_account_enforcement_at"`     // see tasks.CreateManagedAccounts
 	NextStorageSweepedAt         *time.Time `db:"next_storage_sweep_at"`           // see tasks.StorageSweepJob
 	NextFederationAnnouncementAt *time.Time `db:"next_federation_announcement_at"` // see tasks.AnnounceAccountToFederationJob
 }
