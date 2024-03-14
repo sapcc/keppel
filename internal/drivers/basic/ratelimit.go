@@ -65,10 +65,10 @@ func init() {
 	})
 }
 
-// PluginTypeID implements the keppel.FederationDriver interface.
+// PluginTypeID implements the keppel.RateLimitDriver interface.
 func (d RateLimitDriver) PluginTypeID() string { return "basic" }
 
-// Init implements the keppel.FederationDriver interface.
+// Init implements the keppel.RateLimitDriver interface.
 func (d RateLimitDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
 	for action, envVars := range envVars {
 		rate, err := parseRateLimit(envVars.RateLimit)
