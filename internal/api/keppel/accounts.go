@@ -183,6 +183,32 @@ func renderReplicationPolicy(dbAccount keppel.Account) *ReplicationPolicy {
 	return nil
 }
 
+func (r ReplicationPolicy) ApplyToAccount(db *keppel.DB, dbAccount *keppel.Account) (httpStatus int, err error) {
+	switch r.Strategy {
+	case "on_first_use":
+		peerCount, err := db.SelectInt(`SELECT COUNT(*) FROM peers WHERE hostname = $1`, r.UpstreamPeerHostName)
+		if err != nil {
+			return http.StatusInternalServerError, err
+		}
+
+		if peerCount == 0 {
+			return http.StatusUnprocessableEntity, fmt.Errorf(`unknown peer registry: %q`, r.UpstreamPeerHostName)
+		}
+		dbAccount.UpstreamPeerHostName = r.UpstreamPeerHostName
+	case "from_external_on_first_use":
+		if r.ExternalPeer.URL == "" {
+			return http.StatusUnprocessableEntity, errors.New(`missing upstream URL for "from_external_on_first_use" replication`)
+		}
+		dbAccount.ExternalPeerURL = r.ExternalPeer.URL
+		dbAccount.ExternalPeerUserName = r.ExternalPeer.UserName
+		dbAccount.ExternalPeerPassword = r.ExternalPeer.Password
+	default:
+		return http.StatusUnprocessableEntity, fmt.Errorf("strategy %s is unsupported", r.Strategy)
+	}
+
+	return http.StatusOK, nil
+}
+
 func renderValidationPolicy(dbAccount keppel.Account) *ValidationPolicy {
 	if dbAccount.RequiredLabels == "" {
 		return nil
@@ -348,27 +374,12 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	if req.Account.ReplicationPolicy != nil {
 		rp := *req.Account.ReplicationPolicy
 
-		switch rp.Strategy {
-		case "on_first_use":
-			peerCount, err := a.db.SelectInt(`SELECT COUNT(*) FROM peers WHERE hostname = $1`, rp.UpstreamPeerHostName)
-			if respondwith.ErrorText(w, err) {
-				return
-			}
-			if peerCount == 0 {
-				http.Error(w, fmt.Sprintf(`unknown peer registry: %q`, rp.UpstreamPeerHostName), http.StatusUnprocessableEntity)
-				return
-			}
-			accountToCreate.UpstreamPeerHostName = rp.UpstreamPeerHostName
-		case "from_external_on_first_use":
-			if rp.ExternalPeer.URL == "" {
-				http.Error(w, `missing upstream URL for "from_external_on_first_use" replication`, http.StatusUnprocessableEntity)
-				return
-			}
-			accountToCreate.ExternalPeerURL = rp.ExternalPeer.URL
-			accountToCreate.ExternalPeerUserName = rp.ExternalPeer.UserName
-			accountToCreate.ExternalPeerPassword = rp.ExternalPeer.Password
-			//NOTE: There are some delayed checks below which require the existing account to be loaded from the DB first.
+		httpStatus, err := rp.ApplyToAccount(a.db, &accountToCreate)
+		if err != nil {
+			http.Error(w, err.Error(), httpStatus)
+			return
 		}
+		//NOTE: There are some delayed checks below which require the existing account to be loaded from the DB first.
 	}
 
 	// validate validation policy
