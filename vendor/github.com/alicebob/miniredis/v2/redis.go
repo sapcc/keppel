@@ -45,7 +45,7 @@ const (
 	msgStreamIDTooSmall     = "ERR The ID specified in XADD is equal or smaller than the target stream top item"
 	msgStreamIDZero         = "ERR The ID specified in XADD must be greater than 0-0"
 	msgNoScriptFound        = "NOSCRIPT No matching script. Please use EVAL."
-	msgUnsupportedUnit      = "ERR unsupported unit provided. please use m, km, ft, mi"
+	msgUnsupportedUnit      = "ERR unsupported unit provided. please use M, KM, FT, MI"
 	msgXreadUnbalanced      = "ERR Unbalanced 'xread' list of streams: for each stream key an ID or '$' must be specified."
 	msgXgroupKeyNotFound    = "ERR The XGROUP subcommand requires the key to exist. Note that for CREATE you may want to use the MKSTREAM option to create an empty stream automatically."
 	msgXtrimInvalidStrategy = "ERR unsupported XTRIM strategy. Please use MAXLEN, MINID"
@@ -56,6 +56,7 @@ const (
 	msgRankIsZero           = "ERR RANK can't be zero: use 1 to start from the first match, 2 from the second ... or use negative to start from the end of the list"
 	msgCountIsNegative      = "ERR COUNT can't be negative"
 	msgMaxLengthIsNegative  = "ERR MAXLEN can't be negative"
+	msgLimitIsNegative      = "ERR LIMIT can't be negative"
 	msgMemorySubcommand     = "ERR unknown subcommand '%s'. Try MEMORY HELP."
 )
 

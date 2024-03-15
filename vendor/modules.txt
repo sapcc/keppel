@@ -1,7 +1,7 @@
 # github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a
 ## explicit
 github.com/alicebob/gopher-json
-# github.com/alicebob/miniredis/v2 v2.31.1
+# github.com/alicebob/miniredis/v2 v2.32.1
 ## explicit; go 1.14
 github.com/alicebob/miniredis/v2
 github.com/alicebob/miniredis/v2/fpconv
@@ -215,7 +215,7 @@ github.com/spf13/pflag
 # github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 ## explicit
 github.com/timewasted/go-accept-headers
-# github.com/yuin/gopher-lua v1.1.0
+# github.com/yuin/gopher-lua v1.1.1
 ## explicit; go 1.17
 github.com/yuin/gopher-lua
 github.com/yuin/gopher-lua/ast
@@ -233,7 +233,7 @@ go.uber.org/automaxprocs/maxprocs
 ## explicit; go 1.18
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
-# golang.org/x/exp v0.0.0-20240222234643-814bf88cf225
+# golang.org/x/exp v0.0.0-20240314144324-c7f7c6466f7f
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
