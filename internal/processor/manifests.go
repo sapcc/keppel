@@ -226,9 +226,8 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 		labelsRequired := manifest.PushedAt == manifest.ValidatedAt && account.RequiredLabels != "" &&
 			manifest.MediaType != manifestlist.MediaTypeManifestList && manifest.MediaType != imagespec.MediaTypeImageIndex
 		if labelsRequired {
-			requiredLabels := strings.Split(account.RequiredLabels, ",")
 			var missingLabels []string
-			for _, l := range requiredLabels {
+			for _, l := range account.SplitRequiredLabels() {
 				if _, exists := configInfo.Labels[l]; !exists {
 					missingLabels = append(missingLabels, l)
 				}

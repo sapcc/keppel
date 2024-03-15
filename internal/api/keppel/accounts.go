@@ -49,78 +49,15 @@ import (
 
 // Account represents an account in the API.
 type Account struct {
-	Name              string                `json:"name"`
-	AuthTenantID      string                `json:"auth_tenant_id"`
-	InMaintenance     bool                  `json:"in_maintenance"`
-	Metadata          map[string]string     `json:"metadata"`
-	GCPolicies        []keppel.GCPolicy     `json:"gc_policies,omitempty"`
-	RBACPolicies      []keppel.RBACPolicy   `json:"rbac_policies"`
-	ReplicationPolicy *ReplicationPolicy    `json:"replication,omitempty"`
-	ValidationPolicy  *ValidationPolicy     `json:"validation,omitempty"`
-	PlatformFilter    keppel.PlatformFilter `json:"platform_filter,omitempty"`
-}
-
-// ReplicationPolicy represents a replication policy in the API.
-type ReplicationPolicy struct {
-	Strategy string
-	// only for `on_first_use`
-	UpstreamPeerHostName string
-	// only for `from_external_on_first_use`
-	ExternalPeer ReplicationExternalPeerSpec
-}
-
-// ReplicationExternalPeerSpec appears in type ReplicationPolicy.
-type ReplicationExternalPeerSpec struct {
-	URL      string `json:"url"`
-	UserName string `json:"username,omitempty"`
-	Password string `json:"password,omitempty"`
-}
-
-// ValidationPolicy represents a validation policy in the API.
-type ValidationPolicy struct {
-	RequiredLabels []string `json:"required_labels,omitempty"`
-}
-
-// MarshalJSON implements the json.Marshaler interface.
-func (r ReplicationPolicy) MarshalJSON() ([]byte, error) {
-	switch r.Strategy {
-	case "on_first_use":
-		data := struct {
-			Strategy             string `json:"strategy"`
-			UpstreamPeerHostName string `json:"upstream"`
-		}{r.Strategy, r.UpstreamPeerHostName}
-		return json.Marshal(data)
-	case "from_external_on_first_use":
-		data := struct {
-			Strategy     string                      `json:"strategy"`
-			ExternalPeer ReplicationExternalPeerSpec `json:"upstream"`
-		}{r.Strategy, r.ExternalPeer}
-		return json.Marshal(data)
-	default:
-		return nil, fmt.Errorf("do not know how to serialize ReplicationPolicy with strategy %q", r.Strategy)
-	}
-}
-
-// UnmarshalJSON implements the json.Unmarshaler interface.
-func (r *ReplicationPolicy) UnmarshalJSON(buf []byte) error {
-	var s struct {
-		Strategy string          `json:"strategy"`
-		Upstream json.RawMessage `json:"upstream"`
-	}
-	err := json.Unmarshal(buf, &s)
-	if err != nil {
-		return err
-	}
-	r.Strategy = s.Strategy
-
-	switch r.Strategy {
-	case "on_first_use":
-		return json.Unmarshal(s.Upstream, &r.UpstreamPeerHostName)
-	case "from_external_on_first_use":
-		return json.Unmarshal(s.Upstream, &r.ExternalPeer)
-	default:
-		return fmt.Errorf("do not know how to deserialize ReplicationPolicy with strategy %q", r.Strategy)
-	}
+	Name              string                    `json:"name"`
+	AuthTenantID      string                    `json:"auth_tenant_id"`
+	InMaintenance     bool                      `json:"in_maintenance"`
+	Metadata          map[string]string         `json:"metadata"`
+	GCPolicies        []keppel.GCPolicy         `json:"gc_policies,omitempty"`
+	RBACPolicies      []keppel.RBACPolicy       `json:"rbac_policies"`
+	ReplicationPolicy *keppel.ReplicationPolicy `json:"replication,omitempty"`
+	ValidationPolicy  *keppel.ValidationPolicy  `json:"validation,omitempty"`
+	PlatformFilter    keppel.PlatformFilter     `json:"platform_filter,omitempty"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -161,18 +98,18 @@ func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
 	}, nil
 }
 
-func renderReplicationPolicy(dbAccount keppel.Account) *ReplicationPolicy {
+func renderReplicationPolicy(dbAccount keppel.Account) *keppel.ReplicationPolicy {
 	if dbAccount.UpstreamPeerHostName != "" {
-		return &ReplicationPolicy{
+		return &keppel.ReplicationPolicy{
 			Strategy:             "on_first_use",
 			UpstreamPeerHostName: dbAccount.UpstreamPeerHostName,
 		}
 	}
 
 	if dbAccount.ExternalPeerURL != "" {
-		return &ReplicationPolicy{
+		return &keppel.ReplicationPolicy{
 			Strategy: "from_external_on_first_use",
-			ExternalPeer: ReplicationExternalPeerSpec{
+			ExternalPeer: keppel.ReplicationExternalPeerSpec{
 				URL:      dbAccount.ExternalPeerURL,
 				UserName: dbAccount.ExternalPeerUserName,
 				//NOTE: Password is omitted here for security reasons
@@ -183,39 +120,13 @@ func renderReplicationPolicy(dbAccount keppel.Account) *ReplicationPolicy {
 	return nil
 }
 
-func (r ReplicationPolicy) ApplyToAccount(db *keppel.DB, dbAccount *keppel.Account) (httpStatus int, err error) {
-	switch r.Strategy {
-	case "on_first_use":
-		peerCount, err := db.SelectInt(`SELECT COUNT(*) FROM peers WHERE hostname = $1`, r.UpstreamPeerHostName)
-		if err != nil {
-			return http.StatusInternalServerError, err
-		}
-
-		if peerCount == 0 {
-			return http.StatusUnprocessableEntity, fmt.Errorf(`unknown peer registry: %q`, r.UpstreamPeerHostName)
-		}
-		dbAccount.UpstreamPeerHostName = r.UpstreamPeerHostName
-	case "from_external_on_first_use":
-		if r.ExternalPeer.URL == "" {
-			return http.StatusUnprocessableEntity, errors.New(`missing upstream URL for "from_external_on_first_use" replication`)
-		}
-		dbAccount.ExternalPeerURL = r.ExternalPeer.URL
-		dbAccount.ExternalPeerUserName = r.ExternalPeer.UserName
-		dbAccount.ExternalPeerPassword = r.ExternalPeer.Password
-	default:
-		return http.StatusUnprocessableEntity, fmt.Errorf("strategy %s is unsupported", r.Strategy)
-	}
-
-	return http.StatusOK, nil
-}
-
-func renderValidationPolicy(dbAccount keppel.Account) *ValidationPolicy {
+func renderValidationPolicy(dbAccount keppel.Account) *keppel.ValidationPolicy {
 	if dbAccount.RequiredLabels == "" {
 		return nil
 	}
 
-	return &ValidationPolicy{
-		RequiredLabels: strings.Split(dbAccount.RequiredLabels, ","),
+	return &keppel.ValidationPolicy{
+		RequiredLabels: dbAccount.SplitRequiredLabels(),
 	}
 }
 
@@ -288,14 +199,14 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	// decode request body
 	var req struct {
 		Account struct {
-			AuthTenantID      string                `json:"auth_tenant_id"`
-			GCPolicies        []keppel.GCPolicy     `json:"gc_policies"`
-			InMaintenance     bool                  `json:"in_maintenance"`
-			Metadata          map[string]string     `json:"metadata"`
-			RBACPolicies      []keppel.RBACPolicy   `json:"rbac_policies"`
-			ReplicationPolicy *ReplicationPolicy    `json:"replication"`
-			ValidationPolicy  *ValidationPolicy     `json:"validation"`
-			PlatformFilter    keppel.PlatformFilter `json:"platform_filter"`
+			AuthTenantID      string                    `json:"auth_tenant_id"`
+			GCPolicies        []keppel.GCPolicy         `json:"gc_policies"`
+			InMaintenance     bool                      `json:"in_maintenance"`
+			Metadata          map[string]string         `json:"metadata"`
+			RBACPolicies      []keppel.RBACPolicy       `json:"rbac_policies"`
+			ReplicationPolicy *keppel.ReplicationPolicy `json:"replication"`
+			ValidationPolicy  *keppel.ValidationPolicy  `json:"validation"`
+			PlatformFilter    keppel.PlatformFilter     `json:"platform_filter"`
 		} `json:"account"`
 	}
 	decoder := json.NewDecoder(r.Body)
@@ -392,7 +303,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		accountToCreate.RequiredLabels = strings.Join(vp.RequiredLabels, ",")
+		accountToCreate.RequiredLabels = vp.JoinRequiredLabels()
 	}
 
 	// validate platform filter
@@ -641,7 +552,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 
 // Like reflect.DeepEqual, but ignores some fields that are allowed to be
 // updated after account creation.
-func replicationPoliciesFunctionallyEqual(lhs, rhs *ReplicationPolicy) bool {
+func replicationPoliciesFunctionallyEqual(lhs, rhs *keppel.ReplicationPolicy) bool {
 	// one nil and one non-nil is not equal
 	if (lhs == nil) != (rhs == nil) {
 		return false
