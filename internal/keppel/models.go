@@ -22,6 +22,7 @@ package keppel
 import (
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/go-gorp/gorp/v3"
@@ -70,6 +71,10 @@ type Account struct {
 // Keppel account.
 func (a Account) SwiftContainerName() string {
 	return "keppel-" + a.Name
+}
+
+func (a Account) SplitRequiredLabels() []string {
+	return strings.Split(a.RequiredLabels, ",")
 }
 
 // FindAccount works similar to db.SelectOne(), but returns nil instead of

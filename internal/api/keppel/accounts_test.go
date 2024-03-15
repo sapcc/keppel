@@ -1430,7 +1430,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 			},
 		},
 		ExpectStatus: http.StatusBadRequest,
-		ExpectBody:   assert.StringData("request body is not valid JSON: json: cannot unmarshal string into Go struct field .account.replication of type keppelv1.ReplicationExternalPeerSpec\n"),
+		ExpectBody:   assert.StringData("request body is not valid JSON: json: cannot unmarshal string into Go struct field .account.replication of type keppel.ReplicationExternalPeerSpec\n"),
 	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
