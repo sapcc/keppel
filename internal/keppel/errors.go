@@ -60,10 +60,8 @@ const (
 func (c RegistryV2ErrorCode) With(msg string, args ...any) *RegistryV2Error {
 	if msg == "" {
 		msg = apiErrorMessages[c]
-	} else {
-		if len(args) > 0 {
-			msg = fmt.Sprintf(msg, args...)
-		}
+	} else if len(args) > 0 {
+		msg = fmt.Sprintf(msg, args...)
 	}
 	return &RegistryV2Error{
 		Code:    c,

@@ -141,12 +141,13 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 			return nil, rerr
 		}
 		if uid == nil {
-			if authHeader == "keppel" {
+			switch {
+			case authHeader == "keppel":
 				// do not fallback if we were explicitly instructed to only use driver auth
 				return nil, keppel.ErrUnauthorized.With("no credentials found in request")
-			} else if ir.NoImplicitAnonymous {
+			case ir.NoImplicitAnonymous:
 				return nil, keppel.ErrUnauthorized.With("no bearer token found in request headers").WithHeader("Www-Authenticate", ir.buildAuthChallenge(cfg, audience, ""))
-			} else {
+			default:
 				uid = AnonymousUserIdentity
 				allowChallenge = true
 			}

@@ -82,9 +82,9 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 		if policy.Matches(ip, repo.Name, auth.AnonymousUserIdentity.UserName()) {
 			// do the redirect
 			s := g.urlStr
-			s = strings.Replace(s, "%AUTH_TENANT_ID%", account.AuthTenantID, -1)
-			s = strings.Replace(s, "%ACCOUNT_NAME%", account.Name, -1)
-			s = strings.Replace(s, "%REPO_NAME%", repo.Name, -1)
+			s = strings.ReplaceAll(s, "%AUTH_TENANT_ID%", account.AuthTenantID)
+			s = strings.ReplaceAll(s, "%ACCOUNT_NAME%", account.Name)
+			s = strings.ReplaceAll(s, "%REPO_NAME%", repo.Name)
 			w.Header().Set("Location", s)
 			w.WriteHeader(http.StatusFound)
 			return

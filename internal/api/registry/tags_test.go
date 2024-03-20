@@ -108,7 +108,7 @@ func TestListTags(t *testing.T) {
 					expectedPage = expectedPage[:length]
 					lastRepoName := expectedPage[len(expectedPage)-1]
 					expectedHeaders["Link"] = fmt.Sprintf(`</v2/test1/foo/tags/list?last=%s&n=%d>; rel="next"`,
-						strings.Replace(lastRepoName, "/", "%2F", -1), length,
+						strings.ReplaceAll(lastRepoName, "/", "%2F"), length,
 					)
 				}
 
