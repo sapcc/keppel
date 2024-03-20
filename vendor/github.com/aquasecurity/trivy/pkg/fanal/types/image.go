@@ -60,7 +60,7 @@ type DockerOptions struct {
 }
 
 type PodmanOptions struct {
-	Host string
+	// Add Podman-specific options
 }
 
 type ContainerdOptions struct {

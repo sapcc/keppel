@@ -28,14 +28,17 @@ type DetectedMisconfiguration struct {
 type MisconfStatus string
 
 const (
-	// MisconfStatusPassed represents successful status
-	MisconfStatusPassed MisconfStatus = "PASS"
+	// StatusPassed represents successful status
+	StatusPassed MisconfStatus = "PASS"
 
-	// MisconfStatusFailure represents failure status
-	MisconfStatusFailure MisconfStatus = "FAIL"
+	// StatusFailure represents failure status
+	StatusFailure MisconfStatus = "FAIL"
 
-	// MisconfStatusException Passed represents the status of exception
-	MisconfStatusException MisconfStatus = "EXCEPTION"
+	// StatusException Passed represents the status of exception
+	StatusException MisconfStatus = "EXCEPTION"
 )
 
-func (DetectedMisconfiguration) findingType() FindingType { return FindingTypeMisconfiguration }
+// GetID retrun misconfig ID
+func (mc *DetectedMisconfiguration) GetID() string {
+	return mc.AVDID
+}

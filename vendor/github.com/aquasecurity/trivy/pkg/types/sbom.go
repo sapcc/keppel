@@ -1,20 +1,21 @@
 package types
 
 import (
-	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
-	"github.com/aquasecurity/trivy/pkg/sbom/core"
+	stypes "github.com/spdx/tools-golang/spdx"
+
+	"github.com/aquasecurity/trivy/pkg/fanal/types"
 )
 
-type SBOMSource = string
-
 type SBOM struct {
-	Metadata Metadata
+	OS           types.OS
+	Packages     []types.PackageInfo
+	Applications []types.Application
 
-	Packages     []ftypes.PackageInfo
-	Applications []ftypes.Application
-
-	BOM *core.BOM
+	CycloneDX *types.CycloneDX
+	SPDX      *stypes.Document
 }
+
+type SBOMSource = string
 
 const (
 	SBOMSourceOCI   = SBOMSource("oci")

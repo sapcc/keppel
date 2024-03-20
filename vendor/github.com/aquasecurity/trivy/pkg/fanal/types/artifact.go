@@ -10,7 +10,6 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/aquasecurity/trivy/pkg/digest"
-	"github.com/aquasecurity/trivy/pkg/sbom/core"
 )
 
 type OS struct {
@@ -278,7 +277,7 @@ type ArtifactReference struct {
 	ImageMetadata ImageMetadata
 
 	// SBOM
-	BOM *core.BOM
+	CycloneDX *CycloneDX
 }
 
 type ImageMetadata struct {
