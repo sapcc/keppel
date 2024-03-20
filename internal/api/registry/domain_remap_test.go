@@ -31,11 +31,11 @@ import (
 )
 
 func TestRegistryAPIDomainRemap(t *testing.T) {
-	//test generic Registry API endpoints with request URLs having the account name in the hostname instead of in the path
+	// test generic Registry API endpoints with request URLs having the account name in the hostname instead of in the path
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
 
-		//without token, expect auth challenge
+		// without token, expect auth challenge
 		assert.HTTPRequest{
 			Method: "GET",
 			Path:   "/v2/",
@@ -51,7 +51,7 @@ func TestRegistryAPIDomainRemap(t *testing.T) {
 			ExpectBody: test.ErrorCode(keppel.ErrUnauthorized),
 		}.Check(t, h)
 
-		//with token, expect status code 200
+		// with token, expect status code 200
 		token := s.GetDomainRemappedToken(t, "test1" /*, no scopes */)
 		assert.HTTPRequest{
 			Method: "GET",
@@ -68,14 +68,14 @@ func TestRegistryAPIDomainRemap(t *testing.T) {
 }
 
 func TestBlobAPIDomainRemap(t *testing.T) {
-	//test blob API with request URLs having the account name in the hostname instead of in the path
+	// test blob API with request URLs having the account name in the hostname instead of in the path
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
 		token := s.GetDomainRemappedToken(t, "test1", "repository:foo:pull,push")
 
 		blob := test.NewBytes([]byte("just some random data"))
 
-		//test upload
+		// test upload
 		assert.HTTPRequest{
 			Method: "POST",
 			Path:   "/v2/foo/blobs/uploads/?digest=" + blob.Digest.String(),
@@ -95,7 +95,7 @@ func TestBlobAPIDomainRemap(t *testing.T) {
 			},
 		}.Check(t, h)
 
-		//test download
+		// test download
 		assert.HTTPRequest{
 			Method: "GET",
 			Path:   "/v2/foo/blobs/" + blob.Digest.String(),
@@ -118,13 +118,13 @@ func TestBlobAPIDomainRemap(t *testing.T) {
 func TestManifestAPIDomainRemap(t *testing.T) {
 	image := test.GenerateImage( /* no layers */ )
 
-	//test manifest API with request URLs having the account name in the hostname instead of in the path
+	// test manifest API with request URLs having the account name in the hostname instead of in the path
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
 		token := s.GetDomainRemappedToken(t, "test1", "repository:foo:pull,push")
 		image.Config.MustUpload(t, s, fooRepoRef)
 
-		//test upload
+		// test upload
 		assert.HTTPRequest{
 			Method: "PUT",
 			Path:   "/v2/foo/manifests/" + image.Manifest.Digest.String(),
@@ -139,7 +139,7 @@ func TestManifestAPIDomainRemap(t *testing.T) {
 			ExpectHeader: test.VersionHeader,
 		}.Check(t, h)
 
-		//test download
+		// test download
 		assert.HTTPRequest{
 			Method: "GET",
 			Path:   "/v2/foo/manifests/" + image.Manifest.Digest.String(),

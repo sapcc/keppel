@@ -46,7 +46,7 @@ import (
 )
 
 type setupParams struct {
-	//all false/empty by default
+	// all false/empty by default
 	IsSecondary             bool
 	WithAnycast             bool
 	WithKeppelAPI           bool
@@ -112,7 +112,7 @@ func WithRateLimitEngine(rle *keppel.RateLimitEngine) SetupOption {
 // WithAccount is a SetupOption that adds the given keppel.Account to the DB during NewSetup().
 func WithAccount(account keppel.Account) SetupOption {
 	return func(params *setupParams) {
-		//some field have default values that's not the zero value
+		// some field have default values that's not the zero value
 		if account.GCPoliciesJSON == "" {
 			account.GCPoliciesJSON = "[]"
 		}
@@ -144,7 +144,7 @@ func WithoutCurrentIssuerKey(params *setupParams) {
 
 // Setup contains all the pieces that are needed for most tests.
 type Setup struct {
-	//fields that are always set
+	// fields that are always set
 	Config       keppel.Configuration
 	DB           *keppel.DB
 	Clock        *mock.Clock
@@ -157,12 +157,12 @@ type Setup struct {
 	Handler      http.Handler
 	Ctx          context.Context //nolint: containedctx  // only used in tests
 	Registry     *prometheus.Registry
-	//fields that are only set if the respective With... setup option is included
+	// fields that are only set if the respective With... setup option is included
 	TrivyDouble *TrivyDouble
-	//fields that are filled by WithAccount and WithRepo (in order)
+	// fields that are filled by WithAccount and WithRepo (in order)
 	Accounts []*keppel.Account
 	Repos    []*keppel.Repository
-	//fields that are only accessible to helper functions
+	// fields that are only accessible to helper functions
 	tokenCache map[string]string
 }
 
@@ -177,7 +177,7 @@ var (
 // use to replicate from the primary registry.
 func GetReplicationPassword() string {
 	if replicationPassword == "" {
-		//this password needs to be constant because it appears in some fixtures/*.sql
+		// this password needs to be constant because it appears in some fixtures/*.sql
 		replicationPassword = "a4cb6fae5b8bb91b0b993486937103dab05eca93" //nolint:gosec // hardcoded password for test fixtures
 
 		hashBytes, _ := bcrypt.GenerateFromPassword([]byte(replicationPassword), 8) //nolint:errcheck
@@ -195,7 +195,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		option(&params)
 	}
 
-	//choose identity
+	// choose identity
 	var (
 		dbName            string
 		apiPublicHostname string
@@ -208,10 +208,10 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		apiPublicHostname = "registry.example.org"
 	}
 
-	//suitable for use with ./testing/with-postgres-db.sh
+	// suitable for use with ./testing/with-postgres-db.sh
 	postgresURL := fmt.Sprintf("postgres://postgres:postgres@localhost:54321/%s?sslmode=disable", dbName)
 
-	//build keppel.Configuration
+	// build keppel.Configuration
 	dbURL, err := url.Parse(postgresURL)
 	mustDo(t, err)
 	s := Setup{
@@ -224,7 +224,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		tokenCache: make(map[string]string),
 	}
 
-	//select issuer keys
+	// select issuer keys
 	if params.WithoutCurrentIssuerKey && !params.WithPreviousIssuerKey {
 		t.Fatal("test.WithoutCurrentIssuerKey requires test.WithPreviousIssuerKey")
 	}
@@ -254,7 +254,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		}
 	}
 
-	//connect to DB
+	// connect to DB
 	s.DB, err = keppel.InitDB(s.Config.DatabaseURL)
 	if err != nil {
 		t.Error(err)
@@ -262,11 +262,11 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		t.FailNow()
 	}
 
-	//wipe the DB clean if there are any leftovers from the previous test run,
-	//starting with the manifest_manifest_refs table (this table's foreign-key
-	//constraints are so entangled that any attempt to cascade a deletion from
-	//higher up in the hierarchy will run into some ON DELETE RESTRICT
-	//constraints and fail)
+	// wipe the DB clean if there are any leftovers from the previous test run,
+	// starting with the manifest_manifest_refs table (this table's foreign-key
+	// constraints are so entangled that any attempt to cascade a deletion from
+	// higher up in the hierarchy will run into some ON DELETE RESTRICT
+	// constraints and fail)
 	for {
 		result, err := s.DB.Exec(`DELETE FROM manifest_manifest_refs WHERE parent_digest NOT IN (SELECT child_digest FROM manifest_manifest_refs)`)
 		mustDo(t, err)
@@ -277,11 +277,11 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		}
 	}
 
-	//wipe the DB clean if there are any leftovers from the previous test run
+	// wipe the DB clean if there are any leftovers from the previous test run
 	easypg.ClearTables(t, s.DB.Db, "manifest_blob_refs", "accounts", "peers", "quotas")
 	easypg.ResetPrimaryKeys(t, s.DB.Db, "blobs", "repos")
 
-	//setup anycast if requested
+	// setup anycast if requested
 	if params.WithAnycast {
 		s.Config.AnycastAPIPublicHostname = "registry-global.example.org"
 
@@ -297,17 +297,17 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		}
 	}
 
-	//setup essential test doubles
+	// setup essential test doubles
 	s.Clock = mock.NewClock()
 	s.SIDGenerator = &StorageIDGenerator{}
 	s.Auditor = &Auditor{}
 
-	//if we are secondary and we know the primary, share the clock with it
+	// if we are secondary and we know the primary, share the clock with it
 	if params.SetupOfPrimary != nil {
 		s.Clock = params.SetupOfPrimary.Clock
 	}
 
-	//setup essential drivers
+	// setup essential drivers
 	ad, err := keppel.NewAuthDriver("unittest", nil)
 	mustDo(t, err)
 	s.AD = ad.(*AuthDriver) //nolint:errcheck
@@ -331,11 +331,11 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		})
 	}
 
-	//setup APIs
+	// setup APIs
 	apis := []httpapi.API{
 		httpapi.WithoutLogging(),
-		//Registry API (and thus Auth API) are nearly always needed for
-		//Bytes.Upload, Image.Upload and ImageList.Upload
+		// Registry API (and thus Auth API) are nearly always needed for
+		// Bytes.Upload, Image.Upload and ImageList.Upload
 		registryv2.NewAPI(s.Config, ad, fd, sd, icd, s.DB, s.Auditor, params.RateLimitEngine).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next),
 		authapi.NewAPI(s.Config, ad, fd, s.DB),
 	}
@@ -347,15 +347,15 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	}
 	s.Handler = httpapi.Compose(apis...)
 	if tt, ok := http.DefaultTransport.(*RoundTripper); ok {
-		//make our own API reachable to other peers
+		// make our own API reachable to other peers
 		tt.Handlers[s.Config.APIPublicHostname] = s.Handler
-		//if accounts are being set up, also expose their domain-remapped APIs
+		// if accounts are being set up, also expose their domain-remapped APIs
 		for _, account := range params.Accounts {
 			tt.Handlers[fmt.Sprintf("%s.%s", account.Name, s.Config.APIPublicHostname)] = s.Handler
 		}
 	}
 
-	//setup initial accounts/repos
+	// setup initial accounts/repos
 	quotasSetFor := make(map[string]bool)
 	for _, account := range params.Accounts {
 		mustDo(t, s.DB.Insert(account))
@@ -374,11 +374,11 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	}
 	s.Repos = params.Repos
 
-	//setup peering with primary if requested
+	// setup peering with primary if requested
 	if params.IsSecondary {
 		s1 := params.SetupOfPrimary
 		if s1 != nil {
-			//give the secondary registry credentials for replicating from the primary
+			// give the secondary registry credentials for replicating from the primary
 			mustDo(t, s.DB.Insert(&keppel.Peer{
 				HostName:    "registry.example.org",
 				OurPassword: GetReplicationPassword(),

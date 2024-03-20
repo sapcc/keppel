@@ -50,7 +50,7 @@ func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*keppe
 		allManifestDigests []string
 	)
 
-	//setup two image manifests, both with some layers
+	// setup two image manifests, both with some layers
 	images := make([]test.Image, 2)
 	for idx := range images {
 		image := test.GenerateImage(
@@ -68,17 +68,17 @@ func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*keppe
 		allManifestDigests = append(allManifestDigests, image.Manifest.Digest.String())
 	}
 
-	//also setup an image list manifest containing those images (so that we have
-	//some manifest-manifest refs to play with)
+	// also setup an image list manifest containing those images (so that we have
+	// some manifest-manifest refs to play with)
 	imageList := test.GenerateImageList(images[0], images[1])
 	imageList.MustUpload(t, s, fooRepoRef, "")
 	allManifestDigests = append(allManifestDigests, imageList.Manifest.Digest.String())
 
-	//since these manifests were just uploaded, validated_at is set to right now,
-	//so ManifestValidationJob will report that there is nothing to do
+	// since these manifests were just uploaded, validated_at is set to right now,
+	// so ManifestValidationJob will report that there is nothing to do
 	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
 
-	//once they need validating, they validate successfully
+	// once they need validating, they validate successfully
 	s.Clock.StepBy(36 * time.Hour)
 	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
 	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
@@ -86,7 +86,7 @@ func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*keppe
 	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-001-before-disturbance.sql")
 
-	//disturb the DB state, then rerun ManifestValidationJob to fix it
+	// disturb the DB state, then rerun ManifestValidationJob to fix it
 	s.Clock.StepBy(36 * time.Hour)
 	disturb(s.DB, allBlobIDs, allManifestDigests)
 	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
@@ -142,8 +142,8 @@ func TestManifestValidationJobError(t *testing.T) {
 	j, s := setup(t)
 	validateManifestJob := j.ManifestValidationJob(s.Registry)
 
-	//setup a manifest that is missing a referenced blob (we need to do this
-	//manually since the MustUpload functions care about uploading stuff intact)
+	// setup a manifest that is missing a referenced blob (we need to do this
+	// manually since the MustUpload functions care about uploading stuff intact)
 	s.Clock.StepBy(1 * time.Hour)
 	image := test.GenerateImage( /* no layers */ )
 	mustDo(t, s.DB.Insert(&keppel.Manifest{
@@ -167,7 +167,7 @@ func TestManifestValidationJobError(t *testing.T) {
 	}))
 	mustDo(t, s.SD.WriteManifest(*s.Accounts[0], "foo", image.Manifest.Digest, image.Manifest.Contents))
 
-	//validation should yield an error
+	// validation should yield an error
 	s.Clock.StepBy(36 * time.Hour)
 	expectedError := fmt.Sprintf(
 		"while validating manifest %s in repo 1: manifest blob unknown to registry: %s",
@@ -175,17 +175,17 @@ func TestManifestValidationJobError(t *testing.T) {
 	)
 	expectError(t, expectedError, validateManifestJob.ProcessOne(s.Ctx))
 
-	//check that validation error to be recorded in the DB
+	// check that validation error to be recorded in the DB
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-error-001.sql")
 
-	//expect next ManifestValidationJob run to skip over this manifest since it
-	//was recently validated
+	// expect next ManifestValidationJob run to skip over this manifest since it
+	// was recently validated
 	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
 
-	//upload missing blob so that we can test recovering from the validation error
+	// upload missing blob so that we can test recovering from the validation error
 	image.Config.MustUpload(t, s, fooRepoRef)
 
-	//next validation should be happy (and also create the missing refs)
+	// next validation should be happy (and also create the missing refs)
 	s.Clock.StepBy(36 * time.Hour)
 	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-error-002.sql")
@@ -204,7 +204,7 @@ func TestManifestSyncJob(t *testing.T) {
 			syncManifestsJob1 := j1.ManifestSyncJob(s1.Registry)
 			syncManifestsJob2 := j2.ManifestSyncJob(s2.Registry)
 
-			//upload some manifests...
+			// upload some manifests...
 			images := make([]test.Image, 4)
 			for idx := range images {
 				image := test.GenerateImage(
@@ -213,10 +213,10 @@ func TestManifestSyncJob(t *testing.T) {
 				)
 				images[idx] = image
 
-				//...to the primary account...
+				// ...to the primary account...
 				image.MustUpload(t, s1, fooRepoRef, "")
 
-				//...and most of them also to the replica account (to simulate replication having taken place)
+				// ...and most of them also to the replica account (to simulate replication having taken place)
 				if idx != 0 {
 					assert.HTTPRequest{
 						Method:       "GET",
@@ -228,7 +228,7 @@ func TestManifestSyncJob(t *testing.T) {
 				}
 			}
 
-			//some of the replicated images are also tagged
+			// some of the replicated images are also tagged
 			for _, db := range []*keppel.DB{s1.DB, s2.DB} {
 				for _, tagName := range []string{"latest", "other"} {
 					mustExec(t, db,
@@ -240,11 +240,11 @@ func TestManifestSyncJob(t *testing.T) {
 				}
 			}
 
-			//also setup an image list manifest containing some of those images (so that we have
-			//some manifest-manifest refs to play with)
+			// also setup an image list manifest containing some of those images (so that we have
+			// some manifest-manifest refs to play with)
 			imageList := test.GenerateImageList(images[1], images[2])
 			imageList.MustUpload(t, s1, fooRepoRef, "")
-			//this one is replicated as well
+			// this one is replicated as well
 			assert.HTTPRequest{
 				Method:       "GET",
 				Path:         fmt.Sprintf("/v2/test1/foo/manifests/%s", imageList.Manifest.Digest),
@@ -253,18 +253,18 @@ func TestManifestSyncJob(t *testing.T) {
 				ExpectBody:   assert.ByteData(imageList.Manifest.Contents),
 			}.Check(t, s2.Handler)
 
-			//set a well-known last_pulled_at timestamp on all manifests in the primary
-			//DB (we will later verify that this was not touched by the manifest sync)
+			// set a well-known last_pulled_at timestamp on all manifests in the primary
+			// DB (we will later verify that this was not touched by the manifest sync)
 			initialLastPulledAt := time.Unix(42, 0)
 			mustExec(t, s1.DB, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
 			mustExec(t, s1.DB, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
-			//we set last_pulled_at to NULL on images[3] to verify that we can merge
-			//NULL with a non-NULL last_pulled_at from the replica side
+			// we set last_pulled_at to NULL on images[3] to verify that we can merge
+			// NULL with a non-NULL last_pulled_at from the replica side
 			mustExec(t, s1.DB, `UPDATE manifests SET last_pulled_at = NULL WHERE digest = $1`, images[3].Manifest.Digest)
 
-			//as an exception, in the on_first_use method, we can and want to merge
-			//last_pulled_at timestamps from the replica into those of the primary, so
-			//set some of those to verify the merging behavior
+			// as an exception, in the on_first_use method, we can and want to merge
+			// last_pulled_at timestamps from the replica into those of the primary, so
+			// set some of those to verify the merging behavior
 			earlierLastPulledAt := initialLastPulledAt.Add(-10 * time.Second)
 			laterLastPulledAt := initialLastPulledAt.Add(+10 * time.Second)
 			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = NULL`)
@@ -279,26 +279,26 @@ func TestManifestSyncJob(t *testing.T) {
 			tr0.AssertEqualToFile(fmt.Sprintf("fixtures/manifest-sync-setup-%s.sql", strategy))
 			trForPrimary, _ := easypg.NewTracker(t, s1.DB.DbMap.Db)
 
-			//ManifestSyncJob on the primary registry should have nothing to do
-			//since there are no replica accounts
+			// ManifestSyncJob on the primary registry should have nothing to do
+			// since there are no replica accounts
 			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob1.ProcessOne(s1.Ctx))
 			trForPrimary.DBChanges().AssertEmpty()
-			//ManifestSyncJob on the secondary registry should set the
-			//ManifestsSyncedAt timestamp on the repo, but otherwise not do anything
+			// ManifestSyncJob on the secondary registry should set the
+			// ManifestsSyncedAt timestamp on the repo, but otherwise not do anything
 			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEqualf(`
 					UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 				`,
 				s1.Clock.Now().Add(1*time.Hour).Unix(),
 			)
-			//second run should not have anything else to do
+			// second run should not have anything else to do
 			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEmpty()
 
-			//in on_first_use, the sync should have merged the replica's last_pulled_at
-			//timestamps into the primary, i.e. primary.last_pulled_at =
-			//max(primary.last_pulled_at, replica.last_pulled_at); this only touches
-			//the DB when the replica's last_pulled_at is after the primary's
+			// in on_first_use, the sync should have merged the replica's last_pulled_at
+			// timestamps into the primary, i.e. primary.last_pulled_at =
+			// max(primary.last_pulled_at, replica.last_pulled_at); this only touches
+			// the DB when the replica's last_pulled_at is after the primary's
 			if strategy == "on_first_use" {
 				trForPrimary.DBChanges().AssertEqualf(`
 						UPDATE manifests SET last_pulled_at = %[1]d WHERE repo_id = 1 AND digest = '%[2]s';
@@ -310,7 +310,7 @@ func TestManifestSyncJob(t *testing.T) {
 					laterLastPulledAt.Unix(),
 					images[2].Manifest.Digest,
 				)
-				//reset all timestamps to prevent divergences in the rest of the test
+				// reset all timestamps to prevent divergences in the rest of the test
 				mustExec(t, s1.DB, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
 				mustExec(t, s1.DB, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
 				mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
@@ -320,23 +320,23 @@ func TestManifestSyncJob(t *testing.T) {
 				trForPrimary.DBChanges().AssertEmpty()
 			}
 
-			//delete a manifest on the primary side (this one is a simple image not referenced by anyone else)
+			// delete a manifest on the primary side (this one is a simple image not referenced by anyone else)
 			s1.Clock.StepBy(2 * time.Hour)
 			mustExec(t, s1.DB,
 				`DELETE FROM manifests WHERE digest = $1`,
 				images[3].Manifest.Digest,
 			)
-			//move a tag on the primary side
+			// move a tag on the primary side
 			mustExec(t, s1.DB,
 				`UPDATE tags SET digest = $1 WHERE name = 'latest'`,
 				images[2].Manifest.Digest,
 			)
 
-			//again, nothing to do on the primary side
+			// again, nothing to do on the primary side
 			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob1.ProcessOne(s1.Ctx))
-			//ManifestSyncJob on the replica side should not do anything while
-			//the account is in maintenance; only the timestamp is updated to make sure
-			//that the job loop progresses to the next repo
+			// ManifestSyncJob on the replica side should not do anything while
+			// the account is in maintenance; only the timestamp is updated to make sure
+			// that the job loop progresses to the next repo
 			mustExec(t, s2.DB, `UPDATE accounts SET in_maintenance = TRUE`)
 			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEqualf(`
@@ -348,17 +348,17 @@ func TestManifestSyncJob(t *testing.T) {
 			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEmpty()
 
-			//end maintenance
+			// end maintenance
 			mustExec(t, s2.DB, `UPDATE accounts SET in_maintenance = FALSE`)
 			tr.DBChanges().AssertEqual(`UPDATE accounts SET in_maintenance = FALSE WHERE name = 'test1';`)
 
-			//test that replication from external uses the inbound cache
+			// test that replication from external uses the inbound cache
 			if strategy == "from_external_on_first_use" {
-				//after the end of the maintenance, we would naively expect
-				//ManifestSyncJob to actually replicate the deletion, BUT we have an
-				//inbound cache with a lifetime of 6 hours, so actually nothing should
-				//happen (only the tag gets synced, which includes a validation of the
-				//referenced manifest)
+				// after the end of the maintenance, we would naively expect
+				// ManifestSyncJob to actually replicate the deletion, BUT we have an
+				// inbound cache with a lifetime of 6 hours, so actually nothing should
+				// happen (only the tag gets synced, which includes a validation of the
+				// referenced manifest)
 				s1.Clock.StepBy(2 * time.Hour)
 				expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 				tr.DBChanges().AssertEqualf(`
@@ -373,17 +373,17 @@ func TestManifestSyncJob(t *testing.T) {
 				tr.DBChanges().AssertEmpty()
 			}
 
-			//From now on, we will go in clock increments of 7 hours to force the
-			//inbound cache to never hit.
+			// From now on, we will go in clock increments of 7 hours to force the
+			// inbound cache to never hit.
 
-			//after the end of the maintenance, ManifestSyncJob on the replica
-			//side should delete the same manifest that we deleted in the primary
-			//account, and also replicate the tag change (which includes a validation
-			//of the tagged manifests)
+			// after the end of the maintenance, ManifestSyncJob on the replica
+			// side should delete the same manifest that we deleted in the primary
+			// account, and also replicate the tag change (which includes a validation
+			// of the tagged manifests)
 			s1.Clock.StepBy(7 * time.Hour)
 			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 			manifestValidationBecauseOfExistingTag := fmt.Sprintf(
-				//this validation is skipped in "on_first_use" because the respective tag is unchanged
+				// this validation is skipped in "on_first_use" because the respective tag is unchanged
 				`UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';`+"\n",
 				s1.Clock.Now().Unix(), images[1].Manifest.Digest,
 			)
@@ -401,18 +401,18 @@ func TestManifestSyncJob(t *testing.T) {
 					UPDATE tags SET digest = '%[3]s', pushed_at = %[2]d, last_pulled_at = NULL WHERE repo_id = 1 AND name = 'latest';
 					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
 				`,
-				images[3].Manifest.Digest, //the deleted manifest
+				images[3].Manifest.Digest, // the deleted manifest
 				s1.Clock.Now().Unix(),
-				images[2].Manifest.Digest, //the manifest now tagged as "latest"
+				images[2].Manifest.Digest, // the manifest now tagged as "latest"
 				s1.Clock.Now().Add(1*time.Hour).Unix(),
 				manifestValidationBecauseOfExistingTag,
 			)
 			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEmpty()
 
-			//cause a deliberate inconsistency on the primary side: delete a manifest that
-			//*is* referenced by another manifest (this requires deleting the
-			//manifest-manifest ref first, otherwise the DB will complain)
+			// cause a deliberate inconsistency on the primary side: delete a manifest that
+			// *is* referenced by another manifest (this requires deleting the
+			// manifest-manifest ref first, otherwise the DB will complain)
 			s1.Clock.StepBy(7 * time.Hour)
 			mustExec(t, s1.DB,
 				`DELETE FROM manifest_manifest_refs WHERE child_digest = $1`,
@@ -423,17 +423,17 @@ func TestManifestSyncJob(t *testing.T) {
 				images[2].Manifest.Digest,
 			)
 
-			//ManifestSyncJob should now complain since it wants to delete
-			//images[2].Manifest, but it can't because of the manifest-manifest ref to
-			//the image list
+			// ManifestSyncJob should now complain since it wants to delete
+			// images[2].Manifest, but it can't because of the manifest-manifest ref to
+			// the image list
 			expectedError := fmt.Sprintf("while syncing manifests in repo test1/foo: cannot remove deleted manifests [%s] because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)",
 				images[2].Manifest.Digest,
 			)
 			expectError(t, expectedError, syncManifestsJob2.ProcessOne(s2.Ctx))
-			//the tag sync went through though, so the tag should be gone (the manifest
-			//validation is because of the "other" tag that still exists)
+			// the tag sync went through though, so the tag should be gone (the manifest
+			// validation is because of the "other" tag that still exists)
 			manifestValidationBecauseOfExistingTag = fmt.Sprintf(
-				//this validation is skipped in "on_first_use" because the respective tag is unchanged
+				// this validation is skipped in "on_first_use" because the respective tag is unchanged
 				`UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';`+"\n",
 				s1.Clock.Now().Unix(), images[1].Manifest.Digest,
 			)
@@ -444,17 +444,17 @@ func TestManifestSyncJob(t *testing.T) {
 				manifestValidationBecauseOfExistingTag,
 			)
 
-			//also remove the image list manifest on the primary side
+			// also remove the image list manifest on the primary side
 			s1.Clock.StepBy(7 * time.Hour)
 			mustExec(t, s1.DB,
 				`DELETE FROM manifests WHERE digest = $1`,
 				imageList.Manifest.Digest,
 			)
-			//and remove the other tag (this is required for the 404 error message in the next step but one to be deterministic)
+			// and remove the other tag (this is required for the 404 error message in the next step but one to be deterministic)
 			mustExec(t, s1.DB, `DELETE FROM tags`)
 
-			//this makes the primary side consistent again, so ManifestSyncJob
-			//should succeed now and remove both deleted manifests from the DB
+			// this makes the primary side consistent again, so ManifestSyncJob
+			// should succeed now and remove both deleted manifests from the DB
 			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEqualf(`
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 4;
@@ -479,26 +479,26 @@ func TestManifestSyncJob(t *testing.T) {
 			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEmpty()
 
-			//replace the primary registry's API with something that just answers 404 most of the time
+			// replace the primary registry's API with something that just answers 404 most of the time
 			//
-			//(We do allow the /keppel/v1/auth endpoint to work properly because
-			//otherwise the error messages are not reproducible between passes.)
+			// (We do allow the /keppel/v1/auth endpoint to work properly because
+			// otherwise the error messages are not reproducible between passes.)
 			s1.Clock.StepBy(7 * time.Hour)
 			http.DefaultTransport.(*test.RoundTripper).Handlers["registry.example.org"] = answerMostWith404(s1.Handler)
-			//This is particularly devious since 404 is returned by the GET endpoint for
-			//a manifest when the manifest was deleted. We want to check that the next
-			//ManifestSyncJob understands that this is a network issue and not
-			//caused by the manifest getting deleted, since the 404-generating endpoint
-			//does not render a proper MANIFEST_UNKNOWN error.
+			// This is particularly devious since 404 is returned by the GET endpoint for
+			// a manifest when the manifest was deleted. We want to check that the next
+			// ManifestSyncJob understands that this is a network issue and not
+			// caused by the manifest getting deleted, since the 404-generating endpoint
+			// does not render a proper MANIFEST_UNKNOWN error.
 			expectedError = fmt.Sprintf("while syncing manifests in repo test1/foo: cannot check existence of manifest %s on primary account: during GET https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found",
-				images[1].Manifest.Digest, //the only manifest that is left
+				images[1].Manifest.Digest, // the only manifest that is left
 			)
 			expectError(t, expectedError, syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEmpty()
 
-			//check that the manifest sync did not update the last_pulled_at timestamps
-			//in the primary DB (even though there were GET requests for the manifests
-			//there)
+			// check that the manifest sync did not update the last_pulled_at timestamps
+			// in the primary DB (even though there were GET requests for the manifests
+			// there)
 			var lastPulledAt time.Time
 			expectSuccess(t, s1.DB.DbMap.QueryRow(`SELECT MAX(last_pulled_at) FROM manifests`).Scan(&lastPulledAt))
 			if !lastPulledAt.Equal(initialLastPulledAt) {
@@ -507,13 +507,13 @@ func TestManifestSyncJob(t *testing.T) {
 				t.Logf("  actual   = %#v", lastPulledAt)
 			}
 
-			//flip back to the actual primary registry's API
+			// flip back to the actual primary registry's API
 			http.DefaultTransport.(*test.RoundTripper).Handlers["registry.example.org"] = s1.Handler
-			//delete the entire repository on the primary
+			// delete the entire repository on the primary
 			s1.Clock.StepBy(7 * time.Hour)
 			mustExec(t, s1.DB, `DELETE FROM manifests`)
 			mustExec(t, s1.DB, `DELETE FROM repos`)
-			//the manifest sync should reflect the repository deletion on the replica
+			// the manifest sync should reflect the repository deletion on the replica
 			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEqualf(`
 					DELETE FROM blob_mounts WHERE blob_id = 1 AND repo_id = 1;
@@ -559,8 +559,8 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		j, s := setup(t, test.WithTrivyDouble)
 		s.Clock.StepBy(1 * time.Hour)
 
-		//setup two image manifests with just one content layer (we don't really care about
-		//the content since our Trivy double doesn't care either)
+		// setup two image manifests with just one content layer (we don't really care about
+		// the content since our Trivy double doesn't care either)
 		images := make([]test.Image, 3)
 		for idx := range images {
 			images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
@@ -570,12 +570,12 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		images = append(images, test.GenerateImage(test.GenerateExampleLayerSize(int64(2), 2)))
 		images[3].MustUpload(t, s, fooRepoRef, "")
 
-		//also setup an image list manifest containing those images (so that we have
-		//some manifest-manifest refs to play with)
+		// also setup an image list manifest containing those images (so that we have
+		// some manifest-manifest refs to play with)
 		imageList := test.GenerateImageList(images[0], images[1])
 		imageList.MustUpload(t, s, fooRepoRef, "")
 
-		//adjust too big values down to make testing easier
+		// adjust too big values down to make testing easier
 		blobUncompressedSizeTooBigGiB = 0.001
 
 		tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
@@ -583,7 +583,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
-		//check that security check updates vulnerability status
+		// check that security check updates vulnerability status
 		s.TrivyDouble.ReportFixtures[images[0].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-clean.json"
 		s.TrivyDouble.ReportFixtures[images[2].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
@@ -660,13 +660,13 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 		tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
-		//upload an example image
+		// upload an example image
 		image := test.GenerateImage(test.GenerateExampleLayer(4))
 		image.MustUpload(t, s, fooRepoRef, "latest")
 		tr.DBChanges().Ignore()
 		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable-with-fixes.json"
 
-		//test baseline without policies
+		// test baseline without policies
 		s.Clock.StepBy(1 * time.Hour)
 		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
@@ -675,13 +675,13 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = %[3]d, checked_at = %[4]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[5]s';
 		`, image.Layers[0].Digest, trivy.CriticalSeverity, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
 
-		//the actual checks in this test all look similar: we update the policies
-		//on the account, then check the resulting vuln_status on the image
+		// the actual checks in this test all look similar: we update the policies
+		// on the account, then check the resulting vuln_status on the image
 		expect := func(severity trivy.VulnerabilityStatus, policies ...keppel.SecurityScanPolicy) {
 			t.Helper()
 			policyJSON := must.Return(json.Marshal(policies))
 			mustExec(t, s.DB, `UPDATE accounts SET security_scan_policies_json = $1`, string(policyJSON))
-			//ensure that `SET vuln_status = ...` always shows up in the diff below
+			// ensure that `SET vuln_status = ...` always shows up in the diff below
 			mustExec(t, s.DB, `UPDATE trivy_security_info SET vuln_status = $1`, trivy.PendingVulnerabilityStatus)
 			tr.DBChanges().Ignore()
 
@@ -694,10 +694,10 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 			`, severity, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
 		}
 
-		//set a policy that downgrades the one "Critical" vuln -> this downgrades
-		//the overall status to "High" since there are also several "High" vulns
+		// set a policy that downgrades the one "Critical" vuln -> this downgrades
+		// the overall status to "High" since there are also several "High" vulns
 		//
-		//Most of the following testcases are alterations of this policy.
+		// Most of the following testcases are alterations of this policy.
 		expect(trivy.HighSeverity, keppel.SecurityScanPolicy{
 			RepositoryRx:      ".*",
 			VulnerabilityIDRx: "CVE-2019-8457",
@@ -707,7 +707,7 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 			},
 		})
 
-		//test Action.Ignore -> same result
+		// test Action.Ignore -> same result
 		expect(trivy.HighSeverity, keppel.SecurityScanPolicy{
 			RepositoryRx:      ".*",
 			VulnerabilityIDRx: "CVE-2019-8457",
@@ -717,9 +717,9 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 			},
 		})
 
-		//test RepositoryRx
+		// test RepositoryRx
 		expect(trivy.CriticalSeverity, keppel.SecurityScanPolicy{
-			RepositoryRx:      "bar", //does not match our test repo
+			RepositoryRx:      "bar", // does not match our test repo
 			VulnerabilityIDRx: "CVE-2019-8457",
 			Action: keppel.SecurityScanPolicyAction{
 				Assessment: "we accept the risk",
@@ -727,10 +727,10 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 			},
 		})
 
-		//test NegativeRepositoryRx
+		// test NegativeRepositoryRx
 		expect(trivy.CriticalSeverity, keppel.SecurityScanPolicy{
 			RepositoryRx:         ".*",
-			NegativeRepositoryRx: "foo", //matches our test repo
+			NegativeRepositoryRx: "foo", // matches our test repo
 			VulnerabilityIDRx:    "CVE-2019-8457",
 			Action: keppel.SecurityScanPolicyAction{
 				Assessment: "we accept the risk",
@@ -738,7 +738,7 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 			},
 		})
 
-		//test NegativeVulnerabilityIDRx
+		// test NegativeVulnerabilityIDRx
 		expect(trivy.CriticalSeverity, keppel.SecurityScanPolicy{
 			RepositoryRx:              ".*",
 			VulnerabilityIDRx:         ".*",
@@ -749,8 +749,8 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 			},
 		})
 
-		//test ExceptFixReleased on its own (the highest vulnerability with a
-		//released fix is "High")
+		// test ExceptFixReleased on its own (the highest vulnerability with a
+		// released fix is "High")
 		expect(trivy.HighSeverity, keppel.SecurityScanPolicy{
 			RepositoryRx:      ".*",
 			VulnerabilityIDRx: ".*",
@@ -761,8 +761,8 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 			},
 		})
 
-		//test ExceptFixReleased together with an ignore of all high-severity fixed
-		//vulns (the next highest vulnerability with a released fix is "Medium")
+		// test ExceptFixReleased together with an ignore of all high-severity fixed
+		// vulns (the next highest vulnerability with a released fix is "Medium")
 		expect(trivy.MediumSeverity,
 			keppel.SecurityScanPolicy{
 				RepositoryRx:      ".*",
@@ -775,7 +775,7 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 			},
 			keppel.SecurityScanPolicy{
 				RepositoryRx:      ".*",
-				VulnerabilityIDRx: "CVE-2022-29458", //matches vulnerabilities in multiple packages
+				VulnerabilityIDRx: "CVE-2022-29458", // matches vulnerabilities in multiple packages
 				Action: keppel.SecurityScanPolicyAction{
 					Assessment: "will fix tomorrow, I swear",
 					Severity:   trivy.LowSeverity,
@@ -791,14 +791,14 @@ func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
 		tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
-		//upload an example image
+		// upload an example image
 		image := test.GenerateImage(test.GenerateExampleLayer(4))
 		image.MustUpload(t, s, fooRepoRef, "latest")
 		tr.DBChanges().Ignore()
 		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-eosl.json"
 
-		//there are vulnerabilities up to "Critical", but since the base distro is
-		//EOSL, the vulnerability status gets overridden into "Rotten"
+		// there are vulnerabilities up to "Critical", but since the base distro is
+		// EOSL, the vulnerability status gets overridden into "Rotten"
 		s.Clock.StepBy(1 * time.Hour)
 		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))

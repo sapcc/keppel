@@ -77,7 +77,7 @@ type healthMonitorJob struct {
 	RepoClient  *client.RepoClient
 
 	LastResultLock *sync.RWMutex
-	LastResult     *bool //nil during initialization, non-nil indicates result of last healthcheck
+	LastResult     *bool // nil during initialization, non-nil indicates result of last healthcheck
 }
 
 func run(cmd *cobra.Command, args []string) {
@@ -105,7 +105,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	ctx := httpext.ContextWithSIGINT(context.Background(), 1*time.Second)
 
-	//run one-time preparations
+	// run one-time preparations
 	err = job.PrepareKeppelAccount(ctx)
 	if err != nil {
 		logg.Fatal("while preparing Keppel account: %s", err.Error())
@@ -115,7 +115,7 @@ func run(cmd *cobra.Command, args []string) {
 		logg.Fatal("while uploading test image: %s", err.Error())
 	}
 
-	//expose metrics endpoint
+	// expose metrics endpoint
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthcheck", job.ReportHealthcheckResult)
 	mux.Handle("/metrics", promhttp.Handler())
@@ -123,8 +123,8 @@ func run(cmd *cobra.Command, args []string) {
 		must.Succeed(httpext.ListenAndServeContext(ctx, listenAddress, mux))
 	}()
 
-	//enter long-running check loop
-	job.ValidateImage(ctx, manifestRef) //once immediately to initialize the metric
+	// enter long-running check loop
+	job.ValidateImage(ctx, manifestRef) // once immediately to initialize the metric
 	tick := time.Tick(30 * time.Second)
 	for {
 		select {
@@ -141,7 +141,7 @@ func (j *healthMonitorJob) PrepareKeppelAccount(ctx context.Context) error {
 	reqBody := map[string]any{
 		"account": map[string]any{
 			"auth_tenant_id": j.AuthDriver.CurrentAuthTenantID(),
-			//anonymous pull access is needed for `keppel server anycastmonitor`
+			// anonymous pull access is needed for `keppel server anycastmonitor`
 			"rbac_policies": []map[string]any{{
 				"match_repository": "healthcheck",
 				"permissions":      []string{"anonymous_pull"},

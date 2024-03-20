@@ -36,7 +36,7 @@ import (
 )
 
 func init() {
-	//required for backwards-compatibility with existing tokens
+	// required for backwards-compatibility with existing tokens
 	jwt.MarshalSingleStringAsArray = false
 }
 
@@ -44,23 +44,23 @@ func init() {
 type tokenClaims struct {
 	jwt.RegisteredClaims
 	Access   []Scope              `json:"access"`
-	Embedded embeddedUserIdentity `json:"kea"` //kea = keppel embedded authorization ("UserIdentity" used to be called "Authorization")
+	Embedded embeddedUserIdentity `json:"kea"` // kea = keppel embedded authorization ("UserIdentity" used to be called "Authorization")
 }
 
 func parseToken(cfg keppel.Configuration, ad keppel.AuthDriver, audience Audience, tokenStr string) (*Authorization, *keppel.RegistryV2Error) {
-	//this function is used by jwt.ParseWithClaims() to select which public key to use for validation
+	// this function is used by jwt.ParseWithClaims() to select which public key to use for validation
 	keyFunc := func(t *jwt.Token) (any, error) {
-		//check the token header to see which key we used for signing
+		// check the token header to see which key we used for signing
 		ourIssuerKeys := audience.IssuerKeys(cfg)
 		for _, ourIssuerKey := range ourIssuerKeys {
 			if t.Header["jwk"] == serializePublicKey(ourIssuerKey) {
-				//check that the signing method matches what we generate
+				// check that the signing method matches what we generate
 				ourSigningMethod := chooseSigningMethod(ourIssuerKey)
 				if !equalSigningMethods(ourSigningMethod, t.Method) {
 					return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 				}
 
-				//jwt.Parse needs the public key to validate the token
+				// jwt.Parse needs the public key to validate the token
 				return derivePublicKey(ourIssuerKey), nil
 			}
 		}
@@ -68,7 +68,7 @@ func parseToken(cfg keppel.Configuration, ad keppel.AuthDriver, audience Audienc
 		return nil, errors.New("token signed by unknown key")
 	}
 
-	//parse JWT
+	// parse JWT
 	publicHost := audience.Hostname(cfg)
 	parserOpts := []jwt.ParserOption{
 		jwt.WithStrictDecoding(),
@@ -76,8 +76,8 @@ func parseToken(cfg keppel.Configuration, ad keppel.AuthDriver, audience Audienc
 		jwt.WithAudience(publicHost),
 	}
 	if !audience.IsAnycast {
-		//For anycast tokens, we don't verify the issuer. Any of our peers could
-		//have issued the token.
+		// For anycast tokens, we don't verify the issuer. Any of our peers could
+		// have issued the token.
 		parserOpts = append(parserOpts, jwt.WithIssuer("keppel-api@"+publicHost))
 	}
 
@@ -89,7 +89,7 @@ func parseToken(cfg keppel.Configuration, ad keppel.AuthDriver, audience Audienc
 	}
 	if !token.Valid {
 		//NOTE: This branch is defense in depth. As of the time of this writing,
-		//token.Valid == false if and only if err != nil.
+		// token.Valid == false if and only if err != nil.
 		return nil, keppel.ErrUnauthorized.With("token invalid")
 	}
 
@@ -131,8 +131,8 @@ func (a Authorization) IssueTokenWithExpires(cfg keppel.Configuration, expiresIn
 	issuerKey := issuerKeys[0]
 	method := chooseSigningMethod(issuerKey)
 
-	//fill the "issuer" field with a dummy audience that has anycast forced to
-	//false to reveal the identity of the Keppel API that issued the token
+	// fill the "issuer" field with a dummy audience that has anycast forced to
+	// false to reveal the identity of the Keppel API that issued the token
 	issuer := Audience{IsAnycast: false, AccountName: a.Audience.AccountName}
 
 	uuidV4, err := uuid.NewV4()
@@ -150,12 +150,12 @@ func (a Authorization) IssueTokenWithExpires(cfg keppel.Configuration, expiresIn
 			NotBefore: jwt.NewNumericDate(now),
 			IssuedAt:  jwt.NewNumericDate(now),
 		},
-		//access permissions granted to this token
+		// access permissions granted to this token
 		Access:   a.ScopeSet.Flatten(),
 		Embedded: embeddedUserIdentity{UserIdentity: a.UserIdentity},
 	})
-	//we need to remember which key we used for this token, to choose the right
-	//key for validation during parseToken()
+	// we need to remember which key we used for this token, to choose the right
+	// key for validation during parseToken()
 	token.Header["jwk"] = serializePublicKey(issuerKey)
 
 	tokenStr, err := token.SignedString(issuerKey)
@@ -229,9 +229,9 @@ func equalSigningMethods(m1, m2 jwt.SigningMethod) bool {
 // Wraps an UserIdentity such that it can be serialized into JSON.
 type embeddedUserIdentity struct {
 	UserIdentity keppel.UserIdentity
-	//AuthDriver is ignored during serialization, but must be filled prior to
-	//deserialization because some types of UserIdentity require their
-	//respective AuthDriver to deserialize properly.
+	// AuthDriver is ignored during serialization, but must be filled prior to
+	// deserialization because some types of UserIdentity require their
+	// respective AuthDriver to deserialize properly.
 	AuthDriver keppel.AuthDriver
 }
 
@@ -242,9 +242,9 @@ func (e embeddedUserIdentity) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 
-	//The straight-forward approach would be to serialize as
-	//`{"type":"foo","payload":"something"}`, but we serialize as
-	//`{"foo":"something"}` instead to shave off a few bytes.
+	// The straight-forward approach would be to serialize as
+	// `{"type":"foo","payload":"something"}`, but we serialize as
+	// `{"foo":"something"}` instead to shave off a few bytes.
 	typeID := e.UserIdentity.PluginTypeID()
 	return json.Marshal(map[string]json.RawMessage{typeID: json.RawMessage(payload)})
 }
@@ -269,6 +269,6 @@ func (e *embeddedUserIdentity) UnmarshalJSON(in []byte) error {
 		return err
 	}
 
-	//the loop body executes exactly once, therefore this location is unreachable
+	// the loop body executes exactly once, therefore this location is unreachable
 	panic("unreachable")
 }

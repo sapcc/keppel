@@ -25,35 +25,35 @@ import (
 	"github.com/docker/distribution"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 
-	//distribution.UnmarshalManifest() relies on the following packages
-	//registering their manifest schemas.
+	// distribution.UnmarshalManifest() relies on the following packages
+	// registering their manifest schemas.
 	"github.com/docker/distribution/manifest/manifestlist"
 	"github.com/docker/distribution/manifest/ocischema"
 	"github.com/docker/distribution/manifest/schema2"
 )
 
 //NOTE: We don't enable github.com/docker/distribution/manifest/schema1
-//anymore since it's legacy anyway and the implementation is a lot simpler
-//when we don't have to rewrite manifests between schema1 and schema2.
+// anymore since it's legacy anyway and the implementation is a lot simpler
+// when we don't have to rewrite manifests between schema1 and schema2.
 
 // ParsedManifest is an interface that can interrogate manifests about the blobs
 // and submanifests referenced therein.
 type ParsedManifest interface {
-	//FindImageConfigBlob returns the descriptor of the blob containing this
-	//manifest's image configuration, or nil if the manifest does not have an image
-	//configuration.
+	// FindImageConfigBlob returns the descriptor of the blob containing this
+	// manifest's image configuration, or nil if the manifest does not have an image
+	// configuration.
 	FindImageConfigBlob() *distribution.Descriptor
-	//FindImageLayerBlobs returns the descriptors of the blobs containing this
-	//manifest's image layers, or an empty list if the manifest does not have layers.
+	// FindImageLayerBlobs returns the descriptors of the blobs containing this
+	// manifest's image layers, or an empty list if the manifest does not have layers.
 	FindImageLayerBlobs() []distribution.Descriptor
-	//BlobReferences returns all blobs referenced by this manifest.
+	// BlobReferences returns all blobs referenced by this manifest.
 	BlobReferences() []distribution.Descriptor
-	//ManifestReferences returns all manifests referenced by this manifest.
+	// ManifestReferences returns all manifests referenced by this manifest.
 	ManifestReferences(pf PlatformFilter) []manifestlist.ManifestDescriptor
-	//AcceptableAlternates returns the subset of ManifestReferences() that is
-	//acceptable as alternate representations of this manifest. When a client
-	//asks for this manifest, but the Accept header does not match the manifest
-	//itself, the API will look for an acceptable alternate to serve instead.
+	// AcceptableAlternates returns the subset of ManifestReferences() that is
+	// acceptable as alternate representations of this manifest. When a client
+	// asks for this manifest, but the Accept header does not match the manifest
+	// itself, the API will look for an acceptable alternate to serve instead.
 	AcceptableAlternates(pf PlatformFilter) []manifestlist.ManifestDescriptor
 }
 
@@ -106,14 +106,14 @@ type ociManifestAdapter struct {
 }
 
 func (a ociManifestAdapter) FindImageConfigBlob() *distribution.Descriptor {
-	//Standard OCI images have this specific MediaType for their config blob, and
-	//this is the format that we can inspect.
+	// Standard OCI images have this specific MediaType for their config blob, and
+	// this is the format that we can inspect.
 	if a.m.Config.MediaType == v1.MediaTypeImageConfig {
 		return &a.m.Config
 	}
-	//ORAS images have application-specific MediaTypes that we do not know how to
-	//inspect (e.g. `application/vnd.aquasec.trivy.config.v1+json` for Trivy
-	//vulnerability DBs). We have to ignore these since we cannot parse them.
+	// ORAS images have application-specific MediaTypes that we do not know how to
+	// inspect (e.g. `application/vnd.aquasec.trivy.config.v1+json` for Trivy
+	// vulnerability DBs). We have to ignore these since we cannot parse them.
 	return nil
 }
 
@@ -163,12 +163,12 @@ func (a listManifestAdapter) ManifestReferences(pf PlatformFilter) []manifestlis
 func (a listManifestAdapter) AcceptableAlternates(pf PlatformFilter) []manifestlist.ManifestDescriptor {
 	var result []manifestlist.ManifestDescriptor
 	for _, m := range a.ManifestReferences(pf) {
-		//If we have an application/vnd.docker.distribution.manifest.list.v2+json manifest, but the
-		//client only accepts application/vnd.docker.distribution.manifest.v2+json, in order to stay
-		//compatible with the reference implementation of Docker Hub, we serve this case by recursing
-		//into the image list and returning the linux/amd64 manifest to the client.
+		// If we have an application/vnd.docker.distribution.manifest.list.v2+json manifest, but the
+		// client only accepts application/vnd.docker.distribution.manifest.v2+json, in order to stay
+		// compatible with the reference implementation of Docker Hub, we serve this case by recursing
+		// into the image list and returning the linux/amd64 manifest to the client.
 		//
-		//This case is relevant for the support of tagged multi-arch images in `docker pull`.
+		// This case is relevant for the support of tagged multi-arch images in `docker pull`.
 		if a.m.Versioned.MediaType == manifestlist.MediaTypeManifestList && m.MediaType == schema2.MediaTypeManifest {
 			if m.Platform.OS == "linux" && m.Platform.Architecture == "amd64" {
 				result = append(result, m)

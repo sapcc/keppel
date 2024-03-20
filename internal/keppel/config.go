@@ -58,7 +58,7 @@ var (
 
 // ParseIssuerKey parses the contents of the KEPPEL_ISSUER_KEY variable.
 func ParseIssuerKey(in string) (crypto.PrivateKey, error) {
-	//if it looks like PEM, it's probably PEM; otherwise it's a filename
+	// if it looks like PEM, it's probably PEM; otherwise it's a filename
 	var buf []byte
 	if looksLikePEMRx.MatchString(in) {
 		buf = []byte(in)
@@ -71,11 +71,11 @@ func ParseIssuerKey(in string) (crypto.PrivateKey, error) {
 	}
 	buf = stripWhitespaceRx.ReplaceAll(buf, nil)
 
-	//we support either ed25519 keys (preferred) or RSA keys (legacy), and we
-	//decide which one we have based on which parsing attempt does not fail
+	// we support either ed25519 keys (preferred) or RSA keys (legacy), and we
+	// decide which one we have based on which parsing attempt does not fail
 	//
-	//TODO remove RSA support after all production instances have been migrated
-	//to ed25519
+	// TODO remove RSA support after all production instances have been migrated
+	// to ed25519
 	ed25519Key, err1 := jwt.ParseEdPrivateKeyFromPEM(buf)
 	if err1 == nil {
 		return ed25519Key, nil

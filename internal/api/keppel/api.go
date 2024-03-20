@@ -45,7 +45,7 @@ type API struct {
 	icd        keppel.InboundCacheDriver
 	db         *keppel.DB
 	auditor    keppel.Auditor
-	rle        *keppel.RateLimitEngine //may be nil
+	rle        *keppel.RateLimitEngine // may be nil
 }
 
 // NewAPI constructs a new API instance.
@@ -58,7 +58,7 @@ func (a *API) AddTo(r *mux.Router) {
 	r.Methods("GET").Path("/keppel/v1").HandlerFunc(a.handleGetAPIInfo)
 
 	//NOTE: Keppel account names are severely restricted because we used to
-	//derive Postgres database names from them.
+	// derive Postgres database names from them.
 	r.Methods("GET").Path("/keppel/v1/accounts").HandlerFunc(a.handleGetAccounts)
 	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(a.handleGetAccount)
 	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(a.handlePutAccount)
@@ -207,20 +207,20 @@ type paginatedQuery struct {
 }
 
 func (q paginatedQuery) Prepare() (modifiedSQLQuery string, modifiedBindValues []any, limit uint64, err error) {
-	//hidden feature: allow lowering the default limit with ?limit= (we only
-	//really use this for the unit tests)
+	// hidden feature: allow lowering the default limit with ?limit= (we only
+	// really use this for the unit tests)
 	limit = uint64(1000)
 	if limitStr := q.Options.Get("limit"); limitStr != "" {
 		limitVal, err := strconv.ParseUint(limitStr, 10, 64)
 		if err != nil {
 			return "", nil, 0, err
 		}
-		if limitVal < limit { //never allow more than 1000 results at once
+		if limitVal < limit { // never allow more than 1000 results at once
 			limit = limitVal
 		}
 	}
-	//fetch one more than `limit`: otherwise we cannot distinguish between a
-	//truncated 1000-row result and a non-truncated 1000-row result
+	// fetch one more than `limit`: otherwise we cannot distinguish between a
+	// truncated 1000-row result and a non-truncated 1000-row result
 	query := strings.Replace(q.SQL, `$LIMIT`, strconv.FormatUint(limit+1, 10), 1)
 
 	marker := q.Options.Get("marker")

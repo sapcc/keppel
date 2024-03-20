@@ -179,7 +179,7 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 	}
 	defer sqlext.RollbackUnlessCommitted(tx)
 
-	//deleting a repo is only allowed if there is nothing in it
+	// deleting a repo is only allowed if there is nothing in it
 	manifestCount, err := tx.SelectInt(
 		`SELECT COUNT(*) FROM manifests WHERE repo_id = $1`,
 		repo.ID,
@@ -202,9 +202,9 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, msg, http.StatusConflict)
 		return
 	}
-	//^ NOTE: It's not a problem if there are blob_mounts in this repo. When the
-	//repo is deleted, its blob mounts will be deleted as well, and the janitor
-	//will then clean up any blobs without any remaining mounts.
+	// ^ NOTE: It's not a problem if there are blob_mounts in this repo. When the
+	// repo is deleted, its blob mounts will be deleted as well, and the janitor
+	// will then clean up any blobs without any remaining mounts.
 
 	_, err = tx.Delete(repo)
 	if err == nil {

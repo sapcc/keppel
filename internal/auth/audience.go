@@ -34,8 +34,8 @@ import (
 // test.Setup().getToken().
 type Audience struct {
 	IsAnycast bool
-	//When using a domain-remapped API, contains the account name specified in the domain name.
-	//Otherwise, contains the empty string.
+	// When using a domain-remapped API, contains the account name specified in the domain name.
+	// Otherwise, contains the empty string.
 	AccountName string
 }
 
@@ -44,7 +44,7 @@ type Audience struct {
 // regular API requests), from the "service" value of auth requests, or from the
 // "audience" field in tokens.
 func IdentifyAudience(hostname string, cfg keppel.Configuration) Audience {
-	//option 1: the hostname is directly known to us
+	// option 1: the hostname is directly known to us
 	if hostname != "" {
 		switch hostname {
 		case cfg.APIPublicHostname:
@@ -52,28 +52,28 @@ func IdentifyAudience(hostname string, cfg keppel.Configuration) Audience {
 		case cfg.AnycastAPIPublicHostname:
 			return Audience{IsAnycast: true, AccountName: ""}
 		default:
-			//try the other options
+			// try the other options
 		}
 	}
 
-	//option 2: the hostname is for a domain-remapped API
+	// option 2: the hostname is for a domain-remapped API
 	hostnameParts := strings.SplitN(hostname, ".", 2)
 	if len(hostnameParts) == 2 && hostnameParts[0] != "" && hostnameParts[1] != "" {
-		//head must look like an account name...
+		// head must look like an account name...
 		if models.IsAccountName(hostnameParts[0]) {
-			//...and tail must be one of the well-known hostnames
+			// ...and tail must be one of the well-known hostnames
 			switch hostnameParts[1] {
 			case cfg.APIPublicHostname:
 				return Audience{IsAnycast: false, AccountName: hostnameParts[0]}
 			case cfg.AnycastAPIPublicHostname:
 				return Audience{IsAnycast: true, AccountName: hostnameParts[0]}
 			default:
-				//try the other options
+				// try the other options
 			}
 		}
 	}
 
-	//when we don't know what's going on with the hostname at all, we fallback to the default
+	// when we don't know what's going on with the hostname at all, we fallback to the default
 	return Audience{IsAnycast: false, AccountName: ""}
 }
 

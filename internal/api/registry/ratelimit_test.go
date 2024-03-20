@@ -48,8 +48,8 @@ func TestRateLimits(t *testing.T) {
 	}
 
 	testWithPrimary(t, setupOptions, func(s test.Setup) {
-		//create the "test1/foo" repository to ensure that we don't just always hit
-		//NAME_UNKNOWN errors
+		// create the "test1/foo" repository to ensure that we don't just always hit
+		// NAME_UNKNOWN errors
 		_, err := keppel.FindOrCreateRepository(s.DB, "foo", keppel.Account{Name: "test1"})
 		if err != nil {
 			t.Fatal(err.Error())
@@ -59,9 +59,9 @@ func TestRateLimits(t *testing.T) {
 		token := s.GetToken(t, "repository:test1/foo:pull,push")
 		bogusDigest := test.DeterministicDummyDigest(1).String()
 
-		//prepare some test requests that should be affected by rate limiting
-		//(some of these fail with 404 or 400, but that's okay; the important part is
-		//whether they fail with 429 or not)
+		// prepare some test requests that should be affected by rate limiting
+		// (some of these fail with 404 or 400, but that's okay; the important part is
+		// whether they fail with 429 or not)
 		testRequests := []assert.HTTPRequest{
 			{
 				Method:       "GET",
@@ -99,13 +99,13 @@ func TestRateLimits(t *testing.T) {
 		for _, req := range testRequests {
 			s.Clock.StepBy(time.Hour)
 
-			//we can always execute 1 request initially, and then we can burst on top of that
+			// we can always execute 1 request initially, and then we can burst on top of that
 			for i := 0; i < limit.Burst; i++ {
 				req.Check(t, h)
 				s.Clock.StepBy(time.Second)
 			}
 
-			//then the next request should be rate-limited
+			// then the next request should be rate-limited
 			failingReq := req
 			failingReq.ExpectBody = test.ErrorCode(keppel.ErrTooManyRequests)
 			failingReq.ExpectStatus = http.StatusTooManyRequests
@@ -115,17 +115,17 @@ func TestRateLimits(t *testing.T) {
 			}
 			failingReq.Check(t, h)
 
-			//be impatient
+			// be impatient
 			s.Clock.StepBy(time.Duration(29-limit.Burst) * time.Second)
 			failingReq.ExpectHeader["Retry-After"] = "1"
 			failingReq.Check(t, h)
 
-			//finally!
+			// finally!
 			s.Clock.StepBy(time.Second)
 			req.Check(t, h)
 
-			//aaaand... we're rate-limited again immediately because we haven't
-			//recovered our burst budget yet
+			// aaaand... we're rate-limited again immediately because we haven't
+			// recovered our burst budget yet
 			failingReq.ExpectHeader["Retry-After"] = "30"
 			failingReq.Check(t, h)
 		}
@@ -135,13 +135,13 @@ func TestRateLimits(t *testing.T) {
 func TestAnycastRateLimits(t *testing.T) {
 	blob := test.NewBytes([]byte("the blob for our test case"))
 
-	//set up rate limit such that we can pull this blob only twice in a row
+	// set up rate limit such that we can pull this blob only twice in a row
 	limit := redis_rate.Limit{Rate: len(blob.Contents) * 2, Period: time.Minute, Burst: len(blob.Contents) * 2}
 
 	rld := basic.RateLimitDriver{
 		Limits: map[keppel.RateLimitedAction]redis_rate.Limit{
 			keppel.AnycastBlobBytePullAction: limit,
-			//all other rate limits are set to "unlimited"
+			// all other rate limits are set to "unlimited"
 		},
 	}
 	rle := &keppel.RateLimitEngine{Driver: rld, Client: nil}
@@ -154,14 +154,14 @@ func TestAnycastRateLimits(t *testing.T) {
 			return
 		}
 
-		//upload the test blob
+		// upload the test blob
 		h := s.Handler
 		blob.MustUpload(t, s, fooRepoRef)
 
-		//pull it via anycast
+		// pull it via anycast
 		testWithReplica(t, s, "on_first_use", func(firstPass bool, s2 test.Setup) {
 			h2 := s2.Handler
-			s.Clock.StepBy(time.Hour) //reset all rate limits
+			s.Clock.StepBy(time.Hour) // reset all rate limits
 			testAnycast(t, firstPass, s2.DB, func() {
 				anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull")
 				anycastHeaders := map[string]string{
@@ -169,14 +169,14 @@ func TestAnycastRateLimits(t *testing.T) {
 					"X-Forwarded-Proto": "https",
 				}
 
-				//two pulls are allowed by the rate limit (note that these are actually
-				//four requests because each expectBlobExists() does one GET and one
-				//HEAD, but the rate limit only counts GETs since the rate limit is on
-				//the blob contents, which don't get transferred during HEAD)
+				// two pulls are allowed by the rate limit (note that these are actually
+				// four requests because each expectBlobExists() does one GET and one
+				// HEAD, but the rate limit only counts GETs since the rate limit is on
+				// the blob contents, which don't get transferred during HEAD)
 				expectBlobExists(t, h2, anycastToken, "test1/foo", blob, anycastHeaders)
 				expectBlobExists(t, h2, anycastToken, "test1/foo", blob, anycastHeaders)
 
-				//third pull will be rejected by the rate limit
+				// third pull will be rejected by the rate limit
 				assert.HTTPRequest{
 					Method: "GET",
 					Path:   "/v2/test1/foo/blobs/" + blob.Digest.String(),
@@ -193,7 +193,7 @@ func TestAnycastRateLimits(t *testing.T) {
 					},
 				}.Check(t, h2)
 
-				//pull from primary is okay since we don't traverse regions
+				// pull from primary is okay since we don't traverse regions
 				expectBlobExists(t, h, anycastToken, "test1/foo", blob, anycastHeaders)
 			})
 		})

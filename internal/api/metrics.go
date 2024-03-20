@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	//BlobBytesPulledCounter is a prometheus.CounterVec.
+	// BlobBytesPulledCounter is a prometheus.CounterVec.
 	BlobBytesPulledCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "keppel_pulled_blob_bytes",
@@ -31,7 +31,7 @@ var (
 		},
 		[]string{"account", "auth_tenant_id", "method"},
 	)
-	//BlobBytesPushedCounter is a prometheus.CounterVec.
+	// BlobBytesPushedCounter is a prometheus.CounterVec.
 	BlobBytesPushedCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "keppel_pushed_blob_bytes",
@@ -39,7 +39,7 @@ var (
 		},
 		[]string{"account", "auth_tenant_id", "method"},
 	)
-	//BlobsPulledCounter is a prometheus.CounterVec.
+	// BlobsPulledCounter is a prometheus.CounterVec.
 	BlobsPulledCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "keppel_pulled_blobs",
@@ -47,7 +47,7 @@ var (
 		},
 		[]string{"account", "auth_tenant_id", "method"},
 	)
-	//BlobsPushedCounter is a prometheus.CounterVec.
+	// BlobsPushedCounter is a prometheus.CounterVec.
 	BlobsPushedCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "keppel_pushed_blobs",
@@ -55,7 +55,7 @@ var (
 		},
 		[]string{"account", "auth_tenant_id", "method"},
 	)
-	//ManifestsPulledCounter is a prometheus.CounterVec.
+	// ManifestsPulledCounter is a prometheus.CounterVec.
 	ManifestsPulledCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "keppel_pulled_manifests",
@@ -63,7 +63,7 @@ var (
 		},
 		[]string{"account", "auth_tenant_id", "method"},
 	)
-	//ManifestsPushedCounter is a prometheus.CounterVec.
+	// ManifestsPushedCounter is a prometheus.CounterVec.
 	ManifestsPushedCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "keppel_pushed_manifests",
@@ -71,7 +71,7 @@ var (
 		},
 		[]string{"account", "auth_tenant_id", "method"},
 	)
-	//UploadsAbortedCounter is a prometheus.CounterVec.
+	// UploadsAbortedCounter is a prometheus.CounterVec.
 	UploadsAbortedCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "keppel_aborted_uploads",

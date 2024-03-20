@@ -82,11 +82,11 @@ func run(cmd *cobra.Command, args []string) {
 		rle = &keppel.RateLimitEngine{Driver: rld, Client: rc}
 	}
 
-	//start background goroutines
+	// start background goroutines
 	ctx := httpext.ContextWithSIGINT(context.Background(), 10*time.Second)
 	runPeering(ctx, cfg, db)
 
-	//wire up HTTP handlers
+	// wire up HTTP handlers
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{"HEAD", "GET", "POST", "PUT", "DELETE"},
@@ -97,7 +97,7 @@ func run(cmd *cobra.Command, args []string) {
 		auth.NewAPI(cfg, ad, fd, db),
 		registryv2.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle),
 		peerv1.NewAPI(cfg, ad, db),
-		&headerReflector{logg.ShowDebug}, //the header reflection endpoint is only enabled where debugging is enabled (i.e. usually in dev/QA only)
+		&headerReflector{logg.ShowDebug}, // the header reflection endpoint is only enabled where debugging is enabled (i.e. usually in dev/QA only)
 		&guiRedirecter{db, os.Getenv("KEPPEL_GUI_URI")},
 		httpapi.HealthCheckAPI{
 			SkipRequestLog: true,
@@ -113,7 +113,7 @@ func run(cmd *cobra.Command, args []string) {
 	mux.Handle("/", handler)
 	mux.Handle("/metrics", promhttp.Handler())
 
-	//start HTTP server
+	// start HTTP server
 	apiListenAddress := osext.GetenvOrDefault("KEPPEL_API_LISTEN_ADDRESS", ":8080")
 	must.Succeed(httpext.ListenAndServeContext(ctx, apiListenAddress, mux))
 }
@@ -133,11 +133,11 @@ func initRedis() (*redis.Client, error) {
 }
 
 func setupDBIfRequested(db *keppel.DB) error {
-	//This method performs specialized first-time setup for conformance test
-	//scenarios where we always start with a fresh empty database.
+	// This method performs specialized first-time setup for conformance test
+	// scenarios where we always start with a fresh empty database.
 	//
-	//This setup cannot be done before keppel-api has been started, because the
-	//DB schema has not been populated yet at that point.
+	// This setup cannot be done before keppel-api has been started, because the
+	// DB schema has not been populated yet at that point.
 	if osext.GetenvBool("KEPPEL_RUN_DB_SETUP_FOR_CONFORMANCE_TEST") {
 		// clear out database before running conformance tests to be not out of sync with cleared out storage filedriver
 		// borrowed from test setup
@@ -173,9 +173,9 @@ func setupDBIfRequested(db *keppel.DB) error {
 
 func reportClientIP(inner http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		//This middleware adds the X-Keppel-Your-Ip header to all requests, which is used:
-		//1. by end users to understand which IPs they need to put in their RBAC policies
-		//2. by Keppel operators to check if X-Forwarded-For is transported correctly through reverse proxies
+		// This middleware adds the X-Keppel-Your-Ip header to all requests, which is used:
+		// 1. by end users to understand which IPs they need to put in their RBAC policies
+		// 2. by Keppel operators to check if X-Forwarded-For is transported correctly through reverse proxies
 		w.Header().Set("X-Keppel-Your-Ip", httpext.GetRequesterIPFor(r))
 		inner.ServeHTTP(w, r)
 	})

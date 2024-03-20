@@ -29,7 +29,7 @@ import (
 
 var sqlMigrations = map[string]string{
 	//NOTE: Migrations 1 through 35 have been rolled up into one at 2024-02-26
-	//to better represent the current baseline of the DB schema.
+	// to better represent the current baseline of the DB schema.
 	"035_rollup.up.sql": `
 		CREATE TABLE accounts (
 			name                            TEXT        NOT NULL PRIMARY KEY,
@@ -275,7 +275,7 @@ func InitDB(dbURL *url.URL) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	//ensure that this process does not starve other Keppel processes for DB connections
+	// ensure that this process does not starve other Keppel processes for DB connections
 	db.SetMaxOpenConns(16)
 
 	result := &DB{DbMap: gorp.DbMap{Db: db, Dialect: gorp.PostgresDialect{}}}

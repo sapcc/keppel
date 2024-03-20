@@ -73,19 +73,19 @@ func (j *Janitor) StorageSweepJob(registerer prometheus.Registerer) jobloop.Job 
 }
 
 func (j *Janitor) sweepStorage(_ context.Context, account keppel.Account, _ prometheus.Labels) error {
-	//enumerate blobs and manifests in the backing storage
+	// enumerate blobs and manifests in the backing storage
 	actualBlobs, actualManifests, err := j.sd.ListStorageContents(account)
 	if err != nil {
 		return err
 	}
 
-	//when creating new entries in `unknown_blobs` and `unknown_manifests`, set
-	//the `can_be_deleted_at` timestamp such that the next pass 6 hours from now
-	//will sweep them (we don't use .Add(6 * time.Hour) to account for the
-	//marking taking some time)
+	// when creating new entries in `unknown_blobs` and `unknown_manifests`, set
+	// the `can_be_deleted_at` timestamp such that the next pass 6 hours from now
+	// will sweep them (we don't use .Add(6 * time.Hour) to account for the
+	// marking taking some time)
 	canBeDeletedAt := j.timeNow().Add(4 * time.Hour)
 
-	//handle blobs and manifests separately
+	// handle blobs and manifests separately
 	err = j.sweepBlobStorage(account, actualBlobs, canBeDeletedAt)
 	if err != nil {
 		return err
@@ -105,7 +105,7 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 		actualBlobsByStorageID[blobInfo.StorageID] = blobInfo
 	}
 
-	//enumerate blobs known to the DB
+	// enumerate blobs known to the DB
 	isKnownStorageID := make(map[string]bool)
 	query := `SELECT storage_id FROM blobs WHERE account_name = $1`
 	err := sqlext.ForeachRow(j.db, query, []any{account.Name}, func(rows *sql.Rows) error {
@@ -118,7 +118,7 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 		return err
 	}
 
-	//blobs in the backing storage may also correspond to uploads in progress
+	// blobs in the backing storage may also correspond to uploads in progress
 	query = `SELECT storage_id FROM uploads WHERE repo_id IN (SELECT id FROM repos WHERE account_name = $1)`
 	err = sqlext.ForeachRow(j.db, query, []any{account.Name}, func(rows *sql.Rows) error {
 		var storageID string
@@ -130,7 +130,7 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 		return err
 	}
 
-	//unmark/sweep phase: enumerate all unknown blobs
+	// unmark/sweep phase: enumerate all unknown blobs
 	var unknownBlobs []keppel.UnknownBlob
 	_, err = j.db.Select(&unknownBlobs, `SELECT * FROM unknown_blobs WHERE account_name = $1`, account.Name)
 	if err != nil {
@@ -138,7 +138,7 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 	}
 	isMarkedStorageID := make(map[string]bool)
 	for _, unknownBlob := range unknownBlobs {
-		//unmark blobs that have been recorded in the database in the meantime
+		// unmark blobs that have been recorded in the database in the meantime
 		if isKnownStorageID[unknownBlob.StorageID] {
 			_, err = j.db.Delete(&unknownBlob) //nolint:gosec // Delete is not holding onto the pointer after it returns
 			if err != nil {
@@ -147,17 +147,17 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 			continue
 		}
 
-		//sweep blobs that have been marked long enough
+		// sweep blobs that have been marked long enough
 		isMarkedStorageID[unknownBlob.StorageID] = true
 		if unknownBlob.CanBeDeletedAt.Before(j.timeNow()) {
-			//only call DeleteBlob if we can still see the blob in the backing
-			//storage (this protects against unexpected errors e.g. because an
-			//operator deleted the blob between the mark and sweep phases, or if we
-			//deleted the blob from the backing storage in a previous sweep, but
-			//could not remove the unknown_blobs entry from the DB)
+			// only call DeleteBlob if we can still see the blob in the backing
+			// storage (this protects against unexpected errors e.g. because an
+			// operator deleted the blob between the mark and sweep phases, or if we
+			// deleted the blob from the backing storage in a previous sweep, but
+			// could not remove the unknown_blobs entry from the DB)
 			if blobInfo, exists := actualBlobsByStorageID[unknownBlob.StorageID]; exists {
-				//need to use different cleanup strategies depending on whether the
-				//blob upload was finalized or not
+				// need to use different cleanup strategies depending on whether the
+				// blob upload was finalized or not
 				if blobInfo.ChunkCount > 0 {
 					logg.Info("storage sweep in account %s: removing unfinalized blob stored at %s with %d chunks",
 						account.Name, unknownBlob.StorageID, blobInfo.ChunkCount)
@@ -178,7 +178,7 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 		}
 	}
 
-	//mark phase: record newly discovered unknown blobs in the DB
+	// mark phase: record newly discovered unknown blobs in the DB
 	for storageID := range actualBlobsByStorageID {
 		if isKnownStorageID[storageID] || isMarkedStorageID[storageID] {
 			continue
@@ -202,7 +202,7 @@ func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests [
 		isActualManifest[m] = true
 	}
 
-	//enumerate manifests known to the DB
+	// enumerate manifests known to the DB
 	isKnownManifest := make(map[keppel.StoredManifestInfo]bool)
 	query := `SELECT r.name, m.digest FROM repos r JOIN manifests m ON m.repo_id = r.id WHERE r.account_name = $1`
 	err := sqlext.ForeachRow(j.db, query, []any{account.Name}, func(rows *sql.Rows) error {
@@ -215,7 +215,7 @@ func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests [
 		return err
 	}
 
-	//unmark/sweep phase: enumerate all unknown manifests
+	// unmark/sweep phase: enumerate all unknown manifests
 	var unknownManifests []keppel.UnknownManifest
 	_, err = j.db.Select(&unknownManifests, `SELECT * FROM unknown_manifests WHERE account_name = $1`, account.Name)
 	if err != nil {
@@ -228,7 +228,7 @@ func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests [
 			Digest:   unknownManifest.Digest,
 		}
 
-		//unmark manifests that have been recorded in the database in the meantime
+		// unmark manifests that have been recorded in the database in the meantime
 		if isKnownManifest[unknownManifestInfo] {
 			_, err = j.db.Delete(&unknownManifest) //nolint:gosec // Delete is not holding onto the pointer after it returns
 			if err != nil {
@@ -237,14 +237,14 @@ func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests [
 			continue
 		}
 
-		//sweep manifests that have been marked long enough
+		// sweep manifests that have been marked long enough
 		isMarkedManifest[unknownManifestInfo] = true
 		if unknownManifest.CanBeDeletedAt.Before(j.timeNow()) {
-			//only call DeleteManifest if we can still see the manifest in the
-			//backing storage (this protects against unexpected errors e.g. because
-			//an operator deleted the manifest between the mark and sweep phases, or
-			//if we deleted the manifest from the backing storage in a previous
-			//sweep, but could not remove the unknown_manifests entry from the DB)
+			// only call DeleteManifest if we can still see the manifest in the
+			// backing storage (this protects against unexpected errors e.g. because
+			// an operator deleted the manifest between the mark and sweep phases, or
+			// if we deleted the manifest from the backing storage in a previous
+			// sweep, but could not remove the unknown_manifests entry from the DB)
 			if isActualManifest[unknownManifestInfo] {
 				logg.Info("storage sweep in account %s: removing manifest %s/%s",
 					account.Name, unknownManifest.RepositoryName, unknownManifest.Digest)
@@ -260,7 +260,7 @@ func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests [
 		}
 	}
 
-	//mark phase: record newly discovered unknown manifests in the DB
+	// mark phase: record newly discovered unknown manifests in the DB
 	for manifest := range isActualManifest {
 		if isKnownManifest[manifest] || isMarkedManifest[manifest] {
 			continue

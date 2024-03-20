@@ -34,7 +34,7 @@ import (
 var (
 	currentlyWithAnycast bool
 
-	//only for use with .MustUpload()
+	// only for use with .MustUpload()
 	fooRepoRef = keppel.Repository{AccountName: "test1", Name: "foo"}
 	barRepoRef = keppel.Repository{AccountName: "test1", Name: "bar"}
 )
@@ -53,11 +53,11 @@ func testWithPrimary(t *testing.T, setupOptions []test.SetupOption, action func(
 			s := test.NewSetup(t, options...)
 			currentlyWithAnycast = withAnycast
 
-			//run the tests for this scenario
+			// run the tests for this scenario
 			action(s)
 
-			//shutdown DB to free up connections (otherwise the test eventually fails
-			//with Postgres saying "too many clients already")
+			// shutdown DB to free up connections (otherwise the test eventually fails
+			// with Postgres saying "too many clients already")
 			err := s.DB.Db.Close()
 			if err != nil {
 				t.Fatal(err.Error())
@@ -96,14 +96,14 @@ func testWithReplica(t *testing.T, s1 test.Setup, strategy string, action func(f
 		tt.Handlers["registry-secondary.example.org"] = nil
 	}()
 
-	//run the testcase once with the primary registry available
+	// run the testcase once with the primary registry available
 	t.Logf("running first pass for strategy %s", strategy)
 	action(true, s)
 	if t.Failed() {
 		t.FailNow()
 	}
 
-	//sever the network connection to the primary registry and re-run all testcases
+	// sever the network connection to the primary registry and re-run all testcases
 	t.Logf("running second pass for strategy %s", strategy)
 	test.WithoutRoundTripper(func() {
 		action(false, s)
@@ -126,11 +126,11 @@ func testWithAllReplicaTypes(t *testing.T, s1 test.Setup, action func(strategy s
 func testAnycast(t *testing.T, firstPass bool, db2 *keppel.DB, action func()) {
 	t.Helper()
 
-	//the second pass of testWithReplica() has a severed network connection, so anycast is not possible
+	// the second pass of testWithReplica() has a severed network connection, so anycast is not possible
 	if !firstPass {
 		return
 	}
-	//to make sure that we actually anycast, the replica must not have the "test1" account
+	// to make sure that we actually anycast, the replica must not have the "test1" account
 	_, err := db2.Exec(`DELETE FROM accounts`)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -223,14 +223,14 @@ func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName stri
 			req.Header[k] = v
 		}
 
-		//without Accept header
+		// without Accept header
 		req.Check(t, h)
 
-		//with matching Accept header
+		// with matching Accept header
 		req.Header["Accept"] = manifest.MediaType
 		req.Check(t, h)
 
-		//with mismatching Accept header
+		// with mismatching Accept header
 		req.Header["Accept"] = "text/plain"
 		req.ExpectStatus = http.StatusNotAcceptable
 		req.ExpectHeader = test.VersionHeader
@@ -243,7 +243,7 @@ func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName stri
 
 func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *keppel.DB) {
 	t.Helper()
-	//test that no blobs were yet committed to the DB...
+	// test that no blobs were yet committed to the DB...
 	count, err := db.SelectInt(`SELECT COUNT(*) FROM blobs`)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -252,12 +252,12 @@ func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *keppel.DB) 
 		t.Errorf("expected 0 blobs in the DB, but found %d blobs", count)
 	}
 
-	//...nor to the storage
+	// ...nor to the storage
 	if sd.BlobCount() > 0 {
 		t.Errorf("expected 0 blobs in the storage, but found %d blobs", sd.BlobCount())
 	}
 
-	//also there should be no unfinished uploads
+	// also there should be no unfinished uploads
 	count, err = db.SelectInt(`SELECT COUNT(*) FROM uploads`)
 	if err != nil {
 		t.Fatal(err.Error())

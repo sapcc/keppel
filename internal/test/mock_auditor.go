@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	//CADFReasonOK is a helper to make cadf.Event literals shorter.
+	// CADFReasonOK is a helper to make cadf.Event literals shorter.
 	CADFReasonOK = cadf.Reason{
 		ReasonType: "HTTP",
 		ReasonCode: "200",
@@ -68,7 +68,7 @@ func (a *Auditor) ExpectEvents(t *testing.T, expectedEvents ...cadf.Event) {
 	}
 	assert.DeepEqual(t, "CADF events", a.events, expectedEvents)
 
-	//reset state for next test
+	// reset state for next test
 	a.events = nil
 }
 
@@ -79,14 +79,14 @@ func (a *Auditor) IgnoreEventsUntilNow() {
 }
 
 func (a *Auditor) normalize(event cadf.Event) cadf.Event {
-	//overwrite some attributes where we don't care about variance
+	// overwrite some attributes where we don't care about variance
 	event.TypeURI = "http://schemas.dmtf.org/cloud/audit/1.0/event"
 	event.ID = "00000000-0000-0000-0000-000000000000"
 	event.EventTime = "2006-01-02T15:04:05.999999+00:00"
 	event.EventType = "activity"
 	if event.Initiator.TypeURI != "service/docker-registry/janitor-task" {
-		//for janitor tasks, we *are* interested in the initiator because special
-		//attributes like relevant GC policies get encoded there
+		// for janitor tasks, we *are* interested in the initiator because special
+		// attributes like relevant GC policies get encoded there
 		event.Initiator = cadf.Resource{}
 	}
 	event.Observer = cadf.Resource{}

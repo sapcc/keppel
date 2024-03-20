@@ -176,9 +176,9 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 	if len(result.Manifests) == 0 {
 		result.Manifests = []*Manifest{}
 	} else {
-		//since results were retrieved in sorted order, we know that for each
-		//manifest in the result set, its digest is >= the first digest and <= the
-		//last digest
+		// since results were retrieved in sorted order, we know that for each
+		// manifest in the result set, its digest is >= the first digest and <= the
+		// last digest
 		firstDigest := result.Manifests[0].Digest
 		lastDigest := result.Manifests[len(result.Manifests)-1].Digest
 		var dbTags []keppel.Tag
@@ -197,7 +197,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, manifest := range result.Manifests {
 			manifest.Tags = tagsByDigest[manifest.Digest]
-			//sort in deterministic order for unit test
+			// sort in deterministic order for unit test
 			sort.Slice(manifest.Tags, func(i, j int) bool {
 				return manifest.Tags[i].Name < manifest.Tags[j].Name
 			})
@@ -322,7 +322,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//there is no vulnerability report if:
+	// there is no vulnerability report if:
 	//- we don't have vulnerability scanning enabled at all
 	//- vulnerability scanning is not done yet
 	//- the image does not have any blobs that could be scanned for vulnerabilities

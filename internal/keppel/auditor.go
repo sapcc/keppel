@@ -37,8 +37,8 @@ import (
 // Auditor is a component that forwards audit events to the appropriate logs.
 // It is used by some of the API modules.
 type Auditor interface {
-	//Record forwards the given audit event to the audit log.
-	//EventParameters.Observer will be filled by the auditor.
+	// Record forwards the given audit event to the audit log.
+	// EventParameters.Observer will be filled by the auditor.
 	Record(params audittools.EventParameters)
 }
 
@@ -70,7 +70,7 @@ var (
 // substitute a double in unit tests.)
 type auditorImpl struct {
 	OnStdout     bool
-	EventSink    chan<- cadf.Event //nil if not wanted
+	EventSink    chan<- cadf.Event // nil if not wanted
 	ObserverUUID string
 }
 

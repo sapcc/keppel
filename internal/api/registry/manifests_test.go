@@ -48,13 +48,13 @@ func TestImageManifestLifecycle(t *testing.T) {
 			otherRepoToken := s.GetToken(t, "repository:test1/bar:pull,push")
 			deleteToken := s.GetToken(t, "repository:test1/foo:delete")
 
-			//on the API, we either reference the tag name (if uploading with tag) or the digest (if uploading without tag)
+			// on the API, we either reference the tag name (if uploading with tag) or the digest (if uploading without tag)
 			ref := tagName
 			if tagName == "" {
 				ref = image.Manifest.Digest.String()
 			}
 
-			//repo does not exist before we first push to it
+			// repo does not exist before we first push to it
 			for _, method := range []string{"GET", "HEAD"} {
 				assert.HTTPRequest{
 					Method:       method,
@@ -66,12 +66,12 @@ func TestImageManifestLifecycle(t *testing.T) {
 				}.Check(t, h)
 			}
 
-			//and even if it does...
+			// and even if it does...
 			_, err := keppel.FindOrCreateRepository(s.DB, "foo", keppel.Account{Name: "test1"})
 			if err != nil {
 				t.Fatal(err.Error())
 			}
-			//...the manifest does not exist before it is pushed
+			// ...the manifest does not exist before it is pushed
 			for _, method := range []string{"GET", "HEAD"} {
 				assert.HTTPRequest{
 					Method:       method,
@@ -83,7 +83,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				}.Check(t, h)
 			}
 
-			//PUT failure case: cannot push with read-only token
+			// PUT failure case: cannot push with read-only token
 			assert.HTTPRequest{
 				Method: "PUT",
 				Path:   "/v2/test1/foo/manifests/" + ref,
@@ -96,7 +96,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 			}.Check(t, h)
 
-			//PUT failure case: cannot push while account is in maintenance
+			// PUT failure case: cannot push while account is in maintenance
 			testWithAccountInMaintenance(t, s.DB, "test1", func() {
 				assert.HTTPRequest{
 					Method: "PUT",
@@ -114,7 +114,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				}.Check(t, h)
 			})
 
-			//PUT failure case: malformed manifest
+			// PUT failure case: malformed manifest
 			assert.HTTPRequest{
 				Method: "PUT",
 				Path:   "/v2/test1/foo/manifests/" + ref,
@@ -127,7 +127,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectBody:   test.ErrorCode(keppel.ErrManifestInvalid),
 			}.Check(t, h)
 
-			//PUT failure case: wrong digest
+			// PUT failure case: wrong digest
 			assert.HTTPRequest{
 				Method: "PUT",
 				Path:   "/v2/test1/foo/manifests/" + test.DeterministicDummyDigest(1).String(),
@@ -140,7 +140,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectBody:   test.ErrorCode(keppel.ErrDigestInvalid),
 			}.Check(t, h)
 
-			//PUT failure case: cannot upload manifest if referenced blob is missing
+			// PUT failure case: cannot upload manifest if referenced blob is missing
 			assert.HTTPRequest{
 				Method: "PUT",
 				Path:   "/v2/test1/foo/manifests/" + ref,
@@ -153,12 +153,12 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectBody:   test.ErrorCode(keppel.ErrManifestBlobUnknown),
 			}.Check(t, h)
 
-			//failed requests should not retain anything in the storage
+			// failed requests should not retain anything in the storage
 			expectStorageEmpty(t, s.SD, s.DB)
 			s.Auditor.ExpectEvents(t /*, nothing */)
 
-			//PUT failure case: cannot upload manifest if referenced blob is uploaded, but
-			//in the wrong repo
+			// PUT failure case: cannot upload manifest if referenced blob is uploaded, but
+			// in the wrong repo
 			image.Config.MustUpload(t, s, barRepoRef)
 			assert.HTTPRequest{
 				Method: "PUT",
@@ -172,7 +172,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectBody:   test.ErrorCode(keppel.ErrManifestBlobUnknown),
 			}.Check(t, h)
 
-			//PUT failure case: cannot upload manifest via the anycast API
+			// PUT failure case: cannot upload manifest via the anycast API
 			if currentlyWithAnycast {
 				assert.HTTPRequest{
 					Method: "PUT",
@@ -190,8 +190,8 @@ func TestImageManifestLifecycle(t *testing.T) {
 				}.Check(t, h)
 			}
 
-			//PUT failure case: cannot upload manifest without Content-Type, or with
-			//a faulty Content-Type (defense against attacks like CVE-2021-41190)
+			// PUT failure case: cannot upload manifest without Content-Type, or with
+			// a faulty Content-Type (defense against attacks like CVE-2021-41190)
 			for _, wrongMediaType := range []string{"", manifestlist.MediaTypeManifestList} {
 				assert.HTTPRequest{
 					Method: "PUT",
@@ -206,11 +206,11 @@ func TestImageManifestLifecycle(t *testing.T) {
 				}.Check(t, h)
 			}
 
-			//there should still not be any manifests
+			// there should still not be any manifests
 			s.Auditor.ExpectEvents(t /*, nothing */)
 
-			//PUT success case: upload manifest (and also the blob referenced by it);
-			//each PUT is executed twice to test idempotency
+			// PUT success case: upload manifest (and also the blob referenced by it);
+			// each PUT is executed twice to test idempotency
 			s.Clock.StepBy(time.Second)
 			easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-001-before-upload-blob.sql")
 
@@ -228,7 +228,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-digest.sql")
 			}
 
-			//we did two PUTs, but only the first one will be logged since the second one did not change anything
+			// we did two PUTs, but only the first one will be logged since the second one did not change anything
 			auditEvents := []cadf.Event{{
 				RequestPath: "/v2/test1/foo/manifests/" + ref,
 				Action:      cadf.CreateAction,
@@ -257,13 +257,13 @@ func TestImageManifestLifecycle(t *testing.T) {
 			}
 			s.Auditor.ExpectEvents(t, auditEvents...)
 
-			//check GET/HEAD: manifest should now be available under the reference
-			//where it was pushed to...
+			// check GET/HEAD: manifest should now be available under the reference
+			// where it was pushed to...
 			expectManifestExists(t, h, readOnlyToken, "test1/foo", image.Manifest, ref, nil)
-			//...and under its digest
+			// ...and under its digest
 			expectManifestExists(t, h, readOnlyToken, "test1/foo", image.Manifest, image.Manifest.Digest.String(), nil)
 
-			//GET failure case: wrong scope
+			// GET failure case: wrong scope
 			assert.HTTPRequest{
 				Method:       "GET",
 				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
@@ -272,10 +272,10 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectHeader: test.VersionHeader,
 				ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 			}.Check(t, h)
-			//^ NOTE: docker-registry sends UNAUTHORIZED (401) instead of DENIED (403)
+			// ^ NOTE: docker-registry sends UNAUTHORIZED (401) instead of DENIED (403)
 			//        here, but 403 is more correct.
 
-			//test GET via anycast
+			// test GET via anycast
 			if currentlyWithAnycast {
 				testWithReplica(t, s, "on_first_use", func(firstPass bool, s2 test.Setup) {
 					h2 := s2.Handler
@@ -293,7 +293,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				})
 			}
 
-			//test display of custom headers during GET/HEAD
+			// test display of custom headers during GET/HEAD
 			_, err = s.DB.Exec(
 				`UPDATE manifests SET min_layer_created_at = $1, max_layer_created_at = $2 WHERE digest = $3`,
 				time.Unix(23, 0).UTC(), time.Unix(42, 0).UTC(), image.Manifest.Digest.String(),
@@ -321,7 +321,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				}.Check(t, h)
 			}
 
-			//test GET with anonymous user (fails unless a pull_anonymous RBAC policy is set up)
+			// test GET with anonymous user (fails unless a pull_anonymous RBAC policy is set up)
 			assert.HTTPRequest{
 				Method:       "GET",
 				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
@@ -353,7 +353,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				t.Fatal(err.Error())
 			}
 
-			//DELETE failure case: no delete permission
+			// DELETE failure case: no delete permission
 			assert.HTTPRequest{
 				Method:       "DELETE",
 				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
@@ -363,7 +363,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 			}.Check(t, h)
 
-			//DELETE failure case: unknown manifest
+			// DELETE failure case: unknown manifest
 			assert.HTTPRequest{
 				Method:       "DELETE",
 				Path:         "/v2/test1/foo/manifests/" + test.DeterministicDummyDigest(1).String(),
@@ -373,7 +373,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
 			}.Check(t, h)
 
-			//DELETE failure case: cannot delete blob while the manifest still exists in the DB
+			// DELETE failure case: cannot delete blob while the manifest still exists in the DB
 			assert.HTTPRequest{
 				Method:       "DELETE",
 				Path:         "/v2/test1/foo/blobs/" + image.Config.Digest.String(),
@@ -383,10 +383,10 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
 			}.Check(t, h)
 
-			//no deletes were successful yet, so...
+			// no deletes were successful yet, so...
 			s.Auditor.ExpectEvents(t /*, nothing */)
 
-			//DELETE success case
+			// DELETE success case
 			assert.HTTPRequest{
 				Method:       "DELETE",
 				Path:         "/v2/test1/foo/manifests/" + ref,
@@ -401,7 +401,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-004-after-delete-manifest.sql")
 			}
 
-			//the DELETE will have logged an audit event
+			// the DELETE will have logged an audit event
 			event := cadf.Event{
 				RequestPath: "/v2/test1/foo/manifests/" + ref,
 				Action:      cadf.DeleteAction,
@@ -432,14 +432,14 @@ func bodyForMethod(method string, body assert.HTTPResponseBody) assert.HTTPRespo
 
 func TestImageListManifestLifecycle(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
-		//This test builds on TestImageManifestLifecycle and provides test coverage
-		//for the parts of the manifest push workflow that check manifest-manifest
-		//references. (We don't have those in plain images, only in image lists.)
+		// This test builds on TestImageManifestLifecycle and provides test coverage
+		// for the parts of the manifest push workflow that check manifest-manifest
+		// references. (We don't have those in plain images, only in image lists.)
 		h := s.Handler
 		token := s.GetToken(t, "repository:test1/foo:pull,push")
 		deleteToken := s.GetToken(t, "repository:test1/foo:delete")
 
-		//as a setup, upload two images and render a third image that's not uploaded
+		// as a setup, upload two images and render a third image that's not uploaded
 		image1 := test.GenerateImage(test.GenerateExampleLayer(1))
 		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
 		image3 := test.GenerateImage(test.GenerateExampleLayer(3))
@@ -449,7 +449,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 		image2.MustUpload(t, s, fooRepoRef, "second")
 		s.Clock.StepBy(time.Second)
 
-		//PUT failure case: cannot upload image list manifest referencing missing manifests
+		// PUT failure case: cannot upload image list manifest referencing missing manifests
 		list1 := test.GenerateImageList(image1, image3)
 		assert.HTTPRequest{
 			Method: "PUT",
@@ -463,20 +463,20 @@ func TestImageListManifestLifecycle(t *testing.T) {
 			ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
 		}.Check(t, h)
 
-		//PUT success case: upload image list manifest referencing available manifests
+		// PUT success case: upload image list manifest referencing available manifests
 		list2 := test.GenerateImageList(image1, image2)
 		list2.MustUpload(t, s, fooRepoRef, "list")
 
 		s.Clock.StepBy(time.Second)
 		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagelistmanifest-001-after-upload-manifest.sql")
 
-		//check GET for manifest list
+		// check GET for manifest list
 		expectManifestExists(t, h, token, "test1/foo", list2.Manifest, "list", nil)
 
-		//as a special case, GET on the manifest list returns the linux/amd64
-		//manifest if only single-arch manifests are accepted by the client (this
-		//behavior is somewhat dubious, but required for full compatibility with
-		//existing clients)
+		// as a special case, GET on the manifest list returns the linux/amd64
+		// manifest if only single-arch manifests are accepted by the client (this
+		// behavior is somewhat dubious, but required for full compatibility with
+		// existing clients)
 		assert.HTTPRequest{
 			Method: "GET",
 			Path:   "/v2/test1/foo/manifests/" + list2.Manifest.Digest.String(),
@@ -490,12 +490,12 @@ func TestImageListManifestLifecycle(t *testing.T) {
 				"Location":            "/v2/test1/foo/manifests/" + image1.Manifest.Digest.String(),
 			},
 		}.Check(t, h)
-		//but we return the whole list if at all possible
+		// but we return the whole list if at all possible
 		expectManifestExists(t, h, token, "test1/foo", list2.Manifest, "list", map[string]string{
 			"Accept": "application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json",
 		})
 
-		//DELETE success case
+		// DELETE success case
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/v2/test1/foo/manifests/" + list2.Manifest.Digest.String(),
@@ -513,13 +513,13 @@ func TestManifestQuotaExceeded(t *testing.T) {
 		h := s.Handler
 		token := s.GetToken(t, "repository:test1/foo:pull,push")
 
-		//as a setup, upload two images
+		// as a setup, upload two images
 		image1 := test.GenerateImage(test.GenerateExampleLayer(1))
 		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
 		image1.MustUpload(t, s, fooRepoRef, "first")
 		image2.MustUpload(t, s, fooRepoRef, "second")
 
-		//set quota below usage
+		// set quota below usage
 		_, err := s.DB.Exec(`UPDATE quotas SET manifests = $1`, 1)
 		if err != nil {
 			t.Fatal(err.Error())
@@ -530,7 +530,7 @@ func TestManifestQuotaExceeded(t *testing.T) {
 			Message: "manifest quota exceeded (quota = 1, usage = 2)",
 		}
 
-		//further blob uploads are not possible now
+		// further blob uploads are not possible now
 		assert.HTTPRequest{
 			Method:       "POST",
 			Path:         "/v2/test1/foo/blobs/uploads/",
@@ -540,7 +540,7 @@ func TestManifestQuotaExceeded(t *testing.T) {
 			ExpectBody:   quotaExceededMessage,
 		}.Check(t, h)
 
-		//further manifest uploads are not possible now
+		// further manifest uploads are not possible now
 		assert.HTTPRequest{
 			Method:       "PUT",
 			Path:         "/v2/test1/foo/manifests/anotherone",
@@ -564,7 +564,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 		image.Config.MustUpload(t, s, fooRepoRef)
 		image.Layers[0].MustUpload(t, s, fooRepoRef)
 
-		//setup required labels on account for failure
+		// setup required labels on account for failure
 		_, err := s.DB.Exec(
 			`UPDATE accounts SET required_labels = $1 WHERE name = $2`,
 			"foo,somethingelse,andalsothis", "test1",
@@ -573,7 +573,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 			t.Fatal(err.Error())
 		}
 
-		//manifest push should fail
+		// manifest push should fail
 		assert.HTTPRequest{
 			Method: "PUT",
 			Path:   "/v2/test1/foo/manifests/latest",
@@ -590,7 +590,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 			},
 		}.Check(t, h)
 
-		//setup required labels on account for success
+		// setup required labels on account for success
 		_, err = s.DB.Exec(
 			`UPDATE accounts SET required_labels = $1 WHERE name = $2`,
 			"foo,bar", "test1",
@@ -599,7 +599,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 			t.Fatal(err.Error())
 		}
 
-		//manifest push should succeed
+		// manifest push should succeed
 		assert.HTTPRequest{
 			Method: "PUT",
 			Path:   "/v2/test1/foo/manifests/latest",
@@ -612,22 +612,22 @@ func TestManifestRequiredLabels(t *testing.T) {
 			ExpectHeader: test.VersionHeader,
 		}.Check(t, h)
 
-		//check that the labels_json field is populated correctly in the DB
+		// check that the labels_json field is populated correctly in the DB
 		expectLabelsJSONOnManifest(
 			t, s.DB, image.Manifest.Digest,
 			map[string]string{"bar": "is there", "foo": "is there"},
 		)
 
-		//upload another image with similar (but not identical) labels as
-		//preparation for the image list test below
+		// upload another image with similar (but not identical) labels as
+		// preparation for the image list test below
 		otherImage := test.GenerateImageWithCustomConfig(func(cfg map[string]any) {
 			cfg["config"].(map[string]any)["Labels"] = map[string]string{"foo": "is there", "bar": "is different"}
 		}, image.Layers[0])
 		otherImage.MustUpload(t, s, fooRepoRef, "other")
 
-		//required_labels does not apply to image lists (since image list manifests
-		//do not have labels at all), so we can upload this list manifest without
-		//any additional considerations
+		// required_labels does not apply to image lists (since image list manifests
+		// do not have labels at all), so we can upload this list manifest without
+		// any additional considerations
 		list := test.GenerateImageList(image, otherImage)
 		assert.HTTPRequest{
 			Method: "PUT",
@@ -641,10 +641,10 @@ func TestManifestRequiredLabels(t *testing.T) {
 			ExpectHeader: test.VersionHeader,
 		}.Check(t, h)
 
-		//check the labels_json field on the list manifest
+		// check the labels_json field on the list manifest
 		expectLabelsJSONOnManifest(
 			t, s.DB, list.Manifest.Digest,
-			map[string]string{"foo": "is there"}, //the "bar" label differs between `image` and `otherImage`
+			map[string]string{"foo": "is there"}, // the "bar" label differs between `image` and `otherImage`
 		)
 	})
 }
@@ -669,7 +669,7 @@ func TestImageManifestWrongBlobSize(t *testing.T) {
 		h := s.Handler
 		token := s.GetToken(t, "repository:test1/foo:pull,push")
 
-		//generate an image that references a layer, but the reference includes the wrong layer size
+		// generate an image that references a layer, but the reference includes the wrong layer size
 		layer := test.GenerateExampleLayer(1)
 		layer.MustUpload(t, s, fooRepoRef)
 
@@ -697,7 +697,7 @@ func TestImageManifestCmdEntrypointAsString(t *testing.T) {
 		j.DisableJitter()
 		validateManifestJob := j.ManifestValidationJob(s.Registry)
 
-		//generate an image that has strings as Entrypoint and Cmd
+		// generate an image that has strings as Entrypoint and Cmd
 		image := test.GenerateImageWithCustomConfig(func(cfg map[string]any) {
 			cfg["config"].(map[string]any)["Cmd"] = "/usr/bin/env bash"
 		}, test.GenerateExampleLayer(1))

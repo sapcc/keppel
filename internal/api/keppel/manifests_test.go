@@ -58,7 +58,7 @@ func TestManifestsAPI(t *testing.T) {
 		s := test.NewSetup(t, test.WithKeppelAPI, test.WithTrivyDouble)
 		h := s.Handler
 
-		//setup two test accounts
+		// setup two test accounts
 		mustInsert(t, s.DB, &keppel.Account{
 			Name:                     "test1",
 			AuthTenantID:             "tenant1",
@@ -72,8 +72,8 @@ func TestManifestsAPI(t *testing.T) {
 			SecurityScanPoliciesJSON: "[]",
 		})
 
-		//setup test repos (`repo1-2` and `repo2-1` only exist to validate that we
-		//don't accidentally list manifests from there)
+		// setup test repos (`repo1-2` and `repo2-1` only exist to validate that we
+		// don't accidentally list manifests from there)
 		repos := []*keppel.Repository{
 			{Name: "repo1-1", AccountName: "test1"},
 			{Name: "repo1-2", AccountName: "test1"},
@@ -83,7 +83,7 @@ func TestManifestsAPI(t *testing.T) {
 			mustInsert(t, s.DB, repo)
 		}
 
-		//test empty GET
+		// test empty GET
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests",
@@ -92,7 +92,7 @@ func TestManifestsAPI(t *testing.T) {
 			ExpectBody:   assert.JSONObject{"manifests": []assert.JSONObject{}},
 		}.Check(t, h)
 
-		//test that Keppel API does not allow doamin-remapping
+		// test that Keppel API does not allow doamin-remapping
 		assert.HTTPRequest{
 			Method: "GET",
 			Path:   "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests",
@@ -105,7 +105,7 @@ func TestManifestsAPI(t *testing.T) {
 			ExpectBody:   assert.StringData("GET /keppel/v1/accounts/test1/repositories/repo1-1/_manifests endpoint is not supported on domain-remapped APIs\n"),
 		}.Check(t, h)
 
-		//insert some dummy manifests and tags into each repo
+		// insert some dummy manifests and tags into each repo
 		for repoID := 1; repoID <= 3; repoID++ {
 			repo := repos[repoID-1]
 
@@ -145,7 +145,7 @@ func TestManifestsAPI(t *testing.T) {
 					NextCheckAt:         time.Unix(0, 0),
 				})
 			}
-			//one manifest is referenced by two tags, one is referenced by one tag
+			// one manifest is referenced by two tags, one is referenced by one tag
 			mustInsert(t, s.DB, &keppel.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "first",
@@ -169,8 +169,8 @@ func TestManifestsAPI(t *testing.T) {
 			})
 		}
 
-		//the results will only include the tags and manifests for `repoID == 1`
-		//because we're asking for the repo "test1/repo1-1"
+		// the results will only include the tags and manifests for `repoID == 1`
+		// because we're asking for the repo "test1/repo1-1"
 		renderedManifests := make([]assert.JSONObject, 10)
 		for idx := 1; idx <= 10; idx++ {
 			renderedManifests[idx-1] = assert.JSONObject{
@@ -198,7 +198,7 @@ func TestManifestsAPI(t *testing.T) {
 			return renderedManifests[i]["digest"].(digest.Digest) < renderedManifests[j]["digest"].(digest.Digest)
 		})
 
-		//test GET without pagination
+		// test GET without pagination
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests",
@@ -214,7 +214,7 @@ func TestManifestsAPI(t *testing.T) {
 			ExpectBody:   assert.JSONObject{"manifests": renderedManifests},
 		}.Check(t, h)
 
-		//test GET with pagination
+		// test GET with pagination
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=5",
@@ -248,7 +248,7 @@ func TestManifestsAPI(t *testing.T) {
 			}.Check(t, h)
 		}
 
-		//test GET failure cases
+		// test GET failure cases
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/doesnotexist/repositories/repo1-1/_manifests",
@@ -270,7 +270,7 @@ func TestManifestsAPI(t *testing.T) {
 			ExpectBody:   assert.StringData("strconv.ParseUint: parsing \"foo\": invalid syntax\n"),
 		}.Check(t, h)
 
-		//test DELETE manifest happy case
+		// test DELETE manifest happy case
 		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/before-delete-manifest.sql")
 		assert.HTTPRequest{
 			Method:       "DELETE",
@@ -298,7 +298,7 @@ func TestManifestsAPI(t *testing.T) {
 			},
 		})
 
-		//test DELETE tag happy case
+		// test DELETE tag happy case
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-2/_tags/stillfirst",
@@ -320,7 +320,7 @@ func TestManifestsAPI(t *testing.T) {
 			},
 		})
 
-		//test DELETE manifest failure cases
+		// test DELETE manifest failure cases
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/keppel/v1/accounts/test2/repositories/repo2-1/_manifests/" + test.DeterministicDummyDigest(31).String(),
@@ -355,7 +355,7 @@ func TestManifestsAPI(t *testing.T) {
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "DELETE",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/second", //this endpoint only works with digests
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/second", // this endpoint only works with digests
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
 			ExpectStatus: http.StatusNotFound,
 		}.Check(t, h)
@@ -366,7 +366,7 @@ func TestManifestsAPI(t *testing.T) {
 			ExpectStatus: http.StatusNotFound,
 		}.Check(t, h)
 
-		//test DELETE tag failure cases
+		// test DELETE tag failure cases
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-2/_tags/first",
@@ -375,7 +375,7 @@ func TestManifestsAPI(t *testing.T) {
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "DELETE",
-			Path:         "/keppel/v1/accounts/test2/repositories/repo2-1/_tags/" + test.DeterministicDummyDigest(31).String(), //this endpoint only works with tags
+			Path:         "/keppel/v1/accounts/test2/repositories/repo2-1/_tags/" + test.DeterministicDummyDigest(31).String(), // this endpoint only works with tags
 			Header:       map[string]string{"X-Test-Perms": "delete:tenant2,view:tenant2"},
 			ExpectStatus: http.StatusNotFound,
 		}.Check(t, h)
@@ -392,22 +392,22 @@ func TestManifestsAPI(t *testing.T) {
 			ExpectStatus: http.StatusNotFound,
 		}.Check(t, h)
 
-		//test GET vulnerability report failure cases
+		// test GET vulnerability report failure cases
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + test.DeterministicDummyDigest(11).String() + "/trivy_report",
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
-			ExpectStatus: http.StatusNotFound, //this manifest was deleted above
+			ExpectStatus: http.StatusNotFound, // this manifest was deleted above
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + test.DeterministicDummyDigest(12).String() + "/trivy_report",
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
-			ExpectStatus: http.StatusMethodNotAllowed, //manifest cannot have vulnerability report because it does not have manifest-blob refs
+			ExpectStatus: http.StatusMethodNotAllowed, // manifest cannot have vulnerability report because it does not have manifest-blob refs
 		}.Check(t, h)
 
-		//setup a dummy blob that's correctly mounted and linked to our test manifest
-		//so that the vulnerability report can actually be shown
+		// setup a dummy blob that's correctly mounted and linked to our test manifest
+		// so that the vulnerability report can actually be shown
 		dummyBlob := keppel.Blob{
 			AccountName: "test1",
 			Digest:      test.DeterministicDummyDigest(101),
@@ -425,7 +425,7 @@ func TestManifestsAPI(t *testing.T) {
 			t.Fatal(err.Error())
 		}
 
-		//test GET vulnerability report success case
+		// test GET vulnerability report success case
 		imageRef, _, err := models.ParseImageReference("registry.example.org/test1/repo1-1@" + test.DeterministicDummyDigest(12).String())
 		if err != nil {
 			t.Fatal(err.Error())
@@ -439,8 +439,8 @@ func TestManifestsAPI(t *testing.T) {
 			ExpectBody:   assert.JSONFixtureFile("../../tasks/fixtures/trivy/report-vulnerable-with-fixes.json"),
 		}.Check(t, h)
 
-		//with security scan policies configured, we expect the Trivy report to be
-		//enriched with the X-Keppel-Applicable-Policies field (the rest of the report is untouched)
+		// with security scan policies configured, we expect the Trivy report to be
+		// enriched with the X-Keppel-Applicable-Policies field (the rest of the report is untouched)
 		policyJSON := must.Return(json.Marshal([]keppel.SecurityScanPolicy{
 			{
 				RepositoryRx:      ".*",
@@ -512,13 +512,13 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 
 		s.Clock.StepBy(time.Hour)
 
-		//we can always execute 1 request initially, and then we can burst on top of that
+		// we can always execute 1 request initially, and then we can burst on top of that
 		for i := 0; i < limit.Burst; i++ {
 			req.Check(t, h)
 			s.Clock.StepBy(time.Second)
 		}
 
-		//then the next request should be rate-limited
+		// then the next request should be rate-limited
 		failingReq := req
 		failingReq.ExpectBody = test.ErrorCode(keppel.ErrTooManyRequests)
 		failingReq.ExpectStatus = http.StatusTooManyRequests
@@ -527,17 +527,17 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 		}
 		failingReq.Check(t, h)
 
-		//be impatient
+		// be impatient
 		s.Clock.StepBy(time.Duration(29-limit.Burst) * time.Second)
 		failingReq.ExpectHeader["Retry-After"] = "1"
 		failingReq.Check(t, h)
 
-		//finally!
+		// finally!
 		s.Clock.StepBy(time.Second)
 		req.Check(t, h)
 
-		//aaaand... we're rate-limited again immediately because we haven't
-		//recovered our burst budget yet
+		// aaaand... we're rate-limited again immediately because we haven't
+		// recovered our burst budget yet
 		failingReq.ExpectHeader["Retry-After"] = "30"
 		failingReq.Check(t, h)
 	})

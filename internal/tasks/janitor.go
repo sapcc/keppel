@@ -55,7 +55,7 @@ type Janitor struct {
 	db      *keppel.DB
 	auditor keppel.Auditor
 
-	//non-pure functions that can be replaced by deterministic doubles for unit tests
+	// non-pure functions that can be replaced by deterministic doubles for unit tests
 	timeNow           func() time.Time
 	generateStorageID func() string
 	addJitter         func(time.Duration) time.Duration
@@ -159,47 +159,47 @@ type janitorUserInfo struct {
 
 // UserUUID implements the audittools.UserInfo interface.
 func (janitorUserInfo) UserUUID() string {
-	return "" //unused
+	return "" // unused
 }
 
 // UserName implements the audittools.UserInfo interface.
 func (janitorUserInfo) UserName() string {
-	return "" //unused
+	return "" // unused
 }
 
 // UserDomainName implements the audittools.UserInfo interface.
 func (janitorUserInfo) UserDomainName() string {
-	return "" //unused
+	return "" // unused
 }
 
 // ProjectScopeUUID implements the audittools.UserInfo interface.
 func (janitorUserInfo) ProjectScopeUUID() string {
-	return "" //unused
+	return "" // unused
 }
 
 // ProjectScopeName implements the audittools.UserInfo interface.
 func (janitorUserInfo) ProjectScopeName() string {
-	return "" //unused
+	return "" // unused
 }
 
 // ProjectScopeDomainName implements the audittools.UserInfo interface.
 func (janitorUserInfo) ProjectScopeDomainName() string {
-	return "" //unused
+	return "" // unused
 }
 
 // DomainScopeUUID implements the audittools.UserInfo interface.
 func (janitorUserInfo) DomainScopeUUID() string {
-	return "" //unused
+	return "" // unused
 }
 
 // DomainScopeName implements the audittools.UserInfo interface.
 func (janitorUserInfo) DomainScopeName() string {
-	return "" //unused
+	return "" // unused
 }
 
 // ApplicationCredentialID implements the audittools.UserInfo interface.
 func (janitorUserInfo) ApplicationCredentialID() string {
-	return "" //unused
+	return "" // unused
 }
 
 // AsInitiator implements the audittools.NonStandardUserInfo interface.

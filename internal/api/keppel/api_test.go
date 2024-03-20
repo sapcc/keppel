@@ -38,7 +38,7 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 	)
 	h := s.Handler
 
-	//test anonymous auth: fails without RBAC policy, succeeds with RBAC policy
+	// test anonymous auth: fails without RBAC policy, succeeds with RBAC policy
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/test1/repositories/foo/_manifests",
@@ -63,9 +63,9 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 	}.Check(t, h)
 	mustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1", "")
 
-	//test bearer token auth: obtain a bearer token on the Auth API while
-	//authenticating with Keppel API Auth, then use the bearer token on the
-	//Keppel API
+	// test bearer token auth: obtain a bearer token on the Auth API while
+	// authenticating with Keppel API Auth, then use the bearer token on the
+	// Keppel API
 	_, respBodyBytes := assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/auth?service=registry.example.org&scope=repository:test1/foo:pull",

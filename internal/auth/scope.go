@@ -66,10 +66,10 @@ func (s Scope) ParseRepositoryScope(audience Audience) ParsedRepositoryScope {
 
 	parts := strings.SplitN(s.ResourceName, "/", 2)
 	if len(parts) == 1 {
-		//we're on a non-domain-remapped API, but there is no "/" in the full
-		//repository name, i.e. we have an account name without a corresponding
-		//repository name which is not allowed; generate a ParsedRepositoryScope
-		//that will never have any permissions given out for it
+		// we're on a non-domain-remapped API, but there is no "/" in the full
+		// repository name, i.e. we have an account name without a corresponding
+		// repository name which is not allowed; generate a ParsedRepositoryScope
+		// that will never have any permissions given out for it
 		return ParsedRepositoryScope{
 			AccountName:        s.ResourceName,
 			RepositoryName:     "",

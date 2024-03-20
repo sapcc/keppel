@@ -100,8 +100,8 @@ func (c Client) PerformReplicaSync(ctx context.Context, fullRepoName string, pay
 		return nil, err
 	}
 	if respStatusCode == http.StatusNotFound {
-		//404 can occur when the repo has been deleted on primary; in this case,
-		//fall back to verifying the deletion explicitly using the normal API
+		// 404 can occur when the repo has been deleted on primary; in this case,
+		// fall back to verifying the deletion explicitly using the normal API
 		return nil, nil
 	}
 	if respStatusCode != http.StatusOK {

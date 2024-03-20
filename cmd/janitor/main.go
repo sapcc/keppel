@@ -66,7 +66,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	ctx := httpext.ContextWithSIGINT(context.Background(), 10*time.Second)
 
-	//start task loops
+	// start task loops
 	janitor := tasks.NewJanitor(cfg, fd, sd, icd, db, auditor)
 	go janitor.AccountFederationAnnouncementJob(nil).Run(ctx)
 	go janitor.AbandonedUploadCleanupJob(nil).Run(ctx)
@@ -81,7 +81,7 @@ func run(cmd *cobra.Command, args []string) {
 		go janitor.CheckTrivySecurityStatusJob(nil).Run(ctx, jobloop.NumGoroutines(3))
 	}
 
-	//start HTTP server for Prometheus metrics and health check
+	// start HTTP server for Prometheus metrics and health check
 	handler := httpapi.Compose(
 		httpapi.HealthCheckAPI{SkipRequestLog: true},
 		pprofapi.API{IsAuthorized: pprofapi.IsRequestFromLocalhost},

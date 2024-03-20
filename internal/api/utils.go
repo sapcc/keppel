@@ -30,14 +30,14 @@ import (
 )
 
 func CheckRateLimit(r *http.Request, rle *keppel.RateLimitEngine, account keppel.Account, authz *auth.Authorization, action keppel.RateLimitedAction, amount uint64) error {
-	//rate-limiting is optional
+	// rate-limiting is optional
 	if rle == nil {
 		return nil
 	}
 
-	//cluster-internal traffic is exempt from rate-limits (if the request is
-	//caused by a user API request, the rate-limit has been checked already
-	//before the cluster-internal request was sent)
+	// cluster-internal traffic is exempt from rate-limits (if the request is
+	// caused by a user API request, the rate-limit has been checked already
+	// before the cluster-internal request was sent)
 	userType := authz.UserIdentity.UserType()
 	if userType == keppel.PeerUser || userType == keppel.TrivyUser {
 		return nil

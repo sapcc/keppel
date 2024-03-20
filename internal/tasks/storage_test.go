@@ -32,8 +32,8 @@ import (
 )
 
 func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.Job) (images []test.Image, healthyBlobs []keppel.Blob, healthyManifests []keppel.Manifest) {
-	//setup some manifests and blobs as a baseline that should never be touched by
-	//StorageSweepJob
+	// setup some manifests and blobs as a baseline that should never be touched by
+	// StorageSweepJob
 	images = make([]test.Image, 2)
 	for idx := range images {
 		image := test.GenerateImage(
@@ -57,8 +57,8 @@ func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.J
 		imageList.MustUpload(t, s, fooRepoRef, ""),
 	)
 
-	//StorageSweepJob should run through, but not do anything besides
-	//setting the storage_sweeped_at timestamp on the account
+	// StorageSweepJob should run through, but not do anything besides
+	// setting the storage_sweeped_at timestamp on the account
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-000.sql")
@@ -74,7 +74,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	sweepStorageJob := j.StorageSweepJob(s.Registry)
 	_, healthyBlobs, healthyManifests := setupStorageSweepTest(t, s, sweepStorageJob)
 
-	//put some blobs in the storage without adding them in the DB
+	// put some blobs in the storage without adding them in the DB
 	account := keppel.Account{Name: "test1"}
 	testBlob1 := test.GenerateExampleLayer(30)
 	testBlob2 := test.GenerateExampleLayer(31)
@@ -85,16 +85,16 @@ func TestSweepStorageBlobs(t *testing.T) {
 		mustDo(t, s.SD.FinalizeBlob(account, storageID, 1))
 	}
 
-	//create a blob that's mid-upload; this one should be protected from sweeping
-	//by the presence of the Upload object in the DB
+	// create a blob that's mid-upload; this one should be protected from sweeping
+	// by the presence of the Upload object in the DB
 	testBlob3 := test.GenerateExampleLayer(32)
 	storageID := testBlob3.Digest.Encoded()
 	sizeBytes := uint64(len(testBlob3.Contents))
 	mustDo(t, s.SD.AppendToBlob(account, storageID, 1, &sizeBytes, bytes.NewReader(testBlob3.Contents)))
-	//^ but no FinalizeBlob() since we're still uploading!
+	// ^ but no FinalizeBlob() since we're still uploading!
 	mustDo(t, s.DB.Insert(&keppel.Upload{
 		RepositoryID: 1,
-		UUID:         "a29d525c-2273-44ba-83a8-eafd447f1cb8", //chosen at random, but fixed
+		UUID:         "a29d525c-2273-44ba-83a8-eafd447f1cb8", // chosen at random, but fixed
 		StorageID:    storageID,
 		SizeBytes:    sizeBytes,
 		Digest:       testBlob3.Digest.String(),
@@ -102,19 +102,19 @@ func TestSweepStorageBlobs(t *testing.T) {
 		UpdatedAt:    j.timeNow(),
 	}))
 
-	//create another blob that's mid-upload; this one will be sweeped later to
-	//verify that we clean up unfinished uploads correctly
+	// create another blob that's mid-upload; this one will be sweeped later to
+	// verify that we clean up unfinished uploads correctly
 	testBlob4 := test.GenerateExampleLayer(33)
 	storageID = testBlob4.Digest.Encoded()
 	sizeBytes = uint64(len(testBlob4.Contents))
 	mustDo(t, s.SD.AppendToBlob(account, storageID, 1, &sizeBytes, bytes.NewReader(testBlob4.Contents)))
 
-	//next StorageSweepJob should mark them for deletion...
+	// next StorageSweepJob should mark them for deletion...
 	s.Clock.StepBy(8 * time.Hour)
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-blobs-001.sql")
-	//...but not delete anything yet
+	// ...but not delete anything yet
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectBlobsExistInStorage(t,
 		keppel.Blob{AccountName: "test1", Digest: testBlob1.Digest, StorageID: testBlob1.Digest.Encoded()},
@@ -124,9 +124,9 @@ func TestSweepStorageBlobs(t *testing.T) {
 	)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 
-	//create a DB entry for the first blob (to sort of simulate an upload that
-	//just got finished while StorageSweepJob was running: blob was
-	//written to storage already, but not yet to DB)
+	// create a DB entry for the first blob (to sort of simulate an upload that
+	// just got finished while StorageSweepJob was running: blob was
+	// written to storage already, but not yet to DB)
 	s.Clock.StepBy(1 * time.Hour)
 	dbTestBlob1 := keppel.Blob{
 		AccountName: "test1",
@@ -138,8 +138,8 @@ func TestSweepStorageBlobs(t *testing.T) {
 	}
 	mustDo(t, s.DB.Insert(&dbTestBlob1))
 
-	//next StorageSweepJob should unmark blob 1 (because it's now in
-	//the DB) and sweep blobs 2 and 4 (since it is still not in the DB)
+	// next StorageSweepJob should unmark blob 1 (because it's now in
+	// the DB) and sweep blobs 2 and 4 (since it is still not in the DB)
 	s.Clock.StepBy(8 * time.Hour)
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
@@ -162,7 +162,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	sweepStorageJob := j.StorageSweepJob(s.Registry)
 	images, healthyBlobs, healthyManifests := setupStorageSweepTest(t, s, sweepStorageJob)
 
-	//put some manifests in the storage without adding them in the DB
+	// put some manifests in the storage without adding them in the DB
 	account := keppel.Account{Name: "test1"}
 	testImageList1 := test.GenerateImageList(images[0])
 	testImageList2 := test.GenerateImageList(images[1])
@@ -170,12 +170,12 @@ func TestSweepStorageManifests(t *testing.T) {
 		mustDo(t, s.SD.WriteManifest(account, "foo", manifest.Digest, manifest.Contents))
 	}
 
-	//next StorageSweepJob should mark them for deletion...
+	// next StorageSweepJob should mark them for deletion...
 	s.Clock.StepBy(8 * time.Hour)
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-manifests-001.sql")
-	//...but not delete anything yet
+	// ...but not delete anything yet
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 	s.ExpectManifestsExistInStorage(t, "foo",
@@ -183,9 +183,9 @@ func TestSweepStorageManifests(t *testing.T) {
 		keppel.Manifest{RepositoryID: 1, Digest: testImageList2.Manifest.Digest},
 	)
 
-	//create a DB entry for the first manifest (to sort of simulate a manifest
-	//upload that happened while StorageSweepJob: manifest was written
-	//to storage already, but not yet to DB)
+	// create a DB entry for the first manifest (to sort of simulate a manifest
+	// upload that happened while StorageSweepJob: manifest was written
+	// to storage already, but not yet to DB)
 	s.Clock.StepBy(1 * time.Hour)
 	mustDo(t, s.DB.Insert(&keppel.Manifest{
 		RepositoryID: 1,
@@ -196,8 +196,8 @@ func TestSweepStorageManifests(t *testing.T) {
 		ValidatedAt:  s.Clock.Now(),
 	}))
 
-	//next StorageSweepJob should unmark manifest 1 (because it's now in
-	//the DB) and sweep manifest 2 (since it is still not in the DB)
+	// next StorageSweepJob should unmark manifest 1 (because it's now in
+	// the DB) and sweep manifest 2 (since it is still not in the DB)
 	s.Clock.StepBy(8 * time.Hour)
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))

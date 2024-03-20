@@ -34,7 +34,7 @@ func OriginalRequestURL(r *http.Request) url.URL {
 		RawQuery: r.URL.RawQuery,
 	}
 
-	//case 1: we are behind a reverse proxy
+	// case 1: we are behind a reverse proxy
 	u.Host = r.Header.Get("X-Forwarded-Host")
 	if u.Host != "" {
 		u.Scheme = r.Header.Get("X-Forwarded-Proto")
@@ -44,14 +44,14 @@ func OriginalRequestURL(r *http.Request) url.URL {
 		return u
 	}
 
-	//case 2: we are not behind a reverse proxy, but the Host header indicates how the user reached us
+	// case 2: we are not behind a reverse proxy, but the Host header indicates how the user reached us
 	if r.Host != "" {
 		u.Host = r.Host
 		u.Scheme = "http"
 		return u
 	}
 
-	//case 3: no idea how the user got here - don't include any guesses in the URL
+	// case 3: no idea how the user got here - don't include any guesses in the URL
 	return u
 }
 

@@ -71,7 +71,7 @@ func GenerateExampleLayer(seed int64) Bytes {
 	if !ok {
 		layer = GenerateExampleLayerSize(seed, 1)
 		if seed >= 0 && seed < 10 {
-			//only the most commonly requested layers are cached to avoid excessive memory usage
+			// only the most commonly requested layers are cached to avoid excessive memory usage
 			exampleLayerCache[seed] = layer
 		}
 	}
@@ -84,7 +84,7 @@ func GenerateExampleLayer(seed int64) Bytes {
 func GenerateExampleLayerSize(seed, sizeMiB int64) Bytes {
 	r := rand.New(rand.NewSource(seed)) //nolint:gosec // random data from hardcoded seed to generate data for tests
 	buf := make([]byte, sizeMiB<<20)
-	r.Read(buf[:])
+	r.Read(buf)
 
 	var byteBuffer bytes.Buffer
 	w := gzip.NewWriter(&byteBuffer)
@@ -179,7 +179,7 @@ func GenerateImageWithCustomConfig(change func(map[string]any), layers ...Bytes)
 		change(config)
 	}
 
-	//build image config referencing the given layers
+	// build image config referencing the given layers
 	imageConfig := make(map[string]any)
 	for k, v := range config {
 		imageConfig[k] = v
@@ -198,7 +198,7 @@ func GenerateImageWithCustomConfig(change func(map[string]any), layers ...Bytes)
 	}
 	imageConfigBytesObj := newBytesWithMediaType(imageConfigBytes, schema2.MediaTypeImageConfig)
 
-	//build a manifest
+	// build a manifest
 	layerDescs := []map[string]any{}
 	for _, layer := range layers {
 		layerDescs = append(layerDescs, map[string]any{

@@ -39,7 +39,7 @@ const maxLimit = 100
 // This implements the GET /v2/_catalog endpoint.
 func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/_catalog")
-	//must be set even for 401 responses!
+	// must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
 	authz, rerr := auth.IncomingRequest{
@@ -53,7 +53,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//parse query: limit (parameter "n")
+	// parse query: limit (parameter "n")
 	query := r.URL.Query()
 	var (
 		limit uint64
@@ -76,11 +76,11 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 		limit = maxLimit
 	}
 
-	//on domain-remapped APIs, do not include the account name in the repository
-	//names for the result list
+	// on domain-remapped APIs, do not include the account name in the repository
+	// names for the result list
 	includeAccountName := authz.Audience.AccountName == ""
 
-	//parse query: marker (parameter "last")
+	// parse query: marker (parameter "last")
 	marker := query.Get("last")
 	markerAccountName := ""
 	if marker != "" {
@@ -96,11 +96,11 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//find accessible accounts
+	// find accessible accounts
 	accountNames := authz.ScopeSet.AccountsWithCatalogAccess(markerAccountName)
 	sort.Strings(accountNames)
 
-	//collect repository names from backend
+	// collect repository names from backend
 	var allNames []string
 	partialResult := false
 	for idx, accountName := range accountNames {
@@ -109,7 +109,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		//when paginating, we might start in the middle of the first account's repo list
+		// when paginating, we might start in the middle of the first account's repo list
 		if idx == 0 && marker != "" {
 			filteredNames := make([]string, 0, len(names))
 			for _, name := range names {
@@ -122,14 +122,14 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 		sort.Strings(names)
 		allNames = append(allNames, names...)
 
-		//stop asking further accounts for repos once we overflow the current page
+		// stop asking further accounts for repos once we overflow the current page
 		if uint64(len(allNames)) > limit {
 			allNames = allNames[0:limit]
 			partialResult = true
 		}
 	}
 
-	//write response
+	// write response
 	if partialResult {
 		linkQuery := url.Values{}
 		linkQuery.Set("n", strconv.FormatUint(limit, 10))

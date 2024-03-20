@@ -32,17 +32,17 @@ func TestAddJitter(t *testing.T) {
 	smallerCount := 0
 	biggerCount := 0
 
-	//take 1000 samples of addJitter()
+	// take 1000 samples of addJitter()
 	for idx := 0; idx < 1000; idx++ {
 		d := addJitter(baseDuration)
-		//no sample should be outside the +/-10% range of the base duration
+		// no sample should be outside the +/-10% range of the base duration
 		if d < lowerBound {
 			t.Errorf("expected jittered duration to be above %s, but got %s", lowerBound, d)
 		}
 		if d > upperBound {
 			t.Errorf("expected jittered duration to be below %s, but got %s", upperBound, d)
 		}
-		//count samples into two simple buckets
+		// count samples into two simple buckets
 		if d < baseDuration {
 			smallerCount++
 		}
@@ -51,7 +51,7 @@ func TestAddJitter(t *testing.T) {
 		}
 	}
 
-	//very simple sanity-check: both buckets should have ~500 samples
+	// very simple sanity-check: both buckets should have ~500 samples
 	if smallerCount < 450 {
 		t.Errorf("expected half of the samples to be smaller than %s, but got only %.2f%% smaller samples",
 			baseDuration, float64(smallerCount)/1000.)

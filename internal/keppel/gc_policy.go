@@ -83,8 +83,8 @@ func (g GCPolicy) MatchesTags(tagNames []string) bool {
 		}
 	}
 
-	//if we did not have any matching tags, the match is successful unless we
-	//required a positive tag match
+	// if we did not have any matching tags, the match is successful unless we
+	// required a positive tag match
 	return g.TagRx == ""
 }
 
@@ -94,7 +94,7 @@ func (g GCPolicy) MatchesTags(tagNames []string) bool {
 // must be equivalent to time.Now(); it is given explicitly to allow for
 // simulated clocks during unit tests.
 func (g GCPolicy) MatchesTimeConstraint(manifest Manifest, allManifestsInRepo []Manifest, now time.Time) bool {
-	//do we have a time constraint at all?
+	// do we have a time constraint at all?
 	if g.TimeConstraint == nil {
 		return true
 	}
@@ -103,7 +103,7 @@ func (g GCPolicy) MatchesTimeConstraint(manifest Manifest, allManifestsInRepo []
 		return true
 	}
 
-	//select the right time field
+	// select the right time field
 	var getTime func(Manifest) time.Time
 	switch tc.FieldName {
 	case "pushed_at":
@@ -122,7 +122,7 @@ func (g GCPolicy) MatchesTimeConstraint(manifest Manifest, allManifestsInRepo []
 		return Duration(now.Sub(getTime(m)))
 	}
 
-	//option 1: simple threshold-based time constraint
+	// option 1: simple threshold-based time constraint
 	if tc.MinAge != 0 {
 		return getAge(manifest) >= tc.MinAge
 	}
@@ -130,7 +130,7 @@ func (g GCPolicy) MatchesTimeConstraint(manifest Manifest, allManifestsInRepo []
 		return getAge(manifest) <= tc.MaxAge
 	}
 
-	//option 2: order-based time constraint (we can skip all the sorting logic if we have less manifests than we want to match)
+	// option 2: order-based time constraint (we can skip all the sorting logic if we have less manifests than we want to match)
 	if tc.OldestCount != 0 && uint64(len(allManifestsInRepo)) < tc.OldestCount {
 		return true
 	}
@@ -138,16 +138,16 @@ func (g GCPolicy) MatchesTimeConstraint(manifest Manifest, allManifestsInRepo []
 		return true
 	}
 
-	//sort manifests by the right time field
+	// sort manifests by the right time field
 	sort.Slice(allManifestsInRepo, func(i, j int) bool {
 		lhs := allManifestsInRepo[i]
 		rhs := allManifestsInRepo[j]
 		return getAge(lhs) > getAge(rhs)
 	})
 
-	//which manifests match? (note that we already know that
-	//len(allManifestsInRepo) is larger than the amount we want to match, so we
-	//don't have to check bounds any further)
+	// which manifests match? (note that we already know that
+	// len(allManifestsInRepo) is larger than the amount we want to match, so we
+	// don't have to check bounds any further)
 	var matchingManifests []Manifest
 	switch {
 	case tc.OldestCount != 0:
@@ -219,7 +219,7 @@ func (g GCPolicy) Validate() error {
 
 	switch g.Action {
 	case "delete", "protect":
-		//valid
+		// valid
 		return nil
 	case "":
 		return errors.New(`GC policy must have the "action" attribute`)
@@ -244,17 +244,17 @@ func (a Account) ParseGCPolicies() ([]GCPolicy, error) {
 // Since GCStatus objects describe images that currently exist in the DB, they
 // only describe policy decisions that led to no cleanup.
 type GCStatus struct {
-	//True if the manifest was uploaded less than 10 minutes ago and is therefore
-	//protected from GC.
+	// True if the manifest was uploaded less than 10 minutes ago and is therefore
+	// protected from GC.
 	ProtectedByRecentUpload bool `json:"protected_by_recent_upload,omitempty"`
-	//If a parent manifest references this manifest and thus protects it from GC,
-	//contains the parent manifest's digest.
+	// If a parent manifest references this manifest and thus protects it from GC,
+	// contains the parent manifest's digest.
 	ProtectedByParentManifest string `json:"protected_by_parent,omitempty"`
-	//If a policy with action "protect" applies to this image, contains the
-	//definition of the policy.
+	// If a policy with action "protect" applies to this image, contains the
+	// definition of the policy.
 	ProtectedByPolicy *GCPolicy `json:"protected_by_policy,omitempty"`
-	//If the image is not protected, contains all policies with action "delete"
-	//that could delete this image in the future.
+	// If the image is not protected, contains all policies with action "delete"
+	// that could delete this image in the future.
 	RelevantPolicies []GCPolicy `json:"relevant_policies,omitempty"`
 }
 

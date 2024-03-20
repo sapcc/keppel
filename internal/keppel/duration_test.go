@@ -40,7 +40,7 @@ var durationTestCases = []struct {
 
 func TestDurationMarshalling(t *testing.T) {
 	for _, c := range durationTestCases {
-		//test marshalling
+		// test marshalling
 		actualJSON, err := json.Marshal(Duration(c.Value))
 		if err != nil {
 			t.Errorf("cannot marshal %q: %s", c.Value.String(), err.Error())
@@ -49,7 +49,7 @@ func TestDurationMarshalling(t *testing.T) {
 			t.Errorf("while marshalling %q: expected %q, but got %q", c.Value.String(), c.ExpectedJSON, string(actualJSON))
 		}
 
-		//test unmarshalling
+		// test unmarshalling
 		var actual Duration
 		err = json.Unmarshal([]byte(c.ExpectedJSON), &actual)
 		if err != nil {
@@ -60,7 +60,7 @@ func TestDurationMarshalling(t *testing.T) {
 		}
 	}
 
-	//test marshalling error: fractional second value
+	// test marshalling error: fractional second value
 	inputDuration := 2500 * time.Millisecond
 	_, err := json.Marshal(Duration(inputDuration))
 	expectedError := `json: error calling MarshalJSON for type keppel.Duration: duration is not a multiple of 1 second: "2.5s"`
@@ -70,7 +70,7 @@ func TestDurationMarshalling(t *testing.T) {
 		t.Errorf("while marshalling %q: expected error %q, but got %q", inputDuration.String(), expectedError, err.Error())
 	}
 
-	//test unmarshaling error: invalid unit
+	// test unmarshaling error: invalid unit
 	inputJSON := `{"value":10,"unit":"x"}`
 	var actual Duration
 	err = json.Unmarshal([]byte(inputJSON), &actual)

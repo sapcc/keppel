@@ -94,15 +94,15 @@ func (j *Janitor) BlobMountSweepJob(registerer prometheus.Registerer) jobloop.Jo
 }
 
 func (j *Janitor) sweepBlobMountsInRepo(_ context.Context, repo keppel.Repository, _ prometheus.Labels) error {
-	//allow next pass in 1 hour to delete the newly marked blob mounts, but use a
-	//slighly earlier cut-off time to account for the marking taking some time
+	// allow next pass in 1 hour to delete the newly marked blob mounts, but use a
+	// slightly earlier cut-off time to account for the marking taking some time
 	canBeDeletedAt := j.timeNow().Add(30 * time.Minute)
 
 	//NOTE: We don't need to pack the following steps in a single transaction, so
-	//we won't. The mark and unmark are obviously safe since they only update
-	//metadata, and the sweep only touches stuff that was marked in the
-	//*previous* sweep. The only thing that we need to make sure is that unmark
-	//is strictly ordered before sweep.
+	// we won't. The mark and unmark are obviously safe since they only update
+	// metadata, and the sweep only touches stuff that was marked in the
+	// *previous* sweep. The only thing that we need to make sure is that unmark
+	// is strictly ordered before sweep.
 	_, err := j.db.Exec(blobMountMarkQuery, repo.ID, canBeDeletedAt)
 	if err != nil {
 		return err
@@ -111,7 +111,7 @@ func (j *Janitor) sweepBlobMountsInRepo(_ context.Context, repo keppel.Repositor
 	if err != nil {
 		return err
 	}
-	//delete blob-mounts that were marked in the last run
+	// delete blob-mounts that were marked in the last run
 	result, err := j.db.Exec(blobMountSweepMarkedQuery, repo.ID, j.timeNow())
 	if err != nil {
 		return err

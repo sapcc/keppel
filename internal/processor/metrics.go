@@ -22,7 +22,7 @@ package processor
 import "github.com/prometheus/client_golang/prometheus"
 
 var (
-	//InboundManifestCacheHitCounter is a prometheus.CounterVec.
+	// InboundManifestCacheHitCounter is a prometheus.CounterVec.
 	InboundManifestCacheHitCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "keppel_inbound_manifest_cache_hits",
@@ -30,7 +30,7 @@ var (
 		},
 		[]string{"external_hostname"},
 	)
-	//InboundManifestCacheMissCounter is a prometheus.CounterVec.
+	// InboundManifestCacheMissCounter is a prometheus.CounterVec.
 	InboundManifestCacheMissCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "keppel_inbound_manifest_cache_misses",

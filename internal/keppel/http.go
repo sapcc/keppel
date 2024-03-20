@@ -32,7 +32,7 @@ var wrap *httpext.WrappedTransport
 
 func SetupHTTPClient() {
 	wrap = httpext.WrapTransport(&http.DefaultTransport)
-	wrap.SetInsecureSkipVerify(osext.GetenvBool("KEPPEL_INSECURE")) //for debugging with mitmproxy etc. (DO NOT SET IN PRODUCTION)
+	wrap.SetInsecureSkipVerify(osext.GetenvBool("KEPPEL_INSECURE")) // for debugging with mitmproxy etc. (DO NOT SET IN PRODUCTION)
 	wrap.SetOverrideUserAgent(bininfo.Component(), bininfo.VersionOr("rolling"))
 }
 

@@ -33,28 +33,28 @@ import (
 // IncomingRequest describes everything we need to know about an incoming API
 // request in order to check for Authorization.
 type IncomingRequest struct {
-	//The incoming request.
+	// The incoming request.
 	HTTPRequest *http.Request
-	//The required token scopes for this request. If the Authorization.ScopeSet
-	//ends up not containing these scopes, the request is rejected and an auth
-	//challenge is issued.
+	// The required token scopes for this request. If the Authorization.ScopeSet
+	// ends up not containing these scopes, the request is rejected and an auth
+	// challenge is issued.
 	Scopes ScopeSet
-	//Whether anycast requests are acceptable on this endpoint.
+	// Whether anycast requests are acceptable on this endpoint.
 	AllowsAnycast bool
-	//Whether domain-remapped requests are acceptable on this endpoint.
+	// Whether domain-remapped requests are acceptable on this endpoint.
 	AllowsDomainRemapping bool
-	//Filled when the user is trying to get a token from us. This enables basic
-	//auth with username+password, and overrides the usual audience-sensing logic.
+	// Filled when the user is trying to get a token from us. This enables basic
+	// auth with username+password, and overrides the usual audience-sensing logic.
 	AudienceForTokenIssuance *Audience
-	//If this field is true, 403 is returned to indicate insufficient
-	//authorization. Most APIs return 401 instead to ensure bug-for-bug
-	//compatibility with Docker Registry.
+	// If this field is true, 403 is returned to indicate insufficient
+	// authorization. Most APIs return 401 instead to ensure bug-for-bug
+	// compatibility with Docker Registry.
 	CorrectlyReturn403 bool
-	//If true, Authorize() will not check if all requested scopes where
-	//authorized.
+	// If true, Authorize() will not check if all requested scopes where
+	// authorized.
 	PartialAccessAllowed bool
-	//If true, Authorize() will not assume an AnonymousUserIdentity when no auth
-	//headers are provided. Users MUST present some sort of auth header.
+	// If true, Authorize() will not assume an AnonymousUserIdentity when no auth
+	// headers are provided. Users MUST present some sort of auth header.
 	NoImplicitAnonymous bool
 }
 
@@ -63,7 +63,7 @@ type IncomingRequest struct {
 func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuration, ad keppel.AuthDriver, db *keppel.DB) (*Authorization, *keppel.RegistryV2Error) {
 	r := ir.HTTPRequest
 
-	//find audience
+	// find audience
 	var audience Audience
 	if ir.AudienceForTokenIssuance != nil {
 		audience = *ir.AudienceForTokenIssuance
@@ -71,23 +71,23 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 		u := keppel.OriginalRequestURL(r)
 		audience = IdentifyAudience(u.Hostname(), cfg)
 
-		//special case: an anycast request was explicitly reverse-proxied to our
-		//non-anycast API by the keppel-api that originally received it
+		// special case: an anycast request was explicitly reverse-proxied to our
+		// non-anycast API by the keppel-api that originally received it
 		forwardedBy := r.Header.Get("X-Keppel-Forwarded-By")
 		if forwardedBy != "" {
 			audience.IsAnycast = true
 		}
 	}
 
-	//sanity checks
+	// sanity checks
 	if audience.IsAnycast {
-		//completely forbid write operations on the anycast API (only the local API
-		//may be used for writes and deletes)
+		// completely forbid write operations on the anycast API (only the local API
+		// may be used for writes and deletes)
 		if r.Method != "HEAD" && r.Method != "GET" {
 			msg := "write access is not supported for anycast requests"
 			return nil, keppel.ErrUnsupported.With(msg)
 		}
-		//only allow anycast usage when the API explicitly permits it
+		// only allow anycast usage when the API explicitly permits it
 		if !ir.AllowsAnycast {
 			msg := fmt.Sprintf("%s %s endpoint is not supported for anycast requests", r.Method, r.URL.Path)
 			return nil, keppel.ErrUnsupported.With(msg)
@@ -98,7 +98,7 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 		return nil, keppel.ErrUnsupported.With(msg)
 	}
 
-	//obtain Authorization through one of the various supported methods
+	// obtain Authorization through one of the various supported methods
 	var (
 		authHeader     = r.Header.Get("Authorization")
 		allowChallenge = false
@@ -107,11 +107,11 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 	)
 	switch {
 	case strings.HasPrefix(authHeader, "Basic "):
-		//clearly a request for basic auth
+		// clearly a request for basic auth
 		if ir.AudienceForTokenIssuance == nil {
-			//I'm being deliberately harsh with the wording of this error message
-			//here; I've seen clients use basic auth on endpoints like GET /v2/ even
-			//though that is completely nonsensical
+			// I'm being deliberately harsh with the wording of this error message
+			// here; I've seen clients use basic auth on endpoints like GET /v2/ even
+			// though that is completely nonsensical
 			return nil, keppel.ErrUnauthorized.With("basic auth is not supported on this endpoint, your library's auth workflow is probably broken").WithHeader("Www-Authenticate", ir.buildAuthChallenge(cfg, audience, ""))
 		}
 		uid, err := checkBasicAuth(ctx, authHeader, ad, db)
@@ -124,7 +124,7 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 		}
 
 	case strings.HasPrefix(authHeader, "Bearer "):
-		//clearly a request for token auth
+		// clearly a request for token auth
 		var rerr *keppel.RegistryV2Error
 		authz, rerr = parseToken(cfg, ad, audience, strings.TrimPrefix(authHeader, "Bearer "))
 		if rerr != nil {
@@ -134,15 +134,15 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 		allowChallenge = true
 
 	case authHeader == "" || authHeader == "keppel":
-		//possibly a request for driver auth, but fallback on AnonymousUserIdentity
-		//if driver auth does not detect any matching headers
+		// possibly a request for driver auth, but fallback on AnonymousUserIdentity
+		// if driver auth does not detect any matching headers
 		uid, rerr := ad.AuthenticateUserFromRequest(r)
 		if rerr != nil {
 			return nil, rerr
 		}
 		if uid == nil {
 			if authHeader == "keppel" {
-				//do not fallback if we were explicitly instructed to only use driver auth
+				// do not fallback if we were explicitly instructed to only use driver auth
 				return nil, keppel.ErrUnauthorized.With("no credentials found in request")
 			} else if ir.NoImplicitAnonymous {
 				return nil, keppel.ErrUnauthorized.With("no bearer token found in request headers").WithHeader("Www-Authenticate", ir.buildAuthChallenge(cfg, audience, ""))
@@ -162,19 +162,19 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 		return nil, errMalformedAuthHeader
 	}
 
-	//check if requested scope is covered by Authorization
+	// check if requested scope is covered by Authorization
 	if !ir.PartialAccessAllowed {
 		for _, scope := range ir.Scopes {
-			//to ensure that GET /v2/ produces an auth challenge without any scopes,
-			//we do not render InfoAPIScope into auth challenges; conversely, since
-			//we don't challenge anyone to obtain tokens for InfoAPIScope, we need to
-			//skip this scope here as well
+			// to ensure that GET /v2/ produces an auth challenge without any scopes,
+			// we do not render InfoAPIScope into auth challenges; conversely, since
+			// we don't challenge anyone to obtain tokens for InfoAPIScope, we need to
+			// skip this scope here as well
 			if InfoAPIScope.Contains(*scope) {
 				continue
 			}
 
 			if !authz.ScopeSet.Contains(*scope) {
-				//not covered -> generate error, possibly with auth challenge
+				// not covered -> generate error, possibly with auth challenge
 				rerr := keppel.ErrUnauthorized.With("no bearer token found in request headers")
 				if authz.UserIdentity.UserType() != keppel.AnonymousUser {
 					if tokenFound {
@@ -223,7 +223,7 @@ func (ir IncomingRequest) buildAuthChallenge(cfg keppel.Configuration, audience 
 var errMalformedAuthHeader = keppel.ErrUnauthorized.With("malformed Authorization header")
 
 func checkBasicAuth(ctx context.Context, authHeader string, ad keppel.AuthDriver, db *keppel.DB) (keppel.UserIdentity, error) {
-	//decode auth header into username/password pair
+	// decode auth header into username/password pair
 	bytes, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(authHeader, "Basic "))
 	if err != nil {
 		return nil, errMalformedAuthHeader
@@ -234,7 +234,7 @@ func checkBasicAuth(ctx context.Context, authHeader string, ad keppel.AuthDriver
 	}
 	userName, password := fields[0], fields[1]
 
-	//recognize peer credentials
+	// recognize peer credentials
 	if strings.HasPrefix(userName, "replication@") {
 		peerHostName := strings.TrimPrefix(userName, "replication@")
 		peer, err := checkPeerCredentials(db, peerHostName, password)
@@ -247,16 +247,16 @@ func checkBasicAuth(ctx context.Context, authHeader string, ad keppel.AuthDriver
 		return &PeerUserIdentity{PeerHostName: peerHostName}, nil
 	}
 
-	//recognize regular user credentials
+	// recognize regular user credentials
 	uid, rerr := ad.AuthenticateUser(ctx, userName, password)
 	return uid, safelyReturnRegistryError(rerr)
 }
 
 func safelyReturnRegistryError(rerr *keppel.RegistryV2Error) error {
-	//This looks stupid, but it ensures that a nil error value gets returned as
-	//error(nil) instead of error(*keppel.RegistryV2Error(nil)). These are very
+	// This looks stupid, but it ensures that a nil error value gets returned as
+	// error(nil) instead of error(*keppel.RegistryV2Error(nil)). These are very
 	//different: The former is an untyped nil, and the latter is a typed nil.
-	//Since these are different, a typed nil would not match `err == nil`.
+	// Since these are different, a typed nil would not match `err == nil`.
 	if rerr == nil {
 		return nil
 	}

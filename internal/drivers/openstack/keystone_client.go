@@ -65,7 +65,7 @@ func (d *keystoneClientDriver) Connect() error {
 	}
 
 	eo := gophercloud.EndpointOpts{
-		//note that empty values are acceptable in both fields
+		// note that empty values are acceptable in both fields
 		Region:       os.Getenv("OS_REGION_NAME"),
 		Availability: gophercloud.Availability(os.Getenv("OS_INTERFACE")),
 	}

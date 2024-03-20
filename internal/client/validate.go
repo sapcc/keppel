@@ -53,8 +53,8 @@ type ValidationSession struct {
 
 func (s *ValidationSession) applyDefaults() *ValidationSession {
 	if s == nil {
-		//This branch is taken when the caller supplied `nil` for the
-		//*ValidationSession argument in ValidateManifest or ValidateBlobContents.
+		// This branch is taken when the caller supplied `nil` for the
+		// *ValidationSession argument in ValidateManifest or ValidateBlobContents.
 		s = &ValidationSession{}
 	}
 	if s.Logger == nil {
@@ -104,11 +104,11 @@ func (c *RepoClient) doValidateManifest(ctx context.Context, reference models.Ma
 		return err
 	}
 
-	//the manifest itself looks good...
+	// the manifest itself looks good...
 	session.Logger.LogManifest(models.ManifestReference{Digest: manifestDesc.Digest}, level, nil, false)
 	logged = true
 
-	//...now recurse into the manifests and blobs that it references
+	// ...now recurse into the manifests and blobs that it references
 	for _, desc := range manifest.BlobReferences() {
 		err := c.doValidateBlobContents(ctx, desc.Digest, level+1, session)
 		if err != nil {
@@ -122,7 +122,7 @@ func (c *RepoClient) doValidateManifest(ctx context.Context, reference models.Ma
 		}
 	}
 
-	//write validity into cache only after all references have been validated as well
+	// write validity into cache only after all references have been validated as well
 	session.isValid[c.validationCacheKey(manifestDesc.Digest.String())] = true
 	session.isValid[c.validationCacheKey(reference.String())] = true
 	return nil

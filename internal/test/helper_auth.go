@@ -63,7 +63,7 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 		return token
 	}
 
-	//parse scopes
+	// parse scopes
 	var ss auth.ScopeSet
 	for _, scopeStr := range scopes {
 		fields := strings.SplitN(scopeStr, ":", 3)
@@ -77,7 +77,7 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 		})
 	}
 
-	//translate scopes into required permissions
+	// translate scopes into required permissions
 	perms := map[string]map[string]bool{
 		string(keppel.CanViewAccount):       make(map[string]bool),
 		string(keppel.CanPullFromAccount):   make(map[string]bool),
@@ -117,7 +117,7 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 		}
 	}
 
-	//issue token
+	// issue token
 	tokenResp, err := auth.Authorization{
 		UserIdentity: &userIdentity{
 			Username: "correctusername",
@@ -134,14 +134,14 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 
 func (s Setup) findAuthTenantIDForAccountName(accountName string) (string, error) {
 	//optimization: if we can find this specific account in the list of
-	//pre-provisioned accounts, we can skip the DB lookup
+	// pre-provisioned accounts, we can skip the DB lookup
 	for _, a := range s.Accounts {
 		if a.Name == accountName {
 			return a.AuthTenantID, nil
 		}
 	}
 
-	//base case: look up in the DB
+	// base case: look up in the DB
 	return s.DB.SelectStr(`SELECT auth_tenant_id FROM accounts WHERE name = $1`, accountName)
 }
 

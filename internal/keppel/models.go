@@ -36,34 +36,34 @@ type Account struct {
 	Name         string `db:"name"`
 	AuthTenantID string `db:"auth_tenant_id"`
 
-	//UpstreamPeerHostName is set if and only if the "on_first_use" replication strategy is used.
+	// UpstreamPeerHostName is set if and only if the "on_first_use" replication strategy is used.
 	UpstreamPeerHostName string `db:"upstream_peer_hostname"`
-	//ExternalPeerURL, ExternalPeerUserName and ExternalPeerPassword are set if
-	//and only if the "from_external_on_first_use" replication strategy is used.
+	// ExternalPeerURL, ExternalPeerUserName and ExternalPeerPassword are set if
+	// and only if the "from_external_on_first_use" replication strategy is used.
 	ExternalPeerURL      string `db:"external_peer_url"`
 	ExternalPeerUserName string `db:"external_peer_username"`
 	ExternalPeerPassword string `db:"external_peer_password"`
-	//PlatformFilter restricts which submanifests get replicated when a list manifest is replicated.
+	// PlatformFilter restricts which submanifests get replicated when a list manifest is replicated.
 	PlatformFilter PlatformFilter `db:"platform_filter"`
 
-	//RequiredLabels is a comma-separated list of labels that must be present on
-	//all image manifests in this account.
+	// RequiredLabels is a comma-separated list of labels that must be present on
+	// all image manifests in this account.
 	RequiredLabels string `db:"required_labels"`
-	//InMaintenance indicates whether the account is in maintenance mode (as defined in the API spec).
+	// InMaintenance indicates whether the account is in maintenance mode (as defined in the API spec).
 	InMaintenance bool `db:"in_maintenance"`
 
-	//MetadataJSON contains a JSON string of a map[string]string, or the empty string.
+	// MetadataJSON contains a JSON string of a map[string]string, or the empty string.
 	MetadataJSON string `db:"metadata_json"`
-	//RBACPoliciesJSON contains a JSON string of []keppel.RBACPolicy, or the empty string.
+	// RBACPoliciesJSON contains a JSON string of []keppel.RBACPolicy, or the empty string.
 	RBACPoliciesJSON string `db:"rbac_policies_json"`
-	//GCPoliciesJSON contains a JSON string of []keppel.GCPolicy, or the empty string.
+	// GCPoliciesJSON contains a JSON string of []keppel.GCPolicy, or the empty string.
 	GCPoliciesJSON string `db:"gc_policies_json"`
-	//SecurityScanPoliciesJSON contains a JSON string of []keppel.SecurityScanPolicy, or the empty string.
+	// SecurityScanPoliciesJSON contains a JSON string of []keppel.SecurityScanPolicy, or the empty string.
 	SecurityScanPoliciesJSON string `db:"security_scan_policies_json"`
 
-	NextBlobSweepedAt            *time.Time `db:"next_blob_sweep_at"`              //see tasks.BlobSweepJob
-	NextStorageSweepedAt         *time.Time `db:"next_storage_sweep_at"`           //see tasks.StorageSweepJob
-	NextFederationAnnouncementAt *time.Time `db:"next_federation_announcement_at"` //see tasks.AnnounceAccountToFederationJob
+	NextBlobSweepedAt            *time.Time `db:"next_blob_sweep_at"`              // see tasks.BlobSweepJob
+	NextStorageSweepedAt         *time.Time `db:"next_storage_sweep_at"`           // see tasks.StorageSweepJob
+	NextFederationAnnouncementAt *time.Time `db:"next_federation_announcement_at"` // see tasks.AnnounceAccountToFederationJob
 }
 
 // SwiftContainerName returns the name of the Swift container backing this
@@ -104,9 +104,9 @@ type Blob struct {
 	StorageID              string        `db:"storage_id"`
 	MediaType              string        `db:"media_type"`
 	PushedAt               time.Time     `db:"pushed_at"`
-	ValidatedAt            time.Time     `db:"validated_at"` //see tasks.BlobValidationJob
+	ValidatedAt            time.Time     `db:"validated_at"` // see tasks.BlobValidationJob
 	ValidationErrorMessage string        `db:"validation_error_message"`
-	CanBeDeletedAt         *time.Time    `db:"can_be_deleted_at"` //see tasks.BlobSweepJob
+	CanBeDeletedAt         *time.Time    `db:"can_be_deleted_at"` // see tasks.BlobSweepJob
 	BlocksVulnScanning     *bool         `db:"blocks_vuln_scanning"`
 }
 
@@ -205,9 +205,9 @@ type Repository struct {
 	ID                      int64      `db:"id"`
 	AccountName             string     `db:"account_name"`
 	Name                    string     `db:"name"`
-	NextBlobMountSweepAt    *time.Time `db:"next_blob_mount_sweep_at"` //see tasks.BlobMountSweepJob
-	NextManifestSyncAt      *time.Time `db:"next_manifest_sync_at"`    //see tasks.ManifestSyncJob (only set for replica accounts)
-	NextGarbageCollectionAt *time.Time `db:"next_gc_at"`               //see tasks.GarbageCollectManifestsJob
+	NextBlobMountSweepAt    *time.Time `db:"next_blob_mount_sweep_at"` // see tasks.BlobMountSweepJob
+	NextManifestSyncAt      *time.Time `db:"next_manifest_sync_at"`    // see tasks.ManifestSyncJob (only set for replica accounts)
+	NextGarbageCollectionAt *time.Time `db:"next_gc_at"`               // see tasks.GarbageCollectManifestsJob
 }
 
 // FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a
@@ -217,7 +217,7 @@ func FindOrCreateRepository(db gorp.SqlExecutor, name string, account Account) (
 	err := db.SelectOne(&repo,
 		"INSERT INTO repos (account_name, name) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *", account.Name, name)
 	if errors.Is(err, sql.ErrNoRows) {
-		//the row already existed, so we did not insert it and hence nothing was returned
+		// the row already existed, so we did not insert it and hence nothing was returned
 		return FindRepository(db, name, account)
 	}
 	return &repo, err
@@ -255,13 +255,13 @@ type Manifest struct {
 	MediaType              string        `db:"media_type"`
 	SizeBytes              uint64        `db:"size_bytes"`
 	PushedAt               time.Time     `db:"pushed_at"`
-	ValidatedAt            time.Time     `db:"validated_at"` //see tasks.ManifestValidationJob
+	ValidatedAt            time.Time     `db:"validated_at"` // see tasks.ManifestValidationJob
 	ValidationErrorMessage string        `db:"validation_error_message"`
 	LastPulledAt           *time.Time    `db:"last_pulled_at"`
-	//LabelsJSON contains a JSON string of a map[string]string, or an empty string.
+	// LabelsJSON contains a JSON string of a map[string]string, or an empty string.
 	LabelsJSON string `db:"labels_json"`
-	//GCStatusJSON contains a keppel.GCStatus serialized into JSON, or an empty
-	//string if GC has not seen this manifest yet.
+	// GCStatusJSON contains a keppel.GCStatus serialized into JSON, or an empty
+	// string if GC has not seen this manifest yet.
 	GCStatusJSON      string     `db:"gc_status_json"`
 	MinLayerCreatedAt *time.Time `db:"min_layer_created_at"`
 	MaxLayerCreatedAt *time.Time `db:"max_layer_created_at"`
@@ -329,8 +329,8 @@ func FindQuotas(db gorp.SqlExecutor, authTenantID string) (*Quotas, error) {
 
 // DefaultQuotas creates a new Quotas instance with the default quotas.
 func DefaultQuotas(authTenantID string) *Quotas {
-	//Right now, the default quota is always 0. The value of having this function
-	//is to ensure that we only need to change this place if this ever changes.
+	// Right now, the default quota is always 0. The value of having this function
+	// is to ensure that we only need to change this place if this ever changes.
 	return &Quotas{
 		AuthTenantID:  authTenantID,
 		ManifestCount: 0,
@@ -358,19 +358,19 @@ func (q Quotas) GetManifestUsage(db gorp.SqlExecutor) (uint64, error) {
 type Peer struct {
 	HostName string `db:"hostname"`
 
-	//OurPassword is what we use to log in at the peer.
+	// OurPassword is what we use to log in at the peer.
 	OurPassword string `db:"our_password"`
 
-	//TheirCurrentPasswordHash and TheirPreviousPasswordHash is what the peer
-	//uses to log in with us. Passwords are rotated hourly. We allow access with
-	//the current *and* the previous password to avoid a race where we enter the
-	//new password in the database and then reject authentication attempts from
-	//the peer before we told them about the new password.
+	// TheirCurrentPasswordHash and TheirPreviousPasswordHash is what the peer
+	// uses to log in with us. Passwords are rotated hourly. We allow access with
+	// the current *and* the previous password to avoid a race where we enter the
+	// new password in the database and then reject authentication attempts from
+	// the peer before we told them about the new password.
 	TheirCurrentPasswordHash  string `db:"their_current_password_hash"`
 	TheirPreviousPasswordHash string `db:"their_previous_password_hash"`
 
-	//LastPeeredAt is when we last issued a new password for this peer.
-	LastPeeredAt *time.Time `db:"last_peered_at"` //see tasks.IssueNewPasswordForPeer
+	// LastPeeredAt is when we last issued a new password for this peer.
+	LastPeeredAt *time.Time `db:"last_peered_at"` // see tasks.IssueNewPasswordForPeer
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -387,8 +387,8 @@ type PendingBlob struct {
 type PendingReason string
 
 const (
-	//PendingBecauseOfReplication is when a blob is pending because
-	//it is currently being replicated from an upstream registry.
+	// PendingBecauseOfReplication is when a blob is pending because
+	// it is currently being replicated from an upstream registry.
 	PendingBecauseOfReplication PendingReason = "replication"
 )
 
@@ -421,7 +421,7 @@ type TrivySecurityInfo struct {
 	Digest              digest.Digest             `db:"digest"`
 	VulnerabilityStatus trivy.VulnerabilityStatus `db:"vuln_status"`
 	Message             string                    `db:"message"`
-	NextCheckAt         time.Time                 `db:"next_check_at"` //see tasks.CheckTrivySecurityStatusJob
+	NextCheckAt         time.Time                 `db:"next_check_at"` // see tasks.CheckTrivySecurityStatusJob
 	CheckedAt           *time.Time                `db:"checked_at"`
 	CheckDurationSecs   *float64                  `db:"check_duration_secs"`
 }

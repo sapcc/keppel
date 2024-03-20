@@ -60,7 +60,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//locate this blob from the DB
+	// locate this blob from the DB
 	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *repo)
 	if errors.Is(err, sql.ErrNoRows) {
 		keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w, r)
@@ -70,15 +70,15 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//if this blob has not been replicated...
+	// if this blob has not been replicated...
 	if blob.StorageID == "" {
 		if account.UpstreamPeerHostName == "" && account.ExternalPeerURL == "" {
-			//defense in depth: unbacked blobs should not exist in non-replica accounts
+			// defense in depth: unbacked blobs should not exist in non-replica accounts
 			keppel.ErrBlobUnknown.With("blob does not exist in this repository").WriteAsRegistryV2ResponseTo(w, r)
 			return
 		}
 
-		//...answer HEAD requests with the metadata that we obtained when replicating the manifest...
+		// ...answer HEAD requests with the metadata that we obtained when replicating the manifest...
 		if r.Method == http.MethodHead {
 			w.Header().Set("Content-Length", strconv.FormatUint(blob.SizeBytes, 10))
 			w.Header().Set("Content-Type", blob.SafeMediaType())
@@ -87,18 +87,18 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		//...and answer GET requests by replicating the blob contents
+		// ...and answer GET requests by replicating the blob contents
 		responseWasWritten, err := a.processor().ReplicateBlob(r.Context(), *blob, *account, *repo, w)
 
 		if err != nil {
 			if responseWasWritten {
-				//we cannot write to `w` if br.Execute() wrote a response there already
+				// we cannot write to `w` if br.Execute() wrote a response there already
 				logg.Error("while trying to replicate blob %s in %s/%s: %s",
 					blob.Digest, account.Name, repo.Name, err.Error())
 			} else if errors.Is(err, processor.ErrConcurrentReplication) {
-				//special handling for GET during ongoing replication (429 Too Many
-				//Requests is not a perfect match, but it's my best guess for getting
-				//clients to automatically retry the request after a few seconds)
+				// special handling for GET during ongoing replication (429 Too Many
+				// Requests is not a perfect match, but it's my best guess for getting
+				// clients to automatically retry the request after a few seconds)
 				w.Header().Set("Retry-After", "10")
 				msg := "currently replicating on a different worker, please retry in a few seconds"
 				keppel.ErrTooManyRequests.With(msg).WriteAsRegistryV2ResponseTo(w, r)
@@ -112,11 +112,11 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//if a peer reverse-proxied to us to fulfill an anycast request, enforce the anycast rate limits
+	// if a peer reverse-proxied to us to fulfill an anycast request, enforce the anycast rate limits
 	isAnycast := r.Header.Get("X-Keppel-Forwarded-By") != ""
 	if isAnycast {
-		//AnycastBlobBytePullAction is only relevant for GET requests since it
-		//limits the size of the response body (which is empty for HEAD)
+		// AnycastBlobBytePullAction is only relevant for GET requests since it
+		// limits the size of the response body (which is empty for HEAD)
 		if r.Method == http.MethodGet {
 			err = api.CheckRateLimit(r, a.rle, *account, authz, keppel.AnycastBlobBytePullAction, blob.SizeBytes)
 			if respondWithError(w, r, err) {
@@ -125,7 +125,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//before we branch into different code paths, count the pull
+	// before we branch into different code paths, count the pull
 	if r.Method == http.MethodGet {
 		l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 		if authz.UserIdentity.UserType() == keppel.PeerUser {
@@ -137,13 +137,13 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		api.BlobBytesPulledCounter.With(l).Add(float64(blob.SizeBytes))
 	}
 
-	//prefer redirecting the client to a storage URL if the storage driver can give us one
+	// prefer redirecting the client to a storage URL if the storage driver can give us one
 	//
-	//We do not do this for image config blobs. Those are rather small, so the
-	//optimization of redirecting rather than reverse-proxying is not as relevant
-	//as for image layers. By reverse-proxying these blobs, we can be sure that
-	//CORS happens correctly. This is important for web UIs reading image config
-	//blobs in order to render informational UIs.
+	// We do not do this for image config blobs. Those are rather small, so the
+	// optimization of redirecting rather than reverse-proxying is not as relevant
+	// as for image layers. By reverse-proxying these blobs, we can be sure that
+	// CORS happens correctly. This is important for web UIs reading image config
+	// blobs in order to render informational UIs.
 	if !isImageConfigBlobMediaType[blob.MediaType] {
 		url, err := a.sd.URLForBlob(*account, blob.StorageID)
 		if err == nil {
@@ -158,7 +158,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//return the blob contents to the client directly (TODO: support range requests)
+	// return the blob contents to the client directly (TODO: support range requests)
 	reader, lengthBytes, err := a.sd.ReadBlob(*account, blob.StorageID)
 	if respondWithError(w, r, err) {
 		return
@@ -178,7 +178,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleGetOrHeadBlobAnycast(w http.ResponseWriter, r *http.Request, info anycastRequestInfo) {
 	//NOTE: Rate limits are enforced by the peer that we reverse-proxy to, not by
-	//us. We couldn't enforce them anyway because we don't have this account.
+	// us. We couldn't enforce them anyway because we don't have this account.
 	err := a.cfg.ReverseProxyAnycastRequestToPeer(w, r, info.PrimaryHostName)
 	if respondWithError(w, r, err) {
 		return
@@ -209,7 +209,7 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//can only delete blob mount if it's not used by any manifests
+	// can only delete blob mount if it's not used by any manifests
 	refCount, err := a.db.SelectInt(`SELECT COUNT(*) FROM manifest_blob_refs WHERE blob_id = $1 AND repo_id = $2`, blob.ID, repo.ID)
 	if respondWithError(w, r, err) {
 		return
@@ -222,9 +222,9 @@ func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//unmount the blob from this particular repo (if it is mounted in other
-	//repos, it will still be accessible there; otherwise keppel-janitor will
-	//clean it up soon)
+	// unmount the blob from this particular repo (if it is mounted in other
+	// repos, it will still be accessible there; otherwise keppel-janitor will
+	// clean it up soon)
 	_, err = a.db.Exec(`DELETE FROM blob_mounts WHERE blob_id = $1 AND repo_id = $2`, blob.ID, repo.ID)
 	if respondWithError(w, r, err) {
 		return

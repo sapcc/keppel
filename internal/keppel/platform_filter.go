@@ -39,13 +39,13 @@ func (f *PlatformFilter) Scan(src any) error {
 		return fmt.Errorf("cannot deserialize %T into %T", src, f)
 	}
 
-	//default value: empty string = no filter
+	// default value: empty string = no filter
 	if in == "" {
 		*f = nil
 		return nil
 	}
 
-	//otherwise deserialize from JSON
+	// otherwise deserialize from JSON
 	var list []manifestlist.PlatformSpec
 	err := json.Unmarshal([]byte(in), &list)
 	if err != nil {
@@ -58,25 +58,25 @@ func (f *PlatformFilter) Scan(src any) error {
 
 // Value implements the driver.Valuer interface.
 func (f PlatformFilter) Value() (driver.Value, error) {
-	//default value: no filter == empty string
+	// default value: no filter == empty string
 	if len(f) == 0 {
 		return "", nil
 	}
 
-	//otherwise serialize to JSON
+	// otherwise serialize to JSON
 	return json.Marshal(f)
 }
 
 // Includes checks whether the given platform is included in this filter.
 func (f PlatformFilter) Includes(platform manifestlist.PlatformSpec) bool {
-	//default value: empty filter accepts everything
+	// default value: empty filter accepts everything
 	if len(f) == 0 {
 		return true
 	}
 
 	for _, p := range f {
 		//NOTE: This check could be much more elaborate, e.g. consider only fields
-		//that are not empty in `p`.
+		// that are not empty in `p`.
 		if reflect.DeepEqual(p, platform) {
 			return true
 		}

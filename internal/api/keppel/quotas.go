@@ -99,7 +99,7 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 	}
 	quotasBefore := *quotas
 
-	//parse request
+	// parse request
 	var req quotaRequest
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
@@ -109,7 +109,7 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//check usage
+	// check usage
 	tx, err := a.db.Begin()
 	if respondwith.ErrorText(w, err) {
 		return
@@ -128,7 +128,7 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if quotas.ManifestCount != req.Manifests.Quota {
-		//apply quotas if necessary
+		// apply quotas if necessary
 		quotas.ManifestCount = req.Manifests.Quota
 		if isUpdate {
 			_, err = tx.Update(quotas)
@@ -143,7 +143,7 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		//record audit event when quotas have changed
+		// record audit event when quotas have changed
 		if userInfo := authz.UserIdentity.UserInfo(); userInfo != nil {
 			a.auditor.Record(audittools.EventParameters{
 				Time:       time.Now(),

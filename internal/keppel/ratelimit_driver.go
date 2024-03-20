@@ -35,17 +35,17 @@ import (
 type RateLimitedAction string
 
 const (
-	//BlobPullAction is a RateLimitedAction.
+	// BlobPullAction is a RateLimitedAction.
 	BlobPullAction RateLimitedAction = "pullblob"
-	//BlobPushAction is a RateLimitedAction.
+	// BlobPushAction is a RateLimitedAction.
 	BlobPushAction RateLimitedAction = "pushblob"
-	//ManifestPullAction is a RateLimitedAction.
+	// ManifestPullAction is a RateLimitedAction.
 	ManifestPullAction RateLimitedAction = "pullmanifest"
-	//ManifestPushAction is a RateLimitedAction.
+	// ManifestPushAction is a RateLimitedAction.
 	ManifestPushAction RateLimitedAction = "pushmanifest"
-	//AnycastBlobBytePullAction is a RateLimitedAction.
-	//It refers to blobs being pulled from other regions via anycast.
-	//The `amount` given to RateLimitAllows() shall be the blob size in bytes.
+	// AnycastBlobBytePullAction is a RateLimitedAction.
+	// It refers to blobs being pulled from other regions via anycast.
+	// The `amount` given to RateLimitAllows() shall be the blob size in bytes.
 	AnycastBlobBytePullAction RateLimitedAction = "pullblobbytesanycast"
 	// TrivyReportRetrieveAction is a RateLimitedAction.
 	// It refers to reports being retrieved from keppel through the trivy proxy from trivy itself.
@@ -56,15 +56,15 @@ const (
 // each account.
 type RateLimitDriver interface {
 	pluggable.Plugin
-	//Init is called before any other interface methods, and allows the plugin to
-	//perform first-time initialization.
+	// Init is called before any other interface methods, and allows the plugin to
+	// perform first-time initialization.
 	//
-	//Implementations should inspect the auth driver to ensure that the
-	//federation driver can work with this authentication method, or return
-	//ErrAuthDriverMismatch otherwise.
+	// Implementations should inspect the auth driver to ensure that the
+	// federation driver can work with this authentication method, or return
+	// ErrAuthDriverMismatch otherwise.
 	Init(AuthDriver, Configuration) error
 
-	//GetRateLimit shall return nil if the given action has no rate limit.
+	// GetRateLimit shall return nil if the given action has no rate limit.
 	GetRateLimit(account Account, action RateLimitedAction) *redis_rate.Limit
 }
 
@@ -97,7 +97,7 @@ type RateLimitEngine struct {
 func (e RateLimitEngine) RateLimitAllows(ctx context.Context, remoteAddr string, account Account, action RateLimitedAction, amount uint64) (bool, *redis_rate.Result, error) {
 	rateQuota := e.Driver.GetRateLimit(account, action)
 	if rateQuota == nil {
-		//no rate limit for this account and action
+		// no rate limit for this account and action
 		return true, &redis_rate.Result{
 			Limit:      redis_rate.Limit{Rate: math.MaxInt64, Period: time.Second},
 			Remaining:  math.MaxInt64,
@@ -106,9 +106,9 @@ func (e RateLimitEngine) RateLimitAllows(ctx context.Context, remoteAddr string,
 		}, nil
 	}
 
-	//AllowN needs to take `amount` as an int; if this cast overflows, we fail
-	//the entire ratelimit check to be safe (this should never be a problem in
-	//practice because int is 64 bits wide)
+	// AllowN needs to take `amount` as an int; if this cast overflows, we fail
+	// the entire ratelimit check to be safe (this should never be a problem in
+	// practice because int is 64 bits wide)
 	if amount > math.MaxInt {
 		return false, &redis_rate.Result{
 			Limit:     *rateQuota,

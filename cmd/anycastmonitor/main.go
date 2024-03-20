@@ -84,7 +84,7 @@ func AddCommandTo(parent *cobra.Command) {
 }
 
 type anycastMonitorJob struct {
-	RepoClients map[string]*client.RepoClient //key = account name
+	RepoClients map[string]*client.RepoClient // key = account name
 }
 
 func run(cmd *cobra.Command, args []string) {
@@ -110,7 +110,7 @@ func run(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	//expose metrics endpoint
+	// expose metrics endpoint
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 	ctx := httpext.ContextWithSIGINT(context.Background(), 1*time.Second)
@@ -118,9 +118,9 @@ func run(cmd *cobra.Command, args []string) {
 		must.Succeed(httpext.ListenAndServeContext(ctx, listenAddress, mux))
 	}()
 
-	//enter long-running check loop
+	// enter long-running check loop
 	manifestRef := models.ManifestReference{Tag: "latest"}
-	job.ValidateImages(ctx, manifestRef) //once immediately to initialize the metrics
+	job.ValidateImages(ctx, manifestRef) // once immediately to initialize the metrics
 	job.ValidateAnycastMembership(ctx, anycastURL, apiPublicHostname)
 	tick := time.Tick(30 * time.Second)
 	for {

@@ -62,7 +62,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//forbid pushing into replica accounts
+	// forbid pushing into replica accounts
 	if account.UpstreamPeerHostName != "" {
 		msg := fmt.Sprintf("cannot push into replica account (push to %s/%s instead!)",
 			account.UpstreamPeerHostName, repo.FullName(),
@@ -78,17 +78,17 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//forbid pushing during maintenance
+	// forbid pushing during maintenance
 	if account.InMaintenance {
 		keppel.ErrUnsupported.With("account is in maintenance").WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 
-	//only allow new blob uploads when there is enough quota to push a manifest
+	// only allow new blob uploads when there is enough quota to push a manifest
 	//
-	//This is not strictly necessary to enforce the manifest quota, but it's
-	//useful to avoid the accumulation of unreferenced blobs in the account's
-	//backing storage.
+	// This is not strictly necessary to enforce the manifest quota, but it's
+	// useful to avoid the accumulation of unreferenced blobs in the account's
+	// backing storage.
 	quotas, err := keppel.FindQuotas(a.db, account.AuthTenantID)
 	if respondWithError(w, r, err) {
 		return
@@ -108,20 +108,20 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//special case: request for cross-repo blob mount
+	// special case: request for cross-repo blob mount
 	query := r.URL.Query()
 	if sourceRepoFullName := query.Get("from"); sourceRepoFullName != "" {
 		a.performCrossRepositoryBlobMount(w, r, *account, *repo, authz, sourceRepoFullName, query.Get("mount"))
 		return
 	}
 
-	//special case: monolithic upload
+	// special case: monolithic upload
 	if blobDigestStr := query.Get("digest"); blobDigestStr != "" {
 		a.performMonolithicUpload(w, r, *account, *repo, authz, blobDigestStr)
 		return
 	}
 
-	//start a new upload
+	// start a new upload
 	uuidV4, err := uuid.NewV4()
 	if respondWithError(w, r, err) {
 		return
@@ -149,7 +149,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Request, account keppel.Account, targetRepo keppel.Repository, authz *auth.Authorization, sourceRepoFullName, blobDigestStr string) {
-	//validate source repository
+	// validate source repository
 	if !strings.HasPrefix(sourceRepoFullName, account.Name+"/") {
 		keppel.ErrUnsupported.With("cannot mount blobs across different accounts").WriteAsRegistryV2ResponseTo(w, r)
 		return
@@ -168,7 +168,7 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	//validate blob
+	// validate blob
 	blobDigest, err := digest.Parse(blobDigestStr)
 	if err != nil {
 		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
@@ -183,13 +183,13 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	//create blob mount if missing
+	// create blob mount if missing
 	err = keppel.MountBlobIntoRepo(a.db, *blob, targetRepo)
 	if respondWithError(w, r, err) {
 		return
 	}
 
-	//the spec wants a Blob-Upload-Session-Id header even though the upload is done, so just make something up
+	// the spec wants a Blob-Upload-Session-Id header even though the upload is done, so just make something up
 	uuidV4, err := uuid.NewV4()
 	if respondWithError(w, r, err) {
 		return
@@ -207,7 +207,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 		return false
 	}
 
-	//parse Content-Length
+	// parse Content-Length
 	sizeBytesStr := r.Header.Get("Content-Length")
 	if sizeBytesStr == "" {
 		keppel.ErrSizeInvalid.With("missing Content-Length header").WriteAsRegistryV2ResponseTo(w, r)
@@ -220,7 +220,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 		return false
 	}
 
-	//stream request body into the storage backend while also computing the digest and length
+	// stream request body into the storage backend while also computing the digest and length
 	upload := keppel.Upload{
 		StorageID: a.generateStorageID(),
 		SizeBytes: 0,
@@ -240,7 +240,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 		return false
 	}
 
-	//if any of the remaining steps fail, don't forget to cleanup the storage backend
+	// if any of the remaining steps fail, don't forget to cleanup the storage backend
 	defer func() {
 		if !ok {
 			countAbortedBlobUpload(account)
@@ -252,7 +252,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 		}
 	}()
 
-	//validate digest and length
+	// validate digest and length
 	if dw.bytesWritten != sizeBytes {
 		keppel.ErrSizeInvalid.With("Content-Length was %d, but %d bytes were sent", sizeBytes, dw.bytesWritten).WriteAsRegistryV2ResponseTo(w, r)
 		return false
@@ -264,7 +264,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 		return false
 	}
 
-	//record blob in DB
+	// record blob in DB
 	tx, err := a.db.Begin()
 	if respondWithError(w, r, err) {
 		return false
@@ -285,7 +285,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 		return false
 	}
 
-	//the spec wants a Blob-Upload-Session-Id header even though the upload is done, so just make something up
+	// the spec wants a Blob-Upload-Session-Id header even though the upload is done, so just make something up
 	uuidV4, err := uuid.NewV4()
 	if respondWithError(w, r, err) {
 		return
@@ -309,7 +309,7 @@ func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//prepare the database transaction for deleting this upload
+	// prepare the database transaction for deleting this upload
 	tx, err := a.db.Begin()
 	if respondWithError(w, r, err) {
 		return
@@ -320,7 +320,7 @@ func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//perform the deletion in the storage backend, then make the DB change durable
+	// perform the deletion in the storage backend, then make the DB change durable
 	if upload.NumChunks > 0 {
 		err = a.sd.AbortBlobUpload(*account, upload.StorageID, upload.NumChunks)
 		if respondWithError(w, r, err) {
@@ -332,7 +332,7 @@ func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//report success
+	// report success
 	w.Header().Set("Content-Length", "0")
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -354,18 +354,18 @@ func (a *API) handleGetBlobUpload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Range", makeRangeHeader(upload.SizeBytes))
 
-	//if the request URL is from the "Location" header of a previous upload chunk,
-	//the OCI Distribution Spec as of v1.1.0 requires us to display the upload
-	//URL in the "Location" header
+	// if the request URL is from the "Location" header of a previous upload chunk,
+	// the OCI Distribution Spec as of v1.1.0 requires us to display the upload
+	// URL in the "Location" header
 	if upload.SizeBytes == 0 {
-		//case 1: if the upload did not have any data sent into it, we can build
-		//the upload URL from our DB alone
+		// case 1: if the upload did not have any data sent into it, we can build
+		// the upload URL from our DB alone
 		w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/uploads/%s",
 			getRepoNameForURLPath(*repo, authz), upload.UUID,
 		))
 	} else if stateStr := r.URL.Query().Get("state"); stateStr != "" {
-		//case 2: if the upload had data sent into it, we need the hash state
-		//that's included in the Location URL
+		// case 2: if the upload had data sent into it, we need the hash state
+		// that's included in the Location URL
 		w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/uploads/%s?%s",
 			getRepoNameForURLPath(*repo, authz), upload.UUID, url.Values{"state": {stateStr}}.Encode(),
 		))
@@ -391,8 +391,8 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//if we have the Content-Range and Content-Length headers ("chunked upload mode"),
-	//parse and validate them
+	// if we have the Content-Range and Content-Length headers ("chunked upload mode"),
+	// parse and validate them
 	chunkSizeBytes := (*uint64)(nil)
 	if r.Header.Get("Content-Range") != "" {
 		lengthBytes, err := a.parseContentRange(upload, r.Header)
@@ -414,7 +414,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 		chunkSizeBytes = &lengthBytes
 	}
 
-	//append request body to upload
+	// append request body to upload
 	digestState, err := a.streamIntoUpload(*account, upload, dw, r.Body, chunkSizeBytes)
 	if respondWithError(w, r, err) {
 		return
@@ -447,7 +447,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//if we have a request body and Content-Length, append a final segment to the upload
+	// if we have a request body and Content-Length, append a final segment to the upload
 	if contentLengthStr := r.Header.Get("Content-Length"); contentLengthStr != "" {
 		contentLength, err := strconv.ParseUint(contentLengthStr, 10, 64)
 		if err != nil {
@@ -463,21 +463,21 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//convert the Upload into a Blob in both the storage backend and the DB
+	// convert the Upload into a Blob in both the storage backend and the DB
 	//
-	//NOTE 1: This is written a bit funny to avoid duplicating error handling
-	//code for each step.
-	//NOTE 2: Since we finalize the blob in the storage first, there's a slight
-	//chance that unexpected errors could leave us with a dangling blob in the
-	//storage that the DB does not know about, but the storage sweep can clean
-	//that up later.
+	// NOTE 1: This is written a bit funny to avoid duplicating error handling
+	// code for each step.
+	// NOTE 2: Since we finalize the blob in the storage first, there's a slight
+	// chance that unexpected errors could leave us with a dangling blob in the
+	// storage that the DB does not know about, but the storage sweep can clean
+	// that up later.
 	var blob *keppel.Blob
 	err := a.sd.FinalizeBlob(*account, upload.StorageID, upload.NumChunks)
 	if err == nil {
 		blob, err = a.createBlobFromUpload(*account, *repo, *upload, query.Get("digest"))
 	}
 
-	//if an error occurred anywhere during this last sequence of steps, do our best to clean up the mess we left behind
+	// if an error occurred anywhere during this last sequence of steps, do our best to clean up the mess we left behind
 	if respondWithError(w, r, err) {
 		countAbortedBlobUpload(*account)
 		_, err := a.db.Delete(upload)
@@ -491,7 +491,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//count a finished blob push
+	// count a finished blob push
 	l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 	api.BlobsPushedCounter.With(l).Inc()
 	api.BlobBytesPushedCounter.With(l).Add(float64(blob.SizeBytes))
@@ -519,7 +519,7 @@ func (a *API) findUpload(w http.ResponseWriter, r *http.Request, repo keppel.Rep
 }
 
 func (a *API) resumeUpload(account keppel.Account, upload *keppel.Upload, stateStr string) (dw *digestWriter, returnErr *keppel.RegistryV2Error) {
-	//when encountering an error, cancel the upload entirely
+	// when encountering an error, cancel the upload entirely
 	defer func() {
 		if returnErr != nil {
 			logg.Info("aborting upload because of error during resumeUpload()")
@@ -535,8 +535,8 @@ func (a *API) resumeUpload(account keppel.Account, upload *keppel.Upload, stateS
 		}
 	}()
 
-	//when an upload does not contain any data yet, stateStr should be empty
-	//because there is nothing to resume
+	// when an upload does not contain any data yet, stateStr should be empty
+	// because there is nothing to resume
 	if upload.NumChunks == 0 {
 		if stateStr == "" {
 			return &digestWriter{sha256.New(), 0}, nil
@@ -544,8 +544,8 @@ func (a *API) resumeUpload(account keppel.Account, upload *keppel.Upload, stateS
 		return nil, keppel.ErrBlobUploadInvalid.With("unexpected session state")
 	}
 
-	//when the upload *does* contain data, we have already sent that data through
-	//SHA-256 and the corresponding hash.Hash instance should be in stateStr...
+	// when the upload *does* contain data, we have already sent that data through
+	// SHA-256 and the corresponding hash.Hash instance should be in stateStr...
 	stateBytes, err := base64.URLEncoding.DecodeString(stateStr)
 	if err != nil {
 		return nil, keppel.ErrBlobUploadInvalid.With("malformed session state")
@@ -556,19 +556,19 @@ func (a *API) resumeUpload(account keppel.Account, upload *keppel.Upload, stateS
 		return nil, keppel.ErrBlobUploadInvalid.With("broken session state").WithStatus(http.StatusRequestedRangeNotSatisfiable)
 	}
 
-	//...and the digest from the data up until this point should be equal to upload.Digest
+	// ...and the digest from the data up until this point should be equal to upload.Digest
 	stateDigest := digest.NewDigest(digest.SHA256, hashWriter)
 	if stateDigest.String() != upload.Digest {
 		return nil, keppel.ErrBlobUploadInvalid.With("provided session state did not match uploaded content")
 	}
 
-	//we need to unmarshal the digest state once more because taking a Sum over
-	//this hash may have altered the state
+	// we need to unmarshal the digest state once more because taking a Sum over
+	// this hash may have altered the state
 	hashWriter = sha256.New()
 	err = hashWriter.(encoding.BinaryUnmarshaler).UnmarshalBinary(stateBytes)
 	if err != nil {
 		//COVERAGE: This branch is defense in depth. We unmarshaled the same state
-		//above, so hitting an error just here should be impossible.
+		// above, so hitting an error just here should be impossible.
 		return nil, keppel.ErrBlobUploadInvalid.With("broken session state").WithStatus(http.StatusRequestedRangeNotSatisfiable)
 	}
 
@@ -579,7 +579,7 @@ var contentRangeRx = regexp.MustCompile(`^([0-9]+)-([0-9]+)$`)
 
 // On success, returns the number of bytes that should be in this request's body.
 func (a *API) parseContentRange(upload *keppel.Upload, hdr http.Header) (uint64, error) {
-	//some clients format Content-Range as `bytes=123-456` instead of just `123-456`
+	// some clients format Content-Range as `bytes=123-456` instead of just `123-456`
 	contentRangeStr := strings.TrimPrefix(hdr.Get("Content-Range"), "bytes=")
 
 	match := contentRangeRx.FindStringSubmatch(contentRangeStr)
@@ -615,10 +615,10 @@ func (a *API) parseContentRange(upload *keppel.Upload, hdr http.Header) (uint64,
 }
 
 func (a *API) streamIntoUpload(account keppel.Account, upload *keppel.Upload, dw *digestWriter, chunk io.Reader, chunkSizeBytes *uint64) (digestState string, returnErr error) {
-	//if anything happens during this operation, we likely have produced an
-	//inconsistent state between DB, storage backend and our internal book
-	//keeping (esp. the digestState in dw.Hash), so we will have to abort the
-	//upload entirely
+	// if anything happens during this operation, we likely have produced an
+	// inconsistent state between DB, storage backend and our internal book
+	// keeping (esp. the digestState in dw.Hash), so we will have to abort the
+	// upload entirely
 	defer func() {
 		if returnErr != nil {
 			logg.Info("aborting upload because of error during streamIntoUpload()")
@@ -634,14 +634,14 @@ func (a *API) streamIntoUpload(account keppel.Account, upload *keppel.Upload, dw
 		}
 	}()
 
-	//stream data from request body into storage
+	// stream data from request body into storage
 	sizeBytesBefore := upload.SizeBytes
 	err := a.processor().AppendToBlob(account, upload, io.TeeReader(chunk, dw), chunkSizeBytes)
 	if err != nil {
 		return "", err
 	}
 
-	//if chunkSizeBytes is known, check that we wrote that many bytes, not more, not less
+	// if chunkSizeBytes is known, check that we wrote that many bytes, not more, not less
 	actualChunkSizeBytes := dw.bytesWritten - sizeBytesBefore
 	if chunkSizeBytes != nil && *chunkSizeBytes != actualChunkSizeBytes {
 		msg := fmt.Sprintf("expected upload of %d bytes, but request contained %d bytes",
@@ -650,15 +650,15 @@ func (a *API) streamIntoUpload(account keppel.Account, upload *keppel.Upload, dw
 		return "", keppel.ErrSizeInvalid.With(msg).WithStatus(http.StatusRequestedRangeNotSatisfiable)
 	}
 
-	//serialize digest state for next resumeUpload() - note that we do this
-	//BEFORE digest.NewDigest() because digest.NewDigest() may alter the
-	//internal state of `dw.Hash`
+	// serialize digest state for next resumeUpload() - note that we do this
+	// BEFORE digest.NewDigest() because digest.NewDigest() may alter the
+	// internal state of `dw.Hash`
 	digestStateBytes, err := dw.Hash.(encoding.BinaryMarshaler).MarshalBinary()
 	if err != nil {
 		return "", err
 	}
 
-	//update Upload object in DB
+	// update Upload object in DB
 	upload.Digest = digest.NewDigest(digest.SHA256, dw.Hash).String()
 	upload.UpdatedAt = a.timeNow()
 	_, err = a.db.Update(upload)
@@ -670,7 +670,7 @@ func (a *API) streamIntoUpload(account keppel.Account, upload *keppel.Upload, dw
 }
 
 func (a *API) createBlobFromUpload(account keppel.Account, repo keppel.Repository, upload keppel.Upload, blobDigestStr string) (blob *keppel.Blob, returnErr error) {
-	//validate the digest provided by the user
+	// validate the digest provided by the user
 	if blobDigestStr == "" {
 		return nil, keppel.ErrDigestInvalid.With("missing digest")
 	}
@@ -682,7 +682,7 @@ func (a *API) createBlobFromUpload(account keppel.Account, repo keppel.Repositor
 		return nil, keppel.ErrDigestInvalid.With("")
 	}
 
-	//prepare database changes
+	// prepare database changes
 	tx, err := a.db.Begin()
 	if err != nil {
 		return nil, err
@@ -716,10 +716,10 @@ var insertBlobIfMissingQuery = sqlext.SimplifyWhitespace(`
 // keppel.Blob and doing tx.Insert(blob), but handles a collision where another
 // blob with the same account name and digest already exists in the database.
 func (a *API) createOrUpdateBlobObject(tx *gorp.Transaction, sizeBytes uint64, storageID string, blobDigest digest.Digest, blobPushedAt time.Time, account keppel.Account) (*keppel.Blob, error) {
-	//try to insert the blob atomically (I would like to SELECT the result
-	//directly via `RETURNING *`, but that gives sql.ErrNoRows when nothing was
-	//inserted because of ON CONFLICT, so in the general case, we need another
-	//SELECT to get the resulting blob anyway)
+	// try to insert the blob atomically (I would like to SELECT the result
+	// directly via `RETURNING *`, but that gives sql.ErrNoRows when nothing was
+	// inserted because of ON CONFLICT, so in the general case, we need another
+	// SELECT to get the resulting blob anyway)
 	_, err := tx.Exec(insertBlobIfMissingQuery,
 		account.Name, blobDigest.String(), sizeBytes, storageID, blobPushedAt,
 	)
@@ -731,10 +731,10 @@ func (a *API) createOrUpdateBlobObject(tx *gorp.Transaction, sizeBytes uint64, s
 		return nil, err
 	}
 
-	//if we already had a blob with this digest, there was a CONFLICT and we
-	//obtained the existing blob from the SELECT; since we already have the
-	//existing blob, we can discard the uploaded blob contents and reuse the
-	//existing blob instead
+	// if we already had a blob with this digest, there was a CONFLICT and we
+	// obtained the existing blob from the SELECT; since we already have the
+	// existing blob, we can discard the uploaded blob contents and reuse the
+	// existing blob instead
 	if blob.StorageID != storageID {
 		err := a.sd.DeleteBlob(account, storageID)
 		if err != nil {

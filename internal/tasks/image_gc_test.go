@@ -39,7 +39,7 @@ func TestGCUntaggedImages(t *testing.T) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
 
-	//setup GC policy for test
+	// setup GC policy for test
 	matchingGCPolicyJSON := `{"match_repository":".*","only_untagged":true,"action":"delete"}`
 	matchingGCPoliciesJSON := fmt.Sprintf("[%s]", matchingGCPolicyJSON)
 	mustExec(t, s.DB,
@@ -47,7 +47,7 @@ func TestGCUntaggedImages(t *testing.T) {
 		matchingGCPoliciesJSON,
 	)
 
-	//store two images, one tagged, one untagged
+	// store two images, one tagged, one untagged
 	images := []test.Image{
 		test.GenerateImage(test.GenerateExampleLayer(0)),
 		test.GenerateImage(test.GenerateExampleLayer(1)),
@@ -57,13 +57,13 @@ func TestGCUntaggedImages(t *testing.T) {
 
 	garbageJob := j.ManifestGarbageCollectionJob(s.Registry)
 
-	//GC should not do anything right now because newly-pushed images are
-	//protected (to avoid deleting images that a client is about to tag)
+	// GC should not do anything right now because newly-pushed images are
+	// protected (to avoid deleting images that a client is about to tag)
 	expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
 	tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
 
-	//setup GC policy that does not match
+	// setup GC policy that does not match
 	s.Clock.StepBy(2 * time.Hour)
 	ineffectiveGCPoliciesJSON := `[{"match_repository":".*","except_repository":"foo","only_untagged":true,"action":"delete"}]`
 	mustExec(t, s.DB,
@@ -71,8 +71,8 @@ func TestGCUntaggedImages(t *testing.T) {
 		ineffectiveGCPoliciesJSON,
 	)
 
-	//GC should only update the next_gc_at timestamp and the gc_status_json field
-	//(indicating that no policies match), and otherwise not do anything
+	// GC should only update the next_gc_at timestamp and the gc_status_json field
+	// (indicating that no policies match), and otherwise not do anything
 	expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
@@ -87,18 +87,18 @@ func TestGCUntaggedImages(t *testing.T) {
 		s.Clock.Now().Add(1*time.Hour).Unix(),
 	)
 
-	//setup GC policy that matches
+	// setup GC policy that matches
 	s.Clock.StepBy(2 * time.Hour)
 	mustExec(t, s.DB,
 		`UPDATE accounts SET gc_policies_json = $1`,
 		matchingGCPoliciesJSON,
 	)
-	//however now there's also a tagged image list referencing it
+	// however now there's also a tagged image list referencing it
 	imageList := test.GenerateImageList(images[0], images[1])
 	imageList.MustUpload(t, s, fooRepoRef, "list")
 	tr.DBChanges().Ignore()
 
-	//GC should not delete the untagged image since it's referenced by the tagged list image
+	// GC should not delete the untagged image since it's referenced by the tagged list image
 	expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
@@ -113,7 +113,7 @@ func TestGCUntaggedImages(t *testing.T) {
 		s.Clock.Now().Add(1*time.Hour).Unix(),
 	)
 
-	//delete the image list manifest
+	// delete the image list manifest
 	s.Clock.StepBy(2 * time.Hour)
 	mustExec(t, s.DB,
 		`DELETE FROM manifests WHERE digest = $1`,
@@ -122,7 +122,7 @@ func TestGCUntaggedImages(t *testing.T) {
 	tr.DBChanges().Ignore()
 	s.Auditor.IgnoreEventsUntilNow()
 
-	//GC should now delete the untagged image since nothing references it anymore
+	// GC should now delete the untagged image since nothing references it anymore
 	expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
@@ -140,7 +140,7 @@ func TestGCUntaggedImages(t *testing.T) {
 		s.Clock.Now().Add(1*time.Hour).Unix(),
 	)
 
-	//there should be an audit event for when GC deletes an image
+	// there should be an audit event for when GC deletes an image
 	s.Auditor.ExpectEvents(t, cadf.Event{
 		RequestPath: janitorDummyRequest.URL.String(),
 		Action:      cadf.DeleteAction,
@@ -177,7 +177,7 @@ func TestGCMatchOnTag(t *testing.T) {
 		test.GenerateImage(test.GenerateExampleLayer(2)),
 		test.GenerateImage(test.GenerateExampleLayer(3)),
 	}
-	//each image gets uploaded with four tags, e.g. "zerozero" through "zerothree" for images[0]
+	// each image gets uploaded with four tags, e.g. "zerozero" through "zerothree" for images[0]
 	words := []string{"zero", "one", "two", "three"}
 	for idx, image := range images {
 		firstWord := words[idx]
@@ -186,11 +186,11 @@ func TestGCMatchOnTag(t *testing.T) {
 		}
 	}
 
-	//skip an hour to avoid protected_by_recent_upload
+	// skip an hour to avoid protected_by_recent_upload
 	s.Clock.StepBy(1 * time.Hour)
 
-	//setup GC policies such that the deletion policy would affect all images,
-	//but the tag-matching policies protect some of the images from deletion;
+	// setup GC policies such that the deletion policy would affect all images,
+	// but the tag-matching policies protect some of the images from deletion;
 	protectingGCPolicyJSON1 := `{"match_repository":"foo","match_tag":"one.*","action":"protect"}`
 	protectingGCPolicyJSON2 := `{"match_repository":"foo","match_tag":".*two","except_tag":"[zot][^w].*","action":"protect"}`
 	protectingGCPolicyJSON3 := `{"match_repository":"foo","except_tag":"zero.*|one.*|two.*","action":"protect"}`
@@ -208,9 +208,9 @@ func TestGCMatchOnTag(t *testing.T) {
 
 	garbageJob := j.ManifestGarbageCollectionJob(s.Registry)
 
-	//protectingGCPolicyJSON1 protects images[1], and so forth, so only images[0]
-	//should end up getting deleted (NOTE: in the DB diff, the manifests are not
-	//in order because easypg orders them by primary key, i.e. by digest)
+	// protectingGCPolicyJSON1 protects images[1], and so forth, so only images[0]
+	// should end up getting deleted (NOTE: in the DB diff, the manifests are not
+	// in order because easypg orders them by primary key, i.e. by digest)
 	expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
@@ -250,7 +250,7 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 	for _, strategy := range []string{"byCount", "byThreshold"} {
 		j, s := setup(t)
 
-		//upload a few test images
+		// upload a few test images
 		images := make([]test.Image, 6)
 		for idx := range images {
 			image := test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
@@ -258,13 +258,13 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 			images[idx] = image
 		}
 
-		//skip an hour to avoid protected_by_recent_upload, and also to make sure
-		//that all the last_pulled_at values that we set below are in the past (it
-		//should not matter, but let's be sure)
+		// skip an hour to avoid protected_by_recent_upload, and also to make sure
+		// that all the last_pulled_at values that we set below are in the past (it
+		// should not matter, but let's be sure)
 		s.Clock.StepBy(1 * time.Hour)
 
-		//set up last_pulled_at in a precise order, including a NULL value to later
-		//check that NULL gets coerced into time.Unix(0, 0)
+		// set up last_pulled_at in a precise order, including a NULL value to later
+		// check that NULL gets coerced into time.Unix(0, 0)
 		for idx, image := range images {
 			if idx == 0 {
 				mustExec(t, s.DB,
@@ -280,11 +280,11 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 			}
 		}
 
-		//setup GC policies such that images[0:2] are protected by "oldest/older_than"
-		//and images[4:5] are protected by "newest/newer_than"...
+		// setup GC policies such that images[0:2] are protected by "oldest/older_than"
+		// and images[4:5] are protected by "newest/newer_than"...
 		protectingGCPolicyJSON1 := `{"match_repository":".*","time_constraint":{"on":"last_pulled_at","oldest":3},"action":"protect"}`
 		protectingGCPolicyJSON2 := `{"match_repository":".*","time_constraint":{"on":"last_pulled_at","newest":2},"action":"protect"}`
-		if strategy == "byThreshold" { //instead of "byCount"
+		if strategy == "byThreshold" { // instead of "byCount"
 			protectingGCPolicyJSON1 = `{"match_repository":".*","time_constraint":{"on":"last_pulled_at","older_than":{"value":35,"unit":"m"}},"action":"protect"}`
 			protectingGCPolicyJSON2 = `{"match_repository":".*","time_constraint":{"on":"last_pulled_at","newer_than":{"value":25,"unit":"m"}},"action":"protect"}`
 		}
@@ -301,9 +301,9 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 
 		garbageJob := j.ManifestGarbageCollectionJob(s.Registry)
 
-		//...so only images[3] gets garbage-collected (NOTE: in the DB diff, the
-		//manifests are not in order because easypg orders them by primary key, i.e.
-		//by digest)
+		// ...so only images[3] gets garbage-collected (NOTE: in the DB diff, the
+		// manifests are not in order because easypg orders them by primary key, i.e.
+		// by digest)
 		expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
 		expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
@@ -337,7 +337,7 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 func TestGCProtectComesTooLate(t *testing.T) {
 	j, s := setup(t)
 
-	//upload some test images
+	// upload some test images
 	images := []test.Image{
 		test.GenerateImage(test.GenerateExampleLayer(0)),
 		test.GenerateImage(test.GenerateExampleLayer(1)),
@@ -345,10 +345,10 @@ func TestGCProtectComesTooLate(t *testing.T) {
 	images[0].MustUpload(t, s, fooRepoRef, "earliest")
 	images[1].MustUpload(t, s, fooRepoRef, "latest")
 
-	//skip an hour to avoid protected_by_recent_upload
+	// skip an hour to avoid protected_by_recent_upload
 	s.Clock.StepBy(1 * time.Hour)
 
-	//setup GC policies such that images[0] is properly protected, but the protecting policy for images[1] comes too late
+	// setup GC policies such that images[0] is properly protected, but the protecting policy for images[1] comes too late
 	protectingGCPolicyJSON1 := `{"match_repository":".*","match_tag":"earliest","action":"protect"}`
 	protectingGCPolicyJSON2 := `{"match_repository":".*","match_tag":"latest","action":"protect"}`
 	deletingGCPolicyJSON := `{"match_repository":".*","time_constraint":{"on":"pushed_at","older_than":{"value":30,"unit":"m"}},"action":"delete"}`
@@ -364,7 +364,7 @@ func TestGCProtectComesTooLate(t *testing.T) {
 
 	garbageJob := j.ManifestGarbageCollectionJob(s.Registry)
 
-	//therefore, images[1] gets deleted
+	// therefore, images[1] gets deleted
 	expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`

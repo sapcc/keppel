@@ -43,7 +43,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//decode request body
+	// decode request body
 	var req keppel.ReplicaSyncPayload
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
@@ -53,7 +53,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//find account
+	// find account
 	account, err := keppel.FindAccount(a.db, mux.Vars(r)["account"])
 	if respondwith.ErrorText(w, err) {
 		return
@@ -63,7 +63,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//find repository
+	// find repository
 	repo, err := keppel.FindRepository(a.db, mux.Vars(r)["repo"], *account)
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "repo not found", http.StatusNotFound)
@@ -73,8 +73,8 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//if we don't have any last_pulled_at values in the request, we can skip
-	//preparing the respective UPDATE statements below
+	// if we don't have any last_pulled_at values in the request, we can skip
+	// preparing the respective UPDATE statements below
 	hasManifestsLastPulledAt := false
 	hasTagsLastPulledAt := false
 	for _, m := range req.Manifests {
@@ -88,7 +88,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//update our own last_pulled_at timestamps to cover pulls performed on the replica side
+	// update our own last_pulled_at timestamps to cover pulls performed on the replica side
 	query := `UPDATE manifests SET last_pulled_at = $3 WHERE repo_id = $1 AND digest = $2 AND (last_pulled_at IS NULL OR last_pulled_at < $3)`
 	if hasManifestsLastPulledAt {
 		err = sqlext.WithPreparedStatement(a.db, query, func(stmt *sql.Stmt) error {
@@ -129,7 +129,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//gather the data for our side of the bargain
+	// gather the data for our side of the bargain
 	tagsByDigest := make(map[digest.Digest][]keppel.TagForSync)
 	query = `SELECT name, digest FROM tags WHERE repo_id = $1`
 	err = sqlext.ForeachRow(a.db, query, []any{repo.ID}, func(rows *sql.Rows) error {

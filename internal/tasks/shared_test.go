@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	//only for use with .MustUpload()
+	// only for use with .MustUpload()
 	fooRepoRef = keppel.Repository{AccountName: "test1", Name: "foo"}
 )
 

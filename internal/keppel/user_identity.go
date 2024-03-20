@@ -37,15 +37,15 @@ import (
 type UserType int
 
 const (
-	//RegularUser is the UserType for regular users that authenticated via the AuthDriver.
+	// RegularUser is the UserType for regular users that authenticated via the AuthDriver.
 	RegularUser UserType = iota
-	//AnonymousUser is the UserType for unauthenticated users.
+	// AnonymousUser is the UserType for unauthenticated users.
 	AnonymousUser
-	//PeerUser is the UserType for peer users, i.e. other Keppel instances using the API as a peer.
+	// PeerUser is the UserType for peer users, i.e. other Keppel instances using the API as a peer.
 	PeerUser
-	//TrivyUser is the UserType for tokens issued to Trivy.
+	// TrivyUser is the UserType for tokens issued to Trivy.
 	TrivyUser
-	//JanitorUser is a dummy UserType for when the janitor needs an Authorization for audit logging purposes.
+	// JanitorUser is a dummy UserType for when the janitor needs an Authorization for audit logging purposes.
 	JanitorUser
 )
 
@@ -56,28 +56,28 @@ const (
 type UserIdentity interface {
 	pluggable.Plugin
 
-	//Returns whether the given auth tenant grants the given permission to this user.
-	//The AnonymousUserIdentity always returns false.
+	// Returns whether the given auth tenant grants the given permission to this user.
+	// The AnonymousUserIdentity always returns false.
 	HasPermission(perm Permission, tenantID string) bool
 
-	//Identifies the type of user that was authenticated.
+	// Identifies the type of user that was authenticated.
 	UserType() UserType
-	//Returns the name of the user that was authenticated. This should be the
-	//same format that is given as the first argument of AuthenticateUser().
-	//The AnonymousUserIdentity always returns the empty string.
+	// Returns the name of the user that was authenticated. This should be the
+	// same format that is given as the first argument of AuthenticateUser().
+	// The AnonymousUserIdentity always returns the empty string.
 	UserName() string
-	//If this identity is backed by a Keystone token, return a UserInfo for that
-	//token. Returns nil otherwise, especially for all anonymous and peer users.
+	// If this identity is backed by a Keystone token, return a UserInfo for that
+	// token. Returns nil otherwise, especially for all anonymous and peer users.
 	//
-	//If non-nil, the Keppel API will submit OpenStack CADF audit events.
+	// If non-nil, the Keppel API will submit OpenStack CADF audit events.
 	UserInfo() audittools.UserInfo
 
-	//SerializeToJSON serializes this UserIdentity instance into JSON for
-	//inclusion in a token payload.
+	// SerializeToJSON serializes this UserIdentity instance into JSON for
+	// inclusion in a token payload.
 	SerializeToJSON() (payload []byte, err error)
-	//DeserializeFromJSON deserializes the given token payload (as returned by
-	//SerializeToJSON) into the callee. This is always called on a fresh
-	//instance created by UserIdentityFactory.Instantiate().
+	// DeserializeFromJSON deserializes the given token payload (as returned by
+	// SerializeToJSON) into the callee. This is always called on a fresh
+	// instance created by UserIdentityFactory.Instantiate().
 	DeserializeFromJSON(payload []byte, ad AuthDriver) error
 }
 

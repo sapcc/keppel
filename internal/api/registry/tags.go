@@ -43,7 +43,7 @@ func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//parse query: limit (parameter "n")
+	// parse query: limit (parameter "n")
 	query := r.URL.Query()
 	var (
 		limit uint64
@@ -66,10 +66,10 @@ func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 		limit = maxLimit
 	}
 
-	//parse query: marker (parameter "last")
+	// parse query: marker (parameter "last")
 	marker := query.Get("last")
 
-	//list tags (we request one more than `limit` to see if we need to paginate)
+	// list tags (we request one more than `limit` to see if we need to paginate)
 	tags := []string{}
 	err = sqlext.ForeachRow(a.db, tagsListQuery, []any{repo.ID, marker, limit + 1}, func(rows *sql.Rows) error {
 		var tagName string
@@ -83,7 +83,7 @@ func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//do we need to paginate?
+	// do we need to paginate?
 	if uint64(len(tags)) > limit {
 		tags = tags[0:limit]
 		linkQuery := url.Values{}

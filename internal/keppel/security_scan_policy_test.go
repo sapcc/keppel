@@ -28,9 +28,9 @@ import (
 )
 
 func TestReportTypeAlignment(t *testing.T) {
-	//This test is designed to trip when newer Trivy versions add/change/remove
-	//fields in `types.Report`. In this case, the respective changes need to be
-	//carried over into type enrichedReport on our side.
+	// This test is designed to trip when newer Trivy versions add/change/remove
+	// fields in `types.Report`. In this case, the respective changes need to be
+	// carried over into type enrichedReport on our side.
 
 	theirType := reflect.ValueOf(types.Report{}).Type()
 	theirFields := make(map[string]reflect.StructField)
@@ -43,7 +43,7 @@ func TestReportTypeAlignment(t *testing.T) {
 	for idx := 0; idx < ourType.NumField(); idx++ {
 		ourField := ourType.Field(idx)
 
-		//fields that only exist on our side are allowed, but they must be serialized as "X-Keppel-..."
+		// fields that only exist on our side are allowed, but they must be serialized as "X-Keppel-..."
 		theirField, exists := theirFields[ourField.Name]
 		if !exists {
 			if !strings.HasPrefix(string(ourField.Tag), `json:"X-Keppel-`) {
@@ -52,7 +52,7 @@ func TestReportTypeAlignment(t *testing.T) {
 			continue
 		}
 
-		//fields that exist on both sides are allowed if they agree in type and serialization strategy
+		// fields that exist on both sides are allowed if they agree in type and serialization strategy
 		if theirField.Type != ourField.Type {
 			t.Errorf("type mismatch in type enrichedReport: expected type %s for field %s, but got %s",
 				theirField.Type.String(), ourField.Name, ourField.Type.String(),
@@ -67,7 +67,7 @@ func TestReportTypeAlignment(t *testing.T) {
 		delete(theirFields, ourField.Name)
 	}
 
-	//fields that only exist on their side are allowed if they are not serialized into JSON
+	// fields that only exist on their side are allowed if they are not serialized into JSON
 	for _, theirField := range theirFields {
 		if theirField.Tag != `json:"-"` {
 			t.Errorf("missing field in type enrichedReport: %#v", theirField)

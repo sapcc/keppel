@@ -44,15 +44,15 @@ import (
 //     curl -si https://index.docker.io/v2/ | grep Authenticate
 
 type TestCase struct {
-	//request
+	// request
 	Scope          string
 	AnonymousLogin bool
-	//situation
+	// situation
 	CannotPush   bool
 	CannotPull   bool
 	CannotDelete bool
 	RBACPolicy   *keppel.RBACPolicy
-	//result
+	// result
 	GrantedActions   string
 	AdditionalScopes []string
 }
@@ -99,7 +99,7 @@ var (
 )
 
 var testCases = []TestCase{
-	//basic success case
+	// basic success case
 	{Scope: "repository:test1/foo:pull",
 		GrantedActions: "pull"},
 	{Scope: "repository:test1/foo:push",
@@ -108,7 +108,7 @@ var testCases = []TestCase{
 		GrantedActions: "pull,push"},
 	{Scope: "repository:test1/foo:delete",
 		GrantedActions: "delete"},
-	//not allowed to pull
+	// not allowed to pull
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, GrantedActions: ""},
 	{Scope: "repository:test1/foo:push",
@@ -117,7 +117,7 @@ var testCases = []TestCase{
 		CannotPull: true, GrantedActions: "push"},
 	{Scope: "repository:test1/foo:delete",
 		CannotPull: true, GrantedActions: "delete"},
-	//not allowed to push
+	// not allowed to push
 	{Scope: "repository:test1/foo:pull",
 		CannotPush: true, GrantedActions: "pull"},
 	{Scope: "repository:test1/foo:push",
@@ -126,7 +126,7 @@ var testCases = []TestCase{
 		CannotPush: true, GrantedActions: "pull"},
 	{Scope: "repository:test1/foo:delete",
 		CannotPush: true, GrantedActions: "delete"},
-	//not allowed to pull nor push
+	// not allowed to pull nor push
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, GrantedActions: ""},
 	{Scope: "repository:test1/foo:push",
@@ -135,7 +135,7 @@ var testCases = []TestCase{
 		CannotPull: true, CannotPush: true, GrantedActions: ""},
 	{Scope: "repository:test1/foo:delete",
 		CannotPull: true, CannotPush: true, GrantedActions: "delete"},
-	//not allowed to delete
+	// not allowed to delete
 	{Scope: "repository:test1/foo:pull",
 		CannotDelete: true, GrantedActions: "pull"},
 	{Scope: "repository:test1/foo:push",
@@ -144,8 +144,8 @@ var testCases = []TestCase{
 		CannotDelete: true, GrantedActions: "pull,push"},
 	{Scope: "repository:test1/foo:delete",
 		CannotDelete: true, GrantedActions: ""},
-	//catalog access always allowed if username/password are ok (access to
-	//specific accounts is filtered later)
+	// catalog access always allowed if username/password are ok (access to
+	// specific accounts is filtered later)
 	{Scope: "registry:catalog:*",
 		GrantedActions:   "*",
 		AdditionalScopes: []string{"keppel_account:test1:view"}},
@@ -159,12 +159,12 @@ var testCases = []TestCase{
 	{Scope: "registry:catalog:*",
 		CannotDelete: true, GrantedActions: "*",
 		AdditionalScopes: []string{"keppel_account:test1:view"}},
-	//unknown resources/actions for resource type "registry"
+	// unknown resources/actions for resource type "registry"
 	{Scope: "registry:test1/foo:pull",
 		GrantedActions: ""},
 	{Scope: "registry:catalog:pull",
 		GrantedActions: ""},
-	//incomplete scope syntax
+	// incomplete scope syntax
 	{Scope: "",
 		GrantedActions: ""},
 	{Scope: "repository",
@@ -183,13 +183,13 @@ var testCases = []TestCase{
 		GrantedActions: ""},
 	{Scope: "repository:test1/:pull",
 		GrantedActions: ""},
-	//invalid scope syntax (overlong repository name)
+	// invalid scope syntax (overlong repository name)
 	{Scope: fmt.Sprintf("repository:test1/%s:pull", strings.Repeat("a", 300)),
 		GrantedActions: ""},
-	//invalid scope syntax (malformed repository name)
+	// invalid scope syntax (malformed repository name)
 	{Scope: "repository:test1/???:pull",
 		GrantedActions: ""},
-	//anonymous login when RBAC policies do not allow access
+	// anonymous login when RBAC policies do not allow access
 	{Scope: "repository:test1/foo:pull", AnonymousLogin: true,
 		GrantedActions: ""},
 	{Scope: "repository:test1/foo:push", AnonymousLogin: true,
@@ -198,7 +198,7 @@ var testCases = []TestCase{
 		GrantedActions: ""},
 	{Scope: "repository:test1/foo:delete", AnonymousLogin: true,
 		GrantedActions: ""},
-	//anonymous pull (but not push) is allowed by a matching RBAC policy
+	// anonymous pull (but not push) is allowed by a matching RBAC policy
 	{Scope: "repository:test1/foo:pull", AnonymousLogin: true,
 		RBACPolicy:     &policyAnonPull,
 		GrantedActions: "pull"},
@@ -211,7 +211,7 @@ var testCases = []TestCase{
 	{Scope: "repository:test1/foo:delete", AnonymousLogin: true,
 		RBACPolicy:     &policyAnonPull,
 		GrantedActions: ""},
-	//RBAC policy with RepositoryPattern only works when repository name matches
+	// RBAC policy with RepositoryPattern only works when repository name matches
 	{Scope: "repository:test1/foobar:pull", AnonymousLogin: true,
 		RBACPolicy:     &policyAnonPull,
 		GrantedActions: ""},
@@ -224,7 +224,7 @@ var testCases = []TestCase{
 	{Scope: "repository:test1/foobar:delete", AnonymousLogin: true,
 		RBACPolicy:     &policyAnonPull,
 		GrantedActions: ""},
-	//RBAC policy for anonymous pull also enables pull access for all authenticated users
+	// RBAC policy for anonymous pull also enables pull access for all authenticated users
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
 		RBACPolicy:     &policyAnonPull,
@@ -241,7 +241,7 @@ var testCases = []TestCase{
 		CannotPull: true, CannotPush: true, CannotDelete: true,
 		RBACPolicy:     &policyAnonPull,
 		GrantedActions: ""},
-	//RBAC policy for anonymous pull does not change anything if the user already has pull access
+	// RBAC policy for anonymous pull does not change anything if the user already has pull access
 	{Scope: "repository:test1/foo:pull",
 		RBACPolicy:     &policyAnonPull,
 		GrantedActions: "pull"},
@@ -254,7 +254,7 @@ var testCases = []TestCase{
 	{Scope: "repository:test1/foo:delete",
 		RBACPolicy:     &policyAnonPull,
 		GrantedActions: "delete"},
-	//anonymous first pull is allowed by a matching RBAC policy
+	// anonymous first pull is allowed by a matching RBAC policy
 	{Scope: "repository:test1/foo:pull", AnonymousLogin: true,
 		RBACPolicy:     &policyAnonFirstPull,
 		GrantedActions: "pull,anonymous_first_pull"},
@@ -267,7 +267,7 @@ var testCases = []TestCase{
 	{Scope: "repository:test1/foo:delete", AnonymousLogin: true,
 		RBACPolicy:     &policyAnonFirstPull,
 		GrantedActions: ""},
-	//RBAC policy with CanPull grants pull permissions to matching users
+	// RBAC policy with CanPull grants pull permissions to matching users
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
 		RBACPolicy:     &policyPullMatches,
@@ -284,7 +284,7 @@ var testCases = []TestCase{
 		CannotPull: true, CannotPush: true, CannotDelete: true,
 		RBACPolicy:     &policyPullMatches,
 		GrantedActions: ""},
-	//RBAC policy with CanPull does not grant permissions if it does not match
+	// RBAC policy with CanPull does not grant permissions if it does not match
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
 		RBACPolicy:     &policyPullDoesNotMatch,
@@ -301,7 +301,7 @@ var testCases = []TestCase{
 		CannotPull: true, CannotPush: true, CannotDelete: true,
 		RBACPolicy:     &policyPullDoesNotMatch,
 		GrantedActions: ""},
-	//RBAC policy with CanPull does not change anything if the user already has pull access
+	// RBAC policy with CanPull does not change anything if the user already has pull access
 	{Scope: "repository:test1/foo:pull",
 		RBACPolicy:     &policyPullMatches,
 		GrantedActions: "pull"},
@@ -314,7 +314,7 @@ var testCases = []TestCase{
 	{Scope: "repository:test1/foo:delete",
 		RBACPolicy:     &policyPullMatches,
 		GrantedActions: "delete"},
-	//RBAC policy with CanPull/CanPush grants pull/push permissions to matching users
+	// RBAC policy with CanPull/CanPush grants pull/push permissions to matching users
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
 		RBACPolicy:     &policyPushMatches,
@@ -331,7 +331,7 @@ var testCases = []TestCase{
 		CannotPull: true, CannotPush: true, CannotDelete: true,
 		RBACPolicy:     &policyPushMatches,
 		GrantedActions: ""},
-	//RBAC policy with CanPull/CanPush does not grant permissions if it does not match
+	// RBAC policy with CanPull/CanPush does not grant permissions if it does not match
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
 		RBACPolicy:     &policyPushDoesNotMatch,
@@ -348,7 +348,7 @@ var testCases = []TestCase{
 		CannotPull: true, CannotPush: true, CannotDelete: true,
 		RBACPolicy:     &policyPushDoesNotMatch,
 		GrantedActions: ""},
-	//RBAC policy with CanPull/CanPush does not change anything if the user already has pull/push access
+	// RBAC policy with CanPull/CanPush does not change anything if the user already has pull/push access
 	{Scope: "repository:test1/foo:pull",
 		RBACPolicy:     &policyPushMatches,
 		GrantedActions: "pull"},
@@ -361,7 +361,7 @@ var testCases = []TestCase{
 	{Scope: "repository:test1/foo:delete",
 		RBACPolicy:     &policyPushMatches,
 		GrantedActions: "delete"},
-	//RBAC policy with CanPull/CanDelete grants pull/delete permissions to matching users
+	// RBAC policy with CanPull/CanDelete grants pull/delete permissions to matching users
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
 		RBACPolicy:     &policyDeleteMatches,
@@ -378,7 +378,7 @@ var testCases = []TestCase{
 		CannotPull: true, CannotPush: true, CannotDelete: true,
 		RBACPolicy:     &policyDeleteMatches,
 		GrantedActions: "delete"},
-	//RBAC policy with CanPull/CanDelete does not grant permissions if it does not match
+	// RBAC policy with CanPull/CanDelete does not grant permissions if it does not match
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, CannotDelete: true,
 		RBACPolicy:     &policyDeleteDoesNotMatch,
@@ -395,7 +395,7 @@ var testCases = []TestCase{
 		CannotPull: true, CannotPush: true, CannotDelete: true,
 		RBACPolicy:     &policyDeleteDoesNotMatch,
 		GrantedActions: ""},
-	//RBAC policy with CanPull/CanDelete does not change anything if the user already has pull/push access
+	// RBAC policy with CanPull/CanDelete does not change anything if the user already has pull/push access
 	{Scope: "repository:test1/foo:pull",
 		RBACPolicy:     &policyDeleteMatches,
 		GrantedActions: "pull"},
@@ -410,7 +410,7 @@ var testCases = []TestCase{
 		GrantedActions: "delete"},
 }
 
-//TODO expect refresh_token when offline_token=true is given
+// TODO expect refresh_token when offline_token=true is given
 
 func setupPrimary(t *testing.T, extraOptions ...test.SetupOption) test.Setup {
 	s := test.NewSetup(t,
@@ -452,9 +452,9 @@ type jwtToken struct {
 	IssuedAt  int64       `json:"iat"`
 	TokenID   string      `json:"jti"`
 	Access    []jwtAccess `json:"access"`
-	//The EmbeddedAuthorization is ignored by this test. It will be exercised
-	//indirectly in the registry API tests since the registry API uses attributes
-	//from the EmbeddedAuthorization.
+	// The EmbeddedAuthorization is ignored by this test. It will be exercised
+	// indirectly in the registry API tests since the registry API uses attributes
+	// from the EmbeddedAuthorization.
 	Ignored map[string]any `json:"kea"`
 }
 
@@ -474,7 +474,7 @@ func (c jwtContents) AssertResponseBody(t *testing.T, requestInfo string, respon
 
 	var responseBody struct {
 		Token string `json:"token"`
-		//optional fields (all listed so that we can use DisallowUnknownFields())
+		// optional fields (all listed so that we can use DisallowUnknownFields())
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
 		ExpiresIn    uint64 `json:"expires_in"`
@@ -489,7 +489,7 @@ func (c jwtContents) AssertResponseBody(t *testing.T, requestInfo string, respon
 		return false
 	}
 
-	//extract payload from token
+	// extract payload from token
 	tokenFields := strings.Split(responseBody.Token, ".")
 	if len(tokenFields) != 3 {
 		t.Logf("JWT is %s", responseBody.Token)
@@ -503,7 +503,7 @@ func (c jwtContents) AssertResponseBody(t *testing.T, requestInfo string, respon
 		return false
 	}
 
-	//decode token
+	// decode token
 	var token jwtToken
 	dec = json.NewDecoder(bytes.NewReader(tokenBytes))
 	dec.DisallowUnknownFields()
@@ -514,14 +514,14 @@ func (c jwtContents) AssertResponseBody(t *testing.T, requestInfo string, respon
 		return false
 	}
 
-	//check token attributes for correctness
+	// check token attributes for correctness
 	ok = true
 	ok = ok && assert.DeepEqual(t, "token.Access for "+requestInfo, token.Access, c.Access)
 	ok = ok && assert.DeepEqual(t, "token.Audience for "+requestInfo, token.Audience, c.Audience)
 	ok = ok && assert.DeepEqual(t, "token.Issuer for "+requestInfo, token.Issuer, c.Issuer)
 	ok = ok && assert.DeepEqual(t, "token.Subject for "+requestInfo, token.Subject, c.Subject)
 
-	//check remaining token attributes for plausibility
+	// check remaining token attributes for plausibility
 	nowUnix := time.Now().Unix()
 	if nowUnix >= token.ExpiresAt {
 		t.Errorf("%s: ExpiresAt should be in the future, but is %d seconds in the past", requestInfo, nowUnix-token.ExpiresAt)
@@ -546,7 +546,7 @@ func TestIssueToken(t *testing.T) {
 	for idx, c := range testCases {
 		t.Logf("----- testcase %d/%d -----\n", idx+1, len(testCases))
 
-		//setup RBAC policies for test
+		// setup RBAC policies for test
 		rbacPoliciesJSONStr := ""
 		if c.RBACPolicy != nil {
 			buf, err := json.Marshal([]keppel.RBACPolicy{*c.RBACPolicy})
@@ -560,7 +560,7 @@ func TestIssueToken(t *testing.T) {
 			t.Fatal(err.Error())
 		}
 
-		//setup permissions for test
+		// setup permissions for test
 		var perms []string
 		if c.CannotDelete {
 			perms = append(perms, string(keppel.CanDeleteFromAccount)+":othertenant")
@@ -581,7 +581,7 @@ func TestIssueToken(t *testing.T) {
 		}
 		s.AD.GrantedPermissions = strings.Join(perms, ",")
 
-		//setup Authorization header for test
+		// setup Authorization header for test
 		req := assert.HTTPRequest{
 			Method:       "GET",
 			ExpectStatus: http.StatusOK,
@@ -592,7 +592,7 @@ func TestIssueToken(t *testing.T) {
 			}
 		}
 
-		//build URL query string for test
+		// build URL query string for test
 		query := url.Values{}
 		if service != "" {
 			query.Set("service", service)
@@ -602,7 +602,7 @@ func TestIssueToken(t *testing.T) {
 		}
 		req.Path = "/keppel/v1/auth?" + query.Encode()
 
-		//build expected tokenContents to match against
+		// build expected tokenContents to match against
 		expectedContents := jwtContents{
 			Audience: service,
 			Issuer:   "keppel-api@registry.example.org",
@@ -631,7 +631,7 @@ func TestIssueToken(t *testing.T) {
 		}
 		req.ExpectBody = expectedContents
 
-		//execute request
+		// execute request
 		req.Check(t, s.Handler)
 	}
 }
@@ -641,9 +641,9 @@ func TestInvalidCredentials(t *testing.T) {
 	h := s.Handler
 	service := s.Config.APIPublicHostname
 
-	//execute normal GET requests that would result in a token with granted
-	//actions, if we didn't give the wrong username (in the first call) or
-	//password (in the second call)
+	// execute normal GET requests that would result in a token with granted
+	// actions, if we didn't give the wrong username (in the first call) or
+	// password (in the second call)
 	urlPath := url.URL{
 		Path: "/keppel/v1/auth",
 		RawQuery: url.Values{
@@ -679,11 +679,11 @@ func TestInvalidCredentials(t *testing.T) {
 }
 
 type anycastTestCase struct {
-	//request
+	// request
 	AccountName string
 	Service     string
 	Handler     http.Handler
-	//result
+	// result
 	ErrorMessage string
 	HasAccess    bool
 	Issuer       string
@@ -696,7 +696,7 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 		h1 := s1.Handler
 		h2 := s2.Handler
 
-		//setup permissions for test
+		// setup permissions for test
 		perms := fmt.Sprintf("%s:test1authtenant,%s:test1authtenant", keppel.CanPullFromAccount, keppel.CanViewAccount)
 		s1.AD.GrantedPermissions = perms
 		s2.AD.GrantedPermissions = perms
@@ -705,8 +705,8 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 		localService2 := s2.Config.APIPublicHostname
 		anycastService := s1.Config.AnycastAPIPublicHostname
 		anycastTestCases := []anycastTestCase{
-			//when asking for a local token (i.e. not giving the anycast hostname as
-			//service), no reverse-proxying is done and we only see the local accounts
+			// when asking for a local token (i.e. not giving the anycast hostname as
+			// service), no reverse-proxying is done and we only see the local accounts
 			{AccountName: "test1", Service: localService1, Handler: h1,
 				HasAccess: true, Issuer: localService1},
 			{AccountName: "test2", Service: localService1, Handler: h1,
@@ -715,7 +715,7 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 				HasAccess: false, Issuer: localService2},
 			{AccountName: "test2", Service: localService2, Handler: h2,
 				HasAccess: true, Issuer: localService2},
-			//asking for a token for someone else's local service will never work
+			// asking for a token for someone else's local service will never work
 			{AccountName: "test1", Service: localService2, Handler: h1,
 				ErrorMessage: `cannot issue tokens for service: "%SERVICE%"`},
 			{AccountName: "test2", Service: localService2, Handler: h1,
@@ -724,9 +724,9 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 				ErrorMessage: `cannot issue tokens for service: "%SERVICE%"`},
 			{AccountName: "test2", Service: localService1, Handler: h2,
 				ErrorMessage: `cannot issue tokens for service: "%SERVICE%"`},
-			//when asking for an anycast token, the request if reverse-proxied if
-			//necessary and we will see the Keppel hosting the primary account as
-			//issuer
+			// when asking for an anycast token, the request if reverse-proxied if
+			// necessary and we will see the Keppel hosting the primary account as
+			// issuer
 			{AccountName: "test1", Service: anycastService, Handler: h1,
 				HasAccess: true, Issuer: localService1},
 			{AccountName: "test2", Service: anycastService, Handler: h1,
@@ -735,7 +735,7 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 				HasAccess: true, Issuer: localService1},
 			{AccountName: "test2", Service: anycastService, Handler: h2,
 				HasAccess: true, Issuer: localService2},
-			//asking for a token for an account that doesn't exist will never work
+			// asking for a token for an account that doesn't exist will never work
 			{AccountName: "test3", Service: localService1, Handler: h1,
 				HasAccess: false, Issuer: localService1},
 			{AccountName: "test3", Service: localService2, Handler: h2,
@@ -775,7 +775,7 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 				if c.ErrorMessage == "" {
 					req.ExpectStatus = http.StatusOK
 
-					//build jwtContents struct to contain issued token against
+					// build jwtContents struct to contain issued token against
 					expectedContents := jwtContents{
 						Audience: domainPrefix + c.Service,
 						Issuer:   "keppel-api@" + domainPrefix + c.Issuer,
@@ -799,8 +799,8 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 			}
 		}
 
-		//test that catalog access is not allowed on anycast (since we don't know
-		//which peer to ask for authentication)
+		// test that catalog access is not allowed on anycast (since we don't know
+		// which peer to ask for authentication)
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         fmt.Sprintf("/keppel/v1/auth?service=%s&scope=registry:catalog:*", anycastService),
@@ -814,8 +814,8 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 			},
 		}.Check(t, h1)
 
-		//test that catalog access is allowed for domain-remapped APIs, but only
-		//for the account name specified in the domain
+		// test that catalog access is allowed for domain-remapped APIs, but only
+		// for the account name specified in the domain
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         fmt.Sprintf("/keppel/v1/auth?service=test1.%s&scope=registry:catalog:*", localService1),
@@ -842,7 +842,7 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 				Subject:  "correctusername",
 				Access: []jwtAccess{
 					{Type: "registry", Name: "catalog", Actions: []string{"*"}},
-					//no keppel_account:test1:view since the API is restricted to the non-existent account "something-else"
+					// no keppel_account:test1:view since the API is restricted to the non-existent account "something-else"
 				},
 			},
 		}.Check(t, h1)
@@ -850,15 +850,15 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 }
 
 func TestMultiScope(t *testing.T) {
-	//It turns out that it's allowed to send multiple scopes in a single auth
-	//request, which produces a token with a union of all granted scopes. This
-	//test covers some basic cases of multi-scopes.
+	// It turns out that it's allowed to send multiple scopes in a single auth
+	// request, which produces a token with a union of all granted scopes. This
+	// test covers some basic cases of multi-scopes.
 
 	s := setupPrimary(t)
 	h := s.Handler
 	service := s.Config.APIPublicHostname
 
-	//various shorthands for the testcases below
+	// various shorthands for the testcases below
 	correctAuthHeader := map[string]string{
 		"Authorization": keppel.BuildBasicAuthHeader("correctusername", "correctpassword"),
 	}
@@ -878,7 +878,7 @@ func TestMultiScope(t *testing.T) {
 		return strings.Join(fields, ",")
 	}
 
-	//case 1: multiple actions on the same resource and we get everything we ask for
+	// case 1: multiple actions on the same resource and we get everything we ask for
 	s.AD.GrantedPermissions = makePerms(keppel.CanViewAccount, keppel.CanPullFromAccount, keppel.CanPushToAccount, keppel.CanDeleteFromAccount)
 	assert.HTTPRequest{
 		Method:       "GET",
@@ -892,7 +892,7 @@ func TestMultiScope(t *testing.T) {
 		}}),
 	}.Check(t, h)
 
-	//case 2: overlapping actions on the same resource and we get everything except "delete"
+	// case 2: overlapping actions on the same resource and we get everything except "delete"
 	s.AD.GrantedPermissions = makePerms(keppel.CanViewAccount, keppel.CanPullFromAccount, keppel.CanPushToAccount)
 	assert.HTTPRequest{
 		Method:       "GET",
@@ -902,11 +902,11 @@ func TestMultiScope(t *testing.T) {
 		ExpectBody: makeJWTContents([]jwtAccess{{
 			Type:    "repository",
 			Name:    "test1/foo",
-			Actions: []string{"pull", "push"}, //"pull" was mentioned twice in the scopes - this verifies that it was deduplicated
+			Actions: []string{"pull", "push"}, // "pull" was mentioned twice in the scopes - this verifies that it was deduplicated
 		}}),
 	}.Check(t, h)
 
-	//case 3: actions on multiple resources and we reject access to one of the resources entirely
+	// case 3: actions on multiple resources and we reject access to one of the resources entirely
 	s.AD.GrantedPermissions = makePerms(keppel.CanViewAccount, keppel.CanPullFromAccount, keppel.CanPushToAccount)
 	assert.HTTPRequest{
 		Method:       "GET",
@@ -934,7 +934,7 @@ func TestMultiScope(t *testing.T) {
 }
 
 func TestIssuerKeyRotation(t *testing.T) {
-	//phase 1: issue a token with the previous issuer key
+	// phase 1: issue a token with the previous issuer key
 	s := setupPrimary(t, test.WithPreviousIssuerKey, test.WithoutCurrentIssuerKey)
 	_, respBodyBytes := assert.HTTPRequest{
 		Method:       "GET",
@@ -960,7 +960,7 @@ func TestIssuerKeyRotation(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	//test that it (obviously) gets accepted by the same API that issued it
+	// test that it (obviously) gets accepted by the same API that issued it
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/",
@@ -968,7 +968,7 @@ func TestIssuerKeyRotation(t *testing.T) {
 		ExpectStatus: http.StatusOK,
 	}.Check(t, s.Handler)
 
-	//phase 2: check that the token still gets accepted when a new key gets rotated in
+	// phase 2: check that the token still gets accepted when a new key gets rotated in
 	s = setupPrimary(t, test.WithPreviousIssuerKey)
 	assert.HTTPRequest{
 		Method:       "GET",
@@ -977,7 +977,7 @@ func TestIssuerKeyRotation(t *testing.T) {
 		ExpectStatus: http.StatusOK,
 	}.Check(t, s.Handler)
 
-	//phase 3: check that the token does NOT get accepted anymore when the old key has rotated out
+	// phase 3: check that the token does NOT get accepted anymore when the old key has rotated out
 	s = setupPrimary(t)
 	assert.HTTPRequest{
 		Method:       "GET",

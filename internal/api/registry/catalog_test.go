@@ -33,7 +33,7 @@ import (
 func TestCatalogEndpoint(t *testing.T) {
 	s := test.NewSetup(t, test.WithAnycast(true))
 
-	//set up dummy accounts for testing
+	// set up dummy accounts for testing
 	for idx := 1; idx <= 3; idx++ {
 		err := s.DB.Insert(&keppel.Account{
 			Name:                     fmt.Sprintf("test%d", idx),
@@ -56,7 +56,7 @@ func TestCatalogEndpoint(t *testing.T) {
 		}
 	}
 
-	//testcases
+	// testcases
 	testEmptyCatalog(t, s)
 	testNonEmptyCatalog(t, s)
 	testDomainRemappedCatalog(t, s)
@@ -65,8 +65,8 @@ func TestCatalogEndpoint(t *testing.T) {
 }
 
 func testEmptyCatalog(t *testing.T, s test.Setup) {
-	//token without any account-level permissions is able to call the endpoint,
-	//but cannot list repos in any account, so the list is empty
+	// token without any account-level permissions is able to call the endpoint,
+	// but cannot list repos in any account, so the list is empty
 	h := s.Handler
 	token := s.GetToken(t, "registry:catalog:*")
 
@@ -82,7 +82,7 @@ func testEmptyCatalog(t *testing.T, s test.Setup) {
 	}
 	req.Check(t, h)
 
-	//query parameters do not influence this result
+	// query parameters do not influence this result
 	req.Path = "/v2/_catalog?n=10"
 	req.Check(t, h)
 	req.Path = "/v2/_catalog?n=10&last=test1/foo"
@@ -110,7 +110,7 @@ func testNonEmptyCatalog(t *testing.T, s test.Setup) {
 		"test3/qux",
 	}
 
-	//test unpaginated
+	// test unpaginated
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/_catalog",
@@ -120,7 +120,7 @@ func testNonEmptyCatalog(t *testing.T, s test.Setup) {
 		ExpectBody:   assert.JSONObject{"repositories": allRepos},
 	}.Check(t, h)
 
-	//test paginated
+	// test paginated
 	for offset := 0; offset < len(allRepos); offset++ {
 		for length := 1; length <= len(allRepos)+1; length++ {
 			expectedPage := allRepos[offset:]
@@ -153,7 +153,7 @@ func testNonEmptyCatalog(t *testing.T, s test.Setup) {
 		}
 	}
 
-	//test error cases for pagination query params
+	// test error cases for pagination query params
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/_catalog?n=-1",
@@ -187,7 +187,7 @@ func testDomainRemappedCatalog(t *testing.T, s test.Setup) {
 		"keppel_account:test1:view",
 	)
 
-	//test unpaginated
+	// test unpaginated
 	assert.HTTPRequest{
 		Method: "GET",
 		Path:   "/v2/_catalog",
@@ -201,9 +201,9 @@ func testDomainRemappedCatalog(t *testing.T, s test.Setup) {
 		ExpectBody:   assert.JSONObject{"repositories": []string{"bar", "foo", "qux"}},
 	}.Check(t, h)
 
-	//test paginated (only a very basic test: we already have most of the test
-	//coverage in testNonEmptyCatalog, this mostly checks that the "last"
-	//parameter is correctly interpreted as a bare repo name)
+	// test paginated (only a very basic test: we already have most of the test
+	// coverage in testNonEmptyCatalog, this mostly checks that the "last"
+	// parameter is correctly interpreted as a bare repo name)
 	assert.HTTPRequest{
 		Method: "GET",
 		Path:   "/v2/_catalog?last=foo",
@@ -219,7 +219,7 @@ func testDomainRemappedCatalog(t *testing.T, s test.Setup) {
 }
 
 func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
-	//without token, expect auth challenge
+	// without token, expect auth challenge
 	h := s.Handler
 	assert.HTTPRequest{
 		Method:       "GET",
@@ -234,7 +234,7 @@ func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
 		ExpectBody: test.ErrorCode(keppel.ErrUnauthorized),
 	}.Check(t, h)
 
-	//with token for wrong scope, expect Forbidden and renewed auth challenge
+	// with token for wrong scope, expect Forbidden and renewed auth challenge
 	token := s.GetToken(t, "repository:test1/foo:pull")
 	assert.HTTPRequest{
 		Method:       "GET",
@@ -247,11 +247,11 @@ func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
 			"Content-Type":        "application/json",
 		},
 		//NOTE: Docker Hub (https://registry-1.docker.io) sends UNAUTHORIZED here,
-		//but DENIED is more logical.
+		// but DENIED is more logical.
 		ExpectBody: test.ErrorCode(keppel.ErrDenied),
 	}.Check(t, h)
 
-	//without token, expect auth challenge (test for domain-remapped API)
+	// without token, expect auth challenge (test for domain-remapped API)
 	assert.HTTPRequest{
 		Method: "GET",
 		Path:   "/v2/_catalog",

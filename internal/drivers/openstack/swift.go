@@ -70,7 +70,7 @@ func (d *swiftDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error
 	}
 
 	eo := gophercloud.EndpointOpts{
-		//note that empty values are acceptable in both fields
+		// note that empty values are acceptable in both fields
 		Region:       os.Getenv("OS_REGION_NAME"),
 		Availability: gophercloud.Availability(os.Getenv("OS_INTERFACE")),
 	}
@@ -87,8 +87,8 @@ func (d *swiftDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error
 	return nil
 }
 
-//TODO translate errors from Swift into keppel.RegistryV2Error where
-//appropriate (esp. keppel.ErrSizeInvalid and keppel.ErrTooManyRequests)
+// TODO translate errors from Swift into keppel.RegistryV2Error where
+// appropriate (esp. keppel.ErrSizeInvalid and keppel.ErrTooManyRequests)
 
 func (d *swiftDriver) getBackendAccount(account keppel.Account) *schwift.Account {
 	return d.mainAccount.SwitchAccount("AUTH_" + account.AuthTenantID)
@@ -97,17 +97,17 @@ func (d *swiftDriver) getBackendAccount(account keppel.Account) *schwift.Account
 func (d *swiftDriver) getBackendConnection(account keppel.Account) (*schwift.Container, *swiftContainerInfo, error) {
 	c := d.getBackendAccount(account).Container(account.SwiftContainerName())
 
-	//we want to cache the tempurl key to speed up URLForBlob() calls; but we
-	//cannot cache it indefinitely because the Keppel account (and hence the
-	//Swift container) may get deleted and later re-created with a different
-	//tempurl key; by only caching tempurl keys for a few minutes, we get the
-	//opportunity to self-heal when the tempurl key changes
+	// we want to cache the tempurl key to speed up URLForBlob() calls; but we
+	// cannot cache it indefinitely because the Keppel account (and hence the
+	// Swift container) may get deleted and later re-created with a different
+	// tempurl key; by only caching tempurl keys for a few minutes, we get the
+	// opportunity to self-heal when the tempurl key changes
 	d.containerInfosMutex.RLock()
 	info := d.containerInfos[account.Name]
 	d.containerInfosMutex.RUnlock()
 
 	if info == nil || time.Since(info.CachedAt) > 5*time.Minute {
-		//get container metadata (404 is not a problem, in that case we will create the container down below)
+		// get container metadata (404 is not a problem, in that case we will create the container down below)
 		hdr, err := c.Headers()
 		if err != nil && !schwift.Is(err, http.StatusNotFound) {
 			return nil, nil, err
@@ -121,7 +121,7 @@ func (d *swiftDriver) getBackendConnection(account keppel.Account) (*schwift.Con
 		writeRestricted, _ := strconv.ParseBool(hdr.Metadata().Get("Write-Restricted"))
 		if tempURLKey == "" || !writeRestricted {
 			hdr := schwift.NewContainerHeaders()
-			//generate tempurl key on first startup
+			// generate tempurl key on first startup
 			if tempURLKey == "" {
 				tempURLKey, err = generateSecret()
 				if err != nil {
@@ -129,8 +129,8 @@ func (d *swiftDriver) getBackendConnection(account keppel.Account) (*schwift.Con
 				}
 				hdr.TempURLKey().Set(tempURLKey)
 			}
-			//add the 'X-Container-Meta-Write-Restricted' metadata header to restrict writes only
-			//to allowed users. See: https://github.com/sapcc/swift-addons/tree/master#write-restriction
+			// add the 'X-Container-Meta-Write-Restricted' metadata header to restrict writes only
+			// to allowed users. See: https://github.com/sapcc/swift-addons/tree/master#write-restriction
 			if !writeRestricted {
 				hdr.Metadata().Set("Write-Restricted", "true")
 			}
@@ -210,7 +210,7 @@ func (d *swiftDriver) FinalizeBlob(account keppel.Account, storageID string, chu
 	lo, err := blobObject(c, storageID).AsNewLargeObject(
 		schwift.SegmentingOptions{
 			Strategy:         schwift.StaticLargeObject,
-			SegmentContainer: c, //ignored since we AddSegment() manually
+			SegmentContainer: c, // ignored since we AddSegment() manually
 		},
 		&schwift.TruncateOptions{DeleteSegments: false},
 	)
@@ -244,12 +244,12 @@ func (d *swiftDriver) AbortBlobUpload(account keppel.Account, storageID string, 
 		return err
 	}
 
-	//we didn't construct the LargeObject yet, so we need to delete the segments individually
+	// we didn't construct the LargeObject yet, so we need to delete the segments individually
 	var firstError error
 	for chunkNumber := uint32(1); chunkNumber <= chunkCount; chunkNumber++ {
 		err := chunkObject(c, storageID, chunkNumber).Delete(nil, nil)
-		//keep going even when some segments cannot be deleted, to clean up as much as we can
-		//(404 errors are ignored entirely; they are not really an error since we want the objects to be not there anyway)
+		// keep going even when some segments cannot be deleted, to clean up as much as we can
+		// (404 errors are ignored entirely; they are not really an error since we want the objects to be not there anyway)
 		if err != nil && !schwift.Is(err, http.StatusNotFound) {
 			if firstError == nil {
 				firstError = err
@@ -303,10 +303,10 @@ func (d *swiftDriver) DeleteBlob(account keppel.Account, storageID string) error
 
 func reportObjectErrorsIfAny(operation string, err error) {
 	if berr, ok := errext.As[schwift.BulkError](err); ok {
-		//When we return this `err` to the Keppel core, it will only look at
-		//Error() which prints only the summary (e.g. "400 Bad Request (+2 object
-		//errors)"). This method ensures that the individual object errors also
-		//get logged.
+		// When we return this `err` to the Keppel core, it will only look at
+		// Error() which prints only the summary (e.g. "400 Bad Request (+2 object
+		// errors)"). This method ensures that the individual object errors also
+		// get logged.
 		for _, oerr := range berr.ObjectErrors {
 			logg.Error("encountered error during Swift bulk operation %s for object %s", operation, oerr.Error())
 		}
@@ -344,12 +344,12 @@ func (d *swiftDriver) DeleteManifest(account keppel.Account, repoName string, ma
 }
 
 var (
-	//These regexes are used to reconstruct the storage ID from a blob's or chunk's object name.
-	//It's kinda the reverse of func blobObject() or func checkObject().
+	// These regexes are used to reconstruct the storage ID from a blob's or chunk's object name.
+	// It's kinda the reverse of func blobObject() or func checkObject().
 	blobObjectNameRx  = regexp.MustCompile(`^_blobs/([^/]{2})/([^/]{2})/([^/]+)$`)
 	chunkObjectNameRx = regexp.MustCompile(`^_chunks/([^/]{2})/([^/]{2})/([^/]+)/([0-9]+)$`)
-	//This regex recovers the repo name and manifest digest from a manifest's object name.
-	//It's kinda the reverse of func manifestObject().
+	// This regex recovers the repo name and manifest digest from a manifest's object name.
+	// It's kinda the reverse of func manifestObject().
 	manifestObjectNameRx = regexp.MustCompile(`^(.+)/_manifests/([^/]+)$`)
 )
 
@@ -360,7 +360,7 @@ func (d *swiftDriver) ListStorageContents(account keppel.Account) ([]keppel.Stor
 		return nil, nil, err
 	}
 
-	chunkCounts := make(map[string]uint32) //key = storage ID, value = same semantics as keppel.StoredBlobInfo.ChunkCount
+	chunkCounts := make(map[string]uint32) // key = storage ID, value = same semantics as keppel.StoredBlobInfo.ChunkCount
 	var manifests []keppel.StoredManifestInfo
 
 	err = c.Objects().Foreach(func(o *schwift.Object) error {
@@ -411,17 +411,17 @@ func (d *swiftDriver) ListStorageContents(account keppel.Account) ([]keppel.Stor
 func mergeChunkCount(chunkCounts map[string]uint32, key string, chunkNumber uint32) {
 	prevCount, exists := chunkCounts[key]
 	if !exists {
-		//nothing to merge, just record the new value
+		// nothing to merge, just record the new value
 		chunkCounts[key] = chunkNumber
 		return
 	}
 
-	//The value 0 indicates a finalized blob and therefore takes precedence over actual chunk numbers.
+	// The value 0 indicates a finalized blob and therefore takes precedence over actual chunk numbers.
 	if prevCount == 0 || chunkNumber == 0 {
 		chunkCounts[key] = 0
 		return
 	}
-	//If 0 is not involved, remember the largest chunk number as that's gonna be the chunk count.
+	// If 0 is not involved, remember the largest chunk number as that's gonna be the chunk count.
 	if chunkNumber > prevCount {
 		chunkCounts[key] = chunkNumber
 	}
@@ -429,15 +429,15 @@ func mergeChunkCount(chunkCounts map[string]uint32, key string, chunkNumber uint
 
 // CanSetupAccount implements the keppel.StorageDriver interface.
 func (d *swiftDriver) CanSetupAccount(account keppel.Account) error {
-	//check that the Swift account is accessible
+	// check that the Swift account is accessible
 	_, err := d.getBackendAccount(account).Headers()
 	switch {
 	case err == nil:
 		return nil
 	case schwift.Is(err, http.StatusNotFound):
-		//404 can happen when Swift does not have account autocreation enabled. In
-		//this case, the account needs to be created, usually through some
-		//administrative process.
+		// 404 can happen when Swift does not have account autocreation enabled. In
+		// this case, the account needs to be created, usually through some
+		// administrative process.
 		return errors.New("Swift storage is not enabled in this project") //nolint:stylecheck // "Swift" is a product name and must be capitalized
 	default:
 		return err

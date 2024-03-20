@@ -55,9 +55,9 @@ func IssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, db *
 		return err
 	}
 
-	//update password in our own DB - we need to do this first because, as soon
-	//as we send the HTTP request, the peer could come back to us at any time to
-	//verify the password
+	// update password in our own DB - we need to do this first because, as soon
+	// as we send the HTTP request, the peer could come back to us at any time to
+	// verify the password
 	_, err = tx.Exec(`
 		UPDATE peers SET
 			their_current_password_hash = $1,
@@ -77,9 +77,9 @@ func IssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, db *
 		return err
 	}
 
-	//the problem is that, if we later find that the peer has not successfully
-	//stored the password on their side, we need to revert these changes,
-	//otherwise the actual credentials used by the peer rotate out of our DB
+	// the problem is that, if we later find that the peer has not successfully
+	// stored the password on their side, we need to revert these changes,
+	// otherwise the actual credentials used by the peer rotate out of our DB
 	resultErr = errors.New("interrupted")
 	defer func() {
 		if resultErr == nil {
@@ -98,7 +98,7 @@ func IssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, db *
 		}
 	}()
 
-	//send new credentials to peer
+	// send new credentials to peer
 	bodyBytes, _ := json.Marshal(authapi.PeeringRequest{
 		PeerHostName: cfg.APIPublicHostname,
 		UserName:     "replication@" + peer.HostName,

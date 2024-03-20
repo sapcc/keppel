@@ -64,7 +64,7 @@ func (fd *federationDriverSwift) Init(ad keppel.AuthDriver, cfg keppel.Configura
 }
 
 func initSwiftContainerConnection(envPrefix string) (*schwift.Container, error) {
-	//authenticate service user
+	// authenticate service user
 	ao, err := clientconfig.AuthOptions(&clientconfig.ClientOpts{EnvPrefix: envPrefix + "OS_"})
 	if err != nil {
 		return nil, errors.New("cannot find OpenStack credentials for federation driver: " + err.Error())
@@ -75,9 +75,9 @@ func initSwiftContainerConnection(envPrefix string) (*schwift.Container, error) 
 		return nil, errors.New("cannot connect to OpenStack for federation driver: " + err.Error())
 	}
 
-	//find Swift endpoint
+	// find Swift endpoint
 	eo := gophercloud.EndpointOpts{
-		//note that empty values are acceptable in both fields
+		// note that empty values are acceptable in both fields
 		Region:       os.Getenv(envPrefix + "OS_REGION_NAME"),
 		Availability: gophercloud.Availability(os.Getenv(envPrefix + "OS_INTERFACE")),
 	}
@@ -86,7 +86,7 @@ func initSwiftContainerConnection(envPrefix string) (*schwift.Container, error) 
 		return nil, errors.New("cannot find Swift v1 API for federation driver: " + err.Error())
 	}
 
-	//create Swift container if necessary
+	// create Swift container if necessary
 	swiftAccount, err := gopherschwift.Wrap(swiftV1, nil)
 	if err != nil {
 		return nil, err
@@ -115,7 +115,7 @@ func (fd *federationDriverSwift) readAccountFile(accountName string) (accountFil
 	buf, err := fd.accountFileObj(accountName).Download(nil).AsByteSlice()
 	if err != nil {
 		if schwift.Is(err, http.StatusNotFound) {
-			//account file does not exist -> create an empty one that we can fill now
+			// account file does not exist -> create an empty one that we can fill now
 			return accountFile{AccountName: accountName}, nil
 		}
 		return accountFile{}, err
@@ -137,19 +137,19 @@ func (fd *federationDriverSwift) modifyAccountFile(accountName string, modify fu
 		return err
 	}
 
-	//check if we are actually changing anything at all (this is a very important
-	//optimization for RecordExistingAccount which is a no-op most of the time)
+	// check if we are actually changing anything at all (this is a very important
+	// optimization for RecordExistingAccount which is a no-op most of the time)
 	fileOldModified := fileOld
 	err = modify(&fileOldModified, true)
 	if err != nil {
 		return err
 	}
-	sort.Strings(fileOldModified.ReplicaHostNames) //to avoid useless inequality
+	sort.Strings(fileOldModified.ReplicaHostNames) // to avoid useless inequality
 	if reflect.DeepEqual(fileOld, fileOldModified) {
 		return nil
 	}
 
-	//perform the write
+	// perform the write
 	buf, err := json.Marshal(fileOldModified)
 	if err != nil {
 		return err
@@ -163,7 +163,7 @@ func (fd *federationDriverSwift) modifyAccountFile(accountName string, modify fu
 		return err
 	}
 
-	//wait a bit, then check if the write was persisted
+	// wait a bit, then check if the write was persisted
 	time.Sleep(250 * time.Millisecond)
 	fileNew, err := fd.readAccountFile(accountName)
 	if err != nil {
@@ -174,12 +174,12 @@ func (fd *federationDriverSwift) modifyAccountFile(accountName string, modify fu
 	if err != nil {
 		return err
 	}
-	sort.Strings(fileNewModified.ReplicaHostNames) //to avoid useless inequality
+	sort.Strings(fileNewModified.ReplicaHostNames) // to avoid useless inequality
 	if !reflect.DeepEqual(fileNew, fileNewModified) {
-		//^ NOTE: It's tempting to just do `reflect.DeepEqual(fileNew,
-		//fildOldModified)` here, but that would be too strict of a condition. We
-		//don't care whether someone edited the file right after us, we care
-		//whether the contents of our write are still there.
+		// ^ NOTE: It's tempting to just do `reflect.DeepEqual(fileNew,
+		// fildOldModified)` here, but that would be too strict of a condition. We
+		// don't care whether someone edited the file right after us, we care
+		// whether the contents of our write are still there.
 		return fmt.Errorf("write collision while trying to update the account file for %q, please retry", accountName)
 	}
 
@@ -208,7 +208,7 @@ func (fd *federationDriverSwift) ClaimAccountName(ctx context.Context, account k
 }
 
 func (fd *federationDriverSwift) claimPrimaryAccount(account keppel.Account, subleaseTokenSecret string) (isUserError bool, err error) {
-	//defense in depth - the caller should already have verified this
+	// defense in depth - the caller should already have verified this
 	if subleaseTokenSecret != "" {
 		return true, errors.New("cannot check sublease token when claiming a primary account")
 	}
@@ -228,14 +228,14 @@ func (fd *federationDriverSwift) claimPrimaryAccount(account keppel.Account, sub
 }
 
 func (fd *federationDriverSwift) claimReplicaAccount(account keppel.Account, subleaseTokenSecret string) (isUserError bool, err error) {
-	//defense in depth - the caller should already have verified this
+	// defense in depth - the caller should already have verified this
 	if subleaseTokenSecret == "" {
 		return true, errors.New("missing sublease token")
 	}
 
 	isUserError = false
 	err = fd.modifyAccountFile(account.Name, func(file *accountFile, firstPass bool) error {
-		//verify the sublease token only on first pass (in the second pass, it was already cleared)
+		// verify the sublease token only on first pass (in the second pass, it was already cleared)
 		if firstPass {
 			if file.SubleaseTokenSecret != subleaseTokenSecret {
 				isUserError = true
@@ -244,13 +244,13 @@ func (fd *federationDriverSwift) claimReplicaAccount(account keppel.Account, sub
 			file.SubleaseTokenSecret = ""
 		}
 
-		//validate the primary account
+		// validate the primary account
 		err := fd.verifyAccountOwnership(*file, account.UpstreamPeerHostName)
 		if err != nil {
 			return err
 		}
 
-		//all good - add ourselves to the list of replicas
+		// all good - add ourselves to the list of replicas
 		file.ReplicaHostNames = addStringToList(file.ReplicaHostNames, fd.OwnHostName)
 		return nil
 	})
@@ -259,7 +259,7 @@ func (fd *federationDriverSwift) claimReplicaAccount(account keppel.Account, sub
 
 // IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
 func (fd *federationDriverSwift) IssueSubleaseTokenSecret(ctx context.Context, account keppel.Account) (string, error) {
-	//generate a random token with 16 Base64 chars
+	// generate a random token with 16 Base64 chars
 	tokenBytes := make([]byte, 12)
 	_, err := rand.Read(tokenBytes)
 	if err != nil {
@@ -270,12 +270,12 @@ func (fd *federationDriverSwift) IssueSubleaseTokenSecret(ctx context.Context, a
 	return tokenStr, fd.modifyAccountFile(account.Name, func(file *accountFile, firstPass bool) error {
 		_ = firstPass
 
-		//defense in depth - the caller should already have verified this
+		// defense in depth - the caller should already have verified this
 		if account.UpstreamPeerHostName != "" {
 			return errors.New("operation not allowed for replica accounts")
 		}
 
-		//more defense in depth
+		// more defense in depth
 		err := fd.verifyAccountOwnership(*file, fd.OwnHostName)
 		if err != nil {
 			return err
@@ -288,7 +288,7 @@ func (fd *federationDriverSwift) IssueSubleaseTokenSecret(ctx context.Context, a
 
 // ForfeitAccountName implements the keppel.FederationDriver interface.
 func (fd *federationDriverSwift) ForfeitAccountName(ctx context.Context, account keppel.Account) error {
-	//case 1: replica account -> just remove ourselves from the set of replicas
+	// case 1: replica account -> just remove ourselves from the set of replicas
 	if account.UpstreamPeerHostName != "" {
 		return fd.modifyAccountFile(account.Name, func(file *accountFile, _ bool) error {
 			file.ReplicaHostNames = removeStringFromList(file.ReplicaHostNames, fd.OwnHostName)
@@ -296,7 +296,7 @@ func (fd *federationDriverSwift) ForfeitAccountName(ctx context.Context, account
 		})
 	}
 
-	//case 2: primary account -> perform sanity checks, then delete entire account file
+	// case 2: primary account -> perform sanity checks, then delete entire account file
 	file, err := fd.readAccountFile(account.Name)
 	if err != nil {
 		return err
@@ -313,14 +313,14 @@ func (fd *federationDriverSwift) ForfeitAccountName(ctx context.Context, account
 
 // RecordExistingAccount implements the keppel.FederationDriver interface.
 func (fd *federationDriverSwift) RecordExistingAccount(ctx context.Context, account keppel.Account, now time.Time) error {
-	//Inconsistencies can arise since we have multiple sources of truth in the
-	//Keppels' own database and in the shared Swift container. These
-	//inconsistencies are incredibly unlikely, however, so making this driver
-	//more complicated to better guard against them is a bad tradeoff in my
-	//opinion. Instead, we just make sure that the driver loudly complains once
-	//it finds an inconsistency, so the operator can take care of fixing it.
+	// Inconsistencies can arise since we have multiple sources of truth in the
+	// Keppels' own database and in the shared Swift container. These
+	// inconsistencies are incredibly unlikely, however, so making this driver
+	// more complicated to better guard against them is a bad tradeoff in my
+	// opinion. Instead, we just make sure that the driver loudly complains once
+	// it finds an inconsistency, so the operator can take care of fixing it.
 	return fd.modifyAccountFile(account.Name, func(file *accountFile, _ bool) error {
-		//check that the primary hostname is correct, or fill in if missing
+		// check that the primary hostname is correct, or fill in if missing
 		var expectedPrimaryHostName string
 		if account.UpstreamPeerHostName == "" {
 			expectedPrimaryHostName = fd.OwnHostName
@@ -335,7 +335,7 @@ func (fd *federationDriverSwift) RecordExistingAccount(ctx context.Context, acco
 				account.Name, expectedPrimaryHostName, file.PrimaryHostName)
 		}
 
-		//if we are a replica, make sure our name is entered in the ReplicaHostNames
+		// if we are a replica, make sure our name is entered in the ReplicaHostNames
 		if account.UpstreamPeerHostName != "" {
 			file.ReplicaHostNames = addStringToList(file.ReplicaHostNames, fd.OwnHostName)
 		}

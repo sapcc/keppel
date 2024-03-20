@@ -63,9 +63,9 @@ type Account struct {
 // ReplicationPolicy represents a replication policy in the API.
 type ReplicationPolicy struct {
 	Strategy string
-	//only for `on_first_use`
+	// only for `on_first_use`
 	UpstreamPeerHostName string
-	//only for `from_external_on_first_use`
+	// only for `from_external_on_first_use`
 	ExternalPeer ReplicationExternalPeerSpec
 }
 
@@ -136,7 +136,7 @@ func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
 		return Account{}, err
 	}
 	if rbacPolicies == nil {
-		//do not render "null" in this field
+		// do not render "null" in this field
 		rbacPolicies = []keppel.RBACPolicy{}
 	}
 
@@ -214,19 +214,19 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//restrict accounts to those visible in the current scope
+	// restrict accounts to those visible in the current scope
 	var accountsFiltered []keppel.Account
 	for idx, account := range accounts {
 		if authz.ScopeSet.Contains(*scopes[idx]) {
 			accountsFiltered = append(accountsFiltered, account)
 		}
 	}
-	//ensure that this serializes as a list, not as null
+	// ensure that this serializes as a list, not as null
 	if len(accountsFiltered) == 0 {
 		accountsFiltered = []keppel.Account{}
 	}
 
-	//render accounts to JSON
+	// render accounts to JSON
 	accountsRendered := make([]Account, len(accountsFiltered))
 	for idx, account := range accountsFiltered {
 		accountsRendered[idx], err = a.renderAccount(account)
@@ -259,7 +259,7 @@ var looksLikeAPIVersionRx = regexp.MustCompile(`^v[0-9][1-9]*$`)
 
 func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
-	//decode request body
+	// decode request body
 	var req struct {
 		Account struct {
 			AuthTenantID      string                `json:"auth_tenant_id"`
@@ -284,11 +284,11 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//reserve identifiers for internal pseudo-accounts and anything that might
-	//appear like the first path element of a legal endpoint path on any of our
-	//APIs (we will soon start recognizing image-like URLs such as
-	//keppel.example.org/account/repo and offer redirection to a suitable UI;
-	//this requires the account name to not overlap with API endpoint paths)
+	// reserve identifiers for internal pseudo-accounts and anything that might
+	// appear like the first path element of a legal endpoint path on any of our
+	// APIs (we will soon start recognizing image-like URLs such as
+	// keppel.example.org/account/repo and offer redirection to a suitable UI;
+	// this requires the account name to not overlap with API endpoint paths)
 	accountName := mux.Vars(r)["account"]
 	if strings.HasPrefix(accountName, "keppel") {
 		http.Error(w, `account names with the prefix "keppel" are reserved for internal use`, http.StatusUnprocessableEntity)
@@ -344,7 +344,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		SecurityScanPoliciesJSON: "[]",
 	}
 
-	//validate replication policy
+	// validate replication policy
 	if req.Account.ReplicationPolicy != nil {
 		rp := *req.Account.ReplicationPolicy
 
@@ -371,7 +371,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//validate validation policy
+	// validate validation policy
 	if req.Account.ValidationPolicy != nil {
 		vp := *req.Account.ValidationPolicy
 		for _, label := range vp.RequiredLabels {
@@ -384,7 +384,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		accountToCreate.RequiredLabels = strings.Join(vp.RequiredLabels, ",")
 	}
 
-	//validate platform filter
+	// validate platform filter
 	if req.Account.PlatformFilter != nil {
 		if req.Account.ReplicationPolicy == nil {
 			http.Error(w, `platform filter is only allowed on replica accounts`, http.StatusUnprocessableEntity)
@@ -393,13 +393,13 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		accountToCreate.PlatformFilter = req.Account.PlatformFilter
 	}
 
-	//check permission to create account
+	// check permission to create account
 	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanChangeAccount, accountToCreate.AuthTenantID))
 	if authz == nil {
 		return
 	}
 
-	//check if account already exists
+	// check if account already exists
 	account, err := keppel.FindAccount(a.db, accountName)
 	if respondwith.ErrorText(w, err) {
 		return
@@ -409,13 +409,13 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//late replication policy validations (could not do these earlier because we
-	//did not have `account` yet)
+	// late replication policy validations (could not do these earlier because we
+	// did not have `account` yet)
 	if req.Account.ReplicationPolicy != nil {
 		rp := *req.Account.ReplicationPolicy
 
 		if rp.Strategy == "from_external_on_first_use" {
-			//for new accounts, we need either full credentials or none
+			// for new accounts, we need either full credentials or none
 			if account == nil {
 				if (rp.ExternalPeer.UserName == "") != (rp.ExternalPeer.Password == "") {
 					http.Error(w, `need either both username and password or neither for "from_external_on_first_use" replication`, http.StatusUnprocessableEntity)
@@ -423,13 +423,13 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			//for existing accounts, having only a username is acceptable if it's
-			//unchanged (this case occurs when a client GETs the account, changes
-			//something unrelated to replication, and PUTs the result; the password is
-			//redacted in GET)
+			// for existing accounts, having only a username is acceptable if it's
+			// unchanged (this case occurs when a client GETs the account, changes
+			// something unrelated to replication, and PUTs the result; the password is
+			// redacted in GET)
 			if account != nil && rp.ExternalPeer.UserName != "" && rp.ExternalPeer.Password == "" {
 				if rp.ExternalPeer.UserName == account.ExternalPeerUserName {
-					rp.ExternalPeer.Password = account.ExternalPeerPassword //to pass the equality checks below
+					rp.ExternalPeer.Password = account.ExternalPeerPassword // to pass the equality checks below
 				} else {
 					http.Error(w, `cannot change username for "from_external_on_first_use" replication without also changing password`, http.StatusUnprocessableEntity)
 					return
@@ -438,7 +438,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//replication strategy may not be changed after account creation
+	// replication strategy may not be changed after account creation
 	if account != nil && req.Account.ReplicationPolicy != nil && !replicationPoliciesFunctionallyEqual(req.Account.ReplicationPolicy, renderReplicationPolicy(*account)) {
 		http.Error(w, `cannot change replication policy on existing account`, http.StatusConflict)
 		return
@@ -448,8 +448,8 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//late RBAC policy validations (could not do these earlier because we did not
-	//have `account` yet)
+	// late RBAC policy validations (could not do these earlier because we did not
+	// have `account` yet)
 	isExternalReplica := req.Account.ReplicationPolicy != nil && req.Account.ReplicationPolicy.ExternalPeer.URL != ""
 	if account != nil {
 		isExternalReplica = account.ExternalPeerURL != ""
@@ -461,9 +461,9 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//create account if required
+	// create account if required
 	if account == nil {
-		//sublease tokens are only relevant when creating replica accounts
+		// sublease tokens are only relevant when creating replica accounts
 		subleaseTokenSecret := ""
 		if accountToCreate.UpstreamPeerHostName != "" {
 			subleaseToken, err := SubleaseTokenFromRequest(r)
@@ -474,18 +474,18 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			subleaseTokenSecret = subleaseToken.Secret
 		}
 
-		//check permission to claim account name (this only happens here because
-		//it's only relevant for account creations, not for updates)
+		// check permission to claim account name (this only happens here because
+		// it's only relevant for account creations, not for updates)
 		claimResult, err := a.fd.ClaimAccountName(r.Context(), accountToCreate, subleaseTokenSecret)
 		switch claimResult {
 		case keppel.ClaimSucceeded:
-			//nothing to do
+			// nothing to do
 		case keppel.ClaimFailed:
-			//user error
+			// user error
 			http.Error(w, err.Error(), http.StatusForbidden)
 			return
 		case keppel.ClaimErrored:
-			//server error
+			// server error
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -552,7 +552,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		//commit the changes
+		// commit the changes
 		err = tx.Commit()
 		if respondwith.ErrorText(w, err) {
 			return
@@ -568,7 +568,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 	} else {
-		//account != nil: update if necessary
+		// account != nil: update if necessary
 		needsUpdate := false
 		needsAudit := false
 		if account.InMaintenance != accountToCreate.InMaintenance {
@@ -631,16 +631,16 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 // Like reflect.DeepEqual, but ignores some fields that are allowed to be
 // updated after account creation.
 func replicationPoliciesFunctionallyEqual(lhs, rhs *ReplicationPolicy) bool {
-	//one nil and one non-nil is not equal
+	// one nil and one non-nil is not equal
 	if (lhs == nil) != (rhs == nil) {
 		return false
 	}
-	//two nil's are equal
+	// two nil's are equal
 	if lhs == nil {
 		return true
 	}
 
-	//ignore pull credentials (the user shall be able to change these after account creation)
+	// ignore pull credentials (the user shall be able to change these after account creation)
 	lhsClone := *lhs
 	rhsClone := *rhs
 	lhsClone.ExternalPeer.UserName = ""
@@ -722,7 +722,7 @@ func (a *API) deleteAccount(ctx context.Context, account keppel.Account) (*delet
 		}, nil
 	}
 
-	//can only delete account when user has deleted all manifests from it
+	// can only delete account when user has deleted all manifests from it
 	var nextManifests []deleteAccountRemainingManifest
 	err := sqlext.ForeachRow(a.db, deleteAccountFindManifestsQuery, []any{account.Name},
 		func(rows *sql.Rows) error {
@@ -745,20 +745,20 @@ func (a *API) deleteAccount(ctx context.Context, account keppel.Account) (*delet
 		}, err
 	}
 
-	//delete all repos (and therefore, all blob mounts), so that blob sweeping
-	//can immediately take place
+	// delete all repos (and therefore, all blob mounts), so that blob sweeping
+	// can immediately take place
 	_, err = a.db.Exec(deleteAccountReposQuery, account.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	//can only delete account when all blobs have been deleted
+	// can only delete account when all blobs have been deleted
 	blobCount, err := a.db.SelectInt(deleteAccountCountBlobsQuery, account.Name)
 	if err != nil {
 		return nil, err
 	}
 	if blobCount > 0 {
-		//make sure that blob sweep runs immediately
+		// make sure that blob sweep runs immediately
 		_, err := a.db.Exec(deleteAccountMarkAllBlobsForDeletionQuery, account.Name, time.Now())
 		if err != nil {
 			return nil, err
@@ -772,7 +772,7 @@ func (a *API) deleteAccount(ctx context.Context, account keppel.Account) (*delet
 		}, nil
 	}
 
-	//start deleting the account in a transaction
+	// start deleting the account in a transaction
 	tx, err := a.db.Begin()
 	if err != nil {
 		return nil, err
@@ -783,8 +783,8 @@ func (a *API) deleteAccount(ctx context.Context, account keppel.Account) (*delet
 		return nil, err
 	}
 
-	//before committing the transaction, confirm account deletion with the
-	//storage driver and the federation driver
+	// before committing the transaction, confirm account deletion with the
+	// storage driver and the federation driver
 	err = a.sd.CleanupAccount(account)
 	if err != nil {
 		return &deleteAccountResponse{Error: err.Error()}, nil
@@ -824,7 +824,7 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	//only serialize SubleaseToken if it contains a secret at all
+	// only serialize SubleaseToken if it contains a secret at all
 	var serialized string
 	if st.Secret == "" {
 		serialized = ""
@@ -860,14 +860,14 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	//decode existing policies
+	// decode existing policies
 	var dbPolicies []keppel.SecurityScanPolicy
 	err := json.Unmarshal([]byte(account.SecurityScanPoliciesJSON), &dbPolicies)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
 
-	//decode request body
+	// decode request body
 	var req struct {
 		Policies []keppel.SecurityScanPolicy `json:"policies"`
 	}
@@ -879,7 +879,7 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	//apply computed values and validate each input policy on its own
+	// apply computed values and validate each input policy on its own
 	currentUserName := authz.UserIdentity.UserName()
 	var errs errext.ErrorSet
 	for idx, policy := range req.Policies {
@@ -890,7 +890,7 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 		case "$REQUESTER":
 			req.Policies[idx].ManagingUserName = currentUserName
 		case "", currentUserName:
-			//acceptable
+			// acceptable
 		default:
 			if !slices.Contains(dbPolicies, policy) {
 				errs.Addf("cannot apply this new or updated policy that is managed by a different user: %s", policy)
@@ -898,8 +898,8 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	//check that updated or deleted policies are either unmanaged or managed by
-	//the requester
+	// check that updated or deleted policies are either unmanaged or managed by
+	// the requester
 	for _, dbPolicy := range dbPolicies {
 		if slices.Contains(req.Policies, dbPolicy) {
 			continue
@@ -910,13 +910,13 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	//report validation errors
+	// report validation errors
 	if !errs.IsEmpty() {
 		http.Error(w, errs.Join("\n"), http.StatusUnprocessableEntity)
 		return
 	}
 
-	//update policies in DB
+	// update policies in DB
 	jsonBuf, err := json.Marshal(req.Policies)
 	if respondwith.ErrorText(w, err) {
 		return
@@ -927,7 +927,7 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	//generate audit events
+	// generate audit events
 	submitAudit := func(action cadf.Action, target audittools.TargetRenderer) {
 		if userInfo := authz.UserIdentity.UserInfo(); userInfo != nil {
 			a.auditor.Record(audittools.EventParameters{

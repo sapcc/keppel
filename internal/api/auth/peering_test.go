@@ -36,16 +36,16 @@ func TestPeeringAPI(t *testing.T) {
 		s := test.NewSetup(t)
 		h := s.Handler
 
-		//set up peer.example.org as a peer of us, otherwise we will reject peering
-		//attempts from that source
+		// set up peer.example.org as a peer of us, otherwise we will reject peering
+		// attempts from that source
 		err := s.DB.Insert(&keppel.Peer{HostName: "peer.example.org"})
 		if err != nil {
 			t.Fatal(err.Error())
 		}
 
-		//upon receiving a peering request, the implementation will attempt to
-		//validate the supplied credentials by calling the peer's auth API - this is
-		//a mock implementation for this
+		// upon receiving a peering request, the implementation will attempt to
+		// validate the supplied credentials by calling the peer's auth API - this is
+		// a mock implementation for this
 		expectedAuthHeader := "Basic cmVwbGljYXRpb25AcmVnaXN0cnkuZXhhbXBsZS5vcmc6c3VwZXJzZWNyZXQ="
 		expectedQuery := url.Values{}
 		expectedQuery.Set("service", "peer.example.org")
@@ -65,12 +65,12 @@ func TestPeeringAPI(t *testing.T) {
 			respondwith.JSON(w, http.StatusOK, map[string]string{"token": "dummy"})
 		})
 
-		//error cases
+		// error cases
 		assert.HTTPRequest{
 			Method: "POST",
 			Path:   "/keppel/v1/auth/peering",
 			Body: assert.JSONObject{
-				"peer":     "unknown-peer.example.org", //unknown peer
+				"peer":     "unknown-peer.example.org", // unknown peer
 				"username": "replication@registry.example.org",
 				"password": "supersecret",
 			},
@@ -83,7 +83,7 @@ func TestPeeringAPI(t *testing.T) {
 			Path:   "/keppel/v1/auth/peering",
 			Body: assert.JSONObject{
 				"peer":     "peer.example.org",
-				"username": "replication@someone-else.example.org", //wrong username
+				"username": "replication@someone-else.example.org", // wrong username
 				"password": "supersecret",
 			},
 			ExpectStatus: http.StatusBadRequest,
@@ -96,16 +96,16 @@ func TestPeeringAPI(t *testing.T) {
 			Body: assert.JSONObject{
 				"peer":     "peer.example.org",
 				"username": "replication@registry.example.org",
-				"password": "incorrect", //wrong password
+				"password": "incorrect", // wrong password
 			},
 			ExpectStatus: http.StatusUnauthorized,
 			ExpectBody:   assert.StringData("could not validate credentials: expected 200 OK, but got 401 Unauthorized\n"),
 		}.Check(t, h)
 
-		//error cases should not touch the DB
+		// error cases should not touch the DB
 		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/before-peering.sql")
 
-		//success case
+		// success case
 		assert.HTTPRequest{
 			Method: "POST",
 			Path:   "/keppel/v1/auth/peering",
@@ -118,7 +118,7 @@ func TestPeeringAPI(t *testing.T) {
 			ExpectBody:   assert.StringData(""),
 		}.Check(t, h)
 
-		//success case should have touched the DB
+		// success case should have touched the DB
 		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/after-peering.sql")
 	})
 }

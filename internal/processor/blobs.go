@@ -100,7 +100,7 @@ func (p *Processor) FindBlobOrInsertUnbackedBlob(desc distribution.Descriptor, a
 	err := p.insideTransaction(func(tx *gorp.Transaction) error {
 		var err error
 		blob, err = keppel.FindBlobByAccountName(tx, desc.Digest, account)
-		if !errors.Is(err, sql.ErrNoRows) { //either success or unexpected error
+		if !errors.Is(err, sql.ErrNoRows) { // either success or unexpected error
 			return err
 		}
 
@@ -109,7 +109,7 @@ func (p *Processor) FindBlobOrInsertUnbackedBlob(desc distribution.Descriptor, a
 			Digest:      desc.Digest,
 			MediaType:   desc.MediaType,
 			SizeBytes:   uint64(desc.Size),
-			StorageID:   "", //unbacked
+			StorageID:   "", // unbacked
 			PushedAt:    time.Unix(0, 0),
 			ValidatedAt: time.Unix(0, 0),
 		}
@@ -119,8 +119,8 @@ func (p *Processor) FindBlobOrInsertUnbackedBlob(desc distribution.Descriptor, a
 }
 
 var (
-	//ErrConcurrentReplication is returned from Processor.ReplicateBlob() when the
-	//same blob is already being replicated by another worker.
+	// ErrConcurrentReplication is returned from Processor.ReplicateBlob() when the
+	// same blob is already being replicated by another worker.
 	ErrConcurrentReplication = errors.New("currently replicating")
 )
 
@@ -132,7 +132,7 @@ var (
 // this happened. It may be false if an error occurred before writing into the
 // ResponseWriter took place.
 func (p *Processor) ReplicateBlob(ctx context.Context, blob keppel.Blob, account keppel.Account, repo keppel.Repository, w http.ResponseWriter) (responseWasWritten bool, returnErr error) {
-	//mark this blob as currently being replicated
+	// mark this blob as currently being replicated
 	pendingBlob := keppel.PendingBlob{
 		AccountName:  account.Name,
 		Digest:       blob.Digest,
@@ -141,7 +141,7 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob keppel.Blob, account
 	}
 	err := p.db.Insert(&pendingBlob)
 	if err != nil {
-		//did we get a duplicate-key error because this blob is already being replicated?
+		// did we get a duplicate-key error because this blob is already being replicated?
 		count, err := p.db.SelectInt(
 			`SELECT COUNT(*) FROM pending_blobs WHERE account_name = $1 AND digest = $2`,
 			account.Name, blob.Digest,
@@ -152,9 +152,9 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob keppel.Blob, account
 		return false, err
 	}
 
-	//whatever happens, don't forget to cleanup the PendingBlob DB entry afterwards
-	//to unblock others who are waiting for this replication to come to an end
-	//(one way or the other)
+	// whatever happens, don't forget to cleanup the PendingBlob DB entry afterwards
+	// to unblock others who are waiting for this replication to come to an end
+	// (one way or the other)
 	defer func() {
 		_, err := p.db.Exec(
 			`DELETE FROM pending_blobs WHERE account_name = $1 AND digest = $2`,
@@ -165,7 +165,7 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob keppel.Blob, account
 		}
 	}()
 
-	//query upstream for the blob
+	// query upstream for the blob
 	client, err := p.getRepoClientForUpstream(account, repo)
 	if err != nil {
 		return false, err
@@ -176,10 +176,10 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob keppel.Blob, account
 	}
 	defer blobReadCloser.Close()
 
-	//stream into `w` if requested
+	// stream into `w` if requested
 	blobReader := io.Reader(blobReadCloser)
 	if w != nil {
-		w.Header().Set("Content-Type", blob.SafeMediaType()) //we know the media type because we have already replicated a referencing manifest
+		w.Header().Set("Content-Type", blob.SafeMediaType()) // we know the media type because we have already replicated a referencing manifest
 		w.Header().Set("Docker-Content-Digest", blob.Digest.String())
 		w.Header().Set("Content-Length", strconv.FormatUint(blobLengthBytes, 10))
 		w.WriteHeader(http.StatusOK)
@@ -191,7 +191,7 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob keppel.Blob, account
 		return true, err
 	}
 
-	//count the successful push
+	// count the successful push
 	l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "replication"}
 	api.BlobsPushedCounter.With(l).Inc()
 	return true, nil
@@ -199,7 +199,7 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob keppel.Blob, account
 
 func (p *Processor) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, blobReader io.Reader, blobLengthBytes uint64) (returnErr error) {
 	defer func() {
-		//if blob upload fails, count an aborted upload
+		// if blob upload fails, count an aborted upload
 		if returnErr != nil {
 			l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "replication"}
 			api.UploadsAbortedCounter.With(l).Inc()
@@ -231,7 +231,7 @@ func (p *Processor) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, 
 		return err
 	}
 
-	//if errors occur while trying to update the DB, we need to clean up the blob in the storage
+	// if errors occur while trying to update the DB, we need to clean up the blob in the storage
 	defer func() {
 		if returnErr != nil {
 			deleteErr := p.sd.DeleteBlob(account, upload.StorageID)
@@ -242,7 +242,7 @@ func (p *Processor) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, 
 		}
 	}()
 
-	//write blob metadata to DB
+	// write blob metadata to DB
 	blob.StorageID = upload.StorageID
 	blob.PushedAt = p.timeNow()
 	blob.ValidatedAt = blob.PushedAt
@@ -259,7 +259,7 @@ func (p *Processor) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, 
 // uploads, the caller is responsible for performing and validating the digest
 // computation.
 func (p *Processor) AppendToBlob(account keppel.Account, upload *keppel.Upload, contents io.Reader, lengthBytes *uint64) error {
-	//case 1: we know the length of the input and don't have to guess when to chunk
+	// case 1: we know the length of the input and don't have to guess when to chunk
 	if lengthBytes != nil {
 		return foreachChunkWithKnownSize(contents, *lengthBytes, func(chunk io.Reader, chunkLengthBytes uint64) error {
 			upload.NumChunks++
@@ -268,7 +268,7 @@ func (p *Processor) AppendToBlob(account keppel.Account, upload *keppel.Upload, 
 		})
 	}
 
-	//case 2: we *don't* know the input length
+	// case 2: we *don't* know the input length
 	ctr := chunkingTrackingReader{wrapped: contents}
 	err := foreachChunkWithUnknownSize(&ctr, func(chunk io.Reader) error {
 		upload.NumChunks++
@@ -283,7 +283,7 @@ const chunkSizeBytes = 500 << 20 // 500 MiB
 // This function contains the logic for splitting `contents` (containing `lengthBytes`) into chunks of `chunkSizeBytes` max.
 func foreachChunkWithKnownSize(contents io.Reader, lengthBytes uint64, action func(io.Reader, uint64) error) error {
 	//NOTE: This function is written such that `action` is called at least once,
-	//even when `contents` is empty.
+	// even when `contents` is empty.
 	remainingBytes := lengthBytes
 	for remainingBytes > chunkSizeBytes {
 		err := action(io.LimitReader(contents, chunkSizeBytes), chunkSizeBytes)
@@ -298,7 +298,7 @@ func foreachChunkWithKnownSize(contents io.Reader, lengthBytes uint64, action fu
 // Like foreachChunkWithKnownSize, but this one is for when we don't know how many bytes are in the original reader.
 func foreachChunkWithUnknownSize(contents *chunkingTrackingReader, action func(io.Reader) error) error {
 	//NOTE: This function is written such that `action` is called at least once,
-	//even when `contents` is empty.
+	// even when `contents` is empty.
 	for {
 		err := action(io.LimitReader(contents, chunkSizeBytes))
 		if err != nil {
@@ -320,7 +320,7 @@ func foreachChunkWithUnknownSize(contents *chunkingTrackingReader, action func(i
 //     information is used to determine when to stop chunking.
 type chunkingTrackingReader struct {
 	wrapped   io.Reader
-	peeked    *byte //may contain a byte that we read in advance from `wrapped` to check for EOF
+	peeked    *byte // may contain a byte that we read in advance from `wrapped` to check for EOF
 	bytesRead uint64
 }
 

@@ -26,9 +26,9 @@ import (
 )
 
 func TestParseImageReferenceSuccess(t *testing.T) {
-	//to generate a lot of test cases quickly, we start from the elements of
-	//ImageReference and do a round-trip test: ParseImageReference(ref.String())
-	//should yield the same Ref again
+	// to generate a lot of test cases quickly, we start from the elements of
+	// ImageReference and do a round-trip test: ParseImageReference(ref.String())
+	// should yield the same Ref again
 	hostNames := []string{
 		defaultHostName,
 		defaultHostName + ":5000",
@@ -52,9 +52,9 @@ func TestParseImageReferenceSuccess(t *testing.T) {
 
 	for _, hostName := range hostNames {
 		for _, repoName := range repoNames {
-			//skip repo names without slashes when considering the default registry
-			//(on that one, repo names are always "user/repo", and if no user is
-			//given, "library" is implied)
+			// skip repo names without slashes when considering the default registry
+			// (on that one, repo names are always "user/repo", and if no user is
+			// given, "library" is implied)
 			if hostName == defaultHostName && !strings.Contains(repoName, "/") {
 				continue
 			}

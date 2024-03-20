@@ -91,7 +91,7 @@ func (ss ScopeSet) AccountsWithCatalogAccess(markerAccountName string) []string 
 		if !ok {
 			continue
 		}
-		//when paginating, we don't need to care about accounts before the marker
+		// when paginating, we don't need to care about accounts before the marker
 		if markerAccountName == "" || accountName >= markerAccountName {
 			result = append(result, accountName)
 		}

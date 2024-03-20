@@ -39,7 +39,7 @@ func init() {
 // only, without any persistence.
 type StorageDriver struct {
 	blobs             map[string][]byte
-	blobChunkCounts   map[string]uint32 //previous chunkNumber for running upload, 0 when finished (same semantics as keppel.StoredBlobInfo.ChunkCount field)
+	blobChunkCounts   map[string]uint32 // previous chunkNumber for running upload, 0 when finished (same semantics as keppel.StoredBlobInfo.ChunkCount field)
 	manifests         map[string][]byte
 	ForbidNewAccounts bool
 }
@@ -74,7 +74,7 @@ func manifestKey(account keppel.Account, repoName string, manifestDigest digest.
 func (d *StorageDriver) AppendToBlob(account keppel.Account, storageID string, chunkNumber uint32, chunkLength *uint64, chunk io.Reader) error {
 	k := blobKey(account, storageID)
 
-	//check that we're calling AppendToBlob() in the correct order
+	// check that we're calling AppendToBlob() in the correct order
 	chunkCount, exists := d.blobChunkCounts[k]
 	if chunkNumber == 1 {
 		if exists {
@@ -105,7 +105,7 @@ func (d *StorageDriver) FinalizeBlob(account keppel.Account, storageID string, c
 	if !exists {
 		return errNoSuchBlob
 	}
-	d.blobChunkCounts[k] = 0 //mark as finalized
+	d.blobChunkCounts[k] = 0 // mark as finalized
 	return nil
 }
 
@@ -217,8 +217,8 @@ func (d *StorageDriver) CanSetupAccount(account keppel.Account) error {
 
 // CleanupAccount implements the keppel.StorageDriver interface.
 func (d *StorageDriver) CleanupAccount(account keppel.Account) error {
-	//double-check that cleanup order is right; when the account gets deleted,
-	//all blobs and manifests must have been deleted from it before
+	// double-check that cleanup order is right; when the account gets deleted,
+	// all blobs and manifests must have been deleted from it before
 	storedBlobs, storedManifests, err := d.ListStorageContents(account)
 	if len(storedBlobs) > 0 {
 		return fmt.Errorf(

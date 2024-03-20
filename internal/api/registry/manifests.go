@@ -66,13 +66,13 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if errors.Is(err, sql.ErrNoRows) {
-		//if the manifest does not exist there, we may have the option of replicating
-		//from upstream (as an exception, other Keppels replicating from us always
-		//see the true 404 to properly replicate the non-existence of the manifest
-		//from this account into the replica account)
+		// if the manifest does not exist there, we may have the option of replicating
+		// from upstream (as an exception, other Keppels replicating from us always
+		// see the true 404 to properly replicate the non-existence of the manifest
+		// from this account into the replica account)
 		userType := authz.UserIdentity.UserType()
 		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.InMaintenance && (userType != keppel.PeerUser && userType != keppel.TrivyUser) {
-			//when replicating from external, only authenticated users can trigger the replication
+			// when replicating from external, only authenticated users can trigger the replication
 			if account.ExternalPeerURL != "" && userType != keppel.RegularUser {
 				if !authz.ScopeSet.Contains(auth.Scope{
 					ResourceType: "repository",
@@ -96,8 +96,8 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		//if manifest was found in our DB, fetch the contents from the DB (or fall
-		//back to the storage if the DB entry is not there for some reason)
+		// if manifest was found in our DB, fetch the contents from the DB (or fall
+		// back to the storage if the DB entry is not there for some reason)
 		manifestBytes, err = a.getManifestContentFromDB(repo.ID, dbManifest.Digest)
 		if err != nil {
 			if !errors.Is(err, sql.ErrNoRows) {
@@ -111,35 +111,35 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//verify Accept header, if any
+	// verify Accept header, if any
 	if r.Header.Get("Accept") != "" {
-		//Most user agents provide a single Accept header with comma-separated
-		//entries, but some user agents that exist in the wild provide each entry
-		//as a separate Accept header. The accept library only takes a single
-		//header, so if multiple headers are given, we join them explicitly.
+		// Most user agents provide a single Accept header with comma-separated
+		// entries, but some user agents that exist in the wild provide each entry
+		// as a separate Accept header. The accept library only takes a single
+		// header, so if multiple headers are given, we join them explicitly.
 		//
-		//See also: <https://github.com/moby/moby/blob/5e9ecffb4fe966c19b606dc7ccee921de2e8ba31/plugin/fetch_linux.go#L82-L92>
+		// See also: <https://github.com/moby/moby/blob/5e9ecffb4fe966c19b606dc7ccee921de2e8ba31/plugin/fetch_linux.go#L82-L92>
 		acceptHeader := strings.Join(r.Header["Accept"], ", ")
 		acceptRules := accept.Parse(acceptHeader)
 
-		//does the Accept header cover the manifest itself?
+		// does the Accept header cover the manifest itself?
 		negotiatedMediaType, err := acceptRules.Negotiate(
 			dbManifest.MediaType,
-			//go-containerregistry can take any type of manifest when it accepts
-			//"application/json" (it also explicitly accepts
-			//"application/vnd.docker.distribution.manifest.v2+json" with higher
-			//priority, but that doesn't help when we have an image list manifest)
+			// go-containerregistry can take any type of manifest when it accepts
+			// "application/json" (it also explicitly accepts
+			// "application/vnd.docker.distribution.manifest.v2+json" with higher
+			// priority, but that doesn't help when we have an image list manifest)
 			"application/json",
 		)
 		if err != nil {
-			//the Accept header was malformed
+			// the Accept header was malformed
 			keppel.ErrManifestUnknown.With(err.Error()).WithStatus(http.StatusBadRequest).WriteAsRegistryV2ResponseTo(w, r)
 			return
 		}
 
 		if negotiatedMediaType == "" {
-			//we cannot serve the manifest itself, but maybe we can redirect into one of the acceptable
-			//alternates
+			// we cannot serve the manifest itself, but maybe we can redirect into one of the acceptable
+			// alternates
 			manifestParsed, _, err := keppel.ParseManifest(dbManifest.MediaType, manifestBytes)
 			if err != nil {
 				keppel.ErrManifestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
@@ -155,7 +155,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			//there is not even an acceptable alternate, so we need to bail out
+			// there is not even an acceptable alternate, so we need to bail out
 			msg := fmt.Sprintf("manifest type %s is not covered by Accept: %s", dbManifest.MediaType, acceptHeader)
 			logg.Debug(msg)
 			keppel.ErrManifestUnknown.With(msg).WithStatus(http.StatusNotAcceptable).WriteAsRegistryV2ResponseTo(w, r)
@@ -174,7 +174,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//write response
+	// write response
 	w.Header().Set("Content-Length", strconv.FormatUint(uint64(len(manifestBytes)), 10))
 	w.Header().Set("Content-Type", dbManifest.MediaType)
 	w.Header().Set("Docker-Content-Digest", dbManifest.Digest.String())
@@ -192,12 +192,12 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		w.Write(manifestBytes)
 	}
 
-	//count the pull unless a special header is set or the pull is performed by Trivy as part of our security scanning
+	// count the pull unless a special header is set or the pull is performed by Trivy as part of our security scanning
 	if r.Method == http.MethodGet && r.Header.Get("X-Keppel-No-Count-Towards-Last-Pulled") != "1" && authz.UserIdentity.UserType() != keppel.TrivyUser {
 		l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 		api.ManifestsPulledCounter.With(l).Inc()
 
-		//update manifests.last_pulled_at
+		// update manifests.last_pulled_at
 		_, err := a.db.Exec(
 			`UPDATE manifests SET last_pulled_at = $1 WHERE repo_id = $2 AND digest = $3`,
 			a.timeNow(), dbManifest.RepositoryID, dbManifest.Digest,
@@ -216,7 +216,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 			logg.Error("could not update last_pulled_at timestamp on manifest %s@%s: %s", repo.FullName(), dbManifest.Digest, err.Error())
 		}
 
-		//also update tags.last_pulled_at if applicable
+		// also update tags.last_pulled_at if applicable
 		if reference.IsTag() {
 			_, err := a.db.Exec(
 				`UPDATE tags SET last_pulled_at = $1 WHERE repo_id = $2 AND digest = $3 AND name = $4`,
@@ -230,7 +230,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) findManifestInDB(repo keppel.Repository, reference models.ManifestReference) (*keppel.Manifest, error) {
-	//resolve tag into digest if necessary
+	// resolve tag into digest if necessary
 	refDigest := reference.Digest
 	if reference.IsTag() {
 		digestStr, err := a.db.SelectStr(
@@ -282,7 +282,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//delete tag or manifest from the database
+	// delete tag or manifest from the database
 	ref := models.ParseManifestReference(mux.Vars(r)["reference"])
 	actx := keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
@@ -318,7 +318,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//forbid pushing into replica accounts
+	// forbid pushing into replica accounts
 	if account.UpstreamPeerHostName != "" {
 		msg := fmt.Sprintf("cannot push into replica account (push to %s/%s/%s instead!)",
 			account.UpstreamPeerHostName, account.Name, repo.Name,
@@ -334,19 +334,19 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//forbid pushing during maintenance
+	// forbid pushing during maintenance
 	if account.InMaintenance {
 		keppel.ErrUnsupported.With("account is in maintenance").WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 
-	//read manifest from request
+	// read manifest from request
 	manifestBytes, err := io.ReadAll(r.Body)
 	if respondWithError(w, r, err) {
 		return
 	}
 
-	//validate and store manifest
+	// validate and store manifest
 	ref := models.ParseManifestReference(mux.Vars(r)["reference"])
 	manifest, err := a.processor().ValidateAndStoreManifest(*account, *repo, processor.IncomingManifest{
 		Reference: ref,
@@ -361,7 +361,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//count the push
+	// count the push
 	l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 	api.ManifestsPushedCounter.With(l).Inc()
 

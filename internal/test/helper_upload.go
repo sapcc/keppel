@@ -32,11 +32,11 @@ import (
 )
 
 const (
-	//VersionHeaderKey is the standard version header name included in all
-	//Registry v2 API responses.
+	// VersionHeaderKey is the standard version header name included in all
+	// Registry v2 API responses.
 	VersionHeaderKey = "Docker-Distribution-Api-Version"
-	//VersionHeaderValue is the standard version header value included in all
-	//Registry v2 API responses.
+	// VersionHeaderValue is the standard version header value included in all
+	// Registry v2 API responses.
 	VersionHeaderValue = "registry/2.0"
 )
 
@@ -51,7 +51,7 @@ var VersionHeader = map[string]string{VersionHeaderKey: VersionHeaderValue}
 func (b Bytes) MustUpload(t *testing.T, s Setup, repo keppel.Repository) keppel.Blob {
 	token := s.GetToken(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
 
-	//create blob with a monolithic upload
+	// create blob with a monolithic upload
 	assert.HTTPRequest{
 		Method: "POST",
 		Path:   fmt.Sprintf("/v2/%s/blobs/uploads/?digest=%s", repo.FullName(), b.Digest),
@@ -67,9 +67,9 @@ func (b Bytes) MustUpload(t *testing.T, s Setup, repo keppel.Repository) keppel.
 		t.FailNow()
 	}
 
-	//validate uploaded blob (FindBlobByRepository does not work here because we
-	//are usually given a Repository instance that does not have the ID field
-	//filled)
+	// validate uploaded blob (FindBlobByRepository does not work here because we
+	// are usually given a Repository instance that does not have the ID field
+	// filled)
 	account := keppel.Account{Name: repo.AccountName}
 	blob, err := keppel.FindBlobByRepositoryName(s.DB, b.Digest, repo.Name, account)
 	mustDo(t, err)
@@ -89,7 +89,7 @@ var checkBlobExistsQuery = sqlext.SimplifyWhitespace(`
 //
 // `tagName` may be empty if the image is to be uploaded without tagging.
 func (i Image) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName string) keppel.Manifest {
-	//upload missing blobs
+	// upload missing blobs
 	for _, blob := range append(i.Layers, i.Config) {
 		count, err := s.DB.SelectInt(checkBlobExistsQuery, repo.AccountName, blob.Digest.String())
 		if err != nil {
@@ -103,7 +103,7 @@ func (i Image) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName
 		t.FailNow()
 	}
 
-	//upload manifest
+	// upload manifest
 	ref := i.DigestRef()
 	if tagName != "" {
 		ref = models.ManifestReference{Tag: tagName}
@@ -124,7 +124,7 @@ func (i Image) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName
 		t.FailNow()
 	}
 
-	//validate uploaded manifest
+	// validate uploaded manifest
 	account := keppel.Account{Name: repo.AccountName}
 	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, account, i.Manifest.Digest)
 	mustDo(t, err)
@@ -146,7 +146,7 @@ var checkManifestExistsQuery = sqlext.SimplifyWhitespace(`
 //
 // `tagName` may be empty if the image is to be uploaded without tagging.
 func (l ImageList) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tagName string) keppel.Manifest {
-	//upload missing images
+	// upload missing images
 	for _, image := range l.Images {
 		count, err := s.DB.SelectInt(checkManifestExistsQuery, repo.AccountName, repo.Name, image.Manifest.Digest)
 		if err != nil {
@@ -160,7 +160,7 @@ func (l ImageList) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tag
 		t.FailNow()
 	}
 
-	//upload manifest
+	// upload manifest
 	ref := l.DigestRef()
 	if tagName != "" {
 		ref = models.ManifestReference{Tag: tagName}
@@ -181,7 +181,7 @@ func (l ImageList) MustUpload(t *testing.T, s Setup, repo keppel.Repository, tag
 		t.FailNow()
 	}
 
-	//validate uploaded manifest
+	// validate uploaded manifest
 	account := keppel.Account{Name: repo.AccountName}
 	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, account, l.Manifest.Digest)
 	mustDo(t, err)

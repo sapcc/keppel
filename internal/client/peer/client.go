@@ -82,7 +82,7 @@ func (c Client) doRequest(ctx context.Context, method, url string, body io.Reade
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("during %s %s: %w", method, url, err)
 	}
-	if c.token != "" { //empty token occurs only during initToken()
+	if c.token != "" { // empty token occurs only during initToken()
 		req.Header.Set("Authorization", "Bearer "+c.token)
 	}
 	for k, v := range headers {

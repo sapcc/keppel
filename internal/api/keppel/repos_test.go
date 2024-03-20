@@ -59,7 +59,7 @@ func TestReposAPI(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
 
-	//setup two test accounts
+	// setup two test accounts
 	mustInsert(t, s.DB, &keppel.Account{
 		Name:                     "test1",
 		AuthTenantID:             "tenant1",
@@ -73,7 +73,7 @@ func TestReposAPI(t *testing.T) {
 		SecurityScanPoliciesJSON: "[]",
 	})
 
-	//test empty result
+	// test empty result
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/test1/repositories",
@@ -84,8 +84,8 @@ func TestReposAPI(t *testing.T) {
 		},
 	}.Check(t, h)
 
-	//setup five repos in each account (the `test2` account only exists to
-	//validate that we don't accidentally list its repos as well)
+	// setup five repos in each account (the `test2` account only exists to
+	// validate that we don't accidentally list its repos as well)
 	for idx := 1; idx <= 5; idx++ {
 		mustInsert(t, s.DB, &keppel.Repository{
 			Name:        fmt.Sprintf("repo1-%d", idx),
@@ -97,9 +97,9 @@ func TestReposAPI(t *testing.T) {
 		})
 	}
 
-	//insert some dummy blobs and blob mounts into one of the repos to check the
-	//blob size statistics
-	filledRepo := keppel.Repository{ID: 5} //repo1-3
+	// insert some dummy blobs and blob mounts into one of the repos to check the
+	// blob size statistics
+	filledRepo := keppel.Repository{ID: 5} // repo1-3
 	for idx := 1; idx <= 10; idx++ {
 		dummyDigest := test.DeterministicDummyDigest(1000 + idx)
 		blobPushedAt := time.Unix(int64(1000+10*idx), 0)
@@ -117,8 +117,8 @@ func TestReposAPI(t *testing.T) {
 		}
 	}
 
-	//insert some dummy manifests and tags into one of the repos to check the
-	//manifest/tag counting
+	// insert some dummy manifests and tags into one of the repos to check the
+	// manifest/tag counting
 	for idx := 1; idx <= 10; idx++ {
 		dummyDigest := test.DeterministicDummyDigest(idx)
 		manifestPushedAt := time.Unix(int64(10000+10*idx), 0)
@@ -138,7 +138,7 @@ func TestReposAPI(t *testing.T) {
 		})
 		if idx <= 3 {
 			mustInsert(t, s.DB, &keppel.Tag{
-				RepositoryID: 5, //repo1-3
+				RepositoryID: 5, // repo1-3
 				Name:         fmt.Sprintf("tag%d", idx),
 				Digest:       dummyDigest,
 				PushedAt:     time.Unix(int64(20000+10*idx), 0),
@@ -146,7 +146,7 @@ func TestReposAPI(t *testing.T) {
 		}
 	}
 
-	//test GET without pagination
+	// test GET without pagination
 	renderedRepos := []assert.JSONObject{
 		{"name": "repo1-1", "manifest_count": 0, "tag_count": 0},
 		{"name": "repo1-2", "manifest_count": 0, "tag_count": 0},
@@ -169,7 +169,7 @@ func TestReposAPI(t *testing.T) {
 		ExpectBody:   assert.JSONObject{"repositories": renderedRepos},
 	}.Check(t, h)
 
-	//test GET with pagination
+	// test GET with pagination
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/test1/repositories?limit=3",
@@ -202,7 +202,7 @@ func TestReposAPI(t *testing.T) {
 		ExpectBody:   assert.JSONObject{"repositories": []assert.JSONObject{}},
 	}.Check(t, h)
 
-	//test GET failure cases
+	// test GET failure cases
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/doesnotexist/repositories",
@@ -218,7 +218,7 @@ func TestReposAPI(t *testing.T) {
 		ExpectBody:   assert.StringData("strconv.ParseUint: parsing \"foo\": invalid syntax\n"),
 	}.Check(t, h)
 
-	//test DELETE happy case
+	// test DELETE happy case
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/before-delete-repo.sql")
 	assert.HTTPRequest{
 		Method:       "DELETE",
@@ -228,7 +228,7 @@ func TestReposAPI(t *testing.T) {
 	}.Check(t, h)
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/after-delete-repo.sql")
 
-	//test DELETE failure cases
+	// test DELETE failure cases
 	assert.HTTPRequest{
 		Method:       "DELETE",
 		Path:         "/keppel/v1/accounts/test2/repositories/repo2-1",

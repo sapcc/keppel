@@ -38,7 +38,7 @@ var units = []struct {
 	Name   string
 	Length Duration
 }{
-	//ordered from big to small
+	// ordered from big to small
 	{"y", Duration(365 * 24 * time.Hour)},
 	{"w", Duration(7 * 24 * time.Hour)},
 	{"d", Duration(24 * time.Hour)},
@@ -49,13 +49,13 @@ var units = []struct {
 
 // MarshalJSON implements the json.Marshaler interface.
 func (d Duration) MarshalJSON() ([]byte, error) {
-	//special case (without this, the following loop would render 0 as "0 years"
-	//which is a bit odd)
+	// special case (without this, the following loop would render 0 as "0 years"
+	// which is a bit odd)
 	if d == 0 {
 		return json.Marshal(durationObj{0, "s"})
 	}
 
-	//use largest unit that does not lose accuracy
+	// use largest unit that does not lose accuracy
 	for _, unit := range units {
 		if d%unit.Length == 0 {
 			return json.Marshal(durationObj{int64(d / unit.Length), unit.Name})

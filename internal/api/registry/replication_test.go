@@ -35,18 +35,18 @@ import (
 
 func TestReplicationSimpleImage(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
-		//upload image to primary account
+		// upload image to primary account
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		s1.Clock.StepBy(time.Second)
 		image.MustUpload(t, s1, fooRepoRef, "first")
 
-		//test pull by manifest in secondary account
+		// test pull by manifest in secondary account
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
 			h2 := s2.Handler
 			token := s2.GetToken(t, "repository:test1/foo:pull")
 
 			if firstPass {
-				//replication will not take place while the account is in maintenance
+				// replication will not take place while the account is in maintenance
 				testWithAccountInMaintenance(t, s2.DB, "test1", func() {
 					assert.HTTPRequest{
 						Method:       "GET",
@@ -58,7 +58,7 @@ func TestReplicationSimpleImage(t *testing.T) {
 					}.Check(t, h2)
 				})
 			} else {
-				//if manifest is already present locally, we don't care about the maintenance mode
+				// if manifest is already present locally, we don't care about the maintenance mode
 				testWithAccountInMaintenance(t, s2.DB, "test1", func() {
 					expectManifestExists(t, h2, token, "test1/foo", image.Manifest, image.Manifest.Digest.String(), nil)
 				})
@@ -80,7 +80,7 @@ func TestReplicationSimpleImage(t *testing.T) {
 			}
 		})
 
-		//test pull by tag in secondary account
+		// test pull by tag in secondary account
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
 			h2 := s2.Handler
 			token := s2.GetToken(t, "repository:test1/foo:pull")
@@ -93,7 +93,7 @@ func TestReplicationSimpleImage(t *testing.T) {
 
 func TestReplicationImageList(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
-		//upload image list with two images to primary account
+		// upload image list with two images to primary account
 		image1 := test.GenerateImage(test.GenerateExampleLayer(1))
 		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
 		list := test.GenerateImageList(image1, image2)
@@ -102,14 +102,14 @@ func TestReplicationImageList(t *testing.T) {
 		image2.MustUpload(t, s1, fooRepoRef, "second")
 		list.MustUpload(t, s1, fooRepoRef, "list")
 
-		//test pull in secondary account
+		// test pull in secondary account
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
 			h2 := s2.Handler
 			token := s2.GetToken(t, "repository:test1/foo:pull")
 
 			if firstPass {
-				//do not step the clock in the second pass, otherwise the AssertDBContent
-				//will fail on the changed last_pulled_at timestamp
+				// do not step the clock in the second pass, otherwise the AssertDBContent
+				// will fail on the changed last_pulled_at timestamp
 				s1.Clock.StepBy(time.Second)
 			}
 			expectManifestExists(t, h2, token, "test1/foo", list.Manifest, "list", nil)
@@ -119,8 +119,8 @@ func TestReplicationImageList(t *testing.T) {
 			}
 
 			if !firstPass {
-				//test that this also transferred the referenced manifests eagerly (this
-				//part only runs when the primary registry is not reachable)
+				// test that this also transferred the referenced manifests eagerly (this
+				// part only runs when the primary registry is not reachable)
 				expectManifestExists(t, h2, token, "test1/foo", image1.Manifest, "", nil)
 				expectManifestExists(t, h2, token, "test1/foo", image2.Manifest, "", nil)
 			}
@@ -130,8 +130,8 @@ func TestReplicationImageList(t *testing.T) {
 
 func TestReplicationMissingEntities(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
-		//ensure that the `test1/foo` repo exists upstream; otherwise we'll just get
-		//NAME_UNKNOWN
+		// ensure that the `test1/foo` repo exists upstream; otherwise we'll just get
+		// NAME_UNKNOWN
 		_, err := keppel.FindOrCreateRepository(s1.DB, "foo", keppel.Account{Name: "test1"})
 		if err != nil {
 			t.Fatal(err.Error())
@@ -143,12 +143,12 @@ func TestReplicationMissingEntities(t *testing.T) {
 				expectedManifestError = keppel.ErrManifestUnknown
 			)
 			if !firstPass {
-				//in the second pass, when the upstream registry is not reachable, we will get network errors instead
+				// in the second pass, when the upstream registry is not reachable, we will get network errors instead
 				expectedStatus = http.StatusServiceUnavailable
 				expectedManifestError = keppel.ErrUnavailable
 			}
 
-			//try to pull a manifest by tag that exists neither locally nor upstream
+			// try to pull a manifest by tag that exists neither locally nor upstream
 			h2 := s2.Handler
 			token := s2.GetToken(t, "repository:test1/foo:pull")
 			assert.HTTPRequest{
@@ -160,7 +160,7 @@ func TestReplicationMissingEntities(t *testing.T) {
 				ExpectBody:   test.ErrorCode(expectedManifestError),
 			}.Check(t, h2)
 
-			//try to pull a manifest by hash that exists neither locally nor upstream
+			// try to pull a manifest by hash that exists neither locally nor upstream
 			bogusDigest := "sha256:" + strings.Repeat("0", 64)
 			assert.HTTPRequest{
 				Method:       "GET",
@@ -171,9 +171,9 @@ func TestReplicationMissingEntities(t *testing.T) {
 				ExpectBody:   test.ErrorCode(expectedManifestError),
 			}.Check(t, h2)
 
-			//try to pull a blob that exists neither locally nor upstream
-			//(this always gives 404 because we don't even try to replicate blobs that
-			//are not referenced by a manifest that was already replicated)
+			// try to pull a blob that exists neither locally nor upstream
+			// (this always gives 404 because we don't even try to replicate blobs that
+			// are not referenced by a manifest that was already replicated)
 			assert.HTTPRequest{
 				Method:       "GET",
 				Path:         "/v2/test1/foo/blobs/" + bogusDigest,
@@ -224,18 +224,18 @@ func TestReplicationForbidDirectUpload(t *testing.T) {
 
 func TestReplicationManifestQuotaExceeded(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
-		//upload image to primary account
+		// upload image to primary account
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		s1.Clock.StepBy(time.Second)
 		image.MustUpload(t, s1, fooRepoRef, "first")
 
-		//in secondary account...
+		// in secondary account...
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
 			if !firstPass {
 				return
 			}
 
-			//...lower quotas so that replication will fail
+			// ...lower quotas so that replication will fail
 			_, err := s2.DB.Exec(`UPDATE quotas SET manifests = $1`, 0)
 			if err != nil {
 				t.Fatal(err.Error())
@@ -263,20 +263,20 @@ func TestReplicationManifestQuotaExceeded(t *testing.T) {
 
 func TestReplicationUseCachedBlobMetadata(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
-		//upload image to primary account
+		// upload image to primary account
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		s1.Clock.StepBy(time.Second)
 		image.MustUpload(t, s1, fooRepoRef, "first")
 
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
-			//in the first pass, just replicate the manifest
+			// in the first pass, just replicate the manifest
 			h2 := s2.Handler
 			token := s2.GetToken(t, "repository:test1/foo:pull")
 			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "first", nil)
 
-			//in the second pass, query blobs with HEAD - this should work fine even
-			//though the blob contents are not replicated since all necessary metadata
-			//can be obtained from the manifest
+			// in the second pass, query blobs with HEAD - this should work fine even
+			// though the blob contents are not replicated since all necessary metadata
+			// can be obtained from the manifest
 			for _, blob := range []test.Bytes{image.Config, image.Layers[0]} {
 				assert.HTTPRequest{
 					Method:       "HEAD",
@@ -297,25 +297,25 @@ func TestReplicationUseCachedBlobMetadata(t *testing.T) {
 
 func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
-		//upload image to primary account
+		// upload image to primary account
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		s1.Clock.StepBy(time.Second)
 		image.MustUpload(t, s1, fooRepoRef, "first")
 		image.MustUpload(t, s1, fooRepoRef, "second")
 
 		testWithReplica(t, s1, "from_external_on_first_use", func(firstPass bool, s2 test.Setup) {
-			//need only one pass for this test
+			// need only one pass for this test
 			if !firstPass {
 				return
 			}
 
-			//make sure that the "test1/foo" repo exists on secondary (otherwise we
-			//will get useless NAME_UNKNOWN errors later, not the errors we're interested in)
+			// make sure that the "test1/foo" repo exists on secondary (otherwise we
+			// will get useless NAME_UNKNOWN errors later, not the errors we're interested in)
 			h2 := s2.Handler
 			token := s2.GetToken(t, "repository:test1/foo:pull")
 			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "second", nil)
 
-			//enable anonymous pull on the account
+			// enable anonymous pull on the account
 			_, err := s2.DB.Exec(`UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
 				test.ToJSON([]keppel.RBACPolicy{{
 					RepositoryPattern: ".*",
@@ -326,9 +326,9 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 				t.Fatal(err.Error())
 			}
 
-			//get an anonymous token (this is a bit unwieldy because usually all
-			//tests work with non-anonymous tokens, so we don't have helper functions
-			//for anonymous tokens)
+			// get an anonymous token (this is a bit unwieldy because usually all
+			// tests work with non-anonymous tokens, so we don't have helper functions
+			// for anonymous tokens)
 			_, tokenBodyBytes := assert.HTTPRequest{
 				Method: "GET",
 				Path:   "/keppel/v1/auth?service=registry-secondary.example.org&scope=repository:test1/foo:pull",
@@ -347,7 +347,7 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 			}
 			anonToken := tokenBodyData.Token
 
-			//replicating pull is forbidden with an anonymous token...
+			// replicating pull is forbidden with an anonymous token...
 			assert.HTTPRequest{
 				Method:       "GET",
 				Path:         "/v2/test1/foo/manifests/first",
@@ -359,9 +359,9 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 				},
 			}.Check(t, h2)
 
-			//...but allowed with a non-anonymous token...
+			// ...but allowed with a non-anonymous token...
 			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "first", nil)
-			//...and once replicated, the anonymous token can pull as well
+			// ...and once replicated, the anonymous token can pull as well
 			expectManifestExists(t, h2, anonToken, "test1/foo", image.Manifest, "first", nil)
 		})
 	})
@@ -369,13 +369,13 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 
 func TestReplicationAllowAnonymousReplicationFromExternal(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
-		//upload image to primary account
+		// upload image to primary account
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		s1.Clock.StepBy(time.Second)
 		image.MustUpload(t, s1, fooRepoRef, "first")
 
 		testWithReplica(t, s1, "from_external_on_first_use", func(firstPass bool, s2 test.Setup) {
-			//need only one pass for this test
+			// need only one pass for this test
 			if !firstPass {
 				return
 			}
@@ -393,9 +393,9 @@ func TestReplicationAllowAnonymousReplicationFromExternal(t *testing.T) {
 				t.Fatal(err.Error())
 			}
 
-			//get an anonymous token (this is a bit unwieldy because usually all
-			//tests work with non-anonymous tokens, so we don't have helper functions
-			//for anonymous tokens)
+			// get an anonymous token (this is a bit unwieldy because usually all
+			// tests work with non-anonymous tokens, so we don't have helper functions
+			// for anonymous tokens)
 			// TODO: extract to s1.getAnonToken(t, "repository:test1/foo:pull")
 			_, tokenBodyBytes := assert.HTTPRequest{
 				Method: "GET",
@@ -423,9 +423,9 @@ func TestReplicationAllowAnonymousReplicationFromExternal(t *testing.T) {
 
 func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
-		//This test is mostly identical to TestReplicationImageList(), but the
-		//replica will get a platform_filter and thus not replicate all
-		//submanifests.
+		// This test is mostly identical to TestReplicationImageList(), but the
+		// replica will get a platform_filter and thus not replicate all
+		// submanifests.
 		image1 := test.GenerateImage(test.GenerateExampleLayer(1))
 		image2 := test.GenerateImage(test.GenerateExampleLayer(2))
 		list := test.GenerateImageList(image1, image2)
@@ -434,10 +434,10 @@ func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 		image2.MustUpload(t, s1, fooRepoRef, "second")
 		list.MustUpload(t, s1, fooRepoRef, "list")
 
-		//test pull in secondary account
+		// test pull in secondary account
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
-			//setup the platform_filter that differentiates this test from
-			//TestReplicationImageList()
+			// setup the platform_filter that differentiates this test from
+			// TestReplicationImageList()
 			_, err := s2.DB.Exec(`UPDATE accounts SET platform_filter = $1`, `[{"os":"linux","architecture":"amd64"}]`)
 			if err != nil {
 				t.Fatal(err.Error())
@@ -447,8 +447,8 @@ func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 			token := s2.GetToken(t, "repository:test1/foo:pull")
 
 			if firstPass {
-				//do not step the clock in the second pass, otherwise the AssertDBContent
-				//will fail on the changed last_pulled_at timestamp
+				// do not step the clock in the second pass, otherwise the AssertDBContent
+				// will fail on the changed last_pulled_at timestamp
 				s1.Clock.StepBy(time.Second)
 			}
 			expectManifestExists(t, h2, token, "test1/foo", list.Manifest, "list", nil)
@@ -458,12 +458,12 @@ func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 			}
 
 			if !firstPass {
-				//test that this also transferred the referenced manifests eagerly (this
-				//part only runs when the primary registry is not reachable)
+				// test that this also transferred the referenced manifests eagerly (this
+				// part only runs when the primary registry is not reachable)
 				expectManifestExists(t, h2, token, "test1/foo", image1.Manifest, "", nil)
 
-				//when now requesting the unreplicated manifest, the replica will try
-				//to replicate and therefore run into a network error
+				// when now requesting the unreplicated manifest, the replica will try
+				// to replicate and therefore run into a network error
 				assert.HTTPRequest{
 					Method:       "GET",
 					Path:         "/v2/test1/foo/manifests/" + image2.Manifest.Digest.String(),
@@ -478,7 +478,7 @@ func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 }
 
 func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
-	//This test is more contrived than the others because we have *three* registries involved instead of two.
+	// This test is more contrived than the others because we have *three* registries involved instead of two.
 	//- Primary and secondary are, as usual, set up as peers of each other with a replicated account "test1".
 	//- "test1" is reconfigured into an external replica of tertiary on both primary and secondary.
 	//- Tertiary rejects the first pull to trigger the pull delegation code path.
@@ -490,7 +490,7 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 	testWithPrimary(t, setupOptions, func(s1 test.Setup) {
 		testWithReplica(t, s1, "on_first_use", func(firstPass bool, s2 test.Setup) {
 			if !firstPass {
-				return //no second pass needed
+				return // no second pass needed
 			}
 
 			h1 := s1.Handler
@@ -498,7 +498,7 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 			token1 := s1.GetToken(t, "repository:test1/foo:pull")
 			token2 := s2.GetToken(t, "repository:test1/foo:pull")
 
-			//setup tertiary as a mostly static responder
+			// setup tertiary as a mostly static responder
 			image := test.GenerateImage(test.GenerateExampleLayer(1))
 			requestCounter := 0
 			tertiaryHandler := func(w http.ResponseWriter, r *http.Request) {
@@ -517,7 +517,7 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 				if r.URL.Path == "/v2/foo/manifests/"+image.Manifest.Digest.String() {
 					requestCounter++
 					if requestCounter == 1 {
-						//reject initial manifest pull to trigger the pull delegation code path
+						// reject initial manifest pull to trigger the pull delegation code path
 						keppel.ErrTooManyRequests.With("").WriteAsRegistryV2ResponseTo(w, r)
 						return
 					}
@@ -530,7 +530,7 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 			}
 			http.DefaultTransport.(*test.RoundTripper).Handlers["registry-tertiary.example.org"] = http.HandlerFunc(tertiaryHandler)
 
-			//reconfigure "test1" into an external replica of tertiary
+			// reconfigure "test1" into an external replica of tertiary
 			for _, db := range []*keppel.DB{s1.DB, s2.DB} {
 				_, err := db.Exec(`UPDATE accounts SET upstream_peer_hostname = '', external_peer_url = $2 WHERE name = $1`,
 					"test1", "registry-tertiary.example.org")
@@ -539,7 +539,7 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 				}
 			}
 
-			//test successful pull delegation (from secondary to primary)
+			// test successful pull delegation (from secondary to primary)
 			requestCounter = 0
 			assert.HTTPRequest{
 				Method:       "GET",
@@ -550,9 +550,9 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 				ExpectBody:   assert.ByteData(image.Manifest.Contents),
 			}.Check(t, h2)
 
-			//test failed pull delegation (from primary to secondary; primary does
-			//not have a password for secondary's peering API, so delegation fails
-			//and we see the original 429 response instead)
+			// test failed pull delegation (from primary to secondary; primary does
+			// not have a password for secondary's peering API, so delegation fails
+			// and we see the original 429 response instead)
 			requestCounter = 0
 			assert.HTTPRequest{
 				Method:       "GET",

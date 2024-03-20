@@ -39,14 +39,14 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 
 	accountJob := j.AccountFederationAnnouncementJob(s.Registry)
 
-	//with just one account set up, AnnounceNextAccountToFederation should
-	//announce that account, then start doing nothing
+	// with just one account set up, AnnounceNextAccountToFederation should
+	// announce that account, then start doing nothing
 	expectSuccess(t, accountJob.ProcessOne(s.Ctx))
 	expectAccountsAnnouncedJustNow(t, s, account1)
 	expectError(t, sql.ErrNoRows.Error(), accountJob.ProcessOne(s.Ctx))
 	expectAccountsAnnouncedJustNow(t, s /*, nothing */)
 
-	//setup another account; only that one should need announcing initially
+	// setup another account; only that one should need announcing initially
 	s.Clock.StepBy(5 * time.Minute)
 	account2 := keppel.Account{Name: "test2", AuthTenantID: "test2authtenant", GCPoliciesJSON: "[]"}
 	mustDo(t, s.DB.Insert(&account2))
@@ -55,7 +55,7 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 	expectError(t, sql.ErrNoRows.Error(), accountJob.ProcessOne(s.Ctx))
 	expectAccountsAnnouncedJustNow(t, s /*, nothing */)
 
-	//do another full round of announcements
+	// do another full round of announcements
 	s.Clock.StepBy(65 * time.Minute)
 	expectSuccess(t, accountJob.ProcessOne(s.Ctx))
 	expectAccountsAnnouncedJustNow(t, s, account1)
@@ -77,6 +77,6 @@ func expectAccountsAnnouncedJustNow(t *testing.T, s test.Setup, accounts ...kepp
 	assert.DeepEqual(t, "accounts announced to federation",
 		s.FD.RecordedAccounts, expected)
 
-	//reset for next test step
+	// reset for next test step
 	s.FD.RecordedAccounts = nil
 }

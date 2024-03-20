@@ -32,15 +32,15 @@ import (
 
 // RepoClient contains methods for interacting with a repository on a registry server.
 type RepoClient struct {
-	Scheme   string //either "http" or "https"
-	Host     string //either a plain hostname or a host:port like "example.org:443"
+	Scheme   string // either "http" or "https"
+	Host     string // either a plain hostname or a host:port like "example.org:443"
 	RepoName string
 
-	//credentials (only needed for non-public repos)
+	// credentials (only needed for non-public repos)
 	UserName string
 	Password string
 
-	//auth state
+	// auth state
 	token string
 }
 
@@ -84,13 +84,13 @@ func (c *RepoClient) doRequest(ctx context.Context, r repoRequest) (*http.Respon
 
 	uri := fmt.Sprintf("%s://%s/v2/%s/%s", c.Scheme, c.Host, c.RepoName, r.Path)
 
-	//send GET request for manifest
+	// send GET request for manifest
 	resp, req, err := c.sendRequest(ctx, r, uri)
 	if err != nil {
 		return nil, err
 	}
 
-	//if it's a 401, do the auth challenge...
+	// if it's a 401, do the auth challenge...
 	if resp.StatusCode == http.StatusUnauthorized {
 		authChallenge, err := ParseAuthChallenge(resp.Header)
 		if err != nil {
@@ -101,7 +101,7 @@ func (c *RepoClient) doRequest(ctx context.Context, r repoRequest) (*http.Respon
 			return nil, fmt.Errorf("authentication failed: %w", err)
 		}
 
-		//...then resend the GET request with the token
+		// ...then resend the GET request with the token
 		if r.Body != nil {
 			_, err = r.Body.Seek(0, io.SeekStart)
 			if err != nil {
@@ -117,11 +117,11 @@ func (c *RepoClient) doRequest(ctx context.Context, r repoRequest) (*http.Respon
 	if resp.StatusCode != r.ExpectStatus {
 		defer resp.Body.Close()
 
-		//on error, try to parse the upstream RegistryV2Error so that we can proxy it
-		//through to the client correctly
+		// on error, try to parse the upstream RegistryV2Error so that we can proxy it
+		// through to the client correctly
 		//
 		//NOTE: We use HasPrefix here because the actual Content-Type is usually
-		//"application/json; charset=utf-8".
+		// "application/json; charset=utf-8".
 		if r.Method != "HEAD" && strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
 			var respData struct {
 				Errors []*keppel.RegistryV2Error `json:"errors"`

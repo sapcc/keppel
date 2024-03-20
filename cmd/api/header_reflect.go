@@ -27,7 +27,7 @@ import (
 
 // guiRedirecter is an api.API that implements the GET /debug/reflect-headers endpoint.
 type headerReflector struct {
-	Enabled bool //usually only on dev/QA systems
+	Enabled bool // usually only on dev/QA systems
 }
 
 // AddTo implements the api.API interface.
@@ -38,7 +38,7 @@ func (hr *headerReflector) AddTo(r *mux.Router) {
 }
 
 func reflectHeaders(w http.ResponseWriter, r *http.Request) {
-	//echo all request headers into the response body
+	// echo all request headers into the response body
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	for key, vals := range r.Header {

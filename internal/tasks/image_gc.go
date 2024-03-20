@@ -74,7 +74,7 @@ func (j *Janitor) ManifestGarbageCollectionJob(registerer prometheus.Registerer)
 }
 
 func (j *Janitor) garbageCollectManifestsInRepo(_ context.Context, repo keppel.Repository, labels prometheus.Labels) (returnErr error) {
-	//load GC policies for this repository
+	// load GC policies for this repository
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {
 		return fmt.Errorf("cannot find account for repo %s: %w", repo.FullName(), err)
@@ -94,16 +94,16 @@ func (j *Janitor) garbageCollectManifestsInRepo(_ context.Context, repo keppel.R
 		}
 	}
 
-	//execute GC policies
+	// execute GC policies
 	if len(policiesForRepo) > 0 {
 		err = j.executeGCPolicies(*account, repo, policiesForRepo)
 		if err != nil {
 			return err
 		}
 	} else {
-		//if there are no policies to apply, we can skip a whole bunch of work, but
-		//we still need to update the GCStatusJSON field on the repo's manifests to
-		//make sure those statuses don't refer to deleted GC policies
+		// if there are no policies to apply, we can skip a whole bunch of work, but
+		// we still need to update the GCStatusJSON field on the repo's manifests to
+		// make sure those statuses don't refer to deleted GC policies
 		_, err = j.db.Exec(imageGCResetStatusQuery, repo.ID)
 		if err != nil {
 			return err
@@ -123,14 +123,14 @@ type manifestData struct {
 }
 
 func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Repository, policies []keppel.GCPolicy) error {
-	//load manifests in repo
+	// load manifests in repo
 	var dbManifests []keppel.Manifest
 	_, err := j.db.Select(&dbManifests, `SELECT * FROM manifests WHERE repo_id = $1`, repo.ID)
 	if err != nil {
 		return err
 	}
 
-	//setup a bit of structure to track state in during the policy evaluation
+	// setup a bit of structure to track state in during the policy evaluation
 	var manifests []*manifestData
 	for _, m := range dbManifests {
 		manifests = append(manifests, &manifestData{
@@ -142,7 +142,7 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 		})
 	}
 
-	//load tags (for matching policies on match_tag, except_tag and only_untagged)
+	// load tags (for matching policies on match_tag, except_tag and only_untagged)
 	query := `SELECT digest, name FROM tags WHERE repo_id = $1`
 	err = sqlext.ForeachRow(j.db, query, []any{repo.ID}, func(rows *sql.Rows) error {
 		var (
@@ -165,7 +165,7 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 		return err
 	}
 
-	//check manifest-manifest relations to fill GCStatus.ProtectedByManifest
+	// check manifest-manifest relations to fill GCStatus.ProtectedByManifest
 	query = `SELECT parent_digest, child_digest FROM manifest_manifest_refs WHERE repo_id = $1`
 	err = sqlext.ForeachRow(j.db, query, []any{repo.ID}, func(rows *sql.Rows) error {
 		var (
@@ -189,12 +189,12 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 	}
 	for _, m := range manifests {
 		if len(m.ParentDigests) > 0 {
-			sort.Strings(m.ParentDigests) //for deterministic test behavior
+			sort.Strings(m.ParentDigests) // for deterministic test behavior
 			m.GCStatus.ProtectedByParentManifest = m.ParentDigests[0]
 		}
 	}
 
-	//evaluate policies in order
+	// evaluate policies in order
 	proc := j.processor()
 	for _, policy := range policies {
 		err := j.evaluatePolicy(proc, manifests, account, repo, policy)
@@ -207,8 +207,8 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 }
 
 func (j *Janitor) evaluatePolicy(proc *processor.Processor, manifests []*manifestData, account keppel.Account, repo keppel.Repository, policy keppel.GCPolicy) error {
-	//for some time constraint matches, we need to know which manifests are
-	//still alive
+	// for some time constraint matches, we need to know which manifests are
+	// still alive
 	var aliveManifests []keppel.Manifest
 	for _, m := range manifests {
 		if !m.IsDeleted {
@@ -216,21 +216,21 @@ func (j *Janitor) evaluatePolicy(proc *processor.Processor, manifests []*manifes
 		}
 	}
 
-	//evaluate policy for each manifest
+	// evaluate policy for each manifest
 	for _, m := range manifests {
-		//skip those manifests that are already deleted, and those which are
-		//protected by an earlier policy or one of the baseline checks above
+		// skip those manifests that are already deleted, and those which are
+		// protected by an earlier policy or one of the baseline checks above
 		if m.IsDeleted || m.GCStatus.IsProtected() {
 			continue
 		}
 
-		//track matching "delete" policies in GCStatus to allow users insight
-		//into how policies match
+		// track matching "delete" policies in GCStatus to allow users insight
+		// into how policies match
 		if policy.Action == "delete" {
 			m.GCStatus.RelevantPolicies = append(m.GCStatus.RelevantPolicies, policy)
 		}
 
-		//evaluate constraints
+		// evaluate constraints
 		if !policy.MatchesTags(m.TagNames) {
 			continue
 		}
@@ -239,7 +239,7 @@ func (j *Janitor) evaluatePolicy(proc *processor.Processor, manifests []*manifes
 		}
 
 		pCopied := policy
-		//execute policy action
+		// execute policy action
 		switch policy.Action {
 		case "protect":
 			m.GCStatus.ProtectedByPolicy = &pCopied
@@ -258,7 +258,7 @@ func (j *Janitor) evaluatePolicy(proc *processor.Processor, manifests []*manifes
 			policyJSON, _ := json.Marshal(policy)
 			logg.Info("GC on repo %s: deleted manifest %s because of policy %s", repo.FullName(), m.Manifest.Digest, string(policyJSON))
 		default:
-			//defense in depth: we already did p.Validate() earlier
+			// defense in depth: we already did p.Validate() earlier
 			return fmt.Errorf("unexpected GC policy action: %q (why was this not caught by Validate!?)", policy.Action)
 		}
 	}
@@ -267,15 +267,15 @@ func (j *Janitor) evaluatePolicy(proc *processor.Processor, manifests []*manifes
 }
 
 func (j *Janitor) persistGCStatus(manifests []*manifestData, repoID int64) error {
-	//finalize and persist GCStatus for all affected manifests
+	// finalize and persist GCStatus for all affected manifests
 	query := `UPDATE manifests SET gc_status_json = $1 WHERE repo_id = $2 AND digest = $3`
 	err := sqlext.WithPreparedStatement(j.db, query, func(stmt *sql.Stmt) error {
 		for _, m := range manifests {
 			if m.IsDeleted {
 				continue
 			}
-			//to simplify UI, show only EITHER protection status OR relevant deleting
-			//policies, not both
+			// to simplify UI, show only EITHER protection status OR relevant deleting
+			// policies, not both
 			if m.GCStatus.IsProtected() {
 				m.GCStatus.RelevantPolicies = nil
 			}

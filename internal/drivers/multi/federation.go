@@ -46,7 +46,7 @@ func (fd *federationDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration)
 	driverNames := strings.Split(osext.MustGetenv("KEPPEL_FEDERATION_MULTI_DRIVERS"), ",")
 	for _, driverName := range driverNames {
 		if driverName == "multi" {
-			//prevent infinite loops
+			// prevent infinite loops
 			return errors.New(`cannot nest "multi" federation driver within itself`)
 		}
 		subdriver, err := keppel.NewFederationDriver(strings.TrimSpace(driverName), ad, cfg)
@@ -60,13 +60,13 @@ func (fd *federationDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration)
 
 // ClaimAccountName implements the keppel.FederationDriver interface.
 func (fd *federationDriver) ClaimAccountName(ctx context.Context, account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
-	//the primary driver issued the sublease token secret, so this one has to verify it
+	// the primary driver issued the sublease token secret, so this one has to verify it
 	claimResult, err := fd.Drivers[0].ClaimAccountName(ctx, account, subleaseTokenSecret)
 	if err != nil || claimResult != keppel.ClaimSucceeded {
 		return claimResult, err
 	}
 
-	//all other drivers are just informed that the claim happened
+	// all other drivers are just informed that the claim happened
 	now := time.Now()
 	for _, driver := range fd.Drivers[1:] {
 		err := driver.RecordExistingAccount(ctx, account, now)

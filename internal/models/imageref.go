@@ -33,7 +33,7 @@ const (
 
 // ImageReference refers to an image that can be pulled from a registry.
 type ImageReference struct {
-	Host      string //either a plain hostname or a host:port like "example.org:443"
+	Host      string // either a plain hostname or a host:port like "example.org:443"
 	RepoName  string
 	Reference ManifestReference
 }
@@ -42,10 +42,10 @@ type ImageReference struct {
 func (r ImageReference) String() string {
 	var result string
 	if r.Reference.IsDigest() {
-		//digests are appended with "@"
+		// digests are appended with "@"
 		result = fmt.Sprintf("%s@%s", r.RepoName, r.Reference.Digest)
 	} else {
-		//tag names are appended with ":"
+		// tag names are appended with ":"
 		if r.Reference.Tag == defaultTagName {
 			result = r.RepoName
 		} else {
@@ -54,8 +54,8 @@ func (r ImageReference) String() string {
 	}
 
 	if r.Host == defaultHostName {
-		//strip leading "library/" from repo name; e.g.
-		//"registry-1.docker.io/library/alpine:3.9" becomes just "alpine:3.9"
+		// strip leading "library/" from repo name; e.g.
+		// "registry-1.docker.io/library/alpine:3.9" becomes just "alpine:3.9"
 		return strings.TrimPrefix(result, "library/")
 	}
 	return fmt.Sprintf("%s/%s", r.Host, result)
@@ -67,7 +67,7 @@ func (r ImageReference) String() string {
 // the input was interpreted (e.g. which defaults were inferred). This can be
 // shown to the user to help them understand how the reference was parsed.
 func ParseImageReference(input string) (ImageReference, string, error) {
-	//prepend hostname for default registry if input does not include a hostname or host:port
+	// prepend hostname for default registry if input does not include a hostname or host:port
 	inputParts := strings.SplitN(input, "/", 2)
 	hadNoHostName := false
 	if len(inputParts) == 1 || !looksLikeHostName(inputParts[0]) {
@@ -75,7 +75,7 @@ func ParseImageReference(input string) (ImageReference, string, error) {
 		hadNoHostName = true
 	}
 
-	//reformat into a URL for parsing purposes
+	// reformat into a URL for parsing purposes
 	input = "docker-pullable://" + input
 	imageURL, err := url.Parse(input)
 	if err != nil {
@@ -84,7 +84,7 @@ func ParseImageReference(input string) (ImageReference, string, error) {
 
 	var ref ImageReference
 	if strings.Contains(imageURL.Path, "@") {
-		//input references a digest
+		// input references a digest
 		pathParts := ImageReferenceRx.FindStringSubmatch(imageURL.Path)
 		parsedDigest, err := digest.Parse(pathParts[len(pathParts)-1])
 		if err != nil {
@@ -96,7 +96,7 @@ func ParseImageReference(input string) (ImageReference, string, error) {
 			Reference: ManifestReference{Digest: parsedDigest},
 		}
 	} else if strings.Contains(imageURL.Path, ":") {
-		//input references a tag name
+		// input references a tag name
 		pathParts := strings.SplitN(imageURL.Path, ":", 2)
 		ref = ImageReference{
 			Host:      imageURL.Host,
@@ -104,7 +104,7 @@ func ParseImageReference(input string) (ImageReference, string, error) {
 			Reference: ManifestReference{Tag: pathParts[1]},
 		}
 	} else {
-		//input references no tag or digest - use default tag
+		// input references no tag or digest - use default tag
 		ref = ImageReference{
 			Host:      imageURL.Host,
 			RepoName:  strings.TrimPrefix(imageURL.Path, "/"),
@@ -117,8 +117,8 @@ func ParseImageReference(input string) (ImageReference, string, error) {
 	}
 
 	if hadNoHostName {
-		//on the default registry, single-word repo names like "alpine" are
-		//actually shorthands for "library/alpine" etc.
+		// on the default registry, single-word repo names like "alpine" are
+		// actually shorthands for "library/alpine" etc.
 		if !strings.Contains(ref.RepoName, "/") {
 			ref.RepoName = "library/" + ref.RepoName
 		}
@@ -129,7 +129,7 @@ func ParseImageReference(input string) (ImageReference, string, error) {
 
 func looksLikeHostName(host string) bool {
 	if strings.Contains(host, ":") {
-		//looks like "host:port"
+		// looks like "host:port"
 		return true
 	}
 	return strings.Contains(host, ".") || host == "localhost"

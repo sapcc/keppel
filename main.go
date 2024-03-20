@@ -34,7 +34,7 @@ import (
 	validatecmd "github.com/sapcc/keppel/cmd/validate"
 	"github.com/sapcc/keppel/internal/keppel"
 
-	//include all known driver implementations
+	// include all known driver implementations
 	_ "github.com/sapcc/keppel/internal/drivers/basic"
 	_ "github.com/sapcc/keppel/internal/drivers/filesystem"
 	_ "github.com/sapcc/keppel/internal/drivers/multi"

@@ -35,7 +35,7 @@ func TestQuotasAPI(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
 
-	//GET on auth tenant without more specific configuration shows default values
+	// GET on auth tenant without more specific configuration shows default values
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/quotas/tenant1",
@@ -46,7 +46,7 @@ func TestQuotasAPI(t *testing.T) {
 		},
 	}.Check(t, h)
 
-	//GET basic error cases
+	// GET basic error cases
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/quotas/tenant1",
@@ -60,7 +60,7 @@ func TestQuotasAPI(t *testing.T) {
 		ExpectStatus: http.StatusForbidden,
 	}.Check(t, h)
 
-	//PUT happy case
+	// PUT happy case
 	for _, pass := range []int{1, 2, 3} {
 		assert.HTTPRequest{
 			Method: "PUT",
@@ -75,7 +75,7 @@ func TestQuotasAPI(t *testing.T) {
 			},
 		}.Check(t, h)
 
-		//only the first pass should generate an audit event
+		// only the first pass should generate an audit event
 		if pass == 1 {
 			s.Auditor.ExpectEvents(t, cadf.Event{
 				RequestPath: "/keppel/v1/quotas/tenant1",
@@ -105,7 +105,7 @@ func TestQuotasAPI(t *testing.T) {
 		}
 	}
 
-	//GET reflects changes
+	// GET reflects changes
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/quotas/tenant1",
@@ -116,7 +116,7 @@ func TestQuotasAPI(t *testing.T) {
 		},
 	}.Check(t, h)
 
-	//put some manifests in the DB, check thet GET reflects higher usage
+	// put some manifests in the DB, check thet GET reflects higher usage
 	mustInsert(t, s.DB, &keppel.Account{
 		Name:                     "test1",
 		AuthTenantID:             "tenant1",
@@ -154,7 +154,7 @@ func TestQuotasAPI(t *testing.T) {
 		},
 	}.Check(t, h)
 
-	//PUT error cases
+	// PUT error cases
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/quotas/tenant1",
@@ -185,5 +185,5 @@ func TestQuotasAPI(t *testing.T) {
 		ExpectBody:   assert.StringData("requested manifest quota (5) is below usage (10)\n"),
 	}.Check(t, h)
 
-	//TODO audit events
+	// TODO audit events
 }

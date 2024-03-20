@@ -70,7 +70,7 @@ func (d *keystoneDriver) PluginTypeID() string {
 
 // Init implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) Init(rc *redis.Client) error {
-	//authenticate service user
+	// authenticate service user
 	ao, err := clientconfig.AuthOptions(nil)
 	if err != nil {
 		return errors.New("cannot find OpenStack credentials: " + err.Error())
@@ -81,9 +81,9 @@ func (d *keystoneDriver) Init(rc *redis.Client) error {
 		return errors.New("cannot connect to OpenStack: " + err.Error())
 	}
 
-	//find Identity V3 endpoint
+	// find Identity V3 endpoint
 	eo := gophercloud.EndpointOpts{
-		//note that empty values are acceptable in both fields
+		// note that empty values are acceptable in both fields
 		Region:       os.Getenv("OS_REGION_NAME"),
 		Availability: gophercloud.Availability(os.Getenv("OS_INTERFACE")),
 	}
@@ -92,7 +92,7 @@ func (d *keystoneDriver) Init(rc *redis.Client) error {
 		return errors.New("cannot find Keystone V3 API: " + err.Error())
 	}
 
-	//load oslo.policy
+	// load oslo.policy
 	d.TokenValidator = &gopherpolicy.TokenValidator{IdentityV3: d.IdentityV3}
 	err = d.TokenValidator.LoadPolicyFile(osext.MustGetenv("KEPPEL_OSLO_POLICY_PATH"))
 	if err != nil {
@@ -124,15 +124,15 @@ func (d *keystoneDriver) AuthenticateUser(ctx context.Context, userName, passwor
 	authOpts.IdentityEndpoint = d.IdentityV3.Endpoint
 	authOpts.AllowReauth = false
 
-	//abort the authentication after 45 seconds if it's stuck; we want to be able
-	//to show a useful error message before we run into our own timeouts (usually
-	//the loadbalancer or whatever's in front of us will have a timeout of 60
-	//seconds)
+	// abort the authentication after 45 seconds if it's stuck; we want to be able
+	// to show a useful error message before we run into our own timeouts (usually
+	// the loadbalancer or whatever's in front of us will have a timeout of 60
+	// seconds)
 	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
-	defer cancel() //silence govet
+	defer cancel() // silence govet
 
-	//perform the authentication with a fresh ServiceClient, otherwise a 401
-	//response will trigger a useless reauthentication of the service user
+	// perform the authentication with a fresh ServiceClient, otherwise a 401
+	// response will trigger a useless reauthentication of the service user
 	throwAwayClient := gophercloud.ServiceClient{
 		ProviderClient: &gophercloud.ProviderClient{
 			Throwaway: true,
@@ -204,7 +204,7 @@ func parseUserNameAndPassword(userName, password string) (tokens.AuthOptions, *k
 // AuthenticateUserFromRequest implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	if r.Header.Get("X-Auth-Token") == "" {
-		//fallback to anonymous auth
+		// fallback to anonymous auth
 		return nil, nil
 	}
 
@@ -213,7 +213,7 @@ func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Us
 		return nil, keppel.ErrUnauthorized.With("X-Auth-Token validation failed: " + t.Err.Error())
 	}
 
-	//t.Context.Request = mux.Vars(r) //not used at the moment
+	// t.Context.Request = mux.Vars(r) //not used at the moment
 
 	a := &keystoneUserIdentity{t}
 	if !a.t.Check("account:list") {
@@ -224,9 +224,9 @@ func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Us
 
 type keystoneUserIdentity struct {
 	t *gopherpolicy.Token
-	//^ WARNING: Token may not always contain everything you expect
-	//because of a serialization roundtrip. See SerializeToJSON() and
-	//DeserializeFromJSON() for details.
+	// ^ WARNING: Token may not always contain everything you expect
+	// because of a serialization roundtrip. See SerializeToJSON() and
+	// DeserializeFromJSON() for details.
 }
 
 var ruleForPerm = map[keppel.Permission]string{
@@ -284,11 +284,11 @@ type serializedKeystoneUserIdentity struct {
 
 // SerializeToJSON implements the keppel.UserIdentity interface.
 func (a *keystoneUserIdentity) SerializeToJSON() (payload []byte, err error) {
-	//We cannot serialize the entire gopherpolicy.Token, that would include the
-	//X-Auth-Token and possibly even the full token response including service
-	//catalog, and thus produce a rather massive payload. We skip the token and
-	//token response and only serialize what we need to make policy decisions and
-	//satisfy the audittools.UserInfo interface.
+	// We cannot serialize the entire gopherpolicy.Token, that would include the
+	// X-Auth-Token and possibly even the full token response including service
+	// catalog, and thus produce a rather massive payload. We skip the token and
+	// token response and only serialize what we need to make policy decisions and
+	// satisfy the audittools.UserInfo interface.
 	payload, err = json.Marshal(serializedKeystoneUserIdentity{
 		Auth:  a.t.Context.Auth,
 		Roles: a.t.Context.Roles,
@@ -322,9 +322,9 @@ func (a *keystoneUserIdentity) DeserializeFromJSON(in []byte, ad keppel.AuthDriv
 		Context: policy.Context{
 			Auth:    skuid.Auth,
 			Roles:   skuid.Roles,
-			Request: make(map[string]string), //filled by HasPermission(); does not need to be serialized
+			Request: make(map[string]string), // filled by HasPermission(); does not need to be serialized
 		},
-		ProviderClient: nil, //cannot be reasonably serialized; see comment above
+		ProviderClient: nil, // cannot be reasonably serialized; see comment above
 		Err:            nil,
 	}
 	return nil

@@ -58,14 +58,14 @@ func ParseAuthChallenge(hdr http.Header) (AuthChallenge, error) {
 	var c AuthChallenge
 
 	for input != "" {
-		//find next challenge field (because of the ^ anchor, this always yields a
-		//prefix of `input`)
+		// find next challenge field (because of the ^ anchor, this always yields a
+		// prefix of `input`)
 		match := challengeFieldRx.FindStringSubmatch(input)
 		if match == nil {
 			return AuthChallenge{}, fmt.Errorf("malformed Www-Authenticate header: %s", hdr.Get("Www-Authenticate"))
 		}
 
-		//remove challenge field from input for next loop iteration
+		// remove challenge field from input for next loop iteration
 		input = strings.TrimPrefix(input, match[0])
 
 		key, value := match[1], match[2]

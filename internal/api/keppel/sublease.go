@@ -46,7 +46,7 @@ func (t SubleaseToken) Serialize() string {
 func SubleaseTokenFromRequest(r *http.Request) (SubleaseToken, error) {
 	in := r.Header.Get("X-Keppel-Sublease-Token")
 	if in == "" {
-		return SubleaseToken{}, nil //empty sublease token is acceptable for federation drivers that don't need one
+		return SubleaseToken{}, nil // empty sublease token is acceptable for federation drivers that don't need one
 	}
 
 	buf, err := base64.StdEncoding.DecodeString(in)

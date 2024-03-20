@@ -43,7 +43,7 @@ func (uid *TrivyUserIdentity) PluginTypeID() string {
 
 // HasPermission implements the keppel.UserIdentity interface.
 func (uid *TrivyUserIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
-	//allow universal pull access for security scanning purposes
+	// allow universal pull access for security scanning purposes
 	return perm == keppel.CanViewAccount || perm == keppel.CanPullFromAccount
 }
 

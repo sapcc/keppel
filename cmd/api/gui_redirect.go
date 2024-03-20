@@ -38,7 +38,7 @@ type guiRedirecter struct {
 
 // AddTo implements the api.API interface.
 func (g *guiRedirecter) AddTo(r *mux.Router) {
-	//check if this feature is enabled
+	// check if this feature is enabled
 	if g.urlStr == "" {
 		return
 	}
@@ -47,7 +47,7 @@ func (g *guiRedirecter) AddTo(r *mux.Router) {
 }
 
 func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request) {
-	//only attempt to redirect if it's a web browser doing the request
+	// only attempt to redirect if it's a web browser doing the request
 	if !strings.Contains(r.Header.Get("Accept"), "text/html") {
 		respondNotFound(w, r)
 		return
@@ -55,7 +55,7 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 
 	vars := mux.Vars(r)
 
-	//do we have this account/repo?
+	// do we have this account/repo?
 	account, err := keppel.FindAccount(g.db, vars["account"])
 	if err != nil || account == nil {
 		respondNotFound(w, r)
@@ -68,7 +68,7 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	//is it publicly readable?
+	// is it publicly readable?
 	policies, err := account.ParseRBACPolicies()
 	if err != nil {
 		respondNotFound(w, r)
@@ -80,7 +80,7 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 		}
 		ip := httpext.GetRequesterIPFor(r)
 		if policy.Matches(ip, repo.Name, auth.AnonymousUserIdentity.UserName()) {
-			//do the redirect
+			// do the redirect
 			s := g.urlStr
 			s = strings.Replace(s, "%AUTH_TENANT_ID%", account.AuthTenantID, -1)
 			s = strings.Replace(s, "%ACCOUNT_NAME%", account.Name, -1)

@@ -60,12 +60,12 @@ var outdatedManifestSearchQuery = sqlext.SimplifyWhitespace(`
 		-- one at a time
 `)
 
-//^ NOTE: The sorting by media_type is completely useless in real-world
-//situations since real-life manifests will always have validated_at timestamps
-//that differ at least by some nanoseconds. But in tests, this sorting ensures
-//that single-arch images get revalidated before multi-arch images, which is
-//important because multi-arch images take into account the size_bytes
-//attribute of their constituent images.
+// ^ NOTE: The sorting by media_type is completely useless in real-world
+// situations since real-life manifests will always have validated_at timestamps
+// that differ at least by some nanoseconds. But in tests, this sorting ensures
+// that single-arch images get revalidated before multi-arch images, which is
+// important because multi-arch images take into account the size_bytes
+// attribute of their constituent images.
 
 // ManifestValidationJob is a job. Each task validates a manifest that has not been validated for more
 // than 24 hours.
@@ -79,7 +79,7 @@ func (j *Janitor) ManifestValidationJob(registerer prometheus.Registerer) jobloo
 			},
 		},
 		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (manifest keppel.Manifest, err error) {
-			//find manifest: validate once every 24 hours, but recheck after 10 minutes if validation failed
+			// find manifest: validate once every 24 hours, but recheck after 10 minutes if validation failed
 			maxSuccessfulValidatedAt := j.timeNow().Add(-24 * time.Hour)
 			maxFailedValidatedAt := j.timeNow().Add(-10 * time.Minute)
 			err = j.db.SelectOne(&manifest, outdatedManifestSearchQuery, maxSuccessfulValidatedAt, maxFailedValidatedAt)
@@ -90,7 +90,7 @@ func (j *Janitor) ManifestValidationJob(registerer prometheus.Registerer) jobloo
 }
 
 func (j *Janitor) validateManifest(_ context.Context, manifest keppel.Manifest, _ prometheus.Labels) error {
-	//find corresponding account and repo
+	// find corresponding account and repo
 	var repo keppel.Repository
 	err := j.db.SelectOne(&repo, `SELECT * FROM repos WHERE id = $1`, manifest.RepositoryID)
 	if err != nil {
@@ -101,12 +101,12 @@ func (j *Janitor) validateManifest(_ context.Context, manifest keppel.Manifest, 
 		return fmt.Errorf("cannot find account for manifest %s/%s: %w", repo.FullName(), manifest.Digest, err)
 	}
 
-	//perform validation
+	// perform validation
 	err = j.processor().ValidateExistingManifest(*account, repo, &manifest, j.timeNow())
 	if err != nil {
-		//attempt to log the error message, and also update the `validated_at`
-		//timestamp to ensure that the ManifestValidationJob does not get
-		//stuck on this one
+		// attempt to log the error message, and also update the `validated_at`
+		// timestamp to ensure that the ManifestValidationJob does not get
+		// stuck on this one
 		_, updateErr := j.db.Exec(`
 			UPDATE manifests SET validated_at = $1, validation_error_message = $2
 				WHERE repo_id = $3 AND digest = $4`,
@@ -118,7 +118,7 @@ func (j *Janitor) validateManifest(_ context.Context, manifest keppel.Manifest, 
 		return fmt.Errorf("while validating manifest %s in repo %d: %w", manifest.Digest, manifest.RepositoryID, err)
 	}
 
-	//update `validated_at` and reset error message
+	// update `validated_at` and reset error message
 	_, err = j.db.Exec(`
 			UPDATE manifests SET validated_at = $1, validation_error_message = ''
 				WHERE repo_id = $2 AND digest = $3`,
@@ -173,13 +173,13 @@ func (j *Janitor) ManifestSyncJob(registerer prometheus.Registerer) jobloop.Job 
 }
 
 func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo keppel.Repository, _ prometheus.Labels) error {
-	//find corresponding account
+	// find corresponding account
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {
 		return fmt.Errorf("cannot find account for repo %s: %w", repo.FullName(), err)
 	}
 
-	//do not perform manifest sync while account is in maintenance (maintenance mode blocks all kinds of replication)
+	// do not perform manifest sync while account is in maintenance (maintenance mode blocks all kinds of replication)
 	if !account.InMaintenance {
 		syncPayload, err := j.getReplicaSyncPayload(ctx, *account, repo)
 		if err != nil {
@@ -209,25 +209,25 @@ func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo keppel.Re
 // the primary account. The primary therefore gains a complete picture of pull
 // activity, which is required for some GC policies to work correctly.
 func (j *Janitor) getReplicaSyncPayload(ctx context.Context, account keppel.Account, repo keppel.Repository) (*keppel.ReplicaSyncPayload, error) {
-	//the replica-sync API is only available when upstream is a peer
+	// the replica-sync API is only available when upstream is a peer
 	if account.UpstreamPeerHostName == "" {
 		return nil, nil
 	}
 
-	//get peer
+	// get peer
 	var peer keppel.Peer
 	err := j.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, account.UpstreamPeerHostName)
 	if err != nil {
 		return nil, err
 	}
 
-	//get token for peer
+	// get token for peer
 	client, err := peerclient.New(ctx, j.cfg, peer, auth.PeerAPIScope)
 	if err != nil {
 		return nil, err
 	}
 
-	//assemble request body
+	// assemble request body
 	tagsByDigest := make(map[digest.Digest][]keppel.TagForSync)
 	query := `SELECT name, digest, last_pulled_at FROM tags WHERE repo_id = $1`
 	err = sqlext.ForeachRow(j.db, query, []any{repo.ID}, func(rows *sql.Rows) error {
@@ -285,36 +285,36 @@ func (j *Janitor) performTagSync(ctx context.Context, account keppel.Account, re
 	p := j.processor()
 TAG:
 	for _, tag := range tags {
-		//if we have a ReplicaSyncPayload available, use it
+		// if we have a ReplicaSyncPayload available, use it
 		if syncPayload != nil {
 			switch syncPayload.DigestForTag(tag.Name) {
 			case tag.Digest:
-				//the tag still points to the same digest - nothing to do
+				// the tag still points to the same digest - nothing to do
 				continue TAG
 			case "":
-				//the tag was deleted - replicate the tag deletion into our replica
+				// the tag was deleted - replicate the tag deletion into our replica
 				_, err := j.db.Delete(&tag) //nolint:gosec // Delete is not holding onto the pointer after it returns
 				if err != nil {
 					return err
 				}
 				continue TAG
 			default:
-				//the tag was updated to point to a different manifest - replicate it
-				//using the generic codepath below
+				// the tag was updated to point to a different manifest - replicate it
+				// using the generic codepath below
 				break
 			}
 		}
 
-		//we want to check if upstream still has the tag, and if it has moved to a
-		//different manifest, replicate that manifest; all of that boils down to
-		//just a ReplicateManifest() call
+		// we want to check if upstream still has the tag, and if it has moved to a
+		// different manifest, replicate that manifest; all of that boils down to
+		// just a ReplicateManifest() call
 		ref := models.ManifestReference{Tag: tag.Name}
 		_, _, err := p.ReplicateManifest(ctx, account, repo, ref, keppel.AuditContext{
 			UserIdentity: janitorUserIdentity{TaskName: "tag-sync"},
 			Request:      janitorDummyRequest,
 		})
 		if err != nil {
-			//if the tag itself (and only the tag itself!) 404s, we can replicate the tag deletion into our replica
+			// if the tag itself (and only the tag itself!) 404s, we can replicate the tag deletion into our replica
 			err404, ok := errext.As[processor.UpstreamManifestMissingError](err)
 			if ok && err404.Ref == ref {
 				_, err := j.db.Delete(&tag) //nolint:gosec // Delete is not holding onto the pointer after it returns
@@ -322,7 +322,7 @@ TAG:
 					return err
 				}
 			} else {
-				//all other errors fail the sync
+				// all other errors fail the sync
 				return fmt.Errorf("while syncing tag %s: %w", tag.Name, err)
 			}
 		}
@@ -338,20 +338,20 @@ var repoUntaggedManifestsSelectQuery = sqlext.SimplifyWhitespace(`
 `)
 
 func (j *Janitor) performManifestSync(ctx context.Context, account keppel.Account, repo keppel.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
-	//enumerate manifests in this repo (this only needs to consider untagged
+	// enumerate manifests in this repo (this only needs to consider untagged
 	//manifests: we run right after performTagSync, therefore all images that are
-	//tagged right now were already confirmed to still be good)
+	// tagged right now were already confirmed to still be good)
 	var manifests []keppel.Manifest
 	_, err := j.db.Select(&manifests, repoUntaggedManifestsSelectQuery, repo.ID)
 	if err != nil {
 		return fmt.Errorf("cannot list manifests: %w", err)
 	}
 
-	//check which manifests need to be deleted
+	// check which manifests need to be deleted
 	shallDeleteManifest := make(map[digest.Digest]bool)
 	p := j.processor()
 	for _, manifest := range manifests {
-		//if we have a ReplicaSyncPayload available, use it to check manifest existence
+		// if we have a ReplicaSyncPayload available, use it to check manifest existence
 		if syncPayload != nil {
 			if !syncPayload.HasManifest(manifest.Digest) {
 				shallDeleteManifest[manifest.Digest] = true
@@ -359,7 +359,7 @@ func (j *Janitor) performManifestSync(ctx context.Context, account keppel.Accoun
 			continue
 		}
 
-		//when querying an external registry, we have to check each manifest one-by-one
+		// when querying an external registry, we have to check each manifest one-by-one
 		ref := models.ManifestReference{Digest: manifest.Digest}
 		exists, err := p.CheckManifestOnPrimary(ctx, account, repo, ref)
 		if err != nil {
@@ -370,12 +370,12 @@ func (j *Janitor) performManifestSync(ctx context.Context, account keppel.Accoun
 		}
 	}
 
-	//if nothing needs to be deleted, we're done here
+	// if nothing needs to be deleted, we're done here
 	if len(shallDeleteManifest) == 0 {
 		return nil
 	}
 
-	//enumerate manifest-manifest refs in this repo
+	// enumerate manifest-manifest refs in this repo
 	parentDigestsOf := make(map[digest.Digest][]digest.Digest)
 	err = sqlext.ForeachRow(j.db, syncManifestEnumerateRefsQuery, []any{repo.ID}, func(rows *sql.Rows) error {
 		var (
@@ -393,9 +393,9 @@ func (j *Janitor) performManifestSync(ctx context.Context, account keppel.Accoun
 		return fmt.Errorf("cannot enumerate manifest-manifest refs: %w", err)
 	}
 
-	//delete manifests in correct order (if there is a parent-child relationship,
-	//we always need to delete the parent manifest first, otherwise the database
-	//will complain because of its consistency checks)
+	// delete manifests in correct order (if there is a parent-child relationship,
+	// we always need to delete the parent manifest first, otherwise the database
+	// will complain because of its consistency checks)
 	if len(shallDeleteManifest) > 0 {
 		logg.Info("deleting %d manifests in repo %s that were deleted on corresponding primary account", len(shallDeleteManifest), repo.FullName())
 	}
@@ -405,11 +405,11 @@ func (j *Janitor) performManifestSync(ctx context.Context, account keppel.Accoun
 	MANIFEST:
 		for digestToBeDeleted := range shallDeleteManifest {
 			if slices.ContainsFunc(parentDigestsOf[digestToBeDeleted], func(parentDigest digest.Digest) bool { return !manifestWasDeleted[parentDigest] }) {
-				//cannot delete this manifest yet because it's still being referenced - retry in next iteration
+				// cannot delete this manifest yet because it's still being referenced - retry in next iteration
 				continue MANIFEST
 			}
 
-			//no manifests left that reference this one - we can delete it
+			// no manifests left that reference this one - we can delete it
 			err := j.processor().DeleteManifest(account, repo, digestToBeDeleted, keppel.AuditContext{
 				UserIdentity: janitorUserIdentity{TaskName: "manifest-sync"},
 				Request:      janitorDummyRequest,
@@ -418,17 +418,17 @@ func (j *Janitor) performManifestSync(ctx context.Context, account keppel.Accoun
 				return fmt.Errorf("cannot remove deleted manifest %s: %w", digestToBeDeleted, err)
 			}
 
-			//remove deletion from work queue (so that we can eventually exit from the outermost loop)
+			// remove deletion from work queue (so that we can eventually exit from the outermost loop)
 			delete(shallDeleteManifest, digestToBeDeleted)
 
-			//track deletion (so that we can eventually start deleting manifests referenced by this one)
+			// track deletion (so that we can eventually start deleting manifests referenced by this one)
 			manifestWasDeleted[digestToBeDeleted] = true
 
-			//track that we're making progress
+			// track that we're making progress
 			deletedSomething = true
 		}
 
-		//we should be deleting something in each iteration, otherwise we will get stuck in an infinite loop
+		// we should be deleting something in each iteration, otherwise we will get stuck in an infinite loop
 		if !deletedSomething {
 			return fmt.Errorf("cannot remove deleted manifests %v because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)",
 				maps.Keys(shallDeleteManifest))
@@ -630,13 +630,13 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 		return fmt.Errorf("cannot find manifest for repo %s and digest %s: %w", repo.FullName(), securityInfo.Digest, err)
 	}
 
-	//clear timing information (this will be filled down below once we actually talk to Trivy;
-	//if any preflight check fails, the fields stay at nil)
+	// clear timing information (this will be filled down below once we actually talk to Trivy;
+	// if any preflight check fails, the fields stay at nil)
 	securityInfo.CheckedAt = nil
 	securityInfo.CheckDurationSecs = nil
 
-	//skip validation while account is in maintenance (maintenance mode blocks
-	//all kinds of activity on an account's contents)
+	// skip validation while account is in maintenance (maintenance mode blocks
+	// all kinds of activity on an account's contents)
 	if account.InMaintenance {
 		securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(1 * time.Hour))
 		return nil
@@ -655,8 +655,8 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 		return err
 	}
 
-	//we know that this image will not be "Unsupported", so the rest is the part where we actually
-	//talk to Trivy (well, mostly anyway), so that part deserves to be measured for performance
+	// we know that this image will not be "Unsupported", so the rest is the part where we actually
+	// talk to Trivy (well, mostly anyway), so that part deserves to be measured for performance
 	checkStartedAt := j.timeNow()
 	defer func() {
 		if returnedError == nil {
@@ -689,8 +689,8 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 		return err
 	}
 
-	//ask Trivy for the security status of the manifest
-	securityInfo.Message = "" //unless it gets set to something else below
+	// ask Trivy for the security status of the manifest
+	securityInfo.Message = "" // unless it gets set to something else below
 
 	// Trivy has an internal timeout we set to 10m per image (which is already an
 	// insanely generous timeout) and we give it a bit of headroom to start
@@ -724,7 +724,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 		}
 	}
 
-	//collect vulnerability status of constituent images
+	// collect vulnerability status of constituent images
 	err = sqlext.ForeachRow(j.db, securityInfoCheckSubmanifestInfoQuery, []any{manifest.Digest}, func(rows *sql.Rows) error {
 		var vulnStatus trivy.VulnerabilityStatus
 		err := rows.Scan(&vulnStatus)
@@ -735,9 +735,9 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 		return err
 	}
 
-	//merge all vulnerability statuses
+	// merge all vulnerability statuses
 	securityInfo.VulnerabilityStatus = trivy.MergeVulnerabilityStatuses(securityStatuses...)
-	//regular recheck loop (vulnerability status might change if Trivy adds new vulnerabilities to its DB)
+	// regular recheck loop (vulnerability status might change if Trivy adds new vulnerabilities to its DB)
 	securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(1 * time.Hour))
 
 	return nil
@@ -763,26 +763,26 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account keppel
 		return false, layerBlobs, nil
 	}
 
-	//can only validate when all blobs are present in the storage
+	// can only validate when all blobs are present in the storage
 	for _, blob := range layerBlobs {
 		if blob.StorageID == "" {
-			//if the manifest is fairly new, the user who replicated it is probably
-			//still replicating it; give them 10 minutes to finish replicating it
+			// if the manifest is fairly new, the user who replicated it is probably
+			// still replicating it; give them 10 minutes to finish replicating it
 			securityInfo.NextCheckAt = manifest.PushedAt.Add(j.addJitter(10 * time.Minute))
 			if securityInfo.NextCheckAt.After(j.timeNow()) {
 				return false, layerBlobs, nil
 			}
-			//otherwise we do the replication ourselves
+			// otherwise we do the replication ourselves
 			_, err := j.processor().ReplicateBlob(ctx, blob, account, repo, nil)
 			if err != nil {
 				return false, layerBlobs, err
 			}
-			//after successful replication, restart this call to read the new blob with the correct StorageID from the DB
+			// after successful replication, restart this call to read the new blob with the correct StorageID from the DB
 			return j.checkPreConditionsForTrivy(ctx, account, repo, manifest, securityInfo)
 		}
 
 		if blob.BlocksVulnScanning == nil && strings.HasSuffix(blob.MediaType, "gzip") {
-			//uncompress the blob to check if it's too large for Trivy to handle within its allotted timeout
+			// uncompress the blob to check if it's too large for Trivy to handle within its allotted timeout
 			reader, _, err := j.sd.ReadBlob(account, blob.StorageID)
 			if err != nil {
 				return false, layerBlobs, fmt.Errorf("cannot read blob %s: %w", blob.Digest, err)
@@ -794,8 +794,8 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account keppel
 			}
 			defer gzipReader.Close()
 
-			//when measuring uncompressed size, use LimitReader as a simple but
-			//effective guard against zip bombs
+			// when measuring uncompressed size, use LimitReader as a simple but
+			// effective guard against zip bombs
 			limitBytes := int64(1 << 30 * blobUncompressedSizeTooBigGiB)
 			numberBytes, err := io.Copy(io.Discard, io.LimitReader(gzipReader, limitBytes+1))
 			if err != nil {

@@ -91,15 +91,15 @@ func (j *Janitor) BlobSweepJob(registerer prometheus.Registerer) jobloop.Job { /
 }
 
 func (j *Janitor) sweepBlobsInRepo(_ context.Context, account keppel.Account, _ prometheus.Labels) error {
-	//allow next pass in 1 hour to delete the newly marked blob mounts, but use a
-	//slighly earlier cut-off time to account for the marking taking some time
+	// allow next pass in 1 hour to delete the newly marked blob mounts, but use a
+	// slightly earlier cut-off time to account for the marking taking some time
 	canBeDeletedAt := j.timeNow().Add(30 * time.Minute)
 
 	//NOTE: We don't need to pack the following steps in a single transaction, so
-	//we won't. The mark and unmark are obviously safe since they only update
-	//metadata, and the sweep only touches stuff that was marked in the
-	//*previous* sweep. The only thing that we need to make sure is that unmark
-	//is strictly ordered before sweep.
+	// we won't. The mark and unmark are obviously safe since they only update
+	// metadata, and the sweep only touches stuff that was marked in the
+	// *previous* sweep. The only thing that we need to make sure is that unmark
+	// is strictly ordered before sweep.
 	_, err := j.db.Exec(blobMarkQuery, account.Name, canBeDeletedAt)
 	if err != nil {
 		return err
@@ -109,35 +109,35 @@ func (j *Janitor) sweepBlobsInRepo(_ context.Context, account keppel.Account, _ 
 		return err
 	}
 
-	//select blobs for deletion that were marked in the last run
+	// select blobs for deletion that were marked in the last run
 	var blobs []keppel.Blob
 	_, err = j.db.Select(&blobs, blobSelectMarkedQuery, account.Name, j.timeNow())
 	if err != nil {
 		return err
 	}
 
-	//delete each blob from the DB *first*, then clean it up on the storage
+	// delete each blob from the DB *first*, then clean it up on the storage
 	//
-	//This order is important: The DELETE statement could fail if some concurrent
-	//process created a blob mount in the meantime. If that happens, and we have
-	//already deleted the blob in the backing storage, we've caused an
-	//inconsistency that we cannot recover from. To avoid that risk, we do it the
-	//other way around. In this way, we could have an inconsistency where the
-	//blob is deleted from the database, but still present in the backing
-	//storage. But this inconsistency is easier to recover from:
-	//StorageSweepJob will take care of it soon enough. Also the user
-	//will not notice this inconsistency because the DB is our primary source of
-	//truth.
+	// This order is important: The DELETE statement could fail if some concurrent
+	// process created a blob mount in the meantime. If that happens, and we have
+	// already deleted the blob in the backing storage, we've caused an
+	// inconsistency that we cannot recover from. To avoid that risk, we do it the
+	// other way around. In this way, we could have an inconsistency where the
+	// blob is deleted from the database, but still present in the backing
+	// storage. But this inconsistency is easier to recover from:
+	// StorageSweepJob will take care of it soon enough. Also the user
+	// will not notice this inconsistency because the DB is our primary source of
+	// truth.
 	if len(blobs) > 0 {
 		logg.Info("sweeping %d blobs in account %s", len(blobs), account.Name)
 	}
 	for _, blob := range blobs {
-		//without transaction: we need this committed right now
+		// without transaction: we need this committed right now
 		_, err := j.db.Delete(&blob) //nolint:gosec // Delete is not holding onto the pointer after it returns
 		if err != nil {
 			return err
 		}
-		if blob.StorageID != "" { //ignore unbacked blobs that were never replicated
+		if blob.StorageID != "" { // ignore unbacked blobs that were never replicated
 			err = j.sd.DeleteBlob(account, blob.StorageID)
 			if err != nil {
 				return err
@@ -170,7 +170,7 @@ func (j *Janitor) BlobValidationJob(registerer prometheus.Registerer) jobloop.Jo
 			},
 		},
 		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (blob keppel.Blob, err error) {
-			//find blob: validate once every 7 days, but recheck after 10 minutes if validation failed
+			// find blob: validate once every 7 days, but recheck after 10 minutes if validation failed
 			maxSuccessfulValidatedAt := j.timeNow().Add(-7 * 24 * time.Hour)
 			maxFailedValidatedAt := j.timeNow().Add(-10 * time.Minute)
 			err = j.db.SelectOne(&blob, validateBlobSearchQuery, maxSuccessfulValidatedAt, maxFailedValidatedAt)
@@ -181,16 +181,16 @@ func (j *Janitor) BlobValidationJob(registerer prometheus.Registerer) jobloop.Jo
 }
 
 func (j *Janitor) validateBlob(_ context.Context, blob keppel.Blob, _ prometheus.Labels) error {
-	//find corresponding account
+	// find corresponding account
 	account, err := keppel.FindAccount(j.db, blob.AccountName)
 	if err != nil {
 		return fmt.Errorf("cannot find account for manifest %s/%s: %s", blob.AccountName, blob.Digest, err.Error())
 	}
 
-	//perform validation
+	// perform validation
 	err = j.processor().ValidateExistingBlob(*account, blob)
 	if err == nil {
-		//update `validated_at` and reset error message
+		// update `validated_at` and reset error message
 		_, err := j.db.Exec(`
 			UPDATE blobs SET validated_at = $1, validation_error_message = ''
 			 WHERE account_name = $2 AND digest = $3`,
@@ -200,9 +200,9 @@ func (j *Janitor) validateBlob(_ context.Context, blob keppel.Blob, _ prometheus
 			return err
 		}
 	} else {
-		//attempt to log the error message, and also update the `validated_at`
-		//timestamp to ensure that the BlobValidationJob loop does not get stuck
-		//on this one
+		// attempt to log the error message, and also update the `validated_at`
+		// timestamp to ensure that the BlobValidationJob loop does not get stuck
+		// on this one
 		_, updateErr := j.db.Exec(`
 			UPDATE blobs SET validated_at = $1, validation_error_message = $2
 			 WHERE account_name = $3 AND digest = $4`,

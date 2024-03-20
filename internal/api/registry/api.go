@@ -46,8 +46,8 @@ type API struct {
 	icd     keppel.InboundCacheDriver
 	db      *keppel.DB
 	auditor keppel.Auditor
-	rle     *keppel.RateLimitEngine //may be nil
-	//non-pure functions that can be replaced by deterministic doubles for unit tests
+	rle     *keppel.RateLimitEngine // may be nil
+	// non-pure functions that can be replaced by deterministic doubles for unit tests
 	timeNow           func() time.Time
 	generateStorageID func() string
 }
@@ -75,9 +75,9 @@ func (a *API) AddTo(r *mux.Router) {
 	r.Methods("GET").Path("/v2/_catalog").HandlerFunc(a.handleGetCatalog)
 
 	//NOTE: We used to match account name and repository name separately here,
-	//but that is not possible anymore since domain-remapped APIs do not have the
-	//account name in the URL path. The "repository" variable is split later in
-	//checkAccountAccess().
+	// but that is not possible anymore since domain-remapped APIs do not have the
+	// account name in the URL path. The "repository" variable is split later in
+	// checkAccountAccess().
 	r.Methods("DELETE").
 		Path("/v2/{repository:.+}/blobs/{digest}").
 		HandlerFunc(a.handleDeleteBlob)
@@ -120,20 +120,20 @@ func (a *API) processor() *processor.Processor {
 // This implements the GET /v2/ endpoint.
 func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/")
-	//must be set even for 401 responses!
+	// must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
 	_, rerr := auth.IncomingRequest{
 		HTTPRequest:           r,
 		AllowsAnycast:         true,
 		AllowsDomainRemapping: true,
-		//`docker login` will use this endpoint to get an auth challenge, so we
-		//cannot allow anonymous login here...
+		// `docker login` will use this endpoint to get an auth challenge, so we
+		// cannot allow anonymous login here...
 		NoImplicitAnonymous: true,
-		//...but we also cannot require any token scopes because `docker login`
-		//will ignore the scope defined in the auth challenge, obtain a token
-		//without scopes, and then expect to be able to query this endpoint with
-		//it.
+		// ...but we also cannot require any token scopes because `docker login`
+		// will ignore the scope defined in the auth challenge, obtain a token
+		// without scopes, and then expect to be able to query this endpoint with
+		// it.
 		Scopes: auth.NewScopeSet(auth.InfoAPIScope),
 	}.Authorize(r.Context(), a.cfg, a.ad, a.db)
 	if rerr != nil {
@@ -141,7 +141,7 @@ func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//The response is not defined beyond code 200, so reply in the same way as
+	// The response is not defined beyond code 200, so reply in the same way as
 	//https://registry-1.docker.io/v2/, with an empty JSON object.
 	respondwith.JSON(w, http.StatusOK, map[string]any{})
 }
@@ -175,14 +175,14 @@ const (
 type anycastRequestInfo struct {
 	AccountName     string
 	RepoName        string
-	PrimaryHostName string //the peer who has this account
+	PrimaryHostName string // the peer who has this account
 }
 
 func (info anycastRequestInfo) AsPrometheusLabels() prometheus.Labels {
-	//when counting a pull over the anycast API, we don't know the account's auth
-	//tenant (since we're not hosting the account), so we're free to abuse ^W use
-	//this field for tracking the fact that we were redirecting an anycast
-	//request, and where we redirected it
+	// when counting a pull over the anycast API, we don't know the account's auth
+	// tenant (since we're not hosting the account), so we're free to abuse ^W use
+	// this field for tracking the fact that we were redirecting an anycast
+	// request, and where we redirected it
 	return prometheus.Labels{
 		"account":        info.AccountName,
 		"auth_tenant_id": "anycast-" + info.PrimaryHostName,
@@ -198,10 +198,10 @@ func (info anycastRequestInfo) AsPrometheusLabels() prometheus.Labels {
 // and the account exists elsewhere, the `anycastHandler` is invoked if given
 // instead of giving a 404 response.
 func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy, anycastHandler func(http.ResponseWriter, *http.Request, anycastRequestInfo)) (*keppel.Account, *keppel.Repository, *auth.Authorization) {
-	//must be set even for 401 responses!
+	// must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
-	//check that repo name is wellformed
+	// check that repo name is wellformed
 	scope := auth.Scope{
 		ResourceType: "repository",
 		ResourceName: mux.Vars(r)["repository"],
@@ -211,8 +211,8 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		return nil, nil, nil
 	}
 
-	//check authorization before FindAccount(); otherwise we might leak
-	//information about account existence to unauthorized users
+	// check authorization before FindAccount(); otherwise we might leak
+	// information about account existence to unauthorized users
 	switch r.Method {
 	case http.MethodDelete:
 		scope.Actions = []string{"delete"}
@@ -232,20 +232,20 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		return nil, nil, nil
 	}
 
-	//we need to know the account to select the registry instance for this request
+	// we need to know the account to select the registry instance for this request
 	repoScope := scope.ParseRepositoryScope(authz.Audience)
 	account, err := keppel.FindAccount(a.db, repoScope.AccountName)
 	if respondWithError(w, r, err) {
 		return nil, nil, nil
 	}
 	if account == nil {
-		//if this is an anycast request, try forwarding it to the peer that has the primary account with this name
+		// if this is an anycast request, try forwarding it to the peer that has the primary account with this name
 		if anycastHandler != nil && authz.Audience.IsAnycast {
 			primaryHostName, err := a.fd.FindPrimaryAccount(r.Context(), repoScope.AccountName)
 			switch {
 			case err == nil:
-				//protect against infinite forwarding loops in case different Keppels have
-				//different ideas about who is the primary account
+				// protect against infinite forwarding loops in case different Keppels have
+				// different ideas about who is the primary account
 				if forwardedBy := r.URL.Query().Get("X-Keppel-Forwarded-By"); forwardedBy != "" {
 					msg := fmt.Sprintf("not forwarding anycast request for account %q to %s because request was already forwarded to us by %s",
 						repoScope.AccountName, primaryHostName, forwardedBy)
@@ -256,15 +256,15 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 				}
 				return nil, nil, nil
 			case errors.Is(err, keppel.ErrNoSuchPrimaryAccount):
-				//fall through to the standard 404 handling below
+				// fall through to the standard 404 handling below
 			default:
 				respondWithError(w, r, err)
 				return nil, nil, nil
 			}
 		}
-		//defense in depth - if the account does not exist and we're not
-		//anycasting, there should not be a valid token (the auth endpoint does not
-		//issue tokens with scopes for nonexistent accounts)
+		// defense in depth - if the account does not exist and we're not
+		// anycasting, there should not be a valid token (the auth endpoint does not
+		// issue tokens with scopes for nonexistent accounts)
 		keppel.ErrNameUnknown.With("account not found").WriteAsRegistryV2ResponseTo(w, r)
 		return nil, nil, nil
 	}
@@ -304,10 +304,10 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 
 // Returns the repository name as it appears in URL paths for this API.
 func getRepoNameForURLPath(repo keppel.Repository, authz *auth.Authorization) string {
-	//on the regular API, the URL path includes the account name
+	// on the regular API, the URL path includes the account name
 	if authz.Audience.AccountName == "" {
 		return repo.FullName()
 	}
-	//on domain-remapped APIs, the URL path contains only the bare repository name
+	// on domain-remapped APIs, the URL path contains only the bare repository name
 	return repo.Name
 }

@@ -42,7 +42,7 @@ type PeeringRequest struct {
 
 func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/auth/peering")
-	//decode request body
+	// decode request body
 	var req PeeringRequest
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
@@ -52,13 +52,13 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//check that these credentials are intended for us
+	// check that these credentials are intended for us
 	if req.UserName != "replication@"+a.cfg.APIPublicHostname {
 		http.Error(w, "wrong audience", http.StatusBadRequest)
 		return
 	}
 
-	//do we even know that guy? :)
+	// do we even know that guy? :)
 	var peer keppel.Peer
 	err = a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, req.PeerHostName)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -69,7 +69,7 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//check that these credentials work
+	// check that these credentials work
 	authURL := fmt.Sprintf("https://%s/keppel/v1/auth?service=%[1]s", req.PeerHostName)
 	authReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, authURL, http.NoBody)
 	if respondwith.ErrorText(w, err) {
@@ -88,7 +88,7 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//update database
+	// update database
 	_, err = a.db.Exec(
 		`UPDATE peers SET our_password = $1 WHERE hostname = $2`,
 		req.Password, req.PeerHostName,

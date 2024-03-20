@@ -32,7 +32,7 @@ func TestPeersAPI(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
 
-	//check empty response when there are no peers in the DB
+	// check empty response when there are no peers in the DB
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/peers",
@@ -41,7 +41,7 @@ func TestPeersAPI(t *testing.T) {
 		ExpectBody:   assert.JSONObject{"peers": []any{}},
 	}.Check(t, h)
 
-	//add some peers
+	// add some peers
 	expectedPeers := []assert.JSONObject{
 		{"hostname": "keppel.example.com"},
 		{"hostname": "keppel.example.org"},
@@ -53,7 +53,7 @@ func TestPeersAPI(t *testing.T) {
 		}
 	}
 
-	//check non-empty response
+	// check non-empty response
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/peers",

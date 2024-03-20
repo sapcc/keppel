@@ -38,7 +38,7 @@ type FederationDriver struct {
 	ClaimFailsBecauseOfServerError bool
 	ForfeitFails                   bool
 	NextSubleaseTokenSecretToIssue string
-	ValidSubleaseTokenSecrets      map[string]string //maps accountName => subleaseTokenSecret
+	ValidSubleaseTokenSecrets      map[string]string // maps accountName => subleaseTokenSecret
 	RecordedAccounts               []AccountRecordedByFederationDriver
 }
 
@@ -65,7 +65,7 @@ func (d *FederationDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) 
 
 // ClaimAccountName implements the keppel.FederationDriver interface.
 func (d *FederationDriver) ClaimAccountName(ctx context.Context, account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
-	//simulated failures for primary accounts
+	// simulated failures for primary accounts
 	if d.ClaimFailsBecauseOfUserError {
 		return keppel.ClaimFailed, fmt.Errorf("cannot assign name %q to auth tenant %q", account.Name, account.AuthTenantID)
 	}
@@ -73,13 +73,13 @@ func (d *FederationDriver) ClaimAccountName(ctx context.Context, account keppel.
 		return keppel.ClaimErrored, fmt.Errorf("failed to assign name %q to auth tenant %q", account.Name, account.AuthTenantID)
 	}
 
-	//for replica accounts, do the regular sublease-token dance
+	// for replica accounts, do the regular sublease-token dance
 	if account.UpstreamPeerHostName != "" {
 		expectedTokenSecret, exists := d.ValidSubleaseTokenSecrets[account.Name]
 		if !exists || subleaseTokenSecret != expectedTokenSecret {
 			return keppel.ClaimFailed, errors.New("wrong sublease token")
 		}
-		//each sublease token can only be used once
+		// each sublease token can only be used once
 		delete(d.ValidSubleaseTokenSecrets, account.Name)
 	}
 
@@ -88,7 +88,7 @@ func (d *FederationDriver) ClaimAccountName(ctx context.Context, account keppel.
 
 // IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
 func (d *FederationDriver) IssueSubleaseTokenSecret(ctx context.Context, account keppel.Account) (string, error) {
-	//issue each sublease token only once
+	// issue each sublease token only once
 	t := d.NextSubleaseTokenSecretToIssue
 	d.NextSubleaseTokenSecretToIssue = ""
 	return t, nil

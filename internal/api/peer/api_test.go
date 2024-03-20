@@ -32,7 +32,7 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 	s := test.NewSetup(t, test.WithPeerAPI)
 	h := s.Handler
 
-	//anonymous auth is never allowed, generates an auth challenge for auth.PeerAPIScope
+	// anonymous auth is never allowed, generates an auth challenge for auth.PeerAPIScope
 	assert.HTTPRequest{
 		Method:       "POST",
 		Path:         "/peer/v1/sync-replica/test1/foo",
@@ -44,7 +44,7 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 		ExpectBody: assert.StringData("no bearer token found in request headers\n"),
 	}.Check(t, h)
 
-	//Testing other auth schemes is pretty much nonsensical because both regular
-	//bearer token auth and Keppel API auth do not even allow obtaining a token
-	//for the auth.PeerAPIScope.
+	// Testing other auth schemes is pretty much nonsensical because both regular
+	// bearer token auth and Keppel API auth do not even allow obtaining a token
+	// for the auth.PeerAPIScope.
 }

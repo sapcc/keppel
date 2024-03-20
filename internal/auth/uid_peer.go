@@ -48,7 +48,7 @@ func (uid *PeerUserIdentity) PluginTypeID() string {
 
 // HasPermission implements the keppel.UserIdentity interface.
 func (uid *PeerUserIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
-	//allow universal pull access for replication purposes
+	// allow universal pull access for replication purposes
 	return perm == keppel.CanViewAccount || perm == keppel.CanPullFromAccount
 }
 
@@ -82,10 +82,10 @@ func (uid *PeerUserIdentity) DeserializeFromJSON(in []byte, _ keppel.AuthDriver)
 // returned. Error values are only returned for unexpected failures.
 func checkPeerCredentials(db *keppel.DB, peerHostName, password string) (*keppel.Peer, error) {
 	//NOTE: This function is technically vulnerable to a timing side-channel attack.
-	//It returns much faster if `peerHostName` refers to a peer that does not exist,
-	//so an attacker could use it to infer which peers exist. I don't consider
-	//this an actual vulnerability since the set of peers is common knowledge:
-	//In fact, it's literally exposed in an API call in the Keppel API.
+	// It returns much faster if `peerHostName` refers to a peer that does not exist,
+	// so an attacker could use it to infer which peers exist. I don't consider
+	// this an actual vulnerability since the set of peers is common knowledge:
+	// In fact, it's literally exposed in an API call in the Keppel API.
 
 	var peer keppel.Peer
 	err := db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, peerHostName)

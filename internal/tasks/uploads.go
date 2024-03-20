@@ -68,20 +68,20 @@ func (j *Janitor) AbandonedUploadCleanupJob(registerer prometheus.Registerer) jo
 }
 
 func (j *Janitor) deleteAbandonedUpload(_ context.Context, tx *gorp.Transaction, upload keppel.Upload, labels prometheus.Labels) error {
-	//find corresponding account
+	// find corresponding account
 	var account keppel.Account
 	err := tx.SelectOne(&account, findAccountForRepoQuery, upload.RepositoryID)
 	if err != nil {
 		return fmt.Errorf("cannot find account for abandoned upload %s: %s", upload.UUID, err.Error())
 	}
 
-	//remove from DB
+	// remove from DB
 	_, err = tx.Delete(&upload)
 	if err != nil {
 		return err
 	}
 
-	//remove from backing storage if necessary
+	// remove from backing storage if necessary
 	if upload.NumChunks > 0 {
 		err := j.sd.AbortBlobUpload(account, upload.StorageID, upload.NumChunks)
 		if err != nil {

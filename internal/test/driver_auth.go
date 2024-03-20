@@ -34,7 +34,7 @@ import (
 
 // AuthDriver (driver ID "unittest") is a keppel.AuthDriver for unit tests.
 type AuthDriver struct {
-	//for AuthenticateUser
+	// for AuthenticateUser
 	ExpectedUserName   string
 	ExpectedPassword   string
 	GrantedPermissions string
@@ -119,8 +119,8 @@ func (uid *userIdentity) UserType() keppel.UserType {
 }
 
 func (uid *userIdentity) UserInfo() audittools.UserInfo {
-	//return a dummy UserInfo to enable testing of audit events (a nil UserInfo
-	//will suppress audit event generation)
+	// return a dummy UserInfo to enable testing of audit events (a nil UserInfo
+	// will suppress audit event generation)
 	return dummyUserInfo{}
 }
 

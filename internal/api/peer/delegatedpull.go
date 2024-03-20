@@ -41,7 +41,7 @@ func (a *API) handleDelegatedPullManifest(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	//pass through some headers from the original request
+	// pass through some headers from the original request
 	opts := client.DownloadManifestOpts{
 		ExtraHeaders: http.Header{
 			"Accept": r.Header["Accept"],
@@ -53,8 +53,8 @@ func (a *API) handleDelegatedPullManifest(w http.ResponseWriter, r *http.Request
 		Scheme:   "https",
 		Host:     vars["hostname"],
 		RepoName: vars["repo"],
-		UserName: r.Header.Get("X-Keppel-Delegated-Pull-Username"), //may be empty
-		Password: r.Header.Get("X-Keppel-Delegated-Pull-Password"), //may be empty
+		UserName: r.Header.Get("X-Keppel-Delegated-Pull-Username"), // may be empty
+		Password: r.Header.Get("X-Keppel-Delegated-Pull-Password"), // may be empty
 	}
 	ref := models.ParseManifestReference(vars["reference"])
 	manifestBytes, manifestMediaType, err := rc.DownloadManifest(r.Context(), ref, &opts)

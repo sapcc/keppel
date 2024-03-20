@@ -34,7 +34,7 @@ type StorageIDGenerator struct {
 func (g *StorageIDGenerator) Next() string {
 	g.n++
 	inputStr := strconv.FormatUint(g.n, 10)
-	//SHA-256 gives 32 bytes of "randomness", same as keppel.GenerateStorageID()
+	// SHA-256 gives 32 bytes of "randomness", same as keppel.GenerateStorageID()
 	hashBytes := sha256.Sum256([]byte(inputStr))
 	return hex.EncodeToString(hashBytes[:])
 }

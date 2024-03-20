@@ -33,7 +33,7 @@ func TestVersionCheckEndpoint(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
 
-		//without token, expect auth challenge
+		// without token, expect auth challenge
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/",
@@ -52,7 +52,7 @@ func TestVersionCheckEndpoint(t *testing.T) {
 			},
 		}.Check(t, h)
 
-		//with token, expect status code 200
+		// with token, expect status code 200
 		token := s.GetToken(t /*, no scopes */)
 		assert.HTTPRequest{
 			Method:       "GET",
@@ -65,18 +65,18 @@ func TestVersionCheckEndpoint(t *testing.T) {
 }
 
 func TestKeppelAPIAuth(t *testing.T) {
-	//All the other tests use the conventional auth method using bearer tokens.
-	//This test provides test coverage for authenticating with the same
-	//AuthDriver-dependent mechanism used by the Keppel API.
+	// All the other tests use the conventional auth method using bearer tokens.
+	// This test provides test coverage for authenticating with the same
+	// AuthDriver-dependent mechanism used by the Keppel API.
 	testWithPrimary(t, nil, func(s test.Setup) {
-		//upload a manifest for testing (using bearer tokens since all our test
-		//helper functions use those)
+		// upload a manifest for testing (using bearer tokens since all our test
+		// helper functions use those)
 		h := s.Handler
 		image := test.GenerateImage(test.GenerateExampleLayer(1))
 		s.Clock.StepBy(time.Second)
 		image.MustUpload(t, s, fooRepoRef, "first")
 
-		//test scopeless endpoint: happy case
+		// test scopeless endpoint: happy case
 		assert.HTTPRequest{
 			Method: "GET",
 			Path:   "/v2/",
@@ -87,10 +87,10 @@ func TestKeppelAPIAuth(t *testing.T) {
 			ExpectStatus: http.StatusOK,
 			ExpectHeader: test.VersionHeader,
 		}.Check(t, h)
-		//test scopeless endpoint: failure case ("Authorization: keppel" means that
-		//we want Keppel API auth, but then we don't pass the respective headers,
-		//so we get a 401; we do not get an auth challenge since Keppel API auth
-		//does not work with auth challenges)
+		// test scopeless endpoint: failure case ("Authorization: keppel" means that
+		// we want Keppel API auth, but then we don't pass the respective headers,
+		// so we get a 401; we do not get an auth challenge since Keppel API auth
+		// does not work with auth challenges)
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/",
@@ -102,7 +102,7 @@ func TestKeppelAPIAuth(t *testing.T) {
 			},
 		}.Check(t, h)
 
-		//test catalog endpoint: happy case
+		// test catalog endpoint: happy case
 		assert.HTTPRequest{
 			Method: "GET",
 			Path:   "/v2/_catalog",
@@ -116,7 +116,7 @@ func TestKeppelAPIAuth(t *testing.T) {
 				"repositories": []string{"test1/foo"},
 			},
 		}.Check(t, h)
-		//test catalog endpoint: "failure" case (no access to account -> empty list)
+		// test catalog endpoint: "failure" case (no access to account -> empty list)
 		assert.HTTPRequest{
 			Method: "GET",
 			Path:   "/v2/_catalog",
@@ -131,7 +131,7 @@ func TestKeppelAPIAuth(t *testing.T) {
 			},
 		}.Check(t, h)
 
-		//test repository-scoped endpoint: happy case
+		// test repository-scoped endpoint: happy case
 		assert.HTTPRequest{
 			Method: "GET",
 			Path:   "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
@@ -143,7 +143,7 @@ func TestKeppelAPIAuth(t *testing.T) {
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   assert.ByteData(image.Manifest.Contents),
 		}.Check(t, h)
-		//test repository-scoped endpoint: failure case (no pull permission)
+		// test repository-scoped endpoint: failure case (no pull permission)
 		assert.HTTPRequest{
 			Method: "GET",
 			Path:   "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
@@ -154,7 +154,7 @@ func TestKeppelAPIAuth(t *testing.T) {
 			ExpectStatus: http.StatusUnauthorized,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey: test.VersionHeaderValue,
-				"Www-Authenticate":    "", //Keppel API auth does not use auth challenges
+				"Www-Authenticate":    "", // Keppel API auth does not use auth challenges
 			},
 		}.Check(t, h)
 	})

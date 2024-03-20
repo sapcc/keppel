@@ -55,7 +55,7 @@ type IncomingManifest struct {
 	Reference models.ManifestReference
 	MediaType string
 	Contents  []byte
-	PushedAt  time.Time //usually time.Now(), but can be different in unit tests
+	PushedAt  time.Time // usually time.Now(), but can be different in unit tests
 }
 
 var checkManifestExistsQuery = sqlext.SimplifyWhitespace(`
@@ -69,10 +69,10 @@ var checkTagExistsAtSameDigestQuery = sqlext.SimplifyWhitespace(`
 // given reference. If the reference is a digest, it is validated. Otherwise, a
 // tag with that name is created that points to the new manifest.
 func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel.Repository, m IncomingManifest, actx keppel.AuditContext) (*keppel.Manifest, error) {
-	//check if the objects we want to create already exist in the database; this
-	//check is not 100% reliable since it does not run in the same transaction as
-	//the actual upsert, so results should be taken with a grain of salt; but the
-	//result is accurate enough to avoid most duplicate audit events
+	// check if the objects we want to create already exist in the database; this
+	// check is not 100% reliable since it does not run in the same transaction as
+	// the actual upsert, so results should be taken with a grain of salt; but the
+	// result is accurate enough to avoid most duplicate audit events
 	contentsDigest := digest.Canonical.FromBytes(m.Contents)
 	manifestExistsAlready, err := p.db.SelectBool(checkManifestExistsQuery, repo.ID, contentsDigest.String())
 	if err != nil {
@@ -88,8 +88,8 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 		logg.Debug("ValidateAndStoreManifest: in repo %d, tag %s @%s already exists = %t", repo.ID, m.Reference.Tag, contentsDigest, tagExistsAlready)
 	}
 
-	//the quota check can be skipped if we are sure that we won't need to insert
-	//a new row into the manifests table
+	// the quota check can be skipped if we are sure that we won't need to insert
+	// a new row into the manifests table
 	if !manifestExistsAlready {
 		err = p.checkQuotaForManifestPush(account)
 		if err != nil {
@@ -105,8 +105,8 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 		ValidatedAt:  m.PushedAt,
 	}
 	if m.Reference.IsDigest() {
-		//allow validateAndStoreManifestCommon() to validate the user-supplied
-		//digest against the actual manifest data
+		// allow validateAndStoreManifestCommon() to validate the user-supplied
+		// digest against the actual manifest data
 		manifest.Digest = m.Reference.Digest
 	}
 	err = p.validateAndStoreManifestCommon(account, repo, manifest, m.Contents,
@@ -123,8 +123,8 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 				}
 			}
 
-			//after making all DB changes, but before committing the DB transaction,
-			//write the manifest into the backend
+			// after making all DB changes, but before committing the DB transaction,
+			// write the manifest into the backend
 			return p.sd.WriteManifest(account, repo.Name, manifest.Digest, m.Contents)
 		},
 	)
@@ -132,11 +132,11 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 		return nil, err
 	}
 
-	//submit audit events, but only if we are reasonably sure that we actually
-	//inserted a new manifest and/or changed a tag (without this restriction, we
-	//would log an audit event everytime a manifest is validated or a tag is
-	//synced; before the introduction of this check, we generated millions of
-	//useless audit events per month)
+	// submit audit events, but only if we are reasonably sure that we actually
+	// inserted a new manifest and/or changed a tag (without this restriction, we
+	// would log an audit event everytime a manifest is validated or a tag is
+	// synced; before the introduction of this check, we generated millions of
+	// useless audit events per month)
 	if userInfo := actx.UserIdentity.UserInfo(); userInfo != nil {
 		record := func(target audittools.TargetRenderer) {
 			p.auditor.Record(audittools.EventParameters{
@@ -176,7 +176,7 @@ func (p *Processor) ValidateExistingManifest(account keppel.Account, repo keppel
 		return err
 	}
 
-	//if the validation succeeds, these fields will be committed
+	// if the validation succeeds, these fields will be committed
 	manifest.ValidatedAt = now
 	manifest.ValidationErrorMessage = ""
 
@@ -186,7 +186,7 @@ func (p *Processor) ValidateExistingManifest(account keppel.Account, repo keppel
 }
 
 func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo keppel.Repository, manifest *keppel.Manifest, manifestBytes []byte, actionBeforeCommit func(*gorp.Transaction) error) error {
-	//parse manifest
+	// parse manifest
 	manifestParsed, manifestDesc, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
 	if err != nil {
 		return keppel.ErrManifestInvalid.With(err.Error())
@@ -195,8 +195,8 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 		return keppel.ErrDigestInvalid.With("actual manifest digest is " + manifestDesc.Digest.String())
 	}
 
-	//fill in the fields of `manifest` that ValidateAndStoreManifest() could not
-	//fill in yet ()
+	// fill in the fields of `manifest` that ValidateAndStoreManifest() could not
+	// fill in yet ()
 	manifest.Digest = manifestDesc.Digest
 	// ^ This field was empty until now when the user pushed a tag and therefore
 	// did not supply a digest.
@@ -220,9 +220,9 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 			return err
 		}
 
-		//enforce account-specific validation rules on manifest, but not list manifest
-		//and only when pushing (not when validating at a later point in time,
-		//the set of RequiredLabels could have been changed by then)
+		// enforce account-specific validation rules on manifest, but not list manifest
+		// and only when pushing (not when validating at a later point in time,
+		// the set of RequiredLabels could have been changed by then)
 		labelsRequired := manifest.PushedAt == manifest.ValidatedAt && account.RequiredLabels != "" &&
 			manifest.MediaType != manifestlist.MediaTypeManifestList && manifest.MediaType != imagespec.MediaTypeImageIndex
 		if labelsRequired {
@@ -239,9 +239,9 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 			}
 		}
 
-		//for plain manifests, we report the labels from the manifest config; for
-		//list manifests (which do not have a config), we instead report all the
-		//labels that the constituent manifests agree on
+		// for plain manifests, we report the labels from the manifest config; for
+		// list manifests (which do not have a config), we instead report all the
+		// labels that the constituent manifests agree on
 		reportedLabels := configInfo.Labels
 		if manifest.MediaType == manifestlist.MediaTypeManifestList || manifest.MediaType == imagespec.MediaTypeImageIndex {
 			reportedLabels = refsInfo.CommonLabels
@@ -259,7 +259,7 @@ func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo 
 		manifest.MinLayerCreatedAt = keppel.MinMaybeTime(refsInfo.MinCreationTime, configInfo.MinCreationTime)
 		manifest.MaxLayerCreatedAt = keppel.MaxMaybeTime(refsInfo.MaxCreationTime, configInfo.MaxCreationTime)
 
-		//create or update database entries
+		// create or update database entries
 		err = upsertManifest(tx, *manifest, manifestBytes, p.timeNow())
 		if err != nil {
 			return err
@@ -293,17 +293,17 @@ type manifestRefsInfo struct {
 }
 
 func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account, repo keppel.Repository, manifest keppel.ParsedManifest) (result manifestRefsInfo, err error) {
-	//ensure that we don't insert duplicate entries into `blobRefs` and `manifestDigests`
+	// ensure that we don't insert duplicate entries into `blobRefs` and `manifestDigests`
 	wasHandled := make(map[digest.Digest]bool)
 
-	//for all blobs referenced by this manifest...
+	// for all blobs referenced by this manifest...
 	for _, desc := range manifest.BlobReferences() {
 		if wasHandled[desc.Digest] {
 			continue
 		}
 		wasHandled[desc.Digest] = true
 
-		//check that the blob exists
+		// check that the blob exists
 		blob, err := keppel.FindBlobByRepository(tx, desc.Digest, repo)
 		if errors.Is(err, sql.ErrNoRows) {
 			return manifestRefsInfo{}, keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String())
@@ -312,7 +312,7 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 			return manifestRefsInfo{}, err
 		}
 
-		//check that the blob size matches what the manifest says
+		// check that the blob size matches what the manifest says
 		if blob.SizeBytes != uint64(desc.Size) {
 			msg := fmt.Sprintf(
 				"manifest references blob %s with %d bytes, but blob actually contains %d bytes",
@@ -322,14 +322,14 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 		result.BlobRefs = append(result.BlobRefs, blobRef{blob.ID, desc.MediaType})
 	}
 
-	//for all manifests referenced by this manifest...
+	// for all manifests referenced by this manifest...
 	for idx, desc := range manifest.ManifestReferences(account.PlatformFilter) {
 		if wasHandled[desc.Digest] {
 			continue
 		}
 		wasHandled[desc.Digest] = true
 
-		//check that the child manifest exists
+		// check that the child manifest exists
 		manifest, err := keppel.FindManifest(tx, repo, desc.Digest)
 		if errors.Is(err, sql.ErrNoRows) {
 			return manifestRefsInfo{}, keppel.ErrManifestUnknown.With("").WithDetail(desc.Digest.String())
@@ -338,7 +338,7 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 			return manifestRefsInfo{}, err
 		}
 
-		//compute the set of label values that all child manifests agree on
+		// compute the set of label values that all child manifests agree on
 		var labels map[string]string
 		if manifest.LabelsJSON != "" {
 			err := json.Unmarshal([]byte(manifest.LabelsJSON), &labels)
@@ -347,10 +347,10 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 			}
 		}
 		if idx == 0 {
-			//start with the labels of the first child manifest
+			// start with the labels of the first child manifest
 			result.CommonLabels = labels
 		} else {
-			//for each other child manifest, drop the labels where values do not match
+			// for each other child manifest, drop the labels where values do not match
 			for key, thisValue := range labels {
 				commonValue, exists := result.CommonLabels[key]
 				if exists && commonValue != thisValue {
@@ -359,7 +359,7 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 			}
 		}
 
-		//compute aggregate information for all child manifests
+		// compute aggregate information for all child manifests
 		result.ManifestDigests = append(result.ManifestDigests, desc.Digest.String())
 		result.MinCreationTime = keppel.MinMaybeTime(result.MinCreationTime, manifest.MinLayerCreatedAt)
 		result.MaxCreationTime = keppel.MaxMaybeTime(result.MaxCreationTime, manifest.MaxLayerCreatedAt)
@@ -372,19 +372,19 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account,
 // Information about a manifest's config blob.
 type manifestConfigInfo struct {
 	Labels          map[string]string
-	MinCreationTime *time.Time //across all layers
-	MaxCreationTime *time.Time //across all layers
+	MinCreationTime *time.Time // across all layers
+	MaxCreationTime *time.Time // across all layers
 }
 
 // Returns the list of missing labels, or nil if everything is ok.
 func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account keppel.Account, manifest keppel.ParsedManifest) (result manifestConfigInfo, err error) {
-	//is this manifest an image that has labels?
+	// is this manifest an image that has labels?
 	configBlob := manifest.FindImageConfigBlob()
 	if configBlob == nil {
 		return manifestConfigInfo{}, nil
 	}
 
-	//load the config blob
+	// load the config blob
 	storageID, err := tx.SelectStr(
 		`SELECT storage_id FROM blobs WHERE account_name = $1 AND digest = $2`,
 		account.Name, configBlob.Digest.String(),
@@ -408,8 +408,8 @@ func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account 
 		return manifestConfigInfo{}, err
 	}
 
-	//the Docker v2 and OCI formats are very similar; they're both JSON and have
-	//the labels in the same place, so we can use a single code path for both
+	// the Docker v2 and OCI formats are very similar; they're both JSON and have
+	// the labels in the same place, so we can use a single code path for both
 	var data struct {
 		Config struct {
 			Labels map[string]string `json:"labels"`
@@ -495,10 +495,10 @@ func upsertTag(db gorp.SqlExecutor, t keppel.Tag) error {
 }
 
 func maintainManifestBlobRefs(tx *gorp.Transaction, m keppel.Manifest, referencedBlobs []blobRef) error {
-	//maintain media type on blobs (we have no way of knowing the media type of a
-	//blob when it gets uploaded by itself, but manifests always include the
-	//media type of each blob referenced therein; therefore now is our only
-	//chance to persist this information for future use)
+	// maintain media type on blobs (we have no way of knowing the media type of a
+	// blob when it gets uploaded by itself, but manifests always include the
+	// media type of each blob referenced therein; therefore now is our only
+	// chance to persist this information for future use)
 	query := `UPDATE blobs SET media_type = $1 WHERE id = $2 AND media_type != $1`
 	err := sqlext.WithPreparedStatement(tx, query, func(stmt *sql.Stmt) error {
 		for _, blobRef := range referencedBlobs {
@@ -513,7 +513,7 @@ func maintainManifestBlobRefs(tx *gorp.Transaction, m keppel.Manifest, reference
 		return err
 	}
 
-	//find existing manifest_blob_refs entries for this manifest
+	// find existing manifest_blob_refs entries for this manifest
 	isExistingBlobIDRef := make(map[int64]bool)
 	query = `SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`
 	err = sqlext.ForeachRow(tx, query, []any{m.RepositoryID, m.Digest}, func(rows *sql.Rows) error {
@@ -526,14 +526,14 @@ func maintainManifestBlobRefs(tx *gorp.Transaction, m keppel.Manifest, reference
 		return err
 	}
 
-	//create missing manifest_blob_refs
+	// create missing manifest_blob_refs
 	if len(referencedBlobs) > 0 {
 		err = sqlext.WithPreparedStatement(tx,
 			`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
 			func(stmt *sql.Stmt) error {
 				for _, blobRef := range referencedBlobs {
 					if isExistingBlobIDRef[blobRef.ID] {
-						delete(isExistingBlobIDRef, blobRef.ID) //see below for why we do this
+						delete(isExistingBlobIDRef, blobRef.ID) // see below for why we do this
 						continue
 					}
 
@@ -550,9 +550,9 @@ func maintainManifestBlobRefs(tx *gorp.Transaction, m keppel.Manifest, reference
 		}
 	}
 
-	//delete superfluous manifest_blob_refs (because we deleted from
-	//`isExistingBlobIDRef` in the previous loop, all entries left in it are
-	//definitely not in `referencedBlobIDs` and therefore need to be deleted)
+	// delete superfluous manifest_blob_refs (because we deleted from
+	// `isExistingBlobIDRef` in the previous loop, all entries left in it are
+	// definitely not in `referencedBlobIDs` and therefore need to be deleted)
 	if len(isExistingBlobIDRef) > 0 {
 		err = sqlext.WithPreparedStatement(tx,
 			`DELETE FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2 AND blob_id = $3`,
@@ -575,7 +575,7 @@ func maintainManifestBlobRefs(tx *gorp.Transaction, m keppel.Manifest, reference
 }
 
 func maintainManifestManifestRefs(tx *gorp.Transaction, m keppel.Manifest, referencedManifestDigests []string) error {
-	//find existing manifest_manifest_refs entries for this manifest
+	// find existing manifest_manifest_refs entries for this manifest
 	isExistingManifestDigestRef := make(map[string]bool)
 	query := `SELECT child_digest FROM manifest_manifest_refs WHERE repo_id = $1 AND parent_digest = $2`
 	err := sqlext.ForeachRow(tx, query, []any{m.RepositoryID, m.Digest}, func(rows *sql.Rows) error {
@@ -588,14 +588,14 @@ func maintainManifestManifestRefs(tx *gorp.Transaction, m keppel.Manifest, refer
 		return err
 	}
 
-	//create missing manifest_manifest_refs
+	// create missing manifest_manifest_refs
 	if len(referencedManifestDigests) > 0 {
 		err = sqlext.WithPreparedStatement(tx,
 			`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES ($1, $2, $3)`,
 			func(stmt *sql.Stmt) error {
 				for _, childDigest := range referencedManifestDigests {
 					if isExistingManifestDigestRef[childDigest] {
-						delete(isExistingManifestDigestRef, childDigest) //see below for why we do this
+						delete(isExistingManifestDigestRef, childDigest) // see below for why we do this
 						continue
 					}
 
@@ -612,10 +612,10 @@ func maintainManifestManifestRefs(tx *gorp.Transaction, m keppel.Manifest, refer
 		}
 	}
 
-	//delete superfluous manifest_manifest_refs (because we deleted from
-	//`isExistingManifestDigestRef` in the previous loop, all entries left in it
-	//are definitely not in `referencedManifestDigests` and therefore need to be
-	//deleted)
+	// delete superfluous manifest_manifest_refs (because we deleted from
+	// `isExistingManifestDigestRef` in the previous loop, all entries left in it
+	// are definitely not in `referencedManifestDigests` and therefore need to be
+	// deleted)
 	if len(isExistingManifestDigestRef) > 0 {
 		err = sqlext.WithPreparedStatement(tx,
 			`DELETE FROM manifest_manifest_refs WHERE repo_id = $1 AND parent_digest = $2 AND child_digest = $3`,
@@ -660,13 +660,13 @@ func (p *Processor) ReplicateManifest(ctx context.Context, account keppel.Accoun
 		return nil, nil, err
 	}
 
-	//parse the manifest to discover references to other manifests and blobs
+	// parse the manifest to discover references to other manifests and blobs
 	manifestParsed, _, err := keppel.ParseManifest(manifestMediaType, manifestBytes)
 	if err != nil {
 		return nil, nil, keppel.ErrManifestInvalid.With(err.Error())
 	}
 
-	//replicate referenced manifests recursively if required
+	// replicate referenced manifests recursively if required
 	for _, desc := range manifestParsed.ManifestReferences(account.PlatformFilter) {
 		_, err := keppel.FindManifest(p.db, repo, desc.Digest)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -677,25 +677,25 @@ func (p *Processor) ReplicateManifest(ctx context.Context, account keppel.Accoun
 		}
 	}
 
-	//mark all missing blobs as pending replication
+	// mark all missing blobs as pending replication
 	for _, desc := range manifestParsed.BlobReferences() {
-		//mark referenced blobs as pending replication if not replicated yet
+		// mark referenced blobs as pending replication if not replicated yet
 		blob, err := p.FindBlobOrInsertUnbackedBlob(desc, account)
 		if err != nil {
 			return nil, nil, err
 		}
-		//also ensure that the blob is mounted in this repo (this is also
-		//important if the blob exists; it may only have been replicated in a
-		//different repo)
+		// also ensure that the blob is mounted in this repo (this is also
+		// important if the blob exists; it may only have been replicated in a
+		// different repo)
 		err = keppel.MountBlobIntoRepo(p.db, *blob, repo)
 		if err != nil {
 			return nil, nil, err
 		}
 	}
 
-	//if the manifest is an image, we need to replicate the image configuration
-	//blob immediately because ValidateAndStoreManifest() uses it for validation
-	//purposes
+	// if the manifest is an image, we need to replicate the image configuration
+	// blob immediately because ValidateAndStoreManifest() uses it for validation
+	// purposes
 	configBlobDesc := manifestParsed.FindImageConfigBlob()
 	if configBlobDesc != nil {
 		configBlob, err := keppel.FindBlobByAccountName(p.db, configBlobDesc.Digest, account)
@@ -737,7 +737,7 @@ func errorIsManifestNotFound(err error) bool {
 	if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok {
 		//ErrManifestUnknown: manifest was deleted
 		//ErrNameUnknown: repo was deleted
-		//"NOT_FOUND": not defined by the spec, but observed in the wild with Harbor
+		// "NOT_FOUND": not defined by the spec, but observed in the wild with Harbor
 		return rerr.Code == keppel.ErrManifestUnknown || rerr.Code == keppel.ErrNameUnknown || rerr.Code == "NOT_FOUND"
 	}
 	return false
@@ -758,7 +758,7 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 		return nil, "", err
 	}
 
-	//try loading the manifest from the cache
+	// try loading the manifest from the cache
 	imageRef := models.ImageReference{
 		Host:      c.Host,
 		RepoName:  c.RepoName,
@@ -774,14 +774,14 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 		return nil, "", err
 	}
 
-	//cache miss -> download from actual upstream registry
+	// cache miss -> download from actual upstream registry
 	manifestBytes, manifestMediaType, err = c.DownloadManifest(ctx, ref, &client.DownloadManifestOpts{
 		DoNotCountTowardsLastPulled: true,
 	})
 	if err != nil && account.ExternalPeerURL != "" && errorIsUpstreamRateLimit(err) {
-		//when a pull from an external registry runs into a rate limit, ask a
-		//random peer to retry the pull for us; they might be successful since
-		//rate limits are usually per source IP
+		// when a pull from an external registry runs into a rate limit, ask a
+		// random peer to retry the pull for us; they might be successful since
+		// rate limits are usually per source IP
 		var ok bool
 		manifestBytes, manifestMediaType, ok = p.downloadManifestViaPullDelegation(ctx, imageRef, account.ExternalPeerUserName, account.ExternalPeerPassword)
 		if ok {
@@ -792,7 +792,7 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 		return nil, "", err
 	}
 
-	//successfully downloaded manifest -> fill cache
+	// successfully downloaded manifest -> fill cache
 	err = p.icd.StoreManifest(imageRef, manifestBytes, manifestMediaType, p.timeNow())
 	if err != nil {
 		return nil, "", err
@@ -806,11 +806,11 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 // external registry for us. This gets used when the external registry denies
 // the pull to us because we hit our rate limit.
 func (p *Processor) downloadManifestViaPullDelegation(ctx context.Context, imageRef models.ImageReference, userName, password string) (respBytes []byte, contentType string, success bool) {
-	//select a peer at random
+	// select a peer at random
 	var peer keppel.Peer
 	err := p.db.SelectOne(&peer, `SELECT * FROM peers WHERE our_password != '' ORDER BY RANDOM() LIMIT 1`)
 	if errors.Is(err, sql.ErrNoRows) {
-		//no peers set up - just skip this step without logging anything
+		// no peers set up - just skip this step without logging anything
 		return nil, "", false
 	}
 	if err != nil {
@@ -852,7 +852,7 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 	}
 
 	result, err := p.db.Exec(
-		//this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
+		// this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
 		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
 		repo.ID, manifestDigest)
 	if err != nil {
@@ -874,19 +874,19 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 		return sql.ErrNoRows
 	}
 
-	//We delete in the storage *after* the deletion is durable in the DB to be
-	//extra sure that we did not break any constraints (esp. manifest-manifest
-	//refs and manifest-blob refs) that the DB enforces. Doing things in this
-	//order might mean that, if DeleteManifest fails, we're left with a manifest
-	//in the backing storage that is not referenced in the DB anymore, but this
-	//is not a huge problem since the janitor can clean those up after the fact.
-	//What's most important is that we don't lose any data in the backing storage
-	//while it is still referenced in the DB.
+	// We delete in the storage *after* the deletion is durable in the DB to be
+	// extra sure that we did not break any constraints (esp. manifest-manifest
+	// refs and manifest-blob refs) that the DB enforces. Doing things in this
+	// order might mean that, if DeleteManifest fails, we're left with a manifest
+	// in the backing storage that is not referenced in the DB anymore, but this
+	// is not a huge problem since the janitor can clean those up after the fact.
+	// What's most important is that we don't lose any data in the backing storage
+	// while it is still referenced in the DB.
 	//
-	//Also, the DELETE statement could fail if some concurrent process created a
-	//manifest reference in the meantime. If that happens, and we have already
-	//deleted the manifest in the backing storage, we've caused an inconsistency
-	//that we cannot recover from.
+	// Also, the DELETE statement could fail if some concurrent process created a
+	// manifest reference in the meantime. If that happens, and we have already
+	// deleted the manifest in the backing storage, we've caused an inconsistency
+	// that we cannot recover from.
 	err = p.sd.DeleteManifest(account, repo.Name, manifestDigest)
 	if err != nil {
 		return err

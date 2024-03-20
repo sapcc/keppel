@@ -41,9 +41,9 @@ type Processor struct {
 	sd          keppel.StorageDriver
 	icd         keppel.InboundCacheDriver
 	auditor     keppel.Auditor
-	repoClients map[string]*client.RepoClient //key = account name
+	repoClients map[string]*client.RepoClient // key = account name
 
-	//non-pure functions that can be replaced by deterministic doubles for unit tests
+	// non-pure functions that can be replaced by deterministic doubles for unit tests
 	timeNow           func() time.Time
 	generateStorageID func() string
 }
@@ -114,7 +114,7 @@ func (p *Processor) insideTransaction(action func(*gorp.Transaction) error) erro
 
 // Returns nil if and only if the user can push another manifest.
 func (p *Processor) checkQuotaForManifestPush(account keppel.Account) error {
-	//check if user has enough quota to push a manifest
+	// check if user has enough quota to push a manifest
 	quotas, err := keppel.FindQuotas(p.db, account.AuthTenantID)
 	if err != nil {
 		return err
@@ -138,8 +138,8 @@ func (p *Processor) checkQuotaForManifestPush(account keppel.Account) error {
 // Takes a repo in a replica account and returns a RepoClient for accessing its
 // the upstream repo in the corresponding primary account.
 func (p *Processor) getRepoClientForUpstream(account keppel.Account, repo keppel.Repository) (*client.RepoClient, error) {
-	//use cached client if possible (this one probably already contains a valid
-	//pull token)
+	// use cached client if possible (this one probably already contains a valid
+	// pull token)
 	if c, ok := p.repoClients[repo.FullName()]; ok {
 		return c, nil
 	}
