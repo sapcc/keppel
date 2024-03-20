@@ -80,8 +80,13 @@ linters-settings:
       # created file permissions are restricted by umask if necessary
       - G306
   govet:
-    # Report about shadowed variables.
-    check-shadowing: true
+    enable-all: true
+    disable:
+      - fieldalignment
+    settings:
+      shadow:
+        # Report about shadowed variables.
+        strict: true
   nolintlint:
     require-specific: true
   stylecheck:
