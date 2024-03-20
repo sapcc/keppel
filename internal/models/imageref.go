@@ -83,7 +83,8 @@ func ParseImageReference(input string) (ImageReference, string, error) {
 	}
 
 	var ref ImageReference
-	if strings.Contains(imageURL.Path, "@") {
+	switch {
+	case strings.Contains(imageURL.Path, "@"):
 		// input references a digest
 		pathParts := ImageReferenceRx.FindStringSubmatch(imageURL.Path)
 		parsedDigest, err := digest.Parse(pathParts[len(pathParts)-1])
@@ -95,7 +96,7 @@ func ParseImageReference(input string) (ImageReference, string, error) {
 			RepoName:  strings.TrimPrefix(pathParts[1], "/"),
 			Reference: ManifestReference{Digest: parsedDigest},
 		}
-	} else if strings.Contains(imageURL.Path, ":") {
+	case strings.Contains(imageURL.Path, ":"):
 		// input references a tag name
 		pathParts := strings.SplitN(imageURL.Path, ":", 2)
 		ref = ImageReference{
@@ -103,7 +104,7 @@ func ParseImageReference(input string) (ImageReference, string, error) {
 			RepoName:  strings.TrimPrefix(pathParts[0], "/"),
 			Reference: ManifestReference{Tag: pathParts[1]},
 		}
-	} else {
+	default:
 		// input references no tag or digest - use default tag
 		ref = ImageReference{
 			Host:      imageURL.Host,

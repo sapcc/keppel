@@ -91,18 +91,19 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		responseWasWritten, err := a.processor().ReplicateBlob(r.Context(), *blob, *account, *repo, w)
 
 		if err != nil {
-			if responseWasWritten {
+			switch {
+			case responseWasWritten:
 				// we cannot write to `w` if br.Execute() wrote a response there already
 				logg.Error("while trying to replicate blob %s in %s/%s: %s",
 					blob.Digest, account.Name, repo.Name, err.Error())
-			} else if errors.Is(err, processor.ErrConcurrentReplication) {
+			case errors.Is(err, processor.ErrConcurrentReplication):
 				// special handling for GET during ongoing replication (429 Too Many
 				// Requests is not a perfect match, but it's my best guess for getting
 				// clients to automatically retry the request after a few seconds)
 				w.Header().Set("Retry-After", "10")
 				msg := "currently replicating on a different worker, please retry in a few seconds"
 				keppel.ErrTooManyRequests.With(msg).WriteAsRegistryV2ResponseTo(w, r)
-			} else {
+			default:
 				respondWithError(w, r, err)
 			}
 		} else if !responseWasWritten {

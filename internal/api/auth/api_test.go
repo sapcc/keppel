@@ -790,7 +790,7 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 					}
 					req.ExpectBody = expectedContents
 				} else {
-					msg := strings.Replace(c.ErrorMessage, "%SERVICE%", domainPrefix+c.Service, -1)
+					msg := strings.ReplaceAll(c.ErrorMessage, "%SERVICE%", domainPrefix+c.Service)
 					req.ExpectStatus = http.StatusBadRequest
 					req.ExpectBody = assert.JSONObject{"details": msg}
 				}

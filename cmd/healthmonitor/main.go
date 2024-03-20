@@ -211,11 +211,12 @@ func (j *healthMonitorJob) ReportHealthcheckResult(w http.ResponseWriter, r *htt
 	lastResult := j.LastResult
 	j.LastResultLock.RUnlock()
 
-	if lastResult == nil {
+	switch {
+	case lastResult == nil:
 		http.Error(w, "still starting up", http.StatusServiceUnavailable)
-	} else if *lastResult {
+	case *lastResult:
 		w.WriteHeader(http.StatusNoContent)
-	} else {
+	default:
 		http.Error(w, "healthcheck failed", http.StatusInternalServerError)
 	}
 }

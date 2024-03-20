@@ -55,11 +55,12 @@ func filterAuthorized(ir IncomingRequest, uid keppel.UserIdentity, audience Audi
 			}
 
 		case "keppel_api":
-			if scope.Contains(PeerAPIScope) && uid.UserType() == keppel.PeerUser {
+			switch {
+			case scope.Contains(PeerAPIScope) && uid.UserType() == keppel.PeerUser:
 				filtered.Actions = PeerAPIScope.Actions
-			} else if scope.Contains(InfoAPIScope) && uid.UserType() != keppel.AnonymousUser {
+			case scope.Contains(InfoAPIScope) && uid.UserType() != keppel.AnonymousUser:
 				filtered.Actions = InfoAPIScope.Actions
-			} else {
+			default:
 				filtered.Actions = nil
 			}
 
@@ -70,14 +71,15 @@ func filterAuthorized(ir IncomingRequest, uid keppel.UserIdentity, audience Audi
 			}
 
 		case "keppel_auth_tenant":
-			if audience.AccountName != "" {
+			switch {
+			case audience.AccountName != "":
 				// this type of scope is only used by the Keppel API, which does not
 				// allow domain-remapping anyway
 				filtered.Actions = nil
-			} else if audience.IsAnycast {
+			case audience.IsAnycast:
 				// defense in depth: any APIs requiring auth-tenant-level permission are not anycastable anyway
 				filtered.Actions = nil
-			} else {
+			default:
 				filtered.Actions = filterAuthTenantActions(scope.ResourceName, scope.Actions, uid)
 			}
 

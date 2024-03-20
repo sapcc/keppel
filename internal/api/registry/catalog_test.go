@@ -133,7 +133,7 @@ func testNonEmptyCatalog(t *testing.T, s test.Setup) {
 				expectedPage = expectedPage[:length]
 				lastRepoName := expectedPage[len(expectedPage)-1]
 				expectedHeaders["Link"] = fmt.Sprintf(`</v2/_catalog?last=%s&n=%d>; rel="next"`,
-					strings.Replace(lastRepoName, "/", "%2F", -1), length,
+					strings.ReplaceAll(lastRepoName, "/", "%2F"), length,
 				)
 			}
 
