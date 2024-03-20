@@ -21,6 +21,7 @@ package registryv2_test
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -45,12 +46,12 @@ const authTenantID = "test1authtenant"
 func testWithPrimary(t *testing.T, setupOptions []test.SetupOption, action func(test.Setup)) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
 		for _, withAnycast := range []bool{false, true} {
-			setupOptions = append(setupOptions,
+			opts := append(slices.Clone(setupOptions),
 				test.WithAnycast(withAnycast),
 				test.WithAccount(keppel.Account{Name: "test1", AuthTenantID: authTenantID}),
 				test.WithQuotas,
 			)
-			s := test.NewSetup(t, setupOptions...)
+			s := test.NewSetup(t, opts...)
 			currentlyWithAnycast = withAnycast
 
 			// run the tests for this scenario
