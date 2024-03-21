@@ -119,7 +119,6 @@ linters:
     - durationcheck
     - errcheck
     - errorlint
-    - exportloopref
     - forbidigo
     - ginkgolinter
     - gocheckcompilerdirectives
