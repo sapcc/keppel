@@ -34,13 +34,13 @@ func TestReportTypeAlignment(t *testing.T) {
 
 	theirType := reflect.ValueOf(types.Report{}).Type()
 	theirFields := make(map[string]reflect.StructField)
-	for idx := 0; idx < theirType.NumField(); idx++ {
+	for idx := range theirType.NumField() {
 		field := theirType.Field(idx)
 		theirFields[field.Name] = field
 	}
 
 	ourType := reflect.ValueOf(enrichedReport{}).Type()
-	for idx := 0; idx < ourType.NumField(); idx++ {
+	for idx := range ourType.NumField() {
 		ourField := ourType.Field(idx)
 
 		// fields that only exist on our side are allowed, but they must be serialized as "X-Keppel-..."

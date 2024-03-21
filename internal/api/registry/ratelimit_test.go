@@ -100,13 +100,13 @@ func TestRateLimits(t *testing.T) {
 			s.Clock.StepBy(time.Hour)
 
 			// we can always execute 1 request initially, and then we can burst on top of that
-			for i := 0; i < limit.Burst; i++ {
+			for range limit.Burst {
 				req.Check(t, h)
 				s.Clock.StepBy(time.Second)
 			}
 
 			// then the next request should be rate-limited
-			failingReq := req
+			failingReq := req //nolint:copyloopvar
 			failingReq.ExpectBody = test.ErrorCode(keppel.ErrTooManyRequests)
 			failingReq.ExpectStatus = http.StatusTooManyRequests
 			failingReq.ExpectHeader = map[string]string{

@@ -39,8 +39,8 @@ func TestSweepBlobs(t *testing.T) {
 
 	// insert some blobs into the DB
 	var dbBlobs []keppel.Blob
-	for idx := int64(0); idx < 5; idx++ {
-		blob := test.GenerateExampleLayer(idx)
+	for idx := range 5 {
+		blob := test.GenerateExampleLayer(int64(idx))
 		dbBlobs = append(dbBlobs, blob.MustUpload(t, s, fooRepoRef))
 	}
 

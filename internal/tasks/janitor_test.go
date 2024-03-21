@@ -33,7 +33,7 @@ func TestAddJitter(t *testing.T) {
 	biggerCount := 0
 
 	// take 1000 samples of addJitter()
-	for idx := 0; idx < 1000; idx++ {
+	for range 1000 {
 		d := addJitter(baseDuration)
 		// no sample should be outside the +/-10% range of the base duration
 		if d < lowerBound {

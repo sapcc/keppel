@@ -121,7 +121,7 @@ func testNonEmptyCatalog(t *testing.T, s test.Setup) {
 	}.Check(t, h)
 
 	// test paginated
-	for offset := 0; offset < len(allRepos); offset++ {
+	for offset := range allRepos {
 		for length := 1; length <= len(allRepos)+1; length++ {
 			expectedPage := allRepos[offset:]
 			expectedHeaders := map[string]string{

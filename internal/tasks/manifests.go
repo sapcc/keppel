@@ -550,7 +550,7 @@ func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *gorp.Transac
 	// The WaitGroup keeps track of the opened go routines and makes sure the returnChan is closed when all started go routines exited.
 	var wg sync.WaitGroup
 
-	for i := 0; i < threads; i++ {
+	for range threads {
 		wg.Add(1)
 
 		go func() {

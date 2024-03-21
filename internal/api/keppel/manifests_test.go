@@ -232,7 +232,7 @@ func TestManifestsAPI(t *testing.T) {
 			ExpectStatus: http.StatusOK,
 			ExpectBody:   assert.JSONObject{"manifests": renderedManifests[5:10]},
 		}.Check(t, h)
-		for idx := 0; idx < 9; idx++ {
+		for idx := range 9 {
 			expectedBody := assert.JSONObject{
 				"manifests": []assert.JSONObject{renderedManifests[idx+1]},
 			}
@@ -513,7 +513,7 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 		s.Clock.StepBy(time.Hour)
 
 		// we can always execute 1 request initially, and then we can burst on top of that
-		for i := 0; i < limit.Burst; i++ {
+		for range limit.Burst {
 			req.Check(t, h)
 			s.Clock.StepBy(time.Second)
 		}

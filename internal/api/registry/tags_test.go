@@ -96,7 +96,7 @@ func TestListTags(t *testing.T) {
 		}.Check(t, h)
 
 		// test paginated
-		for offset := 0; offset < len(allTagNames); offset++ {
+		for offset := range len(allTagNames) {
 			for length := 1; length <= len(allTagNames)+1; length++ {
 				expectedPage := allTagNames[offset:]
 				expectedHeaders := map[string]string{
