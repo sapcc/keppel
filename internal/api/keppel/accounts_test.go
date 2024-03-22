@@ -377,7 +377,7 @@ func TestAccountsAPI(t *testing.T) {
 		}
 	}
 
-	// check editing of RBAC policies
+	// check editing of metadata and RBAC policies
 	newRBACPoliciesJSON := []assert.JSONObject{
 		// rbacPoliciesJSON[0] is deleted
 		// rbacPoliciesJSON[1] is updated as follows:
@@ -393,6 +393,10 @@ func TestAccountsAPI(t *testing.T) {
 			"permissions":      []string{"pull", "delete"},
 		},
 	}
+	newMetadataJSON := assert.JSONObject{
+		"foo": "bingo",
+		"bar": "buz",
+	}
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/second",
@@ -400,7 +404,9 @@ func TestAccountsAPI(t *testing.T) {
 		Body: assert.JSONObject{
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
-				"rbac_policies":  newRBACPoliciesJSON,
+				// add metadata
+				"metadata":      newMetadataJSON,
+				"rbac_policies": newRBACPoliciesJSON,
 			},
 		},
 		ExpectStatus: http.StatusOK,
@@ -409,7 +415,7 @@ func TestAccountsAPI(t *testing.T) {
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
 				"in_maintenance": false,
-				"metadata":       assert.JSONObject{},
+				"metadata":       newMetadataJSON,
 				"rbac_policies":  newRBACPoliciesJSON,
 			},
 		},
@@ -605,6 +611,19 @@ func TestPutAccountErrorCases(t *testing.T) {
 
 	assert.HTTPRequest{
 		Method: "PUT",
+		Path:   "/keppel/v1/accounts/v1",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("account names that look like API versions are reserved for internal use\n"),
+	}.Check(t, h)
+
+	assert.HTTPRequest{
+		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
 		Header: map[string]string{"X-Test-Perms": "change:tenant2"},
 		Body: assert.JSONObject{
@@ -694,6 +713,23 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectBody:   assert.StringData("cannot set up backing storage for this account: CanSetupAccount failed as requested\n"),
 	}.Check(t, h)
 	s.SD.ForbidNewAccounts = false
+
+	// test setting up invalid required_labels
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/second",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"validation": assert.JSONObject{
+					"required_labels": []string{"foo,", ",bar"},
+				},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("invalid label name: \"foo,\"\n"),
+	}.Check(t, h)
 
 	// test malformed GC policies
 	gcPolicyTestcases := []struct {
