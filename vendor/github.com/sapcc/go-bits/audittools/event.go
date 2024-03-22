@@ -44,17 +44,17 @@ type UserInfo interface {
 	UserUUID() string
 	UserName() string
 	UserDomainName() string
-	//ProjectScopeUUID returns the empty string if the user's token is not for a project scope.
+	// ProjectScopeUUID returns the empty string if the user's token is not for a project scope.
 	ProjectScopeUUID() string
-	//ProjectScopeName returns the empty string if the user's token is not for a project scope.
+	// ProjectScopeName returns the empty string if the user's token is not for a project scope.
 	ProjectScopeName() string
-	//ProjectScopeDomainName returns the empty string if the user's token is not for a project scope.
+	// ProjectScopeDomainName returns the empty string if the user's token is not for a project scope.
 	ProjectScopeDomainName() string
-	//DomainScopeUUID returns the empty string if the user's token is not for a domain scope.
+	// DomainScopeUUID returns the empty string if the user's token is not for a domain scope.
 	DomainScopeUUID() string
-	//DomainScopeName returns the empty string if the user's token is not for a domain scope.
+	// DomainScopeName returns the empty string if the user's token is not for a domain scope.
 	DomainScopeName() string
-	//ApplicationCredentialID returns the empty string if the user's token was created through a different authentication method.
+	// ApplicationCredentialID returns the empty string if the user's token was created through a different authentication method.
 	ApplicationCredentialID() string
 }
 
@@ -100,7 +100,7 @@ func NewEvent(p EventParameters) cadf.Event {
 	} else {
 		initiator = cadf.Resource{
 			TypeURI: "service/security/account/user",
-			//information about user
+			// information about user
 			Name:   p.User.UserName(),
 			Domain: p.User.UserDomainName(),
 			ID:     p.User.UserUUID(),
@@ -108,7 +108,7 @@ func NewEvent(p EventParameters) cadf.Event {
 				Address: httpext.GetRequesterIPFor(p.Request),
 				Agent:   p.Request.Header.Get("User-Agent"),
 			},
-			//information about user's scope (only one of both will be filled)
+			// information about user's scope (only one of both will be filled)
 			DomainID:          p.User.DomainScopeUUID(),
 			DomainName:        p.User.DomainScopeName(),
 			ProjectID:         p.User.ProjectScopeUUID(),

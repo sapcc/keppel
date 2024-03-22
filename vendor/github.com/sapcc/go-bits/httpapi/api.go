@@ -42,7 +42,7 @@ type API interface {
 // resulting error message.
 type HealthCheckAPI struct {
 	SkipRequestLog bool
-	Check          func() error //optional
+	Check          func() error // optional
 }
 
 // AddTo implements the API interface.
@@ -75,7 +75,7 @@ type pseudoAPI struct {
 }
 
 func (p pseudoAPI) AddTo(r *mux.Router) {
-	//no-op, see above
+	// no-op, see above
 }
 
 // WithoutLogging can be given as an argument to Compose() to disable request

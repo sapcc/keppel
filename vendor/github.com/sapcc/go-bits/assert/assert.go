@@ -38,8 +38,8 @@ func DeepEqual(t *testing.T, variable string, actual, expected any) bool {
 	}
 
 	//NOTE: We HAVE TO use %#v here, even if it's verbose. Every other generic
-	//formatting directive will not correctly distinguish all values, and thus
-	//possibly render empty diffs on failure. For example,
+	// formatting directive will not correctly distinguish all values, and thus
+	// possibly render empty diffs on failure. For example,
 	//
 	//	fmt.Sprintf("%+v\n", []string{})    == "[]\n"
 	//	fmt.Sprintf("%+v\n", []string(nil)) == "[]\n"

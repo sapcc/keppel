@@ -166,7 +166,7 @@ func (i producerConsumerJobImpl[T]) Run(ctx context.Context, opts ...Option) {
 
 // Implementation of Run() for `cfg.NumGoroutines == 1`.
 func (i producerConsumerJobImpl[T]) runSingleThreaded(ctx context.Context, cfg jobConfig) {
-	for ctx.Err() == nil { //while ctx has not expired
+	for ctx.Err() == nil { // while ctx has not expired
 		err := i.processOne(ctx, cfg)
 		logAndSlowDownOnError(err)
 	}
@@ -180,14 +180,14 @@ type taskWithLabels[T any] struct {
 // Implementation of Run() for `cfg.NumGoroutines > 1`.
 func (i producerConsumerJobImpl[T]) runMultiThreaded(ctx context.Context, cfg jobConfig) {
 	j := i.j
-	ch := make(chan taskWithLabels[T]) //unbuffered!
+	ch := make(chan taskWithLabels[T]) // unbuffered!
 	var wg sync.WaitGroup
 
-	//one goroutine produces tasks
+	// one goroutine produces tasks
 	wg.Add(1)
 	go func(ch chan<- taskWithLabels[T]) {
 		defer wg.Done()
-		for ctx.Err() == nil { //while ctx has not expired
+		for ctx.Err() == nil { // while ctx has not expired
 			task, labels, err := j.produceOne(ctx, cfg, true)
 			if err == nil {
 				ch <- taskWithLabels[T]{task, labels}
@@ -196,14 +196,14 @@ func (i producerConsumerJobImpl[T]) runMultiThreaded(ctx context.Context, cfg jo
 			}
 		}
 
-		//`ctx` has expired -> tell workers to shutdown
+		// `ctx` has expired -> tell workers to shutdown
 		close(ch)
 	}(ch)
 
-	//multiple goroutines consume tasks
+	// multiple goroutines consume tasks
 	//
-	//We use `numGoroutines-1` here since we already have spawned one goroutine
-	//for the polling above.
+	// We use `numGoroutines-1` here since we already have spawned one goroutine
+	// for the polling above.
 	wg.Add(int(cfg.NumGoroutines - 1))
 	for i := uint(0); i < cfg.NumGoroutines-1; i++ {
 		go func(ch <-chan taskWithLabels[T]) {
@@ -217,19 +217,19 @@ func (i producerConsumerJobImpl[T]) runMultiThreaded(ctx context.Context, cfg jo
 		}(ch)
 	}
 
-	//block until they are all done
+	// block until they are all done
 	wg.Wait()
 }
 
 func logAndSlowDownOnError(err error) {
 	switch {
 	case err == nil:
-		//nothing to do here
+		// nothing to do here
 	case errors.Is(err, sql.ErrNoRows):
-		//no tasks waiting right now - slow down a bit to avoid useless DB load
+		// no tasks waiting right now - slow down a bit to avoid useless DB load
 		time.Sleep(3 * time.Second)
 	default:
-		//slow down a bit after an error to avoid hammering the DB during outages
+		// slow down a bit after an error to avoid hammering the DB during outages
 		logg.Error(err.Error())
 		time.Sleep(5 * time.Second)
 	}

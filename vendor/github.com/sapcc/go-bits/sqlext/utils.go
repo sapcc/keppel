@@ -72,11 +72,11 @@ func RollbackUnlessCommitted(tx Rollbacker) {
 	err := tx.Rollback()
 	switch {
 	case err == nil:
-		//rolled back successfully
+		// rolled back successfully
 		logg.Info("implicit rollback done")
 		return
 	case errors.Is(err, sql.ErrTxDone):
-		//already committed or rolled back - nothing to do
+		// already committed or rolled back - nothing to do
 		return
 	default:
 		logg.Error("implicit rollback failed: %s", err.Error())

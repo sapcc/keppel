@@ -170,7 +170,7 @@ var (
 )
 
 func init() {
-	//lru.New() only fails if a non-negative size is given, so it's safe to ignore the error here
+	// lru.New() only fails if a non-negative size is given, so it's safe to ignore the error here
 	//nolint:errcheck
 	cache, _ = lru.New[cacheKey, *regexp.Regexp](64)
 }

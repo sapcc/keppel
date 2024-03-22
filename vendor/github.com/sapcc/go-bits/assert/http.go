@@ -37,22 +37,22 @@ type HTTPRequestBody interface {
 // HTTPResponseBody is the type of field HTTPRequest.ExpectBody.
 // It is implemented by StringData and JSONObject.
 type HTTPResponseBody interface {
-	//Checks that the given actual response body is equal to this expected value.
-	//`request` contains a user-readable representation of the original request,
-	//for use in error messages.
+	// Checks that the given actual response body is equal to this expected value.
+	// `request` contains a user-readable representation of the original request,
+	// for use in error messages.
 	//
-	//Returns whether the assertion was successful.
+	// Returns whether the assertion was successful.
 	AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool
 }
 
 // HTTPRequest is a HTTP request that gets executed by a unit test.
 type HTTPRequest struct {
-	//request properties
+	// request properties
 	Method string
 	Path   string
 	Header map[string]string
 	Body   HTTPRequestBody
-	//response properties
+	// response properties
 	ExpectStatus int
 	ExpectBody   HTTPResponseBody
 	ExpectHeader map[string]string
@@ -115,7 +115,7 @@ func (r HTTPRequest) Check(t *testing.T, handler http.Handler) (resp *http.Respo
 	}
 
 	if r.ExpectBody != nil {
-		//json.Encoder.Encode() adds a stupid extra newline that we want to ignore
+		// json.Encoder.Encode() adds a stupid extra newline that we want to ignore
 		if response.Header.Get("Content-Type") == "application/json" {
 			responseBytes = bytes.TrimSuffix(responseBytes, []byte("\n"))
 		}
@@ -127,8 +127,8 @@ func (r HTTPRequest) Check(t *testing.T, handler http.Handler) (resp *http.Respo
 		}
 	}
 
-	//in case of errors, it's usually very helpful to see the response body
-	//(particularly for 4xx and 5xx responses), so make sure that it gets shown)
+	// in case of errors, it's usually very helpful to see the response body
+	// (particularly for 4xx and 5xx responses), so make sure that it gets shown)
 	if hadErrors && !bodyShown {
 		t.Logf("%s %s: response body was %q", r.Method, r.Path, string(responseBytes))
 	}

@@ -73,7 +73,7 @@ func ExecSQLFile(t *testing.T, db *sql.DB, path string) {
 		t.Fatal(err)
 	}
 
-	//split into single statements because db.Exec() will just ignore everything after the first semicolon
+	// split into single statements because db.Exec() will just ignore everything after the first semicolon
 	for idx, line := range strings.Split(string(sqlBytes), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "--") {
@@ -147,8 +147,8 @@ type Assertable struct {
 func (a Assertable) AssertEqualToFile(fixtureFile string) {
 	a.t.Helper()
 
-	//write actual content to file to make it easy to copy the computed result over
-	//to the fixture path when a new test is added or an existing one is modified
+	// write actual content to file to make it easy to copy the computed result over
+	// to the fixture path when a new test is added or an existing one is modified
 	fixturePath, err := filepath.Abs(fixtureFile)
 	failOnErr(a.t, err)
 	actualPath := fixturePath + ".actual"
@@ -169,19 +169,19 @@ var whitespaceAtStartOfLineRx = regexp.MustCompile(`(?m)^\s+`)
 // string literals in a way that fits nicely in the surrounding code.
 func (a Assertable) AssertEqual(expected string) {
 	a.t.Helper()
-	//cleanup indentation and empty lines in `expected`
+	// cleanup indentation and empty lines in `expected`
 	expected = strings.TrimSpace(expected) + "\n"
 	expected = whitespaceAtStartOfLineRx.ReplaceAllString(expected, "")
 
-	//cleanup empty lines in `actual`
-	actual := strings.Replace(a.payload, "\n\n", "\n", -1)
+	// cleanup empty lines in `actual`
+	actual := strings.ReplaceAll(a.payload, "\n\n", "\n")
 
-	//quick path: if both are equal, we're fine
+	// quick path: if both are equal, we're fine
 	if expected == actual {
 		return
 	}
 
-	//slow path: show a diff
+	// slow path: show a diff
 	tmpDir, err := os.MkdirTemp("", "easypg-diff")
 	failOnErr(a.t, err)
 	actualPath := filepath.Join(tmpDir, "/actual")

@@ -38,21 +38,21 @@ type Enforcer interface {
 // Token represents a validated Keystone v3 token. It is returned from
 // Validator.CheckToken().
 type Token struct {
-	//The enforcer that checks access permissions for this client token. Usually
-	//an instance of struct Enforcer from goslo.policy. Usually inherited from
-	//struct TokenValidator.
+	// The enforcer that checks access permissions for this client token. Usually
+	// an instance of struct Enforcer from goslo.policy. Usually inherited from
+	// struct TokenValidator.
 	Enforcer Enforcer
-	//When AuthN succeeds, contains information about the client token which can
-	//be used to check access permissions.
+	// When AuthN succeeds, contains information about the client token which can
+	// be used to check access permissions.
 	Context policy.Context
-	//When AuthN succeeds, contains a fully-initialized ProviderClient with which
-	//this process can use the OpenStack API on behalf of the authenticated user.
+	// When AuthN succeeds, contains a fully-initialized ProviderClient with which
+	// this process can use the OpenStack API on behalf of the authenticated user.
 	ProviderClient *gophercloud.ProviderClient
-	//When AuthN fails, contains the deferred AuthN error.
+	// When AuthN fails, contains the deferred AuthN error.
 	Err error
 
-	//When AuthN succeeds, contains all the information needed to serialize this
-	//token in SerializeTokenForCache.
+	// When AuthN succeeds, contains all the information needed to serialize this
+	// token in SerializeTokenForCache.
 	serializable serializableToken
 }
 
@@ -158,8 +158,8 @@ type serializableToken struct {
 
 // ExtractInto implements the TokenResult interface.
 func (s serializableToken) ExtractInto(value any) error {
-	//TokenResult.ExtractInto is only ever called with a value of type
-	//*keystoneToken, so this is okay
+	// TokenResult.ExtractInto is only ever called with a value of type
+	// *keystoneToken, so this is okay
 	kd, ok := value.(*keystoneToken)
 	if !ok {
 		return fmt.Errorf("serializableToken.ExtractInto called with unsupported target type %T", value)

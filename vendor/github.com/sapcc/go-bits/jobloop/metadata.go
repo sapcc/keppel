@@ -60,8 +60,8 @@ func (m *JobMetadata) setup(registerer prometheus.Registerer) {
 	m.counter = prometheus.NewCounterVec(m.CounterOpts, allLabelNames)
 	registerer.MustRegister(m.counter)
 
-	//ensure that at least one timeseries for each outcome exists in this counter
-	//(so that absence alerts are useful)
+	// ensure that at least one timeseries for each outcome exists in this counter
+	// (so that absence alerts are useful)
 	labels := make(prometheus.Labels, len(m.CounterLabels)+1)
 	for _, label := range m.CounterLabels {
 		labels[label] = "unknown"

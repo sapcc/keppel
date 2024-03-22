@@ -31,12 +31,12 @@ import (
 // URLParts contains the arguments for func URLFrom(), see documentation over
 // there.
 type URLParts struct {
-	HostName          string //required
-	Port              string //optional (default value = 5432 for postgres:// scheme)
-	UserName          string //required
-	Password          string //optional
-	ConnectionOptions string //optional
-	DatabaseName      string //required
+	HostName          string // required
+	Port              string // optional (default value = 5432 for postgres:// scheme)
+	UserName          string // required
+	Password          string // optional
+	ConnectionOptions string // optional
+	DatabaseName      string // required
 }
 
 // This will be modified during unit tests to replace os.Hostname() with a test double.

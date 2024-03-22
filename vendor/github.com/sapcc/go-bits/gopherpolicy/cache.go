@@ -33,8 +33,8 @@ type inMemoryCacher struct {
 // 256 token payloads will be cached, so this will never use more than 4-8 MiB
 // of memory.
 func InMemoryCacher() Cacher {
-	//lru.New() only fails if a non-negative size is given, so it's safe to
-	//ignore the error here
+	// lru.New() only fails if a non-negative size is given, so it's safe to
+	// ignore the error here
 	//nolint:errcheck
 	c, _ := lru.New[string, []byte](256)
 	return inMemoryCacher{c}

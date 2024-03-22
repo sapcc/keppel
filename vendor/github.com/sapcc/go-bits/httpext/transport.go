@@ -69,9 +69,9 @@ func (w *WrappedTransport) SetInsecureSkipVerify(insecure bool) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	//only change the http.Transport if we have to (this is important because the
-	//presence of a custom TLSClientConfig may disable some useful behaviors like
-	//HTTP/2-by-default, so we only want to instantiate it if actually necessary)
+	// only change the http.Transport if we have to (this is important because the
+	// presence of a custom TLSClientConfig may disable some useful behaviors like
+	// HTTP/2-by-default, so we only want to instantiate it if actually necessary)
 	orig, ok := w.original.(*http.Transport)
 	if !ok {
 		panic(fmt.Sprintf("SetInsecureSkipVerify: requires the wrapped RoundTripper to be a *http.DefaultTransport, but is actually a %t", w.original))

@@ -40,12 +40,12 @@ type jobConfig struct {
 }
 
 func newJobConfig(opts []Option) jobConfig {
-	//default values
+	// default values
 	cfg := jobConfig{
 		NumGoroutines: 1,
 	}
 
-	//apply specific overrides
+	// apply specific overrides
 	for _, opt := range opts {
 		opt(&cfg)
 	}

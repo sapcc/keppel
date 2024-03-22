@@ -29,8 +29,8 @@ import (
 )
 
 //NOTE: This file contains various private types for taking and diffing
-//database snapshots and serializing them into SQL statements. The public API
-//for these types is in `testhelpers.go`.
+// database snapshots and serializing them into SQL statements. The public API
+// for these types is in `testhelpers.go`.
 
 ////////////////////////////////////////////////////////////////////////////////
 // type dbSnapshot
@@ -57,7 +57,7 @@ const (
 func newDBSnapshot(t *testing.T, db *sql.DB) dbSnapshot {
 	t.Helper()
 
-	//list all tables
+	// list all tables
 	var tableNames []string
 	rows, err := db.Query(listAllTablesQuery)
 	failOnErr(t, err)
@@ -69,7 +69,7 @@ func newDBSnapshot(t *testing.T, db *sql.DB) dbSnapshot {
 	failOnErr(t, rows.Err())
 	failOnErr(t, rows.Close()) //nolint:sqlclosecheck
 
-	//list key columns for all tables
+	// list key columns for all tables
 	keyColumnNames := make(map[string][]string)
 	rows, err = db.Query(listKeyColumnsQuery)
 	failOnErr(t, err)
@@ -84,7 +84,7 @@ func newDBSnapshot(t *testing.T, db *sql.DB) dbSnapshot {
 	failOnErr(t, rows.Err())
 	failOnErr(t, rows.Close()) //nolint:sqlclosecheck
 
-	//list column default values for all tables
+	// list column default values for all tables
 	columnDefaults := make(map[string]map[string]string)
 	rows, err = db.Query(listColumnDefaultsQuery)
 	failOnErr(t, err)
@@ -92,7 +92,7 @@ func newDBSnapshot(t *testing.T, db *sql.DB) dbSnapshot {
 		var (
 			tableName     string
 			columnName    string
-			isNullableStr string //either "NO" or "YES"
+			isNullableStr string // either "NO" or "YES"
 			defaultExpr   *string
 		)
 		failOnErr(t, rows.Scan(&tableName, &columnName, &isNullableStr, &defaultExpr))
@@ -100,24 +100,25 @@ func newDBSnapshot(t *testing.T, db *sql.DB) dbSnapshot {
 			columnDefaults[tableName] = make(map[string]string)
 		}
 
-		if defaultExpr == nil || *defaultExpr == "" {
+		switch {
+		case defaultExpr == nil || *defaultExpr == "":
 			if isNullableStr == "YES" {
 				columnDefaults[tableName][columnName] = "NULL"
 			} else {
-				//no default value and NOT NULL, i.e. a value must always be supplied explicitly
+				// no default value and NOT NULL, i.e. a value must always be supplied explicitly
 				continue
 			}
-		} else if strings.Contains(*defaultExpr, "nextval") {
-			//default value is computed from a sequence object and must always be snapshotted
+		case strings.Contains(*defaultExpr, "nextval"):
+			// default value is computed from a sequence object and must always be snapshotted
 			continue
-		} else {
+		default:
 			columnDefaults[tableName][columnName] = computeValueOfSQLExpression(t, db, *defaultExpr).Serialized
 		}
 	}
 	failOnErr(t, rows.Err())
 	failOnErr(t, rows.Close()) //nolint:sqlclosecheck
 
-	//snapshot all tables
+	// snapshot all tables
 	result := make(dbSnapshot, len(tableNames))
 	for _, tableName := range tableNames {
 		result[tableName] = newTableSnapshot(t, db, tableName, keyColumnNames[tableName], columnDefaults[tableName])
@@ -159,7 +160,7 @@ type tableSnapshot struct {
 	ColumnNames    []string
 	KeyColumnNames []string
 	ColumnDefaults map[string]string
-	//The map key is computed by rowSnapshot.Key().
+	// The map key is computed by rowSnapshot.Key().
 	Rows map[string]rowSnapshot
 }
 
@@ -171,13 +172,13 @@ func newTableSnapshot(t *testing.T, db *sql.DB, tableName string, keyColumnNames
 	columnNames, err := rows.Columns()
 	failOnErr(t, err)
 
-	//if there is no primary key or uniqueness constraint, use all columns as key
-	//(this means that diffs will only ever show INSERT and DELETE, not UPDATE)
+	// if there is no primary key or uniqueness constraint, use all columns as key
+	// (this means that diffs will only ever show INSERT and DELETE, not UPDATE)
 	if len(keyColumnNames) == 0 {
 		keyColumnNames = columnNames
 	}
-	//sort key columns in the same order as the columns themselves (this plays
-	//into sorting of keys and thus sorting of rows later on)
+	// sort key columns in the same order as the columns themselves (this plays
+	// into sorting of keys and thus sorting of rows later on)
 	idxOfColumnName := make(map[string]int, len(columnNames))
 	for idx, columnName := range columnNames {
 		idxOfColumnName[columnName] = idx
@@ -270,7 +271,7 @@ func (r rowSnapshot) ToSQLInsert(tableName string, columnNames []string, columnD
 	displayColumnNames := make([]string, 0, len(columnNames))
 	displayValues := make([]string, 0, len(columnNames))
 	for _, columnName := range columnNames {
-		//values are only displayed if they deviate from the column's default value (or if there is no default value)
+		// values are only displayed if they deviate from the column's default value (or if there is no default value)
 		if columnDefaults[columnName] == "" || columnDefaults[columnName] != r[columnName] {
 			displayColumnNames = append(displayColumnNames, columnName)
 			displayValues = append(displayValues, r[columnName])
