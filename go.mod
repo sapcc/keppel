@@ -4,7 +4,7 @@ go 1.22
 
 require (
 	github.com/alicebob/miniredis/v2 v2.32.1
-	github.com/aquasecurity/trivy v0.49.1
+	github.com/aquasecurity/trivy v0.50.0
 	github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/docker/distribution v2.8.3+incompatible
@@ -13,7 +13,7 @@ require (
 	github.com/gofrs/uuid/v5 v5.0.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/gophercloud/gophercloud v1.11.0
-	github.com/gophercloud/utils v0.0.0-20231010081019-80377eca5d56
+	github.com/gophercloud/utils b57aefba4cdb
 	github.com/gorilla/mux v1.8.1
 	github.com/majewsky/schwift v1.3.0
 	github.com/opencontainers/go-digest v1.0.0
