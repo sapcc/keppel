@@ -60,7 +60,7 @@ func init() {
 func (a *AccountManagementDriver) PluginTypeID() string { return "basic" }
 
 // ConfigureAccount implements the keppel.AccountManagementDriver interface.
-func (a *AccountManagementDriver) Init(envToConfigFile string) error {
+func (a *AccountManagementDriver) Init() error {
 	a.configPath = os.Getenv("KEPPEL_ACCOUNT_MANAGEMENT_FILE")
 	if a.configPath == "" {
 		return errors.New("KEPPEL_ACCOUNT_MANAGEMENT_FILE is not set")

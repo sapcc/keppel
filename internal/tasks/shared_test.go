@@ -40,7 +40,7 @@ func setup(t *testing.T, opts ...test.SetupOption) (*Janitor, test.Setup) {
 		test.WithQuotas,
 	}
 	s := test.NewSetup(t, append(params, opts...)...)
-	j := NewJanitor(s.Config, s.FD, s.SD, s.ICD, s.DB, s.Auditor).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next)
+	j := NewJanitor(s.Config, s.FD, s.SD, s.ICD, s.DB, s.AMD, s.Auditor).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next)
 	j.DisableJitter()
 	return j, s
 }
@@ -75,7 +75,7 @@ func setupReplica(t *testing.T, s1 test.Setup, strategy string) (*Janitor, test.
 		test.WithQuotas,
 	)
 
-	j2 := NewJanitor(s.Config, s.FD, s.SD, s.ICD, s.DB, s.Auditor).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next)
+	j2 := NewJanitor(s.Config, s.FD, s.SD, s.ICD, s.DB, s.AMD, s.Auditor).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next)
 	j2.DisableJitter()
 	return j2, s
 }

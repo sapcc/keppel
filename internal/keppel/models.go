@@ -83,8 +83,7 @@ func (a Account) SplitRequiredLabels() []string {
 // sql.ErrNoRows if no account exists with this name.
 func FindAccount(db gorp.SqlExecutor, name string) (*Account, error) {
 	var account Account
-	err := db.SelectOne(&account,
-		"SELECT * FROM accounts WHERE name = $1", name)
+	err := db.SelectOne(&account, "SELECT * FROM accounts WHERE name = $1", name)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

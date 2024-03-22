@@ -19,6 +19,9 @@
 package keppel
 
 import (
+	"errors"
+
+	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
 )
 
@@ -29,7 +32,7 @@ type AccountManagementDriver interface {
 	pluggable.Plugin
 	// Init is called before any other interface methods, and allows the plugin to
 	// perform first-time initialization.
-	Init(string) error
+	Init() error
 
 	// Called by a jobloop for every account every once in a while (e.g. every hour).
 	//
@@ -49,3 +52,15 @@ type AccountManagementDriver interface {
 
 // AccountManagementDriverRegistry is a pluggable.Registry for AccountManagementDriver implementations.
 var AccountManagementDriverRegistry pluggable.Registry[AccountManagementDriver]
+
+// NewAccountManagementDriver creates a new AuthDriver using one of the plugins registered
+// with AccountManagementDriver.
+func NewAccountManagementDriver(pluginTypeID string) (AccountManagementDriver, error) {
+	logg.Debug("initializing account management driver %q...", pluginTypeID)
+
+	amd := AccountManagementDriverRegistry.Instantiate(pluginTypeID)
+	if amd == nil {
+		return nil, errors.New("no such account management driver: " + pluginTypeID)
+	}
+	return amd, amd.Init()
+}
