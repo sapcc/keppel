@@ -38,7 +38,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	bindata "github.com/golang-migrate/migrate/v4/source/go_bindata"
 
-	//enable postgres driver for database/sql
+	// enable postgres driver for database/sql
 	_ "github.com/lib/pq"
 )
 
@@ -58,13 +58,13 @@ import (
 //	    `,
 //	}
 type Configuration struct {
-	//(required) A libpq connection URL, see:
-	//<https://www.postgresql.org/docs/9.6/static/libpq-connect.html#LIBPQ-CONNSTRING>
+	// (required) A libpq connection URL, see:
+	// <https://www.postgresql.org/docs/9.6/static/libpq-connect.html#LIBPQ-CONNSTRING>
 	PostgresURL *net_url.URL
-	//(required) The schema migrations, in Postgres syntax. See above for details.
+	// (required) The schema migrations, in Postgres syntax. See above for details.
 	Migrations map[string]string
-	//(optional) If not empty, use this database/sql driver instead of "postgres".
-	//This is useful e.g. when using github.com/majewsky/sqlproxy.
+	// (optional) If not empty, use this database/sql driver instead of "postgres".
+	// This is useful e.g. when using github.com/majewsky/sqlproxy.
 	OverrideDriverName string
 }
 
@@ -80,7 +80,7 @@ func Connect(cfg Configuration) (*sql.DB, error) {
 	migrations = wrapDDLInTransactions(migrations)
 	migrations = stripWhitespace(migrations)
 
-	//use the "go-bindata" driver for github.com/golang-migrate/migrate
+	// use the "go-bindata" driver for github.com/golang-migrate/migrate
 	var assetNames []string
 	for name := range migrations {
 		assetNames = append(assetNames, name)
@@ -118,23 +118,23 @@ func connectToPostgres(url *net_url.URL, driverName string) (*sql.DB, database.D
 	}
 	db, err := sql.Open(driverName, url.String())
 	if err == nil {
-		//apparently the "database does not exist" error only occurs when trying to issue the first statement
+		// apparently the "database does not exist" error only occurs when trying to issue the first statement
 		_, err = db.Exec("SELECT 1")
 	}
 	if err == nil {
-		//success
+		// success
 		dbd, err := postgres.WithInstance(db, &postgres.Config{})
 		return db, dbd, err
 	}
 	match := dbNotExistErrRx.FindStringSubmatch(err.Error())
 	if match == nil {
-		//unexpected error
+		// unexpected error
 		return nil, nil, err
 	}
 	dbName := match[1]
 
-	//connect to Postgres without the database name specified, so that we can
-	//execute CREATE DATABASE
+	// connect to Postgres without the database name specified, so that we can
+	// execute CREATE DATABASE
 	urlWithoutDB := *url
 	urlWithoutDB.Path = "/"
 	db2, err := sql.Open(driverName, urlWithoutDB.String())
@@ -150,7 +150,7 @@ func connectToPostgres(url *net_url.URL, driverName string) (*sql.DB, database.D
 		return nil, nil, err
 	}
 
-	//now the actual database is there and we can connect to it
+	// now the actual database is there and we can connect to it
 	db, err = sql.Open(driverName, url.String())
 	if err != nil {
 		return nil, nil, err
@@ -165,7 +165,7 @@ func runMigration(m *migrate.Migrate, err error) error {
 	}
 	err = m.Up()
 	if errors.Is(err, migrate.ErrNoChange) {
-		//no idea why this is an error
+		// no idea why this is an error
 		return nil
 	}
 	return err
@@ -175,7 +175,7 @@ func stripWhitespace(in map[string]string) map[string]string {
 	out := make(map[string]string, len(in))
 	for filename, sql := range in {
 		sqlSimplified := sqlext.SimplifyWhitespace(sql)
-		out[filename] = strings.Replace(sqlSimplified, "; ", ";\n", -1)
+		out[filename] = strings.ReplaceAll(sqlSimplified, "; ", ";\n")
 	}
 	return out
 }
@@ -183,7 +183,7 @@ func stripWhitespace(in map[string]string) map[string]string {
 func wrapDDLInTransactions(in map[string]string) map[string]string {
 	out := make(map[string]string, len(in))
 	for filename, sql := range in {
-		//wrap DDL in transactions
+		// wrap DDL in transactions
 		out[filename] = "BEGIN;\n" + strings.TrimSuffix(strings.TrimSpace(sql), ";") + ";\nCOMMIT;"
 	}
 	return out

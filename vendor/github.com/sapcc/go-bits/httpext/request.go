@@ -35,7 +35,7 @@ func GetRequesterIPFor(r *http.Request) string {
 		remoteAddr = xForwardedFor
 	}
 
-	//strip port, if any
+	// strip port, if any
 	host, _, err := net.SplitHostPort(remoteAddr)
 	if err == nil {
 		return host

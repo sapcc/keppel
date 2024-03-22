@@ -25,7 +25,7 @@ import (
 
 // MetricsConfig contains configuration options for ConfigureMetrics().
 type MetricsConfig struct {
-	AppName                  string //leave empty to use bininfo.Component()
+	AppName                  string // leave empty to use bininfo.Component()
 	FirstByteDurationBuckets []float64
 	ResponseDurationBuckets  []float64
 	RequestBodySizeBuckets   []float64
@@ -40,15 +40,15 @@ var (
 	metricRequestBodySize   *prometheus.HistogramVec
 	metricResponseBodySize  *prometheus.HistogramVec
 
-	//interface for tests only
+	// interface for tests only
 	metricsRegisterer = prometheus.DefaultRegisterer
 )
 
 func testSetRegisterer(r prometheus.Registerer) {
 	metricsRegisterer = r
 
-	//We need to reset this flag at the start of each test, in case multiple
-	//tests want to register metrics to their own registries respectively.
+	// We need to reset this flag at the start of each test, in case multiple
+	// tests want to register metrics to their own registries respectively.
 	metricsConfigured = false
 }
 
@@ -97,11 +97,11 @@ func ConfigureMetrics(cfg MetricsConfig) {
 }
 
 var (
-	//taken from <https://github.com/sapcc/helm-charts/blob/20f70f7071fcc03c3cee3f053ddc7e3989a05ae8/openstack/swift/etc/statsd-exporter.yaml#L23>
+	// taken from <https://github.com/sapcc/helm-charts/blob/20f70f7071fcc03c3cee3f053ddc7e3989a05ae8/openstack/swift/etc/statsd-exporter.yaml#L23>
 	defaultDurationBuckets = []float64{0.025, 0.1, 0.25, 1, 2.5}
 
-	//1024 and 8192 indicate that the request/response probably fits inside a single
-	//ethernet frame or jumboframe, respectively
+	// 1024 and 8192 indicate that the request/response probably fits inside a single
+	// ethernet frame or jumboframe, respectively
 	defaultBodySizeBuckets = []float64{1024, 8192, 1000000, 10000000}
 )
 
@@ -110,7 +110,7 @@ func autoConfigureMetricsIfNecessary() {
 		return
 	}
 	ConfigureMetrics(MetricsConfig{
-		AppName:                  "", //autofill from bininfo.Component()
+		AppName:                  "", // autofill from bininfo.Component()
 		FirstByteDurationBuckets: defaultDurationBuckets,
 		ResponseDurationBuckets:  defaultDurationBuckets,
 		RequestBodySizeBuckets:   defaultBodySizeBuckets,

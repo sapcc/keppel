@@ -77,11 +77,11 @@ func (a API) handler(w http.ResponseWriter, r *http.Request) {
 	case "trace":
 		pprof.Trace(w, r)
 	case "exe":
-		//Custom addition: To run `go tool pprof`, we need the executable that
-		//produced the pprof output. It is possible to exec into the container to
-		//copy the binary file out, or to unpack the image, but since we already
-		//obtain the pprof file via HTTP, it's more convenient to obtain the binary
-		//over the same mechanism.
+		// Custom addition: To run `go tool pprof`, we need the executable that
+		// produced the pprof output. It is possible to exec into the container to
+		// copy the binary file out, or to unpack the image, but since we already
+		// obtain the pprof file via HTTP, it's more convenient to obtain the binary
+		// over the same mechanism.
 		dumpOwnExecutable(w)
 	}
 }

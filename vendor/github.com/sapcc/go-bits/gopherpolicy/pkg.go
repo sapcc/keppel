@@ -42,21 +42,21 @@ import (
 // should prefer to reference this interface to allow for substituation by a
 // test double (such as type mock.Validator).
 type Validator interface {
-	//CheckToken checks the validity of the request's X-Auth-Token in Keystone, and
-	//returns a Token instance for checking authorization. Any errors that occur
-	//during this function are deferred until Token.Require() is called.
+	// CheckToken checks the validity of the request's X-Auth-Token in Keystone, and
+	// returns a Token instance for checking authorization. Any errors that occur
+	// during this function are deferred until Token.Require() is called.
 	CheckToken(r *http.Request) *Token
 }
 
 // Cacher is the generic interface for a token cache.
 type Cacher interface {
-	//StoreTokenPayload attempts to store the token payload corresponding to the
-	//given credentials in the cache. Implementations shall treat `credentials`
-	//as an opaque string and only use it as a cache key.
+	// StoreTokenPayload attempts to store the token payload corresponding to the
+	// given credentials in the cache. Implementations shall treat `credentials`
+	// as an opaque string and only use it as a cache key.
 	StoreTokenPayload(credentials string, payload []byte)
-	//LoadTokenPayload attempts to retrieve the payload for the given credentials
-	//from the cache. If there nothing cached for these credentials, or if the
-	//retrieval fails, nil shall be returned.
+	// LoadTokenPayload attempts to retrieve the payload for the given credentials
+	// from the cache. If there nothing cached for these credentials, or if the
+	// retrieval fails, nil shall be returned.
 	LoadTokenPayload(credentials string) []byte
 }
 
@@ -64,9 +64,9 @@ type Cacher interface {
 // a policy.Enforcer to check access permissions (AuthZ).
 type TokenValidator struct {
 	IdentityV3 *gophercloud.ServiceClient
-	//Enforcer can also be initialized with the LoadPolicyFile method.
+	// Enforcer can also be initialized with the LoadPolicyFile method.
 	Enforcer Enforcer
-	//Cacher can be used to cache validated tokens.
+	// Cacher can be used to cache validated tokens.
 	Cacher Cacher
 }
 
@@ -74,7 +74,7 @@ type TokenValidator struct {
 func (v *TokenValidator) LoadPolicyFile(path string) error {
 	bytes, err := os.ReadFile(path)
 	if err != nil {
-		return err //no fmt.Errorf() necessary, errors from package os are already very descriptive
+		return err // no fmt.Errorf() necessary, errors from package os are already very descriptive
 	}
 	var rules map[string]string
 	err = yaml.Unmarshal(bytes, &rules)
@@ -117,8 +117,8 @@ func (v *TokenValidator) CheckToken(r *http.Request) *Token {
 // credentials. This key is used for caching the TokenResult in `v.Cacher` if
 // that is non-nil.
 func (v *TokenValidator) CheckCredentials(cacheKey string, check func() TokenResult) *Token {
-	//prefer cached token payload over actually talking to Keystone (but fallback
-	//to Keystone if the token payload deserialization fails)
+	// prefer cached token payload over actually talking to Keystone (but fallback
+	// to Keystone if the token payload deserialization fails)
 	if v.Cacher != nil {
 		payload := v.Cacher.LoadTokenPayload(cacheKey)
 		if payload != nil {
@@ -135,7 +135,7 @@ func (v *TokenValidator) CheckCredentials(cacheKey string, check func() TokenRes
 
 	t := v.TokenFromGophercloudResult(check())
 
-	//cache token payload if valid
+	// cache token payload if valid
 	if t.Err == nil && v.Cacher != nil {
 		payload, err := json.Marshal(t.serializable)
 		if err == nil {
@@ -150,7 +150,7 @@ func (v *TokenValidator) CheckCredentials(cacheKey string, check func() TokenRes
 // from the tokens.Create() or tokens.Get() requests from package
 // github.com/gophercloud/gophercloud/openstack/identity/v3/tokens.
 func (v *TokenValidator) TokenFromGophercloudResult(result TokenResult) *Token {
-	//use a custom token struct instead of tokens.Token which is way incomplete
+	// use a custom token struct instead of tokens.Token which is way incomplete
 	var tokenData keystoneToken
 	err := result.ExtractInto(&tokenData)
 	if err != nil {

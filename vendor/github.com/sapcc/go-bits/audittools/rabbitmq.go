@@ -44,19 +44,19 @@ type RabbitConnection struct {
 // NewRabbitConnection returns a new RabbitConnection using the specified amqp URI
 // and queue name.
 func NewRabbitConnection(uri url.URL, queueName string) (*RabbitConnection, error) {
-	//establish a connection with the RabbitMQ server
+	// establish a connection with the RabbitMQ server
 	conn, err := amqp.Dial(uri.String())
 	if err != nil {
 		return nil, fmt.Errorf("audittools: rabbitmq: failed to establish a connection with the server: %w", err)
 	}
 
-	//open a unique, concurrent server channel to process the bulk of AMQP messages
+	// open a unique, concurrent server channel to process the bulk of AMQP messages
 	ch, err := conn.Channel()
 	if err != nil {
 		return nil, fmt.Errorf("audittools: rabbitmq: failed to open a channel: %w", err)
 	}
 
-	//declare a queue to hold and deliver messages to consumers
+	// declare a queue to hold and deliver messages to consumers
 	_, err = ch.QueueDeclare(
 		queueName, // name of the queue
 		false,     // durable: queue should survive cluster reset (or broker restart)

@@ -43,8 +43,8 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	skipLog := false
 	endpointID := "unknown"
 
-	//provide a back-channel for our custom out-of-band messages to the request handler
-	//(this is used by SkipRequestLog etc.)
+	// provide a back-channel for our custom out-of-band messages to the request handler
+	// (this is used by SkipRequestLog etc.)
 	ctx := context.WithValue(r.Context(), oobFunctionKey, func(msg oobMessage) {
 		if msg.SkipLog {
 			skipLog = true
@@ -55,15 +55,15 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 	r = r.WithContext(ctx)
 
-	//setup interception of response metadata
+	// setup interception of response metadata
 	startedAt := time.Now()
 	writer := responseWriter{original: w}
 
-	//forward request to actual handler
+	// forward request to actual handler
 	m.inner.ServeHTTP(&writer, r)
 	duration := time.Since(startedAt)
 
-	//emit metrics
+	// emit metrics
 	labels := getLabels(writer.statusCode, endpointID, r)
 	metricResponseDuration.With(labels).Observe(time.Since(startedAt).Seconds())
 	if writer.firstByteSentAt != nil {
@@ -74,9 +74,9 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		metricRequestBodySize.With(labels).Observe(float64(r.ContentLength))
 	}
 
-	//write log line (the format is similar to nginx's "combined" log format, but
-	//the timestamp is at the front to ensure consistency with the rest of the
-	//log)
+	// write log line (the format is similar to nginx's "combined" log format, but
+	// the timestamp is at the front to ensure consistency with the rest of the
+	// log)
 	if !m.skipAllLogs {
 		if !skipLog || writer.statusCode >= 500 {
 			logg.Other(
@@ -146,7 +146,7 @@ func (w *responseWriter) Write(buf []byte) (int, error) {
 		w.firstByteSentAt = &now
 	}
 	if w.statusCode >= 500 {
-		//record server errors for the log
+		// record server errors for the log
 		w.errorMessageBuf.Write(buf)
 	}
 	n, err := w.original.Write(buf)

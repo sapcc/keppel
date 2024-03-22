@@ -35,12 +35,12 @@ func JSON(w http.ResponseWriter, code int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 
-	//NOTE 1: We used to do json.Marshal() here, but switched to json.Encoder.Encode() to avoid
-	//allocating an additional []byte buffer with the entire JSON response before writing it out.
+	// NOTE 1: We used to do json.Marshal() here, but switched to json.Encoder.Encode() to avoid
+	// allocating an additional []byte buffer with the entire JSON response before writing it out.
 	//
-	//NOTE 2: Intuition would suggest to wrap `w` in a bufio.Writer, but json.Encoder already writes
-	//into an internal buffer first and then sends that entire buffer into w.Write() all at once, so
-	//we do not need to add buffering ourselves.
+	// NOTE 2: Intuition would suggest to wrap `w` in a bufio.Writer, but json.Encoder already writes
+	// into an internal buffer first and then sends that entire buffer into w.Write() all at once, so
+	// we do not need to add buffering ourselves.
 
 	err := json.NewEncoder(w).Encode(data)
 	if err != nil {

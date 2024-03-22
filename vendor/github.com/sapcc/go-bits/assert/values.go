@@ -110,7 +110,7 @@ func (o JSONObject) AssertResponseBody(t *testing.T, requestInfo string, respons
 		return false
 	}
 
-	//need to decode and re-encode the responseBody to ensure identical ordering of keys
+	// need to decode and re-encode the responseBody to ensure identical ordering of keys
 	var data map[string]any
 	err = json.Unmarshal(responseBody, &data)
 	if err == nil {
@@ -157,8 +157,8 @@ type FixtureFile string
 func (f FixtureFile) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
 	t.Helper()
 
-	//write actual content to file to make it easy to copy the computed result over
-	//to the fixture path when a new test is added or an existing one is modified
+	// write actual content to file to make it easy to copy the computed result over
+	// to the fixture path when a new test is added or an existing one is modified
 	fixturePathAbs, err := filepath.Abs(string(f))
 	if err != nil {
 		t.Fatal(err)
