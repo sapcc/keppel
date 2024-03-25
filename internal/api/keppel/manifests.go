@@ -86,7 +86,7 @@ var tagGetQuery = sqlext.SimplifyWhitespace(`
 
 func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests")
-	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanPullFromAccount))
+	authz := a.authenticateRequestAndWriteError(w, r, repoScopeFromRequest(r, keppel.CanPullFromAccount))
 	if authz == nil {
 		return
 	}
@@ -208,7 +208,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests/:digest")
-	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanDeleteFromAccount))
+	authz := a.authenticateRequestAndWriteError(w, r, repoScopeFromRequest(r, keppel.CanDeleteFromAccount))
 	if authz == nil {
 		return
 	}
@@ -243,7 +243,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_tags/:name")
-	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanDeleteFromAccount))
+	authz := a.authenticateRequestAndWriteError(w, r, repoScopeFromRequest(r, keppel.CanDeleteFromAccount))
 	if authz == nil {
 		return
 	}
@@ -274,7 +274,7 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo/_manifests/:digest/trivy_report")
-	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanPullFromAccount))
+	authz := a.authenticateRequestAndWriteError(w, r, repoScopeFromRequest(r, keppel.CanPullFromAccount))
 	if authz == nil {
 		return
 	}

@@ -139,13 +139,17 @@ func repoScopeFromRequest(r *http.Request, perm keppel.Permission) auth.ScopeSet
 	})
 }
 
-func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request, ss auth.ScopeSet) *auth.Authorization {
-	authz, rerr := auth.IncomingRequest{
+func (a *API) authenticateRequest(r *http.Request, ss auth.ScopeSet) (*auth.Authorization, *keppel.RegistryV2Error) {
+	return auth.IncomingRequest{
 		HTTPRequest:          r,
 		Scopes:               ss,
 		CorrectlyReturn403:   true,
 		PartialAccessAllowed: r.URL.Path == "/keppel/v1/accounts",
 	}.Authorize(r.Context(), a.cfg, a.authDriver, a.db)
+}
+
+func (a *API) authenticateRequestAndWriteError(w http.ResponseWriter, r *http.Request, ss auth.ScopeSet) *auth.Authorization {
+	authz, rerr := a.authenticateRequest(r, ss)
 	if rerr != nil {
 		rerr.WriteAsTextTo(w)
 		return nil

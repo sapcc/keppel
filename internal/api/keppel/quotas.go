@@ -55,7 +55,7 @@ type quotaRequest struct {
 func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/quotas/:auth_tenant_id")
 	authTenantID := mux.Vars(r)["auth_tenant_id"]
-	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanViewQuotas, authTenantID))
+	authz := a.authenticateRequestAndWriteError(w, r, authTenantScope(keppel.CanViewQuotas, authTenantID))
 	if authz == nil {
 		return
 	}
@@ -84,7 +84,7 @@ func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/quotas/:auth_tenant_id")
 	authTenantID := mux.Vars(r)["auth_tenant_id"]
-	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanChangeQuotas, authTenantID))
+	authz := a.authenticateRequestAndWriteError(w, r, authTenantScope(keppel.CanChangeQuotas, authTenantID))
 	if authz == nil {
 		return
 	}

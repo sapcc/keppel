@@ -72,7 +72,7 @@ var repositoryGetQuery = sqlext.SimplifyWhitespace(`
 
 func (a *API) handleGetRepositories(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories")
-	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanViewAccount))
+	authz := a.authenticateRequestAndWriteError(w, r, accountScopeFromRequest(r, keppel.CanViewAccount))
 	if authz == nil {
 		return
 	}
@@ -160,7 +160,7 @@ func maxTimeToUnix(x, y *time.Time) int64 {
 
 func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo")
-	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanDeleteFromAccount))
+	authz := a.authenticateRequestAndWriteError(w, r, repoScopeFromRequest(r, keppel.CanDeleteFromAccount))
 	if authz == nil {
 		return
 	}

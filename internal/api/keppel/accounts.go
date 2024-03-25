@@ -143,7 +143,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 	scopes := accountScopes(keppel.CanViewAccount, accounts...)
 
-	authz := a.authenticateRequest(w, r, scopes)
+	authz := a.authenticateRequestAndWriteError(w, r, scopes)
 	if authz == nil {
 		return
 	}
@@ -177,7 +177,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
-	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanViewAccount))
+	authz := a.authenticateRequestAndWriteError(w, r, accountScopeFromRequest(r, keppel.CanViewAccount))
 	if authz == nil {
 		return
 	}
@@ -315,7 +315,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check permission to create account
-	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanChangeAccount, accountToCreate.AuthTenantID))
+	authz := a.authenticateRequestAndWriteError(w, r, authTenantScope(keppel.CanChangeAccount, accountToCreate.AuthTenantID))
 	if authz == nil {
 		return
 	}
@@ -593,7 +593,7 @@ type deleteAccountResponse struct {
 
 func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
-	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
+	authz := a.authenticateRequestAndWriteError(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
 	if authz == nil {
 		return
 	}
@@ -720,7 +720,7 @@ func (a *API) deleteAccount(ctx context.Context, account models.Account) (*delet
 
 func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/sublease")
-	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
+	authz := a.authenticateRequestAndWriteError(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
 	if authz == nil {
 		return
 	}
@@ -758,7 +758,7 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 
 func (a *API) handleGetSecurityScanPolicies(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/security_scan_policies")
-	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanViewAccount))
+	authz := a.authenticateRequestAndWriteError(w, r, accountScopeFromRequest(r, keppel.CanViewAccount))
 	if authz == nil {
 		return
 	}
@@ -772,7 +772,7 @@ func (a *API) handleGetSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 
 func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/security_scan_policies")
-	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
+	authz := a.authenticateRequestAndWriteError(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
 	if authz == nil {
 		return
 	}
