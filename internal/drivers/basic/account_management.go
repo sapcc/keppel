@@ -98,9 +98,9 @@ func (a *AccountManagementDriver) ConfigureAccount(db *keppel.DB, account models
 		}
 		account.SecurityScanPoliciesJSON = string(securityScanPoliciesJSON)
 
-		_, err = cfgAccount.ReplicationPolicy.ApplyToAccount(db, &account)
-		if err != nil {
-			return models.Account{}, fmt.Errorf("replication_policy: %w", err)
+		rerr := cfgAccount.ReplicationPolicy.ApplyToAccount(db, &account)
+		if rerr != nil {
+			return models.Account{}, fmt.Errorf("replication_policy: %w", rerr)
 		}
 
 		return account, nil
