@@ -154,8 +154,7 @@ func (e *RegistryV2Error) WithHeader(key string, values ...string) *RegistryV2Er
 	return e
 }
 
-// WriteAsRegistryV2ResponseTo reports this error in the format used by the
-// Registry V2 API.
+// WriteAsRegistryV2ResponseTo reports this error in the format used by the Registry V2 API.
 func (e *RegistryV2Error) WriteAsRegistryV2ResponseTo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	for k, v := range e.Headers {
@@ -176,8 +175,7 @@ func (e *RegistryV2Error) WriteAsRegistryV2ResponseTo(w http.ResponseWriter, r *
 	}
 }
 
-// WriteAsAuthResponseTo reports this error in the format used by the Auth API
-// endpoint.
+// WriteAsAuthResponseTo reports this error in the format used by the Auth API endpoint.
 func (e *RegistryV2Error) WriteAsAuthResponseTo(w http.ResponseWriter) {
 	for k, v := range e.Headers {
 		w.Header()[k] = v

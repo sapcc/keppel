@@ -274,9 +274,9 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	if req.Account.ReplicationPolicy != nil {
 		rp := *req.Account.ReplicationPolicy
 
-		httpStatus, err := rp.ApplyToAccount(a.db, &accountToCreate)
-		if err != nil {
-			http.Error(w, err.Error(), httpStatus)
+		rerr := rp.ApplyToAccount(a.db, &accountToCreate)
+		if rerr != nil {
+			rerr.WriteAsTextTo(w)
 			return
 		}
 		//NOTE: There are some delayed checks below which require the existing account to be loaded from the DB first.
