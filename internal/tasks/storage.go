@@ -29,6 +29,7 @@ import (
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 var storageSweepSearchQuery = sqlext.SimplifyWhitespace(`
@@ -56,7 +57,7 @@ var storageSweepDoneQuery = sqlext.SimplifyWhitespace(`
 //
 // The storage of each account is sweeped at most once every 6 hours.
 func (j *Janitor) StorageSweepJob(registerer prometheus.Registerer) jobloop.Job { //nolint:dupl // false positive
-	return (&jobloop.ProducerConsumerJob[keppel.Account]{
+	return (&jobloop.ProducerConsumerJob[models.Account]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "storage sweep",
 			CounterOpts: prometheus.CounterOpts{
@@ -64,7 +65,7 @@ func (j *Janitor) StorageSweepJob(registerer prometheus.Registerer) jobloop.Job 
 				Help: "Counter for garbage collections of an account's backing storage.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (account keppel.Account, err error) {
+		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (account models.Account, err error) {
 			err = j.db.SelectOne(&account, storageSweepSearchQuery, j.timeNow())
 			return account, err
 		},
@@ -72,7 +73,7 @@ func (j *Janitor) StorageSweepJob(registerer prometheus.Registerer) jobloop.Job 
 	}).Setup(registerer)
 }
 
-func (j *Janitor) sweepStorage(_ context.Context, account keppel.Account, _ prometheus.Labels) error {
+func (j *Janitor) sweepStorage(_ context.Context, account models.Account, _ prometheus.Labels) error {
 	// enumerate blobs and manifests in the backing storage
 	actualBlobs, actualManifests, err := j.sd.ListStorageContents(account)
 	if err != nil {
@@ -99,7 +100,7 @@ func (j *Janitor) sweepStorage(_ context.Context, account keppel.Account, _ prom
 	return err
 }
 
-func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.StoredBlobInfo, canBeDeletedAt time.Time) error {
+func (j *Janitor) sweepBlobStorage(account models.Account, actualBlobs []keppel.StoredBlobInfo, canBeDeletedAt time.Time) error {
 	actualBlobsByStorageID := make(map[string]keppel.StoredBlobInfo, len(actualBlobs))
 	for _, blobInfo := range actualBlobs {
 		actualBlobsByStorageID[blobInfo.StorageID] = blobInfo
@@ -131,7 +132,7 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 	}
 
 	// unmark/sweep phase: enumerate all unknown blobs
-	var unknownBlobs []keppel.UnknownBlob
+	var unknownBlobs []models.UnknownBlob
 	_, err = j.db.Select(&unknownBlobs, `SELECT * FROM unknown_blobs WHERE account_name = $1`, account.Name)
 	if err != nil {
 		return err
@@ -183,7 +184,7 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 		if isKnownStorageID[storageID] || isMarkedStorageID[storageID] {
 			continue
 		}
-		err := j.db.Insert(&keppel.UnknownBlob{
+		err := j.db.Insert(&models.UnknownBlob{
 			AccountName:    account.Name,
 			StorageID:      storageID,
 			CanBeDeletedAt: canBeDeletedAt,
@@ -196,7 +197,7 @@ func (j *Janitor) sweepBlobStorage(account keppel.Account, actualBlobs []keppel.
 	return nil
 }
 
-func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests []keppel.StoredManifestInfo, canBeDeletedAt time.Time) error {
+func (j *Janitor) sweepManifestStorage(account models.Account, actualManifests []keppel.StoredManifestInfo, canBeDeletedAt time.Time) error {
 	isActualManifest := make(map[keppel.StoredManifestInfo]bool, len(actualManifests))
 	for _, m := range actualManifests {
 		isActualManifest[m] = true
@@ -216,7 +217,7 @@ func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests [
 	}
 
 	// unmark/sweep phase: enumerate all unknown manifests
-	var unknownManifests []keppel.UnknownManifest
+	var unknownManifests []models.UnknownManifest
 	_, err = j.db.Select(&unknownManifests, `SELECT * FROM unknown_manifests WHERE account_name = $1`, account.Name)
 	if err != nil {
 		return err
@@ -265,7 +266,7 @@ func (j *Janitor) sweepManifestStorage(account keppel.Account, actualManifests [
 		if isKnownManifest[manifest] || isMarkedManifest[manifest] {
 			continue
 		}
-		err := j.db.Insert(&keppel.UnknownManifest{
+		err := j.db.Insert(&models.UnknownManifest{
 			AccountName:    account.Name,
 			RepositoryName: manifest.RepoName,
 			Digest:         manifest.Digest,

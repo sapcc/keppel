@@ -27,7 +27,7 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/respondwith"
 
-	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
 )
 
@@ -38,7 +38,7 @@ func TestPeeringAPI(t *testing.T) {
 
 		// set up peer.example.org as a peer of us, otherwise we will reject peering
 		// attempts from that source
-		err := s.DB.Insert(&keppel.Peer{HostName: "peer.example.org"})
+		err := s.DB.Insert(&models.Peer{HostName: "peer.example.org"})
 		if err != nil {
 			t.Fatal(err.Error())
 		}

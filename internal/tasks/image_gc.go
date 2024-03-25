@@ -33,6 +33,7 @@ import (
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/processor"
 )
 
@@ -57,7 +58,7 @@ var imageGCRepoDoneQuery = sqlext.SimplifyWhitespace(`
 // not been performed for more than an hour, and performs GC based on the GC
 // policies configured on the repo's account.
 func (j *Janitor) ManifestGarbageCollectionJob(registerer prometheus.Registerer) jobloop.Job { //nolint: dupl // interface implementation of different things
-	return (&jobloop.ProducerConsumerJob[keppel.Repository]{
+	return (&jobloop.ProducerConsumerJob[models.Repository]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "manifest garbage collection",
 			CounterOpts: prometheus.CounterOpts{
@@ -65,7 +66,7 @@ func (j *Janitor) ManifestGarbageCollectionJob(registerer prometheus.Registerer)
 				Help: "Counter for image garbage collection runs in repos.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (repo keppel.Repository, err error) {
+		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (repo models.Repository, err error) {
 			err = j.db.SelectOne(&repo, imageGCRepoSelectQuery, j.timeNow())
 			return repo, err
 		},
@@ -73,13 +74,13 @@ func (j *Janitor) ManifestGarbageCollectionJob(registerer prometheus.Registerer)
 	}).Setup(registerer)
 }
 
-func (j *Janitor) garbageCollectManifestsInRepo(_ context.Context, repo keppel.Repository, labels prometheus.Labels) (returnErr error) {
+func (j *Janitor) garbageCollectManifestsInRepo(_ context.Context, repo models.Repository, labels prometheus.Labels) (returnErr error) {
 	// load GC policies for this repository
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {
 		return fmt.Errorf("cannot find account for repo %s: %w", repo.FullName(), err)
 	}
-	policies, err := account.ParseGCPolicies()
+	policies, err := keppel.ParseGCPolicies(*account)
 	if err != nil {
 		return fmt.Errorf("cannot load GC policies for account %s: %w", account.Name, err)
 	}
@@ -115,16 +116,16 @@ func (j *Janitor) garbageCollectManifestsInRepo(_ context.Context, repo keppel.R
 }
 
 type manifestData struct {
-	Manifest      keppel.Manifest
+	Manifest      models.Manifest
 	TagNames      []string
 	ParentDigests []string
 	GCStatus      keppel.GCStatus
 	IsDeleted     bool
 }
 
-func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Repository, policies []keppel.GCPolicy) error {
+func (j *Janitor) executeGCPolicies(account models.Account, repo models.Repository, policies []keppel.GCPolicy) error {
 	// load manifests in repo
-	var dbManifests []keppel.Manifest
+	var dbManifests []models.Manifest
 	_, err := j.db.Select(&dbManifests, `SELECT * FROM manifests WHERE repo_id = $1`, repo.ID)
 	if err != nil {
 		return err
@@ -206,10 +207,10 @@ func (j *Janitor) executeGCPolicies(account keppel.Account, repo keppel.Reposito
 	return j.persistGCStatus(manifests, repo.ID)
 }
 
-func (j *Janitor) evaluatePolicy(proc *processor.Processor, manifests []*manifestData, account keppel.Account, repo keppel.Repository, policy keppel.GCPolicy) error {
+func (j *Janitor) evaluatePolicy(proc *processor.Processor, manifests []*manifestData, account models.Account, repo models.Repository, policy keppel.GCPolicy) error {
 	// for some time constraint matches, we need to know which manifests are
 	// still alive
-	var aliveManifests []keppel.Manifest
+	var aliveManifests []models.Manifest
 	for _, m := range manifests {
 		if !m.IsDeleted {
 			aliveManifests = append(aliveManifests, m.Manifest)

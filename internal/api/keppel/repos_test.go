@@ -28,8 +28,8 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
-	"github.com/sapcc/keppel/internal/trivy"
 )
 
 func mustInsert(t *testing.T, db *keppel.DB, obj any) {
@@ -60,13 +60,13 @@ func TestReposAPI(t *testing.T) {
 	h := s.Handler
 
 	// setup two test accounts
-	mustInsert(t, s.DB, &keppel.Account{
+	mustInsert(t, s.DB, &models.Account{
 		Name:                     "test1",
 		AuthTenantID:             "tenant1",
 		GCPoliciesJSON:           "[]",
 		SecurityScanPoliciesJSON: "[]",
 	})
-	mustInsert(t, s.DB, &keppel.Account{
+	mustInsert(t, s.DB, &models.Account{
 		Name:                     "test2",
 		AuthTenantID:             "tenant2",
 		GCPoliciesJSON:           "[]",
@@ -87,11 +87,11 @@ func TestReposAPI(t *testing.T) {
 	// setup five repos in each account (the `test2` account only exists to
 	// validate that we don't accidentally list its repos as well)
 	for idx := 1; idx <= 5; idx++ {
-		mustInsert(t, s.DB, &keppel.Repository{
+		mustInsert(t, s.DB, &models.Repository{
 			Name:        fmt.Sprintf("repo1-%d", idx),
 			AccountName: "test1",
 		})
-		mustInsert(t, s.DB, &keppel.Repository{
+		mustInsert(t, s.DB, &models.Repository{
 			Name:        fmt.Sprintf("repo2-%d", idx),
 			AccountName: "test2",
 		})
@@ -99,11 +99,11 @@ func TestReposAPI(t *testing.T) {
 
 	// insert some dummy blobs and blob mounts into one of the repos to check the
 	// blob size statistics
-	filledRepo := keppel.Repository{ID: 5} // repo1-3
+	filledRepo := models.Repository{ID: 5} // repo1-3
 	for idx := 1; idx <= 10; idx++ {
 		dummyDigest := test.DeterministicDummyDigest(1000 + idx)
 		blobPushedAt := time.Unix(int64(1000+10*idx), 0)
-		blob := keppel.Blob{
+		blob := models.Blob{
 			AccountName: "test1",
 			Digest:      dummyDigest,
 			SizeBytes:   uint64(2000 * idx),
@@ -122,7 +122,7 @@ func TestReposAPI(t *testing.T) {
 	for idx := 1; idx <= 10; idx++ {
 		dummyDigest := test.DeterministicDummyDigest(idx)
 		manifestPushedAt := time.Unix(int64(10000+10*idx), 0)
-		mustInsert(t, s.DB, &keppel.Manifest{
+		mustInsert(t, s.DB, &models.Manifest{
 			RepositoryID: filledRepo.ID,
 			Digest:       dummyDigest,
 			MediaType:    "",
@@ -130,14 +130,14 @@ func TestReposAPI(t *testing.T) {
 			PushedAt:     manifestPushedAt,
 			ValidatedAt:  manifestPushedAt,
 		})
-		mustInsert(t, s.DB, &keppel.TrivySecurityInfo{
+		mustInsert(t, s.DB, &models.TrivySecurityInfo{
 			RepositoryID:        filledRepo.ID,
 			Digest:              dummyDigest,
-			VulnerabilityStatus: trivy.PendingVulnerabilityStatus,
+			VulnerabilityStatus: models.PendingVulnerabilityStatus,
 			NextCheckAt:         time.Unix(0, 0),
 		})
 		if idx <= 3 {
-			mustInsert(t, s.DB, &keppel.Tag{
+			mustInsert(t, s.DB, &models.Tag{
 				RepositoryID: 5, // repo1-3
 				Name:         fmt.Sprintf("tag%d", idx),
 				Digest:       dummyDigest,

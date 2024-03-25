@@ -24,11 +24,12 @@ import (
 	"github.com/sapcc/go-api-declarations/cadf"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // AuditAccount is an audittools.TargetRenderer.
 type AuditAccount struct {
-	Account keppel.Account
+	Account models.Account
 }
 
 // Render implements the audittools.TargetRenderer interface.
@@ -62,8 +63,8 @@ func (a AuditAccount) Render() cadf.Resource {
 
 // AuditQuotas is an audittools.TargetRenderer.
 type AuditQuotas struct {
-	QuotasBefore keppel.Quotas
-	QuotasAfter  keppel.Quotas
+	QuotasBefore models.Quotas
+	QuotasAfter  models.Quotas
 }
 
 // Render implements the audittools.TargetRenderer interface.
@@ -87,7 +88,7 @@ func (a AuditQuotas) Render() cadf.Resource {
 	}
 }
 
-func quotasToJSON(q keppel.Quotas) string {
+func quotasToJSON(q models.Quotas) string {
 	data := struct {
 		ManifestCount uint64 `json:"manifests"`
 	}{
@@ -99,7 +100,7 @@ func quotasToJSON(q keppel.Quotas) string {
 
 // AuditSecurityScanPolicy is an audittools.TargetRenderer.
 type AuditSecurityScanPolicy struct {
-	Account keppel.Account
+	Account models.Account
 	Policy  keppel.SecurityScanPolicy
 }
 

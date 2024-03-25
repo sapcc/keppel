@@ -30,6 +30,7 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // PeeringRequest is the structure of the JSON request body sent to the POST
@@ -59,7 +60,7 @@ func (a *API) handlePostPeering(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// do we even know that guy? :)
-	var peer keppel.Peer
+	var peer models.Peer
 	err = a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, req.PeerHostName)
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "unknown issuer", http.StatusBadRequest)

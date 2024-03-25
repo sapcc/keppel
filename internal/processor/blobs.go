@@ -36,12 +36,13 @@ import (
 
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // ValidateExistingBlob validates the given blob that already exists in the DB.
 // Validation includes computing the digest of the blob contents and comparing
 // to the digest in the DB. On success, nil is returned.
-func (p *Processor) ValidateExistingBlob(account keppel.Account, blob keppel.Blob) (returnErr error) {
+func (p *Processor) ValidateExistingBlob(account models.Account, blob models.Blob) (returnErr error) {
 	err := blob.Digest.Validate()
 	if err != nil {
 		return fmt.Errorf("cannot parse blob digest: %s", err.Error())
@@ -95,8 +96,8 @@ func (w *byteCountingWriter) Write(buf []byte) (int, error) {
 // requested blob does not exist, a blob record with an empty storage ID will be
 // inserted into the DB. This indicates to the registry API handler that this
 // blob shall be replicated when it is first pulled.
-func (p *Processor) FindBlobOrInsertUnbackedBlob(desc distribution.Descriptor, account keppel.Account) (*keppel.Blob, error) {
-	var blob *keppel.Blob
+func (p *Processor) FindBlobOrInsertUnbackedBlob(desc distribution.Descriptor, account models.Account) (*models.Blob, error) {
+	var blob *models.Blob
 	err := p.insideTransaction(func(tx *gorp.Transaction) error {
 		var err error
 		blob, err = keppel.FindBlobByAccountName(tx, desc.Digest, account)
@@ -104,7 +105,7 @@ func (p *Processor) FindBlobOrInsertUnbackedBlob(desc distribution.Descriptor, a
 			return err
 		}
 
-		blob = &keppel.Blob{
+		blob = &models.Blob{
 			AccountName: account.Name,
 			Digest:      desc.Digest,
 			MediaType:   desc.MediaType,
@@ -131,12 +132,12 @@ var (
 // our local registry. The result value `responseWasWritten` indicates whether
 // this happened. It may be false if an error occurred before writing into the
 // ResponseWriter took place.
-func (p *Processor) ReplicateBlob(ctx context.Context, blob keppel.Blob, account keppel.Account, repo keppel.Repository, w http.ResponseWriter) (responseWasWritten bool, returnErr error) {
+func (p *Processor) ReplicateBlob(ctx context.Context, blob models.Blob, account models.Account, repo models.Repository, w http.ResponseWriter) (responseWasWritten bool, returnErr error) {
 	// mark this blob as currently being replicated
-	pendingBlob := keppel.PendingBlob{
+	pendingBlob := models.PendingBlob{
 		AccountName:  account.Name,
 		Digest:       blob.Digest,
-		Reason:       keppel.PendingBecauseOfReplication,
+		Reason:       models.PendingBecauseOfReplication,
 		PendingSince: p.timeNow(),
 	}
 	err := p.db.Insert(&pendingBlob)
@@ -197,7 +198,7 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob keppel.Blob, account
 	return true, nil
 }
 
-func (p *Processor) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, blobReader io.Reader, blobLengthBytes uint64) (returnErr error) {
+func (p *Processor) uploadBlobToLocal(blob models.Blob, account models.Account, blobReader io.Reader, blobLengthBytes uint64) (returnErr error) {
 	defer func() {
 		// if blob upload fails, count an aborted upload
 		if returnErr != nil {
@@ -206,7 +207,7 @@ func (p *Processor) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, 
 		}
 	}()
 
-	upload := keppel.Upload{
+	upload := models.Upload{
 		StorageID: p.generateStorageID(),
 		SizeBytes: 0,
 		NumChunks: 0,
@@ -258,7 +259,7 @@ func (p *Processor) uploadBlobToLocal(blob keppel.Blob, account keppel.Account, 
 // Warning: The upload's Digest field is *not* read or written. For chunked
 // uploads, the caller is responsible for performing and validating the digest
 // computation.
-func (p *Processor) AppendToBlob(account keppel.Account, upload *keppel.Upload, contents io.Reader, lengthBytes *uint64) error {
+func (p *Processor) AppendToBlob(account models.Account, upload *models.Upload, contents io.Reader, lengthBytes *uint64) error {
 	// case 1: we know the length of the input and don't have to guess when to chunk
 	if lengthBytes != nil {
 		return foreachChunkWithKnownSize(contents, *lengthBytes, func(chunk io.Reader, chunkLengthBytes uint64) error {

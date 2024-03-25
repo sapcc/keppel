@@ -78,11 +78,11 @@ func (c *RepoClient) validationCacheKey(digestOrTagName string) string {
 // ValidateManifest fetches the given manifest from the repo and verifies that
 // it parses correctly. It also validates all references manifests and blobs
 // recursively.
-func (c *RepoClient) ValidateManifest(ctx context.Context, reference models.ManifestReference, session *ValidationSession, platformFilter keppel.PlatformFilter) error {
+func (c *RepoClient) ValidateManifest(ctx context.Context, reference models.ManifestReference, session *ValidationSession, platformFilter models.PlatformFilter) error {
 	return c.doValidateManifest(ctx, reference, 0, session.applyDefaults(), platformFilter)
 }
 
-func (c *RepoClient) doValidateManifest(ctx context.Context, reference models.ManifestReference, level int, session *ValidationSession, platformFilter keppel.PlatformFilter) (returnErr error) {
+func (c *RepoClient) doValidateManifest(ctx context.Context, reference models.ManifestReference, level int, session *ValidationSession, platformFilter models.PlatformFilter) (returnErr error) {
 	if session.isValid[c.validationCacheKey(reference.String())] {
 		session.Logger.LogManifest(reference, level, nil, true)
 		return nil

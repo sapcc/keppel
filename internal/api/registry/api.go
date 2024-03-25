@@ -197,7 +197,7 @@ func (info anycastRequestInfo) AsPrometheusLabels() prometheus.Labels {
 // If the account does not exist locally, but the request is for the anycast API
 // and the account exists elsewhere, the `anycastHandler` is invoked if given
 // instead of giving a 404 response.
-func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy, anycastHandler func(http.ResponseWriter, *http.Request, anycastRequestInfo)) (*keppel.Account, *keppel.Repository, *auth.Authorization) {
+func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy, anycastHandler func(http.ResponseWriter, *http.Request, anycastRequestInfo)) (*models.Account, *models.Repository, *auth.Authorization) {
 	// must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
@@ -282,7 +282,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		canCreateRepoIfMissing = account.UpstreamPeerHostName != "" || (account.ExternalPeerURL != "" && (authz.UserIdentity.UserType() == keppel.RegularUser || canFirstPull))
 	}
 
-	var repo *keppel.Repository
+	var repo *models.Repository
 	if canCreateRepoIfMissing {
 		repo, err = keppel.FindOrCreateRepository(a.db, repoScope.RepositoryName, *account)
 	} else {
@@ -303,7 +303,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 }
 
 // Returns the repository name as it appears in URL paths for this API.
-func getRepoNameForURLPath(repo keppel.Repository, authz *auth.Authorization) string {
+func getRepoNameForURLPath(repo models.Repository, authz *auth.Authorization) string {
 	// on the regular API, the URL path includes the account name
 	if authz.Audience.AccountName == "" {
 		return repo.FullName()

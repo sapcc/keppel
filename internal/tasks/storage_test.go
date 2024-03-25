@@ -27,11 +27,11 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/jobloop"
 
-	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
 )
 
-func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.Job) (images []test.Image, healthyBlobs []keppel.Blob, healthyManifests []keppel.Manifest) {
+func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.Job) (images []test.Image, healthyBlobs []models.Blob, healthyManifests []models.Manifest) {
 	// setup some manifests and blobs as a baseline that should never be touched by
 	// StorageSweepJob
 	images = make([]test.Image, 2)
@@ -75,7 +75,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	_, healthyBlobs, healthyManifests := setupStorageSweepTest(t, s, sweepStorageJob)
 
 	// put some blobs in the storage without adding them in the DB
-	account := keppel.Account{Name: "test1"}
+	account := models.Account{Name: "test1"}
 	testBlob1 := test.GenerateExampleLayer(30)
 	testBlob2 := test.GenerateExampleLayer(31)
 	for _, blob := range []test.Bytes{testBlob1, testBlob2} {
@@ -92,7 +92,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	sizeBytes := uint64(len(testBlob3.Contents))
 	mustDo(t, s.SD.AppendToBlob(account, storageID, 1, &sizeBytes, bytes.NewReader(testBlob3.Contents)))
 	// ^ but no FinalizeBlob() since we're still uploading!
-	mustDo(t, s.DB.Insert(&keppel.Upload{
+	mustDo(t, s.DB.Insert(&models.Upload{
 		RepositoryID: 1,
 		UUID:         "a29d525c-2273-44ba-83a8-eafd447f1cb8", // chosen at random, but fixed
 		StorageID:    storageID,
@@ -117,10 +117,10 @@ func TestSweepStorageBlobs(t *testing.T) {
 	// ...but not delete anything yet
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectBlobsExistInStorage(t,
-		keppel.Blob{AccountName: "test1", Digest: testBlob1.Digest, StorageID: testBlob1.Digest.Encoded()},
-		keppel.Blob{AccountName: "test1", Digest: testBlob2.Digest, StorageID: testBlob2.Digest.Encoded()},
-		keppel.Blob{AccountName: "test1", Digest: testBlob3.Digest, StorageID: testBlob3.Digest.Encoded()},
-		keppel.Blob{AccountName: "test1", Digest: testBlob4.Digest, StorageID: testBlob4.Digest.Encoded()},
+		models.Blob{AccountName: "test1", Digest: testBlob1.Digest, StorageID: testBlob1.Digest.Encoded()},
+		models.Blob{AccountName: "test1", Digest: testBlob2.Digest, StorageID: testBlob2.Digest.Encoded()},
+		models.Blob{AccountName: "test1", Digest: testBlob3.Digest, StorageID: testBlob3.Digest.Encoded()},
+		models.Blob{AccountName: "test1", Digest: testBlob4.Digest, StorageID: testBlob4.Digest.Encoded()},
 	)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 
@@ -128,7 +128,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	// just got finished while StorageSweepJob was running: blob was
 	// written to storage already, but not yet to DB)
 	s.Clock.StepBy(1 * time.Hour)
-	dbTestBlob1 := keppel.Blob{
+	dbTestBlob1 := models.Blob{
 		AccountName: "test1",
 		Digest:      testBlob1.Digest,
 		SizeBytes:   uint64(len(testBlob1.Contents)),
@@ -146,12 +146,12 @@ func TestSweepStorageBlobs(t *testing.T) {
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-blobs-002.sql")
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectBlobsExistInStorage(t,
-		keppel.Blob{AccountName: "test1", Digest: testBlob1.Digest, StorageID: testBlob1.Digest.Encoded()},
-		keppel.Blob{AccountName: "test1", Digest: testBlob3.Digest, StorageID: testBlob3.Digest.Encoded()},
+		models.Blob{AccountName: "test1", Digest: testBlob1.Digest, StorageID: testBlob1.Digest.Encoded()},
+		models.Blob{AccountName: "test1", Digest: testBlob3.Digest, StorageID: testBlob3.Digest.Encoded()},
 	)
 	s.ExpectBlobsMissingInStorage(t,
-		keppel.Blob{AccountName: "test1", Digest: testBlob2.Digest, StorageID: testBlob2.Digest.Encoded()},
-		keppel.Blob{AccountName: "test1", Digest: testBlob4.Digest, StorageID: testBlob4.Digest.Encoded()},
+		models.Blob{AccountName: "test1", Digest: testBlob2.Digest, StorageID: testBlob2.Digest.Encoded()},
+		models.Blob{AccountName: "test1", Digest: testBlob4.Digest, StorageID: testBlob4.Digest.Encoded()},
 	)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 }
@@ -163,7 +163,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	images, healthyBlobs, healthyManifests := setupStorageSweepTest(t, s, sweepStorageJob)
 
 	// put some manifests in the storage without adding them in the DB
-	account := keppel.Account{Name: "test1"}
+	account := models.Account{Name: "test1"}
 	testImageList1 := test.GenerateImageList(images[0])
 	testImageList2 := test.GenerateImageList(images[1])
 	for _, manifest := range []test.Bytes{testImageList1.Manifest, testImageList2.Manifest} {
@@ -179,15 +179,15 @@ func TestSweepStorageManifests(t *testing.T) {
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 	s.ExpectManifestsExistInStorage(t, "foo",
-		keppel.Manifest{RepositoryID: 1, Digest: testImageList1.Manifest.Digest},
-		keppel.Manifest{RepositoryID: 1, Digest: testImageList2.Manifest.Digest},
+		models.Manifest{RepositoryID: 1, Digest: testImageList1.Manifest.Digest},
+		models.Manifest{RepositoryID: 1, Digest: testImageList2.Manifest.Digest},
 	)
 
 	// create a DB entry for the first manifest (to sort of simulate a manifest
 	// upload that happened while StorageSweepJob: manifest was written
 	// to storage already, but not yet to DB)
 	s.Clock.StepBy(1 * time.Hour)
-	mustDo(t, s.DB.Insert(&keppel.Manifest{
+	mustDo(t, s.DB.Insert(&models.Manifest{
 		RepositoryID: 1,
 		Digest:       testImageList1.Manifest.Digest,
 		MediaType:    testImageList1.Manifest.MediaType,
@@ -205,9 +205,9 @@ func TestSweepStorageManifests(t *testing.T) {
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 	s.ExpectManifestsExistInStorage(t, "foo",
-		keppel.Manifest{RepositoryID: 1, Digest: testImageList1.Manifest.Digest},
+		models.Manifest{RepositoryID: 1, Digest: testImageList1.Manifest.Digest},
 	)
 	s.ExpectManifestsMissingInStorage(t,
-		keppel.Manifest{RepositoryID: 1, Digest: testImageList2.Manifest.Digest},
+		models.Manifest{RepositoryID: 1, Digest: testImageList2.Manifest.Digest},
 	)
 }

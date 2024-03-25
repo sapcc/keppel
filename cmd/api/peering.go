@@ -31,6 +31,7 @@ import (
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/tasks"
 )
 
@@ -57,7 +58,7 @@ func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
 	}
 
 	// remove old entries from `peers` table
-	var allPeers []keppel.Peer
+	var allPeers []models.Peer
 	_ = must.Return(db.Select(&allPeers, `SELECT * FROM peers`))
 	for _, peer := range allPeers {
 		if !isPeerHostName[peer.HostName] {
@@ -100,7 +101,7 @@ func tryIssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, d
 	defer sqlext.RollbackUnlessCommitted(tx)
 
 	// select next peer that needs a new password, if any
-	var peer keppel.Peer
+	var peer models.Peer
 	err = tx.SelectOne(&peer, getNextPeerQuery, time.Now().Add(-10*time.Minute))
 	if errors.Is(err, sql.ErrNoRows) {
 		// nothing to do

@@ -28,6 +28,7 @@ import (
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/regexpext"
 
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/trivy"
 )
 
@@ -47,9 +48,9 @@ type SecurityScanPolicy struct {
 
 // SecurityScanPolicyAction appears in type SecurityScanPolicy.
 type SecurityScanPolicyAction struct {
-	Assessment string                    `json:"assessment"`
-	Ignore     bool                      `json:"ignore,omitempty"`
-	Severity   trivy.VulnerabilityStatus `json:"severity,omitempty"`
+	Assessment string                     `json:"assessment"`
+	Ignore     bool                       `json:"ignore,omitempty"`
+	Severity   models.VulnerabilityStatus `json:"severity,omitempty"`
 }
 
 // String returns the JSON representation of this policy (for use in log and
@@ -102,9 +103,9 @@ func (p SecurityScanPolicy) Validate(path string) (errs errext.ErrorSet) {
 	return
 }
 
-func isSeverityKnownByTrivy(severity trivy.VulnerabilityStatus) bool {
+func isSeverityKnownByTrivy(severity models.VulnerabilityStatus) bool {
 	// We don't allow downgrading a severity to "Unknown" through a policy.
-	if severity == trivy.UnknownSeverity {
+	if severity == models.UnknownSeverity {
 		return false
 	}
 	for _, vulnStatus := range trivy.MapToTrivySeverity {
@@ -117,16 +118,16 @@ func isSeverityKnownByTrivy(severity trivy.VulnerabilityStatus) bool {
 
 // VulnerabilityStatus returns the status that this policy forces for matching
 // vulnerabilities in matching repos.
-func (p SecurityScanPolicy) VulnerabilityStatus() trivy.VulnerabilityStatus {
+func (p SecurityScanPolicy) VulnerabilityStatus() models.VulnerabilityStatus {
 	//NOTE: Validate() ensures that either `Action.Ignore` or `Action.Severity` is set.
 	if p.Action.Ignore {
-		return trivy.CleanSeverity
+		return models.CleanSeverity
 	}
 	return p.Action.Severity
 }
 
 // MatchesRepository evaluates the repository regexes in this policy.
-func (p SecurityScanPolicy) MatchesRepository(repo Repository) bool {
+func (p SecurityScanPolicy) MatchesRepository(repo models.Repository) bool {
 	//NOTE: NegativeRepositoryRx takes precedence and is thus evaluated first.
 	if p.NegativeRepositoryRx != "" && p.NegativeRepositoryRx.MatchString(repo.Name) {
 		return false
@@ -153,18 +154,18 @@ type SecurityScanPolicySet []SecurityScanPolicy
 
 // SecurityScanPoliciesFor deserializes this account's security scan policies
 // and returns the subset that match the given repository.
-func (a Account) SecurityScanPoliciesFor(repo Repository) (SecurityScanPolicySet, error) {
-	if repo.AccountName != a.Name {
+func GetSecurityScanPolicies(account models.Account, repo models.Repository) (SecurityScanPolicySet, error) {
+	if repo.AccountName != account.Name {
 		// defense in depth
 		panic(fmt.Sprintf(
 			"Account.SecurityScanPoliciesFor called with repo.AccountName = %q, but a.Name = %q!",
-			repo.AccountName, a.Name))
+			repo.AccountName, account.Name))
 	}
 
 	var policies SecurityScanPolicySet
-	err := json.Unmarshal([]byte(a.SecurityScanPoliciesJSON), &policies)
+	err := json.Unmarshal([]byte(account.SecurityScanPoliciesJSON), &policies)
 	if err != nil {
-		return nil, fmt.Errorf("cannot unmarshal SecurityScanPoliciesJSON for account %q: %w", a.Name, err)
+		return nil, fmt.Errorf("cannot unmarshal SecurityScanPoliciesJSON for account %q: %w", account.Name, err)
 	}
 
 	var result SecurityScanPolicySet

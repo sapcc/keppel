@@ -28,7 +28,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sapcc/keppel/internal/client"
-	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 )
 
@@ -86,7 +85,7 @@ func (l logger) LogBlob(d digest.Digest, level int, err error, isCached bool) {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	var platformFilter keppel.PlatformFilter
+	var platformFilter models.PlatformFilter
 	err := json.Unmarshal([]byte(platformFilterStr), &platformFilter)
 	if err != nil {
 		logg.Fatal("cannot parse platform filter: " + err.Error())

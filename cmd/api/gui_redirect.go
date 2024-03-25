@@ -69,7 +69,7 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 	}
 
 	// is it publicly readable?
-	policies, err := account.ParseRBACPolicies()
+	policies, err := keppel.ParseRBACPolicies(*account)
 	if err != nil {
 		respondNotFound(w, r)
 		return

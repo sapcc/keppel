@@ -94,9 +94,9 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if quotas == nil {
-		quotas = keppel.DefaultQuotas(account.AuthTenantID)
+		quotas = models.DefaultQuotas(account.AuthTenantID)
 	}
-	manifestUsage, err := quotas.GetManifestUsage(a.db)
+	manifestUsage, err := keppel.GetManifestUsage(a.db, *quotas)
 	if respondWithError(w, r, err) {
 		return
 	}
@@ -126,7 +126,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	if respondWithError(w, r, err) {
 		return
 	}
-	upload := keppel.Upload{
+	upload := models.Upload{
 		RepositoryID: repo.ID,
 		UUID:         uuidV4.String(),
 		StorageID:    a.generateStorageID(),
@@ -148,7 +148,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Request, account keppel.Account, targetRepo keppel.Repository, authz *auth.Authorization, sourceRepoFullName, blobDigestStr string) {
+func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Request, account models.Account, targetRepo models.Repository, authz *auth.Authorization, sourceRepoFullName, blobDigestStr string) {
 	// validate source repository
 	if !strings.HasPrefix(sourceRepoFullName, account.Name+"/") {
 		keppel.ErrUnsupported.With("cannot mount blobs across different accounts").WriteAsRegistryV2ResponseTo(w, r)
@@ -200,7 +200,7 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, account keppel.Account, repo keppel.Repository, authz *auth.Authorization, blobDigestStr string) (ok bool) {
+func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, account models.Account, repo models.Repository, authz *auth.Authorization, blobDigestStr string) (ok bool) {
 	blobDigest, err := digest.Parse(blobDigestStr)
 	if err != nil {
 		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
@@ -221,7 +221,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	}
 
 	// stream request body into the storage backend while also computing the digest and length
-	upload := keppel.Upload{
+	upload := models.Upload{
 		StorageID: a.generateStorageID(),
 		SizeBytes: 0,
 		NumChunks: 0,
@@ -471,7 +471,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	// chance that unexpected errors could leave us with a dangling blob in the
 	// storage that the DB does not know about, but the storage sweep can clean
 	// that up later.
-	var blob *keppel.Blob
+	var blob *models.Blob
 	err := a.sd.FinalizeBlob(*account, upload.StorageID, upload.NumChunks)
 	if err == nil {
 		blob, err = a.createBlobFromUpload(*account, *repo, *upload, query.Get("digest"))
@@ -503,7 +503,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (a *API) findUpload(w http.ResponseWriter, r *http.Request, repo keppel.Repository) *keppel.Upload {
+func (a *API) findUpload(w http.ResponseWriter, r *http.Request, repo models.Repository) *models.Upload {
 	uploadUUID := mux.Vars(r)["uuid"]
 
 	upload, err := keppel.FindUploadByRepository(a.db, uploadUUID, repo)
@@ -518,7 +518,7 @@ func (a *API) findUpload(w http.ResponseWriter, r *http.Request, repo keppel.Rep
 	return upload
 }
 
-func (a *API) resumeUpload(account keppel.Account, upload *keppel.Upload, stateStr string) (dw *digestWriter, returnErr *keppel.RegistryV2Error) {
+func (a *API) resumeUpload(account models.Account, upload *models.Upload, stateStr string) (dw *digestWriter, returnErr *keppel.RegistryV2Error) {
 	// when encountering an error, cancel the upload entirely
 	defer func() {
 		if returnErr != nil {
@@ -578,7 +578,7 @@ func (a *API) resumeUpload(account keppel.Account, upload *keppel.Upload, stateS
 var contentRangeRx = regexp.MustCompile(`^([0-9]+)-([0-9]+)$`)
 
 // On success, returns the number of bytes that should be in this request's body.
-func (a *API) parseContentRange(upload *keppel.Upload, hdr http.Header) (uint64, error) {
+func (a *API) parseContentRange(upload *models.Upload, hdr http.Header) (uint64, error) {
 	// some clients format Content-Range as `bytes=123-456` instead of just `123-456`
 	contentRangeStr := strings.TrimPrefix(hdr.Get("Content-Range"), "bytes=")
 
@@ -614,7 +614,7 @@ func (a *API) parseContentRange(upload *keppel.Upload, hdr http.Header) (uint64,
 	return length, nil
 }
 
-func (a *API) streamIntoUpload(account keppel.Account, upload *keppel.Upload, dw *digestWriter, chunk io.Reader, chunkSizeBytes *uint64) (digestState string, returnErr error) {
+func (a *API) streamIntoUpload(account models.Account, upload *models.Upload, dw *digestWriter, chunk io.Reader, chunkSizeBytes *uint64) (digestState string, returnErr error) {
 	// if anything happens during this operation, we likely have produced an
 	// inconsistent state between DB, storage backend and our internal book
 	// keeping (esp. the digestState in dw.Hash), so we will have to abort the
@@ -669,7 +669,7 @@ func (a *API) streamIntoUpload(account keppel.Account, upload *keppel.Upload, dw
 	return base64.URLEncoding.EncodeToString(digestStateBytes), nil
 }
 
-func (a *API) createBlobFromUpload(account keppel.Account, repo keppel.Repository, upload keppel.Upload, blobDigestStr string) (blob *keppel.Blob, returnErr error) {
+func (a *API) createBlobFromUpload(account models.Account, repo models.Repository, upload models.Upload, blobDigestStr string) (blob *models.Blob, returnErr error) {
 	// validate the digest provided by the user
 	if blobDigestStr == "" {
 		return nil, keppel.ErrDigestInvalid.With("missing digest")
@@ -715,7 +715,7 @@ var insertBlobIfMissingQuery = sqlext.SimplifyWhitespace(`
 // Insert a Blob object in the database. This is similar to building a
 // keppel.Blob and doing tx.Insert(blob), but handles a collision where another
 // blob with the same account name and digest already exists in the database.
-func (a *API) createOrUpdateBlobObject(tx *gorp.Transaction, sizeBytes uint64, storageID string, blobDigest digest.Digest, blobPushedAt time.Time, account keppel.Account) (*keppel.Blob, error) {
+func (a *API) createOrUpdateBlobObject(tx *gorp.Transaction, sizeBytes uint64, storageID string, blobDigest digest.Digest, blobPushedAt time.Time, account models.Account) (*models.Blob, error) {
 	// try to insert the blob atomically (I would like to SELECT the result
 	// directly via `RETURNING *`, but that gives sql.ErrNoRows when nothing was
 	// inserted because of ON CONFLICT, so in the general case, we need another
@@ -760,7 +760,7 @@ func (w *digestWriter) Write(buf []byte) (n int, err error) {
 	return n, err
 }
 
-func countAbortedBlobUpload(account keppel.Account) {
+func countAbortedBlobUpload(account models.Account) {
 	l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 	api.UploadsAbortedCounter.With(l).Inc()
 }

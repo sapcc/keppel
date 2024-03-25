@@ -26,6 +26,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // API contains state variables used by the peer API. This is an internal API
@@ -51,7 +52,7 @@ func (a *API) AddTo(r *mux.Router) {
 	r.Methods("POST").Path("/peer/v1/sync-replica/{account}/{repo:.+}").HandlerFunc(a.handleSyncReplica)
 }
 
-func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request) *keppel.Peer {
+func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request) *models.Peer {
 	authz, rerr := auth.IncomingRequest{
 		HTTPRequest: r,
 		Scopes:      auth.NewScopeSet(auth.PeerAPIScope),
@@ -67,7 +68,7 @@ func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request) *keppe
 		return nil
 	}
 
-	var peer keppel.Peer
+	var peer models.Peer
 	err := a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, uid.PeerHostName)
 	if err != nil {
 		keppel.AsRegistryV2Error(err).WriteAsTextTo(w)

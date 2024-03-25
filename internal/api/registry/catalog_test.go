@@ -27,6 +27,7 @@ import (
 	"github.com/sapcc/go-bits/assert"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
 )
 
@@ -35,7 +36,7 @@ func TestCatalogEndpoint(t *testing.T) {
 
 	// set up dummy accounts for testing
 	for idx := 1; idx <= 3; idx++ {
-		err := s.DB.Insert(&keppel.Account{
+		err := s.DB.Insert(&models.Account{
 			Name:                     fmt.Sprintf("test%d", idx),
 			AuthTenantID:             authTenantID,
 			GCPoliciesJSON:           "[]",
@@ -46,7 +47,7 @@ func TestCatalogEndpoint(t *testing.T) {
 		}
 
 		for _, repoName := range []string{"foo", "bar", "qux"} {
-			err := s.DB.Insert(&keppel.Repository{
+			err := s.DB.Insert(&models.Repository{
 				Name:        repoName,
 				AccountName: fmt.Sprintf("test%d", idx),
 			})

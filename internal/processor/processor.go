@@ -30,6 +30,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // Processor is a higher-level interface wrapping keppel.DB and keppel.StorageDriver.
@@ -113,16 +114,16 @@ func (p *Processor) insideTransaction(action func(*gorp.Transaction) error) erro
 // helper functions used by multiple Processor methods
 
 // Returns nil if and only if the user can push another manifest.
-func (p *Processor) checkQuotaForManifestPush(account keppel.Account) error {
+func (p *Processor) checkQuotaForManifestPush(account models.Account) error {
 	// check if user has enough quota to push a manifest
 	quotas, err := keppel.FindQuotas(p.db, account.AuthTenantID)
 	if err != nil {
 		return err
 	}
 	if quotas == nil {
-		quotas = keppel.DefaultQuotas(account.AuthTenantID)
+		quotas = models.DefaultQuotas(account.AuthTenantID)
 	}
-	manifestUsage, err := quotas.GetManifestUsage(p.db)
+	manifestUsage, err := keppel.GetManifestUsage(p.db, *quotas)
 	if err != nil {
 		return err
 	}
@@ -137,7 +138,7 @@ func (p *Processor) checkQuotaForManifestPush(account keppel.Account) error {
 
 // Takes a repo in a replica account and returns a RepoClient for accessing its
 // the upstream repo in the corresponding primary account.
-func (p *Processor) getRepoClientForUpstream(account keppel.Account, repo keppel.Repository) (*client.RepoClient, error) {
+func (p *Processor) getRepoClientForUpstream(account models.Account, repo models.Repository) (*client.RepoClient, error) {
 	// use cached client if possible (this one probably already contains a valid
 	// pull token)
 	if c, ok := p.repoClients[repo.FullName()]; ok {
@@ -145,7 +146,7 @@ func (p *Processor) getRepoClientForUpstream(account keppel.Account, repo keppel
 	}
 
 	if account.UpstreamPeerHostName != "" {
-		var peer keppel.Peer
+		var peer models.Peer
 		err := p.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, account.UpstreamPeerHostName)
 		if err != nil {
 			return nil, err

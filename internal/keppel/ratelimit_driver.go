@@ -29,6 +29,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
+
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // RateLimitedAction is an enum of all actions that can be rate-limited.
@@ -65,7 +67,7 @@ type RateLimitDriver interface {
 	Init(AuthDriver, Configuration) error
 
 	// GetRateLimit shall return nil if the given action has no rate limit.
-	GetRateLimit(account Account, action RateLimitedAction) *redis_rate.Limit
+	GetRateLimit(account models.Account, action RateLimitedAction) *redis_rate.Limit
 }
 
 // RateLimitDriverRegistry is a pluggable.Registry for RateLimitDriver implementations.
@@ -94,7 +96,7 @@ type RateLimitEngine struct {
 
 // RateLimitAllows checks whether the given action on the given account is allowed by
 // the account's rate limit.
-func (e RateLimitEngine) RateLimitAllows(ctx context.Context, remoteAddr string, account Account, action RateLimitedAction, amount uint64) (bool, *redis_rate.Result, error) {
+func (e RateLimitEngine) RateLimitAllows(ctx context.Context, remoteAddr string, account models.Account, action RateLimitedAction, amount uint64) (bool, *redis_rate.Result, error) {
 	rateQuota := e.Driver.GetRateLimit(account, action)
 	if rateQuota == nil {
 		// no rate limit for this account and action

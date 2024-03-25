@@ -22,6 +22,8 @@ package keppel
 import (
 	"fmt"
 
+	"github.com/sapcc/keppel/internal/models"
+
 	"github.com/docker/distribution"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 
@@ -49,12 +51,12 @@ type ParsedManifest interface {
 	// BlobReferences returns all blobs referenced by this manifest.
 	BlobReferences() []distribution.Descriptor
 	// ManifestReferences returns all manifests referenced by this manifest.
-	ManifestReferences(pf PlatformFilter) []manifestlist.ManifestDescriptor
+	ManifestReferences(pf models.PlatformFilter) []manifestlist.ManifestDescriptor
 	// AcceptableAlternates returns the subset of ManifestReferences() that is
 	// acceptable as alternate representations of this manifest. When a client
 	// asks for this manifest, but the Accept header does not match the manifest
 	// itself, the API will look for an acceptable alternate to serve instead.
-	AcceptableAlternates(pf PlatformFilter) []manifestlist.ManifestDescriptor
+	AcceptableAlternates(pf models.PlatformFilter) []manifestlist.ManifestDescriptor
 }
 
 // ParseManifest parses a manifest. It also returns a Descriptor describing the manifest itself.
@@ -92,11 +94,11 @@ func (a v2ManifestAdapter) BlobReferences() []distribution.Descriptor {
 	return a.m.References()
 }
 
-func (a v2ManifestAdapter) ManifestReferences(pf PlatformFilter) []manifestlist.ManifestDescriptor {
+func (a v2ManifestAdapter) ManifestReferences(pf models.PlatformFilter) []manifestlist.ManifestDescriptor {
 	return nil
 }
 
-func (a v2ManifestAdapter) AcceptableAlternates(pf PlatformFilter) []manifestlist.ManifestDescriptor {
+func (a v2ManifestAdapter) AcceptableAlternates(pf models.PlatformFilter) []manifestlist.ManifestDescriptor {
 	return nil
 }
 
@@ -125,11 +127,11 @@ func (a ociManifestAdapter) BlobReferences() []distribution.Descriptor {
 	return a.m.References()
 }
 
-func (a ociManifestAdapter) ManifestReferences(pf PlatformFilter) []manifestlist.ManifestDescriptor {
+func (a ociManifestAdapter) ManifestReferences(pf models.PlatformFilter) []manifestlist.ManifestDescriptor {
 	return nil
 }
 
-func (a ociManifestAdapter) AcceptableAlternates(pf PlatformFilter) []manifestlist.ManifestDescriptor {
+func (a ociManifestAdapter) AcceptableAlternates(pf models.PlatformFilter) []manifestlist.ManifestDescriptor {
 	return nil
 }
 
@@ -150,7 +152,7 @@ func (a listManifestAdapter) BlobReferences() []distribution.Descriptor {
 	return nil
 }
 
-func (a listManifestAdapter) ManifestReferences(pf PlatformFilter) []manifestlist.ManifestDescriptor {
+func (a listManifestAdapter) ManifestReferences(pf models.PlatformFilter) []manifestlist.ManifestDescriptor {
 	result := make([]manifestlist.ManifestDescriptor, 0, len(a.m.Manifests))
 	for _, m := range a.m.Manifests {
 		if pf.Includes(m.Platform) {
@@ -160,7 +162,7 @@ func (a listManifestAdapter) ManifestReferences(pf PlatformFilter) []manifestlis
 	return result
 }
 
-func (a listManifestAdapter) AcceptableAlternates(pf PlatformFilter) []manifestlist.ManifestDescriptor {
+func (a listManifestAdapter) AcceptableAlternates(pf models.PlatformFilter) []manifestlist.ManifestDescriptor {
 	var result []manifestlist.ManifestDescriptor
 	for _, m := range a.ManifestReferences(pf) {
 		// If we have an application/vnd.docker.distribution.manifest.list.v2+json manifest, but the

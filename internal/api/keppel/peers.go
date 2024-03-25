@@ -25,6 +25,7 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -38,13 +39,13 @@ type Peer struct {
 ////////////////////////////////////////////////////////////////////////////////
 // data conversion/validation functions
 
-func renderPeer(p keppel.Peer) Peer {
+func renderPeer(p models.Peer) Peer {
 	return Peer{
 		HostName: p.HostName,
 	}
 }
 
-func renderPeers(peers []keppel.Peer) []Peer {
+func renderPeers(peers []models.Peer) []Peer {
 	result := make([]Peer, len(peers))
 	for idx, peer := range peers {
 		result[idx] = renderPeer(peer)
@@ -63,7 +64,7 @@ func (a *API) handleGetPeers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var peers []keppel.Peer
+	var peers []models.Peer
 	_, err := a.db.Select(&peers, `SELECT * FROM peers ORDER BY hostname`)
 	if respondwith.ErrorText(w, err) {
 		return

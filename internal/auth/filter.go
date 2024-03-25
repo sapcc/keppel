@@ -25,6 +25,7 @@ import (
 	"github.com/sapcc/go-bits/httpext"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // Produces a new ScopeSet containing only those scopes that the given
@@ -93,7 +94,7 @@ func filterAuthorized(ir IncomingRequest, uid keppel.UserIdentity, audience Audi
 }
 
 func addCatalogAccess(ss *ScopeSet, uid keppel.UserIdentity, audience Audience, db *keppel.DB) error {
-	var accounts []keppel.Account
+	var accounts []models.Account
 	if audience.AccountName == "" {
 		// on the standard API, all accounts are potentially accessible
 		_, err := db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
@@ -107,7 +108,7 @@ func addCatalogAccess(ss *ScopeSet, uid keppel.UserIdentity, audience Audience, 
 			return err
 		}
 		if account != nil {
-			accounts = []keppel.Account{*account}
+			accounts = []models.Account{*account}
 		}
 	}
 
@@ -179,7 +180,7 @@ func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience
 		"delete": uid.HasPermission(keppel.CanDeleteFromAccount, account.AuthTenantID),
 	}
 
-	policies, err := account.ParseRBACPolicies()
+	policies, err := keppel.ParseRBACPolicies(*account)
 	if err != nil {
 		return nil, fmt.Errorf("while parsing account RBAC policies: %w", err)
 	}

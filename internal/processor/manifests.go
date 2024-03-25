@@ -46,7 +46,6 @@ import (
 	peerclient "github.com/sapcc/keppel/internal/client/peer"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
-	"github.com/sapcc/keppel/internal/trivy"
 )
 
 // IncomingManifest contains information about a manifest uploaded by the user
@@ -68,7 +67,7 @@ var checkTagExistsAtSameDigestQuery = sqlext.SimplifyWhitespace(`
 // ValidateAndStoreManifest validates the given manifest and stores it under the
 // given reference. If the reference is a digest, it is validated. Otherwise, a
 // tag with that name is created that points to the new manifest.
-func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel.Repository, m IncomingManifest, actx keppel.AuditContext) (*keppel.Manifest, error) {
+func (p *Processor) ValidateAndStoreManifest(account models.Account, repo models.Repository, m IncomingManifest, actx keppel.AuditContext) (*models.Manifest, error) {
 	// check if the objects we want to create already exist in the database; this
 	// check is not 100% reliable since it does not run in the same transaction as
 	// the actual upsert, so results should be taken with a grain of salt; but the
@@ -97,7 +96,7 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 		}
 	}
 
-	manifest := &keppel.Manifest{
+	manifest := &models.Manifest{
 		//NOTE: .Digest and .SizeBytes are computed by validateAndStoreManifestCommon()
 		RepositoryID: repo.ID,
 		MediaType:    m.MediaType,
@@ -112,7 +111,7 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 	err = p.validateAndStoreManifestCommon(account, repo, manifest, m.Contents,
 		func(tx *gorp.Transaction) error {
 			if m.Reference.IsTag() {
-				err = upsertTag(tx, keppel.Tag{
+				err = upsertTag(tx, models.Tag{
 					RepositoryID: repo.ID,
 					Name:         m.Reference.Tag,
 					Digest:       manifest.Digest,
@@ -170,7 +169,7 @@ func (p *Processor) ValidateAndStoreManifest(account keppel.Account, repo keppel
 // ValidateExistingManifest validates the given manifest that already exists in the DB.
 // The `now` argument will be used instead of time.Now() to accommodate unit
 // tests that use a different clock.
-func (p *Processor) ValidateExistingManifest(account keppel.Account, repo keppel.Repository, manifest *keppel.Manifest, now time.Time) error {
+func (p *Processor) ValidateExistingManifest(account models.Account, repo models.Repository, manifest *models.Manifest, now time.Time) error {
 	manifestBytes, err := p.sd.ReadManifest(account, repo.Name, manifest.Digest)
 	if err != nil {
 		return err
@@ -185,7 +184,7 @@ func (p *Processor) ValidateExistingManifest(account keppel.Account, repo keppel
 	)
 }
 
-func (p *Processor) validateAndStoreManifestCommon(account keppel.Account, repo keppel.Repository, manifest *keppel.Manifest, manifestBytes []byte, actionBeforeCommit func(*gorp.Transaction) error) error {
+func (p *Processor) validateAndStoreManifestCommon(account models.Account, repo models.Repository, manifest *models.Manifest, manifestBytes []byte, actionBeforeCommit func(*gorp.Transaction) error) error {
 	// parse manifest
 	manifestParsed, manifestDesc, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
 	if err != nil {
@@ -291,7 +290,7 @@ type manifestRefsInfo struct {
 	SumChildSizes   uint64
 }
 
-func findManifestReferencedObjects(tx *gorp.Transaction, account keppel.Account, repo keppel.Repository, manifest keppel.ParsedManifest) (result manifestRefsInfo, err error) {
+func findManifestReferencedObjects(tx *gorp.Transaction, account models.Account, repo models.Repository, manifest keppel.ParsedManifest) (result manifestRefsInfo, err error) {
 	// ensure that we don't insert duplicate entries into `blobRefs` and `manifestDigests`
 	wasHandled := make(map[digest.Digest]bool)
 
@@ -376,7 +375,7 @@ type manifestConfigInfo struct {
 }
 
 // Returns the list of missing labels, or nil if everything is ok.
-func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account keppel.Account, manifest keppel.ParsedManifest) (result manifestConfigInfo, err error) {
+func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account models.Account, manifest keppel.ParsedManifest) (result manifestConfigInfo, err error) {
 	// is this manifest an image that has labels?
 	configBlob := manifest.FindImageConfigBlob()
 	if configBlob == nil {
@@ -463,7 +462,7 @@ var upsertManifestSecurityInfo = sqlext.SimplifyWhitespace(`
 	ON CONFLICT DO NOTHING
 `)
 
-func upsertManifest(db gorp.SqlExecutor, m keppel.Manifest, manifestBytes []byte, timeNow time.Time) error {
+func upsertManifest(db gorp.SqlExecutor, m models.Manifest, manifestBytes []byte, timeNow time.Time) error {
 	_, err := db.Exec(upsertManifestQuery, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.ValidatedAt, m.LabelsJSON, m.MinLayerCreatedAt, m.MaxLayerCreatedAt)
 	if err != nil {
 		return err
@@ -473,7 +472,7 @@ func upsertManifest(db gorp.SqlExecutor, m keppel.Manifest, manifestBytes []byte
 		return err
 	}
 
-	_, err = db.Exec(upsertManifestSecurityInfo, m.RepositoryID, m.Digest, trivy.PendingVulnerabilityStatus, "", timeNow)
+	_, err = db.Exec(upsertManifestSecurityInfo, m.RepositoryID, m.Digest, models.PendingVulnerabilityStatus, "", timeNow)
 	return err
 }
 
@@ -488,12 +487,12 @@ var upsertTagQuery = sqlext.SimplifyWhitespace(`
 			last_pulled_at = (CASE WHEN tags.digest = EXCLUDED.digest THEN GREATEST(tags.last_pulled_at, EXCLUDED.last_pulled_at) ELSE EXCLUDED.last_pulled_at END)
 `)
 
-func upsertTag(db gorp.SqlExecutor, t keppel.Tag) error {
+func upsertTag(db gorp.SqlExecutor, t models.Tag) error {
 	_, err := db.Exec(upsertTagQuery, t.RepositoryID, t.Name, t.Digest, t.PushedAt)
 	return err
 }
 
-func maintainManifestBlobRefs(tx *gorp.Transaction, m keppel.Manifest, referencedBlobs []blobRef) error {
+func maintainManifestBlobRefs(tx *gorp.Transaction, m models.Manifest, referencedBlobs []blobRef) error {
 	// maintain media type on blobs (we have no way of knowing the media type of a
 	// blob when it gets uploaded by itself, but manifests always include the
 	// media type of each blob referenced therein; therefore now is our only
@@ -573,7 +572,7 @@ func maintainManifestBlobRefs(tx *gorp.Transaction, m keppel.Manifest, reference
 	return nil
 }
 
-func maintainManifestManifestRefs(tx *gorp.Transaction, m keppel.Manifest, referencedManifestDigests []string) error {
+func maintainManifestManifestRefs(tx *gorp.Transaction, m models.Manifest, referencedManifestDigests []string) error {
 	// find existing manifest_manifest_refs entries for this manifest
 	isExistingManifestDigestRef := make(map[string]bool)
 	query := `SELECT child_digest FROM manifest_manifest_refs WHERE repo_id = $1 AND parent_digest = $2`
@@ -650,7 +649,7 @@ func (e UpstreamManifestMissingError) Error() string {
 
 // ReplicateManifest replicates the manifest from its account's upstream registry.
 // On success, the manifest's metadata and contents are returned.
-func (p *Processor) ReplicateManifest(ctx context.Context, account keppel.Account, repo keppel.Repository, reference models.ManifestReference, actx keppel.AuditContext) (*keppel.Manifest, []byte, error) {
+func (p *Processor) ReplicateManifest(ctx context.Context, account models.Account, repo models.Repository, reference models.ManifestReference, actx keppel.AuditContext) (*models.Manifest, []byte, error) {
 	manifestBytes, manifestMediaType, err := p.downloadManifestViaInboundCache(ctx, account, repo, reference)
 	if err != nil {
 		if errorIsManifestNotFound(err) {
@@ -721,7 +720,7 @@ func (p *Processor) ReplicateManifest(ctx context.Context, account keppel.Accoun
 // CheckManifestOnPrimary checks if the given manifest exists on its account's
 // upstream registry. If not, false is returned, An error is returned only if
 // the account is not a replica, or if the upstream registry cannot be queried.
-func (p *Processor) CheckManifestOnPrimary(ctx context.Context, account keppel.Account, repo keppel.Repository, reference models.ManifestReference) (bool, error) {
+func (p *Processor) CheckManifestOnPrimary(ctx context.Context, account models.Account, repo models.Repository, reference models.ManifestReference) (bool, error) {
 	_, _, err := p.downloadManifestViaInboundCache(ctx, account, repo, reference)
 	if err != nil {
 		if errorIsManifestNotFound(err) {
@@ -751,7 +750,7 @@ func errorIsUpstreamRateLimit(err error) bool {
 
 // Downloads a manifest from an account's upstream using
 // RepoClient.DownloadManifest(), but also takes into account the inbound cache.
-func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account keppel.Account, repo keppel.Repository, ref models.ManifestReference) (manifestBytes []byte, manifestMediaType string, err error) {
+func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account models.Account, repo models.Repository, ref models.ManifestReference) (manifestBytes []byte, manifestMediaType string, err error) {
 	c, err := p.getRepoClientForUpstream(account, repo)
 	if err != nil {
 		return nil, "", err
@@ -806,7 +805,7 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 // the pull to us because we hit our rate limit.
 func (p *Processor) downloadManifestViaPullDelegation(ctx context.Context, imageRef models.ImageReference, userName, password string) (respBytes []byte, contentType string, success bool) {
 	// select a peer at random
-	var peer keppel.Peer
+	var peer models.Peer
 	err := p.db.SelectOne(&peer, `SELECT * FROM peers WHERE our_password != '' ORDER BY RANDOM() LIMIT 1`)
 	if errors.Is(err, sql.ErrNoRows) {
 		// no peers set up - just skip this step without logging anything
@@ -834,9 +833,9 @@ func (p *Processor) downloadManifestViaPullDelegation(ctx context.Context, image
 // backing storage.
 //
 // If the manifest does not exist, sql.ErrNoRows is returned.
-func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repository, manifestDigest digest.Digest, actx keppel.AuditContext) error {
+func (p *Processor) DeleteManifest(account models.Account, repo models.Repository, manifestDigest digest.Digest, actx keppel.AuditContext) error {
 	var (
-		tagResults []keppel.Tag
+		tagResults []models.Tag
 		tags       []string
 	)
 
@@ -912,7 +911,7 @@ func (p *Processor) DeleteManifest(account keppel.Account, repo keppel.Repositor
 
 // DeleteTag deletes the given tag from the database. The manifest is not deleted.
 // If the tag does not exist, sql.ErrNoRows is returned.
-func (p *Processor) DeleteTag(account keppel.Account, repo keppel.Repository, tagName string, actx keppel.AuditContext) error {
+func (p *Processor) DeleteTag(account models.Account, repo models.Repository, tagName string, actx keppel.AuditContext) error {
 	digestStr, err := p.db.SelectStr(
 		`DELETE FROM tags WHERE repo_id = $1 AND name = $2 RETURNING digest`,
 		repo.ID, tagName)
@@ -949,8 +948,8 @@ func (p *Processor) DeleteTag(account keppel.Account, repo keppel.Repository, ta
 
 // auditManifest is an audittools.TargetRenderer.
 type auditManifest struct {
-	Account    keppel.Account
-	Repository keppel.Repository
+	Account    models.Account
+	Repository models.Repository
 	Digest     digest.Digest
 	Tags       []string
 }
@@ -979,8 +978,8 @@ func (a auditManifest) Render() cadf.Resource {
 
 // auditTag is an audittools.TargetRenderer.
 type auditTag struct {
-	Account    keppel.Account
-	Repository keppel.Repository
+	Account    models.Account
+	Repository models.Repository
 	Digest     digest.Digest
 	TagName    string
 }

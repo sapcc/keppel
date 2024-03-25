@@ -1,6 +1,6 @@
 /*******************************************************************************
 *
-* Copyright 2021 SAP SE
+* Copyright 2024 SAP SE
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -17,4 +17,20 @@
 *
 *******************************************************************************/
 
-package trivy
+package models
+
+// Quotas contains a record from the `quotas` table.
+type Quotas struct {
+	AuthTenantID  string `db:"auth_tenant_id"`
+	ManifestCount uint64 `db:"manifests"`
+}
+
+// DefaultQuotas creates a new Quotas instance with the default quotas.
+func DefaultQuotas(authTenantID string) *Quotas {
+	// Right now, the default quota is always 0. The value of having this function
+	// is to ensure that we only need to change this place if this ever changes.
+	return &Quotas{
+		AuthTenantID:  authTenantID,
+		ManifestCount: 0,
+	}
+}

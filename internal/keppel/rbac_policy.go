@@ -26,6 +26,8 @@ import (
 	"net"
 
 	"github.com/sapcc/go-bits/regexpext"
+
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // RBACPolicy is a policy granting user-defined access to repos in an account.
@@ -122,11 +124,11 @@ func (r *RBACPolicy) ValidateAndNormalize() error {
 }
 
 // ParseRBACPolicies parses the RBAC policies for the given account.
-func (a Account) ParseRBACPolicies() ([]RBACPolicy, error) {
-	if a.RBACPoliciesJSON == "" || a.RBACPoliciesJSON == "[]" {
+func ParseRBACPolicies(account models.Account) ([]RBACPolicy, error) {
+	if account.RBACPoliciesJSON == "" || account.RBACPoliciesJSON == "[]" {
 		return nil, nil
 	}
 	var policies []RBACPolicy
-	err := json.Unmarshal([]byte(a.RBACPoliciesJSON), &policies)
+	err := json.Unmarshal([]byte(account.RBACPoliciesJSON), &policies)
 	return policies, err
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 var blobSweepSearchQuery = sqlext.SimplifyWhitespace(`
@@ -74,7 +75,7 @@ var blobSweepDoneQuery = sqlext.SimplifyWhitespace(`
 //
 // Blobs are sweeped in each account at most once per hour.
 func (j *Janitor) BlobSweepJob(registerer prometheus.Registerer) jobloop.Job { //nolint:dupl // false positive
-	return (&jobloop.ProducerConsumerJob[keppel.Account]{
+	return (&jobloop.ProducerConsumerJob[models.Account]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "sweep blobs",
 			CounterOpts: prometheus.CounterOpts{
@@ -82,7 +83,7 @@ func (j *Janitor) BlobSweepJob(registerer prometheus.Registerer) jobloop.Job { /
 				Help: "Counter for garbage collections on blobs in an account.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (account keppel.Account, err error) {
+		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (account models.Account, err error) {
 			err = j.db.SelectOne(&account, blobSweepSearchQuery, j.timeNow())
 			return account, err
 		},
@@ -90,7 +91,7 @@ func (j *Janitor) BlobSweepJob(registerer prometheus.Registerer) jobloop.Job { /
 	}).Setup(registerer)
 }
 
-func (j *Janitor) sweepBlobsInRepo(_ context.Context, account keppel.Account, _ prometheus.Labels) error {
+func (j *Janitor) sweepBlobsInRepo(_ context.Context, account models.Account, _ prometheus.Labels) error {
 	// allow next pass in 1 hour to delete the newly marked blob mounts, but use a
 	// slightly earlier cut-off time to account for the marking taking some time
 	canBeDeletedAt := j.timeNow().Add(30 * time.Minute)
@@ -110,7 +111,7 @@ func (j *Janitor) sweepBlobsInRepo(_ context.Context, account keppel.Account, _ 
 	}
 
 	// select blobs for deletion that were marked in the last run
-	var blobs []keppel.Blob
+	var blobs []models.Blob
 	_, err = j.db.Select(&blobs, blobSelectMarkedQuery, account.Name, j.timeNow())
 	if err != nil {
 		return err
@@ -161,7 +162,7 @@ var validateBlobSearchQuery = sqlext.SimplifyWhitespace(`
 // BlobValidationJob is a job. Each task validates a blob that has not been validated for more
 // than 7 days.
 func (j *Janitor) BlobValidationJob(registerer prometheus.Registerer) jobloop.Job {
-	return (&jobloop.ProducerConsumerJob[keppel.Blob]{
+	return (&jobloop.ProducerConsumerJob[models.Blob]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "validation of blob contents",
 			CounterOpts: prometheus.CounterOpts{
@@ -169,7 +170,7 @@ func (j *Janitor) BlobValidationJob(registerer prometheus.Registerer) jobloop.Jo
 				Help: "Counter for blob validations.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (blob keppel.Blob, err error) {
+		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (blob models.Blob, err error) {
 			// find blob: validate once every 7 days, but recheck after 10 minutes if validation failed
 			maxSuccessfulValidatedAt := j.timeNow().Add(-7 * 24 * time.Hour)
 			maxFailedValidatedAt := j.timeNow().Add(-10 * time.Minute)
@@ -180,7 +181,7 @@ func (j *Janitor) BlobValidationJob(registerer prometheus.Registerer) jobloop.Jo
 	}).Setup(registerer)
 }
 
-func (j *Janitor) validateBlob(_ context.Context, blob keppel.Blob, _ prometheus.Labels) error {
+func (j *Janitor) validateBlob(_ context.Context, blob models.Blob, _ prometheus.Labels) error {
 	// find corresponding account
 	account, err := keppel.FindAccount(j.db, blob.AccountName)
 	if err != nil {
@@ -193,7 +194,7 @@ func (j *Janitor) validateBlob(_ context.Context, blob keppel.Blob, _ prometheus
 		// update `validated_at` and reset error message
 		_, err := j.db.Exec(`
 			UPDATE blobs SET validated_at = $1, validation_error_message = ''
-			 WHERE account_name = $2 AND digest = $3`,
+			  WHERE account_name = $2 AND digest = $3`,
 			j.timeNow(), account.Name, blob.Digest,
 		)
 		if err != nil {

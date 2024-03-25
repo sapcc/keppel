@@ -25,6 +25,8 @@ import (
 	"github.com/go-gorp/gorp/v3"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/logg"
+
+	"github.com/sapcc/keppel/internal/models"
 )
 
 var sqlMigrations = map[string]string{
@@ -279,6 +281,19 @@ func InitDB(dbURL *url.URL) (*DB, error) {
 	db.SetMaxOpenConns(16)
 
 	result := &DB{DbMap: gorp.DbMap{Db: db, Dialect: gorp.PostgresDialect{}}}
-	initModels(&result.DbMap)
+	result.DbMap.AddTableWithName(models.Account{}, "accounts").SetKeys(false, "name")
+	result.DbMap.AddTableWithName(models.Blob{}, "blobs").SetKeys(true, "id")
+	result.DbMap.AddTableWithName(models.Upload{}, "uploads").SetKeys(false, "repo_id", "uuid")
+	result.DbMap.AddTableWithName(models.Repository{}, "repos").SetKeys(true, "id")
+	result.DbMap.AddTableWithName(models.Manifest{}, "manifests").SetKeys(false, "repo_id", "digest")
+	result.DbMap.AddTableWithName(models.Tag{}, "tags").SetKeys(false, "repo_id", "name")
+	result.DbMap.AddTableWithName(models.ManifestContent{}, "manifest_contents").SetKeys(false, "repo_id", "digest")
+	result.DbMap.AddTableWithName(models.Quotas{}, "quotas").SetKeys(false, "auth_tenant_id")
+	result.DbMap.AddTableWithName(models.Peer{}, "peers").SetKeys(false, "hostname")
+	result.DbMap.AddTableWithName(models.PendingBlob{}, "pending_blobs").SetKeys(false, "account_name", "digest")
+	result.DbMap.AddTableWithName(models.UnknownBlob{}, "unknown_blobs").SetKeys(false, "account_name", "storage_id")
+	result.DbMap.AddTableWithName(models.UnknownManifest{}, "unknown_manifests").SetKeys(false, "account_name", "repo_name", "digest")
+	result.DbMap.AddTableWithName(models.TrivySecurityInfo{}, "trivy_security_info").SetKeys(false, "repo_id", "digest")
+
 	return result, nil
 }

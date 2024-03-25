@@ -118,7 +118,7 @@ func accountScopeFromRequest(r *http.Request, perm keppel.Permission) auth.Scope
 	})
 }
 
-func accountScopes(perm keppel.Permission, accounts ...keppel.Account) auth.ScopeSet {
+func accountScopes(perm keppel.Permission, accounts ...models.Account) auth.ScopeSet {
 	scopes := make([]auth.Scope, len(accounts))
 	for idx, account := range accounts {
 		scopes[idx] = auth.Scope{
@@ -156,7 +156,7 @@ func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request, ss aut
 // NOTE: The *auth.Authorization argument is only used to ensure that we call authenticateRequest
 // first. This is important because this function may otherwise leak information about whether
 // accounts exist or not to unauthorized users.
-func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request, _ *auth.Authorization) *keppel.Account {
+func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request, _ *auth.Authorization) *models.Account {
 	accountName := mux.Vars(r)["account"]
 	account, err := keppel.FindAccount(a.db, accountName)
 	if respondwith.ErrorText(w, err) {
@@ -169,7 +169,7 @@ func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request, _ *
 	return account
 }
 
-func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, account keppel.Account) *keppel.Repository {
+func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, account models.Account) *models.Repository {
 	repoName := mux.Vars(r)["repo_name"]
 	if !isValidRepoName(repoName) {
 		http.Error(w, "repo name invalid", http.StatusUnprocessableEntity)

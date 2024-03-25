@@ -23,6 +23,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // ReplicationPolicy represents a replication policy in the API.
@@ -83,7 +85,7 @@ func (r *ReplicationPolicy) UnmarshalJSON(buf []byte) error {
 	}
 }
 
-func (r ReplicationPolicy) ApplyToAccount(db *DB, dbAccount *Account) (httpStatus int, err error) {
+func (r ReplicationPolicy) ApplyToAccount(db *DB, dbAccount *models.Account) (httpStatus int, err error) {
 	switch r.Strategy {
 	case "on_first_use":
 		peerCount, err := db.SelectInt(`SELECT COUNT(*) FROM peers WHERE hostname = $1`, r.UpstreamPeerHostName)

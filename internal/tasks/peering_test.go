@@ -30,6 +30,7 @@ import (
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
 )
 
@@ -38,7 +39,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 		s := test.NewSetup(t)
 
 		// setup a peer
-		mustDo(t, s.DB.Insert(&keppel.Peer{HostName: "peer.example.org"}))
+		mustDo(t, s.DB.Insert(&models.Peer{HostName: "peer.example.org"}))
 
 		// setup a mock for the peer that just swallows any password that we give to it
 		mockPeer := mockPeerReceivingPassword{}
@@ -111,9 +112,9 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 	})
 }
 
-func getPeerFromDB(t *testing.T, db *keppel.DB) keppel.Peer {
+func getPeerFromDB(t *testing.T, db *keppel.DB) models.Peer {
 	t.Helper()
-	var peer keppel.Peer
+	var peer models.Peer
 	err := db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, "peer.example.org")
 	if err != nil {
 		t.Fatal(err.Error())

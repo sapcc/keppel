@@ -26,9 +26,8 @@ import (
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 
-	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
-	"github.com/sapcc/keppel/internal/trivy"
 )
 
 func TestQuotasAPI(t *testing.T) {
@@ -117,19 +116,19 @@ func TestQuotasAPI(t *testing.T) {
 	}.Check(t, h)
 
 	// put some manifests in the DB, check thet GET reflects higher usage
-	mustInsert(t, s.DB, &keppel.Account{
+	mustInsert(t, s.DB, &models.Account{
 		Name:                     "test1",
 		AuthTenantID:             "tenant1",
 		GCPoliciesJSON:           "[]",
 		SecurityScanPoliciesJSON: "[]",
 	})
-	mustInsert(t, s.DB, &keppel.Repository{
+	mustInsert(t, s.DB, &models.Repository{
 		Name:        "repo1",
 		AccountName: "test1",
 	})
 	for idx := 1; idx <= 10; idx++ {
 		pushedAt := time.Unix(int64(10000+10*idx), 0)
-		mustInsert(t, s.DB, &keppel.Manifest{
+		mustInsert(t, s.DB, &models.Manifest{
 			RepositoryID: 1,
 			Digest:       test.DeterministicDummyDigest(idx),
 			MediaType:    "",
@@ -137,10 +136,10 @@ func TestQuotasAPI(t *testing.T) {
 			PushedAt:     pushedAt,
 			ValidatedAt:  pushedAt,
 		})
-		mustInsert(t, s.DB, &keppel.TrivySecurityInfo{
+		mustInsert(t, s.DB, &models.TrivySecurityInfo{
 			RepositoryID:        1,
 			Digest:              test.DeterministicDummyDigest(idx),
-			VulnerabilityStatus: trivy.PendingVulnerabilityStatus,
+			VulnerabilityStatus: models.PendingVulnerabilityStatus,
 			NextCheckAt:         time.Unix(0, 0),
 		})
 	}
