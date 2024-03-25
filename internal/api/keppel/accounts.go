@@ -25,10 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
-	"regexp"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -42,98 +39,17 @@ import (
 	"github.com/sapcc/keppel/internal/auth"
 	peerclient "github.com/sapcc/keppel/internal/client/peer"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
-////////////////////////////////////////////////////////////////////////////////
-// data types
-
-// Account represents an account in the API.
-type Account struct {
-	Name              string                `json:"name"`
-	AuthTenantID      string                `json:"auth_tenant_id"`
-	InMaintenance     bool                  `json:"in_maintenance"`
-	Metadata          map[string]string     `json:"metadata"`
-	GCPolicies        []keppel.GCPolicy     `json:"gc_policies,omitempty"`
-	RBACPolicies      []keppel.RBACPolicy   `json:"rbac_policies"`
-	ReplicationPolicy *ReplicationPolicy    `json:"replication,omitempty"`
-	ValidationPolicy  *ValidationPolicy     `json:"validation,omitempty"`
-	PlatformFilter    keppel.PlatformFilter `json:"platform_filter,omitempty"`
-}
-
-// ReplicationPolicy represents a replication policy in the API.
-type ReplicationPolicy struct {
-	Strategy string
-	// only for `on_first_use`
-	UpstreamPeerHostName string
-	// only for `from_external_on_first_use`
-	ExternalPeer ReplicationExternalPeerSpec
-}
-
-// ReplicationExternalPeerSpec appears in type ReplicationPolicy.
-type ReplicationExternalPeerSpec struct {
-	URL      string `json:"url"`
-	UserName string `json:"username,omitempty"`
-	Password string `json:"password,omitempty"`
-}
-
-// ValidationPolicy represents a validation policy in the API.
-type ValidationPolicy struct {
-	RequiredLabels []string `json:"required_labels,omitempty"`
-}
-
-// MarshalJSON implements the json.Marshaler interface.
-func (r ReplicationPolicy) MarshalJSON() ([]byte, error) {
-	switch r.Strategy {
-	case "on_first_use":
-		data := struct {
-			Strategy             string `json:"strategy"`
-			UpstreamPeerHostName string `json:"upstream"`
-		}{r.Strategy, r.UpstreamPeerHostName}
-		return json.Marshal(data)
-	case "from_external_on_first_use":
-		data := struct {
-			Strategy     string                      `json:"strategy"`
-			ExternalPeer ReplicationExternalPeerSpec `json:"upstream"`
-		}{r.Strategy, r.ExternalPeer}
-		return json.Marshal(data)
-	default:
-		return nil, fmt.Errorf("do not know how to serialize ReplicationPolicy with strategy %q", r.Strategy)
-	}
-}
-
-// UnmarshalJSON implements the json.Unmarshaler interface.
-func (r *ReplicationPolicy) UnmarshalJSON(buf []byte) error {
-	var s struct {
-		Strategy string          `json:"strategy"`
-		Upstream json.RawMessage `json:"upstream"`
-	}
-	err := json.Unmarshal(buf, &s)
+func (a *API) renderAccount(dbAccount models.Account) (keppel.Account, error) {
+	gcPolicies, err := keppel.ParseGCPolicies(dbAccount)
 	if err != nil {
-		return err
+		return keppel.Account{}, err
 	}
-	r.Strategy = s.Strategy
-
-	switch r.Strategy {
-	case "on_first_use":
-		return json.Unmarshal(s.Upstream, &r.UpstreamPeerHostName)
-	case "from_external_on_first_use":
-		return json.Unmarshal(s.Upstream, &r.ExternalPeer)
-	default:
-		return fmt.Errorf("do not know how to deserialize ReplicationPolicy with strategy %q", r.Strategy)
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// data conversion/validation functions
-
-func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
-	gcPolicies, err := dbAccount.ParseGCPolicies()
+	rbacPolicies, err := keppel.ParseRBACPolicies(dbAccount)
 	if err != nil {
-		return Account{}, err
-	}
-	rbacPolicies, err := dbAccount.ParseRBACPolicies()
-	if err != nil {
-		return Account{}, err
+		return keppel.Account{}, err
 	}
 	if rbacPolicies == nil {
 		// do not render "null" in this field
@@ -144,78 +60,30 @@ func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
 	if dbAccount.MetadataJSON != "" {
 		err := json.Unmarshal([]byte(dbAccount.MetadataJSON), &metadata)
 		if err != nil {
-			return Account{}, fmt.Errorf("malformed metadata JSON: %q", dbAccount.MetadataJSON)
+			return keppel.Account{}, fmt.Errorf("malformed metadata JSON: %q", dbAccount.MetadataJSON)
 		}
 	}
 
-	return Account{
+	return keppel.Account{
 		Name:              dbAccount.Name,
 		AuthTenantID:      dbAccount.AuthTenantID,
 		GCPolicies:        gcPolicies,
 		InMaintenance:     dbAccount.InMaintenance,
 		Metadata:          metadata,
 		RBACPolicies:      rbacPolicies,
-		ReplicationPolicy: renderReplicationPolicy(dbAccount),
+		ReplicationPolicy: keppel.RenderReplicationPolicy(dbAccount),
 		ValidationPolicy:  renderValidationPolicy(dbAccount),
 		PlatformFilter:    dbAccount.PlatformFilter,
 	}, nil
 }
 
-func renderReplicationPolicy(dbAccount keppel.Account) *ReplicationPolicy {
-	if dbAccount.UpstreamPeerHostName != "" {
-		return &ReplicationPolicy{
-			Strategy:             "on_first_use",
-			UpstreamPeerHostName: dbAccount.UpstreamPeerHostName,
-		}
-	}
-
-	if dbAccount.ExternalPeerURL != "" {
-		return &ReplicationPolicy{
-			Strategy: "from_external_on_first_use",
-			ExternalPeer: ReplicationExternalPeerSpec{
-				URL:      dbAccount.ExternalPeerURL,
-				UserName: dbAccount.ExternalPeerUserName,
-				//NOTE: Password is omitted here for security reasons
-			},
-		}
-	}
-
-	return nil
-}
-
-func (r ReplicationPolicy) ApplyToAccount(db *keppel.DB, dbAccount *keppel.Account) (httpStatus int, err error) {
-	switch r.Strategy {
-	case "on_first_use":
-		peerCount, err := db.SelectInt(`SELECT COUNT(*) FROM peers WHERE hostname = $1`, r.UpstreamPeerHostName)
-		if err != nil {
-			return http.StatusInternalServerError, err
-		}
-
-		if peerCount == 0 {
-			return http.StatusUnprocessableEntity, fmt.Errorf(`unknown peer registry: %q`, r.UpstreamPeerHostName)
-		}
-		dbAccount.UpstreamPeerHostName = r.UpstreamPeerHostName
-	case "from_external_on_first_use":
-		if r.ExternalPeer.URL == "" {
-			return http.StatusUnprocessableEntity, errors.New(`missing upstream URL for "from_external_on_first_use" replication`)
-		}
-		dbAccount.ExternalPeerURL = r.ExternalPeer.URL
-		dbAccount.ExternalPeerUserName = r.ExternalPeer.UserName
-		dbAccount.ExternalPeerPassword = r.ExternalPeer.Password
-	default:
-		return http.StatusUnprocessableEntity, fmt.Errorf("strategy %s is unsupported", r.Strategy)
-	}
-
-	return http.StatusOK, nil
-}
-
-func renderValidationPolicy(dbAccount keppel.Account) *ValidationPolicy {
+func renderValidationPolicy(dbAccount models.Account) *keppel.ValidationPolicy {
 	if dbAccount.RequiredLabels == "" {
 		return nil
 	}
 
-	return &ValidationPolicy{
-		RequiredLabels: strings.Split(dbAccount.RequiredLabels, ","),
+	return &keppel.ValidationPolicy{
+		RequiredLabels: dbAccount.SplitRequiredLabels(),
 	}
 }
 
@@ -224,14 +92,14 @@ func renderValidationPolicy(dbAccount keppel.Account) *ValidationPolicy {
 
 func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts")
-	var accounts []keppel.Account
+	var accounts []models.Account
 	_, err := a.db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
 	if respondwith.ErrorText(w, err) {
 		return
 	}
 	scopes := accountScopes(keppel.CanViewAccount, accounts...)
 
-	authz := a.authenticateRequest(w, r, scopes)
+	authz := a.authenticateRequestAndWriteError(w, r, scopes)
 	if authz == nil {
 		return
 	}
@@ -241,7 +109,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// restrict accounts to those visible in the current scope
-	var accountsFiltered []keppel.Account
+	var accountsFiltered []models.Account
 	for idx, account := range accounts {
 		if authz.ScopeSet.Contains(*scopes[idx]) {
 			accountsFiltered = append(accountsFiltered, account)
@@ -249,11 +117,11 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 	// ensure that this serializes as a list, not as null
 	if len(accountsFiltered) == 0 {
-		accountsFiltered = []keppel.Account{}
+		accountsFiltered = []models.Account{}
 	}
 
 	// render accounts to JSON
-	accountsRendered := make([]Account, len(accountsFiltered))
+	accountsRendered := make([]keppel.Account, len(accountsFiltered))
 	for idx, account := range accountsFiltered {
 		accountsRendered[idx], err = a.renderAccount(account)
 		if respondwith.ErrorText(w, err) {
@@ -265,7 +133,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
-	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanViewAccount))
+	authz := a.authenticateRequestAndWriteError(w, r, accountScopeFromRequest(r, keppel.CanViewAccount))
 	if authz == nil {
 		return
 	}
@@ -281,22 +149,11 @@ func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, map[string]any{"account": accountRendered})
 }
 
-var looksLikeAPIVersionRx = regexp.MustCompile(`^v[0-9][1-9]*$`)
-
 func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
 	// decode request body
 	var req struct {
-		Account struct {
-			AuthTenantID      string                `json:"auth_tenant_id"`
-			GCPolicies        []keppel.GCPolicy     `json:"gc_policies"`
-			InMaintenance     bool                  `json:"in_maintenance"`
-			Metadata          map[string]string     `json:"metadata"`
-			RBACPolicies      []keppel.RBACPolicy   `json:"rbac_policies"`
-			ReplicationPolicy *ReplicationPolicy    `json:"replication"`
-			ValidationPolicy  *ValidationPolicy     `json:"validation"`
-			PlatformFilter    keppel.PlatformFilter `json:"platform_filter"`
-		} `json:"account"`
+		Account keppel.Account `json:"account"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
@@ -305,267 +162,84 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "request body is not valid JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := a.authDriver.ValidateTenantID(req.Account.AuthTenantID); err != nil {
-		http.Error(w, `malformed attribute "account.auth_tenant_id" in request body: `+err.Error(), http.StatusUnprocessableEntity)
+	// we do not allow to set name in the request body ...
+	if req.Account.Name != "" {
+		http.Error(w, `malformed attribute "account.name" in request body is no allowed here`, http.StatusUnprocessableEntity)
+		return
+	}
+	// ... transfer it here into the struct, to make the below code simpler
+	req.Account.Name = mux.Vars(r)["account"]
+
+	var (
+		account *models.Account
+		authz   *auth.Authorization
+		rerr    *keppel.RegistryV2Error
+	)
+	var needsCreation, needsUpdate, needsAudit bool
+	account, needsCreation, needsUpdate, needsAudit, rerr = req.Account.ValidateAndNormalize(a.authDriver, a.db, func(account models.Account) (bool, *keppel.RegistryV2Error) {
+		// check permission to create account
+		authz, rerr = a.authenticateRequest(r, authTenantScope(keppel.CanChangeAccount, account.AuthTenantID))
+		return authz != nil, rerr
+	})
+	if rerr != nil {
+		rerr.WriteAsTextTo(w)
 		return
 	}
 
-	// reserve identifiers for internal pseudo-accounts and anything that might
-	// appear like the first path element of a legal endpoint path on any of our
-	// APIs (we will soon start recognizing image-like URLs such as
-	// keppel.example.org/account/repo and offer redirection to a suitable UI;
-	// this requires the account name to not overlap with API endpoint paths)
-	accountName := mux.Vars(r)["account"]
-	if strings.HasPrefix(accountName, "keppel") {
-		http.Error(w, `account names with the prefix "keppel" are reserved for internal use`, http.StatusUnprocessableEntity)
-		return
-	}
-	if looksLikeAPIVersionRx.MatchString(accountName) {
-		http.Error(w, `account names that look like API versions are reserved for internal use`, http.StatusUnprocessableEntity)
-		return
-	}
-
-	for _, policy := range req.Account.GCPolicies {
-		err := policy.Validate()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+	if needsUpdate {
+		_, err := a.db.Update(account)
+		if respondwith.ErrorText(w, err) {
 			return
 		}
 	}
-
-	for idx, policy := range req.Account.RBACPolicies {
-		err := policy.ValidateAndNormalize()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-			return
-		}
-		req.Account.RBACPolicies[idx] = policy
-	}
-
-	metadataJSONStr := ""
-	if len(req.Account.Metadata) > 0 {
-		metadataJSON, _ := json.Marshal(req.Account.Metadata)
-		metadataJSONStr = string(metadataJSON)
-	}
-
-	gcPoliciesJSONStr := "[]"
-	if len(req.Account.GCPolicies) > 0 {
-		gcPoliciesJSON, _ := json.Marshal(req.Account.GCPolicies)
-		gcPoliciesJSONStr = string(gcPoliciesJSON)
-	}
-
-	rbacPoliciesJSONStr := ""
-	if len(req.Account.RBACPolicies) > 0 {
-		rbacPoliciesJSON, _ := json.Marshal(req.Account.RBACPolicies)
-		rbacPoliciesJSONStr = string(rbacPoliciesJSON)
-	}
-
-	accountToCreate := keppel.Account{
-		Name:                     accountName,
-		AuthTenantID:             req.Account.AuthTenantID,
-		InMaintenance:            req.Account.InMaintenance,
-		MetadataJSON:             metadataJSONStr,
-		GCPoliciesJSON:           gcPoliciesJSONStr,
-		RBACPoliciesJSON:         rbacPoliciesJSONStr,
-		SecurityScanPoliciesJSON: "[]",
-	}
-
-	// validate replication policy
-	if req.Account.ReplicationPolicy != nil {
-		rp := *req.Account.ReplicationPolicy
-
-		httpStatus, err := rp.ApplyToAccount(a.db, &accountToCreate)
-		if err != nil {
-			http.Error(w, err.Error(), httpStatus)
-			return
-		}
-		//NOTE: There are some delayed checks below which require the existing account to be loaded from the DB first.
-	}
-
-	// validate validation policy
-	if req.Account.ValidationPolicy != nil {
-		vp := *req.Account.ValidationPolicy
-		for _, label := range vp.RequiredLabels {
-			if strings.Contains(label, ",") {
-				http.Error(w, fmt.Sprintf(`invalid label name: %q`, label), http.StatusUnprocessableEntity)
-				return
-			}
-		}
-
-		accountToCreate.RequiredLabels = strings.Join(vp.RequiredLabels, ",")
-	}
-
-	// validate platform filter
-	if req.Account.PlatformFilter != nil {
-		if req.Account.ReplicationPolicy == nil {
-			http.Error(w, `platform filter is only allowed on replica accounts`, http.StatusUnprocessableEntity)
-			return
-		}
-		accountToCreate.PlatformFilter = req.Account.PlatformFilter
-	}
-
-	// check permission to create account
-	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanChangeAccount, accountToCreate.AuthTenantID))
-	if authz == nil {
-		return
-	}
-
-	// check if account already exists
-	account, err := keppel.FindAccount(a.db, accountName)
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-	if account != nil && account.AuthTenantID != req.Account.AuthTenantID {
-		http.Error(w, `account name already in use by a different tenant`, http.StatusConflict)
-		return
-	}
-
-	// late replication policy validations (could not do these earlier because we
-	// did not have `account` yet)
-	if req.Account.ReplicationPolicy != nil {
-		rp := *req.Account.ReplicationPolicy
-
-		if rp.Strategy == "from_external_on_first_use" {
-			// for new accounts, we need either full credentials or none
-			if account == nil {
-				if (rp.ExternalPeer.UserName == "") != (rp.ExternalPeer.Password == "") {
-					http.Error(w, `need either both username and password or neither for "from_external_on_first_use" replication`, http.StatusUnprocessableEntity)
-					return
-				}
-			}
-
-			// for existing accounts, having only a username is acceptable if it's
-			// unchanged (this case occurs when a client GETs the account, changes
-			// something unrelated to replication, and PUTs the result; the password is
-			// redacted in GET)
-			if account != nil && rp.ExternalPeer.UserName != "" && rp.ExternalPeer.Password == "" {
-				if rp.ExternalPeer.UserName == account.ExternalPeerUserName {
-					rp.ExternalPeer.Password = account.ExternalPeerPassword // to pass the equality checks below
-				} else {
-					http.Error(w, `cannot change username for "from_external_on_first_use" replication without also changing password`, http.StatusUnprocessableEntity)
-					return
-				}
-			}
-		}
-	}
-
-	// replication strategy may not be changed after account creation
-	if account != nil && req.Account.ReplicationPolicy != nil && !replicationPoliciesFunctionallyEqual(req.Account.ReplicationPolicy, renderReplicationPolicy(*account)) {
-		http.Error(w, `cannot change replication policy on existing account`, http.StatusConflict)
-		return
-	}
-	if account != nil && req.Account.PlatformFilter != nil && !reflect.DeepEqual(req.Account.PlatformFilter, account.PlatformFilter) {
-		http.Error(w, `cannot change platform filter on existing account`, http.StatusConflict)
-		return
-	}
-
-	// late RBAC policy validations (could not do these earlier because we did not
-	// have `account` yet)
-	isExternalReplica := req.Account.ReplicationPolicy != nil && req.Account.ReplicationPolicy.ExternalPeer.URL != ""
-	if account != nil {
-		isExternalReplica = account.ExternalPeerURL != ""
-	}
-	for _, policy := range req.Account.RBACPolicies {
-		if slices.Contains(policy.Permissions, keppel.GrantsAnonymousFirstPull) && !isExternalReplica {
-			http.Error(w, `RBAC policy with "anonymous_first_pull" may only be for external replica accounts`, http.StatusUnprocessableEntity)
-			return
+	if needsAudit {
+		if userInfo := authz.UserIdentity.UserInfo(); userInfo != nil {
+			a.auditor.Record(audittools.EventParameters{
+				Time:       time.Now(),
+				Request:    r,
+				User:       userInfo,
+				ReasonCode: http.StatusOK,
+				Action:     cadf.UpdateAction,
+				Target:     AuditAccount{Account: *account},
+			})
 		}
 	}
 
 	// create account if required
-	if account == nil {
-		// sublease tokens are only relevant when creating replica accounts
-		subleaseTokenSecret := ""
-		if accountToCreate.UpstreamPeerHostName != "" {
-			subleaseToken, err := SubleaseTokenFromRequest(r)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+	if needsCreation {
+		// TODO: how to best avoid the circular import?
+		getUpstreamAccount := func(upstreamPeerHostName string) (upstreamAccount keppel.Account) {
+			var peer models.Peer
+			err := a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, upstreamPeerHostName)
+			if errors.Is(err, sql.ErrNoRows) {
+				http.Error(w, fmt.Sprintf(`unknown peer registry: %q`, upstreamPeerHostName), http.StatusUnprocessableEntity)
 				return
 			}
-			subleaseTokenSecret = subleaseToken.Secret
-		}
-
-		// check permission to claim account name (this only happens here because
-		// it's only relevant for account creations, not for updates)
-		claimResult, err := a.fd.ClaimAccountName(r.Context(), accountToCreate, subleaseTokenSecret)
-		switch claimResult {
-		case keppel.ClaimSucceeded:
-			// nothing to do
-		case keppel.ClaimFailed:
-			// user error
-			http.Error(w, err.Error(), http.StatusForbidden)
-			return
-		case keppel.ClaimErrored:
-			// server error
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Copy PlatformFilter when creating an account with the Replication Policy on_first_use
-		if req.Account.ReplicationPolicy != nil {
-			rp := *req.Account.ReplicationPolicy
-			if rp.Strategy == "on_first_use" {
-				var peer keppel.Peer
-				err := a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, rp.UpstreamPeerHostName)
-				if errors.Is(err, sql.ErrNoRows) {
-					http.Error(w, fmt.Sprintf(`unknown peer registry: %q`, rp.UpstreamPeerHostName), http.StatusUnprocessableEntity)
-					return
-				}
-				if respondwith.ErrorText(w, err) {
-					return
-				}
-
-				viewScope := auth.Scope{
-					ResourceType: "keppel_account",
-					ResourceName: accountToCreate.Name,
-					Actions:      []string{"view"},
-				}
-				client, err := peerclient.New(r.Context(), a.cfg, peer, viewScope)
-				if respondwith.ErrorText(w, err) {
-					return
-				}
-
-				var upstreamAccount Account
-				err = client.GetForeignAccountConfigurationInto(r.Context(), &upstreamAccount, accountToCreate.Name)
-				if respondwith.ErrorText(w, err) {
-					return
-				}
-
-				if req.Account.PlatformFilter == nil {
-					accountToCreate.PlatformFilter = upstreamAccount.PlatformFilter
-				} else if !reflect.DeepEqual(req.Account.PlatformFilter, upstreamAccount.PlatformFilter) {
-					// check if the peer PlatformFilter matches the primary account PlatformFilter
-					jsonPlatformFilter, _ := json.Marshal(req.Account.PlatformFilter)
-					jsonFilter, _ := json.Marshal(upstreamAccount.PlatformFilter)
-					msg := fmt.Sprintf("peer account filter needs to match primary account filter: primary account %s, peer account %s ", jsonPlatformFilter, jsonFilter)
-					http.Error(w, msg, http.StatusConflict)
-					return
-				}
+			if respondwith.ErrorText(w, err) {
+				return
 			}
-		}
 
-		err = a.sd.CanSetupAccount(accountToCreate)
-		if err != nil {
-			msg := "cannot set up backing storage for this account: " + err.Error()
-			http.Error(w, msg, http.StatusConflict)
+			viewScope := auth.Scope{
+				ResourceType: "keppel_account",
+				ResourceName: account.Name,
+				Actions:      []string{"view"},
+			}
+			client, err := peerclient.New(r.Context(), a.cfg, peer, viewScope)
+			if respondwith.ErrorText(w, err) {
+				return
+			}
+
+			err = client.GetForeignAccountConfigurationInto(r.Context(), &upstreamAccount, account.Name)
+			if respondwith.ErrorText(w, err) {
+				return
+			}
+
 			return
 		}
 
-		tx, err := a.db.Begin()
-		if respondwith.ErrorText(w, err) {
-			return
-		}
-		defer sqlext.RollbackUnlessCommitted(tx)
-
-		account = &accountToCreate
-		err = tx.Insert(account)
-		if respondwith.ErrorText(w, err) {
-			return
-		}
-
-		// commit the changes
-		err = tx.Commit()
-		if respondwith.ErrorText(w, err) {
+		rerr = keppel.CreateAccountInDB(r.Context(), a.db, a.fd, a.sd, r.Header.Get(keppel.SubleaseHeader), getUpstreamAccount, account)
+		if rerr != nil {
+			rerr.WriteAsTextTo(w)
 			return
 		}
 		if userInfo := authz.UserIdentity.UserInfo(); userInfo != nil {
@@ -578,58 +252,6 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 				Target:     AuditAccount{Account: *account},
 			})
 		}
-	} else {
-		// account != nil: update if necessary
-		needsUpdate := false
-		needsAudit := false
-		if account.InMaintenance != accountToCreate.InMaintenance {
-			account.InMaintenance = accountToCreate.InMaintenance
-			needsUpdate = true
-		}
-		if account.MetadataJSON != accountToCreate.MetadataJSON {
-			account.MetadataJSON = accountToCreate.MetadataJSON
-			needsUpdate = true
-		}
-		if account.GCPoliciesJSON != accountToCreate.GCPoliciesJSON {
-			account.GCPoliciesJSON = accountToCreate.GCPoliciesJSON
-			needsUpdate = true
-			needsAudit = true
-		}
-		if account.RBACPoliciesJSON != accountToCreate.RBACPoliciesJSON {
-			account.RBACPoliciesJSON = accountToCreate.RBACPoliciesJSON
-			needsUpdate = true
-			needsAudit = true
-		}
-		if account.RequiredLabels != accountToCreate.RequiredLabels {
-			account.RequiredLabels = accountToCreate.RequiredLabels
-			needsUpdate = true
-		}
-		if account.ExternalPeerUserName != accountToCreate.ExternalPeerUserName {
-			account.ExternalPeerUserName = accountToCreate.ExternalPeerUserName
-			needsUpdate = true
-		}
-		if account.ExternalPeerPassword != accountToCreate.ExternalPeerPassword {
-			account.ExternalPeerPassword = accountToCreate.ExternalPeerPassword
-			needsUpdate = true
-		}
-		if needsUpdate {
-			_, err := a.db.Update(account)
-			if respondwith.ErrorText(w, err) {
-				return
-			}
-		}
-		if needsAudit {
-			if userInfo := authz.UserIdentity.UserInfo(); userInfo != nil {
-				a.auditor.Record(audittools.EventParameters{
-					Time:       time.Now(),
-					Request:    r,
-					User:       userInfo,
-					ReasonCode: http.StatusOK,
-					Action:     cadf.UpdateAction,
-					Target:     AuditAccount{Account: *account},
-				})
-			}
-		}
 	}
 
 	accountRendered, err := a.renderAccount(*account)
@@ -637,28 +259,6 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondwith.JSON(w, http.StatusOK, map[string]any{"account": accountRendered})
-}
-
-// Like reflect.DeepEqual, but ignores some fields that are allowed to be
-// updated after account creation.
-func replicationPoliciesFunctionallyEqual(lhs, rhs *ReplicationPolicy) bool {
-	// one nil and one non-nil is not equal
-	if (lhs == nil) != (rhs == nil) {
-		return false
-	}
-	// two nil's are equal
-	if lhs == nil {
-		return true
-	}
-
-	// ignore pull credentials (the user shall be able to change these after account creation)
-	lhsClone := *lhs
-	rhsClone := *rhs
-	lhsClone.ExternalPeer.UserName = ""
-	lhsClone.ExternalPeer.Password = ""
-	rhsClone.ExternalPeer.UserName = ""
-	rhsClone.ExternalPeer.Password = ""
-	return reflect.DeepEqual(lhsClone, rhsClone)
 }
 
 type deleteAccountRemainingManifest struct {
@@ -683,7 +283,7 @@ type deleteAccountResponse struct {
 
 func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
-	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
+	authz := a.authenticateRequestAndWriteError(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
 	if authz == nil {
 		return
 	}
@@ -726,7 +326,7 @@ var (
 	deleteAccountMarkAllBlobsForDeletionQuery = `UPDATE blobs SET can_be_deleted_at = $2 WHERE account_name = $1`
 )
 
-func (a *API) deleteAccount(ctx context.Context, account keppel.Account) (*deleteAccountResponse, error) {
+func (a *API) deleteAccount(ctx context.Context, account models.Account) (*deleteAccountResponse, error) {
 	if !account.InMaintenance {
 		return &deleteAccountResponse{
 			Error: "account must be set in maintenance first",
@@ -810,7 +410,7 @@ func (a *API) deleteAccount(ctx context.Context, account keppel.Account) (*delet
 
 func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/sublease")
-	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
+	authz := a.authenticateRequestAndWriteError(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
 	if authz == nil {
 		return
 	}
@@ -824,7 +424,7 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	st := SubleaseToken{
+	st := keppel.SubleaseToken{
 		AccountName:     account.Name,
 		PrimaryHostname: a.cfg.APIPublicHostname,
 	}
@@ -848,7 +448,7 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 
 func (a *API) handleGetSecurityScanPolicies(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/security_scan_policies")
-	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanViewAccount))
+	authz := a.authenticateRequestAndWriteError(w, r, accountScopeFromRequest(r, keppel.CanViewAccount))
 	if authz == nil {
 		return
 	}
@@ -862,7 +462,7 @@ func (a *API) handleGetSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 
 func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/security_scan_policies")
-	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
+	authz := a.authenticateRequestAndWriteError(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
 	if authz == nil {
 		return
 	}

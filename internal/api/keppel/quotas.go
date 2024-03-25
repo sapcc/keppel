@@ -32,6 +32,7 @@ import (
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 type quotaAndUsage struct {
@@ -54,7 +55,7 @@ type quotaRequest struct {
 func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/quotas/:auth_tenant_id")
 	authTenantID := mux.Vars(r)["auth_tenant_id"]
-	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanViewQuotas, authTenantID))
+	authz := a.authenticateRequestAndWriteError(w, r, authTenantScope(keppel.CanViewQuotas, authTenantID))
 	if authz == nil {
 		return
 	}
@@ -64,10 +65,10 @@ func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if quotas == nil {
-		quotas = keppel.DefaultQuotas(authTenantID)
+		quotas = models.DefaultQuotas(authTenantID)
 	}
 
-	manifestCount, err := quotas.GetManifestUsage(a.db)
+	manifestCount, err := keppel.GetManifestUsage(a.db, *quotas)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -83,7 +84,7 @@ func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/quotas/:auth_tenant_id")
 	authTenantID := mux.Vars(r)["auth_tenant_id"]
-	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanChangeQuotas, authTenantID))
+	authz := a.authenticateRequestAndWriteError(w, r, authTenantScope(keppel.CanChangeQuotas, authTenantID))
 	if authz == nil {
 		return
 	}
@@ -94,7 +95,7 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 	}
 	isUpdate := true
 	if quotas == nil {
-		quotas = keppel.DefaultQuotas(authTenantID)
+		quotas = models.DefaultQuotas(authTenantID)
 		isUpdate = false
 	}
 	quotasBefore := *quotas
@@ -116,7 +117,7 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 	}
 	defer sqlext.RollbackUnlessCommitted(tx)
 
-	manifestCount, err := quotas.GetManifestUsage(tx)
+	manifestCount, err := keppel.GetManifestUsage(tx, *quotas)
 	if respondwith.ErrorText(w, err) {
 		return
 	}

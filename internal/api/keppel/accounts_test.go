@@ -34,8 +34,8 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
-	"github.com/sapcc/keppel/internal/trivy"
 )
 
 func TestAccountsAPI(t *testing.T) {
@@ -593,7 +593,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("malformed attribute \"account.auth_tenant_id\" in request body: must not be \"invalid\"\n"),
+		ExpectBody:   assert.StringData("malformed attribute \"auth_tenant_id\": must not be \"invalid\"\n"),
 	}.Check(t, h)
 
 	assert.HTTPRequest{
@@ -619,7 +619,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("account names that look like API versions are reserved for internal use\n"),
+		ExpectBody:   assert.StringData("account names that look like API versions (eg. v1) are reserved for internal use\n"),
 	}.Check(t, h)
 
 	assert.HTTPRequest{
@@ -1286,8 +1286,8 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			Method: "PUT",
 			Path:   "/keppel/v1/accounts/first",
 			Header: map[string]string{
-				"X-Test-Perms":            "change:tenant1",
-				"X-Keppel-Sublease-Token": makeSubleaseToken("first", "registry.example.org", "not-the-valid-token"),
+				"X-Test-Perms":        "change:tenant1",
+				keppel.SubleaseHeader: makeSubleaseToken("first", "registry.example.org", "not-the-valid-token"),
 			},
 			Body: assert.JSONObject{
 				"account": assert.JSONObject{
@@ -1307,8 +1307,8 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			Method: "PUT",
 			Path:   "/keppel/v1/accounts/first",
 			Header: map[string]string{
-				"X-Test-Perms":            "change:tenant1",
-				"X-Keppel-Sublease-Token": makeSubleaseToken("first", "registry.example.org", "valid-token"),
+				"X-Test-Perms":        "change:tenant1",
+				keppel.SubleaseHeader: makeSubleaseToken("first", "registry.example.org", "valid-token"),
 			},
 			Body: assert.JSONObject{
 				"account": assert.JSONObject{
@@ -1430,7 +1430,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 			},
 		},
 		ExpectStatus: http.StatusBadRequest,
-		ExpectBody:   assert.StringData("request body is not valid JSON: json: cannot unmarshal string into Go struct field .account.replication of type keppelv1.ReplicationExternalPeerSpec\n"),
+		ExpectBody:   assert.StringData("request body is not valid JSON: json: cannot unmarshal string into Go struct field Account.account.replication of type keppel.ReplicationExternalPeerSpec\n"),
 	}.Check(t, h)
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -1770,10 +1770,10 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 	}.Check(t, h)
 }
 
-func uploadManifest(t *testing.T, s test.Setup, account *keppel.Account, repo *keppel.Repository, manifest test.Bytes, sizeBytes uint64) keppel.Manifest {
+func uploadManifest(t *testing.T, s test.Setup, account *models.Account, repo *models.Repository, manifest test.Bytes, sizeBytes uint64) models.Manifest {
 	t.Helper()
 
-	dbManifest := keppel.Manifest{
+	dbManifest := models.Manifest{
 		RepositoryID: repo.ID,
 		Digest:       manifest.Digest,
 		MediaType:    manifest.MediaType,
@@ -1782,13 +1782,13 @@ func uploadManifest(t *testing.T, s test.Setup, account *keppel.Account, repo *k
 		ValidatedAt:  s.Clock.Now(),
 	}
 	mustDo(t, s.DB.Insert(&dbManifest))
-	mustDo(t, s.DB.Insert(&keppel.TrivySecurityInfo{
+	mustDo(t, s.DB.Insert(&models.TrivySecurityInfo{
 		RepositoryID:        repo.ID,
 		Digest:              manifest.Digest,
 		NextCheckAt:         time.Unix(0, 0),
-		VulnerabilityStatus: trivy.PendingVulnerabilityStatus,
+		VulnerabilityStatus: models.PendingVulnerabilityStatus,
 	}))
-	mustDo(t, s.DB.Insert(&keppel.ManifestContent{
+	mustDo(t, s.DB.Insert(&models.ManifestContent{
 		RepositoryID: repo.ID,
 		Digest:       manifest.Digest.String(),
 		Content:      manifest.Contents,
@@ -1803,7 +1803,7 @@ func TestDeleteAccount(t *testing.T) {
 
 	// setup test accounts and repositories
 	nextBlobSweepAt := time.Unix(200, 0)
-	accounts := []*keppel.Account{
+	accounts := []*models.Account{
 		{Name: "test1", AuthTenantID: "tenant1", InMaintenance: true, NextBlobSweepedAt: &nextBlobSweepAt, GCPoliciesJSON: "[]", SecurityScanPoliciesJSON: "[]"},
 		{Name: "test2", AuthTenantID: "tenant2", InMaintenance: true, GCPoliciesJSON: "[]", SecurityScanPoliciesJSON: "[]"},
 		{Name: "test3", AuthTenantID: "tenant3", InMaintenance: true, GCPoliciesJSON: "[]", SecurityScanPoliciesJSON: "[]"},
@@ -1811,7 +1811,7 @@ func TestDeleteAccount(t *testing.T) {
 	for _, account := range accounts {
 		mustInsert(t, s.DB, account)
 	}
-	repos := []*keppel.Repository{
+	repos := []*models.Repository{
 		{AccountName: "test1", Name: "foo/bar"},
 		{AccountName: "test1", Name: "something-else"},
 	}
@@ -1826,10 +1826,10 @@ func TestDeleteAccount(t *testing.T) {
 	)
 
 	sidGen := test.StorageIDGenerator{}
-	var blobs []keppel.Blob
+	var blobs []models.Blob
 	for idx, testBlob := range append(image.Layers, image.Config) {
 		storageID := sidGen.Next()
-		blob := keppel.Blob{
+		blob := models.Blob{
 			AccountName: accounts[0].Name,
 			Digest:      testBlob.Digest,
 			SizeBytes:   uint64(len(testBlob.Contents)),
@@ -1854,7 +1854,7 @@ func TestDeleteAccount(t *testing.T) {
 		}
 	}
 
-	mustInsert(t, s.DB, &keppel.Manifest{
+	mustInsert(t, s.DB, &models.Manifest{
 		RepositoryID: repos[0].ID,
 		Digest:       image.Manifest.Digest,
 		MediaType:    image.Manifest.MediaType,
@@ -1862,11 +1862,11 @@ func TestDeleteAccount(t *testing.T) {
 		PushedAt:     time.Unix(100, 0),
 		ValidatedAt:  time.Unix(100, 0),
 	})
-	mustInsert(t, s.DB, &keppel.TrivySecurityInfo{
+	mustInsert(t, s.DB, &models.TrivySecurityInfo{
 		RepositoryID:        repos[0].ID,
 		Digest:              image.Manifest.Digest,
 		NextCheckAt:         time.Unix(0, 0),
-		VulnerabilityStatus: trivy.PendingVulnerabilityStatus,
+		VulnerabilityStatus: models.PendingVulnerabilityStatus,
 	})
 	err := s.SD.WriteManifest(*accounts[0], repos[0].Name, image.Manifest.Digest, image.Manifest.Contents)
 	if err != nil {
@@ -2132,8 +2132,8 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 			Method: "PUT",
 			Path:   "/keppel/v1/accounts/first",
 			Header: map[string]string{
-				"X-Test-Perms":            "change:tenant1",
-				"X-Keppel-Sublease-Token": makeSubleaseToken("first", "registry.example.org", "valid-token"),
+				"X-Test-Perms":        "change:tenant1",
+				keppel.SubleaseHeader: makeSubleaseToken("first", "registry.example.org", "valid-token"),
 			},
 			Body: assert.JSONObject{
 				"account": assert.JSONObject{
@@ -2166,8 +2166,8 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 			Method: "PUT",
 			Path:   "/keppel/v1/accounts/second",
 			Header: map[string]string{
-				"X-Test-Perms":            "change:tenant1",
-				"X-Keppel-Sublease-Token": makeSubleaseToken("second", "registry.example.org", "valid-token"),
+				"X-Test-Perms":        "change:tenant1",
+				keppel.SubleaseHeader: makeSubleaseToken("second", "registry.example.org", "valid-token"),
 			},
 			Body: assert.JSONObject{
 				"account": assert.JSONObject{
@@ -2204,8 +2204,8 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 			Method: "PUT",
 			Path:   "/keppel/v1/accounts/third",
 			Header: map[string]string{
-				"X-Test-Perms":            "change:tenant1",
-				"X-Keppel-Sublease-Token": makeSubleaseToken("third", "registry.example.org", "valid-token"),
+				"X-Test-Perms":        "change:tenant1",
+				keppel.SubleaseHeader: makeSubleaseToken("third", "registry.example.org", "valid-token"),
 			},
 			Body: assert.JSONObject{
 				"account": assert.JSONObject{
@@ -2386,7 +2386,7 @@ func TestSecurityScanPoliciesHappyPath(t *testing.T) {
 func TestSecurityScanPoliciesValidationErrors(t *testing.T) {
 	s := test.NewSetup(t,
 		test.WithKeppelAPI,
-		test.WithAccount(keppel.Account{Name: "first", AuthTenantID: "tenant1"}),
+		test.WithAccount(models.Account{Name: "first", AuthTenantID: "tenant1"}),
 	)
 
 	// we need to set test.AuthDriver.ExpectedUserName because this username is
@@ -2526,7 +2526,7 @@ func TestSecurityScanPoliciesValidationErrors(t *testing.T) {
 func TestSecurityScanPoliciesAuthorizationErrors(t *testing.T) {
 	s := test.NewSetup(t,
 		test.WithKeppelAPI,
-		test.WithAccount(keppel.Account{Name: "first", AuthTenantID: "tenant1"}),
+		test.WithAccount(models.Account{Name: "first", AuthTenantID: "tenant1"}),
 	)
 
 	// we need to set test.AuthDriver.ExpectedUserName because this username is

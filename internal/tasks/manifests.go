@@ -70,7 +70,7 @@ var outdatedManifestSearchQuery = sqlext.SimplifyWhitespace(`
 // ManifestValidationJob is a job. Each task validates a manifest that has not been validated for more
 // than 24 hours.
 func (j *Janitor) ManifestValidationJob(registerer prometheus.Registerer) jobloop.Job {
-	return (&jobloop.ProducerConsumerJob[keppel.Manifest]{
+	return (&jobloop.ProducerConsumerJob[models.Manifest]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "manifest validation",
 			CounterOpts: prometheus.CounterOpts{
@@ -78,7 +78,7 @@ func (j *Janitor) ManifestValidationJob(registerer prometheus.Registerer) jobloo
 				Help: "Counter for manifest validations.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (manifest keppel.Manifest, err error) {
+		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (manifest models.Manifest, err error) {
 			// find manifest: validate once every 24 hours, but recheck after 10 minutes if validation failed
 			maxSuccessfulValidatedAt := j.timeNow().Add(-24 * time.Hour)
 			maxFailedValidatedAt := j.timeNow().Add(-10 * time.Minute)
@@ -89,9 +89,9 @@ func (j *Janitor) ManifestValidationJob(registerer prometheus.Registerer) jobloo
 	}).Setup(registerer)
 }
 
-func (j *Janitor) validateManifest(_ context.Context, manifest keppel.Manifest, _ prometheus.Labels) error {
+func (j *Janitor) validateManifest(_ context.Context, manifest models.Manifest, _ prometheus.Labels) error {
 	// find corresponding account and repo
-	var repo keppel.Repository
+	var repo models.Repository
 	err := j.db.SelectOne(&repo, `SELECT * FROM repos WHERE id = $1`, manifest.RepositoryID)
 	if err != nil {
 		return fmt.Errorf("cannot find repo %d for manifest %s: %w", manifest.RepositoryID, manifest.Digest, err)
@@ -156,7 +156,7 @@ var syncManifestCleanupEmptyQuery = sqlext.SimplifyWhitespace(`
 // Syncing involves checking with the primary account which manifests have been
 // deleted there, and replicating the deletions on our side.
 func (j *Janitor) ManifestSyncJob(registerer prometheus.Registerer) jobloop.Job { //nolint:dupl // false positive
-	return (&jobloop.ProducerConsumerJob[keppel.Repository]{
+	return (&jobloop.ProducerConsumerJob[models.Repository]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "manifest sync in replica repos",
 			CounterOpts: prometheus.CounterOpts{
@@ -164,7 +164,7 @@ func (j *Janitor) ManifestSyncJob(registerer prometheus.Registerer) jobloop.Job 
 				Help: "Counter for manifest syncs in replica repos.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (repo keppel.Repository, err error) {
+		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (repo models.Repository, err error) {
 			err = j.db.SelectOne(&repo, syncManifestRepoSelectQuery, j.timeNow())
 			return repo, err
 		},
@@ -172,7 +172,7 @@ func (j *Janitor) ManifestSyncJob(registerer prometheus.Registerer) jobloop.Job 
 	}).Setup(registerer)
 }
 
-func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo keppel.Repository, _ prometheus.Labels) error {
+func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo models.Repository, _ prometheus.Labels) error {
 	// find corresponding account
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {
@@ -208,14 +208,14 @@ func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo keppel.Re
 // individually. This also synchronizes our own last_pulled_at timestamps into
 // the primary account. The primary therefore gains a complete picture of pull
 // activity, which is required for some GC policies to work correctly.
-func (j *Janitor) getReplicaSyncPayload(ctx context.Context, account keppel.Account, repo keppel.Repository) (*keppel.ReplicaSyncPayload, error) {
+func (j *Janitor) getReplicaSyncPayload(ctx context.Context, account models.Account, repo models.Repository) (*keppel.ReplicaSyncPayload, error) {
 	// the replica-sync API is only available when upstream is a peer
 	if account.UpstreamPeerHostName == "" {
 		return nil, nil
 	}
 
 	// get peer
-	var peer keppel.Peer
+	var peer models.Peer
 	err := j.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, account.UpstreamPeerHostName)
 	if err != nil {
 		return nil, err
@@ -275,8 +275,8 @@ func (j *Janitor) getReplicaSyncPayload(ctx context.Context, account keppel.Acco
 	return client.PerformReplicaSync(ctx, repo.FullName(), keppel.ReplicaSyncPayload{Manifests: manifests})
 }
 
-func (j *Janitor) performTagSync(ctx context.Context, account keppel.Account, repo keppel.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
-	var tags []keppel.Tag
+func (j *Janitor) performTagSync(ctx context.Context, account models.Account, repo models.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
+	var tags []models.Tag
 	_, err := j.db.Select(&tags, `SELECT * FROM tags WHERE repo_id = $1`, repo.ID)
 	if err != nil {
 		return fmt.Errorf("cannot list tags: %w", err)
@@ -337,11 +337,11 @@ var repoUntaggedManifestsSelectQuery = sqlext.SimplifyWhitespace(`
 		AND digest NOT IN (SELECT DISTINCT digest FROM tags WHERE repo_id = $1)
 `)
 
-func (j *Janitor) performManifestSync(ctx context.Context, account keppel.Account, repo keppel.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
+func (j *Janitor) performManifestSync(ctx context.Context, account models.Account, repo models.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
 	// enumerate manifests in this repo (this only needs to consider untagged
 	//manifests: we run right after performTagSync, therefore all images that are
 	// tagged right now were already confirmed to still be good)
-	var manifests []keppel.Manifest
+	var manifests []models.Manifest
 	_, err := j.db.Select(&manifests, repoUntaggedManifestsSelectQuery, repo.ID)
 	if err != nil {
 		return fmt.Errorf("cannot list manifests: %w", err)
@@ -444,8 +444,8 @@ var vulnCheckBlobSelectQuery = sqlext.SimplifyWhitespace(`
 		WHERE r.repo_id = $1 AND r.digest = $2
 `)
 
-func (j *Janitor) collectManifestLayerBlobs(account keppel.Account, repo keppel.Repository, manifest keppel.Manifest) (layerBlobs []keppel.Blob, err error) {
-	var blobs []keppel.Blob
+func (j *Janitor) collectManifestLayerBlobs(account models.Account, repo models.Repository, manifest models.Manifest) (layerBlobs []models.Blob, err error) {
+	var blobs []models.Blob
 	_, err = j.db.Select(&blobs, vulnCheckBlobSelectQuery, manifest.RepositoryID, manifest.Digest)
 	if err != nil {
 		return nil, err
@@ -494,7 +494,7 @@ var securityCheckSelectQuery = sqlext.SimplifyWhitespace(fmt.Sprintf(`
 `, trivySecurityInfoBatchSize))
 
 func (j *Janitor) CheckTrivySecurityStatusJob(registerer prometheus.Registerer) jobloop.Job {
-	return (&jobloop.TxGuardedJob[*gorp.Transaction, []keppel.TrivySecurityInfo]{
+	return (&jobloop.TxGuardedJob[*gorp.Transaction, []models.TrivySecurityInfo]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName:    "check trivy security status",
 			ConcurrencySafe: true,
@@ -504,7 +504,7 @@ func (j *Janitor) CheckTrivySecurityStatusJob(registerer prometheus.Registerer) 
 			},
 		},
 		BeginTx: j.db.Begin,
-		DiscoverRow: func(_ context.Context, tx *gorp.Transaction, _ prometheus.Labels) (securityInfos []keppel.TrivySecurityInfo, err error) {
+		DiscoverRow: func(_ context.Context, tx *gorp.Transaction, _ prometheus.Labels) (securityInfos []models.TrivySecurityInfo, err error) {
 			_, err = tx.Select(&securityInfos, securityCheckSelectQuery, j.timeNow())
 
 			// jobloop expects to receive errNoRows instead of an empty result
@@ -520,7 +520,7 @@ func (j *Janitor) CheckTrivySecurityStatusJob(registerer prometheus.Registerer) 
 
 // processTrivySecurityInfo parallelises the CheckTrivySecurityStatusJob jobloop without requiring extra database connections.
 // It processes SecurityInfos in batches maximum the size of trivySecurityInfoBatchSize and runs the value of trivySecurityInfoThreads in parallel.
-func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *gorp.Transaction, securityInfos []keppel.TrivySecurityInfo, labels prometheus.Labels) error {
+func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *gorp.Transaction, securityInfos []models.TrivySecurityInfo, labels prometheus.Labels) error {
 	// prevent deadlocks by waiting for more securityInfos in range below
 	batchSize := trivySecurityInfoBatchSize
 	lenSecurityInfo := len(securityInfos)
@@ -528,7 +528,7 @@ func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *gorp.Transac
 		batchSize = lenSecurityInfo
 	}
 
-	inputChan := make(chan keppel.TrivySecurityInfo, batchSize)
+	inputChan := make(chan models.TrivySecurityInfo, batchSize)
 	for _, securityInfo := range securityInfos {
 		inputChan <- securityInfo
 	}
@@ -541,7 +541,7 @@ func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *gorp.Transac
 	}
 
 	type chanReturnStruct struct {
-		securityInfo keppel.TrivySecurityInfo
+		securityInfo models.TrivySecurityInfo
 		err          error
 	}
 
@@ -615,7 +615,7 @@ func isTrivyTransientError(msg string) bool {
 	return false
 }
 
-func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.TrivySecurityInfo) (returnedError error) {
+func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.TrivySecurityInfo) (returnedError error) {
 	// load corresponding repo, account and manifest
 	repo, err := keppel.FindRepositoryByID(j.db, securityInfo.RepositoryID)
 	if err != nil {
@@ -650,7 +650,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 		return nil
 	}
 
-	relevantPolicies, err := account.SecurityScanPoliciesFor(*repo)
+	relevantPolicies, err := keppel.GetSecurityScanPolicies(*account, *repo)
 	if err != nil {
 		return err
 	}
@@ -672,7 +672,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 
 		if !isTrivyTransientError(returnedError.Error()) {
 			securityInfo.Message = returnedError.Error()
-			securityInfo.VulnerabilityStatus = trivy.ErrorVulnerabilityStatus
+			securityInfo.VulnerabilityStatus = models.ErrorVulnerabilityStatus
 		}
 
 		returnedError = fmt.Errorf("cannot check manifest %s@%s: %w", repo.FullName(), securityInfo.Digest, returnedError)
@@ -697,7 +697,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute+30*time.Second)
 	defer cancel()
 
-	var securityStatuses []trivy.VulnerabilityStatus
+	var securityStatuses []models.VulnerabilityStatus
 
 	if len(layerBlobs) > 0 {
 		parsedTrivyReport, err := j.cfg.Trivy.ScanManifestAndParse(ctx, tokenResp.Token, imageRef)
@@ -706,7 +706,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 		}
 
 		if parsedTrivyReport.Metadata.OS != nil && parsedTrivyReport.Metadata.OS.Eosl {
-			securityStatuses = append(securityStatuses, trivy.RottenVulnerabilityStatus)
+			securityStatuses = append(securityStatuses, models.RottenVulnerabilityStatus)
 		}
 		for _, result := range parsedTrivyReport.Results {
 			for _, vuln := range result.Vulnerabilities {
@@ -726,7 +726,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 
 	// collect vulnerability status of constituent images
 	err = sqlext.ForeachRow(j.db, securityInfoCheckSubmanifestInfoQuery, []any{manifest.Digest}, func(rows *sql.Rows) error {
-		var vulnStatus trivy.VulnerabilityStatus
+		var vulnStatus models.VulnerabilityStatus
 		err := rows.Scan(&vulnStatus)
 		securityStatuses = append(securityStatuses, vulnStatus)
 		return err
@@ -736,7 +736,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 	}
 
 	// merge all vulnerability statuses
-	securityInfo.VulnerabilityStatus = trivy.MergeVulnerabilityStatuses(securityStatuses...)
+	securityInfo.VulnerabilityStatus = models.MergeVulnerabilityStatuses(securityStatuses...)
 	// regular recheck loop (vulnerability status might change if Trivy adds new vulnerabilities to its DB)
 	securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(1 * time.Hour))
 
@@ -745,7 +745,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *keppel.Triv
 
 var blobUncompressedSizeTooBigGiB float64 = 10
 
-func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account keppel.Account, repo keppel.Repository, manifest keppel.Manifest, securityInfo *keppel.TrivySecurityInfo) (continueCheck bool, layerBlobs []keppel.Blob, err error) {
+func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models.Account, repo models.Repository, manifest models.Manifest, securityInfo *models.TrivySecurityInfo) (continueCheck bool, layerBlobs []models.Blob, err error) {
 	layerBlobs, err = j.collectManifestLayerBlobs(account, repo, manifest)
 	if err != nil {
 		return false, nil, err
@@ -757,7 +757,7 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account keppel
 			continue
 		}
 
-		securityInfo.VulnerabilityStatus = trivy.UnsupportedVulnerabilityStatus
+		securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
 		securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
 		securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
 		return false, layerBlobs, nil
@@ -812,7 +812,7 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account keppel
 		}
 
 		if blob.BlocksVulnScanning != nil && *blob.BlocksVulnScanning {
-			securityInfo.VulnerabilityStatus = trivy.UnsupportedVulnerabilityStatus
+			securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
 			securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
 			securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
 			return false, layerBlobs, nil

@@ -27,7 +27,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/easypg"
 
-	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
 )
 
@@ -38,7 +38,7 @@ func TestSweepBlobs(t *testing.T) {
 	sweepBlobsJob := j.BlobSweepJob(s.Registry)
 
 	// insert some blobs into the DB
-	var dbBlobs []keppel.Blob
+	var dbBlobs []models.Blob
 	for idx := range 5 {
 		blob := test.GenerateExampleLayer(int64(idx))
 		dbBlobs = append(dbBlobs, blob.MustUpload(t, s, fooRepoRef))
@@ -84,7 +84,7 @@ func TestValidateBlobs(t *testing.T) {
 	// upload some blobs (we need to step the clock after each upload to ensure
 	// that BlobValidationJob later goes through them in a particular order, to
 	// make the testcase deterministic)
-	dbBlobs := make([]keppel.Blob, 3)
+	dbBlobs := make([]models.Blob, 3)
 	for idx := range dbBlobs {
 		blob := test.GenerateExampleLayer(int64(idx))
 		s.Clock.StepBy(time.Second)

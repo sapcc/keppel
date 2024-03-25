@@ -17,7 +17,7 @@
 *
 *******************************************************************************/
 
-package keppel
+package models
 
 import (
 	"database/sql/driver"

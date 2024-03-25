@@ -29,6 +29,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/drivers/trivial"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
 )
 
@@ -36,8 +37,8 @@ var (
 	currentlyWithAnycast bool
 
 	// only for use with .MustUpload()
-	fooRepoRef = keppel.Repository{AccountName: "test1", Name: "foo"}
-	barRepoRef = keppel.Repository{AccountName: "test1", Name: "bar"}
+	fooRepoRef = models.Repository{AccountName: "test1", Name: "foo"}
+	barRepoRef = models.Repository{AccountName: "test1", Name: "bar"}
 )
 
 // the auth tenant ID that all test accounts use
@@ -48,7 +49,7 @@ func testWithPrimary(t *testing.T, setupOptions []test.SetupOption, action func(
 		for _, withAnycast := range []bool{false, true} {
 			opts := append(slices.Clone(setupOptions),
 				test.WithAnycast(withAnycast),
-				test.WithAccount(keppel.Account{Name: "test1", AuthTenantID: authTenantID}),
+				test.WithAccount(models.Account{Name: "test1", AuthTenantID: authTenantID}),
 				test.WithQuotas,
 			)
 			s := test.NewSetup(t, opts...)
@@ -68,7 +69,7 @@ func testWithPrimary(t *testing.T, setupOptions []test.SetupOption, action func(
 }
 
 func testWithReplica(t *testing.T, s1 test.Setup, strategy string, action func(firstPass bool, s2 test.Setup)) {
-	testAccount := keppel.Account{Name: "test1", AuthTenantID: authTenantID}
+	testAccount := models.Account{Name: "test1", AuthTenantID: authTenantID}
 	switch strategy {
 	case "on_first_use":
 		testAccount.UpstreamPeerHostName = "registry.example.org"

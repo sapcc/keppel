@@ -23,24 +23,24 @@ import (
 
 	"github.com/go-gorp/gorp/v3"
 
-	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
 )
 
 var (
 	// only for use with .MustUpload()
-	fooRepoRef = keppel.Repository{AccountName: "test1", Name: "foo"}
+	fooRepoRef = models.Repository{AccountName: "test1", Name: "foo"}
 )
 
 func setup(t *testing.T, opts ...test.SetupOption) (*Janitor, test.Setup) {
 	params := []test.SetupOption{
 		test.WithPeerAPI,
-		test.WithAccount(keppel.Account{Name: "test1", AuthTenantID: "test1authtenant"}),
-		test.WithRepo(keppel.Repository{AccountName: "test1", Name: "foo"}),
+		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "test1authtenant"}),
+		test.WithRepo(models.Repository{AccountName: "test1", Name: "foo"}),
 		test.WithQuotas,
 	}
 	s := test.NewSetup(t, append(params, opts...)...)
-	j := NewJanitor(s.Config, s.FD, s.SD, s.ICD, s.DB, s.Auditor).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next)
+	j := NewJanitor(s.Config, s.FD, s.SD, s.ICD, s.DB, s.AMD, s.Auditor).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next)
 	j.DisableJitter()
 	return j, s
 }
@@ -52,7 +52,7 @@ func forAllReplicaTypes(t *testing.T, action func(string)) {
 }
 
 func setupReplica(t *testing.T, s1 test.Setup, strategy string) (*Janitor, test.Setup) {
-	testAccount := keppel.Account{
+	testAccount := models.Account{
 		Name:         "test1",
 		AuthTenantID: "test1authtenant",
 	}
@@ -71,11 +71,11 @@ func setupReplica(t *testing.T, s1 test.Setup, strategy string) (*Janitor, test.
 		test.IsSecondaryTo(&s1),
 		test.WithPeerAPI,
 		test.WithAccount(testAccount),
-		test.WithRepo(keppel.Repository{AccountName: "test1", Name: "foo"}),
+		test.WithRepo(models.Repository{AccountName: "test1", Name: "foo"}),
 		test.WithQuotas,
 	)
 
-	j2 := NewJanitor(s.Config, s.FD, s.SD, s.ICD, s.DB, s.Auditor).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next)
+	j2 := NewJanitor(s.Config, s.FD, s.SD, s.ICD, s.DB, s.AMD, s.Auditor).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next)
 	j2.DisableJitter()
 	return j2, s
 }

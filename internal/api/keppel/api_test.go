@@ -27,14 +27,15 @@ import (
 	"github.com/sapcc/go-bits/assert"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
 )
 
 func TestAlternativeAuthSchemes(t *testing.T) {
 	s := test.NewSetup(t,
 		test.WithKeppelAPI,
-		test.WithAccount(keppel.Account{Name: "test1", AuthTenantID: "tenant1"}),
-		test.WithRepo(keppel.Repository{Name: "foo", AccountName: "test1"}),
+		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
+		test.WithRepo(models.Repository{Name: "foo", AccountName: "test1"}),
 	)
 	h := s.Handler
 

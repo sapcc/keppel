@@ -40,17 +40,16 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
-	"github.com/sapcc/keppel/internal/trivy"
 )
 
-func deterministicDummyVulnStatus(counter int) trivy.VulnerabilityStatus {
+func deterministicDummyVulnStatus(counter int) models.VulnerabilityStatus {
 	if counter%5 == 0 {
-		return trivy.PendingVulnerabilityStatus
+		return models.PendingVulnerabilityStatus
 	}
 	if counter%3 == 0 {
-		return trivy.HighSeverity
+		return models.HighSeverity
 	}
-	return trivy.CleanSeverity
+	return models.CleanSeverity
 }
 
 func TestManifestsAPI(t *testing.T) {
@@ -59,13 +58,13 @@ func TestManifestsAPI(t *testing.T) {
 		h := s.Handler
 
 		// setup two test accounts
-		mustInsert(t, s.DB, &keppel.Account{
+		mustInsert(t, s.DB, &models.Account{
 			Name:                     "test1",
 			AuthTenantID:             "tenant1",
 			GCPoliciesJSON:           "[]",
 			SecurityScanPoliciesJSON: "[]",
 		})
-		mustInsert(t, s.DB, &keppel.Account{
+		mustInsert(t, s.DB, &models.Account{
 			Name:                     "test2",
 			AuthTenantID:             "tenant2",
 			GCPoliciesJSON:           "[]",
@@ -74,7 +73,7 @@ func TestManifestsAPI(t *testing.T) {
 
 		// setup test repos (`repo1-2` and `repo2-1` only exist to validate that we
 		// don't accidentally list manifests from there)
-		repos := []*keppel.Repository{
+		repos := []*models.Repository{
 			{Name: "repo1-1", AccountName: "test1"},
 			{Name: "repo1-2", AccountName: "test1"},
 			{Name: "repo2-1", AccountName: "test2"},
@@ -114,7 +113,7 @@ func TestManifestsAPI(t *testing.T) {
 				sizeBytes := uint64(1000 * idx)
 				pushedAt := time.Unix(int64(1000*(repoID*10+idx)), 0)
 
-				dbManifest := keppel.Manifest{
+				dbManifest := models.Manifest{
 					RepositoryID:      int64(repoID),
 					Digest:            dummyDigest,
 					MediaType:         schema2.MediaTypeManifest,
@@ -132,13 +131,13 @@ func TestManifestsAPI(t *testing.T) {
 				mustInsert(t, s.DB, &dbManifest)
 
 				err := s.SD.WriteManifest(
-					keppel.Account{Name: repo.AccountName},
+					models.Account{Name: repo.AccountName},
 					repo.Name, dummyDigest, []byte(strings.Repeat("x", int(sizeBytes))),
 				)
 				if err != nil {
 					t.Fatal(err.Error())
 				}
-				mustInsert(t, s.DB, &keppel.TrivySecurityInfo{
+				mustInsert(t, s.DB, &models.TrivySecurityInfo{
 					RepositoryID:        int64(repoID),
 					Digest:              dummyDigest,
 					VulnerabilityStatus: deterministicDummyVulnStatus(idx),
@@ -146,21 +145,21 @@ func TestManifestsAPI(t *testing.T) {
 				})
 			}
 			// one manifest is referenced by two tags, one is referenced by one tag
-			mustInsert(t, s.DB, &keppel.Tag{
+			mustInsert(t, s.DB, &models.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "first",
 				Digest:       test.DeterministicDummyDigest(repoID*10 + 1),
 				PushedAt:     time.Unix(20001, 0),
 				LastPulledAt: p2time(time.Unix(20101, 0)),
 			})
-			mustInsert(t, s.DB, &keppel.Tag{
+			mustInsert(t, s.DB, &models.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "stillfirst",
 				Digest:       test.DeterministicDummyDigest(repoID*10 + 1),
 				PushedAt:     time.Unix(20002, 0),
 				LastPulledAt: nil,
 			})
-			mustInsert(t, s.DB, &keppel.Tag{
+			mustInsert(t, s.DB, &models.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "second",
 				Digest:       test.DeterministicDummyDigest(repoID*10 + 2),
@@ -408,7 +407,7 @@ func TestManifestsAPI(t *testing.T) {
 
 		// setup a dummy blob that's correctly mounted and linked to our test manifest
 		// so that the vulnerability report can actually be shown
-		dummyBlob := keppel.Blob{
+		dummyBlob := models.Blob{
 			AccountName: "test1",
 			Digest:      test.DeterministicDummyDigest(101),
 		}
@@ -447,7 +446,7 @@ func TestManifestsAPI(t *testing.T) {
 				VulnerabilityIDRx: "CVE-2019-8457",
 				Action: keppel.SecurityScanPolicyAction{
 					Assessment: "we accept the risk",
-					Severity:   trivy.LowSeverity,
+					Severity:   models.LowSeverity,
 				},
 			},
 			{
@@ -490,11 +489,11 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 			test.WithKeppelAPI,
 			test.WithTrivyDouble,
 			test.WithRateLimitEngine(rle),
-			test.WithAccount(keppel.Account{Name: "test1"}),
+			test.WithAccount(models.Account{Name: "test1"}),
 		)
 		h := s.Handler
 
-		_, err := keppel.FindOrCreateRepository(s.DB, "foo", keppel.Account{Name: "test1"})
+		_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.Account{Name: "test1"})
 		if err != nil {
 			t.Fatal(err.Error())
 		}

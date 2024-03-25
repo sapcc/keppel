@@ -35,6 +35,7 @@ import (
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // IssueNewPasswordForPeer issues a new replication password for the given peer.
@@ -43,7 +44,7 @@ import (
 // for this operation. This is useful because it is the caller's responsibility
 // to lock the database row for the peer to prevent concurrent issuances for the
 // same peer by different keppel-api instances.
-func IssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, db *keppel.DB, tx *gorp.Transaction, peer keppel.Peer) (resultErr error) {
+func IssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, db *keppel.DB, tx *gorp.Transaction, peer models.Peer) (resultErr error) {
 	newPasswordBytes := make([]byte, 20)
 	_, err := rand.Read(newPasswordBytes)
 	if err != nil {

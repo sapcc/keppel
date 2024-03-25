@@ -23,13 +23,14 @@ import (
 	"testing"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // ExpectBlobsExistInStorage is a test assertion.
-func (s Setup) ExpectBlobsExistInStorage(t *testing.T, blobs ...keppel.Blob) {
+func (s Setup) ExpectBlobsExistInStorage(t *testing.T, blobs ...models.Blob) {
 	t.Helper()
 	for _, blob := range blobs {
-		account := keppel.Account{Name: blob.AccountName}
+		account := models.Account{Name: blob.AccountName}
 		readCloser, sizeBytes, err := s.SD.ReadBlob(account, blob.StorageID)
 		if err != nil {
 			t.Errorf("expected blob %s to exist in the storage, but got: %s", blob.Digest, err.Error())
@@ -66,10 +67,10 @@ func (s Setup) ExpectBlobsExistInStorage(t *testing.T, blobs ...keppel.Blob) {
 }
 
 // ExpectBlobsMissingInStorage is a test assertion.
-func (s Setup) ExpectBlobsMissingInStorage(t *testing.T, blobs ...keppel.Blob) {
+func (s Setup) ExpectBlobsMissingInStorage(t *testing.T, blobs ...models.Blob) {
 	t.Helper()
 	for _, blob := range blobs {
-		account := keppel.Account{Name: blob.AccountName}
+		account := models.Account{Name: blob.AccountName}
 		_, _, err := s.SD.ReadBlob(account, blob.StorageID)
 		if err == nil {
 			t.Errorf("expected blob %s to be missing in the storage, but could read it", blob.Digest)
@@ -79,12 +80,12 @@ func (s Setup) ExpectBlobsMissingInStorage(t *testing.T, blobs ...keppel.Blob) {
 }
 
 // ExpectManifestsExistInStorage is a test assertion.
-func (s Setup) ExpectManifestsExistInStorage(t *testing.T, repoName string, manifests ...keppel.Manifest) {
+func (s Setup) ExpectManifestsExistInStorage(t *testing.T, repoName string, manifests ...models.Manifest) {
 	t.Helper()
 	for _, manifest := range manifests {
 		repo, err := keppel.FindRepositoryByID(s.DB, manifest.RepositoryID)
 		mustDo(t, err)
-		account := keppel.Account{Name: repo.AccountName}
+		account := models.Account{Name: repo.AccountName}
 		manifestBytes, err := s.SD.ReadManifest(account, repoName, manifest.Digest)
 		if err != nil {
 			t.Errorf("expected manifest %s to exist in the storage, but got: %s", manifest.Digest, err.Error())
@@ -104,12 +105,12 @@ func (s Setup) ExpectManifestsExistInStorage(t *testing.T, repoName string, mani
 }
 
 // ExpectManifestsMissingInStorage is a test assertion.
-func (s Setup) ExpectManifestsMissingInStorage(t *testing.T, manifests ...keppel.Manifest) {
+func (s Setup) ExpectManifestsMissingInStorage(t *testing.T, manifests ...models.Manifest) {
 	t.Helper()
 	for _, manifest := range manifests {
 		repo, err := keppel.FindRepositoryByID(s.DB, manifest.RepositoryID)
 		mustDo(t, err)
-		account := keppel.Account{Name: repo.AccountName}
+		account := models.Account{Name: repo.AccountName}
 		_, err = s.SD.ReadManifest(account, "foo", manifest.Digest)
 		if err == nil {
 			t.Errorf("expected manifest %s to be missing in the storage, but could read it", manifest.Digest)

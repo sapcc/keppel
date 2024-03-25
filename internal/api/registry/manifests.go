@@ -229,7 +229,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *API) findManifestInDB(repo keppel.Repository, reference models.ManifestReference) (*keppel.Manifest, error) {
+func (a *API) findManifestInDB(repo models.Repository, reference models.ManifestReference) (*models.Manifest, error) {
 	// resolve tag into digest if necessary
 	refDigest := reference.Digest
 	if reference.IsTag() {
@@ -249,7 +249,7 @@ func (a *API) findManifestInDB(repo keppel.Repository, reference models.Manifest
 		}
 	}
 
-	var dbManifest keppel.Manifest
+	var dbManifest models.Manifest
 	err := a.db.SelectOne(&dbManifest,
 		`SELECT * FROM manifests WHERE repo_id = $1 AND digest = $2`,
 		repo.ID, refDigest.String(),

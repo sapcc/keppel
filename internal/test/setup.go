@@ -40,8 +40,10 @@ import (
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
 	peerv1 "github.com/sapcc/keppel/internal/api/peer"
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
+	"github.com/sapcc/keppel/internal/drivers/basic"
 	"github.com/sapcc/keppel/internal/drivers/trivial"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/trivy"
 )
 
@@ -57,8 +59,8 @@ type setupParams struct {
 	WithoutCurrentIssuerKey bool
 	RateLimitEngine         *keppel.RateLimitEngine
 	SetupOfPrimary          *Setup
-	Accounts                []*keppel.Account
-	Repos                   []*keppel.Repository
+	Accounts                []*models.Account
+	Repos                   []*models.Repository
 }
 
 // SetupOption is an option that can be given to NewSetup().
@@ -110,7 +112,7 @@ func WithRateLimitEngine(rle *keppel.RateLimitEngine) SetupOption {
 }
 
 // WithAccount is a SetupOption that adds the given keppel.Account to the DB during NewSetup().
-func WithAccount(account keppel.Account) SetupOption {
+func WithAccount(account models.Account) SetupOption {
 	return func(params *setupParams) {
 		// some field have default values that's not the zero value
 		if account.GCPoliciesJSON == "" {
@@ -124,7 +126,7 @@ func WithAccount(account keppel.Account) SetupOption {
 }
 
 // WithRepo is a SetupOption that adds the given keppel.Repository to the DB during NewSetup().
-func WithRepo(repo keppel.Repository) SetupOption {
+func WithRepo(repo models.Repository) SetupOption {
 	return func(params *setupParams) {
 		params.Repos = append(params.Repos, &repo)
 	}
@@ -151,6 +153,7 @@ type Setup struct {
 	SIDGenerator *StorageIDGenerator
 	Auditor      *Auditor
 	AD           *AuthDriver
+	AMD          *basic.AccountManagementDriver
 	FD           *FederationDriver
 	SD           *trivial.StorageDriver
 	ICD          *InboundCacheDriver
@@ -160,8 +163,8 @@ type Setup struct {
 	// fields that are only set if the respective With... setup option is included
 	TrivyDouble *TrivyDouble
 	// fields that are filled by WithAccount and WithRepo (in order)
-	Accounts []*keppel.Account
-	Repos    []*keppel.Repository
+	Accounts []*models.Account
+	Repos    []*models.Repository
 	// fields that are only accessible to helper functions
 	tokenCache map[string]string
 }
@@ -300,6 +303,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	// setup essential test doubles
 	s.Clock = mock.NewClock()
 	s.SIDGenerator = &StorageIDGenerator{}
+	s.AMD = &basic.AccountManagementDriver{}
 	s.Auditor = &Auditor{}
 
 	// if we are secondary and we know the primary, share the clock with it
@@ -361,7 +365,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		mustDo(t, s.DB.Insert(account))
 		fd.RecordExistingAccount(context.Background(), *account, s.Clock.Now()) //nolint:errcheck
 		if params.WithQuotas && !quotasSetFor[account.AuthTenantID] {
-			mustDo(t, s.DB.Insert(&keppel.Quotas{
+			mustDo(t, s.DB.Insert(&models.Quotas{
 				AuthTenantID:  account.AuthTenantID,
 				ManifestCount: 100,
 			}))
@@ -379,11 +383,11 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		s1 := params.SetupOfPrimary
 		if s1 != nil {
 			// give the secondary registry credentials for replicating from the primary
-			mustDo(t, s.DB.Insert(&keppel.Peer{
+			mustDo(t, s.DB.Insert(&models.Peer{
 				HostName:    "registry.example.org",
 				OurPassword: GetReplicationPassword(),
 			}))
-			mustDo(t, s1.DB.Insert(&keppel.Peer{
+			mustDo(t, s1.DB.Insert(&models.Peer{
 				HostName:                 "registry-secondary.example.org",
 				TheirCurrentPasswordHash: replicationPasswordHash,
 			}))

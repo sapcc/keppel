@@ -28,18 +28,19 @@ import (
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // Client can be used for API access to one of our peers (using our peering
 // credentials).
 type Client struct {
-	peer  keppel.Peer
+	peer  models.Peer
 	token string
 }
 
 // New obtains a token for API access to the given peer (using our peering
 // credentials), and wraps it into a Client instance.
-func New(ctx context.Context, cfg keppel.Configuration, peer keppel.Peer, scope auth.Scope) (Client, error) {
+func New(ctx context.Context, cfg keppel.Configuration, peer models.Peer, scope auth.Scope) (Client, error) {
 	c := Client{peer, ""}
 	err := c.initToken(ctx, cfg, scope)
 	if err != nil {

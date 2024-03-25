@@ -36,12 +36,12 @@ import (
 
 // MapToTrivySeverity maps Trivy severity levels to ours
 // see https://github.com/aquasecurity/trivy/blob/main/pkg/report/table/misconfig.go#L19-L24
-var MapToTrivySeverity = map[string]VulnerabilityStatus{
-	"UNKNOWN":  UnknownSeverity,
-	"LOW":      LowSeverity,
-	"MEDIUM":   MediumSeverity,
-	"HIGH":     HighSeverity,
-	"CRITICAL": CriticalSeverity,
+var MapToTrivySeverity = map[string]models.VulnerabilityStatus{
+	"UNKNOWN":  models.UnknownSeverity,
+	"LOW":      models.LowSeverity,
+	"MEDIUM":   models.MediumSeverity,
+	"HIGH":     models.HighSeverity,
+	"CRITICAL": models.CriticalSeverity,
 }
 
 // see https://github.com/aquasecurity/trivy/blob/main/pkg/flag/remote_flags.go#L11

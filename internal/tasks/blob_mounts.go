@@ -27,7 +27,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 
-	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // NOTE: This skips over repos where some or all manifests have failed validation.
@@ -77,7 +77,7 @@ var blobMountSweepDoneQuery = sqlext.SimplifyWhitespace(`
 //
 // Blob mounts are sweeped in each repo at most once per hour.
 func (j *Janitor) BlobMountSweepJob(registerer prometheus.Registerer) jobloop.Job { //nolint:dupl // false positive
-	return (&jobloop.ProducerConsumerJob[keppel.Repository]{
+	return (&jobloop.ProducerConsumerJob[models.Repository]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "garbage collect blob mounts in repos",
 			CounterOpts: prometheus.CounterOpts{
@@ -85,7 +85,7 @@ func (j *Janitor) BlobMountSweepJob(registerer prometheus.Registerer) jobloop.Jo
 				Help: "Counter for garbage collections on blob mounts in a repo.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (repo keppel.Repository, err error) {
+		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (repo models.Repository, err error) {
 			err = j.db.SelectOne(&repo, blobMountSweepSearchQuery, j.timeNow())
 			return repo, err
 		},
@@ -93,7 +93,7 @@ func (j *Janitor) BlobMountSweepJob(registerer prometheus.Registerer) jobloop.Jo
 	}).Setup(registerer)
 }
 
-func (j *Janitor) sweepBlobMountsInRepo(_ context.Context, repo keppel.Repository, _ prometheus.Labels) error {
+func (j *Janitor) sweepBlobMountsInRepo(_ context.Context, repo models.Repository, _ prometheus.Labels) error {
 	// allow next pass in 1 hour to delete the newly marked blob mounts, but use a
 	// slightly earlier cut-off time to account for the marking taking some time
 	canBeDeletedAt := j.timeNow().Add(30 * time.Minute)

@@ -25,7 +25,7 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 
-	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
 )
 
@@ -34,7 +34,7 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 	s.FD.RecordedAccounts = nil
 	s.Clock.StepBy(1 * time.Hour)
 
-	var account1 keppel.Account
+	var account1 models.Account
 	mustDo(t, s.DB.SelectOne(&account1, `SELECT * FROM accounts`))
 
 	accountJob := j.AccountFederationAnnouncementJob(s.Registry)
@@ -48,7 +48,7 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 
 	// setup another account; only that one should need announcing initially
 	s.Clock.StepBy(5 * time.Minute)
-	account2 := keppel.Account{Name: "test2", AuthTenantID: "test2authtenant", GCPoliciesJSON: "[]"}
+	account2 := models.Account{Name: "test2", AuthTenantID: "test2authtenant", GCPoliciesJSON: "[]"}
 	mustDo(t, s.DB.Insert(&account2))
 	expectSuccess(t, accountJob.ProcessOne(s.Ctx))
 	expectAccountsAnnouncedJustNow(t, s, account2)
@@ -65,7 +65,7 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 	expectAccountsAnnouncedJustNow(t, s /*, nothing */)
 }
 
-func expectAccountsAnnouncedJustNow(t *testing.T, s test.Setup, accounts ...keppel.Account) {
+func expectAccountsAnnouncedJustNow(t *testing.T, s test.Setup, accounts ...models.Account) {
 	t.Helper()
 	var expected []test.AccountRecordedByFederationDriver
 	for _, a := range accounts {

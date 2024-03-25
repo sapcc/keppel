@@ -26,15 +26,17 @@ import (
 	"net"
 
 	"github.com/sapcc/go-bits/regexpext"
+
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // RBACPolicy is a policy granting user-defined access to repos in an account.
 // It is stored in serialized form in the RBACPoliciesJSON field of type Account.
 type RBACPolicy struct {
-	CidrPattern       string                  `json:"match_cidr,omitempty"`
-	RepositoryPattern regexpext.BoundedRegexp `json:"match_repository,omitempty"`
-	UserNamePattern   regexpext.BoundedRegexp `json:"match_username,omitempty"`
-	Permissions       []RBACPermission        `json:"permissions"`
+	CidrPattern       string                  `json:"match_cidr,omitempty" yaml:"match_cidr,omitempty"`
+	RepositoryPattern regexpext.BoundedRegexp `json:"match_repository,omitempty" yaml:"match_repository,omitempty"`
+	UserNamePattern   regexpext.BoundedRegexp `json:"match_username,omitempty" yaml:"match_username,omitempty"`
+	Permissions       []RBACPermission        `json:"permissions" yaml:"permissions"`
 }
 
 // RBACPermission enumerates permissions that can be granted by an RBAC policy.
@@ -122,11 +124,11 @@ func (r *RBACPolicy) ValidateAndNormalize() error {
 }
 
 // ParseRBACPolicies parses the RBAC policies for the given account.
-func (a Account) ParseRBACPolicies() ([]RBACPolicy, error) {
-	if a.RBACPoliciesJSON == "" || a.RBACPoliciesJSON == "[]" {
+func ParseRBACPolicies(account models.Account) ([]RBACPolicy, error) {
+	if account.RBACPoliciesJSON == "" || account.RBACPoliciesJSON == "[]" {
 		return nil, nil
 	}
 	var policies []RBACPolicy
-	err := json.Unmarshal([]byte(a.RBACPoliciesJSON), &policies)
+	err := json.Unmarshal([]byte(account.RBACPoliciesJSON), &policies)
 	return policies, err
 }

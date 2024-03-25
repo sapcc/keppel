@@ -28,7 +28,7 @@ import (
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/sqlext"
 
-	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // query that finds the next upload to be cleaned up
@@ -49,7 +49,7 @@ var findAccountForRepoQuery = sqlext.SimplifyWhitespace(`
 // AbandonedUploadCleanupJob is a job. Each task finds an upload that has not
 // been updated for more than a day, and cleans it up.
 func (j *Janitor) AbandonedUploadCleanupJob(registerer prometheus.Registerer) jobloop.Job {
-	return (&jobloop.TxGuardedJob[*gorp.Transaction, keppel.Upload]{
+	return (&jobloop.TxGuardedJob[*gorp.Transaction, models.Upload]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "cleanup of abandoned uploads",
 			CounterOpts: prometheus.CounterOpts{
@@ -58,7 +58,7 @@ func (j *Janitor) AbandonedUploadCleanupJob(registerer prometheus.Registerer) jo
 			},
 		},
 		BeginTx: j.db.Begin,
-		DiscoverRow: func(_ context.Context, tx *gorp.Transaction, _ prometheus.Labels) (upload keppel.Upload, err error) {
+		DiscoverRow: func(_ context.Context, tx *gorp.Transaction, _ prometheus.Labels) (upload models.Upload, err error) {
 			maxUpdatedAt := j.timeNow().Add(-24 * time.Hour)
 			err = tx.SelectOne(&upload, abandonedUploadSearchQuery, maxUpdatedAt)
 			return upload, err
@@ -67,9 +67,9 @@ func (j *Janitor) AbandonedUploadCleanupJob(registerer prometheus.Registerer) jo
 	}).Setup(registerer)
 }
 
-func (j *Janitor) deleteAbandonedUpload(_ context.Context, tx *gorp.Transaction, upload keppel.Upload, labels prometheus.Labels) error {
+func (j *Janitor) deleteAbandonedUpload(_ context.Context, tx *gorp.Transaction, upload models.Upload, labels prometheus.Labels) error {
 	// find corresponding account
-	var account keppel.Account
+	var account models.Account
 	err := tx.SelectOne(&account, findAccountForRepoQuery, upload.RepositoryID)
 	if err != nil {
 		return fmt.Errorf("cannot find account for abandoned upload %s: %s", upload.UUID, err.Error())

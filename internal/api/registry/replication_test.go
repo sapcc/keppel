@@ -30,6 +30,7 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
 )
 
@@ -132,7 +133,7 @@ func TestReplicationMissingEntities(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
 		// ensure that the `test1/foo` repo exists upstream; otherwise we'll just get
 		// NAME_UNKNOWN
-		_, err := keppel.FindOrCreateRepository(s1.DB, "foo", keppel.Account{Name: "test1"})
+		_, err := keppel.FindOrCreateRepository(s1.DB, "foo", models.Account{Name: "test1"})
 		if err != nil {
 			t.Fatal(err.Error())
 		}

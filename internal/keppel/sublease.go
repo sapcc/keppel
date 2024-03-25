@@ -16,14 +16,15 @@
 *
 ******************************************************************************/
 
-package keppelv1
+package keppel
 
 import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net/http"
 )
+
+const SubleaseHeader = "X-Keppel-Sublease-Token"
 
 // SubleaseToken is the internal structure of a sublease token. Only the secret
 // is passed on to the federation driver. The other attributes are only
@@ -43,21 +44,20 @@ func (t SubleaseToken) Serialize() string {
 }
 
 // SubleaseTokenFromRequest parses the request's X-Keppel-Sublease-Token header.
-func SubleaseTokenFromRequest(r *http.Request) (SubleaseToken, error) {
-	in := r.Header.Get("X-Keppel-Sublease-Token")
-	if in == "" {
+func SubleaseTokenFromRequest(subleaseHeader string) (SubleaseToken, error) {
+	if subleaseHeader == "" {
 		return SubleaseToken{}, nil // empty sublease token is acceptable for federation drivers that don't need one
 	}
 
-	buf, err := base64.StdEncoding.DecodeString(in)
+	buf, err := base64.StdEncoding.DecodeString(subleaseHeader)
 	if err != nil {
-		return SubleaseToken{}, fmt.Errorf("malformed X-Keppel-Sublease-Token header: %s", err.Error())
+		return SubleaseToken{}, fmt.Errorf("malformed %s header: %w", SubleaseHeader, err)
 	}
 
 	var t SubleaseToken
 	err = json.Unmarshal(buf, &t)
 	if err != nil {
-		return SubleaseToken{}, fmt.Errorf("malformed X-Keppel-Sublease-Token header: %s", err.Error())
+		return SubleaseToken{}, fmt.Errorf("malformed %s header: %w", SubleaseHeader, err)
 	}
 	return t, nil
 }

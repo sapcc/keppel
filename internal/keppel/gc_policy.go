@@ -28,27 +28,29 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/regexpext"
+
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // GCPolicy is a policy enabling optional garbage collection runs in an account.
 // It is stored in serialized form in the GCPoliciesJSON field of type Account.
 type GCPolicy struct {
-	RepositoryRx         regexpext.BoundedRegexp `json:"match_repository"`
-	NegativeRepositoryRx regexpext.BoundedRegexp `json:"except_repository,omitempty"`
-	TagRx                regexpext.BoundedRegexp `json:"match_tag,omitempty"`
-	NegativeTagRx        regexpext.BoundedRegexp `json:"except_tag,omitempty"`
-	OnlyUntagged         bool                    `json:"only_untagged,omitempty"`
-	TimeConstraint       *GCTimeConstraint       `json:"time_constraint,omitempty"`
-	Action               string                  `json:"action"`
+	RepositoryRx         regexpext.BoundedRegexp `json:"match_repository" yaml:"match_repository"`
+	NegativeRepositoryRx regexpext.BoundedRegexp `json:"except_repository,omitempty" yaml:"except_repository,omitempty"`
+	TagRx                regexpext.BoundedRegexp `json:"match_tag,omitempty" yaml:"match_tag,omitempty"`
+	NegativeTagRx        regexpext.BoundedRegexp `json:"except_tag,omitempty" yaml:"except_tag,omitempty"`
+	OnlyUntagged         bool                    `json:"only_untagged,omitempty" yaml:"only_untagged,omitempty"`
+	TimeConstraint       *GCTimeConstraint       `json:"time_constraint,omitempty" yaml:"time_constraint,omitempty"`
+	Action               string                  `json:"action" yaml:"action"`
 }
 
 // GCTimeConstraint appears in type GCPolicy.
 type GCTimeConstraint struct {
-	FieldName   string   `json:"on"`
-	OldestCount uint64   `json:"oldest,omitempty"`
-	NewestCount uint64   `json:"newest,omitempty"`
-	MinAge      Duration `json:"older_than,omitempty"`
-	MaxAge      Duration `json:"newer_than,omitempty"`
+	FieldName   string   `json:"on" yaml:"on"`
+	OldestCount uint64   `json:"oldest,omitempty" yaml:"oldest,omitempty"`
+	NewestCount uint64   `json:"newest,omitempty" yaml:"newest,omitempty"`
+	MinAge      Duration `json:"older_than,omitempty" yaml:"older_than,omitempty"`
+	MaxAge      Duration `json:"newer_than,omitempty" yaml:"newer_than,omitempty"`
 }
 
 // MatchesRepository evaluates the repository regexes in this policy.
@@ -93,7 +95,7 @@ func (g GCPolicy) MatchesTags(tagNames []string) bool {
 // order to evaluate "newest" and "oldest" time constraints. The final argument
 // must be equivalent to time.Now(); it is given explicitly to allow for
 // simulated clocks during unit tests.
-func (g GCPolicy) MatchesTimeConstraint(manifest Manifest, allManifestsInRepo []Manifest, now time.Time) bool {
+func (g GCPolicy) MatchesTimeConstraint(manifest models.Manifest, allManifestsInRepo []models.Manifest, now time.Time) bool {
 	// do we have a time constraint at all?
 	if g.TimeConstraint == nil {
 		return true
@@ -104,12 +106,12 @@ func (g GCPolicy) MatchesTimeConstraint(manifest Manifest, allManifestsInRepo []
 	}
 
 	// select the right time field
-	var getTime func(Manifest) time.Time
+	var getTime func(models.Manifest) time.Time
 	switch tc.FieldName {
 	case "pushed_at":
-		getTime = func(m Manifest) time.Time { return m.PushedAt }
+		getTime = func(m models.Manifest) time.Time { return m.PushedAt }
 	case "last_pulled_at":
-		getTime = func(m Manifest) time.Time {
+		getTime = func(m models.Manifest) time.Time {
 			if m.LastPulledAt == nil {
 				return time.Unix(0, 0)
 			}
@@ -118,7 +120,7 @@ func (g GCPolicy) MatchesTimeConstraint(manifest Manifest, allManifestsInRepo []
 	default:
 		panic(fmt.Sprintf("unexpected GC policy time constraint target: %q (why was this not caught by Validate!?)", tc.FieldName))
 	}
-	getAge := func(m Manifest) Duration {
+	getAge := func(m models.Manifest) Duration {
 		return Duration(now.Sub(getTime(m)))
 	}
 
@@ -148,7 +150,7 @@ func (g GCPolicy) MatchesTimeConstraint(manifest Manifest, allManifestsInRepo []
 	// which manifests match? (note that we already know that
 	// len(allManifestsInRepo) is larger than the amount we want to match, so we
 	// don't have to check bounds any further)
-	var matchingManifests []Manifest
+	var matchingManifests []models.Manifest
 	switch {
 	case tc.OldestCount != 0:
 		matchingManifests = allManifestsInRepo[:tc.OldestCount]
@@ -229,12 +231,12 @@ func (g GCPolicy) Validate() error {
 }
 
 // ParseGCPolicies parses the GC policies for the given account.
-func (a Account) ParseGCPolicies() ([]GCPolicy, error) {
-	if a.GCPoliciesJSON == "" || a.GCPoliciesJSON == "[]" {
+func ParseGCPolicies(account models.Account) ([]GCPolicy, error) {
+	if account.GCPoliciesJSON == "" || account.GCPoliciesJSON == "[]" {
 		return nil, nil
 	}
 	var policies []GCPolicy
-	err := json.Unmarshal([]byte(a.GCPoliciesJSON), &policies)
+	err := json.Unmarshal([]byte(account.GCPoliciesJSON), &policies)
 	return policies, err
 }
 

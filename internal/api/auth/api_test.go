@@ -32,6 +32,7 @@ import (
 	"github.com/sapcc/go-bits/assert"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
 )
 
@@ -416,7 +417,7 @@ func setupPrimary(t *testing.T, extraOptions ...test.SetupOption) test.Setup {
 	s := test.NewSetup(t,
 		append(extraOptions,
 			test.WithAnycast(true),
-			test.WithAccount(keppel.Account{Name: "test1", AuthTenantID: "test1authtenant"}),
+			test.WithAccount(models.Account{Name: "test1", AuthTenantID: "test1authtenant"}),
 		)...,
 	)
 	s.AD.ExpectedUserName = "correctusername"
@@ -428,7 +429,7 @@ func setupSecondary(t *testing.T) test.Setup {
 	s := test.NewSetup(t,
 		test.IsSecondaryTo(nil),
 		test.WithAnycast(true),
-		test.WithAccount(keppel.Account{Name: "test2", AuthTenantID: "test1authtenant"}),
+		test.WithAccount(models.Account{Name: "test2", AuthTenantID: "test1authtenant"}),
 	)
 	s.AD.ExpectedUserName = "correctusername"
 	s.AD.ExpectedPassword = "correctpassword"
