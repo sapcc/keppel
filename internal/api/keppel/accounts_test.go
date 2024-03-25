@@ -593,7 +593,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("malformed attribute \"account.auth_tenant_id\" in request body: must not be \"invalid\"\n"),
+		ExpectBody:   assert.StringData("malformed attribute \"auth_tenant_id\": must not be \"invalid\"\n"),
 	}.Check(t, h)
 
 	assert.HTTPRequest{
@@ -619,7 +619,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("account names that look like API versions are reserved for internal use\n"),
+		ExpectBody:   assert.StringData("account names that look like API versions (eg. v1) are reserved for internal use\n"),
 	}.Check(t, h)
 
 	assert.HTTPRequest{
