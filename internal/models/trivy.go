@@ -1,6 +1,6 @@
 /*******************************************************************************
 *
-* Copyright 2021 SAP SE
+* Copyright 2024 SAP SE
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -17,4 +17,20 @@
 *
 *******************************************************************************/
 
-package trivy
+package models
+
+import (
+	"time"
+
+	"github.com/opencontainers/go-digest"
+)
+
+type TrivySecurityInfo struct {
+	RepositoryID        int64               `db:"repo_id"`
+	Digest              digest.Digest       `db:"digest"`
+	VulnerabilityStatus VulnerabilityStatus `db:"vuln_status"`
+	Message             string              `db:"message"`
+	NextCheckAt         time.Time           `db:"next_check_at"` // see tasks.CheckTrivySecurityStatusJob
+	CheckedAt           *time.Time          `db:"checked_at"`
+	CheckDurationSecs   *float64            `db:"check_duration_secs"`
+}

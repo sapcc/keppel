@@ -1,6 +1,6 @@
 /*******************************************************************************
 *
-* Copyright 2021 SAP SE
+* Copyright 2024 SAP SE
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -17,4 +17,23 @@
 *
 *******************************************************************************/
 
-package trivy
+package models
+
+import (
+	"time"
+)
+
+// Repository contains a record from the `repos` table.
+type Repository struct {
+	ID                      int64      `db:"id"`
+	AccountName             string     `db:"account_name"`
+	Name                    string     `db:"name"`
+	NextBlobMountSweepAt    *time.Time `db:"next_blob_mount_sweep_at"` // see tasks.BlobMountSweepJob
+	NextManifestSyncAt      *time.Time `db:"next_manifest_sync_at"`    // see tasks.ManifestSyncJob (only set for replica accounts)
+	NextGarbageCollectionAt *time.Time `db:"next_gc_at"`               // see tasks.GarbageCollectManifestsJob
+}
+
+// FullName prepends the account name to the repository name.
+func (r Repository) FullName() string {
+	return r.AccountName + `/` + r.Name
+}

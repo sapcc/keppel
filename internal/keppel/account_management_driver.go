@@ -21,6 +21,8 @@ package keppel
 import (
 	"errors"
 
+	"github.com/sapcc/keppel/internal/models"
+
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
 )
@@ -41,7 +43,7 @@ type AccountManagementDriver interface {
 	//
 	// Returns Account{} if the account was managed, and now shall be deleted.
 	// The jobloop will clean up the manifests, blobs, repos and the account.
-	ConfigureAccount(*DB, Account) (Account, error)
+	ConfigureAccount(*DB, models.Account) (models.Account, error)
 
 	// Called by a jobloop every once in a while (e.g. every hour).
 	//

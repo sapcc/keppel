@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 
 	"gopkg.in/yaml.v2"
 )
@@ -70,7 +71,7 @@ func (a *AccountManagementDriver) Init() error {
 }
 
 // ConfigureAccount implements the keppel.AccountManagementDriver interface.
-func (a *AccountManagementDriver) ConfigureAccount(db *keppel.DB, account keppel.Account) (keppel.Account, error) {
+func (a *AccountManagementDriver) ConfigureAccount(db *keppel.DB, account models.Account) (models.Account, error) {
 	for _, cfgAccount := range a.config.Accounts {
 		if cfgAccount.AuthTenantID != account.AuthTenantID {
 			continue
@@ -81,32 +82,32 @@ func (a *AccountManagementDriver) ConfigureAccount(db *keppel.DB, account keppel
 
 		gcPolicyJSON, err := json.Marshal(cfgAccount.GCPolicies)
 		if err != nil {
-			return keppel.Account{}, fmt.Errorf("gc_policies: %w", err)
+			return models.Account{}, fmt.Errorf("gc_policies: %w", err)
 		}
 		account.GCPoliciesJSON = string(gcPolicyJSON)
 
 		rbacPolicyJSON, err := json.Marshal(cfgAccount.RBACPolicies)
 		if err != nil {
-			return keppel.Account{}, fmt.Errorf("rbac_policies: %w", err)
+			return models.Account{}, fmt.Errorf("rbac_policies: %w", err)
 		}
 		account.RBACPoliciesJSON = string(rbacPolicyJSON)
 
 		securityScanPoliciesJSON, err := json.Marshal(cfgAccount.SecurityScanPolicies)
 		if err != nil {
-			return keppel.Account{}, fmt.Errorf("security_scan_policies: %w", err)
+			return models.Account{}, fmt.Errorf("security_scan_policies: %w", err)
 		}
 		account.SecurityScanPoliciesJSON = string(securityScanPoliciesJSON)
 
 		_, err = cfgAccount.ReplicationPolicy.ApplyToAccount(db, &account)
 		if err != nil {
-			return keppel.Account{}, fmt.Errorf("replication_policy: %w", err)
+			return models.Account{}, fmt.Errorf("replication_policy: %w", err)
 		}
 
 		return account, nil
 	}
 
 	// we didn't find the account, delete it
-	return keppel.Account{}, nil
+	return models.Account{}, nil
 }
 
 func (a *AccountManagementDriver) ManagedAccountNames() ([]string, error) {

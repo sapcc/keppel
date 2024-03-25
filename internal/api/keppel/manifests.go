@@ -38,23 +38,22 @@ import (
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
-	"github.com/sapcc/keppel/internal/trivy"
 )
 
 // Manifest represents a manifest in the API.
 type Manifest struct {
-	Digest                        digest.Digest             `json:"digest"`
-	MediaType                     string                    `json:"media_type"`
-	SizeBytes                     uint64                    `json:"size_bytes"`
-	PushedAt                      int64                     `json:"pushed_at"`
-	LastPulledAt                  *int64                    `json:"last_pulled_at"`
-	Tags                          []Tag                     `json:"tags,omitempty"`
-	LabelsJSON                    json.RawMessage           `json:"labels,omitempty"`
-	GCStatusJSON                  json.RawMessage           `json:"gc_status,omitempty"`
-	VulnerabilityStatus           trivy.VulnerabilityStatus `json:"vulnerability_status"`
-	VulnerabilityScanErrorMessage string                    `json:"vulnerability_scan_error,omitempty"`
-	MinLayerCreatedAt             *int64                    `json:"min_layer_created_at"`
-	MaxLayerCreatedAt             *int64                    `json:"max_layer_created_at"`
+	Digest                        digest.Digest              `json:"digest"`
+	MediaType                     string                     `json:"media_type"`
+	SizeBytes                     uint64                     `json:"size_bytes"`
+	PushedAt                      int64                      `json:"pushed_at"`
+	LastPulledAt                  *int64                     `json:"last_pulled_at"`
+	Tags                          []Tag                      `json:"tags,omitempty"`
+	LabelsJSON                    json.RawMessage            `json:"labels,omitempty"`
+	GCStatusJSON                  json.RawMessage            `json:"gc_status,omitempty"`
+	VulnerabilityStatus           models.VulnerabilityStatus `json:"vulnerability_status"`
+	VulnerabilityScanErrorMessage string                     `json:"vulnerability_scan_error,omitempty"`
+	MinLayerCreatedAt             *int64                     `json:"min_layer_created_at"`
+	MaxLayerCreatedAt             *int64                     `json:"max_layer_created_at"`
 }
 
 // Tag represents a tag in the API.
@@ -111,7 +110,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var dbManifests []keppel.Manifest
+	var dbManifests []models.Manifest
 	_, err = a.db.Select(&dbManifests, manifestQuery, vulnBindValues...)
 	if respondwith.ErrorText(w, err) {
 		return
@@ -128,13 +127,13 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var dbSecurityInfos []keppel.TrivySecurityInfo
+	var dbSecurityInfos []models.TrivySecurityInfo
 	_, err = a.db.Select(&dbSecurityInfos, securityInfoQuery, securityBindValues...)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
 
-	securityInfos := make(map[digest.Digest]keppel.TrivySecurityInfo, len(dbSecurityInfos))
+	securityInfos := make(map[digest.Digest]models.TrivySecurityInfo, len(dbSecurityInfos))
 	for _, securityInfo := range dbSecurityInfos {
 		securityInfos[securityInfo.Digest] = securityInfo
 	}
@@ -150,7 +149,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var (
-			securityInfo keppel.TrivySecurityInfo
+			securityInfo models.TrivySecurityInfo
 			ok           bool
 		)
 		if securityInfo, ok = securityInfos[dbManifest.Digest]; !ok {
@@ -181,7 +180,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		// last digest
 		firstDigest := result.Manifests[0].Digest
 		lastDigest := result.Manifests[len(result.Manifests)-1].Digest
-		var dbTags []keppel.Tag
+		var dbTags []models.Tag
 		_, err = a.db.Select(&dbTags, tagGetQuery, repo.ID, firstDigest, lastDigest)
 		if respondwith.ErrorText(w, err) {
 			return
@@ -364,7 +363,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	relevantPolicies, err := account.SecurityScanPoliciesFor(*repo)
+	relevantPolicies, err := keppel.GetSecurityScanPolicies(*account, *repo)
 	if respondwith.ErrorText(w, err) {
 		return
 	}

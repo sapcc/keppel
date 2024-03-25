@@ -31,8 +31,8 @@ import (
 	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
-	"github.com/sapcc/keppel/internal/trivy"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -146,7 +146,7 @@ func TestManifestValidationJobError(t *testing.T) {
 	// manually since the MustUpload functions care about uploading stuff intact)
 	s.Clock.StepBy(1 * time.Hour)
 	image := test.GenerateImage( /* no layers */ )
-	mustDo(t, s.DB.Insert(&keppel.Manifest{
+	mustDo(t, s.DB.Insert(&models.Manifest{
 		RepositoryID: 1,
 		Digest:       image.Manifest.Digest,
 		MediaType:    image.Manifest.MediaType,
@@ -154,16 +154,16 @@ func TestManifestValidationJobError(t *testing.T) {
 		PushedAt:     s.Clock.Now(),
 		ValidatedAt:  s.Clock.Now(),
 	}))
-	mustDo(t, s.DB.Insert(&keppel.ManifestContent{
+	mustDo(t, s.DB.Insert(&models.ManifestContent{
 		RepositoryID: 1,
 		Digest:       image.Manifest.Digest.String(),
 		Content:      image.Manifest.Contents,
 	}))
-	mustDo(t, s.DB.Insert(&keppel.TrivySecurityInfo{
+	mustDo(t, s.DB.Insert(&models.TrivySecurityInfo{
 		RepositoryID:        1,
 		Digest:              image.Manifest.Digest,
 		NextCheckAt:         time.Unix(0, 0),
-		VulnerabilityStatus: trivy.PendingVulnerabilityStatus,
+		VulnerabilityStatus: models.PendingVulnerabilityStatus,
 	}))
 	mustDo(t, s.SD.WriteManifest(*s.Accounts[0], "foo", image.Manifest.Digest, image.Manifest.Contents))
 
@@ -650,7 +650,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
 			UPDATE trivy_security_info SET vuln_status = 'Critical', message = '', next_check_at = %[2]d, checked_at = %[3]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[1]s';
-		`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), trivy.LowSeverity)
+		`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), models.LowSeverity)
 	})
 }
 
@@ -673,16 +673,16 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 		tr.DBChanges().AssertEqualf(`
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
 			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = %[3]d, checked_at = %[4]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[5]s';
-		`, image.Layers[0].Digest, trivy.CriticalSeverity, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
+		`, image.Layers[0].Digest, models.CriticalSeverity, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
 
 		// the actual checks in this test all look similar: we update the policies
 		// on the account, then check the resulting vuln_status on the image
-		expect := func(severity trivy.VulnerabilityStatus, policies ...keppel.SecurityScanPolicy) {
+		expect := func(severity models.VulnerabilityStatus, policies ...keppel.SecurityScanPolicy) {
 			t.Helper()
 			policyJSON := must.Return(json.Marshal(policies))
 			mustExec(t, s.DB, `UPDATE accounts SET security_scan_policies_json = $1`, string(policyJSON))
 			// ensure that `SET vuln_status = ...` always shows up in the diff below
-			mustExec(t, s.DB, `UPDATE trivy_security_info SET vuln_status = $1`, trivy.PendingVulnerabilityStatus)
+			mustExec(t, s.DB, `UPDATE trivy_security_info SET vuln_status = $1`, models.PendingVulnerabilityStatus)
 			tr.DBChanges().Ignore()
 
 			s.Clock.StepBy(1 * time.Hour)
@@ -698,17 +698,17 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 		// the overall status to "High" since there are also several "High" vulns
 		//
 		// Most of the following testcases are alterations of this policy.
-		expect(trivy.HighSeverity, keppel.SecurityScanPolicy{
+		expect(models.HighSeverity, keppel.SecurityScanPolicy{
 			RepositoryRx:      ".*",
 			VulnerabilityIDRx: "CVE-2019-8457",
 			Action: keppel.SecurityScanPolicyAction{
 				Assessment: "we accept the risk",
-				Severity:   trivy.LowSeverity,
+				Severity:   models.LowSeverity,
 			},
 		})
 
 		// test Action.Ignore -> same result
-		expect(trivy.HighSeverity, keppel.SecurityScanPolicy{
+		expect(models.HighSeverity, keppel.SecurityScanPolicy{
 			RepositoryRx:      ".*",
 			VulnerabilityIDRx: "CVE-2019-8457",
 			Action: keppel.SecurityScanPolicyAction{
@@ -718,40 +718,40 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 		})
 
 		// test RepositoryRx
-		expect(trivy.CriticalSeverity, keppel.SecurityScanPolicy{
+		expect(models.CriticalSeverity, keppel.SecurityScanPolicy{
 			RepositoryRx:      "bar", // does not match our test repo
 			VulnerabilityIDRx: "CVE-2019-8457",
 			Action: keppel.SecurityScanPolicyAction{
 				Assessment: "we accept the risk",
-				Severity:   trivy.LowSeverity,
+				Severity:   models.LowSeverity,
 			},
 		})
 
 		// test NegativeRepositoryRx
-		expect(trivy.CriticalSeverity, keppel.SecurityScanPolicy{
+		expect(models.CriticalSeverity, keppel.SecurityScanPolicy{
 			RepositoryRx:         ".*",
 			NegativeRepositoryRx: "foo", // matches our test repo
 			VulnerabilityIDRx:    "CVE-2019-8457",
 			Action: keppel.SecurityScanPolicyAction{
 				Assessment: "we accept the risk",
-				Severity:   trivy.LowSeverity,
+				Severity:   models.LowSeverity,
 			},
 		})
 
 		// test NegativeVulnerabilityIDRx
-		expect(trivy.CriticalSeverity, keppel.SecurityScanPolicy{
+		expect(models.CriticalSeverity, keppel.SecurityScanPolicy{
 			RepositoryRx:              ".*",
 			VulnerabilityIDRx:         ".*",
 			NegativeVulnerabilityIDRx: "CVE-2019-8457",
 			Action: keppel.SecurityScanPolicyAction{
 				Assessment: "we accept the risk",
-				Severity:   trivy.LowSeverity,
+				Severity:   models.LowSeverity,
 			},
 		})
 
 		// test ExceptFixReleased on its own (the highest vulnerability with a
 		// released fix is "High")
-		expect(trivy.HighSeverity, keppel.SecurityScanPolicy{
+		expect(models.HighSeverity, keppel.SecurityScanPolicy{
 			RepositoryRx:      ".*",
 			VulnerabilityIDRx: ".*",
 			ExceptFixReleased: true,
@@ -763,7 +763,7 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 
 		// test ExceptFixReleased together with an ignore of all high-severity fixed
 		// vulns (the next highest vulnerability with a released fix is "Medium")
-		expect(trivy.MediumSeverity,
+		expect(models.MediumSeverity,
 			keppel.SecurityScanPolicy{
 				RepositoryRx:      ".*",
 				VulnerabilityIDRx: ".*",
@@ -778,7 +778,7 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 				VulnerabilityIDRx: "CVE-2022-29458", // matches vulnerabilities in multiple packages
 				Action: keppel.SecurityScanPolicyAction{
 					Assessment: "will fix tomorrow, I swear",
-					Severity:   trivy.LowSeverity,
+					Severity:   models.LowSeverity,
 				},
 			},
 		)
@@ -805,6 +805,6 @@ func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
 		tr.DBChanges().AssertEqualf(`
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
 			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = %[3]d, checked_at = %[4]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[5]s';
-		`, image.Layers[0].Digest, trivy.RottenVulnerabilityStatus, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
+		`, image.Layers[0].Digest, models.RottenVulnerabilityStatus, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
 	})
 }

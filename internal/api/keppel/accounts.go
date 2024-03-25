@@ -42,6 +42,7 @@ import (
 	"github.com/sapcc/keppel/internal/auth"
 	peerclient "github.com/sapcc/keppel/internal/client/peer"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -57,18 +58,18 @@ type Account struct {
 	RBACPolicies      []keppel.RBACPolicy       `json:"rbac_policies"`
 	ReplicationPolicy *keppel.ReplicationPolicy `json:"replication,omitempty"`
 	ValidationPolicy  *keppel.ValidationPolicy  `json:"validation,omitempty"`
-	PlatformFilter    keppel.PlatformFilter     `json:"platform_filter,omitempty"`
+	PlatformFilter    models.PlatformFilter     `json:"platform_filter,omitempty"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // data conversion/validation functions
 
-func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
-	gcPolicies, err := dbAccount.ParseGCPolicies()
+func (a *API) renderAccount(dbAccount models.Account) (Account, error) {
+	gcPolicies, err := keppel.ParseGCPolicies(dbAccount)
 	if err != nil {
 		return Account{}, err
 	}
-	rbacPolicies, err := dbAccount.ParseRBACPolicies()
+	rbacPolicies, err := keppel.ParseRBACPolicies(dbAccount)
 	if err != nil {
 		return Account{}, err
 	}
@@ -98,7 +99,7 @@ func (a *API) renderAccount(dbAccount keppel.Account) (Account, error) {
 	}, nil
 }
 
-func renderReplicationPolicy(dbAccount keppel.Account) *keppel.ReplicationPolicy {
+func renderReplicationPolicy(dbAccount models.Account) *keppel.ReplicationPolicy {
 	if dbAccount.UpstreamPeerHostName != "" {
 		return &keppel.ReplicationPolicy{
 			Strategy:             "on_first_use",
@@ -120,7 +121,7 @@ func renderReplicationPolicy(dbAccount keppel.Account) *keppel.ReplicationPolicy
 	return nil
 }
 
-func renderValidationPolicy(dbAccount keppel.Account) *keppel.ValidationPolicy {
+func renderValidationPolicy(dbAccount models.Account) *keppel.ValidationPolicy {
 	if dbAccount.RequiredLabels == "" {
 		return nil
 	}
@@ -135,7 +136,7 @@ func renderValidationPolicy(dbAccount keppel.Account) *keppel.ValidationPolicy {
 
 func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts")
-	var accounts []keppel.Account
+	var accounts []models.Account
 	_, err := a.db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
 	if respondwith.ErrorText(w, err) {
 		return
@@ -152,7 +153,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// restrict accounts to those visible in the current scope
-	var accountsFiltered []keppel.Account
+	var accountsFiltered []models.Account
 	for idx, account := range accounts {
 		if authz.ScopeSet.Contains(*scopes[idx]) {
 			accountsFiltered = append(accountsFiltered, account)
@@ -160,7 +161,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 	// ensure that this serializes as a list, not as null
 	if len(accountsFiltered) == 0 {
-		accountsFiltered = []keppel.Account{}
+		accountsFiltered = []models.Account{}
 	}
 
 	// render accounts to JSON
@@ -269,7 +270,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		rbacPoliciesJSONStr = string(rbacPoliciesJSON)
 	}
 
-	accountToCreate := keppel.Account{
+	accountToCreate := models.Account{
 		Name:                     req.Account.Name,
 		AuthTenantID:             req.Account.AuthTenantID,
 		InMaintenance:            req.Account.InMaintenance,
@@ -414,7 +415,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		if req.Account.ReplicationPolicy != nil {
 			rp := *req.Account.ReplicationPolicy
 			if rp.Strategy == "on_first_use" {
-				var peer keppel.Peer
+				var peer models.Peer
 				err := a.db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, rp.UpstreamPeerHostName)
 				if errors.Is(err, sql.ErrNoRows) {
 					http.Error(w, fmt.Sprintf(`unknown peer registry: %q`, rp.UpstreamPeerHostName), http.StatusUnprocessableEntity)
@@ -635,7 +636,7 @@ var (
 	deleteAccountMarkAllBlobsForDeletionQuery = `UPDATE blobs SET can_be_deleted_at = $2 WHERE account_name = $1`
 )
 
-func (a *API) deleteAccount(ctx context.Context, account keppel.Account) (*deleteAccountResponse, error) {
+func (a *API) deleteAccount(ctx context.Context, account models.Account) (*deleteAccountResponse, error) {
 	if !account.InMaintenance {
 		return &deleteAccountResponse{
 			Error: "account must be set in maintenance first",

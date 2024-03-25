@@ -30,6 +30,7 @@ import (
 	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 type federationDriver struct {
@@ -80,14 +81,14 @@ const (
 )
 
 // ClaimAccountName implements the keppel.FederationDriver interface.
-func (d *federationDriver) ClaimAccountName(ctx context.Context, account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (d *federationDriver) ClaimAccountName(ctx context.Context, account models.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	if account.UpstreamPeerHostName != "" {
 		return d.claimReplicaAccount(ctx, account, subleaseTokenSecret)
 	}
 	return d.claimPrimaryAccount(ctx, account, subleaseTokenSecret)
 }
 
-func (d *federationDriver) claimPrimaryAccount(ctx context.Context, account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (d *federationDriver) claimPrimaryAccount(ctx context.Context, account models.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	// defense in depth - the caller should already have verified this
 	if subleaseTokenSecret != "" {
 		return keppel.ClaimFailed, errors.New("cannot check sublease token when claiming a primary account")
@@ -114,7 +115,7 @@ func (d *federationDriver) claimPrimaryAccount(ctx context.Context, account kepp
 	return keppel.ClaimSucceeded, nil
 }
 
-func (d *federationDriver) claimReplicaAccount(ctx context.Context, account keppel.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (d *federationDriver) claimReplicaAccount(ctx context.Context, account models.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	// defense in depth - the caller should already have verified this
 	if subleaseTokenSecret == "" {
 		return keppel.ClaimFailed, errors.New("missing sublease token")
@@ -144,7 +145,7 @@ func (d *federationDriver) claimReplicaAccount(ctx context.Context, account kepp
 }
 
 // IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
-func (d *federationDriver) IssueSubleaseTokenSecret(ctx context.Context, account keppel.Account) (string, error) {
+func (d *federationDriver) IssueSubleaseTokenSecret(ctx context.Context, account models.Account) (string, error) {
 	// defense in depth - the caller should already have verified this
 	if account.UpstreamPeerHostName != "" {
 		return "", errors.New("operation not allowed for replica accounts")
@@ -173,7 +174,7 @@ func (d *federationDriver) IssueSubleaseTokenSecret(ctx context.Context, account
 }
 
 // ForfeitAccountName implements the keppel.FederationDriver interface.
-func (d *federationDriver) ForfeitAccountName(ctx context.Context, account keppel.Account) error {
+func (d *federationDriver) ForfeitAccountName(ctx context.Context, account models.Account) error {
 	// case 1: replica account -> just remove ourselves from the set of replicas
 	if account.UpstreamPeerHostName != "" {
 		return d.rc.SRem(ctx, d.replicasKey(account.Name), d.ownHostname).Err()
@@ -210,7 +211,7 @@ func (d *federationDriver) ForfeitAccountName(ctx context.Context, account keppe
 }
 
 // RecordExistingAccount implements the keppel.FederationDriver interface.
-func (d *federationDriver) RecordExistingAccount(ctx context.Context, account keppel.Account, now time.Time) error {
+func (d *federationDriver) RecordExistingAccount(ctx context.Context, account models.Account, now time.Time) error {
 	// record this account in Redis using idempotent operations (SETNX for primary, SADD for replica)
 	var expectedPrimaryHostname string
 	if account.UpstreamPeerHostName == "" {
@@ -231,7 +232,7 @@ func (d *federationDriver) RecordExistingAccount(ctx context.Context, account ke
 	return d.validatePrimaryHostname(ctx, account, expectedPrimaryHostname)
 }
 
-func (d *federationDriver) validatePrimaryHostname(ctx context.Context, account keppel.Account, expectedPrimaryHostname string) error {
+func (d *federationDriver) validatePrimaryHostname(ctx context.Context, account models.Account, expectedPrimaryHostname string) error {
 	// Inconsistencies can arise since we have multiple sources of truth in the
 	// Keppels' own database and in the shared Redis. These inconsistencies are
 	// incredibly unlikely, however, so making this driver more complicated to

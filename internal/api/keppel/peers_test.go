@@ -24,7 +24,7 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 
-	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
 )
 
@@ -47,7 +47,7 @@ func TestPeersAPI(t *testing.T) {
 		{"hostname": "keppel.example.org"},
 	}
 	for _, peer := range expectedPeers {
-		err := s.DB.Insert(&keppel.Peer{HostName: peer["hostname"].(string)})
+		err := s.DB.Insert(&models.Peer{HostName: peer["hostname"].(string)})
 		if err != nil {
 			t.Fatal(err)
 		}

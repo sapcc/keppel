@@ -21,9 +21,9 @@ package basic
 import (
 	"testing"
 
-	"github.com/sapcc/keppel/internal/keppel"
-
 	"github.com/sapcc/go-bits/assert"
+
+	"github.com/sapcc/keppel/internal/models"
 )
 
 func TestAccountManagementDriver(t *testing.T) {
@@ -37,7 +37,7 @@ func TestAccountManagementDriver(t *testing.T) {
 	}
 	assert.DeepEqual(t, "account", listOfAccounts, []string{"abcde"})
 
-	account := keppel.Account{
+	account := models.Account{
 		IsManaged:    true,
 		Name:         "abcde",
 		AuthTenantID: "1245",
@@ -47,7 +47,7 @@ func TestAccountManagementDriver(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	expectedAccount := keppel.Account{
+	expectedAccount := models.Account{
 		Name:                     "abcde",
 		AuthTenantID:             "1245",
 		ExternalPeerURL:          "registry-tertiary.example.org",

@@ -27,7 +27,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 
-	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 var accountAnnouncementSearchQuery = sqlext.SimplifyWhitespace(`
@@ -48,7 +48,7 @@ var accountAnnouncementDoneQuery = sqlext.SimplifyWhitespace(`
 // no accounts need to be announced, sql.ErrNoRows is returned to instruct the
 // caller to slow down.
 func (j *Janitor) AccountFederationAnnouncementJob(registerer prometheus.Registerer) jobloop.Job { //nolint: dupl // interface implementation of different things
-	return (&jobloop.ProducerConsumerJob[keppel.Account]{
+	return (&jobloop.ProducerConsumerJob[models.Account]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "account federation announcement",
 			CounterOpts: prometheus.CounterOpts{
@@ -56,7 +56,7 @@ func (j *Janitor) AccountFederationAnnouncementJob(registerer prometheus.Registe
 				Help: "Counter for announcements of existing accounts to the federation driver.",
 			},
 		},
-		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (account keppel.Account, err error) {
+		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (account models.Account, err error) {
 			err = j.db.SelectOne(&account, accountAnnouncementSearchQuery, j.timeNow())
 			return account, err
 		},
@@ -64,7 +64,7 @@ func (j *Janitor) AccountFederationAnnouncementJob(registerer prometheus.Registe
 	}).Setup(registerer)
 }
 
-func (j *Janitor) announceAccountToFederation(ctx context.Context, account keppel.Account, labels prometheus.Labels) error {
+func (j *Janitor) announceAccountToFederation(ctx context.Context, account models.Account, labels prometheus.Labels) error {
 	err := j.fd.RecordExistingAccount(ctx, account, j.timeNow())
 	if err != nil {
 		// since the announcement is not critical for day-to-day operation, we

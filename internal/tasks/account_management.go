@@ -22,7 +22,6 @@ import (
 	"context"
 	"database/sql"
 	"slices"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/jobloop"
@@ -69,6 +68,5 @@ func (j *Janitor) discoverAccountsToCreate(_ context.Context, _ prometheus.Label
 }
 
 func (j *Janitor) createNewAccounts(ctx context.Context, accounts []string, labels prometheus.Labels) error {
-	_, err = j.db.Exec(accountAnnouncementDoneQuery, account.Name, j.timeNow().Add(j.addJitter(1*time.Hour)))
-	return err
+	return nil
 }

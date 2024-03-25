@@ -31,6 +31,7 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 var (
@@ -39,8 +40,8 @@ var (
 )
 
 func TestDeleteAbandonedUploadWithZeroChunks(t *testing.T) {
-	testDeleteUpload(t, func(sd keppel.StorageDriver, account keppel.Account) keppel.Upload {
-		return keppel.Upload{
+	testDeleteUpload(t, func(sd keppel.StorageDriver, account models.Account) models.Upload {
+		return models.Upload{
 			SizeBytes: 0,
 			Digest:    "",
 			NumChunks: 0,
@@ -49,14 +50,14 @@ func TestDeleteAbandonedUploadWithZeroChunks(t *testing.T) {
 }
 
 func TestDeleteAbandonedUploadWithOneChunk(t *testing.T) {
-	testDeleteUpload(t, func(sd keppel.StorageDriver, account keppel.Account) keppel.Upload {
+	testDeleteUpload(t, func(sd keppel.StorageDriver, account models.Account) models.Upload {
 		data := "just some test data"
 		err := sd.AppendToBlob(account, testStorageID, 1, p2len(data), strings.NewReader(data))
 		if err != nil {
 			t.Fatal(err.Error())
 		}
 
-		return keppel.Upload{
+		return models.Upload{
 			SizeBytes: uint64(len(data)),
 			Digest:    sha256Of([]byte(data)),
 			NumChunks: 1,
@@ -65,7 +66,7 @@ func TestDeleteAbandonedUploadWithOneChunk(t *testing.T) {
 }
 
 func TestDeleteAbandonedUploadWithManyChunks(t *testing.T) {
-	testDeleteUpload(t, func(sd keppel.StorageDriver, account keppel.Account) keppel.Upload {
+	testDeleteUpload(t, func(sd keppel.StorageDriver, account models.Account) models.Upload {
 		chunks := []string{"just", "some", "test", "data"}
 		for idx, data := range chunks {
 			err := sd.AppendToBlob(account, testStorageID, uint32(idx+1), p2len(data), strings.NewReader(data))
@@ -75,7 +76,7 @@ func TestDeleteAbandonedUploadWithManyChunks(t *testing.T) {
 		}
 
 		fullData := strings.Join(chunks, "")
-		return keppel.Upload{
+		return models.Upload{
 			SizeBytes: uint64(len(fullData)),
 			Digest:    sha256Of([]byte(fullData)),
 			NumChunks: 1,
@@ -83,9 +84,9 @@ func TestDeleteAbandonedUploadWithManyChunks(t *testing.T) {
 	})
 }
 
-func testDeleteUpload(t *testing.T, setupUploadObject func(keppel.StorageDriver, keppel.Account) keppel.Upload) {
+func testDeleteUpload(t *testing.T, setupUploadObject func(keppel.StorageDriver, models.Account) models.Upload) {
 	j, s := setup(t)
-	account := keppel.Account{Name: "test1"}
+	account := models.Account{Name: "test1"}
 	uploadJob := j.AbandonedUploadCleanupJob(s.Registry)
 
 	// right now, there are no upload objects, so DeleteNextAbandonedUpload should indicate that

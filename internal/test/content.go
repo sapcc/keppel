@@ -33,7 +33,6 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/assert"
 
-	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 )
 
@@ -247,7 +246,7 @@ func (i Image) DigestRef() models.ManifestReference {
 }
 
 // ImageRef returns the ImageReference for this images.
-func (i Image) ImageRef(s Setup, repo keppel.Repository) models.ImageReference {
+func (i Image) ImageRef(s Setup, repo models.Repository) models.ImageReference {
 	return models.ImageReference{
 		Host:      s.Config.APIPublicHostname,
 		RepoName:  fmt.Sprintf("%s/%s", repo.AccountName, repo.Name),
@@ -313,7 +312,7 @@ func (l ImageList) DigestRef() models.ManifestReference {
 }
 
 // ImageRef returns the ImageReference for this ImageList.
-func (l ImageList) ImageRef(s Setup, repo keppel.Repository) models.ImageReference {
+func (l ImageList) ImageRef(s Setup, repo models.Repository) models.ImageReference {
 	return models.ImageReference{
 		Host:      s.Config.APIPublicHostname,
 		RepoName:  fmt.Sprintf("%s/%s", repo.AccountName, repo.Name),
