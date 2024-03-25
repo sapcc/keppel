@@ -387,7 +387,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		// sublease tokens are only relevant when creating replica accounts
 		subleaseTokenSecret := ""
 		if accountToCreate.UpstreamPeerHostName != "" {
-			subleaseToken, err := SubleaseTokenFromRequest(r)
+			subleaseToken, err := keppel.SubleaseTokenFromRequest(r.Header.Get(keppel.SubleaseHeader))
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -734,7 +734,7 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	st := SubleaseToken{
+	st := keppel.SubleaseToken{
 		AccountName:     account.Name,
 		PrimaryHostname: a.cfg.APIPublicHostname,
 	}
