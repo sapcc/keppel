@@ -51,9 +51,9 @@ import (
 type Account struct {
 	Name              string                    `json:"name"`
 	AuthTenantID      string                    `json:"auth_tenant_id"`
+	GCPolicies        []keppel.GCPolicy         `json:"gc_policies,omitempty"`
 	InMaintenance     bool                      `json:"in_maintenance"`
 	Metadata          map[string]string         `json:"metadata"`
-	GCPolicies        []keppel.GCPolicy         `json:"gc_policies,omitempty"`
 	RBACPolicies      []keppel.RBACPolicy       `json:"rbac_policies"`
 	ReplicationPolicy *keppel.ReplicationPolicy `json:"replication,omitempty"`
 	ValidationPolicy  *keppel.ValidationPolicy  `json:"validation,omitempty"`
@@ -198,16 +198,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
 	// decode request body
 	var req struct {
-		Account struct {
-			AuthTenantID      string                    `json:"auth_tenant_id"`
-			GCPolicies        []keppel.GCPolicy         `json:"gc_policies"`
-			InMaintenance     bool                      `json:"in_maintenance"`
-			Metadata          map[string]string         `json:"metadata"`
-			RBACPolicies      []keppel.RBACPolicy       `json:"rbac_policies"`
-			ReplicationPolicy *keppel.ReplicationPolicy `json:"replication"`
-			ValidationPolicy  *keppel.ValidationPolicy  `json:"validation"`
-			PlatformFilter    keppel.PlatformFilter     `json:"platform_filter"`
-		} `json:"account"`
+		Account Account `json:"account"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
@@ -216,6 +207,14 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "request body is not valid JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	// we do not allow to set name in the request body ...
+	if req.Account.Name != "" {
+		http.Error(w, `malformed attribute "account.name" in request body is no allowed here`, http.StatusUnprocessableEntity)
+		return
+	}
+	// ... transfer it here into the struct, to make the below code simpler
+	req.Account.Name = mux.Vars(r)["account"]
+
 	if err := a.authDriver.ValidateTenantID(req.Account.AuthTenantID); err != nil {
 		http.Error(w, `malformed attribute "account.auth_tenant_id" in request body: `+err.Error(), http.StatusUnprocessableEntity)
 		return
@@ -226,12 +225,11 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	// APIs (we will soon start recognizing image-like URLs such as
 	// keppel.example.org/account/repo and offer redirection to a suitable UI;
 	// this requires the account name to not overlap with API endpoint paths)
-	accountName := mux.Vars(r)["account"]
-	if strings.HasPrefix(accountName, "keppel") {
+	if strings.HasPrefix(req.Account.Name, "keppel") {
 		http.Error(w, `account names with the prefix "keppel" are reserved for internal use`, http.StatusUnprocessableEntity)
 		return
 	}
-	if looksLikeAPIVersionRx.MatchString(accountName) {
+	if looksLikeAPIVersionRx.MatchString(req.Account.Name) {
 		http.Error(w, `account names that look like API versions are reserved for internal use`, http.StatusUnprocessableEntity)
 		return
 	}
@@ -272,7 +270,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accountToCreate := keppel.Account{
-		Name:                     accountName,
+		Name:                     req.Account.Name,
 		AuthTenantID:             req.Account.AuthTenantID,
 		InMaintenance:            req.Account.InMaintenance,
 		MetadataJSON:             metadataJSONStr,
@@ -322,7 +320,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check if account already exists
-	account, err := keppel.FindAccount(a.db, accountName)
+	account, err := keppel.FindAccount(a.db, req.Account.Name)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
