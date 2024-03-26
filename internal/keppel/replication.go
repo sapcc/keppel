@@ -85,6 +85,7 @@ func (r *ReplicationPolicy) UnmarshalJSON(buf []byte) error {
 	}
 }
 
+// ApplyToAccount validates this policy and stores it in the given account model.
 func (r ReplicationPolicy) ApplyToAccount(db *DB, dbAccount *models.Account) *RegistryV2Error {
 	switch r.Strategy {
 	case "on_first_use":
@@ -94,18 +95,21 @@ func (r ReplicationPolicy) ApplyToAccount(db *DB, dbAccount *models.Account) *Re
 		}
 
 		if peerCount == 0 {
-			return AsRegistryV2Error(fmt.Errorf(`unknown peer registry: %q`, r.UpstreamPeerHostName)).WithStatus(http.StatusUnprocessableEntity)
+			err := fmt.Errorf(`unknown peer registry: %q`, r.UpstreamPeerHostName)
+			return AsRegistryV2Error(err).WithStatus(http.StatusUnprocessableEntity)
 		}
 		dbAccount.UpstreamPeerHostName = r.UpstreamPeerHostName
 	case "from_external_on_first_use":
 		if r.ExternalPeer.URL == "" {
-			return AsRegistryV2Error(errors.New(`missing upstream URL for "from_external_on_first_use" replication`)).WithStatus(http.StatusUnprocessableEntity)
+			err := errors.New(`missing upstream URL for "from_external_on_first_use" replication`)
+			return AsRegistryV2Error(err).WithStatus(http.StatusUnprocessableEntity)
 		}
 		dbAccount.ExternalPeerURL = r.ExternalPeer.URL
 		dbAccount.ExternalPeerUserName = r.ExternalPeer.UserName
 		dbAccount.ExternalPeerPassword = r.ExternalPeer.Password
 	default:
-		return AsRegistryV2Error(fmt.Errorf("strategy %s is unsupported", r.Strategy)).WithStatus(http.StatusUnprocessableEntity)
+		err := fmt.Errorf("strategy %s is unsupported", r.Strategy)
+		return AsRegistryV2Error(err).WithStatus(http.StatusUnprocessableEntity)
 	}
 
 	return nil
