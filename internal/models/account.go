@@ -65,6 +65,7 @@ func (a Account) SwiftContainerName() string {
 	return "keppel-" + a.Name
 }
 
+// SplitRequiredLabels parses the RequiredLabels field.
 func (a Account) SplitRequiredLabels() []string {
 	return strings.Split(a.RequiredLabels, ",")
 }

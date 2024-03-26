@@ -94,7 +94,7 @@ func (a *API) renderAccount(dbAccount models.Account) (Account, error) {
 		Metadata:          metadata,
 		RBACPolicies:      rbacPolicies,
 		ReplicationPolicy: renderReplicationPolicy(dbAccount),
-		ValidationPolicy:  renderValidationPolicy(dbAccount),
+		ValidationPolicy:  keppel.RenderValidationPolicy(dbAccount),
 		PlatformFilter:    dbAccount.PlatformFilter,
 	}, nil
 }
@@ -119,16 +119,6 @@ func renderReplicationPolicy(dbAccount models.Account) *keppel.ReplicationPolicy
 	}
 
 	return nil
-}
-
-func renderValidationPolicy(dbAccount models.Account) *keppel.ValidationPolicy {
-	if dbAccount.RequiredLabels == "" {
-		return nil
-	}
-
-	return &keppel.ValidationPolicy{
-		RequiredLabels: dbAccount.SplitRequiredLabels(),
-	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -294,15 +284,11 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 
 	// validate validation policy
 	if req.Account.ValidationPolicy != nil {
-		vp := *req.Account.ValidationPolicy
-		for _, label := range vp.RequiredLabels {
-			if strings.Contains(label, ",") {
-				http.Error(w, fmt.Sprintf(`invalid label name: %q`, label), http.StatusUnprocessableEntity)
-				return
-			}
+		rerr := req.Account.ValidationPolicy.ApplyToAccount(&accountToCreate)
+		if rerr != nil {
+			rerr.WriteAsTextTo(w)
+			return
 		}
-
-		accountToCreate.RequiredLabels = vp.JoinRequiredLabels()
 	}
 
 	// validate platform filter
