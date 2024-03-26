@@ -1176,6 +1176,24 @@ func TestPutAccountErrorCases(t *testing.T) {
 				}},
 			},
 		},
+		ExpectStatus: http.StatusConflict,
+		ExpectBody:   assert.StringData("cannot change platform filter on existing account\n"),
+	}.Check(t, h)
+
+	// test unexpected platform filter on new primary account
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/third",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"platform_filter": []assert.JSONObject{{
+					"os":           "linux",
+					"architecture": "amd64",
+				}},
+			},
+		},
 		ExpectStatus: http.StatusUnprocessableEntity,
 		ExpectBody:   assert.StringData("platform filter is only allowed on replica accounts\n"),
 	}.Check(t, h)
@@ -2222,7 +2240,7 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 				},
 			},
 			ExpectStatus: http.StatusConflict,
-			ExpectBody:   assert.StringData("peer account filter needs to match primary account filter: primary account [{\"architecture\":\"arm64\",\"os\":\"linux\",\"variant\":\"v8\"}], peer account [{\"architecture\":\"amd64\",\"os\":\"linux\"}] \n"),
+			ExpectBody:   assert.StringData("peer account filter needs to match primary account filter: local account [{\"architecture\":\"arm64\",\"os\":\"linux\",\"variant\":\"v8\"}], peer account [{\"architecture\":\"amd64\",\"os\":\"linux\"}] \n"),
 		}.Check(t, s2.Handler)
 	})
 }

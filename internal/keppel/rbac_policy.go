@@ -80,7 +80,7 @@ func (r RBACPolicy) Matches(ip, repoName, userName string) bool {
 
 // ValidateAndNormalize performs some normalizations and returns an error if
 // this policy is invalid.
-func (r *RBACPolicy) ValidateAndNormalize() error {
+func (r *RBACPolicy) ValidateAndNormalize(strategy ReplicationStrategy) error {
 	if r.CidrPattern != "" {
 		_, network, err := net.ParseCIDR(r.CidrPattern)
 		if err != nil {
@@ -118,6 +118,9 @@ func (r *RBACPolicy) ValidateAndNormalize() error {
 	}
 	if hasPerm[GrantsDelete] && r.UserNamePattern == "" {
 		return errors.New(`RBAC policy with "delete" must have the "match_username" attribute`)
+	}
+	if hasPerm[GrantsAnonymousFirstPull] && strategy != FromExternalOnFirstUseStrategy {
+		return errors.New(`RBAC policy with "anonymous_first_pull" may only be for external replica accounts`)
 	}
 
 	return nil

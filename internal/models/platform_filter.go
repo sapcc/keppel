@@ -83,3 +83,17 @@ func (f PlatformFilter) Includes(platform manifestlist.PlatformSpec) bool {
 	}
 	return false
 }
+
+// IsEqualTo checks whether both filters are equal.
+func (f PlatformFilter) IsEqualTo(other PlatformFilter) bool {
+	if len(f) != len(other) {
+		return false
+	}
+
+	for idx, p := range f {
+		if !reflect.DeepEqual(p, other[idx]) {
+			return false
+		}
+	}
+	return true
+}
