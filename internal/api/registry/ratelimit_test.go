@@ -107,7 +107,7 @@ func TestRateLimits(t *testing.T) {
 			}
 
 			// then the next request should be rate-limited
-			failingReq := req //nolint:copyloopvar
+			failingReq := req
 			failingReq.ExpectBody = test.ErrorCode(keppel.ErrTooManyRequests)
 			failingReq.ExpectStatus = http.StatusTooManyRequests
 			failingReq.ExpectHeader = map[string]string{
