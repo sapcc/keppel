@@ -1291,8 +1291,8 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			Method: "PUT",
 			Path:   "/keppel/v1/accounts/first",
 			Header: map[string]string{
-				"X-Test-Perms":            "change:tenant1",
-				"X-Keppel-Sublease-Token": makeSubleaseToken("first", "registry.example.org", "not-the-valid-token"),
+				"X-Test-Perms":        "change:tenant1",
+				keppel.SubleaseHeader: makeSubleaseToken("first", "registry.example.org", "not-the-valid-token"),
 			},
 			Body: assert.JSONObject{
 				"account": assert.JSONObject{
@@ -1312,8 +1312,8 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			Method: "PUT",
 			Path:   "/keppel/v1/accounts/first",
 			Header: map[string]string{
-				"X-Test-Perms":            "change:tenant1",
-				"X-Keppel-Sublease-Token": makeSubleaseToken("first", "registry.example.org", "valid-token"),
+				"X-Test-Perms":        "change:tenant1",
+				keppel.SubleaseHeader: makeSubleaseToken("first", "registry.example.org", "valid-token"),
 			},
 			Body: assert.JSONObject{
 				"account": assert.JSONObject{
@@ -2137,8 +2137,8 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 			Method: "PUT",
 			Path:   "/keppel/v1/accounts/first",
 			Header: map[string]string{
-				"X-Test-Perms":            "change:tenant1",
-				"X-Keppel-Sublease-Token": makeSubleaseToken("first", "registry.example.org", "valid-token"),
+				"X-Test-Perms":        "change:tenant1",
+				keppel.SubleaseHeader: makeSubleaseToken("first", "registry.example.org", "valid-token"),
 			},
 			Body: assert.JSONObject{
 				"account": assert.JSONObject{
@@ -2171,8 +2171,8 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 			Method: "PUT",
 			Path:   "/keppel/v1/accounts/second",
 			Header: map[string]string{
-				"X-Test-Perms":            "change:tenant1",
-				"X-Keppel-Sublease-Token": makeSubleaseToken("second", "registry.example.org", "valid-token"),
+				"X-Test-Perms":        "change:tenant1",
+				keppel.SubleaseHeader: makeSubleaseToken("second", "registry.example.org", "valid-token"),
 			},
 			Body: assert.JSONObject{
 				"account": assert.JSONObject{
@@ -2209,8 +2209,8 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 			Method: "PUT",
 			Path:   "/keppel/v1/accounts/third",
 			Header: map[string]string{
-				"X-Test-Perms":            "change:tenant1",
-				"X-Keppel-Sublease-Token": makeSubleaseToken("third", "registry.example.org", "valid-token"),
+				"X-Test-Perms":        "change:tenant1",
+				keppel.SubleaseHeader: makeSubleaseToken("third", "registry.example.org", "valid-token"),
 			},
 			Body: assert.JSONObject{
 				"account": assert.JSONObject{
