@@ -27,40 +27,6 @@ import (
 	"github.com/sapcc/keppel/internal/models"
 )
 
-// AuditAccount is an audittools.TargetRenderer.
-type AuditAccount struct {
-	Account models.Account
-}
-
-// Render implements the audittools.TargetRenderer interface.
-func (a AuditAccount) Render() cadf.Resource {
-	res := cadf.Resource{
-		TypeURI:   "docker-registry/account",
-		ID:        a.Account.Name,
-		ProjectID: a.Account.AuthTenantID,
-	}
-
-	gcPoliciesJSON := a.Account.GCPoliciesJSON
-	if gcPoliciesJSON != "" && gcPoliciesJSON != "[]" {
-		res.Attachments = append(res.Attachments, cadf.Attachment{
-			Name:    "gc-policies",
-			TypeURI: "mime:application/json",
-			Content: a.Account.GCPoliciesJSON,
-		})
-	}
-
-	rbacPoliciesJSON := a.Account.RBACPoliciesJSON
-	if rbacPoliciesJSON != "" && rbacPoliciesJSON != "[]" {
-		res.Attachments = append(res.Attachments, cadf.Attachment{
-			Name:    "rbac-policies",
-			TypeURI: "mime:application/json",
-			Content: a.Account.RBACPoliciesJSON,
-		})
-	}
-
-	return res
-}
-
 // AuditQuotas is an audittools.TargetRenderer.
 type AuditQuotas struct {
 	QuotasBefore models.Quotas
