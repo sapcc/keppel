@@ -182,8 +182,9 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	// ... transfer it here into the struct, to make the below code simpler
 	req.Account.Name = mux.Vars(r)["account"]
 
-	if err := a.authDriver.ValidateTenantID(req.Account.AuthTenantID); err != nil {
-		http.Error(w, `malformed attribute "account.auth_tenant_id" in request body: `+err.Error(), http.StatusUnprocessableEntity)
+	// check permission to create account
+	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanChangeAccount, req.Account.AuthTenantID))
+	if authz == nil {
 		return
 	}
 
@@ -198,12 +199,6 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	if looksLikeAPIVersionRx.MatchString(req.Account.Name) {
 		http.Error(w, `account names that look like API versions are reserved for internal use`, http.StatusUnprocessableEntity)
-		return
-	}
-
-	// check permission to create account
-	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanChangeAccount, req.Account.AuthTenantID))
-	if authz == nil {
 		return
 	}
 

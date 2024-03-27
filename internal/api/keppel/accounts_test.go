@@ -585,19 +585,6 @@ func TestPutAccountErrorCases(t *testing.T) {
 
 	assert.HTTPRequest{
 		Method: "PUT",
-		Path:   "/keppel/v1/accounts/second",
-		Header: map[string]string{"X-Test-Perms": "change:invalid"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "invalid",
-			},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("malformed attribute \"account.auth_tenant_id\" in request body: must not be \"invalid\"\n"),
-	}.Check(t, h)
-
-	assert.HTTPRequest{
-		Method: "PUT",
 		Path:   "/keppel/v1/accounts/keppel-api",
 		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
 		Body: assert.JSONObject{

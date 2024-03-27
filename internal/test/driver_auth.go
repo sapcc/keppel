@@ -22,7 +22,6 @@ package test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strings"
 
@@ -52,14 +51,6 @@ func (d *AuthDriver) PluginTypeID() string {
 
 // Init implements the keppel.AuthDriver interface.
 func (d *AuthDriver) Init(rc *redis.Client) error {
-	return nil
-}
-
-// ValidateTenantID implements the keppel.AuthDriver interface.
-func (d *AuthDriver) ValidateTenantID(tenantID string) error {
-	if tenantID == "invalid" {
-		return errors.New(`must not be "invalid"`)
-	}
 	return nil
 }
 

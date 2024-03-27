@@ -47,7 +47,7 @@ func (uid *userIdentity) PluginTypeID() string {
 }
 
 func (uid *userIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
-	return true
+	return tenantID != ""
 }
 
 func (uid *userIdentity) UserInfo() audittools.UserInfo {
@@ -103,8 +103,4 @@ func (d *AuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.UserId
 	}
 
 	return &userIdentity{Username: d.userName}, nil
-}
-
-func (d *AuthDriver) ValidateTenantID(tenantID string) error {
-	return nil
 }

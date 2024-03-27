@@ -60,13 +60,6 @@ type AuthDriver interface {
 	// for caching authorizations, but only if it is non-nil.
 	Init(*redis.Client) error
 
-	// ValidateTenantID checks if the given string is a valid tenant ID. If so,
-	// nil shall be returned. If not, the returned error shall explain why the ID
-	// is not valid. The driver implementor can decide how thorough this check
-	// shall be: It can be anything from "is not empty" to "matches regex" to
-	// "exists in the auth database".
-	ValidateTenantID(tenantID string) error
-
 	// AuthenticateUser authenticates the user identified by the given username
 	// and password. Note that usernames may not contain colons, because
 	// credentials are encoded by clients in the "username:password" format.

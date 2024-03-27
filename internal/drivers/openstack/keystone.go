@@ -107,14 +107,6 @@ func (d *keystoneDriver) Init(rc *redis.Client) error {
 	return nil
 }
 
-// ValidateTenantID implements the keppel.AuthDriver interface.
-func (d *keystoneDriver) ValidateTenantID(tenantID string) error {
-	if tenantID == "" {
-		return errors.New("may not be empty")
-	}
-	return nil
-}
-
 // AuthenticateUser implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) AuthenticateUser(ctx context.Context, userName, password string) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	authOpts, rerr := parseUserNameAndPassword(userName, password)
@@ -254,6 +246,10 @@ func (a *keystoneUserIdentity) UserName() string {
 
 // HasPermission implements the keppel.UserIdentity interface.
 func (a *keystoneUserIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
+	if tenantID == "" {
+		return false
+	}
+
 	a.t.Context.Request["target.project.id"] = tenantID
 	logg.Debug("token has object attributes = %v", a.t.Context.Request)
 
