@@ -10,14 +10,13 @@ github.com/alicebob/miniredis/v2/hyperloglog
 github.com/alicebob/miniredis/v2/metro
 github.com/alicebob/miniredis/v2/server
 github.com/alicebob/miniredis/v2/size
-# github.com/anchore/go-struct-converter v0.0.0-20221118182256-c68fdcfa2092
-## explicit; go 1.18
-github.com/anchore/go-struct-converter
-# github.com/aquasecurity/trivy v0.49.1
+# github.com/aquasecurity/trivy v0.50.1
 ## explicit; go 1.21
 github.com/aquasecurity/trivy/pkg/digest
 github.com/aquasecurity/trivy/pkg/fanal/types
+github.com/aquasecurity/trivy/pkg/sbom/core
 github.com/aquasecurity/trivy/pkg/types
+github.com/aquasecurity/trivy/pkg/uuid
 # github.com/aquasecurity/trivy-db v0.0.0-20231005141211-4fc651f7ac8d
 ## explicit; go 1.19
 github.com/aquasecurity/trivy-db/pkg/types
@@ -71,6 +70,9 @@ github.com/golang-migrate/migrate/v4/source/go_bindata
 ## explicit; go 1.18
 github.com/google/go-containerregistry/pkg/v1
 github.com/google/go-containerregistry/pkg/v1/types
+# github.com/google/uuid v1.6.0
+## explicit
+github.com/google/uuid
 # github.com/gophercloud/gophercloud v1.11.0
 ## explicit; go 1.14
 github.com/gophercloud/gophercloud
@@ -200,12 +202,6 @@ github.com/sapcc/go-bits/sqlext
 # github.com/sergi/go-diff v1.3.1
 ## explicit; go 1.12
 github.com/sergi/go-diff/diffmatchpatch
-# github.com/spdx/tools-golang v0.5.4-0.20231108154018-0c0f394b5e1a
-## explicit; go 1.13
-github.com/spdx/tools-golang/json/marshal
-github.com/spdx/tools-golang/spdx
-github.com/spdx/tools-golang/spdx/v2/common
-github.com/spdx/tools-golang/spdx/v2/v2_3
 # github.com/spf13/cobra v1.8.0
 ## explicit; go 1.15
 github.com/spf13/cobra
