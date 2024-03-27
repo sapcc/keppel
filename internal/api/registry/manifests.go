@@ -209,8 +209,8 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				if authz.UserIdentity.UserType() == keppel.AnonymousUser {
 					userNameDisplay = "<anonymous>"
 				}
-				logg.Info("last_pulled_at timestamp of manifest %s@%s got updated by more than 7 days by user %q",
-					repo.FullName(), dbManifest.Digest, userNameDisplay)
+				logg.Info("last_pulled_at timestamp of manifest %s@%s got updated by more than 7 days by user %q, user agent %q",
+					repo.FullName(), dbManifest.Digest, userNameDisplay, r.Header.Get("User-Agent"))
 			}
 		} else {
 			logg.Error("could not update last_pulled_at timestamp on manifest %s@%s: %s", repo.FullName(), dbManifest.Digest, err.Error())
