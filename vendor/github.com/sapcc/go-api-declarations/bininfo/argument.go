@@ -28,7 +28,7 @@ func HandleVersionArgument() {
 	args := os.Args[1:]
 	if len(args) > 0 {
 		if args[0] == "--version" {
-			fmt.Printf("%s version %s", binName, version)
+			fmt.Printf("%s version %s\n", binName, version)
 			os.Exit(0)
 		}
 	}
