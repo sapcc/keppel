@@ -31,12 +31,13 @@ import (
 // URLParts contains the arguments for func URLFrom(), see documentation over
 // there.
 type URLParts struct {
-	HostName          string // required
-	Port              string // optional (default value = 5432 for postgres:// scheme)
-	UserName          string // required
-	Password          string // optional
-	ConnectionOptions string // optional
-	DatabaseName      string // required
+	HostName               string            // required
+	Port                   string            // optional (default value = 5432 for postgres:// scheme)
+	UserName               string            // required
+	Password               string            // optional
+	ConnectionOptions      string            // optional (usually used for options coming in via config)
+	ExtraConnectionOptions map[string]string // optional (usually used for options coming in via code)
+	DatabaseName           string            // required
 }
 
 // This will be modified during unit tests to replace os.Hostname() with a test double.
@@ -63,11 +64,16 @@ func URLFrom(parts URLParts) (*url.URL, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse DB connection options (%q): %w", parts.ConnectionOptions, err)
 	}
+
 	hostname, err := osHostname()
 	if err == nil {
 		connOpts.Set("application_name", fmt.Sprintf("%s@%s", bininfo.Component(), hostname))
 	} else {
 		connOpts.Set("application_name", bininfo.Component())
+	}
+
+	for k, v := range parts.ExtraConnectionOptions {
+		connOpts.Set(k, v)
 	}
 
 	result := url.URL{
