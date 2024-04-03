@@ -25,6 +25,8 @@ import (
 	"net/http"
 )
 
+const SubleaseHeader = "X-Keppel-Sublease-Token"
+
 // SubleaseToken is the internal structure of a sublease token. Only the secret
 // is passed on to the federation driver. The other attributes are only
 // informational. GUIs/CLIs can display these data to the user for confirmation
@@ -51,13 +53,13 @@ func SubleaseTokenFromRequest(r *http.Request) (SubleaseToken, error) {
 
 	buf, err := base64.StdEncoding.DecodeString(in)
 	if err != nil {
-		return SubleaseToken{}, fmt.Errorf("malformed X-Keppel-Sublease-Token header: %s", err.Error())
+		return SubleaseToken{}, fmt.Errorf("malformed %s header: %w", SubleaseHeader, err)
 	}
 
 	var t SubleaseToken
 	err = json.Unmarshal(buf, &t)
 	if err != nil {
-		return SubleaseToken{}, fmt.Errorf("malformed X-Keppel-Sublease-Token header: %s", err.Error())
+		return SubleaseToken{}, fmt.Errorf("malformed %s header: %w", SubleaseHeader, err)
 	}
 	return t, nil
 }
