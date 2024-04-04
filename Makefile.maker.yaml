@@ -13,7 +13,6 @@ coverageTest:
   except: '/drivers|/test/util'
 
 golang:
-  enableVendoring: true
   setGoModVersion: true
 
 dockerfile:
