@@ -50,12 +50,6 @@
         ".github/workflows/oci-distribution-conformance.yml"
       ],
       "enabled": true
-    },
-    {
-      "matchPackageNames": [
-        "postgres"
-      ],
-      "allowedVersions": "12"
     }
   ],
   "prHourlyLimit": 0,

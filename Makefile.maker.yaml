@@ -36,12 +36,8 @@ githubWorkflow:
   ci:
     enabled: true
     coveralls: true
-    ignorePaths: [ "**.md" ] # all Markdown files
     postgres: true
-  license:
-    enabled: true
-  securityChecks:
-    enabled: true
+
 renovate:
   enabled: true
   assignees:
@@ -51,9 +47,6 @@ renovate:
     - matchDepTypes: ["action"]
       matchFiles: [".github/workflows/oci-distribution-conformance.yml"]
       enabled: true
-    # do not try to update to Postgres > 12 (the tests should match what we use in production)
-    - matchPackageNames: [ postgres ]
-      allowedVersions: '12'
 
 verbatim: |
   # This is for manual testing.
