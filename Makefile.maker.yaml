@@ -37,8 +37,7 @@ githubWorkflow:
     enabled: true
     coveralls: true
     ignorePaths: [ "**.md" ] # all Markdown files
-    postgres:
-      enabled: true
+    postgres: true
   license:
     enabled: true
   securityChecks:
