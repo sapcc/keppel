@@ -26,8 +26,8 @@ require (
 	github.com/spf13/cobra v1.8.0
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.5.3
-	golang.org/x/crypto v0.21.0
-	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8
+	golang.org/x/crypto v0.22.0
+	golang.org/x/exp v0.0.0-20240404231335-c0f41cb1a7a0
 )
 
 require (
@@ -58,7 +58,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/sys v0.19.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
