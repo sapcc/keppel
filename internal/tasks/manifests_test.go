@@ -561,7 +561,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 
 		// setup two image manifests with just one content layer (we don't really care about
 		// the content since our Trivy double doesn't care either)
-		images := make([]test.Image, 4)
+		images := make([]test.Image, 3)
 		for idx := range images {
 			images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
 			images[idx].MustUpload(t, s, fooRepoRef, "")
