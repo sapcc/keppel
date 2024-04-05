@@ -34,13 +34,13 @@ package bininfo
 import "fmt"
 
 var (
-	//These variables are filled at buildtime with the -X linker flag. Everything
-	//except for `binName` may be empty if the build could not determine a value.
+	// These variables are filled at buildtime with the -X linker flag. Everything
+	// except for `binName` may be empty if the build could not determine a value.
 	binName   string
 	version   string
 	commit    string
 	buildDate string
-	//This always starts blank and is filled by SetTaskName().
+	// This always starts blank and is filled by SetTaskName().
 	taskName string
 )
 

@@ -205,7 +205,7 @@ func (i producerConsumerJobImpl[T]) runMultiThreaded(ctx context.Context, cfg jo
 	// We use `numGoroutines-1` here since we already have spawned one goroutine
 	// for the polling above.
 	wg.Add(int(cfg.NumGoroutines - 1))
-	for i := uint(0); i < cfg.NumGoroutines-1; i++ {
+	for range cfg.NumGoroutines - 1 {
 		go func(ch <-chan taskWithLabels[T]) {
 			defer wg.Done()
 			for item := range ch {
