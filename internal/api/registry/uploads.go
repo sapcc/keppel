@@ -288,7 +288,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	// the spec wants a Blob-Upload-Session-Id header even though the upload is done, so just make something up
 	uuidV4, err := uuid.NewV4()
 	if respondWithError(w, r, err) {
-		return
+		return false
 	}
 	w.Header().Set("Blob-Upload-Session-Id", uuidV4.String())
 	w.Header().Set("Content-Length", "0")

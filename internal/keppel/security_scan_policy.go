@@ -100,7 +100,7 @@ func (p SecurityScanPolicy) Validate(path string) (errs errext.ErrorSet) {
 		}
 	}
 
-	return
+	return errs
 }
 
 func isSeverityKnownByTrivy(severity models.VulnerabilityStatus) bool {

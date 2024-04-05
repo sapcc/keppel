@@ -474,7 +474,7 @@ func (j *Janitor) collectManifestLayerBlobs(account models.Account, repo models.
 		}
 	}
 
-	return
+	return layerBlobs, nil
 }
 
 const (
