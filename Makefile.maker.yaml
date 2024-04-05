@@ -12,9 +12,6 @@ coverageTest:
   only: '/internal'
   except: '/drivers|/test/util'
 
-golang:
-  setGoModVersion: true
-
 dockerfile:
   enabled: true
   extraIgnores:
@@ -22,6 +19,9 @@ dockerfile:
     - /*.json
     - /*.yaml
     - privkey.pem
+
+golang:
+  setGoModVersion: true
 
 golangciLint:
   createConfig: true
