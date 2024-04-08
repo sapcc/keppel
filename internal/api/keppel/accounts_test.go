@@ -607,7 +607,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("account names that look like API versions (eg. v1) are reserved for internal use\n"),
+		ExpectBody:   assert.StringData("account names that look like API versions (e.g. v1) are reserved for internal use\n"),
 	}.Check(t, h)
 
 	assert.HTTPRequest{

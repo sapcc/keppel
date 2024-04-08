@@ -74,7 +74,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 		return models.Account{}, keppel.AsRegistryV2Error(errors.New(`account names with the prefix "keppel" are reserved for internal use`)).WithStatus(http.StatusUnprocessableEntity)
 	}
 	if looksLikeAPIVersionRx.MatchString(account.Name) {
-		return models.Account{}, keppel.AsRegistryV2Error(errors.New(`account names that look like API versions (eg. v1) are reserved for internal use`)).WithStatus(http.StatusUnprocessableEntity)
+		return models.Account{}, keppel.AsRegistryV2Error(errors.New(`account names that look like API versions (e.g. v1) are reserved for internal use`)).WithStatus(http.StatusUnprocessableEntity)
 	}
 
 	// check if account already exists

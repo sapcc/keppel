@@ -38,6 +38,7 @@ type Account struct {
 	PlatformFilter    models.PlatformFilter `json:"platform_filter,omitempty"`
 }
 
+// RenderAccount converts an account model from the DB into the API representation.
 func RenderAccount(dbAccount models.Account) (Account, error) {
 	gcPolicies, err := ParseGCPolicies(dbAccount)
 	if err != nil {
