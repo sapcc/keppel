@@ -44,8 +44,7 @@ func New(ctx context.Context, cfg keppel.Configuration, peer models.Peer, scope 
 	c := Client{peer, ""}
 	err := c.initToken(ctx, cfg, scope)
 	if err != nil {
-		return Client{}, fmt.Errorf("while trying to obtain a peer token for %s in scope %s: %w",
-			peer.HostName, scope, err)
+		return Client{}, fmt.Errorf("while trying to obtain a peer token for %s in scope %s: %w", peer.HostName, scope, err)
 	}
 	return c, nil
 }

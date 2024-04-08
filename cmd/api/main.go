@@ -90,7 +90,7 @@ func run(cmd *cobra.Command, args []string) {
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{"HEAD", "GET", "POST", "PUT", "DELETE"},
-		AllowedHeaders: []string{"Content-Type", "User-Agent", "Authorization", "X-Auth-Token", "X-Keppel-Sublease-Token"},
+		AllowedHeaders: []string{"Content-Type", "User-Agent", "Authorization", "X-Auth-Token", keppelv1.SubleaseHeader},
 	})
 	handler := httpapi.Compose(
 		keppelv1.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle),
