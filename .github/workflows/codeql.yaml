@@ -19,7 +19,7 @@ permissions:
   security-events: write
 jobs:
   analyze:
-    name: Analyze
+    name: CodeQL
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
