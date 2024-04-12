@@ -1,8 +1,8 @@
 # UUID
 
 [![License](https://img.shields.io/github/license/gofrs/uuid.svg)](https://github.com/gofrs/uuid/blob/master/LICENSE)
-[![Build Status](https://travis-ci.org/gofrs/uuid.svg?branch=master)](https://travis-ci.org/gofrs/uuid)
-[![GoDoc](http://godoc.org/github.com/gofrs/uuid?status.svg)](http://godoc.org/github.com/gofrs/uuid)
+[![Build Status](https://github.com/gofrs/uuid/actions/workflows/go.yml/badge.svg)](https://github.com/gofrs/uuid/actions/workflows/go.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/gofrs/uuid/v5.svg)](https://pkg.go.dev/github.com/gofrs/uuid/v5)
 [![Coverage Status](https://codecov.io/gh/gofrs/uuid/branch/master/graphs/badge.svg?branch=master)](https://codecov.io/gh/gofrs/uuid/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/gofrs/uuid)](https://goreportcard.com/report/github.com/gofrs/uuid)
 
@@ -50,7 +50,7 @@ deficiencies.
 
 ## Requirements
 
-This package requres Go 1.17 or later
+This package requires Go 1.17 or later
 
 ## Usage
 
@@ -63,7 +63,7 @@ package main
 import (
 	"log"
 
-	"github.com/gofrs/uuid"
+	"github.com/gofrs/uuid/v5"
 )
 
 // Create a Version 4 UUID, panicking on error.
