@@ -32,7 +32,7 @@ jobs:
       - name: Build all binaries
         run: make build-all
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v5
         with:
           version: latest
   test:
