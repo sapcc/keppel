@@ -21,8 +21,8 @@ require (
 	github.com/prometheus/client_golang v1.19.0
 	github.com/redis/go-redis/v9 v9.5.1
 	github.com/rs/cors v1.11.0
-	github.com/sapcc/go-api-declarations v1.10.12
-	github.com/sapcc/go-bits v0.0.0-20240418035538-c509bd89fb1a
+	github.com/sapcc/go-api-declarations v1.11.0
+	github.com/sapcc/go-bits v0.0.0-20240425084953-de3210f2772e
 	github.com/spf13/cobra v1.8.0
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.5.3
@@ -37,7 +37,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/distribution/reference v0.5.0 // indirect
-	github.com/golang-migrate/migrate/v4 v4.17.0 // indirect
+	github.com/golang-migrate/migrate/v4 v4.17.1 // indirect
 	github.com/google/go-containerregistry v0.19.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -50,7 +50,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/package-url/packageurl-go v0.1.2 // indirect
 	github.com/prometheus/client_model v0.6.0 // indirect
-	github.com/prometheus/common v0.52.3 // indirect
+	github.com/prometheus/common v0.53.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/rabbitmq/amqp091-go v1.9.0 // indirect
 	github.com/samber/lo v1.39.0 // indirect
