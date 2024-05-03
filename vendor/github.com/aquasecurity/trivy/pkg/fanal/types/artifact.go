@@ -9,6 +9,7 @@ import (
 	"github.com/package-url/packageurl-go"
 	"github.com/samber/lo"
 
+	godeptypes "github.com/aquasecurity/trivy/pkg/dependency/types"
 	"github.com/aquasecurity/trivy/pkg/digest"
 	"github.com/aquasecurity/trivy/pkg/sbom/core"
 )
@@ -65,6 +66,16 @@ type Layer struct {
 	CreatedBy string `json:",omitempty"`
 }
 
+// TODO: merge pkg/dependency/types/types.go into this file
+type Relationship = godeptypes.Relationship
+
+const (
+	RelationshipUnknown  = godeptypes.RelationshipUnknown
+	RelationshipRoot     = godeptypes.RelationshipRoot
+	RelationshipDirect   = godeptypes.RelationshipDirect
+	RelationshipIndirect = godeptypes.RelationshipIndirect
+)
+
 type Package struct {
 	ID         string        `json:",omitempty"`
 	Name       string        `json:",omitempty"`
@@ -83,7 +94,9 @@ type Package struct {
 
 	Modularitylabel string     `json:",omitempty"` // only for Red Hat based distributions
 	BuildInfo       *BuildInfo `json:",omitempty"` // only for Red Hat
-	Indirect        bool       `json:",omitempty"` // this package is direct dependency of the project or not
+
+	Indirect     bool         `json:",omitempty"` // Deprecated: Use relationship. Kept for backward compatibility.
+	Relationship Relationship `json:",omitempty"`
 
 	// Dependencies of this package
 	// Note:　it may have interdependencies, which may lead to infinite loops.
@@ -106,6 +119,7 @@ type Package struct {
 
 // PkgIdentifier represents a software identifiers in one of more of the supported formats.
 type PkgIdentifier struct {
+	UID    string                 `json:",omitempty"` // Calculated by the package struct
 	PURL   *packageurl.PackageURL `json:"-"`
 	BOMRef string                 `json:",omitempty"` // For CycloneDX
 }
@@ -154,7 +168,7 @@ func (id *PkgIdentifier) UnmarshalJSON(data []byte) error {
 }
 
 func (id *PkgIdentifier) Empty() bool {
-	return id.PURL == nil && id.BOMRef == ""
+	return id.UID == "" && id.PURL == nil && id.BOMRef == ""
 }
 
 func (id *PkgIdentifier) Match(s string) bool {
