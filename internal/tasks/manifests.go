@@ -724,15 +724,18 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 		}
 	}
 
-	// collect vulnerability status of constituent images
-	err = sqlext.ForeachRow(j.db, securityInfoCheckSubmanifestInfoQuery, []any{manifest.Digest}, func(rows *sql.Rows) error {
-		var vulnStatus models.VulnerabilityStatus
-		err := rows.Scan(&vulnStatus)
-		securityStatuses = append(securityStatuses, vulnStatus)
-		return err
-	})
-	if err != nil {
-		return err
+	// could the image have constituent images?
+	if manifest.MediaType != schema2.MediaTypeManifest && manifest.MediaType != imageSpecs.MediaTypeImageManifest {
+		// collect vulnerability status of constituent images
+		err = sqlext.ForeachRow(j.db, securityInfoCheckSubmanifestInfoQuery, []any{manifest.Digest}, func(rows *sql.Rows) error {
+			var vulnStatus models.VulnerabilityStatus
+			err := rows.Scan(&vulnStatus)
+			securityStatuses = append(securityStatuses, vulnStatus)
+			return err
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	// merge all vulnerability statuses
