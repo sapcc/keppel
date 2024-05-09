@@ -99,7 +99,6 @@ linters-settings:
     default-rpc-path: true
     http-method: true
     http-status-code: true
-    rpc-default-path: true
     sql-isolation-level: true
     time-layout: true
     time-month: true
