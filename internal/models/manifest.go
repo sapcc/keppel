@@ -32,7 +32,7 @@ type Manifest struct {
 	MediaType              string        `db:"media_type"`
 	SizeBytes              uint64        `db:"size_bytes"`
 	PushedAt               time.Time     `db:"pushed_at"`
-	ValidatedAt            time.Time     `db:"validated_at"` // see tasks.ManifestValidationJob
+	NextValidationAt       time.Time     `db:"next_validation_at"` // see tasks.ManifestValidationJob
 	ValidationErrorMessage string        `db:"validation_error_message"`
 	LastPulledAt           *time.Time    `db:"last_pulled_at"`
 	// LabelsJSON contains a JSON string of a map[string]string, or an empty string.
@@ -43,6 +43,14 @@ type Manifest struct {
 	MinLayerCreatedAt *time.Time `db:"min_layer_created_at"`
 	MaxLayerCreatedAt *time.Time `db:"max_layer_created_at"`
 }
+
+const (
+	// ManifestValidationInterval is how often each manifest will be validated by ManifestValidationJob.
+	// This is here instead of near the job because package processor also needs to know it.
+	ManifestValidationInterval = 24 * time.Hour
+	// ManifestValidationAfterErrorInterval is how quickly ManifestValidationJob will retry a failed manifest validation.
+	ManifestValidationAfterErrorInterval = 10 * time.Minute
+)
 
 // Tag contains a record from the `tags` table.
 type Tag struct {

@@ -98,18 +98,19 @@ func (p *Processor) ValidateAndStoreManifest(account models.Account, repo models
 
 	manifest := &models.Manifest{
 		//NOTE: .Digest and .SizeBytes are computed by validateAndStoreManifestCommon()
-		RepositoryID: repo.ID,
-		MediaType:    m.MediaType,
-		PushedAt:     m.PushedAt,
-		ValidatedAt:  m.PushedAt,
+		RepositoryID:     repo.ID,
+		MediaType:        m.MediaType,
+		PushedAt:         m.PushedAt,
+		NextValidationAt: m.PushedAt.Add(models.ManifestValidationInterval),
 	}
 	if m.Reference.IsDigest() {
 		// allow validateAndStoreManifestCommon() to validate the user-supplied
 		// digest against the actual manifest data
 		manifest.Digest = m.Reference.Digest
 	}
-	err = p.validateAndStoreManifestCommon(account, repo, manifest, m.Contents,
-		func(tx *gorp.Transaction) error {
+	err = p.validateAndStoreManifestCommon(account, repo, manifest, m.Contents, validateAndStoreManifestOpts{
+		IsBeingPushed: true,
+		ActionBeforeCommit: func(tx *gorp.Transaction) error {
 			if m.Reference.IsTag() {
 				err = upsertTag(tx, models.Tag{
 					RepositoryID: repo.ID,
@@ -126,7 +127,7 @@ func (p *Processor) ValidateAndStoreManifest(account models.Account, repo models
 			// write the manifest into the backend
 			return p.sd.WriteManifest(account, repo.Name, manifest.Digest, m.Contents)
 		},
-	)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -167,24 +168,23 @@ func (p *Processor) ValidateAndStoreManifest(account models.Account, repo models
 }
 
 // ValidateExistingManifest validates the given manifest that already exists in the DB.
-// The `now` argument will be used instead of time.Now() to accommodate unit
-// tests that use a different clock.
-func (p *Processor) ValidateExistingManifest(account models.Account, repo models.Repository, manifest *models.Manifest, now time.Time) error {
+func (p *Processor) ValidateExistingManifest(account models.Account, repo models.Repository, manifest *models.Manifest) error {
 	manifestBytes, err := p.sd.ReadManifest(account, repo.Name, manifest.Digest)
 	if err != nil {
 		return err
 	}
 
-	// if the validation succeeds, these fields will be committed
-	manifest.ValidatedAt = now
-	manifest.ValidationErrorMessage = ""
-
 	return p.validateAndStoreManifestCommon(account, repo, manifest, manifestBytes,
-		func(tx *gorp.Transaction) error { return nil },
+		validateAndStoreManifestOpts{},
 	)
 }
 
-func (p *Processor) validateAndStoreManifestCommon(account models.Account, repo models.Repository, manifest *models.Manifest, manifestBytes []byte, actionBeforeCommit func(*gorp.Transaction) error) error {
+type validateAndStoreManifestOpts struct {
+	IsBeingPushed      bool // only set when the manifest is pushed, not when it is later validated
+	ActionBeforeCommit func(*gorp.Transaction) error
+}
+
+func (p *Processor) validateAndStoreManifestCommon(account models.Account, repo models.Repository, manifest *models.Manifest, manifestBytes []byte, opts validateAndStoreManifestOpts) error {
 	// parse manifest
 	manifestParsed, manifestDesc, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
 	if err != nil {
@@ -194,8 +194,7 @@ func (p *Processor) validateAndStoreManifestCommon(account models.Account, repo 
 		return keppel.ErrDigestInvalid.With("actual manifest digest is " + manifestDesc.Digest.String())
 	}
 
-	// fill in the fields of `manifest` that ValidateAndStoreManifest() could not
-	// fill in yet ()
+	// fill in the fields of `manifest` that ValidateAndStoreManifest() could not fill in yet
 	manifest.Digest = manifestDesc.Digest
 	// ^ This field was empty until now when the user pushed a tag and therefore
 	// did not supply a digest.
@@ -222,7 +221,7 @@ func (p *Processor) validateAndStoreManifestCommon(account models.Account, repo 
 		// enforce account-specific validation rules on manifest, but not list manifest
 		// and only when pushing (not when validating at a later point in time,
 		// the set of RequiredLabels could have been changed by then)
-		labelsRequired := manifest.PushedAt == manifest.ValidatedAt && account.RequiredLabels != "" &&
+		labelsRequired := opts.IsBeingPushed && account.RequiredLabels != "" &&
 			manifest.MediaType != manifestlist.MediaTypeManifestList && manifest.MediaType != imagespec.MediaTypeImageIndex
 		if labelsRequired {
 			var missingLabels []string
@@ -271,7 +270,13 @@ func (p *Processor) validateAndStoreManifestCommon(account models.Account, repo 
 			return err
 		}
 
-		return actionBeforeCommit(tx)
+		if opts.ActionBeforeCommit != nil {
+			err = opts.ActionBeforeCommit(tx)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 
@@ -442,10 +447,10 @@ func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account 
 }
 
 var upsertManifestQuery = sqlext.SimplifyWhitespace(`
-	INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, validated_at, labels_json, min_layer_created_at, max_layer_created_at)
+	INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, next_validation_at, labels_json, min_layer_created_at, max_layer_created_at)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	ON CONFLICT (repo_id, digest) DO UPDATE
-		SET size_bytes = EXCLUDED.size_bytes, validated_at = EXCLUDED.validated_at, labels_json = EXCLUDED.labels_json,
+		SET size_bytes = EXCLUDED.size_bytes, next_validation_at = EXCLUDED.next_validation_at, labels_json = EXCLUDED.labels_json,
 		min_layer_created_at = EXCLUDED.min_layer_created_at, max_layer_created_at = EXCLUDED.max_layer_created_at
 `)
 
@@ -463,7 +468,7 @@ var upsertManifestSecurityInfo = sqlext.SimplifyWhitespace(`
 `)
 
 func upsertManifest(db gorp.SqlExecutor, m models.Manifest, manifestBytes []byte, timeNow time.Time) error {
-	_, err := db.Exec(upsertManifestQuery, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.ValidatedAt, m.LabelsJSON, m.MinLayerCreatedAt, m.MaxLayerCreatedAt)
+	_, err := db.Exec(upsertManifestQuery, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.NextValidationAt, m.LabelsJSON, m.MinLayerCreatedAt, m.MaxLayerCreatedAt)
 	if err != nil {
 		return err
 	}

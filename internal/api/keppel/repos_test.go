@@ -104,11 +104,11 @@ func TestReposAPI(t *testing.T) {
 		dummyDigest := test.DeterministicDummyDigest(1000 + idx)
 		blobPushedAt := time.Unix(int64(1000+10*idx), 0)
 		blob := models.Blob{
-			AccountName: "test1",
-			Digest:      dummyDigest,
-			SizeBytes:   uint64(2000 * idx),
-			PushedAt:    blobPushedAt,
-			ValidatedAt: blobPushedAt,
+			AccountName:      "test1",
+			Digest:           dummyDigest,
+			SizeBytes:        uint64(2000 * idx),
+			PushedAt:         blobPushedAt,
+			NextValidationAt: blobPushedAt.Add(models.BlobValidationInterval),
 		}
 		mustInsert(t, s.DB, &blob)
 		err := keppel.MountBlobIntoRepo(s.DB, blob, filledRepo)
@@ -123,12 +123,12 @@ func TestReposAPI(t *testing.T) {
 		dummyDigest := test.DeterministicDummyDigest(idx)
 		manifestPushedAt := time.Unix(int64(10000+10*idx), 0)
 		mustInsert(t, s.DB, &models.Manifest{
-			RepositoryID: filledRepo.ID,
-			Digest:       dummyDigest,
-			MediaType:    "",
-			SizeBytes:    uint64(1000 * idx),
-			PushedAt:     manifestPushedAt,
-			ValidatedAt:  manifestPushedAt,
+			RepositoryID:     filledRepo.ID,
+			Digest:           dummyDigest,
+			MediaType:        "",
+			SizeBytes:        uint64(1000 * idx),
+			PushedAt:         manifestPushedAt,
+			NextValidationAt: manifestPushedAt.Add(models.ManifestValidationInterval),
 		})
 		mustInsert(t, s.DB, &models.TrivySecurityInfo{
 			RepositoryID:        filledRepo.ID,

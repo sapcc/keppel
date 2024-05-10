@@ -251,6 +251,22 @@ var sqlMigrations = map[string]string{
 			PRIMARY KEY (account_name, match_cidr, match_repository, match_username)
 		);
 	`,
+	"038_convert_validated_at_to_next_validation_at.up.sql": `
+		ALTER TABLE blobs
+			DROP COLUMN validated_at,
+			ADD COLUMN next_validation_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+		ALTER TABLE manifests
+			DROP COLUMN validated_at,
+			ADD COLUMN next_validation_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+	`,
+	"038_convert_validated_at_to_next_validation_at.down.sql": `
+		ALTER TABLE blobs
+			DROP COLUMN next_validation_at,
+			ADD COLUMN validated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+		ALTER TABLE manifests
+			DROP COLUMN next_validation_at,
+			ADD COLUMN validated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.

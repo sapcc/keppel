@@ -129,12 +129,12 @@ func TestSweepStorageBlobs(t *testing.T) {
 	// written to storage already, but not yet to DB)
 	s.Clock.StepBy(1 * time.Hour)
 	dbTestBlob1 := models.Blob{
-		AccountName: "test1",
-		Digest:      testBlob1.Digest,
-		SizeBytes:   uint64(len(testBlob1.Contents)),
-		StorageID:   testBlob1.Digest.Encoded(),
-		PushedAt:    s.Clock.Now(),
-		ValidatedAt: s.Clock.Now(),
+		AccountName:      "test1",
+		Digest:           testBlob1.Digest,
+		SizeBytes:        uint64(len(testBlob1.Contents)),
+		StorageID:        testBlob1.Digest.Encoded(),
+		PushedAt:         s.Clock.Now(),
+		NextValidationAt: s.Clock.Now().Add(models.BlobValidationInterval),
 	}
 	mustDo(t, s.DB.Insert(&dbTestBlob1))
 
@@ -188,12 +188,12 @@ func TestSweepStorageManifests(t *testing.T) {
 	// to storage already, but not yet to DB)
 	s.Clock.StepBy(1 * time.Hour)
 	mustDo(t, s.DB.Insert(&models.Manifest{
-		RepositoryID: 1,
-		Digest:       testImageList1.Manifest.Digest,
-		MediaType:    testImageList1.Manifest.MediaType,
-		SizeBytes:    uint64(len(testImageList1.Manifest.Contents)),
-		PushedAt:     s.Clock.Now(),
-		ValidatedAt:  s.Clock.Now(),
+		RepositoryID:     1,
+		Digest:           testImageList1.Manifest.Digest,
+		MediaType:        testImageList1.Manifest.MediaType,
+		SizeBytes:        uint64(len(testImageList1.Manifest.Contents)),
+		PushedAt:         s.Clock.Now(),
+		NextValidationAt: s.Clock.Now().Add(models.ManifestValidationInterval),
 	}))
 
 	// next StorageSweepJob should unmark manifest 1 (because it's now in

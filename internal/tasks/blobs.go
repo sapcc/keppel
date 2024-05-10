@@ -151,16 +151,20 @@ func (j *Janitor) sweepBlobsInRepo(_ context.Context, account models.Account, _ 
 }
 
 var validateBlobSearchQuery = sqlext.SimplifyWhitespace(`
-	SELECT * FROM blobs
-		WHERE storage_id != '' AND (validated_at < $1 OR (validated_at < $2 AND validation_error_message != ''))
-	ORDER BY validation_error_message != '' DESC, validated_at ASC
-		-- oldest blobs first, but always prefer to recheck a failed validation
-	LIMIT 1
-		-- one at a time
+	SELECT * FROM blobs WHERE storage_id != '' AND next_validation_at < $1
+	ORDER BY next_validation_at ASC
+	LIMIT 1 -- one at a time
+`)
+
+var validateBlobFinishQuery = sqlext.SimplifyWhitespace(`
+	UPDATE blobs SET next_validation_at = $1, validation_error_message = $2
+	WHERE account_name = $3 AND digest = $4
 `)
 
 // BlobValidationJob is a job. Each task validates a blob that has not been validated for more
 // than 7 days.
+//
+//nolint:dupl
 func (j *Janitor) BlobValidationJob(registerer prometheus.Registerer) jobloop.Job {
 	return (&jobloop.ProducerConsumerJob[models.Blob]{
 		Metadata: jobloop.JobMetadata{
@@ -171,10 +175,7 @@ func (j *Janitor) BlobValidationJob(registerer prometheus.Registerer) jobloop.Jo
 			},
 		},
 		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (blob models.Blob, err error) {
-			// find blob: validate once every 7 days, but recheck after 10 minutes if validation failed
-			maxSuccessfulValidatedAt := j.timeNow().Add(-7 * 24 * time.Hour)
-			maxFailedValidatedAt := j.timeNow().Add(-10 * time.Minute)
-			err = j.db.SelectOne(&blob, validateBlobSearchQuery, maxSuccessfulValidatedAt, maxFailedValidatedAt)
+			err = j.db.SelectOne(&blob, validateBlobSearchQuery, j.timeNow())
 			return blob, err
 		},
 		ProcessTask: j.validateBlob,
@@ -191,26 +192,22 @@ func (j *Janitor) validateBlob(_ context.Context, blob models.Blob, _ prometheus
 	// perform validation
 	err = j.processor().ValidateExistingBlob(*account, blob)
 	if err == nil {
-		// update `validated_at` and reset error message
-		_, err := j.db.Exec(`
-			UPDATE blobs SET validated_at = $1, validation_error_message = ''
-			  WHERE account_name = $2 AND digest = $3`,
-			j.timeNow(), account.Name, blob.Digest,
+		// on success, reset error message and schedule next validation
+		_, err := j.db.Exec(validateBlobFinishQuery,
+			j.timeNow().Add(j.addJitter(models.BlobValidationInterval)),
+			"", account.Name, blob.Digest,
 		)
 		if err != nil {
 			return err
 		}
 	} else {
-		// attempt to log the error message, and also update the `validated_at`
-		// timestamp to ensure that the BlobValidationJob loop does not get stuck
-		// on this one
-		_, updateErr := j.db.Exec(`
-			UPDATE blobs SET validated_at = $1, validation_error_message = $2
-			 WHERE account_name = $3 AND digest = $4`,
-			j.timeNow(), err.Error(), account.Name, blob.Digest,
+		// on failure, log error message and schedule next validation sooner than usual
+		_, updateErr := j.db.Exec(validateBlobFinishQuery,
+			j.timeNow().Add(j.addJitter(models.BlobValidationAfterErrorInterval)),
+			err.Error(), account.Name, blob.Digest,
 		)
 		if updateErr != nil {
-			err = fmt.Errorf("%s (additional error encountered while recording validation error: %s)", err.Error(), updateErr.Error())
+			err = fmt.Errorf("%w (additional error encountered while recording validation error: %s)", err, updateErr.Error())
 		}
 		return err
 	}

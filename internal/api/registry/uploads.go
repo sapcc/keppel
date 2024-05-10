@@ -707,8 +707,8 @@ func (a *API) createBlobFromUpload(account models.Account, repo models.Repositor
 }
 
 var insertBlobIfMissingQuery = sqlext.SimplifyWhitespace(`
-	INSERT INTO blobs (account_name, digest, size_bytes, storage_id, pushed_at, validated_at)
-	VALUES ($1, $2, $3, $4, $5, $5)
+	INSERT INTO blobs (account_name, digest, size_bytes, storage_id, pushed_at, next_validation_at)
+	VALUES ($1, $2, $3, $4, $5, $6)
 	ON CONFLICT DO NOTHING
 `)
 
@@ -721,7 +721,8 @@ func (a *API) createOrUpdateBlobObject(tx *gorp.Transaction, sizeBytes uint64, s
 	// inserted because of ON CONFLICT, so in the general case, we need another
 	// SELECT to get the resulting blob anyway)
 	_, err := tx.Exec(insertBlobIfMissingQuery,
-		account.Name, blobDigest.String(), sizeBytes, storageID, blobPushedAt,
+		account.Name, blobDigest.String(), sizeBytes, storageID,
+		blobPushedAt, blobPushedAt.Add(models.BlobValidationInterval),
 	)
 	if err != nil {
 		return nil, err
