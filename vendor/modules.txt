@@ -179,11 +179,11 @@ github.com/rs/cors/internal
 # github.com/samber/lo v1.39.0
 ## explicit; go 1.18
 github.com/samber/lo
-# github.com/sapcc/go-api-declarations v1.11.0
+# github.com/sapcc/go-api-declarations v1.11.2
 ## explicit; go 1.21
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20240429130232-fdc0102c61a4
+# github.com/sapcc/go-bits v0.0.0-20240509162919-cebeb2d4844a
 ## explicit; go 1.22
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
