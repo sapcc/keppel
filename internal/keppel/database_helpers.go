@@ -160,14 +160,15 @@ func GetManifestUsage(db gorp.SqlExecutor, quotas models.Quotas) (uint64, error)
 // FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a
 // Repository record when none exists yet.
 func FindOrCreateRepository(db gorp.SqlExecutor, name string, account models.Account) (*models.Repository, error) {
-	var repo models.Repository
-	err := db.SelectOne(&repo,
-		"INSERT INTO repos (account_name, name) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *", account.Name, name)
+	repo, err := FindRepository(db, name, account)
 	if errors.Is(err, sql.ErrNoRows) {
-		// the row already existed, so we did not insert it and hence nothing was returned
-		return FindRepository(db, name, account)
+		repo = &models.Repository{
+			Name:        name,
+			AccountName: account.Name,
+		}
+		err = db.Insert(repo)
 	}
-	return &repo, err
+	return repo, err
 }
 
 // FindRepository is a convenience wrapper around db.SelectOne(). If the

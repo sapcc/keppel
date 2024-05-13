@@ -43,7 +43,7 @@ type Blob struct {
 	StorageID              string        `db:"storage_id"`
 	MediaType              string        `db:"media_type"`
 	PushedAt               time.Time     `db:"pushed_at"`
-	ValidatedAt            time.Time     `db:"validated_at"` // see tasks.BlobValidationJob
+	NextValidationAt       time.Time     `db:"next_validation_at"` // see tasks.BlobValidationJob
 	ValidationErrorMessage string        `db:"validation_error_message"`
 	CanBeDeletedAt         *time.Time    `db:"can_be_deleted_at"` // see tasks.BlobSweepJob
 	BlocksVulnScanning     *bool         `db:"blocks_vuln_scanning"`
@@ -56,6 +56,15 @@ func (b Blob) SafeMediaType() string {
 	}
 	return b.MediaType
 }
+
+const (
+	// BlobValidationInterval is how often each blob will be validated by BlobValidationJob.
+	// This is here instead of near the job because package processor also needs to know it.
+	BlobValidationInterval = 7 * 24 * time.Hour
+	// BlobValidationAfterErrorInterval is how quickly BlobValidationJob will
+	// retry a failed blob validation.
+	BlobValidationAfterErrorInterval = 10 * time.Minute
+)
 
 // Upload contains a record from the `uploads` table.
 //

@@ -74,7 +74,7 @@ func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*keppe
 	imageList.MustUpload(t, s, fooRepoRef, "")
 	allManifestDigests = append(allManifestDigests, imageList.Manifest.Digest.String())
 
-	// since these manifests were just uploaded, validated_at is set to right now,
+	// since these manifests were just uploaded, next_validation_at is set in the future,
 	// so ManifestValidationJob will report that there is nothing to do
 	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
 
@@ -147,12 +147,12 @@ func TestManifestValidationJobError(t *testing.T) {
 	s.Clock.StepBy(1 * time.Hour)
 	image := test.GenerateImage( /* no layers */ )
 	mustDo(t, s.DB.Insert(&models.Manifest{
-		RepositoryID: 1,
-		Digest:       image.Manifest.Digest,
-		MediaType:    image.Manifest.MediaType,
-		SizeBytes:    image.SizeBytes(),
-		PushedAt:     s.Clock.Now(),
-		ValidatedAt:  s.Clock.Now(),
+		RepositoryID:     1,
+		Digest:           image.Manifest.Digest,
+		MediaType:        image.Manifest.MediaType,
+		SizeBytes:        image.SizeBytes(),
+		PushedAt:         s.Clock.Now(),
+		NextValidationAt: s.Clock.Now().Add(models.ManifestValidationInterval),
 	}))
 	mustDo(t, s.DB.Insert(&models.ManifestContent{
 		RepositoryID: 1,
@@ -362,10 +362,10 @@ func TestManifestSyncJob(t *testing.T) {
 				s1.Clock.StepBy(2 * time.Hour)
 				expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 				tr.DBChanges().AssertEqualf(`
-						UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';
+						UPDATE manifests SET next_validation_at = %d WHERE repo_id = 1 AND digest = '%s';
 						UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 					`,
-					s1.Clock.Now().Unix(),
+					s1.Clock.Now().Add(models.ManifestValidationInterval).Unix(),
 					images[1].Manifest.Digest,
 					s1.Clock.Now().Add(1*time.Hour).Unix(),
 				)
@@ -384,8 +384,8 @@ func TestManifestSyncJob(t *testing.T) {
 			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 			manifestValidationBecauseOfExistingTag := fmt.Sprintf(
 				// this validation is skipped in "on_first_use" because the respective tag is unchanged
-				`UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';`+"\n",
-				s1.Clock.Now().Unix(), images[1].Manifest.Digest,
+				`UPDATE manifests SET next_validation_at = %d WHERE repo_id = 1 AND digest = '%s';`+"\n",
+				s1.Clock.Now().Add(models.ManifestValidationInterval).Unix(), images[1].Manifest.Digest,
 			)
 			if strategy == "on_first_use" {
 				manifestValidationBecauseOfExistingTag = ""
@@ -396,7 +396,7 @@ func TestManifestSyncJob(t *testing.T) {
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 9;
 					DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
-					%[5]sUPDATE manifests SET validated_at = %[2]d WHERE repo_id = 1 AND digest = '%[3]s';
+					%[5]sUPDATE manifests SET next_validation_at = %[6]d WHERE repo_id = 1 AND digest = '%[3]s';
 					UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 					UPDATE tags SET digest = '%[3]s', pushed_at = %[2]d, last_pulled_at = NULL WHERE repo_id = 1 AND name = 'latest';
 					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
@@ -406,6 +406,7 @@ func TestManifestSyncJob(t *testing.T) {
 				images[2].Manifest.Digest, // the manifest now tagged as "latest"
 				s1.Clock.Now().Add(1*time.Hour).Unix(),
 				manifestValidationBecauseOfExistingTag,
+				s1.Clock.Now().Add(models.ManifestValidationInterval).Unix(),
 			)
 			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEmpty()
@@ -434,8 +435,8 @@ func TestManifestSyncJob(t *testing.T) {
 			// validation is because of the "other" tag that still exists)
 			manifestValidationBecauseOfExistingTag = fmt.Sprintf(
 				// this validation is skipped in "on_first_use" because the respective tag is unchanged
-				`UPDATE manifests SET validated_at = %d WHERE repo_id = 1 AND digest = '%s';`+"\n",
-				s1.Clock.Now().Unix(), images[1].Manifest.Digest,
+				`UPDATE manifests SET next_validation_at = %d WHERE repo_id = 1 AND digest = '%s';`+"\n",
+				s1.Clock.Now().Add(models.ManifestValidationInterval).Unix(), images[1].Manifest.Digest,
 			)
 			if strategy == "on_first_use" {
 				manifestValidationBecauseOfExistingTag = ""

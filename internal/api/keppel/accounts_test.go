@@ -1780,12 +1780,12 @@ func uploadManifest(t *testing.T, s test.Setup, account *models.Account, repo *m
 	t.Helper()
 
 	dbManifest := models.Manifest{
-		RepositoryID: repo.ID,
-		Digest:       manifest.Digest,
-		MediaType:    manifest.MediaType,
-		SizeBytes:    sizeBytes,
-		PushedAt:     s.Clock.Now(),
-		ValidatedAt:  s.Clock.Now(),
+		RepositoryID:     repo.ID,
+		Digest:           manifest.Digest,
+		MediaType:        manifest.MediaType,
+		SizeBytes:        sizeBytes,
+		PushedAt:         s.Clock.Now(),
+		NextValidationAt: s.Clock.Now().Add(models.ManifestValidationInterval),
 	}
 	mustDo(t, s.DB.Insert(&dbManifest))
 	mustDo(t, s.DB.Insert(&models.TrivySecurityInfo{
@@ -1836,12 +1836,12 @@ func TestDeleteAccount(t *testing.T) {
 	for idx, testBlob := range append(image.Layers, image.Config) {
 		storageID := sidGen.Next()
 		blob := models.Blob{
-			AccountName: accounts[0].Name,
-			Digest:      testBlob.Digest,
-			SizeBytes:   uint64(len(testBlob.Contents)),
-			StorageID:   storageID,
-			PushedAt:    time.Unix(int64(idx), 0),
-			ValidatedAt: time.Unix(int64(idx), 0),
+			AccountName:      accounts[0].Name,
+			Digest:           testBlob.Digest,
+			SizeBytes:        uint64(len(testBlob.Contents)),
+			StorageID:        storageID,
+			PushedAt:         time.Unix(int64(idx), 0),
+			NextValidationAt: time.Unix(int64(idx), 0).Add(models.BlobValidationInterval),
 		}
 		mustInsert(t, s.DB, &blob)
 		blobs = append(blobs, blob)
@@ -1861,12 +1861,12 @@ func TestDeleteAccount(t *testing.T) {
 	}
 
 	mustInsert(t, s.DB, &models.Manifest{
-		RepositoryID: repos[0].ID,
-		Digest:       image.Manifest.Digest,
-		MediaType:    image.Manifest.MediaType,
-		SizeBytes:    uint64(len(image.Manifest.Contents)),
-		PushedAt:     time.Unix(100, 0),
-		ValidatedAt:  time.Unix(100, 0),
+		RepositoryID:     repos[0].ID,
+		Digest:           image.Manifest.Digest,
+		MediaType:        image.Manifest.MediaType,
+		SizeBytes:        uint64(len(image.Manifest.Contents)),
+		PushedAt:         time.Unix(100, 0),
+		NextValidationAt: time.Unix(100, 0).Add(models.ManifestValidationInterval),
 	})
 	mustInsert(t, s.DB, &models.TrivySecurityInfo{
 		RepositoryID:        repos[0].ID,

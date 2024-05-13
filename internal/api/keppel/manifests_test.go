@@ -119,7 +119,7 @@ func TestManifestsAPI(t *testing.T) {
 					MediaType:         schema2.MediaTypeManifest,
 					SizeBytes:         sizeBytes,
 					PushedAt:          pushedAt,
-					ValidatedAt:       pushedAt,
+					NextValidationAt:  pushedAt.Add(models.ManifestValidationInterval),
 					LabelsJSON:        `{"foo":"is there"}`,
 					GCStatusJSON:      `{"protected_by_recent_upload":true}`,
 					MinLayerCreatedAt: p2time(time.Unix(20001, 0)),

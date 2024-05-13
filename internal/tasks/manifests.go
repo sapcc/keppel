@@ -51,24 +51,28 @@ import (
 )
 
 // query that finds the next manifest to be validated
-var outdatedManifestSearchQuery = sqlext.SimplifyWhitespace(`
-	SELECT * FROM manifests
-		WHERE validated_at < $1 OR (validated_at < $2 AND validation_error_message != '')
-	ORDER BY validation_error_message != '' DESC, validated_at ASC, media_type DESC
-		-- oldest blobs first, but always prefer to recheck a failed validation (see below for why we sort by media_type)
-	LIMIT 1
-		-- one at a time
+var validateManifestSearchQuery = sqlext.SimplifyWhitespace(`
+	SELECT * FROM manifests WHERE next_validation_at < $1
+	ORDER BY next_validation_at ASC, media_type DESC -- see below for why we sort by media_type
+	LIMIT 1 -- one at a time
 `)
 
 // ^ NOTE: The sorting by media_type is completely useless in real-world
-// situations since real-life manifests will always have validated_at timestamps
+// situations since real-life manifests will always have next_validation_at timestamps
 // that differ at least by some nanoseconds. But in tests, this sorting ensures
 // that single-arch images get revalidated before multi-arch images, which is
 // important because multi-arch images take into account the size_bytes
 // attribute of their constituent images.
 
+var validateManifestFinishQuery = sqlext.SimplifyWhitespace(`
+	UPDATE manifests SET next_validation_at = $1, validation_error_message = $2
+	WHERE repo_id = $3 AND digest = $4
+`)
+
 // ManifestValidationJob is a job. Each task validates a manifest that has not been validated for more
 // than 24 hours.
+//
+//nolint:dupl
 func (j *Janitor) ManifestValidationJob(registerer prometheus.Registerer) jobloop.Job {
 	return (&jobloop.ProducerConsumerJob[models.Manifest]{
 		Metadata: jobloop.JobMetadata{
@@ -79,10 +83,7 @@ func (j *Janitor) ManifestValidationJob(registerer prometheus.Registerer) jobloo
 			},
 		},
 		DiscoverTask: func(_ context.Context, _ prometheus.Labels) (manifest models.Manifest, err error) {
-			// find manifest: validate once every 24 hours, but recheck after 10 minutes if validation failed
-			maxSuccessfulValidatedAt := j.timeNow().Add(-24 * time.Hour)
-			maxFailedValidatedAt := j.timeNow().Add(-10 * time.Minute)
-			err = j.db.SelectOne(&manifest, outdatedManifestSearchQuery, maxSuccessfulValidatedAt, maxFailedValidatedAt)
+			err = j.db.SelectOne(&manifest, validateManifestSearchQuery, j.timeNow())
 			return manifest, err
 		},
 		ProcessTask: j.validateManifest,
@@ -101,16 +102,18 @@ func (j *Janitor) validateManifest(_ context.Context, manifest models.Manifest, 
 		return fmt.Errorf("cannot find account for manifest %s/%s: %w", repo.FullName(), manifest.Digest, err)
 	}
 
+	// if the validation succeeds, these fields will be committed
+	nextValidationAt := j.timeNow().Add(j.addJitter(models.ManifestValidationInterval))
+	manifest.NextValidationAt = nextValidationAt
+	manifest.ValidationErrorMessage = ""
+
 	// perform validation
-	err = j.processor().ValidateExistingManifest(*account, repo, &manifest, j.timeNow())
+	err = j.processor().ValidateExistingManifest(*account, repo, &manifest)
 	if err != nil {
-		// attempt to log the error message, and also update the `validated_at`
-		// timestamp to ensure that the ManifestValidationJob does not get
-		// stuck on this one
-		_, updateErr := j.db.Exec(`
-			UPDATE manifests SET validated_at = $1, validation_error_message = $2
-				WHERE repo_id = $3 AND digest = $4`,
-			j.timeNow(), err.Error(), repo.ID, manifest.Digest,
+		// on failure, log error message and schedule next validation sooner than usual
+		_, updateErr := j.db.Exec(validateManifestFinishQuery,
+			j.timeNow().Add(j.addJitter(models.ManifestValidationAfterErrorInterval)),
+			err.Error(), repo.ID, manifest.Digest,
 		)
 		if updateErr != nil {
 			err = fmt.Errorf("%w (additional error encountered while recording validation error: %w)", err, updateErr)
@@ -118,11 +121,9 @@ func (j *Janitor) validateManifest(_ context.Context, manifest models.Manifest, 
 		return fmt.Errorf("while validating manifest %s in repo %d: %w", manifest.Digest, manifest.RepositoryID, err)
 	}
 
-	// update `validated_at` and reset error message
-	_, err = j.db.Exec(`
-			UPDATE manifests SET validated_at = $1, validation_error_message = ''
-				WHERE repo_id = $2 AND digest = $3`,
-		j.timeNow(), repo.ID, manifest.Digest,
+	// on success, reset error message and schedule next validation
+	_, err = j.db.Exec(validateManifestFinishQuery,
+		nextValidationAt, "", repo.ID, manifest.Digest,
 	)
 	return err
 }

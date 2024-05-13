@@ -106,13 +106,13 @@ func (p *Processor) FindBlobOrInsertUnbackedBlob(desc distribution.Descriptor, a
 		}
 
 		blob = &models.Blob{
-			AccountName: account.Name,
-			Digest:      desc.Digest,
-			MediaType:   desc.MediaType,
-			SizeBytes:   uint64(desc.Size),
-			StorageID:   "", // unbacked
-			PushedAt:    time.Unix(0, 0),
-			ValidatedAt: time.Unix(0, 0),
+			AccountName:      account.Name,
+			Digest:           desc.Digest,
+			MediaType:        desc.MediaType,
+			SizeBytes:        uint64(desc.Size),
+			StorageID:        "", // unbacked
+			PushedAt:         time.Unix(0, 0),
+			NextValidationAt: time.Unix(0, 0),
 		}
 		return tx.Insert(blob)
 	})
@@ -246,7 +246,7 @@ func (p *Processor) uploadBlobToLocal(blob models.Blob, account models.Account, 
 	// write blob metadata to DB
 	blob.StorageID = upload.StorageID
 	blob.PushedAt = p.timeNow()
-	blob.ValidatedAt = blob.PushedAt
+	blob.NextValidationAt = blob.PushedAt.Add(models.BlobValidationInterval)
 	_, err = p.db.Update(&blob)
 	return err
 }

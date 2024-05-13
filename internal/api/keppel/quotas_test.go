@@ -129,12 +129,12 @@ func TestQuotasAPI(t *testing.T) {
 	for idx := 1; idx <= 10; idx++ {
 		pushedAt := time.Unix(int64(10000+10*idx), 0)
 		mustInsert(t, s.DB, &models.Manifest{
-			RepositoryID: 1,
-			Digest:       test.DeterministicDummyDigest(idx),
-			MediaType:    "",
-			SizeBytes:    uint64(1000 * idx),
-			PushedAt:     pushedAt,
-			ValidatedAt:  pushedAt,
+			RepositoryID:     1,
+			Digest:           test.DeterministicDummyDigest(idx),
+			MediaType:        "",
+			SizeBytes:        uint64(1000 * idx),
+			PushedAt:         pushedAt,
+			NextValidationAt: pushedAt.Add(models.ManifestValidationInterval),
 		})
 		mustInsert(t, s.DB, &models.TrivySecurityInfo{
 			RepositoryID:        1,
