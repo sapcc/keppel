@@ -267,6 +267,17 @@ var sqlMigrations = map[string]string{
 			DROP COLUMN next_validation_at,
 			ADD COLUMN validated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 	`,
+	// Re 039: These indices are used when selecting tasks for BlobValidationJob
+	// and ManifestValidationJob. Before we added indices here, those queries
+	// were consistently the most expensive by total execution time.
+	"039_add_indices_on_next_validation_at.up.sql": `
+		CREATE INDEX ON blobs (next_validation_at);
+		CREATE INDEX ON manifests (next_validation_at);
+	`,
+	"039_add_indices_on_next_validation_at.down.sql": `
+		DROP INDEX blobs_next_validation_at_idx;
+		DROP INDEX manifests_next_validation_at_idx;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.
