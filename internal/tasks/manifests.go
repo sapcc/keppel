@@ -593,11 +593,13 @@ func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *gorp.Transac
 	return nil
 }
 
+// NOTE: The `repo_id` match in the various JOIN and WHERE clauses is technically a bit redundant,
+// but having this allows us to use foreign-key indices for all joins to get a nice performance boost.
 var securityInfoCheckSubmanifestInfoQuery = sqlext.SimplifyWhitespace(`
 	SELECT t.vuln_status FROM manifests m
-	JOIN manifest_manifest_refs r ON m.digest = r.child_digest
-	JOIN trivy_security_info t ON m.digest = t.digest
-		WHERE r.parent_digest = $1
+	JOIN manifest_manifest_refs r ON m.repo_id = r.repo_id AND m.digest = r.child_digest
+	JOIN trivy_security_info t ON m.repo_id = t.repo_id AND m.digest = t.digest
+		WHERE r.repo_id = $1 AND r.parent_digest = $2
 `)
 
 var trivyTransientErrorsRxs = []*regexp.Regexp{
@@ -728,7 +730,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 	// could the image have constituent images?
 	if manifest.MediaType != schema2.MediaTypeManifest && manifest.MediaType != imageSpecs.MediaTypeImageManifest {
 		// collect vulnerability status of constituent images
-		err = sqlext.ForeachRow(j.db, securityInfoCheckSubmanifestInfoQuery, []any{manifest.Digest}, func(rows *sql.Rows) error {
+		err = sqlext.ForeachRow(j.db, securityInfoCheckSubmanifestInfoQuery, []any{repo.ID, manifest.Digest}, func(rows *sql.Rows) error {
 			var vulnStatus models.VulnerabilityStatus
 			err := rows.Scan(&vulnStatus)
 			securityStatuses = append(securityStatuses, vulnStatus)
