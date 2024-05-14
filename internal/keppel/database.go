@@ -278,6 +278,15 @@ var sqlMigrations = map[string]string{
 		DROP INDEX blobs_next_validation_at_idx;
 		DROP INDEX manifests_next_validation_at_idx;
 	`,
+	// Re 040: index is used by BlobMountSweepJob
+	"040_add_index_blob_mounts.up.sql": `
+		CREATE INDEX ON blob_mounts (can_be_deleted_at NULLS FIRST, repo_id);
+		CREATE INDEX ON manifests (validation_error_message) WHERE validation_error_message != '';
+	`,
+	"040_add_index_blob_mounts.down.sql": `
+		DROP INDEX blob_mounts_can_be_deleted_at_repo_id_idx;
+		DROP INDEX manifests_validation_error_message_idx;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.
