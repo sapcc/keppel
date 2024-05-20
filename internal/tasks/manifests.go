@@ -294,7 +294,7 @@ TAG:
 				continue TAG
 			case "":
 				// the tag was deleted - replicate the tag deletion into our replica
-				_, err := j.db.Delete(&tag) //nolint:gosec // Delete is not holding onto the pointer after it returns
+				_, err := j.db.Delete(&tag)
 				if err != nil {
 					return err
 				}
@@ -318,7 +318,7 @@ TAG:
 			// if the tag itself (and only the tag itself!) 404s, we can replicate the tag deletion into our replica
 			err404, ok := errext.As[processor.UpstreamManifestMissingError](err)
 			if ok && err404.Ref == ref {
-				_, err := j.db.Delete(&tag) //nolint:gosec // Delete is not holding onto the pointer after it returns
+				_, err := j.db.Delete(&tag)
 				if err != nil {
 					return err
 				}

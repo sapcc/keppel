@@ -134,7 +134,7 @@ func (j *Janitor) sweepBlobsInRepo(_ context.Context, account models.Account, _ 
 	}
 	for _, blob := range blobs {
 		// without transaction: we need this committed right now
-		_, err := j.db.Delete(&blob) //nolint:gosec // Delete is not holding onto the pointer after it returns
+		_, err := j.db.Delete(&blob)
 		if err != nil {
 			return err
 		}

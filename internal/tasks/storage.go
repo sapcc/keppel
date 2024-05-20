@@ -141,7 +141,7 @@ func (j *Janitor) sweepBlobStorage(account models.Account, actualBlobs []keppel.
 	for _, unknownBlob := range unknownBlobs {
 		// unmark blobs that have been recorded in the database in the meantime
 		if isKnownStorageID[unknownBlob.StorageID] {
-			_, err = j.db.Delete(&unknownBlob) //nolint:gosec // Delete is not holding onto the pointer after it returns
+			_, err = j.db.Delete(&unknownBlob)
 			if err != nil {
 				return err
 			}
@@ -172,7 +172,7 @@ func (j *Janitor) sweepBlobStorage(account models.Account, actualBlobs []keppel.
 					return err
 				}
 			}
-			_, err = j.db.Delete(&unknownBlob) //nolint:gosec // Delete is not holding onto the pointer after it returns
+			_, err = j.db.Delete(&unknownBlob)
 			if err != nil {
 				return err
 			}
@@ -231,7 +231,7 @@ func (j *Janitor) sweepManifestStorage(account models.Account, actualManifests [
 
 		// unmark manifests that have been recorded in the database in the meantime
 		if isKnownManifest[unknownManifestInfo] {
-			_, err = j.db.Delete(&unknownManifest) //nolint:gosec // Delete is not holding onto the pointer after it returns
+			_, err = j.db.Delete(&unknownManifest)
 			if err != nil {
 				return err
 			}
@@ -254,7 +254,7 @@ func (j *Janitor) sweepManifestStorage(account models.Account, actualManifests [
 					return err
 				}
 			}
-			_, err = j.db.Delete(&unknownManifest) //nolint:gosec // Delete is not holding onto the pointer after it returns
+			_, err = j.db.Delete(&unknownManifest)
 			if err != nil {
 				return err
 			}
