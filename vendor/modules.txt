@@ -10,15 +10,13 @@ github.com/alicebob/miniredis/v2/hyperloglog
 github.com/alicebob/miniredis/v2/metro
 github.com/alicebob/miniredis/v2/server
 github.com/alicebob/miniredis/v2/size
-# github.com/aquasecurity/trivy v0.51.1
-## explicit; go 1.22
-github.com/aquasecurity/trivy/pkg/dependency/types
+# github.com/aquasecurity/trivy v0.51.2
+## explicit; go 1.22.0
 github.com/aquasecurity/trivy/pkg/digest
 github.com/aquasecurity/trivy/pkg/fanal/types
 github.com/aquasecurity/trivy/pkg/sbom/core
 github.com/aquasecurity/trivy/pkg/types
 github.com/aquasecurity/trivy/pkg/uuid
-github.com/aquasecurity/trivy/pkg/x/io
 # github.com/aquasecurity/trivy-db v0.0.0-20231005141211-4fc651f7ac8d
 ## explicit; go 1.19
 github.com/aquasecurity/trivy-db/pkg/types
