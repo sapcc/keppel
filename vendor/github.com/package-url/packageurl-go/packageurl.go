@@ -457,8 +457,8 @@ func (p *PackageURL) Normalize() error {
 	}
 	subpath := strings.Trim(p.Subpath, "/")
 	segs := strings.Split(p.Subpath, "/")
-	for _, s := range segs {
-		if s == "." || s == ".." {
+	for i, s := range segs {
+		if (s == "." || s == "..") && i != 0 {
 			return fmt.Errorf("invalid Package URL subpath: %q", p.Subpath)
 		}
 	}
