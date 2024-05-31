@@ -22,7 +22,7 @@ require (
 	github.com/redis/go-redis/v9 v9.5.1
 	github.com/rs/cors v1.11.0
 	github.com/sapcc/go-api-declarations v1.11.2
-	github.com/sapcc/go-bits v0.0.0-20240516084938-1c041b7a84ce
+	github.com/sapcc/go-bits v0.0.0-20240530080859-f4579fb3a074
 	github.com/spf13/cobra v1.8.0
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.5.3
