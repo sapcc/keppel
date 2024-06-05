@@ -1,13 +1,14 @@
-# github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a
+# github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302
 ## explicit
 github.com/alicebob/gopher-json
-# github.com/alicebob/miniredis/v2 v2.32.1
-## explicit; go 1.14
+# github.com/alicebob/miniredis/v2 v2.33.0
+## explicit; go 1.17
 github.com/alicebob/miniredis/v2
 github.com/alicebob/miniredis/v2/fpconv
 github.com/alicebob/miniredis/v2/geohash
 github.com/alicebob/miniredis/v2/hyperloglog
 github.com/alicebob/miniredis/v2/metro
+github.com/alicebob/miniredis/v2/proto
 github.com/alicebob/miniredis/v2/server
 github.com/alicebob/miniredis/v2/size
 # github.com/aquasecurity/trivy v0.51.4
@@ -23,7 +24,7 @@ github.com/aquasecurity/trivy-db/pkg/types
 # github.com/beorn7/perks v1.0.1
 ## explicit; go 1.11
 github.com/beorn7/perks/quantile
-# github.com/cespare/xxhash/v2 v2.2.0
+# github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
 # github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
@@ -160,7 +161,7 @@ github.com/prometheus/procfs/internal/util
 # github.com/rabbitmq/amqp091-go v1.10.0
 ## explicit; go 1.20
 github.com/rabbitmq/amqp091-go
-# github.com/redis/go-redis/v9 v9.5.1
+# github.com/redis/go-redis/v9 v9.5.2
 ## explicit; go 1.18
 github.com/redis/go-redis/v9
 github.com/redis/go-redis/v9/internal
