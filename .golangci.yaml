@@ -39,6 +39,7 @@ linters-settings:
       - (net/http.ResponseWriter).Write
       - (*github.com/spf13/cobra.Command).Help
   forbidigo:
+    analyze-types: true # required for pkg:
     forbid:
       # ioutil package has been deprecated: https://github.com/golang/go/issues/42026
       - ^ioutil\..*$
@@ -46,6 +47,14 @@ linters-settings:
       # Applications wishing to use http.ServeMux should obtain local instances through http.NewServeMux() instead of using the global default instance.
       - ^http\.DefaultServeMux$
       - ^http\.Handle(?:Func)?$
+      # Forbid usage of old and archived square/go-jose
+      - pkg: ^gopkg\.in/square/go-jose\.v2$
+        msg: "gopk.in/square/go-jose is arcived and has CVEs. Replace it with gopkg.in/go-jose/go-jose.v2"
+      - pkg: ^github.com/coreos/go-oidc$
+        msg: "github.com/coreos/go-oidc depends on gopkg.in/square/go-jose which has CVEs. Replace it with github.com/coreos/go-oidc/v3"
+
+      - pkg: ^github.com/howeyc/gopass$
+        msg: "github.com/howeyc/gopass is archived, use golang.org/x/term instead"
   goconst:
     ignore-tests: true
     min-occurrences: 5
