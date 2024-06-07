@@ -148,7 +148,7 @@ github.com/prometheus/client_golang/prometheus/promhttp
 # github.com/prometheus/client_model v0.6.1
 ## explicit; go 1.19
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.53.0
+# github.com/prometheus/common v0.54.0
 ## explicit; go 1.20
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
@@ -182,7 +182,7 @@ github.com/samber/lo
 ## explicit; go 1.21
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20240530080859-f4579fb3a074
+# github.com/sapcc/go-bits v0.0.0-20240606120701-d430ac9229ab
 ## explicit; go 1.22
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
