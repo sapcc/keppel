@@ -40,6 +40,7 @@ import (
 type Processor struct {
 	cfg         keppel.Configuration
 	db          *keppel.DB
+	fd          keppel.FederationDriver
 	sd          keppel.StorageDriver
 	icd         keppel.InboundCacheDriver
 	auditor     keppel.Auditor
@@ -51,8 +52,8 @@ type Processor struct {
 }
 
 // New creates a new Processor.
-func New(cfg keppel.Configuration, db *keppel.DB, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, auditor keppel.Auditor) *Processor {
-	return &Processor{cfg, db, sd, icd, auditor, make(map[string]*client.RepoClient), time.Now, keppel.GenerateStorageID}
+func New(cfg keppel.Configuration, db *keppel.DB, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, auditor keppel.Auditor, fd keppel.FederationDriver) *Processor {
+	return &Processor{cfg, db, fd, sd, icd, auditor, make(map[string]*client.RepoClient), time.Now, keppel.GenerateStorageID}
 }
 
 // OverrideTimeNow replaces time.Now with a test double.

@@ -82,7 +82,7 @@ func (a *API) AddTo(r *mux.Router) {
 }
 
 func (a *API) processor() *processor.Processor {
-	return processor.New(a.cfg, a.db, a.sd, a.icd, a.auditor)
+	return processor.New(a.cfg, a.db, a.sd, a.icd, a.auditor, a.fd)
 }
 
 func (a *API) handleGetAPIInfo(w http.ResponseWriter, r *http.Request) {

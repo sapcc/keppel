@@ -2033,10 +2033,8 @@ func TestDeleteAccount(t *testing.T) {
 		Method:       "DELETE",
 		Path:         "/keppel/v1/accounts/test3",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant3,change:tenant3"},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody: assert.JSONObject{
-			"error": "ForfeitAccountName failing as requested",
-		},
+		ExpectStatus: http.StatusInternalServerError,
+		ExpectBody:   assert.StringData("while cleaning up name claim for account: ForfeitAccountName failed as requested\n"),
 	}.Check(t, h)
 
 	// account "test2" should be gone now

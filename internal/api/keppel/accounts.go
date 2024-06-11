@@ -19,8 +19,6 @@
 package keppelv1
 
 import (
-	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -33,7 +31,6 @@ import (
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -125,7 +122,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	account, rerr := a.processor().CreateOrUpdateAccount(r.Context(), req.Account, a.fd, authz.UserIdentity.UserInfo(), r, func(_ models.Peer) (string, *keppel.RegistryV2Error) {
+	account, rerr := a.processor().CreateOrUpdateAccount(r.Context(), req.Account, authz.UserIdentity.UserInfo(), r, func(_ models.Peer) (string, *keppel.RegistryV2Error) {
 		subleaseToken, err := SubleaseTokenFromRequest(r)
 		if err != nil {
 			return "", keppel.AsRegistryV2Error(err)
@@ -144,26 +141,6 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, map[string]any{"account": accountRendered})
 }
 
-type deleteAccountRemainingManifest struct {
-	RepositoryName string `json:"repository"`
-	Digest         string `json:"digest"`
-}
-
-type deleteAccountRemainingManifests struct {
-	Count uint64                           `json:"count"`
-	Next  []deleteAccountRemainingManifest `json:"next"`
-}
-
-type deleteAccountRemainingBlobs struct {
-	Count uint64 `json:"count"`
-}
-
-type deleteAccountResponse struct {
-	RemainingManifests *deleteAccountRemainingManifests `json:"remaining_manifests,omitempty"`
-	RemainingBlobs     *deleteAccountRemainingBlobs     `json:"remaining_blobs,omitempty"`
-	Error              string                           `json:"error,omitempty"`
-}
-
 func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account")
 	authz := a.authenticateRequest(w, r, accountScopeFromRequest(r, keppel.CanChangeAccount))
@@ -175,7 +152,7 @@ func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := a.deleteAccount(r.Context(), *account)
+	resp, err := a.processor().DeleteAccount(r.Context(), *account)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -184,111 +161,6 @@ func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	} else {
 		respondwith.JSON(w, http.StatusConflict, resp)
 	}
-}
-
-var (
-	deleteAccountFindManifestsQuery = sqlext.SimplifyWhitespace(`
-		SELECT r.name, m.digest
-			FROM manifests m
-			JOIN repos r ON m.repo_id = r.id
-			JOIN accounts a ON a.name = r.account_name
-			LEFT OUTER JOIN manifest_manifest_refs mmr ON mmr.repo_id = r.id AND m.digest = mmr.child_digest
-		 WHERE a.name = $1 AND parent_digest IS NULL
-		 LIMIT 10
-	`)
-	deleteAccountCountManifestsQuery = sqlext.SimplifyWhitespace(`
-		SELECT COUNT(m.digest)
-			FROM manifests m
-			JOIN repos r ON m.repo_id = r.id
-			JOIN accounts a ON a.name = r.account_name
-		 WHERE a.name = $1
-	`)
-	deleteAccountReposQuery                   = `DELETE FROM repos WHERE account_name = $1`
-	deleteAccountCountBlobsQuery              = `SELECT COUNT(id) FROM blobs WHERE account_name = $1`
-	deleteAccountScheduleBlobSweepQuery       = `UPDATE accounts SET next_blob_sweep_at = $2 WHERE name = $1`
-	deleteAccountMarkAllBlobsForDeletionQuery = `UPDATE blobs SET can_be_deleted_at = $2 WHERE account_name = $1`
-)
-
-func (a *API) deleteAccount(ctx context.Context, account models.Account) (*deleteAccountResponse, error) {
-	if !account.InMaintenance {
-		return &deleteAccountResponse{
-			Error: "account must be set in maintenance first",
-		}, nil
-	}
-
-	// can only delete account when user has deleted all manifests from it
-	var nextManifests []deleteAccountRemainingManifest
-	err := sqlext.ForeachRow(a.db, deleteAccountFindManifestsQuery, []any{account.Name},
-		func(rows *sql.Rows) error {
-			var m deleteAccountRemainingManifest
-			err := rows.Scan(&m.RepositoryName, &m.Digest)
-			nextManifests = append(nextManifests, m)
-			return err
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	if len(nextManifests) > 0 {
-		manifestCount, err := a.db.SelectInt(deleteAccountCountManifestsQuery, account.Name)
-		return &deleteAccountResponse{
-			RemainingManifests: &deleteAccountRemainingManifests{
-				Count: uint64(manifestCount),
-				Next:  nextManifests,
-			},
-		}, err
-	}
-
-	// delete all repos (and therefore, all blob mounts), so that blob sweeping
-	// can immediately take place
-	_, err = a.db.Exec(deleteAccountReposQuery, account.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	// can only delete account when all blobs have been deleted
-	blobCount, err := a.db.SelectInt(deleteAccountCountBlobsQuery, account.Name)
-	if err != nil {
-		return nil, err
-	}
-	if blobCount > 0 {
-		// make sure that blob sweep runs immediately
-		_, err := a.db.Exec(deleteAccountMarkAllBlobsForDeletionQuery, account.Name, time.Now())
-		if err != nil {
-			return nil, err
-		}
-		_, err = a.db.Exec(deleteAccountScheduleBlobSweepQuery, account.Name, time.Now())
-		if err != nil {
-			return nil, err
-		}
-		return &deleteAccountResponse{
-			RemainingBlobs: &deleteAccountRemainingBlobs{Count: uint64(blobCount)},
-		}, nil
-	}
-
-	// start deleting the account in a transaction
-	tx, err := a.db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer sqlext.RollbackUnlessCommitted(tx)
-	_, err = tx.Delete(&account)
-	if err != nil {
-		return nil, err
-	}
-
-	// before committing the transaction, confirm account deletion with the
-	// storage driver and the federation driver
-	err = a.sd.CleanupAccount(ctx, account)
-	if err != nil {
-		return &deleteAccountResponse{Error: err.Error()}, nil
-	}
-	err = a.fd.ForfeitAccountName(ctx, account)
-	if err != nil {
-		return &deleteAccountResponse{Error: err.Error()}, nil
-	}
-
-	return nil, tx.Commit()
 }
 
 func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) {
