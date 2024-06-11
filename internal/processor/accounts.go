@@ -62,6 +62,7 @@ func (p *Processor) GetPlatformFilterFromPrimaryAccount(ctx context.Context, pee
 }
 
 var looksLikeAPIVersionRx = regexp.MustCompile(`^v[0-9][1-9]*$`)
+var ErrAccountNameEmpty = errors.New("account name cannot be emptry string")
 
 // CreateOrUpdate can be used on an API account and returns the database representation of it.
 func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Account, userInfo audittools.UserInfo, r *http.Request, getSubleaseToken func(models.Peer) (string, *keppel.RegistryV2Error), setCustomFields func(*models.Account) error) (models.Account, *keppel.RegistryV2Error) {
@@ -227,6 +228,11 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 		}
 	} else if account.PlatformFilter != nil && !originalAccount.PlatformFilter.IsEqualTo(account.PlatformFilter) {
 		return models.Account{}, keppel.AsRegistryV2Error(errors.New(`cannot change platform filter on existing account`)).WithStatus(http.StatusConflict)
+	}
+
+	err = setCustomFields(&targetAccount)
+	if err != nil {
+		return models.Account{}, keppel.AsRegistryV2Error(err).WithStatus(http.StatusInternalServerError)
 	}
 
 	// create account if required

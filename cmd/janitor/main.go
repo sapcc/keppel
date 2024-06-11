@@ -56,8 +56,9 @@ func run(cmd *cobra.Command, args []string) {
 	ctx := httpext.ContextWithSIGINT(cmd.Context(), 10*time.Second)
 	auditor := keppel.InitAuditTrail(ctx)
 
-	db := must.Return(keppel.InitDB(cfg.DatabaseURL))
 	ad := must.Return(keppel.NewAuthDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_AUTH"), nil))
+	amd := must.Return(keppel.NewAccountManagementDriver(osext.MustGetenv("KEPPEL_DRIVER_ACCOUNT_MANAGEMENT")))
+	db := must.Return(keppel.InitDB(cfg.DatabaseURL))
 	fd := must.Return(keppel.NewFederationDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_FEDERATION"), ad, cfg))
 	sd := must.Return(keppel.NewStorageDriver(osext.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg))
 	icd := must.Return(keppel.NewInboundCacheDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_INBOUND_CACHE"), cfg))
@@ -65,9 +66,10 @@ func run(cmd *cobra.Command, args []string) {
 	prometheus.MustRegister(sqlstats.NewStatsCollector("keppel", db.DbMap.Db))
 
 	// start task loops
-	janitor := tasks.NewJanitor(cfg, fd, sd, icd, db, auditor)
+	janitor := tasks.NewJanitor(cfg, fd, sd, icd, db, amd, auditor)
 	go janitor.AccountFederationAnnouncementJob(nil).Run(ctx)
 	go janitor.AbandonedUploadCleanupJob(nil).Run(ctx)
+	go janitor.EnforceManagedAccounts(nil).Run(ctx)
 	go janitor.ManifestGarbageCollectionJob(nil).Run(ctx)
 	go janitor.BlobMountSweepJob(nil).Run(ctx)
 	go janitor.BlobSweepJob(nil).Run(ctx)
