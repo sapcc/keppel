@@ -32,7 +32,7 @@ import (
 
 // AccountManagementDriver is the account management driver "basic".
 type AccountManagementDriver struct {
-	configPath string
+	ConfigPath string
 	config     AccountConfig
 	lock       sync.RWMutex
 }
@@ -62,9 +62,9 @@ func (a *AccountManagementDriver) PluginTypeID() string { return "basic" }
 
 // Init implements the keppel.AccountManagementDriver interface.
 func (a *AccountManagementDriver) Init() error {
-	a.configPath = os.Getenv("KEPPEL_ACCOUNT_MANAGEMENT_FILE")
-	if a.configPath == "" {
-		return errors.New("KEPPEL_ACCOUNT_MANAGEMENT_FILE is not set")
+	configPath, err := osext.NeedGetenv("KEPPEL_ACCOUNT_MANAGEMENT_FILE")
+	if err != nil {
+		return err
 	}
 	a.ConfigPath = configPath
 	return a.loadConfig()
@@ -116,7 +116,7 @@ func (a *AccountManagementDriver) ManagedAccountNames() ([]string, error) {
 }
 
 func (a *AccountManagementDriver) loadConfig() error {
-	reader, err := os.Open(a.configPath)
+	reader, err := os.Open(a.ConfigPath)
 	if err != nil {
 		return err
 	}

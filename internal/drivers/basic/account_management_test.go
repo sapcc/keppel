@@ -29,7 +29,7 @@ import (
 
 func TestConfigureAccount(t *testing.T) {
 	driver := AccountManagementDriver{
-		configPath: "./fixtures/account_management.yaml",
+		ConfigPath: "./fixtures/account_management.yaml",
 	}
 
 	listOfAccounts, err := driver.ManagedAccountNames()

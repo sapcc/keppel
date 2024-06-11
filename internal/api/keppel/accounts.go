@@ -128,7 +128,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 			return "", keppel.AsRegistryV2Error(err)
 		}
 		return subleaseToken.Secret, nil
-	})
+	}, func(*models.Account) error { return nil })
 	if rerr != nil {
 		rerr.WriteAsTextTo(w)
 		return
