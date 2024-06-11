@@ -95,7 +95,7 @@ func addJitter(duration time.Duration) time.Duration {
 }
 
 func (j *Janitor) processor() *processor.Processor {
-	return processor.New(j.cfg, j.db, j.sd, j.icd, j.auditor).OverrideTimeNow(j.timeNow).OverrideGenerateStorageID(j.generateStorageID)
+	return processor.New(j.cfg, j.db, j.sd, j.icd, j.auditor, j.fd).OverrideTimeNow(j.timeNow).OverrideGenerateStorageID(j.generateStorageID)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
