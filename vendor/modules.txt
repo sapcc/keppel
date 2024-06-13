@@ -11,13 +11,11 @@ github.com/alicebob/miniredis/v2/metro
 github.com/alicebob/miniredis/v2/proto
 github.com/alicebob/miniredis/v2/server
 github.com/alicebob/miniredis/v2/size
-# github.com/aquasecurity/trivy v0.51.4
+# github.com/aquasecurity/trivy v0.52.1
 ## explicit; go 1.22.0
 github.com/aquasecurity/trivy/pkg/digest
 github.com/aquasecurity/trivy/pkg/fanal/types
-github.com/aquasecurity/trivy/pkg/sbom/core
-github.com/aquasecurity/trivy/pkg/types
-github.com/aquasecurity/trivy/pkg/uuid
+github.com/aquasecurity/trivy/pkg/module/serialize
 # github.com/aquasecurity/trivy-db v0.0.0-20231005141211-4fc651f7ac8d
 ## explicit; go 1.19
 github.com/aquasecurity/trivy-db/pkg/types
@@ -71,9 +69,6 @@ github.com/golang-migrate/migrate/v4/source/go_bindata
 ## explicit; go 1.18
 github.com/google/go-containerregistry/pkg/v1
 github.com/google/go-containerregistry/pkg/v1/types
-# github.com/google/uuid v1.6.0
-## explicit
-github.com/google/uuid
 # github.com/gophercloud/gophercloud v1.12.0
 ## explicit; go 1.14
 github.com/gophercloud/gophercloud
@@ -116,6 +111,8 @@ github.com/inconshreveable/mousetrap
 # github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629
 ## explicit
 github.com/jpillora/longestcommon
+# github.com/kr/text v0.2.0
+## explicit
 # github.com/lib/pq v1.10.9
 ## explicit; go 1.13
 github.com/lib/pq
@@ -171,6 +168,8 @@ github.com/redis/go-redis/v9/internal/pool
 github.com/redis/go-redis/v9/internal/proto
 github.com/redis/go-redis/v9/internal/rand
 github.com/redis/go-redis/v9/internal/util
+# github.com/rogpeppe/go-internal v1.12.0
+## explicit; go 1.20
 # github.com/rs/cors v1.11.0
 ## explicit; go 1.13
 github.com/rs/cors
@@ -235,7 +234,6 @@ golang.org/x/crypto/blowfish
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
-golang.org/x/exp/slices
 # golang.org/x/sys v0.21.0
 ## explicit; go 1.18
 golang.org/x/sys/unix

@@ -20,6 +20,7 @@
 package trivy
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -29,7 +30,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/aquasecurity/trivy/pkg/types"
+	"github.com/aquasecurity/trivy/pkg/module/serialize"
 
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -110,19 +111,21 @@ func stripColor(in string) string {
 // ScanManifest is like ScanManifestAndParse, except that the result is parsed
 // instead of being returned as a bytestring. The report format "json" is
 // implied in order to match the return type.
-func (tc *Config) ScanManifestAndParse(ctx context.Context, keppelToken string, manifestRef models.ImageReference) (types.Report, error) {
+func (tc *Config) ScanManifestAndParse(ctx context.Context, keppelToken string, manifestRef models.ImageReference) (Report, error) {
 	report, err := tc.ScanManifest(ctx, keppelToken, manifestRef, "json")
 	if err != nil {
-		return types.Report{}, err
+		return Report{}, err
 	}
 
-	var parsedReport types.Report
-	err = json.Unmarshal(report.Contents, &parsedReport)
+	var parsedReport Report
+	dec := json.NewDecoder(bytes.NewReader(report.Contents))
+	dec.DisallowUnknownFields() // force loud errors in QA when a new Trivy version adds new fields that we need to mirror into our `type Report` etc.
+	err = dec.Decode(&parsedReport)
 	return parsedReport, err
 }
 
 // FixIsReleased returns whether v.FixedVersion is non-empty. (This particular
 // method name reads better in some situations than `v.FixedVersion != ""`.)
-func FixIsReleased(v types.DetectedVulnerability) bool {
+func FixIsReleased(v serialize.DetectedVulnerability) bool {
 	return v.FixedVersion != ""
 }

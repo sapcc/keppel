@@ -83,7 +83,7 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 	if audience.IsAnycast {
 		// completely forbid write operations on the anycast API (only the local API
 		// may be used for writes and deletes)
-		if r.Method != "HEAD" && r.Method != "GET" {
+		if r.Method != http.MethodHead && r.Method != http.MethodGet {
 			msg := "write access is not supported for anycast requests"
 			return nil, keppel.ErrUnsupported.With(msg)
 		}
