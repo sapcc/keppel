@@ -23,8 +23,7 @@ import (
 	"fmt"
 	"time"
 
-	ftypes "github.com/aquasecurity/trivy/pkg/fanal/types"
-	"github.com/aquasecurity/trivy/pkg/types"
+	stypes "github.com/aquasecurity/trivy/pkg/module/serialize"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/regexpext"
 
@@ -136,7 +135,7 @@ func (p SecurityScanPolicy) MatchesRepository(repo models.Repository) bool {
 }
 
 // MatchesVulnerability evaluates the vulnerability regexes and checkin this policy.
-func (p SecurityScanPolicy) MatchesVulnerability(vuln types.DetectedVulnerability) bool {
+func (p SecurityScanPolicy) MatchesVulnerability(vuln stypes.DetectedVulnerability) bool {
 	if p.ExceptFixReleased && trivy.FixIsReleased(vuln) {
 		return false
 	}
@@ -179,7 +178,7 @@ func GetSecurityScanPolicies(account models.Account, repo models.Repository) (Se
 
 // PolicyForVulnerability returns the first policy from this set that matches
 // the vulnerability, or nil if no policy matches.
-func (s SecurityScanPolicySet) PolicyForVulnerability(vuln types.DetectedVulnerability) *SecurityScanPolicy {
+func (s SecurityScanPolicySet) PolicyForVulnerability(vuln stypes.DetectedVulnerability) *SecurityScanPolicy {
 	for _, p := range s {
 		if p.MatchesVulnerability(vuln) {
 			return &p
@@ -188,18 +187,18 @@ func (s SecurityScanPolicySet) PolicyForVulnerability(vuln types.DetectedVulnera
 	return nil
 }
 
-// enrichedReport has the same fields as types.Report, plus the fields that our
+// enrichedReport has the same fields as trivy.Report, plus the fields that our
 // EnrichReport adds.
 //
 // We cannot just inline the existing type because that's not supported by the
 // encoding/json library: <https://github.com/golang/go/issues/6213>
 type enrichedReport struct {
-	SchemaVersion int                 `json:",omitempty"`
-	CreatedAt     time.Time           `json:",omitempty"`
-	ArtifactName  string              `json:",omitempty"`
-	ArtifactType  ftypes.ArtifactType `json:",omitempty"`
-	Metadata      types.Metadata      `json:",omitempty"`
-	Results       types.Results       `json:",omitempty"`
+	SchemaVersion int            `json:",omitempty"`
+	CreatedAt     time.Time      `json:",omitempty"`
+	ArtifactName  string         `json:",omitempty"`
+	ArtifactType  string         `json:",omitempty"`
+	Metadata      trivy.Metadata `json:",omitempty"`
+	Results       stypes.Results `json:",omitempty"`
 
 	ApplicablePolicies map[string]SecurityScanPolicy `json:"X-Keppel-Applicable-Policies,omitempty"`
 }
