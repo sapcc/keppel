@@ -281,11 +281,11 @@ func (a *API) deleteAccount(ctx context.Context, account models.Account) (*delet
 	// storage driver and the federation driver
 	err = a.sd.CleanupAccount(account)
 	if err != nil {
-		return &deleteAccountResponse{Error: err.Error()}, nil //nolint:nilerr // intended behaviour
+		return &deleteAccountResponse{Error: err.Error()}, nil
 	}
 	err = a.fd.ForfeitAccountName(ctx, account)
 	if err != nil {
-		return &deleteAccountResponse{Error: err.Error()}, nil //nolint:nilerr // intended behaviour
+		return &deleteAccountResponse{Error: err.Error()}, nil
 	}
 
 	return nil, tx.Commit()

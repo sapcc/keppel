@@ -122,7 +122,7 @@ func (c *RepoClient) doRequest(ctx context.Context, r repoRequest) (*http.Respon
 		//
 		//NOTE: We use HasPrefix here because the actual Content-Type is usually
 		// "application/json; charset=utf-8".
-		if r.Method != "HEAD" && strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
+		if r.Method != http.MethodHead && strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
 			var respData struct {
 				Errors []*keppel.RegistryV2Error `json:"errors"`
 			}
