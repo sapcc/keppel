@@ -4,7 +4,7 @@ go 1.22.0
 
 require (
 	github.com/alicebob/miniredis/v2 v2.33.0
-	github.com/aquasecurity/trivy v0.52.1
+	github.com/aquasecurity/trivy v0.52.2
 	github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/docker/distribution v2.8.3+incompatible
@@ -27,7 +27,7 @@ require (
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.5.3
 	golang.org/x/crypto v0.24.0
-	golang.org/x/exp v0.0.0-20240604190554-fc45aab8b7f8
+	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8
 )
 
 require (
