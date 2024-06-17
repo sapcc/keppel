@@ -20,7 +20,6 @@
 package trivy
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -118,9 +117,7 @@ func (tc *Config) ScanManifestAndParse(ctx context.Context, keppelToken string, 
 	}
 
 	var parsedReport Report
-	dec := json.NewDecoder(bytes.NewReader(report.Contents))
-	dec.DisallowUnknownFields() // force loud errors in QA when a new Trivy version adds new fields that we need to mirror into our `type Report` etc.
-	err = dec.Decode(&parsedReport)
+	err = json.Unmarshal(report.Contents, &parsedReport)
 	return parsedReport, err
 }
 
