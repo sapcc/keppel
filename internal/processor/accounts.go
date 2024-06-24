@@ -64,7 +64,10 @@ func (p *Processor) GetPlatformFilterFromPrimaryAccount(ctx context.Context, pee
 var looksLikeAPIVersionRx = regexp.MustCompile(`^v[0-9][1-9]*$`)
 
 // CreateOrUpdate can be used on an API account and returns the database representation of it.
-func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Account, userInfo audittools.UserInfo, r *http.Request, getSubleaseToken func(models.Peer) (string, *keppel.RegistryV2Error)) (models.Account, *keppel.RegistryV2Error) {
+func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Account, userInfo audittools.UserInfo, r *http.Request, getSubleaseToken func(models.Peer) (string, *keppel.RegistryV2Error), setCustomFields func(*models.Account) error) (models.Account, *keppel.RegistryV2Error) {
+	if account.Name == "" {
+		return models.Account{}, keppel.AsRegistryV2Error(ErrAccountNameEmpty)
+	}
 	// reserve identifiers for internal pseudo-accounts and anything that might
 	// appear like the first path element of a legal endpoint path on any of our
 	// APIs (we will soon start recognizing image-like URLs such as
