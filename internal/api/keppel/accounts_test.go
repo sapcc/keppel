@@ -582,6 +582,16 @@ func TestPutAccountErrorCases(t *testing.T) {
 		Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
 		Body:         assert.StringData(`{"account":???}`),
 		ExpectStatus: http.StatusBadRequest,
+		ExpectBody:   assert.StringData("request body is not valid JSON: invalid character '?' looking for beginning of value\n"),
+	}.Check(t, h)
+
+	assert.HTTPRequest{
+		Method:       "PUT",
+		Path:         "/keppel/v1/accounts/second",
+		Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body:         assert.StringData(`{"account":""}`),
+		ExpectStatus: http.StatusBadRequest,
+		ExpectBody:   assert.StringData("request body is not valid JSON: json: cannot unmarshal string into Go struct field .account of type keppel.Account\n"),
 	}.Check(t, h)
 
 	assert.HTTPRequest{
@@ -2033,10 +2043,8 @@ func TestDeleteAccount(t *testing.T) {
 		Method:       "DELETE",
 		Path:         "/keppel/v1/accounts/test3",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant3,change:tenant3"},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody: assert.JSONObject{
-			"error": "ForfeitAccountName failing as requested",
-		},
+		ExpectStatus: http.StatusInternalServerError,
+		ExpectBody:   assert.StringData("while cleaning up name claim for account: ForfeitAccountName failed as requested\n"),
 	}.Check(t, h)
 
 	// account "test2" should be gone now

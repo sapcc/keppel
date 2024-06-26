@@ -82,6 +82,30 @@ func (c Client) GetForeignAccountConfigurationInto(ctx context.Context, target a
 	return nil
 }
 
+// GetSubleaseToken asks the peer for a sublease token for this account to replicate it on another Keppel instance.
+// Only the primary instance of an account can be asked for a sublease token.
+func (c Client) GetSubleaseToken(ctx context.Context, accountName string) (string, error) {
+	reqURL := c.buildRequestURL("keppel/v1/accounts/" + accountName + "/sublease")
+
+	respBodyBytes, respStatusCode, _, err := c.doRequest(ctx, http.MethodPost, reqURL, http.NoBody, nil)
+	if err != nil {
+		return "", err
+	}
+	if respStatusCode != http.StatusOK {
+		return "", fmt.Errorf("during POST %s: expected 200, got %d with response: %s",
+			reqURL, respStatusCode, string(respBodyBytes))
+	}
+
+	data := struct {
+		SubleaseToken string `json:"sublease_token"`
+	}{}
+	err = jsonUnmarshalStrict(respBodyBytes, &data)
+	if err != nil {
+		return "", fmt.Errorf("while parsing response for POST %s: %w", reqURL, err)
+	}
+	return data.SubleaseToken, nil
+}
+
 // PerformReplicaSync uses the replica-sync API to perform an optimized
 // manifest/tag sync with an upstream repo that is managed by one of our peers.
 //

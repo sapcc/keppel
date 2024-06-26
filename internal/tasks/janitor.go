@@ -53,6 +53,7 @@ type Janitor struct {
 	sd      keppel.StorageDriver
 	icd     keppel.InboundCacheDriver
 	db      *keppel.DB
+	amd     keppel.AccountManagementDriver
 	auditor keppel.Auditor
 
 	// non-pure functions that can be replaced by deterministic doubles for unit tests
@@ -62,8 +63,8 @@ type Janitor struct {
 }
 
 // NewJanitor creates a new Janitor.
-func NewJanitor(cfg keppel.Configuration, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *keppel.DB, auditor keppel.Auditor) *Janitor {
-	j := &Janitor{cfg, fd, sd, icd, db, auditor, time.Now, keppel.GenerateStorageID, addJitter}
+func NewJanitor(cfg keppel.Configuration, fd keppel.FederationDriver, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, db *keppel.DB, amd keppel.AccountManagementDriver, auditor keppel.Auditor) *Janitor {
+	j := &Janitor{cfg, fd, sd, icd, db, amd, auditor, time.Now, keppel.GenerateStorageID, addJitter}
 	return j
 }
 
@@ -95,7 +96,7 @@ func addJitter(duration time.Duration) time.Duration {
 }
 
 func (j *Janitor) processor() *processor.Processor {
-	return processor.New(j.cfg, j.db, j.sd, j.icd, j.auditor).OverrideTimeNow(j.timeNow).OverrideGenerateStorageID(j.generateStorageID)
+	return processor.New(j.cfg, j.db, j.sd, j.icd, j.auditor, j.fd).OverrideTimeNow(j.timeNow).OverrideGenerateStorageID(j.generateStorageID)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

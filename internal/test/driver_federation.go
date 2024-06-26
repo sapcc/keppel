@@ -98,7 +98,7 @@ func (d *FederationDriver) IssueSubleaseTokenSecret(ctx context.Context, account
 // ForfeitAccountName implements the keppel.FederationDriver interface.
 func (d *FederationDriver) ForfeitAccountName(ctx context.Context, account models.Account) error {
 	if d.ForfeitFails {
-		return errors.New("ForfeitAccountName failing as requested")
+		return errors.New("ForfeitAccountName failed as requested")
 	}
 	return nil
 }

@@ -40,6 +40,7 @@ import (
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
 	peerv1 "github.com/sapcc/keppel/internal/api/peer"
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
+	"github.com/sapcc/keppel/internal/drivers/basic"
 	"github.com/sapcc/keppel/internal/drivers/trivial"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -152,6 +153,7 @@ type Setup struct {
 	SIDGenerator *StorageIDGenerator
 	Auditor      *Auditor
 	AD           *AuthDriver
+	AMD          *basic.AccountManagementDriver
 	FD           *FederationDriver
 	SD           *trivial.StorageDriver
 	ICD          *InboundCacheDriver
@@ -301,6 +303,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	// setup essential test doubles
 	s.Clock = mock.NewClock()
 	s.SIDGenerator = &StorageIDGenerator{}
+	s.AMD = &basic.AccountManagementDriver{}
 	s.Auditor = &Auditor{}
 
 	// if we are secondary and we know the primary, share the clock with it
