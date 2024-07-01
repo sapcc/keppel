@@ -104,7 +104,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				logg.Info("could not read manifest %s@%s from DB (falling back to read from storage): %s",
 					repo.FullName(), dbManifest.Digest, err.Error())
 			}
-			manifestBytes, err = a.sd.ReadManifest(*account, repo.Name, dbManifest.Digest)
+			manifestBytes, err = a.sd.ReadManifest(r.Context(), *account, repo.Name, dbManifest.Digest)
 			if respondWithError(w, r, err) {
 				return
 			}
@@ -292,7 +292,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	if ref.IsTag() {
 		err = a.processor().DeleteTag(*account, *repo, ref.Tag, actx)
 	} else {
-		err = a.processor().DeleteManifest(*account, *repo, ref.Digest, actx)
+		err = a.processor().DeleteManifest(r.Context(), *account, *repo, ref.Digest, actx)
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		keppel.ErrManifestUnknown.With("no such manifest").WriteAsRegistryV2ResponseTo(w, r)
@@ -348,7 +348,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 
 	// validate and store manifest
 	ref := models.ParseManifestReference(mux.Vars(r)["reference"])
-	manifest, err := a.processor().ValidateAndStoreManifest(*account, *repo, processor.IncomingManifest{
+	manifest, err := a.processor().ValidateAndStoreManifest(r.Context(), *account, *repo, processor.IncomingManifest{
 		Reference: ref,
 		MediaType: r.Header.Get("Content-Type"),
 		Contents:  manifestBytes,

@@ -74,7 +74,7 @@ func (j *Janitor) ManifestGarbageCollectionJob(registerer prometheus.Registerer)
 	}).Setup(registerer)
 }
 
-func (j *Janitor) garbageCollectManifestsInRepo(_ context.Context, repo models.Repository, labels prometheus.Labels) (returnErr error) {
+func (j *Janitor) garbageCollectManifestsInRepo(ctx context.Context, repo models.Repository, labels prometheus.Labels) (returnErr error) {
 	// load GC policies for this repository
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {
@@ -97,7 +97,7 @@ func (j *Janitor) garbageCollectManifestsInRepo(_ context.Context, repo models.R
 
 	// execute GC policies
 	if len(policiesForRepo) > 0 {
-		err = j.executeGCPolicies(*account, repo, policiesForRepo)
+		err = j.executeGCPolicies(ctx, *account, repo, policiesForRepo)
 		if err != nil {
 			return err
 		}
@@ -123,7 +123,7 @@ type manifestData struct {
 	IsDeleted     bool
 }
 
-func (j *Janitor) executeGCPolicies(account models.Account, repo models.Repository, policies []keppel.GCPolicy) error {
+func (j *Janitor) executeGCPolicies(ctx context.Context, account models.Account, repo models.Repository, policies []keppel.GCPolicy) error {
 	// load manifests in repo
 	var dbManifests []models.Manifest
 	_, err := j.db.Select(&dbManifests, `SELECT * FROM manifests WHERE repo_id = $1`, repo.ID)
@@ -198,7 +198,7 @@ func (j *Janitor) executeGCPolicies(account models.Account, repo models.Reposito
 	// evaluate policies in order
 	proc := j.processor()
 	for _, policy := range policies {
-		err := j.evaluatePolicy(proc, manifests, account, repo, policy)
+		err := j.evaluatePolicy(ctx, proc, manifests, account, repo, policy)
 		if err != nil {
 			return err
 		}
@@ -207,7 +207,7 @@ func (j *Janitor) executeGCPolicies(account models.Account, repo models.Reposito
 	return j.persistGCStatus(manifests, repo.ID)
 }
 
-func (j *Janitor) evaluatePolicy(proc *processor.Processor, manifests []*manifestData, account models.Account, repo models.Repository, policy keppel.GCPolicy) error {
+func (j *Janitor) evaluatePolicy(ctx context.Context, proc *processor.Processor, manifests []*manifestData, account models.Account, repo models.Repository, policy keppel.GCPolicy) error {
 	// for some time constraint matches, we need to know which manifests are
 	// still alive
 	var aliveManifests []models.Manifest
@@ -245,7 +245,7 @@ func (j *Janitor) evaluatePolicy(proc *processor.Processor, manifests []*manifes
 		case "protect":
 			m.GCStatus.ProtectedByPolicy = &pCopied
 		case "delete":
-			err := proc.DeleteManifest(account, repo, m.Manifest.Digest, keppel.AuditContext{
+			err := proc.DeleteManifest(ctx, account, repo, m.Manifest.Digest, keppel.AuditContext{
 				UserIdentity: janitorUserIdentity{
 					TaskName: "policy-driven-gc",
 					GCPolicy: &pCopied,

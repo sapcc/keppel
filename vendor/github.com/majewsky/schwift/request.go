@@ -40,7 +40,6 @@ import (
 type RequestOptions struct {
 	Headers Headers
 	Values  url.Values
-	Context context.Context //nolint: containedctx // ignored for now to not break the API
 }
 
 func cloneRequestOptions(orig *RequestOptions, additional Headers) *RequestOptions {
@@ -55,7 +54,6 @@ func cloneRequestOptions(orig *RequestOptions, additional Headers) *RequestOptio
 		for k, v := range orig.Values {
 			result.Values[k] = v
 		}
-		result.Context = orig.Context
 	}
 	for k, v := range additional {
 		result.Headers[k] = v
@@ -106,7 +104,7 @@ func (r Request) URL(backend Backend, values url.Values) (string, error) {
 }
 
 // Do executes this request on the given Backend.
-func (r Request) Do(backend Backend) (*http.Response, error) {
+func (r Request) Do(ctx context.Context, backend Backend) (*http.Response, error) {
 	// build URL
 	var values url.Values
 	if r.Options != nil {
@@ -118,7 +116,7 @@ func (r Request) Do(backend Backend) (*http.Response, error) {
 	}
 
 	// build request
-	req, err := http.NewRequest(r.Method, uri, r.Body)
+	req, err := http.NewRequestWithContext(ctx, r.Method, uri, r.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -126,9 +124,6 @@ func (r Request) Do(backend Backend) (*http.Response, error) {
 	if r.Options != nil {
 		for k, v := range r.Options.Headers {
 			req.Header[k] = []string{v}
-		}
-		if r.Options.Context != nil {
-			req = req.WithContext(r.Options.Context)
 		}
 	}
 	if r.Body != nil {

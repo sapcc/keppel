@@ -20,6 +20,7 @@ package schwift
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/md5"  //nolint:gosec // Etag uses md5
 	"crypto/sha1" //nolint:gosec // Used by swift
@@ -89,8 +90,8 @@ func (o *Object) FullName() string {
 
 // Exists checks if this object exists, potentially by issuing a HEAD request
 // if no Headers() have been cached yet.
-func (o *Object) Exists() (bool, error) {
-	_, err := o.Headers()
+func (o *Object) Exists(ctx context.Context) (bool, error) {
+	_, err := o.Headers(ctx)
 	if Is(err, http.StatusNotFound) {
 		return false, nil
 	} else if err != nil {
@@ -109,12 +110,12 @@ func (o *Object) Exists() (bool, error) {
 //
 // WARNING: This method is not thread-safe. Calling it concurrently on the same
 // object results in undefined behavior.
-func (o *Object) Headers() (ObjectHeaders, error) {
+func (o *Object) Headers(ctx context.Context) (ObjectHeaders, error) {
 	if o.headers != nil {
 		return *o.headers, nil
 	}
 
-	hdr, err := o.fetchHeaders(nil)
+	hdr, err := o.fetchHeaders(ctx, nil)
 	if err != nil {
 		return ObjectHeaders{}, err
 	}
@@ -122,7 +123,7 @@ func (o *Object) Headers() (ObjectHeaders, error) {
 	return *hdr, nil
 }
 
-func (o *Object) fetchHeaders(opts *RequestOptions) (*ObjectHeaders, error) {
+func (o *Object) fetchHeaders(ctx context.Context, opts *RequestOptions) (*ObjectHeaders, error) {
 	resp, err := Request{
 		Method:        "HEAD",
 		ContainerName: o.c.name,
@@ -132,7 +133,7 @@ func (o *Object) fetchHeaders(opts *RequestOptions) (*ObjectHeaders, error) {
 		// this returns 200 instead of 204
 		ExpectStatusCodes: []int{http.StatusOK},
 		DrainResponseBody: true,
-	}.Do(o.c.a.backend)
+	}.Do(ctx, o.c.a.backend)
 	if err != nil {
 		return nil, err
 	}
@@ -148,14 +149,14 @@ func (o *Object) fetchHeaders(opts *RequestOptions) (*ObjectHeaders, error) {
 // This operation fails with http.StatusNotFound if the object does not exist.
 //
 // A successful POST request implies Invalidate() since it may change metadata.
-func (o *Object) Update(headers ObjectHeaders, opts *RequestOptions) error {
+func (o *Object) Update(ctx context.Context, headers ObjectHeaders, opts *RequestOptions) error {
 	resp, err := Request{
 		Method:            "POST",
 		ContainerName:     o.c.name,
 		ObjectName:        o.name,
 		Options:           cloneRequestOptions(opts, headers.Headers),
 		ExpectStatusCodes: []int{http.StatusAccepted},
-	}.Do(o.c.a.backend)
+	}.Do(ctx, o.c.a.backend)
 	if err == nil {
 		o.Invalidate()
 		resp.Body.Close()
@@ -205,7 +206,7 @@ type UploadOptions struct {
 // This function can be used regardless of whether the object exists or not.
 //
 // A successful PUT request implies Invalidate() since it may change metadata.
-func (o *Object) Upload(content io.Reader, opts *UploadOptions, ropts *RequestOptions) error {
+func (o *Object) Upload(ctx context.Context, content io.Reader, opts *UploadOptions, ropts *RequestOptions) error {
 	if opts == nil {
 		opts = &UploadOptions{}
 	}
@@ -247,7 +248,7 @@ func (o *Object) Upload(content io.Reader, opts *UploadOptions, ropts *RequestOp
 		// the segments after successfully uploading the new object to decrease the
 		// chance of an inconsistent state following an upload error
 		var err error
-		lo, err = o.AsLargeObject()
+		lo, err = o.AsLargeObject(ctx)
 		switch {
 		case err == nil:
 			// okay, delete segments at the end
@@ -268,7 +269,7 @@ func (o *Object) Upload(content io.Reader, opts *UploadOptions, ropts *RequestOp
 		Body:              content,
 		ExpectStatusCodes: []int{201},
 		DrainResponseBody: true,
-	}.Do(o.c.a.backend)
+	}.Do(ctx, o.c.a.backend)
 	if err != nil {
 		return err
 	}
@@ -283,7 +284,7 @@ func (o *Object) Upload(content io.Reader, opts *UploadOptions, ropts *RequestOp
 	}
 
 	if opts.DeleteSegments && lo != nil {
-		_, _, err := lo.object.c.a.BulkDelete(lo.SegmentObjects(), nil, nil)
+		_, _, err := lo.object.c.a.BulkDelete(ctx, lo.SegmentObjects(), nil, nil)
 		if err != nil {
 			return err
 		}
@@ -361,11 +362,11 @@ func tryComputeEtag(content io.Reader, headers ObjectHeaders) error {
 //	})
 //
 // If you do not need an io.Writer, always use Upload instead.
-func (o *Object) UploadFromWriter(opts *UploadOptions, ropts *RequestOptions, callback func(io.Writer) error) error {
+func (o *Object) UploadFromWriter(ctx context.Context, opts *UploadOptions, ropts *RequestOptions, callback func(io.Writer) error) error {
 	reader, writer := io.Pipe()
 	errChan := make(chan error)
 	go func() {
-		err := o.Upload(reader, opts, ropts)
+		err := o.Upload(ctx, reader, opts, ropts)
 		reader.CloseWithError(err) // stop the writer if it is still writing
 		errChan <- err
 	}()
@@ -386,21 +387,21 @@ type DeleteOptions struct {
 // This operation fails with http.StatusNotFound if the object does not exist.
 //
 // A successful DELETE request implies Invalidate().
-func (o *Object) Delete(opts *DeleteOptions, ropts *RequestOptions) error {
+func (o *Object) Delete(ctx context.Context, opts *DeleteOptions, ropts *RequestOptions) error {
 	if opts == nil {
 		opts = &DeleteOptions{}
 	}
 	if opts.DeleteSegments {
-		exists, err := o.Exists()
+		exists, err := o.Exists(ctx)
 		if err != nil {
 			return err
 		}
 		if exists {
-			lo, err := o.AsLargeObject()
+			lo, err := o.AsLargeObject(ctx)
 			switch {
 			case err == nil:
 				// is large object - delete segments and the object itself in one step
-				_, _, err := o.c.a.BulkDelete(append(lo.SegmentObjects(), o), nil, nil)
+				_, _, err := o.c.a.BulkDelete(ctx, append(lo.SegmentObjects(), o), nil, nil)
 				o.Invalidate()
 				return err
 			case errors.Is(err, ErrNotLarge):
@@ -418,7 +419,7 @@ func (o *Object) Delete(opts *DeleteOptions, ropts *RequestOptions) error {
 		ObjectName:        o.name,
 		Options:           ropts,
 		ExpectStatusCodes: []int{http.StatusNoContent},
-	}.Do(o.c.a.backend)
+	}.Do(ctx, o.c.a.backend)
 	if err == nil {
 		o.Invalidate()
 		resp.Body.Close()
@@ -451,14 +452,14 @@ func (o *Object) Invalidate() {
 //
 // WARNING: This method is not thread-safe. Calling it concurrently on the same
 // object results in undefined behavior.
-func (o *Object) Download(opts *RequestOptions) DownloadedObject {
+func (o *Object) Download(ctx context.Context, opts *RequestOptions) DownloadedObject {
 	resp, err := Request{
 		Method:            "GET",
 		ContainerName:     o.c.name,
 		ObjectName:        o.name,
 		Options:           opts,
 		ExpectStatusCodes: []int{http.StatusOK},
-	}.Do(o.c.a.backend) //nolint:bodyclose // body is returned and must be closed by the user
+	}.Do(ctx, o.c.a.backend) //nolint:bodyclose // body is returned and must be closed by the user
 	var body io.ReadCloser
 	if err == nil {
 		newHeaders := ObjectHeaders{headersFromHTTP(resp.Header)}
@@ -488,7 +489,7 @@ type CopyOptions struct {
 //
 // A successful COPY implies target.Invalidate() since it may change the
 // target's metadata.
-func (o *Object) CopyTo(target *Object, opts *CopyOptions, ropts *RequestOptions) error {
+func (o *Object) CopyTo(ctx context.Context, target *Object, opts *CopyOptions, ropts *RequestOptions) error {
 	ropts = cloneRequestOptions(ropts, nil)
 	ropts.Headers.Set("Destination", target.FullName())
 	if o.c.a.name != target.c.a.name {
@@ -510,7 +511,7 @@ func (o *Object) CopyTo(target *Object, opts *CopyOptions, ropts *RequestOptions
 		Options:           ropts,
 		ExpectStatusCodes: []int{http.StatusCreated},
 		DrainResponseBody: true,
-	}.Do(o.c.a.backend)
+	}.Do(ctx, o.c.a.backend)
 	if err == nil {
 		target.Invalidate()
 		resp.Body.Close()
@@ -531,7 +532,7 @@ type SymlinkOptions struct {
 // this operation.
 //
 // A successful PUT request implies Invalidate() since it may change metadata.
-func (o *Object) SymlinkTo(target *Object, opts *SymlinkOptions, ropts *RequestOptions) error {
+func (o *Object) SymlinkTo(ctx context.Context, target *Object, opts *SymlinkOptions, ropts *RequestOptions) error {
 	ropts = cloneRequestOptions(ropts, nil)
 	ropts.Headers.Set("X-Symlink-Target", target.FullName())
 	if !target.c.a.IsEqualTo(o.c.a) {
@@ -550,7 +551,7 @@ func (o *Object) SymlinkTo(target *Object, opts *SymlinkOptions, ropts *RequestO
 		}
 	}
 
-	return o.Upload(nil, uopts, ropts)
+	return o.Upload(ctx, nil, uopts, ropts)
 }
 
 // SymlinkHeaders is similar to Headers, but if the object is a symlink, it
@@ -571,9 +572,9 @@ func (o *Object) SymlinkTo(target *Object, opts *SymlinkOptions, ropts *RequestO
 //
 // WARNING: This method is not thread-safe. Calling it concurrently on the same
 // object results in undefined behavior.
-func (o *Object) SymlinkHeaders() (headers ObjectHeaders, target *Object, err error) {
+func (o *Object) SymlinkHeaders(ctx context.Context) (headers ObjectHeaders, target *Object, err error) {
 	if o.symlinkHeaders == nil {
-		o.symlinkHeaders, err = o.fetchHeaders(&RequestOptions{
+		o.symlinkHeaders, err = o.fetchHeaders(ctx, &RequestOptions{
 			Values: url.Values{"symlink": []string{"get"}},
 		})
 		if err != nil {

@@ -43,9 +43,8 @@ import (
 // test double (such as type mock.Validator).
 type Validator interface {
 	// CheckToken checks the validity of the request's X-Auth-Token in Keystone, and
-	// returns a Token instance for checking authorization. Any errors that occur
-	// during this function are deferred until Token.Require() is called.
-	CheckToken(r *http.Request) *Token
+	// returns a Token instance for checking authorization.
+	CheckToken(r *http.Request) (*Token, error)
 }
 
 // Cacher is the generic interface for a token cache.
@@ -89,21 +88,26 @@ func (v *TokenValidator) LoadPolicyFile(path string) error {
 }
 
 // CheckToken checks the validity of the request's X-Auth-Token in Keystone, and
-// returns a Token instance for checking authorization. Any errors that occur
-// during this function are deferred until Require() is called.
-func (v *TokenValidator) CheckToken(r *http.Request) *Token {
+// returns a Token instance for checking authorization.
+// The suggested HTTP status code on errors is 401 Unauthoirzed.
+func (v *TokenValidator) CheckToken(r *http.Request) (*Token, string, error) {
 	tokenStr := r.Header.Get("X-Auth-Token")
 	if tokenStr == "" {
-		return &Token{Err: errors.New("X-Auth-Token header missing")}
+		return nil, "", errors.New("X-Auth-Token header missing")
 	}
 
-	token := v.CheckCredentials(tokenStr, func() TokenResult {
-		return tokens.Get(r.Context(), v.IdentityV3, tokenStr)
+	token, retryAfterStr, err := v.CheckCredentials(tokenStr, func() (TokenResult, http.Header) {
+		tokenResult := tokens.Get(r.Context(), v.IdentityV3, tokenStr)
+		return tokenResult, tokenResult.Header
 	})
+	if err != nil {
+		return nil, retryAfterStr, errors.New("Unauthorized")
+	}
+
 	token.Context.Logger = logg.Debug
 	logg.Debug("token has auth = %v", token.Context.Auth)
 	logg.Debug("token has roles = %v", token.Context.Roles)
-	return token
+	return token, "", nil
 }
 
 // CheckCredentials is a more generic version of CheckToken that can also be
@@ -116,7 +120,8 @@ func (v *TokenValidator) CheckToken(r *http.Request) *Token {
 // The `cacheKey` argument shall be a string that identifies the given
 // credentials. This key is used for caching the TokenResult in `v.Cacher` if
 // that is non-nil.
-func (v *TokenValidator) CheckCredentials(cacheKey string, check func() TokenResult) *Token {
+func (v *TokenValidator) CheckCredentials(cacheKey string, check func() (TokenResult, http.Header)) (*Token, string, error) {
+	var retryAfterStr string
 	// prefer cached token payload over actually talking to Keystone (but fallback
 	// to Keystone if the token payload deserialization fails)
 	if v.Cacher != nil {
@@ -125,44 +130,46 @@ func (v *TokenValidator) CheckCredentials(cacheKey string, check func() TokenRes
 			var s serializableToken
 			err := json.Unmarshal(payload, &s)
 			if err == nil && s.Token.ExpiresAt.After(time.Now()) {
-				t := v.TokenFromGophercloudResult(s)
-				if t.Err == nil {
-					return t
+				var t *Token
+				t, retryAfterStr, err = v.TokenFromGophercloudResult(s, http.Header{})
+				if err == nil {
+					return t, retryAfterStr, nil
 				}
 			}
 		}
 	}
 
-	t := v.TokenFromGophercloudResult(check())
+	t, retryAfterStr, err := v.TokenFromGophercloudResult(check())
 
 	// cache token payload if valid
-	if t.Err == nil && v.Cacher != nil {
+	if err == nil && v.Cacher != nil {
 		payload, err := json.Marshal(t.serializable)
 		if err == nil {
 			v.Cacher.StoreTokenPayload(cacheKey, payload)
 		}
 	}
 
-	return t
+	return t, retryAfterStr, err
 }
 
 // TokenFromGophercloudResult creates a Token instance from a gophercloud Result
 // from the tokens.Create() or tokens.Get() requests from package
 // github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens.
-func (v *TokenValidator) TokenFromGophercloudResult(result TokenResult) *Token {
+func (v *TokenValidator) TokenFromGophercloudResult(result TokenResult, header http.Header) (*Token, string, error) {
 	// use a custom token struct instead of tokens.Token which is way incomplete
 	var tokenData keystoneToken
+	retryAfterStr := header.Get("Retry-After")
 	err := result.ExtractInto(&tokenData)
 	if err != nil {
-		return &Token{Err: err}
+		return nil, retryAfterStr, err
 	}
 	token, err := result.Extract()
 	if err != nil {
-		return &Token{Err: err}
+		return nil, retryAfterStr, err
 	}
 	catalog, err := result.ExtractServiceCatalog()
 	if err != nil {
-		return &Token{Err: err}
+		return nil, retryAfterStr, err
 	}
 
 	return &Token{
@@ -183,7 +190,7 @@ func (v *TokenValidator) TokenFromGophercloudResult(result TokenResult) *Token {
 			TokenData:      tokenData,
 			ServiceCatalog: catalog.Entries,
 		},
-	}
+	}, "", nil
 }
 
 // TokenResult is the interface type for the argument of

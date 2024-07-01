@@ -19,6 +19,7 @@
 package registryv2
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding"
@@ -227,13 +228,13 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 		NumChunks: 0,
 	}
 	dw := digestWriter{Hash: sha256.New()}
-	err = a.processor().AppendToBlob(account, &upload, io.TeeReader(r.Body, &dw), &sizeBytes)
+	err = a.processor().AppendToBlob(r.Context(), account, &upload, io.TeeReader(r.Body, &dw), &sizeBytes)
 	if err == nil {
-		err = a.sd.FinalizeBlob(account, upload.StorageID, upload.NumChunks)
+		err = a.sd.FinalizeBlob(r.Context(), account, upload.StorageID, upload.NumChunks)
 	}
 	if respondWithError(w, r, err) {
 		countAbortedBlobUpload(account)
-		err := a.sd.AbortBlobUpload(account, upload.StorageID, upload.NumChunks)
+		err := a.sd.AbortBlobUpload(r.Context(), account, upload.StorageID, upload.NumChunks)
 		if err != nil {
 			logg.Error("additional error encountered while aborting blob upload %s into %s: %s", upload.StorageID, repo.FullName(), err.Error())
 		}
@@ -244,7 +245,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	defer func() {
 		if !ok {
 			countAbortedBlobUpload(account)
-			err := a.sd.DeleteBlob(account, upload.StorageID)
+			err := a.sd.DeleteBlob(r.Context(), account, upload.StorageID)
 			if err != nil {
 				logg.Error("additional error encountered while deleting broken blob %s from %s: %s", upload.StorageID, repo.FullName(), err.Error())
 			}
@@ -272,7 +273,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	defer sqlext.RollbackUnlessCommitted(tx)
 
 	blobPushedAt := a.timeNow()
-	blob, err := a.createOrUpdateBlobObject(tx, sizeBytes, upload.StorageID, blobDigest, blobPushedAt, account)
+	blob, err := a.createOrUpdateBlobObject(r.Context(), tx, sizeBytes, upload.StorageID, blobDigest, blobPushedAt, account)
 	if respondWithError(w, r, err) {
 		return false
 	}
@@ -322,7 +323,7 @@ func (a *API) handleDeleteBlobUpload(w http.ResponseWriter, r *http.Request) {
 
 	// perform the deletion in the storage backend, then make the DB change durable
 	if upload.NumChunks > 0 {
-		err = a.sd.AbortBlobUpload(*account, upload.StorageID, upload.NumChunks)
+		err = a.sd.AbortBlobUpload(r.Context(), *account, upload.StorageID, upload.NumChunks)
 		if respondWithError(w, r, err) {
 			return
 		}
@@ -385,7 +386,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	if upload == nil {
 		return
 	}
-	dw, rerr := a.resumeUpload(*account, upload, r.URL.Query().Get("state"))
+	dw, rerr := a.resumeUpload(r.Context(), *account, upload, r.URL.Query().Get("state"))
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return
@@ -401,7 +402,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 
 			logg.Info("aborting upload because of error during parseContentRange()")
 			countAbortedBlobUpload(*account)
-			err := a.sd.AbortBlobUpload(*account, upload.StorageID, upload.NumChunks)
+			err := a.sd.AbortBlobUpload(r.Context(), *account, upload.StorageID, upload.NumChunks)
 			if err != nil {
 				logg.Error("additional error encountered during AbortBlobUpload: " + err.Error())
 			}
@@ -415,7 +416,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// append request body to upload
-	digestState, err := a.streamIntoUpload(*account, upload, dw, r.Body, chunkSizeBytes)
+	digestState, err := a.streamIntoUpload(r.Context(), *account, upload, dw, r.Body, chunkSizeBytes)
 	if respondWithError(w, r, err) {
 		return
 	}
@@ -441,7 +442,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	query := r.URL.Query()
-	dw, rerr := a.resumeUpload(*account, upload, query.Get("state"))
+	dw, rerr := a.resumeUpload(r.Context(), *account, upload, query.Get("state"))
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return
@@ -456,7 +457,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if contentLength > 0 {
-			_, err = a.streamIntoUpload(*account, upload, dw, r.Body, &contentLength)
+			_, err = a.streamIntoUpload(r.Context(), *account, upload, dw, r.Body, &contentLength)
 			if respondWithError(w, r, err) {
 				return
 			}
@@ -472,9 +473,9 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	// storage that the DB does not know about, but the storage sweep can clean
 	// that up later.
 	var blob *models.Blob
-	err := a.sd.FinalizeBlob(*account, upload.StorageID, upload.NumChunks)
+	err := a.sd.FinalizeBlob(r.Context(), *account, upload.StorageID, upload.NumChunks)
 	if err == nil {
-		blob, err = a.createBlobFromUpload(*account, *repo, *upload, query.Get("digest"))
+		blob, err = a.createBlobFromUpload(r.Context(), *account, *repo, *upload, query.Get("digest"))
 	}
 
 	// if an error occurred anywhere during this last sequence of steps, do our best to clean up the mess we left behind
@@ -484,7 +485,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logg.Error("additional error encountered while deleting Upload from DB after late upload error: " + err.Error())
 		}
-		err = a.sd.DeleteBlob(*account, upload.StorageID)
+		err = a.sd.DeleteBlob(r.Context(), *account, upload.StorageID)
 		if err != nil {
 			logg.Error("additional error encountered during DeleteBlob() after late upload error: " + err.Error())
 		}
@@ -518,13 +519,13 @@ func (a *API) findUpload(w http.ResponseWriter, r *http.Request, repo models.Rep
 	return upload
 }
 
-func (a *API) resumeUpload(account models.Account, upload *models.Upload, stateStr string) (dw *digestWriter, returnErr *keppel.RegistryV2Error) {
+func (a *API) resumeUpload(ctx context.Context, account models.Account, upload *models.Upload, stateStr string) (dw *digestWriter, returnErr *keppel.RegistryV2Error) {
 	// when encountering an error, cancel the upload entirely
 	defer func() {
 		if returnErr != nil {
 			logg.Info("aborting upload because of error during resumeUpload()")
 			countAbortedBlobUpload(account)
-			err := a.sd.AbortBlobUpload(account, upload.StorageID, upload.NumChunks)
+			err := a.sd.AbortBlobUpload(ctx, account, upload.StorageID, upload.NumChunks)
 			if err != nil {
 				logg.Error("additional error encountered during AbortBlobUpload: " + err.Error())
 			}
@@ -614,7 +615,7 @@ func (a *API) parseContentRange(upload *models.Upload, hdr http.Header) (uint64,
 	return length, nil
 }
 
-func (a *API) streamIntoUpload(account models.Account, upload *models.Upload, dw *digestWriter, chunk io.Reader, chunkSizeBytes *uint64) (digestState string, returnErr error) {
+func (a *API) streamIntoUpload(ctx context.Context, account models.Account, upload *models.Upload, dw *digestWriter, chunk io.Reader, chunkSizeBytes *uint64) (digestState string, returnErr error) {
 	// if anything happens during this operation, we likely have produced an
 	// inconsistent state between DB, storage backend and our internal book
 	// keeping (esp. the digestState in dw.Hash), so we will have to abort the
@@ -623,7 +624,7 @@ func (a *API) streamIntoUpload(account models.Account, upload *models.Upload, dw
 		if returnErr != nil {
 			logg.Info("aborting upload because of error during streamIntoUpload()")
 			countAbortedBlobUpload(account)
-			err := a.sd.AbortBlobUpload(account, upload.StorageID, upload.NumChunks)
+			err := a.sd.AbortBlobUpload(ctx, account, upload.StorageID, upload.NumChunks)
 			if err != nil {
 				logg.Error("additional error encountered during AbortBlobUpload: " + err.Error())
 			}
@@ -636,7 +637,7 @@ func (a *API) streamIntoUpload(account models.Account, upload *models.Upload, dw
 
 	// stream data from request body into storage
 	sizeBytesBefore := upload.SizeBytes
-	err := a.processor().AppendToBlob(account, upload, io.TeeReader(chunk, dw), chunkSizeBytes)
+	err := a.processor().AppendToBlob(ctx, account, upload, io.TeeReader(chunk, dw), chunkSizeBytes)
 	if err != nil {
 		return "", err
 	}
@@ -669,7 +670,7 @@ func (a *API) streamIntoUpload(account models.Account, upload *models.Upload, dw
 	return base64.URLEncoding.EncodeToString(digestStateBytes), nil
 }
 
-func (a *API) createBlobFromUpload(account models.Account, repo models.Repository, upload models.Upload, blobDigestStr string) (blob *models.Blob, returnErr error) {
+func (a *API) createBlobFromUpload(ctx context.Context, account models.Account, repo models.Repository, upload models.Upload, blobDigestStr string) (blob *models.Blob, returnErr error) {
 	// validate the digest provided by the user
 	if blobDigestStr == "" {
 		return nil, keppel.ErrDigestInvalid.With("missing digest")
@@ -695,7 +696,7 @@ func (a *API) createBlobFromUpload(account models.Account, repo models.Repositor
 	}
 
 	blobPushedAt := a.timeNow()
-	blob, err = a.createOrUpdateBlobObject(tx, upload.SizeBytes, upload.StorageID, blobDigest, blobPushedAt, account)
+	blob, err = a.createOrUpdateBlobObject(ctx, tx, upload.SizeBytes, upload.StorageID, blobDigest, blobPushedAt, account)
 	if err != nil {
 		return nil, err
 	}
@@ -715,7 +716,7 @@ var insertBlobIfMissingQuery = sqlext.SimplifyWhitespace(`
 // Insert a Blob object in the database. This is similar to building a
 // keppel.Blob and doing tx.Insert(blob), but handles a collision where another
 // blob with the same account name and digest already exists in the database.
-func (a *API) createOrUpdateBlobObject(tx *gorp.Transaction, sizeBytes uint64, storageID string, blobDigest digest.Digest, blobPushedAt time.Time, account models.Account) (*models.Blob, error) {
+func (a *API) createOrUpdateBlobObject(ctx context.Context, tx *gorp.Transaction, sizeBytes uint64, storageID string, blobDigest digest.Digest, blobPushedAt time.Time, account models.Account) (*models.Blob, error) {
 	// try to insert the blob atomically (I would like to SELECT the result
 	// directly via `RETURNING *`, but that gives sql.ErrNoRows when nothing was
 	// inserted because of ON CONFLICT, so in the general case, we need another
@@ -737,7 +738,7 @@ func (a *API) createOrUpdateBlobObject(tx *gorp.Transaction, sizeBytes uint64, s
 	// existing blob, we can discard the uploaded blob contents and reuse the
 	// existing blob instead
 	if blob.StorageID != storageID {
-		err := a.sd.DeleteBlob(account, storageID)
+		err := a.sd.DeleteBlob(ctx, account, storageID)
 		if err != nil {
 			return nil, fmt.Errorf("while deleting duplicate blob contents for %s at storage ID %s: %w",
 				blobDigest, storageID, err)

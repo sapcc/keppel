@@ -68,6 +68,6 @@ require (
 )
 
 replace (
-	github.com/majewsky/schwift => github.com/SuperSandro2000/schwift v1.2.1-0.20240701110754-0fe0d65e49ad
-	github.com/sapcc/go-bits => github.com/sapcc/go-bits v0.0.0-20240701105154-ccc1f6ac4bdb
+	github.com/majewsky/schwift => github.com/SuperSandro2000/schwift v1.2.1-0.20240701141252-b7683ab8dcde
+	github.com/sapcc/go-bits => github.com/sapcc/go-bits v0.0.0-20240701125359-399673967c24
 )

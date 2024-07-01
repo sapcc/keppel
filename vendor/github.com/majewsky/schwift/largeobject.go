@@ -20,6 +20,7 @@ package schwift
 
 import (
 	"bytes"
+	"context"
 	"crypto/md5" //nolint:gosec // Etag uses md5
 	"encoding/base64"
 	"encoding/hex"
@@ -214,8 +215,8 @@ func (lo *LargeObject) SegmentObjects() []*Object {
 // AsLargeObject opens an existing large object. If the given object does not
 // exist, or if it is not a large object, ErrNotLarge will be returned. In this
 // case, Object.AsNewLargeObject() needs to be used instead.
-func (o *Object) AsLargeObject() (*LargeObject, error) {
-	exists, err := o.Exists()
+func (o *Object) AsLargeObject(ctx context.Context) (*LargeObject, error) {
+	exists, err := o.Exists(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -225,15 +226,15 @@ func (o *Object) AsLargeObject() (*LargeObject, error) {
 
 	h := o.headers
 	if h.IsDynamicLargeObject() {
-		return o.asDLO(h.Get("X-Object-Manifest"))
+		return o.asDLO(ctx, h.Get("X-Object-Manifest"))
 	}
 	if h.IsStaticLargeObject() {
-		return o.asSLO()
+		return o.asSLO(ctx)
 	}
 	return nil, ErrNotLarge
 }
 
-func (o *Object) asDLO(manifestStr string) (*LargeObject, error) {
+func (o *Object) asDLO(ctx context.Context, manifestStr string) (*LargeObject, error) {
 	manifest := strings.SplitN(manifestStr, "/", 2)
 	if len(manifest) < 2 {
 		return nil, ErrNotLarge
@@ -248,7 +249,7 @@ func (o *Object) asDLO(manifestStr string) (*LargeObject, error) {
 
 	iter := lo.segmentContainer.Objects()
 	iter.Prefix = lo.segmentPrefix
-	segmentInfos, err := iter.CollectDetailed()
+	segmentInfos, err := iter.CollectDetailed(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -264,13 +265,13 @@ func (o *Object) asDLO(manifestStr string) (*LargeObject, error) {
 	return lo, nil
 }
 
-func (o *Object) asSLO() (*LargeObject, error) {
+func (o *Object) asSLO(ctx context.Context) (*LargeObject, error) {
 	opts := RequestOptions{
 		Values: make(url.Values),
 	}
 	opts.Values.Set("multipart-manifest", "get")
 	opts.Values.Set("format", "raw")
-	buf, err := o.Download(&opts).AsByteSlice()
+	buf, err := o.Download(ctx, &opts).AsByteSlice()
 	if err != nil {
 		return nil, err
 	}
@@ -409,14 +410,14 @@ func parseHTTPRange(str string) (offsetVal int64, lengthVal uint64, ok bool) {
 // Object.AsLargeObject() followed by Truncate(), except that segmenting options
 // are initialized from the method's SegmentingOptions argument rather than from
 // the existing manifest.
-func (o *Object) AsNewLargeObject(sopts SegmentingOptions, topts *TruncateOptions) (*LargeObject, error) {
+func (o *Object) AsNewLargeObject(ctx context.Context, sopts SegmentingOptions, topts *TruncateOptions) (*LargeObject, error) {
 	// we only need to load the existing large object if we want to do something
 	// with the old segments
 	if topts != nil && topts.DeleteSegments {
-		lo, err := o.AsLargeObject()
+		lo, err := o.AsLargeObject(ctx)
 		switch {
 		case err == nil:
-			err := lo.Truncate(topts)
+			err := lo.Truncate(ctx, topts)
 			if err != nil {
 				return nil, err
 			}
@@ -475,8 +476,8 @@ type TruncateOptions struct {
 // Truncate removes all segments from a large object's manifest. The manifest is
 // not written by this call, so WriteManifest() usually needs to be called
 // afterwards.
-func (lo *LargeObject) Truncate(opts *TruncateOptions) error {
-	_, _, err := lo.object.c.a.BulkDelete(lo.SegmentObjects(), nil, nil)
+func (lo *LargeObject) Truncate(ctx context.Context, opts *TruncateOptions) error {
+	_, _, err := lo.object.c.a.BulkDelete(ctx, lo.SegmentObjects(), nil, nil)
 	if err == nil {
 		lo.segments = nil
 	}
@@ -660,7 +661,7 @@ func (lo *LargeObject) AddSegment(segment SegmentInfo) error {
 //
 // This function uploads segment objects, so it may return any error that
 // Object.Upload() returns, see documentation over there.
-func (lo *LargeObject) Append(contents io.Reader, segmentSizeBytes int64, opts *RequestOptions) error {
+func (lo *LargeObject) Append(ctx context.Context, contents io.Reader, segmentSizeBytes int64, opts *RequestOptions) error {
 	if segmentSizeBytes < 0 {
 		panic("segmentSizeBytes may not be negative")
 	}
@@ -689,7 +690,7 @@ func (lo *LargeObject) Append(contents io.Reader, segmentSizeBytes int64, opts *
 		}
 
 		obj := lo.NextSegmentObject()
-		err := obj.Upload(&tracker, nil, opts)
+		err := obj.Upload(ctx, &tracker, nil, opts)
 		if err != nil {
 			return err
 		}
@@ -756,22 +757,22 @@ func (r *lengthAndEtagTrackingReader) Read(buf []byte) (int, error) {
 // For dynamic large objects, this method does not generate a PUT request
 // if the object already exists and has the correct manifest (i.e.
 // SegmentContainer and SegmentPrefix have not been changed).
-func (lo *LargeObject) WriteManifest(opts *RequestOptions) error {
+func (lo *LargeObject) WriteManifest(ctx context.Context, opts *RequestOptions) error {
 	switch lo.strategy {
 	case StaticLargeObject:
-		return lo.writeSLOManifest(opts)
+		return lo.writeSLOManifest(ctx, opts)
 	case DynamicLargeObject:
-		return lo.writeDLOManifest(opts)
+		return lo.writeDLOManifest(ctx, opts)
 	default:
 		panic("no such strategy")
 	}
 }
 
-func (lo *LargeObject) writeDLOManifest(opts *RequestOptions) error {
+func (lo *LargeObject) writeDLOManifest(ctx context.Context, opts *RequestOptions) error {
 	manifest := lo.segmentContainer.Name() + "/" + lo.segmentPrefix
 
 	// check if the manifest is already set correctly
-	headers, err := lo.object.Headers()
+	headers, err := lo.object.Headers(ctx)
 	if err != nil && !Is(err, http.StatusNotFound) {
 		return err
 	}
@@ -782,10 +783,10 @@ func (lo *LargeObject) writeDLOManifest(opts *RequestOptions) error {
 	// write manifest; make sure that this is a DLO
 	opts = cloneRequestOptions(opts, nil)
 	opts.Headers.Set("X-Object-Manifest", manifest)
-	return lo.object.Upload(nil, nil, opts)
+	return lo.object.Upload(ctx, nil, nil, opts)
 }
 
-func (lo *LargeObject) writeSLOManifest(opts *RequestOptions) error {
+func (lo *LargeObject) writeSLOManifest(ctx context.Context, opts *RequestOptions) error {
 	sloSegments := make([]sloSegmentInfo, len(lo.segments))
 	for idx, s := range lo.segments {
 		if len(s.Data) > 0 {
@@ -820,5 +821,5 @@ func (lo *LargeObject) writeSLOManifest(opts *RequestOptions) error {
 	opts = cloneRequestOptions(opts, nil)
 	opts.Headers.Del("X-Object-Manifest") // ensure sanity :)
 	opts.Values.Set("multipart-manifest", "put")
-	return lo.object.Upload(bytes.NewReader(manifest), nil, opts)
+	return lo.object.Upload(ctx, bytes.NewReader(manifest), nil, opts)
 }

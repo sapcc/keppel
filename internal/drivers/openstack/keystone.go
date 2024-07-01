@@ -132,20 +132,19 @@ func (d *keystoneDriver) AuthenticateUser(ctx context.Context, userName, passwor
 	throwAwayClient.ReauthFunc = nil
 	throwAwayClient.SetTokenAndAuthResult(nil) //nolint:errcheck
 
-	t := d.TokenValidator.CheckCredentials(
+	t, retryAfterStr, err := d.TokenValidator.CheckCredentials(
 		fmt.Sprintf("username=%s,password=%s", userName, password),
-		func() gopherpolicy.TokenResult { return tokens.Create(ctx, &throwAwayClient, &authOpts) },
+		func() (gopherpolicy.TokenResult, http.Header) {
+			createResult := tokens.Create(ctx, &throwAwayClient, &authOpts)
+			return createResult, createResult.Header
+		},
 	)
 
-	if t.Err != nil {
-		if gophercloud.ResponseCodeIs(t.Err, http.StatusTooManyRequests) {
-			retryAfterStr := err.ResponseHeader.Get("Retry-After")
+	if err != nil {
+		if gophercloud.ResponseCodeIs(err, http.StatusTooManyRequests) {
 			return nil, keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr)
 		}
-		return nil, keppel.ErrUnauthorized.With(
-			"failed to get token for user %q: %s",
-			userName, t.Err.Error(),
-		)
+		return nil, keppel.ErrUnauthorized.With("failed to get token for user %q: %s", userName, err.Error())
 	}
 	return &keystoneUserIdentity{t}, nil
 }
@@ -196,9 +195,9 @@ func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Us
 		return nil, nil
 	}
 
-	t := d.TokenValidator.CheckToken(r)
-	if t.Err != nil {
-		return nil, keppel.ErrUnauthorized.With("X-Auth-Token validation failed: " + t.Err.Error())
+	t, _, err := d.TokenValidator.CheckToken(r)
+	if err != nil {
+		return nil, keppel.ErrUnauthorized.With("X-Auth-Token validation failed: " + err.Error())
 	}
 
 	// t.Context.Request = mux.Vars(r) //not used at the moment
@@ -317,7 +316,6 @@ func (a *keystoneUserIdentity) DeserializeFromJSON(in []byte, ad keppel.AuthDriv
 			Request: make(map[string]string), // filled by HasPermission(); does not need to be serialized
 		},
 		ProviderClient: nil, // cannot be reasonably serialized; see comment above
-		Err:            nil,
 	}
 	return nil
 }

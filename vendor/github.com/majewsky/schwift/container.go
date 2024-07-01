@@ -19,6 +19,7 @@
 package schwift
 
 import (
+	"context"
 	"net/http"
 )
 
@@ -60,8 +61,8 @@ func (c *Container) Name() string {
 
 // Exists checks if this container exists, potentially by issuing a HEAD request
 // if no Headers() have been cached yet.
-func (c *Container) Exists() (bool, error) {
-	_, err := c.Headers()
+func (c *Container) Exists(ctx context.Context) (bool, error) {
+	_, err := c.Headers(ctx)
 	if Is(err, http.StatusNotFound) {
 		return false, nil
 	} else if err != nil {
@@ -77,7 +78,7 @@ func (c *Container) Exists() (bool, error) {
 //
 // WARNING: This method is not thread-safe. Calling it concurrently on the same
 // object results in undefined behavior.
-func (c *Container) Headers() (ContainerHeaders, error) {
+func (c *Container) Headers(ctx context.Context) (ContainerHeaders, error) {
 	if c.headers != nil {
 		return *c.headers, nil
 	}
@@ -86,7 +87,7 @@ func (c *Container) Headers() (ContainerHeaders, error) {
 		Method:            "HEAD",
 		ContainerName:     c.name,
 		ExpectStatusCodes: []int{204},
-	}.Do(c.a.backend)
+	}.Do(ctx, c.a.backend)
 	if err != nil {
 		return ContainerHeaders{}, err
 	}
@@ -107,13 +108,13 @@ func (c *Container) Headers() (ContainerHeaders, error) {
 // If you are not sure whether the container exists, use Create() instead.
 //
 // A successful POST request implies Invalidate() since it may change metadata.
-func (c *Container) Update(headers ContainerHeaders, opts *RequestOptions) error {
+func (c *Container) Update(ctx context.Context, headers ContainerHeaders, opts *RequestOptions) error {
 	resp, err := Request{
 		Method:            "POST",
 		ContainerName:     c.name,
 		Options:           cloneRequestOptions(opts, headers.Headers),
 		ExpectStatusCodes: []int{204},
-	}.Do(c.a.backend)
+	}.Do(ctx, c.a.backend)
 	if err == nil {
 		c.Invalidate()
 		resp.Body.Close()
@@ -127,14 +128,14 @@ func (c *Container) Update(headers ContainerHeaders, opts *RequestOptions) error
 // This function can be used regardless of whether the container exists or not.
 //
 // A successful PUT request implies Invalidate() since it may change metadata.
-func (c *Container) Create(opts *RequestOptions) error {
+func (c *Container) Create(ctx context.Context, opts *RequestOptions) error {
 	resp, err := Request{
 		Method:            "PUT",
 		ContainerName:     c.name,
 		Options:           opts,
 		ExpectStatusCodes: []int{201, 202},
 		DrainResponseBody: true,
-	}.Do(c.a.backend)
+	}.Do(ctx, c.a.backend)
 	if err == nil {
 		c.Invalidate()
 		resp.Body.Close()
@@ -150,13 +151,13 @@ func (c *Container) Create(opts *RequestOptions) error {
 // This operation fails with http.StatusNotFound if the container does not exist.
 //
 // A successful DELETE request implies Invalidate().
-func (c *Container) Delete(opts *RequestOptions) error {
+func (c *Container) Delete(ctx context.Context, opts *RequestOptions) error {
 	resp, err := Request{
 		Method:            "DELETE",
 		ContainerName:     c.name,
 		Options:           opts,
 		ExpectStatusCodes: []int{204},
-	}.Do(c.a.backend)
+	}.Do(ctx, c.a.backend)
 	if err == nil {
 		c.Invalidate()
 		resp.Body.Close()
@@ -180,13 +181,13 @@ func (c *Container) Invalidate() {
 // with freshly constructed Container instances like so:
 //
 //	container, err := account.Container("documents").EnsureExists()
-func (c *Container) EnsureExists() (*Container, error) {
+func (c *Container) EnsureExists(ctx context.Context) (*Container, error) {
 	resp, err := Request{
 		Method:            "PUT",
 		ContainerName:     c.name,
 		ExpectStatusCodes: []int{201, 202},
 		DrainResponseBody: true,
-	}.Do(c.a.backend)
+	}.Do(ctx, c.a.backend)
 	if err == nil {
 		resp.Body.Close()
 	}

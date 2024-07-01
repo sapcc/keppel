@@ -19,6 +19,7 @@
 package schwift
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -65,7 +66,7 @@ const (
 //
 // This operation returns (0, ErrNotSupported) if the server does not support
 // bulk-uploading.
-func (a *Account) BulkUpload(uploadPath string, format BulkUploadFormat, contents io.Reader, opts *RequestOptions) (int, error) {
+func (a *Account) BulkUpload(ctx context.Context, uploadPath string, format BulkUploadFormat, contents io.Reader, opts *RequestOptions) (int, error) {
 	caps, err := a.Capabilities()
 	if err != nil {
 		return 0, err
@@ -89,7 +90,7 @@ func (a *Account) BulkUpload(uploadPath string, format BulkUploadFormat, content
 		req.ObjectName = fields[1]
 	}
 
-	resp, err := req.Do(a.backend) //nolint:bodyclose // parseBulkResponse does the close
+	resp, err := req.Do(ctx, a.backend) //nolint:bodyclose // parseBulkResponse does the close
 	if err != nil {
 		return 0, err
 	}
@@ -143,7 +144,7 @@ func makeBulkObjectError(fullName string, statusCode int) BulkObjectError {
 // The objects may be located in multiple containers, but they and the
 // containers must all be located in the given account. (Otherwise,
 // ErrAccountMismatch is returned.)
-func (a *Account) BulkDelete(objects []*Object, containers []*Container, opts *RequestOptions) (numDeleted, numNotFound int, deleteError error) {
+func (a *Account) BulkDelete(ctx context.Context, objects []*Object, containers []*Container, opts *RequestOptions) (numDeleted, numNotFound int, deleteError error) {
 	// validate that all given objects are in this account
 	for _, obj := range objects {
 		if !a.IsEqualTo(obj.Container().Account()) {
@@ -162,7 +163,7 @@ func (a *Account) BulkDelete(objects []*Object, containers []*Container, opts *R
 		return 0, 0, err
 	}
 	if caps.BulkDelete == nil || !capabilities.AllowBulkDelete {
-		return a.bulkDeleteSingle(objects, containers, opts)
+		return a.bulkDeleteSingle(ctx, objects, containers, opts)
 	}
 	chunkSize := int(caps.BulkDelete.MaximumDeletesPerRequest)
 
@@ -190,7 +191,7 @@ func (a *Account) BulkDelete(objects []*Object, containers []*Container, opts *R
 		chunk := names[0:chunkSize]
 		names = names[chunkSize:]
 
-		numDeletedNow, numNotFoundNow, err := a.bulkDelete(chunk, opts)
+		numDeletedNow, numNotFoundNow, err := a.bulkDelete(ctx, chunk, opts)
 		numDeleted += numDeletedNow
 		numNotFound += numNotFoundNow
 		if err != nil {
@@ -203,7 +204,7 @@ func (a *Account) BulkDelete(objects []*Object, containers []*Container, opts *R
 
 // Implementation of BulkDelete() for servers that *do not* support bulk
 // deletion.
-func (a *Account) bulkDeleteSingle(objects []*Object, containers []*Container, opts *RequestOptions) (numDeleted, numNotFound int, err error) {
+func (a *Account) bulkDeleteSingle(ctx context.Context, objects []*Object, containers []*Container, opts *RequestOptions) (numDeleted, numNotFound int, err error) {
 	var errs []BulkObjectError
 
 	handleSingleError := func(containerName, objectName string, err error) error {
@@ -228,7 +229,7 @@ func (a *Account) bulkDeleteSingle(objects []*Object, containers []*Container, o
 	}
 
 	for _, obj := range objects {
-		err := obj.Delete(nil, opts) // this implies Invalidate()
+		err := obj.Delete(ctx, nil, opts) // this implies Invalidate()
 		err = handleSingleError(obj.Container().Name(), obj.Name(), err)
 		if err != nil {
 			return numDeleted, numNotFound, err
@@ -236,7 +237,7 @@ func (a *Account) bulkDeleteSingle(objects []*Object, containers []*Container, o
 	}
 
 	for _, container := range containers {
-		err := container.Delete(opts) // this implies Invalidate()
+		err := container.Delete(ctx, opts) // this implies Invalidate()
 		err = handleSingleError(container.Name(), "", err)
 		if err != nil {
 			return numDeleted, numNotFound, err
@@ -256,7 +257,7 @@ func (a *Account) bulkDeleteSingle(objects []*Object, containers []*Container, o
 // Implementation of BulkDelete() for servers that *do* support bulk deletion.
 // This function is called *after* chunking, so `len(names) <=
 // account.Capabilities.BulkDelete.MaximumDeletesPerRequest`.
-func (a *Account) bulkDelete(names []string, opts *RequestOptions) (numDeleted, numNotFound int, err error) {
+func (a *Account) bulkDelete(ctx context.Context, names []string, opts *RequestOptions) (numDeleted, numNotFound int, err error) {
 	req := Request{
 		Method:            "DELETE",
 		Body:              strings.NewReader(strings.Join(names, "\n") + "\n"),
@@ -266,7 +267,7 @@ func (a *Account) bulkDelete(names []string, opts *RequestOptions) (numDeleted, 
 	req.Options.Headers.Set("Accept", "application/json")
 	req.Options.Headers.Set("Content-Type", "text/plain")
 	req.Options.Values.Set("bulk-delete", "true")
-	resp, err := req.Do(a.backend) //nolint:bodyclose // parseBulkResponse does the close
+	resp, err := req.Do(ctx, a.backend) //nolint:bodyclose // parseBulkResponse does the close
 	if err != nil {
 		return 0, 0, err
 	}
