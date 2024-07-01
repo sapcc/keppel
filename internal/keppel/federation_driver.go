@@ -57,7 +57,7 @@ type FederationDriver interface {
 	// Implementations should inspect the auth driver to ensure that the
 	// federation driver can work with this authentication method, or return
 	// ErrAuthDriverMismatch otherwise.
-	Init(AuthDriver, Configuration) error
+	Init(context.Context, AuthDriver, Configuration) error
 
 	// ClaimAccountName is called when creating a new account, and returns nil if
 	// and only if this Keppel is allowed to use `account.Name` for the given new
@@ -109,12 +109,12 @@ var FederationDriverRegistry pluggable.Registry[FederationDriver]
 
 // NewFederationDriver creates a new FederationDriver using one of the plugins
 // registered with FederationDriverRegistry.
-func NewFederationDriver(pluginTypeID string, ad AuthDriver, cfg Configuration) (FederationDriver, error) {
+func NewFederationDriver(ctx context.Context, pluginTypeID string, ad AuthDriver, cfg Configuration) (FederationDriver, error) {
 	logg.Debug("initializing federation driver %q...", pluginTypeID)
 
 	fd := FederationDriverRegistry.Instantiate(pluginTypeID)
 	if fd == nil {
 		return nil, errors.New("no such federation driver: " + pluginTypeID)
 	}
-	return fd, fd.Init(ad, cfg)
+	return fd, fd.Init(ctx, ad, cfg)
 }

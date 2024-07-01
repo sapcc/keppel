@@ -20,6 +20,7 @@ package schwift
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/md5"  //nolint:gosec // Etag uses md5
 	"crypto/sha1" //nolint:gosec // Used by swift
@@ -41,9 +42,9 @@ import (
 type Object struct {
 	c    *Container
 	name string
-	//cache
-	headers        *ObjectHeaders //from HEAD/GET without ?symlink=get
-	symlinkHeaders *ObjectHeaders //from HEAD/GET with ?symlink=get
+	// cache
+	headers        *ObjectHeaders // from HEAD/GET without ?symlink=get
+	symlinkHeaders *ObjectHeaders // from HEAD/GET with ?symlink=get
 }
 
 // IsEqualTo returns true if both Object instances refer to the same object.
@@ -89,8 +90,8 @@ func (o *Object) FullName() string {
 
 // Exists checks if this object exists, potentially by issuing a HEAD request
 // if no Headers() have been cached yet.
-func (o *Object) Exists() (bool, error) {
-	_, err := o.Headers()
+func (o *Object) Exists(ctx context.Context) (bool, error) {
+	_, err := o.Headers(ctx)
 	if Is(err, http.StatusNotFound) {
 		return false, nil
 	} else if err != nil {
@@ -109,12 +110,12 @@ func (o *Object) Exists() (bool, error) {
 //
 // WARNING: This method is not thread-safe. Calling it concurrently on the same
 // object results in undefined behavior.
-func (o *Object) Headers() (ObjectHeaders, error) {
+func (o *Object) Headers(ctx context.Context) (ObjectHeaders, error) {
 	if o.headers != nil {
 		return *o.headers, nil
 	}
 
-	hdr, err := o.fetchHeaders(nil)
+	hdr, err := o.fetchHeaders(ctx, nil)
 	if err != nil {
 		return ObjectHeaders{}, err
 	}
@@ -122,17 +123,17 @@ func (o *Object) Headers() (ObjectHeaders, error) {
 	return *hdr, nil
 }
 
-func (o *Object) fetchHeaders(opts *RequestOptions) (*ObjectHeaders, error) {
+func (o *Object) fetchHeaders(ctx context.Context, opts *RequestOptions) (*ObjectHeaders, error) {
 	resp, err := Request{
 		Method:        "HEAD",
 		ContainerName: o.c.name,
 		ObjectName:    o.name,
 		Options:       opts,
-		//since Openstack LOVES to be inconsistent with everything (incl. itself),
-		//this returns 200 instead of 204
+		// since Openstack LOVES to be inconsistent with everything (incl. itself),
+		// this returns 200 instead of 204
 		ExpectStatusCodes: []int{http.StatusOK},
 		DrainResponseBody: true,
-	}.Do(o.c.a.backend)
+	}.Do(ctx, o.c.a.backend)
 	if err != nil {
 		return nil, err
 	}
@@ -148,14 +149,14 @@ func (o *Object) fetchHeaders(opts *RequestOptions) (*ObjectHeaders, error) {
 // This operation fails with http.StatusNotFound if the object does not exist.
 //
 // A successful POST request implies Invalidate() since it may change metadata.
-func (o *Object) Update(headers ObjectHeaders, opts *RequestOptions) error {
+func (o *Object) Update(ctx context.Context, headers ObjectHeaders, opts *RequestOptions) error {
 	resp, err := Request{
 		Method:            "POST",
 		ContainerName:     o.c.name,
 		ObjectName:        o.name,
 		Options:           cloneRequestOptions(opts, headers.Headers),
 		ExpectStatusCodes: []int{http.StatusAccepted},
-	}.Do(o.c.a.backend)
+	}.Do(ctx, o.c.a.backend)
 	if err == nil {
 		o.Invalidate()
 		resp.Body.Close()
@@ -165,8 +166,8 @@ func (o *Object) Update(headers ObjectHeaders, opts *RequestOptions) error {
 
 // UploadOptions invokes advanced behavior in the Object.Upload() method.
 type UploadOptions struct {
-	//When overwriting a large object, delete its segments. This will cause
-	//Upload() to call into BulkDelete(), so a BulkError may be returned.
+	// When overwriting a large object, delete its segments. This will cause
+	// Upload() to call into BulkDelete(), so a BulkError may be returned.
 	DeleteSegments bool
 }
 
@@ -205,7 +206,7 @@ type UploadOptions struct {
 // This function can be used regardless of whether the object exists or not.
 //
 // A successful PUT request implies Invalidate() since it may change metadata.
-func (o *Object) Upload(content io.Reader, opts *UploadOptions, ropts *RequestOptions) error {
+func (o *Object) Upload(ctx context.Context, content io.Reader, opts *UploadOptions, ropts *RequestOptions) error {
 	if opts == nil {
 		opts = &UploadOptions{}
 	}
@@ -220,9 +221,9 @@ func (o *Object) Upload(content io.Reader, opts *UploadOptions, ropts *RequestOp
 		}
 	}
 
-	//do not attempt to add the Etag header when we're writing a large object
-	//manifest; the header refers to the content, but we would be computing the
-	//manifest's hash instead
+	// do not attempt to add the Etag header when we're writing a large object
+	// manifest; the header refers to the content, but we would be computing the
+	// manifest's hash instead
 	isManifestUpload := ropts.Values.Get("multipart-manifest") == "put" || hdr.IsDynamicLargeObject()
 
 	var hasher hash.Hash
@@ -232,7 +233,7 @@ func (o *Object) Upload(content io.Reader, opts *UploadOptions, ropts *RequestOp
 			return err
 		}
 
-		//could not compute Etag in advance -> need to check on the fly
+		// could not compute Etag in advance -> need to check on the fly
 		if !hdr.Etag().Exists() {
 			hasher = md5.New() //nolint:gosec // Etag uses md5
 			if content != nil {
@@ -243,19 +244,19 @@ func (o *Object) Upload(content io.Reader, opts *UploadOptions, ropts *RequestOp
 
 	var lo *LargeObject
 	if opts.DeleteSegments {
-		//enumerate segments in large object before overwriting it, but only delete
-		//the segments after successfully uploading the new object to decrease the
-		//chance of an inconsistent state following an upload error
+		// enumerate segments in large object before overwriting it, but only delete
+		// the segments after successfully uploading the new object to decrease the
+		// chance of an inconsistent state following an upload error
 		var err error
-		lo, err = o.AsLargeObject()
+		lo, err = o.AsLargeObject(ctx)
 		switch {
 		case err == nil:
-			//okay, delete segments at the end
+			// okay, delete segments at the end
 		case errors.Is(err, ErrNotLarge):
-			//okay, do not try to delete segments
+			// okay, do not try to delete segments
 			lo = nil
 		default:
-			//unexpected error
+			// unexpected error
 			return err
 		}
 	}
@@ -268,7 +269,7 @@ func (o *Object) Upload(content io.Reader, opts *UploadOptions, ropts *RequestOp
 		Body:              content,
 		ExpectStatusCodes: []int{201},
 		DrainResponseBody: true,
-	}.Do(o.c.a.backend)
+	}.Do(ctx, o.c.a.backend)
 	if err != nil {
 		return err
 	}
@@ -283,7 +284,7 @@ func (o *Object) Upload(content io.Reader, opts *UploadOptions, ropts *RequestOp
 	}
 
 	if opts.DeleteSegments && lo != nil {
-		_, _, err := lo.object.c.a.BulkDelete(lo.SegmentObjects(), nil, nil)
+		_, _, err := lo.object.c.a.BulkDelete(ctx, lo.SegmentObjects(), nil, nil)
 		if err != nil {
 			return err
 		}
@@ -293,8 +294,8 @@ func (o *Object) Upload(content io.Reader, opts *UploadOptions, ropts *RequestOp
 }
 
 type readerWithLen interface {
-	//Returns the number of bytes in the unread portion of the buffer.
-	//Implemented by bytes.Reader, bytes.Buffer and strings.Reader.
+	// Returns the number of bytes in the unread portion of the buffer.
+	// Implemented by bytes.Reader, bytes.Buffer and strings.Reader.
 	Len() int
 }
 
@@ -320,13 +321,13 @@ func tryComputeEtag(content io.Reader, headers ObjectHeaders) error {
 		sum := md5.Sum(nil)
 		h.Set(hex.EncodeToString(sum[:]))
 	case *bytes.Buffer:
-		//bytes.Buffer has a method that returns the unread portion of the buffer,
-		//so this one is easy
+		// bytes.Buffer has a method that returns the unread portion of the buffer,
+		// so this one is easy
 		sum := md5.Sum(r.Bytes())
 		h.Set(hex.EncodeToString(sum[:]))
 	case io.ReadSeeker:
-		//bytes.Reader does not have such a method, but it is an io.Seeker, so we
-		//can read the entire thing and then seek back to where we started
+		// bytes.Reader does not have such a method, but it is an io.Seeker, so we
+		// can read the entire thing and then seek back to where we started
 		md5Hash := md5.New()
 		n, err := io.Copy(md5Hash, r)
 		if err != nil {
@@ -361,22 +362,22 @@ func tryComputeEtag(content io.Reader, headers ObjectHeaders) error {
 //	})
 //
 // If you do not need an io.Writer, always use Upload instead.
-func (o *Object) UploadFromWriter(opts *UploadOptions, ropts *RequestOptions, callback func(io.Writer) error) error {
+func (o *Object) UploadFromWriter(ctx context.Context, opts *UploadOptions, ropts *RequestOptions, callback func(io.Writer) error) error {
 	reader, writer := io.Pipe()
 	errChan := make(chan error)
 	go func() {
-		err := o.Upload(reader, opts, ropts)
-		reader.CloseWithError(err) //stop the writer if it is still writing
+		err := o.Upload(ctx, reader, opts, ropts)
+		reader.CloseWithError(err) // stop the writer if it is still writing
 		errChan <- err
 	}()
-	writer.CloseWithError(callback(writer)) //stop the reader if it is still reading
+	writer.CloseWithError(callback(writer)) // stop the reader if it is still reading
 	return <-errChan
 }
 
 // DeleteOptions invokes advanced behavior in the Object.Delete() method.
 type DeleteOptions struct {
-	//When deleting a large object, also delete its segments. This will cause
-	//Delete() to call into BulkDelete(), so a BulkError may be returned.
+	// When deleting a large object, also delete its segments. This will cause
+	// Delete() to call into BulkDelete(), so a BulkError may be returned.
 	DeleteSegments bool
 }
 
@@ -386,27 +387,27 @@ type DeleteOptions struct {
 // This operation fails with http.StatusNotFound if the object does not exist.
 //
 // A successful DELETE request implies Invalidate().
-func (o *Object) Delete(opts *DeleteOptions, ropts *RequestOptions) error {
+func (o *Object) Delete(ctx context.Context, opts *DeleteOptions, ropts *RequestOptions) error {
 	if opts == nil {
 		opts = &DeleteOptions{}
 	}
 	if opts.DeleteSegments {
-		exists, err := o.Exists()
+		exists, err := o.Exists(ctx)
 		if err != nil {
 			return err
 		}
 		if exists {
-			lo, err := o.AsLargeObject()
+			lo, err := o.AsLargeObject(ctx)
 			switch {
 			case err == nil:
-				//is large object - delete segments and the object itself in one step
-				_, _, err := o.c.a.BulkDelete(append(lo.SegmentObjects(), o), nil, nil)
+				// is large object - delete segments and the object itself in one step
+				_, _, err := o.c.a.BulkDelete(ctx, append(lo.SegmentObjects(), o), nil, nil)
 				o.Invalidate()
 				return err
 			case errors.Is(err, ErrNotLarge):
-				//not a large object - use regular DELETE request
+				// not a large object - use regular DELETE request
 			default:
-				//unexpected error
+				// unexpected error
 				return err
 			}
 		}
@@ -418,7 +419,7 @@ func (o *Object) Delete(opts *DeleteOptions, ropts *RequestOptions) error {
 		ObjectName:        o.name,
 		Options:           ropts,
 		ExpectStatusCodes: []int{http.StatusNoContent},
-	}.Do(o.c.a.backend)
+	}.Do(ctx, o.c.a.backend)
 	if err == nil {
 		o.Invalidate()
 		resp.Body.Close()
@@ -451,14 +452,14 @@ func (o *Object) Invalidate() {
 //
 // WARNING: This method is not thread-safe. Calling it concurrently on the same
 // object results in undefined behavior.
-func (o *Object) Download(opts *RequestOptions) DownloadedObject {
+func (o *Object) Download(ctx context.Context, opts *RequestOptions) DownloadedObject {
 	resp, err := Request{
 		Method:            "GET",
 		ContainerName:     o.c.name,
 		ObjectName:        o.name,
 		Options:           opts,
 		ExpectStatusCodes: []int{http.StatusOK},
-	}.Do(o.c.a.backend) //nolint:bodyclose // body is returned and must be closed by the user
+	}.Do(ctx, o.c.a.backend) //nolint:bodyclose // body is returned and must be closed by the user
 	var body io.ReadCloser
 	if err == nil {
 		newHeaders := ObjectHeaders{headersFromHTTP(resp.Header)}
@@ -477,10 +478,10 @@ func (o *Object) Download(opts *RequestOptions) DownloadedObject {
 
 // CopyOptions invokes advanced behavior in the Object.Copy() method.
 type CopyOptions struct {
-	//Copy only the object's content, not its metadata. New metadata can always
-	//be supplied in the RequestOptions argument of Object.CopyTo().
+	// Copy only the object's content, not its metadata. New metadata can always
+	// be supplied in the RequestOptions argument of Object.CopyTo().
 	FreshMetadata bool
-	//When the source is a symlink, copy the symlink instead of the target object.
+	// When the source is a symlink, copy the symlink instead of the target object.
 	ShallowCopySymlinks bool
 }
 
@@ -488,7 +489,7 @@ type CopyOptions struct {
 //
 // A successful COPY implies target.Invalidate() since it may change the
 // target's metadata.
-func (o *Object) CopyTo(target *Object, opts *CopyOptions, ropts *RequestOptions) error {
+func (o *Object) CopyTo(ctx context.Context, target *Object, opts *CopyOptions, ropts *RequestOptions) error {
 	ropts = cloneRequestOptions(ropts, nil)
 	ropts.Headers.Set("Destination", target.FullName())
 	if o.c.a.name != target.c.a.name {
@@ -510,7 +511,7 @@ func (o *Object) CopyTo(target *Object, opts *CopyOptions, ropts *RequestOptions
 		Options:           ropts,
 		ExpectStatusCodes: []int{http.StatusCreated},
 		DrainResponseBody: true,
-	}.Do(o.c.a.backend)
+	}.Do(ctx, o.c.a.backend)
 	if err == nil {
 		target.Invalidate()
 		resp.Body.Close()
@@ -520,8 +521,8 @@ func (o *Object) CopyTo(target *Object, opts *CopyOptions, ropts *RequestOptions
 
 // SymlinkOptions invokes advanced behavior in the Object.SymlinkTo() method.
 type SymlinkOptions struct {
-	//When overwriting a large object, delete its segments. This will cause
-	//SymlinkTo() to call into BulkDelete(), so a BulkError may be returned.
+	// When overwriting a large object, delete its segments. This will cause
+	// SymlinkTo() to call into BulkDelete(), so a BulkError may be returned.
 	DeleteSegments bool
 }
 
@@ -531,15 +532,15 @@ type SymlinkOptions struct {
 // this operation.
 //
 // A successful PUT request implies Invalidate() since it may change metadata.
-func (o *Object) SymlinkTo(target *Object, opts *SymlinkOptions, ropts *RequestOptions) error {
+func (o *Object) SymlinkTo(ctx context.Context, target *Object, opts *SymlinkOptions, ropts *RequestOptions) error {
 	ropts = cloneRequestOptions(ropts, nil)
 	ropts.Headers.Set("X-Symlink-Target", target.FullName())
 	if !target.c.a.IsEqualTo(o.c.a) {
 		ropts.Headers.Set("X-Symlink-Target-Account", target.c.a.Name())
 	}
 	if ropts.Headers.Get("Content-Type") == "" {
-		//recommended Content-Type for symlinks as per
-		//<https://docs.openstack.org/swift/latest/middleware.html#symlink>
+		// recommended Content-Type for symlinks as per
+		// <https://docs.openstack.org/swift/latest/middleware.html#symlink>
 		ropts.Headers.Set("Content-Type", "application/symlink")
 	}
 
@@ -550,7 +551,7 @@ func (o *Object) SymlinkTo(target *Object, opts *SymlinkOptions, ropts *RequestO
 		}
 	}
 
-	return o.Upload(nil, uopts, ropts)
+	return o.Upload(ctx, nil, uopts, ropts)
 }
 
 // SymlinkHeaders is similar to Headers, but if the object is a symlink, it
@@ -571,9 +572,9 @@ func (o *Object) SymlinkTo(target *Object, opts *SymlinkOptions, ropts *RequestO
 //
 // WARNING: This method is not thread-safe. Calling it concurrently on the same
 // object results in undefined behavior.
-func (o *Object) SymlinkHeaders() (headers ObjectHeaders, target *Object, err error) {
+func (o *Object) SymlinkHeaders(ctx context.Context) (headers ObjectHeaders, target *Object, err error) {
 	if o.symlinkHeaders == nil {
-		o.symlinkHeaders, err = o.fetchHeaders(&RequestOptions{
+		o.symlinkHeaders, err = o.fetchHeaders(ctx, &RequestOptions{
 			Values: url.Values{"symlink": []string{"get"}},
 		})
 		if err != nil {
@@ -581,10 +582,10 @@ func (o *Object) SymlinkHeaders() (headers ObjectHeaders, target *Object, err er
 		}
 	}
 
-	//is this a symlink?
+	// is this a symlink?
 	targetFullName := o.symlinkHeaders.Get("X-Symlink-Target")
 	if targetFullName == "" {
-		//not a symlink - the o.symlinkHeaders are just the regular headers
+		// not a symlink - the o.symlinkHeaders are just the regular headers
 		o.headers = o.symlinkHeaders
 		return *o.headers, nil, nil
 	}
@@ -596,7 +597,7 @@ func (o *Object) SymlinkHeaders() (headers ObjectHeaders, target *Object, err er
 		}
 	}
 
-	//cross-account symlink?
+	// cross-account symlink?
 	accountName := o.symlinkHeaders.Get("X-Symlink-Target-Account")
 	targetAccount := o.c.a
 	if accountName != "" && accountName != targetAccount.Name() {
@@ -669,11 +670,12 @@ func (o *Object) TempURL(key, method string, expires time.Time) (string, error) 
 	allowedDigest := capabilities.TempURL.AllowedDigests
 
 	var mac hash.Hash
-	if contains(allowedDigest, "sha256") {
+	switch {
+	case contains(allowedDigest, "sha256"):
 		mac = hmac.New(sha256.New, []byte(key))
-	} else if contains(allowedDigest, "sha1") {
+	case contains(allowedDigest, "sha1"):
 		mac = hmac.New(sha1.New, []byte(key))
-	} else {
+	default:
 		return "", fmt.Errorf("schwift supports sha1 and sha256 digests but the Swift server only supports: %s", strings.Join(allowedDigest, ", "))
 	}
 

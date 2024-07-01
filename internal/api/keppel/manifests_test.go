@@ -131,6 +131,7 @@ func TestManifestsAPI(t *testing.T) {
 				mustInsert(t, s.DB, &dbManifest)
 
 				err := s.SD.WriteManifest(
+					s.Ctx,
 					models.Account{Name: repo.AccountName},
 					repo.Name, dummyDigest, []byte(strings.Repeat("x", int(sizeBytes))),
 				)

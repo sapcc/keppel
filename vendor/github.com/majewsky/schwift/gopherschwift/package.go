@@ -19,14 +19,14 @@
 /*
 Package gopherschwift contains a Gophercloud backend for Schwift.
 
-If your application uses Gophercloud (https://github.com/gophercloud/gophercloud),
+If your application uses Gophercloud (https://github.com/gophercloud/gophercloud/v2),
 you can use the Wrap() function in this package as an entrypoint to Schwift.
 A schwift.Account created this way will re-use Gophercloud's authentication code,
 so you only need to obtain a client token once using Gophercloud. For example:
 
 	import (
-		"github.com/gophercloud/gophercloud/openstack"
-		"github.com/gophercloud/utils/openstack/clientconfig"
+		"github.com/gophercloud/gophercloud/v2/openstack"
+		"github.com/gophercloud/utils/v2/openstack/clientconfig"
 		"github.com/majewsky/schwift/gopherschwift"
 	)
 
@@ -43,15 +43,15 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/v2"
 
 	"github.com/majewsky/schwift"
 )
 
 // Options contains additional options that can be passed to Wrap().
 type Options struct {
-	//If set, this User-Agent will be reported in HTTP requests instead of
-	//schwift.DefaultUserAgent.
+	// If set, this User-Agent will be reported in HTTP requests instead of
+	// schwift.DefaultUserAgent.
 	UserAgent string
 }
 
@@ -104,7 +104,7 @@ func (g *backend) do(req *http.Request, afterReauth bool) (*http.Response, error
 		return nil, err
 	}
 
-	//detect expired token
+	// detect expired token
 	if resp.StatusCode == http.StatusUnauthorized && !afterReauth {
 		_, err := io.Copy(io.Discard, resp.Body)
 		if err != nil {
@@ -114,17 +114,17 @@ func (g *backend) do(req *http.Request, afterReauth bool) (*http.Response, error
 		if err != nil {
 			return nil, err
 		}
-		err = provider.Reauthenticate(resp.Request.Header.Get("X-Auth-Token"))
+		err = provider.Reauthenticate(req.Context(), resp.Request.Header.Get("X-Auth-Token"))
 		if err != nil {
 			return nil, err
 		}
 
-		//Swift is stupid: Even though we send `Expect: 100-continue`, it doesn't
-		//help. Swift will right away answer `100 Continue` and ONLY THEN actually
-		//check the token (at least in our prod setup).
+		// Swift is stupid: Even though we send `Expect: 100-continue`, it doesn't
+		// help. Swift will right away answer `100 Continue` and ONLY THEN actually
+		// check the token (at least in our prod setup).
 		//
-		//To increase the chance that this does not completely break this request,
-		//reset the reader if it implements Seek().
+		// To increase the chance that this does not completely break this request,
+		// reset the reader if it implements Seek().
 		if seekableReqBody, ok := req.Body.(io.Seeker); ok {
 			_, err := seekableReqBody.Seek(0, io.SeekStart)
 			if err != nil {
@@ -132,7 +132,7 @@ func (g *backend) do(req *http.Request, afterReauth bool) (*http.Response, error
 			}
 		}
 
-		//restart request with new token
+		// restart request with new token
 		return g.do(req, true)
 	}
 

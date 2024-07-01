@@ -50,7 +50,7 @@ func (d *AuthDriver) PluginTypeID() string {
 }
 
 // Init implements the keppel.AuthDriver interface.
-func (d *AuthDriver) Init(rc *redis.Client) error {
+func (d *AuthDriver) Init(ctx context.Context, rc *redis.Client) error {
 	return nil
 }
 

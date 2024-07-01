@@ -31,7 +31,7 @@ func (s Setup) ExpectBlobsExistInStorage(t *testing.T, blobs ...models.Blob) {
 	t.Helper()
 	for _, blob := range blobs {
 		account := models.Account{Name: blob.AccountName}
-		readCloser, sizeBytes, err := s.SD.ReadBlob(account, blob.StorageID)
+		readCloser, sizeBytes, err := s.SD.ReadBlob(s.Ctx, account, blob.StorageID)
 		if err != nil {
 			t.Errorf("expected blob %s to exist in the storage, but got: %s", blob.Digest, err.Error())
 			continue
@@ -71,7 +71,7 @@ func (s Setup) ExpectBlobsMissingInStorage(t *testing.T, blobs ...models.Blob) {
 	t.Helper()
 	for _, blob := range blobs {
 		account := models.Account{Name: blob.AccountName}
-		_, _, err := s.SD.ReadBlob(account, blob.StorageID)
+		_, _, err := s.SD.ReadBlob(s.Ctx, account, blob.StorageID)
 		if err == nil {
 			t.Errorf("expected blob %s to be missing in the storage, but could read it", blob.Digest)
 			continue
@@ -86,7 +86,7 @@ func (s Setup) ExpectManifestsExistInStorage(t *testing.T, repoName string, mani
 		repo, err := keppel.FindRepositoryByID(s.DB, manifest.RepositoryID)
 		mustDo(t, err)
 		account := models.Account{Name: repo.AccountName}
-		manifestBytes, err := s.SD.ReadManifest(account, repoName, manifest.Digest)
+		manifestBytes, err := s.SD.ReadManifest(s.Ctx, account, repoName, manifest.Digest)
 		if err != nil {
 			t.Errorf("expected manifest %s to exist in the storage, but got: %s", manifest.Digest, err.Error())
 			continue
@@ -111,7 +111,7 @@ func (s Setup) ExpectManifestsMissingInStorage(t *testing.T, manifests ...models
 		repo, err := keppel.FindRepositoryByID(s.DB, manifest.RepositoryID)
 		mustDo(t, err)
 		account := models.Account{Name: repo.AccountName}
-		_, err = s.SD.ReadManifest(account, "foo", manifest.Digest)
+		_, err = s.SD.ReadManifest(s.Ctx, account, "foo", manifest.Digest)
 		if err == nil {
 			t.Errorf("expected manifest %s to be missing in the storage, but could read it", manifest.Digest)
 			continue

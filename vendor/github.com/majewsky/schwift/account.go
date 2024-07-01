@@ -32,10 +32,10 @@ import (
 // upwards from a container with Container.Account().
 type Account struct {
 	backend Backend
-	//URL parts
+	// URL parts
 	baseURL string
 	name    string
-	//cache
+	// cache
 	headers   *AccountHeaders
 	caps      *Capabilities
 	capsMutex sync.Mutex
@@ -98,7 +98,7 @@ func (a *Account) Backend() Backend {
 //
 // WARNING: This method is not thread-safe. Calling it concurrently on the same
 // object results in undefined behavior.
-func (a *Account) Headers() (AccountHeaders, error) {
+func (a *Account) Headers(ctx context.Context) (AccountHeaders, error) {
 	if a.headers != nil {
 		return *a.headers, nil
 	}
@@ -106,7 +106,7 @@ func (a *Account) Headers() (AccountHeaders, error) {
 	resp, err := Request{
 		Method:            "HEAD",
 		ExpectStatusCodes: []int{204},
-	}.Do(a.backend)
+	}.Do(ctx, a.backend)
 	if err != nil {
 		return AccountHeaders{}, err
 	}
@@ -134,12 +134,12 @@ func (a *Account) Invalidate() {
 // attribute take precedence over those in opts.Headers.
 //
 // A successful POST request implies Invalidate() since it may change metadata.
-func (a *Account) Update(headers AccountHeaders, opts *RequestOptions) error {
+func (a *Account) Update(ctx context.Context, headers AccountHeaders, opts *RequestOptions) error {
 	resp, err := Request{
 		Method:            "POST",
 		Options:           cloneRequestOptions(opts, headers.Headers),
 		ExpectStatusCodes: []int{204},
-	}.Do(a.backend)
+	}.Do(ctx, a.backend)
 	if err == nil {
 		a.Invalidate()
 		resp.Body.Close()
@@ -151,13 +151,13 @@ func (a *Account) Update(headers AccountHeaders, opts *RequestOptions) error {
 // available to reseller admins, not to regular users.
 //
 // A successful PUT request implies Invalidate() since it may change metadata.
-func (a *Account) Create(opts *RequestOptions) error {
+func (a *Account) Create(ctx context.Context, opts *RequestOptions) error {
 	resp, err := Request{
 		Method:            "PUT",
 		Options:           opts,
 		ExpectStatusCodes: []int{201, 202},
 		DrainResponseBody: true,
-	}.Do(a.backend)
+	}.Do(ctx, a.backend)
 	if err == nil {
 		a.Invalidate()
 		resp.Body.Close()
@@ -216,8 +216,8 @@ func (a *Account) Capabilities() (Capabilities, error) {
 // this account, and returns the response body. Unlike Account.Capabilities,
 // this method does not employ any caching.
 func (a *Account) RawCapabilities() ([]byte, error) {
-	//This method is the only one in Schwift that bypasses struct Request since
-	//the request URL is not below the endpoint URL.
+	// This method is the only one in Schwift that bypasses struct Request since
+	// the request URL is not below the endpoint URL.
 	req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, a.baseURL+"info", http.NoBody)
 	if err != nil {
 		return nil, err

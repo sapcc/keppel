@@ -19,6 +19,7 @@
 package tasks
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -52,7 +53,7 @@ func TestDeleteAbandonedUploadWithZeroChunks(t *testing.T) {
 func TestDeleteAbandonedUploadWithOneChunk(t *testing.T) {
 	testDeleteUpload(t, func(sd keppel.StorageDriver, account models.Account) models.Upload {
 		data := "just some test data"
-		err := sd.AppendToBlob(account, testStorageID, 1, p2len(data), strings.NewReader(data))
+		err := sd.AppendToBlob(context.TODO(), account, testStorageID, 1, p2len(data), strings.NewReader(data))
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -69,7 +70,7 @@ func TestDeleteAbandonedUploadWithManyChunks(t *testing.T) {
 	testDeleteUpload(t, func(sd keppel.StorageDriver, account models.Account) models.Upload {
 		chunks := []string{"just", "some", "test", "data"}
 		for idx, data := range chunks {
-			err := sd.AppendToBlob(account, testStorageID, uint32(idx+1), p2len(data), strings.NewReader(data))
+			err := sd.AppendToBlob(context.TODO(), account, testStorageID, uint32(idx+1), p2len(data), strings.NewReader(data))
 			if err != nil {
 				t.Fatalf("AppendToBlob %d failed: %s", idx, err.Error())
 			}

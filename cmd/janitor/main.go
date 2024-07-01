@@ -54,17 +54,16 @@ func run(cmd *cobra.Command, args []string) {
 	keppel.SetTaskName("janitor")
 
 	cfg := keppel.ParseConfiguration()
+	ctx := httpext.ContextWithSIGINT(context.Background(), 10*time.Second)
 	auditor := keppel.InitAuditTrail()
 
 	db := must.Return(keppel.InitDB(cfg.DatabaseURL))
-	ad := must.Return(keppel.NewAuthDriver(osext.MustGetenv("KEPPEL_DRIVER_AUTH"), nil))
-	fd := must.Return(keppel.NewFederationDriver(osext.MustGetenv("KEPPEL_DRIVER_FEDERATION"), ad, cfg))
+	ad := must.Return(keppel.NewAuthDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_AUTH"), nil))
+	fd := must.Return(keppel.NewFederationDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_FEDERATION"), ad, cfg))
 	sd := must.Return(keppel.NewStorageDriver(osext.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg))
-	icd := must.Return(keppel.NewInboundCacheDriver(osext.MustGetenv("KEPPEL_DRIVER_INBOUND_CACHE"), cfg))
+	icd := must.Return(keppel.NewInboundCacheDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_INBOUND_CACHE"), cfg))
 
 	prometheus.MustRegister(sqlstats.NewStatsCollector("keppel", db.DbMap.Db))
-
-	ctx := httpext.ContextWithSIGINT(context.Background(), 10*time.Second)
 
 	// start task loops
 	janitor := tasks.NewJanitor(cfg, fd, sd, icd, db, auditor)

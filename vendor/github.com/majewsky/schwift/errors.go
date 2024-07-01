@@ -29,32 +29,32 @@ import (
 )
 
 var (
-	//ErrChecksumMismatch is returned by Object.Upload() when the Etag in the
-	//server response does not match the uploaded data.
+	// ErrChecksumMismatch is returned by Object.Upload() when the Etag in the
+	// server response does not match the uploaded data.
 	ErrChecksumMismatch = errors.New("Etag on uploaded object does not match MD5 checksum of uploaded data")
-	//ErrNoContainerName is returned by Request.Do() if ObjectName is given, but
-	//ContainerName is empty.
+	// ErrNoContainerName is returned by Request.Do() if ObjectName is given, but
+	// ContainerName is empty.
 	ErrNoContainerName = errors.New("missing container name")
-	//ErrMalformedContainerName is returned by Request.Do() if ContainerName
-	//contains slashes.
+	// ErrMalformedContainerName is returned by Request.Do() if ContainerName
+	// contains slashes.
 	ErrMalformedContainerName = errors.New("container name may not contain slashes")
-	//ErrNotSupported is returned by bulk operations, large object operations,
-	//etc. if the server does not support the requested operation.
+	// ErrNotSupported is returned by bulk operations, large object operations,
+	// etc. if the server does not support the requested operation.
 	ErrNotSupported = errors.New("operation not supported by this Swift server")
-	//ErrAccountMismatch is returned by operations on an account that accept
-	//containers/objects as arguments, if some or all of the provided
-	//containers/objects are located in a different account.
+	// ErrAccountMismatch is returned by operations on an account that accept
+	// containers/objects as arguments, if some or all of the provided
+	// containers/objects are located in a different account.
 	ErrAccountMismatch = errors.New("some of the given objects are not in this account")
-	//ErrContainerMismatch is returned by operations on a container that accept
-	//objects as arguments, if some or all of the provided objects are located in
-	//a different container.
+	// ErrContainerMismatch is returned by operations on a container that accept
+	// objects as arguments, if some or all of the provided objects are located in
+	// a different container.
 	ErrContainerMismatch = errors.New("some of the given objects are not in this container")
-	//ErrNotLarge is returned by Object.AsLargeObject() if the object does not
-	//exist, or if it is not a large object composed out of segments.
+	// ErrNotLarge is returned by Object.AsLargeObject() if the object does not
+	// exist, or if it is not a large object composed out of segments.
 	ErrNotLarge = errors.New("not a large object")
-	//ErrSegmentInvalid is returned by LargeObject.AddSegment() if the segment
-	//provided is malformed or uses features not supported by the LargeObject's
-	//strategy. See documentation for LargeObject.AddSegment() for details.
+	// ErrSegmentInvalid is returned by LargeObject.AddSegment() if the segment
+	// provided is malformed or uses features not supported by the LargeObject's
+	// strategy. See documentation for LargeObject.AddSegment() for details.
 	ErrSegmentInvalid = errors.New("segment invalid or incompatible with large object strategy")
 )
 
@@ -62,8 +62,8 @@ var (
 // a response with the expected successful status code. The actual status code
 // can be checked with the Is() function; see documentation over there.
 type UnexpectedStatusCodeError struct {
-	Method              string //e.g. http.MethodGet
-	Target              string //either "<account>" or "$CONTAINER_NAME" or "$CONTAINER_NAME/$OBJECT_NAME"
+	Method              string // e.g. http.MethodGet
+	Target              string // either "<account>" or "$CONTAINER_NAME" or "$CONTAINER_NAME/$OBJECT_NAME"
 	ExpectedStatusCodes []int
 	ActualResponse      *http.Response
 	ResponseBody        []byte
@@ -81,7 +81,7 @@ func (e UnexpectedStatusCodeError) Error() string {
 	)
 	if e.Method != "" && e.Target != "" {
 		//NOTE: Method and Target were added in a minor version change,
-		//and may not be filled if `e` was constructed outside the library.
+		// and may not be filled if `e` was constructed outside the library.
 		msg = fmt.Sprintf("could not %s %q in Swift: %s", e.Method, e.Target, msg)
 	}
 	if len(e.ResponseBody) > 0 {
@@ -111,13 +111,13 @@ func (e BulkObjectError) Error() string {
 // saved in Swift; and by Account.BulkDelete() when not all requested objects
 // could be deleted.
 type BulkError struct {
-	//StatusCode contains the overall HTTP status code of the operation.
+	// StatusCode contains the overall HTTP status code of the operation.
 	StatusCode int
-	//OverallError contains the fatal error that aborted the bulk operation, or a
-	//summary of which recoverable errors were encountered. It may be empty.
+	// OverallError contains the fatal error that aborted the bulk operation, or a
+	// summary of which recoverable errors were encountered. It may be empty.
 	OverallError string
-	//ObjectErrors contains errors that occurred while working on individual
-	//objects or containers. It may be empty if no such errors occurred.
+	// ObjectErrors contains errors that occurred while working on individual
+	// objects or containers. It may be empty if no such errors occurred.
 	ObjectErrors []BulkObjectError
 }
 

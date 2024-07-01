@@ -20,6 +20,7 @@
 package trivial
 
 import (
+	"context"
 	"database/sql"
 	"time"
 
@@ -37,18 +38,18 @@ func init() {
 func (inboundCacheDriver) PluginTypeID() string { return "trivial" }
 
 // Init implements the keppel.InboundCacheDriver interface.
-func (inboundCacheDriver) Init(cfg keppel.Configuration) error {
+func (inboundCacheDriver) Init(ctx context.Context, cfg keppel.Configuration) error {
 	return nil
 }
 
 // LoadManifest implements the keppel.InboundCacheDriver interface.
-func (inboundCacheDriver) LoadManifest(location models.ImageReference, now time.Time) (contents []byte, mediaType string, err error) {
+func (inboundCacheDriver) LoadManifest(ctx context.Context, location models.ImageReference, now time.Time) (contents []byte, mediaType string, err error) {
 	// always return a cache miss
 	return nil, "", sql.ErrNoRows
 }
 
 // StoreManifest implements the keppel.InboundCacheDriver interface.
-func (inboundCacheDriver) StoreManifest(location models.ImageReference, contents []byte, mediaType string, now time.Time) error {
+func (inboundCacheDriver) StoreManifest(ctx context.Context, location models.ImageReference, contents []byte, mediaType string, now time.Time) error {
 	// no-op
 	return nil
 }

@@ -38,13 +38,12 @@ import (
 	"time"
 
 	policy "github.com/databus23/goslo.policy"
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack"
-	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
-	"github.com/gophercloud/utils/openstack/clientconfig"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack"
+	"github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens"
+	"github.com/gophercloud/utils/v2/openstack/clientconfig"
 	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-bits/audittools"
-	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/osext"
@@ -69,14 +68,14 @@ func (d *keystoneDriver) PluginTypeID() string {
 }
 
 // Init implements the keppel.AuthDriver interface.
-func (d *keystoneDriver) Init(rc *redis.Client) error {
+func (d *keystoneDriver) Init(ctx context.Context, rc *redis.Client) error {
 	// authenticate service user
 	ao, err := clientconfig.AuthOptions(nil)
 	if err != nil {
 		return errors.New("cannot find OpenStack credentials: " + err.Error())
 	}
 	ao.AllowReauth = true
-	d.Provider, err = openstack.AuthenticatedClient(*ao)
+	d.Provider, err = openstack.AuthenticatedClient(ctx, *ao)
 	if err != nil {
 		return errors.New("cannot connect to OpenStack: " + err.Error())
 	}
@@ -126,30 +125,26 @@ func (d *keystoneDriver) AuthenticateUser(ctx context.Context, userName, passwor
 	// perform the authentication with a fresh ServiceClient, otherwise a 401
 	// response will trigger a useless reauthentication of the service user
 	throwAwayClient := gophercloud.ServiceClient{
-		ProviderClient: &gophercloud.ProviderClient{
-			Throwaway: true,
-			Context:   ctx,
-		},
-		Endpoint: d.IdentityV3.Endpoint,
+		ProviderClient: &gophercloud.ProviderClient{Throwaway: true},
+		Endpoint:       d.IdentityV3.Endpoint,
 	}
 	throwAwayClient.SetThrowaway(true)
 	throwAwayClient.ReauthFunc = nil
 	throwAwayClient.SetTokenAndAuthResult(nil) //nolint:errcheck
 
-	t := d.TokenValidator.CheckCredentials(
+	t, retryAfterStr, err := d.TokenValidator.CheckCredentials(
 		fmt.Sprintf("username=%s,password=%s", userName, password),
-		func() gopherpolicy.TokenResult { return tokens.Create(&throwAwayClient, &authOpts) },
+		func() (gopherpolicy.TokenResult, http.Header) {
+			createResult := tokens.Create(ctx, &throwAwayClient, &authOpts)
+			return createResult, createResult.Header
+		},
 	)
 
-	if t.Err != nil {
-		if err, ok := errext.As[gophercloud.ErrDefault429](t.Err); ok {
-			retryAfterStr := err.ResponseHeader.Get("Retry-After")
+	if err != nil {
+		if gophercloud.ResponseCodeIs(err, http.StatusTooManyRequests) {
 			return nil, keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr)
 		}
-		return nil, keppel.ErrUnauthorized.With(
-			"failed to get token for user %q: %s",
-			userName, t.Err.Error(),
-		)
+		return nil, keppel.ErrUnauthorized.With("failed to get token for user %q: %s", userName, err.Error())
 	}
 	return &keystoneUserIdentity{t}, nil
 }
@@ -200,9 +195,9 @@ func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Us
 		return nil, nil
 	}
 
-	t := d.TokenValidator.CheckToken(r)
-	if t.Err != nil {
-		return nil, keppel.ErrUnauthorized.With("X-Auth-Token validation failed: " + t.Err.Error())
+	t, _, err := d.TokenValidator.CheckToken(r)
+	if err != nil {
+		return nil, keppel.ErrUnauthorized.With("X-Auth-Token validation failed: " + err.Error())
 	}
 
 	// t.Context.Request = mux.Vars(r) //not used at the moment
@@ -321,7 +316,6 @@ func (a *keystoneUserIdentity) DeserializeFromJSON(in []byte, ad keppel.AuthDriv
 			Request: make(map[string]string), // filled by HasPermission(); does not need to be serialized
 		},
 		ProviderClient: nil, // cannot be reasonably serialized; see comment above
-		Err:            nil,
 	}
 	return nil
 }

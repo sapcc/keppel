@@ -19,6 +19,7 @@
 package schwift
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -35,11 +36,11 @@ import (
 type BulkUploadFormat string
 
 const (
-	//BulkUploadTar is a plain tar archive.
+	// BulkUploadTar is a plain tar archive.
 	BulkUploadTar BulkUploadFormat = "tar"
-	//BulkUploadTarGzip is a GZip-compressed tar archive.
+	// BulkUploadTarGzip is a GZip-compressed tar archive.
 	BulkUploadTarGzip BulkUploadFormat = "tar.gz"
-	//BulkUploadTarBzip2 is a BZip2-compressed tar archive.
+	// BulkUploadTarBzip2 is a BZip2-compressed tar archive.
 	BulkUploadTarBzip2 BulkUploadFormat = "tar.bz2"
 )
 
@@ -65,7 +66,7 @@ const (
 //
 // This operation returns (0, ErrNotSupported) if the server does not support
 // bulk-uploading.
-func (a *Account) BulkUpload(uploadPath string, format BulkUploadFormat, contents io.Reader, opts *RequestOptions) (int, error) {
+func (a *Account) BulkUpload(ctx context.Context, uploadPath string, format BulkUploadFormat, contents io.Reader, opts *RequestOptions) (int, error) {
 	caps, err := a.Capabilities()
 	if err != nil {
 		return 0, err
@@ -89,7 +90,7 @@ func (a *Account) BulkUpload(uploadPath string, format BulkUploadFormat, content
 		req.ObjectName = fields[1]
 	}
 
-	resp, err := req.Do(a.backend) //nolint:bodyclose // parseBulkResponse does the close
+	resp, err := req.Do(ctx, a.backend) //nolint:bodyclose // parseBulkResponse does the close
 	if err != nil {
 		return 0, err
 	}
@@ -99,7 +100,7 @@ func (a *Account) BulkUpload(uploadPath string, format BulkUploadFormat, content
 }
 
 func parseResponseStatus(status string) (int, error) {
-	//`status` looks like "201 Created"
+	// `status` looks like "201 Created"
 	fields := strings.SplitN(status, " ", 2)
 	return strconv.Atoi(fields[0])
 }
@@ -143,8 +144,8 @@ func makeBulkObjectError(fullName string, statusCode int) BulkObjectError {
 // The objects may be located in multiple containers, but they and the
 // containers must all be located in the given account. (Otherwise,
 // ErrAccountMismatch is returned.)
-func (a *Account) BulkDelete(objects []*Object, containers []*Container, opts *RequestOptions) (numDeleted, numNotFound int, deleteError error) {
-	//validate that all given objects are in this account
+func (a *Account) BulkDelete(ctx context.Context, objects []*Object, containers []*Container, opts *RequestOptions) (numDeleted, numNotFound int, deleteError error) {
+	// validate that all given objects are in this account
 	for _, obj := range objects {
 		if !a.IsEqualTo(obj.Container().Account()) {
 			return 0, 0, ErrAccountMismatch
@@ -156,41 +157,41 @@ func (a *Account) BulkDelete(objects []*Object, containers []*Container, opts *R
 		}
 	}
 
-	//check capabilities to choose deletion method
+	// check capabilities to choose deletion method
 	caps, err := a.Capabilities()
 	if err != nil {
 		return 0, 0, err
 	}
 	if caps.BulkDelete == nil || !capabilities.AllowBulkDelete {
-		return a.bulkDeleteSingle(objects, containers, opts)
+		return a.bulkDeleteSingle(ctx, objects, containers, opts)
 	}
 	chunkSize := int(caps.BulkDelete.MaximumDeletesPerRequest)
 
-	//collect names of things to delete into one big list
+	// collect names of things to delete into one big list
 	var names []string
 	for _, object := range objects {
-		object.Invalidate() //deletion must invalidate objects!
+		object.Invalidate() // deletion must invalidate objects!
 		names = append(names, fmt.Sprintf("/%s/%s",
 			url.PathEscape(object.Container().Name()),
 			url.PathEscape(object.Name()),
 		))
 	}
 	for _, container := range containers {
-		container.Invalidate() //deletion must invalidate objects!
+		container.Invalidate() // deletion must invalidate objects!
 		names = append(names, "/"+url.PathEscape(container.Name()))
 	}
 
-	//split list into chunks according to maximum allowed
-	//chunk size; aggregate results
+	// split list into chunks according to maximum allowed
+	// chunk size; aggregate results
 	for len(names) > 0 {
-		//this condition holds only in the final iteration
+		// this condition holds only in the final iteration
 		if chunkSize > len(names) {
 			chunkSize = len(names)
 		}
 		chunk := names[0:chunkSize]
 		names = names[chunkSize:]
 
-		numDeletedNow, numNotFoundNow, err := a.bulkDelete(chunk, opts)
+		numDeletedNow, numNotFoundNow, err := a.bulkDelete(ctx, chunk, opts)
 		numDeleted += numDeletedNow
 		numNotFound += numNotFoundNow
 		if err != nil {
@@ -203,7 +204,7 @@ func (a *Account) BulkDelete(objects []*Object, containers []*Container, opts *R
 
 // Implementation of BulkDelete() for servers that *do not* support bulk
 // deletion.
-func (a *Account) bulkDeleteSingle(objects []*Object, containers []*Container, opts *RequestOptions) (numDeleted, numNotFound int, err error) {
+func (a *Account) bulkDeleteSingle(ctx context.Context, objects []*Object, containers []*Container, opts *RequestOptions) (numDeleted, numNotFound int, err error) {
 	var errs []BulkObjectError
 
 	handleSingleError := func(containerName, objectName string, err error) error {
@@ -223,12 +224,12 @@ func (a *Account) bulkDeleteSingle(objects []*Object, containers []*Container, o
 			})
 			return nil
 		}
-		//unexpected error type -> stop early
+		// unexpected error type -> stop early
 		return err
 	}
 
 	for _, obj := range objects {
-		err := obj.Delete(nil, opts) //this implies Invalidate()
+		err := obj.Delete(ctx, nil, opts) // this implies Invalidate()
 		err = handleSingleError(obj.Container().Name(), obj.Name(), err)
 		if err != nil {
 			return numDeleted, numNotFound, err
@@ -236,7 +237,7 @@ func (a *Account) bulkDeleteSingle(objects []*Object, containers []*Container, o
 	}
 
 	for _, container := range containers {
-		err := container.Delete(opts) //this implies Invalidate()
+		err := container.Delete(ctx, opts) // this implies Invalidate()
 		err = handleSingleError(container.Name(), "", err)
 		if err != nil {
 			return numDeleted, numNotFound, err
@@ -256,7 +257,7 @@ func (a *Account) bulkDeleteSingle(objects []*Object, containers []*Container, o
 // Implementation of BulkDelete() for servers that *do* support bulk deletion.
 // This function is called *after* chunking, so `len(names) <=
 // account.Capabilities.BulkDelete.MaximumDeletesPerRequest`.
-func (a *Account) bulkDelete(names []string, opts *RequestOptions) (numDeleted, numNotFound int, err error) {
+func (a *Account) bulkDelete(ctx context.Context, names []string, opts *RequestOptions) (numDeleted, numNotFound int, err error) {
 	req := Request{
 		Method:            "DELETE",
 		Body:              strings.NewReader(strings.Join(names, "\n") + "\n"),
@@ -266,7 +267,7 @@ func (a *Account) bulkDelete(names []string, opts *RequestOptions) (numDeleted, 
 	req.Options.Headers.Set("Accept", "application/json")
 	req.Options.Headers.Set("Content-Type", "text/plain")
 	req.Options.Values.Set("bulk-delete", "true")
-	resp, err := req.Do(a.backend) //nolint:bodyclose // parseBulkResponse does the close
+	resp, err := req.Do(ctx, a.backend) //nolint:bodyclose // parseBulkResponse does the close
 	if err != nil {
 		return 0, 0, err
 	}
@@ -276,22 +277,22 @@ func (a *Account) bulkDelete(names []string, opts *RequestOptions) (numDeleted, 
 }
 
 type bulkResponse struct {
-	//ResponseStatus indicates the overall result as a HTTP status string, e.g.
-	//"201 Created" or "500 Internal Error".
+	// ResponseStatus indicates the overall result as a HTTP status string, e.g.
+	// "201 Created" or "500 Internal Error".
 	ResponseStatus string `json:"Response Status"`
-	//ResponseBody contains an overall error message for errors that are not
-	//related to a single file in the archive (e.g. "invalid tar file" or "Max
-	//delete failures exceeded").
+	// ResponseBody contains an overall error message for errors that are not
+	// related to a single file in the archive (e.g. "invalid tar file" or "Max
+	// delete failures exceeded").
 	ResponseBody string `json:"Response Body"`
-	//Errors contains error messages for individual files. Each entry is a
-	//[]string with 2 elements, the object's fullName and the HTTP status for
-	//this file's upload (e.g. "412 Precondition Failed").
+	// Errors contains error messages for individual files. Each entry is a
+	// []string with 2 elements, the object's fullName and the HTTP status for
+	// this file's upload (e.g. "412 Precondition Failed").
 	Errors [][]string `json:"Errors"`
-	//NumberFilesCreated is included in the BulkUpload result only.
+	// NumberFilesCreated is included in the BulkUpload result only.
 	NumberFilesCreated int `json:"Number Files Created"`
-	//NumberDeleted is included in the BulkDelete result only.
+	// NumberDeleted is included in the BulkDelete result only.
 	NumberDeleted int `json:"Number Deleted"`
-	//NumberNotFound is included in the BulkDelete result only.
+	// NumberNotFound is included in the BulkDelete result only.
 	NumberNotFound int `json:"Number Not Found"`
 }
 
@@ -306,7 +307,7 @@ func parseBulkResponse(body io.ReadCloser) (bulkResponse, error) {
 		return resp, err
 	}
 
-	//parse `resp` into type BulkError
+	// parse `resp` into type BulkError
 	bulkErr := BulkError{
 		OverallError: resp.ResponseBody,
 	}
@@ -316,7 +317,7 @@ func parseBulkResponse(body io.ReadCloser) (bulkResponse, error) {
 	}
 	for _, suberr := range resp.Errors {
 		if len(suberr) != 2 {
-			continue //wtf
+			continue // wtf
 		}
 		statusCode, err := parseResponseStatus(suberr[1])
 		if err != nil {
@@ -327,11 +328,11 @@ func parseBulkResponse(body io.ReadCloser) (bulkResponse, error) {
 		)
 	}
 
-	//is BulkError really an error?
+	// is BulkError really an error?
 	if len(bulkErr.ObjectErrors) == 0 && bulkErr.OverallError == "" && bulkErr.StatusCode >= 200 && bulkErr.StatusCode < 300 {
 		return resp, nil
 	}
 	return resp, bulkErr
 	//NOTE: `resp` is passed back to the caller to read the counters
-	//(resp.NumberFilesCreated etc.)
+	// (resp.NumberFilesCreated etc.)
 }

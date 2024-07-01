@@ -226,7 +226,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.processor().DeleteManifest(*account, *repo, parsedDigest, keppel.AuditContext{
+	err = a.processor().DeleteManifest(r.Context(), *account, *repo, parsedDigest, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})

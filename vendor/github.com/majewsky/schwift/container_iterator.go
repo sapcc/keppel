@@ -19,6 +19,7 @@
 package schwift
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -61,10 +62,10 @@ type ContainerInfo struct {
 // return only container names.
 type ContainerIterator struct {
 	Account *Account
-	//When Prefix is set, only containers whose name starts with this string are
-	//returned.
+	// When Prefix is set, only containers whose name starts with this string are
+	// returned.
 	Prefix string
-	//Options may contain additional headers and query parameters for the GET request.
+	// Options may contain additional headers and query parameters for the GET request.
 	Options *RequestOptions
 
 	base *iteratorBase
@@ -86,8 +87,8 @@ func (i *ContainerIterator) getBase() *iteratorBase {
 //
 // This method offers maximal flexibility, but most users will prefer the
 // simpler interfaces offered by Collect() and Foreach().
-func (i *ContainerIterator) NextPage(limit int) ([]*Container, error) {
-	names, err := i.getBase().nextPage(limit)
+func (i *ContainerIterator) NextPage(ctx context.Context, limit int) ([]*Container, error) {
+	names, err := i.getBase().nextPage(ctx, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +101,7 @@ func (i *ContainerIterator) NextPage(limit int) ([]*Container, error) {
 }
 
 // NextPageDetailed is like NextPage, but includes basic metadata.
-func (i *ContainerIterator) NextPageDetailed(limit int) ([]ContainerInfo, error) {
+func (i *ContainerIterator) NextPageDetailed(ctx context.Context, limit int) ([]ContainerInfo, error) {
 	b := i.getBase()
 
 	var document []struct {
@@ -109,12 +110,12 @@ func (i *ContainerIterator) NextPageDetailed(limit int) ([]ContainerInfo, error)
 		LastModifiedStr string `json:"last_modified"`
 		Name            string `json:"name"`
 	}
-	err := b.nextPageDetailed(limit, &document)
+	err := b.nextPageDetailed(ctx, limit, &document)
 	if err != nil {
 		return nil, err
 	}
 	if len(document) == 0 {
-		b.setMarker("") //indicate EOF to iteratorBase
+		b.setMarker("") // indicate EOF to iteratorBase
 		return nil, nil
 	}
 
@@ -125,7 +126,7 @@ func (i *ContainerIterator) NextPageDetailed(limit int) ([]ContainerInfo, error)
 		result[idx].ObjectCount = data.ObjectCount
 		result[idx].LastModified, err = time.Parse(time.RFC3339Nano, data.LastModifiedStr+"Z")
 		if err != nil {
-			//this error is sufficiently obscure that we don't need to expose a type for it
+			// this error is sufficiently obscure that we don't need to expose a type for it
 			return nil, fmt.Errorf("bad field containers[%d].last_modified: %s", idx, err.Error())
 		}
 	}
@@ -137,14 +138,14 @@ func (i *ContainerIterator) NextPageDetailed(limit int) ([]ContainerInfo, error)
 // Foreach lists the container names matching this iterator and calls the
 // callback once for every container. Iteration is aborted when a GET request fails,
 // or when the callback returns a non-nil error.
-func (i *ContainerIterator) Foreach(callback func(*Container) error) error {
+func (i *ContainerIterator) Foreach(ctx context.Context, callback func(*Container) error) error {
 	for {
-		containers, err := i.NextPage(-1)
+		containers, err := i.NextPage(ctx, -1)
 		if err != nil {
 			return err
 		}
 		if len(containers) == 0 {
-			return nil //EOF
+			return nil // EOF
 		}
 		for _, c := range containers {
 			err := callback(c)
@@ -156,14 +157,14 @@ func (i *ContainerIterator) Foreach(callback func(*Container) error) error {
 }
 
 // ForeachDetailed is like Foreach, but includes basic metadata.
-func (i *ContainerIterator) ForeachDetailed(callback func(ContainerInfo) error) error {
+func (i *ContainerIterator) ForeachDetailed(ctx context.Context, callback func(ContainerInfo) error) error {
 	for {
-		infos, err := i.NextPageDetailed(-1)
+		infos, err := i.NextPageDetailed(ctx, -1)
 		if err != nil {
 			return err
 		}
 		if len(infos) == 0 {
-			return nil //EOF
+			return nil // EOF
 		}
 		for _, ci := range infos {
 			err := callback(ci)
@@ -177,30 +178,30 @@ func (i *ContainerIterator) ForeachDetailed(callback func(ContainerInfo) error) 
 // Collect lists all container names matching this iterator. For large sets of
 // containers that cannot be retrieved at once, Collect handles paging behind
 // the scenes. The return value is always the complete set of containers.
-func (i *ContainerIterator) Collect() ([]*Container, error) {
+func (i *ContainerIterator) Collect(ctx context.Context) ([]*Container, error) {
 	var result []*Container
 	for {
-		containers, err := i.NextPage(-1)
+		containers, err := i.NextPage(ctx, -1)
 		if err != nil {
 			return nil, err
 		}
 		if len(containers) == 0 {
-			return result, nil //EOF
+			return result, nil // EOF
 		}
 		result = append(result, containers...)
 	}
 }
 
 // CollectDetailed is like Collect, but includes basic metadata.
-func (i *ContainerIterator) CollectDetailed() ([]ContainerInfo, error) {
+func (i *ContainerIterator) CollectDetailed(ctx context.Context) ([]ContainerInfo, error) {
 	var result []ContainerInfo
 	for {
-		infos, err := i.NextPageDetailed(-1)
+		infos, err := i.NextPageDetailed(ctx, -1)
 		if err != nil {
 			return nil, err
 		}
 		if len(infos) == 0 {
-			return result, nil //EOF
+			return result, nil // EOF
 		}
 		result = append(result, infos...)
 	}

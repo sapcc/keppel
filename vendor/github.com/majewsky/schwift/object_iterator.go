@@ -19,6 +19,7 @@
 package schwift
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"time"
@@ -34,12 +35,12 @@ type ObjectInfo struct {
 	ContentType  string
 	Etag         string
 	LastModified time.Time
-	//SymlinkTarget is only set for symlinks.
+	// SymlinkTarget is only set for symlinks.
 	SymlinkTarget *Object
-	//If the ObjectInfo refers to an actual object, then SubDirectory is empty.
-	//If the ObjectInfo refers to a pseudo-directory, then SubDirectory contains
-	//the path of the pseudo-directory and all other fields are nil/zero/empty.
-	//Pseudo-directories will only be reported for ObjectIterator.Delimiter != "".
+	// If the ObjectInfo refers to an actual object, then SubDirectory is empty.
+	// If the ObjectInfo refers to a pseudo-directory, then SubDirectory contains
+	// the path of the pseudo-directory and all other fields are nil/zero/empty.
+	// Pseudo-directories will only be reported for ObjectIterator.Delimiter != "".
 	SubDirectory string
 }
 
@@ -74,14 +75,14 @@ type ObjectInfo struct {
 // which case Exists() will return false.
 type ObjectIterator struct {
 	Container *Container
-	//When Prefix is set, only objects whose name starts with this string are
-	//returned.
+	// When Prefix is set, only objects whose name starts with this string are
+	// returned.
 	Prefix string
-	//When Delimiter is set, objects whose name contains this string (after the
-	//prefix, if any) will be condensed into pseudo-directories in the result.
-	//See documentation for Swift for details.
+	// When Delimiter is set, objects whose name contains this string (after the
+	// prefix, if any) will be condensed into pseudo-directories in the result.
+	// See documentation for Swift for details.
 	Delimiter string
-	//Options may contain additional headers and query parameters for the GET request.
+	// Options may contain additional headers and query parameters for the GET request.
 	Options *RequestOptions
 
 	base *iteratorBase
@@ -103,8 +104,8 @@ func (i *ObjectIterator) getBase() *iteratorBase {
 //
 // This method offers maximal flexibility, but most users will prefer the
 // simpler interfaces offered by Collect() and Foreach().
-func (i *ObjectIterator) NextPage(limit int) ([]*Object, error) {
-	names, err := i.getBase().nextPage(limit)
+func (i *ObjectIterator) NextPage(ctx context.Context, limit int) ([]*Object, error) {
+	names, err := i.getBase().nextPage(ctx, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -120,26 +121,26 @@ func (i *ObjectIterator) NextPage(limit int) ([]*Object, error) {
 var symlinkPathRx = regexp.MustCompile(`^/v1/([^/]+)/([^/]+)/(.+)$`)
 
 // NextPageDetailed is like NextPage, but includes basic metadata.
-func (i *ObjectIterator) NextPageDetailed(limit int) ([]ObjectInfo, error) {
+func (i *ObjectIterator) NextPageDetailed(ctx context.Context, limit int) ([]ObjectInfo, error) {
 	b := i.getBase()
 
 	var document []struct {
-		//either all of this:
+		// either all of this:
 		SizeBytes       uint64 `json:"bytes"`
 		ContentType     string `json:"content_type"`
 		Etag            string `json:"hash"`
 		LastModifiedStr string `json:"last_modified"`
 		Name            string `json:"name"`
 		SymlinkPath     string `json:"symlink_path"`
-		//or just this:
+		// or just this:
 		Subdir string `json:"subdir"`
 	}
-	err := b.nextPageDetailed(limit, &document)
+	err := b.nextPageDetailed(ctx, limit, &document)
 	if err != nil {
 		return nil, err
 	}
 	if len(document) == 0 {
-		b.setMarker("") //indicate EOF to iteratorBase
+		b.setMarker("") // indicate EOF to iteratorBase
 		return nil, nil
 	}
 
@@ -154,13 +155,13 @@ func (i *ObjectIterator) NextPageDetailed(limit int) ([]ObjectInfo, error) {
 			result[idx].SizeBytes = data.SizeBytes
 			result[idx].LastModified, err = time.Parse(time.RFC3339Nano, data.LastModifiedStr+"Z")
 			if err != nil {
-				//this error is sufficiently obscure that we don't need to expose a type for it
+				// this error is sufficiently obscure that we don't need to expose a type for it
 				return nil, fmt.Errorf("bad field objects[%d].last_modified: %s", idx, err.Error())
 			}
 			if data.SymlinkPath != "" {
 				match := symlinkPathRx.FindStringSubmatch(data.SymlinkPath)
 				if match == nil {
-					//like above
+					// like above
 					return nil, fmt.Errorf("bad field objects[%d].symlink_path: %q", idx, data.SymlinkPath)
 				}
 				a := i.Container.a
@@ -182,14 +183,14 @@ func (i *ObjectIterator) NextPageDetailed(limit int) ([]ObjectInfo, error) {
 // Foreach lists the object names matching this iterator and calls the
 // callback once for every object. Iteration is aborted when a GET request fails,
 // or when the callback returns a non-nil error.
-func (i *ObjectIterator) Foreach(callback func(*Object) error) error {
+func (i *ObjectIterator) Foreach(ctx context.Context, callback func(*Object) error) error {
 	for {
-		objects, err := i.NextPage(-1)
+		objects, err := i.NextPage(ctx, -1)
 		if err != nil {
 			return err
 		}
 		if len(objects) == 0 {
-			return nil //EOF
+			return nil // EOF
 		}
 		for _, o := range objects {
 			err := callback(o)
@@ -201,14 +202,14 @@ func (i *ObjectIterator) Foreach(callback func(*Object) error) error {
 }
 
 // ForeachDetailed is like Foreach, but includes basic metadata.
-func (i *ObjectIterator) ForeachDetailed(callback func(ObjectInfo) error) error {
+func (i *ObjectIterator) ForeachDetailed(ctx context.Context, callback func(ObjectInfo) error) error {
 	for {
-		infos, err := i.NextPageDetailed(-1)
+		infos, err := i.NextPageDetailed(ctx, -1)
 		if err != nil {
 			return err
 		}
 		if len(infos) == 0 {
-			return nil //EOF
+			return nil // EOF
 		}
 		for _, ci := range infos {
 			err := callback(ci)
@@ -222,30 +223,30 @@ func (i *ObjectIterator) ForeachDetailed(callback func(ObjectInfo) error) error 
 // Collect lists all object names matching this iterator. For large sets of
 // objects that cannot be retrieved at once, Collect handles paging behind
 // the scenes. The return value is always the complete set of objects.
-func (i *ObjectIterator) Collect() ([]*Object, error) {
+func (i *ObjectIterator) Collect(ctx context.Context) ([]*Object, error) {
 	var result []*Object
 	for {
-		objects, err := i.NextPage(-1)
+		objects, err := i.NextPage(ctx, -1)
 		if err != nil {
 			return nil, err
 		}
 		if len(objects) == 0 {
-			return result, nil //EOF
+			return result, nil // EOF
 		}
 		result = append(result, objects...)
 	}
 }
 
 // CollectDetailed is like Collect, but includes basic metadata.
-func (i *ObjectIterator) CollectDetailed() ([]ObjectInfo, error) {
+func (i *ObjectIterator) CollectDetailed(ctx context.Context) ([]ObjectInfo, error) {
 	var result []ObjectInfo
 	for {
-		infos, err := i.NextPageDetailed(-1)
+		infos, err := i.NextPageDetailed(ctx, -1)
 		if err != nil {
 			return nil, err
 		}
 		if len(infos) == 0 {
-			return result, nil //EOF
+			return result, nil // EOF
 		}
 		result = append(result, infos...)
 	}

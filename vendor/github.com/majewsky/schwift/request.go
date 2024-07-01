@@ -40,7 +40,6 @@ import (
 type RequestOptions struct {
 	Headers Headers
 	Values  url.Values
-	Context context.Context //nolint: containedctx // ignored for now to not break the API
 }
 
 func cloneRequestOptions(orig *RequestOptions, additional Headers) *RequestOptions {
@@ -55,7 +54,6 @@ func cloneRequestOptions(orig *RequestOptions, additional Headers) *RequestOptio
 		for k, v := range orig.Values {
 			result.Values[k] = v
 		}
-		result.Context = orig.Context
 	}
 	for k, v := range additional {
 		result.Headers[k] = v
@@ -65,16 +63,16 @@ func cloneRequestOptions(orig *RequestOptions, additional Headers) *RequestOptio
 
 // Request contains the parameters that can be set in a request to the Swift API.
 type Request struct {
-	Method        string //"GET", "HEAD", "PUT", "POST" or "DELETE"
-	ContainerName string //empty for requests on accounts
-	ObjectName    string //empty for requests on accounts/containers
+	Method        string // "GET", "HEAD", "PUT", "POST" or "DELETE"
+	ContainerName string // empty for requests on accounts
+	ObjectName    string // empty for requests on accounts/containers
 	Options       *RequestOptions
 	Body          io.Reader
-	//ExpectStatusCodes can be left empty to disable this check, otherwise
-	//schwift.UnexpectedStatusCodeError may be returned.
+	// ExpectStatusCodes can be left empty to disable this check, otherwise
+	// schwift.UnexpectedStatusCodeError may be returned.
 	ExpectStatusCodes []int
-	//DrainResponseBody can be set if the caller is not interested in the
-	//response body. This is implied for Response.StatusCode == 204.
+	// DrainResponseBody can be set if the caller is not interested in the
+	// response body. This is implied for Response.StatusCode == 204.
 	DrainResponseBody bool
 }
 
@@ -106,8 +104,8 @@ func (r Request) URL(backend Backend, values url.Values) (string, error) {
 }
 
 // Do executes this request on the given Backend.
-func (r Request) Do(backend Backend) (*http.Response, error) {
-	//build URL
+func (r Request) Do(ctx context.Context, backend Backend) (*http.Response, error) {
+	// build URL
 	var values url.Values
 	if r.Options != nil {
 		values = r.Options.Values
@@ -117,8 +115,8 @@ func (r Request) Do(backend Backend) (*http.Response, error) {
 		return nil, err
 	}
 
-	//build request
-	req, err := http.NewRequest(r.Method, uri, r.Body)
+	// build request
+	req, err := http.NewRequestWithContext(ctx, r.Method, uri, r.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -126,9 +124,6 @@ func (r Request) Do(backend Backend) (*http.Response, error) {
 	if r.Options != nil {
 		for k, v := range r.Options.Headers {
 			req.Header[k] = []string{v}
-		}
-		if r.Options.Context != nil {
-			req = req.WithContext(r.Options.Context)
 		}
 	}
 	if r.Body != nil {
@@ -140,22 +135,22 @@ func (r Request) Do(backend Backend) (*http.Response, error) {
 		return nil, err
 	}
 
-	//return success if error code matches expectation
+	// return success if error code matches expectation
 	if len(r.ExpectStatusCodes) == 0 {
-		//check disabled -> return response unaltered
+		// check disabled -> return response unaltered
 		return resp, nil
 	}
 	for _, code := range r.ExpectStatusCodes {
 		if code == resp.StatusCode {
 			var err error
-			if r.DrainResponseBody || resp.StatusCode == 204 {
+			if r.DrainResponseBody || resp.StatusCode == http.StatusNoContent {
 				err = drainResponseBody(resp)
 			}
 			return resp, err
 		}
 	}
 
-	//unexpected status code -> generate error
+	// unexpected status code -> generate error
 	buf, err := collectResponseBody(resp)
 	if err != nil {
 		return nil, err

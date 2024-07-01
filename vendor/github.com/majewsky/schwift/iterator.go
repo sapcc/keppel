@@ -19,6 +19,7 @@
 package schwift
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -33,8 +34,8 @@ type iteratorInterface interface {
 	getDelimiter() string
 	getPrefix() string
 	getOptions() *RequestOptions
-	//putHeader initializes the AccountHeaders/ContainerHeaders field of the
-	//Account/Container using the response headers from the GET request.
+	// putHeader initializes the AccountHeaders/ContainerHeaders field of the
+	// Account/Container using the response headers from the GET request.
 	putHeader(http.Header) error
 }
 
@@ -114,11 +115,11 @@ func (b *iteratorBase) request(limit int, detailed bool) Request {
 	return r
 }
 
-func (b *iteratorBase) nextPage(limit int) ([]string, error) {
+func (b *iteratorBase) nextPage(ctx context.Context, limit int) ([]string, error) {
 	if b.eof {
 		return nil, nil
 	}
-	resp, err := b.request(limit, false).Do(b.i.getAccount().backend)
+	resp, err := b.request(limit, false).Do(ctx, b.i.getAccount().backend)
 	if err != nil {
 		return nil, err
 	}
@@ -143,11 +144,11 @@ func (b *iteratorBase) nextPage(limit int) ([]string, error) {
 	return result, b.i.putHeader(resp.Header)
 }
 
-func (b *iteratorBase) nextPageDetailed(limit int, data interface{}) error {
+func (b *iteratorBase) nextPageDetailed(ctx context.Context, limit int, data interface{}) error {
 	if b.eof {
 		return nil
 	}
-	resp, err := b.request(limit, true).Do(b.i.getAccount().backend)
+	resp, err := b.request(limit, true).Do(ctx, b.i.getAccount().backend)
 	if err != nil {
 		return err
 	}

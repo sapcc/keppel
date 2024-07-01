@@ -58,7 +58,7 @@ type AuthDriver interface {
 	// Init is called before any other interface methods, and allows the plugin to
 	// perform first-time initialization. The supplied *redis.Client can be stored
 	// for caching authorizations, but only if it is non-nil.
-	Init(*redis.Client) error
+	Init(context.Context, *redis.Client) error
 
 	// AuthenticateUser authenticates the user identified by the given username
 	// and password. Note that usernames may not contain colons, because
@@ -81,14 +81,14 @@ var AuthDriverRegistry pluggable.Registry[AuthDriver]
 
 // NewAuthDriver creates a new AuthDriver using one of the plugins registered
 // with AuthDriverRegistry.
-func NewAuthDriver(pluginTypeID string, rc *redis.Client) (AuthDriver, error) {
+func NewAuthDriver(ctx context.Context, pluginTypeID string, rc *redis.Client) (AuthDriver, error) {
 	logg.Debug("initializing auth driver %q...", pluginTypeID)
 
 	ad := AuthDriverRegistry.Instantiate(pluginTypeID)
 	if ad == nil {
 		return nil, errors.New("no such auth driver: " + pluginTypeID)
 	}
-	return ad, ad.Init(rc)
+	return ad, ad.Init(ctx, rc)
 }
 
 // BuildBasicAuthHeader constructs the value of an "Authorization" HTTP header for the given basic auth credentials.

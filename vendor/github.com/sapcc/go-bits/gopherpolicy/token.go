@@ -21,11 +21,10 @@ package gopherpolicy
 
 import (
 	"fmt"
-	"net/http"
 
 	policy "github.com/databus23/goslo.policy"
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens"
 )
 
 // Enforcer contains the Enforce method that struct Token requires to check
@@ -48,8 +47,6 @@ type Token struct {
 	// When AuthN succeeds, contains a fully-initialized ProviderClient with which
 	// this process can use the OpenStack API on behalf of the authenticated user.
 	ProviderClient *gophercloud.ProviderClient
-	// When AuthN fails, contains the deferred AuthN error.
-	Err error
 
 	// When AuthN succeeds, contains all the information needed to serialize this
 	// token in SerializeTokenForCache.
@@ -57,27 +54,10 @@ type Token struct {
 }
 
 // Require checks if the given token has the given permission according to the
-// policy.json that is in effect. If not, an error response is written and false
-// is returned.
-func (t *Token) Require(w http.ResponseWriter, rule string) bool {
-	if t.Err != nil {
-		if t.Context.Logger != nil {
-			t.Context.Logger(fmt.Sprintf("returning %v because of error: %s", http.StatusUnauthorized, t.Err.Error()))
-		}
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return false
-	}
-
-	if !t.Enforcer.Enforce(rule, t.Context) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return false
-	}
-	return true
-}
-
-// Check is like Require, but does not write error responses.
+// policy.json that is in effect. If not false is returned.
+// The suggested HTTP Status code for false is 403 Forbidden.
 func (t *Token) Check(rule string) bool {
-	return t.Err == nil && t.Enforcer.Enforce(rule, t.Context)
+	return t.Enforcer.Enforce(rule, t.Context)
 }
 
 // UserUUID returns the UUID of the user for whom this token was issued, or ""
