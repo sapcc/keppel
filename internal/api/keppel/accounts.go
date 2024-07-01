@@ -279,7 +279,7 @@ func (a *API) deleteAccount(ctx context.Context, account models.Account) (*delet
 
 	// before committing the transaction, confirm account deletion with the
 	// storage driver and the federation driver
-	err = a.sd.CleanupAccount(account)
+	err = a.sd.CleanupAccount(ctx, account)
 	if err != nil {
 		return &deleteAccountResponse{Error: err.Error()}, nil
 	}

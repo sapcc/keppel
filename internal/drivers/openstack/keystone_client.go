@@ -19,6 +19,7 @@
 package openstack
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -26,10 +27,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack"
-	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
-	"github.com/gophercloud/utils/openstack/clientconfig"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack"
+	"github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens"
+	"github.com/gophercloud/utils/v2/openstack/clientconfig"
 
 	"github.com/sapcc/keppel/internal/client"
 )
@@ -53,13 +54,13 @@ func (d *keystoneClientDriver) MatchesEnvironment() bool {
 }
 
 // Connect implements the client.AuthDriver interface.
-func (d *keystoneClientDriver) Connect() error {
+func (d *keystoneClientDriver) Connect(ctx context.Context) error {
 	ao, err := clientconfig.AuthOptions(nil)
 	if err != nil {
 		return errors.New("cannot find OpenStack credentials: " + err.Error())
 	}
 	ao.AllowReauth = true
-	provider, err := openstack.AuthenticatedClient(*ao)
+	provider, err := openstack.AuthenticatedClient(ctx, *ao)
 	if err != nil {
 		return errors.New("cannot connect to OpenStack: " + err.Error())
 	}
@@ -141,7 +142,13 @@ func (d *keystoneClientDriver) ServerScheme() string {
 func (d *keystoneClientDriver) SendHTTPRequest(req *http.Request) (*http.Response, error) {
 	opts := gophercloud.RequestOpts{
 		RawBody: req.Body,
-		OkCodes: []int{200, 201, 202, 203, 204},
+		OkCodes: []int{
+			http.StatusOK,
+			http.StatusCreated,
+			http.StatusAccepted,
+			http.StatusNonAuthoritativeInfo,
+			http.StatusNoContent,
+		},
 	}
 	if len(req.Header) > 0 {
 		opts.MoreHeaders = make(map[string]string, len(req.Header))
@@ -151,7 +158,7 @@ func (d *keystoneClientDriver) SendHTTPRequest(req *http.Request) (*http.Respons
 	}
 
 	pathComponents := strings.Split(strings.Trim(req.URL.Path, "/"), "/")
-	return d.Client.Request(req.Method, d.Client.ServiceURL(pathComponents...), &opts)
+	return d.Client.Request(req.Context(), req.Method, d.Client.ServiceURL(pathComponents...), &opts)
 }
 
 // CredentialsForRegistryAPI implements the client.AuthDriver interface.

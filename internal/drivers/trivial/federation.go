@@ -36,7 +36,7 @@ func init() {
 func (federationDriver) PluginTypeID() string { return "trivial" }
 
 // Init implements the keppel.FederationDriver interface.
-func (federationDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
+func (federationDriver) Init(ctx context.Context, ad keppel.AuthDriver, cfg keppel.Configuration) error {
 	return nil
 }
 

@@ -90,7 +90,7 @@ func (j *Janitor) ManifestValidationJob(registerer prometheus.Registerer) jobloo
 	}).Setup(registerer)
 }
 
-func (j *Janitor) validateManifest(_ context.Context, manifest models.Manifest, _ prometheus.Labels) error {
+func (j *Janitor) validateManifest(ctx context.Context, manifest models.Manifest, _ prometheus.Labels) error {
 	// find corresponding account and repo
 	var repo models.Repository
 	err := j.db.SelectOne(&repo, `SELECT * FROM repos WHERE id = $1`, manifest.RepositoryID)
@@ -108,7 +108,7 @@ func (j *Janitor) validateManifest(_ context.Context, manifest models.Manifest, 
 	manifest.ValidationErrorMessage = ""
 
 	// perform validation
-	err = j.processor().ValidateExistingManifest(*account, repo, &manifest)
+	err = j.processor().ValidateExistingManifest(ctx, *account, repo, &manifest)
 	if err != nil {
 		// on failure, log error message and schedule next validation sooner than usual
 		_, updateErr := j.db.Exec(validateManifestFinishQuery,
@@ -411,7 +411,7 @@ func (j *Janitor) performManifestSync(ctx context.Context, account models.Accoun
 			}
 
 			// no manifests left that reference this one - we can delete it
-			err := j.processor().DeleteManifest(account, repo, digestToBeDeleted, keppel.AuditContext{
+			err := j.processor().DeleteManifest(ctx, account, repo, digestToBeDeleted, keppel.AuditContext{
 				UserIdentity: janitorUserIdentity{TaskName: "manifest-sync"},
 				Request:      janitorDummyRequest,
 			})
@@ -445,7 +445,7 @@ var vulnCheckBlobSelectQuery = sqlext.SimplifyWhitespace(`
 		WHERE r.repo_id = $1 AND r.digest = $2
 `)
 
-func (j *Janitor) collectManifestLayerBlobs(account models.Account, repo models.Repository, manifest models.Manifest) (layerBlobs []models.Blob, err error) {
+func (j *Janitor) collectManifestLayerBlobs(ctx context.Context, account models.Account, repo models.Repository, manifest models.Manifest) (layerBlobs []models.Blob, err error) {
 	var blobs []models.Blob
 	_, err = j.db.Select(&blobs, vulnCheckBlobSelectQuery, manifest.RepositoryID, manifest.Digest)
 	if err != nil {
@@ -453,7 +453,7 @@ func (j *Janitor) collectManifestLayerBlobs(account models.Account, repo models.
 	}
 
 	// we only care about blobs that are image layers; the manifest tells us which blobs are layers
-	manifestBytes, err := j.sd.ReadManifest(account, repo.Name, manifest.Digest)
+	manifestBytes, err := j.sd.ReadManifest(ctx, account, repo.Name, manifest.Digest)
 	if err != nil {
 		return nil, err
 	}
@@ -752,7 +752,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 var blobUncompressedSizeTooBigGiB float64 = 10
 
 func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models.Account, repo models.Repository, manifest models.Manifest, securityInfo *models.TrivySecurityInfo) (continueCheck bool, layerBlobs []models.Blob, err error) {
-	layerBlobs, err = j.collectManifestLayerBlobs(account, repo, manifest)
+	layerBlobs, err = j.collectManifestLayerBlobs(ctx, account, repo, manifest)
 	if err != nil {
 		return false, nil, err
 	}
@@ -789,7 +789,7 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 
 		if blob.BlocksVulnScanning == nil && strings.HasSuffix(blob.MediaType, "gzip") {
 			// uncompress the blob to check if it's too large for Trivy to handle within its allotted timeout
-			reader, _, err := j.sd.ReadBlob(account, blob.StorageID)
+			reader, _, err := j.sd.ReadBlob(ctx, account, blob.StorageID)
 			if err != nil {
 				return false, layerBlobs, fmt.Errorf("cannot read blob %s: %w", blob.Digest, err)
 			}

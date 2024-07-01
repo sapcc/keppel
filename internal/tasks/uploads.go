@@ -67,7 +67,7 @@ func (j *Janitor) AbandonedUploadCleanupJob(registerer prometheus.Registerer) jo
 	}).Setup(registerer)
 }
 
-func (j *Janitor) deleteAbandonedUpload(_ context.Context, tx *gorp.Transaction, upload models.Upload, labels prometheus.Labels) error {
+func (j *Janitor) deleteAbandonedUpload(ctx context.Context, tx *gorp.Transaction, upload models.Upload, labels prometheus.Labels) error {
 	// find corresponding account
 	var account models.Account
 	err := tx.SelectOne(&account, findAccountForRepoQuery, upload.RepositoryID)
@@ -83,7 +83,7 @@ func (j *Janitor) deleteAbandonedUpload(_ context.Context, tx *gorp.Transaction,
 
 	// remove from backing storage if necessary
 	if upload.NumChunks > 0 {
-		err := j.sd.AbortBlobUpload(account, upload.StorageID, upload.NumChunks)
+		err := j.sd.AbortBlobUpload(ctx, account, upload.StorageID, upload.NumChunks)
 		if err != nil {
 			return fmt.Errorf("cannot AbortBlobUpload for abandoned upload %s: %s", upload.UUID, err.Error())
 		}

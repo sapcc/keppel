@@ -42,13 +42,13 @@ import (
 // ValidateExistingBlob validates the given blob that already exists in the DB.
 // Validation includes computing the digest of the blob contents and comparing
 // to the digest in the DB. On success, nil is returned.
-func (p *Processor) ValidateExistingBlob(account models.Account, blob models.Blob) (returnErr error) {
+func (p *Processor) ValidateExistingBlob(ctx context.Context, account models.Account, blob models.Blob) (returnErr error) {
 	err := blob.Digest.Validate()
 	if err != nil {
 		return fmt.Errorf("cannot parse blob digest: %s", err.Error())
 	}
 
-	readCloser, _, err := p.sd.ReadBlob(account, blob.StorageID)
+	readCloser, _, err := p.sd.ReadBlob(ctx, account, blob.StorageID)
 	if err != nil {
 		return err
 	}
@@ -96,9 +96,9 @@ func (w *byteCountingWriter) Write(buf []byte) (int, error) {
 // requested blob does not exist, a blob record with an empty storage ID will be
 // inserted into the DB. This indicates to the registry API handler that this
 // blob shall be replicated when it is first pulled.
-func (p *Processor) FindBlobOrInsertUnbackedBlob(desc distribution.Descriptor, account models.Account) (*models.Blob, error) {
+func (p *Processor) FindBlobOrInsertUnbackedBlob(ctx context.Context, desc distribution.Descriptor, account models.Account) (*models.Blob, error) {
 	var blob *models.Blob
-	err := p.insideTransaction(func(tx *gorp.Transaction) error {
+	err := p.insideTransaction(ctx, func(ctx context.Context, tx *gorp.Transaction) error {
 		var err error
 		blob, err = keppel.FindBlobByAccountName(tx, desc.Digest, account)
 		if !errors.Is(err, sql.ErrNoRows) { // either success or unexpected error
@@ -187,7 +187,7 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob models.Blob, account
 		blobReader = io.TeeReader(blobReader, w)
 	}
 
-	err = p.uploadBlobToLocal(blob, account, blobReader, blobLengthBytes)
+	err = p.uploadBlobToLocal(ctx, blob, account, blobReader, blobLengthBytes)
 	if err != nil {
 		return true, err
 	}
@@ -198,7 +198,7 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob models.Blob, account
 	return true, nil
 }
 
-func (p *Processor) uploadBlobToLocal(blob models.Blob, account models.Account, blobReader io.Reader, blobLengthBytes uint64) (returnErr error) {
+func (p *Processor) uploadBlobToLocal(ctx context.Context, blob models.Blob, account models.Account, blobReader io.Reader, blobLengthBytes uint64) (returnErr error) {
 	defer func() {
 		// if blob upload fails, count an aborted upload
 		if returnErr != nil {
@@ -212,9 +212,9 @@ func (p *Processor) uploadBlobToLocal(blob models.Blob, account models.Account, 
 		SizeBytes: 0,
 		NumChunks: 0,
 	}
-	err := p.AppendToBlob(account, &upload, blobReader, &blobLengthBytes)
+	err := p.AppendToBlob(ctx, account, &upload, blobReader, &blobLengthBytes)
 	if err != nil {
-		abortErr := p.sd.AbortBlobUpload(account, upload.StorageID, upload.NumChunks)
+		abortErr := p.sd.AbortBlobUpload(ctx, account, upload.StorageID, upload.NumChunks)
 		if abortErr != nil {
 			logg.Error("additional error encountered when aborting upload %s into account %s: %s",
 				upload.StorageID, account.Name, abortErr.Error())
@@ -222,9 +222,9 @@ func (p *Processor) uploadBlobToLocal(blob models.Blob, account models.Account, 
 		return err
 	}
 
-	err = p.sd.FinalizeBlob(account, upload.StorageID, upload.NumChunks)
+	err = p.sd.FinalizeBlob(ctx, account, upload.StorageID, upload.NumChunks)
 	if err != nil {
-		abortErr := p.sd.AbortBlobUpload(account, upload.StorageID, upload.NumChunks)
+		abortErr := p.sd.AbortBlobUpload(ctx, account, upload.StorageID, upload.NumChunks)
 		if abortErr != nil {
 			logg.Error("additional error encountered when aborting upload %s into account %s: %s",
 				upload.StorageID, account.Name, abortErr.Error())
@@ -235,7 +235,7 @@ func (p *Processor) uploadBlobToLocal(blob models.Blob, account models.Account, 
 	// if errors occur while trying to update the DB, we need to clean up the blob in the storage
 	defer func() {
 		if returnErr != nil {
-			deleteErr := p.sd.DeleteBlob(account, upload.StorageID)
+			deleteErr := p.sd.DeleteBlob(ctx, account, upload.StorageID)
 			if deleteErr != nil {
 				logg.Error("additional error encountered when deleting uploaded blob %s from account %s after upload error: %s",
 					upload.StorageID, account.Name, deleteErr.Error())
@@ -259,13 +259,13 @@ func (p *Processor) uploadBlobToLocal(blob models.Blob, account models.Account, 
 // Warning: The upload's Digest field is *not* read or written. For chunked
 // uploads, the caller is responsible for performing and validating the digest
 // computation.
-func (p *Processor) AppendToBlob(account models.Account, upload *models.Upload, contents io.Reader, lengthBytes *uint64) error {
+func (p *Processor) AppendToBlob(ctx context.Context, account models.Account, upload *models.Upload, contents io.Reader, lengthBytes *uint64) error {
 	// case 1: we know the length of the input and don't have to guess when to chunk
 	if lengthBytes != nil {
 		return foreachChunkWithKnownSize(contents, *lengthBytes, func(chunk io.Reader, chunkLengthBytes uint64) error {
 			upload.NumChunks++
 			upload.SizeBytes += chunkLengthBytes
-			return p.sd.AppendToBlob(account, upload.StorageID, upload.NumChunks, &chunkLengthBytes, chunk)
+			return p.sd.AppendToBlob(ctx, account, upload.StorageID, upload.NumChunks, &chunkLengthBytes, chunk)
 		})
 	}
 
@@ -273,7 +273,7 @@ func (p *Processor) AppendToBlob(account models.Account, upload *models.Upload, 
 	ctr := chunkingTrackingReader{wrapped: contents}
 	err := foreachChunkWithUnknownSize(&ctr, func(chunk io.Reader) error {
 		upload.NumChunks++
-		return p.sd.AppendToBlob(account, upload.StorageID, upload.NumChunks, nil, chunk)
+		return p.sd.AppendToBlob(ctx, account, upload.StorageID, upload.NumChunks, nil, chunk)
 	})
 	upload.SizeBytes += ctr.bytesRead
 	return err

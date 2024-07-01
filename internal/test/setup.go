@@ -309,16 +309,16 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	}
 
 	// setup essential drivers
-	ad, err := keppel.NewAuthDriver("unittest", nil)
+	ad, err := keppel.NewAuthDriver(s.Ctx, "unittest", nil)
 	mustDo(t, err)
 	s.AD = ad.(*AuthDriver) //nolint:errcheck
-	fd, err := keppel.NewFederationDriver("unittest", ad, s.Config)
+	fd, err := keppel.NewFederationDriver(s.Ctx, "unittest", ad, s.Config)
 	mustDo(t, err)
 	s.FD = fd.(*FederationDriver) //nolint:errcheck
 	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, s.Config)
 	mustDo(t, err)
 	s.SD = sd.(*trivial.StorageDriver) //nolint:errcheck
-	icd, err := keppel.NewInboundCacheDriver("unittest", s.Config)
+	icd, err := keppel.NewInboundCacheDriver(s.Ctx, "unittest", s.Config)
 	mustDo(t, err)
 	s.ICD = icd.(*InboundCacheDriver) //nolint:errcheck
 

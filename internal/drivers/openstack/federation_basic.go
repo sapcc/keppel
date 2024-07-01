@@ -26,8 +26,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gophercloud/gophercloud/openstack/identity/v3/domains"
-	"github.com/gophercloud/gophercloud/openstack/identity/v3/projects"
+	"github.com/gophercloud/gophercloud/v2/openstack/identity/v3/domains"
+	"github.com/gophercloud/gophercloud/v2/openstack/identity/v3/projects"
 	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -52,7 +52,7 @@ func init() {
 func (d *federationDriverBasic) PluginTypeID() string { return "openstack-basic" }
 
 // Init implements the keppel.FederationDriver interface.
-func (d *federationDriverBasic) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
+func (d *federationDriverBasic) Init(_ context.Context, ad keppel.AuthDriver, cfg keppel.Configuration) error {
 	var ok bool
 	d.AuthDriver, ok = ad.(*keystoneDriver)
 	if !ok {
@@ -85,11 +85,11 @@ func (d *federationDriverBasic) Init(ad keppel.AuthDriver, cfg keppel.Configurat
 
 // ClaimAccountName implements the keppel.FederationDriver interface.
 func (d *federationDriverBasic) ClaimAccountName(ctx context.Context, account models.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
-	project, err := projects.Get(d.AuthDriver.IdentityV3, account.AuthTenantID).Extract()
+	project, err := projects.Get(ctx, d.AuthDriver.IdentityV3, account.AuthTenantID).Extract()
 	if err != nil {
 		return keppel.ClaimErrored, err
 	}
-	domain, err := domains.Get(d.AuthDriver.IdentityV3, project.DomainID).Extract()
+	domain, err := domains.Get(ctx, d.AuthDriver.IdentityV3, project.DomainID).Extract()
 	if err != nil {
 		return keppel.ClaimErrored, err
 	}

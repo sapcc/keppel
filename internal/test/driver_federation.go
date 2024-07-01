@@ -57,7 +57,7 @@ func init() {
 func (d *FederationDriver) PluginTypeID() string { return "unittest" }
 
 // Init implements the keppel.FederationDriver interface.
-func (d *FederationDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
+func (d *FederationDriver) Init(ctx context.Context, ad keppel.AuthDriver, cfg keppel.Configuration) error {
 	d.APIPublicHostName = cfg.APIPublicHostname
 	d.ValidSubleaseTokenSecrets = make(map[string]string)
 	federationDriversForThisUnitTest = append(federationDriversForThisUnitTest, d)
