@@ -41,9 +41,9 @@ import (
 type Object struct {
 	c    *Container
 	name string
-	//cache
-	headers        *ObjectHeaders //from HEAD/GET without ?symlink=get
-	symlinkHeaders *ObjectHeaders //from HEAD/GET with ?symlink=get
+	// cache
+	headers        *ObjectHeaders // from HEAD/GET without ?symlink=get
+	symlinkHeaders *ObjectHeaders // from HEAD/GET with ?symlink=get
 }
 
 // IsEqualTo returns true if both Object instances refer to the same object.
@@ -128,8 +128,8 @@ func (o *Object) fetchHeaders(opts *RequestOptions) (*ObjectHeaders, error) {
 		ContainerName: o.c.name,
 		ObjectName:    o.name,
 		Options:       opts,
-		//since Openstack LOVES to be inconsistent with everything (incl. itself),
-		//this returns 200 instead of 204
+		// since Openstack LOVES to be inconsistent with everything (incl. itself),
+		// this returns 200 instead of 204
 		ExpectStatusCodes: []int{http.StatusOK},
 		DrainResponseBody: true,
 	}.Do(o.c.a.backend)
@@ -165,8 +165,8 @@ func (o *Object) Update(headers ObjectHeaders, opts *RequestOptions) error {
 
 // UploadOptions invokes advanced behavior in the Object.Upload() method.
 type UploadOptions struct {
-	//When overwriting a large object, delete its segments. This will cause
-	//Upload() to call into BulkDelete(), so a BulkError may be returned.
+	// When overwriting a large object, delete its segments. This will cause
+	// Upload() to call into BulkDelete(), so a BulkError may be returned.
 	DeleteSegments bool
 }
 
@@ -220,9 +220,9 @@ func (o *Object) Upload(content io.Reader, opts *UploadOptions, ropts *RequestOp
 		}
 	}
 
-	//do not attempt to add the Etag header when we're writing a large object
-	//manifest; the header refers to the content, but we would be computing the
-	//manifest's hash instead
+	// do not attempt to add the Etag header when we're writing a large object
+	// manifest; the header refers to the content, but we would be computing the
+	// manifest's hash instead
 	isManifestUpload := ropts.Values.Get("multipart-manifest") == "put" || hdr.IsDynamicLargeObject()
 
 	var hasher hash.Hash
@@ -232,7 +232,7 @@ func (o *Object) Upload(content io.Reader, opts *UploadOptions, ropts *RequestOp
 			return err
 		}
 
-		//could not compute Etag in advance -> need to check on the fly
+		// could not compute Etag in advance -> need to check on the fly
 		if !hdr.Etag().Exists() {
 			hasher = md5.New() //nolint:gosec // Etag uses md5
 			if content != nil {
@@ -243,19 +243,19 @@ func (o *Object) Upload(content io.Reader, opts *UploadOptions, ropts *RequestOp
 
 	var lo *LargeObject
 	if opts.DeleteSegments {
-		//enumerate segments in large object before overwriting it, but only delete
-		//the segments after successfully uploading the new object to decrease the
-		//chance of an inconsistent state following an upload error
+		// enumerate segments in large object before overwriting it, but only delete
+		// the segments after successfully uploading the new object to decrease the
+		// chance of an inconsistent state following an upload error
 		var err error
 		lo, err = o.AsLargeObject()
 		switch {
 		case err == nil:
-			//okay, delete segments at the end
+			// okay, delete segments at the end
 		case errors.Is(err, ErrNotLarge):
-			//okay, do not try to delete segments
+			// okay, do not try to delete segments
 			lo = nil
 		default:
-			//unexpected error
+			// unexpected error
 			return err
 		}
 	}
@@ -293,8 +293,8 @@ func (o *Object) Upload(content io.Reader, opts *UploadOptions, ropts *RequestOp
 }
 
 type readerWithLen interface {
-	//Returns the number of bytes in the unread portion of the buffer.
-	//Implemented by bytes.Reader, bytes.Buffer and strings.Reader.
+	// Returns the number of bytes in the unread portion of the buffer.
+	// Implemented by bytes.Reader, bytes.Buffer and strings.Reader.
 	Len() int
 }
 
@@ -320,13 +320,13 @@ func tryComputeEtag(content io.Reader, headers ObjectHeaders) error {
 		sum := md5.Sum(nil)
 		h.Set(hex.EncodeToString(sum[:]))
 	case *bytes.Buffer:
-		//bytes.Buffer has a method that returns the unread portion of the buffer,
-		//so this one is easy
+		// bytes.Buffer has a method that returns the unread portion of the buffer,
+		// so this one is easy
 		sum := md5.Sum(r.Bytes())
 		h.Set(hex.EncodeToString(sum[:]))
 	case io.ReadSeeker:
-		//bytes.Reader does not have such a method, but it is an io.Seeker, so we
-		//can read the entire thing and then seek back to where we started
+		// bytes.Reader does not have such a method, but it is an io.Seeker, so we
+		// can read the entire thing and then seek back to where we started
 		md5Hash := md5.New()
 		n, err := io.Copy(md5Hash, r)
 		if err != nil {
@@ -366,17 +366,17 @@ func (o *Object) UploadFromWriter(opts *UploadOptions, ropts *RequestOptions, ca
 	errChan := make(chan error)
 	go func() {
 		err := o.Upload(reader, opts, ropts)
-		reader.CloseWithError(err) //stop the writer if it is still writing
+		reader.CloseWithError(err) // stop the writer if it is still writing
 		errChan <- err
 	}()
-	writer.CloseWithError(callback(writer)) //stop the reader if it is still reading
+	writer.CloseWithError(callback(writer)) // stop the reader if it is still reading
 	return <-errChan
 }
 
 // DeleteOptions invokes advanced behavior in the Object.Delete() method.
 type DeleteOptions struct {
-	//When deleting a large object, also delete its segments. This will cause
-	//Delete() to call into BulkDelete(), so a BulkError may be returned.
+	// When deleting a large object, also delete its segments. This will cause
+	// Delete() to call into BulkDelete(), so a BulkError may be returned.
 	DeleteSegments bool
 }
 
@@ -399,14 +399,14 @@ func (o *Object) Delete(opts *DeleteOptions, ropts *RequestOptions) error {
 			lo, err := o.AsLargeObject()
 			switch {
 			case err == nil:
-				//is large object - delete segments and the object itself in one step
+				// is large object - delete segments and the object itself in one step
 				_, _, err := o.c.a.BulkDelete(append(lo.SegmentObjects(), o), nil, nil)
 				o.Invalidate()
 				return err
 			case errors.Is(err, ErrNotLarge):
-				//not a large object - use regular DELETE request
+				// not a large object - use regular DELETE request
 			default:
-				//unexpected error
+				// unexpected error
 				return err
 			}
 		}
@@ -477,10 +477,10 @@ func (o *Object) Download(opts *RequestOptions) DownloadedObject {
 
 // CopyOptions invokes advanced behavior in the Object.Copy() method.
 type CopyOptions struct {
-	//Copy only the object's content, not its metadata. New metadata can always
-	//be supplied in the RequestOptions argument of Object.CopyTo().
+	// Copy only the object's content, not its metadata. New metadata can always
+	// be supplied in the RequestOptions argument of Object.CopyTo().
 	FreshMetadata bool
-	//When the source is a symlink, copy the symlink instead of the target object.
+	// When the source is a symlink, copy the symlink instead of the target object.
 	ShallowCopySymlinks bool
 }
 
@@ -520,8 +520,8 @@ func (o *Object) CopyTo(target *Object, opts *CopyOptions, ropts *RequestOptions
 
 // SymlinkOptions invokes advanced behavior in the Object.SymlinkTo() method.
 type SymlinkOptions struct {
-	//When overwriting a large object, delete its segments. This will cause
-	//SymlinkTo() to call into BulkDelete(), so a BulkError may be returned.
+	// When overwriting a large object, delete its segments. This will cause
+	// SymlinkTo() to call into BulkDelete(), so a BulkError may be returned.
 	DeleteSegments bool
 }
 
@@ -538,8 +538,8 @@ func (o *Object) SymlinkTo(target *Object, opts *SymlinkOptions, ropts *RequestO
 		ropts.Headers.Set("X-Symlink-Target-Account", target.c.a.Name())
 	}
 	if ropts.Headers.Get("Content-Type") == "" {
-		//recommended Content-Type for symlinks as per
-		//<https://docs.openstack.org/swift/latest/middleware.html#symlink>
+		// recommended Content-Type for symlinks as per
+		// <https://docs.openstack.org/swift/latest/middleware.html#symlink>
 		ropts.Headers.Set("Content-Type", "application/symlink")
 	}
 
@@ -581,10 +581,10 @@ func (o *Object) SymlinkHeaders() (headers ObjectHeaders, target *Object, err er
 		}
 	}
 
-	//is this a symlink?
+	// is this a symlink?
 	targetFullName := o.symlinkHeaders.Get("X-Symlink-Target")
 	if targetFullName == "" {
-		//not a symlink - the o.symlinkHeaders are just the regular headers
+		// not a symlink - the o.symlinkHeaders are just the regular headers
 		o.headers = o.symlinkHeaders
 		return *o.headers, nil, nil
 	}
@@ -596,7 +596,7 @@ func (o *Object) SymlinkHeaders() (headers ObjectHeaders, target *Object, err er
 		}
 	}
 
-	//cross-account symlink?
+	// cross-account symlink?
 	accountName := o.symlinkHeaders.Get("X-Symlink-Target-Account")
 	targetAccount := o.c.a
 	if accountName != "" && accountName != targetAccount.Name() {
@@ -669,11 +669,12 @@ func (o *Object) TempURL(key, method string, expires time.Time) (string, error) 
 	allowedDigest := capabilities.TempURL.AllowedDigests
 
 	var mac hash.Hash
-	if contains(allowedDigest, "sha256") {
+	switch {
+	case contains(allowedDigest, "sha256"):
 		mac = hmac.New(sha256.New, []byte(key))
-	} else if contains(allowedDigest, "sha1") {
+	case contains(allowedDigest, "sha1"):
 		mac = hmac.New(sha1.New, []byte(key))
-	} else {
+	default:
 		return "", fmt.Errorf("schwift supports sha1 and sha256 digests but the Swift server only supports: %s", strings.Join(allowedDigest, ", "))
 	}
 

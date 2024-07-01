@@ -24,14 +24,14 @@ Package schwift is a client library for OpenStack Swift
 
 Schwift does not implement authentication (neither Keystone nor Swift v1), but
 can be plugged into any library that does. The most common choice is
-Gophercloud (https://github.com/gophercloud/gophercloud).
+Gophercloud (https://github.com/gophercloud/gophercloud/v2).
 
 When using Gophercloud, you usually start by obtaining a
 gophercloud.ServiceClient for Swift like so:
 
 	import (
-		"github.com/gophercloud/gophercloud/openstack"
-		"github.com/gophercloud/utils/openstack/clientconfig"
+		"github.com/gophercloud/gophercloud/v2/openstack"
+		"github.com/gophercloud/utils/v2/openstack/clientconfig"
 	)
 
 	//option 1: build a gophercloud.AuthOptions instance yourself

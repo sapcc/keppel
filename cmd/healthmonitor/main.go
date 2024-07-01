@@ -81,10 +81,11 @@ type healthMonitorJob struct {
 }
 
 func run(cmd *cobra.Command, args []string) {
+	ctx := httpext.ContextWithSIGINT(context.Background(), 1*time.Second)
 	keppel.SetTaskName("health-monitor")
 	prometheus.MustRegister(healthmonitorResultGauge)
 
-	ad, err := client.NewAuthDriver()
+	ad, err := client.NewAuthDriver(ctx)
 	if err != nil {
 		logg.Fatal("while setting up auth driver: %s", err.Error())
 	}
@@ -102,8 +103,6 @@ func run(cmd *cobra.Command, args []string) {
 		},
 		LastResultLock: &sync.RWMutex{},
 	}
-
-	ctx := httpext.ContextWithSIGINT(context.Background(), 1*time.Second)
 
 	// run one-time preparations
 	err = job.PrepareKeppelAccount(ctx)

@@ -21,6 +21,7 @@ package openstack
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -49,7 +50,7 @@ func init() {
 func (d *inboundCacheDriverSwift) PluginTypeID() string { return "swift" }
 
 // Init implements the keppel.InboundCacheDriver interface.
-func (d *inboundCacheDriverSwift) Init(cfg keppel.Configuration) (err error) {
+func (d *inboundCacheDriverSwift) Init(ctx context.Context, cfg keppel.Configuration) (err error) {
 	d.HostInclusionRx, err = compileOptionalImplicitlyBoundedRegex(os.Getenv("KEPPEL_INBOUND_CACHE_ONLY_HOSTS"))
 	if err != nil {
 		return err
@@ -58,7 +59,7 @@ func (d *inboundCacheDriverSwift) Init(cfg keppel.Configuration) (err error) {
 	if err != nil {
 		return err
 	}
-	d.Container, err = initSwiftContainerConnection("KEPPEL_INBOUND_CACHE_")
+	d.Container, err = initSwiftContainerConnection(ctx, "KEPPEL_INBOUND_CACHE_")
 	return err
 }
 

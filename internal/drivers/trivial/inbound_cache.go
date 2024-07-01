@@ -20,6 +20,7 @@
 package trivial
 
 import (
+	"context"
 	"database/sql"
 	"time"
 
@@ -37,7 +38,7 @@ func init() {
 func (inboundCacheDriver) PluginTypeID() string { return "trivial" }
 
 // Init implements the keppel.InboundCacheDriver interface.
-func (inboundCacheDriver) Init(cfg keppel.Configuration) error {
+func (inboundCacheDriver) Init(ctx context.Context, cfg keppel.Configuration) error {
 	return nil
 }
 

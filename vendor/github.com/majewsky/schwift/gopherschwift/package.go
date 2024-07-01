@@ -19,14 +19,14 @@
 /*
 Package gopherschwift contains a Gophercloud backend for Schwift.
 
-If your application uses Gophercloud (https://github.com/gophercloud/gophercloud),
+If your application uses Gophercloud (https://github.com/gophercloud/gophercloud/v2),
 you can use the Wrap() function in this package as an entrypoint to Schwift.
 A schwift.Account created this way will re-use Gophercloud's authentication code,
 so you only need to obtain a client token once using Gophercloud. For example:
 
 	import (
-		"github.com/gophercloud/gophercloud/openstack"
-		"github.com/gophercloud/utils/openstack/clientconfig"
+		"github.com/gophercloud/gophercloud/v2/openstack"
+		"github.com/gophercloud/utils/v2/openstack/clientconfig"
 		"github.com/majewsky/schwift/gopherschwift"
 	)
 
@@ -43,7 +43,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/v2"
 
 	"github.com/majewsky/schwift"
 )
@@ -114,7 +114,7 @@ func (g *backend) do(req *http.Request, afterReauth bool) (*http.Response, error
 		if err != nil {
 			return nil, err
 		}
-		err = provider.Reauthenticate(resp.Request.Header.Get("X-Auth-Token"))
+		err = provider.Reauthenticate(req.Context(), resp.Request.Header.Get("X-Auth-Token"))
 		if err != nil {
 			return nil, err
 		}

@@ -28,7 +28,7 @@ import (
 type Container struct {
 	a    *Account
 	name string
-	//cache
+	// cache
 	headers *ContainerHeaders
 }
 

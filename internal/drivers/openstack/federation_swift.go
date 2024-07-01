@@ -33,9 +33,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack"
-	"github.com/gophercloud/utils/openstack/clientconfig"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack"
+	"github.com/gophercloud/utils/v2/openstack/clientconfig"
 	"github.com/majewsky/schwift"
 	"github.com/majewsky/schwift/gopherschwift"
 	"github.com/sapcc/go-bits/logg"
@@ -58,20 +58,20 @@ func init() {
 func (fd *federationDriverSwift) PluginTypeID() string { return "swift" }
 
 // Init implements the keppel.FederationDriver interface.
-func (fd *federationDriverSwift) Init(ad keppel.AuthDriver, cfg keppel.Configuration) (err error) {
+func (fd *federationDriverSwift) Init(ctx context.Context, ad keppel.AuthDriver, cfg keppel.Configuration) (err error) {
 	fd.OwnHostName = cfg.APIPublicHostname
-	fd.Container, err = initSwiftContainerConnection("KEPPEL_FEDERATION_")
+	fd.Container, err = initSwiftContainerConnection(ctx, "KEPPEL_FEDERATION_")
 	return err
 }
 
-func initSwiftContainerConnection(envPrefix string) (*schwift.Container, error) {
+func initSwiftContainerConnection(ctx context.Context, envPrefix string) (*schwift.Container, error) {
 	// authenticate service user
 	ao, err := clientconfig.AuthOptions(&clientconfig.ClientOpts{EnvPrefix: envPrefix + "OS_"})
 	if err != nil {
 		return nil, errors.New("cannot find OpenStack credentials for federation driver: " + err.Error())
 	}
 	ao.AllowReauth = true
-	provider, err := openstack.AuthenticatedClient(*ao)
+	provider, err := openstack.AuthenticatedClient(ctx, *ao)
 	if err != nil {
 		return nil, errors.New("cannot connect to OpenStack for federation driver: " + err.Error())
 	}

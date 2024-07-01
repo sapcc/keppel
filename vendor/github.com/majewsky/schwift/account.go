@@ -32,10 +32,10 @@ import (
 // upwards from a container with Container.Account().
 type Account struct {
 	backend Backend
-	//URL parts
+	// URL parts
 	baseURL string
 	name    string
-	//cache
+	// cache
 	headers   *AccountHeaders
 	caps      *Capabilities
 	capsMutex sync.Mutex
@@ -216,8 +216,8 @@ func (a *Account) Capabilities() (Capabilities, error) {
 // this account, and returns the response body. Unlike Account.Capabilities,
 // this method does not employ any caching.
 func (a *Account) RawCapabilities() ([]byte, error) {
-	//This method is the only one in Schwift that bypasses struct Request since
-	//the request URL is not below the endpoint URL.
+	// This method is the only one in Schwift that bypasses struct Request since
+	// the request URL is not below the endpoint URL.
 	req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, a.baseURL+"info", http.NoBody)
 	if err != nil {
 		return nil, err

@@ -33,8 +33,8 @@ type iteratorInterface interface {
 	getDelimiter() string
 	getPrefix() string
 	getOptions() *RequestOptions
-	//putHeader initializes the AccountHeaders/ContainerHeaders field of the
-	//Account/Container using the response headers from the GET request.
+	// putHeader initializes the AccountHeaders/ContainerHeaders field of the
+	// Account/Container using the response headers from the GET request.
 	putHeader(http.Header) error
 }
 

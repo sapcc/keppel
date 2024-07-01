@@ -47,7 +47,7 @@ func init() {
 func (d *federationDriver) PluginTypeID() string { return "redis" }
 
 // Init implements the keppel.FederationDriver interface.
-func (d *federationDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
+func (d *federationDriver) Init(ctx context.Context, ad keppel.AuthDriver, cfg keppel.Configuration) error {
 	osext.MustGetenv("KEPPEL_FEDERATION_REDIS_HOSTNAME") // check config
 	opts, err := keppel.GetRedisOptions("KEPPEL_FEDERATION")
 	if err != nil {

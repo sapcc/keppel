@@ -4,7 +4,7 @@
 ################################################################################
 
 run:
-  deadline: 3m # 1m by default
+  timeout: 3m # 1m by default
   modules-download-mode: readonly
 
 output:
@@ -20,6 +20,7 @@ issues:
     - path: _test\.go
       linters:
         - bodyclose
+        - dupl
   # '0' disables the following options.
   max-issues-per-linter: 0
   max-same-issues: 0
@@ -34,13 +35,25 @@ linters-settings:
     # Report about not checking of errors in type assertions.
     check-type-assertions: true
   forbidigo:
+    analyze-types: true # required for pkg:
     forbid:
       # ioutil package has been deprecated: https://github.com/golang/go/issues/42026
       - ^ioutil\..*$
       # Using http.DefaultServeMux is discouraged because it's a global variable that some packages silently and magically add handlers to (esp. net/http/pprof).
       # Applications wishing to use http.ServeMux should obtain local instances through http.NewServeMux() instead of using the global default instance.
-      - ^http.DefaultServeMux$
-      - ^http.Handle(?:Func)?$
+      - ^http\.DefaultServeMux$
+      - ^http\.Handle(?:Func)?$
+      # Forbid usage of old and archived square/go-jose
+      - pkg: ^gopkg\.in/square/go-jose\.v2$
+        msg: "gopk.in/square/go-jose is arcived and has CVEs. Replace it with gopkg.in/go-jose/go-jose.v2"
+      - pkg: ^github.com/coreos/go-oidc$
+        msg: "github.com/coreos/go-oidc depends on gopkg.in/square/go-jose which has CVEs. Replace it with github.com/coreos/go-oidc/v3"
+
+      - pkg: ^github.com/howeyc/gopass$
+        msg: "github.com/howeyc/gopass is archived, use golang.org/x/term instead"
+  goconst:
+    ignore-tests: true
+    min-occurrences: 5
   gocritic:
     enabled-checks:
       - boolExprSimplify
@@ -76,8 +89,9 @@ linters-settings:
       # created file permissions are restricted by umask if necessary
       - G306
   govet:
-    # Report about shadowed variables.
-    check-shadowing: true
+    enable-all: true
+    disable:
+      - fieldalignment
   nolintlint:
     require-specific: true
   stylecheck:
@@ -90,11 +104,10 @@ linters-settings:
     default-rpc-path: true
     http-method: true
     http-status-code: true
-    os-dev-null: true
-    rpc-default-path: true
-    time-weekday: true
-    time-month: true
+    sql-isolation-level: true
     time-layout: true
+    time-month: true
+    time-weekday: true
     tls-signature-scheme: true
   whitespace:
     # Enforce newlines (or comments) after multi-line function signatures.
@@ -107,15 +120,17 @@ linters:
   enable:
     - bodyclose
     - containedctx
+    - copyloopvar
     - dupl
     - dupword
     - durationcheck
     - errcheck
+    - errname
     - errorlint
-    - exportloopref
     - forbidigo
     - ginkgolinter
     - gocheckcompilerdirectives
+    - goconst
     - gocritic
     - gofmt
     - goimports
@@ -123,10 +138,14 @@ linters:
     - gosimple
     - govet
     - ineffassign
+    - intrange
     - misspell
+    - nilerr
     - noctx
     - nolintlint
     - nosprintfhostport
+    - perfsprint
+    - predeclared
     - rowserrcheck
     - sqlclosecheck
     - staticcheck

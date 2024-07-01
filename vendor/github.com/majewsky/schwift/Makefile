@@ -21,12 +21,18 @@ generate: generated.go
 	@echo ./util/render_template.go < $< > $@
 	@./util/render_template.go < $< > $@.new && mv $@.new $@ || (rm $@.new; false)
 
+prepare-static-check: FORCE
+	@if ! hash golangci-lint 2>/dev/null; then printf "\e[1;36m>> Installing golangci-lint (this may take a while)...\e[0m\n"; go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; fi
+
 GO_BUILDFLAGS =
 GO_LDFLAGS =
 GO_TESTENV =
 
-# which packages to test with "go test"
+# which packages to test with test runner
 GO_TESTPKGS := $(shell go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...)
+ifeq ($(GO_TESTPKGS),)
+GO_TESTPKGS := ./...
+endif
 # which packages to measure coverage for
 GO_COVERPKGS := $(shell go list ./... | grep -Ev '/util')
 # to get around weird Makefile syntax restrictions, we need variables containing nothing, a space and comma
@@ -37,20 +43,19 @@ comma := ,
 check: FORCE static-check build/cover.html
 	@printf "\e[1;32m>> All checks successful.\e[0m\n"
 
-prepare-static-check: FORCE
-	@if ! hash golangci-lint 2>/dev/null; then printf "\e[1;36m>> Installing golangci-lint (this may take a while)...\e[0m\n"; go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; fi
-
-static-check: FORCE prepare-static-check
+run-golangci-lint: FORCE prepare-static-check
 	@printf "\e[1;36m>> golangci-lint\e[0m\n"
 	@golangci-lint run
 
 build/cover.out: FORCE | build
-	@printf "\e[1;36m>> go test\e[0m\n"
-	@env $(GO_TESTENV) go test $(GO_BUILDFLAGS) -ldflags '-s -w $(GO_LDFLAGS)' -shuffle=on -p 1 -coverprofile=$@ -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
+	@printf "\e[1;36m>> Running tests\e[0m\n"
+	@env $(GO_TESTENV) go test -shuffle=on -p 1 -coverprofile=$@ $(GO_BUILDFLAGS) -ldflags '-s -w $(GO_LDFLAGS)' -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
 
 build/cover.html: build/cover.out
 	@printf "\e[1;36m>> go tool cover > build/cover.html\e[0m\n"
 	@go tool cover -html $< -o $@
+
+static-check: FORCE run-golangci-lint
 
 build:
 	@mkdir $@
@@ -77,12 +82,15 @@ help: FORCE
 	@printf "  \e[36mvars\e[0m                  Display values of relevant Makefile variables.\n"
 	@printf "  \e[36mhelp\e[0m                  Display this help.\n"
 	@printf "\n"
+	@printf "\e[1mPrepare\e[0m\n"
+	@printf "  \e[36mprepare-static-check\e[0m  Install any tools required by static-check. This is used in CI before dropping privileges, you should probably install all the tools using your package manager\n"
+	@printf "\n"
 	@printf "\e[1mTest\e[0m\n"
 	@printf "  \e[36mcheck\e[0m                 Run the test suite (unit tests and golangci-lint).\n"
-	@printf "  \e[36mprepare-static-check\e[0m  Install golangci-lint. This is used in CI, you should probably install golangci-lint using your package manager.\n"
-	@printf "  \e[36mstatic-check\e[0m          Run golangci-lint.\n"
+	@printf "  \e[36mrun-golangci-lint\e[0m     Install and run golangci-lint. Installing is used in CI, but you should probably install golangci-lint using your package manager.\n"
 	@printf "  \e[36mbuild/cover.out\e[0m       Run tests and generate coverage report.\n"
 	@printf "  \e[36mbuild/cover.html\e[0m      Generate an HTML file with source code annotations from the coverage report.\n"
+	@printf "  \e[36mstatic-check\e[0m          Run static code checks\n"
 	@printf "\n"
 	@printf "\e[1mDevelopment\e[0m\n"
 	@printf "  \e[36mtidy-deps\e[0m             Run go mod tidy and go mod verify.\n"

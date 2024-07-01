@@ -30,9 +30,9 @@ import (
 	"time"
 
 	policy "github.com/databus23/goslo.policy"
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack"
-	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack"
+	"github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens"
 	"gopkg.in/yaml.v2"
 
 	"github.com/sapcc/go-bits/logg"
@@ -98,7 +98,7 @@ func (v *TokenValidator) CheckToken(r *http.Request) *Token {
 	}
 
 	token := v.CheckCredentials(tokenStr, func() TokenResult {
-		return tokens.Get(v.IdentityV3, tokenStr)
+		return tokens.Get(r.Context(), v.IdentityV3, tokenStr)
 	})
 	token.Context.Logger = logg.Debug
 	logg.Debug("token has auth = %v", token.Context.Auth)
@@ -111,7 +111,7 @@ func (v *TokenValidator) CheckToken(r *http.Request) *Token {
 //
 // The `check` argument contains the logic for actually checking the user's
 // credentials, usually by calling tokens.Create() or tokens.Get() from package
-// github.com/gophercloud/gophercloud/openstack/identity/v3/tokens.
+// github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens.
 //
 // The `cacheKey` argument shall be a string that identifies the given
 // credentials. This key is used for caching the TokenResult in `v.Cacher` if
@@ -148,7 +148,7 @@ func (v *TokenValidator) CheckCredentials(cacheKey string, check func() TokenRes
 
 // TokenFromGophercloudResult creates a Token instance from a gophercloud Result
 // from the tokens.Create() or tokens.Get() requests from package
-// github.com/gophercloud/gophercloud/openstack/identity/v3/tokens.
+// github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens.
 func (v *TokenValidator) TokenFromGophercloudResult(result TokenResult) *Token {
 	// use a custom token struct instead of tokens.Token which is way incomplete
 	var tokenData keystoneToken
@@ -190,7 +190,7 @@ func (v *TokenValidator) TokenFromGophercloudResult(result TokenResult) *Token {
 // TokenValidator.TokenFromGophercloudResult().
 //
 // Notable implementors are tokens.CreateResult or tokens.GetResult from package
-// github.com/gophercloud/gophercloud/openstack/identity/v3/tokens.
+// github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens.
 type TokenResult interface {
 	ExtractInto(value any) error
 	Extract() (*tokens.Token, error)

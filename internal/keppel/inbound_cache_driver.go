@@ -20,6 +20,7 @@
 package keppel
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -35,7 +36,7 @@ type InboundCacheDriver interface {
 	pluggable.Plugin
 	// Init is called before any other interface methods, and allows the plugin to
 	// perform first-time initialization.
-	Init(Configuration) error
+	Init(context.Context, Configuration) error
 
 	// LoadManifest pulls a manifest from the cache. If the given manifest is not
 	// cached, or if the cache entry has expired, sql.ErrNoRows shall be returned.
@@ -55,12 +56,12 @@ var InboundCacheDriverRegistry pluggable.Registry[InboundCacheDriver]
 
 // NewInboundCacheDriver creates a new InboundCacheDriver using one of the
 // plugins registered with InboundCacheDriverRegistry.
-func NewInboundCacheDriver(pluginTypeID string, cfg Configuration) (InboundCacheDriver, error) {
+func NewInboundCacheDriver(ctx context.Context, pluginTypeID string, cfg Configuration) (InboundCacheDriver, error) {
 	logg.Debug("initializing inbound cache driver %q...", pluginTypeID)
 
 	icd := InboundCacheDriverRegistry.Instantiate(pluginTypeID)
 	if icd == nil {
 		return nil, errors.New("no such inbound cache driver: " + pluginTypeID)
 	}
-	return icd, icd.Init(cfg)
+	return icd, icd.Init(ctx, cfg)
 }

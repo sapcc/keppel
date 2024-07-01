@@ -61,10 +61,10 @@ type ContainerInfo struct {
 // return only container names.
 type ContainerIterator struct {
 	Account *Account
-	//When Prefix is set, only containers whose name starts with this string are
-	//returned.
+	// When Prefix is set, only containers whose name starts with this string are
+	// returned.
 	Prefix string
-	//Options may contain additional headers and query parameters for the GET request.
+	// Options may contain additional headers and query parameters for the GET request.
 	Options *RequestOptions
 
 	base *iteratorBase
@@ -114,7 +114,7 @@ func (i *ContainerIterator) NextPageDetailed(limit int) ([]ContainerInfo, error)
 		return nil, err
 	}
 	if len(document) == 0 {
-		b.setMarker("") //indicate EOF to iteratorBase
+		b.setMarker("") // indicate EOF to iteratorBase
 		return nil, nil
 	}
 
@@ -125,7 +125,7 @@ func (i *ContainerIterator) NextPageDetailed(limit int) ([]ContainerInfo, error)
 		result[idx].ObjectCount = data.ObjectCount
 		result[idx].LastModified, err = time.Parse(time.RFC3339Nano, data.LastModifiedStr+"Z")
 		if err != nil {
-			//this error is sufficiently obscure that we don't need to expose a type for it
+			// this error is sufficiently obscure that we don't need to expose a type for it
 			return nil, fmt.Errorf("bad field containers[%d].last_modified: %s", idx, err.Error())
 		}
 	}
@@ -144,7 +144,7 @@ func (i *ContainerIterator) Foreach(callback func(*Container) error) error {
 			return err
 		}
 		if len(containers) == 0 {
-			return nil //EOF
+			return nil // EOF
 		}
 		for _, c := range containers {
 			err := callback(c)
@@ -163,7 +163,7 @@ func (i *ContainerIterator) ForeachDetailed(callback func(ContainerInfo) error) 
 			return err
 		}
 		if len(infos) == 0 {
-			return nil //EOF
+			return nil // EOF
 		}
 		for _, ci := range infos {
 			err := callback(ci)
@@ -185,7 +185,7 @@ func (i *ContainerIterator) Collect() ([]*Container, error) {
 			return nil, err
 		}
 		if len(containers) == 0 {
-			return result, nil //EOF
+			return result, nil // EOF
 		}
 		result = append(result, containers...)
 	}
@@ -200,7 +200,7 @@ func (i *ContainerIterator) CollectDetailed() ([]ContainerInfo, error) {
 			return nil, err
 		}
 		if len(infos) == 0 {
-			return result, nil //EOF
+			return result, nil // EOF
 		}
 		result = append(result, infos...)
 	}

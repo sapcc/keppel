@@ -20,6 +20,7 @@
 package test
 
 import (
+	"context"
 	"database/sql"
 	"time"
 
@@ -50,7 +51,7 @@ func init() {
 func (d *InboundCacheDriver) PluginTypeID() string { return "unittest" }
 
 // Init implements the keppel.InboundCacheDriver interface.
-func (d *InboundCacheDriver) Init(cfg keppel.Configuration) error {
+func (d *InboundCacheDriver) Init(ctx context.Context, cfg keppel.Configuration) error {
 	d.MaxAge = 6 * time.Hour
 	d.Entries = make(map[models.ImageReference]inboundCacheEntry)
 	return nil

@@ -61,13 +61,13 @@ type SegmentInfo struct {
 	Etag        string
 	RangeLength uint64
 	RangeOffset int64
-	//Static Large Objects support data segments that are not backed by actual
-	//objects. For those kinds of segments, only the Data attribute is set and
-	//all other attributes are set to their default values (esp. .Object == nil).
+	// Static Large Objects support data segments that are not backed by actual
+	// objects. For those kinds of segments, only the Data attribute is set and
+	// all other attributes are set to their default values (esp. .Object == nil).
 	//
-	//Data segments can only be used for small chunks of data because the SLO
-	//manifest (the list of all SegmentInfo encoded as JSON) is severely limited
-	//in size (usually to 8 MiB).
+	// Data segments can only be used for small chunks of data because the SLO
+	// manifest (the list of all SegmentInfo encoded as JSON) is severely limited
+	// in size (usually to 8 MiB).
 	Data []byte
 }
 
@@ -88,11 +88,11 @@ type LargeObjectStrategy int
 // strategies become available. The choice may also start to depend on the
 // capabilities advertised by the server.
 const (
-	//StaticLargeObject is the default LargeObjectStrategy used by Schwift.
+	// StaticLargeObject is the default LargeObjectStrategy used by Schwift.
 	StaticLargeObject LargeObjectStrategy = iota + 1
-	//DynamicLargeObject is an older LargeObjectStrategy that is not recommended
-	//for new applications because of eventual consistency problems and missing
-	//support for several newer features (e.g. data segments, range specifications).
+	// DynamicLargeObject is an older LargeObjectStrategy that is not recommended
+	// for new applications because of eventual consistency problems and missing
+	// support for several newer features (e.g. data segments, range specifications).
 	DynamicLargeObject
 )
 
@@ -183,7 +183,7 @@ func (lo *LargeObject) Strategy() LargeObjectStrategy {
 // Segments returns a list of all segments for this object, in order.
 func (lo *LargeObject) Segments() ([]SegmentInfo, error) {
 	//NOTE: This method has an error return value because we might later switch
-	//to loading segments lazily inside this method.
+	// to loading segments lazily inside this method.
 	return lo.segments, nil
 }
 
@@ -199,7 +199,7 @@ func (lo *LargeObject) SegmentObjects() []*Object {
 	seen := make(map[string]bool)
 	result := make([]*Object, 0, len(lo.segments))
 	for _, segment := range lo.segments {
-		if segment.Object == nil { //can happen because of data segments
+		if segment.Object == nil { // can happen because of data segments
 			continue
 		}
 		fullName := segment.Object.FullName()
@@ -289,10 +289,10 @@ func (o *Object) asSLO() (*LargeObject, error) {
 		return lo, nil
 	}
 
-	//read the segments first, then deduce the SegmentContainer/SegmentPrefix from these
+	// read the segments first, then deduce the SegmentContainer/SegmentPrefix from these
 	lo.segments = make([]SegmentInfo, 0, len(data))
 	for _, info := range data {
-		//option 1: data segment
+		// option 1: data segment
 		if info.DataBase64 != "" {
 			data, err := base64.StdEncoding.DecodeString(info.DataBase64)
 			if err != nil {
@@ -302,7 +302,7 @@ func (o *Object) asSLO() (*LargeObject, error) {
 			continue
 		}
 
-		//option 2: segment backed by object
+		// option 2: segment backed by object
 		pathElements := strings.SplitN(strings.TrimPrefix(info.Path, "/"), "/", 2)
 		if len(pathElements) != 2 {
 			return nil, errors.New("invalid SLO segment: malformed path: " + info.Path)
@@ -322,11 +322,11 @@ func (o *Object) asSLO() (*LargeObject, error) {
 		lo.segments = append(lo.segments, s)
 	}
 
-	//choose the SegmentContainer by majority vote (in the spirit of "be liberal
-	//in what you accept")
+	// choose the SegmentContainer by majority vote (in the spirit of "be liberal
+	// in what you accept")
 	containerNames := make(map[string]uint)
 	for _, s := range lo.segments {
-		if s.Object == nil { //can happen for data segments
+		if s.Object == nil { // can happen for data segments
 			continue
 		}
 		containerNames[s.Object.c.Name()]++
@@ -341,11 +341,11 @@ func (o *Object) asSLO() (*LargeObject, error) {
 	}
 	lo.segmentContainer = lo.object.c.a.Container(maxName)
 
-	//choose the SegmentPrefix as the longest common prefix of all segments in
-	//the chosen SegmentContainer...
+	// choose the SegmentPrefix as the longest common prefix of all segments in
+	// the chosen SegmentContainer...
 	names := make([]string, 0, len(lo.segments))
 	for _, s := range lo.segments {
-		if s.Object == nil { //can happen for data segments
+		if s.Object == nil { // can happen for data segments
 			continue
 		}
 		name := s.Object.c.Name()
@@ -355,9 +355,9 @@ func (o *Object) asSLO() (*LargeObject, error) {
 	}
 	lo.segmentPrefix = longestcommon.Prefix(names)
 
-	//..BUT if the prefix is a path with slashes, do not consider the part after
-	//the last slash; e.g. if we have segments "foo/bar/0001" and "foo/bar/0002",
-	//the longest common prefix is "foo/bar/000", but we actually want "foo/bar/"
+	// ..BUT if the prefix is a path with slashes, do not consider the part after
+	// the last slash; e.g. if we have segments "foo/bar/0001" and "foo/bar/0002",
+	// the longest common prefix is "foo/bar/000", but we actually want "foo/bar/"
 	if strings.Contains(lo.segmentPrefix, "/") {
 		lo.segmentPrefix = path.Dir(lo.segmentPrefix) + "/"
 	}
@@ -372,12 +372,12 @@ func parseHTTPRange(str string) (offsetVal int64, lengthVal uint64, ok bool) {
 	}
 
 	if fields[0] == "" {
-		//case 1: "-"
+		// case 1: "-"
 		if fields[1] == "" {
 			return 0, 0, true
 		}
 
-		//case 2: "-N"
+		// case 2: "-N"
 		numBytes, err := strconv.ParseUint(fields[1], 10, 64)
 		if err != nil {
 			return 0, 0, false
@@ -385,15 +385,15 @@ func parseHTTPRange(str string) (offsetVal int64, lengthVal uint64, ok bool) {
 		return -1, numBytes, true
 	}
 
-	firstByte, err := strconv.ParseUint(fields[0], 10, 63) //not 64; needs to be unsigned, but also fit into int64
+	firstByte, err := strconv.ParseUint(fields[0], 10, 63) // not 64; needs to be unsigned, but also fit into int64
 	if err != nil {
 		return 0, 0, false
 	}
 	if fields[1] == "" {
-		//case 3: "N-"
+		// case 3: "N-"
 		return int64(firstByte), 0, true
 	}
-	//case 4: "M-N"
+	// case 4: "M-N"
 	lastByte, err := strconv.ParseUint(fields[1], 10, 64)
 	if err != nil || lastByte < firstByte {
 		return 0, 0, false
@@ -410,8 +410,8 @@ func parseHTTPRange(str string) (offsetVal int64, lengthVal uint64, ok bool) {
 // are initialized from the method's SegmentingOptions argument rather than from
 // the existing manifest.
 func (o *Object) AsNewLargeObject(sopts SegmentingOptions, topts *TruncateOptions) (*LargeObject, error) {
-	//we only need to load the existing large object if we want to do something
-	//with the old segments
+	// we only need to load the existing large object if we want to do something
+	// with the old segments
 	if topts != nil && topts.DeleteSegments {
 		lo, err := o.AsLargeObject()
 		switch {
@@ -421,15 +421,15 @@ func (o *Object) AsNewLargeObject(sopts SegmentingOptions, topts *TruncateOption
 				return nil, err
 			}
 		case errors.Is(err, ErrNotLarge):
-			//not an error, continue down below
+			// not an error, continue down below
 		default:
-			return nil, err //unexpected error
+			return nil, err // unexpected error
 		}
 	}
 
 	lo := &LargeObject{object: o}
 
-	//validate segment container
+	// validate segment container
 	lo.segmentContainer = sopts.SegmentContainer
 	if sopts.SegmentContainer == nil {
 		panic("missing value for sopts.SegmentingContainer")
@@ -438,14 +438,14 @@ func (o *Object) AsNewLargeObject(sopts SegmentingOptions, topts *TruncateOption
 		return nil, ErrAccountMismatch
 	}
 
-	//apply default value for strategy
+	// apply default value for strategy
 	if sopts.Strategy == 0 {
 		lo.strategy = StaticLargeObject
 	} else {
 		lo.strategy = sopts.Strategy
 	}
 
-	//apply default value for segmenting prefix
+	// apply default value for segmenting prefix
 	lo.segmentPrefix = sopts.SegmentPrefix
 	if lo.segmentPrefix == "" {
 		now := time.Now()
@@ -465,10 +465,10 @@ func (o *Object) AsNewLargeObject(sopts SegmentingOptions, topts *TruncateOption
 // TruncateOptions contains options that can be passed to LargeObject.Truncate()
 // and Object.AsNewLargeObject().
 type TruncateOptions struct {
-	//When truncating a large object's manifest, delete its segments.
-	//This will cause Truncate() to call into BulkDelete(), so a BulkError may be
-	//returned. If this is false, the segments will not be deleted even though
-	//they may not be referenced by any large object anymore.
+	// When truncating a large object's manifest, delete its segments.
+	// This will cause Truncate() to call into BulkDelete(), so a BulkError may be
+	// returned. If this is false, the segments will not be deleted even though
+	// they may not be referenced by any large object anymore.
 	DeleteSegments bool
 }
 
@@ -511,21 +511,21 @@ func (lo *LargeObject) Truncate(opts *TruncateOptions) error {
 // lo.segmentContainer and lo.segmentPrefix, the first segment name is chosen as
 // lo.segmentPrefix + "0000000000000001".
 func (lo *LargeObject) NextSegmentObject() *Object {
-	//find the name of the last-most segment that is within the designated
-	//segment container and prefix
+	// find the name of the last-most segment that is within the designated
+	// segment container and prefix
 	var prevSegmentName string
 	for _, s := range lo.segments {
 		o := s.Object
-		if o == nil { //can happen for data segments
+		if o == nil { // can happen for data segments
 			continue
 		}
 		if lo.segmentContainer.IsEqualTo(o.c) && strings.HasPrefix(o.Name(), lo.segmentPrefix) {
 			prevSegmentName = s.Object.Name()
-			//keep going, we want to find the last such segment
+			// keep going, we want to find the last such segment
 		}
 	}
 
-	//choose the next segment name based on the previous one
+	// choose the next segment name based on the previous one
 	var segmentName string
 	if prevSegmentName == "" {
 		segmentName = lo.segmentPrefix + initialIndex
@@ -550,14 +550,14 @@ func nextSegmentName(segmentName string) string {
 	base, idxStr := match[1], match[2]
 
 	idx, err := strconv.ParseUint(idxStr, 10, 64)
-	if err != nil || idx == math.MaxUint64 { //overflow
-		//start from one again, but separate with a dash to ensure that the new
-		//index can be parsed properly in the next call to this function
+	if err != nil || idx == math.MaxUint64 { // overflow
+		// start from one again, but separate with a dash to ensure that the new
+		// index can be parsed properly in the next call to this function
 		return segmentName + "-" + initialIndex
 	}
 
-	//print next index with same number of digits as previous index,
-	//e.g. "00001" -> "00002" (except if overflow, e.g. "9999" -> "10000")
+	// print next index with same number of digits as previous index,
+	// e.g. "00001" -> "00002" (except if overflow, e.g. "9999" -> "10000")
 	formatStr := fmt.Sprintf("%%0%dd", len(idxStr))
 	return base + fmt.Sprintf(formatStr, idx+1)
 }
@@ -589,10 +589,10 @@ func nextSegmentName(segmentName string) string {
 // large objects (DLOs do not support data segments).
 func (lo *LargeObject) AddSegment(segment SegmentInfo) error {
 	if len(segment.Data) == 0 {
-		//validate segments backed by objects
+		// validate segments backed by objects
 		o := segment.Object
 		if o == nil {
-			//required attributes
+			// required attributes
 			return ErrSegmentInvalid
 		}
 		if !o.c.a.IsEqualTo(lo.segmentContainer.a) {
@@ -602,7 +602,7 @@ func (lo *LargeObject) AddSegment(segment SegmentInfo) error {
 		switch lo.strategy {
 		case DynamicLargeObject:
 			if segment.RangeLength != 0 || segment.RangeOffset != 0 {
-				//not supported for DLO
+				// not supported for DLO
 				return ErrSegmentInvalid
 			}
 
@@ -615,18 +615,18 @@ func (lo *LargeObject) AddSegment(segment SegmentInfo) error {
 
 		case StaticLargeObject:
 			if segment.RangeLength == 0 && segment.RangeOffset < 0 {
-				//malformed range
+				// malformed range
 				return ErrSegmentInvalid
 			}
 		}
 	} else {
-		//validate plain-data segments
+		// validate plain-data segments
 		if lo.strategy != StaticLargeObject {
-			//not supported for DLO
+			// not supported for DLO
 			return ErrSegmentInvalid
 		}
 		if segment.Object != nil || segment.SizeBytes != 0 || segment.Etag != "" || segment.RangeLength != 0 || segment.RangeOffset != 0 {
-			//all other attributes must be unset
+			// all other attributes must be unset
 			return ErrSegmentInvalid
 		}
 	}
@@ -665,7 +665,7 @@ func (lo *LargeObject) Append(contents io.Reader, segmentSizeBytes int64, opts *
 		panic("segmentSizeBytes may not be negative")
 	}
 	if segmentSizeBytes == 0 {
-		//apply default value for segmenting size
+		// apply default value for segmenting size
 		caps, err := lo.object.c.a.Capabilities()
 		if err != nil {
 			return err
@@ -708,11 +708,11 @@ func (lo *LargeObject) Append(contents io.Reader, segmentSizeBytes int64, opts *
 
 type segmentingReader struct {
 	Reader           io.Reader
-	SegmentSizeBytes int64 //must be >0
+	SegmentSizeBytes int64 // must be >0
 }
 
 func (sr *segmentingReader) NextSegment() io.Reader {
-	//peek if there is more content in the backing reader
+	// peek if there is more content in the backing reader
 	buf := make([]byte, 1)
 	var (
 		n   int
@@ -722,18 +722,18 @@ func (sr *segmentingReader) NextSegment() io.Reader {
 		n, err = sr.Reader.Read(buf)
 		if err == io.EOF {
 			if n == 0 {
-				//EOF encountered
+				// EOF encountered
 				return nil
 			}
-			//that was the last byte - return only that (next NextSegment() will return nil)
+			// that was the last byte - return only that (next NextSegment() will return nil)
 			return bytes.NewReader(buf)
 		}
 	}
 
-	//looks like there is more stuff in the backing reader
+	// looks like there is more stuff in the backing reader
 	return io.MultiReader(
 		bytes.NewReader(buf),
-		io.LimitReader(sr.Reader, sr.SegmentSizeBytes-1), //1 == len(buf)
+		io.LimitReader(sr.Reader, sr.SegmentSizeBytes-1), // 1 == len(buf)
 	)
 }
 
@@ -770,7 +770,7 @@ func (lo *LargeObject) WriteManifest(opts *RequestOptions) error {
 func (lo *LargeObject) writeDLOManifest(opts *RequestOptions) error {
 	manifest := lo.segmentContainer.Name() + "/" + lo.segmentPrefix
 
-	//check if the manifest is already set correctly
+	// check if the manifest is already set correctly
 	headers, err := lo.object.Headers()
 	if err != nil && !Is(err, http.StatusNotFound) {
 		return err
@@ -779,7 +779,7 @@ func (lo *LargeObject) writeDLOManifest(opts *RequestOptions) error {
 		return nil
 	}
 
-	//write manifest; make sure that this is a DLO
+	// write manifest; make sure that this is a DLO
 	opts = cloneRequestOptions(opts, nil)
 	opts.Headers.Set("X-Object-Manifest", manifest)
 	return lo.object.Upload(nil, nil, opts)
@@ -813,12 +813,12 @@ func (lo *LargeObject) writeSLOManifest(opts *RequestOptions) error {
 
 	manifest, err := json.Marshal(sloSegments)
 	if err != nil {
-		//failing json.Marshal() on such a trivial data structure is alarming
+		// failing json.Marshal() on such a trivial data structure is alarming
 		panic(err.Error())
 	}
 
 	opts = cloneRequestOptions(opts, nil)
-	opts.Headers.Del("X-Object-Manifest") //ensure sanity :)
+	opts.Headers.Del("X-Object-Manifest") // ensure sanity :)
 	opts.Values.Set("multipart-manifest", "put")
 	return lo.object.Upload(bytes.NewReader(manifest), nil, opts)
 }
