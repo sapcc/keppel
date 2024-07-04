@@ -127,6 +127,9 @@ github.com/majewsky/schwift/internal/errext
 # github.com/mitchellh/go-homedir v1.1.0
 ## explicit
 github.com/mitchellh/go-homedir
+# github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
+## explicit
+github.com/munnerz/goautoneg
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit; go 1.13
 github.com/opencontainers/go-digest
@@ -145,13 +148,12 @@ github.com/prometheus/client_golang/prometheus/promhttp
 # github.com/prometheus/client_model v0.6.1
 ## explicit; go 1.19
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.54.0
+# github.com/prometheus/common v0.55.0
 ## explicit; go 1.20
 github.com/prometheus/common/expfmt
-github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
 github.com/prometheus/common/model
-# github.com/prometheus/procfs v0.12.0
-## explicit; go 1.19
+# github.com/prometheus/procfs v0.15.1
+## explicit; go 1.20
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
@@ -177,11 +179,11 @@ github.com/rs/cors/internal
 # github.com/samber/lo v1.39.0
 ## explicit; go 1.18
 github.com/samber/lo
-# github.com/sapcc/go-api-declarations v1.11.2
+# github.com/sapcc/go-api-declarations v1.11.3
 ## explicit; go 1.21
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20240606120701-d430ac9229ab
+# github.com/sapcc/go-bits v0.0.0-20240704034903-8a2e97b1eaf1
 ## explicit; go 1.22
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
@@ -249,8 +251,8 @@ golang.org/x/text/transform
 ## explicit; go 1.18
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
-# google.golang.org/protobuf v1.34.1
-## explicit; go 1.17
+# google.golang.org/protobuf v1.34.2
+## explicit; go 1.20
 google.golang.org/protobuf/encoding/protodelim
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
