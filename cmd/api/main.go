@@ -64,15 +64,16 @@ func run(cmd *cobra.Command, args []string) {
 	keppel.SetTaskName("api")
 
 	cfg := keppel.ParseConfiguration()
+	ctx := httpext.ContextWithSIGINT(context.Background(), 10*time.Second)
 	auditor := keppel.InitAuditTrail()
 
 	db := must.Return(keppel.InitDB(cfg.DatabaseURL))
 	must.Succeed(setupDBIfRequested(db))
 	rc := must.Return(initRedis())
-	ad := must.Return(keppel.NewAuthDriver(osext.MustGetenv("KEPPEL_DRIVER_AUTH"), rc))
-	fd := must.Return(keppel.NewFederationDriver(osext.MustGetenv("KEPPEL_DRIVER_FEDERATION"), ad, cfg))
+	ad := must.Return(keppel.NewAuthDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_AUTH"), rc))
+	fd := must.Return(keppel.NewFederationDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_FEDERATION"), ad, cfg))
 	sd := must.Return(keppel.NewStorageDriver(osext.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg))
-	icd := must.Return(keppel.NewInboundCacheDriver(osext.MustGetenv("KEPPEL_DRIVER_INBOUND_CACHE"), cfg))
+	icd := must.Return(keppel.NewInboundCacheDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_INBOUND_CACHE"), cfg))
 
 	prometheus.MustRegister(sqlstats.NewStatsCollector("keppel", db.DbMap.Db))
 
@@ -83,7 +84,6 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	// start background goroutines
-	ctx := httpext.ContextWithSIGINT(context.Background(), 10*time.Second)
 	runPeering(ctx, cfg, db)
 
 	// wire up HTTP handlers

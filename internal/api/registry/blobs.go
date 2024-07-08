@@ -146,7 +146,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	// CORS happens correctly. This is important for web UIs reading image config
 	// blobs in order to render informational UIs.
 	if !isImageConfigBlobMediaType[blob.MediaType] {
-		url, err := a.sd.URLForBlob(*account, blob.StorageID)
+		url, err := a.sd.URLForBlob(r.Context(), *account, blob.StorageID)
 		if err == nil {
 			w.Header().Set("Docker-Content-Digest", blob.Digest.String())
 			w.Header().Set("Location", url)
@@ -160,7 +160,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// return the blob contents to the client directly (TODO: support range requests)
-	reader, lengthBytes, err := a.sd.ReadBlob(*account, blob.StorageID)
+	reader, lengthBytes, err := a.sd.ReadBlob(r.Context(), *account, blob.StorageID)
 	if respondWithError(w, r, err) {
 		return
 	}

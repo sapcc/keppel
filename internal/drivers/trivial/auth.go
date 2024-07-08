@@ -82,7 +82,7 @@ func (d *AuthDriver) PluginTypeID() string {
 	return "trivial"
 }
 
-func (d *AuthDriver) Init(rc *redis.Client) error {
+func (d *AuthDriver) Init(ctx context.Context, rc *redis.Client) error {
 	d.userName = osext.MustGetenv("KEPPEL_USERNAME")
 	d.password = osext.MustGetenv("KEPPEL_PASSWORD")
 	return nil

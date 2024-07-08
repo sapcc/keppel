@@ -67,7 +67,7 @@ var checkTagExistsAtSameDigestQuery = sqlext.SimplifyWhitespace(`
 // ValidateAndStoreManifest validates the given manifest and stores it under the
 // given reference. If the reference is a digest, it is validated. Otherwise, a
 // tag with that name is created that points to the new manifest.
-func (p *Processor) ValidateAndStoreManifest(account models.Account, repo models.Repository, m IncomingManifest, actx keppel.AuditContext) (*models.Manifest, error) {
+func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models.Account, repo models.Repository, m IncomingManifest, actx keppel.AuditContext) (*models.Manifest, error) {
 	// check if the objects we want to create already exist in the database; this
 	// check is not 100% reliable since it does not run in the same transaction as
 	// the actual upsert, so results should be taken with a grain of salt; but the
@@ -108,7 +108,7 @@ func (p *Processor) ValidateAndStoreManifest(account models.Account, repo models
 		// digest against the actual manifest data
 		manifest.Digest = m.Reference.Digest
 	}
-	err = p.validateAndStoreManifestCommon(account, repo, manifest, m.Contents, validateAndStoreManifestOpts{
+	err = p.validateAndStoreManifestCommon(ctx, account, repo, manifest, m.Contents, validateAndStoreManifestOpts{
 		IsBeingPushed: true,
 		ActionBeforeCommit: func(tx *gorp.Transaction) error {
 			if m.Reference.IsTag() {
@@ -125,7 +125,7 @@ func (p *Processor) ValidateAndStoreManifest(account models.Account, repo models
 
 			// after making all DB changes, but before committing the DB transaction,
 			// write the manifest into the backend
-			return p.sd.WriteManifest(account, repo.Name, manifest.Digest, m.Contents)
+			return p.sd.WriteManifest(ctx, account, repo.Name, manifest.Digest, m.Contents)
 		},
 	})
 	if err != nil {
@@ -168,13 +168,13 @@ func (p *Processor) ValidateAndStoreManifest(account models.Account, repo models
 }
 
 // ValidateExistingManifest validates the given manifest that already exists in the DB.
-func (p *Processor) ValidateExistingManifest(account models.Account, repo models.Repository, manifest *models.Manifest) error {
-	manifestBytes, err := p.sd.ReadManifest(account, repo.Name, manifest.Digest)
+func (p *Processor) ValidateExistingManifest(ctx context.Context, account models.Account, repo models.Repository, manifest *models.Manifest) error {
+	manifestBytes, err := p.sd.ReadManifest(ctx, account, repo.Name, manifest.Digest)
 	if err != nil {
 		return err
 	}
 
-	return p.validateAndStoreManifestCommon(account, repo, manifest, manifestBytes,
+	return p.validateAndStoreManifestCommon(ctx, account, repo, manifest, manifestBytes,
 		validateAndStoreManifestOpts{},
 	)
 }
@@ -184,7 +184,7 @@ type validateAndStoreManifestOpts struct {
 	ActionBeforeCommit func(*gorp.Transaction) error
 }
 
-func (p *Processor) validateAndStoreManifestCommon(account models.Account, repo models.Repository, manifest *models.Manifest, manifestBytes []byte, opts validateAndStoreManifestOpts) error {
+func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account models.Account, repo models.Repository, manifest *models.Manifest, manifestBytes []byte, opts validateAndStoreManifestOpts) error {
 	// parse manifest
 	manifestParsed, manifestDesc, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
 	if err != nil {
@@ -206,14 +206,14 @@ func (p *Processor) validateAndStoreManifestCommon(account models.Account, repo 
 		manifest.SizeBytes += uint64(desc.Size)
 	}
 
-	return p.insideTransaction(func(tx *gorp.Transaction) error {
+	return p.insideTransaction(ctx, func(ctx context.Context, tx *gorp.Transaction) error {
 		refsInfo, err := findManifestReferencedObjects(tx, account, repo, manifestParsed)
 		if err != nil {
 			return err
 		}
 		manifest.SizeBytes += refsInfo.SumChildSizes
 
-		configInfo, err := parseManifestConfig(tx, p.sd, account, manifestParsed)
+		configInfo, err := parseManifestConfig(ctx, tx, p.sd, account, manifestParsed)
 		if err != nil {
 			return err
 		}
@@ -380,7 +380,7 @@ type manifestConfigInfo struct {
 }
 
 // Returns the list of missing labels, or nil if everything is ok.
-func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account models.Account, manifest keppel.ParsedManifest) (result manifestConfigInfo, err error) {
+func parseManifestConfig(ctx context.Context, tx *gorp.Transaction, sd keppel.StorageDriver, account models.Account, manifest keppel.ParsedManifest) (result manifestConfigInfo, err error) {
 	// is this manifest an image that has labels?
 	configBlob := manifest.FindImageConfigBlob()
 	if configBlob == nil {
@@ -398,7 +398,7 @@ func parseManifestConfig(tx *gorp.Transaction, sd keppel.StorageDriver, account 
 	if storageID == "" {
 		return manifestConfigInfo{}, keppel.ErrManifestBlobUnknown.With("").WithDetail(configBlob.Digest.String())
 	}
-	blobReader, _, err := sd.ReadBlob(account, storageID)
+	blobReader, _, err := sd.ReadBlob(ctx, account, storageID)
 	if err != nil {
 		return manifestConfigInfo{}, err
 	}
@@ -683,7 +683,7 @@ func (p *Processor) ReplicateManifest(ctx context.Context, account models.Accoun
 	// mark all missing blobs as pending replication
 	for _, desc := range manifestParsed.BlobReferences() {
 		// mark referenced blobs as pending replication if not replicated yet
-		blob, err := p.FindBlobOrInsertUnbackedBlob(desc, account)
+		blob, err := p.FindBlobOrInsertUnbackedBlob(ctx, desc, account)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -713,7 +713,7 @@ func (p *Processor) ReplicateManifest(ctx context.Context, account models.Accoun
 		}
 	}
 
-	manifest, err := p.ValidateAndStoreManifest(account, repo, IncomingManifest{
+	manifest, err := p.ValidateAndStoreManifest(ctx, account, repo, IncomingManifest{
 		Reference: reference,
 		MediaType: manifestMediaType,
 		Contents:  manifestBytes,
@@ -768,7 +768,7 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 		Reference: ref,
 	}
 	labels := prometheus.Labels{"external_hostname": c.Host}
-	manifestBytes, manifestMediaType, err = p.icd.LoadManifest(imageRef, p.timeNow())
+	manifestBytes, manifestMediaType, err = p.icd.LoadManifest(ctx, imageRef, p.timeNow())
 	if err == nil {
 		InboundManifestCacheHitCounter.With(labels).Inc()
 		return manifestBytes, manifestMediaType, nil
@@ -796,7 +796,7 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 	}
 
 	// successfully downloaded manifest -> fill cache
-	err = p.icd.StoreManifest(imageRef, manifestBytes, manifestMediaType, p.timeNow())
+	err = p.icd.StoreManifest(ctx, imageRef, manifestBytes, manifestMediaType, p.timeNow())
 	if err != nil {
 		return nil, "", err
 	}
@@ -838,7 +838,7 @@ func (p *Processor) downloadManifestViaPullDelegation(ctx context.Context, image
 // backing storage.
 //
 // If the manifest does not exist, sql.ErrNoRows is returned.
-func (p *Processor) DeleteManifest(account models.Account, repo models.Repository, manifestDigest digest.Digest, actx keppel.AuditContext) error {
+func (p *Processor) DeleteManifest(ctx context.Context, account models.Account, repo models.Repository, manifestDigest digest.Digest, actx keppel.AuditContext) error {
 	var (
 		tagResults []models.Tag
 		tags       []string
@@ -890,7 +890,7 @@ func (p *Processor) DeleteManifest(account models.Account, repo models.Repositor
 	// manifest reference in the meantime. If that happens, and we have already
 	// deleted the manifest in the backing storage, we've caused an inconsistency
 	// that we cannot recover from.
-	err = p.sd.DeleteManifest(account, repo.Name, manifestDigest)
+	err = p.sd.DeleteManifest(ctx, account, repo.Name, manifestDigest)
 	if err != nil {
 		return err
 	}

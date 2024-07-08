@@ -69,25 +69,25 @@ github.com/golang-migrate/migrate/v4/source/go_bindata
 ## explicit; go 1.18
 github.com/google/go-containerregistry/pkg/v1
 github.com/google/go-containerregistry/pkg/v1/types
-# github.com/gophercloud/gophercloud v1.12.0
-## explicit; go 1.14
-github.com/gophercloud/gophercloud
-github.com/gophercloud/gophercloud/openstack
-github.com/gophercloud/gophercloud/openstack/identity/v2/tenants
-github.com/gophercloud/gophercloud/openstack/identity/v2/tokens
-github.com/gophercloud/gophercloud/openstack/identity/v3/domains
-github.com/gophercloud/gophercloud/openstack/identity/v3/extensions/ec2tokens
-github.com/gophercloud/gophercloud/openstack/identity/v3/extensions/oauth1
-github.com/gophercloud/gophercloud/openstack/identity/v3/projects
-github.com/gophercloud/gophercloud/openstack/identity/v3/tokens
-github.com/gophercloud/gophercloud/openstack/utils
-github.com/gophercloud/gophercloud/pagination
-# github.com/gophercloud/utils v0.0.0-20231010081019-80377eca5d56
-## explicit; go 1.15
-github.com/gophercloud/utils/env
-github.com/gophercloud/utils/gnocchi
-github.com/gophercloud/utils/internal
-github.com/gophercloud/utils/openstack/clientconfig
+# github.com/gophercloud/gophercloud/v2 v2.0.0
+## explicit; go 1.22
+github.com/gophercloud/gophercloud/v2
+github.com/gophercloud/gophercloud/v2/openstack
+github.com/gophercloud/gophercloud/v2/openstack/identity/v2/tenants
+github.com/gophercloud/gophercloud/v2/openstack/identity/v2/tokens
+github.com/gophercloud/gophercloud/v2/openstack/identity/v3/domains
+github.com/gophercloud/gophercloud/v2/openstack/identity/v3/ec2tokens
+github.com/gophercloud/gophercloud/v2/openstack/identity/v3/oauth1
+github.com/gophercloud/gophercloud/v2/openstack/identity/v3/projects
+github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens
+github.com/gophercloud/gophercloud/v2/openstack/utils
+github.com/gophercloud/gophercloud/v2/pagination
+# github.com/gophercloud/utils/v2 v2.0.0-20240701101423-2401526caee5
+## explicit; go 1.22
+github.com/gophercloud/utils/v2/env
+github.com/gophercloud/utils/v2/gnocchi
+github.com/gophercloud/utils/v2/internal
+github.com/gophercloud/utils/v2/openstack/clientconfig
 # github.com/gorilla/mux v1.8.1
 ## explicit; go 1.20
 github.com/gorilla/mux
@@ -97,9 +97,6 @@ github.com/hashicorp/errwrap
 # github.com/hashicorp/go-multierror v1.1.1
 ## explicit; go 1.13
 github.com/hashicorp/go-multierror
-# github.com/hashicorp/go-uuid v1.0.3
-## explicit
-github.com/hashicorp/go-uuid
 # github.com/hashicorp/golang-lru/v2 v2.0.7
 ## explicit; go 1.18
 github.com/hashicorp/golang-lru/v2
@@ -118,12 +115,12 @@ github.com/jpillora/longestcommon
 github.com/lib/pq
 github.com/lib/pq/oid
 github.com/lib/pq/scram
-# github.com/majewsky/schwift v1.3.0
-## explicit; go 1.20
-github.com/majewsky/schwift
-github.com/majewsky/schwift/capabilities
-github.com/majewsky/schwift/gopherschwift
-github.com/majewsky/schwift/internal/errext
+# github.com/majewsky/schwift/v2 v2.0.0
+## explicit; go 1.22
+github.com/majewsky/schwift/v2
+github.com/majewsky/schwift/v2/capabilities
+github.com/majewsky/schwift/v2/gopherschwift
+github.com/majewsky/schwift/v2/internal/errext
 # github.com/mitchellh/go-homedir v1.1.0
 ## explicit
 github.com/mitchellh/go-homedir
@@ -183,7 +180,7 @@ github.com/samber/lo
 ## explicit; go 1.21
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20240704034903-8a2e97b1eaf1
+# github.com/sapcc/go-bits v0.0.0-20240708133634-c3fa8372671d
 ## explicit; go 1.22
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
@@ -284,3 +281,6 @@ google.golang.org/protobuf/types/known/timestamppb
 # gopkg.in/yaml.v2 v2.4.0
 ## explicit; go 1.15
 gopkg.in/yaml.v2
+# gopkg.in/yaml.v3 v3.0.1
+## explicit
+gopkg.in/yaml.v3

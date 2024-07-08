@@ -21,6 +21,7 @@ package openstack
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -29,7 +30,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/majewsky/schwift"
+	"github.com/majewsky/schwift/v2"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -49,7 +50,7 @@ func init() {
 func (d *inboundCacheDriverSwift) PluginTypeID() string { return "swift" }
 
 // Init implements the keppel.InboundCacheDriver interface.
-func (d *inboundCacheDriverSwift) Init(cfg keppel.Configuration) (err error) {
+func (d *inboundCacheDriverSwift) Init(ctx context.Context, cfg keppel.Configuration) (err error) {
 	d.HostInclusionRx, err = compileOptionalImplicitlyBoundedRegex(os.Getenv("KEPPEL_INBOUND_CACHE_ONLY_HOSTS"))
 	if err != nil {
 		return err
@@ -58,7 +59,7 @@ func (d *inboundCacheDriverSwift) Init(cfg keppel.Configuration) (err error) {
 	if err != nil {
 		return err
 	}
-	d.Container, err = initSwiftContainerConnection("KEPPEL_INBOUND_CACHE_")
+	d.Container, err = initSwiftContainerConnection(ctx, "KEPPEL_INBOUND_CACHE_")
 	return err
 }
 
@@ -75,7 +76,7 @@ func compileOptionalImplicitlyBoundedRegex(pattern string) (*regexp.Regexp, erro
 }
 
 // LoadManifest implements the keppel.InboundCacheDriver interface.
-func (d *inboundCacheDriverSwift) LoadManifest(location models.ImageReference, now time.Time) (contents []byte, mediaType string, returnedError error) {
+func (d *inboundCacheDriverSwift) LoadManifest(ctx context.Context, location models.ImageReference, now time.Time) (contents []byte, mediaType string, returnedError error) {
 	if d.skip(location) {
 		return nil, "", sql.ErrNoRows
 	}
@@ -88,7 +89,7 @@ func (d *inboundCacheDriverSwift) LoadManifest(location models.ImageReference, n
 
 	obj := d.objectFor(location)
 
-	contents, err := obj.Download(nil).AsByteSlice()
+	contents, err := obj.Download(ctx, nil).AsByteSlice()
 	if err != nil {
 		if schwift.Is(err, http.StatusNotFound) {
 			return nil, "", sql.ErrNoRows
@@ -96,7 +97,7 @@ func (d *inboundCacheDriverSwift) LoadManifest(location models.ImageReference, n
 		return nil, "", err
 	}
 
-	hdr, err := obj.Headers() // NOTE: this does not actually make a HEAD request because we already did GET
+	hdr, err := obj.Headers(ctx) // NOTE: this does not actually make a HEAD request because we already did GET
 	if err != nil {
 		return nil, "", err
 	}
@@ -104,7 +105,7 @@ func (d *inboundCacheDriverSwift) LoadManifest(location models.ImageReference, n
 }
 
 // StoreManifest implements the keppel.InboundCacheDriver interface.
-func (d *inboundCacheDriverSwift) StoreManifest(location models.ImageReference, contents []byte, mediaType string, now time.Time) error {
+func (d *inboundCacheDriverSwift) StoreManifest(ctx context.Context, location models.ImageReference, contents []byte, mediaType string, now time.Time) error {
 	if d.skip(location) {
 		return nil
 	}
@@ -114,7 +115,7 @@ func (d *inboundCacheDriverSwift) StoreManifest(location models.ImageReference, 
 	hdr.ExpiresAt().Set(d.expiryFor(location, now))
 
 	obj := d.objectFor(location)
-	err := obj.Upload(bytes.NewReader(contents), nil, hdr.ToOpts())
+	err := obj.Upload(ctx, bytes.NewReader(contents), nil, hdr.ToOpts())
 	if err != nil {
 		return fmt.Errorf("while populating the inbound cache: %w", err)
 	}

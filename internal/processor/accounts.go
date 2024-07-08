@@ -252,7 +252,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 			return models.Account{}, keppel.AsRegistryV2Error(err).WithStatus(http.StatusInternalServerError)
 		}
 
-		err = p.sd.CanSetupAccount(targetAccount)
+		err = p.sd.CanSetupAccount(ctx, targetAccount)
 		if err != nil {
 			msg := fmt.Errorf("cannot set up backing storage for this account: %w", err)
 			return models.Account{}, keppel.AsRegistryV2Error(msg).WithStatus(http.StatusConflict)

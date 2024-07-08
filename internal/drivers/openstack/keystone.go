@@ -38,10 +38,10 @@ import (
 	"time"
 
 	policy "github.com/databus23/goslo.policy"
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack"
-	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
-	"github.com/gophercloud/utils/openstack/clientconfig"
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack"
+	"github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens"
+	"github.com/gophercloud/utils/v2/openstack/clientconfig"
 	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/errext"
@@ -69,14 +69,14 @@ func (d *keystoneDriver) PluginTypeID() string {
 }
 
 // Init implements the keppel.AuthDriver interface.
-func (d *keystoneDriver) Init(rc *redis.Client) error {
+func (d *keystoneDriver) Init(ctx context.Context, rc *redis.Client) error {
 	// authenticate service user
 	ao, err := clientconfig.AuthOptions(nil)
 	if err != nil {
 		return errors.New("cannot find OpenStack credentials: " + err.Error())
 	}
 	ao.AllowReauth = true
-	d.Provider, err = openstack.AuthenticatedClient(*ao)
+	d.Provider, err = openstack.AuthenticatedClient(ctx, *ao)
 	if err != nil {
 		return errors.New("cannot connect to OpenStack: " + err.Error())
 	}
@@ -126,11 +126,8 @@ func (d *keystoneDriver) AuthenticateUser(ctx context.Context, userName, passwor
 	// perform the authentication with a fresh ServiceClient, otherwise a 401
 	// response will trigger a useless reauthentication of the service user
 	throwAwayClient := gophercloud.ServiceClient{
-		ProviderClient: &gophercloud.ProviderClient{
-			Throwaway: true,
-			Context:   ctx,
-		},
-		Endpoint: d.IdentityV3.Endpoint,
+		ProviderClient: &gophercloud.ProviderClient{Throwaway: true},
+		Endpoint:       d.IdentityV3.Endpoint,
 	}
 	throwAwayClient.SetThrowaway(true)
 	throwAwayClient.ReauthFunc = nil
@@ -138,11 +135,11 @@ func (d *keystoneDriver) AuthenticateUser(ctx context.Context, userName, passwor
 
 	t := d.TokenValidator.CheckCredentials(
 		fmt.Sprintf("username=%s,password=%s", userName, password),
-		func() gopherpolicy.TokenResult { return tokens.Create(&throwAwayClient, &authOpts) },
+		func() gopherpolicy.TokenResult { return tokens.Create(ctx, &throwAwayClient, &authOpts) },
 	)
 
 	if t.Err != nil {
-		if err, ok := errext.As[gophercloud.ErrDefault429](t.Err); ok {
+		if err, ok := errext.As[gophercloud.ErrUnexpectedResponseCode](t.Err); ok && err.Actual == http.StatusTooManyRequests {
 			retryAfterStr := err.ResponseHeader.Get("Retry-After")
 			return nil, keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr)
 		}

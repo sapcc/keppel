@@ -19,6 +19,7 @@
 package client
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -36,7 +37,7 @@ type AuthDriver interface {
 
 	// Connect sets up a connection to a Keppel server, using the credentials from
 	// the process's environment variables.
-	Connect() error
+	Connect(context.Context) error
 
 	// CurrentAuthTenantID returns the ID of the auth tenant where the client is
 	// authenticated.
@@ -72,12 +73,12 @@ func RegisterAuthDriver(name string, factory func() AuthDriver) {
 var errNoMatchingAuthDriver = errors.New("no auth driver selected (did you set all the required environment variables?)")
 
 // NewAuthDriver selects the correct AuthDriver and executes its Connect() method.
-func NewAuthDriver() (AuthDriver, error) {
+func NewAuthDriver(ctx context.Context) (AuthDriver, error) {
 	for id, factory := range authDriverFactories {
 		ad := factory()
 		if ad.MatchesEnvironment() {
 			logg.Debug("using auth driver %q", id)
-			err := ad.Connect()
+			err := ad.Connect(ctx)
 			return ad, err
 		}
 	}

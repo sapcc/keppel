@@ -91,7 +91,7 @@ func (j *Janitor) BlobSweepJob(registerer prometheus.Registerer) jobloop.Job { /
 	}).Setup(registerer)
 }
 
-func (j *Janitor) sweepBlobsInRepo(_ context.Context, account models.Account, _ prometheus.Labels) error {
+func (j *Janitor) sweepBlobsInRepo(ctx context.Context, account models.Account, _ prometheus.Labels) error {
 	// allow next pass in 1 hour to delete the newly marked blob mounts, but use a
 	// slightly earlier cut-off time to account for the marking taking some time
 	canBeDeletedAt := j.timeNow().Add(30 * time.Minute)
@@ -139,7 +139,7 @@ func (j *Janitor) sweepBlobsInRepo(_ context.Context, account models.Account, _ 
 			return err
 		}
 		if blob.StorageID != "" { // ignore unbacked blobs that were never replicated
-			err = j.sd.DeleteBlob(account, blob.StorageID)
+			err = j.sd.DeleteBlob(ctx, account, blob.StorageID)
 			if err != nil {
 				return err
 			}
@@ -182,7 +182,7 @@ func (j *Janitor) BlobValidationJob(registerer prometheus.Registerer) jobloop.Jo
 	}).Setup(registerer)
 }
 
-func (j *Janitor) validateBlob(_ context.Context, blob models.Blob, _ prometheus.Labels) error {
+func (j *Janitor) validateBlob(ctx context.Context, blob models.Blob, _ prometheus.Labels) error {
 	// find corresponding account
 	account, err := keppel.FindAccount(j.db, blob.AccountName)
 	if err != nil {
@@ -190,7 +190,7 @@ func (j *Janitor) validateBlob(_ context.Context, blob models.Blob, _ prometheus
 	}
 
 	// perform validation
-	err = j.processor().ValidateExistingBlob(*account, blob)
+	err = j.processor().ValidateExistingBlob(ctx, *account, blob)
 	if err == nil {
 		// on success, reset error message and schedule next validation
 		_, err := j.db.Exec(validateBlobFinishQuery,

@@ -20,6 +20,7 @@
 package processor
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -82,7 +83,7 @@ func (p *Processor) WithLowlevelAccess(action func(*keppel.DB, keppel.StorageDri
 // callback returns success (i.e. a nil error), the transaction will be
 // committed.  If it returns an error or panics, the transaction will be rolled
 // back.
-func (p *Processor) insideTransaction(action func(*gorp.Transaction) error) error {
+func (p *Processor) insideTransaction(ctx context.Context, action func(context.Context, *gorp.Transaction) error) error {
 	tx, err := p.db.Begin()
 	if err != nil {
 		return err
@@ -98,7 +99,7 @@ func (p *Processor) insideTransaction(action func(*gorp.Transaction) error) erro
 		}
 	}()
 
-	err = action(tx)
+	err = action(ctx, tx)
 	if err != nil {
 		return err
 	}
