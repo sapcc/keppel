@@ -54,10 +54,10 @@ func TestAddJitter(t *testing.T) {
 	// very simple sanity-check: both buckets should have ~500 samples
 	if smallerCount < 450 {
 		t.Errorf("expected half of the samples to be smaller than %s, but got only %.2f%% smaller samples",
-			baseDuration, float64(smallerCount)/1000.)
+			baseDuration, 100*float64(smallerCount)/1000.)
 	}
 	if biggerCount < 450 {
 		t.Errorf("expected half of the samples to be bigger than %s, but got only %.2f%% bigger samples",
-			baseDuration, float64(biggerCount)/1000.)
+			baseDuration, 100*float64(biggerCount)/1000.)
 	}
 }
