@@ -134,7 +134,7 @@ func (d *keystoneDriver) AuthenticateUser(ctx context.Context, userName, passwor
 	throwAwayClient.SetTokenAndAuthResult(nil) //nolint:errcheck
 
 	t := d.TokenValidator.CheckCredentials(
-		fmt.Sprintf("username=%s,password=%s", userName, password),
+		ctx, fmt.Sprintf("username=%s,password=%s", userName, password),
 		func() gopherpolicy.TokenResult { return tokens.Create(ctx, &throwAwayClient, &authOpts) },
 	)
 

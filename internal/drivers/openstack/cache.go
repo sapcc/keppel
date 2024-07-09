@@ -40,15 +40,15 @@ func hashCacheKey(cacheKey string) string {
 	return "keystone-" + hex.EncodeToString(sha256Hash[:])
 }
 
-func (c redisCacher) StoreTokenPayload(cacheKey string, payload []byte) {
-	err := c.Set(context.Background(), hashCacheKey(cacheKey), payload, 5*time.Minute).Err()
+func (c redisCacher) StoreTokenPayload(ctx context.Context, cacheKey string, payload []byte) {
+	err := c.Set(ctx, hashCacheKey(cacheKey), payload, 5*time.Minute).Err()
 	if err != nil {
 		logg.Error("cannot cache token payload in Redis: %s", err.Error())
 	}
 }
 
-func (c redisCacher) LoadTokenPayload(cacheKey string) []byte {
-	payload, err := c.Get(context.Background(), hashCacheKey(cacheKey)).Bytes()
+func (c redisCacher) LoadTokenPayload(ctx context.Context, cacheKey string) []byte {
+	payload, err := c.Get(ctx, hashCacheKey(cacheKey)).Bytes()
 	if errors.Is(err, redis.Nil) {
 		return nil
 	}

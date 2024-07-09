@@ -113,7 +113,7 @@ func run(cmd *cobra.Command, args []string) {
 	// expose metrics endpoint
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
-	ctx := httpext.ContextWithSIGINT(context.Background(), 1*time.Second)
+	ctx := httpext.ContextWithSIGINT(cmd.Context(), 1*time.Second)
 	go func() {
 		must.Succeed(httpext.ListenAndServeContext(ctx, listenAddress, mux))
 	}()

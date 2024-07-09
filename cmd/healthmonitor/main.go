@@ -81,7 +81,7 @@ type healthMonitorJob struct {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	ctx := httpext.ContextWithSIGINT(context.Background(), 1*time.Second)
+	ctx := httpext.ContextWithSIGINT(cmd.Context(), 1*time.Second)
 	keppel.SetTaskName("health-monitor")
 	prometheus.MustRegister(healthmonitorResultGauge)
 

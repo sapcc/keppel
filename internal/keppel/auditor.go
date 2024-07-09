@@ -19,6 +19,7 @@
 package keppel
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -76,7 +77,7 @@ type auditorImpl struct {
 
 // InitAuditTrail initializes a Auditor from the configuration variables
 // found in the environment.
-func InitAuditTrail() Auditor {
+func InitAuditTrail(ctx context.Context) Auditor {
 	logg.Debug("initializing audit trail...")
 
 	prometheus.MustRegister(auditEventPublishSuccessCounter)
@@ -110,7 +111,7 @@ func InitAuditTrail() Auditor {
 			EventSink:           eventSink,
 			OnSuccessfulPublish: func() { auditEventPublishSuccessCounter.Inc() },
 			OnFailedPublish:     func() { auditEventPublishFailedCounter.Inc() },
-		}.Commit(rabbitURI, rabbitQueueName)
+		}.Commit(ctx, rabbitURI, rabbitQueueName)
 	}
 
 	return auditorImpl{

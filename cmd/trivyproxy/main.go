@@ -58,7 +58,7 @@ The token is used to both authenticate API requests to the proxy, as well to aut
 func run(cmd *cobra.Command, args []string) {
 	keppel.SetTaskName("trivy")
 
-	ctx := httpext.ContextWithSIGINT(context.Background(), 10*time.Second)
+	ctx := httpext.ContextWithSIGINT(cmd.Context(), 10*time.Second)
 
 	token := osext.MustGetenv("KEPPEL_TRIVY_TOKEN")
 	dbMirrorPrefix := osext.MustGetenv("KEPPEL_TRIVY_DB_MIRROR_PREFIX")

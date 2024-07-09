@@ -91,7 +91,7 @@ func (c *RabbitConnection) IsNilOrClosed() bool {
 
 // PublishEvent publishes a cadf.Event to a specific RabbitMQ Connection.
 // A nil pointer for event parameter will return an error.
-func (c *RabbitConnection) PublishEvent(event *cadf.Event) error {
+func (c *RabbitConnection) PublishEvent(ctx context.Context, event *cadf.Event) error {
 	if c.IsNilOrClosed() {
 		return amqp.ErrClosed
 	}
@@ -106,7 +106,7 @@ func (c *RabbitConnection) PublishEvent(event *cadf.Event) error {
 	}
 
 	return c.Channel.PublishWithContext(
-		context.Background(),
+		ctx,
 		"",          // exchange: publish to default
 		c.QueueName, // routing key: same as queue name
 		false,       // mandatory: don't publish if no queue is bound that matches the routing key

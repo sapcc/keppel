@@ -22,6 +22,7 @@
 package gopherpolicy
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -53,11 +54,11 @@ type Cacher interface {
 	// StoreTokenPayload attempts to store the token payload corresponding to the
 	// given credentials in the cache. Implementations shall treat `credentials`
 	// as an opaque string and only use it as a cache key.
-	StoreTokenPayload(credentials string, payload []byte)
+	StoreTokenPayload(ctx context.Context, credentials string, payload []byte)
 	// LoadTokenPayload attempts to retrieve the payload for the given credentials
 	// from the cache. If there nothing cached for these credentials, or if the
 	// retrieval fails, nil shall be returned.
-	LoadTokenPayload(credentials string) []byte
+	LoadTokenPayload(ctx context.Context, credentials string) []byte
 }
 
 // TokenValidator combines an Identity v3 client to validate tokens (AuthN), and
@@ -97,7 +98,7 @@ func (v *TokenValidator) CheckToken(r *http.Request) *Token {
 		return &Token{Err: errors.New("X-Auth-Token header missing")}
 	}
 
-	token := v.CheckCredentials(tokenStr, func() TokenResult {
+	token := v.CheckCredentials(r.Context(), tokenStr, func() TokenResult {
 		return tokens.Get(r.Context(), v.IdentityV3, tokenStr)
 	})
 	token.Context.Logger = logg.Debug
@@ -116,11 +117,11 @@ func (v *TokenValidator) CheckToken(r *http.Request) *Token {
 // The `cacheKey` argument shall be a string that identifies the given
 // credentials. This key is used for caching the TokenResult in `v.Cacher` if
 // that is non-nil.
-func (v *TokenValidator) CheckCredentials(cacheKey string, check func() TokenResult) *Token {
+func (v *TokenValidator) CheckCredentials(ctx context.Context, cacheKey string, check func() TokenResult) *Token {
 	// prefer cached token payload over actually talking to Keystone (but fallback
 	// to Keystone if the token payload deserialization fails)
 	if v.Cacher != nil {
-		payload := v.Cacher.LoadTokenPayload(cacheKey)
+		payload := v.Cacher.LoadTokenPayload(ctx, cacheKey)
 		if payload != nil {
 			var s serializableToken
 			err := json.Unmarshal(payload, &s)
@@ -139,7 +140,7 @@ func (v *TokenValidator) CheckCredentials(cacheKey string, check func() TokenRes
 	if t.Err == nil && v.Cacher != nil {
 		payload, err := json.Marshal(t.serializable)
 		if err == nil {
-			v.Cacher.StoreTokenPayload(cacheKey, payload)
+			v.Cacher.StoreTokenPayload(ctx, cacheKey, payload)
 		}
 	}
 
