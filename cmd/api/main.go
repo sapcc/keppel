@@ -20,7 +20,6 @@
 package apicmd
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -64,8 +63,8 @@ func run(cmd *cobra.Command, args []string) {
 	keppel.SetTaskName("api")
 
 	cfg := keppel.ParseConfiguration()
-	ctx := httpext.ContextWithSIGINT(context.Background(), 10*time.Second)
-	auditor := keppel.InitAuditTrail()
+	ctx := httpext.ContextWithSIGINT(cmd.Context(), 10*time.Second)
+	auditor := keppel.InitAuditTrail(ctx)
 
 	db := must.Return(keppel.InitDB(cfg.DatabaseURL))
 	must.Succeed(setupDBIfRequested(db))

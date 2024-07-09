@@ -20,6 +20,7 @@
 package audittools
 
 import (
+	"context"
 	"net/url"
 	"time"
 
@@ -40,7 +41,7 @@ type AuditTrail struct {
 // a specific RabbitMQ Connection using the specified amqp URI and queue name.
 // The OnSuccessfulPublish and OnFailedPublish closures are executed as per
 // their respective case.
-func (t AuditTrail) Commit(rabbitmqURI url.URL, rabbitmqQueueName string) {
+func (t AuditTrail) Commit(ctx context.Context, rabbitmqURI url.URL, rabbitmqQueueName string) {
 	rc, err := NewRabbitConnection(rabbitmqURI, rabbitmqQueueName)
 	if err != nil {
 		logg.Error(err.Error())
@@ -48,7 +49,7 @@ func (t AuditTrail) Commit(rabbitmqURI url.URL, rabbitmqQueueName string) {
 
 	sendEvent := func(e *cadf.Event) bool {
 		rc = refreshConnectionIfClosedOrOld(rc, rabbitmqURI, rabbitmqQueueName)
-		err := rc.PublishEvent(e)
+		err := rc.PublishEvent(ctx, e)
 		if err != nil {
 			t.OnFailedPublish()
 			logg.Error("audittools: failed to publish audit event with ID %q: %s", e.ID, err.Error())

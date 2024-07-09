@@ -19,6 +19,7 @@
 package gopherpolicy
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 
@@ -40,11 +41,11 @@ func InMemoryCacher() Cacher {
 	return inMemoryCacher{c}
 }
 
-func (c inMemoryCacher) StoreTokenPayload(token string, payload []byte) {
+func (c inMemoryCacher) StoreTokenPayload(_ context.Context, token string, payload []byte) {
 	c.Add(cacheKeyFor(token), payload)
 }
 
-func (c inMemoryCacher) LoadTokenPayload(token string) []byte {
+func (c inMemoryCacher) LoadTokenPayload(_ context.Context, token string) []byte {
 	payload, ok := c.Get(cacheKeyFor(token))
 	if !ok {
 		return nil
