@@ -46,9 +46,9 @@ type Accounts struct {
 	AuthTenantID         string                      `yaml:"auth_tenant_id"`
 	GCPolicies           []keppel.GCPolicy           `yaml:"gc_policies"`
 	RBACPolicies         []keppel.RBACPolicy         `yaml:"rbac_policies"`
-	ReplicationPolicy    keppel.ReplicationPolicy    `yaml:"replication_policy"`
+	ReplicationPolicy    keppel.ReplicationPolicy    `yaml:"replication"`
 	SecurityScanPolicies []keppel.SecurityScanPolicy `yaml:"security_scan_policies"`
-	ValidationPolicy     keppel.ValidationPolicy     `yaml:"validation_policy"`
+	ValidationPolicy     keppel.ValidationPolicy     `yaml:"validation"`
 }
 
 func init() {
@@ -62,7 +62,7 @@ func (a *AccountManagementDriver) PluginTypeID() string { return "basic" }
 
 // Init implements the keppel.AccountManagementDriver interface.
 func (a *AccountManagementDriver) Init() error {
-	configPath, err := osext.NeedGetenv("KEPPEL_ACCOUNT_MANAGEMENT_FILE")
+	configPath, err := osext.NeedGetenv("KEPPEL_ACCOUNT_MANAGEMENT_CONFIG_PATH")
 	if err != nil {
 		return err
 	}
@@ -98,6 +98,7 @@ func (a *AccountManagementDriver) ConfigureAccount(modelAccount models.Account) 
 	return nil, nil, nil
 }
 
+// ManagedAccountNames implements the keppel.AccountManagementDriver interface.
 func (a *AccountManagementDriver) ManagedAccountNames() ([]string, error) {
 	err := a.loadConfig()
 	if err != nil {

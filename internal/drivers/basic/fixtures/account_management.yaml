@@ -20,7 +20,7 @@ accounts:
     permissions:
     - pull
     - push
-  replication_policy:
+  replication:
     strategy: from_external_on_first_use
     upstream_peer_hostname: ""
     external_peer:
@@ -32,7 +32,7 @@ accounts:
     action:
       assessment: 'risk accepted: vulnerabilities without an available fix are not actionable'
       ignore: true
-  validation_policy:
+  validation:
     required_labels:
     - important-label
     - some-label
