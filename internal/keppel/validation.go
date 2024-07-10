@@ -28,7 +28,7 @@ import (
 
 // ValidationPolicy represents a validation policy in the API.
 type ValidationPolicy struct {
-	RequiredLabels []string `json:"required_labels,omitempty" yaml:"required_labels,omitempty"`
+	RequiredLabels []string `json:"required_labels,omitempty"`
 }
 
 // RenderValidationPolicy builds a ValidationPolicy object out of the

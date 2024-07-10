@@ -28,11 +28,11 @@ import (
 
 // ReplicationPolicy represents a replication policy in the API.
 type ReplicationPolicy struct {
-	Strategy ReplicationStrategy `json:"strategy" yaml:"strategy"`
+	Strategy ReplicationStrategy `json:"strategy"`
 	// only for `on_first_use`
-	UpstreamPeerHostName string `json:"upstream_peer_hostname" yaml:"upstream_peer_hostname"`
+	UpstreamPeerHostName string `json:"upstream_peer_hostname"`
 	// only for `from_external_on_first_use`
-	ExternalPeer ReplicationExternalPeerSpec `json:"external_peer" yaml:"external_peer"`
+	ExternalPeer ReplicationExternalPeerSpec `json:"external_peer"`
 }
 
 // ReplicationStrategy is an enum that appears in type ReplicationPolicy.
@@ -46,9 +46,9 @@ const (
 
 // ReplicationExternalPeerSpec appears in type ReplicationPolicy.
 type ReplicationExternalPeerSpec struct {
-	URL      string `json:"url" yaml:"url"`
-	UserName string `json:"username,omitempty" yaml:"username,omitempty"`
-	Password string `json:"password,omitempty" yaml:"password,omitempty"`
+	URL      string `json:"url"`
+	UserName string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
 // MarshalJSON implements the json.Marshaler interface.
@@ -82,6 +82,12 @@ func (r *ReplicationPolicy) UnmarshalJSON(buf []byte) error {
 		return err
 	}
 	r.Strategy = s.Strategy
+
+	if len(s.Upstream) == 0 {
+		// need a more explicit error for this, otherwise the next json.Unmarshal()
+		// will return a relatively inscrutable "unexpected end of JSON input"
+		return errors.New(`missing field "upstream" in ReplicationPolicy`)
+	}
 
 	switch r.Strategy {
 	case OnFirstUseStrategy:

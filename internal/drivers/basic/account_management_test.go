@@ -20,6 +20,7 @@ package basic
 
 import (
 	"testing"
+	"time"
 
 	"github.com/sapcc/keppel/internal/keppel"
 
@@ -28,7 +29,7 @@ import (
 
 func TestConfigureAccount(t *testing.T) {
 	driver := AccountManagementDriver{
-		ConfigPath: "./fixtures/account_management.yaml",
+		ConfigPath: "./fixtures/account_management.json",
 	}
 
 	listOfAccounts, err := driver.ManagedAccountNames()
@@ -52,7 +53,7 @@ func TestConfigureAccount(t *testing.T) {
 				RepositoryRx:         ".*/database",
 				TimeConstraint: &keppel.GCTimeConstraint{
 					FieldName: "pushed_at",
-					MaxAge:    21600000000000,
+					MaxAge:    keppel.Duration(6 * time.Hour),
 				},
 			},
 			{

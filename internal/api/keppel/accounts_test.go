@@ -1257,7 +1257,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			Body: assert.JSONObject{
 				"account": assert.JSONObject{
 					"auth_tenant_id": "tenant1",
-					"replication":    assert.JSONObject{"strategy": "yes_please"},
+					"replication":    assert.JSONObject{"strategy": "yes_please", "upstream": "registry.example.org"},
 				},
 			},
 			ExpectStatus: http.StatusBadRequest,

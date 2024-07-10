@@ -19,14 +19,13 @@
 package basic
 
 import (
+	"encoding/json"
 	"os"
 	"sync"
 
 	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
-
-	"gopkg.in/yaml.v2"
 )
 
 // AccountManagementDriver is the account management driver "basic".
@@ -37,17 +36,17 @@ type AccountManagementDriver struct {
 }
 
 type AccountConfig struct {
-	Accounts []Accounts `yaml:"accounts"`
+	Accounts []Accounts `json:"accounts"`
 }
 
 type Accounts struct {
-	Name                 string                      `yaml:"name"`
-	AuthTenantID         string                      `yaml:"auth_tenant_id"`
-	GCPolicies           []keppel.GCPolicy           `yaml:"gc_policies"`
-	RBACPolicies         []keppel.RBACPolicy         `yaml:"rbac_policies"`
-	ReplicationPolicy    keppel.ReplicationPolicy    `yaml:"replication"`
-	SecurityScanPolicies []keppel.SecurityScanPolicy `yaml:"security_scan_policies"`
-	ValidationPolicy     keppel.ValidationPolicy     `yaml:"validation"`
+	Name                 string                      `json:"name"`
+	AuthTenantID         string                      `json:"auth_tenant_id"`
+	GCPolicies           []keppel.GCPolicy           `json:"gc_policies"`
+	RBACPolicies         []keppel.RBACPolicy         `json:"rbac_policies"`
+	ReplicationPolicy    keppel.ReplicationPolicy    `json:"replication"`
+	SecurityScanPolicies []keppel.SecurityScanPolicy `json:"security_scan_policies"`
+	ValidationPolicy     keppel.ValidationPolicy     `json:"validation"`
 }
 
 func init() {
@@ -120,9 +119,10 @@ func (a *AccountManagementDriver) loadConfig() error {
 	if err != nil {
 		return err
 	}
+	defer reader.Close()
 
-	decoder := yaml.NewDecoder(reader)
-	decoder.SetStrict(true)
+	decoder := json.NewDecoder(reader)
+	decoder.DisallowUnknownFields()
 	var config AccountConfig
 	err = decoder.Decode(&config)
 	if err != nil {

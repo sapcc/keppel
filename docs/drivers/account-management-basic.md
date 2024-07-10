@@ -1,6 +1,6 @@
 # Account management driver: `basic`
 
-This driver sources managed accounts from a static YAML configuration file.
+This driver sources managed accounts from a static JSON configuration file.
 
 ## Server-side configuration
 
@@ -14,7 +14,7 @@ from a ConfigMap).
 
 ## Configuration file syntax
 
-The configuration file must be formatted in YAML.
+The configuration file must be formatted in JSON.
 The following fields are valid inside the configuration file:
 
 | Field | Explanation |

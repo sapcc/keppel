@@ -36,20 +36,20 @@ import (
 type SecurityScanPolicy struct {
 	//NOTE: We have code that uses slices.Contains() to locate policies. Be careful
 	// when adding fields that cannot be meaningfully compared with the == operator.
-	ManagingUserName          string                   `json:"managed_by_user,omitempty" yaml:"managed_by_user,omitempty"`
-	RepositoryRx              regexpext.BoundedRegexp  `json:"match_repository" yaml:"match_repository"`
-	NegativeRepositoryRx      regexpext.BoundedRegexp  `json:"except_repository,omitempty" yaml:"except_repository,omitempty"`
-	VulnerabilityIDRx         regexpext.BoundedRegexp  `json:"match_vulnerability_id" yaml:"match_vulnerability_id"`
-	NegativeVulnerabilityIDRx regexpext.BoundedRegexp  `json:"except_vulnerability_id,omitempty" yaml:"except_vulnerability_id,omitempty"`
-	ExceptFixReleased         bool                     `json:"except_fix_released,omitempty" yaml:"except_fix_released,omitempty"`
-	Action                    SecurityScanPolicyAction `json:"action" yaml:"action"`
+	ManagingUserName          string                   `json:"managed_by_user,omitempty"`
+	RepositoryRx              regexpext.BoundedRegexp  `json:"match_repository"`
+	NegativeRepositoryRx      regexpext.BoundedRegexp  `json:"except_repository,omitempty"`
+	VulnerabilityIDRx         regexpext.BoundedRegexp  `json:"match_vulnerability_id"`
+	NegativeVulnerabilityIDRx regexpext.BoundedRegexp  `json:"except_vulnerability_id,omitempty"`
+	ExceptFixReleased         bool                     `json:"except_fix_released,omitempty"`
+	Action                    SecurityScanPolicyAction `json:"action"`
 }
 
 // SecurityScanPolicyAction appears in type SecurityScanPolicy.
 type SecurityScanPolicyAction struct {
-	Assessment string                     `json:"assessment" yaml:"assessment"`
-	Ignore     bool                       `json:"ignore,omitempty" yaml:"ignore,omitempty"`
-	Severity   models.VulnerabilityStatus `json:"severity,omitempty" yaml:"severity,omitempty"`
+	Assessment string                     `json:"assessment"`
+	Ignore     bool                       `json:"ignore,omitempty"`
+	Severity   models.VulnerabilityStatus `json:"severity,omitempty"`
 }
 
 // String returns the JSON representation of this policy (for use in log and
