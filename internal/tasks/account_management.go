@@ -37,7 +37,7 @@ import (
 )
 
 // EnforceManagedAccounts is a job. Each task creates newly discovered accounts from the driver.
-func (j *Janitor) EnforceManagedAccounts(registerer prometheus.Registerer) jobloop.Job {
+func (j *Janitor) EnforceManagedAccountsJob(registerer prometheus.Registerer) jobloop.Job {
 	return (&jobloop.ProducerConsumerJob[[]string]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "create new managed accounts",
