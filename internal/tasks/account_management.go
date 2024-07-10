@@ -93,71 +93,92 @@ func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName string,
 	}
 
 	if account == nil {
-		accountModel, err := keppel.FindAccount(j.db, accountName)
+		err = j.tryDeleteManagedAccount(ctx, accountName)
 		if err != nil {
 			return err
-		}
-		// assume the account got already deleted
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil
-		}
-
-		_, err = j.db.Exec("UPDATE accounts SET in_maintenance = TRUE WHERE name = $1", accountName)
-		if err != nil {
-			return err
-		}
-		// avoid quering the account twice and we set this field just above via SQL
-		accountModel.InMaintenance = true
-
-		resp, err := j.processor().DeleteAccount(ctx, *accountModel)
-		if err != nil {
-			return err
-		}
-		if resp != nil {
-			logg.Error("Deleting account %s failed: %s", accountName, resp.Error)
-			return errors.New(resp.Error)
 		}
 	} else {
-		userIdentity := janitorUserIdentity{TaskName: "account-management"}
-
-		getSubleaseToken := func(peer models.Peer) (string, *keppel.RegistryV2Error) {
-			viewScope := auth.Scope{
-				ResourceType: "keppel_account",
-				ResourceName: account.Name,
-				Actions:      []string{"view"},
-			}
-
-			client, err := peerclient.New(ctx, j.cfg, peer, viewScope)
-			if err != nil {
-				return "", keppel.AsRegistryV2Error(err)
-			}
-
-			subleaseToken, err := client.GetSubleaseToken(ctx, account.Name)
-			if err != nil {
-				return "", keppel.AsRegistryV2Error(err)
-			}
-			return subleaseToken, nil
-		}
-
-		jsonBytes, err := json.Marshal(securityScanPolicies)
+		err = j.createOrUpdateManagedAccount(ctx, *account, securityScanPolicies)
 		if err != nil {
 			return err
-		}
-
-		setCustomFields := func(account *models.Account) error {
-			account.IsManaged = true
-			account.SecurityScanPoliciesJSON = string(jsonBytes)
-			nextAt := j.timeNow().Add(j.addJitter(1 * time.Hour))
-			account.NextEnforcementAt = &nextAt
-			return nil
-		}
-
-		_, rerr := j.processor().CreateOrUpdateAccount(ctx, *account, userIdentity.UserInfo(), janitorDummyRequest, getSubleaseToken, setCustomFields)
-		if rerr != nil {
-			return rerr
 		}
 	}
 
 	_, err = j.db.Exec(managedAccountEnforcementDoneQuery, accountName, j.timeNow().Add(j.addJitter(1*time.Hour)))
 	return err
+}
+
+func (j *Janitor) tryDeleteManagedAccount(ctx context.Context, accountName string) error {
+	accountModel, err := keppel.FindAccount(j.db, accountName)
+	if err != nil {
+		return err
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		// assume the account got already deleted
+		return nil
+	}
+
+	_, err = j.db.Exec("UPDATE accounts SET in_maintenance = TRUE WHERE name = $1", accountName)
+	if err != nil {
+		return err
+	}
+	// avoid quering the account twice and we set this field just above via SQL
+	accountModel.InMaintenance = true
+
+	resp, err := j.processor().DeleteAccount(ctx, *accountModel)
+	if err != nil {
+		return err
+	}
+	if resp != nil {
+		logg.Error("Deleting account %s failed: %s", accountName, resp.Error)
+		return errors.New(resp.Error)
+	}
+
+	//TODO: handle the other fields in `resp`
+
+	return nil
+}
+
+func (j *Janitor) createOrUpdateManagedAccount(ctx context.Context, account keppel.Account, securityScanPolicies []keppel.SecurityScanPolicy) error {
+	userIdentity := janitorUserIdentity{TaskName: "account-management"}
+
+	// if the managed account is an internal replica, the processor needs to ask the primary account for a sublease token
+	getSubleaseToken := func(peer models.Peer) (string, *keppel.RegistryV2Error) {
+		viewScope := auth.Scope{
+			ResourceType: "keppel_account",
+			ResourceName: account.Name,
+			Actions:      []string{"view"},
+		}
+
+		client, err := peerclient.New(ctx, j.cfg, peer, viewScope)
+		if err != nil {
+			return "", keppel.AsRegistryV2Error(err)
+		}
+
+		subleaseToken, err := client.GetSubleaseToken(ctx, account.Name)
+		if err != nil {
+			return "", keppel.AsRegistryV2Error(err)
+		}
+		return subleaseToken, nil
+	}
+
+	// some fields are not contained in `keppel.Account` and must be handled through a custom callback
+	jsonBytes, err := json.Marshal(securityScanPolicies)
+	if err != nil {
+		return err
+	}
+	setCustomFields := func(account *models.Account) error {
+		account.IsManaged = true
+		account.SecurityScanPoliciesJSON = string(jsonBytes)
+		nextAt := j.timeNow().Add(j.addJitter(1 * time.Hour))
+		account.NextEnforcementAt = &nextAt //TODO: duplicate with managedAccountEnforcementDoneQuery
+		return nil
+	}
+
+	// create or update account
+	_, rerr := j.processor().CreateOrUpdateAccount(ctx, account, userIdentity.UserInfo(), janitorDummyRequest, getSubleaseToken, setCustomFields)
+	if rerr != nil {
+		return rerr
+	}
+	return nil
 }
