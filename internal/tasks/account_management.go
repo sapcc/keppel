@@ -55,11 +55,11 @@ func (j *Janitor) EnforceManagedAccountsJob(registerer prometheus.Registerer) jo
 var (
 	managedAccountEnforcementSelectQuery = sqlext.SimplifyWhitespace(`
 		SELECT name FROM accounts
-		WHERE is_managed AND next_account_enforcement_at < $1
-		ORDER BY next_account_enforcement_at ASC, name ASC
+		WHERE is_managed AND next_enforcement_at < $1
+		ORDER BY next_enforcement_at ASC, name ASC
 	`)
 	managedAccountEnforcementDoneQuery = sqlext.SimplifyWhitespace(`
-		UPDATE accounts SET next_account_enforcement_at = $2 WHERE name = $1
+		UPDATE accounts SET next_enforcement_at = $2 WHERE name = $1
 	`)
 )
 
@@ -148,7 +148,7 @@ func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName string,
 			account.IsManaged = true
 			account.SecurityScanPoliciesJSON = string(jsonBytes)
 			nextAt := j.timeNow().Add(j.addJitter(1 * time.Hour))
-			account.NextAccountEnforcementAt = &nextAt
+			account.NextEnforcementAt = &nextAt
 			return nil
 		}
 
