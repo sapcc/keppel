@@ -29,6 +29,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/auth"
 	peerclient "github.com/sapcc/keppel/internal/client/peer"
@@ -46,12 +47,23 @@ func (j *Janitor) EnforceManagedAccountsJob(registerer prometheus.Registerer) jo
 				Help: "Counter for managed account creations.",
 			},
 		},
-		DiscoverTask: j.discoverManagedAccounts,
-		ProcessTask:  j.enforceManagedAccounts,
+		DiscoverTask: j.discoverManagedAccount,
+		ProcessTask:  j.enforceManagedAccount,
 	}).Setup(registerer)
 }
 
-func (j *Janitor) discoverManagedAccounts(_ context.Context, _ prometheus.Labels) (accountName string, err error) {
+var (
+	managedAccountEnforcementSelectQuery = sqlext.SimplifyWhitespace(`
+		SELECT name FROM accounts
+		WHERE is_managed AND next_account_enforcement_at < $1
+		ORDER BY next_account_enforcement_at ASC, name ASC
+	`)
+	managedAccountEnforcementDoneQuery = sqlext.SimplifyWhitespace(`
+		UPDATE accounts SET next_account_enforcement_at = $2 WHERE name = $1
+	`)
+)
+
+func (j *Janitor) discoverManagedAccount(_ context.Context, _ prometheus.Labels) (accountName string, err error) {
 	managedAccountNames, err := j.amd.ManagedAccountNames()
 	if err != nil {
 		return "", err
@@ -70,12 +82,11 @@ func (j *Janitor) discoverManagedAccounts(_ context.Context, _ prometheus.Labels
 	}
 
 	// otherwise return the next existing managed account that needs to be synced
-	query := "SELECT name FROM accounts WHERE is_managed AND next_account_enforcement_at < $1 ORDER BY next_account_enforcement_at ASC, name ASC"
-	err = j.db.SelectOne(&accountName, query, j.timeNow())
+	err = j.db.SelectOne(&accountName, managedAccountEnforcementSelectQuery, j.timeNow())
 	return accountName, err
 }
 
-func (j *Janitor) enforceManagedAccounts(ctx context.Context, accountName string, labels prometheus.Labels) error {
+func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName string, labels prometheus.Labels) error {
 	account, securityScanPolicies, err := j.amd.ConfigureAccount(accountName)
 	if err != nil {
 		return err
@@ -147,10 +158,6 @@ func (j *Janitor) enforceManagedAccounts(ctx context.Context, accountName string
 		}
 	}
 
-	_, err = j.db.Exec(accountAnnouncementDoneQuery, accountName, j.timeNow().Add(j.addJitter(1*time.Hour)))
-	if err != nil {
-		return err
-	}
-
-	return nil
+	_, err = j.db.Exec(managedAccountEnforcementDoneQuery, accountName, j.timeNow().Add(j.addJitter(1*time.Hour)))
+	return err
 }
