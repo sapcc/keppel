@@ -23,12 +23,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/jobloop"
-	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/auth"
@@ -66,7 +66,7 @@ var (
 func (j *Janitor) discoverManagedAccount(_ context.Context, _ prometheus.Labels) (accountName string, err error) {
 	managedAccountNames, err := j.amd.ManagedAccountNames()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could not get ManagedAccountNames() from account management driver: %w", err)
 	}
 
 	// if there is a managed account that does not exist yet, create it
@@ -89,54 +89,72 @@ func (j *Janitor) discoverManagedAccount(_ context.Context, _ prometheus.Labels)
 func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName string, labels prometheus.Labels) error {
 	account, securityScanPolicies, err := j.amd.ConfigureAccount(accountName)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not ConfigureAccount(%q) in account management driver: %w", accountName, err)
 	}
 
+	// the error returned from either tryDeleteManagedAccount or createOrUpdateManagedAccount is the main error that this method returns...
+	var nextCheckDuration time.Duration
 	if account == nil {
-		err = j.tryDeleteManagedAccount(ctx, accountName)
-		if err != nil {
-			return err
+		var done bool
+		done, err = j.tryDeleteManagedAccount(ctx, accountName)
+		switch {
+		case done:
+			nextCheckDuration = 0 // account has been deleted -> next check not necessary
+		case err == nil:
+			nextCheckDuration = 1 * time.Minute // we are making progress to delete this account -> recheck soon
+		default:
+			err = fmt.Errorf("could not delete managed account %q: %w", accountName, err)
+			nextCheckDuration = 5 * time.Minute // default interval for recheck after error
 		}
 	} else {
 		err = j.createOrUpdateManagedAccount(ctx, *account, securityScanPolicies)
-		if err != nil {
-			return err
+		if err == nil {
+			nextCheckDuration = 0 // CreateOrUpdateAccount has already updated NextEnforcementAt
+		} else {
+			err = fmt.Errorf("could not configure managed account %q: %w", accountName, err)
+			nextCheckDuration = 5 * time.Minute // default interval for recheck after error
 		}
 	}
 
-	_, err = j.db.Exec(managedAccountEnforcementDoneQuery, accountName, j.timeNow().Add(j.addJitter(1*time.Hour)))
-	return err
+	// ...but depending on the outcome, we also update account.NextEnforcementAt as necessary
+	if nextCheckDuration == 0 {
+		return err
+	}
+	_, err2 := j.db.Exec(managedAccountEnforcementDoneQuery, accountName, j.timeNow().Add(j.addJitter(nextCheckDuration)))
+	if err2 == nil {
+		return err
+	} else {
+		return fmt.Errorf("%w (additional error when writing next_enforcement_at: %s)", err, err2.Error())
+	}
 }
 
-func (j *Janitor) tryDeleteManagedAccount(ctx context.Context, accountName string) error {
+func (j *Janitor) tryDeleteManagedAccount(ctx context.Context, accountName string) (done bool, err error) {
 	accountModel, err := keppel.FindAccount(j.db, accountName)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		// assume the account got already deleted
-		return nil
+		return true, nil
 	}
 
 	_, err = j.db.Exec("UPDATE accounts SET in_maintenance = TRUE WHERE name = $1", accountName)
 	if err != nil {
-		return err
+		return false, err
 	}
 	// avoid quering the account twice and we set this field just above via SQL
 	accountModel.InMaintenance = true
 
 	resp, err := j.processor().DeleteAccount(ctx, *accountModel)
 	if err != nil {
-		return err
+		return false, err
 	}
-	if resp != nil {
-		logg.Error("Deleting account %s failed: %s", accountName, resp.Error)
-		return errors.New(resp.Error)
+	if resp == nil {
+		return true, nil
 	}
 
-	//TODO: handle the other fields in `resp`
-
-	return nil
+	// TODO: check remaining fields of `resp`
+	return false, errors.New(resp.Error)
 }
 
 func (j *Janitor) createOrUpdateManagedAccount(ctx context.Context, account keppel.Account, securityScanPolicies []keppel.SecurityScanPolicy) error {

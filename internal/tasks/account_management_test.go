@@ -20,6 +20,7 @@ package tasks
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -55,7 +56,7 @@ func TestAccountManagementDriver(t *testing.T) {
 	// test if errors are propagated
 	s.AMD.ConfigPath = "./fixtures/account_management_error.json"
 	s.Clock.StepBy(2 * time.Hour)
-	expectError(t, processor.ErrAccountNameEmpty.Error(), job.ProcessOne(s.Ctx))
+	expectError(t, fmt.Sprintf("could not configure managed account %q: %s", "", processor.ErrAccountNameEmpty.Error()), job.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEmpty()
 
 	// and delete the account again
