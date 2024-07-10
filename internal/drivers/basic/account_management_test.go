@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/models"
 
 	"github.com/sapcc/go-bits/assert"
 )
@@ -38,12 +37,7 @@ func TestConfigureAccount(t *testing.T) {
 	}
 	assert.DeepEqual(t, "account", listOfAccounts, []string{"abcde"})
 
-	account := models.Account{
-		IsManaged:    true,
-		Name:         "abcde",
-		AuthTenantID: "1245",
-	}
-	newAccount, newSecurityScanPolicy, err := driver.ConfigureAccount(account)
+	newAccount, newSecurityScanPolicy, err := driver.ConfigureAccount("abcde")
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

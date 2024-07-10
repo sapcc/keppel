@@ -25,7 +25,6 @@ import (
 	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/models"
 
 	"gopkg.in/yaml.v2"
 )
@@ -71,12 +70,12 @@ func (a *AccountManagementDriver) Init() error {
 }
 
 // ConfigureAccount implements the keppel.AccountManagementDriver interface.
-func (a *AccountManagementDriver) ConfigureAccount(modelAccount models.Account) (*keppel.Account, []keppel.SecurityScanPolicy, error) {
+func (a *AccountManagementDriver) ConfigureAccount(accountName string) (*keppel.Account, []keppel.SecurityScanPolicy, error) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
 	for _, cfgAccount := range a.config.Accounts {
-		if cfgAccount.Name != modelAccount.Name {
+		if cfgAccount.Name != accountName {
 			continue
 		}
 

@@ -85,7 +85,7 @@ func (j *Janitor) discoverManagedAccounts(_ context.Context, _ prometheus.Labels
 
 func (j *Janitor) enforceManagedAccounts(ctx context.Context, accountNames []string, labels prometheus.Labels) error {
 	for _, accountName := range accountNames {
-		account, securityScanPolicies, err := j.amd.ConfigureAccount(models.Account{Name: accountName})
+		account, securityScanPolicies, err := j.amd.ConfigureAccount(accountName)
 		if err != nil {
 			return err
 		}

@@ -21,7 +21,6 @@ package trivial
 
 import (
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/models"
 )
 
 // AccountManagementDriver is the account management driver "trivial".
@@ -42,7 +41,7 @@ func (a *AccountManagementDriver) Init() error {
 }
 
 // ConfigureAccount implements the keppel.AccountManagementDriver interface.
-func (a *AccountManagementDriver) ConfigureAccount(modelAccount models.Account) (*keppel.Account, []keppel.SecurityScanPolicy, error) {
+func (a *AccountManagementDriver) ConfigureAccount(accountName string) (*keppel.Account, []keppel.SecurityScanPolicy, error) {
 	// if there are any managed accounts, delete them
 	return nil, nil, nil
 }

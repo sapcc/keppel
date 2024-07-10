@@ -23,8 +23,6 @@ import (
 
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
-
-	"github.com/sapcc/keppel/internal/models"
 )
 
 // AccountManagementDriver is a pluggable interface for receiving account
@@ -38,12 +36,12 @@ type AccountManagementDriver interface {
 
 	// Called by a jobloop for every account every once in a while (e.g. every hour).
 	//
-	// Returns an updated account object if the account is managed.
+	// Returns the desired account configuration if the account is managed.
 	// The jobloop will apply the account in the DB accordingly.
 	//
 	// Returns nil if the account was managed, and now shall be deleted.
 	// The jobloop will clean up the manifests, blobs, repos and the account.
-	ConfigureAccount(models.Account) (*Account, []SecurityScanPolicy, error)
+	ConfigureAccount(accountName string) (*Account, []SecurityScanPolicy, error)
 
 	// Called by a jobloop every once in a while (e.g. every hour).
 	//
