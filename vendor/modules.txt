@@ -180,7 +180,7 @@ github.com/samber/lo
 ## explicit; go 1.21
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
-# github.com/sapcc/go-bits v0.0.0-20240709125621-b1e90ef040ad
+# github.com/sapcc/go-bits v0.0.0-20240718093810-9d9ecb2e98b2
 ## explicit; go 1.22
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
