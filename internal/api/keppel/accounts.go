@@ -122,13 +122,20 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	account, rerr := a.processor().CreateOrUpdateAccount(r.Context(), req.Account, authz.UserIdentity.UserInfo(), r, func(_ models.Peer) (string, *keppel.RegistryV2Error) {
+	getSubleaseTokenCallback := func(_ models.Peer) (string, *keppel.RegistryV2Error) {
 		subleaseToken, err := SubleaseTokenFromRequest(r)
 		if err != nil {
 			return "", keppel.AsRegistryV2Error(err)
 		}
 		return subleaseToken.Secret, nil
-	}, func(*models.Account) error { return nil })
+	}
+	finalizeAccountCallback := func(account *models.Account) *keppel.RegistryV2Error {
+		if account.IsManaged {
+			return keppel.ErrDenied.With("cannot manually change configuration of a managed account").WithStatus(http.StatusForbidden)
+		}
+		return nil
+	}
+	account, rerr := a.processor().CreateOrUpdateAccount(r.Context(), req.Account, authz.UserIdentity.UserInfo(), r, getSubleaseTokenCallback, finalizeAccountCallback)
 	if rerr != nil {
 		rerr.WriteAsTextTo(w)
 		return

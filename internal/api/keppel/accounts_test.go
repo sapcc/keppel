@@ -1221,6 +1221,22 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectStatus: http.StatusForbidden,
 		ExpectBody:   assert.StringData("no permission for keppel_account:unknown:change\n"),
 	}.Check(t, h)
+
+	// test protection for managed accounts
+	mustExec(t, s.DB, "UPDATE accounts SET is_managed = TRUE WHERE name = $1", "first")
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+			},
+		},
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   assert.StringData("cannot manually change configuration of a managed account\n"),
+	}.Check(t, h)
+	mustExec(t, s.DB, "UPDATE accounts SET is_managed = FALSE WHERE name = $1", "first")
 }
 
 func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {

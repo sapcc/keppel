@@ -222,7 +222,7 @@ func (j *Janitor) createOrUpdateManagedAccount(ctx context.Context, account kepp
 	if err != nil {
 		return err
 	}
-	setCustomFields := func(account *models.Account) error {
+	setCustomFields := func(account *models.Account) *keppel.RegistryV2Error {
 		account.IsManaged = true
 		account.SecurityScanPoliciesJSON = string(jsonBytes)
 		nextAt := j.timeNow().Add(j.addJitter(1 * time.Hour))
