@@ -19,7 +19,6 @@
 package keppelv1
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -54,13 +53,9 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// parse request
 	var req processor.QuotaRequest
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	err := decoder.Decode(&req)
-	if err != nil {
-		http.Error(w, "request body is not valid JSON: "+err.Error(), http.StatusBadRequest)
+	ok := decodeJSONRequestBody(w, r.Body, &req)
+	if !ok {
 		return
 	}
 

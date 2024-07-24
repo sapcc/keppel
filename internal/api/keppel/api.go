@@ -20,8 +20,10 @@ package keppelv1
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -185,6 +187,17 @@ func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, 
 		return nil
 	}
 	return repo
+}
+
+func decodeJSONRequestBody(w http.ResponseWriter, body io.Reader, target any) (ok bool) {
+	decoder := json.NewDecoder(body)
+	decoder.DisallowUnknownFields()
+	err := decoder.Decode(&target)
+	if err != nil {
+		http.Error(w, "request body is not valid JSON: "+err.Error(), http.StatusBadRequest)
+		return false
+	}
+	return true
 }
 
 func isValidRepoName(name string) bool {
