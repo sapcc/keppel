@@ -81,6 +81,13 @@ func (a *API) AddTo(r *mux.Router) {
 
 	r.Methods("GET").Path("/keppel/v1/quotas/{auth_tenant_id}").HandlerFunc(a.handleGetQuotas)
 	r.Methods("PUT").Path("/keppel/v1/quotas/{auth_tenant_id}").HandlerFunc(a.handlePutQuotas)
+
+	// Besides the native Keppel API, this handler also implements LIQUID.
+	// Ref: <https://pkg.go.dev/github.com/sapcc/go-api-declarations/liquid>
+	r.Methods("GET").Path("/liquid/v1/info").HandlerFunc(a.handleLiquidGetInfo)
+	r.Methods("POST").Path("/liquid/v1/report-capacity").HandlerFunc(a.handleLiquidReportCapacity)
+	r.Methods("POST").Path("/liquid/v1/projects/{auth_tenant_id}/report-usage").HandlerFunc(a.handleLiquidReportUsage)
+	r.Methods("PUT").Path("/liquid/v1/projects/{auth_tenant_id}/quota").HandlerFunc(a.handleLiquidSetQuota)
 }
 
 func (a *API) processor() *processor.Processor {
