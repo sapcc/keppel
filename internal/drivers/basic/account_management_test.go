@@ -45,7 +45,7 @@ func TestConfigureAccount(t *testing.T) {
 
 	expectedAccount := &keppel.Account{
 		Name:         "abcde",
-		AuthTenantID: "1245",
+		AuthTenantID: "12345",
 		GCPolicies: []keppel.GCPolicy{
 			{
 				Action:               "protect",

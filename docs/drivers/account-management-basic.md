@@ -20,5 +20,5 @@ The following fields are valid inside the configuration file:
 | Field | Explanation |
 | ----- | ----------- |
 | `accounts` | list of objects | A list of objects, one for each managed account. Any managed accounts that exists in the database, but is not included in this list will be deleted. |
-| `accounts[].name`<br>`accounts[].auth_tenant_id`<br>`accounts[].gc_policies`<br>`accounts[].rbac_policies`<br>`accounts[].replication`<br>`accounts[].validation` | These fields have the same structure and meaning as on `{GET,PUT} /keppel/v1/accounts/:name`; see [API spec](../api-spec.md) for details. |
+| `accounts[].name`<br>`accounts[].auth_tenant_id`<br>`accounts[].gc_policies`<br>`accounts[].platform_filter`<br>`accounts[].rbac_policies`<br>`accounts[].replication`<br>`accounts[].validation` | These fields have the same structure and meaning as on `{GET,PUT} /keppel/v1/accounts/:name`; see [API spec](../api-spec.md) for details. |
 | `accounts[].security_scan_policies` | This field has the same structure and meaning as `policies` on `{GET,PUT} /keppel/v1/accounts/:name/security_scan_policies`; see [API spec](../api-spec.md) for details. |

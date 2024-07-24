@@ -27,8 +27,10 @@ import (
 	"slices"
 	"time"
 
+	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/jobloop"
+	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/auth"
@@ -145,16 +147,51 @@ func (j *Janitor) tryDeleteManagedAccount(ctx context.Context, accountName strin
 	// avoid quering the account twice and we set this field just above via SQL
 	accountModel.InMaintenance = true
 
-	resp, err := j.processor().DeleteAccount(ctx, *accountModel)
+	proc := j.processor()
+	actx := keppel.AuditContext{
+		UserIdentity: janitorUserIdentity{TaskName: "tag-sync"},
+		Request:      janitorDummyRequest,
+	}
+	resp, err := proc.DeleteAccount(ctx, *accountModel) // TODO: should take `actx` and produce an audit event
 	if err != nil {
 		return false, err
 	}
 	if resp == nil {
+		// deletion was completed
 		return true, nil
 	}
+	if resp.Error != "" {
+		return false, errors.New(resp.Error)
+	}
 
-	// TODO: check remaining fields of `resp`
-	return false, errors.New(resp.Error)
+	// deletion was not completed yet -> check if we need to do something on our side
+	if resp.RemainingManifests != nil {
+		remainder := *resp.RemainingManifests
+		logg.Info("cleaning up managed account %q: need to delete %d manifests in this cycle", accountName, remainder.Count)
+		for _, rm := range remainder.Next {
+			parsedDigest, err := digest.Parse(rm.Digest)
+			if err != nil {
+				return false, fmt.Errorf("while deleting manifest %q in repository %q: could not parse digest: %w",
+					rm.Digest, rm.RepositoryName, err)
+			}
+			repo, err := keppel.FindRepository(j.db, rm.RepositoryName, *accountModel)
+			if err != nil {
+				return false, fmt.Errorf("while deleting manifest %q in repository %q: could not find repository in DB: %w",
+					rm.Digest, rm.RepositoryName, err)
+			}
+			err = proc.DeleteManifest(ctx, *accountModel, *repo, parsedDigest, actx)
+			if err != nil {
+				return false, fmt.Errorf("while deleting manifest %q in repository %q: %w",
+					rm.Digest, rm.RepositoryName, err)
+			}
+		}
+	}
+	if resp.RemainingBlobs != nil {
+		logg.Info("cleaning up managed account %q: waiting for %d blobs to be deleted", accountName, resp.RemainingBlobs.Count)
+	}
+
+	// since the deletion was not finished, we will retry in the next cycle
+	return false, nil
 }
 
 func (j *Janitor) createOrUpdateManagedAccount(ctx context.Context, account keppel.Account, securityScanPolicies []keppel.SecurityScanPolicy) error {
@@ -189,7 +226,7 @@ func (j *Janitor) createOrUpdateManagedAccount(ctx context.Context, account kepp
 		account.IsManaged = true
 		account.SecurityScanPoliciesJSON = string(jsonBytes)
 		nextAt := j.timeNow().Add(j.addJitter(1 * time.Hour))
-		account.NextEnforcementAt = &nextAt //TODO: duplicate with managedAccountEnforcementDoneQuery
+		account.NextEnforcementAt = &nextAt
 		return nil
 	}
 

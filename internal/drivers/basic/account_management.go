@@ -26,6 +26,7 @@ import (
 	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // AccountManagementDriver is the account management driver "basic".
@@ -44,9 +45,10 @@ type Accounts struct {
 	AuthTenantID         string                      `json:"auth_tenant_id"`
 	GCPolicies           []keppel.GCPolicy           `json:"gc_policies"`
 	RBACPolicies         []keppel.RBACPolicy         `json:"rbac_policies"`
-	ReplicationPolicy    keppel.ReplicationPolicy    `json:"replication"`
+	ReplicationPolicy    *keppel.ReplicationPolicy   `json:"replication"`
 	SecurityScanPolicies []keppel.SecurityScanPolicy `json:"security_scan_policies"`
-	ValidationPolicy     keppel.ValidationPolicy     `json:"validation"`
+	ValidationPolicy     *keppel.ValidationPolicy    `json:"validation"`
+	PlatformFilter       models.PlatformFilter       `json:"platform_filter"`
 }
 
 func init() {
@@ -83,10 +85,9 @@ func (a *AccountManagementDriver) ConfigureAccount(accountName string) (*keppel.
 			GCPolicies:        cfgAccount.GCPolicies,
 			Name:              cfgAccount.Name,
 			RBACPolicies:      cfgAccount.RBACPolicies,
-			ReplicationPolicy: &cfgAccount.ReplicationPolicy,
-			ValidationPolicy: &keppel.ValidationPolicy{
-				RequiredLabels: cfgAccount.ValidationPolicy.RequiredLabels,
-			},
+			ReplicationPolicy: cfgAccount.ReplicationPolicy,
+			ValidationPolicy:  cfgAccount.ValidationPolicy,
+			PlatformFilter:    cfgAccount.PlatformFilter,
 		}
 
 		return account, cfgAccount.SecurityScanPolicies, nil

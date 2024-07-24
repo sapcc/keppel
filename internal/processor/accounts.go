@@ -29,7 +29,6 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/sapcc/keppel/internal/auth"
 	peerclient "github.com/sapcc/keppel/internal/client/peer"
@@ -286,7 +285,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 
 		if userInfo != nil {
 			p.auditor.Record(audittools.EventParameters{
-				Time:       time.Now(),
+				Time:       p.timeNow(),
 				Request:    r,
 				User:       userInfo,
 				ReasonCode: http.StatusOK,
@@ -308,7 +307,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 			originalAccount.InMaintenance = targetAccount.InMaintenance
 			if !reflect.DeepEqual(*originalAccount, targetAccount) {
 				p.auditor.Record(audittools.EventParameters{
-					Time:       time.Now(),
+					Time:       p.timeNow(),
 					Request:    r,
 					User:       userInfo,
 					ReasonCode: http.StatusOK,
@@ -414,11 +413,11 @@ func (p *Processor) DeleteAccount(ctx context.Context, account models.Account) (
 	}
 	if blobCount > 0 {
 		// make sure that blob sweep runs immediately
-		_, err := p.db.Exec(deleteAccountMarkAllBlobsForDeletionQuery, account.Name, time.Now())
+		_, err := p.db.Exec(deleteAccountMarkAllBlobsForDeletionQuery, account.Name, p.timeNow())
 		if err != nil {
 			return nil, err
 		}
-		_, err = p.db.Exec(deleteAccountScheduleBlobSweepQuery, account.Name, time.Now())
+		_, err = p.db.Exec(deleteAccountScheduleBlobSweepQuery, account.Name, p.timeNow())
 		if err != nil {
 			return nil, err
 		}

@@ -2,7 +2,7 @@
   "accounts": [
     {
       "name": "abcde",
-      "auth_tenant_id": "1245",
+      "auth_tenant_id": "12345",
       "gc_policies": [
         {
           "match_repository": ".*/database",

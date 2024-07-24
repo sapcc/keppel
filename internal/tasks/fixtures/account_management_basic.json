@@ -1,0 +1,9 @@
+{
+  "accounts": [
+    {
+      "name": "abcde",
+      "auth_tenant_id": "12345"
+    }
+  ]
+}
+
