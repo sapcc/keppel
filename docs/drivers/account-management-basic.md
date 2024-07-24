@@ -7,6 +7,7 @@ This driver sources managed accounts from a static JSON configuration file.
 | Variable | Default | Explanation |
 | -------- | ------- | ----------- |
 | `KEPPEL_ACCOUNT_MANAGEMENT_CONFIG_PATH` | *(required)* | The path to the configuration file. |
+| `KEPPEL_ACCOUNT_MANAGEMENT_PROTECTED_ACCOUNTS` | *(optional)* | A space-separated list of account names. If any of these accounts are managed, but do not appear in the configuration file, the driver will rather fail than instruct the janitor to clean them up. This is an extra layer of protection if you want to be super-paranoid about protecting specific high-value accounts from accidental deletion (e.g. in the case of accidentally feeding an empty config file to the driver). |
 
 The driver will reload this configuration file for every work cycle of the account management job, so it is a viable
 strategy to update the configuration file without restarting the janitor process (e.g. in Kubernetes, by having the file mounted

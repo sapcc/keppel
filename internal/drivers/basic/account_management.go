@@ -20,7 +20,10 @@ package basic
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
+	"slices"
+	"strings"
 	"sync"
 
 	"github.com/sapcc/go-bits/osext"
@@ -31,9 +34,10 @@ import (
 
 // AccountManagementDriver is the account management driver "basic".
 type AccountManagementDriver struct {
-	ConfigPath string
-	config     AccountConfig
-	lock       sync.RWMutex
+	ConfigPath            string
+	config                AccountConfig
+	lock                  sync.RWMutex
+	ProtectedAccountNames []string
 }
 
 type AccountConfig struct {
@@ -62,6 +66,7 @@ func (a *AccountManagementDriver) PluginTypeID() string { return "basic" }
 
 // Init implements the keppel.AccountManagementDriver interface.
 func (a *AccountManagementDriver) Init() error {
+	a.ProtectedAccountNames = strings.Fields(os.Getenv("KEPPEL_ACCOUNT_MANAGEMENT_PROTECTED_ACCOUNTS"))
 	configPath, err := osext.NeedGetenv("KEPPEL_ACCOUNT_MANAGEMENT_CONFIG_PATH")
 	if err != nil {
 		return err
@@ -94,6 +99,9 @@ func (a *AccountManagementDriver) ConfigureAccount(accountName string) (*keppel.
 	}
 
 	// we didn't find the account, delete it
+	if slices.Contains(a.ProtectedAccountNames, accountName) {
+		return nil, nil, errors.New("refusing to delete this account because of explicit protection")
+	}
 	return nil, nil, nil
 }
 
