@@ -109,14 +109,14 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 	s.Clock.StepBy(2 * time.Hour)
 	expectSuccess(t, job.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
-		UPDATE accounts SET in_maintenance = TRUE, next_enforcement_at = %[1]d WHERE name = 'abcde';
-		DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[2]s' AND blob_id = 1;
-		DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[2]s' AND blob_id = 2;
-		DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[2]s' AND blob_id = 3;
-		DELETE FROM manifest_contents WHERE repo_id = 2 AND digest = '%[2]s';
-		DELETE FROM manifests WHERE repo_id = 2 AND digest = '%[2]s';
-		DELETE FROM tags WHERE repo_id = 2 AND name = 'latest';
-		DELETE FROM trivy_security_info WHERE repo_id = 2 AND digest = '%[2]s';
+			UPDATE accounts SET in_maintenance = TRUE, next_enforcement_at = %[1]d WHERE name = 'abcde';
+			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[2]s' AND blob_id = 1;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[2]s' AND blob_id = 2;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[2]s' AND blob_id = 3;
+			DELETE FROM manifest_contents WHERE repo_id = 2 AND digest = '%[2]s';
+			DELETE FROM manifests WHERE repo_id = 2 AND digest = '%[2]s';
+			DELETE FROM tags WHERE repo_id = 2 AND name = 'latest';
+			DELETE FROM trivy_security_info WHERE repo_id = 2 AND digest = '%[2]s';
 		`,
 		s.Clock.Now().Add(1*time.Minute).Unix(),
 		image.Manifest.Digest.String(),
@@ -128,14 +128,14 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 	s.Clock.StepBy(2 * time.Minute)
 	expectSuccess(t, job.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
-		UPDATE accounts SET next_blob_sweep_at = %[1]d, next_enforcement_at = %[2]d WHERE name = 'abcde';
-		DELETE FROM blob_mounts WHERE blob_id = 1 AND repo_id = 2;
-		DELETE FROM blob_mounts WHERE blob_id = 2 AND repo_id = 2;
-		DELETE FROM blob_mounts WHERE blob_id = 3 AND repo_id = 2;
-		UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 1 AND account_name = 'abcde' AND digest = '%[3]s';
-		UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 2 AND account_name = 'abcde' AND digest = '%[4]s';
-		UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 3 AND account_name = 'abcde' AND digest = '%[5]s';
-		DELETE FROM repos WHERE id = 2 AND account_name = 'abcde' AND name = 'foo';
+			UPDATE accounts SET next_blob_sweep_at = %[1]d, next_enforcement_at = %[2]d WHERE name = 'abcde';
+			DELETE FROM blob_mounts WHERE blob_id = 1 AND repo_id = 2;
+			DELETE FROM blob_mounts WHERE blob_id = 2 AND repo_id = 2;
+			DELETE FROM blob_mounts WHERE blob_id = 3 AND repo_id = 2;
+			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 1 AND account_name = 'abcde' AND digest = '%[3]s';
+			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 2 AND account_name = 'abcde' AND digest = '%[4]s';
+			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 3 AND account_name = 'abcde' AND digest = '%[5]s';
+			DELETE FROM repos WHERE id = 2 AND account_name = 'abcde' AND name = 'foo';
 		`,
 		s.Clock.Now().Unix(),
 		s.Clock.Now().Add(1*time.Minute).Unix(),
@@ -151,11 +151,11 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 	expectSuccess(t, blobGCJob.ProcessOne(s.Ctx))
 	expectSuccess(t, blobGCJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
-		UPDATE accounts SET next_blob_sweep_at = %[1]d WHERE name = 'abcde';
-		UPDATE accounts SET next_blob_sweep_at = %[1]d WHERE name = 'test1';
-		DELETE FROM blobs WHERE id = 1 AND account_name = 'abcde' AND digest = '%[2]s';
-		DELETE FROM blobs WHERE id = 2 AND account_name = 'abcde' AND digest = '%[3]s';
-		DELETE FROM blobs WHERE id = 3 AND account_name = 'abcde' AND digest = '%[4]s';
+			UPDATE accounts SET next_blob_sweep_at = %[1]d WHERE name = 'abcde';
+			UPDATE accounts SET next_blob_sweep_at = %[1]d WHERE name = 'test1';
+			DELETE FROM blobs WHERE id = 1 AND account_name = 'abcde' AND digest = '%[2]s';
+			DELETE FROM blobs WHERE id = 2 AND account_name = 'abcde' AND digest = '%[3]s';
+			DELETE FROM blobs WHERE id = 3 AND account_name = 'abcde' AND digest = '%[4]s';
 		`,
 		s.Clock.Now().Add(1*time.Hour).Unix(),
 		image.Layers[0].Digest.String(),

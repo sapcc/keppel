@@ -291,7 +291,7 @@ var sqlMigrations = map[string]string{
 		ALTER TABLE accounts
 			ADD COLUMN is_managed BOOLEAN NOT NULL DEFAULT FALSE,
 			ADD COLUMN next_enforcement_at TIMESTAMPTZ DEFAULT NULL;
-`,
+	`,
 	"041_add_accounts_is_managed.down.sql": `
 		ALTER TABLE accounts
 			DROP COLUMN is_managed, next_enforcement_at;
