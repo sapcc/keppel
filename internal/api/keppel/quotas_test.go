@@ -31,6 +31,7 @@ import (
 )
 
 func TestQuotasAPI(t *testing.T) {
+	// NOTE: This tests both the Keppel-native quota API and the LIQUID API which accesses the same logic.
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
 
@@ -44,8 +45,33 @@ func TestQuotasAPI(t *testing.T) {
 			"manifests": assert.JSONObject{"quota": 0, "usage": 0},
 		},
 	}.Check(t, h)
+	buildLiquidResponse := func(quota, usage uint64) assert.JSONObject {
+		return assert.JSONObject{
+			"infoVersion": 1,
+			"metrics":     map[string]assert.JSONObject{},
+			"resources": map[string]assert.JSONObject{
+				"images": {
+					"forbidden": false,
+					"quota":     quota,
+					"perAZ": map[string]assert.JSONObject{
+						"any": {
+							"usage": usage,
+						},
+					},
+				},
+			},
+		}
+	}
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/liquid/v1/projects/tenant1/report-usage",
+		Header:       map[string]string{"X-Test-Perms": "viewquota:tenant1"},
+		Body:         assert.JSONObject{"allAZs": []string{"dummy"}},
+		ExpectStatus: http.StatusOK,
+		ExpectBody:   buildLiquidResponse(0, 0),
+	}.Check(t, h)
 
-	// GET basic error cases
+	// GET basic error cases: no permission on the respective auth tenant
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/quotas/tenant1",
@@ -53,24 +79,40 @@ func TestQuotasAPI(t *testing.T) {
 		ExpectStatus: http.StatusForbidden,
 	}.Check(t, h)
 	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/liquid/v1/projects/tenant1/report-usage",
+		Header:       map[string]string{"X-Test-Perms": "viewquota:tenant2"},
+		Body:         assert.JSONObject{"allAZs": []string{"dummy"}},
+		ExpectStatus: http.StatusForbidden,
+	}.Check(t, h)
+
+	// GET basic error cases: wrong permission on the respective auth tenant
+	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/quotas/tenant1",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
 		ExpectStatus: http.StatusForbidden,
 	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/liquid/v1/projects/tenant1/report-usage",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
+		Body:         assert.JSONObject{"allAZs": []string{"dummy"}},
+		ExpectStatus: http.StatusForbidden,
+	}.Check(t, h)
 
-	// PUT happy case
+	// PUT happy case with native API
 	for _, pass := range []int{1, 2, 3} {
 		assert.HTTPRequest{
 			Method: "PUT",
 			Path:   "/keppel/v1/quotas/tenant1",
 			Header: map[string]string{"X-Test-Perms": "changequota:tenant1"},
 			Body: assert.JSONObject{
-				"manifests": assert.JSONObject{"quota": 100},
+				"manifests": assert.JSONObject{"quota": 50},
 			},
 			ExpectStatus: http.StatusOK,
 			ExpectBody: assert.JSONObject{
-				"manifests": assert.JSONObject{"quota": 100, "usage": 0},
+				"manifests": assert.JSONObject{"quota": 50, "usage": 0},
 			},
 		}.Check(t, h)
 
@@ -94,6 +136,50 @@ func TestQuotasAPI(t *testing.T) {
 						{
 							Name:    "payload",
 							TypeURI: "mime:application/json",
+							Content: `{"manifests":50}`,
+						},
+					},
+				},
+			})
+		} else {
+			s.Auditor.ExpectEvents(t /*, nothing */)
+		}
+	}
+
+	// PUT happy case with LIQUID API
+	for _, pass := range []int{1, 2, 3} {
+		assert.HTTPRequest{
+			Method: "PUT",
+			Path:   "/liquid/v1/projects/tenant1/quota",
+			Header: map[string]string{"X-Test-Perms": "changequota:tenant1"},
+			Body: assert.JSONObject{
+				"resources": map[string]assert.JSONObject{
+					"images": {"quota": 100},
+				},
+			},
+			ExpectStatus: http.StatusNoContent,
+		}.Check(t, h)
+
+		// only the first pass should generate an audit event
+		if pass == 1 {
+			s.Auditor.ExpectEvents(t, cadf.Event{
+				RequestPath: "/liquid/v1/projects/tenant1/quota",
+				Action:      cadf.UpdateAction,
+				Outcome:     "success",
+				Reason:      test.CADFReasonOK,
+				Target: cadf.Resource{
+					TypeURI:   "docker-registry/project-quota",
+					ID:        "tenant1",
+					ProjectID: "tenant1",
+					Attachments: []cadf.Attachment{
+						{
+							Name:    "payload-before",
+							TypeURI: "mime:application/json",
+							Content: `{"manifests":50}`,
+						},
+						{
+							Name:    "payload",
+							TypeURI: "mime:application/json",
 							Content: `{"manifests":100}`,
 						},
 					},
@@ -113,6 +199,14 @@ func TestQuotasAPI(t *testing.T) {
 		ExpectBody: assert.JSONObject{
 			"manifests": assert.JSONObject{"quota": 100, "usage": 0},
 		},
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/liquid/v1/projects/tenant1/report-usage",
+		Header:       map[string]string{"X-Test-Perms": "viewquota:tenant1"},
+		Body:         assert.JSONObject{"allAZs": []string{"dummy"}},
+		ExpectStatus: http.StatusOK,
+		ExpectBody:   buildLiquidResponse(100, 0),
 	}.Check(t, h)
 
 	// put some manifests in the DB, check thet GET reflects higher usage
@@ -151,6 +245,14 @@ func TestQuotasAPI(t *testing.T) {
 		ExpectBody: assert.JSONObject{
 			"manifests": assert.JSONObject{"quota": 100, "usage": 10},
 		},
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "POST",
+		Path:         "/liquid/v1/projects/tenant1/report-usage",
+		Header:       map[string]string{"X-Test-Perms": "viewquota:tenant1"},
+		Body:         assert.JSONObject{"allAZs": []string{"dummy"}},
+		ExpectStatus: http.StatusOK,
+		ExpectBody:   buildLiquidResponse(100, 10),
 	}.Check(t, h)
 
 	// PUT error cases

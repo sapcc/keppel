@@ -27,43 +27,6 @@ import (
 	"github.com/sapcc/keppel/internal/models"
 )
 
-// AuditQuotas is an audittools.TargetRenderer.
-type AuditQuotas struct {
-	QuotasBefore models.Quotas
-	QuotasAfter  models.Quotas
-}
-
-// Render implements the audittools.TargetRenderer interface.
-func (a AuditQuotas) Render() cadf.Resource {
-	return cadf.Resource{
-		TypeURI:   "docker-registry/project-quota",
-		ID:        a.QuotasAfter.AuthTenantID,
-		ProjectID: a.QuotasAfter.AuthTenantID,
-		Attachments: []cadf.Attachment{
-			{
-				Name:    "payload-before",
-				TypeURI: "mime:application/json",
-				Content: quotasToJSON(a.QuotasBefore),
-			},
-			{
-				Name:    "payload",
-				TypeURI: "mime:application/json",
-				Content: quotasToJSON(a.QuotasAfter),
-			},
-		},
-	}
-}
-
-func quotasToJSON(q models.Quotas) string {
-	data := struct {
-		ManifestCount uint64 `json:"manifests"`
-	}{
-		ManifestCount: q.ManifestCount,
-	}
-	buf, _ := json.Marshal(data)
-	return string(buf)
-}
-
 // AuditSecurityScanPolicy is an audittools.TargetRenderer.
 type AuditSecurityScanPolicy struct {
 	Account models.Account

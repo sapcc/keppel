@@ -19,38 +19,16 @@
 package keppelv1
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/sapcc/go-api-declarations/cadf"
-	"github.com/sapcc/go-bits/audittools"
+	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
-	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/models"
+	"github.com/sapcc/keppel/internal/processor"
 )
-
-type quotaAndUsage struct {
-	Quota uint64 `json:"quota"`
-	Usage uint64 `json:"usage"`
-}
-
-type quotaResponse struct {
-	Manifests quotaAndUsage `json:"manifests"`
-}
-
-type justQuota struct {
-	Quota uint64 `json:"quota"`
-}
-
-type quotaRequest struct {
-	Manifests justQuota `json:"manifests"`
-}
 
 func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/quotas/:auth_tenant_id")
@@ -60,25 +38,11 @@ func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	quotas, err := keppel.FindQuotas(a.db, authTenantID)
+	resp, err := a.processor().GetQuotas(authTenantID)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-	if quotas == nil {
-		quotas = models.DefaultQuotas(authTenantID)
-	}
-
-	manifestCount, err := keppel.GetManifestUsage(a.db, *quotas)
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-
-	respondwith.JSON(w, http.StatusOK, quotaResponse{
-		Manifests: quotaAndUsage{
-			Quota: quotas.ManifestCount,
-			Usage: manifestCount,
-		},
-	})
+	respondwith.JSON(w, http.StatusOK, resp)
 }
 
 func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
@@ -89,78 +53,20 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	quotas, err := keppel.FindQuotas(a.db, authTenantID)
+	var req processor.QuotaRequest
+	ok := decodeJSONRequestBody(w, r.Body, &req)
+	if !ok {
+		return
+	}
+
+	resp, err := a.processor().SetQuotas(authTenantID, req, authz.UserIdentity.UserInfo(), r)
+	if iqerr, ok := errext.As[processor.ImpossibleQuotaError](err); ok {
+		http.Error(w, iqerr.Message, http.StatusUnprocessableEntity)
+		return
+	}
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-	isUpdate := true
-	if quotas == nil {
-		quotas = models.DefaultQuotas(authTenantID)
-		isUpdate = false
-	}
-	quotasBefore := *quotas
 
-	// parse request
-	var req quotaRequest
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&req)
-	if err != nil {
-		http.Error(w, "request body is not valid JSON: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// check usage
-	tx, err := a.db.Begin()
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-	defer sqlext.RollbackUnlessCommitted(tx)
-
-	manifestCount, err := keppel.GetManifestUsage(tx, *quotas)
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-	if req.Manifests.Quota < manifestCount {
-		msg := fmt.Sprintf("requested manifest quota (%d) is below usage (%d)",
-			req.Manifests.Quota, manifestCount)
-		http.Error(w, msg, http.StatusUnprocessableEntity)
-		return
-	}
-
-	if quotas.ManifestCount != req.Manifests.Quota {
-		// apply quotas if necessary
-		quotas.ManifestCount = req.Manifests.Quota
-		if isUpdate {
-			_, err = tx.Update(quotas)
-		} else {
-			err = tx.Insert(quotas)
-		}
-		if respondwith.ErrorText(w, err) {
-			return
-		}
-		err = tx.Commit()
-		if respondwith.ErrorText(w, err) {
-			return
-		}
-
-		// record audit event when quotas have changed
-		if userInfo := authz.UserIdentity.UserInfo(); userInfo != nil {
-			a.auditor.Record(audittools.EventParameters{
-				Time:       time.Now(),
-				Request:    r,
-				User:       userInfo,
-				ReasonCode: http.StatusOK,
-				Action:     cadf.UpdateAction,
-				Target:     AuditQuotas{QuotasBefore: quotasBefore, QuotasAfter: *quotas},
-			})
-		}
-	}
-
-	respondwith.JSON(w, http.StatusOK, quotaResponse{
-		Manifests: quotaAndUsage{
-			Quota: req.Manifests.Quota,
-			Usage: manifestCount,
-		},
-	})
+	respondwith.JSON(w, http.StatusOK, resp)
 }

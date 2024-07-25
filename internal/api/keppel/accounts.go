@@ -104,11 +104,8 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Account keppel.Account `json:"account"`
 	}
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	err := decoder.Decode(&req)
-	if err != nil {
-		http.Error(w, "request body is not valid JSON: "+err.Error(), http.StatusBadRequest)
+	ok := decodeJSONRequestBody(w, r.Body, &req)
+	if !ok {
 		return
 	}
 	// we do not allow to set name in the request body ...
@@ -365,11 +362,8 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 	var req struct {
 		Policies []keppel.SecurityScanPolicy `json:"policies"`
 	}
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&req)
-	if err != nil {
-		http.Error(w, "request body is not valid JSON: "+err.Error(), http.StatusBadRequest)
+	ok := decodeJSONRequestBody(w, r.Body, &req)
+	if !ok {
 		return
 	}
 

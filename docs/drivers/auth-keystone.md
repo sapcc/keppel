@@ -39,8 +39,14 @@ Keppel understands access rules in the [`oslo.policy` JSON][os-pol-json] and [`o
 
 All policy rules can use the object attribute `%(target.project.id)s`.
 
+### Keystone service catalog
+
+- The top-level path of the Keppel API (e.g. `https://keppel.example.com/`) should be entered in the service catalog as service type `keppel`.
+- If integration with [Limes][limes] is desired, the `/liquid/` subpath of the Keppel API (e.g. `https://keppel.example.com/liquid/`) can be entered in the service catalog as service type `liquid-keppel`.
+
 See also: [List of available API attributes](https://github.com/sapcc/go-bits/blob/53eeb20fde03c3d0a35e76cf9c9a06b63a415e6b/gopherpolicy/pkg.go#L151-L164)
 
+[limes]: https://github.com/sapcc/limes
 [os-env]: https://docs.openstack.org/python-openstackclient/latest/cli/man/openstack.html
 [os-pol-json]: https://docs.openstack.org/oslo.policy/latest/admin/policy-json-file.html
 [os-pol-yaml]: https://docs.openstack.org/oslo.policy/latest/admin/policy-yaml-file.html
