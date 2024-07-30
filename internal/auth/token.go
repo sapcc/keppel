@@ -147,7 +147,7 @@ func (a Authorization) IssueTokenWithExpires(cfg keppel.Configuration, expiresIn
 			Issuer:    "keppel-api@" + issuer.Hostname(cfg),
 			Subject:   a.UserIdentity.UserName(),
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
-			NotBefore: jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now.Add(-1 * time.Second)), // set slightly in the past to account for clock skew between token issuer and user
 			IssuedAt:  jwt.NewNumericDate(now),
 		},
 		// access permissions granted to this token
