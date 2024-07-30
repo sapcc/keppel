@@ -179,7 +179,7 @@ The following configuration options are understood by both the API server and th
 | `KEPPEL_DB_HOSTNAME` | `localhost` | Hostname of the database server. |
 | `KEPPEL_DB_PORT` | `5432` | Port on which the PostgreSQL service is running on. |
 | `KEPPEL_DB_CONNECTION_OPTIONS` | *(optional)* | Database connection options. |
-| `KEPPEL_DRIVER_AUTH` | `none` | The name of an auth driver. |
+| `KEPPEL_DRIVER_AUTH` | *(required)* | The name of an auth driver. |
 | `KEPPEL_DRIVER_FEDERATION` | *(required)* | The name of a federation driver. For single-region deployments, the correct choice is probably `trivial`. |
 | `KEPPEL_DRIVER_INBOUND_CACHE` | *(required)* | The name of an inbound cache driver. The driver name `trivial` chooses a zero-sized cache that effectively disables caching entirely. |
 | `KEPPEL_DRIVER_STORAGE` | *(required)* | The name of a storage driver. |
@@ -218,7 +218,7 @@ These options are only understood by the janitor.
 
 | Variable | Default | Explanation |
 | -------- | ------- | ----------- |
-| `KEPPEL_DRIVER_ACCOUNT_MANAGEMENT` | `none` | The name of an account management driver. If you don't need managed accounts, the correct choice is `trivial`. |
+| `KEPPEL_DRIVER_ACCOUNT_MANAGEMENT` | *(required)* | The name of an account management driver. If you don't need managed accounts, the correct choice is `trivial`. |
 | `KEPPEL_JANITOR_LISTEN_ADDRESS` | :8080 | Listen address for HTTP server (only provides Prometheus metrics). |
 
 ### Health monitor configuration options
