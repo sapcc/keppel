@@ -11,13 +11,13 @@ github.com/alicebob/miniredis/v2/metro
 github.com/alicebob/miniredis/v2/proto
 github.com/alicebob/miniredis/v2/server
 github.com/alicebob/miniredis/v2/size
-# github.com/aquasecurity/trivy v0.53.0
+# github.com/aquasecurity/trivy v0.54.0
 ## explicit; go 1.22.0
 github.com/aquasecurity/trivy/pkg/digest
 github.com/aquasecurity/trivy/pkg/fanal/types
 github.com/aquasecurity/trivy/pkg/module/serialize
-# github.com/aquasecurity/trivy-db v0.0.0-20231005141211-4fc651f7ac8d
-## explicit; go 1.19
+# github.com/aquasecurity/trivy-db v0.0.0-20240718084044-d23a6ca8ba04
+## explicit; go 1.22
 github.com/aquasecurity/trivy-db/pkg/types
 # github.com/beorn7/perks v1.0.1
 ## explicit; go 1.11
@@ -65,7 +65,7 @@ github.com/golang-migrate/migrate/v4/database/postgres
 github.com/golang-migrate/migrate/v4/internal/url
 github.com/golang-migrate/migrate/v4/source
 github.com/golang-migrate/migrate/v4/source/go_bindata
-# github.com/google/go-containerregistry v0.19.2
+# github.com/google/go-containerregistry v0.20.1
 ## explicit; go 1.18
 github.com/google/go-containerregistry/pkg/v1
 github.com/google/go-containerregistry/pkg/v1/types
@@ -167,15 +167,15 @@ github.com/redis/go-redis/v9/internal/pool
 github.com/redis/go-redis/v9/internal/proto
 github.com/redis/go-redis/v9/internal/rand
 github.com/redis/go-redis/v9/internal/util
-# github.com/rogpeppe/go-internal v1.12.0
-## explicit; go 1.20
 # github.com/rs/cors v1.11.0
 ## explicit; go 1.13
 github.com/rs/cors
 github.com/rs/cors/internal
-# github.com/samber/lo v1.39.0
+# github.com/samber/lo v1.46.0
 ## explicit; go 1.18
 github.com/samber/lo
+github.com/samber/lo/internal/constraints
+github.com/samber/lo/internal/rand
 # github.com/sapcc/go-api-declarations v1.12.0
 ## explicit; go 1.21
 github.com/sapcc/go-api-declarations/bininfo
@@ -232,7 +232,6 @@ golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
 # golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 ## explicit; go 1.20
-golang.org/x/exp/constraints
 golang.org/x/exp/maps
 # golang.org/x/sys v0.22.0
 ## explicit; go 1.18
@@ -240,11 +239,18 @@ golang.org/x/sys/unix
 golang.org/x/sys/windows
 # golang.org/x/text v0.16.0
 ## explicit; go 1.18
+golang.org/x/text/cases
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/internal
 golang.org/x/text/encoding/internal/identifier
+golang.org/x/text/internal
+golang.org/x/text/internal/language
+golang.org/x/text/internal/language/compact
+golang.org/x/text/internal/tag
+golang.org/x/text/language
 golang.org/x/text/transform
+golang.org/x/text/unicode/norm
 # golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028
 ## explicit; go 1.18
 golang.org/x/xerrors
