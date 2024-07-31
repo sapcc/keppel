@@ -29,7 +29,6 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/sapcc/keppel/internal/auth"
 	peerclient "github.com/sapcc/keppel/internal/client/peer"
@@ -62,9 +61,13 @@ func (p *Processor) GetPlatformFilterFromPrimaryAccount(ctx context.Context, pee
 }
 
 var looksLikeAPIVersionRx = regexp.MustCompile(`^v[0-9][1-9]*$`)
+var ErrAccountNameEmpty = errors.New("account name cannot be empty string")
 
 // CreateOrUpdate can be used on an API account and returns the database representation of it.
-func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Account, fd keppel.FederationDriver, userInfo audittools.UserInfo, r *http.Request, getSubleaseToken func(models.Peer) (string, *keppel.RegistryV2Error)) (models.Account, *keppel.RegistryV2Error) {
+func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Account, userInfo audittools.UserInfo, r *http.Request, getSubleaseToken func(models.Peer) (string, *keppel.RegistryV2Error), setCustomFields func(*models.Account) *keppel.RegistryV2Error) (models.Account, *keppel.RegistryV2Error) {
+	if account.Name == "" {
+		return models.Account{}, keppel.AsRegistryV2Error(ErrAccountNameEmpty)
+	}
 	// reserve identifiers for internal pseudo-accounts and anything that might
 	// appear like the first path element of a legal endpoint path on any of our
 	// APIs (we will soon start recognizing image-like URLs such as
@@ -226,6 +229,11 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 		return models.Account{}, keppel.AsRegistryV2Error(errors.New(`cannot change platform filter on existing account`)).WithStatus(http.StatusConflict)
 	}
 
+	rerr := setCustomFields(&targetAccount)
+	if rerr != nil {
+		return models.Account{}, rerr
+	}
+
 	// create account if required
 	if originalAccount == nil {
 		// sublease tokens are only relevant when creating replica accounts
@@ -240,7 +248,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 
 		// check permission to claim account name (this only happens here because
 		// it's only relevant for account creations, not for updates)
-		claimResult, err := fd.ClaimAccountName(ctx, targetAccount, subleaseTokenSecret)
+		claimResult, err := p.fd.ClaimAccountName(ctx, targetAccount, subleaseTokenSecret)
 		switch claimResult {
 		case keppel.ClaimSucceeded:
 			// nothing to do
@@ -277,7 +285,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 
 		if userInfo != nil {
 			p.auditor.Record(audittools.EventParameters{
-				Time:       time.Now(),
+				Time:       p.timeNow(),
 				Request:    r,
 				User:       userInfo,
 				ReasonCode: http.StatusOK,
@@ -299,7 +307,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 			originalAccount.InMaintenance = targetAccount.InMaintenance
 			if !reflect.DeepEqual(*originalAccount, targetAccount) {
 				p.auditor.Record(audittools.EventParameters{
-					Time:       time.Now(),
+					Time:       p.timeNow(),
 					Request:    r,
 					User:       userInfo,
 					ReasonCode: http.StatusOK,
@@ -311,4 +319,134 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 	}
 
 	return targetAccount, nil
+}
+
+// DeleteAccountRemainingManifest appears in type DeleteAccountResponse.
+type DeleteAccountRemainingManifest struct {
+	RepositoryName string `json:"repository"`
+	Digest         string `json:"digest"`
+}
+
+// DeleteAccountRemainingManifests appears in type DeleteAccountResponse.
+type DeleteAccountRemainingManifests struct {
+	Count uint64                           `json:"count"`
+	Next  []DeleteAccountRemainingManifest `json:"next"`
+}
+
+// DeleteAccountRemainingBlobs appears in type DeleteAccountResponse.
+type DeleteAccountRemainingBlobs struct {
+	Count uint64 `json:"count"`
+}
+
+// DeleteAccountResponse is returned by Processor.DeleteAccount().
+// It is the structure of the response to an account deletion API call.
+type DeleteAccountResponse struct {
+	RemainingManifests *DeleteAccountRemainingManifests `json:"remaining_manifests,omitempty"`
+	RemainingBlobs     *DeleteAccountRemainingBlobs     `json:"remaining_blobs,omitempty"`
+	Error              string                           `json:"error,omitempty"`
+}
+
+var (
+	deleteAccountFindManifestsQuery = sqlext.SimplifyWhitespace(`
+		SELECT r.name, m.digest
+			FROM manifests m
+			JOIN repos r ON m.repo_id = r.id
+			JOIN accounts a ON a.name = r.account_name
+			LEFT OUTER JOIN manifest_manifest_refs mmr ON mmr.repo_id = r.id AND m.digest = mmr.child_digest
+    WHERE a.name = $1 AND parent_digest IS NULL
+    LIMIT 10
+	`)
+	deleteAccountCountManifestsQuery = sqlext.SimplifyWhitespace(`
+		SELECT COUNT(m.digest)
+			FROM manifests m
+			JOIN repos r ON m.repo_id = r.id
+			JOIN accounts a ON a.name = r.account_name
+    WHERE a.name = $1
+  `)
+	deleteAccountReposQuery                   = `DELETE FROM repos WHERE account_name = $1`
+	deleteAccountCountBlobsQuery              = `SELECT COUNT(id) FROM blobs WHERE account_name = $1`
+	deleteAccountScheduleBlobSweepQuery       = `UPDATE accounts SET next_blob_sweep_at = $2 WHERE name = $1`
+	deleteAccountMarkAllBlobsForDeletionQuery = `UPDATE blobs SET can_be_deleted_at = $2 WHERE account_name = $1`
+)
+
+func (p *Processor) DeleteAccount(ctx context.Context, account models.Account) (*DeleteAccountResponse, error) {
+	if !account.InMaintenance {
+		return &DeleteAccountResponse{
+			Error: "account must be set in maintenance first",
+		}, nil
+	}
+
+	// can only delete account when user has deleted all manifests from it
+	var nextManifests []DeleteAccountRemainingManifest
+	err := sqlext.ForeachRow(p.db, deleteAccountFindManifestsQuery, []any{account.Name},
+		func(rows *sql.Rows) error {
+			var m DeleteAccountRemainingManifest
+			err := rows.Scan(&m.RepositoryName, &m.Digest)
+			nextManifests = append(nextManifests, m)
+			return err
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if len(nextManifests) > 0 {
+		manifestCount, err := p.db.SelectInt(deleteAccountCountManifestsQuery, account.Name)
+		return &DeleteAccountResponse{
+			RemainingManifests: &DeleteAccountRemainingManifests{
+				Count: uint64(manifestCount),
+				Next:  nextManifests,
+			},
+		}, err
+	}
+
+	// delete all repos (and therefore, all blob mounts), so that blob sweeping
+	// can immediately take place
+	_, err = p.db.Exec(deleteAccountReposQuery, account.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	// can only delete account when all blobs have been deleted
+	blobCount, err := p.db.SelectInt(deleteAccountCountBlobsQuery, account.Name)
+	if err != nil {
+		return nil, err
+	}
+	if blobCount > 0 {
+		// make sure that blob sweep runs immediately
+		_, err := p.db.Exec(deleteAccountMarkAllBlobsForDeletionQuery, account.Name, p.timeNow())
+		if err != nil {
+			return nil, err
+		}
+		_, err = p.db.Exec(deleteAccountScheduleBlobSweepQuery, account.Name, p.timeNow())
+		if err != nil {
+			return nil, err
+		}
+		return &DeleteAccountResponse{
+			RemainingBlobs: &DeleteAccountRemainingBlobs{Count: uint64(blobCount)},
+		}, nil
+	}
+
+	// start deleting the account in a transaction
+	tx, err := p.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer sqlext.RollbackUnlessCommitted(tx)
+	_, err = tx.Delete(&account)
+	if err != nil {
+		return nil, err
+	}
+
+	// before committing the transaction, confirm account deletion with the
+	// storage driver and the federation driver
+	err = p.sd.CleanupAccount(ctx, account)
+	if err != nil {
+		return nil, fmt.Errorf("while cleaning up storage for account: %w", err)
+	}
+	err = p.fd.ForfeitAccountName(ctx, account)
+	if err != nil {
+		return nil, fmt.Errorf("while cleaning up name claim for account: %w", err)
+	}
+
+	return nil, tx.Commit()
 }

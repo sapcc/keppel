@@ -157,6 +157,9 @@ your environment:
   implementation is the "trivial" inbound cache driver, which does not cache anything. Every access is a cache miss and
   goes through to the external registry.
 
+- The **account management driver** provides an interface for receiving account configuration from an external source,
+  like a configuration file or an external auth service or customer database.
+
 ### Common configuration options
 
 The following configuration options are understood by both the API server and the janitor:
@@ -215,6 +218,7 @@ These options are only understood by the janitor.
 
 | Variable | Default | Explanation |
 | -------- | ------- | ----------- |
+| `KEPPEL_DRIVER_ACCOUNT_MANAGEMENT` | *(required)* | The name of an account management driver. If you don't need managed accounts, the correct choice is `trivial`. |
 | `KEPPEL_JANITOR_LISTEN_ADDRESS` | :8080 | Listen address for HTTP server (only provides Prometheus metrics). |
 
 ### Health monitor configuration options

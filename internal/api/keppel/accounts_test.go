@@ -582,6 +582,16 @@ func TestPutAccountErrorCases(t *testing.T) {
 		Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
 		Body:         assert.StringData(`{"account":???}`),
 		ExpectStatus: http.StatusBadRequest,
+		ExpectBody:   assert.StringData("request body is not valid JSON: invalid character '?' looking for beginning of value\n"),
+	}.Check(t, h)
+
+	assert.HTTPRequest{
+		Method:       "PUT",
+		Path:         "/keppel/v1/accounts/second",
+		Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body:         assert.StringData(`{"account":""}`),
+		ExpectStatus: http.StatusBadRequest,
+		ExpectBody:   assert.StringData("request body is not valid JSON: json: cannot unmarshal string into Go struct field .account of type keppel.Account\n"),
 	}.Check(t, h)
 
 	assert.HTTPRequest{
@@ -1211,6 +1221,22 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectStatus: http.StatusForbidden,
 		ExpectBody:   assert.StringData("no permission for keppel_account:unknown:change\n"),
 	}.Check(t, h)
+
+	// test protection for managed accounts
+	mustExec(t, s.DB, "UPDATE accounts SET is_managed = TRUE WHERE name = $1", "first")
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+			},
+		},
+		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   assert.StringData("cannot manually change configuration of a managed account\n"),
+	}.Check(t, h)
+	mustExec(t, s.DB, "UPDATE accounts SET is_managed = FALSE WHERE name = $1", "first")
 }
 
 func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
@@ -1247,7 +1273,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			Body: assert.JSONObject{
 				"account": assert.JSONObject{
 					"auth_tenant_id": "tenant1",
-					"replication":    assert.JSONObject{"strategy": "yes_please"},
+					"replication":    assert.JSONObject{"strategy": "yes_please", "upstream": "registry.example.org"},
 				},
 			},
 			ExpectStatus: http.StatusBadRequest,
@@ -2033,10 +2059,8 @@ func TestDeleteAccount(t *testing.T) {
 		Method:       "DELETE",
 		Path:         "/keppel/v1/accounts/test3",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant3,change:tenant3"},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody: assert.JSONObject{
-			"error": "ForfeitAccountName failing as requested",
-		},
+		ExpectStatus: http.StatusInternalServerError,
+		ExpectBody:   assert.StringData("while cleaning up name claim for account: ForfeitAccountName failed as requested\n"),
 	}.Check(t, h)
 
 	// account "test2" should be gone now

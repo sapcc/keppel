@@ -83,6 +83,12 @@ func (r *ReplicationPolicy) UnmarshalJSON(buf []byte) error {
 	}
 	r.Strategy = s.Strategy
 
+	if len(s.Upstream) == 0 {
+		// need a more explicit error for this, otherwise the next json.Unmarshal()
+		// will return a relatively inscrutable "unexpected end of JSON input"
+		return errors.New(`missing field "upstream" in ReplicationPolicy`)
+	}
+
 	switch r.Strategy {
 	case OnFirstUseStrategy:
 		return json.Unmarshal(s.Upstream, &r.UpstreamPeerHostName)
