@@ -149,10 +149,10 @@ func (j *Janitor) tryDeleteManagedAccount(ctx context.Context, accountName strin
 
 	proc := j.processor()
 	actx := keppel.AuditContext{
-		UserIdentity: janitorUserIdentity{TaskName: "tag-sync"},
+		UserIdentity: janitorUserIdentity{TaskName: "account-sync"},
 		Request:      janitorDummyRequest,
 	}
-	resp, err := proc.DeleteAccount(ctx, *accountModel) // TODO: should take `actx` and produce an audit event
+	resp, err := proc.DeleteAccount(ctx, *accountModel, actx)
 	if err != nil {
 		return false, err
 	}

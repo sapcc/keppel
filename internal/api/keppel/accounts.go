@@ -156,7 +156,10 @@ func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := a.processor().DeleteAccount(r.Context(), *account)
+	resp, err := a.processor().DeleteAccount(r.Context(), *account, keppel.AuditContext{
+		UserIdentity: authz.UserIdentity,
+		Request:      r,
+	})
 	if respondwith.ErrorText(w, err) {
 		return
 	}
