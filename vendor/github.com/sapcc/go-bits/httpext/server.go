@@ -72,7 +72,18 @@ func ContextWithSIGINT(ctx context.Context, delay time.Duration) context.Context
 func ListenAndServeContext(ctx context.Context, addr string, handler http.Handler) error {
 	logg.Info("Listening on %s...", addr)
 	server := &http.Server{Addr: addr, Handler: handler}
+	return listenAndServeContext(ctx, server, func() error { return server.ListenAndServe() })
+}
 
+// ListenAndServeTLSContext is a wrapper around http.ListenAndServeTLS() that additionally
+// shuts down the HTTP server gracefully when the context expires, or if an error occurs.
+func ListenAndServeTLSContext(ctx context.Context, addr, certFile, keyFile string, handler http.Handler) error {
+	logg.Info("Listening on %s...", addr)
+	server := &http.Server{Addr: addr, Handler: handler}
+	return listenAndServeContext(ctx, server, func() error { return server.ListenAndServeTLS(certFile, keyFile) })
+}
+
+func listenAndServeContext(ctx context.Context, server *http.Server, listenAndServe func() error) error {
 	// waitForServerShutdown channel serves two purposes:
 	// 1. It is used to block until server.Shutdown() returns to prevent
 	// program from exiting prematurely. This is because when Shutdown is
@@ -95,13 +106,13 @@ func ListenAndServeContext(ctx context.Context, addr string, handler http.Handle
 		waitForServerShutdown <- err
 	}()
 
-	listenAndServeErr := server.ListenAndServe()
-	if listenAndServeErr != http.ErrServerClosed {
+	listenAndServeErr := listenAndServe()
+	if listenAndServeErr != http.ErrServerClosed { //nolint:errorlint // errorlint usually understands that this error is returned directly from ListenAndServe(), but the indirection confuses it
 		shutdownServer <- struct{}{}
 	}
 
 	shutdownErr := <-waitForServerShutdown
-	if listenAndServeErr == http.ErrServerClosed {
+	if listenAndServeErr == http.ErrServerClosed { //nolint:errorlint // same as above
 		return addPrefix(shutdownErr, "ListenAndServeContext: could not shutdown HTTP server")
 	}
 
