@@ -369,7 +369,7 @@ var (
 	deleteAccountMarkAllBlobsForDeletionQuery = `UPDATE blobs SET can_be_deleted_at = $2 WHERE account_name = $1`
 )
 
-func (p *Processor) DeleteAccount(ctx context.Context, account models.Account) (*DeleteAccountResponse, error) {
+func (p *Processor) DeleteAccount(ctx context.Context, account models.Account, actx keppel.AuditContext) (*DeleteAccountResponse, error) {
 	if !account.InMaintenance {
 		return &DeleteAccountResponse{
 			Error: "account must be set in maintenance first",
@@ -448,5 +448,23 @@ func (p *Processor) DeleteAccount(ctx context.Context, account models.Account) (
 		return nil, fmt.Errorf("while cleaning up name claim for account: %w", err)
 	}
 
-	return nil, tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	if userInfo := actx.UserIdentity.UserInfo(); userInfo != nil {
+		p.auditor.Record(audittools.EventParameters{
+			Time:       p.timeNow(),
+			Request:    actx.Request,
+			User:       userInfo,
+			ReasonCode: http.StatusOK,
+			Action:     cadf.DeleteAction,
+			Target: auditManifest{
+				Account: account,
+			},
+		})
+	}
+
+	return nil, nil
 }
