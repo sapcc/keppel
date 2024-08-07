@@ -1,6 +1,6 @@
 {
   "extends": [
-    "config:base",
+    "config:recommended",
     "default:pinDigestsDisabled",
     "mergeConfidence:all-badges",
     "docker:disable"
@@ -27,18 +27,16 @@
       "allowedVersions": "1.22.x"
     },
     {
-      "matchPackagePatterns": [
-        "^github\\.com\\/sapcc\\/.*"
+      "matchPackageNames": [
+        "/^github\\.com\\/sapcc\\/.*/"
       ],
       "automerge": true,
       "groupName": "github.com/sapcc"
     },
     {
-      "excludePackagePatterns": [
-        "^github\\.com\\/sapcc\\/.*"
-      ],
-      "matchPackagePatterns": [
-        ".*"
+      "matchPackageNames": [
+        "!/^github\\.com\\/sapcc\\/.*/",
+        "/.*/"
       ],
       "groupName": "External dependencies"
     },
