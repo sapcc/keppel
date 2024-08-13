@@ -32,6 +32,7 @@ import (
 	janitorcmd "github.com/sapcc/keppel/cmd/janitor"
 	trivyproxycmd "github.com/sapcc/keppel/cmd/trivyproxy"
 	validatecmd "github.com/sapcc/keppel/cmd/validate"
+	validateconfigcmd "github.com/sapcc/keppel/cmd/validateconfig"
 	"github.com/sapcc/keppel/internal/keppel"
 
 	// include all known driver implementations
@@ -62,7 +63,7 @@ func main() {
 	validatecmd.AddCommandTo(rootCmd)
 
 	serverCmd := &cobra.Command{
-		Use:   "server",
+		Use:   "server <subcommand> <args...>",
 		Short: "Server commands.",
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -74,6 +75,7 @@ func main() {
 	healthmonitorcmd.AddCommandTo(serverCmd)
 	janitorcmd.AddCommandTo(serverCmd)
 	trivyproxycmd.AddCommandTo(serverCmd)
+	validateconfigcmd.AddCommandTo(serverCmd)
 	rootCmd.AddCommand(serverCmd)
 
 	must.Succeed(rootCmd.Execute())
