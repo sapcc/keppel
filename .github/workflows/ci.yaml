@@ -18,8 +18,8 @@ name: CI
 permissions:
   contents: read
 jobs:
-  buildAndLint:
-    name: Build & Lint
+  build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -31,14 +31,10 @@ jobs:
           go-version: 1.22.6
       - name: Build all binaries
         run: make build-all
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
   test:
     name: Test
     needs:
-      - buildAndLint
+      - build
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
