@@ -41,10 +41,10 @@ type AccountManagementDriver struct {
 }
 
 type AccountConfig struct {
-	Accounts []Accounts `json:"accounts"`
+	Accounts []Account `json:"accounts"`
 }
 
-type Accounts struct {
+type Account struct {
 	Name                 string                      `json:"name"`
 	AuthTenantID         string                      `json:"auth_tenant_id"`
 	GCPolicies           []keppel.GCPolicy           `json:"gc_policies"`
@@ -72,7 +72,7 @@ func (a *AccountManagementDriver) Init() error {
 		return err
 	}
 	a.ConfigPath = configPath
-	return a.loadConfig()
+	return a.LoadConfig()
 }
 
 // ConfigureAccount implements the keppel.AccountManagementDriver interface.
@@ -107,7 +107,7 @@ func (a *AccountManagementDriver) ConfigureAccount(accountName string) (*keppel.
 
 // ManagedAccountNames implements the keppel.AccountManagementDriver interface.
 func (a *AccountManagementDriver) ManagedAccountNames() ([]string, error) {
-	err := a.loadConfig()
+	err := a.LoadConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,9 @@ func (a *AccountManagementDriver) ManagedAccountNames() ([]string, error) {
 	return accounts, nil
 }
 
-func (a *AccountManagementDriver) loadConfig() error {
+// LoadConfig is used by other functions in this driver to read the config file whenever needed.
+// It is exposed as a public method because it is also used by the `keppel server validate-config` command.
+func (a *AccountManagementDriver) LoadConfig() error {
 	reader, err := os.Open(a.ConfigPath)
 	if err != nil {
 		return err
