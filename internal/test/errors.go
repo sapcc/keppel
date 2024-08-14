@@ -69,7 +69,7 @@ func (e ErrorCodeWithMessage) AssertResponseBody(t *testing.T, requestInfo strin
 		matches = e.Message == "" || data.Errors[0].Message == e.Message
 	}
 	if !matches {
-		t.Errorf(requestInfo + ": got unexpected error")
+		t.Error(requestInfo + ": got unexpected error")
 		t.Logf("\texpected = %q\n", expectedStr)
 		t.Logf("\tactual = %q\n", string(responseBody))
 	}

@@ -34,13 +34,13 @@ func TestConfigureAccount(t *testing.T) {
 
 	listOfAccounts, err := driver.ManagedAccountNames()
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	assert.DeepEqual(t, "account", listOfAccounts, []string{"abcde"})
 
 	newAccount, newSecurityScanPolicy, err := driver.ConfigureAccount("abcde")
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 
 	expectedAccount := &keppel.Account{
