@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"regexp"
 	"slices"
 	"strings"
@@ -40,7 +41,6 @@ import (
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
-	"golang.org/x/exp/maps"
 
 	"github.com/sapcc/keppel/internal/auth"
 	peerclient "github.com/sapcc/keppel/internal/client/peer"
@@ -432,7 +432,7 @@ func (j *Janitor) performManifestSync(ctx context.Context, account models.Accoun
 		// we should be deleting something in each iteration, otherwise we will get stuck in an infinite loop
 		if !deletedSomething {
 			return fmt.Errorf("cannot remove deleted manifests %v because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)",
-				maps.Keys(shallDeleteManifest))
+				slices.Collect(maps.Keys(shallDeleteManifest)))
 		}
 	}
 
