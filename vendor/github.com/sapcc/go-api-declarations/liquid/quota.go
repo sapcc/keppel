@@ -22,6 +22,10 @@ package liquid
 // ServiceQuotaRequest is the request payload format for PUT /v1/projects/:uuid/quota.
 type ServiceQuotaRequest struct {
 	Resources map[ResourceName]ResourceQuotaRequest `json:"resources"`
+
+	// Metadata about the project from Keystone.
+	// Only included if the ServiceInfo declared a need for it.
+	ProjectMetadata *ProjectMetadata `json:"projectMetadata,omitempty"`
 }
 
 // ResourceQuotaRequest contains the new quota value for a single resource.

@@ -49,7 +49,7 @@ func logDiff(t *testing.T, expected, actual string) {
 	if osext.GetenvBool("GOBITS_PRETTY_DIFF") {
 		dmp := diffmatchpatch.New()
 		diffs := dmp.DiffMain(fmt.Sprintf("%q\n", expected), fmt.Sprintf("%q\n", actual), false)
-		t.Logf(dmp.DiffPrettyText(diffs))
+		t.Log(dmp.DiffPrettyText(diffs))
 	} else {
 		t.Logf("\texpected = %q\n", expected)
 		t.Logf("\t  actual = %q\n", actual)

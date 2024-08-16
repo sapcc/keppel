@@ -78,7 +78,7 @@ type Resource struct {
 	TypeURI   string `json:"typeURI"`
 	Name      string `json:"name,omitempty"`
 	Domain    string `json:"domain,omitempty"`
-	ID        string `json:"id"`
+	ID        string `json:"id,omitempty"`
 	Addresses []struct {
 		URL  string `json:"url"`
 		Name string `json:"name,omitempty"`

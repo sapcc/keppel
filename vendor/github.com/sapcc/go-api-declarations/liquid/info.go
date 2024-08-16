@@ -42,6 +42,12 @@ type ServiceInfo struct {
 
 	// Info for each metric family that is included in a response to a query for project quota and usage.
 	UsageMetricFamilies map[MetricName]MetricFamilyInfo `json:"usageMetricFamilies"`
+
+	// Whether Limes needs to include the ProjectMetadata field in its requests for usage reports.
+	UsageReportNeedsProjectMetadata bool `json:"usageReportNeedsProjectMetadata,omitempty"`
+
+	// Whether Limes needs to include the ProjectMetadata field in its quota update requests.
+	QuotaUpdateNeedsProjectMetadata bool `json:"quotaUpdateNeedsProjectMetadata,omitempty"`
 }
 
 // ResourceInfo describes a resource that a liquid's service provides.
@@ -62,4 +68,21 @@ type ResourceInfo struct {
 	// If false, only usage is reported on the project level.
 	// Limes will abstain from maintaining quota on such resources.
 	HasQuota bool `json:"hasQuota"`
+}
+
+// ProjectMetadata includes metadata about a project from Keystone.
+//
+// It appears in types ServiceUsageRequest and ServiceQuotaRequest if requested by the ServiceInfo.
+type ProjectMetadata struct {
+	UUID   string         `json:"uuid"`
+	Name   string         `json:"name"`
+	Domain DomainMetadata `json:"domain"`
+}
+
+// DomainMetadata includes metadata about a domain from Keystone.
+//
+// It appears in type ProjectMetadata.
+type DomainMetadata struct {
+	UUID string `json:"uuid"`
+	Name string `json:"name"`
 }
