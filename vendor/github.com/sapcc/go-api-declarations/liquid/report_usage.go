@@ -27,6 +27,10 @@ type ServiceUsageRequest struct {
 	//   - usage belonging to an invalid AZ is grouped into AvailabilityZoneUnknown.
 	// Limes provides this list here to reduce the number of places where this information needs to be maintained manually.
 	AllAZs []AvailabilityZone `json:"allAZs"`
+
+	// Metadata about the project from Keystone.
+	// Only included if the ServiceInfo declared a need for it.
+	ProjectMetadata *ProjectMetadata `json:"projectMetadata,omitempty"`
 }
 
 // ServiceUsageReport is the response payload format for POST /v1/projects/:uuid/report-usage.
