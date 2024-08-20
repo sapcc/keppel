@@ -131,7 +131,7 @@ func liquidConvertQuotaResponse(resp processor.QuotaResponse) liquid.ServiceUsag
 		Metrics:     map[liquid.MetricName][]liquid.Metric{},
 		Resources: map[liquid.ResourceName]*liquid.ResourceUsageReport{
 			"images": {
-				Quota: pointerTo(int64(resp.Manifests.Quota)),
+				Quota: pointerTo(int64(resp.Manifests.Quota)), //nolint:gosec // quota is admin controlled
 				PerAZ: liquid.InAnyAZ(liquid.AZResourceUsageReport{
 					Usage: resp.Manifests.Usage,
 				}),

@@ -110,14 +110,14 @@ func TestManifestsAPI(t *testing.T) {
 
 			for idx := 1; idx <= 10; idx++ {
 				dummyDigest := test.DeterministicDummyDigest(repoID*10 + idx)
-				sizeBytes := uint64(1000 * idx)
+				sizeBytes := 1000 * idx
 				pushedAt := time.Unix(int64(1000*(repoID*10+idx)), 0)
 
 				dbManifest := models.Manifest{
 					RepositoryID:      int64(repoID),
 					Digest:            dummyDigest,
 					MediaType:         schema2.MediaTypeManifest,
-					SizeBytes:         sizeBytes,
+					SizeBytes:         uint64(sizeBytes),
 					PushedAt:          pushedAt,
 					NextValidationAt:  pushedAt.Add(models.ManifestValidationInterval),
 					LabelsJSON:        `{"foo":"is there"}`,
@@ -133,7 +133,7 @@ func TestManifestsAPI(t *testing.T) {
 				err := s.SD.WriteManifest(
 					s.Ctx,
 					models.Account{Name: repo.AccountName},
-					repo.Name, dummyDigest, []byte(strings.Repeat("x", int(sizeBytes))),
+					repo.Name, dummyDigest, []byte(strings.Repeat("x", sizeBytes)),
 				)
 				if err != nil {
 					t.Fatal(err.Error())
