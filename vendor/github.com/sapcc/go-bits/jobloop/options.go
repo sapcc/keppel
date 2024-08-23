@@ -35,7 +35,7 @@ import (
 type Option func(*jobConfig)
 
 type jobConfig struct {
-	NumGoroutines   uint
+	NumGoroutines   uint32
 	PrefilledLabels prometheus.Labels
 }
 
@@ -73,7 +73,7 @@ func (cfg jobConfig) PrefilledLabelsAsString() string {
 //
 // This option is always ignored during ProcessOne(), because a single task
 // does not require concurrency on the level of the job runtime.
-func NumGoroutines(n uint) Option {
+func NumGoroutines(n uint32) Option {
 	return func(cfg *jobConfig) {
 		cfg.NumGoroutines = n
 	}
