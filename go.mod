@@ -20,7 +20,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/prometheus/client_golang v1.20.2
 	github.com/redis/go-redis/v9 v9.6.1
-	github.com/rs/cors v1.11.0
+	github.com/rs/cors v1.11.1
 	github.com/sapcc/go-api-declarations v1.12.4
 	github.com/sapcc/go-bits v0.0.0-20240829073103-7495f31d66ad
 	github.com/spf13/cobra v1.8.1
