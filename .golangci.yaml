@@ -49,7 +49,7 @@ linters-settings:
       - ^http\.Handle(?:Func)?$
       # Forbid usage of old and archived square/go-jose
       - pkg: ^gopkg\.in/square/go-jose\.v2$
-        msg: "gopk.in/square/go-jose is arcived and has CVEs. Replace it with gopkg.in/go-jose/go-jose.v2"
+        msg: "gopk.in/square/go-jose is archived and has CVEs. Replace it with gopkg.in/go-jose/go-jose.v2"
       - pkg: ^github.com/coreos/go-oidc$
         msg: "github.com/coreos/go-oidc depends on gopkg.in/square/go-jose which has CVEs. Replace it with github.com/coreos/go-oidc/v3"
 
