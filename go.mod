@@ -21,8 +21,8 @@ require (
 	github.com/prometheus/client_golang v1.20.3
 	github.com/redis/go-redis/v9 v9.6.1
 	github.com/rs/cors v1.11.1
-	github.com/sapcc/go-api-declarations v1.12.4
-	github.com/sapcc/go-bits v0.0.0-20240829073103-7495f31d66ad
+	github.com/sapcc/go-api-declarations v1.12.5
+	github.com/sapcc/go-bits v0.0.0-20240905070742-0ac071bc79e7
 	github.com/spf13/cobra v1.8.1
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.5.3
@@ -50,7 +50,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/package-url/packageurl-go v0.1.3 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
-	github.com/prometheus/common v0.57.0 // indirect
+	github.com/prometheus/common v0.58.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/rabbitmq/amqp091-go v1.10.0 // indirect
 	github.com/samber/lo v1.46.0 // indirect
