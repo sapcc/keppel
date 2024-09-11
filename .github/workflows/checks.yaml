@@ -11,6 +11,7 @@ name: Checks
   pull_request:
     branches:
       - '*'
+  workflow_dispatch: {}
 permissions:
   checks: write
   contents: read
