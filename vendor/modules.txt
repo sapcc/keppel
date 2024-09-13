@@ -187,7 +187,7 @@ github.com/rs/cors/internal
 github.com/samber/lo
 github.com/samber/lo/internal/constraints
 github.com/samber/lo/internal/rand
-# github.com/sapcc/go-api-declarations v1.12.5
+# github.com/sapcc/go-api-declarations v1.12.6
 ## explicit; go 1.21
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf

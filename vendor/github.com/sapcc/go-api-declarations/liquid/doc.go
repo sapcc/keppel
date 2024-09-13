@@ -30,14 +30,20 @@
 //   - "A liquid" (lower case) refers to a server implementing LIQUID.
 //   - "The liquid's service" refers to the OpenStack service that the liquid is a part of or connected to.
 //
-// Each liquid provides access to one or more resources.
-// A resource is any countable or measurable kind of entity managed by the liquid's service.
+// Each liquid provides access to zero or more resources and zero or more rates:
+//   - A resource is any countable or measurable kind of entity managed by the liquid's service.
+//   - A rate is any countable or measurable series of events or transfers managed by the liquid's service.
 //
 // Limes discovers liquids through the Keystone service catalog.
 // Each liquid should be registered there with a service type that has the prefix "liquid-".
 // If a liquid uses vendor-specific APIs to interact with its service, its service type should include the vendor name.
 //
 // # Inside a resource: Usage, quota, capacity, overcommit
+//
+// Resources describe objects that are provisioned at some point and then kept around until they are later deleted.
+// Examples of resources include VMs in a compute service, volumes in a storage service, or floating IPs in a network service.
+// (This does not mean that each individual floating IP is a resource. The entire concept of "floating IPs" is the resource.)
+// Resource usage and capacity is always measured at a specific point in time, like for the Prometheus metric type "gauge".
 //
 // All resources report a usage value for each Keystone project.
 // This describes how much of the resource is used by objects created within the project.
@@ -58,7 +64,17 @@
 // Capacity and usage may be AZ-aware, in which case one value will be reported per availability zone (AZ).
 // Quota is not modelled as AZ-aware since there are no OpenStack services that support AZ-aware quota at this time.
 //
-// # Structure
+// # Inside a rate: Usage
+//
+// Rates are measurements that only ever increase over time, similar to the Prometheus metric type "counter".
+// For example, if a compute service has the resource "VMs", it might have rates like "VM creations" or "VM deletions".
+// Rates describe countable events like in this example, or measurable transfers like "bytes transferred" on network links.
+//
+// All rates report a usage value for each Keystone project.
+// Usage for each project must increase monotonically over time.
+// Usage may be AZ-aware, in which case one value will be reported per availability zone (AZ).
+//
+// # API structure
 //
 // LIQUID is structured as a REST-like HTTP API akin to those of the various OpenStack services.
 // Like with any other OpenStack API, the client (i.e. Limes) authenticates to the liquid by providing its Keystone token in the HTTP header "X-Auth-Token".
@@ -115,6 +131,10 @@
 // [Prometheus]: https://prometheus.io/
 package liquid
 
-// ResourceName identifies a resource within a service. This type is used to distinguish
-// resource names from other types of string values in function signatures.
+// ResourceName identifies a resource within a service.
+// This type is used to distinguish resource names from other types of string values in function signatures.
 type ResourceName string
+
+// RateName identifies a rate within a service.
+// This type is used to distinguish rate names from other types of string values in function signatures.
+type RateName string

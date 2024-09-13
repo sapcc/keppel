@@ -19,6 +19,11 @@
 
 package liquid
 
+import (
+	"encoding/json"
+	"math/big"
+)
+
 // ServiceUsageRequest is the request payload format for POST /v1/projects/:uuid/report-usage.
 type ServiceUsageRequest struct {
 	// All AZs known to Limes.
@@ -31,6 +36,10 @@ type ServiceUsageRequest struct {
 	// Metadata about the project from Keystone.
 	// Only included if the ServiceInfo declared a need for it.
 	ProjectMetadata *ProjectMetadata `json:"projectMetadata,omitempty"`
+
+	// The serialized state from the previous ServiceUsageReport received by Limes for this project, if any.
+	// Refer to the same field on type ServiceUsageReport for details.
+	SerializedState json.RawMessage `json:"serializedState,omitempty"`
 }
 
 // ServiceUsageReport is the response payload format for POST /v1/projects/:uuid/report-usage.
@@ -40,10 +49,23 @@ type ServiceUsageReport struct {
 	InfoVersion int64 `json:"infoVersion"`
 
 	// Must contain an entry for each resource that was declared in type ServiceInfo.
-	Resources map[ResourceName]*ResourceUsageReport `json:"resources"`
+	Resources map[ResourceName]*ResourceUsageReport `json:"resources,omitempty"`
+
+	// Must contain an entry for each rate that was declared in type ServiceInfo.
+	Rates map[RateName]*RateUsageReport `json:"rates,omitempty"`
 
 	// Must contain an entry for each metric family that was declared for usage metrics in type ServiceInfo.
-	Metrics map[MetricName][]Metric `json:"metrics"`
+	Metrics map[MetricName][]Metric `json:"metrics,omitempty"`
+
+	// Opaque state for Limes to persist and return to the liquid in the next ServiceUsageRequest for the same project.
+	// This should only be used if the liquid needs to store project-level data, but does not have its own database.
+	//
+	// This field is intended specifically for rate usage measurements, esp. to detect and handle counter resets in the backend.
+	// In this case, it might contain information like "counter C had value V at time T".
+	//
+	// Warning: As of the time of this writing, Limes may not loop this field back consistently if the liquid has resources.
+	// This behavior is considered a bug and will be fixed eventually.
+	SerializedState json.RawMessage `json:"serializedState,omitempty"`
 }
 
 // ResourceUsageReport contains usage data for a resource in a single project.
@@ -121,4 +143,28 @@ func (r *ResourceUsageReport) AddLocalizedUsage(az AvailabilityZone, usage uint6
 	} else {
 		r.PerAZ[az] = &AZResourceUsageReport{Usage: usage}
 	}
+}
+
+// RateUsageReport contains usage data for a rate in a single project.
+// It appears in type ServiceUsageReport.
+type RateUsageReport struct {
+	// For non-AZ-aware rates, the only entry shall be for AvailabilityZoneAny.
+	// Use func InAnyAZ to quickly construct a suitable structure.
+	//
+	// For AZ-aware rates, there shall be an entry for each AZ mentioned in ServiceUsageRequest.AllAZs.
+	// Reports for AZ-aware rates may also include an entry for AvailabilityZoneUnknown as needed.
+	PerAZ map[AvailabilityZone]*AZRateUsageReport `json:"perAZ"`
+}
+
+// AZRateUsageReport contains usage data for a rate in a single project and AZ.
+// It appears in type RateUsageReport.
+type AZRateUsageReport struct {
+	// The amount of usage for this rate. Must be non-nil if the rate is declared with HasUsage = true.
+	//
+	// For a given rate, project and AZ, this value must only ever increase monotonically over time.
+	// If there is the possibility of counter resets or limited retention in the underlying data source, the liquid must add its own logic to guarantee monotonicity.
+	// A common strategy is to remember previous measurements in the SerializedState field of type ServiceUsageReport.
+	//
+	// This field is modeled as a bigint because network rates like "bytes transferred" may easily exceed the range of uint64 over time.
+	Usage *big.Int `json:"usage,omitempty"`
 }

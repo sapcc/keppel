@@ -68,10 +68,10 @@ type ServiceCapacityReport struct {
 	InfoVersion int64 `json:"infoVersion"`
 
 	// Must contain an entry for each resource that was declared in type ServiceInfo with "HasCapacity = true".
-	Resources map[ResourceName]*ResourceCapacityReport `json:"resources"`
+	Resources map[ResourceName]*ResourceCapacityReport `json:"resources,omitempty"`
 
 	// Must contain an entry for each metric family that was declared for capacity metrics in type ServiceInfo.
-	Metrics map[MetricName][]Metric `json:"metrics"`
+	Metrics map[MetricName][]Metric `json:"metrics,omitempty"`
 }
 
 // ResourceCapacityReport contains capacity data for a resource.
