@@ -21,6 +21,7 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -150,6 +151,9 @@ func (w *responseWriter) Write(buf []byte) (int, error) {
 		w.errorMessageBuf.Write(buf)
 	}
 	n, err := w.original.Write(buf)
+	if n < 0 {
+		return 0, errors.New("original writer returned negative bytes, how?")
+	}
 	w.bytesWritten += uint64(n)
 	return n, err
 }
