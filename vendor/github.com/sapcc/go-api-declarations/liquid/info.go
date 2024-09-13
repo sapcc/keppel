@@ -37,6 +37,9 @@ type ServiceInfo struct {
 	// Info for each resource that this service provides.
 	Resources map[ResourceName]ResourceInfo `json:"resources"`
 
+	// Info for each rate that this service provides.
+	Rates map[RateName]RateInfo `json:"rates"`
+
 	// Info for each metric family that is included in a response to a query for cluster capacity.
 	CapacityMetricFamilies map[MetricName]MetricFamilyInfo `json:"capacityMetricFamilies"`
 
@@ -54,7 +57,7 @@ type ServiceInfo struct {
 // This type appears in type ServiceInfo.
 type ResourceInfo struct {
 	// If omitted or empty, the resource is "countable" and any quota or usage values describe a number of objects.
-	// If non-empty, the resource is "measured" and quota or usage values are measured in the given unit.
+	// If non-empty, the resource is "measured" and quota or usage values are in multiples of the given unit.
 	// For example, the compute resource "cores" is countable, but the compute resource "ram" is measured, usually in MiB.
 	Unit Unit `json:"unit,omitempty"`
 
@@ -68,6 +71,20 @@ type ResourceInfo struct {
 	// If false, only usage is reported on the project level.
 	// Limes will abstain from maintaining quota on such resources.
 	HasQuota bool `json:"hasQuota"`
+}
+
+// RateInfo describes a rate that a liquid's service provides.
+// This type appears in type ServiceInfo.
+type RateInfo struct {
+	// If omitted or empty, the rate is "countable" and usage values describe a number of events.
+	// If non-empty, the rate is "measured" and usage values are in multiples of the given unit.
+	// For example, the storage rate "volume_creations" is countable, but the network rate "outbound_transfer" is measured, e.g. in bytes.
+	Unit Unit `json:"unit,omitempty"`
+
+	// Whether the liquid reports usage for this rate on the project level.
+	// This must currently be true because there is no other reason for a rate to exist.
+	// This requirement may be relaxed in the future, if LIQUID starts modelling rate limits and there are rates that have limits, but no usage tracking.
+	HasUsage bool `json:"hasUsage"`
 }
 
 // ProjectMetadata includes metadata about a project from Keystone.

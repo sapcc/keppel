@@ -201,9 +201,9 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 	manifest.MediaType = manifestDesc.MediaType
 	// ^ Those two should be the same already, but if in doubt, we trust the
 	// parser more than the user input.
-	manifest.SizeBytes = uint64(manifestDesc.Size)
+	manifest.SizeBytes = keppel.AtLeastZero(manifestDesc.Size)
 	for _, desc := range manifestParsed.BlobReferences() {
-		manifest.SizeBytes += uint64(desc.Size)
+		manifest.SizeBytes += keppel.AtLeastZero(desc.Size)
 	}
 
 	return p.insideTransaction(ctx, func(ctx context.Context, tx *gorp.Transaction) error {
@@ -316,7 +316,7 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account models.Account,
 		}
 
 		// check that the blob size matches what the manifest says
-		if blob.SizeBytes != uint64(desc.Size) {
+		if blob.SizeBytes != keppel.AtLeastZero(desc.Size) {
 			msg := fmt.Sprintf(
 				"manifest references blob %s with %d bytes, but blob actually contains %d bytes",
 				desc.Digest, desc.Size, blob.SizeBytes)

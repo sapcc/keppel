@@ -48,7 +48,6 @@ func TestQuotasAPI(t *testing.T) {
 	buildLiquidResponse := func(quota, usage uint64) assert.JSONObject {
 		return assert.JSONObject{
 			"infoVersion": 1,
-			"metrics":     map[string]assert.JSONObject{},
 			"resources": map[string]assert.JSONObject{
 				"images": {
 					"forbidden": false,
@@ -226,7 +225,7 @@ func TestQuotasAPI(t *testing.T) {
 			RepositoryID:     1,
 			Digest:           test.DeterministicDummyDigest(idx),
 			MediaType:        "",
-			SizeBytes:        uint64(1000 * idx),
+			SizeBytes:        uint64(1000 * idx), //nolint:gosec // construction guarantees that value is positive
 			PushedAt:         pushedAt,
 			NextValidationAt: pushedAt.Add(models.ManifestValidationInterval),
 		})

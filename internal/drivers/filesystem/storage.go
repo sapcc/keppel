@@ -115,7 +115,7 @@ func (d *StorageDriver) ReadBlob(ctx context.Context, account models.Account, st
 		f.Close()
 		return nil, 0, err
 	}
-	return f, uint64(stat.Size()), nil
+	return f, keppel.AtLeastZero(stat.Size()), nil
 }
 
 // URLForBlob implements the keppel.StorageDriver interface.

@@ -231,11 +231,11 @@ func GenerateImageWithCustomConfig(change func(map[string]any), layers ...Bytes)
 // SizeBytes returns the value that we expect in the DB column
 // `manifests.size_bytes` for this image.
 func (i Image) SizeBytes() uint64 {
-	imageSize := len(i.Manifest.Contents) + len(i.Config.Contents)
+	imageSize := uint64(len(i.Manifest.Contents)) + uint64(len(i.Config.Contents))
 	for _, layer := range i.Layers {
-		imageSize += len(layer.Contents)
+		imageSize += uint64(len(layer.Contents))
 	}
-	return uint64(imageSize)
+	return imageSize
 }
 
 // DigestRef returns the ManifestReference for this manifest's digest.
@@ -297,11 +297,11 @@ func GenerateImageList(images ...Image) ImageList {
 // SizeBytes returns the value that we expect in the DB column
 // `manifests.size_bytes` for this image.
 func (l ImageList) SizeBytes() uint64 {
-	imageSize := len(l.Manifest.Contents)
+	imageSize := uint64(len(l.Manifest.Contents))
 	for _, i := range l.Images {
-		imageSize += len(i.Manifest.Contents)
+		imageSize += uint64(len(i.Manifest.Contents))
 	}
-	return uint64(imageSize)
+	return imageSize
 }
 
 // DigestRef returns the ManifestReference for this manifest's digest.

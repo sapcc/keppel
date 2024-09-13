@@ -73,7 +73,7 @@ func (p *Processor) ValidateExistingBlob(ctx context.Context, account models.Acc
 		)
 	}
 
-	if uint64(bcw.bytesWritten) != blob.SizeBytes {
+	if bcw.bytesWritten != blob.SizeBytes {
 		return fmt.Errorf("expected %d bytes, but got %d bytes",
 			blob.SizeBytes, bcw.bytesWritten,
 		)
@@ -84,11 +84,11 @@ func (p *Processor) ValidateExistingBlob(ctx context.Context, account models.Acc
 
 // An io.Writer that just counts how many bytes were written into it.
 type byteCountingWriter struct {
-	bytesWritten int
+	bytesWritten uint64
 }
 
 func (w *byteCountingWriter) Write(buf []byte) (int, error) {
-	w.bytesWritten += len(buf)
+	w.bytesWritten += uint64(len(buf))
 	return len(buf), nil
 }
 
@@ -109,7 +109,7 @@ func (p *Processor) FindBlobOrInsertUnbackedBlob(ctx context.Context, desc distr
 			AccountName:      account.Name,
 			Digest:           desc.Digest,
 			MediaType:        desc.MediaType,
-			SizeBytes:        uint64(desc.Size),
+			SizeBytes:        keppel.AtLeastZero(desc.Size),
 			StorageID:        "", // unbacked
 			PushedAt:         time.Unix(0, 0),
 			NextValidationAt: time.Unix(0, 0),
@@ -340,7 +340,7 @@ func (r *chunkingTrackingReader) Read(buf []byte) (int, error) {
 	}
 
 	n, err := r.wrapped.Read(buf)
-	r.bytesRead += uint64(n)
+	r.bytesRead += keppel.AtLeastZero(n)
 	return n, err
 }
 

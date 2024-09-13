@@ -393,7 +393,7 @@ func (p *Processor) DeleteAccount(ctx context.Context, account models.Account, a
 		manifestCount, err := p.db.SelectInt(deleteAccountCountManifestsQuery, account.Name)
 		return &DeleteAccountResponse{
 			RemainingManifests: &DeleteAccountRemainingManifests{
-				Count: uint64(manifestCount),
+				Count: keppel.AtLeastZero(manifestCount),
 				Next:  nextManifests,
 			},
 		}, err
@@ -422,7 +422,7 @@ func (p *Processor) DeleteAccount(ctx context.Context, account models.Account, a
 			return nil, err
 		}
 		return &DeleteAccountResponse{
-			RemainingBlobs: &DeleteAccountRemainingBlobs{Count: uint64(blobCount)},
+			RemainingBlobs: &DeleteAccountRemainingBlobs{Count: keppel.AtLeastZero(blobCount)},
 		}, nil
 	}
 
