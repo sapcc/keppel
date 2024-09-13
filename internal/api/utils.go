@@ -49,7 +49,7 @@ func CheckRateLimit(r *http.Request, rle *keppel.RateLimitEngine, account models
 		return err
 	}
 	if !allowed {
-		retryAfterStr := strconv.FormatUint(uint64(result.RetryAfter/time.Second), 10)
+		retryAfterStr := strconv.FormatUint(keppel.AtLeastZero(int64(result.RetryAfter/time.Second)), 10)
 		return keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr)
 	}
 

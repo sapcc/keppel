@@ -154,7 +154,16 @@ var manifestUsageQuery = sqlext.SimplifyWhitespace(`
 // accounts connected to this quota set's auth tenant.
 func GetManifestUsage(db gorp.SqlExecutor, quotas models.Quotas) (uint64, error) {
 	manifestCount, err := db.SelectInt(manifestUsageQuery, quotas.AuthTenantID)
-	return uint64(manifestCount), err
+	return AtLeastZero(manifestCount), err
+}
+
+// AtLeastZero safely converts int or int64 values (which might come from
+// DB.SelectInt() or from IO reads/writes) to uint64 by clamping negative values to 0.
+func AtLeastZero[I interface{ int | int64 }](x I) uint64 {
+	if x < 0 {
+		return 0
+	}
+	return uint64(x)
 }
 
 // FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a

@@ -117,7 +117,7 @@ func TestManifestsAPI(t *testing.T) {
 					RepositoryID:      int64(repoID),
 					Digest:            dummyDigest,
 					MediaType:         schema2.MediaTypeManifest,
-					SizeBytes:         uint64(sizeBytes),
+					SizeBytes:         uint64(sizeBytes), //nolint:gosec // construction guarantees that value is positive
 					PushedAt:          pushedAt,
 					NextValidationAt:  pushedAt.Add(models.ManifestValidationInterval),
 					LabelsJSON:        `{"foo":"is there"}`,
@@ -176,7 +176,7 @@ func TestManifestsAPI(t *testing.T) {
 			renderedManifests[idx-1] = assert.JSONObject{
 				"digest":               test.DeterministicDummyDigest(10 + idx),
 				"media_type":           schema2.MediaTypeManifest,
-				"size_bytes":           uint64(1000 * idx),
+				"size_bytes":           uint64(1000 * idx), //nolint:gosec // construction guarantees that value is positive
 				"pushed_at":            int64(1000 * (10 + idx)),
 				"last_pulled_at":       nil,
 				"labels":               assert.JSONObject{"foo": "is there"},

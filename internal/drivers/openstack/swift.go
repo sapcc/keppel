@@ -378,7 +378,7 @@ func (d *swiftDriver) ListStorageContents(ctx context.Context, account models.Ac
 			if err != nil {
 				return fmt.Errorf("while parsing chunk object name %s: %s", o.Name(), err.Error())
 			}
-			mergeChunkCount(chunkCounts, storageID, uint32(chunkNumber)) //nolint:gosec // we use ParseUint with 32 bits above
+			mergeChunkCount(chunkCounts, storageID, uint32(chunkNumber))
 			return nil
 		}
 		if match := manifestObjectNameRx.FindStringSubmatch(o.Name()); match != nil {
