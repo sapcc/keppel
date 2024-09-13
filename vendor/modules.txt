@@ -11,12 +11,12 @@ github.com/alicebob/miniredis/v2/metro
 github.com/alicebob/miniredis/v2/proto
 github.com/alicebob/miniredis/v2/server
 github.com/alicebob/miniredis/v2/size
-# github.com/aquasecurity/trivy v0.55.0
+# github.com/aquasecurity/trivy v0.55.1
 ## explicit; go 1.22.0
 github.com/aquasecurity/trivy/pkg/digest
 github.com/aquasecurity/trivy/pkg/fanal/types
 github.com/aquasecurity/trivy/pkg/module/serialize
-# github.com/aquasecurity/trivy-db v0.0.0-20240718084044-d23a6ca8ba04
+# github.com/aquasecurity/trivy-db v0.0.0-20240910133327-7e0f4d2ed4c1
 ## explicit; go 1.22
 github.com/aquasecurity/trivy-db/pkg/types
 # github.com/beorn7/perks v1.0.1
@@ -82,7 +82,7 @@ github.com/gophercloud/gophercloud/v2/openstack/identity/v3/projects
 github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens
 github.com/gophercloud/gophercloud/v2/openstack/utils
 github.com/gophercloud/gophercloud/v2/pagination
-# github.com/gophercloud/utils/v2 v2.0.0-20240812072210-8ce1fc0f2894
+# github.com/gophercloud/utils/v2 v2.0.0-20240912080913-c094a6e5b7da
 ## explicit; go 1.22
 github.com/gophercloud/utils/v2/env
 github.com/gophercloud/utils/v2/gnocchi
@@ -180,7 +180,7 @@ github.com/redis/go-redis/v9/internal/util
 ## explicit; go 1.13
 github.com/rs/cors
 github.com/rs/cors/internal
-# github.com/samber/lo v1.46.0
+# github.com/samber/lo v1.47.0
 ## explicit; go 1.18
 github.com/samber/lo
 github.com/samber/lo/internal/constraints

@@ -55,7 +55,7 @@ func (s *Status) Index() int {
 	return int(*s)
 }
 
-func (s *Status) MarshalJSON() ([]byte, error) {
+func (s Status) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
 }
 
