@@ -12,17 +12,17 @@ require (
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/gofrs/uuid/v5 v5.3.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
-	github.com/gophercloud/gophercloud/v2 v2.1.0
+	github.com/gophercloud/gophercloud/v2 v2.1.1
 	github.com/gophercloud/utils/v2 v2.0.0-20240912080913-c094a6e5b7da
 	github.com/gorilla/mux v1.8.1
 	github.com/majewsky/schwift/v2 v2.0.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0
-	github.com/prometheus/client_golang v1.20.3
+	github.com/prometheus/client_golang v1.20.4
 	github.com/redis/go-redis/v9 v9.6.1
 	github.com/rs/cors v1.11.1
 	github.com/sapcc/go-api-declarations v1.12.6
-	github.com/sapcc/go-bits v0.0.0-20240912081530-0967be9f0a6b
+	github.com/sapcc/go-bits v0.0.0-20240919081231-a80ea73a2dce
 	github.com/spf13/cobra v1.8.1
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.5.3

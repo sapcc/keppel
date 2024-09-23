@@ -65,9 +65,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strings"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 )
+
+// isLiteral returns true if none of the chars in `x` are regexp syntax.
+// For example, isLiteral("foo_bar12") is true, but isLiteral("foo*bar") is false.
+func isLiteral(x string) bool {
+	// the character list comes from `var specialBytes` in src/regexp/regexp.go of std
+	return !strings.ContainsAny(x, "\\.+*?()|[]{}^$")
+}
 
 // PlainRegexp is a regex string that implements the Marshaler and Unmarshaler
 // interfaces for encoding/json and gopkg.in/yaml.v2, respectively. This type
@@ -98,6 +106,11 @@ func (r PlainRegexp) Regexp() (*regexp.Regexp, error) {
 // Shorthand for `r.Regexp()` followed by `rx.MatchString()`. If regex parsing
 // returns an error, this function returns false.
 func (r PlainRegexp) MatchString(in string) bool {
+	// optimization: match literals without regex compilation to reduce pressure on `cache`
+	if isLiteral(string(r)) {
+		return strings.Contains(in, string(r))
+	}
+
 	rx, err := r.Regexp()
 	if err != nil {
 		return false
@@ -108,6 +121,15 @@ func (r PlainRegexp) MatchString(in string) bool {
 // Shorthand for `r.Regexp()` followed by `rx.FindStringSubmatch()`. If regex parsing
 // returns an error, this function returns nil.
 func (r PlainRegexp) FindStringSubmatch(in string) []string {
+	// optimization: match literals without regex compilation to reduce pressure on `cache`
+	if isLiteral(string(r)) {
+		if strings.Contains(in, string(r)) {
+			return []string{string(r)}
+		} else {
+			return nil
+		}
+	}
+
 	rx, err := r.Regexp()
 	if err != nil {
 		return nil
@@ -143,6 +165,11 @@ func (r BoundedRegexp) Regexp() (*regexp.Regexp, error) {
 // Shorthand for `r.Regexp()` followed by `rx.MatchString()`. If regex parsing
 // returns an error, this function returns false.
 func (r BoundedRegexp) MatchString(in string) bool {
+	// optimization: match literals without regex compilation to reduce pressure on `cache`
+	if isLiteral(string(r)) {
+		return in == string(r)
+	}
+
 	rx, err := r.Regexp()
 	if err != nil {
 		return false
@@ -153,6 +180,15 @@ func (r BoundedRegexp) MatchString(in string) bool {
 // Shorthand for `r.Regexp()` followed by `rx.FindStringSubmatch()`. If regex parsing
 // returns an error, this function returns nil.
 func (r BoundedRegexp) FindStringSubmatch(in string) []string {
+	// optimization: match literals without regex compilation to reduce pressure on `cache`
+	if isLiteral(string(r)) {
+		if in == string(r) {
+			return []string{string(r)}
+		} else {
+			return nil
+		}
+	}
+
 	rx, err := r.Regexp()
 	if err != nil {
 		return nil
