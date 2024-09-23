@@ -97,7 +97,6 @@ func run(cmd *cobra.Command, args []string) {
 		registryv2.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle),
 		peerv1.NewAPI(cfg, ad, db),
 		&headerReflector{logg.ShowDebug}, // the header reflection endpoint is only enabled where debugging is enabled (i.e. usually in dev/QA only)
-		&guiRedirecter{db, os.Getenv("KEPPEL_GUI_URI")},
 		httpapi.HealthCheckAPI{
 			SkipRequestLog: true,
 			Check: func() error {
@@ -107,6 +106,9 @@ func run(cmd *cobra.Command, args []string) {
 		httpapi.WithGlobalMiddleware(reportClientIP),
 		httpapi.WithGlobalMiddleware(corsMiddleware.Handler),
 		pprofapi.API{IsAuthorized: pprofapi.IsRequestFromLocalhost},
+		// This needs to be at the end because it is the fallback match for all
+		// paths that are not otherwise defined.
+		&guiRedirecter{db, os.Getenv("KEPPEL_GUI_URI")},
 	)
 	mux := http.NewServeMux()
 	mux.Handle("/", handler)
