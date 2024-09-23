@@ -11,7 +11,7 @@ github.com/alicebob/miniredis/v2/metro
 github.com/alicebob/miniredis/v2/proto
 github.com/alicebob/miniredis/v2/server
 github.com/alicebob/miniredis/v2/size
-# github.com/aquasecurity/trivy v0.55.1
+# github.com/aquasecurity/trivy v0.55.2
 ## explicit; go 1.22.0
 github.com/aquasecurity/trivy/pkg/digest
 github.com/aquasecurity/trivy/pkg/fanal/types
@@ -82,7 +82,7 @@ github.com/gophercloud/gophercloud/v2/openstack/identity/v3/projects
 github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens
 github.com/gophercloud/gophercloud/v2/openstack/utils
 github.com/gophercloud/gophercloud/v2/pagination
-# github.com/gophercloud/utils/v2 v2.0.0-20240912080913-c094a6e5b7da
+# github.com/gophercloud/utils/v2 v2.0.0-20240919072936-a66ae2ba6ef0
 ## explicit; go 1.22
 github.com/gophercloud/utils/v2/env
 github.com/gophercloud/utils/v2/gnocchi
