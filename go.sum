@@ -10,8 +10,8 @@ github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302 h1:uvdUDbHQHO
 github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302/go.mod h1:SGnFV6hVsYE877CKEZ6tDNTjaSXYUk6QqoIK6PrAtcc=
 github.com/alicebob/miniredis/v2 v2.33.0 h1:uvTF0EDeu9RLnUEG27Db5I68ESoIxTiXbNUiji6lZrA=
 github.com/alicebob/miniredis/v2 v2.33.0/go.mod h1:MhP4a3EU7aENRi9aO+tHfTBZicLqQevyi/DJpoj6mi0=
-github.com/aquasecurity/trivy v0.55.1 h1:LG1BA06cxO9/TYAepF8zfo+sSVxUG3dsjMrVzhlu4e4=
-github.com/aquasecurity/trivy v0.55.1/go.mod h1:dnAVPMsa9mMaZ1DZdasvFWT10WGok/boHQCpoDFgelo=
+github.com/aquasecurity/trivy v0.55.2 h1:C7Olgc3PUtAkh/2+hrgk99xc4ovJqQP9/J0A+iexi3Q=
+github.com/aquasecurity/trivy v0.55.2/go.mod h1:dnAVPMsa9mMaZ1DZdasvFWT10WGok/boHQCpoDFgelo=
 github.com/aquasecurity/trivy-db v0.0.0-20240910133327-7e0f4d2ed4c1 h1:G0gnacAORRUqz2Tm5MqivSpldY2GZ74ijhJcMsae+sA=
 github.com/aquasecurity/trivy-db v0.0.0-20240910133327-7e0f4d2ed4c1/go.mod h1:PYkSRx4dlgFATEt+okGwibvbxVEtqsOdH+vX/saACYE=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
@@ -85,8 +85,8 @@ github.com/google/go-containerregistry v0.20.2/go.mod h1:z38EKdKh4h7IP2gSfUUqEva
 github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
 github.com/gophercloud/gophercloud/v2 v2.1.1 h1:KUeVTUoq6um/CijR+hl1JRZ35SXRY62LiYUbgp4qqKw=
 github.com/gophercloud/gophercloud/v2 v2.1.1/go.mod h1:f2hMRC7Kakbv5vM7wSGHrIPZh6JZR60GVHryJlF/K44=
-github.com/gophercloud/utils/v2 v2.0.0-20240912080913-c094a6e5b7da h1:hdJBhN3o3qB5v3J2LIwBEEiI05VglnEyr4VaU4cwNHI=
-github.com/gophercloud/utils/v2 v2.0.0-20240912080913-c094a6e5b7da/go.mod h1:/4yWChzaUdzjyEElr6rHfasccBJBjlHeszNIj3aLaHg=
+github.com/gophercloud/utils/v2 v2.0.0-20240919072936-a66ae2ba6ef0 h1:XRegl05kkQNfzAn46YNB4u2OniVAd3rni75Zr8uN9yc=
+github.com/gophercloud/utils/v2 v2.0.0-20240919072936-a66ae2ba6ef0/go.mod h1:qqrX/CvSZOpIAZpRAdSZy4cyIY8NQc0LYUMMzg30aXU=
 github.com/gorilla/mux v1.8.1 h1:TuBL49tXwgrFYWhqrNgrUNEY92u81SPhu7sTdzQEiWY=
 github.com/gorilla/mux v1.8.1/go.mod h1:AKf9I4AEqPTmMytcMc0KkNouC66V3BtZ4qD5fmWSiMQ=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
