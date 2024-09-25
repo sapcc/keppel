@@ -53,7 +53,7 @@ type swiftContainerInfo struct {
 
 type swiftDriver struct {
 	mainAccount         *schwift.Account
-	containerInfos      map[string]*swiftContainerInfo
+	containerInfos      map[models.AccountName]*swiftContainerInfo
 	containerInfosMutex sync.RWMutex
 }
 
@@ -85,7 +85,7 @@ func (d *swiftDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error
 	if err != nil {
 		return err
 	}
-	d.containerInfos = make(map[string]*swiftContainerInfo)
+	d.containerInfos = make(map[models.AccountName]*swiftContainerInfo)
 	return nil
 }
 

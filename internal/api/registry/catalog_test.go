@@ -36,8 +36,9 @@ func TestCatalogEndpoint(t *testing.T) {
 
 	// set up dummy accounts for testing
 	for idx := 1; idx <= 3; idx++ {
+		accountName := models.AccountName(fmt.Sprintf("test%d", idx))
 		err := s.DB.Insert(&models.Account{
-			Name:                     fmt.Sprintf("test%d", idx),
+			Name:                     accountName,
 			AuthTenantID:             authTenantID,
 			GCPoliciesJSON:           "[]",
 			SecurityScanPoliciesJSON: "[]",
@@ -49,7 +50,7 @@ func TestCatalogEndpoint(t *testing.T) {
 		for _, repoName := range []string{"foo", "bar", "qux"} {
 			err := s.DB.Insert(&models.Repository{
 				Name:        repoName,
-				AccountName: fmt.Sprintf("test%d", idx),
+				AccountName: accountName,
 			})
 			if err != nil {
 				t.Fatal(err.Error())

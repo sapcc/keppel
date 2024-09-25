@@ -111,7 +111,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// ... transfer it here into the struct, to make the below code simpler
-	req.Account.Name = mux.Vars(r)["account"]
+	req.Account.Name = models.AccountName(mux.Vars(r)["account"])
 
 	// check permission to create account
 	authz := a.authenticateRequest(w, r, authTenantScope(keppel.CanChangeAccount, req.Account.AuthTenantID))

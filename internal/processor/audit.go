@@ -36,7 +36,7 @@ type AuditAccount struct {
 func (a AuditAccount) Render() cadf.Resource {
 	res := cadf.Resource{
 		TypeURI:   "docker-registry/account",
-		ID:        a.Account.Name,
+		ID:        string(a.Account.Name),
 		ProjectID: a.Account.AuthTenantID,
 	}
 

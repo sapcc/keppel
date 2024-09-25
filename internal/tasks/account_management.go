@@ -41,7 +41,7 @@ import (
 
 // EnforceManagedAccounts is a job. Each task creates newly discovered accounts from the driver.
 func (j *Janitor) EnforceManagedAccountsJob(registerer prometheus.Registerer) jobloop.Job {
-	return (&jobloop.ProducerConsumerJob[string]{
+	return (&jobloop.ProducerConsumerJob[models.AccountName]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "create new managed accounts",
 			CounterOpts: prometheus.CounterOpts{
@@ -65,14 +65,14 @@ var (
 	`)
 )
 
-func (j *Janitor) discoverManagedAccount(_ context.Context, _ prometheus.Labels) (accountName string, err error) {
+func (j *Janitor) discoverManagedAccount(_ context.Context, _ prometheus.Labels) (accountName models.AccountName, err error) {
 	managedAccountNames, err := j.amd.ManagedAccountNames()
 	if err != nil {
 		return "", fmt.Errorf("could not get ManagedAccountNames() from account management driver: %w", err)
 	}
 
 	// if there is a managed account that does not exist yet, create it
-	var existingAccountNames []string
+	var existingAccountNames []models.AccountName
 	_, err = j.db.Select(&existingAccountNames, "SELECT name FROM accounts WHERE is_managed")
 	if err != nil {
 		return "", err
@@ -88,7 +88,7 @@ func (j *Janitor) discoverManagedAccount(_ context.Context, _ prometheus.Labels)
 	return accountName, err
 }
 
-func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName string, labels prometheus.Labels) error {
+func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName models.AccountName, labels prometheus.Labels) error {
 	account, securityScanPolicies, err := j.amd.ConfigureAccount(accountName)
 	if err != nil {
 		return fmt.Errorf("could not ConfigureAccount(%q) in account management driver: %w", accountName, err)
@@ -130,7 +130,7 @@ func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName string,
 	}
 }
 
-func (j *Janitor) tryDeleteManagedAccount(ctx context.Context, accountName string) (done bool, err error) {
+func (j *Janitor) tryDeleteManagedAccount(ctx context.Context, accountName models.AccountName) (done bool, err error) {
 	accountModel, err := keppel.FindAccount(j.db, accountName)
 	if err != nil {
 		return false, err
@@ -174,7 +174,7 @@ func (j *Janitor) tryDeleteManagedAccount(ctx context.Context, accountName strin
 				return false, fmt.Errorf("while deleting manifest %q in repository %q: could not parse digest: %w",
 					rm.Digest, rm.RepositoryName, err)
 			}
-			repo, err := keppel.FindRepository(j.db, rm.RepositoryName, *accountModel)
+			repo, err := keppel.FindRepository(j.db, rm.RepositoryName, accountName)
 			if err != nil {
 				return false, fmt.Errorf("while deleting manifest %q in repository %q: could not find repository in DB: %w",
 					rm.Digest, rm.RepositoryName, err)
@@ -201,7 +201,7 @@ func (j *Janitor) createOrUpdateManagedAccount(ctx context.Context, account kepp
 	getSubleaseToken := func(peer models.Peer) (string, *keppel.RegistryV2Error) {
 		viewScope := auth.Scope{
 			ResourceType: "keppel_account",
-			ResourceName: account.Name,
+			ResourceName: string(account.Name),
 			Actions:      []string{"view"},
 		}
 

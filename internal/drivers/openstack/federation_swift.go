@@ -101,18 +101,18 @@ func initSwiftContainerConnection(ctx context.Context, envPrefix string) (*schwi
 }
 
 type accountFile struct {
-	AccountName         string   `json:"-"`
-	PrimaryHostName     string   `json:"primary_hostname"`
-	ReplicaHostNames    []string `json:"replica_hostnames"`
-	SubleaseTokenSecret string   `json:"sublease_token_secret"`
+	AccountName         models.AccountName `json:"-"`
+	PrimaryHostName     string             `json:"primary_hostname"`
+	ReplicaHostNames    []string           `json:"replica_hostnames"`
+	SubleaseTokenSecret string             `json:"sublease_token_secret"`
 }
 
-func (fd *federationDriverSwift) accountFileObj(accountName string) *schwift.Object {
+func (fd *federationDriverSwift) accountFileObj(accountName models.AccountName) *schwift.Object {
 	return fd.Container.Object(fmt.Sprintf("accounts/%s.json", accountName))
 }
 
 // Downloads and parses an account file from the Swift container.
-func (fd *federationDriverSwift) readAccountFile(ctx context.Context, accountName string) (accountFile, error) {
+func (fd *federationDriverSwift) readAccountFile(ctx context.Context, accountName models.AccountName) (accountFile, error) {
 	buf, err := fd.accountFileObj(accountName).Download(ctx, nil).AsByteSlice()
 	if err != nil {
 		if schwift.Is(err, http.StatusNotFound) {
@@ -132,7 +132,7 @@ func (fd *federationDriverSwift) readAccountFile(ctx context.Context, accountNam
 // does not have strong consistency, so we reduce the likelihood of accidental
 // inconsistencies by performing a write once, then reading the result back
 // after a short wait and checking whether our write was persisted.
-func (fd *federationDriverSwift) modifyAccountFile(ctx context.Context, accountName string, modify func(file *accountFile, firstPass bool) error) error {
+func (fd *federationDriverSwift) modifyAccountFile(ctx context.Context, accountName models.AccountName, modify func(file *accountFile, firstPass bool) error) error {
 	fileOld, err := fd.readAccountFile(ctx, accountName)
 	if err != nil {
 		return err
@@ -354,7 +354,7 @@ func (fd *federationDriverSwift) verifyAccountOwnership(file accountFile, expect
 }
 
 // FindPrimaryAccount implements the keppel.FederationDriver interface.
-func (fd *federationDriverSwift) FindPrimaryAccount(ctx context.Context, accountName string) (peerHostName string, err error) {
+func (fd *federationDriverSwift) FindPrimaryAccount(ctx context.Context, accountName models.AccountName) (peerHostName string, err error) {
 	file, err := fd.readAccountFile(ctx, accountName)
 	if err != nil {
 		return "", err

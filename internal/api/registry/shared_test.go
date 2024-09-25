@@ -270,7 +270,7 @@ func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *keppel.DB) 
 }
 
 //nolint:unparam
-func testWithAccountInMaintenance(t *testing.T, db *keppel.DB, accountName string, action func()) {
+func testWithAccountInMaintenance(t *testing.T, db *keppel.DB, accountName models.AccountName, action func()) {
 	_, err := db.Exec("UPDATE accounts SET in_maintenance = TRUE WHERE name = $1", accountName)
 	if err != nil {
 		t.Fatal(err.Error())

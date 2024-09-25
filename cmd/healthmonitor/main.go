@@ -73,7 +73,7 @@ func AddCommandTo(parent *cobra.Command) {
 
 type healthMonitorJob struct {
 	AuthDriver  client.AuthDriver
-	AccountName string
+	AccountName models.AccountName
 	RepoClient  *client.RepoClient
 
 	LastResultLock *sync.RWMutex
@@ -93,7 +93,7 @@ func run(cmd *cobra.Command, args []string) {
 	apiUser, apiPassword := ad.CredentialsForRegistryAPI()
 	job := &healthMonitorJob{
 		AuthDriver:  ad,
-		AccountName: args[0],
+		AccountName: models.AccountName(args[0]),
 		RepoClient: &client.RepoClient{
 			Scheme:   ad.ServerScheme(),
 			Host:     ad.ServerHost(),
@@ -149,7 +149,7 @@ func (j *healthMonitorJob) PrepareKeppelAccount(ctx context.Context) error {
 	}
 	reqBodyBytes, _ := json.Marshal(reqBody)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, "/keppel/v1/accounts/"+j.AccountName, bytes.NewReader(reqBodyBytes))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, "/keppel/v1/accounts/"+string(j.AccountName), bytes.NewReader(reqBodyBytes))
 	if err != nil {
 		return err
 	}

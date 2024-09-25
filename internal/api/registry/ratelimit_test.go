@@ -51,7 +51,7 @@ func TestRateLimits(t *testing.T) {
 	testWithPrimary(t, setupOptions, func(s test.Setup) {
 		// create the "test1/foo" repository to ensure that we don't just always hit
 		// NAME_UNKNOWN errors
-		_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.Account{Name: "test1"})
+		_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1"))
 		if err != nil {
 			t.Fatal(err.Error())
 		}

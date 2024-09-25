@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -32,6 +33,7 @@ import (
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/auth"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 const maxLimit = 100
@@ -82,7 +84,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 
 	// parse query: marker (parameter "last")
 	marker := query.Get("last")
-	markerAccountName := ""
+	markerAccountName := models.AccountName("")
 	if marker != "" {
 		if includeAccountName {
 			fields := strings.SplitN(marker, "/", 2)
@@ -90,7 +92,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, `invalid value for "last": must contain a slash`, http.StatusBadRequest)
 				return
 			}
-			markerAccountName = fields[0]
+			markerAccountName = models.AccountName(fields[0])
 		} else {
 			markerAccountName = authz.Audience.AccountName
 		}
@@ -98,7 +100,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 
 	// find accessible accounts
 	accountNames := authz.ScopeSet.AccountsWithCatalogAccess(markerAccountName)
-	sort.Strings(accountNames)
+	slices.Sort(accountNames)
 
 	// collect repository names from backend
 	var allNames []string
@@ -147,7 +149,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 
 const catalogGetQuery = `SELECT name FROM repos WHERE account_name = $1 ORDER BY name`
 
-func (a *API) getCatalogForAccount(accountName string, includeAccountName bool) ([]string, error) {
+func (a *API) getCatalogForAccount(accountName models.AccountName, includeAccountName bool) ([]string, error) {
 	var result []string
 	err := sqlext.ForeachRow(a.db, catalogGetQuery, []any{accountName},
 		func(rows *sql.Rows) error {

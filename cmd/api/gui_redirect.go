@@ -28,6 +28,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // guiRedirecter is an api.API that implements the GUI redirect.
@@ -56,13 +57,14 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 	vars := mux.Vars(r)
 
 	// do we have this account/repo?
-	account, err := keppel.FindAccount(g.db, vars["account"])
+	accountName := models.AccountName(vars["account"])
+	account, err := keppel.FindAccount(g.db, accountName)
 	if err != nil || account == nil {
 		respondNotFound(w, r)
 		return
 	}
 	repoName := stripTagAndDigest(vars["repository"])
-	repo, err := keppel.FindRepository(g.db, repoName, *account)
+	repo, err := keppel.FindRepository(g.db, repoName, accountName)
 	if err != nil || repo == nil {
 		respondNotFound(w, r)
 		return
@@ -83,7 +85,7 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 			// do the redirect
 			s := g.urlStr
 			s = strings.ReplaceAll(s, "%AUTH_TENANT_ID%", account.AuthTenantID)
-			s = strings.ReplaceAll(s, "%ACCOUNT_NAME%", account.Name)
+			s = strings.ReplaceAll(s, "%ACCOUNT_NAME%", string(account.Name))
 			s = strings.ReplaceAll(s, "%REPO_NAME%", repo.Name)
 			w.Header().Set("Location", s)
 			w.WriteHeader(http.StatusFound)

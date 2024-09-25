@@ -232,7 +232,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 
 			// create the "test1/foo" repository to ensure that we don't just always hit
 			// NAME_UNKNOWN errors
-			_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.Account{Name: "test1"})
+			_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1"))
 			if err != nil {
 				t.Fatal(err.Error())
 			}
@@ -544,7 +544,7 @@ func TestGetBlobUpload(t *testing.T) {
 
 		// create the "test1/foo" repository to ensure that we don't just always hit
 		// NAME_UNKNOWN errors
-		_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.Account{Name: "test1"})
+		_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1"))
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -671,7 +671,7 @@ func TestDeleteBlobUpload(t *testing.T) {
 
 		// create the "test1/foo" repository to ensure that we don't just always hit
 		// NAME_UNKNOWN errors
-		_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.Account{Name: "test1"})
+		_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1"))
 		if err != nil {
 			t.Fatal(err.Error())
 		}

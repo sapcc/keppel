@@ -45,7 +45,7 @@ type AccountConfig struct {
 }
 
 type Account struct {
-	Name                 string                      `json:"name"`
+	Name                 models.AccountName          `json:"name"`
 	AuthTenantID         string                      `json:"auth_tenant_id"`
 	GCPolicies           []keppel.GCPolicy           `json:"gc_policies"`
 	RBACPolicies         []keppel.RBACPolicy         `json:"rbac_policies"`
@@ -76,7 +76,7 @@ func (a *AccountManagementDriver) Init() error {
 }
 
 // ConfigureAccount implements the keppel.AccountManagementDriver interface.
-func (a *AccountManagementDriver) ConfigureAccount(accountName string) (*keppel.Account, []keppel.SecurityScanPolicy, error) {
+func (a *AccountManagementDriver) ConfigureAccount(accountName models.AccountName) (*keppel.Account, []keppel.SecurityScanPolicy, error) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
@@ -99,14 +99,14 @@ func (a *AccountManagementDriver) ConfigureAccount(accountName string) (*keppel.
 	}
 
 	// we didn't find the account, delete it
-	if slices.Contains(a.ProtectedAccountNames, accountName) {
+	if slices.Contains(a.ProtectedAccountNames, string(accountName)) {
 		return nil, nil, errors.New("refusing to delete this account because of explicit protection")
 	}
 	return nil, nil, nil
 }
 
 // ManagedAccountNames implements the keppel.AccountManagementDriver interface.
-func (a *AccountManagementDriver) ManagedAccountNames() ([]string, error) {
+func (a *AccountManagementDriver) ManagedAccountNames() ([]models.AccountName, error) {
 	err := a.LoadConfig()
 	if err != nil {
 		return nil, err
@@ -115,7 +115,7 @@ func (a *AccountManagementDriver) ManagedAccountNames() ([]string, error) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
-	var accounts []string
+	var accounts []models.AccountName
 	for _, account := range a.config.Accounts {
 		accounts = append(accounts, account.Name)
 	}

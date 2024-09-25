@@ -132,7 +132,7 @@ func accountScopes(perm keppel.Permission, accounts ...models.Account) auth.Scop
 	for idx, account := range accounts {
 		scopes[idx] = auth.Scope{
 			ResourceType: "keppel_account",
-			ResourceName: account.Name,
+			ResourceName: string(account.Name),
 			Actions:      []string{string(perm)},
 		}
 	}
@@ -166,7 +166,7 @@ func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request, ss aut
 // first. This is important because this function may otherwise leak information about whether
 // accounts exist or not to unauthorized users.
 func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request, _ *auth.Authorization) *models.Account {
-	accountName := mux.Vars(r)["account"]
+	accountName := models.AccountName(mux.Vars(r)["account"])
 	account, err := keppel.FindAccount(a.db, accountName)
 	if respondwith.ErrorText(w, err) {
 		return nil
@@ -178,14 +178,14 @@ func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request, _ *
 	return account
 }
 
-func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, account models.Account) *models.Repository {
+func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, accountName models.AccountName) *models.Repository {
 	repoName := mux.Vars(r)["repo_name"]
 	if !isValidRepoName(repoName) {
 		http.Error(w, "repo name invalid", http.StatusUnprocessableEntity)
 		return nil
 	}
 
-	repo, err := keppel.FindRepository(a.db, repoName, account)
+	repo, err := keppel.FindRepository(a.db, repoName, accountName)
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "repo not found", http.StatusNotFound)
 		return nil

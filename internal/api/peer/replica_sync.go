@@ -33,6 +33,7 @@ import (
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // Implementation for the POST /peer/v1/sync-replica/:account/:repo endpoint.
@@ -54,7 +55,8 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// find account
-	account, err := keppel.FindAccount(a.db, mux.Vars(r)["account"])
+	accountName := models.AccountName(mux.Vars(r)["account"])
+	account, err := keppel.FindAccount(a.db, accountName)
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -64,7 +66,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// find repository
-	repo, err := keppel.FindRepository(a.db, mux.Vars(r)["repo"], *account)
+	repo, err := keppel.FindRepository(a.db, mux.Vars(r)["repo"], accountName)
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "repo not found", http.StatusNotFound)
 		return

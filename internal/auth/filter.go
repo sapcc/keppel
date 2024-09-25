@@ -116,7 +116,7 @@ func addCatalogAccess(ss *ScopeSet, uid keppel.UserIdentity, audience Audience, 
 		if uid.HasPermission(keppel.CanViewAccount, account.AuthTenantID) {
 			ss.Add(Scope{
 				ResourceType: "keppel_account",
-				ResourceName: account.Name,
+				ResourceName: string(account.Name),
 				Actions:      []string{"view"},
 			})
 		}
@@ -227,7 +227,7 @@ func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience
 }
 
 func filterKeppelAccountActions(uid keppel.UserIdentity, audience Audience, db *keppel.DB, scope *Scope) ([]string, error) {
-	if audience.AccountName != "" && scope.ResourceName != audience.AccountName {
+	if audience.AccountName != "" && scope.ResourceName != string(audience.AccountName) {
 		// domain-remapped APIs only allow access to that API's account
 		return nil, nil
 	}
@@ -237,7 +237,7 @@ func filterKeppelAccountActions(uid keppel.UserIdentity, audience Audience, db *
 		return nil, nil
 	}
 
-	account, err := keppel.FindAccount(db, scope.ResourceName)
+	account, err := keppel.FindAccount(db, models.AccountName(scope.ResourceName))
 	if err != nil {
 		return nil, err
 	}

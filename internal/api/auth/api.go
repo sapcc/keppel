@@ -31,6 +31,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // API contains state variables used by the Auth API endpoint.
@@ -129,7 +130,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, tokenResponse)
 }
 
-func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Request, audience auth.Audience, accountName string) error {
+func (a *API) reverseProxyTokenReqToUpstream(w http.ResponseWriter, r *http.Request, audience auth.Audience, accountName models.AccountName) error {
 	primaryHostName, err := a.fd.FindPrimaryAccount(r.Context(), accountName)
 	if err != nil {
 		return err

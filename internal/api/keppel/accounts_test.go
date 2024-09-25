@@ -2119,10 +2119,10 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 		}
 
 		// create some primary accounts to play with
-		for _, name := range []string{"first", "second", "third"} {
+		for _, name := range []models.AccountName{"first", "second", "third"} {
 			assert.HTTPRequest{
 				Method: "PUT",
-				Path:   "/keppel/v1/accounts/" + name,
+				Path:   "/keppel/v1/accounts/" + string(name),
 				Header: map[string]string{"X-Test-Perms": "change:tenant1"},
 				Body: assert.JSONObject{
 					"account": assert.JSONObject{

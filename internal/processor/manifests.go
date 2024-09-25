@@ -683,7 +683,7 @@ func (p *Processor) ReplicateManifest(ctx context.Context, account models.Accoun
 	// mark all missing blobs as pending replication
 	for _, desc := range manifestParsed.BlobReferences() {
 		// mark referenced blobs as pending replication if not replicated yet
-		blob, err := p.FindBlobOrInsertUnbackedBlob(ctx, desc, account)
+		blob, err := p.FindBlobOrInsertUnbackedBlob(ctx, desc, account.Name)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -701,7 +701,7 @@ func (p *Processor) ReplicateManifest(ctx context.Context, account models.Accoun
 	// purposes
 	configBlobDesc := manifestParsed.FindImageConfigBlob()
 	if configBlobDesc != nil {
-		configBlob, err := keppel.FindBlobByAccountName(p.db, configBlobDesc.Digest, account)
+		configBlob, err := keppel.FindBlobByAccountName(p.db, configBlobDesc.Digest, account.Name)
 		if err != nil {
 			return nil, nil, err
 		}

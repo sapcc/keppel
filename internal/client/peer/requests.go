@@ -60,8 +60,8 @@ func (c Client) DownloadManifestViaPullDelegation(ctx context.Context, imageRef 
 // The configuration is deserialized into `target`, which must have the type
 // `*keppelv1.Account`. We cannot return this type explicitly because that
 // would create an import cycle between this package and package keppelv1.
-func (c Client) GetForeignAccountConfigurationInto(ctx context.Context, target any, accountName string) error {
-	reqURL := c.buildRequestURL("keppel/v1/accounts/" + accountName)
+func (c Client) GetForeignAccountConfigurationInto(ctx context.Context, target any, accountName models.AccountName) error {
+	reqURL := c.buildRequestURL("keppel/v1/accounts/" + string(accountName))
 
 	respBodyBytes, respStatusCode, _, err := c.doRequest(ctx, http.MethodGet, reqURL, http.NoBody, nil)
 	if err != nil {
@@ -84,8 +84,8 @@ func (c Client) GetForeignAccountConfigurationInto(ctx context.Context, target a
 
 // GetSubleaseToken asks the peer for a sublease token for this account to replicate it on another Keppel instance.
 // Only the primary instance of an account can be asked for a sublease token.
-func (c Client) GetSubleaseToken(ctx context.Context, accountName string) (string, error) {
-	reqURL := c.buildRequestURL("keppel/v1/accounts/" + accountName + "/sublease")
+func (c Client) GetSubleaseToken(ctx context.Context, accountName models.AccountName) (string, error) {
+	reqURL := c.buildRequestURL("keppel/v1/accounts/" + string(accountName) + "/sublease")
 
 	respBodyBytes, respStatusCode, _, err := c.doRequest(ctx, http.MethodPost, reqURL, http.NoBody, nil)
 	if err != nil {

@@ -67,7 +67,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			}
 
 			// and even if it does...
-			_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.Account{Name: "test1"})
+			_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1"))
 			if err != nil {
 				t.Fatal(err.Error())
 			}

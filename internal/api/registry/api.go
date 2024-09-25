@@ -173,7 +173,7 @@ const (
 )
 
 type anycastRequestInfo struct {
-	AccountName     string
+	AccountName     models.AccountName
 	RepoName        string
 	PrimaryHostName string // the peer who has this account
 }
@@ -184,7 +184,7 @@ func (info anycastRequestInfo) AsPrometheusLabels() prometheus.Labels {
 	// this field for tracking the fact that we were redirecting an anycast
 	// request, and where we redirected it
 	return prometheus.Labels{
-		"account":        info.AccountName,
+		"account":        string(info.AccountName),
 		"auth_tenant_id": "anycast-" + info.PrimaryHostName,
 		"method":         "registry-api",
 	}
@@ -284,9 +284,9 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 
 	var repo *models.Repository
 	if canCreateRepoIfMissing {
-		repo, err = keppel.FindOrCreateRepository(a.db, repoScope.RepositoryName, *account)
+		repo, err = keppel.FindOrCreateRepository(a.db, repoScope.RepositoryName, account.Name)
 	} else {
-		repo, err = keppel.FindRepository(a.db, repoScope.RepositoryName, *account)
+		repo, err = keppel.FindRepository(a.db, repoScope.RepositoryName, account.Name)
 	}
 	if errors.Is(err, sql.ErrNoRows) || repo == nil {
 		if canFirstPull {

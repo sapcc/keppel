@@ -27,7 +27,7 @@ import (
 
 // Account represents an account in the API.
 type Account struct {
-	Name              string                `json:"name"`
+	Name              models.AccountName    `json:"name"`
 	AuthTenantID      string                `json:"auth_tenant_id"`
 	GCPolicies        []GCPolicy            `json:"gc_policies,omitempty"`
 	InMaintenance     bool                  `json:"in_maintenance"`
