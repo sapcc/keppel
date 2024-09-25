@@ -97,7 +97,7 @@ func (j *Janitor) validateManifest(ctx context.Context, manifest models.Manifest
 	if err != nil {
 		return fmt.Errorf("cannot find repo %d for manifest %s: %w", manifest.RepositoryID, manifest.Digest, err)
 	}
-	account, err := keppel.FindAccount(j.db, repo.AccountName)
+	account, err := keppel.FindReducedAccount(j.db, repo.AccountName)
 	if err != nil {
 		return fmt.Errorf("cannot find account for manifest %s/%s: %w", repo.FullName(), manifest.Digest, err)
 	}
@@ -186,11 +186,11 @@ func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo models.Re
 		if err != nil {
 			return err
 		}
-		err = j.performTagSync(ctx, *account, repo, syncPayload)
+		err = j.performTagSync(ctx, account.Reduced(), repo, syncPayload)
 		if err != nil {
 			return fmt.Errorf("while syncing tags in repo %s: %w", repo.FullName(), err)
 		}
-		err = j.performManifestSync(ctx, *account, repo, syncPayload)
+		err = j.performManifestSync(ctx, account.Reduced(), repo, syncPayload)
 		if err != nil {
 			return fmt.Errorf("while syncing manifests in repo %s: %w", repo.FullName(), err)
 		}
@@ -276,7 +276,7 @@ func (j *Janitor) getReplicaSyncPayload(ctx context.Context, account models.Acco
 	return client.PerformReplicaSync(ctx, repo.FullName(), keppel.ReplicaSyncPayload{Manifests: manifests})
 }
 
-func (j *Janitor) performTagSync(ctx context.Context, account models.Account, repo models.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
+func (j *Janitor) performTagSync(ctx context.Context, account models.ReducedAccount, repo models.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
 	var tags []models.Tag
 	_, err := j.db.Select(&tags, `SELECT * FROM tags WHERE repo_id = $1`, repo.ID)
 	if err != nil {
@@ -338,7 +338,7 @@ var repoUntaggedManifestsSelectQuery = sqlext.SimplifyWhitespace(`
 		AND digest NOT IN (SELECT DISTINCT digest FROM tags WHERE repo_id = $1)
 `)
 
-func (j *Janitor) performManifestSync(ctx context.Context, account models.Account, repo models.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
+func (j *Janitor) performManifestSync(ctx context.Context, account models.ReducedAccount, repo models.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
 	// enumerate manifests in this repo (this only needs to consider untagged
 	//manifests: we run right after performTagSync, therefore all images that are
 	// tagged right now were already confirmed to still be good)
@@ -445,7 +445,7 @@ var vulnCheckBlobSelectQuery = sqlext.SimplifyWhitespace(`
 		WHERE r.repo_id = $1 AND r.digest = $2
 `)
 
-func (j *Janitor) collectManifestLayerBlobs(ctx context.Context, account models.Account, repo models.Repository, manifest models.Manifest) (layerBlobs []models.Blob, err error) {
+func (j *Janitor) collectManifestLayerBlobs(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifest models.Manifest) (layerBlobs []models.Blob, err error) {
 	var blobs []models.Blob
 	_, err = j.db.Select(&blobs, vulnCheckBlobSelectQuery, manifest.RepositoryID, manifest.Digest)
 	if err != nil {
@@ -645,7 +645,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 		return nil
 	}
 
-	continueCheck, layerBlobs, err := j.checkPreConditionsForTrivy(ctx, *account, *repo, *manifest, securityInfo)
+	continueCheck, layerBlobs, err := j.checkPreConditionsForTrivy(ctx, account.Reduced(), *repo, *manifest, securityInfo)
 	if err != nil {
 		return err
 	}
@@ -751,7 +751,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 
 var blobUncompressedSizeTooBigGiB float64 = 10
 
-func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models.Account, repo models.Repository, manifest models.Manifest, securityInfo *models.TrivySecurityInfo) (continueCheck bool, layerBlobs []models.Blob, err error) {
+func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifest models.Manifest, securityInfo *models.TrivySecurityInfo) (continueCheck bool, layerBlobs []models.Blob, err error) {
 	layerBlobs, err = j.collectManifestLayerBlobs(ctx, account, repo, manifest)
 	if err != nil {
 		return false, nil, err

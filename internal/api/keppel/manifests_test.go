@@ -132,7 +132,7 @@ func TestManifestsAPI(t *testing.T) {
 
 				err := s.SD.WriteManifest(
 					s.Ctx,
-					models.Account{Name: repo.AccountName},
+					models.ReducedAccount{Name: repo.AccountName},
 					repo.Name, dummyDigest, []byte(strings.Repeat("x", sizeBytes)),
 				)
 				if err != nil {

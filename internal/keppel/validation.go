@@ -33,7 +33,7 @@ type ValidationPolicy struct {
 
 // RenderValidationPolicy builds a ValidationPolicy object out of the
 // information in the given account model.
-func RenderValidationPolicy(account models.Account) *ValidationPolicy {
+func RenderValidationPolicy(account models.ReducedAccount) *ValidationPolicy {
 	if account.RequiredLabels == "" {
 		return nil
 	}

@@ -64,16 +64,16 @@ var (
 	errAbortBlobUploadAfterFinalize = errors.New("AbortBlobUpload() was called after FinalizeBlob()")
 )
 
-func blobKey(account models.Account, storageID string) string {
+func blobKey(account models.ReducedAccount, storageID string) string {
 	return fmt.Sprintf("%s/%s", account.Name, storageID)
 }
 
-func manifestKey(account models.Account, repoName string, manifestDigest digest.Digest) string {
+func manifestKey(account models.ReducedAccount, repoName string, manifestDigest digest.Digest) string {
 	return fmt.Sprintf("%s/%s/%s", account.Name, repoName, manifestDigest)
 }
 
 // AppendToBlob implements the keppel.StorageDriver interface.
-func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.Account, storageID string, chunkNumber uint32, chunkLength *uint64, chunk io.Reader) error {
+func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.ReducedAccount, storageID string, chunkNumber uint32, chunkLength *uint64, chunk io.Reader) error {
 	k := blobKey(account, storageID)
 
 	// check that we're calling AppendToBlob() in the correct order
@@ -101,7 +101,7 @@ func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.Account
 }
 
 // FinalizeBlob implements the keppel.StorageDriver interface.
-func (d *StorageDriver) FinalizeBlob(ctx context.Context, account models.Account, storageID string, chunkCount uint32) error {
+func (d *StorageDriver) FinalizeBlob(ctx context.Context, account models.ReducedAccount, storageID string, chunkCount uint32) error {
 	k := blobKey(account, storageID)
 	_, exists := d.blobs[k]
 	if !exists {
@@ -112,7 +112,7 @@ func (d *StorageDriver) FinalizeBlob(ctx context.Context, account models.Account
 }
 
 // AbortBlobUpload implements the keppel.StorageDriver interface.
-func (d *StorageDriver) AbortBlobUpload(ctx context.Context, account models.Account, storageID string, chunkCount uint32) error {
+func (d *StorageDriver) AbortBlobUpload(ctx context.Context, account models.ReducedAccount, storageID string, chunkCount uint32) error {
 	if d.blobChunkCounts[blobKey(account, storageID)] == 0 {
 		return errAbortBlobUploadAfterFinalize
 	}
@@ -120,7 +120,7 @@ func (d *StorageDriver) AbortBlobUpload(ctx context.Context, account models.Acco
 }
 
 // ReadBlob implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ReadBlob(ctx context.Context, account models.Account, storageID string) (io.ReadCloser, uint64, error) {
+func (d *StorageDriver) ReadBlob(ctx context.Context, account models.ReducedAccount, storageID string) (io.ReadCloser, uint64, error) {
 	contents, exists := d.blobs[blobKey(account, storageID)]
 	if !exists {
 		return nil, 0, errNoSuchBlob
@@ -129,12 +129,12 @@ func (d *StorageDriver) ReadBlob(ctx context.Context, account models.Account, st
 }
 
 // URLForBlob implements the keppel.StorageDriver interface.
-func (d *StorageDriver) URLForBlob(ctx context.Context, account models.Account, storageID string) (string, error) {
+func (d *StorageDriver) URLForBlob(ctx context.Context, account models.ReducedAccount, storageID string) (string, error) {
 	return "", keppel.ErrCannotGenerateURL
 }
 
 // DeleteBlob implements the keppel.StorageDriver interface.
-func (d *StorageDriver) DeleteBlob(ctx context.Context, account models.Account, storageID string) error {
+func (d *StorageDriver) DeleteBlob(ctx context.Context, account models.ReducedAccount, storageID string) error {
 	k := blobKey(account, storageID)
 	_, exists := d.blobs[k]
 	if !exists {
@@ -146,7 +146,7 @@ func (d *StorageDriver) DeleteBlob(ctx context.Context, account models.Account, 
 }
 
 // ReadManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ReadManifest(ctx context.Context, account models.Account, repoName string, manifestDigest digest.Digest) ([]byte, error) {
+func (d *StorageDriver) ReadManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) ([]byte, error) {
 	k := manifestKey(account, repoName, manifestDigest)
 	contents, exists := d.manifests[k]
 	if !exists {
@@ -156,14 +156,14 @@ func (d *StorageDriver) ReadManifest(ctx context.Context, account models.Account
 }
 
 // WriteManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) WriteManifest(ctx context.Context, account models.Account, repoName string, manifestDigest digest.Digest, contents []byte) error {
+func (d *StorageDriver) WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, contents []byte) error {
 	k := manifestKey(account, repoName, manifestDigest)
 	d.manifests[k] = contents
 	return nil
 }
 
 // DeleteManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) DeleteManifest(ctx context.Context, account models.Account, repoName string, manifestDigest digest.Digest) error {
+func (d *StorageDriver) DeleteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) error {
 	k := manifestKey(account, repoName, manifestDigest)
 	_, exists := d.manifests[k]
 	if !exists {
@@ -174,7 +174,7 @@ func (d *StorageDriver) DeleteManifest(ctx context.Context, account models.Accou
 }
 
 // ListStorageContents implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.Account) ([]keppel.StoredBlobInfo, []keppel.StoredManifestInfo, error) {
+func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.ReducedAccount) ([]keppel.StoredBlobInfo, []keppel.StoredManifestInfo, error) {
 	var (
 		blobs     []keppel.StoredBlobInfo
 		manifests []keppel.StoredManifestInfo
@@ -210,7 +210,7 @@ func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.
 }
 
 // CanSetupAccount implements the keppel.StorageDriver interface.
-func (d *StorageDriver) CanSetupAccount(ctx context.Context, account models.Account) error {
+func (d *StorageDriver) CanSetupAccount(ctx context.Context, account models.ReducedAccount) error {
 	if d.ForbidNewAccounts {
 		return errors.New("CanSetupAccount failed as requested")
 	}
@@ -218,7 +218,7 @@ func (d *StorageDriver) CanSetupAccount(ctx context.Context, account models.Acco
 }
 
 // CleanupAccount implements the keppel.StorageDriver interface.
-func (d *StorageDriver) CleanupAccount(ctx context.Context, account models.Account) error {
+func (d *StorageDriver) CleanupAccount(ctx context.Context, account models.ReducedAccount) error {
 	// double-check that cleanup order is right; when the account gets deleted,
 	// all blobs and manifests must have been deleted from it before
 	storedBlobs, storedManifests, err := d.ListStorageContents(ctx, account)

@@ -260,7 +260,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 			return models.Account{}, keppel.AsRegistryV2Error(err).WithStatus(http.StatusInternalServerError)
 		}
 
-		err = p.sd.CanSetupAccount(ctx, targetAccount)
+		err = p.sd.CanSetupAccount(ctx, targetAccount.Reduced())
 		if err != nil {
 			msg := fmt.Errorf("cannot set up backing storage for this account: %w", err)
 			return models.Account{}, keppel.AsRegistryV2Error(msg).WithStatus(http.StatusConflict)
@@ -439,7 +439,7 @@ func (p *Processor) DeleteAccount(ctx context.Context, account models.Account, a
 
 	// before committing the transaction, confirm account deletion with the
 	// storage driver and the federation driver
-	err = p.sd.CleanupAccount(ctx, account)
+	err = p.sd.CleanupAccount(ctx, account.Reduced())
 	if err != nil {
 		return nil, fmt.Errorf("while cleaning up storage for account: %w", err)
 	}
@@ -460,9 +460,7 @@ func (p *Processor) DeleteAccount(ctx context.Context, account models.Account, a
 			User:       userInfo,
 			ReasonCode: http.StatusOK,
 			Action:     cadf.DeleteAction,
-			Target: auditManifest{
-				Account: account,
-			},
+			Target:     AuditAccount{Account: account},
 		})
 	}
 

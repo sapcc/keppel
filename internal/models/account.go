@@ -66,13 +66,43 @@ type Account struct {
 	NextFederationAnnouncementAt *time.Time `db:"next_federation_announcement_at"` // see tasks.AnnounceAccountToFederationJob
 }
 
-// SwiftContainerName returns the name of the Swift container backing this
-// Keppel account.
-func (a Account) SwiftContainerName() string {
-	return "keppel-" + string(a.Name)
+// Reduced converts an Account into a ReducedAccount.
+func (a Account) Reduced() ReducedAccount {
+	return ReducedAccount{
+		Name:                 a.Name,
+		AuthTenantID:         a.AuthTenantID,
+		UpstreamPeerHostName: a.UpstreamPeerHostName,
+		ExternalPeerURL:      a.ExternalPeerURL,
+		ExternalPeerUserName: a.ExternalPeerUserName,
+		ExternalPeerPassword: a.ExternalPeerPassword,
+		PlatformFilter:       a.PlatformFilter,
+		RequiredLabels:       a.RequiredLabels,
+		InMaintenance:        a.InMaintenance,
+	}
+}
+
+// ReducedAccount contains just the fields from type Account that the Registry API is most interested in.
+// This type exists to avoid loading the large payload fields in type Account when we don't need to,
+// which is a significant memory optimization for the keppel-api process.
+type ReducedAccount struct {
+	Name         AccountName
+	AuthTenantID string
+
+	// replication policy
+	UpstreamPeerHostName string
+	ExternalPeerURL      string
+	ExternalPeerUserName string
+	ExternalPeerPassword string
+	PlatformFilter       PlatformFilter
+
+	// validation policy, status
+	RequiredLabels string
+	InMaintenance  bool
+
+	// NOTE: When adding or removing fields, always adjust Account.Reduced() and keppel.FindReducedAccount() too!
 }
 
 // SplitRequiredLabels parses the RequiredLabels field.
-func (a Account) SplitRequiredLabels() []string {
+func (a ReducedAccount) SplitRequiredLabels() []string {
 	return strings.Split(a.RequiredLabels, ",")
 }

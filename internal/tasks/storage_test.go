@@ -75,7 +75,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	_, healthyBlobs, healthyManifests := setupStorageSweepTest(t, s, sweepStorageJob)
 
 	// put some blobs in the storage without adding them in the DB
-	account := models.Account{Name: "test1"}
+	account := models.ReducedAccount{Name: "test1"}
 	testBlob1 := test.GenerateExampleLayer(30)
 	testBlob2 := test.GenerateExampleLayer(31)
 	for _, blob := range []test.Bytes{testBlob1, testBlob2} {
@@ -163,7 +163,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	images, healthyBlobs, healthyManifests := setupStorageSweepTest(t, s, sweepStorageJob)
 
 	// put some manifests in the storage without adding them in the DB
-	account := models.Account{Name: "test1"}
+	account := models.ReducedAccount{Name: "test1"}
 	testImageList1 := test.GenerateImageList(images[0])
 	testImageList2 := test.GenerateImageList(images[1])
 	for _, manifest := range []test.Bytes{testImageList1.Manifest, testImageList2.Manifest} {

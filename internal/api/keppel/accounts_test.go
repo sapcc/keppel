@@ -1825,7 +1825,7 @@ func uploadManifest(t *testing.T, s test.Setup, account *models.Account, repo *m
 		Digest:       manifest.Digest.String(),
 		Content:      manifest.Contents,
 	}))
-	mustDo(t, s.SD.WriteManifest(s.Ctx, *account, repo.Name, manifest.Digest, manifest.Contents))
+	mustDo(t, s.SD.WriteManifest(s.Ctx, account.Reduced(), repo.Name, manifest.Digest, manifest.Contents))
 	return dbManifest
 }
 
@@ -1872,11 +1872,11 @@ func TestDeleteAccount(t *testing.T) {
 		mustInsert(t, s.DB, &blob)
 		blobs = append(blobs, blob)
 
-		err := s.SD.AppendToBlob(s.Ctx, *accounts[0], storageID, 1, &blob.SizeBytes, bytes.NewReader(testBlob.Contents))
+		err := s.SD.AppendToBlob(s.Ctx, accounts[0].Reduced(), storageID, 1, &blob.SizeBytes, bytes.NewReader(testBlob.Contents))
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		err = s.SD.FinalizeBlob(s.Ctx, *accounts[0], storageID, 1)
+		err = s.SD.FinalizeBlob(s.Ctx, accounts[0].Reduced(), storageID, 1)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
@@ -1900,7 +1900,7 @@ func TestDeleteAccount(t *testing.T) {
 		NextCheckAt:         time.Unix(0, 0),
 		VulnerabilityStatus: models.PendingVulnerabilityStatus,
 	})
-	err := s.SD.WriteManifest(s.Ctx, *accounts[0], repos[0].Name, image.Manifest.Digest, image.Manifest.Contents)
+	err := s.SD.WriteManifest(s.Ctx, accounts[0].Reduced(), repos[0].Name, image.Manifest.Digest, image.Manifest.Contents)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

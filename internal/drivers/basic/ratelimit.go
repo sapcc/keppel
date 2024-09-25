@@ -89,7 +89,7 @@ func (d RateLimitDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) er
 }
 
 // GetRateLimit implements the keppel.RateLimitDriver interface.
-func (d RateLimitDriver) GetRateLimit(account models.Account, action keppel.RateLimitedAction) *redis_rate.Limit {
+func (d RateLimitDriver) GetRateLimit(account models.ReducedAccount, action keppel.RateLimitedAction) *redis_rate.Limit {
 	quota, ok := d.Limits[action]
 	if ok {
 		return &quota

@@ -179,7 +179,7 @@ func (j *Janitor) tryDeleteManagedAccount(ctx context.Context, accountName model
 				return false, fmt.Errorf("while deleting manifest %q in repository %q: could not find repository in DB: %w",
 					rm.Digest, rm.RepositoryName, err)
 			}
-			err = proc.DeleteManifest(ctx, *accountModel, *repo, parsedDigest, actx)
+			err = proc.DeleteManifest(ctx, accountModel.Reduced(), *repo, parsedDigest, actx)
 			if err != nil {
 				return false, fmt.Errorf("while deleting manifest %q in repository %q: %w",
 					rm.Digest, rm.RepositoryName, err)

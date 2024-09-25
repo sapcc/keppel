@@ -41,6 +41,29 @@ func FindAccount(db gorp.SqlExecutor, name models.AccountName) (*models.Account,
 	return &account, err
 }
 
+var reducedAccountGetByNameQuery = sqlext.SimplifyWhitespace(`
+	SELECT auth_tenant_id, upstream_peer_hostname,
+	       external_peer_url, external_peer_username, external_peer_password,
+	       platform_filter, required_labels, in_maintenance
+	  FROM accounts
+	 WHERE name = $1
+`)
+
+// FindReducedAccount is like FindAccount, but it returns a ReducedAccount instead.
+// This can be significantly faster than FindAccount if only the most common stuff is needed.
+func FindReducedAccount(db gorp.SqlExecutor, name models.AccountName) (*models.ReducedAccount, error) {
+	a := models.ReducedAccount{Name: name}
+	err := db.QueryRow(reducedAccountGetByNameQuery, name).Scan(
+		&a.AuthTenantID, &a.UpstreamPeerHostName,
+		&a.ExternalPeerURL, &a.ExternalPeerUserName, &a.ExternalPeerPassword,
+		&a.PlatformFilter, &a.RequiredLabels, &a.InMaintenance,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	return &a, err
+}
+
 var blobGetQueryByRepoName = sqlext.SimplifyWhitespace(`
 	SELECT b.*
 	  FROM blobs b

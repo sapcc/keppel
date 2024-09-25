@@ -226,7 +226,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.processor().DeleteManifest(r.Context(), *account, *repo, parsedDigest, keppel.AuditContext{
+	err = a.processor().DeleteManifest(r.Context(), account.Reduced(), *repo, parsedDigest, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
@@ -257,7 +257,7 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	}
 	tagName := mux.Vars(r)["tag_name"]
 
-	err := a.processor().DeleteTag(*account, *repo, tagName, keppel.AuditContext{
+	err := a.processor().DeleteTag(account.Reduced(), *repo, tagName, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
@@ -283,7 +283,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := api.CheckRateLimit(r, a.rle, *account, authz, keppel.TrivyReportRetrieveAction, 1)
+	err := api.CheckRateLimit(r, a.rle, account.Reduced(), authz, keppel.TrivyReportRetrieveAction, 1)
 	if err != nil {
 		if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok && rerr != nil {
 			rerr.WriteAsRegistryV2ResponseTo(w, r)

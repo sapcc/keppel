@@ -139,7 +139,7 @@ func (j *Janitor) sweepBlobsInRepo(ctx context.Context, account models.Account, 
 			return err
 		}
 		if blob.StorageID != "" { // ignore unbacked blobs that were never replicated
-			err = j.sd.DeleteBlob(ctx, account, blob.StorageID)
+			err = j.sd.DeleteBlob(ctx, account.Reduced(), blob.StorageID)
 			if err != nil {
 				return err
 			}
@@ -190,7 +190,7 @@ func (j *Janitor) validateBlob(ctx context.Context, blob models.Blob, _ promethe
 	}
 
 	// perform validation
-	err = j.processor().ValidateExistingBlob(ctx, *account, blob)
+	err = j.processor().ValidateExistingBlob(ctx, account.Reduced(), blob)
 	if err == nil {
 		// on success, reset error message and schedule next validation
 		_, err := j.db.Exec(validateBlobFinishQuery,
