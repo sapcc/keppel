@@ -52,24 +52,24 @@ func (d *StorageDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) (er
 	return err
 }
 
-func (d *StorageDriver) getBlobBasePath(account models.Account) string {
+func (d *StorageDriver) getBlobBasePath(account models.ReducedAccount) string {
 	return fmt.Sprintf("%s/%s/%s/blobs", d.rootPath, account.AuthTenantID, account.Name)
 }
 
-func (d *StorageDriver) getBlobPath(account models.Account, storageID string) string {
+func (d *StorageDriver) getBlobPath(account models.ReducedAccount, storageID string) string {
 	return fmt.Sprintf("%s/%s/%s/blobs/%s", d.rootPath, account.AuthTenantID, account.Name, storageID)
 }
 
-func (d *StorageDriver) getManifestBasePath(account models.Account) string {
+func (d *StorageDriver) getManifestBasePath(account models.ReducedAccount) string {
 	return fmt.Sprintf("%s/%s/%s/manifests", d.rootPath, account.AuthTenantID, account.Name)
 }
 
-func (d *StorageDriver) getManifestPath(account models.Account, repoName string, manifestDigest digest.Digest) string {
+func (d *StorageDriver) getManifestPath(account models.ReducedAccount, repoName string, manifestDigest digest.Digest) string {
 	return fmt.Sprintf("%s/%s/%s/manifests/%s/%s", d.rootPath, account.AuthTenantID, account.Name, repoName, manifestDigest)
 }
 
 // AppendToBlob implements the keppel.StorageDriver interface.
-func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.Account, storageID string, chunkNumber uint32, chunkLength *uint64, chunk io.Reader) error {
+func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.ReducedAccount, storageID string, chunkNumber uint32, chunkLength *uint64, chunk io.Reader) error {
 	path := d.getBlobPath(account, storageID)
 	tmpPath := path + ".tmp"
 	flags := os.O_APPEND | os.O_WRONLY
@@ -90,21 +90,21 @@ func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.Account
 }
 
 // FinalizeBlob implements the keppel.StorageDriver interface.
-func (d *StorageDriver) FinalizeBlob(ctx context.Context, account models.Account, storageID string, chunkCount uint32) error {
+func (d *StorageDriver) FinalizeBlob(ctx context.Context, account models.ReducedAccount, storageID string, chunkCount uint32) error {
 	path := d.getBlobPath(account, storageID)
 	tmpPath := path + ".tmp"
 	return os.Rename(tmpPath, path)
 }
 
 // AbortBlobUpload implements the keppel.StorageDriver interface.
-func (d *StorageDriver) AbortBlobUpload(ctx context.Context, account models.Account, storageID string, chunkCount uint32) error {
+func (d *StorageDriver) AbortBlobUpload(ctx context.Context, account models.ReducedAccount, storageID string, chunkCount uint32) error {
 	path := d.getBlobPath(account, storageID)
 	tmpPath := path + ".tmp"
 	return os.Remove(tmpPath)
 }
 
 // ReadBlob implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ReadBlob(ctx context.Context, account models.Account, storageID string) (io.ReadCloser, uint64, error) {
+func (d *StorageDriver) ReadBlob(ctx context.Context, account models.ReducedAccount, storageID string) (io.ReadCloser, uint64, error) {
 	path := d.getBlobPath(account, storageID)
 	f, err := os.Open(path)
 	if err != nil {
@@ -119,24 +119,24 @@ func (d *StorageDriver) ReadBlob(ctx context.Context, account models.Account, st
 }
 
 // URLForBlob implements the keppel.StorageDriver interface.
-func (d *StorageDriver) URLForBlob(ctx context.Context, account models.Account, storageID string) (string, error) {
+func (d *StorageDriver) URLForBlob(ctx context.Context, account models.ReducedAccount, storageID string) (string, error) {
 	return "", keppel.ErrCannotGenerateURL
 }
 
 // DeleteBlob implements the keppel.StorageDriver interface.
-func (d *StorageDriver) DeleteBlob(ctx context.Context, account models.Account, storageID string) error {
+func (d *StorageDriver) DeleteBlob(ctx context.Context, account models.ReducedAccount, storageID string) error {
 	path := d.getBlobPath(account, storageID)
 	return os.Remove(path)
 }
 
 // ReadManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ReadManifest(ctx context.Context, account models.Account, repoName string, manifestDigest digest.Digest) ([]byte, error) {
+func (d *StorageDriver) ReadManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) ([]byte, error) {
 	path := d.getManifestPath(account, repoName, manifestDigest)
 	return os.ReadFile(path)
 }
 
 // WriteManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) WriteManifest(ctx context.Context, account models.Account, repoName string, manifestDigest digest.Digest, contents []byte) error {
+func (d *StorageDriver) WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, contents []byte) error {
 	path := d.getManifestPath(account, repoName, manifestDigest)
 	tmpPath := path + ".tmp"
 	err := os.MkdirAll(filepath.Dir(tmpPath), 0777)
@@ -151,13 +151,13 @@ func (d *StorageDriver) WriteManifest(ctx context.Context, account models.Accoun
 }
 
 // DeleteManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) DeleteManifest(ctx context.Context, account models.Account, repoName string, manifestDigest digest.Digest) error {
+func (d *StorageDriver) DeleteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) error {
 	path := d.getManifestPath(account, repoName, manifestDigest)
 	return os.Remove(path)
 }
 
 // ListStorageContents implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.Account) ([]keppel.StoredBlobInfo, []keppel.StoredManifestInfo, error) {
+func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.ReducedAccount) ([]keppel.StoredBlobInfo, []keppel.StoredManifestInfo, error) {
 	blobs, err := d.getBlobs(account)
 	if err != nil {
 		return nil, nil, err
@@ -169,7 +169,7 @@ func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.
 	return blobs, manifests, nil
 }
 
-func (d *StorageDriver) getBlobs(account models.Account) ([]keppel.StoredBlobInfo, error) {
+func (d *StorageDriver) getBlobs(account models.ReducedAccount) ([]keppel.StoredBlobInfo, error) {
 	var blobs []keppel.StoredBlobInfo
 	directory, err := os.Open(d.getBlobBasePath(account))
 	if err != nil {
@@ -194,7 +194,7 @@ func (d *StorageDriver) getBlobs(account models.Account) ([]keppel.StoredBlobInf
 	return blobs, nil
 }
 
-func (d *StorageDriver) getManifests(account models.Account) ([]keppel.StoredManifestInfo, error) {
+func (d *StorageDriver) getManifests(account models.ReducedAccount) ([]keppel.StoredManifestInfo, error) {
 	var manifests []keppel.StoredManifestInfo
 	directory, err := os.Open(d.getManifestBasePath(account))
 	if err != nil {
@@ -218,7 +218,7 @@ func (d *StorageDriver) getManifests(account models.Account) ([]keppel.StoredMan
 	return manifests, nil
 }
 
-func (d *StorageDriver) getRepoManifests(account models.Account, repo string) ([]keppel.StoredManifestInfo, error) {
+func (d *StorageDriver) getRepoManifests(account models.ReducedAccount, repo string) ([]keppel.StoredManifestInfo, error) {
 	var manifests []keppel.StoredManifestInfo
 	directory, err := os.Open(filepath.Join(d.getManifestBasePath(account), repo))
 	if err != nil {
@@ -251,12 +251,12 @@ func (d *StorageDriver) getRepoManifests(account models.Account, repo string) ([
 }
 
 // CanSetupAccount implements the keppel.StorageDriver interface.
-func (d *StorageDriver) CanSetupAccount(ctx context.Context, account models.Account) error {
+func (d *StorageDriver) CanSetupAccount(ctx context.Context, account models.ReducedAccount) error {
 	return nil // this driver does not perform any preflight checks here
 }
 
 // CleanupAccount implements the keppel.StorageDriver interface.
-func (d *StorageDriver) CleanupAccount(ctx context.Context, account models.Account) error {
+func (d *StorageDriver) CleanupAccount(ctx context.Context, account models.ReducedAccount) error {
 	// double-check that cleanup order is right; when the account gets deleted,
 	// all blobs and manifests must have been deleted from it before
 	storedBlobs, storedManifests, err := d.ListStorageContents(ctx, account)

@@ -30,7 +30,7 @@ import (
 	"github.com/sapcc/keppel/internal/models"
 )
 
-func CheckRateLimit(r *http.Request, rle *keppel.RateLimitEngine, account models.Account, authz *auth.Authorization, action keppel.RateLimitedAction, amount uint64) error {
+func CheckRateLimit(r *http.Request, rle *keppel.RateLimitEngine, account models.ReducedAccount, authz *auth.Authorization, action keppel.RateLimitedAction, amount uint64) error {
 	// rate-limiting is optional
 	if rle == nil {
 		return nil

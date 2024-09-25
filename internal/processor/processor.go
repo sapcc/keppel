@@ -116,7 +116,7 @@ func (p *Processor) insideTransaction(ctx context.Context, action func(context.C
 // helper functions used by multiple Processor methods
 
 // Returns nil if and only if the user can push another manifest.
-func (p *Processor) checkQuotaForManifestPush(account models.Account) error {
+func (p *Processor) checkQuotaForManifestPush(account models.ReducedAccount) error {
 	// check if user has enough quota to push a manifest
 	quotas, err := keppel.FindQuotas(p.db, account.AuthTenantID)
 	if err != nil {
@@ -140,7 +140,7 @@ func (p *Processor) checkQuotaForManifestPush(account models.Account) error {
 
 // Takes a repo in a replica account and returns a RepoClient for accessing its
 // the upstream repo in the corresponding primary account.
-func (p *Processor) getRepoClientForUpstream(account models.Account, repo models.Repository) (*client.RepoClient, error) {
+func (p *Processor) getRepoClientForUpstream(account models.ReducedAccount, repo models.Repository) (*client.RepoClient, error) {
 	// use cached client if possible (this one probably already contains a valid
 	// pull token)
 	if c, ok := p.repoClients[repo.FullName()]; ok {

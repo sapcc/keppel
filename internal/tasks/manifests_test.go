@@ -165,7 +165,7 @@ func TestManifestValidationJobError(t *testing.T) {
 		NextCheckAt:         time.Unix(0, 0),
 		VulnerabilityStatus: models.PendingVulnerabilityStatus,
 	}))
-	mustDo(t, s.SD.WriteManifest(s.Ctx, *s.Accounts[0], "foo", image.Manifest.Digest, image.Manifest.Contents))
+	mustDo(t, s.SD.WriteManifest(s.Ctx, s.Accounts[0].Reduced(), "foo", image.Manifest.Digest, image.Manifest.Contents))
 
 	// validation should yield an error
 	s.Clock.StepBy(36 * time.Hour)

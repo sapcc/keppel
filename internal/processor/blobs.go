@@ -42,7 +42,7 @@ import (
 // ValidateExistingBlob validates the given blob that already exists in the DB.
 // Validation includes computing the digest of the blob contents and comparing
 // to the digest in the DB. On success, nil is returned.
-func (p *Processor) ValidateExistingBlob(ctx context.Context, account models.Account, blob models.Blob) (returnErr error) {
+func (p *Processor) ValidateExistingBlob(ctx context.Context, account models.ReducedAccount, blob models.Blob) (returnErr error) {
 	err := blob.Digest.Validate()
 	if err != nil {
 		return fmt.Errorf("cannot parse blob digest: %s", err.Error())
@@ -132,7 +132,7 @@ var (
 // our local registry. The result value `responseWasWritten` indicates whether
 // this happened. It may be false if an error occurred before writing into the
 // ResponseWriter took place.
-func (p *Processor) ReplicateBlob(ctx context.Context, blob models.Blob, account models.Account, repo models.Repository, w http.ResponseWriter) (responseWasWritten bool, returnErr error) {
+func (p *Processor) ReplicateBlob(ctx context.Context, blob models.Blob, account models.ReducedAccount, repo models.Repository, w http.ResponseWriter) (responseWasWritten bool, returnErr error) {
 	// mark this blob as currently being replicated
 	pendingBlob := models.PendingBlob{
 		AccountName:  account.Name,
@@ -198,7 +198,7 @@ func (p *Processor) ReplicateBlob(ctx context.Context, blob models.Blob, account
 	return true, nil
 }
 
-func (p *Processor) uploadBlobToLocal(ctx context.Context, blob models.Blob, account models.Account, blobReader io.Reader, blobLengthBytes uint64) (returnErr error) {
+func (p *Processor) uploadBlobToLocal(ctx context.Context, blob models.Blob, account models.ReducedAccount, blobReader io.Reader, blobLengthBytes uint64) (returnErr error) {
 	defer func() {
 		// if blob upload fails, count an aborted upload
 		if returnErr != nil {
@@ -259,7 +259,7 @@ func (p *Processor) uploadBlobToLocal(ctx context.Context, blob models.Blob, acc
 // Warning: The upload's Digest field is *not* read or written. For chunked
 // uploads, the caller is responsible for performing and validating the digest
 // computation.
-func (p *Processor) AppendToBlob(ctx context.Context, account models.Account, upload *models.Upload, contents io.Reader, lengthBytes *uint64) error {
+func (p *Processor) AppendToBlob(ctx context.Context, account models.ReducedAccount, upload *models.Upload, contents io.Reader, lengthBytes *uint64) error {
 	// case 1: we know the length of the input and don't have to guess when to chunk
 	if lengthBytes != nil {
 		return foreachChunkWithKnownSize(contents, *lengthBytes, func(chunk io.Reader, chunkLengthBytes uint64) error {

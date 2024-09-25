@@ -83,7 +83,7 @@ func (j *Janitor) deleteAbandonedUpload(ctx context.Context, tx *gorp.Transactio
 
 	// remove from backing storage if necessary
 	if upload.NumChunks > 0 {
-		err := j.sd.AbortBlobUpload(ctx, account, upload.StorageID, upload.NumChunks)
+		err := j.sd.AbortBlobUpload(ctx, account.Reduced(), upload.StorageID, upload.NumChunks)
 		if err != nil {
 			return fmt.Errorf("cannot AbortBlobUpload for abandoned upload %s: %s", upload.UUID, err.Error())
 		}

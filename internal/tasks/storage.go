@@ -74,8 +74,10 @@ func (j *Janitor) StorageSweepJob(registerer prometheus.Registerer) jobloop.Job 
 }
 
 func (j *Janitor) sweepStorage(ctx context.Context, account models.Account, _ prometheus.Labels) error {
+	reducedAccount := account.Reduced()
+
 	// enumerate blobs and manifests in the backing storage
-	actualBlobs, actualManifests, err := j.sd.ListStorageContents(ctx, account)
+	actualBlobs, actualManifests, err := j.sd.ListStorageContents(ctx, reducedAccount)
 	if err != nil {
 		return err
 	}
@@ -87,11 +89,11 @@ func (j *Janitor) sweepStorage(ctx context.Context, account models.Account, _ pr
 	canBeDeletedAt := j.timeNow().Add(4 * time.Hour)
 
 	// handle blobs and manifests separately
-	err = j.sweepBlobStorage(ctx, account, actualBlobs, canBeDeletedAt)
+	err = j.sweepBlobStorage(ctx, reducedAccount, actualBlobs, canBeDeletedAt)
 	if err != nil {
 		return err
 	}
-	err = j.sweepManifestStorage(ctx, account, actualManifests, canBeDeletedAt)
+	err = j.sweepManifestStorage(ctx, reducedAccount, actualManifests, canBeDeletedAt)
 	if err != nil {
 		return err
 	}
@@ -100,7 +102,7 @@ func (j *Janitor) sweepStorage(ctx context.Context, account models.Account, _ pr
 	return err
 }
 
-func (j *Janitor) sweepBlobStorage(ctx context.Context, account models.Account, actualBlobs []keppel.StoredBlobInfo, canBeDeletedAt time.Time) error {
+func (j *Janitor) sweepBlobStorage(ctx context.Context, account models.ReducedAccount, actualBlobs []keppel.StoredBlobInfo, canBeDeletedAt time.Time) error {
 	actualBlobsByStorageID := make(map[string]keppel.StoredBlobInfo, len(actualBlobs))
 	for _, blobInfo := range actualBlobs {
 		actualBlobsByStorageID[blobInfo.StorageID] = blobInfo
@@ -197,7 +199,7 @@ func (j *Janitor) sweepBlobStorage(ctx context.Context, account models.Account, 
 	return nil
 }
 
-func (j *Janitor) sweepManifestStorage(ctx context.Context, account models.Account, actualManifests []keppel.StoredManifestInfo, canBeDeletedAt time.Time) error {
+func (j *Janitor) sweepManifestStorage(ctx context.Context, account models.ReducedAccount, actualManifests []keppel.StoredManifestInfo, canBeDeletedAt time.Time) error {
 	isActualManifest := make(map[keppel.StoredManifestInfo]bool, len(actualManifests))
 	for _, m := range actualManifests {
 		isActualManifest[m] = true

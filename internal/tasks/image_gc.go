@@ -97,7 +97,7 @@ func (j *Janitor) garbageCollectManifestsInRepo(ctx context.Context, repo models
 
 	// execute GC policies
 	if len(policiesForRepo) > 0 {
-		err = j.executeGCPolicies(ctx, *account, repo, policiesForRepo)
+		err = j.executeGCPolicies(ctx, account.Reduced(), repo, policiesForRepo)
 		if err != nil {
 			return err
 		}
@@ -123,7 +123,7 @@ type manifestData struct {
 	IsDeleted     bool
 }
 
-func (j *Janitor) executeGCPolicies(ctx context.Context, account models.Account, repo models.Repository, policies []keppel.GCPolicy) error {
+func (j *Janitor) executeGCPolicies(ctx context.Context, account models.ReducedAccount, repo models.Repository, policies []keppel.GCPolicy) error {
 	// load manifests in repo
 	var dbManifests []models.Manifest
 	_, err := j.db.Select(&dbManifests, `SELECT * FROM manifests WHERE repo_id = $1`, repo.ID)
@@ -207,7 +207,7 @@ func (j *Janitor) executeGCPolicies(ctx context.Context, account models.Account,
 	return j.persistGCStatus(manifests, repo.ID)
 }
 
-func (j *Janitor) evaluatePolicy(ctx context.Context, proc *processor.Processor, manifests []*manifestData, account models.Account, repo models.Repository, policy keppel.GCPolicy) error {
+func (j *Janitor) evaluatePolicy(ctx context.Context, proc *processor.Processor, manifests []*manifestData, account models.ReducedAccount, repo models.Repository, policy keppel.GCPolicy) error {
 	// for some time constraint matches, we need to know which manifests are
 	// still alive
 	var aliveManifests []models.Manifest

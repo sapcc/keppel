@@ -41,7 +41,7 @@ var (
 )
 
 func TestDeleteAbandonedUploadWithZeroChunks(t *testing.T) {
-	testDeleteUpload(t, func(_ context.Context, sd keppel.StorageDriver, account models.Account) models.Upload {
+	testDeleteUpload(t, func(_ context.Context, sd keppel.StorageDriver, account models.ReducedAccount) models.Upload {
 		return models.Upload{
 			SizeBytes: 0,
 			Digest:    "",
@@ -51,7 +51,7 @@ func TestDeleteAbandonedUploadWithZeroChunks(t *testing.T) {
 }
 
 func TestDeleteAbandonedUploadWithOneChunk(t *testing.T) {
-	testDeleteUpload(t, func(ctx context.Context, sd keppel.StorageDriver, account models.Account) models.Upload {
+	testDeleteUpload(t, func(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount) models.Upload {
 		data := "just some test data"
 		err := sd.AppendToBlob(ctx, account, testStorageID, 1, p2len(data), strings.NewReader(data))
 		if err != nil {
@@ -67,7 +67,7 @@ func TestDeleteAbandonedUploadWithOneChunk(t *testing.T) {
 }
 
 func TestDeleteAbandonedUploadWithManyChunks(t *testing.T) {
-	testDeleteUpload(t, func(ctx context.Context, sd keppel.StorageDriver, account models.Account) models.Upload {
+	testDeleteUpload(t, func(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount) models.Upload {
 		chunks := []string{"just", "some", "test", "data"}
 		for idx, data := range chunks {
 			err := sd.AppendToBlob(ctx, account, testStorageID, uint32(idx+1), p2len(data), strings.NewReader(data)) //nolint:gosec // chunks has a fixed size of 4
@@ -85,9 +85,9 @@ func TestDeleteAbandonedUploadWithManyChunks(t *testing.T) {
 	})
 }
 
-func testDeleteUpload(t *testing.T, setupUploadObject func(context.Context, keppel.StorageDriver, models.Account) models.Upload) {
+func testDeleteUpload(t *testing.T, setupUploadObject func(context.Context, keppel.StorageDriver, models.ReducedAccount) models.Upload) {
 	j, s := setup(t)
-	account := models.Account{Name: "test1"}
+	account := models.ReducedAccount{Name: "test1"}
 	uploadJob := j.AbandonedUploadCleanupJob(s.Registry)
 
 	// right now, there are no upload objects, so DeleteNextAbandonedUpload should indicate that

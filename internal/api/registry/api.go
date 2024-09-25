@@ -197,7 +197,7 @@ func (info anycastRequestInfo) AsPrometheusLabels() prometheus.Labels {
 // If the account does not exist locally, but the request is for the anycast API
 // and the account exists elsewhere, the `anycastHandler` is invoked if given
 // instead of giving a 404 response.
-func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy, anycastHandler func(http.ResponseWriter, *http.Request, anycastRequestInfo)) (*models.Account, *models.Repository, *auth.Authorization) {
+func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy, anycastHandler func(http.ResponseWriter, *http.Request, anycastRequestInfo)) (*models.ReducedAccount, *models.Repository, *auth.Authorization) {
 	// must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
@@ -211,7 +211,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		return nil, nil, nil
 	}
 
-	// check authorization before FindAccount(); otherwise we might leak
+	// check authorization before FindReducedAccount(); otherwise we might leak
 	// information about account existence to unauthorized users
 	switch r.Method {
 	case http.MethodDelete:
@@ -234,7 +234,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 
 	// we need to know the account to select the registry instance for this request
 	repoScope := scope.ParseRepositoryScope(authz.Audience)
-	account, err := keppel.FindAccount(a.db, repoScope.AccountName)
+	account, err := keppel.FindReducedAccount(a.db, repoScope.AccountName)
 	if respondWithError(w, r, err) {
 		return nil, nil, nil
 	}
