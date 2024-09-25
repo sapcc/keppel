@@ -37,7 +37,7 @@ import (
 // known yet.
 type Blob struct {
 	ID                     int64         `db:"id"`
-	AccountName            string        `db:"account_name"`
+	AccountName            AccountName   `db:"account_name"`
 	Digest                 digest.Digest `db:"digest"`
 	SizeBytes              uint64        `db:"size_bytes"`
 	StorageID              string        `db:"storage_id"`

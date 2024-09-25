@@ -38,7 +38,7 @@ func (a AuditSecurityScanPolicy) Render() cadf.Resource {
 	content, _ := json.Marshal(a.Policy)
 	return cadf.Resource{
 		TypeURI:   "docker-registry/account",
-		ID:        a.Account.Name,
+		ID:        string(a.Account.Name),
 		ProjectID: a.Account.AuthTenantID,
 		Attachments: []cadf.Attachment{{
 			Name:    "payload",

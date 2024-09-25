@@ -19,6 +19,8 @@
 
 package auth
 
+import "github.com/sapcc/keppel/internal/models"
+
 // ScopeSet is a set of scopes.
 type ScopeSet []*Scope
 
@@ -84,8 +86,8 @@ func (ss ScopeSet) Flatten() []Scope {
 // is not empty, only accounts with `name > markerAccountName` will be returned.
 //
 // For use with the /v2/_catalog endpoint.
-func (ss ScopeSet) AccountsWithCatalogAccess(markerAccountName string) []string {
-	var result []string
+func (ss ScopeSet) AccountsWithCatalogAccess(markerAccountName models.AccountName) []models.AccountName {
+	var result []models.AccountName
 	for _, scope := range ss {
 		accountName, ok := isKeppelAccountViewScope(*scope)
 		if !ok {
@@ -99,13 +101,13 @@ func (ss ScopeSet) AccountsWithCatalogAccess(markerAccountName string) []string 
 	return result
 }
 
-func isKeppelAccountViewScope(s Scope) (string, bool) {
+func isKeppelAccountViewScope(s Scope) (models.AccountName, bool) {
 	if s.ResourceType != "keppel_account" {
 		return "", false
 	}
 	for _, action := range s.Actions {
 		if action == "view" {
-			return s.ResourceName, true
+			return models.AccountName(s.ResourceName), true
 		}
 	}
 	return "", false

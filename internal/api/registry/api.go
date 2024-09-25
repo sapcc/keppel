@@ -173,7 +173,7 @@ const (
 )
 
 type anycastRequestInfo struct {
-	AccountName     string
+	AccountName     models.AccountName
 	RepoName        string
 	PrimaryHostName string // the peer who has this account
 }
@@ -184,7 +184,7 @@ func (info anycastRequestInfo) AsPrometheusLabels() prometheus.Labels {
 	// this field for tracking the fact that we were redirecting an anycast
 	// request, and where we redirected it
 	return prometheus.Labels{
-		"account":        info.AccountName,
+		"account":        string(info.AccountName),
 		"auth_tenant_id": "anycast-" + info.PrimaryHostName,
 		"method":         "registry-api",
 	}

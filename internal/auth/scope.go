@@ -21,6 +21,8 @@ package auth
 import (
 	"fmt"
 	"strings"
+
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // Scope contains the fields of the "scope" query parameter in a token request.
@@ -32,7 +34,7 @@ type Scope struct {
 
 // ParsedRepositoryScope is returned by Scope.ParseRepositoryScope().
 type ParsedRepositoryScope struct {
-	AccountName        string
+	AccountName        models.AccountName
 	RepositoryName     string
 	FullRepositoryName string
 }
@@ -71,13 +73,13 @@ func (s Scope) ParseRepositoryScope(audience Audience) ParsedRepositoryScope {
 		// repository name which is not allowed; generate a ParsedRepositoryScope
 		// that will never have any permissions given out for it
 		return ParsedRepositoryScope{
-			AccountName:        s.ResourceName,
+			AccountName:        models.AccountName(s.ResourceName),
 			RepositoryName:     "",
 			FullRepositoryName: s.ResourceName,
 		}
 	}
 	return ParsedRepositoryScope{
-		AccountName:        parts[0],
+		AccountName:        models.AccountName(parts[0]),
 		RepositoryName:     parts[1],
 		FullRepositoryName: s.ResourceName,
 	}

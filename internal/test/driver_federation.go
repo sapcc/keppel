@@ -39,7 +39,7 @@ type FederationDriver struct {
 	ClaimFailsBecauseOfServerError bool
 	ForfeitFails                   bool
 	NextSubleaseTokenSecretToIssue string
-	ValidSubleaseTokenSecrets      map[string]string // maps accountName => subleaseTokenSecret
+	ValidSubleaseTokenSecrets      map[models.AccountName]string
 	RecordedAccounts               []AccountRecordedByFederationDriver
 }
 
@@ -59,7 +59,7 @@ func (d *FederationDriver) PluginTypeID() string { return "unittest" }
 // Init implements the keppel.FederationDriver interface.
 func (d *FederationDriver) Init(ctx context.Context, ad keppel.AuthDriver, cfg keppel.Configuration) error {
 	d.APIPublicHostName = cfg.APIPublicHostname
-	d.ValidSubleaseTokenSecrets = make(map[string]string)
+	d.ValidSubleaseTokenSecrets = make(map[models.AccountName]string)
 	federationDriversForThisUnitTest = append(federationDriversForThisUnitTest, d)
 	return nil
 }
@@ -115,7 +115,7 @@ func (d *FederationDriver) RecordExistingAccount(ctx context.Context, account mo
 }
 
 // FindPrimaryAccount implements the keppel.FederationDriver interface.
-func (d *FederationDriver) FindPrimaryAccount(ctx context.Context, accountName string) (string, error) {
+func (d *FederationDriver) FindPrimaryAccount(ctx context.Context, accountName models.AccountName) (string, error) {
 	for _, fd := range federationDriversForThisUnitTest {
 		for _, a := range fd.RecordedAccounts {
 			if a.Account.Name == accountName && a.Account.UpstreamPeerHostName == "" {

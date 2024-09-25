@@ -44,7 +44,7 @@ import (
 func (p *Processor) GetPlatformFilterFromPrimaryAccount(ctx context.Context, peer models.Peer, replicaAccount models.Account) (models.PlatformFilter, error) {
 	viewScope := auth.Scope{
 		ResourceType: "keppel_account",
-		ResourceName: replicaAccount.Name,
+		ResourceName: string(replicaAccount.Name),
 		Actions:      []string{"view"},
 	}
 	client, err := peerclient.New(ctx, p.cfg, peer, viewScope)
@@ -73,10 +73,10 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 	// APIs (we will soon start recognizing image-like URLs such as
 	// keppel.example.org/account/repo and offer redirection to a suitable UI;
 	// this requires the account name to not overlap with API endpoint paths)
-	if strings.HasPrefix(account.Name, "keppel") {
+	if strings.HasPrefix(string(account.Name), "keppel") {
 		return models.Account{}, keppel.AsRegistryV2Error(errors.New(`account names with the prefix "keppel" are reserved for internal use`)).WithStatus(http.StatusUnprocessableEntity)
 	}
-	if looksLikeAPIVersionRx.MatchString(account.Name) {
+	if looksLikeAPIVersionRx.MatchString(string(account.Name)) {
 		return models.Account{}, keppel.AsRegistryV2Error(errors.New(`account names that look like API versions (e.g. v1) are reserved for internal use`)).WithStatus(http.StatusUnprocessableEntity)
 	}
 

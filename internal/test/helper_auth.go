@@ -25,6 +25,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // GetToken obtains a token for use with the Registry V2 API.
@@ -47,7 +48,7 @@ func (s Setup) GetAnycastToken(t *testing.T, scopes ...string) string {
 
 // GetDomainRemappedToken is like GetToken, but instead returns a token for a
 // domain-remapped API.
-func (s Setup) GetDomainRemappedToken(t *testing.T, accountName string, scopes ...string) string {
+func (s Setup) GetDomainRemappedToken(t *testing.T, accountName models.AccountName, scopes ...string) string {
 	t.Helper()
 	return s.getToken(t, auth.Audience{IsAnycast: false, AccountName: accountName}, scopes...)
 }
@@ -111,7 +112,7 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 			if strings.Join(scope.Actions, ",") != "view" {
 				t.Fatalf("do not know how to handle scope %q", scope.String())
 			}
-			authTenantID, err := s.findAuthTenantIDForAccountName(scope.ResourceName)
+			authTenantID, err := s.findAuthTenantIDForAccountName(models.AccountName(scope.ResourceName))
 			mustDo(t, err)
 			perms[string(keppel.CanViewAccount)][authTenantID] = true
 		}
@@ -132,7 +133,7 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 	return tokenResp.Token
 }
 
-func (s Setup) findAuthTenantIDForAccountName(accountName string) (string, error) {
+func (s Setup) findAuthTenantIDForAccountName(accountName models.AccountName) (string, error) {
 	//optimization: if we can find this specific account in the list of
 	// pre-provisioned accounts, we can skip the DB lookup
 	for _, a := range s.Accounts {

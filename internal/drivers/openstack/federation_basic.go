@@ -97,7 +97,7 @@ func (d *federationDriverBasic) ClaimAccountName(ctx context.Context, account mo
 
 	for _, entry := range d.Whitelist {
 		projectMatches := entry.ProjectName.MatchString(projectName)
-		accountMatches := entry.AccountName.MatchString(account.Name)
+		accountMatches := entry.AccountName.MatchString(string(account.Name))
 		if projectMatches && accountMatches {
 			return keppel.ClaimSucceeded, nil
 		}
@@ -124,6 +124,6 @@ func (d *federationDriverBasic) RecordExistingAccount(ctx context.Context, accou
 }
 
 // FindPrimaryAccount implements the keppel.FederationDriver interface.
-func (d *federationDriverBasic) FindPrimaryAccount(ctx context.Context, accountName string) (string, error) {
+func (d *federationDriverBasic) FindPrimaryAccount(ctx context.Context, accountName models.AccountName) (string, error) {
 	return "", keppel.ErrNoSuchPrimaryAccount
 }

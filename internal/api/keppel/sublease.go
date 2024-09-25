@@ -23,6 +23,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/sapcc/keppel/internal/models"
 )
 
 const SubleaseHeader = "X-Keppel-Sublease-Token"
@@ -32,9 +34,9 @@ const SubleaseHeader = "X-Keppel-Sublease-Token"
 // informational. GUIs/CLIs can display these data to the user for confirmation
 // when the token is entered.
 type SubleaseToken struct {
-	AccountName     string `json:"account"`
-	PrimaryHostname string `json:"primary"`
-	Secret          string `json:"secret"`
+	AccountName     models.AccountName `json:"account"`
+	PrimaryHostname string             `json:"primary"`
+	Secret          string             `json:"secret"`
 }
 
 // Serialize returns the Base64-encoded JSON of this token. This is the format

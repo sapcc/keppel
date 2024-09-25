@@ -36,7 +36,7 @@ type Audience struct {
 	IsAnycast bool
 	// When using a domain-remapped API, contains the account name specified in the domain name.
 	// Otherwise, contains the empty string.
-	AccountName string
+	AccountName models.AccountName
 }
 
 // IdentifyAudience returns the Audience corresponding to the given domain name.
@@ -64,9 +64,9 @@ func IdentifyAudience(hostname string, cfg keppel.Configuration) Audience {
 			// ...and tail must be one of the well-known hostnames
 			switch hostnameParts[1] {
 			case cfg.APIPublicHostname:
-				return Audience{IsAnycast: false, AccountName: hostnameParts[0]}
+				return Audience{IsAnycast: false, AccountName: models.AccountName(hostnameParts[0])}
 			case cfg.AnycastAPIPublicHostname:
-				return Audience{IsAnycast: true, AccountName: hostnameParts[0]}
+				return Audience{IsAnycast: true, AccountName: models.AccountName(hostnameParts[0])}
 			default:
 				// try the other options
 			}

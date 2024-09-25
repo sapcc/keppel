@@ -128,7 +128,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 
 	// before we branch into different code paths, count the pull
 	if r.Method == http.MethodGet {
-		l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
+		l := prometheus.Labels{"account": string(account.Name), "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 		if authz.UserIdentity.UserType() == keppel.PeerUser {
 			l["method"] = "replication"
 		} else if isAnycast {

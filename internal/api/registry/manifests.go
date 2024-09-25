@@ -194,7 +194,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 
 	// count the pull unless a special header is set or the pull is performed by Trivy as part of our security scanning
 	if r.Method == http.MethodGet && r.Header.Get("X-Keppel-No-Count-Towards-Last-Pulled") != "1" && authz.UserIdentity.UserType() != keppel.TrivyUser {
-		l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
+		l := prometheus.Labels{"account": string(account.Name), "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 		api.ManifestsPulledCounter.With(l).Inc()
 
 		// update manifests.last_pulled_at
@@ -362,7 +362,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// count the push
-	l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
+	l := prometheus.Labels{"account": string(account.Name), "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 	api.ManifestsPushedCounter.With(l).Inc()
 
 	w.Header().Set("Content-Length", "0")

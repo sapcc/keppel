@@ -24,10 +24,14 @@ import (
 	"time"
 )
 
+// AccountName identifies an account. This typedef is used to distinguish these
+// names from other string values.
+type AccountName string
+
 // Account contains a record from the `accounts` table.
 type Account struct {
-	Name         string `db:"name"`
-	AuthTenantID string `db:"auth_tenant_id"`
+	Name         AccountName `db:"name"`
+	AuthTenantID string      `db:"auth_tenant_id"`
 
 	// UpstreamPeerHostName is set if and only if the "on_first_use" replication strategy is used.
 	UpstreamPeerHostName string `db:"upstream_peer_hostname"`
@@ -65,7 +69,7 @@ type Account struct {
 // SwiftContainerName returns the name of the Swift container backing this
 // Keppel account.
 func (a Account) SwiftContainerName() string {
-	return "keppel-" + a.Name
+	return "keppel-" + string(a.Name)
 }
 
 // SplitRequiredLabels parses the RequiredLabels field.

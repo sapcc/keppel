@@ -151,11 +151,11 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Request, account models.Account, targetRepo models.Repository, authz *auth.Authorization, sourceRepoFullName, blobDigestStr string) {
 	// validate source repository
-	if !strings.HasPrefix(sourceRepoFullName, account.Name+"/") {
+	sourceRepoName, ok := strings.CutPrefix(sourceRepoFullName, string(account.Name)+"/")
+	if !ok {
 		keppel.ErrUnsupported.With("cannot mount blobs across different accounts").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
-	sourceRepoName := strings.TrimPrefix(sourceRepoFullName, account.Name+"/")
 	if !models.RepoNameWithLeadingSlashRx.MatchString("/" + sourceRepoName) {
 		keppel.ErrNameInvalid.With("source repository is invalid").WriteAsRegistryV2ResponseTo(w, r)
 		return
@@ -493,7 +493,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// count a finished blob push
-	l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
+	l := prometheus.Labels{"account": string(account.Name), "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 	api.BlobsPushedCounter.With(l).Inc()
 	api.BlobBytesPushedCounter.With(l).Add(float64(blob.SizeBytes))
 
@@ -763,7 +763,7 @@ func (w *digestWriter) Write(buf []byte) (n int, err error) {
 }
 
 func countAbortedBlobUpload(account models.Account) {
-	l := prometheus.Labels{"account": account.Name, "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
+	l := prometheus.Labels{"account": string(account.Name), "auth_tenant_id": account.AuthTenantID, "method": "registry-api"}
 	api.UploadsAbortedCounter.With(l).Inc()
 }
 

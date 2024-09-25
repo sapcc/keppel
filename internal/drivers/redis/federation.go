@@ -59,13 +59,13 @@ func (d *federationDriver) Init(ctx context.Context, ad keppel.AuthDriver, cfg k
 	return nil
 }
 
-func (d *federationDriver) primaryKey(accountName string) string {
+func (d *federationDriver) primaryKey(accountName models.AccountName) string {
 	return fmt.Sprintf("%s-primary-%s", d.prefix, accountName)
 }
-func (d *federationDriver) replicasKey(accountName string) string {
+func (d *federationDriver) replicasKey(accountName models.AccountName) string {
 	return fmt.Sprintf("%s-replicas-%s", d.prefix, accountName)
 }
-func (d *federationDriver) tokenKey(accountName string) string {
+func (d *federationDriver) tokenKey(accountName models.AccountName) string {
 	return fmt.Sprintf("%s-token-%s", d.prefix, accountName)
 }
 
@@ -256,7 +256,7 @@ func (d *federationDriver) validatePrimaryHostname(ctx context.Context, account 
 }
 
 // FindPrimaryAccount implements the keppel.FederationDriver interface.
-func (d *federationDriver) FindPrimaryAccount(ctx context.Context, accountName string) (string, error) {
+func (d *federationDriver) FindPrimaryAccount(ctx context.Context, accountName models.AccountName) (string, error) {
 	primaryHostname, err := d.rc.Get(ctx, d.primaryKey(accountName)).Result()
 	if errors.Is(err, redis.Nil) {
 		return "", keppel.ErrNoSuchPrimaryAccount

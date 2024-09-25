@@ -681,7 +681,7 @@ func TestInvalidCredentials(t *testing.T) {
 
 type anycastTestCase struct {
 	// request
-	AccountName string
+	AccountName models.AccountName
 	Service     string
 	Handler     http.Handler
 	// result
@@ -760,11 +760,11 @@ func TestAnycastAndDomainRemappedTokens(t *testing.T) {
 					scopeRepoName string
 				)
 				if withDomainRemapping {
-					domainPrefix = c.AccountName + "."
+					domainPrefix = string(c.AccountName) + "."
 					scopeRepoName = "foo"
 				} else {
 					domainPrefix = ""
-					scopeRepoName = c.AccountName + "/foo"
+					scopeRepoName = string(c.AccountName) + "/foo"
 				}
 
 				req := assert.HTTPRequest{

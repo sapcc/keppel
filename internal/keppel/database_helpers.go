@@ -32,7 +32,7 @@ import (
 
 // FindAccount works similar to db.SelectOne(), but returns nil instead of
 // sql.ErrNoRows if no account exists with this name.
-func FindAccount(db gorp.SqlExecutor, name string) (*models.Account, error) {
+func FindAccount(db gorp.SqlExecutor, name models.AccountName) (*models.Account, error) {
 	var account models.Account
 	err := db.SelectOne(&account, "SELECT * FROM accounts WHERE name = $1", name)
 	if errors.Is(err, sql.ErrNoRows) {

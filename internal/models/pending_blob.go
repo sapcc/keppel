@@ -27,7 +27,7 @@ import (
 
 // PendingBlob contains a record from the `pending_blobs` table.
 type PendingBlob struct {
-	AccountName  string        `db:"account_name"`
+	AccountName  AccountName   `db:"account_name"`
 	Digest       digest.Digest `db:"digest"`
 	Reason       PendingReason `db:"reason"`
 	PendingSince time.Time     `db:"since"`

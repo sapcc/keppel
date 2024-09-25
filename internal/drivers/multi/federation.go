@@ -107,6 +107,6 @@ func (fd *federationDriver) RecordExistingAccount(ctx context.Context, account m
 }
 
 // FindPrimaryAccount implements the keppel.FederationDriver interface.
-func (fd *federationDriver) FindPrimaryAccount(ctx context.Context, accountName string) (peerHostName string, err error) {
+func (fd *federationDriver) FindPrimaryAccount(ctx context.Context, accountName models.AccountName) (peerHostName string, err error) {
 	return fd.Drivers[0].FindPrimaryAccount(ctx, accountName)
 }

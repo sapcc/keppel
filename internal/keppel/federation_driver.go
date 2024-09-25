@@ -101,7 +101,7 @@ type FederationDriver interface {
 	// do not exist locally. It shell return the hostname of the peer that hosts
 	// the primary account. If no account with this name exists anywhere,
 	// ErrNoSuchPrimaryAccount shall be returned.
-	FindPrimaryAccount(ctx context.Context, accountName string) (peerHostName string, err error)
+	FindPrimaryAccount(ctx context.Context, accountName models.AccountName) (peerHostName string, err error)
 }
 
 // FederationDriverRegistry is a pluggable.Registry for FederationDriver implementations.
