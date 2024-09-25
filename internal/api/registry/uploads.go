@@ -160,7 +160,7 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 		keppel.ErrNameInvalid.With("source repository is invalid").WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
-	sourceRepo, err := keppel.FindRepository(a.db, sourceRepoName, account)
+	sourceRepo, err := keppel.FindRepository(a.db, sourceRepoName, account.Name)
 	if errors.Is(err, sql.ErrNoRows) {
 		keppel.ErrNameUnknown.With("source repository does not exist").WriteAsRegistryV2ResponseTo(w, r)
 		return
@@ -728,7 +728,7 @@ func (a *API) createOrUpdateBlobObject(ctx context.Context, tx *gorp.Transaction
 	if err != nil {
 		return nil, err
 	}
-	blob, err := keppel.FindBlobByAccountName(tx, blobDigest, account)
+	blob, err := keppel.FindBlobByAccountName(tx, blobDigest, account.Name)
 	if err != nil {
 		return nil, err
 	}

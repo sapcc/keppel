@@ -70,8 +70,7 @@ func (b Bytes) MustUpload(t *testing.T, s Setup, repo models.Repository) models.
 	// validate uploaded blob (FindBlobByRepository does not work here because we
 	// are usually given a Repository instance that does not have the ID field
 	// filled)
-	account := models.Account{Name: repo.AccountName}
-	blob, err := keppel.FindBlobByRepositoryName(s.DB, b.Digest, repo.Name, account)
+	blob, err := keppel.FindBlobByRepositoryName(s.DB, b.Digest, repo.Name, repo.AccountName)
 	mustDo(t, err)
 	s.ExpectBlobsExistInStorage(t, *blob)
 	if t.Failed() {
@@ -125,8 +124,7 @@ func (i Image) MustUpload(t *testing.T, s Setup, repo models.Repository, tagName
 	}
 
 	// validate uploaded manifest
-	account := models.Account{Name: repo.AccountName}
-	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, account, i.Manifest.Digest)
+	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, repo.AccountName, i.Manifest.Digest)
 	mustDo(t, err)
 	s.ExpectManifestsExistInStorage(t, repo.Name, *manifest)
 	if t.Failed() {
@@ -182,8 +180,7 @@ func (l ImageList) MustUpload(t *testing.T, s Setup, repo models.Repository, tag
 	}
 
 	// validate uploaded manifest
-	account := models.Account{Name: repo.AccountName}
-	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, account, l.Manifest.Digest)
+	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, repo.AccountName, l.Manifest.Digest)
 	mustDo(t, err)
 	s.ExpectManifestsExistInStorage(t, repo.Name, *manifest)
 	if t.Failed() {

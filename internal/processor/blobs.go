@@ -96,17 +96,17 @@ func (w *byteCountingWriter) Write(buf []byte) (int, error) {
 // requested blob does not exist, a blob record with an empty storage ID will be
 // inserted into the DB. This indicates to the registry API handler that this
 // blob shall be replicated when it is first pulled.
-func (p *Processor) FindBlobOrInsertUnbackedBlob(ctx context.Context, desc distribution.Descriptor, account models.Account) (*models.Blob, error) {
+func (p *Processor) FindBlobOrInsertUnbackedBlob(ctx context.Context, desc distribution.Descriptor, accountName models.AccountName) (*models.Blob, error) {
 	var blob *models.Blob
 	err := p.insideTransaction(ctx, func(ctx context.Context, tx *gorp.Transaction) error {
 		var err error
-		blob, err = keppel.FindBlobByAccountName(tx, desc.Digest, account)
+		blob, err = keppel.FindBlobByAccountName(tx, desc.Digest, accountName)
 		if !errors.Is(err, sql.ErrNoRows) { // either success or unexpected error
 			return err
 		}
 
 		blob = &models.Blob{
-			AccountName:      account.Name,
+			AccountName:      accountName,
 			Digest:           desc.Digest,
 			MediaType:        desc.MediaType,
 			SizeBytes:        keppel.AtLeastZero(desc.Size),

@@ -174,7 +174,7 @@ func (j *Janitor) tryDeleteManagedAccount(ctx context.Context, accountName model
 				return false, fmt.Errorf("while deleting manifest %q in repository %q: could not parse digest: %w",
 					rm.Digest, rm.RepositoryName, err)
 			}
-			repo, err := keppel.FindRepository(j.db, rm.RepositoryName, *accountModel)
+			repo, err := keppel.FindRepository(j.db, rm.RepositoryName, accountName)
 			if err != nil {
 				return false, fmt.Errorf("while deleting manifest %q in repository %q: could not find repository in DB: %w",
 					rm.Digest, rm.RepositoryName, err)

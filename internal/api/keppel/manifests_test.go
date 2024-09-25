@@ -494,7 +494,7 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 		)
 		h := s.Handler
 
-		_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.Account{Name: "test1"})
+		_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1"))
 		if err != nil {
 			t.Fatal(err.Error())
 		}

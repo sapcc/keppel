@@ -284,9 +284,9 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 
 	var repo *models.Repository
 	if canCreateRepoIfMissing {
-		repo, err = keppel.FindOrCreateRepository(a.db, repoScope.RepositoryName, *account)
+		repo, err = keppel.FindOrCreateRepository(a.db, repoScope.RepositoryName, account.Name)
 	} else {
-		repo, err = keppel.FindRepository(a.db, repoScope.RepositoryName, *account)
+		repo, err = keppel.FindRepository(a.db, repoScope.RepositoryName, account.Name)
 	}
 	if errors.Is(err, sql.ErrNoRows) || repo == nil {
 		if canFirstPull {

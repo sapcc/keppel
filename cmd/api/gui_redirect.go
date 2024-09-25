@@ -64,7 +64,7 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	repoName := stripTagAndDigest(vars["repository"])
-	repo, err := keppel.FindRepository(g.db, repoName, *account)
+	repo, err := keppel.FindRepository(g.db, repoName, accountName)
 	if err != nil || repo == nil {
 		respondNotFound(w, r)
 		return
