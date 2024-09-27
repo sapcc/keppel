@@ -42,7 +42,6 @@ func Compose(apis ...API) http.Handler {
 		}
 	}
 
-	// TODO add a /healthcheck "ok" API that does SkipRequestLog()
 	h := http.Handler(m)
 	return h
 }
