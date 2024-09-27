@@ -25,7 +25,7 @@ require (
 	github.com/sapcc/go-bits v0.0.0-20240919081231-a80ea73a2dce
 	github.com/spf13/cobra v1.8.1
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
-	go.uber.org/automaxprocs v1.5.3
+	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/crypto v0.27.0
 )
 
