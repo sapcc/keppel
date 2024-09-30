@@ -25,6 +25,8 @@ import "time"
 type Peer struct {
 	HostName string `db:"hostname"`
 
+	UseForPullDelegation bool `db:"use_for_pull_delegation"`
+
 	// OurPassword is what we use to log in at the peer.
 	OurPassword string `db:"our_password"`
 
