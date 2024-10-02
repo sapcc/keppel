@@ -39,7 +39,8 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 		s := test.NewSetup(t)
 
 		// setup a peer
-		mustDo(t, s.DB.Insert(&models.Peer{HostName: "peer.example.org"}))
+		mustDo(t, s.DB.Insert(&models.Peer{HostName: "peer.example.org", UseForPullDelegation: true}))
+		mustDo(t, s.DB.Insert(&models.Peer{HostName: "peer.invalid.", UseForPullDelegation: false}))
 
 		// setup a mock for the peer that just swallows any password that we give to it
 		mockPeer := mockPeerReceivingPassword{}
@@ -115,7 +116,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 func getPeerFromDB(t *testing.T, db *keppel.DB) models.Peer {
 	t.Helper()
 	var peer models.Peer
-	err := db.SelectOne(&peer, `SELECT * FROM peers WHERE hostname = $1`, "peer.example.org")
+	err := db.SelectOne(&peer, `SELECT * FROM peers WHERE use_for_pull_delegation`)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

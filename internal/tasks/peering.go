@@ -75,7 +75,7 @@ func IssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, db *
 		}
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("error while issuing new password for peer: %w", err)
 	}
 
 	// the problem is that, if we later find that the peer has not successfully

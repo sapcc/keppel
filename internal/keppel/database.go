@@ -296,6 +296,14 @@ var sqlMigrations = map[string]string{
 		ALTER TABLE accounts
 			DROP COLUMN is_managed, next_enforcement_at;
 	`,
+	"042_add_peers_use_for_pull_delegation.up.sql": `
+		ALTER TABLE peers
+			ADD COLUMN use_for_pull_delegation BOOLEAN NOT NULL DEFAULT TRUE;
+	`,
+	"042_add_peers_use_for_pull_delegation.down.sql": `
+		ALTER TABLE peers
+			DROP COLUMN use_for_pull_delegation;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.

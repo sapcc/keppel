@@ -384,8 +384,9 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		if s1 != nil {
 			// give the secondary registry credentials for replicating from the primary
 			mustDo(t, s.DB.Insert(&models.Peer{
-				HostName:    "registry.example.org",
-				OurPassword: GetReplicationPassword(),
+				HostName:             "registry.example.org",
+				UseForPullDelegation: true,
+				OurPassword:          GetReplicationPassword(),
 			}))
 			mustDo(t, s1.DB.Insert(&models.Peer{
 				HostName:                 "registry-secondary.example.org",

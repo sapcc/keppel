@@ -811,7 +811,7 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 func (p *Processor) downloadManifestViaPullDelegation(ctx context.Context, imageRef models.ImageReference, userName, password string) (respBytes []byte, contentType string, success bool) {
 	// select a peer at random
 	var peer models.Peer
-	err := p.db.SelectOne(&peer, `SELECT * FROM peers WHERE our_password != '' ORDER BY RANDOM() LIMIT 1`)
+	err := p.db.SelectOne(&peer, `SELECT * FROM peers WHERE use_for_pull_delegation and our_password != '' ORDER BY RANDOM() LIMIT 1`)
 	if errors.Is(err, sql.ErrNoRows) {
 		// no peers set up - just skip this step without logging anything
 		return nil, "", false

@@ -21,6 +21,7 @@ package apicmd
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"os"
 	"strings"
@@ -35,25 +36,31 @@ import (
 	"github.com/sapcc/keppel/internal/tasks"
 )
 
+type peeringConfig []struct {
+	Hostname             string `json:"hostname"`
+	UseForPullDelegation *bool  `json:"use_for_pull_delegation"`
+}
+
 func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
 	isPeerHostName := make(map[string]bool)
-	for _, hostName := range strings.Split(os.Getenv("KEPPEL_PEERS"), ",") {
-		hostName = strings.TrimSpace(hostName)
-		if hostName != "" {
-			isPeerHostName[hostName] = true
-		}
-	}
 
-	if len(isPeerHostName) == 0 {
-		// nothing to do
-		return
-	}
+	var peeringCfg peeringConfig
+	decoder := json.NewDecoder(strings.NewReader(os.Getenv("KEPPEL_PEERS")))
+	decoder.DisallowUnknownFields()
+	must.Succeed(decoder.Decode(&peeringCfg))
 
 	// add missing entries to `peers` table
-	for peerHostName := range isPeerHostName {
+	for _, peer := range peeringCfg {
+		isPeerHostName[peer.Hostname] = true
+
+		useForPullDelegation := true
+		if peer.UseForPullDelegation != nil {
+			useForPullDelegation = *peer.UseForPullDelegation
+		}
 		_ = must.Return(db.Exec(
-			`INSERT INTO peers (hostname) VALUES ($1) ON CONFLICT DO NOTHING`,
-			peerHostName,
+			`INSERT INTO peers (hostname, use_for_pull_delegation) VALUES ($1, $2) ON CONFLICT DO
+				UPDATE SET use_for_pull_delegation = EXCLUDED.use_for_pull_delegation`,
+			peer.Hostname, useForPullDelegation,
 		))
 	}
 
