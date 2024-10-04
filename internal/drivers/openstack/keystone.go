@@ -56,6 +56,7 @@ type keystoneDriver struct {
 	Provider       *gophercloud.ProviderClient
 	IdentityV3     *gophercloud.ServiceClient
 	TokenValidator *gopherpolicy.TokenValidator
+	IsRelevantRole map[string]bool
 }
 
 func init() {
@@ -94,7 +95,8 @@ func (d *keystoneDriver) Init(ctx context.Context, rc *redis.Client) error {
 
 	// load oslo.policy
 	d.TokenValidator = &gopherpolicy.TokenValidator{IdentityV3: d.IdentityV3}
-	err = d.TokenValidator.LoadPolicyFile(osext.MustGetenv("KEPPEL_OSLO_POLICY_PATH"))
+	policyFilePath := osext.MustGetenv("KEPPEL_OSLO_POLICY_PATH")
+	err = d.TokenValidator.LoadPolicyFile(policyFilePath)
 	if err != nil {
 		return err
 	}
@@ -102,6 +104,18 @@ func (d *keystoneDriver) Init(ctx context.Context, rc *redis.Client) error {
 		d.TokenValidator.Cacher = gopherpolicy.InMemoryCacher()
 	} else {
 		d.TokenValidator.Cacher = redisCacher{rc}
+	}
+
+	// read policy file "manually" to find which Keystone roles are relevant to us
+	d.IsRelevantRole = make(map[string]bool)
+	roleCheckRx := regexp.MustCompile(`role:([a-zA-Z0-9_-]+)`)
+	buf, err := os.ReadFile(policyFilePath)
+	if err != nil {
+		return err
+	}
+	for _, match := range roleCheckRx.FindAllStringSubmatch(string(buf), -1) {
+		roleName := match[1]
+		d.IsRelevantRole[roleName] = true
 	}
 
 	return nil
@@ -148,7 +162,7 @@ func (d *keystoneDriver) AuthenticateUser(ctx context.Context, userName, passwor
 			userName, t.Err.Error(),
 		)
 	}
-	return &keystoneUserIdentity{t}, nil
+	return newKeystoneUserIdentity(t, d.IsRelevantRole), nil
 }
 
 // possible formats for the username:
@@ -204,7 +218,7 @@ func (d *keystoneDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.Us
 
 	// t.Context.Request = mux.Vars(r) //not used at the moment
 
-	a := &keystoneUserIdentity{t}
+	a := newKeystoneUserIdentity(t, d.IsRelevantRole)
 	if !a.t.Check("account:list") {
 		return nil, keppel.ErrDenied.With("").WithStatus(http.StatusForbidden)
 	}
@@ -216,6 +230,21 @@ type keystoneUserIdentity struct {
 	// ^ WARNING: Token may not always contain everything you expect
 	// because of a serialization roundtrip. See SerializeToJSON() and
 	// DeserializeFromJSON() for details.
+}
+
+func newKeystoneUserIdentity(t *gopherpolicy.Token, isRelevantRole map[string]bool) *keystoneUserIdentity {
+	// to compress the serialization of this keystoneUserIdentity, remove all
+	// irrelevant roles from the token payload ("relevant" means that this role
+	// is tested for in our policy rules)
+	var filteredRoles []string
+	for _, role := range t.Context.Roles {
+		if isRelevantRole[role] {
+			filteredRoles = append(filteredRoles, role)
+		}
+	}
+	t.Context.Roles = filteredRoles
+
+	return &keystoneUserIdentity{t}
 }
 
 var ruleForPerm = map[keppel.Permission]string{
@@ -272,7 +301,7 @@ func (a *keystoneUserIdentity) UserInfo() audittools.UserInfo {
 
 type serializedKeystoneUserIdentity struct {
 	Auth  map[string]string `json:"auth"`
-	Roles []string          `json:"roles"`
+	Roles []string          `json:"relevant_roles"`
 }
 
 // SerializeToJSON implements the keppel.UserIdentity interface.
