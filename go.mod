@@ -4,7 +4,7 @@ go 1.23
 
 require (
 	github.com/alicebob/miniredis/v2 v2.33.0
-	github.com/aquasecurity/trivy v0.55.2
+	github.com/aquasecurity/trivy v0.56.1
 	github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/docker/distribution v2.8.3+incompatible
