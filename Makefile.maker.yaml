@@ -35,7 +35,10 @@ githubWorkflow:
   ci:
     enabled: true
     coveralls: true
-    postgres: true
+
+nix:
+  extraPackages:
+    - openssl
 
 renovate:
   enabled: true

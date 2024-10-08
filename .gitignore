@@ -2,7 +2,7 @@
 build/
 
 # runtime artifacts (see Makefile)
-/.env*
+/.env
 privkey.pem
 
 # testing artifacts
