@@ -82,7 +82,7 @@ github.com/gophercloud/gophercloud/v2/openstack/identity/v3/projects
 github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens
 github.com/gophercloud/gophercloud/v2/openstack/utils
 github.com/gophercloud/gophercloud/v2/pagination
-# github.com/gophercloud/utils/v2 v2.0.0-20240919072936-a66ae2ba6ef0
+# github.com/gophercloud/utils/v2 v2.0.0-20241008104625-7cbb8fd76bb7
 ## explicit; go 1.22
 github.com/gophercloud/utils/v2/env
 github.com/gophercloud/utils/v2/gnocchi
@@ -185,12 +185,12 @@ github.com/rs/cors/internal
 github.com/samber/lo
 github.com/samber/lo/internal/constraints
 github.com/samber/lo/internal/rand
-# github.com/sapcc/go-api-declarations v1.12.6
+# github.com/sapcc/go-api-declarations v1.12.8
 ## explicit; go 1.21
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20241003120606-28dc119912ca
+# github.com/sapcc/go-bits v0.0.0-20241010083035-71b8c70d91ad
 ## explicit; go 1.23
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
@@ -239,11 +239,11 @@ go.uber.org/automaxprocs/maxprocs
 ## explicit; go 1.20
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
-# golang.org/x/sys v0.25.0
+# golang.org/x/sys v0.26.0
 ## explicit; go 1.18
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/text v0.18.0
+# golang.org/x/text v0.19.0
 ## explicit; go 1.18
 golang.org/x/text/cases
 golang.org/x/text/encoding
