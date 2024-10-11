@@ -36,7 +36,7 @@
 //
 // Limes discovers liquids through the Keystone service catalog.
 // Each liquid should be registered there with a service type that has the prefix "liquid-".
-// If a liquid uses vendor-specific APIs to interact with its service, its service type should include the vendor name.
+// If a liquid uses vendor-specific APIs to interact with its service, its service type may include the vendor name.
 //
 // # Inside a resource: Usage, quota, capacity, overcommit
 //
@@ -68,7 +68,7 @@
 //
 // Rates are measurements that only ever increase over time, similar to the Prometheus metric type "counter".
 // For example, if a compute service has the resource "VMs", it might have rates like "VM creations" or "VM deletions".
-// Rates describe countable events like in this example, or measurable transfers like "bytes transferred" on network links.
+// Rates describe countable events like in this example, or measurable transfers like "bytes received" or "bytes transferred" on network links.
 //
 // All rates report a usage value for each Keystone project.
 // Usage for each project must increase monotonically over time.
@@ -78,6 +78,8 @@
 //
 // LIQUID is structured as a REST-like HTTP API akin to those of the various OpenStack services.
 // Like with any other OpenStack API, the client (i.e. Limes) authenticates to the liquid by providing its Keystone token in the HTTP header "X-Auth-Token".
+// Requests without a valid token shall be rejected with status 401 (Unauthorized).
+// Requests with a valid token that confers insufficient access shall be rejected with status 403 (Forbidden).
 //
 // Each individual endpoint is documented in a section of this docstring whose title starts with "Endpoint:".
 // Unless noted otherwise, a liquid must implement all documented endpoints.
@@ -85,7 +87,7 @@
 //
 // The documentation for an endpoint may refer to a request body being expected or a response body being generated on success.
 // In all such cases, the request or response body will be encoded as "Content-Type: application/json".
-// The structure of the payload must conform to the referenced Go type.
+// The structure of the payload must conform to how the referenced Go type would be serialized by the Go standard library's "encoding/json" package.
 //
 // When producing a successful response, the status code shall be 200 (OK) unless noted otherwise.
 // When producing an error response (with a status code between 400 and 599), the liquid shall include a response body of "Content-Type: text/plain" to indicate the error.
@@ -93,7 +95,7 @@
 // # Metrics
 //
 // While measuring quota, usage and capacity on behalf of Limes, liquids may obtain other metrics that may be useful to report to the OpenStack operator.
-// LIQUID offers a facility to report metrics like this to Limes as part of the regular quota/usage and capacity reports.
+// LIQUID offers an optional facility to report metrics like this to Limes as part of the regular quota/usage and capacity reports.
 // These metrics will be stored in the Limes database and then collectively forwarded to a metrics database like [Prometheus].
 // This delivery method is designed to ensure that liquids can be operated without their own persistent storage.
 //
