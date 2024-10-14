@@ -202,7 +202,7 @@ func (j *Janitor) createOrUpdateManagedAccount(ctx context.Context, account kepp
 		viewScope := auth.Scope{
 			ResourceType: "keppel_account",
 			ResourceName: string(account.Name),
-			Actions:      []string{"view"},
+			Actions:      []string{"change", "view"},
 		}
 
 		client, err := peerclient.New(ctx, j.cfg, peer, viewScope)
