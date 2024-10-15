@@ -92,7 +92,7 @@ func (c Client) GetSubleaseToken(ctx context.Context, accountName models.Account
 		return "", err
 	}
 	if respStatusCode != http.StatusOK {
-		return "", fmt.Errorf("during POST %s: expected 200, got %d with response: %s",
+		return "", fmt.Errorf("while obtaining sublease token with POST %s: expected 200, got %d with response: %s",
 			reqURL, respStatusCode, string(respBodyBytes))
 	}
 
@@ -101,7 +101,7 @@ func (c Client) GetSubleaseToken(ctx context.Context, accountName models.Account
 	}{}
 	err = jsonUnmarshalStrict(respBodyBytes, &data)
 	if err != nil {
-		return "", fmt.Errorf("while parsing response for POST %s: %w", reqURL, err)
+		return "", fmt.Errorf("while parsing sublease token response from POST %s: %w", reqURL, err)
 	}
 	return data.SubleaseToken, nil
 }
@@ -116,7 +116,7 @@ func (c Client) PerformReplicaSync(ctx context.Context, fullRepoName string, pay
 	reqURL := c.buildRequestURL("peer/v1/sync-replica/" + fullRepoName)
 	reqBodyBytes, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("during POST %s: %w", reqURL, err)
+		return nil, fmt.Errorf("while marshalling POST %s: %w", reqURL, err)
 	}
 
 	respBodyBytes, respStatusCode, _, err := c.doRequest(ctx, http.MethodPost, reqURL, bytes.NewReader(reqBodyBytes), nil)
@@ -136,7 +136,7 @@ func (c Client) PerformReplicaSync(ctx context.Context, fullRepoName string, pay
 	var respPayload keppel.ReplicaSyncPayload
 	err = jsonUnmarshalStrict(respBodyBytes, &respPayload)
 	if err != nil {
-		return nil, fmt.Errorf("while parsing response for POST %s: %w", reqURL, err)
+		return nil, fmt.Errorf("while parsing response from POST %s: %w", reqURL, err)
 	}
 	return &respPayload, nil
 }
