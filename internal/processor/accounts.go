@@ -64,7 +64,7 @@ var looksLikeAPIVersionRx = regexp.MustCompile(`^v[0-9][1-9]*$`)
 var ErrAccountNameEmpty = errors.New("account name cannot be empty string")
 
 // CreateOrUpdate can be used on an API account and returns the database representation of it.
-func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Account, userInfo audittools.UserInfo, r *http.Request, getSubleaseToken func(models.Peer) (string, *keppel.RegistryV2Error), setCustomFields func(*models.Account) *keppel.RegistryV2Error) (models.Account, *keppel.RegistryV2Error) {
+func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Account, userInfo audittools.UserInfo, r *http.Request, getSubleaseToken func(models.Peer) (keppel.SubleaseToken, error), setCustomFields func(*models.Account) *keppel.RegistryV2Error) (models.Account, *keppel.RegistryV2Error) {
 	if account.Name == "" {
 		return models.Account{}, keppel.AsRegistryV2Error(ErrAccountNameEmpty)
 	}
@@ -239,11 +239,11 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 		// sublease tokens are only relevant when creating replica accounts
 		subleaseTokenSecret := ""
 		if targetAccount.UpstreamPeerHostName != "" {
-			var rerr *keppel.RegistryV2Error
-			subleaseTokenSecret, rerr = getSubleaseToken(peer)
-			if rerr != nil {
-				return models.Account{}, rerr.WithStatus(http.StatusBadRequest)
+			subleaseToken, err := getSubleaseToken(peer)
+			if err != nil {
+				return models.Account{}, keppel.AsRegistryV2Error(err).WithStatus(http.StatusBadRequest)
 			}
+			subleaseTokenSecret = subleaseToken.Secret
 		}
 
 		// check permission to claim account name (this only happens here because

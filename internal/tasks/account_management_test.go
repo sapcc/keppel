@@ -73,6 +73,35 @@ func TestAccountManagementBasic(t *testing.T) {
 	`)
 }
 
+func TestAccountManagementWithReplicaCreation(t *testing.T) {
+	test.WithRoundTripper(func(_ *test.RoundTripper) {
+		_, s1 := setup(t)
+		j2, s2 := setupReplica(t, s1, "on_first_use")
+
+		tr, tr0 := easypg.NewTracker(t, s2.DB.DbMap.Db)
+		tr0.Ignore()
+
+		// The setup already includes an account "test1" set up on both ends, but we
+		// want to test the setup of a managed replica account, so we will use a
+		// fresh account called "managed" instead.
+		mustDo(t, s1.DB.Insert(&models.Account{Name: "managed", AuthTenantID: "managedauthtenant"}))
+		s1.FD.NextSubleaseTokenSecretToIssue = "thisisasecret"
+		s2.FD.ValidSubleaseTokenSecrets["managed"] = "thisisasecret"
+
+		// test seeding the replica on the secondary side
+		s2.AMD.ConfigPath = "./fixtures/account_management_replica.json"
+		job := j2.EnforceManagedAccountsJob(s2.Registry)
+		expectSuccess(t, job.ProcessOne(s2.Ctx))
+
+		// check that the replica was created
+		tr.DBChanges().AssertEqualf(`
+				INSERT INTO accounts (name, auth_tenant_id, upstream_peer_hostname, security_scan_policies_json, is_managed, next_enforcement_at) VALUES ('managed', 'managedauthtenant', 'registry.example.org', 'null', TRUE, %[1]d);
+			`,
+			s2.Clock.Now().Add(1*time.Hour).Unix(),
+		)
+	})
+}
+
 func TestAccountManagementWithComplexDeletion(t *testing.T) {
 	j, s := setup(t)
 	job := j.EnforceManagedAccountsJob(s.Registry)

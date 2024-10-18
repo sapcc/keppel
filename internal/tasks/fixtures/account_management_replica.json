@@ -1,0 +1,12 @@
+{
+  "accounts": [
+    {
+      "name": "managed",
+      "auth_tenant_id": "managedauthtenant",
+      "replication": {
+        "strategy": "on_first_use",
+        "upstream": "registry.example.org"
+      }
+    }
+  ]
+}

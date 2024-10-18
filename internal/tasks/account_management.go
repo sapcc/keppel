@@ -198,7 +198,7 @@ func (j *Janitor) createOrUpdateManagedAccount(ctx context.Context, account kepp
 	userIdentity := janitorUserIdentity{TaskName: "account-management"}
 
 	// if the managed account is an internal replica, the processor needs to ask the primary account for a sublease token
-	getSubleaseToken := func(peer models.Peer) (string, *keppel.RegistryV2Error) {
+	getSubleaseToken := func(peer models.Peer) (keppel.SubleaseToken, error) {
 		viewScope := auth.Scope{
 			ResourceType: "keppel_account",
 			ResourceName: string(account.Name),
@@ -207,14 +207,10 @@ func (j *Janitor) createOrUpdateManagedAccount(ctx context.Context, account kepp
 
 		client, err := peerclient.New(ctx, j.cfg, peer, viewScope)
 		if err != nil {
-			return "", keppel.AsRegistryV2Error(err)
+			return keppel.SubleaseToken{}, err
 		}
 
-		subleaseToken, err := client.GetSubleaseToken(ctx, account.Name)
-		if err != nil {
-			return "", keppel.AsRegistryV2Error(err)
-		}
-		return subleaseToken, nil
+		return client.GetSubleaseToken(ctx, account.Name)
 	}
 
 	// some fields are not contained in `keppel.Account` and must be handled through a custom callback
