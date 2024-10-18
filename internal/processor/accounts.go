@@ -242,7 +242,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 			var rerr *keppel.RegistryV2Error
 			subleaseTokenSecret, rerr = getSubleaseToken(peer)
 			if rerr != nil {
-				return models.Account{}, keppel.AsRegistryV2Error(rerr).WithStatus(http.StatusBadRequest)
+				return models.Account{}, rerr.WithStatus(http.StatusBadRequest)
 			}
 		}
 
