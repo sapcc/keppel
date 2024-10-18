@@ -84,15 +84,15 @@ func (c Client) GetForeignAccountConfigurationInto(ctx context.Context, target a
 
 // GetSubleaseToken asks the peer for a sublease token for this account to replicate it on another Keppel instance.
 // Only the primary instance of an account can be asked for a sublease token.
-func (c Client) GetSubleaseToken(ctx context.Context, accountName models.AccountName) (string, error) {
+func (c Client) GetSubleaseToken(ctx context.Context, accountName models.AccountName) (keppel.SubleaseToken, error) {
 	reqURL := c.buildRequestURL("keppel/v1/accounts/" + string(accountName) + "/sublease")
 
 	respBodyBytes, respStatusCode, _, err := c.doRequest(ctx, http.MethodPost, reqURL, http.NoBody, nil)
 	if err != nil {
-		return "", err
+		return keppel.SubleaseToken{}, err
 	}
 	if respStatusCode != http.StatusOK {
-		return "", fmt.Errorf("while obtaining sublease token with POST %s: expected 200, got %d with response: %s",
+		return keppel.SubleaseToken{}, fmt.Errorf("while obtaining sublease token with POST %s: expected 200, got %d with response: %s",
 			reqURL, respStatusCode, string(respBodyBytes))
 	}
 
@@ -101,9 +101,9 @@ func (c Client) GetSubleaseToken(ctx context.Context, accountName models.Account
 	}{}
 	err = jsonUnmarshalStrict(respBodyBytes, &data)
 	if err != nil {
-		return "", fmt.Errorf("while parsing sublease token response from POST %s: %w", reqURL, err)
+		return keppel.SubleaseToken{}, fmt.Errorf("while parsing sublease token response from POST %s: %w", reqURL, err)
 	}
-	return data.SubleaseToken, nil
+	return keppel.ParseSubleaseToken(data.SubleaseToken)
 }
 
 // PerformReplicaSync uses the replica-sync API to perform an optimized

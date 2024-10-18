@@ -36,6 +36,8 @@ import (
 	"github.com/sapcc/keppel/internal/models"
 )
 
+const SubleaseHeader = "X-Keppel-Sublease-Token"
+
 func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts")
 	var accounts []models.Account
@@ -119,12 +121,12 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	getSubleaseTokenCallback := func(_ models.Peer) (string, *keppel.RegistryV2Error) {
-		subleaseToken, err := SubleaseTokenFromRequest(r)
+	getSubleaseTokenCallback := func(_ models.Peer) (keppel.SubleaseToken, error) {
+		t, err := keppel.ParseSubleaseToken(r.Header.Get(SubleaseHeader))
 		if err != nil {
-			return "", keppel.AsRegistryV2Error(err)
+			return keppel.SubleaseToken{}, fmt.Errorf("malformed %s header: %w", SubleaseHeader, err)
 		}
-		return subleaseToken.Secret, nil
+		return t, nil
 	}
 	finalizeAccountCallback := func(account *models.Account) *keppel.RegistryV2Error {
 		if account.IsManaged {
@@ -186,7 +188,7 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	st := SubleaseToken{
+	st := keppel.SubleaseToken{
 		AccountName:     account.Name,
 		PrimaryHostname: a.cfg.APIPublicHostname,
 	}
@@ -196,16 +198,7 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-
-	// only serialize SubleaseToken if it contains a secret at all
-	var serialized string
-	if st.Secret == "" {
-		serialized = ""
-	} else {
-		serialized = st.Serialize()
-	}
-
-	respondwith.JSON(w, http.StatusOK, map[string]any{"sublease_token": serialized})
+	respondwith.JSON(w, http.StatusOK, map[string]any{"sublease_token": st.Serialize()})
 }
 
 func (a *API) handleGetSecurityScanPolicies(w http.ResponseWriter, r *http.Request) {
