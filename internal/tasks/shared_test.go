@@ -34,6 +34,7 @@ var (
 
 func setup(t *testing.T, opts ...test.SetupOption) (*Janitor, test.Setup) {
 	params := []test.SetupOption{
+		test.WithKeppelAPI, // for issuing sublease tokens to registry-secondary (if any)
 		test.WithPeerAPI,
 		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "test1authtenant"}),
 		test.WithRepo(models.Repository{AccountName: "test1", Name: "foo"}),

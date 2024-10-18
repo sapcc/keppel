@@ -50,7 +50,8 @@ func (uid *PeerUserIdentity) PluginTypeID() string {
 // HasPermission implements the keppel.UserIdentity interface.
 func (uid *PeerUserIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
 	// allow universal pull access for replication purposes
-	return perm == keppel.CanViewAccount || perm == keppel.CanPullFromAccount
+	// (CanChangeAccount is required to issue sublease tokens as part of managed account creation)
+	return perm == keppel.CanViewAccount || perm == keppel.CanChangeAccount || perm == keppel.CanPullFromAccount
 }
 
 // UserType implements the keppel.UserIdentity interface.
