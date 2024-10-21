@@ -43,10 +43,10 @@ import (
 func (j *Janitor) EnforceManagedAccountsJob(registerer prometheus.Registerer) jobloop.Job {
 	return (&jobloop.ProducerConsumerJob[models.AccountName]{
 		Metadata: jobloop.JobMetadata{
-			ReadableName: "create new managed accounts",
+			ReadableName: "create and update managed accounts",
 			CounterOpts: prometheus.CounterOpts{
 				Name: "keppel_managed_account_creations",
-				Help: "Counter for managed account creations.",
+				Help: "Counter for managed account creations and updates.",
 			},
 		},
 		DiscoverTask: j.discoverManagedAccount,
