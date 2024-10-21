@@ -1933,138 +1933,43 @@ func TestDeleteAccount(t *testing.T) {
 	}.Check(t, h)
 
 	// failure case: account not in maintenance
-	_, err = s.DB.Exec(`UPDATE accounts SET in_maintenance = FALSE`)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test1",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody: assert.JSONObject{
-			"error": "account must be set in maintenance first",
-		},
-	}.Check(t, h)
-	_, err = s.DB.Exec(`UPDATE accounts SET in_maintenance = TRUE`)
+	_, err = s.DB.Exec(`UPDATE accounts SET is_deleting = FALSE`)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
-	// phase 1: DELETE on account should complain about remaining manifests
+	// phase 1: DELETE on account should immediately mark it for deletion
 	assert.HTTPRequest{
 		Method:       "DELETE",
 		Path:         "/keppel/v1/accounts/test1",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody: assert.JSONObject{
-			"remaining_manifests": assert.JSONObject{
-				"count": 2,
-				"next": []assert.JSONObject{{
-					"repository": repos[0].Name,
-					"digest":     imageList.Manifest.Digest.String(),
-				}},
+		ExpectStatus: http.StatusNoContent,
+	}.Check(t, h)
+
+	// account is already set to be deleted, so nothing happens
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
+		ExpectStatus: http.StatusNoContent,
+	}.Check(t, h)
+
+	s.Auditor.ExpectEvents(t,
+		cadf.Event{
+			RequestPath: "/keppel/v1/accounts/test1",
+			Action:      cadf.DeleteAction,
+			Outcome:     "success",
+			Reason:      test.CADFReasonOK,
+			Target: cadf.Resource{
+				TypeURI:   "docker-registry/account",
+				ID:        "test1",
+				ProjectID: "tenant1",
 			},
 		},
-	}.Check(t, h)
+	)
 
 	// that didn't touch the DB
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-000.sql")
-
-	// as indicated by the response, we need to delete the specified manifest to
-	// proceed with the account deletion
-	assert.HTTPRequest{
-		Method: "DELETE",
-		Path: fmt.Sprintf(
-			"/keppel/v1/accounts/test1/repositories/%s/_manifests/%s",
-			repos[0].Name, imageList.Manifest.Digest.String(),
-		),
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
-		ExpectStatus: http.StatusNoContent,
-	}.Check(t, h)
-
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test1",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody: assert.JSONObject{
-			"remaining_manifests": assert.JSONObject{
-				"count": 1,
-				"next": []assert.JSONObject{{
-					"repository": repos[0].Name,
-					"digest":     image.Manifest.Digest.String(),
-				}},
-			},
-		},
-	}.Check(t, h)
-
-	assert.HTTPRequest{
-		Method: "DELETE",
-		Path: fmt.Sprintf(
-			"/keppel/v1/accounts/test1/repositories/%s/_manifests/%s",
-			repos[0].Name, image.Manifest.Digest.String(),
-		),
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
-		ExpectStatus: http.StatusNoContent,
-	}.Check(t, h)
 	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-001.sql")
-
-	// phase 2: DELETE on account should complain about remaining blobs
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test1",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody: assert.JSONObject{
-			"remaining_blobs": assert.JSONObject{"count": 3},
-		},
-	}.Check(t, h)
-
-	// but this will have cleaned up the blob mounts and scheduled a GC pass
-	// (replace time.Now() with a deterministic time before diffing the DB)
-	_, err = s.DB.Exec(
-		`UPDATE accounts SET next_blob_sweep_at = $1 WHERE next_blob_sweep_at > $2 AND next_blob_sweep_at <= $3`,
-		time.Unix(300, 0),
-		time.Now().Add(-5*time.Second),
-		time.Now(),
-	)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	// also all blobs will be marked for deletion
-	_, err = s.DB.Exec(
-		`UPDATE blobs SET can_be_deleted_at = $1 WHERE can_be_deleted_at > $2 AND can_be_deleted_at <= $3`,
-		time.Unix(300, 0),
-		time.Now().Add(-5*time.Second),
-		time.Now(),
-	)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-002.sql")
-
-	// phase 3: all blobs have been cleaned up, so the account can finally be
-	// deleted (we use fresh accounts for this because that's easier than
-	// running the blob sweep)
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test2",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant2,change:tenant2"},
-		ExpectStatus: http.StatusNoContent,
-	}.Check(t, h)
-
-	s.FD.ForfeitFails = true
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test3",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant3,change:tenant3"},
-		ExpectStatus: http.StatusInternalServerError,
-		ExpectBody:   assert.StringData("while cleaning up name claim for account: ForfeitAccountName failed as requested\n"),
-	}.Check(t, h)
-
-	// account "test2" should be gone now
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-003.sql")
 }
 
 //nolint:unparam
