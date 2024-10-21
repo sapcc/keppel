@@ -367,7 +367,28 @@ var (
 	deleteAccountCountBlobsQuery              = `SELECT COUNT(id) FROM blobs WHERE account_name = $1`
 	deleteAccountScheduleBlobSweepQuery       = `UPDATE accounts SET next_blob_sweep_at = $2 WHERE name = $1`
 	deleteAccountMarkAllBlobsForDeletionQuery = `UPDATE blobs SET can_be_deleted_at = $2 WHERE account_name = $1`
+	markAccountForDeletion                    = `UPDATE accounts SET is_deleting = true WHERE name = $1`
 )
+
+func (p *Processor) MarkAccountForDeletion(account models.Account, actx keppel.AuditContext) error {
+	_, err := p.db.Exec(markAccountForDeletion, account.Name)
+	if err != nil {
+		return err
+	}
+
+	if userInfo := actx.UserIdentity.UserInfo(); userInfo != nil {
+		p.auditor.Record(audittools.EventParameters{
+			Time:       p.timeNow(),
+			Request:    actx.Request,
+			User:       userInfo,
+			ReasonCode: http.StatusOK,
+			Action:     cadf.DeleteAction,
+			Target:     AuditAccount{Account: account},
+		})
+	}
+
+	return nil
+}
 
 func (p *Processor) DeleteAccount(ctx context.Context, account models.Account, actx keppel.AuditContext) (*DeleteAccountResponse, error) {
 	if !account.InMaintenance {

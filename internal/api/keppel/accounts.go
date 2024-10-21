@@ -158,18 +158,21 @@ func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := a.processor().DeleteAccount(r.Context(), *account, keppel.AuditContext{
+	if account.IsDeleting {
+		respondwith.JSON(w, http.StatusConflict, struct {
+			Error string `json:"error,omitempty"`
+		}{Error: "account is already set to be deleted"})
+	}
+
+	err := a.processor().MarkAccountForDeletion(*account, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-	if resp == nil {
-		w.WriteHeader(http.StatusNoContent)
-	} else {
-		respondwith.JSON(w, http.StatusConflict, resp)
-	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) {
