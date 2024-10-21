@@ -181,7 +181,7 @@ func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo models.Re
 	}
 
 	// do not perform manifest sync while account is in maintenance (maintenance mode blocks all kinds of replication)
-	if !account.InMaintenance {
+	if !account.InMaintenance && !account.IsDeleting {
 		syncPayload, err := j.getReplicaSyncPayload(ctx, *account, repo)
 		if err != nil {
 			return err
@@ -640,7 +640,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 
 	// skip validation while account is in maintenance (maintenance mode blocks
 	// all kinds of activity on an account's contents)
-	if account.InMaintenance {
+	if account.InMaintenance || account.IsDeleting {
 		securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(1 * time.Hour))
 		return nil
 	}

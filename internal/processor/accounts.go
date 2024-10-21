@@ -391,9 +391,9 @@ func (p *Processor) MarkAccountForDeletion(account models.Account, actx keppel.A
 }
 
 func (p *Processor) DeleteAccount(ctx context.Context, account models.Account, actx keppel.AuditContext) (*DeleteAccountResponse, error) {
-	if !account.InMaintenance {
+	if account.IsDeleting {
 		return &DeleteAccountResponse{
-			Error: "account must be set in maintenance first",
+			Error: "account is already set to be deleted",
 		}, nil
 	}
 
