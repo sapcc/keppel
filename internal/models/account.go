@@ -53,8 +53,6 @@ type Account struct {
 	// IsManaged indicates if the account was created by AccountManagementDriver
 	IsManaged bool `db:"is_managed"`
 
-	// MetadataJSON contains a JSON string of a map[string]string, or the empty string.
-	MetadataJSON string `db:"metadata_json"`
 	// RBACPoliciesJSON contains a JSON string of []keppel.RBACPolicy, or the empty string.
 	RBACPoliciesJSON string `db:"rbac_policies_json"`
 	// GCPoliciesJSON contains a JSON string of []keppel.GCPolicy, or the empty string.

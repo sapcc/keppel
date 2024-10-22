@@ -120,14 +120,6 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 		targetAccount.GCPoliciesJSON = string(buf)
 	}
 
-	// serialize metadata
-	if len(account.Metadata) == 0 {
-		targetAccount.MetadataJSON = ""
-	} else {
-		buf, _ := json.Marshal(account.Metadata)
-		targetAccount.MetadataJSON = string(buf)
-	}
-
 	// validate replication policy (for OnFirstUseStrategy, the peer hostname is
 	// checked for correctness down below when validating the platform filter)
 	var originalStrategy keppel.ReplicationStrategy

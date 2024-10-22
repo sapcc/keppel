@@ -31,7 +31,6 @@ type Account struct {
 	AuthTenantID      string                `json:"auth_tenant_id"`
 	GCPolicies        []GCPolicy            `json:"gc_policies,omitempty"`
 	InMaintenance     bool                  `json:"in_maintenance"`
-	Metadata          map[string]string     `json:"metadata"`
 	RBACPolicies      []RBACPolicy          `json:"rbac_policies"`
 	ReplicationPolicy *ReplicationPolicy    `json:"replication,omitempty"`
 	ValidationPolicy  *ValidationPolicy     `json:"validation,omitempty"`
@@ -53,20 +52,11 @@ func RenderAccount(dbAccount models.Account) (Account, error) {
 		rbacPolicies = []RBACPolicy{}
 	}
 
-	metadata := make(map[string]string)
-	if dbAccount.MetadataJSON != "" {
-		err := json.Unmarshal([]byte(dbAccount.MetadataJSON), &metadata)
-		if err != nil {
-			return Account{}, fmt.Errorf("malformed metadata JSON: %q", dbAccount.MetadataJSON)
-		}
-	}
-
 	return Account{
 		Name:              dbAccount.Name,
 		AuthTenantID:      dbAccount.AuthTenantID,
 		GCPolicies:        gcPolicies,
 		InMaintenance:     dbAccount.InMaintenance,
-		Metadata:          metadata,
 		RBACPolicies:      rbacPolicies,
 		ReplicationPolicy: RenderReplicationPolicy(dbAccount),
 		ValidationPolicy:  RenderValidationPolicy(dbAccount.Reduced()),
