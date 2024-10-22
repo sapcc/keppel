@@ -1,6 +1,6 @@
-INSERT INTO accounts (name, auth_tenant_id, next_blob_sweep_at, in_maintenance, is_deleting, next_deletion_attempt_at) VALUES ('test1', 'tenant1', 200, TRUE, TRUE, 0);
-INSERT INTO accounts (name, auth_tenant_id, in_maintenance) VALUES ('test2', 'tenant2', TRUE);
-INSERT INTO accounts (name, auth_tenant_id, in_maintenance) VALUES ('test3', 'tenant3', TRUE);
+INSERT INTO accounts (name, auth_tenant_id, next_blob_sweep_at, is_deleting, next_deletion_attempt_at) VALUES ('test1', 'tenant1', 200, TRUE, 0);
+INSERT INTO accounts (name, auth_tenant_id) VALUES ('test2', 'tenant2');
+INSERT INTO accounts (name, auth_tenant_id) VALUES ('test3', 'tenant3');
 
 INSERT INTO blob_mounts (blob_id, repo_id) VALUES (1, 1);
 INSERT INTO blob_mounts (blob_id, repo_id) VALUES (2, 1);

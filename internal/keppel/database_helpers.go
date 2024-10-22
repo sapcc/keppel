@@ -44,7 +44,7 @@ func FindAccount(db gorp.SqlExecutor, name models.AccountName) (*models.Account,
 var reducedAccountGetByNameQuery = sqlext.SimplifyWhitespace(`
 	SELECT auth_tenant_id, upstream_peer_hostname,
 	       external_peer_url, external_peer_username, external_peer_password,
-	       platform_filter, required_labels, in_maintenance
+	       platform_filter, required_labels, is_deleting
 	  FROM accounts
 	 WHERE name = $1
 `)
@@ -56,7 +56,7 @@ func FindReducedAccount(db gorp.SqlExecutor, name models.AccountName) (*models.R
 	err := db.QueryRow(reducedAccountGetByNameQuery, name).Scan(
 		&a.AuthTenantID, &a.UpstreamPeerHostName,
 		&a.ExternalPeerURL, &a.ExternalPeerUserName, &a.ExternalPeerPassword,
-		&a.PlatformFilter, &a.RequiredLabels, &a.InMaintenance,
+		&a.PlatformFilter, &a.RequiredLabels, &a.IsDeleting,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil

@@ -160,8 +160,9 @@ func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 	if account.IsDeleting {
 		respondwith.JSON(w, http.StatusConflict, struct {
-			Error string `json:"error,omitempty"`
+			Error string `json:"error"`
 		}{Error: "account is already set to be deleted"})
+		return
 	}
 
 	err := a.processor().MarkAccountForDeletion(*account, keppel.AuditContext{

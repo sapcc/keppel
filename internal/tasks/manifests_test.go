@@ -337,10 +337,10 @@ func TestManifestSyncJob(t *testing.T) {
 			// ManifestSyncJob on the replica side should not do anything while
 			// the account is in maintenance; only the timestamp is updated to make sure
 			// that the job loop progresses to the next repo
-			mustExec(t, s2.DB, `UPDATE accounts SET in_maintenance = TRUE`)
+			mustExec(t, s2.DB, `UPDATE accounts SET is_deleting = TRUE`)
 			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEqualf(`
-					UPDATE accounts SET in_maintenance = TRUE WHERE name = 'test1';
+					UPDATE accounts SET is_deleting = TRUE WHERE name = 'test1';
 					UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 				`,
 				s1.Clock.Now().Add(1*time.Hour).Unix(),
@@ -348,9 +348,9 @@ func TestManifestSyncJob(t *testing.T) {
 			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEmpty()
 
-			// end maintenance
-			mustExec(t, s2.DB, `UPDATE accounts SET in_maintenance = FALSE`)
-			tr.DBChanges().AssertEqual(`UPDATE accounts SET in_maintenance = FALSE WHERE name = 'test1';`)
+			// end deletion
+			mustExec(t, s2.DB, `UPDATE accounts SET is_deleting = FALSE`)
+			tr.DBChanges().AssertEqual(`UPDATE accounts SET is_deleting = FALSE WHERE name = 'test1';`)
 
 			// test that replication from external uses the inbound cache
 			if strategy == "from_external_on_first_use" {

@@ -19,9 +19,6 @@
 package keppel
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"github.com/sapcc/keppel/internal/models"
 )
 
@@ -30,9 +27,9 @@ type Account struct {
 	Name              models.AccountName    `json:"name"`
 	AuthTenantID      string                `json:"auth_tenant_id"`
 	GCPolicies        []GCPolicy            `json:"gc_policies,omitempty"`
-	InMaintenance     bool                  `json:"in_maintenance"`
 	RBACPolicies      []RBACPolicy          `json:"rbac_policies"`
 	ReplicationPolicy *ReplicationPolicy    `json:"replication,omitempty"`
+	State             string                `json:"state,omitempty"`
 	ValidationPolicy  *ValidationPolicy     `json:"validation,omitempty"`
 	PlatformFilter    models.PlatformFilter `json:"platform_filter,omitempty"`
 }
@@ -51,12 +48,16 @@ func RenderAccount(dbAccount models.Account) (Account, error) {
 		// do not render "null" in this field
 		rbacPolicies = []RBACPolicy{}
 	}
+	var state string
+	if dbAccount.IsDeleting {
+		state = "deleting"
+	}
 
 	return Account{
 		Name:              dbAccount.Name,
 		AuthTenantID:      dbAccount.AuthTenantID,
 		GCPolicies:        gcPolicies,
-		InMaintenance:     dbAccount.InMaintenance,
+		State:             state,
 		RBACPolicies:      rbacPolicies,
 		ReplicationPolicy: RenderReplicationPolicy(dbAccount),
 		ValidationPolicy:  RenderValidationPolicy(dbAccount.Reduced()),
