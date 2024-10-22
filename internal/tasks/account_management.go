@@ -27,10 +27,8 @@ import (
 	"slices"
 	"time"
 
-	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/jobloop"
-	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/auth"
@@ -97,16 +95,25 @@ func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName models.
 	// the error returned from either tryDeleteManagedAccount or createOrUpdateManagedAccount is the main error that this method returns...
 	var nextCheckDuration time.Duration
 	if account == nil {
-		var done bool
-		done, err = j.tryDeleteManagedAccount(ctx, accountName)
-		switch {
-		case done:
-			nextCheckDuration = 0 // account has been deleted -> next check not necessary
-		case err == nil:
-			nextCheckDuration = 1 * time.Minute // we are making progress to delete this account -> recheck soon
-		default:
-			err = fmt.Errorf("could not delete managed account %q: %w", accountName, err)
-			nextCheckDuration = 5 * time.Minute // default interval for recheck after error
+		var accountModel *models.Account
+		accountModel, err = keppel.FindAccount(j.db, accountName)
+		if err != nil {
+			return err
+		}
+		if errors.Is(err, sql.ErrNoRows) {
+			nextCheckDuration = 0 // assume the account got already deleted
+		} else {
+			actx := keppel.AuditContext{
+				UserIdentity: janitorUserIdentity{TaskName: "managed-account-enforcement"},
+				Request:      janitorDummyRequest,
+			}
+			err = j.processor().MarkAccountForDeletion(*accountModel, actx)
+			if err == nil {
+				nextCheckDuration = 1 * time.Hour // account will be deleted -> defer next check until probably after it was deleted
+			} else {
+				err = fmt.Errorf("could not mark account %q for deletion: %w", accountName, err)
+				nextCheckDuration = 5 * time.Minute // default interval for recheck after error
+			}
 		}
 	} else {
 		err = j.createOrUpdateManagedAccount(ctx, *account, securityScanPolicies)
@@ -128,70 +135,6 @@ func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName models.
 	} else {
 		return fmt.Errorf("%w (additional error when writing next_enforcement_at: %s)", err, err2.Error())
 	}
-}
-
-func (j *Janitor) tryDeleteManagedAccount(ctx context.Context, accountName models.AccountName) (done bool, err error) {
-	accountModel, err := keppel.FindAccount(j.db, accountName)
-	if err != nil {
-		return false, err
-	}
-	if errors.Is(err, sql.ErrNoRows) {
-		// assume the account got already deleted
-		return true, nil
-	}
-
-	_, err = j.db.Exec("UPDATE accounts SET in_maintenance = TRUE WHERE name = $1", accountName)
-	if err != nil {
-		return false, err
-	}
-	// avoid quering the account twice and we set this field just above via SQL
-	accountModel.InMaintenance = true
-
-	proc := j.processor()
-	actx := keppel.AuditContext{
-		UserIdentity: janitorUserIdentity{TaskName: "account-sync"},
-		Request:      janitorDummyRequest,
-	}
-	resp, err := proc.DeleteAccount(ctx, *accountModel, actx)
-	if err != nil {
-		return false, err
-	}
-	if resp == nil {
-		// deletion was completed
-		return true, nil
-	}
-	if resp.Error != "" {
-		return false, errors.New(resp.Error)
-	}
-
-	// deletion was not completed yet -> check if we need to do something on our side
-	if resp.RemainingManifests != nil {
-		remainder := *resp.RemainingManifests
-		logg.Info("cleaning up managed account %q: need to delete %d manifests in this cycle", accountName, remainder.Count)
-		for _, rm := range remainder.Next {
-			parsedDigest, err := digest.Parse(rm.Digest)
-			if err != nil {
-				return false, fmt.Errorf("while deleting manifest %q in repository %q: could not parse digest: %w",
-					rm.Digest, rm.RepositoryName, err)
-			}
-			repo, err := keppel.FindRepository(j.db, rm.RepositoryName, accountName)
-			if err != nil {
-				return false, fmt.Errorf("while deleting manifest %q in repository %q: could not find repository in DB: %w",
-					rm.Digest, rm.RepositoryName, err)
-			}
-			err = proc.DeleteManifest(ctx, accountModel.Reduced(), *repo, parsedDigest, actx)
-			if err != nil {
-				return false, fmt.Errorf("while deleting manifest %q in repository %q: %w",
-					rm.Digest, rm.RepositoryName, err)
-			}
-		}
-	}
-	if resp.RemainingBlobs != nil {
-		logg.Info("cleaning up managed account %q: waiting for %d blobs to be deleted", accountName, resp.RemainingBlobs.Count)
-	}
-
-	// since the deletion was not finished, we will retry in the next cycle
-	return false, nil
 }
 
 func (j *Janitor) createOrUpdateManagedAccount(ctx context.Context, account keppel.Account, securityScanPolicies []keppel.SecurityScanPolicy) error {
