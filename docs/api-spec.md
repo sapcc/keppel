@@ -74,7 +74,6 @@ On success, returns 200 and a JSON response body like this:
     {
       "name": "firstaccount",
       "auth_tenant_id": "firsttenant",
-      "metadata": {},
       "rbac_policies": [
         {
           "match_repository": "library/.*",
@@ -109,9 +108,6 @@ On success, returns 200 and a JSON response body like this:
     {
       "name": "secondaccount",
       "auth_tenant_id": "secondtenant",
-      "metadata": {
-        "priority": "just an example"
-      },
       "rbac_policies": [],
       "replication": {
         "strategy": "on_first_use",
@@ -142,8 +138,7 @@ The following fields may be returned:
 | `accounts[].gc_policies[].time_constraint.oldest`<br>`accounts[].gc_policies[].time_constraint.newest` | integer or omitted | If set, the GC policy only applies to at most that many images within each repository, specifically to those that are oldest/newest ones when ordered by the timestamp attribute specified in the `time_constraint.on` key. These constraints are forbidden for policies with action "delete" to ensure that GC runs are idempotent. |
 | `accounts[].gc_policies[].time_constraint.older_than`<br>`accounts[].gc_policies[].time_constraint.newer_than` | duration or omitted | If set, the GC policy only applies to at most images whose timestamp (as selected by the `time_constraint.on` key) is older/newer than the given age. Durations are given as a JSON object with the keys `value` (integer) and `unit` (string), e.g. `{"value": 4, "unit": "d"}` for 4 days. The units `s` (second), `m` (minute), `h` (hour), `d` (day), `w` (7 days) and `y` (365 days) are understood. |
 | `accounts[].gc_policies[].action` | string | One of: `delete` (to delete matching images) or `protect` (to not delete matching images, even if another policy with a lower priority would want to). |
-| `accounts[].in_maintenance` | bool | Whether this account is in maintenance mode. [See below](#maintenance-mode) for details. |
-| `accounts[].metadata` | object of strings | Free-form metadata maintained by the user. The contents of this field are not interpreted by Keppel, but may trigger special behavior in applications using this API. |
+| `accounts[].state` | string | The state of the account. Only shown when there is a specific state to report. [See below](#account-state) for possible values and details. |
 | `accounts[].rbac_policies` | list of objects | Policies for rule-based access control (RBAC) to repositories in this account. RBAC policies are evaluated in addition to the permissions granted by the auth tenant. |
 | `accounts[].rbac_policies[].match_cidr` | string | The RBAC policy applies to requests which originate from an IP address that matches the CIDR. |
 | `accounts[].rbac_policies[].match_repository` | string | The RBAC policy applies to all repositories in this account whose name matches this regex. The leading account name and slash is stripped from the repository name before matching. The notes on regexes below apply. |
@@ -204,18 +199,16 @@ The following fields are shown on accounts configured with this strategy:
 
 Note that the `accounts[].replication.upstream.password` field is omitted from GET responses for security reasons.
 
-### Maintenance mode
+### Account state
 
-When `accounts[].in_maintenance` is true, the following differences in behavior apply to this account:
+When `accounts[].state` is `deleting`, the following differences in behavior apply to this account:
 
 - For primary accounts (i.e. accounts that are not replicas), no new blobs or manifests may be pushed. Only pulling and
   deleting are allowed.
 - For replica accounts, no new blobs or manifests will be replicated. Pulling is still allowed, but it becomes possible
   to delete blobs and manifests.
 
-Maintenance mode is a significant part of the account deletion workflow: Sending a DELETE request on an account is only
-allowed while the account is in maintenance mode, and the caller must have deleted all manifests from the account before
-attempting to DELETE it.
+Sending a DELETE request on an account moves it into `state = "deleting"` and schedules the deletion of everything that belongs to the account, including manifests and blobs.
 
 ## GET /keppel/v1/accounts/:name
 

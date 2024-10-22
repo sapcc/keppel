@@ -104,7 +104,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 	}
 
 	// validate and update fields as requested
-	targetAccount.InMaintenance = account.InMaintenance
+	targetAccount.IsDeleting = account.State == "deleting"
 
 	// validate GC policies
 	if len(account.GCPolicies) == 0 {
@@ -118,14 +118,6 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 		}
 		buf, _ := json.Marshal(account.GCPolicies)
 		targetAccount.GCPoliciesJSON = string(buf)
-	}
-
-	// serialize metadata
-	if len(account.Metadata) == 0 {
-		targetAccount.MetadataJSON = ""
-	} else {
-		buf, _ := json.Marshal(account.Metadata)
-		targetAccount.MetadataJSON = string(buf)
 	}
 
 	// validate replication policy (for OnFirstUseStrategy, the peer hostname is
@@ -304,7 +296,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 
 		// audit log is necessary for all changes except to InMaintenance
 		if userInfo != nil {
-			originalAccount.InMaintenance = targetAccount.InMaintenance
+			originalAccount.IsDeleting = targetAccount.IsDeleting
 			if !reflect.DeepEqual(*originalAccount, targetAccount) {
 				p.auditor.Record(audittools.EventParameters{
 					Time:       p.timeNow(),

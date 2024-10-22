@@ -71,7 +71,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		// see the true 404 to properly replicate the non-existence of the manifest
 		// from this account into the replica account)
 		userType := authz.UserIdentity.UserType()
-		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.InMaintenance && (userType != keppel.PeerUser && userType != keppel.TrivyUser) {
+		if (account.UpstreamPeerHostName != "" || account.ExternalPeerURL != "") && !account.IsDeleting && (userType != keppel.PeerUser && userType != keppel.TrivyUser) {
 			// when replicating from external, only authenticated users can trigger the replication
 			if account.ExternalPeerURL != "" && userType != keppel.RegularUser {
 				if !authz.ScopeSet.Contains(auth.Scope{
@@ -335,8 +335,8 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// forbid pushing during maintenance
-	if account.InMaintenance {
-		keppel.ErrUnsupported.With("account is in maintenance").WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w, r)
+	if account.IsDeleting {
+		keppel.ErrUnsupported.With("account is being deleted").WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 

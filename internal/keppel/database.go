@@ -307,11 +307,24 @@ var sqlMigrations = map[string]string{
 	"043_add_accounts_is_deleting.up.sql": `
     ALTER TABLE accounts
       ADD COLUMN is_deleting BOOLEAN NOT NULL DEFAULT FALSE,
-      ADD COLUMN next_deletion_attempt_at  TIMESTAMPTZ DEFAULT NULL;
+      ADD COLUMN next_deletion_attempt_at TIMESTAMPTZ DEFAULT NULL;
+
+    UPDATE accounts SET is_deleting = TRUE WHERE in_maintenance;
+
+    ALTER TABLE accounts
+      DROP COLUMN in_maintenance,
+      DROP COLUMN metadata_json;
   `,
 	"043_add_accounts_is_deleting.down.sql": `
     ALTER TABLE accounts
-      DROP COLUMN is_deleting, next_deletion_attempt_at;
+      ADD COLUMN in_maintenance BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '';
+
+    UPDATE accounts SET in_maintenance = TRUE WHERE is_deleting;
+
+    ALTER TABLE accounts
+      DROP COLUMN is_deleting,
+      DROP COLUMN next_deletion_attempt_at;
   `,
 }
 
