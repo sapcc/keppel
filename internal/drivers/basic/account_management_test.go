@@ -63,7 +63,6 @@ func TestConfigureAccount(t *testing.T) {
 				RepositoryRx: ".*",
 			},
 		},
-		Metadata: map[string]string(nil),
 		RBACPolicies: []keppel.RBACPolicy{
 			{
 				Permissions:       []keppel.RBACPermission{"anonymous_pull"},

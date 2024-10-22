@@ -46,13 +46,11 @@ type Account struct {
 	// RequiredLabels is a comma-separated list of labels that must be present on
 	// all image manifests in this account.
 	RequiredLabels string `db:"required_labels"`
-	// InMaintenance indicates whether the account is in maintenance mode (as defined in the API spec).
-	InMaintenance bool `db:"in_maintenance"`
+	// IsDeleting indicates whether the account is currently being deleted.
+	IsDeleting bool `db:"is_deleting"`
 	// IsManaged indicates if the account was created by AccountManagementDriver
 	IsManaged bool `db:"is_managed"`
 
-	// MetadataJSON contains a JSON string of a map[string]string, or the empty string.
-	MetadataJSON string `db:"metadata_json"`
 	// RBACPoliciesJSON contains a JSON string of []keppel.RBACPolicy, or the empty string.
 	RBACPoliciesJSON string `db:"rbac_policies_json"`
 	// GCPoliciesJSON contains a JSON string of []keppel.GCPolicy, or the empty string.
@@ -61,6 +59,7 @@ type Account struct {
 	SecurityScanPoliciesJSON string `db:"security_scan_policies_json"`
 
 	NextBlobSweepedAt            *time.Time `db:"next_blob_sweep_at"`              // see tasks.BlobSweepJob
+	NextDeletionAttempt          *time.Time `db:"next_deletion_attempt_at"`        // see tasks.AccountDeletionJob
 	NextEnforcementAt            *time.Time `db:"next_enforcement_at"`             // see tasks.CreateManagedAccountsJob
 	NextStorageSweepedAt         *time.Time `db:"next_storage_sweep_at"`           // see tasks.StorageSweepJob
 	NextFederationAnnouncementAt *time.Time `db:"next_federation_announcement_at"` // see tasks.AnnounceAccountToFederationJob
@@ -77,7 +76,7 @@ func (a Account) Reduced() ReducedAccount {
 		ExternalPeerPassword: a.ExternalPeerPassword,
 		PlatformFilter:       a.PlatformFilter,
 		RequiredLabels:       a.RequiredLabels,
-		InMaintenance:        a.InMaintenance,
+		IsDeleting:           a.IsDeleting,
 	}
 }
 
@@ -97,7 +96,7 @@ type ReducedAccount struct {
 
 	// validation policy, status
 	RequiredLabels string
-	InMaintenance  bool
+	IsDeleting     bool
 
 	// NOTE: When adding or removing fields, always adjust Account.Reduced() and keppel.FindReducedAccount() too!
 }

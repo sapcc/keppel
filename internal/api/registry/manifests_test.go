@@ -96,8 +96,8 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 			}.Check(t, h)
 
-			// PUT failure case: cannot push while account is in maintenance
-			testWithAccountInMaintenance(t, s.DB, "test1", func() {
+			// PUT failure case: cannot push while account is being deleted
+			testWithAccountIsDeleting(t, s.DB, "test1", func() {
 				assert.HTTPRequest{
 					Method: "PUT",
 					Path:   "/v2/test1/foo/manifests/" + ref,
@@ -109,7 +109,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 					ExpectStatus: http.StatusMethodNotAllowed,
 					ExpectBody: test.ErrorCodeWithMessage{
 						Code:    keppel.ErrUnsupported,
-						Message: "account is in maintenance",
+						Message: "account is being deleted",
 					},
 				}.Check(t, h)
 			})

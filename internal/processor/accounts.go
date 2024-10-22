@@ -104,7 +104,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 	}
 
 	// validate and update fields as requested
-	targetAccount.InMaintenance = account.InMaintenance
+	targetAccount.IsDeleting = account.State == "deleting"
 
 	// validate GC policies
 	if len(account.GCPolicies) == 0 {
@@ -118,14 +118,6 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 		}
 		buf, _ := json.Marshal(account.GCPolicies)
 		targetAccount.GCPoliciesJSON = string(buf)
-	}
-
-	// serialize metadata
-	if len(account.Metadata) == 0 {
-		targetAccount.MetadataJSON = ""
-	} else {
-		buf, _ := json.Marshal(account.Metadata)
-		targetAccount.MetadataJSON = string(buf)
 	}
 
 	// validate replication policy (for OnFirstUseStrategy, the peer hostname is
@@ -304,7 +296,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 
 		// audit log is necessary for all changes except to InMaintenance
 		if userInfo != nil {
-			originalAccount.InMaintenance = targetAccount.InMaintenance
+			originalAccount.IsDeleting = targetAccount.IsDeleting
 			if !reflect.DeepEqual(*originalAccount, targetAccount) {
 				p.auditor.Record(audittools.EventParameters{
 					Time:       p.timeNow(),
@@ -321,136 +313,14 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 	return targetAccount, nil
 }
 
-// DeleteAccountRemainingManifest appears in type DeleteAccountResponse.
-type DeleteAccountRemainingManifest struct {
-	RepositoryName string `json:"repository"`
-	Digest         string `json:"digest"`
-}
-
-// DeleteAccountRemainingManifests appears in type DeleteAccountResponse.
-type DeleteAccountRemainingManifests struct {
-	Count uint64                           `json:"count"`
-	Next  []DeleteAccountRemainingManifest `json:"next"`
-}
-
-// DeleteAccountRemainingBlobs appears in type DeleteAccountResponse.
-type DeleteAccountRemainingBlobs struct {
-	Count uint64 `json:"count"`
-}
-
-// DeleteAccountResponse is returned by Processor.DeleteAccount().
-// It is the structure of the response to an account deletion API call.
-type DeleteAccountResponse struct {
-	RemainingManifests *DeleteAccountRemainingManifests `json:"remaining_manifests,omitempty"`
-	RemainingBlobs     *DeleteAccountRemainingBlobs     `json:"remaining_blobs,omitempty"`
-	Error              string                           `json:"error,omitempty"`
-}
-
 var (
-	deleteAccountFindManifestsQuery = sqlext.SimplifyWhitespace(`
-		SELECT r.name, m.digest
-			FROM manifests m
-			JOIN repos r ON m.repo_id = r.id
-			JOIN accounts a ON a.name = r.account_name
-			LEFT OUTER JOIN manifest_manifest_refs mmr ON mmr.repo_id = r.id AND m.digest = mmr.child_digest
-    WHERE a.name = $1 AND parent_digest IS NULL
-    LIMIT 10
-	`)
-	deleteAccountCountManifestsQuery = sqlext.SimplifyWhitespace(`
-		SELECT COUNT(m.digest)
-			FROM manifests m
-			JOIN repos r ON m.repo_id = r.id
-			JOIN accounts a ON a.name = r.account_name
-    WHERE a.name = $1
-  `)
-	deleteAccountReposQuery                   = `DELETE FROM repos WHERE account_name = $1`
-	deleteAccountCountBlobsQuery              = `SELECT COUNT(id) FROM blobs WHERE account_name = $1`
-	deleteAccountScheduleBlobSweepQuery       = `UPDATE accounts SET next_blob_sweep_at = $2 WHERE name = $1`
-	deleteAccountMarkAllBlobsForDeletionQuery = `UPDATE blobs SET can_be_deleted_at = $2 WHERE account_name = $1`
+	markAccountForDeletion = `UPDATE accounts SET is_deleting = TRUE, next_deletion_attempt_at = $1 WHERE name = $2`
 )
 
-func (p *Processor) DeleteAccount(ctx context.Context, account models.Account, actx keppel.AuditContext) (*DeleteAccountResponse, error) {
-	if !account.InMaintenance {
-		return &DeleteAccountResponse{
-			Error: "account must be set in maintenance first",
-		}, nil
-	}
-
-	// can only delete account when user has deleted all manifests from it
-	var nextManifests []DeleteAccountRemainingManifest
-	err := sqlext.ForeachRow(p.db, deleteAccountFindManifestsQuery, []any{account.Name},
-		func(rows *sql.Rows) error {
-			var m DeleteAccountRemainingManifest
-			err := rows.Scan(&m.RepositoryName, &m.Digest)
-			nextManifests = append(nextManifests, m)
-			return err
-		},
-	)
+func (p *Processor) MarkAccountForDeletion(account models.Account, actx keppel.AuditContext) error {
+	_, err := p.db.Exec(markAccountForDeletion, p.timeNow(), account.Name)
 	if err != nil {
-		return nil, err
-	}
-	if len(nextManifests) > 0 {
-		manifestCount, err := p.db.SelectInt(deleteAccountCountManifestsQuery, account.Name)
-		return &DeleteAccountResponse{
-			RemainingManifests: &DeleteAccountRemainingManifests{
-				Count: keppel.AtLeastZero(manifestCount),
-				Next:  nextManifests,
-			},
-		}, err
-	}
-
-	// delete all repos (and therefore, all blob mounts), so that blob sweeping
-	// can immediately take place
-	_, err = p.db.Exec(deleteAccountReposQuery, account.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	// can only delete account when all blobs have been deleted
-	blobCount, err := p.db.SelectInt(deleteAccountCountBlobsQuery, account.Name)
-	if err != nil {
-		return nil, err
-	}
-	if blobCount > 0 {
-		// make sure that blob sweep runs immediately
-		_, err := p.db.Exec(deleteAccountMarkAllBlobsForDeletionQuery, account.Name, p.timeNow())
-		if err != nil {
-			return nil, err
-		}
-		_, err = p.db.Exec(deleteAccountScheduleBlobSweepQuery, account.Name, p.timeNow())
-		if err != nil {
-			return nil, err
-		}
-		return &DeleteAccountResponse{
-			RemainingBlobs: &DeleteAccountRemainingBlobs{Count: keppel.AtLeastZero(blobCount)},
-		}, nil
-	}
-
-	// start deleting the account in a transaction
-	tx, err := p.db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer sqlext.RollbackUnlessCommitted(tx)
-	_, err = tx.Delete(&account)
-	if err != nil {
-		return nil, err
-	}
-
-	// before committing the transaction, confirm account deletion with the
-	// storage driver and the federation driver
-	err = p.sd.CleanupAccount(ctx, account.Reduced())
-	if err != nil {
-		return nil, fmt.Errorf("while cleaning up storage for account: %w", err)
-	}
-	err = p.fd.ForfeitAccountName(ctx, account)
-	if err != nil {
-		return nil, fmt.Errorf("while cleaning up name claim for account: %w", err)
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if userInfo := actx.UserIdentity.UserInfo(); userInfo != nil {
@@ -464,5 +334,5 @@ func (p *Processor) DeleteAccount(ctx context.Context, account models.Account, a
 		})
 	}
 
-	return nil, nil
+	return nil
 }
