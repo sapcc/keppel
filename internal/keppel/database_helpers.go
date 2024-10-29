@@ -64,6 +64,13 @@ func FindReducedAccount(db gorp.SqlExecutor, name models.AccountName) (*models.R
 	return &a, err
 }
 
+// DoesAccountExist checks if an account with the given name exists in the DB.
+func DoesAccountExist(db gorp.SqlExecutor, name models.AccountName) (bool, error) {
+	var count uint64
+	err := db.QueryRow(`SELECT COUNT(*) FROM accounts WHERE name = $1`, name).Scan(&count)
+	return count > 0, err
+}
+
 var blobGetQueryByRepoName = sqlext.SimplifyWhitespace(`
 	SELECT b.*
 	  FROM blobs b

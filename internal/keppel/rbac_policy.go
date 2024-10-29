@@ -128,10 +128,18 @@ func (r *RBACPolicy) ValidateAndNormalize(strategy ReplicationStrategy) error {
 
 // ParseRBACPolicies parses the RBAC policies for the given account.
 func ParseRBACPolicies(account models.Account) ([]RBACPolicy, error) {
-	if account.RBACPoliciesJSON == "" || account.RBACPoliciesJSON == "[]" {
+	return ParseRBACPoliciesField(account.RBACPoliciesJSON)
+}
+
+// ParseRBACPoliciesField is like ParseRBACPolicies, but only takes the
+// RBACPoliciesJSON field of type Account instead of the whole Account.
+//
+// This is useful when the full Account has not been loaded from the DB.
+func ParseRBACPoliciesField(buf string) ([]RBACPolicy, error) {
+	if buf == "" || buf == "[]" {
 		return nil, nil
 	}
 	var policies []RBACPolicy
-	err := json.Unmarshal([]byte(account.RBACPoliciesJSON), &policies)
+	err := json.Unmarshal([]byte(buf), &policies)
 	return policies, err
 }

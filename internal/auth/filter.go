@@ -20,6 +20,8 @@
 package auth
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/sapcc/go-bits/httpext"
@@ -166,21 +168,33 @@ func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience
 		return nil, nil
 	}
 
-	account, err := keppel.FindAccount(db, repoScope.AccountName)
-	if err != nil {
-		return nil, err
-	}
-	if account == nil {
+	// NOTE: As an optimization, this only loads the few required fields for the account
+	// instead of the entire `accounts` row. Before this optimization, the loads
+	// via keppel.FindAccount() at this callsite made up 8% of all allocations
+	// performed by keppel-api.
+	var (
+		authTenantID     string
+		rbacPoliciesJSON string
+	)
+	err := db.QueryRow(
+		`SELECT auth_tenant_id, rbac_policies_json FROM accounts WHERE name = $1`,
+		repoScope.AccountName,
+	).Scan(&authTenantID, &rbacPoliciesJSON)
+	if errors.Is(err, sql.ErrNoRows) {
+		// if the account does not exist, we cannot give access to it
+		// (this is not an error, because an error would leak information on which accounts exist)
 		return nil, nil
+	} else if err != nil {
+		return nil, err
 	}
 
 	isAllowedAction := map[string]bool{
-		"pull":   uid.HasPermission(keppel.CanPullFromAccount, account.AuthTenantID),
-		"push":   uid.HasPermission(keppel.CanPushToAccount, account.AuthTenantID),
-		"delete": uid.HasPermission(keppel.CanDeleteFromAccount, account.AuthTenantID),
+		"pull":   uid.HasPermission(keppel.CanPullFromAccount, authTenantID),
+		"push":   uid.HasPermission(keppel.CanPushToAccount, authTenantID),
+		"delete": uid.HasPermission(keppel.CanDeleteFromAccount, authTenantID),
 	}
 
-	policies, err := keppel.ParseRBACPolicies(*account)
+	policies, err := keppel.ParseRBACPoliciesField(rbacPoliciesJSON)
 	if err != nil {
 		return nil, fmt.Errorf("while parsing account RBAC policies: %w", err)
 	}
