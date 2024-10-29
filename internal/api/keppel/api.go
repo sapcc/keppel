@@ -184,6 +184,10 @@ func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request, _ *
 		http.Error(w, "account not found", http.StatusNotFound)
 		return nil
 	}
+	if account.IsDeleting && r.Method == http.MethodGet {
+		http.Error(w, "account is being deleted", http.StatusConflict)
+		return nil
+	}
 	return account
 }
 
