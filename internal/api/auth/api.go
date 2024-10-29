@@ -92,14 +92,14 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 			scope := req.Scopes[0]
 			if scope.ResourceType == "repository" {
 				repoScope := scope.ParseRepositoryScope(req.IntendedAudience)
-				account, err := keppel.FindAccount(a.db, repoScope.AccountName)
+				accountExists, err := keppel.DoesAccountExist(a.db, repoScope.AccountName)
 				if respondWithError(w, http.StatusInternalServerError, err) {
 					return
 				}
 
 				// if we don't have this account locally, but the request is an anycast
 				// request and one of our peers has the account, ask them to issue the token
-				if account == nil {
+				if !accountExists {
 					err := a.reverseProxyTokenReqToUpstream(w, r, req.IntendedAudience, repoScope.AccountName)
 					if !errors.Is(err, keppel.ErrNoSuchPrimaryAccount) {
 						respondWithError(w, http.StatusInternalServerError, err)
