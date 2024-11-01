@@ -19,6 +19,8 @@
 
 package liquid
 
+import "encoding/json"
+
 // ServiceInfo is the response payload format for GET /v1/info.
 type ServiceInfo struct {
 	// This version number shall be increased whenever any part of the ServiceInfo changes.
@@ -71,6 +73,13 @@ type ResourceInfo struct {
 	// If false, only usage is reported on the project level.
 	// Limes will abstain from maintaining quota on such resources.
 	HasQuota bool `json:"hasQuota"`
+
+	// Additional resource-specific attributes.
+	// For example, a resource for baremetal nodes of a certain flavor might report flavor attributes like the CPU and RAM size here, instead of on subcapacities and subresources, to avoid repetition.
+	//
+	// This must be shaped like a map[string]any, but is typed as a raw JSON message.
+	// Limes does not touch these attributes and will just pass them on into its users without deserializing it at all.
+	Attributes json.RawMessage `json:"attributes,omitempty"`
 }
 
 // RateInfo describes a rate that a liquid's service provides.
