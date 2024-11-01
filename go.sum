@@ -10,8 +10,8 @@ github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302 h1:uvdUDbHQHO
 github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302/go.mod h1:SGnFV6hVsYE877CKEZ6tDNTjaSXYUk6QqoIK6PrAtcc=
 github.com/alicebob/miniredis/v2 v2.33.0 h1:uvTF0EDeu9RLnUEG27Db5I68ESoIxTiXbNUiji6lZrA=
 github.com/alicebob/miniredis/v2 v2.33.0/go.mod h1:MhP4a3EU7aENRi9aO+tHfTBZicLqQevyi/DJpoj6mi0=
-github.com/aquasecurity/trivy v0.56.2 h1:4QNIFIBvkFznVy/c6rZwn7fqqaO6izYHtNmw0lMO26Q=
-github.com/aquasecurity/trivy v0.56.2/go.mod h1:P6LM+3h3G/nndp3BDugw0YZKBOC0lNRX2zCX/LxOpyo=
+github.com/aquasecurity/trivy v0.57.0 h1:W3L+VVvAQjYsJsyiBsThs5xec66g2LpbVkWQJNcaZE0=
+github.com/aquasecurity/trivy v0.57.0/go.mod h1:MPExNeIDQASo9nHkVjN4pSsx7Vxoka96FnjryoSnhk0=
 github.com/aquasecurity/trivy-db v0.0.0-20240910133327-7e0f4d2ed4c1 h1:G0gnacAORRUqz2Tm5MqivSpldY2GZ74ijhJcMsae+sA=
 github.com/aquasecurity/trivy-db v0.0.0-20240910133327-7e0f4d2ed4c1/go.mod h1:PYkSRx4dlgFATEt+okGwibvbxVEtqsOdH+vX/saACYE=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
