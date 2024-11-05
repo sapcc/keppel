@@ -20,11 +20,7 @@
 package keppel
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/json"
 	"fmt"
-	"io"
 
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/pluggable"
@@ -93,49 +89,4 @@ func DeserializeUserIdentity(typeID string, payload []byte, ad AuthDriver) (User
 	}
 	err := uid.DeserializeFromJSON(payload, ad)
 	return uid, err
-}
-
-type compressedPayload struct {
-	Contents []byte `json:"gzip"`
-}
-
-// CompressTokenPayload can be used by types implementing the UserIdentity
-// interface to compress large token payloads with GZip or similar. (The exact
-// compression format is an implementation detail.) The result is a valid JSON
-// message that self-documents the compression algorithm that was used.
-func CompressTokenPayload(payload []byte) ([]byte, error) {
-	var buf bytes.Buffer
-	writer := gzip.NewWriter(&buf)
-	_, err := writer.Write(payload)
-	if err == nil {
-		err = writer.Close()
-	}
-	if err != nil {
-		return nil, fmt.Errorf("cannot apply GZip compression: %w", err)
-	}
-	return json.Marshal(compressedPayload{buf.Bytes()})
-}
-
-// DecompressTokenPayload is the exact reverse of CompressTokenPayload.
-func DecompressTokenPayload(payload []byte) ([]byte, error) {
-	var data compressedPayload
-	err := json.Unmarshal(payload, &data)
-	if err != nil {
-		return nil, err
-	}
-	var result []byte
-	reader, err := gzip.NewReader(bytes.NewReader(data.Contents))
-	if err == nil {
-		result, err = io.ReadAll(reader)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("cannot read GZip payload: %w", err)
-	}
-	return result, nil
-}
-
-// IsCompressedTokenPayload checks if the given payload was probably produced
-// by CompressTokenPayload().
-func IsCompressedTokenPayload(payload []byte) bool {
-	return bytes.HasPrefix(payload, []byte(`{"gzip":`))
 }

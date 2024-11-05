@@ -28,7 +28,6 @@ package openstack
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -316,10 +315,6 @@ func (a *keystoneUserIdentity) DeserializeFromJSON(in []byte, ad keppel.AuthDriv
 		return keppel.ErrAuthDriverMismatch
 	}
 
-	if keppel.IsCompressedTokenPayload(in) {
-		return a.deserializeLegacyFormatFromJSON(in, d)
-	}
-
 	a.t = &gopherpolicy.Token{
 		Enforcer:       d.TokenValidator.Enforcer,
 		Context:        policy.Context{}, // see below
@@ -328,36 +323,4 @@ func (a *keystoneUserIdentity) DeserializeFromJSON(in []byte, ad keppel.AuthDriv
 	}
 	a.t.Context, err = gopherpolicy.DeserializeCompactContextFromJSON(in)
 	return err
-}
-
-// TODO: remove support for the legacy format after the migration to the new format has been deployed
-// (tokens are valid for not longer than 4 hours, so this can happen just a day later)
-func (a *keystoneUserIdentity) deserializeLegacyFormatFromJSON(in []byte, d *keystoneDriver) error {
-	in, err := keppel.DecompressTokenPayload(in)
-	if err != nil {
-		return err
-	}
-
-	type serializedKeystoneUserIdentity struct {
-		Auth  map[string]string `json:"auth"`
-		Roles []string          `json:"relevant_roles"`
-	}
-
-	var skuid serializedKeystoneUserIdentity
-	err = json.Unmarshal(in, &skuid)
-	if err != nil {
-		return err
-	}
-
-	a.t = &gopherpolicy.Token{
-		Enforcer: d.TokenValidator.Enforcer,
-		Context: policy.Context{
-			Auth:    skuid.Auth,
-			Roles:   skuid.Roles,
-			Request: make(map[string]string), // filled by HasPermission(); does not need to be serialized
-		},
-		ProviderClient: nil, // cannot be reasonably serialized; see comment above
-		Err:            nil,
-	}
-	return nil
 }
