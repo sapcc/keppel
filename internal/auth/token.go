@@ -266,7 +266,10 @@ func (e *embeddedUserIdentity) UnmarshalJSON(in []byte) error {
 
 	for typeID, payload := range m {
 		e.UserIdentity, err = keppel.DeserializeUserIdentity(typeID, []byte(payload), e.AuthDriver)
-		return err
+		if err != nil {
+			return fmt.Errorf("cannot unmarshal EmbeddedAuthorization of type %q: %w", typeID, err)
+		}
+		return nil
 	}
 
 	// the loop body executes exactly once, therefore this location is unreachable
