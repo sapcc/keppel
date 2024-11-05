@@ -198,6 +198,12 @@ type TokenResult interface {
 	ExtractServiceCatalog() (*tokens.ServiceCatalog, error)
 }
 
+var (
+	// this verifies that the respective Result types from Gophercloud implement our interface
+	_ TokenResult = tokens.CreateResult{}
+	_ TokenResult = tokens.GetResult{}
+)
+
 type keystoneToken struct {
 	DomainScope  keystoneTokenThing         `json:"domain"`
 	ProjectScope keystoneTokenThingInDomain `json:"project"`
@@ -237,8 +243,10 @@ func (t *keystoneToken) ToContext() policy.Context {
 			"tenant_domain_name":          t.ProjectScope.Domain.Name,
 			"application_credential_id":   t.ApplicationCredential.ID,
 			"application_credential_name": t.ApplicationCredential.Name,
+			// NOTE: When adding new elements, also adjust the serialization
+			// functions in `serialize.go` as necessary.
 		},
-		Request: nil,
+		Request: map[string]string{},
 	}
 	for key, value := range c.Auth {
 		if value == "" {
@@ -247,9 +255,6 @@ func (t *keystoneToken) ToContext() policy.Context {
 	}
 	for _, role := range t.Roles {
 		c.Roles = append(c.Roles, role.Name)
-	}
-	if c.Request == nil {
-		c.Request = map[string]string{}
 	}
 
 	return c

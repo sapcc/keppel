@@ -133,3 +133,9 @@ func DecompressTokenPayload(payload []byte) ([]byte, error) {
 	}
 	return result, nil
 }
+
+// IsCompressedTokenPayload checks if the given payload was probably produced
+// by CompressTokenPayload().
+func IsCompressedTokenPayload(payload []byte) bool {
+	return bytes.HasPrefix(payload, []byte(`{"gzip":`))
+}

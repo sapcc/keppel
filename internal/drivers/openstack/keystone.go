@@ -299,11 +299,6 @@ func (a *keystoneUserIdentity) UserInfo() audittools.UserInfo {
 	return a.t
 }
 
-type serializedKeystoneUserIdentity struct {
-	Auth  map[string]string `json:"auth"`
-	Roles []string          `json:"relevant_roles"`
-}
-
 // SerializeToJSON implements the keppel.UserIdentity interface.
 func (a *keystoneUserIdentity) SerializeToJSON() (payload []byte, err error) {
 	// We cannot serialize the entire gopherpolicy.Token, that would include the
@@ -311,26 +306,41 @@ func (a *keystoneUserIdentity) SerializeToJSON() (payload []byte, err error) {
 	// catalog, and thus produce a rather massive payload. We skip the token and
 	// token response and only serialize what we need to make policy decisions and
 	// satisfy the audittools.UserInfo interface.
-	payload, err = json.Marshal(serializedKeystoneUserIdentity{
-		Auth:  a.t.Context.Auth,
-		Roles: a.t.Context.Roles,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return keppel.CompressTokenPayload(payload)
+	return gopherpolicy.SerializeCompactContextToJSON(a.t.Context)
 }
 
 // DeserializeFromJSON implements the keppel.UserIdentity interface.
-func (a *keystoneUserIdentity) DeserializeFromJSON(in []byte, ad keppel.AuthDriver) error {
+func (a *keystoneUserIdentity) DeserializeFromJSON(in []byte, ad keppel.AuthDriver) (err error) {
 	d, ok := ad.(*keystoneDriver)
 	if !ok {
 		return keppel.ErrAuthDriverMismatch
 	}
 
+	if keppel.IsCompressedTokenPayload(in) {
+		return a.deserializeLegacyFormatFromJSON(in, d)
+	}
+
+	a.t = &gopherpolicy.Token{
+		Enforcer:       d.TokenValidator.Enforcer,
+		Context:        policy.Context{}, // see below
+		ProviderClient: nil,              // cannot be reasonably serialized; see comment above
+		Err:            nil,
+	}
+	a.t.Context, err = gopherpolicy.DeserializeCompactContextFromJSON(in)
+	return err
+}
+
+// TODO: remove support for the legacy format after the migration to the new format has been deployed
+// (tokens are valid for not longer than 4 hours, so this can happen just a day later)
+func (a *keystoneUserIdentity) deserializeLegacyFormatFromJSON(in []byte, d *keystoneDriver) error {
 	in, err := keppel.DecompressTokenPayload(in)
 	if err != nil {
 		return err
+	}
+
+	type serializedKeystoneUserIdentity struct {
+		Auth  map[string]string `json:"auth"`
+		Roles []string          `json:"relevant_roles"`
 	}
 
 	var skuid serializedKeystoneUserIdentity
