@@ -13,7 +13,7 @@ require (
 	github.com/gofrs/uuid/v5 v5.3.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/gophercloud/gophercloud/v2 v2.2.0
-	github.com/gophercloud/utils/v2 v2.0.0-20241021065553-b46d0737ee98
+	github.com/gophercloud/utils/v2 v2.0.0-20241107125844-da754bc75cd6
 	github.com/gorilla/mux v1.8.1
 	github.com/majewsky/schwift/v2 v2.0.0
 	github.com/opencontainers/go-digest v1.0.0
@@ -26,7 +26,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.6.0
-	golang.org/x/crypto v0.28.0
+	golang.org/x/crypto v0.29.0
 )
 
 require (
@@ -57,8 +57,8 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	golang.org/x/sys v0.26.0 // indirect
-	golang.org/x/text v0.19.0 // indirect
+	golang.org/x/sys v0.27.0 // indirect
+	golang.org/x/text v0.20.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
