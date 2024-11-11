@@ -559,7 +559,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 		token := s.GetToken(t, "repository:test1/foo:pull,push")
 
 		image := test.GenerateImageWithCustomConfig(func(cfg map[string]any) {
-			cfg["config"].(map[string]any)["Labels"] = map[string]string{"foo": "is there", "bar": "is there"}
+			cfg["config"].(map[string]any)["Labels"] = map[string]string{"foo": "is there", "bar": "is there"} //nolint:errcheck
 		}, test.GenerateExampleLayer(1))
 		image.Config.MustUpload(t, s, fooRepoRef)
 		image.Layers[0].MustUpload(t, s, fooRepoRef)
@@ -621,7 +621,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 		// upload another image with similar (but not identical) labels as
 		// preparation for the image list test below
 		otherImage := test.GenerateImageWithCustomConfig(func(cfg map[string]any) {
-			cfg["config"].(map[string]any)["Labels"] = map[string]string{"foo": "is there", "bar": "is different"}
+			cfg["config"].(map[string]any)["Labels"] = map[string]string{"foo": "is there", "bar": "is different"} //nolint:errcheck
 		}, image.Layers[0])
 		otherImage.MustUpload(t, s, fooRepoRef, "other")
 
@@ -699,7 +699,7 @@ func TestImageManifestCmdEntrypointAsString(t *testing.T) {
 
 		// generate an image that has strings as Entrypoint and Cmd
 		image := test.GenerateImageWithCustomConfig(func(cfg map[string]any) {
-			cfg["config"].(map[string]any)["Cmd"] = "/usr/bin/env bash"
+			cfg["config"].(map[string]any)["Cmd"] = "/usr/bin/env bash" //nolint:errcheck
 		}, test.GenerateExampleLayer(1))
 		image.MustUpload(t, s, fooRepoRef, "first")
 
