@@ -40,10 +40,10 @@ import (
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack"
 	"github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens"
-	"github.com/gophercloud/utils/v2/openstack/clientconfig"
 	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/errext"
+	"github.com/sapcc/go-bits/gophercloudext"
 	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/osext"
@@ -53,6 +53,7 @@ import (
 
 type keystoneDriver struct {
 	Provider       *gophercloud.ProviderClient
+	EndpointOpts   gophercloud.EndpointOpts
 	IdentityV3     *gophercloud.ServiceClient
 	TokenValidator *gopherpolicy.TokenValidator
 	IsRelevantRole map[string]bool
@@ -69,25 +70,13 @@ func (d *keystoneDriver) PluginTypeID() string {
 }
 
 // Init implements the keppel.AuthDriver interface.
-func (d *keystoneDriver) Init(ctx context.Context, rc *redis.Client) error {
+func (d *keystoneDriver) Init(ctx context.Context, rc *redis.Client) (err error) {
 	// authenticate service user
-	ao, err := clientconfig.AuthOptions(nil)
+	d.Provider, d.EndpointOpts, err = gophercloudext.NewProviderClient(ctx, nil)
 	if err != nil {
-		return errors.New("cannot find OpenStack credentials: " + err.Error())
+		return err
 	}
-	ao.AllowReauth = true
-	d.Provider, err = openstack.AuthenticatedClient(ctx, *ao)
-	if err != nil {
-		return errors.New("cannot connect to OpenStack: " + err.Error())
-	}
-
-	// find Identity V3 endpoint
-	eo := gophercloud.EndpointOpts{
-		// note that empty values are acceptable in both fields
-		Region:       os.Getenv("OS_REGION_NAME"),
-		Availability: gophercloud.Availability(os.Getenv("OS_INTERFACE")),
-	}
-	d.IdentityV3, err = openstack.NewIdentityV3(d.Provider, eo)
+	d.IdentityV3, err = openstack.NewIdentityV3(d.Provider, d.EndpointOpts)
 	if err != nil {
 		return errors.New("cannot find Keystone V3 API: " + err.Error())
 	}
@@ -95,7 +84,7 @@ func (d *keystoneDriver) Init(ctx context.Context, rc *redis.Client) error {
 	// load oslo.policy
 	d.TokenValidator = &gopherpolicy.TokenValidator{IdentityV3: d.IdentityV3}
 	policyFilePath := osext.MustGetenv("KEPPEL_OSLO_POLICY_PATH")
-	err = d.TokenValidator.LoadPolicyFile(policyFilePath)
+	err = d.TokenValidator.LoadPolicyFile(policyFilePath, nil)
 	if err != nil {
 		return err
 	}

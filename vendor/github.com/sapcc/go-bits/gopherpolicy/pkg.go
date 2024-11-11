@@ -28,13 +28,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	policy "github.com/databus23/goslo.policy"
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack"
 	"github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens"
-	"gopkg.in/yaml.v2"
 
 	"github.com/sapcc/go-bits/logg"
 )
@@ -72,13 +72,28 @@ type TokenValidator struct {
 }
 
 // LoadPolicyFile creates v.Enforcer from the given policy file.
-func (v *TokenValidator) LoadPolicyFile(path string) error {
+//
+// The second argument must be set to `yaml.Unmarshal` if you want to support
+// policy.yaml files. This explicit dependency injection slot allows you to choose
+// whether to use gopkg.in/yaml.v2 or gopkg.in/yaml.v3 or anything else.
+//
+// If `yamlUnmarshal` is given as nil, `json.Unmarshal` from the standard
+// library will be used, so only policy.json files will be understood.
+func (v *TokenValidator) LoadPolicyFile(path string, yamlUnmarshal func(in []byte, out any) error) error {
+	unmarshal := yamlUnmarshal
+	if yamlUnmarshal == nil {
+		unmarshal = json.Unmarshal
+		if strings.HasSuffix(path, ".yaml") {
+			return fmt.Errorf("LoadPolicyFile cannot parse %s because YAML support is not available", path)
+		}
+	}
+
 	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return err // no fmt.Errorf() necessary, errors from package os are already very descriptive
 	}
 	var rules map[string]string
-	err = yaml.Unmarshal(bytes, &rules)
+	err = unmarshal(bytes, &rules)
 	if err != nil {
 		return fmt.Errorf("while parsing structure of %s: %w", path, err)
 	}
