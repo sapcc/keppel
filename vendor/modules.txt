@@ -82,12 +82,6 @@ github.com/gophercloud/gophercloud/v2/openstack/identity/v3/projects
 github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens
 github.com/gophercloud/gophercloud/v2/openstack/utils
 github.com/gophercloud/gophercloud/v2/pagination
-# github.com/gophercloud/utils/v2 v2.0.0-20241107125844-da754bc75cd6
-## explicit; go 1.22
-github.com/gophercloud/utils/v2/env
-github.com/gophercloud/utils/v2/gnocchi
-github.com/gophercloud/utils/v2/internal
-github.com/gophercloud/utils/v2/openstack/clientconfig
 # github.com/gorilla/mux v1.8.1
 ## explicit; go 1.20
 github.com/gorilla/mux
@@ -128,9 +122,6 @@ github.com/majewsky/schwift/v2
 github.com/majewsky/schwift/v2/capabilities
 github.com/majewsky/schwift/v2/gopherschwift
 github.com/majewsky/schwift/v2/internal/errext
-# github.com/mitchellh/go-homedir v1.1.0
-## explicit
-github.com/mitchellh/go-homedir
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
@@ -190,12 +181,13 @@ github.com/samber/lo/internal/rand
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20241107000306-6eb1626e14d0
+# github.com/sapcc/go-bits v0.0.0-20241111142343-42fa891b5aae
 ## explicit; go 1.23
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
 github.com/sapcc/go-bits/easypg
 github.com/sapcc/go-bits/errext
+github.com/sapcc/go-bits/gophercloudext
 github.com/sapcc/go-bits/gopherpolicy
 github.com/sapcc/go-bits/httpapi
 github.com/sapcc/go-bits/httpapi/pprofapi
@@ -246,10 +238,6 @@ golang.org/x/sys/windows
 # golang.org/x/text v0.20.0
 ## explicit; go 1.18
 golang.org/x/text/cases
-golang.org/x/text/encoding
-golang.org/x/text/encoding/charmap
-golang.org/x/text/encoding/internal
-golang.org/x/text/encoding/internal/identifier
 golang.org/x/text/internal
 golang.org/x/text/internal/language
 golang.org/x/text/internal/language/compact
@@ -291,9 +279,3 @@ google.golang.org/protobuf/reflect/protoregistry
 google.golang.org/protobuf/runtime/protoiface
 google.golang.org/protobuf/runtime/protoimpl
 google.golang.org/protobuf/types/known/timestamppb
-# gopkg.in/yaml.v2 v2.4.0
-## explicit; go 1.15
-gopkg.in/yaml.v2
-# gopkg.in/yaml.v3 v3.0.1
-## explicit
-gopkg.in/yaml.v3

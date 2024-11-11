@@ -552,7 +552,7 @@ func (a *API) resumeUpload(ctx context.Context, account models.ReducedAccount, u
 		return nil, keppel.ErrBlobUploadInvalid.With("malformed session state")
 	}
 	hashWriter := sha256.New()
-	err = hashWriter.(encoding.BinaryUnmarshaler).UnmarshalBinary(stateBytes)
+	err = hashWriter.(encoding.BinaryUnmarshaler).UnmarshalBinary(stateBytes) //nolint:errcheck // sha256.New() implements this interface
 	if err != nil {
 		return nil, keppel.ErrBlobUploadInvalid.With("broken session state").WithStatus(http.StatusRequestedRangeNotSatisfiable)
 	}
@@ -566,7 +566,7 @@ func (a *API) resumeUpload(ctx context.Context, account models.ReducedAccount, u
 	// we need to unmarshal the digest state once more because taking a Sum over
 	// this hash may have altered the state
 	hashWriter = sha256.New()
-	err = hashWriter.(encoding.BinaryUnmarshaler).UnmarshalBinary(stateBytes)
+	err = hashWriter.(encoding.BinaryUnmarshaler).UnmarshalBinary(stateBytes) //nolint:errcheck // sha256.New() implements this interface
 	if err != nil {
 		//COVERAGE: This branch is defense in depth. We unmarshaled the same state
 		// above, so hitting an error just here should be impossible.
@@ -654,7 +654,7 @@ func (a *API) streamIntoUpload(ctx context.Context, account models.ReducedAccoun
 	// serialize digest state for next resumeUpload() - note that we do this
 	// BEFORE digest.NewDigest() because digest.NewDigest() may alter the
 	// internal state of `dw.Hash`
-	digestStateBytes, err := dw.Hash.(encoding.BinaryMarshaler).MarshalBinary()
+	digestStateBytes, err := dw.Hash.(encoding.BinaryMarshaler).MarshalBinary() //nolint:errcheck // sha256.New() implements this interface
 	if err != nil {
 		return "", err
 	}

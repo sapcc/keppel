@@ -28,16 +28,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"reflect"
 	"sort"
 	"time"
 
-	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack"
-	"github.com/gophercloud/utils/v2/openstack/clientconfig"
 	"github.com/majewsky/schwift/v2"
 	"github.com/majewsky/schwift/v2/gopherschwift"
+	"github.com/sapcc/go-bits/gophercloudext"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/osext"
 
@@ -65,22 +63,10 @@ func (fd *federationDriverSwift) Init(ctx context.Context, ad keppel.AuthDriver,
 }
 
 func initSwiftContainerConnection(ctx context.Context, envPrefix string) (*schwift.Container, error) {
-	// authenticate service user
-	ao, err := clientconfig.AuthOptions(&clientconfig.ClientOpts{EnvPrefix: envPrefix + "OS_"})
+	// connect to Swift
+	provider, eo, err := gophercloudext.NewProviderClient(ctx, &gophercloudext.ClientOpts{EnvPrefix: envPrefix + "OS_"})
 	if err != nil {
-		return nil, errors.New("cannot find OpenStack credentials for federation driver: " + err.Error())
-	}
-	ao.AllowReauth = true
-	provider, err := openstack.AuthenticatedClient(ctx, *ao)
-	if err != nil {
-		return nil, errors.New("cannot connect to OpenStack for federation driver: " + err.Error())
-	}
-
-	// find Swift endpoint
-	eo := gophercloud.EndpointOpts{
-		// note that empty values are acceptable in both fields
-		Region:       os.Getenv(envPrefix + "OS_REGION_NAME"),
-		Availability: gophercloud.Availability(os.Getenv(envPrefix + "OS_INTERFACE")),
+		return nil, err
 	}
 	swiftV1, err := openstack.NewObjectStorageV1(provider, eo)
 	if err != nil {

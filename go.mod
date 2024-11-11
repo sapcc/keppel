@@ -13,7 +13,6 @@ require (
 	github.com/gofrs/uuid/v5 v5.3.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/gophercloud/gophercloud/v2 v2.2.0
-	github.com/gophercloud/utils/v2 v2.0.0-20241107125844-da754bc75cd6
 	github.com/gorilla/mux v1.8.1
 	github.com/majewsky/schwift/v2 v2.0.0
 	github.com/opencontainers/go-digest v1.0.0
@@ -22,7 +21,7 @@ require (
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/rs/cors v1.11.1
 	github.com/sapcc/go-api-declarations v1.12.9
-	github.com/sapcc/go-bits v0.0.0-20241107000306-6eb1626e14d0
+	github.com/sapcc/go-bits v0.0.0-20241111142343-42fa891b5aae
 	github.com/spf13/cobra v1.8.1
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.6.0
@@ -45,7 +44,6 @@ require (
 	github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/lib/pq v1.10.9 // indirect
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/package-url/packageurl-go v0.1.3 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
@@ -61,6 +59,4 @@ require (
 	golang.org/x/text v0.20.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

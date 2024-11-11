@@ -183,7 +183,7 @@ func GenerateImageWithCustomConfig(change func(map[string]any), layers ...Bytes)
 	for k, v := range config {
 		imageConfig[k] = v
 	}
-	history := []map[string]any{imageConfig["history"].([]map[string]interface{})[0]}
+	history := []map[string]any{imageConfig["history"].([]map[string]any)[0]} //nolint:errcheck // cannot fail, "history" is filled above
 	for idx, layer := range layers {
 		history = append(history, map[string]any{
 			"created":    makeTimestamp(idx),

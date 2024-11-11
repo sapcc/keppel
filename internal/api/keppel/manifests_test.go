@@ -195,7 +195,7 @@ func TestManifestsAPI(t *testing.T) {
 			{"name": "second", "pushed_at": 20003, "last_pulled_at": nil},
 		}
 		sort.Slice(renderedManifests, func(i, j int) bool {
-			return renderedManifests[i]["digest"].(digest.Digest) < renderedManifests[j]["digest"].(digest.Digest)
+			return renderedManifests[i]["digest"].(digest.Digest) < renderedManifests[j]["digest"].(digest.Digest) //nolint:errcheck
 		})
 
 		// test GET without pagination
@@ -227,7 +227,7 @@ func TestManifestsAPI(t *testing.T) {
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=5&marker=" + renderedManifests[4]["digest"].(digest.Digest).String(),
+			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=5&marker=" + renderedManifests[4]["digest"].(digest.Digest).String(), //nolint:errcheck
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusOK,
 			ExpectBody:   assert.JSONObject{"manifests": renderedManifests[5:10]},
@@ -241,7 +241,7 @@ func TestManifestsAPI(t *testing.T) {
 			}
 			assert.HTTPRequest{
 				Method:       "GET",
-				Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=1&marker=" + renderedManifests[idx]["digest"].(digest.Digest).String(),
+				Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=1&marker=" + renderedManifests[idx]["digest"].(digest.Digest).String(), //nolint:errcheck
 				Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 				ExpectStatus: http.StatusOK,
 				ExpectBody:   expectedBody,

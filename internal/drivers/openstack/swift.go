@@ -28,13 +28,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack"
 	"github.com/majewsky/schwift/v2"
 	"github.com/majewsky/schwift/v2/gopherschwift"
@@ -71,12 +69,7 @@ func (d *swiftDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error
 		return keppel.ErrAuthDriverMismatch
 	}
 
-	eo := gophercloud.EndpointOpts{
-		// note that empty values are acceptable in both fields
-		Region:       os.Getenv("OS_REGION_NAME"),
-		Availability: gophercloud.Availability(os.Getenv("OS_INTERFACE")),
-	}
-	client, err := openstack.NewObjectStorageV1(k.Provider, eo)
+	client, err := openstack.NewObjectStorageV1(k.Provider, k.EndpointOpts)
 	if err != nil {
 		return err
 	}

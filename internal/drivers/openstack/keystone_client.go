@@ -28,10 +28,9 @@ import (
 	"strings"
 
 	"github.com/gophercloud/gophercloud/v2"
-	"github.com/gophercloud/gophercloud/v2/openstack"
 	"github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens"
-	"github.com/gophercloud/utils/v2/openstack/clientconfig"
 
+	"github.com/sapcc/go-bits/gophercloudext"
 	"github.com/sapcc/keppel/internal/client"
 )
 
@@ -55,20 +54,16 @@ func (d *keystoneClientDriver) MatchesEnvironment() bool {
 
 // Connect implements the client.AuthDriver interface.
 func (d *keystoneClientDriver) Connect(ctx context.Context) error {
-	ao, err := clientconfig.AuthOptions(nil)
-	if err != nil {
-		return errors.New("cannot find OpenStack credentials: " + err.Error())
-	}
-	ao.AllowReauth = true
-	provider, err := openstack.AuthenticatedClient(ctx, *ao)
-	if err != nil {
-		return errors.New("cannot connect to OpenStack: " + err.Error())
-	}
+	var ao gophercloud.AuthOptions
 
-	eo := gophercloud.EndpointOpts{
-		// note that empty values are acceptable in both fields
-		Region:       os.Getenv("OS_REGION_NAME"),
-		Availability: gophercloud.Availability(os.Getenv("OS_INTERFACE")),
+	provider, eo, err := gophercloudext.NewProviderClient(ctx, &gophercloudext.ClientOpts{
+		CustomizeAuthOptions: func(opts *gophercloud.AuthOptions) {
+			// we don't customize anything, but we need a copy for the logic below
+			ao = *opts
+		},
+	})
+	if err != nil {
+		return err
 	}
 	eo.ApplyDefaults("keppel")
 	endpointURL, err := provider.EndpointLocator(eo)
