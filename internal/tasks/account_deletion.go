@@ -23,20 +23,16 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sapcc/go-api-declarations/cadf"
-	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
-	"github.com/sapcc/keppel/internal/processor"
 )
 
 // EnforceManagedAccounts is a job. Each task creates newly discovered accounts from the driver.
@@ -168,23 +164,7 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 		return fmt.Errorf("while cleaning up name claim for account: %w", err)
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
-
-	if userInfo := actx.UserIdentity.UserInfo(); userInfo != nil {
-		j.auditor.Record(audittools.EventParameters{
-			Time:       j.timeNow(),
-			Request:    actx.Request,
-			User:       userInfo,
-			ReasonCode: http.StatusOK,
-			Action:     cadf.DeleteAction,
-			Target:     processor.AuditAccount{Account: *accountModel},
-		})
-	}
-
-	return nil
+	return tx.Commit()
 }
 
 var (
