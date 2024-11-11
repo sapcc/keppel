@@ -1070,8 +1070,6 @@ func TestPutAccountErrorCases(t *testing.T) {
 		Body: assert.JSONObject{
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
-				"metadata":       nil,
 				"rbac_policies": []assert.JSONObject{{
 					"match_repository": "library/.+",
 					"match_username":   "foo",
@@ -1089,8 +1087,6 @@ func TestPutAccountErrorCases(t *testing.T) {
 		Body: assert.JSONObject{
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
-				"metadata":       nil,
 				"rbac_policies": []assert.JSONObject{{
 					"match_repository": "library/.+",
 					"permissions":      []string{"anonymous_first_pull"},
@@ -1108,8 +1104,6 @@ func TestPutAccountErrorCases(t *testing.T) {
 		Body: assert.JSONObject{
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
-				"metadata":       nil,
 				"rbac_policies": []assert.JSONObject{{
 					"match_repository": "*/library",
 					"permissions":      []string{"anonymous_pull"},
@@ -1126,8 +1120,6 @@ func TestPutAccountErrorCases(t *testing.T) {
 		Body: assert.JSONObject{
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
-				"metadata":       nil,
 				"rbac_policies": []assert.JSONObject{{
 					"match_repository": "library/.+",
 					"match_username":   "[a-z]++@tenant2",
@@ -1147,8 +1139,6 @@ func TestPutAccountErrorCases(t *testing.T) {
 		Body: assert.JSONObject{
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
-				"metadata":       nil,
 				"platform_filter": []assert.JSONObject{{
 					"os":           "linux",
 					"architecture": "amd64",
@@ -1167,8 +1157,6 @@ func TestPutAccountErrorCases(t *testing.T) {
 		Body: assert.JSONObject{
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
-				"metadata":       nil,
 				"platform_filter": []assert.JSONObject{{
 					"os":           "linux",
 					"architecture": "amd64",
@@ -1203,6 +1191,36 @@ func TestPutAccountErrorCases(t *testing.T) {
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
 		ExpectStatus: http.StatusForbidden,
 		ExpectBody:   assert.StringData("no permission for keppel_account:unknown:change\n"),
+	}.Check(t, h)
+
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"in_maintenance": true,
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("malformed attribute \"account.in_maintenance\" in request body is not allowed here\n"),
+	}.Check(t, h)
+
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"metadata": assert.JSONObject{
+					"foo": "bar",
+				},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("malformed attribute \"account.metadata\" in request body is not allowed here\n"),
 	}.Check(t, h)
 
 	// test protection for managed accounts
