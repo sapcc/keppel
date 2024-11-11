@@ -79,35 +79,51 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 	}
 
 	// can only delete account when all manifests from it are deleted
-	err = sqlext.ForeachRow(j.db, deleteAccountFindManifestsQuery, []any{accountModel.Name},
-		func(rows *sql.Rows) error {
-			var m deleteAccountRemainingManifest
-			err := rows.Scan(&m.RepositoryName, &m.Digest)
-			if err != nil {
-				return err
-			}
+	tries := 0
+	for {
+		if tries >= 3 {
+			return fmt.Errorf("could not delete all manifests references by %s", accountModel.Name)
+		}
+		tries++
 
-			parsedDigest, err := digest.Parse(m.Digest)
-			if err != nil {
-				return fmt.Errorf("while deleting manifest %q in repository %q: could not parse digest: %w",
-					m.Digest, m.RepositoryName, err)
-			}
-			repo, err := keppel.FindRepository(j.db, m.RepositoryName, accountModel.Name)
-			if err != nil {
-				return fmt.Errorf("while deleting manifest %q in repository %q: could not find repository in DB: %w",
-					m.Digest, m.RepositoryName, err)
-			}
-			err = j.processor().DeleteManifest(ctx, accountModel.Reduced(), *repo, parsedDigest, actx)
-			if err != nil {
-				return fmt.Errorf("while deleting manifest %q in repository %q: %w",
-					m.Digest, m.RepositoryName, err)
-			}
+		err = sqlext.ForeachRow(j.db, deleteAccountFindManifestsQuery, []any{accountModel.Name},
+			func(rows *sql.Rows) error {
+				var m deleteAccountRemainingManifest
+				err := rows.Scan(&m.RepositoryName, &m.Digest)
+				if err != nil {
+					return err
+				}
 
-			return nil
-		},
-	)
-	if err != nil {
-		return err
+				parsedDigest, err := digest.Parse(m.Digest)
+				if err != nil {
+					return fmt.Errorf("while deleting manifest %q in repository %q: could not parse digest: %w",
+						m.Digest, m.RepositoryName, err)
+				}
+				repo, err := keppel.FindRepository(j.db, m.RepositoryName, accountModel.Name)
+				if err != nil {
+					return fmt.Errorf("while deleting manifest %q in repository %q: could not find repository in DB: %w",
+						m.Digest, m.RepositoryName, err)
+				}
+				err = j.processor().DeleteManifest(ctx, accountModel.Reduced(), *repo, parsedDigest, actx)
+				if err != nil {
+					return fmt.Errorf("while deleting manifest %q in repository %q: %w",
+						m.Digest, m.RepositoryName, err)
+				}
+
+				return nil
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+		manifestCount, err := j.db.SelectInt(deleteAccountCountManifestsQuery, accountModel.Name)
+		if err != nil {
+			return err
+		}
+		if manifestCount == 0 {
+			break
+		}
 	}
 
 	// delete all repos (and therefore, all blob mounts), so that blob sweeping can immediately take place
@@ -176,6 +192,13 @@ var (
 			LEFT OUTER JOIN manifest_manifest_refs mmr ON mmr.repo_id = r.id AND m.digest = mmr.child_digest
     WHERE a.name = $1 AND parent_digest IS NULL
 	`)
+	deleteAccountCountManifestsQuery = sqlext.SimplifyWhitespace(`
+    SELECT COUNT(m.digest)
+      FROM manifests m
+      JOIN repos r ON m.repo_id = r.id
+      JOIN accounts a ON a.name = r.account_name
+    WHERE a.name = $1
+  `)
 	deleteAccountReposQuery                   = `DELETE FROM repos WHERE account_name = $1`
 	deleteAccountCountBlobsQuery              = `SELECT COUNT(id) FROM blobs WHERE account_name = $1`
 	deleteAccountScheduleBlobSweepQuery       = `UPDATE accounts SET next_blob_sweep_at = $2 WHERE name = $1`
