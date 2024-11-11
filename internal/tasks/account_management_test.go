@@ -144,6 +144,15 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 		test.GenerateExampleLayer(2),
 	)
 	image.MustUpload(t, s, repo, "latest")
+
+	// also setup some manifest-manifest refs to test with
+	images := make([]test.Image, 2)
+	for idx := range images {
+		images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx + 2)))
+		images[idx].MustUpload(t, s, repo, "")
+	}
+	imageList := test.GenerateImageList(images[0], images[1])
+	imageList.MustUpload(t, s, repo, "")
 	tr.DBChanges().Ignore()
 
 	// remove the managed account: this will set is_deleting, but nothing more
@@ -168,24 +177,51 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 			DELETE FROM blob_mounts WHERE blob_id = 1 AND repo_id = 2;
 			DELETE FROM blob_mounts WHERE blob_id = 2 AND repo_id = 2;
 			DELETE FROM blob_mounts WHERE blob_id = 3 AND repo_id = 2;
-			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 1 AND account_name = 'abcde' AND digest = '%[4]s';
-			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 2 AND account_name = 'abcde' AND digest = '%[5]s';
-			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 3 AND account_name = 'abcde' AND digest = '%[6]s';
-			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[3]s' AND blob_id = 1;
-			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[3]s' AND blob_id = 2;
-			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[3]s' AND blob_id = 3;
-			DELETE FROM manifest_contents WHERE repo_id = 2 AND digest = '%[3]s';
-			DELETE FROM manifests WHERE repo_id = 2 AND digest = '%[3]s';
+			DELETE FROM blob_mounts WHERE blob_id = 4 AND repo_id = 2;
+			DELETE FROM blob_mounts WHERE blob_id = 5 AND repo_id = 2;
+			DELETE FROM blob_mounts WHERE blob_id = 6 AND repo_id = 2;
+			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 1 AND account_name = 'abcde' AND digest = '%[3]s';
+			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 2 AND account_name = 'abcde' AND digest = '%[4]s';
+			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 3 AND account_name = 'abcde' AND digest = '%[5]s';
+			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 4 AND account_name = 'abcde' AND digest = '%[6]s';
+			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 5 AND account_name = 'abcde' AND digest = '%[7]s';
+			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 6 AND account_name = 'abcde' AND digest = '%[8]s';
+			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[9]s' AND blob_id = 2;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[9]s' AND blob_id = 4;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[10]s' AND blob_id = 5;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[10]s' AND blob_id = 6;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[11]s' AND blob_id = 1;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[11]s' AND blob_id = 2;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[11]s' AND blob_id = 3;
+			DELETE FROM manifest_contents WHERE repo_id = 2 AND digest = '%[9]s';
+			DELETE FROM manifest_contents WHERE repo_id = 2 AND digest = '%[10]s';
+			DELETE FROM manifest_contents WHERE repo_id = 2 AND digest = '%[11]s';
+			DELETE FROM manifest_contents WHERE repo_id = 2 AND digest = '%[12]s';
+      DELETE FROM manifest_manifest_refs WHERE repo_id = 2 AND parent_digest = '%[12]s' AND child_digest = '%[9]s';
+      DELETE FROM manifest_manifest_refs WHERE repo_id = 2 AND parent_digest = '%[12]s' AND child_digest = '%[10]s';
+			DELETE FROM manifests WHERE repo_id = 2 AND digest = '%[9]s';
+			DELETE FROM manifests WHERE repo_id = 2 AND digest = '%[10]s';
+			DELETE FROM manifests WHERE repo_id = 2 AND digest = '%[11]s';
+			DELETE FROM manifests WHERE repo_id = 2 AND digest = '%[12]s';
 			DELETE FROM repos WHERE id = 2 AND account_name = 'abcde' AND name = 'foo';
 			DELETE FROM tags WHERE repo_id = 2 AND name = 'latest';
-			DELETE FROM trivy_security_info WHERE repo_id = 2 AND digest = '%[3]s';
+			DELETE FROM trivy_security_info WHERE repo_id = 2 AND digest = '%[9]s';
+			DELETE FROM trivy_security_info WHERE repo_id = 2 AND digest = '%[10]s';
+			DELETE FROM trivy_security_info WHERE repo_id = 2 AND digest = '%[11]s';
+			DELETE FROM trivy_security_info WHERE repo_id = 2 AND digest = '%[12]s';
 		`,
 		s.Clock.Now().Unix(),
 		s.Clock.Now().Add(1*time.Minute).Unix(),
-		image.Manifest.Digest.String(),
 		image.Layers[0].Digest.String(),
 		image.Layers[1].Digest.String(),
 		image.Config.Digest.String(),
+		images[0].Config.Digest.String(),
+		images[1].Layers[0].Digest.String(),
+		images[1].Config.Digest.String(),
+		images[0].Manifest.Digest.String(),
+		images[1].Manifest.Digest.String(),
+		image.Manifest.Digest.String(),
+		imageList.Manifest.Digest.String(),
 	)
 
 	// TODO: fix the can_be_deleted_at reset
@@ -196,12 +232,19 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 1 AND account_name = 'abcde' AND digest = '%[3]s';
 			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 2 AND account_name = 'abcde' AND digest = '%[4]s';
 			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 3 AND account_name = 'abcde' AND digest = '%[5]s';
+			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 4 AND account_name = 'abcde' AND digest = '%[6]s';
+			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 5 AND account_name = 'abcde' AND digest = '%[7]s';
+			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 6 AND account_name = 'abcde' AND digest = '%[8]s';
 		`,
 		s.Clock.Now().Unix(),
 		s.Clock.Now().Add(1*time.Minute).Unix(),
 		image.Layers[0].Digest.String(),
 		image.Layers[1].Digest.String(),
 		image.Config.Digest.String(),
+		images[0].Config.Digest.String(),
+		images[1].Layers[0].Digest.String(),
+		images[1].Config.Digest.String(),
+		images[0].Config.Digest.String(),
 	)
 
 	s.Clock.StepBy(1 * time.Minute)
@@ -214,10 +257,16 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 			DELETE FROM blobs WHERE id = 1 AND account_name = 'abcde' AND digest = '%[2]s';
 			DELETE FROM blobs WHERE id = 2 AND account_name = 'abcde' AND digest = '%[3]s';
 			DELETE FROM blobs WHERE id = 3 AND account_name = 'abcde' AND digest = '%[4]s';
+			DELETE FROM blobs WHERE id = 4 AND account_name = 'abcde' AND digest = '%[5]s';
+			DELETE FROM blobs WHERE id = 5 AND account_name = 'abcde' AND digest = '%[6]s';
+			DELETE FROM blobs WHERE id = 6 AND account_name = 'abcde' AND digest = '%[7]s';
 		`,
 		s.Clock.Now().Add(60*time.Minute).Unix(),
 		image.Layers[0].Digest.String(),
 		image.Layers[1].Digest.String(),
 		image.Config.Digest.String(),
+		images[0].Config.Digest.String(),
+		images[1].Layers[0].Digest.String(),
+		images[1].Config.Digest.String(),
 	)
 }
