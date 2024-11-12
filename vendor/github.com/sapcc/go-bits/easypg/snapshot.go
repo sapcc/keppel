@@ -203,7 +203,7 @@ func newTableSnapshot(t *testing.T, db *sql.DB, tableName string, keyColumnNames
 		failOnErr(t, rows.Scan(scanTarget...))
 		row := make(rowSnapshot, len(columnNames))
 		for idx, columnName := range columnNames {
-			row[columnName] = scanTarget[idx].(*sqlValueSerializer).Serialized //nolint:errcheck // this type assertion cannot fail because of how the slice is constructed
+			row[columnName] = scanTarget[idx].(*sqlValueSerializer).Serialized
 		}
 		result.Rows[row.Key(result.KeyColumnNames)] = row
 	}
