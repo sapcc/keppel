@@ -41,8 +41,8 @@ func (j *Janitor) DeleteAccountsJob(registerer prometheus.Registerer) jobloop.Jo
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "delete accounts marked for deletion",
 			CounterOpts: prometheus.CounterOpts{
-				Name: "keppel_account_deletion",
-				Help: "Counter for deleted accounts.",
+				Name: "keppel_account_deletions",
+				Help: "Counter for attempts to cleanup a deleted account..",
 			},
 		},
 		DiscoverTask: j.discoverAccountForDeletion,
