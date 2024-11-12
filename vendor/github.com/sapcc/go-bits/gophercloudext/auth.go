@@ -129,6 +129,8 @@ func NewProviderClient(ctx context.Context, optsPtr *ClientOpts) (*gophercloud.P
 		IdentityEndpoint:            authURL,
 		Username:                    os.Getenv(opts.EnvPrefix + "USERNAME"),
 		UserID:                      os.Getenv(opts.EnvPrefix + "USER_ID"),
+		DomainName:                  os.Getenv(opts.EnvPrefix + "USER_DOMAIN_NAME"),
+		DomainID:                    os.Getenv(opts.EnvPrefix + "USER_DOMAIN_ID"),
 		Password:                    os.Getenv(opts.EnvPrefix + "PASSWORD"),
 		AllowReauth:                 true,
 		Scope:                       &scope,
