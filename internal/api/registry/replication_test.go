@@ -529,7 +529,7 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 					return
 				}
 			}
-			http.DefaultTransport.(*test.RoundTripper).Handlers["registry-tertiary.example.org"] = http.HandlerFunc(tertiaryHandler) //nolint:errcheck
+			http.DefaultTransport.(*test.RoundTripper).Handlers["registry-tertiary.example.org"] = http.HandlerFunc(tertiaryHandler)
 
 			// reconfigure "test1" into an external replica of tertiary
 			for _, db := range []*keppel.DB{s1.DB, s2.DB} {

@@ -191,10 +191,10 @@ func derivePublicKey(key crypto.PrivateKey) crypto.PublicKey {
 func serializePublicKey(key crypto.PrivateKey) string {
 	switch key := key.(type) {
 	case ed25519.PrivateKey:
-		pubkey := key.Public().(ed25519.PublicKey) //nolint:errcheck
+		pubkey := key.Public().(ed25519.PublicKey)
 		return hex.EncodeToString([]byte(pubkey))
 	case *rsa.PrivateKey:
-		pubkey := key.Public().(*rsa.PublicKey) //nolint:errcheck
+		pubkey := key.Public().(*rsa.PublicKey)
 		return fmt.Sprintf("%x:%s", pubkey.E, pubkey.N.Text(16))
 	default:
 		panic(fmt.Sprintf("do not know which JWT method to use for issuerKey.type = %T", key))

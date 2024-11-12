@@ -47,7 +47,7 @@ func TestPeersAPI(t *testing.T) {
 		{"hostname": "keppel.example.org"},
 	}
 	for _, peer := range expectedPeers {
-		err := s.DB.Insert(&models.Peer{HostName: peer["hostname"].(string)}) //nolint:errcheck
+		err := s.DB.Insert(&models.Peer{HostName: peer["hostname"].(string)})
 		if err != nil {
 			t.Fatal(err)
 		}

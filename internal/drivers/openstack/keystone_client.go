@@ -31,6 +31,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens"
 
 	"github.com/sapcc/go-bits/gophercloudext"
+
 	"github.com/sapcc/keppel/internal/client"
 )
 

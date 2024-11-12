@@ -2367,7 +2367,7 @@ func TestSecurityScanPoliciesHappyPath(t *testing.T) {
 
 	// update a policy managed by the current user -> same behavior
 	policy2New := deepCopyViaJSON(policy2)
-	policy2New["action"].(map[string]any)["severity"] = "Medium" //nolint:errcheck
+	policy2New["action"].(map[string]any)["severity"] = "Medium"
 	expectPoliciesToBeApplied(policy1New, policy2New)
 	s.Auditor.ExpectEvents(t,
 		expectedEventForPolicy("create/security-scan-policy", policy2New),

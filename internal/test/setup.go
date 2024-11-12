@@ -314,16 +314,16 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	// setup essential drivers
 	ad, err := keppel.NewAuthDriver(s.Ctx, "unittest", nil)
 	mustDo(t, err)
-	s.AD = ad.(*AuthDriver) //nolint:errcheck
+	s.AD = ad.(*AuthDriver)
 	fd, err := keppel.NewFederationDriver(s.Ctx, "unittest", ad, s.Config)
 	mustDo(t, err)
-	s.FD = fd.(*FederationDriver) //nolint:errcheck
+	s.FD = fd.(*FederationDriver)
 	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, s.Config)
 	mustDo(t, err)
-	s.SD = sd.(*trivial.StorageDriver) //nolint:errcheck
+	s.SD = sd.(*trivial.StorageDriver)
 	icd, err := keppel.NewInboundCacheDriver(s.Ctx, "unittest", s.Config)
 	mustDo(t, err)
-	s.ICD = icd.(*InboundCacheDriver) //nolint:errcheck
+	s.ICD = icd.(*InboundCacheDriver)
 
 	if params.RateLimitEngine != nil {
 		sr := miniredis.RunT(t)
