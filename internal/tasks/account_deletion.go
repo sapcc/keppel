@@ -190,15 +190,15 @@ var (
 			JOIN repos r ON m.repo_id = r.id
 			JOIN accounts a ON a.name = r.account_name
 			LEFT OUTER JOIN manifest_manifest_refs mmr ON mmr.repo_id = r.id AND m.digest = mmr.child_digest
-    WHERE a.name = $1 AND parent_digest IS NULL
+		WHERE a.name = $1 AND parent_digest IS NULL
 	`)
 	deleteAccountCountManifestsQuery = sqlext.SimplifyWhitespace(`
-    SELECT COUNT(m.digest)
-      FROM manifests m
-      JOIN repos r ON m.repo_id = r.id
-      JOIN accounts a ON a.name = r.account_name
-    WHERE a.name = $1
-  `)
+		SELECT COUNT(m.digest)
+			FROM manifests m
+			JOIN repos r ON m.repo_id = r.id
+			JOIN accounts a ON a.name = r.account_name
+		WHERE a.name = $1
+	`)
 	deleteAccountReposQuery                   = `DELETE FROM repos WHERE account_name = $1`
 	deleteAccountCountBlobsQuery              = `SELECT COUNT(id) FROM blobs WHERE account_name = $1`
 	deleteAccountScheduleBlobSweepQuery       = `UPDATE accounts SET next_blob_sweep_at = $2 WHERE name = $1`

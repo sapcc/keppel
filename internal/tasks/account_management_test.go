@@ -197,8 +197,8 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 			DELETE FROM manifest_contents WHERE repo_id = 2 AND digest = '%[10]s';
 			DELETE FROM manifest_contents WHERE repo_id = 2 AND digest = '%[11]s';
 			DELETE FROM manifest_contents WHERE repo_id = 2 AND digest = '%[12]s';
-      DELETE FROM manifest_manifest_refs WHERE repo_id = 2 AND parent_digest = '%[12]s' AND child_digest = '%[9]s';
-      DELETE FROM manifest_manifest_refs WHERE repo_id = 2 AND parent_digest = '%[12]s' AND child_digest = '%[10]s';
+			DELETE FROM manifest_manifest_refs WHERE repo_id = 2 AND parent_digest = '%[12]s' AND child_digest = '%[9]s';
+			DELETE FROM manifest_manifest_refs WHERE repo_id = 2 AND parent_digest = '%[12]s' AND child_digest = '%[10]s';
 			DELETE FROM manifests WHERE repo_id = 2 AND digest = '%[9]s';
 			DELETE FROM manifests WHERE repo_id = 2 AND digest = '%[10]s';
 			DELETE FROM manifests WHERE repo_id = 2 AND digest = '%[11]s';
