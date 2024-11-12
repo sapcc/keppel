@@ -224,33 +224,11 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 		imageList.Manifest.Digest.String(),
 	)
 
-	// TODO: fix the can_be_deleted_at reset
-	s.Clock.StepBy(3 * time.Minute)
-	expectSuccess(t, deleteAccountsJob.ProcessOne(s.Ctx))
-	tr.DBChanges().AssertEqualf(`
-			UPDATE accounts SET next_blob_sweep_at = %[1]d, next_deletion_attempt_at = %[2]d WHERE name = 'abcde';
-			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 1 AND account_name = 'abcde' AND digest = '%[3]s';
-			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 2 AND account_name = 'abcde' AND digest = '%[4]s';
-			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 3 AND account_name = 'abcde' AND digest = '%[5]s';
-			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 4 AND account_name = 'abcde' AND digest = '%[6]s';
-			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 5 AND account_name = 'abcde' AND digest = '%[7]s';
-			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 6 AND account_name = 'abcde' AND digest = '%[8]s';
-		`,
-		s.Clock.Now().Unix(),
-		s.Clock.Now().Add(1*time.Minute).Unix(),
-		image.Layers[0].Digest.String(),
-		image.Layers[1].Digest.String(),
-		image.Config.Digest.String(),
-		images[0].Config.Digest.String(),
-		images[1].Layers[0].Digest.String(),
-		images[1].Config.Digest.String(),
-		images[0].Config.Digest.String(),
-	)
-
-	s.Clock.StepBy(1 * time.Minute)
 	// we need to run this twice because the common test setup includes another account that is irrelevant to this test
+	s.Clock.StepBy(1 * time.Minute)
 	expectSuccess(t, blobSweepJob.ProcessOne(s.Ctx))
 	expectSuccess(t, blobSweepJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), blobSweepJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_blob_sweep_at = %[1]d WHERE name = 'abcde';
 			UPDATE accounts SET next_blob_sweep_at = %[1]d WHERE name = 'test1';
@@ -269,4 +247,10 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 		images[1].Layers[0].Digest.String(),
 		images[1].Config.Digest.String(),
 	)
+
+	// now account deletion can go through
+	s.Clock.StepBy(1 * time.Minute)
+	expectSuccess(t, deleteAccountsJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), deleteAccountsJob.ProcessOne(s.Ctx))
+	tr.DBChanges().AssertEqualf(`DELETE FROM accounts WHERE name = 'abcde';`)
 }
