@@ -45,7 +45,7 @@
       "matchDepTypes": [
         "action"
       ],
-      "matchFiles": [
+      "matchFileNames": [
         ".github/workflows/oci-distribution-conformance.yml"
       ],
       "enabled": true
