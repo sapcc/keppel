@@ -13,4 +13,6 @@ testing/postgresql-run/
 testing/postgresql.log
 *.actual
 /*.json
+!*/fixtures/*.json
 /*.yaml
+!Makefile.maker.yaml

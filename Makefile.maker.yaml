@@ -47,7 +47,7 @@ renovate:
     - SuperSandro2000
   packageRules:
     - matchDepTypes: ["action"]
-      matchFiles: [".github/workflows/oci-distribution-conformance.yml"]
+      matchFileNames: [".github/workflows/oci-distribution-conformance.yml"]
       enabled: true
 
 verbatim: |
