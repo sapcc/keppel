@@ -20,14 +20,12 @@
 package keppelv1_test
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
@@ -295,67 +293,7 @@ func TestAccountsAPI(t *testing.T) {
 		INSERT INTO accounts (name, auth_tenant_id, gc_policies_json, rbac_policies_json) VALUES ('second', 'tenant1', '[{"match_repository":".*/database","except_repository":"archive/.*","time_constraint":{"on":"pushed_at","newer_than":{"value":10,"unit":"d"}},"action":"protect"},{"match_repository":".*","only_untagged":true,"action":"delete"}]', '[{"match_repository":"library/.*","permissions":["anonymous_pull"]},{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull","push"]}]');
 	`)
 
-	account := assert.JSONObject{
-		"auth_tenant_id": "tenant1",
-		"rbac_policies":  rbacPoliciesJSON,
-	}
-	accountExpect := assert.JSONObject{
-		"name":           "second",
-		"in_maintenance": false,
-		"metadata":       nil,
-		"auth_tenant_id": "tenant1",
-		"rbac_policies":  rbacPoliciesJSON,
-	}
-
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/second",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": account,
-		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": accountExpect,
-		},
-	}.Check(t, h)
-
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/second",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
-				"name":           "second",
-				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
-				"metadata":       nil,
-				"rbac_policies":  rbacPoliciesJSON,
-			},
-		},
-	}.Check(t, h)
-
-	s.Auditor.ExpectEvents(t,
-		cadf.Event{
-			RequestPath: "/keppel/v1/accounts/second",
-			Action:      cadf.UpdateAction,
-			Outcome:     "success",
-			Reason:      test.CADFReasonOK,
-			Target: cadf.Resource{
-				TypeURI:   "docker-registry/account",
-				ID:        "second",
-				ProjectID: "tenant1",
-				Attachments: []cadf.Attachment{{
-					Name:    "rbac-policies",
-					TypeURI: "mime:application/json",
-					Content: toJSONVia[[]keppel.RBACPolicy](rbacPoliciesJSON),
-				}},
-			},
-		},
-	)
-
-	// check editing of metadata and RBAC policies
+	// check editing of RBAC policies
 	newRBACPoliciesJSON := []assert.JSONObject{
 		// rbacPoliciesJSON[0] is deleted
 		// rbacPoliciesJSON[1] is updated as follows:
@@ -1799,126 +1737,15 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 	}.Check(t, h)
 }
 
-func uploadManifest(t *testing.T, s test.Setup, account *models.Account, repo *models.Repository, manifest test.Bytes, sizeBytes uint64) models.Manifest {
-	t.Helper()
-
-	dbManifest := models.Manifest{
-		RepositoryID:     repo.ID,
-		Digest:           manifest.Digest,
-		MediaType:        manifest.MediaType,
-		SizeBytes:        sizeBytes,
-		PushedAt:         s.Clock.Now(),
-		NextValidationAt: s.Clock.Now().Add(models.ManifestValidationInterval),
-	}
-	mustDo(t, s.DB.Insert(&dbManifest))
-	mustDo(t, s.DB.Insert(&models.TrivySecurityInfo{
-		RepositoryID:        repo.ID,
-		Digest:              manifest.Digest,
-		NextCheckAt:         time.Unix(0, 0),
-		VulnerabilityStatus: models.PendingVulnerabilityStatus,
-	}))
-	mustDo(t, s.DB.Insert(&models.ManifestContent{
-		RepositoryID: repo.ID,
-		Digest:       manifest.Digest.String(),
-		Content:      manifest.Contents,
-	}))
-	mustDo(t, s.SD.WriteManifest(s.Ctx, account.Reduced(), repo.Name, manifest.Digest, manifest.Contents))
-	return dbManifest
-}
-
 func TestDeleteAccount(t *testing.T) {
-	s := test.NewSetup(t, test.WithKeppelAPI)
+	s := test.NewSetup(t,
+		test.WithKeppelAPI,
+		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1", GCPoliciesJSON: "[]", SecurityScanPoliciesJSON: "[]"}),
+	)
 	h := s.Handler
 
-	// setup test accounts and repositories
-	nextBlobSweepAt := time.Unix(200, 0)
-	accounts := []*models.Account{
-		{Name: "test1", AuthTenantID: "tenant1", NextBlobSweepedAt: &nextBlobSweepAt, GCPoliciesJSON: "[]", SecurityScanPoliciesJSON: "[]"},
-		{Name: "test2", AuthTenantID: "tenant2", GCPoliciesJSON: "[]", SecurityScanPoliciesJSON: "[]"},
-		{Name: "test3", AuthTenantID: "tenant3", GCPoliciesJSON: "[]", SecurityScanPoliciesJSON: "[]"},
-	}
-	for _, account := range accounts {
-		mustInsert(t, s.DB, account)
-	}
-	repos := []*models.Repository{
-		{AccountName: "test1", Name: "foo/bar"},
-		{AccountName: "test1", Name: "something-else"},
-	}
-	for _, repo := range repos {
-		mustInsert(t, s.DB, repo)
-	}
-
-	// upload a test image
-	image := test.GenerateImage(
-		test.GenerateExampleLayer(1),
-		test.GenerateExampleLayer(2),
-	)
-
-	sidGen := test.StorageIDGenerator{}
-	var blobs []models.Blob
-	for idx, testBlob := range append(image.Layers, image.Config) {
-		storageID := sidGen.Next()
-		blob := models.Blob{
-			AccountName:      accounts[0].Name,
-			Digest:           testBlob.Digest,
-			SizeBytes:        uint64(len(testBlob.Contents)),
-			StorageID:        storageID,
-			PushedAt:         time.Unix(int64(idx), 0),
-			NextValidationAt: time.Unix(int64(idx), 0).Add(models.BlobValidationInterval),
-		}
-		mustInsert(t, s.DB, &blob)
-		blobs = append(blobs, blob)
-
-		err := s.SD.AppendToBlob(s.Ctx, accounts[0].Reduced(), storageID, 1, &blob.SizeBytes, bytes.NewReader(testBlob.Contents))
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		err = s.SD.FinalizeBlob(s.Ctx, accounts[0].Reduced(), storageID, 1)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		err = keppel.MountBlobIntoRepo(s.DB, blob, *repos[0])
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-	}
-
-	mustInsert(t, s.DB, &models.Manifest{
-		RepositoryID:     repos[0].ID,
-		Digest:           image.Manifest.Digest,
-		MediaType:        image.Manifest.MediaType,
-		SizeBytes:        uint64(len(image.Manifest.Contents)),
-		PushedAt:         time.Unix(100, 0),
-		NextValidationAt: time.Unix(100, 0).Add(models.ManifestValidationInterval),
-	})
-	mustInsert(t, s.DB, &models.TrivySecurityInfo{
-		RepositoryID:        repos[0].ID,
-		Digest:              image.Manifest.Digest,
-		NextCheckAt:         time.Unix(0, 0),
-		VulnerabilityStatus: models.PendingVulnerabilityStatus,
-	})
-	err := s.SD.WriteManifest(s.Ctx, accounts[0].Reduced(), repos[0].Name, image.Manifest.Digest, image.Manifest.Contents)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	for _, blob := range blobs {
-		_, err := s.DB.Exec(
-			`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
-			repos[0].ID, image.Manifest.Digest.String(), blob.ID,
-		)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-	}
-
-	imageList := test.GenerateImageList(image)
-	uploadManifest(t, s, accounts[0], repos[0], imageList.Manifest, imageList.SizeBytes())
-	mustExec(t, s.DB,
-		`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES ($1, $2, $3)`,
-		repos[0].ID, imageList.Manifest.Digest.String(), image.Manifest.Digest.String(),
-	)
-
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-000.sql")
+	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
+	tr0.Ignore()
 
 	// failure case: insufficient permissions (the "delete" permission refers to
 	// manifests within the account, not the account itself)
@@ -1929,13 +1756,7 @@ func TestDeleteAccount(t *testing.T) {
 		ExpectStatus: http.StatusForbidden,
 	}.Check(t, h)
 
-	// failure case: account not in maintenance
-	_, err = s.DB.Exec(`UPDATE accounts SET is_deleting = FALSE`)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	// phase 1: DELETE on account should immediately mark it for deletion
+	// DELETE on account should immediately mark it for deletion
 	assert.HTTPRequest{
 		Method:       "DELETE",
 		Path:         "/keppel/v1/accounts/test1",
@@ -1943,14 +1764,11 @@ func TestDeleteAccount(t *testing.T) {
 		ExpectStatus: http.StatusNoContent,
 	}.Check(t, h)
 
-	// account is already set to be deleted, so nothing happens
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test1",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
-		ExpectStatus: http.StatusNoContent,
-	}.Check(t, h)
-
+	tr.DBChanges().AssertEqualf(`
+			UPDATE accounts SET is_deleting = TRUE, next_deletion_attempt_at = %[1]d WHERE name = 'test1';
+		`,
+		s.Clock.Now().Unix(),
+	)
 	s.Auditor.ExpectEvents(t,
 		cadf.Event{
 			RequestPath: "/keppel/v1/accounts/test1",
@@ -1965,8 +1783,16 @@ func TestDeleteAccount(t *testing.T) {
 		},
 	)
 
-	// that didn't touch the DB
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-001.sql")
+	// account is already set to be deleted, so nothing happens
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1",
+		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
+		ExpectStatus: http.StatusNoContent,
+	}.Check(t, h)
+
+	tr.DBChanges().AssertEmpty()
+	s.Auditor.ExpectEvents(t /*, nothing */)
 }
 
 //nolint:unparam
