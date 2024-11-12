@@ -98,10 +98,11 @@ func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName models.
 		var accountModel *models.Account
 		accountModel, err = keppel.FindAccount(j.db, accountName)
 		if err != nil {
-			return err
-		}
-		if errors.Is(err, sql.ErrNoRows) {
-			nextCheckDuration = 0 // assume the account got already deleted
+			if errors.Is(err, sql.ErrNoRows) {
+				nextCheckDuration = 0 // assume the account got already deleted
+			} else {
+				return err
+			}
 		} else {
 			actx := keppel.AuditContext{
 				UserIdentity: janitorUserIdentity{TaskName: "managed-account-enforcement"},
