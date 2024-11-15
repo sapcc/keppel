@@ -69,19 +69,19 @@ type ClientOpts struct {
 // differences that make it specifically suited for long-running server
 // applications and remove functionality only needed for interactive use:
 //
-// - It always sets AllowReauth on the ProviderClient.
-// - It does not support authenticating with a pre-existing Keystone token.
-// - It does not support reading clouds.yaml files.
-// - It does not support the old Keystone v2 authentication (only v3).
+//   - It always sets AllowReauth on the ProviderClient.
+//   - It does not support authenticating with a pre-existing Keystone token.
+//   - It does not support reading clouds.yaml files.
+//   - It does not support the old Keystone v2 authentication (only v3).
 //
 // Also, to simplify things, some legacy or fallback environment variables are
 // not supported:
 //
-// - OS_TENANT_ID (give OS_PROJECT_ID instead)
-// - OS_TENANT_NAME (give OS_PROJECT_NAME instead)
-// - OS_DEFAULT_DOMAIN_ID (give OS_PROJECT_DOMAIN_ID and OS_USER_DOMAIN_ID instead)
-// - OS_DEFAULT_DOMAIN_NAME (give OS_PROJECT_DOMAIN_NAME and OS_USER_DOMAIN_NAME instead)
-// - OS_APPLICATION_CREDENTIAL_NAME (give OS_APPLICATION_CREDENTIAL_ID instead)
+//   - OS_TENANT_ID (give OS_PROJECT_ID instead)
+//   - OS_TENANT_NAME (give OS_PROJECT_NAME instead)
+//   - OS_DEFAULT_DOMAIN_ID (give OS_PROJECT_DOMAIN_ID and OS_USER_DOMAIN_ID instead)
+//   - OS_DEFAULT_DOMAIN_NAME (give OS_PROJECT_DOMAIN_NAME and OS_USER_DOMAIN_NAME instead)
+//   - OS_APPLICATION_CREDENTIAL_NAME (give OS_APPLICATION_CREDENTIAL_ID instead)
 func NewProviderClient(ctx context.Context, optsPtr *ClientOpts) (*gophercloud.ProviderClient, gophercloud.EndpointOpts, error) {
 	// apply defaults to `opts`
 	var opts ClientOpts
