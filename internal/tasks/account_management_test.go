@@ -37,11 +37,12 @@ func TestAccountManagementBasic(t *testing.T) {
 
 	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
 	tr0.Ignore()
-	job := j.EnforceManagedAccountsJob(s.Registry)
+	managedAccountsJob := j.EnforceManagedAccountsJob(s.Registry)
+	deleteAccountsJob := j.DeleteAccountsJob(s.Registry)
 
 	// we haven't configured any account, so it should do nothing
 	s.AMD.ConfigPath = "./fixtures/account_management_empty.json"
-	expectError(t, sql.ErrNoRows.Error(), job.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), managedAccountsJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEmpty()
 
 	// configure an account to create
@@ -49,9 +50,9 @@ func TestAccountManagementBasic(t *testing.T) {
 	s.Clock.StepBy(1 * time.Hour)
 
 	// we only have one account defined which should be created
-	expectSuccess(t, job.ProcessOne(s.Ctx))
+	expectSuccess(t, managedAccountsJob.ProcessOne(s.Ctx))
 	// since we are enforcing that account, no error is returned
-	expectError(t, sql.ErrNoRows.Error(), job.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), managedAccountsJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
 		INSERT INTO accounts (name, auth_tenant_id, required_labels, external_peer_url, gc_policies_json, security_scan_policies_json, rbac_policies_json, is_managed, next_enforcement_at) VALUES ('abcde', '12345', 'important-label,some-label', 'registry-tertiary.example.org', '[{"match_repository":".*/database","except_repository":"archive/.*","time_constraint":{"on":"pushed_at","newer_than":{"value":6,"unit":"h"}},"action":"protect"},{"match_repository":".*","only_untagged":true,"action":"delete"}]', '[{"match_repository":".*","match_vulnerability_id":".*","except_fix_released":true,"action":{"assessment":"risk accepted: vulnerabilities without an available fix are not actionable","ignore":true}}]', '[{"match_repository":"library/.*","permissions":["anonymous_pull"]},{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull","push"]}]', TRUE, %d);
 		`,
@@ -60,15 +61,25 @@ func TestAccountManagementBasic(t *testing.T) {
 	// test if errors are propagated
 	s.AMD.ConfigPath = "./fixtures/account_management_error.json"
 	s.Clock.StepBy(2 * time.Hour)
-	expectError(t, fmt.Sprintf("could not configure managed account %q: %s", "", processor.ErrAccountNameEmpty.Error()), job.ProcessOne(s.Ctx))
+	expectError(t, fmt.Sprintf("could not configure managed account %q: %s", "", processor.ErrAccountNameEmpty.Error()), managedAccountsJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEmpty()
 
 	// and delete the account again
 	s.AMD.ConfigPath = "./fixtures/account_management_empty.json"
 	s.Clock.StepBy(2 * time.Hour)
-	expectSuccess(t, job.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), job.ProcessOne(s.Ctx))
+	// now the account is being marked for deletion
+	expectSuccess(t, managedAccountsJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
+			UPDATE accounts SET next_enforcement_at = %d, is_deleting = TRUE, next_deletion_attempt_at = %d WHERE name = 'abcde';
+		`,
+		s.Clock.Now().Add(1*time.Hour).Unix(),
+		s.Clock.Now().Unix(),
+	)
+
+	// and we can immeadetaly delete it yet because it has no manifests and blobs attached to it
+	s.Clock.StepBy(1 * time.Hour)
+	expectSuccess(t, deleteAccountsJob.ProcessOne(s.Ctx))
+	tr.DBChanges().AssertEqual(`
 		DELETE FROM accounts WHERE name = 'abcde';
 	`)
 }
@@ -104,15 +115,17 @@ func TestAccountManagementWithReplicaCreation(t *testing.T) {
 
 func TestAccountManagementWithComplexDeletion(t *testing.T) {
 	j, s := setup(t)
-	job := j.EnforceManagedAccountsJob(s.Registry)
+	managedAccountsJob := j.EnforceManagedAccountsJob(s.Registry)
+	deleteAccountsJob := j.DeleteAccountsJob(s.Registry)
+	blobSweepJob := j.BlobSweepJob(s.Registry)
 
 	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
 	tr0.Ignore()
 
 	// create a managed account named "abcde"
 	s.AMD.ConfigPath = "./fixtures/account_management_basic.json"
-	expectSuccess(t, job.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), job.ProcessOne(s.Ctx))
+	expectSuccess(t, managedAccountsJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), managedAccountsJob.ProcessOne(s.Ctx))
 	tr.DBChanges().Ignore()
 
 	// give quota to its auth tenant
@@ -131,71 +144,113 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 		test.GenerateExampleLayer(2),
 	)
 	image.MustUpload(t, s, repo, "latest")
+
+	// also setup some manifest-manifest refs to test with
+	images := make([]test.Image, 2)
+	for idx := range images {
+		images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx + 2)))
+		images[idx].MustUpload(t, s, repo, "")
+	}
+	imageList := test.GenerateImageList(images[0], images[1])
+	imageList.MustUpload(t, s, repo, "")
 	tr.DBChanges().Ignore()
 
-	// try to delete the managed account: first attempt will set in_maintenance and delete the image, but nothing more
+	// remove the managed account: this will set is_deleting, but nothing more
 	s.AMD.ConfigPath = "./fixtures/account_management_empty.json"
 	s.Clock.StepBy(2 * time.Hour)
-	expectSuccess(t, job.ProcessOne(s.Ctx))
+	expectSuccess(t, managedAccountsJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
-			UPDATE accounts SET in_maintenance = TRUE, next_enforcement_at = %[1]d WHERE name = 'abcde';
-			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[2]s' AND blob_id = 1;
-			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[2]s' AND blob_id = 2;
-			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[2]s' AND blob_id = 3;
-			DELETE FROM manifest_contents WHERE repo_id = 2 AND digest = '%[2]s';
-			DELETE FROM manifests WHERE repo_id = 2 AND digest = '%[2]s';
-			DELETE FROM tags WHERE repo_id = 2 AND name = 'latest';
-			DELETE FROM trivy_security_info WHERE repo_id = 2 AND digest = '%[2]s';
+			UPDATE accounts SET next_enforcement_at = %d, is_deleting = TRUE, next_deletion_attempt_at = %d WHERE name = 'abcde';
 		`,
-		s.Clock.Now().Add(1*time.Minute).Unix(),
-		image.Manifest.Digest.String(),
+		s.Clock.Now().Add(1*time.Hour).Unix(),
+		s.Clock.Now().Unix(),
 	)
 
-	// second try: since there are no manifests left...
+	// the deleteAccountsJob will delete:
+	// - all manifests
 	// - all repos (and thus blob mounts) will be deleted
 	// - all blobs are marked for immediate deletion, and a blob GC is scheduled
-	s.Clock.StepBy(2 * time.Minute)
-	expectSuccess(t, job.ProcessOne(s.Ctx))
+	s.Clock.StepBy(1 * time.Minute)
+	expectSuccess(t, deleteAccountsJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
-			UPDATE accounts SET next_blob_sweep_at = %[1]d, next_enforcement_at = %[2]d WHERE name = 'abcde';
+			UPDATE accounts SET next_blob_sweep_at = %[1]d, next_deletion_attempt_at = %[2]d WHERE name = 'abcde';
 			DELETE FROM blob_mounts WHERE blob_id = 1 AND repo_id = 2;
 			DELETE FROM blob_mounts WHERE blob_id = 2 AND repo_id = 2;
 			DELETE FROM blob_mounts WHERE blob_id = 3 AND repo_id = 2;
+			DELETE FROM blob_mounts WHERE blob_id = 4 AND repo_id = 2;
+			DELETE FROM blob_mounts WHERE blob_id = 5 AND repo_id = 2;
+			DELETE FROM blob_mounts WHERE blob_id = 6 AND repo_id = 2;
 			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 1 AND account_name = 'abcde' AND digest = '%[3]s';
 			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 2 AND account_name = 'abcde' AND digest = '%[4]s';
 			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 3 AND account_name = 'abcde' AND digest = '%[5]s';
+			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 4 AND account_name = 'abcde' AND digest = '%[6]s';
+			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 5 AND account_name = 'abcde' AND digest = '%[7]s';
+			UPDATE blobs SET can_be_deleted_at = %[1]d WHERE id = 6 AND account_name = 'abcde' AND digest = '%[8]s';
+			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[9]s' AND blob_id = 2;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[9]s' AND blob_id = 4;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[10]s' AND blob_id = 5;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[10]s' AND blob_id = 6;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[11]s' AND blob_id = 1;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[11]s' AND blob_id = 2;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 2 AND digest = '%[11]s' AND blob_id = 3;
+			DELETE FROM manifest_contents WHERE repo_id = 2 AND digest = '%[9]s';
+			DELETE FROM manifest_contents WHERE repo_id = 2 AND digest = '%[10]s';
+			DELETE FROM manifest_contents WHERE repo_id = 2 AND digest = '%[11]s';
+			DELETE FROM manifest_contents WHERE repo_id = 2 AND digest = '%[12]s';
+			DELETE FROM manifest_manifest_refs WHERE repo_id = 2 AND parent_digest = '%[12]s' AND child_digest = '%[9]s';
+			DELETE FROM manifest_manifest_refs WHERE repo_id = 2 AND parent_digest = '%[12]s' AND child_digest = '%[10]s';
+			DELETE FROM manifests WHERE repo_id = 2 AND digest = '%[9]s';
+			DELETE FROM manifests WHERE repo_id = 2 AND digest = '%[10]s';
+			DELETE FROM manifests WHERE repo_id = 2 AND digest = '%[11]s';
+			DELETE FROM manifests WHERE repo_id = 2 AND digest = '%[12]s';
 			DELETE FROM repos WHERE id = 2 AND account_name = 'abcde' AND name = 'foo';
+			DELETE FROM tags WHERE repo_id = 2 AND name = 'latest';
+			DELETE FROM trivy_security_info WHERE repo_id = 2 AND digest = '%[9]s';
+			DELETE FROM trivy_security_info WHERE repo_id = 2 AND digest = '%[10]s';
+			DELETE FROM trivy_security_info WHERE repo_id = 2 AND digest = '%[11]s';
+			DELETE FROM trivy_security_info WHERE repo_id = 2 AND digest = '%[12]s';
 		`,
 		s.Clock.Now().Unix(),
 		s.Clock.Now().Add(1*time.Minute).Unix(),
 		image.Layers[0].Digest.String(),
 		image.Layers[1].Digest.String(),
 		image.Config.Digest.String(),
+		images[0].Config.Digest.String(),
+		images[1].Layers[0].Digest.String(),
+		images[1].Config.Digest.String(),
+		images[0].Manifest.Digest.String(),
+		images[1].Manifest.Digest.String(),
+		image.Manifest.Digest.String(),
+		imageList.Manifest.Digest.String(),
 	)
 
-	// to make further progress, the scheduled blob GC needs to go through first
-	// (we need to run this twice because the common test setup includes another account that is irrelevant to this test)
-	s.Clock.StepBy(1 * time.Second)
-	blobGCJob := j.BlobSweepJob(s.Registry)
-	expectSuccess(t, blobGCJob.ProcessOne(s.Ctx))
-	expectSuccess(t, blobGCJob.ProcessOne(s.Ctx))
+	// we need to run this twice because the common test setup includes another account that is irrelevant to this test
+	s.Clock.StepBy(1 * time.Minute)
+	expectSuccess(t, blobSweepJob.ProcessOne(s.Ctx))
+	expectSuccess(t, blobSweepJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), blobSweepJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_blob_sweep_at = %[1]d WHERE name = 'abcde';
 			UPDATE accounts SET next_blob_sweep_at = %[1]d WHERE name = 'test1';
 			DELETE FROM blobs WHERE id = 1 AND account_name = 'abcde' AND digest = '%[2]s';
 			DELETE FROM blobs WHERE id = 2 AND account_name = 'abcde' AND digest = '%[3]s';
 			DELETE FROM blobs WHERE id = 3 AND account_name = 'abcde' AND digest = '%[4]s';
+			DELETE FROM blobs WHERE id = 4 AND account_name = 'abcde' AND digest = '%[5]s';
+			DELETE FROM blobs WHERE id = 5 AND account_name = 'abcde' AND digest = '%[6]s';
+			DELETE FROM blobs WHERE id = 6 AND account_name = 'abcde' AND digest = '%[7]s';
 		`,
-		s.Clock.Now().Add(1*time.Hour).Unix(),
+		s.Clock.Now().Add(60*time.Minute).Unix(),
 		image.Layers[0].Digest.String(),
 		image.Layers[1].Digest.String(),
 		image.Config.Digest.String(),
+		images[0].Config.Digest.String(),
+		images[1].Layers[0].Digest.String(),
+		images[1].Config.Digest.String(),
 	)
 
-	// third try: this time, the account deletion can go through
-	s.Clock.StepBy(2 * time.Minute)
-	expectSuccess(t, job.ProcessOne(s.Ctx))
-	tr.DBChanges().AssertEqualf(`
-		DELETE FROM accounts WHERE name = 'abcde';
-	`)
+	// now account deletion can go through
+	s.Clock.StepBy(1 * time.Minute)
+	expectSuccess(t, deleteAccountsJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), deleteAccountsJob.ProcessOne(s.Ctx))
+	tr.DBChanges().AssertEqualf(`DELETE FROM accounts WHERE name = 'abcde';`)
 }

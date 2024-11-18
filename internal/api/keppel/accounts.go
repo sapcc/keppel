@@ -112,7 +112,22 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `malformed attribute "account.name" in request body is not allowed here`, http.StatusUnprocessableEntity)
 		return
 	}
-	// ... transfer it here into the struct, to make the below code simpler
+	// ... or state ...
+	if req.Account.State != "" {
+		http.Error(w, `malformed attribute "account.state" in request body is not allowed here`, http.StatusUnprocessableEntity)
+		return
+	}
+	// ... or in_maintenance ...
+	if req.Account.InMaintenance {
+		http.Error(w, `malformed attribute "account.in_maintenance" in request body is not allowed here`, http.StatusUnprocessableEntity)
+		return
+	}
+	// ... or metadata ...
+	if req.Account.Metadata != nil && len(*req.Account.Metadata) > 0 {
+		http.Error(w, `malformed attribute "account.metadata" in request body is not allowed here`, http.StatusUnprocessableEntity)
+		return
+	}
+	// ... and transfer the name here into the struct, to make the below code simpler
 	req.Account.Name = models.AccountName(mux.Vars(r)["account"])
 
 	// check permission to create account
@@ -158,18 +173,20 @@ func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := a.processor().DeleteAccount(r.Context(), *account, keppel.AuditContext{
+	if account.IsDeleting {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	err := a.processor().MarkAccountForDeletion(*account, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-	if resp == nil {
-		w.WriteHeader(http.StatusNoContent)
-	} else {
-		respondwith.JSON(w, http.StatusConflict, resp)
-	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) {

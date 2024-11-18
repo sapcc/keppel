@@ -57,7 +57,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 		}.Check(t, h)
 
 		// test failure cases: account is in maintenance
-		testWithAccountInMaintenance(t, s.DB, "test1", func() {
+		testWithAccountIsDeleting(t, s.DB, "test1", func() {
 			assert.HTTPRequest{
 				Method: "POST",
 				Path:   "/v2/test1/foo/blobs/uploads/?digest=" + blob.Digest.String(),
@@ -69,9 +69,12 @@ func TestBlobMonolithicUpload(t *testing.T) {
 				Body:         assert.ByteData(blob.Contents),
 				ExpectStatus: http.StatusMethodNotAllowed,
 				ExpectHeader: test.VersionHeader,
-				ExpectBody: test.ErrorCodeWithMessage{
-					Code:    keppel.ErrUnsupported,
-					Message: "account is in maintenance",
+				ExpectBody: assert.JSONObject{
+					"errors": []assert.JSONObject{{
+						"code":    "UNSUPPORTED",
+						"message": "account is being deleted",
+						"detail":  nil,
+					}},
 				},
 			}.Check(t, h)
 		})
@@ -269,7 +272,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			}.Check(t, h)
 
 			// test failure cases during POST: account is in maintenance
-			testWithAccountInMaintenance(t, s.DB, "test1", func() {
+			testWithAccountIsDeleting(t, s.DB, "test1", func() {
 				assert.HTTPRequest{
 					Method: "POST",
 					Path:   "/v2/test1/foo/blobs/uploads/",
@@ -281,9 +284,12 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 					Body:         assert.ByteData(blob.Contents),
 					ExpectStatus: http.StatusMethodNotAllowed,
 					ExpectHeader: test.VersionHeader,
-					ExpectBody: test.ErrorCodeWithMessage{
-						Code:    keppel.ErrUnsupported,
-						Message: "account is in maintenance",
+					ExpectBody: assert.JSONObject{
+						"errors": []assert.JSONObject{{
+							"code":    "UNSUPPORTED",
+							"message": "account is being deleted",
+							"detail":  nil,
+						}},
 					},
 				}.Check(t, h)
 			})

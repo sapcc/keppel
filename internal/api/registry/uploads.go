@@ -80,8 +80,8 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// forbid pushing during maintenance
-	if account.InMaintenance {
-		keppel.ErrUnsupported.With("account is in maintenance").WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w, r)
+	if account.IsDeleting {
+		keppel.ErrUnsupported.With("account is being deleted").WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 

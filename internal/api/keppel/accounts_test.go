@@ -20,14 +20,12 @@
 package keppelv1_test
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
@@ -78,10 +76,6 @@ func TestAccountsAPI(t *testing.T) {
 			Body: assert.JSONObject{
 				"account": assert.JSONObject{
 					"auth_tenant_id": "tenant1",
-					"metadata": assert.JSONObject{
-						"bar": "barbar",
-						"foo": "foofoo",
-					},
 				},
 			},
 			ExpectStatus: http.StatusOK,
@@ -90,11 +84,8 @@ func TestAccountsAPI(t *testing.T) {
 					"name":           "first",
 					"auth_tenant_id": "tenant1",
 					"in_maintenance": false,
-					"metadata": assert.JSONObject{
-						"bar": "barbar",
-						"foo": "foofoo",
-					},
-					"rbac_policies": []assert.JSONObject{},
+					"metadata":       nil,
+					"rbac_policies":  []assert.JSONObject{},
 				},
 			},
 		}.Check(t, h)
@@ -128,11 +119,8 @@ func TestAccountsAPI(t *testing.T) {
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
 				"in_maintenance": false,
-				"metadata": assert.JSONObject{
-					"bar": "barbar",
-					"foo": "foofoo",
-				},
-				"rbac_policies": []assert.JSONObject{},
+				"metadata":       nil,
+				"rbac_policies":  []assert.JSONObject{},
 			}},
 		},
 	}.Check(t, h)
@@ -146,11 +134,8 @@ func TestAccountsAPI(t *testing.T) {
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
 				"in_maintenance": false,
-				"metadata": assert.JSONObject{
-					"bar": "barbar",
-					"foo": "foofoo",
-				},
-				"rbac_policies": []assert.JSONObject{},
+				"metadata":       nil,
+				"rbac_policies":  []assert.JSONObject{},
 			},
 		},
 	}.Check(t, h)
@@ -223,7 +208,7 @@ func TestAccountsAPI(t *testing.T) {
 					"auth_tenant_id": "tenant1",
 					"gc_policies":    gcPoliciesJSON,
 					"in_maintenance": false,
-					"metadata":       assert.JSONObject{},
+					"metadata":       nil,
 					"rbac_policies":  rbacPoliciesJSON,
 				},
 			},
@@ -273,18 +258,15 @@ func TestAccountsAPI(t *testing.T) {
 					"name":           "first",
 					"auth_tenant_id": "tenant1",
 					"in_maintenance": false,
-					"metadata": assert.JSONObject{
-						"bar": "barbar",
-						"foo": "foofoo",
-					},
-					"rbac_policies": []assert.JSONObject{},
+					"metadata":       nil,
+					"rbac_policies":  []assert.JSONObject{},
 				},
 				{
 					"name":           "second",
 					"auth_tenant_id": "tenant1",
 					"gc_policies":    gcPoliciesJSON,
 					"in_maintenance": false,
-					"metadata":       assert.JSONObject{},
+					"metadata":       nil,
 					"rbac_policies":  rbacPoliciesJSON,
 				},
 			},
@@ -301,84 +283,17 @@ func TestAccountsAPI(t *testing.T) {
 				"auth_tenant_id": "tenant1",
 				"gc_policies":    gcPoliciesJSON,
 				"in_maintenance": false,
-				"metadata":       assert.JSONObject{},
+				"metadata":       nil,
 				"rbac_policies":  rbacPoliciesJSON,
 			},
 		},
 	}.Check(t, h)
 	tr.DBChanges().AssertEqual(`
-		INSERT INTO accounts (name, auth_tenant_id, metadata_json) VALUES ('first', 'tenant1', '{"bar":"barbar","foo":"foofoo"}');
+		INSERT INTO accounts (name, auth_tenant_id) VALUES ('first', 'tenant1');
 		INSERT INTO accounts (name, auth_tenant_id, gc_policies_json, rbac_policies_json) VALUES ('second', 'tenant1', '[{"match_repository":".*/database","except_repository":"archive/.*","time_constraint":{"on":"pushed_at","newer_than":{"value":10,"unit":"d"}},"action":"protect"},{"match_repository":".*","only_untagged":true,"action":"delete"}]', '[{"match_repository":"library/.*","permissions":["anonymous_pull"]},{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull","push"]}]');
 	`)
 
-	// check editing of InMaintenance flag (this also tests editing of GC policies
-	// since we don't give any and thus clear the field)
-	for _, inMaintenance := range []bool{true, false} {
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/second",
-			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
-					"auth_tenant_id": "tenant1",
-					"in_maintenance": inMaintenance,
-					"rbac_policies":  rbacPoliciesJSON,
-				},
-			},
-			ExpectStatus: http.StatusOK,
-			ExpectBody: assert.JSONObject{
-				"account": assert.JSONObject{
-					"name":           "second",
-					"auth_tenant_id": "tenant1",
-					"in_maintenance": inMaintenance,
-					"metadata":       assert.JSONObject{},
-					"rbac_policies":  rbacPoliciesJSON,
-				},
-			},
-		}.Check(t, h)
-
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/keppel/v1/accounts/second",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-			ExpectStatus: http.StatusOK,
-			ExpectBody: assert.JSONObject{
-				"account": assert.JSONObject{
-					"name":           "second",
-					"auth_tenant_id": "tenant1",
-					"in_maintenance": inMaintenance,
-					"metadata":       assert.JSONObject{},
-					"rbac_policies":  rbacPoliciesJSON,
-				},
-			},
-		}.Check(t, h)
-
-		// the first pass also generates an audit event since we're touching the GCPolicies
-		if inMaintenance {
-			s.Auditor.ExpectEvents(t,
-				cadf.Event{
-					RequestPath: "/keppel/v1/accounts/second",
-					Action:      cadf.UpdateAction,
-					Outcome:     "success",
-					Reason:      test.CADFReasonOK,
-					Target: cadf.Resource{
-						TypeURI:   "docker-registry/account",
-						ID:        "second",
-						ProjectID: "tenant1",
-						Attachments: []cadf.Attachment{{
-							Name:    "rbac-policies",
-							TypeURI: "mime:application/json",
-							Content: toJSONVia[[]keppel.RBACPolicy](rbacPoliciesJSON),
-						}},
-					},
-				},
-			)
-		} else {
-			s.Auditor.ExpectEvents(t /*, nothing */)
-		}
-	}
-
-	// check editing of metadata and RBAC policies
+	// check editing of RBAC policies
 	newRBACPoliciesJSON := []assert.JSONObject{
 		// rbacPoliciesJSON[0] is deleted
 		// rbacPoliciesJSON[1] is updated as follows:
@@ -394,10 +309,6 @@ func TestAccountsAPI(t *testing.T) {
 			"permissions":      []string{"pull", "delete"},
 		},
 	}
-	newMetadataJSON := assert.JSONObject{
-		"foo": "bingo",
-		"bar": "buz",
-	}
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/second",
@@ -405,9 +316,7 @@ func TestAccountsAPI(t *testing.T) {
 		Body: assert.JSONObject{
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
-				// add metadata
-				"metadata":      newMetadataJSON,
-				"rbac_policies": newRBACPoliciesJSON,
+				"rbac_policies":  newRBACPoliciesJSON,
 			},
 		},
 		ExpectStatus: http.StatusOK,
@@ -416,7 +325,7 @@ func TestAccountsAPI(t *testing.T) {
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
 				"in_maintenance": false,
-				"metadata":       newMetadataJSON,
+				"metadata":       nil,
 				"rbac_policies":  newRBACPoliciesJSON,
 			},
 		},
@@ -460,7 +369,7 @@ func TestAccountsAPI(t *testing.T) {
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
 				"in_maintenance": false,
-				"metadata":       assert.JSONObject{},
+				"metadata":       nil,
 				"rbac_policies":  newRBACPoliciesJSON,
 				"validation": assert.JSONObject{
 					"required_labels": []string{"foo", "bar"},
@@ -489,7 +398,7 @@ func TestAccountsAPI(t *testing.T) {
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
 				"in_maintenance": false,
-				"metadata":       assert.JSONObject{},
+				"metadata":       nil,
 				"rbac_policies":  newRBACPoliciesJSON,
 			},
 		},
@@ -569,7 +478,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
 				"in_maintenance": false,
-				"metadata":       assert.JSONObject{},
+				"metadata":       nil,
 				"rbac_policies":  []assert.JSONObject{},
 			},
 		},
@@ -1062,7 +971,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
 				"in_maintenance": false,
-				"metadata":       assert.JSONObject{},
+				"metadata":       nil,
 				"name":           "first",
 				"rbac_policies": []assert.JSONObject{{
 					"match_cidr":  "1.2.0.0/16",
@@ -1083,7 +992,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
 				"in_maintenance": false,
-				"metadata":       assert.JSONObject{},
+				"metadata":       nil,
 				"name":           "first",
 				"rbac_policies": []assert.JSONObject{{
 					"match_cidr":  "1.2.0.0/16",
@@ -1222,6 +1131,36 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectBody:   assert.StringData("no permission for keppel_account:unknown:change\n"),
 	}.Check(t, h)
 
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"in_maintenance": true,
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("malformed attribute \"account.in_maintenance\" in request body is not allowed here\n"),
+	}.Check(t, h)
+
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"metadata": assert.JSONObject{
+					"foo": "bar",
+				},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("malformed attribute \"account.metadata\" in request body is not allowed here\n"),
+	}.Check(t, h)
+
 	// test protection for managed accounts
 	mustExec(t, s.DB, "UPDATE accounts SET is_managed = TRUE WHERE name = $1", "first")
 	assert.HTTPRequest{
@@ -1259,7 +1198,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 					"name":           "first",
 					"auth_tenant_id": "tenant1",
 					"in_maintenance": false,
-					"metadata":       assert.JSONObject{},
+					"metadata":       nil,
 					"rbac_policies":  []assert.JSONObject{},
 				},
 			},
@@ -1357,7 +1296,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 					"name":           "first",
 					"auth_tenant_id": "tenant1",
 					"in_maintenance": false,
-					"metadata":       assert.JSONObject{},
+					"metadata":       nil,
 					"rbac_policies":  []assert.JSONObject{},
 					"replication": assert.JSONObject{
 						"strategy": "on_first_use",
@@ -1384,7 +1323,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 					"name":           "first",
 					"auth_tenant_id": "tenant1",
 					"in_maintenance": false,
-					"metadata":       assert.JSONObject{},
+					"metadata":       nil,
 					"rbac_policies":  []assert.JSONObject{},
 					"replication": assert.JSONObject{
 						"strategy": "on_first_use",
@@ -1419,7 +1358,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 					"name":           "second",
 					"auth_tenant_id": "tenant2",
 					"in_maintenance": false,
-					"metadata":       assert.JSONObject{},
+					"metadata":       nil,
 					"rbac_policies":  []assert.JSONObject{},
 				},
 			},
@@ -1555,7 +1494,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
 				"in_maintenance": false,
-				"metadata":       assert.JSONObject{},
+				"metadata":       nil,
 				"rbac_policies":  []assert.JSONObject{},
 				"replication": assert.JSONObject{
 					"strategy": "from_external_on_first_use",
@@ -1585,7 +1524,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
 				"in_maintenance": false,
-				"metadata":       assert.JSONObject{},
+				"metadata":       nil,
 				"rbac_policies":  []assert.JSONObject{},
 				"replication": assert.JSONObject{
 					"strategy": "from_external_on_first_use",
@@ -1622,7 +1561,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
 				"in_maintenance": false,
-				"metadata":       assert.JSONObject{},
+				"metadata":       nil,
 				"rbac_policies":  []assert.JSONObject{},
 				"replication": assert.JSONObject{
 					"strategy": "from_external_on_first_use",
@@ -1647,8 +1586,6 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		Body: assert.JSONObject{
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
-				"metadata":       assert.JSONObject{},
 				"rbac_policies":  []assert.JSONObject{},
 				"replication": assert.JSONObject{
 					"strategy": "from_external_on_first_use",
@@ -1666,7 +1603,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
 				"in_maintenance": false,
-				"metadata":       assert.JSONObject{},
+				"metadata":       nil,
 				"rbac_policies":  []assert.JSONObject{},
 				"replication": assert.JSONObject{
 					"strategy": "from_external_on_first_use",
@@ -1688,8 +1625,6 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 		Body: assert.JSONObject{
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
-				"metadata":       assert.JSONObject{},
 				"rbac_policies":  []assert.JSONObject{},
 				"replication": assert.JSONObject{
 					"strategy": "from_external_on_first_use",
@@ -1752,7 +1687,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 				"name":           "second",
 				"auth_tenant_id": "tenant2",
 				"in_maintenance": false,
-				"metadata":       assert.JSONObject{},
+				"metadata":       nil,
 				"rbac_policies":  []assert.JSONObject{},
 			},
 		},
@@ -1802,126 +1737,15 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 	}.Check(t, h)
 }
 
-func uploadManifest(t *testing.T, s test.Setup, account *models.Account, repo *models.Repository, manifest test.Bytes, sizeBytes uint64) models.Manifest {
-	t.Helper()
-
-	dbManifest := models.Manifest{
-		RepositoryID:     repo.ID,
-		Digest:           manifest.Digest,
-		MediaType:        manifest.MediaType,
-		SizeBytes:        sizeBytes,
-		PushedAt:         s.Clock.Now(),
-		NextValidationAt: s.Clock.Now().Add(models.ManifestValidationInterval),
-	}
-	mustDo(t, s.DB.Insert(&dbManifest))
-	mustDo(t, s.DB.Insert(&models.TrivySecurityInfo{
-		RepositoryID:        repo.ID,
-		Digest:              manifest.Digest,
-		NextCheckAt:         time.Unix(0, 0),
-		VulnerabilityStatus: models.PendingVulnerabilityStatus,
-	}))
-	mustDo(t, s.DB.Insert(&models.ManifestContent{
-		RepositoryID: repo.ID,
-		Digest:       manifest.Digest.String(),
-		Content:      manifest.Contents,
-	}))
-	mustDo(t, s.SD.WriteManifest(s.Ctx, account.Reduced(), repo.Name, manifest.Digest, manifest.Contents))
-	return dbManifest
-}
-
 func TestDeleteAccount(t *testing.T) {
-	s := test.NewSetup(t, test.WithKeppelAPI)
+	s := test.NewSetup(t,
+		test.WithKeppelAPI,
+		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1", GCPoliciesJSON: "[]", SecurityScanPoliciesJSON: "[]"}),
+	)
 	h := s.Handler
 
-	// setup test accounts and repositories
-	nextBlobSweepAt := time.Unix(200, 0)
-	accounts := []*models.Account{
-		{Name: "test1", AuthTenantID: "tenant1", InMaintenance: true, NextBlobSweepedAt: &nextBlobSweepAt, GCPoliciesJSON: "[]", SecurityScanPoliciesJSON: "[]"},
-		{Name: "test2", AuthTenantID: "tenant2", InMaintenance: true, GCPoliciesJSON: "[]", SecurityScanPoliciesJSON: "[]"},
-		{Name: "test3", AuthTenantID: "tenant3", InMaintenance: true, GCPoliciesJSON: "[]", SecurityScanPoliciesJSON: "[]"},
-	}
-	for _, account := range accounts {
-		mustInsert(t, s.DB, account)
-	}
-	repos := []*models.Repository{
-		{AccountName: "test1", Name: "foo/bar"},
-		{AccountName: "test1", Name: "something-else"},
-	}
-	for _, repo := range repos {
-		mustInsert(t, s.DB, repo)
-	}
-
-	// upload a test image
-	image := test.GenerateImage(
-		test.GenerateExampleLayer(1),
-		test.GenerateExampleLayer(2),
-	)
-
-	sidGen := test.StorageIDGenerator{}
-	var blobs []models.Blob
-	for idx, testBlob := range append(image.Layers, image.Config) {
-		storageID := sidGen.Next()
-		blob := models.Blob{
-			AccountName:      accounts[0].Name,
-			Digest:           testBlob.Digest,
-			SizeBytes:        uint64(len(testBlob.Contents)),
-			StorageID:        storageID,
-			PushedAt:         time.Unix(int64(idx), 0),
-			NextValidationAt: time.Unix(int64(idx), 0).Add(models.BlobValidationInterval),
-		}
-		mustInsert(t, s.DB, &blob)
-		blobs = append(blobs, blob)
-
-		err := s.SD.AppendToBlob(s.Ctx, accounts[0].Reduced(), storageID, 1, &blob.SizeBytes, bytes.NewReader(testBlob.Contents))
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		err = s.SD.FinalizeBlob(s.Ctx, accounts[0].Reduced(), storageID, 1)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		err = keppel.MountBlobIntoRepo(s.DB, blob, *repos[0])
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-	}
-
-	mustInsert(t, s.DB, &models.Manifest{
-		RepositoryID:     repos[0].ID,
-		Digest:           image.Manifest.Digest,
-		MediaType:        image.Manifest.MediaType,
-		SizeBytes:        uint64(len(image.Manifest.Contents)),
-		PushedAt:         time.Unix(100, 0),
-		NextValidationAt: time.Unix(100, 0).Add(models.ManifestValidationInterval),
-	})
-	mustInsert(t, s.DB, &models.TrivySecurityInfo{
-		RepositoryID:        repos[0].ID,
-		Digest:              image.Manifest.Digest,
-		NextCheckAt:         time.Unix(0, 0),
-		VulnerabilityStatus: models.PendingVulnerabilityStatus,
-	})
-	err := s.SD.WriteManifest(s.Ctx, accounts[0].Reduced(), repos[0].Name, image.Manifest.Digest, image.Manifest.Contents)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	for _, blob := range blobs {
-		_, err := s.DB.Exec(
-			`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
-			repos[0].ID, image.Manifest.Digest.String(), blob.ID,
-		)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-	}
-
-	imageList := test.GenerateImageList(image)
-	uploadManifest(t, s, accounts[0], repos[0], imageList.Manifest, imageList.SizeBytes())
-	mustExec(t, s.DB,
-		`INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES ($1, $2, $3)`,
-		repos[0].ID, imageList.Manifest.Digest.String(), image.Manifest.Digest.String(),
-	)
-
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-000.sql")
+	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
+	tr0.Ignore()
 
 	// failure case: insufficient permissions (the "delete" permission refers to
 	// manifests within the account, not the account itself)
@@ -1932,139 +1756,43 @@ func TestDeleteAccount(t *testing.T) {
 		ExpectStatus: http.StatusForbidden,
 	}.Check(t, h)
 
-	// failure case: account not in maintenance
-	_, err = s.DB.Exec(`UPDATE accounts SET in_maintenance = FALSE`)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	// DELETE on account should immediately mark it for deletion
 	assert.HTTPRequest{
 		Method:       "DELETE",
 		Path:         "/keppel/v1/accounts/test1",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody: assert.JSONObject{
-			"error": "account must be set in maintenance first",
-		},
+		ExpectStatus: http.StatusNoContent,
 	}.Check(t, h)
-	_, err = s.DB.Exec(`UPDATE accounts SET in_maintenance = TRUE`)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
 
-	// phase 1: DELETE on account should complain about remaining manifests
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test1",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody: assert.JSONObject{
-			"remaining_manifests": assert.JSONObject{
-				"count": 2,
-				"next": []assert.JSONObject{{
-					"repository": repos[0].Name,
-					"digest":     imageList.Manifest.Digest.String(),
-				}},
+	tr.DBChanges().AssertEqualf(`
+			UPDATE accounts SET is_deleting = TRUE, next_deletion_attempt_at = %[1]d WHERE name = 'test1';
+		`,
+		s.Clock.Now().Unix(),
+	)
+	s.Auditor.ExpectEvents(t,
+		cadf.Event{
+			RequestPath: "/keppel/v1/accounts/test1",
+			Action:      cadf.DeleteAction,
+			Outcome:     "success",
+			Reason:      test.CADFReasonOK,
+			Target: cadf.Resource{
+				TypeURI:   "docker-registry/account",
+				ID:        "test1",
+				ProjectID: "tenant1",
 			},
 		},
-	}.Check(t, h)
+	)
 
-	// that didn't touch the DB
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-000.sql")
-
-	// as indicated by the response, we need to delete the specified manifest to
-	// proceed with the account deletion
-	assert.HTTPRequest{
-		Method: "DELETE",
-		Path: fmt.Sprintf(
-			"/keppel/v1/accounts/test1/repositories/%s/_manifests/%s",
-			repos[0].Name, imageList.Manifest.Digest.String(),
-		),
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
-		ExpectStatus: http.StatusNoContent,
-	}.Check(t, h)
-
+	// account is already set to be deleted, so nothing happens
 	assert.HTTPRequest{
 		Method:       "DELETE",
 		Path:         "/keppel/v1/accounts/test1",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody: assert.JSONObject{
-			"remaining_manifests": assert.JSONObject{
-				"count": 1,
-				"next": []assert.JSONObject{{
-					"repository": repos[0].Name,
-					"digest":     image.Manifest.Digest.String(),
-				}},
-			},
-		},
-	}.Check(t, h)
-
-	assert.HTTPRequest{
-		Method: "DELETE",
-		Path: fmt.Sprintf(
-			"/keppel/v1/accounts/test1/repositories/%s/_manifests/%s",
-			repos[0].Name, image.Manifest.Digest.String(),
-		),
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
-		ExpectStatus: http.StatusNoContent,
-	}.Check(t, h)
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-001.sql")
-
-	// phase 2: DELETE on account should complain about remaining blobs
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test1",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody: assert.JSONObject{
-			"remaining_blobs": assert.JSONObject{"count": 3},
-		},
-	}.Check(t, h)
-
-	// but this will have cleaned up the blob mounts and scheduled a GC pass
-	// (replace time.Now() with a deterministic time before diffing the DB)
-	_, err = s.DB.Exec(
-		`UPDATE accounts SET next_blob_sweep_at = $1 WHERE next_blob_sweep_at > $2 AND next_blob_sweep_at <= $3`,
-		time.Unix(300, 0),
-		time.Now().Add(-5*time.Second),
-		time.Now(),
-	)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	// also all blobs will be marked for deletion
-	_, err = s.DB.Exec(
-		`UPDATE blobs SET can_be_deleted_at = $1 WHERE can_be_deleted_at > $2 AND can_be_deleted_at <= $3`,
-		time.Unix(300, 0),
-		time.Now().Add(-5*time.Second),
-		time.Now(),
-	)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-002.sql")
-
-	// phase 3: all blobs have been cleaned up, so the account can finally be
-	// deleted (we use fresh accounts for this because that's easier than
-	// running the blob sweep)
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test2",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant2,change:tenant2"},
 		ExpectStatus: http.StatusNoContent,
 	}.Check(t, h)
 
-	s.FD.ForfeitFails = true
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test3",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant3,change:tenant3"},
-		ExpectStatus: http.StatusInternalServerError,
-		ExpectBody:   assert.StringData("while cleaning up name claim for account: ForfeitAccountName failed as requested\n"),
-	}.Check(t, h)
-
-	// account "test2" should be gone now
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/delete-account-003.sql")
+	tr.DBChanges().AssertEmpty()
+	s.Auditor.ExpectEvents(t /*, nothing */)
 }
 
 //nolint:unparam
@@ -2142,7 +1870,7 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 						"name":           name,
 						"auth_tenant_id": "tenant1",
 						"in_maintenance": false,
-						"metadata":       assert.JSONObject{},
+						"metadata":       nil,
 						"rbac_policies":  []assert.JSONObject{},
 						"replication": assert.JSONObject{
 							"strategy": "from_external_on_first_use",
@@ -2180,7 +1908,7 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 					"name":            "first",
 					"auth_tenant_id":  "tenant1",
 					"in_maintenance":  false,
-					"metadata":        assert.JSONObject{},
+					"metadata":        nil,
 					"platform_filter": testPlatformFilter,
 					"rbac_policies":   []assert.JSONObject{},
 					"replication": assert.JSONObject{
@@ -2202,6 +1930,8 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 			Body: assert.JSONObject{
 				"account": assert.JSONObject{
 					"auth_tenant_id": "tenant1",
+					"in_maintenance": false,
+					"metadata":       nil,
 					"platform_filter": []assert.JSONObject{{
 						"os":           "linux",
 						"architecture": "amd64",
@@ -2218,7 +1948,7 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 					"name":            "second",
 					"auth_tenant_id":  "tenant1",
 					"in_maintenance":  false,
-					"metadata":        assert.JSONObject{},
+					"metadata":        nil,
 					"platform_filter": testPlatformFilter,
 					"rbac_policies":   []assert.JSONObject{},
 					"replication": assert.JSONObject{

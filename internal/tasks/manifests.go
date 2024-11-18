@@ -180,8 +180,8 @@ func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo models.Re
 		return fmt.Errorf("cannot find account for repo %s: %w", repo.FullName(), err)
 	}
 
-	// do not perform manifest sync while account is in maintenance (maintenance mode blocks all kinds of replication)
-	if !account.InMaintenance {
+	// do not perform manifest sync while account is in deletion (deletion mode blocks all kinds of replication)
+	if !account.IsDeleting {
 		syncPayload, err := j.getReplicaSyncPayload(ctx, *account, repo)
 		if err != nil {
 			return err
@@ -640,7 +640,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 
 	// skip validation while account is in maintenance (maintenance mode blocks
 	// all kinds of activity on an account's contents)
-	if account.InMaintenance {
+	if account.IsDeleting {
 		securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(1 * time.Hour))
 		return nil
 	}

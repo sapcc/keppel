@@ -48,7 +48,7 @@ func TestReplicationSimpleImage(t *testing.T) {
 
 			if firstPass {
 				// replication will not take place while the account is in maintenance
-				testWithAccountInMaintenance(t, s2.DB, "test1", func() {
+				testWithAccountIsDeleting(t, s2.DB, "test1", func() {
 					assert.HTTPRequest{
 						Method:       "GET",
 						Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
@@ -60,7 +60,7 @@ func TestReplicationSimpleImage(t *testing.T) {
 				})
 			} else {
 				// if manifest is already present locally, we don't care about the maintenance mode
-				testWithAccountInMaintenance(t, s2.DB, "test1", func() {
+				testWithAccountIsDeleting(t, s2.DB, "test1", func() {
 					expectManifestExists(t, h2, token, "test1/foo", image.Manifest, image.Manifest.Digest.String(), nil)
 				})
 			}

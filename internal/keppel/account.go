@@ -19,9 +19,6 @@
 package keppel
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"github.com/sapcc/keppel/internal/models"
 )
 
@@ -30,12 +27,15 @@ type Account struct {
 	Name              models.AccountName    `json:"name"`
 	AuthTenantID      string                `json:"auth_tenant_id"`
 	GCPolicies        []GCPolicy            `json:"gc_policies,omitempty"`
-	InMaintenance     bool                  `json:"in_maintenance"`
-	Metadata          map[string]string     `json:"metadata"`
 	RBACPolicies      []RBACPolicy          `json:"rbac_policies"`
 	ReplicationPolicy *ReplicationPolicy    `json:"replication,omitempty"`
+	State             string                `json:"state,omitempty"`
 	ValidationPolicy  *ValidationPolicy     `json:"validation,omitempty"`
 	PlatformFilter    models.PlatformFilter `json:"platform_filter,omitempty"`
+
+	// TODO: deprecated, and remove
+	InMaintenance bool               `json:"in_maintenance"`
+	Metadata      *map[string]string `json:"metadata"`
 }
 
 // RenderAccount converts an account model from the DB into the API representation.
@@ -52,21 +52,16 @@ func RenderAccount(dbAccount models.Account) (Account, error) {
 		// do not render "null" in this field
 		rbacPolicies = []RBACPolicy{}
 	}
-
-	metadata := make(map[string]string)
-	if dbAccount.MetadataJSON != "" {
-		err := json.Unmarshal([]byte(dbAccount.MetadataJSON), &metadata)
-		if err != nil {
-			return Account{}, fmt.Errorf("malformed metadata JSON: %q", dbAccount.MetadataJSON)
-		}
+	var state string
+	if dbAccount.IsDeleting {
+		state = "deleting"
 	}
 
 	return Account{
 		Name:              dbAccount.Name,
 		AuthTenantID:      dbAccount.AuthTenantID,
 		GCPolicies:        gcPolicies,
-		InMaintenance:     dbAccount.InMaintenance,
-		Metadata:          metadata,
+		State:             state,
 		RBACPolicies:      rbacPolicies,
 		ReplicationPolicy: RenderReplicationPolicy(dbAccount),
 		ValidationPolicy:  RenderValidationPolicy(dbAccount.Reduced()),
