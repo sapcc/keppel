@@ -28,12 +28,23 @@ type ServiceQuotaRequest struct {
 	ProjectMetadata *ProjectMetadata `json:"projectMetadata,omitempty"`
 }
 
-// ResourceQuotaRequest contains the new quota value for a single resource.
+// ResourceQuotaRequest contains new quotas for a single resource.
 // It appears in type ServiceQuotaRequest.
 type ResourceQuotaRequest struct {
+	// For FlatResourceTopology and AZAwareResourceTopology, this is the only field that is filled, and PerAZ will be nil.
+	// For AZSeparatedResourceTopology, this contains the sum of the quotas across all AZs (for compatibility purposes).
+	Quota uint64 `json:"quota"`
+
+	// PerAZ will only be filled for AZSeparatedResourceTopology.
+	PerAZ map[AvailabilityZone]AZResourceQuotaRequest `json:"perAZ,omitempty"`
+}
+
+// AZResourceQuotaRequest contains the new quota value for a single resource and AZ.
+// It appears in type ResourceQuotaRequest.
+type AZResourceQuotaRequest struct {
 	Quota uint64 `json:"quota"`
 
 	// This struct looks superfluous (why not just have a bare uint64?), but in
-	// the unlikely event that AZ-aware quota may be added in the future, having
-	// this struct allows for that to be a backwards-compatible change.
+	// the event that more data needs to be added in the future, having this
+	// struct allows for that to be a backwards-compatible change.
 }

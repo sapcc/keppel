@@ -73,20 +73,18 @@ type ServiceUsageReport struct {
 type ResourceUsageReport struct {
 	// If true, this project is forbidden from accessing this resource.
 	// This has two consequences:
-	//   - If the resource has quota, Limes will never try to assign quota for this resource to this project.
+	//   - If the resource has quota, Limes will never try to assign quota for this resource to this project except to cover existing usage.
 	//   - If the project has no usage in this resource, Limes will hide this resource from project reports.
 	Forbidden bool `json:"forbidden"`
 
-	// This shall be null if and only if the resource is declared with "HasQuota = false".
+	// This shall be null if and only if the resource is declared with "HasQuota = false" or with AZSeparatedResourceTopology.
 	// A negative value, usually -1, indicates "infinite quota" (i.e., the absence of a quota).
 	Quota *int64 `json:"quota,omitempty"`
 
-	// For non-AZ-aware resources, the only entry shall be for AvailabilityZoneAny.
-	// Use func InAnyAZ to quickly construct a suitable structure.
+	// The keys that are allowed in this map depend on the chosen ResourceTopology.
+	// See documentation on ResourceTopology enum variants for details.
 	//
-	// For AZ-aware resources, there shall be an entry for each AZ mentioned in ServiceUsageRequest.AllAZs.
-	// Reports for AZ-aware resources may also include an entry for AvailabilityZoneUnknown as needed.
-	// When starting from a non-AZ-aware usage number that is later broken down with AZ-aware data, use func PrepareForBreakdownInto.
+	// Tip: When filling this by starting from a non-AZ-aware usage number that is later broken down with AZ-aware data, use func PrepareForBreakdownInto.
 	PerAZ map[AvailabilityZone]*AZResourceUsageReport `json:"perAZ"`
 }
 
@@ -103,6 +101,10 @@ type AZResourceUsageReport struct {
 	// If a project has 5 shares, each with 10 GiB size and each containing 1 GiB data, then Usage = 50 GiB and PhysicalUsage = 5 GiB.
 	// It is not allowed to report 5 GiB as Usage in this situation, since the 50 GiB value is used when judging whether the Quota fits.
 	PhysicalUsage *uint64 `json:"physicalUsage,omitempty"`
+
+	// This shall be non-null if and only if the resource is declared with AZSeparatedResourceTopology.
+	// A negative value, usually -1, indicates "infinite quota" (i.e., the absence of a quota).
+	Quota *int64 `json:"quota,omitempty"`
 
 	// Only filled if the resource is able to report subresources for this usage in a useful way.
 	Subresources []Subresource `json:"subresources,omitempty"`
@@ -148,11 +150,8 @@ func (r *ResourceUsageReport) AddLocalizedUsage(az AvailabilityZone, usage uint6
 // RateUsageReport contains usage data for a rate in a single project.
 // It appears in type ServiceUsageReport.
 type RateUsageReport struct {
-	// For non-AZ-aware rates, the only entry shall be for AvailabilityZoneAny.
-	// Use func InAnyAZ to quickly construct a suitable structure.
-	//
-	// For AZ-aware rates, there shall be an entry for each AZ mentioned in ServiceUsageRequest.AllAZs.
-	// Reports for AZ-aware rates may also include an entry for AvailabilityZoneUnknown as needed.
+	// The keys that are allowed in this map depend on the chosen ResourceTopology.
+	// See documentation on ResourceTopology enum variants for details.
 	PerAZ map[AvailabilityZone]*AZRateUsageReport `json:"perAZ"`
 }
 
