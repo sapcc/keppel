@@ -62,7 +62,7 @@
 // In this case, quota and usage values are in terms of effective capacity, even though the capacity value is in terms of raw capacity.
 //
 // Capacity and usage may be AZ-aware, in which case one value will be reported per availability zone (AZ).
-// Quota is not modelled as AZ-aware since there are no OpenStack services that support AZ-aware quota at this time.
+// Quota is only optionally modelled as AZ-aware since there are no OpenStack services that support AZ-aware quota at this time.
 //
 // # Inside a rate: Usage
 //

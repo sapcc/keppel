@@ -41,7 +41,7 @@ type ResourceDemand struct {
 	OvercommitFactor OvercommitFactor `json:"overcommitFactor,omitempty"`
 
 	// The actual demand values are AZ-aware.
-	// For non-AZ-aware resources, the only entry will be for AvailabilityZoneAny.
+	// The keys that can be expected in this map depend on the chosen ResourceTopology.
 	PerAZ map[AvailabilityZone]ResourceDemandInAZ `json:"perAZ"`
 }
 
@@ -77,17 +77,28 @@ type ServiceCapacityReport struct {
 // ResourceCapacityReport contains capacity data for a resource.
 // It appears in type ServiceCapacityReport.
 type ResourceCapacityReport struct {
-	// For non-AZ-aware resources, the only entry shall be for AvailabilityZoneAny.
-	// Use func InAnyAZ to quickly construct a suitable structure.
-	//
-	// For AZ-aware resources, there shall be an entry for each AZ mentioned in ServiceCapacityRequest.AllAZs.
-	// Reports for AZ-aware resources may also include an entry for AvailabilityZoneUnknown as needed.
+	// The keys that are allowed in this map depend on the chosen ResourceTopology.
+	// See documentation on ResourceTopology enum variants for details.
 	PerAZ map[AvailabilityZone]*AZResourceCapacityReport `json:"perAZ"`
 }
 
 // AZResourceCapacityReport contains capacity data for a resource in a single AZ.
 // It appears in type ResourceCapacityReport.
 type AZResourceCapacityReport struct {
+	// How much capacity is available to Limes in this resource and AZ.
+	//
+	// Caution: In some cases, underlying capacity can be used by multiple
+	// resources. For example, the storage capacity in Manila pools can be used
+	// by both the `share_capacity` and `snapshot_capacity` resources. In this case,
+	// it is *incorrect* to just report the entire storage capacity in both resources.
+	// Limes assumes that whatever number you provide here is free to be
+	// allocated exclusively for the respective resource. If physical capacity
+	// can be used by multiple resources, you need to split the capacity and
+	// report only a chunk of the real capacity in each resource.
+	//
+	// If you need to split physical capacity between multiple resources like
+	// this, the recommended way is to set "NeedsResourceDemand = true" and
+	// then split capacity based on the demand reported by Limes.
 	Capacity uint64 `json:"capacity"`
 
 	// How much of the Capacity is used, or null if no usage data is available.
