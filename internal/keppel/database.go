@@ -326,6 +326,14 @@ var sqlMigrations = map[string]string{
 			DROP COLUMN is_deleting,
 			DROP COLUMN next_deletion_attempt_at;
 	`,
+	"044_bring_back_accounts_in_maintenance_as_dummy.up.sql": `
+		ALTER TABLE accounts
+			ADD COLUMN in_maintenance BOOLEAN NOT NULL DEFAULT FALSE;
+	`,
+	"044_bring_back_accounts_in_maintenance_as_dummy.down.sql": `
+		ALTER TABLE accounts
+			DROP COLUMN in_maintenance;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.
