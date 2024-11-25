@@ -63,6 +63,9 @@ type Account struct {
 	NextEnforcementAt            *time.Time `db:"next_enforcement_at"`             // see tasks.CreateManagedAccountsJob
 	NextStorageSweepedAt         *time.Time `db:"next_storage_sweep_at"`           // see tasks.StorageSweepJob
 	NextFederationAnnouncementAt *time.Time `db:"next_federation_announcement_at"` // see tasks.AnnounceAccountToFederationJob
+
+	// TODO: remove once the Elektra UI has been updated to not require this flag to proceed with account deletion
+	InMaintenance bool `db:"in_maintenance"`
 }
 
 // Reduced converts an Account into a ReducedAccount.

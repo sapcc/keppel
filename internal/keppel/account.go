@@ -66,5 +66,6 @@ func RenderAccount(dbAccount models.Account) (Account, error) {
 		ReplicationPolicy: RenderReplicationPolicy(dbAccount),
 		ValidationPolicy:  RenderValidationPolicy(dbAccount.Reduced()),
 		PlatformFilter:    dbAccount.PlatformFilter,
+		InMaintenance:     dbAccount.InMaintenance,
 	}, nil
 }

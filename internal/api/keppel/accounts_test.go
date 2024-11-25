@@ -419,6 +419,36 @@ func TestAccountsAPI(t *testing.T) {
 	`)
 }
 
+func TestPutAccountInMaintenanceFlag(t *testing.T) {
+	s := test.NewSetup(t, test.WithKeppelAPI)
+	h := s.Handler
+
+	// TODO: remove the writing capability for accounts.in_maintenance once the Elektra UI does not depend on it anymore
+	for _, inMaintenance := range []bool{false, true, false} {
+		assert.HTTPRequest{
+			Method: "PUT",
+			Path:   "/keppel/v1/accounts/first",
+			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+			Body: assert.JSONObject{
+				"account": assert.JSONObject{
+					"auth_tenant_id": "tenant1",
+					"in_maintenance": inMaintenance,
+				},
+			},
+			ExpectStatus: http.StatusOK,
+			ExpectBody: assert.JSONObject{
+				"account": assert.JSONObject{
+					"name":           "first",
+					"auth_tenant_id": "tenant1",
+					"in_maintenance": inMaintenance,
+					"metadata":       nil,
+					"rbac_policies":  []assert.JSONObject{},
+				},
+			},
+		}.Check(t, h)
+	}
+}
+
 func TestGetAccountsErrorCases(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
@@ -1131,19 +1161,20 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectBody:   assert.StringData("no permission for keppel_account:unknown:change\n"),
 	}.Check(t, h)
 
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"in_maintenance": true,
-			},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("malformed attribute \"account.in_maintenance\" in request body is not allowed here\n"),
-	}.Check(t, h)
+	// TODO: reenable once we completely remove support for the accounts.in_maintenance flag
+	// assert.HTTPRequest{
+	// 	Method: "PUT",
+	// 	Path:   "/keppel/v1/accounts/first",
+	// 	Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+	// 	Body: assert.JSONObject{
+	// 		"account": assert.JSONObject{
+	// 			"auth_tenant_id": "tenant1",
+	// 			"in_maintenance": true,
+	// 		},
+	// 	},
+	// 	ExpectStatus: http.StatusUnprocessableEntity,
+	// 	ExpectBody:   assert.StringData("malformed attribute \"account.in_maintenance\" in request body is not allowed here\n"),
+	// }.Check(t, h)
 
 	assert.HTTPRequest{
 		Method: "PUT",
