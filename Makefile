@@ -3,6 +3,22 @@
 # Edit Makefile.maker.yaml instead.                                            #
 ################################################################################
 
+# Copyright 2024 SAP SE
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 MAKEFLAGS=--warn-undefined-variables
 # /bin/sh is dash on Debian which does not support all features of ash/bash
 # to fix that we use /bin/bash only on Debian to not break Alpine
@@ -123,7 +139,7 @@ check-license-headers: FORCE install-addlicense
 	@printf "\e[1;36m>> addlicense --check\e[0m\n"
 	@addlicense --check -- $(patsubst $(shell awk '$$1 == "module" {print $$2}' go.mod)%,.%/*.go,$(shell go list ./...))
 
-check-dependency-licenses: FORCE install go-licence-detector
+check-dependency-licenses: FORCE install-go-licence-detector
 	@printf "\e[1;36m>> go-licence-detector\e[0m\n"
 	@go list -m -mod=readonly -json all | go-licence-detector -includeIndirect -rules .license-scan-rules.json -overrides .license-scan-overrides.jsonl
 
@@ -153,7 +169,7 @@ help: FORCE
 	@printf "\n"
 	@printf "\e[1mPrepare\e[0m\n"
 	@printf "  \e[36minstall-golangci-lint\e[0m        Install golangci-lint required by run-golangci-lint/static-check\n"
-	@printf "  \e[36minstall-go-licence-detector\e[0m  Install go-licence-detector required by check-dependency-licenses/static-check\n"
+	@printf "  \e[36minstall-go-licence-detector\e[0m  Install-go-licence-detector required by check-dependency-licenses/static-check\n"
 	@printf "  \e[36minstall-addlicense\e[0m           Install addlicense required by check-license-headers/license-headers/static-check\n"
 	@printf "  \e[36mprepare-static-check\e[0m         Install any tools required by static-check. This is used in CI before dropping privileges, you should probably install all the tools using your package manager\n"
 	@printf "\n"
