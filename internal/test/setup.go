@@ -29,6 +29,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redis/go-redis/v9"
+	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
@@ -151,7 +152,7 @@ type Setup struct {
 	DB           *keppel.DB
 	Clock        *mock.Clock
 	SIDGenerator *StorageIDGenerator
-	Auditor      *Auditor
+	Auditor      *audittools.MockAuditor
 	AD           *AuthDriver
 	AMD          *basic.AccountManagementDriver
 	FD           *FederationDriver
@@ -304,7 +305,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	s.Clock = mock.NewClock()
 	s.SIDGenerator = &StorageIDGenerator{}
 	s.AMD = &basic.AccountManagementDriver{}
-	s.Auditor = &Auditor{}
+	s.Auditor = audittools.NewMockAuditor()
 
 	// if we are secondary and we know the primary, share the clock with it
 	if params.SetupOfPrimary != nil {

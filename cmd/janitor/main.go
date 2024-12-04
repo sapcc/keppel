@@ -54,7 +54,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	cfg := keppel.ParseConfiguration()
 	ctx := httpext.ContextWithSIGINT(cmd.Context(), 10*time.Second)
-	auditor := keppel.InitAuditTrail(ctx)
+	auditor := must.Return(keppel.InitAuditTrail(ctx))
 
 	ad := must.Return(keppel.NewAuthDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_AUTH"), nil))
 	amd := must.Return(keppel.NewAccountManagementDriver(osext.MustGetenv("KEPPEL_DRIVER_ACCOUNT_MANAGEMENT")))

@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/go-gorp/gorp/v3"
+	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/logg"
 
 	"github.com/sapcc/keppel/internal/client"
@@ -43,7 +44,7 @@ type Processor struct {
 	fd          keppel.FederationDriver
 	sd          keppel.StorageDriver
 	icd         keppel.InboundCacheDriver
-	auditor     keppel.Auditor
+	auditor     audittools.Auditor
 	repoClients map[string]*client.RepoClient // key = account name
 
 	// non-pure functions that can be replaced by deterministic doubles for unit tests
@@ -52,7 +53,7 @@ type Processor struct {
 }
 
 // New creates a new Processor.
-func New(cfg keppel.Configuration, db *keppel.DB, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, auditor keppel.Auditor, fd keppel.FederationDriver, timenow func() time.Time) *Processor {
+func New(cfg keppel.Configuration, db *keppel.DB, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, auditor audittools.Auditor, fd keppel.FederationDriver, timenow func() time.Time) *Processor {
 	return &Processor{cfg, db, fd, sd, icd, auditor, make(map[string]*client.RepoClient), timenow, keppel.GenerateStorageID}
 }
 
