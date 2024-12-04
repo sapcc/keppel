@@ -31,6 +31,9 @@ import (
 
 // AuditTrail holds an event sink for receiving audit events and closure functions
 // that are executed in case of successful and failed publishing.
+//
+// This is a low-level interface. New applications should use func NewAuditor
+// unless the Auditor interface is too opinionated for them.
 type AuditTrail struct {
 	EventSink           <-chan cadf.Event
 	OnSuccessfulPublish func()
@@ -39,10 +42,11 @@ type AuditTrail struct {
 
 // Commit takes a AuditTrail that receives audit events from an event sink and publishes them to
 // a specific RabbitMQ Connection using the specified amqp URI and queue name.
-// The OnSuccessfulPublish and OnFailedPublish closures are executed as per
-// their respective case.
+// The OnSuccessfulPublish and OnFailedPublish closures are executed as per their respective case.
+//
+// This function blocks the current goroutine forever. It should be invoked with the "go" keyword.
 func (t AuditTrail) Commit(ctx context.Context, rabbitmqURI url.URL, rabbitmqQueueName string) {
-	rc, err := NewRabbitConnection(rabbitmqURI, rabbitmqQueueName)
+	rc, err := newRabbitConnection(rabbitmqURI, rabbitmqQueueName)
 	if err != nil {
 		logg.Error(err.Error())
 	}
@@ -92,7 +96,7 @@ func (t AuditTrail) Commit(ctx context.Context, rabbitmqURI url.URL, rabbitmqQue
 	}
 }
 
-func refreshConnectionIfClosedOrOld(rc *RabbitConnection, uri url.URL, queueName string) *RabbitConnection {
+func refreshConnectionIfClosedOrOld(rc *rabbitConnection, uri url.URL, queueName string) *rabbitConnection {
 	if !rc.IsNilOrClosed() {
 		if time.Since(rc.LastConnectedAt) < 5*time.Minute {
 			return rc
@@ -100,7 +104,7 @@ func refreshConnectionIfClosedOrOld(rc *RabbitConnection, uri url.URL, queueName
 		rc.Disconnect()
 	}
 
-	connection, err := NewRabbitConnection(uri, queueName)
+	connection, err := newRabbitConnection(uri, queueName)
 	if err != nil {
 		logg.Error(err.Error())
 		return nil

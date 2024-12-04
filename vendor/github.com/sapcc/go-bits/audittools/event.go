@@ -28,13 +28,21 @@ import (
 	"github.com/sapcc/go-api-declarations/cadf"
 
 	"github.com/sapcc/go-bits/httpext"
-	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/must"
 )
 
 // TargetRenderer is the interface that different event types "must" implement
 // in order to render the respective cadf.Event.Target section.
 type TargetRenderer interface {
 	Render() cadf.Resource
+}
+
+// Observer is like cadf.Resource, but contains only the fields that need to be
+// set for an event observer.
+type Observer struct {
+	TypeURI string
+	Name    string
+	ID      string
 }
 
 // UserInfo is implemented by types that describe a user who is taking an
@@ -77,13 +85,11 @@ type EventParameters struct {
 	// It is recommended to use a constant from: https://golang.org/pkg/net/http/#pkg-constants
 	ReasonCode int
 	Action     cadf.Action
-	Observer   struct {
-		TypeURI string
-		Name    string
-		ID      string
-	}
-	Target TargetRenderer
+	Observer   Observer
+	Target     TargetRenderer
 }
+
+const standardUserInfoTypeURI = "service/security/account/user"
 
 // NewEvent uses EventParameters to generate an audit event.
 // Warning: this function uses GenerateUUID() to generate the Event.ID, if that fails
@@ -99,7 +105,7 @@ func NewEvent(p EventParameters) cadf.Event {
 		initiator = u.AsInitiator()
 	} else {
 		initiator = cadf.Resource{
-			TypeURI: "service/security/account/user",
+			TypeURI: standardUserInfoTypeURI,
 			// information about user
 			Name:   p.User.UserName(),
 			Domain: p.User.UserDomainName(),
@@ -143,9 +149,5 @@ func NewEvent(p EventParameters) cadf.Event {
 // GenerateUUID generates an UUID based on random numbers (RFC 4122).
 // Failure will result in program termination.
 func GenerateUUID() string {
-	u, err := uuid.NewV4()
-	if err != nil {
-		logg.Fatal(err.Error())
-	}
-	return u.String()
+	return must.Return(uuid.NewV4()).String()
 }

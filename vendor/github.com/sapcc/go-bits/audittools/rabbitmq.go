@@ -31,9 +31,9 @@ import (
 	"github.com/sapcc/go-api-declarations/cadf"
 )
 
-// RabbitConnection represents a unique connection to some RabbitMQ server with
+// rabbitConnection represents a unique connection to some RabbitMQ server with
 // an open Channel and a declared Queue.
-type RabbitConnection struct {
+type rabbitConnection struct {
 	Inner     *amqp.Connection
 	Channel   *amqp.Channel
 	QueueName string
@@ -41,9 +41,9 @@ type RabbitConnection struct {
 	LastConnectedAt time.Time
 }
 
-// NewRabbitConnection returns a new RabbitConnection using the specified amqp URI
+// newRabbitConnection returns a new rabbitConnection using the specified amqp URI
 // and queue name.
-func NewRabbitConnection(uri url.URL, queueName string) (*RabbitConnection, error) {
+func newRabbitConnection(uri url.URL, queueName string) (*rabbitConnection, error) {
 	// establish a connection with the RabbitMQ server
 	conn, err := amqp.Dial(uri.String())
 	if err != nil {
@@ -69,7 +69,7 @@ func NewRabbitConnection(uri url.URL, queueName string) (*RabbitConnection, erro
 		return nil, fmt.Errorf("audittools: rabbitmq: failed to declare a queue: %w", err)
 	}
 
-	return &RabbitConnection{
+	return &rabbitConnection{
 		Inner:           conn,
 		Channel:         ch,
 		QueueName:       queueName,
@@ -77,21 +77,21 @@ func NewRabbitConnection(uri url.URL, queueName string) (*RabbitConnection, erro
 	}, nil
 }
 
-// Disconnect is a helper function for closing a RabbitConnection.
-func (c *RabbitConnection) Disconnect() {
+// Disconnect is a helper function for closing a rabbitConnection.
+func (c *rabbitConnection) Disconnect() {
 	c.Channel.Close()
 	c.Inner.Close()
 }
 
 // IsNilOrClosed is like (*amqp.Connection).IsClosed() but it also returns true
-// if RabbitConnection or the underlying amqp.Connection are nil.
-func (c *RabbitConnection) IsNilOrClosed() bool {
+// if rabbitConnection or the underlying amqp.Connection are nil.
+func (c *rabbitConnection) IsNilOrClosed() bool {
 	return c == nil || c.Inner == nil || c.Inner.IsClosed()
 }
 
 // PublishEvent publishes a cadf.Event to a specific RabbitMQ Connection.
 // A nil pointer for event parameter will return an error.
-func (c *RabbitConnection) PublishEvent(ctx context.Context, event *cadf.Event) error {
+func (c *rabbitConnection) PublishEvent(ctx context.Context, event *cadf.Event) error {
 	if c.IsNilOrClosed() {
 		return amqp.ErrClosed
 	}
