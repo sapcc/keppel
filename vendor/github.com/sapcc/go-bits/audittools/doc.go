@@ -18,71 +18,11 @@
 *******************************************************************************/
 
 /*
-Package audittools provides helper functions for establishing a connection to
-a RabbitMQ server (with sane defaults) and publishing messages to it.
+Package audittools provides a microframework for establishing a connection to
+a RabbitMQ server (with sane defaults) and publishing audit messages in the CADF format to it.
 
-It comes with a ready-to-use implementation that can be used to publish the audit trail
-of an application to a RabbitMQ server, or it can be used as a reference to build your
-own.
-
-One usage of the aforementioned implementation can be:
-
-	package yourPackageName
-
-	import (
-		"net/url"
-		...
-
-		"github.com/sapcc/go-bits/audittools"
-		...
-	)
-
-	var eventPublishSuccessCounter = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "yourApplication_successful_auditevent_publish",
-			Help: "Counter for successful audit event publish to RabbitMQ server.",
-		},
-	)
-	var	eventPublishFailedCounter = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "yourApplication_failed_auditevent_publish",
-			Help: "Counter for failed audit event publish to RabbitMQ server.",
-		},
-	)
-
-	var EventSink chan<- cadf.Event
-
-	func init() {
-		s := make(chan cadf.Event, 20)
-		EventSink = s
-
-		onSuccessFunc := func() {
-			eventPublishSuccessCounter.Inc()
-		}
-		onFailFunc() := func() {
-			eventPublishFailedCounter.Inc()
-		}
-
-		rabbitmqQueueName := "down-the-rabbit-hole"
-		rabbitmqURI := url.URL{
-			Scheme: "amqp",
-			Host:   net.JoinHostPort("localhost", "5672"),
-			User:   url.UserPassword("guest", "guest"),
-			Path:   "/",
-		}
-
-		go audittools.AuditTrail{
-			EventSink:           s,
-			OnSuccessfulPublish: onSuccessFunc,
-			OnFailedPublish:     onFailFunc,
-		}.Commit(rabbitmqURI.String(), rabbitmqQueueName)
-	}
-
-	func someFunction() {
-		event := generateCADFEvent()
-		if EventSink != nil {
-			EventSink <- event
-		}
-	}
+To use it, build an AuditTrail object and spawn its Commit() event loop at initialization time.
+Then push events into it as part of your request handlers.
+Check the example on type AuditTrail for details.
 */
 package audittools

@@ -181,7 +181,7 @@ github.com/samber/lo/internal/rand
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20241128180218-03123d6bae9b
+# github.com/sapcc/go-bits v0.0.0-20241204103411-aa06a1b92800
 ## explicit; go 1.23
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
