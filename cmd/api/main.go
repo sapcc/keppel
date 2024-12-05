@@ -64,7 +64,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	cfg := keppel.ParseConfiguration()
 	ctx := httpext.ContextWithSIGINT(cmd.Context(), 10*time.Second)
-	auditor := keppel.InitAuditTrail(ctx)
+	auditor := must.Return(keppel.InitAuditTrail(ctx))
 
 	db := must.Return(keppel.InitDB(cfg.DatabaseURL))
 	must.Succeed(setupDBIfRequested(db))

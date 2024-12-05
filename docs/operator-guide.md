@@ -167,12 +167,11 @@ The following configuration options are understood by both the API server and th
 | Variable | Default | Explanation |
 | -------- | ------- | ----------- |
 | `KEPPEL_API_PUBLIC_FQDN` | *(required)* | Full domain name where users reach keppel-api. |
-| `KEPPEL_AUDIT_RABBITMQ_QUEUE_NAME` | *(required for enabling audit trail)* | Name for the queue that will hold the audit events. The events are published to the default exchange. |
+| `KEPPEL_AUDIT_RABBITMQ_QUEUE_NAME` | *(required for enabling audit trail)* | Name for the queue that will hold the audit events. The events are published to the default exchange. If not given, audit events will only be written to the debug log. |
 | `KEPPEL_AUDIT_RABBITMQ_USERNAME` | `guest` | RabbitMQ Username. |
 | `KEPPEL_AUDIT_RABBITMQ_PASSWORD` | `guest` | Password for the specified user. |
 | `KEPPEL_AUDIT_RABBITMQ_HOSTNAME` | `localhost` | Hostname of the RabbitMQ server. |
 | `KEPPEL_AUDIT_RABBITMQ_PORT` | `5672` |  Port number to which the underlying connection is made. |
-| `KEPPEL_AUDIT_SILENT` | *(optional)* | Whether to disable audit event logging to standard output. |
 | `KEPPEL_DB_NAME` | `keppel` | The name of the database. |
 | `KEPPEL_DB_USERNAME` | `postgres` | Username of the user that Keppel should use to connect to the database. |
 | `KEPPEL_DB_PASSWORD` | *(optional)* | Password for the specified user. |
