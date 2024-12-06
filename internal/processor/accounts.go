@@ -277,7 +277,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 		}
 
 		if userInfo != nil {
-			p.auditor.Record(audittools.EventParameters{
+			p.auditor.Record(audittools.Event{
 				Time:       p.timeNow(),
 				Request:    r,
 				User:       userInfo,
@@ -299,7 +299,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 		if userInfo != nil {
 			originalAccount.IsDeleting = targetAccount.IsDeleting
 			if !reflect.DeepEqual(*originalAccount, targetAccount) {
-				p.auditor.Record(audittools.EventParameters{
+				p.auditor.Record(audittools.Event{
 					Time:       p.timeNow(),
 					Request:    r,
 					User:       userInfo,
@@ -325,7 +325,7 @@ func (p *Processor) MarkAccountForDeletion(account models.Account, actx keppel.A
 	}
 
 	if userInfo := actx.UserIdentity.UserInfo(); userInfo != nil {
-		p.auditor.Record(audittools.EventParameters{
+		p.auditor.Record(audittools.Event{
 			Time:       p.timeNow(),
 			Request:    actx.Request,
 			User:       userInfo,

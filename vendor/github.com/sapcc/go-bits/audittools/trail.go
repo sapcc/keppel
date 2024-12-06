@@ -29,12 +29,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 )
 
-// AuditTrail holds an event sink for receiving audit events and closure functions
-// that are executed in case of successful and failed publishing.
-//
-// This is a low-level interface. New applications should use func NewAuditor
-// unless the Auditor interface is too opinionated for them.
-type AuditTrail struct {
+type auditTrail struct {
 	EventSink           <-chan cadf.Event
 	OnSuccessfulPublish func()
 	OnFailedPublish     func()
@@ -45,7 +40,7 @@ type AuditTrail struct {
 // The OnSuccessfulPublish and OnFailedPublish closures are executed as per their respective case.
 //
 // This function blocks the current goroutine forever. It should be invoked with the "go" keyword.
-func (t AuditTrail) Commit(ctx context.Context, rabbitmqURI url.URL, rabbitmqQueueName string) {
+func (t auditTrail) Commit(ctx context.Context, rabbitmqURI url.URL, rabbitmqQueueName string) {
 	rc, err := newRabbitConnection(rabbitmqURI, rabbitmqQueueName)
 	if err != nil {
 		logg.Error(err.Error())

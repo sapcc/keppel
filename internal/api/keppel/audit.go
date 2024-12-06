@@ -19,31 +19,27 @@
 package keppelv1
 
 import (
-	"encoding/json"
-
 	"github.com/sapcc/go-api-declarations/cadf"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 )
 
-// AuditSecurityScanPolicy is an audittools.TargetRenderer.
+// AuditSecurityScanPolicy is an audittools.Target.
 type AuditSecurityScanPolicy struct {
 	Account models.Account
 	Policy  keppel.SecurityScanPolicy
 }
 
-// Render implements the audittools.TargetRenderer interface.
+// Render implements the audittools.Target interface.
 func (a AuditSecurityScanPolicy) Render() cadf.Resource {
-	content, _ := json.Marshal(a.Policy)
 	return cadf.Resource{
 		TypeURI:   "docker-registry/account",
 		ID:        string(a.Account.Name),
 		ProjectID: a.Account.AuthTenantID,
-		Attachments: []cadf.Attachment{{
-			Name:    "payload",
-			TypeURI: "mime:application/json",
-			Content: string(content),
-		}},
+		Attachments: []cadf.Attachment{
+			must.Return(cadf.NewJSONAttachment("payload", a.Policy)),
+		},
 	}
 }

@@ -135,7 +135,7 @@ func (p *Processor) SetQuotas(authTenantID string, req QuotaRequest, userInfo au
 
 		// record audit event when quotas have changed
 		if userInfo != nil {
-			p.auditor.Record(audittools.EventParameters{
+			p.auditor.Record(audittools.Event{
 				Time:       time.Now(),
 				Request:    r,
 				User:       userInfo,

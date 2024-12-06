@@ -138,8 +138,8 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 	// synced; before the introduction of this check, we generated millions of
 	// useless audit events per month)
 	if userInfo := actx.UserIdentity.UserInfo(); userInfo != nil {
-		record := func(target audittools.TargetRenderer) {
-			p.auditor.Record(audittools.EventParameters{
+		record := func(target audittools.Target) {
+			p.auditor.Record(audittools.Event{
 				Time:       p.timeNow(),
 				Request:    actx.Request,
 				User:       userInfo,
@@ -896,7 +896,7 @@ func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAc
 	}
 
 	if userInfo := actx.UserIdentity.UserInfo(); userInfo != nil {
-		p.auditor.Record(audittools.EventParameters{
+		p.auditor.Record(audittools.Event{
 			Time:       p.timeNow(),
 			Request:    actx.Request,
 			User:       userInfo,
@@ -933,7 +933,7 @@ func (p *Processor) DeleteTag(account models.ReducedAccount, repo models.Reposit
 	}
 
 	if userInfo := actx.UserIdentity.UserInfo(); userInfo != nil {
-		p.auditor.Record(audittools.EventParameters{
+		p.auditor.Record(audittools.Event{
 			Time:       p.timeNow(),
 			Request:    actx.Request,
 			User:       userInfo,
@@ -951,7 +951,7 @@ func (p *Processor) DeleteTag(account models.ReducedAccount, repo models.Reposit
 	return nil
 }
 
-// auditManifest is an audittools.TargetRenderer.
+// auditManifest is an audittools.Target.
 type auditManifest struct {
 	Account    models.ReducedAccount
 	Repository models.Repository
@@ -959,7 +959,7 @@ type auditManifest struct {
 	Tags       []string
 }
 
-// Render implements the audittools.TargetRenderer interface.
+// Render implements the audittools.Target interface.
 func (a auditManifest) Render() cadf.Resource {
 	res := cadf.Resource{
 		TypeURI:   "docker-registry/account/repository/manifest",
@@ -981,7 +981,7 @@ func (a auditManifest) Render() cadf.Resource {
 	return res
 }
 
-// auditTag is an audittools.TargetRenderer.
+// auditTag is an audittools.Target.
 type auditTag struct {
 	Account    models.ReducedAccount
 	Repository models.Repository
@@ -989,7 +989,7 @@ type auditTag struct {
 	TagName    string
 }
 
-// Render implements the audittools.TargetRenderer interface.
+// Render implements the audittools.Target interface.
 func (a auditTag) Render() cadf.Resource {
 	return cadf.Resource{
 		TypeURI:   "docker-registry/account/repository/tag",

@@ -303,9 +303,9 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 	}
 
 	// generate audit events
-	submitAudit := func(action cadf.Action, target audittools.TargetRenderer) {
+	submitAudit := func(action cadf.Action, target audittools.Target) {
 		if userInfo := authz.UserIdentity.UserInfo(); userInfo != nil {
-			a.auditor.Record(audittools.EventParameters{
+			a.auditor.Record(audittools.Event{
 				Time:       time.Now(),
 				Request:    r,
 				User:       userInfo,

@@ -176,12 +176,12 @@ github.com/rs/cors/internal
 github.com/samber/lo
 github.com/samber/lo/internal/constraints
 github.com/samber/lo/internal/rand
-# github.com/sapcc/go-api-declarations v1.13.0
+# github.com/sapcc/go-api-declarations v1.13.1
 ## explicit; go 1.21
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20241205120930-d112494283ba
+# github.com/sapcc/go-bits v0.0.0-20241206132118-f18a227dc952
 ## explicit; go 1.23
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
@@ -192,6 +192,7 @@ github.com/sapcc/go-bits/gopherpolicy
 github.com/sapcc/go-bits/httpapi
 github.com/sapcc/go-bits/httpapi/pprofapi
 github.com/sapcc/go-bits/httpext
+github.com/sapcc/go-bits/internal
 github.com/sapcc/go-bits/jobloop
 github.com/sapcc/go-bits/logg
 github.com/sapcc/go-bits/mock

@@ -23,16 +23,17 @@ import (
 	"encoding/json"
 
 	"github.com/sapcc/go-api-declarations/cadf"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/models"
 )
 
-// AuditAccount is an audittools.TargetRenderer.
+// AuditAccount is an audittools.Target.
 type AuditAccount struct {
 	Account models.Account
 }
 
-// Render implements the audittools.TargetRenderer interface.
+// Render implements the audittools.Target interface.
 func (a AuditAccount) Render() cadf.Resource {
 	res := cadf.Resource{
 		TypeURI:   "docker-registry/account",
@@ -42,58 +43,34 @@ func (a AuditAccount) Render() cadf.Resource {
 
 	gcPoliciesJSON := a.Account.GCPoliciesJSON
 	if gcPoliciesJSON != "" && gcPoliciesJSON != "[]" {
-		res.Attachments = append(res.Attachments, cadf.Attachment{
-			Name:    "gc-policies",
-			TypeURI: "mime:application/json",
-			Content: a.Account.GCPoliciesJSON,
-		})
+		attachment := must.Return(cadf.NewJSONAttachment("gc-policies", json.RawMessage(gcPoliciesJSON)))
+		res.Attachments = append(res.Attachments, attachment)
 	}
 
 	rbacPoliciesJSON := a.Account.RBACPoliciesJSON
 	if rbacPoliciesJSON != "" && rbacPoliciesJSON != "[]" {
-		res.Attachments = append(res.Attachments, cadf.Attachment{
-			Name:    "rbac-policies",
-			TypeURI: "mime:application/json",
-			Content: a.Account.RBACPoliciesJSON,
-		})
+		attachment := must.Return(cadf.NewJSONAttachment("rbac-policies", json.RawMessage(rbacPoliciesJSON)))
+		res.Attachments = append(res.Attachments, attachment)
 	}
 
 	return res
 }
 
-// AuditQuotas is an audittools.TargetRenderer.
+// AuditQuotas is an audittools.Target.
 type AuditQuotas struct {
 	QuotasBefore models.Quotas
 	QuotasAfter  models.Quotas
 }
 
-// Render implements the audittools.TargetRenderer interface.
+// Render implements the audittools.Target interface.
 func (a AuditQuotas) Render() cadf.Resource {
 	return cadf.Resource{
 		TypeURI:   "docker-registry/project-quota",
 		ID:        a.QuotasAfter.AuthTenantID,
 		ProjectID: a.QuotasAfter.AuthTenantID,
 		Attachments: []cadf.Attachment{
-			{
-				Name:    "payload-before",
-				TypeURI: "mime:application/json",
-				Content: quotasToJSON(a.QuotasBefore),
-			},
-			{
-				Name:    "payload",
-				TypeURI: "mime:application/json",
-				Content: quotasToJSON(a.QuotasAfter),
-			},
+			must.Return(cadf.NewJSONAttachment("payload-before", a.QuotasBefore)),
+			must.Return(cadf.NewJSONAttachment("payload", a.QuotasAfter)),
 		},
 	}
-}
-
-func quotasToJSON(q models.Quotas) string {
-	data := struct {
-		ManifestCount uint64 `json:"manifests"`
-	}{
-		ManifestCount: q.ManifestCount,
-	}
-	buf, _ := json.Marshal(data)
-	return string(buf)
 }
