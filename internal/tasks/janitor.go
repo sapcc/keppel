@@ -158,53 +158,8 @@ type janitorUserInfo struct {
 	GCPolicy *keppel.GCPolicy
 }
 
-// UserUUID implements the audittools.UserInfo interface.
-func (janitorUserInfo) UserUUID() string {
-	return "" // unused
-}
-
-// UserName implements the audittools.UserInfo interface.
-func (janitorUserInfo) UserName() string {
-	return "" // unused
-}
-
-// UserDomainName implements the audittools.UserInfo interface.
-func (janitorUserInfo) UserDomainName() string {
-	return "" // unused
-}
-
-// ProjectScopeUUID implements the audittools.UserInfo interface.
-func (janitorUserInfo) ProjectScopeUUID() string {
-	return "" // unused
-}
-
-// ProjectScopeName implements the audittools.UserInfo interface.
-func (janitorUserInfo) ProjectScopeName() string {
-	return "" // unused
-}
-
-// ProjectScopeDomainName implements the audittools.UserInfo interface.
-func (janitorUserInfo) ProjectScopeDomainName() string {
-	return "" // unused
-}
-
-// DomainScopeUUID implements the audittools.UserInfo interface.
-func (janitorUserInfo) DomainScopeUUID() string {
-	return "" // unused
-}
-
-// DomainScopeName implements the audittools.UserInfo interface.
-func (janitorUserInfo) DomainScopeName() string {
-	return "" // unused
-}
-
-// ApplicationCredentialID implements the audittools.UserInfo interface.
-func (janitorUserInfo) ApplicationCredentialID() string {
-	return "" // unused
-}
-
 // AsInitiator implements the audittools.NonStandardUserInfo interface.
-func (u janitorUserInfo) AsInitiator() cadf.Resource {
+func (u janitorUserInfo) AsInitiator(_ cadf.Host) cadf.Resource {
 	res := cadf.Resource{
 		TypeURI: "service/docker-registry/janitor-task",
 		Name:    u.TaskName,

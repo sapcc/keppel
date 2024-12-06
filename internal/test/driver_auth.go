@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -125,38 +126,6 @@ func (uid *userIdentity) DeserializeFromJSON(in []byte, _ keppel.AuthDriver) err
 
 type dummyUserInfo struct{}
 
-func (dummyUserInfo) UserUUID() string {
-	return "dummy-userid"
-}
-
-func (dummyUserInfo) UserName() string {
-	return "dummy-username"
-}
-
-func (dummyUserInfo) UserDomainName() string {
-	return "dummy-domainname"
-}
-
-func (dummyUserInfo) ProjectScopeUUID() string {
-	return "dummy-projectid"
-}
-
-func (dummyUserInfo) ProjectScopeName() string {
-	return "dummy-projectname"
-}
-
-func (dummyUserInfo) ProjectScopeDomainName() string {
-	return "dummy-projectdomainname"
-}
-
-func (dummyUserInfo) DomainScopeUUID() string {
-	return ""
-}
-
-func (dummyUserInfo) DomainScopeName() string {
-	return ""
-}
-
-func (dummyUserInfo) ApplicationCredentialID() string {
-	return ""
+func (dummyUserInfo) AsInitiator(_ cadf.Host) cadf.Resource {
+	return cadf.Resource{}
 }

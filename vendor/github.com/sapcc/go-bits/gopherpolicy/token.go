@@ -26,6 +26,9 @@ import (
 	policy "github.com/databus23/goslo.policy"
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/identity/v3/tokens"
+	"github.com/sapcc/go-api-declarations/cadf"
+
+	"github.com/sapcc/go-bits/internal"
 )
 
 // Enforcer contains the Enforce method that struct Token requires to check
@@ -145,6 +148,25 @@ func (t *Token) DomainScopeName() string {
 // different authentication method.
 func (t *Token) ApplicationCredentialID() string {
 	return t.Context.Auth["application_credential_id"]
+}
+
+// AsInitiator implements the audittools.UserInfo interface.
+func (t *Token) AsInitiator(host cadf.Host) cadf.Resource {
+	return cadf.Resource{
+		TypeURI: internal.StandardUserInfoTypeURI,
+		// information about user
+		Name:   t.UserName(),
+		Domain: t.UserDomainName(),
+		ID:     t.UserUUID(),
+		Host:   &host,
+		// information about user's scope (only one of both will be filled)
+		DomainID:          t.DomainScopeUUID(),
+		DomainName:        t.DomainScopeName(),
+		ProjectID:         t.ProjectScopeUUID(),
+		ProjectName:       t.ProjectScopeName(),
+		ProjectDomainName: t.ProjectScopeDomainName(),
+		AppCredentialID:   t.ApplicationCredentialID(),
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

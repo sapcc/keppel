@@ -23,6 +23,8 @@
 // to use the github.com/sapcc/go-bits/audittools package.
 package cadf
 
+import "encoding/json"
+
 // Event contains the CADF event according to CADF spec, section 6.6.1 Event (data)
 // Extensions: requestPath (OpenStack, IBM), initiator.project_id/domain_id
 // Omissions: everything that we do not use or not expose to API users
@@ -123,5 +125,32 @@ type Attachment struct {
 	// Content contains the payload of the attachment. In theory this means any type.
 	// In practise we have to decide because otherwise ES does based one first value
 	// An interface allows arrays of json content. This should be json in the content.
+	//
+	// Use func NewJSONAttachment() to create well-formed attachments that Hermes can consume.
 	Content any `json:"content"`
+}
+
+// NewJSONAttachment creates an Attachment of type "mime:application/json" by
+// serializing the given content as JSON.
+//
+// If an error is returned, it will be from json.Marshal().
+func NewJSONAttachment(name string, content any) (Attachment, error) {
+	switch content := content.(type) {
+	case json.RawMessage:
+		return Attachment{
+			Name:    name,
+			TypeURI: "mime:application/json",
+			Content: string(content),
+		}, nil
+	default:
+		buf, err := json.Marshal(content)
+		if err != nil {
+			return Attachment{}, err
+		}
+		return Attachment{
+			Name:    name,
+			TypeURI: "mime:application/json",
+			Content: string(buf),
+		}, nil
+	}
 }
