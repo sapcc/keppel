@@ -1,4 +1,4 @@
-FROM golang:1.23.4-alpine3.20 AS builder
+FROM golang:1.23.4-alpine3.21 AS builder
 
 RUN apk add --no-cache --no-progress ca-certificates gcc git make musl-dev
 
@@ -8,7 +8,7 @@ RUN make -C /src install PREFIX=/pkg GOTOOLCHAIN=local GO_BUILDFLAGS='-mod vendo
 
 ################################################################################
 
-FROM alpine:3.20
+FROM alpine:3.21
 
 RUN addgroup -g 4200 appgroup \
   && adduser -h /home/appuser -s /sbin/nologin -G appgroup -D -u 4200 appuser
