@@ -32,60 +32,6 @@ import (
 	"github.com/sapcc/go-bits/osext"
 )
 
-// ClearTables removes all rows from the given tables.
-func ClearTables(t *testing.T, db *sql.DB, tableNames ...string) {
-	t.Helper()
-	for _, tableName := range tableNames {
-		_, err := db.Exec("DELETE FROM " + tableName) //nolint:gosec // cannot provide tableName as bind parameter
-		if err != nil {
-			t.Fatalf("while clearing table %s: %s", tableName, err.Error())
-		}
-	}
-}
-
-// ResetPrimaryKeys resets the sequences for the "id" column of the given tables
-// to start at 1 again (or if there are entries in the table, to start right
-// after the entry with the highest ID).
-func ResetPrimaryKeys(t *testing.T, db *sql.DB, tableNames ...string) {
-	t.Helper()
-	for _, tableName := range tableNames {
-		var nextID int64
-		query := "SELECT 1 + COALESCE(MAX(id), 0) FROM " + tableName //nolint:gosec // cannot provide tableName as bind parameter
-		err := db.QueryRow(query).Scan(&nextID)
-		if err != nil {
-			t.Fatalf("while checking IDs in table %s: %s", tableName, err.Error())
-		}
-
-		query = fmt.Sprintf(`ALTER SEQUENCE %s_id_seq RESTART WITH %d`, tableName, nextID)
-		_, err = db.Exec(query)
-		if err != nil {
-			t.Fatalf("while resetting ID sequence on table %s: %s", tableName, err.Error())
-		}
-	}
-}
-
-// ExecSQLFile loads a file containing SQL statements and executes them all.
-// It implies that every SQL statement is on a single line.
-func ExecSQLFile(t *testing.T, db *sql.DB, path string) {
-	t.Helper()
-	sqlBytes, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// split into single statements because db.Exec() will just ignore everything after the first semicolon
-	for idx, line := range strings.Split(string(sqlBytes), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "--") {
-			continue
-		}
-		_, err = db.Exec(line)
-		if err != nil {
-			t.Fatalf("error on SQL line %d: %s", idx, err.Error())
-		}
-	}
-}
-
 // AssertDBContent makes a dump of the database contents (as a sequence of
 // INSERT statements) and runs diff(1) against the given file, producing a test
 // error if these two are different from each other.

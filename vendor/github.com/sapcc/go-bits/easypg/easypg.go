@@ -26,7 +26,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	net_url "net/url"
+	url "net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -58,9 +58,6 @@ import (
 //	    `,
 //	}
 type Configuration struct {
-	// (required) A libpq connection URL, see:
-	// <https://www.postgresql.org/docs/9.6/static/libpq-connect.html#LIBPQ-CONNSTRING>
-	PostgresURL *net_url.URL
 	// (required) The schema migrations, in Postgres syntax. See above for details.
 	Migrations map[string]string
 	// (optional) If not empty, use this database/sql driver instead of "postgres".
@@ -68,14 +65,13 @@ type Configuration struct {
 	OverrideDriverName string
 }
 
-var errNoPostgresURL = errors.New("no PostgresURL given")
-
 // Connect connects to a Postgres database.
-func Connect(cfg Configuration) (*sql.DB, error) {
-	if cfg.PostgresURL == nil {
-		return nil, errNoPostgresURL
-	}
-
+//
+// The given URL must be a libpq connection URL, see:
+// <https://www.postgresql.org/docs/9.6/static/libpq-connect.html#LIBPQ-CONNSTRING>
+//
+// We recommend constructing the URL with func URLFrom.
+func Connect(dbURL url.URL, cfg Configuration) (*sql.DB, error) {
 	migrations := cfg.Migrations
 	migrations = wrapDDLInTransactions(migrations)
 	migrations = stripWhitespace(migrations)
@@ -98,7 +94,7 @@ func Connect(cfg Configuration) (*sql.DB, error) {
 		return nil, err
 	}
 
-	db, dbd, err := connectToPostgres(cfg.PostgresURL, cfg.OverrideDriverName)
+	db, dbd, err := connectToPostgres(dbURL, cfg.OverrideDriverName)
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to Postgres: %w", err)
 	}
@@ -112,11 +108,11 @@ func Connect(cfg Configuration) (*sql.DB, error) {
 
 var dbNotExistErrRx = regexp.MustCompile(`^pq: database "([^"]+)" does not exist$`)
 
-func connectToPostgres(url *net_url.URL, driverName string) (*sql.DB, database.Driver, error) {
+func connectToPostgres(dbURL url.URL, driverName string) (*sql.DB, database.Driver, error) {
 	if driverName == "" {
 		driverName = "postgres"
 	}
-	db, err := sql.Open(driverName, url.String())
+	db, err := sql.Open(driverName, dbURL.String())
 	if err == nil {
 		// apparently the "database does not exist" error only occurs when trying to issue the first statement
 		_, err = db.Exec("SELECT 1")
@@ -135,7 +131,7 @@ func connectToPostgres(url *net_url.URL, driverName string) (*sql.DB, database.D
 
 	// connect to Postgres without the database name specified, so that we can
 	// execute CREATE DATABASE
-	urlWithoutDB := *url
+	urlWithoutDB := dbURL
 	urlWithoutDB.Path = "/"
 	db2, err := sql.Open(driverName, urlWithoutDB.String())
 	if err == nil {
@@ -151,7 +147,7 @@ func connectToPostgres(url *net_url.URL, driverName string) (*sql.DB, database.D
 	}
 
 	// now the actual database is there and we can connect to it
-	db, err = sql.Open(driverName, url.String())
+	db, err = sql.Open(driverName, dbURL.String())
 	if err != nil {
 		return nil, nil, err
 	}

@@ -20,11 +20,10 @@
 package keppel
 
 import (
-	"net/url"
+	"database/sql"
 
 	"github.com/go-gorp/gorp/v3"
 	"github.com/sapcc/go-bits/easypg"
-	"github.com/sapcc/go-bits/logg"
 
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -349,21 +348,19 @@ func (db *DB) SelectBool(query string, args ...any) (bool, error) {
 	return result, err
 }
 
-// InitDB connects to the Postgres database.
-func InitDB(dbURL *url.URL) (*DB, error) {
-	logg.Debug("initializing DB connection...")
-
-	db, err := easypg.Connect(easypg.Configuration{
-		PostgresURL: dbURL,
-		Migrations:  sqlMigrations,
-	})
-	if err != nil {
-		return nil, err
+// Configuration returns the easypg.Configuration object that func main() needs to initialize the DB connection.
+func DBConfiguration() easypg.Configuration {
+	return easypg.Configuration{
+		Migrations: sqlMigrations,
 	}
-	// ensure that this process does not starve other Keppel processes for DB connections
-	db.SetMaxOpenConns(16)
+}
 
-	result := &DB{DbMap: gorp.DbMap{Db: db, Dialect: gorp.PostgresDialect{}}}
+// InitORM wraps a database connection into a gorp.DbMap instance.
+func InitORM(dbConn *sql.DB) *DB {
+	// ensure that this process does not starve other Keppel processes for DB connections
+	dbConn.SetMaxOpenConns(16)
+
+	result := &DB{DbMap: gorp.DbMap{Db: dbConn, Dialect: gorp.PostgresDialect{}}}
 	result.DbMap.AddTableWithName(models.Account{}, "accounts").SetKeys(false, "name")
 	result.DbMap.AddTableWithName(models.Blob{}, "blobs").SetKeys(true, "id")
 	result.DbMap.AddTableWithName(models.Upload{}, "uploads").SetKeys(false, "repo_id", "uuid")
@@ -378,5 +375,5 @@ func InitDB(dbURL *url.URL) (*DB, error) {
 	result.DbMap.AddTableWithName(models.UnknownManifest{}, "unknown_manifests").SetKeys(false, "account_name", "repo_name", "digest")
 	result.DbMap.AddTableWithName(models.TrivySecurityInfo{}, "trivy_security_info").SetKeys(false, "repo_id", "digest")
 
-	return result, nil
+	return result
 }

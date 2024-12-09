@@ -212,16 +212,10 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		apiPublicHostname = "registry.example.org"
 	}
 
-	// suitable for use with ./testing/with-postgres-db.sh
-	postgresURL := fmt.Sprintf("postgres://postgres:postgres@localhost:54321/%s?sslmode=disable", dbName)
-
 	// build keppel.Configuration
-	dbURL, err := url.Parse(postgresURL)
-	mustDo(t, err)
 	s := Setup{
 		Config: keppel.Configuration{
 			APIPublicHostname: apiPublicHostname,
-			DatabaseURL:       dbURL,
 		},
 		Ctx:        context.Background(),
 		Registry:   prometheus.NewPedanticRegistry(),

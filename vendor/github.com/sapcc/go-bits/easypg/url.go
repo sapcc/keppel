@@ -46,23 +46,24 @@ var osHostname = os.Hostname
 // URLFrom constructs a libpq connection URL from the provided parts. The parts
 // are typically retrieved from environment variables, for example:
 //
-//	cfg.PostgresURL = easypg.URLFrom(easypg.URLParts {
+//	dbURL := must.Return(easypg.URLFrom(easypg.URLParts {
 //		HostName:          osext.GetenvOrDefault("FOOBAR_DB_HOSTNAME", "localhost"),
 //		Port:              osext.GetenvOrDefault("FOOBAR_DB_PORT", "5432"),
 //		UserName:          osext.GetenvOrDefault("FOOBAR_DB_USERNAME", "postgres"),
 //		Password:          os.Getenv("FOOBAR_DB_PASSWORD"),
 //		ConnectionOptions: os.Getenv("FOOBAR_DB_CONNECTION_OPTIONS"),
 //		DatabaseName:      osext.GetenvOrDefault("FOOBAR_DB_NAME", "foobar"),
-//	})
+//	}))
+//	db := must.Return(easypg.Connect(dbURL, easypg.Configuration{ ... }))
 //
 // We provide URLFrom() as a separate function, instead of just putting the
 // fields of URLParts into the Configuration struct, to accommodate applications
 // that may want to accept a fully-formed postgres:// URL from outside instead
 // of building it up from individual parts.
-func URLFrom(parts URLParts) (*url.URL, error) {
+func URLFrom(parts URLParts) (url.URL, error) {
 	connOpts, err := url.ParseQuery(parts.ConnectionOptions)
 	if err != nil {
-		return nil, fmt.Errorf("cannot parse DB connection options (%q): %w", parts.ConnectionOptions, err)
+		return url.URL{}, fmt.Errorf("cannot parse DB connection options (%q): %w", parts.ConnectionOptions, err)
 	}
 
 	hostname, err := osHostname()
@@ -92,5 +93,5 @@ func URLFrom(parts URLParts) (*url.URL, error) {
 		result.Host = net.JoinHostPort(parts.HostName, parts.Port)
 	}
 
-	return &result, nil
+	return result, nil
 }
