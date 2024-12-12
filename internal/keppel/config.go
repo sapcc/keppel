@@ -87,15 +87,16 @@ func ParseIssuerKey(in string) (crypto.PrivateKey, error) {
 }
 
 // GetDatabaseURLFromEnvironment reads the KEPPEL_DB_* environment variables.
-func GetDatabaseURLFromEnvironment() (dbURL url.URL) {
+func GetDatabaseURLFromEnvironment() (dbURL url.URL, dbName string) {
+	dbName = osext.GetenvOrDefault("KEPPEL_DB_NAME", "keppel")
 	return must.Return(easypg.URLFrom(easypg.URLParts{
 		HostName:          osext.GetenvOrDefault("KEPPEL_DB_HOSTNAME", "localhost"),
 		Port:              osext.GetenvOrDefault("KEPPEL_DB_PORT", "5432"),
 		UserName:          osext.GetenvOrDefault("KEPPEL_DB_USERNAME", "postgres"),
 		Password:          os.Getenv("KEPPEL_DB_PASSWORD"),
 		ConnectionOptions: os.Getenv("KEPPEL_DB_CONNECTION_OPTIONS"),
-		DatabaseName:      osext.GetenvOrDefault("KEPPEL_DB_NAME", "keppel"),
-	}))
+		DatabaseName:      dbName,
+	})), dbName
 }
 
 // ParseConfiguration obtains a keppel.Configuration instance from the

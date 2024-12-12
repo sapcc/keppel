@@ -57,9 +57,9 @@ func run(cmd *cobra.Command, args []string) {
 	ctx := httpext.ContextWithSIGINT(cmd.Context(), 10*time.Second)
 	auditor := must.Return(keppel.InitAuditTrail(ctx))
 
-	dbURL := keppel.GetDatabaseURLFromEnvironment()
+	dbURL, dbName := keppel.GetDatabaseURLFromEnvironment()
 	dbConn := must.Return(easypg.Connect(dbURL, keppel.DBConfiguration()))
-	prometheus.MustRegister(sqlstats.NewStatsCollector("keppel", dbConn))
+	prometheus.MustRegister(sqlstats.NewStatsCollector(dbName, dbConn))
 	db := keppel.InitORM(dbConn)
 
 	ad := must.Return(keppel.NewAuthDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_AUTH"), nil))
