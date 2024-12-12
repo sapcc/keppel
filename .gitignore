@@ -6,11 +6,9 @@ build/
 privkey.pem
 
 # testing artifacts
+/.testdb
 report.html
 testing/conformance-test/storage/
-testing/postgresql-data/
-testing/postgresql-run/
-testing/postgresql.log
 *.actual
 /*.json
 !*/fixtures/*.json

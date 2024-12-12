@@ -30,6 +30,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/cors"
+	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httpapi/pprofapi"
 	"github.com/sapcc/go-bits/httpext"
@@ -66,15 +67,17 @@ func run(cmd *cobra.Command, args []string) {
 	ctx := httpext.ContextWithSIGINT(cmd.Context(), 10*time.Second)
 	auditor := must.Return(keppel.InitAuditTrail(ctx))
 
-	db := must.Return(keppel.InitDB(cfg.DatabaseURL))
+	dbURL, dbName := keppel.GetDatabaseURLFromEnvironment()
+	dbConn := must.Return(easypg.Connect(dbURL, keppel.DBConfiguration()))
+	prometheus.MustRegister(sqlstats.NewStatsCollector(dbName, dbConn))
+	db := keppel.InitORM(dbConn)
 	must.Succeed(setupDBIfRequested(db))
+
 	rc := must.Return(initRedis())
 	ad := must.Return(keppel.NewAuthDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_AUTH"), rc))
 	fd := must.Return(keppel.NewFederationDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_FEDERATION"), ad, cfg))
 	sd := must.Return(keppel.NewStorageDriver(osext.MustGetenv("KEPPEL_DRIVER_STORAGE"), ad, cfg))
 	icd := must.Return(keppel.NewInboundCacheDriver(ctx, osext.MustGetenv("KEPPEL_DRIVER_INBOUND_CACHE"), cfg))
-
-	prometheus.MustRegister(sqlstats.NewStatsCollector("keppel", db.DbMap.Db))
 
 	rle := (*keppel.RateLimitEngine)(nil)
 	if rc != nil {

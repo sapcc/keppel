@@ -23,9 +23,15 @@ import (
 
 	"github.com/go-gorp/gorp/v3"
 
+	"github.com/sapcc/go-bits/easypg"
+
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
 )
+
+func TestMain(m *testing.M) {
+	easypg.WithTestDB(m, func() int { return m.Run() })
+}
 
 var (
 	// only for use with .MustUpload()
