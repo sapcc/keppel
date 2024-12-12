@@ -12,7 +12,7 @@ require (
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/gofrs/uuid/v5 v5.3.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
-	github.com/gophercloud/gophercloud/v2 v2.2.0
+	github.com/gophercloud/gophercloud/v2 v2.3.0
 	github.com/gorilla/mux v1.8.1
 	github.com/majewsky/schwift/v2 v2.0.0
 	github.com/opencontainers/go-digest v1.0.0
@@ -21,7 +21,7 @@ require (
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/rs/cors v1.11.1
 	github.com/sapcc/go-api-declarations v1.13.1
-	github.com/sapcc/go-bits v0.0.0-20241206132118-f18a227dc952
+	github.com/sapcc/go-bits v0.0.0-20241212130022-38bc9c40e54d
 	github.com/spf13/cobra v1.8.1
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.6.0

@@ -200,28 +200,15 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	}
 
 	// choose identity
-	var (
-		dbName            string
-		apiPublicHostname string
-	)
+	apiPublicHostname := "registry.example.org"
 	if params.IsSecondary {
-		dbName = "keppel_secondary"
 		apiPublicHostname = "registry-secondary.example.org"
-	} else {
-		dbName = "keppel"
-		apiPublicHostname = "registry.example.org"
 	}
 
-	// suitable for use with ./testing/with-postgres-db.sh
-	postgresURL := fmt.Sprintf("postgres://postgres:postgres@localhost:54321/%s?sslmode=disable", dbName)
-
 	// build keppel.Configuration
-	dbURL, err := url.Parse(postgresURL)
-	mustDo(t, err)
 	s := Setup{
 		Config: keppel.Configuration{
 			APIPublicHostname: apiPublicHostname,
-			DatabaseURL:       dbURL,
 		},
 		Ctx:        context.Background(),
 		Registry:   prometheus.NewPedanticRegistry(),
@@ -259,31 +246,16 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	}
 
 	// connect to DB
-	s.DB, err = keppel.InitDB(s.Config.DatabaseURL)
-	if err != nil {
-		t.Error(err)
-		t.Log("Try prepending ./testing/with-postgres-db.sh to your command.")
-		t.FailNow()
+	dbOpts := []easypg.TestSetupOption{
+		// manifest_manifest_refs needs a specialized cleanup strategy because of an "ON DELETE RESTRICT" constraint
+		easypg.ClearContentsWith(`DELETE FROM manifest_manifest_refs WHERE parent_digest NOT IN (SELECT child_digest FROM manifest_manifest_refs)`),
+		easypg.ClearTables("manifest_blob_refs", "accounts", "peers", "quotas"),
+		easypg.ResetPrimaryKeys("blobs", "repos"),
 	}
-
-	// wipe the DB clean if there are any leftovers from the previous test run,
-	// starting with the manifest_manifest_refs table (this table's foreign-key
-	// constraints are so entangled that any attempt to cascade a deletion from
-	// higher up in the hierarchy will run into some ON DELETE RESTRICT
-	// constraints and fail)
-	for {
-		result, err := s.DB.Exec(`DELETE FROM manifest_manifest_refs WHERE parent_digest NOT IN (SELECT child_digest FROM manifest_manifest_refs)`)
-		mustDo(t, err)
-		rowsDeleted, err := result.RowsAffected()
-		mustDo(t, err)
-		if rowsDeleted == 0 {
-			break
-		}
+	if params.IsSecondary {
+		dbOpts = append(dbOpts, easypg.OverrideDatabaseName(t.Name()+"_secondary"))
 	}
-
-	// wipe the DB clean if there are any leftovers from the previous test run
-	easypg.ClearTables(t, s.DB.Db, "manifest_blob_refs", "accounts", "peers", "quotas")
-	easypg.ResetPrimaryKeys(t, s.DB.Db, "blobs", "repos")
+	s.DB = keppel.InitORM(easypg.ConnectForTest(t, keppel.DBConfiguration(), dbOpts...))
 
 	// setup anycast if requested
 	if params.WithAnycast {

@@ -26,12 +26,17 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/easypg"
 
 	"github.com/sapcc/keppel/internal/drivers/trivial"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
 )
+
+func TestMain(m *testing.M) {
+	easypg.WithTestDB(m, func() int { return m.Run() })
+}
 
 var (
 	currentlyWithAnycast bool

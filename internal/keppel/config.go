@@ -45,7 +45,6 @@ import (
 type Configuration struct {
 	APIPublicHostname        string
 	AnycastAPIPublicHostname string
-	DatabaseURL              *url.URL
 	JWTIssuerKeys            []crypto.PrivateKey
 	AnycastJWTIssuerKeys     []crypto.PrivateKey
 	Trivy                    *trivy.Config
@@ -87,6 +86,18 @@ func ParseIssuerKey(in string) (crypto.PrivateKey, error) {
 	return nil, fmt.Errorf("neither an ed25519 private key (%q) nor an RSA private key (%q)", err1.Error(), err2.Error())
 }
 
+// GetDatabaseURLFromEnvironment reads the KEPPEL_DB_* environment variables.
+func GetDatabaseURLFromEnvironment() (dbURL url.URL) {
+	return must.Return(easypg.URLFrom(easypg.URLParts{
+		HostName:          osext.GetenvOrDefault("KEPPEL_DB_HOSTNAME", "localhost"),
+		Port:              osext.GetenvOrDefault("KEPPEL_DB_PORT", "5432"),
+		UserName:          osext.GetenvOrDefault("KEPPEL_DB_USERNAME", "postgres"),
+		Password:          os.Getenv("KEPPEL_DB_PASSWORD"),
+		ConnectionOptions: os.Getenv("KEPPEL_DB_CONNECTION_OPTIONS"),
+		DatabaseName:      osext.GetenvOrDefault("KEPPEL_DB_NAME", "keppel"),
+	}))
+}
+
 // ParseConfiguration obtains a keppel.Configuration instance from the
 // corresponding environment variables. Aborts on error.
 func ParseConfiguration() Configuration {
@@ -96,14 +107,6 @@ func ParseConfiguration() Configuration {
 		APIPublicHostname:        osext.MustGetenv("KEPPEL_API_PUBLIC_FQDN"),
 		AnycastAPIPublicHostname: os.Getenv("KEPPEL_API_ANYCAST_FQDN"),
 	}
-	cfg.DatabaseURL = must.Return(easypg.URLFrom(easypg.URLParts{
-		HostName:          osext.GetenvOrDefault("KEPPEL_DB_HOSTNAME", "localhost"),
-		Port:              osext.GetenvOrDefault("KEPPEL_DB_PORT", "5432"),
-		UserName:          osext.GetenvOrDefault("KEPPEL_DB_USERNAME", "postgres"),
-		Password:          os.Getenv("KEPPEL_DB_PASSWORD"),
-		ConnectionOptions: os.Getenv("KEPPEL_DB_CONNECTION_OPTIONS"),
-		DatabaseName:      osext.GetenvOrDefault("KEPPEL_DB_NAME", "keppel"),
-	}))
 
 	parseIssuerKeys := func(prefix string) []crypto.PrivateKey {
 		key, err := ParseIssuerKey(osext.MustGetenv(prefix + "_ISSUER_KEY"))
