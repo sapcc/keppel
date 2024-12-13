@@ -184,6 +184,7 @@ type TestSetupOption func(*testSetupParams)
 
 // ClearContentsWith is a TestSetupOption that removes records from the DB using the provided SQL statement.
 // If provided, this runs directly after connecting, before any other setup phase.
+// The provided SQL statement is executed repeatedly, until result.RowsAffected() == 0 is observed.
 //
 // Prefer ClearTables() over this, and only use this if ClearTables() does not work.
 func ClearContentsWith(sqlStatement string) TestSetupOption {
@@ -268,9 +269,18 @@ func ConnectForTest(t *testing.T, cfg Configuration, opts ...TestSetupOption) *s
 
 	// execute ClearContentsWith() setup options, if any
 	for _, sqlStatement := range params.sqlStatementsForClear {
-		_, err := db.Exec(sqlStatement)
-		if err != nil {
-			t.Fatalf("while clearing contents with %q: %s", sqlStatement, err.Error())
+		for {
+			result, err := db.Exec(sqlStatement)
+			if err != nil {
+				t.Fatalf("while clearing contents with %q: %s", sqlStatement, err.Error())
+			}
+			rowCount, err := result.RowsAffected()
+			if err != nil {
+				t.Fatalf("while clearing contents with %q: %s", sqlStatement, err.Error())
+			}
+			if rowCount == 0 {
+				break
+			}
 		}
 	}
 
