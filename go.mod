@@ -3,7 +3,7 @@ module github.com/sapcc/keppel
 go 1.23
 
 require (
-	github.com/alicebob/miniredis/v2 v2.33.0
+	github.com/alicebob/miniredis/v2 v2.34.0
 	github.com/aquasecurity/trivy v0.58.0
 	github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
 	github.com/dlmiddlecote/sqlstats v1.0.2
@@ -12,7 +12,7 @@ require (
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/gofrs/uuid/v5 v5.3.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
-	github.com/gophercloud/gophercloud/v2 v2.3.0
+	github.com/gophercloud/gophercloud/v2 v2.4.0
 	github.com/gorilla/mux v1.8.1
 	github.com/majewsky/schwift/v2 v2.0.0
 	github.com/opencontainers/go-digest v1.0.0
