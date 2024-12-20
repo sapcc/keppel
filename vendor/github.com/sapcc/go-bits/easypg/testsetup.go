@@ -95,6 +95,14 @@ func WithTestDB(m *testing.M, action func() int) int {
 		}
 	}
 
+	// check if a previous connection is still lingering
+	if _, err := os.Stat(filepath.Join(rootPath, ".testdb/run/pid")); err == nil {
+		err := stopDatabaseServer(rootPath)
+		if err != nil {
+			logg.Error(err.Error())
+		}
+	}
+
 	// drop helper scripts that can be used to attach to the test DB for manual debugging and inspection
 	for _, clientTool := range []string{"psql", "pgcli", "pg_dump"} {
 		path := filepath.Join(rootPath, ".testdb", clientTool+".sh")
@@ -121,18 +129,26 @@ func WithTestDB(m *testing.M, action func() int) int {
 	hasTestDB = false
 
 	// stop database process (regardless of whether tests succeeded or failed!)
-	cmd = exec.Command("pg_ctl", "stop", "--wait", "--silent", //nolint:gosec // rule G204 is overly broad
+	err = stopDatabaseServer(rootPath)
+	if err != nil {
+		logg.Fatal(err.Error())
+	}
+
+	return exitCode
+}
+
+func stopDatabaseServer(rootPath string) error {
+	cmd := exec.Command("pg_ctl", "stop", "--wait", "--silent", //nolint:gosec // rule G204 is overly broad
 		"-D", filepath.Join(rootPath, ".testdb/datadir"),
 	)
 	cmd.Stdin = nil
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	err = cmd.Run()
+	err := cmd.Run()
 	if err != nil {
-		logg.Fatal("could not run pg_ctl stop: %s", err.Error())
+		return fmt.Errorf("could not run pg_ctl stop: %w", err)
 	}
-
-	return exitCode
+	return nil
 }
 
 func findRepositoryRootDir() (string, error) {
