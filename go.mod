@@ -4,7 +4,7 @@ go 1.23
 
 require (
 	github.com/alicebob/miniredis/v2 v2.34.0
-	github.com/aquasecurity/trivy v0.58.0
+	github.com/aquasecurity/trivy v0.58.1
 	github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/docker/distribution v2.8.3+incompatible
@@ -30,7 +30,7 @@ require (
 
 require (
 	github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302 // indirect
-	github.com/aquasecurity/trivy-db v0.0.0-20241120092622-333d808d7e45 // indirect
+	github.com/aquasecurity/trivy-db v0.0.0-20241209111357-8c398f13db0e // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
