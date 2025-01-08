@@ -32,7 +32,7 @@ testing/conformance-test/privkey.pem:
 # (see env.sh mentioned below) will be pre-configured and ready to use for the test run.
 run-api-for-conformance-test: build/keppel testing/conformance-test/privkey.pem
 	@echo "Ready to run conformance test"
-	set -euo pipefail && source testing/conformance-test/env.sh && $(CURDIR)/build/keppel server api
+	set -euo pipefail && source testing/conformance-test/env.sh && testing/conformance-test/with-postgres-db.sh $(CURDIR)/build/keppel server api
 
 install-golangci-lint: FORCE
 	@if ! hash golangci-lint 2>/dev/null; then printf "\e[1;36m>> Installing golangci-lint (this may take a while)...\e[0m\n"; go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; fi

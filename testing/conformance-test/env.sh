@@ -1,5 +1,5 @@
 export KEPPEL_API_PUBLIC_FQDN=localhost
-export KEPPEL_ISSUER_KEY=./testing/conformance-test/privkey.pem
+export KEPPEL_ISSUER_KEY=./conformance-test/privkey.pem
 export KEPPEL_DB_CONNECTION_OPTIONS=sslmode=disable
 export KEPPEL_DB_PASSWORD=mysecretpassword
 export KEPPEL_DB_PORT=54321
@@ -10,7 +10,7 @@ export KEPPEL_DRIVER_AUTH=trivial
 export KEPPEL_DRIVER_FEDERATION=trivial
 export KEPPEL_DRIVER_INBOUND_CACHE=trivial
 export KEPPEL_DRIVER_STORAGE=filesystem
-export KEPPEL_FILESYSTEM_PATH=./testing/conformance-test/storage
+export KEPPEL_FILESYSTEM_PATH=./conformance-test/storage
 
 # clean out the backing storage from the previous run (the `test -d` is a
 # safety net to ensure that we don't delete something unintended by accident)
