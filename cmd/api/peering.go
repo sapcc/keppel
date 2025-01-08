@@ -23,12 +23,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/must"
+	"github.com/sapcc/go-bits/osext"
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -50,7 +50,7 @@ func runPeering(ctx context.Context, cfg keppel.Configuration, db *keppel.DB) {
 	isPeerHostName := make(map[string]bool)
 
 	var peeringCfg peeringConfig
-	decoder := json.NewDecoder(strings.NewReader(os.Getenv("KEPPEL_PEERS")))
+	decoder := json.NewDecoder(strings.NewReader(osext.GetenvOrDefault("KEPPEL_PEERS", "[]")))
 	decoder.DisallowUnknownFields()
 	must.Succeed(decoder.Decode(&peeringCfg))
 
