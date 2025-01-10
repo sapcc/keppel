@@ -19,13 +19,16 @@
 package easypg
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	url "net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -255,7 +258,7 @@ func OverrideDatabaseName(dbName string) TestSetupOption {
 //
 // Each test will run in its own separate database (whose name is the same as the test name),
 // so it is safe to mark tests as t.Parallel() to run multiple tests within the same package concurrently.
-func ConnectForTest(t *testing.T, cfg Configuration, opts ...TestSetupOption) *sql.DB {
+func ConnectForTest(t TestingT, cfg Configuration, opts ...TestSetupOption) *sql.DB {
 	t.Helper()
 
 	var params testSetupParams
@@ -269,11 +272,11 @@ func ConnectForTest(t *testing.T, cfg Configuration, opts ...TestSetupOption) *s
 	}
 
 	// connect to DB (the database name is set to the test name to isolate concurrent tests from each other)
-	dbName := t.Name()
+	dbName := normalizeDBName(t.Name())
 	if params.databaseName != "" {
-		dbName = params.databaseName
+		dbName = normalizeDBName(params.databaseName)
 	}
-	dbURLStr := fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/%s?sslmode=disable", testDBPort, strings.ToLower(dbName))
+	dbURLStr := fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/%s?sslmode=disable", testDBPort, dbName)
 	dbURL, err := url.Parse(dbURLStr)
 	if err != nil {
 		t.Fatalf("malformed database URL %q: %s", dbURLStr, err.Error())
@@ -345,4 +348,42 @@ func ConnectForTest(t *testing.T, cfg Configuration, opts ...TestSetupOption) *s
 	}
 
 	return db
+}
+
+var dbNameForbiddenCharsRx = regexp.MustCompile(`[^a-z0-9_]+`)
+
+func normalizeDBName(input string) string {
+	input = strings.ToLower(input)
+
+	// With regular Go tests, the test names are function identifiers, and these work well as DB names too.
+	// But in Ginkgo, the test names are built from all the context around it. For example:
+	//
+	//	var _ = Describe("ObjectManager", func() {
+	//		When("stuff happens", func() {
+	//			It("does a thing", func() {
+	//				fmt.Println(GinkgoT().Name())
+	//			})
+	//		})
+	//	})
+	//
+	// This will report a test name of "ObjectManager when stuff happens does a thing".
+	// Whitespace (as well as most special characters) are forbidden in database names,
+	// so we need to normalize this quite a bit more.
+	input = dbNameForbiddenCharsRx.ReplaceAllString(input, "_")
+
+	// In heavily nested Ginkgo test suites, test names can therefore also be very long.
+	// When the max length for Postgres DB names is exceeded, we need to truncate while maintaining uniqueness.
+	const (
+		maxLength  = 63
+		hashLength = 8
+	)
+	if len(input) > maxLength {
+		hash := sha256.Sum256([]byte(input))
+		return fmt.Sprintf("%s_%s",
+			strings.ToValidUTF8(input[0:(maxLength-hashLength-1)], ""), // the first 63-(N+1) chars of the test name
+			hex.EncodeToString(hash[:])[0:hashLength],                  // N chars of hash
+		)
+	}
+
+	return input
 }

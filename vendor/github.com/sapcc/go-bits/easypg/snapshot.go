@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"testing"
 	"time"
 )
 
@@ -54,7 +53,7 @@ const (
 	`
 )
 
-func newDBSnapshot(t *testing.T, db *sql.DB) dbSnapshot {
+func newDBSnapshot(t TestingT, db *sql.DB) dbSnapshot {
 	t.Helper()
 
 	// list all tables
@@ -164,7 +163,7 @@ type tableSnapshot struct {
 	Rows map[string]rowSnapshot
 }
 
-func newTableSnapshot(t *testing.T, db *sql.DB, tableName string, keyColumnNames []string, columnDefaults map[string]string) tableSnapshot {
+func newTableSnapshot(t TestingT, db *sql.DB, tableName string, keyColumnNames []string, columnDefaults map[string]string) tableSnapshot {
 	t.Helper()
 
 	rows, err := db.Query(`SELECT * FROM ` + tableName) //nolint:gosec // cannot provide tableName as bind parameter
@@ -333,7 +332,7 @@ func (s *sqlValueSerializer) Scan(src any) error {
 
 var sqlExpressionCache = make(map[string]sqlValueSerializer)
 
-func computeValueOfSQLExpression(t *testing.T, db *sql.DB, expr string) (result sqlValueSerializer) {
+func computeValueOfSQLExpression(t TestingT, db *sql.DB, expr string) (result sqlValueSerializer) {
 	t.Helper()
 
 	result, exists := sqlExpressionCache[expr]

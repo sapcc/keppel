@@ -125,7 +125,7 @@ type standardAuditor struct {
 
 // NewAuditor builds an Auditor connected to a RabbitMQ instance, using the provided configuration.
 func NewAuditor(ctx context.Context, opts AuditorOpts) (Auditor, error) {
-	// validate provided options
+	// validate provided options (EnvPrefix, ConnectionURL and QueueName are checked later in getConnectionOptions())
 	if opts.Observer.TypeURI == "" {
 		return nil, errors.New("missing required value: AuditorOpts.Observer.TypeURI")
 	}
@@ -134,9 +134,6 @@ func NewAuditor(ctx context.Context, opts AuditorOpts) (Auditor, error) {
 	}
 	if opts.Observer.ID == "" {
 		return nil, errors.New("missing required value: AuditorOpts.Observer.ID")
-	}
-	if opts.EnvPrefix == "" {
-		return nil, errors.New("missing required value: AuditorOpts.EnvPrefix")
 	}
 
 	// register Prometheus metrics
