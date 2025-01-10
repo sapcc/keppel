@@ -27,15 +27,22 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"testing"
 
 	"github.com/sapcc/go-bits/osext"
 )
 
+// TestingT is implemented by *testing.T, and also satisfied by ginkgo.GinkgoT().
+type TestingT interface {
+	Fatal(args ...any)
+	Fatalf(format string, args ...any)
+	Helper()
+	Name() string
+}
+
 // AssertDBContent makes a dump of the database contents (as a sequence of
 // INSERT statements) and runs diff(1) against the given file, producing a test
 // error if these two are different from each other.
-func AssertDBContent(t *testing.T, db *sql.DB, fixtureFile string) {
+func AssertDBContent(t TestingT, db *sql.DB, fixtureFile string) {
 	t.Helper()
 	_, a := NewTracker(t, db)
 	a.AssertEqualToFile(fixtureFile)
@@ -44,7 +51,7 @@ func AssertDBContent(t *testing.T, db *sql.DB, fixtureFile string) {
 // Tracker keeps a copy of the database contents and allows for checking the
 // database contents (or changes made to them) during tests.
 type Tracker struct {
-	t    *testing.T
+	t    TestingT
 	db   *sql.DB
 	snap dbSnapshot
 }
@@ -56,7 +63,7 @@ type Tracker struct {
 // desired to assert on the full DB contents when creating the tracker. Calling
 // Tracker.DBContent() directly after NewTracker() would do a useless second
 // snapshot.
-func NewTracker(t *testing.T, db *sql.DB) (*Tracker, Assertable) {
+func NewTracker(t TestingT, db *sql.DB) (*Tracker, Assertable) {
 	t.Helper()
 	snap := newDBSnapshot(t, db)
 	return &Tracker{t, db, snap}, Assertable{t, snap.ToSQL(nil)}
@@ -84,7 +91,7 @@ func (t *Tracker) DBChanges() Assertable {
 // Assertable contains a set of SQL statements. Instances are produced by
 // methods on type Tracker.
 type Assertable struct {
-	t       *testing.T
+	t       TestingT
 	payload string
 }
 
@@ -165,7 +172,7 @@ func (a Assertable) AssertEmpty() {
 func (a Assertable) Ignore() {
 }
 
-func failOnErr(t *testing.T, err error) {
+func failOnErr(t TestingT, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err)

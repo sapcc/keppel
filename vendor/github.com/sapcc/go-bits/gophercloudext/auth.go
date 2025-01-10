@@ -18,7 +18,8 @@
 *******************************************************************************/
 
 // Package gophercloudext contains convenience functions for use with [Gophercloud].
-// It is specifically intended as a lightweight replacement for [gophercloud/utils] with fewer dependencies.
+// Its func NewProviderClient is specifically intended as a lightweight replacement for [gophercloud/utils] with fewer dependencies,
+// but there are also other generalized utility functions.
 //
 // [Gophercloud]: https://github.com/gophercloud/gophercloud
 // [gophercloud/utils]: https://github.com/gophercloud/utils
