@@ -51,7 +51,7 @@ jobs:
       - name: Run tests and generate coverage report
         run: |
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-          sudo apt-get install --no-install-recommends postgresql-17
+          sudo apt-get install -y --no-install-recommends postgresql-17
           export PATH=/usr/lib/postgresql/17/bin:$PATH
           make build/cover.out
       - name: Upload coverage report to Coveralls
