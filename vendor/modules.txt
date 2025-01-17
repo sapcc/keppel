@@ -17,29 +17,38 @@ github.com/beorn7/perks/quantile
 # github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
+# github.com/containers/image/v5 v5.33.1
+## explicit; go 1.22.6
+github.com/containers/image/v5/docker/reference
+github.com/containers/image/v5/internal/manifest
+github.com/containers/image/v5/internal/pkg/platform
+github.com/containers/image/v5/internal/set
+github.com/containers/image/v5/manifest
+github.com/containers/image/v5/pkg/compression/internal
+github.com/containers/image/v5/pkg/compression/types
+github.com/containers/image/v5/pkg/strslice
+github.com/containers/image/v5/types
+# github.com/containers/libtrust v0.0.0-20230121012942-c1716e8a8d01
+## explicit
+github.com/containers/libtrust
+# github.com/containers/ocicrypt v1.2.0
+## explicit; go 1.21
+github.com/containers/ocicrypt/spec
+# github.com/containers/storage v1.56.1
+## explicit; go 1.22.0
+github.com/containers/storage/pkg/regexp
 # github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
 ## explicit; go 1.16
 github.com/databus23/goslo.policy
-# github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-## explicit
 # github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f
 ## explicit
 github.com/dgryski/go-rendezvous
-# github.com/distribution/reference v0.6.0
-## explicit; go 1.20
-github.com/distribution/reference
 # github.com/dlmiddlecote/sqlstats v1.0.2
 ## explicit; go 1.11
 github.com/dlmiddlecote/sqlstats
-# github.com/docker/distribution v2.8.3+incompatible
-## explicit
-github.com/docker/distribution
-github.com/docker/distribution/manifest
-github.com/docker/distribution/manifest/manifestlist
-github.com/docker/distribution/manifest/ocischema
-github.com/docker/distribution/manifest/schema2
 # github.com/docker/docker v27.5.0+incompatible
 ## explicit
+github.com/docker/docker/api/types/versions
 # github.com/go-gorp/gorp/v3 v3.1.0
 ## explicit; go 1.18
 github.com/go-gorp/gorp/v3
@@ -127,8 +136,6 @@ github.com/opencontainers/go-digest
 ## explicit; go 1.18
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
-## explicit
 # github.com/prometheus/client_golang v1.20.5
 ## explicit; go 1.20
 github.com/prometheus/client_golang/internal/github.com/golang/gddo/httputil
@@ -194,6 +201,9 @@ github.com/sapcc/go-bits/sqlext
 # github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3
 ## explicit; go 1.13
 github.com/sergi/go-diff/diffmatchpatch
+# github.com/sirupsen/logrus v1.9.3
+## explicit; go 1.13
+github.com/sirupsen/logrus
 # github.com/spf13/cobra v1.8.1
 ## explicit; go 1.15
 github.com/spf13/cobra
@@ -225,6 +235,9 @@ go.uber.org/automaxprocs/maxprocs
 ## explicit; go 1.20
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
+# golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
+## explicit; go 1.22.0
+golang.org/x/exp/maps
 # golang.org/x/sys v0.29.0
 ## explicit; go 1.18
 golang.org/x/sys/unix

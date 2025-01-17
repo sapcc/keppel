@@ -25,12 +25,12 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/docker/distribution/manifest/manifestlist"
+	imagespecs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // PlatformFilter appears in type Account. For replica accounts, it restricts
 // which submanifests get replicated when a list manifest is replicated.
-type PlatformFilter []manifestlist.PlatformSpec
+type PlatformFilter []imagespecs.Platform
 
 // Scan implements the sql.Scanner interface.
 func (f *PlatformFilter) Scan(src any) error {
@@ -46,7 +46,7 @@ func (f *PlatformFilter) Scan(src any) error {
 	}
 
 	// otherwise deserialize from JSON
-	var list []manifestlist.PlatformSpec
+	var list []imagespecs.Platform
 	err := json.Unmarshal([]byte(in), &list)
 	if err != nil {
 		return fmt.Errorf("cannot deserialize into PlatformFilter: %w", err)
@@ -68,7 +68,7 @@ func (f PlatformFilter) Value() (driver.Value, error) {
 }
 
 // Includes checks whether the given platform is included in this filter.
-func (f PlatformFilter) Includes(platform manifestlist.PlatformSpec) bool {
+func (f PlatformFilter) Includes(platform imagespecs.Platform) bool {
 	// default value: empty filter accepts everything
 	if len(f) == 0 {
 		return true

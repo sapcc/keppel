@@ -27,7 +27,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/distribution/manifest/schema2"
+	"github.com/containers/image/v5/manifest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sapcc/go-bits/httpext"
@@ -173,7 +173,7 @@ func (j *healthMonitorJob) UploadImage(ctx context.Context) (models.ManifestRefe
 	if err != nil {
 		return models.ManifestReference{}, err
 	}
-	digest, err := j.RepoClient.UploadManifest(ctx, []byte(minimalManifest), schema2.MediaTypeManifest, "latest")
+	digest, err := j.RepoClient.UploadManifest(ctx, []byte(minimalManifest), manifest.DockerV2Schema2MediaType, "latest")
 	return models.ManifestReference{Digest: digest}, err
 }
 

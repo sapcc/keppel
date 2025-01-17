@@ -28,8 +28,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/docker/distribution/manifest/manifestlist"
-	"github.com/docker/distribution/manifest/schema2"
+	"github.com/containers/image/v5/manifest"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/assert"
 
@@ -90,7 +89,7 @@ func GenerateExampleLayerSize(seed, sizeMiB int64) Bytes {
 	w.Write(buf) //nolint: errcheck
 	w.Close()
 
-	return newBytesWithMediaType(byteBuffer.Bytes(), schema2.MediaTypeLayer)
+	return newBytesWithMediaType(byteBuffer.Bytes(), manifest.DockerV2Schema2LayerMediaType)
 }
 
 // Image contains all the pieces of a Docker image. The Layers and Config must
@@ -195,7 +194,7 @@ func GenerateImageWithCustomConfig(change func(map[string]any), layers ...Bytes)
 	if err != nil {
 		panic(err.Error())
 	}
-	imageConfigBytesObj := newBytesWithMediaType(imageConfigBytes, schema2.MediaTypeImageConfig)
+	imageConfigBytesObj := newBytesWithMediaType(imageConfigBytes, manifest.DockerV2Schema2ConfigMediaType)
 
 	// build a manifest
 	layerDescs := []map[string]any{}
@@ -208,7 +207,7 @@ func GenerateImageWithCustomConfig(change func(map[string]any), layers ...Bytes)
 	}
 	manifestData := map[string]any{
 		"schemaVersion": 2,
-		"mediaType":     schema2.MediaTypeManifest,
+		"mediaType":     manifest.DockerV2Schema2MediaType,
 		"config": assert.JSONObject{
 			"mediaType": imageConfigBytesObj.MediaType,
 			"size":      len(imageConfigBytes),
@@ -224,7 +223,7 @@ func GenerateImageWithCustomConfig(change func(map[string]any), layers ...Bytes)
 	return Image{
 		Layers:   layers,
 		Config:   imageConfigBytesObj,
-		Manifest: newBytesWithMediaType(manifestBytes, schema2.MediaTypeManifest),
+		Manifest: newBytesWithMediaType(manifestBytes, manifest.DockerV2Schema2MediaType),
 	}
 }
 
@@ -281,7 +280,7 @@ func GenerateImageList(images ...Image) ImageList {
 
 	manifestListBytes, err := json.Marshal(map[string]any{
 		"schemaVersion": 2,
-		"mediaType":     manifestlist.MediaTypeManifestList,
+		"mediaType":     manifest.DockerV2ListMediaType,
 		"manifests":     manifestDescs,
 	})
 	if err != nil {
@@ -290,7 +289,7 @@ func GenerateImageList(images ...Image) ImageList {
 
 	return ImageList{
 		Images:   images,
-		Manifest: newBytesWithMediaType(manifestListBytes, manifestlist.MediaTypeManifestList),
+		Manifest: newBytesWithMediaType(manifestListBytes, manifest.DockerV2ListMediaType),
 	}
 }
 

@@ -24,8 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/distribution/manifest/manifestlist"
-	"github.com/docker/distribution/manifest/schema2"
+	"github.com/containers/image/v5/manifest"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
@@ -157,8 +156,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			expectStorageEmpty(t, s.SD, s.DB)
 			s.Auditor.ExpectEvents(t /*, nothing */)
 
-			// PUT failure case: cannot upload manifest if referenced blob is uploaded, but
-			// in the wrong repo
+			// PUT failure case: cannot upload manifest if referenced blob is uploaded, but in the wrong repo
 			image.Config.MustUpload(t, s, barRepoRef)
 			assert.HTTPRequest{
 				Method: "PUT",
@@ -192,7 +190,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			// PUT failure case: cannot upload manifest without Content-Type, or with
 			// a faulty Content-Type (defense against attacks like CVE-2021-41190)
-			for _, wrongMediaType := range []string{"", manifestlist.MediaTypeManifestList} {
+			for _, wrongMediaType := range []string{"", manifest.DockerV2ListMediaType} {
 				assert.HTTPRequest{
 					Method: "PUT",
 					Path:   "/v2/test1/foo/manifests/" + ref,
@@ -482,7 +480,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 			Path:   "/v2/test1/foo/manifests/" + list2.Manifest.Digest.String(),
 			Header: map[string]string{
 				"Authorization": "Bearer " + token,
-				"Accept":        schema2.MediaTypeManifest,
+				"Accept":        manifest.DockerV2Schema2MediaType,
 			},
 			ExpectStatus: http.StatusTemporaryRedirect,
 			ExpectHeader: map[string]string{
@@ -579,7 +577,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 			Path:   "/v2/test1/foo/manifests/latest",
 			Header: map[string]string{
 				"Authorization": "Bearer " + token,
-				"Content-Type":  schema2.MediaTypeManifest,
+				"Content-Type":  manifest.DockerV2Schema2MediaType,
 			},
 			Body:         assert.ByteData(image.Manifest.Contents),
 			ExpectStatus: http.StatusBadRequest,
@@ -605,7 +603,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 			Path:   "/v2/test1/foo/manifests/latest",
 			Header: map[string]string{
 				"Authorization": "Bearer " + token,
-				"Content-Type":  schema2.MediaTypeManifest,
+				"Content-Type":  manifest.DockerV2Schema2MediaType,
 			},
 			Body:         assert.ByteData(image.Manifest.Contents),
 			ExpectStatus: http.StatusCreated,
@@ -634,7 +632,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 			Path:   "/v2/test1/foo/manifests/list",
 			Header: map[string]string{
 				"Authorization": "Bearer " + token,
-				"Content-Type":  manifestlist.MediaTypeManifestList,
+				"Content-Type":  manifest.DockerV2ListMediaType,
 			},
 			Body:         assert.ByteData(list.Manifest.Contents),
 			ExpectStatus: http.StatusCreated,
