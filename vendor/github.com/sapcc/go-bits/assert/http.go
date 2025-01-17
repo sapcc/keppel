@@ -65,6 +65,25 @@ type HTTPRequest struct {
 // The HTTP response is returned, along with the response body. (resp.Body is
 // already exhausted when the function returns.) This is useful for tests that
 // want to do further checks on `resp` or want to use data from the response.
+//
+// Warning: This function does not work well in Ginkgo/Gomega because of how it logs output.
+// Please use httptest.Handler instead, which is much more suited to the Gomega style of assertions.
+// For example:
+//
+//	// instead of this...
+//	assert.HTTPRequest {
+//		Method:       "GET",
+//		Path:         "/v1/info",
+//		ExpectStatus: http.StatusOK,
+//		ExpectBody:   assert.JSONObject{"error_count": 0},
+//	}.Check(GinkgoT(), myHandler)
+//
+//	// ...do this
+//	h := httptest.NewHandler(myHandler)
+//	var info map[string]any
+//	resp := h.RespondTo(ctx, "GET /v1/info", httptest.ReceiveJSONInto(&info))
+//	Expect(resp).To(HaveHTTPStatus(http.StatusOK))
+//	Expect(info).To(Equal(map[string]any{"error_count": 0}))
 func (r HTTPRequest) Check(t *testing.T, handler http.Handler) (resp *http.Response, responseBody []byte) {
 	t.Helper()
 
