@@ -221,6 +221,8 @@ func (a *MockAuditor) Record(event Event) {
 
 // ExpectEvents checks that the recorded events are equivalent to the supplied expectation.
 // At the end of the call, the recording will be disposed, so the next ExpectEvents call will not check against the same events again.
+//
+// If you do not have a *testing.T (e.g. under Ginkgo), use func RecordedEvents instead.
 func (a *MockAuditor) ExpectEvents(t *testing.T, expectedEvents ...cadf.Event) {
 	t.Helper()
 	if len(expectedEvents) == 0 {
@@ -236,8 +238,19 @@ func (a *MockAuditor) ExpectEvents(t *testing.T, expectedEvents ...cadf.Event) {
 	a.events = nil
 }
 
+// RecordedEvents returns the list of recorded events.
+// At the end of the call, the recording will be disposed, so the next RecordedEvents call will not see the same events again.
+//
+// This is intended for use with test assertion libraries where ExpectEvents does not work
+// For Ginkgo/Gomega specifically, we recommend matching the event payloads with the gstruct submodule of gomega.
+func (a *MockAuditor) RecordedEvents() []cadf.Event {
+	result := a.events
+	a.events = nil
+	return result
+}
+
 // IgnoreEventsUntilNow clears the list of recorded events, so that the next
-// ExpectEvents() will only cover events generated after this point.
+// ExpectEvents() or RecordedEvents() will only cover events generated after this point.
 func (a *MockAuditor) IgnoreEventsUntilNow() {
 	a.events = nil
 }
