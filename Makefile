@@ -130,6 +130,10 @@ check-dependency-licenses: FORCE install-go-licence-detector
 	@printf "\e[1;36m>> go-licence-detector\e[0m\n"
 	@go list -m -mod=readonly -json all | go-licence-detector -includeIndirect -rules .license-scan-rules.json -overrides .license-scan-overrides.jsonl
 
+goimports: FORCE
+	@printf "\e[1;36m>> goimports -w -local https://github.com/sapcc/keppel\e[0m\n"
+	@goimports -w -local https://github.com/sapcc/keppel internal/ $(patsubst $(shell awk '$$1 == "module" {print $$2}' go.mod)%,.%/*.go,$(shell go list ./...))
+
 clean: FORCE
 	git clean -dxf build
 
@@ -179,6 +183,7 @@ help: FORCE
 	@printf "  \e[36mlicense-headers\e[0m              Add license headers to all non-vendored source code files.\n"
 	@printf "  \e[36mcheck-license-headers\e[0m        Check license headers in all non-vendored .go files.\n"
 	@printf "  \e[36mcheck-dependency-licenses\e[0m    Check all dependency licenses using go-licence-detector.\n"
+	@printf "  \e[36mgoimports\e[0m                    Run goimports on all non-vendored .go files\n"
 	@printf "  \e[36mclean\e[0m                        Run git clean.\n"
 
 .PHONY: FORCE
