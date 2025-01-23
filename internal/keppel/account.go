@@ -32,10 +32,7 @@ type Account struct {
 	State             string                `json:"state,omitempty"`
 	ValidationPolicy  *ValidationPolicy     `json:"validation,omitempty"`
 	PlatformFilter    models.PlatformFilter `json:"platform_filter,omitempty"`
-
-	// TODO: deprecated, and remove
-	InMaintenance bool               `json:"in_maintenance"`
-	Metadata      *map[string]string `json:"metadata"`
+	Metadata          *map[string]string    `json:"metadata"`
 }
 
 // RenderAccount converts an account model from the DB into the API representation.
@@ -66,6 +63,5 @@ func RenderAccount(dbAccount models.Account) (Account, error) {
 		ReplicationPolicy: RenderReplicationPolicy(dbAccount),
 		ValidationPolicy:  RenderValidationPolicy(dbAccount.Reduced()),
 		PlatformFilter:    dbAccount.PlatformFilter,
-		InMaintenance:     dbAccount.InMaintenance,
 	}, nil
 }

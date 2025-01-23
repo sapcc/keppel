@@ -105,7 +105,6 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 
 	// validate and update fields as requested
 	targetAccount.IsDeleting = account.State == "deleting"
-	targetAccount.InMaintenance = account.InMaintenance
 
 	// validate GC policies
 	if len(account.GCPolicies) == 0 {
