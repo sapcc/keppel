@@ -21,7 +21,7 @@ require (
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/rs/cors v1.11.1
 	github.com/sapcc/go-api-declarations v1.13.2
-	github.com/sapcc/go-bits v0.0.0-20250123075407-996af6490bfc
+	github.com/sapcc/go-bits v0.0.0-20250130092643-87f841392737
 	github.com/spf13/cobra v1.8.1
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.6.0
@@ -35,7 +35,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/golang-migrate/migrate/v4 v4.18.1 // indirect
+	github.com/golang-migrate/migrate/v4 v4.18.2 // indirect
 	github.com/google/go-containerregistry v0.20.2 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
