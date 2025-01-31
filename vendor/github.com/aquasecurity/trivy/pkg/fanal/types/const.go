@@ -66,6 +66,7 @@ const (
 	Pip            LangType = "pip"
 	Pipenv         LangType = "pipenv"
 	Poetry         LangType = "poetry"
+	Uv             LangType = "uv"
 	CondaPkg       LangType = "conda-pkg"
 	CondaEnv       LangType = "conda-environment"
 	PythonPkg      LangType = "python-pkg"
@@ -96,13 +97,37 @@ const (
 	OCP         LangType = "ocp" // Red Hat OpenShift Container Platform
 )
 
-var AggregatingTypes = []LangType{
-	PythonPkg,
-	CondaPkg,
-	GemSpec,
-	NodePkg,
-	Jar,
-}
+var (
+	OSTypes = []OSType{
+		Alma,
+		Alpine,
+		Amazon,
+		Azure,
+		CBLMariner,
+		CentOS,
+		Chainguard,
+		Debian,
+		Fedora,
+		OpenSUSE,
+		OpenSUSELeap,
+		OpenSUSETumbleweed,
+		Oracle,
+		Photon,
+		RedHat,
+		Rocky,
+		SLEMicro,
+		SLES,
+		Ubuntu,
+		Wolfi,
+	}
+	AggregatingTypes = []LangType{
+		PythonPkg,
+		CondaPkg,
+		GemSpec,
+		NodePkg,
+		Jar,
+	}
+)
 
 // Config files
 const (
@@ -143,6 +168,7 @@ const (
 	PipRequirements = "requirements.txt"
 	PipfileLock     = "Pipfile.lock"
 	PoetryLock      = "poetry.lock"
+	UvLock          = "uv.lock"
 
 	GemfileLock = "Gemfile.lock"
 
