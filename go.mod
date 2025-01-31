@@ -2,8 +2,6 @@ module github.com/sapcc/keppel
 
 go 1.23.4
 
-toolchain go1.23.5
-
 require (
 	github.com/alicebob/miniredis/v2 v2.34.0
 	github.com/aquasecurity/trivy v0.59.0
