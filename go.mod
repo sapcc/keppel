@@ -1,6 +1,6 @@
 module github.com/sapcc/keppel
 
-go 1.23.4
+go 1.23
 
 require (
 	github.com/alicebob/miniredis/v2 v2.34.0
