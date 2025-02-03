@@ -83,7 +83,6 @@ func TestAccountsAPI(t *testing.T) {
 				"account": assert.JSONObject{
 					"name":           "first",
 					"auth_tenant_id": "tenant1",
-					"in_maintenance": false,
 					"metadata":       nil,
 					"rbac_policies":  []assert.JSONObject{},
 				},
@@ -118,7 +117,6 @@ func TestAccountsAPI(t *testing.T) {
 			"accounts": []assert.JSONObject{{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
 				"metadata":       nil,
 				"rbac_policies":  []assert.JSONObject{},
 			}},
@@ -133,7 +131,6 @@ func TestAccountsAPI(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
 				"metadata":       nil,
 				"rbac_policies":  []assert.JSONObject{},
 			},
@@ -207,7 +204,6 @@ func TestAccountsAPI(t *testing.T) {
 					"name":           "second",
 					"auth_tenant_id": "tenant1",
 					"gc_policies":    gcPoliciesJSON,
-					"in_maintenance": false,
 					"metadata":       nil,
 					"rbac_policies":  rbacPoliciesJSON,
 				},
@@ -257,7 +253,6 @@ func TestAccountsAPI(t *testing.T) {
 				{
 					"name":           "first",
 					"auth_tenant_id": "tenant1",
-					"in_maintenance": false,
 					"metadata":       nil,
 					"rbac_policies":  []assert.JSONObject{},
 				},
@@ -265,7 +260,6 @@ func TestAccountsAPI(t *testing.T) {
 					"name":           "second",
 					"auth_tenant_id": "tenant1",
 					"gc_policies":    gcPoliciesJSON,
-					"in_maintenance": false,
 					"metadata":       nil,
 					"rbac_policies":  rbacPoliciesJSON,
 				},
@@ -282,7 +276,6 @@ func TestAccountsAPI(t *testing.T) {
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
 				"gc_policies":    gcPoliciesJSON,
-				"in_maintenance": false,
 				"metadata":       nil,
 				"rbac_policies":  rbacPoliciesJSON,
 			},
@@ -324,7 +317,6 @@ func TestAccountsAPI(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
 				"metadata":       nil,
 				"rbac_policies":  newRBACPoliciesJSON,
 			},
@@ -368,7 +360,6 @@ func TestAccountsAPI(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
 				"metadata":       nil,
 				"rbac_policies":  newRBACPoliciesJSON,
 				"validation": assert.JSONObject{
@@ -397,7 +388,6 @@ func TestAccountsAPI(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
 				"metadata":       nil,
 				"rbac_policies":  newRBACPoliciesJSON,
 			},
@@ -417,36 +407,6 @@ func TestAccountsAPI(t *testing.T) {
 	tr.DBChanges().AssertEqual(`
 		UPDATE accounts SET gc_policies_json = '[]', rbac_policies_json = '[{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull"]},{"match_repository":"library/alpine","match_username":".*@tenant3","permissions":["pull","delete"]}]' WHERE name = 'second';
 	`)
-}
-
-func TestPutAccountInMaintenanceFlag(t *testing.T) {
-	s := test.NewSetup(t, test.WithKeppelAPI)
-	h := s.Handler
-
-	// TODO: remove the writing capability for accounts.in_maintenance once the Elektra UI does not depend on it anymore
-	for _, inMaintenance := range []bool{false, true, false} {
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/first",
-			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
-					"auth_tenant_id": "tenant1",
-					"in_maintenance": inMaintenance,
-				},
-			},
-			ExpectStatus: http.StatusOK,
-			ExpectBody: assert.JSONObject{
-				"account": assert.JSONObject{
-					"name":           "first",
-					"auth_tenant_id": "tenant1",
-					"in_maintenance": inMaintenance,
-					"metadata":       nil,
-					"rbac_policies":  []assert.JSONObject{},
-				},
-			},
-		}.Check(t, h)
-	}
 }
 
 func TestGetAccountsErrorCases(t *testing.T) {
@@ -507,7 +467,6 @@ func TestPutAccountErrorCases(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
 				"metadata":       nil,
 				"rbac_policies":  []assert.JSONObject{},
 			},
@@ -1000,7 +959,6 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectBody: assert.JSONObject{
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
 				"metadata":       nil,
 				"name":           "first",
 				"rbac_policies": []assert.JSONObject{{
@@ -1021,7 +979,6 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectBody: assert.JSONObject{
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
 				"metadata":       nil,
 				"name":           "first",
 				"rbac_policies": []assert.JSONObject{{
@@ -1161,20 +1118,19 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectBody:   assert.StringData("no permission for keppel_account:unknown:change\n"),
 	}.Check(t, h)
 
-	// TODO: reenable once we completely remove support for the accounts.in_maintenance flag
-	// assert.HTTPRequest{
-	// 	Method: "PUT",
-	// 	Path:   "/keppel/v1/accounts/first",
-	// 	Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-	// 	Body: assert.JSONObject{
-	// 		"account": assert.JSONObject{
-	// 			"auth_tenant_id": "tenant1",
-	// 			"in_maintenance": true,
-	// 		},
-	// 	},
-	// 	ExpectStatus: http.StatusUnprocessableEntity,
-	// 	ExpectBody:   assert.StringData("malformed attribute \"account.in_maintenance\" in request body is not allowed here\n"),
-	// }.Check(t, h)
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"in_maintenance": true, // this field used to be supported, but support for it was removed
+			},
+		},
+		ExpectStatus: http.StatusBadRequest,
+		ExpectBody:   assert.StringData("request body is not valid JSON: json: unknown field \"in_maintenance\"\n"),
+	}.Check(t, h)
 
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -1228,7 +1184,6 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 				"account": assert.JSONObject{
 					"name":           "first",
 					"auth_tenant_id": "tenant1",
-					"in_maintenance": false,
 					"metadata":       nil,
 					"rbac_policies":  []assert.JSONObject{},
 				},
@@ -1326,7 +1281,6 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 				"account": assert.JSONObject{
 					"name":           "first",
 					"auth_tenant_id": "tenant1",
-					"in_maintenance": false,
 					"metadata":       nil,
 					"rbac_policies":  []assert.JSONObject{},
 					"replication": assert.JSONObject{
@@ -1353,7 +1307,6 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 				"account": assert.JSONObject{
 					"name":           "first",
 					"auth_tenant_id": "tenant1",
-					"in_maintenance": false,
 					"metadata":       nil,
 					"rbac_policies":  []assert.JSONObject{},
 					"replication": assert.JSONObject{
@@ -1388,7 +1341,6 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 				"account": assert.JSONObject{
 					"name":           "second",
 					"auth_tenant_id": "tenant2",
-					"in_maintenance": false,
 					"metadata":       nil,
 					"rbac_policies":  []assert.JSONObject{},
 				},
@@ -1524,7 +1476,6 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
 				"metadata":       nil,
 				"rbac_policies":  []assert.JSONObject{},
 				"replication": assert.JSONObject{
@@ -1554,7 +1505,6 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
 				"metadata":       nil,
 				"rbac_policies":  []assert.JSONObject{},
 				"replication": assert.JSONObject{
@@ -1591,7 +1541,6 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
 				"metadata":       nil,
 				"rbac_policies":  []assert.JSONObject{},
 				"replication": assert.JSONObject{
@@ -1633,7 +1582,6 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": false,
 				"metadata":       nil,
 				"rbac_policies":  []assert.JSONObject{},
 				"replication": assert.JSONObject{
@@ -1717,7 +1665,6 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 			"account": assert.JSONObject{
 				"name":           "second",
 				"auth_tenant_id": "tenant2",
-				"in_maintenance": false,
 				"metadata":       nil,
 				"rbac_policies":  []assert.JSONObject{},
 			},
@@ -1900,7 +1847,6 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 					"account": assert.JSONObject{
 						"name":           name,
 						"auth_tenant_id": "tenant1",
-						"in_maintenance": false,
 						"metadata":       nil,
 						"rbac_policies":  []assert.JSONObject{},
 						"replication": assert.JSONObject{
@@ -1938,7 +1884,6 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 				"account": assert.JSONObject{
 					"name":            "first",
 					"auth_tenant_id":  "tenant1",
-					"in_maintenance":  false,
 					"metadata":        nil,
 					"platform_filter": testPlatformFilter,
 					"rbac_policies":   []assert.JSONObject{},
@@ -1961,7 +1906,6 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 			Body: assert.JSONObject{
 				"account": assert.JSONObject{
 					"auth_tenant_id": "tenant1",
-					"in_maintenance": false,
 					"metadata":       nil,
 					"platform_filter": []assert.JSONObject{{
 						"os":           "linux",
@@ -1978,7 +1922,6 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 				"account": assert.JSONObject{
 					"name":            "second",
 					"auth_tenant_id":  "tenant1",
-					"in_maintenance":  false,
 					"metadata":        nil,
 					"platform_filter": testPlatformFilter,
 					"rbac_policies":   []assert.JSONObject{},
