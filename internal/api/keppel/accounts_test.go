@@ -1116,7 +1116,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
 		ExpectStatus: http.StatusForbidden,
 		ExpectBody:   assert.StringData("no permission for keppel_account:unknown:change\n"),
-	}.Check(t, h) // TODO: reenable once we completely remove support for the accounts.in_maintenance flag
+	}.Check(t, h)
 
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -1125,7 +1125,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		Body: assert.JSONObject{
 			"account": assert.JSONObject{
 				"auth_tenant_id": "tenant1",
-				"in_maintenance": true,
+				"in_maintenance": true, // this field used to be supported, but support for it was removed
 			},
 		},
 		ExpectStatus: http.StatusBadRequest,
