@@ -11,8 +11,8 @@ github.com/alicebob/miniredis/v2/metro
 github.com/alicebob/miniredis/v2/proto
 github.com/alicebob/miniredis/v2/server
 github.com/alicebob/miniredis/v2/size
-# github.com/aquasecurity/trivy v0.59.0
-## explicit; go 1.23.4
+# github.com/aquasecurity/trivy v0.59.1
+## explicit; go 1.23.5
 github.com/aquasecurity/trivy/pkg/digest
 github.com/aquasecurity/trivy/pkg/fanal/types
 github.com/aquasecurity/trivy/pkg/module/serialize
