@@ -21,15 +21,12 @@ package trivy
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
-
-	"github.com/aquasecurity/trivy/pkg/module/serialize"
 
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -116,13 +113,5 @@ func (tc *Config) ScanManifestAndParse(ctx context.Context, keppelToken string, 
 		return Report{}, err
 	}
 
-	var parsedReport Report
-	err = json.Unmarshal(report.Contents, &parsedReport)
-	return parsedReport, err
-}
-
-// FixIsReleased returns whether v.FixedVersion is non-empty. (This particular
-// method name reads better in some situations than `v.FixedVersion != ""`.)
-func FixIsReleased(v serialize.DetectedVulnerability) bool {
-	return v.FixedVersion != ""
+	return UnmarshalReportFromJSON(report.Contents)
 }

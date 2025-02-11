@@ -708,7 +708,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 			return fmt.Errorf("scan error: %w", err)
 		}
 
-		if parsedTrivyReport.Metadata.OS != nil && parsedTrivyReport.Metadata.OS.Eosl {
+		if parsedTrivyReport.Metadata.IsRotten() {
 			securityStatuses = append(securityStatuses, models.RottenVulnerabilityStatus)
 		}
 		for _, result := range parsedTrivyReport.Results {
