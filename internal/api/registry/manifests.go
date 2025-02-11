@@ -140,7 +140,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		if negotiatedMediaType == "" {
 			// we cannot serve the manifest itself, but maybe we can redirect into one of the acceptable
 			// alternates
-			manifestParsed, _, err := keppel.ParseManifest(dbManifest.MediaType, manifestBytes)
+			manifestParsed, err := keppel.ParseManifest(dbManifest.MediaType, manifestBytes)
 			if err != nil {
 				keppel.ErrManifestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 				return

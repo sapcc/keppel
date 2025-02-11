@@ -28,7 +28,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/distribution/manifest/schema2"
+	"github.com/containers/image/v5/manifest"
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-api-declarations/cadf"
@@ -91,7 +91,7 @@ func TestManifestsAPI(t *testing.T) {
 			ExpectBody:   assert.JSONObject{"manifests": []assert.JSONObject{}},
 		}.Check(t, h)
 
-		// test that Keppel API does not allow doamin-remapping
+		// test that Keppel API does not allow domain-remapping
 		assert.HTTPRequest{
 			Method: "GET",
 			Path:   "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests",
@@ -116,7 +116,7 @@ func TestManifestsAPI(t *testing.T) {
 				dbManifest := models.Manifest{
 					RepositoryID:      int64(repoID),
 					Digest:            dummyDigest,
-					MediaType:         schema2.MediaTypeManifest,
+					MediaType:         manifest.DockerV2Schema2MediaType,
 					SizeBytes:         uint64(sizeBytes), //nolint:gosec // construction guarantees that value is positive
 					PushedAt:          pushedAt,
 					NextValidationAt:  pushedAt.Add(models.ManifestValidationInterval),
@@ -175,7 +175,7 @@ func TestManifestsAPI(t *testing.T) {
 		for idx := 1; idx <= 10; idx++ {
 			renderedManifests[idx-1] = assert.JSONObject{
 				"digest":               test.DeterministicDummyDigest(10 + idx),
-				"media_type":           schema2.MediaTypeManifest,
+				"media_type":           manifest.DockerV2Schema2MediaType,
 				"size_bytes":           uint64(1000 * idx), //nolint:gosec // construction guarantees that value is positive
 				"pushed_at":            int64(1000 * (10 + idx)),
 				"last_pulled_at":       nil,

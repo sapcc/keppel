@@ -29,7 +29,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/docker/distribution"
+	"github.com/containers/image/v5/manifest"
 	"github.com/go-gorp/gorp/v3"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/logg"
@@ -96,20 +96,20 @@ func (w *byteCountingWriter) Write(buf []byte) (int, error) {
 // requested blob does not exist, a blob record with an empty storage ID will be
 // inserted into the DB. This indicates to the registry API handler that this
 // blob shall be replicated when it is first pulled.
-func (p *Processor) FindBlobOrInsertUnbackedBlob(ctx context.Context, desc distribution.Descriptor, accountName models.AccountName) (*models.Blob, error) {
+func (p *Processor) FindBlobOrInsertUnbackedBlob(ctx context.Context, layerInfo manifest.LayerInfo, accountName models.AccountName) (*models.Blob, error) {
 	var blob *models.Blob
 	err := p.insideTransaction(ctx, func(ctx context.Context, tx *gorp.Transaction) error {
 		var err error
-		blob, err = keppel.FindBlobByAccountName(tx, desc.Digest, accountName)
+		blob, err = keppel.FindBlobByAccountName(tx, layerInfo.Digest, accountName)
 		if !errors.Is(err, sql.ErrNoRows) { // either success or unexpected error
 			return err
 		}
 
 		blob = &models.Blob{
 			AccountName:      accountName,
-			Digest:           desc.Digest,
-			MediaType:        desc.MediaType,
-			SizeBytes:        keppel.AtLeastZero(desc.Size),
+			Digest:           layerInfo.Digest,
+			MediaType:        layerInfo.MediaType,
+			SizeBytes:        keppel.AtLeastZero(layerInfo.Size),
 			StorageID:        "", // unbacked
 			PushedAt:         time.Unix(0, 0),
 			NextValidationAt: time.Unix(0, 0),

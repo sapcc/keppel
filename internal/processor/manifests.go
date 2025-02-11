@@ -30,10 +30,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/distribution/manifest/manifestlist"
+	imageManifest "github.com/containers/image/v5/manifest"
 	"github.com/go-gorp/gorp/v3"
 	"github.com/opencontainers/go-digest"
-	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
+	imagespecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
@@ -108,7 +108,7 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 		// digest against the actual manifest data
 		manifest.Digest = m.Reference.Digest
 	}
-	err = p.validateAndStoreManifestCommon(ctx, account, repo, manifest, m.Contents, validateAndStoreManifestOpts{
+	err = p.validateAndStoreManifestCommon(ctx, account, repo, manifest, NewBytesWithDigest(m.Contents), validateAndStoreManifestOpts{
 		IsBeingPushed: true,
 		ActionBeforeCommit: func(tx *gorp.Transaction) error {
 			if m.Reference.IsTag() {
@@ -174,7 +174,7 @@ func (p *Processor) ValidateExistingManifest(ctx context.Context, account models
 		return err
 	}
 
-	return p.validateAndStoreManifestCommon(ctx, account, repo, manifest, manifestBytes,
+	return p.validateAndStoreManifestCommon(ctx, account, repo, manifest, NewBytesWithDigest(manifestBytes),
 		validateAndStoreManifestOpts{},
 	)
 }
@@ -184,24 +184,21 @@ type validateAndStoreManifestOpts struct {
 	ActionBeforeCommit func(*gorp.Transaction) error
 }
 
-func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifest *models.Manifest, manifestBytes []byte, opts validateAndStoreManifestOpts) error {
+func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifest *models.Manifest, manifestBytes BytesWithDigest, opts validateAndStoreManifestOpts) error {
 	// parse manifest
-	manifestParsed, manifestDesc, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
+	manifestParsed, err := keppel.ParseManifest(manifest.MediaType, manifestBytes.Bytes())
 	if err != nil {
 		return keppel.ErrManifestInvalid.With(err.Error())
 	}
-	if manifest.Digest != "" && manifestDesc.Digest != manifest.Digest {
-		return keppel.ErrDigestInvalid.With("actual manifest digest is " + manifestDesc.Digest.String())
+	if manifest.Digest != "" && manifestBytes.Digest() != manifest.Digest {
+		return keppel.ErrDigestInvalid.With("actual manifest digest is " + manifestBytes.Digest().String())
 	}
 
 	// fill in the fields of `manifest` that ValidateAndStoreManifest() could not fill in yet
-	manifest.Digest = manifestDesc.Digest
-	// ^ This field was empty until now when the user pushed a tag and therefore
-	// did not supply a digest.
-	manifest.MediaType = manifestDesc.MediaType
+	manifest.Digest = manifestBytes.Digest()
 	// ^ Those two should be the same already, but if in doubt, we trust the
 	// parser more than the user input.
-	manifest.SizeBytes = keppel.AtLeastZero(manifestDesc.Size)
+	manifest.SizeBytes = keppel.AtLeastZero(manifestBytes.Len())
 	for _, desc := range manifestParsed.BlobReferences() {
 		manifest.SizeBytes += keppel.AtLeastZero(desc.Size)
 	}
@@ -222,7 +219,7 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 		// and only when pushing (not when validating at a later point in time,
 		// the set of RequiredLabels could have been changed by then)
 		labelsRequired := opts.IsBeingPushed && account.RequiredLabels != "" &&
-			manifest.MediaType != manifestlist.MediaTypeManifestList && manifest.MediaType != imagespec.MediaTypeImageIndex
+			manifest.MediaType != imageManifest.DockerV2ListMediaType && manifest.MediaType != imagespecs.MediaTypeImageIndex
 		if labelsRequired {
 			var missingLabels []string
 			for _, l := range account.SplitRequiredLabels() {
@@ -240,7 +237,7 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 		// list manifests (which do not have a config), we instead report all the
 		// labels that the constituent manifests agree on
 		reportedLabels := configInfo.Labels
-		if manifest.MediaType == manifestlist.MediaTypeManifestList || manifest.MediaType == imagespec.MediaTypeImageIndex {
+		if manifest.MediaType == imageManifest.DockerV2ListMediaType || manifest.MediaType == imagespecs.MediaTypeImageIndex {
 			reportedLabels = refsInfo.CommonLabels
 		}
 		if len(reportedLabels) > 0 {
@@ -257,7 +254,7 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 		manifest.MaxLayerCreatedAt = keppel.MaxMaybeTime(refsInfo.MaxCreationTime, configInfo.MaxCreationTime)
 
 		// create or update database entries
-		err = upsertManifest(tx, *manifest, manifestBytes, p.timeNow())
+		err = upsertManifest(tx, *manifest, manifestBytes.Bytes(), p.timeNow())
 		if err != nil {
 			return err
 		}
@@ -300,29 +297,29 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account models.ReducedA
 	wasHandled := make(map[digest.Digest]bool)
 
 	// for all blobs referenced by this manifest...
-	for _, desc := range manifest.BlobReferences() {
-		if wasHandled[desc.Digest] {
+	for _, layerInfo := range manifest.BlobReferences() {
+		if wasHandled[layerInfo.Digest] {
 			continue
 		}
-		wasHandled[desc.Digest] = true
+		wasHandled[layerInfo.Digest] = true
 
 		// check that the blob exists
-		blob, err := keppel.FindBlobByRepository(tx, desc.Digest, repo)
+		blob, err := keppel.FindBlobByRepository(tx, layerInfo.Digest, repo)
 		if errors.Is(err, sql.ErrNoRows) {
-			return manifestRefsInfo{}, keppel.ErrManifestBlobUnknown.With("").WithDetail(desc.Digest.String())
+			return manifestRefsInfo{}, keppel.ErrManifestBlobUnknown.With("").WithDetail(layerInfo.Digest.String())
 		}
 		if err != nil {
 			return manifestRefsInfo{}, err
 		}
 
 		// check that the blob size matches what the manifest says
-		if blob.SizeBytes != keppel.AtLeastZero(desc.Size) {
+		if blob.SizeBytes != keppel.AtLeastZero(layerInfo.Size) {
 			msg := fmt.Sprintf(
 				"manifest references blob %s with %d bytes, but blob actually contains %d bytes",
-				desc.Digest, desc.Size, blob.SizeBytes)
+				layerInfo.Digest, layerInfo.Size, blob.SizeBytes)
 			return manifestRefsInfo{}, keppel.ErrManifestInvalid.With(msg)
 		}
-		result.BlobRefs = append(result.BlobRefs, blobRef{blob.ID, desc.MediaType})
+		result.BlobRefs = append(result.BlobRefs, blobRef{blob.ID, layerInfo.MediaType})
 	}
 
 	// for all manifests referenced by this manifest...
@@ -664,7 +661,7 @@ func (p *Processor) ReplicateManifest(ctx context.Context, account models.Reduce
 	}
 
 	// parse the manifest to discover references to other manifests and blobs
-	manifestParsed, _, err := keppel.ParseManifest(manifestMediaType, manifestBytes)
+	manifestParsed, err := keppel.ParseManifest(manifestMediaType, manifestBytes)
 	if err != nil {
 		return nil, nil, keppel.ErrManifestInvalid.With(err.Error())
 	}
@@ -681,9 +678,9 @@ func (p *Processor) ReplicateManifest(ctx context.Context, account models.Reduce
 	}
 
 	// mark all missing blobs as pending replication
-	for _, desc := range manifestParsed.BlobReferences() {
+	for _, layerInfo := range manifestParsed.BlobReferences() {
 		// mark referenced blobs as pending replication if not replicated yet
-		blob, err := p.FindBlobOrInsertUnbackedBlob(ctx, desc, account.Name)
+		blob, err := p.FindBlobOrInsertUnbackedBlob(ctx, layerInfo, account.Name)
 		if err != nil {
 			return nil, nil, err
 		}

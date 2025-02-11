@@ -32,10 +32,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/distribution/manifest/schema2"
+	imageManifest "github.com/containers/image/v5/manifest"
 	"github.com/go-gorp/gorp/v3"
 	"github.com/opencontainers/go-digest"
-	imageSpecs "github.com/opencontainers/image-spec/specs-go/v1"
+	imagespecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/jobloop"
@@ -457,12 +457,13 @@ func (j *Janitor) collectManifestLayerBlobs(ctx context.Context, account models.
 	if err != nil {
 		return nil, err
 	}
-	manifestParsed, manifestDesc, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
+	manifestParsed, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
 	if err != nil {
 		return nil, keppel.ErrManifestInvalid.With(err.Error())
 	}
-	if manifest.Digest != "" && manifestDesc.Digest != manifest.Digest {
-		return nil, keppel.ErrDigestInvalid.With("actual manifest digest is %s", manifestDesc.Digest)
+	manifestDigest := digest.FromBytes(manifestBytes)
+	if manifest.Digest != "" && manifestDigest != manifest.Digest {
+		return nil, keppel.ErrDigestInvalid.With("actual manifest digest is %s", manifestDigest)
 	}
 	isLayer := make(map[digest.Digest]bool)
 	for _, desc := range manifestParsed.FindImageLayerBlobs() {
@@ -728,7 +729,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 	}
 
 	// could the image have constituent images?
-	if manifest.MediaType != schema2.MediaTypeManifest && manifest.MediaType != imageSpecs.MediaTypeImageManifest {
+	if manifest.MediaType != imageManifest.DockerV2Schema2MediaType && manifest.MediaType != imagespecs.MediaTypeImageManifest {
 		// collect vulnerability status of constituent images
 		err = sqlext.ForeachRow(j.db, securityInfoCheckSubmanifestInfoQuery, []any{repo.ID, manifest.Digest}, func(rows *sql.Rows) error {
 			var vulnStatus models.VulnerabilityStatus
@@ -759,7 +760,7 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 
 	// filter media types that trivy is known to support
 	for _, blob := range layerBlobs {
-		if blob.MediaType == schema2.MediaTypeLayer || blob.MediaType == imageSpecs.MediaTypeImageLayerGzip {
+		if blob.MediaType == imageManifest.DockerV2Schema2LayerMediaType || blob.MediaType == imagespecs.MediaTypeImageLayerGzip {
 			continue
 		}
 
