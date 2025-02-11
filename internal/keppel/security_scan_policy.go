@@ -21,9 +21,7 @@ package keppel
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
-	stypes "github.com/aquasecurity/trivy/pkg/module/serialize"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/regexpext"
 
@@ -135,8 +133,8 @@ func (p SecurityScanPolicy) MatchesRepository(repo models.Repository) bool {
 }
 
 // MatchesVulnerability evaluates the vulnerability regexes and checkin this policy.
-func (p SecurityScanPolicy) MatchesVulnerability(vuln stypes.DetectedVulnerability) bool {
-	if p.ExceptFixReleased && trivy.FixIsReleased(vuln) {
+func (p SecurityScanPolicy) MatchesVulnerability(vuln trivy.DetectedVulnerability) bool {
+	if p.ExceptFixReleased && vuln.FixIsReleased() {
 		return false
 	}
 
@@ -178,29 +176,13 @@ func GetSecurityScanPolicies(account models.Account, repo models.Repository) (Se
 
 // PolicyForVulnerability returns the first policy from this set that matches
 // the vulnerability, or nil if no policy matches.
-func (s SecurityScanPolicySet) PolicyForVulnerability(vuln stypes.DetectedVulnerability) *SecurityScanPolicy {
+func (s SecurityScanPolicySet) PolicyForVulnerability(vuln trivy.DetectedVulnerability) *SecurityScanPolicy {
 	for _, p := range s {
 		if p.MatchesVulnerability(vuln) {
 			return &p
 		}
 	}
 	return nil
-}
-
-// enrichedReport has the same fields as trivy.Report, plus the fields that our
-// EnrichReport adds.
-//
-// We cannot just inline the existing type because that's not supported by the
-// encoding/json library: <https://github.com/golang/go/issues/6213>
-type enrichedReport struct {
-	SchemaVersion int            `json:",omitempty"`
-	CreatedAt     time.Time      `json:",omitempty"`
-	ArtifactName  string         `json:",omitempty"`
-	ArtifactType  string         `json:",omitempty"`
-	Metadata      trivy.Metadata `json:",omitempty"`
-	Results       stypes.Results `json:",omitempty"`
-
-	ApplicablePolicies map[string]SecurityScanPolicy `json:"X-Keppel-Applicable-Policies,omitempty"`
 }
 
 // EnrichReport computes and inserts the "X-Keppel-Applicable-Policies" field
@@ -211,8 +193,7 @@ func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload) error 
 	}
 
 	// decode relevant fields from report
-	var parsedReport enrichedReport
-	err := json.Unmarshal(payload.Contents, &parsedReport)
+	parsedReport, err := trivy.UnmarshalReportFromJSON(payload.Contents)
 	if err != nil {
 		return fmt.Errorf("cannot parse Trivy vulnerability report: %w", err)
 	}
@@ -232,8 +213,8 @@ func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload) error 
 	if len(applicablePolicies) == 0 {
 		return nil
 	}
-	parsedReport.ApplicablePolicies = applicablePolicies
-	payload.Contents, err = json.Marshal(parsedReport)
+	parsedReport.AddField("X-Keppel-Applicable-Policies", applicablePolicies)
+	payload.Contents, err = parsedReport.MarshalJSON()
 	if err != nil {
 		return fmt.Errorf("cannot serialize enriched Trivy vulnerability report: %w", err)
 	}
