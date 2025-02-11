@@ -29,6 +29,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -88,6 +89,12 @@ func WithTestDB(m *testing.M, action func() int) int {
 			"-c", "external_pid_file="+filepath.Join(rootPath, ".testdb/run/pid"),
 			"-c", "unix_socket_directories="+filepath.Join(rootPath, ".testdb/run"),
 			"-c", fmt.Sprintf("port=%d", testDBPort),
+		)
+		cmd.Env = append(slices.Clone(os.Environ()),
+			// We need to convince the DB to run with a C locale because we do regex matching on error messages
+			// for the "create database if missing" part of Connect().
+			"LC_ALL=C",
+			"LC_MESSAGES=C",
 		)
 		cmd.Stdin = nil
 		cmd.Stdout = os.Stdout
