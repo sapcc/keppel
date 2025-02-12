@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"maps"
 
-	. "github.com/majewsky/gg/option" //nolint:stylecheck
+	. "github.com/majewsky/gg/option"
 )
 
 // Report is a type for deserializing a Trivy vulnerability report into.
