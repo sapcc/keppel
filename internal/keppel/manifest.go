@@ -196,7 +196,7 @@ func (a ociIndexAdapter) BlobReferences() []manifest.LayerInfo {
 func (a ociIndexAdapter) ManifestReferences(pf models.PlatformFilter) []imagespecs.Descriptor {
 	result := make([]imagespecs.Descriptor, 0, len(a.m.Manifests))
 	for _, m := range a.m.Manifests {
-		if pf.Includes(*m.Platform) {
+		if m.Platform == nil || pf.Includes(*m.Platform) {
 			result = append(result, m)
 		}
 	}
