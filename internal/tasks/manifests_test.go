@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/must"
@@ -808,4 +809,49 @@ func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
 			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = %[3]d, checked_at = %[4]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[5]s';
 		`, image.Layers[0].Digest, models.RottenVulnerabilityStatus, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
 	})
+}
+
+func TestManifestValidationJobWithoutPlatform(t *testing.T) {
+	j, s := setup(t)
+	tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
+	validateManifestJob := j.ManifestValidationJob(s.Registry)
+
+	image := test.GenerateImage(test.GenerateExampleLayer(1))
+	image.MustUpload(t, s, fooRepoRef, "")
+
+	manifestListBytes, err := json.Marshal(map[string]any{
+		"schemaVersion": 2,
+		"mediaType":     "application/vnd.oci.image.index.v1+json",
+		"manifests": []map[string]any{{
+			"mediaType":    image.Manifest.MediaType,
+			"size":         len(image.Manifest.Contents),
+			"digest":       image.Manifest.Digest,
+			"artifactType": "application/spdx+json",
+		}},
+	})
+	if err != nil {
+		panic(err.Error())
+	}
+
+	imageList := test.ImageList{
+		Manifest: test.Bytes{
+			Contents:  manifestListBytes,
+			Digest:    digest.Canonical.FromBytes(manifestListBytes),
+			MediaType: "application/vnd.oci.image.index.v1+json",
+		},
+	}
+	imageList.MustUpload(t, s, fooRepoRef, "")
+	tr.DBChanges().Ignore()
+
+	// validation should be happy and despite the missing platform because the manifest got skipped
+	s.Clock.StepBy(36 * time.Hour)
+	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
+	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
+	tr.DBChanges().AssertEqualf(`
+      UPDATE manifests SET next_validation_at = %d WHERE repo_id = 1 AND digest = '%s';
+      UPDATE manifests SET next_validation_at = %d WHERE repo_id = 1 AND digest = '%s';
+    `, s.Clock.Now().Add(models.ManifestValidationInterval).Unix(), imageList.Manifest.Digest,
+		s.Clock.Now().Add(models.ManifestValidationInterval).Unix(), image.Manifest.Digest,
+	)
 }
