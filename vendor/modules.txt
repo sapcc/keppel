@@ -17,8 +17,8 @@ github.com/beorn7/perks/quantile
 # github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
-# github.com/containers/image/v5 v5.33.1
-## explicit; go 1.22.6
+# github.com/containers/image/v5 v5.34.0
+## explicit; go 1.22.8
 github.com/containers/image/v5/docker/reference
 github.com/containers/image/v5/internal/manifest
 github.com/containers/image/v5/internal/pkg/platform
@@ -31,10 +31,10 @@ github.com/containers/image/v5/types
 # github.com/containers/libtrust v0.0.0-20230121012942-c1716e8a8d01
 ## explicit
 github.com/containers/libtrust
-# github.com/containers/ocicrypt v1.2.0
-## explicit; go 1.21
+# github.com/containers/ocicrypt v1.2.1
+## explicit; go 1.22
 github.com/containers/ocicrypt/spec
-# github.com/containers/storage v1.56.1
+# github.com/containers/storage v1.57.1
 ## explicit; go 1.22.0
 github.com/containers/storage/pkg/regexp
 # github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
@@ -46,7 +46,7 @@ github.com/dgryski/go-rendezvous
 # github.com/dlmiddlecote/sqlstats v1.0.2
 ## explicit; go 1.11
 github.com/dlmiddlecote/sqlstats
-# github.com/docker/docker v27.5.0+incompatible
+# github.com/docker/docker v27.5.1+incompatible
 ## explicit
 github.com/docker/docker/api/types/versions
 # github.com/go-gorp/gorp/v3 v3.1.0
