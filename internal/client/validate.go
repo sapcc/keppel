@@ -106,7 +106,7 @@ func (c *RepoClient) doValidateManifest(ctx context.Context, reference models.Ma
 
 	digest := digest.FromBytes(manifestBytes)
 
-	if digest != reference.Digest {
+	if reference.Digest != "" && digest != reference.Digest {
 		return keppel.ErrDigestInvalid.With("actual manifest digest is " + digest.String())
 	}
 
