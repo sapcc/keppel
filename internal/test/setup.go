@@ -210,7 +210,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		Config: keppel.Configuration{
 			APIPublicHostname: apiPublicHostname,
 		},
-		Ctx:        context.Background(),
+		Ctx:        t.Context(),
 		Registry:   prometheus.NewPedanticRegistry(),
 		tokenCache: make(map[string]string),
 	}
