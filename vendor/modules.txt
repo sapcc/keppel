@@ -177,7 +177,7 @@ github.com/rs/cors/internal
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20250213094036-fb2a5df7b9f3
+# github.com/sapcc/go-bits v0.0.0-20250214102218-9d3698f376b3
 ## explicit; go 1.23
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
