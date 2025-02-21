@@ -65,6 +65,18 @@ func SetTaskName(name string) {
 
 // Version returns the version string provided at build time, or "" if none was
 // provided.
+//
+// This can for example be used like the following with the cobra argument parsing library:
+//
+// ```go
+//
+//	cobra.Command{
+//	  ...
+//	  Version: bininfo.Version(),
+//	  ...
+//	}
+//
+// ```
 func Version() string {
 	return version
 }
