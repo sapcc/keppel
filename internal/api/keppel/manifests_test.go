@@ -124,6 +124,7 @@ func TestManifestsAPI(t *testing.T) {
 					GCStatusJSON:      `{"protected_by_recent_upload":true}`,
 					MinLayerCreatedAt: p2time(time.Unix(20001, 0)),
 					MaxLayerCreatedAt: p2time(time.Unix(20002, 0)),
+					SubjectDigest:     &dummyDigest,
 				}
 				if idx == 1 {
 					dbManifest.LastPulledAt = p2time(pushedAt.Add(100 * time.Second))
