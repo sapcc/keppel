@@ -39,11 +39,14 @@ type Manifest struct {
 	LabelsJSON string `db:"labels_json"`
 	// GCStatusJSON contains a keppel.GCStatus serialized into JSON, or an empty
 	// string if GC has not seen this manifest yet.
-	GCStatusJSON      string         `db:"gc_status_json"`
-	MinLayerCreatedAt *time.Time     `db:"min_layer_created_at"`
-	MaxLayerCreatedAt *time.Time     `db:"max_layer_created_at"`
-	ArtifactType      string         `db:"artifact_type"`
-	SubjectDigest     *digest.Digest `db:"subject_digest"`
+	GCStatusJSON      string     `db:"gc_status_json"`
+	MinLayerCreatedAt *time.Time `db:"min_layer_created_at"`
+	MaxLayerCreatedAt *time.Time `db:"max_layer_created_at"`
+	// OCI specific fields
+	// AnnotationsJSON contains a JSON string of a map[string]string, or an empty string.
+	AnnotationsJSON string        `db:"annotations_json"`
+	ArtifactType    string        `db:"artifact_type"`
+	SubjectDigest   digest.Digest `db:"subject_digest"`
 }
 
 const (

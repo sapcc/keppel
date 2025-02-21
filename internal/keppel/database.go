@@ -343,13 +343,15 @@ var sqlMigrations = map[string]string{
 	`,
 	"046_add_manifest_subject_digest_and_artifact_type.up.sql": `
 		ALTER TABLE manifests
-			ADD COLUMN subject_digest TEXT DEFAULT NULL,
-			ADD COLUMN artifact_type TEXT NOT NULL DEFAULT '';
+			ADD COLUMN annotations_json TEXT NOT NULL DEFAULT '',
+			ADD COLUMN artifact_type TEXT NOT NULL DEFAULT '',
+			ADD COLUMN subject_digest TEXT NOT NULL DEFAULT '';
 	`,
 	"046_add_manifest_subject_digest_and_artifact_type.down.sql": `
 		ALTER TABLE manifests
-			DROP COLUMN subject_digest,
-			DROP COLUMN artifact_type;
+			DROP COLUMN annotations_json,
+			DROP COLUMN artifact_type,
+			DROP COLUMN subject_digest;
 	`,
 }
 

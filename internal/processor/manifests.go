@@ -250,6 +250,17 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 			manifest.LabelsJSON = ""
 		}
 
+		annotations := manifestParsed.GetAnnotations()
+		if len(annotations) > 0 {
+			annotationsJSON, err := json.Marshal(annotations)
+			if err != nil {
+				return err
+			}
+			manifest.AnnotationsJSON = string(annotationsJSON)
+		} else {
+			manifest.AnnotationsJSON = ""
+		}
+
 		manifest.MinLayerCreatedAt = keppel.MinMaybeTime(refsInfo.MinCreationTime, configInfo.MinCreationTime)
 		manifest.MaxLayerCreatedAt = keppel.MaxMaybeTime(refsInfo.MaxCreationTime, configInfo.MaxCreationTime)
 
@@ -450,12 +461,12 @@ func parseManifestConfig(ctx context.Context, tx *gorp.Transaction, sd keppel.St
 }
 
 var upsertManifestQuery = sqlext.SimplifyWhitespace(`
-	INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, next_validation_at, labels_json, min_layer_created_at, max_layer_created_at, artifact_type, subject_digest)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, next_validation_at, labels_json, min_layer_created_at, max_layer_created_at, annotations_json, artifact_type, subject_digest)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	ON CONFLICT (repo_id, digest) DO UPDATE
 		SET size_bytes = EXCLUDED.size_bytes, next_validation_at = EXCLUDED.next_validation_at, labels_json = EXCLUDED.labels_json,
 		min_layer_created_at = EXCLUDED.min_layer_created_at, max_layer_created_at = EXCLUDED.max_layer_created_at,
-    artifact_type = EXCLUDED.artifact_type, subject_digest = EXCLUDED.subject_digest
+    annotations_json = EXCLUDED.annotations_json, artifact_type = EXCLUDED.artifact_type, subject_digest = EXCLUDED.subject_digest
 `)
 
 var upsertManifestContentQuery = sqlext.SimplifyWhitespace(`
@@ -472,7 +483,7 @@ var upsertManifestSecurityInfo = sqlext.SimplifyWhitespace(`
 `)
 
 func upsertManifest(db gorp.SqlExecutor, m models.Manifest, manifestBytes []byte, timeNow time.Time) error {
-	_, err := db.Exec(upsertManifestQuery, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.NextValidationAt, m.LabelsJSON, m.MinLayerCreatedAt, m.MaxLayerCreatedAt, m.ArtifactType, m.SubjectDigest)
+	_, err := db.Exec(upsertManifestQuery, m.RepositoryID, m.Digest, m.MediaType, m.SizeBytes, m.PushedAt, m.NextValidationAt, m.LabelsJSON, m.MinLayerCreatedAt, m.MaxLayerCreatedAt, m.AnnotationsJSON, m.ArtifactType, m.SubjectDigest)
 	if err != nil {
 		return err
 	}
