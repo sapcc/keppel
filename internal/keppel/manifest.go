@@ -41,6 +41,8 @@ type ParsedManifest interface {
 	// FindImageLayerBlobs returns the descriptors of the blobs containing this
 	// manifest's image layers, or an empty list if the manifest does not have layers.
 	FindImageLayerBlobs() []manifest.LayerInfo
+	// GetAnnotations returns the annotations of OCI images
+	GetAnnotations() map[string]string
 	// GetArtifactType returns the artifactType of OCI images
 	GetArtifactType() string
 	// GetSubject returns the subject of OCI images
@@ -108,6 +110,10 @@ func (a v2ManifestListAdapter) FindImageConfigBlob() *types.BlobInfo {
 }
 
 func (a v2ManifestListAdapter) FindImageLayerBlobs() []manifest.LayerInfo {
+	return nil
+}
+
+func (a v2ManifestListAdapter) GetAnnotations() map[string]string {
 	return nil
 }
 
@@ -180,6 +186,10 @@ func (a v2ManifestAdapter) FindImageLayerBlobs() []manifest.LayerInfo {
 	return a.m.LayerInfos()
 }
 
+func (a v2ManifestAdapter) GetAnnotations() map[string]string {
+	return nil
+}
+
 func (a v2ManifestAdapter) GetArtifactType() string {
 	return ""
 }
@@ -211,6 +221,10 @@ func (a ociIndexAdapter) FindImageConfigBlob() *types.BlobInfo {
 
 func (a ociIndexAdapter) FindImageLayerBlobs() []manifest.LayerInfo {
 	return nil
+}
+
+func (a ociIndexAdapter) GetAnnotations() map[string]string {
+	return a.m.Annotations
 }
 
 func (a ociIndexAdapter) GetArtifactType() string {
@@ -260,6 +274,10 @@ func (a ociManifestAdapter) FindImageConfigBlob() *types.BlobInfo {
 
 func (a ociManifestAdapter) FindImageLayerBlobs() []manifest.LayerInfo {
 	return a.m.LayerInfos()
+}
+
+func (a ociManifestAdapter) GetAnnotations() map[string]string {
+	return a.m.Annotations
 }
 
 func (a ociManifestAdapter) GetArtifactType() string {
