@@ -32,6 +32,8 @@ import (
 // ParsedManifest is an interface that can interrogate manifests about the blobs
 // and submanifests referenced therein.
 type ParsedManifest interface {
+	// BlobReferences returns all blobs referenced by this manifest.
+	BlobReferences() []manifest.LayerInfo
 	// FindImageConfigBlob returns the descriptor of the blob containing this
 	// manifest's image configuration, or nil if the manifest does not have an image
 	// configuration.
@@ -39,8 +41,10 @@ type ParsedManifest interface {
 	// FindImageLayerBlobs returns the descriptors of the blobs containing this
 	// manifest's image layers, or an empty list if the manifest does not have layers.
 	FindImageLayerBlobs() []manifest.LayerInfo
-	// BlobReferences returns all blobs referenced by this manifest.
-	BlobReferences() []manifest.LayerInfo
+	// GetArtifactType returns the artifactType of OCI images
+	GetArtifactType() string
+	// GetSubject returns the subject of OCI images
+	GetSubject() *imagespecs.Descriptor
 	// ManifestReferences returns all manifests referenced by this manifest.
 	ManifestReferences(pf models.PlatformFilter) []imagespecs.Descriptor
 	// AcceptableAlternates returns the subset of ManifestReferences() that is
@@ -95,6 +99,10 @@ type v2ManifestListAdapter struct {
 	m *manifest.Schema2List
 }
 
+func (a v2ManifestListAdapter) BlobReferences() []manifest.LayerInfo {
+	return nil
+}
+
 func (a v2ManifestListAdapter) FindImageConfigBlob() *types.BlobInfo {
 	return nil
 }
@@ -103,7 +111,11 @@ func (a v2ManifestListAdapter) FindImageLayerBlobs() []manifest.LayerInfo {
 	return nil
 }
 
-func (a v2ManifestListAdapter) BlobReferences() []manifest.LayerInfo {
+func (a v2ManifestListAdapter) GetArtifactType() string {
+	return ""
+}
+
+func (a v2ManifestListAdapter) GetSubject() *imagespecs.Descriptor {
 	return nil
 }
 
@@ -154,6 +166,11 @@ type v2ManifestAdapter struct {
 	m *manifest.Schema2
 }
 
+func (a v2ManifestAdapter) BlobReferences() []manifest.LayerInfo {
+	references := []manifest.LayerInfo{{BlobInfo: a.m.ConfigInfo()}}
+	return append(references, a.m.LayerInfos()...)
+}
+
 func (a v2ManifestAdapter) FindImageConfigBlob() *types.BlobInfo {
 	config := a.m.ConfigInfo()
 	return &config
@@ -163,9 +180,12 @@ func (a v2ManifestAdapter) FindImageLayerBlobs() []manifest.LayerInfo {
 	return a.m.LayerInfos()
 }
 
-func (a v2ManifestAdapter) BlobReferences() []manifest.LayerInfo {
-	references := []manifest.LayerInfo{{BlobInfo: a.m.ConfigInfo()}}
-	return append(references, a.m.LayerInfos()...)
+func (a v2ManifestAdapter) GetArtifactType() string {
+	return ""
+}
+
+func (a v2ManifestAdapter) GetSubject() *imagespecs.Descriptor {
+	return nil
 }
 
 func (a v2ManifestAdapter) ManifestReferences(pf models.PlatformFilter) []imagespecs.Descriptor {
@@ -181,6 +201,10 @@ type ociIndexAdapter struct {
 	m *manifest.OCI1Index
 }
 
+func (a ociIndexAdapter) BlobReferences() []manifest.LayerInfo {
+	return nil
+}
+
 func (a ociIndexAdapter) FindImageConfigBlob() *types.BlobInfo {
 	return nil
 }
@@ -189,8 +213,12 @@ func (a ociIndexAdapter) FindImageLayerBlobs() []manifest.LayerInfo {
 	return nil
 }
 
-func (a ociIndexAdapter) BlobReferences() []manifest.LayerInfo {
-	return nil
+func (a ociIndexAdapter) GetArtifactType() string {
+	return a.m.ArtifactType
+}
+
+func (a ociIndexAdapter) GetSubject() *imagespecs.Descriptor {
+	return a.m.Subject
 }
 
 func (a ociIndexAdapter) ManifestReferences(pf models.PlatformFilter) []imagespecs.Descriptor {
@@ -212,6 +240,11 @@ type ociManifestAdapter struct {
 	m *manifest.OCI1
 }
 
+func (a ociManifestAdapter) BlobReferences() []manifest.LayerInfo {
+	references := []manifest.LayerInfo{{BlobInfo: a.m.ConfigInfo()}}
+	return append(references, a.m.LayerInfos()...)
+}
+
 func (a ociManifestAdapter) FindImageConfigBlob() *types.BlobInfo {
 	// Standard OCI images have this specific MediaType for their config blob, and
 	// this is the format that we can inspect.
@@ -229,9 +262,18 @@ func (a ociManifestAdapter) FindImageLayerBlobs() []manifest.LayerInfo {
 	return a.m.LayerInfos()
 }
 
-func (a ociManifestAdapter) BlobReferences() []manifest.LayerInfo {
-	references := []manifest.LayerInfo{{BlobInfo: a.m.ConfigInfo()}}
-	return append(references, a.m.LayerInfos()...)
+func (a ociManifestAdapter) GetArtifactType() string {
+	artifactType := a.m.ArtifactType
+	if artifactType == "" {
+		// as described in the conformance test
+		// https://github.com/opencontainers/distribution-spec/blob/583e014d15418d839d67f68152bc2c83821770e0/conformance/setup.go#L346-L366
+		artifactType = a.m.ConfigInfo().MediaType
+	}
+	return artifactType
+}
+
+func (a ociManifestAdapter) GetSubject() *imagespecs.Descriptor {
+	return a.m.Subject
 }
 
 func (a ociManifestAdapter) ManifestReferences(pf models.PlatformFilter) []imagespecs.Descriptor {

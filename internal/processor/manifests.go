@@ -253,6 +253,12 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 		manifest.MinLayerCreatedAt = keppel.MinMaybeTime(refsInfo.MinCreationTime, configInfo.MinCreationTime)
 		manifest.MaxLayerCreatedAt = keppel.MaxMaybeTime(refsInfo.MaxCreationTime, configInfo.MaxCreationTime)
 
+		// backfill information incase the manifest was uploaded before we supported them
+		manifest.ArtifactType = manifestParsed.GetArtifactType()
+		if subject := manifestParsed.GetSubject(); subject != nil {
+			manifest.SubjectDigest = subject.Digest
+		}
+
 		// create or update database entries
 		err = upsertManifest(tx, *manifest, manifestBytes.Bytes(), p.timeNow())
 		if err != nil {
