@@ -110,6 +110,7 @@ func TestManifestsAPI(t *testing.T) {
 
 			for idx := 1; idx <= 10; idx++ {
 				dummyDigest := test.DeterministicDummyDigest(repoID*10 + idx)
+				dummySubject := test.DeterministicDummyDigest(repoID*10 + idx + 1)
 				sizeBytes := 1000 * idx
 				pushedAt := time.Unix(int64(1000*(repoID*10+idx)), 0)
 
@@ -124,6 +125,7 @@ func TestManifestsAPI(t *testing.T) {
 					GCStatusJSON:      `{"protected_by_recent_upload":true}`,
 					MinLayerCreatedAt: p2time(time.Unix(20001, 0)),
 					MaxLayerCreatedAt: p2time(time.Unix(20002, 0)),
+					SubjectDigest:     dummySubject,
 				}
 				if idx == 1 {
 					dbManifest.LastPulledAt = p2time(pushedAt.Add(100 * time.Second))

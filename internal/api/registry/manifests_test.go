@@ -26,9 +26,11 @@ import (
 
 	"github.com/containers/image/v5/manifest"
 	"github.com/opencontainers/go-digest"
+	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -706,5 +708,40 @@ func TestImageManifestCmdEntrypointAsString(t *testing.T) {
 		if err != nil {
 			t.Error("expected err = nil, but got: " + err.Error())
 		}
+	})
+}
+
+func TestManifestAnnotations(t *testing.T) {
+	testWithPrimary(t, nil, func(s test.Setup) {
+		h := s.Handler
+		token := s.GetToken(t, "repository:test1/foo:pull,push")
+
+		image := test.GenerateOCIImage(make(map[string]any), imgspecv1.MediaTypeImageManifest, map[string]string{
+			"abc": "def",
+		})
+		image.MustUpload(t, s, fooRepoRef, "latest")
+
+		// manifest push should succeed
+		assert.HTTPRequest{
+			Method: "PUT",
+			Path:   "/v2/test1/foo/manifests/latest",
+			Header: map[string]string{
+				"Authorization": "Bearer " + token,
+				"Content-Type":  imgspecv1.MediaTypeImageManifest,
+			},
+			Body:         assert.ByteData(image.Manifest.Contents),
+			ExpectStatus: http.StatusCreated,
+			ExpectHeader: test.VersionHeader,
+		}.Check(t, h)
+
+		// check that the annotations_json field is populated correctly in the DB
+		labelsJSONStr, err := s.DB.SelectStr(`SELECT annotations_json FROM manifests WHERE digest = $1`, image.Manifest.Digest.String())
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+
+		var actual map[string]string
+		must.Succeed(json.Unmarshal([]byte(labelsJSONStr), &actual))
+		assert.DeepEqual(t, "annotations_json", actual, map[string]string{"abc": "def"})
 	})
 }

@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"strconv"
 
+	distspecv1 "github.com/opencontainers/distribution-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
@@ -96,15 +97,10 @@ func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Link", fmt.Sprintf(`<%s>; rel="next"`, linkURL.String()))
 	}
 
-	respondwith.JSON(w, http.StatusOK,
-		struct {
-			RepoName string   `json:"name"`
-			Tags     []string `json:"tags"`
-		}{
-			RepoName: repo.FullName(),
-			Tags:     tags,
-		},
-	)
+	respondwith.JSON(w, http.StatusOK, distspecv1.TagList{
+		Name: repo.FullName(),
+		Tags: tags,
+	})
 }
 
 func (a *API) handleListTagsAnycast(w http.ResponseWriter, r *http.Request, info anycastRequestInfo) {

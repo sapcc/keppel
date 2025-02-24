@@ -341,6 +341,18 @@ var sqlMigrations = map[string]string{
 		ALTER TABLE accounts
 			ADD COLUMN in_maintenance BOOLEAN NOT NULL DEFAULT FALSE;
 	`,
+	"046_add_manifest_subject_digest_and_artifact_type.up.sql": `
+		ALTER TABLE manifests
+			ADD COLUMN annotations_json TEXT NOT NULL DEFAULT '',
+			ADD COLUMN artifact_type TEXT NOT NULL DEFAULT '',
+			ADD COLUMN subject_digest TEXT NOT NULL DEFAULT '';
+	`,
+	"046_add_manifest_subject_digest_and_artifact_type.down.sql": `
+		ALTER TABLE manifests
+			DROP COLUMN annotations_json,
+			DROP COLUMN artifact_type,
+			DROP COLUMN subject_digest;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.

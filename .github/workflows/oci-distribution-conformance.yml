@@ -13,7 +13,7 @@ name: Conformance Test
 permissions:
   contents: read
 jobs:
-  test:
+  oci-test:
     name: OCI Distribution
     runs-on: ubuntu-latest
     steps:
