@@ -30,7 +30,10 @@ import (
 
 	"github.com/containers/image/v5/manifest"
 	"github.com/opencontainers/go-digest"
+	"github.com/opencontainers/image-spec/specs-go"
+	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -325,4 +328,37 @@ func makeTimestamp(seconds int) string {
 
 func DeterministicDummyDigest(counter int) digest.Digest {
 	return digest.SHA256.FromBytes(bytes.Repeat([]byte{1}, counter))
+}
+
+func GenerateOCIImage(config map[string]any, configMediaType string, annotations map[string]string, layers ...Bytes) Image {
+	configBytes := must.Return(json.Marshal(config))
+
+	layerDescs := []imgspecv1.Descriptor{}
+	for _, layer := range layers {
+		layerDescs = append(layerDescs, imgspecv1.Descriptor{
+			MediaType: layer.MediaType,
+			Size:      int64(len(layer.Contents)),
+			Digest:    layer.Digest,
+		})
+	}
+
+	manifest := manifest.OCI1{
+		Manifest: imgspecv1.Manifest{
+			Versioned: specs.Versioned{SchemaVersion: 2},
+			MediaType: imgspecv1.MediaTypeImageManifest,
+			Config: imgspecv1.Descriptor{
+				MediaType: imgspecv1.MediaTypeImageManifest,
+				Size:      int64(len(configBytes)),
+				Digest:    digest.FromBytes(configBytes),
+			},
+			Layers:      layerDescs,
+			Annotations: annotations,
+		},
+	}
+
+	return Image{
+		Layers:   layers,
+		Config:   newBytesWithMediaType(must.Return(json.Marshal(config)), configMediaType),
+		Manifest: newBytesWithMediaType(must.Return(json.Marshal(manifest)), manifest.MediaType),
+	}
 }
