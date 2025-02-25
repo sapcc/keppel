@@ -330,8 +330,15 @@ func DeterministicDummyDigest(counter int) digest.Digest {
 	return digest.SHA256.FromBytes(bytes.Repeat([]byte{1}, counter))
 }
 
-func GenerateOCIImage(config map[string]any, configMediaType string, annotations map[string]string, layers ...Bytes) Image {
-	configBytes := must.Return(json.Marshal(config))
+type OCIArgs struct {
+	Config          map[string]any
+	ConfigMediaType string
+	Annotations     map[string]string
+	ArtifactType    string
+}
+
+func GenerateOCIImage(ociArgs OCIArgs, layers ...Bytes) Image {
+	configBytes := must.Return(json.Marshal(ociArgs.Config))
 
 	layerDescs := []imgspecv1.Descriptor{}
 	for _, layer := range layers {
@@ -347,18 +354,22 @@ func GenerateOCIImage(config map[string]any, configMediaType string, annotations
 			Versioned: specs.Versioned{SchemaVersion: 2},
 			MediaType: imgspecv1.MediaTypeImageManifest,
 			Config: imgspecv1.Descriptor{
-				MediaType: imgspecv1.MediaTypeImageManifest,
+				MediaType: ociArgs.ConfigMediaType,
 				Size:      int64(len(configBytes)),
 				Digest:    digest.FromBytes(configBytes),
 			},
 			Layers:      layerDescs,
-			Annotations: annotations,
+			Annotations: ociArgs.Annotations,
 		},
+	}
+
+	if ociArgs.ArtifactType != "" {
+		manifest.ArtifactType = ociArgs.ArtifactType
 	}
 
 	return Image{
 		Layers:   layers,
-		Config:   newBytesWithMediaType(must.Return(json.Marshal(config)), configMediaType),
+		Config:   newBytesWithMediaType(must.Return(json.Marshal(ociArgs.Config)), ociArgs.ConfigMediaType),
 		Manifest: newBytesWithMediaType(must.Return(json.Marshal(manifest)), manifest.MediaType),
 	}
 }

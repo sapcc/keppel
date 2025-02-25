@@ -716,9 +716,12 @@ func TestManifestAnnotations(t *testing.T) {
 		h := s.Handler
 		token := s.GetToken(t, "repository:test1/foo:pull,push")
 
-		image := test.GenerateOCIImage(make(map[string]any), imgspecv1.MediaTypeImageManifest, map[string]string{
-			"abc": "def",
-		})
+		image := test.GenerateOCIImage(test.OCIArgs{
+			ConfigMediaType: imgspecv1.MediaTypeImageManifest,
+			Annotations: map[string]string{
+				"abc": "def",
+			}},
+		)
 		image.MustUpload(t, s, fooRepoRef, "latest")
 
 		// manifest push should succeed
@@ -743,5 +746,37 @@ func TestManifestAnnotations(t *testing.T) {
 		var actual map[string]string
 		must.Succeed(json.Unmarshal([]byte(labelsJSONStr), &actual))
 		assert.DeepEqual(t, "annotations_json", actual, map[string]string{"abc": "def"})
+	})
+}
+
+func TestManifestArtifactType(t *testing.T) {
+	testWithPrimary(t, nil, func(s test.Setup) {
+		h := s.Handler
+		token := s.GetToken(t, "repository:test1/foo:pull,push")
+
+		artifactType := "application/vnd.oci.artifact.config.v1+json"
+		image := test.GenerateOCIImage(test.OCIArgs{ArtifactType: artifactType})
+		image.MustUpload(t, s, fooRepoRef, "latest")
+
+		// manifest push should succeed
+		assert.HTTPRequest{
+			Method: "PUT",
+			Path:   "/v2/test1/foo/manifests/latest",
+			Header: map[string]string{
+				"Authorization": "Bearer " + token,
+				"Content-Type":  imgspecv1.MediaTypeImageManifest,
+			},
+			Body:         assert.ByteData(image.Manifest.Contents),
+			ExpectStatus: http.StatusCreated,
+			ExpectHeader: test.VersionHeader,
+		}.Check(t, h)
+
+		// check that the annotations_json field is populated correctly in the DB
+		artifactTypeStr, err := s.DB.SelectStr(`SELECT artifact_type FROM manifests WHERE digest = $1`, image.Manifest.Digest.String())
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+
+		assert.DeepEqual(t, "artifact_type", artifactType, artifactTypeStr)
 	})
 }
