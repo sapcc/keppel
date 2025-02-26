@@ -42,6 +42,11 @@ type Manifest struct {
 	GCStatusJSON      string     `db:"gc_status_json"`
 	MinLayerCreatedAt *time.Time `db:"min_layer_created_at"`
 	MaxLayerCreatedAt *time.Time `db:"max_layer_created_at"`
+	// OCI specific fields
+	// AnnotationsJSON contains a JSON string of a map[string]string, or an empty string.
+	AnnotationsJSON string        `db:"annotations_json"`
+	ArtifactType    string        `db:"artifact_type"`
+	SubjectDigest   digest.Digest `db:"subject_digest"`
 }
 
 const (

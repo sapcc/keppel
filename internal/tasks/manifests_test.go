@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/opencontainers/go-digest"
+	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/must"
@@ -821,7 +822,7 @@ func TestManifestValidationJobWithoutPlatform(t *testing.T) {
 
 	manifestListBytes, err := json.Marshal(map[string]any{
 		"schemaVersion": 2,
-		"mediaType":     "application/vnd.oci.image.index.v1+json",
+		"mediaType":     imgspecv1.MediaTypeImageIndex,
 		"manifests": []map[string]any{{
 			"mediaType":    image.Manifest.MediaType,
 			"size":         len(image.Manifest.Contents),
@@ -837,7 +838,7 @@ func TestManifestValidationJobWithoutPlatform(t *testing.T) {
 		Manifest: test.Bytes{
 			Contents:  manifestListBytes,
 			Digest:    digest.Canonical.FromBytes(manifestListBytes),
-			MediaType: "application/vnd.oci.image.index.v1+json",
+			MediaType: imgspecv1.MediaTypeImageIndex,
 		},
 	}
 	imageList.MustUpload(t, s, fooRepoRef, "")

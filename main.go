@@ -65,7 +65,7 @@ func main() {
 	serverCmd := &cobra.Command{
 		Use:   "server <subcommand> <args...>",
 		Short: "Server commands.",
-		Args:  cobra.NoArgs,
+		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},
