@@ -1,7 +1,7 @@
 export KEPPEL_API_PUBLIC_FQDN=localhost
 export KEPPEL_ISSUER_KEY=./conformance-test/privkey.pem
 export KEPPEL_DB_CONNECTION_OPTIONS=sslmode=disable
-export KEPPEL_DB_PASSWORD=mysecretpassword
+export KEPPEL_DB_PASSWORD=
 export KEPPEL_DB_PORT=54321
 export KEPPEL_USERNAME=johndoe
 export KEPPEL_PASSWORD=SuperSecret
