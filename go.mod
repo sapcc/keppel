@@ -17,7 +17,7 @@ require (
 	github.com/majewsky/schwift/v2 v2.0.0
 	github.com/opencontainers/distribution-spec/specs-go v0.0.0-20250220192232-583e014d1541
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/opencontainers/image-spec v1.1.0
+	github.com/opencontainers/image-spec v1.1.1
 	github.com/prometheus/client_golang v1.21.0
 	github.com/redis/go-redis/v9 v9.7.1
 	github.com/rs/cors v1.11.1
