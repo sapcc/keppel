@@ -7,7 +7,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 run:
-  timeout: 3m # 1m by default
+  timeout: 3m0s # 1m by default
   modules-download-mode: vendor
 
 output:

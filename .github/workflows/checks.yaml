@@ -33,6 +33,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
+          verify: false
           version: latest
       - name: Dependency Licenses Review
         run: make check-dependency-licenses
