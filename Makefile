@@ -24,15 +24,15 @@ run-api: build/keppel
 copy-fixtures:
 	find -name '*.actual' | xargs -I{} bash -c 'mv {} $$(echo {} | sed "s/.actual//g")'
 
-testing/conformance-test/privkey.pem:
+conformance-test/privkey.pem:
 	openssl genrsa -out $@ 4096
 
 # This is for running test suites like the OCI distribution API conformance test.
 # An account called "conformance-test" and a hardcoded username/password pair
 # (see env.sh mentioned below) will be pre-configured and ready to use for the test run.
-run-api-for-conformance-test: build/keppel testing/conformance-test/privkey.pem
+run-api-for-conformance-test: build/keppel conformance-test/privkey.pem
 	@echo "Ready to run conformance test"
-	set -euo pipefail && source testing/conformance-test/env.sh && testing/conformance-test/with-postgres-db.sh $(CURDIR)/build/keppel server api
+	set -euo pipefail && source conformance-test/env.sh && conformance-test/with-postgres-db.sh $(CURDIR)/build/keppel server api
 
 install-goimports: FORCE
 	@if ! hash goimports 2>/dev/null; then printf "\e[1;36m>> Installing goimports (this may take a while)...\e[0m\n"; go install golang.org/x/tools/cmd/goimports@latest; fi
