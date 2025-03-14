@@ -26,8 +26,26 @@ jobs:
           go-version: "1.24"
       - name: Start keppel
         run: |
-          make build/keppel
-          RUNNER_TRACKING_ID="" && make run-api-for-conformance-test &
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo pg_conftool /etc/postgresql-common/createcluster.conf set create_main_cluster false
+          sudo apt-get install --no-install-recommends -y postgresql-17
+          sudo chmod 777 -R /root .
+          export PATH=/usr/lib/postgresql/17/bin:$PATH
+          # needed for act
+          if realpath /root/go/pkg/mod/golang.org/toolchain@*/bin; then
+            export PATH=$(realpath /root/go/pkg/mod/golang.org/toolchain@*/bin):$PATH
+          fi
+
+          # act workaround as it runs things as root and postgres refuses to start when run as root
+          cmd=env
+          if [[ $(id -u) == 0 ]]; then
+            cmd=sudo -u postgres -E --preserve-env=PATH
+          fi
+
+          $cmd make build/keppel
+          $cmd env RUNNER_TRACKING_ID="" make run-api-for-conformance-test &
           until curl -s http://localhost:8080/healthcheck; do sleep 0.1; done
           IP=$(hostname -I | awk '{print $1}')
           echo "SERVER_URL=http://${IP}:8080" >> $GITHUB_ENV
@@ -54,11 +72,3 @@ jobs:
           name: oci-test-results-${{ github.sha }}
           path: .out/
         if: always()
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_PASSWORD: mysecretpassword
-        ports:
-          - 54321:5432
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
