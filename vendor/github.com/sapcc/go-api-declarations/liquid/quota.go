@@ -31,11 +31,11 @@ type ServiceQuotaRequest struct {
 // ResourceQuotaRequest contains new quotas for a single resource.
 // It appears in type ServiceQuotaRequest.
 type ResourceQuotaRequest struct {
-	// For FlatResourceTopology and AZAwareResourceTopology, this is the only field that is filled, and PerAZ will be nil.
-	// For AZSeparatedResourceTopology, this contains the sum of the quotas across all AZs (for compatibility purposes).
+	// For FlatTopology and AZAwareTopology, this is the only field that is filled, and PerAZ will be nil.
+	// For AZSeparatedTopology, this contains the sum of the quotas across all AZs (for compatibility purposes).
 	Quota uint64 `json:"quota"`
 
-	// PerAZ will only be filled for AZSeparatedResourceTopology.
+	// PerAZ will only be filled for AZSeparatedTopology.
 	PerAZ map[AvailabilityZone]AZResourceQuotaRequest `json:"perAZ,omitempty"`
 }
 

@@ -63,12 +63,8 @@ type ResourceInfo struct {
 	// For example, the compute resource "cores" is countable, but the compute resource "ram" is measured, usually in MiB.
 	Unit Unit `json:"unit,omitempty"`
 
-	// How the resource reports usage (and capacity, if any).
-	//
-	// For backwards compatibility, it is currently acceptable to not provide this field.
-	// In this case, the fallback behavior is for Limes to decide between FlatResourceTopology and AZAwareResourceTopology based on actual reports.
-	// In the future, Limes will eventually reject ResourceInfo that do not specify a known ResourceTopology.
-	Topology ResourceTopology `json:"topology"`
+	// How the resource reports usage (and capacity, if any). This field is required, and must contain one of the valid enum variants defined in this package.
+	Topology Topology `json:"topology"`
 
 	// Whether the liquid reports capacity for this resource on the cluster level.
 	HasCapacity bool `json:"hasCapacity"`
@@ -89,40 +85,54 @@ type ResourceInfo struct {
 	Attributes json.RawMessage `json:"attributes,omitempty"`
 }
 
-// ResourceTopology describes how capacity and usage reported by a certain resource is structured.
+// Topology describes how capacity and usage reported by a certain resource is structured.
 // Type type appears in type ResourceInfo.
-type ResourceTopology string
+type Topology string
 
 const (
-	// FlatResourceTopology is a topology for resources that are not AZ-aware at all.
+	// FlatTopology is a topology for resources that are not AZ-aware at all.
 	// In reports for this resource, PerAZ must contain exactly one key: AvailabilityZoneAny.
 	// Any other entry, as well as the absence of AvailabilityZoneAny, will be considered an error by Limes.
 	//
 	// If the resource sets HasQuota = true, only a flat number will be given, and PerAZ will be null.
-	FlatResourceTopology ResourceTopology = "flat"
+	FlatTopology Topology = "flat"
 
-	// AZAwareResourceTopology is a topology for resources that can measure capacity and usage by AZ.
+	// AZAwareTopology is a topology for resources that can measure capacity and usage by AZ.
 	// In reports for this resource, PerAZ shall contain an entry for each AZ mentioned in the AllAZs key of the request.
 	// PerAZ may also include an entry for AvailabilityZoneUnknown as needed.
 	// Any other entry (including AvailabilityZoneAny) will be considered an error by Limes.
 	//
 	// If the resource sets "HasQuota = true", only a flat number will be given, and PerAZ will be null.
 	// This behavior matches the AZ-unawareness of quota in most OpenStack services.
-	AZAwareResourceTopology ResourceTopology = "az-aware"
+	AZAwareTopology Topology = "az-aware"
 
-	// AZSeparatedResourceTopology is like AZAwareResourceTopology, but quota is also AZ-aware.
-	// For resources with HasQuota = false, this behaves the same as AZAwareResourceTopology.
+	// AZSeparatedTopology is like AZAwareTopology, but quota is also AZ-aware.
+	// For resources with HasQuota = false, this behaves the same as AZAwareTopology.
 	//
 	// If the resource sets "HasQuota = true", quota requests will include the PerAZ breakdown.
 	// PerAZ will only contain quotas for actual AZs, not for AvailabilityZoneAny or AvailabilityZoneUnknown.
-	AZSeparatedResourceTopology ResourceTopology = "az-separated"
+	AZSeparatedTopology Topology = "az-separated"
+)
+
+// ResourceTopology is a synonym for Topology.
+//
+// Deprecated: Use Topology instead.
+type ResourceTopology = Topology
+
+const (
+	// Deprecated: Use FlatTopology instead.
+	FlatResourceTopology ResourceTopology = FlatTopology
+	// Deprecated: Use AZAwareTopology instead.
+	AZAwareResourceTopology ResourceTopology = AZAwareTopology
+	// Deprecated: Use AZSeparatedTopology instead.
+	AZSeparatedResourceTopology ResourceTopology = AZSeparatedTopology
 )
 
 // IsValid returns whether the given value is a part of the enum.
 // This can be used to check unmarshalled values.
-func (t ResourceTopology) IsValid() bool {
+func (t Topology) IsValid() bool {
 	switch t {
-	case FlatResourceTopology, AZAwareResourceTopology, AZSeparatedResourceTopology:
+	case FlatTopology, AZAwareTopology, AZSeparatedTopology:
 		return true
 	default:
 		return false
@@ -136,6 +146,9 @@ type RateInfo struct {
 	// If non-empty, the rate is "measured" and usage values are in multiples of the given unit.
 	// For example, the storage rate "volume_creations" is countable, but the network rate "outbound_transfer" is measured, e.g. in bytes.
 	Unit Unit `json:"unit,omitempty"`
+
+	// How the rate reports usage. This field is required, and must contain one of the valid enum variants defined in this package.
+	Topology Topology `json:"topology"`
 
 	// Whether the liquid reports usage for this rate on the project level.
 	// This must currently be true because there is no other reason for a rate to exist.

@@ -77,12 +77,12 @@ type ResourceUsageReport struct {
 	//   - If the project has no usage in this resource, Limes will hide this resource from project reports.
 	Forbidden bool `json:"forbidden"`
 
-	// This shall be null if and only if the resource is declared with "HasQuota = false" or with AZSeparatedResourceTopology.
+	// This shall be null if and only if the resource is declared with "HasQuota = false" or with AZSeparatedTopology.
 	// A negative value, usually -1, indicates "infinite quota" (i.e., the absence of a quota).
 	Quota *int64 `json:"quota,omitempty"`
 
-	// The keys that are allowed in this map depend on the chosen ResourceTopology.
-	// See documentation on ResourceTopology enum variants for details.
+	// The keys that are allowed in this map depend on the chosen Topology.
+	// See documentation on Topology enum variants for details.
 	//
 	// Tip: When filling this by starting from a non-AZ-aware usage number that is later broken down with AZ-aware data, use func PrepareForBreakdownInto.
 	PerAZ map[AvailabilityZone]*AZResourceUsageReport `json:"perAZ"`
@@ -102,7 +102,7 @@ type AZResourceUsageReport struct {
 	// It is not allowed to report 5 GiB as Usage in this situation, since the 50 GiB value is used when judging whether the Quota fits.
 	PhysicalUsage *uint64 `json:"physicalUsage,omitempty"`
 
-	// This shall be non-null if and only if the resource is declared with AZSeparatedResourceTopology.
+	// This shall be non-null if and only if the resource is declared with AZSeparatedTopology.
 	// A negative value, usually -1, indicates "infinite quota" (i.e., the absence of a quota).
 	Quota *int64 `json:"quota,omitempty"`
 
@@ -150,8 +150,8 @@ func (r *ResourceUsageReport) AddLocalizedUsage(az AvailabilityZone, usage uint6
 // RateUsageReport contains usage data for a rate in a single project.
 // It appears in type ServiceUsageReport.
 type RateUsageReport struct {
-	// The keys that are allowed in this map depend on the chosen ResourceTopology.
-	// See documentation on ResourceTopology enum variants for details.
+	// The keys that are allowed in this map depend on the chosen Topology.
+	// See documentation on Topology enum variants for details.
 	PerAZ map[AvailabilityZone]*AZRateUsageReport `json:"perAZ"`
 }
 
