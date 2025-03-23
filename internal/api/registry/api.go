@@ -111,7 +111,7 @@ func (a *API) AddTo(r *mux.Router) {
 		HandlerFunc(a.handlePutManifest)
 	r.Methods("GET").
 		Path("/v2/{repository:.+}/referrers/{reference}").
-		HandlerFunc(a.handleRefererrers)
+		HandlerFunc(a.handleGetReferrers)
 	r.Methods("GET").
 		Path("/v2/{repository:.+}/tags/list").
 		HandlerFunc(a.handleListTags)

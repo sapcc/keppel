@@ -39,7 +39,7 @@ var getManifestBySubjectAndArtifactType = sqlext.SimplifyWhitespace(`
   SELECT * FROM manifests WHERE repo_id = $1 AND subject_digest = $2 AND artifact_type = $3
 `)
 
-func (a *API) handleRefererrers(w http.ResponseWriter, r *http.Request) {
+func (a *API) handleGetReferrers(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/referrers/:reference")
 
 	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
