@@ -31,11 +31,11 @@ import (
 	"github.com/sapcc/keppel/internal/models"
 )
 
-var getManifestBySubject = sqlext.SimplifyWhitespace(`
+var getManifestBySubjectQuery = sqlext.SimplifyWhitespace(`
   SELECT * FROM manifests WHERE repo_id = $1 AND subject_digest = $2
 `)
 
-var getManifestBySubjectAndArtifactType = sqlext.SimplifyWhitespace(`
+var getManifestBySubjectAndArtifactTypeQuery = sqlext.SimplifyWhitespace(`
   SELECT * FROM manifests WHERE repo_id = $1 AND subject_digest = $2 AND artifact_type = $3
 `)
 
@@ -53,9 +53,9 @@ func (a *API) handleGetReferrers(w http.ResponseWriter, r *http.Request) {
 	filterArtifactType := r.URL.Query().Get("artifactType")
 	var err error
 	if filterArtifactType == "" {
-		_, err = a.db.Select(&dbManifests, getManifestBySubject, repo.ID, digest)
+		_, err = a.db.Select(&dbManifests, getManifestBySubjectQuery, repo.ID, digest)
 	} else {
-		_, err = a.db.Select(&dbManifests, getManifestBySubjectAndArtifactType, repo.ID, digest, filterArtifactType)
+		_, err = a.db.Select(&dbManifests, getManifestBySubjectAndArtifactTypeQuery, repo.ID, digest, filterArtifactType)
 	}
 	if respondWithError(w, r, err) {
 		return
