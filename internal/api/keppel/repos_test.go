@@ -212,14 +212,14 @@ func TestReposAPI(t *testing.T) {
 	}.Check(t, h)
 
 	// test DELETE happy case
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/before-delete-repo.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/before-delete-repo.sql")
 	assert.HTTPRequest{
 		Method:       "DELETE",
 		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1",
 		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
 		ExpectStatus: http.StatusNoContent,
 	}.Check(t, h)
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/after-delete-repo.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/after-delete-repo.sql")
 
 	// test DELETE failure cases
 	assert.HTTPRequest{

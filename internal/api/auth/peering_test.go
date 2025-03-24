@@ -103,7 +103,7 @@ func TestPeeringAPI(t *testing.T) {
 		}.Check(t, h)
 
 		// error cases should not touch the DB
-		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/before-peering.sql")
+		easypg.AssertDBContent(t, s.DB.Db, "fixtures/before-peering.sql")
 
 		// success case
 		assert.HTTPRequest{
@@ -119,6 +119,6 @@ func TestPeeringAPI(t *testing.T) {
 		}.Check(t, h)
 
 		// success case should have touched the DB
-		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/after-peering.sql")
+		easypg.AssertDBContent(t, s.DB.Db, "fixtures/after-peering.sql")
 	})
 }

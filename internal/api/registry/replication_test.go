@@ -69,7 +69,7 @@ func TestReplicationSimpleImage(t *testing.T) {
 			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, image.Manifest.Digest.String(), nil)
 
 			if firstPass && strategy == "on_first_use" {
-				easypg.AssertDBContent(t, s2.DB.DbMap.Db, "fixtures/imagemanifest-replication-001-after-pull-manifest.sql")
+				easypg.AssertDBContent(t, s2.DB.Db, "fixtures/imagemanifest-replication-001-after-pull-manifest.sql")
 			}
 
 			s1.Clock.StepBy(time.Second)
@@ -77,7 +77,7 @@ func TestReplicationSimpleImage(t *testing.T) {
 			expectBlobExists(t, h2, token, "test1/foo", image.Layers[0], nil)
 
 			if firstPass && strategy == "on_first_use" {
-				easypg.AssertDBContent(t, s2.DB.DbMap.Db, "fixtures/imagemanifest-replication-002-after-pull-blobs.sql")
+				easypg.AssertDBContent(t, s2.DB.Db, "fixtures/imagemanifest-replication-002-after-pull-blobs.sql")
 			}
 		})
 
@@ -116,7 +116,7 @@ func TestReplicationImageList(t *testing.T) {
 			expectManifestExists(t, h2, token, "test1/foo", list.Manifest, "list", nil)
 
 			if strategy == "on_first_use" {
-				easypg.AssertDBContent(t, s2.DB.DbMap.Db, "fixtures/imagelistmanifest-replication-001-after-pull-listmanifest.sql")
+				easypg.AssertDBContent(t, s2.DB.Db, "fixtures/imagelistmanifest-replication-001-after-pull-listmanifest.sql")
 			}
 
 			if !firstPass {
@@ -455,7 +455,7 @@ func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 			expectManifestExists(t, h2, token, "test1/foo", list.Manifest, "list", nil)
 
 			if strategy == "on_first_use" {
-				easypg.AssertDBContent(t, s2.DB.DbMap.Db, "fixtures/imagelistmanifest-replication-with-platformfilter-001-after-pull-listmanifest.sql")
+				easypg.AssertDBContent(t, s2.DB.Db, "fixtures/imagelistmanifest-replication-with-platformfilter-001-after-pull-listmanifest.sql")
 			}
 
 			if !firstPass {

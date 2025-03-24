@@ -40,7 +40,7 @@ import (
 func TestAccountsAPI(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
-	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
+	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
 	tr0.AssertEmpty()
 
 	// test the /keppel/v1 endpoint
@@ -449,7 +449,7 @@ func TestGetAccountsErrorCases(t *testing.T) {
 func TestPutAccountErrorCases(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
-	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
+	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
 	tr0.AssertEmpty()
 
 	//preparation: create an account (so that we can check the error that the requested account name is taken)
@@ -1722,7 +1722,7 @@ func TestDeleteAccount(t *testing.T) {
 	)
 	h := s.Handler
 
-	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
+	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
 	tr0.Ignore()
 
 	// failure case: insufficient permissions (the "delete" permission refers to

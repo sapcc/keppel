@@ -49,7 +49,7 @@ func TestSweepBlobs(t *testing.T) {
 	// the blobs_sweeped_at timestamp on the account
 	expectSuccess(t, sweepBlobsJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepBlobsJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-sweep-001.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/blob-sweep-001.sql")
 	s.ExpectBlobsExistInStorage(t, dbBlobs...)
 
 	// remove blob mounts for some blobs - BlobSweepJob should now
@@ -60,7 +60,7 @@ func TestSweepBlobs(t *testing.T) {
 	)
 	expectSuccess(t, sweepBlobsJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepBlobsJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-sweep-002.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/blob-sweep-002.sql")
 	s.ExpectBlobsExistInStorage(t, dbBlobs...)
 
 	// recreate one of these blob mounts - this should protect it from being
@@ -71,7 +71,7 @@ func TestSweepBlobs(t *testing.T) {
 	s.Clock.StepBy(2 * time.Hour)
 	expectSuccess(t, sweepBlobsJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepBlobsJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-sweep-003.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/blob-sweep-003.sql")
 	s.ExpectBlobsMissingInStorage(t, dbBlobs[0:2]...)
 	s.ExpectBlobsExistInStorage(t, dbBlobs[2:]...)
 }
@@ -99,7 +99,7 @@ func TestValidateBlobs(t *testing.T) {
 	s.Clock.StepBy(time.Second)
 	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), validateBlobJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-validate-001.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/blob-validate-001.sql")
 
 	// deliberately destroy one of the blob's digests
 	wrongDigest := digest.Canonical.FromBytes([]byte("not the right content"))
@@ -120,7 +120,7 @@ func TestValidateBlobs(t *testing.T) {
 	s.Clock.StepBy(time.Second)
 	expectError(t, expectedError, validateBlobJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), validateBlobJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-validate-002.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/blob-validate-002.sql")
 
 	// fix the issue
 	mustExec(t, s.DB, `UPDATE blobs SET digest = $1 WHERE digest = $2`,
@@ -137,5 +137,5 @@ func TestValidateBlobs(t *testing.T) {
 	s.Clock.StepBy(time.Second)
 	expectSuccess(t, validateBlobJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), validateBlobJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/blob-validate-003.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/blob-validate-003.sql")
 }

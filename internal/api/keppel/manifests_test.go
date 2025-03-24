@@ -273,14 +273,14 @@ func TestManifestsAPI(t *testing.T) {
 		}.Check(t, h)
 
 		// test DELETE manifest happy case
-		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/before-delete-manifest.sql")
+		easypg.AssertDBContent(t, s.DB.Db, "fixtures/before-delete-manifest.sql")
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + test.DeterministicDummyDigest(11).String(),
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
 			ExpectStatus: http.StatusNoContent,
 		}.Check(t, h)
-		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/after-delete-manifest.sql")
+		easypg.AssertDBContent(t, s.DB.Db, "fixtures/after-delete-manifest.sql")
 
 		s.Auditor.ExpectEvents(t, cadf.Event{
 			RequestPath: "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + test.DeterministicDummyDigest(11).String(),
@@ -307,7 +307,7 @@ func TestManifestsAPI(t *testing.T) {
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
 			ExpectStatus: http.StatusNoContent,
 		}.Check(t, h)
-		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/after-delete-tag.sql")
+		easypg.AssertDBContent(t, s.DB.Db, "fixtures/after-delete-tag.sql")
 
 		s.Auditor.ExpectEvents(t, cadf.Event{
 			RequestPath: "/keppel/v1/accounts/test1/repositories/repo1-2/_tags/stillfirst",
