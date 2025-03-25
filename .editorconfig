@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: SAP SE
+# SPDX-License-Identifier: Apache-2.0
+
+root = true
+
+[*]
+insert_final_newline = true
+charset = utf-8
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[{Makefile,go.mod,go.sum,*.go}]
+indent_style = tab
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[{LICENSE,LICENSES/*,vendor/**}]
+charset = unset
+end_of_line = unset
+indent_size = unset
+indent_style = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
