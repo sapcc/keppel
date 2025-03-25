@@ -118,7 +118,7 @@ func testDeleteUpload(t *testing.T, setupUploadObject func(context.Context, kepp
 	}
 
 	// now the DB should not contain any traces of the upload, only the account and repo
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/after-delete-upload.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/after-delete-upload.sql")
 
 	// and once again, DeleteNextAbandonedUpload should indicate that there's nothing to do
 	expectNoRows(t, uploadJob.ProcessOne(s.Ctx))

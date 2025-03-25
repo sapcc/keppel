@@ -61,7 +61,7 @@ func TestGCUntaggedImages(t *testing.T) {
 	// protected (to avoid deleting images that a client is about to tag)
 	expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
-	tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
+	tr, _ := easypg.NewTracker(t, s.DB.Db)
 
 	// setup GC policy that does not match
 	s.Clock.StepBy(2 * time.Hour)
@@ -204,7 +204,7 @@ func TestGCMatchOnTag(t *testing.T) {
 			deletingGCPolicyJSON,
 		),
 	)
-	tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
+	tr, _ := easypg.NewTracker(t, s.DB.Db)
 
 	garbageJob := j.ManifestGarbageCollectionJob(s.Registry)
 
@@ -297,7 +297,7 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 				deletingGCPolicyJSON,
 			),
 		)
-		tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
+		tr, _ := easypg.NewTracker(t, s.DB.Db)
 
 		garbageJob := j.ManifestGarbageCollectionJob(s.Registry)
 
@@ -360,7 +360,7 @@ func TestGCProtectComesTooLate(t *testing.T) {
 			protectingGCPolicyJSON2,
 		),
 	)
-	tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
+	tr, _ := easypg.NewTracker(t, s.DB.Db)
 
 	garbageJob := j.ManifestGarbageCollectionJob(s.Registry)
 

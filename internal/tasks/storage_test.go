@@ -61,7 +61,7 @@ func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.J
 	// setting the storage_sweeped_at timestamp on the account
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-000.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/storage-sweep-000.sql")
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 
@@ -113,7 +113,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	s.Clock.StepBy(8 * time.Hour)
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-blobs-001.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/storage-sweep-blobs-001.sql")
 	// ...but not delete anything yet
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectBlobsExistInStorage(t,
@@ -143,7 +143,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	s.Clock.StepBy(8 * time.Hour)
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-blobs-002.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/storage-sweep-blobs-002.sql")
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectBlobsExistInStorage(t,
 		models.Blob{AccountName: "test1", Digest: testBlob1.Digest, StorageID: testBlob1.Digest.Encoded()},
@@ -174,7 +174,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	s.Clock.StepBy(8 * time.Hour)
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-manifests-001.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/storage-sweep-manifests-001.sql")
 	// ...but not delete anything yet
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
@@ -201,7 +201,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	s.Clock.StepBy(8 * time.Hour)
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/storage-sweep-manifests-002.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/storage-sweep-manifests-002.sql")
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 	s.ExpectManifestsExistInStorage(t, "foo",

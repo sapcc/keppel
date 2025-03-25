@@ -212,20 +212,20 @@ func TestImageManifestLifecycle(t *testing.T) {
 			// PUT success case: upload manifest (and also the blob referenced by it);
 			// each PUT is executed twice to test idempotency
 			s.Clock.StepBy(time.Second)
-			easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-001-before-upload-blob.sql")
+			easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-001-before-upload-blob.sql")
 
 			image.Config.MustUpload(t, s, fooRepoRef)
 			image.Config.MustUpload(t, s, fooRepoRef)
 			s.Clock.StepBy(time.Second)
-			easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-002-after-upload-blob.sql")
+			easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-002-after-upload-blob.sql")
 
 			image.MustUpload(t, s, fooRepoRef, tagName)
 			image.MustUpload(t, s, fooRepoRef, tagName)
 			s.Clock.StepBy(time.Second)
 			if ref == "latest" {
-				easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-tag.sql")
+				easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-tag.sql")
 			} else {
-				easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-digest.sql")
+				easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-digest.sql")
 			}
 
 			// we did two PUTs, but only the first one will be logged since the second one did not change anything
@@ -396,9 +396,9 @@ func TestImageManifestLifecycle(t *testing.T) {
 			}.Check(t, h)
 			s.Clock.StepBy(time.Second)
 			if ref == "latest" {
-				easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-004-after-delete-tag.sql")
+				easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-004-after-delete-tag.sql")
 			} else {
-				easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagemanifest-004-after-delete-manifest.sql")
+				easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-004-after-delete-manifest.sql")
 			}
 
 			// the DELETE will have logged an audit event
@@ -468,7 +468,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 		list2.MustUpload(t, s, fooRepoRef, "list")
 
 		s.Clock.StepBy(time.Second)
-		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagelistmanifest-001-after-upload-manifest.sql")
+		easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagelistmanifest-001-after-upload-manifest.sql")
 
 		// check GET for manifest list
 		expectManifestExists(t, h, token, "test1/foo", list2.Manifest, "list", nil)
@@ -504,7 +504,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 			ExpectHeader: test.VersionHeader,
 		}.Check(t, h)
 		s.Clock.StepBy(time.Second)
-		easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/imagelistmanifest-002-after-delete-manifest.sql")
+		easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagelistmanifest-002-after-delete-manifest.sql")
 	})
 }
 

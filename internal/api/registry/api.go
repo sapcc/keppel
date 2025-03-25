@@ -272,9 +272,10 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 
 	canCreateRepoIfMissing := false
 	canFirstPull := false
-	if strategy == createRepoIfMissing {
+	switch strategy {
+	case createRepoIfMissing:
 		canCreateRepoIfMissing = true
-	} else if strategy == createRepoIfMissingAndReplica {
+	case createRepoIfMissingAndReplica:
 		canFirstPull = authz.ScopeSet.Contains(auth.Scope{
 			ResourceType: "repository",
 			ResourceName: scope.ResourceName,

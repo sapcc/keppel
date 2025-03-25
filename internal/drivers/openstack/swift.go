@@ -435,7 +435,7 @@ func (d *swiftDriver) CanSetupAccount(ctx context.Context, account models.Reduce
 		// 404 can happen when Swift does not have account autocreation enabled. In
 		// this case, the account needs to be created, usually through some
 		// administrative process.
-		return errors.New("Swift storage is not enabled in this project") //nolint:stylecheck // "Swift" is a product name and must be capitalized
+		return errors.New("Swift storage is not enabled in this project") //nolint:staticcheck // "Swift" is a product name and must be capitalized
 	default:
 		return err
 	}

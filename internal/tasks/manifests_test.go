@@ -86,7 +86,7 @@ func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*keppe
 	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
 	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-001-before-disturbance.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/manifest-validate-001-before-disturbance.sql")
 
 	// disturb the DB state, then rerun ManifestValidationJob to fix it
 	s.Clock.StepBy(36 * time.Hour)
@@ -95,7 +95,7 @@ func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*keppe
 	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
 	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-002-after-fix.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/manifest-validate-002-after-fix.sql")
 }
 
 func TestManifestValidationJobFixesWrongSize(t *testing.T) {
@@ -178,7 +178,7 @@ func TestManifestValidationJobError(t *testing.T) {
 	expectError(t, expectedError, validateManifestJob.ProcessOne(s.Ctx))
 
 	// check that validation error to be recorded in the DB
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-error-001.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/manifest-validate-error-001.sql")
 
 	// expect next ManifestValidationJob run to skip over this manifest since it
 	// was recently validated
@@ -190,7 +190,7 @@ func TestManifestValidationJobError(t *testing.T) {
 	// next validation should be happy (and also create the missing refs)
 	s.Clock.StepBy(36 * time.Hour)
 	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.DbMap.Db, "fixtures/manifest-validate-error-002.sql")
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/manifest-validate-error-002.sql")
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -277,9 +277,9 @@ func TestManifestSyncJob(t *testing.T) {
 			mustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, earlierLastPulledAt, "latest")
 			mustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, laterLastPulledAt, "other")
 
-			tr, tr0 := easypg.NewTracker(t, s2.DB.DbMap.Db)
+			tr, tr0 := easypg.NewTracker(t, s2.DB.Db)
 			tr0.AssertEqualToFile(fmt.Sprintf("fixtures/manifest-sync-setup-%s.sql", strategy))
-			trForPrimary, _ := easypg.NewTracker(t, s1.DB.DbMap.Db)
+			trForPrimary, _ := easypg.NewTracker(t, s1.DB.Db)
 
 			// ManifestSyncJob on the primary registry should have nothing to do
 			// since there are no replica accounts
@@ -581,7 +581,7 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		// adjust too big values down to make testing easier
 		blobUncompressedSizeTooBigGiB = 0.001
 
-		tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
+		tr, tr0 := easypg.NewTracker(t, s.DB.Db)
 		tr0.AssertEqualToFile("fixtures/vulnerability-check-setup.sql")
 
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
@@ -628,7 +628,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 	test.WithRoundTripper(func(_ *test.RoundTripper) {
 		j, s := setup(t, test.WithTrivyDouble)
 		s.Clock.StepBy(1 * time.Hour)
-		tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
+		tr, _ := easypg.NewTracker(t, s.DB.Db)
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
 		image := test.GenerateImage(test.GenerateExampleLayer(4))
@@ -660,7 +660,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 	test.WithRoundTripper(func(_ *test.RoundTripper) {
 		j, s := setup(t, test.WithTrivyDouble)
-		tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
+		tr, _ := easypg.NewTracker(t, s.DB.Db)
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
 		// upload an example image
@@ -791,7 +791,7 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
 	test.WithRoundTripper(func(_ *test.RoundTripper) {
 		j, s := setup(t, test.WithTrivyDouble)
-		tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
+		tr, _ := easypg.NewTracker(t, s.DB.Db)
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
 		// upload an example image
@@ -814,7 +814,7 @@ func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
 
 func TestManifestValidationJobWithoutPlatform(t *testing.T) {
 	j, s := setup(t)
-	tr, _ := easypg.NewTracker(t, s.DB.DbMap.Db)
+	tr, _ := easypg.NewTracker(t, s.DB.Db)
 	validateManifestJob := j.ManifestValidationJob(s.Registry)
 
 	image := test.GenerateImage(test.GenerateExampleLayer(1))

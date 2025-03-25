@@ -35,7 +35,7 @@ func TestAccountManagementBasic(t *testing.T) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
 
-	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
+	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
 	tr0.Ignore()
 	managedAccountsJob := j.EnforceManagedAccountsJob(s.Registry)
 	deleteAccountsJob := j.DeleteAccountsJob(s.Registry)
@@ -89,7 +89,7 @@ func TestAccountManagementWithReplicaCreation(t *testing.T) {
 		_, s1 := setup(t)
 		j2, s2 := setupReplica(t, s1, "on_first_use")
 
-		tr, tr0 := easypg.NewTracker(t, s2.DB.DbMap.Db)
+		tr, tr0 := easypg.NewTracker(t, s2.DB.Db)
 		tr0.Ignore()
 
 		// The setup already includes an account "test1" set up on both ends, but we
@@ -119,7 +119,7 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 	deleteAccountsJob := j.DeleteAccountsJob(s.Registry)
 	blobSweepJob := j.BlobSweepJob(s.Registry)
 
-	tr, tr0 := easypg.NewTracker(t, s.DB.DbMap.Db)
+	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
 	tr0.Ignore()
 
 	// create a managed account named "abcde"
