@@ -38,7 +38,7 @@ install-goimports: FORCE
 	@if ! hash goimports 2>/dev/null; then printf "\e[1;36m>> Installing goimports (this may take a while)...\e[0m\n"; go install golang.org/x/tools/cmd/goimports@latest; fi
 
 install-golangci-lint: FORCE
-	@if ! hash golangci-lint 2>/dev/null; then printf "\e[1;36m>> Installing golangci-lint (this may take a while)...\e[0m\n"; go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; fi
+	@if ! hash golangci-lint 2>/dev/null; then printf "\e[1;36m>> Installing golangci-lint (this may take a while)...\e[0m\n"; go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest; fi
 
 install-go-licence-detector: FORCE
 	@if ! hash go-licence-detector 2>/dev/null; then printf "\e[1;36m>> Installing go-licence-detector (this may take a while)...\e[0m\n"; go install go.elastic.co/go-licence-detector@latest; fi
