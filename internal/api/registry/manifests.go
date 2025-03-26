@@ -368,5 +368,8 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", "0")
 	w.Header().Set("Docker-Content-Digest", manifest.Digest.String())
 	w.Header().Set("Location", fmt.Sprintf("/v2/%s/manifests/%s", getRepoNameForURLPath(*repo, authz), manifest.Digest))
+	if manifest.SubjectDigest != "" {
+		w.Header().Set("Oci-Subject", manifest.SubjectDigest.String())
+	}
 	w.WriteHeader(http.StatusCreated)
 }

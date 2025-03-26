@@ -335,6 +335,7 @@ type OCIArgs struct {
 	ConfigMediaType string
 	Annotations     map[string]string
 	ArtifactType    string
+	SubjectDigest   digest.Digest
 }
 
 func GenerateOCIImage(ociArgs OCIArgs, layers ...Bytes) Image {
@@ -361,6 +362,13 @@ func GenerateOCIImage(ociArgs OCIArgs, layers ...Bytes) Image {
 			Layers:      layerDescs,
 			Annotations: ociArgs.Annotations,
 		},
+	}
+
+	if ociArgs.SubjectDigest != "" {
+		manifest.Subject = &imgspecv1.Descriptor{
+			MediaType: imgspecv1.MediaTypeImageManifest,
+			Digest:    ociArgs.SubjectDigest,
+		}
 	}
 
 	if ociArgs.ArtifactType != "" {

@@ -353,6 +353,12 @@ var sqlMigrations = map[string]string{
 			DROP COLUMN artifact_type,
 			DROP COLUMN subject_digest;
 	`,
+	"047_add_manifest_subject_digest_index.up.sql": `
+		CREATE INDEX ON manifests (repo_id, subject_digest) WHERE subject_digest != '';
+	`,
+	"047_add_manifest_subject_digest_index.down.sql": `
+		DROP INDEX manifests_repo_id_subject_digest_idx;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.
