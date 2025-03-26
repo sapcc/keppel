@@ -250,10 +250,13 @@ type GCStatus struct {
 	// protected from GC.
 	ProtectedByRecentUpload bool `json:"protected_by_recent_upload,omitempty"`
 	// If a parent manifest references this manifest and thus protects it from GC,
-	// contains the parent manifest's digest.
+	// this contains the parent manifest's digest.
 	ProtectedByParentManifest string `json:"protected_by_parent,omitempty"`
-	// If a policy with action "protect" applies to this image, contains the
-	// definition of the policy.
+	// If this manifest references a subject and is thus protected from GC,
+	// this contains the subject's digest.
+	ProtectedBySubjectManifest string `json:"protected_by_subject,omitempty"`
+	// If a policy with action "protect" applies to this image,
+	// this contains the definition of the policy.
 	ProtectedByPolicy *GCPolicy `json:"protected_by_policy,omitempty"`
 	// If the image is not protected, contains all policies with action "delete"
 	// that could delete this image in the future.
@@ -262,5 +265,5 @@ type GCStatus struct {
 
 // IsProtected returns whether any of the ProtectedBy... fields is filled.
 func (s GCStatus) IsProtected() bool {
-	return s.ProtectedByRecentUpload || s.ProtectedByParentManifest != "" || s.ProtectedByPolicy != nil
+	return s.ProtectedByRecentUpload || s.ProtectedByParentManifest != "" || s.ProtectedBySubjectManifest != "" || s.ProtectedByPolicy != nil
 }
