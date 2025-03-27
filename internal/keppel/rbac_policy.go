@@ -94,9 +94,9 @@ func (r *RBACPolicy) ValidateAndNormalize(strategy ReplicationStrategy) error {
 		}
 	}
 
-	grantsPerm := make(map[RBACPermission]bool)
-	forbidsPerm := make(map[RBACPermission]bool)
-	refersToPerm := make(map[RBACPermission]bool)
+	grantsPerm := make(map[RBACPermission]bool)   // set of permissions named in `r.Permissions`
+	forbidsPerm := make(map[RBACPermission]bool)  // set of permissions named in `r.NegativePermissions`
+	refersToPerm := make(map[RBACPermission]bool) // set of permissions named in either `r.Permissions` or `r.NegativePermissions`
 	for _, perm := range r.Permissions {
 		if !isRBACPermission[perm] {
 			return fmt.Errorf("%q is not a valid RBAC policy permission", perm)
