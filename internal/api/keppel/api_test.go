@@ -53,7 +53,7 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 	mustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
 		test.ToJSON([]keppel.RBACPolicy{{
 			RepositoryPattern: "foo",
-			Permissions:       []keppel.RBACPermission{keppel.GrantsAnonymousPull},
+			Permissions:       []keppel.RBACPermission{keppel.RBACAnonymousPullPermission},
 		}}),
 	)
 	assert.HTTPRequest{

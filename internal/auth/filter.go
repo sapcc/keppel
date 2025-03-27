@@ -213,28 +213,28 @@ func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience
 
 	// certain policies can never be granted to anonymous users by an RBAC policy
 	if uid.UserType() == keppel.AnonymousUser {
-		delete(permOverride, keppel.GrantsPull)
-		delete(permOverride, keppel.GrantsPush)
-		delete(permOverride, keppel.GrantsDelete)
+		delete(permOverride, keppel.RBACPullPermission)
+		delete(permOverride, keppel.RBACPushPermission)
+		delete(permOverride, keppel.RBACDeletePermission)
 	}
 
 	// evaluate final permission set
 	isAllowedAction := map[string]bool{
-		"pull": permOverride[keppel.GrantsPull].UnwrapOr(
+		"pull": permOverride[keppel.RBACPullPermission].UnwrapOr(
 			uid.HasPermission(keppel.CanPullFromAccount, authTenantID),
 		),
-		"push": permOverride[keppel.GrantsPush].UnwrapOr(
+		"push": permOverride[keppel.RBACPushPermission].UnwrapOr(
 			uid.HasPermission(keppel.CanPushToAccount, authTenantID),
 		),
-		"delete": permOverride[keppel.GrantsDelete].UnwrapOr(
+		"delete": permOverride[keppel.RBACDeletePermission].UnwrapOr(
 			uid.HasPermission(keppel.CanDeleteFromAccount, authTenantID),
 		),
 	}
-	if permOverride[keppel.GrantsAnonymousPull].UnwrapOr(false) {
+	if permOverride[keppel.RBACAnonymousPullPermission].UnwrapOr(false) {
 		isAllowedAction["pull"] = true
 	}
 	if isAllowedAction["pull"] {
-		isAllowedAction["anonymous_first_pull"] = permOverride[keppel.GrantsAnonymousFirstPull].UnwrapOr(false)
+		isAllowedAction["anonymous_first_pull"] = permOverride[keppel.RBACAnonymousFirstPullPermission].UnwrapOr(false)
 	}
 
 	// grant requested actions as possible

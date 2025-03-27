@@ -44,19 +44,19 @@ type RBACPolicy struct {
 type RBACPermission string
 
 const (
-	GrantsPull               RBACPermission = "pull"
-	GrantsPush               RBACPermission = "push"
-	GrantsDelete             RBACPermission = "delete"
-	GrantsAnonymousPull      RBACPermission = "anonymous_pull"
-	GrantsAnonymousFirstPull RBACPermission = "anonymous_first_pull"
+	RBACPullPermission               RBACPermission = "pull"
+	RBACPushPermission               RBACPermission = "push"
+	RBACDeletePermission             RBACPermission = "delete"
+	RBACAnonymousPullPermission      RBACPermission = "anonymous_pull"
+	RBACAnonymousFirstPullPermission RBACPermission = "anonymous_first_pull"
 )
 
 var isRBACPermission = map[RBACPermission]bool{
-	GrantsPull:               true,
-	GrantsPush:               true,
-	GrantsDelete:             true,
-	GrantsAnonymousPull:      true,
-	GrantsAnonymousFirstPull: true,
+	RBACPullPermission:               true,
+	RBACPushPermission:               true,
+	RBACDeletePermission:             true,
+	RBACAnonymousPullPermission:      true,
+	RBACAnonymousFirstPullPermission: true,
 }
 
 // Matches evaluates the cidr and regexes in this policy.
@@ -123,19 +123,19 @@ func (r *RBACPolicy) ValidateAndNormalize(strategy ReplicationStrategy) error {
 	if r.CidrPattern == "" && r.UserNamePattern == "" && r.RepositoryPattern == "" {
 		return errors.New(`RBAC policy must have at least one "match_..." attribute`)
 	}
-	if (refersToPerm[GrantsAnonymousPull] || refersToPerm[GrantsAnonymousFirstPull]) && r.UserNamePattern != "" {
+	if (refersToPerm[RBACAnonymousPullPermission] || refersToPerm[RBACAnonymousFirstPullPermission]) && r.UserNamePattern != "" {
 		return errors.New(`RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`)
 	}
-	if refersToPerm[GrantsPull] && r.CidrPattern == "" && r.UserNamePattern == "" {
+	if refersToPerm[RBACPullPermission] && r.CidrPattern == "" && r.UserNamePattern == "" {
 		return errors.New(`RBAC policy with "pull" must have the "match_cidr" or "match_username" attribute`)
 	}
-	if grantsPerm[GrantsPush] && !grantsPerm[GrantsPull] {
+	if grantsPerm[RBACPushPermission] && !grantsPerm[RBACPullPermission] {
 		return errors.New(`RBAC policy with "push" must also grant "pull"`)
 	}
-	if refersToPerm[GrantsDelete] && r.UserNamePattern == "" {
+	if refersToPerm[RBACDeletePermission] && r.UserNamePattern == "" {
 		return errors.New(`RBAC policy with "delete" must have the "match_username" attribute`)
 	}
-	if refersToPerm[GrantsAnonymousFirstPull] && strategy != FromExternalOnFirstUseStrategy {
+	if refersToPerm[RBACAnonymousFirstPullPermission] && strategy != FromExternalOnFirstUseStrategy {
 		return errors.New(`RBAC policy with "anonymous_first_pull" may only be for external replica accounts`)
 	}
 
