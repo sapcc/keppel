@@ -802,6 +802,8 @@ func TestPutAccountErrorCases(t *testing.T) {
 		RBACPolicyJSON assert.JSONObject
 		ErrorMessage   string
 	}{
+		// NOTE: Many testcases come in pairs where the problematic permission is
+		// in `permissions` the first time and in `forbidden_permissions` the second time.
 		{
 			RBACPolicyJSON: assert.JSONObject{
 				"match_repository": "library/.+",
@@ -814,6 +816,22 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"permissions":      []string{"pull", "push", "foo"},
 			},
 			ErrorMessage: `"foo" is not a valid RBAC policy permission`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository":      "library/.+",
+				"permissions":           []string{"pull"},
+				"forbidden_permissions": []string{"push", "foo"},
+			},
+			ErrorMessage: `"foo" is not a valid RBAC policy permission`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository":      "library/.+",
+				"permissions":           []string{"pull"},
+				"forbidden_permissions": []string{"pull", "push"},
+			},
+			ErrorMessage: `"pull" cannot be granted and forbidden by the same RBAC policy`,
 		},
 		{
 			RBACPolicyJSON: assert.JSONObject{
@@ -831,6 +849,14 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		{
 			RBACPolicyJSON: assert.JSONObject{
+				"match_repository":      "library/.+",
+				"match_username":        "foo",
+				"forbidden_permissions": []string{"anonymous_pull"},
+			},
+			ErrorMessage: `RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
 				"match_repository": "library/.+",
 				"permissions":      []string{"pull"},
 			},
@@ -838,8 +864,22 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		{
 			RBACPolicyJSON: assert.JSONObject{
+				"match_repository":      "library/.+",
+				"forbidden_permissions": []string{"pull"},
+			},
+			ErrorMessage: `RBAC policy with "pull" must have the "match_cidr" or "match_username" attribute`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
 				"match_repository": "library/.+",
 				"permissions":      []string{"delete"},
+			},
+			ErrorMessage: `RBAC policy with "delete" must have the "match_username" attribute`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository":      "library/.+",
+				"forbidden_permissions": []string{"delete"},
 			},
 			ErrorMessage: `RBAC policy with "delete" must have the "match_username" attribute`,
 		},
@@ -874,8 +914,23 @@ func TestPutAccountErrorCases(t *testing.T) {
 		},
 		{
 			RBACPolicyJSON: assert.JSONObject{
+				"match_repository":      "library/.+",
+				"match_username":        "foo",
+				"forbidden_permissions": []string{"anonymous_first_pull"},
+			},
+			ErrorMessage: `RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
 				"match_repository": "library/.+",
 				"permissions":      []string{"anonymous_first_pull"},
+			},
+			ErrorMessage: `RBAC policy with "anonymous_first_pull" may only be for external replica accounts`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository":      "library/.+",
+				"forbidden_permissions": []string{"anonymous_first_pull"},
 			},
 			ErrorMessage: `RBAC policy with "anonymous_first_pull" may only be for external replica accounts`,
 		},

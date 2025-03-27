@@ -77,6 +77,11 @@ var (
 		UserNamePattern:   "correct.*",
 		Permissions:       []keppel.RBACPermission{keppel.GrantsPull},
 	}
+	policyForbidPush = keppel.RBACPolicy{
+		RepositoryPattern:    "fo+",
+		UserNamePattern:      "correct.*",
+		ForbiddenPermissions: []keppel.RBACPermission{keppel.GrantsPush},
+	}
 	policyPushMatches = keppel.RBACPolicy{
 		RepositoryPattern: "fo+",
 		UserNamePattern:   "correct.*",
@@ -413,6 +418,19 @@ var testCases = []TestCase{
 		GrantedActions: "pull,push"},
 	{Scope: "repository:test1/foo:delete",
 		RBACPolicy:     &policyDeleteMatches,
+		GrantedActions: "delete"},
+	// negative RBAC policies can take away permissions
+	{Scope: "repository:test1/foo:pull",
+		RBACPolicy:     &policyForbidPush,
+		GrantedActions: "pull"},
+	{Scope: "repository:test1/foo:push",
+		RBACPolicy:     &policyForbidPush,
+		GrantedActions: ""},
+	{Scope: "repository:test1/foo:pull,push",
+		RBACPolicy:     &policyForbidPush,
+		GrantedActions: "pull"},
+	{Scope: "repository:test1/foo:delete",
+		RBACPolicy:     &policyForbidPush,
 		GrantedActions: "delete"},
 }
 

@@ -33,10 +33,11 @@ import (
 // RBACPolicy is a policy granting user-defined access to repos in an account.
 // It is stored in serialized form in the RBACPoliciesJSON field of type Account.
 type RBACPolicy struct {
-	CidrPattern       string                  `json:"match_cidr,omitempty"`
-	RepositoryPattern regexpext.BoundedRegexp `json:"match_repository,omitempty"`
-	UserNamePattern   regexpext.BoundedRegexp `json:"match_username,omitempty"`
-	Permissions       []RBACPermission        `json:"permissions"`
+	CidrPattern          string                  `json:"match_cidr,omitempty"`
+	RepositoryPattern    regexpext.BoundedRegexp `json:"match_repository,omitempty"`
+	UserNamePattern      regexpext.BoundedRegexp `json:"match_username,omitempty"`
+	Permissions          []RBACPermission        `json:"permissions"`
+	ForbiddenPermissions []RBACPermission        `json:"forbidden_permissions,omitempty"`
 }
 
 // RBACPermission enumerates permissions that can be granted by an RBAC policy.
@@ -93,33 +94,48 @@ func (r *RBACPolicy) ValidateAndNormalize(strategy ReplicationStrategy) error {
 		}
 	}
 
-	hasPerm := make(map[RBACPermission]bool)
+	grantsPerm := make(map[RBACPermission]bool)
+	forbidsPerm := make(map[RBACPermission]bool)
+	refersToPerm := make(map[RBACPermission]bool)
 	for _, perm := range r.Permissions {
 		if !isRBACPermission[perm] {
 			return fmt.Errorf("%q is not a valid RBAC policy permission", perm)
 		}
-		hasPerm[perm] = true
+		grantsPerm[perm] = true
+		forbidsPerm[perm] = false
+		refersToPerm[perm] = true
+	}
+	for _, perm := range r.ForbiddenPermissions {
+		if !isRBACPermission[perm] {
+			return fmt.Errorf("%q is not a valid RBAC policy permission", perm)
+		}
+		if grantsPerm[perm] {
+			return fmt.Errorf("%q cannot be granted and forbidden by the same RBAC policy", perm)
+		}
+		grantsPerm[perm] = false
+		forbidsPerm[perm] = true
+		refersToPerm[perm] = true
 	}
 
-	if len(r.Permissions) == 0 {
+	if len(r.Permissions) == 0 && len(r.ForbiddenPermissions) == 0 {
 		return errors.New(`RBAC policy must grant at least one permission`)
 	}
 	if r.CidrPattern == "" && r.UserNamePattern == "" && r.RepositoryPattern == "" {
 		return errors.New(`RBAC policy must have at least one "match_..." attribute`)
 	}
-	if (hasPerm[GrantsAnonymousPull] || hasPerm[GrantsAnonymousFirstPull]) && r.UserNamePattern != "" {
+	if (refersToPerm[GrantsAnonymousPull] || refersToPerm[GrantsAnonymousFirstPull]) && r.UserNamePattern != "" {
 		return errors.New(`RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`)
 	}
-	if hasPerm[GrantsPull] && r.CidrPattern == "" && r.UserNamePattern == "" {
+	if refersToPerm[GrantsPull] && r.CidrPattern == "" && r.UserNamePattern == "" {
 		return errors.New(`RBAC policy with "pull" must have the "match_cidr" or "match_username" attribute`)
 	}
-	if hasPerm[GrantsPush] && !hasPerm[GrantsPull] {
+	if grantsPerm[GrantsPush] && !grantsPerm[GrantsPull] {
 		return errors.New(`RBAC policy with "push" must also grant "pull"`)
 	}
-	if hasPerm[GrantsDelete] && r.UserNamePattern == "" {
+	if refersToPerm[GrantsDelete] && r.UserNamePattern == "" {
 		return errors.New(`RBAC policy with "delete" must have the "match_username" attribute`)
 	}
-	if hasPerm[GrantsAnonymousFirstPull] && strategy != FromExternalOnFirstUseStrategy {
+	if refersToPerm[GrantsAnonymousFirstPull] && strategy != FromExternalOnFirstUseStrategy {
 		return errors.New(`RBAC policy with "anonymous_first_pull" may only be for external replica accounts`)
 	}
 
