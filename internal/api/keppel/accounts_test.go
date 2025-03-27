@@ -798,150 +798,179 @@ func TestPutAccountErrorCases(t *testing.T) {
 	}
 
 	// test malformed RBAC policies
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies": []assert.JSONObject{{
-					"match_repository": "library/.+",
-				}},
+	rbacPolicyTestcases := []struct {
+		RBACPolicyJSON assert.JSONObject
+		ErrorMessage   string
+	}{
+		// NOTE: Many testcases come in pairs where the problematic permission is
+		// in `permissions` the first time and in `forbidden_permissions` the second time.
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.+",
 			},
+			ErrorMessage: "RBAC policy must grant at least one permission",
 		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("RBAC policy must grant at least one permission\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies": []assert.JSONObject{{
-					"match_repository": "library/.+",
-					"permissions":      []string{"pull", "push", "foo"},
-				}},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.+",
+				"permissions":      []string{"pull", "push", "foo"},
 			},
+			ErrorMessage: `"foo" is not a valid RBAC policy permission`,
 		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("\"foo\" is not a valid RBAC policy permission\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies": []assert.JSONObject{{
-					"permissions": []string{"anonymous_pull"},
-				}},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository":      "library/.+",
+				"permissions":           []string{"pull"},
+				"forbidden_permissions": []string{"push", "foo"},
 			},
+			ErrorMessage: `"foo" is not a valid RBAC policy permission`,
 		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("RBAC policy must have at least one \"match_...\" attribute\n"),
-	}.Check(t, h)
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository":      "library/.+",
+				"permissions":           []string{"pull"},
+				"forbidden_permissions": []string{"pull", "push"},
+			},
+			ErrorMessage: `"pull" cannot be granted and forbidden by the same RBAC policy`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"permissions": []string{"anonymous_pull"},
+			},
+			ErrorMessage: `RBAC policy must have at least one "match_..." attribute`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.+",
+				"match_username":   "foo",
+				"permissions":      []string{"anonymous_pull"},
+			},
+			ErrorMessage: `RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository":      "library/.+",
+				"match_username":        "foo",
+				"forbidden_permissions": []string{"anonymous_pull"},
+			},
+			ErrorMessage: `RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.+",
+				"permissions":      []string{"pull"},
+			},
+			ErrorMessage: `RBAC policy with "pull" must have the "match_cidr" or "match_username" attribute`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository":      "library/.+",
+				"forbidden_permissions": []string{"pull"},
+			},
+			ErrorMessage: `RBAC policy with "pull" must have the "match_cidr" or "match_username" attribute`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.+",
+				"permissions":      []string{"delete"},
+			},
+			ErrorMessage: `RBAC policy with "delete" must have the "match_username" attribute`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository":      "library/.+",
+				"forbidden_permissions": []string{"delete"},
+			},
+			ErrorMessage: `RBAC policy with "delete" must have the "match_username" attribute`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.+",
+				"permissions":      []string{"push"},
+			},
+			ErrorMessage: `RBAC policy with "push" must also grant "pull"`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_cidr": "0.0.0.0/64",
+			},
+			ErrorMessage: `"0.0.0.0/64" is not a valid CIDR`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_cidr":       "0.0.0.0/0",
+				"match_repository": "test*",
+				"permissions":      []string{"pull"},
+			},
+			ErrorMessage: "0.0.0.0/0 cannot be used as CIDR because it matches everything",
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.+",
+				"match_username":   "foo",
+				"permissions":      []string{"anonymous_first_pull"},
+			},
+			ErrorMessage: `RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository":      "library/.+",
+				"match_username":        "foo",
+				"forbidden_permissions": []string{"anonymous_first_pull"},
+			},
+			ErrorMessage: `RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.+",
+				"permissions":      []string{"anonymous_first_pull"},
+			},
+			ErrorMessage: `RBAC policy with "anonymous_first_pull" may only be for external replica accounts`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository":      "library/.+",
+				"forbidden_permissions": []string{"anonymous_first_pull"},
+			},
+			ErrorMessage: `RBAC policy with "anonymous_first_pull" may only be for external replica accounts`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository": "*/library",
+				"permissions":      []string{"anonymous_pull"},
+			},
+			ErrorMessage: "request body is not valid JSON: \"*/library\" is not a valid regexp: error parsing regexp: missing argument to repetition operator: `*`",
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.+",
+				"match_username":   "[a-z]++@tenant2",
+				"permissions":      []string{"pull"},
+			},
+			ErrorMessage: "request body is not valid JSON: \"[a-z]++@tenant2\" is not a valid regexp: error parsing regexp: invalid nested repetition operator: `++`",
+		},
+	}
+	for _, tc := range rbacPolicyTestcases {
+		expectedStatus := http.StatusUnprocessableEntity
+		if strings.Contains(tc.ErrorMessage, "not valid JSON") {
+			expectedStatus = http.StatusBadRequest
+		}
+		assert.HTTPRequest{
+			Method: "PUT",
+			Path:   "/keppel/v1/accounts/first",
+			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+			Body: assert.JSONObject{
+				"account": assert.JSONObject{
+					"auth_tenant_id": "tenant1",
+					"rbac_policies":  []assert.JSONObject{tc.RBACPolicyJSON},
+				},
+			},
+			ExpectStatus: expectedStatus,
+			ExpectBody:   assert.StringData(tc.ErrorMessage + "\n"),
+		}.Check(t, h)
+	}
 
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies": []assert.JSONObject{{
-					"match_repository": "library/.+",
-					"match_username":   "foo",
-					"permissions":      []string{"anonymous_pull"},
-				}},
-			},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("RBAC policy with \"anonymous_pull\" or \"anonymous_first_pull\" may not have the \"match_username\" attribute\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies": []assert.JSONObject{{
-					"match_repository": "library/.+",
-					"permissions":      []string{"pull"},
-				}},
-			},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("RBAC policy with \"pull\" must have the \"match_cidr\" or \"match_username\" attribute\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies": []assert.JSONObject{{
-					"match_repository": "library/.+",
-					"permissions":      []string{"delete"},
-				}},
-			},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("RBAC policy with \"delete\" must have the \"match_username\" attribute\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies": []assert.JSONObject{{
-					"match_repository": "library/.+",
-					"permissions":      []string{"push"},
-				}},
-			},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("RBAC policy with \"push\" must also grant \"pull\"\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies": []assert.JSONObject{{
-					"match_cidr": "0.0.0.0/64",
-				}},
-			},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("\"0.0.0.0/64\" is not a valid CIDR\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies": []assert.JSONObject{{
-					"match_cidr":       "0.0.0.0/0",
-					"match_repository": "test*",
-					"permissions":      []string{"pull"},
-				}},
-			},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("0.0.0.0/0 cannot be used as CIDR because it matches everything\n"),
-	}.Check(t, h)
+	// TODO: why is there a positive test in here?
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
@@ -987,73 +1016,6 @@ func TestPutAccountErrorCases(t *testing.T) {
 				}},
 			},
 		},
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies": []assert.JSONObject{{
-					"match_repository": "library/.+",
-					"match_username":   "foo",
-					"permissions":      []string{"anonymous_first_pull"},
-				}},
-			},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("RBAC policy with \"anonymous_pull\" or \"anonymous_first_pull\" may not have the \"match_username\" attribute\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies": []assert.JSONObject{{
-					"match_repository": "library/.+",
-					"permissions":      []string{"anonymous_first_pull"},
-				}},
-			},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("RBAC policy with \"anonymous_first_pull\" may only be for external replica accounts\n"),
-	}.Check(t, h)
-
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies": []assert.JSONObject{{
-					"match_repository": "*/library",
-					"permissions":      []string{"anonymous_pull"},
-				}},
-			},
-		},
-		ExpectStatus: http.StatusBadRequest,
-		ExpectBody:   assert.StringData("request body is not valid JSON: \"*/library\" is not a valid regexp: error parsing regexp: missing argument to repetition operator: `*`\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies": []assert.JSONObject{{
-					"match_repository": "library/.+",
-					"match_username":   "[a-z]++@tenant2",
-					"permissions":      []string{"pull"},
-				}},
-			},
-		},
-		ExpectStatus: http.StatusBadRequest,
-		ExpectBody:   assert.StringData("request body is not valid JSON: \"[a-z]++@tenant2\" is not a valid regexp: error parsing regexp: invalid nested repetition operator: `++`\n"),
 	}.Check(t, h)
 
 	// test unexpected platform filter

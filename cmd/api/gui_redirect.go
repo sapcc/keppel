@@ -77,7 +77,7 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	for _, policy := range policies {
-		if !slices.Contains(policy.Permissions, keppel.GrantsAnonymousPull) {
+		if !slices.Contains(policy.Permissions, keppel.RBACAnonymousPullPermission) {
 			continue
 		}
 		ip := httpext.GetRequesterIPFor(r)

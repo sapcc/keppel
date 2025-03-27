@@ -335,7 +335,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			_, err = s.DB.Exec(`UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
 				test.ToJSON([]keppel.RBACPolicy{{
 					RepositoryPattern: "foo",
-					Permissions:       []keppel.RBACPermission{keppel.GrantsAnonymousPull},
+					Permissions:       []keppel.RBACPermission{keppel.RBACAnonymousPullPermission},
 				}}),
 			)
 			if err != nil {

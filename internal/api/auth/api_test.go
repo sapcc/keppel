@@ -66,41 +66,46 @@ type TestCase struct {
 var (
 	policyAnonPull = keppel.RBACPolicy{
 		RepositoryPattern: "fo+",
-		Permissions:       []keppel.RBACPermission{keppel.GrantsAnonymousPull},
+		Permissions:       []keppel.RBACPermission{keppel.RBACAnonymousPullPermission},
 	}
 	policyAnonFirstPull = keppel.RBACPolicy{
 		RepositoryPattern: "fo+",
-		Permissions:       []keppel.RBACPermission{keppel.GrantsAnonymousPull, keppel.GrantsAnonymousFirstPull},
+		Permissions:       []keppel.RBACPermission{keppel.RBACAnonymousPullPermission, keppel.RBACAnonymousFirstPullPermission},
 	}
 	policyPullMatches = keppel.RBACPolicy{
 		RepositoryPattern: "fo+",
 		UserNamePattern:   "correct.*",
-		Permissions:       []keppel.RBACPermission{keppel.GrantsPull},
+		Permissions:       []keppel.RBACPermission{keppel.RBACPullPermission},
+	}
+	policyForbidPush = keppel.RBACPolicy{
+		RepositoryPattern:    "fo+",
+		UserNamePattern:      "correct.*",
+		ForbiddenPermissions: []keppel.RBACPermission{keppel.RBACPushPermission},
 	}
 	policyPushMatches = keppel.RBACPolicy{
 		RepositoryPattern: "fo+",
 		UserNamePattern:   "correct.*",
-		Permissions:       []keppel.RBACPermission{keppel.GrantsPull, keppel.GrantsPush},
+		Permissions:       []keppel.RBACPermission{keppel.RBACPullPermission, keppel.RBACPushPermission},
 	}
 	policyDeleteMatches = keppel.RBACPolicy{
 		RepositoryPattern: "fo+",
 		UserNamePattern:   "correct.*",
-		Permissions:       []keppel.RBACPermission{keppel.GrantsPull, keppel.GrantsDelete},
+		Permissions:       []keppel.RBACPermission{keppel.RBACPullPermission, keppel.RBACDeletePermission},
 	}
 	policyPullDoesNotMatch = keppel.RBACPolicy{
 		RepositoryPattern: "fo+",
 		UserNamePattern:   "doesnotmatch",
-		Permissions:       []keppel.RBACPermission{keppel.GrantsPull},
+		Permissions:       []keppel.RBACPermission{keppel.RBACPullPermission},
 	}
 	policyPushDoesNotMatch = keppel.RBACPolicy{
 		RepositoryPattern: "doesnotmatch",
 		UserNamePattern:   "correct.*",
-		Permissions:       []keppel.RBACPermission{keppel.GrantsPull, keppel.GrantsPush},
+		Permissions:       []keppel.RBACPermission{keppel.RBACPullPermission, keppel.RBACPushPermission},
 	}
 	policyDeleteDoesNotMatch = keppel.RBACPolicy{
 		RepositoryPattern: "fo+",
 		UserNamePattern:   "doesnotmatch",
-		Permissions:       []keppel.RBACPermission{keppel.GrantsPull, keppel.GrantsDelete},
+		Permissions:       []keppel.RBACPermission{keppel.RBACPullPermission, keppel.RBACDeletePermission},
 	}
 )
 
@@ -413,6 +418,19 @@ var testCases = []TestCase{
 		GrantedActions: "pull,push"},
 	{Scope: "repository:test1/foo:delete",
 		RBACPolicy:     &policyDeleteMatches,
+		GrantedActions: "delete"},
+	// negative RBAC policies can take away permissions
+	{Scope: "repository:test1/foo:pull",
+		RBACPolicy:     &policyForbidPush,
+		GrantedActions: "pull"},
+	{Scope: "repository:test1/foo:push",
+		RBACPolicy:     &policyForbidPush,
+		GrantedActions: ""},
+	{Scope: "repository:test1/foo:pull,push",
+		RBACPolicy:     &policyForbidPush,
+		GrantedActions: "pull"},
+	{Scope: "repository:test1/foo:delete",
+		RBACPolicy:     &policyForbidPush,
 		GrantedActions: "delete"},
 }
 

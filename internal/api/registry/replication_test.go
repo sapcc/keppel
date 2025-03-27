@@ -320,7 +320,7 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 			_, err := s2.DB.Exec(`UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
 				test.ToJSON([]keppel.RBACPolicy{{
 					RepositoryPattern: ".*",
-					Permissions:       []keppel.RBACPermission{keppel.GrantsAnonymousPull},
+					Permissions:       []keppel.RBACPermission{keppel.RBACAnonymousPullPermission},
 				}}),
 			)
 			if err != nil {
@@ -387,7 +387,7 @@ func TestReplicationAllowAnonymousReplicationFromExternal(t *testing.T) {
 			_, err := s2.DB.Exec(`UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
 				test.ToJSON([]keppel.RBACPolicy{{
 					RepositoryPattern: "foo",
-					Permissions:       []keppel.RBACPermission{keppel.GrantsAnonymousPull, keppel.GrantsAnonymousFirstPull},
+					Permissions:       []keppel.RBACPermission{keppel.RBACAnonymousPullPermission, keppel.RBACAnonymousFirstPullPermission},
 				}}),
 			)
 			if err != nil {
