@@ -70,7 +70,7 @@ func TestDurationMarshalling(t *testing.T) {
 		t.Errorf("while marshalling %q: expected error %q, but got %q", inputDuration.String(), expectedError, err.Error())
 	}
 
-	// test unmarshaling error: invalid unit
+	// test unmarshalling error: invalid unit
 	inputJSON := `{"value":10,"unit":"x"}`
 	var actual Duration
 	err = json.Unmarshal([]byte(inputJSON), &actual)

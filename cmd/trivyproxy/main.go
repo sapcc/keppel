@@ -134,7 +134,7 @@ func (a *API) proxyToTrivy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) runTrivy(ctx context.Context, imageURL, format, keppelToken string) (stdout, stderr []byte, err error) {
-	//nolint:gosec //intented behaviour
+	//nolint:gosec // intended behaviour
 	cmd := exec.CommandContext(ctx,
 		"trivy", "image",
 		"--scanners", "vuln",

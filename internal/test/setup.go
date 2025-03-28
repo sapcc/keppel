@@ -304,7 +304,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		params.RateLimitEngine.Client = redis.NewClient(&redis.Options{
 			Addr: sr.Addr(),
 			// SETINFO not supported by miniredis
-			DisableIndentity: true,
+			DisableIdentity: true,
 		})
 	}
 
