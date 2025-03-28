@@ -5,7 +5,7 @@ go 1.24
 require (
 	github.com/alicebob/miniredis/v2 v2.34.0
 	github.com/containers/image/v5 v5.34.2
-	github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
+	github.com/databus23/goslo.policy v0.0.0-20250326134918-4afc2c56a903
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/go-gorp/gorp/v3 v3.1.0
 	github.com/go-redis/redis_rate/v10 v10.0.1
@@ -21,8 +21,8 @@ require (
 	github.com/prometheus/client_golang v1.21.1
 	github.com/redis/go-redis/v9 v9.7.3
 	github.com/rs/cors v1.11.1
-	github.com/sapcc/go-api-declarations v1.14.1
-	github.com/sapcc/go-bits v0.0.0-20250320011137-5ec7b29ab444
+	github.com/sapcc/go-api-declarations v1.14.2
+	github.com/sapcc/go-bits v0.0.0-20250327084830-778195481ca6
 	github.com/spf13/cobra v1.9.1
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.6.0
