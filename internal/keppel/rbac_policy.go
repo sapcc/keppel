@@ -139,6 +139,11 @@ func (r *RBACPolicy) ValidateAndNormalize(strategy ReplicationStrategy) error {
 		return errors.New(`RBAC policy with "anonymous_first_pull" may only be for external replica accounts`)
 	}
 
+	if len(r.Permissions) == 0 {
+		// the "permissions" field is not documented as optional, so `null` values should be avoided and empty lists should only be represented as `[]`
+		r.Permissions = []RBACPermission{}
+	}
+
 	return nil
 }
 

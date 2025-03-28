@@ -446,6 +446,40 @@ func TestGetAccountsErrorCases(t *testing.T) {
 	}.Check(t, h)
 }
 
+func TestPutAccountRBACPolicyNormalization(t *testing.T) {
+	s := test.NewSetup(t, test.WithKeppelAPI)
+	h := s.Handler
+
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies": []assert.JSONObject{{
+					"match_username":        "mallory",
+					"permissions":           nil, // this gets normalized...
+					"forbidden_permissions": []string{"push"},
+				}},
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+				"metadata":       nil,
+				"rbac_policies": []assert.JSONObject{{
+					"match_username":        "mallory",
+					"permissions":           []string{}, // ...to this
+					"forbidden_permissions": []string{"push"},
+				}},
+			},
+		},
+	}.Check(t, h)
+}
+
 func TestPutAccountErrorCases(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
