@@ -21,9 +21,11 @@ package tasks
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
+	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/easypg"
 
@@ -381,5 +383,40 @@ func TestGCProtectComesTooLate(t *testing.T) {
 		images[1].Manifest.Digest,
 		protectingGCPolicyJSON1,
 		s.Clock.Now().Add(1*time.Hour).Unix(),
+	)
+}
+
+func TestGCProtectSubject(t *testing.T) {
+	j, s := setup(t)
+
+	image := test.GenerateOCIImage(test.OCIArgs{
+		ConfigMediaType: imgspecv1.MediaTypeImageManifest,
+	})
+	image.MustUpload(t, s, fooRepoRef, "latest")
+
+	subjectManifest := test.GenerateOCIImage(test.OCIArgs{
+		ConfigMediaType: imgspecv1.MediaTypeImageManifest,
+		SubjectDigest:   image.Manifest.Digest,
+	})
+	subjectManifest.MustUpload(t, s, fooRepoRef, strings.ReplaceAll(image.Manifest.Digest.String(), ":", "-"))
+
+	deletingGCPolicyJSON := `[{"match_repository":".*","time_constraint":{"on":"pushed_at","older_than":{"value":2,"unit":"h"}},"action":"delete"}]`
+	mustExec(t, s.DB, `UPDATE accounts SET gc_policies_json = $1`, deletingGCPolicyJSON)
+
+	tr, _ := easypg.NewTracker(t, s.DB.Db)
+	garbageJob := j.ManifestGarbageCollectionJob(s.Registry)
+
+	// skip an hour to avoid protected_by_recent_upload
+	s.Clock.StepBy(1 * time.Hour)
+
+	// nothing should be deleted here
+	expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
+	tr.DBChanges().AssertEqualf(`
+			UPDATE manifests SET gc_status_json = '{"protected_by_subject":"%[1]s"}' WHERE repo_id = 1 AND digest = '%[2]s';
+			UPDATE manifests SET gc_status_json = '{"relevant_policies":%[3]s}' WHERE repo_id = 1 AND digest = '%[1]s';
+			UPDATE repos SET next_gc_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+		`,
+		image.Manifest.Digest, subjectManifest.Manifest.Digest, deletingGCPolicyJSON, s.Clock.Now().Add(1*time.Hour).Unix(),
 	)
 }

@@ -195,6 +195,21 @@ func (j *Janitor) executeGCPolicies(ctx context.Context, account models.ReducedA
 		}
 	}
 
+	// check if the subject target digest manifest exists
+outer:
+	for _, manifest := range manifests {
+		if manifest.Manifest.SubjectDigest == "" {
+			continue
+		}
+
+		for _, m := range manifests {
+			if m.Manifest.Digest == manifest.Manifest.SubjectDigest {
+				manifest.GCStatus.ProtectedBySubjectManifest = manifest.Manifest.SubjectDigest.String()
+				continue outer
+			}
+		}
+	}
+
 	// evaluate policies in order
 	proc := j.processor()
 	for _, policy := range policies {
