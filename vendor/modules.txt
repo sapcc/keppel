@@ -37,7 +37,7 @@ github.com/containers/ocicrypt/spec
 # github.com/containers/storage v1.57.2
 ## explicit; go 1.22.0
 github.com/containers/storage/pkg/regexp
-# github.com/databus23/goslo.policy v0.0.0-20210929125152-81bf2876dbdb
+# github.com/databus23/goslo.policy v0.0.0-20250326134918-4afc2c56a903
 ## explicit; go 1.16
 github.com/databus23/goslo.policy
 # github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f
@@ -175,12 +175,12 @@ github.com/redis/go-redis/v9/internal/util
 ## explicit; go 1.13
 github.com/rs/cors
 github.com/rs/cors/internal
-# github.com/sapcc/go-api-declarations v1.14.1
+# github.com/sapcc/go-api-declarations v1.14.2
 ## explicit; go 1.24
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20250320011137-5ec7b29ab444
+# github.com/sapcc/go-bits v0.0.0-20250327084830-778195481ca6
 ## explicit; go 1.24
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools

@@ -68,6 +68,9 @@ type Context struct {
 	Roles []string
 	//Request variables that are referenced in policy rules
 	Request map[string]string
+	//LookupRequestValue will be called if a variable referenced by a policy rule is not present in Request.
+	//This is specifically designed to match the signature of `http.Request.PathValue()`.
+	LookupRequestValue func(string) string
 	//Logger can be used to enable debug logging for this context.
 	Logger func(msg string, args ...interface{})
 
@@ -116,6 +119,10 @@ func (c Context) genericCheck(key, match string, isVariable bool) bool {
 	}
 	if isVariable {
 		m, ok := c.Request[match]
+		if !ok && c.LookupRequestValue != nil {
+			m = c.LookupRequestValue(match)
+			ok = m != ""
+		}
 		if !ok {
 			if c.Logger != nil {
 				c.Logger("request variable %s not present in context. failing\n", match)
@@ -144,6 +151,10 @@ func (c Context) checkVariable(variable string, match interface{}) bool {
 		c.Logger("executing '%s':%s\n", match, variable)
 	}
 	val, ok := c.Request[variable]
+	if !ok && c.LookupRequestValue != nil {
+		val = c.LookupRequestValue(variable)
+		ok = val != ""
+	}
 	if !ok {
 		if c.Logger != nil {
 			c.Logger("variable %s not present in context. failing\n", variable)
