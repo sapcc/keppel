@@ -53,7 +53,7 @@ type SecurityScanPolicyAction struct {
 // String returns the JSON representation of this policy (for use in log and
 // error messages).
 func (p SecurityScanPolicy) String() string {
-	// we only obtain SecurityScanPolicy instances through unmarshaling, so it is
+	// we only obtain SecurityScanPolicy instances through unmarshalling, so it is
 	// safe to assume that they will marshal without error
 	buf, err := json.Marshal(p)
 	if err != nil {

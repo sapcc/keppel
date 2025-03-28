@@ -43,7 +43,7 @@ type Report struct {
 	additionalFields map[string]any
 }
 
-// UnmarshalReportFromJSON creates a Report object by unmarshaling a report JSON received from Trivy.
+// UnmarshalReportFromJSON creates a Report object by unmarshalling a report JSON received from Trivy.
 //
 // NOTE: Use this directly instead of passing the report to json.Unmarshal() to avoid superfluous bytestring copies.
 func UnmarshalReportFromJSON(buf []byte) (Report, error) {
@@ -60,7 +60,7 @@ func UnmarshalReportFromJSON(buf []byte) (Report, error) {
 	if len(resultsBuf) > 0 {
 		err := json.Unmarshal(resultsBuf, &r.Results)
 		if err != nil {
-			return Report{}, fmt.Errorf(`while unmarshaling "Results" subsection: %w`, err)
+			return Report{}, fmt.Errorf(`while unmarshalling "Results" subsection: %w`, err)
 		}
 	}
 
@@ -68,7 +68,7 @@ func UnmarshalReportFromJSON(buf []byte) (Report, error) {
 	if len(resultsBuf) > 0 {
 		err := json.Unmarshal(metadataBuf, &r.Metadata)
 		if err != nil {
-			return Report{}, fmt.Errorf(`while unmarshaling "Metadata" subsection: %w`, err)
+			return Report{}, fmt.Errorf(`while unmarshalling "Metadata" subsection: %w`, err)
 		}
 	}
 
