@@ -92,6 +92,7 @@ check: FORCE static-check build/cover.html build-all
 
 run-golangci-lint: FORCE install-golangci-lint
 	@printf "\e[1;36m>> golangci-lint\e[0m\n"
+	@golangci-lint config verify
 	@golangci-lint run
 
 build/cover.out: FORCE | build
