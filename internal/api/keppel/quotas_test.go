@@ -208,7 +208,7 @@ func TestQuotasAPI(t *testing.T) {
 		ExpectBody:   buildLiquidResponse(100, 0),
 	}.Check(t, h)
 
-	// put some manifests in the DB, check thet GET reflects higher usage
+	// put some manifests in the DB, check that GET reflects higher usage
 	mustInsert(t, s.DB, &models.Account{
 		Name:                     "test1",
 		AuthTenantID:             "tenant1",
