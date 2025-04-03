@@ -87,7 +87,12 @@ func run(cmd *cobra.Command, args []string) {
 
 	// start HTTP server for Prometheus metrics and health check
 	handler := httpapi.Compose(
-		httpapi.HealthCheckAPI{SkipRequestLog: true},
+		httpapi.HealthCheckAPI{
+			SkipRequestLog: true,
+			Check: func() error {
+				return db.Db.PingContext(ctx)
+			},
+		},
 		pprofapi.API{IsAuthorized: pprofapi.IsRequestFromLocalhost},
 	)
 	mux := http.NewServeMux()
