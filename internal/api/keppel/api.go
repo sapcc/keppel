@@ -159,7 +159,7 @@ func repoScopeFromRequest(r *http.Request, perm keppel.Permission) auth.ScopeSet
 }
 
 func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request, ss auth.ScopeSet) *auth.Authorization {
-	authz, rerr := auth.IncomingRequest{
+	authz, _, rerr := auth.IncomingRequest{
 		HTTPRequest:          r,
 		Scopes:               ss,
 		CorrectlyReturn403:   true,
