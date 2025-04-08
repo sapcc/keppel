@@ -110,7 +110,7 @@ func (a *API) handleGetAuth(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	authz, rerr := auth.IncomingRequest{
+	authz, _, rerr := auth.IncomingRequest{
 		HTTPRequest:              r,
 		Scopes:                   req.Scopes,
 		AllowsAnycast:            true,

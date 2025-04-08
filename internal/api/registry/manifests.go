@@ -45,7 +45,7 @@ import (
 // This implements the HEAD/GET /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
-	account, repo, authz := a.checkAccountAccess(w, r, createRepoIfMissingAndReplica, a.handleGetOrHeadManifestAnycast)
+	account, repo, authz, challenge := a.checkAccountAccess(w, r, createRepoIfMissingAndReplica, a.handleGetOrHeadManifestAnycast)
 	if account == nil {
 		return
 	}
@@ -79,7 +79,10 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 					ResourceName: repo.FullName(),
 					Actions:      []string{"anonymous_first_pull"},
 				}) {
-					keppel.ErrDenied.With("image does not exist here, and anonymous users may not replicate images").WithStatus(http.StatusForbidden).WriteAsRegistryV2ResponseTo(w, r)
+					rerr := keppel.ErrDenied.With("image does not exist here, and anonymous users may not replicate images")
+					// this must be a 401 and include a challenge; clients should be able to understand that
+					// they can retry this after authenticating and expect a different result
+					challenge.AddTo(rerr).WithStatus(http.StatusUnauthorized).WriteAsRegistryV2ResponseTo(w, r)
 					return
 				}
 			}
@@ -277,7 +280,7 @@ func (a *API) handleGetOrHeadManifestAnycast(w http.ResponseWriter, r *http.Requ
 // This implements the DELETE /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
-	account, repo, authz := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
+	account, repo, authz, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
 		return
 	}
@@ -308,7 +311,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 // This implements the PUT /v2/<repo>/manifests/<reference> endpoint.
 func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/manifests/:reference")
-	account, repo, authz := a.checkAccountAccess(w, r, createRepoIfMissing, nil)
+	account, repo, authz, _ := a.checkAccountAccess(w, r, createRepoIfMissing, nil)
 	if account == nil {
 		return
 	}

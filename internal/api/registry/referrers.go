@@ -42,7 +42,7 @@ var getManifestBySubjectAndArtifactTypeQuery = sqlext.SimplifyWhitespace(`
 func (a *API) handleGetReferrers(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/referrers/:reference")
 
-	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
+	account, repo, _, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
 		return
 	}

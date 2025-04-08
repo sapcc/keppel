@@ -53,7 +53,7 @@ func (a *API) AddTo(r *mux.Router) {
 }
 
 func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request) *models.Peer {
-	authz, rerr := auth.IncomingRequest{
+	authz, _, rerr := auth.IncomingRequest{
 		HTTPRequest: r,
 		Scopes:      auth.NewScopeSet(auth.PeerAPIScope),
 	}.Authorize(r.Context(), a.cfg, a.ad, a.db)

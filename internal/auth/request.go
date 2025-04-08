@@ -60,7 +60,10 @@ type IncomingRequest struct {
 
 // Authorize checks if the given incoming request has a proper Authorization.
 // If an error is returned, the given `errHeaders` must be added to the HTTP response.
-func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuration, ad keppel.AuthDriver, db *keppel.DB) (*Authorization, *keppel.RegistryV2Error) {
+//
+// In addition to the accepted Authorization, we also return a Challenge,
+// for when API implementations need to return custom 401 errors.
+func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuration, ad keppel.AuthDriver, db *keppel.DB) (*Authorization, *Challenge, *keppel.RegistryV2Error) {
 	r := ir.HTTPRequest
 
 	// find audience
@@ -85,18 +88,21 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 		// may be used for writes and deletes)
 		if r.Method != http.MethodHead && r.Method != http.MethodGet {
 			msg := "write access is not supported for anycast requests"
-			return nil, keppel.ErrUnsupported.With(msg)
+			return nil, nil, keppel.ErrUnsupported.With(msg)
 		}
 		// only allow anycast usage when the API explicitly permits it
 		if !ir.AllowsAnycast {
 			msg := fmt.Sprintf("%s %s endpoint is not supported for anycast requests", r.Method, r.URL.Path)
-			return nil, keppel.ErrUnsupported.With(msg)
+			return nil, nil, keppel.ErrUnsupported.With(msg)
 		}
 	}
 	if audience.AccountName != "" && !ir.AllowsDomainRemapping {
 		msg := fmt.Sprintf("%s %s endpoint is not supported on domain-remapped APIs", r.Method, r.URL.Path)
-		return nil, keppel.ErrUnsupported.With(msg)
+		return nil, nil, keppel.ErrUnsupported.With(msg)
 	}
+
+	// if we return 401, this challenge will be used to render the Www-Authenticate header
+	challenge := ir.buildAuthChallenge(cfg, audience)
 
 	// obtain Authorization through one of the various supported methods
 	var (
@@ -112,15 +118,15 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 			// I'm being deliberately harsh with the wording of this error message
 			// here; I've seen clients use basic auth on endpoints like GET /v2/ even
 			// though that is completely nonsensical
-			return nil, keppel.ErrUnauthorized.With("basic auth is not supported on this endpoint, your library's auth workflow is probably broken").WithHeader("Www-Authenticate", ir.buildAuthChallenge(cfg, audience, ""))
+			return nil, nil, challenge.AddTo(keppel.ErrUnauthorized.With("basic auth is not supported on this endpoint, your library's auth workflow is probably broken"))
 		}
 		uid, err := checkBasicAuth(ctx, authHeader, ad, db)
 		if err != nil {
-			return nil, keppel.AsRegistryV2Error(err)
+			return nil, nil, keppel.AsRegistryV2Error(err)
 		}
 		authz, err = ir.authorizeViaUserIdentity(uid, audience, db)
 		if err != nil {
-			return nil, keppel.AsRegistryV2Error(err)
+			return nil, nil, keppel.AsRegistryV2Error(err)
 		}
 
 	case strings.HasPrefix(authHeader, "Bearer "):
@@ -128,7 +134,7 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 		var rerr *keppel.RegistryV2Error
 		authz, rerr = parseToken(cfg, ad, audience, strings.TrimPrefix(authHeader, "Bearer "))
 		if rerr != nil {
-			return nil, rerr.WithHeader("Www-Authenticate", ir.buildAuthChallenge(cfg, audience, ""))
+			return nil, nil, challenge.AddTo(rerr)
 		}
 		tokenFound = true
 		allowChallenge = true
@@ -138,15 +144,15 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 		// if driver auth does not detect any matching headers
 		uid, rerr := ad.AuthenticateUserFromRequest(r)
 		if rerr != nil {
-			return nil, rerr
+			return nil, nil, rerr
 		}
 		if uid == nil {
 			switch {
 			case authHeader == "keppel":
 				// do not fallback if we were explicitly instructed to only use driver auth
-				return nil, keppel.ErrUnauthorized.With("no credentials found in request")
+				return nil, nil, keppel.ErrUnauthorized.With("no credentials found in request")
 			case ir.NoImplicitAnonymous:
-				return nil, keppel.ErrUnauthorized.With("no bearer token found in request headers").WithHeader("Www-Authenticate", ir.buildAuthChallenge(cfg, audience, ""))
+				return nil, nil, challenge.AddTo(keppel.ErrUnauthorized.With("no bearer token found in request headers"))
 			default:
 				uid = AnonymousUserIdentity
 				allowChallenge = true
@@ -156,11 +162,11 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 		var err error
 		authz, err = ir.authorizeViaUserIdentity(uid, audience, db)
 		if err != nil {
-			return nil, keppel.AsRegistryV2Error(err)
+			return nil, nil, keppel.AsRegistryV2Error(err)
 		}
 
 	default:
-		return nil, errMalformedAuthHeader
+		return nil, nil, errMalformedAuthHeader
 	}
 
 	// check if requested scope is covered by Authorization
@@ -186,39 +192,31 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 				}
 				if allowChallenge {
 					if tokenFound {
-						rerr = rerr.WithHeader("Www-Authenticate", ir.buildAuthChallenge(cfg, audience, "insufficient_scope"))
+						rerr = challenge.WithErrorMessage("insufficient_scope").AddTo(rerr)
 					} else {
-						rerr = rerr.WithHeader("Www-Authenticate", ir.buildAuthChallenge(cfg, audience, ""))
+						rerr = challenge.AddTo(rerr)
 					}
 				}
 				if ir.CorrectlyReturn403 {
 					rerr = rerr.WithStatus(http.StatusForbidden)
 				}
-				return nil, rerr
+				return nil, nil, rerr
 			}
 		}
 	}
 
-	return authz, nil
+	return authz, &challenge, nil
 }
 
-func (ir IncomingRequest) buildAuthChallenge(cfg keppel.Configuration, audience Audience, errorMessage string) string {
+func (ir IncomingRequest) buildAuthChallenge(cfg keppel.Configuration, audience Audience) Challenge {
 	requestURL := keppel.OriginalRequestURL(ir.HTTPRequest)
-	apiURL := (&url.URL{Scheme: requestURL.Scheme, Host: requestURL.Host})
+	apiURL := &url.URL{Scheme: requestURL.Scheme, Host: requestURL.Host, Path: "keppel/v1/auth"}
 
-	fields := fmt.Sprintf(
-		`realm="%s/keppel/v1/auth",service="%s"`,
-		apiURL, audience.Hostname(cfg),
-	)
-	for _, scope := range ir.Scopes {
-		if !scope.Contains(InfoAPIScope) {
-			fields += fmt.Sprintf(`,scope="%s"`, scope)
-		}
+	return Challenge{
+		AuthEndpointURL:  apiURL.String(),
+		AudienceHostname: audience.Hostname(cfg),
+		Scopes:           ir.Scopes,
 	}
-	if errorMessage != "" {
-		fields += fmt.Sprintf(`,error="%s"`, errorMessage)
-	}
-	return "Bearer " + fields
 }
 
 var errMalformedAuthHeader = keppel.ErrUnauthorized.With("malformed Authorization header")

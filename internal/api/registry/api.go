@@ -127,7 +127,7 @@ func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
 	// must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
-	_, rerr := auth.IncomingRequest{
+	_, _, rerr := auth.IncomingRequest{
 		HTTPRequest:           r,
 		AllowsAnycast:         true,
 		AllowsDomainRemapping: true,
@@ -201,7 +201,7 @@ func (info anycastRequestInfo) AsPrometheusLabels() prometheus.Labels {
 // If the account does not exist locally, but the request is for the anycast API
 // and the account exists elsewhere, the `anycastHandler` is invoked if given
 // instead of giving a 404 response.
-func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy, anycastHandler func(http.ResponseWriter, *http.Request, anycastRequestInfo)) (*models.ReducedAccount, *models.Repository, *auth.Authorization) {
+func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy, anycastHandler func(http.ResponseWriter, *http.Request, anycastRequestInfo)) (*models.ReducedAccount, *models.Repository, *auth.Authorization, *auth.Challenge) {
 	// must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
@@ -212,7 +212,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	}
 	if !models.RepoNameWithLeadingSlashRx.MatchString("/" + scope.ResourceName) {
 		keppel.ErrNameInvalid.With("invalid repository name").WriteAsRegistryV2ResponseTo(w, r)
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 
 	// check authorization before FindReducedAccount(); otherwise we might leak
@@ -225,7 +225,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	default:
 		scope.Actions = []string{"pull", "push"}
 	}
-	authz, rerr := auth.IncomingRequest{
+	authz, challenge, rerr := auth.IncomingRequest{
 		HTTPRequest:           r,
 		Scopes:                auth.NewScopeSet(scope),
 		AllowsAnycast:         anycastHandler != nil,
@@ -233,14 +233,14 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	}.Authorize(r.Context(), a.cfg, a.ad, a.db)
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w, r)
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 
 	// we need to know the account to select the registry instance for this request
 	repoScope := scope.ParseRepositoryScope(authz.Audience)
 	account, err := keppel.FindReducedAccount(a.db, repoScope.AccountName)
 	if respondWithError(w, r, err) {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 	if account == nil {
 		// if this is an anycast request, try forwarding it to the peer that has the primary account with this name
@@ -258,19 +258,19 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 					mappedPrimaryHostName := authz.Audience.MapPeerHostname(primaryHostName)
 					anycastHandler(w, r, anycastRequestInfo{repoScope.AccountName, repoScope.RepositoryName, mappedPrimaryHostName})
 				}
-				return nil, nil, nil
+				return nil, nil, nil, nil
 			case errors.Is(err, keppel.ErrNoSuchPrimaryAccount):
 				// fall through to the standard 404 handling below
 			default:
 				respondWithError(w, r, err)
-				return nil, nil, nil
+				return nil, nil, nil, nil
 			}
 		}
 		// defense in depth - if the account does not exist and we're not
 		// anycasting, there should not be a valid token (the auth endpoint does not
 		// issue tokens with scopes for nonexistent accounts)
 		keppel.ErrNameUnknown.With("account not found").WriteAsRegistryV2ResponseTo(w, r)
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 
 	canCreateRepoIfMissing := false
@@ -299,12 +299,12 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		} else {
 			keppel.ErrNameUnknown.With("repository not found").WriteAsRegistryV2ResponseTo(w, r)
 		}
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	} else if respondWithError(w, r, err) {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 
-	return account, repo, authz
+	return account, repo, authz, challenge
 }
 
 // Returns the repository name as it appears in URL paths for this API.

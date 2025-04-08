@@ -39,7 +39,7 @@ var tagsListQuery = sqlext.SimplifyWhitespace(`
 
 func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/tags/list")
-	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, a.handleListTagsAnycast)
+	account, repo, _, _ := a.checkAccountAccess(w, r, failIfRepoMissing, a.handleListTagsAnycast)
 	if account == nil {
 		return
 	}

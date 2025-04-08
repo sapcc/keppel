@@ -44,7 +44,7 @@ var isImageConfigBlobMediaType = map[string]bool{
 // This implements the GET/HEAD /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
-	account, repo, authz := a.checkAccountAccess(w, r, failIfRepoMissing, a.handleGetOrHeadBlobAnycast)
+	account, repo, authz, _ := a.checkAccountAccess(w, r, failIfRepoMissing, a.handleGetOrHeadBlobAnycast)
 	if account == nil {
 		return
 	}
@@ -192,7 +192,7 @@ func (a *API) handleGetOrHeadBlobAnycast(w http.ResponseWriter, r *http.Request,
 // This implements the DELETE /v2/<account>/<repository>/blobs/<digest> endpoint.
 func (a *API) handleDeleteBlob(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/v2/:account/:repo/blobs/:digest")
-	account, repo, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
+	account, repo, _, _ := a.checkAccountAccess(w, r, failIfRepoMissing, nil)
 	if account == nil {
 		return
 	}

@@ -44,7 +44,7 @@ func (a *API) handleGetCatalog(w http.ResponseWriter, r *http.Request) {
 	// must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
-	authz, rerr := auth.IncomingRequest{
+	authz, _, rerr := auth.IncomingRequest{
 		HTTPRequest:           r,
 		Scopes:                auth.NewScopeSet(auth.CatalogEndpointScope),
 		AllowsAnycast:         false,
