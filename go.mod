@@ -26,7 +26,7 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.6.0
-	golang.org/x/crypto v0.36.0
+	golang.org/x/crypto v0.37.0
 )
 
 require (
@@ -58,6 +58,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8 // indirect
-	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/sys v0.32.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
 )
