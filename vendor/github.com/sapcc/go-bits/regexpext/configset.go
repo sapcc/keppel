@@ -19,6 +19,8 @@
 
 package regexpext
 
+import . "github.com/majewsky/gg/option"
+
 // ConfigSet works similar to map[K]V in that it picks values of type V for
 // keys of type K, but the keys in the data structure are actually regexes that
 // can apply to an entire set of K instead of just one specific value of K.
@@ -33,25 +35,20 @@ type ConfigSet[K ~string, V any] []struct {
 
 // The basis for both Pick and PickAndFill. This uses MatchString to leverage
 // the specific optimizations in type BoundedRegexp for this function.
-func (cs ConfigSet[K, V]) pick(key K) (BoundedRegexp, V, bool) {
+func (cs ConfigSet[K, V]) pick(key K) (BoundedRegexp, Option[V]) {
 	for _, entry := range cs {
 		if entry.Key.MatchString(string(key)) {
-			return entry.Key, entry.Value, true
+			return entry.Key, Some(entry.Value)
 		}
 	}
-	var zero V
-	return "", zero, false
+	return "", None[V]()
 }
 
 // Pick returns the first value entry whose key regex matches the supplied key, or
-// the given default value if none of the entries in the ConfigSet matches the key.
-func (cs ConfigSet[K, V]) Pick(key K, defaultValue V) V {
-	_, value, ok := cs.pick(key)
-	if ok {
-		return value
-	} else {
-		return defaultValue
-	}
+// None if no entry in the ConfigSet matches the key.
+func (cs ConfigSet[K, V]) Pick(key K) Option[V] {
+	_, value := cs.pick(key)
+	return value
 }
 
 // PickAndFill is like Pick, but if the regex in the matching entry contains
@@ -68,9 +65,9 @@ func (cs ConfigSet[K, V]) Pick(key K, defaultValue V) V {
 //	// omitted: fill `cs` by parsing configuration
 //
 //	objectName := "foo_widget"
-//	metricSource := cs.PickAndFill(objectName, MetricSource{}, func(ms *MetricSource, expand func(string) string) {
+//	metricSource := cs.PickAndFill(objectName, func(ms *MetricSource, expand func(string) string) {
 //		ms.PrometheusQuery = expand(ms.PrometheusQuery)
-//	})
+//	}).UnwrapOr(MetricSource{})
 //
 // With this, configuration can be condensed like in the example below:
 //
@@ -84,21 +81,22 @@ func (cs ConfigSet[K, V]) Pick(key K, defaultValue V) V {
 //	}
 //
 // Expansion follows the same rules as for regexp.ExpandString() from the standard library.
-func (cs ConfigSet[K, V]) PickAndFill(key K, defaultValue V, fill func(value *V, expand func(string) string)) V {
-	keyRx, value, ok := cs.pick(key)
+func (cs ConfigSet[K, V]) PickAndFill(key K, fill func(value *V, expand func(string) string)) Option[V] {
+	keyRx, maybeValue := cs.pick(key)
+	value, ok := maybeValue.Unpack()
 	if !ok {
-		return defaultValue
+		return None[V]()
 	}
 
 	rx, err := keyRx.Regexp()
 	if err != nil {
 		// defense in depth: this should not happen because the regex should have been validated at UnmarshalYAML time
-		return defaultValue
+		return None[V]()
 	}
 	match := rx.FindStringSubmatchIndex(string(key))
 	if match == nil {
 		// defense in depth: this should not happen because this is only called after the key has already matched
-		return defaultValue
+		return None[V]()
 	}
 
 	// match[0] always exists and refers to the full match; if there are capture groups, they are in match[1:]
@@ -107,5 +105,5 @@ func (cs ConfigSet[K, V]) PickAndFill(key K, defaultValue V, fill func(value *V,
 			return string(rx.ExpandString(nil, in, string(key), match))
 		})
 	}
-	return value
+	return Some(value)
 }
