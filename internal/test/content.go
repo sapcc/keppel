@@ -350,7 +350,7 @@ func GenerateOCIImage(ociArgs OCIArgs, layers ...Bytes) Image {
 		})
 	}
 
-	manifest := manifest.OCI1{
+	ociManifest := manifest.OCI1{
 		Manifest: imgspecv1.Manifest{
 			Versioned: specs.Versioned{SchemaVersion: 2},
 			MediaType: imgspecv1.MediaTypeImageManifest,
@@ -365,19 +365,19 @@ func GenerateOCIImage(ociArgs OCIArgs, layers ...Bytes) Image {
 	}
 
 	if ociArgs.SubjectDigest != "" {
-		manifest.Subject = &imgspecv1.Descriptor{
+		ociManifest.Subject = &imgspecv1.Descriptor{
 			MediaType: imgspecv1.MediaTypeImageManifest,
 			Digest:    ociArgs.SubjectDigest,
 		}
 	}
 
 	if ociArgs.ArtifactType != "" {
-		manifest.ArtifactType = ociArgs.ArtifactType
+		ociManifest.ArtifactType = ociArgs.ArtifactType
 	}
 
 	return Image{
 		Layers:   layers,
 		Config:   newBytesWithMediaType(must.Return(json.Marshal(ociArgs.Config)), ociArgs.ConfigMediaType),
-		Manifest: newBytesWithMediaType(must.Return(json.Marshal(manifest)), manifest.MediaType),
+		Manifest: newBytesWithMediaType(must.Return(json.Marshal(ociManifest)), ociManifest.MediaType),
 	}
 }

@@ -35,6 +35,8 @@ func init() {
 	keppel.UserIdentityRegistry.Add(func() keppel.UserIdentity { return &userIdentity{} })
 }
 
+const driverName = "trivial"
+
 ////////////////////////////////////////////////////////////////////////////////
 // type userIdentity
 
@@ -43,7 +45,7 @@ type userIdentity struct {
 }
 
 func (uid *userIdentity) PluginTypeID() string {
-	return "trivial"
+	return driverName
 }
 
 func (uid *userIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
@@ -79,7 +81,7 @@ type AuthDriver struct {
 }
 
 func (d *AuthDriver) PluginTypeID() string {
-	return "trivial"
+	return driverName
 }
 
 func (d *AuthDriver) Init(ctx context.Context, rc *redis.Client) error {

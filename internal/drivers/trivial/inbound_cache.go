@@ -35,7 +35,7 @@ func init() {
 }
 
 // PluginTypeID implements the keppel.InboundCacheDriver interface.
-func (inboundCacheDriver) PluginTypeID() string { return "trivial" }
+func (inboundCacheDriver) PluginTypeID() string { return driverName }
 
 // Init implements the keppel.InboundCacheDriver interface.
 func (inboundCacheDriver) Init(ctx context.Context, cfg keppel.Configuration) error {

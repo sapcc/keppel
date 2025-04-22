@@ -104,14 +104,14 @@ func (c *RepoClient) doValidateManifest(ctx context.Context, reference models.Ma
 		return err
 	}
 
-	digest := digest.FromBytes(manifestBytes)
+	manifestDigest := digest.FromBytes(manifestBytes)
 
-	if reference.Digest != "" && digest != reference.Digest {
-		return keppel.ErrDigestInvalid.With("actual manifest digest is " + digest.String())
+	if reference.Digest != "" && manifestDigest != reference.Digest {
+		return keppel.ErrDigestInvalid.With("actual manifest digest is " + manifestDigest.String())
 	}
 
 	// the manifest itself looks good...
-	session.Logger.LogManifest(models.ManifestReference{Digest: digest}, level, nil, false)
+	session.Logger.LogManifest(models.ManifestReference{Digest: manifestDigest}, level, nil, false)
 	logged = true
 
 	// ...now recurse into the manifests and blobs that it references
@@ -129,7 +129,7 @@ func (c *RepoClient) doValidateManifest(ctx context.Context, reference models.Ma
 	}
 
 	// write validity into cache only after all references have been validated as well
-	session.isValid[c.validationCacheKey(digest.String())] = true
+	session.isValid[c.validationCacheKey(manifestDigest.String())] = true
 	session.isValid[c.validationCacheKey(reference.String())] = true
 	return nil
 }
