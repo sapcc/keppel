@@ -34,7 +34,7 @@ func init() {
 }
 
 // PluginTypeID implements the keppel.AccountManagementDriver interface.
-func (a *AccountManagementDriver) PluginTypeID() string { return "trivial" } //nolint:goconst
+func (a *AccountManagementDriver) PluginTypeID() string { return driverName }
 
 // Init implements the keppel.AccountManagementDriver interface.
 func (a *AccountManagementDriver) Init() error {
