@@ -17,8 +17,8 @@ github.com/beorn7/perks/quantile
 # github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
-# github.com/containers/image/v5 v5.34.3
-## explicit; go 1.22.8
+# github.com/containers/image/v5 v5.35.0
+## explicit; go 1.23.3
 github.com/containers/image/v5/docker/reference
 github.com/containers/image/v5/internal/manifest
 github.com/containers/image/v5/internal/pkg/platform
@@ -34,8 +34,8 @@ github.com/containers/libtrust
 # github.com/containers/ocicrypt v1.2.1
 ## explicit; go 1.22
 github.com/containers/ocicrypt/spec
-# github.com/containers/storage v1.57.2
-## explicit; go 1.22.0
+# github.com/containers/storage v1.58.0
+## explicit; go 1.23.0
 github.com/containers/storage/pkg/regexp
 # github.com/databus23/goslo.policy v0.0.0-20250326134918-4afc2c56a903
 ## explicit; go 1.16
@@ -46,7 +46,7 @@ github.com/dgryski/go-rendezvous
 # github.com/dlmiddlecote/sqlstats v1.0.2
 ## explicit; go 1.11
 github.com/dlmiddlecote/sqlstats
-# github.com/docker/docker v27.5.1+incompatible
+# github.com/docker/docker v28.0.4+incompatible
 ## explicit
 github.com/docker/docker/api/types/versions
 # github.com/go-gorp/gorp/v3 v3.1.0
@@ -215,10 +215,6 @@ github.com/yuin/gopher-lua
 github.com/yuin/gopher-lua/ast
 github.com/yuin/gopher-lua/parse
 github.com/yuin/gopher-lua/pm
-# go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.59.0
-## explicit; go 1.22.0
-# go.opentelemetry.io/otel/trace v1.34.0
-## explicit; go 1.22.0
 # go.uber.org/atomic v1.11.0
 ## explicit; go 1.18
 go.uber.org/atomic
@@ -231,15 +227,12 @@ go.uber.org/automaxprocs/maxprocs
 ## explicit; go 1.23.0
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
-# golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
-## explicit; go 1.22.0
-golang.org/x/exp/maps
 # golang.org/x/sys v0.32.0
 ## explicit; go 1.23.0
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# google.golang.org/protobuf v1.36.5
-## explicit; go 1.21
+# google.golang.org/protobuf v1.36.6
+## explicit; go 1.22
 google.golang.org/protobuf/encoding/protodelim
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
