@@ -39,6 +39,10 @@
         "!/^github\\.com\\/sapcc\\/.*/",
         "/.*/"
       ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "groupName": "External dependencies"
     },
     {
