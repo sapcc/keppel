@@ -116,8 +116,8 @@ github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
 github.com/lib/pq v1.10.9 h1:YXG7RB+JIjhP29X+OtkiDnYaXQwpS4JEWq7dtCCRUEw=
 github.com/lib/pq v1.10.9/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
-github.com/majewsky/gg v1.0.0 h1:d7ov8LJvsaNV/MpLkW5+xINap9JFxEs/GUJFUDNAPQk=
-github.com/majewsky/gg v1.0.0/go.mod h1:KC7qUlln1VBY90OE0jXMNjXW2b9B4jJ1heYQ08OzeAg=
+github.com/majewsky/gg v1.1.0 h1:rvbQAUVJ8Q0RWZF26k3BxQBbQnRj3CdIN+Aaqu1qaJo=
+github.com/majewsky/gg v1.1.0/go.mod h1:KC7qUlln1VBY90OE0jXMNjXW2b9B4jJ1heYQ08OzeAg=
 github.com/majewsky/schwift/v2 v2.0.0 h1:Rgzv/18yMAej3bBZWoxYmS2lZMiCKD6P451dU8TyQtE=
 github.com/majewsky/schwift/v2 v2.0.0/go.mod h1:qqN4N7s2+jhwebBgxFZm/e2NOqDzNphwb7SnAIB5G+4=
 github.com/mattn/go-sqlite3 v1.14.6/go.mod h1:NyWgC/yNuGj7Q9rpYnZvas74GogHl5/Z4A/KQRfk6bU=
