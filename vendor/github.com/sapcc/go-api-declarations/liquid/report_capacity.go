@@ -18,6 +18,8 @@
 
 package liquid
 
+import . "github.com/majewsky/gg/option"
+
 // ServiceCapacityRequest is the request payload format for POST /v1/report-capacity.
 type ServiceCapacityRequest struct {
 	// All AZs known to Limes.
@@ -107,7 +109,7 @@ type AZResourceCapacityReport struct {
 	// If you can only fill this by summing up usage across all projects, don't; Limes can already do that.
 	// This is intended for consistency checks and to estimate how much usage cannot be attributed to OpenStack projects.
 	// For example, for compute, this would allow estimating how many VMs are not managed by Nova.
-	Usage *uint64 `json:"usage,omitempty"`
+	Usage Option[uint64] `json:"usage,omitzero"`
 
 	// Only filled if the resource is able to report subcapacities in a useful way.
 	Subcapacities []Subcapacity `json:"subcapacities,omitempty"`

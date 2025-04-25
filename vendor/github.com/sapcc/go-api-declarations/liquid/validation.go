@@ -46,17 +46,17 @@ func ValidateServiceInfo(srv ServiceInfo) error {
 }
 
 func validateServiceInfoImpl(srv ServiceInfo) (errs errorset.ErrorSet) {
-	for resName, resInfo := range srv.Resources {
-		if !resInfo.Topology.IsValid() {
-			errs.Addf(".Resources[%q] has invalid topology %q", resName, resInfo.Topology)
+	for _, resName := range slices.Sorted(maps.Keys(srv.Resources)) {
+		if !srv.Resources[resName].Topology.IsValid() {
+			errs.Addf(".Resources[%q] has invalid topology %q", resName, srv.Resources[resName].Topology)
 		}
 	}
 
-	for rateName, rateInfo := range srv.Rates {
-		if !rateInfo.Topology.IsValid() {
-			errs.Addf(".Rates[%q] has invalid topology %q", rateName, rateInfo.Topology)
+	for _, rateName := range slices.Sorted(maps.Keys(srv.Rates)) {
+		if !srv.Rates[rateName].Topology.IsValid() {
+			errs.Addf(".Rates[%q] has invalid topology %q", rateName, srv.Rates[rateName].Topology)
 		}
-		if !rateInfo.HasUsage {
+		if !srv.Rates[rateName].HasUsage {
 			errs.Addf(".Rates[%q] declared with HasUsage = false, but must be true", rateName)
 		}
 	}
@@ -136,6 +136,7 @@ func validateCapacityReportImpl(report ServiceCapacityReport, req ServiceCapacit
 //   - Each rate must report usage exactly for those AZs that its declared topology requires:
 //     For FlatRateTopology, only AvailabilityZoneAny is allowed.
 //     For other topologies, all AZs in req.AllAZs must be present (and possibly AvailabilityZoneUnknown, but no others).
+//   - For rate usage values, the value Some(nil) is forbidden.
 //   - All metrics families declared in info.UsageMetricFamilies must be present (and no others).
 //   - The number of labels on each metric must match the declared label set.
 //
@@ -189,6 +190,14 @@ func validateUsageReportImpl(report ServiceUsageReport, req ServiceUsageRequest,
 			continue
 		}
 		errs.Add(validatePerAZAgainstTopology(rate.PerAZ, rateInfo.Topology, ".Rates", rateName, req.AllAZs))
+		for az, azRate := range rate.PerAZ {
+			usage, ok := azRate.Usage.Unpack()
+			if !ok {
+				errs.Addf("missing value for .Rates[%q].PerAZ[%q].Usage (rate was declared with HasUsage = true)", rateName, az)
+			} else if usage == nil {
+				errs.Addf("unexpected nil value in payload of .Rates[%q].PerAZ[%q].Usage", rateName, az)
+			}
+		}
 	}
 
 	return errs
@@ -251,10 +260,10 @@ func validatePerAZAgainstTopology[N ~string, V any](perAZ map[AvailabilityZone]V
 
 func validateQuotaAgainstTopology(report *ResourceUsageReport, hasQuota bool, topology Topology, name ResourceName, allAZs []AvailabilityZone) error {
 	// report.Quota shall be null if and only if the resource is declared with "HasQuota = false" or with AZSeparatedTopology
-	if report.Quota == nil && hasQuota && topology != AZSeparatedTopology {
+	if report.Quota.IsNone() && hasQuota && topology != AZSeparatedTopology {
 		return fmt.Errorf(".Resources[%q] has no quota reported on resource level, which is invalid for HasQuota = true and topology %q", name, topology)
 	}
-	if report.Quota != nil {
+	if report.Quota.IsSome() {
 		if !hasQuota {
 			return fmt.Errorf(".Resources[%q] has quota reported on resource level, which is invalid for HasQuota = false", name)
 		}
@@ -266,12 +275,12 @@ func validateQuotaAgainstTopology(report *ResourceUsageReport, hasQuota bool, to
 	var allAZsWithoutQuota []string
 	for _, az := range allAZs {
 		azReport, exists := report.PerAZ[az]
-		if !exists || azReport.Quota == nil {
+		if !exists || azReport.Quota.IsNone() {
 			allAZsWithoutQuota = append(allAZsWithoutQuota, string(az))
 			continue
 		}
 		// azReport.Quota shall be non-null if and only if the resource is declared with AZSeparatedTopology
-		if azReport.Quota != nil {
+		if azReport.Quota.IsSome() {
 			if !hasQuota {
 				return fmt.Errorf(".Resources[%q] has quota reported on AZ level, which is invalid for HasQuota = false", name)
 			}
@@ -286,7 +295,7 @@ func validateQuotaAgainstTopology(report *ResourceUsageReport, hasQuota bool, to
 			return fmt.Errorf(".Resources[%q] with topology %q is missing quota reports on the following AZs: %s", name, topology, strings.Join(allAZsWithoutQuota, ", "))
 		}
 		azReport, exists := report.PerAZ[AvailabilityZoneUnknown]
-		if exists && azReport.Quota != nil {
+		if exists && azReport.Quota.IsSome() {
 			return fmt.Errorf(".Resources[%q] reports quota in AZ %q, which is invalid for topology %q", name, AvailabilityZoneUnknown, topology)
 		}
 	}

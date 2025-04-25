@@ -22,6 +22,8 @@ package liquid
 import (
 	"encoding/json"
 	"math/big"
+
+	. "github.com/majewsky/gg/option"
 )
 
 // ServiceUsageRequest is the request payload format for POST /v1/projects/:uuid/report-usage.
@@ -35,7 +37,7 @@ type ServiceUsageRequest struct {
 
 	// Metadata about the project from Keystone.
 	// Only included if the ServiceInfo declared a need for it.
-	ProjectMetadata *ProjectMetadata `json:"projectMetadata,omitempty"`
+	ProjectMetadata Option[ProjectMetadata] `json:"projectMetadata,omitzero"`
 
 	// The serialized state from the previous ServiceUsageReport received by Limes for this project, if any.
 	// Refer to the same field on type ServiceUsageReport for details.
@@ -77,9 +79,9 @@ type ResourceUsageReport struct {
 	//   - If the project has no usage in this resource, Limes will hide this resource from project reports.
 	Forbidden bool `json:"forbidden"`
 
-	// This shall be null if and only if the resource is declared with "HasQuota = false" or with AZSeparatedTopology.
+	// This shall be None if and only if the resource is declared with "HasQuota = false" or with AZSeparatedTopology.
 	// A negative value, usually -1, indicates "infinite quota" (i.e., the absence of a quota).
-	Quota *int64 `json:"quota,omitempty"`
+	Quota Option[int64] `json:"quota,omitzero"`
 
 	// The keys that are allowed in this map depend on the chosen Topology.
 	// See documentation on Topology enum variants for details.
@@ -100,11 +102,11 @@ type AZResourceUsageReport struct {
 	// For example, consider the Manila resource "share_capacity".
 	// If a project has 5 shares, each with 10 GiB size and each containing 1 GiB data, then Usage = 50 GiB and PhysicalUsage = 5 GiB.
 	// It is not allowed to report 5 GiB as Usage in this situation, since the 50 GiB value is used when judging whether the Quota fits.
-	PhysicalUsage *uint64 `json:"physicalUsage,omitempty"`
+	PhysicalUsage Option[uint64] `json:"physicalUsage,omitzero"`
 
 	// This shall be non-null if and only if the resource is declared with AZSeparatedTopology.
 	// A negative value, usually -1, indicates "infinite quota" (i.e., the absence of a quota).
-	Quota *int64 `json:"quota,omitempty"`
+	Quota Option[int64] `json:"quota,omitzero"`
 
 	// Only filled if the resource is able to report subresources for this usage in a useful way.
 	Subresources []Subresource `json:"subresources,omitempty"`
@@ -158,12 +160,13 @@ type RateUsageReport struct {
 // AZRateUsageReport contains usage data for a rate in a single project and AZ.
 // It appears in type RateUsageReport.
 type AZRateUsageReport struct {
-	// The amount of usage for this rate. Must be non-nil if the rate is declared with HasUsage = true.
+	// The amount of usage for this rate. Must be Some() and non-nil if the rate is declared with HasUsage = true.
+	// The value Some(nil) is forbidden.
 	//
 	// For a given rate, project and AZ, this value must only ever increase monotonically over time.
 	// If there is the possibility of counter resets or limited retention in the underlying data source, the liquid must add its own logic to guarantee monotonicity.
 	// A common strategy is to remember previous measurements in the SerializedState field of type ServiceUsageReport.
 	//
 	// This field is modeled as a bigint because network rates like "bytes transferred" may easily exceed the range of uint64 over time.
-	Usage *big.Int `json:"usage,omitempty"`
+	Usage Option[*big.Int] `json:"usage,omitzero"`
 }

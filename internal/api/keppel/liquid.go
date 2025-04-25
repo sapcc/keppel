@@ -23,6 +23,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	. "github.com/majewsky/gg/option"
 	"github.com/sapcc/go-api-declarations/liquid"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
@@ -89,10 +90,6 @@ func (a *API) handleLiquidReportUsage(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, liquidConvertQuotaResponse(*resp))
 }
 
-func pointerTo[T any](value T) *T {
-	return &value
-}
-
 func (a *API) handleLiquidSetQuota(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/liquid/v1/projects/:auth_tenant_id/quota")
 	authTenantID := mux.Vars(r)["auth_tenant_id"]
@@ -132,7 +129,7 @@ func liquidConvertQuotaResponse(resp processor.QuotaResponse) liquid.ServiceUsag
 		Metrics:     map[liquid.MetricName][]liquid.Metric{},
 		Resources: map[liquid.ResourceName]*liquid.ResourceUsageReport{
 			"images": {
-				Quota: pointerTo(int64(resp.Manifests.Quota)), //nolint:gosec // quota is admin controlled
+				Quota: Some(int64(resp.Manifests.Quota)), //nolint:gosec // quota is admin controlled
 				PerAZ: liquid.InAnyAZ(liquid.AZResourceUsageReport{
 					Usage: resp.Manifests.Usage,
 				}),
