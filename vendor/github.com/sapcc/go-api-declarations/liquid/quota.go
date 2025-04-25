@@ -19,13 +19,15 @@
 
 package liquid
 
+import . "github.com/majewsky/gg/option"
+
 // ServiceQuotaRequest is the request payload format for PUT /v1/projects/:uuid/quota.
 type ServiceQuotaRequest struct {
 	Resources map[ResourceName]ResourceQuotaRequest `json:"resources"`
 
 	// Metadata about the project from Keystone.
 	// Only included if the ServiceInfo declared a need for it.
-	ProjectMetadata *ProjectMetadata `json:"projectMetadata,omitempty"`
+	ProjectMetadata Option[ProjectMetadata] `json:"projectMetadata,omitzero"`
 }
 
 // ResourceQuotaRequest contains new quotas for a single resource.

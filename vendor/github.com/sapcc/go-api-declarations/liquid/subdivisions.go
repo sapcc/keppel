@@ -19,7 +19,11 @@
 
 package liquid
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	. "github.com/majewsky/gg/option"
+)
 
 // Subcapacity describes a distinct chunk of capacity for a resource within an AZ.
 // It appears in type AZResourceCapacityReport.
@@ -44,8 +48,8 @@ type Subcapacity struct {
 	// The amount of capacity in this subcapacity.
 	Capacity uint64 `json:"capacity"`
 
-	// How much of the Capacity is used, or null if no usage data is available.
-	Usage *uint64 `json:"usage,omitempty"`
+	// How much of the Capacity is used, or None if no usage data is available.
+	Usage Option[uint64] `json:"usage,omitzero"`
 
 	// Additional resource-specific attributes.
 	// This must be shaped like a map[string]any, but is typed as a raw JSON message.
@@ -60,7 +64,7 @@ type SubcapacityBuilder[A any] struct {
 	ID         string
 	Name       string
 	Capacity   uint64
-	Usage      *uint64
+	Usage      Option[uint64]
 	Attributes A
 }
 
@@ -92,9 +96,9 @@ type Subresource struct {
 	// Must be unique at least within its project.
 	Name string `json:"name,omitempty"`
 
-	// Must be null for counted resources (for which each subresource must be one of the things that is counted).
-	// Must be non-null for measured resources, and contain the subresource's size in terms of the resource's unit.
-	Usage *uint64 `json:"usage,omitempty"`
+	// Must be None for counted resources (for which each subresource must be one of the things that is counted).
+	// Must be Some for measured resources, and contain the subresource's size in terms of the resource's unit.
+	Usage Option[uint64] `json:"usage,omitzero"`
 
 	// Additional resource-specific attributes.
 	// This must be shaped like a map[string]any, but is typed as a raw JSON message.
@@ -108,7 +112,7 @@ type Subresource struct {
 type SubresourceBuilder[A any] struct {
 	ID         string
 	Name       string
-	Usage      *uint64
+	Usage      Option[uint64]
 	Attributes A
 }
 
