@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-bits/audittools"
@@ -35,7 +36,6 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/mock"
 	"github.com/sapcc/go-bits/osext"
-	"golang.org/x/crypto/bcrypt"
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
@@ -183,9 +183,7 @@ func GetReplicationPassword() string {
 	if replicationPassword == "" {
 		// this password needs to be constant because it appears in some fixtures/*.sql
 		replicationPassword = "a4cb6fae5b8bb91b0b993486937103dab05eca93" //nolint:gosec // hardcoded password for test fixtures
-
-		hashBytes, _ := bcrypt.GenerateFromPassword([]byte(replicationPassword), 8) //nolint:errcheck
-		replicationPasswordHash = string(hashBytes)
+		replicationPasswordHash = digest.SHA256.FromString(replicationPassword).String()
 	}
 	return replicationPassword
 }

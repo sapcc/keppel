@@ -30,8 +30,8 @@ import (
 	"net/url"
 
 	"github.com/go-gorp/gorp/v3"
+	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/logg"
-	"golang.org/x/crypto/bcrypt"
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -51,10 +51,16 @@ func IssueNewPasswordForPeer(ctx context.Context, cfg keppel.Configuration, db *
 		return err
 	}
 	newPassword := hex.EncodeToString(newPasswordBytes)
-	newPasswordHashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), 10)
-	if err != nil {
-		return err
-	}
+
+	// NOTE: We acknowledge that it's usually not good practice to hash passwords with SHA-256.
+	// In fact, we used to use BCrypt here, but we replaced it because it consumed 80% of the CPU time on our API processes, just for checking peer credentials!
+	//
+	// We find the choice of SHA-2 acceptable here because the peer passwords have:
+	// a) extremely high entropy compared to passwords used by human users (20 bytes = 160 bits)
+	// b) extremely short lifetime (10 minutes per renewal, and effectively 20 minutes total because we accept the previous password, too)
+	//
+	// Even if an attacker could run, say, 1 terahash per second, for SHA-256, they would take >1e+28 years to get through 160 bits of entropy.
+	newPasswordHashed := digest.SHA256.FromString(newPassword).String()
 
 	// update password in our own DB - we need to do this first because, as soon
 	// as we send the HTTP request, the peer could come back to us at any time to
