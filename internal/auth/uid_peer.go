@@ -21,11 +21,9 @@ package auth
 
 import (
 	"encoding/json"
-	"strings"
 
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/audittools"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -98,17 +96,9 @@ func checkPeerCredentials(db *keppel.DB, peerHostName, password string) (*models
 	}
 	hashes := []string{peer.TheirCurrentPasswordHash, peer.TheirPreviousPasswordHash}
 	for _, hash := range hashes {
-		if hash != "" && checkPeerPassword(hash, password) {
+		if hash != "" && hash == digest.SHA256.FromString(password).String() {
 			return &peer, nil
 		}
 	}
 	return nil, nil
-}
-
-func checkPeerPassword(hash, password string) bool {
-	if strings.HasPrefix(hash, "$2a$") {
-		return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
-	} else {
-		return hash == digest.SHA256.FromString(password).String()
-	}
 }
