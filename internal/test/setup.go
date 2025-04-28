@@ -170,8 +170,7 @@ type Setup struct {
 	tokenCache map[string]string
 }
 
-// these credentials are in global vars so that we don't have to recompute them
-// in every test run (bcrypt is intentionally CPU-intensive)
+// these credentials are in global vars so that we don't have to recompute them in every test run
 var (
 	replicationPassword     string
 	replicationPasswordHash string
