@@ -1,4 +1,4 @@
-# Copyright 2024 SAP SE
+# SPDX-FileCopyrightText: Copyright 2024 SAP SE
 # SPDX-License-Identifier: Apache-2.0
 
 { pkgs ? import <nixpkgs> { } }:
