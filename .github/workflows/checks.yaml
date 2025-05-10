@@ -50,3 +50,5 @@ jobs:
           reporter: github-check
       - name: Check if source code files have license header
         run: make check-license-headers
+      - name: REUSE Compliance Check
+        uses: fsfe/reuse-action@v5
