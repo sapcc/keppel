@@ -11,7 +11,6 @@ mkShell {
     go-licence-detector
     go_1_24
     golangci-lint
-    goreleaser
     gotools # goimports
     openssl
     postgresql_17
