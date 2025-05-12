@@ -3,7 +3,7 @@
 # Edit Makefile.maker.yaml instead.                                            #
 ################################################################################
 
-# SPDX-FileCopyrightText: Copyright 2024 SAP SE
+# SPDX-FileCopyrightText: 2024 SAP SE
 # SPDX-License-Identifier: Apache-2.0
 
 MAKEFLAGS=--warn-undefined-variables
@@ -118,15 +118,16 @@ vendor-compat: FORCE
 	go mod vendor
 	go mod verify
 
-force-license-headers: FORCE install-addlicense
-	@printf "\e[1;36m>> addlicense\e[0m\n"
-	echo -n $(patsubst $(shell awk '$$1 == "module" {print $$2}' go.mod)%,.%/*.go,$(shell go list ./...)) | xargs -d" " -I{} bash -c 'year="$$(rg -P "Copyright (....) SAP SE" -Nor "\$$1" {})"; awk -i inplace '"'"'{if (display) {print} else {!/^\/\*/ && !/^\*/ && !/^\$$/}}; /^package /{print;display=1}'"'"' {}; addlicense -c "SAP SE" -s=only -y "$$year" -- {}'
-
 license-headers: FORCE install-addlicense
-	@printf "\e[1;36m>> addlicense\e[0m\n"
-	@addlicense -c "SAP SE" -s=only -- $(patsubst $(shell awk '$$1 == "module" {print $$2}' go.mod)%,.%/*.go,$(shell go list ./...))
+	@printf "\e[1;36m>> addlicense (for license headers on source code files)\e[0m\n"
+	@echo -n $(patsubst $(shell awk '$$1 == "module" {print $$2}' go.mod)%,.%/*.go,$(shell go list ./...)) | xargs -d" " -I{} bash -c 'year="$$(rg -P "Copyright.* (\d{4})" -Nor "\$$1" {} | head -n1)"; awk -i inplace '"'"'{if (display) {print} else {!/^\/\*/ && !/^\*/ && !/^\$$/}}; /^package /{print;display=1}'"'"' {}; addlicense -c "SAP SE" -s=only -y "$$year" -- {}; sed -i '"'"'1s+// Copyright +// SPDX-FileCopyrightText: +'"'"' {}'
+	@printf "\e[1;36m>> reuse annotate (for license headers on other files)\e[0m\n"
+	@reuse lint -j | jq -r '.non_compliant.missing_licensing_info[]' | grep -vw vendor | xargs reuse annotate -c 'SAP SE' -l Apache-2.0 --skip-unrecognised
+	@printf "\e[1;36m>> reuse download --all\e[0m\n"
+	@reuse download --all
+	@printf "\e[1;35mPlease review the changes. If *.license files were generated, consider instructing go-makefile-maker to add overrides to REUSE.toml instead.\e[0m\n"
 
-check-license-headers: FORCE install-addlicense
+check-license-headers: FORCE install-addlicense vendor
 	@printf "\e[1;36m>> addlicense --check\e[0m\n"
 	@addlicense --check -- $(patsubst $(shell awk '$$1 == "module" {print $$2}' go.mod)%,.%/*.go,$(shell go list ./...))
 
@@ -184,8 +185,7 @@ help: FORCE
 	@printf "\e[1mDevelopment\e[0m\n"
 	@printf "  \e[36mvendor\e[0m                       Run go mod tidy, go mod verify, and go mod vendor.\n"
 	@printf "  \e[36mvendor-compat\e[0m                Same as 'make vendor' but go mod tidy will use '-compat' flag with the Go version from go.mod file as value.\n"
-	@printf "  \e[36mforce-license-headers\e[0m        Remove and re-add all license headers to all non-vendored source code files.\n"
-	@printf "  \e[36mlicense-headers\e[0m              Add license headers to all non-vendored source code files.\n"
+	@printf "  \e[36mlicense-headers\e[0m              Add (or overwrite) license headers on all non-vendored source code files.\n"
 	@printf "  \e[36mcheck-license-headers\e[0m        Check license headers in all non-vendored .go files.\n"
 	@printf "  \e[36mcheck-dependency-licenses\e[0m    Check all dependency licenses using go-licence-detector.\n"
 	@printf "  \e[36mgoimports\e[0m                    Run goimports on all non-vendored .go files\n"

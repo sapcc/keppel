@@ -18,565 +18,753 @@ SPDX-FileCopyrightText = "SAP SE"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/alicebob/miniredis/v2/**" ]
+path = [
+  "vendor/github.com/alicebob/miniredis/v2/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/containers/image/v5/**" ]
+path = [
+  "vendor/github.com/containers/image/v5/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/databus23/goslo.policy/**" ]
+path = [
+  "vendor/github.com/databus23/goslo.policy/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/dlmiddlecote/sqlstats/**" ]
+path = [
+  "vendor/github.com/dlmiddlecote/sqlstats/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/go-gorp/gorp/v3/**" ]
+path = [
+  "vendor/github.com/go-gorp/gorp/v3/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/go-redis/redis_rate/v10/**" ]
+path = [
+  "vendor/github.com/go-redis/redis_rate/v10/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "BSD-2-Clause"
 
 [[annotations]]
-path = [ "vendor/github.com/gofrs/uuid/v5/**" ]
+path = [
+  "vendor/github.com/gofrs/uuid/v5/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/golang-jwt/jwt/v5/**" ]
+path = [
+  "vendor/github.com/golang-jwt/jwt/v5/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/gophercloud/gophercloud/v2/**" ]
+path = [
+  "vendor/github.com/gophercloud/gophercloud/v2/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/gorilla/mux/**" ]
+path = [
+  "vendor/github.com/gorilla/mux/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "BSD-3-Clause"
 
 [[annotations]]
-path = [ "vendor/github.com/majewsky/gg/**" ]
+path = [
+  "vendor/github.com/majewsky/gg/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/majewsky/schwift/v2/**" ]
+path = [
+  "vendor/github.com/majewsky/schwift/v2/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/opencontainers/distribution-spec/specs-go/**" ]
+path = [
+  "vendor/github.com/opencontainers/distribution-spec/specs-go/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/opencontainers/go-digest/**" ]
+path = [
+  "vendor/github.com/opencontainers/go-digest/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/opencontainers/image-spec/**" ]
+path = [
+  "vendor/github.com/opencontainers/image-spec/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/prometheus/client_golang/**" ]
+path = [
+  "vendor/github.com/prometheus/client_golang/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/redis/go-redis/v9/**" ]
+path = [
+  "vendor/github.com/redis/go-redis/v9/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "BSD-2-Clause"
 
 [[annotations]]
-path = [ "vendor/github.com/rs/cors/**" ]
+path = [
+  "vendor/github.com/rs/cors/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/sapcc/go-api-declarations/**" ]
+path = [
+  "vendor/github.com/sapcc/go-api-declarations/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/sapcc/go-bits/**" ]
+path = [
+  "vendor/github.com/sapcc/go-bits/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/spf13/cobra/**" ]
+path = [
+  "vendor/github.com/spf13/cobra/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/timewasted/go-accept-headers/**" ]
+path = [
+  "vendor/github.com/timewasted/go-accept-headers/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "BSD-2-Clause"
 
 [[annotations]]
-path = [ "vendor/go.uber.org/automaxprocs/**" ]
+path = [
+  "vendor/go.uber.org/automaxprocs/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/Azure/go-ansiterm/**" ]
+path = [
+  "vendor/github.com/Azure/go-ansiterm/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/Microsoft/go-winio/**" ]
+path = [
+  "vendor/github.com/Microsoft/go-winio/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/alicebob/gopher-json/**" ]
+path = [
+  "vendor/github.com/alicebob/gopher-json/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Unlicense"
 
 [[annotations]]
-path = [ "vendor/github.com/beorn7/perks/**" ]
+path = [
+  "vendor/github.com/beorn7/perks/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/bsm/ginkgo/v2/**" ]
+path = [
+  "vendor/github.com/bsm/ginkgo/v2/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/bsm/gomega/**" ]
+path = [
+  "vendor/github.com/bsm/gomega/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/cespare/xxhash/v2/**" ]
+path = [
+  "vendor/github.com/cespare/xxhash/v2/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/containers/libtrust/**" ]
+path = [
+  "vendor/github.com/containers/libtrust/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/containers/ocicrypt/**" ]
+path = [
+  "vendor/github.com/containers/ocicrypt/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/containers/storage/**" ]
+path = [
+  "vendor/github.com/containers/storage/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/davecgh/go-spew/**" ]
+path = [
+  "vendor/github.com/davecgh/go-spew/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "ISC"
 
 [[annotations]]
-path = [ "vendor/github.com/dgryski/go-rendezvous/**" ]
+path = [
+  "vendor/github.com/dgryski/go-rendezvous/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/dhui/dktest/**" ]
+path = [
+  "vendor/github.com/dhui/dktest/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/distribution/reference/**" ]
+path = [
+  "vendor/github.com/distribution/reference/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/docker/docker/**" ]
+path = [
+  "vendor/github.com/docker/docker/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/docker/go-connections/**" ]
+path = [
+  "vendor/github.com/docker/go-connections/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/docker/go-units/**" ]
+path = [
+  "vendor/github.com/docker/go-units/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/felixge/httpsnoop/**" ]
+path = [
+  "vendor/github.com/felixge/httpsnoop/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/go-logr/logr/**" ]
+path = [
+  "vendor/github.com/go-logr/logr/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/go-logr/stdr/**" ]
+path = [
+  "vendor/github.com/go-logr/stdr/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/go-sql-driver/mysql/**" ]
+path = [
+  "vendor/github.com/go-sql-driver/mysql/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MPL-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/gogo/protobuf/**" ]
+path = [
+  "vendor/github.com/gogo/protobuf/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "BSD-3-Clause"
 
 [[annotations]]
-path = [ "vendor/github.com/golang-migrate/migrate/v4/**" ]
+path = [
+  "vendor/github.com/golang-migrate/migrate/v4/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/google/go-cmp/**" ]
+path = [
+  "vendor/github.com/google/go-cmp/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "BSD-3-Clause"
 
 [[annotations]]
-path = [ "vendor/github.com/hashicorp/errwrap/**" ]
+path = [
+  "vendor/github.com/hashicorp/errwrap/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MPL-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/hashicorp/go-multierror/**" ]
+path = [
+  "vendor/github.com/hashicorp/go-multierror/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MPL-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/hashicorp/golang-lru/v2/**" ]
+path = [
+  "vendor/github.com/hashicorp/golang-lru/v2/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MPL-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/inconshreveable/mousetrap/**" ]
+path = [
+  "vendor/github.com/inconshreveable/mousetrap/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/jpillora/longestcommon/**" ]
+path = [
+  "vendor/github.com/jpillora/longestcommon/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/json-iterator/go/**" ]
+path = [
+  "vendor/github.com/json-iterator/go/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/klauspost/compress/**" ]
+path = [
+  "vendor/github.com/klauspost/compress/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/klauspost/pgzip/**" ]
+path = [
+  "vendor/github.com/klauspost/pgzip/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/kylelemons/godebug/**" ]
+path = [
+  "vendor/github.com/kylelemons/godebug/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/lib/pq/**" ]
+path = [
+  "vendor/github.com/lib/pq/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/mattn/go-sqlite3/**" ]
+path = [
+  "vendor/github.com/mattn/go-sqlite3/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/moby/docker-image-spec/**" ]
+path = [
+  "vendor/github.com/moby/docker-image-spec/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/moby/sys/capability/**" ]
+path = [
+  "vendor/github.com/moby/sys/capability/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "BSD-2-Clause"
 
 [[annotations]]
-path = [ "vendor/github.com/moby/sys/mountinfo/**" ]
+path = [
+  "vendor/github.com/moby/sys/mountinfo/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/moby/sys/user/**" ]
+path = [
+  "vendor/github.com/moby/sys/user/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/moby/term/**" ]
+path = [
+  "vendor/github.com/moby/term/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/modern-go/concurrent/**" ]
+path = [
+  "vendor/github.com/modern-go/concurrent/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/modern-go/reflect2/**" ]
+path = [
+  "vendor/github.com/modern-go/reflect2/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/morikuni/aec/**" ]
+path = [
+  "vendor/github.com/morikuni/aec/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/munnerz/goautoneg/**" ]
+path = [
+  "vendor/github.com/munnerz/goautoneg/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "BSD-3-Clause"
 
 [[annotations]]
-path = [ "vendor/github.com/opencontainers/runtime-spec/**" ]
+path = [
+  "vendor/github.com/opencontainers/runtime-spec/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/pkg/errors/**" ]
+path = [
+  "vendor/github.com/pkg/errors/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "BSD-2-Clause"
 
 [[annotations]]
-path = [ "vendor/github.com/pmezard/go-difflib/**" ]
+path = [
+  "vendor/github.com/pmezard/go-difflib/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "BSD-3-Clause"
 
 [[annotations]]
-path = [ "vendor/github.com/poy/onpar/**" ]
+path = [
+  "vendor/github.com/poy/onpar/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/prashantv/gostub/**" ]
+path = [
+  "vendor/github.com/prashantv/gostub/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/prometheus/client_model/**" ]
+path = [
+  "vendor/github.com/prometheus/client_model/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/prometheus/common/**" ]
+path = [
+  "vendor/github.com/prometheus/common/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/prometheus/procfs/**" ]
+path = [
+  "vendor/github.com/prometheus/procfs/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/github.com/rabbitmq/amqp091-go/**" ]
+path = [
+  "vendor/github.com/rabbitmq/amqp091-go/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "BSD-2-Clause"
 
 [[annotations]]
-path = [ "vendor/github.com/sergi/go-diff/**" ]
+path = [
+  "vendor/github.com/sergi/go-diff/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/sirupsen/logrus/**" ]
+path = [
+  "vendor/github.com/sirupsen/logrus/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/spf13/pflag/**" ]
+path = [
+  "vendor/github.com/spf13/pflag/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "BSD-3-Clause"
 
 [[annotations]]
-path = [ "vendor/github.com/stretchr/testify/**" ]
+path = [
+  "vendor/github.com/stretchr/testify/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/github.com/ulikunitz/xz/**" ]
+path = [
+  "vendor/github.com/ulikunitz/xz/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "BSD-3-Clause"
 
 [[annotations]]
-path = [ "vendor/github.com/vbatts/tar-split/**" ]
+path = [
+  "vendor/github.com/vbatts/tar-split/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "BSD-3-Clause"
 
 [[annotations]]
-path = [ "vendor/github.com/yuin/gopher-lua/**" ]
+path = [
+  "vendor/github.com/yuin/gopher-lua/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/go.opentelemetry.io/auto/sdk/**" ]
+path = [
+  "vendor/go.opentelemetry.io/auto/sdk/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/**" ]
+path = [
+  "vendor/go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/go.opentelemetry.io/otel/**" ]
+path = [
+  "vendor/go.opentelemetry.io/otel/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/go.opentelemetry.io/otel/metric/**" ]
+path = [
+  "vendor/go.opentelemetry.io/otel/metric/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/go.opentelemetry.io/otel/trace/**" ]
+path = [
+  "vendor/go.opentelemetry.io/otel/trace/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/go.uber.org/atomic/**" ]
+path = [
+  "vendor/go.uber.org/atomic/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/go.uber.org/goleak/**" ]
+path = [
+  "vendor/go.uber.org/goleak/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = [ "vendor/golang.org/x/sys/**" ]
+path = [
+  "vendor/golang.org/x/sys/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "BSD-3-Clause"
 
 [[annotations]]
-path = [ "vendor/google.golang.org/protobuf/**" ]
+path = [
+  "vendor/google.golang.org/protobuf/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "BSD-3-Clause"
 
 [[annotations]]
-path = [ "vendor/gopkg.in/yaml.v2/**" ]
+path = [
+  "vendor/gopkg.in/yaml.v2/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = [ "vendor/gopkg.in/yaml.v3/**" ]
+path = [
+  "vendor/gopkg.in/yaml.v3/**",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
