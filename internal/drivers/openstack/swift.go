@@ -42,6 +42,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 type swiftContainerInfo struct {
@@ -340,6 +341,18 @@ func (d *swiftDriver) DeleteManifest(ctx context.Context, account models.Reduced
 	return o.Delete(ctx, nil, nil)
 }
 
+// ReadTrivyReport implements the keppel.StorageDriver interface.
+func (d *swiftDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) ([]byte, error) {
+}
+
+// WriteTrivyReport implements the keppel.StorageDriver interface.
+func (d *swiftDriver) WriteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, payload trivy.ReportPayload) error {
+}
+
+// DeleteTrivyReport implements the keppel.StorageDriver interface.
+func (d *swiftDriver) DeleteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) error {
+}
+
 var (
 	// These regexes are used to reconstruct the storage ID from a blob's or chunk's object name.
 	// It's kinda the reverse of func blobObject() or func checkObject().
@@ -351,7 +364,7 @@ var (
 )
 
 // ListStorageContents implements the keppel.StorageDriver interface.
-func (d *swiftDriver) ListStorageContents(ctx context.Context, account models.ReducedAccount) ([]keppel.StoredBlobInfo, []keppel.StoredManifestInfo, error) {
+func (d *swiftDriver) ListStorageContents(ctx context.Context, account models.ReducedAccount) ([]keppel.StoredBlobInfo, []keppel.StoredManifestInfo, []keppel.StoredTrivyReportInfo, error) {
 	c, _, err := d.getBackendConnection(ctx, account)
 	if err != nil {
 		return nil, nil, err

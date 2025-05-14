@@ -47,7 +47,6 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/processor"
-	"github.com/sapcc/keppel/internal/trivy"
 )
 
 // query that finds the next manifest to be validated
@@ -704,28 +703,20 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 	var securityStatuses []models.VulnerabilityStatus
 
 	if len(layerBlobs) > 0 {
-		parsedTrivyReport, err := j.cfg.Trivy.ScanManifestAndParse(ctx, tokenResp.Token, imageRef)
+		payload, err := j.cfg.Trivy.ScanManifest(ctx, tokenResp.Token, imageRef, "json")
 		if err != nil {
-			return fmt.Errorf("scan error: %w", err)
+			return fmt.Errorf("could not scan %s using Trivy: %w", imageRef.String(), err)
 		}
-
-		if parsedTrivyReport.Metadata.IsRotten() {
-			securityStatuses = append(securityStatuses, models.RottenVulnerabilityStatus)
+		status, err := relevantPolicies.EnrichReport(&payload)
+		if err != nil {
+			return fmt.Errorf("could not process Trivy report for %s: %w", imageRef.String(), err)
 		}
-		for _, result := range parsedTrivyReport.Results {
-			for _, vuln := range result.Vulnerabilities {
-				securityStatus, ok := trivy.MapToTrivySeverity[vuln.Severity]
-				if !ok {
-					return fmt.Errorf("vulnerability severity with name %s returned from trivy is unknown and cannot be mapped", securityStatus)
-				}
-
-				policy := relevantPolicies.PolicyForVulnerability(vuln)
-				if policy != nil {
-					securityStatus = policy.VulnerabilityStatus()
-				}
-				securityStatuses = append(securityStatuses, securityStatus)
-			}
+		securityStatuses = append(securityStatuses, status)
+		err = j.sd.WriteTrivyReport(ctx, account.Reduced(), repo.Name, securityInfo.Digest, payload)
+		if err != nil {
+			return fmt.Errorf("could not store Trivy report for %s: %w", imageRef.String(), err)
 		}
+		securityInfo.HasEnrichedReport = true
 	}
 
 	// could the image have constituent images?
