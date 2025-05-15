@@ -11,21 +11,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sapcc/go-bits/regexpext"
-
 	"github.com/sapcc/keppel/internal/models"
 )
 
 // GCPolicy is a policy enabling optional garbage collection runs in an account.
 // It is stored in serialized form in the GCPoliciesJSON field of type Account.
 type GCPolicy struct {
-	RepositoryRx         regexpext.BoundedRegexp `json:"match_repository"`
-	NegativeRepositoryRx regexpext.BoundedRegexp `json:"except_repository,omitempty"`
-	TagRx                regexpext.BoundedRegexp `json:"match_tag,omitempty"`
-	NegativeTagRx        regexpext.BoundedRegexp `json:"except_tag,omitempty"`
-	OnlyUntagged         bool                    `json:"only_untagged,omitempty"`
-	TimeConstraint       *GCTimeConstraint       `json:"time_constraint,omitempty"`
-	Action               string                  `json:"action"`
+	PolicyMatch
+	OnlyUntagged   bool              `json:"only_untagged,omitempty"`
+	TimeConstraint *GCTimeConstraint `json:"time_constraint,omitempty"`
+	Action         string            `json:"action"`
 }
 
 // GCTimeConstraint appears in type GCPolicy.
@@ -37,15 +32,6 @@ type GCTimeConstraint struct {
 	MaxAge      Duration `json:"newer_than,omitempty"`
 }
 
-// MatchesRepository evaluates the repository regexes in this policy.
-func (g GCPolicy) MatchesRepository(repoName string) bool {
-	//NOTE: NegativeRepositoryRx takes precedence and is thus evaluated first.
-	if g.NegativeRepositoryRx != "" && g.NegativeRepositoryRx.MatchString(repoName) {
-		return false
-	}
-	return g.RepositoryRx.MatchString(repoName)
-}
-
 // MatchesTags evaluates the tag regexes in this policy for a complete set of
 // tag names belonging to a single manifest.
 func (g GCPolicy) MatchesTags(tagNames []string) bool {
@@ -53,25 +39,7 @@ func (g GCPolicy) MatchesTags(tagNames []string) bool {
 		return false
 	}
 
-	//NOTE: NegativeTagRx takes precedence over TagRx and is thus evaluated first.
-	if g.NegativeTagRx != "" {
-		for _, tagName := range tagNames {
-			if g.NegativeTagRx.MatchString(tagName) {
-				return false
-			}
-		}
-	}
-	if g.TagRx != "" {
-		for _, tagName := range tagNames {
-			if g.TagRx.MatchString(tagName) {
-				return true
-			}
-		}
-	}
-
-	// if we did not have any matching tags, the match is successful unless we
-	// required a positive tag match
-	return g.TagRx == ""
+	return g.PolicyMatch.MatchesTags(tagNames)
 }
 
 // MatchesTimeConstraint evaluates the time constraint in this policy for the
@@ -153,8 +121,9 @@ func (g GCPolicy) MatchesTimeConstraint(manifest models.Manifest, allManifestsIn
 
 // Validate returns an error if this policy is invalid.
 func (g GCPolicy) Validate() error {
-	if g.RepositoryRx == "" {
-		return errors.New(`GC policy must have the "match_repository" attribute`)
+	err := g.PolicyMatch.Validate()
+	if err != nil {
+		return err
 	}
 
 	if g.OnlyUntagged {
