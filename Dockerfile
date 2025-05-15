@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 SAP SE
+# SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company
 # SPDX-License-Identifier: Apache-2.0
 
 FROM golang:1.24.3-alpine3.21 AS builder
