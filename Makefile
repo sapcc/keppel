@@ -14,6 +14,13 @@ ifneq (,$(wildcard /etc/os-release)) # check file existence
 		SHELL := /bin/bash
 	endif
 endif
+UNAME_S := $(shell uname -s)
+SED = sed
+XARGS = xargs
+ifeq ($(UNAME_S),Darwin)
+	SED = gsed
+	XARGS = gxargs
+endif
 
 default: build-all
 
@@ -120,9 +127,9 @@ vendor-compat: FORCE
 
 license-headers: FORCE install-addlicense
 	@printf "\e[1;36m>> addlicense (for license headers on source code files)\e[0m\n"
-	@printf "%s\0" $(patsubst $(shell awk '$$1 == "module" {print $$2}' go.mod)%,.%/*.go,$(shell go list ./...)) | xargs -0 -I{} bash -c 'year="$$(grep 'Copyright' {} | head -n1 | grep -E -o '[0-9]{4}')"; gawk -i inplace '"'"'{if (display) {print} else {!/^\/\*/ && !/^\*/}}; {if (!display && $$0 ~ /^(package |$$)/) {display=1} else { }}'"'"' {}; addlicense -c "SAP SE" -s=only -y "$$year" -- {}; sed -i '"'"'1s+// Copyright +// SPDX-FileCopyrightText: +'"'"' {}'
+	@printf "%s\0" $(patsubst $(shell awk '$$1 == "module" {print $$2}' go.mod)%,.%/*.go,$(shell go list ./...)) | $(XARGS) -0 -I{} bash -c 'year="$$(grep 'Copyright' {} | head -n1 | grep -E -o '[0-9]{4}')"; gawk -i inplace '"'"'{if (display) {print} else {!/^\/\*/ && !/^\*/}}; {if (!display && $$0 ~ /^(package |$$)/) {display=1} else { }}'"'"' {}; addlicense -c "SAP SE" -s=only -y "$$year" -- {}; $(SED) -i '"'"'1s+// Copyright +// SPDX-FileCopyrightText: +'"'"' {}'
 	@printf "\e[1;36m>> reuse annotate (for license headers on other files)\e[0m\n"
-	@reuse lint -j | jq -r '.non_compliant.missing_licensing_info[]' | grep -vw vendor | xargs reuse annotate -c 'SAP SE' -l Apache-2.0 --skip-unrecognised
+	@reuse lint -j | jq -r '.non_compliant.missing_licensing_info[]' | grep -vw vendor | $(XARGS) reuse annotate -c 'SAP SE' -l Apache-2.0 --skip-unrecognised
 	@printf "\e[1;36m>> reuse download --all\e[0m\n"
 	@reuse download --all
 	@printf "\e[1;35mPlease review the changes. If *.license files were generated, consider instructing go-makefile-maker to add overrides to REUSE.toml instead.\e[0m\n"
@@ -154,6 +161,9 @@ vars: FORCE
 	@printf "GO_TESTENV=$(GO_TESTENV)\n"
 	@printf "GO_TESTPKGS=$(GO_TESTPKGS)\n"
 	@printf "PREFIX=$(PREFIX)\n"
+	@printf "SED=$(SED)\n"
+	@printf "UNAME_S=$(UNAME_S)\n"
+	@printf "XARGS=$(XARGS)\n"
 help: FORCE
 	@printf "\n"
 	@printf "\e[1mUsage:\e[0m\n"
