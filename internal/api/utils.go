@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/httpext"
+	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -40,3 +41,7 @@ func CheckRateLimit(r *http.Request, rle *keppel.RateLimitEngine, account models
 
 	return nil
 }
+
+var GetTagPolicyByAccountName = sqlext.SimplifyWhitespace(`
+	SELECT tag_policies_json FROM accounts WHERE name = $1
+`)

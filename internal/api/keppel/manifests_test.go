@@ -43,17 +43,20 @@ func TestManifestsAPI(t *testing.T) {
 		h := s.Handler
 
 		// setup two test accounts
+		// TODO: use RenderAccount()?
 		mustInsert(t, s.DB, &models.Account{
 			Name:                     "test1",
 			AuthTenantID:             "tenant1",
 			GCPoliciesJSON:           "[]",
 			SecurityScanPoliciesJSON: "[]",
+			TagPoliciesJSON:          "[]",
 		})
 		mustInsert(t, s.DB, &models.Account{
 			Name:                     "test2",
 			AuthTenantID:             "tenant2",
 			GCPoliciesJSON:           "[]",
 			SecurityScanPoliciesJSON: "[]",
+			TagPoliciesJSON:          "[]",
 		})
 
 		// setup test repos (`repo1-2` and `repo2-1` only exist to validate that we
