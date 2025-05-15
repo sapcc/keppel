@@ -21,6 +21,17 @@ SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
 path = [
+  "docs/*.png",
+  "docs/*.svg",
+  "docs/*.json",
+  "internal/**/fixtures/**/*.json",
+  "internal/**/fixtures/**/*.sql",
+]
+SPDX-FileCopyrightText = "SAP SE"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = [
   "vendor/github.com/alicebob/miniredis/v2/**",
 ]
 precedence = "aggregate"

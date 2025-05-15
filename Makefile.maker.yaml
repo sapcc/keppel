@@ -50,6 +50,17 @@ renovate:
       matchFileNames: [".github/workflows/oci-distribution-conformance.yml"]
       enabled: true
 
+reuse:
+  annotations:
+    - paths:
+      - docs/*.png
+      - docs/*.svg
+      - docs/*.json
+      - internal/**/fixtures/**/*.json
+      - internal/**/fixtures/**/*.sql
+      SPDX-FileCopyrightText: SAP SE
+      SPDX-License-Identifier: Apache-2.0
+
 verbatim: |
   # This is for manual testing.
   run-api: build/keppel
