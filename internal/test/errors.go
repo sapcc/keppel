@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2019 SAP SE
+// SPDX-FileCopyrightText: 2019 SAP SE or an SAP affiliate company
 // SPDX-License-Identifier: Apache-2.0
 
 package test
