@@ -1129,7 +1129,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 	}.Check(t, h)
 
 	// test protection for managed accounts
-	mustExec(t, s.DB, "UPDATE accounts SET is_managed = TRUE WHERE name = $1", "first")
+	test.MustExec(t, s.DB, "UPDATE accounts SET is_managed = TRUE WHERE name = $1", "first")
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",
@@ -1142,7 +1142,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectStatus: http.StatusForbidden,
 		ExpectBody:   assert.StringData("cannot manually change configuration of a managed account\n"),
 	}.Check(t, h)
-	mustExec(t, s.DB, "UPDATE accounts SET is_managed = FALSE WHERE name = $1", "first")
+	test.MustExec(t, s.DB, "UPDATE accounts SET is_managed = FALSE WHERE name = $1", "first")
 }
 
 func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
@@ -1698,7 +1698,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 func TestDeleteAccount(t *testing.T) {
 	s := test.NewSetup(t,
 		test.WithKeppelAPI,
-		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1", GCPoliciesJSON: "[]", SecurityScanPoliciesJSON: "[]"}),
+		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
 	)
 	h := s.Handler
 

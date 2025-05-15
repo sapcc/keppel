@@ -24,8 +24,8 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 		s := test.NewSetup(t)
 
 		// setup a peer
-		mustDo(t, s.DB.Insert(&models.Peer{HostName: "peer.example.org", UseForPullDelegation: true}))
-		mustDo(t, s.DB.Insert(&models.Peer{HostName: "peer.invalid.", UseForPullDelegation: false}))
+		test.MustDo(t, s.DB.Insert(&models.Peer{HostName: "peer.example.org", UseForPullDelegation: true}))
+		test.MustDo(t, s.DB.Insert(&models.Peer{HostName: "peer.invalid.", UseForPullDelegation: false}))
 
 		// setup a mock for the peer that just swallows any password that we give to it
 		mockPeer := mockPeerReceivingPassword{}

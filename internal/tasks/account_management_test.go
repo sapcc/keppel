@@ -80,7 +80,7 @@ func TestAccountManagementWithReplicaCreation(t *testing.T) {
 		// The setup already includes an account "test1" set up on both ends, but we
 		// want to test the setup of a managed replica account, so we will use a
 		// fresh account called "managed" instead.
-		mustDo(t, s1.DB.Insert(&models.Account{Name: "managed", AuthTenantID: "managedauthtenant"}))
+		test.MustDo(t, s1.DB.Insert(&models.Account{Name: "managed", AuthTenantID: "managedauthtenant"}))
 		s1.FD.NextSubleaseTokenSecretToIssue = "thisisasecret"
 		s2.FD.ValidSubleaseTokenSecrets["managed"] = "thisisasecret"
 
@@ -114,7 +114,7 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 	tr.DBChanges().Ignore()
 
 	// give quota to its auth tenant
-	mustDo(t, s.DB.Insert(&models.Quotas{
+	test.MustDo(t, s.DB.Insert(&models.Quotas{
 		AuthTenantID:  "12345",
 		ManifestCount: 100,
 	}))

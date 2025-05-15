@@ -106,6 +106,9 @@ func WithAccount(account models.Account) SetupOption {
 		if account.SecurityScanPoliciesJSON == "" {
 			account.SecurityScanPoliciesJSON = "[]"
 		}
+		if account.TagPoliciesJSON == "" {
+			account.TagPoliciesJSON = "[]"
+		}
 		params.Accounts = append(params.Accounts, &account)
 	}
 }
@@ -202,12 +205,12 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	}
 	if params.WithPreviousIssuerKey {
 		key, err := keppel.ParseIssuerKey(UnitTestIssuerRSAPrivateKey)
-		mustDo(t, err)
+		MustDo(t, err)
 		s.Config.JWTIssuerKeys = append(s.Config.JWTIssuerKeys, key)
 	}
 	if !params.WithoutCurrentIssuerKey {
 		jwtIssuerKey, err := keppel.ParseIssuerKey(UnitTestIssuerEd25519PrivateKey)
-		mustDo(t, err)
+		MustDo(t, err)
 		s.Config.JWTIssuerKeys = append(s.Config.JWTIssuerKeys, jwtIssuerKey)
 	}
 
@@ -244,12 +247,12 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 
 		if params.WithPreviousIssuerKey {
 			key, err := keppel.ParseIssuerKey(UnitTestAnycastIssuerRSAPrivateKey)
-			mustDo(t, err)
+			MustDo(t, err)
 			s.Config.AnycastJWTIssuerKeys = append(s.Config.AnycastJWTIssuerKeys, key)
 		}
 		if !params.WithoutCurrentIssuerKey {
 			jwtIssuerKey, err := keppel.ParseIssuerKey(UnitTestAnycastIssuerEd25519PrivateKey)
-			mustDo(t, err)
+			MustDo(t, err)
 			s.Config.AnycastJWTIssuerKeys = append(s.Config.AnycastJWTIssuerKeys, jwtIssuerKey)
 		}
 	}
@@ -267,16 +270,16 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 
 	// setup essential drivers
 	ad, err := keppel.NewAuthDriver(s.Ctx, "unittest", nil)
-	mustDo(t, err)
+	MustDo(t, err)
 	s.AD = ad.(*AuthDriver)
 	fd, err := keppel.NewFederationDriver(s.Ctx, "unittest", ad, s.Config)
-	mustDo(t, err)
+	MustDo(t, err)
 	s.FD = fd.(*FederationDriver)
 	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, s.Config)
-	mustDo(t, err)
+	MustDo(t, err)
 	s.SD = sd.(*trivial.StorageDriver)
 	icd, err := keppel.NewInboundCacheDriver(s.Ctx, "unittest", s.Config)
-	mustDo(t, err)
+	MustDo(t, err)
 	s.ICD = icd.(*InboundCacheDriver)
 
 	if params.RateLimitEngine != nil {
@@ -316,10 +319,10 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	// setup initial accounts/repos
 	quotasSetFor := make(map[string]bool)
 	for _, account := range params.Accounts {
-		mustDo(t, s.DB.Insert(account))
+		MustDo(t, s.DB.Insert(account))
 		fd.RecordExistingAccount(s.Ctx, *account, s.Clock.Now()) //nolint:errcheck
 		if params.WithQuotas && !quotasSetFor[account.AuthTenantID] {
-			mustDo(t, s.DB.Insert(&models.Quotas{
+			MustDo(t, s.DB.Insert(&models.Quotas{
 				AuthTenantID:  account.AuthTenantID,
 				ManifestCount: 100,
 			}))
@@ -328,7 +331,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	}
 	s.Accounts = params.Accounts
 	for _, repo := range params.Repos {
-		mustDo(t, s.DB.Insert(repo))
+		MustDo(t, s.DB.Insert(repo))
 	}
 	s.Repos = params.Repos
 
@@ -337,12 +340,12 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		s1 := params.SetupOfPrimary
 		if s1 != nil {
 			// give the secondary registry credentials for replicating from the primary
-			mustDo(t, s.DB.Insert(&models.Peer{
+			MustDo(t, s.DB.Insert(&models.Peer{
 				HostName:             "registry.example.org",
 				UseForPullDelegation: true,
 				OurPassword:          GetReplicationPassword(),
 			}))
-			mustDo(t, s1.DB.Insert(&models.Peer{
+			MustDo(t, s1.DB.Insert(&models.Peer{
 				HostName:                 "registry-secondary.example.org",
 				TheirCurrentPasswordHash: replicationPasswordHash,
 			}))
@@ -352,8 +355,24 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	return s
 }
 
-func mustDo(t *testing.T, err error) {
+func MustDo(t *testing.T, err error) {
 	t.Helper()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+}
+
+func MustInsert(t *testing.T, db *keppel.DB, obj any) {
+	t.Helper()
+	err := db.Insert(obj)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+}
+
+func MustExec(t *testing.T, db *keppel.DB, query string, args ...any) {
+	t.Helper()
+	_, err := db.Exec(query, args...)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

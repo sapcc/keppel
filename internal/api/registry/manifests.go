@@ -72,7 +72,16 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			dbManifest, manifestBytes, err = a.processor().ReplicateManifest(r.Context(), *account, *repo, reference, keppel.AuditContext{
+			tagPoliciesStr, err := a.db.SelectStr(api.GetTagPolicyByAccountName, account.Name)
+			if respondWithError(w, r, err) {
+				return
+			}
+			tagPolicies, err := keppel.ParseTagPolicies(tagPoliciesStr)
+			if respondWithError(w, r, err) {
+				return
+			}
+
+			dbManifest, manifestBytes, err = a.processor().ReplicateManifest(r.Context(), *account, *repo, reference, tagPolicies, keppel.AuditContext{
 				UserIdentity: authz.UserIdentity,
 				Request:      r,
 			})
@@ -270,17 +279,25 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tagPoliciesStr, err := a.db.SelectStr(api.GetTagPolicyByAccountName, account.Name)
+	if respondWithError(w, r, err) {
+		return
+	}
+	tagPolicies, err := keppel.ParseTagPolicies(tagPoliciesStr)
+	if respondWithError(w, r, err) {
+		return
+	}
+
 	// delete tag or manifest from the database
 	ref := models.ParseManifestReference(mux.Vars(r)["reference"])
 	actx := keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	}
-	var err error
 	if ref.IsTag() {
-		err = a.processor().DeleteTag(*account, *repo, ref.Tag, actx)
+		err = a.processor().DeleteTag(*account, *repo, ref.Tag, tagPolicies, actx)
 	} else {
-		err = a.processor().DeleteManifest(r.Context(), *account, *repo, ref.Digest, actx)
+		err = a.processor().DeleteManifest(r.Context(), *account, *repo, ref.Digest, tagPolicies, actx)
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		keppel.ErrManifestUnknown.With("no such manifest").WriteAsRegistryV2ResponseTo(w, r)
@@ -334,6 +351,15 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tagPoliciesStr, err := a.db.SelectStr(api.GetTagPolicyByAccountName, account.Name)
+	if respondWithError(w, r, err) {
+		return
+	}
+	tagPolicies, err := keppel.ParseTagPolicies(tagPoliciesStr)
+	if respondWithError(w, r, err) {
+		return
+	}
+
 	// validate and store manifest
 	ref := models.ParseManifestReference(mux.Vars(r)["reference"])
 	manifest, err := a.processor().ValidateAndStoreManifest(r.Context(), *account, *repo, processor.IncomingManifest{
@@ -341,7 +367,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		MediaType: r.Header.Get("Content-Type"),
 		Contents:  manifestBytes,
 		PushedAt:  a.timeNow(),
-	}, keppel.AuditContext{
+	}, tagPolicies, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})

@@ -52,7 +52,7 @@ var checkTagExistsAtSameDigestQuery = sqlext.SimplifyWhitespace(`
 // ValidateAndStoreManifest validates the given manifest and stores it under the
 // given reference. If the reference is a digest, it is validated. Otherwise, a
 // tag with that name is created that points to the new manifest.
-func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models.ReducedAccount, repo models.Repository, m IncomingManifest, actx keppel.AuditContext) (*models.Manifest, error) {
+func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models.ReducedAccount, repo models.Repository, m IncomingManifest, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) (*models.Manifest, error) {
 	// check if the objects we want to create already exist in the database; this
 	// check is not 100% reliable since it does not run in the same transaction as
 	// the actual upsert, so results should be taken with a grain of salt; but the
@@ -70,6 +70,14 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 			return nil, err
 		}
 		logg.Debug("ValidateAndStoreManifest: in repo %d, tag %s @%s already exists = %t", repo.ID, m.Reference.Tag, contentsDigest, tagExistsAlready)
+	}
+
+	if tagExistsAlready {
+		for _, tagPolicy := range tagPolicies {
+			if tagPolicy.BlockOverwrite && tagPolicy.MatchesRepository(repo.Name) && tagPolicy.MatchesTags([]string{m.Reference.Tag}) {
+				return nil, errors.New("cannot delete manifest as it is protected by a tag_policy")
+			}
+		}
 	}
 
 	// the quota check can be skipped if we are sure that we won't need to insert
@@ -654,7 +662,7 @@ func (e UpstreamManifestMissingError) Error() string {
 
 // ReplicateManifest replicates the manifest from its account's upstream registry.
 // On success, the manifest's metadata and contents are returned.
-func (p *Processor) ReplicateManifest(ctx context.Context, account models.ReducedAccount, repo models.Repository, reference models.ManifestReference, actx keppel.AuditContext) (*models.Manifest, []byte, error) {
+func (p *Processor) ReplicateManifest(ctx context.Context, account models.ReducedAccount, repo models.Repository, reference models.ManifestReference, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) (*models.Manifest, []byte, error) {
 	manifestBytes, manifestMediaType, err := p.downloadManifestViaInboundCache(ctx, account, repo, reference)
 	if err != nil {
 		if errorIsManifestNotFound(err) {
@@ -673,7 +681,7 @@ func (p *Processor) ReplicateManifest(ctx context.Context, account models.Reduce
 	for _, desc := range manifestParsed.ManifestReferences(account.PlatformFilter) {
 		_, err := keppel.FindManifest(p.db, repo, desc.Digest)
 		if errors.Is(err, sql.ErrNoRows) {
-			_, _, err = p.ReplicateManifest(ctx, account, repo, models.ManifestReference{Digest: desc.Digest}, actx)
+			_, _, err = p.ReplicateManifest(ctx, account, repo, models.ManifestReference{Digest: desc.Digest}, tagPolicies, actx)
 		}
 		if err != nil {
 			return nil, nil, err
@@ -718,7 +726,7 @@ func (p *Processor) ReplicateManifest(ctx context.Context, account models.Reduce
 		MediaType: manifestMediaType,
 		Contents:  manifestBytes,
 		PushedAt:  p.timeNow(),
-	}, actx)
+	}, tagPolicies, actx)
 	return manifest, manifestBytes, err
 }
 
@@ -838,7 +846,7 @@ func (p *Processor) downloadManifestViaPullDelegation(ctx context.Context, image
 // backing storage.
 //
 // If the manifest does not exist, sql.ErrNoRows is returned.
-func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifestDigest digest.Digest, actx keppel.AuditContext) error {
+func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifestDigest digest.Digest, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) error {
 	var (
 		tagResults []models.Tag
 		tags       []string
@@ -852,6 +860,12 @@ func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAc
 	}
 	for _, tagResult := range tagResults {
 		tags = append(tags, tagResult.Name)
+	}
+
+	for _, tagPolicy := range tagPolicies {
+		if tagPolicy.BlockDelete && tagPolicy.MatchesRepository(repo.Name) && tagPolicy.MatchesTags(tags) {
+			return errors.New("cannot delete manifest as it is protected by a tag_policy")
+		}
 	}
 
 	result, err := p.db.Exec(
@@ -916,7 +930,13 @@ func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAc
 
 // DeleteTag deletes the given tag from the database. The manifest is not deleted.
 // If the tag does not exist, sql.ErrNoRows is returned.
-func (p *Processor) DeleteTag(account models.ReducedAccount, repo models.Repository, tagName string, actx keppel.AuditContext) error {
+func (p *Processor) DeleteTag(account models.ReducedAccount, repo models.Repository, tagName string, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) error {
+	for _, tagPolicy := range tagPolicies {
+		if tagPolicy.BlockDelete && tagPolicy.MatchesRepository(repo.Name) && tagPolicy.MatchesTags([]string{tagName}) {
+			return errors.New("cannot delete manifest as it is protected by a tag_policy")
+		}
+	}
+
 	digestStr, err := p.db.SelectStr(
 		`DELETE FROM tags WHERE repo_id = $1 AND name = $2 RETURNING digest`,
 		repo.ID, tagName)
