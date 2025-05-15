@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 SAP SE
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Overview for developers/contributors
 
 You should have read the entire [README.md](./README.md) once before starting

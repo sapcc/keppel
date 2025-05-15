@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 SAP SE
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 ### Federation driver: `redis`
 
 A full-featured federation driver that keeps track of Keppel accounts in a Redis that's shared between all participating

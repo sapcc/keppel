@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 SAP SE
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 ### Federation driver: `swift`
 
 A full-featured federation driver that keeps track of Keppel accounts in an OpenStack Swift container that is shared

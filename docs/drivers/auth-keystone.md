@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 SAP SE
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Auth driver: `keystone`
 
 An auth driver using the Keystone V3 API of an OpenStack cluster. With this driver, Keppel auth tenants correspond to

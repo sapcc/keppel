@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 SAP SE
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 ### Rate limit driver: `basic`
 
 A rate limit driver with fixed rate limits that are the same across all accounts and auth tenants.

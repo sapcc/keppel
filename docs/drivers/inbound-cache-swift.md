@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 SAP SE
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 ### Inbound cache driver: `swift`
 
 A full-featured inbound cache driver that caches manifests in an OpenStack Swift container. The container is safe to be

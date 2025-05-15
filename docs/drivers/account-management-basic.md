@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 SAP SE
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Account management driver: `basic`
 
 This driver sources managed accounts from a static JSON configuration file.

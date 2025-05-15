@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 SAP SE
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Peer API specification
 
 Besides the [OCI Distribution API][oci-dist] that is used e.g. by `docker pull/push`, and

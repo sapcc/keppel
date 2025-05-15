@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 SAP SE
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 ### Federation driver: `multi`
 
 Runs multiple federation drivers in parallel. The first driver in the list is

@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 SAP SE
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Federation driver: `openstack-basic`
 
 A simple federation driver for use with the [`keystone` auth driver](./auth-keystone.md). Claims are checked against a

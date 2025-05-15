@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2025 SAP SE
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 ### Storage driver: `in-memory-for-testing`
 
 This driver works with any auth driver. Each keppel-registry stores its
