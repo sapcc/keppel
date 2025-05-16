@@ -81,37 +81,25 @@ type RateLimitEngine struct {
 
 // RateLimitAllows checks whether the given action on the given account is allowed by
 // the account's rate limit.
-func (e RateLimitEngine) RateLimitAllows(ctx context.Context, remoteAddr string, account models.ReducedAccount, action RateLimitedAction, amount uint64) (bool, *redis_rate.Result, error) {
+func (e RateLimitEngine) RateLimitAllows(ctx context.Context, remoteAddr string, account models.ReducedAccount, action RateLimitedAction, amount uint64) (bool, time.Duration, error) {
 	rateQuota := e.Driver.GetRateLimit(account, action)
 	if rateQuota == nil {
 		// no rate limit for this account and action
-		return true, &redis_rate.Result{
-			Limit:      redis_rate.Limit{Rate: math.MaxInt64, Period: time.Second},
-			Remaining:  math.MaxInt64,
-			ResetAfter: 0,
-			RetryAfter: -1,
-		}, nil
+		return true, 0, nil
 	}
 
 	// AllowN needs to take `amount` as an int; if this cast overflows, we fail
 	// the entire ratelimit check to be safe (this should never be a problem in
 	// practice because int is 64 bits wide)
 	if amount > math.MaxInt {
-		return false, &redis_rate.Result{
-			Limit:     *rateQuota,
-			Remaining: 0,
-			// These limits are somewhat arbitrarily chosen, but we can't have them
-			// be zero because clients need to back off to a reasonable degree.
-			ResetAfter: 30 * time.Second,
-			RetryAfter: 30 * time.Second,
-		}, nil
+		return false, rateQuota.Period, nil
 	}
 
 	limiter := redis_rate.NewLimiter(e.Client)
 	key := fmt.Sprintf("keppel-ratelimit-%s-%s-%s", remoteAddr, account.Name, string(action))
 	result, err := limiter.AllowN(ctx, key, *rateQuota, int(amount))
 	if err != nil {
-		return false, &redis_rate.Result{}, err
+		return false, 0, err
 	}
-	return result.Allowed > 0, result, err
+	return result.Allowed > 0, result.RetryAfter, err
 }
