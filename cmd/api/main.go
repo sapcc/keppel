@@ -78,12 +78,13 @@ func run(cmd *cobra.Command, args []string) {
 		AllowedMethods: []string{"HEAD", "GET", "POST", "PUT", "DELETE"},
 		AllowedHeaders: []string{"Content-Type", "User-Agent", "Authorization", "X-Auth-Token", keppelv1.SubleaseHeader},
 	})
+	enableHeaderReflector := logg.ShowDebug || osext.GetenvBool("KEPPEL_ENABLE_HEADER_REFLECTOR")
 	handler := httpapi.Compose(
 		keppelv1.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle),
 		auth.NewAPI(cfg, ad, fd, db),
 		registryv2.NewAPI(cfg, ad, fd, sd, icd, db, auditor, rle),
 		peerv1.NewAPI(cfg, ad, db),
-		&headerReflector{logg.ShowDebug}, // the header reflection endpoint is only enabled where debugging is enabled (i.e. usually in dev/QA only)
+		&headerReflector{enableHeaderReflector}, // the header reflection endpoint is only enabled where debugging is enabled (i.e. usually in dev/QA only)
 		httpapi.HealthCheckAPI{
 			SkipRequestLog: true,
 			Check: func() error {

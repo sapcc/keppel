@@ -6,6 +6,7 @@ package apicmd
 import (
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/gorilla/mux"
 )
@@ -26,9 +27,17 @@ func reflectHeaders(w http.ResponseWriter, r *http.Request) {
 	// echo all request headers into the response body
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	for key, vals := range r.Header {
+
+	var headerNames []string
+	for name := range r.Header {
+		headerNames = append(headerNames, name)
+	}
+	slices.Sort(headerNames)
+
+	for _, headerName := range headerNames {
+		vals := r.Header[headerName]
 		for _, val := range vals {
-			fmt.Fprintf(w, "Request %s: %s\n", key, val)
+			fmt.Fprintf(w, "Request %s: %s\n", headerName, val)
 		}
 	}
 }

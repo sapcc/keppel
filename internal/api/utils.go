@@ -29,12 +29,12 @@ func CheckRateLimit(r *http.Request, rle *keppel.RateLimitEngine, account models
 		return nil
 	}
 
-	allowed, result, err := rle.RateLimitAllows(r.Context(), httpext.GetRequesterIPFor(r), account, action, amount)
+	allowed, retryAfter, err := rle.RateLimitAllows(r.Context(), httpext.GetRequesterIPFor(r), account, action, amount)
 	if err != nil {
 		return err
 	}
 	if !allowed {
-		retryAfterStr := strconv.FormatUint(keppel.AtLeastZero(int64(result.RetryAfter/time.Second)), 10)
+		retryAfterStr := strconv.FormatUint(keppel.AtLeastZero(int64(retryAfter/time.Second)), 10)
 		return keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr)
 	}
 
