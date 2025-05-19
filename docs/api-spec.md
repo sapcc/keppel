@@ -109,7 +109,18 @@ On success, returns 200 and a JSON response body like this:
           "match_untagged": true,
           "action": "delete"
         }
-      ]
+      ],
+      "tag_policies": [
+        {
+          "match_repository": "webapp/.*",
+          "block_overwrite": true,
+          "block_delete": true
+        },
+        {
+          "match_repository": "other-app/.*",
+          "block_delete": true
+        }
+      ],
     },
     {
       "name": "secondaccount",
@@ -151,6 +162,12 @@ The following fields may be returned:
 | `accounts[].rbac_policies[].match_username` | string | The RBAC policy applies to all users whose name matches this regex. Refer to the [documentation of your auth driver](./drivers/) for the syntax of usernames. The notes on regexes below apply. |
 | `accounts[].rbac_policies[].permissions` | list of strings | The permissions granted by the RBAC policy. Acceptable values include `pull`, `push`, `delete`, `anonymous_pull` and `anonymous_first_pull`. When `pull`, `push` or `delete` are included, `match_username` is not empty. When `anonymous_pull` or `anonymous_first_pull` is included, `match_username` is empty. `anonymous_first_pull` is only relevant for external replica accounts and allows unauthenticated users to replicate tags. It should always be combined with an appropriate `match_*` rule. |
 | `accounts[].rbac_policies[].forbidden_permissions` | list of strings | The permissions forbidden by the RBAC policy. Acceptable values are the same as for the `permissions` field. This field takes precedence over `permissions`: Any permission listed here will never be given to matching users, even if another matching policy would grant it. |
+| `accounts[].tag_policies[].block_delete` | string | The given tag policy should prevent deleting the matched tags. |
+| `accounts[].tag_policies[].block_overwrite` | string | The given tag policy should prevent overwriting the matched tags. |
+| `accounts[].tag_policies[].match_repository` | string | Required. The tag policy applies to all repositories in this account whose name matches this regex. The leading account name and slash is stripped from the repository name before matching. The notes on regexes below apply. |
+| `accounts[].tag_policies[].except_repository` | string or omitted | If given, matching repositories will be excluded from this tag policy, even if they match the `match_repository` regex. The syntax and mechanics of matching are otherwise identical to `match_repository` above. |
+| `accounts[].tag_policies[].match_tag` | string or omitted | The tag policy applies to all images in matching repositories that have a tag whose name matches this regex. The notes on regexes below apply. |
+| `accounts[].tag_policies[].except_tag` | string or omitted | If given, images with matching tag names will be excluded from this tag policy, even if they match the `match_tag` regex. The syntax and mechanics of matching are otherwise identical to `match_tag` above. |
 | `accounts[].replication` | object or omitted | Replication configuration for this account, if any. [See below](#replication-strategies) for details. |
 | `accounts[].platform_filter` | list of objects or omitted | Only allowed for replica accounts. If not empty, when replicating an image list manifest (i.e. a multi-architecture image), only submanifests matching one of the given platforms will be replicated. Each entry must have the same format as the `manifests[].platform` field in the [OCI Image Index Specification](https://github.com/opencontainers/image-spec/blob/master/image-index.md). |
 | `accounts[].validation` | object or omitted | Validation rules for this account. When included, pushing blobs and manifests not satisfying these validation rules may be rejected. |
