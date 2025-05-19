@@ -45,6 +45,9 @@ type IncomingManifest struct {
 var checkManifestExistsQuery = sqlext.SimplifyWhitespace(`
 	SELECT COUNT(*) > 0 FROM manifests WHERE repo_id = $1 AND digest = $2
 `)
+var checkTagExists = sqlext.SimplifyWhitespace(`
+	SELECT COUNT(*) > 0 FROM tags WHERE repo_id = $1 AND name = $2
+`)
 var checkTagExistsAtSameDigestQuery = sqlext.SimplifyWhitespace(`
 	SELECT COUNT(*) > 0 FROM tags WHERE repo_id = $1 AND name = $2 AND digest = $3
 `)
@@ -63,19 +66,25 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 		return nil, err
 	}
 	logg.Debug("ValidateAndStoreManifest: in repo %d, manifest %s already exists = %t", repo.ID, contentsDigest, manifestExistsAlready)
-	var tagExistsAlready bool
+	var tagExistsWithDifferentDigest bool
+	var tagExistsWithSameDigest bool
 	if m.Reference.IsTag() {
-		tagExistsAlready, err = p.db.SelectBool(checkTagExistsAtSameDigestQuery, repo.ID, m.Reference.Tag, contentsDigest.String())
+		tagExistsWithDifferentDigest, err = p.db.SelectBool(checkTagExists, repo.ID, m.Reference.Tag)
 		if err != nil {
 			return nil, err
 		}
-		logg.Debug("ValidateAndStoreManifest: in repo %d, tag %s @%s already exists = %t", repo.ID, m.Reference.Tag, contentsDigest, tagExistsAlready)
+		logg.Debug("ValidateAndStoreManifest: in repo %d, tag %s @%s already exists", repo.ID, m.Reference.Tag, contentsDigest)
+		tagExistsWithSameDigest, err = p.db.SelectBool(checkTagExistsAtSameDigestQuery, repo.ID, m.Reference.Tag, contentsDigest.String())
+		if err != nil {
+			return nil, err
+		}
+		logg.Debug("ValidateAndStoreManifest: in repo %d, tag %s @%s already exists with same digest = %t", repo.ID, m.Reference.Tag, contentsDigest, tagExistsWithSameDigest)
 	}
 
-	if tagExistsAlready {
+	if tagExistsWithDifferentDigest && !tagExistsWithSameDigest {
 		for _, tagPolicy := range tagPolicies {
 			if tagPolicy.BlockOverwrite && tagPolicy.MatchesRepository(repo.Name) && tagPolicy.MatchesTags([]string{m.Reference.Tag}) {
-				return nil, errors.New("cannot delete manifest as it is protected by a tag_policy")
+				return nil, keppel.ErrDenied.With("cannot overwrite manifest as it is protected by a tag_policy").WithStatus(http.StatusConflict)
 			}
 		}
 	}
@@ -148,7 +157,7 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 				Digest:     manifest.Digest,
 			})
 		}
-		if m.Reference.IsTag() && !tagExistsAlready {
+		if m.Reference.IsTag() && !tagExistsWithSameDigest {
 			record(auditTag{
 				Account:    account,
 				Repository: repo,
@@ -864,7 +873,7 @@ func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAc
 
 	for _, tagPolicy := range tagPolicies {
 		if tagPolicy.BlockDelete && tagPolicy.MatchesRepository(repo.Name) && tagPolicy.MatchesTags(tags) {
-			return errors.New("cannot delete manifest as it is protected by a tag_policy")
+			return keppel.ErrDenied.With("cannot delete manifest as it is protected by a tag_policy").WithStatus(http.StatusConflict)
 		}
 	}
 
@@ -933,7 +942,7 @@ func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAc
 func (p *Processor) DeleteTag(account models.ReducedAccount, repo models.Repository, tagName string, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) error {
 	for _, tagPolicy := range tagPolicies {
 		if tagPolicy.BlockDelete && tagPolicy.MatchesRepository(repo.Name) && tagPolicy.MatchesTags([]string{tagName}) {
-			return errors.New("cannot delete manifest as it is protected by a tag_policy")
+			return keppel.ErrDenied.With("cannot delete tag as it is protected by a tag_policy").WithStatus(http.StatusConflict)
 		}
 	}
 

@@ -202,6 +202,16 @@ func TestImageManifestLifecycle(t *testing.T) {
 			s.Clock.StepBy(time.Second)
 			easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-002-after-upload-blob.sql")
 
+			// block overwrite should not trigger when pushing the same manifest twice
+			test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $2 WHERE name = $1`, "test1",
+				test.ToJSON([]keppel.TagPolicy{{
+					PolicyMatch: keppel.PolicyMatch{
+						RepositoryRx: "foo",
+					},
+					BlockOverwrite: true,
+				}}),
+			)
+
 			image.MustUpload(t, s, fooRepoRef, tagName)
 			image.MustUpload(t, s, fooRepoRef, tagName)
 			s.Clock.StepBy(time.Second)
@@ -209,6 +219,25 @@ func TestImageManifestLifecycle(t *testing.T) {
 				easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-tag.sql")
 			} else {
 				easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-digest.sql")
+			}
+
+			if ref == "latest" {
+				// block overwrite should prevent overwriting the tag
+				assert.HTTPRequest{
+					Method: "PUT",
+					Path:   "/v2/test1/foo/manifests/" + ref,
+					Header: map[string]string{
+						"Authorization": "Bearer " + token,
+						"Content-Type":  manifest.DockerV2Schema2MediaType,
+					},
+					Body:         assert.ByteData(test.GenerateImage(test.GenerateExampleLayer(1)).Manifest.Contents),
+					ExpectStatus: http.StatusConflict,
+					ExpectHeader: test.VersionHeader,
+					ExpectBody: test.ErrorCodeWithMessage{
+						Code:    keppel.ErrDenied,
+						Message: "cannot overwrite manifest as it is protected by a tag_policy",
+					},
+				}.Check(t, h)
 			}
 
 			// we did two PUTs, but only the first one will be logged since the second one did not change anything
@@ -353,6 +382,26 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectHeader: test.VersionHeader,
 				ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
 			}.Check(t, h)
+
+			test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $2 WHERE name = $1`, "test1",
+				test.ToJSON([]keppel.TagPolicy{{
+					PolicyMatch: keppel.PolicyMatch{
+						RepositoryRx: "foo",
+					},
+					BlockDelete: true,
+				}}),
+			)
+
+			// DELETE failure case: tag is protected by tag policy
+			assert.HTTPRequest{
+				Method:       "DELETE",
+				Path:         "/v2/test1/foo/manifests/" + ref,
+				Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+				ExpectStatus: http.StatusConflict,
+				ExpectHeader: test.VersionHeader,
+			}.Check(t, h)
+
+			test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = '[]' WHERE name = $1`, "test1")
 
 			// no deletes were successful yet, so...
 			s.Auditor.ExpectEvents(t /*, nothing */)

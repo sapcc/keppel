@@ -170,6 +170,16 @@ func TestAccountsAPI(t *testing.T) {
 			"permissions":      []string{"pull", "push"},
 		},
 	}
+	tagPoliciesJSON := []assert.JSONObject{
+		{
+			"match_repository": "library/.*",
+			"block_overwrite":  true,
+		},
+		{
+			"match_repository": "library/alpine",
+			"block_delete":     true,
+		},
+	}
 	for _, pass := range []int{1, 2} {
 		assert.HTTPRequest{
 			Method: "PUT",
@@ -180,6 +190,7 @@ func TestAccountsAPI(t *testing.T) {
 					"auth_tenant_id": "tenant1",
 					"gc_policies":    gcPoliciesJSON,
 					"rbac_policies":  rbacPoliciesJSON,
+					"tag_policies":   tagPoliciesJSON,
 				},
 			},
 			ExpectStatus: http.StatusOK,
@@ -190,6 +201,7 @@ func TestAccountsAPI(t *testing.T) {
 					"gc_policies":    gcPoliciesJSON,
 					"metadata":       nil,
 					"rbac_policies":  rbacPoliciesJSON,
+					"tag_policies":   tagPoliciesJSON,
 				},
 			},
 		}.Check(t, h)
@@ -216,6 +228,11 @@ func TestAccountsAPI(t *testing.T) {
 								Name:    "rbac-policies",
 								TypeURI: "mime:application/json",
 								Content: toJSONVia[[]keppel.RBACPolicy](rbacPoliciesJSON),
+							},
+							{
+								Name:    "tag-policies",
+								TypeURI: "mime:application/json",
+								Content: toJSONVia[[]keppel.TagPolicy](tagPoliciesJSON),
 							},
 						},
 					},
@@ -246,6 +263,7 @@ func TestAccountsAPI(t *testing.T) {
 					"gc_policies":    gcPoliciesJSON,
 					"metadata":       nil,
 					"rbac_policies":  rbacPoliciesJSON,
+					"tag_policies":   tagPoliciesJSON,
 				},
 			},
 		},
@@ -262,12 +280,13 @@ func TestAccountsAPI(t *testing.T) {
 				"gc_policies":    gcPoliciesJSON,
 				"metadata":       nil,
 				"rbac_policies":  rbacPoliciesJSON,
+				"tag_policies":   tagPoliciesJSON,
 			},
 		},
 	}.Check(t, h)
 	tr.DBChanges().AssertEqual(`
 		INSERT INTO accounts (name, auth_tenant_id) VALUES ('first', 'tenant1');
-		INSERT INTO accounts (name, auth_tenant_id, gc_policies_json, rbac_policies_json) VALUES ('second', 'tenant1', '[{"match_repository":".*/database","except_repository":"archive/.*","time_constraint":{"on":"pushed_at","newer_than":{"value":10,"unit":"d"}},"action":"protect"},{"match_repository":".*","only_untagged":true,"action":"delete"}]', '[{"match_repository":"library/.*","permissions":["anonymous_pull"]},{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull","push"]}]');
+		INSERT INTO accounts (name, auth_tenant_id, gc_policies_json, rbac_policies_json, tag_policies_json) VALUES ('second', 'tenant1', '[{"match_repository":".*/database","except_repository":"archive/.*","time_constraint":{"on":"pushed_at","newer_than":{"value":10,"unit":"d"}},"action":"protect"},{"match_repository":".*","only_untagged":true,"action":"delete"}]', '[{"match_repository":"library/.*","permissions":["anonymous_pull"]},{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull","push"]}]', '[{"match_repository":"library/.*","block_overwrite":true},{"match_repository":"library/alpine","block_delete":true}]');
 	`)
 
 	// check editing of RBAC policies
@@ -389,7 +408,7 @@ func TestAccountsAPI(t *testing.T) {
 		ExpectBody:   assert.JSONObject{"sublease_token": makeSubleaseToken("second", "registry.example.org", "this-is-the-token")},
 	}.Check(t, h)
 	tr.DBChanges().AssertEqual(`
-		UPDATE accounts SET gc_policies_json = '[]', rbac_policies_json = '[{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull"]},{"match_repository":"library/alpine","match_username":".*@tenant3","permissions":["pull","delete"]}]' WHERE name = 'second';
+		UPDATE accounts SET gc_policies_json = '[]', rbac_policies_json = '[{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull"]},{"match_repository":"library/alpine","match_username":".*@tenant3","permissions":["pull","delete"]}]', tag_policies_json = '[]' WHERE name = 'second';
 	`)
 }
 
