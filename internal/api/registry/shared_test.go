@@ -50,10 +50,7 @@ func testWithPrimary(t *testing.T, setupOptions []test.SetupOption, action func(
 
 			// shutdown DB to free up connections (otherwise the test eventually fails
 			// with Postgres saying "too many clients already")
-			err := s.DB.Db.Close()
-			if err != nil {
-				t.Fatal(err.Error())
-			}
+			test.MustDo(t, s.DB.Db.Close())
 		}
 	})
 }
@@ -80,10 +77,7 @@ func testWithReplica(t *testing.T, s1 test.Setup, strategy string, action func(f
 	)
 
 	defer func() {
-		_, err := s1.DB.Exec(`DELETE FROM peers`)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		test.MustExec(t, s1.DB, `DELETE FROM peers`)
 		tt := http.DefaultTransport.(*test.RoundTripper)
 		tt.Handlers["registry-secondary.example.org"] = nil
 	}()
@@ -123,10 +117,7 @@ func testAnycast(t *testing.T, firstPass bool, db2 *keppel.DB, action func()) {
 		return
 	}
 	// to make sure that we actually anycast, the replica must not have the "test1" account
-	_, err := db2.Exec(`DELETE FROM accounts`)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	test.MustExec(t, db2, `DELETE FROM accounts`)
 
 	action()
 }
@@ -237,9 +228,7 @@ func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *keppel.DB) 
 	t.Helper()
 	// test that no blobs were yet committed to the DB...
 	count, err := db.SelectInt(`SELECT COUNT(*) FROM blobs`)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	test.MustDo(t, err)
 	if count > 0 {
 		t.Errorf("expected 0 blobs in the DB, but found %d blobs", count)
 	}
@@ -251,9 +240,7 @@ func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *keppel.DB) 
 
 	// also there should be no unfinished uploads
 	count, err = db.SelectInt(`SELECT COUNT(*) FROM uploads`)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	test.MustDo(t, err)
 	if count > 0 {
 		t.Errorf("expected 0 uploads in the DB, but found %d uploads", count)
 	}
@@ -262,12 +249,8 @@ func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *keppel.DB) 
 //nolint:unparam
 func testWithAccountIsDeleting(t *testing.T, db *keppel.DB, accountName models.AccountName, action func()) {
 	_, err := db.Exec("UPDATE accounts SET is_deleting = TRUE WHERE name = $1", accountName)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	test.MustDo(t, err)
 	action()
 	_, err = db.Exec("UPDATE accounts SET is_deleting = FALSE WHERE name = $1", accountName)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	test.MustDo(t, err)
 }

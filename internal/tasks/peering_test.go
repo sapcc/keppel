@@ -82,9 +82,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 		})
 		peerBeforeFailedIssue := getPeerFromDB(t, s.DB)
 		tx, err := s.DB.Begin()
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		test.MustDo(t, err)
 		err = IssueNewPasswordForPeer(s.Ctx, s.Config, s.DB, tx, getPeerFromDB(t, s.DB))
 		if err == nil {
 			t.Error("expected IssueNewPasswordForPeer to fail, but got err = nil")
@@ -101,10 +99,7 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 func getPeerFromDB(t *testing.T, db *keppel.DB) models.Peer {
 	t.Helper()
 	var peer models.Peer
-	err := db.SelectOne(&peer, `SELECT * FROM peers WHERE use_for_pull_delegation`)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	test.MustDo(t, db.SelectOne(&peer, `SELECT * FROM peers WHERE use_for_pull_delegation`))
 	return peer
 }
 

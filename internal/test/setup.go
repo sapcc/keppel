@@ -362,18 +362,13 @@ func MustDo(t *testing.T, err error) {
 	}
 }
 
-func MustInsert(t *testing.T, db *keppel.DB, obj any) {
+func MustInsert(t *testing.T, db *keppel.DB, args ...any) {
 	t.Helper()
-	err := db.Insert(obj)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	MustDo(t, db.Insert(args...))
 }
 
 func MustExec(t *testing.T, db *keppel.DB, query string, args ...any) {
 	t.Helper()
 	_, err := db.Exec(query, args...)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	MustDo(t, err)
 }

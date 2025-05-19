@@ -18,6 +18,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
+	"github.com/sapcc/keppel/internal/test"
 )
 
 var (
@@ -38,10 +39,7 @@ func TestDeleteAbandonedUploadWithZeroChunks(t *testing.T) {
 func TestDeleteAbandonedUploadWithOneChunk(t *testing.T) {
 	testDeleteUpload(t, func(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount) models.Upload {
 		data := "just some test data"
-		err := sd.AppendToBlob(ctx, account, testStorageID, 1, p2len(data), strings.NewReader(data))
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		test.MustDo(t, sd.AppendToBlob(ctx, account, testStorageID, 1, p2len(data), strings.NewReader(data)))
 
 		return models.Upload{
 			SizeBytes: uint64(len(data)),
@@ -86,10 +84,7 @@ func testDeleteUpload(t *testing.T, setupUploadObject func(context.Context, kepp
 	upload.UUID = testUploadUUID
 	upload.StorageID = testStorageID
 	upload.UpdatedAt = s.Clock.Now()
-	err := s.DB.Insert(&upload)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	test.MustInsert(t, s.DB, &upload)
 
 	// DeleteNextAbandonedUpload should not do anything since this upload is fairly recent
 	s.Clock.StepBy(3 * time.Hour)
@@ -97,7 +92,7 @@ func testDeleteUpload(t *testing.T, setupUploadObject func(context.Context, kepp
 
 	// after a day has passed, DeleteNextAbandonedUpload should clean up this upload
 	s.Clock.StepBy(24 * time.Hour)
-	err = uploadJob.ProcessOne(s.Ctx)
+	err := uploadJob.ProcessOne(s.Ctx)
 	if err != nil {
 		t.Errorf("expected no error, but got: %s", err.Error())
 	}

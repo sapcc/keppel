@@ -107,14 +107,11 @@ func TestManifestsAPI(t *testing.T) {
 				}
 				test.MustInsert(t, s.DB, &dbManifest)
 
-				err := s.SD.WriteManifest(
+				test.MustDo(t, s.SD.WriteManifest(
 					s.Ctx,
 					models.ReducedAccount{Name: repo.AccountName},
 					repo.Name, dummyDigest, []byte(strings.Repeat("x", sizeBytes)),
-				)
-				if err != nil {
-					t.Fatal(err.Error())
-				}
+				))
 				test.MustInsert(t, s.DB, &models.TrivySecurityInfo{
 					RepositoryID:        int64(repoID),
 					Digest:              dummyDigest,
@@ -390,23 +387,13 @@ func TestManifestsAPI(t *testing.T) {
 			Digest:      test.DeterministicDummyDigest(101),
 		}
 		test.MustInsert(t, s.DB, &dummyBlob)
-		err := keppel.MountBlobIntoRepo(s.DB, dummyBlob, *repos[0])
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		_, err = s.DB.Exec(
-			`INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
-			repos[0].ID, test.DeterministicDummyDigest(12), dummyBlob.ID,
-		)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		test.MustDo(t, keppel.MountBlobIntoRepo(s.DB, dummyBlob, *repos[0]))
+		test.MustExec(t, s.DB, `INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
+			repos[0].ID, test.DeterministicDummyDigest(12).String(), dummyBlob.ID)
 
 		// test GET vulnerability report success case
 		imageRef, _, err := models.ParseImageReference("registry.example.org/test1/repo1-1@" + test.DeterministicDummyDigest(12).String())
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		test.MustDo(t, err)
 		s.TrivyDouble.ReportFixtures[imageRef] = "../../tasks/fixtures/trivy/report-vulnerable-with-fixes.json"
 		assert.HTTPRequest{
 			Method:       "GET",
@@ -472,9 +459,7 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 		h := s.Handler
 
 		_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1"))
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		test.MustDo(t, err)
 
 		token := s.GetToken(t, "repository:test1/foo:pull,push")
 

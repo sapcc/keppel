@@ -25,13 +25,10 @@ func TestCatalogEndpoint(t *testing.T) {
 		test.MustExec(t, s.DB, `INSERT INTO accounts (name, auth_tenant_id) VALUES ($1, $2)`, accountName, authTenantID)
 
 		for _, repoName := range []string{"foo", "bar", "qux"} {
-			err := s.DB.Insert(&models.Repository{
+			test.MustInsert(t, s.DB, &models.Repository{
 				Name:        repoName,
 				AccountName: accountName,
 			})
-			if err != nil {
-				t.Fatal(err.Error())
-			}
 		}
 	}
 

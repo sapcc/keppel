@@ -76,9 +76,7 @@ func (i Image) MustUpload(t *testing.T, s Setup, repo models.Repository, tagName
 	// upload missing blobs
 	for _, blob := range append(i.Layers, i.Config) {
 		count, err := s.DB.SelectInt(checkBlobExistsQuery, repo.AccountName, blob.Digest.String())
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		MustDo(t, err)
 		if count == 0 {
 			blob.MustUpload(t, s, repo)
 		}
@@ -132,9 +130,7 @@ func (l ImageList) MustUpload(t *testing.T, s Setup, repo models.Repository, tag
 	// upload missing images
 	for _, image := range l.Images {
 		count, err := s.DB.SelectInt(checkManifestExistsQuery, repo.AccountName, repo.Name, image.Manifest.Digest)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		MustDo(t, err)
 		if count == 0 {
 			image.MustUpload(t, s, repo, "")
 		}

@@ -63,10 +63,7 @@ func TestReposAPI(t *testing.T) {
 			NextValidationAt: blobPushedAt.Add(models.BlobValidationInterval),
 		}
 		test.MustInsert(t, s.DB, &blob)
-		err := keppel.MountBlobIntoRepo(s.DB, blob, filledRepo)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		test.MustDo(t, keppel.MountBlobIntoRepo(s.DB, blob, filledRepo))
 	}
 
 	// insert some dummy manifests and tags into one of the repos to check the

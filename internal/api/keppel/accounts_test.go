@@ -2280,11 +2280,8 @@ func TestSecurityScanPoliciesAuthorizationErrors(t *testing.T) {
 
 	// as preparation for the next test, put in a pre-existing policy managed by a
 	// different user
-	_, err := s.DB.Exec(`UPDATE accounts SET security_scan_policies_json = $1`,
+	test.MustExec(t, s.DB, `UPDATE accounts SET security_scan_policies_json = $1`,
 		fmt.Sprintf("[%s]", foreignPolicyJSON))
-	if err != nil {
-		t.Fatal(err.Error())
-	}
 
 	// it's okay if we leave that policy untouched...
 	assert.HTTPRequest{

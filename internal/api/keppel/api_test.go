@@ -60,10 +60,7 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 	var tokenData struct {
 		Token string `json:"token"`
 	}
-	err := json.Unmarshal(respBodyBytes, &tokenData)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	test.MustDo(t, json.Unmarshal(respBodyBytes, &tokenData))
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/test1/repositories/foo/_manifests",
