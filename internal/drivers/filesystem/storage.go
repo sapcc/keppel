@@ -155,20 +155,25 @@ func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.
 	return blobs, manifests, nil
 }
 
-func (d *StorageDriver) getBlobs(account models.ReducedAccount) ([]keppel.StoredBlobInfo, error) {
-	var blobs []keppel.StoredBlobInfo
-	directory, err := os.Open(d.getBlobBasePath(account))
+func getNamesInDirectory(path string) ([]string, error) {
+	directory, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return []keppel.StoredBlobInfo{}, nil
+			return nil, nil
 		}
 		return nil, err
 	}
 	defer directory.Close()
-	names, err := directory.Readdirnames(-1)
+	return directory.Readdirnames(-1)
+}
+
+func (d *StorageDriver) getBlobs(account models.ReducedAccount) ([]keppel.StoredBlobInfo, error) {
+	names, err := getNamesInDirectory(d.getBlobBasePath(account))
 	if err != nil {
 		return nil, err
 	}
+
+	var blobs []keppel.StoredBlobInfo
 	for _, name := range names {
 		if strings.HasSuffix(name, ".tmp") {
 			continue
@@ -181,57 +186,34 @@ func (d *StorageDriver) getBlobs(account models.ReducedAccount) ([]keppel.Stored
 }
 
 func (d *StorageDriver) getManifests(account models.ReducedAccount) ([]keppel.StoredManifestInfo, error) {
-	var manifests []keppel.StoredManifestInfo
-	directory, err := os.Open(d.getManifestBasePath(account))
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []keppel.StoredManifestInfo{}, nil
-		}
-		return nil, err
-	}
-	defer directory.Close()
-	repos, err := directory.Readdirnames(-1)
+	basePath := d.getManifestBasePath(account)
+	repoNames, err := getNamesInDirectory(basePath)
 	if err != nil {
 		return nil, err
 	}
-	for _, repo := range repos {
-		repoManifests, err := d.getRepoManifests(account, repo)
-		if err != nil {
-			return nil, err
-		}
-		manifests = append(manifests, repoManifests...)
-	}
-	return manifests, nil
-}
 
-func (d *StorageDriver) getRepoManifests(account models.ReducedAccount, repo string) ([]keppel.StoredManifestInfo, error) {
 	var manifests []keppel.StoredManifestInfo
-	directory, err := os.Open(filepath.Join(d.getManifestBasePath(account), repo))
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []keppel.StoredManifestInfo{}, nil
-		}
-		return nil, err
-	}
-	defer directory.Close()
-	digests, err := directory.Readdirnames(-1)
-	if err != nil {
-		return nil, err
-	}
-	for _, digestStr := range digests {
-		if strings.HasSuffix(digestStr, ".tmp") {
-			continue
-		}
-
-		manifestDigest, err := digest.Parse(digestStr)
+	for _, repoName := range repoNames {
+		names, err := getNamesInDirectory(filepath.Join(basePath, repoName))
 		if err != nil {
 			return nil, err
 		}
 
-		manifests = append(manifests, keppel.StoredManifestInfo{
-			RepoName: repo,
-			Digest:   manifestDigest,
-		})
+		for _, name := range names {
+			if strings.HasSuffix(name, ".tmp") {
+				continue
+			}
+
+			manifestDigest, err := digest.Parse(name)
+			if err != nil {
+				return nil, fmt.Errorf("unexpected file in storage directory: %s", filepath.Join(basePath, repoName, name))
+			}
+
+			manifests = append(manifests, keppel.StoredManifestInfo{
+				RepoName: repoName,
+				Digest:   manifestDigest,
+			})
+		}
 	}
 	return manifests, nil
 }
