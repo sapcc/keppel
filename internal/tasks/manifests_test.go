@@ -835,9 +835,10 @@ func TestManifestValidationJobWithoutPlatform(t *testing.T) {
 	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
-      UPDATE manifests SET next_validation_at = %d WHERE repo_id = 1 AND digest = '%s';
-      UPDATE manifests SET next_validation_at = %d WHERE repo_id = 1 AND digest = '%s';
-    `, s.Clock.Now().Add(models.ManifestValidationInterval).Unix(), imageList.Manifest.Digest,
+			UPDATE manifests SET next_validation_at = %d WHERE repo_id = 1 AND digest = '%s';
+			UPDATE manifests SET next_validation_at = %d WHERE repo_id = 1 AND digest = '%s';
+		`,
+		s.Clock.Now().Add(models.ManifestValidationInterval).Unix(), imageList.Manifest.Digest,
 		s.Clock.Now().Add(models.ManifestValidationInterval).Unix(), image.Manifest.Digest,
 	)
 }
