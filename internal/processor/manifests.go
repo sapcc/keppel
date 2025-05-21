@@ -73,12 +73,16 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 		if err != nil {
 			return nil, err
 		}
-		logg.Debug("ValidateAndStoreManifest: in repo %d, tag %s @%s already exists", repo.ID, m.Reference.Tag, contentsDigest)
+		if tagExists {
+			logg.Debug("ValidateAndStoreManifest: in repo %d, tag %s @%s already exists = %t", repo.ID, m.Reference.Tag, contentsDigest, tagExists)
+		}
 		tagExistsWithSameDigest, err = p.db.SelectBool(checkTagExistsAtSameDigestQuery, repo.ID, m.Reference.Tag, contentsDigest.String())
 		if err != nil {
 			return nil, err
 		}
-		logg.Debug("ValidateAndStoreManifest: in repo %d, tag %s @%s already exists with same digest = %t", repo.ID, m.Reference.Tag, contentsDigest, tagExistsWithSameDigest)
+		if tagExistsWithSameDigest {
+			logg.Debug("ValidateAndStoreManifest: in repo %d, tag %s @%s already exists with same digest = %t", repo.ID, m.Reference.Tag, contentsDigest, tagExistsWithSameDigest)
+		}
 	}
 
 	if tagExists && !tagExistsWithSameDigest {
