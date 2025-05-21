@@ -88,7 +88,7 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 	if tagExists && !tagExistsWithSameDigest {
 		for _, tagPolicy := range tagPolicies {
 			if tagPolicy.BlockOverwrite && tagPolicy.MatchesRepository(repo.Name) && tagPolicy.MatchesTags([]string{m.Reference.Tag}) {
-				return nil, keppel.ErrDenied.With("cannot overwrite manifest as it is protected by a tag_policy").WithStatus(http.StatusConflict)
+				return nil, keppel.ErrDenied.With("cannot overwrite tag %q as it is protected by a tag_policy", m.Reference.Tag).WithStatus(http.StatusConflict)
 			}
 		}
 	}
