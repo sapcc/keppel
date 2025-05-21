@@ -184,6 +184,7 @@ The following configuration options are understood by both the API server and th
 | `KEPPEL_DB_HOSTNAME` | `localhost` | Hostname of the database server. |
 | `KEPPEL_DB_PORT` | `5432` | Port on which the PostgreSQL service is running on. |
 | `KEPPEL_DB_CONNECTION_OPTIONS` | *(optional)* | Database connection options. |
+| `KEPPEL_DEBUG` | *(optional)* | Enable debug logging. |
 | `KEPPEL_DRIVER_AUTH` | *(required)* | The name of an auth driver. |
 | `KEPPEL_DRIVER_FEDERATION` | *(required)* | The name of a federation driver. For single-region deployments, the correct choice is probably `trivial`. |
 | `KEPPEL_DRIVER_INBOUND_CACHE` | *(required)* | The name of an inbound cache driver. The driver name `trivial` chooses a zero-sized cache that effectively disables caching entirely. |
@@ -205,6 +206,7 @@ These options are only understood by the API server.
 | `KEPPEL_API_ANYCAST_FQDN` | *(optional)* | Full domain name where users reach any keppel-api from this Keppel's group of peers, usually through some sort of anycast mechanism (hence the name). When this keppel-api receives an API request directed to this URL or a path below, and the respective Keppel account does not exist locally, the request is reverse-proxied to the peer that holds the primary account. The anycast endpoints are limited to anonymous authorization and therefore cannot be used for pushing. |
 | `KEPPEL_API_LISTEN_ADDRESS` | :8080 | Listen address for HTTP server. |
 | `KEPPEL_DRIVER_RATELIMIT` | *(optional)* | The name of a rate limit driver. Leave empty to disable rate limiting. |
+| `KEPPEL_ENABLE_HEADER_REFLECTOR` | *(optional)* | If set to `true`, the `/debug/reflect-headers` endpoint will be enabled which returns the headers from an incoming request. This is useful for debugging purposes, but should be disabled in production. |
 | `KEPPEL_GUI_URI` | *(optional)* | If true, GET requests coming from a web browser for URLs that look like repositories (e.g. <https://registry.example.org/someaccount/somerepo>) will be redirected to this URL. The value must be a URL string, which may contain the placeholders `%ACCOUNT_NAME%`, `%REPO_NAME%` and `%AUTH_TENANT_ID%`. These placeholders will be replaced with their respective values if present. To avoid leaking account existence to unauthorized users, the redirect will only be done if the repository in question allowed anonymous pulling. |
 | `KEPPEL_PEERS` | *(optional)* | A json structure (see below for format) describing where our peer keppel-api instances are running. This is the set of instances that this keppel-api can replicate from and use for pull delegation. |
 | `KEPPEL_REDIS_ENABLE` | *(required if `KEPPEL_DRIVER_RATELIMIT` is configured)* | Whether to use Redis as an ephemeral storage by compatible auth drivers and rate limit drivers. |
