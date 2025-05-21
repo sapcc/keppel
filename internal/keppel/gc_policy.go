@@ -17,7 +17,7 @@ import (
 // GCPolicy is a policy enabling optional garbage collection runs in an account.
 // It is stored in serialized form in the GCPoliciesJSON field of type Account.
 type GCPolicy struct {
-	PolicyMatch
+	PolicyMatchRule
 	OnlyUntagged   bool              `json:"only_untagged,omitempty"`
 	TimeConstraint *GCTimeConstraint `json:"time_constraint,omitempty"`
 	Action         string            `json:"action"`
@@ -39,7 +39,7 @@ func (g GCPolicy) MatchesTags(tagNames []string) bool {
 		return false
 	}
 
-	return g.PolicyMatch.MatchesTags(tagNames)
+	return g.PolicyMatchRule.MatchesTags(tagNames)
 }
 
 // MatchesTimeConstraint evaluates the time constraint in this policy for the
@@ -121,7 +121,7 @@ func (g GCPolicy) MatchesTimeConstraint(manifest models.Manifest, allManifestsIn
 
 // Validate returns an error if this policy is invalid.
 func (g GCPolicy) Validate() error {
-	err := g.PolicyMatch.validate("gc policy")
+	err := g.PolicyMatchRule.validate("gc policy")
 	if err != nil {
 		return err
 	}

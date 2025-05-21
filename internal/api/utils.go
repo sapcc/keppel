@@ -42,6 +42,6 @@ func CheckRateLimit(r *http.Request, rle *keppel.RateLimitEngine, account models
 	return nil
 }
 
-var GetTagPolicyByAccountName = sqlext.SimplifyWhitespace(`
+var GetTagPolicyByAccountNameQuery = sqlext.SimplifyWhitespace(`
 	SELECT tag_policies_json FROM accounts WHERE name = $1
 `)

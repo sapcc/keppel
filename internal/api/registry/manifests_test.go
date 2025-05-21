@@ -205,7 +205,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			// block overwrite should not trigger when pushing the same manifest twice
 			test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $2 WHERE name = $1`, "test1",
 				test.ToJSON([]keppel.TagPolicy{{
-					PolicyMatch: keppel.PolicyMatch{
+					PolicyMatchRule: keppel.PolicyMatchRule{
 						RepositoryRx: "foo",
 					},
 					BlockOverwrite: true,
@@ -385,7 +385,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $2 WHERE name = $1`, "test1",
 				test.ToJSON([]keppel.TagPolicy{{
-					PolicyMatch: keppel.PolicyMatch{
+					PolicyMatchRule: keppel.PolicyMatchRule{
 						RepositoryRx: "foo",
 					},
 					BlockDelete: true,

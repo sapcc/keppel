@@ -8,7 +8,7 @@ import (
 
 // TagPolicy is a policy describing what happens with tags
 type TagPolicy struct {
-	PolicyMatch
+	PolicyMatchRule
 	BlockOverwrite bool `json:"block_overwrite,omitempty"`
 	BlockDelete    bool `json:"block_delete,omitempty"`
 }
@@ -24,5 +24,5 @@ func ParseTagPolicies(tagPoliciesJSON string) ([]TagPolicy, error) {
 }
 
 func (t TagPolicy) Validate() error {
-	return t.PolicyMatch.validate("tag policy")
+	return t.PolicyMatchRule.validate("tag policy")
 }

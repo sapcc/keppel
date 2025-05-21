@@ -45,7 +45,7 @@ type IncomingManifest struct {
 var checkManifestExistsQuery = sqlext.SimplifyWhitespace(`
 	SELECT COUNT(*) > 0 FROM manifests WHERE repo_id = $1 AND digest = $2
 `)
-var checkTagExists = sqlext.SimplifyWhitespace(`
+var checkTagExistsQuery = sqlext.SimplifyWhitespace(`
 	SELECT COUNT(*) > 0 FROM tags WHERE repo_id = $1 AND name = $2
 `)
 var checkTagExistsAtSameDigestQuery = sqlext.SimplifyWhitespace(`
@@ -66,10 +66,10 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 		return nil, err
 	}
 	logg.Debug("ValidateAndStoreManifest: in repo %d, manifest %s already exists = %t", repo.ID, contentsDigest, manifestExistsAlready)
-	var tagExistsWithDifferentDigest bool
+	var tagExists bool
 	var tagExistsWithSameDigest bool
 	if m.Reference.IsTag() {
-		tagExistsWithDifferentDigest, err = p.db.SelectBool(checkTagExists, repo.ID, m.Reference.Tag)
+		tagExists, err = p.db.SelectBool(checkTagExistsQuery, repo.ID, m.Reference.Tag)
 		if err != nil {
 			return nil, err
 		}
@@ -81,7 +81,7 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 		logg.Debug("ValidateAndStoreManifest: in repo %d, tag %s @%s already exists with same digest = %t", repo.ID, m.Reference.Tag, contentsDigest, tagExistsWithSameDigest)
 	}
 
-	if tagExistsWithDifferentDigest && !tagExistsWithSameDigest {
+	if tagExists && !tagExistsWithSameDigest {
 		for _, tagPolicy := range tagPolicies {
 			if tagPolicy.BlockOverwrite && tagPolicy.MatchesRepository(repo.Name) && tagPolicy.MatchesTags([]string{m.Reference.Tag}) {
 				return nil, keppel.ErrDenied.With("cannot overwrite manifest as it is protected by a tag_policy").WithStatus(http.StatusConflict)

@@ -35,7 +35,7 @@ func TestConfigureAccount(t *testing.T) {
 		GCPolicies: []keppel.GCPolicy{
 			{
 				Action: "protect",
-				PolicyMatch: keppel.PolicyMatch{
+				PolicyMatchRule: keppel.PolicyMatchRule{
 					NegativeRepositoryRx: "archive/.*",
 					RepositoryRx:         ".*/database",
 				},
@@ -47,7 +47,7 @@ func TestConfigureAccount(t *testing.T) {
 			{
 				Action:       "delete",
 				OnlyUntagged: true,
-				PolicyMatch: keppel.PolicyMatch{
+				PolicyMatchRule: keppel.PolicyMatchRule{
 					RepositoryRx: ".*",
 				},
 			},

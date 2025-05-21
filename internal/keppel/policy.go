@@ -9,7 +9,8 @@ import (
 	"github.com/sapcc/go-bits/regexpext"
 )
 
-type PolicyMatch struct {
+// PolicyMatchRule contains the matching rules that are shared by type GCPolicy and TagPolicy.
+type PolicyMatchRule struct {
 	RepositoryRx         regexpext.BoundedRegexp `json:"match_repository"`
 	NegativeRepositoryRx regexpext.BoundedRegexp `json:"except_repository,omitempty"`
 	TagRx                regexpext.BoundedRegexp `json:"match_tag,omitempty"`
@@ -17,7 +18,7 @@ type PolicyMatch struct {
 }
 
 // MatchesRepository evaluates the repository regexes in this policy.
-func (p PolicyMatch) MatchesRepository(repoName string) bool {
+func (p PolicyMatchRule) MatchesRepository(repoName string) bool {
 	//NOTE: NegativeRepositoryRx takes precedence and is thus evaluated first.
 	if p.NegativeRepositoryRx != "" && p.NegativeRepositoryRx.MatchString(repoName) {
 		return false
@@ -27,7 +28,7 @@ func (p PolicyMatch) MatchesRepository(repoName string) bool {
 
 // MatchesTags evaluates the tag regexes in this policy for a complete set of
 // tag names belonging to a single manifest.
-func (p PolicyMatch) MatchesTags(tagNames []string) bool {
+func (p PolicyMatchRule) MatchesTags(tagNames []string) bool {
 	//NOTE: NegativeTagRx takes precedence over TagRx and is thus evaluated first.
 	if p.NegativeTagRx != "" {
 		for _, tagName := range tagNames {
@@ -50,7 +51,7 @@ func (p PolicyMatch) MatchesTags(tagNames []string) bool {
 }
 
 // Validate returns an error if this policy is invalid.
-func (p PolicyMatch) validate(context string) error {
+func (p PolicyMatchRule) validate(context string) error {
 	if p.RepositoryRx == "" {
 		return errors.New(context + ` must have the "match_repository" attribute`)
 	}
