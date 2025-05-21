@@ -121,7 +121,7 @@ func (g GCPolicy) MatchesTimeConstraint(manifest models.Manifest, allManifestsIn
 
 // Validate returns an error if this policy is invalid.
 func (g GCPolicy) Validate() error {
-	err := g.PolicyMatch.Validate()
+	err := g.PolicyMatch.validate("gc policy")
 	if err != nil {
 		return err
 	}

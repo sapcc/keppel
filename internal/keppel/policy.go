@@ -50,9 +50,9 @@ func (p PolicyMatch) MatchesTags(tagNames []string) bool {
 }
 
 // Validate returns an error if this policy is invalid.
-func (p PolicyMatch) Validate() error {
+func (p PolicyMatch) validate(context string) error {
 	if p.RepositoryRx == "" {
-		return errors.New(`GC policy must have the "match_repository" attribute`)
+		return errors.New(context + ` must have the "match_repository" attribute`)
 	}
 
 	return nil

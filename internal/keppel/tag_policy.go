@@ -22,3 +22,7 @@ func ParseTagPolicies(tagPoliciesJSON string) ([]TagPolicy, error) {
 	err := json.Unmarshal([]byte(tagPoliciesJSON), &policies)
 	return policies, err
 }
+
+func (t TagPolicy) Validate() error {
+	return t.PolicyMatch.validate("tag policy")
+}
