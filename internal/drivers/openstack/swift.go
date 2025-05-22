@@ -26,6 +26,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 type swiftContainerInfo struct {
@@ -151,6 +152,10 @@ func chunkObject(c *schwift.Container, storageID string, chunkNumber uint32) *sc
 
 func manifestObject(c *schwift.Container, repoName string, manifestDigest digest.Digest) *schwift.Object {
 	return c.Object(fmt.Sprintf("%s/_manifests/%s", repoName, manifestDigest))
+}
+
+func trivyReportObject(c *schwift.Container, repoName string, manifestDigest digest.Digest, format string) *schwift.Object {
+	return c.Object(fmt.Sprintf("%s/_trivyreports/%s/%s", repoName, manifestDigest, format))
 }
 
 // Like schwift.Object.Upload(), but does a HEAD request on the object
@@ -324,6 +329,36 @@ func (d *swiftDriver) DeleteManifest(ctx context.Context, account models.Reduced
 	return o.Delete(ctx, nil, nil)
 }
 
+// ReadTrivyReport implements the keppel.StorageDriver interface.
+func (d *swiftDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) ([]byte, error) {
+	c, _, err := d.getBackendConnection(ctx, account)
+	if err != nil {
+		return nil, err
+	}
+	o := trivyReportObject(c, repoName, manifestDigest, format)
+	return o.Download(ctx, nil).AsByteSlice()
+}
+
+// WriteTrivyReport implements the keppel.StorageDriver interface.
+func (d *swiftDriver) WriteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, payload trivy.ReportPayload) error {
+	c, _, err := d.getBackendConnection(ctx, account)
+	if err != nil {
+		return err
+	}
+	o := trivyReportObject(c, repoName, manifestDigest, payload.Format)
+	return uploadToObject(ctx, o, bytes.NewReader(payload.Contents), nil, nil)
+}
+
+// DeleteTrivyReport implements the keppel.StorageDriver interface.
+func (d *swiftDriver) DeleteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) error {
+	c, _, err := d.getBackendConnection(ctx, account)
+	if err != nil {
+		return err
+	}
+	o := trivyReportObject(c, repoName, manifestDigest, format)
+	return o.Delete(ctx, nil, nil)
+}
+
 var (
 	// These regexes are used to reconstruct the storage ID from a blob's or chunk's object name.
 	// It's kinda the reverse of func blobObject() or func checkObject().
@@ -332,17 +367,23 @@ var (
 	// This regex recovers the repo name and manifest digest from a manifest's object name.
 	// It's kinda the reverse of func manifestObject().
 	manifestObjectNameRx = regexp.MustCompile(`^(.+)/_manifests/([^/]+)$`)
+	// This regex recovers the repo name, manifest digest and format from a Trivy report's object name.
+	// It's kinda the reverse of func trivyReportObject().
+	trivyReportObjectNameRx = regexp.MustCompile(`^(.+)/_trivyreports/([^/]+)/([^/]+)$`)
 )
 
 // ListStorageContents implements the keppel.StorageDriver interface.
-func (d *swiftDriver) ListStorageContents(ctx context.Context, account models.ReducedAccount) ([]keppel.StoredBlobInfo, []keppel.StoredManifestInfo, error) {
+func (d *swiftDriver) ListStorageContents(ctx context.Context, account models.ReducedAccount) ([]keppel.StoredBlobInfo, []keppel.StoredManifestInfo, []keppel.StoredTrivyReportInfo, error) {
 	c, _, err := d.getBackendConnection(ctx, account)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	chunkCounts := make(map[string]uint32) // key = storage ID, value = same semantics as keppel.StoredBlobInfo.ChunkCount
-	var manifests []keppel.StoredManifestInfo
+	var (
+		manifests []keppel.StoredManifestInfo
+		reports   []keppel.StoredTrivyReportInfo
+	)
 
 	err = c.Objects().Foreach(ctx, func(o *schwift.Object) error {
 		if match := blobObjectNameRx.FindStringSubmatch(o.Name()); match != nil {
@@ -354,7 +395,7 @@ func (d *swiftDriver) ListStorageContents(ctx context.Context, account models.Re
 			storageID := match[1] + match[2] + match[3]
 			chunkNumber, err := strconv.ParseUint(match[4], 10, 32)
 			if err != nil {
-				return fmt.Errorf("while parsing chunk object name %s: %s", o.Name(), err.Error())
+				return fmt.Errorf("while parsing chunk object name %q: %w", o.Name(), err)
 			}
 			mergeChunkCount(chunkCounts, storageID, uint32(chunkNumber))
 			return nil
@@ -362,7 +403,7 @@ func (d *swiftDriver) ListStorageContents(ctx context.Context, account models.Re
 		if match := manifestObjectNameRx.FindStringSubmatch(o.Name()); match != nil {
 			manifestDigest, err := digest.Parse(match[2])
 			if err != nil {
-				return err
+				return fmt.Errorf("while parsing manifest object name %q: %w", o.Name(), err)
 			}
 
 			manifests = append(manifests, keppel.StoredManifestInfo{
@@ -371,10 +412,23 @@ func (d *swiftDriver) ListStorageContents(ctx context.Context, account models.Re
 			})
 			return nil
 		}
+		if match := trivyReportObjectNameRx.FindStringSubmatch(o.Name()); match != nil {
+			manifestDigest, err := digest.Parse(match[2])
+			if err != nil {
+				return fmt.Errorf("while parsing Trivy report object name %q: %w", o.Name(), err)
+			}
+
+			reports = append(reports, keppel.StoredTrivyReportInfo{
+				RepoName: match[1],
+				Digest:   manifestDigest,
+				Format:   match[3],
+			})
+			return nil
+		}
 		return fmt.Errorf("encountered unexpected object while listing storage contents of account %s: %s", account.Name, o.Name())
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	blobs := make([]keppel.StoredBlobInfo, 0, len(chunkCounts))
@@ -385,7 +439,7 @@ func (d *swiftDriver) ListStorageContents(ctx context.Context, account models.Re
 		})
 	}
 
-	return blobs, manifests, nil
+	return blobs, manifests, reports, nil
 }
 
 // See comment on keppel.StoredBlobInfo.ChunkCount for explanation of semantics.
