@@ -16,7 +16,7 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
-func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.Job) (images []test.Image, healthyBlobs []models.Blob, healthyManifests []models.Manifest) {
+func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.Job) (tr *easypg.Tracker, images []test.Image, healthyBlobs []models.Blob, healthyManifests []models.Manifest) {
 	// setup some manifests and blobs as a baseline that should never be touched by
 	// StorageSweepJob
 	images = make([]test.Image, 2)
@@ -46,23 +46,26 @@ func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.J
 	// setting the storage_sweeped_at timestamp on the account
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/storage-sweep-000.sql")
+	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
+	tr0.AssertEqualToFile("fixtures/storage-sweep-000.sql")
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 
-	return images, healthyBlobs, healthyManifests
+	return tr, images, healthyBlobs, healthyManifests
 }
 
 func TestSweepStorageBlobs(t *testing.T) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
 	sweepStorageJob := j.StorageSweepJob(s.Registry)
-	_, healthyBlobs, healthyManifests := setupStorageSweepTest(t, s, sweepStorageJob)
+	tr, _, healthyBlobs, healthyManifests := setupStorageSweepTest(t, s, sweepStorageJob)
 
 	// put some blobs in the storage without adding them in the DB
 	account := models.ReducedAccount{Name: "test1"}
 	testBlob1 := test.GenerateExampleLayer(30)
 	testBlob2 := test.GenerateExampleLayer(31)
+	storageID1 := testBlob1.Digest.Encoded()
+	storageID2 := testBlob2.Digest.Encoded()
 	for _, blob := range []test.Bytes{testBlob1, testBlob2} {
 		storageID := blob.Digest.Encoded()
 		sizeBytes := uint64(len(blob.Contents))
@@ -73,32 +76,43 @@ func TestSweepStorageBlobs(t *testing.T) {
 	// create a blob that's mid-upload; this one should be protected from sweeping
 	// by the presence of the Upload object in the DB
 	testBlob3 := test.GenerateExampleLayer(32)
-	storageID := testBlob3.Digest.Encoded()
+	storageID3 := testBlob3.Digest.Encoded()
 	sizeBytes := uint64(len(testBlob3.Contents))
-	test.MustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID, 1, &sizeBytes, bytes.NewReader(testBlob3.Contents)))
+	test.MustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID3, 1, &sizeBytes, bytes.NewReader(testBlob3.Contents)))
 	// ^ but no FinalizeBlob() since we're still uploading!
 	test.MustDo(t, s.DB.Insert(&models.Upload{
 		RepositoryID: 1,
 		UUID:         "a29d525c-2273-44ba-83a8-eafd447f1cb8", // chosen at random, but fixed
-		StorageID:    storageID,
+		StorageID:    storageID3,
 		SizeBytes:    sizeBytes,
 		Digest:       testBlob3.Digest.String(),
 		NumChunks:    1,
 		UpdatedAt:    j.timeNow(),
 	}))
+	tr.DBChanges().Ignore()
 
 	// create another blob that's mid-upload; this one will be sweeped later to
 	// verify that we clean up unfinished uploads correctly
 	testBlob4 := test.GenerateExampleLayer(33)
-	storageID = testBlob4.Digest.Encoded()
+	storageID4 := testBlob4.Digest.Encoded()
 	sizeBytes = uint64(len(testBlob4.Contents))
-	test.MustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID, 1, &sizeBytes, bytes.NewReader(testBlob4.Contents)))
+	test.MustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID4, 1, &sizeBytes, bytes.NewReader(testBlob4.Contents)))
 
 	// next StorageSweepJob should mark them for deletion...
 	s.Clock.StepBy(8 * time.Hour)
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/storage-sweep-blobs-001.sql")
+	tr.DBChanges().AssertEqualf(`
+			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
+			INSERT INTO unknown_blobs (account_name, storage_id, can_be_deleted_at) VALUES ('test1', '%[3]s', %[2]d);
+			INSERT INTO unknown_blobs (account_name, storage_id, can_be_deleted_at) VALUES ('test1', '%[4]s', %[2]d);
+			INSERT INTO unknown_blobs (account_name, storage_id, can_be_deleted_at) VALUES ('test1', '%[5]s', %[2]d);
+		`,
+		s.Clock.Now().Add(6*time.Hour).Unix(), // next_storage_sweep_at
+		s.Clock.Now().Add(4*time.Hour).Unix(), // can_be_deleted_at
+		storageID2, storageID1, storageID4,
+	)
+
 	// ...but not delete anything yet
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectBlobsExistInStorage(t,
@@ -122,13 +136,22 @@ func TestSweepStorageBlobs(t *testing.T) {
 		NextValidationAt: s.Clock.Now().Add(models.BlobValidationInterval),
 	}
 	test.MustDo(t, s.DB.Insert(&dbTestBlob1))
+	tr.DBChanges().Ignore()
 
 	// next StorageSweepJob should unmark blob 1 (because it's now in
 	// the DB) and sweep blobs 2 and 4 (since it is still not in the DB)
 	s.Clock.StepBy(8 * time.Hour)
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/storage-sweep-blobs-002.sql")
+	tr.DBChanges().AssertEqualf(`
+			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
+			DELETE FROM unknown_blobs WHERE account_name = 'test1' AND storage_id = '%[2]s';
+			DELETE FROM unknown_blobs WHERE account_name = 'test1' AND storage_id = '%[3]s';
+			DELETE FROM unknown_blobs WHERE account_name = 'test1' AND storage_id = '%[4]s';
+		`,
+		s.Clock.Now().Add(6*time.Hour).Unix(),
+		storageID2, storageID1, storageID4,
+	)
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectBlobsExistInStorage(t,
 		models.Blob{AccountName: "test1", Digest: testBlob1.Digest, StorageID: testBlob1.Digest.Encoded()},
@@ -145,7 +168,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
 	sweepStorageJob := j.StorageSweepJob(s.Registry)
-	images, healthyBlobs, healthyManifests := setupStorageSweepTest(t, s, sweepStorageJob)
+	tr, images, healthyBlobs, healthyManifests := setupStorageSweepTest(t, s, sweepStorageJob)
 
 	// put some manifests in the storage without adding them in the DB
 	account := models.ReducedAccount{Name: "test1"}
@@ -159,7 +182,17 @@ func TestSweepStorageManifests(t *testing.T) {
 	s.Clock.StepBy(8 * time.Hour)
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/storage-sweep-manifests-001.sql")
+	tr.DBChanges().AssertEqualf(`
+			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
+			INSERT INTO unknown_manifests (account_name, repo_name, digest, can_be_deleted_at) VALUES ('test1', 'foo', '%[3]s', %[2]d);
+			INSERT INTO unknown_manifests (account_name, repo_name, digest, can_be_deleted_at) VALUES ('test1', 'foo', '%[4]s', %[2]d);
+		`,
+		s.Clock.Now().Add(6*time.Hour).Unix(), // next_storage_sweep_at
+		s.Clock.Now().Add(4*time.Hour).Unix(), // can_be_deleted_at
+		testImageList1.Manifest.Digest.String(),
+		testImageList2.Manifest.Digest.String(),
+	)
+
 	// ...but not delete anything yet
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
@@ -180,13 +213,22 @@ func TestSweepStorageManifests(t *testing.T) {
 		PushedAt:         s.Clock.Now(),
 		NextValidationAt: s.Clock.Now().Add(models.ManifestValidationInterval),
 	}))
+	tr.DBChanges().Ignore()
 
 	// next StorageSweepJob should unmark manifest 1 (because it's now in
 	// the DB) and sweep manifest 2 (since it is still not in the DB)
 	s.Clock.StepBy(8 * time.Hour)
 	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/storage-sweep-manifests-002.sql")
+	tr.DBChanges().AssertEqualf(`
+			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
+			DELETE FROM unknown_manifests WHERE account_name = 'test1' AND repo_name = 'foo' AND digest = '%[2]s';
+			DELETE FROM unknown_manifests WHERE account_name = 'test1' AND repo_name = 'foo' AND digest = '%[3]s';
+		`,
+		s.Clock.Now().Add(6*time.Hour).Unix(), // next_storage_sweep_at
+		testImageList1.Manifest.Digest.String(),
+		testImageList2.Manifest.Digest.String(),
+	)
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 	s.ExpectManifestsExistInStorage(t, "foo",
