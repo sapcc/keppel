@@ -62,7 +62,7 @@ func (j *Janitor) sweepStorage(ctx context.Context, account models.Account, _ pr
 	reducedAccount := account.Reduced()
 
 	// enumerate blobs and manifests in the backing storage
-	actualBlobs, actualManifests, err := j.sd.ListStorageContents(ctx, reducedAccount)
+	actualBlobs, actualManifests, actualTrivyReports, err := j.sd.ListStorageContents(ctx, reducedAccount)
 	if err != nil {
 		return err
 	}
@@ -79,6 +79,10 @@ func (j *Janitor) sweepStorage(ctx context.Context, account models.Account, _ pr
 		return err
 	}
 	err = j.sweepManifestStorage(ctx, reducedAccount, actualManifests, canBeDeletedAt)
+	if err != nil {
+		return err
+	}
+	err = j.sweepTrivyReportStorage(ctx, reducedAccount, actualTrivyReports, canBeDeletedAt)
 	if err != nil {
 		return err
 	}
@@ -257,6 +261,91 @@ func (j *Janitor) sweepManifestStorage(ctx context.Context, account models.Reduc
 			AccountName:    account.Name,
 			RepositoryName: manifest.RepoName,
 			Digest:         manifest.Digest,
+			CanBeDeletedAt: canBeDeletedAt,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.ReducedAccount, actualReports []keppel.StoredTrivyReportInfo, canBeDeletedAt time.Time) error {
+	isActualReport := make(map[keppel.StoredTrivyReportInfo]bool, len(actualReports))
+	for _, m := range actualReports {
+		isActualReport[m] = true
+	}
+
+	// enumerate Trivy reports known to the DB
+	isKnownReport := make(map[keppel.StoredTrivyReportInfo]bool)
+	query := `SELECT r.name, t.digest FROM repos r JOIN trivy_security_info t ON t.repo_id = r.id WHERE r.account_name = $1 AND t.has_enriched_report`
+	err := sqlext.ForeachRow(j.db, query, []any{account.Name}, func(rows *sql.Rows) error {
+		r := keppel.StoredTrivyReportInfo{Format: "json"}
+		err := rows.Scan(&r.RepoName, &r.Digest)
+		isKnownReport[r] = true
+		return err
+	})
+	if err != nil {
+		return err
+	}
+
+	// unmark/sweep phase: enumerate all unknown Trivy reports
+	var unknownReports []models.UnknownTrivyReport
+	_, err = j.db.Select(&unknownReports, `SELECT * FROM unknown_trivy_reports WHERE account_name = $1`, account.Name)
+	if err != nil {
+		return err
+	}
+	isMarkedReport := make(map[keppel.StoredTrivyReportInfo]bool)
+	for _, unknownReport := range unknownReports {
+		unknownReportInfo := keppel.StoredTrivyReportInfo{
+			RepoName: unknownReport.RepositoryName,
+			Digest:   unknownReport.Digest,
+			Format:   unknownReport.Format,
+		}
+
+		// unmark manifests that have been recorded in the database in the meantime
+		if isKnownReport[unknownReportInfo] {
+			_, err = j.db.Delete(&unknownReport)
+			if err != nil {
+				return err
+			}
+			continue
+		}
+
+		// sweep manifests that have been marked long enough
+		isMarkedReport[unknownReportInfo] = true
+		if unknownReport.CanBeDeletedAt.Before(j.timeNow()) {
+			// only call DeleteTrivyReport if we can still see the report in the
+			// backing storage (this protects against unexpected errors e.g. because
+			// an operator deleted the manifest between the mark and sweep phases, or
+			// if we deleted the report from the backing storage in a previous sweep,
+			// but could not remove the unknown_trivy_reports entry from the DB)
+			if isActualReport[unknownReportInfo] {
+				logg.Info("storage sweep in account %s: removing Trivy report %s/%s/%s",
+					account.Name, unknownReport.RepositoryName, unknownReport.Digest, unknownReport.Format)
+				err := j.sd.DeleteTrivyReport(ctx, account, unknownReport.RepositoryName, unknownReport.Digest, unknownReport.Format)
+				if err != nil {
+					return err
+				}
+			}
+			_, err = j.db.Delete(&unknownReport)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// mark phase: record newly discovered unknown manifests in the DB
+	for report := range isActualReport {
+		if isKnownReport[report] || isMarkedReport[report] {
+			continue
+		}
+		err := j.db.Insert(&models.UnknownTrivyReport{
+			AccountName:    account.Name,
+			RepositoryName: report.RepoName,
+			Digest:         report.Digest,
+			Format:         report.Format,
 			CanBeDeletedAt: canBeDeletedAt,
 		})
 		if err != nil {

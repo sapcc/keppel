@@ -540,34 +540,42 @@ func answerMostWith404(h http.Handler) http.HandlerFunc {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// tests for CheckVulnerabilitiesForNextManifest
+// tests for CheckTrivySecurityStatusJob
 
-func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
+func TestCheckTrivySecurityStatus(t *testing.T) {
 	test.WithRoundTripper(func(_ *test.RoundTripper) {
 		j, s := setup(t, test.WithTrivyDouble)
 		s.Clock.StepBy(1 * time.Hour)
 
 		// setup two image manifests with just one content layer (we don't really care about
 		// the content since our Trivy double doesn't care either)
-		images := make([]test.Image, 3)
+		images := make([]test.Image, 3, 4)
+		imageManifests := make([]models.Manifest, 3, 4)
 		for idx := range images {
 			images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
-			images[idx].MustUpload(t, s, fooRepoRef, "")
+			imageManifests[idx] = images[idx].MustUpload(t, s, fooRepoRef, "")
 		}
 		// generate a 2 MiB big image to run into blobUncompressedSizeTooBigGiB
-		images = append(images, test.GenerateImage(test.GenerateExampleLayerSize(int64(2), 2)))
-		images[3].MustUpload(t, s, fooRepoRef, "")
+		bigImage := test.GenerateImage(test.GenerateExampleLayerSize(int64(2), 2))
+		images = append(images, bigImage)
+		imageManifests = append(imageManifests, bigImage.MustUpload(t, s, fooRepoRef, ""))
 
 		// also setup an image list manifest containing those images (so that we have
 		// some manifest-manifest refs to play with)
 		imageList := test.GenerateImageList(images[0], images[1])
-		imageList.MustUpload(t, s, fooRepoRef, "")
+		imageListManifest := imageList.MustUpload(t, s, fooRepoRef, "")
 
 		// adjust too big values down to make testing easier
 		blobUncompressedSizeTooBigGiB = 0.001
 
 		tr, tr0 := easypg.NewTracker(t, s.DB.Db)
 		tr0.AssertEqualToFile("fixtures/vulnerability-check-setup.sql")
+
+		// before the security check, there are no reports stored in storage
+		for _, manifest := range imageManifests {
+			s.ExpectTrivyReportMissingInStorage(t, manifest, "json")
+		}
+		s.ExpectTrivyReportMissingInStorage(t, imageListManifest, "json")
 
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
@@ -584,14 +592,21 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 3 AND account_name = 'test1' AND digest = '%[11]s';
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 5 AND account_name = 'test1' AND digest = '%[12]s';
 			UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 7 AND account_name = 'test1' AND digest = '%[13]s';
-			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[7]d, checked_at = %[6]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[1]s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[7]d, checked_at = %[6]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[1]s';
 			UPDATE trivy_security_info SET next_check_at = %[7]d, checked_at = %[6]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[2]s';
-			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[7]d, checked_at = %[6]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[3]s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[7]d, checked_at = %[6]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[3]s';
 			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[9]g GiB', next_check_at = %[8]d WHERE repo_id = 1 AND digest = '%[4]s';
-			UPDATE trivy_security_info SET vuln_status = 'Clean', next_check_at = %[7]d, checked_at = %[6]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[5]s';
+			UPDATE trivy_security_info SET vuln_status = 'Clean', next_check_at = %[7]d, checked_at = %[6]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[5]s';
 		`, images[0].Manifest.Digest, imageList.Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest, images[1].Manifest.Digest,
 			s.Clock.Now().Unix(), s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Add(24*time.Hour).Unix(), blobUncompressedSizeTooBigGiB,
 			images[0].Layers[0].Digest, images[1].Layers[0].Digest, images[2].Layers[0].Digest, images[3].Layers[0].Digest)
+
+		// for scannable images, a report should now be cached in storage
+		s.ExpectTrivyReportExistsInStorage(t, imageManifests[0], "json", assert.JSONFixtureFile("fixtures/trivy/report-vulnerable.json"))
+		s.ExpectTrivyReportExistsInStorage(t, imageManifests[1], "json", assert.JSONFixtureFile("fixtures/trivy/report-clean.json"))
+		s.ExpectTrivyReportExistsInStorage(t, imageManifests[2], "json", assert.JSONFixtureFile("fixtures/trivy/report-vulnerable.json"))
+		s.ExpectTrivyReportMissingInStorage(t, imageManifests[3], "json")
+		s.ExpectTrivyReportMissingInStorage(t, imageListManifest, "json")
 
 		// check that a changed vulnerability status does not have side effects
 		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
@@ -606,10 +621,13 @@ func TestCheckVulnerabilitiesForNextManifest(t *testing.T) {
 		`, images[0].Manifest.Digest, imageList.Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest,
 			s.Clock.Now().Unix(), s.Clock.Now().Add(1*time.Hour).Unix(),
 		)
+
+		// the changed vulnerability report was reflected in the cache
+		s.ExpectTrivyReportExistsInStorage(t, imageManifests[1], "json", assert.JSONFixtureFile("fixtures/trivy/report-vulnerable.json"))
 	})
 }
 
-func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
+func TestCheckTrivySecurityStatusWithError(t *testing.T) {
 	test.WithRoundTripper(func(_ *test.RoundTripper) {
 		j, s := setup(t, test.WithTrivyDouble)
 		s.Clock.StepBy(1 * time.Hour)
@@ -617,7 +635,7 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
 
 		image := test.GenerateImage(test.GenerateExampleLayer(4))
-		image.MustUpload(t, s, fooRepoRef, "latest")
+		imageManifest := image.MustUpload(t, s, fooRepoRef, "latest")
 		tr.DBChanges().Ignore()
 
 		// simulate transient error
@@ -630,6 +648,9 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 			UPDATE trivy_security_info SET vuln_status = 'Error', message = 'scan error: trivy proxy did not return 200: 500 simulated error', next_check_at = 5700 WHERE repo_id = 1 AND digest = '%[2]s';
 		`, image.Layers[0].Digest, image.Manifest.Digest)
 
+		// on error, no report gets cached
+		s.ExpectTrivyReportMissingInStorage(t, imageManifest, "json")
+
 		// transient error fixed itself after deletion
 		s.Clock.StepBy(30 * time.Minute)
 		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef)] = false
@@ -637,8 +658,11 @@ func TestCheckVulnerabilitiesForNextManifestWithError(t *testing.T) {
 		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
-			UPDATE trivy_security_info SET vuln_status = 'Critical', message = '', next_check_at = %[2]d, checked_at = %[3]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[1]s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', message = '', next_check_at = %[2]d, checked_at = %[3]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[1]s';
 		`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), models.LowSeverity)
+
+		// after successful scan, a report gets cached
+		s.ExpectTrivyReportExistsInStorage(t, imageManifest, "json", assert.JSONFixtureFile("fixtures/trivy/report-vulnerable.json"))
 	})
 }
 
@@ -660,7 +684,7 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
-			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = %[3]d, checked_at = %[4]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[5]s';
+			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = %[3]d, checked_at = %[4]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[5]s';
 		`, image.Layers[0].Digest, models.CriticalSeverity, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
 
 		// the actual checks in this test all look similar: we update the policies
@@ -792,7 +816,7 @@ func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
-			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = %[3]d, checked_at = %[4]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[5]s';
+			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = %[3]d, checked_at = %[4]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[5]s';
 		`, image.Layers[0].Digest, models.RottenVulnerabilityStatus, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
 	})
 }

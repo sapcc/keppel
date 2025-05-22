@@ -15,6 +15,7 @@ import (
 	"github.com/sapcc/go-bits/pluggable"
 
 	"github.com/sapcc/keppel/internal/models"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 // StorageDriver is the abstract interface for a multi-tenant-capable storage
@@ -63,13 +64,20 @@ type StorageDriver interface {
 	WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, contents []byte) error
 	DeleteManifest(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest) error
 
+	// The `format` argument is the value given to Trivy as `--format` when generating the report.
+	// Currently, only `--format json` will be used; and only reports enriched with X-Keppel-Applicable-Policies will be stored.
+	// In the future, this may be extended to other formats if the need arises.
+	ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, format string) ([]byte, error)
+	WriteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, payload trivy.ReportPayload) error
+	DeleteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, format string) error
+
 	// This method shall only be used as a positive signal for the existence of a
 	// blob or manifest in the storage, not as a negative signal: If we expect a
 	// blob or manifest to be in the storage, but it does not show up in these
 	// lists, that does not necessarily mean it does not exist in the storage.
 	// This is because storage implementations may be backed by object stores with
 	// eventual consistency.
-	ListStorageContents(ctx context.Context, account models.ReducedAccount) (blobs []StoredBlobInfo, manifests []StoredManifestInfo, err error)
+	ListStorageContents(ctx context.Context, account models.ReducedAccount) (blobs []StoredBlobInfo, manifests []StoredManifestInfo, trivyReports []StoredTrivyReportInfo, err error)
 
 	// This method is called before a new account is set up in the DB. The
 	// StorageDriver can use this opportunity to check for any reasons why the
@@ -94,6 +102,13 @@ type StoredBlobInfo struct {
 type StoredManifestInfo struct {
 	RepoName string
 	Digest   digest.Digest
+}
+
+// StoredTrivyReportInfo is returned by StorageDriver.ListStorageContents().
+type StoredTrivyReportInfo struct {
+	RepoName string
+	Digest   digest.Digest
+	Format   string
 }
 
 // ErrAuthDriverMismatch is returned by Init() methods on most driver

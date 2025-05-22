@@ -358,13 +358,15 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	relevantPolicies, err := keppel.GetSecurityScanPolicies(*account, *repo)
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-	err = relevantPolicies.EnrichReport(&report)
-	if respondwith.ErrorText(w, err) {
-		return
+	if report.Format == "json" {
+		relevantPolicies, err := keppel.GetSecurityScanPolicies(*account, *repo)
+		if respondwith.ErrorText(w, err) {
+			return
+		}
+		_, err = relevantPolicies.EnrichReport(&report)
+		if respondwith.ErrorText(w, err) {
+			return
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

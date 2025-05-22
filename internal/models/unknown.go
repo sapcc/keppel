@@ -28,3 +28,16 @@ type UnknownManifest struct {
 	Digest         digest.Digest `db:"digest"`
 	CanBeDeletedAt time.Time     `db:"can_be_deleted_at"`
 }
+
+// UnknownTrivyReport contains a record from the `unknown_trivy_reports` table.
+// This is only used by tasks.StorageSweepJob().
+//
+// NOTE: We don't use repository IDs here because unknown Trivy reports may exist in
+// repositories that are also not known to the database.
+type UnknownTrivyReport struct {
+	AccountName    AccountName   `db:"account_name"`
+	RepositoryName string        `db:"repo_name"`
+	Digest         digest.Digest `db:"digest"`
+	Format         string        `db:"format"`
+	CanBeDeletedAt time.Time     `db:"can_be_deleted_at"`
+}

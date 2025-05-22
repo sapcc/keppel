@@ -171,38 +171,54 @@ func (s SecurityScanPolicySet) PolicyForVulnerability(vuln trivy.DetectedVulnera
 }
 
 // EnrichReport computes and inserts the "X-Keppel-Applicable-Policies" field
-// if the report is `--format json`. Other formats are not altered.
-func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload) error {
+// if the report is `--format json`. Other formats are not allowed.
+//
+// This function also calculates the aggregate vulnerability status of the entire report,
+// because it is the only place during a vulnerability check that holds the parsed report.
+func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload) (models.VulnerabilityStatus, error) {
+	// first return value in case of error returns (this is declared here as a shorthand)
+	errorStatus := models.ErrorVulnerabilityStatus
+
 	if payload.Format != "json" {
-		return nil
+		return errorStatus, fmt.Errorf("cannot run EnrichReport() on a ReportPayload with .Format = %q", payload.Format)
 	}
 
 	// decode relevant fields from report
 	parsedReport, err := trivy.UnmarshalReportFromJSON(payload.Contents)
 	if err != nil {
-		return fmt.Errorf("cannot parse Trivy vulnerability report: %w", err)
+		return errorStatus, fmt.Errorf("cannot parse Trivy vulnerability report: %w", err)
+	}
+	var statuses []models.VulnerabilityStatus
+	if parsedReport.Metadata.IsRotten() {
+		statuses = append(statuses, models.RottenVulnerabilityStatus)
 	}
 
-	// compute X-Keppel-Applicable-Policies set
+	// compute X-Keppel-Applicable-Policies set while also collecting constituent VulnerabilityStatus values
 	applicablePolicies := make(map[string]SecurityScanPolicy)
 	for _, result := range parsedReport.Results {
 		for _, vuln := range result.Vulnerabilities {
+			status, ok := trivy.MapToTrivySeverity[vuln.Severity]
+			if !ok {
+				return errorStatus, fmt.Errorf("vulnerability severity with name %q returned by Trivy is unknown and cannot be mapped", vuln.Severity)
+			}
+
 			policy := s.PolicyForVulnerability(vuln)
 			if policy != nil {
 				applicablePolicies[vuln.VulnerabilityID] = *policy
+				status = policy.VulnerabilityStatus()
 			}
+			statuses = append(statuses, status)
 		}
 	}
 
 	// remarshal report if it has changed
-	if len(applicablePolicies) == 0 {
-		return nil
-	}
-	parsedReport.AddField("X-Keppel-Applicable-Policies", applicablePolicies)
-	payload.Contents, err = parsedReport.MarshalJSON()
-	if err != nil {
-		return fmt.Errorf("cannot serialize enriched Trivy vulnerability report: %w", err)
+	if len(applicablePolicies) > 0 {
+		parsedReport.AddField("X-Keppel-Applicable-Policies", applicablePolicies)
+		payload.Contents, err = parsedReport.MarshalJSON()
+		if err != nil {
+			return errorStatus, fmt.Errorf("cannot serialize enriched Trivy vulnerability report: %w", err)
+		}
 	}
 
-	return nil
+	return models.MergeVulnerabilityStatuses(statuses...), nil
 }

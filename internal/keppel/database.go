@@ -351,6 +351,23 @@ var sqlMigrations = map[string]string{
 		ALTER TABLE accounts
 			DROP COLUMN tag_policies_json;
 	`,
+	"049_stored_trivy_reports.up.sql": `
+		ALTER TABLE trivy_security_info
+			ADD COLUMN has_enriched_report BOOLEAN NOT NULL DEFAULT FALSE;
+		CREATE TABLE unknown_trivy_reports (
+			account_name      TEXT        NOT NULL REFERENCES accounts ON DELETE CASCADE,
+			repo_name         TEXT        NOT NULL,
+			digest            TEXT        NOT NULL,
+			format            TEXT        NOT NULL,
+			can_be_deleted_at TIMESTAMPTZ NOT NULL,
+			PRIMARY KEY (account_name, repo_name, digest, format)
+		);
+	`,
+	"049_stored_trivy_reports.down.sql": `
+		ALTER TABLE trivy_security_info
+			DROP COLUMN has_enriched_report;
+		DROP TABLE unknown_trivy_reports;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.
@@ -391,6 +408,7 @@ func InitORM(dbConn *sql.DB) *DB {
 	result.DbMap.AddTableWithName(models.PendingBlob{}, "pending_blobs").SetKeys(false, "account_name", "digest")
 	result.DbMap.AddTableWithName(models.UnknownBlob{}, "unknown_blobs").SetKeys(false, "account_name", "storage_id")
 	result.DbMap.AddTableWithName(models.UnknownManifest{}, "unknown_manifests").SetKeys(false, "account_name", "repo_name", "digest")
+	result.DbMap.AddTableWithName(models.UnknownTrivyReport{}, "unknown_trivy_reports").SetKeys(false, "account_name", "repo_name", "digest", "format")
 	result.DbMap.AddTableWithName(models.TrivySecurityInfo{}, "trivy_security_info").SetKeys(false, "repo_id", "digest")
 
 	return result

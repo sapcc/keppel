@@ -87,15 +87,3 @@ var ansiColorCodeRx = regexp.MustCompile("\x1B" + `\[[0-9;]*m`)
 func stripColor(in string) string {
 	return ansiColorCodeRx.ReplaceAllString(in, "")
 }
-
-// ScanManifest is like ScanManifestAndParse, except that the result is parsed
-// instead of being returned as a bytestring. The report format "json" is
-// implied in order to match the return type.
-func (tc *Config) ScanManifestAndParse(ctx context.Context, keppelToken string, manifestRef models.ImageReference) (Report, error) {
-	report, err := tc.ScanManifest(ctx, keppelToken, manifestRef, "json")
-	if err != nil {
-		return Report{}, err
-	}
-
-	return UnmarshalReportFromJSON(report.Contents)
-}
