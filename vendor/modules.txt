@@ -138,11 +138,11 @@ github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/internal
 github.com/prometheus/client_golang/prometheus/promhttp
 github.com/prometheus/client_golang/prometheus/promhttp/internal
-# github.com/prometheus/client_model v0.6.1
-## explicit; go 1.19
+# github.com/prometheus/client_model v0.6.2
+## explicit; go 1.22.0
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.63.0
-## explicit; go 1.21
+# github.com/prometheus/common v0.64.0
+## explicit; go 1.23.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
 # github.com/prometheus/procfs v0.15.1
@@ -173,7 +173,7 @@ github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
 github.com/sapcc/go-api-declarations/internal/errorset
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20250515130238-da3a0812fc4b
+# github.com/sapcc/go-bits v0.0.0-20250522075915-5bd27cd7279a
 ## explicit; go 1.24
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
@@ -223,7 +223,7 @@ go.uber.org/atomic
 go.uber.org/automaxprocs/internal/cgroups
 go.uber.org/automaxprocs/internal/runtime
 go.uber.org/automaxprocs/maxprocs
-# golang.org/x/sys v0.32.0
+# golang.org/x/sys v0.33.0
 ## explicit; go 1.23.0
 golang.org/x/sys/unix
 golang.org/x/sys/windows
