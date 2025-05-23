@@ -69,7 +69,7 @@ func (s Setup) ExpectManifestsExistInStorage(t *testing.T, repoName string, mani
 	t.Helper()
 	for _, manifest := range manifests {
 		repo, err := keppel.FindRepositoryByID(s.DB, manifest.RepositoryID)
-		mustDo(t, err)
+		MustDo(t, err)
 		account := models.ReducedAccount{Name: repo.AccountName}
 		manifestBytes, err := s.SD.ReadManifest(s.Ctx, account, repoName, manifest.Digest)
 		if err != nil {
@@ -94,7 +94,7 @@ func (s Setup) ExpectManifestsMissingInStorage(t *testing.T, manifests ...models
 	t.Helper()
 	for _, manifest := range manifests {
 		repo, err := keppel.FindRepositoryByID(s.DB, manifest.RepositoryID)
-		mustDo(t, err)
+		MustDo(t, err)
 		account := models.ReducedAccount{Name: repo.AccountName}
 		_, err = s.SD.ReadManifest(s.Ctx, account, "foo", manifest.Digest)
 		if err == nil {

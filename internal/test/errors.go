@@ -49,14 +49,20 @@ func (e ErrorCodeWithMessage) AssertResponseBody(t *testing.T, requestInfo strin
 		expectedStr = fmt.Sprintf("%s with message: %s", e.Code, e.Message)
 	}
 
-	matches := len(data.Errors) == 1 && data.Errors[0].Code == e.Code
-	if matches {
-		matches = e.Message == "" || data.Errors[0].Message == e.Message
+	var matches bool
+	responseStr := string(responseBody)
+	if len(data.Errors) == 1 {
+		responseStr = fmt.Sprintf("%s with message: %s", data.Errors[0].Code, data.Errors[0].Message)
+
+		if data.Errors[0].Code == e.Code {
+			matches = e.Message == "" || data.Errors[0].Message == e.Message
+		}
 	}
+
 	if !matches {
 		t.Error(requestInfo + ": got unexpected error")
 		t.Logf("\texpected = %q\n", expectedStr)
-		t.Logf("\tactual = %q\n", string(responseBody))
+		t.Logf("\tactual = %q\n", responseStr)
 	}
 
 	return matches

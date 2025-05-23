@@ -34,7 +34,7 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 		},
 		ExpectBody: assert.StringData("no bearer token found in request headers\n"),
 	}.Check(t, h)
-	mustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
+	test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
 		test.ToJSON([]keppel.RBACPolicy{{
 			RepositoryPattern: "foo",
 			Permissions:       []keppel.RBACPermission{keppel.RBACAnonymousPullPermission},
@@ -46,7 +46,7 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 		ExpectStatus: http.StatusOK,
 		ExpectBody:   assert.JSONObject{"manifests": []assert.JSONObject{}},
 	}.Check(t, h)
-	mustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1", "")
+	test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1", "")
 
 	// test bearer token auth: obtain a bearer token on the Auth API while
 	// authenticating with Keppel API Auth, then use the bearer token on the
@@ -60,10 +60,7 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 	var tokenData struct {
 		Token string `json:"token"`
 	}
-	err := json.Unmarshal(respBodyBytes, &tokenData)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	test.MustDo(t, json.Unmarshal(respBodyBytes, &tokenData))
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/test1/repositories/foo/_manifests",

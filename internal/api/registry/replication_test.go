@@ -119,9 +119,7 @@ func TestReplicationMissingEntities(t *testing.T) {
 		// ensure that the `test1/foo` repo exists upstream; otherwise we'll just get
 		// NAME_UNKNOWN
 		_, err := keppel.FindOrCreateRepository(s1.DB, "foo", models.AccountName("test1"))
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		test.MustDo(t, err)
 
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
 			var (
@@ -222,10 +220,7 @@ func TestReplicationManifestQuotaExceeded(t *testing.T) {
 			}
 
 			// ...lower quotas so that replication will fail
-			_, err := s2.DB.Exec(`UPDATE quotas SET manifests = $1`, 0)
-			if err != nil {
-				t.Fatal(err.Error())
-			}
+			test.MustExec(t, s2.DB, `UPDATE quotas SET manifests = $1`, 0)
 
 			quotaExceededMessage := test.ErrorCodeWithMessage{
 				Code:    keppel.ErrDenied,
@@ -302,15 +297,12 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "second", nil)
 
 			// enable anonymous pull on the account
-			_, err := s2.DB.Exec(`UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
+			test.MustExec(t, s2.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
 				test.ToJSON([]keppel.RBACPolicy{{
 					RepositoryPattern: ".*",
 					Permissions:       []keppel.RBACPermission{keppel.RBACAnonymousPullPermission},
 				}}),
 			)
-			if err != nil {
-				t.Fatal(err.Error())
-			}
 
 			// get an anonymous token (this is a bit unwieldy because usually all
 			// tests work with non-anonymous tokens, so we don't have helper functions
@@ -327,10 +319,7 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 			var tokenBodyData struct {
 				Token string `json:"token"`
 			}
-			err = json.Unmarshal(tokenBodyBytes, &tokenBodyData)
-			if err != nil {
-				t.Fatal(err.Error())
-			}
+			test.MustDo(t, json.Unmarshal(tokenBodyBytes, &tokenBodyData))
 			anonToken := tokenBodyData.Token
 
 			// replicating pull is forbidden with an anonymous token...
@@ -370,15 +359,12 @@ func TestReplicationAllowAnonymousReplicationFromExternal(t *testing.T) {
 			h2 := s2.Handler
 
 			// enable anonymous pull and replication on test1/bar
-			_, err := s2.DB.Exec(`UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
+			test.MustExec(t, s2.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
 				test.ToJSON([]keppel.RBACPolicy{{
 					RepositoryPattern: "foo",
 					Permissions:       []keppel.RBACPermission{keppel.RBACAnonymousPullPermission, keppel.RBACAnonymousFirstPullPermission},
 				}}),
 			)
-			if err != nil {
-				t.Fatal(err.Error())
-			}
 
 			// get an anonymous token (this is a bit unwieldy because usually all
 			// tests work with non-anonymous tokens, so we don't have helper functions
@@ -396,10 +382,7 @@ func TestReplicationAllowAnonymousReplicationFromExternal(t *testing.T) {
 			var tokenBodyData struct {
 				Token string `json:"token"`
 			}
-			err = json.Unmarshal(tokenBodyBytes, &tokenBodyData)
-			if err != nil {
-				t.Fatal(err.Error())
-			}
+			test.MustDo(t, json.Unmarshal(tokenBodyBytes, &tokenBodyData))
 			anonToken := tokenBodyData.Token
 
 			// the rbac policy allows to replicate test1/foo images
@@ -425,10 +408,7 @@ func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
 			// setup the platform_filter that differentiates this test from
 			// TestReplicationImageList()
-			_, err := s2.DB.Exec(`UPDATE accounts SET platform_filter = $1`, `[{"os":"linux","architecture":"amd64"}]`)
-			if err != nil {
-				t.Fatal(err.Error())
-			}
+			test.MustExec(t, s2.DB, `UPDATE accounts SET platform_filter = $1`, `[{"os":"linux","architecture":"amd64"}]`)
 
 			h2 := s2.Handler
 			token := s2.GetToken(t, "repository:test1/foo:pull")
@@ -519,11 +499,8 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 
 			// reconfigure "test1" into an external replica of tertiary
 			for _, db := range []*keppel.DB{s1.DB, s2.DB} {
-				_, err := db.Exec(`UPDATE accounts SET upstream_peer_hostname = '', external_peer_url = $2 WHERE name = $1`,
+				test.MustExec(t, db, `UPDATE accounts SET upstream_peer_hostname = '', external_peer_url = $2 WHERE name = $1`,
 					"test1", "registry-tertiary.example.org")
-				if err != nil {
-					t.Fatal(err.Error())
-				}
 			}
 
 			// test successful pull delegation (from secondary to primary)

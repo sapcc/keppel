@@ -6,8 +6,6 @@ package tasks
 import (
 	"testing"
 
-	"github.com/go-gorp/gorp/v3"
-
 	"github.com/sapcc/go-bits/easypg"
 
 	"github.com/sapcc/keppel/internal/models"
@@ -69,21 +67,6 @@ func setupReplica(t *testing.T, s1 test.Setup, strategy string) (*Janitor, test.
 	j2 := NewJanitor(s.Config, s.FD, s.SD, s.ICD, s.DB, s.AMD, s.Auditor).OverrideTimeNow(s.Clock.Now).OverrideGenerateStorageID(s.SIDGenerator.Next)
 	j2.DisableJitter()
 	return j2, s
-}
-
-func mustDo(t *testing.T, err error) {
-	t.Helper()
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-}
-
-func mustExec(t *testing.T, db gorp.SqlExecutor, query string, args ...any) {
-	t.Helper()
-	_, err := db.Exec(query, args...)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
 }
 
 func expectSuccess(t *testing.T, err error) {

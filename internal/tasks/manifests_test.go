@@ -86,21 +86,21 @@ func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*keppe
 func TestManifestValidationJobFixesWrongSize(t *testing.T) {
 	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
 		_, _ = allBlobIDs, allManifestDigests
-		mustExec(t, db, `UPDATE manifests SET size_bytes = 1337`)
+		test.MustExec(t, db, `UPDATE manifests SET size_bytes = 1337`)
 	})
 }
 
 func TestManifestValidationJobFixesMissingManifestBlobRefs(t *testing.T) {
 	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
 		_, _ = allBlobIDs, allManifestDigests
-		mustExec(t, db, `DELETE FROM manifest_blob_refs WHERE blob_id % 2 = 0`)
+		test.MustExec(t, db, `DELETE FROM manifest_blob_refs WHERE blob_id % 2 = 0`)
 	})
 }
 
 func TestManifestValidationJobFixesMissingManifestManifestRefs(t *testing.T) {
 	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
 		_, _ = allBlobIDs, allManifestDigests
-		mustExec(t, db, `DELETE FROM manifest_manifest_refs`)
+		test.MustExec(t, db, `DELETE FROM manifest_manifest_refs`)
 	})
 }
 
@@ -108,7 +108,7 @@ func TestManifestValidationJobFixesSuperfluousManifestBlobRefs(t *testing.T) {
 	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
 		for _, id := range allBlobIDs {
 			for _, d := range allManifestDigests {
-				mustExec(t, db, `INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, $1, $2) ON CONFLICT DO NOTHING`, d, id)
+				test.MustExec(t, db, `INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, $1, $2) ON CONFLICT DO NOTHING`, d, id)
 			}
 		}
 	})
@@ -119,7 +119,7 @@ func TestManifestValidationJobFixesSuperfluousManifestManifestRefs(t *testing.T)
 		_ = allBlobIDs
 		for _, d1 := range allManifestDigests {
 			for _, d2 := range allManifestDigests {
-				mustExec(t, db, `INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2) ON CONFLICT DO NOTHING`, d1, d2)
+				test.MustExec(t, db, `INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (1, $1, $2) ON CONFLICT DO NOTHING`, d1, d2)
 			}
 		}
 	})
@@ -133,7 +133,7 @@ func TestManifestValidationJobError(t *testing.T) {
 	// manually since the MustUpload functions care about uploading stuff intact)
 	s.Clock.StepBy(1 * time.Hour)
 	image := test.GenerateImage( /* no layers */ )
-	mustDo(t, s.DB.Insert(&models.Manifest{
+	test.MustDo(t, s.DB.Insert(&models.Manifest{
 		RepositoryID:     1,
 		Digest:           image.Manifest.Digest,
 		MediaType:        image.Manifest.MediaType,
@@ -141,18 +141,18 @@ func TestManifestValidationJobError(t *testing.T) {
 		PushedAt:         s.Clock.Now(),
 		NextValidationAt: s.Clock.Now().Add(models.ManifestValidationInterval),
 	}))
-	mustDo(t, s.DB.Insert(&models.ManifestContent{
+	test.MustDo(t, s.DB.Insert(&models.ManifestContent{
 		RepositoryID: 1,
 		Digest:       image.Manifest.Digest.String(),
 		Content:      image.Manifest.Contents,
 	}))
-	mustDo(t, s.DB.Insert(&models.TrivySecurityInfo{
+	test.MustDo(t, s.DB.Insert(&models.TrivySecurityInfo{
 		RepositoryID:        1,
 		Digest:              image.Manifest.Digest,
 		NextCheckAt:         time.Unix(0, 0),
 		VulnerabilityStatus: models.PendingVulnerabilityStatus,
 	}))
-	mustDo(t, s.SD.WriteManifest(s.Ctx, s.Accounts[0].Reduced(), "foo", image.Manifest.Digest, image.Manifest.Contents))
+	test.MustDo(t, s.SD.WriteManifest(s.Ctx, s.Accounts[0].Reduced(), "foo", image.Manifest.Digest, image.Manifest.Contents))
 
 	// validation should yield an error
 	s.Clock.StepBy(36 * time.Hour)
@@ -218,7 +218,7 @@ func TestManifestSyncJob(t *testing.T) {
 			// some of the replicated images are also tagged
 			for _, db := range []*keppel.DB{s1.DB, s2.DB} {
 				for _, tagName := range []string{"latest", "other"} {
-					mustExec(t, db,
+					test.MustExec(t, db,
 						`INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (1, $1, $2, $3)`,
 						tagName,
 						images[1].Manifest.Digest,
@@ -243,24 +243,24 @@ func TestManifestSyncJob(t *testing.T) {
 			// set a well-known last_pulled_at timestamp on all manifests in the primary
 			// DB (we will later verify that this was not touched by the manifest sync)
 			initialLastPulledAt := time.Unix(42, 0)
-			mustExec(t, s1.DB, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
-			mustExec(t, s1.DB, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
+			test.MustExec(t, s1.DB, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
+			test.MustExec(t, s1.DB, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
 			// we set last_pulled_at to NULL on images[3] to verify that we can merge
 			// NULL with a non-NULL last_pulled_at from the replica side
-			mustExec(t, s1.DB, `UPDATE manifests SET last_pulled_at = NULL WHERE digest = $1`, images[3].Manifest.Digest)
+			test.MustExec(t, s1.DB, `UPDATE manifests SET last_pulled_at = NULL WHERE digest = $1`, images[3].Manifest.Digest)
 
 			// as an exception, in the on_first_use method, we can and want to merge
 			// last_pulled_at timestamps from the replica into those of the primary, so
 			// set some of those to verify the merging behavior
 			earlierLastPulledAt := initialLastPulledAt.Add(-10 * time.Second)
 			laterLastPulledAt := initialLastPulledAt.Add(+10 * time.Second)
-			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = NULL`)
-			mustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = NULL`)
-			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, earlierLastPulledAt, images[1].Manifest.Digest)
-			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, laterLastPulledAt, images[2].Manifest.Digest)
-			mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, initialLastPulledAt, images[3].Manifest.Digest)
-			mustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, earlierLastPulledAt, "latest")
-			mustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, laterLastPulledAt, "other")
+			test.MustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = NULL`)
+			test.MustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = NULL`)
+			test.MustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, earlierLastPulledAt, images[1].Manifest.Digest)
+			test.MustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, laterLastPulledAt, images[2].Manifest.Digest)
+			test.MustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1 WHERE digest = $2`, initialLastPulledAt, images[3].Manifest.Digest)
+			test.MustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, earlierLastPulledAt, "latest")
+			test.MustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1 WHERE name = $2`, laterLastPulledAt, "other")
 
 			tr, tr0 := easypg.NewTracker(t, s2.DB.Db)
 			tr0.AssertEqualToFile(fmt.Sprintf("fixtures/manifest-sync-setup-%s.sql", strategy))
@@ -298,10 +298,10 @@ func TestManifestSyncJob(t *testing.T) {
 					images[2].Manifest.Digest,
 				)
 				// reset all timestamps to prevent divergences in the rest of the test
-				mustExec(t, s1.DB, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
-				mustExec(t, s1.DB, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
-				mustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
-				mustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
+				test.MustExec(t, s1.DB, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
+				test.MustExec(t, s1.DB, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
+				test.MustExec(t, s2.DB, `UPDATE manifests SET last_pulled_at = $1`, initialLastPulledAt)
+				test.MustExec(t, s2.DB, `UPDATE tags SET last_pulled_at = $1`, initialLastPulledAt)
 				tr.DBChanges() // skip these changes
 			} else {
 				trForPrimary.DBChanges().AssertEmpty()
@@ -309,12 +309,12 @@ func TestManifestSyncJob(t *testing.T) {
 
 			// delete a manifest on the primary side (this one is a simple image not referenced by anyone else)
 			s1.Clock.StepBy(2 * time.Hour)
-			mustExec(t, s1.DB,
+			test.MustExec(t, s1.DB,
 				`DELETE FROM manifests WHERE digest = $1`,
 				images[3].Manifest.Digest,
 			)
 			// move a tag on the primary side
-			mustExec(t, s1.DB,
+			test.MustExec(t, s1.DB,
 				`UPDATE tags SET digest = $1 WHERE name = 'latest'`,
 				images[2].Manifest.Digest,
 			)
@@ -324,7 +324,7 @@ func TestManifestSyncJob(t *testing.T) {
 			// ManifestSyncJob on the replica side should not do anything while
 			// the account is in maintenance; only the timestamp is updated to make sure
 			// that the job loop progresses to the next repo
-			mustExec(t, s2.DB, `UPDATE accounts SET is_deleting = TRUE`)
+			test.MustExec(t, s2.DB, `UPDATE accounts SET is_deleting = TRUE`)
 			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEqualf(`
 					UPDATE accounts SET is_deleting = TRUE WHERE name = 'test1';
@@ -336,7 +336,7 @@ func TestManifestSyncJob(t *testing.T) {
 			tr.DBChanges().AssertEmpty()
 
 			// end deletion
-			mustExec(t, s2.DB, `UPDATE accounts SET is_deleting = FALSE`)
+			test.MustExec(t, s2.DB, `UPDATE accounts SET is_deleting = FALSE`)
 			tr.DBChanges().AssertEqual(`UPDATE accounts SET is_deleting = FALSE WHERE name = 'test1';`)
 
 			// test that replication from external uses the inbound cache
@@ -402,11 +402,11 @@ func TestManifestSyncJob(t *testing.T) {
 			// *is* referenced by another manifest (this requires deleting the
 			// manifest-manifest ref first, otherwise the DB will complain)
 			s1.Clock.StepBy(7 * time.Hour)
-			mustExec(t, s1.DB,
+			test.MustExec(t, s1.DB,
 				`DELETE FROM manifest_manifest_refs WHERE child_digest = $1`,
 				images[2].Manifest.Digest,
 			)
-			mustExec(t, s1.DB,
+			test.MustExec(t, s1.DB,
 				`DELETE FROM manifests WHERE digest = $1`,
 				images[2].Manifest.Digest,
 			)
@@ -434,12 +434,12 @@ func TestManifestSyncJob(t *testing.T) {
 
 			// also remove the image list manifest on the primary side
 			s1.Clock.StepBy(7 * time.Hour)
-			mustExec(t, s1.DB,
+			test.MustExec(t, s1.DB,
 				`DELETE FROM manifests WHERE digest = $1`,
 				imageList.Manifest.Digest,
 			)
 			// and remove the other tag (this is required for the 404 error message in the next step but one to be deterministic)
-			mustExec(t, s1.DB, `DELETE FROM tags`)
+			test.MustExec(t, s1.DB, `DELETE FROM tags`)
 
 			// this makes the primary side consistent again, so ManifestSyncJob
 			// should succeed now and remove both deleted manifests from the DB
@@ -499,8 +499,8 @@ func TestManifestSyncJob(t *testing.T) {
 			http.DefaultTransport.(*test.RoundTripper).Handlers["registry.example.org"] = s1.Handler
 			// delete the entire repository on the primary
 			s1.Clock.StepBy(7 * time.Hour)
-			mustExec(t, s1.DB, `DELETE FROM manifests`)
-			mustExec(t, s1.DB, `DELETE FROM repos`)
+			test.MustExec(t, s1.DB, `DELETE FROM manifests`)
+			test.MustExec(t, s1.DB, `DELETE FROM repos`)
 			// the manifest sync should reflect the repository deletion on the replica
 			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
 			tr.DBChanges().AssertEqualf(`
@@ -668,9 +668,9 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 		expect := func(severity models.VulnerabilityStatus, policies ...keppel.SecurityScanPolicy) {
 			t.Helper()
 			policyJSON := must.Return(json.Marshal(policies))
-			mustExec(t, s.DB, `UPDATE accounts SET security_scan_policies_json = $1`, string(policyJSON))
+			test.MustExec(t, s.DB, `UPDATE accounts SET security_scan_policies_json = $1`, string(policyJSON))
 			// ensure that `SET vuln_status = ...` always shows up in the diff below
-			mustExec(t, s.DB, `UPDATE trivy_security_info SET vuln_status = $1`, models.PendingVulnerabilityStatus)
+			test.MustExec(t, s.DB, `UPDATE trivy_security_info SET vuln_status = $1`, models.PendingVulnerabilityStatus)
 			tr.DBChanges().Ignore()
 
 			s.Clock.StepBy(1 * time.Hour)

@@ -108,7 +108,11 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 				return fmt.Errorf("while deleting manifest %q in repository %q: could not find repository in DB: %w",
 					digestStr, repoName, err)
 			}
-			err = j.processor().DeleteManifest(ctx, accountModel.Reduced(), *repo, parsedDigest, actx)
+			tagPolicies, err := keppel.ParseTagPolicies(accountModel.TagPoliciesJSON)
+			if err != nil {
+				return err
+			}
+			err = j.processor().DeleteManifest(ctx, accountModel.Reduced(), *repo, parsedDigest, tagPolicies, actx)
 			if err != nil {
 				return fmt.Errorf("while deleting manifest %q in repository %q: %w",
 					digestStr, repoName, err)

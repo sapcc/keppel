@@ -15,6 +15,7 @@ type Account struct {
 	RBACPolicies      []RBACPolicy          `json:"rbac_policies"`
 	ReplicationPolicy *ReplicationPolicy    `json:"replication,omitempty"`
 	State             string                `json:"state,omitempty"`
+	TagPolicies       []TagPolicy           `json:"tag_policies,omitempty"`
 	ValidationPolicy  *ValidationPolicy     `json:"validation,omitempty"`
 	PlatformFilter    models.PlatformFilter `json:"platform_filter,omitempty"`
 	Metadata          *map[string]string    `json:"metadata"`
@@ -26,6 +27,7 @@ func RenderAccount(dbAccount models.Account) (Account, error) {
 	if err != nil {
 		return Account{}, err
 	}
+
 	rbacPolicies, err := ParseRBACPolicies(dbAccount)
 	if err != nil {
 		return Account{}, err
@@ -34,6 +36,16 @@ func RenderAccount(dbAccount models.Account) (Account, error) {
 		// do not render "null" in this field
 		rbacPolicies = []RBACPolicy{}
 	}
+
+	tagPolicies, err := ParseTagPolicies(dbAccount.TagPoliciesJSON)
+	if err != nil {
+		return Account{}, err
+	}
+	if tagPolicies == nil {
+		// do not render "null" in this field
+		tagPolicies = []TagPolicy{}
+	}
+
 	var state string
 	if dbAccount.IsDeleting {
 		state = "deleting"
@@ -46,6 +58,7 @@ func RenderAccount(dbAccount models.Account) (Account, error) {
 		State:             state,
 		RBACPolicies:      rbacPolicies,
 		ReplicationPolicy: RenderReplicationPolicy(dbAccount),
+		TagPolicies:       tagPolicies,
 		ValidationPolicy:  RenderValidationPolicy(dbAccount.Reduced()),
 		PlatformFilter:    dbAccount.PlatformFilter,
 	}, nil

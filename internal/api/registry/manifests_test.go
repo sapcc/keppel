@@ -54,9 +54,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			// and even if it does...
 			_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1"))
-			if err != nil {
-				t.Fatal(err.Error())
-			}
+			test.MustDo(t, err)
 			// ...the manifest does not exist before it is pushed
 			for _, method := range []string{"GET", "HEAD"} {
 				assert.HTTPRequest{
@@ -204,6 +202,16 @@ func TestImageManifestLifecycle(t *testing.T) {
 			s.Clock.StepBy(time.Second)
 			easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-002-after-upload-blob.sql")
 
+			// block overwrite should not trigger when pushing the same manifest twice
+			test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $2 WHERE name = $1`, "test1",
+				test.ToJSON([]keppel.TagPolicy{{
+					PolicyMatchRule: keppel.PolicyMatchRule{
+						RepositoryRx: "foo",
+					},
+					BlockOverwrite: true,
+				}}),
+			)
+
 			image.MustUpload(t, s, fooRepoRef, tagName)
 			image.MustUpload(t, s, fooRepoRef, tagName)
 			s.Clock.StepBy(time.Second)
@@ -211,6 +219,25 @@ func TestImageManifestLifecycle(t *testing.T) {
 				easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-tag.sql")
 			} else {
 				easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-003-after-upload-manifest-by-digest.sql")
+			}
+
+			if ref == "latest" {
+				// block overwrite should prevent overwriting the tag
+				assert.HTTPRequest{
+					Method: "PUT",
+					Path:   "/v2/test1/foo/manifests/" + ref,
+					Header: map[string]string{
+						"Authorization": "Bearer " + token,
+						"Content-Type":  manifest.DockerV2Schema2MediaType,
+					},
+					Body:         assert.ByteData(test.GenerateImage(test.GenerateExampleLayer(1)).Manifest.Contents),
+					ExpectStatus: http.StatusConflict,
+					ExpectHeader: test.VersionHeader,
+					ExpectBody: test.ErrorCodeWithMessage{
+						Code:    keppel.ErrDenied,
+						Message: "cannot overwrite tag \"latest\" as it is protected by a tag_policy",
+					},
+				}.Check(t, h)
 			}
 
 			// we did two PUTs, but only the first one will be logged since the second one did not change anything
@@ -279,17 +306,11 @@ func TestImageManifestLifecycle(t *testing.T) {
 			}
 
 			// test display of custom headers during GET/HEAD
-			_, err = s.DB.Exec(
+			test.MustExec(t, s.DB,
 				`UPDATE manifests SET min_layer_created_at = $1, max_layer_created_at = $2 WHERE digest = $3`,
 				time.Unix(23, 0).UTC(), time.Unix(42, 0).UTC(), image.Manifest.Digest.String(),
 			)
-			if err != nil {
-				t.Fatal(err.Error())
-			}
-			_, err = s.DB.Exec(`UPDATE trivy_security_info SET vuln_status = $1 WHERE digest = $2`, models.CleanSeverity, image.Manifest.Digest.String())
-			if err != nil {
-				t.Fatal(err.Error())
-			}
+			test.MustExec(t, s.DB, `UPDATE trivy_security_info SET vuln_status = $1 WHERE digest = $2`, models.CleanSeverity, image.Manifest.Digest.String())
 
 			for _, method := range []string{"GET", "HEAD"} {
 				assert.HTTPRequest{
@@ -317,15 +338,12 @@ func TestImageManifestLifecycle(t *testing.T) {
 					"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull"`,
 				},
 			}.Check(t, h)
-			_, err = s.DB.Exec(`UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
+			test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
 				test.ToJSON([]keppel.RBACPolicy{{
 					RepositoryPattern: "foo",
 					Permissions:       []keppel.RBACPermission{keppel.RBACAnonymousPullPermission},
 				}}),
 			)
-			if err != nil {
-				t.Fatal(err.Error())
-			}
 			assert.HTTPRequest{
 				Method:       "GET",
 				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
@@ -333,10 +351,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectHeader: test.VersionHeader,
 				ExpectBody:   assert.ByteData(image.Manifest.Contents),
 			}.Check(t, h)
-			_, err = s.DB.Exec(`UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1", "")
-			if err != nil {
-				t.Fatal(err.Error())
-			}
+			test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1", "")
 
 			// DELETE failure case: no delete permission
 			assert.HTTPRequest{
@@ -367,6 +382,26 @@ func TestImageManifestLifecycle(t *testing.T) {
 				ExpectHeader: test.VersionHeader,
 				ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
 			}.Check(t, h)
+
+			test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $2 WHERE name = $1`, "test1",
+				test.ToJSON([]keppel.TagPolicy{{
+					PolicyMatchRule: keppel.PolicyMatchRule{
+						RepositoryRx: "foo",
+					},
+					BlockDelete: true,
+				}}),
+			)
+
+			// DELETE failure case: tag is protected by tag policy
+			assert.HTTPRequest{
+				Method:       "DELETE",
+				Path:         "/v2/test1/foo/manifests/" + ref,
+				Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+				ExpectStatus: http.StatusConflict,
+				ExpectHeader: test.VersionHeader,
+			}.Check(t, h)
+
+			test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = '[]' WHERE name = $1`, "test1")
 
 			// no deletes were successful yet, so...
 			s.Auditor.ExpectEvents(t /*, nothing */)
@@ -505,10 +540,7 @@ func TestManifestQuotaExceeded(t *testing.T) {
 		image2.MustUpload(t, s, fooRepoRef, "second")
 
 		// set quota below usage
-		_, err := s.DB.Exec(`UPDATE quotas SET manifests = $1`, 1)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		test.MustExec(t, s.DB, `UPDATE quotas SET manifests = $1`, 1)
 
 		quotaExceededMessage := test.ErrorCodeWithMessage{
 			Code:    keppel.ErrDenied,
@@ -550,13 +582,10 @@ func TestManifestRequiredLabels(t *testing.T) {
 		image.Layers[0].MustUpload(t, s, fooRepoRef)
 
 		// setup required labels on account for failure
-		_, err := s.DB.Exec(
+		test.MustExec(t, s.DB,
 			`UPDATE accounts SET required_labels = $1 WHERE name = $2`,
 			"foo,somethingelse,andalsothis", "test1",
 		)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
 
 		// manifest push should fail
 		assert.HTTPRequest{
@@ -576,13 +605,10 @@ func TestManifestRequiredLabels(t *testing.T) {
 		}.Check(t, h)
 
 		// setup required labels on account for success
-		_, err = s.DB.Exec(
+		test.MustExec(t, s.DB,
 			`UPDATE accounts SET required_labels = $1 WHERE name = $2`,
 			"foo,bar", "test1",
 		)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
 
 		// manifest push should succeed
 		assert.HTTPRequest{
@@ -637,15 +663,10 @@ func TestManifestRequiredLabels(t *testing.T) {
 func expectLabelsJSONOnManifest(t *testing.T, db *keppel.DB, manifestDigest digest.Digest, expected map[string]string) {
 	t.Helper()
 	labelsJSONStr, err := db.SelectStr(`SELECT labels_json FROM manifests WHERE digest = $1`, manifestDigest.String())
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	test.MustDo(t, err)
 
 	var actual map[string]string
-	err = json.Unmarshal([]byte(labelsJSONStr), &actual)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	test.MustDo(t, json.Unmarshal([]byte(labelsJSONStr), &actual))
 	assert.DeepEqual(t, "labels_json", actual, expected)
 }
 
@@ -724,9 +745,7 @@ func TestManifestAnnotations(t *testing.T) {
 
 		// check that the annotations_json field is populated correctly in the DB
 		labelsJSONStr, err := s.DB.SelectStr(`SELECT annotations_json FROM manifests WHERE digest = $1`, image.Manifest.Digest.String())
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		test.MustDo(t, err)
 
 		var actual map[string]string
 		must.Succeed(json.Unmarshal([]byte(labelsJSONStr), &actual))
@@ -758,9 +777,7 @@ func TestManifestArtifactType(t *testing.T) {
 
 		// check that the annotations_json field is populated correctly in the DB
 		artifactTypeStr, err := s.DB.SelectStr(`SELECT artifact_type FROM manifests WHERE digest = $1`, image.Manifest.Digest.String())
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		test.MustDo(t, err)
 
 		assert.DeepEqual(t, "artifact_type", artifactType, artifactTypeStr)
 	})

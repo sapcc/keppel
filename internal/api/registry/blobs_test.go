@@ -171,15 +171,12 @@ func TestBlobMonolithicUpload(t *testing.T) {
 				"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull"`,
 			},
 		}.Check(t, h)
-		_, err := s.DB.Exec(`UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
+		test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
 			test.ToJSON([]keppel.RBACPolicy{{
 				RepositoryPattern: "foo",
 				Permissions:       []keppel.RBACPermission{keppel.RBACAnonymousPullPermission},
 			}}),
 		)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/test1/foo/blobs/" + blob.Digest.String(),
@@ -187,10 +184,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   assert.ByteData(blob.Contents),
 		}.Check(t, h)
-		_, err = s.DB.Exec(`UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1", "")
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1", "")
 	})
 }
 
@@ -221,9 +215,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			// create the "test1/foo" repository to ensure that we don't just always hit
 			// NAME_UNKNOWN errors
 			_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1"))
-			if err != nil {
-				t.Fatal(err.Error())
-			}
+			test.MustDo(t, err)
 
 			// test failure cases during POST: anonymous is not allowed, should yield an auth challenge
 			assert.HTTPRequest{
@@ -536,9 +528,7 @@ func TestGetBlobUpload(t *testing.T) {
 		// create the "test1/foo" repository to ensure that we don't just always hit
 		// NAME_UNKNOWN errors
 		_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1"))
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		test.MustDo(t, err)
 
 		// test failure cases: no such upload
 		assert.HTTPRequest{
@@ -663,9 +653,7 @@ func TestDeleteBlobUpload(t *testing.T) {
 		// create the "test1/foo" repository to ensure that we don't just always hit
 		// NAME_UNKNOWN errors
 		_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1"))
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		test.MustDo(t, err)
 
 		// test failure cases: no such upload
 		assert.HTTPRequest{

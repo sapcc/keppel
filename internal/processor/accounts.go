@@ -81,6 +81,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 			Name:                     account.Name,
 			AuthTenantID:             account.AuthTenantID,
 			SecurityScanPoliciesJSON: "[]",
+			TagPoliciesJSON:          "[]",
 			// all other attributes are set below or in the ApplyToAccount() methods called below
 		}
 	} else {
@@ -102,6 +103,20 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 		}
 		buf, _ := json.Marshal(account.GCPolicies)
 		targetAccount.GCPoliciesJSON = string(buf)
+	}
+
+	// validate Tag policies
+	if len(account.TagPolicies) == 0 {
+		targetAccount.TagPoliciesJSON = "[]"
+	} else {
+		for _, policy := range account.TagPolicies {
+			err := policy.Validate()
+			if err != nil {
+				return models.Account{}, keppel.AsRegistryV2Error(err).WithStatus(http.StatusUnprocessableEntity)
+			}
+		}
+		buf, _ := json.Marshal(account.TagPolicies)
+		targetAccount.TagPoliciesJSON = string(buf)
 	}
 
 	// validate replication policy (for OnFirstUseStrategy, the peer hostname is

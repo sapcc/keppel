@@ -50,7 +50,7 @@ func TestSweepBlobMounts(t *testing.T) {
 	// save one of those blob mounts from deletion by creating a manifest-blob
 	// reference for it (this reference is actually bogus and would be removed by
 	// the ManifestValidationJob, but we're not testing that here)
-	mustExec(t, s.DB,
+	test.MustExec(t, s.DB,
 		`INSERT INTO manifest_blob_refs (blob_id, repo_id, digest) VALUES ($1, 1, $2)`,
 		dbBogusBlob2.ID, image.Manifest.Digest.String(),
 	)

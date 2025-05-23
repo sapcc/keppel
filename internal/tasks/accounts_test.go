@@ -20,7 +20,7 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 	s.Clock.StepBy(1 * time.Hour)
 
 	var account1 models.Account
-	mustDo(t, s.DB.SelectOne(&account1, `SELECT * FROM accounts`))
+	test.MustDo(t, s.DB.SelectOne(&account1, `SELECT * FROM accounts`))
 
 	accountJob := j.AccountFederationAnnouncementJob(s.Registry)
 
@@ -34,7 +34,7 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 	// setup another account; only that one should need announcing initially
 	s.Clock.StepBy(5 * time.Minute)
 	account2 := models.Account{Name: "test2", AuthTenantID: "test2authtenant", GCPoliciesJSON: "[]"}
-	mustDo(t, s.DB.Insert(&account2))
+	test.MustDo(t, s.DB.Insert(&account2))
 	expectSuccess(t, accountJob.ProcessOne(s.Ctx))
 	expectAccountsAnnouncedJustNow(t, s, account2)
 	expectError(t, sql.ErrNoRows.Error(), accountJob.ProcessOne(s.Ctx))

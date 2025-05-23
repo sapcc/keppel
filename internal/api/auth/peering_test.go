@@ -23,10 +23,7 @@ func TestPeeringAPI(t *testing.T) {
 
 		// set up peer.example.org as a peer of us, otherwise we will reject peering
 		// attempts from that source
-		err := s.DB.Insert(&models.Peer{HostName: "peer.example.org"})
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		test.MustDo(t, s.DB.Insert(&models.Peer{HostName: "peer.example.org"}))
 
 		// upon receiving a peering request, the implementation will attempt to
 		// validate the supplied credentials by calling the peer's auth API - this is
