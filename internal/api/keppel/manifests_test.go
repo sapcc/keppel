@@ -39,12 +39,10 @@ func deterministicDummyVulnStatus(counter int) models.VulnerabilityStatus {
 
 func TestManifestsAPI(t *testing.T) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
-		s := test.NewSetup(t, test.WithKeppelAPI, test.WithTrivyDouble)
+		s := test.NewSetup(t, test.WithKeppelAPI, test.WithTrivyDouble,
+			test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
+			test.WithAccount(models.Account{Name: "test2", AuthTenantID: "tenant2"}))
 		h := s.Handler
-
-		// setup two test accounts
-		test.MustExec(t, s.DB, `INSERT INTO accounts (name, auth_tenant_id) VALUES ('test1', 'tenant1')`)
-		test.MustExec(t, s.DB, `INSERT INTO accounts (name, auth_tenant_id) VALUES ('test2', 'tenant2')`)
 
 		// setup test repos (`repo1-2` and `repo2-1` only exist to validate that we
 		// don't accidentally list manifests from there)

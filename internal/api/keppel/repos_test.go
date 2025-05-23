@@ -18,12 +18,10 @@ import (
 )
 
 func TestReposAPI(t *testing.T) {
-	s := test.NewSetup(t, test.WithKeppelAPI)
+	s := test.NewSetup(t, test.WithKeppelAPI,
+		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
+		test.WithAccount(models.Account{Name: "test2", AuthTenantID: "tenant2"}))
 	h := s.Handler
-
-	// setup two test accounts
-	test.MustExec(t, s.DB, `INSERT INTO accounts (name, auth_tenant_id) VALUES ('test1', 'tenant1')`)
-	test.MustExec(t, s.DB, `INSERT INTO accounts (name, auth_tenant_id) VALUES ('test2', 'tenant2')`)
 
 	// test empty result
 	assert.HTTPRequest{
