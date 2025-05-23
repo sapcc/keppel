@@ -205,43 +205,49 @@ func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.
 	rx := regexp.MustCompile(`^` + blobKey(account, `(.*)`) + `$`)
 	for key := range d.blobs {
 		match := rx.FindStringSubmatch(key)
-		if match != nil {
-			blobs = append(blobs, keppel.StoredBlobInfo{
-				StorageID:  match[1],
-				ChunkCount: d.blobChunkCounts[key],
-			})
+		if match == nil {
+			continue
 		}
+
+		blobs = append(blobs, keppel.StoredBlobInfo{
+			StorageID:  match[1],
+			ChunkCount: d.blobChunkCounts[key],
+		})
 	}
 
 	rx = regexp.MustCompile(`^` + manifestKey(account, `(.*)`, `(.*)`) + `$`)
 	for key := range d.manifests {
 		match := rx.FindStringSubmatch(key)
-		if match != nil {
-			manifestDigest, err := digest.Parse(match[2])
-			if err != nil {
-				return nil, nil, nil, err
-			}
-			manifests = append(manifests, keppel.StoredManifestInfo{
-				RepoName: match[1],
-				Digest:   manifestDigest,
-			})
+		if match == nil {
+			continue
 		}
+
+		manifestDigest, err := digest.Parse(match[2])
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		manifests = append(manifests, keppel.StoredManifestInfo{
+			RepoName: match[1],
+			Digest:   manifestDigest,
+		})
 	}
 
 	rx = regexp.MustCompile(`^` + trivyReportKey(account, `(.*)`, `(.*)`, `(.*)`) + `$`)
 	for key := range d.trivyReports {
 		match := rx.FindStringSubmatch(key)
-		if match != nil {
-			manifestDigest, err := digest.Parse(match[2])
-			if err != nil {
-				return nil, nil, nil, err
-			}
-			trivyReports = append(trivyReports, keppel.StoredTrivyReportInfo{
-				RepoName: match[1],
-				Digest:   manifestDigest,
-				Format:   match[3],
-			})
+		if match == nil {
+			continue
 		}
+
+		manifestDigest, err := digest.Parse(match[2])
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		trivyReports = append(trivyReports, keppel.StoredTrivyReportInfo{
+			RepoName: match[1],
+			Digest:   manifestDigest,
+			Format:   match[3],
+		})
 	}
 
 	return blobs, manifests, trivyReports, nil
