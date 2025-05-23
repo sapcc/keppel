@@ -13,6 +13,7 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
@@ -256,6 +257,9 @@ func (j *Janitor) evaluatePolicy(ctx context.Context, proc *processor.Processor,
 				},
 				Request: janitorDummyRequest,
 			})
+			if _, ok := errext.As[processor.DeleteManifestBlockedByTagPolicyError](err); ok { //nolint:errcheck // intended to be skipped
+				continue
+			}
 			if err != nil {
 				return err
 			}

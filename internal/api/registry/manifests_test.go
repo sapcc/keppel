@@ -235,7 +235,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 					ExpectHeader: test.VersionHeader,
 					ExpectBody: test.ErrorCodeWithMessage{
 						Code:    keppel.ErrDenied,
-						Message: "cannot overwrite manifest as it is protected by a tag_policy",
+						Message: "cannot overwrite tag \"latest\" as it is protected by a tag_policy",
 					},
 				}.Check(t, h)
 			}
