@@ -129,6 +129,8 @@ linters:
       replace-allow-list:
         # for go-pmtud
         - github.com/mdlayher/arp
+        # for github.com/sapcc/vpa_butler
+        - k8s.io/client-go
       toolchain-forbidden: true
       go-version-pattern: 1\.\d+(\.0)?$
     gosec:
