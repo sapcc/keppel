@@ -24,5 +24,5 @@ func ParseTagPolicies(tagPoliciesJSON string) ([]TagPolicy, error) {
 }
 
 func (t TagPolicy) Validate() error {
-	return t.PolicyMatchRule.validate("tag policy")
+	return t.validate("tag policy")
 }

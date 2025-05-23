@@ -72,11 +72,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			tagPoliciesStr, err := a.db.SelectStr(api.GetTagPolicyByAccountNameQuery, account.Name)
-			if respondWithError(w, r, err) {
-				return
-			}
-			tagPolicies, err := keppel.ParseTagPolicies(tagPoliciesStr)
+			tagPolicies, err := api.GetTagPolicies(a.db, *account)
 			if respondWithError(w, r, err) {
 				return
 			}
@@ -279,11 +275,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tagPoliciesStr, err := a.db.SelectStr(api.GetTagPolicyByAccountNameQuery, account.Name)
-	if respondWithError(w, r, err) {
-		return
-	}
-	tagPolicies, err := keppel.ParseTagPolicies(tagPoliciesStr)
+	tagPolicies, err := api.GetTagPolicies(a.db, *account)
 	if respondWithError(w, r, err) {
 		return
 	}
@@ -351,11 +343,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tagPoliciesStr, err := a.db.SelectStr(api.GetTagPolicyByAccountNameQuery, account.Name)
-	if respondWithError(w, r, err) {
-		return
-	}
-	tagPolicies, err := keppel.ParseTagPolicies(tagPoliciesStr)
+	tagPolicies, err := api.GetTagPolicies(a.db, *account)
 	if respondWithError(w, r, err) {
 		return
 	}

@@ -211,11 +211,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tagPoliciesStr, err := a.db.SelectStr(api.GetTagPolicyByAccountNameQuery, account.Name)
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-	tagPolicies, err := keppel.ParseTagPolicies(tagPoliciesStr)
+	tagPolicies, err := api.GetTagPolicies(a.db, account.Reduced())
 	if respondwith.ErrorText(w, err) {
 		return
 	}
@@ -251,11 +247,7 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	}
 	tagName := mux.Vars(r)["tag_name"]
 
-	tagPoliciesStr, err := a.db.SelectStr(api.GetTagPolicyByAccountNameQuery, account.Name)
-	if respondwith.ErrorText(w, err) {
-		return
-	}
-	tagPolicies, err := keppel.ParseTagPolicies(tagPoliciesStr)
+	tagPolicies, err := api.GetTagPolicies(a.db, account.Reduced())
 	if respondwith.ErrorText(w, err) {
 		return
 	}
