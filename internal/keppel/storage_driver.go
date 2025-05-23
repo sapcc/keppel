@@ -67,6 +67,11 @@ type StorageDriver interface {
 	// The `format` argument is the value given to Trivy as `--format` when generating the report.
 	// Currently, only `--format json` will be used; and only reports enriched with X-Keppel-Applicable-Policies will be stored.
 	// In the future, this may be extended to other formats if the need arises.
+	//
+	// NOTE: This does not deduplicate reports in any way if the manifest is stored in multiple repos.
+	// Because of the account-level separation, we could only do so for repos stored in the same account.
+	// In practice, having the same manifest be stored in multiple repos under the same account is a rare occasion,
+	// and thus not worth the hassle of implementing the additional logic required for deduplication.
 	ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, format string) ([]byte, error)
 	WriteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, payload trivy.ReportPayload) error
 	DeleteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, format string) error

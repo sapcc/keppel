@@ -69,13 +69,13 @@ func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.Reduced
 	tmpPath := path + ".tmp"
 	flags := os.O_APPEND | os.O_WRONLY
 	if chunkNumber == 1 {
-		err := os.MkdirAll(filepath.Dir(tmpPath), 0777)
+		err := os.MkdirAll(filepath.Dir(tmpPath), 0777) // subject to umask
 		if err != nil {
 			return err
 		}
 		flags = flags | os.O_CREATE | os.O_TRUNC
 	}
-	f, err := os.OpenFile(tmpPath, flags, 0666)
+	f, err := os.OpenFile(tmpPath, flags, 0666) // subject to umask
 	if err != nil {
 		return err
 	}
@@ -134,11 +134,11 @@ func (d *StorageDriver) ReadManifest(ctx context.Context, account models.Reduced
 func (d *StorageDriver) WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, contents []byte) error {
 	path := d.getManifestPath(account, repoName, manifestDigest)
 	tmpPath := path + ".tmp"
-	err := os.MkdirAll(filepath.Dir(tmpPath), 0777)
+	err := os.MkdirAll(filepath.Dir(tmpPath), 0777) // subject to umask
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(tmpPath, contents, 0666)
+	err = os.WriteFile(tmpPath, contents, 0666) // subject to umask
 	if err != nil {
 		return err
 	}
@@ -161,11 +161,11 @@ func (d *StorageDriver) ReadTrivyReport(ctx context.Context, account models.Redu
 func (d *StorageDriver) WriteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, payload trivy.ReportPayload) error {
 	path := d.getTrivyReportPath(account, repoName, manifestDigest, payload.Format)
 	tmpPath := path + ".tmp"
-	err := os.MkdirAll(filepath.Dir(tmpPath), 0777)
+	err := os.MkdirAll(filepath.Dir(tmpPath), 0777) // subject to umask
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(tmpPath, payload.Contents, 0666)
+	err = os.WriteFile(tmpPath, payload.Contents, 0666) // subject to umask
 	if err != nil {
 		return err
 	}
