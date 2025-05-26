@@ -472,7 +472,7 @@ var upsertManifestQuery = sqlext.SimplifyWhitespace(`
 	ON CONFLICT (repo_id, digest) DO UPDATE
 		SET size_bytes = EXCLUDED.size_bytes, next_validation_at = EXCLUDED.next_validation_at, labels_json = EXCLUDED.labels_json,
 		min_layer_created_at = EXCLUDED.min_layer_created_at, max_layer_created_at = EXCLUDED.max_layer_created_at,
-    annotations_json = EXCLUDED.annotations_json, artifact_type = EXCLUDED.artifact_type, subject_digest = EXCLUDED.subject_digest
+		annotations_json = EXCLUDED.annotations_json, artifact_type = EXCLUDED.artifact_type, subject_digest = EXCLUDED.subject_digest
 `)
 
 var upsertManifestContentQuery = sqlext.SimplifyWhitespace(`
@@ -891,6 +891,14 @@ func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAc
 		}
 	}
 
+	var securityInfo models.TrivySecurityInfo
+	_, err = p.db.Select(&securityInfo,
+		`SELECT * FROM trivy_security_info WHERE repo_id = $1 AND digest = $2`,
+		repo.ID, manifestDigest)
+	if err != nil {
+		return err
+	}
+
 	result, err := p.db.Exec(
 		// this also deletes tags referencing this manifest because of "ON DELETE CASCADE"
 		`DELETE FROM manifests WHERE repo_id = $1 AND digest = $2`,
@@ -930,6 +938,12 @@ func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAc
 	err = p.sd.DeleteManifest(ctx, account, repo.Name, manifestDigest)
 	if err != nil {
 		return err
+	}
+	if securityInfo.HasEnrichedReport {
+		err = p.sd.DeleteTrivyReport(ctx, account, repo.Name, manifestDigest, "json")
+		if err != nil {
+			return err
+		}
 	}
 
 	if userInfo := actx.UserIdentity.UserInfo(); userInfo != nil {

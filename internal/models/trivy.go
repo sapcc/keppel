@@ -9,6 +9,7 @@ import (
 	"github.com/opencontainers/go-digest"
 )
 
+// TrivySecurityInfo contains a record from the `trivy_security_info` table.
 type TrivySecurityInfo struct {
 	RepositoryID        int64               `db:"repo_id"`
 	Digest              digest.Digest       `db:"digest"`
@@ -17,4 +18,7 @@ type TrivySecurityInfo struct {
 	NextCheckAt         time.Time           `db:"next_check_at"` // see tasks.CheckTrivySecurityStatusJob
 	CheckedAt           *time.Time          `db:"checked_at"`
 	CheckDurationSecs   *float64            `db:"check_duration_secs"`
+
+	// Whether a report with `--format json` is stored for this manifest.
+	HasEnrichedReport bool `db:"has_enriched_report"`
 }

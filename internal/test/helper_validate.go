@@ -4,8 +4,12 @@
 package test
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"testing"
+
+	"github.com/sapcc/go-bits/assert"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -101,5 +105,30 @@ func (s Setup) ExpectManifestsMissingInStorage(t *testing.T, manifests ...models
 			t.Errorf("expected manifest %s to be missing in the storage, but could read it", manifest.Digest)
 			continue
 		}
+	}
+}
+
+// ExpectTrivyReportExistsInStorage is a test assertion.
+func (s Setup) ExpectTrivyReportExistsInStorage(t *testing.T, manifest models.Manifest, format string, contents assert.HTTPResponseBody) {
+	t.Helper()
+	repo, err := keppel.FindRepositoryByID(s.DB, manifest.RepositoryID)
+	MustDo(t, err)
+	account := models.ReducedAccount{Name: repo.AccountName}
+	buf, err := s.SD.ReadTrivyReport(s.Ctx, account, repo.Name, manifest.Digest, format)
+	if err != nil {
+		t.Errorf("expected Trivy report %s/%s to exist in the storage, but got: %s", manifest.Digest, format, err.Error())
+	}
+	contents.AssertResponseBody(t, fmt.Sprintf("Trivy report %s/%s", manifest.Digest, format), bytes.TrimSpace(buf))
+}
+
+// ExpectTrivyReportMissingInStorage is a test assertion.
+func (s Setup) ExpectTrivyReportMissingInStorage(t *testing.T, manifest models.Manifest, format string) {
+	t.Helper()
+	repo, err := keppel.FindRepositoryByID(s.DB, manifest.RepositoryID)
+	MustDo(t, err)
+	account := models.ReducedAccount{Name: repo.AccountName}
+	_, err = s.SD.ReadTrivyReport(s.Ctx, account, repo.Name, manifest.Digest, format)
+	if err == nil {
+		t.Errorf("expected Trivy report %s/%s to be missing in the storage, but could read it", manifest.Digest, format)
 	}
 }

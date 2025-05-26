@@ -18,6 +18,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 func init() {
@@ -43,7 +44,7 @@ func (d *StorageDriver) getBlobBasePath(account models.ReducedAccount) string {
 }
 
 func (d *StorageDriver) getBlobPath(account models.ReducedAccount, storageID string) string {
-	return fmt.Sprintf("%s/%s/%s/blobs/%s", d.rootPath, account.AuthTenantID, account.Name, storageID)
+	return fmt.Sprintf("%s/%s", d.getBlobBasePath(account), storageID)
 }
 
 func (d *StorageDriver) getManifestBasePath(account models.ReducedAccount) string {
@@ -51,7 +52,15 @@ func (d *StorageDriver) getManifestBasePath(account models.ReducedAccount) strin
 }
 
 func (d *StorageDriver) getManifestPath(account models.ReducedAccount, repoName string, manifestDigest digest.Digest) string {
-	return fmt.Sprintf("%s/%s/%s/manifests/%s/%s", d.rootPath, account.AuthTenantID, account.Name, repoName, manifestDigest)
+	return fmt.Sprintf("%s/%s/%s", d.getManifestBasePath(account), repoName, manifestDigest)
+}
+
+func (d *StorageDriver) getTrivyReportBasePath(account models.ReducedAccount) string {
+	return fmt.Sprintf("%s/%s/%s/trivy-reports", d.rootPath, account.AuthTenantID, account.Name)
+}
+
+func (d *StorageDriver) getTrivyReportPath(account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) string {
+	return fmt.Sprintf("%s/%s/%s/%s", d.getTrivyReportBasePath(account), repoName, manifestDigest, format)
 }
 
 // AppendToBlob implements the keppel.StorageDriver interface.
@@ -60,13 +69,13 @@ func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.Reduced
 	tmpPath := path + ".tmp"
 	flags := os.O_APPEND | os.O_WRONLY
 	if chunkNumber == 1 {
-		err := os.MkdirAll(filepath.Dir(tmpPath), 0777)
+		err := os.MkdirAll(filepath.Dir(tmpPath), 0777) // subject to umask
 		if err != nil {
 			return err
 		}
 		flags = flags | os.O_CREATE | os.O_TRUNC
 	}
-	f, err := os.OpenFile(tmpPath, flags, 0666)
+	f, err := os.OpenFile(tmpPath, flags, 0666) // subject to umask
 	if err != nil {
 		return err
 	}
@@ -125,11 +134,11 @@ func (d *StorageDriver) ReadManifest(ctx context.Context, account models.Reduced
 func (d *StorageDriver) WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, contents []byte) error {
 	path := d.getManifestPath(account, repoName, manifestDigest)
 	tmpPath := path + ".tmp"
-	err := os.MkdirAll(filepath.Dir(tmpPath), 0777)
+	err := os.MkdirAll(filepath.Dir(tmpPath), 0777) // subject to umask
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(tmpPath, contents, 0666)
+	err = os.WriteFile(tmpPath, contents, 0666) // subject to umask
 	if err != nil {
 		return err
 	}
@@ -142,33 +151,69 @@ func (d *StorageDriver) DeleteManifest(ctx context.Context, account models.Reduc
 	return os.Remove(path)
 }
 
+// ReadTrivyReport implements the keppel.StorageDriver interface.
+func (d *StorageDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) ([]byte, error) {
+	path := d.getTrivyReportPath(account, repoName, manifestDigest, format)
+	return os.ReadFile(path)
+}
+
+// WriteTrivyReport implements the keppel.StorageDriver interface.
+func (d *StorageDriver) WriteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, payload trivy.ReportPayload) error {
+	path := d.getTrivyReportPath(account, repoName, manifestDigest, payload.Format)
+	tmpPath := path + ".tmp"
+	err := os.MkdirAll(filepath.Dir(tmpPath), 0777) // subject to umask
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(tmpPath, payload.Contents, 0666) // subject to umask
+	if err != nil {
+		return err
+	}
+	return os.Rename(tmpPath, path)
+}
+
+// DeleteTrivyReport implements the keppel.StorageDriver interface.
+func (d *StorageDriver) DeleteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) error {
+	path := d.getTrivyReportPath(account, repoName, manifestDigest, format)
+	return os.Remove(path)
+}
+
 // ListStorageContents implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.ReducedAccount) ([]keppel.StoredBlobInfo, []keppel.StoredManifestInfo, error) {
+func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.ReducedAccount) ([]keppel.StoredBlobInfo, []keppel.StoredManifestInfo, []keppel.StoredTrivyReportInfo, error) {
 	blobs, err := d.getBlobs(account)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	manifests, err := d.getManifests(account)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return blobs, manifests, nil
+	trivyReports, err := d.getTrivyReports(account)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return blobs, manifests, trivyReports, nil
 }
 
-func (d *StorageDriver) getBlobs(account models.ReducedAccount) ([]keppel.StoredBlobInfo, error) {
-	var blobs []keppel.StoredBlobInfo
-	directory, err := os.Open(d.getBlobBasePath(account))
+func getNamesInDirectory(path string) ([]string, error) {
+	directory, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return []keppel.StoredBlobInfo{}, nil
+			return nil, nil
 		}
 		return nil, err
 	}
 	defer directory.Close()
-	names, err := directory.Readdirnames(-1)
+	return directory.Readdirnames(-1)
+}
+
+func (d *StorageDriver) getBlobs(account models.ReducedAccount) ([]keppel.StoredBlobInfo, error) {
+	names, err := getNamesInDirectory(d.getBlobBasePath(account))
 	if err != nil {
 		return nil, err
 	}
+
+	var blobs []keppel.StoredBlobInfo
 	for _, name := range names {
 		if strings.HasSuffix(name, ".tmp") {
 			continue
@@ -181,59 +226,77 @@ func (d *StorageDriver) getBlobs(account models.ReducedAccount) ([]keppel.Stored
 }
 
 func (d *StorageDriver) getManifests(account models.ReducedAccount) ([]keppel.StoredManifestInfo, error) {
+	basePath := d.getManifestBasePath(account)
+	repoNames, err := getNamesInDirectory(basePath)
+	if err != nil {
+		return nil, err
+	}
+
 	var manifests []keppel.StoredManifestInfo
-	directory, err := os.Open(d.getManifestBasePath(account))
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []keppel.StoredManifestInfo{}, nil
-		}
-		return nil, err
-	}
-	defer directory.Close()
-	repos, err := directory.Readdirnames(-1)
-	if err != nil {
-		return nil, err
-	}
-	for _, repo := range repos {
-		repoManifests, err := d.getRepoManifests(account, repo)
+	for _, repoName := range repoNames {
+		names, err := getNamesInDirectory(filepath.Join(basePath, repoName))
 		if err != nil {
 			return nil, err
 		}
-		manifests = append(manifests, repoManifests...)
+
+		for _, name := range names {
+			if strings.HasSuffix(name, ".tmp") {
+				continue
+			}
+
+			manifestDigest, err := digest.Parse(name)
+			if err != nil {
+				return nil, fmt.Errorf("unexpected file in storage directory: %s", filepath.Join(basePath, repoName, name))
+			}
+
+			manifests = append(manifests, keppel.StoredManifestInfo{
+				RepoName: repoName,
+				Digest:   manifestDigest,
+			})
+		}
 	}
 	return manifests, nil
 }
 
-func (d *StorageDriver) getRepoManifests(account models.ReducedAccount, repo string) ([]keppel.StoredManifestInfo, error) {
-	var manifests []keppel.StoredManifestInfo
-	directory, err := os.Open(filepath.Join(d.getManifestBasePath(account), repo))
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []keppel.StoredManifestInfo{}, nil
-		}
-		return nil, err
-	}
-	defer directory.Close()
-	digests, err := directory.Readdirnames(-1)
+func (d *StorageDriver) getTrivyReports(account models.ReducedAccount) ([]keppel.StoredTrivyReportInfo, error) {
+	basePath := d.getTrivyReportBasePath(account)
+	repoNames, err := getNamesInDirectory(basePath)
 	if err != nil {
 		return nil, err
 	}
-	for _, digestStr := range digests {
-		if strings.HasSuffix(digestStr, ".tmp") {
-			continue
-		}
 
-		manifestDigest, err := digest.Parse(digestStr)
+	var reports []keppel.StoredTrivyReportInfo
+	for _, repoName := range repoNames {
+		digestStrings, err := getNamesInDirectory(filepath.Join(basePath, repoName))
 		if err != nil {
 			return nil, err
 		}
 
-		manifests = append(manifests, keppel.StoredManifestInfo{
-			RepoName: repo,
-			Digest:   manifestDigest,
-		})
+		for _, digestStr := range digestStrings {
+			manifestDigest, err := digest.Parse(digestStr)
+			if err != nil {
+				return nil, fmt.Errorf("unexpected file in storage directory: %s", filepath.Join(basePath, repoName, digestStr))
+			}
+
+			names, err := getNamesInDirectory(filepath.Join(basePath, repoName, digestStr))
+			if err != nil {
+				return nil, err
+			}
+
+			for _, name := range names {
+				if strings.HasSuffix(name, ".tmp") {
+					continue
+				}
+
+				reports = append(reports, keppel.StoredTrivyReportInfo{
+					RepoName: repoName,
+					Digest:   manifestDigest,
+					Format:   name,
+				})
+			}
+		}
 	}
-	return manifests, nil
+	return reports, nil
 }
 
 // CanSetupAccount implements the keppel.StorageDriver interface.
@@ -245,7 +308,7 @@ func (d *StorageDriver) CanSetupAccount(ctx context.Context, account models.Redu
 func (d *StorageDriver) CleanupAccount(ctx context.Context, account models.ReducedAccount) error {
 	// double-check that cleanup order is right; when the account gets deleted,
 	// all blobs and manifests must have been deleted from it before
-	storedBlobs, storedManifests, err := d.ListStorageContents(ctx, account)
+	storedBlobs, storedManifests, storedTrivyReports, err := d.ListStorageContents(ctx, account)
 	if len(storedBlobs) > 0 {
 		return fmt.Errorf(
 			"found undeleted blob during CleanupAccount: storageID = %q",
@@ -257,6 +320,15 @@ func (d *StorageDriver) CleanupAccount(ctx context.Context, account models.Reduc
 			"found undeleted manifest during CleanupAccount: %s@%s",
 			storedManifests[0].RepoName,
 			storedManifests[0].Digest,
+		)
+	}
+	if len(storedTrivyReports) > 0 {
+		report := storedTrivyReports[0]
+		return fmt.Errorf(
+			"found undeleted Trivy report during CleanupAccount: format=%q for %s@%s",
+			report.Format,
+			report.RepoName,
+			report.Digest,
 		)
 	}
 	return err
