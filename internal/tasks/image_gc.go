@@ -11,6 +11,7 @@ import (
 	"sort"
 	"time"
 
+	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/errext"
@@ -233,7 +234,7 @@ func (j *Janitor) evaluatePolicy(ctx context.Context, proc *processor.Processor,
 		// track matching "delete" policies in GCStatus to allow users insight
 		// into how policies match
 		if gcPolicy.Action == "delete" {
-			m.GCStatus.RelevantPolicies = append(m.GCStatus.RelevantPolicies, gcPolicy)
+			m.GCStatus.RelevantGCPolicies = append(m.GCStatus.RelevantGCPolicies, gcPolicy)
 		}
 
 		// evaluate constraints
@@ -244,21 +245,20 @@ func (j *Janitor) evaluatePolicy(ctx context.Context, proc *processor.Processor,
 			continue
 		}
 
-		pCopied := gcPolicy
 		// execute policy action
 		switch gcPolicy.Action {
 		case "protect":
-			m.GCStatus.ProtectedByPolicy = &pCopied
+			m.GCStatus.ProtectedByGCPolicy = Some(gcPolicy)
 		case "delete":
 			err := proc.DeleteManifest(ctx, account, repo, m.Manifest.Digest, tagPolicies, keppel.AuditContext{
 				UserIdentity: janitorUserIdentity{
 					TaskName: "policy-driven-gc",
-					GCPolicy: &pCopied,
+					GCPolicy: Some(gcPolicy),
 				},
 				Request: janitorDummyRequest,
 			})
-			if _, ok := errext.As[processor.DeleteManifestBlockedByTagPolicyError](err); ok { //nolint:errcheck // intended to be skipped
-				m.GCStatus.ProtectedByTagPolicies = tagPolicies
+			if tagPolicyError, ok := errext.As[processor.DeleteManifestBlockedByTagPolicyError](err); ok {
+				m.GCStatus.ProtectedByTagPolicy = Some(tagPolicyError.Policy)
 				continue
 			}
 			if err != nil {
@@ -287,7 +287,7 @@ func (j *Janitor) persistGCStatus(manifests []*manifestData, repoID int64) error
 			// to simplify UI, show only EITHER protection status OR relevant deleting
 			// policies, not both
 			if m.GCStatus.IsProtected() {
-				m.GCStatus.RelevantPolicies = nil
+				m.GCStatus.RelevantGCPolicies = nil
 			}
 			gcStatusJSON, err := json.Marshal(m.GCStatus)
 			if err != nil {

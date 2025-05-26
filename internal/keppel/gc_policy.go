@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/majewsky/gg/option"
+
 	"github.com/sapcc/keppel/internal/models"
 )
 
@@ -210,15 +212,15 @@ type GCStatus struct {
 	ProtectedBySubjectManifest string `json:"protected_by_subject,omitempty"`
 	// If a policy with action "protect" applies to this image,
 	// this contains the definition of the policy.
-	ProtectedByPolicy *GCPolicy `json:"protected_by_policy,omitempty"`
+	ProtectedByGCPolicy Option[GCPolicy] `json:"protected_by_policy,omitzero"` // This should be renamed but would be a breaking change in the API.
 	// If the image is not protected, contains all policies with action "delete"
 	// that could delete this image in the future.
-	RelevantPolicies []GCPolicy `json:"relevant_policies,omitempty"`
+	RelevantGCPolicies []GCPolicy `json:"relevant_policies,omitempty"` // This should be renamed but would be a breaking change in the API.
 	// If the image is protected, contains all tag policies that protect this image.
-	ProtectedByTagPolicies []TagPolicy `json:"protected_by_tag_policies,omitempty"`
+	ProtectedByTagPolicy Option[TagPolicy] `json:"protected_by_tag_policy,omitzero"`
 }
 
 // IsProtected returns whether any of the ProtectedBy... fields is filled.
 func (s GCStatus) IsProtected() bool {
-	return s.ProtectedByRecentUpload || s.ProtectedByParentManifest != "" || s.ProtectedBySubjectManifest != "" || s.ProtectedByPolicy != nil
+	return s.ProtectedByRecentUpload || s.ProtectedByParentManifest != "" || s.ProtectedBySubjectManifest != "" || s.ProtectedByGCPolicy.IsSome() || s.ProtectedByTagPolicy.IsSome()
 }

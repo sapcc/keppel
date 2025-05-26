@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"time"
 
+	. "github.com/majewsky/gg/option"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/audittools"
 
@@ -91,7 +92,7 @@ func (j *Janitor) processor() *processor.Processor {
 // used for generating audit events and issuing tokens for internal services like Trivy.
 type janitorUserIdentity struct {
 	TaskName string
-	GCPolicy *keppel.GCPolicy
+	GCPolicy Option[keppel.GCPolicy]
 }
 
 // PluginTypeID implements the keppel.UserIdentity interface.
@@ -121,7 +122,7 @@ func (uid janitorUserIdentity) UserInfo() audittools.UserInfo {
 
 // SerializeToJSON implements the keppel.UserIdentity interface.
 func (uid janitorUserIdentity) SerializeToJSON() (payload []byte, err error) {
-	if uid.GCPolicy != nil {
+	if uid.GCPolicy.IsSome() {
 		return nil, errors.New("janitorUserIdentity.SerializeToJSON is not allowed")
 	}
 	return json.Marshal(uid.TaskName)
@@ -140,7 +141,7 @@ func (uid janitorUserIdentity) DeserializeFromJSON(in []byte, ad keppel.AuthDriv
 // used via `type JanitorUserIdentity`.
 type janitorUserInfo struct {
 	TaskName string
-	GCPolicy *keppel.GCPolicy
+	GCPolicy Option[keppel.GCPolicy]
 }
 
 // AsInitiator implements the audittools.NonStandardUserInfo interface.
@@ -151,8 +152,8 @@ func (u janitorUserInfo) AsInitiator(_ cadf.Host) cadf.Resource {
 		Domain:  "keppel",
 		ID:      u.TaskName,
 	}
-	if u.GCPolicy != nil {
-		gcPolicyJSON, _ := json.Marshal(*u.GCPolicy)
+	if gcPolicy, ok := u.GCPolicy.Unpack(); ok {
+		gcPolicyJSON, _ := json.Marshal(gcPolicy)
 		res.Attachments = append(res.Attachments, cadf.Attachment{
 			Name:    "gc-policy",
 			TypeURI: "mime:application/json",

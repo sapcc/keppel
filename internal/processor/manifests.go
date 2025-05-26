@@ -887,7 +887,7 @@ func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAc
 
 	for _, tagPolicy := range tagPolicies {
 		if tagPolicy.BlockDelete && tagPolicy.MatchesRepository(repo.Name) && tagPolicy.MatchesTags(tags) {
-			return keppel.ErrDenied.WithError(DeleteManifestBlockedByTagPolicyError{}).WithStatus(http.StatusConflict)
+			return keppel.ErrDenied.WithError(DeleteManifestBlockedByTagPolicyError{tagPolicy}).WithStatus(http.StatusConflict)
 		}
 	}
 
