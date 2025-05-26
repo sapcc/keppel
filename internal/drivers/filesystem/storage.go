@@ -44,7 +44,7 @@ func (d *StorageDriver) getBlobBasePath(account models.ReducedAccount) string {
 }
 
 func (d *StorageDriver) getBlobPath(account models.ReducedAccount, storageID string) string {
-	return fmt.Sprintf("%s/%s/%s/blobs/%s", d.rootPath, account.AuthTenantID, account.Name, storageID)
+	return fmt.Sprintf("%s/%s", d.getBlobBasePath(account), storageID)
 }
 
 func (d *StorageDriver) getManifestBasePath(account models.ReducedAccount) string {
@@ -52,7 +52,7 @@ func (d *StorageDriver) getManifestBasePath(account models.ReducedAccount) strin
 }
 
 func (d *StorageDriver) getManifestPath(account models.ReducedAccount, repoName string, manifestDigest digest.Digest) string {
-	return fmt.Sprintf("%s/%s/%s/manifests/%s/%s", d.rootPath, account.AuthTenantID, account.Name, repoName, manifestDigest)
+	return fmt.Sprintf("%s/%s/%s", d.getManifestBasePath(account), repoName, manifestDigest)
 }
 
 func (d *StorageDriver) getTrivyReportBasePath(account models.ReducedAccount) string {
@@ -60,7 +60,7 @@ func (d *StorageDriver) getTrivyReportBasePath(account models.ReducedAccount) st
 }
 
 func (d *StorageDriver) getTrivyReportPath(account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) string {
-	return fmt.Sprintf("%s/%s/%s/trivy-reports/%s/%s/%s", d.rootPath, account.AuthTenantID, account.Name, repoName, manifestDigest, format)
+	return fmt.Sprintf("%s/%s/%s/%s", d.getTrivyReportBasePath(account), repoName, manifestDigest, format)
 }
 
 // AppendToBlob implements the keppel.StorageDriver interface.
