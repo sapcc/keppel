@@ -223,3 +223,9 @@ type marshalableError struct {
 func (e marshalableError) MarshalText() ([]byte, error) {
 	return []byte(e.inner.Error()), nil
 }
+
+// UnmarshalText implements the encoding.TextUnmarshaler interface.
+func (e *marshalableError) UnmarshalText(buf []byte) error {
+	e.inner = errors.New(string(buf))
+	return nil
+}
