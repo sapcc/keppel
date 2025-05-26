@@ -212,7 +212,7 @@ outer:
 	return j.persistGCStatus(manifests, repo.ID)
 }
 
-func (j *Janitor) evaluatePolicy(ctx context.Context, proc *processor.Processor, manifests []*manifestData, account models.ReducedAccount, repo models.Repository, gcPolicies keppel.GCPolicy, tagPolicies []keppel.TagPolicy) error {
+func (j *Janitor) evaluatePolicy(ctx context.Context, proc *processor.Processor, manifests []*manifestData, account models.ReducedAccount, repo models.Repository, gcPolicy keppel.GCPolicy, tagPolicies []keppel.TagPolicy) error {
 	// for some time constraint matches, we need to know which manifests are
 	// still alive
 	var aliveManifests []models.Manifest
@@ -232,21 +232,21 @@ func (j *Janitor) evaluatePolicy(ctx context.Context, proc *processor.Processor,
 
 		// track matching "delete" policies in GCStatus to allow users insight
 		// into how policies match
-		if gcPolicies.Action == "delete" {
-			m.GCStatus.RelevantPolicies = append(m.GCStatus.RelevantPolicies, gcPolicies)
+		if gcPolicy.Action == "delete" {
+			m.GCStatus.RelevantPolicies = append(m.GCStatus.RelevantPolicies, gcPolicy)
 		}
 
 		// evaluate constraints
-		if !gcPolicies.MatchesTags(m.TagNames) {
+		if !gcPolicy.MatchesTags(m.TagNames) {
 			continue
 		}
-		if !gcPolicies.MatchesTimeConstraint(m.Manifest, aliveManifests, j.timeNow()) {
+		if !gcPolicy.MatchesTimeConstraint(m.Manifest, aliveManifests, j.timeNow()) {
 			continue
 		}
 
-		pCopied := gcPolicies
+		pCopied := gcPolicy
 		// execute policy action
-		switch gcPolicies.Action {
+		switch gcPolicy.Action {
 		case "protect":
 			m.GCStatus.ProtectedByPolicy = &pCopied
 		case "delete":
@@ -264,11 +264,11 @@ func (j *Janitor) evaluatePolicy(ctx context.Context, proc *processor.Processor,
 				return err
 			}
 			m.IsDeleted = true
-			policyJSON, _ := json.Marshal(gcPolicies)
+			policyJSON, _ := json.Marshal(gcPolicy)
 			logg.Info("GC on repo %s: deleted manifest %s because of policy %s", repo.FullName(), m.Manifest.Digest, string(policyJSON))
 		default:
 			// defense in depth: we already did p.Validate() earlier
-			return fmt.Errorf("unexpected GC policy action: %q (why was this not caught by Validate!?)", gcPolicies.Action)
+			return fmt.Errorf("unexpected GC policy action: %q (why was this not caught by Validate!?)", gcPolicy.Action)
 		}
 	}
 
