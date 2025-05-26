@@ -62,7 +62,7 @@ func (d *AuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.UserId
 func (d *AuthDriver) parseUserIdentity(permsHeader string) keppel.UserIdentity {
 	perms := make(map[string]map[string]bool)
 	if permsHeader != "" {
-		for _, field := range strings.Split(permsHeader, ",") {
+		for field := range strings.SplitSeq(permsHeader, ",") {
 			fields := strings.SplitN(field, ":", 2)
 			if _, ok := perms[fields[0]]; !ok {
 				perms[fields[0]] = make(map[string]bool)

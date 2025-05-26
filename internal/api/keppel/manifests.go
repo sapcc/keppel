@@ -211,7 +211,12 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.processor().DeleteManifest(r.Context(), account.Reduced(), *repo, parsedDigest, keppel.AuditContext{
+	tagPolicies, err := api.GetTagPolicies(a.db, account.Reduced())
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
+	err = a.processor().DeleteManifest(r.Context(), account.Reduced(), *repo, parsedDigest, tagPolicies, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
@@ -242,7 +247,12 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	}
 	tagName := mux.Vars(r)["tag_name"]
 
-	err := a.processor().DeleteTag(account.Reduced(), *repo, tagName, keppel.AuditContext{
+	tagPolicies, err := api.GetTagPolicies(a.db, account.Reduced())
+	if respondwith.ErrorText(w, err) {
+		return
+	}
+
+	err = a.processor().DeleteTag(account.Reduced(), *repo, tagName, tagPolicies, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})

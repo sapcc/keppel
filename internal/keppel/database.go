@@ -343,6 +343,14 @@ var sqlMigrations = map[string]string{
 	"047_add_manifest_subject_digest_index.down.sql": `
 		DROP INDEX manifests_repo_id_subject_digest_idx;
 	`,
+	"048_add_accounts_tag_policies.up.sql": `
+		ALTER TABLE accounts
+			ADD COLUMN tag_policies_json TEXT NOT NULL DEFAULT '[]';
+	`,
+	"048_add_accounts_tag_policies.down.sql": `
+		ALTER TABLE accounts
+			DROP COLUMN tag_policies_json;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.

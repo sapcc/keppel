@@ -40,7 +40,7 @@ func TestSweepBlobs(t *testing.T) {
 	// remove blob mounts for some blobs - BlobSweepJob should now
 	// mark them for deletion (but not actually delete them yet)
 	s.Clock.StepBy(2 * time.Hour)
-	mustExec(t, s.DB, `DELETE FROM blob_mounts WHERE blob_id IN ($1,$2,$3)`,
+	test.MustExec(t, s.DB, `DELETE FROM blob_mounts WHERE blob_id IN ($1,$2,$3)`,
 		dbBlobs[0].ID, dbBlobs[1].ID, dbBlobs[2].ID,
 	)
 	expectSuccess(t, sweepBlobsJob.ProcessOne(s.Ctx))
@@ -50,7 +50,7 @@ func TestSweepBlobs(t *testing.T) {
 
 	// recreate one of these blob mounts - this should protect it from being
 	// deleted
-	mustExec(t, s.DB, `INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1,1)`, dbBlobs[2].ID)
+	test.MustExec(t, s.DB, `INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1,1)`, dbBlobs[2].ID)
 
 	// the other two blobs should get deleted in the next sweep
 	s.Clock.StepBy(2 * time.Hour)
@@ -88,7 +88,7 @@ func TestValidateBlobs(t *testing.T) {
 
 	// deliberately destroy one of the blob's digests
 	wrongDigest := digest.Canonical.FromBytes([]byte("not the right content"))
-	mustExec(t, s.DB,
+	test.MustExec(t, s.DB,
 		`UPDATE blobs SET digest = $1 WHERE digest = $2`,
 		wrongDigest.String(), dbBlobs[2].Digest,
 	)
@@ -108,7 +108,7 @@ func TestValidateBlobs(t *testing.T) {
 	easypg.AssertDBContent(t, s.DB.Db, "fixtures/blob-validate-002.sql")
 
 	// fix the issue
-	mustExec(t, s.DB, `UPDATE blobs SET digest = $1 WHERE digest = $2`,
+	test.MustExec(t, s.DB, `UPDATE blobs SET digest = $1 WHERE digest = $2`,
 		dbBlobs[2].Digest, wrongDigest.String(),
 	)
 

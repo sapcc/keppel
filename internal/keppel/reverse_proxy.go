@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"maps"
+
 	"github.com/sapcc/go-bits/logg"
 )
 
@@ -58,9 +60,7 @@ func (cfg Configuration) ReverseProxyAnycastRequestToPeer(w http.ResponseWriter,
 	}
 
 	// forward response to caller
-	for k, v := range resp.Header {
-		w.Header()[k] = v
-	}
+	maps.Copy(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
 
 	// forward response body to caller, if any

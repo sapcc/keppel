@@ -165,17 +165,22 @@ func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo models.Re
 		return fmt.Errorf("cannot find account for repo %s: %w", repo.FullName(), err)
 	}
 
+	tagPolicies, err := keppel.ParseTagPolicies(account.TagPoliciesJSON)
+	if err != nil {
+		return err
+	}
+
 	// do not perform manifest sync while account is in deletion (deletion mode blocks all kinds of replication)
 	if !account.IsDeleting {
 		syncPayload, err := j.getReplicaSyncPayload(ctx, *account, repo)
 		if err != nil {
 			return err
 		}
-		err = j.performTagSync(ctx, account.Reduced(), repo, syncPayload)
+		err = j.performTagSync(ctx, account.Reduced(), repo, tagPolicies, syncPayload)
 		if err != nil {
 			return fmt.Errorf("while syncing tags in repo %s: %w", repo.FullName(), err)
 		}
-		err = j.performManifestSync(ctx, account.Reduced(), repo, syncPayload)
+		err = j.performManifestSync(ctx, account.Reduced(), repo, tagPolicies, syncPayload)
 		if err != nil {
 			return fmt.Errorf("while syncing manifests in repo %s: %w", repo.FullName(), err)
 		}
@@ -261,7 +266,7 @@ func (j *Janitor) getReplicaSyncPayload(ctx context.Context, account models.Acco
 	return client.PerformReplicaSync(ctx, repo.FullName(), keppel.ReplicaSyncPayload{Manifests: manifests})
 }
 
-func (j *Janitor) performTagSync(ctx context.Context, account models.ReducedAccount, repo models.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
+func (j *Janitor) performTagSync(ctx context.Context, account models.ReducedAccount, repo models.Repository, tagPolicies []keppel.TagPolicy, syncPayload *keppel.ReplicaSyncPayload) error {
 	var tags []models.Tag
 	_, err := j.db.Select(&tags, `SELECT * FROM tags WHERE repo_id = $1`, repo.ID)
 	if err != nil {
@@ -295,7 +300,7 @@ TAG:
 		// different manifest, replicate that manifest; all of that boils down to
 		// just a ReplicateManifest() call
 		ref := models.ManifestReference{Tag: tag.Name}
-		_, _, err := p.ReplicateManifest(ctx, account, repo, ref, keppel.AuditContext{
+		_, _, err := p.ReplicateManifest(ctx, account, repo, ref, tagPolicies, keppel.AuditContext{
 			UserIdentity: janitorUserIdentity{TaskName: "tag-sync"},
 			Request:      janitorDummyRequest,
 		})
@@ -323,7 +328,7 @@ var repoUntaggedManifestsSelectQuery = sqlext.SimplifyWhitespace(`
 		AND digest NOT IN (SELECT DISTINCT digest FROM tags WHERE repo_id = $1)
 `)
 
-func (j *Janitor) performManifestSync(ctx context.Context, account models.ReducedAccount, repo models.Repository, syncPayload *keppel.ReplicaSyncPayload) error {
+func (j *Janitor) performManifestSync(ctx context.Context, account models.ReducedAccount, repo models.Repository, tagPolicies []keppel.TagPolicy, syncPayload *keppel.ReplicaSyncPayload) error {
 	// enumerate manifests in this repo (this only needs to consider untagged
 	//manifests: we run right after performTagSync, therefore all images that are
 	// tagged right now were already confirmed to still be good)
@@ -396,7 +401,7 @@ func (j *Janitor) performManifestSync(ctx context.Context, account models.Reduce
 			}
 
 			// no manifests left that reference this one - we can delete it
-			err := j.processor().DeleteManifest(ctx, account, repo, digestToBeDeleted, keppel.AuditContext{
+			err := j.processor().DeleteManifest(ctx, account, repo, digestToBeDeleted, tagPolicies, keppel.AuditContext{
 				UserIdentity: janitorUserIdentity{TaskName: "manifest-sync"},
 				Request:      janitorDummyRequest,
 			})
@@ -521,11 +526,7 @@ func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *gorp.Transac
 	}
 	close(inputChan)
 
-	threads := trivySecurityInfoThreads
-	// don't start more threads than we possible can saturate
-	if threads < lenSecurityInfo {
-		threads = lenSecurityInfo
-	}
+	threads := max(trivySecurityInfoThreads, lenSecurityInfo)
 
 	type chanReturnStruct struct {
 		securityInfo models.TrivySecurityInfo

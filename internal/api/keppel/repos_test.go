@@ -17,39 +17,11 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
-func mustInsert(t *testing.T, db *keppel.DB, obj any) {
-	t.Helper()
-	err := db.Insert(obj)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-}
-
-func mustExec(t *testing.T, db *keppel.DB, query string, args ...any) {
-	t.Helper()
-	_, err := db.Exec(query, args...)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-}
-
 func TestReposAPI(t *testing.T) {
-	s := test.NewSetup(t, test.WithKeppelAPI)
+	s := test.NewSetup(t, test.WithKeppelAPI,
+		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
+		test.WithAccount(models.Account{Name: "test2", AuthTenantID: "tenant2"}))
 	h := s.Handler
-
-	// setup two test accounts
-	mustInsert(t, s.DB, &models.Account{
-		Name:                     "test1",
-		AuthTenantID:             "tenant1",
-		GCPoliciesJSON:           "[]",
-		SecurityScanPoliciesJSON: "[]",
-	})
-	mustInsert(t, s.DB, &models.Account{
-		Name:                     "test2",
-		AuthTenantID:             "tenant2",
-		GCPoliciesJSON:           "[]",
-		SecurityScanPoliciesJSON: "[]",
-	})
 
 	// test empty result
 	assert.HTTPRequest{
@@ -65,11 +37,11 @@ func TestReposAPI(t *testing.T) {
 	// setup five repos in each account (the `test2` account only exists to
 	// validate that we don't accidentally list its repos as well)
 	for idx := 1; idx <= 5; idx++ {
-		mustInsert(t, s.DB, &models.Repository{
+		test.MustInsert(t, s.DB, &models.Repository{
 			Name:        fmt.Sprintf("repo1-%d", idx),
 			AccountName: "test1",
 		})
-		mustInsert(t, s.DB, &models.Repository{
+		test.MustInsert(t, s.DB, &models.Repository{
 			Name:        fmt.Sprintf("repo2-%d", idx),
 			AccountName: "test2",
 		})
@@ -88,11 +60,8 @@ func TestReposAPI(t *testing.T) {
 			PushedAt:         blobPushedAt,
 			NextValidationAt: blobPushedAt.Add(models.BlobValidationInterval),
 		}
-		mustInsert(t, s.DB, &blob)
-		err := keppel.MountBlobIntoRepo(s.DB, blob, filledRepo)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
+		test.MustInsert(t, s.DB, &blob)
+		test.MustDo(t, keppel.MountBlobIntoRepo(s.DB, blob, filledRepo))
 	}
 
 	// insert some dummy manifests and tags into one of the repos to check the
@@ -100,7 +69,7 @@ func TestReposAPI(t *testing.T) {
 	for idx := 1; idx <= 10; idx++ {
 		dummyDigest := test.DeterministicDummyDigest(idx)
 		manifestPushedAt := time.Unix(int64(10000+10*idx), 0)
-		mustInsert(t, s.DB, &models.Manifest{
+		test.MustInsert(t, s.DB, &models.Manifest{
 			RepositoryID:     filledRepo.ID,
 			Digest:           dummyDigest,
 			MediaType:        "",
@@ -108,14 +77,14 @@ func TestReposAPI(t *testing.T) {
 			PushedAt:         manifestPushedAt,
 			NextValidationAt: manifestPushedAt.Add(models.ManifestValidationInterval),
 		})
-		mustInsert(t, s.DB, &models.TrivySecurityInfo{
+		test.MustInsert(t, s.DB, &models.TrivySecurityInfo{
 			RepositoryID:        filledRepo.ID,
 			Digest:              dummyDigest,
 			VulnerabilityStatus: models.PendingVulnerabilityStatus,
 			NextCheckAt:         time.Unix(0, 0),
 		})
 		if idx <= 3 {
-			mustInsert(t, s.DB, &models.Tag{
+			test.MustInsert(t, s.DB, &models.Tag{
 				RepositoryID: 5, // repo1-3
 				Name:         fmt.Sprintf("tag%d", idx),
 				Digest:       dummyDigest,

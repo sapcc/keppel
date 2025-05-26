@@ -37,6 +37,12 @@ func (a AuditAccount) Render() cadf.Resource {
 		res.Attachments = append(res.Attachments, attachment)
 	}
 
+	tagPoliciesJSON := a.Account.TagPoliciesJSON
+	if tagPoliciesJSON != "" && tagPoliciesJSON != "[]" {
+		attachment := must.Return(cadf.NewJSONAttachment("tag-policies", json.RawMessage(tagPoliciesJSON)))
+		res.Attachments = append(res.Attachments, attachment)
+	}
+
 	return res
 }
 

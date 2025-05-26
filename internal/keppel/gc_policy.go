@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sapcc/go-bits/regexpext"
+	. "github.com/majewsky/gg/option"
 
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -19,13 +19,10 @@ import (
 // GCPolicy is a policy enabling optional garbage collection runs in an account.
 // It is stored in serialized form in the GCPoliciesJSON field of type Account.
 type GCPolicy struct {
-	RepositoryRx         regexpext.BoundedRegexp `json:"match_repository"`
-	NegativeRepositoryRx regexpext.BoundedRegexp `json:"except_repository,omitempty"`
-	TagRx                regexpext.BoundedRegexp `json:"match_tag,omitempty"`
-	NegativeTagRx        regexpext.BoundedRegexp `json:"except_tag,omitempty"`
-	OnlyUntagged         bool                    `json:"only_untagged,omitempty"`
-	TimeConstraint       *GCTimeConstraint       `json:"time_constraint,omitempty"`
-	Action               string                  `json:"action"`
+	PolicyMatchRule
+	OnlyUntagged   bool              `json:"only_untagged,omitempty"`
+	TimeConstraint *GCTimeConstraint `json:"time_constraint,omitempty"`
+	Action         string            `json:"action"`
 }
 
 // GCTimeConstraint appears in type GCPolicy.
@@ -37,15 +34,6 @@ type GCTimeConstraint struct {
 	MaxAge      Duration `json:"newer_than,omitempty"`
 }
 
-// MatchesRepository evaluates the repository regexes in this policy.
-func (g GCPolicy) MatchesRepository(repoName string) bool {
-	//NOTE: NegativeRepositoryRx takes precedence and is thus evaluated first.
-	if g.NegativeRepositoryRx != "" && g.NegativeRepositoryRx.MatchString(repoName) {
-		return false
-	}
-	return g.RepositoryRx.MatchString(repoName)
-}
-
 // MatchesTags evaluates the tag regexes in this policy for a complete set of
 // tag names belonging to a single manifest.
 func (g GCPolicy) MatchesTags(tagNames []string) bool {
@@ -53,25 +41,7 @@ func (g GCPolicy) MatchesTags(tagNames []string) bool {
 		return false
 	}
 
-	//NOTE: NegativeTagRx takes precedence over TagRx and is thus evaluated first.
-	if g.NegativeTagRx != "" {
-		for _, tagName := range tagNames {
-			if g.NegativeTagRx.MatchString(tagName) {
-				return false
-			}
-		}
-	}
-	if g.TagRx != "" {
-		for _, tagName := range tagNames {
-			if g.TagRx.MatchString(tagName) {
-				return true
-			}
-		}
-	}
-
-	// if we did not have any matching tags, the match is successful unless we
-	// required a positive tag match
-	return g.TagRx == ""
+	return g.PolicyMatchRule.MatchesTags(tagNames)
 }
 
 // MatchesTimeConstraint evaluates the time constraint in this policy for the
@@ -153,8 +123,9 @@ func (g GCPolicy) MatchesTimeConstraint(manifest models.Manifest, allManifestsIn
 
 // Validate returns an error if this policy is invalid.
 func (g GCPolicy) Validate() error {
-	if g.RepositoryRx == "" {
-		return errors.New(`GC policy must have the "match_repository" attribute`)
+	err := g.validate("GC policy")
+	if err != nil {
+		return err
 	}
 
 	if g.OnlyUntagged {
@@ -241,13 +212,15 @@ type GCStatus struct {
 	ProtectedBySubjectManifest string `json:"protected_by_subject,omitempty"`
 	// If a policy with action "protect" applies to this image,
 	// this contains the definition of the policy.
-	ProtectedByPolicy *GCPolicy `json:"protected_by_policy,omitempty"`
+	ProtectedByGCPolicy Option[GCPolicy] `json:"protected_by_policy,omitzero"` // This should be renamed but would be a breaking change in the API.
 	// If the image is not protected, contains all policies with action "delete"
 	// that could delete this image in the future.
-	RelevantPolicies []GCPolicy `json:"relevant_policies,omitempty"`
+	RelevantGCPolicies []GCPolicy `json:"relevant_policies,omitempty"` // This should be renamed but would be a breaking change in the API.
+	// If the image is protected, contains all tag policies that protect this image.
+	ProtectedByTagPolicy Option[TagPolicy] `json:"protected_by_tag_policy,omitzero"`
 }
 
 // IsProtected returns whether any of the ProtectedBy... fields is filled.
 func (s GCStatus) IsProtected() bool {
-	return s.ProtectedByRecentUpload || s.ProtectedByParentManifest != "" || s.ProtectedBySubjectManifest != "" || s.ProtectedByPolicy != nil
+	return s.ProtectedByRecentUpload || s.ProtectedByParentManifest != "" || s.ProtectedBySubjectManifest != "" || s.ProtectedByGCPolicy.IsSome() || s.ProtectedByTagPolicy.IsSome()
 }

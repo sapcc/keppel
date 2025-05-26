@@ -23,6 +23,8 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/osext"
 
+	"slices"
+
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -336,10 +338,8 @@ func (fd *federationDriverSwift) FindPrimaryAccount(ctx context.Context, account
 }
 
 func addStringToList(list []string, value string) []string {
-	for _, elem := range list {
-		if elem == value {
-			return list
-		}
+	if slices.Contains(list, value) {
+		return list
 	}
 	return append(list, value)
 }

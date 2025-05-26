@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"strings"
 
+	"maps"
+
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -48,9 +50,7 @@ func (c *RepoClient) sendRequest(ctx context.Context, r repoRequest, uri string)
 	if err != nil {
 		return nil, nil, err
 	}
-	for k, v := range r.Headers {
-		req.Header[k] = v
-	}
+	maps.Copy(req.Header, r.Headers)
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
 	}

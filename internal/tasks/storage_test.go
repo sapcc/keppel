@@ -66,8 +66,8 @@ func TestSweepStorageBlobs(t *testing.T) {
 	for _, blob := range []test.Bytes{testBlob1, testBlob2} {
 		storageID := blob.Digest.Encoded()
 		sizeBytes := uint64(len(blob.Contents))
-		mustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID, 1, &sizeBytes, bytes.NewReader(blob.Contents)))
-		mustDo(t, s.SD.FinalizeBlob(s.Ctx, account, storageID, 1))
+		test.MustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID, 1, &sizeBytes, bytes.NewReader(blob.Contents)))
+		test.MustDo(t, s.SD.FinalizeBlob(s.Ctx, account, storageID, 1))
 	}
 
 	// create a blob that's mid-upload; this one should be protected from sweeping
@@ -75,9 +75,9 @@ func TestSweepStorageBlobs(t *testing.T) {
 	testBlob3 := test.GenerateExampleLayer(32)
 	storageID := testBlob3.Digest.Encoded()
 	sizeBytes := uint64(len(testBlob3.Contents))
-	mustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID, 1, &sizeBytes, bytes.NewReader(testBlob3.Contents)))
+	test.MustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID, 1, &sizeBytes, bytes.NewReader(testBlob3.Contents)))
 	// ^ but no FinalizeBlob() since we're still uploading!
-	mustDo(t, s.DB.Insert(&models.Upload{
+	test.MustDo(t, s.DB.Insert(&models.Upload{
 		RepositoryID: 1,
 		UUID:         "a29d525c-2273-44ba-83a8-eafd447f1cb8", // chosen at random, but fixed
 		StorageID:    storageID,
@@ -92,7 +92,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	testBlob4 := test.GenerateExampleLayer(33)
 	storageID = testBlob4.Digest.Encoded()
 	sizeBytes = uint64(len(testBlob4.Contents))
-	mustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID, 1, &sizeBytes, bytes.NewReader(testBlob4.Contents)))
+	test.MustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID, 1, &sizeBytes, bytes.NewReader(testBlob4.Contents)))
 
 	// next StorageSweepJob should mark them for deletion...
 	s.Clock.StepBy(8 * time.Hour)
@@ -121,7 +121,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 		PushedAt:         s.Clock.Now(),
 		NextValidationAt: s.Clock.Now().Add(models.BlobValidationInterval),
 	}
-	mustDo(t, s.DB.Insert(&dbTestBlob1))
+	test.MustDo(t, s.DB.Insert(&dbTestBlob1))
 
 	// next StorageSweepJob should unmark blob 1 (because it's now in
 	// the DB) and sweep blobs 2 and 4 (since it is still not in the DB)
@@ -152,7 +152,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	testImageList1 := test.GenerateImageList(images[0])
 	testImageList2 := test.GenerateImageList(images[1])
 	for _, manifest := range []test.Bytes{testImageList1.Manifest, testImageList2.Manifest} {
-		mustDo(t, s.SD.WriteManifest(s.Ctx, account, "foo", manifest.Digest, manifest.Contents))
+		test.MustDo(t, s.SD.WriteManifest(s.Ctx, account, "foo", manifest.Digest, manifest.Contents))
 	}
 
 	// next StorageSweepJob should mark them for deletion...
@@ -172,7 +172,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	// upload that happened while StorageSweepJob: manifest was written
 	// to storage already, but not yet to DB)
 	s.Clock.StepBy(1 * time.Hour)
-	mustDo(t, s.DB.Insert(&models.Manifest{
+	test.MustDo(t, s.DB.Insert(&models.Manifest{
 		RepositoryID:     1,
 		Digest:           testImageList1.Manifest.Digest,
 		MediaType:        testImageList1.Manifest.MediaType,

@@ -29,7 +29,7 @@ func TestGCUntaggedImages(t *testing.T) {
 	// setup GC policy for test
 	matchingGCPolicyJSON := `{"match_repository":".*","only_untagged":true,"action":"delete"}`
 	matchingGCPoliciesJSON := fmt.Sprintf("[%s]", matchingGCPolicyJSON)
-	mustExec(t, s.DB,
+	test.MustExec(t, s.DB,
 		`UPDATE accounts SET gc_policies_json = $1`,
 		matchingGCPoliciesJSON,
 	)
@@ -53,7 +53,7 @@ func TestGCUntaggedImages(t *testing.T) {
 	// setup GC policy that does not match
 	s.Clock.StepBy(2 * time.Hour)
 	ineffectiveGCPoliciesJSON := `[{"match_repository":".*","except_repository":"foo","only_untagged":true,"action":"delete"}]`
-	mustExec(t, s.DB,
+	test.MustExec(t, s.DB,
 		`UPDATE accounts SET gc_policies_json = $1`,
 		ineffectiveGCPoliciesJSON,
 	)
@@ -76,7 +76,7 @@ func TestGCUntaggedImages(t *testing.T) {
 
 	// setup GC policy that matches
 	s.Clock.StepBy(2 * time.Hour)
-	mustExec(t, s.DB,
+	test.MustExec(t, s.DB,
 		`UPDATE accounts SET gc_policies_json = $1`,
 		matchingGCPoliciesJSON,
 	)
@@ -102,7 +102,7 @@ func TestGCUntaggedImages(t *testing.T) {
 
 	// delete the image list manifest
 	s.Clock.StepBy(2 * time.Hour)
-	mustExec(t, s.DB,
+	test.MustExec(t, s.DB,
 		`DELETE FROM manifests WHERE digest = $1`,
 		imageList.Manifest.Digest,
 	)
@@ -182,7 +182,7 @@ func TestGCMatchOnTag(t *testing.T) {
 	protectingGCPolicyJSON2 := `{"match_repository":"foo","match_tag":".*two","except_tag":"[zot][^w].*","action":"protect"}`
 	protectingGCPolicyJSON3 := `{"match_repository":"foo","except_tag":"zero.*|one.*|two.*","action":"protect"}`
 	deletingGCPolicyJSON := `{"match_repository":".*","time_constraint":{"on":"pushed_at","older_than":{"value":30,"unit":"m"}},"action":"delete"}`
-	mustExec(t, s.DB,
+	test.MustExec(t, s.DB,
 		`UPDATE accounts SET gc_policies_json = $1`,
 		fmt.Sprintf("[%s,%s,%s,%s]",
 			protectingGCPolicyJSON1,
@@ -254,12 +254,12 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 		// check that NULL gets coerced into time.Unix(0, 0)
 		for idx, image := range images {
 			if idx == 0 {
-				mustExec(t, s.DB,
+				test.MustExec(t, s.DB,
 					`UPDATE manifests SET last_pulled_at = NULL WHERE digest = $1`,
 					image.Manifest.Digest,
 				)
 			} else {
-				mustExec(t, s.DB,
+				test.MustExec(t, s.DB,
 					`UPDATE manifests SET last_pulled_at = $2 WHERE digest = $1`,
 					image.Manifest.Digest,
 					j.timeNow().Add(-10*time.Minute*time.Duration(len(images)-idx)),
@@ -276,7 +276,7 @@ func TestGCProtectOldestAndNewest(t *testing.T) {
 			protectingGCPolicyJSON2 = `{"match_repository":".*","time_constraint":{"on":"last_pulled_at","newer_than":{"value":25,"unit":"m"}},"action":"protect"}`
 		}
 		deletingGCPolicyJSON := `{"match_repository":".*","time_constraint":{"on":"pushed_at","older_than":{"value":30,"unit":"m"}},"action":"delete"}`
-		mustExec(t, s.DB,
+		test.MustExec(t, s.DB,
 			`UPDATE accounts SET gc_policies_json = $1`,
 			fmt.Sprintf("[%s,%s,%s]",
 				protectingGCPolicyJSON1,
@@ -339,7 +339,7 @@ func TestGCProtectComesTooLate(t *testing.T) {
 	protectingGCPolicyJSON1 := `{"match_repository":".*","match_tag":"earliest","action":"protect"}`
 	protectingGCPolicyJSON2 := `{"match_repository":".*","match_tag":"latest","action":"protect"}`
 	deletingGCPolicyJSON := `{"match_repository":".*","time_constraint":{"on":"pushed_at","older_than":{"value":30,"unit":"m"}},"action":"delete"}`
-	mustExec(t, s.DB,
+	test.MustExec(t, s.DB,
 		`UPDATE accounts SET gc_policies_json = $1`,
 		fmt.Sprintf("[%s,%s,%s]",
 			protectingGCPolicyJSON1,
@@ -386,7 +386,37 @@ func TestGCProtectSubject(t *testing.T) {
 	subjectManifest.MustUpload(t, s, fooRepoRef, strings.ReplaceAll(image.Manifest.Digest.String(), ":", "-"))
 
 	deletingGCPolicyJSON := `[{"match_repository":".*","time_constraint":{"on":"pushed_at","older_than":{"value":2,"unit":"h"}},"action":"delete"}]`
-	mustExec(t, s.DB, `UPDATE accounts SET gc_policies_json = $1`, deletingGCPolicyJSON)
+	test.MustExec(t, s.DB, `UPDATE accounts SET gc_policies_json = $1`, deletingGCPolicyJSON)
+
+	tr, _ := easypg.NewTracker(t, s.DB.Db)
+	garbageCollectionJob := j.ManifestGarbageCollectionJob(s.Registry)
+
+	// skip an hour to avoid protected_by_recent_upload
+	s.Clock.StepBy(1 * time.Hour)
+
+	// nothing should be deleted here
+	expectSuccess(t, garbageCollectionJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), garbageCollectionJob.ProcessOne(s.Ctx))
+	tr.DBChanges().AssertEqualf(`
+			UPDATE manifests SET gc_status_json = '{"protected_by_subject":"%[1]s"}' WHERE repo_id = 1 AND digest = '%[2]s';
+			UPDATE manifests SET gc_status_json = '{"relevant_policies":%[3]s}' WHERE repo_id = 1 AND digest = '%[1]s';
+			UPDATE repos SET next_gc_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+		`,
+		image.Manifest.Digest, subjectManifest.Manifest.Digest, deletingGCPolicyJSON, s.Clock.Now().Add(1*time.Hour).Unix(),
+	)
+}
+
+func TestTagPolicyProtectsFromGCManifest(t *testing.T) {
+	j, s := setup(t)
+
+	image := test.GenerateImage(test.GenerateExampleLayer(0))
+	image.MustUpload(t, s, fooRepoRef, "test")
+
+	deletingTagPolicyJSON := `{"match_repository":".*","block_delete":true}`
+	test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $1`, "["+deletingTagPolicyJSON+"]")
+
+	deletingGCPolicyJSON := `[{"match_repository":".*","time_constraint":{"on":"pushed_at","older_than":{"value":30,"unit":"m"}},"action":"delete"}]`
+	test.MustExec(t, s.DB, `UPDATE accounts SET gc_policies_json = $1`, deletingGCPolicyJSON)
 
 	tr, _ := easypg.NewTracker(t, s.DB.Db)
 	garbageJob := j.ManifestGarbageCollectionJob(s.Registry)
@@ -398,10 +428,9 @@ func TestGCProtectSubject(t *testing.T) {
 	expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
-			UPDATE manifests SET gc_status_json = '{"protected_by_subject":"%[1]s"}' WHERE repo_id = 1 AND digest = '%[2]s';
-			UPDATE manifests SET gc_status_json = '{"relevant_policies":%[3]s}' WHERE repo_id = 1 AND digest = '%[1]s';
-			UPDATE repos SET next_gc_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+			UPDATE manifests SET gc_status_json = '{"protected_by_tag_policy":%[1]s}' WHERE repo_id = 1 AND digest = '%[2]s';
+			UPDATE repos SET next_gc_at = %[3]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 		`,
-		image.Manifest.Digest, subjectManifest.Manifest.Digest, deletingGCPolicyJSON, s.Clock.Now().Add(1*time.Hour).Unix(),
+		deletingTagPolicyJSON, image.Manifest.Digest, s.Clock.Now().Add(1*time.Hour).Unix(),
 	)
 }
