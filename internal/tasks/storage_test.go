@@ -44,7 +44,7 @@ func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.J
 		// we need to write them into storage and also set the respective field to mark their existence in the DB
 		dummyReport := mustUploadDummyTrivyReport(t, s, manifest)
 		healthyTrivyReports[manifest] = append(healthyTrivyReports[manifest], dummyReport)
-		mustExec(t, s.DB,
+		test.MustExec(t, s.DB,
 			"UPDATE trivy_security_info SET vuln_status = $1, has_enriched_report = TRUE WHERE digest = $2",
 			models.CleanSeverity, manifest.Digest.String(),
 		)
@@ -79,8 +79,8 @@ func mustUploadDummyTrivyReport(t *testing.T, s test.Setup, manifest models.Mani
 		Contents: []byte(fmt.Sprintf(`{"dummy":"image %s is clean"}`, manifest.Digest.String())),
 	}
 	repo, err := keppel.FindRepositoryByID(s.DB, manifest.RepositoryID)
-	mustDo(t, err)
-	mustDo(t, s.SD.WriteTrivyReport(s.Ctx, models.ReducedAccount{Name: repo.AccountName}, repo.Name, manifest.Digest, report))
+	test.MustDo(t, err)
+	test.MustDo(t, s.SD.WriteTrivyReport(s.Ctx, models.ReducedAccount{Name: repo.AccountName}, repo.Name, manifest.Digest, report))
 	return report
 }
 
@@ -330,7 +330,7 @@ func TestSweepStorageTrivyReports(t *testing.T) {
 	// create a DB entry for the first Trivy report (to sort of simulate a Trivy report
 	// upload that happened during StorageSweepJob was running: report was written
 	// to storage already, but not yet to DB)
-	mustExec(t, s.DB,
+	test.MustExec(t, s.DB,
 		"UPDATE trivy_security_info SET vuln_status = $1, has_enriched_report = TRUE WHERE digest = $2",
 		models.CleanSeverity, listManifest1.Digest.String(),
 	)
