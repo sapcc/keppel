@@ -258,6 +258,7 @@ func (j *Janitor) evaluatePolicy(ctx context.Context, proc *processor.Processor,
 				Request: janitorDummyRequest,
 			})
 			if _, ok := errext.As[processor.DeleteManifestBlockedByTagPolicyError](err); ok { //nolint:errcheck // intended to be skipped
+				m.GCStatus.ProtectedByTagPolicies = tagPolicies
 				continue
 			}
 			if err != nil {

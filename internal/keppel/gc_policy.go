@@ -214,6 +214,8 @@ type GCStatus struct {
 	// If the image is not protected, contains all policies with action "delete"
 	// that could delete this image in the future.
 	RelevantPolicies []GCPolicy `json:"relevant_policies,omitempty"`
+	// If the image is protected, contains all tag policies that protect this image.
+	ProtectedByTagPolicies []TagPolicy `json:"protected_by_tag_policies,omitempty"`
 }
 
 // IsProtected returns whether any of the ProtectedBy... fields is filled.
