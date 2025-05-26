@@ -28,8 +28,8 @@ func (fd *federationDriver) PluginTypeID() string { return "multi" }
 
 // Init implements the keppel.FederationDriver interface.
 func (fd *federationDriver) Init(ctx context.Context, ad keppel.AuthDriver, cfg keppel.Configuration) error {
-	driverNames := strings.Split(osext.MustGetenv("KEPPEL_FEDERATION_MULTI_DRIVERS"), ",")
-	for _, driverName := range driverNames {
+	driverNames := strings.SplitSeq(osext.MustGetenv("KEPPEL_FEDERATION_MULTI_DRIVERS"), ",")
+	for driverName := range driverNames {
 		if driverName == "multi" {
 			// prevent infinite loops
 			return errors.New(`cannot nest "multi" federation driver within itself`)

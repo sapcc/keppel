@@ -526,11 +526,7 @@ func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *gorp.Transac
 	}
 	close(inputChan)
 
-	threads := trivySecurityInfoThreads
-	// don't start more threads than we possible can saturate
-	if threads < lenSecurityInfo {
-		threads = lenSecurityInfo
-	}
+	threads := max(trivySecurityInfoThreads, lenSecurityInfo)
 
 	type chanReturnStruct struct {
 		securityInfo models.TrivySecurityInfo

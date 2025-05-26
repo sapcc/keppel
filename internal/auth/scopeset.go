@@ -3,7 +3,11 @@
 
 package auth
 
-import "github.com/sapcc/keppel/internal/models"
+import (
+	"slices"
+
+	"github.com/sapcc/keppel/internal/models"
+)
 
 // ScopeSet is a set of scopes.
 type ScopeSet []*Scope
@@ -89,10 +93,8 @@ func isKeppelAccountViewScope(s Scope) (models.AccountName, bool) {
 	if s.ResourceType != "keppel_account" {
 		return "", false
 	}
-	for _, action := range s.Actions {
-		if action == "view" {
-			return models.AccountName(s.ResourceName), true
-		}
+	if slices.Contains(s.Actions, "view") {
+		return models.AccountName(s.ResourceName), true
 	}
 	return "", false
 }

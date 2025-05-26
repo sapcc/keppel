@@ -19,6 +19,8 @@ import (
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/must"
 
+	"maps"
+
 	"github.com/sapcc/keppel/internal/models"
 )
 
@@ -166,9 +168,7 @@ func GenerateImageWithCustomConfig(change func(map[string]any), layers ...Bytes)
 
 	// build image config referencing the given layers
 	imageConfig := make(map[string]any)
-	for k, v := range config {
-		imageConfig[k] = v
-	}
+	maps.Copy(imageConfig, config)
 	history := []map[string]any{imageConfig["history"].([]map[string]any)[0]}
 	for idx, layer := range layers {
 		history = append(history, map[string]any{

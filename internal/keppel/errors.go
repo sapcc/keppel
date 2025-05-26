@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"maps"
+
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/respondwith"
 )
@@ -148,9 +150,7 @@ func (e *RegistryV2Error) WithHeader(key string, values ...string) *RegistryV2Er
 // WriteAsRegistryV2ResponseTo reports this error in the format used by the Registry V2 API.
 func (e *RegistryV2Error) WriteAsRegistryV2ResponseTo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	for k, v := range e.Headers {
-		w.Header()[k] = v
-	}
+	maps.Copy(w.Header(), e.Headers)
 	if e.Status == 0 {
 		w.WriteHeader(apiErrorStatusCodes[e.Code])
 	} else {
@@ -168,9 +168,7 @@ func (e *RegistryV2Error) WriteAsRegistryV2ResponseTo(w http.ResponseWriter, r *
 
 // WriteAsAuthResponseTo reports this error in the format used by the Auth API endpoint.
 func (e *RegistryV2Error) WriteAsAuthResponseTo(w http.ResponseWriter) {
-	for k, v := range e.Headers {
-		w.Header()[k] = v
-	}
+	maps.Copy(w.Header(), e.Headers)
 	status := e.Status
 	if status == 0 {
 		status = apiErrorStatusCodes[e.Code]
@@ -180,9 +178,7 @@ func (e *RegistryV2Error) WriteAsAuthResponseTo(w http.ResponseWriter) {
 
 // WriteAsTextTo reports this error in a plain text format.
 func (e *RegistryV2Error) WriteAsTextTo(w http.ResponseWriter) {
-	for k, v := range e.Headers {
-		w.Header()[k] = v
-	}
+	maps.Copy(w.Header(), e.Headers)
 	if e.Status == 0 {
 		w.WriteHeader(apiErrorStatusCodes[e.Code])
 	} else {

@@ -210,7 +210,7 @@ func isValidRepoName(name string) bool {
 	if name == "" {
 		return false
 	}
-	for _, pathComponent := range strings.Split(name, `/`) {
+	for pathComponent := range strings.SplitSeq(name, `/`) {
 		if !models.RepoPathComponentRx.MatchString(pathComponent) {
 			return false
 		}

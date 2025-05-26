@@ -13,6 +13,8 @@ import (
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 
+	"maps"
+
 	"github.com/sapcc/keppel/internal/drivers/trivial"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -171,9 +173,7 @@ func expectBlobExists(t *testing.T, h http.Handler, token, fullRepoName string, 
 			},
 			ExpectBody: assert.ByteData(respBody),
 		}
-		for k, v := range additionalHeaders {
-			req.Header[k] = v
-		}
+		maps.Copy(req.Header, additionalHeaders)
 		req.Check(t, h)
 	}
 }
@@ -202,9 +202,7 @@ func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName stri
 			},
 			ExpectBody: assert.ByteData(respBody),
 		}
-		for k, v := range additionalHeaders {
-			req.Header[k] = v
-		}
+		maps.Copy(req.Header, additionalHeaders)
 
 		// without Accept header
 		req.Check(t, h)

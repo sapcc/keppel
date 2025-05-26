@@ -45,7 +45,7 @@ func (d *federationDriverBasic) Init(_ context.Context, ad keppel.AuthDriver, cf
 	}
 
 	wlStr := strings.TrimSuffix(osext.MustGetenv("KEPPEL_NAMECLAIM_WHITELIST"), ",")
-	for _, wlEntryStr := range strings.Split(wlStr, ",") {
+	for wlEntryStr := range strings.SplitSeq(wlStr, ",") {
 		wlEntryFields := strings.SplitN(wlEntryStr, ":", 2)
 		if len(wlEntryFields) != 2 {
 			return errors.New(`KEPPEL_NAMECLAIM_WHITELIST must have the form "project1:accountName1,project2:accountName2,..."`)

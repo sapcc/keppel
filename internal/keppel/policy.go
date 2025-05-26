@@ -6,6 +6,8 @@ package keppel
 import (
 	"errors"
 
+	"slices"
+
 	"github.com/sapcc/go-bits/regexpext"
 )
 
@@ -31,17 +33,13 @@ func (p PolicyMatchRule) MatchesRepository(repoName string) bool {
 func (p PolicyMatchRule) MatchesTags(tagNames []string) bool {
 	//NOTE: NegativeTagRx takes precedence over TagRx and is thus evaluated first.
 	if p.NegativeTagRx != "" {
-		for _, tagName := range tagNames {
-			if p.NegativeTagRx.MatchString(tagName) {
-				return false
-			}
+		if slices.ContainsFunc(tagNames, p.NegativeTagRx.MatchString) {
+			return false
 		}
 	}
 	if p.TagRx != "" {
-		for _, tagName := range tagNames {
-			if p.TagRx.MatchString(tagName) {
-				return true
-			}
+		if slices.ContainsFunc(tagNames, p.TagRx.MatchString) {
+			return true
 		}
 	}
 
