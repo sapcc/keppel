@@ -412,10 +412,10 @@ func TestTagPolicyProtectsFromGCManifest(t *testing.T) {
 	image := test.GenerateImage(test.GenerateExampleLayer(0))
 	image.MustUpload(t, s, fooRepoRef, "test")
 
-	deletingTagPolicyJSON := `[{"match_repository":".*","block_delete":true}]`
-	test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $1`, deletingTagPolicyJSON)
+	deletingTagPolicyJSON := `{"match_repository":".*","block_delete":true}`
+	test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $1`, "["+deletingTagPolicyJSON+"]")
 
-	deletingGCPolicyJSON := `[{"match_repository":".*","time_constraint":{"on":"pushed_at","older_than":{"value":2,"unit":"h"}},"action":"delete"}]`
+	deletingGCPolicyJSON := `[{"match_repository":".*","time_constraint":{"on":"pushed_at","older_than":{"value":30,"unit":"m"}},"action":"delete"}]`
 	test.MustExec(t, s.DB, `UPDATE accounts SET gc_policies_json = $1`, deletingGCPolicyJSON)
 
 	tr, _ := easypg.NewTracker(t, s.DB.Db)
@@ -428,9 +428,9 @@ func TestTagPolicyProtectsFromGCManifest(t *testing.T) {
 	expectSuccess(t, garbageJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), garbageJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`
-			UPDATE manifests SET gc_status_json = '{"relevant_policies":%[1]s}' WHERE repo_id = 1 AND digest = '%[2]s';
+			UPDATE manifests SET gc_status_json = '{"protected_by_tag_policy":%[1]s}' WHERE repo_id = 1 AND digest = '%[2]s';
 			UPDATE repos SET next_gc_at = %[3]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 		`,
-		deletingGCPolicyJSON, image.Manifest.Digest, s.Clock.Now().Add(1*time.Hour).Unix(),
+		deletingTagPolicyJSON, image.Manifest.Digest, s.Clock.Now().Add(1*time.Hour).Unix(),
 	)
 }
