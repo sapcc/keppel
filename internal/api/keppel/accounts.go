@@ -93,8 +93,8 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// we do not allow to set name in the request body ...
-	if req.Account.Name != "" {
-		http.Error(w, `malformed attribute "account.name" in request body is not allowed here`, http.StatusUnprocessableEntity)
+	if req.Account.Name != "" && req.Account.Name != models.AccountName(mux.Vars(r)["account"]) {
+		http.Error(w, `changing attribute "account.name" in request body is not allowed`, http.StatusUnprocessableEntity)
 		return
 	}
 	// ... or state ...
@@ -104,7 +104,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	// ... or metadata ...
 	if req.Account.Metadata != nil && len(*req.Account.Metadata) > 0 {
-		http.Error(w, `malformed attribute "account.metadata" in request body is not allowed here`, http.StatusUnprocessableEntity)
+		http.Error(w, `malformed attribute "account.metadata" in request body does no longer exist`, http.StatusUnprocessableEntity)
 		return
 	}
 	// ... and transfer the name here into the struct, to make the below code simpler
