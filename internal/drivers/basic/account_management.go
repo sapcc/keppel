@@ -36,6 +36,7 @@ type Account struct {
 	RBACPolicies         []keppel.RBACPolicy         `json:"rbac_policies"`
 	ReplicationPolicy    *keppel.ReplicationPolicy   `json:"replication"`
 	SecurityScanPolicies []keppel.SecurityScanPolicy `json:"security_scan_policies"`
+	TagPolicies          []keppel.TagPolicy          `json:"tag_policies,omitempty"`
 	ValidationPolicy     *keppel.ValidationPolicy    `json:"validation"`
 	PlatformFilter       models.PlatformFilter       `json:"platform_filter"`
 }
@@ -76,6 +77,7 @@ func (a *AccountManagementDriver) ConfigureAccount(accountName models.AccountNam
 			Name:              cfgAccount.Name,
 			RBACPolicies:      cfgAccount.RBACPolicies,
 			ReplicationPolicy: cfgAccount.ReplicationPolicy,
+			TagPolicies:       cfgAccount.TagPolicies,
 			ValidationPolicy:  cfgAccount.ValidationPolicy,
 			PlatformFilter:    cfgAccount.PlatformFilter,
 		}
