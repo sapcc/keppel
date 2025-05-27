@@ -4,7 +4,6 @@
 package keppelv1_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -19,12 +18,12 @@ import (
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
-	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/drivers/basic"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 func deterministicDummyVulnStatus(counter int) models.VulnerabilityStatus {
@@ -363,79 +362,94 @@ func TestManifestsAPI(t *testing.T) {
 			Header:       map[string]string{"X-Test-Perms": "delete:tenant2,view:tenant2"},
 			ExpectStatus: http.StatusNotFound,
 		}.Check(t, h)
-
-		// test GET vulnerability report failure cases
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + test.DeterministicDummyDigest(11).String() + "/trivy_report",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
-			ExpectStatus: http.StatusNotFound, // this manifest was deleted above
-		}.Check(t, h)
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + test.DeterministicDummyDigest(12).String() + "/trivy_report",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
-			ExpectStatus: http.StatusMethodNotAllowed, // manifest cannot have vulnerability report because it does not have manifest-blob refs
-		}.Check(t, h)
-
-		// setup a dummy blob that's correctly mounted and linked to our test manifest
-		// so that the vulnerability report can actually be shown
-		dummyBlob := models.Blob{
-			AccountName: "test1",
-			Digest:      test.DeterministicDummyDigest(101),
-		}
-		test.MustInsert(t, s.DB, &dummyBlob)
-		test.MustDo(t, keppel.MountBlobIntoRepo(s.DB, dummyBlob, *repos[0]))
-		test.MustExec(t, s.DB, `INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES ($1, $2, $3)`,
-			repos[0].ID, test.DeterministicDummyDigest(12).String(), dummyBlob.ID)
-
-		// test GET vulnerability report success case
-		imageRef, _, err := models.ParseImageReference("registry.example.org/test1/repo1-1@" + test.DeterministicDummyDigest(12).String())
-		test.MustDo(t, err)
-		s.TrivyDouble.ReportFixtures[imageRef] = "../../tasks/fixtures/trivy/report-vulnerable-with-fixes.json"
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + test.DeterministicDummyDigest(12).String() + "/trivy_report",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
-			ExpectStatus: http.StatusOK,
-			ExpectBody:   assert.JSONFixtureFile("../../tasks/fixtures/trivy/report-vulnerable-with-fixes.json"),
-		}.Check(t, h)
-
-		// with security scan policies configured, we expect the Trivy report to be
-		// enriched with the X-Keppel-Applicable-Policies field (the rest of the report is untouched)
-		policyJSON := must.Return(json.Marshal([]keppel.SecurityScanPolicy{
-			{
-				RepositoryRx:      ".*",
-				VulnerabilityIDRx: "CVE-2019-8457",
-				Action: keppel.SecurityScanPolicyAction{
-					Assessment: "we accept the risk",
-					Severity:   models.LowSeverity,
-				},
-			},
-			{
-				RepositoryRx:      ".*",
-				VulnerabilityIDRx: ".*",
-				ExceptFixReleased: true,
-				Action: keppel.SecurityScanPolicyAction{
-					Assessment: "we can only update if a fix is available",
-					Ignore:     true,
-				},
-			},
-		}))
-		test.MustExec(t, s.DB, `UPDATE accounts SET security_scan_policies_json = $1`, string(policyJSON))
-
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/repo1-1/_manifests/" + test.DeterministicDummyDigest(12).String() + "/trivy_report",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
-			ExpectStatus: http.StatusOK,
-			ExpectBody:   assert.JSONFixtureFile("../../tasks/fixtures/trivy/report-vulnerable-with-fixes-enriched.json"),
-		}.Check(t, h)
 	})
 }
 
 func p2time(x time.Time) *time.Time {
 	return &x
+}
+
+func TestGetTrivyReport(t *testing.T) {
+	test.WithRoundTripper(func(tt *test.RoundTripper) {
+		s := test.NewSetup(t,
+			test.WithKeppelAPI,
+			test.WithQuotas,
+			test.WithTrivyDouble,
+			test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
+		)
+
+		// setup: upload an image and an image list
+		repoRef := models.Repository{AccountName: "test1", Name: "foo"}
+		image := test.GenerateImage(test.GenerateExampleLayer(1))
+		imageManifest := image.MustUpload(t, s, repoRef, "")
+		listManifest := test.GenerateImageList(image).MustUpload(t, s, repoRef, "")
+
+		// error case: cannot GET report for an image that has not been uploaded
+		endpointFor := func(d digest.Digest) string {
+			return "/keppel/v1/accounts/test1/repositories/foo/_manifests/" + d.String() + "/trivy_report"
+		}
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         endpointFor(test.DeterministicDummyDigest(1)),
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
+			ExpectStatus: http.StatusNotFound,
+		}.Check(t, s.Handler)
+
+		// error case: cannot GET report for an image that does not have scannable layers
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         endpointFor(listManifest.Digest),
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
+			ExpectStatus: http.StatusMethodNotAllowed,
+		}.Check(t, s.Handler)
+
+		// error case: cannot GET report for an image that has not been scanned by the janitor after upload
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         endpointFor(imageManifest.Digest),
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
+			ExpectStatus: http.StatusMethodNotAllowed,
+		}.Check(t, s.Handler)
+
+		// for the scannable image, upload a dummy report to the storage in the same way that CheckTrivySecurityStatusJob would
+		report := trivy.ReportPayload{
+			Format:   "json",
+			Contents: []byte(fmt.Sprintf(`{"dummy":"image %s is clean"}`, imageManifest.Digest.String())),
+		}
+		repo, err := keppel.FindRepositoryByID(s.DB, imageManifest.RepositoryID)
+		test.MustDo(t, err)
+		test.MustDo(t, s.SD.WriteTrivyReport(s.Ctx, models.ReducedAccount{Name: repo.AccountName}, repo.Name, imageManifest.Digest, report))
+		test.MustExec(t, s.DB,
+			"UPDATE trivy_security_info SET vuln_status = $1, has_enriched_report = TRUE WHERE digest = $2",
+			models.CleanSeverity, imageManifest.Digest.String(),
+		)
+
+		// happy case: GET on the default format "json" returns that cached report
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         endpointFor(imageManifest.Digest),
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
+			ExpectStatus: http.StatusOK,
+			ExpectHeader: map[string]string{"Content-Type": "application/json"},
+			ExpectBody:   assert.ByteData(report.Contents),
+		}.Check(t, s.Handler)
+
+		// happy case: GET on a different format will speak to the Trivy server directly (hence we need to instruct our double what to return)
+		imageRef := models.ImageReference{
+			Host:      "registry.example.org",
+			RepoName:  repo.FullName(),
+			Reference: models.ManifestReference{Digest: imageManifest.Digest},
+		}
+		s.TrivyDouble.ReportFixtures[imageRef] = "fixtures/trivy-report-spdx.json"
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         endpointFor(imageManifest.Digest) + "?format=spdx-json",
+			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
+			ExpectStatus: http.StatusOK,
+			ExpectHeader: map[string]string{"Content-Type": "application/json"},
+			ExpectBody:   assert.JSONFixtureFile("fixtures/trivy-report-spdx.json"),
+		}.Check(t, s.Handler)
+	})
 }
 
 func TestRateLimitsTrivyReport(t *testing.T) {

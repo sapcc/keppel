@@ -316,6 +316,15 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	format := r.URL.Query().Get("format")
+	if format == "" {
+		format = "json"
+	}
+	if format != "json" && format != "spdx-json" {
+		http.Error(w, fmt.Sprintf("format %s not supported", html.EscapeString(format)), http.StatusBadRequest)
+		return
+	}
+
 	// there is no vulnerability report if:
 	//- we don't have vulnerability scanning enabled at all
 	//- vulnerability scanning is not done yet
@@ -332,41 +341,39 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// the format "json" is expensive to compute because it involves evaluating security scan policies;
+	// we do not allow running this computation in the API and rely on the enriched report that the janitor has cached for us
+	if format == "json" {
+		if !securityInfo.HasEnrichedReport {
+			// This branch is defense in depth. The "405 Method Not Allowed" return above should
+			// already have caught all situations that could cause us to not have a stored report.
+			msg := fmt.Sprintf("missing cached vulnerability report for %s/%s", repo.FullName(), manifest.Digest)
+			http.Error(w, msg, http.StatusInternalServerError)
+			return
+		}
+		buf, err := a.sd.ReadTrivyReport(r.Context(), account.Reduced(), repo.Name, manifest.Digest, format)
+		if respondwith.ErrorText(w, err) {
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(buf)
+		return
+	}
+
+	// if we could not serve a cached report, ask our trivy-server right now
 	imageRef := models.ImageReference{
 		Host:      a.cfg.APIPublicHostname,
 		RepoName:  fmt.Sprintf("%s/%s", account.Name, repo.Name),
 		Reference: models.ManifestReference{Digest: manifest.Digest},
 	}
-
-	format := r.URL.Query().Get("format")
-	if format == "" {
-		format = "json"
-	}
-
-	if format != "json" && format != "spdx-json" {
-		http.Error(w, fmt.Sprintf("format %s not supported", html.EscapeString(format)), http.StatusBadRequest)
-		return
-	}
-
 	tokenResp, err := auth.IssueTokenForTrivy(a.cfg, repo.FullName())
 	if respondwith.ErrorText(w, err) {
 		return
 	}
-
 	report, err := a.cfg.Trivy.ScanManifest(r.Context(), tokenResp.Token, imageRef, format)
 	if respondwith.ErrorText(w, err) {
 		return
-	}
-
-	if report.Format == "json" {
-		relevantPolicies, err := keppel.GetSecurityScanPolicies(*account, *repo)
-		if respondwith.ErrorText(w, err) {
-			return
-		}
-		_, err = relevantPolicies.EnrichReport(&report)
-		if respondwith.ErrorText(w, err) {
-			return
-		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
