@@ -19,6 +19,7 @@ import (
 
 	imageManifest "github.com/containers/image/v5/manifest"
 	"github.com/go-gorp/gorp/v3"
+	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 	imagespecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/prometheus/client_golang/prometheus"
@@ -224,7 +225,7 @@ func (j *Janitor) getReplicaSyncPayload(ctx context.Context, account models.Acco
 		var (
 			name         string
 			digest       digest.Digest
-			lastPulledAt *time.Time
+			lastPulledAt Option[time.Time]
 		)
 		err = rows.Scan(&name, &digest, &lastPulledAt)
 		if err != nil {
@@ -245,7 +246,7 @@ func (j *Janitor) getReplicaSyncPayload(ctx context.Context, account models.Acco
 	err = sqlext.ForeachRow(j.db, query, []any{repo.ID}, func(rows *sql.Rows) error {
 		var (
 			digest       digest.Digest
-			lastPulledAt *time.Time
+			lastPulledAt Option[time.Time]
 		)
 		err = rows.Scan(&digest, &lastPulledAt)
 		if err != nil {
@@ -621,8 +622,8 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 
 	// clear timing information (this will be filled down below once we actually talk to Trivy;
 	// if any preflight check fails, the fields stay at nil)
-	securityInfo.CheckedAt = nil
-	securityInfo.CheckDurationSecs = nil
+	securityInfo.CheckedAt = None[time.Time]()
+	securityInfo.CheckDurationSecs = None[float64]()
 
 	// skip validation while account is in maintenance (maintenance mode blocks
 	// all kinds of activity on an account's contents)
@@ -650,9 +651,8 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 	defer func() {
 		if returnedError == nil {
 			checkFinishedAt := j.timeNow()
-			securityInfo.CheckedAt = &checkFinishedAt
-			duration := checkFinishedAt.Sub(checkStartedAt).Seconds()
-			securityInfo.CheckDurationSecs = &duration
+			securityInfo.CheckedAt = Some(checkFinishedAt)
+			securityInfo.CheckDurationSecs = Some(checkFinishedAt.Sub(checkStartedAt).Seconds())
 			return
 		}
 
@@ -765,7 +765,7 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 			return j.checkPreConditionsForTrivy(ctx, account, repo, manifest, securityInfo)
 		}
 
-		if blob.BlocksVulnScanning == nil && strings.HasSuffix(blob.MediaType, "gzip") {
+		if blob.BlocksVulnScanning.IsNone() && strings.HasSuffix(blob.MediaType, "gzip") {
 			// uncompress the blob to check if it's too large for Trivy to handle within its allotted timeout
 			reader, _, err := j.sd.ReadBlob(ctx, account, blob.StorageID)
 			if err != nil {
@@ -787,15 +787,14 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 			}
 
 			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
-			blocksVulnScanning := numberBytes >= limitBytes
-			blob.BlocksVulnScanning = &blocksVulnScanning
-			_, err = j.db.Exec(`UPDATE blobs SET blocks_vuln_scanning = $1 WHERE id = $2`, blocksVulnScanning, blob.ID)
+			blob.BlocksVulnScanning = Some(numberBytes >= limitBytes)
+			_, err = j.db.Exec(`UPDATE blobs SET blocks_vuln_scanning = $1 WHERE id = $2`, blob.BlocksVulnScanning, blob.ID)
 			if err != nil {
 				return false, layerBlobs, err
 			}
 		}
 
-		if blob.BlocksVulnScanning != nil && *blob.BlocksVulnScanning {
+		if blob.BlocksVulnScanning == Some(true) {
 			securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
 			securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
 			securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))

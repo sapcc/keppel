@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"time"
 
+	. "github.com/majewsky/gg/option"
+
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -90,7 +92,7 @@ func (d *FederationDriver) ForfeitAccountName(ctx context.Context, account model
 
 // RecordExistingAccount implements the keppel.FederationDriver interface.
 func (d *FederationDriver) RecordExistingAccount(ctx context.Context, account models.Account, now time.Time) error {
-	account.NextFederationAnnouncementAt = nil // this pointer type is poison for DeepEqual tests
+	account.NextFederationAnnouncementAt = None[time.Time]() // this pointer type is poison for DeepEqual tests
 
 	d.RecordedAccounts = append(d.RecordedAccounts, AccountRecordedByFederationDriver{
 		Account:    account,

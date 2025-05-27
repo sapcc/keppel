@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	. "github.com/majewsky/gg/option"
 )
 
 // OriginalRequestURL returns the URL that the original requester used when
@@ -49,38 +51,44 @@ func AppendQuery(urlStr string, query url.Values) string {
 }
 
 // MaybeTimeToUnix casts a time.Time instance into its UNIX timestamp while preserving nil-ness.
-func MaybeTimeToUnix(t *time.Time) *int64 {
-	if t == nil {
-		return nil
+func MaybeTimeToUnix(t Option[time.Time]) Option[int64] {
+	tt, ok := t.Unpack()
+	if !ok {
+		return None[int64]()
 	}
-	val := t.Unix()
-	return &val
+	return Some(tt.Unix())
 }
 
-func MinMaybeTime(t1, t2 *time.Time) *time.Time {
-	if t1 == nil {
+// MinMaybeTime returns the earlier of two Option[time.Time], or None if they are both None.
+func MinMaybeTime(t1, t2 Option[time.Time]) Option[time.Time] {
+	tt1, ok := t1.Unpack()
+	if !ok {
 		return t2
 	}
-	if t2 == nil {
+	tt2, ok := t2.Unpack()
+	if !ok {
 		return t1
 	}
 
-	if t1.Before(*t2) {
+	if tt1.Before(tt2) {
 		return t1
 	} else {
 		return t2
 	}
 }
 
-func MaxMaybeTime(t1, t2 *time.Time) *time.Time {
-	if t1 == nil {
+// MaxMaybeTime returns the later of two Option[time.Time], or None if they are both None.
+func MaxMaybeTime(t1, t2 Option[time.Time]) Option[time.Time] {
+	tt1, ok := t1.Unpack()
+	if !ok {
 		return t2
 	}
-	if t2 == nil {
+	tt2, ok := t2.Unpack()
+	if !ok {
 		return t1
 	}
 
-	if t1.After(*t2) {
+	if tt1.After(tt2) {
 		return t1
 	} else {
 		return t2

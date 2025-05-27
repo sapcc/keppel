@@ -14,6 +14,7 @@ import (
 
 	"github.com/containers/image/v5/manifest"
 	"github.com/go-redis/redis_rate/v10"
+	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
@@ -95,12 +96,12 @@ func TestManifestsAPI(t *testing.T) {
 					NextValidationAt:  pushedAt.Add(models.ManifestValidationInterval),
 					LabelsJSON:        `{"foo":"is there"}`,
 					GCStatusJSON:      `{"protected_by_recent_upload":true}`,
-					MinLayerCreatedAt: p2time(time.Unix(20001, 0)),
-					MaxLayerCreatedAt: p2time(time.Unix(20002, 0)),
+					MinLayerCreatedAt: Some(time.Unix(20001, 0)),
+					MaxLayerCreatedAt: Some(time.Unix(20002, 0)),
 					SubjectDigest:     dummySubject,
 				}
 				if idx == 1 {
-					dbManifest.LastPulledAt = p2time(pushedAt.Add(100 * time.Second))
+					dbManifest.LastPulledAt = Some(pushedAt.Add(100 * time.Second))
 				}
 				test.MustInsert(t, s.DB, &dbManifest)
 
@@ -122,21 +123,21 @@ func TestManifestsAPI(t *testing.T) {
 				Name:         "first",
 				Digest:       test.DeterministicDummyDigest(repoID*10 + 1),
 				PushedAt:     time.Unix(20001, 0),
-				LastPulledAt: p2time(time.Unix(20101, 0)),
+				LastPulledAt: Some(time.Unix(20101, 0)),
 			})
 			test.MustInsert(t, s.DB, &models.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "stillfirst",
 				Digest:       test.DeterministicDummyDigest(repoID*10 + 1),
 				PushedAt:     time.Unix(20002, 0),
-				LastPulledAt: nil,
+				LastPulledAt: None[time.Time](),
 			})
 			test.MustInsert(t, s.DB, &models.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "second",
 				Digest:       test.DeterministicDummyDigest(repoID*10 + 2),
 				PushedAt:     time.Unix(20003, 0),
-				LastPulledAt: nil,
+				LastPulledAt: None[time.Time](),
 			})
 		}
 
@@ -363,10 +364,6 @@ func TestManifestsAPI(t *testing.T) {
 			ExpectStatus: http.StatusNotFound,
 		}.Check(t, h)
 	})
-}
-
-func p2time(x time.Time) *time.Time {
-	return &x
 }
 
 func TestGetTrivyReport(t *testing.T) {

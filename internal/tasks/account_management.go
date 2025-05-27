@@ -12,6 +12,7 @@ import (
 	"slices"
 	"time"
 
+	. "github.com/majewsky/gg/option"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/sqlext"
@@ -150,8 +151,7 @@ func (j *Janitor) createOrUpdateManagedAccount(ctx context.Context, account kepp
 	setCustomFields := func(account *models.Account) *keppel.RegistryV2Error {
 		account.IsManaged = true
 		account.SecurityScanPoliciesJSON = string(jsonBytes)
-		nextAt := j.timeNow().Add(j.addJitter(1 * time.Hour))
-		account.NextEnforcementAt = &nextAt
+		account.NextEnforcementAt = Some(j.timeNow().Add(j.addJitter(1 * time.Hour)))
 		return nil
 	}
 
