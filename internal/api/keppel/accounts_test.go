@@ -1144,7 +1144,34 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		},
 		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("malformed attribute \"account.metadata\" in request body is not allowed here\n"),
+		ExpectBody:   assert.StringData("malformed attribute \"account.metadata\" in request body does no longer exist\n"),
+	}.Check(t, h)
+
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"name":           "first",
+			},
+		},
+		ExpectStatus: http.StatusOK,
+	}.Check(t, h)
+
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"name":           "second",
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("changing attribute \"account.name\" in request body is not allowed\n"),
 	}.Check(t, h)
 
 	// test protection for managed accounts
