@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gophercloud/gophercloud/v2/openstack"
+	. "github.com/majewsky/gg/option"
 	"github.com/majewsky/schwift/v2"
 	"github.com/majewsky/schwift/v2/gopherschwift"
 	"github.com/opencontainers/go-digest"
@@ -173,14 +174,14 @@ func uploadToObject(ctx context.Context, o *schwift.Object, content io.Reader, o
 }
 
 // AppendToBlob implements the keppel.StorageDriver interface.
-func (d *swiftDriver) AppendToBlob(ctx context.Context, account models.ReducedAccount, storageID string, chunkNumber uint32, chunkLength *uint64, chunk io.Reader) error {
+func (d *swiftDriver) AppendToBlob(ctx context.Context, account models.ReducedAccount, storageID string, chunkNumber uint32, chunkLength Option[uint64], chunk io.Reader) error {
 	c, _, err := d.getBackendConnection(ctx, account)
 	if err != nil {
 		return err
 	}
 	hdr := schwift.NewObjectHeaders()
-	if chunkLength != nil {
-		hdr.SizeBytes().Set(*chunkLength)
+	if l, ok := chunkLength.Unpack(); ok {
+		hdr.SizeBytes().Set(l)
 	}
 	o := chunkObject(c, storageID, chunkNumber)
 	return uploadToObject(ctx, o, chunk, nil, hdr.ToOpts())

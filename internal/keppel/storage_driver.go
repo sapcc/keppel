@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io"
 
+	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
@@ -37,10 +38,10 @@ type StorageDriver interface {
 	// storageID. For the first call to AppendToBlob(), `chunkNumber` will be 1.
 	// The second call will have a `chunkNumber` of 2, and so on.
 	//
-	// If `chunkLength` is non-nil, the implementation may assume that `chunk`
+	// If `chunkLength` is Some(), the implementation may assume that `chunk`
 	// will yield that many bytes, and return keppel.ErrSizeInvalid when that
 	// turns out not to be true.
-	AppendToBlob(ctx context.Context, account models.ReducedAccount, storageID string, chunkNumber uint32, chunkLength *uint64, chunk io.Reader) error
+	AppendToBlob(ctx context.Context, account models.ReducedAccount, storageID string, chunkNumber uint32, chunkLength Option[uint64], chunk io.Reader) error
 	// FinalizeBlob() is called at the end of the upload, after the last
 	// AppendToBlob() call for that blob. `chunkCount` identifies how often
 	// AppendToBlob() was called.

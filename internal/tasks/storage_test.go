@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/majewsky/gg/option"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/jobloop"
@@ -99,7 +100,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	for _, blob := range []test.Bytes{testBlob1, testBlob2} {
 		storageID := blob.Digest.Encoded()
 		sizeBytes := uint64(len(blob.Contents))
-		test.MustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID, 1, &sizeBytes, bytes.NewReader(blob.Contents)))
+		test.MustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID, 1, Some(sizeBytes), bytes.NewReader(blob.Contents)))
 		test.MustDo(t, s.SD.FinalizeBlob(s.Ctx, account, storageID, 1))
 	}
 
@@ -108,7 +109,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	testBlob3 := test.GenerateExampleLayer(32)
 	storageID3 := testBlob3.Digest.Encoded()
 	sizeBytes := uint64(len(testBlob3.Contents))
-	test.MustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID3, 1, &sizeBytes, bytes.NewReader(testBlob3.Contents)))
+	test.MustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID3, 1, Some(sizeBytes), bytes.NewReader(testBlob3.Contents)))
 	// ^ but no FinalizeBlob() since we're still uploading!
 	test.MustDo(t, s.DB.Insert(&models.Upload{
 		RepositoryID: 1,
@@ -126,7 +127,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	testBlob4 := test.GenerateExampleLayer(33)
 	storageID4 := testBlob4.Digest.Encoded()
 	sizeBytes = uint64(len(testBlob4.Contents))
-	test.MustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID4, 1, &sizeBytes, bytes.NewReader(testBlob4.Contents)))
+	test.MustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID4, 1, Some(sizeBytes), bytes.NewReader(testBlob4.Contents)))
 
 	// next StorageSweepJob should mark them for deletion...
 	s.Clock.StepBy(8 * time.Hour)
