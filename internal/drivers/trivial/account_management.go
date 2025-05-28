@@ -4,6 +4,8 @@
 package trivial
 
 import (
+	. "github.com/majewsky/gg/option"
+
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -26,9 +28,9 @@ func (a *AccountManagementDriver) Init() error {
 }
 
 // ConfigureAccount implements the keppel.AccountManagementDriver interface.
-func (a *AccountManagementDriver) ConfigureAccount(accountName models.AccountName) (*keppel.Account, []keppel.SecurityScanPolicy, error) {
+func (a *AccountManagementDriver) ConfigureAccount(accountName models.AccountName) (Option[keppel.Account], []keppel.SecurityScanPolicy, error) {
 	// if there are any managed accounts, delete them
-	return nil, nil, nil
+	return None[keppel.Account](), nil, nil
 }
 
 // ManagedAccountNames implements the keppel.AccountManagementDriver interface.

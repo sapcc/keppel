@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid/v5"
+	. "github.com/majewsky/gg/option"
 	"github.com/sapcc/go-bits/easypg"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -39,7 +40,7 @@ func TestDeleteAbandonedUploadWithZeroChunks(t *testing.T) {
 func TestDeleteAbandonedUploadWithOneChunk(t *testing.T) {
 	testDeleteUpload(t, func(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount) models.Upload {
 		data := "just some test data"
-		test.MustDo(t, sd.AppendToBlob(ctx, account, testStorageID, 1, p2len(data), strings.NewReader(data)))
+		test.MustDo(t, sd.AppendToBlob(ctx, account, testStorageID, 1, Some(uint64(len(data))), strings.NewReader(data)))
 
 		return models.Upload{
 			SizeBytes: uint64(len(data)),
@@ -53,7 +54,7 @@ func TestDeleteAbandonedUploadWithManyChunks(t *testing.T) {
 	testDeleteUpload(t, func(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount) models.Upload {
 		chunks := []string{"just", "some", "test", "data"}
 		for idx, data := range chunks {
-			err := sd.AppendToBlob(ctx, account, testStorageID, uint32(idx+1), p2len(data), strings.NewReader(data)) //nolint:gosec // chunks has a fixed size of 4
+			err := sd.AppendToBlob(ctx, account, testStorageID, uint32(idx+1), Some(uint64(len(data))), strings.NewReader(data)) //nolint:gosec // chunks has a fixed size of 4
 			if err != nil {
 				t.Fatalf("AppendToBlob %d failed: %s", idx, err.Error())
 			}
@@ -119,9 +120,4 @@ func expectNoRows(t *testing.T, err error) {
 func sha256Of(data []byte) string {
 	sha256Hash := sha256.Sum256(data)
 	return hex.EncodeToString(sha256Hash[:])
-}
-
-func p2len(data string) *uint64 {
-	x := uint64(len(data))
-	return &x
 }

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/go-redis/redis_rate/v10"
+	. "github.com/majewsky/gg/option"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/osext"
 
@@ -74,12 +75,12 @@ func (d RateLimitDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) er
 }
 
 // GetRateLimit implements the keppel.RateLimitDriver interface.
-func (d RateLimitDriver) GetRateLimit(account models.ReducedAccount, action keppel.RateLimitedAction) *redis_rate.Limit {
+func (d RateLimitDriver) GetRateLimit(account models.ReducedAccount, action keppel.RateLimitedAction) Option[redis_rate.Limit] {
 	quota, ok := d.Limits[action]
 	if ok {
-		return &quota
+		return Some(quota)
 	}
-	return nil
+	return None[redis_rate.Limit]()
 }
 
 func parseRateLimit(envVar string) (*redis_rate.Limit, error) {

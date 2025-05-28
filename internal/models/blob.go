@@ -6,6 +6,7 @@ package models
 import (
 	"time"
 
+	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 )
 
@@ -20,17 +21,17 @@ import (
 // needs to be chosen at the start of the blob upload, when the digest is not
 // known yet.
 type Blob struct {
-	ID                     int64         `db:"id"`
-	AccountName            AccountName   `db:"account_name"`
-	Digest                 digest.Digest `db:"digest"`
-	SizeBytes              uint64        `db:"size_bytes"`
-	StorageID              string        `db:"storage_id"`
-	MediaType              string        `db:"media_type"`
-	PushedAt               time.Time     `db:"pushed_at"`
-	NextValidationAt       time.Time     `db:"next_validation_at"` // see tasks.BlobValidationJob
-	ValidationErrorMessage string        `db:"validation_error_message"`
-	CanBeDeletedAt         *time.Time    `db:"can_be_deleted_at"` // see tasks.BlobSweepJob
-	BlocksVulnScanning     *bool         `db:"blocks_vuln_scanning"`
+	ID                     int64             `db:"id"`
+	AccountName            AccountName       `db:"account_name"`
+	Digest                 digest.Digest     `db:"digest"`
+	SizeBytes              uint64            `db:"size_bytes"`
+	StorageID              string            `db:"storage_id"`
+	MediaType              string            `db:"media_type"`
+	PushedAt               time.Time         `db:"pushed_at"`
+	NextValidationAt       time.Time         `db:"next_validation_at"` // see tasks.BlobValidationJob
+	ValidationErrorMessage string            `db:"validation_error_message"`
+	CanBeDeletedAt         Option[time.Time] `db:"can_be_deleted_at"` // see tasks.BlobSweepJob
+	BlocksVulnScanning     Option[bool]      `db:"blocks_vuln_scanning"`
 }
 
 // SafeMediaType returns the MediaType field, but falls back to "application/octet-stream" if it is empty.

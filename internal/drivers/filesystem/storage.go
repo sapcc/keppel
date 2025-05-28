@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/osext"
 
@@ -64,7 +65,7 @@ func (d *StorageDriver) getTrivyReportPath(account models.ReducedAccount, repoNa
 }
 
 // AppendToBlob implements the keppel.StorageDriver interface.
-func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.ReducedAccount, storageID string, chunkNumber uint32, chunkLength *uint64, chunk io.Reader) error {
+func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.ReducedAccount, storageID string, chunkNumber uint32, chunkLength Option[uint64], chunk io.Reader) error {
 	path := d.getBlobPath(account, storageID)
 	tmpPath := path + ".tmp"
 	flags := os.O_APPEND | os.O_WRONLY

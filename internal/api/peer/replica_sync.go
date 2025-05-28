@@ -64,11 +64,11 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 	hasManifestsLastPulledAt := false
 	hasTagsLastPulledAt := false
 	for _, m := range req.Manifests {
-		if m.LastPulledAt != nil {
+		if m.LastPulledAt.IsSome() {
 			hasManifestsLastPulledAt = true
 		}
 		for _, t := range m.Tags {
-			if t.LastPulledAt != nil {
+			if t.LastPulledAt.IsSome() {
 				hasTagsLastPulledAt = true
 			}
 		}
@@ -79,10 +79,11 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 	if hasManifestsLastPulledAt {
 		err = sqlext.WithPreparedStatement(a.db, query, func(stmt *sql.Stmt) error {
 			for _, m := range req.Manifests {
-				if m.LastPulledAt == nil {
+				lastPulledAt, ok := m.LastPulledAt.Unpack()
+				if !ok {
 					continue
 				}
-				_, err := stmt.Exec(repo.ID, m.Digest, time.Unix(*m.LastPulledAt, 0))
+				_, err := stmt.Exec(repo.ID, m.Digest, time.Unix(lastPulledAt, 0))
 				if err != nil {
 					return err
 				}
@@ -99,10 +100,11 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 		err = sqlext.WithPreparedStatement(a.db, query, func(stmt *sql.Stmt) error {
 			for _, m := range req.Manifests {
 				for _, t := range m.Tags {
-					if t.LastPulledAt == nil {
+					lastPulledAt, ok := t.LastPulledAt.Unpack()
+					if !ok {
 						continue
 					}
-					_, err := stmt.Exec(repo.ID, m.Digest, t.Name, time.Unix(*t.LastPulledAt, 0))
+					_, err := stmt.Exec(repo.ID, m.Digest, t.Name, time.Unix(lastPulledAt, 0))
 					if err != nil {
 						return err
 					}

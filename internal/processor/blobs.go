@@ -15,6 +15,7 @@ import (
 
 	"github.com/containers/image/v5/manifest"
 	"github.com/go-gorp/gorp/v3"
+	. "github.com/majewsky/gg/option"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/logg"
 
@@ -249,7 +250,7 @@ func (p *Processor) AppendToBlob(ctx context.Context, account models.ReducedAcco
 		return foreachChunkWithKnownSize(contents, *lengthBytes, func(chunk io.Reader, chunkLengthBytes uint64) error {
 			upload.NumChunks++
 			upload.SizeBytes += chunkLengthBytes
-			return p.sd.AppendToBlob(ctx, account, upload.StorageID, upload.NumChunks, &chunkLengthBytes, chunk)
+			return p.sd.AppendToBlob(ctx, account, upload.StorageID, upload.NumChunks, Some(chunkLengthBytes), chunk)
 		})
 	}
 
@@ -257,7 +258,7 @@ func (p *Processor) AppendToBlob(ctx context.Context, account models.ReducedAcco
 	ctr := chunkingTrackingReader{wrapped: contents}
 	err := foreachChunkWithUnknownSize(&ctr, func(chunk io.Reader) error {
 		upload.NumChunks++
-		return p.sd.AppendToBlob(ctx, account, upload.StorageID, upload.NumChunks, nil, chunk)
+		return p.sd.AppendToBlob(ctx, account, upload.StorageID, upload.NumChunks, None[uint64](), chunk)
 	})
 	upload.SizeBytes += ctr.bytesRead
 	return err

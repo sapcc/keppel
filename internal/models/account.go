@@ -6,6 +6,8 @@ package models
 import (
 	"strings"
 	"time"
+
+	. "github.com/majewsky/gg/option"
 )
 
 // AccountName identifies an account. This typedef is used to distinguish these
@@ -44,11 +46,11 @@ type Account struct {
 	// TagPoliciesJSON contains a JSON string of []keppel.TagPolicy, or the empty string.
 	TagPoliciesJSON string `db:"tag_policies_json"`
 
-	NextBlobSweepedAt            *time.Time `db:"next_blob_sweep_at"`              // see tasks.BlobSweepJob
-	NextDeletionAttempt          *time.Time `db:"next_deletion_attempt_at"`        // see tasks.AccountDeletionJob
-	NextEnforcementAt            *time.Time `db:"next_enforcement_at"`             // see tasks.CreateManagedAccountsJob
-	NextStorageSweepedAt         *time.Time `db:"next_storage_sweep_at"`           // see tasks.StorageSweepJob
-	NextFederationAnnouncementAt *time.Time `db:"next_federation_announcement_at"` // see tasks.AnnounceAccountToFederationJob
+	NextBlobSweepedAt            Option[time.Time] `db:"next_blob_sweep_at"`              // see tasks.BlobSweepJob
+	NextDeletionAttemptAt        Option[time.Time] `db:"next_deletion_attempt_at"`        // see tasks.AccountDeletionJob
+	NextEnforcementAt            Option[time.Time] `db:"next_enforcement_at"`             // see tasks.CreateManagedAccountsJob
+	NextStorageSweepedAt         Option[time.Time] `db:"next_storage_sweep_at"`           // see tasks.StorageSweepJob
+	NextFederationAnnouncementAt Option[time.Time] `db:"next_federation_announcement_at"` // see tasks.AnnounceAccountToFederationJob
 }
 
 // Reduced converts an Account into a ReducedAccount.

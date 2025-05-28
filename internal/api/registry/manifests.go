@@ -174,11 +174,11 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	if securityInfo != nil {
 		w.Header().Set("X-Keppel-Vulnerability-Status", string(securityInfo.VulnerabilityStatus))
 	}
-	if dbManifest.MinLayerCreatedAt != nil {
-		w.Header().Set("X-Keppel-Min-Layer-Created-At", timeToString(*dbManifest.MinLayerCreatedAt))
+	if t, ok := dbManifest.MinLayerCreatedAt.Unpack(); ok {
+		w.Header().Set("X-Keppel-Min-Layer-Created-At", timeToString(t))
 	}
-	if dbManifest.MaxLayerCreatedAt != nil {
-		w.Header().Set("X-Keppel-Max-Layer-Created-At", timeToString(*dbManifest.MaxLayerCreatedAt))
+	if t, ok := dbManifest.MaxLayerCreatedAt.Unpack(); ok {
+		w.Header().Set("X-Keppel-Max-Layer-Created-At", timeToString(t))
 	}
 	w.WriteHeader(http.StatusOK)
 	if r.Method != http.MethodHead {
@@ -197,7 +197,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 		)
 
 		if err == nil {
-			if dbManifest.LastPulledAt != nil && dbManifest.LastPulledAt.Before(a.timeNow().Add(-7*24*time.Hour)) {
+			if dbManifest.LastPulledAt.IsSomeAnd(func(t time.Time) bool { return t.Before(a.timeNow().Add(-7 * 24 * time.Hour)) }) {
 				userNameDisplay := authz.UserIdentity.UserName()
 				if authz.UserIdentity.UserType() == keppel.AnonymousUser {
 					userNameDisplay = "<anonymous>"

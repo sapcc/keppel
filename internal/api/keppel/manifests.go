@@ -13,6 +13,7 @@ import (
 	"sort"
 
 	"github.com/gorilla/mux"
+	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
@@ -31,21 +32,21 @@ type Manifest struct {
 	MediaType                     string                     `json:"media_type"`
 	SizeBytes                     uint64                     `json:"size_bytes"`
 	PushedAt                      int64                      `json:"pushed_at"`
-	LastPulledAt                  *int64                     `json:"last_pulled_at"`
+	LastPulledAt                  Option[int64]              `json:"last_pulled_at"`
 	Tags                          []Tag                      `json:"tags,omitempty"`
 	LabelsJSON                    json.RawMessage            `json:"labels,omitempty"`
 	GCStatusJSON                  json.RawMessage            `json:"gc_status,omitempty"`
 	VulnerabilityStatus           models.VulnerabilityStatus `json:"vulnerability_status"`
 	VulnerabilityScanErrorMessage string                     `json:"vulnerability_scan_error,omitempty"`
-	MinLayerCreatedAt             *int64                     `json:"min_layer_created_at"`
-	MaxLayerCreatedAt             *int64                     `json:"max_layer_created_at"`
+	MinLayerCreatedAt             Option[int64]              `json:"min_layer_created_at"`
+	MaxLayerCreatedAt             Option[int64]              `json:"max_layer_created_at"`
 }
 
 // Tag represents a tag in the API.
 type Tag struct {
-	Name         string `json:"name"`
-	PushedAt     int64  `json:"pushed_at"`
-	LastPulledAt *int64 `json:"last_pulled_at"`
+	Name         string        `json:"name"`
+	PushedAt     int64         `json:"pushed_at"`
+	LastPulledAt Option[int64] `json:"last_pulled_at"`
 }
 
 var manifestGetQuery = sqlext.SimplifyWhitespace(`

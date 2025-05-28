@@ -3,7 +3,10 @@
 
 package keppel
 
-import "github.com/opencontainers/go-digest"
+import (
+	. "github.com/majewsky/gg/option"
+	"github.com/opencontainers/go-digest"
+)
 
 // ReplicaSyncPayload is the format for request bodies and response bodies of
 // the sync-replica API endpoint.
@@ -20,7 +23,7 @@ type ReplicaSyncPayload struct {
 // internal/api/peer and internal/tasks.)
 type ManifestForSync struct {
 	Digest       digest.Digest `json:"digest"`
-	LastPulledAt *int64        `json:"last_pulled_at,omitempty"`
+	LastPulledAt Option[int64] `json:"last_pulled_at,omitzero"`
 	Tags         []TagForSync  `json:"tags,omitempty"`
 }
 
@@ -29,8 +32,8 @@ type ManifestForSync struct {
 // (This type is declared in this package because it gets used in both
 // internal/api/peer and internal/tasks.)
 type TagForSync struct {
-	Name         string `json:"name"`
-	LastPulledAt *int64 `json:"last_pulled_at,omitempty"`
+	Name         string        `json:"name"`
+	LastPulledAt Option[int64] `json:"last_pulled_at,omitzero"`
 }
 
 // HasManifest returns whether there is a manifest with the given digest in this

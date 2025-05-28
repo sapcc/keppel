@@ -24,12 +24,16 @@ func TestConfigureAccount(t *testing.T) {
 	}
 	assert.DeepEqual(t, "account", listOfAccounts, []models.AccountName{"abcde"})
 
-	newAccount, newSecurityScanPolicy, err := driver.ConfigureAccount("abcde")
+	maybeNewAccount, newSecurityScanPolicy, err := driver.ConfigureAccount("abcde")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	newAccount, ok := maybeNewAccount.Unpack()
+	if !ok {
+		t.Fatal("ConfigureAccount returned None[keppel.Account]()")
+	}
 
-	expectedAccount := &keppel.Account{
+	expectedAccount := keppel.Account{
 		Name:         "abcde",
 		AuthTenantID: "12345",
 		GCPolicies: []keppel.GCPolicy{
