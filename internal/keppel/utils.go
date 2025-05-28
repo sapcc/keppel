@@ -50,7 +50,7 @@ func AppendQuery(urlStr string, query url.Values) string {
 	return urlStr + "?" + query.Encode()
 }
 
-// MaybeTimeToUnix casts a time.Time instance into its UNIX timestamp while preserving nil-ness.
+// MaybeTimeToUnix casts a time.Time instance into its UNIX timestamp unless it is None.
 func MaybeTimeToUnix(t Option[time.Time]) Option[int64] {
 	tt, ok := t.Unpack()
 	if !ok {

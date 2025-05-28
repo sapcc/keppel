@@ -92,7 +92,7 @@ func (d *FederationDriver) ForfeitAccountName(ctx context.Context, account model
 
 // RecordExistingAccount implements the keppel.FederationDriver interface.
 func (d *FederationDriver) RecordExistingAccount(ctx context.Context, account models.Account, now time.Time) error {
-	account.NextFederationAnnouncementAt = None[time.Time]() // this pointer type is poison for DeepEqual tests
+	account.NextFederationAnnouncementAt = None[time.Time]() // this timestamp is irrelevant for assert.DeepEqual() in tests
 
 	d.RecordedAccounts = append(d.RecordedAccounts, AccountRecordedByFederationDriver{
 		Account:    account,

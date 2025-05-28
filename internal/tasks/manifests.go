@@ -621,7 +621,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 	}
 
 	// clear timing information (this will be filled down below once we actually talk to Trivy;
-	// if any preflight check fails, the fields stay at nil)
+	// if any preflight check fails, the fields stay at None)
 	securityInfo.CheckedAt = None[time.Time]()
 	securityInfo.CheckDurationSecs = None[float64]()
 
