@@ -17,6 +17,7 @@ import (
 
 	imageManifest "github.com/containers/image/v5/manifest"
 	"github.com/go-gorp/gorp/v3"
+	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 	imagespecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/prometheus/client_golang/prometheus"
@@ -310,8 +311,8 @@ type manifestRefsInfo struct {
 	BlobRefs        []blobRef
 	ManifestDigests []string
 	CommonLabels    map[string]string
-	MinCreationTime *time.Time
-	MaxCreationTime *time.Time
+	MinCreationTime Option[time.Time]
+	MaxCreationTime Option[time.Time]
 	SumChildSizes   uint64
 }
 
@@ -395,8 +396,8 @@ func findManifestReferencedObjects(tx *gorp.Transaction, account models.ReducedA
 // Information about a manifest's config blob.
 type manifestConfigInfo struct {
 	Labels          map[string]string
-	MinCreationTime *time.Time // across all layers
-	MaxCreationTime *time.Time // across all layers
+	MinCreationTime Option[time.Time] // across all layers
+	MaxCreationTime Option[time.Time] // across all layers
 }
 
 // Returns the list of missing labels, or nil if everything is ok.
@@ -438,7 +439,7 @@ func parseManifestConfig(ctx context.Context, tx *gorp.Transaction, sd keppel.St
 			Labels map[string]string `json:"labels"`
 		} `json:"config"`
 		History []struct {
-			Created *time.Time `json:"created"`
+			Created Option[time.Time] `json:"created"`
 		} `json:"history"`
 	}
 	err = json.Unmarshal(blobContents, &data)
@@ -457,7 +458,7 @@ func parseManifestConfig(ctx context.Context, tx *gorp.Transaction, sd keppel.St
 	//
 	// [1] Ref: <https://github.com/GoogleContainerTools/distroless/issues/112>
 	for _, v := range data.History {
-		if v.Created != nil && v.Created.Unix() > 0 {
+		if v.Created.IsSomeAnd(func(t time.Time) bool { return t.Unix() > 0 }) {
 			result.MinCreationTime = keppel.MinMaybeTime(result.MinCreationTime, v.Created)
 			result.MaxCreationTime = keppel.MaxMaybeTime(result.MaxCreationTime, v.Created)
 		}

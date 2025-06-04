@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis_rate/v10"
+	. "github.com/majewsky/gg/option"
 	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
@@ -51,8 +52,8 @@ type RateLimitDriver interface {
 	// ErrAuthDriverMismatch otherwise.
 	Init(AuthDriver, Configuration) error
 
-	// GetRateLimit shall return nil if the given action has no rate limit.
-	GetRateLimit(account models.ReducedAccount, action RateLimitedAction) *redis_rate.Limit
+	// GetRateLimit shall return None if the given action has no rate limit.
+	GetRateLimit(account models.ReducedAccount, action RateLimitedAction) Option[redis_rate.Limit]
 }
 
 // RateLimitDriverRegistry is a pluggable.Registry for RateLimitDriver implementations.
@@ -82,8 +83,8 @@ type RateLimitEngine struct {
 // RateLimitAllows checks whether the given action on the given account is allowed by
 // the account's rate limit.
 func (e RateLimitEngine) RateLimitAllows(ctx context.Context, remoteAddr string, account models.ReducedAccount, action RateLimitedAction, amount uint64) (*redis_rate.Result, error) {
-	rateQuota := e.Driver.GetRateLimit(account, action)
-	if rateQuota == nil {
+	rateQuota, ok := e.Driver.GetRateLimit(account, action).Unpack()
+	if !ok {
 		// no rate limit for this account and action
 		return &redis_rate.Result{
 			Allowed:    math.MaxInt64,
@@ -100,7 +101,7 @@ func (e RateLimitEngine) RateLimitAllows(ctx context.Context, remoteAddr string,
 	if amount > math.MaxInt {
 		return &redis_rate.Result{
 			Allowed:   0,
-			Limit:     *rateQuota,
+			Limit:     rateQuota,
 			Remaining: 0,
 			// These limits are somewhat arbitrarily chosen, but we can't have them
 			// be zero because clients need to back off to a reasonable degree.
@@ -111,7 +112,7 @@ func (e RateLimitEngine) RateLimitAllows(ctx context.Context, remoteAddr string,
 
 	limiter := redis_rate.NewLimiter(e.Client)
 	key := fmt.Sprintf("keppel-ratelimit-%s-%s-%s", remoteAddr, account.Name, string(action))
-	result, err := limiter.AllowN(ctx, key, *rateQuota, int(amount))
+	result, err := limiter.AllowN(ctx, key, rateQuota, int(amount))
 	if err != nil {
 		return &redis_rate.Result{}, err
 	}

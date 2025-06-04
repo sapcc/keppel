@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	. "github.com/majewsky/gg/option"
 	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -62,7 +63,7 @@ func (a *AccountManagementDriver) Init() error {
 }
 
 // ConfigureAccount implements the keppel.AccountManagementDriver interface.
-func (a *AccountManagementDriver) ConfigureAccount(accountName models.AccountName) (*keppel.Account, []keppel.SecurityScanPolicy, error) {
+func (a *AccountManagementDriver) ConfigureAccount(accountName models.AccountName) (Option[keppel.Account], []keppel.SecurityScanPolicy, error) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
@@ -71,7 +72,7 @@ func (a *AccountManagementDriver) ConfigureAccount(accountName models.AccountNam
 			continue
 		}
 
-		account := &keppel.Account{
+		account := keppel.Account{
 			AuthTenantID:      cfgAccount.AuthTenantID,
 			GCPolicies:        cfgAccount.GCPolicies,
 			Name:              cfgAccount.Name,
@@ -81,15 +82,14 @@ func (a *AccountManagementDriver) ConfigureAccount(accountName models.AccountNam
 			ValidationPolicy:  cfgAccount.ValidationPolicy,
 			PlatformFilter:    cfgAccount.PlatformFilter,
 		}
-
-		return account, cfgAccount.SecurityScanPolicies, nil
+		return Some(account), cfgAccount.SecurityScanPolicies, nil
 	}
 
 	// we didn't find the account, delete it
 	if slices.Contains(a.ProtectedAccountNames, string(accountName)) {
-		return nil, nil, errors.New("refusing to delete this account because of explicit protection")
+		return None[keppel.Account](), nil, errors.New("refusing to delete this account because of explicit protection")
 	}
-	return nil, nil, nil
+	return None[keppel.Account](), nil, nil
 }
 
 // ManagedAccountNames implements the keppel.AccountManagementDriver interface.

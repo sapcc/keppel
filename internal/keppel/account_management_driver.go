@@ -6,6 +6,7 @@ package keppel
 import (
 	"errors"
 
+	. "github.com/majewsky/gg/option"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
 
@@ -26,9 +27,9 @@ type AccountManagementDriver interface {
 	// Returns the desired account configuration if the account is managed.
 	// The jobloop will apply the account in the DB accordingly.
 	//
-	// Returns nil if the account was managed, and now shall be deleted.
+	// Returns None if the account was managed, and now shall be deleted.
 	// The jobloop will clean up the manifests, blobs, repos and the account.
-	ConfigureAccount(accountName models.AccountName) (*Account, []SecurityScanPolicy, error)
+	ConfigureAccount(accountName models.AccountName) (Option[Account], []SecurityScanPolicy, error)
 
 	// Called by a jobloop every once in a while (e.g. every hour).
 	//

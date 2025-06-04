@@ -51,10 +51,10 @@ func TestIssueNewPasswordForPeer(t *testing.T) {
 			issuedPasswords = append(issuedPasswords, mockPeer.Password)
 
 			// check that `last_peered_at` was updated
-			peerState := getPeerFromDB(t, s.DB)
-			if peerState.LastPeeredAt == nil {
+			lastPeeredAt, ok := getPeerFromDB(t, s.DB).LastPeeredAt.Unpack()
+			if !ok {
 				t.Error("expected peer to have last_peered_at, but got nil")
-			} else if peerState.LastPeeredAt.Before(timeBeforeIssue) {
+			} else if lastPeeredAt.Before(timeBeforeIssue) {
 				t.Error("expected IssueNewPasswordForPeer to update last_peered_at, but last_peered_at is still old")
 			}
 

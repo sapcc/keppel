@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"sync"
 
+	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -71,7 +72,7 @@ func trivyReportKey(account models.ReducedAccount, repoName string, manifestDige
 }
 
 // AppendToBlob implements the keppel.StorageDriver interface.
-func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.ReducedAccount, storageID string, chunkNumber uint32, chunkLength *uint64, chunk io.Reader) error {
+func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.ReducedAccount, storageID string, chunkNumber uint32, chunkLength Option[uint64], chunk io.Reader) error {
 	k := blobKey(account, storageID)
 
 	// check that we're calling AppendToBlob() in the correct order

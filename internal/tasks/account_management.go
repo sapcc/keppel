@@ -12,6 +12,7 @@ import (
 	"slices"
 	"time"
 
+	. "github.com/majewsky/gg/option"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/sqlext"
@@ -72,14 +73,22 @@ func (j *Janitor) discoverManagedAccount(_ context.Context, _ prometheus.Labels)
 }
 
 func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName models.AccountName, labels prometheus.Labels) error {
-	account, securityScanPolicies, err := j.amd.ConfigureAccount(accountName)
+	maybeAccount, securityScanPolicies, err := j.amd.ConfigureAccount(accountName)
 	if err != nil {
 		return fmt.Errorf("could not ConfigureAccount(%q) in account management driver: %w", accountName, err)
 	}
 
 	// the error returned from either tryDeleteManagedAccount or createOrUpdateManagedAccount is the main error that this method returns...
 	var nextCheckDuration time.Duration
-	if account == nil {
+	if account, ok := maybeAccount.Unpack(); ok {
+		err = j.createOrUpdateManagedAccount(ctx, account, securityScanPolicies)
+		if err == nil {
+			nextCheckDuration = 0 // CreateOrUpdateAccount has already updated NextEnforcementAt
+		} else {
+			err = fmt.Errorf("could not configure managed account %q: %w", accountName, err)
+			nextCheckDuration = 5 * time.Minute // default interval for recheck after error
+		}
+	} else {
 		var accountModel *models.Account
 		accountModel, err = keppel.FindAccount(j.db, accountName)
 		if err != nil {
@@ -100,14 +109,6 @@ func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName models.
 				err = fmt.Errorf("could not mark account %q for deletion: %w", accountName, err)
 				nextCheckDuration = 5 * time.Minute // default interval for recheck after error
 			}
-		}
-	} else {
-		err = j.createOrUpdateManagedAccount(ctx, *account, securityScanPolicies)
-		if err == nil {
-			nextCheckDuration = 0 // CreateOrUpdateAccount has already updated NextEnforcementAt
-		} else {
-			err = fmt.Errorf("could not configure managed account %q: %w", accountName, err)
-			nextCheckDuration = 5 * time.Minute // default interval for recheck after error
 		}
 	}
 
@@ -150,8 +151,7 @@ func (j *Janitor) createOrUpdateManagedAccount(ctx context.Context, account kepp
 	setCustomFields := func(account *models.Account) *keppel.RegistryV2Error {
 		account.IsManaged = true
 		account.SecurityScanPoliciesJSON = string(jsonBytes)
-		nextAt := j.timeNow().Add(j.addJitter(1 * time.Hour))
-		account.NextEnforcementAt = &nextAt
+		account.NextEnforcementAt = Some(j.timeNow().Add(j.addJitter(1 * time.Hour)))
 		return nil
 	}
 

@@ -65,12 +65,7 @@ func (g GCPolicy) MatchesTimeConstraint(manifest models.Manifest, allManifestsIn
 	case "pushed_at":
 		getTime = func(m models.Manifest) time.Time { return m.PushedAt }
 	case "last_pulled_at":
-		getTime = func(m models.Manifest) time.Time {
-			if m.LastPulledAt == nil {
-				return time.Unix(0, 0)
-			}
-			return *m.LastPulledAt
-		}
+		getTime = func(m models.Manifest) time.Time { return m.LastPulledAt.UnwrapOr(time.Unix(0, 0)) }
 	default:
 		panic(fmt.Sprintf("unexpected GC policy time constraint target: %q (why was this not caught by Validate!?)", tc.FieldName))
 	}
