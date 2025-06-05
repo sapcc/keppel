@@ -368,6 +368,14 @@ var sqlMigrations = map[string]string{
 			DROP COLUMN has_enriched_report;
 		DROP TABLE unknown_trivy_reports;
 	`,
+	"050_add_vuln_status_transition.up.sql": `
+		ALTER TABLE trivy_security_info
+			ADD COLUMN vuln_status_changed_at TIMESTAMPTZ DEFAULT NULL;
+	`,
+	"050_add_vuln_status_transition.down.sql": `
+		ALTER TABLE trivy_security_info
+			DROP COLUMN vuln_status_changed_at;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.

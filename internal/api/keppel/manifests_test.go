@@ -146,16 +146,17 @@ func TestManifestsAPI(t *testing.T) {
 		renderedManifests := make([]assert.JSONObject, 10)
 		for idx := 1; idx <= 10; idx++ {
 			renderedManifests[idx-1] = assert.JSONObject{
-				"digest":               test.DeterministicDummyDigest(10 + idx),
-				"media_type":           manifest.DockerV2Schema2MediaType,
-				"size_bytes":           uint64(1000 * idx), //nolint:gosec // construction guarantees that value is positive
-				"pushed_at":            int64(1000 * (10 + idx)),
-				"last_pulled_at":       nil,
-				"labels":               assert.JSONObject{"foo": "is there"},
-				"gc_status":            assert.JSONObject{"protected_by_recent_upload": true},
-				"vulnerability_status": string(deterministicDummyVulnStatus(idx)),
-				"min_layer_created_at": 20001,
-				"max_layer_created_at": 20002,
+				"digest":                          test.DeterministicDummyDigest(10 + idx),
+				"media_type":                      manifest.DockerV2Schema2MediaType,
+				"size_bytes":                      uint64(1000 * idx), //nolint:gosec // construction guarantees that value is positive
+				"pushed_at":                       int64(1000 * (10 + idx)),
+				"last_pulled_at":                  nil,
+				"labels":                          assert.JSONObject{"foo": "is there"},
+				"gc_status":                       assert.JSONObject{"protected_by_recent_upload": true},
+				"vulnerability_status":            string(deterministicDummyVulnStatus(idx)),
+				"vulnerability_status_changed_at": nil,
+				"min_layer_created_at":            20001,
+				"max_layer_created_at":            20002,
 			}
 		}
 		renderedManifests[0]["last_pulled_at"] = 11100
