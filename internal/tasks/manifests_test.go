@@ -673,7 +673,7 @@ func TestCheckTrivySecurityStatus(t *testing.T) {
 			ExpectBody:   renderedManifest,
 		}.Check(t, s.Handler)
 
-		// check that a changed vulnerability status does not have any unpexpected side effects
+		// check that a changed vulnerability status does not have any unexpected side effects
 		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		s.Clock.StepBy(1 * time.Hour)
 		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
