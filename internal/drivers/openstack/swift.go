@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"regexp"
 	"strconv"
 	"sync"
 	"time"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
+	"github.com/sapcc/keppel/internal/stringy"
 	"github.com/sapcc/keppel/internal/trivy"
 )
 
@@ -142,23 +142,6 @@ func generateSecret() (string, error) {
 	return hex.EncodeToString(secretBytes[:]), nil
 }
 
-func blobObject(c *schwift.Container, storageID string) *schwift.Object {
-	return c.Object(fmt.Sprintf("_blobs/%s/%s/%s", storageID[0:2], storageID[2:4], storageID[4:]))
-}
-
-func chunkObject(c *schwift.Container, storageID string, chunkNumber uint32) *schwift.Object {
-	//NOTE: uint32 numbers never have more than 10 digits
-	return c.Object(fmt.Sprintf("_chunks/%s/%s/%s/%010d", storageID[0:2], storageID[2:4], storageID[4:], chunkNumber))
-}
-
-func manifestObject(c *schwift.Container, repoName string, manifestDigest digest.Digest) *schwift.Object {
-	return c.Object(fmt.Sprintf("%s/_manifests/%s", repoName, manifestDigest))
-}
-
-func trivyReportObject(c *schwift.Container, repoName string, manifestDigest digest.Digest, format string) *schwift.Object {
-	return c.Object(fmt.Sprintf("%s/_trivyreports/%s/%s", repoName, manifestDigest, format))
-}
-
 // Like schwift.Object.Upload(), but does a HEAD request on the object
 // beforehand to ensure that we have a valid token. There seems to be a problem
 // in gopherschwift with restarting requests with request bodies after
@@ -183,7 +166,7 @@ func (d *swiftDriver) AppendToBlob(ctx context.Context, account models.ReducedAc
 	if l, ok := chunkLength.Unpack(); ok {
 		hdr.SizeBytes().Set(l)
 	}
-	o := chunkObject(c, storageID, chunkNumber)
+	o := c.Object(stringy.ChunkObjectName(storageID, chunkNumber))
 	return uploadToObject(ctx, o, chunk, nil, hdr.ToOpts())
 }
 
@@ -193,7 +176,7 @@ func (d *swiftDriver) FinalizeBlob(ctx context.Context, account models.ReducedAc
 	if err != nil {
 		return err
 	}
-	lo, err := blobObject(c, storageID).AsNewLargeObject(
+	lo, err := c.Object(stringy.BlobObjectName(storageID)).AsNewLargeObject(
 		ctx,
 		schwift.SegmentingOptions{
 			Strategy:         schwift.StaticLargeObject,
@@ -206,7 +189,7 @@ func (d *swiftDriver) FinalizeBlob(ctx context.Context, account models.ReducedAc
 	}
 
 	for chunkNumber := uint32(1); chunkNumber <= chunkCount; chunkNumber++ {
-		co := chunkObject(c, storageID, chunkNumber)
+		co := c.Object(stringy.ChunkObjectName(storageID, chunkNumber))
 		hdr, err := co.Headers(ctx)
 		if err != nil {
 			return err
@@ -234,7 +217,7 @@ func (d *swiftDriver) AbortBlobUpload(ctx context.Context, account models.Reduce
 	// we didn't construct the LargeObject yet, so we need to delete the segments individually
 	var firstError error
 	for chunkNumber := uint32(1); chunkNumber <= chunkCount; chunkNumber++ {
-		err := chunkObject(c, storageID, chunkNumber).Delete(ctx, nil, nil)
+		err := c.Object(stringy.ChunkObjectName(storageID, chunkNumber)).Delete(ctx, nil, nil)
 		// keep going even when some segments cannot be deleted, to clean up as much as we can
 		// (404 errors are ignored entirely; they are not really an error since we want the objects to be not there anyway)
 		if err != nil && !schwift.Is(err, http.StatusNotFound) {
@@ -242,7 +225,7 @@ func (d *swiftDriver) AbortBlobUpload(ctx context.Context, account models.Reduce
 				firstError = err
 			} else {
 				logg.Error("encountered additional error while cleaning up segments of %s: %s",
-					chunkObject(c, storageID, chunkNumber).FullName(), err.Error(),
+					c.Object(stringy.ChunkObjectName(storageID, chunkNumber)).FullName(), err.Error(),
 				)
 			}
 		}
@@ -257,7 +240,7 @@ func (d *swiftDriver) ReadBlob(ctx context.Context, account models.ReducedAccoun
 	if err != nil {
 		return nil, 0, err
 	}
-	o := blobObject(c, storageID)
+	o := c.Object(stringy.BlobObjectName(storageID))
 	hdr, err := o.Headers(ctx)
 	if err != nil {
 		return nil, 0, err
@@ -274,7 +257,7 @@ func (d *swiftDriver) URLForBlob(ctx context.Context, account models.ReducedAcco
 	}
 
 	expiresAt := time.Now().Add(20 * time.Minute)
-	return blobObject(c, storageID).TempURL(ctx, info.TempURLKey, "GET", expiresAt)
+	return c.Object(stringy.BlobObjectName(storageID)).TempURL(ctx, info.TempURLKey, "GET", expiresAt)
 }
 
 // DeleteBlob implements the keppel.StorageDriver interface.
@@ -283,7 +266,7 @@ func (d *swiftDriver) DeleteBlob(ctx context.Context, account models.ReducedAcco
 	if err != nil {
 		return err
 	}
-	err = blobObject(c, storageID).Delete(ctx, &schwift.DeleteOptions{DeleteSegments: true}, nil)
+	err = c.Object(stringy.BlobObjectName(storageID)).Delete(ctx, &schwift.DeleteOptions{DeleteSegments: true}, nil)
 	reportObjectErrorsIfAny("DeleteBlob", err)
 	return err
 }
@@ -306,7 +289,7 @@ func (d *swiftDriver) ReadManifest(ctx context.Context, account models.ReducedAc
 	if err != nil {
 		return nil, err
 	}
-	o := manifestObject(c, repoName, manifestDigest)
+	o := c.Object(stringy.ManifestObjectName(repoName, manifestDigest))
 	return o.Download(ctx, nil).AsByteSlice()
 }
 
@@ -316,7 +299,7 @@ func (d *swiftDriver) WriteManifest(ctx context.Context, account models.ReducedA
 	if err != nil {
 		return err
 	}
-	o := manifestObject(c, repoName, manifestDigest)
+	o := c.Object(stringy.ManifestObjectName(repoName, manifestDigest))
 	return uploadToObject(ctx, o, bytes.NewReader(contents), nil, nil)
 }
 
@@ -326,7 +309,7 @@ func (d *swiftDriver) DeleteManifest(ctx context.Context, account models.Reduced
 	if err != nil {
 		return err
 	}
-	o := manifestObject(c, repoName, manifestDigest)
+	o := c.Object(stringy.ManifestObjectName(repoName, manifestDigest))
 	return o.Delete(ctx, nil, nil)
 }
 
@@ -336,7 +319,7 @@ func (d *swiftDriver) ReadTrivyReport(ctx context.Context, account models.Reduce
 	if err != nil {
 		return nil, err
 	}
-	o := trivyReportObject(c, repoName, manifestDigest, format)
+	o := c.Object(stringy.TrivyReportObjectName(repoName, manifestDigest, format))
 	return o.Download(ctx, nil).AsByteSlice()
 }
 
@@ -346,7 +329,7 @@ func (d *swiftDriver) WriteTrivyReport(ctx context.Context, account models.Reduc
 	if err != nil {
 		return err
 	}
-	o := trivyReportObject(c, repoName, manifestDigest, payload.Format)
+	o := c.Object(stringy.TrivyReportObjectName(repoName, manifestDigest, payload.Format))
 	return uploadToObject(ctx, o, bytes.NewReader(payload.Contents), nil, nil)
 }
 
@@ -356,22 +339,9 @@ func (d *swiftDriver) DeleteTrivyReport(ctx context.Context, account models.Redu
 	if err != nil {
 		return err
 	}
-	o := trivyReportObject(c, repoName, manifestDigest, format)
+	o := c.Object(stringy.TrivyReportObjectName(repoName, manifestDigest, format))
 	return o.Delete(ctx, nil, nil)
 }
-
-var (
-	// These regexes are used to reconstruct the storage ID from a blob's or chunk's object name.
-	// It's kinda the reverse of func blobObject() or func checkObject().
-	blobObjectNameRx  = regexp.MustCompile(`^_blobs/([^/]{2})/([^/]{2})/([^/]+)$`)
-	chunkObjectNameRx = regexp.MustCompile(`^_chunks/([^/]{2})/([^/]{2})/([^/]+)/([0-9]+)$`)
-	// This regex recovers the repo name and manifest digest from a manifest's object name.
-	// It's kinda the reverse of func manifestObject().
-	manifestObjectNameRx = regexp.MustCompile(`^(.+)/_manifests/([^/]+)$`)
-	// This regex recovers the repo name, manifest digest and format from a Trivy report's object name.
-	// It's kinda the reverse of func trivyReportObject().
-	trivyReportObjectNameRx = regexp.MustCompile(`^(.+)/_trivyreports/([^/]+)/([^/]+)$`)
-)
 
 // ListStorageContents implements the keppel.StorageDriver interface.
 func (d *swiftDriver) ListStorageContents(ctx context.Context, account models.ReducedAccount) ([]keppel.StoredBlobInfo, []keppel.StoredManifestInfo, []keppel.StoredTrivyReportInfo, error) {
@@ -387,42 +357,35 @@ func (d *swiftDriver) ListStorageContents(ctx context.Context, account models.Re
 	)
 
 	err = c.Objects().Foreach(ctx, func(o *schwift.Object) error {
-		if match := blobObjectNameRx.FindStringSubmatch(o.Name()); match != nil {
-			storageID := match[1] + match[2] + match[3]
+		if storageID := stringy.ParseBlobObjectName(o.Name()); storageID != "" {
 			mergeChunkCount(chunkCounts, storageID, 0)
 			return nil
 		}
-		if match := chunkObjectNameRx.FindStringSubmatch(o.Name()); match != nil {
-			storageID := match[1] + match[2] + match[3]
-			chunkNumber, err := strconv.ParseUint(match[4], 10, 32)
+		if storageID, chunkNumber, err := stringy.ParseChunkObjectName(o.Name()); err != nil || storageID != "" {
 			if err != nil {
 				return fmt.Errorf("while parsing chunk object name %q: %w", o.Name(), err)
 			}
-			mergeChunkCount(chunkCounts, storageID, uint32(chunkNumber))
+			mergeChunkCount(chunkCounts, storageID, chunkNumber)
 			return nil
 		}
-		if match := manifestObjectNameRx.FindStringSubmatch(o.Name()); match != nil {
-			manifestDigest, err := digest.Parse(match[2])
+		if repoName, manifestDigest, err := stringy.ParseManifestObjectName(o.Name()); err != nil || repoName != "" {
 			if err != nil {
-				return fmt.Errorf("while parsing manifest object name %q: %w", o.Name(), err)
+				return err
 			}
-
 			manifests = append(manifests, keppel.StoredManifestInfo{
-				RepoName: match[1],
+				RepoName: repoName,
 				Digest:   manifestDigest,
 			})
 			return nil
 		}
-		if match := trivyReportObjectNameRx.FindStringSubmatch(o.Name()); match != nil {
-			manifestDigest, err := digest.Parse(match[2])
+		if repoName, manifestDigest, format, err := stringy.ParseTrivyReportObjectName(o.Name()); err != nil || repoName != "" {
 			if err != nil {
-				return fmt.Errorf("while parsing Trivy report object name %q: %w", o.Name(), err)
+				return err
 			}
-
 			reports = append(reports, keppel.StoredTrivyReportInfo{
-				RepoName: match[1],
+				RepoName: repoName,
 				Digest:   manifestDigest,
-				Format:   match[3],
+				Format:   format,
 			})
 			return nil
 		}
