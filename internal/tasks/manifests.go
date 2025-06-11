@@ -723,7 +723,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 
 	// Reset VulnerabilityStatusChangedAt if the new status is a "pseudo" value
 	if newVulnerabilityStatus.HasReport() {
-		// The vulnerability status of the manifest counts as changed if it was previously not a status update
+		// The vulnerability status of the manifest counts as changed if it was previously not a pseudo-value
 		// (aka it had a report) and the new status is different from the old one.
 		if securityInfo.VulnerabilityStatus.HasReport() && securityInfo.VulnerabilityStatus != newVulnerabilityStatus {
 			securityInfo.VulnerabilityStatusChangedAt = Some(j.timeNow())
