@@ -623,7 +623,7 @@ func TestCheckTrivySecurityStatus(t *testing.T) {
 			s.Clock.Now().Unix(), s.Clock.Now().Add(1*time.Hour).Unix(),
 		)
 
-		// check that no change in vulnerability status does not have any unpexpected side effects
+		// check that no change in vulnerability status does not have any unexpected side effects
 		s.Clock.StepBy(1 * time.Hour)
 		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
