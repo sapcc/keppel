@@ -609,70 +609,6 @@ func TestCheckTrivySecurityStatus(t *testing.T) {
 		s.ExpectTrivyReportMissingInStorage(t, imageManifests[3], "json")
 		s.ExpectTrivyReportMissingInStorage(t, imageListManifest, "json")
 
-		token := s.GetToken(t, "repository:test1/foo:pull")
-		renderedManifest := assert.JSONObject{
-			"manifests": []assert.JSONObject{{
-				"digest":                          images[0].Manifest.Digest,
-				"last_pulled_at":                  nil,
-				"media_type":                      manifest.DockerV2Schema2MediaType,
-				"max_layer_created_at":            nil,
-				"min_layer_created_at":            nil,
-				"pushed_at":                       3600,
-				"size_bytes":                      1050604,
-				"vulnerability_status":            string(models.CriticalSeverity),
-				"vulnerability_status_changed_at": nil,
-			}, {
-				"digest":                          imageList.Manifest.Digest,
-				"last_pulled_at":                  nil,
-				"media_type":                      manifest.DockerV2ListMediaType,
-				"max_layer_created_at":            nil,
-				"min_layer_created_at":            nil,
-				"pushed_at":                       3600,
-				"size_bytes":                      2101735,
-				"vulnerability_status":            string(models.PendingVulnerabilityStatus),
-				"vulnerability_status_changed_at": nil,
-			}, {
-				"digest":                          images[2].Manifest.Digest,
-				"last_pulled_at":                  nil,
-				"media_type":                      manifest.DockerV2Schema2MediaType,
-				"max_layer_created_at":            nil,
-				"min_layer_created_at":            nil,
-				"pushed_at":                       3600,
-				"size_bytes":                      1050604,
-				"vulnerability_status":            string(models.CriticalSeverity),
-				"vulnerability_status_changed_at": nil,
-			}, {
-				"digest":                          images[3].Manifest.Digest,
-				"last_pulled_at":                  nil,
-				"media_type":                      manifest.DockerV2Schema2MediaType,
-				"max_layer_created_at":            nil,
-				"min_layer_created_at":            nil,
-				"pushed_at":                       3600,
-				"size_bytes":                      2099500,
-				"vulnerability_scan_error":        "vulnerability scanning is not supported for uncompressed image layers above 0.001 GiB",
-				"vulnerability_status":            string(models.UnsupportedVulnerabilityStatus),
-				"vulnerability_status_changed_at": nil,
-			}, {
-				"digest":                          images[1].Manifest.Digest,
-				"last_pulled_at":                  nil,
-				"media_type":                      manifest.DockerV2Schema2MediaType,
-				"max_layer_created_at":            nil,
-				"min_layer_created_at":            nil,
-				"pushed_at":                       3600,
-				"size_bytes":                      1050604,
-				"vulnerability_status":            string(models.CleanSeverity),
-				"vulnerability_status_changed_at": nil,
-			}},
-		}
-
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/foo/_manifests",
-			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusOK,
-			ExpectBody:   renderedManifest,
-		}.Check(t, s.Handler)
-
 		// check that a changed vulnerability status does not have any unexpected side effects
 		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		s.Clock.StepBy(1 * time.Hour)
@@ -687,22 +623,6 @@ func TestCheckTrivySecurityStatus(t *testing.T) {
 			s.Clock.Now().Unix(), s.Clock.Now().Add(1*time.Hour).Unix(),
 		)
 
-		// update the rendered manifest to reflect the changed vulnerability status
-		manifestsSlice := renderedManifest["manifests"].([]assert.JSONObject)
-		manifestsSlice[1]["vulnerability_status"] = string(models.CriticalSeverity)
-		manifestsSlice[4]["vulnerability_status"] = string(models.CriticalSeverity)
-		manifestsSlice[4]["vulnerability_status_changed_at"] = 7500
-		renderedManifest["manifests"] = manifestsSlice
-
-		// check if API returns vuln_status_changed_at correct
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/foo/_manifests",
-			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusOK,
-			ExpectBody:   renderedManifest,
-		}.Check(t, s.Handler)
-
 		// check that no change in vulnerability status does not have any unpexpected side effects
 		s.Clock.StepBy(1 * time.Hour)
 		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
@@ -715,15 +635,6 @@ func TestCheckTrivySecurityStatus(t *testing.T) {
 		`, images[0].Manifest.Digest, imageList.Manifest.Digest, images[2].Manifest.Digest, images[1].Manifest.Digest,
 			s.Clock.Now().Unix(), s.Clock.Now().Add(1*time.Hour).Unix(),
 		)
-
-		// check if API returns vuln_status_changed_at correct
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/keppel/v1/accounts/test1/repositories/foo/_manifests",
-			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusOK,
-			ExpectBody:   renderedManifest,
-		}.Check(t, s.Handler)
 
 		// the changed vulnerability report was reflected in the cache
 		s.ExpectTrivyReportExistsInStorage(t, imageManifests[1], "json", assert.JSONFixtureFile("fixtures/trivy/report-vulnerable.json"))
@@ -968,4 +879,123 @@ func TestManifestValidationJobWithoutPlatform(t *testing.T) {
 		s.Clock.Now().Add(models.ManifestValidationInterval).Unix(), imageList.Manifest.Digest,
 		s.Clock.Now().Add(models.ManifestValidationInterval).Unix(), image.Manifest.Digest,
 	)
+}
+
+func TestVulnerabilityStatusChanged(t *testing.T) {
+	test.WithRoundTripper(func(_ *test.RoundTripper) {
+		j, s := setup(t, test.WithTrivyDouble)
+		s.Clock.StepBy(1 * time.Hour)
+
+		// setup two image manifests with just one content layer (we don't really care about
+		// the content since our Trivy double doesn't care either)
+		images := make([]test.Image, 2)
+		imageManifests := make([]models.Manifest, 2)
+		for idx := range images {
+			images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
+			imageManifests[idx] = images[idx].MustUpload(t, s, fooRepoRef, "")
+		}
+
+		// also setup an image list manifest containing those images (so that we have
+		// some manifest-manifest refs to play with)
+		imageList := test.GenerateImageList(images[0], images[1])
+		imageListManifest := imageList.MustUpload(t, s, fooRepoRef, "")
+
+		tr, tr0 := easypg.NewTracker(t, s.DB.Db)
+		tr0.AssertEqualToFile("fixtures/vulnerability-changed-at-setup.sql")
+
+		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
+
+		// check that security check updates vulnerability status
+		s.TrivyDouble.ReportFixtures[images[0].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
+		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-clean.json"
+		s.Clock.StepBy(5 * time.Minute)
+		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
+		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+		tr.DBChanges().AssertEqualf(`
+			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[7]s';
+			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 3 AND account_name = 'test1' AND digest = '%[8]s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[5]d, checked_at = %[4]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[1]s';
+			UPDATE trivy_security_info SET next_check_at = %[5]d, checked_at = %[4]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[2]s';
+			UPDATE trivy_security_info SET vuln_status = 'Clean', next_check_at = %[5]d, checked_at = %[4]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[3]s';
+		`, images[0].Manifest.Digest, imageList.Manifest.Digest, images[1].Manifest.Digest,
+			s.Clock.Now().Unix(), s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Add(24*time.Hour).Unix(),
+			images[0].Layers[0].Digest, images[1].Layers[0].Digest)
+
+		// for scannable images, a report should now be cached in storage
+		s.ExpectTrivyReportExistsInStorage(t, imageManifests[0], "json", assert.JSONFixtureFile("fixtures/trivy/report-vulnerable.json"))
+		s.ExpectTrivyReportExistsInStorage(t, imageManifests[1], "json", assert.JSONFixtureFile("fixtures/trivy/report-clean.json"))
+		s.ExpectTrivyReportMissingInStorage(t, imageListManifest, "json")
+
+		token := s.GetToken(t, "repository:test1/foo:pull")
+		renderedManifest := assert.JSONObject{
+			"manifests": []assert.JSONObject{{
+				"digest":                          images[0].Manifest.Digest,
+				"last_pulled_at":                  nil,
+				"media_type":                      manifest.DockerV2Schema2MediaType,
+				"max_layer_created_at":            nil,
+				"min_layer_created_at":            nil,
+				"pushed_at":                       3600,
+				"size_bytes":                      1050604,
+				"vulnerability_status":            string(models.CriticalSeverity),
+				"vulnerability_status_changed_at": nil,
+			}, {
+				"digest":                          imageList.Manifest.Digest,
+				"last_pulled_at":                  nil,
+				"media_type":                      manifest.DockerV2ListMediaType,
+				"max_layer_created_at":            nil,
+				"min_layer_created_at":            nil,
+				"pushed_at":                       3600,
+				"size_bytes":                      2101735,
+				"vulnerability_status":            string(models.PendingVulnerabilityStatus),
+				"vulnerability_status_changed_at": nil,
+			}, {
+				"digest":                          images[1].Manifest.Digest,
+				"last_pulled_at":                  nil,
+				"media_type":                      manifest.DockerV2Schema2MediaType,
+				"max_layer_created_at":            nil,
+				"min_layer_created_at":            nil,
+				"pushed_at":                       3600,
+				"size_bytes":                      1050604,
+				"vulnerability_status":            string(models.CleanSeverity),
+				"vulnerability_status_changed_at": nil,
+			}},
+		}
+
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/keppel/v1/accounts/test1/repositories/foo/_manifests",
+			Header:       map[string]string{"Authorization": "Bearer " + token},
+			ExpectStatus: http.StatusOK,
+			ExpectBody:   renderedManifest,
+		}.Check(t, s.Handler)
+
+		// check that a changed vulnerability status does not have any unexpected side effects
+		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
+		s.Clock.StepBy(1 * time.Hour)
+		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
+		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+		tr.DBChanges().AssertEqualf(`
+			UPDATE trivy_security_info SET next_check_at = %[5]d, checked_at = %[4]d WHERE repo_id = 1 AND digest = '%[1]s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[5]d, checked_at = %[4]d WHERE repo_id = 1 AND digest = '%[2]s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[5]d, checked_at = %[4]d, vuln_status_changed_at = %[4]d WHERE repo_id = 1 AND digest = '%[3]s';
+		`, images[0].Manifest.Digest, imageList.Manifest.Digest, images[1].Manifest.Digest,
+			s.Clock.Now().Unix(), s.Clock.Now().Add(1*time.Hour).Unix(),
+		)
+
+		// update the rendered manifest to reflect the changed vulnerability status
+		manifestsSlice := renderedManifest["manifests"].([]assert.JSONObject)
+		manifestsSlice[1]["vulnerability_status"] = string(models.CriticalSeverity)
+		manifestsSlice[2]["vulnerability_status"] = string(models.CriticalSeverity)
+		manifestsSlice[2]["vulnerability_status_changed_at"] = 7500
+		renderedManifest["manifests"] = manifestsSlice
+
+		// check if API returns vuln_status_changed_at correct
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/keppel/v1/accounts/test1/repositories/foo/_manifests",
+			Header:       map[string]string{"Authorization": "Bearer " + token},
+			ExpectStatus: http.StatusOK,
+			ExpectBody:   renderedManifest,
+		}.Check(t, s.Handler)
+	})
 }
