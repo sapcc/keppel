@@ -77,7 +77,7 @@ func mustUploadDummyTrivyReport(t *testing.T, s test.Setup, manifest models.Mani
 	t.Helper()
 	report := trivy.ReportPayload{
 		Format:   "json",
-		Contents: []byte(fmt.Sprintf(`{"dummy":"image %s is clean"}`, manifest.Digest.String())),
+		Contents: fmt.Appendf(nil, `{"dummy":"image %s is clean"}`, manifest.Digest.String()),
 	}
 	repo, err := keppel.FindRepositoryByID(s.DB, manifest.RepositoryID)
 	test.MustDo(t, err)

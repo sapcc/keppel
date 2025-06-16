@@ -411,7 +411,7 @@ func TestGetTrivyReport(t *testing.T) {
 		// for the scannable image, upload a dummy report to the storage in the same way that CheckTrivySecurityStatusJob would
 		report := trivy.ReportPayload{
 			Format:   "json",
-			Contents: []byte(fmt.Sprintf(`{"dummy":"image %s is clean"}`, imageManifest.Digest.String())),
+			Contents: fmt.Appendf(nil, `{"dummy":"image %s is clean"}`, imageManifest.Digest.String()),
 		}
 		repo, err := keppel.FindRepositoryByID(s.DB, imageManifest.RepositoryID)
 		test.MustDo(t, err)
