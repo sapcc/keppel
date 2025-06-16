@@ -719,8 +719,21 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 		}
 	}
 
-	// merge all vulnerability statuses
-	securityInfo.VulnerabilityStatus = models.MergeVulnerabilityStatuses(securityStatuses...)
+	newVulnerabilityStatus := models.MergeVulnerabilityStatuses(securityStatuses...)
+
+	// Reset VulnerabilityStatusChangedAt if the new status is a "pseudo" value
+	if newVulnerabilityStatus.HasReport() {
+		// The vulnerability status of the manifest counts as changed if it was previously not a pseudo-value
+		// (aka it had a report) and the new status is different from the old one.
+		if securityInfo.VulnerabilityStatus.HasReport() && securityInfo.VulnerabilityStatus != newVulnerabilityStatus {
+			securityInfo.VulnerabilityStatusChangedAt = Some(j.timeNow())
+		}
+	} else {
+		securityInfo.VulnerabilityStatusChangedAt = None[time.Time]()
+	}
+
+	securityInfo.VulnerabilityStatus = newVulnerabilityStatus
+
 	// regular recheck loop (vulnerability status might change if Trivy adds new vulnerabilities to its DB)
 	securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(1 * time.Hour))
 
