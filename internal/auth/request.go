@@ -218,8 +218,7 @@ func checkBasicAuth(ctx context.Context, authHeader string, ad keppel.AuthDriver
 	userName, password := fields[0], fields[1]
 
 	// recognize peer credentials
-	if after, ok := strings.CutPrefix(userName, "replication@"); ok {
-		peerHostName := after
+	if peerHostName, ok := strings.CutPrefix(userName, "replication@"); ok {
 		peer, err := checkPeerCredentials(db, peerHostName, password)
 		if err != nil {
 			return nil, err
