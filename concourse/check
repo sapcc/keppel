@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -eou pipefail
+set -x
+
+IN="$(cat)"
+
+account="$(echo "$IN" | jq -r '.source.account')"
+repository="$(echo "$IN" | jq -r '.source.repository')"
+tag="$(echo "$IN" | jq -r '.source.tag')"
+
+curl -fs "https://keppel.eu-de-1.cloud.sap/keppel/v1/accounts/$account/repositories/$repository/_manifests" |
+  jq -r ".[][] | select(.tags[].name == \"$tag\") | (if .vulnerability_status_changed_at != null then [{ timestamp: .vulnerability_status_changed_at, digest: .digest }] else [] end)"

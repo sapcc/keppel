@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -eou pipefail
+set -x
+
+IN="$(cat)"
+
+account="$(echo "$IN" | jq -r '.source.account')"
+repository="$(echo "$IN" | jq -r '.source.repository')"
+tag="$(echo "$IN" | jq -r '.source.tag')"
+version="$(echo "$IN" | jq '.version')"
+
+cat <<EOF
+{
+  "version": $version,
+  "metadata": [
+    { "name": "account", "value": "$account" },
+    { "name": "repository", "value": "$repository" },
+    { "name": "tag", "value": "$tag" }
+  ]
+}
+EOF
