@@ -49,6 +49,6 @@ jobs:
           ignore: importas
           reporter: github-check
       - name: Check if source code files have license header
-        run: make check-license-headers
+        run: make check-addlicense
       - name: REUSE Compliance Check
         uses: fsfe/reuse-action@v5

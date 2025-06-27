@@ -117,6 +117,16 @@ build/cover.html: build/cover.out
 	@printf "\e[1;36m>> go tool cover > build/cover.html\e[0m\n"
 	@go tool cover -html $< -o $@
 
+check-addlicense: FORCE install-addlicense
+	@printf "\e[1;36m>> addlicense --check\e[0m\n"
+	@addlicense --check -- $(patsubst $(shell awk '$$1 == "module" {print $$2}' go.mod)%,.%/*.go,$(shell go list ./...))
+
+check-reuse: FORCE
+	@printf "\e[1;36m>> reuse lint\e[0m\n"
+	@if ! reuse lint -q; then reuse lint; fi
+
+check-license-headers: FORCE check-addlicense check-reuse
+
 static-check: FORCE run-golangci-lint run-modernize check-dependency-licenses check-license-headers
 
 build:
@@ -140,10 +150,6 @@ license-headers: FORCE install-addlicense
 	@printf "\e[1;36m>> reuse download --all\e[0m\n"
 	@reuse download --all
 	@printf "\e[1;35mPlease review the changes. If *.license files were generated, consider instructing go-makefile-maker to add overrides to REUSE.toml instead.\e[0m\n"
-
-check-license-headers: FORCE install-addlicense vendor
-	@printf "\e[1;36m>> addlicense --check\e[0m\n"
-	@addlicense --check -- $(patsubst $(shell awk '$$1 == "module" {print $$2}' go.mod)%,.%/*.go,$(shell go list ./...))
 
 check-dependency-licenses: FORCE install-go-licence-detector
 	@printf "\e[1;36m>> go-licence-detector\e[0m\n"
@@ -203,13 +209,15 @@ help: FORCE
 	@printf "  \e[36mrun-modernize\e[0m                Install and run modernize. Installing is used in CI, but you should probably install modernize using your package manager.\n"
 	@printf "  \e[36mbuild/cover.out\e[0m              Run tests and generate coverage report.\n"
 	@printf "  \e[36mbuild/cover.html\e[0m             Generate an HTML file with source code annotations from the coverage report.\n"
+	@printf "  \e[36mcheck-addlicense\e[0m             Check license headers in all non-vendored .go files with addlicense.\n"
+	@printf "  \e[36mcheck-reuse\e[0m                  Check reuse compliance\n"
+	@printf "  \e[36mcheck-license-headers\e[0m        Run static code checks\n"
 	@printf "  \e[36mstatic-check\e[0m                 Run static code checks\n"
 	@printf "\n"
 	@printf "\e[1mDevelopment\e[0m\n"
 	@printf "  \e[36mvendor\e[0m                       Run go mod tidy, go mod verify, and go mod vendor.\n"
 	@printf "  \e[36mvendor-compat\e[0m                Same as 'make vendor' but go mod tidy will use '-compat' flag with the Go version from go.mod file as value.\n"
 	@printf "  \e[36mlicense-headers\e[0m              Add (or overwrite) license headers on all non-vendored source code files.\n"
-	@printf "  \e[36mcheck-license-headers\e[0m        Check license headers in all non-vendored .go files.\n"
 	@printf "  \e[36mcheck-dependency-licenses\e[0m    Check all dependency licenses using go-licence-detector.\n"
 	@printf "  \e[36mgoimports\e[0m                    Run goimports on all non-vendored .go files\n"
 	@printf "  \e[36mmodernize\e[0m                    Run modernize on all non-vendored .go files\n"
