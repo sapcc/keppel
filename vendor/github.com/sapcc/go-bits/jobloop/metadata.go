@@ -3,7 +3,11 @@
 
 package jobloop
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"maps"
+
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 // JobMetadata contains metadata and common configuration for a job. Types that
 // implement the Job interface will usually be holding one of these.
@@ -63,9 +67,7 @@ func (m *JobMetadata) makeLabels(cfg jobConfig) prometheus.Labels {
 	for _, label := range m.CounterLabels {
 		labels[label] = "early-db-access"
 	}
-	for label, value := range cfg.PrefilledLabels {
-		labels[label] = value
-	}
+	maps.Copy(labels, cfg.PrefilledLabels)
 	return labels
 }
 
