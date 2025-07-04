@@ -50,13 +50,16 @@ install-golangci-lint: FORCE
 install-modernize: FORCE
 	@if ! hash modernize 2>/dev/null; then printf "\e[1;36m>> Installing modernize (this may take a while)...\e[0m\n"; go install golang.org/x/tools/gopls/internal/analysis/modernize/cmd/modernize@latest; fi
 
+install-shellcheck: FORCE
+	@if ! hash shellcheck 2>/dev/null; then printf "\e[1;36m>> Installing shellcheck...\e[0m\n"; SHELLCHECK_ARCH=$(shell uname -m); SHELLCHECK_OS=$(shell uname -s | tr '[:upper:]' '[:lower:]'); if [[ "$$SHELLCHECK_OS" == "darwin" ]]; then SHELLCHECK_OS=macos; fi; SHELLCHECK_VERSION="stable"; curl -sLo- "https://github.com/koalaman/shellcheck/releases/download/$$SHELLCHECK_VERSION/shellcheck-$$SHELLCHECK_VERSION.$$SHELLCHECK_OS.$$SHELLCHECK_ARCH.tar.xz" | tar -Jxf -; BIN=$$(go env GOBIN); if [[ -z $$BIN ]]; then BIN=$$(go env GOPATH)/bin; fi; install -Dm755 shellcheck-$$SHELLCHECK_VERSION/shellcheck -t "$$BIN"; rm -rf shellcheck-$$SHELLCHECK_VERSION; fi
+
 install-go-licence-detector: FORCE
 	@if ! hash go-licence-detector 2>/dev/null; then printf "\e[1;36m>> Installing go-licence-detector (this may take a while)...\e[0m\n"; go install go.elastic.co/go-licence-detector@latest; fi
 
 install-addlicense: FORCE
 	@if ! hash addlicense 2>/dev/null; then printf "\e[1;36m>> Installing addlicense (this may take a while)...\e[0m\n"; go install github.com/google/addlicense@latest; fi
 
-prepare-static-check: FORCE install-golangci-lint install-modernize install-go-licence-detector install-addlicense
+prepare-static-check: FORCE install-golangci-lint install-modernize install-shellcheck install-go-licence-detector install-addlicense
 
 GO_BUILDFLAGS = -mod vendor
 GO_LDFLAGS =
@@ -109,6 +112,10 @@ run-modernize: FORCE install-modernize
 	@printf "\e[1;36m>> modernize\e[0m\n"
 	@modernize $(GO_TESTPKGS)
 
+run-shellcheck: FORCE install-shellcheck
+	@printf "\e[1;36m>> shellcheck\e[0m\n"
+	@find . ! -path './vendor/**' -type f \( -name '*.bash' -o -name '*.ksh' -o -name '*.zsh' -o -name '*.sh' -o -name '*.shlib' \) -exec shellcheck  {} +
+
 build/cover.out: FORCE | build
 	@printf "\e[1;36m>> Running tests\e[0m\n"
 	@env $(GO_TESTENV) go test -shuffle=on -p 1 -coverprofile=$@ $(GO_BUILDFLAGS) -ldflags '-s -w -X github.com/sapcc/go-api-declarations/bininfo.binName=keppel -X github.com/sapcc/go-api-declarations/bininfo.version=$(BININFO_VERSION) -X github.com/sapcc/go-api-declarations/bininfo.commit=$(BININFO_COMMIT_HASH) -X github.com/sapcc/go-api-declarations/bininfo.buildDate=$(BININFO_BUILD_DATE) $(GO_LDFLAGS)' -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
@@ -127,7 +134,10 @@ check-reuse: FORCE
 
 check-license-headers: FORCE check-addlicense check-reuse
 
-static-check: FORCE run-golangci-lint run-modernize check-dependency-licenses check-license-headers
+__static-check: FORCE run-shellcheck run-golangci-lint run-modernize check-dependency-licenses check-license-headers
+
+static-check: FORCE
+	@$(MAKE) --keep-going --no-print-directory __static-check
 
 build:
 	@mkdir $@
@@ -177,6 +187,7 @@ vars: FORCE
 	@printf "GO_LDFLAGS=$(GO_LDFLAGS)\n"
 	@printf "GO_TESTENV=$(GO_TESTENV)\n"
 	@printf "GO_TESTPKGS=$(GO_TESTPKGS)\n"
+	@printf "MAKE=$(MAKE)\n"
 	@printf "PREFIX=$(PREFIX)\n"
 	@printf "SED=$(SED)\n"
 	@printf "UNAME_S=$(UNAME_S)\n"
@@ -193,7 +204,8 @@ help: FORCE
 	@printf "\e[1mPrepare\e[0m\n"
 	@printf "  \e[36minstall-goimports\e[0m            Install goimports required by goimports/static-check\n"
 	@printf "  \e[36minstall-golangci-lint\e[0m        Install golangci-lint required by run-golangci-lint/static-check\n"
-	@printf "  \e[36minstall-modernize\e[0m            Install modernize required by modernize/static-check\n"
+	@printf "  \e[36minstall-modernize\e[0m            Install modernize required by run-modernize/static-check\n"
+	@printf "  \e[36minstall-shellcheck\e[0m           Install shellcheck required by run-shellcheck/static-check\n"
 	@printf "  \e[36minstall-go-licence-detector\e[0m  Install-go-licence-detector required by check-dependency-licenses/static-check\n"
 	@printf "  \e[36minstall-addlicense\e[0m           Install addlicense required by check-license-headers/license-headers/static-check\n"
 	@printf "  \e[36mprepare-static-check\e[0m         Install any tools required by static-check. This is used in CI before dropping privileges, you should probably install all the tools using your package manager\n"
@@ -207,6 +219,7 @@ help: FORCE
 	@printf "  \e[36mcheck\e[0m                        Run the test suite (unit tests and golangci-lint).\n"
 	@printf "  \e[36mrun-golangci-lint\e[0m            Install and run golangci-lint. Installing is used in CI, but you should probably install golangci-lint using your package manager.\n"
 	@printf "  \e[36mrun-modernize\e[0m                Install and run modernize. Installing is used in CI, but you should probably install modernize using your package manager.\n"
+	@printf "  \e[36mrun-shellcheck\e[0m               Install and run shellcheck. Installing is used in CI, but you should probably install shellcheck using your package manager.\n"
 	@printf "  \e[36mbuild/cover.out\e[0m              Run tests and generate coverage report.\n"
 	@printf "  \e[36mbuild/cover.html\e[0m             Generate an HTML file with source code annotations from the coverage report.\n"
 	@printf "  \e[36mcheck-addlicense\e[0m             Check license headers in all non-vendored .go files with addlicense.\n"

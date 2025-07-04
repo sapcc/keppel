@@ -57,7 +57,6 @@ linters:
     - intrange
     - misspell
     - nilerr
-    - noctx
     - nolintlint
     - nosprintfhostport
     - perfsprint
