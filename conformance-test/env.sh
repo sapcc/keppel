@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2025 SAP SE
-#
 # SPDX-License-Identifier: Apache-2.0
+#
+# shellcheck shell=sh
 
 export KEPPEL_API_PUBLIC_FQDN=localhost
 export KEPPEL_ISSUER_KEY=./conformance-test/privkey.pem
