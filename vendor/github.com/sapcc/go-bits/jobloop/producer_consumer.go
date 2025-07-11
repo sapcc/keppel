@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -91,50 +90,49 @@ type producerConsumerJobImpl[T any] struct {
 
 // Core producer-side behavior. This is used by ProcessOne in unit tests, as
 // well as by runSingleThreaded and runMultiThreaded in production.
-func (j *ProducerConsumerJob[T]) produceOne(ctx context.Context, cfg jobConfig, annotateErrors bool) (T, prometheus.Labels, error) {
+func (j *ProducerConsumerJob[T]) produceOne(ctx context.Context, cfg jobConfig) (T, prometheus.Labels, error) {
 	labels := j.Metadata.makeLabels(cfg)
 	task, err := j.DiscoverTask(ctx, labels)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		if annotateErrors {
-			err = fmt.Errorf("could not select task%s for job %q: %w",
-				cfg.PrefilledLabelsAsString(), j.Metadata.ReadableName, err)
-		}
 		j.Metadata.countTask(labels, err)
+		err = j.Metadata.enrichError("select", err, cfg)
 	}
 	return task, labels, err
 }
 
 // Core consumer-side behavior. This is used by ProcessOne in unit tests, as
 // well as by runSingleThreaded and runMultiThreaded in production.
-func (j *ProducerConsumerJob[T]) consumeOne(ctx context.Context, cfg jobConfig, task T, labels prometheus.Labels, annotateErrors bool) error {
+func (j *ProducerConsumerJob[T]) consumeOne(ctx context.Context, cfg jobConfig, task T, labels prometheus.Labels) error {
 	err := j.ProcessTask(ctx, task, labels)
-	if err != nil && annotateErrors {
-		err = fmt.Errorf("could not process task%s for job %q: %w",
-			cfg.PrefilledLabelsAsString(), j.Metadata.ReadableName, err)
-	}
 	j.Metadata.countTask(labels, err)
-	return err
+	return j.Metadata.enrichError("process", err, cfg)
 }
 
 // Core behavior of ProcessOne(). This is a separate function because it is reused in runSingleThreaded().
 func (i producerConsumerJobImpl[T]) processOne(ctx context.Context, cfg jobConfig) error {
 	j := i.j
 
-	task, labels, err := j.produceOne(ctx, cfg, false)
+	task, labels, err := j.produceOne(ctx, cfg)
 	if err != nil {
 		return err
 	}
-	return j.consumeOne(ctx, cfg, task, labels, false)
+	return j.consumeOne(ctx, cfg, task, labels)
 }
 
 // ProcessOne implements the jobloop.Job interface.
 func (i producerConsumerJobImpl[T]) ProcessOne(ctx context.Context, opts ...Option) error {
-	return i.processOne(ctx, newJobConfig(opts))
+	cfg := newJobConfig(opts)
+	// ProcessOne() is usually called during tests, so adding extra context to error messages is not helpful
+	// (it would only make error message matches more convoluted)
+	cfg.WantsExtraErrorContext = false
+
+	return i.processOne(ctx, cfg)
 }
 
 // Run implements the jobloop.Job interface.
 func (i producerConsumerJobImpl[T]) Run(ctx context.Context, opts ...Option) {
 	cfg := newJobConfig(opts)
+	cfg.WantsExtraErrorContext = true
 
 	switch cfg.NumGoroutines {
 	case 0:
@@ -173,7 +171,7 @@ func (i producerConsumerJobImpl[T]) runMultiThreaded(ctx context.Context, cfg jo
 	go func(ch chan<- taskWithLabels[T]) {
 		defer wg.Done()
 		for ctx.Err() == nil { // while ctx has not expired
-			task, labels, err := j.produceOne(ctx, cfg, true)
+			task, labels, err := j.produceOne(ctx, cfg)
 			if err == nil {
 				ch <- taskWithLabels[T]{task, labels}
 			} else {
@@ -194,7 +192,7 @@ func (i producerConsumerJobImpl[T]) runMultiThreaded(ctx context.Context, cfg jo
 		go func(ch <-chan taskWithLabels[T]) {
 			defer wg.Done()
 			for item := range ch {
-				err := j.consumeOne(ctx, cfg, item.Task, item.Labels, true)
+				err := j.consumeOne(ctx, cfg, item.Task, item.Labels)
 				if err != nil {
 					logg.Error(err.Error())
 				}
