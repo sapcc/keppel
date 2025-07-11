@@ -4,6 +4,7 @@
 package jobloop
 
 import (
+	"fmt"
 	"maps"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -71,8 +72,8 @@ func (m *JobMetadata) makeLabels(cfg jobConfig) prometheus.Labels {
 	return labels
 }
 
-// Internal API for job implementations: Counts a finished or failed task. The
-// "task_outcome" label will be set based on whether `err` is nil or not.
+// Internal API for job implementations: Counts a finished or failed task.
+// The "task_outcome" label will be set based on whether `err` is nil or not.
 func (m *JobMetadata) countTask(labels prometheus.Labels, err error) {
 	if err == nil {
 		labels[outcomeLabelName] = outcomeValueSuccess
@@ -80,4 +81,15 @@ func (m *JobMetadata) countTask(labels prometheus.Labels, err error) {
 		labels[outcomeLabelName] = "failure"
 	}
 	m.counter.With(labels).Inc()
+}
+
+// Internal API for job implementations: Enrich errors with additional error context if necessary.
+// The `verb` argument describes which step of the task this error came from.
+func (m *JobMetadata) enrichError(verb string, err error, cfg jobConfig) error {
+	if err == nil || !cfg.WantsExtraErrorContext {
+		return err
+	}
+
+	return fmt.Errorf("could not %s task%s for job %q: %w",
+		verb, cfg.PrefilledLabelsAsString(), m.ReadableName, err)
 }

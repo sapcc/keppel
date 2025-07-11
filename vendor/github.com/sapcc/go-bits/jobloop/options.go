@@ -19,8 +19,12 @@ import (
 type Option func(*jobConfig)
 
 type jobConfig struct {
-	NumGoroutines   uint32
+	// controlled by user through the NumGoroutines() option
+	NumGoroutines uint32
+	// controlled by user through the WithLabel() option
 	PrefilledLabels prometheus.Labels
+	// only set internally within this library
+	WantsExtraErrorContext bool
 }
 
 func newJobConfig(opts []Option) jobConfig {

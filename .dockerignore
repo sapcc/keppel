@@ -1,23 +1,25 @@
 # SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company
 # SPDX-License-Identifier: Apache-2.0
 
-/.dockerignore
 .DS_Store
+/*.env*
+/.dockerignore
 # TODO: uncomment when applications no longer use git to get version information
 #.git/
 /.github/
 /.gitignore
-/.goreleaser.yml
-/*.env*
 /.golangci.yaml
+/.goreleaser.yml
 /.vscode/
-/build/
 /CONTRIBUTING.md
 /Dockerfile
-/docs/
 /LICENSE*
 /Makefile.maker.yaml
 /README.md
+/build/
+/docs/
+/go.work
+/go.work.sum
 /report.html
 /shell.nix
 /testing/

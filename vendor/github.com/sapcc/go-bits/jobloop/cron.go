@@ -55,22 +55,27 @@ func (i cronJobImpl) processOne(ctx context.Context, cfg jobConfig) error {
 	labels := j.Metadata.makeLabels(cfg)
 	err := j.Task(ctx, labels)
 	j.Metadata.countTask(labels, err)
-	return err
+	return j.Metadata.enrichError("run", err, cfg)
 }
 
 // ProcessOne implements the Job interface.
 func (i cronJobImpl) ProcessOne(ctx context.Context, opts ...Option) error {
-	return i.processOne(ctx, newJobConfig(opts))
+	cfg := newJobConfig(opts)
+	// ProcessOne() is usually called during tests, so adding extra context to error messages is not helpful
+	// (it would only make error message matches more convoluted)
+	cfg.WantsExtraErrorContext = false
+
+	return i.processOne(ctx, cfg)
 }
 
 // Run implements the Job interface.
 func (i cronJobImpl) Run(ctx context.Context, opts ...Option) {
 	cfg := newJobConfig(opts)
+	cfg.WantsExtraErrorContext = true
 	runOnce := func() {
 		err := i.processOne(ctx, cfg)
 		if err != nil {
-			logg.Error("could not run task%s for job %q: %s",
-				cfg.PrefilledLabelsAsString(), i.j.Metadata.ReadableName, err.Error())
+			logg.Error(err.Error())
 		}
 	}
 
