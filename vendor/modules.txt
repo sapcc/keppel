@@ -166,13 +166,13 @@ github.com/redis/go-redis/v9/internal/util
 ## explicit; go 1.13
 github.com/rs/cors
 github.com/rs/cors/internal
-# github.com/sapcc/go-api-declarations v1.16.0
+# github.com/sapcc/go-api-declarations v1.17.1
 ## explicit; go 1.24
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
 github.com/sapcc/go-api-declarations/internal/errorset
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20250710190843-788fa8ba727b
+# github.com/sapcc/go-bits v0.0.0-20250717162732-01df4e41958b
 ## explicit; go 1.24
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools

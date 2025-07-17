@@ -34,7 +34,7 @@ type Event struct {
 	Outcome Outcome `json:"outcome"`
 
 	// Standard response for successful HTTP requests
-	Reason Reason `json:"reason,omitempty"`
+	Reason Reason `json:"reason"`
 
 	// CADF component that contains the RESOURCE
 	// that initiated, originated, or instigated the event's

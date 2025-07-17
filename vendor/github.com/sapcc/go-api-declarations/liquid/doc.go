@@ -48,6 +48,24 @@
 // Capacity and usage may be AZ-aware, in which case one value will be reported per availability zone (AZ).
 // Quota is only optionally modelled as AZ-aware since there are no OpenStack services that support AZ-aware quota at this time.
 //
+// # Resource commitments
+//
+// If configured in Limes, resources may allow for commitments to be created.
+// Within the context of LIQUID, a commitment represents a guarantee by the cloud platform that a specific project can provision a guaranteed minimum amount of a resource.
+// For example, if a project currently has a usage of 8 for the resource "network/routers", taking out a commitment for 10 routers would mean that the cloud guarantees that this project can provision 10 - 8 = 2 additional routers in the future.
+// Usage that is covered by a commitment shall turn back into a reservation when the corresponding objects are decommissioned.
+// For example, continuing the previous scenario, if the project with a commitment for 10 routers deletes 2 of their 8 routers, then the cloud shall guarantee that this project can provision 10 - 6 = 4 additional routers in the future.
+//
+// Each commitment refers to some amount of a resource being reserved for a specific project in a certain AZ.
+// Multiple commitments can be active at the same time for the same project, resource and AZ, in which case the guaranteed-deployable amount of resource will be equal to the sum of all active commitments.
+//
+// By default, resources in LIQUID do not care about commitments at all, and Limes will manage commitments purely based on the numbers provided by the liquid:
+// Commitments will be approved as long as there is enough unused capacity to cover the unused part of the commitment.
+// And quota will be given out in a way that seeks to guarantee the usability of existing commitments.
+//
+// If a liquid has access to a better way of guaranteeing commitments (e.g. by making explicit reservations in its service), it can take over commitment acceptance.
+// For resources with this behavior, Limes will present all changes to commitments to the liquid for approval.
+//
 // # Inside a rate: Usage
 //
 // Rates are measurements that only ever increase over time, similar to the Prometheus metric type "counter".
@@ -112,15 +130,26 @@
 //   - The request body payload must be of type ServiceQuotaRequest.
 //   - On success, the response body shall be empty and status 204 (No Content) shall be returned.
 //
+// # Endpoint: POST /v1/change-commitments
+//
+// Notifies the liquid about changes to commitments that it is interested in.
+// Commitments for different projects and different resources may be batched together if they are all part of the same atomic change.
+//   - The request body payload must be of type CommitmentChangeRequest.
+//   - On success, the response body payload must be of type CommitmentChangeResponse.
+//
 // [Limes]: https://github.com/sapcc/limes
 // [OpenMetrics format]: https://github.com/OpenObservability/OpenMetrics/blob/master/specification/OpenMetrics.md
 // [Prometheus]: https://prometheus.io/
 package liquid
 
+// ProjectUUID identifies a project known to Keystone.
+// This type is used to distinguish project UUIDs from other types of string values in structs and function signatures.
+type ProjectUUID string
+
 // ResourceName identifies a resource within a service.
-// This type is used to distinguish resource names from other types of string values in function signatures.
+// This type is used to distinguish resource names from other types of string values in structs and function signatures.
 type ResourceName string
 
 // RateName identifies a rate within a service.
-// This type is used to distinguish rate names from other types of string values in function signatures.
+// This type is used to distinguish rate names from other types of string values in structs and function signatures.
 type RateName string

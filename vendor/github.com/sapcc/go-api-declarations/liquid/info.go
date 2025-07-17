@@ -37,6 +37,9 @@ type ServiceInfo struct {
 
 	// Whether Limes needs to include the ProjectMetadata field in its quota update requests.
 	QuotaUpdateNeedsProjectMetadata bool `json:"quotaUpdateNeedsProjectMetadata,omitempty"`
+
+	// Whether Limes needs to include the ProjectMetadata field in its commitment handling requests.
+	CommitmentHandlingNeedsProjectMetadata bool `json:"commitmentHandlingNeedsProjectMetadata,omitempty"`
 }
 
 // ResourceInfo describes a resource that a liquid's service provides.
@@ -60,6 +63,11 @@ type ResourceInfo struct {
 	// If false, only usage is reported on the project level.
 	// Limes will abstain from maintaining quota on such resources.
 	HasQuota bool `json:"hasQuota"`
+
+	// Whether the liquid takes responsibility for reviewing changes to commitments for this resource.
+	// If false, Limes will handle commitments on this resource on its own without involving the liquid.
+	// If true, the liquid needs to be prepared to handle commitment-related requests for this resource.
+	HandlesCommitments bool `json:"handlesCommitments,omitempty"`
 
 	// Additional resource-specific attributes.
 	// For example, a resource for baremetal nodes of a certain flavor might report flavor attributes like the CPU and RAM size here, instead of on subcapacities and subresources, to avoid repetition.
