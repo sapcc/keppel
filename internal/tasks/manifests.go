@@ -476,7 +476,11 @@ const (
 
 var securityCheckSelectQuery = sqlext.SimplifyWhitespace(fmt.Sprintf(`
 	SELECT * FROM trivy_security_info
-	WHERE next_check_at <= $1
+	WHERE next_check_at <= $1 AND repo_id NOT IN (
+		SELECT r.id FROM repos r
+		JOIN accounts a ON r.account_name = a.name
+		WHERE a.is_deleting
+	)
 	-- manifests without any check first, then sorted by schedule, then sorted by digest for deterministic behavior in unit test
 	ORDER BY next_check_at IS NULL DESC, next_check_at ASC, digest ASC
 	-- only one manifests at a time
@@ -698,6 +702,16 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 			return fmt.Errorf("could not process report: %w", err)
 		}
 		securityStatuses = append(securityStatuses, status)
+
+		// abort if the account is in deletion mode in the meantime
+		accountIsInDeleting, err := j.db.SelectBool(`SELECT is_deleting FROM accounts WHERE name = $1`, account.Name)
+		if err != nil {
+			return fmt.Errorf("could not check if account %s is in deletion mode: %w", account.Name, err)
+		}
+		if accountIsInDeleting {
+			return fmt.Errorf("account %s is in deletion mode, skip storing Trivy report", account.Name)
+		}
+
 		err = j.sd.WriteTrivyReport(ctx, account.Reduced(), repo.Name, securityInfo.Digest, payload)
 		if err != nil {
 			return fmt.Errorf("could not store report: %w", err)

@@ -939,3 +939,24 @@ func TestVulnerabilityStatusChanged(t *testing.T) {
 		)
 	})
 }
+
+func TestCheckTrivySecurityStatusWithAccountBeingDeleted(t *testing.T) {
+	test.WithRoundTripper(func(_ *test.RoundTripper) {
+		j, s := setup(t, test.WithTrivyDouble)
+		tr, _ := easypg.NewTracker(t, s.DB.Db)
+		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
+
+		// upload an example image and change account to being deleted
+		image := test.GenerateImage(test.GenerateExampleLayer(4))
+		image.MustUpload(t, s, fooRepoRef, "latest")
+		_, err := j.db.Exec(`UPDATE accounts SET is_deleting = TRUE WHERE name = 'test1'`)
+		test.MustDo(t, err)
+		tr.DBChanges().Ignore()
+		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
+
+		// accounts that are being deleted should be skipped
+		s.Clock.StepBy(1 * time.Hour)
+		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+		tr.DBChanges().AssertEmpty()
+	})
+}
