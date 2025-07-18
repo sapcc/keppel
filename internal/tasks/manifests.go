@@ -709,7 +709,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 			return fmt.Errorf("could not check if account %s is in deletion mode: %w", account.Name, err)
 		}
 		if accountIsInDeleting {
-			return fmt.Errorf("account %s is in deletion mode, skik storing Trivy report", account.Name)
+			return fmt.Errorf("account %s is in deletion mode, skip storing Trivy report", account.Name)
 		}
 
 		err = j.sd.WriteTrivyReport(ctx, account.Reduced(), repo.Name, securityInfo.Digest, payload)
