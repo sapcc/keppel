@@ -304,7 +304,7 @@ func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.Re
 			Format:   unknownReport.Format,
 		}
 
-		// unmark manifests that have been recorded in the database in the meantime
+		// unmark reports that have been recorded in the database in the meantime
 		if isKnownReport[unknownReportInfo] {
 			_, err = j.db.Delete(&unknownReport)
 			if err != nil {
@@ -313,7 +313,7 @@ func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.Re
 			continue
 		}
 
-		// sweep manifests that have been marked long enough
+		// sweep reports that have been marked long enough
 		isMarkedReport[unknownReportInfo] = true
 		if unknownReport.CanBeDeletedAt.Before(j.timeNow()) {
 			// only call DeleteTrivyReport if we can still see the report in the
@@ -336,7 +336,7 @@ func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.Re
 		}
 	}
 
-	// mark phase: record newly discovered unknown manifests in the DB
+	// mark phase: record newly discovered unknown reports in the DB
 	for report := range isActualReport {
 		if isKnownReport[report] || isMarkedReport[report] {
 			continue
