@@ -36,9 +36,9 @@ func JSON(w http.ResponseWriter, code int, data any) {
 	}
 }
 
-// ErrorText produces an error response with HTTP status code 500 and
-// Content-Type text/plain if the given error is non-nil. Otherwise, nothing is
-// done and false is returned. Idiomatic usage looks like this:
+// ErrorText produces an error response with Content-Type text/plain if the given error is non-nil.
+// Otherwise, nothing is done and false is returned.
+// Idiomatic usage looks like this:
 //
 //	value, err := thisMayFail()
 //	if respondwith.ErrorText(w, err) {
@@ -46,19 +46,23 @@ func JSON(w http.ResponseWriter, code int, data any) {
 //	}
 //
 //	useValue(value)
+//
+// By default, error responses will use status 500 (Internal Server Error).
+// To use a different response status, see func CustomStatus().
 func ErrorText(w http.ResponseWriter, err error) bool {
 	if err == nil {
 		return false
 	}
 
-	http.Error(w, err.Error(), http.StatusInternalServerError)
+	message, status := analyzeError(err)
+	http.Error(w, message, status)
 	return true
 }
 
-// ObfuscatedErrorText produces an obfuscated error response with HTTP status code 500 and
-// Content-Type text/plain containing an error id if the given error is non-nil.
-// The real error with the respective id is printed into the program log.
-// If the error is nil, nothing is done and false is returned.
+// ObfuscatedErrorText produces an obfuscated error response with Content-Type text/plain if the given error is non-nil.
+// Otherwise, nothing is done and false is returned.
+// "Obfuscation" means that the response will only show a UUID.
+// The real error is only printed in the program log, using the same UUID as a marker.
 // Idiomatic usage looks like this:
 //
 //	value, err := thisMayFail()
@@ -67,14 +71,22 @@ func ErrorText(w http.ResponseWriter, err error) bool {
 //	}
 //
 //	useValue(value)
+//
+// By default, error responses will use status 500 (Internal Server Error).
+// To use a different response status, see func CustomStatus().
+// Obfuscation does not take place for client errors (status 400..499).
 func ObfuscatedErrorText(w http.ResponseWriter, err error) bool {
 	if err == nil {
 		return false
 	}
 
-	logUUID := must.Return(uuid.NewV4()).String()
+	message, status := analyzeError(err)
+	if status >= 500 {
+		logUUID := must.Return(uuid.NewV4()).String()
+		logg.Error("%s is: %s", logUUID, message)
+		message = fmt.Sprintf("Internal Server Error (ID = %s)", logUUID)
+	}
 
-	logg.Error("%s is: %s", logUUID, err.Error())
-	http.Error(w, fmt.Sprintf("Internal Server Error (ID = %s)", logUUID), http.StatusInternalServerError)
+	http.Error(w, message, status)
 	return true
 }

@@ -11,8 +11,6 @@ import (
 	"fmt"
 )
 
-// TODO upstream this package into go-bits once proven in here
-
 // Job describes a loop that executes instances of a specific type of task.
 type Job interface {
 	// ProcessOne finds and executes exactly one task, aborting early if `ctx` expires.
