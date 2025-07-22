@@ -376,6 +376,12 @@ var sqlMigrations = map[string]string{
 		ALTER TABLE trivy_security_info
 			DROP COLUMN vuln_status_changed_at;
 	`,
+	"051_add_vuln_status_index_over_not_clean.up.sql": `
+		CREATE INDEX ON trivy_security_info (repo_id, digest) WHERE vuln_status <> 'Clean';
+	`,
+	"051_add_vuln_status_index_over_not_clean.down.sql": `
+		DROP INDEX trivy_security_info_repo_id_digest_idx;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.
