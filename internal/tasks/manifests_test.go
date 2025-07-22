@@ -954,9 +954,64 @@ func TestCheckTrivySecurityStatusWithAccountBeingDeleted(t *testing.T) {
 		tr.DBChanges().Ignore()
 		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 
+		// simulate a transient error which has no effect because the account is being deleted
+		s.Clock.StepBy(1 * time.Hour)
+		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef)] = true
+		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+		tr.DBChanges().AssertEmpty()
+		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef)] = false
+
 		// accounts that are being deleted should be skipped
 		s.Clock.StepBy(1 * time.Hour)
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEmpty()
+	})
+}
+
+func TestCheckTrivySecurityStatusBeingDeleted(t *testing.T) {
+	test.WithRoundTripper(func(_ *test.RoundTripper) {
+		j, s := setup(t, test.WithTrivyDouble)
+		tr, _ := easypg.NewTracker(t, s.DB.Db)
+		trivyJob := j.CheckTrivySecurityStatusJob(s.Registry)
+		sweepStorageJob := j.StorageSweepJob(s.Registry)
+
+		// upload an example image and generate a trivy security report
+		image := test.GenerateImage(test.GenerateExampleLayer(4))
+		image.MustUpload(t, s, fooRepoRef, "latest")
+		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
+		must.Succeed(trivyJob.ProcessOne(s.Ctx))
+		tr.DBChanges().Ignore()
+
+		// delete a manifest
+		s.Clock.StepBy(30 * time.Minute)
+		test.MustExec(t, s.DB, `DELETE FROM manifests WHERE digest = $1`, image.Manifest.Digest)
+		tr.DBChanges().AssertEqualf(`
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 1;
+			DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 2;
+			DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
+			DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
+			DELETE FROM tags WHERE repo_id = 1 AND name = 'latest';
+			DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
+		`, image.Manifest.Digest)
+
+		// mark manifest for sweep
+		s.Clock.StepBy(30 * time.Minute)
+		must.Succeed(sweepStorageJob.ProcessOne(s.Ctx))
+		expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
+		tr.DBChanges().AssertEqualf(`
+			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
+			INSERT INTO unknown_manifests (account_name, repo_name, digest, can_be_deleted_at) VALUES ('test1', 'foo', '%[2]s', %[3]d);
+			INSERT INTO unknown_trivy_reports (account_name, repo_name, digest, format, can_be_deleted_at) VALUES ('test1', 'foo', '%[2]s', 'json', %[3]d);
+		`, s.Clock.Now().Add(6*time.Hour).Unix(), image.Manifest.Digest, s.Clock.Now().Add(4*time.Hour).Unix())
+
+		// clean up manifest for the deleted account
+		s.Clock.StepBy(12 * time.Hour)
+		must.Succeed(sweepStorageJob.ProcessOne(s.Ctx))
+		expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
+		tr.DBChanges().AssertEqualf(`
+			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
+			DELETE FROM unknown_manifests WHERE account_name = 'test1' AND repo_name = 'foo' AND digest = '%[2]s';
+			DELETE FROM unknown_trivy_reports WHERE account_name = 'test1' AND repo_name = 'foo' AND digest = '%[2]s' AND format = 'json';
+		`, s.Clock.Now().Add(6*time.Hour).Unix(), image.Manifest.Digest)
 	})
 }
