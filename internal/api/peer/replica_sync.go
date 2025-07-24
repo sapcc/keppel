@@ -41,7 +41,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 	// find account
 	accountName := models.AccountName(mux.Vars(r)["account"])
 	account, err := keppel.FindAccount(a.db, accountName)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	if account == nil {
@@ -55,7 +55,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "repo not found", http.StatusNotFound)
 		return
 	}
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -90,7 +90,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 			}
 			return nil
 		})
-		if respondwith.ErrorText(w, err) {
+		if respondwith.ObfuscatedErrorText(w, err) {
 			return
 		}
 	}
@@ -112,7 +112,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 			}
 			return nil
 		})
-		if respondwith.ErrorText(w, err) {
+		if respondwith.ObfuscatedErrorText(w, err) {
 			return
 		}
 	}
@@ -132,7 +132,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 		tagsByDigest[digest] = append(tagsByDigest[digest], keppel.TagForSync{Name: name})
 		return nil
 	})
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -150,7 +150,7 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 		})
 		return nil
 	})
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 

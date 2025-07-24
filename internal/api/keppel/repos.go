@@ -107,7 +107,7 @@ func (a *API) handleGetRepositories(w http.ResponseWriter, r *http.Request) {
 		}
 		return err
 	})
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -159,7 +159,7 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx, err := a.db.Begin()
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	defer sqlext.RollbackUnlessCommitted(tx)
@@ -169,7 +169,7 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 		`SELECT COUNT(*) FROM manifests WHERE repo_id = $1`,
 		repo.ID,
 	)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	if manifestCount > 0 {
@@ -179,7 +179,7 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 	}
 
 	uploadCount, err := tx.SelectInt(`SELECT COUNT(*) FROM uploads WHERE repo_id = $1`, repo.ID)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	if uploadCount > 0 {
@@ -195,7 +195,7 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		err = tx.Commit()
 	}
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 

@@ -163,7 +163,7 @@ func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request, ss aut
 func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request, _ *auth.Authorization) *models.Account {
 	accountName := models.AccountName(mux.Vars(r)["account"])
 	account, err := keppel.FindAccount(a.db, accountName)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return nil
 	}
 	if errors.Is(err, sql.ErrNoRows) {
@@ -189,7 +189,7 @@ func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, "repo not found", http.StatusNotFound)
 		return nil
 	}
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return nil
 	}
 	return repo

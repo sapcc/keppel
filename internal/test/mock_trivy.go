@@ -58,7 +58,7 @@ func (t *TrivyDouble) mockRunTrivy(w http.ResponseWriter, r *http.Request) {
 	}
 	c.SetToken(r.Header[http.CanonicalHeaderKey(trivy.KeppelTokenHeader)][0])
 	_, _, err = c.DownloadManifest(r.Context(), imageRef.Reference, &client.DownloadManifestOpts{})
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -74,7 +74,7 @@ func (t *TrivyDouble) mockRunTrivy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reportBytes, err := os.ReadFile(fixturePath)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 

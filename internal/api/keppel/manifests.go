@@ -99,7 +99,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 
 	var dbManifests []models.Manifest
 	_, err = a.db.Select(&dbManifests, manifestQuery, vulnBindValues...)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -116,7 +116,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 
 	var dbSecurityInfos []models.TrivySecurityInfo
 	_, err = a.db.Select(&dbSecurityInfos, securityInfoQuery, securityBindValues...)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -170,7 +170,7 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 		lastDigest := result.Manifests[len(result.Manifests)-1].Digest
 		var dbTags []models.Tag
 		_, err = a.db.Select(&dbTags, tagGetQuery, repo.ID, firstDigest, lastDigest)
-		if respondwith.ErrorText(w, err) {
+		if respondwith.ObfuscatedErrorText(w, err) {
 			return
 		}
 
@@ -215,7 +215,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tagPolicies, err := api.GetTagPolicies(a.db, account.Reduced())
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -227,7 +227,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no such manifest", http.StatusNotFound)
 		return
 	}
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -251,7 +251,7 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	tagName := mux.Vars(r)["tag_name"]
 
 	tagPolicies, err := api.GetTagPolicies(a.db, account.Reduced())
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -263,7 +263,7 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no such tag", http.StatusNotFound)
 		return
 	}
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -286,7 +286,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok && rerr != nil {
 			rerr.WriteAsRegistryV2ResponseTo(w, r)
 			return
-		} else if respondwith.ErrorText(w, err) {
+		} else if respondwith.ObfuscatedErrorText(w, err) {
 			return
 		}
 	}
@@ -306,7 +306,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -315,7 +315,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -336,7 +336,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		`SELECT COUNT(*) FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`,
 		repo.ID, manifest.Digest,
 	)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	if a.cfg.Trivy == nil || !securityInfo.VulnerabilityStatus.HasReport() || blobCount == 0 {
@@ -355,7 +355,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		buf, err := a.sd.ReadTrivyReport(r.Context(), account.Reduced(), repo.Name, manifest.Digest, format)
-		if respondwith.ErrorText(w, err) {
+		if respondwith.ObfuscatedErrorText(w, err) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -371,11 +371,11 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		Reference: models.ManifestReference{Digest: manifest.Digest},
 	}
 	tokenResp, err := auth.IssueTokenForTrivy(a.cfg, repo.FullName())
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	report, err := a.cfg.Trivy.ScanManifest(r.Context(), tokenResp.Token, imageRef, format)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 

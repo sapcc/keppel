@@ -24,7 +24,7 @@ func (a *API) handleGetQuotas(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, err := a.processor().GetQuotas(authTenantID)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	respondwith.JSON(w, http.StatusOK, resp)
@@ -49,7 +49,7 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, iqerr.Message, http.StatusUnprocessableEntity)
 		return
 	}
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
