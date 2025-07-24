@@ -51,7 +51,7 @@ func (a *API) handleGetPeers(w http.ResponseWriter, r *http.Request) {
 
 	var peers []models.Peer
 	_, err := a.db.Select(&peers, `SELECT * FROM peers ORDER BY hostname`)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	respondwith.JSON(w, http.StatusOK, map[string][]Peer{"peers": renderPeers(peers)})

@@ -135,7 +135,7 @@ func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, map[string]any{})
 }
 
-// Like respondwith.ErrorText(), but writes a RegistryV2Error instead of plain text.
+// Like respondwith.ObfuscatedErrorText(), but writes a RegistryV2Error instead of plain text.
 func respondWithError(w http.ResponseWriter, r *http.Request, err error) bool {
 	if err == nil {
 		return false

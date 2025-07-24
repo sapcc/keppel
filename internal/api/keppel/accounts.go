@@ -27,7 +27,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts")
 	var accounts []models.Account
 	_, err := a.db.Select(&accounts, "SELECT * FROM accounts ORDER BY name")
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	scopes := accountScopes(keppel.CanViewAccount, accounts...)
@@ -57,7 +57,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	accountsRendered := make([]keppel.Account, len(accountsFiltered))
 	for idx, account := range accountsFiltered {
 		accountsRendered[idx], err = keppel.RenderAccount(account)
-		if respondwith.ErrorText(w, err) {
+		if respondwith.ObfuscatedErrorText(w, err) {
 			return
 		}
 	}
@@ -76,7 +76,7 @@ func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accountRendered, err := keppel.RenderAccount(*account)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	respondwith.JSON(w, http.StatusOK, map[string]any{"account": accountRendered})
@@ -136,7 +136,7 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accountRendered, err := keppel.RenderAccount(account)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	respondwith.JSON(w, http.StatusOK, map[string]any{"account": accountRendered})
@@ -162,7 +162,7 @@ func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -192,7 +192,7 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 
 	var err error
 	st.Secret, err = a.fd.IssueSubleaseTokenSecret(r.Context(), *account)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	respondwith.JSON(w, http.StatusOK, map[string]any{"sublease_token": st.Serialize()})
@@ -226,7 +226,7 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 	// decode existing policies
 	var dbPolicies []keppel.SecurityScanPolicy
 	err := json.Unmarshal([]byte(account.SecurityScanPoliciesJSON), &dbPolicies)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -278,12 +278,12 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 
 	// update policies in DB
 	jsonBuf, err := json.Marshal(req.Policies)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	_, err = a.db.Exec(`UPDATE accounts SET security_scan_policies_json = $1 WHERE name = $2`,
 		string(jsonBuf), account.Name)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 

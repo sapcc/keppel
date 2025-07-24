@@ -48,7 +48,7 @@ func (a *API) handleDelegatedPullManifest(w http.ResponseWriter, r *http.Request
 			rerr.WriteAsRegistryV2ResponseTo(w, r)
 			return
 		} else {
-			respondwith.ErrorText(w, err)
+			respondwith.ObfuscatedErrorText(w, err)
 			return
 		}
 	}

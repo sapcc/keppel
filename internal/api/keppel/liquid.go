@@ -68,7 +68,7 @@ func (a *API) handleLiquidReportUsage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, err := a.processor().GetQuotas(authTenantID)
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	respondwith.JSON(w, http.StatusOK, liquidConvertQuotaResponse(*resp))
@@ -93,7 +93,7 @@ func (a *API) handleLiquidSetQuota(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, iqerr.Message, http.StatusUnprocessableEntity)
 		return
 	}
-	if respondwith.ErrorText(w, err) {
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
