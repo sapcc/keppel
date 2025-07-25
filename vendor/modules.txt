@@ -118,7 +118,7 @@ github.com/majewsky/schwift/v2/internal/errext
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
-# github.com/opencontainers/distribution-spec/specs-go v0.0.0-20250220192232-583e014d1541
+# github.com/opencontainers/distribution-spec/specs-go v0.0.0-20250718205054-c33cde3562c5
 ## explicit; go 1.18
 github.com/opencontainers/distribution-spec/specs-go/v1
 # github.com/opencontainers/go-digest v1.0.0
