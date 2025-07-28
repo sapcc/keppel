@@ -71,7 +71,7 @@ var (
 )
 
 func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.AccountName, labels prometheus.Labels) error {
-	accountModel, err := keppel.FindAccount(j.db, accountName)
+	account, err := keppel.FindAccount(j.db, accountName)
 	if errors.Is(err, sql.ErrNoRows) {
 		// assume the account got already deleted
 		return nil
@@ -85,9 +85,11 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 		Request:      janitorDummyRequest,
 	}
 
+	accountReduced := account.Reduced()
+
 	// can only delete account when all manifests from it are deleted
 	deletedManifestCount := 0
-	err = sqlext.ForeachRow(j.db, deleteAccountFindManifestsQuery, []any{accountModel.Name},
+	err = sqlext.ForeachRow(j.db, deleteAccountFindManifestsQuery, []any{account.Name},
 		func(rows *sql.Rows) error {
 			var (
 				repoName  string
@@ -103,16 +105,16 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 				return fmt.Errorf("while deleting manifest %q in repository %q: could not parse digest: %w",
 					digestStr, repoName, err)
 			}
-			repo, err := keppel.FindRepository(j.db, repoName, accountModel.Name)
+			repo, err := keppel.FindRepository(j.db, repoName, account.Name)
 			if err != nil {
 				return fmt.Errorf("while deleting manifest %q in repository %q: could not find repository in DB: %w",
 					digestStr, repoName, err)
 			}
-			tagPolicies, err := keppel.ParseTagPolicies(accountModel.TagPoliciesJSON)
+			tagPolicies, err := keppel.ParseTagPolicies(account.TagPoliciesJSON)
 			if err != nil {
 				return err
 			}
-			err = j.processor().DeleteManifest(ctx, accountModel.Reduced(), *repo, parsedDigest, tagPolicies, actx)
+			err = j.processor().DeleteManifest(ctx, accountReduced, *repo, parsedDigest, tagPolicies, actx)
 			if err != nil {
 				return fmt.Errorf("while deleting manifest %q in repository %q: %w",
 					digestStr, repoName, err)
@@ -128,50 +130,119 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 
 	// the section above could only delete manifests that are not referenced by others;
 	// if there is stuff left over, restart the loop
-	manifestCount, err := j.db.SelectInt(deleteAccountCountManifestsQuery, accountModel.Name)
+	manifestCount, err := j.db.SelectInt(deleteAccountCountManifestsQuery, account.Name)
 	if err != nil {
 		return err
 	}
 	if manifestCount > 0 {
 		if deletedManifestCount > 0 {
-			return j.deleteMarkedAccount(ctx, accountName, labels)
+			return j.deleteMarkedAccount(ctx, account.Name, labels)
 		} else {
 			return fmt.Errorf("cannot make progress on deleting account %q: %d manifests remain, but none are ready to delete",
-				accountName, manifestCount)
+				account.Name, manifestCount)
 		}
 	}
 
 	// delete all repos (and therefore, all blob mounts), so that blob sweeping can immediately take place
-	_, err = j.db.Exec(deleteAccountReposQuery, accountModel.Name)
+	_, err = j.db.Exec(deleteAccountReposQuery, account.Name)
 	if err != nil {
 		return err
 	}
 
 	// can only delete account when all blobs have been deleted
-	blobCount, err := j.db.SelectInt(deleteAccountCountBlobsQuery, accountModel.Name)
+	blobCount, err := j.db.SelectInt(deleteAccountCountBlobsQuery, account.Name)
 	if err != nil {
 		return err
 	}
 	if blobCount > 0 {
 		// make sure that blob sweep runs immediately
 		// TODO: how to prevent resetting time stamp if already set?
-		_, err := j.db.Exec(deleteAccountMarkAllBlobsForDeletionQuery, accountModel.Name, j.timeNow())
+		_, err := j.db.Exec(deleteAccountMarkAllBlobsForDeletionQuery, account.Name, j.timeNow())
 		if err != nil {
 			return err
 		}
 
-		_, err = j.db.Exec(deleteAccountScheduleBlobSweepQuery, accountModel.Name, j.timeNow())
+		_, err = j.db.Exec(deleteAccountScheduleBlobSweepQuery, account.Name, j.timeNow())
 		if err != nil {
 			return err
 		}
 
-		_, err = j.db.Exec(`UPDATE accounts SET next_deletion_attempt_at = $1 WHERE name = $2`, j.timeNow().Add(1*time.Minute), accountModel.Name)
+		_, err = j.db.Exec(`UPDATE accounts SET next_deletion_attempt_at = $1 WHERE name = $2`, j.timeNow().Add(1*time.Minute), account.Name)
 		if err != nil {
 			return err
 		}
-		logg.Info("cleaning up managed account %q: waiting for %d blobs to be deleted", accountModel.Name, blobCount)
+		logg.Info("cleaning up managed account %q: waiting for %d blobs to be deleted", account.Name, blobCount)
 		return nil
 	}
+
+	// Run a slimmed down version of the StorageSweepJob to delete all orphaned blobs, manifests and trivy reports from the storage driver
+	// Note: keep in sync with tasks/storage.go:sweepStorage!
+	actualBlobs, actualManifests, actualTrivyReports, err := j.sd.ListStorageContents(ctx, accountReduced)
+	if err != nil {
+		return err
+	}
+
+	// slimmed down version of tasks/storage.go:sweepBlobStorage
+	actualBlobsByStorageID := make(map[string]keppel.StoredBlobInfo, len(actualBlobs))
+	for _, blobInfo := range actualBlobs {
+		actualBlobsByStorageID[blobInfo.StorageID] = blobInfo
+	}
+	var unknownBlobs []models.UnknownBlob
+	_, err = j.db.Select(&unknownBlobs, `SELECT * FROM unknown_blobs WHERE account_name = $1`, account.Name)
+	if err != nil {
+		return err
+	}
+	for _, unknownBlob := range unknownBlobs {
+		err = j.deleteUnknownBlob(ctx, actualBlobsByStorageID, accountReduced, unknownBlob)
+		if err != nil {
+			return err
+		}
+	}
+
+	// slimmed down version of tasks/storage.go:sweepManifestStorage
+	isActualManifest := make(map[keppel.StoredManifestInfo]bool, len(actualManifests))
+	for _, m := range actualManifests {
+		isActualManifest[m] = true
+	}
+	var unknownManifests []models.UnknownManifest
+	_, err = j.db.Select(&unknownManifests, `SELECT * FROM unknown_manifests WHERE account_name = $1`, account.Name)
+	if err != nil {
+		return err
+	}
+	for _, unknownManifest := range unknownManifests {
+		unknownManifestInfo := keppel.StoredManifestInfo{
+			RepoName: unknownManifest.RepositoryName,
+			Digest:   unknownManifest.Digest,
+		}
+		err = j.deleteUnknownManifest(ctx, isActualManifest, accountReduced, unknownManifest, unknownManifestInfo)
+		if err != nil {
+			return err
+		}
+	}
+
+	// slimmed down version of tasks/storage.go:sweepTrivyReportStorage
+	isActualReport := make(map[keppel.StoredTrivyReportInfo]bool, len(actualTrivyReports))
+	for _, m := range actualTrivyReports {
+		isActualReport[m] = true
+	}
+	var unknownReports []models.UnknownTrivyReport
+	_, err = j.db.Select(&unknownReports, `SELECT * FROM unknown_trivy_reports WHERE account_name = $1`, account.Name)
+	if err != nil {
+		return err
+	}
+	for _, unknownReport := range unknownReports {
+		unknownReportInfo := keppel.StoredTrivyReportInfo{
+			RepoName: unknownReport.RepositoryName,
+			Digest:   unknownReport.Digest,
+			Format:   unknownReport.Format,
+		}
+		err = j.deleteUnknownTrivyReport(ctx, isActualReport, accountReduced, unknownReportInfo, unknownReport)
+		if err != nil {
+			return err
+		}
+	}
+
+	// end of section that should be kept in sync with tasks/storage.go:sweepStorage
 
 	// start deleting the account in a transaction
 	tx, err := j.db.Begin()
@@ -179,18 +250,18 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 		return err
 	}
 	defer sqlext.RollbackUnlessCommitted(tx)
-	_, err = tx.Delete(accountModel)
+	_, err = tx.Delete(account)
 	if err != nil {
 		return err
 	}
 
 	// before committing the transaction, confirm account deletion with the
 	// storage driver and the federation driver
-	err = j.sd.CleanupAccount(ctx, accountModel.Reduced())
+	err = j.sd.CleanupAccount(ctx, accountReduced)
 	if err != nil {
 		return fmt.Errorf("while cleaning up storage for account: %w", err)
 	}
-	err = j.fd.ForfeitAccountName(ctx, *accountModel)
+	err = j.fd.ForfeitAccountName(ctx, *account)
 	if err != nil {
 		return fmt.Errorf("while cleaning up name claim for account: %w", err)
 	}

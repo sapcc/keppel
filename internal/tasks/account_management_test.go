@@ -4,11 +4,13 @@
 package tasks
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
 	"testing"
 	"time"
 
+	. "github.com/majewsky/gg/option"
 	"github.com/sapcc/go-bits/easypg"
 
 	"github.com/sapcc/keppel/internal/models"
@@ -80,7 +82,7 @@ func TestAccountManagementWithReplicaCreation(t *testing.T) {
 		// The setup already includes an account "test1" set up on both ends, but we
 		// want to test the setup of a managed replica account, so we will use a
 		// fresh account called "managed" instead.
-		test.MustDo(t, s1.DB.Insert(&models.Account{Name: "managed", AuthTenantID: "managedauthtenant"}))
+		expectSuccess(t, s1.DB.Insert(&models.Account{Name: "managed", AuthTenantID: "managedauthtenant"}))
 		s1.FD.NextSubleaseTokenSecretToIssue = "thisisasecret"
 		s2.FD.ValidSubleaseTokenSecrets["managed"] = "thisisasecret"
 
@@ -114,7 +116,7 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 	tr.DBChanges().Ignore()
 
 	// give quota to its auth tenant
-	test.MustDo(t, s.DB.Insert(&models.Quotas{
+	expectSuccess(t, s.DB.Insert(&models.Quotas{
 		AuthTenantID:  "12345",
 		ManifestCount: 100,
 	}))
@@ -238,4 +240,85 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 	expectSuccess(t, deleteAccountsJob.ProcessOne(s.Ctx))
 	expectError(t, sql.ErrNoRows.Error(), deleteAccountsJob.ProcessOne(s.Ctx))
 	tr.DBChanges().AssertEqualf(`DELETE FROM accounts WHERE name = 'abcde';`)
+}
+
+func TestAccountManagementStorageSweep(t *testing.T) {
+	j, s := setup(t)
+	s.Clock.StepBy(1 * time.Hour)
+
+	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
+	tr0.Ignore()
+	deleteAccountsJob := j.DeleteAccountsJob(s.Registry)
+	managedAccountsJob := j.EnforceManagedAccountsJob(s.Registry)
+	sweepStorageJob := j.StorageSweepJob(s.Registry)
+
+	// configure an account to create
+	s.AMD.ConfigPath = "../drivers/basic/fixtures/account_management.json"
+	s.Clock.StepBy(1 * time.Hour)
+
+	// one account defined which should be created
+	expectSuccess(t, managedAccountsJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), managedAccountsJob.ProcessOne(s.Ctx))
+
+	// create some unknown blobs ...
+	account := models.ReducedAccount{Name: "abcde"}
+	testBlob := test.GenerateExampleLayer(33)
+	storageID := testBlob.Digest.Encoded()
+	sizeBytes := uint64(len(testBlob.Contents))
+	expectSuccess(t, s.SD.AppendToBlob(s.Ctx, account, storageID, 1, Some(sizeBytes), bytes.NewReader(testBlob.Contents)))
+
+	// ... manifests ...
+	images := make([]test.Image, 2)
+	testImageList1 := test.GenerateImageList(images[0])
+	testImageList2 := test.GenerateImageList(images[1])
+	for _, manifest := range []test.Bytes{testImageList1.Manifest, testImageList2.Manifest} {
+		expectSuccess(t, s.SD.WriteManifest(s.Ctx, account, "foo", manifest.Digest, manifest.Contents))
+	}
+
+	// ... and trivy reports
+	for idx := range images {
+		images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx + 2)))
+		images[idx].MustUpload(t, s, fooRepoRef, "")
+	}
+	imageList := test.GenerateImageList(images[0], images[1])
+	manifestList := imageList.MustUpload(t, s, fooRepoRef, "")
+	mustUploadDummyTrivyReport(t, s, manifestList)
+
+	tr.DBChanges().Ignore()
+	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
+	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
+	tr.DBChanges().AssertEqualf(`
+			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'abcde';
+			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
+			INSERT INTO unknown_blobs (account_name, storage_id, can_be_deleted_at) VALUES ('abcde', '%[3]s', %[2]d);
+			INSERT INTO unknown_manifests (account_name, repo_name, digest, can_be_deleted_at) VALUES ('abcde', 'foo', '%[4]s', %[2]d);
+			INSERT INTO unknown_trivy_reports (account_name, repo_name, digest, format, can_be_deleted_at) VALUES ('test1', 'foo', '%[5]s', 'json', %[2]d);
+		`,
+		s.Clock.Now().Add(6*time.Hour).Unix(), // next_storage_sweep_at
+		s.Clock.Now().Add(4*time.Hour).Unix(), // can_be_deleted_at
+		storageID, testImageList1.Manifest.Digest, manifestList.Digest,
+	)
+
+	// and delete the account again
+	s.AMD.ConfigPath = "./fixtures/account_management_empty.json"
+	s.Clock.StepBy(2 * time.Hour)
+	expectSuccess(t, managedAccountsJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), managedAccountsJob.ProcessOne(s.Ctx))
+	tr.DBChanges().AssertEqualf(`
+			UPDATE accounts SET next_enforcement_at = %d, is_deleting = TRUE, next_deletion_attempt_at = %d WHERE name = 'abcde';
+		`,
+		s.Clock.Now().Add(1*time.Hour).Unix(),
+		s.Clock.Now().Unix(),
+	)
+
+	// and we can immeadetaly delete it including all unknown things
+	s.Clock.StepBy(1 * time.Hour)
+	expectSuccess(t, deleteAccountsJob.ProcessOne(s.Ctx))
+	expectError(t, sql.ErrNoRows.Error(), deleteAccountsJob.ProcessOne(s.Ctx))
+	tr.DBChanges().AssertEqualf(`
+		DELETE FROM accounts WHERE name = 'abcde';
+		DELETE FROM unknown_blobs WHERE account_name = 'abcde' AND storage_id = '%[1]s';
+		DELETE FROM unknown_manifests WHERE account_name = 'abcde' AND repo_name = 'foo' AND digest = '%[2]s';
+	`, storageID, testImageList1.Manifest.Digest)
 }
