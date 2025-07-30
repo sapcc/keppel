@@ -58,10 +58,13 @@ func (j *Janitor) StorageSweepJob(registerer prometheus.Registerer) jobloop.Job 
 	}).Setup(registerer)
 }
 
+// sweepStorage cleans up orphaned blobs, manifests and trivy reports from the storage driver.
+//
+// Note: This must be kept in synced with the slimmed down version in DeleteAccountsJob!
 func (j *Janitor) sweepStorage(ctx context.Context, account models.Account, _ prometheus.Labels) error {
 	reducedAccount := account.Reduced()
 
-	// enumerate blobs and manifests in the backing storage
+	// enumerate blobs, manifests and trivy reports in the backing storage
 	actualBlobs, actualManifests, actualTrivyReports, err := j.sd.ListStorageContents(ctx, reducedAccount)
 	if err != nil {
 		return err
@@ -91,6 +94,7 @@ func (j *Janitor) sweepStorage(ctx context.Context, account models.Account, _ pr
 	return err
 }
 
+// Note: The happy path to deleteUnknownBlob must be kept in sync with DeleteAccountsJob!
 func (j *Janitor) sweepBlobStorage(ctx context.Context, account models.ReducedAccount, actualBlobs []keppel.StoredBlobInfo, canBeDeletedAt time.Time) error {
 	actualBlobsByStorageID := make(map[string]keppel.StoredBlobInfo, len(actualBlobs))
 	for _, blobInfo := range actualBlobs {
@@ -142,28 +146,7 @@ func (j *Janitor) sweepBlobStorage(ctx context.Context, account models.ReducedAc
 		// sweep blobs that have been marked long enough
 		isMarkedStorageID[unknownBlob.StorageID] = true
 		if unknownBlob.CanBeDeletedAt.Before(j.timeNow()) {
-			// only call DeleteBlob if we can still see the blob in the backing
-			// storage (this protects against unexpected errors e.g. because an
-			// operator deleted the blob between the mark and sweep phases, or if we
-			// deleted the blob from the backing storage in a previous sweep, but
-			// could not remove the unknown_blobs entry from the DB)
-			if blobInfo, exists := actualBlobsByStorageID[unknownBlob.StorageID]; exists {
-				// need to use different cleanup strategies depending on whether the
-				// blob upload was finalized or not
-				if blobInfo.ChunkCount > 0 {
-					logg.Info("storage sweep in account %s: removing unfinalized blob stored at %s with %d chunks",
-						account.Name, unknownBlob.StorageID, blobInfo.ChunkCount)
-					err = j.sd.AbortBlobUpload(ctx, account, unknownBlob.StorageID, blobInfo.ChunkCount)
-				} else {
-					logg.Info("storage sweep in account %s: removing finalized blob stored at %s",
-						account.Name, unknownBlob.StorageID)
-					err = j.sd.DeleteBlob(ctx, account, unknownBlob.StorageID)
-				}
-				if err != nil {
-					return err
-				}
-			}
-			_, err = j.db.Delete(&unknownBlob)
+			err = j.deleteUnknownBlob(ctx, actualBlobsByStorageID, account, unknownBlob)
 			if err != nil {
 				return err
 			}
@@ -188,6 +171,35 @@ func (j *Janitor) sweepBlobStorage(ctx context.Context, account models.ReducedAc
 	return nil
 }
 
+func (j *Janitor) deleteUnknownBlob(ctx context.Context, blobsByStorageID map[string]keppel.StoredBlobInfo, account models.ReducedAccount, unknownBlob models.UnknownBlob) error {
+	var err error
+
+	// only call DeleteBlob if we can still see the blob in the backing
+	// storage (this protects against unexpected errors e.g. because an
+	// operator deleted the blob between the mark and sweep phases, or if we
+	// deleted the blob from the backing storage in a previous sweep, but
+	// could not remove the unknown_blobs entry from the DB)
+	if blobInfo, exists := blobsByStorageID[unknownBlob.StorageID]; exists {
+		// need to use different cleanup strategies depending on whether the
+		// blob upload was finalized or not
+		if blobInfo.ChunkCount > 0 {
+			logg.Info("storage sweep in account %s: removing unfinalized blob stored at %s with %d chunks",
+				account.Name, unknownBlob.StorageID, blobInfo.ChunkCount)
+			err = j.sd.AbortBlobUpload(ctx, account, unknownBlob.StorageID, blobInfo.ChunkCount)
+		} else {
+			logg.Info("storage sweep in account %s: removing finalized blob stored at %s",
+				account.Name, unknownBlob.StorageID)
+			err = j.sd.DeleteBlob(ctx, account, unknownBlob.StorageID)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	_, err = j.db.Delete(&unknownBlob)
+	return err
+}
+
+// Note: The happy path to deleteUnknownManifest must be kept in sync with DeleteAccountsJob!
 func (j *Janitor) sweepManifestStorage(ctx context.Context, account models.ReducedAccount, actualManifests []keppel.StoredManifestInfo, canBeDeletedAt time.Time) error {
 	isActualManifest := make(map[keppel.StoredManifestInfo]bool, len(actualManifests))
 	for _, m := range actualManifests {
@@ -232,20 +244,7 @@ func (j *Janitor) sweepManifestStorage(ctx context.Context, account models.Reduc
 		// sweep manifests that have been marked long enough
 		isMarkedManifest[unknownManifestInfo] = true
 		if unknownManifest.CanBeDeletedAt.Before(j.timeNow()) {
-			// only call DeleteManifest if we can still see the manifest in the
-			// backing storage (this protects against unexpected errors e.g. because
-			// an operator deleted the manifest between the mark and sweep phases, or
-			// if we deleted the manifest from the backing storage in a previous
-			// sweep, but could not remove the unknown_manifests entry from the DB)
-			if isActualManifest[unknownManifestInfo] {
-				logg.Info("storage sweep in account %s: removing manifest %s/%s",
-					account.Name, unknownManifest.RepositoryName, unknownManifest.Digest)
-				err := j.sd.DeleteManifest(ctx, account, unknownManifest.RepositoryName, unknownManifest.Digest)
-				if err != nil {
-					return err
-				}
-			}
-			_, err = j.db.Delete(&unknownManifest)
+			err = j.deleteUnknownManifest(ctx, isActualManifest, account, unknownManifest, unknownManifestInfo)
 			if err != nil {
 				return err
 			}
@@ -271,9 +270,30 @@ func (j *Janitor) sweepManifestStorage(ctx context.Context, account models.Reduc
 	return nil
 }
 
-func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.ReducedAccount, actualReports []keppel.StoredTrivyReportInfo, canBeDeletedAt time.Time) error {
-	isActualReport := make(map[keppel.StoredTrivyReportInfo]bool, len(actualReports))
-	for _, m := range actualReports {
+func (j *Janitor) deleteUnknownManifest(ctx context.Context, isActualManifest map[keppel.StoredManifestInfo]bool, account models.ReducedAccount, unknownManifest models.UnknownManifest, unknownManifestInfo keppel.StoredManifestInfo) error {
+	var err error
+
+	// only call DeleteManifest if we can still see the manifest in the
+	// backing storage (this protects against unexpected errors e.g. because
+	// an operator deleted the manifest between the mark and sweep phases, or
+	// if we deleted the manifest from the backing storage in a previous
+	// sweep, but could not remove the unknown_manifests entry from the DB)
+	if isActualManifest[unknownManifestInfo] {
+		logg.Info("storage sweep in account %s: removing manifest %s/%s",
+			account.Name, unknownManifest.RepositoryName, unknownManifest.Digest)
+		err := j.sd.DeleteManifest(ctx, account, unknownManifest.RepositoryName, unknownManifest.Digest)
+		if err != nil {
+			return err
+		}
+	}
+	_, err = j.db.Delete(&unknownManifest)
+	return err
+}
+
+// Note: The happy path to deleteUnknownTrivyReport must be kept in sync with DeleteAccountsJob!
+func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.ReducedAccount, actualTrivyReports []keppel.StoredTrivyReportInfo, canBeDeletedAt time.Time) error {
+	isActualReport := make(map[keppel.StoredTrivyReportInfo]bool, len(actualTrivyReports))
+	for _, m := range actualTrivyReports {
 		isActualReport[m] = true
 	}
 
@@ -316,20 +336,7 @@ func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.Re
 		// sweep reports that have been marked long enough
 		isMarkedReport[unknownReportInfo] = true
 		if unknownReport.CanBeDeletedAt.Before(j.timeNow()) {
-			// only call DeleteTrivyReport if we can still see the report in the
-			// backing storage (this protects against unexpected errors e.g. because
-			// an operator deleted the manifest between the mark and sweep phases, or
-			// if we deleted the report from the backing storage in a previous sweep,
-			// but could not remove the unknown_trivy_reports entry from the DB)
-			if isActualReport[unknownReportInfo] {
-				logg.Info("storage sweep in account %s: removing Trivy report %s/%s/%s",
-					account.Name, unknownReport.RepositoryName, unknownReport.Digest, unknownReport.Format)
-				err := j.sd.DeleteTrivyReport(ctx, account, unknownReport.RepositoryName, unknownReport.Digest, unknownReport.Format)
-				if err != nil {
-					return err
-				}
-			}
-			_, err = j.db.Delete(&unknownReport)
+			err = j.deleteUnknownTrivyReport(ctx, isActualReport, account, unknownReportInfo, unknownReport)
 			if err != nil {
 				return err
 			}
@@ -354,4 +361,24 @@ func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.Re
 	}
 
 	return nil
+}
+
+func (j *Janitor) deleteUnknownTrivyReport(ctx context.Context, isActualReport map[keppel.StoredTrivyReportInfo]bool, account models.ReducedAccount, unknownReportInfo keppel.StoredTrivyReportInfo, unknownReport models.UnknownTrivyReport) error {
+	var err error
+
+	// only call DeleteTrivyReport if we can still see the report in the
+	// backing storage (this protects against unexpected errors e.g. because
+	// an operator deleted the manifest between the mark and sweep phases, or
+	// if we deleted the report from the backing storage in a previous sweep,
+	// but could not remove the unknown_trivy_reports entry from the DB)
+	if isActualReport[unknownReportInfo] {
+		logg.Info("storage sweep in account %s: removing Trivy report %s/%s/%s",
+			account.Name, unknownReport.RepositoryName, unknownReport.Digest, unknownReport.Format)
+		err := j.sd.DeleteTrivyReport(ctx, account, unknownReport.RepositoryName, unknownReport.Digest, unknownReport.Format)
+		if err != nil {
+			return err
+		}
+	}
+	_, err = j.db.Delete(&unknownReport)
+	return err
 }
