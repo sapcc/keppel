@@ -222,7 +222,7 @@ func (p *Processor) uploadBlobToLocal(ctx context.Context, blob models.Blob, acc
 		if returnErr != nil {
 			deleteErr := p.sd.DeleteBlob(ctx, account, upload.StorageID)
 			if deleteErr != nil {
-				logg.Error("additional error encountered when deleting uploaded blob %s from account %s after upload error: %s",
+				logg.Error("additional error encountered while deleting uploaded blob %s from account %s after upload error: %s",
 					upload.StorageID, account.Name, deleteErr.Error())
 			}
 		}
