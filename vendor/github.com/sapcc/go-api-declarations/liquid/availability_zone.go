@@ -14,7 +14,21 @@ const (
 	AvailabilityZoneAny AvailabilityZone = "any"
 	// AvailabilityZoneUnknown marks values that are bound to an unknown AZ.
 	AvailabilityZoneUnknown AvailabilityZone = "unknown"
+	// AvailabilityZoneTotal is reserved for situations where AZ-aware values need to be stored and it is useful to store the sum across all AZs alongside the AZ-aware values.
+	// For example, usage for a project resource could be stored as {"az-one": 10, "az-two": 5, "total": 15}.
+	AvailabilityZoneTotal AvailabilityZone = "total"
 )
+
+// IsReal returns whether the given AZ value looks like it refers to a real AZ.
+// False is returned for the empty string, as well as all of the special values enumerated above.
+func (az AvailabilityZone) IsReal() bool {
+	switch az {
+	case "", AvailabilityZoneAny, AvailabilityZoneUnknown, AvailabilityZoneTotal:
+		return false
+	default:
+		return true
+	}
+}
 
 // InAnyAZ is a convenience constructor for the PerAZ fields of ResourceCapacityReport and ResourceUsageReport.
 // It can be used for non-AZ-aware resources. The provided report will be placed under the AvailabilityZoneAny key.

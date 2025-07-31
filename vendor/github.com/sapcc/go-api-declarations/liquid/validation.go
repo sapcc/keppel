@@ -6,18 +6,26 @@ package liquid
 import (
 	"fmt"
 	"maps"
+	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/sapcc/go-api-declarations/internal/errorset"
 )
 
+var identifierRx = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*$`)
+
+func isValidIdentifier[S ~string](s S) bool {
+	return identifierRx.MatchString(string(s))
+}
+
 // ValidateServiceInfo checks that the provided ServiceInfo is valid.
 // Currently, this means that:
 //
+//   - Each resource and rate must have a valid name, according to ResourceName.IsValid() and RateName.IsValid().
 //   - Each resource is declared with a valid topology.
 //   - Each rate is declared with a valid topology.
-//   - Each rate is declared with HasUsage = true
+//   - Each rate is declared with HasUsage = true.
 //
 // Additional validations may be added in the future.
 func ValidateServiceInfo(srv ServiceInfo) error {
@@ -31,12 +39,18 @@ func ValidateServiceInfo(srv ServiceInfo) error {
 
 func validateServiceInfoImpl(srv ServiceInfo) (errs errorset.ErrorSet) {
 	for _, resName := range slices.Sorted(maps.Keys(srv.Resources)) {
+		if !resName.IsValid() {
+			errs.Addf(".Resources[%q] has invalid name (must match /%s/)", resName, identifierRx.String())
+		}
 		if !srv.Resources[resName].Topology.IsValid() {
 			errs.Addf(".Resources[%q] has invalid topology %q", resName, srv.Resources[resName].Topology)
 		}
 	}
 
 	for _, rateName := range slices.Sorted(maps.Keys(srv.Rates)) {
+		if !rateName.IsValid() {
+			errs.Addf(".Rates[%q] has invalid name (must match /%s/)", rateName, identifierRx.String())
+		}
 		if !srv.Rates[rateName].Topology.IsValid() {
 			errs.Addf(".Rates[%q] has invalid topology %q", rateName, srv.Rates[rateName].Topology)
 		}

@@ -148,8 +148,40 @@ type ProjectUUID string
 
 // ResourceName identifies a resource within a service.
 // This type is used to distinguish resource names from other types of string values in structs and function signatures.
+//
+// The following conventions apply to resource names:
+//   - Countable resources are named in the plural (e.g. "floating_ips" instead of "floating_ip").
+//   - Measured resources are named in the singular (e.g. "ram" or "capacity").
+//   - Resource names are commonly written in snake_case.
+//
+// If other identifiers are embedded in a resource name (e.g. volume type names or flavor names), dashes and dots are also permitted.
+// See func IsValid for more information.
 type ResourceName string
+
+// IsValid returns whether this string is a valid resource name.
+//
+// Resource names allow ASCII letters, digits, underscores, hyphens and dots.
+// The first character must be an alphanumeric character.
+func (n ResourceName) IsValid() bool {
+	return isValidIdentifier(n)
+}
 
 // RateName identifies a rate within a service.
 // This type is used to distinguish rate names from other types of string values in structs and function signatures.
+//
+// The following conventions apply to rate names:
+//   - Countable rates are named in the plural (e.g. "image_deletions" instead of "image_deletion" or even "delete_image").
+//   - Measured rates are named in the singular (e.g. "outbound_transfer").
+//   - Rate names are commonly written in snake_case.
+//
+// If other identifiers are embedded in a rate name (e.g. volume type names or flavor names), dashes and dots are also permitted.
+// See func IsValid for more information.
 type RateName string
+
+// IsValid returns whether this string is a valid rate name.
+//
+// Rate names allow ASCII letters, digits, underscores, hyphens and dots.
+// The first character must be an alphanumeric character.
+func (n RateName) IsValid() bool {
+	return isValidIdentifier(n)
+}
