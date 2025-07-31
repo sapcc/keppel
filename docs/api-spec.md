@@ -131,7 +131,7 @@ On success, returns 200 and a JSON response body like this:
         "upstream": "keppel.example.com"
       },
       "validation": {
-        "required_labels": [ "maintainers", "source_repo" ]
+        "rule_for_manifest": "'maintainers' in labels && 'source_repo' in labels)",
       }
     }
   ]
@@ -171,7 +171,8 @@ The following fields may be returned:
 | `accounts[].replication` | object or omitted | Replication configuration for this account, if any. [See below](#replication-strategies) for details. |
 | `accounts[].platform_filter` | list of objects or omitted | Only allowed for replica accounts. If not empty, when replicating an image list manifest (i.e. a multi-architecture image), only submanifests matching one of the given platforms will be replicated. Each entry must have the same format as the `manifests[].platform` field in the [OCI Image Index Specification](https://github.com/opencontainers/image-spec/blob/master/image-index.md). |
 | `accounts[].validation` | object or omitted | Validation rules for this account. When included, pushing blobs and manifests not satisfying these validation rules may be rejected. |
-| `accounts[].validation.required_labels` | list of strings | When non-empty, image manifests must include all these labels. (Labels can be set on an image using the Dockerfile's `LABEL` command.) |
+| `accounts[].validation.rule_for_manifest` | string or omitted | When non-empty, image manifests must satisfy this CEL expression. |
+| `accounts[].validation.required_labels` | list of strings or omitted | Deprecated, only present if `validation.rule_for_manifest` is logically equivalent to "all of these labels must be included in the image manifest" (Labels can be set on an image using the Dockerfile's `LABEL` command.).|
 
 The values of fields with names like `match_...` and `except_...` are regular expressions, using the
 [syntax defined by Go's stdlib regex parser](https://golang.org/pkg/regexp/syntax/). The anchors `^` and `$` are implied
@@ -270,6 +271,11 @@ as the response from the corresponding GET endpoint, except that:
 
 - `account.name` may not be present (the name is already given in the URL), and
 - `account.auth_tenant_id` and `account.replication` may not be changed for existing accounts.
+
+The following options for the `account.validation` fields are possible:
+- Providing `validation.rule_for_manifest` with a valid [CEL expression](https://cel.dev/) that outputs a boolean. As of now, `labels` is the only variable that can be used for the expression, e.g. `'foo' in labels || 'bar' in labels)`.
+- Providing `validation.required_labels` with a list of strings that do not contain `","`. This option is deprecated but kept for backwards compatibility.
+- Providing both `validation.rule_for_manifest` and `validation.required_labels` if they are logically equivalent.
 
 On success, returns 200 and a JSON response body like from the corresponding GET endpoint.
 
@@ -525,7 +531,7 @@ The following fields may be returned:
 | `manifests[].tags[].name` | string | The name of this tag. |
 | `manifests[].tags[].pushed_at` | string | When this tag was last updated in the registry. |
 | `manifests[].tags[].last_pulled_at` | UNIX timestamp or null | When this manifest was last pulled from the registry using this tag name (or null if it was never pulled from this tag). |
-| `manifests[].labels` | object of strings | Free-form labels maintained by the user (labels are set on an image using the Dockerfile's `LABEL` command). The contents of this field may be interpreted by Keppel and might trigger special behavior, e.g. when `validation.required_labels` is configured for an account. |
+| `manifests[].labels` | object of strings | Free-form labels maintained by the user (labels are set on an image using the Dockerfile's `LABEL` command). The contents of this field may be interpreted by Keppel and might trigger special behavior, e.g. when `validation.rule_for_manifest` is configured for an account. |
 | `manifests[].gc_status` | object or omitted | Omitted if policy-guided garbage collection has not encountered this manifest yet. Otherwise contains a status report from the last GC run. If this object is shown, it will contain exactly one of the following attributes. |
 | `manifests[].gc_status.protected_by_recent_upload` | true or omitted | If true, this manifest was protected from deletion during the last GC run because it was uploaded too recently (within 10 minutes of the GC run). |
 | `manifests[].gc_status.protected_by_parent` | string or omitted | If shown, this manifest was protected from deletion during the last GC run because there is a parent manifest that references it. The field contains the parent manifest's digest. If the manifest is referenced by multiple parent manifests, it is not defined which parent manifest's digest will be shown. |

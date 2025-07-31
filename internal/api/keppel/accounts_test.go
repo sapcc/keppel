@@ -344,59 +344,6 @@ func TestAccountsAPI(t *testing.T) {
 		},
 	)
 
-	// test setting up a validation policy
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/second",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies":  newRBACPoliciesJSON,
-				"validation": assert.JSONObject{
-					"required_labels": []string{"foo", "bar"},
-				},
-			},
-		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
-				"name":           "second",
-				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
-				"rbac_policies":  newRBACPoliciesJSON,
-				"validation": assert.JSONObject{
-					"required_labels": []string{"foo", "bar"},
-				},
-			},
-		},
-	}.Check(t, h)
-
-	// setting an empty validation policy should be equivalent to removing it
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/second",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies":  newRBACPoliciesJSON,
-				"validation": assert.JSONObject{
-					"required_labels": []string{},
-				},
-			},
-		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
-				"name":           "second",
-				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
-				"rbac_policies":  newRBACPoliciesJSON,
-			},
-		},
-	}.Check(t, h)
-
 	// test POST /keppel/v1/:accounts/sublease success case (error cases are in
 	// TestPutAccountErrorCases and TestGetPutAccountReplicationOnFirstUse)
 	s.FD.NextSubleaseTokenSecretToIssue = "this-is-the-token"
@@ -410,6 +357,202 @@ func TestAccountsAPI(t *testing.T) {
 	tr.DBChanges().AssertEqual(`
 		UPDATE accounts SET gc_policies_json = '[]', rbac_policies_json = '[{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull"]},{"match_repository":"library/alpine","match_username":".*@tenant3","permissions":["pull","delete"]}]', tag_policies_json = '[]' WHERE name = 'second';
 	`)
+}
+
+func TestAccountValidationPolicies(t *testing.T) {
+	s := test.NewSetup(t, test.WithKeppelAPI)
+	h := s.Handler
+	_, tr0 := easypg.NewTracker(t, s.DB.Db)
+	tr0.AssertEmpty()
+
+	// Create account
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+				"metadata":       nil,
+				"rbac_policies":  []assert.JSONObject{},
+			},
+		},
+	}.Check(t, h)
+
+	// Reject if rule_for_manifest is not a valid CEL expression
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  []assert.JSONObject{},
+				"validation": assert.JSONObject{
+					"rule_for_manifest": "the labels foo and bar should be present",
+				},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+	}.Check(t, h)
+
+	// Reject if rule_for_manifest does not evaluate to bool
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  []assert.JSONObject{},
+				"validation": assert.JSONObject{
+					"rule_for_manifest": "'foo' in labels ? 1 : 0",
+				},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("output of CEL expression must be bool but is \"int\"\n"),
+	}.Check(t, h)
+
+	// Reject if required_labels and rule_for_manifest are not logically equivalent
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  []assert.JSONObject{},
+				"validation": assert.JSONObject{
+					"rule_for_manifest": "'foo' in labels && 'bar' in labels",
+					"required_labels":   []string{"qux", "quux"},
+				},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("required labels [\"qux\" \"quux\"] do not match rule for manifest \"'foo' in labels && 'bar' in labels\"\n"),
+	}.Check(t, h)
+
+	// Accept if only rule_for_manifest is provided
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  []assert.JSONObject{},
+				"validation": assert.JSONObject{
+					"rule_for_manifest": "'foo' in labels && 'bar' in labels",
+				},
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+				"metadata":       nil,
+				"rbac_policies":  []assert.JSONObject{},
+				"validation": assert.JSONObject{
+					"rule_for_manifest": "'foo' in labels && 'bar' in labels",
+					"required_labels":   []string{"foo", "bar"},
+				},
+			},
+		},
+	}.Check(t, h)
+
+	// Accept if only required_labels is provided
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  []assert.JSONObject{},
+				"validation": assert.JSONObject{
+					"required_labels": []string{"baz", "qux"},
+				},
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+				"metadata":       nil,
+				"rbac_policies":  []assert.JSONObject{},
+				"validation": assert.JSONObject{
+					"rule_for_manifest": "'baz' in labels && 'qux' in labels",
+					"required_labels":   []string{"baz", "qux"},
+				},
+			},
+		},
+	}.Check(t, h)
+
+	// Accept if both required_labels and rule_for_manifest are provided and valid
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  []assert.JSONObject{},
+				"validation": assert.JSONObject{
+					"rule_for_manifest": "'quux' in labels",
+					"required_labels":   []string{"quux"},
+				},
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+				"metadata":       nil,
+				"rbac_policies":  []assert.JSONObject{},
+				"validation": assert.JSONObject{
+					"rule_for_manifest": "'quux' in labels",
+					"required_labels":   []string{"quux"},
+				},
+			},
+		},
+	}.Check(t, h)
+
+	// Setting an empty validation policy should be equivalent to removing it
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  []assert.JSONObject{},
+				"validation": assert.JSONObject{
+					"required_labels":   []string{},
+					"rule_for_manifest": "",
+				},
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody: assert.JSONObject{
+			"account": assert.JSONObject{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+				"metadata":       nil,
+				"rbac_policies":  []assert.JSONObject{},
+			},
+		},
+	}.Check(t, h)
 }
 
 func TestGetAccountsErrorCases(t *testing.T) {
