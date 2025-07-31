@@ -382,6 +382,39 @@ var sqlMigrations = map[string]string{
 	"051_add_vuln_status_index_over_not_clean.down.sql": `
 		DROP INDEX trivy_security_info_repo_id_digest_idx;
 	`,
+	"052_replace_required_labels_with_cel_expression.up.sql": `
+		ALTER TABLE accounts ADD COLUMN rule_for_manifest TEXT NOT NULL DEFAULT '';
+
+		-- Splits the comma separated list of labels and builds a CEL conjunction using the "has" field selection expression
+		-- I.e. 'foo,bar,baz' --> has(labels.foo) && has(labels.bar) && has(labels.baz)
+		UPDATE accounts
+		SET rule_for_manifest = (
+			SELECT string_agg(
+				format('has(labels.%s)', trim(label)),
+				' && '
+			)
+			FROM unnest(string_to_array(required_labels, ',')) AS label
+		)
+		WHERE required_labels <> '';
+
+		ALTER TABLE accounts DROP COLUMN required_labels;
+	`,
+	"052_replace_required_labels_with_cel_expression.down.sql": `
+		ALTER TABLE accounts ADD COLUMN required_labels TEXT NOT NULL DEFAULT '';
+
+		-- Parses the labels from a CEL expression and joins them as a comma separated list
+		-- I.e. has(labels.foo) && has(labels.bar) && has(labels.baz) --> 'foo,bar,baz'
+		UPDATE accounts
+		SET required_labels = (
+			SELECT string_agg(match[1], ',')
+			FROM unnest(string_to_array(rule_for_manifest, ' && ')) AS label_expr
+			CROSS JOIN LATERAL regexp_matches(label_expr, 'has\(labels\.([a-zA-Z_][a-zA-Z0-9_]*)\)') AS match
+		)
+		WHERE rule_for_manifest <> '';
+
+
+		ALTER TABLE accounts DROP COLUMN rule_for_manifest;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.
