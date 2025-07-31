@@ -70,7 +70,7 @@ var (
 	deleteAccountMarkAllBlobsForDeletionQuery = `UPDATE blobs SET can_be_deleted_at = $2 WHERE account_name = $1`
 )
 
-func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.AccountName, labels prometheus.Labels) error {
+func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.AccountName, labels prometheus.Labels) (returnErr error) {
 	account, err := keppel.FindAccount(j.db, accountName)
 	if errors.Is(err, sql.ErrNoRows) {
 		// assume the account got already deleted
@@ -79,6 +79,15 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 	if err != nil {
 		return err
 	}
+
+	defer func() {
+		if returnErr != nil {
+			_, err = j.db.Exec(`UPDATE accounts SET next_deletion_attempt_at = $1 WHERE name = $2`, j.timeNow().Add(10*time.Minute), account.Name)
+			if err != nil {
+				logg.Error("additional error encountered while marking account %s for deletion: %s", account.Name, err.Error())
+			}
+		}
+	}()
 
 	actx := keppel.AuditContext{
 		UserIdentity: janitorUserIdentity{TaskName: "account-deletion"},
