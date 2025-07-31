@@ -96,6 +96,14 @@ SPDX-License-Identifier = "MIT"
 
 [[annotations]]
 path = [
+  "vendor/github.com/google/cel-go/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Other"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = [
   "vendor/github.com/gophercloud/gophercloud/v2/**",
 ]
 precedence = "aggregate"
@@ -216,6 +224,14 @@ SPDX-License-Identifier = "MIT"
 
 [[annotations]]
 path = [
+  "vendor/cel.dev/expr/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Other"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = [
   "vendor/github.com/Azure/go-ansiterm/**",
 ]
 precedence = "aggregate"
@@ -229,6 +245,14 @@ path = [
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = [
+  "vendor/github.com/antlr4-go/antlr/v4/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Other"
+SPDX-License-Identifier = "BSD-3-Clause"
 
 [[annotations]]
 path = [
@@ -672,6 +696,14 @@ SPDX-License-Identifier = "BSD-3-Clause"
 
 [[annotations]]
 path = [
+  "vendor/github.com/stoewer/go-strcase/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Other"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = [
   "vendor/github.com/stretchr/testify/**",
 ]
 precedence = "aggregate"
@@ -760,11 +792,43 @@ SPDX-License-Identifier = "MIT"
 
 [[annotations]]
 path = [
+  "vendor/golang.org/x/exp/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Other"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = [
   "vendor/golang.org/x/sys/**",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = [
+  "vendor/golang.org/x/text/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Other"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = [
+  "vendor/google.golang.org/genproto/googleapis/api/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Other"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = [
+  "vendor/google.golang.org/genproto/googleapis/rpc/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Other"
+SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
 path = [
