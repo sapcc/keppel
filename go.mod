@@ -15,7 +15,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/majewsky/gg v1.1.0
 	github.com/majewsky/schwift/v2 v2.0.0
-	github.com/opencontainers/distribution-spec/specs-go v0.0.0-20250718205054-c33cde3562c5
+	github.com/opencontainers/distribution-spec/specs-go v0.0.0-20250731191745-9d1b92567f2c
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/prometheus/client_golang v1.22.0
