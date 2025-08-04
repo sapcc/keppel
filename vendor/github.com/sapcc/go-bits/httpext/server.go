@@ -112,3 +112,23 @@ func addPrefix(err error, prefix string) error {
 	}
 	return fmt.Errorf("%s: %w", prefix, err)
 }
+
+// LimitConcurrentRequestsMiddleware is a HTTP server middleware that limits the amount of concurrent requests.
+// If the given number of requests is already running, and a new request comes in, it has to wait until one of the previous requests is finished.
+// This is useful for small sidecar API processes that are confined to tight resource budgets.
+func LimitConcurrentRequestsMiddleware(maxRequests int) func(http.Handler) http.Handler {
+	return func(inner http.Handler) http.Handler {
+		if maxRequests == 0 {
+			// no limit
+			return inner
+		}
+
+		// Source for this semaphore pattern: <https://eli.thegreenplace.net/2019/on-concurrency-in-go-http-servers/>
+		semaphore := make(chan struct{}, maxRequests)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+			inner.ServeHTTP(w, r)
+		})
+	}
+}
