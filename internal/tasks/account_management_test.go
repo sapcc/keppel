@@ -16,6 +16,7 @@ import (
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/processor"
 	"github.com/sapcc/keppel/internal/test"
+	"github.com/sapcc/keppel/internal/trivy"
 )
 
 func TestAccountManagementBasic(t *testing.T) {
@@ -268,14 +269,14 @@ func TestAccountManagementStorageSweep(t *testing.T) {
 	expectSuccess(t, s.SD.AppendToBlob(s.Ctx, account, storageID, 1, Some(sizeBytes), bytes.NewReader(testBlob.Contents)))
 
 	// ... manifests ...
-	images := make([]test.Image, 2)
+	images := make([]test.Image, 3)
 	testImageList1 := test.GenerateImageList(images[0])
 	testImageList2 := test.GenerateImageList(images[1])
 	for _, manifest := range []test.Bytes{testImageList1.Manifest, testImageList2.Manifest} {
 		expectSuccess(t, s.SD.WriteManifest(s.Ctx, account, "foo", manifest.Digest, manifest.Contents))
 	}
 
-	// ... and trivy reports
+	// ... trivy reports ...
 	for idx := range images {
 		images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx + 2)))
 		images[idx].MustUpload(t, s, fooRepoRef, "")
@@ -299,6 +300,14 @@ func TestAccountManagementStorageSweep(t *testing.T) {
 		s.Clock.Now().Add(4*time.Hour).Unix(), // can_be_deleted_at
 		storageID, testImageList1.Manifest.Digest, manifestList.Digest,
 	)
+
+	// .. and some garbage in the storage driver
+	testImageList3 := test.GenerateImageList(images[2])
+	expectSuccess(t, s.SD.WriteManifest(s.Ctx, account, "foo", testImageList3.Manifest.Digest, testImageList3.Manifest.Contents))
+	expectSuccess(t, s.SD.WriteTrivyReport(s.Ctx, account, "foo", testImageList1.Manifest.Digest, trivy.ReportPayload{
+		Contents: []byte(`{"report": "test"}`),
+		Format:   "json",
+	}))
 
 	// and delete the account again
 	s.AMD.ConfigPath = "./fixtures/account_management_empty.json"

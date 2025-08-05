@@ -336,7 +336,7 @@ func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.Re
 		// sweep reports that have been marked long enough
 		isMarkedReport[unknownReportInfo] = true
 		if unknownReport.CanBeDeletedAt.Before(j.timeNow()) {
-			err = j.deleteUnknownTrivyReport(ctx, isActualReport, account, unknownReportInfo, unknownReport)
+			err = j.deleteUnknownTrivyReport(ctx, isActualReport, account, unknownReport, unknownReportInfo)
 			if err != nil {
 				return err
 			}
@@ -363,7 +363,7 @@ func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.Re
 	return nil
 }
 
-func (j *Janitor) deleteUnknownTrivyReport(ctx context.Context, isActualReport map[keppel.StoredTrivyReportInfo]bool, account models.ReducedAccount, unknownReportInfo keppel.StoredTrivyReportInfo, unknownReport models.UnknownTrivyReport) error {
+func (j *Janitor) deleteUnknownTrivyReport(ctx context.Context, isActualReport map[keppel.StoredTrivyReportInfo]bool, account models.ReducedAccount, unknownReport models.UnknownTrivyReport, unknownReportInfo keppel.StoredTrivyReportInfo) error {
 	var err error
 
 	// only call DeleteTrivyReport if we can still see the report in the
