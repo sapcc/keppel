@@ -373,8 +373,8 @@ func (d *swiftDriver) ListStorageContents(ctx context.Context, account models.Re
 				return err
 			}
 			manifests = append(manifests, keppel.StoredManifestInfo{
-				RepoName: repoName,
-				Digest:   manifestDigest,
+				RepositoryName: repoName,
+				Digest:         manifestDigest,
 			})
 			return nil
 		}
@@ -383,9 +383,9 @@ func (d *swiftDriver) ListStorageContents(ctx context.Context, account models.Re
 				return err
 			}
 			reports = append(reports, keppel.StoredTrivyReportInfo{
-				RepoName: repoName,
-				Digest:   manifestDigest,
-				Format:   format,
+				RepositoryName: repoName,
+				Digest:         manifestDigest,
+				Format:         format,
 			})
 			return nil
 		}

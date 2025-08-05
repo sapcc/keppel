@@ -220,8 +220,8 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 	}
 	for _, unknownManifest := range unknownManifests {
 		unknownManifestInfo := keppel.StoredManifestInfo{
-			RepoName: unknownManifest.RepositoryName,
-			Digest:   unknownManifest.Digest,
+			RepositoryName: unknownManifest.RepositoryName,
+			Digest:         unknownManifest.Digest,
 		}
 		err = j.deleteUnknownManifest(ctx, isActualManifest, accountReduced, unknownManifest, unknownManifestInfo)
 		if err != nil {
@@ -241,9 +241,9 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 	}
 	for _, unknownReport := range unknownReports {
 		unknownReportInfo := keppel.StoredTrivyReportInfo{
-			RepoName: unknownReport.RepositoryName,
-			Digest:   unknownReport.Digest,
-			Format:   unknownReport.Format,
+			RepositoryName: unknownReport.RepositoryName,
+			Digest:         unknownReport.Digest,
+			Format:         unknownReport.Format,
 		}
 		err = j.deleteUnknownTrivyReport(ctx, isActualReport, accountReduced, unknownReportInfo, unknownReport)
 		if err != nil {
