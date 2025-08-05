@@ -831,6 +831,10 @@ func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
 			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = %[3]d, checked_at = %[4]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[5]s';
 		`, image.Layers[0].Digest, models.RottenVulnerabilityStatus, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
+
+		// "Rotten" status should never be scanned again
+		s.Clock.StepBy(1 * time.Hour)
+		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 	})
 }
 

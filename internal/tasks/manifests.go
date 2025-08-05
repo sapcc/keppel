@@ -476,7 +476,7 @@ const (
 
 var securityCheckSelectQuery = sqlext.SimplifyWhitespace(fmt.Sprintf(`
 	SELECT * FROM trivy_security_info
-	WHERE next_check_at <= $1 AND repo_id NOT IN (
+	WHERE vuln_status != 'Rotten' AND next_check_at <= $1 AND repo_id NOT IN (
 		SELECT r.id FROM repos r
 		JOIN accounts a ON r.account_name = a.name
 		WHERE a.is_deleting
