@@ -251,8 +251,8 @@ func (d *StorageDriver) getManifests(account models.ReducedAccount) ([]keppel.St
 			}
 
 			manifests = append(manifests, keppel.StoredManifestInfo{
-				RepoName: repoName,
-				Digest:   manifestDigest,
+				RepositoryName: repoName,
+				Digest:         manifestDigest,
 			})
 		}
 	}
@@ -290,9 +290,9 @@ func (d *StorageDriver) getTrivyReports(account models.ReducedAccount) ([]keppel
 				}
 
 				reports = append(reports, keppel.StoredTrivyReportInfo{
-					RepoName: repoName,
-					Digest:   manifestDigest,
-					Format:   name,
+					RepositoryName: repoName,
+					Digest:         manifestDigest,
+					Format:         name,
 				})
 			}
 		}
@@ -319,7 +319,7 @@ func (d *StorageDriver) CleanupAccount(ctx context.Context, account models.Reduc
 	if len(storedManifests) > 0 {
 		return fmt.Errorf(
 			"found undeleted manifest during CleanupAccount: %s@%s",
-			storedManifests[0].RepoName,
+			storedManifests[0].RepositoryName,
 			storedManifests[0].Digest,
 		)
 	}
@@ -328,7 +328,7 @@ func (d *StorageDriver) CleanupAccount(ctx context.Context, account models.Reduc
 		return fmt.Errorf(
 			"found undeleted Trivy report during CleanupAccount: format=%q for %s@%s",
 			report.Format,
-			report.RepoName,
+			report.RepositoryName,
 			report.Digest,
 		)
 	}

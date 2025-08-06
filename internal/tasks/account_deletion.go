@@ -196,13 +196,12 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 	for _, blobInfo := range actualBlobs {
 		actualBlobsByStorageID[blobInfo.StorageID] = blobInfo
 	}
-	var unknownBlobs []models.UnknownBlob
-	_, err = j.db.Select(&unknownBlobs, `SELECT * FROM unknown_blobs WHERE account_name = $1`, account.Name)
-	if err != nil {
-		return err
-	}
-	for _, unknownBlob := range unknownBlobs {
-		err = j.deleteUnknownBlob(ctx, actualBlobsByStorageID, accountReduced, unknownBlob)
+	for _, unknownBlob := range actualBlobs {
+		err = j.deleteUnknownBlob(ctx, actualBlobsByStorageID, accountReduced, models.UnknownBlob{
+			AccountName:    account.Name,
+			StorageID:      unknownBlob.StorageID,
+			CanBeDeletedAt: j.timeNow(),
+		})
 		if err != nil {
 			return err
 		}
@@ -213,15 +212,16 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 	for _, m := range actualManifests {
 		isActualManifest[m] = true
 	}
-	var unknownManifests []models.UnknownManifest
-	_, err = j.db.Select(&unknownManifests, `SELECT * FROM unknown_manifests WHERE account_name = $1`, account.Name)
-	if err != nil {
-		return err
-	}
-	for _, unknownManifest := range unknownManifests {
+	for _, unknownManifest := range actualManifests {
+		unknownManifest := models.UnknownManifest{
+			AccountName:    account.Name,
+			RepositoryName: unknownManifest.RepositoryName,
+			Digest:         unknownManifest.Digest,
+			CanBeDeletedAt: j.timeNow(),
+		}
 		unknownManifestInfo := keppel.StoredManifestInfo{
-			RepoName: unknownManifest.RepositoryName,
-			Digest:   unknownManifest.Digest,
+			RepositoryName: unknownManifest.RepositoryName,
+			Digest:         unknownManifest.Digest,
 		}
 		err = j.deleteUnknownManifest(ctx, isActualManifest, accountReduced, unknownManifest, unknownManifestInfo)
 		if err != nil {
@@ -234,18 +234,20 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 	for _, m := range actualTrivyReports {
 		isActualReport[m] = true
 	}
-	var unknownReports []models.UnknownTrivyReport
-	_, err = j.db.Select(&unknownReports, `SELECT * FROM unknown_trivy_reports WHERE account_name = $1`, account.Name)
-	if err != nil {
-		return err
-	}
-	for _, unknownReport := range unknownReports {
-		unknownReportInfo := keppel.StoredTrivyReportInfo{
-			RepoName: unknownReport.RepositoryName,
-			Digest:   unknownReport.Digest,
-			Format:   unknownReport.Format,
+	for _, unknownReport := range actualTrivyReports {
+		unknownReport := models.UnknownTrivyReport{
+			AccountName:    account.Name,
+			RepositoryName: unknownReport.RepositoryName,
+			Digest:         unknownReport.Digest,
+			Format:         unknownReport.Format,
+			CanBeDeletedAt: j.timeNow(),
 		}
-		err = j.deleteUnknownTrivyReport(ctx, isActualReport, accountReduced, unknownReportInfo, unknownReport)
+		unknownReportInfo := keppel.StoredTrivyReportInfo{
+			RepositoryName: unknownReport.RepositoryName,
+			Digest:         unknownReport.Digest,
+			Format:         unknownReport.Format,
+		}
+		err = j.deleteUnknownTrivyReport(ctx, isActualReport, accountReduced, unknownReport, unknownReportInfo)
 		if err != nil {
 			return err
 		}

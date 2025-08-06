@@ -46,7 +46,7 @@ sed -ie '/^#\?\(external_pid_file\|unix_socket_directories\|port\)\b/d' conforma
 ) >> conformance-test/postgresql-data/postgresql.conf
 
 # usage in trap is not recognized
-# shellcheck disable=SC2317
+# shellcheck disable=SC2329
 stop_postgres() {
   EXIT_CODE=$?
   step "Stopping PostgreSQL"

@@ -211,7 +211,7 @@ func (j *Janitor) sweepManifestStorage(ctx context.Context, account models.Reduc
 	query := `SELECT r.name, m.digest FROM repos r JOIN manifests m ON m.repo_id = r.id WHERE r.account_name = $1`
 	err := sqlext.ForeachRow(j.db, query, []any{account.Name}, func(rows *sql.Rows) error {
 		var m keppel.StoredManifestInfo
-		err := rows.Scan(&m.RepoName, &m.Digest)
+		err := rows.Scan(&m.RepositoryName, &m.Digest)
 		isKnownManifest[m] = true
 		return err
 	})
@@ -228,8 +228,8 @@ func (j *Janitor) sweepManifestStorage(ctx context.Context, account models.Reduc
 	isMarkedManifest := make(map[keppel.StoredManifestInfo]bool)
 	for _, unknownManifest := range unknownManifests {
 		unknownManifestInfo := keppel.StoredManifestInfo{
-			RepoName: unknownManifest.RepositoryName,
-			Digest:   unknownManifest.Digest,
+			RepositoryName: unknownManifest.RepositoryName,
+			Digest:         unknownManifest.Digest,
 		}
 
 		// unmark manifests that have been recorded in the database in the meantime
@@ -258,7 +258,7 @@ func (j *Janitor) sweepManifestStorage(ctx context.Context, account models.Reduc
 		}
 		err := j.db.Insert(&models.UnknownManifest{
 			AccountName:    account.Name,
-			RepositoryName: manifest.RepoName,
+			RepositoryName: manifest.RepositoryName,
 			Digest:         manifest.Digest,
 			CanBeDeletedAt: canBeDeletedAt,
 		})
@@ -302,7 +302,7 @@ func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.Re
 	query := `SELECT r.name, t.digest FROM repos r JOIN trivy_security_info t ON t.repo_id = r.id WHERE r.account_name = $1 AND t.has_enriched_report`
 	err := sqlext.ForeachRow(j.db, query, []any{account.Name}, func(rows *sql.Rows) error {
 		r := keppel.StoredTrivyReportInfo{Format: "json"}
-		err := rows.Scan(&r.RepoName, &r.Digest)
+		err := rows.Scan(&r.RepositoryName, &r.Digest)
 		isKnownReport[r] = true
 		return err
 	})
@@ -319,9 +319,9 @@ func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.Re
 	isMarkedReport := make(map[keppel.StoredTrivyReportInfo]bool)
 	for _, unknownReport := range unknownReports {
 		unknownReportInfo := keppel.StoredTrivyReportInfo{
-			RepoName: unknownReport.RepositoryName,
-			Digest:   unknownReport.Digest,
-			Format:   unknownReport.Format,
+			RepositoryName: unknownReport.RepositoryName,
+			Digest:         unknownReport.Digest,
+			Format:         unknownReport.Format,
 		}
 
 		// unmark reports that have been recorded in the database in the meantime
@@ -336,7 +336,7 @@ func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.Re
 		// sweep reports that have been marked long enough
 		isMarkedReport[unknownReportInfo] = true
 		if unknownReport.CanBeDeletedAt.Before(j.timeNow()) {
-			err = j.deleteUnknownTrivyReport(ctx, isActualReport, account, unknownReportInfo, unknownReport)
+			err = j.deleteUnknownTrivyReport(ctx, isActualReport, account, unknownReport, unknownReportInfo)
 			if err != nil {
 				return err
 			}
@@ -350,7 +350,7 @@ func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.Re
 		}
 		err := j.db.Insert(&models.UnknownTrivyReport{
 			AccountName:    account.Name,
-			RepositoryName: report.RepoName,
+			RepositoryName: report.RepositoryName,
 			Digest:         report.Digest,
 			Format:         report.Format,
 			CanBeDeletedAt: canBeDeletedAt,
@@ -363,7 +363,7 @@ func (j *Janitor) sweepTrivyReportStorage(ctx context.Context, account models.Re
 	return nil
 }
 
-func (j *Janitor) deleteUnknownTrivyReport(ctx context.Context, isActualReport map[keppel.StoredTrivyReportInfo]bool, account models.ReducedAccount, unknownReportInfo keppel.StoredTrivyReportInfo, unknownReport models.UnknownTrivyReport) error {
+func (j *Janitor) deleteUnknownTrivyReport(ctx context.Context, isActualReport map[keppel.StoredTrivyReportInfo]bool, account models.ReducedAccount, unknownReport models.UnknownTrivyReport, unknownReportInfo keppel.StoredTrivyReportInfo) error {
 	var err error
 
 	// only call DeleteTrivyReport if we can still see the report in the

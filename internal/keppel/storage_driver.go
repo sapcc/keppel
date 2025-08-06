@@ -106,15 +106,15 @@ type StoredBlobInfo struct {
 
 // StoredManifestInfo is returned by StorageDriver.ListStorageContents().
 type StoredManifestInfo struct {
-	RepoName string
-	Digest   digest.Digest
+	RepositoryName string
+	Digest         digest.Digest
 }
 
 // StoredTrivyReportInfo is returned by StorageDriver.ListStorageContents().
 type StoredTrivyReportInfo struct {
-	RepoName string
-	Digest   digest.Digest
-	Format   string
+	RepositoryName string
+	Digest         digest.Digest
+	Format         string
 }
 
 // ErrAuthDriverMismatch is returned by Init() methods on most driver
