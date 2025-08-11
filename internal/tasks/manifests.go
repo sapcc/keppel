@@ -748,8 +748,14 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 
 	securityInfo.VulnerabilityStatus = newVulnerabilityStatus
 
-	// regular recheck loop (vulnerability status might change if Trivy adds new vulnerabilities to its DB)
-	securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(1 * time.Hour)))
+	// Do not re-check new vulnerability reports which are EOSL
+	// Also see EnrichReport which clears the report's Results
+	if newVulnerabilityStatus == models.RottenVulnerabilityStatus {
+		securityInfo.NextCheckAt = None[time.Time]()
+	} else {
+		// regular recheck loop (vulnerability status might change if Trivy adds new vulnerabilities to its DB)
+		securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(1 * time.Hour)))
+	}
 
 	return nil
 }
