@@ -382,6 +382,12 @@ var sqlMigrations = map[string]string{
 	"051_add_vuln_status_index_over_not_clean.down.sql": `
 		DROP INDEX trivy_security_info_repo_id_digest_idx;
 	`,
+	"052_change_vulnerability_report_to_allow_never_scanning_again.up.sql": `
+		ALTER TABLE trivy_security_info ALTER COLUMN next_check_at DROP NOT NULL;
+	`,
+	"052_change_vulnerability_report_to_allow_never_scanning_again.down.sql": `
+		ALTER TABLE trivy_security_info ALTER COLUMN next_check_at SET NOT NULL;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.
