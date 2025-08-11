@@ -190,6 +190,8 @@ func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload, timeNo
 		return errorStatus, fmt.Errorf("cannot parse Trivy vulnerability report: %w", err)
 	}
 	var statuses []models.VulnerabilityStatus
+	// We do not check security reports which are EOSL (rotten) again, so we clear their Results to not deliver out of date information
+	// see also doSecurityCheck()
 	if parsedReport.Metadata.IsRotten() {
 		statuses = append(statuses, models.RottenVulnerabilityStatus)
 
