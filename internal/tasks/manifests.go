@@ -697,7 +697,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 		if err != nil {
 			return fmt.Errorf("scan error: %w", err)
 		}
-		status, err := relevantPolicies.EnrichReport(&payload)
+		status, err := relevantPolicies.EnrichReport(&payload, j.timeNow())
 		if err != nil {
 			return fmt.Errorf("could not process report: %w", err)
 		}
