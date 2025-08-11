@@ -114,7 +114,7 @@ func TestManifestsAPI(t *testing.T) {
 					RepositoryID:        int64(repoID),
 					Digest:              dummyDigest,
 					VulnerabilityStatus: deterministicDummyVulnStatus(idx),
-					NextCheckAt:         time.Unix(0, 0),
+					NextCheckAt:         Some(time.Unix(0, 0)),
 				})
 			}
 			// one manifest is referenced by two tags, one is referenced by one tag

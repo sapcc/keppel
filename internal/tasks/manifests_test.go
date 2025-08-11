@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/assert"
@@ -149,7 +150,7 @@ func TestManifestValidationJobError(t *testing.T) {
 	test.MustDo(t, s.DB.Insert(&models.TrivySecurityInfo{
 		RepositoryID:        1,
 		Digest:              image.Manifest.Digest,
-		NextCheckAt:         time.Unix(0, 0),
+		NextCheckAt:         Some(time.Unix(0, 0)),
 		VulnerabilityStatus: models.PendingVulnerabilityStatus,
 	}))
 	test.MustDo(t, s.SD.WriteManifest(s.Ctx, s.Accounts[0].Reduced(), "foo", image.Manifest.Digest, image.Manifest.Contents))

@@ -632,7 +632,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 	// skip validation while account is in maintenance (maintenance mode blocks
 	// all kinds of activity on an account's contents)
 	if account.IsDeleting {
-		securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(1 * time.Hour))
+		securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(1 * time.Hour)))
 		return nil
 	}
 
@@ -661,7 +661,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 		}
 
 		// retry in a bit again but only write down the error if it is not transient
-		securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(5 * time.Minute))
+		securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(5 * time.Minute)))
 
 		if !isTrivyTransientError(returnedError.Error()) {
 			securityInfo.Message = returnedError.Error()
@@ -749,7 +749,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 	securityInfo.VulnerabilityStatus = newVulnerabilityStatus
 
 	// regular recheck loop (vulnerability status might change if Trivy adds new vulnerabilities to its DB)
-	securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(1 * time.Hour))
+	securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(1 * time.Hour)))
 
 	return nil
 }
@@ -770,7 +770,7 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 
 		securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
 		securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
-		securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
+		securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(24 * time.Hour)))
 		return false, layerBlobs, nil
 	}
 
@@ -779,8 +779,8 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 		if blob.StorageID == "" {
 			// if the manifest is fairly new, the user who replicated it is probably
 			// still replicating it; give them 10 minutes to finish replicating it
-			securityInfo.NextCheckAt = manifest.PushedAt.Add(j.addJitter(10 * time.Minute))
-			if securityInfo.NextCheckAt.After(j.timeNow()) {
+			securityInfo.NextCheckAt = Some(manifest.PushedAt.Add(j.addJitter(10 * time.Minute)))
+			if nextCheckAt, ok := securityInfo.NextCheckAt.Unpack(); ok && nextCheckAt.After(j.timeNow()) {
 				return false, layerBlobs, nil
 			}
 			// otherwise we do the replication ourselves
@@ -824,7 +824,7 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 		if blob.BlocksVulnScanning == Some(true) {
 			securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
 			securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
-			securityInfo.NextCheckAt = j.timeNow().Add(j.addJitter(24 * time.Hour))
+			securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(24 * time.Hour)))
 			return false, layerBlobs, nil
 		}
 	}
