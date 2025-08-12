@@ -13,6 +13,11 @@ import (
 type CommitmentChangeRequest struct {
 	AZ AvailabilityZone `json:"az"`
 
+	// DryRun indicates that this request is not an actual change by the user, but a request to determine the
+	// current possibilities within the services' capacity. When set to true, the liquid and any following consulted
+	// services must not save the changeRequest to the database.
+	DryRun bool `json:"dryRun"`
+
 	// The same version number that was reported in the Version field of a GET /v1/info response.
 	// The liquid shall reject this request if the version here differs from the value in the ServiceInfo currently held by the liquid.
 	// This is used to ensure that Limes does not request commitment changes based on outdated resource metadata.
@@ -83,7 +88,7 @@ type ResourceCommitmentChangeset struct {
 type Commitment struct {
 	// The same UUID may appear multiple times within the same changeset for one specific circumstance:
 	// If a commitment moves between projects, it will appear as being deleted in the source project and again as being created in the target project.
-	UUID string `json:"uuid"`
+	UUID CommitmentUUID `json:"uuid"`
 
 	// These two status fields communicate one of three possibilities:
 	//   - If OldStatus.IsNone() and NewStatus.IsSome(), the commitment is being created (or moved to this location).
@@ -103,6 +108,10 @@ type Commitment struct {
 
 	// This field contains the point in time when the commitment moves into status "expired", unless it is deleted or moves into status "superseded" first.
 	ExpiresAt time.Time `json:"expiresAt"`
+
+	// OldExpiresAt is set when the expiration date of an existing commitment is changed. Depending on its status
+	// RequiresConfirmation() will evaulate to different results.
+	OldExpiresAt Option[time.Time] `json:"oldExpiresAt,omitzero"`
 }
 
 // CommitmentStatus is an enum containing the various lifecycle states of type Commitment.
@@ -153,11 +162,19 @@ func (s CommitmentStatus) IsValid() bool {
 // The RejectionReason in type CommitmentChangeResponse may only be used if this returns true.
 //
 // Examples for RequiresConfirmation = true include commitments moving into or spawning in the "guaranteed" or "confirmed" statuses, or conversion of commitments between resources.
-// Examples for RequiresConfirmation = false include commitments being split or moving into the "expired" status.
+// Examples for RequiresConfirmation = false include commitments being split, moving into the "expired" status or being hard deleted.
 func (req CommitmentChangeRequest) RequiresConfirmation() bool {
 	// the request requires confirmation if any one ResourceCommitmentChangeset does
 	for _, pc := range req.ByProject {
 		for _, rc := range pc.ByResource {
+			// the only case which requires confirmation when the totals do not change is when a commitments expiresAt
+			// changes and it was confirmed or guaranteed before.
+			for _, c := range rc.Commitments {
+				if (c.NewStatus == Some(CommitmentStatusConfirmed) || c.NewStatus == Some(CommitmentStatusGuaranteed)) && c.OldExpiresAt.IsSome() {
+					return true
+				}
+			}
+
 			// if the relevant totals do not change, no confirmation is required
 			if rc.TotalConfirmedBefore == rc.TotalConfirmedAfter && rc.TotalGuaranteedBefore == rc.TotalGuaranteedAfter {
 				continue
@@ -177,9 +194,9 @@ func (req CommitmentChangeRequest) RequiresConfirmation() bool {
 			)
 			for _, c := range rc.Commitments {
 				switch {
-				case c.OldStatus == Some(CommitmentStatusConfirmed) && c.NewStatus == Some(CommitmentStatusExpired):
+				case c.OldStatus == Some(CommitmentStatusConfirmed) && (c.NewStatus == Some(CommitmentStatusExpired) || c.NewStatus == None[CommitmentStatus]()):
 					expectedConfirmedReduction += c.Amount
-				case c.OldStatus == Some(CommitmentStatusGuaranteed) && c.NewStatus == Some(CommitmentStatusExpired):
+				case c.OldStatus == Some(CommitmentStatusGuaranteed) && (c.NewStatus == Some(CommitmentStatusExpired) || c.NewStatus == None[CommitmentStatus]()):
 					expectedGuaranteedReduction += c.Amount
 				case c.OldStatus == Some(CommitmentStatusGuaranteed) && c.NewStatus == Some(CommitmentStatusConfirmed):
 					expectedGuaranteedReduction += c.Amount

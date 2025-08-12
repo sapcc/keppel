@@ -21,8 +21,8 @@ require (
 	github.com/prometheus/client_golang v1.23.0
 	github.com/redis/go-redis/v9 v9.12.0
 	github.com/rs/cors v1.11.1
-	github.com/sapcc/go-api-declarations v1.17.2
-	github.com/sapcc/go-bits v0.0.0-20250807112417-2f28a08d3ddd
+	github.com/sapcc/go-api-declarations v1.17.3
+	github.com/sapcc/go-bits v0.0.0-20250811141703-79d9564d7be1
 	github.com/spf13/cobra v1.9.1
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.6.0

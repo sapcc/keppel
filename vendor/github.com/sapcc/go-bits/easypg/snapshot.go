@@ -303,15 +303,19 @@ func (s *sqlValueSerializer) Scan(src any) error {
 			s.Serialized = "TRUE"
 		}
 	case []byte:
-		s.Serialized = fmt.Sprintf("'%s'", string(val))
+		s.Serialized = asSQLLiteral(string(val))
 	case string:
-		s.Serialized = fmt.Sprintf("'%s'", val)
+		s.Serialized = asSQLLiteral(val)
 	case time.Time:
 		s.Serialized = fmt.Sprintf("%#v", val.Unix())
 	default:
 		s.Serialized = "NULL"
 	}
 	return nil
+}
+
+func asSQLLiteral(val string) string {
+	return fmt.Sprintf("'%s'", strings.ReplaceAll(val, "'", "''"))
 }
 
 ////////////////////////////////////////////////////////////////////////////////

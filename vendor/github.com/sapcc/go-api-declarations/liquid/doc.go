@@ -146,6 +146,10 @@ package liquid
 // This type is used to distinguish project UUIDs from other types of string values in structs and function signatures.
 type ProjectUUID string
 
+// CommitmentUUID identifies a project commitment within a liquid.
+// This type is used to distinguish commitment UUIDs from other types of string values in structs and function signatures.
+type CommitmentUUID string
+
 // ResourceName identifies a resource within a service.
 // This type is used to distinguish resource names from other types of string values in structs and function signatures.
 //

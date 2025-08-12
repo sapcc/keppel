@@ -35,9 +35,7 @@ jobs:
         with:
           version: latest
       - name: Run shellcheck
-        uses: ludeeus/action-shellcheck@2.0.0
-        with:
-          ignore_paths: ./vendor/**
+        run: make run-shellcheck
       - name: Dependency Licenses Review
         run: make check-dependency-licenses
       - name: Check for spelling errors
