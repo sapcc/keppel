@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -34,6 +34,8 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: latest
+      - name: Delete pre-installed shellcheck
+        run: sudo rm -f $(which shellcheck)
       - name: Run shellcheck
         run: make run-shellcheck
       - name: Dependency Licenses Review
