@@ -1,0 +1,75 @@
+{
+  "ArtifactName": "debian:jessie",
+  "ArtifactType": "container_image",
+  "Metadata": {
+    "OS": {
+      "Family": "debian",
+      "Name": "8.11",
+      "EOSL": true
+    },
+    "ImageID": "sha256:3aaeab7a47777b5ca21fc6de40a6f9e7ee7ebb7302e7a025795eb9e73200c404",
+    "DiffIDs": [
+      "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+    ],
+    "RepoTags": [
+      "debian:jessie"
+    ],
+    "RepoDigests": [
+      "debian@sha256:32ad5050caffb2c7e969dac873bce2c370015c2256ff984b70c1c08b3a2816a0"
+    ],
+    "ImageConfig": {
+      "architecture": "amd64",
+      "container": "4b4f98a17678adfdd4901cd89ce1b39d4cc812786f9019e46fe789863f968073",
+      "created": "2021-03-26T15:21:15.456665624Z",
+      "docker_version": "19.03.12",
+      "history": [
+        {
+          "created": "2021-03-26T15:21:14.787213704Z",
+          "created_by": "/bin/sh -c #(nop) ADD file:561abd5e82ee4d792053061020f96b6feffe1c5892e9acfaa1eac5251f5e8803 in / "
+        },
+        {
+          "created": "2021-03-26T15:21:15.456665624Z",
+          "created_by": "/bin/sh -c #(nop)  CMD [\"bash\"]",
+          "empty_layer": true
+        }
+      ],
+      "os": "linux",
+      "rootfs": {
+        "type": "layers",
+        "diff_ids": [
+          "sha256:fac8b84e323effcd7f66bdf7c287444f38f27edbca6958ce5421a8f29d5bb2b4"
+        ]
+      },
+      "config": {
+        "Cmd": [
+          "bash"
+        ],
+        "Env": [
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        ],
+        "Image": "sha256:eedb0883564d1fb64754f6f59dc9cef65fd911c6ad4d136cdeefd312b0c89631"
+      }
+    }
+  },
+  "Results": [
+    {
+      "Class": "os-pkgs",
+      "Target": "debian:jessie (debian 8.11)",
+      "Type": "8.11",
+      "Vulnerabilities": [
+        {
+          "Description": "Keppel is not scanning this image anymore because the operating system of it is no longer supported by its vendor, please run trivy image manually if necessary.",
+          "FixedVersion": "",
+          "LastModifiedDate": "1970-01-01T01:00:00Z",
+          "PublishedDate": "1970-01-01T01:00:00Z",
+          "Severity": "UNKNOWN",
+          "SeveritySource": "Keppel",
+          "Status": "affected",
+          "Title": "Operating System is End-of-Life",
+          "VulnerabilityID": "keppel:rotten-os"
+        }
+      ]
+    }
+  ],
+  "SchemaVersion": 2
+}
