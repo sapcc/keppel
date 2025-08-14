@@ -819,7 +819,7 @@ func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
 
 		// upload an example image
 		image := test.GenerateImage(test.GenerateExampleLayer(4))
-		image.MustUpload(t, s, fooRepoRef, "latest")
+		manifest := image.MustUpload(t, s, fooRepoRef, "latest")
 		tr.DBChanges().Ignore()
 		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-eosl.json"
 
@@ -832,6 +832,8 @@ func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
 			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = NULL, checked_at = %[3]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[4]s';
 		`, image.Layers[0].Digest, models.RottenVulnerabilityStatus, s.Clock.Now().Unix(), image.Manifest.Digest)
+
+		s.ExpectTrivyReportExistsInStorage(t, manifest, "json", assert.JSONFixtureFile("fixtures/trivy/report-eosl-with-enriched.json"))
 	})
 }
 
