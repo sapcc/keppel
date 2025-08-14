@@ -74,7 +74,8 @@ func TestConfigureAccount(t *testing.T) {
 			},
 		},
 		ValidationPolicy: &keppel.ValidationPolicy{
-			RequiredLabels: []string{"important-label", "some-label"},
+			RuleForManifest: "'important-label' in labels && 'some-label' in labels",
+			RequiredLabels:  []string{"important-label", "some-label"},
 		},
 	}
 

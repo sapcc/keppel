@@ -56,10 +56,8 @@
         }
       ],
       "validation": {
-        "required_labels": [
-          "important-label",
-          "some-label"
-        ]
+        "rule_for_manifest": "'important-label' in labels && 'some-label' in labels",
+        "required_labels": ["important-label", "some-label"]
       }
     }
   ]

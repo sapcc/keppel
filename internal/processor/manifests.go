@@ -12,11 +12,11 @@ import (
 	"io"
 	"net/http"
 	"sort"
-	"strings"
 	"time"
 
 	imageManifest "github.com/containers/image/v5/manifest"
 	"github.com/go-gorp/gorp/v3"
+	"github.com/google/cel-go/common/types"
 	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 	imagespecs "github.com/opencontainers/image-spec/specs-go/v1"
@@ -224,18 +224,26 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 
 		// enforce account-specific validation rules on manifest, but not list manifest
 		// and only when pushing (not when validating at a later point in time,
-		// the set of RequiredLabels could have been changed by then)
-		labelsRequired := opts.IsBeingPushed && account.RequiredLabels != "" &&
+		// the validation rule could have been changed by then)
+		validationRequired := opts.IsBeingPushed && account.RuleForManifest != "" &&
 			manifest.MediaType != imageManifest.DockerV2ListMediaType && manifest.MediaType != imagespecs.MediaTypeImageIndex
-		if labelsRequired {
-			var missingLabels []string
-			for _, l := range account.SplitRequiredLabels() {
-				if _, exists := configInfo.Labels[l]; !exists {
-					missingLabels = append(missingLabels, l)
-				}
+		if validationRequired {
+			env, ast, err := keppel.BuildManifestValidationAST(account.RuleForManifest)
+			if err != nil {
+				return err
 			}
-			if len(missingLabels) > 0 {
-				msg := "missing required labels: " + strings.Join(missingLabels, ", ")
+			prg, err := env.Program(ast)
+			if err != nil {
+				return err
+			}
+			out, _, err := prg.Eval(map[string]any{
+				"labels": configInfo.Labels,
+			})
+			if err != nil {
+				return err
+			}
+			if out != types.True {
+				msg := "rule is not satisfied: " + account.RuleForManifest
 				return keppel.ErrManifestInvalid.With(msg)
 			}
 		}

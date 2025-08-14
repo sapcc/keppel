@@ -4,7 +4,6 @@
 package models
 
 import (
-	"strings"
 	"time"
 
 	. "github.com/majewsky/gg/option"
@@ -29,9 +28,8 @@ type Account struct {
 	// PlatformFilter restricts which submanifests get replicated when a list manifest is replicated.
 	PlatformFilter PlatformFilter `db:"platform_filter"`
 
-	// RequiredLabels is a comma-separated list of labels that must be present on
-	// all image manifests in this account.
-	RequiredLabels string `db:"required_labels"`
+	// RuleForManifest is a CEL expression for validating each image manifest in this account.
+	RuleForManifest string `db:"rule_for_manifest"`
 	// IsDeleting indicates whether the account is currently being deleted.
 	IsDeleting bool `db:"is_deleting"`
 	// IsManaged indicates if the account was created by AccountManagementDriver
@@ -63,7 +61,7 @@ func (a Account) Reduced() ReducedAccount {
 		ExternalPeerUserName: a.ExternalPeerUserName,
 		ExternalPeerPassword: a.ExternalPeerPassword,
 		PlatformFilter:       a.PlatformFilter,
-		RequiredLabels:       a.RequiredLabels,
+		RuleForManifest:      a.RuleForManifest,
 		IsDeleting:           a.IsDeleting,
 	}
 }
@@ -83,13 +81,8 @@ type ReducedAccount struct {
 	PlatformFilter       PlatformFilter
 
 	// validation policy, status
-	RequiredLabels string
-	IsDeleting     bool
+	RuleForManifest string
+	IsDeleting      bool
 
 	// NOTE: When adding or removing fields, always adjust Account.Reduced() and keppel.FindReducedAccount() too!
-}
-
-// SplitRequiredLabels parses the RequiredLabels field.
-func (a ReducedAccount) SplitRequiredLabels() []string {
-	return strings.Split(a.RequiredLabels, ",")
 }

@@ -570,7 +570,7 @@ func TestManifestQuotaExceeded(t *testing.T) {
 	})
 }
 
-func TestManifestRequiredLabels(t *testing.T) {
+func TestRuleForManifest(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
 		token := s.GetToken(t, "repository:test1/foo:pull,push")
@@ -581,10 +581,10 @@ func TestManifestRequiredLabels(t *testing.T) {
 		image.Config.MustUpload(t, s, fooRepoRef)
 		image.Layers[0].MustUpload(t, s, fooRepoRef)
 
-		// setup required labels on account for failure
+		// setup rule for manifest on account for failure
 		test.MustExec(t, s.DB,
-			`UPDATE accounts SET required_labels = $1 WHERE name = $2`,
-			"foo,somethingelse,andalsothis", "test1",
+			`UPDATE accounts SET rule_for_manifest = $1 WHERE name = $2`,
+			"'random-label-that-does-not-exist' in labels", "test1",
 		)
 
 		// manifest push should fail
@@ -600,14 +600,14 @@ func TestManifestRequiredLabels(t *testing.T) {
 			ExpectHeader: test.VersionHeader,
 			ExpectBody: test.ErrorCodeWithMessage{
 				Code:    keppel.ErrManifestInvalid,
-				Message: "missing required labels: somethingelse, andalsothis",
+				Message: "rule is not satisfied: 'random-label-that-does-not-exist' in labels",
 			},
 		}.Check(t, h)
 
 		// setup required labels on account for success
 		test.MustExec(t, s.DB,
-			`UPDATE accounts SET required_labels = $1 WHERE name = $2`,
-			"foo,bar", "test1",
+			`UPDATE accounts SET rule_for_manifest = $1 WHERE name = $2`,
+			"'foo' in labels && 'bar' in labels", "test1",
 		)
 
 		// manifest push should succeed
@@ -636,7 +636,7 @@ func TestManifestRequiredLabels(t *testing.T) {
 		}, image.Layers[0])
 		otherImage.MustUpload(t, s, fooRepoRef, "other")
 
-		// required_labels does not apply to image lists (since image list manifests
+		// rule_for_manifest does not apply to image lists (since image list manifests
 		// do not have labels at all), so we can upload this list manifest without
 		// any additional considerations
 		list := test.GenerateImageList(image, otherImage)
