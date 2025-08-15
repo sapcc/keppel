@@ -1,8 +1,5 @@
-/*******************************************************************************
-* Copyright 2025 Stefan Majewsky <majewsky@gmx.net>
-* SPDX-License-Identifier: Apache-2.0
-* Refer to the file "LICENSE" for details.
-*******************************************************************************/
+// SPDX-FileCopyrightText: 2025 Stefan Majewsky <majewsky@gmx.net>
+// SPDX-License-Identifier: Apache-2.0
 
 // Package optional provides an Option type for Go.
 // A value of the Option type will be in one of two states: "Some" (containing a value) or "None" (containing no value).
@@ -96,8 +93,7 @@
 //     but this restriction degrades their usefulness beyond reasonable limits.
 //   - Go does not allow to introduce additional type restrictions in individual methods.
 //     This makes methods like unzip() or cloned() unrepresentable in Go.
-//     We might make these available as free-standing functions in the future, but if we do,
-//     they will definitely not be in this package (see "Clean import guarantee" above).
+//     We have made some of these available as free-standing functions, in "package options" that sits next to this package.
 //   - Mixing of struct receiver methods and pointer receiver methods on the same type is discouraged to avoid unintentional copies and data races.
 //     Since most of the useful methods require only a struct receiver, we forego those that require a pointer receiver, like get_or_insert() or take().
 //     The only exception to this is the methods implementing Unmarshaler interfaces, where concurrency bugs are very unlikely.

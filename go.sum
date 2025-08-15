@@ -124,8 +124,8 @@ github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
 github.com/lib/pq v1.10.9 h1:YXG7RB+JIjhP29X+OtkiDnYaXQwpS4JEWq7dtCCRUEw=
 github.com/lib/pq v1.10.9/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
-github.com/majewsky/gg v1.1.0 h1:rvbQAUVJ8Q0RWZF26k3BxQBbQnRj3CdIN+Aaqu1qaJo=
-github.com/majewsky/gg v1.1.0/go.mod h1:KC7qUlln1VBY90OE0jXMNjXW2b9B4jJ1heYQ08OzeAg=
+github.com/majewsky/gg v1.3.0 h1:1bBuQ+S1u9wuD8YT2OMdngEUctwv+xx5D6bZTd1lAto=
+github.com/majewsky/gg v1.3.0/go.mod h1:KC7qUlln1VBY90OE0jXMNjXW2b9B4jJ1heYQ08OzeAg=
 github.com/majewsky/schwift/v2 v2.0.0 h1:Rgzv/18yMAej3bBZWoxYmS2lZMiCKD6P451dU8TyQtE=
 github.com/majewsky/schwift/v2 v2.0.0/go.mod h1:qqN4N7s2+jhwebBgxFZm/e2NOqDzNphwb7SnAIB5G+4=
 github.com/mattn/go-sqlite3 v1.14.6/go.mod h1:NyWgC/yNuGj7Q9rpYnZvas74GogHl5/Z4A/KQRfk6bU=
@@ -201,8 +201,8 @@ github.com/rs/cors v1.11.1/go.mod h1:XyqrcTp5zjWr1wsJ8PIRZssZ8b/WMcMf71DJnit4EMU
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/sapcc/go-api-declarations v1.17.3 h1:ILRfsFD9ChSeekyzlDInLMqjC830gBcyK6ULlFdP45I=
 github.com/sapcc/go-api-declarations v1.17.3/go.mod h1:MWmLjmvjftgyAugNUfIhsDsHIzXH1pn32cWLZpiluKg=
-github.com/sapcc/go-bits v0.0.0-20250814121725-04e492184b75 h1:uu7Fwlz+tYOSCCYxbKBBuqGt22ss4mH7UCj4cAbZsJQ=
-github.com/sapcc/go-bits v0.0.0-20250814121725-04e492184b75/go.mod h1:z6WAygWMeZsLuWa/7iE09Ah5/fpqSZS/G/FNi2j6oIY=
+github.com/sapcc/go-bits v0.0.0-20250815083328-9eefdef740e1 h1:EZ3lO7jyH++ZIOjh9p6B0pMNlU2/rnUxE0TOhGpFt9c=
+github.com/sapcc/go-bits v0.0.0-20250815083328-9eefdef740e1/go.mod h1:pMKo3e45ENJVwoTNqz/RWaRg0t++ySpjqWgygBjDFuM=
 github.com/sergi/go-diff v1.4.0 h1:n/SP9D5ad1fORl+llWyN+D6qoUETXNZARKjyY2/KVCw=
 github.com/sergi/go-diff v1.4.0/go.mod h1:A0bzQcvG0E7Rwjx0REVgAGH58e96+X0MeOfepqsbeW4=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=

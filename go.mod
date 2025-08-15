@@ -15,7 +15,7 @@ require (
 	github.com/gophercloud/gophercloud/v2 v2.7.0
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/majewsky/gg v1.1.0
+	github.com/majewsky/gg v1.3.0
 	github.com/majewsky/schwift/v2 v2.0.0
 	github.com/opencontainers/distribution-spec/specs-go v0.0.0-20250731191745-9d1b92567f2c
 	github.com/opencontainers/go-digest v1.0.0
@@ -24,7 +24,7 @@ require (
 	github.com/redis/go-redis/v9 v9.12.0
 	github.com/rs/cors v1.11.1
 	github.com/sapcc/go-api-declarations v1.17.3
-	github.com/sapcc/go-bits v0.0.0-20250814121725-04e492184b75
+	github.com/sapcc/go-bits v0.0.0-20250815083328-9eefdef740e1
 	github.com/spf13/cobra v1.9.1
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.uber.org/automaxprocs v1.6.0
