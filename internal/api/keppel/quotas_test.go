@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/majewsky/gg/option"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 
@@ -213,7 +214,7 @@ func TestQuotasAPI(t *testing.T) {
 			RepositoryID:        1,
 			Digest:              test.DeterministicDummyDigest(idx),
 			VulnerabilityStatus: models.PendingVulnerabilityStatus,
-			NextCheckAt:         time.Unix(0, 0),
+			NextCheckAt:         Some(time.Unix(0, 0)),
 		})
 	}
 	assert.HTTPRequest{

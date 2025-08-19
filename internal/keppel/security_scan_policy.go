@@ -6,6 +6,7 @@ package keppel
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/regexpext"
@@ -175,7 +176,7 @@ func (s SecurityScanPolicySet) PolicyForVulnerability(vuln trivy.DetectedVulnera
 //
 // This function also calculates the aggregate vulnerability status of the entire report,
 // because it is the only place during a vulnerability check that holds the parsed report.
-func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload) (models.VulnerabilityStatus, error) {
+func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload, timeNow time.Time) (models.VulnerabilityStatus, error) {
 	// first return value in case of error returns (this is declared here as a shorthand)
 	errorStatus := models.ErrorVulnerabilityStatus
 
@@ -189,34 +190,60 @@ func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload) (model
 		return errorStatus, fmt.Errorf("cannot parse Trivy vulnerability report: %w", err)
 	}
 	var statuses []models.VulnerabilityStatus
+	// We do not check security reports which are EOSL (rotten) again, so we clear their Results to not deliver out of date information
+	// see also doSecurityCheck()
 	if parsedReport.Metadata.IsRotten() {
 		statuses = append(statuses, models.RottenVulnerabilityStatus)
-	}
 
-	// compute X-Keppel-Applicable-Policies set while also collecting constituent VulnerabilityStatus values
-	applicablePolicies := make(map[string]SecurityScanPolicy)
-	for _, result := range parsedReport.Results {
-		for _, vuln := range result.Vulnerabilities {
-			status, ok := trivy.MapToTrivySeverity[vuln.Severity]
-			if !ok {
-				return errorStatus, fmt.Errorf("vulnerability severity with name %q returned by Trivy is unknown and cannot be mapped", vuln.Severity)
-			}
-
-			policy := s.PolicyForVulnerability(vuln)
-			if policy != nil {
-				applicablePolicies[vuln.VulnerabilityID] = *policy
-				status = policy.VulnerabilityStatus()
-			}
-			statuses = append(statuses, status)
-		}
-	}
-
-	// remarshal report if it has changed
-	if len(applicablePolicies) > 0 {
-		parsedReport.AddField("X-Keppel-Applicable-Policies", applicablePolicies)
+		metadataOs := parsedReport.Metadata.OS.UnwrapOr(trivy.ReportMetadataOS{
+			Family: "unknown",
+			Name:   "unknown",
+		})
+		parsedReport.AddField("Results", []trivy.ReportResult{{
+			Class:  "os-pkgs",
+			Target: fmt.Sprintf("%s (%s %s)", parsedReport.ArtifactName, metadataOs.Family, metadataOs.Name),
+			Type:   metadataOs.Name,
+			Vulnerabilities: []trivy.DetectedVulnerability{{
+				Description:      "Keppel is not scanning this image anymore because the operating system of it is no longer supported by its vendor, please run trivy image manually if necessary.",
+				LastModifiedDate: timeNow.Format(time.RFC3339),
+				PublishedDate:    timeNow.Format(time.RFC3339),
+				Severity:         "UNKNOWN",
+				SeveritySource:   "Keppel",
+				Status:           "affected",
+				Title:            "Operating System is End-of-Life",
+				VulnerabilityID:  "keppel:rotten-os",
+			}},
+		}})
 		payload.Contents, err = parsedReport.MarshalJSON()
 		if err != nil {
-			return errorStatus, fmt.Errorf("cannot serialize enriched Trivy vulnerability report: %w", err)
+			return errorStatus, fmt.Errorf("cannot serialize rotten Trivy vulnerability report: %w", err)
+		}
+	} else {
+		// compute X-Keppel-Applicable-Policies set while also collecting constituent VulnerabilityStatus values
+		applicablePolicies := make(map[string]SecurityScanPolicy)
+		for _, result := range parsedReport.Results {
+			for _, vuln := range result.Vulnerabilities {
+				status, ok := trivy.MapToTrivySeverity[vuln.Severity]
+				if !ok {
+					return errorStatus, fmt.Errorf("vulnerability severity with name %q returned by Trivy is unknown and cannot be mapped", vuln.Severity)
+				}
+
+				policy := s.PolicyForVulnerability(vuln)
+				if policy != nil {
+					applicablePolicies[vuln.VulnerabilityID] = *policy
+					status = policy.VulnerabilityStatus()
+				}
+				statuses = append(statuses, status)
+			}
+		}
+
+		// remarshal report if it has changed
+		if len(applicablePolicies) > 0 {
+			parsedReport.AddField("X-Keppel-Applicable-Policies", applicablePolicies)
+			payload.Contents, err = parsedReport.MarshalJSON()
+			if err != nil {
+				return errorStatus, fmt.Errorf("cannot serialize enriched Trivy vulnerability report: %w", err)
+			}
 		}
 	}
 

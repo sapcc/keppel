@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/majewsky/gg/option"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 
@@ -81,7 +82,7 @@ func TestReposAPI(t *testing.T) {
 			RepositoryID:        filledRepo.ID,
 			Digest:              dummyDigest,
 			VulnerabilityStatus: models.PendingVulnerabilityStatus,
-			NextCheckAt:         time.Unix(0, 0),
+			NextCheckAt:         Some(time.Unix(0, 0)),
 		})
 		if idx <= 3 {
 			test.MustInsert(t, s.DB, &models.Tag{

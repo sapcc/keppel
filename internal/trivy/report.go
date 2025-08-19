@@ -20,8 +20,9 @@ type Report struct {
 
 	// specialized deserializations for exactly the fields that we care about
 	// (when marshalling, we still use the originalPayload, because these subtypes are not guaranteed to have all relevant fields
-	Results  []ReportResult
-	Metadata ReportMetadata
+	ArtifactName string
+	Results      []ReportResult
+	Metadata     ReportMetadata
 
 	// fields that we add during processing
 	additionalFields map[string]any
@@ -48,8 +49,16 @@ func UnmarshalReportFromJSON(buf []byte) (Report, error) {
 		}
 	}
 
+	artifactNameBuf := r.originalPayload["ArtifactName"]
+	if len(artifactNameBuf) > 0 {
+		err := json.Unmarshal(artifactNameBuf, &r.ArtifactName)
+		if err != nil {
+			return Report{}, fmt.Errorf(`while unmarshalling "ArtifactName" subsection: %w`, err)
+		}
+	}
+
 	metadataBuf := r.originalPayload["Metadata"]
-	if len(resultsBuf) > 0 {
+	if len(metadataBuf) > 0 {
 		err := json.Unmarshal(metadataBuf, &r.Metadata)
 		if err != nil {
 			return Report{}, fmt.Errorf(`while unmarshalling "Metadata" subsection: %w`, err)
@@ -79,6 +88,12 @@ func (r Report) MarshalJSON() ([]byte, error) {
 
 	allFields := maps.Clone(r.additionalFields)
 	for k, v := range r.originalPayload {
+		_, ok := allFields[k]
+		// additionalFields take precedence
+		if ok {
+			continue
+		}
+
 		allFields[k] = v
 	}
 	return json.Marshal(allFields)
@@ -95,6 +110,8 @@ type ReportMetadata struct {
 // ReportMetadataOS appears in type ReportMetadata.
 type ReportMetadataOS struct {
 	EndOfSupportLifecycle bool `json:"EOSL"`
+	Family                string
+	Name                  string
 }
 
 // IsRotten returns whether the OS.EndOfSupportLifecycle flag is set.
@@ -107,15 +124,25 @@ func (m ReportMetadata) IsRotten() bool {
 // It represents one of the .Results[] sections of a Trivy report,
 // but has only exactly those fields that we need.
 type ReportResult struct {
+	Class           string
+	Target          string
+	Type            string
 	Vulnerabilities []DetectedVulnerability
 }
 
 // DetectedVulnerability appears in type ReportResult.
 type DetectedVulnerability struct {
-	// NOTE: The upstream type is <https://pkg.go.dev/github.com/aquasecurity/trivy/pkg/module/serialize#DetectedVulnerability>.
-	VulnerabilityID string
-	FixedVersion    string
-	Severity        string
+	// NOTE: The upstream type is <https://pkg.go.dev/github.com/aquasecurity/trivy/pkg/types#DetectedVulnerability>
+	// and inheriting from <https://pkg.go.dev/github.com/aquasecurity/trivy-db/pkg/types#Vulnerability>.
+	Description      string
+	FixedVersion     string
+	LastModifiedDate string
+	PublishedDate    string
+	Severity         string
+	SeveritySource   string
+	Status           string
+	Title            string
+	VulnerabilityID  string
 }
 
 // FixIsReleased returns whether v.FixedVersion is non-empty. (This particular

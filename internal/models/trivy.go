@@ -17,7 +17,7 @@ type TrivySecurityInfo struct {
 	VulnerabilityStatus          VulnerabilityStatus `db:"vuln_status"`
 	VulnerabilityStatusChangedAt Option[time.Time]   `db:"vuln_status_changed_at"`
 	Message                      string              `db:"message"`
-	NextCheckAt                  time.Time           `db:"next_check_at"` // see tasks.CheckTrivySecurityStatusJob
+	NextCheckAt                  Option[time.Time]   `db:"next_check_at"` // see tasks.CheckTrivySecurityStatusJob
 	CheckedAt                    Option[time.Time]   `db:"checked_at"`
 	CheckDurationSecs            Option[float64]     `db:"check_duration_secs"`
 

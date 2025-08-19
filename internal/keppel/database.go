@@ -385,7 +385,7 @@ var sqlMigrations = map[string]string{
 	"052_replace_required_labels_with_cel_expression.up.sql": `
 		ALTER TABLE accounts ADD COLUMN rule_for_manifest TEXT NOT NULL DEFAULT '';
 
-		-- Splits the comma separated list of labels and builds a CEL conjunction using the Map Key Membership (in) operator 
+		-- Splits the comma separated list of labels and builds a CEL conjunction using the Map Key Membership (in) operator
 		-- I.e. 'foo,bar,baz' --> 'foo' in labels && 'bar' in labels && 'baz' in labels
 		UPDATE accounts
 		SET rule_for_manifest = (
@@ -414,6 +414,16 @@ var sqlMigrations = map[string]string{
 
 
 		ALTER TABLE accounts DROP COLUMN rule_for_manifest;
+	`,
+	"053_change_vulnerability_report_to_allow_never_scanning_again.up.sql": `
+		ALTER TABLE trivy_security_info
+			ALTER COLUMN next_check_at DROP NOT NULL,
+			ADD CONSTRAINT next_check_at_only_null_when_rotten CHECK ((vuln_status = 'Rotten') = (next_check_at IS NULL));
+	`,
+	"053_change_vulnerability_report_to_allow_never_scanning_again.down.sql": `
+		ALTER TABLE trivy_security_info
+			ALTER COLUMN next_check_at SET NOT NULL,
+			DROP CONSTRAINT next_check_at_only_null_when_rotten;
 	`,
 }
 

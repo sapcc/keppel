@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/assert"
@@ -149,7 +150,7 @@ func TestManifestValidationJobError(t *testing.T) {
 	test.MustDo(t, s.DB.Insert(&models.TrivySecurityInfo{
 		RepositoryID:        1,
 		Digest:              image.Manifest.Digest,
-		NextCheckAt:         time.Unix(0, 0),
+		NextCheckAt:         Some(time.Unix(0, 0)),
 		VulnerabilityStatus: models.PendingVulnerabilityStatus,
 	}))
 	test.MustDo(t, s.SD.WriteManifest(s.Ctx, s.Accounts[0].Reduced(), "foo", image.Manifest.Digest, image.Manifest.Contents))
@@ -818,7 +819,7 @@ func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
 
 		// upload an example image
 		image := test.GenerateImage(test.GenerateExampleLayer(4))
-		image.MustUpload(t, s, fooRepoRef, "latest")
+		manifest := image.MustUpload(t, s, fooRepoRef, "latest")
 		tr.DBChanges().Ignore()
 		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-eosl.json"
 
@@ -829,8 +830,10 @@ func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
 		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
 		tr.DBChanges().AssertEqualf(`
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
-			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = %[3]d, checked_at = %[4]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[5]s';
-		`, image.Layers[0].Digest, models.RottenVulnerabilityStatus, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), image.Manifest.Digest)
+			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = NULL, checked_at = %[3]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[4]s';
+		`, image.Layers[0].Digest, models.RottenVulnerabilityStatus, s.Clock.Now().Unix(), image.Manifest.Digest)
+
+		s.ExpectTrivyReportExistsInStorage(t, manifest, "json", assert.JSONFixtureFile("fixtures/trivy/report-eosl-with-enriched.json"))
 	})
 }
 
