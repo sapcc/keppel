@@ -58,7 +58,7 @@ func UnmarshalReportFromJSON(buf []byte) (Report, error) {
 	}
 
 	metadataBuf := r.originalPayload["Metadata"]
-	if len(resultsBuf) > 0 {
+	if len(metadataBuf) > 0 {
 		err := json.Unmarshal(metadataBuf, &r.Metadata)
 		if err != nil {
 			return Report{}, fmt.Errorf(`while unmarshalling "Metadata" subsection: %w`, err)
