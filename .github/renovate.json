@@ -23,6 +23,7 @@
   "packageRules": [
     {
       "matchPackageNames": [
+        "go",
         "golang"
       ],
       "allowedVersions": "1.24.x"
