@@ -520,10 +520,10 @@ func TestImageListManifestLifecycle(t *testing.T) {
 			Method:       "DELETE",
 			Path:         "/v2/test1/foo/manifests/" + image1.Manifest.Digest.String(),
 			Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
-			ExpectStatus: http.StatusInternalServerError,
+			ExpectStatus: http.StatusConflict,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody: test.ErrorCodeWithMessage{
-				Code:    keppel.ErrUnknown,
+				Code:    keppel.ErrDenied,
 				Message: "cannot delete a manifest which is referenced by the manifest " + list2.Manifest.Digest.String(),
 			},
 		}.Check(t, h)

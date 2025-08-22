@@ -918,7 +918,8 @@ func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAc
 			repo.ID, manifestDigest)
 		// more than one manifest is referenced by another manifest
 		if otherDigest != "" && err2 == nil {
-			return fmt.Errorf("cannot delete a manifest which is referenced by the manifest %s", otherDigest)
+			errMsg := fmt.Errorf("cannot delete a manifest which is referenced by the manifest %s", otherDigest)
+			return keppel.ErrDenied.WithError(errMsg).WithStatus(http.StatusConflict)
 		}
 		// if the SELECT failed return the previous error to not shadow it
 		return err
