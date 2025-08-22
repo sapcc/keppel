@@ -515,6 +515,19 @@ func TestImageListManifestLifecycle(t *testing.T) {
 			"Accept": "application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json",
 		})
 
+		// DELETE failure case: cannot delete manifest list while the manifest still exists in the DB
+		assert.HTTPRequest{
+			Method:       "DELETE",
+			Path:         "/v2/test1/foo/manifests/" + image1.Manifest.Digest.String(),
+			Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+			ExpectStatus: http.StatusInternalServerError,
+			ExpectHeader: test.VersionHeader,
+			ExpectBody: test.ErrorCodeWithMessage{
+				Code:    keppel.ErrUnknown,
+				Message: "cannot delete a manifest which is referenced by the manifest " + list2.Manifest.Digest.String(),
+			},
+		}.Check(t, h)
+
 		// DELETE success case
 		assert.HTTPRequest{
 			Method:       "DELETE",
