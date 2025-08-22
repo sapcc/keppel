@@ -35,6 +35,23 @@ jobs:
           go-version: 1.24.6
       - name: Build all binaries
         run: make build-all
+  code_coverage:
+    name: Code coverage report
+    needs:
+      - test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+      - name: Post coverage report
+        uses: fgrosse/go-coverage-report@v1.2.0
+        with:
+          coverage-artifact-name: code-coverage
+          coverage-file-name: cover.out
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
   test:
     name: Test
     needs:
@@ -54,10 +71,8 @@ jobs:
           sudo apt-get install -y --no-install-recommends postgresql-17
           export PATH=/usr/lib/postgresql/17/bin:$PATH
           make build/cover.out
-      - name: Upload coverage report to Coveralls
-        env:
-          COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GIT_BRANCH: ${{ github.head_ref }}
-        run: |
-          go install github.com/mattn/goveralls@latest
-          goveralls -service=github -coverprofile=build/cover.out
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage
+          path: build/cover.out

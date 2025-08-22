@@ -35,7 +35,6 @@ golangciLint:
 githubWorkflow:
   ci:
     enabled: true
-    coveralls: true
 
 nix:
   extraPackages:
