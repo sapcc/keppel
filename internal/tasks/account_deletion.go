@@ -20,14 +20,42 @@ import (
 	"github.com/sapcc/keppel/internal/models"
 )
 
-// EnforceManagedAccounts is a job. Each task creates newly discovered accounts from the driver.
+// DeleteRepositoryJob is a job. Each task tries to delete a repository marked for deletion.
+func (j *Janitor) DeleteRepositoryJob(registerer prometheus.Registerer) jobloop.Job {
+	return (&jobloop.ProducerConsumerJob[models.Repository]{
+		Metadata: jobloop.JobMetadata{
+			ReadableName: "delete repositories marked for deletion",
+			CounterOpts: prometheus.CounterOpts{
+				Name: "keppel_repository_deletions",
+				Help: "Counter for attempts to cleanup a deleted repository.",
+			},
+		},
+		DiscoverTask: j.discoverRepositoryForDeletion,
+		ProcessTask:  j.deleteMarkedRepository,
+	}).Setup(registerer)
+}
+
+var (
+	repositoryDeletionSelectQuery = sqlext.SimplifyWhitespace(`
+		SELECT account_name, name FROM repos
+		WHERE is_deleting AND next_deletion_attempt_at < $1
+		ORDER BY next_deletion_attempt_at ASC, name ASC
+	`)
+)
+
+func (j *Janitor) discoverRepositoryForDeletion(_ context.Context, _ prometheus.Labels) (repo models.Repository, err error) {
+	err = j.db.SelectOne(&repo, repositoryDeletionSelectQuery, j.timeNow())
+	return repo, err
+}
+
+// DeleteAccountsJob is a job. Each task tries to delete an account marked for deletion.
 func (j *Janitor) DeleteAccountsJob(registerer prometheus.Registerer) jobloop.Job {
 	return (&jobloop.ProducerConsumerJob[models.AccountName]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "delete accounts marked for deletion",
 			CounterOpts: prometheus.CounterOpts{
 				Name: "keppel_account_deletions",
-				Help: "Counter for attempts to cleanup a deleted account..",
+				Help: "Counter for attempts to cleanup a deleted account.",
 			},
 		},
 		DiscoverTask: j.discoverAccountForDeletion,
@@ -57,6 +85,14 @@ var (
 			LEFT OUTER JOIN manifest_manifest_refs mmr ON mmr.repo_id = r.id AND m.digest = mmr.child_digest
 		WHERE a.name = $1 AND parent_digest IS NULL
 	`)
+	deleteAccountFindManifestsByRepoQuery = sqlext.SimplifyWhitespace(`
+		SELECT r.name, m.digest
+			FROM manifests m
+			JOIN repos r ON m.repo_id = r.id
+			JOIN accounts a ON a.name = r.account_name
+			LEFT OUTER JOIN manifest_manifest_refs mmr ON mmr.repo_id = r.id AND m.digest = mmr.child_digest
+		WHERE a.name = $1 AND r.name = $2 AND parent_digest IS NULL
+	`)
 	deleteAccountCountManifestsQuery = sqlext.SimplifyWhitespace(`
 		SELECT COUNT(m.digest)
 			FROM manifests m
@@ -64,11 +100,120 @@ var (
 			JOIN accounts a ON a.name = r.account_name
 		WHERE a.name = $1
 	`)
+	deleteAccountCountManifestsByRepoQuery = sqlext.SimplifyWhitespace(`
+		SELECT COUNT(m.digest)
+			FROM manifests m
+			JOIN repos r ON m.repo_id = r.id
+			JOIN accounts a ON a.name = r.account_name
+		WHERE a.name = $1 and r.name = $2
+	`)
 	deleteAccountReposQuery                   = `DELETE FROM repos WHERE account_name = $1`
+	deleteAccountRepoByNameQuery              = `DELETE FROM repos WHERE account_name = $1 and name = $2`
 	deleteAccountCountBlobsQuery              = `SELECT COUNT(id) FROM blobs WHERE account_name = $1`
 	deleteAccountScheduleBlobSweepQuery       = `UPDATE accounts SET next_blob_sweep_at = $2 WHERE name = $1`
 	deleteAccountMarkAllBlobsForDeletionQuery = `UPDATE blobs SET can_be_deleted_at = $2 WHERE account_name = $1`
 )
+
+var actx = keppel.AuditContext{
+	UserIdentity: janitorUserIdentity{TaskName: "account-deletion"},
+	Request:      janitorDummyRequest,
+}
+
+func (j *Janitor) foreachRowDeleteManifest(ctx context.Context, account *models.Account, accountReduced models.ReducedAccount, rows *sql.Rows) error {
+	var (
+		repoName  string
+		digestStr string
+	)
+	err := rows.Scan(&repoName, &digestStr)
+	if err != nil {
+		return err
+	}
+
+	parsedDigest, err := digest.Parse(digestStr)
+	if err != nil {
+		return fmt.Errorf("while deleting manifest %q in repository %q: could not parse digest: %w",
+			digestStr, repoName, err)
+	}
+	repo, err := keppel.FindRepository(j.db, repoName, account.Name)
+	if err != nil {
+		return fmt.Errorf("while deleting manifest %q in repository %q: could not find repository in DB: %w",
+			digestStr, repoName, err)
+	}
+	tagPolicies, err := keppel.ParseTagPolicies(account.TagPoliciesJSON)
+	if err != nil {
+		return err
+	}
+	err = j.processor().DeleteManifest(ctx, accountReduced, *repo, parsedDigest, tagPolicies, actx)
+	if err != nil {
+		return fmt.Errorf("while deleting manifest %q in repository %q: %w",
+			digestStr, repoName, err)
+	}
+
+	return nil
+}
+
+func (j *Janitor) deleteMarkedRepository(ctx context.Context, bareRepo models.Repository, labels prometheus.Labels) (returnErr error) {
+	account, err := keppel.FindAccount(j.db, bareRepo.AccountName)
+	if errors.Is(err, sql.ErrNoRows) {
+		// assume the account got already deleted
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	repo, err := keppel.FindRepository(j.db, bareRepo.Name, bareRepo.AccountName)
+	if errors.Is(err, sql.ErrNoRows) {
+		// assume the repo got already deleted
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if returnErr != nil {
+			_, err = j.db.Exec(`UPDATE repos SET next_deletion_attempt_at = $1 WHERE name = $2`, j.timeNow().Add(10*time.Minute), repo.Name)
+			if err != nil {
+				logg.Error("additional error encountered while marking account's %q repo %q for deletion: %s", account.Name, repo.Name, err.Error())
+			}
+		}
+	}()
+
+	accountReduced := account.Reduced()
+
+	deletedManifestCount := 0
+	err = sqlext.ForeachRow(j.db, deleteAccountFindManifestsByRepoQuery, []any{account.Name, repo.Name}, func(rows *sql.Rows) error {
+		err := j.foreachRowDeleteManifest(ctx, account, accountReduced, rows)
+		if err != nil {
+			return err
+		}
+		deletedManifestCount++
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	// the section above could only delete manifests that are not referenced by others;
+	// if there is stuff left over, restart the loop
+	manifestCount, err := j.db.SelectInt(deleteAccountCountManifestsByRepoQuery, account.Name)
+	if err != nil {
+		return err
+	}
+	if manifestCount > 0 {
+		if deletedManifestCount > 0 {
+			return j.deleteMarkedRepository(ctx, bareRepo, labels)
+		} else {
+			return fmt.Errorf("cannot make progress on deleting account's %q repo %q: %d manifests remain, but none are ready to delete",
+				account.Name, repo.Name, manifestCount)
+		}
+	}
+
+	// delete all repos (and therefore, all blob mounts), so that blob sweeping can immediately take place
+	_, err = j.db.Exec(deleteAccountRepoByNameQuery, account.Name, repo.Name)
+	return err
+}
 
 func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.AccountName, labels prometheus.Labels) (returnErr error) {
 	account, err := keppel.FindAccount(j.db, accountName)
@@ -84,55 +229,23 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 		if returnErr != nil {
 			_, err = j.db.Exec(`UPDATE accounts SET next_deletion_attempt_at = $1 WHERE name = $2`, j.timeNow().Add(10*time.Minute), account.Name)
 			if err != nil {
-				logg.Error("additional error encountered while marking account %s for deletion: %s", account.Name, err.Error())
+				logg.Error("additional error encountered while marking account %q for deletion: %q", account.Name, err.Error())
 			}
 		}
 	}()
-
-	actx := keppel.AuditContext{
-		UserIdentity: janitorUserIdentity{TaskName: "account-deletion"},
-		Request:      janitorDummyRequest,
-	}
 
 	accountReduced := account.Reduced()
 
 	// can only delete account when all manifests from it are deleted
 	deletedManifestCount := 0
-	err = sqlext.ForeachRow(j.db, deleteAccountFindManifestsQuery, []any{account.Name},
-		func(rows *sql.Rows) error {
-			var (
-				repoName  string
-				digestStr string
-			)
-			err := rows.Scan(&repoName, &digestStr)
-			if err != nil {
-				return err
-			}
-
-			parsedDigest, err := digest.Parse(digestStr)
-			if err != nil {
-				return fmt.Errorf("while deleting manifest %q in repository %q: could not parse digest: %w",
-					digestStr, repoName, err)
-			}
-			repo, err := keppel.FindRepository(j.db, repoName, account.Name)
-			if err != nil {
-				return fmt.Errorf("while deleting manifest %q in repository %q: could not find repository in DB: %w",
-					digestStr, repoName, err)
-			}
-			tagPolicies, err := keppel.ParseTagPolicies(account.TagPoliciesJSON)
-			if err != nil {
-				return err
-			}
-			err = j.processor().DeleteManifest(ctx, accountReduced, *repo, parsedDigest, tagPolicies, actx)
-			if err != nil {
-				return fmt.Errorf("while deleting manifest %q in repository %q: %w",
-					digestStr, repoName, err)
-			}
-			deletedManifestCount++
-
-			return nil
-		},
-	)
+	err = sqlext.ForeachRow(j.db, deleteAccountFindManifestsQuery, []any{account.Name}, func(rows *sql.Rows) error {
+		err := j.foreachRowDeleteManifest(ctx, account, accountReduced, rows)
+		if err != nil {
+			return err
+		}
+		deletedManifestCount++
+		return nil
+	})
 	if err != nil {
 		return err
 	}

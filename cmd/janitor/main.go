@@ -58,6 +58,7 @@ func run(cmd *cobra.Command, args []string) {
 	go janitor.AccountFederationAnnouncementJob(nil).Run(ctx)
 	go janitor.AbandonedUploadCleanupJob(nil).Run(ctx)
 	go janitor.DeleteAccountsJob(nil).Run(ctx)
+	go janitor.DeleteRepositoryJob(nil).Run(ctx)
 	go janitor.EnforceManagedAccountsJob(nil).Run(ctx)
 	go janitor.ManifestGarbageCollectionJob(nil).Run(ctx)
 	go janitor.BlobMountSweepJob(nil).Run(ctx)
