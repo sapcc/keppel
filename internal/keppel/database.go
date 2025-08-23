@@ -427,6 +427,16 @@ var sqlMigrations = map[string]string{
 			ALTER COLUMN next_check_at SET NOT NULL,
 			DROP CONSTRAINT next_check_at_only_null_when_rotten;
 	`,
+	"054_add_repos_is_deleting.up.sql": `
+		ALTER TABLE repos
+			ADD COLUMN is_deleting BOOLEAN NOT NULL DEFAULT FALSE,
+			ADD COLUMN next_deletion_attempt_at TIMESTAMPTZ DEFAULT NULL;
+	`,
+	"054_add_repos_is_deleting.down.sql": `
+		ALTER TABLE repos
+			DROP COLUMN is_deleting,
+			DROP COLUMN next_deletion_attempt_at;
+	`,
 }
 
 // DB adds convenience functions on top of gorp.DbMap.
