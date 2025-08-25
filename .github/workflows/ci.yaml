@@ -37,6 +37,7 @@ jobs:
         run: make build-all
   code_coverage:
     name: Code coverage report
+    if: github.event_name == 'pull_request'
     needs:
       - test
     runs-on: ubuntu-latest
