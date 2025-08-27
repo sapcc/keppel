@@ -180,6 +180,7 @@ func TestReposAPI(t *testing.T) {
 		Path:         "/keppel/v1/accounts/test1/repositories/repo1-2",
 		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
 		ExpectStatus: http.StatusForbidden,
+		ExpectBody:   assert.StringData("no permission for repository:test1/repo1-2:delete\n"),
 	}.Check(t, h)
 	assert.HTTPRequest{
 		Method:       "DELETE",
@@ -193,6 +194,7 @@ func TestReposAPI(t *testing.T) {
 		Path:         "/keppel/v1/accounts/test1/repositories/doesnotexist",
 		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
 		ExpectStatus: http.StatusNotFound,
+		ExpectBody:   assert.StringData("repo not found\n"),
 	}.Check(t, h)
 
 	// test if tag policy prevents deletion
