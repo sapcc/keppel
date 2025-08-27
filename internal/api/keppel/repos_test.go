@@ -78,6 +78,7 @@ func TestReposAPI(t *testing.T) {
 			PushedAt:         manifestPushedAt,
 			NextValidationAt: manifestPushedAt.Add(models.ManifestValidationInterval),
 		})
+		test.MustDo(t, s.SD.WriteManifest(s.Ctx, models.ReducedAccount{Name: "test1"}, "repo1-3", dummyDigest, []byte("data")))
 		test.MustInsert(t, s.DB, &models.TrivySecurityInfo{
 			RepositoryID:        filledRepo.ID,
 			Digest:              dummyDigest,
@@ -166,16 +167,6 @@ func TestReposAPI(t *testing.T) {
 		ExpectBody:   assert.StringData("strconv.ParseUint: parsing \"foo\": invalid syntax\n"),
 	}.Check(t, h)
 
-	// test DELETE happy case
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/before-delete-repo.sql")
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1",
-		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
-		ExpectStatus: http.StatusNoContent,
-	}.Check(t, h)
-	easypg.AssertDBContent(t, s.DB.Db, "fixtures/after-delete-repo.sql")
-
 	// test DELETE failure cases
 	assert.HTTPRequest{
 		Method:       "DELETE",
@@ -203,11 +194,32 @@ func TestReposAPI(t *testing.T) {
 		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
 		ExpectStatus: http.StatusNotFound,
 	}.Check(t, h)
+
+	// test if tag policy prevents deletion
+	deletingTagPolicyJSON := `{"match_repository":".*","block_delete":true}`
+	test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $1`, "["+deletingTagPolicyJSON+"]")
 	assert.HTTPRequest{
 		Method:       "DELETE",
 		Path:         "/keppel/v1/accounts/test1/repositories/repo1-3",
 		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
 		ExpectStatus: http.StatusConflict,
-		ExpectBody:   assert.StringData("cannot delete repository while there are still manifests in it\n"),
+		ExpectBody:   assert.StringData("cannot delete manifest because it is protected by tag policy\n"),
 	}.Check(t, h)
+	test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = '[]'`)
+
+	// test DELETE happy case
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/before-delete-repo.sql")
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1",
+		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
+		ExpectStatus: http.StatusNoContent,
+	}.Check(t, h)
+	assert.HTTPRequest{
+		Method:       "DELETE",
+		Path:         "/keppel/v1/accounts/test1/repositories/repo1-3",
+		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
+		ExpectStatus: http.StatusNoContent,
+	}.Check(t, h)
+	easypg.AssertDBContent(t, s.DB.Db, "fixtures/after-delete-repo.sql")
 }

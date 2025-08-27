@@ -471,8 +471,7 @@ for the example response shown above. The last page of results will have `trunca
 
 Deletes the specified repository and all manifests in it. Returns 204 (No Content) on success.
 
-Returns 409 (Conflict) if the repository still contains manifests. All manifests in the repository must be deleted
-before the repository can be deleted.
+Returns 409 (Conflict) if the repository contains any protected tags.
 
 ## GET /keppel/v1/accounts/:name/repositories/:name/\_manifests
 
