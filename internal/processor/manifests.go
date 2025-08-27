@@ -871,7 +871,7 @@ type DeleteManifestBlockedByTagPolicyError struct {
 }
 
 func (e DeleteManifestBlockedByTagPolicyError) Error() string {
-	return "cannot delete manifest because it is protected by tag policy"
+	return fmt.Sprintf("cannot delete manifest because it is protected by tag policy (%s)", e.Policy.String())
 }
 
 // DeleteManifest deletes the given manifest from both the database and the

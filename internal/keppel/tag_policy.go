@@ -26,3 +26,11 @@ func ParseTagPolicies(tagPoliciesJSON string) ([]TagPolicy, error) {
 func (t TagPolicy) Validate() error {
 	return t.validate("tag policy")
 }
+
+func (t TagPolicy) String() string {
+	b, err := json.Marshal(t)
+	if err != nil {
+		return "<error>"
+	}
+	return string(b)
+}

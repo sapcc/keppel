@@ -205,7 +205,7 @@ func TestReposAPI(t *testing.T) {
 		Path:         "/keppel/v1/accounts/test1/repositories/repo1-3",
 		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
 		ExpectStatus: http.StatusConflict,
-		ExpectBody:   assert.StringData("cannot delete manifest because it is protected by tag policy\n"),
+		ExpectBody:   assert.StringData("cannot delete manifest because it is protected by tag policy ({\"match_repository\":\".*\",\"block_delete\":true})\n"),
 	}.Check(t, h)
 	test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = '[]'`)
 
