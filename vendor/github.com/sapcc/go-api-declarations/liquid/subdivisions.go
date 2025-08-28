@@ -5,6 +5,7 @@ package liquid
 
 import (
 	"encoding/json"
+	"slices"
 
 	. "github.com/majewsky/gg/option"
 )
@@ -39,6 +40,13 @@ type Subcapacity struct {
 	// This must be shaped like a map[string]any, but is typed as a raw JSON message.
 	// Limes does not touch these attributes and will just pass them on into its users without deserializing it at all.
 	Attributes json.RawMessage `json:"attributes,omitempty"`
+}
+
+// Clone returns a deep copy of the given Subcapacity.
+func (s Subcapacity) Clone() Subcapacity {
+	cloned := s
+	cloned.Attributes = slices.Clone(s.Attributes)
+	return cloned
 }
 
 // SubcapacityBuilder is a helper type for building Subcapacity values.
@@ -88,6 +96,13 @@ type Subresource struct {
 	// This must be shaped like a map[string]any, but is typed as a raw JSON message.
 	// Limes does not touch these attributes and will just pass them on into its users without deserializing it at all.
 	Attributes json.RawMessage `json:"attributes,omitempty"`
+}
+
+// Clone returns a deep copy of the given Subresource.
+func (s Subresource) Clone() Subresource {
+	cloned := s
+	cloned.Attributes = slices.Clone(s.Attributes)
+	return cloned
 }
 
 // SubresourceBuilder is a helper type for building Subresource values.

@@ -6,8 +6,11 @@ package liquid
 import (
 	"encoding/json"
 	"math/big"
+	"slices"
 
 	. "github.com/majewsky/gg/option"
+
+	"github.com/sapcc/go-api-declarations/internal/clone"
 )
 
 // ServiceUsageRequest is the request payload format for POST /v1/projects/:uuid/report-usage.
@@ -26,6 +29,14 @@ type ServiceUsageRequest struct {
 	// The serialized state from the previous ServiceUsageReport received by Limes for this project, if any.
 	// Refer to the same field on type ServiceUsageReport for details.
 	SerializedState json.RawMessage `json:"serializedState,omitempty"`
+}
+
+// Clone returns a deep copy of the given ServiceUsageRequest.
+func (r ServiceUsageRequest) Clone() ServiceUsageRequest {
+	cloned := r
+	cloned.AllAZs = slices.Clone(r.AllAZs)
+	cloned.SerializedState = slices.Clone(r.SerializedState)
+	return cloned
 }
 
 // ServiceUsageReport is the response payload format for POST /v1/projects/:uuid/report-usage.
@@ -54,6 +65,16 @@ type ServiceUsageReport struct {
 	SerializedState json.RawMessage `json:"serializedState,omitempty"`
 }
 
+// Clone returns a deep copy of the given ServiceUsageReport.
+func (r ServiceUsageReport) Clone() ServiceUsageReport {
+	cloned := r
+	cloned.Resources = clone.MapOfPointersRecursively(r.Resources)
+	cloned.Rates = clone.MapOfPointersRecursively(r.Rates)
+	cloned.Metrics = clone.MapOfSlicesRecursively(r.Metrics)
+	cloned.SerializedState = slices.Clone(r.SerializedState)
+	return cloned
+}
+
 // ResourceUsageReport contains usage data for a resource in a single project.
 // It appears in type ServiceUsageReport.
 type ResourceUsageReport struct {
@@ -72,6 +93,13 @@ type ResourceUsageReport struct {
 	//
 	// Tip: When filling this by starting from a non-AZ-aware usage number that is later broken down with AZ-aware data, use func PrepareForBreakdownInto.
 	PerAZ map[AvailabilityZone]*AZResourceUsageReport `json:"perAZ"`
+}
+
+// Clone returns a deep copy of the given ResourceUsageReport.
+func (r ResourceUsageReport) Clone() ResourceUsageReport {
+	cloned := r
+	cloned.PerAZ = clone.MapOfPointersRecursively(r.PerAZ)
+	return cloned
 }
 
 // AZResourceUsageReport contains usage data for a resource in a single project and AZ.
@@ -94,6 +122,13 @@ type AZResourceUsageReport struct {
 
 	// Only filled if the resource is able to report subresources for this usage in a useful way.
 	Subresources []Subresource `json:"subresources,omitempty"`
+}
+
+// Clone returns a deep copy of the given AZResourceUsageReport.
+func (r AZResourceUsageReport) Clone() AZResourceUsageReport {
+	cloned := r
+	cloned.Subresources = clone.SliceRecursively(r.Subresources)
+	return cloned
 }
 
 // PrepareForBreakdownInto is a convenience constructor for the PerAZ field of ResourceUsageReport.
@@ -141,6 +176,13 @@ type RateUsageReport struct {
 	PerAZ map[AvailabilityZone]*AZRateUsageReport `json:"perAZ"`
 }
 
+// Clone returns a deep copy of the given RateUsageReport.
+func (r RateUsageReport) Clone() RateUsageReport {
+	cloned := r
+	cloned.PerAZ = clone.MapOfPointersRecursively(r.PerAZ)
+	return cloned
+}
+
 // AZRateUsageReport contains usage data for a rate in a single project and AZ.
 // It appears in type RateUsageReport.
 type AZRateUsageReport struct {
@@ -153,4 +195,13 @@ type AZRateUsageReport struct {
 	//
 	// This field is modeled as a bigint because network rates like "bytes transferred" may easily exceed the range of uint64 over time.
 	Usage Option[*big.Int] `json:"usage,omitzero"`
+}
+
+// Clone returns a deep copy of the given AZRateUsageReport.
+func (r AZRateUsageReport) Clone() AZRateUsageReport {
+	cloned := r
+	if usage, ok := r.Usage.Unpack(); ok {
+		cloned.Usage = Some(big.NewInt(0).Set(usage))
+	}
+	return cloned
 }

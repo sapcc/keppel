@@ -3,6 +3,8 @@
 
 package liquid
 
+import "slices"
+
 // MetricName is the name of a metric family.
 // For more information, please refer to the "Metrics" section of the package documentation.
 type MetricName string
@@ -38,6 +40,13 @@ type MetricFamilyInfo struct {
 	LabelKeys []string `json:"labelKeys"`
 }
 
+// Clone returns a deep copy of the given MetricFamilyInfo.
+func (i MetricFamilyInfo) Clone() MetricFamilyInfo {
+	cloned := i
+	cloned.LabelKeys = slices.Clone(i.LabelKeys)
+	return cloned
+}
+
 // Metric is a metric.
 // This type appears in type ServiceCapacityReport.
 // For more information, please refer to the "Metrics" section of the package documentation.
@@ -51,4 +60,11 @@ type Metric struct {
 	// Each label value is implied to belong to the label key with the same slice index.
 	// For example, LabelKeys = ["name","location"] and LabelValues = ["author","work"] represents the label set {name="author",location="work"}.
 	LabelValues []string `json:"l"`
+}
+
+// Clone returns a deep copy of the given Metric.
+func (m Metric) Clone() Metric {
+	cloned := m
+	cloned.LabelValues = slices.Clone(m.LabelValues)
+	return cloned
 }

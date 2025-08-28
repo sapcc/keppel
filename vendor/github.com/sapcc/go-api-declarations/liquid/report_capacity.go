@@ -3,7 +3,13 @@
 
 package liquid
 
-import . "github.com/majewsky/gg/option"
+import (
+	"slices"
+
+	. "github.com/majewsky/gg/option"
+
+	"github.com/sapcc/go-api-declarations/internal/clone"
+)
 
 // ServiceCapacityRequest is the request payload format for POST /v1/report-capacity.
 type ServiceCapacityRequest struct {
@@ -18,6 +24,14 @@ type ServiceCapacityRequest struct {
 	DemandByResource map[ResourceName]ResourceDemand `json:"demandByResource"`
 }
 
+// Clone returns a deep copy of the given ServiceCapacityRequest.
+func (r ServiceCapacityRequest) Clone() ServiceCapacityRequest {
+	cloned := r
+	cloned.AllAZs = slices.Clone(r.AllAZs)
+	cloned.DemandByResource = clone.MapRecursively(r.DemandByResource)
+	return cloned
+}
+
 // ResourceDemand contains demand statistics for a resource.
 // It appears in type ServiceCapacityRequest.
 //
@@ -30,6 +44,13 @@ type ResourceDemand struct {
 	// The actual demand values are AZ-aware.
 	// The keys that can be expected in this map depend on the chosen Topology.
 	PerAZ map[AvailabilityZone]ResourceDemandInAZ `json:"perAZ"`
+}
+
+// Clone returns a deep copy of the given ResourceDemand.
+func (d ResourceDemand) Clone() ResourceDemand {
+	cloned := d
+	cloned.PerAZ = clone.MapRecursively(d.PerAZ)
+	return cloned
 }
 
 // ResourceDemandInAZ contains demand statistics for a resource in a single AZ.
@@ -48,6 +69,13 @@ type ResourceDemandInAZ struct {
 	PendingCommitments uint64 `json:"pendingCommitments"`
 }
 
+// Clone returns a deep copy of the given ResourceDemandInAZ.
+func (d ResourceDemandInAZ) Clone() ResourceDemandInAZ {
+	// this method is only offered for compatibility with future expansion;
+	// right now, all fields are copied by-value automatically
+	return d
+}
+
 // ServiceCapacityReport is the response payload format for POST /v1/report-capacity.
 type ServiceCapacityReport struct {
 	// The same version number that is reported in the Version field of a GET /v1/info response.
@@ -61,12 +89,27 @@ type ServiceCapacityReport struct {
 	Metrics map[MetricName][]Metric `json:"metrics,omitempty"`
 }
 
+// Clone returns a deep copy of the given ServiceCapacityReport.
+func (r ServiceCapacityReport) Clone() ServiceCapacityReport {
+	cloned := r
+	cloned.Resources = clone.MapOfPointersRecursively(r.Resources)
+	cloned.Metrics = clone.MapOfSlicesRecursively(r.Metrics)
+	return cloned
+}
+
 // ResourceCapacityReport contains capacity data for a resource.
 // It appears in type ServiceCapacityReport.
 type ResourceCapacityReport struct {
 	// The keys that are allowed in this map depend on the chosen Topology.
 	// See documentation on Topology enum variants for details.
 	PerAZ map[AvailabilityZone]*AZResourceCapacityReport `json:"perAZ"`
+}
+
+// Clone returns a deep copy of the given ResourceCapacityReport.
+func (r ResourceCapacityReport) Clone() ResourceCapacityReport {
+	cloned := r
+	cloned.PerAZ = clone.MapOfPointersRecursively(r.PerAZ)
+	return cloned
 }
 
 // AZResourceCapacityReport contains capacity data for a resource in a single AZ.
@@ -98,4 +141,11 @@ type AZResourceCapacityReport struct {
 
 	// Only filled if the resource is able to report subcapacities in a useful way.
 	Subcapacities []Subcapacity `json:"subcapacities,omitempty"`
+}
+
+// Clone returns a deep copy of the given AZResourceCapacityReport.
+func (r AZResourceCapacityReport) Clone() AZResourceCapacityReport {
+	cloned := r
+	cloned.Subcapacities = clone.SliceRecursively(r.Subcapacities)
+	return cloned
 }

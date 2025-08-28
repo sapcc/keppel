@@ -3,7 +3,11 @@
 
 package liquid
 
-import . "github.com/majewsky/gg/option"
+import (
+	. "github.com/majewsky/gg/option"
+
+	"github.com/sapcc/go-api-declarations/internal/clone"
+)
 
 // ServiceQuotaRequest is the request payload format for PUT /v1/projects/:uuid/quota.
 type ServiceQuotaRequest struct {
@@ -12,6 +16,13 @@ type ServiceQuotaRequest struct {
 	// Metadata about the project from Keystone.
 	// Only included if the ServiceInfo declared a need for it.
 	ProjectMetadata Option[ProjectMetadata] `json:"projectMetadata,omitzero"`
+}
+
+// Clone returns a deep copy of the given ServiceQuotaRequest.
+func (i ServiceQuotaRequest) Clone() ServiceQuotaRequest {
+	cloned := i
+	cloned.Resources = clone.MapRecursively(i.Resources)
+	return cloned
 }
 
 // ResourceQuotaRequest contains new quotas for a single resource.
@@ -25,6 +36,13 @@ type ResourceQuotaRequest struct {
 	PerAZ map[AvailabilityZone]AZResourceQuotaRequest `json:"perAZ,omitempty"`
 }
 
+// Clone returns a deep copy of the given ResourceQuotaRequest.
+func (i ResourceQuotaRequest) Clone() ResourceQuotaRequest {
+	cloned := i
+	cloned.PerAZ = clone.MapRecursively(i.PerAZ)
+	return cloned
+}
+
 // AZResourceQuotaRequest contains the new quota value for a single resource and AZ.
 // It appears in type ResourceQuotaRequest.
 type AZResourceQuotaRequest struct {
@@ -33,4 +51,11 @@ type AZResourceQuotaRequest struct {
 	// This struct looks superfluous (why not just have a bare uint64?), but in
 	// the event that more data needs to be added in the future, having this
 	// struct allows for that to be a backwards-compatible change.
+}
+
+// Clone returns a deep copy of the given AZResourceQuotaRequest.
+func (i AZResourceQuotaRequest) Clone() AZResourceQuotaRequest {
+	// this method is only offered for compatibility with future expansion;
+	// right now, all fields are copied by-value automatically
+	return i
 }

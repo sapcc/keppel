@@ -3,7 +3,12 @@
 
 package liquid
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"slices"
+
+	"github.com/sapcc/go-api-declarations/internal/clone"
+)
 
 // ServiceInfo is the response payload format for GET /v1/info.
 type ServiceInfo struct {
@@ -42,6 +47,16 @@ type ServiceInfo struct {
 	CommitmentHandlingNeedsProjectMetadata bool `json:"commitmentHandlingNeedsProjectMetadata,omitempty"`
 }
 
+// Clone returns a deep copy of the given ServiceInfo.
+func (i ServiceInfo) Clone() ServiceInfo {
+	cloned := i
+	cloned.Resources = clone.MapRecursively(i.Resources)
+	cloned.Rates = clone.MapRecursively(i.Rates)
+	cloned.CapacityMetricFamilies = clone.MapRecursively(i.CapacityMetricFamilies)
+	cloned.UsageMetricFamilies = clone.MapRecursively(i.UsageMetricFamilies)
+	return cloned
+}
+
 // ResourceInfo describes a resource that a liquid's service provides.
 // This type appears in type ServiceInfo.
 type ResourceInfo struct {
@@ -75,6 +90,13 @@ type ResourceInfo struct {
 	// This must be shaped like a map[string]any, but is typed as a raw JSON message.
 	// Limes does not touch these attributes and will just pass them on into its users without deserializing it at all.
 	Attributes json.RawMessage `json:"attributes,omitempty"`
+}
+
+// Clone returns a deep copy of the given ResourceInfo.
+func (i ResourceInfo) Clone() ResourceInfo {
+	cloned := i
+	cloned.Attributes = slices.Clone(i.Attributes)
+	return cloned
 }
 
 // Topology describes how capacity and usage reported by a certain resource is structured.
@@ -146,6 +168,13 @@ type RateInfo struct {
 	// This must currently be true because there is no other reason for a rate to exist.
 	// This requirement may be relaxed in the future, if LIQUID starts modelling rate limits and there are rates that have limits, but no usage tracking.
 	HasUsage bool `json:"hasUsage"`
+}
+
+// Clone returns a deep copy of the given RateInfo.
+func (i RateInfo) Clone() RateInfo {
+	// this method is only offered for compatibility with future expansion;
+	// right now, all fields are copied by-value automatically
+	return i
 }
 
 // ProjectMetadata includes metadata about a project from Keystone.

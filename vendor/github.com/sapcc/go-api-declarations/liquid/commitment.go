@@ -7,6 +7,8 @@ import (
 	"time"
 
 	. "github.com/majewsky/gg/option"
+
+	"github.com/sapcc/go-api-declarations/internal/clone"
 )
 
 // CommitmentChangeRequest is the request payload format for POST /v1/change-commitments.
@@ -30,6 +32,13 @@ type CommitmentChangeRequest struct {
 	ByProject map[ProjectUUID]ProjectCommitmentChangeset `json:"byProject"`
 }
 
+// Clone returns a deep copy of the given CommitmentChangeRequest.
+func (r CommitmentChangeRequest) Clone() CommitmentChangeRequest {
+	cloned := r
+	cloned.ByProject = clone.MapRecursively(r.ByProject)
+	return cloned
+}
+
 // CommitmentChangeResponse is the response payload format for POST /v1/change-commitments.
 type CommitmentChangeResponse struct {
 	// If req.RequiresConfirmation() was true, this field shall be empty if the changeset is confirmed, or contain a human-readable error message if the changeset was rejected.
@@ -46,6 +55,13 @@ type CommitmentChangeResponse struct {
 	RetryAt Option[time.Time] `json:"retryAt,omitzero"`
 }
 
+// Clone returns a deep copy of the given CommitmentChangeResponse.
+func (r CommitmentChangeResponse) Clone() CommitmentChangeResponse {
+	// this method is only offered for compatibility with future expansion;
+	// right now, all fields are copied by-value automatically
+	return r
+}
+
 // ProjectCommitmentChangeset appears in type CommitmentChangeRequest.
 // It contains all commitments that are part of a single atomic changeset that belong to a specific project in a specific AZ.
 type ProjectCommitmentChangeset struct {
@@ -58,6 +74,13 @@ type ProjectCommitmentChangeset struct {
 	// Changesets may span over multiple resources when converting commitments for one resource into commitments for another resource.
 	// In this case, the changeset will show the original commitment being deleted in one resource, and a new commitment being created in another.
 	ByResource map[ResourceName]ResourceCommitmentChangeset `json:"byResource"`
+}
+
+// Clone returns a deep copy of the given ProjectCommitmentChangeset.
+func (c ProjectCommitmentChangeset) Clone() ProjectCommitmentChangeset {
+	cloned := c
+	cloned.ByResource = clone.MapRecursively(c.ByResource)
+	return cloned
 }
 
 // ResourceCommitmentChangeset appears in type CommitmentChangeRequest.
@@ -79,6 +102,13 @@ type ResourceCommitmentChangeset struct {
 	// A commitment changeset may contain multiple commitments for a single resource within the same project.
 	// For example, when a commitment is split into two parts, the changeset will show the original commitment being deleted and two new commitments being created.
 	Commitments []Commitment `json:"commitments"`
+}
+
+// Clone returns a deep copy of the given ResourceCommitmentChangeset.
+func (c ResourceCommitmentChangeset) Clone() ResourceCommitmentChangeset {
+	cloned := c
+	cloned.Commitments = clone.SliceRecursively(c.Commitments)
+	return cloned
 }
 
 // Commitment appears in type CommitmentChangeRequest.
@@ -112,6 +142,13 @@ type Commitment struct {
 	// OldExpiresAt is set when the expiration date of an existing commitment is changed. Depending on its status
 	// RequiresConfirmation() will evaulate to different results.
 	OldExpiresAt Option[time.Time] `json:"oldExpiresAt,omitzero"`
+}
+
+// Clone returns a deep copy of the given Commitment.
+func (c Commitment) Clone() Commitment {
+	// this method is only offered for compatibility with future expansion;
+	// right now, all fields are copied by-value automatically
+	return c
 }
 
 // CommitmentStatus is an enum containing the various lifecycle states of type Commitment.
