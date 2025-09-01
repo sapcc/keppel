@@ -6,10 +6,12 @@ package keppelv1_test
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	. "github.com/majewsky/gg/option"
+	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 
@@ -19,7 +21,7 @@ import (
 )
 
 func TestReposAPI(t *testing.T) {
-	s := test.NewSetup(t, test.WithKeppelAPI,
+	s := test.NewSetup(t, test.WithKeppelAPI, test.WithQuotas,
 		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
 		test.WithAccount(models.Account{Name: "test2", AuthTenantID: "tenant2"}))
 	h := s.Handler
@@ -67,7 +69,7 @@ func TestReposAPI(t *testing.T) {
 
 	// insert some dummy manifests and tags into one of the repos to check the
 	// manifest/tag counting
-	for idx := 1; idx <= 10; idx++ {
+	for idx := 1; idx <= 9; idx++ {
 		dummyDigest := test.DeterministicDummyDigest(idx)
 		manifestPushedAt := time.Unix(int64(10000+10*idx), 0)
 		test.MustInsert(t, s.DB, &models.Manifest{
@@ -95,11 +97,19 @@ func TestReposAPI(t *testing.T) {
 		}
 	}
 
+	// also have a SubjectDigest to test with
+	subjectDigest := test.DeterministicDummyDigest(9)
+	subjectManifest := test.GenerateOCIImage(test.OCIArgs{
+		ConfigMediaType: imgspecv1.MediaTypeImageManifest,
+		SubjectDigest:   subjectDigest,
+	})
+	subjectManifest.MustUpload(t, s, models.Repository{AccountName: "test1", Name: "repo1-3"}, strings.ReplaceAll(subjectDigest.String(), ":", "-"))
+
 	// test GET without pagination
 	renderedRepos := []assert.JSONObject{
 		{"name": "repo1-1", "manifest_count": 0, "tag_count": 0},
 		{"name": "repo1-2", "manifest_count": 0, "tag_count": 0},
-		{"name": "repo1-3", "manifest_count": 10, "tag_count": 3, "size_bytes": 110000, "pushed_at": 20030},
+		{"name": "repo1-3", "manifest_count": 10, "tag_count": 4, "size_bytes": 110004, "pushed_at": 20030},
 		{"name": "repo1-4", "manifest_count": 0, "tag_count": 0},
 		{"name": "repo1-5", "manifest_count": 0, "tag_count": 0},
 	}
