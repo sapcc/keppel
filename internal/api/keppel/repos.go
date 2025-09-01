@@ -5,14 +5,18 @@ package keppelv1
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
+	"github.com/sapcc/keppel/internal/processor"
 )
 
 // Repository represents a repository in the API.
@@ -164,18 +168,29 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 	}
 	defer sqlext.RollbackUnlessCommitted(tx)
 
-	// deleting a repo is only allowed if there is nothing in it
-	manifestCount, err := tx.SelectInt(
-		`SELECT COUNT(*) FROM manifests WHERE repo_id = $1`,
-		repo.ID,
-	)
+	// abort early if any tag is protected
+	tagPolicies, err := keppel.ParseTagPolicies(account.TagPoliciesJSON)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
-	if manifestCount > 0 {
-		msg := "cannot delete repository while there are still manifests in it"
-		http.Error(w, msg, http.StatusConflict)
+
+	var (
+		tagResults []models.Tag
+		tags       []string
+	)
+	_, err = a.db.Select(&tagResults, `SELECT * FROM tags WHERE repo_id = $1`, repo.ID)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
+	}
+	for _, tagResult := range tagResults {
+		tags = append(tags, tagResult.Name)
+	}
+
+	for _, tagPolicy := range tagPolicies {
+		if tagPolicy.BlockDelete && tagPolicy.MatchesRepository(repo.Name) && tagPolicy.MatchesTags(tags) {
+			http.Error(w, processor.DeleteManifestBlockedByTagPolicyError{Policy: tagPolicy}.Error(), http.StatusConflict)
+			return
+		}
 	}
 
 	uploadCount, err := tx.SelectInt(`SELECT COUNT(*) FROM uploads WHERE repo_id = $1`, repo.ID)
@@ -190,6 +205,34 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 	// ^ NOTE: It's not a problem if there are blob_mounts in this repo. When the
 	// repo is deleted, its blob mounts will be deleted as well, and the janitor
 	// will then clean up any blobs without any remaining mounts.
+
+	err = sqlext.ForeachRow(a.db, `SELECT digest FROM manifests WHERE repo_id = $1`, []any{repo.ID},
+		func(rows *sql.Rows) error {
+			var digestStr string
+			err := rows.Scan(&digestStr)
+			if err != nil {
+				return err
+			}
+
+			parsedDigest, err := digest.Parse(digestStr)
+			if err != nil {
+				return fmt.Errorf("while deleting manifest %q in repository %q: could not parse digest: %w", digestStr, repo.Name, err)
+			}
+
+			err = a.processor().DeleteManifest(r.Context(), account.Reduced(), *repo, parsedDigest, tagPolicies, keppel.AuditContext{
+				UserIdentity: authz.UserIdentity,
+				Request:      r,
+			})
+			if err != nil {
+				return fmt.Errorf("while deleting manifest %q in repository %q: %w", digestStr, repo.Name, err)
+			}
+
+			return nil
+		},
+	)
+	if respondwith.ObfuscatedErrorText(w, err) {
+		return
+	}
 
 	_, err = tx.Delete(repo)
 	if err == nil {

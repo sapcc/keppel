@@ -20,14 +20,14 @@ import (
 	"github.com/sapcc/keppel/internal/models"
 )
 
-// EnforceManagedAccounts is a job. Each task creates newly discovered accounts from the driver.
+// DeleteAccountsJob is a job. Each task tries to delete an account marked for deletion.
 func (j *Janitor) DeleteAccountsJob(registerer prometheus.Registerer) jobloop.Job {
 	return (&jobloop.ProducerConsumerJob[models.AccountName]{
 		Metadata: jobloop.JobMetadata{
 			ReadableName: "delete accounts marked for deletion",
 			CounterOpts: prometheus.CounterOpts{
 				Name: "keppel_account_deletions",
-				Help: "Counter for attempts to cleanup a deleted account..",
+				Help: "Counter for attempts to cleanup a deleted account.",
 			},
 		},
 		DiscoverTask: j.discoverAccountForDeletion,
@@ -84,7 +84,7 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 		if returnErr != nil {
 			_, err = j.db.Exec(`UPDATE accounts SET next_deletion_attempt_at = $1 WHERE name = $2`, j.timeNow().Add(10*time.Minute), account.Name)
 			if err != nil {
-				logg.Error("additional error encountered while marking account %s for deletion: %s", account.Name, err.Error())
+				logg.Error("additional error encountered while marking account %q for deletion: %s", account.Name, err.Error())
 			}
 		}
 	}()
@@ -125,8 +125,7 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 			}
 			err = j.processor().DeleteManifest(ctx, accountReduced, *repo, parsedDigest, tagPolicies, actx)
 			if err != nil {
-				return fmt.Errorf("while deleting manifest %q in repository %q: %w",
-					digestStr, repoName, err)
+				return fmt.Errorf("while deleting manifest %q in repository %q: %w", digestStr, repoName, err)
 			}
 			deletedManifestCount++
 
