@@ -27,7 +27,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           check-latest: true
-          go-version: "1.24"
+          go-version: "1.25"
       - name: Start keppel
         run: |
           sudo apt-get update
