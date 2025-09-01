@@ -121,7 +121,8 @@ run-shellcheck: FORCE install-shellcheck
 
 build/cover.out: FORCE | build
 	@printf "\e[1;36m>> Running tests\e[0m\n"
-	@env $(GO_TESTENV) go test -shuffle=on -p 1 -coverprofile=$@ $(GO_BUILDFLAGS) -ldflags '-s -w -X github.com/sapcc/go-api-declarations/bininfo.binName=keppel -X github.com/sapcc/go-api-declarations/bininfo.version=$(BININFO_VERSION) -X github.com/sapcc/go-api-declarations/bininfo.commit=$(BININFO_COMMIT_HASH) -X github.com/sapcc/go-api-declarations/bininfo.buildDate=$(BININFO_BUILD_DATE) $(GO_LDFLAGS)' -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
+	@env $(GO_TESTENV) go test -shuffle=on -p 1 -coverprofile=build/coverprofile.out $(GO_BUILDFLAGS) -ldflags '-s -w -X github.com/sapcc/go-api-declarations/bininfo.binName=keppel -X github.com/sapcc/go-api-declarations/bininfo.version=$(BININFO_VERSION) -X github.com/sapcc/go-api-declarations/bininfo.commit=$(BININFO_COMMIT_HASH) -X github.com/sapcc/go-api-declarations/bininfo.buildDate=$(BININFO_BUILD_DATE) $(GO_LDFLAGS)' -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
+	@awk < build/coverprofile.out '$$1 != "mode:" { is_filename[$$1] = true; counts1[$$1]+=$$2; counts2[$$1]+=$$3 } END { for (filename in is_filename) { printf "%s %d %d\n", filename, counts1[filename], counts2[filename]; } }' | sort | $(SED) '1s/^/mode: count\n/' > $@
 
 build/cover.html: build/cover.out
 	@printf "\e[1;36m>> go tool cover > build/cover.html\e[0m\n"
