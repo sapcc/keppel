@@ -4,6 +4,8 @@ INSERT INTO accounts (name, auth_tenant_id) VALUES ('test2', 'tenant2');
 INSERT INTO blob_mounts (blob_id, repo_id) VALUES (1, 5);
 INSERT INTO blob_mounts (blob_id, repo_id) VALUES (10, 5);
 INSERT INTO blob_mounts (blob_id, repo_id) VALUES (11, 5);
+INSERT INTO blob_mounts (blob_id, repo_id) VALUES (12, 5);
+INSERT INTO blob_mounts (blob_id, repo_id) VALUES (13, 5);
 INSERT INTO blob_mounts (blob_id, repo_id) VALUES (2, 5);
 INSERT INTO blob_mounts (blob_id, repo_id) VALUES (3, 5);
 INSERT INTO blob_mounts (blob_id, repo_id) VALUES (4, 5);
@@ -16,6 +18,8 @@ INSERT INTO blob_mounts (blob_id, repo_id) VALUES (9, 5);
 INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, next_validation_at) VALUES (1, 'test1', 'sha256:0f8191f0b7f4d878acd87097ff96e338a21a5420343221d60a135de41c721782', 2000, '', 1010, 605810);
 INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, next_validation_at) VALUES (10, 'test1', 'sha256:99d139f8e68d538eaea0dd594c42503631e46a90296431b43f09fd122df37094', 20000, '', 1100, 605900);
 INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, media_type, next_validation_at) VALUES (11, 'test1', 'sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b', 4, '6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b', 0, 'application/vnd.oci.image.manifest.v1+json', 604800);
+INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, media_type, next_validation_at) VALUES (12, 'test1', 'sha256:e71747696f20d12278c13f4311e127db96d886b091e6f1d01b0415ce598c94a3', 1048919, 'd4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35', 0, 'application/vnd.docker.image.rootfs.diff.tar.gzip', 604800);
+INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, media_type, next_validation_at) VALUES (13, 'test1', 'sha256:0b2558e2d9ae6720adbbe3b605c19217e5d1e6e74d540d4627e498f8a9988168', 1257, '4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce', 0, 'application/vnd.docker.container.image.v1+json', 604800);
 INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, next_validation_at) VALUES (2, 'test1', 'sha256:648f958255f6c400e6d202c510234b53558d0739b556912ae7f9c6dbcbb68e92', 4000, '', 1020, 605820);
 INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, next_validation_at) VALUES (3, 'test1', 'sha256:cd6a25c2ca3f53fdbbb4beb357ec3b82ec0b4a2abb5eacb93bdc0d2ddc21aa10', 6000, '', 1030, 605830);
 INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, next_validation_at) VALUES (4, 'test1', 'sha256:576d7e58c644f5640145f49d26e81d485a903b0c571b948b1288415447b5a9f7', 8000, '', 1040, 605840);
@@ -26,10 +30,16 @@ INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, 
 INSERT INTO blobs (id, account_name, digest, size_bytes, storage_id, pushed_at, next_validation_at) VALUES (9, 'test1', 'sha256:ae77c2ac9b830873195a42fd24c0001b2906da9e25a429dde9a67b6f8611d1ec', 18000, '', 1090, 605890);
 
 INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (5, 'sha256:846dc180d9b05c084ba40cfcbf833c055041f2a48d6ef2e5e9b73baf590fea03', 11);
+INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (5, 'sha256:a1e9009ae84682acdf0e93957db7675eabfbf2846a841122c0bbc4d3d54b31cf', 12);
+INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (5, 'sha256:a1e9009ae84682acdf0e93957db7675eabfbf2846a841122c0bbc4d3d54b31cf', 13);
 
+INSERT INTO manifest_contents (repo_id, digest, content) VALUES (5, 'sha256:02999eb4b2aa16094c7081c9f71a5dc728a7e4de598a8e314ecce42b96d12f01', '{"manifests":[{"digest":"sha256:a1e9009ae84682acdf0e93957db7675eabfbf2846a841122c0bbc4d3d54b31cf","mediaType":"application/vnd.docker.distribution.manifest.v2+json","platform":{"architecture":"amd64","os":"linux"},"size":428}],"mediaType":"application/vnd.docker.distribution.manifest.list.v2+json","schemaVersion":2}');
 INSERT INTO manifest_contents (repo_id, digest, content) VALUES (5, 'sha256:846dc180d9b05c084ba40cfcbf833c055041f2a48d6ef2e5e9b73baf590fea03', '{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","config":{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b","size":4},"layers":[],"subject":{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:040a5a009f9b9d5e4771742174142e74fa2d3e0aaa3df5717f01ade338d75d0e","size":0}}');
+INSERT INTO manifest_contents (repo_id, digest, content) VALUES (5, 'sha256:a1e9009ae84682acdf0e93957db7675eabfbf2846a841122c0bbc4d3d54b31cf', '{"config":{"digest":"sha256:0b2558e2d9ae6720adbbe3b605c19217e5d1e6e74d540d4627e498f8a9988168","mediaType":"application/vnd.docker.container.image.v1+json","size":1257},"layers":[{"digest":"sha256:e71747696f20d12278c13f4311e127db96d886b091e6f1d01b0415ce598c94a3","mediaType":"application/vnd.docker.image.rootfs.diff.tar.gzip","size":1048919}],"mediaType":"application/vnd.docker.distribution.manifest.v2+json","schemaVersion":2}');
 
-INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, next_validation_at) VALUES (5, 'sha256:040a5a009f9b9d5e4771742174142e74fa2d3e0aaa3df5717f01ade338d75d0e', '', 9000, 10090, 96490);
+INSERT INTO manifest_manifest_refs (repo_id, parent_digest, child_digest) VALUES (5, 'sha256:02999eb4b2aa16094c7081c9f71a5dc728a7e4de598a8e314ecce42b96d12f01', 'sha256:a1e9009ae84682acdf0e93957db7675eabfbf2846a841122c0bbc4d3d54b31cf');
+
+INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, next_validation_at) VALUES (5, 'sha256:02999eb4b2aa16094c7081c9f71a5dc728a7e4de598a8e314ecce42b96d12f01', 'application/vnd.docker.distribution.manifest.list.v2+json', 1050921, 0, 86400);
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, next_validation_at) VALUES (5, 'sha256:04abc8821a06e5a30937967d11ad10221cb5ac3b5273e434f1284ee87129a061', '', 8000, 10080, 96480);
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, next_validation_at) VALUES (5, 'sha256:27ecd0a598e76f8a2fd264d427df0a119903e8eae384e478902541756f089dd1', '', 4000, 10040, 96440);
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, next_validation_at) VALUES (5, 'sha256:377a23f52c6b357696238c3318f677a082dd3430bb6691042bd550a5cda28ebb', '', 5000, 10050, 96450);
@@ -37,6 +47,7 @@ INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, next_
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, next_validation_at) VALUES (5, 'sha256:75c8fd04ad916aec3e3d5cb76a452b116b3d4d0912a0a485e9fb8e3d240e210c', '', 3000, 10030, 96430);
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, next_validation_at, artifact_type, subject_digest) VALUES (5, 'sha256:846dc180d9b05c084ba40cfcbf833c055041f2a48d6ef2e5e9b73baf590fea03', 'application/vnd.oci.image.manifest.v1+json', 413, 0, 86400, 'application/vnd.oci.image.manifest.v1+json', 'sha256:040a5a009f9b9d5e4771742174142e74fa2d3e0aaa3df5717f01ade338d75d0e');
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, next_validation_at) VALUES (5, 'sha256:9dcf97a184f32623d11a73124ceb99a5709b083721e878a16d78f596718ba7b2', '', 2000, 10020, 96420);
+INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, next_validation_at) VALUES (5, 'sha256:a1e9009ae84682acdf0e93957db7675eabfbf2846a841122c0bbc4d3d54b31cf', 'application/vnd.docker.distribution.manifest.v2+json', 1050604, 0, 86400);
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, next_validation_at) VALUES (5, 'sha256:c36336f242c655c52fa06c4d03f665ca9ea0bb84f20f1b1f90976aa58ca40a4a', '', 7000, 10070, 96470);
 INSERT INTO manifests (repo_id, digest, media_type, size_bytes, pushed_at, next_validation_at) VALUES (5, 'sha256:dfea2964b5deedea7b1ef077de529c3959e6788bdbb3441e70c77a1ae875bb48', '', 6000, 10060, 96460);
 
@@ -59,7 +70,7 @@ INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (5, 'tag1', 'sha256:4
 INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (5, 'tag2', 'sha256:9dcf97a184f32623d11a73124ceb99a5709b083721e878a16d78f596718ba7b2', 20020);
 INSERT INTO tags (repo_id, name, digest, pushed_at) VALUES (5, 'tag3', 'sha256:75c8fd04ad916aec3e3d5cb76a452b116b3d4d0912a0a485e9fb8e3d240e210c', 20030);
 
-INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (5, 'sha256:040a5a009f9b9d5e4771742174142e74fa2d3e0aaa3df5717f01ade338d75d0e', 'Pending', '', 0);
+INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (5, 'sha256:02999eb4b2aa16094c7081c9f71a5dc728a7e4de598a8e314ecce42b96d12f01', 'Pending', '', 0);
 INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (5, 'sha256:04abc8821a06e5a30937967d11ad10221cb5ac3b5273e434f1284ee87129a061', 'Pending', '', 0);
 INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (5, 'sha256:27ecd0a598e76f8a2fd264d427df0a119903e8eae384e478902541756f089dd1', 'Pending', '', 0);
 INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (5, 'sha256:377a23f52c6b357696238c3318f677a082dd3430bb6691042bd550a5cda28ebb', 'Pending', '', 0);
@@ -67,5 +78,6 @@ INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_che
 INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (5, 'sha256:75c8fd04ad916aec3e3d5cb76a452b116b3d4d0912a0a485e9fb8e3d240e210c', 'Pending', '', 0);
 INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (5, 'sha256:846dc180d9b05c084ba40cfcbf833c055041f2a48d6ef2e5e9b73baf590fea03', 'Pending', '', 0);
 INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (5, 'sha256:9dcf97a184f32623d11a73124ceb99a5709b083721e878a16d78f596718ba7b2', 'Pending', '', 0);
+INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (5, 'sha256:a1e9009ae84682acdf0e93957db7675eabfbf2846a841122c0bbc4d3d54b31cf', 'Pending', '', 0);
 INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (5, 'sha256:c36336f242c655c52fa06c4d03f665ca9ea0bb84f20f1b1f90976aa58ca40a4a', 'Pending', '', 0);
 INSERT INTO trivy_security_info (repo_id, digest, vuln_status, message, next_check_at) VALUES (5, 'sha256:dfea2964b5deedea7b1ef077de529c3959e6788bdbb3441e70c77a1ae875bb48', 'Pending', '', 0);
