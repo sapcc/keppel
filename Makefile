@@ -64,10 +64,11 @@ install-reuse: FORCE
 
 prepare-static-check: FORCE install-golangci-lint install-modernize install-shellcheck install-go-licence-detector install-addlicense install-reuse
 
-GO_BUILDFLAGS = -mod vendor
-GO_LDFLAGS =
-GO_TESTENV =
-GO_BUILDENV =
+GO_BUILDFLAGS := -mod vendor $(GO_BUILDFLAGS)
+GO_LDFLAGS := $(GO_LDFLAGS)
+GO_TESTFLAGS := $(GO_TESTFLAGS)
+GO_TESTENV := $(GO_TESTENV)
+GO_BUILDENV := $(GO_BUILDENV)
 
 # These definitions are overridable, e.g. to provide fixed version/commit values when
 # no .git directory is present or to provide a fixed build date for reproducibility.
@@ -121,7 +122,7 @@ run-shellcheck: FORCE install-shellcheck
 
 build/cover.out: FORCE | build
 	@printf "\e[1;36m>> Running tests\e[0m\n"
-	@env $(GO_TESTENV) go test -shuffle=on -p 1 -coverprofile=build/coverprofile.out $(GO_BUILDFLAGS) -ldflags '-s -w -X github.com/sapcc/go-api-declarations/bininfo.binName=keppel -X github.com/sapcc/go-api-declarations/bininfo.version=$(BININFO_VERSION) -X github.com/sapcc/go-api-declarations/bininfo.commit=$(BININFO_COMMIT_HASH) -X github.com/sapcc/go-api-declarations/bininfo.buildDate=$(BININFO_BUILD_DATE) $(GO_LDFLAGS)' -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTPKGS)
+	@env $(GO_TESTENV) go test -shuffle=on -p 1 -coverprofile=build/coverprofile.out $(GO_BUILDFLAGS) -ldflags '-s -w -X github.com/sapcc/go-api-declarations/bininfo.binName=keppel -X github.com/sapcc/go-api-declarations/bininfo.version=$(BININFO_VERSION) -X github.com/sapcc/go-api-declarations/bininfo.commit=$(BININFO_COMMIT_HASH) -X github.com/sapcc/go-api-declarations/bininfo.buildDate=$(BININFO_BUILD_DATE) $(GO_LDFLAGS)' -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTFLAGS) $(GO_TESTPKGS)
 	@awk < build/coverprofile.out '$$1 != "mode:" { is_filename[$$1] = true; counts1[$$1]+=$$2; counts2[$$1]+=$$3 } END { for (filename in is_filename) { printf "%s %d %d\n", filename, counts1[filename], counts2[filename]; } }' | sort | $(SED) '1s/^/mode: count\n/' > $@
 
 build/cover.html: build/cover.out
@@ -190,6 +191,7 @@ vars: FORCE
 	@printf "GO_COVERPKGS=$(GO_COVERPKGS)\n"
 	@printf "GO_LDFLAGS=$(GO_LDFLAGS)\n"
 	@printf "GO_TESTENV=$(GO_TESTENV)\n"
+	@printf "GO_TESTFLAGS=$(GO_TESTFLAGS)\n"
 	@printf "GO_TESTPKGS=$(GO_TESTPKGS)\n"
 	@printf "MAKE=$(MAKE)\n"
 	@printf "PREFIX=$(PREFIX)\n"

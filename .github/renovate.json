@@ -23,10 +23,13 @@
   "packageRules": [
     {
       "matchPackageNames": [
-        "go",
-        "golang"
+        "/.*/"
       ],
-      "allowedVersions": "1.24.x"
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "External dependencies"
     },
     {
       "matchPackageNames": [
@@ -37,14 +40,24 @@
     },
     {
       "matchPackageNames": [
-        "!/^github\\.com\\/sapcc\\/.*/",
-        "/.*/"
+        "go",
+        "golang",
+        "actions/go-versions"
+      ],
+      "groupName": "golang",
+      "separateMinorPatch": true
+    },
+    {
+      "matchPackageNames": [
+        "go",
+        "golang",
+        "actions/go-versions"
       ],
       "matchUpdateTypes": [
         "minor",
-        "patch"
+        "major"
       ],
-      "groupName": "External dependencies"
+      "dependencyDashboardApproval": true
     },
     {
       "matchDepTypes": [
