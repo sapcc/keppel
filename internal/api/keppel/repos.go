@@ -14,6 +14,7 @@ import (
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
 
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/processor"
@@ -147,6 +148,69 @@ func maxTimeToUnix(x, y *time.Time) int64 {
 	return val
 }
 
+var (
+	deleteRepositoryFindManifestsQuery = sqlext.SimplifyWhitespace(`
+		SELECT m.digest
+			FROM manifests m
+			LEFT OUTER JOIN manifest_manifest_refs mmr ON mmr.repo_id = m.repo_id AND m.digest = mmr.child_digest
+		WHERE m.repo_id = $1 AND parent_digest IS NULL
+	`)
+	deleteRepositoryCountManifestsQuery = sqlext.SimplifyWhitespace(`
+		SELECT COUNT(m.digest)
+			FROM manifests m
+		WHERE m.repo_id = $1
+	`)
+)
+
+func (a *API) deleteAllManifestsInRepository(r *http.Request, authz *auth.Authorization, repo *models.Repository, account models.ReducedAccount, tagPolicies []keppel.TagPolicy) error {
+	// can only delete repository when first deleting all manifests which reference others
+	deletedManifestCount := 0
+	err := sqlext.ForeachRow(a.db, deleteRepositoryFindManifestsQuery, []any{repo.ID},
+		func(rows *sql.Rows) error {
+			var digestStr string
+			err := rows.Scan(&digestStr)
+			if err != nil {
+				return err
+			}
+
+			parsedDigest, err := digest.Parse(digestStr)
+			if err != nil {
+				return fmt.Errorf("while deleting manifest %q in repository %q: could not parse digest: %w", digestStr, repo.Name, err)
+			}
+
+			err = a.processor().DeleteManifest(r.Context(), account, *repo, parsedDigest, tagPolicies, keppel.AuditContext{
+				UserIdentity: authz.UserIdentity,
+				Request:      r,
+			})
+			if err != nil {
+				return fmt.Errorf("while deleting manifest %q in repository %q: %w", digestStr, repo.Name, err)
+			}
+			deletedManifestCount++
+
+			return nil
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	// the section above could only delete manifests that are not referenced by others;
+	// if there is stuff left over, restart the loop
+	manifestCount, err := a.db.SelectInt(deleteRepositoryCountManifestsQuery, repo.ID)
+	if err != nil {
+		return err
+	}
+	if manifestCount > 0 {
+		if deletedManifestCount > 0 {
+			return a.deleteAllManifestsInRepository(r, authz, repo, account, tagPolicies)
+		} else {
+			return fmt.Errorf("cannot make progress on deleting repository %q: %d manifests remain, but none are ready to delete", account.Name, manifestCount)
+		}
+	}
+
+	return nil
+}
+
 func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/keppel/v1/accounts/:account/repositories/:repo")
 	authz := a.authenticateRequest(w, r, repoScopeFromRequest(r, keppel.CanDeleteFromAccount))
@@ -206,30 +270,7 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 	// repo is deleted, its blob mounts will be deleted as well, and the janitor
 	// will then clean up any blobs without any remaining mounts.
 
-	err = sqlext.ForeachRow(a.db, `SELECT digest FROM manifests WHERE repo_id = $1`, []any{repo.ID},
-		func(rows *sql.Rows) error {
-			var digestStr string
-			err := rows.Scan(&digestStr)
-			if err != nil {
-				return err
-			}
-
-			parsedDigest, err := digest.Parse(digestStr)
-			if err != nil {
-				return fmt.Errorf("while deleting manifest %q in repository %q: could not parse digest: %w", digestStr, repo.Name, err)
-			}
-
-			err = a.processor().DeleteManifest(r.Context(), account.Reduced(), *repo, parsedDigest, tagPolicies, keppel.AuditContext{
-				UserIdentity: authz.UserIdentity,
-				Request:      r,
-			})
-			if err != nil {
-				return fmt.Errorf("while deleting manifest %q in repository %q: %w", digestStr, repo.Name, err)
-			}
-
-			return nil
-		},
-	)
+	err = a.deleteAllManifestsInRepository(r, authz, repo, account.Reduced(), tagPolicies)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
