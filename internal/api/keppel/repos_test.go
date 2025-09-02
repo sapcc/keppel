@@ -209,7 +209,7 @@ func TestReposAPI(t *testing.T) {
 		Path:         "/keppel/v1/accounts/test1/repositories/doesnotexist",
 		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
 		ExpectStatus: http.StatusNotFound,
-		ExpectBody:   assert.StringData("repo not found\n"),
+		ExpectBody:   assert.StringData("repository not found\n"),
 	}.Check(t, h)
 
 	// test if tag policy prevents deletion

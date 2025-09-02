@@ -186,7 +186,7 @@ func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, 
 
 	repo, err := keppel.FindRepository(a.db, repoName, accountName)
 	if errors.Is(err, sql.ErrNoRows) {
-		http.Error(w, "repo not found", http.StatusNotFound)
+		http.Error(w, "repository not found", http.StatusNotFound)
 		return nil
 	}
 	if respondwith.ObfuscatedErrorText(w, err) {

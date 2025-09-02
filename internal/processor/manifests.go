@@ -66,7 +66,7 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 	if err != nil {
 		return nil, err
 	}
-	logg.Debug("ValidateAndStoreManifest: in repo %d, manifest %s already exists = %t", repo.ID, contentsDigest, manifestExistsAlready)
+	logg.Debug("ValidateAndStoreManifest: in repository %d, manifest %s already exists = %t", repo.ID, contentsDigest, manifestExistsAlready)
 	var tagExists bool
 	var tagExistsWithSameDigest bool
 	if m.Reference.IsTag() {
@@ -75,14 +75,14 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 			return nil, err
 		}
 		if tagExists {
-			logg.Debug("ValidateAndStoreManifest: in repo %d, tag %s @%s already exists = %t", repo.ID, m.Reference.Tag, contentsDigest, tagExists)
+			logg.Debug("ValidateAndStoreManifest: in repository %d, tag %s @%s already exists = %t", repo.ID, m.Reference.Tag, contentsDigest, tagExists)
 		}
 		tagExistsWithSameDigest, err = p.db.SelectBool(checkTagExistsAtSameDigestQuery, repo.ID, m.Reference.Tag, contentsDigest.String())
 		if err != nil {
 			return nil, err
 		}
 		if tagExistsWithSameDigest {
-			logg.Debug("ValidateAndStoreManifest: in repo %d, tag %s @%s already exists with same digest = %t", repo.ID, m.Reference.Tag, contentsDigest, tagExistsWithSameDigest)
+			logg.Debug("ValidateAndStoreManifest: in repository %d, tag %s @%s already exists with same digest = %t", repo.ID, m.Reference.Tag, contentsDigest, tagExistsWithSameDigest)
 		}
 	}
 
