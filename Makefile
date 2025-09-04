@@ -64,11 +64,13 @@ install-reuse: FORCE
 
 prepare-static-check: FORCE install-golangci-lint install-modernize install-shellcheck install-go-licence-detector install-addlicense install-reuse
 
-GO_BUILDFLAGS := -mod vendor $(GO_BUILDFLAGS)
-GO_LDFLAGS := $(GO_LDFLAGS)
-GO_TESTFLAGS := $(GO_TESTFLAGS)
-GO_TESTENV := $(GO_TESTENV)
-GO_BUILDENV := $(GO_BUILDENV)
+# To add additional flags or values, specify the variable in the environment, e.g. `GO_BUILDFLAGS='-tags experimental' make`.
+# To override the default flags or values, specify the variable on the command line, e.g. `make GO_BUILDFLAGS='-tags experimental'`.
+GO_BUILDFLAGS += -mod vendor
+GO_LDFLAGS +=
+GO_TESTFLAGS +=
+GO_TESTENV +=
+GO_BUILDENV +=
 
 # These definitions are overridable, e.g. to provide fixed version/commit values when
 # no .git directory is present or to provide a fixed build date for reproducibility.

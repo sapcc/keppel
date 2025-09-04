@@ -29,10 +29,10 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v5
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           check-latest: true
-          go-version: 1.24.6
+          go-version: 1.24.7
       - name: Build all binaries
         run: make build-all
   code_coverage:
@@ -62,10 +62,10 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v5
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           check-latest: true
-          go-version: 1.24.6
+          go-version: 1.24.7
       - name: Run tests and generate coverage report
         run: |
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
