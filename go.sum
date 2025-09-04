@@ -27,8 +27,8 @@ github.com/containerd/errdefs v1.0.0 h1:tg5yIfIlQIrxYtu9ajqY42W3lpS19XqdxRQeEwYG
 github.com/containerd/errdefs v1.0.0/go.mod h1:+YBYIdtsnF4Iw6nWZhJcqGSg/dwvV7tyJ/kCkyJ2k+M=
 github.com/containerd/errdefs/pkg v0.3.0 h1:9IKJ06FvyNlexW690DXuQNx2KA2cUJXx151Xdx3ZPPE=
 github.com/containerd/errdefs/pkg v0.3.0/go.mod h1:NJw6s9HwNuRhnjJhM7pylWwMyAkmCQvQ4GpJHEqRLVk=
-github.com/containers/image/v5 v5.36.1 h1:6zpXBqR59UcAzoKpa/By5XekeqFV+htWYfr65+Cgjqo=
-github.com/containers/image/v5 v5.36.1/go.mod h1:b4GMKH2z/5t6/09utbse2ZiLK/c72GuGLFdp7K69eA4=
+github.com/containers/image/v5 v5.36.2 h1:GcxYQyAHRF/pLqR4p4RpvKllnNL8mOBn0eZnqJbfTwk=
+github.com/containers/image/v5 v5.36.2/go.mod h1:b4GMKH2z/5t6/09utbse2ZiLK/c72GuGLFdp7K69eA4=
 github.com/containers/libtrust v0.0.0-20230121012942-c1716e8a8d01 h1:Qzk5C6cYglewc+UyGf6lc8Mj2UaPTHy/iF2De0/77CA=
 github.com/containers/libtrust v0.0.0-20230121012942-c1716e8a8d01/go.mod h1:9rfv8iPl1ZP7aqh9YA68wnZv2NUDbXdcdPHVz0pFbPY=
 github.com/containers/ocicrypt v1.2.1 h1:0qIOTT9DoYwcKmxSt8QJt+VzMY18onl9jUXsxpVhSmM=
@@ -194,8 +194,8 @@ github.com/prometheus/procfs v0.17.0 h1:FuLQ+05u4ZI+SS/w9+BWEM2TXiHKsUQ9TADiRH7D
 github.com/prometheus/procfs v0.17.0/go.mod h1:oPQLaDAMRbA+u8H5Pbfq+dl3VDAvHxMUOVhe0wYB2zw=
 github.com/rabbitmq/amqp091-go v1.10.0 h1:STpn5XsHlHGcecLmMFCtg7mqq0RnD+zFr4uzukfVhBw=
 github.com/rabbitmq/amqp091-go v1.10.0/go.mod h1:Hy4jKW5kQART1u+JkDTF9YYOQUHXqMuhrgxOEeS7G4o=
-github.com/redis/go-redis/v9 v9.12.1 h1:k5iquqv27aBtnTm2tIkROUDp8JBXhXZIVu1InSgvovg=
-github.com/redis/go-redis/v9 v9.12.1/go.mod h1:huWgSWd8mW6+m0VPhJjSSQ+d6Nh1VICQ6Q5lHuCH/Iw=
+github.com/redis/go-redis/v9 v9.13.0 h1:PpmlVykE0ODh8P43U0HqC+2NXHXwG+GUtQyz+MPKGRg=
+github.com/redis/go-redis/v9 v9.13.0/go.mod h1:huWgSWd8mW6+m0VPhJjSSQ+d6Nh1VICQ6Q5lHuCH/Iw=
 github.com/rs/cors v1.11.1 h1:eU3gRzXLRK57F5rKMGMZURNdIG4EoAmX8k94r9wXWHA=
 github.com/rs/cors v1.11.1/go.mod h1:XyqrcTp5zjWr1wsJ8PIRZssZ8b/WMcMf71DJnit4EMU=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
