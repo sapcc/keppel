@@ -543,11 +543,7 @@ func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *gorp.Transac
 	var wg sync.WaitGroup
 
 	for range threads {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			// inputChan acts as a queue here and each go routine picks the next SecurityInfo task when it is done with the previous
 			for securityInfo := range inputChan {
 				err := j.doSecurityCheck(ctx, &securityInfo)
@@ -556,7 +552,7 @@ func (j *Janitor) processTrivySecurityInfo(ctx context.Context, tx *gorp.Transac
 					err:          err,
 				}
 			}
-		}()
+		})
 	}
 
 	// make sure the below range over the returnChan is not blocking forever

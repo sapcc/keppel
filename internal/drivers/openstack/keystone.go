@@ -149,9 +149,9 @@ var userNameRx = regexp.MustCompile(`^([^/@]+)@([^/@]+)/([^/@]+)(?:@([^/@]+))?$`
 //                                      user   u. dom.   project    pr. dom.
 
 func parseUserNameAndPassword(userName, password string) (tokens.AuthOptions, *keppel.RegistryV2Error) {
-	if strings.HasPrefix(userName, "applicationcredential-") {
+	if after, ok := strings.CutPrefix(userName, "applicationcredential-"); ok {
 		return tokens.AuthOptions{
-			ApplicationCredentialID:     strings.TrimPrefix(userName, "applicationcredential-"),
+			ApplicationCredentialID:     after,
 			ApplicationCredentialSecret: password,
 		}, nil
 	}
