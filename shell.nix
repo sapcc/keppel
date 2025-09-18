@@ -14,6 +14,7 @@ mkShell {
     gotools # goimports
     openssl
     postgresql_17
+    renovate
     reuse
     # keep this line if you use bash
     bashInteractive
