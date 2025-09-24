@@ -13,6 +13,15 @@ import (
 	"github.com/sapcc/go-bits/osext"
 )
 
+// Equal checks if the actual and expected value are equal according to == rules, and t.Errors() otherwise.
+func Equal[V comparable](t TestingT, actual, expected V) bool {
+	if actual == expected {
+		return true
+	}
+	t.Errorf("expected %#v, but got %#v", expected, actual)
+	return false
+}
+
 // DeepEqual checks if the actual and expected value are equal as
 // determined by reflect.DeepEqual(), and t.Error()s otherwise.
 func DeepEqual[V any](t *testing.T, variable string, actual, expected V) bool {
@@ -39,4 +48,11 @@ func DeepEqual[V any](t *testing.T, variable string, actual, expected V) bool {
 	}
 
 	return false
+}
+
+// TestingT is an interface implemented by the *testing.T type.
+// Some tests inside go-bits use this interface to substitute a mock for the real *testing.T type.
+type TestingT interface {
+	Helper()
+	Errorf(msg string, args ...any)
 }

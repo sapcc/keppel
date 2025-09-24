@@ -50,11 +50,10 @@ type HTTPRequest struct {
 // already exhausted when the function returns.) This is useful for tests that
 // want to do further checks on `resp` or want to use data from the response.
 //
-// Warning: This function does not work well in Ginkgo/Gomega because of how it logs output.
-// Please use httptest.Handler instead, which is much more suited to the Gomega style of assertions.
-// For example:
+// Warning: This function is considered deprecated.
+// Please use httptest.Handler instead, which provides more flexible assertions.
+// For example, instead of this:
 //
-//	// instead of this...
 //	assert.HTTPRequest {
 //		Method:       "GET",
 //		Path:         "/v1/info",
@@ -62,7 +61,14 @@ type HTTPRequest struct {
 //		ExpectBody:   assert.JSONObject{"error_count": 0},
 //	}.Check(GinkgoT(), myHandler)
 //
-//	// ...do this
+// Do this when using the regular std test runner:
+//
+//	h := httptest.NewHandler(myHandler)
+//	resp := h.RespondTo(ctx, "GET /v1/info")
+//	resp.ExpectJSON(t, http.StatusOK, jsonmatch.Object{"error_count": 0})
+//
+// Or do this when using Ginkgo/Gomega:
+//
 //	h := httptest.NewHandler(myHandler)
 //	var info map[string]any
 //	resp := h.RespondTo(ctx, "GET /v1/info", httptest.ReceiveJSONInto(&info))
