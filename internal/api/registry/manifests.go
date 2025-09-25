@@ -350,16 +350,18 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 
 	// validate and store manifest
 	ref := models.ParseManifestReference(mux.Vars(r)["reference"])
-	manifest, err := a.processor().ValidateAndStoreManifest(r.Context(), *account, *repo, processor.IncomingManifest{
+	incomingManifest := processor.IncomingManifest{
 		Reference: ref,
 		MediaType: r.Header.Get("Content-Type"),
 		Contents:  manifestBytes,
 		PushedAt:  a.timeNow(),
-	}, tagPolicies, keppel.AuditContext{
+	}
+	manifest, err := a.processor().ValidateAndStoreManifest(r.Context(), *account, *repo, incomingManifest, tagPolicies, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
 	if respondWithError(w, r, err) {
+		logg.Debug("rejected invalid %s manifest in %s: %q", incomingManifest.MediaType, repo.FullName(), string(incomingManifest.Contents))
 		return
 	}
 
