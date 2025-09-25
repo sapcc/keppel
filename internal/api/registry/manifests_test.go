@@ -588,11 +588,23 @@ func TestRuleForManifest(t *testing.T) {
 		h := s.Handler
 		token := s.GetToken(t, "repository:test1/foo:pull,push")
 
+		labels := map[string]string{"foo": "is there", "bar": "is there"}
+
 		image := test.GenerateImageWithCustomConfig(func(cfg map[string]any) {
-			cfg["config"].(map[string]any)["Labels"] = map[string]string{"foo": "is there", "bar": "is there"}
+			cfg["config"].(map[string]any)["Labels"] = labels
 		}, test.GenerateExampleLayer(1))
 		image.Config.MustUpload(t, s, fooRepoRef)
 		image.Layers[0].MustUpload(t, s, fooRepoRef)
+
+		imageOCI := test.GenerateOCIImage(test.OCIArgs{
+			Config: map[string]any{
+				"config": map[string]any{
+					"Labels": labels,
+				},
+			},
+		}, image.Layers...)
+		imageOCI.Config.MustUpload(t, s, fooRepoRef)
+		imageOCI.Layers[0].MustUpload(t, s, fooRepoRef)
 
 		// setup rule for manifest on account for failure
 		test.MustExec(t, s.DB,
@@ -600,7 +612,7 @@ func TestRuleForManifest(t *testing.T) {
 			"'random-label-that-does-not-exist' in labels", "test1",
 		)
 
-		// manifest push should fail
+		// docker manifest push should fail ...
 		assert.HTTPRequest{
 			Method: "PUT",
 			Path:   "/v2/test1/foo/manifests/latest",
@@ -616,6 +628,22 @@ func TestRuleForManifest(t *testing.T) {
 				Message: "rule is not satisfied: 'random-label-that-does-not-exist' in labels",
 			},
 		}.Check(t, h)
+		// ... and OCI, too
+		assert.HTTPRequest{
+			Method: "PUT",
+			Path:   "/v2/test1/foo/manifests/latest",
+			Header: map[string]string{
+				"Authorization": "Bearer " + token,
+				"Content-Type":  imageOCI.Manifest.MediaType,
+			},
+			Body:         assert.ByteData(imageOCI.Manifest.Contents),
+			ExpectStatus: http.StatusBadRequest,
+			ExpectHeader: test.VersionHeader,
+			ExpectBody: test.ErrorCodeWithMessage{
+				Code:    keppel.ErrManifestInvalid,
+				Message: "rule is not satisfied: 'random-label-that-does-not-exist' in labels",
+			},
+		}.Check(t, h)
 
 		// setup required labels on account for success
 		test.MustExec(t, s.DB,
@@ -623,7 +651,7 @@ func TestRuleForManifest(t *testing.T) {
 			"'foo' in labels && 'bar' in labels", "test1",
 		)
 
-		// manifest push should succeed
+		// docker manifest push should succeed when all labels are there ...
 		assert.HTTPRequest{
 			Method: "PUT",
 			Path:   "/v2/test1/foo/manifests/latest",
@@ -632,6 +660,18 @@ func TestRuleForManifest(t *testing.T) {
 				"Content-Type":  manifest.DockerV2Schema2MediaType,
 			},
 			Body:         assert.ByteData(image.Manifest.Contents),
+			ExpectStatus: http.StatusCreated,
+			ExpectHeader: test.VersionHeader,
+		}.Check(t, h)
+		// ... and OCI, too
+		assert.HTTPRequest{
+			Method: "PUT",
+			Path:   "/v2/test1/foo/manifests/latest",
+			Header: map[string]string{
+				"Authorization": "Bearer " + token,
+				"Content-Type":  imageOCI.Manifest.MediaType,
+			},
+			Body:         assert.ByteData(imageOCI.Manifest.Contents),
 			ExpectStatus: http.StatusCreated,
 			ExpectHeader: test.VersionHeader,
 		}.Check(t, h)
@@ -736,7 +776,6 @@ func TestManifestAnnotations(t *testing.T) {
 		token := s.GetToken(t, "repository:test1/foo:pull,push")
 
 		image := test.GenerateOCIImage(test.OCIArgs{
-			ConfigMediaType: imgspecv1.MediaTypeImageManifest,
 			Annotations: map[string]string{
 				"abc": "def",
 			}},

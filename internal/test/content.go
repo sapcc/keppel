@@ -334,6 +334,11 @@ func GenerateOCIImage(ociArgs OCIArgs, layers ...Bytes) Image {
 		})
 	}
 
+	// default to the standard media type for config blobs
+	if ociArgs.ConfigMediaType == "" {
+		ociArgs.ConfigMediaType = imgspecv1.MediaTypeImageConfig
+	}
+
 	ociManifest := manifest.OCI1{
 		Manifest: imgspecv1.Manifest{
 			Versioned: specs.Versioned{SchemaVersion: 2},
@@ -361,7 +366,7 @@ func GenerateOCIImage(ociArgs OCIArgs, layers ...Bytes) Image {
 
 	return Image{
 		Layers:   layers,
-		Config:   newBytesWithMediaType(must.Return(json.Marshal(ociArgs.Config)), ociArgs.ConfigMediaType),
+		Config:   newBytesWithMediaType(must.Return(json.Marshal(ociArgs.Config)), ociManifest.Config.MediaType),
 		Manifest: newBytesWithMediaType(must.Return(json.Marshal(ociManifest)), ociManifest.MediaType),
 	}
 }
