@@ -16,7 +16,7 @@ import (
 
 	imageManifest "github.com/containers/image/v5/manifest"
 	"github.com/go-gorp/gorp/v3"
-	"github.com/google/cel-go/common/types"
+	celTypes "github.com/google/cel-go/common/types"
 	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 	imagespecs "github.com/opencontainers/image-spec/specs-go/v1"
@@ -242,7 +242,7 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 			if err != nil {
 				return err
 			}
-			if out != types.True {
+			if out != celTypes.True {
 				msg := "rule is not satisfied: " + account.RuleForManifest
 				return keppel.ErrManifestInvalid.With(msg)
 			}
