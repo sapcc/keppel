@@ -237,7 +237,8 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 				return err
 			}
 			out, _, err := prg.Eval(map[string]any{
-				"labels": configInfo.Labels,
+				"labels":    configInfo.Labels,
+				"repo_name": repo.Name,
 			})
 			if err != nil {
 				return err

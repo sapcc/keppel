@@ -107,7 +107,10 @@ func generateRuleForManifestFromrequiredLabels(requiredLabels []string) string {
 }
 
 var celASTCache = must.Return(lru.New[string, *cel.Ast](128))
-var celEnv = must.Return(cel.NewEnv(cel.Variable("labels", cel.MapType(cel.StringType, cel.StringType))))
+var celEnv = must.Return(cel.NewEnv(
+	cel.Variable("labels", cel.MapType(cel.StringType, cel.StringType)),
+	cel.Variable("repo_name", cel.MapType(cel.StringType, cel.StringType)),
+))
 
 // Produces the abstract syntax tree (AST) for a given CEL expression in the keppel CEL environment.
 // If the CEL expression is invalid an error is returned.
