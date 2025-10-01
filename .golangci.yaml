@@ -55,6 +55,7 @@ linters:
     - govet
     - ineffassign
     - intrange
+    - iotamixing
     - misspell
     - nilerr
     - nolintlint
