@@ -23,7 +23,8 @@ type ValidationPolicy struct {
 	RuleForManifest string   `json:"rule_for_manifest,omitempty"`
 }
 
-var celExpressionRx = regexp.MustCompile(`^\'([a-zA-Z_][a-zA-Z0-9_]*)\' in labels(\s*&&\s*\'([a-zA-Z_][a-zA-Z0-9_]*)\' in labels)*$`)
+// When changing celExpressionRx, also update celLabelExtractionRx
+var celExpressionRx = regexp.MustCompile(`^\'([^']+?)\' in labels(\s*&&\s*\'([^']+?)\' in labels)*$`)
 
 // RenderValidationPolicy builds a ValidationPolicy object out of the
 // information in the given account model.
@@ -82,7 +83,8 @@ func (v ValidationPolicy) ApplyToAccount(account *models.Account) *RegistryV2Err
 	return nil
 }
 
-var celLabelExtractionRx = regexp.MustCompile(`\'([a-zA-Z_][a-zA-Z0-9_]*)\' in labels`)
+// When changing celLabelExtractionRx, also update celExpressionRx
+var celLabelExtractionRx = regexp.MustCompile(`\'([^']+?)\' in labels`)
 
 func extractRequiredLabelsFromCEL(ruleForManifest string) []string {
 	matches := celLabelExtractionRx.FindAllStringSubmatch(ruleForManifest, -1)
