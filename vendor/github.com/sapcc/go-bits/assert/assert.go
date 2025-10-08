@@ -15,6 +15,7 @@ import (
 
 // Equal checks if the actual and expected value are equal according to == rules, and t.Errors() otherwise.
 func Equal[V comparable](t TestingT, actual, expected V) bool {
+	t.Helper()
 	if actual == expected {
 		return true
 	}
