@@ -421,6 +421,24 @@ func TestAccountValidationPolicies(t *testing.T) {
 		ExpectBody:   assert.StringData("output of CEL expression must be bool but is \"int\"\n"),
 	}.Check(t, h)
 
+	// Reject if rule_for_manifest does not contain at least one charackter
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  []assert.JSONObject{},
+				"validation": assert.JSONObject{
+					"rule_for_manifest": "'' in labels",
+				},
+			},
+		},
+		ExpectStatus: http.StatusUnprocessableEntity,
+		ExpectBody:   assert.StringData("invalid CEL expression: \"'' in labels\"\n"),
+	}.Check(t, h)
+
 	// Reject if required_labels and rule_for_manifest are not logically equivalent
 	assert.HTTPRequest{
 		Method: "PUT",
@@ -467,6 +485,24 @@ func TestAccountValidationPolicies(t *testing.T) {
 				},
 			},
 		},
+	}.Check(t, h)
+
+	// Reset if an empty rule_for_manfest is provided
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  []assert.JSONObject{},
+				"validation": assert.JSONObject{
+					"rule_for_manifest": "",
+				},
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody:   assert.StringData("{\"account\":{\"name\":\"first\",\"auth_tenant_id\":\"tenant1\",\"rbac_policies\":[],\"metadata\":null}}"),
 	}.Check(t, h)
 
 	// Accept if only required_labels is provided
