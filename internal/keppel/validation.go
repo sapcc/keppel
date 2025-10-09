@@ -56,7 +56,11 @@ func (v ValidationPolicy) ApplyToAccount(account *models.Account) *RegistryV2Err
 			err := fmt.Errorf(`required labels %q do not match rule for manifest %q`, v.RequiredLabels, v.RuleForManifest)
 			return AsRegistryV2Error(err).WithStatus(http.StatusUnprocessableEntity)
 		}
+	} else if v.RuleForManifest == "" && v.RequiredLabels == nil {
+		account.RuleForManifest = v.RuleForManifest
+		return nil
 	}
+
 	if v.RuleForManifest != "" {
 		_, ast, celErr := BuildManifestValidationAST(v.RuleForManifest)
 		if celErr != nil {

@@ -469,6 +469,24 @@ func TestAccountValidationPolicies(t *testing.T) {
 		},
 	}.Check(t, h)
 
+	// Reset if an empty rule_for_manfest is provided
+	assert.HTTPRequest{
+		Method: "PUT",
+		Path:   "/keppel/v1/accounts/first",
+		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+		Body: assert.JSONObject{
+			"account": assert.JSONObject{
+				"auth_tenant_id": "tenant1",
+				"rbac_policies":  []assert.JSONObject{},
+				"validation": assert.JSONObject{
+					"rule_for_manifest": "",
+				},
+			},
+		},
+		ExpectStatus: http.StatusOK,
+		ExpectBody:   assert.StringData("{\"account\":{\"name\":\"first\",\"auth_tenant_id\":\"tenant1\",\"rbac_policies\":[],\"metadata\":null}}"),
+	}.Check(t, h)
+
 	// Accept if only required_labels is provided
 	assert.HTTPRequest{
 		Method: "PUT",
