@@ -29,7 +29,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           check-latest: true
-          go-version: 1.25.1
+          go-version: 1.25.2
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
@@ -51,7 +51,7 @@ jobs:
       - name: Check if source code files have license header
         run: make check-addlicense
       - name: REUSE Compliance Check
-        uses: fsfe/reuse-action@v5
+        uses: fsfe/reuse-action@v6
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
       - name: Run govulncheck
