@@ -71,10 +71,6 @@ func (v ValidationPolicy) ApplyToAccount(account *models.Account) *RegistryV2Err
 			err := fmt.Errorf(`output of CEL expression must be bool but is %q`, ast.OutputType().TypeName())
 			return AsRegistryV2Error(err).WithStatus(http.StatusUnprocessableEntity)
 		}
-		if !celExpressionRx.MatchString(v.RuleForManifest) {
-			err := fmt.Errorf(`invalid CEL expression: %q`, v.RuleForManifest)
-			return AsRegistryV2Error(err).WithStatus(http.StatusUnprocessableEntity)
-		}
 		account.RuleForManifest = v.RuleForManifest
 	} else if v.RequiredLabels != nil {
 		// for backwards compatibility, if only validation.required_labels given,
