@@ -53,8 +53,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			}
 
 			// and even if it does...
-			_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1"))
-			test.MustDo(t, err)
+			_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
 			// ...the manifest does not exist before it is pushed
 			for _, method := range []string{"GET", "HEAD"} {
 				assert.HTTPRequest{
@@ -715,11 +714,10 @@ func TestRuleForManifest(t *testing.T) {
 
 func expectLabelsJSONOnManifest(t *testing.T, db *keppel.DB, manifestDigest digest.Digest, expected map[string]string) {
 	t.Helper()
-	labelsJSONStr, err := db.SelectStr(`SELECT labels_json FROM manifests WHERE digest = $1`, manifestDigest.String())
-	test.MustDo(t, err)
+	labelsJSONStr := must.ReturnT(db.SelectStr(`SELECT labels_json FROM manifests WHERE digest = $1`, manifestDigest.String()))(t)
 
 	var actual map[string]string
-	test.MustDo(t, json.Unmarshal([]byte(labelsJSONStr), &actual))
+	must.SucceedT(t, json.Unmarshal([]byte(labelsJSONStr), &actual))
 	assert.DeepEqual(t, "labels_json", actual, expected)
 }
 
@@ -796,8 +794,7 @@ func TestManifestAnnotations(t *testing.T) {
 		}.Check(t, h)
 
 		// check that the annotations_json field is populated correctly in the DB
-		labelsJSONStr, err := s.DB.SelectStr(`SELECT annotations_json FROM manifests WHERE digest = $1`, image.Manifest.Digest.String())
-		test.MustDo(t, err)
+		labelsJSONStr := must.ReturnT(s.DB.SelectStr(`SELECT annotations_json FROM manifests WHERE digest = $1`, image.Manifest.Digest.String()))(t)
 
 		var actual map[string]string
 		must.Succeed(json.Unmarshal([]byte(labelsJSONStr), &actual))
@@ -828,8 +825,7 @@ func TestManifestArtifactType(t *testing.T) {
 		}.Check(t, h)
 
 		// check that the annotations_json field is populated correctly in the DB
-		artifactTypeStr, err := s.DB.SelectStr(`SELECT artifact_type FROM manifests WHERE digest = $1`, image.Manifest.Digest.String())
-		test.MustDo(t, err)
+		artifactTypeStr := must.ReturnT(s.DB.SelectStr(`SELECT artifact_type FROM manifests WHERE digest = $1`, image.Manifest.Digest.String()))(t)
 
 		assert.DeepEqual(t, "artifact_type", artifactType, artifactTypeStr)
 	})

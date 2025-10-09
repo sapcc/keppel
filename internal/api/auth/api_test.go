@@ -16,6 +16,7 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -558,12 +559,10 @@ func TestIssueToken(t *testing.T) {
 		// setup RBAC policies for test
 		rbacPoliciesJSONStr := ""
 		if c.RBACPolicy != nil {
-			buf, err := json.Marshal([]keppel.RBACPolicy{*c.RBACPolicy})
-			test.MustDo(t, err)
+			buf := must.ReturnT(json.Marshal([]keppel.RBACPolicy{*c.RBACPolicy}))(t)
 			rbacPoliciesJSONStr = string(buf)
 		}
-		_, err := s.DB.Exec(`UPDATE accounts SET rbac_policies_json = $1 WHERE name = $2`, rbacPoliciesJSONStr, "test1")
-		test.MustDo(t, err)
+		test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $1 WHERE name = $2`, rbacPoliciesJSONStr, "test1")
 
 		// setup permissions for test
 		var perms []string
@@ -960,7 +959,7 @@ func TestIssuerKeyRotation(t *testing.T) {
 	var respBody struct {
 		Token string `json:"token"`
 	}
-	test.MustDo(t, json.Unmarshal(respBodyBytes, &respBody))
+	must.SucceedT(t, json.Unmarshal(respBodyBytes, &respBody))
 
 	// test that it (obviously) gets accepted by the same API that issued it
 	assert.HTTPRequest{

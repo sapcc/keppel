@@ -68,19 +68,3 @@ func setupReplica(t *testing.T, s1 test.Setup, strategy string) (*Janitor, test.
 	j2.DisableJitter()
 	return j2, s
 }
-
-func expectSuccess(t *testing.T, err error) {
-	t.Helper()
-	if err != nil {
-		t.Error("expected err = nil, but got: " + err.Error())
-	}
-}
-
-func expectError(t *testing.T, expected string, actual error) {
-	t.Helper()
-	if actual == nil {
-		t.Errorf("expected err = %q, but got <nil>", expected)
-	} else if expected != actual.Error() {
-		t.Errorf("expected err = %q, but got %q", expected, actual.Error())
-	}
-}

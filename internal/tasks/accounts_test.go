@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
@@ -20,33 +21,33 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 	s.Clock.StepBy(1 * time.Hour)
 
 	var account1 models.Account
-	test.MustDo(t, s.DB.SelectOne(&account1, `SELECT * FROM accounts`))
+	must.SucceedT(t, s.DB.SelectOne(&account1, `SELECT * FROM accounts`))
 
 	accountJob := j.AccountFederationAnnouncementJob(s.Registry)
 
 	// with just one account set up, AnnounceNextAccountToFederation should
 	// announce that account, then start doing nothing
-	expectSuccess(t, accountJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, accountJob.ProcessOne(s.Ctx), nil)
 	expectAccountsAnnouncedJustNow(t, s, account1)
-	expectError(t, sql.ErrNoRows.Error(), accountJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, accountJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	expectAccountsAnnouncedJustNow(t, s /*, nothing */)
 
 	// setup another account; only that one should need announcing initially
 	s.Clock.StepBy(5 * time.Minute)
 	account2 := models.Account{Name: "test2", AuthTenantID: "test2authtenant", GCPoliciesJSON: "[]"}
-	test.MustDo(t, s.DB.Insert(&account2))
-	expectSuccess(t, accountJob.ProcessOne(s.Ctx))
+	must.SucceedT(t, s.DB.Insert(&account2))
+	assert.ErrEqual(t, accountJob.ProcessOne(s.Ctx), nil)
 	expectAccountsAnnouncedJustNow(t, s, account2)
-	expectError(t, sql.ErrNoRows.Error(), accountJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, accountJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	expectAccountsAnnouncedJustNow(t, s /*, nothing */)
 
 	// do another full round of announcements
 	s.Clock.StepBy(65 * time.Minute)
-	expectSuccess(t, accountJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, accountJob.ProcessOne(s.Ctx), nil)
 	expectAccountsAnnouncedJustNow(t, s, account1)
-	expectSuccess(t, accountJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, accountJob.ProcessOne(s.Ctx), nil)
 	expectAccountsAnnouncedJustNow(t, s, account2)
-	expectError(t, sql.ErrNoRows.Error(), accountJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, accountJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	expectAccountsAnnouncedJustNow(t, s /*, nothing */)
 }
 

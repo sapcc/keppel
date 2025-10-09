@@ -10,6 +10,7 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/respondwith"
 
 	"github.com/sapcc/keppel/internal/models"
@@ -23,7 +24,7 @@ func TestPeeringAPI(t *testing.T) {
 
 		// set up peer.example.org as a peer of us, otherwise we will reject peering
 		// attempts from that source
-		test.MustDo(t, s.DB.Insert(&models.Peer{HostName: "peer.example.org"}))
+		must.SucceedT(t, s.DB.Insert(&models.Peer{HostName: "peer.example.org"}))
 
 		// upon receiving a peering request, the implementation will attempt to
 		// validate the supplied credentials by calling the peer's auth API - this is

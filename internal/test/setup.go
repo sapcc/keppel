@@ -19,6 +19,7 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/mock"
+	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
@@ -204,22 +205,17 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		t.Fatal("test.WithoutCurrentIssuerKey requires test.WithPreviousIssuerKey")
 	}
 	if params.WithPreviousIssuerKey {
-		key, err := keppel.ParseIssuerKey(UnitTestIssuerRSAPrivateKey)
-		MustDo(t, err)
+		key := must.ReturnT(keppel.ParseIssuerKey(UnitTestIssuerRSAPrivateKey))(t)
 		s.Config.JWTIssuerKeys = append(s.Config.JWTIssuerKeys, key)
 	}
 	if !params.WithoutCurrentIssuerKey {
-		jwtIssuerKey, err := keppel.ParseIssuerKey(UnitTestIssuerEd25519PrivateKey)
-		MustDo(t, err)
+		jwtIssuerKey := must.ReturnT(keppel.ParseIssuerKey(UnitTestIssuerEd25519PrivateKey))(t)
 		s.Config.JWTIssuerKeys = append(s.Config.JWTIssuerKeys, jwtIssuerKey)
 	}
 
 	if params.WithTrivyDouble {
 		s.TrivyDouble = NewTrivyDouble()
-		trivyURL, err := url.Parse("https://trivy.example.org/")
-		if err != nil {
-			t.Fatal(err)
-		}
+		trivyURL := must.ReturnT(url.Parse("https://trivy.example.org/"))(t)
 
 		s.Config.Trivy = &trivy.Config{
 			URL: *trivyURL,
@@ -246,13 +242,11 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		s.Config.AnycastAPIPublicHostname = "registry-global.example.org"
 
 		if params.WithPreviousIssuerKey {
-			key, err := keppel.ParseIssuerKey(UnitTestAnycastIssuerRSAPrivateKey)
-			MustDo(t, err)
+			key := must.ReturnT(keppel.ParseIssuerKey(UnitTestAnycastIssuerRSAPrivateKey))(t)
 			s.Config.AnycastJWTIssuerKeys = append(s.Config.AnycastJWTIssuerKeys, key)
 		}
 		if !params.WithoutCurrentIssuerKey {
-			jwtIssuerKey, err := keppel.ParseIssuerKey(UnitTestAnycastIssuerEd25519PrivateKey)
-			MustDo(t, err)
+			jwtIssuerKey := must.ReturnT(keppel.ParseIssuerKey(UnitTestAnycastIssuerEd25519PrivateKey))(t)
 			s.Config.AnycastJWTIssuerKeys = append(s.Config.AnycastJWTIssuerKeys, jwtIssuerKey)
 		}
 	}
@@ -269,17 +263,13 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	}
 
 	// setup essential drivers
-	ad, err := keppel.NewAuthDriver(s.Ctx, "unittest", nil)
-	MustDo(t, err)
+	ad := must.ReturnT(keppel.NewAuthDriver(s.Ctx, "unittest", nil))(t)
 	s.AD = ad.(*AuthDriver)
-	fd, err := keppel.NewFederationDriver(s.Ctx, "unittest", ad, s.Config)
-	MustDo(t, err)
+	fd := must.ReturnT(keppel.NewFederationDriver(s.Ctx, "unittest", ad, s.Config))(t)
 	s.FD = fd.(*FederationDriver)
-	sd, err := keppel.NewStorageDriver("in-memory-for-testing", ad, s.Config)
-	MustDo(t, err)
+	sd := must.ReturnT(keppel.NewStorageDriver("in-memory-for-testing", ad, s.Config))(t)
 	s.SD = sd.(*trivial.StorageDriver)
-	icd, err := keppel.NewInboundCacheDriver(s.Ctx, "unittest", s.Config)
-	MustDo(t, err)
+	icd := must.ReturnT(keppel.NewInboundCacheDriver(s.Ctx, "unittest", s.Config))(t)
 	s.ICD = icd.(*InboundCacheDriver)
 
 	if params.RateLimitEngine != nil {
@@ -319,10 +309,10 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	// setup initial accounts/repos
 	quotasSetFor := make(map[string]bool)
 	for _, account := range params.Accounts {
-		MustDo(t, s.DB.Insert(account))
+		must.SucceedT(t, s.DB.Insert(account))
 		fd.RecordExistingAccount(s.Ctx, *account, s.Clock.Now()) //nolint:errcheck
 		if params.WithQuotas && !quotasSetFor[account.AuthTenantID] {
-			MustDo(t, s.DB.Insert(&models.Quotas{
+			must.SucceedT(t, s.DB.Insert(&models.Quotas{
 				AuthTenantID:  account.AuthTenantID,
 				ManifestCount: 100,
 			}))
@@ -331,7 +321,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	}
 	s.Accounts = params.Accounts
 	for _, repo := range params.Repos {
-		MustDo(t, s.DB.Insert(repo))
+		must.SucceedT(t, s.DB.Insert(repo))
 	}
 	s.Repos = params.Repos
 
@@ -340,12 +330,12 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		s1 := params.SetupOfPrimary
 		if s1 != nil {
 			// give the secondary registry credentials for replicating from the primary
-			MustDo(t, s.DB.Insert(&models.Peer{
+			must.SucceedT(t, s.DB.Insert(&models.Peer{
 				HostName:             "registry.example.org",
 				UseForPullDelegation: true,
 				OurPassword:          GetReplicationPassword(),
 			}))
-			MustDo(t, s1.DB.Insert(&models.Peer{
+			must.SucceedT(t, s1.DB.Insert(&models.Peer{
 				HostName:                 "registry-secondary.example.org",
 				TheirCurrentPasswordHash: replicationPasswordHash,
 			}))
@@ -355,20 +345,8 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	return s
 }
 
-func MustDo(t *testing.T, err error) {
-	t.Helper()
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-}
-
-func MustInsert(t *testing.T, db *keppel.DB, args ...any) {
-	t.Helper()
-	MustDo(t, db.Insert(args...))
-}
-
 func MustExec(t *testing.T, db *keppel.DB, query string, args ...any) {
 	t.Helper()
 	_, err := db.Exec(query, args...)
-	MustDo(t, err)
+	must.SucceedT(t, err)
 }

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -214,8 +215,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 
 			// create the "test1/foo" repository to ensure that we don't just always hit
 			// NAME_UNKNOWN errors
-			_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1"))
-			test.MustDo(t, err)
+			_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
 
 			// test failure cases during POST: anonymous is not allowed, should yield an auth challenge
 			assert.HTTPRequest{
@@ -527,8 +527,7 @@ func TestGetBlobUpload(t *testing.T) {
 
 		// create the "test1/foo" repository to ensure that we don't just always hit
 		// NAME_UNKNOWN errors
-		_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1"))
-		test.MustDo(t, err)
+		_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
 
 		// test failure cases: no such upload
 		assert.HTTPRequest{
@@ -652,8 +651,7 @@ func TestDeleteBlobUpload(t *testing.T) {
 
 		// create the "test1/foo" repository to ensure that we don't just always hit
 		// NAME_UNKNOWN errors
-		_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1"))
-		test.MustDo(t, err)
+		_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
 
 		// test failure cases: no such upload
 		assert.HTTPRequest{

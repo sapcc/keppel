@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -25,10 +26,10 @@ func TestCatalogEndpoint(t *testing.T) {
 		test.MustExec(t, s.DB, `INSERT INTO accounts (name, auth_tenant_id) VALUES ($1, $2)`, accountName, authTenantID)
 
 		for _, repoName := range []string{"foo", "bar", "qux"} {
-			test.MustInsert(t, s.DB, &models.Repository{
+			must.SucceedT(t, s.DB.Insert(&models.Repository{
 				Name:        repoName,
 				AccountName: accountName,
-			})
+			}))
 		}
 	}
 

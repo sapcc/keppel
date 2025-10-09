@@ -64,23 +64,23 @@ func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*keppe
 
 	// since these manifests were just uploaded, next_validation_at is set in the future,
 	// so ManifestValidationJob will report that there is nothing to do
-	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 
 	// once they need validating, they validate successfully
 	s.Clock.StepBy(36 * time.Hour)
-	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
-	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
-	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	easypg.AssertDBContent(t, s.DB.Db, "fixtures/manifest-validate-001-before-disturbance.sql")
 
 	// disturb the DB state, then rerun ManifestValidationJob to fix it
 	s.Clock.StepBy(36 * time.Hour)
 	disturb(s.DB, allBlobIDs, allManifestDigests)
-	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
-	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
-	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	easypg.AssertDBContent(t, s.DB.Db, "fixtures/manifest-validate-002-after-fix.sql")
 }
 
@@ -134,7 +134,7 @@ func TestManifestValidationJobError(t *testing.T) {
 	// manually since the MustUpload functions care about uploading stuff intact)
 	s.Clock.StepBy(1 * time.Hour)
 	image := test.GenerateImage( /* no layers */ )
-	test.MustDo(t, s.DB.Insert(&models.Manifest{
+	must.SucceedT(t, s.DB.Insert(&models.Manifest{
 		RepositoryID:     1,
 		Digest:           image.Manifest.Digest,
 		MediaType:        image.Manifest.MediaType,
@@ -142,18 +142,18 @@ func TestManifestValidationJobError(t *testing.T) {
 		PushedAt:         s.Clock.Now(),
 		NextValidationAt: s.Clock.Now().Add(models.ManifestValidationInterval),
 	}))
-	test.MustDo(t, s.DB.Insert(&models.ManifestContent{
+	must.SucceedT(t, s.DB.Insert(&models.ManifestContent{
 		RepositoryID: 1,
 		Digest:       image.Manifest.Digest.String(),
 		Content:      image.Manifest.Contents,
 	}))
-	test.MustDo(t, s.DB.Insert(&models.TrivySecurityInfo{
+	must.SucceedT(t, s.DB.Insert(&models.TrivySecurityInfo{
 		RepositoryID:        1,
 		Digest:              image.Manifest.Digest,
 		NextCheckAt:         Some(time.Unix(0, 0)),
 		VulnerabilityStatus: models.PendingVulnerabilityStatus,
 	}))
-	test.MustDo(t, s.SD.WriteManifest(s.Ctx, s.Accounts[0].Reduced(), "foo", image.Manifest.Digest, image.Manifest.Contents))
+	must.SucceedT(t, s.SD.WriteManifest(s.Ctx, s.Accounts[0].Reduced(), "foo", image.Manifest.Digest, image.Manifest.Contents))
 
 	// validation should yield an error
 	s.Clock.StepBy(36 * time.Hour)
@@ -161,21 +161,21 @@ func TestManifestValidationJobError(t *testing.T) {
 		"while validating manifest %s in repo 1: manifest blob unknown to registry: %s",
 		image.Manifest.Digest, image.Config.Digest,
 	)
-	expectError(t, expectedError, validateManifestJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), expectedError)
 
 	// check that validation error to be recorded in the DB
 	easypg.AssertDBContent(t, s.DB.Db, "fixtures/manifest-validate-error-001.sql")
 
 	// expect next ManifestValidationJob run to skip over this manifest since it
 	// was recently validated
-	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 
 	// upload missing blob so that we can test recovering from the validation error
 	image.Config.MustUpload(t, s, fooRepoRef)
 
 	// next validation should be happy (and also create the missing refs)
 	s.Clock.StepBy(36 * time.Hour)
-	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), nil)
 	easypg.AssertDBContent(t, s.DB.Db, "fixtures/manifest-validate-error-002.sql")
 }
 
@@ -269,18 +269,18 @@ func TestManifestSyncJob(t *testing.T) {
 
 			// ManifestSyncJob on the primary registry should have nothing to do
 			// since there are no replica accounts
-			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob1.ProcessOne(s1.Ctx))
+			assert.ErrEqual(t, syncManifestsJob1.ProcessOne(s1.Ctx), sql.ErrNoRows)
 			trForPrimary.DBChanges().AssertEmpty()
 			// ManifestSyncJob on the secondary registry should set the
 			// ManifestsSyncedAt timestamp on the repo, but otherwise not do anything
-			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
+			assert.ErrEqual(t, syncManifestsJob2.ProcessOne(s2.Ctx), nil)
 			tr.DBChanges().AssertEqualf(`
 					UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 				`,
 				s1.Clock.Now().Add(1*time.Hour).Unix(),
 			)
 			// second run should not have anything else to do
-			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
+			assert.ErrEqual(t, syncManifestsJob2.ProcessOne(s2.Ctx), sql.ErrNoRows)
 			tr.DBChanges().AssertEmpty()
 
 			// in on_first_use, the sync should have merged the replica's last_pulled_at
@@ -321,19 +321,19 @@ func TestManifestSyncJob(t *testing.T) {
 			)
 
 			// again, nothing to do on the primary side
-			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob1.ProcessOne(s1.Ctx))
+			assert.ErrEqual(t, syncManifestsJob1.ProcessOne(s1.Ctx), sql.ErrNoRows)
 			// ManifestSyncJob on the replica side should not do anything while
 			// the account is in maintenance; only the timestamp is updated to make sure
 			// that the job loop progresses to the next repo
 			test.MustExec(t, s2.DB, `UPDATE accounts SET is_deleting = TRUE`)
-			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
+			assert.ErrEqual(t, syncManifestsJob2.ProcessOne(s2.Ctx), nil)
 			tr.DBChanges().AssertEqualf(`
 					UPDATE accounts SET is_deleting = TRUE WHERE name = 'test1';
 					UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 				`,
 				s1.Clock.Now().Add(1*time.Hour).Unix(),
 			)
-			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
+			assert.ErrEqual(t, syncManifestsJob2.ProcessOne(s2.Ctx), sql.ErrNoRows)
 			tr.DBChanges().AssertEmpty()
 
 			// end deletion
@@ -348,7 +348,7 @@ func TestManifestSyncJob(t *testing.T) {
 				// happen (only the tag gets synced, which includes a validation of the
 				// referenced manifest)
 				s1.Clock.StepBy(2 * time.Hour)
-				expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
+				assert.ErrEqual(t, syncManifestsJob2.ProcessOne(s2.Ctx), nil)
 				tr.DBChanges().AssertEqualf(`
 						UPDATE manifests SET next_validation_at = %d WHERE repo_id = 1 AND digest = '%s';
 						UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
@@ -357,7 +357,7 @@ func TestManifestSyncJob(t *testing.T) {
 					images[1].Manifest.Digest,
 					s1.Clock.Now().Add(1*time.Hour).Unix(),
 				)
-				expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
+				assert.ErrEqual(t, syncManifestsJob2.ProcessOne(s2.Ctx), sql.ErrNoRows)
 				tr.DBChanges().AssertEmpty()
 			}
 
@@ -369,7 +369,7 @@ func TestManifestSyncJob(t *testing.T) {
 			// account, and also replicate the tag change (which includes a validation
 			// of the tagged manifests)
 			s1.Clock.StepBy(7 * time.Hour)
-			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
+			assert.ErrEqual(t, syncManifestsJob2.ProcessOne(s2.Ctx), nil)
 			manifestValidationBecauseOfExistingTag := fmt.Sprintf(
 				// this validation is skipped in "on_first_use" because the respective tag is unchanged
 				`UPDATE manifests SET next_validation_at = %d WHERE repo_id = 1 AND digest = '%s';`+"\n",
@@ -396,7 +396,7 @@ func TestManifestSyncJob(t *testing.T) {
 				manifestValidationBecauseOfExistingTag,
 				s1.Clock.Now().Add(models.ManifestValidationInterval).Unix(),
 			)
-			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
+			assert.ErrEqual(t, syncManifestsJob2.ProcessOne(s2.Ctx), sql.ErrNoRows)
 			tr.DBChanges().AssertEmpty()
 
 			// cause a deliberate inconsistency on the primary side: delete a manifest that
@@ -418,7 +418,7 @@ func TestManifestSyncJob(t *testing.T) {
 			expectedError := fmt.Sprintf("while syncing manifests in repo test1/foo: cannot remove deleted manifests [%s] because they are still being referenced by other manifests (this smells like an inconsistency on the primary account)",
 				images[2].Manifest.Digest,
 			)
-			expectError(t, expectedError, syncManifestsJob2.ProcessOne(s2.Ctx))
+			assert.ErrEqual(t, syncManifestsJob2.ProcessOne(s2.Ctx), expectedError)
 			// the tag sync went through though, so the tag should be gone (the manifest
 			// validation is because of the "other" tag that still exists)
 			manifestValidationBecauseOfExistingTag = fmt.Sprintf(
@@ -444,7 +444,7 @@ func TestManifestSyncJob(t *testing.T) {
 
 			// this makes the primary side consistent again, so ManifestSyncJob
 			// should succeed now and remove both deleted manifests from the DB
-			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
+			assert.ErrEqual(t, syncManifestsJob2.ProcessOne(s2.Ctx), nil)
 			tr.DBChanges().AssertEqualf(`
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 4;
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 5;
@@ -465,7 +465,7 @@ func TestManifestSyncJob(t *testing.T) {
 				images[1].Manifest.Digest,
 				s1.Clock.Now().Add(1*time.Hour).Unix(),
 			)
-			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
+			assert.ErrEqual(t, syncManifestsJob2.ProcessOne(s2.Ctx), sql.ErrNoRows)
 			tr.DBChanges().AssertEmpty()
 
 			// replace the primary registry's API with something that just answers 404 most of the time
@@ -482,14 +482,14 @@ func TestManifestSyncJob(t *testing.T) {
 			expectedError = fmt.Sprintf("while syncing manifests in repo test1/foo: cannot check existence of manifest %s on primary account: during GET https://registry.example.org/v2/test1/foo/manifests/%[1]s: expected status 200, but got 404 Not Found",
 				images[1].Manifest.Digest, // the only manifest that is left
 			)
-			expectError(t, expectedError, syncManifestsJob2.ProcessOne(s2.Ctx))
+			assert.ErrEqual(t, syncManifestsJob2.ProcessOne(s2.Ctx), expectedError)
 			tr.DBChanges().AssertEmpty()
 
 			// check that the manifest sync did not update the last_pulled_at timestamps
 			// in the primary DB (even though there were GET requests for the manifests
 			// there)
 			var lastPulledAt time.Time
-			expectSuccess(t, s1.DB.DbMap.QueryRow(`SELECT MAX(last_pulled_at) FROM manifests`).Scan(&lastPulledAt))
+			must.SucceedT(t, s1.DB.DbMap.QueryRow(`SELECT MAX(last_pulled_at) FROM manifests`).Scan(&lastPulledAt))
 			if !lastPulledAt.Equal(initialLastPulledAt) {
 				t.Error("last_pulled_at timestamps on the primary side were touched")
 				t.Logf("  expected = %#v", initialLastPulledAt)
@@ -503,7 +503,7 @@ func TestManifestSyncJob(t *testing.T) {
 			test.MustExec(t, s1.DB, `DELETE FROM manifests`)
 			test.MustExec(t, s1.DB, `DELETE FROM repos`)
 			// the manifest sync should reflect the repository deletion on the replica
-			expectSuccess(t, syncManifestsJob2.ProcessOne(s2.Ctx))
+			assert.ErrEqual(t, syncManifestsJob2.ProcessOne(s2.Ctx), nil)
 			tr.DBChanges().AssertEqualf(`
 					DELETE FROM blob_mounts WHERE blob_id = 1 AND repo_id = 1;
 					DELETE FROM blob_mounts WHERE blob_id = 2 AND repo_id = 1;
@@ -524,7 +524,7 @@ func TestManifestSyncJob(t *testing.T) {
 				`,
 				images[1].Manifest.Digest,
 			)
-			expectError(t, sql.ErrNoRows.Error(), syncManifestsJob2.ProcessOne(s2.Ctx))
+			assert.ErrEqual(t, syncManifestsJob2.ProcessOne(s2.Ctx), sql.ErrNoRows)
 			tr.DBChanges().AssertEmpty()
 		})
 	})
@@ -586,8 +586,8 @@ func TestCheckTrivySecurityStatus(t *testing.T) {
 		s.TrivyDouble.ReportFixtures[images[2].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		s.TrivyDouble.ReportFixtures[images[3].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-clean.json"
 		s.Clock.StepBy(5 * time.Minute)
-		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
-		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), nil)
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEqualf(`
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[10]s';
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 3 AND account_name = 'test1' AND digest = '%[11]s';
@@ -612,8 +612,8 @@ func TestCheckTrivySecurityStatus(t *testing.T) {
 		// check that a changed vulnerability status does not have any unexpected side effects
 		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		s.Clock.StepBy(1 * time.Hour)
-		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
-		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), nil)
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEqualf(`
 			UPDATE trivy_security_info SET next_check_at = %[6]d, checked_at = %[5]d WHERE repo_id = 1 AND digest = '%[1]s';
 			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[6]d, checked_at = %[5]d WHERE repo_id = 1 AND digest = '%[2]s';
@@ -625,8 +625,8 @@ func TestCheckTrivySecurityStatus(t *testing.T) {
 
 		// check that no change in vulnerability status does not have any unexpected side effects
 		s.Clock.StepBy(1 * time.Hour)
-		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
-		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), nil)
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEqualf(`
 			UPDATE trivy_security_info SET next_check_at = %[6]d, checked_at = %[5]d WHERE repo_id = 1 AND digest = '%[1]s';
 			UPDATE trivy_security_info SET next_check_at = %[6]d, checked_at = %[5]d WHERE repo_id = 1 AND digest = '%[2]s';
@@ -656,7 +656,7 @@ func TestCheckTrivySecurityStatusWithError(t *testing.T) {
 		s.Clock.StepBy(30 * time.Minute)
 		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef)] = true
 		expectedError := fmt.Sprintf("cannot check manifest test1/foo@%s: scan error: trivy proxy did not return 200: 500 simulated error", image.Manifest.Digest)
-		expectError(t, expectedError, trivyJob.ProcessOne(s.Ctx))
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), expectedError)
 		tr.DBChanges().AssertEqualf(`
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
 			UPDATE trivy_security_info SET vuln_status = 'Error', message = 'scan error: trivy proxy did not return 200: 500 simulated error', next_check_at = 5700 WHERE repo_id = 1 AND digest = '%[2]s';
@@ -669,8 +669,8 @@ func TestCheckTrivySecurityStatusWithError(t *testing.T) {
 		s.Clock.StepBy(30 * time.Minute)
 		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef)] = false
 		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
-		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
-		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), nil)
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEqualf(`
 			UPDATE trivy_security_info SET vuln_status = 'Critical', message = '', next_check_at = %[2]d, checked_at = %[3]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[1]s';
 		`, image.Manifest.Digest, s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Unix(), models.LowSeverity)
@@ -694,8 +694,8 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 
 		// test baseline without policies
 		s.Clock.StepBy(1 * time.Hour)
-		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
-		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), nil)
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEqualf(`
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
 			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = %[3]d, checked_at = %[4]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[5]s';
@@ -712,8 +712,8 @@ func TestCheckTrivySecurityStatusWithPolicies(t *testing.T) {
 			tr.DBChanges().Ignore()
 
 			s.Clock.StepBy(1 * time.Hour)
-			expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
-			expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+			assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), nil)
+			assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 
 			tr.DBChanges().AssertEqualf(`
 				UPDATE trivy_security_info SET vuln_status = '%[1]s', next_check_at = %[2]d, checked_at = %[3]d WHERE repo_id = 1 AND digest = '%[4]s';
@@ -826,8 +826,8 @@ func TestCheckTrivySecurityStatusWithEOSL(t *testing.T) {
 		// there are vulnerabilities up to "Critical", but since the base distro is
 		// EOSL, the vulnerability status gets overridden into "Rotten"
 		s.Clock.StepBy(1 * time.Hour)
-		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
-		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), nil)
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEqualf(`
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[1]s';
 			UPDATE trivy_security_info SET vuln_status = '%[2]s', next_check_at = NULL, checked_at = %[3]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[4]s';
@@ -871,9 +871,9 @@ func TestManifestValidationJobWithoutPlatform(t *testing.T) {
 
 	// validation should be happy and despite the missing platform because the manifest got skipped
 	s.Clock.StepBy(36 * time.Hour)
-	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
-	expectSuccess(t, validateManifestJob.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), validateManifestJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, validateManifestJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().AssertEqualf(`
 			UPDATE manifests SET next_validation_at = %d WHERE repo_id = 1 AND digest = '%s';
 			UPDATE manifests SET next_validation_at = %d WHERE repo_id = 1 AND digest = '%s';
@@ -911,8 +911,8 @@ func TestVulnerabilityStatusChanged(t *testing.T) {
 		s.TrivyDouble.ReportFixtures[images[0].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-clean.json"
 		s.Clock.StepBy(5 * time.Minute)
-		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
-		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), nil)
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEqualf(`
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[7]s';
 			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 3 AND account_name = 'test1' AND digest = '%[8]s';
@@ -931,8 +931,8 @@ func TestVulnerabilityStatusChanged(t *testing.T) {
 		// check that a changed vulnerability status does not have any unexpected side effects
 		s.TrivyDouble.ReportFixtures[images[1].ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 		s.Clock.StepBy(1 * time.Hour)
-		expectSuccess(t, trivyJob.ProcessOne(s.Ctx))
-		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), nil)
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEqualf(`
 			UPDATE trivy_security_info SET next_check_at = %[5]d, checked_at = %[4]d WHERE repo_id = 1 AND digest = '%[1]s';
 			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[5]d, checked_at = %[4]d WHERE repo_id = 1 AND digest = '%[2]s';
@@ -952,21 +952,20 @@ func TestCheckTrivySecurityStatusWithAccountBeingDeleted(t *testing.T) {
 		// upload an example image and change account to being deleted
 		image := test.GenerateImage(test.GenerateExampleLayer(4))
 		image.MustUpload(t, s, fooRepoRef, "latest")
-		_, err := j.db.Exec(`UPDATE accounts SET is_deleting = TRUE WHERE name = 'test1'`)
-		test.MustDo(t, err)
+		_ = must.ReturnT(j.db.Exec(`UPDATE accounts SET is_deleting = TRUE WHERE name = 'test1'`))(t)
 		tr.DBChanges().Ignore()
 		s.TrivyDouble.ReportFixtures[image.ImageRef(s, fooRepoRef)] = "fixtures/trivy/report-vulnerable.json"
 
 		// simulate a transient error which has no effect because the account is being deleted
 		s.Clock.StepBy(1 * time.Hour)
 		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef)] = true
-		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEmpty()
 		s.TrivyDouble.ReportError[image.ImageRef(s, fooRepoRef)] = false
 
 		// accounts that are being deleted should be skipped
 		s.Clock.StepBy(1 * time.Hour)
-		expectError(t, sql.ErrNoRows.Error(), trivyJob.ProcessOne(s.Ctx))
+		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEmpty()
 	})
 }
@@ -1000,7 +999,7 @@ func TestCheckTrivySecurityStatusBeingDeleted(t *testing.T) {
 		// mark manifest for sweep
 		s.Clock.StepBy(30 * time.Minute)
 		must.Succeed(sweepStorageJob.ProcessOne(s.Ctx))
-		expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
+		assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
 			INSERT INTO unknown_manifests (account_name, repo_name, digest, can_be_deleted_at) VALUES ('test1', 'foo', '%[2]s', %[3]d);
@@ -1010,7 +1009,7 @@ func TestCheckTrivySecurityStatusBeingDeleted(t *testing.T) {
 		// clean up manifest for the deleted account
 		s.Clock.StepBy(12 * time.Hour)
 		must.Succeed(sweepStorageJob.ProcessOne(s.Ctx))
-		expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
+		assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
 			DELETE FROM unknown_manifests WHERE account_name = 'test1' AND repo_name = 'foo' AND digest = '%[2]s';
