@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -60,7 +61,7 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 	var tokenData struct {
 		Token string `json:"token"`
 	}
-	test.MustDo(t, json.Unmarshal(respBodyBytes, &tokenData))
+	must.SucceedT(t, json.Unmarshal(respBodyBytes, &tokenData))
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/test1/repositories/foo/_manifests",

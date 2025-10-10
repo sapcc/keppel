@@ -11,7 +11,9 @@ import (
 	"time"
 
 	. "github.com/majewsky/gg/option"
+	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/processor"
@@ -30,7 +32,7 @@ func TestAccountManagementBasic(t *testing.T) {
 
 	// we haven't configured any account, so it should do nothing
 	s.AMD.ConfigPath = "./fixtures/account_management_empty.json"
-	expectError(t, sql.ErrNoRows.Error(), managedAccountsJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().AssertEmpty()
 
 	// configure an account to create
@@ -38,9 +40,9 @@ func TestAccountManagementBasic(t *testing.T) {
 	s.Clock.StepBy(1 * time.Hour)
 
 	// we only have one account defined which should be created
-	expectSuccess(t, managedAccountsJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), nil)
 	// since we are enforcing that account, no error is returned
-	expectError(t, sql.ErrNoRows.Error(), managedAccountsJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().AssertEqualf(`
 			INSERT INTO accounts (name, auth_tenant_id, external_peer_url, gc_policies_json, security_scan_policies_json, rbac_policies_json, is_managed, next_enforcement_at, rule_for_manifest) VALUES ('abcde', '12345', 'registry-tertiary.example.org', '[{"match_repository":".*/database","except_repository":"archive/.*","time_constraint":{"on":"pushed_at","newer_than":{"value":6,"unit":"h"}},"action":"protect"},{"match_repository":".*","only_untagged":true,"action":"delete"}]', '[{"match_repository":".*","match_vulnerability_id":".*","except_fix_released":true,"action":{"assessment":"risk accepted: vulnerabilities without an available fix are not actionable","ignore":true}}]', '[{"match_repository":"library/.*","permissions":["anonymous_pull"]},{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull","push"]}]', TRUE, %d, '''important-label'' in labels && ''some-label'' in labels');
 		`,
@@ -49,14 +51,14 @@ func TestAccountManagementBasic(t *testing.T) {
 	// test if errors are propagated
 	s.AMD.ConfigPath = "./fixtures/account_management_error.json"
 	s.Clock.StepBy(2 * time.Hour)
-	expectError(t, fmt.Sprintf("could not configure managed account %q: %s", "", processor.ErrAccountNameEmpty.Error()), managedAccountsJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), fmt.Sprintf("could not configure managed account %q: %s", "", processor.ErrAccountNameEmpty.Error()))
 	tr.DBChanges().AssertEmpty()
 
 	// and delete the account again
 	s.AMD.ConfigPath = "./fixtures/account_management_empty.json"
 	s.Clock.StepBy(2 * time.Hour)
 	// now the account is being marked for deletion
-	expectSuccess(t, managedAccountsJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), nil)
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_enforcement_at = %d, is_deleting = TRUE, next_deletion_attempt_at = %d WHERE name = 'abcde';
 		`,
@@ -66,7 +68,7 @@ func TestAccountManagementBasic(t *testing.T) {
 
 	// and we can immeadetaly delete it yet because it has no manifests and blobs attached to it
 	s.Clock.StepBy(1 * time.Hour)
-	expectSuccess(t, deleteAccountsJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, deleteAccountsJob.ProcessOne(s.Ctx), nil)
 	tr.DBChanges().AssertEqual(`
 		DELETE FROM accounts WHERE name = 'abcde';
 	`)
@@ -83,14 +85,14 @@ func TestAccountManagementWithReplicaCreation(t *testing.T) {
 		// The setup already includes an account "test1" set up on both ends, but we
 		// want to test the setup of a managed replica account, so we will use a
 		// fresh account called "managed" instead.
-		expectSuccess(t, s1.DB.Insert(&models.Account{Name: "managed", AuthTenantID: "managedauthtenant"}))
+		must.SucceedT(t, s1.DB.Insert(&models.Account{Name: "managed", AuthTenantID: "managedauthtenant"}))
 		s1.FD.NextSubleaseTokenSecretToIssue = "thisisasecret"
 		s2.FD.ValidSubleaseTokenSecrets["managed"] = "thisisasecret"
 
 		// test seeding the replica on the secondary side
 		s2.AMD.ConfigPath = "./fixtures/account_management_replica.json"
 		job := j2.EnforceManagedAccountsJob(s2.Registry)
-		expectSuccess(t, job.ProcessOne(s2.Ctx))
+		assert.ErrEqual(t, job.ProcessOne(s2.Ctx), nil)
 
 		// check that the replica was created
 		tr.DBChanges().AssertEqualf(`
@@ -112,12 +114,12 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 
 	// create a managed account named "abcde"
 	s.AMD.ConfigPath = "./fixtures/account_management_basic.json"
-	expectSuccess(t, managedAccountsJob.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), managedAccountsJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().Ignore()
 
 	// give quota to its auth tenant
-	expectSuccess(t, s.DB.Insert(&models.Quotas{
+	must.SucceedT(t, s.DB.Insert(&models.Quotas{
 		AuthTenantID:  "12345",
 		ManifestCount: 100,
 	}))
@@ -146,7 +148,7 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 	// remove the managed account: this will set is_deleting, but nothing more
 	s.AMD.ConfigPath = "./fixtures/account_management_empty.json"
 	s.Clock.StepBy(2 * time.Hour)
-	expectSuccess(t, managedAccountsJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), nil)
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_enforcement_at = %d, is_deleting = TRUE, next_deletion_attempt_at = %d WHERE name = 'abcde';
 		`,
@@ -159,7 +161,7 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 	// - all repos (and thus blob mounts) will be deleted
 	// - all blobs are marked for immediate deletion, and a blob GC is scheduled
 	s.Clock.StepBy(1 * time.Minute)
-	expectSuccess(t, deleteAccountsJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, deleteAccountsJob.ProcessOne(s.Ctx), nil)
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_blob_sweep_at = %[1]d, next_deletion_attempt_at = %[2]d WHERE name = 'abcde';
 			DELETE FROM blob_mounts WHERE blob_id = 1 AND repo_id = 2;
@@ -214,9 +216,9 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 
 	// we need to run this twice because the common test setup includes another account that is irrelevant to this test
 	s.Clock.StepBy(1 * time.Minute)
-	expectSuccess(t, blobSweepJob.ProcessOne(s.Ctx))
-	expectSuccess(t, blobSweepJob.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), blobSweepJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, blobSweepJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, blobSweepJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, blobSweepJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_blob_sweep_at = %[1]d WHERE name = 'abcde';
 			UPDATE accounts SET next_blob_sweep_at = %[1]d WHERE name = 'test1';
@@ -238,8 +240,8 @@ func TestAccountManagementWithComplexDeletion(t *testing.T) {
 
 	// now account deletion can go through
 	s.Clock.StepBy(1 * time.Minute)
-	expectSuccess(t, deleteAccountsJob.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), deleteAccountsJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, deleteAccountsJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, deleteAccountsJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().AssertEqualf(`DELETE FROM accounts WHERE name = 'abcde';`)
 }
 
@@ -258,22 +260,22 @@ func TestAccountManagementStorageSweep(t *testing.T) {
 	s.Clock.StepBy(1 * time.Hour)
 
 	// one account defined which should be created
-	expectSuccess(t, managedAccountsJob.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), managedAccountsJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 
 	// create some unknown blobs ...
 	account := models.ReducedAccount{Name: "abcde"}
 	testBlob := test.GenerateExampleLayer(33)
 	storageID := testBlob.Digest.Encoded()
 	sizeBytes := uint64(len(testBlob.Contents))
-	expectSuccess(t, s.SD.AppendToBlob(s.Ctx, account, storageID, 1, Some(sizeBytes), bytes.NewReader(testBlob.Contents)))
+	must.SucceedT(t, s.SD.AppendToBlob(s.Ctx, account, storageID, 1, Some(sizeBytes), bytes.NewReader(testBlob.Contents)))
 
 	// ... manifests ...
 	images := make([]test.Image, 3)
 	testImageList1 := test.GenerateImageList(images[0])
 	testImageList2 := test.GenerateImageList(images[1])
 	for _, manifest := range []test.Bytes{testImageList1.Manifest, testImageList2.Manifest} {
-		expectSuccess(t, s.SD.WriteManifest(s.Ctx, account, "foo", manifest.Digest, manifest.Contents))
+		must.SucceedT(t, s.SD.WriteManifest(s.Ctx, account, "foo", manifest.Digest, manifest.Contents))
 	}
 
 	// ... trivy reports ...
@@ -286,9 +288,9 @@ func TestAccountManagementStorageSweep(t *testing.T) {
 	mustUploadDummyTrivyReport(t, s, manifestList)
 
 	tr.DBChanges().Ignore()
-	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
-	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'abcde';
 			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
@@ -303,8 +305,8 @@ func TestAccountManagementStorageSweep(t *testing.T) {
 
 	// .. and some garbage in the storage driver
 	testImageList3 := test.GenerateImageList(images[2])
-	expectSuccess(t, s.SD.WriteManifest(s.Ctx, account, "foo", testImageList3.Manifest.Digest, testImageList3.Manifest.Contents))
-	expectSuccess(t, s.SD.WriteTrivyReport(s.Ctx, account, "foo", testImageList1.Manifest.Digest, trivy.ReportPayload{
+	must.SucceedT(t, s.SD.WriteManifest(s.Ctx, account, "foo", testImageList3.Manifest.Digest, testImageList3.Manifest.Contents))
+	must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, account, "foo", testImageList1.Manifest.Digest, trivy.ReportPayload{
 		Contents: []byte(`{"report": "test"}`),
 		Format:   "json",
 	}))
@@ -312,8 +314,8 @@ func TestAccountManagementStorageSweep(t *testing.T) {
 	// and delete the account again
 	s.AMD.ConfigPath = "./fixtures/account_management_empty.json"
 	s.Clock.StepBy(2 * time.Hour)
-	expectSuccess(t, managedAccountsJob.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), managedAccountsJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_enforcement_at = %d, is_deleting = TRUE, next_deletion_attempt_at = %d WHERE name = 'abcde';
 		`,
@@ -323,8 +325,8 @@ func TestAccountManagementStorageSweep(t *testing.T) {
 
 	// and we can immeadetaly delete it including all unknown things
 	s.Clock.StepBy(1 * time.Hour)
-	expectSuccess(t, deleteAccountsJob.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), deleteAccountsJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, deleteAccountsJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, deleteAccountsJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().AssertEqualf(`
 		DELETE FROM accounts WHERE name = 'abcde';
 		DELETE FROM unknown_blobs WHERE account_name = 'abcde' AND storage_id = '%[1]s';

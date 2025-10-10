@@ -11,6 +11,7 @@ import (
 	. "github.com/majewsky/gg/option"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
@@ -196,26 +197,26 @@ func TestQuotasAPI(t *testing.T) {
 
 	// put some manifests in the DB, check that GET reflects higher usage
 	test.MustExec(t, s.DB, `INSERT INTO accounts (name, auth_tenant_id) VALUES ('test1', 'tenant1')`)
-	test.MustInsert(t, s.DB, &models.Repository{
+	must.SucceedT(t, s.DB.Insert(&models.Repository{
 		Name:        "repo1",
 		AccountName: "test1",
-	})
+	}))
 	for idx := 1; idx <= 10; idx++ {
 		pushedAt := time.Unix(int64(10000+10*idx), 0)
-		test.MustInsert(t, s.DB, &models.Manifest{
+		must.SucceedT(t, s.DB.Insert(&models.Manifest{
 			RepositoryID:     1,
 			Digest:           test.DeterministicDummyDigest(idx),
 			MediaType:        "",
 			SizeBytes:        uint64(1000 * idx), //nolint:gosec // construction guarantees that value is positive
 			PushedAt:         pushedAt,
 			NextValidationAt: pushedAt.Add(models.ManifestValidationInterval),
-		})
-		test.MustInsert(t, s.DB, &models.TrivySecurityInfo{
+		}))
+		must.SucceedT(t, s.DB.Insert(&models.TrivySecurityInfo{
 			RepositoryID:        1,
 			Digest:              test.DeterministicDummyDigest(idx),
 			VulnerabilityStatus: models.PendingVulnerabilityStatus,
 			NextCheckAt:         Some(time.Unix(0, 0)),
-		})
+		}))
 	}
 	assert.HTTPRequest{
 		Method:       "GET",

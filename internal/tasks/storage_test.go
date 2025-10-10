@@ -14,6 +14,7 @@ import (
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/jobloop"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -58,8 +59,8 @@ func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.J
 
 	// StorageSweepJob should run through, but not do anything besides
 	// setting the storage_sweeped_at timestamp on the account
-	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
 	tr0.AssertEqualToFile("fixtures/storage-sweep-000.sql")
 	s.ExpectBlobsExistInStorage(t, healthyBlobs...)
@@ -79,9 +80,8 @@ func mustUploadDummyTrivyReport(t *testing.T, s test.Setup, manifest models.Mani
 		Format:   "json",
 		Contents: fmt.Appendf(nil, `{"dummy":"image %s is clean"}`, manifest.Digest.String()),
 	}
-	repo, err := keppel.FindRepositoryByID(s.DB, manifest.RepositoryID)
-	test.MustDo(t, err)
-	test.MustDo(t, s.SD.WriteTrivyReport(s.Ctx, models.ReducedAccount{Name: repo.AccountName}, repo.Name, manifest.Digest, report))
+	repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, manifest.RepositoryID))(t)
+	must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, models.ReducedAccount{Name: repo.AccountName}, repo.Name, manifest.Digest, report))
 	return report
 }
 
@@ -100,8 +100,8 @@ func TestSweepStorageBlobs(t *testing.T) {
 	for _, blob := range []test.Bytes{testBlob1, testBlob2} {
 		storageID := blob.Digest.Encoded()
 		sizeBytes := uint64(len(blob.Contents))
-		test.MustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID, 1, Some(sizeBytes), bytes.NewReader(blob.Contents)))
-		test.MustDo(t, s.SD.FinalizeBlob(s.Ctx, account, storageID, 1))
+		must.SucceedT(t, s.SD.AppendToBlob(s.Ctx, account, storageID, 1, Some(sizeBytes), bytes.NewReader(blob.Contents)))
+		must.SucceedT(t, s.SD.FinalizeBlob(s.Ctx, account, storageID, 1))
 	}
 
 	// create a blob that's mid-upload; this one should be protected from sweeping
@@ -109,9 +109,9 @@ func TestSweepStorageBlobs(t *testing.T) {
 	testBlob3 := test.GenerateExampleLayer(32)
 	storageID3 := testBlob3.Digest.Encoded()
 	sizeBytes := uint64(len(testBlob3.Contents))
-	test.MustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID3, 1, Some(sizeBytes), bytes.NewReader(testBlob3.Contents)))
+	must.SucceedT(t, s.SD.AppendToBlob(s.Ctx, account, storageID3, 1, Some(sizeBytes), bytes.NewReader(testBlob3.Contents)))
 	// ^ but no FinalizeBlob() since we're still uploading!
-	test.MustDo(t, s.DB.Insert(&models.Upload{
+	must.SucceedT(t, s.DB.Insert(&models.Upload{
 		RepositoryID: 1,
 		UUID:         "a29d525c-2273-44ba-83a8-eafd447f1cb8", // chosen at random, but fixed
 		StorageID:    storageID3,
@@ -127,12 +127,12 @@ func TestSweepStorageBlobs(t *testing.T) {
 	testBlob4 := test.GenerateExampleLayer(33)
 	storageID4 := testBlob4.Digest.Encoded()
 	sizeBytes = uint64(len(testBlob4.Contents))
-	test.MustDo(t, s.SD.AppendToBlob(s.Ctx, account, storageID4, 1, Some(sizeBytes), bytes.NewReader(testBlob4.Contents)))
+	must.SucceedT(t, s.SD.AppendToBlob(s.Ctx, account, storageID4, 1, Some(sizeBytes), bytes.NewReader(testBlob4.Contents)))
 
 	// next StorageSweepJob should mark them for deletion...
 	s.Clock.StepBy(8 * time.Hour)
-	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
 			INSERT INTO unknown_blobs (account_name, storage_id, can_be_deleted_at) VALUES ('test1', '%[3]s', %[2]d);
@@ -171,14 +171,14 @@ func TestSweepStorageBlobs(t *testing.T) {
 		PushedAt:         s.Clock.Now(),
 		NextValidationAt: s.Clock.Now().Add(models.BlobValidationInterval),
 	}
-	test.MustDo(t, s.DB.Insert(&dbTestBlob1))
+	must.SucceedT(t, s.DB.Insert(&dbTestBlob1))
 	tr.DBChanges().Ignore()
 
 	// next StorageSweepJob should unmark blob 1 (because it's now in
 	// the DB) and sweep blobs 2 and 4 (since it is still not in the DB)
 	s.Clock.StepBy(8 * time.Hour)
-	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
 			DELETE FROM unknown_blobs WHERE account_name = 'test1' AND storage_id = '%[2]s';
@@ -216,13 +216,13 @@ func TestSweepStorageManifests(t *testing.T) {
 	testImageList1 := test.GenerateImageList(images[0])
 	testImageList2 := test.GenerateImageList(images[1])
 	for _, manifest := range []test.Bytes{testImageList1.Manifest, testImageList2.Manifest} {
-		test.MustDo(t, s.SD.WriteManifest(s.Ctx, account, "foo", manifest.Digest, manifest.Contents))
+		must.SucceedT(t, s.SD.WriteManifest(s.Ctx, account, "foo", manifest.Digest, manifest.Contents))
 	}
 
 	// next StorageSweepJob should mark them for deletion...
 	s.Clock.StepBy(8 * time.Hour)
-	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
 			INSERT INTO unknown_manifests (account_name, repo_name, digest, can_be_deleted_at) VALUES ('test1', 'foo', '%[3]s', %[2]d);
@@ -251,7 +251,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	// upload that happened while StorageSweepJob was running: manifest was written
 	// to storage already, but not yet to DB)
 	s.Clock.StepBy(1 * time.Hour)
-	test.MustDo(t, s.DB.Insert(&models.Manifest{
+	must.SucceedT(t, s.DB.Insert(&models.Manifest{
 		RepositoryID:     1,
 		Digest:           testImageList1.Manifest.Digest,
 		MediaType:        testImageList1.Manifest.MediaType,
@@ -264,8 +264,8 @@ func TestSweepStorageManifests(t *testing.T) {
 	// next StorageSweepJob should unmark manifest 1 (because it's now in
 	// the DB) and sweep manifest 2 (since it is still not in the DB)
 	s.Clock.StepBy(8 * time.Hour)
-	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
 			DELETE FROM unknown_manifests WHERE account_name = 'test1' AND repo_name = 'foo' AND digest = '%[2]s';
@@ -306,8 +306,8 @@ func TestSweepStorageTrivyReports(t *testing.T) {
 
 	// next StorageSweepJob should mark them for deletion...
 	s.Clock.StepBy(8 * time.Hour)
-	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
 			INSERT INTO unknown_trivy_reports (account_name, repo_name, digest, format, can_be_deleted_at) VALUES ('test1', 'foo', '%[3]s', 'json', %[2]d);
@@ -340,8 +340,8 @@ func TestSweepStorageTrivyReports(t *testing.T) {
 	// next StorageSweepJob should unmark report 1 (because it's now in
 	// the DB) and sweep report 2 (since it is still not in the DB)
 	s.Clock.StepBy(8 * time.Hour)
-	expectSuccess(t, sweepStorageJob.ProcessOne(s.Ctx))
-	expectError(t, sql.ErrNoRows.Error(), sweepStorageJob.ProcessOne(s.Ctx))
+	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), nil)
+	assert.ErrEqual(t, sweepStorageJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET next_storage_sweep_at = %[1]d WHERE name = 'test1';
 			DELETE FROM unknown_trivy_reports WHERE account_name = 'test1' AND repo_name = 'foo' AND digest = '%[2]s' AND format = 'json';

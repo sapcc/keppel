@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/sqlext"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -55,8 +56,7 @@ func (b Bytes) MustUpload(t *testing.T, s Setup, repo models.Repository) models.
 	// validate uploaded blob (FindBlobByRepository does not work here because we
 	// are usually given a Repository instance that does not have the ID field
 	// filled)
-	blob, err := keppel.FindBlobByRepositoryName(s.DB, b.Digest, repo.Name, repo.AccountName)
-	MustDo(t, err)
+	blob := must.ReturnT(keppel.FindBlobByRepositoryName(s.DB, b.Digest, repo.Name, repo.AccountName))(t)
 	s.ExpectBlobsExistInStorage(t, *blob)
 	if t.Failed() {
 		t.FailNow()
@@ -75,8 +75,7 @@ var checkBlobExistsQuery = sqlext.SimplifyWhitespace(`
 func (i Image) MustUpload(t *testing.T, s Setup, repo models.Repository, tagName string) models.Manifest {
 	// upload missing blobs
 	for _, blob := range append(i.Layers, i.Config) {
-		count, err := s.DB.SelectInt(checkBlobExistsQuery, repo.AccountName, blob.Digest.String())
-		MustDo(t, err)
+		count := must.ReturnT(s.DB.SelectInt(checkBlobExistsQuery, repo.AccountName, blob.Digest.String()))(t)
 		if count == 0 {
 			blob.MustUpload(t, s, repo)
 		}
@@ -107,8 +106,7 @@ func (i Image) MustUpload(t *testing.T, s Setup, repo models.Repository, tagName
 	}
 
 	// validate uploaded manifest
-	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, repo.AccountName, i.Manifest.Digest)
-	MustDo(t, err)
+	manifest := must.ReturnT(keppel.FindManifestByRepositoryName(s.DB, repo.Name, repo.AccountName, i.Manifest.Digest))(t)
 	s.ExpectManifestsExistInStorage(t, repo.Name, *manifest)
 	if t.Failed() {
 		t.FailNow()
@@ -129,8 +127,7 @@ var checkManifestExistsQuery = sqlext.SimplifyWhitespace(`
 func (l ImageList) MustUpload(t *testing.T, s Setup, repo models.Repository, tagName string) models.Manifest {
 	// upload missing images
 	for _, image := range l.Images {
-		count, err := s.DB.SelectInt(checkManifestExistsQuery, repo.AccountName, repo.Name, image.Manifest.Digest)
-		MustDo(t, err)
+		count := must.ReturnT(s.DB.SelectInt(checkManifestExistsQuery, repo.AccountName, repo.Name, image.Manifest.Digest))(t)
 		if count == 0 {
 			image.MustUpload(t, s, repo, "")
 		}
@@ -161,8 +158,7 @@ func (l ImageList) MustUpload(t *testing.T, s Setup, repo models.Repository, tag
 	}
 
 	// validate uploaded manifest
-	manifest, err := keppel.FindManifestByRepositoryName(s.DB, repo.Name, repo.AccountName, l.Manifest.Digest)
-	MustDo(t, err)
+	manifest := must.ReturnT(keppel.FindManifestByRepositoryName(s.DB, repo.Name, repo.AccountName, l.Manifest.Digest))(t)
 	s.ExpectManifestsExistInStorage(t, repo.Name, *manifest)
 	if t.Failed() {
 		t.FailNow()

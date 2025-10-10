@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -18,16 +19,11 @@ func TestConfigureAccount(t *testing.T) {
 		ConfigPath: "./fixtures/account_management.json",
 	}
 
-	listOfAccounts, err := driver.ManagedAccountNames()
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	listOfAccounts := must.ReturnT(driver.ManagedAccountNames())(t)
 	assert.DeepEqual(t, "account", listOfAccounts, []models.AccountName{"abcde"})
 
 	maybeNewAccount, newSecurityScanPolicy, err := driver.ConfigureAccount("abcde")
-	if err != nil {
-		t.Fatal(err.Error())
-	}
+	must.SucceedT(t, err)
 	newAccount, ok := maybeNewAccount.Unpack()
 	if !ok {
 		t.Fatal("ConfigureAccount returned None[keppel.Account]()")

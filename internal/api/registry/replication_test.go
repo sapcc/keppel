@@ -13,6 +13,7 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -116,10 +117,8 @@ func TestReplicationImageList(t *testing.T) {
 
 func TestReplicationMissingEntities(t *testing.T) {
 	testWithPrimary(t, nil, func(s1 test.Setup) {
-		// ensure that the `test1/foo` repo exists upstream; otherwise we'll just get
-		// NAME_UNKNOWN
-		_, err := keppel.FindOrCreateRepository(s1.DB, "foo", models.AccountName("test1"))
-		test.MustDo(t, err)
+		// ensure that the `test1/foo` repo exists upstream; otherwise we'll just get NAME_UNKNOWN
+		_ = must.ReturnT(keppel.FindOrCreateRepository(s1.DB, "foo", models.AccountName("test1")))(t)
 
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
 			var (
@@ -319,7 +318,7 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 			var tokenBodyData struct {
 				Token string `json:"token"`
 			}
-			test.MustDo(t, json.Unmarshal(tokenBodyBytes, &tokenBodyData))
+			must.SucceedT(t, json.Unmarshal(tokenBodyBytes, &tokenBodyData))
 			anonToken := tokenBodyData.Token
 
 			// replicating pull is forbidden with an anonymous token...
@@ -382,7 +381,7 @@ func TestReplicationAllowAnonymousReplicationFromExternal(t *testing.T) {
 			var tokenBodyData struct {
 				Token string `json:"token"`
 			}
-			test.MustDo(t, json.Unmarshal(tokenBodyBytes, &tokenBodyData))
+			must.SucceedT(t, json.Unmarshal(tokenBodyBytes, &tokenBodyData))
 			anonToken := tokenBodyData.Token
 
 			// the rbac policy allows to replicate test1/foo images

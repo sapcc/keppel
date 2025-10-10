@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
@@ -32,10 +33,7 @@ func TestPeersAPI(t *testing.T) {
 		{"hostname": "keppel.example.org"},
 	}
 	for _, peer := range expectedPeers {
-		err := s.DB.Insert(&models.Peer{HostName: peer["hostname"].(string)})
-		if err != nil {
-			t.Fatal(err)
-		}
+		must.SucceedT(t, s.DB.Insert(&models.Peer{HostName: peer["hostname"].(string)}))
 	}
 
 	// check non-empty response

@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/drivers/basic"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -36,8 +37,7 @@ func TestRateLimits(t *testing.T) {
 	testWithPrimary(t, setupOptions, func(s test.Setup) {
 		// create the "test1/foo" repository to ensure that we don't just always hit
 		// NAME_UNKNOWN errors
-		_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1"))
-		test.MustDo(t, err)
+		_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
 
 		h := s.Handler
 		token := s.GetToken(t, "repository:test1/foo:pull,push")

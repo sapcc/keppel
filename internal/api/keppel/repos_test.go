@@ -14,6 +14,7 @@ import (
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -40,14 +41,14 @@ func TestReposAPI(t *testing.T) {
 	// setup five repos in each account (the `test2` account only exists to
 	// validate that we don't accidentally list its repos as well)
 	for idx := 1; idx <= 5; idx++ {
-		test.MustInsert(t, s.DB, &models.Repository{
+		must.SucceedT(t, s.DB.Insert(&models.Repository{
 			Name:        fmt.Sprintf("repo1-%d", idx),
 			AccountName: "test1",
-		})
-		test.MustInsert(t, s.DB, &models.Repository{
+		}))
+		must.SucceedT(t, s.DB.Insert(&models.Repository{
 			Name:        fmt.Sprintf("repo2-%d", idx),
 			AccountName: "test2",
-		})
+		}))
 	}
 
 	// insert some dummy blobs and blob mounts into one of the repos to check the blob size statistics
@@ -62,36 +63,36 @@ func TestReposAPI(t *testing.T) {
 			PushedAt:         blobPushedAt,
 			NextValidationAt: blobPushedAt.Add(models.BlobValidationInterval),
 		}
-		test.MustInsert(t, s.DB, &blob)
-		test.MustDo(t, keppel.MountBlobIntoRepo(s.DB, blob, filledRepo))
+		must.SucceedT(t, s.DB.Insert(&blob))
+		must.SucceedT(t, keppel.MountBlobIntoRepo(s.DB, blob, filledRepo))
 	}
 
 	// insert some dummy manifests and tags into one of the repos to check the manifest/tag counting
 	for idx := 1; idx <= 8; idx++ {
 		dummyDigest := test.DeterministicDummyDigest(idx)
 		manifestPushedAt := time.Unix(int64(10000+10*idx), 0)
-		test.MustInsert(t, s.DB, &models.Manifest{
+		must.SucceedT(t, s.DB.Insert(&models.Manifest{
 			RepositoryID:     filledRepo.ID,
 			Digest:           dummyDigest,
 			MediaType:        "",
 			SizeBytes:        uint64(1000 * idx), //nolint:gosec // construction guarantees that value is positive
 			PushedAt:         manifestPushedAt,
 			NextValidationAt: manifestPushedAt.Add(models.ManifestValidationInterval),
-		})
-		test.MustDo(t, s.SD.WriteManifest(s.Ctx, models.ReducedAccount{Name: "test1"}, "repo1-3", dummyDigest, []byte("data")))
-		test.MustInsert(t, s.DB, &models.TrivySecurityInfo{
+		}))
+		must.SucceedT(t, s.SD.WriteManifest(s.Ctx, models.ReducedAccount{Name: "test1"}, "repo1-3", dummyDigest, []byte("data")))
+		must.SucceedT(t, s.DB.Insert(&models.TrivySecurityInfo{
 			RepositoryID:        filledRepo.ID,
 			Digest:              dummyDigest,
 			VulnerabilityStatus: models.PendingVulnerabilityStatus,
 			NextCheckAt:         Some(time.Unix(0, 0)),
-		})
+		}))
 		if idx <= 3 {
-			test.MustInsert(t, s.DB, &models.Tag{
+			must.SucceedT(t, s.DB.Insert(&models.Tag{
 				RepositoryID: 5, // repo1-3
 				Name:         fmt.Sprintf("tag%d", idx),
 				Digest:       dummyDigest,
 				PushedAt:     time.Unix(int64(20000+10*idx), 0),
-			})
+			}))
 		}
 	}
 

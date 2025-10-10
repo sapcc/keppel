@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sapcc/go-bits/must"
+
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -42,8 +44,7 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 	t.Helper()
 
 	//optimization: don't issue the same token twice in a single test run
-	audienceJSON, err := json.Marshal(audience)
-	MustDo(t, err)
+	audienceJSON := must.ReturnT(json.Marshal(audience))(t)
 	cacheKey := string(audienceJSON) + strings.Join(scopes, "|")
 	if token, exists := s.tokenCache[cacheKey]; exists {
 		return token
@@ -78,8 +79,7 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 			}
 		case "repository":
 			repoScope := scope.ParseRepositoryScope(audience)
-			authTenantID, err := s.findAuthTenantIDForAccountName(repoScope.AccountName)
-			MustDo(t, err)
+			authTenantID := must.ReturnT(s.findAuthTenantIDForAccountName(repoScope.AccountName))(t)
 			perms[string(keppel.CanViewAccount)][authTenantID] = true
 			for _, action := range scope.Actions {
 				switch action {
@@ -97,22 +97,20 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 			if strings.Join(scope.Actions, ",") != "view" {
 				t.Fatalf("do not know how to handle scope %q", scope.String())
 			}
-			authTenantID, err := s.findAuthTenantIDForAccountName(models.AccountName(scope.ResourceName))
-			MustDo(t, err)
+			authTenantID := must.ReturnT(s.findAuthTenantIDForAccountName(models.AccountName(scope.ResourceName)))(t)
 			perms[string(keppel.CanViewAccount)][authTenantID] = true
 		}
 	}
 
 	// issue token
-	tokenResp, err := auth.Authorization{
+	tokenResp := must.ReturnT(auth.Authorization{
 		UserIdentity: &userIdentity{
 			Username: "correctusername",
 			Perms:    perms,
 		},
 		Audience: audience,
 		ScopeSet: ss,
-	}.IssueToken(s.Config)
-	MustDo(t, err)
+	}.IssueToken(s.Config))(t)
 
 	s.tokenCache[cacheKey] = tokenResp.Token
 	return tokenResp.Token

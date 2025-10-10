@@ -19,6 +19,7 @@ import (
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/drivers/basic"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -52,7 +53,7 @@ func TestManifestsAPI(t *testing.T) {
 			{Name: "repo2-1", AccountName: "test2"},
 		}
 		for _, repo := range repos {
-			test.MustInsert(t, s.DB, repo)
+			must.SucceedT(t, s.DB.Insert(repo))
 		}
 
 		// test empty GET
@@ -103,42 +104,42 @@ func TestManifestsAPI(t *testing.T) {
 				if idx == 1 {
 					dbManifest.LastPulledAt = Some(pushedAt.Add(100 * time.Second))
 				}
-				test.MustInsert(t, s.DB, &dbManifest)
+				must.SucceedT(t, s.DB.Insert(&dbManifest))
 
-				test.MustDo(t, s.SD.WriteManifest(
+				must.SucceedT(t, s.SD.WriteManifest(
 					s.Ctx,
 					models.ReducedAccount{Name: repo.AccountName},
 					repo.Name, dummyDigest, []byte(strings.Repeat("x", sizeBytes)),
 				))
-				test.MustInsert(t, s.DB, &models.TrivySecurityInfo{
+				must.SucceedT(t, s.DB.Insert(&models.TrivySecurityInfo{
 					RepositoryID:        int64(repoID),
 					Digest:              dummyDigest,
 					VulnerabilityStatus: deterministicDummyVulnStatus(idx),
 					NextCheckAt:         Some(time.Unix(0, 0)),
-				})
+				}))
 			}
 			// one manifest is referenced by two tags, one is referenced by one tag
-			test.MustInsert(t, s.DB, &models.Tag{
+			must.SucceedT(t, s.DB.Insert(&models.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "first",
 				Digest:       test.DeterministicDummyDigest(repoID*10 + 1),
 				PushedAt:     time.Unix(20001, 0),
 				LastPulledAt: Some(time.Unix(20101, 0)),
-			})
-			test.MustInsert(t, s.DB, &models.Tag{
+			}))
+			must.SucceedT(t, s.DB.Insert(&models.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "stillfirst",
 				Digest:       test.DeterministicDummyDigest(repoID*10 + 1),
 				PushedAt:     time.Unix(20002, 0),
 				LastPulledAt: None[time.Time](),
-			})
-			test.MustInsert(t, s.DB, &models.Tag{
+			}))
+			must.SucceedT(t, s.DB.Insert(&models.Tag{
 				RepositoryID: int64(repoID),
 				Name:         "second",
 				Digest:       test.DeterministicDummyDigest(repoID*10 + 2),
 				PushedAt:     time.Unix(20003, 0),
 				LastPulledAt: None[time.Time](),
-			})
+			}))
 		}
 
 		// the results will only include the tags and manifests for `repoID == 1`
@@ -414,9 +415,8 @@ func TestGetTrivyReport(t *testing.T) {
 			Format:   "json",
 			Contents: fmt.Appendf(nil, `{"dummy":"image %s is clean"}`, imageManifest.Digest.String()),
 		}
-		repo, err := keppel.FindRepositoryByID(s.DB, imageManifest.RepositoryID)
-		test.MustDo(t, err)
-		test.MustDo(t, s.SD.WriteTrivyReport(s.Ctx, models.ReducedAccount{Name: repo.AccountName}, repo.Name, imageManifest.Digest, report))
+		repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, imageManifest.RepositoryID))(t)
+		must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, models.ReducedAccount{Name: repo.AccountName}, repo.Name, imageManifest.Digest, report))
 		test.MustExec(t, s.DB,
 			"UPDATE trivy_security_info SET vuln_status = $1, has_enriched_report = TRUE WHERE digest = $2",
 			models.CleanSeverity, imageManifest.Digest.String(),
@@ -468,8 +468,7 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 		)
 		h := s.Handler
 
-		_, err := keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1"))
-		test.MustDo(t, err)
+		_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
 
 		token := s.GetToken(t, "repository:test1/foo:pull,push")
 

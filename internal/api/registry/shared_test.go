@@ -12,6 +12,7 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/must"
 
 	"maps"
 
@@ -52,7 +53,7 @@ func testWithPrimary(t *testing.T, setupOptions []test.SetupOption, action func(
 
 			// shutdown DB to free up connections (otherwise the test eventually fails
 			// with Postgres saying "too many clients already")
-			test.MustDo(t, s.DB.Db.Close())
+			must.SucceedT(t, s.DB.Db.Close())
 		}
 	})
 }
@@ -225,8 +226,7 @@ func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName stri
 func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *keppel.DB) {
 	t.Helper()
 	// test that no blobs were yet committed to the DB...
-	count, err := db.SelectInt(`SELECT COUNT(*) FROM blobs`)
-	test.MustDo(t, err)
+	count := must.ReturnT(db.SelectInt(`SELECT COUNT(*) FROM blobs`))(t)
 	if count > 0 {
 		t.Errorf("expected 0 blobs in the DB, but found %d blobs", count)
 	}
@@ -237,8 +237,7 @@ func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *keppel.DB) 
 	}
 
 	// also there should be no unfinished uploads
-	count, err = db.SelectInt(`SELECT COUNT(*) FROM uploads`)
-	test.MustDo(t, err)
+	count = must.ReturnT(db.SelectInt(`SELECT COUNT(*) FROM uploads`))(t)
 	if count > 0 {
 		t.Errorf("expected 0 uploads in the DB, but found %d uploads", count)
 	}
@@ -246,9 +245,7 @@ func expectStorageEmpty(t *testing.T, sd *trivial.StorageDriver, db *keppel.DB) 
 
 //nolint:unparam
 func testWithAccountIsDeleting(t *testing.T, db *keppel.DB, accountName models.AccountName, action func()) {
-	_, err := db.Exec("UPDATE accounts SET is_deleting = TRUE WHERE name = $1", accountName)
-	test.MustDo(t, err)
+	_ = must.ReturnT(db.Exec("UPDATE accounts SET is_deleting = TRUE WHERE name = $1", accountName))(t)
 	action()
-	_, err = db.Exec("UPDATE accounts SET is_deleting = FALSE WHERE name = $1", accountName)
-	test.MustDo(t, err)
+	_ = must.ReturnT(db.Exec("UPDATE accounts SET is_deleting = FALSE WHERE name = $1", accountName))(t)
 }
