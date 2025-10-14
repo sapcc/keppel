@@ -138,7 +138,10 @@ func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Req
 	// validate source repository
 	sourceRepoName, ok := strings.CutPrefix(sourceRepoFullName, string(account.Name)+"/")
 	if !ok {
-		keppel.ErrUnsupported.With("cannot mount blobs across different accounts").WriteAsRegistryV2ResponseTo(w, r)
+		// Returning "202 Accepted" first sounds logically very wrong but it basically tells the client that the mounting is "done"
+		// and the client then proceeds with the push of all blobs and just uploads the ones that where supposed to be mounted
+		// This is what the OCI spec [here](https://specs.opencontainers.org/distribution-spec/?v=v1.0.0#DISTRIBUTION-SPEC-105) describes.
+		keppel.ErrUnsupported.With("cannot mount blobs across different accounts").WithStatus(http.StatusAccepted).WriteAsRegistryV2ResponseTo(w, r)
 		return
 	}
 	if !models.RepoNameWithLeadingSlashRx.MatchString("/" + sourceRepoName) {

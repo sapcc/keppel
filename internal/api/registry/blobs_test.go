@@ -861,12 +861,12 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 			ExpectBody:   test.ErrorCode(keppel.ErrNameInvalid),
 		}.Check(t, h)
 
-		// test failure cases: cannot mount across accounts
+		// test "failure" cases: cannot mount across accounts
 		assert.HTTPRequest{
 			Method:       "POST",
 			Path:         "/v2/test1/foo/blobs/uploads/?from=test2/foo&mount=" + blob.Digest.String(),
 			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusMethodNotAllowed,
+			ExpectStatus: http.StatusAccepted,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
 		}.Check(t, h)
