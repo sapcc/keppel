@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -97,8 +98,22 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	// special case: request for cross-repo blob mount
 	query := r.URL.Query()
 	if sourceRepoFullName := query.Get("from"); sourceRepoFullName != "" {
-		a.performCrossRepositoryBlobMount(w, r, *account, *repo, authz, sourceRepoFullName, query.Get("mount"))
-		return
+		blobDigestStr := query.Get("mount")
+		responseHeaders, err := a.performCrossRepositoryBlobMount(*account, *repo, authz, sourceRepoFullName, blobDigestStr)
+		if err == nil {
+			maps.Copy(w.Header(), responseHeaders)
+			w.WriteHeader(http.StatusCreated)
+			return
+		} else {
+			// Errors here are not fatal. The OCI Distribution Spec says that:
+			//
+			// > if a registry does not support cross-repository mounting or is unable to mount the requested blob, it SHOULD return a 202.
+			// > This indicates that the upload session has begun and that the client MAY proceed with the upload.
+			//
+			// So failure to cross-mount a blob is not fatal, and instead a regular blob upload session is started.
+			logg.Error("request to cross-mount blob %q from %q to %q failed (falling back to regular upload): %s",
+				blobDigestStr, sourceRepoFullName, repo.FullName(), err.Error())
+		}
 	}
 
 	// special case: monolithic upload
@@ -134,56 +149,46 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (a *API) performCrossRepositoryBlobMount(w http.ResponseWriter, r *http.Request, account models.ReducedAccount, targetRepo models.Repository, authz *auth.Authorization, sourceRepoFullName, blobDigestStr string) {
+func (a *API) performCrossRepositoryBlobMount(account models.ReducedAccount, targetRepo models.Repository, authz *auth.Authorization, sourceRepoFullName, blobDigestStr string) (http.Header, error) {
 	// validate source repository
 	sourceRepoName, ok := strings.CutPrefix(sourceRepoFullName, string(account.Name)+"/")
 	if !ok {
-		keppel.ErrUnsupported.With("cannot mount blobs across different accounts").WriteAsRegistryV2ResponseTo(w, r)
-		return
+		return nil, errors.New("cannot mount blobs across different accounts")
 	}
 	if !models.RepoNameWithLeadingSlashRx.MatchString("/" + sourceRepoName) {
-		keppel.ErrNameInvalid.With("source repository is invalid").WriteAsRegistryV2ResponseTo(w, r)
-		return
+		return nil, errors.New("source repository is invalid")
 	}
 	sourceRepo, err := keppel.FindRepository(a.db, sourceRepoName, account.Name)
-	if errors.Is(err, sql.ErrNoRows) {
-		keppel.ErrNameUnknown.With("source repository does not exist").WriteAsRegistryV2ResponseTo(w, r)
-		return
-	}
-	if respondWithError(w, r, err) {
-		return
+	if err != nil {
+		return nil, fmt.Errorf("while finding source repository: %w", err)
 	}
 
 	// validate blob
 	blobDigest, err := digest.Parse(blobDigestStr)
 	if err != nil {
-		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
-		return
+		return nil, fmt.Errorf("cannot parse digest %q: %w", blobDigestStr, err)
 	}
 	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *sourceRepo)
-	if errors.Is(err, sql.ErrNoRows) {
-		keppel.ErrBlobUnknown.With("blob does not exist in source repository").WriteAsRegistryV2ResponseTo(w, r)
-		return
-	}
-	if respondWithError(w, r, err) {
-		return
+	if err != nil {
+		return nil, fmt.Errorf("while finding source blob: %w", err)
 	}
 
 	// create blob mount if missing
 	err = keppel.MountBlobIntoRepo(a.db, *blob, targetRepo)
-	if respondWithError(w, r, err) {
-		return
+	if err != nil {
+		return nil, err
 	}
 
 	// the spec wants a Blob-Upload-Session-Id header even though the upload is done, so just make something up
 	uuidV4, err := uuid.NewV4()
-	if respondWithError(w, r, err) {
-		return
+	if err != nil {
+		return nil, err
 	}
-	w.Header().Set("Blob-Upload-Session-Id", uuidV4.String())
-	w.Header().Set("Content-Length", "0")
-	w.Header().Set("Location", fmt.Sprintf("/v2/%s/blobs/%s", getRepoNameForURLPath(targetRepo, authz), blobDigest.String()))
-	w.WriteHeader(http.StatusCreated)
+	hdr := make(http.Header)
+	hdr.Set("Blob-Upload-Session-Id", uuidV4.String())
+	hdr.Set("Content-Length", "0")
+	hdr.Set("Location", fmt.Sprintf("/v2/%s/blobs/%s", getRepoNameForURLPath(targetRepo, authz), blobDigest.String()))
+	return hdr, nil
 }
 
 func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, account models.ReducedAccount, repo models.Repository, authz *auth.Authorization, blobDigestStr string) (ok bool) {
