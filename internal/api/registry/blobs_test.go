@@ -833,6 +833,13 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 		// upload a blob to test1/bar so that we can test mounting it to test1/foo
 		blob.MustUpload(t, s, barRepoRef)
 
+		// failed blob mounts are usually not fatal, and instead return 202 Accepted to start a regular blob upload session
+		fallbackToRegularUploadStatus := http.StatusAccepted
+		fallbackToRegularUploadHeaders := map[string]string{
+			test.VersionHeaderKey: test.VersionHeaderValue,
+			"Content-Length":      "0",
+		}
+
 		// test failure cases: token does not have push access
 		assert.HTTPRequest{
 			Method:       "POST",
@@ -848,17 +855,15 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 			Method:       "POST",
 			Path:         "/v2/test1/foo/blobs/uploads/?from=test1/qux&mount=" + blob.Digest.String(),
 			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusNotFound,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   test.ErrorCode(keppel.ErrNameUnknown),
+			ExpectStatus: fallbackToRegularUploadStatus,
+			ExpectHeader: fallbackToRegularUploadHeaders,
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "POST",
 			Path:         "/v2/test1/foo/blobs/uploads/?from=test1/:qux&mount=" + blob.Digest.String(),
 			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusBadRequest,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   test.ErrorCode(keppel.ErrNameInvalid),
+			ExpectStatus: fallbackToRegularUploadStatus,
+			ExpectHeader: fallbackToRegularUploadHeaders,
 		}.Check(t, h)
 
 		// test failure cases: cannot mount across accounts
@@ -866,9 +871,8 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 			Method:       "POST",
 			Path:         "/v2/test1/foo/blobs/uploads/?from=test2/foo&mount=" + blob.Digest.String(),
 			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusMethodNotAllowed,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
+			ExpectStatus: fallbackToRegularUploadStatus,
+			ExpectHeader: fallbackToRegularUploadHeaders,
 		}.Check(t, h)
 
 		// test failure cases: digest is malformed or wrong
@@ -876,17 +880,15 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 			Method:       "POST",
 			Path:         "/v2/test1/foo/blobs/uploads/?from=test1/bar&mount=wrong",
 			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusBadRequest,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   test.ErrorCode(keppel.ErrDigestInvalid),
+			ExpectStatus: fallbackToRegularUploadStatus,
+			ExpectHeader: fallbackToRegularUploadHeaders,
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "POST",
 			Path:         "/v2/test1/foo/blobs/uploads/?from=test1/bar&mount=" + test.DeterministicDummyDigest(1).String(),
 			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusNotFound,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   test.ErrorCode(keppel.ErrBlobUnknown),
+			ExpectStatus: fallbackToRegularUploadStatus,
+			ExpectHeader: fallbackToRegularUploadHeaders,
 		}.Check(t, h)
 
 		// since these all failed, the blob should not be available in test1/foo yet
