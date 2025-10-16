@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/sapcc/go-bits/internal/testdiff"
 	"github.com/sapcc/go-bits/osext"
 )
 
@@ -83,19 +84,7 @@ type Assertable struct {
 // file. A test error is generated in case of differences.
 func (a Assertable) AssertEqualToFile(fixtureFile string) {
 	a.t.Helper()
-
-	// write actual content to file to make it easy to copy the computed result over
-	// to the fixture path when a new test is added or an existing one is modified
-	fixturePath, err := filepath.Abs(fixtureFile)
-	failOnErr(a.t, err)
-	actualPath := fixturePath + ".actual"
-	failOnErr(a.t, os.WriteFile(actualPath, []byte(a.payload), 0o666))
-
-	cmd := exec.Command("diff", "-u", fixturePath, actualPath)
-	cmd.Stdin = nil
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	failOnErr(a.t, cmd.Run())
+	failOnErr(a.t, testdiff.DiffAgainstFixtureFile(fixtureFile, []byte(a.payload)))
 }
 
 var whitespaceAtStartOfLineRx = regexp.MustCompile(`(?m)^\s+`)

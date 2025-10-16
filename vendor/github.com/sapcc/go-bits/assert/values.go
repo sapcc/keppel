@@ -8,14 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 
+	"github.com/sapcc/go-bits/internal/testdiff"
 	"github.com/sapcc/go-bits/osext"
 )
 
@@ -140,29 +138,9 @@ type FixtureFile string
 // AssertResponseBody implements the HTTPResponseBody interface.
 func (f FixtureFile) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
 	t.Helper()
-
-	// write actual content to file to make it easy to copy the computed result over
-	// to the fixture path when a new test is added or an existing one is modified
-	fixturePathAbs, err := filepath.Abs(string(f))
-	if err != nil {
-		t.Fatal(err)
-		return false
-	}
-	actualPathAbs := fixturePathAbs + ".actual"
-	err = os.WriteFile(actualPathAbs, responseBody, 0o666)
-	if err != nil {
-		t.Fatal(err)
-		return false
-	}
-
-	cmd := exec.Command("diff", "-u", fixturePathAbs, actualPathAbs)
-	cmd.Stdin = nil
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
+	err := testdiff.DiffAgainstFixtureFile(string(f), responseBody)
 	if err != nil {
 		t.Errorf("%s: body does not match: %s", requestInfo, err.Error())
 	}
-
 	return err == nil
 }

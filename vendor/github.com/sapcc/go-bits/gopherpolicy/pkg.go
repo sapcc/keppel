@@ -24,7 +24,7 @@ import (
 )
 
 // Validator is the interface provided by TokenValidator. Application code
-// should prefer to reference this interface to allow for substituation by a
+// should prefer to reference this interface to allow for substitution by a
 // test double (such as type mock.Validator).
 type Validator interface {
 	// CheckToken checks the validity of the request's X-Auth-Token in Keystone, and
