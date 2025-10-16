@@ -86,8 +86,8 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 				// Requests is not a perfect match, but it's my best guess for getting
 				// clients to automatically retry the request after a few seconds)
 				w.Header().Set("Retry-After", "10")
-				msg := "currently replicating on a different worker, please retry in a few seconds"
-				keppel.ErrTooManyRequests.With(msg).WriteAsRegistryV2ResponseTo(w, r)
+				keppel.ErrTooManyRequests.With("currently replicating blob %s in %s/%s on a different worker, please retry in a few seconds",
+					blob.Digest, account.Name, repo.Name).WriteAsRegistryV2ResponseTo(w, r)
 			default:
 				respondWithError(w, r, err)
 			}
