@@ -63,8 +63,38 @@ var hasTestDB = false
 func WithTestDB(m *testing.M, action func() int) int {
 	rootPath := must.Return(findRepositoryRootDir())
 
-	// create DB on first use
+	// If a DB already exists, check if it is another major version than psql is.
+	// If no DB exists, create a fresh one.
 	hasPostgresDB := must.Return(checkPathExists(filepath.Join(rootPath, ".testdb/datadir/PG_VERSION")))
+	if hasPostgresDB {
+		pgVersionBytes, err := os.ReadFile(filepath.Join(rootPath, ".testdb/datadir/PG_VERSION"))
+		if err != nil {
+			logg.Fatal("could not read PG_VERSION: %w", err)
+		}
+
+		psqlCmd := exec.Command("psql", "--version")
+		psqlVersionBytes, err := psqlCmd.CombinedOutput()
+		if err != nil {
+			logg.Fatal("could not run psql --version: %w", err)
+		}
+
+		// Extract major version from psql --version output, e.g. "psql (PostgreSQL) 18.0"
+		re := regexp.MustCompile(`psql \(PostgreSQL\) (\d+)\.`)
+		matches := re.FindSubmatch(psqlVersionBytes)
+		if len(matches) < 2 {
+			logg.Fatal("could not extract PostgreSQL major version from: %q", string(psqlVersionBytes))
+		}
+
+		psqlMajorVersion := string(matches[1])
+		pgVersion := strings.TrimSpace(string(pgVersionBytes))
+
+		if psqlMajorVersion != pgVersion {
+			logg.Info("removing existing test database because its major version %q does not match psql's major version %q", pgVersion, psqlMajorVersion)
+			must.Succeed(os.RemoveAll(filepath.Join(rootPath, ".testdb")))
+			hasPostgresDB = false
+		}
+	}
+
 	if !hasPostgresDB {
 		for _, dirName := range []string{".testdb/datadir", ".testdb/run"} {
 			must.Succeed(os.MkdirAll(filepath.Join(rootPath, dirName), 0777)) // subject to umask

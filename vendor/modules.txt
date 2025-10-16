@@ -202,7 +202,7 @@ github.com/sapcc/go-api-declarations/cadf
 github.com/sapcc/go-api-declarations/internal/clone
 github.com/sapcc/go-api-declarations/internal/errorset
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20251014143005-53bec86ab9bd
+# github.com/sapcc/go-bits v0.0.0-20251016112301-bea1654200bb
 ## explicit; go 1.24.0
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
