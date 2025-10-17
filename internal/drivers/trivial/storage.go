@@ -218,6 +218,9 @@ func (d *StorageDriver) WriteTrivyReport(ctx context.Context, account models.Red
 	if err != nil {
 		return err
 	}
+	if len(report) == 0 {
+		return errors.New("found empty report")
+	}
 	d.trivyReports[k] = report
 	return nil
 }
