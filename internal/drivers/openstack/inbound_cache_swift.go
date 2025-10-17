@@ -4,11 +4,11 @@
 package openstack
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"regexp"
@@ -60,7 +60,8 @@ func compileOptionalImplicitlyBoundedRegex(pattern string) (*regexp.Regexp, erro
 }
 
 // LoadManifest implements the keppel.InboundCacheDriver interface.
-func (d *inboundCacheDriverSwift) LoadManifest(ctx context.Context, location models.ImageReference, now time.Time) (contents []byte, mediaType string, returnedError error) {
+// It is the callers responsibility to close the returned io.ReaderCloser.
+func (d *inboundCacheDriverSwift) LoadManifest(ctx context.Context, location models.ImageReference, now time.Time) (contents io.ReadCloser, mediaType string, returnedError error) {
 	if d.skip(location) {
 		return nil, "", sql.ErrNoRows
 	}
@@ -73,7 +74,7 @@ func (d *inboundCacheDriverSwift) LoadManifest(ctx context.Context, location mod
 
 	obj := d.objectFor(location)
 
-	contents, err := obj.Download(ctx, nil).AsByteSlice()
+	contents, err := obj.Download(ctx, nil).AsReadCloser()
 	if err != nil {
 		if schwift.Is(err, http.StatusNotFound) {
 			return nil, "", sql.ErrNoRows
@@ -89,7 +90,7 @@ func (d *inboundCacheDriverSwift) LoadManifest(ctx context.Context, location mod
 }
 
 // StoreManifest implements the keppel.InboundCacheDriver interface.
-func (d *inboundCacheDriverSwift) StoreManifest(ctx context.Context, location models.ImageReference, contents []byte, mediaType string, now time.Time) error {
+func (d *inboundCacheDriverSwift) StoreManifest(ctx context.Context, location models.ImageReference, contents io.Reader, mediaType string, now time.Time) error {
 	if d.skip(location) {
 		return nil
 	}
@@ -99,7 +100,7 @@ func (d *inboundCacheDriverSwift) StoreManifest(ctx context.Context, location mo
 	hdr.ExpiresAt().Set(d.expiryFor(location, now))
 
 	obj := d.objectFor(location)
-	err := obj.Upload(ctx, bytes.NewReader(contents), nil, hdr.ToOpts())
+	err := obj.Upload(ctx, contents, nil, hdr.ToOpts())
 	if err != nil {
 		return fmt.Errorf("while populating the inbound cache: %w", err)
 	}

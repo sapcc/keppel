@@ -80,10 +80,17 @@ func (c *RepoClient) doValidateManifest(ctx context.Context, reference models.Ma
 		}
 	}()
 
-	manifestBytes, manifestMediaType, err := c.DownloadManifest(ctx, reference, nil)
+	manifestReader, manifestMediaType, err := c.DownloadManifest(ctx, reference, nil)
 	if err != nil {
 		return err
 	}
+	defer manifestReader.Close()
+
+	manifestBytes, err := io.ReadAll(manifestReader)
+	if err != nil {
+		return err
+	}
+
 	manifest, err := keppel.ParseManifest(manifestMediaType, manifestBytes)
 	if err != nil {
 		return err

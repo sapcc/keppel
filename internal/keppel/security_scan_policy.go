@@ -4,8 +4,10 @@
 package keppel
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/sapcc/go-bits/errext"
@@ -135,7 +137,7 @@ func (p SecurityScanPolicy) MatchesVulnerability(vuln trivy.DetectedVulnerabilit
 // of SecurityScanPolicy (like those found in Account.SecurityScanPoliciesJSON).
 type SecurityScanPolicySet []SecurityScanPolicy
 
-// SecurityScanPoliciesFor deserializes this account's security scan policies
+// GetSecurityScanPolicies deserializes this account's security scan policies
 // and returns the subset that match the given repository.
 func GetSecurityScanPolicies(account models.Account, repo models.Repository) (SecurityScanPolicySet, error) {
 	if repo.AccountName != account.Name {
@@ -185,7 +187,8 @@ func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload, timeNo
 	}
 
 	// decode relevant fields from report
-	parsedReport, err := trivy.UnmarshalReportFromJSON(payload.Contents)
+	unmodifiedReport := &bytes.Buffer{}
+	parsedReport, err := trivy.UnmarshalReportFromJSON(io.TeeReader(payload.Contents, unmodifiedReport))
 	if err != nil {
 		return errorStatus, fmt.Errorf("cannot parse Trivy vulnerability report: %w", err)
 	}
@@ -214,10 +217,11 @@ func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload, timeNo
 				VulnerabilityID:  "keppel:rotten-os",
 			}},
 		}})
-		payload.Contents, err = parsedReport.MarshalJSON()
+		buf, err := parsedReport.MarshalJSON()
 		if err != nil {
 			return errorStatus, fmt.Errorf("cannot serialize rotten Trivy vulnerability report: %w", err)
 		}
+		payload.Contents = io.NopCloser(bytes.NewReader(buf))
 	} else {
 		// compute X-Keppel-Applicable-Policies set while also collecting constituent VulnerabilityStatus values
 		applicablePolicies := make(map[string]SecurityScanPolicy)
@@ -240,10 +244,13 @@ func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload, timeNo
 		// remarshal report if it has changed
 		if len(applicablePolicies) > 0 {
 			parsedReport.AddField("X-Keppel-Applicable-Policies", applicablePolicies)
-			payload.Contents, err = parsedReport.MarshalJSON()
+			buf, err := parsedReport.MarshalJSON()
 			if err != nil {
 				return errorStatus, fmt.Errorf("cannot serialize enriched Trivy vulnerability report: %w", err)
 			}
+			payload.Contents = io.NopCloser(bytes.NewReader(buf))
+		} else {
+			payload.Contents = io.NopCloser(bytes.NewReader(unmodifiedReport.Bytes()))
 		}
 	}
 

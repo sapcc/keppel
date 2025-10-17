@@ -61,8 +61,8 @@ type StorageDriver interface {
 	// instead.
 	DeleteBlob(ctx context.Context, account models.ReducedAccount, storageID string) error
 
-	ReadManifest(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest) ([]byte, error)
-	WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, contents []byte) error
+	ReadManifest(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest) (io.ReadCloser, error)
+	WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, contents io.Reader) error
 	DeleteManifest(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest) error
 
 	// The `format` argument is the value given to Trivy as `--format` when generating the report.
@@ -73,7 +73,7 @@ type StorageDriver interface {
 	// Because of the account-level separation, we could only do so for repos stored in the same account.
 	// In practice, having the same manifest be stored in multiple repos under the same account is a rare occasion,
 	// and thus not worth the hassle of implementing the additional logic required for deduplication.
-	ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, format string) ([]byte, error)
+	ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, format string) (io.ReadCloser, error)
 	WriteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, payload trivy.ReportPayload) error
 	DeleteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, format string) error
 
