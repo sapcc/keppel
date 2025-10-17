@@ -443,7 +443,11 @@ func (j *Janitor) collectManifestLayerBlobs(ctx context.Context, account models.
 	}
 
 	// we only care about blobs that are image layers; the manifest tells us which blobs are layers
-	manifestBytes, err := j.sd.ReadManifest(ctx, account, repo.Name, manifest.Digest)
+	manifestReader, err := j.sd.ReadManifest(ctx, account, repo.Name, manifest.Digest)
+	if err != nil {
+		return nil, err
+	}
+	manifestBytes, err := io.ReadAll(manifestReader)
 	if err != nil {
 		return nil, err
 	}
