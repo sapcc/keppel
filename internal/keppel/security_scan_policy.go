@@ -135,7 +135,7 @@ func (p SecurityScanPolicy) MatchesVulnerability(vuln trivy.DetectedVulnerabilit
 // of SecurityScanPolicy (like those found in Account.SecurityScanPoliciesJSON).
 type SecurityScanPolicySet []SecurityScanPolicy
 
-// SecurityScanPoliciesFor deserializes this account's security scan policies
+// GetSecurityScanPolicies deserializes this account's security scan policies
 // and returns the subset that match the given repository.
 func GetSecurityScanPolicies(account models.Account, repo models.Repository) (SecurityScanPolicySet, error) {
 	if repo.AccountName != account.Name {
