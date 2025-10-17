@@ -11,6 +11,23 @@ RUN make -C /src install PREFIX=/pkg GOTOOLCHAIN=local GO_BUILDFLAGS='-mod vendo
 
 ################################################################################
 
+# To only build the tests run: docker build . --target test
+FROM builder AS test
+
+# some things like postgres do not like to run as root. For simplicity, just always run as a unprivilgied user
+RUN addgroup -g 4200 appgroup \
+  && adduser -h /home/appuser -s /sbin/nologin -G appgroup -D -u 4200 appuser
+
+RUN apk add --no-cache --no-progress py3-pip postgresql \
+  && pip3 install --break-system-packages reuse \
+  && make -C /src prepare-static-check
+
+USER 4200:4200
+
+RUN make -C /src check
+
+################################################################################
+
 FROM alpine:3.22
 
 RUN addgroup -g 4200 appgroup \
