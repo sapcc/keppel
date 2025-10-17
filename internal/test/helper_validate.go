@@ -75,17 +75,22 @@ func (s Setup) ExpectManifestsExistInStorage(t *testing.T, repoName string, mani
 	for _, manifest := range manifests {
 		repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, manifest.RepositoryID))(t)
 		account := models.ReducedAccount{Name: repo.AccountName}
-		manifestBytes, err := s.SD.ReadManifest(s.Ctx, account, repoName, manifest.Digest)
+		manifestReader, err := s.SD.ReadManifest(s.Ctx, account, repoName, manifest.Digest)
 		if err != nil {
 			t.Errorf("expected manifest %s to exist in the storage, but got: %s", manifest.Digest, err.Error())
 			continue
 		}
+		defer manifestReader.Close()
 		err = manifest.Digest.Validate()
 		if err != nil {
 			t.Errorf("manifest digest %q is not a digest: %s", manifest.Digest, err.Error())
 			continue
 		}
-		actualDigest := manifest.Digest.Algorithm().FromBytes(manifestBytes)
+		actualDigest, err := manifest.Digest.Algorithm().FromReader(manifestReader)
+		if err != nil {
+			t.Errorf("unexpected error while reading manifest %s: %s", manifest.Digest, err.Error())
+			continue
+		}
 		if actualDigest != manifest.Digest {
 			t.Errorf("manifest %s has corrupted contents: actual digest is %s", manifest.Digest, actualDigest)
 			continue
@@ -112,9 +117,13 @@ func (s Setup) ExpectTrivyReportExistsInStorage(t *testing.T, manifest models.Ma
 	t.Helper()
 	repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, manifest.RepositoryID))(t)
 	account := models.ReducedAccount{Name: repo.AccountName}
-	buf, err := s.SD.ReadTrivyReport(s.Ctx, account, repo.Name, manifest.Digest, format)
+	reader, err := s.SD.ReadTrivyReport(s.Ctx, account, repo.Name, manifest.Digest, format)
 	if err != nil {
 		t.Errorf("expected Trivy report %s/%s to exist in the storage, but got: %s", manifest.Digest, format, err.Error())
+	}
+	buf, err := io.ReadAll(reader)
+	if err != nil {
+		t.Errorf("unexpected error while reading Trivy report %s/%s: %s", manifest.Digest, format, err.Error())
 	}
 	contents.AssertResponseBody(t, fmt.Sprintf("Trivy report %s/%s", manifest.Digest, format), bytes.TrimSpace(buf))
 }

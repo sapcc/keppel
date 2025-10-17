@@ -126,20 +126,25 @@ func (d *StorageDriver) DeleteBlob(ctx context.Context, account models.ReducedAc
 }
 
 // ReadManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ReadManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) ([]byte, error) {
+func (d *StorageDriver) ReadManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) (io.ReadCloser, error) {
 	path := d.getManifestPath(account, repoName, manifestDigest)
-	return os.ReadFile(path)
+	return os.Open(path)
 }
 
 // WriteManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, contents []byte) error {
+func (d *StorageDriver) WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, contents io.Reader) (err error) {
 	path := d.getManifestPath(account, repoName, manifestDigest)
 	tmpPath := path + ".tmp"
-	err := os.MkdirAll(filepath.Dir(tmpPath), 0777) // subject to umask
+	err = os.MkdirAll(filepath.Dir(tmpPath), 0777) // subject to umask
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(tmpPath, contents, 0666) // subject to umask
+	file, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666) // subject to umask
+	if err != nil {
+		return err
+	}
+	defer func() { err = file.Close() }()
+	_, err = io.Copy(file, contents)
 	if err != nil {
 		return err
 	}
@@ -153,16 +158,16 @@ func (d *StorageDriver) DeleteManifest(ctx context.Context, account models.Reduc
 }
 
 // ReadTrivyReport implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) ([]byte, error) {
+func (d *StorageDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) (io.ReadCloser, error) {
 	path := d.getTrivyReportPath(account, repoName, manifestDigest, format)
-	return os.ReadFile(path)
+	return os.Open(path)
 }
 
 // WriteTrivyReport implements the keppel.StorageDriver interface.
-func (d *StorageDriver) WriteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, payload trivy.ReportPayload) error {
+func (d *StorageDriver) WriteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, payload trivy.ReportPayload) (err error) {
 	path := d.getTrivyReportPath(account, repoName, manifestDigest, payload.Format)
 	tmpPath := path + ".tmp"
-	err := os.MkdirAll(filepath.Dir(tmpPath), 0777) // subject to umask
+	err = os.MkdirAll(filepath.Dir(tmpPath), 0777) // subject to umask
 	if err != nil {
 		return err
 	}

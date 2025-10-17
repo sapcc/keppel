@@ -4,7 +4,6 @@
 package openstack
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -284,23 +283,24 @@ func reportObjectErrorsIfAny(operation string, err error) {
 }
 
 // ReadManifest implements the keppel.StorageDriver interface.
-func (d *swiftDriver) ReadManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) ([]byte, error) {
+// The caller is responsible to close the returned ReadCloser.
+func (d *swiftDriver) ReadManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) (io.ReadCloser, error) {
 	c, _, err := d.getBackendConnection(ctx, account)
 	if err != nil {
 		return nil, err
 	}
 	o := c.Object(stringy.ManifestObjectName(repoName, manifestDigest))
-	return o.Download(ctx, nil).AsByteSlice()
+	return o.Download(ctx, nil).AsReadCloser()
 }
 
 // WriteManifest implements the keppel.StorageDriver interface.
-func (d *swiftDriver) WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, contents []byte) error {
+func (d *swiftDriver) WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, contents io.Reader) error {
 	c, _, err := d.getBackendConnection(ctx, account)
 	if err != nil {
 		return err
 	}
 	o := c.Object(stringy.ManifestObjectName(repoName, manifestDigest))
-	return uploadToObject(ctx, o, bytes.NewReader(contents), nil, nil)
+	return uploadToObject(ctx, o, contents, nil, nil)
 }
 
 // DeleteManifest implements the keppel.StorageDriver interface.
@@ -314,13 +314,14 @@ func (d *swiftDriver) DeleteManifest(ctx context.Context, account models.Reduced
 }
 
 // ReadTrivyReport implements the keppel.StorageDriver interface.
-func (d *swiftDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) ([]byte, error) {
+// The caller is responsible to close the returned ReadCloser.
+func (d *swiftDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) (io.ReadCloser, error) {
 	c, _, err := d.getBackendConnection(ctx, account)
 	if err != nil {
 		return nil, err
 	}
 	o := c.Object(stringy.TrivyReportObjectName(repoName, manifestDigest, format))
-	return o.Download(ctx, nil).AsByteSlice()
+	return o.Download(ctx, nil).AsReadCloser()
 }
 
 // WriteTrivyReport implements the keppel.StorageDriver interface.
