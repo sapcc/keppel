@@ -6,6 +6,7 @@ package trivial
 import (
 	"context"
 	"database/sql"
+	"io"
 	"time"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -27,13 +28,13 @@ func (inboundCacheDriver) Init(ctx context.Context, cfg keppel.Configuration) er
 }
 
 // LoadManifest implements the keppel.InboundCacheDriver interface.
-func (inboundCacheDriver) LoadManifest(ctx context.Context, location models.ImageReference, now time.Time) (contents []byte, mediaType string, err error) {
+func (inboundCacheDriver) LoadManifest(ctx context.Context, location models.ImageReference, now time.Time) (contents io.ReadCloser, mediaType string, err error) {
 	// always return a cache miss
 	return nil, "", sql.ErrNoRows
 }
 
 // StoreManifest implements the keppel.InboundCacheDriver interface.
-func (inboundCacheDriver) StoreManifest(ctx context.Context, location models.ImageReference, contents []byte, mediaType string, now time.Time) error {
+func (inboundCacheDriver) StoreManifest(ctx context.Context, location models.ImageReference, contents io.Reader, mediaType string, now time.Time) error {
 	// no-op
 	return nil
 }
