@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -39,18 +38,19 @@ func (c *Client) initToken(ctx context.Context, cfg keppel.Configuration, scope 
 	ourUserName := "replication@" + cfg.APIPublicHostname
 	authHeader := map[string]string{"Authorization": keppel.BuildBasicAuthHeader(ourUserName, c.peer.OurPassword)}
 
-	respBodyBytes, respStatusCode, _, err := c.doRequest(ctx, http.MethodGet, reqURL, http.NoBody, authHeader)
+	respBody, respStatusCode, _, err := c.doRequest(ctx, http.MethodGet, reqURL, http.NoBody, authHeader)
 	if err != nil {
 		return err
 	}
+	defer respBody.Close()
 	if respStatusCode != http.StatusOK {
-		return fmt.Errorf("expected 200 OK, but got %d: %s", respStatusCode, strings.TrimSpace(string(respBodyBytes)))
+		return fmt.Errorf("expected 200 OK, but got %d: %s", respStatusCode, tryReadAllAndTrimSpace(respBody))
 	}
 
 	var data struct {
 		Token string `json:"token"`
 	}
-	err = json.Unmarshal(respBodyBytes, &data)
+	err = json.NewDecoder(respBody).Decode(&data)
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,8 @@ func (c Client) buildRequestURL(path string) string {
 	return fmt.Sprintf("https://%s/%s", c.peer.HostName, path)
 }
 
-func (c Client) doRequest(ctx context.Context, method, url string, body io.Reader, headers map[string]string) (respBodyBytes []byte, respStatusCode int, respHeader http.Header, err error) {
+// The caller is responsible for closing respBodyBytes if it's non-nil.
+func (c Client) doRequest(ctx context.Context, method, url string, body io.Reader, headers map[string]string) (respBodyBytes io.ReadCloser, respStatusCode int, respHeader http.Header, err error) {
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("during %s %s: %w", method, url, err)
@@ -78,11 +79,6 @@ func (c Client) doRequest(ctx context.Context, method, url string, body io.Reade
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("during %s %s: %w", method, url, err)
 	}
-	defer resp.Body.Close()
-	respBodyBytes, err = io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, 0, nil, fmt.Errorf("during %s %s: %w", method, url, err)
-	}
 
-	return respBodyBytes, resp.StatusCode, resp.Header, nil
+	return resp.Body, resp.StatusCode, resp.Header, nil
 }
