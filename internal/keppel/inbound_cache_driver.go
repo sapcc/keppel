@@ -6,6 +6,7 @@ package keppel
 import (
 	"context"
 	"errors"
+	"io"
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
@@ -27,12 +28,12 @@ type InboundCacheDriver interface {
 	//
 	// time.Now() is given in the second argument to allow for tests to use an
 	// artificial wall clock.
-	LoadManifest(ctx context.Context, location models.ImageReference, now time.Time) (contents []byte, mediaType string, err error)
+	LoadManifest(ctx context.Context, location models.ImageReference, now time.Time) (contents io.ReadCloser, mediaType string, err error)
 	// StoreManifest places a manifest in the cache for later retrieval.
 	//
 	// time.Now() is given in the last argument to allow for tests to use an
 	// artificial wall clock.
-	StoreManifest(ctx context.Context, location models.ImageReference, contents []byte, mediaType string, now time.Time) error
+	StoreManifest(ctx context.Context, location models.ImageReference, contents io.Reader, mediaType string, now time.Time) error
 }
 
 // InboundCacheDriverRegistry is a pluggable.Registry for InboundCacheDriver implementations.

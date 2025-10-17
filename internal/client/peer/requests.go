@@ -19,7 +19,8 @@ import (
 // DownloadManifestViaPullDelegation asks the peer to download a manifest from
 // an external registry for us. This gets used when the external registry
 // denies the pull to us because we hit our rate limit.
-func (c Client) DownloadManifestViaPullDelegation(ctx context.Context, imageRef models.ImageReference, userName, password string) (respBodyBytes []byte, contentType string, err error) {
+// The caller is responsible for closing the returned ReadCloser.
+func (c Client) DownloadManifestViaPullDelegation(ctx context.Context, imageRef models.ImageReference, userName, password string) (respBodyBytes io.ReadCloser, contentType string, err error) {
 	reqURL := c.buildRequestURL(fmt.Sprintf(
 		"peer/v1/delegatedpull/%s/v2/%s/manifests/%s",
 		imageRef.Host, imageRef.RepoName, imageRef.Reference,
@@ -33,17 +34,12 @@ func (c Client) DownloadManifestViaPullDelegation(ctx context.Context, imageRef 
 	if err != nil {
 		return nil, "", err
 	}
-	defer respBody.Close()
 	if respStatusCode != http.StatusOK {
-		return nil, "", fmt.Errorf("during GET %s: expected 200, got %d with response: %s", reqURL, respStatusCode, tryReadingResp(respBody))
+		respBody.Close()
+		return nil, "", fmt.Errorf("during GET %s: expected 200, got %d with response: %s", reqURL, respStatusCode, tryReadAllAndTrimSpace(respBody))
 	}
 
-	respBodyBytes, err = io.ReadAll(respBody)
-	if err != nil {
-		return nil, "", fmt.Errorf("while reading response from GET %s: %w", reqURL, err)
-	}
-
-	return respBodyBytes, respHeader.Get("Content-Type"), nil
+	return respBody, respHeader.Get("Content-Type"), nil
 }
 
 // GetForeignAccountConfiguration asks the peer for the configuration of the
