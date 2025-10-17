@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -147,13 +146,9 @@ func checkAnycastMembership(ctx context.Context, anycastURL *url.URL, apiPublicH
 		return false, fmt.Errorf("failed getting anon token: %s", err.Error())
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return false, fmt.Errorf("failed reading body: %s", err.Error())
-	}
 
 	var data auth.TokenResponse
-	err = json.Unmarshal(body, &data)
+	err = json.NewDecoder(resp.Body).Decode(&data)
 	if err != nil {
 		return false, fmt.Errorf("failed to unmarshal JWT: %s", err.Error())
 	}
