@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"io"
 	"net/http"
 	"sort"
 
@@ -378,8 +379,9 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
+	defer report.Contents.Close()
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(report.Contents)
+	io.Copy(w, report.Contents) //nolint:errcheck // we could only log that the client closed the connection early
 }

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
+	"io"
 	"testing"
 	"time"
 
@@ -307,7 +308,7 @@ func TestAccountManagementStorageSweep(t *testing.T) {
 	testImageList3 := test.GenerateImageList(images[2])
 	must.SucceedT(t, s.SD.WriteManifest(s.Ctx, account, "foo", testImageList3.Manifest.Digest, testImageList3.Manifest.Contents))
 	must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, account, "foo", testImageList1.Manifest.Digest, trivy.ReportPayload{
-		Contents: []byte(`{"report": "test"}`),
+		Contents: io.NopCloser(bytes.NewReader([]byte(`{"report": "test"}`))),
 		Format:   "json",
 	}))
 
