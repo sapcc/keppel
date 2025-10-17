@@ -97,7 +97,12 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 				logg.Info("could not read manifest %s@%s from DB (falling back to read from storage): %s",
 					repo.FullName(), dbManifest.Digest, err.Error())
 			}
-			manifestBytes, err = a.sd.ReadManifest(r.Context(), *account, repo.Name, dbManifest.Digest)
+			manifestReader, err := a.sd.ReadManifest(r.Context(), *account, repo.Name, dbManifest.Digest)
+			if respondWithError(w, r, err) {
+				return
+			}
+			defer manifestReader.Close()
+			manifestBytes, err = io.ReadAll(manifestReader)
 			if respondWithError(w, r, err) {
 				return
 			}

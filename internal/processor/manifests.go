@@ -133,7 +133,7 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 
 			// after making all DB changes, but before committing the DB transaction,
 			// write the manifest into the backend
-			return p.sd.WriteManifest(ctx, account, repo.Name, manifest.Digest, m.Contents)
+			return p.sd.WriteManifest(ctx, account, repo.Name, manifest.Digest, bytes.NewReader(m.Contents))
 		},
 	})
 	if err != nil {
@@ -177,7 +177,13 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 
 // ValidateExistingManifest validates the given manifest that already exists in the DB.
 func (p *Processor) ValidateExistingManifest(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifest *models.Manifest) error {
-	manifestBytes, err := p.sd.ReadManifest(ctx, account, repo.Name, manifest.Digest)
+	manifestReader, err := p.sd.ReadManifest(ctx, account, repo.Name, manifest.Digest)
+	if err != nil {
+		return err
+	}
+	defer manifestReader.Close()
+
+	manifestBytes, err := io.ReadAll(manifestReader)
 	if err != nil {
 		return err
 	}
