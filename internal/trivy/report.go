@@ -6,6 +6,7 @@ package trivy
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"maps"
 
 	. "github.com/majewsky/gg/option"
@@ -31,12 +32,12 @@ type Report struct {
 // UnmarshalReportFromJSON creates a Report object by unmarshalling a report JSON received from Trivy.
 //
 // NOTE: Use this directly instead of passing the report to json.Unmarshal() to avoid superfluous bytestring copies.
-func UnmarshalReportFromJSON(buf []byte) (Report, error) {
+func UnmarshalReportFromJSON(in io.Reader) (Report, error) {
 	r := Report{
 		originalPayload:  make(map[string]json.RawMessage),
 		additionalFields: make(map[string]any),
 	}
-	err := json.Unmarshal(buf, &r.originalPayload)
+	err := json.NewDecoder(in).Decode(&r.originalPayload)
 	if err != nil {
 		return Report{}, err
 	}

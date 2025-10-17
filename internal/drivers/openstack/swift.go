@@ -330,7 +330,7 @@ func (d *swiftDriver) WriteTrivyReport(ctx context.Context, account models.Reduc
 		return err
 	}
 	o := c.Object(stringy.TrivyReportObjectName(repoName, manifestDigest, payload.Format))
-	return uploadToObject(ctx, o, bytes.NewReader(payload.Contents), nil, nil)
+	return uploadToObject(ctx, o, payload.Contents, nil, nil)
 }
 
 // DeleteTrivyReport implements the keppel.StorageDriver interface.

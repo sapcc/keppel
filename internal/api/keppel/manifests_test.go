@@ -4,7 +4,9 @@
 package keppelv1_test
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"sort"
 	"strconv"
@@ -411,9 +413,10 @@ func TestGetTrivyReport(t *testing.T) {
 		}.Check(t, s.Handler)
 
 		// for the scannable image, upload a dummy report to the storage in the same way that CheckTrivySecurityStatusJob would
+		buf := fmt.Appendf(nil, `{"dummy":"image %s is clean"}`, imageManifest.Digest.String())
 		report := trivy.ReportPayload{
 			Format:   "json",
-			Contents: fmt.Appendf(nil, `{"dummy":"image %s is clean"}`, imageManifest.Digest.String()),
+			Contents: io.NopCloser(bytes.NewReader(buf)),
 		}
 		repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, imageManifest.RepositoryID))(t)
 		must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, models.ReducedAccount{Name: repo.AccountName}, repo.Name, imageManifest.Digest, report))
@@ -429,7 +432,7 @@ func TestGetTrivyReport(t *testing.T) {
 			Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
 			ExpectStatus: http.StatusOK,
 			ExpectHeader: map[string]string{"Content-Type": "application/json"},
-			ExpectBody:   assert.ByteData(report.Contents),
+			ExpectBody:   assert.ByteData(buf),
 		}.Check(t, s.Handler)
 
 		// happy case: GET on a different format will speak to the Trivy server directly (hence we need to instruct our double what to return)

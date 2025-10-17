@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
+	"io"
 	"testing"
 	"time"
 
@@ -22,11 +23,16 @@ import (
 	"github.com/sapcc/keppel/internal/trivy"
 )
 
-func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.Job) (tr *easypg.Tracker, images []test.Image, healthyBlobs []models.Blob, healthyManifests []models.Manifest, healthyTrivyReports map[models.Manifest][]trivy.ReportPayload) {
+type trivyTestReport struct {
+	payload trivy.ReportPayload
+	buf     []byte
+}
+
+func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.Job) (tr *easypg.Tracker, images []test.Image, healthyBlobs []models.Blob, healthyManifests []models.Manifest, healthyTrivyReports map[models.Manifest][]trivyTestReport) {
 	// setup some manifests, blobs and Trivy reports as a baseline;
 	// StorageSweepJob should never touch these
 	images = make([]test.Image, 2)
-	healthyTrivyReports = make(map[models.Manifest][]trivy.ReportPayload)
+	healthyTrivyReports = make(map[models.Manifest][]trivyTestReport)
 	for idx := range images {
 		image := test.GenerateImage(
 			test.GenerateExampleLayer(int64(10*idx+1)),
@@ -44,8 +50,8 @@ func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.J
 
 		// we do not have a .MustUpload() helper for Trivy reports because there is no API for uploading them;
 		// we need to write them into storage and also set the respective field to mark their existence in the DB
-		dummyReport := mustUploadDummyTrivyReport(t, s, manifest)
-		healthyTrivyReports[manifest] = append(healthyTrivyReports[manifest], dummyReport)
+		dummyReport, dummyReportBytes := mustUploadDummyTrivyReport(t, s, manifest)
+		healthyTrivyReports[manifest] = append(healthyTrivyReports[manifest], trivyTestReport{dummyReport, dummyReportBytes})
 		test.MustExec(t, s.DB,
 			"UPDATE trivy_security_info SET vuln_status = $1, has_enriched_report = TRUE WHERE digest = $2",
 			models.CleanSeverity, manifest.Digest.String(),
@@ -67,22 +73,23 @@ func setupStorageSweepTest(t *testing.T, s test.Setup, sweepStorageJob jobloop.J
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 	for manifest, reports := range healthyTrivyReports {
 		for _, report := range reports {
-			s.ExpectTrivyReportExistsInStorage(t, manifest, report.Format, assert.ByteData(report.Contents))
+			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, assert.ByteData(report.buf))
 		}
 	}
 
 	return tr, images, healthyBlobs, healthyManifests, healthyTrivyReports
 }
 
-func mustUploadDummyTrivyReport(t *testing.T, s test.Setup, manifest models.Manifest) trivy.ReportPayload {
+func mustUploadDummyTrivyReport(t *testing.T, s test.Setup, manifest models.Manifest) (report trivy.ReportPayload, buf []byte) {
 	t.Helper()
-	report := trivy.ReportPayload{
+	buf = fmt.Appendf(nil, `{"dummy":"image %s is clean"}`, manifest.Digest.String())
+	report = trivy.ReportPayload{
 		Format:   "json",
-		Contents: fmt.Appendf(nil, `{"dummy":"image %s is clean"}`, manifest.Digest.String()),
+		Contents: io.NopCloser(bytes.NewReader(buf)),
 	}
 	repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, manifest.RepositoryID))(t)
 	must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, models.ReducedAccount{Name: repo.AccountName}, repo.Name, manifest.Digest, report))
-	return report
+	return report, buf
 }
 
 func TestSweepStorageBlobs(t *testing.T) {
@@ -155,7 +162,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 	for manifest, reports := range healthyTrivyReports {
 		for _, report := range reports {
-			s.ExpectTrivyReportExistsInStorage(t, manifest, report.Format, assert.ByteData(report.Contents))
+			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, assert.ByteData(report.buf))
 		}
 	}
 
@@ -200,7 +207,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 	for manifest, reports := range healthyTrivyReports {
 		for _, report := range reports {
-			s.ExpectTrivyReportExistsInStorage(t, manifest, report.Format, assert.ByteData(report.Contents))
+			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, assert.ByteData(report.buf))
 		}
 	}
 }
@@ -243,7 +250,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	)
 	for manifest, reports := range healthyTrivyReports {
 		for _, report := range reports {
-			s.ExpectTrivyReportExistsInStorage(t, manifest, report.Format, assert.ByteData(report.Contents))
+			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, assert.ByteData(report.buf))
 		}
 	}
 
@@ -285,7 +292,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	)
 	for manifest, reports := range healthyTrivyReports {
 		for _, report := range reports {
-			s.ExpectTrivyReportExistsInStorage(t, manifest, report.Format, assert.ByteData(report.Contents))
+			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, assert.ByteData(report.buf))
 		}
 	}
 }
@@ -301,8 +308,8 @@ func TestSweepStorageTrivyReports(t *testing.T) {
 	listManifest1 := healthyManifests[2]
 	listManifest2 := test.GenerateImageList(images[1], images[0]).MustUpload(t, s, fooRepoRef, "")
 	tr.DBChanges().Ignore()
-	dummyReport1 := mustUploadDummyTrivyReport(t, s, listManifest1)
-	dummyReport2 := mustUploadDummyTrivyReport(t, s, listManifest2)
+	dummyReport1, dummyReportBytes1 := mustUploadDummyTrivyReport(t, s, listManifest1)
+	dummyReport2, dummyReportBytes2 := mustUploadDummyTrivyReport(t, s, listManifest2)
 
 	// next StorageSweepJob should mark them for deletion...
 	s.Clock.StepBy(8 * time.Hour)
@@ -322,11 +329,11 @@ func TestSweepStorageTrivyReports(t *testing.T) {
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 	for manifest, reports := range healthyTrivyReports {
 		for _, report := range reports {
-			s.ExpectTrivyReportExistsInStorage(t, manifest, report.Format, assert.ByteData(report.Contents))
+			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, assert.ByteData(report.buf))
 		}
 	}
-	s.ExpectTrivyReportExistsInStorage(t, listManifest1, dummyReport1.Format, assert.ByteData(dummyReport1.Contents))
-	s.ExpectTrivyReportExistsInStorage(t, listManifest2, dummyReport2.Format, assert.ByteData(dummyReport2.Contents))
+	s.ExpectTrivyReportExistsInStorage(t, listManifest1, dummyReport1.Format, assert.ByteData(dummyReportBytes1))
+	s.ExpectTrivyReportExistsInStorage(t, listManifest2, dummyReport2.Format, assert.ByteData(dummyReportBytes2))
 
 	// create a DB entry for the first Trivy report (to sort of simulate a Trivy report
 	// upload that happened during StorageSweepJob was running: report was written
@@ -354,9 +361,9 @@ func TestSweepStorageTrivyReports(t *testing.T) {
 	s.ExpectManifestsExistInStorage(t, "foo", healthyManifests...)
 	for manifest, reports := range healthyTrivyReports {
 		for _, report := range reports {
-			s.ExpectTrivyReportExistsInStorage(t, manifest, report.Format, assert.ByteData(report.Contents))
+			s.ExpectTrivyReportExistsInStorage(t, manifest, report.payload.Format, assert.ByteData(report.buf))
 		}
 	}
-	s.ExpectTrivyReportExistsInStorage(t, listManifest1, dummyReport1.Format, assert.ByteData(dummyReport1.Contents))
+	s.ExpectTrivyReportExistsInStorage(t, listManifest1, dummyReport1.Format, assert.ByteData(dummyReportBytes1))
 	s.ExpectTrivyReportMissingInStorage(t, listManifest2, dummyReport2.Format)
 }
