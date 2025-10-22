@@ -215,6 +215,9 @@ func (d *StorageDriver) WriteTrivyReport(ctx context.Context, account models.Red
 	d.trivyReportsMutex.Lock()
 	defer d.trivyReportsMutex.Unlock()
 	d.trivyReports[k] = payload.Contents
+	if len(d.trivyReports[k]) == 0 {
+		return errors.New("found empty report")
+	}
 	return nil
 }
 

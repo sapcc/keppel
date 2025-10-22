@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"sort"
 	"time"
@@ -432,14 +431,7 @@ func parseManifestConfig(ctx context.Context, tx *gorp.Transaction, sd keppel.St
 	if err != nil {
 		return manifestConfigInfo{}, err
 	}
-	blobContents, err := io.ReadAll(blobReader)
-	if err != nil {
-		return manifestConfigInfo{}, err
-	}
-	err = blobReader.Close()
-	if err != nil {
-		return manifestConfigInfo{}, err
-	}
+	defer blobReader.Close()
 
 	// the Docker v2 and OCI formats are very similar; they're both JSON and have
 	// the labels in the same place, so we can use a single code path for both
@@ -451,7 +443,7 @@ func parseManifestConfig(ctx context.Context, tx *gorp.Transaction, sd keppel.St
 			Created Option[time.Time] `json:"created"`
 		} `json:"history"`
 	}
-	err = json.Unmarshal(blobContents, &data)
+	err = json.NewDecoder(blobReader).Decode(&data)
 	if err != nil {
 		return manifestConfigInfo{}, err
 	}

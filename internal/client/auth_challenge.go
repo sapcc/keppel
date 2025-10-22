@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -94,21 +93,17 @@ func (c AuthChallenge) GetToken(ctx context.Context, userName, password string) 
 	if err != nil {
 		return "", err
 	}
-	respBytes, err := io.ReadAll(resp.Body)
-	if err == nil {
-		err = resp.Body.Close()
-	} else {
-		resp.Body.Close()
-	}
-	if err != nil {
-		return "", err
-	}
 
 	var data struct {
 		AccessToken string `json:"access_token"`
 		Token       string `json:"token"`
 	}
-	err = json.Unmarshal(respBytes, &data)
+	err = json.NewDecoder(resp.Body).Decode(&data)
+	if err == nil {
+		err = resp.Body.Close()
+	} else {
+		resp.Body.Close()
+	}
 	switch {
 	case err != nil:
 		return "", err
