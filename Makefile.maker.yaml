@@ -16,8 +16,6 @@ dockerfile:
   enabled: true
   extraIgnores:
     - "*.actual"
-    - /*.json
-    - /*.yaml
     - privkey.pem
 
 golang:
@@ -58,6 +56,7 @@ reuse:
       - docs/*.json
       - internal/**/fixtures/**/*.json
       - internal/**/fixtures/**/*.sql
+      - internal/**/fixtures/**/*.sql.actual
       SPDX-FileCopyrightText: SAP SE or an SAP affiliate company
       SPDX-License-Identifier: Apache-2.0
 
