@@ -4,8 +4,10 @@
 package test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"io"
 	"time"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -42,17 +44,21 @@ func (d *InboundCacheDriver) Init(ctx context.Context, cfg keppel.Configuration)
 }
 
 // LoadManifest implements the keppel.InboundCacheDriver interface.
-func (d *InboundCacheDriver) LoadManifest(ctx context.Context, location models.ImageReference, now time.Time) (contents []byte, mediaType string, err error) {
+func (d *InboundCacheDriver) LoadManifest(ctx context.Context, location models.ImageReference, now time.Time) (contents io.ReadCloser, mediaType string, err error) {
 	maxInsertedAt := now.Add(-d.MaxAge)
 	entry, ok := d.Entries[location]
 	if ok && entry.InsertedAt.After(maxInsertedAt) {
-		return entry.Contents, entry.MediaType, nil
+		return io.NopCloser(bytes.NewReader(entry.Contents)), entry.MediaType, nil
 	}
 	return nil, "", sql.ErrNoRows
 }
 
 // StoreManifest implements the keppel.InboundCacheDriver interface.
-func (d *InboundCacheDriver) StoreManifest(ctx context.Context, location models.ImageReference, contents []byte, mediaType string, now time.Time) error {
+func (d *InboundCacheDriver) StoreManifest(ctx context.Context, location models.ImageReference, in io.Reader, mediaType string, now time.Time) error {
+	contents, err := io.ReadAll(in)
+	if err != nil {
+		return err
+	}
 	d.Entries[location] = inboundCacheEntry{contents, mediaType, now}
 	return nil
 }

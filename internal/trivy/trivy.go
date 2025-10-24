@@ -43,10 +43,11 @@ type Config struct {
 // enhanced by Keppel).
 type ReportPayload struct {
 	Format   string
-	Contents []byte
+	Contents io.ReadCloser
 }
 
 // ScanManifest queries the Trivy server for a report on the given manifest.
+// A caller must take care of closing ReportPayload.Contents like a Response.Body.
 func (tc *Config) ScanManifest(ctx context.Context, keppelToken string, manifestRef models.ImageReference, format string) (ReportPayload, error) {
 	requestURL := tc.URL
 	requestURL.Path = "/trivy"
@@ -63,22 +64,23 @@ func (tc *Config) ScanManifest(ctx context.Context, keppelToken string, manifest
 	req.Header.Set(TokenHeader, tc.Token)
 	req.Header.Set(KeppelTokenHeader, keppelToken)
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return ReportPayload{}, err
-	}
-	defer resp.Body.Close()
-	respBody, err := io.ReadAll(resp.Body)
+	resp, err := http.DefaultClient.Do(req) //nolint:bodyclose // caller is responsible for closing resp.Body
 	if err != nil {
 		return ReportPayload{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		// from inner to outer: cast to string, remove extra new lines, remove color escape codes, replace multiple consecutive spaces with one
-		respCleaned := strings.Join(strings.Fields(stripColor(strings.TrimSpace(string(respBody)))), " ")
+		respBody, err := io.ReadAll(resp.Body)
+		var respCleaned string
+		if err == nil {
+			respCleaned = strings.Join(strings.Fields(stripColor(strings.TrimSpace(string(respBody)))), " ")
+		} else {
+			respCleaned = "could not read body"
+		}
 		return ReportPayload{}, fmt.Errorf("trivy proxy did not return 200: %d %s", resp.StatusCode, respCleaned)
 	}
 
-	return ReportPayload{Format: format, Contents: respBody}, nil
+	return ReportPayload{Format: format, Contents: resp.Body}, nil
 }
 
 // A regexp that matches ANSI escape sequences of the type SGR.

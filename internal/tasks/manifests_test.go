@@ -4,6 +4,7 @@
 package tasks
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -153,7 +154,7 @@ func TestManifestValidationJobError(t *testing.T) {
 		NextCheckAt:         Some(time.Unix(0, 0)),
 		VulnerabilityStatus: models.PendingVulnerabilityStatus,
 	}))
-	must.SucceedT(t, s.SD.WriteManifest(s.Ctx, s.Accounts[0].Reduced(), "foo", image.Manifest.Digest, image.Manifest.Contents))
+	must.SucceedT(t, s.SD.WriteManifest(s.Ctx, s.Accounts[0].Reduced(), "foo", image.Manifest.Digest, bytes.NewReader(image.Manifest.Contents)))
 
 	// validation should yield an error
 	s.Clock.StepBy(36 * time.Hour)

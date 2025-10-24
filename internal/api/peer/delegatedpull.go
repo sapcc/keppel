@@ -4,6 +4,7 @@
 package peerv1
 
 import (
+	"io"
 	"net/http"
 	"strconv"
 
@@ -41,7 +42,7 @@ func (a *API) handleDelegatedPullManifest(w http.ResponseWriter, r *http.Request
 		Password: r.Header.Get("X-Keppel-Delegated-Pull-Password"), // may be empty
 	}
 	ref := models.ParseManifestReference(vars["reference"])
-	manifestBytes, manifestMediaType, err := rc.DownloadManifest(r.Context(), ref, &opts)
+	manifestReader, manifestMediaType, err := rc.DownloadManifest(r.Context(), ref, &opts)
 
 	if err != nil {
 		if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok {
@@ -51,6 +52,13 @@ func (a *API) handleDelegatedPullManifest(w http.ResponseWriter, r *http.Request
 			respondwith.ObfuscatedErrorText(w, err)
 			return
 		}
+	}
+	defer manifestReader.Close()
+
+	manifestBytes, err := io.ReadAll(manifestReader)
+	if err != nil {
+		respondwith.ObfuscatedErrorText(w, err)
+		return
 	}
 
 	w.Header().Set("Content-Type", manifestMediaType)

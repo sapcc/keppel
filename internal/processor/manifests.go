@@ -4,11 +4,13 @@
 package processor
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"sort"
 	"time"
@@ -131,7 +133,7 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 
 			// after making all DB changes, but before committing the DB transaction,
 			// write the manifest into the backend
-			return p.sd.WriteManifest(ctx, account, repo.Name, manifest.Digest, m.Contents)
+			return p.sd.WriteManifest(ctx, account, repo.Name, manifest.Digest, bytes.NewReader(m.Contents))
 		},
 	})
 	if err != nil {
@@ -175,7 +177,13 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 
 // ValidateExistingManifest validates the given manifest that already exists in the DB.
 func (p *Processor) ValidateExistingManifest(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifest *models.Manifest) error {
-	manifestBytes, err := p.sd.ReadManifest(ctx, account, repo.Name, manifest.Digest)
+	manifestReader, err := p.sd.ReadManifest(ctx, account, repo.Name, manifest.Digest)
+	if err != nil {
+		return err
+	}
+	defer manifestReader.Close()
+
+	manifestBytes, err := io.ReadAll(manifestReader)
 	if err != nil {
 		return err
 	}
@@ -791,8 +799,13 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 		Reference: ref,
 	}
 	labels := prometheus.Labels{"external_hostname": c.Host}
-	manifestBytes, manifestMediaType, err = p.icd.LoadManifest(ctx, imageRef, p.timeNow())
+	manifestReader, manifestMediaType, err := p.icd.LoadManifest(ctx, imageRef, p.timeNow())
 	if err == nil {
+		defer manifestReader.Close()
+		manifestBytes, err = io.ReadAll(manifestReader)
+		if err != nil {
+			return nil, "", err
+		}
 		InboundManifestCacheHitCounter.With(labels).Inc()
 		return manifestBytes, manifestMediaType, nil
 	}
@@ -801,7 +814,7 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 	}
 
 	// cache miss -> download from actual upstream registry
-	manifestBytes, manifestMediaType, err = c.DownloadManifest(ctx, ref, &client.DownloadManifestOpts{
+	manifestReader, manifestMediaType, err = c.DownloadManifest(ctx, ref, &client.DownloadManifestOpts{
 		DoNotCountTowardsLastPulled: true,
 	})
 	if err != nil && account.ExternalPeerURL != "" && errorIsUpstreamRateLimit(err) {
@@ -809,7 +822,7 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 		// random peer to retry the pull for us; they might be successful since
 		// rate limits are usually per source IP
 		var ok bool
-		manifestBytes, manifestMediaType, ok = p.downloadManifestViaPullDelegation(ctx, imageRef, account.ExternalPeerUserName, account.ExternalPeerPassword)
+		manifestReader, manifestMediaType, ok = p.downloadManifestViaPullDelegation(ctx, imageRef, account.ExternalPeerUserName, account.ExternalPeerPassword)
 		if ok {
 			err = nil
 		}
@@ -817,21 +830,24 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 	if err != nil {
 		return nil, "", err
 	}
+	defer manifestReader.Close()
 
+	var manifestBuffer bytes.Buffer
 	// successfully downloaded manifest -> fill cache
-	err = p.icd.StoreManifest(ctx, imageRef, manifestBytes, manifestMediaType, p.timeNow())
+	err = p.icd.StoreManifest(ctx, imageRef, io.NopCloser(io.TeeReader(manifestReader, &manifestBuffer)), manifestMediaType, p.timeNow())
 	if err != nil {
 		return nil, "", err
 	}
 
 	InboundManifestCacheMissCounter.With(labels).Inc()
-	return manifestBytes, manifestMediaType, nil
+	return manifestBuffer.Bytes(), manifestMediaType, nil
 }
 
 // Uses the peering API to ask another peer to downloads a manifest from an
 // external registry for us. This gets used when the external registry denies
 // the pull to us because we hit our rate limit.
-func (p *Processor) downloadManifestViaPullDelegation(ctx context.Context, imageRef models.ImageReference, userName, password string) (respBytes []byte, contentType string, success bool) {
+// The caller is responsible for closing the returned ReadCloser.
+func (p *Processor) downloadManifestViaPullDelegation(ctx context.Context, imageRef models.ImageReference, userName, password string) (respReader io.ReadCloser, contentType string, success bool) {
 	// select a peer at random
 	var peer models.Peer
 	err := p.db.SelectOne(&peer, `SELECT * FROM peers WHERE use_for_pull_delegation and our_password != '' ORDER BY RANDOM() LIMIT 1`)
@@ -849,12 +865,12 @@ func (p *Processor) downloadManifestViaPullDelegation(ctx context.Context, image
 		logg.Error(err.Error())
 		return nil, "", false
 	}
-	respBytes, contentType, err = peerClient.DownloadManifestViaPullDelegation(ctx, imageRef, userName, password)
+	respReader, contentType, err = peerClient.DownloadManifestViaPullDelegation(ctx, imageRef, userName, password)
 	if err != nil {
 		logg.Error(err.Error())
 		return nil, "", false
 	}
-	return respBytes, contentType, true
+	return respReader, contentType, true
 }
 
 // DeleteManifestBlockedByTagPolicyError is returned from DeleteManifest when
