@@ -80,7 +80,7 @@ func TestManifestsAPI(t *testing.T) {
 
 		// insert some dummy manifests and tags into each repo
 		for repoID := 1; repoID <= 3; repoID++ {
-			repo := repos[repoID-1]
+			repo := repos[repoID-1] //nolint:gosec // subtraction cannot overflow below 0 because iteration starts at 1
 
 			for idx := 1; idx <= 10; idx++ {
 				dummyDigest := test.DeterministicDummyDigest(repoID*10 + idx)

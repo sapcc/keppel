@@ -5,6 +5,7 @@ package auth
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
@@ -28,14 +29,15 @@ func (c Challenge) WithErrorMessage(msg string) Challenge {
 
 // AddTo adds a Www-Authenticate header to the given error.
 func (c Challenge) AddTo(err *keppel.RegistryV2Error) *keppel.RegistryV2Error {
-	fields := fmt.Sprintf(`realm="%s",service="%s"`, c.AuthEndpointURL, c.AudienceHostname)
+	var fields strings.Builder
+	fmt.Fprintf(&fields, `realm="%s",service="%s"`, c.AuthEndpointURL, c.AudienceHostname)
 	for _, scope := range c.Scopes {
 		if !scope.Contains(InfoAPIScope) {
-			fields += fmt.Sprintf(`,scope="%s"`, scope)
+			fmt.Fprintf(&fields, `,scope="%s"`, scope)
 		}
 	}
 	if c.ErrorMessage != "" {
-		fields += fmt.Sprintf(`,error="%s"`, c.ErrorMessage)
+		fmt.Fprintf(&fields, `,error="%s"`, c.ErrorMessage)
 	}
-	return err.WithHeader("Www-Authenticate", "Bearer "+fields)
+	return err.WithHeader("Www-Authenticate", "Bearer "+fields.String())
 }
