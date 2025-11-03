@@ -59,7 +59,7 @@ github.com/go-gorp/gorp/v3
 # github.com/go-redis/redis_rate/v10 v10.0.1
 ## explicit; go 1.19
 github.com/go-redis/redis_rate/v10
-# github.com/gofrs/uuid/v5 v5.3.2
+# github.com/gofrs/uuid/v5 v5.4.0
 ## explicit; go 1.19
 github.com/gofrs/uuid/v5
 # github.com/golang-jwt/jwt/v5 v5.3.0
@@ -168,7 +168,7 @@ github.com/prometheus/client_golang/prometheus/promhttp/internal
 # github.com/prometheus/client_model v0.6.2
 ## explicit; go 1.22.0
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.67.1
+# github.com/prometheus/common v0.67.2
 ## explicit; go 1.24.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
@@ -207,7 +207,7 @@ github.com/sapcc/go-api-declarations/cadf
 github.com/sapcc/go-api-declarations/internal/clone
 github.com/sapcc/go-api-declarations/internal/errorset
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20251023170348-b4bcd3ab3925
+# github.com/sapcc/go-bits v0.0.0-20251103130554-313749b69c7d
 ## explicit; go 1.25
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
