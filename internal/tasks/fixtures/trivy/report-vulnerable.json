@@ -1,5 +1,4 @@
 {
-  "SchemaVersion": 2,
   "ArtifactName": "debian:stable",
   "ArtifactType": "container_image",
   "Metadata": {
@@ -3762,5 +3761,6 @@
         }
       ]
     }
-  ]
+  ],
+  "SchemaVersion": 2
 }

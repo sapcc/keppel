@@ -214,10 +214,14 @@ func (d *StorageDriver) WriteTrivyReport(ctx context.Context, account models.Red
 	k := trivyReportKey(account, repoName, manifestDigest, payload.Format)
 	d.trivyReportsMutex.Lock()
 	defer d.trivyReportsMutex.Unlock()
-	d.trivyReports[k] = payload.Contents
-	if len(d.trivyReports[k]) == 0 {
+	report, err := io.ReadAll(payload.Contents)
+	if err != nil {
+		return err
+	}
+	if len(report) == 0 {
 		return errors.New("found empty report")
 	}
+	d.trivyReports[k] = report
 	return nil
 }
 

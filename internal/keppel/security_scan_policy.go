@@ -4,8 +4,10 @@
 package keppel
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/sapcc/go-bits/errext"
@@ -184,7 +186,8 @@ func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload, timeNo
 		return errorStatus, fmt.Errorf("cannot run EnrichReport() on a ReportPayload with .Format = %q", payload.Format)
 	}
 
-	// decode relevant fields from report
+	// Decode relevant fields from report.
+	// We do not retain the original report to reduce memory usage.
 	parsedReport, err := trivy.UnmarshalReportFromJSON(payload.Contents)
 	if err != nil {
 		return errorStatus, fmt.Errorf("cannot parse Trivy vulnerability report: %w", err)
@@ -214,10 +217,11 @@ func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload, timeNo
 				VulnerabilityID:  "keppel:rotten-os",
 			}},
 		}})
-		payload.Contents, err = parsedReport.MarshalJSON()
+		buf, err := parsedReport.MarshalJSON()
 		if err != nil {
 			return errorStatus, fmt.Errorf("cannot serialize rotten Trivy vulnerability report: %w", err)
 		}
+		payload.Contents = io.NopCloser(bytes.NewReader(buf))
 	} else {
 		// compute X-Keppel-Applicable-Policies set while also collecting constituent VulnerabilityStatus values
 		applicablePolicies := make(map[string]SecurityScanPolicy)
@@ -237,14 +241,15 @@ func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload, timeNo
 			}
 		}
 
-		// remarshal report if it has changed
+		// If we changed anything about the report, let the user know
 		if len(applicablePolicies) > 0 {
 			parsedReport.AddField("X-Keppel-Applicable-Policies", applicablePolicies)
-			payload.Contents, err = parsedReport.MarshalJSON()
-			if err != nil {
-				return errorStatus, fmt.Errorf("cannot serialize enriched Trivy vulnerability report: %w", err)
-			}
 		}
+		buf, err := parsedReport.MarshalJSON()
+		if err != nil {
+			return errorStatus, fmt.Errorf("cannot serialize enriched Trivy vulnerability report: %w", err)
+		}
+		payload.Contents = io.NopCloser(bytes.NewReader(buf))
 	}
 
 	return models.MergeVulnerabilityStatuses(statuses...), nil
