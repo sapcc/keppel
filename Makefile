@@ -56,9 +56,6 @@ install-goimports: FORCE
 install-golangci-lint: FORCE
 	@if ! hash golangci-lint 2>/dev/null; then printf "\e[1;36m>> Installing golangci-lint (this may take a while)...\e[0m\n"; go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest; fi
 
-install-modernize: FORCE
-	@if ! hash modernize 2>/dev/null; then printf "\e[1;36m>> Installing modernize (this may take a while)...\e[0m\n"; go install golang.org/x/tools/gopls/internal/analysis/modernize/cmd/modernize@latest; fi
-
 install-shellcheck: FORCE
 	@if ! hash shellcheck 2>/dev/null; then printf "\e[1;36m>> Installing shellcheck...\e[0m\n"; SHELLCHECK_ARCH=$(shell uname -m); if [[ "$$SHELLCHECK_ARCH" == "arm64" ]]; then SHELLCHECK_ARCH=aarch64; fi; SHELLCHECK_OS=$(shell uname -s | tr '[:upper:]' '[:lower:]'); SHELLCHECK_VERSION="stable"; if command -v curl >/dev/null 2>&1; then GET="curl -sLo-"; elif command -v wget >/dev/null 2>&1; then GET="wget -O-"; else echo "Didn't find curl or wget to download shellcheck"; exit 2; fi; $$GET "https://github.com/koalaman/shellcheck/releases/download/$$SHELLCHECK_VERSION/shellcheck-$$SHELLCHECK_VERSION.$$SHELLCHECK_OS.$$SHELLCHECK_ARCH.tar.xz" | tar -Jxf -; BIN=$$(go env GOBIN); if [[ -z $$BIN ]]; then BIN=$$(go env GOPATH)/bin; fi; install -Dm755 shellcheck-$$SHELLCHECK_VERSION/shellcheck -t "$$BIN"; rm -rf shellcheck-$$SHELLCHECK_VERSION; fi
 
@@ -71,7 +68,7 @@ install-addlicense: FORCE
 install-reuse: FORCE
 	@if ! hash reuse 2>/dev/null; then if ! hash pipx 2>/dev/null; then printf "\e[1;31m>> You are required to manually intervene to install reuse as go-makefile-maker cannot automatically resolve installing reuse on all setups.\e[0m\n"; printf "\e[1;31m>> The preferred way for go-makefile-maker to install python tools after nix-shell is pipx which could not be found. Either install pipx using your package manager or install reuse using your package manager if at least version 6 is available.\e[0m\n"; printf "\e[1;31m>> As your Python was likely installed by your package manager, just doing pip install --user sadly does no longer work as pip issues a warning about breaking your system. Generally running --break-system-packages with --user is safe to do but you should only run this command if you can resolve issues with it yourself: pip3 install --user --break-system-packages reuse\e[0m\n"; else printf "\e[1;36m>> Installing reuse...\e[0m\n"; pipx install reuse; fi; fi
 
-prepare-static-check: FORCE install-golangci-lint install-modernize install-shellcheck install-go-licence-detector install-addlicense install-reuse
+prepare-static-check: FORCE install-goimports install-golangci-lint install-shellcheck install-go-licence-detector install-addlicense install-reuse
 
 # To add additional flags or values (before the default ones), specify the variable in the environment, e.g. `GO_BUILDFLAGS='-tags experimental' make`.
 # To override the default flags or values, specify the variable on the command line, e.g. `make GO_BUILDFLAGS='-tags experimental'`.
@@ -123,10 +120,6 @@ run-golangci-lint: FORCE install-golangci-lint
 	@golangci-lint config verify
 	@golangci-lint run
 
-run-modernize: FORCE install-modernize
-	@printf "\e[1;36m>> modernize\e[0m\n"
-	@modernize $(GO_TESTPKGS)
-
 run-shellcheck: FORCE install-shellcheck
 	@printf "\e[1;36m>> shellcheck\e[0m\n"
 	@find . \( -path './vendor/*' -prune \) -o -type f \( -name '*.bash' -o -name '*.ksh' -o -name '*.zsh' -o -name '*.sh' -o -name '*.shlib' \) -exec shellcheck  {} +
@@ -150,7 +143,7 @@ check-reuse: FORCE install-reuse
 
 check-license-headers: FORCE check-addlicense check-reuse
 
-__static-check: FORCE run-shellcheck run-golangci-lint run-modernize check-dependency-licenses check-license-headers
+__static-check: FORCE run-shellcheck run-golangci-lint check-dependency-licenses check-license-headers
 
 static-check: FORCE
 	@$(MAKE) --keep-going --no-print-directory __static-check
@@ -185,10 +178,6 @@ goimports: FORCE install-goimports
 	@printf "\e[1;36m>> goimports -w -local https://github.com/sapcc/keppel\e[0m\n"
 	@goimports -w -local github.com/sapcc/keppel $(patsubst $(shell awk '$$1 == "module" {print $$2}' go.mod)%,.%/*.go,$(shell go list ./...))
 
-modernize: FORCE install-modernize
-	@printf "\e[1;36m>> modernize -fix ./...\e[0m\n"
-	@modernize -fix ./...
-
 clean: FORCE
 	git clean -dxf build
 
@@ -222,7 +211,6 @@ help: FORCE
 	@printf "\e[1mPrepare\e[0m\n"
 	@printf "  \e[36minstall-goimports\e[0m            Install goimports required by goimports/static-check\n"
 	@printf "  \e[36minstall-golangci-lint\e[0m        Install golangci-lint required by run-golangci-lint/static-check\n"
-	@printf "  \e[36minstall-modernize\e[0m            Install modernize required by run-modernize/static-check\n"
 	@printf "  \e[36minstall-shellcheck\e[0m           Install shellcheck required by run-shellcheck/static-check\n"
 	@printf "  \e[36minstall-go-licence-detector\e[0m  Install-go-licence-detector required by check-dependency-licenses/static-check\n"
 	@printf "  \e[36minstall-addlicense\e[0m           Install addlicense required by check-license-headers/license-headers/static-check\n"
@@ -237,7 +225,6 @@ help: FORCE
 	@printf "\e[1mTest\e[0m\n"
 	@printf "  \e[36mcheck\e[0m                        Run the test suite (unit tests and golangci-lint).\n"
 	@printf "  \e[36mrun-golangci-lint\e[0m            Install and run golangci-lint. Installing is used in CI, but you should probably install golangci-lint using your package manager.\n"
-	@printf "  \e[36mrun-modernize\e[0m                Install and run modernize. Installing is used in CI, but you should probably install modernize using your package manager.\n"
 	@printf "  \e[36mrun-shellcheck\e[0m               Install and run shellcheck. Installing is used in CI, but you should probably install shellcheck using your package manager.\n"
 	@printf "  \e[36mbuild/cover.out\e[0m              Run tests and generate coverage report.\n"
 	@printf "  \e[36mbuild/cover.html\e[0m             Generate an HTML file with source code annotations from the coverage report.\n"
@@ -252,7 +239,6 @@ help: FORCE
 	@printf "  \e[36mlicense-headers\e[0m              Add (or overwrite) license headers on all non-vendored source code files.\n"
 	@printf "  \e[36mcheck-dependency-licenses\e[0m    Check all dependency licenses using go-licence-detector.\n"
 	@printf "  \e[36mgoimports\e[0m                    Run goimports on all non-vendored .go files\n"
-	@printf "  \e[36mmodernize\e[0m                    Run modernize on all non-vendored .go files\n"
 	@printf "  \e[36mclean\e[0m                        Run git clean.\n"
 
 .PHONY: FORCE
