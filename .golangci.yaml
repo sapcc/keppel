@@ -176,13 +176,13 @@ linters:
   exclusions:
     generated: lax
     presets:
-      - comments
       - common-false-positives
       - legacy
       - std-error-handling
     rules:
       - linters:
           - bodyclose
+          - revive
         path: _test\.go
       # It is idiomatic Go to reuse the name 'err' with ':=' for subsequent errors.
       # Ref: https://go.dev/doc/effective_go#redeclaration

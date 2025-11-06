@@ -41,11 +41,12 @@ func (errs ErrorSet) IsEmpty() bool {
 // Join joins the messages of all errors in this set using the provided separator.
 // If the set is empty, an empty string is returned.
 func (errs ErrorSet) Join(sep string) string {
-	msgs := make([]string, len(errs))
-	for idx, err := range errs {
-		msgs[idx] = err.Error()
-	}
-	return strings.Join(msgs, sep)
+	return errs.JoinedError(sep).Error()
+}
+
+// JoinedError is like Join, but returns an error that can be unwrapped.
+func (errs ErrorSet) JoinedError(sep string) error {
+	return joinedError{[]error(errs), sep}
 }
 
 // LogFatalIfError reports all errors in this set on level FATAL, thus dying if
@@ -59,4 +60,26 @@ func (errs ErrorSet) LogFatalIfError() {
 	if hasErrors {
 		os.Exit(1)
 	}
+}
+
+type joinedError struct {
+	errs      []error
+	separator string
+}
+
+// Error implements the builtin/error interface.
+func (e joinedError) Error() string {
+	if len(e.errs) == 0 {
+		return ""
+	}
+	msgs := make([]string, len(e.errs))
+	for idx, err := range e.errs {
+		msgs[idx] = err.Error()
+	}
+	return strings.Join(msgs, e.separator)
+}
+
+// Unwrap implements the interface implied by package errors.
+func (e joinedError) Unwrap() []error {
+	return e.errs
 }
