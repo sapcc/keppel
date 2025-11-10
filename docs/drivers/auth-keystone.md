@@ -1,6 +1,5 @@
 <!--
 SPDX-FileCopyrightText: 2025 SAP SE
-
 SPDX-License-Identifier: Apache-2.0
 -->
 
@@ -26,12 +25,23 @@ Keystone projects.
 
 ## Server-side configuration
 
+```sh
+export KEPPEL_DRIVER_AUTH='{"type":"keystone","params":{...}}'
+```
+
+The following parameters may be supplied in `$KEPPEL_DRIVER_AUTH` (in JSON format):
+
+| Field | Type | Explanation |
+| ----- | ---- | ----------- |
+| `oslo_policy_path` | string | *(required)* Path to the `policy.json` file for this service. |
+
+The following environment variables may be supplied:
+
 | Variable | Default | Explanation |
 | -------- | ------- | ----------- |
 | `OS_...` | *(required)* | A full set of OpenStack auth environment variables for Keppel's service user. See [documentation for openstackclient][os-env] for details. |
-| `KEPPEL_OSLO_POLICY_PATH` | *(required)* | Path to the `policy.[json|yaml]` file for this service. |
 
-Keppel understands access rules in the [`oslo.policy` JSON][os-pol-json] and [`oslo.policy` YAML][os-pol-yaml] format. An example can be seen at
+Keppel understands access rules in the [`oslo.policy` JSON][os-pol-json] format. An example can be seen at
 [`docs/example-policy.json`](../example-policy.json). The following rules are expected:
 
 - `account:list` is required for any non-anonymous access to the API.
@@ -44,15 +54,13 @@ Keppel understands access rules in the [`oslo.policy` JSON][os-pol-json] and [`o
 - `quota:edit` enables write access to a project's quotas.
 
 All policy rules can use the object attribute `%(target.project.id)s`.
+See also: [List of available API attributes](https://github.com/sapcc/go-bits/blob/53eeb20fde03c3d0a35e76cf9c9a06b63a415e6b/gopherpolicy/pkg.go#L151-L164)
 
 ### Keystone service catalog
 
 - The top-level path of the Keppel API (e.g. `https://keppel.example.com/`) should be entered in the service catalog as service type `keppel`.
 - If integration with [Limes][limes] is desired, the `/liquid/` subpath of the Keppel API (e.g. `https://keppel.example.com/liquid/`) can be entered in the service catalog as service type `liquid-keppel`.
 
-See also: [List of available API attributes](https://github.com/sapcc/go-bits/blob/53eeb20fde03c3d0a35e76cf9c9a06b63a415e6b/gopherpolicy/pkg.go#L151-L164)
-
 [limes]: https://github.com/sapcc/limes
 [os-env]: https://docs.openstack.org/python-openstackclient/latest/cli/man/openstack.html
 [os-pol-json]: https://docs.openstack.org/oslo.policy/latest/admin/policy-json-file.html
-[os-pol-yaml]: https://docs.openstack.org/oslo.policy/latest/admin/policy-yaml-file.html

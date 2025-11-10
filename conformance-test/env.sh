@@ -8,10 +8,8 @@ export KEPPEL_ISSUER_KEY=./conformance-test/privkey.pem
 export KEPPEL_DB_CONNECTION_OPTIONS=sslmode=disable
 export KEPPEL_DB_PASSWORD=
 export KEPPEL_DB_PORT=54321
-export KEPPEL_USERNAME=johndoe
-export KEPPEL_PASSWORD=SuperSecret
 
-export KEPPEL_DRIVER_AUTH=trivial
+export KEPPEL_DRIVER_AUTH='{"type":"trivial","params":{"username":"johndoe","password":"SuperSecret"}}'
 export KEPPEL_DRIVER_FEDERATION=trivial
 export KEPPEL_DRIVER_INBOUND_CACHE=trivial
 export KEPPEL_DRIVER_STORAGE=filesystem
@@ -24,5 +22,3 @@ if [ -d "${KEPPEL_FILESYSTEM_PATH}/bogus/conformance-test" ]; then
 fi
 
 export KEPPEL_RUN_DB_SETUP_FOR_CONFORMANCE_TEST=true
-
-# export KEPPEL_OSLO_POLICY_PATH=docs/example-policy.yaml

@@ -6,13 +6,13 @@ package trivial
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/sapcc/keppel/internal/keppel"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-bits/audittools"
-	"github.com/sapcc/go-bits/osext"
 )
 
 func init() {
@@ -60,9 +60,11 @@ func (uid *userIdentity) DeserializeFromJSON(in []byte, _ keppel.AuthDriver) err
 ////////////////////////////////////////////////////////////////////////////////
 // type AuthDriver
 
+// AuthDriver (type "trivial") accepts exactly one username/password combination, which grants universal access.
+// It is intended only for use in isolated test setups, e.g. when running the OCI conformance test suite.
 type AuthDriver struct {
-	userName string
-	password string
+	UserName string `json:"username"`
+	Password string `json:"password"`
 }
 
 func (d *AuthDriver) PluginTypeID() string {
@@ -70,13 +72,17 @@ func (d *AuthDriver) PluginTypeID() string {
 }
 
 func (d *AuthDriver) Init(ctx context.Context, rc *redis.Client) error {
-	d.userName = osext.MustGetenv("KEPPEL_USERNAME")
-	d.password = osext.MustGetenv("KEPPEL_PASSWORD")
+	if d.UserName == "" {
+		return errors.New("missing required field: params.username")
+	}
+	if d.Password == "" {
+		return errors.New("missing required field: params.password")
+	}
 	return nil
 }
 
 func (d *AuthDriver) AuthenticateUser(ctx context.Context, userName, password string) (keppel.UserIdentity, *keppel.RegistryV2Error) {
-	if d.userName == userName && d.password == password {
+	if d.UserName == userName && d.Password == password {
 		return &userIdentity{Username: userName}, nil
 	}
 
@@ -89,5 +95,5 @@ func (d *AuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.UserId
 		return nil, nil
 	}
 
-	return &userIdentity{Username: d.userName}, nil
+	return &userIdentity{Username: d.UserName}, nil
 }

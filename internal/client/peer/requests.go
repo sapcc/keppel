@@ -60,7 +60,7 @@ func (c Client) GetForeignAccountConfigurationInto(ctx context.Context, target a
 	data := struct {
 		Target any `json:"account"`
 	}{target}
-	err = jsonUnmarshalStrict(respBodyBytes, &data)
+	err = keppel.UnmarshalJSONStrict(respBodyBytes, &data)
 	if err != nil {
 		return fmt.Errorf("while parsing response for GET %s: %w", reqURL, err)
 	}
@@ -84,7 +84,7 @@ func (c Client) GetSubleaseToken(ctx context.Context, accountName models.Account
 	data := struct {
 		SubleaseToken string `json:"sublease_token"`
 	}{}
-	err = jsonUnmarshalStrict(respBodyBytes, &data)
+	err = keppel.UnmarshalJSONStrict(respBodyBytes, &data)
 	if err != nil {
 		return keppel.SubleaseToken{}, fmt.Errorf("while parsing sublease token response from POST %s: %w", reqURL, err)
 	}
@@ -119,16 +119,9 @@ func (c Client) PerformReplicaSync(ctx context.Context, fullRepoName string, pay
 	}
 
 	var respPayload keppel.ReplicaSyncPayload
-	err = jsonUnmarshalStrict(respBodyBytes, &respPayload)
+	err = keppel.UnmarshalJSONStrict(respBodyBytes, &respPayload)
 	if err != nil {
 		return nil, fmt.Errorf("while parsing response from POST %s: %w", reqURL, err)
 	}
 	return &respPayload, nil
-}
-
-// Like yaml.UnmarshalStrict(), but for JSON.
-func jsonUnmarshalStrict(buf []byte, target any) error {
-	dec := json.NewDecoder(bytes.NewReader(buf))
-	dec.DisallowUnknownFields()
-	return dec.Decode(target)
 }

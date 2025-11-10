@@ -6,11 +6,9 @@ package keppel
 import (
 	"context"
 	"encoding/base64"
-	"errors"
 	"net/http"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
 )
 
@@ -42,6 +40,10 @@ type AuthDriver interface {
 	// Init is called before any other interface methods, and allows the plugin to
 	// perform first-time initialization. The supplied *redis.Client can be stored
 	// for caching authorizations, but only if it is non-nil.
+	//
+	// Before Init is called, the driver's parameters are json.Unmarshal()ed into
+	// the driver instance, thus allowing driver-specific configuration to be
+	// provided by the user.
 	Init(context.Context, *redis.Client) error
 
 	// AuthenticateUser authenticates the user identified by the given username
@@ -65,14 +67,15 @@ var AuthDriverRegistry pluggable.Registry[AuthDriver]
 
 // NewAuthDriver creates a new AuthDriver using one of the plugins registered
 // with AuthDriverRegistry.
-func NewAuthDriver(ctx context.Context, pluginTypeID string, rc *redis.Client) (AuthDriver, error) {
-	logg.Debug("initializing auth driver %q...", pluginTypeID)
-
-	ad := AuthDriverRegistry.Instantiate(pluginTypeID)
-	if ad == nil {
-		return nil, errors.New("no such auth driver: " + pluginTypeID)
+//
+// The supplied config must be a string of the form {"type":"foobar","params":{...}},
+// where `type` is the plugin type ID and `params` is json.Unmarshal()ed into
+// the driver instance to supply driver-specific configuration.
+func NewAuthDriver(ctx context.Context, configJSON string, rc *redis.Client) (AuthDriver, error) {
+	callInit := func(ad AuthDriver) error {
+		return ad.Init(ctx, rc)
 	}
-	return ad, ad.Init(ctx, rc)
+	return newDriver("KEPPEL_DRIVER_AUTH", AuthDriverRegistry, configJSON, callInit)
 }
 
 // BuildBasicAuthHeader constructs the value of an "Authorization" HTTP header for the given basic auth credentials.
