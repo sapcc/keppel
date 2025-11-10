@@ -15,7 +15,6 @@ import (
 
 	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
-	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -28,7 +27,7 @@ func init() {
 
 // StorageDriver (driver ID "filesystem") is a keppel.StorageDriver that stores its contents in the local filesystem.
 type StorageDriver struct {
-	rootPath string
+	RootPath string `json:"path"`
 }
 
 // PluginTypeID implements the keppel.StorageDriver interface.
@@ -36,12 +35,12 @@ func (d *StorageDriver) PluginTypeID() string { return "filesystem" }
 
 // Init implements the keppel.StorageDriver interface.
 func (d *StorageDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) (err error) {
-	d.rootPath, err = filepath.Abs(osext.MustGetenv("KEPPEL_FILESYSTEM_PATH"))
+	d.RootPath, err = filepath.Abs(d.RootPath)
 	return err
 }
 
 func (d *StorageDriver) getBlobBasePath(account models.ReducedAccount) string {
-	return fmt.Sprintf("%s/%s/%s/blobs", d.rootPath, account.AuthTenantID, account.Name)
+	return fmt.Sprintf("%s/%s/%s/blobs", d.RootPath, account.AuthTenantID, account.Name)
 }
 
 func (d *StorageDriver) getBlobPath(account models.ReducedAccount, storageID string) string {
@@ -49,7 +48,7 @@ func (d *StorageDriver) getBlobPath(account models.ReducedAccount, storageID str
 }
 
 func (d *StorageDriver) getManifestBasePath(account models.ReducedAccount) string {
-	return fmt.Sprintf("%s/%s/%s/manifests", d.rootPath, account.AuthTenantID, account.Name)
+	return fmt.Sprintf("%s/%s/%s/manifests", d.RootPath, account.AuthTenantID, account.Name)
 }
 
 func (d *StorageDriver) getManifestPath(account models.ReducedAccount, repoName string, manifestDigest digest.Digest) string {
@@ -57,7 +56,7 @@ func (d *StorageDriver) getManifestPath(account models.ReducedAccount, repoName 
 }
 
 func (d *StorageDriver) getTrivyReportBasePath(account models.ReducedAccount) string {
-	return fmt.Sprintf("%s/%s/%s/trivy-reports", d.rootPath, account.AuthTenantID, account.Name)
+	return fmt.Sprintf("%s/%s/%s/trivy-reports", d.RootPath, account.AuthTenantID, account.Name)
 }
 
 func (d *StorageDriver) getTrivyReportPath(account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) string {

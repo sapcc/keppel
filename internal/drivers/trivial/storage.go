@@ -28,6 +28,10 @@ func init() {
 // for use in test suites where each keppel-registry stores its contents in RAM
 // only, without any persistence.
 type StorageDriver struct {
+	// configuration within tests
+	ForbidNewAccounts bool `json:"-"`
+
+	// state
 	blobs                map[string][]byte
 	blobsMutex           sync.RWMutex
 	blobChunkCounts      map[string]uint32 // previous chunkNumber for running upload, 0 when finished (same semantics as keppel.StoredBlobInfo.ChunkCount field)
@@ -36,7 +40,6 @@ type StorageDriver struct {
 	manifestMutex        sync.RWMutex
 	trivyReports         map[string][]byte
 	trivyReportsMutex    sync.RWMutex
-	ForbidNewAccounts    bool
 }
 
 // PluginTypeID implements the keppel.StorageDriver interface.

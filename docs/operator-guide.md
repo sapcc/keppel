@@ -188,7 +188,7 @@ The following configuration options are understood by both the API server and th
 | `KEPPEL_DRIVER_AUTH` | *(required)* | Configuration for an auth driver. |
 | `KEPPEL_DRIVER_FEDERATION` | *(required)* | The name of a federation driver. For single-region deployments, the correct choice is probably `trivial`. |
 | `KEPPEL_DRIVER_INBOUND_CACHE` | *(required)* | The name of an inbound cache driver. The driver name `trivial` chooses a zero-sized cache that effectively disables caching entirely. |
-| `KEPPEL_DRIVER_STORAGE` | *(required)* | The name of a storage driver. |
+| `KEPPEL_DRIVER_STORAGE` | *(required)* | Configuration for a storage driver. |
 | `KEPPEL_ISSUER_KEY` | *(required)* | The private key (in PEM format, or given as a path to a PEM file) that keppel-api uses to sign auth tokens for Docker clients. Can be generated with `openssl genrsa -out privkey.pem 4096` for RSA (legacy), or `openssl genpkey -algorithm ed25519 -out privkey.pem` for ed25519 (preferred). |
 | `KEPPEL_PREVIOUS_ISSUER_KEY` | *(optional)* | The previous `KEPPEL_ISSUER_KEY`. If given, tokens signed with this key will still be accepted. This can be used to rotate issuer keys without disrupting the validity of pre-existing tokens. |
 

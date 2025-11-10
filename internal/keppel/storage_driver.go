@@ -12,7 +12,6 @@ import (
 
 	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
-	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
 
 	"github.com/sapcc/keppel/internal/models"
@@ -131,14 +130,15 @@ var StorageDriverRegistry pluggable.Registry[StorageDriver]
 
 // NewStorageDriver creates a new StorageDriver using one of the factory functions
 // registered with RegisterStorageDriver().
-func NewStorageDriver(pluginTypeID string, ad AuthDriver, cfg Configuration) (StorageDriver, error) {
-	logg.Debug("initializing storage driver %q...", pluginTypeID)
-
-	sd := StorageDriverRegistry.Instantiate(pluginTypeID)
-	if sd == nil {
-		return nil, errors.New("no such storage driver: " + pluginTypeID)
+//
+// The supplied config must be a string of the form {"type":"foobar","params":{...}},
+// where `type` is the plugin type ID and `params` is json.Unmarshal()ed into
+// the driver instance to supply driver-specific configuration.
+func NewStorageDriver(configJSON string, ad AuthDriver, cfg Configuration) (StorageDriver, error) {
+	callInit := func(sd StorageDriver) error {
+		return sd.Init(ad, cfg)
 	}
-	return sd, sd.Init(ad, cfg)
+	return newDriver("KEPPEL_DRIVER_STORAGE", StorageDriverRegistry, configJSON, callInit)
 }
 
 // GenerateStorageID generates a new random storage ID for use with

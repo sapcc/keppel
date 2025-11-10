@@ -27,15 +27,13 @@ export KEPPEL_DB_PASSWORD=mysecretpassword
 export KEPPEL_DRIVER_AUTH='{"type":"trivial","params":{"username":"johndoe","password":"SuperSecret"}}'
 export KEPPEL_DRIVER_FEDERATION=trivial
 export KEPPEL_DRIVER_INBOUND_CACHE=trivial
-export KEPPEL_DRIVER_STORAGE=filesystem
-export KEPPEL_FILESYSTEM_PATH=./keppel
+export KEPPEL_DRIVER_STORAGE='{"type":"filesystem","params":{"path":"./keppel"}}'
 export KEPPEL_ISSUER_KEY=./privkey.pem
 ```
 
 In addition to that the following extra steps are required:
 - A private key in PEM format is required to sign auth token for Docker clients. It can be generated with `openssl genrsa -out privkey.pem 4096`.
 - A local postgresql instance. You can start one in docker with the following command: `docker run --name postgres -e POSTGRES_PASSWORD=mysecretpassword -e POSTGRES_DB=keppel -p 127.0.0.1:5432:5432 -d postgres`
-- An ephemeral postgresql instance can also be started with `./testing/with-postgres-db.sh make run-api`. This requires adding `export KEPPEL_DB_PORT=54321` to the `.env` file.
 
 ### Run the test suite
 

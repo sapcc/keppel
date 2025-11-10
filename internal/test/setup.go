@@ -267,7 +267,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	s.AD = ad.(*AuthDriver)
 	fd := must.ReturnT(keppel.NewFederationDriver(s.Ctx, "unittest", ad, s.Config))(t)
 	s.FD = fd.(*FederationDriver)
-	sd := must.ReturnT(keppel.NewStorageDriver("in-memory-for-testing", ad, s.Config))(t)
+	sd := must.ReturnT(keppel.NewStorageDriver(`{"type":"in-memory-for-testing"}`, ad, s.Config))(t)
 	s.SD = sd.(*trivial.StorageDriver)
 	icd := must.ReturnT(keppel.NewInboundCacheDriver(s.Ctx, "unittest", s.Config))(t)
 	s.ICD = icd.(*InboundCacheDriver)
