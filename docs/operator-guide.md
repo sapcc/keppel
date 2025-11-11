@@ -243,7 +243,7 @@ These options are only understood by the janitor.
 
 | Variable | Default | Explanation |
 | -------- | ------- | ----------- |
-| `KEPPEL_DRIVER_ACCOUNT_MANAGEMENT` | *(required)* | The name of an account management driver. If you don't need managed accounts, the correct choice is `trivial`. |
+| `KEPPEL_DRIVER_ACCOUNT_MANAGEMENT` | *(required)* | Configuration for an account management driver. If you don't need managed accounts, the correct choice is `{"type":"trivial"}`. |
 | `KEPPEL_JANITOR_LISTEN_ADDRESS` | :8080 | Listen address for HTTP server (only provides Prometheus metrics). |
 
 ### Health monitor configuration options

@@ -1,6 +1,5 @@
 <!--
 SPDX-FileCopyrightText: 2025 SAP SE
-
 SPDX-License-Identifier: Apache-2.0
 -->
 
@@ -10,12 +9,18 @@ This driver sources managed accounts from a static JSON configuration file.
 
 ## Server-side configuration
 
-| Variable | Default | Explanation |
-| -------- | ------- | ----------- |
-| `KEPPEL_ACCOUNT_MANAGEMENT_CONFIG_PATH` | *(required)* | The path to the configuration file. |
-| `KEPPEL_ACCOUNT_MANAGEMENT_PROTECTED_ACCOUNTS` | *(optional)* | A space-separated list of account names. If any of these accounts are managed, but do not appear in the configuration file, the driver will rather fail than instruct the janitor to clean them up. This is an extra layer of protection if you want to be super-paranoid about protecting specific high-value accounts from accidental deletion (e.g. in the case of accidentally feeding an empty config file to the driver). |
+```sh
+export KEPPEL_DRIVER_ACCOUNT_MANAGEMENT='{"type":"basic","params":{...}}'
+```
 
-The driver will reload this configuration file for every work cycle of the account management job, so it is a viable
+The following parameters may be supplied in `$KEPPEL_DRIVER_ACCOUNT_MANAGEMENT` (in JSON format):
+
+| Field | Type | Explanation |
+| ----- | ---- | ----------- |
+| `config_path` | string | *(required)* The path to the configuration file. |
+| `protected_accounts` | array of strings | A list of account names. If any of these accounts are managed, but do not appear in the configuration file, the driver will rather fail than instruct the janitor to clean them up. This is an extra layer of protection if you want to be super-paranoid about protecting specific high-value accounts from accidental deletion (e.g. in the case of accidentally feeding an empty config file to the driver). |
+
+The driver will reload its configuration file for every work cycle of the account management job, so it is a viable
 strategy to update the configuration file without restarting the janitor process (e.g. in Kubernetes, by having the file mounted
 from a ConfigMap).
 
