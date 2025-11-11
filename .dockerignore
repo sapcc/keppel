@@ -7,13 +7,10 @@
 # TODO: uncomment when applications no longer use git to get version information
 #.git/
 /.github/
-/.gitignore
-/.golangci.yaml
 /.goreleaser.yml
 /.vscode/
 /CONTRIBUTING.md
 /Dockerfile
-/LICENSE*
 /Makefile.maker.yaml
 /README.md
 /build/
@@ -27,3 +24,4 @@
 /*.json
 /*.yaml
 privkey.pem
+/.testdb/

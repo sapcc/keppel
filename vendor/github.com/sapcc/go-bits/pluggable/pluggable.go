@@ -28,7 +28,11 @@
 //	}
 package pluggable
 
-import "fmt"
+import (
+	"fmt"
+
+	. "github.com/majewsky/gg/option"
+)
 
 // Plugin is the base interface for plugins that type Registry can instantiate.
 type Plugin interface {
@@ -74,10 +78,15 @@ func (r *Registry[T]) Add(factory func() T) {
 // Since T is usually an application-specific interface type, this means that
 // nil will be returned.
 func (r *Registry[T]) Instantiate(pluginTypeID string) T {
+	var zero T
+	return r.TryInstantiate(pluginTypeID).UnwrapOr(zero)
+}
+
+// TryInstantiate is like Instantiate, but returns None instead of nil for unknown plugins.
+func (r *Registry[T]) TryInstantiate(pluginTypeID string) Option[T] {
 	factory, exists := r.factories[pluginTypeID]
 	if exists {
-		return factory()
+		return Some(factory())
 	}
-	var zero T
-	return zero
+	return None[T]()
 }
