@@ -1,5 +1,4 @@
 {
-  "SchemaVersion": 2,
   "ArtifactName": "alpine:latest",
   "ArtifactType": "container_image",
   "Metadata": {
@@ -57,5 +56,6 @@
       "Class": "os-pkgs",
       "Type": "alpine"
     }
-  ]
+  ],
+  "SchemaVersion": 2
 }

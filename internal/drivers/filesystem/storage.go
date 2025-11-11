@@ -166,7 +166,12 @@ func (d *StorageDriver) WriteTrivyReport(ctx context.Context, account models.Red
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(tmpPath, payload.Contents, 0666) // subject to umask
+	file, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY, 0666) // subject to umask
+	if err != nil {
+		return err
+	}
+	defer func() { err = file.Close() }()
+	_, err = io.Copy(file, payload.Contents)
 	if err != nil {
 		return err
 	}
