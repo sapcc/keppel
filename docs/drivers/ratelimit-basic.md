@@ -1,27 +1,33 @@
 <!--
 SPDX-FileCopyrightText: 2025 SAP SE
-
 SPDX-License-Identifier: Apache-2.0
 -->
 
-### Rate limit driver: `basic`
+# Rate limit driver: `basic`
 
 A rate limit driver with fixed rate limits that are the same across all accounts and auth tenants.
 
-| Variable | Default | Explanation |
-| -------- | ------- | ----------- |
-| `KEPPEL_RATELIMIT_BLOB_PULLS` | *(required)* | Rate limit per account for GET requests on blobs. |
-| `KEPPEL_RATELIMIT_BLOB_PUSHES` | *(required)* | Rate limit per account for POST requests on blobs and blob uploads. |
-| `KEPPEL_RATELIMIT_MANIFEST_PULLS` | *(required)* | Rate limit per account for GET requests on manifests. |
-| `KEPPEL_RATELIMIT_MANIFEST_PUSHES` | *(required)* | Rate limit per account for PUT requests on manifests. |
-| `KEPPEL_RATELIMIT_TRIVY_REPORT_RETRIEVALS` | *(required)* | Rate limit per account for GET requests on Trivy reports. |
-| `KEPPEL_BURST_BLOB_PULLS`<br>`KEPPEL_BURST_BLOB_PUSHES`<br>`KEPPEL_BURST_MANIFEST_PULLS`<br>`KEPPEL_BURST_MANIFEST_PUSHES`<br>`KEPPEL_BURST_TRIVY_REPORT_RETRIEVALS` | `5` | Burst budget for each of these rate limits. When starting from a completely unused rate limit, this many requests are always allowed before first being rate-limited. This number should be generous especially for blob pulls since pulling a single manifest usually leads to pulling a lot of blobs. |
+## Server-side configuration
 
-Values for these rate limits (except bursts) must be specified in the format `<value> <unit>` where `<unit>` is `r/s` (requests per second), `r/m` (requests per minute) or `r/h` (requests per hour). For example, `100 r/m` allows 100 requests per minute (and account).
+```sh
+export KEPPEL_DRIVER_RATELIMIT='{"type":"basic","params":{...}}'
+```
 
-| Variable | Default | Explanation |
-| -------- | ------- | ----------- |
-| `KEPPEL_RATELIMIT_ANYCAST_BLOB_PULL_BYTES` | *(optional)* | Rate limit per account for anycast GET requests on blobs that are served across regions. If not set, this rate limit is not enforced. |
-| `KEPPEL_BURST_ANYCAST_BLOB_PULL_BYTES` | `0` | Burst budget for the above rate limit. (See above for explanation.) |
+The following parameters may be supplied in `$KEPPEL_DRIVER_RATELIMIT` (in JSON format):
 
-Values for this rate limits must be specified in the format `<value> <unit>` where `<unit>` is `B/s` (bytes per second), `B/m` (bytes per minute) or `B/h` (bytes per hour). For example, `10737418240 B/m` allows 10 GiB per minute (and account). Units other than bytes are not understood as of now.
+| Field | Type | Explanation |
+| ----- | ---- | ----------- |
+| `anycast_blob_pull_bytes` | object | Rate limit per account for anycast GET requests on blobs that are served across regions. Note that this rate limit counts bytes transferred, not requests. |
+| `blob_pulls` | object | Rate limit per account for GET requests on blobs. |
+| `blob_pushes` | object | Rate limit per account for POST requests on blobs and blob uploads. |
+| `manifest_pulls` | object | Rate limit per account for GET requests on manifests. |
+| `manifest_pushes` | object | Rate limit per account for PUT requests on manifests. |
+| `trivy_report_retrievals` | object | Rate limit per account for GET requests on Trivy reports. |
+
+If any of those rate limits is not set, it will not be enforced.
+Each rate limit is specified as an object with the following fields:
+
+| Field | Type | Explanation |
+| ----- | ---- | ----------- |
+| `limit`<br>`window` | integer<br>string | The actual rate limit. For example, `{"limit":10,"window":"s"}` is a limit of 10 per second. Acceptable values for `window` are `s` (1 second), `m` (1 minute) or `h` (1 hour). |
+| `burst` | integer | Burst budget. When starting from a completely unused rate limit, this many requests/bytes may always be made/transferred before first being rate-limited. (From an algorithmic perspective, the rate limit describes how quickly this budget replenishes.) This number should be generous especially for blob pulls since pulling a single manifest usually leads to pulling a lot of blobs. |

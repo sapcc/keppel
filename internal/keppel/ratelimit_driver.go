@@ -5,7 +5,6 @@ package keppel
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -13,7 +12,6 @@ import (
 	"github.com/go-redis/redis_rate/v10"
 	. "github.com/majewsky/gg/option"
 	"github.com/redis/go-redis/v9"
-	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
 
 	"github.com/sapcc/keppel/internal/models"
@@ -61,14 +59,15 @@ var RateLimitDriverRegistry pluggable.Registry[RateLimitDriver]
 
 // NewRateLimitDriver creates a new RateLimitDriver using one of the plugins
 // registered with RateLimitDriverRegistry.
-func NewRateLimitDriver(pluginTypeID string, ad AuthDriver, cfg Configuration) (RateLimitDriver, error) {
-	logg.Debug("initializing rate-limit driver %q...", pluginTypeID)
-
-	rld := RateLimitDriverRegistry.Instantiate(pluginTypeID)
-	if rld == nil {
-		return nil, errors.New("no such rate-limit driver: " + pluginTypeID)
+//
+// The supplied config must be a string of the form {"type":"foobar","params":{...}},
+// where `type` is the plugin type ID and `params` is json.Unmarshal()ed into
+// the driver instance to supply driver-specific configuration.
+func NewRateLimitDriver(configJSON string, ad AuthDriver, cfg Configuration) (RateLimitDriver, error) {
+	callInit := func(rld RateLimitDriver) error {
+		return rld.Init(ad, cfg)
 	}
-	return rld, rld.Init(ad, cfg)
+	return newDriver("KEPPEL_DRIVER_RATELIMIT", RateLimitDriverRegistry, configJSON, callInit)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
