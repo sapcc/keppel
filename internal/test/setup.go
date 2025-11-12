@@ -269,7 +269,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	s.FD = fd.(*FederationDriver)
 	sd := must.ReturnT(keppel.NewStorageDriver(`{"type":"in-memory-for-testing"}`, ad, s.Config))(t)
 	s.SD = sd.(*trivial.StorageDriver)
-	icd := must.ReturnT(keppel.NewInboundCacheDriver(s.Ctx, "unittest", s.Config))(t)
+	icd := must.ReturnT(keppel.NewInboundCacheDriver(s.Ctx, `{"type":"unittest"}`, s.Config))(t)
 	s.ICD = icd.(*InboundCacheDriver)
 
 	if params.RateLimitEngine != nil {

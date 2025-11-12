@@ -26,7 +26,7 @@ export KEPPEL_DB_CONNECTION_OPTIONS=sslmode=disable
 export KEPPEL_DB_PASSWORD=mysecretpassword
 export KEPPEL_DRIVER_AUTH='{"type":"trivial","params":{"username":"johndoe","password":"SuperSecret"}}'
 export KEPPEL_DRIVER_FEDERATION='{"type":"trivial"}'
-export KEPPEL_DRIVER_INBOUND_CACHE=trivial
+export KEPPEL_DRIVER_INBOUND_CACHE='{"type":"trivial"}'
 export KEPPEL_DRIVER_STORAGE='{"type":"filesystem","params":{"path":"./keppel"}}'
 export KEPPEL_ISSUER_KEY=./privkey.pem
 ```
