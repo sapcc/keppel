@@ -265,7 +265,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	// setup essential drivers
 	ad := must.ReturnT(keppel.NewAuthDriver(s.Ctx, `{"type":"unittest"}`, nil))(t)
 	s.AD = ad.(*AuthDriver)
-	fd := must.ReturnT(keppel.NewFederationDriver(s.Ctx, "unittest", ad, s.Config))(t)
+	fd := must.ReturnT(keppel.NewFederationDriver(s.Ctx, `{"type":"unittest"}`, ad, s.Config))(t)
 	s.FD = fd.(*FederationDriver)
 	sd := must.ReturnT(keppel.NewStorageDriver(`{"type":"in-memory-for-testing"}`, ad, s.Config))(t)
 	s.SD = sd.(*trivial.StorageDriver)

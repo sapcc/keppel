@@ -19,9 +19,13 @@ import (
 )
 
 type federationDriver struct {
-	ownHostname string
-	prefix      string
-	rc          *redis.Client
+	// configuration
+	EnvPrefix   string `json:"env_prefix"`
+	KeyPrefix   string `json:"key_prefix"`
+	ownHostname string `json:"-"`
+
+	// state
+	rc *redis.Client `json:"-"`
 }
 
 func init() {
@@ -33,25 +37,36 @@ func (d *federationDriver) PluginTypeID() string { return "redis" }
 
 // Init implements the keppel.FederationDriver interface.
 func (d *federationDriver) Init(ctx context.Context, ad keppel.AuthDriver, cfg keppel.Configuration) error {
-	osext.MustGetenv("KEPPEL_FEDERATION_REDIS_HOSTNAME") // check config
-	opts, err := keppel.GetRedisOptions("KEPPEL_FEDERATION")
+	// apply defaults
+	if d.EnvPrefix == "" {
+		d.EnvPrefix = "KEPPEL_FEDERATION_REDIS"
+	}
+	if d.KeyPrefix == "" {
+		d.KeyPrefix = "keppel"
+	}
+	d.ownHostname = cfg.APIPublicHostname
+
+	// connect to Redis
+	_, err := osext.NeedGetenv(d.EnvPrefix + "_HOSTNAME") // do not rely on the default implied by keppel.GetRedisOptions()
+	if err != nil {
+		return err
+	}
+	opts, err := keppel.GetRedisOptions(d.EnvPrefix)
 	if err != nil {
 		return fmt.Errorf("cannot parse federation Redis URL: %s", err.Error())
 	}
-	d.ownHostname = cfg.APIPublicHostname
-	d.prefix = osext.GetenvOrDefault("KEPPEL_FEDERATION_REDIS_PREFIX", "keppel")
 	d.rc = redis.NewClient(opts)
 	return nil
 }
 
 func (d *federationDriver) primaryKey(accountName models.AccountName) string {
-	return fmt.Sprintf("%s-primary-%s", d.prefix, accountName)
+	return fmt.Sprintf("%s-primary-%s", d.KeyPrefix, accountName)
 }
 func (d *federationDriver) replicasKey(accountName models.AccountName) string {
-	return fmt.Sprintf("%s-replicas-%s", d.prefix, accountName)
+	return fmt.Sprintf("%s-replicas-%s", d.KeyPrefix, accountName)
 }
 func (d *federationDriver) tokenKey(accountName models.AccountName) string {
-	return fmt.Sprintf("%s-token-%s", d.prefix, accountName)
+	return fmt.Sprintf("%s-token-%s", d.KeyPrefix, accountName)
 }
 
 const (

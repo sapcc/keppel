@@ -10,7 +10,6 @@ import (
 
 	"github.com/sapcc/keppel/internal/models"
 
-	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
 )
 
@@ -94,12 +93,13 @@ var FederationDriverRegistry pluggable.Registry[FederationDriver]
 
 // NewFederationDriver creates a new FederationDriver using one of the plugins
 // registered with FederationDriverRegistry.
-func NewFederationDriver(ctx context.Context, pluginTypeID string, ad AuthDriver, cfg Configuration) (FederationDriver, error) {
-	logg.Debug("initializing federation driver %q...", pluginTypeID)
-
-	fd := FederationDriverRegistry.Instantiate(pluginTypeID)
-	if fd == nil {
-		return nil, errors.New("no such federation driver: " + pluginTypeID)
+//
+// The supplied config must be a string of the form {"type":"foobar","params":{...}},
+// where `type` is the plugin type ID and `params` is json.Unmarshal()ed into
+// the driver instance to supply driver-specific configuration.
+func NewFederationDriver(ctx context.Context, configJSON string, ad AuthDriver, cfg Configuration) (FederationDriver, error) {
+	callInit := func(fd FederationDriver) error {
+		return fd.Init(ctx, ad, cfg)
 	}
-	return fd, fd.Init(ctx, ad, cfg)
+	return newDriver("KEPPEL_DRIVER_FEDERATION", FederationDriverRegistry, configJSON, callInit)
 }

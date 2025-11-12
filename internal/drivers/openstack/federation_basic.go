@@ -5,28 +5,28 @@ package openstack
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/gophercloud/gophercloud/v2/openstack/identity/v3/domains"
 	"github.com/gophercloud/gophercloud/v2/openstack/identity/v3/projects"
-	"github.com/sapcc/go-bits/osext"
+	"github.com/sapcc/go-bits/regexpext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 )
 
-type nameClaimWhitelistEntry struct {
-	ProjectName *regexp.Regexp
-	AccountName *regexp.Regexp
+type nameClaimAllowlistEntry struct {
+	ProjectName regexpext.BoundedRegexp `json:"project"`
+	AccountName regexpext.BoundedRegexp `json:"account"`
 }
 
 type federationDriverBasic struct {
-	AuthDriver *keystoneDriver
-	Whitelist  []nameClaimWhitelistEntry
+	// configuration
+	Allowlist []nameClaimAllowlistEntry `json:"allowlist"`
+
+	// state
+	AuthDriver *keystoneDriver `json:"-"`
 }
 
 func init() {
@@ -43,28 +43,6 @@ func (d *federationDriverBasic) Init(_ context.Context, ad keppel.AuthDriver, cf
 	if !ok {
 		return keppel.ErrAuthDriverMismatch
 	}
-
-	wlStr := strings.TrimSuffix(osext.MustGetenv("KEPPEL_NAMECLAIM_WHITELIST"), ",")
-	for wlEntryStr := range strings.SplitSeq(wlStr, ",") {
-		wlEntryFields := strings.SplitN(wlEntryStr, ":", 2)
-		if len(wlEntryFields) != 2 {
-			return errors.New(`KEPPEL_NAMECLAIM_WHITELIST must have the form "project1:accountName1,project2:accountName2,..."`)
-		}
-
-		projectNameRx, err := regexp.Compile(`^(?:` + wlEntryFields[0] + `)$`)
-		if err != nil {
-			return err
-		}
-		accountNameRx, err := regexp.Compile(`^(?:` + wlEntryFields[1] + `)$`)
-		if err != nil {
-			return err
-		}
-		d.Whitelist = append(d.Whitelist, nameClaimWhitelistEntry{
-			ProjectName: projectNameRx,
-			AccountName: accountNameRx,
-		})
-	}
-
 	return nil
 }
 
@@ -80,7 +58,7 @@ func (d *federationDriverBasic) ClaimAccountName(ctx context.Context, account mo
 	}
 	projectName := fmt.Sprintf("%s@%s", project.Name, domain.Name)
 
-	for _, entry := range d.Whitelist {
+	for _, entry := range d.Allowlist {
 		projectMatches := entry.ProjectName.MatchString(projectName)
 		accountMatches := entry.AccountName.MatchString(string(account.Name))
 		if projectMatches && accountMatches {

@@ -11,7 +11,7 @@ export KEPPEL_DB_PORT=54321
 
 KEPPEL_FILESYSTEM_PATH=./conformance-test/storage
 export KEPPEL_DRIVER_AUTH='{"type":"trivial","params":{"username":"johndoe","password":"SuperSecret"}}'
-export KEPPEL_DRIVER_FEDERATION=trivial
+export KEPPEL_DRIVER_FEDERATION='{"type":"trivial"}'
 export KEPPEL_DRIVER_INBOUND_CACHE=trivial
 export KEPPEL_DRIVER_STORAGE="{\"type\":\"filesystem\",\"params\":{\"path\":\"$KEPPEL_FILESYSTEM_PATH\"}}"
 

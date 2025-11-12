@@ -149,7 +149,6 @@ func mayGetenvURL(key string) *url.URL {
 //
 // The environment variable keys are prefixed with the provided prefix.
 func GetRedisOptions(prefix string) (*redis.Options, error) {
-	prefix += "_REDIS"
 	pass := os.Getenv(prefix + "_PASSWORD")
 	host := osext.GetenvOrDefault(prefix+"_HOSTNAME", "localhost")
 	port := osext.GetenvOrDefault(prefix+"_PORT", "6379")

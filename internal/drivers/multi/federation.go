@@ -5,18 +5,19 @@ package multi
 
 import (
 	"context"
-	"errors"
-	"strings"
+	"encoding/json"
 	"time"
-
-	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 )
 
 type federationDriver struct {
-	Drivers []keppel.FederationDriver
+	// configuration
+	DriverConfigs []json.RawMessage `json:"drivers"`
+
+	// state
+	Drivers []keppel.FederationDriver `json:"-"`
 }
 
 func init() {
@@ -27,18 +28,13 @@ func init() {
 func (fd *federationDriver) PluginTypeID() string { return "multi" }
 
 // Init implements the keppel.FederationDriver interface.
-func (fd *federationDriver) Init(ctx context.Context, ad keppel.AuthDriver, cfg keppel.Configuration) error {
-	driverNames := strings.SplitSeq(osext.MustGetenv("KEPPEL_FEDERATION_MULTI_DRIVERS"), ",")
-	for driverName := range driverNames {
-		if driverName == "multi" {
-			// prevent infinite loops
-			return errors.New(`cannot nest "multi" federation driver within itself`)
-		}
-		subdriver, err := keppel.NewFederationDriver(ctx, strings.TrimSpace(driverName), ad, cfg)
+func (fd *federationDriver) Init(ctx context.Context, ad keppel.AuthDriver, cfg keppel.Configuration) (err error) {
+	fd.Drivers = make([]keppel.FederationDriver, len(fd.DriverConfigs))
+	for idx, configJSON := range fd.DriverConfigs {
+		fd.Drivers[idx], err = keppel.NewFederationDriver(ctx, string(configJSON), ad, cfg)
 		if err != nil {
 			return err
 		}
-		fd.Drivers = append(fd.Drivers, subdriver)
 	}
 	return nil
 }

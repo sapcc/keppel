@@ -186,7 +186,7 @@ The following configuration options are understood by both the API server and th
 | `KEPPEL_DB_CONNECTION_OPTIONS` | *(optional)* | Database connection options. |
 | `KEPPEL_DEBUG` | *(optional)* | Enable debug logging. |
 | `KEPPEL_DRIVER_AUTH` | *(required)* | Configuration for an auth driver. |
-| `KEPPEL_DRIVER_FEDERATION` | *(required)* | The name of a federation driver. For single-region deployments, the correct choice is probably `trivial`. |
+| `KEPPEL_DRIVER_FEDERATION` | *(required)* | Configuration for a federation driver. For single-region deployments, the correct choice is probably `{"type":"trivial"}`. |
 | `KEPPEL_DRIVER_INBOUND_CACHE` | *(required)* | The name of an inbound cache driver. The driver name `trivial` chooses a zero-sized cache that effectively disables caching entirely. |
 | `KEPPEL_DRIVER_STORAGE` | *(required)* | Configuration for a storage driver. |
 | `KEPPEL_ISSUER_KEY` | *(required)* | The private key (in PEM format, or given as a path to a PEM file) that keppel-api uses to sign auth tokens for Docker clients. Can be generated with `openssl genrsa -out privkey.pem 4096` for RSA (legacy), or `openssl genpkey -algorithm ed25519 -out privkey.pem` for ed25519 (preferred). |

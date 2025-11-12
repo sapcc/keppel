@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/majewsky/schwift/v2"
+	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -43,7 +44,10 @@ func (d *inboundCacheDriverSwift) Init(ctx context.Context, cfg keppel.Configura
 	if err != nil {
 		return err
 	}
-	d.Container, err = initSwiftContainerConnection(ctx, "KEPPEL_INBOUND_CACHE_")
+	d.Container, err = SwiftContainerCredentials{
+		EnvPrefix:     "KEPPEL_INBOUND_CACHE_",
+		ContainerName: osext.MustGetenv("KEPPEL_INBOUND_CACHE_SWIFT_CONTAINER"),
+	}.Connect(ctx)
 	return err
 }
 
