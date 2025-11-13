@@ -36,7 +36,7 @@ RUN make -C /src static-check
 
 # Some things like postgres do not like to run as root. For simplicity, just always run as an unprivileged user,
 # but for it to be able to read the go cache, we need to allow it.
-RUN chmod 777 -R /src/
+RUN chown -R 4200:4200 /src/ /go/
 USER 4200:4200
 RUN cd /src \
   && git config --global --add safe.directory /src \
