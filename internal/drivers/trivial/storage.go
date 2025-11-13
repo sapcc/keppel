@@ -164,7 +164,7 @@ func (d *StorageDriver) DeleteBlob(ctx context.Context, account models.ReducedAc
 }
 
 // ReadManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ReadManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) ([]byte, error) {
+func (d *StorageDriver) ReadManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) (io.ReadCloser, error) {
 	k := manifestKey(account, repoName, manifestDigest)
 	d.manifestMutex.RLock()
 	defer d.manifestMutex.RUnlock()
@@ -172,15 +172,19 @@ func (d *StorageDriver) ReadManifest(ctx context.Context, account models.Reduced
 	if !exists {
 		return nil, errNoSuchManifest
 	}
-	return contents, nil
+	return io.NopCloser(bytes.NewReader(contents)), nil
 }
 
 // WriteManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, contents []byte) error {
+func (d *StorageDriver) WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, in io.Reader) error {
 	k := manifestKey(account, repoName, manifestDigest)
 	d.manifestMutex.Lock()
 	defer d.manifestMutex.Unlock()
-	d.manifests[k] = contents
+	content, err := io.ReadAll(in)
+	if err != nil {
+		return err
+	}
+	d.manifests[k] = content
 	return nil
 }
 
@@ -198,7 +202,7 @@ func (d *StorageDriver) DeleteManifest(ctx context.Context, account models.Reduc
 }
 
 // ReadTrivyReport implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) ([]byte, error) {
+func (d *StorageDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) (io.ReadCloser, error) {
 	k := trivyReportKey(account, repoName, manifestDigest, format)
 	d.trivyReportsMutex.RLock()
 	defer d.trivyReportsMutex.RUnlock()
@@ -206,7 +210,7 @@ func (d *StorageDriver) ReadTrivyReport(ctx context.Context, account models.Redu
 	if !exists {
 		return nil, errNoSuchTrivyReport
 	}
-	return contents, nil
+	return io.NopCloser(bytes.NewReader(contents)), nil
 }
 
 // WriteTrivyReport implements the keppel.StorageDriver interface.

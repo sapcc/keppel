@@ -277,7 +277,7 @@ func TestAccountManagementStorageSweep(t *testing.T) {
 	testImageList1 := test.GenerateImageList(images[0])
 	testImageList2 := test.GenerateImageList(images[1])
 	for _, manifest := range []test.Bytes{testImageList1.Manifest, testImageList2.Manifest} {
-		must.SucceedT(t, s.SD.WriteManifest(s.Ctx, account, "foo", manifest.Digest, manifest.Contents))
+		must.SucceedT(t, s.SD.WriteManifest(s.Ctx, account, "foo", manifest.Digest, bytes.NewReader(manifest.Contents)))
 	}
 
 	// ... trivy reports ...
@@ -307,7 +307,7 @@ func TestAccountManagementStorageSweep(t *testing.T) {
 
 	// .. and some garbage in the storage driver
 	testImageList3 := test.GenerateImageList(images[2])
-	must.SucceedT(t, s.SD.WriteManifest(s.Ctx, account, "foo", testImageList3.Manifest.Digest, testImageList3.Manifest.Contents))
+	must.SucceedT(t, s.SD.WriteManifest(s.Ctx, account, "foo", testImageList3.Manifest.Digest, bytes.NewReader(testImageList3.Manifest.Contents)))
 	must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, account, "foo", testImageList1.Manifest.Digest, trivy.ReportPayload{
 		Contents: io.NopCloser(strings.NewReader(`{"report": "test"}`)),
 		Format:   "json",

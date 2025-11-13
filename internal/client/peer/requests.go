@@ -8,7 +8,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -17,7 +19,8 @@ import (
 // DownloadManifestViaPullDelegation asks the peer to download a manifest from
 // an external registry for us. This gets used when the external registry
 // denies the pull to us because we hit our rate limit.
-func (c Client) DownloadManifestViaPullDelegation(ctx context.Context, imageRef models.ImageReference, userName, password string) (respBodyBytes []byte, contentType string, err error) {
+// The caller is responsible for closing the returned ReadCloser.
+func (c Client) DownloadManifestViaPullDelegation(ctx context.Context, imageRef models.ImageReference, userName, password string) (respBodyBytes io.ReadCloser, contentType string, err error) {
 	reqURL := c.buildRequestURL(fmt.Sprintf(
 		"peer/v1/delegatedpull/%s/v2/%s/manifests/%s",
 		imageRef.Host, imageRef.RepoName, imageRef.Reference,
@@ -27,15 +30,16 @@ func (c Client) DownloadManifestViaPullDelegation(ctx context.Context, imageRef 
 		"X-Keppel-Delegated-Pull-Password": password,
 	}
 
-	respBodyBytes, respStatusCode, respHeader, err := c.doRequest(ctx, http.MethodGet, reqURL, http.NoBody, reqHeaders)
+	respBody, respStatusCode, respHeader, err := c.doRequest(ctx, http.MethodGet, reqURL, http.NoBody, reqHeaders)
 	if err != nil {
 		return nil, "", err
 	}
 	if respStatusCode != http.StatusOK {
-		return nil, "", fmt.Errorf("during GET %s: expected 200, got %d with response: %s",
-			reqURL, respStatusCode, string(respBodyBytes))
+		respBody.Close()
+		return nil, "", fmt.Errorf("during GET %s: expected 200, got %d with response: %s", reqURL, respStatusCode, tryReadAllAndTrimSpace(respBody))
 	}
-	return respBodyBytes, respHeader.Get("Content-Type"), nil
+
+	return respBody, respHeader.Get("Content-Type"), nil
 }
 
 // GetForeignAccountConfiguration asks the peer for the configuration of the
@@ -48,19 +52,19 @@ func (c Client) DownloadManifestViaPullDelegation(ctx context.Context, imageRef 
 func (c Client) GetForeignAccountConfigurationInto(ctx context.Context, target any, accountName models.AccountName) error {
 	reqURL := c.buildRequestURL("keppel/v1/accounts/" + string(accountName))
 
-	respBodyBytes, respStatusCode, _, err := c.doRequest(ctx, http.MethodGet, reqURL, http.NoBody, nil)
+	respBody, respStatusCode, _, err := c.doRequest(ctx, http.MethodGet, reqURL, http.NoBody, nil)
 	if err != nil {
 		return err
 	}
+	defer respBody.Close()
 	if respStatusCode != http.StatusOK {
-		return fmt.Errorf("during GET %s: expected 200, got %d with response: %s",
-			reqURL, respStatusCode, string(respBodyBytes))
+		return fmt.Errorf("during GET %s: expected 200, got %d with response: %s", reqURL, respStatusCode, tryReadAllAndTrimSpace(respBody))
 	}
 
 	data := struct {
 		Target any `json:"account"`
 	}{target}
-	err = jsonUnmarshalStrict(respBodyBytes, &data)
+	err = jsonUnmarshalStrict(respBody, &data)
 	if err != nil {
 		return fmt.Errorf("while parsing response for GET %s: %w", reqURL, err)
 	}
@@ -72,19 +76,20 @@ func (c Client) GetForeignAccountConfigurationInto(ctx context.Context, target a
 func (c Client) GetSubleaseToken(ctx context.Context, accountName models.AccountName) (keppel.SubleaseToken, error) {
 	reqURL := c.buildRequestURL("keppel/v1/accounts/" + string(accountName) + "/sublease")
 
-	respBodyBytes, respStatusCode, _, err := c.doRequest(ctx, http.MethodPost, reqURL, http.NoBody, nil)
+	respBody, respStatusCode, _, err := c.doRequest(ctx, http.MethodPost, reqURL, http.NoBody, nil)
 	if err != nil {
 		return keppel.SubleaseToken{}, err
 	}
+	defer respBody.Close()
 	if respStatusCode != http.StatusOK {
 		return keppel.SubleaseToken{}, fmt.Errorf("while obtaining sublease token with POST %s: expected 200, got %d with response: %s",
-			reqURL, respStatusCode, string(respBodyBytes))
+			reqURL, respStatusCode, tryReadAllAndTrimSpace(respBody))
 	}
 
 	data := struct {
 		SubleaseToken string `json:"sublease_token"`
 	}{}
-	err = jsonUnmarshalStrict(respBodyBytes, &data)
+	err = jsonUnmarshalStrict(respBody, &data)
 	if err != nil {
 		return keppel.SubleaseToken{}, fmt.Errorf("while parsing sublease token response from POST %s: %w", reqURL, err)
 	}
@@ -104,22 +109,22 @@ func (c Client) PerformReplicaSync(ctx context.Context, fullRepoName string, pay
 		return nil, fmt.Errorf("while marshalling POST %s: %w", reqURL, err)
 	}
 
-	respBodyBytes, respStatusCode, _, err := c.doRequest(ctx, http.MethodPost, reqURL, bytes.NewReader(reqBodyBytes), nil)
+	respBody, respStatusCode, _, err := c.doRequest(ctx, http.MethodPost, reqURL, bytes.NewReader(reqBodyBytes), nil)
 	if err != nil {
 		return nil, err
 	}
+	defer respBody.Close()
 	if respStatusCode == http.StatusNotFound {
 		// 404 can occur when the repo has been deleted on primary; in this case,
 		// fall back to verifying the deletion explicitly using the normal API
 		return nil, nil
 	}
 	if respStatusCode != http.StatusOK {
-		return nil, fmt.Errorf("during POST %s: expected 200, got %d with response: %s",
-			reqURL, respStatusCode, string(respBodyBytes))
+		return nil, fmt.Errorf("during POST %s: expected 200, got %d with response: %s", reqURL, respStatusCode, tryReadAllAndTrimSpace(respBody))
 	}
 
 	var respPayload keppel.ReplicaSyncPayload
-	err = jsonUnmarshalStrict(respBodyBytes, &respPayload)
+	err = jsonUnmarshalStrict(respBody, &respPayload)
 	if err != nil {
 		return nil, fmt.Errorf("while parsing response from POST %s: %w", reqURL, err)
 	}
@@ -127,8 +132,18 @@ func (c Client) PerformReplicaSync(ctx context.Context, fullRepoName string, pay
 }
 
 // Like yaml.UnmarshalStrict(), but for JSON.
-func jsonUnmarshalStrict(buf []byte, target any) error {
-	dec := json.NewDecoder(bytes.NewReader(buf))
+func jsonUnmarshalStrict(in io.Reader, target any) error {
+	dec := json.NewDecoder(in)
 	dec.DisallowUnknownFields()
 	return dec.Decode(target)
+}
+
+func tryReadAllAndTrimSpace(respBody io.ReadCloser) (respString string) {
+	respBodyBytes, err := io.ReadAll(respBody)
+	if err == nil {
+		respString = strings.TrimSpace(string(respBodyBytes))
+	} else {
+		respString = "<could not read response body>"
+	}
+	return respString
 }
