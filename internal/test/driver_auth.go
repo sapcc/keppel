@@ -16,12 +16,12 @@ import (
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
-// AuthDriver (driver ID "unittest") is a keppel.AuthDriver for unit tests.
+// AuthDriver (type "unittest") is a keppel.AuthDriver for unit tests.
 type AuthDriver struct {
 	// for AuthenticateUser
-	ExpectedUserName   string
-	ExpectedPassword   string
-	GrantedPermissions string
+	ExpectedUserName   string `json:"-"`
+	ExpectedPassword   string `json:"-"`
+	GrantedPermissions string `json:"-"`
 }
 
 func init() {

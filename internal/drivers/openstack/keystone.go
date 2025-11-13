@@ -2,12 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package openstack contains:
-//
-// - the AuthDriver "keystone": Keppel tenants are Keystone projects. Incoming HTTP requests are authenticated by reading a Keystone token from the X-Auth-Token request header.
-//
-// - the StorageDriver "swift": Data for a Keppel account is stored in the Swift container "keppel-<accountname>" in the tenant's Swift account.
-//
-// - the NameClaimDriver "openstack-basic": A static whitelist is used to check which project can claim which account names.
+//   - the AuthDriver "keystone": Keppel tenants are Keystone projects. Incoming HTTP requests are authenticated by reading a Keystone token from the X-Auth-Token request header.
+//   - the StorageDriver "swift": Data for a Keppel account is stored in the Swift container "keppel-<accountname>" in the tenant's Swift account.
+//   - the NameClaimDriver "openstack-basic": A static whitelist is used to check which project can claim which account names.
 package openstack
 
 import (
@@ -30,17 +27,20 @@ import (
 	"github.com/sapcc/go-bits/gophercloudext"
 	"github.com/sapcc/go-bits/gopherpolicy"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
 type keystoneDriver struct {
-	Provider       *gophercloud.ProviderClient
-	EndpointOpts   gophercloud.EndpointOpts
-	IdentityV3     *gophercloud.ServiceClient
-	TokenValidator *gopherpolicy.TokenValidator
-	IsRelevantRole map[string]bool
+	// configuration
+	PolicyFilePath string `json:"oslo_policy_path"`
+
+	// state
+	Provider       *gophercloud.ProviderClient  `json:"-"`
+	EndpointOpts   gophercloud.EndpointOpts     `json:"-"`
+	IdentityV3     *gophercloud.ServiceClient   `json:"-"`
+	TokenValidator *gopherpolicy.TokenValidator `json:"-"`
+	IsRelevantRole map[string]bool              `json:"-"`
 }
 
 func init() {
@@ -55,6 +55,10 @@ func (d *keystoneDriver) PluginTypeID() string {
 
 // Init implements the keppel.AuthDriver interface.
 func (d *keystoneDriver) Init(ctx context.Context, rc *redis.Client) (err error) {
+	if d.PolicyFilePath == "" {
+		return errors.New("missing required field: params.oslo_policy_path")
+	}
+
 	// authenticate service user
 	d.Provider, d.EndpointOpts, err = gophercloudext.NewProviderClient(ctx, nil)
 	if err != nil {
@@ -67,8 +71,7 @@ func (d *keystoneDriver) Init(ctx context.Context, rc *redis.Client) (err error)
 
 	// load oslo.policy
 	d.TokenValidator = &gopherpolicy.TokenValidator{IdentityV3: d.IdentityV3}
-	policyFilePath := osext.MustGetenv("KEPPEL_OSLO_POLICY_PATH")
-	err = d.TokenValidator.LoadPolicyFile(policyFilePath, nil)
+	err = d.TokenValidator.LoadPolicyFile(d.PolicyFilePath, nil)
 	if err != nil {
 		return err
 	}
@@ -81,7 +84,7 @@ func (d *keystoneDriver) Init(ctx context.Context, rc *redis.Client) (err error)
 	// read policy file "manually" to find which Keystone roles are relevant to us
 	d.IsRelevantRole = make(map[string]bool)
 	roleCheckRx := regexp.MustCompile(`role:([a-zA-Z0-9_-]+)`)
-	buf, err := os.ReadFile(policyFilePath)
+	buf, err := os.ReadFile(d.PolicyFilePath)
 	if err != nil {
 		return err
 	}

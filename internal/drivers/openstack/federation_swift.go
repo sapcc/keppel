@@ -21,7 +21,6 @@ import (
 	"github.com/majewsky/schwift/v2/gopherschwift"
 	"github.com/sapcc/go-bits/gophercloudext"
 	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/go-bits/osext"
 
 	"slices"
 
@@ -30,8 +29,12 @@ import (
 )
 
 type federationDriverSwift struct {
-	Container   *schwift.Container
-	OwnHostName string
+	// configuration
+	OwnHostName string `json:"-"`
+	SwiftContainerCredentials
+
+	// state
+	Container *schwift.Container `json:"-"`
 }
 
 func init() {
@@ -44,13 +47,24 @@ func (fd *federationDriverSwift) PluginTypeID() string { return "swift" }
 // Init implements the keppel.FederationDriver interface.
 func (fd *federationDriverSwift) Init(ctx context.Context, ad keppel.AuthDriver, cfg keppel.Configuration) (err error) {
 	fd.OwnHostName = cfg.APIPublicHostname
-	fd.Container, err = initSwiftContainerConnection(ctx, "KEPPEL_FEDERATION_")
+	fd.Container, err = fd.SwiftContainerCredentials.Connect(ctx) //nolint:staticcheck // using embedded field name for clarity
 	return err
 }
 
-func initSwiftContainerConnection(ctx context.Context, envPrefix string) (*schwift.Container, error) {
+// SwiftContainerCredentials contains common initialization logic for drivers that need to access just a specific Swift container.
+type SwiftContainerCredentials struct {
+	EnvPrefix     string `json:"env_prefix"`
+	ContainerName string `json:"container_name"`
+}
+
+// Connect establishes API access to the desired Swift container.
+func (creds SwiftContainerCredentials) Connect(ctx context.Context) (*schwift.Container, error) {
+	if creds.ContainerName == "" {
+		return nil, errors.New("missing required field: params.container_name")
+	}
+
 	// connect to Swift
-	provider, eo, err := gophercloudext.NewProviderClient(ctx, &gophercloudext.ClientOpts{EnvPrefix: envPrefix + "OS_"})
+	provider, eo, err := gophercloudext.NewProviderClient(ctx, &gophercloudext.ClientOpts{EnvPrefix: creds.EnvPrefix + "OS_"})
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +78,7 @@ func initSwiftContainerConnection(ctx context.Context, envPrefix string) (*schwi
 	if err != nil {
 		return nil, err
 	}
-	container, err := swiftAccount.Container(osext.MustGetenv(envPrefix + "SWIFT_CONTAINER")).EnsureExists(ctx)
+	container, err := swiftAccount.Container(creds.ContainerName).EnsureExists(ctx)
 	if err != nil {
 		return nil, err
 	}

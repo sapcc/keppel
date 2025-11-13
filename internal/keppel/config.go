@@ -4,7 +4,9 @@
 package keppel
 
 import (
+	"bytes"
 	"crypto"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/url"
@@ -20,6 +22,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
+	"github.com/sapcc/go-bits/pluggable"
 
 	"github.com/sapcc/keppel/internal/trivy"
 )
@@ -146,7 +149,6 @@ func mayGetenvURL(key string) *url.URL {
 //
 // The environment variable keys are prefixed with the provided prefix.
 func GetRedisOptions(prefix string) (*redis.Options, error) {
-	prefix += "_REDIS"
 	pass := os.Getenv(prefix + "_PASSWORD")
 	host := osext.GetenvOrDefault(prefix+"_HOSTNAME", "localhost")
 	port := osext.GetenvOrDefault(prefix+"_PORT", "6379")
@@ -163,4 +165,47 @@ func GetRedisOptions(prefix string) (*redis.Options, error) {
 		ClientName: bininfo.Component(),
 		DB:         db,
 	}, nil
+}
+
+// newDriver parses a config JSON as found in a KEPPEL_DRIVER_* variable,
+// initializes the respective driver, and unmarshals config parameters into it.
+//
+// This is the reusable part of the implementations for NewAuthDriver, NewStorageDriver etc.
+func newDriver[P pluggable.Plugin](driverType string, registry pluggable.Registry[P], configJSON string, init func(P) error) (P, error) {
+	var zero P // for error returns
+
+	var cfg struct {
+		PluginTypeID string          `json:"type"`
+		Params       json.RawMessage `json:"params"`
+	}
+	err := UnmarshalJSONStrict([]byte(configJSON), &cfg)
+	if err != nil {
+		return zero, fmt.Errorf("cannot unmarshal %s config %q: %w", driverType, configJSON, err)
+	}
+	if len(cfg.Params) == 0 {
+		// configJSON was just a type, e.g. `{"type":"unittest"}`
+		cfg.Params = json.RawMessage("{}")
+	}
+	logg.Debug("initializing %s %q", driverType, configJSON)
+
+	driver, ok := registry.TryInstantiate(cfg.PluginTypeID).Unpack()
+	if !ok {
+		return zero, fmt.Errorf("no such %s: %q", driverType, cfg.PluginTypeID)
+	}
+	err = json.Unmarshal([]byte(cfg.Params), driver)
+	if err != nil {
+		return zero, fmt.Errorf("cannot unmarshal params for %s %q: %w", driverType, cfg.PluginTypeID, err)
+	}
+	err = init(driver)
+	if err != nil {
+		return zero, fmt.Errorf("could not initialize %s %q: %w", driverType, cfg.PluginTypeID, err)
+	}
+	return driver, nil
+}
+
+// Like yaml.UnmarshalStrict(), but for JSON.
+func UnmarshalJSONStrict(buf []byte, target any) error {
+	dec := json.NewDecoder(bytes.NewReader(buf))
+	dec.DisallowUnknownFields()
+	return dec.Decode(target)
 }

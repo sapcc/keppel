@@ -4,10 +4,7 @@
 package keppel
 
 import (
-	"errors"
-
 	. "github.com/majewsky/gg/option"
-	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
 
 	"github.com/sapcc/keppel/internal/models"
@@ -43,12 +40,13 @@ var AccountManagementDriverRegistry pluggable.Registry[AccountManagementDriver]
 
 // NewAccountManagementDriver creates a new AuthDriver using one of the plugins registered
 // with AccountManagementDriver.
-func NewAccountManagementDriver(pluginTypeID string) (AccountManagementDriver, error) {
-	logg.Debug("initializing account management driver %q...", pluginTypeID)
-
-	amd := AccountManagementDriverRegistry.Instantiate(pluginTypeID)
-	if amd == nil {
-		return nil, errors.New("no such account management driver: " + pluginTypeID)
+//
+// The supplied config must be a string of the form {"type":"foobar","params":{...}},
+// where `type` is the plugin type ID and `params` is json.Unmarshal()ed into
+// the driver instance to supply driver-specific configuration.
+func NewAccountManagementDriver(configJSON string) (AccountManagementDriver, error) {
+	callInit := func(amd AccountManagementDriver) error {
+		return amd.Init()
 	}
-	return amd, amd.Init()
+	return newDriver("KEPPEL_DRIVER_ACCOUNT_MANAGEMENT", AccountManagementDriverRegistry, configJSON, callInit)
 }

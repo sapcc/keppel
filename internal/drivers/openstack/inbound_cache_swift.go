@@ -10,20 +10,23 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
-	"regexp"
 	"time"
 
 	"github.com/majewsky/schwift/v2"
+	"github.com/sapcc/go-bits/regexpext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 )
 
 type inboundCacheDriverSwift struct {
-	Container       *schwift.Container
-	HostInclusionRx *regexp.Regexp
-	HostExclusionRx *regexp.Regexp
+	// configuration
+	SwiftContainerCredentials
+	HostInclusionRx regexpext.BoundedRegexp `json:"only_hosts"`
+	HostExclusionRx regexpext.BoundedRegexp `json:"except_hosts"`
+
+	// state
+	Container *schwift.Container `json:"-"`
 }
 
 func init() {
@@ -35,28 +38,8 @@ func (d *inboundCacheDriverSwift) PluginTypeID() string { return "swift" }
 
 // Init implements the keppel.InboundCacheDriver interface.
 func (d *inboundCacheDriverSwift) Init(ctx context.Context, cfg keppel.Configuration) (err error) {
-	d.HostInclusionRx, err = compileOptionalImplicitlyBoundedRegex(os.Getenv("KEPPEL_INBOUND_CACHE_ONLY_HOSTS"))
-	if err != nil {
-		return err
-	}
-	d.HostExclusionRx, err = compileOptionalImplicitlyBoundedRegex(os.Getenv("KEPPEL_INBOUND_CACHE_EXCEPT_HOSTS"))
-	if err != nil {
-		return err
-	}
-	d.Container, err = initSwiftContainerConnection(ctx, "KEPPEL_INBOUND_CACHE_")
+	d.Container, err = d.SwiftContainerCredentials.Connect(ctx) //nolint:staticcheck // using embedded field name for clarity
 	return err
-}
-
-func compileOptionalImplicitlyBoundedRegex(pattern string) (*regexp.Regexp, error) {
-	if pattern == "" {
-		return nil, nil
-	}
-
-	rx, err := regexp.Compile(`^(?:` + pattern + `)$`)
-	if err != nil {
-		return nil, fmt.Errorf("%q is not a valid regex: %w", pattern, err)
-	}
-	return rx, nil
 }
 
 // LoadManifest implements the keppel.InboundCacheDriver interface.
@@ -126,10 +109,10 @@ func (d *inboundCacheDriverSwift) expiryFor(imageRef models.ImageReference, now 
 }
 
 func (d *inboundCacheDriverSwift) skip(imageRef models.ImageReference) bool {
-	if d.HostInclusionRx != nil && !d.HostInclusionRx.MatchString(imageRef.Host) {
+	if d.HostInclusionRx != "" && !d.HostInclusionRx.MatchString(imageRef.Host) {
 		return true
 	}
-	if d.HostExclusionRx != nil && d.HostExclusionRx.MatchString(imageRef.Host) {
+	if d.HostExclusionRx != "" && d.HostExclusionRx.MatchString(imageRef.Host) {
 		return true
 	}
 	return false

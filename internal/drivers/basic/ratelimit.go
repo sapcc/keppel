@@ -5,15 +5,10 @@ package basic
 
 import (
 	"fmt"
-	"os"
-	"regexp"
-	"strconv"
-	"strings"
+	"time"
 
 	"github.com/go-redis/redis_rate/v10"
 	. "github.com/majewsky/gg/option"
-	"github.com/sapcc/go-bits/logg"
-	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -21,35 +16,20 @@ import (
 
 // RateLimitDriver is the rate limit driver "basic".
 type RateLimitDriver struct {
-	Limits map[keppel.RateLimitedAction]redis_rate.Limit
-}
+	// raw configuration from JSON parameters
+	AnycastBlobPullBytes  Option[RateLimitSpec] `json:"anycast_blob_pull_bytes"`
+	BlobPulls             Option[RateLimitSpec] `json:"blob_pulls"`
+	BlobPushes            Option[RateLimitSpec] `json:"blob_pushes"`
+	ManifestPulls         Option[RateLimitSpec] `json:"manifest_pulls"`
+	ManifestPushes        Option[RateLimitSpec] `json:"manifest_pushes"`
+	TrivyReportRetrievals Option[RateLimitSpec] `json:"trivy_report_retrievals"`
 
-type envVarSet struct {
-	RateLimit string
-	Burst     string
+	// "compiled" configuration
+	Limits map[keppel.RateLimitedAction]redis_rate.Limit `json:"-"`
 }
-
-var (
-	envVars = map[keppel.RateLimitedAction]envVarSet{
-		keppel.BlobPullAction:            {"KEPPEL_RATELIMIT_BLOB_PULLS", "KEPPEL_BURST_BLOB_PULLS"},
-		keppel.BlobPushAction:            {"KEPPEL_RATELIMIT_BLOB_PUSHES", "KEPPEL_BURST_BLOB_PUSHES"},
-		keppel.ManifestPullAction:        {"KEPPEL_RATELIMIT_MANIFEST_PULLS", "KEPPEL_BURST_MANIFEST_PULLS"},
-		keppel.ManifestPushAction:        {"KEPPEL_RATELIMIT_MANIFEST_PUSHES", "KEPPEL_BURST_MANIFEST_PUSHES"},
-		keppel.AnycastBlobBytePullAction: {"KEPPEL_RATELIMIT_ANYCAST_BLOB_PULL_BYTES", "KEPPEL_BURST_ANYCAST_BLOB_PULL_BYTES"},
-		keppel.TrivyReportRetrieveAction: {"KEPPEL_RATELIMIT_TRIVY_REPORT_RETRIEVALS", "KEPPEL_BURST_TRIVY_REPORT_RETRIEVALS"},
-	}
-	valueRx           = regexp.MustCompile(`^\s*([0-9]+)\s*[Br]/([smh])\s*$`)
-	limitConstructors = map[string]func(int) redis_rate.Limit{
-		"s": redis_rate.PerSecond,
-		"m": redis_rate.PerMinute,
-		"h": redis_rate.PerHour,
-	}
-)
 
 func init() {
-	keppel.RateLimitDriverRegistry.Add(func() keppel.RateLimitDriver {
-		return RateLimitDriver{make(map[keppel.RateLimitedAction]redis_rate.Limit)}
-	})
+	keppel.RateLimitDriverRegistry.Add(func() keppel.RateLimitDriver { return RateLimitDriver{} })
 }
 
 // PluginTypeID implements the keppel.RateLimitDriver interface.
@@ -57,19 +37,26 @@ func (d RateLimitDriver) PluginTypeID() string { return "basic" }
 
 // Init implements the keppel.RateLimitDriver interface.
 func (d RateLimitDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
-	for action, envVars := range envVars {
-		rate, err := parseRateLimit(envVars.RateLimit)
+	inputs := map[keppel.RateLimitedAction]Option[RateLimitSpec]{
+		keppel.AnycastBlobBytePullAction: d.AnycastBlobPullBytes,
+		keppel.BlobPullAction:            d.BlobPulls,
+		keppel.BlobPushAction:            d.BlobPushes,
+		keppel.ManifestPullAction:        d.ManifestPulls,
+		keppel.ManifestPushAction:        d.ManifestPushes,
+		keppel.TrivyReportRetrieveAction: d.TrivyReportRetrievals,
+	}
+
+	d.Limits = make(map[keppel.RateLimitedAction]redis_rate.Limit)
+	for action, input := range inputs {
+		spec, ok := input.Unpack()
+		if !ok {
+			continue
+		}
+		limit, err := spec.Compile()
 		if err != nil {
-			return err
+			return fmt.Errorf("got invalid rate limit for %s: %w", action, err)
 		}
-		if rate != nil {
-			burst, err := parseBurst(envVars.Burst)
-			if err != nil {
-				return err
-			}
-			d.Limits[action] = redis_rate.Limit{Rate: rate.Rate, Burst: burst, Period: rate.Period}
-			logg.Debug("parsed rate quota for %s is %#v", action, d.Limits[action])
-		}
+		d.Limits[action] = limit
 	}
 	return nil
 }
@@ -83,41 +70,28 @@ func (d RateLimitDriver) GetRateLimit(account models.ReducedAccount, action kepp
 	return None[redis_rate.Limit]()
 }
 
-func parseRateLimit(envVar string) (*redis_rate.Limit, error) {
-	var valStr string
-	if strings.HasSuffix(envVar, "_BYTES") {
-		valStr = os.Getenv(envVar)
-		if valStr == "" {
-			return nil, nil
-		}
-	} else {
-		valStr = osext.MustGetenv(envVar)
-	}
-
-	match := valueRx.FindStringSubmatch(valStr)
-	if match == nil {
-		return nil, fmt.Errorf("malformed %s: %q", envVar, os.Getenv(envVar))
-	}
-	count, err := strconv.Atoi(match[1])
-	if err != nil {
-		return nil, fmt.Errorf("malformed %s: %s", envVar, err.Error())
-	}
-	rate := limitConstructors[match[2]](count)
-	return &rate, nil
+// RateLimitSpec appears in type RateLimitDriver.
+type RateLimitSpec struct {
+	Limit  int    `json:"limit"`
+	Window string `json:"window"`
+	Burst  int    `json:"burst"`
 }
 
-func parseBurst(envVar string) (int, error) {
-	valStr := os.Getenv(envVar)
-	if valStr == "" {
-		if strings.HasSuffix(envVar, "_BYTES") {
-			valStr = "0"
-		} else {
-			valStr = "5"
-		}
+var periodForWindow = map[string]time.Duration{
+	"s": 1 * time.Second,
+	"m": 1 * time.Minute,
+	"h": 1 * time.Hour,
+}
+
+// Compile validates the config-level rate limit spec and converts it into a redis_rate.Limit object.
+func (s RateLimitSpec) Compile() (redis_rate.Limit, error) {
+	period, ok := periodForWindow[s.Window]
+	if !ok {
+		return redis_rate.Limit{}, fmt.Errorf(`invalid value for "window": %q`, s.Window)
 	}
-	val, err := strconv.Atoi(valStr)
-	if err != nil {
-		return 0, fmt.Errorf("malformed %s: %s", envVar, err.Error())
-	}
-	return val, nil
+	return redis_rate.Limit{
+		Rate:   s.Limit,
+		Burst:  s.Burst,
+		Period: period,
+	}, nil
 }

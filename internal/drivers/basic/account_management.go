@@ -8,11 +8,9 @@ import (
 	"errors"
 	"os"
 	"slices"
-	"strings"
 	"sync"
 
 	. "github.com/majewsky/gg/option"
-	"github.com/sapcc/go-bits/osext"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -20,10 +18,13 @@ import (
 
 // AccountManagementDriver is the account management driver "basic".
 type AccountManagementDriver struct {
-	ConfigPath            string
-	config                AccountConfig
-	lock                  sync.RWMutex
-	ProtectedAccountNames []string
+	// configuration
+	ConfigPath            string   `json:"config_path"`
+	ProtectedAccountNames []string `json:"protected_accounts"`
+
+	// state
+	config AccountConfig
+	lock   sync.RWMutex
 }
 
 type AccountConfig struct {
@@ -53,12 +54,9 @@ func (a *AccountManagementDriver) PluginTypeID() string { return "basic" }
 
 // Init implements the keppel.AccountManagementDriver interface.
 func (a *AccountManagementDriver) Init() error {
-	a.ProtectedAccountNames = strings.Fields(os.Getenv("KEPPEL_ACCOUNT_MANAGEMENT_PROTECTED_ACCOUNTS"))
-	configPath, err := osext.NeedGetenv("KEPPEL_ACCOUNT_MANAGEMENT_CONFIG_PATH")
-	if err != nil {
-		return err
+	if a.ConfigPath == "" {
+		return errors.New("missing required field: params.config_path")
 	}
-	a.ConfigPath = configPath
 	return a.LoadConfig()
 }
 

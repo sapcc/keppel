@@ -5,10 +5,8 @@ package keppel
 
 import (
 	"context"
-	"errors"
 	"time"
 
-	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/pluggable"
 
 	"github.com/sapcc/keppel/internal/models"
@@ -40,12 +38,13 @@ var InboundCacheDriverRegistry pluggable.Registry[InboundCacheDriver]
 
 // NewInboundCacheDriver creates a new InboundCacheDriver using one of the
 // plugins registered with InboundCacheDriverRegistry.
-func NewInboundCacheDriver(ctx context.Context, pluginTypeID string, cfg Configuration) (InboundCacheDriver, error) {
-	logg.Debug("initializing inbound cache driver %q...", pluginTypeID)
-
-	icd := InboundCacheDriverRegistry.Instantiate(pluginTypeID)
-	if icd == nil {
-		return nil, errors.New("no such inbound cache driver: " + pluginTypeID)
+//
+// The supplied config must be a string of the form {"type":"foobar","params":{...}},
+// where `type` is the plugin type ID and `params` is json.Unmarshal()ed into
+// the driver instance to supply driver-specific configuration.
+func NewInboundCacheDriver(ctx context.Context, configJSON string, cfg Configuration) (InboundCacheDriver, error) {
+	callInit := func(icd InboundCacheDriver) error {
+		return icd.Init(ctx, cfg)
 	}
-	return icd, icd.Init(ctx, cfg)
+	return newDriver("KEPPEL_DRIVER_INBOUND_CACHE", InboundCacheDriverRegistry, configJSON, callInit)
 }
