@@ -14,6 +14,10 @@ coverageTest:
 
 dockerfile:
   enabled: true
+  extraBuildDirectives:
+    # If ihe CI has supplied additional CA certificates, include them in the CA bundle
+    - 'COPY certs/*.crt /usr/local/share/ca-certificates/'
+    - 'RUN update-ca-certificates'
   extraIgnores:
     - "*.actual"
     - privkey.pem
@@ -51,6 +55,8 @@ renovate:
 reuse:
   annotations:
     - paths:
+      - certs/*.crt
+      - certs/README.md
       - docs/*.png
       - docs/*.svg
       - docs/*.json
