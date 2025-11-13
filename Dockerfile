@@ -9,6 +9,10 @@ COPY . /src
 ARG BININFO_BUILD_DATE BININFO_COMMIT_HASH BININFO_VERSION # provided to 'make install'
 RUN make -C /src install PREFIX=/pkg GOTOOLCHAIN=local GO_BUILDFLAGS='-mod vendor'
 
+COPY certs/*.crt /usr/local/share/ca-certificates/
+
+RUN update-ca-certificates
+
 ################################################################################
 
 # To only build the tests run: docker build . --target test
