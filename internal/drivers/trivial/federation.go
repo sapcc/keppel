@@ -14,7 +14,7 @@ import (
 type federationDriver struct{}
 
 func init() {
-	keppel.FederationDriverRegistry.Add(func() keppel.FederationDriver { return federationDriver{} })
+	keppel.FederationDriverRegistry.Add(func() keppel.FederationDriver { return &federationDriver{} })
 }
 
 // PluginTypeID implements the keppel.FederationDriver interface.

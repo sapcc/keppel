@@ -29,7 +29,7 @@ type RateLimitDriver struct {
 }
 
 func init() {
-	keppel.RateLimitDriverRegistry.Add(func() keppel.RateLimitDriver { return RateLimitDriver{} })
+	keppel.RateLimitDriverRegistry.Add(func() keppel.RateLimitDriver { return &RateLimitDriver{} })
 }
 
 // PluginTypeID implements the keppel.RateLimitDriver interface.

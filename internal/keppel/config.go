@@ -192,7 +192,7 @@ func newDriver[P pluggable.Plugin](driverType string, registry pluggable.Registr
 	if !ok {
 		return zero, fmt.Errorf("no such %s: %q", driverType, cfg.PluginTypeID)
 	}
-	err = json.Unmarshal([]byte(cfg.Params), driver)
+	err = json.Unmarshal(cfg.Params, driver)
 	if err != nil {
 		return zero, fmt.Errorf("cannot unmarshal params for %s %q: %w", driverType, cfg.PluginTypeID, err)
 	}
