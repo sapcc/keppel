@@ -1,4 +1,5 @@
 {"name": "github.com/chzyer/logex", "licenceType": "MIT"}
+{"name": "github.com/grpc-ecosystem/go-grpc-middleware/v2", "licenceType": "Apache-2.0"}
 {"name": "github.com/hashicorp/vault/api/auth/approle", "licenceType": "MPL-2.0"}
 {"name": "github.com/jpillora/longestcommon", "licenceType": "MIT"}
 {"name": "github.com/logrusorgru/aurora", "licenceType": "Unlicense"}
