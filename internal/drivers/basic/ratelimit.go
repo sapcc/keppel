@@ -33,10 +33,10 @@ func init() {
 }
 
 // PluginTypeID implements the keppel.RateLimitDriver interface.
-func (d RateLimitDriver) PluginTypeID() string { return "basic" }
+func (d *RateLimitDriver) PluginTypeID() string { return "basic" }
 
 // Init implements the keppel.RateLimitDriver interface.
-func (d RateLimitDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
+func (d *RateLimitDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
 	inputs := map[keppel.RateLimitedAction]Option[RateLimitSpec]{
 		keppel.AnycastBlobBytePullAction: d.AnycastBlobPullBytes,
 		keppel.BlobPullAction:            d.BlobPulls,
@@ -62,7 +62,7 @@ func (d RateLimitDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) er
 }
 
 // GetRateLimit implements the keppel.RateLimitDriver interface.
-func (d RateLimitDriver) GetRateLimit(account models.ReducedAccount, action keppel.RateLimitedAction) Option[redis_rate.Limit] {
+func (d *RateLimitDriver) GetRateLimit(account models.ReducedAccount, action keppel.RateLimitedAction) Option[redis_rate.Limit] {
 	quota, ok := d.Limits[action]
 	if ok {
 		return Some(quota)
