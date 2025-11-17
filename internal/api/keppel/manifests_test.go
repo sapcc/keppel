@@ -455,7 +455,7 @@ func TestGetTrivyReport(t *testing.T) {
 
 func TestRateLimitsTrivyReport(t *testing.T) {
 	limit := redis_rate.Limit{Rate: 2, Period: time.Minute, Burst: 3}
-	rld := basic.RateLimitDriver{
+	rld := &basic.RateLimitDriver{
 		Limits: map[keppel.RateLimitedAction]redis_rate.Limit{
 			keppel.TrivyReportRetrieveAction: limit,
 		},
