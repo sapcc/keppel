@@ -33,6 +33,7 @@ func Succeed(err error) {
 // SucceedT is a variant of Succeed() for use in unit tests.
 // Instead of exiting the program, any non-nil errors are reported with t.Fatal().
 func SucceedT(t *testing.T, err error) {
+	t.Helper()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -74,6 +75,7 @@ func ReturnT[V any](val V, err error) func(*testing.T) V {
 	// because filling multiple arguments using a call expression with multiple return values
 	// is only allowed when there are no other arguments.
 	return func(t *testing.T) V {
+		t.Helper()
 		SucceedT(t, err)
 		return val
 	}
