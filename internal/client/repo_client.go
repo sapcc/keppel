@@ -72,7 +72,7 @@ func (c *RepoClient) doRequest(ctx context.Context, r repoRequest) (*http.Respon
 	// send GET request for manifest
 	resp, req, err := c.sendRequest(ctx, r, uri)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("during %s %s: %w", r.Method, uri, err)
 	}
 
 	// if it's a 401, do the auth challenge...
@@ -83,7 +83,7 @@ func (c *RepoClient) doRequest(ctx context.Context, r repoRequest) (*http.Respon
 		}
 		c.token, err = authChallenge.GetToken(ctx, c.UserName, c.Password)
 		if err != nil {
-			return nil, fmt.Errorf("authentication failed: %w", err)
+			return nil, fmt.Errorf("authentication failed during %s %s: %w", r.Method, uri, err)
 		}
 
 		// ...then resend the GET request with the token
@@ -95,7 +95,7 @@ func (c *RepoClient) doRequest(ctx context.Context, r repoRequest) (*http.Respon
 		}
 		resp, _, err = c.sendRequest(ctx, r, uri)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("during %s %s: %w", r.Method, uri, err)
 		}
 	}
 
