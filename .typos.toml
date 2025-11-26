@@ -3,9 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [default.extend-words]
+DELET = "DELET"
+fo = "fo"
 
 [files]
 extend-exclude = [
   "go.mod",
   "vendor/",
+  "internal/api/keppel/fixtures/*.json",
+  "internal/tasks/fixtures/trivy/*.json",
+  "internal/test/setup_consts.go",
 ]
