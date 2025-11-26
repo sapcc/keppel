@@ -66,6 +66,15 @@ reuse:
       SPDX-FileCopyrightText: SAP SE or an SAP affiliate company
       SPDX-License-Identifier: Apache-2.0
 
+typos:
+  extendExcludes:
+    - internal/api/keppel/fixtures/*.json
+    - internal/tasks/fixtures/trivy/*.json
+    - internal/test/setup_consts.go
+  extendWords:
+    fo: fo # part of regex fo+
+    DELET: DELET # wrongly detected
+
 verbatim: |
   # This is for manual testing.
   run-api: build/keppel
