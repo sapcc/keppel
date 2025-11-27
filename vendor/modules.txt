@@ -135,7 +135,7 @@ github.com/jpillora/longestcommon
 github.com/lib/pq
 github.com/lib/pq/oid
 github.com/lib/pq/scram
-# github.com/majewsky/gg v1.4.0
+# github.com/majewsky/gg v1.5.0
 ## explicit; go 1.24
 github.com/majewsky/gg/option
 # github.com/majewsky/schwift/v2 v2.0.0
@@ -168,7 +168,7 @@ github.com/prometheus/client_golang/prometheus/promhttp/internal
 # github.com/prometheus/client_model v0.6.2
 ## explicit; go 1.22.0
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.67.3
+# github.com/prometheus/common v0.67.4
 ## explicit; go 1.24.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
@@ -200,14 +200,14 @@ github.com/redis/go-redis/v9/push
 ## explicit; go 1.13
 github.com/rs/cors
 github.com/rs/cors/internal
-# github.com/sapcc/go-api-declarations v1.17.4
+# github.com/sapcc/go-api-declarations v1.18.0
 ## explicit; go 1.24
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
 github.com/sapcc/go-api-declarations/internal/clone
 github.com/sapcc/go-api-declarations/internal/errorset
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20251119215428-a048ca8f6eba
+# github.com/sapcc/go-bits v0.0.0-20251127001757-54a64663b18f
 ## explicit; go 1.25
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
