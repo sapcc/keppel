@@ -694,26 +694,33 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 			return fmt.Errorf("scan error: %w", err)
 		}
 		defer payload.Contents.Close()
-		status, err := relevantPolicies.EnrichReport(&payload, j.timeNow())
-		if err != nil {
-			return fmt.Errorf("could not process report: %w", err)
-		}
-		securityStatuses = append(securityStatuses, status)
 
-		// abort if the account is in deletion mode in the meantime
-		accountIsInDeleting, err := j.db.SelectBool(`SELECT is_deleting FROM accounts WHERE name = $1`, account.Name)
-		if err != nil {
-			return fmt.Errorf("could not check if account %s is in deletion mode: %w", account.Name, err)
-		}
-		if accountIsInDeleting {
-			return fmt.Errorf("account %s is in deletion mode, skip storing Trivy report", account.Name)
-		}
+		err = putMeInASemaphore(func() error {
+			status, err := relevantPolicies.EnrichReport(&payload, j.timeNow())
+			if err != nil {
+				return fmt.Errorf("could not process report: %w", err)
+			}
+			securityStatuses = append(securityStatuses, status)
 
-		err = j.sd.WriteTrivyReport(ctx, account.Reduced(), repo.Name, securityInfo.Digest, payload)
+			// abort if the account is in deletion mode in the meantime
+			accountIsInDeleting, err := j.db.SelectBool(`SELECT is_deleting FROM accounts WHERE name = $1`, account.Name)
+			if err != nil {
+				return fmt.Errorf("could not check if account %s is in deletion mode: %w", account.Name, err)
+			}
+			if accountIsInDeleting {
+				return fmt.Errorf("account %s is in deletion mode, skip storing Trivy report", account.Name)
+			}
+
+			err = j.sd.WriteTrivyReport(ctx, account.Reduced(), repo.Name, securityInfo.Digest, payload)
+			if err != nil {
+				return fmt.Errorf("could not store report: %w", err)
+			}
+			securityInfo.HasEnrichedReport = true
+			return nil
+		})
 		if err != nil {
-			return fmt.Errorf("could not store report: %w", err)
+			return err
 		}
-		securityInfo.HasEnrichedReport = true
 	}
 
 	// could the image have constituent images?

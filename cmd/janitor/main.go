@@ -14,7 +14,6 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httpapi/pprofapi"
 	"github.com/sapcc/go-bits/httpext"
-	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 	"github.com/spf13/cobra"
@@ -67,7 +66,7 @@ func run(cmd *cobra.Command, args []string) {
 	go janitor.BlobValidationJob(nil).Run(ctx)
 	go janitor.ManifestValidationJob(nil).Run(ctx)
 	if cfg.Trivy != nil {
-		go janitor.CheckTrivySecurityStatusJob(nil).Run(ctx, jobloop.NumGoroutines(3))
+		go janitor.CheckTrivySecurityStatusJob(nil).Run(ctx)
 	}
 
 	// start HTTP server for Prometheus metrics and health check
