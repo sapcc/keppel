@@ -72,6 +72,9 @@ func ParseImageReference(input string) (ImageReference, string, error) {
 	case strings.Contains(imageURL.Path, "@"):
 		// input references a digest
 		pathParts := ImageReferenceRx.FindStringSubmatch(imageURL.Path)
+		if len(pathParts) < 1 {
+			return ImageReference{}, input, fmt.Errorf("invalid image reference: %q", imageURL.Path)
+		}
 		parsedDigest, err := digest.Parse(pathParts[len(pathParts)-1])
 		if err != nil {
 			return ImageReference{}, input, fmt.Errorf("invalid digest: %q", ref.Reference)
