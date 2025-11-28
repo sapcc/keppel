@@ -17,7 +17,7 @@ var (
 // regex for a path element twice.
 // Examples:
 // - /library/alpine
-// - /library/alpine:nonsense
+// - /library/alpine/nonsense
 var (
 	RepoNameWithLeadingSlash   = "(?:/" + RepoNameRx + ")+"
 	RepoNameWithLeadingSlashRx = regexp.MustCompile(`^` + RepoNameWithLeadingSlash + `$`)
