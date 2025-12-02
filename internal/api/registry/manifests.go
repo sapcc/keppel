@@ -331,7 +331,7 @@ func (a *API) handlePutManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// forbid pushing during maintenance
+	// forbid pushing during deletion
 	if account.IsDeleting {
 		keppel.ErrUnsupported.With("account is being deleted").WithStatus(http.StatusMethodNotAllowed).WriteAsRegistryV2ResponseTo(w, r)
 		return

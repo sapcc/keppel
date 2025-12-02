@@ -35,6 +35,8 @@ var VersionHeader = map[string]string{VersionHeaderKey: VersionHeaderValue}
 // `h` must serve the Registry V2 API.
 // `token` must be a Bearer token capable of pushing into the specified repo.
 func (b Bytes) MustUpload(t *testing.T, s Setup, repo models.Repository) models.Blob {
+	t.Helper()
+
 	token := s.GetToken(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
 
 	// create blob with a monolithic upload
@@ -73,6 +75,8 @@ var checkBlobExistsQuery = sqlext.SimplifyWhitespace(`
 //
 // `tagName` may be empty if the image is to be uploaded without tagging.
 func (i Image) MustUpload(t *testing.T, s Setup, repo models.Repository, tagName string) models.Manifest {
+	t.Helper()
+
 	// upload missing blobs
 	for _, blob := range append(i.Layers, i.Config) {
 		count := must.ReturnT(s.DB.SelectInt(checkBlobExistsQuery, repo.AccountName, blob.Digest.String()))(t)
@@ -125,6 +129,8 @@ var checkManifestExistsQuery = sqlext.SimplifyWhitespace(`
 //
 // `tagName` may be empty if the image is to be uploaded without tagging.
 func (l ImageList) MustUpload(t *testing.T, s Setup, repo models.Repository, tagName string) models.Manifest {
+	t.Helper()
+
 	// upload missing images
 	for _, image := range l.Images {
 		count := must.ReturnT(s.DB.SelectInt(checkManifestExistsQuery, repo.AccountName, repo.Name, image.Manifest.Digest))(t)

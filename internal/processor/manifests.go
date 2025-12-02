@@ -221,9 +221,9 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 			return err
 		}
 
-		// enforce account-specific validation rules on manifest, but not list manifest
-		// and only when pushing (not when validating at a later point in time,
-		// the validation rule could have been changed by then)
+		// enforce account-specific validation rules only when pushing
+		// (not when validating at a later point in time, the validation rule could have been changed by then)
+		// and on manifest, but not list manifest
 		validationRequired := opts.IsBeingPushed && account.RuleForManifest != "" &&
 			manifest.MediaType != imageManifest.DockerV2ListMediaType && manifest.MediaType != imagespecs.MediaTypeImageIndex
 		if validationRequired {
