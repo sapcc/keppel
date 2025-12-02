@@ -115,6 +115,12 @@ func generateRuleForManifestFromrequiredLabels(requiredLabels []string) string {
 var celASTCache = must.Return(lru.New[string, *cel.Ast](128))
 var celEnv = must.Return(cel.NewEnv(
 	cel.Variable("labels", cel.MapType(cel.StringType, cel.StringType)),
+	// TODO: remove DynType and properly declare this
+	// https://pkg.go.dev/github.com/google/cel-go@v0.26.1/common/types#NewObjectType looks like a good lead but it is for Protobuf only...
+	cel.Variable("layers", cel.ListType(
+		cel.MapType(cel.StringType, cel.DynType),
+	)),
+	cel.Variable("media_type", cel.StringType),
 	cel.Variable("repo_name", cel.StringType),
 ))
 

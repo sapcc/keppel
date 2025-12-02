@@ -624,7 +624,7 @@ func TestRuleForManifest(t *testing.T) {
 			ExpectHeader: test.VersionHeader,
 			ExpectBody: test.ErrorCodeWithMessage{
 				Code:    keppel.ErrManifestInvalid,
-				Message: "rule is not satisfied: 'random-label-that-does-not-exist' in labels",
+				Message: "manifest upload {\"labels\":{\"bar\":\"is there\",\"foo\":\"is there\"},\"layers\":[{\"annotations\":null,\"media_type\":\"application/vnd.docker.image.rootfs.diff.tar.gzip\"}],\"media_type\":\"application/vnd.docker.distribution.manifest.v2+json\",\"repo_name\":\"foo\"} does not satisfy validation rule: 'random-label-that-does-not-exist' in labels",
 			},
 		}.Check(t, h)
 		// ... and OCI, too
@@ -640,7 +640,7 @@ func TestRuleForManifest(t *testing.T) {
 			ExpectHeader: test.VersionHeader,
 			ExpectBody: test.ErrorCodeWithMessage{
 				Code:    keppel.ErrManifestInvalid,
-				Message: "rule is not satisfied: 'random-label-that-does-not-exist' in labels",
+				Message: "manifest upload {\"labels\":{\"bar\":\"is there\",\"foo\":\"is there\"},\"layers\":[{\"annotations\":null,\"media_type\":\"application/vnd.docker.image.rootfs.diff.tar.gzip\"}],\"media_type\":\"application/vnd.oci.image.manifest.v1+json\",\"repo_name\":\"foo\"} does not satisfy validation rule: 'random-label-that-does-not-exist' in labels",
 			},
 		}.Check(t, h)
 
@@ -690,7 +690,7 @@ func TestRuleForManifest(t *testing.T) {
 
 		// rule_for_manifest does not apply to image lists (since image list manifests
 		// do not have labels at all), so we can upload this list manifest without
-		// any additional considerations
+		// any additional considerations ...
 		list := test.GenerateImageList(image, otherImage)
 		assert.HTTPRequest{
 			Method: "PUT",
@@ -709,6 +709,47 @@ func TestRuleForManifest(t *testing.T) {
 			t, s.DB, list.Manifest.Digest,
 			map[string]string{"foo": "is there"}, // the "bar" label differs between `image` and `otherImage`
 		)
+
+		// Test in-toto provenance manifests as an example on how to exclude layer media_types
+		layer := test.GenerateExampleLayer(1)
+		layer.Annotations = map[string]string{
+			"in-toto.io/predicate-type": "https://slsa.dev/provenance/v0.2",
+		}
+		layer.MediaType = "application/vnd.in-toto+json"
+		provenanceManifest := test.GenerateOCIImage(test.OCIArgs{}, layer)
+		provenanceManifest.Config.MustUpload(t, s, fooRepoRef)
+		assert.HTTPRequest{
+			Method: "PUT",
+			Path:   "/v2/test1/foo/manifests/list",
+			Header: map[string]string{
+				"Authorization": "Bearer " + token,
+				"Content-Type":  imgspecv1.MediaTypeImageManifest,
+			},
+			Body: assert.ByteData(provenanceManifest.Manifest.Contents),
+			ExpectBody: test.ErrorCodeWithMessage{
+				Code:    keppel.ErrManifestInvalid,
+				Message: "manifest upload {\"labels\":null,\"layers\":[{\"annotations\":{\"in-toto.io/predicate-type\":\"https://slsa.dev/provenance/v0.2\"},\"media_type\":\"application/vnd.in-toto+json\"}],\"media_type\":\"application/vnd.oci.image.manifest.v1+json\",\"repo_name\":\"foo\"} does not satisfy validation rule: 'foo' in labels && 'bar' in labels",
+			},
+			ExpectStatus: http.StatusBadRequest,
+			ExpectHeader: test.VersionHeader,
+		}.Check(t, h)
+
+		test.MustExec(t, s.DB,
+			`UPDATE accounts SET rule_for_manifest = $1 WHERE name = $2`,
+			"'foo' in labels && 'bar' in labels || layers.exists(l, l.media_type == 'application/vnd.in-toto+json')", "test1",
+		)
+
+		assert.HTTPRequest{
+			Method: "PUT",
+			Path:   "/v2/test1/foo/manifests/list",
+			Header: map[string]string{
+				"Authorization": "Bearer " + token,
+				"Content-Type":  imgspecv1.MediaTypeImageManifest,
+			},
+			Body:         assert.ByteData(provenanceManifest.Manifest.Contents),
+			ExpectStatus: http.StatusCreated,
+			ExpectHeader: test.VersionHeader,
+		}.Check(t, h)
 	})
 }
 

@@ -26,9 +26,10 @@ import (
 
 // Bytes groups a bytestring with its digest.
 type Bytes struct {
-	Contents  []byte
-	Digest    digest.Digest
-	MediaType string
+	Annotations map[string]string
+	Contents    []byte
+	Digest      digest.Digest
+	MediaType   string
 }
 
 // NewBytes makes a new Bytes instance.
@@ -37,7 +38,7 @@ func NewBytes(contents []byte) Bytes {
 }
 
 func newBytesWithMediaType(contents []byte, mediaType string) Bytes {
-	return Bytes{contents, digest.Canonical.FromBytes(contents), mediaType}
+	return Bytes{map[string]string{}, contents, digest.Canonical.FromBytes(contents), mediaType}
 }
 
 // NewBytesFromFile creates a Bytes instance with the contents of the given file.
@@ -328,9 +329,10 @@ func GenerateOCIImage(ociArgs OCIArgs, layers ...Bytes) Image {
 	layerDescs := []imgspecv1.Descriptor{}
 	for _, layer := range layers {
 		layerDescs = append(layerDescs, imgspecv1.Descriptor{
-			MediaType: layer.MediaType,
-			Size:      int64(len(layer.Contents)),
-			Digest:    layer.Digest,
+			Annotations: layer.Annotations,
+			Digest:      layer.Digest,
+			MediaType:   layer.MediaType,
+			Size:        int64(len(layer.Contents)),
 		})
 	}
 

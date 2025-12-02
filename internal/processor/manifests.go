@@ -235,15 +235,32 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 			if err != nil {
 				return err
 			}
-			out, _, err := prg.Eval(map[string]any{
-				"labels":    configInfo.Labels,
-				"repo_name": repo.Name,
-			})
+			layers := []map[string]any{}
+			for _, mlayer := range manifestParsed.FindImageLayerBlobs() {
+				layers = append(layers, map[string]any{
+					"annotations": mlayer.Annotations,
+					"media_type":  mlayer.MediaType,
+				})
+			}
+			evalInput := map[string]any{
+				"labels":     configInfo.Labels,
+				"media_type": manifest.MediaType,
+				"layers":     layers,
+				"repo_name":  repo.Name,
+			}
+			out, _, err := prg.Eval(evalInput)
 			if err != nil {
 				return err
 			}
 			if out != celTypes.True {
-				msg := "rule is not satisfied: " + account.RuleForManifest
+				evalInputJSON, err := json.Marshal(evalInput)
+				var msg string
+				if err == nil {
+					msg = fmt.Sprintf("manifest upload %s does not satisfy validation rule: %s", evalInputJSON, account.RuleForManifest)
+				} else {
+					msg = "<could not marshal eval input to JSON>"
+				}
+
 				return keppel.ErrManifestInvalid.With(msg)
 			}
 		}
