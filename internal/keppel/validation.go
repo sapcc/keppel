@@ -118,7 +118,7 @@ var celEnv = must.Return(cel.NewEnv(
 	cel.Variable("repo_name", cel.StringType),
 ))
 
-// Produces the abstract syntax tree (AST) for a given CEL expression in the keppel CEL environment.
+// BuildManifestValidationAST produces the abstract syntax tree (AST) for a given CEL expression in the keppel CEL environment.
 // If the CEL expression is invalid an error is returned.
 func BuildManifestValidationAST(celExpression string) (*cel.Env, *cel.Ast, error) {
 	ast, ok := celASTCache.Get(celExpression)
