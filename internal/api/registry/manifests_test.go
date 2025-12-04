@@ -28,6 +28,26 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 	for _, tagName := range []string{"latest", ""} {
 		testWithPrimary(t, nil, func(s test.Setup) {
+			// set up tag policies to test block_overwrite and block_push
+			// (setting this up early also proves that unrelated pushes, e.g. of manifests without tag, are not inhibited)
+			test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $2 WHERE name = $1`, "test1",
+				test.ToJSON([]keppel.TagPolicy{
+					{
+						PolicyMatchRule: keppel.PolicyMatchRule{
+							RepositoryRx: "foo",
+						},
+						BlockOverwrite: true,
+					},
+					{
+						PolicyMatchRule: keppel.PolicyMatchRule{
+							RepositoryRx: "foo",
+							TagRx:        "dangerous.*",
+						},
+						BlockPush: true,
+					},
+				}),
+			)
+
 			h := s.Handler
 			token := s.GetToken(t, "repository:test1/foo:pull,push")
 			readOnlyToken := s.GetToken(t, "repository:test1/foo:pull")
@@ -201,16 +221,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			s.Clock.StepBy(time.Second)
 			easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-002-after-upload-blob.sql")
 
-			// block overwrite should not trigger when pushing the same manifest twice
-			test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $2 WHERE name = $1`, "test1",
-				test.ToJSON([]keppel.TagPolicy{{
-					PolicyMatchRule: keppel.PolicyMatchRule{
-						RepositoryRx: "foo",
-					},
-					BlockOverwrite: true,
-				}}),
-			)
-
+			// block_overwrite should not trigger when pushing the same manifest twice
 			image.MustUpload(t, s, fooRepoRef, tagName)
 			image.MustUpload(t, s, fooRepoRef, tagName)
 			s.Clock.StepBy(time.Second)
@@ -221,7 +232,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 			}
 
 			if ref == "latest" {
-				// block overwrite should prevent overwriting the tag
+				// block_overwrite should prevent overwriting the tag
 				assert.HTTPRequest{
 					Method: "PUT",
 					Path:   "/v2/test1/foo/manifests/" + ref,
@@ -238,6 +249,23 @@ func TestImageManifestLifecycle(t *testing.T) {
 					},
 				}.Check(t, h)
 			}
+
+			// block_push should prevent matching tags from being pushed at all
+			assert.HTTPRequest{
+				Method: "PUT",
+				Path:   "/v2/test1/foo/manifests/dangerous-release",
+				Header: map[string]string{
+					"Authorization": "Bearer " + token,
+					"Content-Type":  manifest.DockerV2Schema2MediaType,
+				},
+				Body:         assert.ByteData(test.GenerateImage(test.GenerateExampleLayer(1)).Manifest.Contents),
+				ExpectStatus: http.StatusConflict,
+				ExpectHeader: test.VersionHeader,
+				ExpectBody: test.ErrorCodeWithMessage{
+					Code:    keppel.ErrDenied,
+					Message: "cannot push tag \"dangerous-release\" as it is forbidden by a tag_policy",
+				},
+			}.Check(t, h)
 
 			// we did two PUTs, but only the first one will be logged since the second one did not change anything
 			auditEvents := []cadf.Event{{

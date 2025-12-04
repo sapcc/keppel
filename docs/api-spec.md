@@ -164,6 +164,7 @@ The following fields may be returned:
 | `accounts[].rbac_policies[].forbidden_permissions` | list of strings | The permissions forbidden by the RBAC policy. Acceptable values are the same as for the `permissions` field. This field takes precedence over `permissions`: Any permission listed here will never be given to matching users, even if another matching policy would grant it. |
 | `accounts[].tag_policies[].block_delete` | bool or omitted | The given tag policy should prevent deleting the matched tags. |
 | `accounts[].tag_policies[].block_overwrite` | bool or omitted | The given tag policy should prevent overwriting the matched tags. |
+| `accounts[].tag_policies[].block_push` | bool or omitted | The given tag policy should prevent pushing images with any matched tags. |
 | `accounts[].tag_policies[].match_repository` | string | Required. The tag policy applies to all repositories in this account whose name matches this regex. The leading account name and slash is stripped from the repository name before matching. The notes on regexes below apply. |
 | `accounts[].tag_policies[].except_repository` | string or omitted | If given, matching repositories will be excluded from this tag policy, even if they match the `match_repository` regex. The syntax and mechanics of matching are otherwise identical to `match_repository` above. |
 | `accounts[].tag_policies[].match_tag` | string or omitted | The tag policy applies to all images in matching repositories that have a tag whose name matches this regex. The notes on regexes below apply. |
