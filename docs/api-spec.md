@@ -274,7 +274,7 @@ as the response from the corresponding GET endpoint, except that:
 
 The following options for the `account.validation` fields are possible:
 - Providing `validation.rule_for_manifest` with a valid [CEL expression](https://cel.dev/) that outputs a boolean.
-  As of now, `labels` and `repo_name` can be used for the expression, e.g. `('foo' in labels || 'bar' in labels || repo_name == "buzz")`.
+  As of now, `labels`, `layers` (map type with keys `annotations`, which is also a map type, and `media_type`), `media_type`, `repo_name` can be used for the expression, e.g. `('foo' in labels || 'bar' in labels || repo_name == "buzz")`.
 - Providing `validation.required_labels` with a list of strings that do not contain `","`. This option is deprecated but kept for backwards compatibility.
 - Providing both `validation.rule_for_manifest` and `validation.required_labels` if they are logically equivalent.
 

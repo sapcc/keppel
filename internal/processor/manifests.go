@@ -221,9 +221,9 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 			return err
 		}
 
-		// enforce account-specific validation rules on manifest, but not list manifest
-		// and only when pushing (not when validating at a later point in time,
-		// the validation rule could have been changed by then)
+		// enforce account-specific validation rules only when pushing
+		// (not when validating at a later point in time, the validation rule could have been changed by then)
+		// and on manifest, but not list manifest
 		validationRequired := opts.IsBeingPushed && account.RuleForManifest != "" &&
 			manifest.MediaType != imageManifest.DockerV2ListMediaType && manifest.MediaType != imagespecs.MediaTypeImageIndex
 		if validationRequired {
@@ -235,15 +235,32 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 			if err != nil {
 				return err
 			}
-			out, _, err := prg.Eval(map[string]any{
-				"labels":    configInfo.Labels,
-				"repo_name": repo.Name,
-			})
+			layers := []map[string]any{}
+			for _, mlayer := range manifestParsed.FindImageLayerBlobs() {
+				layers = append(layers, map[string]any{
+					"annotations": mlayer.Annotations,
+					"media_type":  mlayer.MediaType,
+				})
+			}
+			evalInput := map[string]any{
+				"labels":     configInfo.Labels,
+				"media_type": manifest.MediaType,
+				"layers":     layers,
+				"repo_name":  repo.Name,
+			}
+			out, _, err := prg.Eval(evalInput)
 			if err != nil {
 				return err
 			}
 			if out != celTypes.True {
-				msg := "rule is not satisfied: " + account.RuleForManifest
+				evalInputJSON, err := json.Marshal(evalInput)
+				var msg string
+				if err == nil {
+					msg = fmt.Sprintf("manifest upload %s does not satisfy validation rule: %s", evalInputJSON, account.RuleForManifest)
+				} else {
+					msg = "<could not marshal eval input to JSON>"
+				}
+
 				return keppel.ErrManifestInvalid.With(msg)
 			}
 		}

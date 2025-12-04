@@ -40,7 +40,7 @@ func TestReferrersApi(t *testing.T) {
 				"schemaVersion": 2,
 				"mediaType":     "application/vnd.oci.image.index.v1+json",
 				"manifests": []assert.JSONObject{{
-					"artifactType": "application/vnd.oci.image.manifest.v1+json",
+					"artifactType": imgspecv1.MediaTypeImageManifest,
 					"digest":       subjectManifest.Manifest.Digest.String(),
 					"mediaType":    imgspecv1.MediaTypeImageManifest,
 					"size":         subjectManifest.SizeBytes(),
