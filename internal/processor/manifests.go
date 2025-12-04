@@ -66,10 +66,10 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 		return nil, err
 	}
 	logg.Debug("ValidateAndStoreManifest: in repository %d, manifest %s already exists = %t", repo.ID, contentsDigest, manifestExistsAlready)
-	var tagExists bool
+
 	var tagExistsWithSameDigest bool
 	if m.Reference.IsTag() {
-		tagExists, err = p.db.SelectBool(checkTagExistsQuery, repo.ID, m.Reference.Tag)
+		tagExists, err := p.db.SelectBool(checkTagExistsQuery, repo.ID, m.Reference.Tag)
 		if err != nil {
 			return nil, err
 		}
@@ -83,12 +83,15 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 		if tagExistsWithSameDigest {
 			logg.Debug("ValidateAndStoreManifest: in repository %d, tag %s @%s already exists with same digest = %t", repo.ID, m.Reference.Tag, contentsDigest, tagExistsWithSameDigest)
 		}
-	}
 
-	if tagExists && !tagExistsWithSameDigest {
 		for _, tagPolicy := range tagPolicies {
-			if tagPolicy.BlockOverwrite && tagPolicy.MatchesRepository(repo.Name) && tagPolicy.MatchesTags([]string{m.Reference.Tag}) {
-				return nil, keppel.ErrDenied.With("cannot overwrite tag %q as it is protected by a tag_policy", m.Reference.Tag).WithStatus(http.StatusConflict)
+			if tagPolicy.MatchesRepository(repo.Name) && tagPolicy.MatchesTags([]string{m.Reference.Tag}) {
+				switch {
+				case tagPolicy.BlockPush:
+					return nil, keppel.ErrDenied.With("cannot push tag %q as it is forbidden by a tag_policy", m.Reference.Tag).WithStatus(http.StatusConflict)
+				case tagPolicy.BlockOverwrite && tagExists && !tagExistsWithSameDigest:
+					return nil, keppel.ErrDenied.With("cannot overwrite tag %q as it is protected by a tag_policy", m.Reference.Tag).WithStatus(http.StatusConflict)
+				}
 			}
 		}
 	}

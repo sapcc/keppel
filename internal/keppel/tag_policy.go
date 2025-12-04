@@ -11,6 +11,7 @@ type TagPolicy struct {
 	PolicyMatchRule
 	BlockOverwrite bool `json:"block_overwrite,omitempty"`
 	BlockDelete    bool `json:"block_delete,omitempty"`
+	BlockPush      bool `json:"block_push,omitempty"`
 }
 
 // ParseTagPolicies parses the Tag policies for the given account.

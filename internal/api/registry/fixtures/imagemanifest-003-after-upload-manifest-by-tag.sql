@@ -1,4 +1,4 @@
-INSERT INTO accounts (name, auth_tenant_id, tag_policies_json) VALUES ('test1', 'test1authtenant', '[{"match_repository":"foo","block_overwrite":true}]');
+INSERT INTO accounts (name, auth_tenant_id, tag_policies_json) VALUES ('test1', 'test1authtenant', '[{"match_repository":"foo","block_overwrite":true},{"match_repository":"foo","match_tag":"dangerous.*","block_push":true}]');
 
 INSERT INTO blob_mounts (blob_id, repo_id) VALUES (1, 1);
 INSERT INTO blob_mounts (blob_id, repo_id) VALUES (1, 2);
