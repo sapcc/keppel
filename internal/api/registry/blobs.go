@@ -157,7 +157,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodHead {
 		// The use of io.LimitReader() here is a hint to io.Copy() to not allocate
 		// a buffer bigger than the expected size of the blob if the blob is small.
-		_, err = io.Copy(w, io.LimitReader(reader, int64(lengthBytes))) //nolint:gosec // lengthBytes will probably not be above 2^63 :)
+		_, err = io.Copy(w, io.LimitReader(reader, int64(lengthBytes)))
 		if err != nil {
 			logg.Error("unexpected error from io.Copy() while sending blob to client: %s", err.Error())
 		}

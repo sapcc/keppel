@@ -207,7 +207,7 @@ func TestQuotasAPI(t *testing.T) {
 			RepositoryID:     1,
 			Digest:           test.DeterministicDummyDigest(idx),
 			MediaType:        "",
-			SizeBytes:        uint64(1000 * idx), //nolint:gosec // construction guarantees that value is positive
+			SizeBytes:        uint64(1000 * idx),
 			PushedAt:         pushedAt,
 			NextValidationAt: pushedAt.Add(models.ManifestValidationInterval),
 		}))
