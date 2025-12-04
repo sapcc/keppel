@@ -11,6 +11,12 @@ path = [
   ".gitignore",
   ".license-scan-overrides.jsonl",
   ".license-scan-rules.json",
+]
+SPDX-FileCopyrightText = "SAP SE or an SAP affiliate company"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = [
   "go.mod",
   "go.sum",
   "Makefile.maker.yaml",
