@@ -457,22 +457,6 @@ SPDX-License-Identifier = "BSD-3-Clause"
 
 [[annotations]]
 path = [
-  "vendor/github.com/hashicorp/errwrap/**",
-]
-precedence = "aggregate"
-SPDX-FileCopyrightText = "Other"
-SPDX-License-Identifier = "MPL-2.0"
-
-[[annotations]]
-path = [
-  "vendor/github.com/hashicorp/go-multierror/**",
-]
-precedence = "aggregate"
-SPDX-FileCopyrightText = "Other"
-SPDX-License-Identifier = "MPL-2.0"
-
-[[annotations]]
-path = [
   "vendor/github.com/inconshreveable/mousetrap/**",
 ]
 precedence = "aggregate"
