@@ -469,7 +469,7 @@ func TestAccountValidationPolicies(t *testing.T) {
 		},
 	}.Check(t, h)
 
-	// Reset if an empty rule_for_manfest is provided
+	// Reset if an empty rule_for_manifest is provided
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",

@@ -56,7 +56,6 @@ linters:
     - ineffassign
     - intrange
     - iotamixing
-    - misspell
     - modernize
     - nilerr
     - nolintlint
