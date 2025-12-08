@@ -54,7 +54,7 @@ func TestDeleteAbandonedUploadWithManyChunks(t *testing.T) {
 	testDeleteUpload(t, func(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount) models.Upload {
 		chunks := []string{"just", "some", "test", "data"}
 		for idx, data := range chunks {
-			err := sd.AppendToBlob(ctx, account, testStorageID, uint32(idx+1), Some(uint64(len(data))), strings.NewReader(data))
+			err := sd.AppendToBlob(ctx, account, testStorageID, uint32(idx+1), Some(uint64(len(data))), strings.NewReader(data)) //nolint:gosec // chunks has a fixed size of 4
 			if err != nil {
 				t.Fatalf("AppendToBlob %d failed: %s", idx, err.Error())
 			}

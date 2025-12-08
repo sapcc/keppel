@@ -59,7 +59,7 @@ func (a *API) handleGetReferrers(w http.ResponseWriter, r *http.Request) {
 
 		manifest := imgspecv1.Descriptor{
 			MediaType:   dbManifest.MediaType,
-			Size:        int64(dbManifest.SizeBytes),
+			Size:        int64(dbManifest.SizeBytes), //nolint:gosec // validated on write
 			Digest:      dbManifest.Digest,
 			Annotations: annotations,
 		}

@@ -59,7 +59,7 @@ func TestReposAPI(t *testing.T) {
 		blob := models.Blob{
 			AccountName:      "test1",
 			Digest:           dummyDigest,
-			SizeBytes:        uint64(2000 * idx),
+			SizeBytes:        uint64(2000 * idx), //nolint:gosec // construction guarantees that value is positive
 			PushedAt:         blobPushedAt,
 			NextValidationAt: blobPushedAt.Add(models.BlobValidationInterval),
 		}
@@ -75,7 +75,7 @@ func TestReposAPI(t *testing.T) {
 			RepositoryID:     filledRepo.ID,
 			Digest:           dummyDigest,
 			MediaType:        "",
-			SizeBytes:        uint64(1000 * idx),
+			SizeBytes:        uint64(1000 * idx), //nolint:gosec // construction guarantees that value is positive
 			PushedAt:         manifestPushedAt,
 			NextValidationAt: manifestPushedAt.Add(models.ManifestValidationInterval),
 		}))
