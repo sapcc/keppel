@@ -18,7 +18,6 @@ name: Checks
 permissions:
   checks: write
   contents: read
-  pull-requests: read
 jobs:
   checks:
     name: Checks
@@ -42,13 +41,11 @@ jobs:
       - name: Dependency Licenses Review
         run: make check-dependency-licenses
       - name: Check for spelling errors
-        uses: reviewdog/action-misspell@v1
-        with:
-          exclude: ./vendor/*
-          fail_on_error: true
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          ignore: importas
-          reporter: github-check
+        uses: crate-ci/typos@v1
+        env:
+          CLICOLOR: "1"
+      - name: Delete typos binary
+        run: rm typos
       - name: Check if source code files have license header
         run: make check-addlicense
       - name: REUSE Compliance Check

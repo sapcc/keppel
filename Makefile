@@ -124,6 +124,11 @@ run-shellcheck: FORCE install-shellcheck
 	@printf "\e[1;36m>> shellcheck\e[0m\n"
 	@find . \( -path './vendor/*' -prune \) -o -type f \( -name '*.bash' -o -name '*.ksh' -o -name '*.zsh' -o -name '*.sh' -o -name '*.shlib' \) -exec shellcheck  {} +
 
+run-typos: FORCE
+	@printf "\e[1;36m>> typos\e[0m\n"
+	@printf "\e[1;36m>> Typos install instructions can be found here https://github.com/crate-ci/typos#install \e[0m\n"
+	@typos
+
 build/cover.out: FORCE | build
 	@printf "\e[1;36m>> Running tests\e[0m\n"
 	@env $(GO_TESTENV) go test -shuffle=on -p 1 -coverprofile=build/coverprofile.out $(GO_BUILDFLAGS) -ldflags '-s -w -X github.com/sapcc/go-api-declarations/bininfo.binName=keppel -X github.com/sapcc/go-api-declarations/bininfo.version=$(BININFO_VERSION) -X github.com/sapcc/go-api-declarations/bininfo.commit=$(BININFO_COMMIT_HASH) -X github.com/sapcc/go-api-declarations/bininfo.buildDate=$(BININFO_BUILD_DATE) $(GO_LDFLAGS)' -covermode=count -coverpkg=$(subst $(space),$(comma),$(GO_COVERPKGS)) $(GO_TESTFLAGS) $(GO_TESTPKGS)
@@ -226,6 +231,7 @@ help: FORCE
 	@printf "  \e[36mcheck\e[0m                        Run the test suite (unit tests and golangci-lint).\n"
 	@printf "  \e[36mrun-golangci-lint\e[0m            Install and run golangci-lint. Installing is used in CI, but you should probably install golangci-lint using your package manager.\n"
 	@printf "  \e[36mrun-shellcheck\e[0m               Install and run shellcheck. Installing is used in CI, but you should probably install shellcheck using your package manager.\n"
+	@printf "  \e[36mrun-typos\e[0m                    Check for spelling errors using typos.\n"
 	@printf "  \e[36mbuild/cover.out\e[0m              Run tests and generate coverage report.\n"
 	@printf "  \e[36mbuild/cover.html\e[0m             Generate an HTML file with source code annotations from the coverage report.\n"
 	@printf "  \e[36mcheck-addlicense\e[0m             Check license headers in all non-vendored .go files with addlicense.\n"
