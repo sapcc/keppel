@@ -8,6 +8,7 @@
 #.git/
 /.github/
 /.goreleaser.yml
+/.idea/
 /.vscode/
 /CONTRIBUTING.md
 /Dockerfile
