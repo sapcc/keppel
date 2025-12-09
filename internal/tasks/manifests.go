@@ -27,6 +27,7 @@ import (
 	"github.com/sapcc/go-bits/jobloop"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
+	"github.com/sapcc/go-bits/syncext"
 
 	"github.com/sapcc/keppel/internal/auth"
 	peerclient "github.com/sapcc/keppel/internal/client/peer"
@@ -605,6 +606,8 @@ func isTrivyTransientError(msg string) bool {
 	return false
 }
 
+var enrichReportSemaphore = syncext.NewSemaphore(3)
+
 func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.TrivySecurityInfo) (returnedError error) {
 	// load corresponding repo, account and manifest
 	repo, err := keppel.FindRepositoryByID(j.db, securityInfo.RepositoryID)
@@ -694,26 +697,39 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 			return fmt.Errorf("scan error: %w", err)
 		}
 		defer payload.Contents.Close()
-		status, err := relevantPolicies.EnrichReport(&payload, j.timeNow())
-		if err != nil {
-			return fmt.Errorf("could not process report: %w", err)
-		}
-		securityStatuses = append(securityStatuses, status)
 
-		// abort if the account is in deletion mode in the meantime
-		accountIsInDeleting, err := j.db.SelectBool(`SELECT is_deleting FROM accounts WHERE name = $1`, account.Name)
-		if err != nil {
-			return fmt.Errorf("could not check if account %s is in deletion mode: %w", account.Name, err)
-		}
-		if accountIsInDeleting {
-			return fmt.Errorf("account %s is in deletion mode, skip storing Trivy report", account.Name)
-		}
+		// Enriching a report is very expensive in terms of memory footprint, since we need to deserialize the entire report into RAM,
+		// and then render the enriched payload into a buffer.
+		//
+		// To avoid spiky memory usage and/or oomkills, we only allow a small number of report enrichments to be in flight at any time.
+		// This is not a major limit on the overall concurrency of Trivy report collection, since the majority of time is spent
+		// outside of this critical region in ScanManifest() above (waiting for the Trivy server to start sending us a report).
+		err = enrichReportSemaphore.RunFallible(func() error {
+			status, err := relevantPolicies.EnrichReport(&payload, j.timeNow())
+			if err != nil {
+				return fmt.Errorf("could not process report: %w", err)
+			}
+			securityStatuses = append(securityStatuses, status)
 
-		err = j.sd.WriteTrivyReport(ctx, account.Reduced(), repo.Name, securityInfo.Digest, payload)
+			// abort if the account is in deletion mode in the meantime
+			accountIsInDeleting, err := j.db.SelectBool(`SELECT is_deleting FROM accounts WHERE name = $1`, account.Name)
+			if err != nil {
+				return fmt.Errorf("could not check if account %s is in deletion mode: %w", account.Name, err)
+			}
+			if accountIsInDeleting {
+				return fmt.Errorf("account %s is in deletion mode, skip storing Trivy report", account.Name)
+			}
+
+			err = j.sd.WriteTrivyReport(ctx, account.Reduced(), repo.Name, securityInfo.Digest, payload)
+			if err != nil {
+				return fmt.Errorf("could not store report: %w", err)
+			}
+			securityInfo.HasEnrichedReport = true
+			return nil
+		})
 		if err != nil {
-			return fmt.Errorf("could not store report: %w", err)
+			return err
 		}
-		securityInfo.HasEnrichedReport = true
 	}
 
 	// could the image have constituent images?

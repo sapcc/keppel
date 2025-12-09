@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/sapcc/go-bits/logg"
+	"github.com/sapcc/go-bits/syncext"
 )
 
 var shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
@@ -123,12 +124,9 @@ func LimitConcurrentRequestsMiddleware(maxRequests int) func(http.Handler) http.
 			return inner
 		}
 
-		// Source for this semaphore pattern: <https://eli.thegreenplace.net/2019/on-concurrency-in-go-http-servers/>
-		semaphore := make(chan struct{}, maxRequests)
+		semaphore := syncext.NewSemaphore(maxRequests)
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			semaphore <- struct{}{}
-			defer func() { <-semaphore }()
-			inner.ServeHTTP(w, r)
+			semaphore.Run(func() { inner.ServeHTTP(w, r) })
 		})
 	}
 }
