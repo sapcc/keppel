@@ -784,7 +784,8 @@ func errorIsManifestNotFound(err error) bool {
 		//ErrManifestUnknown: manifest was deleted
 		//ErrNameUnknown: repo was deleted
 		// "NOT_FOUND": not defined by the spec, but observed in the wild with Harbor
-		return rerr.Code == keppel.ErrManifestUnknown || rerr.Code == keppel.ErrNameUnknown || rerr.Code == "NOT_FOUND"
+		// "requested access to the resource is denied": similar to ErrDenied, used by ghcr.io when not token is supplied
+		return rerr.Code == keppel.ErrManifestUnknown || rerr.Code == keppel.ErrNameUnknown || rerr.Code == "NOT_FOUND" || rerr.Code == "requested access to the resource is denied"
 	}
 	return false
 }
