@@ -96,7 +96,11 @@ func (c AuthChallenge) GetToken(ctx context.Context, userName, password string) 
 
 	var data struct {
 		AccessToken string `json:"access_token"`
-		Token       string `json:"token"`
+		Errors      []struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"errors"`
+		Token string `json:"token"`
 	}
 	err = json.NewDecoder(resp.Body).Decode(&data)
 	if err == nil {
@@ -104,9 +108,18 @@ func (c AuthChallenge) GetToken(ctx context.Context, userName, password string) 
 	} else {
 		resp.Body.Close()
 	}
+
 	switch {
 	case err != nil:
 		return "", err
+	case len(data.Errors) > 0:
+		var errMsg string
+		if data.Errors[0].Message == "" {
+			errMsg = "<no message>"
+		} else {
+			errMsg = data.Errors[0].Message
+		}
+		return "", fmt.Errorf("auth token request to %q did return: %q", req.URL, errMsg)
 	case data.Token != "":
 		return data.Token, nil
 	case data.AccessToken != "":

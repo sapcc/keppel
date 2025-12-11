@@ -39,7 +39,7 @@ func main() {
 		Use:     "keppel",
 		Short:   "Multi-tenant Docker registry",
 		Long:    "Keppel is a multi-tenant Docker registry. This binary contains both the server and client implementation.",
-		Version: bininfo.Version(),
+		Version: bininfo.VersionOr("unknown"), // returning empty string here hides the flag from cobra completely
 		Args:    cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
