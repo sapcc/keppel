@@ -5,6 +5,7 @@ package registryv2_test
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -526,5 +527,28 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 				ExpectBody:   test.ErrorCode(keppel.ErrTooManyRequests),
 			}.Check(t, h1)
 		})
+	})
+}
+
+func TestReplicationFailingFromHarbor(t *testing.T) {
+	testWithPrimary(t, []test.SetupOption{test.WithPeerAPI}, func(s1 test.Setup) {
+		// setup second as a mostly static responder
+		http.DefaultTransport.(*test.RoundTripper).Handlers["registry-secondary.example.org"] = http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				keppel.ErrNonStandardHarborNotFound.WithError(errors.New("simulated failure from Harbor registry")).WriteAsRegistryV2ResponseTo(w, r)
+			},
+		)
+
+		test.MustExec(t, s1.DB, `UPDATE accounts SET upstream_peer_hostname = '', external_peer_url = $2 WHERE name = $1`,
+			"test1", "registry-secondary.example.org")
+
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/v2/test1/foo/manifests/latest",
+			Header:       map[string]string{"Authorization": "Bearer " + s1.GetToken(t, "repository:test1/foo:pull")},
+			ExpectStatus: http.StatusNotFound,
+			ExpectHeader: test.VersionHeader,
+			ExpectBody:   test.ErrorCode(keppel.ErrNonStandardHarborNotFound),
+		}.Check(t, s1.Handler)
 	})
 }
