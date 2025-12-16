@@ -25,6 +25,8 @@ func parseScope(input string) auth.Scope {
 	}
 
 	if scope.ResourceType == "repository" {
+		// This vaguely follows the implementars note from the spec:
+		// https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pulling-manifests:~:text=a%2Dz0%2D9%5D%2B)*)*-,Implementers%20note,-%3A%20Many%20clients
 		if len(scope.ResourceName) > 256 {
 			logg.Info("rejecting overlong repository name: %q", scope.ResourceName)
 			scope.ResourceName = ""
