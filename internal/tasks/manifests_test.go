@@ -429,8 +429,12 @@ func TestManifestSyncJob(t *testing.T) {
 			if strategy == "on_first_use" {
 				manifestValidationBecauseOfExistingTag = ""
 			}
-			tr.DBChanges().AssertEqualf(`%sDELETE FROM tags WHERE repo_id = 1 AND name = 'latest';`,
+			tr.DBChanges().AssertEqualf(`
+				%s
+				UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+				DELETE FROM tags WHERE repo_id = 1 AND name = 'latest';`,
 				manifestValidationBecauseOfExistingTag,
+				s1.Clock.Now().Add(5*time.Minute).Unix(),
 			)
 
 			// also remove the image list manifest on the primary side
@@ -483,7 +487,11 @@ func TestManifestSyncJob(t *testing.T) {
 				images[1].Manifest.Digest, // the only manifest that is left
 			)
 			assert.ErrEqual(t, syncManifestsJob2.ProcessOne(s2.Ctx), expectedError)
-			tr.DBChanges().AssertEmpty()
+			tr.DBChanges().AssertEqualf(`
+				UPDATE repos SET next_manifest_sync_at = %d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
+				`,
+				s1.Clock.Now().Add(5*time.Minute).Unix(),
+			)
 
 			// check that the manifest sync did not update the last_pulled_at timestamps
 			// in the primary DB (even though there were GET requests for the manifests

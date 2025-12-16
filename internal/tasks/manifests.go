@@ -159,7 +159,22 @@ func (j *Janitor) ManifestSyncJob(registerer prometheus.Registerer) jobloop.Job 
 	}).Setup(registerer)
 }
 
-func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo models.Repository, _ prometheus.Labels) error {
+func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo models.Repository, _ prometheus.Labels) (returnedError error) {
+	defer func() {
+		timeUntilNextSync := 1 * time.Hour
+		if returnedError != nil {
+			timeUntilNextSync = 5 * time.Minute
+		}
+		_, err := j.db.Exec(syncManifestDoneQuery, repo.ID, j.timeNow().Add(j.addJitter(timeUntilNextSync)))
+		if err != nil {
+			if returnedError == nil {
+				returnedError = fmt.Errorf("could not update next_manifest_sync_at: %w", err)
+			} else {
+				returnedError = fmt.Errorf("%w (additional error while trying to update next_manifest_sync_at: %s)", returnedError, err.Error())
+			}
+		}
+	}()
+
 	// find corresponding account
 	account, err := keppel.FindAccount(j.db, repo.AccountName)
 	if err != nil {
@@ -187,10 +202,6 @@ func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo models.Re
 		}
 	}
 
-	_, err = j.db.Exec(syncManifestDoneQuery, repo.ID, j.timeNow().Add(j.addJitter(1*time.Hour)))
-	if err != nil {
-		return err
-	}
 	_, err = j.db.Exec(syncManifestCleanupEmptyQuery, repo.ID)
 	return err
 }
