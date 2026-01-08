@@ -4,6 +4,7 @@
 package gophercloudext
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gophercloud/gophercloud/v2"
@@ -28,4 +29,14 @@ func GetProjectIDFromTokenScope(provider *gophercloud.ProviderClient) (string, e
 		return "", fmt.Errorf(`expected "id" attribute in "project" section, but got %#v`, project)
 	}
 	return project.ID, nil
+}
+
+// UnpackError is usually a no-op, but for some Gophercloud errors, it removes
+// the outer layer that obscures the better error message hidden within.
+func UnpackError(err error) error {
+	var innerErr gophercloud.ErrUnexpectedResponseCode
+	if errors.As(err, &innerErr) {
+		return innerErr
+	}
+	return err
 }
