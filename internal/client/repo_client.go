@@ -10,6 +10,8 @@ import (
 	"html"
 	"io"
 	"net/http"
+	"net/url"
+	"path"
 	"strings"
 
 	"maps"
@@ -67,10 +69,14 @@ func (c *RepoClient) doRequest(ctx context.Context, r repoRequest) (*http.Respon
 		c.Scheme = "https"
 	}
 
-	uri := fmt.Sprintf("%s://%s/v2/%s/%s", c.Scheme, c.Host, c.RepoName, r.Path)
+	uri := &url.URL{
+		Scheme: c.Scheme,
+		Host:   c.Host,
+		Path:   path.Join("v2", c.RepoName, r.Path),
+	}
 
 	// send GET request for manifest
-	resp, req, err := c.sendRequest(ctx, r, uri)
+	resp, req, err := c.sendRequest(ctx, r, uri.String())
 	if err != nil {
 		return nil, fmt.Errorf("during %s %s: %w", r.Method, uri, err)
 	}
@@ -94,7 +100,7 @@ func (c *RepoClient) doRequest(ctx context.Context, r repoRequest) (*http.Respon
 				return nil, err
 			}
 		}
-		resp, _, err = c.sendRequest(ctx, r, uri)
+		resp, _, err = c.sendRequest(ctx, r, uri.String())
 		if err != nil {
 			return nil, fmt.Errorf("during %s %s: %w", r.Method, uri, err)
 		}
