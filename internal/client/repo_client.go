@@ -83,7 +83,8 @@ func (c *RepoClient) doRequest(ctx context.Context, r repoRequest) (*http.Respon
 
 	// if it's a 401, do the auth challenge...
 	if resp.StatusCode == http.StatusUnauthorized {
-		authChallenge, err := ParseAuthChallenge(resp.Header)
+		var authChallenge AuthChallenge
+		authChallenge, err = ParseAuthChallenge(resp.Header)
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse auth challenge from 401 response to %s %s: %w", r.Method, uri, err)
 		}
