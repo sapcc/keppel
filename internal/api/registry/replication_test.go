@@ -578,8 +578,12 @@ func TestReplicationFailingFromGHCRio(t *testing.T) {
 			Path:         "/v2/test1/foo/manifests/latest",
 			Header:       map[string]string{"Authorization": "Bearer " + s1.GetToken(t, "repository:test1/foo:pull")},
 			ExpectStatus: http.StatusUnauthorized,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   test.ErrorCode(keppel.ErrDenied),
+			ExpectHeader: map[string]string{
+				test.VersionHeaderKey: test.VersionHeaderValue,
+				// even though we return 401, no Www-Authenticate header shall be rendered because would be futile for the user performing this request to authenticate
+				"Www-Authenticate": "",
+			},
+			ExpectBody: test.ErrorCode(keppel.ErrDenied),
 		}.Check(t, s1.Handler)
 	})
 }
