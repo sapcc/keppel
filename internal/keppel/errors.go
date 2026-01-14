@@ -41,6 +41,8 @@ const (
 	ErrUnknown         RegistryV2ErrorCode = "UNKNOWN"
 	ErrUnavailable     RegistryV2ErrorCode = "UNAVAILABLE"
 	ErrTooManyRequests RegistryV2ErrorCode = "TOOMANYREQUESTS"
+
+	ErrNonStandardHarborNotFound RegistryV2ErrorCode = "NOT_FOUND"
 )
 
 // With is a convenience function for constructing type RegistryV2Error from a string.
@@ -63,45 +65,47 @@ func (c RegistryV2ErrorCode) WithError(err error) *RegistryV2Error {
 }
 
 var apiErrorMessages = map[RegistryV2ErrorCode]string{
-	ErrBlobUnknown:         "blob unknown to registry",
-	ErrBlobUploadInvalid:   "blob upload invalid",
-	ErrBlobUploadUnknown:   "blob upload unknown to registry",
-	ErrDigestInvalid:       "provided digest did not match uploaded content",
-	ErrManifestBlobUnknown: "manifest blob unknown to registry",
-	ErrManifestInvalid:     "manifest invalid",
-	ErrManifestUnknown:     "manifest unknown",
-	ErrManifestUnverified:  "manifest failed signature verification",
-	ErrNameInvalid:         "invalid repository name",
-	ErrNameUnknown:         "repository name not known to registry",
-	ErrSizeInvalid:         "provided length did not match content length",
-	ErrTagInvalid:          "manifest tag did not match URI",
-	ErrUnauthorized:        "authentication required",
-	ErrDenied:              "requested access to the resource is denied",
-	ErrUnsupported:         "operation is unsupported",
-	ErrUnknown:             "unknown error",
-	ErrUnavailable:         "registry is currently unavailable",
-	ErrTooManyRequests:     "too many requests; please slow down",
+	ErrBlobUnknown:               "blob unknown to registry",
+	ErrBlobUploadInvalid:         "blob upload invalid",
+	ErrBlobUploadUnknown:         "blob upload unknown to registry",
+	ErrDigestInvalid:             "provided digest did not match uploaded content",
+	ErrManifestBlobUnknown:       "manifest blob unknown to registry",
+	ErrManifestInvalid:           "manifest invalid",
+	ErrManifestUnknown:           "manifest unknown",
+	ErrManifestUnverified:        "manifest failed signature verification",
+	ErrNameInvalid:               "invalid repository name",
+	ErrNameUnknown:               "repository name not known to registry",
+	ErrSizeInvalid:               "provided length did not match content length",
+	ErrTagInvalid:                "manifest tag did not match URI",
+	ErrUnauthorized:              "authentication required",
+	ErrDenied:                    "requested access to the resource is denied",
+	ErrUnsupported:               "operation is unsupported",
+	ErrUnknown:                   "unknown error",
+	ErrUnavailable:               "registry is currently unavailable",
+	ErrTooManyRequests:           "too many requests; please slow down",
+	ErrNonStandardHarborNotFound: "not found",
 }
 
 var apiErrorStatusCodes = map[RegistryV2ErrorCode]int{
-	ErrBlobUnknown:         http.StatusNotFound,
-	ErrBlobUploadInvalid:   http.StatusBadRequest,
-	ErrBlobUploadUnknown:   http.StatusNotFound,
-	ErrDigestInvalid:       http.StatusBadRequest,
-	ErrManifestBlobUnknown: http.StatusNotFound,
-	ErrManifestInvalid:     http.StatusBadRequest,
-	ErrManifestUnknown:     http.StatusNotFound,
-	ErrManifestUnverified:  http.StatusBadRequest,
-	ErrNameInvalid:         http.StatusBadRequest,
-	ErrNameUnknown:         http.StatusNotFound,
-	ErrSizeInvalid:         http.StatusBadRequest,
-	ErrTagInvalid:          http.StatusBadRequest,
-	ErrUnauthorized:        http.StatusUnauthorized,
-	ErrDenied:              http.StatusUnauthorized, // 403 would make more sense, but we need to show 401 for bug-for-bug compatibility with docker-registry, see e.g. <https://github.com/google/go-containerregistry/issues/724>
-	ErrUnsupported:         http.StatusMethodNotAllowed,
-	ErrUnknown:             http.StatusInternalServerError,
-	ErrUnavailable:         http.StatusServiceUnavailable,
-	ErrTooManyRequests:     http.StatusTooManyRequests,
+	ErrBlobUnknown:               http.StatusNotFound,
+	ErrBlobUploadInvalid:         http.StatusBadRequest,
+	ErrBlobUploadUnknown:         http.StatusNotFound,
+	ErrDigestInvalid:             http.StatusBadRequest,
+	ErrManifestBlobUnknown:       http.StatusNotFound,
+	ErrManifestInvalid:           http.StatusBadRequest,
+	ErrManifestUnknown:           http.StatusNotFound,
+	ErrManifestUnverified:        http.StatusBadRequest,
+	ErrNameInvalid:               http.StatusBadRequest,
+	ErrNameUnknown:               http.StatusNotFound,
+	ErrSizeInvalid:               http.StatusBadRequest,
+	ErrTagInvalid:                http.StatusBadRequest,
+	ErrUnauthorized:              http.StatusUnauthorized,
+	ErrDenied:                    http.StatusUnauthorized, // 403 would make more sense, but we need to show 401 for bug-for-bug compatibility with docker-registry, see e.g. <https://github.com/google/go-containerregistry/issues/724>
+	ErrUnsupported:               http.StatusMethodNotAllowed,
+	ErrUnknown:                   http.StatusInternalServerError,
+	ErrUnavailable:               http.StatusServiceUnavailable,
+	ErrTooManyRequests:           http.StatusTooManyRequests,
+	ErrNonStandardHarborNotFound: http.StatusNotFound,
 }
 
 // RegistryV2Error is the error type expected by clients of the docker-registry

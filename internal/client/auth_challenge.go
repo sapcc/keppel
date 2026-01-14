@@ -13,6 +13,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/sapcc/go-bits/errext"
+
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
@@ -76,10 +78,10 @@ func ParseAuthChallenge(hdr http.Header) (AuthChallenge, error) {
 }
 
 // GetToken obtains a token that satisfies this challenge.
-func (c AuthChallenge) GetToken(ctx context.Context, userName, password string) (string, error) {
+func (c AuthChallenge) GetToken(ctx context.Context, userName, password string) (string, *keppel.RegistryV2Error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.Realm, http.NoBody)
 	if err != nil {
-		return "", err
+		return "", keppel.AsRegistryV2Error(fmt.Errorf("auth token request to %q did return: %w", req.URL, err))
 	}
 	if userName != "" {
 		req.Header.Set("Authorization", keppel.BuildBasicAuthHeader(userName, password))
@@ -91,16 +93,13 @@ func (c AuthChallenge) GetToken(ctx context.Context, userName, password string) 
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return "", keppel.AsRegistryV2Error(fmt.Errorf("auth token request to %q did return: %w", req.URL, err))
 	}
 
 	var data struct {
-		AccessToken string `json:"access_token"`
-		Errors      []struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
-		} `json:"errors"`
-		Token string `json:"token"`
+		AccessToken string                    `json:"access_token"`
+		Errors      []*keppel.RegistryV2Error `json:"errors"`
+		Token       string                    `json:"token"`
 	}
 	err = json.NewDecoder(resp.Body).Decode(&data)
 	if err == nil {
@@ -111,20 +110,20 @@ func (c AuthChallenge) GetToken(ctx context.Context, userName, password string) 
 
 	switch {
 	case err != nil:
-		return "", err
-	case len(data.Errors) > 0:
-		var errMsg string
-		if data.Errors[0].Message == "" {
-			errMsg = "<no message>"
-		} else {
-			errMsg = data.Errors[0].Message
+		return "", keppel.AsRegistryV2Error(fmt.Errorf("auth token request to %q did return: %w", req.URL, err))
+	case len(data.Errors) == 1:
+		return "", data.Errors[0]
+	case len(data.Errors) > 1:
+		var errs errext.ErrorSet
+		for _, e := range data.Errors {
+			errs.Add(e)
 		}
-		return "", fmt.Errorf("auth token request to %q did return: %q", req.URL, errMsg)
+		return "", keppel.AsRegistryV2Error(fmt.Errorf("auth token request to %q did return: %s", req.URL, errs.Join("; ")))
 	case data.Token != "":
 		return data.Token, nil
 	case data.AccessToken != "":
 		return data.AccessToken, nil
 	default:
-		return "", errors.New("no token was returned")
+		return "", keppel.AsRegistryV2Error(errors.New("no token was returned"))
 	}
 }

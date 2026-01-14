@@ -5,6 +5,7 @@ package registryv2_test
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -526,5 +527,63 @@ func TestReplicationFailingOverIntoPullDelegation(t *testing.T) {
 				ExpectBody:   test.ErrorCode(keppel.ErrTooManyRequests),
 			}.Check(t, h1)
 		})
+	})
+}
+
+func TestReplicationFailingFromHarbor(t *testing.T) {
+	testWithPrimary(t, []test.SetupOption{test.WithPeerAPI}, func(s1 test.Setup) {
+		// setup second as a mostly static responder
+		http.DefaultTransport.(*test.RoundTripper).Handlers["registry-secondary.example.org"] = http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				keppel.ErrNonStandardHarborNotFound.WithError(errors.New("simulated failure from Harbor registry")).WriteAsRegistryV2ResponseTo(w, r)
+			},
+		)
+
+		test.MustExec(t, s1.DB, `UPDATE accounts SET upstream_peer_hostname = '', external_peer_url = $2 WHERE name = $1`,
+			"test1", "registry-secondary.example.org")
+
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/v2/test1/foo/manifests/latest",
+			Header:       map[string]string{"Authorization": "Bearer " + s1.GetToken(t, "repository:test1/foo:pull")},
+			ExpectStatus: http.StatusNotFound,
+			ExpectHeader: test.VersionHeader,
+			ExpectBody:   test.ErrorCode(keppel.ErrNonStandardHarborNotFound),
+		}.Check(t, s1.Handler)
+	})
+}
+
+func TestReplicationFailingFromGHCRio(t *testing.T) {
+	testWithPrimary(t, []test.SetupOption{test.WithPeerAPI}, func(s1 test.Setup) {
+		// setup second as a mostly static responder
+		http.DefaultTransport.(*test.RoundTripper).Handlers["registry-secondary.example.org"] = http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/v2/foo/manifests/latest":
+					w.Header().Add("Www-Authenticate", `Bearer realm="http://registry-secondary.example.org/token",service="registry-secondary.example.org",scope="repository:foo:pull"`)
+					keppel.ErrUnauthorized.WithError(errors.New("simulated unauthorized from GHCR.io")).WriteAsRegistryV2ResponseTo(w, r)
+				case "/token":
+					keppel.ErrDenied.WithError(errors.New("requested access to the resource is denied")).WriteAsRegistryV2ResponseTo(w, r)
+				default:
+					http.NotFound(w, r)
+				}
+			},
+		)
+
+		test.MustExec(t, s1.DB, `UPDATE accounts SET upstream_peer_hostname = '', external_peer_url = $2 WHERE name = $1`,
+			"test1", "registry-secondary.example.org")
+
+		assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/v2/test1/foo/manifests/latest",
+			Header:       map[string]string{"Authorization": "Bearer " + s1.GetToken(t, "repository:test1/foo:pull")},
+			ExpectStatus: http.StatusUnauthorized,
+			ExpectHeader: map[string]string{
+				test.VersionHeaderKey: test.VersionHeaderValue,
+				// even though we return 401, no Www-Authenticate header shall be rendered because would be futile for the user performing this request to authenticate
+				"Www-Authenticate": "",
+			},
+			ExpectBody: test.ErrorCode(keppel.ErrDenied),
+		}.Check(t, s1.Handler)
 	})
 }
