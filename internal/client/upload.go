@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/opencontainers/go-digest"
@@ -19,7 +20,8 @@ func (c *RepoClient) UploadMonolithicBlob(ctx context.Context, contents []byte) 
 
 	resp, err := c.doRequest(ctx, repoRequest{
 		Method: "POST",
-		Path:   "blobs/uploads/?digest=" + d.String(),
+		Path:   "blobs/uploads/",
+		Query:  url.Values{"digest": []string{d.String()}},
 		Headers: http.Header{
 			"Content-Type": {"application/octet-stream"},
 		},
