@@ -85,15 +85,13 @@ func (c *RepoClient) doRequest(ctx context.Context, r repoRequest) (*http.Respon
 
 	// if it's a 401, do the auth challenge...
 	if resp.StatusCode == http.StatusUnauthorized {
-		var authChallenge AuthChallenge
-		authChallenge, err = ParseAuthChallenge(resp.Header)
+		authChallenge, err := ParseAuthChallenge(resp.Header)
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse auth challenge from 401 response to %s %s: %w", r.Method, uri, err)
 		}
-		var rerr *keppel.RegistryV2Error
-		c.token, rerr = authChallenge.GetToken(ctx, c.UserName, c.Password)
-		if rerr != nil {
-			return nil, fmt.Errorf("authentication failed during %s %s: %w", r.Method, uri, rerr)
+		c.token, err = authChallenge.GetToken(ctx, c.UserName, c.Password)
+		if err != nil {
+			return nil, fmt.Errorf("authentication failed during %s %s: %w", r.Method, uri, err)
 		}
 
 		// ...then resend the GET request with the token
