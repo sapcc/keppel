@@ -36,6 +36,7 @@ type RepoClient struct {
 type repoRequest struct {
 	Method       string
 	Path         string
+	Query        url.Values
 	Headers      http.Header
 	Body         io.ReadSeeker
 	ExpectStatus int
@@ -70,9 +71,10 @@ func (c *RepoClient) doRequest(ctx context.Context, r repoRequest) (*http.Respon
 	}
 
 	uri := &url.URL{
-		Scheme: c.Scheme,
-		Host:   c.Host,
-		Path:   path.Join("v2", c.RepoName, r.Path),
+		Scheme:   c.Scheme,
+		Host:     c.Host,
+		Path:     path.Join("v2", c.RepoName, r.Path),
+		RawQuery: r.Query.Encode(),
 	}
 
 	// send GET request for manifest
