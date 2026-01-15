@@ -23,7 +23,8 @@ func (c *RepoClient) UploadMonolithicBlob(ctx context.Context, contents []byte) 
 		Path:   "blobs/uploads/",
 		Query:  url.Values{"digest": []string{d.String()}},
 		Headers: http.Header{
-			"Content-Type": {"application/octet-stream"},
+			"Content-Length": {strconv.FormatUint(uint64(len(contents)), 10)},
+			"Content-Type":   {"application/octet-stream"},
 		},
 		Body:         bytes.NewReader(contents),
 		ExpectStatus: http.StatusCreated,

@@ -95,6 +95,9 @@ func GenerateImage(layers ...Bytes) Image {
 	return GenerateImageWithCustomConfig(nil, layers...)
 }
 
+// GenerateImageWithCustomConfig is like GenerateImage, but allows customizing
+// the contents of the image config. The supplied change function will be called
+// on the default config, and the result will be used as the config blob.
 func GenerateImageWithCustomConfig(change func(map[string]any), layers ...Bytes) Image {
 	config := map[string]any{
 		"architecture": "amd64",
