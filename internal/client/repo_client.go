@@ -76,6 +76,9 @@ func (c *RepoClient) doRequest(ctx context.Context, r repoRequest) (*http.Respon
 		Path:     path.Join("v2", c.RepoName, r.Path),
 		RawQuery: r.Query.Encode(),
 	}
+	if strings.HasSuffix(r.Path, "/") {
+		uri.Path += "/"
+	}
 
 	// send GET request for manifest
 	resp, req, err := c.sendRequest(ctx, r, uri.String())
