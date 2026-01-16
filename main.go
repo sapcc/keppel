@@ -9,7 +9,6 @@ import (
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 	"github.com/spf13/cobra"
-	"go.uber.org/automaxprocs/maxprocs"
 
 	anycastmonitorcmd "github.com/sapcc/keppel/cmd/anycastmonitor"
 	apicmd "github.com/sapcc/keppel/cmd/api"
@@ -31,8 +30,6 @@ import (
 
 func main() {
 	logg.ShowDebug = osext.GetenvBool("KEPPEL_DEBUG")
-	undoMaxprocs := must.Return(maxprocs.Set(maxprocs.Logger(logg.Debug)))
-	defer undoMaxprocs()
 	keppel.SetupHTTPClient()
 
 	rootCmd := &cobra.Command{
