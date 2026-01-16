@@ -11,7 +11,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"path"
 	"strings"
 
 	"maps"
@@ -70,14 +69,14 @@ func (c *RepoClient) doRequest(ctx context.Context, r repoRequest) (*http.Respon
 		c.Scheme = "https"
 	}
 
-	uri := &url.URL{
+	uri := (&url.URL{
 		Scheme:   c.Scheme,
 		Host:     c.Host,
-		Path:     path.Join("v2", c.RepoName, r.Path),
+		Path:     "v2",
 		RawQuery: r.Query.Encode(),
-	}
+	}).JoinPath(c.RepoName, r.Path)
 
-	// send GET request for manifest
+	// send request
 	resp, req, err := c.sendRequest(ctx, r, uri.String())
 	if err != nil {
 		return nil, fmt.Errorf("during %s %s: %w", r.Method, uri, err)
@@ -85,18 +84,16 @@ func (c *RepoClient) doRequest(ctx context.Context, r repoRequest) (*http.Respon
 
 	// if it's a 401, do the auth challenge...
 	if resp.StatusCode == http.StatusUnauthorized {
-		var authChallenge AuthChallenge
-		authChallenge, err = ParseAuthChallenge(resp.Header)
+		authChallenge, err := ParseAuthChallenge(resp.Header)
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse auth challenge from 401 response to %s %s: %w", r.Method, uri, err)
 		}
-		var rerr *keppel.RegistryV2Error
-		c.token, rerr = authChallenge.GetToken(ctx, c.UserName, c.Password)
-		if rerr != nil {
-			return nil, fmt.Errorf("authentication failed during %s %s: %w", r.Method, uri, rerr)
+		c.token, err = authChallenge.GetToken(ctx, c.UserName, c.Password)
+		if err != nil {
+			return nil, fmt.Errorf("authentication failed during %s %s: %w", r.Method, uri, err)
 		}
 
-		// ...then resend the GET request with the token
+		// ...then resend the request with the token
 		if r.Body != nil {
 			_, err = r.Body.Seek(0, io.SeekStart)
 			if err != nil {

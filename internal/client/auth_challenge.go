@@ -78,7 +78,7 @@ func ParseAuthChallenge(hdr http.Header) (AuthChallenge, error) {
 }
 
 // GetToken obtains a token that satisfies this challenge.
-func (c AuthChallenge) GetToken(ctx context.Context, userName, password string) (string, *keppel.RegistryV2Error) {
+func (c AuthChallenge) GetToken(ctx context.Context, userName, password string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.Realm, http.NoBody)
 	if err != nil {
 		return "", keppel.AsRegistryV2Error(fmt.Errorf("auth token request to %q did return: %w", req.URL, err))
