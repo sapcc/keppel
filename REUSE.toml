@@ -233,14 +233,6 @@ SPDX-License-Identifier = "BSD-2-Clause"
 
 [[annotations]]
 path = [
-  "vendor/go.uber.org/automaxprocs/**",
-]
-precedence = "aggregate"
-SPDX-FileCopyrightText = "Other"
-SPDX-License-Identifier = "MIT"
-
-[[annotations]]
-path = [
   "vendor/cel.dev/expr/**",
 ]
 precedence = "aggregate"
@@ -634,14 +626,6 @@ SPDX-License-Identifier = "BSD-3-Clause"
 [[annotations]]
 path = [
   "vendor/github.com/poy/onpar/**",
-]
-precedence = "aggregate"
-SPDX-FileCopyrightText = "Other"
-SPDX-License-Identifier = "MIT"
-
-[[annotations]]
-path = [
-  "vendor/github.com/prashantv/gostub/**",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
