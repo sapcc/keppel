@@ -90,7 +90,7 @@ func Connect(dbURL url.URL, cfg Configuration) (*sql.DB, error) {
 	return db, nil
 }
 
-var dbNotExistErrRx = regexp.MustCompile(`^pq: database "([^"]+)" does not exist$`)
+var dbNotExistErrRx = regexp.MustCompile(`^pq: database "([^"]+)" does not exist \(3D000\)$`)
 
 func connectToPostgres(dbURL url.URL, driverName string) (*sql.DB, database.Driver, error) {
 	if driverName == "" {
