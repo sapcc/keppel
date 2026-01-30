@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 
@@ -182,8 +183,6 @@ func executeAppendToBlob(ctx context.Context, sd keppel.StorageDriver, account m
 	if err != nil {
 		logg.Fatal("AppendToBlob failed: %s", err.Error())
 	}
-
-	logg.Info("chunk appended successfully")
 }
 
 func executeFinalizeBlob(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
@@ -196,8 +195,6 @@ func executeFinalizeBlob(ctx context.Context, sd keppel.StorageDriver, account m
 	if err != nil {
 		logg.Fatal("FinalizeBlob failed: %s", err.Error())
 	}
-
-	logg.Info("blob finalized successfully")
 }
 
 func executeAbortBlobUpload(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
@@ -210,8 +207,6 @@ func executeAbortBlobUpload(ctx context.Context, sd keppel.StorageDriver, accoun
 	if err != nil {
 		logg.Fatal("AbortBlobUpload failed: %s", err.Error())
 	}
-
-	logg.Info("blob upload aborted successfully")
 }
 
 func executeReadBlob(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
@@ -243,7 +238,7 @@ func executeURLForBlob(ctx context.Context, sd keppel.StorageDriver, account mod
 		logg.Fatal("URLForBlob failed: %s", err.Error())
 	}
 
-	logg.Info(url)
+	fmt.Println(url)
 }
 
 func executeDeleteBlob(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
@@ -253,8 +248,6 @@ func executeDeleteBlob(ctx context.Context, sd keppel.StorageDriver, account mod
 	if err != nil {
 		logg.Fatal("DeleteBlob failed: %s", err.Error())
 	}
-
-	logg.Info("blob deleted successfully")
 }
 
 func executeReadManifest(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
@@ -271,7 +264,7 @@ func executeReadManifest(ctx context.Context, sd keppel.StorageDriver, account m
 		logg.Fatal("ReadManifest failed: %s", err.Error())
 	}
 
-	logg.Info(string(result))
+	os.Stdout.Write(result)
 }
 
 func executeWriteManifest(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
@@ -287,8 +280,6 @@ func executeWriteManifest(ctx context.Context, sd keppel.StorageDriver, account 
 	if err != nil {
 		logg.Fatal("WriteManifest failed: %s", err.Error())
 	}
-
-	logg.Info("manifest written successfully")
 }
 
 func executeDeleteManifest(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
@@ -304,8 +295,6 @@ func executeDeleteManifest(ctx context.Context, sd keppel.StorageDriver, account
 	if err != nil {
 		logg.Fatal("DeleteManifest failed: %s", err.Error())
 	}
-
-	logg.Info("manifest deleted successfully")
 }
 
 func executeReadTrivyReport(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
@@ -323,7 +312,7 @@ func executeReadTrivyReport(ctx context.Context, sd keppel.StorageDriver, accoun
 		logg.Fatal("ReadTrivyReport failed: %s", err.Error())
 	}
 
-	logg.Info(string(result))
+	os.Stdout.Write(result)
 }
 
 func executeWriteTrivyReport(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
@@ -344,8 +333,6 @@ func executeWriteTrivyReport(ctx context.Context, sd keppel.StorageDriver, accou
 	if err != nil {
 		logg.Fatal("WriteTrivyReport failed: %s", err.Error())
 	}
-
-	logg.Info("trivy report written successfully")
 }
 
 func executeDeleteTrivyReport(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
@@ -362,8 +349,6 @@ func executeDeleteTrivyReport(ctx context.Context, sd keppel.StorageDriver, acco
 	if err != nil {
 		logg.Fatal("DeleteTrivyReport failed: %s", err.Error())
 	}
-
-	logg.Info("trivy report deleted successfully")
 }
 
 func executeListStorageContents(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, _ []string) {
@@ -385,8 +370,6 @@ func executeCanSetupAccount(ctx context.Context, sd keppel.StorageDriver, accoun
 	if err != nil {
 		logg.Fatal("CanSetupAccount failed: %s", err.Error())
 	}
-
-	logg.Info("account can be set up successfully")
 }
 
 func executeCleanupAccount(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, _ []string) {
@@ -394,8 +377,6 @@ func executeCleanupAccount(ctx context.Context, sd keppel.StorageDriver, account
 	if err != nil {
 		logg.Fatal("CleanupAccount failed: %s", err.Error())
 	}
-
-	logg.Info("account cleanup completed successfully")
 }
 
 func outputJSON(result any) {
