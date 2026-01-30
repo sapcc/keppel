@@ -50,192 +50,122 @@ func AddStorageCommandTo(parent *cobra.Command) {
 	must.Succeed(storageCmd.MarkPersistentFlagRequired("sd"))
 	storageCmd.PersistentFlags().StringVarP(&storageDriverParamsJSON, "params", "p", `{}`, "Parameters for storage driver (encoded as JSON)")
 
-	addStorageDriverMethodCommandsTo(storageCmd)
+	storageCmd.AddCommand(
+		&cobra.Command{
+			Use:  "append-to-blob <storage-id> <chunk-number> <data>",
+			Args: cobra.ExactArgs(3),
+			Run:  wrapStorageCommand(executeAppendToBlob),
+		},
+		&cobra.Command{
+			Use:  "finalize-blob <storage-id> <chunk-count>",
+			Args: cobra.ExactArgs(2),
+			Run:  wrapStorageCommand(executeFinalizeBlob),
+		},
+		&cobra.Command{
+			Use:  "abort-blob-upload <storage-id> <chunk-count>",
+			Args: cobra.ExactArgs(2),
+			Run:  wrapStorageCommand(executeAbortBlobUpload),
+		},
+		&cobra.Command{
+			Use:  "read-blob <storage-id>",
+			Args: cobra.ExactArgs(1),
+			Run:  wrapStorageCommand(executeReadBlob),
+		},
+		&cobra.Command{
+			Use:  "url-for-blob <storage-id>",
+			Args: cobra.ExactArgs(1),
+			Run:  wrapStorageCommand(executeURLForBlob),
+		},
+		&cobra.Command{
+			Use:  "delete-blob <storage-id>",
+			Args: cobra.ExactArgs(1),
+			Run:  wrapStorageCommand(executeDeleteBlob),
+		},
+		&cobra.Command{
+			Use:  "read-manifest <repo-name> <digest>",
+			Args: cobra.ExactArgs(2),
+			Run:  wrapStorageCommand(executeReadManifest),
+		},
+		&cobra.Command{
+			Use:  "write-manifest <repo-name> <digest> <content>",
+			Args: cobra.ExactArgs(3),
+			Run:  wrapStorageCommand(executeWriteManifest),
+		},
+		&cobra.Command{
+			Use:  "delete-manifest <repo-name> <digest>",
+			Args: cobra.ExactArgs(2),
+			Run:  wrapStorageCommand(executeDeleteManifest),
+		},
+		&cobra.Command{
+			Use:  "read-trivy-report <repo-name> <digest> <format>",
+			Args: cobra.ExactArgs(3),
+			Run:  wrapStorageCommand(executeReadTrivyReport),
+		},
+		&cobra.Command{
+			Use:  "write-trivy-report <repo-name> <digest> <payload-content> <payload-format>",
+			Args: cobra.ExactArgs(4),
+			Run:  wrapStorageCommand(executeWriteTrivyReport),
+		},
+		&cobra.Command{
+			Use:  "delete-trivy-report <repo-name> <digest> <format>",
+			Args: cobra.ExactArgs(3),
+			Run:  wrapStorageCommand(executeDeleteTrivyReport),
+		},
+		&cobra.Command{
+			Use:  "list-storage-contents",
+			Args: cobra.NoArgs,
+			Run:  wrapStorageCommand(executeListStorageContents),
+		},
+		&cobra.Command{
+			Use:  "can-setup-account",
+			Args: cobra.NoArgs,
+			Run:  wrapStorageCommand(executeCanSetupAccount),
+		},
+		&cobra.Command{
+			Use:  "cleanup-account",
+			Args: cobra.NoArgs,
+			Run:  wrapStorageCommand(executeCleanupAccount),
+		},
+	)
+
 	parent.AddCommand(storageCmd)
 }
 
-func initializeStorageDriver(ctx context.Context) (keppel.StorageDriver, models.ReducedAccount) {
-	cfg := keppel.Configuration{}
+// wrapStorageCommand takes a handler that tests a StorageDriver method,
+// and wraps it so that it can be put as a cobra.Command.Run function.
+//
+// The resulting closure takes care of parsing arguments provided in cmdline flags
+// and preparing all the arguments that are needed to call the test function.
+func wrapStorageCommand(action func(context.Context, keppel.StorageDriver, models.ReducedAccount, []string)) func(*cobra.Command, []string) {
+	return func(cmd *cobra.Command, args []string) {
+		ctx := cmd.Context()
+		cfg := keppel.Configuration{}
 
-	account := models.ReducedAccount{
-		Name:         models.AccountName(accountName),
-		AuthTenantID: accountAuthTenantID,
+		account := models.ReducedAccount{
+			Name:         models.AccountName(accountName),
+			AuthTenantID: accountAuthTenantID,
+		}
+
+		var authConfig string
+		switch authDriverType {
+		case "trivial":
+			authConfig = `{"type":"trivial","params":{"username":"test","password":"test"}}`
+		case "keystone":
+			authConfig = `{"type":"keystone","params":{"oslo_policy_path":"cmd/test/policy.json"}}`
+		}
+		ad := must.Return(keppel.NewAuthDriver(ctx, authConfig, nil))
+
+		if !json.Valid([]byte(storageDriverParamsJSON)) {
+			logg.Fatal("value provided to --params is not valid JSON")
+		}
+		storageConfig := fmt.Sprintf(`{"type":%s,"params":%s}`,
+			must.Return(json.Marshal(storageDriverType)),
+			storageDriverParamsJSON,
+		)
+		sd := must.Return(keppel.NewStorageDriver(storageConfig, ad, cfg))
+
+		action(ctx, sd, account, args)
 	}
-
-	var authConfig string
-	switch authDriverType {
-	case "trivial":
-		authConfig = `{"type":"trivial","params":{"username":"test","password":"test"}}`
-	case "keystone":
-		authConfig = `{"type":"keystone","params":{"oslo_policy_path":"cmd/test/policy.json"}}`
-	}
-	ad := must.Return(keppel.NewAuthDriver(ctx, authConfig, nil))
-
-	if !json.Valid([]byte(storageDriverParamsJSON)) {
-		logg.Fatal("value provided to --params is not valid JSON")
-	}
-	storageConfig := fmt.Sprintf(`{"type":%s,"params":%s}`,
-		must.Return(json.Marshal(storageDriverType)),
-		storageDriverParamsJSON,
-	)
-	sd := must.Return(keppel.NewStorageDriver(storageConfig, ad, cfg))
-
-	return sd, account
-}
-
-func addStorageDriverMethodCommandsTo(parent *cobra.Command) {
-	appendToBlobCmd := &cobra.Command{
-		Use:  "append-to-blob <storage-id> <chunk-number> <data>",
-		Args: cobra.ExactArgs(3),
-		Run: func(cmd *cobra.Command, args []string) {
-			sd, account := initializeStorageDriver(cmd.Context())
-			executeAppendToBlob(cmd.Context(), sd, account, args)
-		},
-	}
-
-	finalizeBlobCmd := &cobra.Command{
-		Use:  "finalize-blob <storage-id> <chunk-count>",
-		Args: cobra.ExactArgs(2),
-		Run: func(cmd *cobra.Command, args []string) {
-			sd, account := initializeStorageDriver(cmd.Context())
-			executeFinalizeBlob(cmd.Context(), sd, account, args)
-		},
-	}
-
-	abortBlobUploadCmd := &cobra.Command{
-		Use:  "abort-blob-upload <storage-id> <chunk-count>",
-		Args: cobra.ExactArgs(2),
-		Run: func(cmd *cobra.Command, args []string) {
-			sd, account := initializeStorageDriver(cmd.Context())
-			executeAbortBlobUpload(cmd.Context(), sd, account, args)
-		},
-	}
-
-	readBlobCmd := &cobra.Command{
-		Use:  "read-blob <storage-id>",
-		Args: cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			sd, account := initializeStorageDriver(cmd.Context())
-			executeReadBlob(cmd.Context(), sd, account, args)
-		},
-	}
-
-	urlForBlobCmd := &cobra.Command{
-		Use:  "url-for-blob <storage-id>",
-		Args: cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			sd, account := initializeStorageDriver(cmd.Context())
-			executeURLForBlob(cmd.Context(), sd, account, args)
-		},
-	}
-
-	deleteBlobCmd := &cobra.Command{
-		Use:  "delete-blob <storage-id>",
-		Args: cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			sd, account := initializeStorageDriver(cmd.Context())
-			executeDeleteBlob(cmd.Context(), sd, account, args)
-		},
-	}
-
-	readManifestCmd := &cobra.Command{
-		Use:  "read-manifest <repo-name> <digest>",
-		Args: cobra.ExactArgs(2),
-		Run: func(cmd *cobra.Command, args []string) {
-			sd, account := initializeStorageDriver(cmd.Context())
-			executeReadManifest(cmd.Context(), sd, account, args)
-		},
-	}
-
-	writeManifestCmd := &cobra.Command{
-		Use:  "write-manifest <repo-name> <digest> <content>",
-		Args: cobra.ExactArgs(3),
-		Run: func(cmd *cobra.Command, args []string) {
-			sd, account := initializeStorageDriver(cmd.Context())
-			executeWriteManifest(cmd.Context(), sd, account, args)
-		},
-	}
-
-	deleteManifestCmd := &cobra.Command{
-		Use:  "delete-manifest <repo-name> <digest>",
-		Args: cobra.ExactArgs(2),
-		Run: func(cmd *cobra.Command, args []string) {
-			sd, account := initializeStorageDriver(cmd.Context())
-			executeDeleteManifest(cmd.Context(), sd, account, args)
-		},
-	}
-
-	readTrivyReportCmd := &cobra.Command{
-		Use:  "read-trivy-report <repo-name> <digest> <format>",
-		Args: cobra.ExactArgs(3),
-		Run: func(cmd *cobra.Command, args []string) {
-			sd, account := initializeStorageDriver(cmd.Context())
-			executeReadTrivyReport(cmd.Context(), sd, account, args)
-		},
-	}
-
-	writeTrivyReportCmd := &cobra.Command{
-		Use:  "write-trivy-report <repo-name> <digest> <payload-content> <payload-format>",
-		Args: cobra.ExactArgs(4),
-		Run: func(cmd *cobra.Command, args []string) {
-			sd, account := initializeStorageDriver(cmd.Context())
-			executeWriteTrivyReport(cmd.Context(), sd, account, args)
-		},
-	}
-
-	deleteTrivyReportCmd := &cobra.Command{
-		Use:  "delete-trivy-report <repo-name> <digest> <format>",
-		Args: cobra.ExactArgs(3),
-		Run: func(cmd *cobra.Command, args []string) {
-			sd, account := initializeStorageDriver(cmd.Context())
-			executeDeleteTrivyReport(cmd.Context(), sd, account, args)
-		},
-	}
-
-	listStorageContentsCmd := &cobra.Command{
-		Use:  "list-storage-contents",
-		Args: cobra.NoArgs,
-		Run: func(cmd *cobra.Command, args []string) {
-			sd, account := initializeStorageDriver(cmd.Context())
-			executeListStorageContents(cmd.Context(), sd, account)
-		},
-	}
-
-	canSetupAccountCmd := &cobra.Command{
-		Use:  "can-setup-account",
-		Args: cobra.NoArgs,
-		Run: func(cmd *cobra.Command, args []string) {
-			sd, account := initializeStorageDriver(cmd.Context())
-			executeCanSetupAccount(cmd.Context(), sd, account)
-		},
-	}
-
-	cleanupAccountCmd := &cobra.Command{
-		Use:  "cleanup-account",
-		Args: cobra.NoArgs,
-		Run: func(cmd *cobra.Command, args []string) {
-			sd, account := initializeStorageDriver(cmd.Context())
-			executeCleanupAccount(cmd.Context(), sd, account)
-		},
-	}
-
-	parent.AddCommand(
-		appendToBlobCmd,
-		finalizeBlobCmd,
-		abortBlobUploadCmd,
-		readBlobCmd,
-		urlForBlobCmd,
-		deleteBlobCmd,
-		readManifestCmd,
-		writeManifestCmd,
-		deleteManifestCmd,
-		readTrivyReportCmd,
-		writeTrivyReportCmd,
-		deleteTrivyReportCmd,
-		listStorageContentsCmd,
-		canSetupAccountCmd,
-		cleanupAccountCmd,
-	)
 }
 
 func executeAppendToBlob(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
@@ -436,7 +366,7 @@ func executeDeleteTrivyReport(ctx context.Context, sd keppel.StorageDriver, acco
 	logg.Info("trivy report deleted successfully")
 }
 
-func executeListStorageContents(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount) {
+func executeListStorageContents(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, _ []string) {
 	blobs, manifests, trivyReports, err := sd.ListStorageContents(ctx, account)
 	if err != nil {
 		logg.Fatal("ListStorageContents failed: %s", err.Error())
@@ -450,7 +380,7 @@ func executeListStorageContents(ctx context.Context, sd keppel.StorageDriver, ac
 	outputJSON(result)
 }
 
-func executeCanSetupAccount(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount) {
+func executeCanSetupAccount(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, _ []string) {
 	err := sd.CanSetupAccount(ctx, account)
 	if err != nil {
 		logg.Fatal("CanSetupAccount failed: %s", err.Error())
@@ -459,7 +389,7 @@ func executeCanSetupAccount(ctx context.Context, sd keppel.StorageDriver, accoun
 	logg.Info("account can be set up successfully")
 }
 
-func executeCleanupAccount(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount) {
+func executeCleanupAccount(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, _ []string) {
 	err := sd.CleanupAccount(ctx, account)
 	if err != nil {
 		logg.Fatal("CleanupAccount failed: %s", err.Error())
