@@ -24,39 +24,37 @@ import (
 )
 
 var (
-	accountName         string
-	accountAuthTenantID string
-	filesystemPath      string
+	accountName             string
+	accountAuthTenantID     string
+	authDriverType          string
+	storageDriverType       string
+	storageDriverParamsJSON string
 )
-
-type storageDriverSetup struct {
-	storageDriver keppel.StorageDriver
-	account       models.ReducedAccount
-}
 
 // AddStorageCommandTo mounts the storage test command into the test-driver command hierarchy.
 func AddStorageCommandTo(parent *cobra.Command) {
 	storageCmd := &cobra.Command{
 		Use:     "storage <driver-impl> <method> <args...>",
-		Example: "  keppel test-driver storage swift read-manifest repo sha256:abc123",
+		Example: "  keppel test-driver storage --ad keystone --sd swift -a myaccount -t 3d9880d658e34770 read-manifest repo sha256:abc123",
 		Short:   "Manual test harness for storage driver implementations.",
 		Long:    `Manual test harness for storage driver implementations. Performs the minimum required setup to obtain the respective storage driver instance, executes the method and then displays the result.`,
 	}
 
 	storageCmd.PersistentFlags().StringVarP(&accountName, "account-name", "a", "", "Account name (required)")
 	must.Succeed(storageCmd.MarkPersistentFlagRequired("account-name"))
-	storageCmd.PersistentFlags().StringVarP(&accountAuthTenantID, "account-auth-tenant-id", "", "", "Account auth tenant ID (required)")
+	storageCmd.PersistentFlags().StringVarP(&accountAuthTenantID, "account-auth-tenant-id", "t", "", "Account auth tenant ID (required)")
 	must.Succeed(storageCmd.MarkPersistentFlagRequired("account-auth-tenant-id"))
-	storageCmd.PersistentFlags().StringVarP(&filesystemPath, "path", "p", "/tmp/keppel-test-storage", "Storage path for filesystem driver")
+	storageCmd.PersistentFlags().StringVarP(&authDriverType, "ad", "", "trivial", "Type name for auth driver")
+	must.Succeed(storageCmd.MarkPersistentFlagRequired("ad"))
+	storageCmd.PersistentFlags().StringVarP(&storageDriverType, "sd", "", "", "Type name for storage driver")
+	must.Succeed(storageCmd.MarkPersistentFlagRequired("sd"))
+	storageCmd.PersistentFlags().StringVarP(&storageDriverParamsJSON, "params", "p", `{}`, "Parameters for storage driver (encoded as JSON)")
 
-	addSwiftStorageDriverCommandsTo(storageCmd)
-	addFilesystemStorageDriverCommandsTo(storageCmd)
-	addInMemoryStorageDriverCommandsTo(storageCmd)
-
+	addStorageDriverMethodCommandsTo(storageCmd)
 	parent.AddCommand(storageCmd)
 }
 
-func initializeStorageDriver(ctx context.Context, driverType string) (*storageDriverSetup, error) {
+func initializeStorageDriver(ctx context.Context) (keppel.StorageDriver, models.ReducedAccount) {
 	cfg := keppel.Configuration{}
 
 	account := models.ReducedAccount{
@@ -65,79 +63,33 @@ func initializeStorageDriver(ctx context.Context, driverType string) (*storageDr
 	}
 
 	var authConfig string
-	var storageConfig string
-
-	switch driverType {
-	case "in-memory-for-testing":
+	switch authDriverType {
+	case "trivial":
 		authConfig = `{"type":"trivial","params":{"username":"test","password":"test"}}`
-		storageConfig = `{"type":"in-memory-for-testing"}`
-	case "filesystem":
-		authConfig = `{"type":"trivial","params":{"username":"test","password":"test"}}`
-		storageConfig = fmt.Sprintf(`{"type":"filesystem","params":{"path":%s}}`,
-			must.Return(json.Marshal(filesystemPath)))
-	case "swift":
+	case "keystone":
 		authConfig = `{"type":"keystone","params":{"oslo_policy_path":"cmd/test/policy.json"}}`
-		storageConfig = `{"type":"swift"}`
-	default:
-		return nil, fmt.Errorf("unknown storage driver: %s. Supported drivers: swift, filesystem, in-memory-for-testing", driverType)
 	}
+	ad := must.Return(keppel.NewAuthDriver(ctx, authConfig, nil))
 
-	ad, err := keppel.NewAuthDriver(ctx, authConfig, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create auth driver: %w", err)
+	if !json.Valid([]byte(storageDriverParamsJSON)) {
+		logg.Fatal("value provided to --params is not valid JSON")
 	}
+	storageConfig := fmt.Sprintf(`{"type":%s,"params":%s}`,
+		must.Return(json.Marshal(storageDriverType)),
+		storageDriverParamsJSON,
+	)
+	sd := must.Return(keppel.NewStorageDriver(storageConfig, ad, cfg))
 
-	sd, err := keppel.NewStorageDriver(storageConfig, ad, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create storage driver: %w", err)
-	}
-
-	return &storageDriverSetup{
-		storageDriver: sd,
-		account:       account,
-	}, nil
+	return sd, account
 }
 
-func addSwiftStorageDriverCommandsTo(parent *cobra.Command) {
-	swiftCmd := &cobra.Command{
-		Use:     "swift <method> <args...>",
-		Short:   "OpenStack Swift storage driver operations",
-		Example: "  keppel test-driver storage swift read-manifest repo sha256:abc123 --account-name my-account",
-	}
-
-	addStorageDriverMethodCommandsTo(swiftCmd, "swift")
-	parent.AddCommand(swiftCmd)
-}
-
-func addFilesystemStorageDriverCommandsTo(parent *cobra.Command) {
-	filesystemCmd := &cobra.Command{
-		Use:     "filesystem <method> <args...>",
-		Short:   "Local filesystem storage driver operations",
-		Example: "  keppel test-driver storage filesystem read-blob storage-id --path /tmp/keppel-test",
-	}
-
-	addStorageDriverMethodCommandsTo(filesystemCmd, "filesystem")
-	parent.AddCommand(filesystemCmd)
-}
-
-func addInMemoryStorageDriverCommandsTo(parent *cobra.Command) {
-	inMemoryCmd := &cobra.Command{
-		Use:     "in-memory-for-testing <method> <args...>",
-		Short:   "In-memory storage driver operations",
-		Example: "  keppel test-driver storage in-memory-for-testing read-blob storage-id",
-	}
-
-	addStorageDriverMethodCommandsTo(inMemoryCmd, "in-memory-for-testing")
-	parent.AddCommand(inMemoryCmd)
-}
-
-func addStorageDriverMethodCommandsTo(parent *cobra.Command, driverType string) {
+func addStorageDriverMethodCommandsTo(parent *cobra.Command) {
 	appendToBlobCmd := &cobra.Command{
 		Use:  "append-to-blob <storage-id> <chunk-number> <data>",
 		Args: cobra.ExactArgs(3),
 		Run: func(cmd *cobra.Command, args []string) {
-			setup := must.Return(initializeStorageDriver(cmd.Context(), driverType))
-			executeAppendToBlob(cmd.Context(), setup.storageDriver, setup.account, args)
+			sd, account := initializeStorageDriver(cmd.Context())
+			executeAppendToBlob(cmd.Context(), sd, account, args)
 		},
 	}
 
@@ -145,8 +97,8 @@ func addStorageDriverMethodCommandsTo(parent *cobra.Command, driverType string) 
 		Use:  "finalize-blob <storage-id> <chunk-count>",
 		Args: cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
-			setup := must.Return(initializeStorageDriver(cmd.Context(), driverType))
-			executeFinalizeBlob(cmd.Context(), setup.storageDriver, setup.account, args)
+			sd, account := initializeStorageDriver(cmd.Context())
+			executeFinalizeBlob(cmd.Context(), sd, account, args)
 		},
 	}
 
@@ -154,8 +106,8 @@ func addStorageDriverMethodCommandsTo(parent *cobra.Command, driverType string) 
 		Use:  "abort-blob-upload <storage-id> <chunk-count>",
 		Args: cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
-			setup := must.Return(initializeStorageDriver(cmd.Context(), driverType))
-			executeAbortBlobUpload(cmd.Context(), setup.storageDriver, setup.account, args)
+			sd, account := initializeStorageDriver(cmd.Context())
+			executeAbortBlobUpload(cmd.Context(), sd, account, args)
 		},
 	}
 
@@ -163,8 +115,8 @@ func addStorageDriverMethodCommandsTo(parent *cobra.Command, driverType string) 
 		Use:  "read-blob <storage-id>",
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			setup := must.Return(initializeStorageDriver(cmd.Context(), driverType))
-			executeReadBlob(cmd.Context(), setup.storageDriver, setup.account, args)
+			sd, account := initializeStorageDriver(cmd.Context())
+			executeReadBlob(cmd.Context(), sd, account, args)
 		},
 	}
 
@@ -172,8 +124,8 @@ func addStorageDriverMethodCommandsTo(parent *cobra.Command, driverType string) 
 		Use:  "url-for-blob <storage-id>",
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			setup := must.Return(initializeStorageDriver(cmd.Context(), driverType))
-			executeURLForBlob(cmd.Context(), setup.storageDriver, setup.account, args)
+			sd, account := initializeStorageDriver(cmd.Context())
+			executeURLForBlob(cmd.Context(), sd, account, args)
 		},
 	}
 
@@ -181,8 +133,8 @@ func addStorageDriverMethodCommandsTo(parent *cobra.Command, driverType string) 
 		Use:  "delete-blob <storage-id>",
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			setup := must.Return(initializeStorageDriver(cmd.Context(), driverType))
-			executeDeleteBlob(cmd.Context(), setup.storageDriver, setup.account, args)
+			sd, account := initializeStorageDriver(cmd.Context())
+			executeDeleteBlob(cmd.Context(), sd, account, args)
 		},
 	}
 
@@ -190,8 +142,8 @@ func addStorageDriverMethodCommandsTo(parent *cobra.Command, driverType string) 
 		Use:  "read-manifest <repo-name> <digest>",
 		Args: cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
-			setup := must.Return(initializeStorageDriver(cmd.Context(), driverType))
-			executeReadManifest(cmd.Context(), setup.storageDriver, setup.account, args)
+			sd, account := initializeStorageDriver(cmd.Context())
+			executeReadManifest(cmd.Context(), sd, account, args)
 		},
 	}
 
@@ -199,8 +151,8 @@ func addStorageDriverMethodCommandsTo(parent *cobra.Command, driverType string) 
 		Use:  "write-manifest <repo-name> <digest> <content>",
 		Args: cobra.ExactArgs(3),
 		Run: func(cmd *cobra.Command, args []string) {
-			setup := must.Return(initializeStorageDriver(cmd.Context(), driverType))
-			executeWriteManifest(cmd.Context(), setup.storageDriver, setup.account, args)
+			sd, account := initializeStorageDriver(cmd.Context())
+			executeWriteManifest(cmd.Context(), sd, account, args)
 		},
 	}
 
@@ -208,8 +160,8 @@ func addStorageDriverMethodCommandsTo(parent *cobra.Command, driverType string) 
 		Use:  "delete-manifest <repo-name> <digest>",
 		Args: cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
-			setup := must.Return(initializeStorageDriver(cmd.Context(), driverType))
-			executeDeleteManifest(cmd.Context(), setup.storageDriver, setup.account, args)
+			sd, account := initializeStorageDriver(cmd.Context())
+			executeDeleteManifest(cmd.Context(), sd, account, args)
 		},
 	}
 
@@ -217,8 +169,8 @@ func addStorageDriverMethodCommandsTo(parent *cobra.Command, driverType string) 
 		Use:  "read-trivy-report <repo-name> <digest> <format>",
 		Args: cobra.ExactArgs(3),
 		Run: func(cmd *cobra.Command, args []string) {
-			setup := must.Return(initializeStorageDriver(cmd.Context(), driverType))
-			executeReadTrivyReport(cmd.Context(), setup.storageDriver, setup.account, args)
+			sd, account := initializeStorageDriver(cmd.Context())
+			executeReadTrivyReport(cmd.Context(), sd, account, args)
 		},
 	}
 
@@ -226,8 +178,8 @@ func addStorageDriverMethodCommandsTo(parent *cobra.Command, driverType string) 
 		Use:  "write-trivy-report <repo-name> <digest> <payload-content> <payload-format>",
 		Args: cobra.ExactArgs(4),
 		Run: func(cmd *cobra.Command, args []string) {
-			setup := must.Return(initializeStorageDriver(cmd.Context(), driverType))
-			executeWriteTrivyReport(cmd.Context(), setup.storageDriver, setup.account, args)
+			sd, account := initializeStorageDriver(cmd.Context())
+			executeWriteTrivyReport(cmd.Context(), sd, account, args)
 		},
 	}
 
@@ -235,8 +187,8 @@ func addStorageDriverMethodCommandsTo(parent *cobra.Command, driverType string) 
 		Use:  "delete-trivy-report <repo-name> <digest> <format>",
 		Args: cobra.ExactArgs(3),
 		Run: func(cmd *cobra.Command, args []string) {
-			setup := must.Return(initializeStorageDriver(cmd.Context(), driverType))
-			executeDeleteTrivyReport(cmd.Context(), setup.storageDriver, setup.account, args)
+			sd, account := initializeStorageDriver(cmd.Context())
+			executeDeleteTrivyReport(cmd.Context(), sd, account, args)
 		},
 	}
 
@@ -244,8 +196,8 @@ func addStorageDriverMethodCommandsTo(parent *cobra.Command, driverType string) 
 		Use:  "list-storage-contents",
 		Args: cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			setup := must.Return(initializeStorageDriver(cmd.Context(), driverType))
-			executeListStorageContents(cmd.Context(), setup.storageDriver, setup.account)
+			sd, account := initializeStorageDriver(cmd.Context())
+			executeListStorageContents(cmd.Context(), sd, account)
 		},
 	}
 
@@ -253,8 +205,8 @@ func addStorageDriverMethodCommandsTo(parent *cobra.Command, driverType string) 
 		Use:  "can-setup-account",
 		Args: cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			setup := must.Return(initializeStorageDriver(cmd.Context(), driverType))
-			executeCanSetupAccount(cmd.Context(), setup.storageDriver, setup.account)
+			sd, account := initializeStorageDriver(cmd.Context())
+			executeCanSetupAccount(cmd.Context(), sd, account)
 		},
 	}
 
@@ -262,8 +214,8 @@ func addStorageDriverMethodCommandsTo(parent *cobra.Command, driverType string) 
 		Use:  "cleanup-account",
 		Args: cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			setup := must.Return(initializeStorageDriver(cmd.Context(), driverType))
-			executeCleanupAccount(cmd.Context(), setup.storageDriver, setup.account)
+			sd, account := initializeStorageDriver(cmd.Context())
+			executeCleanupAccount(cmd.Context(), sd, account)
 		},
 	}
 
