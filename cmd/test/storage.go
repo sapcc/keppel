@@ -44,9 +44,9 @@ func AddStorageCommandTo(parent *cobra.Command) {
 	}
 
 	storageCmd.PersistentFlags().StringVarP(&accountName, "account-name", "a", "", "Account name (required)")
-	storageCmd.MarkPersistentFlagRequired("account-name")
+	must.Succeed(storageCmd.MarkPersistentFlagRequired("account-name"))
 	storageCmd.PersistentFlags().StringVarP(&accountAuthTenantID, "account-auth-tenant-id", "", "", "Account auth tenant ID (required)")
-	storageCmd.MarkPersistentFlagRequired("account-auth-tenant-id")
+	must.Succeed(storageCmd.MarkPersistentFlagRequired("account-auth-tenant-id"))
 	storageCmd.PersistentFlags().StringVarP(&filesystemPath, "path", "p", "/tmp/keppel-test-storage", "Storage path for filesystem driver")
 
 	addSwiftStorageDriverCommandsTo(storageCmd)
@@ -291,12 +291,12 @@ func executeAppendToBlob(ctx context.Context, sd keppel.StorageDriver, account m
 	chunkNumberStr := args[1]
 	chunkData := args[2]
 
-	chunkNumber := must.Return(strconv.ParseUint(chunkNumberStr, 10, 32))
+	chunkNumber := uint32(must.Return(strconv.ParseUint(chunkNumberStr, 10, 32))) //nolint:gosec // no overflow possible
 
 	chunkDataBytes := []byte(chunkData)
 	sizeBytes := uint64(len(chunkDataBytes))
 
-	err := sd.AppendToBlob(ctx, account, storageID, uint32(chunkNumber), Some(sizeBytes), bytes.NewReader(chunkDataBytes))
+	err := sd.AppendToBlob(ctx, account, storageID, chunkNumber, Some(sizeBytes), bytes.NewReader(chunkDataBytes))
 	if err != nil {
 		logg.Fatal("AppendToBlob failed: %s", err.Error())
 	}
@@ -308,9 +308,9 @@ func executeFinalizeBlob(ctx context.Context, sd keppel.StorageDriver, account m
 	storageID := args[0]
 	chunkCountStr := args[1]
 
-	chunkCount := must.Return(strconv.ParseUint(chunkCountStr, 10, 32))
+	chunkCount := uint32(must.Return(strconv.ParseUint(chunkCountStr, 10, 32))) //nolint:gosec // no overflow possible
 
-	err := sd.FinalizeBlob(ctx, account, storageID, uint32(chunkCount))
+	err := sd.FinalizeBlob(ctx, account, storageID, chunkCount)
 	if err != nil {
 		logg.Fatal("FinalizeBlob failed: %s", err.Error())
 	}
@@ -322,9 +322,9 @@ func executeAbortBlobUpload(ctx context.Context, sd keppel.StorageDriver, accoun
 	storageID := args[0]
 	chunkCountStr := args[1]
 
-	chunkCount := must.Return(strconv.ParseUint(chunkCountStr, 10, 32))
+	chunkCount := uint32(must.Return(strconv.ParseUint(chunkCountStr, 10, 32))) //nolint:gosec // no overflow possible
 
-	err := sd.AbortBlobUpload(ctx, account, storageID, uint32(chunkCount))
+	err := sd.AbortBlobUpload(ctx, account, storageID, chunkCount)
 	if err != nil {
 		logg.Fatal("AbortBlobUpload failed: %s", err.Error())
 	}
