@@ -44,7 +44,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := api.CheckRateLimit(r, a.rle, *account, authz, keppel.BlobPushAction, 1)
+	err := api.CheckRateLimit(r, w, a.rle, *account, authz, keppel.BlobPushAction, 1)
 	if respondWithError(w, r, err) {
 		return
 	}

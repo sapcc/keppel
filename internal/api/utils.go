@@ -16,8 +16,8 @@ import (
 	"github.com/sapcc/keppel/internal/models"
 )
 
-// CheckRateLimit performs a rate limit check and renders a 429 error if the rate limit is exceeded.
-func CheckRateLimit(r *http.Request, rle *keppel.RateLimitEngine, account models.ReducedAccount, authz *auth.Authorization, action keppel.RateLimitedAction, amount uint64) error {
+// CheckRateLimit performs a rate limit check, adds rate limit headers on the response, and returns a 429 if the rate limit is exceeded.
+func CheckRateLimit(r *http.Request, w http.ResponseWriter, rle *keppel.RateLimitEngine, account models.ReducedAccount, authz *auth.Authorization, action keppel.RateLimitedAction, amount uint64) error {
 	// rate-limiting is optional
 	if rle == nil {
 		return nil
@@ -35,6 +35,14 @@ func CheckRateLimit(r *http.Request, rle *keppel.RateLimitEngine, account models
 	if err != nil {
 		return err
 	}
+
+	if result.Limit.Burst > 0 {
+		w.Header().Set("X-RateLimit-Action", string(action))
+		w.Header().Set("X-RateLimit-Limit", strconv.FormatUint(keppel.AtLeastZero(int64(result.Limit.Burst)), 10))
+		w.Header().Set("X-RateLimit-Remaining", strconv.FormatUint(keppel.AtLeastZero(int64(result.Remaining)), 10))
+		w.Header().Set("X-RateLimit-Reset", strconv.FormatUint(keppel.AtLeastZero(int64(result.ResetAfter.Seconds())), 10))
+	}
+
 	if result.Allowed <= 0 {
 		retryAfterStr := strconv.FormatUint(keppel.AtLeastZero(int64(result.RetryAfter/time.Second)), 10)
 		return keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr)
