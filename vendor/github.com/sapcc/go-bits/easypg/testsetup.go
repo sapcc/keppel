@@ -102,6 +102,7 @@ func WithTestDB(m *testing.M, action func() int) int {
 		cmd := exec.Command("initdb", "-A", "trust", "-U", "postgres", //nolint:gosec // rule G204 is overly broad
 			"-D", filepath.Join(rootPath, ".testdb/datadir"),
 			"-c", "external_pid_file="+filepath.Join(rootPath, ".testdb/run/pid"),
+			"-c", "max_connections=250", // the default of 100 is not enough for parallel test runs
 			"-c", "unix_socket_directories="+filepath.Join(rootPath, ".testdb/run"),
 			"-c", fmt.Sprintf("port=%d", testDBPort),
 		)
