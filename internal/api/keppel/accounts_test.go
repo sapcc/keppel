@@ -716,6 +716,22 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectBody:   assert.StringData("account names that look like API versions (e.g. v1) are reserved for internal use\n"),
 	}.Check(t, h)
 
+	// Just to be sure that this does not regress with any refactors in the future
+	for _, account := range []string{"_blobs", "_chunks", "-invalid"} {
+		assert.HTTPRequest{
+			Method: "PUT",
+			Path:   "/keppel/v1/accounts/" + account,
+			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
+			Body: assert.JSONObject{
+				"account": assert.JSONObject{
+					"auth_tenant_id": "tenant1",
+				},
+			},
+			ExpectStatus: http.StatusNotFound, // The API route handler uses [a-z0-9][a-z0-9-]{0,47} so we expect a 404 here
+			ExpectBody:   assert.StringData("404 page not found\n"),
+		}.Check(t, h)
+	}
+
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   "/keppel/v1/accounts/first",

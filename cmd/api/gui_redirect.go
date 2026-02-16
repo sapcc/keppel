@@ -29,7 +29,7 @@ func (g *guiRedirecter) AddTo(r *mux.Router) {
 		return
 	}
 
-	r.Methods("GET").Path("/{account:[a-z0-9-]{1,48}}/{repository:.+}").HandlerFunc(g.tryRedirectToGUI)
+	r.Methods("GET").Path("/{account:[a-z0-9][a-z0-9-]{0,47}}/{repository:.+}").HandlerFunc(g.tryRedirectToGUI)
 }
 
 func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request) {
