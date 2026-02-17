@@ -1,0 +1,11 @@
+{
+    "default": "@",
+    "account:list": "@",
+    "account:show": "@",
+    "account:pull": "@",
+    "account:push": "@",
+    "account:delete": "@",
+    "account:edit": "@",
+    "quota:show": "@",
+    "quota:edit": "@"
+}

@@ -57,6 +57,7 @@ reuse:
     - paths:
       - certs/*.crt
       - certs/README.md
+      - cmd/test/*.json
       - docs/*.png
       - docs/*.svg
       - docs/*.json
