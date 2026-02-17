@@ -34,7 +34,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := api.CheckRateLimit(r, a.rle, *account, authz, keppel.BlobPullAction, 1)
+	err := api.CheckRateLimit(r, w, a.rle, *account, authz, keppel.BlobPullAction, 1)
 	if respondWithError(w, r, err) {
 		return
 	}
@@ -104,7 +104,7 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 		// AnycastBlobBytePullAction is only relevant for GET requests since it
 		// limits the size of the response body (which is empty for HEAD)
 		if r.Method == http.MethodGet {
-			err = api.CheckRateLimit(r, a.rle, *account, authz, keppel.AnycastBlobBytePullAction, blob.SizeBytes)
+			err = api.CheckRateLimit(r, w, a.rle, *account, authz, keppel.AnycastBlobBytePullAction, blob.SizeBytes)
 			if respondWithError(w, r, err) {
 				return
 			}

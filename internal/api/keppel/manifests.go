@@ -282,7 +282,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := api.CheckRateLimit(r, a.rle, account.Reduced(), authz, keppel.TrivyReportRetrieveAction, 1)
+	err := api.CheckRateLimit(r, w, a.rle, account.Reduced(), authz, keppel.TrivyReportRetrieveAction, 1)
 	if err != nil {
 		if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok && rerr != nil {
 			rerr.WriteAsRegistryV2ResponseTo(w, r)
