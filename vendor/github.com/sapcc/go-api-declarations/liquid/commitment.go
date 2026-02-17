@@ -140,7 +140,7 @@ type Commitment struct {
 	ExpiresAt time.Time `json:"expiresAt"`
 
 	// OldExpiresAt is set when the expiration date of an existing commitment is changed. Depending on its status
-	// RequiresConfirmation() will evaulate to different results.
+	// RequiresConfirmation() will evaluate to different results.
 	OldExpiresAt Option[time.Time] `json:"oldExpiresAt,omitzero"`
 }
 

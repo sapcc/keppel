@@ -25,6 +25,9 @@ type ServiceInfo struct {
 	// If you run multiple replicas of the liquid, take care to ensure that they agree on the Version value.
 	Version int64 `json:"version"`
 
+	// The display name can be used in user-facing messages or interfaces to refer to the service.
+	DisplayName string `json:"displayName"`
+
 	// Info for each resource that this service provides.
 	Resources map[ResourceName]ResourceInfo `json:"resources"`
 
@@ -60,6 +63,9 @@ func (i ServiceInfo) Clone() ServiceInfo {
 // ResourceInfo describes a resource that a liquid's service provides.
 // This type appears in type ServiceInfo.
 type ResourceInfo struct {
+	// The display name can be used in user-facing messages or interfaces to refer to the resource.
+	DisplayName string `json:"displayName"`
+
 	// If omitted or empty, the resource is "countable" and any quota or usage values describe a number of objects.
 	// If non-empty, the resource is "measured" and quota or usage values are in multiples of the given unit.
 	// For example, the compute resource "cores" is countable, but the compute resource "ram" is measured, usually in MiB.
@@ -156,6 +162,9 @@ func (t Topology) IsValid() bool {
 // RateInfo describes a rate that a liquid's service provides.
 // This type appears in type ServiceInfo.
 type RateInfo struct {
+	// The display name can be used in user-facing messages or interfaces to refer to the rate.
+	DisplayName string `json:"displayName"`
+
 	// If omitted or empty, the rate is "countable" and usage values describe a number of events.
 	// If non-empty, the rate is "measured" and usage values are in multiples of the given unit.
 	// For example, the storage rate "volume_creations" is countable, but the network rate "outbound_transfer" is measured, e.g. in bytes.
