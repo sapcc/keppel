@@ -16,7 +16,7 @@ for managing Keppel accounts.
 This document uses the terminology defined in the [README.md](../README.md#terminology).
 
 - Error responses always have `Content-Type: text/plain`.
-- Account names must conform to the regex `^[a-z0-9-]{1,48}$`, that is, they may not be longer than 48 chars and may
+- Account names must conform to the regex `^[a-z0-9][a-z0-9-]{0,47}$`, that is, they may not be longer than 48 chars and may
   only contain lowercase letters, digits and dashes.
 
 ### Authentication

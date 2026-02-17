@@ -57,20 +57,20 @@ func (a *API) AddTo(r *mux.Router) {
 	//NOTE: Keppel account names are severely restricted because we used to
 	// derive Postgres database names from them.
 	r.Methods("GET").Path("/keppel/v1/accounts").HandlerFunc(a.handleGetAccounts)
-	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(a.handleGetAccount)
-	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(a.handlePutAccount)
-	r.Methods("DELETE").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}").HandlerFunc(a.handleDeleteAccount)
-	r.Methods("POST").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/sublease").HandlerFunc(a.handlePostAccountSublease)
-	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/security_scan_policies").HandlerFunc(a.handleGetSecurityScanPolicies)
-	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/security_scan_policies").HandlerFunc(a.handlePutSecurityScanPolicies)
+	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}").HandlerFunc(a.handleGetAccount)
+	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}").HandlerFunc(a.handlePutAccount)
+	r.Methods("DELETE").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}").HandlerFunc(a.handleDeleteAccount)
+	r.Methods("POST").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/sublease").HandlerFunc(a.handlePostAccountSublease)
+	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/security_scan_policies").HandlerFunc(a.handleGetSecurityScanPolicies)
+	r.Methods("PUT").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/security_scan_policies").HandlerFunc(a.handlePutSecurityScanPolicies)
 
-	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/repositories/{repo_name:.+}/_manifests").HandlerFunc(a.handleGetManifests)
-	r.Methods("DELETE").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/repositories/{repo_name:.+}/_manifests/{digest}").HandlerFunc(a.handleDeleteManifest)
-	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/repositories/{repo_name:.+}/_manifests/{digest}/trivy_report").HandlerFunc(a.handleGetTrivyReport)
-	r.Methods("DELETE").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/repositories/{repo_name:.+}/_tags/{tag_name}").HandlerFunc(a.handleDeleteTag)
+	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/repositories/{repo_name:.+}/_manifests").HandlerFunc(a.handleGetManifests)
+	r.Methods("DELETE").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/repositories/{repo_name:.+}/_manifests/{digest}").HandlerFunc(a.handleDeleteManifest)
+	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/repositories/{repo_name:.+}/_manifests/{digest}/trivy_report").HandlerFunc(a.handleGetTrivyReport)
+	r.Methods("DELETE").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/repositories/{repo_name:.+}/_tags/{tag_name}").HandlerFunc(a.handleDeleteTag)
 
-	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/repositories").HandlerFunc(a.handleGetRepositories)
-	r.Methods("DELETE").Path("/keppel/v1/accounts/{account:[a-z0-9-]{1,48}}/repositories/{repo_name:.+}").HandlerFunc(a.handleDeleteRepository)
+	r.Methods("GET").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/repositories").HandlerFunc(a.handleGetRepositories)
+	r.Methods("DELETE").Path("/keppel/v1/accounts/{account:[a-z0-9][a-z0-9-]{0,47}}/repositories/{repo_name:.+}").HandlerFunc(a.handleDeleteRepository)
 
 	r.Methods("GET").Path("/keppel/v1/peers").HandlerFunc(a.handleGetPeers)
 

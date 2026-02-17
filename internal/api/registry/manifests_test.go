@@ -117,6 +117,22 @@ func TestImageManifestLifecycle(t *testing.T) {
 				}.Check(t, h)
 			})
 
+			for _, repo := range []string{"_blobs", "_chunks", `-invalid`} {
+				// PUT failure case: invalid repository names (e.g. repos starting with '_' or '-'),
+				// including reserved internal repos _blobs and _chunks and the '-invalid' case
+				assert.HTTPRequest{
+					Method: "PUT",
+					Path:   "/v2/test1/" + repo + "/manifests/" + ref,
+					Header: map[string]string{
+						"Authorization": "Bearer " + token,
+						"Content-Type":  image.Manifest.MediaType,
+					},
+					Body:         assert.ByteData(image.Manifest.Contents),
+					ExpectStatus: http.StatusBadRequest,
+					ExpectBody:   test.ErrorCode(keppel.ErrNameInvalid),
+				}.Check(t, h)
+			}
+
 			// PUT failure case: malformed manifest
 			assert.HTTPRequest{
 				Method: "PUT",
