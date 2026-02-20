@@ -481,6 +481,14 @@ SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
 path = [
+  "vendor/github.com/klauspost/cpuid/v2/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Other"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = [
   "vendor/github.com/klauspost/pgzip/**",
 ]
 precedence = "aggregate"
@@ -729,6 +737,14 @@ SPDX-License-Identifier = "MIT"
 
 [[annotations]]
 path = [
+  "vendor/github.com/zeebo/xxh3/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Other"
+SPDX-License-Identifier = "BSD-2-Clause"
+
+[[annotations]]
+path = [
   "vendor/go.opentelemetry.io/auto/sdk/**",
 ]
 precedence = "aggregate"
@@ -766,6 +782,14 @@ path = [
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = [
+  "vendor/go.uber.org/atomic/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Other"
+SPDX-License-Identifier = "MIT"
 
 [[annotations]]
 path = [

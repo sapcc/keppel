@@ -142,6 +142,13 @@ linters:
         - G112
         # created file permissions are restricted by umask if necessary
         - G306
+        # the following lints cause false-positives in many repositories, should be fixed with the next release. (see https://github.com/securego/gosec/issues/1500)
+        - G701
+        - G702
+        - G703
+        - G704
+        - G705
+        - G706
     govet:
       disable:
         - fieldalignment
