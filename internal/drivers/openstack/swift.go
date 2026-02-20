@@ -36,6 +36,8 @@ type swiftContainerInfo struct {
 }
 
 type swiftDriver struct {
+	UseServiceUserProject bool `json:"use_service_user_project"`
+
 	mainAccount         *schwift.Account
 	containerInfos      map[models.AccountName]*swiftContainerInfo
 	containerInfosMutex sync.RWMutex
@@ -72,6 +74,9 @@ func (d *swiftDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error
 // appropriate (esp. keppel.ErrSizeInvalid and keppel.ErrTooManyRequests)
 
 func (d *swiftDriver) getBackendAccount(account models.ReducedAccount) *schwift.Account {
+	if d.UseServiceUserProject {
+		return d.mainAccount
+	}
 	return d.mainAccount.SwitchAccount("AUTH_" + account.AuthTenantID)
 }
 
