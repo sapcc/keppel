@@ -66,7 +66,7 @@ func (w *WrappedTransport) SetInsecureSkipVerify(insecure bool) {
 	}
 
 	if orig.TLSClientConfig == nil {
-		orig.TLSClientConfig = &tls.Config{} //nolint:gosec // only used in HTTP client, where stdlib auto-chooses strong TLS versions
+		orig.TLSClientConfig = &tls.Config{}
 	}
 	orig.TLSClientConfig.InsecureSkipVerify = insecure
 }

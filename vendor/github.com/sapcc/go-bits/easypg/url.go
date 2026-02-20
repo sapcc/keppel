@@ -13,15 +13,15 @@ import (
 )
 
 // URLParts contains the arguments for func URLFrom(), see documentation over
-// there.
+// there. JSON Tags are to prevent linting errors - this is never serialized.
 type URLParts struct {
-	HostName               string            // required
-	Port                   string            // optional (default value = 5432 for postgres:// scheme)
-	UserName               string            // required
-	Password               string            // optional
-	ConnectionOptions      string            // optional (usually used for options coming in via config)
-	ExtraConnectionOptions map[string]string // optional (usually used for options coming in via code)
-	DatabaseName           string            // required
+	HostName               string            `json:"-"` // required
+	Port                   string            `json:"-"` // optional (default value = 5432 for postgres:// scheme)
+	UserName               string            `json:"-"` // required
+	Password               string            `json:"-"` // optional
+	ConnectionOptions      string            `json:"-"` // optional (usually used for options coming in via config)
+	ExtraConnectionOptions map[string]string `json:"-"` // optional (usually used for options coming in via code)
+	DatabaseName           string            `json:"-"` // required
 }
 
 // This will be modified during unit tests to replace os.Hostname() with a test double.
