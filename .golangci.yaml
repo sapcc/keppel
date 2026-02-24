@@ -140,6 +140,8 @@ linters:
       excludes:
         # gosec wants us to set a short ReadHeaderTimeout to avoid Slowloris attacks, but doing so would expose us to Keep-Alive race conditions (see https://iximiuz.com/en/posts/reverse-proxy-http-keep-alive-and-502s/
         - G112
+        # if we put a password or token into a serialized payload, guess what, we probably did that on purpose
+        - G117
         # created file permissions are restricted by umask if necessary
         - G306
         # the following lints cause false-positives in many repositories, should be fixed with the next release. (see https://github.com/securego/gosec/issues/1500)

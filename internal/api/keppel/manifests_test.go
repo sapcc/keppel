@@ -82,7 +82,7 @@ func TestManifestsAPI(t *testing.T) {
 
 		// insert some dummy manifests and tags into each repo
 		for repoID := 1; repoID <= 3; repoID++ {
-			repo := repos[repoID-1] //nolint:gosec // subtraction cannot overflow below 0 because iteration starts at 1
+			repo := repos[repoID-1]
 
 			for idx := 1; idx <= 10; idx++ {
 				dummyDigest := test.DeterministicDummyDigest(repoID*10 + idx)
@@ -94,7 +94,7 @@ func TestManifestsAPI(t *testing.T) {
 					RepositoryID:      int64(repoID),
 					Digest:            dummyDigest,
 					MediaType:         manifest.DockerV2Schema2MediaType,
-					SizeBytes:         uint64(sizeBytes), //nolint:gosec // construction guarantees that value is positive
+					SizeBytes:         uint64(sizeBytes),
 					PushedAt:          pushedAt,
 					NextValidationAt:  pushedAt.Add(models.ManifestValidationInterval),
 					LabelsJSON:        `{"foo":"is there"}`,
@@ -151,7 +151,7 @@ func TestManifestsAPI(t *testing.T) {
 			renderedManifests[idx-1] = assert.JSONObject{
 				"digest":                          test.DeterministicDummyDigest(10 + idx),
 				"media_type":                      manifest.DockerV2Schema2MediaType,
-				"size_bytes":                      uint64(1000 * idx), //nolint:gosec // construction guarantees that value is positive
+				"size_bytes":                      uint64(1000 * idx),
 				"pushed_at":                       int64(1000 * (10 + idx)),
 				"last_pulled_at":                  nil,
 				"labels":                          assert.JSONObject{"foo": "is there"},

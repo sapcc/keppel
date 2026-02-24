@@ -95,12 +95,13 @@ func (d *federationDriver) claimPrimaryAccount(ctx context.Context, account mode
 	}
 
 	// three scenarios:
-	// 1. no one has a claim -> SETNX will claim it for us, so GET will return our hostname -> success
-	// 2. we have a claim -> SETNX does nothing, but GET will return our hostname -> success
-	// 3. someone else has a claim -> SETNX does nothing and GET returns their hostname -> error
+	// 1. no one has a claim -> SET NX will claim it for us, so GET will return our hostname -> success
+	// 2. we have a claim -> SET NX does nothing, but GET will return our hostname -> success
+	// 3. someone else has a claim -> SET NX does nothing and GET returns their hostname -> error
 
 	key := d.primaryKey(account.Name)
-	err := d.rc.SetNX(ctx, key, d.ownHostname, 0).Err()
+	nx := redis.SetArgs{Mode: "NX", TTL: 0}
+	err := d.rc.SetArgs(ctx, key, d.ownHostname, nx).Err()
 	if err != nil {
 		return keppel.ClaimErrored, err
 	}
@@ -212,11 +213,12 @@ func (d *federationDriver) ForfeitAccountName(ctx context.Context, account model
 
 // RecordExistingAccount implements the keppel.FederationDriver interface.
 func (d *federationDriver) RecordExistingAccount(ctx context.Context, account models.Account, now time.Time) error {
-	// record this account in Redis using idempotent operations (SETNX for primary, SADD for replica)
+	// record this account in Redis using idempotent operations (SET NX for primary, SADD for replica)
 	var expectedPrimaryHostname string
 	if account.UpstreamPeerHostName == "" {
 		expectedPrimaryHostname = d.ownHostname
-		err := d.rc.SetNX(ctx, d.primaryKey(account.Name), d.ownHostname, 0).Err()
+		nx := redis.SetArgs{Mode: "NX", TTL: 0}
+		err := d.rc.SetArgs(ctx, d.primaryKey(account.Name), d.ownHostname, nx).Err()
 		if err != nil {
 			return err
 		}
