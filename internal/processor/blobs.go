@@ -340,7 +340,7 @@ func (r *chunkingTrackingReader) IsEOF() bool {
 		return true
 	}
 	if n == 1 {
-		r.peeked = &buf[0] //nolint:gosec // "index out of range" error is a clear false positive
+		r.peeked = &buf[0]
 	}
 	return false
 	//NOTE: Non-EOF errors are discarded here, but the next Read() should surface them.

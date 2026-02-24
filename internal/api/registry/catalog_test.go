@@ -116,7 +116,7 @@ func testNonEmptyCatalog(t *testing.T, s test.Setup) {
 
 			path := fmt.Sprintf(`/v2/_catalog?n=%d`, length)
 			if offset > 0 {
-				path += `&last=` + allRepos[offset-1]
+				path += `&last=` + allRepos[offset-1] //nolint:gosec // slice index is clearly not out of range
 			}
 
 			assert.HTTPRequest{
