@@ -14,7 +14,7 @@ data in the Swift container `keppel-$ACCOUNT_NAME` in the OpenStack project that
 export KEPPEL_DRIVER_STORAGE='{"type":"swift","params":{...}}'
 ```
 
-The service user must have permissions to switch to every Swift account. Such access is usually provided by the `swiftreseller` role.
+The service user must have permissions to switch to every Swift account (usually with the `swiftreseller` role), unless `use_service_user_project` is true. In this case write access to the service project is sufficient (usually with the `swiftoperator` role).
 
 The following parameters may be supplied in `$KEPPEL_DRIVER_STORAGE`:
 
