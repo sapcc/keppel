@@ -35,19 +35,21 @@ var (
 // AddStorageCommandTo mounts the storage test command into the test-driver command hierarchy.
 func AddStorageCommandTo(parent *cobra.Command) {
 	storageCmd := &cobra.Command{
-		Use:     "storage <driver-impl> <method> <args...>",
+		Use:     "storage",
 		Example: "  keppel test-driver storage --ad keystone --sd swift -a myaccount -t 3d9880d658e34770 read-manifest repo sha256:abc123",
 		Short:   "Manual test harness for storage driver implementations.",
 		Long:    `Manual test harness for storage driver implementations. Performs the minimum required setup to obtain the respective storage driver instance, executes the method and then displays the result.`,
+		Args:    cobra.NoArgs,
+		Run:     func(cmd *cobra.Command, _ []string) { _ = cmd.Help() },
 	}
 
 	storageCmd.PersistentFlags().StringVarP(&accountName, "account-name", "a", "", "Account name (required)")
 	must.Succeed(storageCmd.MarkPersistentFlagRequired("account-name"))
 	storageCmd.PersistentFlags().StringVarP(&accountAuthTenantID, "account-auth-tenant-id", "t", "", "Account auth tenant ID (required)")
 	must.Succeed(storageCmd.MarkPersistentFlagRequired("account-auth-tenant-id"))
-	storageCmd.PersistentFlags().StringVarP(&authDriverType, "ad", "", "trivial", "Type name for auth driver")
+	storageCmd.PersistentFlags().StringVarP(&authDriverType, "ad", "", "", `Type name for auth driver (e.g. "trivial")`)
 	must.Succeed(storageCmd.MarkPersistentFlagRequired("ad"))
-	storageCmd.PersistentFlags().StringVarP(&storageDriverType, "sd", "", "", "Type name for storage driver")
+	storageCmd.PersistentFlags().StringVarP(&storageDriverType, "sd", "", "", `Type name for storage driver (e.g. "filesystem")`)
 	must.Succeed(storageCmd.MarkPersistentFlagRequired("sd"))
 	storageCmd.PersistentFlags().StringVarP(&storageDriverParamsJSON, "params", "p", `{}`, "Parameters for storage driver (encoded as JSON)")
 
@@ -153,6 +155,9 @@ func wrapStorageCommand(action func(context.Context, keppel.StorageDriver, model
 			authConfig = `{"type":"trivial","params":{"username":"test","password":"test"}}`
 		case "keystone":
 			authConfig = `{"type":"keystone","params":{"oslo_policy_path":"cmd/test/policy.json"}}`
+		default:
+			// this will most likely fail because we do not have any params, but it will fail with a useful error message about what params are missing
+			authConfig = string(must.Return(json.Marshal(map[string]any{"type": authDriverType})))
 		}
 		ad := must.Return(keppel.NewAuthDriver(ctx, authConfig, nil))
 
