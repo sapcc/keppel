@@ -36,11 +36,11 @@ var (
 func AddStorageCommandTo(parent *cobra.Command) {
 	storageCmd := &cobra.Command{
 		Use:     "storage",
-		Example: "  keppel test-driver storage --ad keystone --sd swift -a myaccount -t 3d9880d658e34770 read-manifest repo sha256:abc123",
+		Example: "  keppel test-driver storage --ad keystone --sd swift -a myaccount -t 3d9880d658e34770 read-manifest repo sha256:abc123...",
 		Short:   "Manual test harness for storage driver implementations.",
 		Long:    `Manual test harness for storage driver implementations. Performs the minimum required setup to obtain the respective storage driver instance, executes the method and then displays the result.`,
 		Args:    cobra.NoArgs,
-		Run:     func(cmd *cobra.Command, _ []string) { _ = cmd.Help() },
+		Run:     func(cmd *cobra.Command, _ []string) { cmd.Help() },
 	}
 
 	storageCmd.PersistentFlags().StringVarP(&accountName, "account-name", "a", "", "Account name (required)")

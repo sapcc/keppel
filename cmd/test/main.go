@@ -15,7 +15,7 @@ func AddCommandTo(parent *cobra.Command) {
 		Short:   "Manual test harness for driver implementations.",
 		Long:    `Manual test harness for driver implementations. Performs the minimum required setup to obtain the respective driver instance, executes the method and then displays the result.`,
 		Args:    cobra.NoArgs,
-		Run:     func(cmd *cobra.Command, _ []string) { _ = cmd.Help() },
+		Run:     func(cmd *cobra.Command, _ []string) { cmd.Help() },
 	}
 
 	AddStorageCommandTo(testDriverCmd)
