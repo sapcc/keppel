@@ -17,7 +17,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/majewsky/gg v1.5.0
 	github.com/majewsky/schwift/v2 v2.0.0
-	github.com/opencontainers/distribution-spec/specs-go v0.0.0-20260129194314-05d45d0f94ad
+	github.com/opencontainers/distribution-spec/specs-go v0.0.0-20260226183029-aa0c00b0645d
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/prometheus/client_golang v1.23.2
