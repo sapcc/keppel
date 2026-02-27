@@ -14,6 +14,7 @@ import (
 	apicmd "github.com/sapcc/keppel/cmd/api"
 	healthmonitorcmd "github.com/sapcc/keppel/cmd/healthmonitor"
 	janitorcmd "github.com/sapcc/keppel/cmd/janitor"
+	testcmd "github.com/sapcc/keppel/cmd/test"
 	trivyproxycmd "github.com/sapcc/keppel/cmd/trivyproxy"
 	validatecmd "github.com/sapcc/keppel/cmd/validate"
 	validateconfigcmd "github.com/sapcc/keppel/cmd/validateconfig"
@@ -43,6 +44,7 @@ func main() {
 		},
 	}
 	validatecmd.AddCommandTo(rootCmd)
+	testcmd.AddCommandTo(rootCmd)
 
 	serverCmd := &cobra.Command{
 		Use:   "server <subcommand> <args...>",
