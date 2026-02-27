@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"slices"
 
+	. "github.com/majewsky/gg/option"
+
 	"github.com/sapcc/go-api-declarations/internal/clone"
 )
 
@@ -27,6 +29,10 @@ type ServiceInfo struct {
 
 	// The display name can be used in user-facing messages or interfaces to refer to the service.
 	DisplayName string `json:"displayName"`
+
+	// Info for each category that can group resources and rates of this service.
+	// The default category (see liquid.DefaultCategoryName) need not, and may not be declared here.
+	Categories map[CategoryName]CategoryInfo `json:"categories"`
 
 	// Info for each resource that this service provides.
 	Resources map[ResourceName]ResourceInfo `json:"resources"`
@@ -57,7 +63,35 @@ func (i ServiceInfo) Clone() ServiceInfo {
 	cloned.Rates = clone.MapRecursively(i.Rates)
 	cloned.CapacityMetricFamilies = clone.MapRecursively(i.CapacityMetricFamilies)
 	cloned.UsageMetricFamilies = clone.MapRecursively(i.UsageMetricFamilies)
+	cloned.Categories = clone.MapRecursively(i.Categories)
 	return cloned
+}
+
+// CategoryName is a name of a category that can group resources and rates.
+// It appears in type ServiceInfo, ResourceInfo and RateInfo.
+type CategoryName string
+
+// DefaultCategoryName is a reserved category name that can be used for resources and rates that
+// do not belong to any specific category.
+const DefaultCategoryName CategoryName = "default"
+
+// IsValid returns whether a CategoryName is valid.
+// This can be used to check unmarshalled values.
+func (c CategoryName) IsValid() bool {
+	return c != ""
+}
+
+// CategoryInfo describes a category that can group resources and rates of a liquid's service.
+// This type appears in type ServiceInfo.
+type CategoryInfo struct {
+	DisplayName string `json:"displayName"`
+}
+
+// Clone returns a deep copy of the given CategoryInfo.
+func (c CategoryInfo) Clone() CategoryInfo {
+	// this method is only offered for compatibility with future expansion;
+	// right now, all fields are copied by-value automatically
+	return c
 }
 
 // ResourceInfo describes a resource that a liquid's service provides.
@@ -65,6 +99,11 @@ func (i ServiceInfo) Clone() ServiceInfo {
 type ResourceInfo struct {
 	// The display name can be used in user-facing messages or interfaces to refer to the resource.
 	DisplayName string `json:"displayName"`
+
+	// Category references one entry of ServiceInfo.Categories.
+	// It can be used in user-facing messages or interfaces to group resources of one service into subgroups.
+	// If None, the resource is grouped into the implicitly-defined default category.
+	Category Option[CategoryName] `json:"categoryName,omitzero"`
 
 	// If omitted or empty, the resource is "countable" and any quota or usage values describe a number of objects.
 	// If non-empty, the resource is "measured" and quota or usage values are in multiples of the given unit.
@@ -106,7 +145,7 @@ func (i ResourceInfo) Clone() ResourceInfo {
 }
 
 // Topology describes how capacity and usage reported by a certain resource is structured.
-// Type type appears in type ResourceInfo.
+// It appears in type ResourceInfo.
 type Topology string
 
 const (
@@ -164,6 +203,11 @@ func (t Topology) IsValid() bool {
 type RateInfo struct {
 	// The display name can be used in user-facing messages or interfaces to refer to the rate.
 	DisplayName string `json:"displayName"`
+
+	// Category references one entry of ServiceInfo.Categories.
+	// It can be used in user-facing messages or interfaces to group rates of one service into subgroups.
+	// If None, the resource is grouped into the implicitly-defined default category.
+	Category Option[CategoryName] `json:"categoryName,omitzero"`
 
 	// If omitted or empty, the rate is "countable" and usage values describe a number of events.
 	// If non-empty, the rate is "measured" and usage values are in multiples of the given unit.

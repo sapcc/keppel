@@ -38,24 +38,65 @@ func ValidateServiceInfo(srv ServiceInfo) error {
 }
 
 func validateServiceInfoImpl(srv ServiceInfo) (errs errorset.ErrorSet) {
+	categorySeen := make(map[CategoryName]struct{})
 	for _, resName := range slices.Sorted(maps.Keys(srv.Resources)) {
+		res := srv.Resources[resName]
 		if !resName.IsValid() {
 			errs.Addf(".Resources[%q] has invalid name (must match /%s/)", resName, identifierRx.String())
 		}
-		if !srv.Resources[resName].Topology.IsValid() {
+		if !res.Topology.IsValid() {
 			errs.Addf(".Resources[%q] has invalid topology %q", resName, srv.Resources[resName].Topology)
+		}
+		category, hasCategory := res.Category.Unpack()
+		if hasCategory {
+			categorySeen[category] = struct{}{}
+		}
+		if hasCategory && !category.IsValid() {
+			errs.Addf(".Resources[%q] has invalid category %q", resName, category)
+			continue // no further errs for this
+		}
+		if _, ok := srv.Categories[category]; hasCategory && !ok {
+			errs.Addf(".Resources[%q] has category %q, which is not declared in .Categories", resName, category)
 		}
 	}
 
 	for _, rateName := range slices.Sorted(maps.Keys(srv.Rates)) {
+		rate := srv.Rates[rateName]
 		if !rateName.IsValid() {
 			errs.Addf(".Rates[%q] has invalid name (must match /%s/)", rateName, identifierRx.String())
 		}
-		if !srv.Rates[rateName].Topology.IsValid() {
+		if !rate.Topology.IsValid() {
 			errs.Addf(".Rates[%q] has invalid topology %q", rateName, srv.Rates[rateName].Topology)
 		}
-		if !srv.Rates[rateName].HasUsage {
+		if !rate.HasUsage {
 			errs.Addf(".Rates[%q] declared with HasUsage = false, but must be true", rateName)
+		}
+		category, hasCategory := rate.Category.Unpack()
+		if hasCategory {
+			categorySeen[category] = struct{}{}
+		}
+		if hasCategory && !category.IsValid() {
+			errs.Addf(".Rates[%q] has invalid category %q", rateName, category)
+			continue // no further errs for this
+		}
+		if _, ok := srv.Categories[category]; hasCategory && !ok {
+			errs.Addf(".Rates[%q] has category %q, which is not declared in .Categories", rateName, category)
+		}
+	}
+
+	for categoryName, categoryInfo := range srv.Categories {
+		if categoryName == DefaultCategoryName {
+			errs.Addf(`.Categories[%q] has reserved identifier %q`, categoryName, DefaultCategoryName)
+			continue // no further errs for this
+		}
+		if !categoryName.IsValid() {
+			errs.Addf(".Categories[%q] has invalid identifier", categoryName)
+		}
+		if categoryInfo.DisplayName == "" {
+			errs.Addf(".Categories[%q] has invalid DisplayName", categoryName)
+		}
+		if _, ok := categorySeen[categoryName]; !ok {
+			errs.Addf(".Categories[%q] is not referenced by any resource or rate", categoryName)
 		}
 	}
 

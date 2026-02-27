@@ -200,14 +200,14 @@ github.com/redis/go-redis/v9/push
 ## explicit; go 1.13
 github.com/rs/cors
 github.com/rs/cors/internal
-# github.com/sapcc/go-api-declarations v1.19.0
+# github.com/sapcc/go-api-declarations v1.20.0
 ## explicit; go 1.24
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
 github.com/sapcc/go-api-declarations/internal/clone
 github.com/sapcc/go-api-declarations/internal/errorset
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20260226170120-c20f89b66c3c
+# github.com/sapcc/go-bits v0.0.0-20260227115921-50512683ebc4
 ## explicit; go 1.25
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
