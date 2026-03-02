@@ -36,8 +36,7 @@ func TestRateLimits(t *testing.T) {
 	}
 
 	testWithPrimary(t, setupOptions, func(s test.Setup) {
-		// create the "test1/foo" repository to ensure that we don't just always hit
-		// NAME_UNKNOWN errors
+		// create the "test1/foo" repository to ensure that we don't just always hit NAME_UNKNOWN errors
 		_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
 
 		h := s.Handler
@@ -209,5 +208,56 @@ func TestAnycastRateLimits(t *testing.T) {
 				expectBlobExists(t, h, anycastToken, "test1/foo", blob, anycastHeaders)
 			})
 		})
+	})
+}
+
+func TestRateLimitRounding(t *testing.T) {
+	// NOTE: this must be that high as we otherwise do not observe rounding errors when calculating the rate limit values
+	limit := redis_rate.Limit{Rate: 1000, Period: time.Minute, Burst: 1200}
+	rld := &basic.RateLimitDriver{
+		Limits: map[keppel.RateLimitedAction]redis_rate.Limit{
+			keppel.BlobPullAction:     limit,
+			keppel.BlobPushAction:     limit,
+			keppel.ManifestPullAction: limit,
+			keppel.ManifestPushAction: limit,
+		},
+	}
+	rle := &keppel.RateLimitEngine{Driver: rld, Client: nil}
+	setupOptions := []test.SetupOption{
+		test.WithRateLimitEngine(rle),
+	}
+
+	testWithPrimary(t, setupOptions, func(s test.Setup) {
+		h := s.Handler
+
+		_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
+		testRequest := assert.HTTPRequest{
+			Method:       "GET",
+			Path:         "/v2/test1/foo/blobs/" + test.DeterministicDummyDigest(1).String(),
+			Header:       map[string]string{"Authorization": "Bearer " + s.GetToken(t, "repository:test1/foo:pull,push")},
+			ExpectStatus: http.StatusNotFound,
+			ExpectHeader: map[string]string{
+				test.VersionHeaderKey: test.VersionHeaderValue,
+				"X-RateLimit-Action":  string(keppel.BlobPullAction),
+			},
+			ExpectBody: test.ErrorCode(keppel.ErrBlobUnknown),
+		}
+
+		for i := 1; i <= limit.Burst; i++ {
+			testRequest.Check(t, h)
+		}
+
+		// next request should be rate-limited
+		failingReq := testRequest
+		failingReq.ExpectBody = test.ErrorCode(keppel.ErrTooManyRequests)
+		failingReq.ExpectStatus = http.StatusTooManyRequests
+		failingReq.ExpectHeader = map[string]string{
+			test.VersionHeaderKey:   test.VersionHeaderValue,
+			"X-RateLimit-Limit":     strconv.Itoa(limit.Burst),
+			"X-RateLimit-Remaining": "0",
+			"X-RateLimit-Reset":     "72",
+			"Retry-After":           "1",
+		}
+		failingReq.Check(t, h)
 	})
 }
