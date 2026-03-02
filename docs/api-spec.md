@@ -52,6 +52,24 @@ work, but `dockerhubmirror.registry.example.com` does work.
 The domain-remapped domain names only offer the OCI Distribution API and the `GET /keppel/v1/auth` endpoint. The Keppel
 API itself can only be accessed through the respective Keppel instance's main domain name.
 
+### Rate limiting
+
+Some endpoints in Keppel have rate limits. If a request is rejected due to a rate limit, the response will have status code `429 Too Many Requests` and include a `Retry-After` header indicating how long the client should wait before retrying.
+Keppel also includes rate limit information in the `X-RateLimit-*` response headers, which can be used by clients to monitor their current rate limit usage and adjust their request patterns accordingly.
+An incomplete response could look like:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 30
+X-RateLimit-Action: pullmanifest
+X-RateLimit-Limit: 1200
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 25
+```
+
+The basic rate limit engine is a leaky bucket algorithm and refills at a constant rate. As an image upload may require multiple requests, one for each manifest and blob, an end user should wait accordingly for their image upload to complete.
+This also means that constantly retrying a request that is being rate limited will not speed up the process, but rather make it slower. Instead, clients should wait for the `Retry-After` duration before retrying.
+
 ## GET /keppel/v1
 
 Shows information about this Keppel API. Authentication is not required.
