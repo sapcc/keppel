@@ -18,14 +18,16 @@ import (
 )
 
 // Increment this whenever the output of handleLiquidGetInfo() changes.
-const LiquidInfoVersion int64 = 1
+const LiquidInfoVersion int64 = 2
 
 func (a *API) handleLiquidGetInfo(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/liquid/v1/info")
 	respondwith.JSON(w, http.StatusOK, liquid.ServiceInfo{
-		Version: LiquidInfoVersion,
+		DisplayName: "Container Image Registry",
+		Version:     LiquidInfoVersion,
 		Resources: map[liquid.ResourceName]liquid.ResourceInfo{
 			"images": {
+				DisplayName: "Images",
 				Unit:        liquid.UnitNone,
 				Topology:    liquid.FlatTopology,
 				HasCapacity: false,
