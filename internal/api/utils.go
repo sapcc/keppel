@@ -4,7 +4,6 @@
 package api
 
 import (
-	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -41,11 +40,11 @@ func CheckRateLimit(r *http.Request, w http.ResponseWriter, rle *keppel.RateLimi
 		w.Header().Set("X-RateLimit-Action", string(action))
 		w.Header().Set("X-RateLimit-Limit", strconv.FormatUint(keppel.AtLeastZero(int64(result.Limit.Burst)), 10))
 		w.Header().Set("X-RateLimit-Remaining", strconv.FormatUint(keppel.AtLeastZero(int64(result.Remaining)), 10))
-		w.Header().Set("X-RateLimit-Reset", strconv.FormatUint(keppel.AtLeastZero(int64(math.Ceil(result.ResetAfter.Seconds()))), 10))
+		w.Header().Set("X-RateLimit-Reset", strconv.FormatUint(keppel.AtLeastZero(int64((result.ResetAfter+time.Second-1)/time.Second)), 10))
 	}
 
 	if result.Allowed <= 0 {
-		retryAfterStr := strconv.FormatUint(keppel.AtLeastZero(int64(math.Ceil(float64(result.RetryAfter)/float64(time.Second)))), 10)
+		retryAfterStr := strconv.FormatUint(keppel.AtLeastZero(int64((result.RetryAfter+time.Second-1)/time.Second)), 10)
 		return keppel.ErrTooManyRequests.With("").WithHeader("Retry-After", retryAfterStr)
 	}
 
