@@ -256,7 +256,8 @@ func TestRateLimitRounding(t *testing.T) {
 			"X-RateLimit-Limit":     strconv.Itoa(limit.Burst),
 			"X-RateLimit-Remaining": "0",
 			"X-RateLimit-Reset":     "72",
-			"Retry-After":           "1",
+			// we used to see a value of 0 here because the rate limit refills very quickly, and thus the wait is significantly shorter than 0.5 seconds, which was rounded to 0
+			"Retry-After": "1",
 		}
 		failingReq.Check(t, h)
 	})
