@@ -34,7 +34,7 @@ func TestQuotasAPI(t *testing.T) {
 	}.Check(t, h)
 	buildLiquidResponse := func(quota, usage uint64) assert.JSONObject {
 		return assert.JSONObject{
-			"infoVersion": 1,
+			"infoVersion": 2,
 			"resources": map[string]assert.JSONObject{
 				"images": {
 					"forbidden": false,
