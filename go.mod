@@ -12,7 +12,7 @@ require (
 	github.com/gofrs/uuid/v5 v5.4.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/cel-go v0.27.0
-	github.com/gophercloud/gophercloud/v2 v2.10.0
+	github.com/gophercloud/gophercloud/v2 v2.11.0
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/majewsky/gg v1.5.0
@@ -23,8 +23,8 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/rs/cors v1.11.1
-	github.com/sapcc/go-api-declarations v1.20.1
-	github.com/sapcc/go-bits v0.0.0-20260303121209-46babdc0d583
+	github.com/sapcc/go-api-declarations v1.20.2
+	github.com/sapcc/go-bits v0.0.0-20260304154021-aa2c8a1d2bca
 	github.com/spf13/cobra v1.10.2
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 )

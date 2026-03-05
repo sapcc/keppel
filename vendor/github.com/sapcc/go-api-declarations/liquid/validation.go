@@ -85,10 +85,6 @@ func validateServiceInfoImpl(srv ServiceInfo) (errs errorset.ErrorSet) {
 	}
 
 	for categoryName, categoryInfo := range srv.Categories {
-		if categoryName == DefaultCategoryName {
-			errs.Addf(`.Categories[%q] has reserved identifier %q`, categoryName, DefaultCategoryName)
-			continue // no further errs for this
-		}
 		if !categoryName.IsValid() {
 			errs.Addf(".Categories[%q] has invalid identifier", categoryName)
 		}

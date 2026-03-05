@@ -56,7 +56,7 @@ RUN addgroup -g 4200 appgroup \
 # upgrade all installed packages to fix potential CVEs in advance
 # also remove apk package manager to hopefully remove dependency on OpenSSL 🤞
 RUN apk upgrade --no-cache --no-progress \
-  && apk del --no-cache --no-progress apk-tools alpine-keys alpine-release musl-utils
+  && apk del --no-cache --no-progress apk-tools alpine-keys musl-utils
 
 COPY --from=builder /etc/ssl/certs/ /etc/ssl/certs/
 COPY --from=builder /etc/ssl/cert.pem /etc/ssl/cert.pem

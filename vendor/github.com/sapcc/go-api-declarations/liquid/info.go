@@ -31,7 +31,6 @@ type ServiceInfo struct {
 	DisplayName string `json:"displayName"`
 
 	// Info for each category that can group resources and rates of this service.
-	// The default category (see liquid.DefaultCategoryName) need not, and may not be declared here.
 	Categories map[CategoryName]CategoryInfo `json:"categories"`
 
 	// Info for each resource that this service provides.
@@ -70,10 +69,6 @@ func (i ServiceInfo) Clone() ServiceInfo {
 // CategoryName is a name of a category that can group resources and rates.
 // It appears in type ServiceInfo, ResourceInfo and RateInfo.
 type CategoryName string
-
-// DefaultCategoryName is a reserved category name that can be used for resources and rates that
-// do not belong to any specific category.
-const DefaultCategoryName CategoryName = "default"
 
 // IsValid returns whether a CategoryName is valid.
 // This can be used to check unmarshalled values.
