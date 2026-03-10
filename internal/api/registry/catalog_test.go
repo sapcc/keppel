@@ -201,7 +201,6 @@ func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/_catalog",
-		Header:       test.AddHeadersForCorrectAuthChallenge(nil),
 		ExpectStatus: http.StatusUnauthorized,
 		ExpectHeader: map[string]string{
 			test.VersionHeaderKey: test.VersionHeaderValue,
@@ -216,7 +215,7 @@ func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/_catalog",
-		Header:       test.AddHeadersForCorrectAuthChallenge(map[string]string{"Authorization": "Bearer " + token}),
+		Header:       map[string]string{"Authorization": "Bearer " + token},
 		ExpectStatus: http.StatusUnauthorized,
 		ExpectHeader: map[string]string{
 			test.VersionHeaderKey: test.VersionHeaderValue,

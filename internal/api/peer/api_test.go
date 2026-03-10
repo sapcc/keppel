@@ -25,7 +25,6 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 	assert.HTTPRequest{
 		Method:       "POST",
 		Path:         "/peer/v1/sync-replica/test1/foo",
-		Header:       test.AddHeadersForCorrectAuthChallenge(nil),
 		ExpectStatus: http.StatusUnauthorized,
 		ExpectHeader: map[string]string{
 			"Www-Authenticate": `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_api:peer:access"`,
