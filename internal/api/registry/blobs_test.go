@@ -165,7 +165,6 @@ func TestBlobMonolithicUpload(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/test1/foo/blobs/" + blob.Digest.String(),
-			Header:       test.AddHeadersForCorrectAuthChallenge(nil),
 			ExpectStatus: http.StatusUnauthorized,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey: test.VersionHeaderValue,
@@ -221,10 +220,10 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			assert.HTTPRequest{
 				Method: "POST",
 				Path:   "/v2/test1/foo/blobs/uploads/",
-				Header: test.AddHeadersForCorrectAuthChallenge(map[string]string{
+				Header: map[string]string{
 					"Content-Length": strconv.Itoa(len(blob.Contents)),
 					"Content-Type":   "application/octet-stream",
-				}),
+				},
 				Body:         assert.ByteData(blob.Contents),
 				ExpectStatus: http.StatusUnauthorized,
 				ExpectHeader: map[string]string{

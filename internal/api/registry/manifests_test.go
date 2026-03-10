@@ -374,7 +374,6 @@ func TestImageManifestLifecycle(t *testing.T) {
 			assert.HTTPRequest{
 				Method:       "GET",
 				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
-				Header:       test.AddHeadersForCorrectAuthChallenge(nil),
 				ExpectStatus: http.StatusUnauthorized,
 				ExpectHeader: map[string]string{
 					test.VersionHeaderKey: test.VersionHeaderValue,

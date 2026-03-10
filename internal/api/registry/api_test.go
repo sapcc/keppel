@@ -22,7 +22,6 @@ func TestVersionCheckEndpoint(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/",
-			Header:       test.AddHeadersForCorrectAuthChallenge(nil),
 			ExpectStatus: http.StatusUnauthorized,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey: test.VersionHeaderValue,
@@ -79,7 +78,7 @@ func TestKeppelAPIAuth(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/",
-			Header:       test.AddHeadersForCorrectAuthChallenge(map[string]string{"Authorization": "keppel"}),
+			Header:       map[string]string{"Authorization": "keppel"},
 			ExpectStatus: http.StatusUnauthorized,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey: test.VersionHeaderValue,
@@ -132,10 +131,10 @@ func TestKeppelAPIAuth(t *testing.T) {
 		assert.HTTPRequest{
 			Method: "GET",
 			Path:   "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
-			Header: test.AddHeadersForCorrectAuthChallenge(map[string]string{
+			Header: map[string]string{
 				"Authorization": "keppel",
 				"X-Test-Perms":  "view:test1authtenant",
-			}),
+			},
 			ExpectStatus: http.StatusUnauthorized,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey: test.VersionHeaderValue,

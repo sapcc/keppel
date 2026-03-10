@@ -28,7 +28,6 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/keppel/v1/accounts/test1/repositories/foo/_manifests",
-		Header:       test.AddHeadersForCorrectAuthChallenge(nil),
 		ExpectStatus: http.StatusForbidden,
 		ExpectHeader: map[string]string{
 			"Www-Authenticate": `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull"`,
