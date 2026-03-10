@@ -6,6 +6,7 @@
 {"name": "github.com/mattn/go-localereader", "licenceType": "MIT"}
 {"name": "github.com/miekg/dns", "licenceType": "BSD-3-Clause"}
 {"name": "github.com/pashagolub/pgxmock/v4", "licenceType": "BSD-3-Clause"}
+{"name": "github.com/pashagolub/pgxmock/v5", "licenceType": "BSD-3-Clause"}
 {"name": "github.com/spdx/tools-golang", "licenceTextOverrideFile": "vendor/github.com/spdx/tools-golang/LICENSE.code"}
 {"name": "github.com/xeipuuv/gojsonpointer", "licenceType": "Apache-2.0"}
 {"name": "github.com/xeipuuv/gojsonreference", "licenceType": "Apache-2.0"}
