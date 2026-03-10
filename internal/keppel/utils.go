@@ -12,6 +12,9 @@ import (
 	. "github.com/majewsky/gg/option"
 )
 
+// IsRunningTests is set to true only during unit tests.
+var IsRunningTests = false
+
 // OriginalRequestURL returns the URL that the original requester used when
 // sending an HTTP request. This inspects the X-Forwarded-* set of headers to
 // identify reverse proxying.

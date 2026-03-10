@@ -591,7 +591,7 @@ func TestGetAccountsErrorCases(t *testing.T) {
 		ExpectStatus: http.StatusForbidden,
 		ExpectBody:   assert.StringData("no bearer token found in request headers\n"),
 		ExpectHeader: map[string]string{
-			"Www-Authenticate": `Bearer realm="http://example.com/keppel/v1/auth",service="registry.example.org",scope="keppel_account:first:view"`,
+			"Www-Authenticate": `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_account:first:view"`,
 		},
 	}.Check(t, h)
 	assert.HTTPRequest{
@@ -605,7 +605,7 @@ func TestGetAccountsErrorCases(t *testing.T) {
 		ExpectStatus: http.StatusForbidden,
 		ExpectBody:   assert.StringData("no bearer token found in request headers\n"),
 		ExpectHeader: map[string]string{
-			"Www-Authenticate": `Bearer realm="http://example.com/keppel/v1/auth",service="registry.example.org",scope="keppel_auth_tenant:tenant1:change"`,
+			"Www-Authenticate": `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_auth_tenant:tenant1:change"`,
 		},
 	}.Check(t, h)
 }
@@ -758,7 +758,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectBody:   assert.StringData("no bearer token found in request headers\n"),
 		ExpectHeader: map[string]string{
 			// default auth is bearer token auth, so an auth challenge gets rendered
-			"Www-Authenticate": `Bearer realm="http://example.com/keppel/v1/auth",service="registry.example.org",scope="keppel_auth_tenant:tenant1:change"`,
+			"Www-Authenticate": `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_auth_tenant:tenant1:change"`,
 		},
 	}.Check(t, h)
 
@@ -1276,7 +1276,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		ExpectBody:   assert.StringData("no bearer token found in request headers\n"),
 		ExpectHeader: map[string]string{
 			// default auth is bearer token auth, so an auth challenge gets rendered
-			"Www-Authenticate": `Bearer realm="http://example.com/keppel/v1/auth",service="registry.example.org",scope="keppel_account:first:change"`,
+			"Www-Authenticate": `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_account:first:change"`,
 		},
 	}.Check(t, h)
 	assert.HTTPRequest{

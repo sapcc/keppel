@@ -196,6 +196,14 @@ func (ir IncomingRequest) buildAuthChallenge(cfg keppel.Configuration, audience 
 	requestURL := keppel.OriginalRequestURL(ir.HTTPRequest)
 	apiURL := &url.URL{Scheme: requestURL.Scheme, Host: requestURL.Host, Path: "keppel/v1/auth"}
 
+	// during tests, net/http/httptest will default the Host to "example.com", which is not correct;
+	// we could circumvent this by writing out https://$REAL_HOST/ in each RespondTo() argument string,
+	// but overriding it here is easier
+	if keppel.IsRunningTests && requestURL.Scheme == "http" && requestURL.Host == "example.com" {
+		apiURL.Scheme = "https"
+		apiURL.Host = audience.Hostname(cfg)
+	}
+
 	return Challenge{
 		AuthEndpointURL:  apiURL.String(),
 		AudienceHostname: audience.Hostname(cfg),

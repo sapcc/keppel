@@ -33,6 +33,10 @@ import (
 	"github.com/sapcc/keppel/internal/trivy"
 )
 
+func init() {
+	keppel.IsRunningTests = true
+}
+
 type setupParams struct {
 	// all false/empty by default
 	IsSecondary             bool
