@@ -135,6 +135,7 @@ github.com/lib/pq/oid
 github.com/lib/pq/scram
 # github.com/majewsky/gg v1.5.0
 ## explicit; go 1.24
+github.com/majewsky/gg/jsonmatch
 github.com/majewsky/gg/option
 # github.com/majewsky/schwift/v2 v2.0.0
 ## explicit; go 1.22
@@ -218,6 +219,7 @@ github.com/sapcc/go-bits/gopherpolicy
 github.com/sapcc/go-bits/httpapi
 github.com/sapcc/go-bits/httpapi/pprofapi
 github.com/sapcc/go-bits/httpext
+github.com/sapcc/go-bits/httptest
 github.com/sapcc/go-bits/internal
 github.com/sapcc/go-bits/internal/testdiff
 github.com/sapcc/go-bits/jobloop

@@ -166,13 +166,14 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 
 			if !authz.ScopeSet.Contains(*scope) {
 				// not covered -> generate error, possibly with auth challenge
-				rerr := keppel.ErrUnauthorized.With("no bearer token found in request headers")
-				if authz.UserIdentity.UserType() != keppel.AnonymousUser {
-					if tokenFound {
-						rerr = keppel.ErrDenied.With("token does not cover scope %s", scope)
-					} else {
-						rerr = keppel.ErrDenied.With("no permission for %s", scope)
-					}
+				var rerr *keppel.RegistryV2Error
+				switch {
+				case tokenFound:
+					rerr = keppel.ErrDenied.With("token does not cover scope %s", scope)
+				case authz.UserIdentity.UserType() == keppel.AnonymousUser:
+					rerr = keppel.ErrUnauthorized.With("no bearer token found in request headers")
+				default:
+					rerr = keppel.ErrDenied.With("no permission for %s", scope)
 				}
 				if allowChallenge {
 					if tokenFound {

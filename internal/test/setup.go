@@ -17,6 +17,7 @@ import (
 	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httpapi"
+	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/mock"
 	"github.com/sapcc/go-bits/must"
@@ -150,7 +151,7 @@ type Setup struct {
 	FD           *FederationDriver
 	SD           *trivial.StorageDriver
 	ICD          *InboundCacheDriver
-	Handler      http.Handler
+	Handler      httptest.Handler
 	Ctx          context.Context //nolint: containedctx  // only used in tests
 	Registry     *prometheus.Registry
 	// fields that are only set if the respective With... setup option is included
@@ -300,7 +301,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	if params.WithPeerAPI {
 		apis = append(apis, peerv1.NewAPI(s.Config, ad, s.DB))
 	}
-	s.Handler = httpapi.Compose(apis...)
+	s.Handler = httptest.NewHandler(httpapi.Compose(apis...))
 	if tt, ok := http.DefaultTransport.(*RoundTripper); ok {
 		// make our own API reachable to other peers
 		tt.Handlers[s.Config.APIPublicHostname] = s.Handler
