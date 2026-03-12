@@ -77,7 +77,7 @@ func listenAndServeContext(ctx context.Context, server *http.Server, listenAndSe
 	// goroutine to the caller function.
 	waitForServerShutdown := make(chan error)
 	shutdownServer := make(chan struct{})
-	go func() {
+	go func() { //nolint:gosec // no, gosec, we really do not want to reuse `ctx` for context.WithTimeout(), that would not make sense
 		select {
 		case <-ctx.Done():
 		case <-shutdownServer:
