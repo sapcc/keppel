@@ -31,7 +31,7 @@ var findAccountForRepoQuery = sqlext.SimplifyWhitespace(`
 	WHERE r.id = $1
 `)
 
-// AbandonedUploadCleanupJob is a job. Each task finds an upload that has not
+// AbandonedUploadCleanupJob is a jobloop.Job Each task finds an upload that has not
 // been updated for more than a day, and cleans it up.
 func (j *Janitor) AbandonedUploadCleanupJob(registerer prometheus.Registerer) jobloop.Job {
 	return (&jobloop.TxGuardedJob[*gorp.Transaction, models.Upload]{

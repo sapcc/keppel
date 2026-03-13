@@ -165,13 +165,13 @@ func (a *API) handleGetOrHeadBlob(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleGetOrHeadBlobAnycast(w http.ResponseWriter, r *http.Request, info anycastRequestInfo) {
-	//NOTE: Rate limits are enforced by the peer that we reverse-proxy to, not by
+	// NOTE: Rate limits are enforced by the peer that we reverse-proxy to, not by
 	// us. We couldn't enforce them anyway because we don't have this account.
 	err := a.cfg.ReverseProxyAnycastRequestToPeer(w, r, info.PrimaryHostName)
 	if respondWithError(w, r, err) {
 		return
 	}
-	api.BlobsPulledCounter.With(info.AsPrometheusLabels()).Inc()
+	api.BlobsPulledCounter.With(info.asPrometheusLabels()).Inc()
 }
 
 // This implements the DELETE /v2/<account>/<repository>/blobs/<digest> endpoint.

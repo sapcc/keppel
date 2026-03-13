@@ -264,7 +264,7 @@ func (a *API) handleGetOrHeadManifestAnycast(w http.ResponseWriter, r *http.Requ
 	if respondWithError(w, r, err) {
 		return
 	}
-	api.ManifestsPulledCounter.With(info.AsPrometheusLabels()).Inc()
+	api.ManifestsPulledCounter.With(info.asPrometheusLabels()).Inc()
 }
 
 // This implements the DELETE /v2/<repo>/manifests/<reference> endpoint.

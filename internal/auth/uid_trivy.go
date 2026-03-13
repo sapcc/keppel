@@ -20,7 +20,7 @@ func init() {
 // access and access to the specialized peer API.
 type TrivyUserIdentity struct{}
 
-// UserType implements the keppel.UserIdentity interface.
+// PluginTypeID implements the keppel.UserIdentity interface.
 func (uid *TrivyUserIdentity) PluginTypeID() string {
 	return "trivy"
 }

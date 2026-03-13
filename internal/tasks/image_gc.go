@@ -41,7 +41,7 @@ var imageGCRepoDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE repos SET next_gc_at = $2 WHERE id = $1
 `)
 
-// ManifestGarbageCollectionJob is a job. Each task finds the a where GC has
+// ManifestGarbageCollectionJob is a jobloop.Job Each task finds the a where GC has
 // not been performed for more than an hour, and performs GC based on the GC
 // policies configured on the repo's account.
 func (j *Janitor) ManifestGarbageCollectionJob(registerer prometheus.Registerer) jobloop.Job { //nolint: dupl // interface implementation of different things

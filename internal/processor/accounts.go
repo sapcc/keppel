@@ -45,9 +45,11 @@ func (p *Processor) GetPlatformFilterFromPrimaryAccount(ctx context.Context, pee
 }
 
 var looksLikeAPIVersionRx = regexp.MustCompile(`^v[0-9][1-9]*$`)
+
+// ErrAccountNameEmpty is an error returned by Processor.CreateOrUpdateAccount when the account name is empty.
 var ErrAccountNameEmpty = errors.New("account name cannot be empty string")
 
-// CreateOrUpdate can be used on an API account and returns the database representation of it.
+// CreateOrUpdateAccount can be used on an API account and returns the database representation of it.
 func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Account, userInfo audittools.UserInfo, r *http.Request, getSubleaseToken func(models.Peer) (keppel.SubleaseToken, error), setCustomFields func(*models.Account) *keppel.RegistryV2Error) (models.Account, *keppel.RegistryV2Error) {
 	if account.Name == "" {
 		return models.Account{}, keppel.AsRegistryV2Error(ErrAccountNameEmpty)
@@ -316,6 +318,7 @@ var (
 	markAccountForDeletion = `UPDATE accounts SET is_deleting = TRUE, next_deletion_attempt_at = $1 WHERE name = $2`
 )
 
+// MarkAccountForDeletion updates an accounts deletion status and does the necessary audit logging.
 func (p *Processor) MarkAccountForDeletion(account models.Account, actx keppel.AuditContext) error {
 	_, err := p.db.Exec(markAccountForDeletion, p.timeNow(), account.Name)
 	if err != nil {

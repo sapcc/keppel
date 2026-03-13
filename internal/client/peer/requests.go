@@ -38,7 +38,7 @@ func (c Client) DownloadManifestViaPullDelegation(ctx context.Context, imageRef 
 	return respBodyBytes, respHeader.Get("Content-Type"), nil
 }
 
-// GetForeignAccountConfiguration asks the peer for the configuration of the
+// GetForeignAccountConfigurationInto asks the peer for the configuration of the
 // specified account on its side. We use this to match certain account
 // attributes with the primary account when creating a replica.
 //

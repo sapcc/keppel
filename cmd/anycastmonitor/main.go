@@ -117,7 +117,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 }
 
-// Validates the uploaded images and emits the keppel_anycastmonitor_result metric accordingly.
+// ValidateImages validates the uploaded images and emits the keppel_anycastmonitor_result metric accordingly.
 func (j *anycastMonitorJob) ValidateImages(ctx context.Context, manifestRef models.ManifestReference) {
 	for accountName, repoClient := range j.RepoClients {
 		labels := prometheus.Labels{"account": accountName}
@@ -175,6 +175,7 @@ func checkAnycastMembership(ctx context.Context, anycastURL *url.URL, apiPublicH
 	return tokenJSON.Issuer == expectedIssuer, nil
 }
 
+// ValidateAnycastMembership validates the anycast membership of the hostname and sets the prometheus gauge accordingly.
 func (j *anycastMonitorJob) ValidateAnycastMembership(ctx context.Context, anycastURL *url.URL, apiPublicHostname string) {
 	isAnycastMember, err := checkAnycastMembership(ctx, anycastURL, apiPublicHostname)
 

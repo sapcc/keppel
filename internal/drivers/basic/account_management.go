@@ -27,10 +27,12 @@ type AccountManagementDriver struct {
 	lock   sync.RWMutex
 }
 
+// AccountConfig appears in type AccountManagementDriver.
 type AccountConfig struct {
 	Accounts []Account `json:"accounts"`
 }
 
+// Account appears in type AccountConfig.
 type Account struct {
 	Name                 models.AccountName          `json:"name"`
 	AuthTenantID         string                      `json:"auth_tenant_id"`

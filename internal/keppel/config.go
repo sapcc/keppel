@@ -203,7 +203,7 @@ func newDriver[P pluggable.Plugin](driverType string, registry pluggable.Registr
 	return driver, nil
 }
 
-// Like yaml.UnmarshalStrict(), but for JSON.
+// UnmarshalJSONStrict is like yaml.UnmarshalStrict(), but for JSON.
 func UnmarshalJSONStrict(buf []byte, target any) error {
 	dec := json.NewDecoder(bytes.NewReader(buf))
 	dec.DisallowUnknownFields()

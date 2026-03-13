@@ -78,38 +78,46 @@ type userIdentity struct {
 	Perms    map[string]map[string]bool
 }
 
+// PluginTypeID implements the keppel.UserIdentity interface.
 func (uid *userIdentity) PluginTypeID() string {
 	return "unittest"
 }
 
+// UserName implements the keppel.UserIdentity interface.
 func (uid *userIdentity) UserName() string {
 	return uid.Username
 }
 
+// HasPermission implements the keppel.UserIdentity interface.
 func (uid *userIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
 	return uid.Perms[string(perm)][tenantID]
 }
 
+// UserType implements the keppel.UserIdentity interface.
 func (uid *userIdentity) UserType() keppel.UserType {
 	return keppel.RegularUser
 }
 
+// UserInfo implements the keppel.UserIdentity interface.
 func (uid *userIdentity) UserInfo() audittools.UserInfo {
 	// return a dummy UserInfo to enable testing of audit events (a nil UserInfo
 	// will suppress audit event generation)
 	return dummyUserInfo{}
 }
 
+// SerializeToJSON implements the keppel.UserIdentity interface.
 func (uid *userIdentity) SerializeToJSON() (payload []byte, err error) {
 	return json.Marshal(uid)
 }
 
+// DeserializeFromJSON implements the keppel.UserIdentity interface.
 func (uid *userIdentity) DeserializeFromJSON(in []byte, _ keppel.AuthDriver) error {
 	return json.Unmarshal(in, &uid)
 }
 
 type dummyUserInfo struct{}
 
+// AsInitiator implements the audittools.NonStandardUserInfo interface.
 func (dummyUserInfo) AsInitiator(_ cadf.Host) cadf.Resource {
 	return cadf.Resource{}
 }

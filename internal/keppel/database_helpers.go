@@ -212,6 +212,8 @@ func FindRepositoryByID(db gorp.SqlExecutor, id int64) (*models.Repository, erro
 	return &repo, err
 }
 
+// GetSecurityInfo is a convenience wrapper around db.SelectOne(). If the
+// securityInfo in question does not exist, sql.ErrNoRows is returned.
 func GetSecurityInfo(db gorp.SqlExecutor, repoID int64, manifestDigest digest.Digest) (*models.TrivySecurityInfo, error) {
 	var securityInfo *models.TrivySecurityInfo
 	err := db.SelectOne(&securityInfo,

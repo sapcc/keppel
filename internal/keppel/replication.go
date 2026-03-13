@@ -100,7 +100,7 @@ func RenderReplicationPolicy(account models.Account) *ReplicationPolicy {
 			ExternalPeer: ReplicationExternalPeerSpec{
 				URL:      account.ExternalPeerURL,
 				UserName: account.ExternalPeerUserName,
-				//NOTE: Password is omitted here for security reasons
+				// NOTE: Password is omitted here for security reasons
 			},
 		}
 	}
@@ -108,9 +108,9 @@ func RenderReplicationPolicy(account models.Account) *ReplicationPolicy {
 	return nil
 }
 
-var (
-	ErrIncompatibleReplicationPolicy = errors.New("cannot change replication policy on existing account")
-)
+// ErrIncompatibleReplicationPolicy is an error returned by ReplicationPolicy.ApplyToAccount
+// when an illegal attempt to change the replication policy is made.
+var ErrIncompatibleReplicationPolicy = errors.New("cannot change replication policy on existing account")
 
 // ApplyToAccount validates this policy and stores it in the given account model.
 //

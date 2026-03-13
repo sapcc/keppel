@@ -77,7 +77,7 @@ func (a Audience) Hostname(cfg keppel.Configuration) string {
 	return result
 }
 
-// PeerHostname takes the KEPPEL_API_PUBLIC_FQDN of a peer, and adds
+// MapPeerHostname takes the KEPPEL_API_PUBLIC_FQDN of a peer, and adds
 // domain-remapping to it if necessary. This is used when reverse-proxying
 // anycast requests to a peer, to ensure that domain-remapped requests stay
 // domain-remapped.
