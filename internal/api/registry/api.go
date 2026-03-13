@@ -167,7 +167,7 @@ type anycastRequestInfo struct {
 	PrimaryHostName string // the peer who has this account
 }
 
-func (info anycastRequestInfo) AsPrometheusLabels() prometheus.Labels {
+func (info anycastRequestInfo) asPrometheusLabels() prometheus.Labels {
 	// when counting a pull over the anycast API, we don't know the account's auth
 	// tenant (since we're not hosting the account), so we're free to abuse ^W use
 	// this field for tracking the fact that we were redirecting an anycast

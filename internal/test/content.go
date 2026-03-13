@@ -8,6 +8,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math/rand"
 	"os"
 	"time"
@@ -18,8 +19,6 @@ import (
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/must"
-
-	"maps"
 
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -314,10 +313,12 @@ func makeTimestamp(seconds int) string {
 	return time.Unix(int64(seconds), 0).UTC().Format(time.RFC3339Nano)
 }
 
+// DeterministicDummyDigest creates a digest from the counter input, which can be used for testing.
 func DeterministicDummyDigest(counter int) digest.Digest {
 	return digest.SHA256.FromBytes(bytes.Repeat([]byte{1}, counter))
 }
 
+// OCIArgs are all relevant arguments for creating an OCIImage. It appears in GenerateOCIImage().
 type OCIArgs struct {
 	Config          map[string]any
 	ConfigMediaType string
@@ -326,6 +327,8 @@ type OCIArgs struct {
 	SubjectDigest   digest.Digest
 }
 
+// GenerateOCIImage creates an OCI image from the given arguments. The config blob to be stored in the manifest
+// is serialized directly from the given arguments.
 func GenerateOCIImage(ociArgs OCIArgs, layers ...Bytes) Image {
 	configBytes := must.Return(json.Marshal(ociArgs.Config))
 

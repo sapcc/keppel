@@ -28,7 +28,7 @@ var accountAnnouncementDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE accounts SET next_federation_announcement_at = $2 WHERE name = $1
 `)
 
-// AccountFederationAnnouncementJob is a job. Each task finds an account that has not been
+// AccountFederationAnnouncementJob is a jobloop.Job. Each task finds an account that has not been
 // announced to the FederationDriver in more than an hour, and announces it. If
 // no accounts need to be announced, sql.ErrNoRows is returned to instruct the
 // caller to slow down.

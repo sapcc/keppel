@@ -120,7 +120,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 }
 
-// Creates the Keppel account for this job if it does not exist yet.
+// PrepareKeppelAccount creates the Keppel account for this job if it does not exist yet.
 func (j *healthMonitorJob) PrepareKeppelAccount(ctx context.Context) error {
 	reqBody := map[string]any{
 		"account": map[string]any{
@@ -148,7 +148,7 @@ func (j *healthMonitorJob) PrepareKeppelAccount(ctx context.Context) error {
 	return nil
 }
 
-// Uploads a minimal complete image (one config blob, one layer blob and one manifest) for testing.
+// UploadImage uploads a minimal complete image (one config blob, one layer blob and one manifest) for testing.
 func (j *healthMonitorJob) UploadImage(ctx context.Context) (models.ManifestReference, error) {
 	_, err := j.RepoClient.UploadMonolithicBlob(ctx, []byte(minimalImageConfiguration))
 	if err != nil {
@@ -162,7 +162,7 @@ func (j *healthMonitorJob) UploadImage(ctx context.Context) (models.ManifestRefe
 	return models.ManifestReference{Digest: digest}, err
 }
 
-// Validates the uploaded image and emits the keppel_healthmonitor_result metric accordingly.
+// ValidateImage validates the uploaded image and emits the keppel_healthmonitor_result metric accordingly.
 func (j *healthMonitorJob) ValidateImage(ctx context.Context, manifestRef models.ManifestReference) {
 	err := j.RepoClient.ValidateManifest(ctx, manifestRef, nil, nil)
 	if err == nil {
@@ -189,7 +189,7 @@ func (j *healthMonitorJob) recordHealthcheckResult(ok bool) {
 	j.LastResultLock.Unlock()
 }
 
-// Provides the GET /healthcheck endpoint.
+// ReportHealthcheckResult provides the GET /healthcheck endpoint.
 func (j *healthMonitorJob) ReportHealthcheckResult(w http.ResponseWriter, r *http.Request) {
 	j.LastResultLock.RLock()
 	lastResult := j.LastResult

@@ -63,6 +63,7 @@ linters:
     - perfsprint
     - predeclared
     - rowserrcheck
+    - revive
     - sqlclosecheck
     - staticcheck
     - unconvert
@@ -160,6 +161,12 @@ linters:
     perfsprint:
       # modernize generates nicer fix code
       concat-loop: false
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - checkPrivateReceivers
+            - disableChecksOnConstants
     staticcheck:
       dot-import-whitelist:
         - github.com/majewsky/gg/option

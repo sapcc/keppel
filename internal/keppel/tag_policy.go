@@ -24,10 +24,12 @@ func ParseTagPolicies(tagPoliciesJSON string) ([]TagPolicy, error) {
 	return policies, err
 }
 
+// Validate delegates the validation of the TagPolicy to the PolicyMatchRule.
 func (t TagPolicy) Validate() error {
 	return t.validate("tag policy")
 }
 
+// String marshalls the TagPolicy or returns an error string.
 func (t TagPolicy) String() string {
 	b, err := json.Marshal(t)
 	if err != nil {

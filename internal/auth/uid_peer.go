@@ -26,7 +26,7 @@ type PeerUserIdentity struct {
 	PeerHostName string
 }
 
-// UserType implements the keppel.UserIdentity interface.
+// PluginTypeID implements the keppel.UserIdentity interface.
 func (uid *PeerUserIdentity) PluginTypeID() string {
 	return "repl"
 }
