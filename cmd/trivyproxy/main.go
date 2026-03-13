@@ -27,6 +27,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// AddCommandTo mounts the trivy-proxy command to the parent command.
 func AddCommandTo(parent *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:     "trivy-proxy",

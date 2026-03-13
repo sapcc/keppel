@@ -51,7 +51,7 @@ var blobMountSweepDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE repos SET next_blob_mount_sweep_at = $2 WHERE id = $1
 `)
 
-// BlobMountSweepJob is a job. Each task finds one repo where blob mounts need to be
+// BlobMountSweepJob is a jobloop.Job Each task finds one repo where blob mounts need to be
 // garbage-collected, and performs the GC. This entails a marking of all blob
 // mounts that are not used by any manifest, and a sweeping of all blob mounts
 // that were marked in the previous pass and which are still not used by any
@@ -83,7 +83,7 @@ func (j *Janitor) sweepBlobMountsInRepo(_ context.Context, repo models.Repositor
 	// slightly earlier cut-off time to account for the marking taking some time
 	canBeDeletedAt := j.timeNow().Add(30 * time.Minute)
 
-	//NOTE: We don't need to pack the following steps in a single transaction, so
+	// NOTE: We don't need to pack the following steps in a single transaction, so
 	// we won't. The mark and unmark are obviously safe since they only update
 	// metadata, and the sweep only touches stuff that was marked in the
 	// *previous* sweep. The only thing that we need to make sure is that unmark

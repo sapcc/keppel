@@ -55,7 +55,7 @@ var validateManifestFinishQuery = sqlext.SimplifyWhitespace(`
 	WHERE repo_id = $3 AND digest = $4
 `)
 
-// ManifestValidationJob is a job. Each task validates a manifest that has not been validated for more
+// ManifestValidationJob is a jobloop.Job Each task validates a manifest that has not been validated for more
 // than 24 hours.
 //
 //nolint:dupl
@@ -138,7 +138,7 @@ var syncManifestCleanupEmptyQuery = sqlext.SimplifyWhitespace(`
 	DELETE FROM repos r WHERE id = $1 AND (SELECT COUNT(*) FROM manifests WHERE repo_id = r.id) = 0
 `)
 
-// ManifestSyncJob is a job. Each task finds a repository in a replica account where
+// ManifestSyncJob is a jobloop.Job Each task finds a repository in a replica account where
 // manifests have not been synced for more than an hour, and syncs its manifests.
 // Syncing involves checking with the primary account which manifests have been
 // deleted there, and replicating the deletions on our side.
@@ -342,7 +342,7 @@ var repoUntaggedManifestsSelectQuery = sqlext.SimplifyWhitespace(`
 
 func (j *Janitor) performManifestSync(ctx context.Context, account models.ReducedAccount, repo models.Repository, tagPolicies []keppel.TagPolicy, syncPayload *keppel.ReplicaSyncPayload) error {
 	// enumerate manifests in this repo (this only needs to consider untagged
-	//manifests: we run right after performTagSync, therefore all images that are
+	// manifests: we run right after performTagSync, therefore all images that are
 	// tagged right now were already confirmed to still be good)
 	var manifests []models.Manifest
 	_, err := j.db.Select(&manifests, repoUntaggedManifestsSelectQuery, repo.ID)
@@ -501,6 +501,8 @@ var securityCheckSelectQuery = sqlext.SimplifyWhitespace(fmt.Sprintf(`
 	FOR UPDATE SKIP LOCKED
 `, trivySecurityInfoBatchSize))
 
+// CheckTrivySecurityStatusJob is a joploop.Job. Each task takes a batch of trivy security scanning info
+// from the database and processes it.
 func (j *Janitor) CheckTrivySecurityStatusJob(registerer prometheus.Registerer) jobloop.Job {
 	return (&jobloop.TxGuardedJob[*gorp.Transaction, []models.TrivySecurityInfo]{
 		Metadata: jobloop.JobMetadata{

@@ -23,7 +23,7 @@ import (
 	"github.com/sapcc/keppel/internal/models"
 )
 
-// EnforceManagedAccounts is a job. Each task creates newly discovered accounts from the driver.
+// EnforceManagedAccountsJob is a jobloop.Job. Each task creates newly discovered accounts from the driver.
 func (j *Janitor) EnforceManagedAccountsJob(registerer prometheus.Registerer) jobloop.Job {
 	return (&jobloop.ProducerConsumerJob[models.AccountName]{
 		Metadata: jobloop.JobMetadata{

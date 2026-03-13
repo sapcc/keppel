@@ -30,7 +30,7 @@ var storageSweepDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE accounts SET next_storage_sweep_at = $2 WHERE name = $1
 `)
 
-// SweepStorageJob is a job. Each task finds an account where the backing storage
+// StorageSweepJob is a jobloop.Job. Each task finds an account where the backing storage
 // needs to be garbage-collected, and performs the GC. This entails a marking of
 // all blobs and manifests that exist in the backing storage, but not in the
 // database; and a sweeping of all items that were marked in the previous pass

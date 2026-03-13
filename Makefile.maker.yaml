@@ -33,6 +33,11 @@ golangciLint:
     # Any error in HTTP handlers is handled by the server itself.
     - (net/http.ResponseWriter).Write
     - (*github.com/spf13/cobra.Command).Help
+  reviveRules:
+    - name: exported
+      arguments:
+        - checkPrivateReceivers
+        - disableChecksOnConstants
 
 githubWorkflow:
   ci:

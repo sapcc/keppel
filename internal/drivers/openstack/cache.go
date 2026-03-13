@@ -25,6 +25,7 @@ func hashCacheKey(cacheKey string) string {
 	return "keystone-" + hex.EncodeToString(sha256Hash[:])
 }
 
+// StoreTokenPayload stores the token payload in the redis cache for 5 minutes.
 func (c redisCacher) StoreTokenPayload(ctx context.Context, cacheKey string, payload []byte) {
 	err := c.Set(ctx, hashCacheKey(cacheKey), payload, 5*time.Minute).Err()
 	if err != nil {
@@ -32,6 +33,7 @@ func (c redisCacher) StoreTokenPayload(ctx context.Context, cacheKey string, pay
 	}
 }
 
+// LoadTokenPayload retrieves the token payload from the redis cache and returns nil if not found.
 func (c redisCacher) LoadTokenPayload(ctx context.Context, cacheKey string) []byte {
 	payload, err := c.Get(ctx, hashCacheKey(cacheKey)).Bytes()
 	if errors.Is(err, redis.Nil) {

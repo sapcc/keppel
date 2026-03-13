@@ -442,7 +442,7 @@ func (db *DB) SelectBool(query string, args ...any) (bool, error) {
 	return result, err
 }
 
-// Configuration returns the easypg.Configuration object that func main() needs to initialize the DB connection.
+// DBConfiguration returns the easypg.Configuration object that func main() needs to initialize the DB connection.
 func DBConfiguration() easypg.Configuration {
 	return easypg.Configuration{
 		Migrations: sqlMigrations,
