@@ -329,6 +329,7 @@ func (r *chunkingTrackingReader) Read(buf []byte) (int, error) {
 	return n, err
 }
 
+// IsEOF determines whether the next chunk is the EOF.
 func (r *chunkingTrackingReader) IsEOF() bool {
 	if r.peeked != nil {
 		return false

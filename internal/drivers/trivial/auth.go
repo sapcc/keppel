@@ -29,30 +29,37 @@ type userIdentity struct {
 	Username string
 }
 
+// PluginTypeID implements the keppel.UserIdentity interface.
 func (uid *userIdentity) PluginTypeID() string {
 	return driverName
 }
 
+// HasPermission implements the keppel.UserIdentity interface.
 func (uid *userIdentity) HasPermission(perm keppel.Permission, tenantID string) bool {
 	return tenantID != ""
 }
 
+// UserInfo implements the keppel.UserIdentity interface.
 func (uid *userIdentity) UserInfo() audittools.UserInfo {
 	return nil
 }
 
+// UserName implements the keppel.UserIdentity interface.
 func (uid *userIdentity) UserName() string {
 	return uid.Username
 }
 
+// UserType implements the keppel.UserIdentity interface.
 func (uid *userIdentity) UserType() keppel.UserType {
 	return keppel.RegularUser
 }
 
+// SerializeToJSON implements the keppel.UserIdentity interface.
 func (uid *userIdentity) SerializeToJSON() (payload []byte, err error) {
 	return json.Marshal(uid.Username)
 }
 
+// DeserializeFromJSON implements the keppel.UserIdentity interface.
 func (uid *userIdentity) DeserializeFromJSON(in []byte, _ keppel.AuthDriver) error {
 	return json.Unmarshal(in, &uid.Username)
 }
@@ -67,10 +74,12 @@ type AuthDriver struct {
 	Password string `json:"password"`
 }
 
+// PluginTypeID implements the keppel.AuthDriver interface.
 func (d *AuthDriver) PluginTypeID() string {
 	return driverName
 }
 
+// Init implements the keppel.AuthDriver interface.
 func (d *AuthDriver) Init(ctx context.Context, rc *redis.Client) error {
 	if d.UserName == "" {
 		return errors.New("missing required field: params.username")
@@ -81,6 +90,7 @@ func (d *AuthDriver) Init(ctx context.Context, rc *redis.Client) error {
 	return nil
 }
 
+// AuthenticateUser implements the keppel.AuthDriver interface.
 func (d *AuthDriver) AuthenticateUser(ctx context.Context, userName, password string) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	if d.UserName == userName && d.Password == password {
 		return &userIdentity{Username: userName}, nil
@@ -89,6 +99,7 @@ func (d *AuthDriver) AuthenticateUser(ctx context.Context, userName, password st
 	return nil, keppel.ErrUnauthorized.With(`invalid username or password`)
 }
 
+// AuthenticateUserFromRequest implements the keppel.AuthDriver interface.
 func (d *AuthDriver) AuthenticateUserFromRequest(r *http.Request) (keppel.UserIdentity, *keppel.RegistryV2Error) {
 	if r.Header.Get("Authorization") == "" {
 		// fallback to anonymous auth

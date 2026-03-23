@@ -20,7 +20,7 @@ import (
 	"github.com/sapcc/keppel/internal/models"
 )
 
-// DeleteAccountsJob is a job. Each task tries to delete an account marked for deletion.
+// DeleteAccountsJob is a jobloop.Job. Each task deletes an account marked for deletion.
 func (j *Janitor) DeleteAccountsJob(registerer prometheus.Registerer) jobloop.Job {
 	return (&jobloop.ProducerConsumerJob[models.AccountName]{
 		Metadata: jobloop.JobMetadata{

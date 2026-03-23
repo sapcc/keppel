@@ -23,8 +23,11 @@ type ValidationLogger interface {
 
 type noopLogger struct{}
 
+// LogManifest implements the client.ValidationLogger interface.
 func (noopLogger) LogManifest(models.ManifestReference, int, error, bool) {}
-func (noopLogger) LogBlob(digest.Digest, int, error, bool)                {}
+
+// LogBlob implements the client.ValidationLogger interface.
+func (noopLogger) LogBlob(digest.Digest, int, error, bool) {}
 
 // ValidationSession holds state and caches intermediate results over the
 // course of several ValidateManifest() and ValidateBlobContents() calls.

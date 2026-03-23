@@ -8,8 +8,11 @@ import (
 )
 
 var (
-	RepoNameRx          = `[a-z0-9]+(?:[._-][a-z0-9]+)*`
-	RepoPathRx          = regexp.MustCompile(`^` + RepoNameRx + `(?:/` + RepoNameRx + `)*$`)
+	// RepoNameRx is a Regex string used to verify the validity of repo names (as substring).
+	RepoNameRx = `[a-z0-9]+(?:[._-][a-z0-9]+)*`
+	// RepoPathRx is a Regex string used to verify the validity of repo paths.
+	RepoPathRx = regexp.MustCompile(`^` + RepoNameRx + `(?:/` + RepoNameRx + `)*$`)
+	// RepoPathComponentRx is a Regex string used to verify the validity of repo names (as full string).
 	RepoPathComponentRx = regexp.MustCompile(`^` + RepoNameRx + `$`)
 )
 

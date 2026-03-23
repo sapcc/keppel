@@ -50,7 +50,7 @@ var blobSweepDoneQuery = sqlext.SimplifyWhitespace(`
 	UPDATE accounts SET next_blob_sweep_at = $2 WHERE name = $1
 `)
 
-// BlobSweepJob is a job. Each task finds one account where blobs need to be
+// BlobSweepJob is a jobloop.Job. Each task finds one account where blobs need to be
 // garbage-collected, and performs the GC. This entails a marking of all blobs
 // that are not mounted in any repo, and a sweeping of all blobs that were
 // marked in the previous pass and which are still not mounted anywhere.
@@ -81,7 +81,7 @@ func (j *Janitor) sweepBlobsInRepo(ctx context.Context, account models.Account, 
 	// slightly earlier cut-off time to account for the marking taking some time
 	canBeDeletedAt := j.timeNow().Add(30 * time.Minute)
 
-	//NOTE: We don't need to pack the following steps in a single transaction, so
+	// NOTE: We don't need to pack the following steps in a single transaction, so
 	// we won't. The mark and unmark are obviously safe since they only update
 	// metadata, and the sweep only touches stuff that was marked in the
 	// *previous* sweep. The only thing that we need to make sure is that unmark
@@ -146,7 +146,7 @@ var validateBlobFinishQuery = sqlext.SimplifyWhitespace(`
 	WHERE account_name = $3 AND digest = $4
 `)
 
-// BlobValidationJob is a job. Each task validates a blob that has not been validated for more
+// BlobValidationJob is a jobloop.Job. Each task validates a blob that has not been validated for more
 // than 7 days.
 //
 //nolint:dupl

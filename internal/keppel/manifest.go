@@ -40,6 +40,7 @@ type ParsedManifest interface {
 	AcceptableAlternates(pf models.PlatformFilter) []imagespecs.Descriptor
 }
 
+// ManifestMediaTypes appear in the media type of manifest objects.
 var ManifestMediaTypes = []string{
 	manifest.DockerV2ListMediaType,
 	manifest.DockerV2Schema2MediaType,
@@ -85,30 +86,37 @@ type v2ManifestListAdapter struct {
 	m *manifest.Schema2List
 }
 
+// BlobReferences implements the ParsedManifests interface.
 func (a v2ManifestListAdapter) BlobReferences() []manifest.LayerInfo {
 	return nil
 }
 
+// FindImageConfigBlob implements the ParsedManifests interface.
 func (a v2ManifestListAdapter) FindImageConfigBlob() *types.BlobInfo {
 	return nil
 }
 
+// FindImageLayerBlobs implements the ParsedManifests interface.
 func (a v2ManifestListAdapter) FindImageLayerBlobs() []manifest.LayerInfo {
 	return nil
 }
 
+// GetAnnotations implements the ParsedManifests interface.
 func (a v2ManifestListAdapter) GetAnnotations() map[string]string {
 	return nil
 }
 
+// GetArtifactType implements the ParsedManifests interface.
 func (a v2ManifestListAdapter) GetArtifactType() string {
 	return ""
 }
 
+// GetSubject implements the ParsedManifests interface.
 func (a v2ManifestListAdapter) GetSubject() *imagespecs.Descriptor {
 	return nil
 }
 
+// ManifestReferences implements the ParsedManifests interface.
 func (a v2ManifestListAdapter) ManifestReferences(pf models.PlatformFilter) []imagespecs.Descriptor {
 	result := make([]imagespecs.Descriptor, 0, len(a.m.Manifests))
 	for _, m := range a.m.Manifests {
@@ -133,6 +141,7 @@ func (a v2ManifestListAdapter) ManifestReferences(pf models.PlatformFilter) []im
 	return result
 }
 
+// AcceptableAlternates implements the ParsedManifests interface.
 func (a v2ManifestListAdapter) AcceptableAlternates(pf models.PlatformFilter) []imagespecs.Descriptor {
 	var result []imagespecs.Descriptor
 	for _, m := range a.ManifestReferences(pf) {
@@ -156,69 +165,84 @@ type v2ManifestAdapter struct {
 	m *manifest.Schema2
 }
 
+// BlobReferences implements the ParsedManifests interface.
 func (a v2ManifestAdapter) BlobReferences() []manifest.LayerInfo {
 	references := []manifest.LayerInfo{{BlobInfo: a.m.ConfigInfo()}}
 	return append(references, a.m.LayerInfos()...)
 }
 
+// FindImageConfigBlob implements the ParsedManifests interface.
 func (a v2ManifestAdapter) FindImageConfigBlob() *types.BlobInfo {
 	config := a.m.ConfigInfo()
 	return &config
 }
 
+// FindImageLayerBlobs implements the ParsedManifests interface.
 func (a v2ManifestAdapter) FindImageLayerBlobs() []manifest.LayerInfo {
 	return a.m.LayerInfos()
 }
 
+// GetAnnotations implements the ParsedManifests interface.
 func (a v2ManifestAdapter) GetAnnotations() map[string]string {
 	return nil
 }
 
+// GetArtifactType implements the ParsedManifests interface.
 func (a v2ManifestAdapter) GetArtifactType() string {
 	return ""
 }
 
+// GetSubject implements the ParsedManifests interface.
 func (a v2ManifestAdapter) GetSubject() *imagespecs.Descriptor {
 	return nil
 }
 
+// ManifestReferences implements the ParsedManifests interface.
 func (a v2ManifestAdapter) ManifestReferences(pf models.PlatformFilter) []imagespecs.Descriptor {
 	return nil
 }
 
+// AcceptableAlternates implements the ParsedManifests interface.
 func (a v2ManifestAdapter) AcceptableAlternates(pf models.PlatformFilter) []imagespecs.Descriptor {
 	return nil
 }
 
-// v2ManifestListAdapter provides the ParsedManifest interface for the contained type.
+// ociIndexAdapter provides the ParsedManifest interface for the contained type.
 type ociIndexAdapter struct {
 	m *manifest.OCI1Index
 }
 
+// BlobReferences implements the ParsedManifests interface.
 func (a ociIndexAdapter) BlobReferences() []manifest.LayerInfo {
 	return nil
 }
 
+// FindImageConfigBlob implements the ParsedManifests interface.
 func (a ociIndexAdapter) FindImageConfigBlob() *types.BlobInfo {
 	return nil
 }
 
+// FindImageLayerBlobs implements the ParsedManifests interface.
 func (a ociIndexAdapter) FindImageLayerBlobs() []manifest.LayerInfo {
 	return nil
 }
 
+// GetAnnotations implements the ParsedManifests interface.
 func (a ociIndexAdapter) GetAnnotations() map[string]string {
 	return a.m.Annotations
 }
 
+// GetArtifactType implements the ParsedManifests interface.
 func (a ociIndexAdapter) GetArtifactType() string {
 	return a.m.ArtifactType
 }
 
+// GetSubject implements the ParsedManifests interface.
 func (a ociIndexAdapter) GetSubject() *imagespecs.Descriptor {
 	return a.m.Subject
 }
 
+// ManifestReferences implements the ParsedManifests interface.
 func (a ociIndexAdapter) ManifestReferences(pf models.PlatformFilter) []imagespecs.Descriptor {
 	result := make([]imagespecs.Descriptor, 0, len(a.m.Manifests))
 	for _, m := range a.m.Manifests {
@@ -229,6 +253,7 @@ func (a ociIndexAdapter) ManifestReferences(pf models.PlatformFilter) []imagespe
 	return result
 }
 
+// AcceptableAlternates implements the ParsedManifests interface.
 func (a ociIndexAdapter) AcceptableAlternates(pf models.PlatformFilter) []imagespecs.Descriptor {
 	return nil
 }
@@ -238,11 +263,13 @@ type ociManifestAdapter struct {
 	m *manifest.OCI1
 }
 
+// BlobReferences implements the ParsedManifests interface.
 func (a ociManifestAdapter) BlobReferences() []manifest.LayerInfo {
 	references := []manifest.LayerInfo{{BlobInfo: a.m.ConfigInfo()}}
 	return append(references, a.m.LayerInfos()...)
 }
 
+// FindImageConfigBlob implements the ParsedManifests interface.
 func (a ociManifestAdapter) FindImageConfigBlob() *types.BlobInfo {
 	// Standard OCI images have this specific MediaType for their config blob, and
 	// this is the format that we can inspect.
@@ -256,14 +283,17 @@ func (a ociManifestAdapter) FindImageConfigBlob() *types.BlobInfo {
 	return nil
 }
 
+// FindImageLayerBlobs implements the ParsedManifests interface.
 func (a ociManifestAdapter) FindImageLayerBlobs() []manifest.LayerInfo {
 	return a.m.LayerInfos()
 }
 
+// GetAnnotations implements the ParsedManifests interface.
 func (a ociManifestAdapter) GetAnnotations() map[string]string {
 	return a.m.Annotations
 }
 
+// GetArtifactType implements the ParsedManifests interface.
 func (a ociManifestAdapter) GetArtifactType() string {
 	artifactType := a.m.ArtifactType
 	if artifactType == "" {
@@ -274,14 +304,17 @@ func (a ociManifestAdapter) GetArtifactType() string {
 	return artifactType
 }
 
+// GetSubject implements the ParsedManifests interface.
 func (a ociManifestAdapter) GetSubject() *imagespecs.Descriptor {
 	return a.m.Subject
 }
 
+// ManifestReferences implements the ParsedManifests interface.
 func (a ociManifestAdapter) ManifestReferences(pf models.PlatformFilter) []imagespecs.Descriptor {
 	return nil
 }
 
+// AcceptableAlternates implements the ParsedManifests interface.
 func (a ociManifestAdapter) AcceptableAlternates(pf models.PlatformFilter) []imagespecs.Descriptor {
 	return nil
 }

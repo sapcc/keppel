@@ -14,12 +14,14 @@ import (
 
 var wrap *httpext.WrappedTransport
 
+// SetupHTTPClient configures the httpext.WrappedTransport client.
 func SetupHTTPClient() {
 	wrap = httpext.WrapTransport(&http.DefaultTransport)
 	wrap.SetInsecureSkipVerify(osext.GetenvBool("KEPPEL_INSECURE")) // for debugging with mitmproxy etc. (DO NOT SET IN PRODUCTION)
 	wrap.SetOverrideUserAgent(bininfo.Component(), bininfo.VersionOr("rolling"))
 }
 
+// SetTaskName configures the taskName in the bininfo.
 func SetTaskName(taskName string) {
 	bininfo.SetTaskName(taskName)
 	wrap.SetOverrideUserAgent(bininfo.Component(), bininfo.VersionOr("rolling"))
