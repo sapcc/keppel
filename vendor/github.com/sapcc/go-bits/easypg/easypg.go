@@ -15,15 +15,14 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/sapcc/go-bits/sqlext"
-
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	bindata "github.com/golang-migrate/migrate/v4/source/go_bindata"
+	"github.com/lib/pq"
+	"github.com/lib/pq/pqerror"
 
-	// enable postgres driver for database/sql
-	_ "github.com/lib/pq"
+	"github.com/sapcc/go-bits/sqlext"
 )
 
 // Configuration contains settings for Init(). The field Migrations needs to have keys
@@ -90,7 +89,7 @@ func Connect(dbURL url.URL, cfg Configuration) (*sql.DB, error) {
 	return db, nil
 }
 
-var dbNotExistErrRx = regexp.MustCompile(`^pq: database "([^"]+)" does not exist \(3D000\)$`)
+var dbNotExistErrRx = regexp.MustCompile(`^database "([^"]+)" does not exist$`)
 
 func connectToPostgres(dbURL url.URL, driverName string) (*sql.DB, database.Driver, error) {
 	if driverName == "" {
@@ -106,10 +105,15 @@ func connectToPostgres(dbURL url.URL, driverName string) (*sql.DB, database.Driv
 		dbd, err := postgres.WithInstance(db, &postgres.Config{})
 		return db, dbd, err
 	}
-	match := dbNotExistErrRx.FindStringSubmatch(err.Error())
-	if match == nil {
+	pqerr := pq.As(err, pqerror.InvalidCatalogName)
+	if pqerr == nil {
 		// unexpected error
 		return nil, nil, err
+	}
+	match := dbNotExistErrRx.FindStringSubmatch(pqerr.Message)
+	if match == nil {
+		// unexpected error
+		return nil, nil, fmt.Errorf("cannot parse message for InvalidCatalogName error: %#v", pqerr) //nolint:errorlint // this branch should only be taken if lib/pq upgrades change the message format, then we want to see what is going on inside the error struct
 	}
 	dbName := match[1]
 
