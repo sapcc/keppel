@@ -4,7 +4,6 @@
 package registryv2_test
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -304,23 +303,7 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 				}}),
 			)
 
-			// get an anonymous token (this is a bit unwieldy because usually all
-			// tests work with non-anonymous tokens, so we don't have helper functions
-			// for anonymous tokens)
-			_, tokenBodyBytes := assert.HTTPRequest{
-				Method: "GET",
-				Path:   "/keppel/v1/auth?service=registry-secondary.example.org&scope=repository:test1/foo:pull",
-				Header: map[string]string{
-					"X-Forwarded-Host":  "registry-secondary.example.org",
-					"X-Forwarded-Proto": "https",
-				},
-				ExpectStatus: http.StatusOK,
-			}.Check(t, h2)
-			var tokenBodyData struct {
-				Token string `json:"token"`
-			}
-			must.SucceedT(t, json.Unmarshal(tokenBodyBytes, &tokenBodyData))
-			anonToken := tokenBodyData.Token
+			anonToken := s2.GetAnonToken(t, "repository:test1/foo", []string{"pull"})
 
 			// replicating pull is forbidden with an anonymous token...
 			assert.HTTPRequest{
@@ -356,8 +339,6 @@ func TestReplicationAllowAnonymousReplicationFromExternal(t *testing.T) {
 				return
 			}
 
-			h2 := s2.Handler
-
 			// enable anonymous pull and replication on test1/bar
 			test.MustExec(t, s2.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
 				test.ToJSON([]keppel.RBACPolicy{{
@@ -366,27 +347,9 @@ func TestReplicationAllowAnonymousReplicationFromExternal(t *testing.T) {
 				}}),
 			)
 
-			// get an anonymous token (this is a bit unwieldy because usually all
-			// tests work with non-anonymous tokens, so we don't have helper functions
-			// for anonymous tokens)
-			// TODO: extract to s1.getAnonToken(t, "repository:test1/foo:pull")
-			_, tokenBodyBytes := assert.HTTPRequest{
-				Method: "GET",
-				Path:   "/keppel/v1/auth?service=registry-secondary.example.org&scope=repository:test1/foo:pull,anonymous_first_pull",
-				Header: map[string]string{
-					"X-Forwarded-Host":  "registry-secondary.example.org",
-					"X-Forwarded-Proto": "https",
-				},
-				ExpectStatus: http.StatusOK,
-			}.Check(t, h2)
-			var tokenBodyData struct {
-				Token string `json:"token"`
-			}
-			must.SucceedT(t, json.Unmarshal(tokenBodyBytes, &tokenBodyData))
-			anonToken := tokenBodyData.Token
-
 			// the rbac policy allows to replicate test1/foo images
-			expectManifestExists(t, h2, anonToken, "test1/foo", image.Manifest, "first", nil)
+			anonToken := s2.GetAnonToken(t, "repository:test1/foo", []string{"pull", "anonymous_first_pull"})
+			expectManifestExists(t, s2.Handler, anonToken, "test1/foo", image.Manifest, "first", nil)
 		})
 	})
 }
