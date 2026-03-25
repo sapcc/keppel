@@ -20,7 +20,7 @@ type ServiceCapacityRequest struct {
 	// Limes provides this list here to reduce the number of places where this information needs to be maintained manually.
 	AllAZs []AvailabilityZone `json:"allAZs"`
 
-	// Must contain an entry for each resource that was declared in type ServiceInfo with "NeedsResourceDemand = true".
+	// Must contain an entry for each resource that was declared in type [ServiceInfo] with "NeedsResourceDemand = true".
 	DemandByResource map[ResourceName]ResourceDemand `json:"demandByResource"`
 }
 
@@ -33,7 +33,7 @@ func (r ServiceCapacityRequest) Clone() ServiceCapacityRequest {
 }
 
 // ResourceDemand contains demand statistics for a resource.
-// It appears in type ServiceCapacityRequest.
+// It appears in type [ServiceCapacityRequest].
 //
 // This is used when a liquid needs to be able to reshuffle capacity between different resources based on actual user demand.
 type ResourceDemand struct {
@@ -54,7 +54,7 @@ func (d ResourceDemand) Clone() ResourceDemand {
 }
 
 // ResourceDemandInAZ contains demand statistics for a resource in a single AZ.
-// It appears in type ResourceDemand.
+// It appears in type [ResourceDemand].
 //
 // The fields are ordered in descending priority.
 // All values are in terms of effective capacity, and are sums over all OpenStack projects.
@@ -82,10 +82,10 @@ type ServiceCapacityReport struct {
 	// This is used to signal to Limes to refetch GET /v1/info after configuration changes.
 	InfoVersion int64 `json:"infoVersion"`
 
-	// Must contain an entry for each resource that was declared in type ServiceInfo with "HasCapacity = true".
+	// Must contain an entry for each resource that was declared in type [ServiceInfo] with "HasCapacity = true".
 	Resources map[ResourceName]*ResourceCapacityReport `json:"resources,omitempty"`
 
-	// Must contain an entry for each metric family that was declared for capacity metrics in type ServiceInfo.
+	// Must contain an entry for each metric family that was declared for capacity metrics in type [ServiceInfo].
 	Metrics map[MetricName][]Metric `json:"metrics,omitempty"`
 }
 
@@ -98,7 +98,7 @@ func (r ServiceCapacityReport) Clone() ServiceCapacityReport {
 }
 
 // ResourceCapacityReport contains capacity data for a resource.
-// It appears in type ServiceCapacityReport.
+// It appears in type [ServiceCapacityReport].
 type ResourceCapacityReport struct {
 	// The keys that are allowed in this map depend on the chosen Topology.
 	// See documentation on Topology enum variants for details.
@@ -113,7 +113,7 @@ func (r ResourceCapacityReport) Clone() ResourceCapacityReport {
 }
 
 // AZResourceCapacityReport contains capacity data for a resource in a single AZ.
-// It appears in type ResourceCapacityReport.
+// It appears in type [ResourceCapacityReport].
 type AZResourceCapacityReport struct {
 	// How much capacity is available to Limes in this resource and AZ.
 	//

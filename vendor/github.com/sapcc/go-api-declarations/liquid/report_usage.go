@@ -27,7 +27,7 @@ type ServiceUsageRequest struct {
 	ProjectMetadata Option[ProjectMetadata] `json:"projectMetadata,omitzero"`
 
 	// The serialized state from the previous ServiceUsageReport received by Limes for this project, if any.
-	// Refer to the same field on type ServiceUsageReport for details.
+	// Refer to the same field on type [ServiceUsageReport] for details.
 	SerializedState json.RawMessage `json:"serializedState,omitempty"`
 }
 
@@ -45,13 +45,13 @@ type ServiceUsageReport struct {
 	// This is used to signal to Limes to refetch GET /v1/info after configuration changes.
 	InfoVersion int64 `json:"infoVersion"`
 
-	// Must contain an entry for each resource that was declared in type ServiceInfo.
+	// Must contain an entry for each resource that was declared in type [ServiceInfo].
 	Resources map[ResourceName]*ResourceUsageReport `json:"resources,omitempty"`
 
-	// Must contain an entry for each rate that was declared in type ServiceInfo.
+	// Must contain an entry for each rate that was declared in type [ServiceInfo].
 	Rates map[RateName]*RateUsageReport `json:"rates,omitempty"`
 
-	// Must contain an entry for each metric family that was declared for usage metrics in type ServiceInfo.
+	// Must contain an entry for each metric family that was declared for usage metrics in type [ServiceInfo].
 	Metrics map[MetricName][]Metric `json:"metrics,omitempty"`
 
 	// Opaque state for Limes to persist and return to the liquid in the next ServiceUsageRequest for the same project.
@@ -76,7 +76,7 @@ func (r ServiceUsageReport) Clone() ServiceUsageReport {
 }
 
 // ResourceUsageReport contains usage data for a resource in a single project.
-// It appears in type ServiceUsageReport.
+// It appears in type [ServiceUsageReport].
 type ResourceUsageReport struct {
 	// If true, this project is forbidden from accessing this resource.
 	// This has two consequences:
@@ -103,7 +103,7 @@ func (r ResourceUsageReport) Clone() ResourceUsageReport {
 }
 
 // AZResourceUsageReport contains usage data for a resource in a single project and AZ.
-// It appears in type ResourceUsageReport.
+// It appears in type [ResourceUsageReport].
 type AZResourceUsageReport struct {
 	// The amount of usage for this resource.
 	Usage uint64 `json:"usage"`
@@ -169,7 +169,7 @@ func (r *ResourceUsageReport) AddLocalizedUsage(az AvailabilityZone, usage uint6
 }
 
 // RateUsageReport contains usage data for a rate in a single project.
-// It appears in type ServiceUsageReport.
+// It appears in type [ServiceUsageReport].
 type RateUsageReport struct {
 	// The keys that are allowed in this map depend on the chosen Topology.
 	// See documentation on Topology enum variants for details.
@@ -184,14 +184,14 @@ func (r RateUsageReport) Clone() RateUsageReport {
 }
 
 // AZRateUsageReport contains usage data for a rate in a single project and AZ.
-// It appears in type RateUsageReport.
+// It appears in type [RateUsageReport].
 type AZRateUsageReport struct {
 	// The amount of usage for this rate. Must be Some() and non-nil if the rate is declared with HasUsage = true.
 	// The value Some(nil) is forbidden.
 	//
 	// For a given rate, project and AZ, this value must only ever increase monotonically over time.
 	// If there is the possibility of counter resets or limited retention in the underlying data source, the liquid must add its own logic to guarantee monotonicity.
-	// A common strategy is to remember previous measurements in the SerializedState field of type ServiceUsageReport.
+	// A common strategy is to remember previous measurements in the SerializedState field of type [ServiceUsageReport].
 	//
 	// This field is modeled as a bigint because network rates like "bytes transferred" may easily exceed the range of uint64 over time.
 	Usage Option[*big.Int] `json:"usage,omitzero"`

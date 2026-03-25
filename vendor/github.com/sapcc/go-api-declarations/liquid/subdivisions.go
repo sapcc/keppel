@@ -11,7 +11,7 @@ import (
 )
 
 // Subcapacity describes a distinct chunk of capacity for a resource within an AZ.
-// It appears in type AZResourceCapacityReport.
+// It appears in type [AZResourceCapacityReport].
 //
 // A service will only report subcapacities for such resources where there is a useful substructure to report.
 // For example:
@@ -49,7 +49,7 @@ func (s Subcapacity) Clone() Subcapacity {
 	return cloned
 }
 
-// SubcapacityBuilder is a helper type for building Subcapacity values.
+// SubcapacityBuilder is a helper type for building [Subcapacity] values.
 // If the Attributes in a subcapacity are collected over time, it might be more convenient to have them accessible as a structured type.
 // Once assembly is complete, the provided methods can be used to obtain the final Subcapacity value.
 type SubcapacityBuilder[A any] struct {
@@ -74,7 +74,7 @@ func (b SubcapacityBuilder[A]) Finalize() (Subcapacity, error) {
 }
 
 // Subresource describes a distinct chunk of usage for a resource within a project and AZ.
-// It appears in type AZResourceUsageReport.
+// It appears in type [AZResourceUsageReport].
 //
 // A service will only report subresources for such resources where there is a useful substructure to report.
 // For example, in the Nova resource "instances", each instance is a subresource.
@@ -105,7 +105,7 @@ func (s Subresource) Clone() Subresource {
 	return cloned
 }
 
-// SubresourceBuilder is a helper type for building Subresource values.
+// SubresourceBuilder is a helper type for building [Subresource] values.
 // If the Attributes in a subresource are collected over time, it might be more convenient to have them accessible as a structured type.
 // Once assembly is complete, the provided methods can be used to obtain the final Subresource value.
 type SubresourceBuilder[A any] struct {

@@ -4,7 +4,7 @@
 package liquid
 
 // OvercommitFactor is the ratio between raw and effective capacity of a resource.
-// It appears in type ResourceDemand.
+// It appears in type [ResourceDemand].
 //
 // In its methods, the zero value behaves as 1, meaning that no overcommit is taking place.
 type OvercommitFactor float64

@@ -10,6 +10,7 @@ import (
 	. "github.com/majewsky/gg/option"
 
 	"github.com/sapcc/go-api-declarations/internal/clone"
+	"github.com/sapcc/go-api-declarations/internal/units"
 )
 
 // ServiceInfo is the response payload format for GET /v1/info.
@@ -67,7 +68,7 @@ func (i ServiceInfo) Clone() ServiceInfo {
 }
 
 // CategoryName is a name of a category that can group resources and rates.
-// It appears in type ServiceInfo, ResourceInfo and RateInfo.
+// It appears in type [ServiceInfo], [ResourceInfo] and [RateInfo].
 type CategoryName string
 
 // IsValid returns whether a CategoryName is valid.
@@ -77,7 +78,7 @@ func (c CategoryName) IsValid() bool {
 }
 
 // CategoryInfo describes a category that can group resources and rates of a liquid's service.
-// This type appears in type ServiceInfo.
+// This type appears in type [ServiceInfo].
 type CategoryInfo struct {
 	DisplayName string `json:"displayName"`
 }
@@ -90,7 +91,7 @@ func (c CategoryInfo) Clone() CategoryInfo {
 }
 
 // ResourceInfo describes a resource that a liquid's service provides.
-// This type appears in type ServiceInfo.
+// This type appears in type [ServiceInfo].
 type ResourceInfo struct {
 	// The display name can be used in user-facing messages or interfaces to refer to the resource.
 	DisplayName string `json:"displayName"`
@@ -103,7 +104,7 @@ type ResourceInfo struct {
 	// If omitted or empty, the resource is "countable" and any quota or usage values describe a number of objects.
 	// If non-empty, the resource is "measured" and quota or usage values are in multiples of the given unit.
 	// For example, the compute resource "cores" is countable, but the compute resource "ram" is measured, usually in MiB.
-	Unit Unit `json:"unit,omitempty"`
+	Unit Unit `json:"unit,omitzero"`
 
 	// How the resource reports usage (and capacity, if any). This field is required, and must contain one of the valid enum variants defined in this package.
 	Topology Topology `json:"topology"`
@@ -140,7 +141,7 @@ func (i ResourceInfo) Clone() ResourceInfo {
 }
 
 // Topology describes how capacity and usage reported by a certain resource is structured.
-// It appears in type ResourceInfo.
+// It appears in type [ResourceInfo].
 type Topology string
 
 const (
@@ -166,6 +167,29 @@ const (
 	// If the resource sets "HasQuota = true", quota requests will include the PerAZ breakdown.
 	// PerAZ will only contain quotas for actual AZs, not for AvailabilityZoneAny or AvailabilityZoneUnknown.
 	AZSeparatedTopology Topology = "az-separated"
+)
+
+// Unit represents the unit a resource or rate is measured in.
+type Unit = units.Unit
+
+var (
+	// UnitNone is used for countable (rather than measurable) resources or rates.
+	UnitNone = units.UnitNone
+
+	// UnitBytes is exactly that. Its MultiplyBy() method can be used to instantiate non-standard units.
+	UnitBytes = units.UnitBytes
+	// UnitKibibytes is exactly that. Its MultiplyBy() method can be used to instantiate non-standard units.
+	UnitKibibytes = units.UnitKibibytes
+	// UnitMebibytes is exactly that. Its MultiplyBy() method can be used to instantiate non-standard units.
+	UnitMebibytes = units.UnitMebibytes
+	// UnitGibibytes is exactly that. Its MultiplyBy() method can be used to instantiate non-standard units.
+	UnitGibibytes = units.UnitGibibytes
+	// UnitTebibytes is exactly that. Its MultiplyBy() method can be used to instantiate non-standard units.
+	UnitTebibytes = units.UnitTebibytes
+	// UnitPebibytes is exactly that. Its MultiplyBy() method can be used to instantiate non-standard units.
+	UnitPebibytes = units.UnitPebibytes
+	// UnitExbibytes is exactly that. Its MultiplyBy() method can be used to instantiate non-standard units.
+	UnitExbibytes = units.UnitExbibytes
 )
 
 // ResourceTopology is a synonym for Topology.
@@ -194,7 +218,7 @@ func (t Topology) IsValid() bool {
 }
 
 // RateInfo describes a rate that a liquid's service provides.
-// This type appears in type ServiceInfo.
+// This type appears in type [ServiceInfo].
 type RateInfo struct {
 	// The display name can be used in user-facing messages or interfaces to refer to the rate.
 	DisplayName string `json:"displayName"`
@@ -207,7 +231,7 @@ type RateInfo struct {
 	// If omitted or empty, the rate is "countable" and usage values describe a number of events.
 	// If non-empty, the rate is "measured" and usage values are in multiples of the given unit.
 	// For example, the storage rate "volume_creations" is countable, but the network rate "outbound_transfer" is measured, e.g. in bytes.
-	Unit Unit `json:"unit,omitempty"`
+	Unit Unit `json:"unit,omitzero"`
 
 	// How the rate reports usage. This field is required, and must contain one of the valid enum variants defined in this package.
 	Topology Topology `json:"topology"`
@@ -227,7 +251,7 @@ func (i RateInfo) Clone() RateInfo {
 
 // ProjectMetadata includes metadata about a project from Keystone.
 //
-// It appears in types ServiceUsageRequest and ServiceQuotaRequest if requested by the ServiceInfo.
+// It appears in types [ServiceUsageRequest] and [ServiceQuotaRequest] if requested by the [ServiceInfo].
 type ProjectMetadata struct {
 	UUID   string         `json:"uuid"`
 	Name   string         `json:"name"`
@@ -236,7 +260,7 @@ type ProjectMetadata struct {
 
 // DomainMetadata includes metadata about a domain from Keystone.
 //
-// It appears in type ProjectMetadata.
+// It appears in type [ProjectMetadata].
 type DomainMetadata struct {
 	UUID string `json:"uuid"`
 	Name string `json:"name"`

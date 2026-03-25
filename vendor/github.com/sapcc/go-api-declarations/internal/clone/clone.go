@@ -4,6 +4,7 @@
 // Package clone contains helper functions for implementing deep clones.
 package clone
 
+// Cloneable is an interface for types that can be cloned by implementing a Clone() method.
 type Cloneable[Self any] interface {
 	Clone() Self
 }

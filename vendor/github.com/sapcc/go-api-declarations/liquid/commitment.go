@@ -62,7 +62,7 @@ func (r CommitmentChangeResponse) Clone() CommitmentChangeResponse {
 	return r
 }
 
-// ProjectCommitmentChangeset appears in type CommitmentChangeRequest.
+// ProjectCommitmentChangeset appears in type [CommitmentChangeRequest].
 // It contains all commitments that are part of a single atomic changeset that belong to a specific project in a specific AZ.
 type ProjectCommitmentChangeset struct {
 	// Metadata about the project from Keystone.
@@ -83,7 +83,7 @@ func (c ProjectCommitmentChangeset) Clone() ProjectCommitmentChangeset {
 	return cloned
 }
 
-// ResourceCommitmentChangeset appears in type CommitmentChangeRequest.
+// ResourceCommitmentChangeset appears in type [CommitmentChangeRequest].
 // It contains all commitments that are part of a single atomic changeset that belong to a given resource within a specific project and AZ.
 type ResourceCommitmentChangeset struct {
 	// The sum of all commitments in CommitmentStatusConfirmed for the given resource, project and AZ before and after applying the proposed commitment changeset.
@@ -111,10 +111,10 @@ func (c ResourceCommitmentChangeset) Clone() ResourceCommitmentChangeset {
 	return cloned
 }
 
-// Commitment appears in type CommitmentChangeRequest.
+// Commitment appears in type [CommitmentChangeRequest].
 //
 // The commitment is located in a certain project and applies to a certain resource within a certain AZ.
-// These metadata are implied by where the commitment is found within type CommitmentChangeRequest.
+// These metadata are implied by where the commitment is found within type [CommitmentChangeRequest].
 type Commitment struct {
 	// The same UUID may appear multiple times within the same changeset for one specific circumstance:
 	// If a commitment moves between projects, it will appear as being deleted in the source project and again as being created in the target project.
@@ -151,7 +151,7 @@ func (c Commitment) Clone() Commitment {
 	return c
 }
 
-// CommitmentStatus is an enum containing the various lifecycle states of type Commitment.
+// CommitmentStatus is an enum containing the various lifecycle states of type [Commitment].
 // The following state transitions are allowed:
 //
 //	start = "planned" -> "pending" -> "confirmed"   // normal commitment that takes effect after the ConfirmBy date
@@ -196,7 +196,7 @@ func (s CommitmentStatus) IsValid() bool {
 }
 
 // RequiresConfirmation describes if this request requires confirmation from the liquid.
-// The RejectionReason in type CommitmentChangeResponse may only be used if this returns true.
+// The RejectionReason in type [CommitmentChangeResponse] may only be used if this returns true.
 //
 // Examples for RequiresConfirmation = true include commitments moving into or spawning in the "guaranteed" or "confirmed" statuses, or conversion of commitments between resources.
 // Examples for RequiresConfirmation = false include commitments being split, moving into the "expired" status or being hard deleted.

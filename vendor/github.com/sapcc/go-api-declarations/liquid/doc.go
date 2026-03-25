@@ -108,34 +108,34 @@
 // # Endpoint: GET /v1/info
 //
 // Returns information about the OpenStack service and the resources available within it.
-//   - On success, the response body payload must be of type ServiceInfo.
+//   - On success, the response body payload must be of type [ServiceInfo].
 //
 // # Endpoint: POST /v1/report-capacity
 //
 // Reports available capacity across all resources of this service.
-//   - The request body payload must be of type ServiceCapacityRequest.
-//   - On success, the response body payload must be of type ServiceCapacityReport.
+//   - The request body payload must be of type [ServiceCapacityRequest].
+//   - On success, the response body payload must be of type [ServiceCapacityReport].
 //
 // # Endpoint: POST /v1/projects/:uuid/report-usage
 //
 // Reports usage data (as well as applicable quotas) within a project across all resources of this service.
 //   - The ":uuid" parameter in the request path must refer to a project ID known to Keystone.
-//   - The request body payload must be of type ServiceUsageRequest.
-//   - On success, the response body payload must be of type ServiceUsageReport.
+//   - The request body payload must be of type [ServiceUsageRequest].
+//   - On success, the response body payload must be of type [ServiceUsageReport].
 //
 // # Endpoint: PUT /v1/projects/:uuid/quota
 //
 // Updates quota within a project across all resources of this service.
 //   - The ":uuid" parameter in the request path must refer to a project ID known to Keystone.
-//   - The request body payload must be of type ServiceQuotaRequest.
+//   - The request body payload must be of type [ServiceQuotaRequest].
 //   - On success, the response body shall be empty and status 204 (No Content) shall be returned.
 //
 // # Endpoint: POST /v1/change-commitments
 //
 // Notifies the liquid about changes to commitments that it is interested in.
 // Commitments for different projects and different resources may be batched together if they are all part of the same atomic change.
-//   - The request body payload must be of type CommitmentChangeRequest.
-//   - On success, the response body payload must be of type CommitmentChangeResponse.
+//   - The request body payload must be of type [CommitmentChangeRequest].
+//   - On success, the response body payload must be of type [CommitmentChangeResponse].
 //
 // [Limes]: https://github.com/sapcc/limes
 // [OpenMetrics format]: https://github.com/OpenObservability/OpenMetrics/blob/master/specification/OpenMetrics.md

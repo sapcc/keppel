@@ -26,7 +26,7 @@ func (i ServiceQuotaRequest) Clone() ServiceQuotaRequest {
 }
 
 // ResourceQuotaRequest contains new quotas for a single resource.
-// It appears in type ServiceQuotaRequest.
+// It appears in type [ServiceQuotaRequest].
 type ResourceQuotaRequest struct {
 	// For FlatTopology and AZAwareTopology, this is the only field that is filled, and PerAZ will be nil.
 	// For AZSeparatedTopology, this contains the sum of the quotas across all AZs (for compatibility purposes).
@@ -44,7 +44,7 @@ func (i ResourceQuotaRequest) Clone() ResourceQuotaRequest {
 }
 
 // AZResourceQuotaRequest contains the new quota value for a single resource and AZ.
-// It appears in type ResourceQuotaRequest.
+// It appears in type [ResourceQuotaRequest].
 type AZResourceQuotaRequest struct {
 	Quota uint64 `json:"quota"`
 
