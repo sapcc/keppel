@@ -114,6 +114,9 @@ var testCases = []TestCase{
 		CannotPull: true, GrantedActions: "push"},
 	{Scope: "repository:test1/foo:delete",
 		CannotPull: true, GrantedActions: "delete"},
+	// anonymous first pull is not granted if the user is not allowed to pull
+	{Scope: "repository:test1/foo:anonymous_first_pull", AnonymousLogin: true,
+		CannotPull: true},
 	// not allowed to push
 	{Scope: "repository:test1/foo:pull",
 		CannotPush: true, GrantedActions: "pull"},
@@ -264,6 +267,10 @@ var testCases = []TestCase{
 	{Scope: "repository:test1/foo:delete", AnonymousLogin: true,
 		RBACPolicy:     &policyAnonFirstPull,
 		GrantedActions: ""},
+	// anonymous_first_pull does not grant additional scopes
+	{Scope: "repository:test1/foo:anonymous_first_pull", AnonymousLogin: true,
+		RBACPolicy:     &policyAnonFirstPull,
+		GrantedActions: "anonymous_first_pull"},
 	// RBAC policy with CanPull grants pull permissions to matching users
 	{Scope: "repository:test1/foo:pull",
 		CannotPull: true, CannotPush: true, CannotDelete: true,

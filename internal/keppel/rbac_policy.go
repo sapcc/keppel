@@ -116,6 +116,9 @@ func (r *RBACPolicy) ValidateAndNormalize(strategy ReplicationStrategy) error {
 	if grantsPerm[RBACPushPermission] && !grantsPerm[RBACPullPermission] {
 		return errors.New(`RBAC policy with "push" must also grant "pull"`)
 	}
+	if grantsPerm[RBACAnonymousFirstPullPermission] && (!grantsPerm[RBACAnonymousPullPermission] && !grantsPerm[RBACPullPermission]) {
+		return errors.New(`RBAC policy with "anonymous_first_pull" must also grant "anonymous_pull" or "pull"`)
+	}
 	if refersToPerm[RBACDeletePermission] && r.UserNamePattern == "" {
 		return errors.New(`RBAC policy with "delete" must have the "match_username" attribute`)
 	}

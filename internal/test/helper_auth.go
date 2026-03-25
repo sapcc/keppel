@@ -5,9 +5,12 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
+	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/auth"
@@ -114,6 +117,30 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 
 	s.tokenCache[cacheKey] = tokenResp.Token
 	return tokenResp.Token
+}
+
+// GetAnonToken obtains an anonymous token for use with the Registry V2 API.
+//
+// `scopes` is a list of token scopes, e.g. "repository:test1/foo:pull".
+// The necessary permissions will be inferred from the given scopes.
+func (s Setup) GetAnonToken(t *testing.T, repo string, scopes []string) string {
+	t.Helper()
+
+	resp, tokenBodyBytes := assert.HTTPRequest{
+		Method: "GET",
+		Path:   fmt.Sprintf("/keppel/v1/auth?service=registry-secondary.example.org&scope=%s:%s", repo, strings.Join(scopes, ",")),
+		Header: map[string]string{
+			"X-Forwarded-Host":  "registry-secondary.example.org",
+			"X-Forwarded-Proto": "https",
+		},
+		ExpectStatus: http.StatusOK,
+	}.Check(t, s.Handler)
+	resp.Body.Close()
+	var tokenBodyData struct {
+		Token string `json:"token"`
+	}
+	must.SucceedT(t, json.Unmarshal(tokenBodyBytes, &tokenBodyData))
+	return tokenBodyData.Token
 }
 
 func (s Setup) findAuthTenantIDForAccountName(accountName models.AccountName) (string, error) {

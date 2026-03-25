@@ -1139,6 +1139,13 @@ func TestPutAccountErrorCases(t *testing.T) {
 				"match_repository": "library/.+",
 				"permissions":      []string{"anonymous_first_pull"},
 			},
+			ErrorMessage: `RBAC policy with "anonymous_first_pull" must also grant "anonymous_pull" or "pull"`,
+		},
+		{
+			RBACPolicyJSON: assert.JSONObject{
+				"match_repository": "library/.+",
+				"permissions":      []string{"anonymous_first_pull", "anonymous_pull"},
+			},
 			ErrorMessage: `RBAC policy with "anonymous_first_pull" may only be for external replica accounts`,
 		},
 		{
