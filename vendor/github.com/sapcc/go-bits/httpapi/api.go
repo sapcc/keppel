@@ -59,6 +59,7 @@ type pseudoAPI struct {
 	configure func(*middleware)
 }
 
+// AddTo implements the API interface.
 func (p pseudoAPI) AddTo(r *mux.Router) {
 	// no-op, see above
 }

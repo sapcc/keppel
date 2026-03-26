@@ -72,11 +72,19 @@ func isLiteral(x string) bool {
 // string values. In both cases, the Regexp will match every input.
 type PlainRegexp string
 
-func (r PlainRegexp) MarshalJSON() ([]byte, error)           { return json.Marshal(string(r)) }
-func (r PlainRegexp) MarshalYAML() (any, error)              { return string(r), nil }
-func (r *PlainRegexp) UnmarshalJSON(buf []byte) error        { return parseJSON(buf, r.set, false) }
+// MarshalJSON implements the json.Marshaler interface.
+func (r PlainRegexp) MarshalJSON() ([]byte, error) { return json.Marshal(string(r)) }
+
+// MarshalYAML implements the yaml.Marshaler interface.
+func (r PlainRegexp) MarshalYAML() (any, error) { return string(r), nil }
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (r *PlainRegexp) UnmarshalJSON(buf []byte) error { return parseJSON(buf, r.set, false) }
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (r *PlainRegexp) UnmarshalYAML(u func(any) error) error { return parseYAML(u, r.set, false) }
-func (r *PlainRegexp) set(s string)                          { *r = PlainRegexp(s) }
+
+func (r *PlainRegexp) set(s string) { *r = PlainRegexp(s) }
 
 // Regexp returns the parsed regexp.Regexp instance for this PlainRegexp.
 // An error is returned if the regular expression string inside this
@@ -87,7 +95,7 @@ func (r PlainRegexp) Regexp() (*regexp.Regexp, error) {
 	return compile(string(r), false)
 }
 
-// Shorthand for `r.Regexp()` followed by `rx.MatchString()`. If regex parsing
+// MatchString is a shorthand for `r.Regexp()` followed by `rx.MatchString()`. If regex parsing
 // returns an error, this function returns false.
 func (r PlainRegexp) MatchString(in string) bool {
 	// optimization: match literals without regex compilation to reduce pressure on `cache`
@@ -102,7 +110,7 @@ func (r PlainRegexp) MatchString(in string) bool {
 	return rx.MatchString(in)
 }
 
-// Shorthand for `r.Regexp()` followed by `rx.FindStringSubmatch()`. If regex parsing
+// FindStringSubmatch is a shorthand for `r.Regexp()` followed by `rx.FindStringSubmatch()`. If regex parsing
 // returns an error, this function returns nil.
 func (r PlainRegexp) FindStringSubmatch(in string) []string {
 	// optimization: match literals without regex compilation to reduce pressure on `cache`
@@ -131,22 +139,30 @@ func (r PlainRegexp) FindStringSubmatch(in string) []string {
 // match empty inputs.
 type BoundedRegexp string
 
-func (r BoundedRegexp) MarshalJSON() ([]byte, error)           { return json.Marshal(string(r)) }
-func (r BoundedRegexp) MarshalYAML() (any, error)              { return string(r), nil }
-func (r *BoundedRegexp) UnmarshalJSON(buf []byte) error        { return parseJSON(buf, r.set, true) }
-func (r *BoundedRegexp) UnmarshalYAML(u func(any) error) error { return parseYAML(u, r.set, true) }
-func (r *BoundedRegexp) set(s string)                          { *r = BoundedRegexp(s) }
+// MarshalJSON implements the json.Marshaler interface.
+func (r BoundedRegexp) MarshalJSON() ([]byte, error) { return json.Marshal(string(r)) }
 
-// Regexp returns the parsed regexp.Regexp instance for this PlainRegexp. An
-// error is returned if the regular expression string inside this PlainRegexp
-// is invalid. If the PlainRegexp was unmarshaled from JSON or YAML, no error
+// MarshalYAML implements the yaml.Marshaler interface.
+func (r BoundedRegexp) MarshalYAML() (any, error) { return string(r), nil }
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (r *BoundedRegexp) UnmarshalJSON(buf []byte) error { return parseJSON(buf, r.set, true) }
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (r *BoundedRegexp) UnmarshalYAML(u func(any) error) error { return parseYAML(u, r.set, true) }
+
+func (r *BoundedRegexp) set(s string) { *r = BoundedRegexp(s) }
+
+// Regexp returns the parsed regexp.Regexp instance for this BoundedRegexp. An
+// error is returned if the regular expression string inside this BoundedRegexp
+// is invalid. If the BoundedRegexp was unmarshaled from JSON or YAML, no error
 // will ever be returned because invalid regex strings were already rejected
 // during unmarshalling.
 func (r BoundedRegexp) Regexp() (*regexp.Regexp, error) {
 	return compile(string(r), true)
 }
 
-// Shorthand for `r.Regexp()` followed by `rx.MatchString()`. If regex parsing
+// MatchString is a shorthand for `r.Regexp()` followed by `rx.MatchString()`. If regex parsing
 // returns an error, this function returns false.
 func (r BoundedRegexp) MatchString(in string) bool {
 	// optimization: match literals without regex compilation to reduce pressure on `cache`
@@ -161,7 +177,7 @@ func (r BoundedRegexp) MatchString(in string) bool {
 	return rx.MatchString(in)
 }
 
-// Shorthand for `r.Regexp()` followed by `rx.FindStringSubmatch()`. If regex parsing
+// FindStringSubmatch is a shorthand for `r.Regexp()` followed by `rx.FindStringSubmatch()`. If regex parsing
 // returns an error, this function returns nil.
 func (r BoundedRegexp) FindStringSubmatch(in string) []string {
 	// optimization: match literals without regex compilation to reduce pressure on `cache`

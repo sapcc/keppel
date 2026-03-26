@@ -265,7 +265,7 @@ func (r Response) Header() http.Header {
 	return r.resp.Header
 }
 
-// Body returns the response body, or nil if there is no response body.
+// BodyBytes returns the response body, or nil if there is no response body.
 func (r Response) BodyBytes() []byte {
 	if r.body == nil {
 		return nil

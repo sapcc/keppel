@@ -223,6 +223,8 @@ type keystoneTokenThingInDomain struct {
 	Domain keystoneTokenThing `json:"domain"`
 }
 
+// ToContext converts the keystoneToken to a policy.Context that can be used
+// to do checks on the external data which was provided.
 func (t *keystoneToken) ToContext() policy.Context {
 	c := policy.Context{
 		Roles: make([]string, 0, len(t.Roles)),

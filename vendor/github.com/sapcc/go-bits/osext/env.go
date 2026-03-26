@@ -11,7 +11,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 )
 
-// NeedGetenv returns os.Getenv(key), or panics if the environment variable is
+// MustGetenv returns os.Getenv(key), or panics if the environment variable is
 // not set.
 func MustGetenv(key string) string {
 	val, err := NeedGetenv(key)

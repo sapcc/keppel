@@ -26,10 +26,12 @@ func InMemoryCacher() Cacher {
 	return inMemoryCacher{c}
 }
 
+// StoreTokenPayload implements the Cacher interface.
 func (c inMemoryCacher) StoreTokenPayload(_ context.Context, token string, payload []byte) {
 	c.Add(cacheKeyFor(token), payload)
 }
 
+// LoadTokenPayload implements the Cacher interface.
 func (c inMemoryCacher) LoadTokenPayload(_ context.Context, token string) []byte {
 	payload, ok := c.Get(cacheKeyFor(token))
 	if !ok {
