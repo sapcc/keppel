@@ -11,9 +11,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/majewsky/gg/jsonmatch"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/httptest"
 
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -24,54 +26,39 @@ import (
 func TestAccountsAPI(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
+	ctx := t.Context()
 	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
 	tr0.AssertEmpty()
 
 	// test the /keppel/v1 endpoint
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1",
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"auth_driver": "unittest"},
-	}.Check(t, h)
+	h.RespondTo(ctx, "GET /keppel/v1").
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"auth_driver": "unittest"})
 
 	// no accounts right now
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"accounts": []any{}},
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/first",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusForbidden,
-		ExpectBody:   assert.StringData("no permission for keppel_account:first:view\n"),
-	}.Check(t, h)
+	h.RespondTo(ctx, "GET /keppel/v1/accounts", withPerms("view:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"accounts": []jsonmatch.Object{},
+		})
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/first", withPerms("view:tenant1")).
+		ExpectText(t, http.StatusForbidden, "no permission for keppel_account:first:view\n")
 
 	// create an account (this request is executed twice to test idempotency)
 	for _, pass := range []int{1, 2} {
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/first",
-			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
+		h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+			withPerms("change:tenant1"),
+			httptest.WithJSONBody(map[string]any{
+				"account": map[string]any{
 					"auth_tenant_id": "tenant1",
 				},
+			}),
+		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"account": jsonmatch.Object{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+				"metadata":       nil,
+				"rbac_policies":  []jsonmatch.Object{},
 			},
-			ExpectStatus: http.StatusOK,
-			ExpectBody: assert.JSONObject{
-				"account": assert.JSONObject{
-					"name":           "first",
-					"auth_tenant_id": "tenant1",
-					"metadata":       nil,
-					"rbac_policies":  []assert.JSONObject{},
-				},
-			},
-		}.Check(t, h)
+		})
 
 		// only the first pass should generate an audit event
 		if pass == 1 {
@@ -92,61 +79,41 @@ func TestAccountsAPI(t *testing.T) {
 	}
 
 	// check that account shows up in GET...
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"accounts": []assert.JSONObject{{
+	h.RespondTo(ctx, "GET /keppel/v1/accounts", withPerms("view:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"accounts": []jsonmatch.Object{{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
 				"metadata":       nil,
-				"rbac_policies":  []assert.JSONObject{},
+				"rbac_policies":  []jsonmatch.Object{},
 			}},
-		},
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/first",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
+		})
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/first", withPerms("view:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"account": jsonmatch.Object{
 				"name":           "first",
 				"auth_tenant_id": "tenant1",
 				"metadata":       nil,
-				"rbac_policies":  []assert.JSONObject{},
+				"rbac_policies":  []jsonmatch.Object{},
 			},
-		},
-	}.Check(t, h)
+		})
 
 	// ...but only when one has view permission on the correct tenant
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant2"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"accounts": []assert.JSONObject{},
-		},
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/first",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant2"},
-		ExpectStatus: http.StatusForbidden,
-		ExpectBody:   assert.StringData("no permission for keppel_account:first:view\n"),
-	}.Check(t, h)
+	h.RespondTo(ctx, "GET /keppel/v1/accounts", withPerms("view:tenant2")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"accounts": []jsonmatch.Object{},
+		})
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/first", withPerms("view:tenant2")).
+		ExpectText(t, http.StatusForbidden, "no permission for keppel_account:first:view\n")
 
 	// create an account with RBAC policies and GC policies (this request is executed twice to test idempotency)
-	gcPoliciesJSON := []assert.JSONObject{
+	gcPoliciesJSON := []jsonmatch.Object{
 		{
 			"match_repository":  ".*/database",
 			"except_repository": "archive/.*",
-			"time_constraint": assert.JSONObject{
+			"time_constraint": jsonmatch.Object{
 				"on": "pushed_at",
-				"newer_than": assert.JSONObject{
+				"newer_than": jsonmatch.Object{
 					"value": 10,
 					"unit":  "d",
 				},
@@ -159,7 +126,7 @@ func TestAccountsAPI(t *testing.T) {
 			"action":           "delete",
 		},
 	}
-	rbacPoliciesJSON := []assert.JSONObject{
+	rbacPoliciesJSON := []jsonmatch.Object{
 		{
 			"match_repository": "library/.*",
 			"permissions":      []string{"anonymous_pull"},
@@ -170,7 +137,7 @@ func TestAccountsAPI(t *testing.T) {
 			"permissions":      []string{"pull", "push"},
 		},
 	}
-	tagPoliciesJSON := []assert.JSONObject{
+	tagPoliciesJSON := []jsonmatch.Object{
 		{
 			"match_repository": "library/.*",
 			"block_overwrite":  true,
@@ -181,30 +148,26 @@ func TestAccountsAPI(t *testing.T) {
 		},
 	}
 	for _, pass := range []int{1, 2} {
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/second",
-			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
+		h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+			withPerms("change:tenant1"),
+			httptest.WithJSONBody(map[string]any{
+				"account": map[string]any{
 					"auth_tenant_id": "tenant1",
 					"gc_policies":    gcPoliciesJSON,
 					"rbac_policies":  rbacPoliciesJSON,
 					"tag_policies":   tagPoliciesJSON,
 				},
+			}),
+		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"account": jsonmatch.Object{
+				"name":           "second",
+				"auth_tenant_id": "tenant1",
+				"gc_policies":    gcPoliciesJSON,
+				"metadata":       nil,
+				"rbac_policies":  rbacPoliciesJSON,
+				"tag_policies":   tagPoliciesJSON,
 			},
-			ExpectStatus: http.StatusOK,
-			ExpectBody: assert.JSONObject{
-				"account": assert.JSONObject{
-					"name":           "second",
-					"auth_tenant_id": "tenant1",
-					"gc_policies":    gcPoliciesJSON,
-					"metadata":       nil,
-					"rbac_policies":  rbacPoliciesJSON,
-					"tag_policies":   tagPoliciesJSON,
-				},
-			},
-		}.Check(t, h)
+		})
 
 		// only the first pass should generate audit events
 		if pass == 1 {
@@ -244,18 +207,14 @@ func TestAccountsAPI(t *testing.T) {
 	}
 
 	// check that this account also shows up in GET
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"accounts": []assert.JSONObject{
+	h.RespondTo(ctx, "GET /keppel/v1/accounts", withPerms("view:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"accounts": []jsonmatch.Object{
 				{
 					"name":           "first",
 					"auth_tenant_id": "tenant1",
 					"metadata":       nil,
-					"rbac_policies":  []assert.JSONObject{},
+					"rbac_policies":  []jsonmatch.Object{},
 				},
 				{
 					"name":           "second",
@@ -266,15 +225,10 @@ func TestAccountsAPI(t *testing.T) {
 					"tag_policies":   tagPoliciesJSON,
 				},
 			},
-		},
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/second",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
+		})
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/second", withPerms("view:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"account": jsonmatch.Object{
 				"name":           "second",
 				"auth_tenant_id": "tenant1",
 				"gc_policies":    gcPoliciesJSON,
@@ -282,15 +236,14 @@ func TestAccountsAPI(t *testing.T) {
 				"rbac_policies":  rbacPoliciesJSON,
 				"tag_policies":   tagPoliciesJSON,
 			},
-		},
-	}.Check(t, h)
+		})
 	tr.DBChanges().AssertEqual(`
 		INSERT INTO accounts (name, auth_tenant_id) VALUES ('first', 'tenant1');
 		INSERT INTO accounts (name, auth_tenant_id, gc_policies_json, rbac_policies_json, tag_policies_json) VALUES ('second', 'tenant1', '[{"match_repository":".*/database","except_repository":"archive/.*","time_constraint":{"on":"pushed_at","newer_than":{"value":10,"unit":"d"}},"action":"protect"},{"match_repository":".*","only_untagged":true,"action":"delete"}]', '[{"match_repository":"library/.*","permissions":["anonymous_pull"]},{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull","push"]}]', '[{"match_repository":"library/.*","block_overwrite":true},{"match_repository":"library/alpine","block_delete":true}]');
 	`)
 
 	// check editing of RBAC policies
-	newRBACPoliciesJSON := []assert.JSONObject{
+	newRBACPoliciesJSON := []jsonmatch.Object{
 		// rbacPoliciesJSON[0] is deleted
 		// rbacPoliciesJSON[1] is updated as follows:
 		{
@@ -305,26 +258,22 @@ func TestAccountsAPI(t *testing.T) {
 			"permissions":      []string{"pull", "delete"},
 		},
 	}
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/second",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
 				"rbac_policies":  newRBACPoliciesJSON,
 			},
+		}),
+	).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": jsonmatch.Object{
+			"name":           "second",
+			"auth_tenant_id": "tenant1",
+			"metadata":       nil,
+			"rbac_policies":  newRBACPoliciesJSON,
 		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
-				"name":           "second",
-				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
-				"rbac_policies":  newRBACPoliciesJSON,
-			},
-		},
-	}.Check(t, h)
+	})
 	s.Auditor.ExpectEvents(t,
 		cadf.Event{
 			RequestPath: "/keppel/v1/accounts/second",
@@ -347,13 +296,10 @@ func TestAccountsAPI(t *testing.T) {
 	// test POST /keppel/v1/:accounts/sublease success case (error cases are in
 	// TestPutAccountErrorCases and TestGetPutAccountReplicationOnFirstUse)
 	s.FD.NextSubleaseTokenSecretToIssue = "this-is-the-token"
-	assert.HTTPRequest{
-		Method:       "POST",
-		Path:         "/keppel/v1/accounts/second/sublease",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"sublease_token": makeSubleaseToken("second", "registry.example.org", "this-is-the-token")},
-	}.Check(t, h)
+	h.RespondTo(ctx, "POST /keppel/v1/accounts/second/sublease", withPerms("view:tenant1,change:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"sublease_token": makeSubleaseToken("second", "registry.example.org", "this-is-the-token"),
+		})
 	tr.DBChanges().AssertEqual(`
 		UPDATE accounts SET gc_policies_json = '[]', rbac_policies_json = '[{"match_repository":"library/alpine","match_username":".*@tenant2","permissions":["pull"]},{"match_repository":"library/alpine","match_username":".*@tenant3","permissions":["pull","delete"]}]', tag_policies_json = '[]' WHERE name = 'second';
 	`)
@@ -362,492 +308,353 @@ func TestAccountsAPI(t *testing.T) {
 func TestAccountValidationPolicies(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
+	ctx := t.Context()
 	_, tr0 := easypg.NewTracker(t, s.DB.Db)
 	tr0.AssertEmpty()
 
+	// shorthand for configuring the account "first" with a PUT request
+	putAccount := func(accountConfig map[string]any) httptest.Response {
+		return h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+			withPerms("change:tenant1"),
+			httptest.WithJSONBody(map[string]any{"account": accountConfig}),
+		)
+	}
+
 	// Create account
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-			},
+	putAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+	}).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": jsonmatch.Object{
+			"name":           "first",
+			"auth_tenant_id": "tenant1",
+			"metadata":       nil,
+			"rbac_policies":  []jsonmatch.Object{},
 		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
-				"name":           "first",
-				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
-				"rbac_policies":  []assert.JSONObject{},
-			},
-		},
-	}.Check(t, h)
+	})
 
 	// Reject if rule_for_manifest is not a valid CEL expression
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies":  []assert.JSONObject{},
-				"validation": assert.JSONObject{
-					"rule_for_manifest": "the labels foo and bar should be present",
-				},
-			},
+	putAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"rbac_policies":  []map[string]any{},
+		"validation": map[string]any{
+			"rule_for_manifest": "the labels foo and bar should be present",
 		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-	}.Check(t, h)
+	}).ExpectStatus(t, http.StatusUnprocessableEntity)
 
 	// Reject if rule_for_manifest does not evaluate to bool
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies":  []assert.JSONObject{},
-				"validation": assert.JSONObject{
-					"rule_for_manifest": "'foo' in labels ? 1 : 0",
-				},
-			},
+	putAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"rbac_policies":  []map[string]any{},
+		"validation": map[string]any{
+			"rule_for_manifest": "'foo' in labels ? 1 : 0",
 		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("output of CEL expression must be bool but is \"int\"\n"),
-	}.Check(t, h)
+	}).ExpectText(t, http.StatusUnprocessableEntity, "output of CEL expression must be bool but is \"int\"\n")
 
 	// Reject if required_labels and rule_for_manifest are not logically equivalent
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies":  []assert.JSONObject{},
-				"validation": assert.JSONObject{
-					"rule_for_manifest": "'foo' in labels && 'bar' in labels",
-					"required_labels":   []string{"qux", "quux"},
-				},
-			},
+	putAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"rbac_policies":  []map[string]any{},
+		"validation": map[string]any{
+			"rule_for_manifest": "'foo' in labels && 'bar' in labels",
+			"required_labels":   []string{"qux", "quux"},
 		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("required labels [\"qux\" \"quux\"] do not match rule for manifest \"'foo' in labels && 'bar' in labels\"\n"),
-	}.Check(t, h)
+	}).ExpectText(t, http.StatusUnprocessableEntity, "required labels [\"qux\" \"quux\"] do not match rule for manifest \"'foo' in labels && 'bar' in labels\"\n")
 
 	// Accept if only rule_for_manifest is provided
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies":  []assert.JSONObject{},
-				"validation": assert.JSONObject{
-					"rule_for_manifest": "'foo' in labels && 'bar' in labels",
-				},
+	putAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"rbac_policies":  []map[string]any{},
+		"validation": map[string]any{
+			"rule_for_manifest": "'foo' in labels && 'bar' in labels",
+		},
+	}).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": jsonmatch.Object{
+			"name":           "first",
+			"auth_tenant_id": "tenant1",
+			"metadata":       nil,
+			"rbac_policies":  []jsonmatch.Object{},
+			"validation": jsonmatch.Object{
+				"rule_for_manifest": "'foo' in labels && 'bar' in labels",
+				"required_labels":   []string{"foo", "bar"},
 			},
 		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
-				"name":           "first",
-				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
-				"rbac_policies":  []assert.JSONObject{},
-				"validation": assert.JSONObject{
-					"rule_for_manifest": "'foo' in labels && 'bar' in labels",
-					"required_labels":   []string{"foo", "bar"},
-				},
-			},
-		},
-	}.Check(t, h)
+	})
 
 	// Reset if an empty rule_for_manifest is provided
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies":  []assert.JSONObject{},
-				"validation": assert.JSONObject{
-					"rule_for_manifest": "",
-				},
-			},
+	putAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"rbac_policies":  []map[string]any{},
+		"validation": map[string]any{
+			"rule_for_manifest": "",
 		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.StringData("{\"account\":{\"name\":\"first\",\"auth_tenant_id\":\"tenant1\",\"rbac_policies\":[],\"metadata\":null}}"),
-	}.Check(t, h)
+	}).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": jsonmatch.Object{
+			"name":           "first",
+			"auth_tenant_id": "tenant1",
+			"metadata":       nil,
+			"rbac_policies":  []jsonmatch.Object{},
+		},
+	})
 
 	// Accept if only required_labels is provided
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies":  []assert.JSONObject{},
-				"validation": assert.JSONObject{
-					"required_labels": []string{"baz", "qux"},
-				},
+	putAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"rbac_policies":  []map[string]any{},
+		"validation": map[string]any{
+			"required_labels": []string{"baz", "qux"},
+		},
+	}).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": jsonmatch.Object{
+			"name":           "first",
+			"auth_tenant_id": "tenant1",
+			"metadata":       nil,
+			"rbac_policies":  []jsonmatch.Object{},
+			"validation": jsonmatch.Object{
+				"rule_for_manifest": "'baz' in labels && 'qux' in labels",
+				"required_labels":   []string{"baz", "qux"},
 			},
 		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
-				"name":           "first",
-				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
-				"rbac_policies":  []assert.JSONObject{},
-				"validation": assert.JSONObject{
-					"rule_for_manifest": "'baz' in labels && 'qux' in labels",
-					"required_labels":   []string{"baz", "qux"},
-				},
-			},
-		},
-	}.Check(t, h)
+	})
 
 	// Accept if both required_labels and rule_for_manifest are provided and valid
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies":  []assert.JSONObject{},
-				"validation": assert.JSONObject{
-					"rule_for_manifest": "'quux' in labels",
-					"required_labels":   []string{"quux"},
-				},
+	putAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"rbac_policies":  []map[string]any{},
+		"validation": map[string]any{
+			"rule_for_manifest": "'quux' in labels",
+			"required_labels":   []string{"quux"},
+		},
+	}).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": jsonmatch.Object{
+			"name":           "first",
+			"auth_tenant_id": "tenant1",
+			"metadata":       nil,
+			"rbac_policies":  []jsonmatch.Object{},
+			"validation": jsonmatch.Object{
+				"rule_for_manifest": "'quux' in labels",
+				"required_labels":   []string{"quux"},
 			},
 		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
-				"name":           "first",
-				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
-				"rbac_policies":  []assert.JSONObject{},
-				"validation": assert.JSONObject{
-					"rule_for_manifest": "'quux' in labels",
-					"required_labels":   []string{"quux"},
-				},
-			},
-		},
-	}.Check(t, h)
+	})
 
 	// Setting an empty validation policy should be equivalent to removing it
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies":  []assert.JSONObject{},
-				"validation": assert.JSONObject{
-					"required_labels":   []string{},
-					"rule_for_manifest": "",
-				},
-			},
+	putAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"rbac_policies":  []map[string]any{},
+		"validation": map[string]any{
+			"required_labels":   []string{},
+			"rule_for_manifest": "",
 		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
-				"name":           "first",
-				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
-				"rbac_policies":  []assert.JSONObject{},
-			},
+	}).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": jsonmatch.Object{
+			"name":           "first",
+			"auth_tenant_id": "tenant1",
+			"metadata":       nil,
+			"rbac_policies":  []jsonmatch.Object{},
 		},
-	}.Check(t, h)
+	})
 }
 
 func TestGetAccountsErrorCases(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
+	ctx := t.Context()
 
 	// test invalid authentication (response includes auth challenges since the
 	// default auth scheme is bearer token auth)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts",
-		ExpectStatus: http.StatusUnauthorized,
-		ExpectBody:   assert.StringData("unauthorized\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/first",
-		ExpectStatus: http.StatusForbidden,
-		ExpectBody:   assert.StringData("no bearer token found in request headers\n"),
-		ExpectHeader: map[string]string{
-			"Www-Authenticate": `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_account:first:view"`,
-		},
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "GET /keppel/v1/accounts").
+		ExpectText(t, http.StatusUnauthorized, "unauthorized\n")
+
+	resp := h.RespondTo(ctx, "GET /keppel/v1/accounts/first")
+	assert.Equal(t, resp.Header().Get("Www-Authenticate"),
+		`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_account:first:view"`)
+	resp.ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
+
+	resp = h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
 			},
-		},
-		ExpectStatus: http.StatusForbidden,
-		ExpectBody:   assert.StringData("no bearer token found in request headers\n"),
-		ExpectHeader: map[string]string{
-			"Www-Authenticate": `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_auth_tenant:tenant1:change"`,
-		},
-	}.Check(t, h)
+		}))
+	assert.Equal(t, resp.Header().Get("Www-Authenticate"),
+		`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_auth_tenant:tenant1:change"`)
+	resp.ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
 }
 
 func TestPutAccountRBACPolicyNormalization(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
+	ctx := t.Context()
 
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
-				"rbac_policies": []assert.JSONObject{{
+				"rbac_policies": []map[string]any{{
 					"match_username":        "mallory",
 					"permissions":           nil, // this gets normalized...
 					"forbidden_permissions": []string{"push"},
 				}},
 			},
+		}),
+	).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": jsonmatch.Object{
+			"name":           "first",
+			"auth_tenant_id": "tenant1",
+			"metadata":       nil,
+			"rbac_policies": []jsonmatch.Object{{
+				"match_username":        "mallory",
+				"permissions":           []string{}, // ...to this
+				"forbidden_permissions": []string{"push"},
+			}},
 		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
-				"name":           "first",
-				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
-				"rbac_policies": []assert.JSONObject{{
-					"match_username":        "mallory",
-					"permissions":           []string{}, // ...to this
-					"forbidden_permissions": []string{"push"},
-				}},
-			},
-		},
-	}.Check(t, h)
+	})
 }
 
 func TestPutAccountErrorCases(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
+	ctx := t.Context()
 	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
 	tr0.AssertEmpty()
 
 	//preparation: create an account (so that we can check the error that the requested account name is taken)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
 			},
+		}),
+	).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": jsonmatch.Object{
+			"name":           "first",
+			"auth_tenant_id": "tenant1",
+			"metadata":       nil,
+			"rbac_policies":  []jsonmatch.Object{},
 		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
-				"name":           "first",
-				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
-				"rbac_policies":  []assert.JSONObject{},
-			},
-		},
-	}.Check(t, h)
+	})
 
 	// test invalid inputs
-	assert.HTTPRequest{
-		Method:       "PUT",
-		Path:         "/keppel/v1/accounts/second",
-		Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body:         assert.StringData(`{"account":???}`),
-		ExpectStatus: http.StatusBadRequest,
-		ExpectBody:   assert.StringData("request body is not valid JSON: invalid character '?' looking for beginning of value\n"),
-	}.Check(t, h)
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+		withPerms("change:tenant1"),
+		httptest.WithBody(strings.NewReader(`{"account":???}`)),
+	).ExpectText(t, http.StatusBadRequest, "request body is not valid JSON: invalid character '?' looking for beginning of value\n")
 
-	assert.HTTPRequest{
-		Method:       "PUT",
-		Path:         "/keppel/v1/accounts/second",
-		Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body:         assert.StringData(`{"account":""}`),
-		ExpectStatus: http.StatusBadRequest,
-		ExpectBody:   assert.StringData("request body is not valid JSON: json: cannot unmarshal string into Go struct field .account of type keppel.Account\n"),
-	}.Check(t, h)
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+		withPerms("change:tenant1"),
+		httptest.WithBody(strings.NewReader(`{"account":""}`)),
+	).ExpectText(t, http.StatusBadRequest, "request body is not valid JSON: json: cannot unmarshal string into Go struct field .account of type keppel.Account\n")
 
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/keppel-api",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/keppel-api",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
 			},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("account names with the prefix \"keppel\" are reserved for internal use\n"),
-	}.Check(t, h)
+		})).ExpectText(t, http.StatusUnprocessableEntity, "account names with the prefix \"keppel\" are reserved for internal use\n")
 
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/v1",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/v1",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
 			},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("account names that look like API versions (e.g. v1) are reserved for internal use\n"),
-	}.Check(t, h)
+		})).ExpectText(t, http.StatusUnprocessableEntity, "account names that look like API versions (e.g. v1) are reserved for internal use\n")
 
 	// Just to be sure that this does not regress with any refactors in the future
-	for _, account := range []string{"_blobs", "_chunks", "-invalid"} {
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/" + account,
-			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
+	for _, accountName := range []string{"_blobs", "_chunks", "-invalid"} {
+		h.RespondTo(ctx, "PUT /keppel/v1/accounts/"+accountName,
+			withPerms("change:tenant1"),
+			httptest.WithJSONBody(map[string]any{
+				"account": map[string]any{
 					"auth_tenant_id": "tenant1",
 				},
-			},
-			ExpectStatus: http.StatusNotFound, // The API route handler uses [a-z0-9][a-z0-9-]{0,47} so we expect a 404 here
-			ExpectBody:   assert.StringData("404 page not found\n"),
-		}.Check(t, h)
+			})).ExpectText(t, http.StatusNotFound, "404 page not found\n")
+		// ^ The API route handler uses `[a-z0-9][a-z0-9-]{0,47}`, so we expect a 404 here.
 	}
 
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant2"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		withPerms("change:tenant2"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant2",
 			},
-		},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody:   assert.StringData("account name already in use by a different tenant\n"),
-	}.Check(t, h)
+		})).ExpectText(t, http.StatusConflict, "account name already in use by a different tenant\n")
 
 	// test invalid authentication/authorization
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/second",
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	resp := h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
 			},
-		},
-		ExpectStatus: http.StatusForbidden,
-		ExpectBody:   assert.StringData("no bearer token found in request headers\n"),
-		ExpectHeader: map[string]string{
-			// default auth is bearer token auth, so an auth challenge gets rendered
-			"Www-Authenticate": `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_auth_tenant:tenant1:change"`,
-		},
-	}.Check(t, h)
+		}))
+	assert.Equal(t, resp.Header().Get("Www-Authenticate"),
+		`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_auth_tenant:tenant1:change"`)
+	resp.ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
 
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/second",
-		Header: map[string]string{"X-Test-Perms": "view:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+		withPerms("view:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
 			},
-		},
-		ExpectStatus: http.StatusForbidden,
-		ExpectBody:   assert.StringData("no permission for keppel_auth_tenant:tenant1:change\n"),
-	}.Check(t, h)
+		})).ExpectText(t, http.StatusForbidden, "no permission for keppel_auth_tenant:tenant1:change\n")
 
 	// test rejection by federation driver (we test both user error and server
 	// error to validate that they generate the correct respective HTTP status
 	// codes)
 	s.FD.ClaimFailsBecauseOfUserError = true
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/second",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
 			},
-		},
-		ExpectStatus: http.StatusForbidden,
-		ExpectBody:   assert.StringData("cannot assign name \"second\" to auth tenant \"tenant1\"\n"),
-	}.Check(t, h)
+		})).ExpectText(t, http.StatusForbidden, "cannot assign name \"second\" to auth tenant \"tenant1\"\n")
 	s.FD.ClaimFailsBecauseOfUserError = false
 
 	s.FD.ClaimFailsBecauseOfServerError = true
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/second",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
 			},
-		},
-		ExpectStatus: http.StatusInternalServerError,
-		ExpectBody:   assert.StringData("failed to assign name \"second\" to auth tenant \"tenant1\"\n"),
-	}.Check(t, h)
+		})).ExpectText(t, http.StatusInternalServerError, "failed to assign name \"second\" to auth tenant \"tenant1\"\n")
 	s.FD.ClaimFailsBecauseOfServerError = false
 
 	// test rejection by storage driver
 	s.SD.ForbidNewAccounts = true
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/second",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
 			},
-		},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody:   assert.StringData("cannot set up backing storage for this account: CanSetupAccount failed as requested\n"),
-	}.Check(t, h)
+		})).ExpectText(t, http.StatusConflict, "cannot set up backing storage for this account: CanSetupAccount failed as requested\n")
 	s.SD.ForbidNewAccounts = false
 
 	// test setting up invalid required_labels
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/second",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
-				"validation": assert.JSONObject{
+				"validation": map[string]any{
 					"required_labels": []string{"foo,", ",bar"},
 				},
 			},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("invalid label name: \"foo,\"\n"),
-	}.Check(t, h)
+		})).ExpectText(t, http.StatusUnprocessableEntity, "invalid label name: \"foo,\"\n")
 
 	// test malformed GC policies
 	gcPolicyTestcases := []struct {
-		GCPolicyJSON assert.JSONObject
+		GCPolicyJSON map[string]any
 		ErrorMessage string
 	}{
 		{
-			GCPolicyJSON: assert.JSONObject{
+			GCPolicyJSON: map[string]any{
 				"except_repository": "library/.*",
 				"only_untagged":     true,
 				"action":            "delete",
@@ -855,7 +662,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: `GC policy must have the "match_repository" attribute`,
 		},
 		{
-			GCPolicyJSON: assert.JSONObject{
+			GCPolicyJSON: map[string]any{
 				"match_repository": "*/library",
 				"only_untagged":    true,
 				"action":           "delete",
@@ -863,7 +670,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: "request body is not valid JSON: \"*/library\" is not a valid regexp: error parsing regexp: missing argument to repetition operator: `*`",
 		},
 		{
-			GCPolicyJSON: assert.JSONObject{
+			GCPolicyJSON: map[string]any{
 				"match_repository":  "library/.*",
 				"except_repository": "*/library",
 				"only_untagged":     true,
@@ -872,14 +679,14 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: "request body is not valid JSON: \"*/library\" is not a valid regexp: error parsing regexp: missing argument to repetition operator: `*`",
 		},
 		{
-			GCPolicyJSON: assert.JSONObject{
+			GCPolicyJSON: map[string]any{
 				"match_repository": "library/.*",
 				"only_untagged":    true,
 			},
 			ErrorMessage: `GC policy must have the "action" attribute`,
 		},
 		{
-			GCPolicyJSON: assert.JSONObject{
+			GCPolicyJSON: map[string]any{
 				"match_repository": "library/.*",
 				"only_untagged":    true,
 				"action":           "foo",
@@ -887,7 +694,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: `"foo" is not a valid action for a GC policy`,
 		},
 		{
-			GCPolicyJSON: assert.JSONObject{
+			GCPolicyJSON: map[string]any{
 				"match_repository": "library/.*",
 				"match_tag":        "*-foo",
 				"action":           "delete",
@@ -895,7 +702,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: "request body is not valid JSON: \"*-foo\" is not a valid regexp: error parsing regexp: missing argument to repetition operator: `*`",
 		},
 		{
-			GCPolicyJSON: assert.JSONObject{
+			GCPolicyJSON: map[string]any{
 				"match_repository": "library/.*",
 				"match_tag":        "foo-.*",
 				"except_tag":       "*-bar",
@@ -904,7 +711,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: "request body is not valid JSON: \"*-bar\" is not a valid regexp: error parsing regexp: missing argument to repetition operator: `*`",
 		},
 		{
-			GCPolicyJSON: assert.JSONObject{
+			GCPolicyJSON: map[string]any{
 				"match_repository": "library/.*",
 				"match_tag":        "foo-.*",
 				"only_untagged":    true,
@@ -913,7 +720,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: `GC policy cannot have the "match_tag" attribute when "only_untagged" is set`,
 		},
 		{
-			GCPolicyJSON: assert.JSONObject{
+			GCPolicyJSON: map[string]any{
 				"match_repository": "library/.*",
 				"except_tag":       "foo-.*",
 				"only_untagged":    true,
@@ -922,31 +729,31 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: `GC policy cannot have the "except_tag" attribute when "only_untagged" is set`,
 		},
 		{
-			GCPolicyJSON: assert.JSONObject{
+			GCPolicyJSON: map[string]any{
 				"match_repository": "library/.*",
 				"only_untagged":    true,
-				"time_constraint":  assert.JSONObject{},
+				"time_constraint":  map[string]any{},
 				"action":           "delete",
 			},
 			ErrorMessage: `GC policy time constraint must have the "on" attribute`,
 		},
 		{
-			GCPolicyJSON: assert.JSONObject{
+			GCPolicyJSON: map[string]any{
 				"match_repository": "library/.*",
 				"only_untagged":    true,
-				"time_constraint": assert.JSONObject{
+				"time_constraint": map[string]any{
 					"on":         "frobnicated_at",
-					"newer_than": assert.JSONObject{"value": 10, "unit": "d"},
+					"newer_than": map[string]any{"value": 10, "unit": "d"},
 				},
 				"action": "delete",
 			},
 			ErrorMessage: `"frobnicated_at" is not a valid target for a GC policy time constraint`,
 		},
 		{
-			GCPolicyJSON: assert.JSONObject{
+			GCPolicyJSON: map[string]any{
 				"match_repository": "library/.*",
 				"only_untagged":    true,
-				"time_constraint": assert.JSONObject{
+				"time_constraint": map[string]any{
 					"on": "last_pulled_at",
 				},
 				"action": "delete",
@@ -954,23 +761,23 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: `GC policy time constraint needs to set at least one attribute other than "on"`,
 		},
 		{
-			GCPolicyJSON: assert.JSONObject{
+			GCPolicyJSON: map[string]any{
 				"match_repository": "library/.*",
 				"only_untagged":    true,
-				"time_constraint": assert.JSONObject{
+				"time_constraint": map[string]any{
 					"on":         "pushed_at",
 					"oldest":     10,
-					"older_than": assert.JSONObject{"value": 5, "unit": "h"},
+					"older_than": map[string]any{"value": 5, "unit": "h"},
 				},
 				"action": "protect",
 			},
 			ErrorMessage: `GC policy time constraint cannot set all these attributes at once: "oldest", "older_than"`,
 		},
 		{
-			GCPolicyJSON: assert.JSONObject{
+			GCPolicyJSON: map[string]any{
 				"match_repository": "library/.*",
 				"only_untagged":    true,
-				"time_constraint": assert.JSONObject{
+				"time_constraint": map[string]any{
 					"on":     "pushed_at",
 					"oldest": 10,
 				},
@@ -979,10 +786,10 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: `GC policy with action "delete" cannot set the "time_constraint.oldest" attribute`,
 		},
 		{
-			GCPolicyJSON: assert.JSONObject{
+			GCPolicyJSON: map[string]any{
 				"match_repository": "library/.*",
 				"only_untagged":    true,
-				"time_constraint": assert.JSONObject{
+				"time_constraint": map[string]any{
 					"on":     "pushed_at",
 					"newest": 10,
 				},
@@ -996,43 +803,39 @@ func TestPutAccountErrorCases(t *testing.T) {
 		if strings.Contains(tc.ErrorMessage, "not valid JSON") {
 			expectedStatus = http.StatusBadRequest
 		}
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/first",
-			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
+
+		h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+			withPerms("change:tenant1"),
+			httptest.WithJSONBody(map[string]any{
+				"account": map[string]any{
 					"auth_tenant_id": "tenant1",
-					"gc_policies":    []assert.JSONObject{tc.GCPolicyJSON},
+					"gc_policies":    []map[string]any{tc.GCPolicyJSON},
 				},
-			},
-			ExpectStatus: expectedStatus,
-			ExpectBody:   assert.StringData(tc.ErrorMessage + "\n"),
-		}.Check(t, h)
+			})).ExpectText(t, expectedStatus, tc.ErrorMessage+"\n")
 	}
 
 	// test malformed RBAC policies
 	rbacPolicyTestcases := []struct {
-		RBACPolicyJSON assert.JSONObject
+		RBACPolicyJSON map[string]any
 		ErrorMessage   string
 	}{
 		// NOTE: Many testcases come in pairs where the problematic permission is
 		// in `permissions` the first time and in `forbidden_permissions` the second time.
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository": "library/.+",
 			},
 			ErrorMessage: "RBAC policy must grant at least one permission",
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository": "library/.+",
 				"permissions":      []string{"pull", "push", "foo"},
 			},
 			ErrorMessage: `"foo" is not a valid RBAC policy permission`,
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository":      "library/.+",
 				"permissions":           []string{"pull"},
 				"forbidden_permissions": []string{"push", "foo"},
@@ -1040,7 +843,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: `"foo" is not a valid RBAC policy permission`,
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository":      "library/.+",
 				"permissions":           []string{"pull"},
 				"forbidden_permissions": []string{"pull", "push"},
@@ -1048,13 +851,13 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: `"pull" cannot be granted and forbidden by the same RBAC policy`,
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"permissions": []string{"anonymous_pull"},
 			},
 			ErrorMessage: `RBAC policy must have at least one "match_..." attribute`,
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository": "library/.+",
 				"match_username":   "foo",
 				"permissions":      []string{"anonymous_pull"},
@@ -1062,7 +865,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: `RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`,
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository":      "library/.+",
 				"match_username":        "foo",
 				"forbidden_permissions": []string{"anonymous_pull"},
@@ -1070,48 +873,48 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: `RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`,
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository": "library/.+",
 				"permissions":      []string{"pull"},
 			},
 			ErrorMessage: `RBAC policy with "pull" must have the "match_cidr" or "match_username" attribute`,
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository":      "library/.+",
 				"forbidden_permissions": []string{"pull"},
 			},
 			ErrorMessage: `RBAC policy with "pull" must have the "match_cidr" or "match_username" attribute`,
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository": "library/.+",
 				"permissions":      []string{"delete"},
 			},
 			ErrorMessage: `RBAC policy with "delete" must have the "match_username" attribute`,
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository":      "library/.+",
 				"forbidden_permissions": []string{"delete"},
 			},
 			ErrorMessage: `RBAC policy with "delete" must have the "match_username" attribute`,
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository": "library/.+",
 				"permissions":      []string{"push"},
 			},
 			ErrorMessage: `RBAC policy with "push" must also grant "pull"`,
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_cidr": "0.0.0.0/64",
 			},
 			ErrorMessage: `"0.0.0.0/64" is not a valid CIDR`,
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_cidr":       "0.0.0.0/0",
 				"match_repository": "test*",
 				"permissions":      []string{"pull"},
@@ -1119,7 +922,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: "0.0.0.0/0 cannot be used as CIDR because it matches everything",
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository": "library/.+",
 				"match_username":   "foo",
 				"permissions":      []string{"anonymous_first_pull"},
@@ -1127,7 +930,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: `RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`,
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository":      "library/.+",
 				"match_username":        "foo",
 				"forbidden_permissions": []string{"anonymous_first_pull"},
@@ -1135,28 +938,28 @@ func TestPutAccountErrorCases(t *testing.T) {
 			ErrorMessage: `RBAC policy with "anonymous_pull" or "anonymous_first_pull" may not have the "match_username" attribute`,
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository": "library/.+",
 				"permissions":      []string{"anonymous_first_pull"},
 			},
 			ErrorMessage: `RBAC policy with "anonymous_first_pull" may only be for external replica accounts`,
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository":      "library/.+",
 				"forbidden_permissions": []string{"anonymous_first_pull"},
 			},
 			ErrorMessage: `RBAC policy with "anonymous_first_pull" may only be for external replica accounts`,
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository": "*/library",
 				"permissions":      []string{"anonymous_pull"},
 			},
 			ErrorMessage: "request body is not valid JSON: \"*/library\" is not a valid regexp: error parsing regexp: missing argument to repetition operator: `*`",
 		},
 		{
-			RBACPolicyJSON: assert.JSONObject{
+			RBACPolicyJSON: map[string]any{
 				"match_repository": "library/.+",
 				"match_username":   "[a-z]++@tenant2",
 				"permissions":      []string{"pull"},
@@ -1169,485 +972,344 @@ func TestPutAccountErrorCases(t *testing.T) {
 		if strings.Contains(tc.ErrorMessage, "not valid JSON") {
 			expectedStatus = http.StatusBadRequest
 		}
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/first",
-			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
+
+		h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+			withPerms("change:tenant1"),
+			httptest.WithJSONBody(map[string]any{
+				"account": map[string]any{
 					"auth_tenant_id": "tenant1",
-					"rbac_policies":  []assert.JSONObject{tc.RBACPolicyJSON},
+					"rbac_policies":  []map[string]any{tc.RBACPolicyJSON},
 				},
-			},
-			ExpectStatus: expectedStatus,
-			ExpectBody:   assert.StringData(tc.ErrorMessage + "\n"),
-		}.Check(t, h)
+			})).ExpectText(t, expectedStatus, tc.ErrorMessage+"\n")
 	}
 
 	// TODO: why is there a positive test in here?
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
-				"rbac_policies": []assert.JSONObject{{
+				"rbac_policies": []map[string]any{{
 					"match_cidr":  "1.2.3.4/16",
 					"permissions": []string{"pull"},
 				}},
 			},
+		}),
+	).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": jsonmatch.Object{
+			"auth_tenant_id": "tenant1",
+			"metadata":       nil,
+			"name":           "first",
+			"rbac_policies": []jsonmatch.Object{{
+				"match_cidr":  "1.2.0.0/16",
+				"permissions": []string{"pull"},
+			}},
 		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
-				"name":           "first",
-				"rbac_policies": []assert.JSONObject{{
-					"match_cidr":  "1.2.0.0/16",
-					"permissions": []string{"pull"},
-				}},
-			},
-		},
-	}.Check(t, h)
+	})
 	tr.DBChanges().AssertEqual(`
 		INSERT INTO accounts (name, auth_tenant_id, rbac_policies_json) VALUES ('first', 'tenant1', '[{"match_cidr":"1.2.0.0/16","permissions":["pull"]}]');
 	`)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/first",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/first", withPerms("view:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"account": jsonmatch.Object{
 				"auth_tenant_id": "tenant1",
 				"metadata":       nil,
 				"name":           "first",
-				"rbac_policies": []assert.JSONObject{{
+				"rbac_policies": []jsonmatch.Object{{
 					"match_cidr":  "1.2.0.0/16",
 					"permissions": []string{"pull"},
 				}},
 			},
-		},
-	}.Check(t, h)
+		})
 
 	// test unexpected platform filter
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
-				"platform_filter": []assert.JSONObject{{
+				"platform_filter": []map[string]any{{
 					"os":           "linux",
 					"architecture": "amd64",
 				}},
 			},
-		},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody:   assert.StringData("cannot change platform filter on existing account\n"),
-	}.Check(t, h)
+		})).ExpectText(t, http.StatusConflict, "cannot change platform filter on existing account\n")
 
 	// test unexpected platform filter on new primary account
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/third",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/third",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
-				"platform_filter": []assert.JSONObject{{
+				"platform_filter": []map[string]any{{
 					"os":           "linux",
 					"architecture": "amd64",
 				}},
 			},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("platform filter is only allowed on replica accounts\n"),
-	}.Check(t, h)
+		})).ExpectText(t, http.StatusUnprocessableEntity, "platform filter is only allowed on replica accounts\n")
 
 	// test errors for sublease token issuance: missing authentication/authorization
-	assert.HTTPRequest{
-		Method:       "POST",
-		Path:         "/keppel/v1/accounts/first/sublease",
-		ExpectStatus: http.StatusForbidden,
-		ExpectBody:   assert.StringData("no bearer token found in request headers\n"),
-		ExpectHeader: map[string]string{
-			// default auth is bearer token auth, so an auth challenge gets rendered
-			"Www-Authenticate": `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_account:first:change"`,
-		},
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "POST",
-		Path:         "/keppel/v1/accounts/first/sublease",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusForbidden,
-		ExpectBody:   assert.StringData("no permission for keppel_account:first:change\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "POST",
-		Path:         "/keppel/v1/accounts/unknown/sublease", // account does not exist
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
-		ExpectStatus: http.StatusForbidden,
-		ExpectBody:   assert.StringData("no permission for keppel_account:unknown:change\n"),
-	}.Check(t, h)
+	resp = h.RespondTo(ctx, "POST /keppel/v1/accounts/first/sublease")
+	assert.Equal(t, resp.Header().Get("Www-Authenticate"),
+		// default auth is bearer token auth, so an auth challenge gets rendered
+		`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_account:first:change"`,
+	)
+	resp.ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
 
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "POST /keppel/v1/accounts/first/sublease",
+		withPerms("view:tenant1"),
+	).ExpectText(t, http.StatusForbidden, "no permission for keppel_account:first:change\n")
+	h.RespondTo(ctx, "POST /keppel/v1/accounts/unknown/sublease", // account does not exist
+		withPerms("view:tenant1,change:tenant1"),
+	).ExpectText(t, http.StatusForbidden, "no permission for keppel_account:unknown:change\n")
+
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
 				"in_maintenance": true, // this field used to be supported, but support for it was removed
 			},
-		},
-		ExpectStatus: http.StatusBadRequest,
-		ExpectBody:   assert.StringData("request body is not valid JSON: json: unknown field \"in_maintenance\"\n"),
-	}.Check(t, h)
+		})).ExpectText(t, http.StatusBadRequest, "request body is not valid JSON: json: unknown field \"in_maintenance\"\n")
 
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
-				"metadata": assert.JSONObject{
-					"foo": "bar",
-				},
+				"metadata":       map[string]string{"foo": "bar"},
 			},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("malformed attribute \"account.metadata\" in request body does no longer exist\n"),
-	}.Check(t, h)
+		})).ExpectText(t, http.StatusUnprocessableEntity, "malformed attribute \"account.metadata\" in request body does no longer exist\n")
 
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
-				"name":           "first",
+				"name":           "first", // setting the name to its existing value is pointless, but allowed
 			},
-		},
-		ExpectStatus: http.StatusOK,
-	}.Check(t, h)
+		})).ExpectStatus(t, http.StatusOK)
 
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
 				"name":           "second",
 			},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("changing attribute \"account.name\" in request body is not allowed\n"),
-	}.Check(t, h)
+		})).ExpectText(t, http.StatusUnprocessableEntity, "changing attribute \"account.name\" in request body is not allowed\n")
 
 	// test protection for managed accounts
 	test.MustExec(t, s.DB, "UPDATE accounts SET is_managed = TRUE WHERE name = $1", "first")
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
 			},
-		},
-		ExpectStatus: http.StatusForbidden,
-		ExpectBody:   assert.StringData("cannot manually change configuration of a managed account\n"),
-	}.Check(t, h)
+		})).ExpectText(t, http.StatusForbidden, "cannot manually change configuration of a managed account\n")
 	test.MustExec(t, s.DB, "UPDATE accounts SET is_managed = FALSE WHERE name = $1", "first")
 }
 
 func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
+	ctx := t.Context()
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
 		s1 := test.NewSetup(t, test.WithKeppelAPI, test.WithPeerAPI)
 		s2 := test.NewSetup(t, test.WithKeppelAPI, test.IsSecondaryTo(&s1))
 
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/first",
-			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
+		s1.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+			withPerms("change:tenant1"),
+			httptest.WithJSONBody(map[string]any{
+				"account": map[string]any{
 					"auth_tenant_id": "tenant1",
 				},
+			}),
+		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"account": jsonmatch.Object{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+				"metadata":       nil,
+				"rbac_policies":  []jsonmatch.Object{},
 			},
-			ExpectStatus: http.StatusOK,
-			ExpectBody: assert.JSONObject{
-				"account": assert.JSONObject{
-					"name":           "first",
-					"auth_tenant_id": "tenant1",
-					"metadata":       nil,
-					"rbac_policies":  []assert.JSONObject{},
-				},
-			},
-		}.Check(t, s1.Handler)
+		})
 
 		// test error cases on creation
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/first",
-			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
+		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+			withPerms("change:tenant1"),
+			httptest.WithJSONBody(map[string]any{
+				"account": map[string]any{
 					"auth_tenant_id": "tenant1",
-					"replication":    assert.JSONObject{"strategy": "yes_please", "upstream": "registry.example.org"},
+					"replication":    map[string]any{"strategy": "yes_please", "upstream": "registry.example.org"},
 				},
-			},
-			ExpectStatus: http.StatusBadRequest,
-			ExpectBody:   assert.StringData("request body is not valid JSON: do not know how to deserialize ReplicationPolicy with strategy \"yes_please\"\n"),
-		}.Check(t, s2.Handler)
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/first",
-			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
-					"auth_tenant_id": "tenant1",
-					"replication": assert.JSONObject{
-						"strategy": "on_first_use",
-						"upstream": "someone-else.example.org",
-					},
-				},
-			},
-			ExpectStatus: http.StatusUnprocessableEntity,
-			ExpectBody:   assert.StringData("unknown peer registry: \"someone-else.example.org\"\n"),
-		}.Check(t, s2.Handler)
+			})).ExpectText(t, http.StatusBadRequest, "request body is not valid JSON: do not know how to deserialize ReplicationPolicy with strategy \"yes_please\"\n")
 
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/first",
-			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
+		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+			withPerms("change:tenant1"),
+			httptest.WithJSONBody(map[string]any{
+				"account": map[string]any{
 					"auth_tenant_id": "tenant1",
-					"replication": assert.JSONObject{
-						"strategy": "on_first_use",
-						"upstream": "registry.example.org",
-					},
+					"replication":    map[string]any{"strategy": "on_first_use", "upstream": "someone-else.example.org"},
 				},
-			},
-			ExpectStatus: http.StatusForbidden,
-			ExpectBody:   assert.StringData("wrong sublease token\n"),
-		}.Check(t, s2.Handler)
+			})).ExpectText(t, http.StatusUnprocessableEntity, "unknown peer registry: \"someone-else.example.org\"\n")
+
+		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+			withPerms("change:tenant1"),
+			httptest.WithJSONBody(map[string]any{
+				"account": map[string]any{
+					"auth_tenant_id": "tenant1",
+					"replication":    map[string]any{"strategy": "on_first_use", "upstream": "registry.example.org"},
+				},
+			})).ExpectText(t, http.StatusForbidden, "wrong sublease token\n")
 
 		s2.FD.ValidSubleaseTokenSecrets["first"] = "valid-token"
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/first",
-			Header: map[string]string{
-				"X-Test-Perms":          "change:tenant1",
-				keppelv1.SubleaseHeader: makeSubleaseToken("first", "registry.example.org", "not-the-valid-token"),
-			},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
+		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+			withPerms("change:tenant1"),
+			httptest.WithHeader(keppelv1.SubleaseHeader, makeSubleaseToken("first", "registry.example.org", "not-the-valid-token")),
+			httptest.WithJSONBody(map[string]any{
+				"account": map[string]any{
 					"auth_tenant_id": "tenant1",
-					"replication": assert.JSONObject{
-						"strategy": "on_first_use",
-						"upstream": "registry.example.org",
-					},
+					"replication":    map[string]any{"strategy": "on_first_use", "upstream": "registry.example.org"},
 				},
-			},
-			ExpectStatus: http.StatusForbidden,
-			ExpectBody:   assert.StringData("wrong sublease token\n"),
-		}.Check(t, s2.Handler)
+			})).ExpectText(t, http.StatusForbidden, "wrong sublease token\n")
 
 		// test PUT success case
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/first",
-			Header: map[string]string{
-				"X-Test-Perms":          "change:tenant1",
-				keppelv1.SubleaseHeader: makeSubleaseToken("first", "registry.example.org", "valid-token"),
-			},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
+		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+			withPerms("change:tenant1"),
+			httptest.WithHeader(keppelv1.SubleaseHeader, makeSubleaseToken("first", "registry.example.org", "valid-token")),
+			httptest.WithJSONBody(map[string]any{
+				"account": map[string]any{
 					"auth_tenant_id": "tenant1",
-					"replication": assert.JSONObject{
-						"strategy": "on_first_use",
-						"upstream": "registry.example.org",
-					},
+					"replication":    map[string]any{"strategy": "on_first_use", "upstream": "registry.example.org"},
+				},
+			}),
+		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"account": jsonmatch.Object{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+				"metadata":       nil,
+				"rbac_policies":  []jsonmatch.Object{},
+				"replication": jsonmatch.Object{
+					"strategy": "on_first_use",
+					"upstream": "registry.example.org",
 				},
 			},
-			ExpectStatus: http.StatusOK,
-			ExpectBody: assert.JSONObject{
-				"account": assert.JSONObject{
-					"name":           "first",
-					"auth_tenant_id": "tenant1",
-					"metadata":       nil,
-					"rbac_policies":  []assert.JSONObject{},
-					"replication": assert.JSONObject{
-						"strategy": "on_first_use",
-						"upstream": "registry.example.org",
-					},
-				},
-			},
-		}.Check(t, s2.Handler)
+		})
 
 		// PUT on existing account with replication unspecified is okay, leaves
 		// replication settings unchanged
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/first",
-			Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
+		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+			withPerms("change:tenant1"),
+			httptest.WithJSONBody(map[string]any{
+				"account": map[string]any{
 					"auth_tenant_id": "tenant1",
 				},
-			},
-			ExpectStatus: http.StatusOK,
-			ExpectBody: assert.JSONObject{
-				"account": assert.JSONObject{
-					"name":           "first",
-					"auth_tenant_id": "tenant1",
-					"metadata":       nil,
-					"rbac_policies":  []assert.JSONObject{},
-					"replication": assert.JSONObject{
-						"strategy": "on_first_use",
-						"upstream": "registry.example.org",
-					},
+			}),
+		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"account": jsonmatch.Object{
+				"name":           "first",
+				"auth_tenant_id": "tenant1",
+				"metadata":       nil,
+				"rbac_policies":  []jsonmatch.Object{},
+				"replication": jsonmatch.Object{
+					"strategy": "on_first_use",
+					"upstream": "registry.example.org",
 				},
 			},
-		}.Check(t, s2.Handler)
+		})
 
 		// cannot issue sublease token for replica account (only for primary accounts)
-		assert.HTTPRequest{
-			Method:       "POST",
-			Path:         "/keppel/v1/accounts/first/sublease",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
-			ExpectStatus: http.StatusBadRequest,
-			ExpectBody:   assert.StringData("operation not allowed for replica accounts\n"),
-		}.Check(t, s2.Handler)
+		s2.Handler.RespondTo(ctx, "POST /keppel/v1/accounts/first/sublease", withPerms("view:tenant1,change:tenant1")).
+			ExpectText(t, http.StatusBadRequest, "operation not allowed for replica accounts\n")
 
 		// PUT on existing account with different replication settings is not allowed
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/second",
-			Header: map[string]string{"X-Test-Perms": "change:tenant2"},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
+		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+			withPerms("change:tenant2"),
+			httptest.WithJSONBody(map[string]any{
+				"account": map[string]any{
 					"auth_tenant_id": "tenant2",
 				},
+			}),
+		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"account": jsonmatch.Object{
+				"name":           "second",
+				"auth_tenant_id": "tenant2",
+				"metadata":       nil,
+				"rbac_policies":  []jsonmatch.Object{},
 			},
-			ExpectStatus: http.StatusOK,
-			ExpectBody: assert.JSONObject{
-				"account": assert.JSONObject{
-					"name":           "second",
+		})
+		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+			withPerms("change:tenant2"),
+			httptest.WithJSONBody(map[string]any{
+				"account": map[string]any{
 					"auth_tenant_id": "tenant2",
-					"metadata":       nil,
-					"rbac_policies":  []assert.JSONObject{},
+					"replication":    map[string]any{"strategy": "on_first_use", "upstream": "registry.example.org"},
 				},
-			},
-		}.Check(t, s2.Handler)
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/second",
-			Header: map[string]string{"X-Test-Perms": "change:tenant2"},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
-					"auth_tenant_id": "tenant2",
-					"replication": assert.JSONObject{
-						"strategy": "on_first_use",
-						"upstream": "registry.example.org",
-					},
-				},
-			},
-			ExpectStatus: http.StatusConflict,
-			ExpectBody:   assert.StringData("cannot change replication policy on existing account\n"),
-		}.Check(t, s2.Handler)
+			})).ExpectText(t, http.StatusConflict, "cannot change replication policy on existing account\n")
 	})
 }
 
 func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
+	ctx := t.Context()
+
+	// helper functions for basic PUT calls on accounts
+	putFirstAccount := func(accountConfig map[string]any) httptest.Response {
+		return h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+			withPerms("change:tenant1"),
+			httptest.WithJSONBody(map[string]any{"account": accountConfig}),
+		)
+	}
+	putSecondAccount := func(accountConfig map[string]any) httptest.Response {
+		return h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+			withPerms("change:tenant2"),
+			httptest.WithJSONBody(map[string]any{"account": accountConfig}),
+		)
+	}
 
 	// test error cases on creation
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"replication": assert.JSONObject{
-					"strategy": "from_external_on_first_use",
-					"upstream": "registry.example.org",
-				},
+	putFirstAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"replication": map[string]any{
+			"strategy": "from_external_on_first_use",
+			"upstream": "registry.example.org",
+		},
+	}).ExpectText(t, http.StatusBadRequest, "request body is not valid JSON: json: cannot unmarshal string into Go struct field Account.account.replication of type keppel.ReplicationExternalPeerSpec\n")
+
+	putFirstAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"replication": map[string]any{
+			"strategy": "from_external_on_first_use",
+			"upstream": map[string]any{
+				"not": "what-you-expect",
 			},
 		},
-		ExpectStatus: http.StatusBadRequest,
-		ExpectBody:   assert.StringData("request body is not valid JSON: json: cannot unmarshal string into Go struct field Account.account.replication of type keppel.ReplicationExternalPeerSpec\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"replication": assert.JSONObject{
-					"strategy": "from_external_on_first_use",
-					"upstream": assert.JSONObject{
-						"not": "what-you-expect",
-					},
-				},
+	}).ExpectText(t, http.StatusUnprocessableEntity, "missing upstream URL for \"from_external_on_first_use\" replication\n")
+
+	putFirstAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"replication": map[string]any{
+			"strategy": "from_external_on_first_use",
+			"upstream": map[string]any{
+				"url":      "registry.example.com",
+				"username": "keks",
 			},
 		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("missing upstream URL for \"from_external_on_first_use\" replication\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"replication": assert.JSONObject{
-					"strategy": "from_external_on_first_use",
-					"upstream": assert.JSONObject{
-						"url":      "registry.example.com",
-						"username": "keks",
-					},
-				},
+	}).ExpectText(t, http.StatusUnprocessableEntity, "need either both username and password or neither for \"from_external_on_first_use\" replication\n")
+
+	putFirstAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"replication": map[string]any{
+			"strategy": "from_external_on_first_use",
+			"upstream": map[string]any{
+				"url":      "registry.example.com",
+				"password": "keks",
 			},
 		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("need either both username and password or neither for \"from_external_on_first_use\" replication\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"replication": assert.JSONObject{
-					"strategy": "from_external_on_first_use",
-					"upstream": assert.JSONObject{
-						"url":      "registry.example.com",
-						"password": "keks",
-					},
-				},
-			},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("need either both username and password or neither for \"from_external_on_first_use\" replication\n"),
-	}.Check(t, h)
+	}).ExpectText(t, http.StatusUnprocessableEntity, "need either both username and password or neither for \"from_external_on_first_use\" replication\n")
 
 	// test PUT success case
-	testPlatformFilter := []assert.JSONObject{
+	testPlatformFilter := []map[string]any{
 		{
 			"os":           "linux",
 			"architecture": "amd64",
@@ -1658,264 +1320,181 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 			"variant":      "v8",
 		},
 	}
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"replication": assert.JSONObject{
-					"strategy": "from_external_on_first_use",
-					"upstream": assert.JSONObject{
-						"url": "registry.example.com",
-					},
-				},
-				"platform_filter": testPlatformFilter,
+	putFirstAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"replication": map[string]any{
+			"strategy": "from_external_on_first_use",
+			"upstream": map[string]any{
+				"url": "registry.example.com",
 			},
 		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
-				"name":           "first",
-				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
-				"rbac_policies":  []assert.JSONObject{},
-				"replication": assert.JSONObject{
-					"strategy": "from_external_on_first_use",
-					"upstream": assert.JSONObject{
-						"url": "registry.example.com",
-					},
+		"platform_filter": testPlatformFilter,
+	}).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": jsonmatch.Object{
+			"name":           "first",
+			"auth_tenant_id": "tenant1",
+			"metadata":       nil,
+			"rbac_policies":  []jsonmatch.Object{},
+			"replication": jsonmatch.Object{
+				"strategy": "from_external_on_first_use",
+				"upstream": jsonmatch.Object{
+					"url": "registry.example.com",
 				},
-				"platform_filter": testPlatformFilter,
 			},
+			"platform_filter": testPlatformFilter,
 		},
-	}.Check(t, h)
+	})
 
 	// PUT on existing account with replication unspecified is okay, leaves
 	// replication settings unchanged
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-			},
-		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
-				"name":           "first",
-				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
-				"rbac_policies":  []assert.JSONObject{},
-				"replication": assert.JSONObject{
-					"strategy": "from_external_on_first_use",
-					"upstream": assert.JSONObject{
-						"url": "registry.example.com",
-					},
+	putFirstAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+	}).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": jsonmatch.Object{
+			"name":           "first",
+			"auth_tenant_id": "tenant1",
+			"metadata":       nil,
+			"rbac_policies":  []jsonmatch.Object{},
+			"replication": jsonmatch.Object{
+				"strategy": "from_external_on_first_use",
+				"upstream": jsonmatch.Object{
+					"url": "registry.example.com",
 				},
-				"platform_filter": testPlatformFilter,
 			},
+			"platform_filter": testPlatformFilter,
 		},
-	}.Check(t, h)
+	})
 
 	// test PUT on existing account to update replication credentials
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"replication": assert.JSONObject{
-					"strategy": "from_external_on_first_use",
-					"upstream": assert.JSONObject{
-						"url":      "registry.example.com",
-						"username": "foo",
-						"password": "bar",
-					},
-				},
+	putFirstAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"replication": map[string]any{
+			"strategy": "from_external_on_first_use",
+			"upstream": map[string]any{
+				"url":      "registry.example.com",
+				"username": "foo",
+				"password": "bar",
 			},
 		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
-				"name":           "first",
-				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
-				"rbac_policies":  []assert.JSONObject{},
-				"replication": assert.JSONObject{
-					"strategy": "from_external_on_first_use",
-					"upstream": assert.JSONObject{
-						"url":      "registry.example.com",
-						"username": "foo",
-					},
+	}).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": jsonmatch.Object{
+			"name":           "first",
+			"auth_tenant_id": "tenant1",
+			"metadata":       nil,
+			"rbac_policies":  []jsonmatch.Object{},
+			"replication": jsonmatch.Object{
+				"strategy": "from_external_on_first_use",
+				"upstream": jsonmatch.Object{
+					"url":      "registry.example.com",
+					"username": "foo",
 				},
-				"platform_filter": testPlatformFilter,
 			},
+			"platform_filter": testPlatformFilter,
 		},
-	}.Check(t, h)
+	})
 
 	// PUT on existing account with replication credentials section copied from
 	// GET is okay, leaves replication settings unchanged too (this is important
 	// because, in practice, clients copy the account config from GET, change a
 	// thing, and PUT the result)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies":  []assert.JSONObject{},
-				"replication": assert.JSONObject{
-					"strategy": "from_external_on_first_use",
-					"upstream": assert.JSONObject{
-						"url":      "registry.example.com",
-						"username": "foo",
-					},
-				},
-				"platform_filter": testPlatformFilter,
+	putFirstAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"rbac_policies":  []map[string]any{},
+		"replication": map[string]any{
+			"strategy": "from_external_on_first_use",
+			"upstream": map[string]any{
+				"url":      "registry.example.com",
+				"username": "foo",
 			},
 		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
-				"name":           "first",
-				"auth_tenant_id": "tenant1",
-				"metadata":       nil,
-				"rbac_policies":  []assert.JSONObject{},
-				"replication": assert.JSONObject{
-					"strategy": "from_external_on_first_use",
-					"upstream": assert.JSONObject{
-						"url":      "registry.example.com",
-						"username": "foo",
-					},
+		"platform_filter": testPlatformFilter,
+	}).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": jsonmatch.Object{
+			"name":           "first",
+			"auth_tenant_id": "tenant1",
+			"metadata":       nil,
+			"rbac_policies":  []jsonmatch.Object{},
+			"replication": jsonmatch.Object{
+				"strategy": "from_external_on_first_use",
+				"upstream": jsonmatch.Object{
+					"url":      "registry.example.com",
+					"username": "foo",
 				},
-				"platform_filter": testPlatformFilter,
 			},
+			"platform_filter": testPlatformFilter,
 		},
-	}.Check(t, h)
+	})
 
 	// ...but changing the username without also supplying a password is wrong
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"rbac_policies":  []assert.JSONObject{},
-				"replication": assert.JSONObject{
-					"strategy": "from_external_on_first_use",
-					"upstream": assert.JSONObject{
-						"url":      "registry.example.com",
-						"username": "bar",
-					},
-				},
-				"platform_filter": testPlatformFilter,
+	putFirstAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"rbac_policies":  []map[string]any{},
+		"replication": map[string]any{
+			"strategy": "from_external_on_first_use",
+			"upstream": map[string]any{
+				"url":      "registry.example.com",
+				"username": "bar",
 			},
 		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("cannot change username for \"from_external_on_first_use\" replication without also changing password\n"),
-	}.Check(t, h)
+		"platform_filter": testPlatformFilter,
+	}).ExpectText(t, http.StatusUnprocessableEntity, "cannot change username for \"from_external_on_first_use\" replication without also changing password\n")
 
 	// test sublease token issuance on account (external replicas count as primary
 	// accounts for the purposes of account name subleasing)
 	s.FD.NextSubleaseTokenSecretToIssue = "this-is-the-token"
-	assert.HTTPRequest{
-		Method:       "POST",
-		Path:         "/keppel/v1/accounts/first/sublease",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"sublease_token": makeSubleaseToken("first", "registry.example.org", "this-is-the-token")},
-	}.Check(t, h)
+	expectedToken := makeSubleaseToken("first", "registry.example.org", "this-is-the-token")
+	h.RespondTo(ctx, "POST /keppel/v1/accounts/first/sublease", withPerms("view:tenant1,change:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"sublease_token": expectedToken})
 
 	// PUT on existing account with different replication settings is not allowed
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"replication": assert.JSONObject{
-					"strategy": "from_external_on_first_use",
-					"upstream": assert.JSONObject{
-						"url":      "other-registry.example.com",
-						"username": "foo",
-						"password": "bar",
-					},
-				},
+	putFirstAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"replication": map[string]any{
+			"strategy": "from_external_on_first_use",
+			"upstream": map[string]any{
+				"url":      "other-registry.example.com",
+				"username": "foo",
+				"password": "bar",
 			},
 		},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody:   assert.StringData("cannot change replication policy on existing account\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/second",
-		Header: map[string]string{"X-Test-Perms": "change:tenant2"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant2",
+	}).ExpectText(t, http.StatusConflict, "cannot change replication policy on existing account\n")
+
+	putSecondAccount(map[string]any{
+		"auth_tenant_id": "tenant2",
+	}).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"account": map[string]any{
+			"name":           "second",
+			"auth_tenant_id": "tenant2",
+			"metadata":       nil,
+			"rbac_policies":  []map[string]any{},
+		},
+	})
+
+	putSecondAccount(map[string]any{
+		"auth_tenant_id": "tenant2",
+		"replication": map[string]any{
+			"strategy": "from_external_on_first_use",
+			"upstream": map[string]any{
+				"url":      "other-registry.example.com",
+				"username": "foo",
+				"password": "bar",
 			},
 		},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"account": assert.JSONObject{
-				"name":           "second",
-				"auth_tenant_id": "tenant2",
-				"metadata":       nil,
-				"rbac_policies":  []assert.JSONObject{},
-			},
-		},
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/second",
-		Header: map[string]string{"X-Test-Perms": "change:tenant2"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant2",
-				"replication": assert.JSONObject{
-					"strategy": "from_external_on_first_use",
-					"upstream": assert.JSONObject{
-						"url":      "other-registry.example.com",
-						"username": "foo",
-						"password": "bar",
-					},
-				},
-			},
-		},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody:   assert.StringData("cannot change replication policy on existing account\n"),
-	}.Check(t, h)
+	}).ExpectText(t, http.StatusConflict, "cannot change replication policy on existing account\n")
 
 	// PUT on existing account with different platform filter is not allowed
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{
-				"auth_tenant_id": "tenant1",
-				"replication": assert.JSONObject{
-					"strategy": "from_external_on_first_use",
-					"upstream": assert.JSONObject{
-						"url":      "registry.example.com",
-						"username": "foo",
-						"password": "bar",
-					},
-				},
-				"platform_filter": []assert.JSONObject{},
+	putFirstAccount(map[string]any{
+		"auth_tenant_id": "tenant1",
+		"replication": map[string]any{
+			"strategy": "from_external_on_first_use",
+			"upstream": map[string]any{
+				"url":      "registry.example.com",
+				"username": "foo",
+				"password": "bar",
 			},
 		},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody:   assert.StringData("cannot change platform filter on existing account\n"),
-	}.Check(t, h)
+		"platform_filter": []map[string]any{},
+	}).ExpectText(t, http.StatusConflict, "cannot change platform filter on existing account\n")
 }
 
 func TestDeleteAccount(t *testing.T) {
@@ -1924,26 +1503,19 @@ func TestDeleteAccount(t *testing.T) {
 		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
 	)
 	h := s.Handler
+	ctx := t.Context()
 
 	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
 	tr0.Ignore()
 
 	// failure case: insufficient permissions (the "delete" permission refers to
 	// manifests within the account, not the account itself)
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test1",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1,delete:tenant1"},
-		ExpectStatus: http.StatusForbidden,
-	}.Check(t, h)
+	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1", withPerms("view:tenant1,delete:tenant1")).
+		ExpectStatus(t, http.StatusForbidden)
 
 	// DELETE on account should immediately mark it for deletion
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test1",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
-		ExpectStatus: http.StatusNoContent,
-	}.Check(t, h)
+	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1", withPerms("view:tenant1,change:tenant1")).
+		ExpectStatus(t, http.StatusNoContent)
 
 	tr.DBChanges().AssertEqualf(`
 			UPDATE accounts SET is_deleting = TRUE, next_deletion_attempt_at = %[1]d WHERE name = 'test1';
@@ -1965,12 +1537,8 @@ func TestDeleteAccount(t *testing.T) {
 	)
 
 	// account is already set to be deleted, so nothing happens
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test1",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1,change:tenant1"},
-		ExpectStatus: http.StatusNoContent,
-	}.Check(t, h)
+	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1", withPerms("view:tenant1,change:tenant1")).
+		ExpectStatus(t, http.StatusNoContent)
 
 	tr.DBChanges().AssertEmpty()
 	s.Auditor.ExpectEvents(t /*, nothing */)
@@ -1978,7 +1546,7 @@ func TestDeleteAccount(t *testing.T) {
 
 //nolint:unparam
 func makeSubleaseToken(accountName, primaryHostname, secret string) string {
-	buf, _ := json.Marshal(assert.JSONObject{
+	buf, _ := json.Marshal(map[string]any{
 		"account": accountName,
 		"primary": primaryHostname,
 		"secret":  secret,
@@ -2016,11 +1584,12 @@ func deepCopyViaJSON[T any](in T) (out T) {
 }
 
 func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
+	ctx := t.Context()
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
 		s1 := test.NewSetup(t, test.WithKeppelAPI, test.WithPeerAPI)
 		s2 := test.NewSetup(t, test.WithKeppelAPI, test.IsSecondaryTo(&s1))
 
-		testPlatformFilter := []assert.JSONObject{
+		testPlatformFilter := []map[string]any{
 			{
 				"os":           "linux",
 				"architecture": "amd64",
@@ -2029,189 +1598,152 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 
 		// create some primary accounts to play with
 		for _, name := range []models.AccountName{"first", "second", "third"} {
-			assert.HTTPRequest{
-				Method: "PUT",
-				Path:   "/keppel/v1/accounts/" + string(name),
-				Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-				Body: assert.JSONObject{
-					"account": assert.JSONObject{
+			s1.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/"+string(name),
+				withPerms("change:tenant1"),
+				httptest.WithJSONBody(map[string]any{
+					"account": map[string]any{
 						"auth_tenant_id": "tenant1",
-						"replication": assert.JSONObject{
+						"replication": map[string]any{
 							"strategy": "from_external_on_first_use",
-							"upstream": assert.JSONObject{
+							"upstream": map[string]any{
 								"url": "registry.example.org",
 							},
 						},
 						"platform_filter": testPlatformFilter,
 					},
-				},
-				ExpectStatus: http.StatusOK,
-				ExpectBody: assert.JSONObject{
-					"account": assert.JSONObject{
-						"name":           name,
-						"auth_tenant_id": "tenant1",
-						"metadata":       nil,
-						"rbac_policies":  []assert.JSONObject{},
-						"replication": assert.JSONObject{
-							"strategy": "from_external_on_first_use",
-							"upstream": assert.JSONObject{
-								"url": "registry.example.org",
-							},
+				}),
+			).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+				"account": jsonmatch.Object{
+					"name":           name,
+					"auth_tenant_id": "tenant1",
+					"metadata":       nil,
+					"rbac_policies":  []jsonmatch.Object{},
+					"replication": jsonmatch.Object{
+						"strategy": "from_external_on_first_use",
+						"upstream": jsonmatch.Object{
+							"url": "registry.example.org",
 						},
-						"platform_filter": testPlatformFilter,
 					},
+					"platform_filter": testPlatformFilter,
 				},
-			}.Check(t, s1.Handler)
+			})
 			s2.FD.ValidSubleaseTokenSecrets[name] = "valid-token"
 		}
 
 		// create an account which inherits the PlatformFilter
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/first",
-			Header: map[string]string{
-				"X-Test-Perms":          "change:tenant1",
-				keppelv1.SubleaseHeader: makeSubleaseToken("first", "registry.example.org", "valid-token"),
-			},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
+		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+			withPerms("change:tenant1"),
+			httptest.WithHeader(keppelv1.SubleaseHeader, makeSubleaseToken("first", "registry.example.org", "valid-token")),
+			httptest.WithJSONBody(map[string]any{
+				"account": map[string]any{
 					"auth_tenant_id": "tenant1",
-					"replication": assert.JSONObject{
+					"replication": map[string]any{
 						"strategy": "on_first_use",
 						"upstream": "registry.example.org",
 					},
 				},
-			},
-			ExpectStatus: http.StatusOK,
-			ExpectBody: assert.JSONObject{
-				"account": assert.JSONObject{
-					"name":            "first",
-					"auth_tenant_id":  "tenant1",
-					"metadata":        nil,
-					"platform_filter": testPlatformFilter,
-					"rbac_policies":   []assert.JSONObject{},
-					"replication": assert.JSONObject{
-						"strategy": "on_first_use",
-						"upstream": "registry.example.org",
-					},
+			}),
+		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"account": jsonmatch.Object{
+				"name":            "first",
+				"auth_tenant_id":  "tenant1",
+				"metadata":        nil,
+				"platform_filter": testPlatformFilter,
+				"rbac_policies":   []jsonmatch.Object{},
+				"replication": jsonmatch.Object{
+					"strategy": "on_first_use",
+					"upstream": "registry.example.org",
 				},
 			},
-		}.Check(t, s2.Handler)
+		})
 
 		// create an account with the same PlatformFilter
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/second",
-			Header: map[string]string{
-				"X-Test-Perms":          "change:tenant1",
-				keppelv1.SubleaseHeader: makeSubleaseToken("second", "registry.example.org", "valid-token"),
-			},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
+		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+			withPerms("change:tenant1"),
+			httptest.WithHeader(keppelv1.SubleaseHeader, makeSubleaseToken("second", "registry.example.org", "valid-token")),
+			httptest.WithJSONBody(map[string]any{
+				"account": map[string]any{
 					"auth_tenant_id": "tenant1",
 					"metadata":       nil,
-					"platform_filter": []assert.JSONObject{{
+					"platform_filter": []map[string]any{{
 						"os":           "linux",
 						"architecture": "amd64",
 					}},
-					"replication": assert.JSONObject{
+					"replication": map[string]any{
 						"strategy": "on_first_use",
 						"upstream": "registry.example.org",
 					},
 				},
-			},
-			ExpectStatus: http.StatusOK,
-			ExpectBody: assert.JSONObject{
-				"account": assert.JSONObject{
-					"name":            "second",
-					"auth_tenant_id":  "tenant1",
-					"metadata":        nil,
-					"platform_filter": testPlatformFilter,
-					"rbac_policies":   []assert.JSONObject{},
-					"replication": assert.JSONObject{
-						"strategy": "on_first_use",
-						"upstream": "registry.example.org",
-					},
+			}),
+		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"account": jsonmatch.Object{
+				"name":            "second",
+				"auth_tenant_id":  "tenant1",
+				"metadata":        nil,
+				"platform_filter": testPlatformFilter,
+				"rbac_policies":   []jsonmatch.Object{},
+				"replication": jsonmatch.Object{
+					"strategy": "on_first_use",
+					"upstream": "registry.example.org",
 				},
 			},
-		}.Check(t, s2.Handler)
+		})
 
 		// create an account with an incompatible PlatformFilter
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/accounts/third",
-			Header: map[string]string{
-				"X-Test-Perms":          "change:tenant1",
-				keppelv1.SubleaseHeader: makeSubleaseToken("third", "registry.example.org", "valid-token"),
-			},
-			Body: assert.JSONObject{
-				"account": assert.JSONObject{
+		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/third",
+			withPerms("change:tenant1"),
+			httptest.WithHeader(keppelv1.SubleaseHeader, makeSubleaseToken("third", "registry.example.org", "valid-token")),
+			httptest.WithJSONBody(map[string]any{
+				"account": map[string]any{
 					"auth_tenant_id": "tenant1",
-					"platform_filter": []assert.JSONObject{{
+					"platform_filter": []map[string]any{{
 						"os":           "linux",
 						"architecture": "arm64",
 						"variant":      "v8",
 					}},
-					"replication": assert.JSONObject{
+					"replication": map[string]any{
 						"strategy": "on_first_use",
 						"upstream": "registry.example.org",
 					},
 				},
-			},
-			ExpectStatus: http.StatusConflict,
-			ExpectBody:   assert.StringData("peer account filter needs to match primary account filter: local account [{\"architecture\":\"arm64\",\"os\":\"linux\",\"variant\":\"v8\"}], peer account [{\"architecture\":\"amd64\",\"os\":\"linux\"}] \n"),
-		}.Check(t, s2.Handler)
+			}),
+		).ExpectText(t, http.StatusConflict,
+			"peer account filter needs to match primary account filter: local account [{\"architecture\":\"arm64\",\"os\":\"linux\",\"variant\":\"v8\"}], peer account [{\"architecture\":\"amd64\",\"os\":\"linux\"}] \n",
+		)
 	})
 }
 
 func TestSecurityScanPoliciesHappyPath(t *testing.T) {
 	s := test.NewSetup(t,
 		test.WithKeppelAPI,
+		test.WithAccount(models.Account{Name: "first", AuthTenantID: "tenant1"}),
 	)
+	ctx := t.Context()
 
 	// we need to set test.AuthDriver.ExpectedUserName because this username is
 	// matched against the managed_by_user field of our policies
 	s.AD.ExpectedUserName = "exampleuser"
 
-	// create a fresh account for testing
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{
-			"account": assert.JSONObject{"auth_tenant_id": "tenant1"},
-		},
-		ExpectStatus: http.StatusOK,
-	}.Check(t, s.Handler)
-
 	// a freshly-created account should have no policies at all
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/first/security_scan_policies",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"policies": []assert.JSONObject{}},
-	}.Check(t, s.Handler)
+	s.Handler.RespondTo(ctx, "GET /keppel/v1/accounts/first/security_scan_policies", withPerms("view:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"policies": []jsonmatch.Object{}})
 	s.Auditor.IgnoreEventsUntilNow()
 
 	// helper function for testing a successful PUT of policies, followed by a GET
 	// that returns those same policies
-	expectPoliciesToBeApplied := func(policies ...assert.JSONObject) {
-		assert.HTTPRequest{
-			Method:       "PUT",
-			Path:         "/keppel/v1/accounts/first/security_scan_policies",
-			Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
-			Body:         assert.JSONObject{"policies": policies},
-			ExpectStatus: http.StatusOK,
-			ExpectBody:   assert.JSONObject{"policies": policies},
-		}.Check(t, s.Handler)
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/keppel/v1/accounts/first/security_scan_policies",
-			Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-			ExpectStatus: http.StatusOK,
-			ExpectBody:   assert.JSONObject{"policies": policies},
-		}.Check(t, s.Handler)
+	expectPoliciesToBeApplied := func(policies ...map[string]any) {
+		s.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
+			withPerms("change:tenant1"),
+			httptest.WithJSONBody(map[string]any{"policies": policies}),
+		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"policies": policies,
+		})
+
+		s.Handler.RespondTo(ctx, "GET /keppel/v1/accounts/first/security_scan_policies",
+			withPerms("view:tenant1"),
+		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"policies": policies,
+		})
 	}
 
 	// PUT with no policies is okay, does nothing
@@ -2219,20 +1751,20 @@ func TestSecurityScanPoliciesHappyPath(t *testing.T) {
 	s.Auditor.ExpectEvents(t /*, nothing */)
 
 	// add the policies from the API spec example
-	policy1 := assert.JSONObject{
+	policy1 := map[string]any{
 		"match_repository":       ".*",
 		"match_vulnerability_id": ".*",
 		"except_fix_released":    true,
-		"action": assert.JSONObject{
+		"action": map[string]any{
 			"ignore":     true,
 			"assessment": "risk accepted: vulnerabilities without an available fix are not actionable",
 		},
 	}
-	policy2 := assert.JSONObject{
+	policy2 := map[string]any{
 		"managed_by_user":        "exampleuser",
 		"match_repository":       "my-python-app|my-other-image",
 		"match_vulnerability_id": "CVE-2022-40897",
-		"action": assert.JSONObject{
+		"action": map[string]any{
 			"severity":   "Low",
 			"assessment": "adjusted severity: python-setuptools cannot be invoked through user requests",
 		},
@@ -2240,7 +1772,7 @@ func TestSecurityScanPoliciesHappyPath(t *testing.T) {
 	expectPoliciesToBeApplied(policy1, policy2)
 
 	// adding two policies generates one create event per policy
-	expectedEventForPolicy := func(action cadf.Action, policy assert.JSONObject) cadf.Event {
+	expectedEventForPolicy := func(action cadf.Action, policy map[string]any) cadf.Event {
 		return cadf.Event{
 			RequestPath: "/keppel/v1/accounts/first/security_scan_policies",
 			Action:      action,
@@ -2291,32 +1823,32 @@ func TestSecurityScanPoliciesHappyPath(t *testing.T) {
 	// test expansion of "$REQUESTER" in "managed_by_user" field (this cannot use
 	// expectPoliciesToBeApplied() since the response body is different from the
 	// request body)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first/security_scan_policies",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{"policies": []assert.JSONObject{{
-			"managed_by_user":        "$REQUESTER",
-			"match_repository":       ".*",
-			"match_vulnerability_id": ".*",
-			"except_fix_released":    true,
-			"action": assert.JSONObject{
-				"ignore":     true,
-				"assessment": "risk accepted: vulnerabilities without an available fix are not actionable",
+	s.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"policies": []map[string]any{{
+				"managed_by_user":        "$REQUESTER",
+				"match_repository":       ".*",
+				"match_vulnerability_id": ".*",
+				"except_fix_released":    true,
+				"action": map[string]any{
+					"ignore":     true,
+					"assessment": "risk accepted: vulnerabilities without an available fix are not actionable",
+				},
 			}},
-		}},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{"policies": []assert.JSONObject{{
+		}),
+	).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"policies": []jsonmatch.Object{{
 			"managed_by_user":        "exampleuser",
 			"match_repository":       ".*",
 			"match_vulnerability_id": ".*",
 			"except_fix_released":    true,
-			"action": assert.JSONObject{
+			"action": jsonmatch.Object{
 				"ignore":     true,
 				"assessment": "risk accepted: vulnerabilities without an available fix are not actionable",
-			}},
+			},
 		}},
-	}.Check(t, s.Handler)
+	})
 	s.Auditor.IgnoreEventsUntilNow()
 }
 
@@ -2325,139 +1857,125 @@ func TestSecurityScanPoliciesValidationErrors(t *testing.T) {
 		test.WithKeppelAPI,
 		test.WithAccount(models.Account{Name: "first", AuthTenantID: "tenant1"}),
 	)
+	ctx := t.Context()
 
 	// we need to set test.AuthDriver.ExpectedUserName because this username is
 	// matched against the managed_by_user field of our policies
 	s.AD.ExpectedUserName = "exampleuser"
 
-	// check unmarshalling errors
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first/security_scan_policies",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{"policies": []assert.JSONObject{
-			{
-				"match_repository":       ".*",
-				"match_vulnerability_id": ".*",
-				"action": assert.JSONObject{
-					"severity":   "Low",
-					"assessment": "not important",
-				},
-				"unknown_field": 42,
-			},
-		}},
-		ExpectStatus: http.StatusBadRequest,
-		ExpectBody:   assert.StringData("request body is not valid JSON: json: unknown field \"unknown_field\"\n"),
-	}.Check(t, s.Handler)
+	// helper to set security scan policies
+	setPolicies := func(policies []map[string]any) httptest.Response {
+		return s.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
+			withPerms("change:tenant1"),
+			httptest.WithJSONBody(map[string]any{"policies": policies}),
+		)
+	}
 
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first/security_scan_policies",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{"policies": []assert.JSONObject{
-			{
-				"match_repository":       ".*",
-				"match_vulnerability_id": "(.*",
-				"action": assert.JSONObject{
-					"severity":   "Low",
-					"assessment": "not important",
-				},
+	// check unmarshalling errors
+	setPolicies([]map[string]any{
+		{
+			"match_repository":       ".*",
+			"match_vulnerability_id": ".*",
+			"action": map[string]any{
+				"severity":   "Low",
+				"assessment": "not important",
 			},
-		}},
-		ExpectStatus: http.StatusBadRequest,
-		ExpectBody:   assert.StringData("request body is not valid JSON: \"(.*\" is not a valid regexp: error parsing regexp: missing closing ): `^(?:(.*)$`\n"),
-	}.Check(t, s.Handler)
+			"unknown_field": 42,
+		},
+	}).ExpectText(t, http.StatusBadRequest, "request body is not valid JSON: json: unknown field \"unknown_field\"\n")
+
+	setPolicies([]map[string]any{
+		{
+			"match_repository":       ".*",
+			"match_vulnerability_id": "(.*",
+			"action": map[string]any{
+				"severity":   "Low",
+				"assessment": "not important",
+			},
+		},
+	}).ExpectText(t, http.StatusBadRequest, "request body is not valid JSON: \"(.*\" is not a valid regexp: error parsing regexp: missing closing ): `^(?:(.*)$`\n")
 
 	// check all policy-local validations (every policy has exactly one error)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/accounts/first/security_scan_policies",
-		Header: map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body: assert.JSONObject{"policies": []assert.JSONObject{
-			{
-				// missing "match_repository"
-				"match_vulnerability_id": ".*",
-				"action": assert.JSONObject{
-					"severity":   "Low",
-					"assessment": "not important",
-				},
+	setPolicies([]map[string]any{
+		{
+			// missing "match_repository"
+			"match_vulnerability_id": ".*",
+			"action": map[string]any{
+				"severity":   "Low",
+				"assessment": "not important",
 			},
-			{
-				// missing "match_vulnerability"
-				"match_repository": ".*",
-				"action": assert.JSONObject{
-					"severity":   "Low",
-					"assessment": "not important",
-				},
+		},
+		{
+			// missing "match_vulnerability"
+			"match_repository": ".*",
+			"action": map[string]any{
+				"severity":   "Low",
+				"assessment": "not important",
 			},
-			{
-				// missing "assessment"
-				"match_repository":       ".*",
-				"match_vulnerability_id": ".*",
-				"action": assert.JSONObject{
-					"severity": "Low",
-				},
+		},
+		{
+			// missing "assessment"
+			"match_repository":       ".*",
+			"match_vulnerability_id": ".*",
+			"action": map[string]any{
+				"severity": "Low",
 			},
-			{
-				// overlong "assessment"
-				"match_repository":       ".*",
-				"match_vulnerability_id": ".*",
-				"action": assert.JSONObject{
-					"severity":   "Low",
-					"assessment": strings.Repeat("a", 1025),
-				},
+		},
+		{
+			// overlong "assessment"
+			"match_repository":       ".*",
+			"match_vulnerability_id": ".*",
+			"action": map[string]any{
+				"severity":   "Low",
+				"assessment": strings.Repeat("a", 1025),
 			},
-			{
-				// both "severity" and "ignore"
-				"match_repository":       ".*",
-				"match_vulnerability_id": ".*",
-				"action": assert.JSONObject{
-					"severity":   "Clean",
-					"ignore":     true,
-					"assessment": "not important",
-				},
+		},
+		{
+			// both "severity" and "ignore"
+			"match_repository":       ".*",
+			"match_vulnerability_id": ".*",
+			"action": map[string]any{
+				"severity":   "Clean",
+				"ignore":     true,
+				"assessment": "not important",
 			},
-			{
-				// neither "severity" nor "ignore"
-				"match_repository":       ".*",
-				"match_vulnerability_id": ".*",
-				"action": assert.JSONObject{
-					"assessment": "not important",
-				},
+		},
+		{
+			// neither "severity" nor "ignore"
+			"match_repository":       ".*",
+			"match_vulnerability_id": ".*",
+			"action": map[string]any{
+				"assessment": "not important",
 			},
-			{
-				// unknown value for "severity"
-				"match_repository":       ".*",
-				"match_vulnerability_id": ".*",
-				"action": assert.JSONObject{
-					"severity":   "Pending",
-					"assessment": "not important",
-				},
+		},
+		{
+			// unknown value for "severity"
+			"match_repository":       ".*",
+			"match_vulnerability_id": ".*",
+			"action": map[string]any{
+				"severity":   "Pending",
+				"assessment": "not important",
 			},
-			{
-				// unacceptable value for "severity" (must be an explicit value)
-				"match_repository":       ".*",
-				"match_vulnerability_id": ".*",
-				"action": assert.JSONObject{
-					"severity":   "Unknown",
-					"assessment": "not important",
-				},
+		},
+		{
+			// unacceptable value for "severity" (must be an explicit value)
+			"match_repository":       ".*",
+			"match_vulnerability_id": ".*",
+			"action": map[string]any{
+				"severity":   "Unknown",
+				"assessment": "not important",
 			},
-		}},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody: assert.StringData(strings.Join([]string{
-			`policies[0] must have the "match_repository" attribute`,
-			`policies[1] must have the "match_vulnerability_id" attribute`,
-			`policies[2].action must have the "assessment" attribute`,
-			`policies[3].action.assessment cannot be larger than 1 KiB`,
-			`policies[4].action cannot have the "severity" attribute when "ignore" is set`,
-			`policies[5].action must have the "severity" attribute when "ignore" is not set`,
-			`policies[6].action.severity contains the invalid value "Pending"`,
-			`policies[7].action.severity contains the invalid value "Unknown"`,
-		}, "\n") + "\n"),
-	}.Check(t, s.Handler)
-
-	// t.Error("TODO: fail on missing auth, fail on all validations in PUT")
+		},
+	}).ExpectText(t, http.StatusUnprocessableEntity, strings.Join([]string{
+		`policies[0] must have the "match_repository" attribute`,
+		`policies[1] must have the "match_vulnerability_id" attribute`,
+		`policies[2].action must have the "assessment" attribute`,
+		`policies[3].action.assessment cannot be larger than 1 KiB`,
+		`policies[4].action cannot have the "severity" attribute when "ignore" is set`,
+		`policies[5].action must have the "severity" attribute when "ignore" is not set`,
+		`policies[6].action.severity contains the invalid value "Pending"`,
+		`policies[7].action.severity contains the invalid value "Unknown"`,
+	}, "\n")+"\n")
 }
 
 func TestSecurityScanPoliciesAuthorizationErrors(t *testing.T) {
@@ -2465,41 +1983,39 @@ func TestSecurityScanPoliciesAuthorizationErrors(t *testing.T) {
 		test.WithKeppelAPI,
 		test.WithAccount(models.Account{Name: "first", AuthTenantID: "tenant1"}),
 	)
+	ctx := t.Context()
 
 	// we need to set test.AuthDriver.ExpectedUserName because this username is
 	// matched against the managed_by_user field of our policies
 	s.AD.ExpectedUserName = "exampleuser"
 
 	// PUT requires CanChangeAccount
-	assert.HTTPRequest{
-		Method:       "PUT",
-		Path:         "/keppel/v1/accounts/first/security_scan_policies",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		Body:         assert.JSONObject{"policies": []assert.JSONObject{}},
-		ExpectStatus: http.StatusForbidden,
-	}.Check(t, s.Handler)
+	s.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
+		withPerms("view:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"policies": []map[string]any{},
+		}),
+	).ExpectStatus(t, http.StatusForbidden)
 
 	// we should not be allowed to put in policies under a different user's name
-	foreignPolicy := assert.JSONObject{
+	foreignPolicy := map[string]any{
 		"managed_by_user":        "johndoe",
 		"match_repository":       ".*",
 		"match_vulnerability_id": ".*",
-		"action": assert.JSONObject{
+		"action": map[string]any{
 			"assessment": "not important",
 			"severity":   "Low",
 		},
 	}
 	foreignPolicyJSON := toJSONVia[keppel.SecurityScanPolicy](foreignPolicy)
-	assert.HTTPRequest{
-		Method:       "PUT",
-		Path:         "/keppel/v1/accounts/first/security_scan_policies",
-		Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body:         assert.JSONObject{"policies": []assert.JSONObject{foreignPolicy}},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody: assert.StringData(
-			fmt.Sprintf("cannot apply this new or updated policy that is managed by a different user: %s\n", foreignPolicyJSON),
-		),
-	}.Check(t, s.Handler)
+	s.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"policies": []map[string]any{foreignPolicy},
+		}),
+	).ExpectText(t, http.StatusUnprocessableEntity,
+		fmt.Sprintf("cannot apply this new or updated policy that is managed by a different user: %s\n", foreignPolicyJSON),
+	)
 
 	// as preparation for the next test, put in a pre-existing policy managed by a
 	// different user
@@ -2507,38 +2023,34 @@ func TestSecurityScanPoliciesAuthorizationErrors(t *testing.T) {
 		fmt.Sprintf("[%s]", foreignPolicyJSON))
 
 	// it's okay if we leave that policy untouched...
-	assert.HTTPRequest{
-		Method:       "PUT",
-		Path:         "/keppel/v1/accounts/first/security_scan_policies",
-		Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body:         assert.JSONObject{"policies": []assert.JSONObject{foreignPolicy}},
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"policies": []assert.JSONObject{foreignPolicy}},
-	}.Check(t, s.Handler)
+	s.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"policies": []map[string]any{foreignPolicy},
+		}),
+	).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"policies": []jsonmatch.Object{foreignPolicy},
+	})
 
 	// ...but updating is not okay...
 	delete(foreignPolicy, "managed_by_user")
 	foreignPolicy["match_repository"] = "definitely-not-the-old-value"
-	assert.HTTPRequest{
-		Method:       "PUT",
-		Path:         "/keppel/v1/accounts/first/security_scan_policies",
-		Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body:         assert.JSONObject{"policies": []assert.JSONObject{foreignPolicy}},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody: assert.StringData(
-			fmt.Sprintf("cannot update or delete this existing policy that is managed by a different user: %s\n", foreignPolicyJSON),
-		),
-	}.Check(t, s.Handler)
+	s.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"policies": []map[string]any{foreignPolicy},
+		}),
+	).ExpectText(t, http.StatusUnprocessableEntity,
+		fmt.Sprintf("cannot update or delete this existing policy that is managed by a different user: %s\n", foreignPolicyJSON),
+	)
 
 	// ...and deleting is also not okay
-	assert.HTTPRequest{
-		Method:       "PUT",
-		Path:         "/keppel/v1/accounts/first/security_scan_policies",
-		Header:       map[string]string{"X-Test-Perms": "change:tenant1"},
-		Body:         assert.JSONObject{"policies": []assert.JSONObject{}},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody: assert.StringData(
-			fmt.Sprintf("cannot update or delete this existing policy that is managed by a different user: %s\n", foreignPolicyJSON),
-		),
-	}.Check(t, s.Handler)
+	s.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
+		withPerms("change:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"policies": []map[string]any{},
+		}),
+	).ExpectText(t, http.StatusUnprocessableEntity,
+		fmt.Sprintf("cannot update or delete this existing policy that is managed by a different user: %s\n", foreignPolicyJSON),
+	)
 }
