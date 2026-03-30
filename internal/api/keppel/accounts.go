@@ -209,6 +209,10 @@ func (a *API) handleGetSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// normalization: always render an empty slice as `[]`, never as `null`
+	if account.SecurityScanPoliciesJSON == "null" {
+		account.SecurityScanPoliciesJSON = "[]"
+	}
 	respondwith.JSON(w, http.StatusOK, map[string]any{"policies": json.RawMessage(account.SecurityScanPoliciesJSON)})
 }
 
@@ -317,5 +321,9 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
+	// normalization: always render an empty slice as `[]`, never as `null`
+	if req.Policies == nil {
+		req.Policies = []keppel.SecurityScanPolicy{}
+	}
 	respondwith.JSON(w, http.StatusOK, map[string]any{"policies": req.Policies})
 }
