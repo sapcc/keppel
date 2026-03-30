@@ -276,25 +276,21 @@ func OverrideDatabaseName(dbName string) TestSetupOption {
 	}
 }
 
-// ConnectForTest connects to the test database server managed by func WithTestDB().
-// Any number of TestSetupOption arguments can be given to reset and prepare the database for the test run.
-//
-// Each test will run in its own separate database (whose name is the same as the test name),
-// so it is safe to mark tests as t.Parallel() to run multiple tests within the same package concurrently.
-func ConnectForTest(t TestingT, cfg Configuration, opts ...TestSetupOption) *sql.DB {
-	t.Helper()
-
+func assembleParams(opts ...TestSetupOption) testSetupParams {
 	var params testSetupParams
 	for _, o := range opts {
 		o(&params)
 	}
+	return params
+}
 
-	// input validation
-	if !hasTestDB {
-		t.Fatal("easypg.ConnectForTest() can only be used if easypg.WithTestDB() was called in TestMain (see docs on func WithTestDB for details)")
-	}
+// BuildDBURL assembles a url.URL of the database which is used for testing.
+// It can be used to assemble a sql.DB subsequently or, if necessary, used with
+// other libraries outside the tests.
+func BuildDBURL(t TestingT, opts ...TestSetupOption) *url.URL {
+	t.Helper()
 
-	// connect to DB (the database name is set to the test name to isolate concurrent tests from each other)
+	params := assembleParams(opts...)
 	dbName := normalizeDBName(t.Name())
 	if params.databaseName != "" {
 		dbName = normalizeDBName(params.databaseName)
@@ -304,11 +300,30 @@ func ConnectForTest(t TestingT, cfg Configuration, opts ...TestSetupOption) *sql
 	if err != nil {
 		t.Fatalf("malformed database URL %q: %s", dbURLStr, err.Error())
 	}
+	return dbURL
+}
+
+// ConnectForTest connects to the test database server managed by func WithTestDB().
+// Any number of TestSetupOption arguments can be given to reset and prepare the database for the test run.
+//
+// Each test will run in its own separate database (whose name is the same as the test name),
+// so it is safe to mark tests as t.Parallel() to run multiple tests within the same package concurrently.
+func ConnectForTest(t TestingT, cfg Configuration, opts ...TestSetupOption) *sql.DB {
+	t.Helper()
+
+	// input validation
+	if !hasTestDB {
+		t.Fatal("easypg.ConnectForTest() can only be used if easypg.WithTestDB() was called in TestMain (see docs on func WithTestDB for details)")
+	}
+
+	// connect to DB (the database name is set to the test name to isolate concurrent tests from each other)
+	dbURL := BuildDBURL(t, opts...)
 	db, err := Connect(*dbURL, cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
+	params := assembleParams(opts...)
 	// execute ClearContentsWith() setup options, if any
 	for _, sqlStatement := range params.sqlStatementsForClear {
 		for {
