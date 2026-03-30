@@ -4,12 +4,12 @@
 package keppelv1_test
 
 import (
-	"encoding/json"
 	"net/http"
 	"testing"
 
+	"github.com/majewsky/gg/jsonmatch"
 	"github.com/sapcc/go-bits/assert"
-	"github.com/sapcc/go-bits/must"
+	"github.com/sapcc/go-bits/httptest"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -23,49 +23,35 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 		test.WithRepo(models.Repository{Name: "foo", AccountName: "test1"}),
 	)
 	h := s.Handler
+	ctx := t.Context()
 
 	// test anonymous auth: fails without RBAC policy, succeeds with RBAC policy
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/test1/repositories/foo/_manifests",
-		ExpectStatus: http.StatusForbidden,
-		ExpectHeader: map[string]string{
-			"Www-Authenticate": `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull"`,
-		},
-		ExpectBody: assert.StringData("no bearer token found in request headers\n"),
-	}.Check(t, h)
+	resp := h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/foo/_manifests")
+	assert.Equal(t, resp.Header().Get("Www-Authenticate"),
+		`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull"`)
+	resp.ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
+
 	test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
 		test.ToJSON([]keppel.RBACPolicy{{
 			RepositoryPattern: "foo",
 			Permissions:       []keppel.RBACPermission{keppel.RBACAnonymousPullPermission},
 		}}),
 	)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/test1/repositories/foo/_manifests",
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"manifests": []assert.JSONObject{}},
-	}.Check(t, h)
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/foo/_manifests").
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"manifests": []jsonmatch.Object{}})
 	test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1", "")
 
 	// test bearer token auth: obtain a bearer token on the Auth API while
 	// authenticating with Keppel API Auth, then use the bearer token on the
 	// Keppel API
-	_, respBodyBytes := assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/auth?service=registry.example.org&scope=repository:test1/foo:pull",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1,pull:tenant1"},
-		ExpectStatus: http.StatusOK,
-	}.Check(t, h)
 	var tokenData struct {
 		Token string `json:"token"`
 	}
-	must.SucceedT(t, json.Unmarshal(respBodyBytes, &tokenData))
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/test1/repositories/foo/_manifests",
-		Header:       map[string]string{"Authorization": "Bearer " + tokenData.Token},
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"manifests": []assert.JSONObject{}},
-	}.Check(t, h)
+	h.RespondTo(ctx, "GET /keppel/v1/auth?service=registry.example.org&scope=repository:test1/foo:pull",
+		withPerms("view:tenant1,pull:tenant1"),
+		httptest.ReceiveJSONInto(&tokenData),
+	).ExpectStatus(t, http.StatusOK)
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/foo/_manifests",
+		httptest.WithHeader("Authorization", "Bearer "+tokenData.Token),
+	).ExpectJSON(t, http.StatusOK, jsonmatch.Object{"manifests": []jsonmatch.Object{}})
 }

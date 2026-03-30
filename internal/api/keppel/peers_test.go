@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/sapcc/go-bits/assert"
+	"github.com/majewsky/gg/jsonmatch"
 	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/models"
@@ -17,18 +17,14 @@ import (
 func TestPeersAPI(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
+	ctx := t.Context()
 
 	// check empty response when there are no peers in the DB
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/peers",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"peers": []any{}},
-	}.Check(t, h)
+	h.RespondTo(ctx, "GET /keppel/v1/peers", withPerms("view:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"peers": []any{}})
 
 	// add some peers
-	expectedPeers := []assert.JSONObject{
+	expectedPeers := []jsonmatch.Object{
 		{"hostname": "keppel.example.com"},
 		{"hostname": "keppel.example.org"},
 	}
@@ -37,11 +33,6 @@ func TestPeersAPI(t *testing.T) {
 	}
 
 	// check non-empty response
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/peers",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"peers": expectedPeers},
-	}.Check(t, h)
+	h.RespondTo(ctx, "GET /keppel/v1/peers", withPerms("view:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"peers": expectedPeers})
 }

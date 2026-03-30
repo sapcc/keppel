@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/majewsky/gg/jsonmatch"
 	. "github.com/majewsky/gg/option"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/must"
 
@@ -26,17 +26,13 @@ func TestReposAPI(t *testing.T) {
 		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
 		test.WithAccount(models.Account{Name: "test2", AuthTenantID: "tenant2"}))
 	h := s.Handler
+	ctx := t.Context()
 
 	// test empty result
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/test1/repositories",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"repositories": []assert.JSONObject{},
-		},
-	}.Check(t, h)
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories", withPerms("view:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"repositories": []jsonmatch.Object{},
+		})
 
 	// setup five repos in each account (the `test2` account only exists to
 	// validate that we don't accidentally list its repos as well)
@@ -112,132 +108,59 @@ func TestReposAPI(t *testing.T) {
 	imageList.MustUpload(t, s, repoRef, "")
 
 	// test GET without pagination
-	renderedRepos := []assert.JSONObject{
+	renderedRepos := []jsonmatch.Object{
 		{"name": "repo1-1", "manifest_count": 0, "tag_count": 0},
 		{"name": "repo1-2", "manifest_count": 0, "tag_count": 0},
 		{"name": "repo1-3", "manifest_count": 11, "tag_count": 4, "size_bytes": 1160180, "pushed_at": 20030},
 		{"name": "repo1-4", "manifest_count": 0, "tag_count": 0},
 		{"name": "repo1-5", "manifest_count": 0, "tag_count": 0},
 	}
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/test1/repositories",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"repositories": renderedRepos},
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/test1/repositories?limit=5",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"repositories": renderedRepos},
-	}.Check(t, h)
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories", withPerms("view:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"repositories": renderedRepos})
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=5", withPerms("view:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"repositories": renderedRepos})
 
 	// test GET with pagination
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/test1/repositories?limit=3",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=3", withPerms("view:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"repositories": renderedRepos[0:3],
 			"truncated":    true,
-		},
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/test1/repositories?limit=3&marker=repo1-3",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"repositories": renderedRepos[3:5]},
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/test1/repositories?limit=3&marker=repo1-2",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"repositories": renderedRepos[2:5]},
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/test1/repositories?limit=3&marker=repo1-5",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   assert.JSONObject{"repositories": []assert.JSONObject{}},
-	}.Check(t, h)
+		})
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=3&marker=repo1-3", withPerms("view:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"repositories": renderedRepos[3:5]})
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=3&marker=repo1-2", withPerms("view:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"repositories": renderedRepos[2:5]})
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=3&marker=repo1-5", withPerms("view:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"repositories": []jsonmatch.Object{}})
 
 	// test GET failure cases
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/doesnotexist/repositories",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusForbidden,
-		ExpectBody:   assert.StringData("no permission for keppel_account:doesnotexist:view\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/accounts/test1/repositories?limit=foo",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusBadRequest,
-		ExpectBody:   assert.StringData("strconv.ParseUint: parsing \"foo\": invalid syntax\n"),
-	}.Check(t, h)
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/doesnotexist/repositories", withPerms("view:tenant1")).
+		ExpectText(t, http.StatusForbidden, "no permission for keppel_account:doesnotexist:view\n")
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=foo", withPerms("view:tenant1")).
+		ExpectText(t, http.StatusBadRequest, "strconv.ParseUint: parsing \"foo\": invalid syntax\n")
 
 	// test DELETE failure cases
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test2/repositories/repo2-1",
-		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
-		ExpectStatus: http.StatusForbidden,
-		ExpectBody:   assert.StringData("no permission for repository:test2/repo2-1:delete\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test1/repositories/repo1-2",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusForbidden,
-		ExpectBody:   assert.StringData("no permission for repository:test1/repo1-2:delete\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/doesnotexist/repositories/repo1-2",
-		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
-		ExpectStatus: http.StatusForbidden,
-		ExpectBody:   assert.StringData("no permission for repository:doesnotexist/repo1-2:delete\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test1/repositories/doesnotexist",
-		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
-		ExpectStatus: http.StatusNotFound,
-		ExpectBody:   assert.StringData("repository not found\n"),
-	}.Check(t, h)
+	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test2/repositories/repo2-1", withPerms("delete:tenant1,view:tenant1")).
+		ExpectText(t, http.StatusForbidden, "no permission for repository:test2/repo2-1:delete\n")
+	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-2", withPerms("view:tenant1")).
+		ExpectText(t, http.StatusForbidden, "no permission for repository:test1/repo1-2:delete\n")
+	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/doesnotexist/repositories/repo1-2", withPerms("delete:tenant1,view:tenant1")).
+		ExpectText(t, http.StatusForbidden, "no permission for repository:doesnotexist/repo1-2:delete\n")
+	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/doesnotexist", withPerms("delete:tenant1,view:tenant1")).
+		ExpectText(t, http.StatusNotFound, "repository not found\n")
 
 	// test if tag policy prevents deletion
 	deletingTagPolicyJSON := `{"match_repository":".*","block_delete":true}`
 	test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $1`, "["+deletingTagPolicyJSON+"]")
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test1/repositories/repo1-3",
-		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
-		ExpectStatus: http.StatusConflict,
-		ExpectBody:   assert.StringData("cannot delete manifest because it is protected by tag policy ({\"match_repository\":\".*\",\"block_delete\":true})\n"),
-	}.Check(t, h)
+	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-3", withPerms("delete:tenant1,view:tenant1")).
+		ExpectText(t, http.StatusConflict, "cannot delete manifest because it is protected by tag policy ({\"match_repository\":\".*\",\"block_delete\":true})\n")
 	test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = '[]'`)
 
 	// test DELETE happy case
 	easypg.AssertDBContent(t, s.DB.Db, "fixtures/before-delete-repo.sql")
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test1/repositories/repo1-1",
-		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
-		ExpectStatus: http.StatusNoContent,
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "DELETE",
-		Path:         "/keppel/v1/accounts/test1/repositories/repo1-3",
-		Header:       map[string]string{"X-Test-Perms": "delete:tenant1,view:tenant1"},
-		ExpectStatus: http.StatusNoContent,
-	}.Check(t, h)
+	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-1", withPerms("delete:tenant1,view:tenant1")).
+		ExpectStatus(t, http.StatusNoContent)
+	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-3", withPerms("delete:tenant1,view:tenant1")).
+		ExpectStatus(t, http.StatusNoContent)
 	easypg.AssertDBContent(t, s.DB.Db, "fixtures/after-delete-repo.sql")
 }
