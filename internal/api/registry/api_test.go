@@ -18,26 +18,6 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
-// SPDX-FileCopyrightText: 2020 SAP SE or an SAP affiliate company
-// SPDX-License-Identifier: Apache-2.0
-
-package registryv2_test
-
-import (
-	"net/http"
-	"testing"
-	"time"
-
-	"github.com/majewsky/gg/jsonmatch"
-	"github.com/sapcc/go-bits/assert"
-	"github.com/sapcc/go-bits/httptest"
-	"github.com/sapcc/go-bits/must"
-
-	"github.com/sapcc/keppel/internal/auth"
-	"github.com/sapcc/keppel/internal/keppel"
-	"github.com/sapcc/keppel/internal/test"
-)
-
 func TestVersionCheckEndpoint(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		ctx := t.Context()
