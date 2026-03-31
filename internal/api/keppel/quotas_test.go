@@ -8,9 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/majewsky/gg/jsonmatch"
 	. "github.com/majewsky/gg/option"
 	"github.com/sapcc/go-api-declarations/cadf"
-	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/models"
@@ -21,25 +22,21 @@ func TestQuotasAPI(t *testing.T) {
 	// NOTE: This tests both the Keppel-native quota API and the LIQUID API which accesses the same logic.
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
+	ctx := t.Context()
 
 	// GET on auth tenant without more specific configuration shows default values
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/quotas/tenant1",
-		Header:       map[string]string{"X-Test-Perms": "viewquota:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"manifests": assert.JSONObject{"quota": 0, "usage": 0},
-		},
-	}.Check(t, h)
-	buildLiquidResponse := func(quota, usage uint64) assert.JSONObject {
-		return assert.JSONObject{
+	h.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"manifests": jsonmatch.Object{"quota": 0, "usage": 0},
+		})
+	buildLiquidResponse := func(quota, usage uint64) jsonmatch.Object {
+		return jsonmatch.Object{
 			"infoVersion": 2,
-			"resources": map[string]assert.JSONObject{
+			"resources": map[string]jsonmatch.Object{
 				"images": {
 					"forbidden": false,
 					"quota":     quota,
-					"perAZ": map[string]assert.JSONObject{
+					"perAZ": map[string]jsonmatch.Object{
 						"any": {
 							"usage": usage,
 						},
@@ -48,59 +45,37 @@ func TestQuotasAPI(t *testing.T) {
 			},
 		}
 	}
-	assert.HTTPRequest{
-		Method:       "POST",
-		Path:         "/liquid/v1/projects/tenant1/report-usage",
-		Header:       map[string]string{"X-Test-Perms": "viewquota:tenant1"},
-		Body:         assert.JSONObject{"allAZs": []string{"dummy"}},
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   buildLiquidResponse(0, 0),
-	}.Check(t, h)
+	h.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
+		withPerms("viewquota:tenant1"),
+		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
+	).ExpectJSON(t, http.StatusOK, buildLiquidResponse(0, 0))
 
 	// GET basic error cases: no permission on the respective auth tenant
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/quotas/tenant1",
-		Header:       map[string]string{"X-Test-Perms": "viewquota:tenant2"},
-		ExpectStatus: http.StatusForbidden,
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "POST",
-		Path:         "/liquid/v1/projects/tenant1/report-usage",
-		Header:       map[string]string{"X-Test-Perms": "viewquota:tenant2"},
-		Body:         assert.JSONObject{"allAZs": []string{"dummy"}},
-		ExpectStatus: http.StatusForbidden,
-	}.Check(t, h)
+	h.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant2")).
+		ExpectStatus(t, http.StatusForbidden)
+	h.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
+		withPerms("viewquota:tenant2"),
+		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
+	).ExpectStatus(t, http.StatusForbidden)
 
 	// GET basic error cases: wrong permission on the respective auth tenant
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/quotas/tenant1",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		ExpectStatus: http.StatusForbidden,
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "POST",
-		Path:         "/liquid/v1/projects/tenant1/report-usage",
-		Header:       map[string]string{"X-Test-Perms": "view:tenant1"},
-		Body:         assert.JSONObject{"allAZs": []string{"dummy"}},
-		ExpectStatus: http.StatusForbidden,
-	}.Check(t, h)
+	h.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("view:tenant1")).
+		ExpectStatus(t, http.StatusForbidden)
+	h.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
+		withPerms("view:tenant1"),
+		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
+	).ExpectStatus(t, http.StatusForbidden)
 
 	// PUT happy case with native API
 	for _, pass := range []int{1, 2, 3} {
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/keppel/v1/quotas/tenant1",
-			Header: map[string]string{"X-Test-Perms": "changequota:tenant1"},
-			Body: assert.JSONObject{
-				"manifests": assert.JSONObject{"quota": 50},
-			},
-			ExpectStatus: http.StatusOK,
-			ExpectBody: assert.JSONObject{
-				"manifests": assert.JSONObject{"quota": 50, "usage": 0},
-			},
-		}.Check(t, h)
+		h.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
+			withPerms("changequota:tenant1"),
+			httptest.WithJSONBody(map[string]any{
+				"manifests": map[string]any{"quota": 50},
+			}),
+		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"manifests": jsonmatch.Object{"quota": 50, "usage": 0},
+		})
 
 		// only the first pass should generate an audit event
 		if pass == 1 {
@@ -134,17 +109,14 @@ func TestQuotasAPI(t *testing.T) {
 
 	// PUT happy case with LIQUID API
 	for _, pass := range []int{1, 2, 3} {
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/liquid/v1/projects/tenant1/quota",
-			Header: map[string]string{"X-Test-Perms": "changequota:tenant1"},
-			Body: assert.JSONObject{
-				"resources": map[string]assert.JSONObject{
-					"images": {"quota": 100},
+		h.RespondTo(ctx, "PUT /liquid/v1/projects/tenant1/quota",
+			withPerms("changequota:tenant1"),
+			httptest.WithJSONBody(map[string]any{
+				"resources": map[string]any{
+					"images": map[string]any{"quota": 100},
 				},
-			},
-			ExpectStatus: http.StatusNoContent,
-		}.Check(t, h)
+			}),
+		).ExpectStatus(t, http.StatusNoContent)
 
 		// only the first pass should generate an audit event
 		if pass == 1 {
@@ -177,23 +149,14 @@ func TestQuotasAPI(t *testing.T) {
 	}
 
 	// GET reflects changes
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/quotas/tenant1",
-		Header:       map[string]string{"X-Test-Perms": "viewquota:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"manifests": assert.JSONObject{"quota": 100, "usage": 0},
-		},
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "POST",
-		Path:         "/liquid/v1/projects/tenant1/report-usage",
-		Header:       map[string]string{"X-Test-Perms": "viewquota:tenant1"},
-		Body:         assert.JSONObject{"allAZs": []string{"dummy"}},
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   buildLiquidResponse(100, 0),
-	}.Check(t, h)
+	h.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"manifests": jsonmatch.Object{"quota": 100, "usage": 0},
+		})
+	h.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
+		withPerms("viewquota:tenant1"),
+		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
+	).ExpectJSON(t, http.StatusOK, buildLiquidResponse(100, 0))
 
 	// put some manifests in the DB, check that GET reflects higher usage
 	test.MustExec(t, s.DB, `INSERT INTO accounts (name, auth_tenant_id) VALUES ('test1', 'tenant1')`)
@@ -218,54 +181,34 @@ func TestQuotasAPI(t *testing.T) {
 			NextCheckAt:         Some(time.Unix(0, 0)),
 		}))
 	}
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/keppel/v1/quotas/tenant1",
-		Header:       map[string]string{"X-Test-Perms": "viewquota:tenant1"},
-		ExpectStatus: http.StatusOK,
-		ExpectBody: assert.JSONObject{
-			"manifests": assert.JSONObject{"quota": 100, "usage": 10},
-		},
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method:       "POST",
-		Path:         "/liquid/v1/projects/tenant1/report-usage",
-		Header:       map[string]string{"X-Test-Perms": "viewquota:tenant1"},
-		Body:         assert.JSONObject{"allAZs": []string{"dummy"}},
-		ExpectStatus: http.StatusOK,
-		ExpectBody:   buildLiquidResponse(100, 10),
-	}.Check(t, h)
+	h.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"manifests": jsonmatch.Object{"quota": 100, "usage": 10},
+		})
+	h.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
+		withPerms("viewquota:tenant1"),
+		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
+	).ExpectJSON(t, http.StatusOK, buildLiquidResponse(100, 10))
 
 	// PUT error cases
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/quotas/tenant1",
-		Header: map[string]string{"X-Test-Perms": "viewquota:tenant1"},
-		Body: assert.JSONObject{
-			"manifests": assert.JSONObject{"quota": 100},
-		},
-		ExpectStatus: http.StatusForbidden,
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/quotas/tenant1",
-		Header: map[string]string{"X-Test-Perms": "changequota:tenant1"},
-		Body: assert.JSONObject{
-			"manifests": assert.JSONObject{"quota": 100, "usage": 10},
-		},
-		ExpectStatus: http.StatusBadRequest,
-		ExpectBody:   assert.StringData("request body is not valid JSON: json: unknown field \"usage\"\n"),
-	}.Check(t, h)
-	assert.HTTPRequest{
-		Method: "PUT",
-		Path:   "/keppel/v1/quotas/tenant1",
-		Header: map[string]string{"X-Test-Perms": "changequota:tenant1"},
-		Body: assert.JSONObject{
-			"manifests": assert.JSONObject{"quota": 5},
-		},
-		ExpectStatus: http.StatusUnprocessableEntity,
-		ExpectBody:   assert.StringData("requested manifest quota (5) is below usage (10)\n"),
-	}.Check(t, h)
+	h.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
+		withPerms("viewquota:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"manifests": map[string]any{"quota": 100},
+		}),
+	).ExpectStatus(t, http.StatusForbidden)
+	h.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
+		withPerms("changequota:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"manifests": map[string]any{"quota": 100, "usage": 10},
+		}),
+	).ExpectText(t, http.StatusBadRequest, "request body is not valid JSON: json: unknown field \"usage\"\n")
+	h.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
+		withPerms("changequota:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"manifests": map[string]any{"quota": 5},
+		}),
+	).ExpectText(t, http.StatusUnprocessableEntity, "requested manifest quota (5) is below usage (10)\n")
 
 	// TODO audit events
 }
