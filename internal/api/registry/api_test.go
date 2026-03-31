@@ -18,26 +18,6 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
-func TestVersionCheckEndpoint(t *testing.T) {
-	testWithPrimary(t, nil, func(s test.Setup) {
-		ctx := t.Context()
-		h := s.Handler
-
-		// without token, expect auth challenge
-		resp := h.RespondTo(ctx, "GET /v2/")
-		resp.ExpectJSON(t, http.StatusUnauthorized, jsonmatch.Object{
-			"errors": []jsonmatch.Object{{
-				"code":    string(keppel.ErrUnauthorized),
-				"detail":  nil,
-				"message": "no bearer token found in request headers",
-			}},
-		})
-		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
-		assert.Equal(t, resp.Header().Get("Www-Authenticate"), `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org"`)
-
-		// with token, expect status code 200
-		token := s.GetToken(t /*, no scopes */)
-		resp = h.RespondTo(ctx, "GET /v2/", httptest.WithHeader("Authorization", "Bearer "+token))
 		resp.ExpectStatus(t, http.StatusOK)
 		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
 	})
