@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/majewsky/gg/jsonmatch"
+
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
 // ErrorCode wraps keppel.RegistryV2ErrorCode with an implementation of the
-// assert.HTTPResponseBody interface.
+// assert.HTTPResponseBody and jsonmatch.Diffable interfaces.
 type ErrorCode keppel.RegistryV2ErrorCode
 
 // AssertResponseBody implements the assert.HTTPResponseBody interface.
@@ -22,10 +24,39 @@ func (e ErrorCode) AssertResponseBody(t *testing.T, requestInfo string, response
 	return wrapped.AssertResponseBody(t, requestInfo, responseBody)
 }
 
+// DiffAgainst implements the jsonmatch.Diffable interface.
+func (e ErrorCode) DiffAgainst(buf []byte) []jsonmatch.Diff {
+	return ErrorCodeWithMessage{keppel.RegistryV2ErrorCode(e), ""}.DiffAgainst(buf)
+}
+
 // ErrorCodeWithMessage extends ErrorCode with an expected detail message.
+// It implements both the assert.HTTPResponseBody and jsonmatch.Diffable interfaces.
 type ErrorCodeWithMessage struct {
 	Code    keppel.RegistryV2ErrorCode
 	Message string
+}
+
+// DiffAgainst implements the jsonmatch.Diffable interface.
+func (e ErrorCodeWithMessage) DiffAgainst(buf []byte) []jsonmatch.Diff {
+	var expected jsonmatch.Object
+	if e.Message == "" {
+		expected = jsonmatch.Object{
+			"errors": []jsonmatch.Object{{
+				"code":    string(e.Code),
+				"message": jsonmatch.CaptureField(new(string)),
+				"detail":  nil,
+			}},
+		}
+	} else {
+		expected = jsonmatch.Object{
+			"errors": []jsonmatch.Object{{
+				"code":    string(e.Code),
+				"message": e.Message,
+				"detail":  nil,
+			}},
+		}
+	}
+	return expected.DiffAgainst(buf)
 }
 
 // AssertResponseBody implements the assert.HTTPResponseBody interface.

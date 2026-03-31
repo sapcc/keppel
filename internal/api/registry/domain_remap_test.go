@@ -26,7 +26,7 @@ func TestRegistryAPIDomainRemap(t *testing.T) {
 		resp := h.RespondTo(ctx, "GET /v2/",
 			httptest.WithHeader("X-Forwarded-Host", "test1.registry.example.org"),
 			httptest.WithHeader("X-Forwarded-Proto", "https"))
-		resp.ExpectJSON(t, http.StatusUnauthorized, errCodeJSON(keppel.ErrUnauthorized))
+		resp.ExpectJSON(t, http.StatusUnauthorized, test.ErrorCode(keppel.ErrUnauthorized))
 		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
 		assert.Equal(t, resp.Header().Get("Www-Authenticate"), `Bearer realm="https://test1.registry.example.org/keppel/v1/auth",service="test1.registry.example.org"`)
 

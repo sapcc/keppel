@@ -142,7 +142,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 			}.Check(t, h)
 
 			// validate that the blob was stored at the specified location
-			expectBlobExists(t, h, token, "test1/foo", blob, nil)
+			expectBlobExists(t, t.Context(), h, token, "test1/foo", blob, nil)
 		}
 
 		// test GET via anycast
@@ -155,8 +155,8 @@ func TestBlobMonolithicUpload(t *testing.T) {
 						"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
 						"X-Forwarded-Proto": "https",
 					}
-					expectBlobExists(t, h, anycastToken, "test1/foo", blob, anycastHeaders)
-					expectBlobExists(t, h2, anycastToken, "test1/foo", blob, anycastHeaders)
+					expectBlobExists(t, t.Context(), h, anycastToken, "test1/foo", blob, anycastHeaders)
+					expectBlobExists(t, t.Context(), h2, anycastToken, "test1/foo", blob, anycastHeaders)
 				})
 			})
 		}
@@ -285,7 +285,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			// request should not contain session state)
 			assert.HTTPRequest{
 				Method:       "PATCH",
-				Path:         keppel.AppendQuery(getBlobUploadURL(t, h, token, "test1/foo"), url.Values{"state": {"unexpected"}}),
+				Path:         keppel.AppendQuery(getBlobUploadURL(t, t.Context(), h, token, "test1/foo"), url.Values{"state": {"unexpected"}}),
 				Header:       getHeadersForPATCH(0, len(blob.Contents)),
 				Body:         assert.ByteData(blob.Contents),
 				ExpectStatus: http.StatusBadRequest,
@@ -294,7 +294,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			}.Check(t, h)
 
 			// upload with mismatched content length header to trigger a broken session state
-			uploadURL := getBlobUploadURL(t, h, token, "test1/foo")
+			uploadURL := getBlobUploadURL(t, t.Context(), h, token, "test1/foo")
 			assert.HTTPRequest{
 				Method:       "PATCH",
 				Path:         uploadURL,
@@ -312,7 +312,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 
 			// test that content-length header matches which can only occur when doing chunked uploads
 			if isChunked {
-				uploadURL = getBlobUploadURL(t, h, token, "test1/foo")
+				uploadURL = getBlobUploadURL(t, t.Context(), h, token, "test1/foo")
 				assert.HTTPRequest{
 					Method:       "PATCH",
 					Path:         uploadURL,
@@ -332,7 +332,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			// test failure cases during PATCH: malformed session state (this requires a
 			// successful PATCH first, otherwise the API would not expect to find session
 			// state in our request)
-			uploadURL = getBlobUploadURL(t, h, token, "test1/foo")
+			uploadURL = getBlobUploadURL(t, t.Context(), h, token, "test1/foo")
 			assert.HTTPRequest{
 				Method:       "PATCH",
 				Path:         uploadURL,
@@ -361,7 +361,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 					chunk1, chunk2 := blob.Contents[0:10], blob.Contents[10:15]
 					resp, _ := assert.HTTPRequest{
 						Method:       "PATCH",
-						Path:         getBlobUploadURL(t, h, token, "test1/foo"),
+						Path:         getBlobUploadURL(t, t.Context(), h, token, "test1/foo"),
 						Header:       getHeadersForPATCH(0, len(chunk1)),
 						Body:         assert.ByteData(chunk1),
 						ExpectStatus: http.StatusAccepted,
@@ -398,7 +398,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				// upload all the blob contents at once (we're only interested in the final PUT)
 				resp, _ := assert.HTTPRequest{
 					Method:       "PATCH",
-					Path:         getBlobUploadURL(t, h, token, "test1/foo"),
+					Path:         getBlobUploadURL(t, t.Context(), h, token, "test1/foo"),
 					Header:       getHeadersForPATCH(0, len(blob.Contents)),
 					Body:         assert.ByteData(blob.Contents),
 					ExpectStatus: http.StatusAccepted,
@@ -420,7 +420,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				chunk1, chunk2 := blob.Contents[0:10], blob.Contents[10:]
 				resp, _ := assert.HTTPRequest{
 					Method:       "PATCH",
-					Path:         getBlobUploadURL(t, h, token, "test1/foo"),
+					Path:         getBlobUploadURL(t, t.Context(), h, token, "test1/foo"),
 					Header:       getHeadersForPATCH(0, len(chunk1)),
 					Body:         assert.ByteData(chunk1),
 					ExpectStatus: http.StatusAccepted,
@@ -462,7 +462,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			// test success case twice: should look the same also in the second pass
 			for range []int{1, 2} {
 				// test success case (with multiple chunks!)
-				uploadURL = getBlobUploadURL(t, h, token, "test1/foo")
+				uploadURL = getBlobUploadURL(t, t.Context(), h, token, "test1/foo")
 				progress := 0
 				for _, chunk := range bytes.SplitAfter(blob.Contents, []byte(" ")) {
 					progress += len(chunk)
@@ -503,7 +503,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				}
 
 				// validate that the blob was stored at the specified location
-				expectBlobExists(t, h, token, "test1/foo", blob, nil)
+				expectBlobExists(t, t.Context(), h, token, "test1/foo", blob, nil)
 			}
 
 			if t.Failed() {
@@ -539,7 +539,7 @@ func TestGetBlobUpload(t *testing.T) {
 		}.Check(t, h)
 
 		// test success case: upload without contents in it
-		uploadURL, uploadUUID := getBlobUpload(t, h, token, "test1/foo")
+		uploadURL, uploadUUID := getBlobUpload(t, t.Context(), h, token, "test1/foo")
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
@@ -663,7 +663,7 @@ func TestDeleteBlobUpload(t *testing.T) {
 		}.Check(t, h)
 
 		// test deletion of upload with no contents in it
-		_, uploadUUID := getBlobUpload(t, h, token, "test1/foo")
+		_, uploadUUID := getBlobUpload(t, t.Context(), h, token, "test1/foo")
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
@@ -684,7 +684,7 @@ func TestDeleteBlobUpload(t *testing.T) {
 		}.Check(t, h)
 
 		// test deletion of upload with contents in it
-		uploadURL, uploadUUID := getBlobUpload(t, h, token, "test1/foo")
+		uploadURL, uploadUUID := getBlobUpload(t, t.Context(), h, token, "test1/foo")
 		assert.HTTPRequest{
 			Method: "PATCH",
 			Path:   uploadURL,
@@ -759,8 +759,8 @@ func TestDeleteBlob(t *testing.T) {
 		}.Check(t, h)
 
 		// the blob should now be visible in both repos
-		expectBlobExists(t, h, token, "test1/foo", blob, nil)
-		expectBlobExists(t, h, otherRepoToken, "test1/bar", blob, nil)
+		expectBlobExists(t, t.Context(), h, token, "test1/foo", blob, nil)
+		expectBlobExists(t, t.Context(), h, otherRepoToken, "test1/bar", blob, nil)
 
 		// test failure case: no delete permission
 		assert.HTTPRequest{
@@ -791,8 +791,8 @@ func TestDeleteBlob(t *testing.T) {
 		}.Check(t, h)
 
 		// we only had failed DELETEs until now, so the blob should still be there
-		expectBlobExists(t, h, token, "test1/foo", blob, nil)
-		expectBlobExists(t, h, otherRepoToken, "test1/bar", blob, nil)
+		expectBlobExists(t, t.Context(), h, token, "test1/foo", blob, nil)
+		expectBlobExists(t, t.Context(), h, otherRepoToken, "test1/bar", blob, nil)
 
 		// test success case: delete the blob from the first repo
 		assert.HTTPRequest{
@@ -816,7 +816,7 @@ func TestDeleteBlob(t *testing.T) {
 			ExpectBody:   test.ErrorCode(keppel.ErrBlobUnknown),
 		}.Check(t, h)
 		// ...but still be visible in test1/bar
-		expectBlobExists(t, h, otherRepoToken, "test1/bar", blob, nil)
+		expectBlobExists(t, t.Context(), h, otherRepoToken, "test1/bar", blob, nil)
 	})
 }
 
@@ -914,7 +914,7 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 		}.Check(t, h)
 
 		// now the blob should be available in both the original and the new repo
-		expectBlobExists(t, h, token, "test1/foo", blob, nil)
-		expectBlobExists(t, h, otherRepoToken, "test1/bar", blob, nil)
+		expectBlobExists(t, t.Context(), h, token, "test1/foo", blob, nil)
+		expectBlobExists(t, t.Context(), h, otherRepoToken, "test1/bar", blob, nil)
 	})
 }

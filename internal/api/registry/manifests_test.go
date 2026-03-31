@@ -314,9 +314,9 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			// check GET/HEAD: manifest should now be available under the reference
 			// where it was pushed to...
-			expectManifestExists(t, h, readOnlyToken, "test1/foo", image.Manifest, ref, nil)
+			expectManifestExists(t, t.Context(), h, readOnlyToken, "test1/foo", image.Manifest, ref, nil)
 			// ...and under its digest
-			expectManifestExists(t, h, readOnlyToken, "test1/foo", image.Manifest, image.Manifest.Digest.String(), nil)
+			expectManifestExists(t, t.Context(), h, readOnlyToken, "test1/foo", image.Manifest, image.Manifest.Digest.String(), nil)
 
 			// GET failure case: wrong scope
 			assert.HTTPRequest{
@@ -340,10 +340,10 @@ func TestImageManifestLifecycle(t *testing.T) {
 							"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
 							"X-Forwarded-Proto": "https",
 						}
-						expectManifestExists(t, h, anycastToken, "test1/foo", image.Manifest, ref, anycastHeaders)
-						expectManifestExists(t, h, anycastToken, "test1/foo", image.Manifest, image.Manifest.Digest.String(), anycastHeaders)
-						expectManifestExists(t, h2, anycastToken, "test1/foo", image.Manifest, ref, anycastHeaders)
-						expectManifestExists(t, h2, anycastToken, "test1/foo", image.Manifest, image.Manifest.Digest.String(), anycastHeaders)
+						expectManifestExists(t, t.Context(), h, anycastToken, "test1/foo", image.Manifest, ref, anycastHeaders)
+						expectManifestExists(t, t.Context(), h, anycastToken, "test1/foo", image.Manifest, image.Manifest.Digest.String(), anycastHeaders)
+						expectManifestExists(t, t.Context(), h2, anycastToken, "test1/foo", image.Manifest, ref, anycastHeaders)
+						expectManifestExists(t, t.Context(), h2, anycastToken, "test1/foo", image.Manifest, image.Manifest.Digest.String(), anycastHeaders)
 					})
 				})
 			}
@@ -533,7 +533,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 		easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagelistmanifest-001-after-upload-manifest.sql")
 
 		// check GET for manifest list
-		expectManifestExists(t, h, token, "test1/foo", list2.Manifest, "list", nil)
+		expectManifestExists(t, t.Context(), h, token, "test1/foo", list2.Manifest, "list", nil)
 
 		// as a special case, GET on the manifest list returns the linux/amd64
 		// manifest if only single-arch manifests are accepted by the client (this
@@ -553,7 +553,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 			},
 		}.Check(t, h)
 		// but we return the whole list if at all possible
-		expectManifestExists(t, h, token, "test1/foo", list2.Manifest, "list", map[string]string{
+		expectManifestExists(t, t.Context(), h, token, "test1/foo", list2.Manifest, "list", map[string]string{
 			"Accept": "application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json",
 		})
 

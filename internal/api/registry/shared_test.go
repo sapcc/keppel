@@ -4,7 +4,6 @@
 package registryv2_test
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -12,7 +11,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/majewsky/gg/jsonmatch"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httptest"
@@ -127,26 +125,6 @@ func testAnycast(t *testing.T, firstPass bool, db2 *keppel.DB, action func()) {
 	action()
 }
 
-func errCodeJSON(code keppel.RegistryV2ErrorCode) jsonmatch.Object {
-	return jsonmatch.Object{
-		"errors": []jsonmatch.Object{{
-			"code":    string(code),
-			"message": jsonmatch.CaptureField(new(string)),
-			"detail":  nil,
-		}},
-	}
-}
-
-func errCodeWithMessageJSON(code keppel.RegistryV2ErrorCode, message string) jsonmatch.Object {
-	return jsonmatch.Object{
-		"errors": []jsonmatch.Object{{
-			"code":    string(code),
-			"message": message,
-			"detail":  nil,
-		}},
-	}
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // helpers for setting up test scenarios
 
@@ -227,7 +205,7 @@ func expectManifestExists(t *testing.T, ctx context.Context, h httptest.Handler,
 		// with mismatching Accept header
 		resp = h.RespondTo(ctx, method+" "+path, append(baseOpts, httptest.WithHeader("Accept", "text/plain"))...)
 		if method == "GET" {
-			resp.ExpectJSON(t, http.StatusNotAcceptable, errCodeJSON(keppel.ErrManifestUnknown))
+			resp.ExpectJSON(t, http.StatusNotAcceptable, test.ErrorCode(keppel.ErrManifestUnknown))
 		} else {
 			resp.ExpectStatus(t, http.StatusNotAcceptable)
 		}

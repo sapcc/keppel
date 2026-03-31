@@ -166,7 +166,7 @@ func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
 	ctx := t.Context()
 	h := s.Handler
 	resp := h.RespondTo(ctx, "GET /v2/_catalog")
-	resp.ExpectJSON(t, http.StatusUnauthorized, errCodeJSON(keppel.ErrUnauthorized))
+	resp.ExpectJSON(t, http.StatusUnauthorized, test.ErrorCode(keppel.ErrUnauthorized))
 	assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
 	assert.Equal(t, resp.Header().Get("Www-Authenticate"), `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="registry:catalog:*"`)
 	assert.Equal(t, resp.Header().Get("Content-Type"), "application/json")
@@ -176,7 +176,7 @@ func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
 	resp = h.RespondTo(ctx, "GET /v2/_catalog", httptest.WithHeader("Authorization", "Bearer "+token))
 	//NOTE: Docker Hub (https://registry-1.docker.io) sends UNAUTHORIZED here,
 	// but DENIED is more logical.
-	resp.ExpectJSON(t, http.StatusUnauthorized, errCodeJSON(keppel.ErrDenied))
+	resp.ExpectJSON(t, http.StatusUnauthorized, test.ErrorCode(keppel.ErrDenied))
 	assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
 	assert.Equal(t, resp.Header().Get("Www-Authenticate"), `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="registry:catalog:*",error="insufficient_scope"`)
 	assert.Equal(t, resp.Header().Get("Content-Type"), "application/json")
@@ -185,7 +185,7 @@ func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
 	resp = h.RespondTo(ctx, "GET /v2/_catalog",
 		httptest.WithHeader("X-Forwarded-Host", "test1.registry.example.org"),
 		httptest.WithHeader("X-Forwarded-Proto", "https"))
-	resp.ExpectJSON(t, http.StatusUnauthorized, errCodeJSON(keppel.ErrUnauthorized))
+	resp.ExpectJSON(t, http.StatusUnauthorized, test.ErrorCode(keppel.ErrUnauthorized))
 	assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
 	assert.Equal(t, resp.Header().Get("Www-Authenticate"), `Bearer realm="https://test1.registry.example.org/keppel/v1/auth",service="test1.registry.example.org",scope="registry:catalog:*"`)
 	assert.Equal(t, resp.Header().Get("Content-Type"), "application/json")
@@ -198,6 +198,6 @@ func testNoCatalogOnAnycast(t *testing.T, s test.Setup) {
 		httptest.WithHeader("Authorization", "Bearer "+token),
 		httptest.WithHeader("X-Forwarded-Host", s.Config.AnycastAPIPublicHostname),
 		httptest.WithHeader("X-Forwarded-Proto", "https"))
-	resp.ExpectJSON(t, http.StatusMethodNotAllowed, errCodeJSON(keppel.ErrUnsupported))
+	resp.ExpectJSON(t, http.StatusMethodNotAllowed, test.ErrorCode(keppel.ErrUnsupported))
 	assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
 }

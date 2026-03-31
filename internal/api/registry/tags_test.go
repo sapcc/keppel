@@ -28,7 +28,7 @@ func TestListTags(t *testing.T) {
 		// test tag list for missing repo
 		resp := h.RespondTo(ctx, "GET /v2/test1/foo/tags/list",
 			httptest.WithHeader("Authorization", "Bearer "+readOnlyToken))
-		resp.ExpectJSON(t, http.StatusNotFound, errCodeJSON(keppel.ErrNameUnknown))
+		resp.ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrNameUnknown))
 		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
 
 		// upload a test image without tagging it
@@ -117,7 +117,7 @@ func TestListTags(t *testing.T) {
 				h2 := s2.Handler
 				testAnycast(t, firstPass, s2.DB, func() {
 					anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull")
-					anycastHeaders := []httptest.Option{
+					anycastHeaders := []httptest.RequestOption{
 						httptest.WithHeader("Authorization", "Bearer "+anycastToken),
 						httptest.WithHeader("X-Forwarded-Host", s.Config.AnycastAPIPublicHostname),
 						httptest.WithHeader("X-Forwarded-Proto", "https"),
