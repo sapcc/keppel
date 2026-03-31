@@ -18,26 +18,6 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
-		resp.ExpectStatus(t, http.StatusOK)
-		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
-	})
-}
-
-func TestKeppelAPIAuth(t *testing.T) {
-	// All the other tests use the conventional auth method using bearer tokens.
-	// This test provides test coverage for authenticating with the same
-	// AuthDriver-dependent mechanism used by the Keppel API.
-	testWithPrimary(t, nil, func(s test.Setup) {
-		ctx := t.Context()
-		// upload a manifest for testing (using bearer tokens since all our test
-		// helper functions use those)
-		h := s.Handler
-		image := test.GenerateImage(test.GenerateExampleLayer(1))
-		s.Clock.StepBy(time.Second)
-		image.MustUpload(t, s, fooRepoRef, "first")
-
-		// test scopeless endpoint: happy case
-		resp := h.RespondTo(ctx, "GET /v2/",
 			httptest.WithHeader("Authorization", "keppel"),
 			httptest.WithHeader("X-Test-Perms", "view:test1authtenant"))
 		resp.ExpectStatus(t, http.StatusOK)
