@@ -5,9 +5,11 @@ package keppelv1_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -311,19 +313,19 @@ func TestGetTrivyReport(t *testing.T) {
 
 		// error case: cannot GET report for an image that has not been uploaded
 		endpointFor := func(d digest.Digest) string {
-			return "/keppel/v1/accounts/test1/repositories/foo/_manifests/" + d.String() + "/trivy_report"
+			return "GET /keppel/v1/accounts/test1/repositories/foo/_manifests/" + d.String() + "/trivy_report"
 		}
-		h.RespondTo(ctx, "GET "+endpointFor(test.DeterministicDummyDigest(1)),
+		h.RespondTo(ctx, endpointFor(test.DeterministicDummyDigest(1)),
 			withPerms("view:tenant1,pull:tenant1"),
 		).ExpectStatus(t, http.StatusNotFound)
 
 		// error case: cannot GET report for an image that does not have scannable layers
-		h.RespondTo(ctx, "GET "+endpointFor(listManifest.Digest),
+		h.RespondTo(ctx, endpointFor(listManifest.Digest),
 			withPerms("view:tenant1,pull:tenant1"),
 		).ExpectStatus(t, http.StatusMethodNotAllowed)
 
 		// error case: cannot GET report for an image that has not been scanned by the janitor after upload
-		h.RespondTo(ctx, "GET "+endpointFor(imageManifest.Digest),
+		h.RespondTo(ctx, endpointFor(imageManifest.Digest),
 			withPerms("view:tenant1,pull:tenant1"),
 		).ExpectStatus(t, http.StatusMethodNotAllowed)
 
@@ -341,7 +343,7 @@ func TestGetTrivyReport(t *testing.T) {
 		)
 
 		// happy case: GET on the default format "json" returns that cached report
-		resp := h.RespondTo(ctx, "GET "+endpointFor(imageManifest.Digest),
+		resp := h.RespondTo(ctx, endpointFor(imageManifest.Digest),
 			withPerms("view:tenant1,pull:tenant1"),
 		)
 		assert.Equal(t, resp.Header().Get("Content-Type"), "application/json")
@@ -354,16 +356,13 @@ func TestGetTrivyReport(t *testing.T) {
 			Reference: models.ManifestReference{Digest: imageManifest.Digest},
 		}
 		s.TrivyDouble.ReportFixtures[imageRef] = "fixtures/trivy-report-spdx.json"
-		resp = h.RespondTo(ctx, "GET "+endpointFor(imageManifest.Digest)+"?format=spdx-json",
+		var expected jsonmatch.Object
+		must.SucceedT(t, json.Unmarshal(must.ReturnT(os.ReadFile("fixtures/trivy-report-spdx.json"))(t), &expected))
+		resp = h.RespondTo(ctx, endpointFor(imageManifest.Digest)+"?format=spdx-json",
 			withPerms("view:tenant1,pull:tenant1"),
 		)
 		assert.Equal(t, resp.Header().Get("Content-Type"), "application/json")
-		if resp.ExpectStatus(t, http.StatusOK) {
-			// Strip the trailing newline that json.Encoder.Encode() adds to JSON responses.
-			body := bytes.TrimSuffix(resp.BodyBytes(), []byte("\n"))
-			assert.JSONFixtureFile("fixtures/trivy-report-spdx.json").AssertResponseBody(t,
-				"GET "+endpointFor(imageManifest.Digest)+"?format=spdx-json", body)
-		}
+		resp.ExpectJSON(t, http.StatusOK, expected)
 	})
 }
 
@@ -391,11 +390,9 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 
 		token := s.GetToken(t, "repository:test1/foo:pull,push")
 
-		trivyReportPath := fmt.Sprintf("/keppel/v1/accounts/test1/repositories/foo/_manifests/%s/trivy_report", test.DeterministicDummyDigest(1))
-		authHeader := httptest.WithHeader("Authorization", "Bearer "+token)
-
 		doTrivyRequest := func() httptest.Response {
-			return h.RespondTo(ctx, "GET "+trivyReportPath, authHeader)
+			endpoint := fmt.Sprintf("GET /keppel/v1/accounts/test1/repositories/foo/_manifests/%s/trivy_report", test.DeterministicDummyDigest(1))
+			return h.RespondTo(ctx, endpoint, httptest.WithHeader("Authorization", "Bearer "+token))
 		}
 		expectRateLimited := func(reset, retryAfter int) {
 			t.Helper()
