@@ -18,37 +18,48 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
+// SPDX-FileCopyrightText: 2020 SAP SE or an SAP affiliate company
+// SPDX-License-Identifier: Apache-2.0
+
+package registryv2_test
+
+import (
+	"net/http"
+	"testing"
+	"time"
+
+	"github.com/majewsky/gg/jsonmatch"
+	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/httptest"
+	"github.com/sapcc/go-bits/must"
+
+	"github.com/sapcc/keppel/internal/auth"
+	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/test"
+)
+
 func TestVersionCheckEndpoint(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
+		ctx := t.Context()
 		h := s.Handler
 
 		// without token, expect auth challenge
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/v2/",
-			ExpectStatus: http.StatusUnauthorized,
-			ExpectHeader: map[string]string{
-				test.VersionHeaderKey: test.VersionHeaderValue,
-				"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org"`,
-			},
-			ExpectBody: assert.JSONObject{
-				"errors": []assert.JSONObject{{
-					"code":    keppel.ErrUnauthorized,
-					"detail":  nil,
-					"message": "no bearer token found in request headers",
-				}},
-			},
-		}.Check(t, h)
+		resp := h.RespondTo(ctx, "GET /v2/")
+		resp.ExpectJSON(t, http.StatusUnauthorized, jsonmatch.Object{
+			"errors": []jsonmatch.Object{{
+				"code":    string(keppel.ErrUnauthorized),
+				"detail":  nil,
+				"message": "no bearer token found in request headers",
+			}},
+		})
+		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
+		assert.Equal(t, resp.Header().Get("Www-Authenticate"), `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org"`)
 
 		// with token, expect status code 200
 		token := s.GetToken(t /*, no scopes */)
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/v2/",
-			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusOK,
-			ExpectHeader: test.VersionHeader,
-		}.Check(t, h)
+		resp = h.RespondTo(ctx, "GET /v2/", httptest.WithHeader("Authorization", "Bearer "+token))
+		resp.ExpectStatus(t, http.StatusOK)
+		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
 	})
 }
 
@@ -57,6 +68,7 @@ func TestKeppelAPIAuth(t *testing.T) {
 	// This test provides test coverage for authenticating with the same
 	// AuthDriver-dependent mechanism used by the Keppel API.
 	testWithPrimary(t, nil, func(s test.Setup) {
+		ctx := t.Context()
 		// upload a manifest for testing (using bearer tokens since all our test
 		// helper functions use those)
 		h := s.Handler
@@ -65,86 +77,55 @@ func TestKeppelAPIAuth(t *testing.T) {
 		image.MustUpload(t, s, fooRepoRef, "first")
 
 		// test scopeless endpoint: happy case
-		assert.HTTPRequest{
-			Method: "GET",
-			Path:   "/v2/",
-			Header: map[string]string{
-				"Authorization": "keppel",
-				"X-Test-Perms":  "view:test1authtenant",
-			},
-			ExpectStatus: http.StatusOK,
-			ExpectHeader: test.VersionHeader,
-		}.Check(t, h)
+		resp := h.RespondTo(ctx, "GET /v2/",
+			httptest.WithHeader("Authorization", "keppel"),
+			httptest.WithHeader("X-Test-Perms", "view:test1authtenant"))
+		resp.ExpectStatus(t, http.StatusOK)
+		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
+
 		// test scopeless endpoint: failure case ("Authorization: keppel" means that
 		// we want Keppel API auth, but then we don't pass the respective headers,
 		// so we get a 401; we do not get an auth challenge since Keppel API auth
 		// does not work with auth challenges)
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/v2/",
-			Header:       map[string]string{"Authorization": "keppel"},
-			ExpectStatus: http.StatusUnauthorized,
-			ExpectHeader: map[string]string{
-				test.VersionHeaderKey: test.VersionHeaderValue,
-				"Www-Authenticate":    "",
-			},
-		}.Check(t, h)
+		resp = h.RespondTo(ctx, "GET /v2/",
+			httptest.WithHeader("Authorization", "keppel"))
+		resp.ExpectStatus(t, http.StatusUnauthorized)
+		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
+		assert.Equal(t, resp.Header().Get("Www-Authenticate"), "")
 
 		// test catalog endpoint: happy case
-		assert.HTTPRequest{
-			Method: "GET",
-			Path:   "/v2/_catalog",
-			Header: map[string]string{
-				"Authorization": "keppel",
-				"X-Test-Perms":  "view:test1authtenant",
-			},
-			ExpectStatus: http.StatusOK,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody: assert.JSONObject{
-				"repositories": []string{"test1/foo"},
-			},
-		}.Check(t, h)
+		resp = h.RespondTo(ctx, "GET /v2/_catalog",
+			httptest.WithHeader("Authorization", "keppel"),
+			httptest.WithHeader("X-Test-Perms", "view:test1authtenant"))
+		resp.ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"repositories": []string{"test1/foo"},
+		})
+		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
+
 		// test catalog endpoint: "failure" case (no access to account -> empty list)
-		assert.HTTPRequest{
-			Method: "GET",
-			Path:   "/v2/_catalog",
-			Header: map[string]string{
-				"Authorization": "keppel",
-				"X-Test-Perms":  "view:someothertenant",
-			},
-			ExpectStatus: http.StatusOK,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody: assert.JSONObject{
-				"repositories": []string{},
-			},
-		}.Check(t, h)
+		resp = h.RespondTo(ctx, "GET /v2/_catalog",
+			httptest.WithHeader("Authorization", "keppel"),
+			httptest.WithHeader("X-Test-Perms", "view:someothertenant"))
+		resp.ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"repositories": []string{},
+		})
+		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
 
 		// test repository-scoped endpoint: happy case
-		assert.HTTPRequest{
-			Method: "GET",
-			Path:   "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
-			Header: map[string]string{
-				"Authorization": "keppel",
-				"X-Test-Perms":  "view:test1authtenant,pull:test1authtenant",
-			},
-			ExpectStatus: http.StatusOK,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   assert.ByteData(image.Manifest.Contents),
-		}.Check(t, h)
+		resp = h.RespondTo(ctx, "GET /v2/test1/foo/manifests/"+image.Manifest.Digest.String(),
+			httptest.WithHeader("Authorization", "keppel"),
+			httptest.WithHeader("X-Test-Perms", "view:test1authtenant,pull:test1authtenant"))
+		resp.ExpectStatus(t, http.StatusOK)
+		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
+		assert.DeepEqual(t, "body", resp.BodyBytes(), image.Manifest.Contents)
+
 		// test repository-scoped endpoint: failure case (no pull permission)
-		assert.HTTPRequest{
-			Method: "GET",
-			Path:   "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
-			Header: map[string]string{
-				"Authorization": "keppel",
-				"X-Test-Perms":  "view:test1authtenant",
-			},
-			ExpectStatus: http.StatusUnauthorized,
-			ExpectHeader: map[string]string{
-				test.VersionHeaderKey: test.VersionHeaderValue,
-				"Www-Authenticate":    "", // Keppel API auth does not use auth challenges
-			},
-		}.Check(t, h)
+		resp = h.RespondTo(ctx, "GET /v2/test1/foo/manifests/"+image.Manifest.Digest.String(),
+			httptest.WithHeader("Authorization", "keppel"),
+			httptest.WithHeader("X-Test-Perms", "view:test1authtenant"))
+		resp.ExpectStatus(t, http.StatusUnauthorized)
+		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
+		assert.Equal(t, resp.Header().Get("Www-Authenticate"), "") // Keppel API auth does not use auth challenges
 	})
 }
 
