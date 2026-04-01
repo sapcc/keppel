@@ -15,7 +15,7 @@ require (
 	github.com/gophercloud/gophercloud/v2 v2.11.1
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/majewsky/gg v1.5.0
+	github.com/majewsky/gg v1.6.0
 	github.com/majewsky/schwift/v2 v2.0.0
 	github.com/opencontainers/distribution-spec/specs-go v0.0.0-20260313153622-5e57cc0a07ea
 	github.com/opencontainers/go-digest v1.0.0

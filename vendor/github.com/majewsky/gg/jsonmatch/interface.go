@@ -283,3 +283,22 @@ func (f capturedField) MarshalJSON() ([]byte, error) {
 func (f capturedField) UnmarshalJSON(buf []byte) error {
 	return errors.New("cannot unmarshal into jsonmatch.CaptureField()")
 }
+
+type irrelevant struct{}
+
+// Irrelevant returns a slot that can be placed in a jsonmatch.Object or jsonmatch.Array instance
+// to ignore the contents of certain fields or array elements during an assertion.
+//
+// Irrelevant() slots only work inside data structures that DiffAgainst() knows how to recurse into.
+// Please refer to the documentation on type Diffable for details.
+func Irrelevant() any {
+	return irrelevant{}
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+//
+// This implementation ensures that `irrelevant` renders in a readable way
+// when a larger value containing it is serialized for a "type mismatch" or "value mismatch" error message.
+func (irrelevant) MarshalJSON() ([]byte, error) {
+	return []byte(`"<irrelevant>"`), nil
+}
