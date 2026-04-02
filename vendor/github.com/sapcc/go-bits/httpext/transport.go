@@ -5,10 +5,89 @@ package httpext
 
 import (
 	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"os"
 	"sync"
+	"time"
 )
+
+// TransportOpts contains options for building a *http.Transport object.
+type TransportOpts struct {
+	// custom tls.Config with fixed server CA cert and/or client cert
+	ServerCACertificatePath  string
+	ClientCertificatePath    string
+	ClientCertificateKeyPath string
+}
+
+// NewTransport builds an *http.Transport based on the provided options.
+// If no special options are set, this will return an instance
+// that is functionally equivalent to the default settings of http.DefaultTransport.
+//
+// This function should be preferred over constructing a http.Transport by hand,
+// because it will account for new fields being added to http.Transport over time.
+// For example, http.Transport literals that were written before Go 1.23 will be
+// missing the IdleConnTimeout field, thus setting it to 0 which is equivalent
+// to "leak a ton of memory". This function has test coverage to decrease the
+// chance of this happening... again.
+func NewTransport(opts TransportOpts) (*http.Transport, error) {
+	if opts.ClientCertificatePath == "" && opts.ClientCertificateKeyPath != "" {
+		return nil, errors.New("private key given, but no client certificate given")
+	}
+	if opts.ClientCertificatePath != "" && opts.ClientCertificateKeyPath == "" {
+		return nil, errors.New("client certificate given, but no private key given")
+	}
+
+	// This is intended to construct `result` in the same way as net/http.DefaultTransport.
+	// If TestDefaultTransport fails, update this paragraph to match the initialization of that variable in std.
+	//
+	// NOTE: We are not just using http.DefaultTransport.Clone() because:
+	//       1) http.DefaultTransport is an http.RoundTripper and may contain a type other than *http.Transport
+	//       2) http.Transport.Clone() has known bugs, see <https://github.com/golang/go/issues/39302>
+	result := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+
+	if opts.ClientCertificatePath != "" || opts.ServerCACertificatePath != "" {
+		// only instantiate TLSClientConfig when actually necessary; its presence may disable
+		// useful behaviors like HTTP/2-by-default, so it should only be present when necessary
+		result.TLSClientConfig = &tls.Config{}
+	}
+
+	if opts.ClientCertificatePath != "" {
+		clientCert, err := tls.LoadX509KeyPair(opts.ClientCertificatePath, opts.ClientCertificateKeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("cannot load client certificate from %s and %s: %w",
+				opts.ClientCertificatePath, opts.ClientCertificateKeyPath, err)
+		}
+		result.TLSClientConfig.Certificates = []tls.Certificate{clientCert}
+	}
+
+	if opts.ServerCACertificatePath != "" {
+		serverCACert, err := os.ReadFile(opts.ServerCACertificatePath)
+		if err != nil {
+			return nil, fmt.Errorf("cannot load CA certificate from %s: %w",
+				opts.ServerCACertificatePath, err)
+		}
+		certPool := x509.NewCertPool()
+		certPool.AppendCertsFromPEM(serverCACert)
+		result.TLSClientConfig.RootCAs = certPool
+	}
+
+	return result, nil
+}
 
 // WrappedTransport is a wrapper that adds various global behaviors to an
 // `http.RoundTripper` such as `http.DefaultTransport`.
@@ -58,7 +137,7 @@ func (w *WrappedTransport) SetInsecureSkipVerify(insecure bool) {
 	// HTTP/2-by-default, so we only want to instantiate it if actually necessary)
 	orig, ok := w.original.(*http.Transport)
 	if !ok {
-		panic(fmt.Sprintf("SetInsecureSkipVerify: requires the wrapped RoundTripper to be a *http.DefaultTransport, but is actually a %t", w.original))
+		panic(fmt.Sprintf("SetInsecureSkipVerify: requires the wrapped RoundTripper to be a *http.DefaultTransport, but is actually a %T", w.original))
 	}
 	oldInsecure := orig.TLSClientConfig != nil && orig.TLSClientConfig.InsecureSkipVerify
 	if oldInsecure == insecure {
