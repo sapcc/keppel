@@ -47,20 +47,20 @@ func TestReplicationSimpleImage(t *testing.T) {
 			} else {
 				// if manifest is already present locally, we don't care about the maintenance mode
 				testWithAccountIsDeleting(t, s2.DB, "test1", func() {
-					expectManifestExists(t, h2, token, "test1/foo", image.Manifest, image.Manifest.Digest.String(), nil)
+					expectManifestExists(t, t.Context(), h2, token, "test1/foo", image.Manifest, image.Manifest.Digest.String(), nil)
 				})
 			}
 
 			s1.Clock.StepBy(time.Second)
-			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, image.Manifest.Digest.String(), nil)
+			expectManifestExists(t, t.Context(), h2, token, "test1/foo", image.Manifest, image.Manifest.Digest.String(), nil)
 
 			if firstPass && strategy == "on_first_use" {
 				easypg.AssertDBContent(t, s2.DB.Db, "fixtures/imagemanifest-replication-001-after-pull-manifest.sql")
 			}
 
 			s1.Clock.StepBy(time.Second)
-			expectBlobExists(t, h2, token, "test1/foo", image.Config, nil)
-			expectBlobExists(t, h2, token, "test1/foo", image.Layers[0], nil)
+			expectBlobExists(t, t.Context(), h2, token, "test1/foo", image.Config, nil)
+			expectBlobExists(t, t.Context(), h2, token, "test1/foo", image.Layers[0], nil)
 
 			if firstPass && strategy == "on_first_use" {
 				easypg.AssertDBContent(t, s2.DB.Db, "fixtures/imagemanifest-replication-002-after-pull-blobs.sql")
@@ -71,9 +71,9 @@ func TestReplicationSimpleImage(t *testing.T) {
 		testWithAllReplicaTypes(t, s1, func(strategy string, firstPass bool, s2 test.Setup) {
 			h2 := s2.Handler
 			token := s2.GetToken(t, "repository:test1/foo:pull")
-			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "first", nil)
-			expectBlobExists(t, h2, token, "test1/foo", image.Config, nil)
-			expectBlobExists(t, h2, token, "test1/foo", image.Layers[0], nil)
+			expectManifestExists(t, t.Context(), h2, token, "test1/foo", image.Manifest, "first", nil)
+			expectBlobExists(t, t.Context(), h2, token, "test1/foo", image.Config, nil)
+			expectBlobExists(t, t.Context(), h2, token, "test1/foo", image.Layers[0], nil)
 		})
 	})
 }
@@ -99,7 +99,7 @@ func TestReplicationImageList(t *testing.T) {
 				// will fail on the changed last_pulled_at timestamp
 				s1.Clock.StepBy(time.Second)
 			}
-			expectManifestExists(t, h2, token, "test1/foo", list.Manifest, "list", nil)
+			expectManifestExists(t, t.Context(), h2, token, "test1/foo", list.Manifest, "list", nil)
 
 			if strategy == "on_first_use" {
 				easypg.AssertDBContent(t, s2.DB.Db, "fixtures/imagelistmanifest-replication-001-after-pull-listmanifest.sql")
@@ -108,8 +108,8 @@ func TestReplicationImageList(t *testing.T) {
 			if !firstPass {
 				// test that this also transferred the referenced manifests eagerly (this
 				// part only runs when the primary registry is not reachable)
-				expectManifestExists(t, h2, token, "test1/foo", image1.Manifest, "", nil)
-				expectManifestExists(t, h2, token, "test1/foo", image2.Manifest, "", nil)
+				expectManifestExists(t, t.Context(), h2, token, "test1/foo", image1.Manifest, "", nil)
+				expectManifestExists(t, t.Context(), h2, token, "test1/foo", image2.Manifest, "", nil)
 			}
 		})
 	})
@@ -252,7 +252,7 @@ func TestReplicationUseCachedBlobMetadata(t *testing.T) {
 			// in the first pass, just replicate the manifest
 			h2 := s2.Handler
 			token := s2.GetToken(t, "repository:test1/foo:pull")
-			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "first", nil)
+			expectManifestExists(t, t.Context(), h2, token, "test1/foo", image.Manifest, "first", nil)
 
 			// in the second pass, query blobs with HEAD - this should work fine even
 			// though the blob contents are not replicated since all necessary metadata
@@ -293,7 +293,7 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 			// will get useless NAME_UNKNOWN errors later, not the errors we're interested in)
 			h2 := s2.Handler
 			token := s2.GetToken(t, "repository:test1/foo:pull")
-			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "second", nil)
+			expectManifestExists(t, t.Context(), h2, token, "test1/foo", image.Manifest, "second", nil)
 
 			// enable anonymous pull on the account
 			test.MustExec(t, s2.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
@@ -319,9 +319,9 @@ func TestReplicationForbidAnonymousReplicationFromExternal(t *testing.T) {
 			}.Check(t, h2)
 
 			// ...but allowed with a non-anonymous token...
-			expectManifestExists(t, h2, token, "test1/foo", image.Manifest, "first", nil)
+			expectManifestExists(t, t.Context(), h2, token, "test1/foo", image.Manifest, "first", nil)
 			// ...and once replicated, the anonymous token can pull as well
-			expectManifestExists(t, h2, anonToken, "test1/foo", image.Manifest, "first", nil)
+			expectManifestExists(t, t.Context(), h2, anonToken, "test1/foo", image.Manifest, "first", nil)
 		})
 	})
 }
@@ -349,7 +349,7 @@ func TestReplicationAllowAnonymousReplicationFromExternal(t *testing.T) {
 
 			// the rbac policy allows to replicate test1/foo images
 			anonToken := s2.GetAnonToken(t, "repository:test1/foo", []string{"pull", "anonymous_first_pull"})
-			expectManifestExists(t, s2.Handler, anonToken, "test1/foo", image.Manifest, "first", nil)
+			expectManifestExists(t, t.Context(), s2.Handler, anonToken, "test1/foo", image.Manifest, "first", nil)
 		})
 	})
 }
@@ -381,7 +381,7 @@ func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 				// will fail on the changed last_pulled_at timestamp
 				s1.Clock.StepBy(time.Second)
 			}
-			expectManifestExists(t, h2, token, "test1/foo", list.Manifest, "list", nil)
+			expectManifestExists(t, t.Context(), h2, token, "test1/foo", list.Manifest, "list", nil)
 
 			if strategy == "on_first_use" {
 				easypg.AssertDBContent(t, s2.DB.Db, "fixtures/imagelistmanifest-replication-with-platformfilter-001-after-pull-listmanifest.sql")
@@ -390,7 +390,7 @@ func TestReplicationImageListWithPlatformFilter(t *testing.T) {
 			if !firstPass {
 				// test that this also transferred the referenced manifests eagerly (this
 				// part only runs when the primary registry is not reachable)
-				expectManifestExists(t, h2, token, "test1/foo", image1.Manifest, "", nil)
+				expectManifestExists(t, t.Context(), h2, token, "test1/foo", image1.Manifest, "", nil)
 
 				// when now requesting the unreplicated manifest, the replica will try
 				// to replicate and therefore run into a network error

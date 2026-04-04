@@ -8,14 +8,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/majewsky/gg/jsonmatch"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/httptest"
 
 	"github.com/sapcc/keppel/internal/test"
 )
 
 func TestReferrersApi(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
+		ctx := t.Context()
 		h := s.Handler
 		token := s.GetToken(t, "repository:test1/foo:pull,push")
 
@@ -30,24 +33,18 @@ func TestReferrersApi(t *testing.T) {
 		})
 		subjectManifest.MustUpload(t, s, fooRepoRef, strings.ReplaceAll(image.Manifest.Digest.String(), ":", "-"))
 
-		assert.HTTPRequest{
-			Method: "GET",
-			Path:   "/v2/test1/foo/referrers/" + image.Manifest.Digest.String(),
-			Header: map[string]string{
-				"Authorization": "Bearer " + token,
-			},
-			ExpectBody: assert.JSONObject{
-				"schemaVersion": 2,
-				"mediaType":     "application/vnd.oci.image.index.v1+json",
-				"manifests": []assert.JSONObject{{
-					"artifactType": imgspecv1.MediaTypeImageManifest,
-					"digest":       subjectManifest.Manifest.Digest.String(),
-					"mediaType":    imgspecv1.MediaTypeImageManifest,
-					"size":         subjectManifest.SizeBytes(),
-				}},
-			},
-			ExpectStatus: http.StatusOK,
-			ExpectHeader: test.VersionHeader,
-		}.Check(t, h)
+		resp := h.RespondTo(ctx, "GET /v2/test1/foo/referrers/"+image.Manifest.Digest.String(),
+			httptest.WithHeader("Authorization", "Bearer "+token))
+		resp.ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"schemaVersion": 2,
+			"mediaType":     "application/vnd.oci.image.index.v1+json",
+			"manifests": jsonmatch.Array{jsonmatch.Object{
+				"artifactType": imgspecv1.MediaTypeImageManifest,
+				"digest":       subjectManifest.Manifest.Digest.String(),
+				"mediaType":    imgspecv1.MediaTypeImageManifest,
+				"size":         subjectManifest.SizeBytes(),
+			}},
+		})
+		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
 	})
 }
