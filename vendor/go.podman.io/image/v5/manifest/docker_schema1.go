@@ -8,14 +8,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/containers/image/v5/docker/reference"
-	"github.com/containers/image/v5/internal/manifest"
-	"github.com/containers/image/v5/internal/set"
-	compressiontypes "github.com/containers/image/v5/pkg/compression/types"
-	"github.com/containers/image/v5/types"
-	"github.com/containers/storage/pkg/regexp"
 	"github.com/docker/docker/api/types/versions"
 	"github.com/opencontainers/go-digest"
+	"go.podman.io/image/v5/docker/reference"
+	"go.podman.io/image/v5/internal/manifest"
+	"go.podman.io/image/v5/internal/set"
+	compressiontypes "go.podman.io/image/v5/pkg/compression/types"
+	"go.podman.io/image/v5/types"
+	"go.podman.io/storage/pkg/regexp"
 )
 
 // Schema1FSLayers is an entry of the "fsLayers" array in docker/distribution schema 1.

@@ -12,13 +12,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/containers/image/v5/manifest"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sapcc/go-bits/httpext"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/must"
 	"github.com/spf13/cobra"
+	"go.podman.io/image/v5/manifest"
 
 	"github.com/sapcc/keppel/internal/client"
 	"github.com/sapcc/keppel/internal/keppel"

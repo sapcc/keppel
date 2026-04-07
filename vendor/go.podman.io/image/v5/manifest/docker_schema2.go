@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/containers/image/v5/internal/manifest"
-	compressiontypes "github.com/containers/image/v5/pkg/compression/types"
-	"github.com/containers/image/v5/pkg/strslice"
-	"github.com/containers/image/v5/types"
 	"github.com/opencontainers/go-digest"
+	"go.podman.io/image/v5/internal/manifest"
+	compressiontypes "go.podman.io/image/v5/pkg/compression/types"
+	"go.podman.io/image/v5/pkg/strslice"
+	"go.podman.io/image/v5/types"
 )
 
 // Schema2Descriptor is a “descriptor” in docker/distribution schema 2.

@@ -13,7 +13,6 @@ import (
 	"sort"
 	"time"
 
-	imageManifest "github.com/containers/image/v5/manifest"
 	"github.com/go-gorp/gorp/v3"
 	celTypes "github.com/google/cel-go/common/types"
 	. "github.com/majewsky/gg/option"
@@ -25,6 +24,7 @@ import (
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
+	imageManifest "go.podman.io/image/v5/manifest"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/client"
