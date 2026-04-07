@@ -13,7 +13,9 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/majewsky/gg/jsonmatch"
@@ -57,13 +59,13 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // For the most common scenario of a JSON-returning REST API endpoint, the Response.ExpectJSON()
 // method checks the response status and response body in one step:
 //
-//	resp := h.RespondTo(t.Context(), "GET /v1/assets")
-//	resp.ExpectJSON(t, http.StatusOK, jsonmatch.Array{
-//		jsonmatch.Object{"name": "foo"},
-//		jsonmatch.Object{"name": "bar"},
-//		jsonmatch.Object{"name": "baz"},
-//		jsonmatch.Object{"name": "qux"},
-//	})
+//	h.RespondTo(t.Context(), "GET /v1/assets").
+//		ExpectJSON(t, http.StatusOK, jsonmatch.Array{
+//			jsonmatch.Object{"name": "foo"},
+//			jsonmatch.Object{"name": "bar"},
+//			jsonmatch.Object{"name": "baz"},
+//			jsonmatch.Object{"name": "qux"},
+//		})
 func (h Handler) RespondTo(ctx context.Context, methodAndPath string, options ...RequestOption) Response {
 	// NOTE: This function does not have an error return,
 	//       in order to avoid an extra `Expect(err).To(BeNil())` line at every callsite.
@@ -287,6 +289,92 @@ func (r Response) Response() *http.Response {
 	return r.resp
 }
 
+// ExpectBody asserts that:
+//
+//   - the status code is equal to the provided value, and
+//   - the response body matches the provided expected value.
+//
+// Response body values on either side that are not valid UTF-8 may be mangled when rendering error messages,
+// in order to ensure that those messages are valid UTF-8.
+func (r Response) ExpectBody(t assert.TestingT, statusCode int, expectedBody []byte) {
+	t.Helper()
+	if !r.ExpectStatus(t, statusCode) {
+		return
+	}
+	// NOTE: In a shocking twist, casting to string is perfectly fine here, even for bytestrings that are not valid UTF-8.
+	//       When rendering error messages, assert.Equal() uses the %#v verb, which is smart enough to construct valid
+	//       string literals out of invalid byte sequences occurring in strings.
+	assert.Equal(t, string(r.BodyBytes()), string(expectedBody))
+}
+
+// ExpectHeader asserts that the response header in question is set to the provided value.
+//
+// This function returns the Response object unchanged, since it is intended to be written in a chained style:
+//
+//	h.RespondTo(ctx, "GET /v1/assets").
+//		ExpectHeader("X-Ratelimit-Action", "asset:list").
+//		ExpectHeader("X-Ratelimit-Limit", "500").
+//		ExpectHeader("X-Ratelimit-Remaining", "499").
+//		ExpectJSON(t, http.StatusOK, jsonmatch.Array{
+//			jsonmatch.Object{"id": 42, "name": "test_asset"},
+//		})
+func (r Response) ExpectHeader(t assert.TestingT, key, expected string) Response {
+	t.Helper()
+	actual := r.resp.Header.Get(key)
+	if actual != expected {
+		key = textproto.CanonicalMIMEHeaderKey(key)
+		t.Errorf("expected %q, but got %q",
+			fmt.Sprintf("%s: %s", key, expected),
+			fmt.Sprintf("%s: %s", key, actual),
+		)
+	}
+	return r
+}
+
+// ExpectHeaders asserts that all headers in the provided map are set to the exact same values in the response.
+// To check that a header is absent, include a key with an empty value in the provided map.
+//
+// This function returns the Response object unchanged, since it is intended to be written in a chained style:
+//
+//	h.RespondTo(ctx, "GET /v1/assets").
+//		ExpectHeaders(http.Header{
+//			"X-Ratelimit-Action": {"asset:list"},
+//			"X-Ratelimit-Limit": {"500"},
+//			"X-Ratelimit-Remaining": {"499"},
+//			"Unwanted-Header": {}, // check that this header is absent
+//		}).ExpectJSON(t, http.StatusOK, jsonmatch.Array{
+//			jsonmatch.Object{"id": 42, "name": "test_asset"},
+//		})
+func (r Response) ExpectHeaders(t assert.TestingT, hdr http.Header) Response {
+	t.Helper()
+	for key, expected := range hdr {
+		key = textproto.CanonicalMIMEHeaderKey(key)
+		actual := r.resp.Header[key]
+		if !slices.Equal(actual, expected) {
+			var (
+				expectedBuf bytes.Buffer
+				actualBuf   bytes.Buffer
+			)
+			// NOTE: It is fine to panic on error here. http.Header.Write can only fail on IO errors, and bytes.Buffer should never error on Write().
+			err := http.Header{key: expected}.Write(&expectedBuf)
+			if err != nil {
+				panic(fmt.Sprintf("could not encode expected %s headers: %s", key, err.Error()))
+			}
+			err = http.Header{key: actual}.Write(&actualBuf)
+			if err != nil {
+				panic(fmt.Sprintf("could not encode expected %s headers: %s", key, err.Error()))
+			}
+
+			t.Errorf("expected %q, but got %q",
+				strings.TrimSpace(expectedBuf.String()),
+				strings.TrimSpace(actualBuf.String()),
+			)
+		}
+	}
+
+	return r
+}
+
 // ExpectJSON asserts that:
 //
 //   - the status code is equal to the provided value,
@@ -307,8 +395,8 @@ func (r Response) Response() *http.Response {
 //		"uuid": jsonmatch.CaptureField(&uuid),
 //	})
 //
-//	resp := h.RespondTo(ctx, "DELETE /v1/assets/"+uuid)
-//	assert.Equal(resp.StatusCode(), http.StatusNoContent)
+//	h.RespondTo(ctx, "DELETE /v1/assets/"+uuid).
+//		ExpectStatus(t, http.StatusNoContent)
 func (r Response) ExpectJSON(t assert.TestingT, statusCode int, expected jsonmatch.Diffable) {
 	t.Helper()
 	if !r.ExpectStatus(t, statusCode) {
