@@ -17,7 +17,6 @@ import (
 	"sync"
 	"time"
 
-	imageManifest "github.com/containers/image/v5/manifest"
 	"github.com/go-gorp/gorp/v3"
 	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
@@ -28,6 +27,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 	"github.com/sapcc/go-bits/syncext"
+	imageManifest "go.podman.io/image/v5/manifest"
 
 	"github.com/sapcc/keppel/internal/auth"
 	peerclient "github.com/sapcc/keppel/internal/client/peer"

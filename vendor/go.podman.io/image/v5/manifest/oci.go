@@ -6,13 +6,13 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/containers/image/v5/internal/manifest"
-	compressiontypes "github.com/containers/image/v5/pkg/compression/types"
-	"github.com/containers/image/v5/types"
 	ociencspec "github.com/containers/ocicrypt/spec"
 	"github.com/opencontainers/go-digest"
 	"github.com/opencontainers/image-spec/specs-go"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
+	"go.podman.io/image/v5/internal/manifest"
+	compressiontypes "go.podman.io/image/v5/pkg/compression/types"
+	"go.podman.io/image/v5/types"
 )
 
 // BlobInfoFromOCI1Descriptor returns a types.BlobInfo based on the input OCI1 descriptor.

@@ -8,9 +8,9 @@ import (
 
 	"github.com/sapcc/keppel/internal/models"
 
-	"github.com/containers/image/v5/manifest"
-	"github.com/containers/image/v5/types"
 	imagespecs "github.com/opencontainers/image-spec/specs-go/v1"
+	"go.podman.io/image/v5/manifest"
+	"go.podman.io/image/v5/types"
 )
 
 // ParsedManifest is an interface that can interrogate manifests about the blobs

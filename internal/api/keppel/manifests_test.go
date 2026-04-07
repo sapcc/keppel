@@ -16,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/containers/image/v5/manifest"
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/majewsky/gg/jsonmatch"
 	. "github.com/majewsky/gg/option"
@@ -26,6 +25,7 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
+	"go.podman.io/image/v5/manifest"
 
 	"github.com/sapcc/keppel/internal/drivers/basic"
 	"github.com/sapcc/keppel/internal/keppel"
