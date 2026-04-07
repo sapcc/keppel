@@ -9,12 +9,12 @@ import (
 	"runtime"
 	"slices"
 
-	platform "github.com/containers/image/v5/internal/pkg/platform"
-	compression "github.com/containers/image/v5/pkg/compression/types"
-	"github.com/containers/image/v5/types"
 	"github.com/opencontainers/go-digest"
 	imgspec "github.com/opencontainers/image-spec/specs-go"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
+	platform "go.podman.io/image/v5/internal/pkg/platform"
+	compression "go.podman.io/image/v5/pkg/compression/types"
+	"go.podman.io/image/v5/types"
 )
 
 const (

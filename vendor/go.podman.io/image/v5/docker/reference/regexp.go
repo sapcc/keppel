@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	storageRegexp "github.com/containers/storage/pkg/regexp"
+	storageRegexp "go.podman.io/storage/pkg/regexp"
 )
 
 const (

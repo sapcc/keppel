@@ -13,12 +13,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/containers/image/v5/manifest"
 	"github.com/opencontainers/go-digest"
 	"github.com/opencontainers/image-spec/specs-go"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/must"
+	"go.podman.io/image/v5/manifest"
 
 	"github.com/sapcc/keppel/internal/models"
 )

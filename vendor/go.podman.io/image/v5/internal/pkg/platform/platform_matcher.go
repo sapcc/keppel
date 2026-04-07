@@ -24,9 +24,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/containers/image/v5/types"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sirupsen/logrus"
+	"go.podman.io/image/v5/types"
 )
 
 // For Linux, the kernel has already detected the ABI, ISA and Features.
