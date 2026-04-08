@@ -11,13 +11,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/majewsky/gg/jsonmatch"
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/httptest"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
 )
 
 func TestListTags(t *testing.T) {
+	ctx := t.Context()
+
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
 		readOnlyTokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull")
@@ -134,19 +138,18 @@ func TestListTags(t *testing.T) {
 		// test anycast tag listing
 		if currentlyWithAnycast {
 			testWithReplica(t, s, "on_first_use", func(firstPass bool, s2 test.Setup) {
-				h2 := s2.Handler
 				testAnycast(t, firstPass, s2.DB, func() {
 					anycastTokenHeaders := s.GetAnycastTokenHeaders(t, "repository:test1/foo:pull")
-					req := assert.HTTPRequest{
-						Method:       "GET",
-						Path:         "/v2/test1/foo/tags/list",
-						Header:       test.FlattenHeaders(anycastTokenHeaders),
-						ExpectStatus: http.StatusOK,
-						ExpectHeader: test.VersionHeader,
-						ExpectBody:   assert.JSONObject{"name": "test1/foo", "tags": allTagNames},
+					for _, handler := range []httptest.Handler{s.Handler, s2.Handler} {
+						handler.RespondTo(ctx, "GET /v2/test1/foo/tags/list",
+							httptest.WithHeaders(anycastTokenHeaders),
+						).
+							ExpectHeader(t, test.VersionHeaderKey, test.VersionHeaderValue).
+							ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+								"name": "test1/foo",
+								"tags": allTagNames,
+							})
 					}
-					req.Check(t, h)
-					req.Check(t, h2)
 				})
 			})
 		}

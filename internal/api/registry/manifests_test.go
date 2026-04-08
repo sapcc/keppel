@@ -5,6 +5,7 @@ package registryv2_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 	"go.podman.io/image/v5/manifest"
 
@@ -24,6 +26,7 @@ import (
 )
 
 func TestImageManifestLifecycle(t *testing.T) {
+	ctx := t.Context()
 	image := test.GenerateImage( /* no layers */ )
 
 	for _, tagName := range []string{"latest", ""} {
@@ -62,28 +65,28 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			// repo does not exist before we first push to it
 			for _, method := range []string{"GET", "HEAD"} {
-				assert.HTTPRequest{
-					Method:       method,
-					Path:         "/v2/test1/foo/manifests/" + ref,
-					Header:       test.FlattenHeaders(readOnlyTokenHeaders),
-					ExpectStatus: http.StatusNotFound,
-					ExpectHeader: test.VersionHeader,
-					ExpectBody:   bodyForMethod(method, test.ErrorCode(keppel.ErrNameUnknown)),
-				}.Check(t, h)
+				resp := h.RespondTo(ctx, fmt.Sprintf("%s /v2/test1/foo/manifests/%s", method, ref),
+					httptest.WithHeaders(readOnlyTokenHeaders),
+				).ExpectHeader(t, test.VersionHeaderKey, test.VersionHeaderValue)
+				if method == "GET" {
+					resp.ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrNameUnknown))
+				} else {
+					resp.ExpectStatus(t, http.StatusNotFound)
+				}
 			}
 
 			// and even if it does...
 			_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
 			// ...the manifest does not exist before it is pushed
 			for _, method := range []string{"GET", "HEAD"} {
-				assert.HTTPRequest{
-					Method:       method,
-					Path:         "/v2/test1/foo/manifests/" + ref,
-					Header:       test.FlattenHeaders(readOnlyTokenHeaders),
-					ExpectStatus: http.StatusNotFound,
-					ExpectHeader: test.VersionHeader,
-					ExpectBody:   bodyForMethod(method, test.ErrorCode(keppel.ErrManifestUnknown)),
-				}.Check(t, h)
+				resp := h.RespondTo(ctx, fmt.Sprintf("%s /v2/test1/foo/manifests/%s", method, ref),
+					httptest.WithHeaders(readOnlyTokenHeaders),
+				).ExpectHeader(t, test.VersionHeaderKey, test.VersionHeaderValue)
+				if method == "GET" {
+					resp.ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrManifestUnknown))
+				} else {
+					resp.ExpectStatus(t, http.StatusNotFound)
+				}
 			}
 
 			// PUT failure case: cannot push with read-only token
@@ -468,13 +471,6 @@ func TestImageManifestLifecycle(t *testing.T) {
 			s.Auditor.ExpectEvents(t, event)
 		})
 	}
-}
-
-func bodyForMethod(method string, body assert.HTTPResponseBody) assert.HTTPResponseBody {
-	if method == "HEAD" {
-		return nil
-	}
-	return body
 }
 
 func TestImageListManifestLifecycle(t *testing.T) {
