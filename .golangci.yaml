@@ -96,12 +96,14 @@ linters:
         # Applications wishing to use http.ServeMux should obtain local instances through http.NewServeMux() instead of using the global default instance.
         - pattern: ^http\.DefaultServeMux$
         - pattern: ^http\.Handle(?:Func)?$
-        - pkg: ^gopkg\.in/square/go-jose\.v2$
+        - pkg: ^gopkg\.in/square/go-jose\.v2
           msg: gopk.in/square/go-jose is archived and has CVEs. Replace it with gopkg.in/go-jose/go-jose.v2
-        - pkg: ^github.com/coreos/go-oidc$
+        - pkg: ^github\.com/coreos/go-oidc
           msg: github.com/coreos/go-oidc depends on gopkg.in/square/go-jose which has CVEs. Replace it with github.com/coreos/go-oidc/v3
-        - pkg: ^github.com/howeyc/gopass$
+        - pkg: ^github\.com/howeyc/gopass
           msg: github.com/howeyc/gopass is archived, use golang.org/x/term instead
+        - pkg: ^github\.com/containers/image/v5
+          msg: github.com/containers/image/v5 is deprecated and was replaced with go.podman.io/image/v5
     goconst:
       min-occurrences: 5
     gocritic:
