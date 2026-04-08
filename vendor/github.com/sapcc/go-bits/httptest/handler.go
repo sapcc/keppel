@@ -50,7 +50,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // This will catch any protocol-level and marshaling errors that may occur during the request.
 //
 //	var assets []Asset
-//	resp := h.RespondTo(t.Context(), "GET /v1/assets", httptest.ReceiveJSONInto(&assets)).Response()
+//	resp := h.RespondTo(t.Context(), "GET /v1/assets").CaptureJSON(&assets).Response()
 //	Expect(resp).To(HaveHTTPStatus(http.StatusOK))
 //	Expect(assets).To(HaveLen(4))
 //	Expect(assets[2].Name).To(Equal("baz"))
@@ -113,17 +113,6 @@ func (h Handler) RespondTo(ctx context.Context, methodAndPath string, options ..
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
-	// parse response body (if requested)
-	if params.JSONTarget != nil && (rec.Code >= 200 && rec.Code <= 299) {
-		err := json.Unmarshal(rec.Body.Bytes(), params.JSONTarget)
-		if err == nil {
-			rec.Body = bytes.NewBuffer(nil)
-		}
-		if err != nil {
-			return newResponseFromError("JSON Unmarshal Error", err)
-		}
-	}
-
 	return newResponseFromRecording(rec)
 }
 
@@ -131,10 +120,9 @@ func (h Handler) RespondTo(ctx context.Context, methodAndPath string, options ..
 type RequestOption func(*requestParams)
 
 type requestParams struct {
-	Headers    http.Header
-	Body       io.Reader
-	JSONBody   any
-	JSONTarget any
+	Headers  http.Header
+	Body     io.Reader
+	JSONBody any
 }
 
 // WithBody adds a request body to an HTTP request.
@@ -176,53 +164,6 @@ func WithJSONBody(payload any) RequestOption {
 	}
 }
 
-// ReceiveJSONInto adds parsing of a JSON response body to an HTTP request.
-// If the response has a 2xx status code, its response body will be unmarshaled into the provided target.
-// If unmarshaling fails, the response will have status code 999 and contain the error message as a response body.
-//
-// This option is usually more ergonomic than Response.ExpectJSON() when
-// not asserting on the full response body, but only on specific fields:
-//
-//	var assets []Asset
-//	resp := h.RespondTo(t.Context(), "GET /v1/assets", httptest.ReceiveJSONInto(&assets)).Response()
-//	Expect(resp).To(HaveHTTPStatus(http.StatusOK))
-//	Expect(assets).To(HaveLen(4))
-//	Expect(assets[2].Name).To(Equal("baz"))
-//
-// However, when unmarshaling into a type that the implementation also uses,
-// this risks masking marshaling errors that are not visible after a roundtrip,
-// e.g. typos in field names:
-//
-//	type Asset struct {
-//		Name string `json:"naem"` // the test above does not catch this typo
-//		// ...
-//	}
-//
-// This risk can be avoided/reduced by declaring the target type as part of the test:
-//
-//	var assets []struct {
-//		Name string `json:"name"`
-//	}
-//	resp := h.RespondTo(t.Context(), "GET /v1/assets", httptest.ReceiveJSONInto(&assets)).Response()
-//	Expect(resp).To(HaveHTTPStatus(http.StatusOK))
-//	Expect(assets).To(HaveLen(4))
-//	Expect(assets[2].Name).To(Equal("baz"))
-func ReceiveJSONInto(target any) RequestOption {
-	// clear target, if any
-	//
-	// This is intended for when subsequent tests reuse the same target variable,
-	// to avoid data from a previous unmarshaling to leak into the next round.
-	v := reflect.ValueOf(target)
-	if v.Kind() != reflect.Pointer {
-		panic("argument for ReceiveJSONInto() must be a pointer")
-	}
-	reflect.Indirect(v).SetZero()
-
-	return func(params *requestParams) {
-		params.JSONTarget = target
-	}
-}
-
 // Response is the result type of Handler.RespondTo().
 // It provides all components of the generated HTTP response as plain data fields to assert against,
 // as well as convenience methods for complex assertions:
@@ -253,6 +194,94 @@ func newResponseFromError(reason string, err error) Response {
 		Body:       io.NopCloser(body),
 	}
 	return Response{resp, body}
+}
+
+// CaptureJSON parses a JSON response body into the given target.
+// Unmarshaling will only take place if the response has a 2xx status code.
+//
+// Usually, this function returns the Response object unchanged, since it is intended to be written in a chained style:
+//
+//	resp := h.RespondTo(t.Context(), "GET /v1/assets").CaptureJSON(&assets).Response()
+//	Expect(resp).To(HaveHTTPStatus(http.StatusOK))
+//
+// However, if unmarshaling fails, the response will be updated to have status code 999 and contain the error message as a response body.
+// In the example above, Ginkgo's HaveHTTPStatus assertion will therefore also detect unmarshaling errors that occur during CaptureJSON().
+//
+// CaptureJSON is usually more ergonomic than ExpectJSON when not asserting on the full response body, but only on specific fields:
+//
+//	var assets []Asset
+//	resp := h.RespondTo(t.Context(), "GET /v1/assets").CaptureJSON(&assets).Response()
+//	Expect(resp).To(HaveHTTPStatus(http.StatusOK))
+//	Expect(assets).To(HaveLen(4))
+//	Expect(assets[2].Name).To(Equal("baz"))
+//
+// However, when unmarshaling into a type that the implementation also uses,
+// this risks masking marshaling errors that are not visible after a roundtrip,
+// e.g. typos in field names:
+//
+//	type Asset struct {
+//		Name string `json:"naem"` // the test above does not catch this typo
+//		// ...
+//	}
+//
+// This risk can be avoided/reduced by declaring the target type as part of the test:
+//
+//	var assets []struct {
+//		Name string `json:"name"`
+//	}
+//	resp := h.RespondTo(t.Context(), "GET /v1/assets").CaptureJSON(&assets).Response()
+//	Expect(resp).To(HaveHTTPStatus(http.StatusOK))
+//	Expect(assets).To(HaveLen(4))
+//	Expect(assets[2].Name).To(Equal("baz"))
+func (r Response) CaptureJSON(target any) Response {
+	// clear target, if any
+	//
+	// This is intended for when subsequent tests reuse the same target variable,
+	// to avoid data from a previous unmarshaling to leak into the next round.
+	v := reflect.ValueOf(target)
+	if v.Kind() != reflect.Pointer {
+		panic("argument for CaptureJSON() must be a pointer")
+	}
+	reflect.Indirect(v).SetZero()
+
+	if r.resp.StatusCode >= 200 && r.resp.StatusCode <= 299 {
+		err := json.Unmarshal(r.BodyBytes(), target)
+		if err != nil {
+			return newResponseFromError("JSON Unmarshal Error", err)
+		}
+		r.body = nil
+		r.resp.Body = io.NopCloser(bytes.NewReader(nil))
+	}
+
+	return r
+}
+
+// CaptureHeader is a shorthand for capturing a response header.
+// This function returns the Response object unchanged, since it is intended to be written in a chained style.
+// For example:
+//
+//	resp := h.RespondTo(t.Context(), "GET /v1/blobs/"+uuid)
+//	resp.ExpectStatus(t, http.StatusFound)
+//	location := resp.Header().Get("Location")
+//
+// Can be rephrased as:
+//
+//	var location string
+//	h.RespondTo(t.Context(), "GET /v1/blobs/"+uuid).
+//		CaptureHeader("Location", &location).
+//		ExpectStatus(t, http.StatusFound)
+//
+// This avoids introducing an additional variable holding the Response object, which usually makes the test more readable.
+//
+// Capturing follows [http.Header.Get] semantics:
+//   - If the response does not contain any header with the given key, the empty string will be placed in the target.
+//   - If the response contains multiple headers with the given key, the first matching header will be placed in the target.
+func (r Response) CaptureHeader(key string, target *string) Response {
+	if target == nil {
+		panic("CaptureHeader() called with target=nil")
+	}
+	*target = r.resp.Header.Get(key)
+	return r
 }
 
 // StatusCode returns the HTTP status code of the response, or 999 for unexpected errors during Handler.RespondTo().

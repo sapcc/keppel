@@ -23,7 +23,7 @@ require (
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/rs/cors v1.11.1
 	github.com/sapcc/go-api-declarations v1.21.0
-	github.com/sapcc/go-bits v0.0.0-20260407070756-5fae59f97b19
+	github.com/sapcc/go-bits v0.0.0-20260408114239-ecd3902a31cc
 	github.com/spf13/cobra v1.10.2
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	go.podman.io/image/v5 v5.39.2

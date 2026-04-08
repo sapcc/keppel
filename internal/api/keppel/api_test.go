@@ -49,8 +49,7 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 	}
 	h.RespondTo(ctx, "GET /keppel/v1/auth?service=registry.example.org&scope=repository:test1/foo:pull",
 		withPerms("view:tenant1,pull:tenant1"),
-		httptest.ReceiveJSONInto(&tokenData),
-	).ExpectStatus(t, http.StatusOK)
+	).CaptureJSON(&tokenData).ExpectStatus(t, http.StatusOK)
 	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/foo/_manifests",
 		httptest.WithHeader("Authorization", "Bearer "+tokenData.Token),
 	).ExpectJSON(t, http.StatusOK, jsonmatch.Object{"manifests": []jsonmatch.Object{}})
