@@ -30,7 +30,7 @@ func parseScope(input string) auth.Scope {
 		if len(scope.ResourceName) > 256 {
 			logg.Info("rejecting overlong repository name: %q", scope.ResourceName)
 			scope.ResourceName = ""
-		} else if !models.RepoPathRx.MatchString(scope.ResourceName) {
+		} else if models.CheckRepositoryName(scope.ResourceName).IsNone() {
 			logg.Info("rejecting invalid repository name: %q", scope.ResourceName)
 			scope.ResourceName = ""
 		}

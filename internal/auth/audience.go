@@ -44,13 +44,13 @@ func IdentifyAudience(hostname string, cfg keppel.Configuration) Audience {
 	hostnameParts := strings.SplitN(hostname, ".", 2)
 	if len(hostnameParts) == 2 && hostnameParts[0] != "" && hostnameParts[1] != "" {
 		// head must look like an account name...
-		if models.IsAccountName(hostnameParts[0]) {
+		if accountName, ok := models.CheckAccountName(hostnameParts[0]).Unpack(); ok {
 			// ...and tail must be one of the well-known hostnames
 			switch hostnameParts[1] {
 			case cfg.APIPublicHostname:
-				return Audience{IsAnycast: false, AccountName: models.AccountName(hostnameParts[0])}
+				return Audience{IsAnycast: false, AccountName: accountName}
 			case cfg.AnycastAPIPublicHostname:
-				return Audience{IsAnycast: true, AccountName: models.AccountName(hostnameParts[0])}
+				return Audience{IsAnycast: true, AccountName: accountName}
 			default:
 				// try the other options
 			}

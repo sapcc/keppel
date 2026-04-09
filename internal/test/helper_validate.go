@@ -70,7 +70,7 @@ func (s Setup) ExpectBlobsMissingInStorage(t *testing.T, blobs ...models.Blob) {
 }
 
 // ExpectManifestsExistInStorage is a test assertion.
-func (s Setup) ExpectManifestsExistInStorage(t *testing.T, repoName string, manifests ...models.Manifest) {
+func (s Setup) ExpectManifestsExistInStorage(t *testing.T, repoName models.RepositoryName, manifests ...models.Manifest) {
 	t.Helper()
 	for _, manifest := range manifests {
 		repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, manifest.RepositoryID))(t)

@@ -83,7 +83,7 @@ func (a *API) handleListTags(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondwith.JSON(w, http.StatusOK, distspecv1.TagList{
-		Name: repo.FullName(),
+		Name: string(repo.FullName()),
 		Tags: tags,
 	})
 }

@@ -29,7 +29,7 @@ type Processor struct {
 	sd          keppel.StorageDriver
 	icd         keppel.InboundCacheDriver
 	auditor     audittools.Auditor
-	repoClients map[string]*client.RepoClient // key = account name
+	repoClients map[models.RepositoryName]*client.RepoClient // key = account name
 
 	// non-pure functions that can be replaced by deterministic doubles for unit tests
 	timeNow           func() time.Time
@@ -38,7 +38,7 @@ type Processor struct {
 
 // New creates a new Processor.
 func New(cfg keppel.Configuration, db *keppel.DB, sd keppel.StorageDriver, icd keppel.InboundCacheDriver, auditor audittools.Auditor, fd keppel.FederationDriver, timenow func() time.Time) *Processor {
-	return &Processor{cfg, db, fd, sd, icd, auditor, make(map[string]*client.RepoClient), timenow, keppel.GenerateStorageID}
+	return &Processor{cfg, db, fd, sd, icd, auditor, make(map[models.RepositoryName]*client.RepoClient), timenow, keppel.GenerateStorageID}
 }
 
 // OverrideTimeNow replaces time.Now with a test double.
@@ -156,10 +156,12 @@ func (p *Processor) getRepoClientForUpstream(account models.ReducedAccount, repo
 			UserName: account.ExternalPeerUserName,
 			Password: account.ExternalPeerPassword,
 		}
-		if strings.Contains(account.ExternalPeerURL, "/") {
-			fields := strings.SplitN(account.ExternalPeerURL, "/", 2)
-			c.Host = fields[0]
-			c.RepoName = fmt.Sprintf("%s/%s", fields[1], repo.Name)
+		if hostName, baseRepoPath, ok := strings.Cut(account.ExternalPeerURL, "/"); ok {
+			c.Host = hostName
+			c.RepoName, ok = models.CheckRepositoryName(fmt.Sprintf("%s/%s", baseRepoPath, repo.Name)).Unpack()
+			if !ok {
+				return nil, fmt.Errorf("invalid ExternalPeerURL: %q is not a valid repository path", baseRepoPath)
+			}
 		} else {
 			c.Host = account.ExternalPeerURL
 			c.RepoName = repo.Name

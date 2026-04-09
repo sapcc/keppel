@@ -10,6 +10,7 @@ import (
 	"github.com/sapcc/go-bits/audittools"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 func init() {
@@ -61,10 +62,10 @@ func (uid *TrivyUserIdentity) DeserializeFromJSON(in []byte, _ keppel.AuthDriver
 
 // IssueTokenForTrivy issues a token for Trivy to pull the image and it's databases with.
 // This needs to use the specialized TrivyUserIdentity to avoid updating the image's "last_pulled_at" timestamp.
-func IssueTokenForTrivy(cfg keppel.Configuration, repoFullName string) (*TokenResponse, error) {
+func IssueTokenForTrivy(cfg keppel.Configuration, repoFullName models.RepositoryName) (*TokenResponse, error) {
 	scopes := []Scope{{
 		ResourceType: "repository",
-		ResourceName: repoFullName,
+		ResourceName: string(repoFullName),
 		Actions:      []string{"pull"},
 	}}
 

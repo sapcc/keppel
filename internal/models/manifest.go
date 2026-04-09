@@ -12,7 +12,7 @@ import (
 
 // Manifest contains a record from the `manifests` table.
 type Manifest struct {
-	RepositoryID           int64             `db:"repo_id"`
+	RepositoryID           RepositoryID      `db:"repo_id"`
 	Digest                 digest.Digest     `db:"digest"`
 	MediaType              string            `db:"media_type"`
 	SizeBytes              uint64            `db:"size_bytes"`
@@ -44,7 +44,7 @@ const (
 
 // Tag contains a record from the `tags` table.
 type Tag struct {
-	RepositoryID int64             `db:"repo_id"`
+	RepositoryID RepositoryID      `db:"repo_id"`
 	Name         string            `db:"name"`
 	Digest       digest.Digest     `db:"digest"`
 	PushedAt     time.Time         `db:"pushed_at"`
@@ -53,7 +53,7 @@ type Tag struct {
 
 // ManifestContent contains a record from the `manifest_contents` table.
 type ManifestContent struct {
-	RepositoryID int64  `db:"repo_id"`
-	Digest       string `db:"digest"`
-	Content      []byte `db:"content"`
+	RepositoryID RepositoryID `db:"repo_id"`
+	Digest       string       `db:"digest"`
+	Content      []byte       `db:"content"`
 }

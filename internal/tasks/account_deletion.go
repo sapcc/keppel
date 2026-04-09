@@ -101,7 +101,7 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 	err = sqlext.ForeachRow(j.db, deleteAccountFindManifestsQuery, []any{account.Name},
 		func(rows *sql.Rows) error {
 			var (
-				repoName  string
+				repoName  models.RepositoryName
 				digestStr string
 			)
 			err := rows.Scan(&repoName, &digestStr)

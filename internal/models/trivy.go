@@ -12,7 +12,7 @@ import (
 
 // TrivySecurityInfo contains a record from the `trivy_security_info` table.
 type TrivySecurityInfo struct {
-	RepositoryID                 int64               `db:"repo_id"`
+	RepositoryID                 RepositoryID        `db:"repo_id"`
 	Digest                       digest.Digest       `db:"digest"`
 	VulnerabilityStatus          VulnerabilityStatus `db:"vuln_status"`
 	VulnerabilityStatusChangedAt Option[time.Time]   `db:"vuln_status_changed_at"`

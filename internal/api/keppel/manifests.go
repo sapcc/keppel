@@ -368,7 +368,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 	// if we could not serve a cached report, ask our trivy-server right now
 	imageRef := models.ImageReference{
 		Host:      a.cfg.APIPublicHostname,
-		RepoName:  fmt.Sprintf("%s/%s", account.Name, repo.Name),
+		RepoName:  repo.FullName(),
 		Reference: models.ManifestReference{Digest: manifest.Digest},
 	}
 	tokenResp, err := auth.IssueTokenForTrivy(a.cfg, repo.FullName())

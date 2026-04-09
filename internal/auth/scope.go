@@ -20,7 +20,7 @@ type Scope struct {
 // ParsedRepositoryScope is returned by Scope.ParseRepositoryScope().
 type ParsedRepositoryScope struct {
 	AccountName        models.AccountName
-	RepositoryName     string
+	RepositoryName     models.RepositoryName
 	FullRepositoryName string
 }
 
@@ -44,28 +44,46 @@ func (s Scope) ParseRepositoryScope(audience Audience) ParsedRepositoryScope {
 	}
 
 	if audience.AccountName != "" {
+		// domain-remapped API, happy case
+		repoName, ok := models.CheckRepositoryName(s.ResourceName).Unpack()
+		if !ok {
+			return ParsedRepositoryScope{}
+		}
 		return ParsedRepositoryScope{
 			AccountName:        audience.AccountName,
-			RepositoryName:     s.ResourceName,
+			RepositoryName:     repoName,
 			FullRepositoryName: fmt.Sprintf("%s/%s", audience.AccountName, s.ResourceName),
 		}
 	}
 
-	parts := strings.SplitN(s.ResourceName, "/", 2)
-	if len(parts) == 1 {
-		// we're on a non-domain-remapped API, but there is no "/" in the full
-		// repository name, i.e. we have an account name without a corresponding
-		// repository name which is not allowed; generate a ParsedRepositoryScope
-		// that will never have any permissions given out for it
+	if rawAccountName, rawRepoName, ok := strings.Cut(s.ResourceName, "/"); ok {
+		// non-domain-remapped API, happy case
+		accountName, ok := models.CheckAccountName(rawAccountName).Unpack()
+		if !ok {
+			return ParsedRepositoryScope{}
+		}
+		repoName, ok := models.CheckRepositoryName(rawRepoName).Unpack()
+		if !ok {
+			return ParsedRepositoryScope{}
+		}
 		return ParsedRepositoryScope{
-			AccountName:        models.AccountName(s.ResourceName),
-			RepositoryName:     "",
+			AccountName:        accountName,
+			RepositoryName:     repoName,
 			FullRepositoryName: s.ResourceName,
 		}
 	}
+
+	// we're on a non-domain-remapped API, but there is no "/" in the full
+	// repository name, i.e. we have an account name without a corresponding
+	// repository name which is not allowed; generate a ParsedRepositoryScope
+	// that will never have any permissions given out for it
+	accountName, ok := models.CheckAccountName(s.ResourceName).Unpack()
+	if !ok {
+		return ParsedRepositoryScope{}
+	}
 	return ParsedRepositoryScope{
-		AccountName:        models.AccountName(parts[0]),
-		RepositoryName:     parts[1],
+		AccountName:        accountName,
+		RepositoryName:     "",
 		FullRepositoryName: s.ResourceName,
 	}
 }

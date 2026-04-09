@@ -8,15 +8,17 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/assert"
+
+	"github.com/sapcc/keppel/internal/models"
 )
 
-var (
-	storageID         string        = "bd1df5ffd83b94f365adc7b9011e2079856cd4aa401ee19b6cdfcffcecad7a61"
-	manifestDigest    digest.Digest = digest.Digest("sha256:1d6f90850896f753a6c4c5d8edc7086f0290ce90a34d92439c30d1257f44979f")
-	repoName          string        = "foo-repository"
-	chunkNumber       uint32        = 3420741
-	format            string        = "json"
-	unknownObjectName string        = "_unknown/foo/bar"
+const (
+	storageID         string                = "bd1df5ffd83b94f365adc7b9011e2079856cd4aa401ee19b6cdfcffcecad7a61"
+	manifestDigest    digest.Digest         = "sha256:1d6f90850896f753a6c4c5d8edc7086f0290ce90a34d92439c30d1257f44979f"
+	repoName          models.RepositoryName = "foo-repository"
+	chunkNumber       uint32                = 3420741
+	format            string                = "json"
+	unknownObjectName string                = "_unknown/foo/bar"
 )
 
 func TestParseBlobObject(t *testing.T) {

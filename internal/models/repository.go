@@ -11,17 +11,17 @@ import (
 
 // Repository contains a record from the `repos` table.
 type Repository struct {
-	ID                      int64             `db:"id"`
+	ID                      RepositoryID      `db:"id"`
 	AccountName             AccountName       `db:"account_name"`
-	Name                    string            `db:"name"`
+	Name                    RepositoryName    `db:"name"`
 	NextBlobMountSweepAt    Option[time.Time] `db:"next_blob_mount_sweep_at"` // see tasks.BlobMountSweepJob
 	NextManifestSyncAt      Option[time.Time] `db:"next_manifest_sync_at"`    // see tasks.ManifestSyncJob (only set for replica accounts)
 	NextGarbageCollectionAt Option[time.Time] `db:"next_gc_at"`               // see tasks.GarbageCollectManifestsJob
 }
 
 // FullName prepends the account name to the repository name.
-func (r Repository) FullName() string {
-	return string(r.AccountName) + `/` + r.Name
+func (r Repository) FullName() RepositoryName {
+	return RepositoryName(string(r.AccountName) + `/` + string(r.Name))
 }
 
 // Reduced converts a Repository into a ReducedRepository.
@@ -37,14 +37,14 @@ func (r Repository) Reduced() ReducedRepository {
 // This type exists to avoid loading non-essential DB fields when we don't need to,
 // which is a memory optimization for the keppel-api process.
 type ReducedRepository struct {
-	ID          int64
+	ID          RepositoryID
 	AccountName AccountName
-	Name        string
+	Name        RepositoryName
 
 	// NOTE: When adding or removing fields, always adjust Repository.Reduced() and keppel.FindReducedRepository() too!
 }
 
 // FullName prepends the account name to the repository name.
-func (r ReducedRepository) FullName() string {
-	return string(r.AccountName) + `/` + r.Name
+func (r ReducedRepository) FullName() RepositoryName {
+	return RepositoryName(string(r.AccountName) + `/` + string(r.Name))
 }

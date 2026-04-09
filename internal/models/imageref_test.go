@@ -22,7 +22,7 @@ func TestParseImageReferenceSuccess(t *testing.T) {
 		"localhost",
 		"localhost:5000",
 	}
-	repoNames := []string{
+	repoNames := []RepositoryName{
 		"foo",
 		"foo/bar123",
 		"library/alpine",
@@ -40,7 +40,7 @@ func TestParseImageReferenceSuccess(t *testing.T) {
 			// skip repo names without slashes when considering the default registry
 			// (on that one, repo names are always "user/repo", and if no user is
 			// given, "library" is implied)
-			if hostName == defaultHostName && !strings.Contains(repoName, "/") {
+			if hostName == defaultHostName && !strings.Contains(string(repoName), "/") {
 				continue
 			}
 
@@ -61,9 +61,11 @@ func TestParseImageReferenceSuccess(t *testing.T) {
 }
 
 func TestParseImageReferenceLabelDigestSuccess(t *testing.T) {
-	registry := "localhost:5000"
-	repo := "library/alpine"
-	digest := "sha256:e9707504ad0d4c119036b6d41ace4a33596139d3feb9ccb6617813ce48c3eeef"
+	const (
+		registry                = "localhost:5000"
+		repo     RepositoryName = "library/alpine"
+		digest                  = "sha256:e9707504ad0d4c119036b6d41ace4a33596139d3feb9ccb6617813ce48c3eeef"
+	)
 	// Check that the manifest reference :nonsense@digest is equal to @digest where :nonsense can be anything and is NOT checked.
 	// This mirrors the behaviour of the official docker client to maintain compatibility.
 	refActual := ImageReference{registry, repo, ParseManifestReference("nonsense@" + digest)}

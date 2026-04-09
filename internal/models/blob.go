@@ -21,7 +21,7 @@ import (
 // needs to be chosen at the start of the blob upload, when the digest is not
 // known yet.
 type Blob struct {
-	ID                     int64             `db:"id"`
+	ID                     BlobID            `db:"id"`
 	AccountName            AccountName       `db:"account_name"`
 	Digest                 digest.Digest     `db:"digest"`
 	SizeBytes              uint64            `db:"size_bytes"`
@@ -57,11 +57,11 @@ const (
 // far. This is used to validate that we're resuming at the right position in
 // the next PUT/PATCH.
 type Upload struct {
-	RepositoryID int64     `db:"repo_id"`
-	UUID         string    `db:"uuid"`
-	StorageID    string    `db:"storage_id"`
-	SizeBytes    uint64    `db:"size_bytes"`
-	Digest       string    `db:"digest"`
-	NumChunks    uint32    `db:"num_chunks"`
-	UpdatedAt    time.Time `db:"updated_at"`
+	RepositoryID RepositoryID `db:"repo_id"`
+	UUID         string       `db:"uuid"`
+	StorageID    string       `db:"storage_id"`
+	SizeBytes    uint64       `db:"size_bytes"`
+	Digest       string       `db:"digest"`
+	NumChunks    uint32       `db:"num_chunks"`
+	UpdatedAt    time.Time    `db:"updated_at"`
 }

@@ -66,11 +66,11 @@ func blobKey(account models.ReducedAccount, storageID string) string {
 	return fmt.Sprintf("%s/%s", account.Name, storageID)
 }
 
-func manifestKey(account models.ReducedAccount, repoName string, manifestDigest digest.Digest) string {
+func manifestKey(account models.ReducedAccount, repoName models.RepositoryName, manifestDigest digest.Digest) string {
 	return fmt.Sprintf("%s/%s/%s", account.Name, repoName, manifestDigest)
 }
 
-func trivyReportKey(account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) string {
+func trivyReportKey(account models.ReducedAccount, repoName models.RepositoryName, manifestDigest digest.Digest, format string) string {
 	return fmt.Sprintf("%s/%s/%s/%s", account.Name, repoName, manifestDigest, format)
 }
 
@@ -167,7 +167,7 @@ func (d *StorageDriver) DeleteBlob(ctx context.Context, account models.ReducedAc
 }
 
 // ReadManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ReadManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) ([]byte, error) {
+func (d *StorageDriver) ReadManifest(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, manifestDigest digest.Digest) ([]byte, error) {
 	k := manifestKey(account, repoName, manifestDigest)
 	d.manifestMutex.RLock()
 	defer d.manifestMutex.RUnlock()
@@ -179,7 +179,7 @@ func (d *StorageDriver) ReadManifest(ctx context.Context, account models.Reduced
 }
 
 // WriteManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, contents []byte) error {
+func (d *StorageDriver) WriteManifest(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, manifestDigest digest.Digest, contents []byte) error {
 	k := manifestKey(account, repoName, manifestDigest)
 	d.manifestMutex.Lock()
 	defer d.manifestMutex.Unlock()
@@ -188,7 +188,7 @@ func (d *StorageDriver) WriteManifest(ctx context.Context, account models.Reduce
 }
 
 // DeleteManifest implements the keppel.StorageDriver interface.
-func (d *StorageDriver) DeleteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) error {
+func (d *StorageDriver) DeleteManifest(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, manifestDigest digest.Digest) error {
 	k := manifestKey(account, repoName, manifestDigest)
 	d.manifestMutex.Lock()
 	defer d.manifestMutex.Unlock()
@@ -201,7 +201,7 @@ func (d *StorageDriver) DeleteManifest(ctx context.Context, account models.Reduc
 }
 
 // ReadTrivyReport implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) ([]byte, error) {
+func (d *StorageDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, manifestDigest digest.Digest, format string) ([]byte, error) {
 	k := trivyReportKey(account, repoName, manifestDigest, format)
 	d.trivyReportsMutex.RLock()
 	defer d.trivyReportsMutex.RUnlock()
@@ -213,7 +213,7 @@ func (d *StorageDriver) ReadTrivyReport(ctx context.Context, account models.Redu
 }
 
 // WriteTrivyReport implements the keppel.StorageDriver interface.
-func (d *StorageDriver) WriteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, payload trivy.ReportPayload) error {
+func (d *StorageDriver) WriteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, manifestDigest digest.Digest, payload trivy.ReportPayload) error {
 	k := trivyReportKey(account, repoName, manifestDigest, payload.Format)
 	d.trivyReportsMutex.Lock()
 	defer d.trivyReportsMutex.Unlock()
@@ -229,7 +229,7 @@ func (d *StorageDriver) WriteTrivyReport(ctx context.Context, account models.Red
 }
 
 // DeleteTrivyReport implements the keppel.StorageDriver interface.
-func (d *StorageDriver) DeleteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) error {
+func (d *StorageDriver) DeleteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, manifestDigest digest.Digest, format string) error {
 	k := trivyReportKey(account, repoName, manifestDigest, format)
 	d.trivyReportsMutex.Lock()
 	defer d.trivyReportsMutex.Unlock()
@@ -283,7 +283,7 @@ func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.
 			return nil, nil, nil, err
 		}
 		manifests = append(manifests, keppel.StoredManifestInfo{
-			RepositoryName: match[1],
+			RepositoryName: models.RepositoryName(match[1]),
 			Digest:         manifestDigest,
 		})
 	}
@@ -300,7 +300,7 @@ func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.
 			return nil, nil, nil, err
 		}
 		trivyReports = append(trivyReports, keppel.StoredTrivyReportInfo{
-			RepositoryName: match[1],
+			RepositoryName: models.RepositoryName(match[1]),
 			Digest:         manifestDigest,
 			Format:         match[3],
 		})

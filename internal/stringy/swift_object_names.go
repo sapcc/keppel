@@ -9,6 +9,8 @@ import (
 	"strconv"
 
 	"github.com/opencontainers/go-digest"
+
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // BlobObjectName builds the name under which a blob with the provided storage ID will be stored in a Swift container.
@@ -23,12 +25,12 @@ func ChunkObjectName(storageID string, chunkNumber uint32) string {
 }
 
 // ManifestObjectName builds the name under which a manifest with the provided repository name and digest will be stored in a Swift container.
-func ManifestObjectName(repoName string, manifestDigest digest.Digest) string {
+func ManifestObjectName(repoName models.RepositoryName, manifestDigest digest.Digest) string {
 	return fmt.Sprintf("%s/_manifests/%s", repoName, manifestDigest)
 }
 
 // TrivyReportObjectName builds the name under which a trivy report with the provided repository name, digest and format will be stored in a Swift container.
-func TrivyReportObjectName(repoName string, manifestDigest digest.Digest, format string) string {
+func TrivyReportObjectName(repoName models.RepositoryName, manifestDigest digest.Digest, format string) string {
 	return fmt.Sprintf("%s/_trivyreports/%s/%s", repoName, manifestDigest, format)
 }
 
@@ -72,21 +74,21 @@ func ParseChunkObjectName(name string) (storageID string, chunkNumber uint32, er
 
 // ParseManifestObjectName checks if the provided name of a Swift object refers to a manifest object.
 // If so, the repository name and digest are decoded from the name. Otherwise, zero values are returned.
-func ParseManifestObjectName(name string) (repoName string, manifestDigest digest.Digest, err error) {
+func ParseManifestObjectName(name string) (models.RepositoryName, digest.Digest, error) {
 	match := manifestObjectNameRx.FindStringSubmatch(name)
 	if match == nil {
 		return "", "", nil
 	}
-	manifestDigest, err = digest.Parse(match[2])
+	manifestDigest, err := digest.Parse(match[2])
 	if err != nil {
 		return "", "", fmt.Errorf("while parsing manifest object name %q: %w", name, err)
 	}
-	return match[1], manifestDigest, nil
+	return models.RepositoryName(match[1]), manifestDigest, nil
 }
 
 // ParseTrivyReportObjectName checks if the provided name of a Swift object refers to a trivy report object.
 // If so, the repository name, digest and format are decoded from the name. Otherwise, zero values are returned.
-func ParseTrivyReportObjectName(name string) (repoName string, manifestDigest digest.Digest, format string, err error) {
+func ParseTrivyReportObjectName(name string) (repoName models.RepositoryName, manifestDigest digest.Digest, format string, err error) {
 	match := trivyReportObjectNameRx.FindStringSubmatch(name)
 	if match == nil {
 		return "", "", "", nil
@@ -95,5 +97,5 @@ func ParseTrivyReportObjectName(name string) (repoName string, manifestDigest di
 	if err != nil {
 		return "", "", "", fmt.Errorf("while parsing Trivy report object name %q: %w", name, err)
 	}
-	return match[1], manifestDigest, match[3], nil
+	return models.RepositoryName(match[1]), manifestDigest, match[3], nil
 }

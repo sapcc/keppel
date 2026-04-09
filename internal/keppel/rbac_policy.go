@@ -45,7 +45,7 @@ var isRBACPermission = map[RBACPermission]bool{
 }
 
 // Matches evaluates the cidr and regexes in this policy.
-func (r RBACPolicy) Matches(ip, repoName, userName string) bool {
+func (r RBACPolicy) Matches(ip string, repoName models.RepositoryName, userName string) bool {
 	if r.CidrPattern != "" {
 		ip := net.ParseIP(ip)
 		_, network, err := net.ParseCIDR(r.CidrPattern)
@@ -54,7 +54,7 @@ func (r RBACPolicy) Matches(ip, repoName, userName string) bool {
 		}
 	}
 
-	if r.RepositoryPattern != "" && !r.RepositoryPattern.MatchString(repoName) {
+	if r.RepositoryPattern != "" && !r.RepositoryPattern.MatchString(string(repoName)) {
 		return false
 	}
 	if r.UserNamePattern != "" && !r.UserNamePattern.MatchString(userName) {

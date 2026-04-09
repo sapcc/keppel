@@ -151,11 +151,12 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) performCrossRepositoryBlobMount(account models.ReducedAccount, targetRepo models.ReducedRepository, authz *auth.Authorization, sourceRepoFullName, blobDigestStr string) (http.Header, error) {
 	// validate source repository
-	sourceRepoName, ok := strings.CutPrefix(sourceRepoFullName, string(account.Name)+"/")
+	rawSourceRepoName, ok := strings.CutPrefix(sourceRepoFullName, string(account.Name)+"/")
 	if !ok {
 		return nil, errors.New("cannot mount blobs across different accounts")
 	}
-	if !models.RepoNameWithLeadingSlashRx.MatchString("/" + sourceRepoName) {
+	sourceRepoName, ok := models.CheckRepositoryName(rawSourceRepoName).Unpack()
+	if !ok {
 		return nil, errors.New("source repository is invalid")
 	}
 	sourceRepo, err := keppel.FindRepository(a.db, sourceRepoName, account.Name)

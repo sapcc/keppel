@@ -28,13 +28,13 @@ import (
 
 // Base behavior for various unit tests that start with the same image list, destroy
 // it in various ways, and check that ManifestValidationJob correctly fixes it.
-func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*keppel.DB, []int64, []string)) {
+func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*keppel.DB, []models.BlobID, []string)) {
 	j, s := setup(t)
 	s.Clock.StepBy(1 * time.Hour)
 	validateManifestJob := j.ManifestValidationJob(s.Registry)
 
 	var (
-		allBlobIDs         []int64
+		allBlobIDs         []models.BlobID
 		allManifestDigests []string
 	)
 
@@ -85,28 +85,28 @@ func testManifestValidationJobFixesDisturbance(t *testing.T, disturb func(*keppe
 }
 
 func TestManifestValidationJobFixesWrongSize(t *testing.T) {
-	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []models.BlobID, allManifestDigests []string) {
 		_, _ = allBlobIDs, allManifestDigests
 		test.MustExec(t, db, `UPDATE manifests SET size_bytes = 1337`)
 	})
 }
 
 func TestManifestValidationJobFixesMissingManifestBlobRefs(t *testing.T) {
-	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []models.BlobID, allManifestDigests []string) {
 		_, _ = allBlobIDs, allManifestDigests
 		test.MustExec(t, db, `DELETE FROM manifest_blob_refs WHERE blob_id % 2 = 0`)
 	})
 }
 
 func TestManifestValidationJobFixesMissingManifestManifestRefs(t *testing.T) {
-	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []models.BlobID, allManifestDigests []string) {
 		_, _ = allBlobIDs, allManifestDigests
 		test.MustExec(t, db, `DELETE FROM manifest_manifest_refs`)
 	})
 }
 
 func TestManifestValidationJobFixesSuperfluousManifestBlobRefs(t *testing.T) {
-	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []models.BlobID, allManifestDigests []string) {
 		for _, id := range allBlobIDs {
 			for _, d := range allManifestDigests {
 				test.MustExec(t, db, `INSERT INTO manifest_blob_refs (repo_id, digest, blob_id) VALUES (1, $1, $2) ON CONFLICT DO NOTHING`, d, id)
@@ -116,7 +116,7 @@ func TestManifestValidationJobFixesSuperfluousManifestBlobRefs(t *testing.T) {
 }
 
 func TestManifestValidationJobFixesSuperfluousManifestManifestRefs(t *testing.T) {
-	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []int64, allManifestDigests []string) {
+	testManifestValidationJobFixesDisturbance(t, func(db *keppel.DB, allBlobIDs []models.BlobID, allManifestDigests []string) {
 		_ = allBlobIDs
 		for _, d1 := range allManifestDigests {
 			for _, d2 := range allManifestDigests {

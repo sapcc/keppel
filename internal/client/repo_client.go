@@ -16,13 +16,14 @@ import (
 	"maps"
 
 	"github.com/sapcc/keppel/internal/keppel"
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // RepoClient contains methods for interacting with a repository on a registry server.
 type RepoClient struct {
 	Scheme   string // either "http" or "https"
 	Host     string // either a plain hostname or a host:port like "example.org:443"
-	RepoName string
+	RepoName models.RepositoryName
 
 	// credentials (only needed for non-public repos)
 	UserName string
@@ -74,7 +75,7 @@ func (c *RepoClient) doRequest(ctx context.Context, r repoRequest) (*http.Respon
 		Host:     c.Host,
 		Path:     "v2",
 		RawQuery: r.Query.Encode(),
-	}).JoinPath(c.RepoName, r.Path)
+	}).JoinPath(string(c.RepoName), r.Path)
 
 	// send request
 	resp, req, err := c.sendRequest(ctx, r, uri.String())

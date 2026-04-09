@@ -19,7 +19,7 @@ const (
 // ImageReference refers to an image that can be pulled from a registry.
 type ImageReference struct {
 	Host      string // either a plain hostname or a host:port like "example.org:443"
-	RepoName  string
+	RepoName  RepositoryName
 	Reference ManifestReference
 }
 
@@ -32,7 +32,7 @@ func (r ImageReference) String() string {
 	} else {
 		// tag names are appended with ":"
 		if r.Reference.Tag == defaultTagName {
-			result = r.RepoName
+			result = string(r.RepoName)
 		} else {
 			result = fmt.Sprintf("%s:%s", r.RepoName, r.Reference.Tag)
 		}
@@ -67,53 +67,52 @@ func ParseImageReference(input string) (ImageReference, string, error) {
 		return ImageReference{}, input, err
 	}
 
-	var ref ImageReference
+	var (
+		rawRepoName string // not yet confirmed to be a RepositoryName
+		manifestRef ManifestReference
+	)
 	switch {
 	case strings.Contains(imageURL.Path, "@"):
 		// input references a digest
-		pathParts := ImageReferenceRx.FindStringSubmatch(imageURL.Path)
+		pathParts := imageReferenceRx.FindStringSubmatch(imageURL.Path)
 		if len(pathParts) < 1 {
 			return ImageReference{}, input, fmt.Errorf("invalid image reference: %q", imageURL.Path)
 		}
 		parsedDigest, err := digest.Parse(pathParts[len(pathParts)-1])
 		if err != nil {
-			return ImageReference{}, input, fmt.Errorf("invalid digest: %q", ref.Reference)
+			return ImageReference{}, input, fmt.Errorf("invalid digest: %q", pathParts[len(pathParts)-1])
 		}
-		ref = ImageReference{
-			Host:      imageURL.Host,
-			RepoName:  strings.TrimPrefix(pathParts[1], "/"),
-			Reference: ManifestReference{Digest: parsedDigest},
-		}
+		rawRepoName = strings.TrimPrefix(pathParts[1], "/")
+		manifestRef.Digest = parsedDigest
 	case strings.Contains(imageURL.Path, ":"):
 		// input references a tag name
 		pathParts := strings.SplitN(imageURL.Path, ":", 2)
-		ref = ImageReference{
-			Host:      imageURL.Host,
-			RepoName:  strings.TrimPrefix(pathParts[0], "/"),
-			Reference: ManifestReference{Tag: pathParts[1]},
-		}
+		rawRepoName = strings.TrimPrefix(pathParts[0], "/")
+		manifestRef.Tag = pathParts[1]
 	default:
 		// input references no tag or digest - use default tag
-		ref = ImageReference{
-			Host:      imageURL.Host,
-			RepoName:  strings.TrimPrefix(imageURL.Path, "/"),
-			Reference: ManifestReference{Tag: "latest"},
-		}
+		rawRepoName = strings.TrimPrefix(imageURL.Path, "/")
+		manifestRef.Tag = "latest"
 	}
 
-	if !RepoNameWithLeadingSlashRx.MatchString("/" + ref.RepoName) {
-		return ImageReference{}, input, fmt.Errorf("invalid repository name: %q", ref.RepoName)
+	repoName, ok := CheckRepositoryName(rawRepoName).Unpack()
+	if !ok {
+		return ImageReference{}, input, fmt.Errorf("invalid repository name: %q", rawRepoName)
 	}
 
 	if hadNoHostName {
 		// on the default registry, single-word repo names like "alpine" are
 		// actually shorthands for "library/alpine" etc.
-		if !strings.Contains(ref.RepoName, "/") {
-			ref.RepoName = "library/" + ref.RepoName
+		if !strings.Contains(string(repoName), "/") {
+			repoName = "library/" + repoName
 		}
 	}
 
-	return ref, input, nil
+	return ImageReference{
+		Host:      imageURL.Host,
+		RepoName:  repoName,
+		Reference: manifestRef,
+	}, input, nil
 }
 
 func looksLikeHostName(host string) bool {

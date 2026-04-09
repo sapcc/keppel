@@ -97,8 +97,8 @@ func (c Client) GetSubleaseToken(ctx context.Context, accountName models.Account
 // If the repo is deleted on upstream (i.e. 404 is returned), this function
 // will return (nil, nil) to signal to the caller that a detailed deletion
 // check should be performed.
-func (c Client) PerformReplicaSync(ctx context.Context, fullRepoName string, payload keppel.ReplicaSyncPayload) (*keppel.ReplicaSyncPayload, error) {
-	reqURL := c.buildRequestURL("peer/v1/sync-replica/" + fullRepoName)
+func (c Client) PerformReplicaSync(ctx context.Context, fullRepoName models.RepositoryName, payload keppel.ReplicaSyncPayload) (*keppel.ReplicaSyncPayload, error) {
+	reqURL := c.buildRequestURL("peer/v1/sync-replica/" + string(fullRepoName))
 	reqBodyBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("while marshalling POST %s: %w", reqURL, err)

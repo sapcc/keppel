@@ -33,10 +33,16 @@ func (a *API) handleDelegatedPullManifest(w http.ResponseWriter, r *http.Request
 	}
 
 	vars := mux.Vars(r)
+	repoName, ok := models.CheckRepositoryName(vars["repo"]).Unpack()
+	if !ok {
+		keppel.ErrNameInvalid.With("invalid repository name").WriteAsRegistryV2ResponseTo(w, r)
+		return
+	}
+
 	rc := client.RepoClient{
 		Scheme:   "https",
 		Host:     vars["hostname"],
-		RepoName: vars["repo"],
+		RepoName: repoName,
 		UserName: r.Header.Get("X-Keppel-Delegated-Pull-Username"), // may be empty
 		Password: r.Header.Get("X-Keppel-Delegated-Pull-Password"), // may be empty
 	}

@@ -67,7 +67,7 @@ func AddCommandTo(parent *cobra.Command) {
 }
 
 type anycastMonitorJob struct {
-	RepoClients map[string]*client.RepoClient // key = account name
+	RepoClients map[models.AccountName]*client.RepoClient // key = account name
 }
 
 func run(cmd *cobra.Command, args []string) {
@@ -83,13 +83,18 @@ func run(cmd *cobra.Command, args []string) {
 	apiPublicHostname := args[1]
 
 	job := &anycastMonitorJob{
-		RepoClients: make(map[string]*client.RepoClient),
+		RepoClients: make(map[models.AccountName]*client.RepoClient),
 	}
-	for _, accountName := range args[2:] {
+	for _, rawAccountName := range args[2:] {
+		accountName, ok := models.CheckAccountName(rawAccountName).Unpack()
+		if !ok {
+			logg.Fatal("malformed account name: %q", rawAccountName)
+		}
+
 		job.RepoClients[accountName] = &client.RepoClient{
 			Scheme:   anycastURL.Scheme,
 			Host:     anycastURL.Host,
-			RepoName: accountName + "/healthcheck",
+			RepoName: models.Repository{AccountName: accountName, Name: "healthcheck"}.FullName(),
 		}
 	}
 
@@ -120,7 +125,7 @@ func run(cmd *cobra.Command, args []string) {
 // ValidateImages validates the uploaded images and emits the keppel_anycastmonitor_result metric accordingly.
 func (j *anycastMonitorJob) ValidateImages(ctx context.Context, manifestRef models.ManifestReference) {
 	for accountName, repoClient := range j.RepoClients {
-		labels := prometheus.Labels{"account": accountName}
+		labels := prometheus.Labels{"account": string(accountName)}
 		err := repoClient.ValidateManifest(ctx, manifestRef, nil, nil)
 		if err == nil {
 			anycastmonitorResultGaugeVec.With(labels).Set(1)

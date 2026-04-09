@@ -9,10 +9,6 @@ import (
 	. "github.com/majewsky/gg/option"
 )
 
-// AccountName identifies an account. This typedef is used to distinguish these
-// names from other string values.
-type AccountName string
-
 // Account contains a record from the `accounts` table.
 type Account struct {
 	Name         AccountName `db:"name"`

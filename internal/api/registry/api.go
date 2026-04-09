@@ -163,7 +163,7 @@ const (
 
 type anycastRequestInfo struct {
 	AccountName     models.AccountName
-	RepoName        string
+	RepoName        models.RepositoryName
 	PrimaryHostName string // the peer who has this account
 }
 
@@ -191,13 +191,15 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
 	// check that repo name is wellformed
-	scope := auth.Scope{
-		ResourceType: "repository",
-		ResourceName: mux.Vars(r)["repository"],
-	}
-	if !models.RepoNameWithLeadingSlashRx.MatchString("/" + scope.ResourceName) {
+	repoName, ok := models.CheckRepositoryName(mux.Vars(r)["repository"]).Unpack()
+	if !ok {
 		keppel.ErrNameInvalid.With("invalid repository name").WriteAsRegistryV2ResponseTo(w, r)
 		return nil, nil, nil, nil
+	}
+
+	scope := auth.Scope{
+		ResourceType: "repository",
+		ResourceName: string(repoName),
 	}
 
 	// check authorization before FindReducedAccount(); otherwise we might leak
@@ -274,9 +276,9 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 
 	var repo models.ReducedRepository
 	if canCreateRepoIfMissing {
-		repo, err = keppel.FindOrCreateReducedRepository(a.db, repoScope.RepositoryName, account.Name)
+		repo, err = keppel.FindOrCreateReducedRepository(a.db, repoName, account.Name)
 	} else {
-		repo, err = keppel.FindReducedRepository(a.db, repoScope.RepositoryName, account.Name)
+		repo, err = keppel.FindReducedRepository(a.db, repoName, account.Name)
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		if canFirstPull {
@@ -293,7 +295,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 }
 
 // Returns the repository name as it appears in URL paths for this API.
-func getRepoNameForURLPath(repo models.ReducedRepository, authz *auth.Authorization) string {
+func getRepoNameForURLPath(repo models.ReducedRepository, authz *auth.Authorization) models.RepositoryName {
 	// on the regular API, the URL path includes the account name
 	if authz.Audience.AccountName == "" {
 		return repo.FullName()

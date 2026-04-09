@@ -9,6 +9,8 @@ import (
 	"slices"
 
 	"github.com/sapcc/go-bits/regexpext"
+
+	"github.com/sapcc/keppel/internal/models"
 )
 
 // PolicyMatchRule contains the matching rules that are shared by type GCPolicy and TagPolicy.
@@ -20,12 +22,12 @@ type PolicyMatchRule struct {
 }
 
 // MatchesRepository evaluates the repository regexes in this policy.
-func (p PolicyMatchRule) MatchesRepository(repoName string) bool {
+func (p PolicyMatchRule) MatchesRepository(repoName models.RepositoryName) bool {
 	//NOTE: NegativeRepositoryRx takes precedence and is thus evaluated first.
-	if p.NegativeRepositoryRx != "" && p.NegativeRepositoryRx.MatchString(repoName) {
+	if p.NegativeRepositoryRx != "" && p.NegativeRepositoryRx.MatchString(string(repoName)) {
 		return false
 	}
-	return p.RepositoryRx.MatchString(repoName)
+	return p.RepositoryRx.MatchString(string(repoName))
 }
 
 // MatchesTags evaluates the tag regexes in this policy for a complete set of

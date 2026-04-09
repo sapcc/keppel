@@ -87,7 +87,7 @@ func TestManifestsAPI(t *testing.T) {
 				pushedAt := time.Unix(int64(1000*(repoID*10+idx)), 0)
 
 				dbManifest := models.Manifest{
-					RepositoryID:      int64(repoID),
+					RepositoryID:      models.RepositoryID(repoID),
 					Digest:            dummyDigest,
 					MediaType:         manifest.DockerV2Schema2MediaType,
 					SizeBytes:         uint64(sizeBytes),
@@ -110,7 +110,7 @@ func TestManifestsAPI(t *testing.T) {
 					repo.Name, dummyDigest, []byte(strings.Repeat("x", sizeBytes)),
 				))
 				must.SucceedT(t, s.DB.Insert(&models.TrivySecurityInfo{
-					RepositoryID:        int64(repoID),
+					RepositoryID:        models.RepositoryID(repoID),
 					Digest:              dummyDigest,
 					VulnerabilityStatus: deterministicDummyVulnStatus(idx),
 					NextCheckAt:         Some(time.Unix(0, 0)),
@@ -118,21 +118,21 @@ func TestManifestsAPI(t *testing.T) {
 			}
 			// one manifest is referenced by two tags, one is referenced by one tag
 			must.SucceedT(t, s.DB.Insert(&models.Tag{
-				RepositoryID: int64(repoID),
+				RepositoryID: models.RepositoryID(repoID),
 				Name:         "first",
 				Digest:       test.DeterministicDummyDigest(repoID*10 + 1),
 				PushedAt:     time.Unix(20001, 0),
 				LastPulledAt: Some(time.Unix(20101, 0)),
 			}))
 			must.SucceedT(t, s.DB.Insert(&models.Tag{
-				RepositoryID: int64(repoID),
+				RepositoryID: models.RepositoryID(repoID),
 				Name:         "stillfirst",
 				Digest:       test.DeterministicDummyDigest(repoID*10 + 1),
 				PushedAt:     time.Unix(20002, 0),
 				LastPulledAt: None[time.Time](),
 			}))
 			must.SucceedT(t, s.DB.Insert(&models.Tag{
-				RepositoryID: int64(repoID),
+				RepositoryID: models.RepositoryID(repoID),
 				Name:         "second",
 				Digest:       test.DeterministicDummyDigest(repoID*10 + 2),
 				PushedAt:     time.Unix(20003, 0),

@@ -178,8 +178,8 @@ func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request, _ *
 }
 
 func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, accountName models.AccountName) *models.Repository {
-	repoName := mux.Vars(r)["repo_name"]
-	if !isValidRepoName(repoName) {
+	repoName, ok := models.CheckRepositoryName(mux.Vars(r)["repo_name"]).Unpack()
+	if !ok {
 		http.Error(w, "repo name invalid", http.StatusUnprocessableEntity)
 		return nil
 	}
@@ -202,18 +202,6 @@ func decodeJSONRequestBody(w http.ResponseWriter, body io.Reader, target any) (o
 	if err != nil {
 		http.Error(w, "request body is not valid JSON: "+err.Error(), http.StatusBadRequest)
 		return false
-	}
-	return true
-}
-
-func isValidRepoName(name string) bool {
-	if name == "" {
-		return false
-	}
-	for pathComponent := range strings.SplitSeq(name, `/`) {
-		if !models.RepoPathComponentRx.MatchString(pathComponent) {
-			return false
-		}
 	}
 	return true
 }

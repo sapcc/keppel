@@ -289,7 +289,7 @@ func reportObjectErrorsIfAny(operation string, err error) {
 }
 
 // ReadManifest implements the keppel.StorageDriver interface.
-func (d *swiftDriver) ReadManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) ([]byte, error) {
+func (d *swiftDriver) ReadManifest(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, manifestDigest digest.Digest) ([]byte, error) {
 	c, _, err := d.getBackendConnection(ctx, account)
 	if err != nil {
 		return nil, err
@@ -299,7 +299,7 @@ func (d *swiftDriver) ReadManifest(ctx context.Context, account models.ReducedAc
 }
 
 // WriteManifest implements the keppel.StorageDriver interface.
-func (d *swiftDriver) WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, contents []byte) error {
+func (d *swiftDriver) WriteManifest(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, manifestDigest digest.Digest, contents []byte) error {
 	c, _, err := d.getBackendConnection(ctx, account)
 	if err != nil {
 		return err
@@ -309,7 +309,7 @@ func (d *swiftDriver) WriteManifest(ctx context.Context, account models.ReducedA
 }
 
 // DeleteManifest implements the keppel.StorageDriver interface.
-func (d *swiftDriver) DeleteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) error {
+func (d *swiftDriver) DeleteManifest(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, manifestDigest digest.Digest) error {
 	c, _, err := d.getBackendConnection(ctx, account)
 	if err != nil {
 		return err
@@ -319,7 +319,7 @@ func (d *swiftDriver) DeleteManifest(ctx context.Context, account models.Reduced
 }
 
 // ReadTrivyReport implements the keppel.StorageDriver interface.
-func (d *swiftDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) ([]byte, error) {
+func (d *swiftDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, manifestDigest digest.Digest, format string) ([]byte, error) {
 	c, _, err := d.getBackendConnection(ctx, account)
 	if err != nil {
 		return nil, err
@@ -329,7 +329,7 @@ func (d *swiftDriver) ReadTrivyReport(ctx context.Context, account models.Reduce
 }
 
 // WriteTrivyReport implements the keppel.StorageDriver interface.
-func (d *swiftDriver) WriteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, payload trivy.ReportPayload) error {
+func (d *swiftDriver) WriteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, manifestDigest digest.Digest, payload trivy.ReportPayload) error {
 	c, _, err := d.getBackendConnection(ctx, account)
 	if err != nil {
 		return err
@@ -339,7 +339,7 @@ func (d *swiftDriver) WriteTrivyReport(ctx context.Context, account models.Reduc
 }
 
 // DeleteTrivyReport implements the keppel.StorageDriver interface.
-func (d *swiftDriver) DeleteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) error {
+func (d *swiftDriver) DeleteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, manifestDigest digest.Digest, format string) error {
 	c, _, err := d.getBackendConnection(ctx, account)
 	if err != nil {
 		return err

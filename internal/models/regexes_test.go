@@ -46,7 +46,7 @@ func TestRepoNameWithLeadingSlashRx(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		matches := RepoNameWithLeadingSlashRx.MatchString(tc.input)
+		matches := repoNameWithLeadingSlashRx.MatchString(tc.input)
 		assert.DeepEqual(t, fmt.Sprintf("matches %q", tc.input), matches, tc.expected)
 	}
 }
@@ -124,7 +124,7 @@ func TestImageReferenceRx(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		submatches := ImageReferenceRx.FindStringSubmatch(tc.input)
+		submatches := imageReferenceRx.FindStringSubmatch(tc.input)
 		assert.DeepEqual(t, fmt.Sprintf("submatches %q", tc.input), submatches, tc.expected)
 	}
 }

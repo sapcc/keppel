@@ -276,7 +276,7 @@ func (j *Janitor) evaluatePolicy(ctx context.Context, proc *processor.Processor,
 	return nil
 }
 
-func (j *Janitor) persistGCStatus(manifests []*manifestData, repoID int64) error {
+func (j *Janitor) persistGCStatus(manifests []*manifestData, repoID models.RepositoryID) error {
 	// finalize and persist GCStatus for all affected manifests
 	query := `UPDATE manifests SET gc_status_json = $1 WHERE repo_id = $2 AND digest = $3`
 	err := sqlext.WithPreparedStatement(j.db, query, func(stmt *sql.Stmt) error {

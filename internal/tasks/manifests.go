@@ -685,7 +685,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 
 	imageRef := models.ImageReference{
 		Host:      j.cfg.APIPublicHostname,
-		RepoName:  fmt.Sprintf("%s/%s", account.Name, repo.Name),
+		RepoName:  repo.FullName(),
 		Reference: models.ManifestReference{Digest: manifest.Digest},
 	}
 

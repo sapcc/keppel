@@ -38,11 +38,11 @@ func TestReposAPI(t *testing.T) {
 	// validate that we don't accidentally list its repos as well)
 	for idx := 1; idx <= 5; idx++ {
 		must.SucceedT(t, s.DB.Insert(&models.Repository{
-			Name:        fmt.Sprintf("repo1-%d", idx),
+			Name:        models.RepositoryName(fmt.Sprintf("repo1-%d", idx)),
 			AccountName: "test1",
 		}))
 		must.SucceedT(t, s.DB.Insert(&models.Repository{
-			Name:        fmt.Sprintf("repo2-%d", idx),
+			Name:        models.RepositoryName(fmt.Sprintf("repo2-%d", idx)),
 			AccountName: "test2",
 		}))
 	}

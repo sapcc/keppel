@@ -75,6 +75,11 @@ func run(cmd *cobra.Command, args []string) {
 		logg.Fatal("while setting up auth driver: %s", err.Error())
 	}
 
+	accountName, ok := models.CheckAccountName(args[0]).Unpack()
+	if !ok {
+		logg.Fatal("malformed account name: %q", args[0])
+	}
+
 	apiUser, apiPassword := ad.CredentialsForRegistryAPI()
 	job := &healthMonitorJob{
 		AuthDriver:  ad,
@@ -82,7 +87,7 @@ func run(cmd *cobra.Command, args []string) {
 		RepoClient: &client.RepoClient{
 			Scheme:   ad.ServerScheme(),
 			Host:     ad.ServerHost(),
-			RepoName: args[0] + "/healthcheck",
+			RepoName: models.Repository{AccountName: accountName, Name: "healthcheck"}.FullName(),
 			UserName: apiUser,
 			Password: apiPassword,
 		},

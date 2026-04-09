@@ -114,10 +114,10 @@ func (p SecurityScanPolicy) VulnerabilityStatus() models.VulnerabilityStatus {
 // MatchesRepository evaluates the repository regexes in this policy.
 func (p SecurityScanPolicy) MatchesRepository(repo models.Repository) bool {
 	//NOTE: NegativeRepositoryRx takes precedence and is thus evaluated first.
-	if p.NegativeRepositoryRx != "" && p.NegativeRepositoryRx.MatchString(repo.Name) {
+	if p.NegativeRepositoryRx != "" && p.NegativeRepositoryRx.MatchString(string(repo.Name)) {
 		return false
 	}
-	return p.RepositoryRx.MatchString(repo.Name)
+	return p.RepositoryRx.MatchString(string(repo.Name))
 }
 
 // MatchesVulnerability evaluates the vulnerability regexes and checkin this policy.

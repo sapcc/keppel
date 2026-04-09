@@ -330,7 +330,7 @@ func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account 
 }
 
 type blobRef struct {
-	ID        int64
+	ID        models.BlobID
 	MediaType string
 }
 
@@ -560,10 +560,10 @@ func maintainManifestBlobRefs(tx *gorp.Transaction, m models.Manifest, reference
 	}
 
 	// find existing manifest_blob_refs entries for this manifest
-	isExistingBlobIDRef := make(map[int64]bool)
+	isExistingBlobIDRef := make(map[models.BlobID]bool)
 	query = `SELECT blob_id FROM manifest_blob_refs WHERE repo_id = $1 AND digest = $2`
 	err = sqlext.ForeachRow(tx, query, []any{m.RepositoryID, m.Digest}, func(rows *sql.Rows) error {
-		var blobID int64
+		var blobID models.BlobID
 		err := rows.Scan(&blobID)
 		isExistingBlobIDRef[blobID] = true
 		return err

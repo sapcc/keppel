@@ -238,7 +238,7 @@ func (i Image) DigestRef() models.ManifestReference {
 func (i Image) ImageRef(s Setup, repo models.Repository) models.ImageReference {
 	return models.ImageReference{
 		Host:      s.Config.APIPublicHostname,
-		RepoName:  fmt.Sprintf("%s/%s", repo.AccountName, repo.Name),
+		RepoName:  repo.FullName(),
 		Reference: i.DigestRef(),
 	}
 }
@@ -304,7 +304,7 @@ func (l ImageList) DigestRef() models.ManifestReference {
 func (l ImageList) ImageRef(s Setup, repo models.Repository) models.ImageReference {
 	return models.ImageReference{
 		Host:      s.Config.APIPublicHostname,
-		RepoName:  fmt.Sprintf("%s/%s", repo.AccountName, repo.Name),
+		RepoName:  repo.FullName(),
 		Reference: l.DigestRef(),
 	}
 }

@@ -61,7 +61,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 			if account.ExternalPeerURL != "" && userType != keppel.RegularUser {
 				if !authz.ScopeSet.Contains(auth.Scope{
 					ResourceType: "repository",
-					ResourceName: repo.FullName(),
+					ResourceName: string(repo.FullName()),
 					Actions:      []string{"anonymous_first_pull"},
 				}) {
 					rerr := keppel.ErrDenied.With("image does not exist here, and anonymous users may not replicate images")
@@ -250,7 +250,7 @@ func (a *API) findManifestInDB(repo models.ReducedRepository, reference models.M
 	return &dbManifest, err
 }
 
-func (a *API) getManifestContentFromDB(repoID int64, digestStr digest.Digest) ([]byte, error) {
+func (a *API) getManifestContentFromDB(repoID models.RepositoryID, digestStr digest.Digest) ([]byte, error) {
 	var result []byte
 	err := a.db.SelectOne(&result,
 		`SELECT content FROM manifest_contents WHERE repo_id = $1 AND digest = $2`,

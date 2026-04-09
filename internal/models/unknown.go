@@ -23,10 +23,10 @@ type UnknownBlob struct {
 // NOTE: We don't use repository IDs here because unknown manifests may exist in
 // repositories that are also not known to the database.
 type UnknownManifest struct {
-	AccountName    AccountName   `db:"account_name"`
-	RepositoryName string        `db:"repo_name"`
-	Digest         digest.Digest `db:"digest"`
-	CanBeDeletedAt time.Time     `db:"can_be_deleted_at"`
+	AccountName    AccountName    `db:"account_name"`
+	RepositoryName RepositoryName `db:"repo_name"`
+	Digest         digest.Digest  `db:"digest"`
+	CanBeDeletedAt time.Time      `db:"can_be_deleted_at"`
 }
 
 // UnknownTrivyReport contains a record from the `unknown_trivy_reports` table.
@@ -35,9 +35,9 @@ type UnknownManifest struct {
 // NOTE: We don't use repository IDs here because unknown Trivy reports may exist in
 // repositories that are also not known to the database.
 type UnknownTrivyReport struct {
-	AccountName    AccountName   `db:"account_name"`
-	RepositoryName string        `db:"repo_name"`
-	Digest         digest.Digest `db:"digest"`
-	Format         string        `db:"format"`
-	CanBeDeletedAt time.Time     `db:"can_be_deleted_at"`
+	AccountName    AccountName    `db:"account_name"`
+	RepositoryName RepositoryName `db:"repo_name"`
+	Digest         digest.Digest  `db:"digest"`
+	Format         string         `db:"format"`
+	CanBeDeletedAt time.Time      `db:"can_be_deleted_at"`
 }

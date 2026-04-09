@@ -256,7 +256,7 @@ func executeDeleteBlob(ctx context.Context, sd keppel.StorageDriver, account mod
 }
 
 func executeReadManifest(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
-	repoName := args[0]
+	repoName := models.RepositoryName(args[0])
 	digestStr := args[1]
 
 	d, err := digest.Parse(digestStr)
@@ -273,7 +273,7 @@ func executeReadManifest(ctx context.Context, sd keppel.StorageDriver, account m
 }
 
 func executeWriteManifest(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
-	repoName := args[0]
+	repoName := models.RepositoryName(args[0])
 	digestStr := args[1]
 	content := args[2]
 
@@ -288,7 +288,7 @@ func executeWriteManifest(ctx context.Context, sd keppel.StorageDriver, account 
 }
 
 func executeDeleteManifest(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
-	repoName := args[0]
+	repoName := models.RepositoryName(args[0])
 	digestStr := args[1]
 
 	d, err := digest.Parse(digestStr)
@@ -303,7 +303,7 @@ func executeDeleteManifest(ctx context.Context, sd keppel.StorageDriver, account
 }
 
 func executeReadTrivyReport(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
-	repoName := args[0]
+	repoName := models.RepositoryName(args[0])
 	digestStr := args[1]
 	format := args[2]
 
@@ -321,7 +321,7 @@ func executeReadTrivyReport(ctx context.Context, sd keppel.StorageDriver, accoun
 }
 
 func executeWriteTrivyReport(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
-	repoName := args[0]
+	repoName := models.RepositoryName(args[0])
 	digestStr := args[1]
 	content := args[2]
 	format := args[3]
@@ -341,7 +341,7 @@ func executeWriteTrivyReport(ctx context.Context, sd keppel.StorageDriver, accou
 }
 
 func executeDeleteTrivyReport(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
-	repoName := args[0]
+	repoName := models.RepositoryName(args[0])
 	digestStr := args[1]
 	format := args[2]
 

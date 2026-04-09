@@ -60,9 +60,9 @@ type StorageDriver interface {
 	// instead.
 	DeleteBlob(ctx context.Context, account models.ReducedAccount, storageID string) error
 
-	ReadManifest(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest) ([]byte, error)
-	WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, contents []byte) error
-	DeleteManifest(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest) error
+	ReadManifest(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, digest digest.Digest) ([]byte, error)
+	WriteManifest(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, digest digest.Digest, contents []byte) error
+	DeleteManifest(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, digest digest.Digest) error
 
 	// The `format` argument is the value given to Trivy as `--format` when generating the report.
 	// Currently, only `--format json` will be used; and only reports enriched with X-Keppel-Applicable-Policies will be stored.
@@ -72,9 +72,9 @@ type StorageDriver interface {
 	// Because of the account-level separation, we could only do so for repos stored in the same account.
 	// In practice, having the same manifest be stored in multiple repos under the same account is a rare occasion,
 	// and thus not worth the hassle of implementing the additional logic required for deduplication.
-	ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, format string) ([]byte, error)
-	WriteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, payload trivy.ReportPayload) error
-	DeleteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, digest digest.Digest, format string) error
+	ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, digest digest.Digest, format string) ([]byte, error)
+	WriteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, digest digest.Digest, payload trivy.ReportPayload) error
+	DeleteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName models.RepositoryName, digest digest.Digest, format string) error
 
 	// This method shall only be used as a positive signal for the existence of a
 	// blob or manifest in the storage, not as a negative signal: If we expect a
@@ -105,13 +105,13 @@ type StoredBlobInfo struct {
 
 // StoredManifestInfo is returned by StorageDriver.ListStorageContents().
 type StoredManifestInfo struct {
-	RepositoryName string
+	RepositoryName models.RepositoryName
 	Digest         digest.Digest
 }
 
 // StoredTrivyReportInfo is returned by StorageDriver.ListStorageContents().
 type StoredTrivyReportInfo struct {
-	RepositoryName string
+	RepositoryName models.RepositoryName
 	Digest         digest.Digest
 	Format         string
 }
