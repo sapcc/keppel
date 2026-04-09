@@ -388,11 +388,11 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 
 		_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
 
-		token := s.GetToken(t, "repository:test1/foo:pull,push")
+		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
 
 		doTrivyRequest := func() httptest.Response {
 			endpoint := fmt.Sprintf("GET /keppel/v1/accounts/test1/repositories/foo/_manifests/%s/trivy_report", test.DeterministicDummyDigest(1))
-			return h.RespondTo(ctx, endpoint, httptest.WithHeader("Authorization", "Bearer "+token))
+			return h.RespondTo(ctx, endpoint, httptest.WithHeaders(tokenHeaders))
 		}
 		expectRateLimited := func(reset, retryAfter int) {
 			t.Helper()

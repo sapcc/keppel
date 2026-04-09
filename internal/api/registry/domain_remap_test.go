@@ -36,15 +36,11 @@ func TestRegistryAPIDomainRemap(t *testing.T) {
 		}.Check(t, h)
 
 		// with token, expect status code 200
-		token := s.GetDomainRemappedToken(t, "test1" /*, no scopes */)
+		tokenHeaders := s.GetDomainRemappedTokenHeaders(t, "test1" /*, no scopes */)
 		assert.HTTPRequest{
-			Method: "GET",
-			Path:   "/v2/",
-			Header: map[string]string{
-				"Authorization":     "Bearer " + token,
-				"X-Forwarded-Host":  "test1.registry.example.org",
-				"X-Forwarded-Proto": "https",
-			},
+			Method:       "GET",
+			Path:         "/v2/",
+			Header:       test.FlattenHeaders(tokenHeaders),
 			ExpectStatus: http.StatusOK,
 			ExpectHeader: test.VersionHeader,
 		}.Check(t, h)
@@ -55,7 +51,7 @@ func TestBlobAPIDomainRemap(t *testing.T) {
 	// test blob API with request URLs having the account name in the hostname instead of in the path
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		token := s.GetDomainRemappedToken(t, "test1", "repository:foo:pull,push")
+		tokenHeaders := s.GetDomainRemappedTokenHeaders(t, "test1", "repository:foo:pull,push")
 
 		blob := test.NewBytes([]byte("just some random data"))
 
@@ -63,13 +59,10 @@ func TestBlobAPIDomainRemap(t *testing.T) {
 		assert.HTTPRequest{
 			Method: "POST",
 			Path:   "/v2/foo/blobs/uploads/?digest=" + blob.Digest.String(),
-			Header: map[string]string{
-				"Authorization":     "Bearer " + token,
-				"Content-Length":    strconv.Itoa(len(blob.Contents)),
-				"Content-Type":      "application/octet-stream",
-				"X-Forwarded-Host":  "test1.registry.example.org",
-				"X-Forwarded-Proto": "https",
-			},
+			Header: test.FlattenHeaders(tokenHeaders, map[string]string{
+				"Content-Length": strconv.Itoa(len(blob.Contents)),
+				"Content-Type":   "application/octet-stream",
+			}),
 			Body:         assert.ByteData(blob.Contents),
 			ExpectStatus: http.StatusCreated,
 			ExpectHeader: map[string]string{
@@ -81,13 +74,9 @@ func TestBlobAPIDomainRemap(t *testing.T) {
 
 		// test download
 		assert.HTTPRequest{
-			Method: "GET",
-			Path:   "/v2/foo/blobs/" + blob.Digest.String(),
-			Header: map[string]string{
-				"Authorization":     "Bearer " + token,
-				"X-Forwarded-Host":  "test1.registry.example.org",
-				"X-Forwarded-Proto": "https",
-			},
+			Method:       "GET",
+			Path:         "/v2/foo/blobs/" + blob.Digest.String(),
+			Header:       test.FlattenHeaders(tokenHeaders),
 			ExpectStatus: http.StatusOK,
 			ExpectBody:   assert.ByteData(blob.Contents),
 			ExpectHeader: map[string]string{
@@ -105,19 +94,16 @@ func TestManifestAPIDomainRemap(t *testing.T) {
 	// test manifest API with request URLs having the account name in the hostname instead of in the path
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		token := s.GetDomainRemappedToken(t, "test1", "repository:foo:pull,push")
+		tokenHeaders := s.GetDomainRemappedTokenHeaders(t, "test1", "repository:foo:pull,push")
 		image.Config.MustUpload(t, s, fooRepoRef)
 
 		// test upload
 		assert.HTTPRequest{
 			Method: "PUT",
 			Path:   "/v2/foo/manifests/" + image.Manifest.Digest.String(),
-			Header: map[string]string{
-				"Authorization":     "Bearer " + token,
-				"Content-Type":      image.Manifest.MediaType,
-				"X-Forwarded-Host":  "test1.registry.example.org",
-				"X-Forwarded-Proto": "https",
-			},
+			Header: test.FlattenHeaders(tokenHeaders, map[string]string{
+				"Content-Type": image.Manifest.MediaType,
+			}),
 			Body:         assert.ByteData(image.Manifest.Contents),
 			ExpectStatus: http.StatusCreated,
 			ExpectHeader: test.VersionHeader,
@@ -125,13 +111,9 @@ func TestManifestAPIDomainRemap(t *testing.T) {
 
 		// test download
 		assert.HTTPRequest{
-			Method: "GET",
-			Path:   "/v2/foo/manifests/" + image.Manifest.Digest.String(),
-			Header: map[string]string{
-				"Authorization":     "Bearer " + token,
-				"X-Forwarded-Host":  "test1.registry.example.org",
-				"X-Forwarded-Proto": "https",
-			},
+			Method:       "GET",
+			Path:         "/v2/foo/manifests/" + image.Manifest.Digest.String(),
+			Header:       test.FlattenHeaders(tokenHeaders),
 			ExpectStatus: http.StatusOK,
 			ExpectBody:   assert.ByteData(image.Manifest.Contents),
 			ExpectHeader: map[string]string{

@@ -45,12 +45,12 @@ func testEmptyCatalog(t *testing.T, s test.Setup) {
 	// token without any account-level permissions is able to call the endpoint,
 	// but cannot list repos in any account, so the list is empty
 	h := s.Handler
-	token := s.GetToken(t, "registry:catalog:*")
+	tokenHeaders := s.GetTokenHeaders(t, "registry:catalog:*")
 
 	req := assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/_catalog",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
+		Header:       test.FlattenHeaders(tokenHeaders),
 		ExpectStatus: http.StatusOK,
 		ExpectHeader: test.VersionHeader,
 		ExpectBody: assert.JSONObject{
@@ -68,7 +68,7 @@ func testEmptyCatalog(t *testing.T, s test.Setup) {
 
 func testNonEmptyCatalog(t *testing.T, s test.Setup) {
 	h := s.Handler
-	token := s.GetToken(t,
+	tokenHeaders := s.GetTokenHeaders(t,
 		"registry:catalog:*",
 		"keppel_account:test1:view",
 		"keppel_account:test2:view",
@@ -91,7 +91,7 @@ func testNonEmptyCatalog(t *testing.T, s test.Setup) {
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/_catalog",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
+		Header:       test.FlattenHeaders(tokenHeaders),
 		ExpectStatus: http.StatusOK,
 		ExpectHeader: test.VersionHeader,
 		ExpectBody:   assert.JSONObject{"repositories": allRepos},
@@ -122,7 +122,7 @@ func testNonEmptyCatalog(t *testing.T, s test.Setup) {
 			assert.HTTPRequest{
 				Method:       "GET",
 				Path:         path,
-				Header:       map[string]string{"Authorization": "Bearer " + token},
+				Header:       test.FlattenHeaders(tokenHeaders),
 				ExpectStatus: http.StatusOK,
 				ExpectHeader: expectedHeaders,
 				ExpectBody:   assert.JSONObject{"repositories": expectedPage},
@@ -134,7 +134,7 @@ func testNonEmptyCatalog(t *testing.T, s test.Setup) {
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/_catalog?n=-1",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
+		Header:       test.FlattenHeaders(tokenHeaders),
 		ExpectStatus: http.StatusBadRequest,
 		ExpectHeader: test.VersionHeader,
 		ExpectBody:   assert.StringData("invalid value for \"n\": strconv.ParseUint: parsing \"-1\": invalid syntax\n"),
@@ -142,7 +142,7 @@ func testNonEmptyCatalog(t *testing.T, s test.Setup) {
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/_catalog?n=0",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
+		Header:       test.FlattenHeaders(tokenHeaders),
 		ExpectStatus: http.StatusBadRequest,
 		ExpectHeader: test.VersionHeader,
 		ExpectBody:   assert.StringData("invalid value for \"n\": must not be 0\n"),
@@ -150,7 +150,7 @@ func testNonEmptyCatalog(t *testing.T, s test.Setup) {
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/_catalog?n=10&last=invalid",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
+		Header:       test.FlattenHeaders(tokenHeaders),
 		ExpectStatus: http.StatusBadRequest,
 		ExpectHeader: test.VersionHeader,
 		ExpectBody:   assert.StringData("invalid value for \"last\": must contain a slash\n"),
@@ -159,20 +159,16 @@ func testNonEmptyCatalog(t *testing.T, s test.Setup) {
 
 func testDomainRemappedCatalog(t *testing.T, s test.Setup) {
 	h := s.Handler
-	token := s.GetDomainRemappedToken(t, "test1",
+	tokenHeaders := s.GetDomainRemappedTokenHeaders(t, "test1",
 		"registry:catalog:*",
 		"keppel_account:test1:view",
 	)
 
 	// test unpaginated
 	assert.HTTPRequest{
-		Method: "GET",
-		Path:   "/v2/_catalog",
-		Header: map[string]string{
-			"Authorization":     "Bearer " + token,
-			"X-Forwarded-Host":  "test1.registry.example.org",
-			"X-Forwarded-Proto": "https",
-		},
+		Method:       "GET",
+		Path:         "/v2/_catalog",
+		Header:       test.FlattenHeaders(tokenHeaders),
 		ExpectStatus: http.StatusOK,
 		ExpectHeader: test.VersionHeader,
 		ExpectBody:   assert.JSONObject{"repositories": []string{"bar", "foo", "qux"}},
@@ -182,13 +178,9 @@ func testDomainRemappedCatalog(t *testing.T, s test.Setup) {
 	// coverage in testNonEmptyCatalog, this mostly checks that the "last"
 	// parameter is correctly interpreted as a bare repo name)
 	assert.HTTPRequest{
-		Method: "GET",
-		Path:   "/v2/_catalog?last=foo",
-		Header: map[string]string{
-			"Authorization":     "Bearer " + token,
-			"X-Forwarded-Host":  "test1.registry.example.org",
-			"X-Forwarded-Proto": "https",
-		},
+		Method:       "GET",
+		Path:         "/v2/_catalog?last=foo",
+		Header:       test.FlattenHeaders(tokenHeaders),
 		ExpectStatus: http.StatusOK,
 		ExpectHeader: test.VersionHeader,
 		ExpectBody:   assert.JSONObject{"repositories": []string{"qux"}},
@@ -211,11 +203,11 @@ func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
 	}.Check(t, h)
 
 	// with token for wrong scope, expect Forbidden and renewed auth challenge
-	token := s.GetToken(t, "repository:test1/foo:pull")
+	tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull")
 	assert.HTTPRequest{
 		Method:       "GET",
 		Path:         "/v2/_catalog",
-		Header:       map[string]string{"Authorization": "Bearer " + token},
+		Header:       test.FlattenHeaders(tokenHeaders),
 		ExpectStatus: http.StatusUnauthorized,
 		ExpectHeader: map[string]string{
 			test.VersionHeaderKey: test.VersionHeaderValue,
@@ -246,15 +238,11 @@ func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
 }
 
 func testNoCatalogOnAnycast(t *testing.T, s test.Setup) {
-	token := s.GetAnycastToken(t, "registry:catalog:*")
+	tokenHeaders := s.GetAnycastTokenHeaders(t, "registry:catalog:*")
 	assert.HTTPRequest{
-		Method: "GET",
-		Path:   "/v2/_catalog",
-		Header: map[string]string{
-			"Authorization":     "Bearer " + token,
-			"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
-			"X-Forwarded-Proto": "https",
-		},
+		Method:       "GET",
+		Path:         "/v2/_catalog",
+		Header:       test.FlattenHeaders(tokenHeaders),
 		ExpectStatus: http.StatusMethodNotAllowed,
 		ExpectHeader: test.VersionHeader,
 		ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
