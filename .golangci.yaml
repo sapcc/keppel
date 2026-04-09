@@ -137,6 +137,8 @@ linters:
         - github.com/mdlayher/arp
         # for github.com/sapcc/vpa_butler
         - k8s.io/client-go
+        # for github.com/sapcc/keppel et al
+        - github.com/go-gorp/gorp/v3
       toolchain-forbidden: true
       go-version-pattern: 1\.\d+(\.0)?$
     gosec:
