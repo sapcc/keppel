@@ -48,7 +48,7 @@ func TestReposAPI(t *testing.T) {
 	}
 
 	// insert some dummy blobs and blob mounts into one of the repos to check the blob size statistics
-	filledRepo := models.Repository{ID: 5} // repo1-3
+	filledRepo := models.ReducedRepository{ID: 5} // repo1-3
 	for idx := 1; idx <= 10; idx++ {
 		dummyDigest := test.DeterministicDummyDigest(1000 + idx)
 		blobPushedAt := time.Unix(int64(1000+10*idx), 0)

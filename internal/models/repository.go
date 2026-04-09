@@ -23,3 +23,28 @@ type Repository struct {
 func (r Repository) FullName() string {
 	return string(r.AccountName) + `/` + r.Name
 }
+
+// Reduced converts a Repository into a ReducedRepository.
+func (r Repository) Reduced() ReducedRepository {
+	return ReducedRepository{
+		ID:          r.ID,
+		AccountName: r.AccountName,
+		Name:        r.Name,
+	}
+}
+
+// ReducedRepository contains just the fields from type Repository that the Registry API is most interested in.
+// This type exists to avoid loading non-essential DB fields when we don't need to,
+// which is a memory optimization for the keppel-api process.
+type ReducedRepository struct {
+	ID          int64
+	AccountName AccountName
+	Name        string
+
+	// NOTE: When adding or removing fields, always adjust Repository.Reduced() and keppel.FindReducedRepository() too!
+}
+
+// FullName prepends the account name to the repository name.
+func (r ReducedRepository) FullName() string {
+	return string(r.AccountName) + `/` + r.Name
+}

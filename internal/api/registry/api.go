@@ -186,7 +186,7 @@ func (info anycastRequestInfo) asPrometheusLabels() prometheus.Labels {
 // If the account does not exist locally, but the request is for the anycast API
 // and the account exists elsewhere, the `anycastHandler` is invoked if given
 // instead of giving a 404 response.
-func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy, anycastHandler func(http.ResponseWriter, *http.Request, anycastRequestInfo)) (*models.ReducedAccount, *models.Repository, *auth.Authorization, *auth.Challenge) {
+func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy, anycastHandler func(http.ResponseWriter, *http.Request, anycastRequestInfo)) (*models.ReducedAccount, *models.ReducedRepository, *auth.Authorization, *auth.Challenge) {
 	// must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 
@@ -272,13 +272,13 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		canCreateRepoIfMissing = account.UpstreamPeerHostName != "" || (account.ExternalPeerURL != "" && (authz.UserIdentity.UserType() == keppel.RegularUser || canFirstPull))
 	}
 
-	var repo *models.Repository
+	var repo models.ReducedRepository
 	if canCreateRepoIfMissing {
-		repo, err = keppel.FindOrCreateRepository(a.db, repoScope.RepositoryName, account.Name)
+		repo, err = keppel.FindOrCreateReducedRepository(a.db, repoScope.RepositoryName, account.Name)
 	} else {
-		repo, err = keppel.FindRepository(a.db, repoScope.RepositoryName, account.Name)
+		repo, err = keppel.FindReducedRepository(a.db, repoScope.RepositoryName, account.Name)
 	}
-	if errors.Is(err, sql.ErrNoRows) || repo == nil {
+	if errors.Is(err, sql.ErrNoRows) {
 		if canFirstPull {
 			keppel.ErrNameUnknown.With("repository does not exist here, and anonymous users may not create new repositories").WriteAsRegistryV2ResponseTo(w, r)
 		} else {
@@ -289,11 +289,11 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		return nil, nil, nil, nil
 	}
 
-	return account, repo, authz, challenge
+	return account, &repo, authz, challenge
 }
 
 // Returns the repository name as it appears in URL paths for this API.
-func getRepoNameForURLPath(repo models.Repository, authz *auth.Authorization) string {
+func getRepoNameForURLPath(repo models.ReducedRepository, authz *auth.Authorization) string {
 	// on the regular API, the URL path includes the account name
 	if authz.Audience.AccountName == "" {
 		return repo.FullName()

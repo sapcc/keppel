@@ -85,7 +85,7 @@ func FindBlobByRepositoryName(db gorp.SqlExecutor, blobDigest digest.Digest, rep
 
 // FindBlobByRepository is a convenience wrapper around db.SelectOne(). If
 // the blob in question does not exist, sql.ErrNoRows is returned.
-func FindBlobByRepository(db gorp.SqlExecutor, blobDigest digest.Digest, repo models.Repository) (*models.Blob, error) {
+func FindBlobByRepository(db gorp.SqlExecutor, blobDigest digest.Digest, repo models.ReducedRepository) (*models.Blob, error) {
 	var blob models.Blob
 	err := db.SelectOne(&blob, blobGetQueryByRepoID, repo.AccountName, blobDigest.String(), repo.ID)
 	return &blob, err
@@ -100,7 +100,7 @@ func FindBlobByAccountName(db gorp.SqlExecutor, blobDigest digest.Digest, accoun
 }
 
 // MountBlobIntoRepo creates an entry in the blob_mounts database table.
-func MountBlobIntoRepo(db gorp.SqlExecutor, blob models.Blob, repo models.Repository) error {
+func MountBlobIntoRepo(db gorp.SqlExecutor, blob models.Blob, repo models.ReducedRepository) error {
 	_, err := db.Exec(
 		`INSERT INTO blob_mounts (blob_id, repo_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
 		blob.ID, repo.ID,
@@ -114,7 +114,7 @@ var uploadGetQueryByRepoID = sqlext.SimplifyWhitespace(`
 
 // FindUploadByRepository is a convenience wrapper around db.SelectOne(). If
 // the upload in question does not exist, sql.ErrNoRows is returned.
-func FindUploadByRepository(db gorp.SqlExecutor, uuid string, repo models.Repository) (*models.Upload, error) {
+func FindUploadByRepository(db gorp.SqlExecutor, uuid string, repo models.ReducedRepository) (*models.Upload, error) {
 	var upload models.Upload
 	err := db.SelectOne(&upload, uploadGetQueryByRepoID, uuid, repo.ID)
 	return &upload, err
@@ -122,7 +122,7 @@ func FindUploadByRepository(db gorp.SqlExecutor, uuid string, repo models.Reposi
 
 // FindManifest is a convenience wrapper around db.SelectOne(). If the
 // manifest in question does not exist, sql.ErrNoRows is returned.
-func FindManifest(db gorp.SqlExecutor, repo models.Repository, manifestDigest digest.Digest) (*models.Manifest, error) {
+func FindManifest(db gorp.SqlExecutor, repo models.ReducedRepository, manifestDigest digest.Digest) (*models.Manifest, error) {
 	var manifest models.Manifest
 	err := db.SelectOne(&manifest,
 		"SELECT * FROM manifests WHERE repo_id = $1 AND digest = $2", repo.ID, manifestDigest)
@@ -201,6 +201,31 @@ func FindRepository(db gorp.SqlExecutor, name string, accountName models.Account
 	err := db.SelectOne(&repo,
 		"SELECT * FROM repos WHERE account_name = $1 AND name = $2", accountName, name)
 	return &repo, err
+}
+
+// FindOrCreateReducedRepository is like [FindOrCreateRepository], but is faster because it returns a ReducedRepository.
+func FindOrCreateReducedRepository(db gorp.SqlExecutor, name string, accountName models.AccountName) (models.ReducedRepository, error) {
+	repo, err := FindReducedRepository(db, name, accountName)
+	if errors.Is(err, sql.ErrNoRows) {
+		fullRepo := models.Repository{
+			Name:        name,
+			AccountName: accountName,
+		}
+		err = db.Insert(&fullRepo)
+		repo = fullRepo.Reduced()
+	}
+	return repo, err
+}
+
+// FindReducedRepository is like [FindRepository], but is faster because it returns a ReducedRepository.
+func FindReducedRepository(db gorp.SqlExecutor, name string, accountName models.AccountName) (models.ReducedRepository, error) {
+	var id int64
+	err := db.QueryRow("SELECT id FROM repos WHERE account_name = $1 AND name = $2", accountName, name).Scan(&id)
+	return models.ReducedRepository{
+		ID:          id,
+		Name:        name,
+		AccountName: accountName,
+	}, err
 }
 
 // FindRepositoryByID is a convenience wrapper around db.SelectOne(). If the

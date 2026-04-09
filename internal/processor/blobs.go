@@ -117,7 +117,7 @@ var (
 // our local registry. The result value `responseWasWritten` indicates whether
 // this happened. It may be false if an error occurred before writing into the
 // ResponseWriter took place.
-func (p *Processor) ReplicateBlob(ctx context.Context, blob models.Blob, account models.ReducedAccount, repo models.Repository, w http.ResponseWriter) (responseWasWritten bool, returnErr error) {
+func (p *Processor) ReplicateBlob(ctx context.Context, blob models.Blob, account models.ReducedAccount, repo models.ReducedRepository, w http.ResponseWriter) (responseWasWritten bool, returnErr error) {
 	// mark this blob as currently being replicated
 	pendingBlob := models.PendingBlob{
 		AccountName:  account.Name,

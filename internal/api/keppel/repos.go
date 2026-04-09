@@ -178,7 +178,7 @@ func (a *API) deleteAllManifestsInRepository(r *http.Request, authz *auth.Author
 				return fmt.Errorf("while deleting manifest %q in repository %q: could not parse digest: %w", digestStr, repo.Name, err)
 			}
 
-			err = a.processor().DeleteManifest(r.Context(), account, *repo, parsedDigest, tagPolicies, keppel.AuditContext{
+			err = a.processor().DeleteManifest(r.Context(), account, repo.Reduced(), parsedDigest, tagPolicies, keppel.AuditContext{
 				UserIdentity: authz.UserIdentity,
 				Request:      r,
 			})

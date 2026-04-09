@@ -123,7 +123,7 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 			if err != nil {
 				return err
 			}
-			err = j.processor().DeleteManifest(ctx, accountReduced, *repo, parsedDigest, tagPolicies, actx)
+			err = j.processor().DeleteManifest(ctx, accountReduced, repo.Reduced(), parsedDigest, tagPolicies, actx)
 			if err != nil {
 				return fmt.Errorf("while deleting manifest %q in repository %q: %w", digestStr, repoName, err)
 			}
