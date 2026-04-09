@@ -125,7 +125,7 @@ func (p *Processor) checkQuotaForManifestPush(account models.ReducedAccount) err
 
 // Takes a repo in a replica account and returns a RepoClient for accessing its
 // the upstream repo in the corresponding primary account.
-func (p *Processor) getRepoClientForUpstream(account models.ReducedAccount, repo models.Repository) (*client.RepoClient, error) {
+func (p *Processor) getRepoClientForUpstream(account models.ReducedAccount, repo models.ReducedRepository) (*client.RepoClient, error) {
 	// use cached client if possible (this one probably already contains a valid
 	// pull token)
 	if c, ok := p.repoClients[repo.FullName()]; ok {

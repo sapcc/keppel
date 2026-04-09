@@ -250,7 +250,7 @@ func (j *Janitor) evaluatePolicy(ctx context.Context, proc *processor.Processor,
 		case "protect":
 			m.GCStatus.ProtectedByGCPolicy = Some(gcPolicy)
 		case "delete":
-			err := proc.DeleteManifest(ctx, account, repo, m.Manifest.Digest, tagPolicies, keppel.AuditContext{
+			err := proc.DeleteManifest(ctx, account, repo.Reduced(), m.Manifest.Digest, tagPolicies, keppel.AuditContext{
 				UserIdentity: janitorUserIdentity{
 					TaskName: "policy-driven-gc",
 					GCPolicy: Some(gcPolicy),

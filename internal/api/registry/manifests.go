@@ -222,7 +222,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *API) findManifestInDB(repo models.Repository, reference models.ManifestReference) (*models.Manifest, error) {
+func (a *API) findManifestInDB(repo models.ReducedRepository, reference models.ManifestReference) (*models.Manifest, error) {
 	// resolve tag into digest if necessary
 	refDigest := reference.Digest
 	if reference.IsTag() {

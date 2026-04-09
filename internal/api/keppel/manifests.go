@@ -220,7 +220,7 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.processor().DeleteManifest(r.Context(), account.Reduced(), *repo, parsedDigest, tagPolicies, keppel.AuditContext{
+	err = a.processor().DeleteManifest(r.Context(), account.Reduced(), repo.Reduced(), parsedDigest, tagPolicies, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
@@ -256,7 +256,7 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.processor().DeleteTag(account.Reduced(), *repo, tagName, tagPolicies, keppel.AuditContext{
+	err = a.processor().DeleteTag(account.Reduced(), repo.Reduced(), tagName, tagPolicies, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
@@ -302,7 +302,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	manifest, err := keppel.FindManifest(a.db, *repo, parsedDigest)
+	manifest, err := keppel.FindManifest(a.db, repo.Reduced(), parsedDigest)
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return

@@ -149,7 +149,7 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (a *API) performCrossRepositoryBlobMount(account models.ReducedAccount, targetRepo models.Repository, authz *auth.Authorization, sourceRepoFullName, blobDigestStr string) (http.Header, error) {
+func (a *API) performCrossRepositoryBlobMount(account models.ReducedAccount, targetRepo models.ReducedRepository, authz *auth.Authorization, sourceRepoFullName, blobDigestStr string) (http.Header, error) {
 	// validate source repository
 	sourceRepoName, ok := strings.CutPrefix(sourceRepoFullName, string(account.Name)+"/")
 	if !ok {
@@ -168,7 +168,7 @@ func (a *API) performCrossRepositoryBlobMount(account models.ReducedAccount, tar
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse digest %q: %w", blobDigestStr, err)
 	}
-	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, *sourceRepo)
+	blob, err := keppel.FindBlobByRepository(a.db, blobDigest, sourceRepo.Reduced())
 	if err != nil {
 		return nil, fmt.Errorf("while finding source blob: %w", err)
 	}
@@ -191,7 +191,7 @@ func (a *API) performCrossRepositoryBlobMount(account models.ReducedAccount, tar
 	return hdr, nil
 }
 
-func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, account models.ReducedAccount, repo models.Repository, authz *auth.Authorization, blobDigestStr string) (ok bool) {
+func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, account models.ReducedAccount, repo models.ReducedRepository, authz *auth.Authorization, blobDigestStr string) (ok bool) {
 	blobDigest, err := digest.Parse(blobDigestStr)
 	if err != nil {
 		keppel.ErrDigestInvalid.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
@@ -494,7 +494,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (a *API) findUpload(w http.ResponseWriter, r *http.Request, repo models.Repository) *models.Upload {
+func (a *API) findUpload(w http.ResponseWriter, r *http.Request, repo models.ReducedRepository) *models.Upload {
 	uploadUUID := mux.Vars(r)["uuid"]
 
 	upload, err := keppel.FindUploadByRepository(a.db, uploadUUID, repo)
@@ -660,7 +660,7 @@ func (a *API) streamIntoUpload(ctx context.Context, account models.ReducedAccoun
 	return base64.URLEncoding.EncodeToString(digestStateBytes), nil
 }
 
-func (a *API) createBlobFromUpload(ctx context.Context, account models.ReducedAccount, repo models.Repository, upload models.Upload, blobDigestStr string) (blob *models.Blob, returnErr error) {
+func (a *API) createBlobFromUpload(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, upload models.Upload, blobDigestStr string) (blob *models.Blob, returnErr error) {
 	// validate the digest provided by the user
 	if blobDigestStr == "" {
 		return nil, keppel.ErrDigestInvalid.With("missing digest")

@@ -55,7 +55,7 @@ var checkTagExistsAtSameDigestQuery = sqlext.SimplifyWhitespace(`
 // ValidateAndStoreManifest validates the given manifest and stores it under the
 // given reference. If the reference is a digest, it is validated. Otherwise, a
 // tag with that name is created that points to the new manifest.
-func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models.ReducedAccount, repo models.Repository, m IncomingManifest, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) (*models.Manifest, error) {
+func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, m IncomingManifest, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) (*models.Manifest, error) {
 	// check if the objects we want to create already exist in the database; this
 	// check is not 100% reliable since it does not run in the same transaction as
 	// the actual upsert, so results should be taken with a grain of salt; but the
@@ -177,7 +177,7 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 }
 
 // ValidateExistingManifest validates the given manifest that already exists in the DB.
-func (p *Processor) ValidateExistingManifest(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifest *models.Manifest) error {
+func (p *Processor) ValidateExistingManifest(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, manifest *models.Manifest) error {
 	manifestBytes, err := p.sd.ReadManifest(ctx, account, repo.Name, manifest.Digest)
 	if err != nil {
 		return err
@@ -193,7 +193,7 @@ type validateAndStoreManifestOpts struct {
 	ActionBeforeCommit func(*gorp.Transaction) error
 }
 
-func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifest *models.Manifest, manifestBytes BytesWithDigest, opts validateAndStoreManifestOpts) error {
+func (p *Processor) validateAndStoreManifestCommon(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, manifest *models.Manifest, manifestBytes BytesWithDigest, opts validateAndStoreManifestOpts) error {
 	// parse manifest
 	manifestParsed, err := keppel.ParseManifest(manifest.MediaType, manifestBytes.Bytes())
 	if err != nil {
@@ -344,7 +344,7 @@ type manifestRefsInfo struct {
 	SumChildSizes   uint64
 }
 
-func findManifestReferencedObjects(tx *gorp.Transaction, account models.ReducedAccount, repo models.Repository, manifest keppel.ParsedManifest) (result manifestRefsInfo, err error) {
+func findManifestReferencedObjects(tx *gorp.Transaction, account models.ReducedAccount, repo models.ReducedRepository, manifest keppel.ParsedManifest) (result manifestRefsInfo, err error) {
 	// ensure that we don't insert duplicate entries into `blobRefs` and `manifestDigests`
 	wasHandled := make(map[digest.Digest]bool)
 
@@ -697,7 +697,7 @@ func (e UpstreamManifestMissingError) Error() string {
 
 // ReplicateManifest replicates the manifest from its account's upstream registry.
 // On success, the manifest's metadata and contents are returned.
-func (p *Processor) ReplicateManifest(ctx context.Context, account models.ReducedAccount, repo models.Repository, reference models.ManifestReference, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) (*models.Manifest, []byte, error) {
+func (p *Processor) ReplicateManifest(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, reference models.ManifestReference, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) (*models.Manifest, []byte, error) {
 	manifestBytes, manifestMediaType, err := p.downloadManifestViaInboundCache(ctx, account, repo, reference)
 	if err != nil {
 		if errorIsManifestNotFound(err) {
@@ -768,7 +768,7 @@ func (p *Processor) ReplicateManifest(ctx context.Context, account models.Reduce
 // CheckManifestOnPrimary checks if the given manifest exists on its account's
 // upstream registry. If not, false is returned, An error is returned only if
 // the account is not a replica, or if the upstream registry cannot be queried.
-func (p *Processor) CheckManifestOnPrimary(ctx context.Context, account models.ReducedAccount, repo models.Repository, reference models.ManifestReference) (bool, error) {
+func (p *Processor) CheckManifestOnPrimary(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, reference models.ManifestReference) (bool, error) {
 	_, _, err := p.downloadManifestViaInboundCache(ctx, account, repo, reference)
 	if err != nil {
 		if errorIsManifestNotFound(err) {
@@ -799,7 +799,7 @@ func errorIsUpstreamRateLimit(err error) bool {
 
 // Downloads a manifest from an account's upstream using
 // RepoClient.DownloadManifest(), but also takes into account the inbound cache.
-func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account models.ReducedAccount, repo models.Repository, ref models.ManifestReference) (manifestBytes []byte, manifestMediaType string, err error) {
+func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, ref models.ManifestReference) (manifestBytes []byte, manifestMediaType string, err error) {
 	c, err := p.getRepoClientForUpstream(account, repo)
 	if err != nil {
 		return nil, "", err
@@ -892,7 +892,7 @@ func (e DeleteManifestBlockedByTagPolicyError) Error() string {
 // backing storage.
 //
 // If the manifest does not exist, sql.ErrNoRows is returned.
-func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifestDigest digest.Digest, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) error {
+func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, manifestDigest digest.Digest, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) error {
 	var (
 		tagResults []models.Tag
 		tags       []string
@@ -991,7 +991,7 @@ func (p *Processor) DeleteManifest(ctx context.Context, account models.ReducedAc
 
 // DeleteTag deletes the given tag from the database. The manifest is not deleted.
 // If the tag does not exist, sql.ErrNoRows is returned.
-func (p *Processor) DeleteTag(account models.ReducedAccount, repo models.Repository, tagName string, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) error {
+func (p *Processor) DeleteTag(account models.ReducedAccount, repo models.ReducedRepository, tagName string, tagPolicies []keppel.TagPolicy, actx keppel.AuditContext) error {
 	for _, tagPolicy := range tagPolicies {
 		if tagPolicy.BlockDelete && tagPolicy.MatchesRepository(repo.Name) && tagPolicy.MatchesTags([]string{tagName}) {
 			return keppel.ErrDenied.With("cannot delete tag as it is protected by a tag_policy").WithStatus(http.StatusConflict)
@@ -1035,7 +1035,7 @@ func (p *Processor) DeleteTag(account models.ReducedAccount, repo models.Reposit
 // auditManifest is an audittools.Target.
 type auditManifest struct {
 	Account    models.ReducedAccount
-	Repository models.Repository
+	Repository models.ReducedRepository
 	Digest     digest.Digest
 	Tags       []string
 }
@@ -1065,7 +1065,7 @@ func (a auditManifest) Render() cadf.Resource {
 // auditTag is an audittools.Target.
 type auditTag struct {
 	Account    models.ReducedAccount
-	Repository models.Repository
+	Repository models.ReducedRepository
 	Digest     digest.Digest
 	TagName    string
 }

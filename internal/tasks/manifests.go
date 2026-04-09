@@ -94,7 +94,7 @@ func (j *Janitor) validateManifest(ctx context.Context, manifest models.Manifest
 	manifest.ValidationErrorMessage = ""
 
 	// perform validation
-	err = j.processor().ValidateExistingManifest(ctx, *account, repo, &manifest)
+	err = j.processor().ValidateExistingManifest(ctx, *account, repo.Reduced(), &manifest)
 	if err != nil {
 		// on failure, log error message and schedule next validation sooner than usual
 		_, updateErr := j.db.Exec(validateManifestFinishQuery,
@@ -312,7 +312,7 @@ TAG:
 		// different manifest, replicate that manifest; all of that boils down to
 		// just a ReplicateManifest() call
 		ref := models.ManifestReference{Tag: tag.Name}
-		_, _, err := p.ReplicateManifest(ctx, account, repo, ref, tagPolicies, keppel.AuditContext{
+		_, _, err := p.ReplicateManifest(ctx, account, repo.Reduced(), ref, tagPolicies, keppel.AuditContext{
 			UserIdentity: janitorUserIdentity{TaskName: "tag-sync"},
 			Request:      janitorDummyRequest,
 		})
@@ -364,7 +364,7 @@ func (j *Janitor) performManifestSync(ctx context.Context, account models.Reduce
 
 		// when querying an external registry, we have to check each manifest one-by-one
 		ref := models.ManifestReference{Digest: manifest.Digest}
-		exists, err := p.CheckManifestOnPrimary(ctx, account, repo, ref)
+		exists, err := p.CheckManifestOnPrimary(ctx, account, repo.Reduced(), ref)
 		if err != nil {
 			return fmt.Errorf("cannot check existence of manifest %s on primary account: %w", manifest.Digest, err)
 		}
@@ -413,7 +413,7 @@ func (j *Janitor) performManifestSync(ctx context.Context, account models.Reduce
 			}
 
 			// no manifests left that reference this one - we can delete it
-			err := j.processor().DeleteManifest(ctx, account, repo, digestToBeDeleted, tagPolicies, keppel.AuditContext{
+			err := j.processor().DeleteManifest(ctx, account, repo.Reduced(), digestToBeDeleted, tagPolicies, keppel.AuditContext{
 				UserIdentity: janitorUserIdentity{TaskName: "manifest-sync"},
 				Request:      janitorDummyRequest,
 			})
@@ -631,7 +631,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 	if err != nil {
 		return fmt.Errorf("cannot find account for repo %s: %w", repo.FullName(), err)
 	}
-	manifest, err := keppel.FindManifest(j.db, *repo, securityInfo.Digest)
+	manifest, err := keppel.FindManifest(j.db, repo.Reduced(), securityInfo.Digest)
 	if err != nil {
 		return fmt.Errorf("cannot find manifest for repo %s and digest %s: %w", repo.FullName(), securityInfo.Digest, err)
 	}
@@ -816,7 +816,7 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 				return false, layerBlobs, nil
 			}
 			// otherwise we do the replication ourselves
-			_, err := j.processor().ReplicateBlob(ctx, blob, account, repo, nil)
+			_, err := j.processor().ReplicateBlob(ctx, blob, account, repo.Reduced(), nil)
 			if err != nil {
 				return false, layerBlobs, err
 			}
