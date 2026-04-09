@@ -45,16 +45,20 @@ func (ss *ScopeSet) Add(s Scope) {
 	*ss = append(*ss, &s)
 }
 
-func mergeAndDedupActions(lhs, rhs []string) (result []string) {
-	seen := make(map[string]bool)
-	for _, elem := range append(lhs, rhs...) {
+func mergeAndDedupActions(lhs, rhs []string) []string {
+	seen := make(map[string]bool, len(lhs))
+	for _, elem := range lhs {
+		seen[elem] = true
+	}
+
+	for _, elem := range rhs {
 		if seen[elem] {
 			continue
 		}
-		result = append(result, elem)
+		lhs = append(lhs, elem)
 		seen[elem] = true
 	}
-	return
+	return lhs
 }
 
 // Flatten returns the scope set as a plain list of scopes.
