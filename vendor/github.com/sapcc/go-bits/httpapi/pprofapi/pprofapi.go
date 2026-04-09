@@ -12,13 +12,11 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
-	"strconv"
 
 	"github.com/gorilla/mux"
 
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httpext"
-	"github.com/sapcc/go-bits/logg"
 )
 
 // API is a httpapi.API wrapping net/http/pprof. Unlike the default facility in
@@ -66,29 +64,18 @@ func (a API) handler(w http.ResponseWriter, r *http.Request) {
 		// copy the binary file out, or to unpack the image, but since we already
 		// obtain the pprof file via HTTP, it's more convenient to obtain the binary
 		// over the same mechanism.
-		dumpOwnExecutable(w)
+		dumpOwnExecutable(w, r)
 	}
 }
 
-func dumpOwnExecutable(w http.ResponseWriter) {
+func dumpOwnExecutable(w http.ResponseWriter, r *http.Request) {
 	path, err := os.Executable()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	buf, err := os.ReadFile(path)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Length", strconv.Itoa(len(buf)))
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(buf)
-	if err != nil {
-		logg.Error("while writing response body during GET /debug/pprof/exe: %s", err.Error())
-	}
+	http.ServeFile(w, r, path)
 }
 
 // IsRequestFromLocalhost checks whether the given request originates from
