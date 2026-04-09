@@ -40,7 +40,7 @@ func TestRateLimits(t *testing.T) {
 		_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
 
 		h := s.Handler
-		token := s.GetToken(t, "repository:test1/foo:pull,push")
+		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
 		bogusDigest := test.DeterministicDummyDigest(1).String()
 
 		// prepare some test requests that should be affected by rate limiting
@@ -50,7 +50,7 @@ func TestRateLimits(t *testing.T) {
 			{
 				Method:       "GET",
 				Path:         "/v2/test1/foo/blobs/" + bogusDigest,
-				Header:       map[string]string{"Authorization": "Bearer " + token},
+				Header:       test.FlattenHeaders(tokenHeaders),
 				ExpectStatus: http.StatusNotFound,
 				ExpectHeader: map[string]string{
 					test.VersionHeaderKey: test.VersionHeaderValue,
@@ -61,7 +61,7 @@ func TestRateLimits(t *testing.T) {
 			{
 				Method:       "POST",
 				Path:         "/v2/test1/foo/blobs/uploads/",
-				Header:       map[string]string{"Authorization": "Bearer " + token},
+				Header:       test.FlattenHeaders(tokenHeaders),
 				ExpectStatus: http.StatusAccepted,
 				ExpectHeader: map[string]string{
 					test.VersionHeaderKey: test.VersionHeaderValue,
@@ -71,7 +71,7 @@ func TestRateLimits(t *testing.T) {
 			{
 				Method:       "GET",
 				Path:         "/v2/test1/foo/manifests/" + bogusDigest,
-				Header:       map[string]string{"Authorization": "Bearer " + token},
+				Header:       test.FlattenHeaders(tokenHeaders),
 				ExpectStatus: http.StatusNotFound,
 				ExpectHeader: map[string]string{
 					test.VersionHeaderKey: test.VersionHeaderValue,
@@ -82,7 +82,7 @@ func TestRateLimits(t *testing.T) {
 			{
 				Method:       "PUT",
 				Path:         "/v2/test1/foo/manifests/" + bogusDigest,
-				Header:       map[string]string{"Authorization": "Bearer " + token},
+				Header:       test.FlattenHeaders(tokenHeaders),
 				ExpectStatus: http.StatusBadRequest,
 				ExpectHeader: map[string]string{
 					test.VersionHeaderKey: test.VersionHeaderValue,
@@ -170,28 +170,20 @@ func TestAnycastRateLimits(t *testing.T) {
 			h2 := s2.Handler
 			s.Clock.StepBy(time.Hour) // reset all rate limits
 			testAnycast(t, firstPass, s2.DB, func() {
-				anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull")
-				anycastHeaders := map[string]string{
-					"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
-					"X-Forwarded-Proto": "https",
-				}
+				anycastTokenHeaders := s.GetAnycastTokenHeaders(t, "repository:test1/foo:pull")
 
 				// two pulls are allowed by the rate limit (note that these are actually
 				// four requests because each expectBlobExists() does one GET and one
 				// HEAD, but the rate limit only counts GETs since the rate limit is on
 				// the blob contents, which don't get transferred during HEAD)
-				expectBlobExists(t, h2, anycastToken, "test1/foo", blob, anycastHeaders)
-				expectBlobExists(t, h2, anycastToken, "test1/foo", blob, anycastHeaders)
+				expectBlobExists(t, h2, anycastTokenHeaders, "test1/foo", blob)
+				expectBlobExists(t, h2, anycastTokenHeaders, "test1/foo", blob)
 
 				// third pull will be rejected by the rate limit
 				assert.HTTPRequest{
-					Method: "GET",
-					Path:   "/v2/test1/foo/blobs/" + blob.Digest.String(),
-					Header: map[string]string{
-						"Authorization":     "Bearer " + anycastToken,
-						"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
-						"X-Forwarded-Proto": "https",
-					},
+					Method:       "GET",
+					Path:         "/v2/test1/foo/blobs/" + blob.Digest.String(),
+					Header:       test.FlattenHeaders(anycastTokenHeaders),
 					ExpectBody:   test.ErrorCode(keppel.ErrTooManyRequests),
 					ExpectStatus: http.StatusTooManyRequests,
 					ExpectHeader: map[string]string{
@@ -205,7 +197,7 @@ func TestAnycastRateLimits(t *testing.T) {
 				}.Check(t, h2)
 
 				// pull from primary is okay since we don't traverse regions
-				expectBlobExists(t, h, anycastToken, "test1/foo", blob, anycastHeaders)
+				expectBlobExists(t, h, anycastTokenHeaders, "test1/foo", blob)
 			})
 		})
 	})
@@ -234,7 +226,7 @@ func TestRateLimitRounding(t *testing.T) {
 		testRequest := assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/test1/foo/blobs/" + test.DeterministicDummyDigest(1).String(),
-			Header:       map[string]string{"Authorization": "Bearer " + s.GetToken(t, "repository:test1/foo:pull,push")},
+			Header:       test.FlattenHeaders(s.GetTokenHeaders(t, "repository:test1/foo:pull,push")),
 			ExpectStatus: http.StatusNotFound,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey: test.VersionHeaderValue,

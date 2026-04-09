@@ -41,11 +41,11 @@ func TestVersionCheckEndpoint(t *testing.T) {
 		}.Check(t, h)
 
 		// with token, expect status code 200
-		token := s.GetToken(t /*, no scopes */)
+		tokenHeaders := s.GetTokenHeaders(t /*, no scopes */)
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/",
-			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Header:       test.FlattenHeaders(tokenHeaders),
 			ExpectStatus: http.StatusOK,
 			ExpectHeader: test.VersionHeader,
 		}.Check(t, h)
@@ -162,7 +162,7 @@ func TestAPIAuthNotGrantingAnyScopes(t *testing.T) {
 
 		// any endpoint, when provided with a token that does not grant the right scopes,
 		// should respond with 403 (though actually it's 401 for bug-for-bug compatibility with Docker Hub)
-		token := s.GetToken(t /*, no scopes */)
+		tokenHeaders := s.GetTokenHeaders(t /*, no scopes */)
 		deniedMessage := jsonmatch.Object{
 			"errors": []jsonmatch.Object{{
 				"code":    keppel.ErrDenied,
@@ -170,14 +170,14 @@ func TestAPIAuthNotGrantingAnyScopes(t *testing.T) {
 				"detail":  nil,
 			}},
 		}
-		s.Handler.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest", httptest.WithHeader("Authorization", "Bearer "+token)).
+		s.Handler.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest", httptest.WithHeaders(tokenHeaders)).
 			ExpectJSON(t, http.StatusUnauthorized, deniedMessage)
 
 		// same test, but with an anonymous user
 		//
 		// This is the actually interesting part of this test. We had a bug here where this specific
 		// case reported "no bearer token found in request headers" which is objectively untrue.
-		token = must.ReturnT(auth.Authorization{
+		token := must.ReturnT(auth.Authorization{
 			UserIdentity: auth.AnonymousUserIdentity,
 			Audience:     auth.Audience{IsAnycast: false},
 			ScopeSet:     auth.ScopeSet{},

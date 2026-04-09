@@ -20,13 +20,13 @@ import (
 func TestListTags(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		readOnlyToken := s.GetToken(t, "repository:test1/foo:pull")
+		readOnlyTokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull")
 
 		// test tag list for missing repo
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/test1/foo/tags/list",
-			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+			Header:       test.FlattenHeaders(readOnlyTokenHeaders),
 			ExpectStatus: http.StatusNotFound,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrNameUnknown),
@@ -40,7 +40,7 @@ func TestListTags(t *testing.T) {
 		req := assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/test1/foo/tags/list",
-			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+			Header:       test.FlattenHeaders(readOnlyTokenHeaders),
 			ExpectStatus: http.StatusOK,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   assert.JSONObject{"name": "test1/foo", "tags": []string{}},
@@ -74,7 +74,7 @@ func TestListTags(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/test1/foo/tags/list",
-			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+			Header:       test.FlattenHeaders(readOnlyTokenHeaders),
 			ExpectStatus: http.StatusOK,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   assert.JSONObject{"name": "test1/foo", "tags": allTagNames},
@@ -105,7 +105,7 @@ func TestListTags(t *testing.T) {
 				assert.HTTPRequest{
 					Method:       "GET",
 					Path:         path,
-					Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+					Header:       test.FlattenHeaders(readOnlyTokenHeaders),
 					ExpectStatus: http.StatusOK,
 					ExpectHeader: expectedHeaders,
 					ExpectBody:   assert.JSONObject{"name": "test1/foo", "tags": expectedPage},
@@ -117,7 +117,7 @@ func TestListTags(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/test1/foo/tags/list?n=-1",
-			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+			Header:       test.FlattenHeaders(readOnlyTokenHeaders),
 			ExpectStatus: http.StatusBadRequest,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   assert.StringData("invalid value for \"n\": strconv.ParseUint: parsing \"-1\": invalid syntax\n"),
@@ -125,7 +125,7 @@ func TestListTags(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/test1/foo/tags/list?n=0",
-			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+			Header:       test.FlattenHeaders(readOnlyTokenHeaders),
 			ExpectStatus: http.StatusBadRequest,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   assert.StringData("invalid value for \"n\": must not be 0\n"),
@@ -136,15 +136,11 @@ func TestListTags(t *testing.T) {
 			testWithReplica(t, s, "on_first_use", func(firstPass bool, s2 test.Setup) {
 				h2 := s2.Handler
 				testAnycast(t, firstPass, s2.DB, func() {
-					anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull")
+					anycastTokenHeaders := s.GetAnycastTokenHeaders(t, "repository:test1/foo:pull")
 					req := assert.HTTPRequest{
-						Method: "GET",
-						Path:   "/v2/test1/foo/tags/list",
-						Header: map[string]string{
-							"Authorization":     "Bearer " + anycastToken,
-							"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
-							"X-Forwarded-Proto": "https",
-						},
+						Method:       "GET",
+						Path:         "/v2/test1/foo/tags/list",
+						Header:       test.FlattenHeaders(anycastTokenHeaders),
 						ExpectStatus: http.StatusOK,
 						ExpectHeader: test.VersionHeader,
 						ExpectBody:   assert.JSONObject{"name": "test1/foo", "tags": allTagNames},

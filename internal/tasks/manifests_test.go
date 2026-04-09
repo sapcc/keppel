@@ -188,7 +188,7 @@ func TestManifestSyncJob(t *testing.T) {
 			j1, s1 := setup(t)
 			j2, s2 := setupReplica(t, s1, strategy)
 			s1.Clock.StepBy(1 * time.Hour)
-			replicaToken := s2.GetToken(t, "repository:test1/foo:pull")
+			replicaTokenHeaders := s2.GetTokenHeaders(t, "repository:test1/foo:pull")
 			syncManifestsJob1 := j1.ManifestSyncJob(s1.Registry)
 			syncManifestsJob2 := j2.ManifestSyncJob(s2.Registry)
 
@@ -209,7 +209,7 @@ func TestManifestSyncJob(t *testing.T) {
 					assert.HTTPRequest{
 						Method:       "GET",
 						Path:         fmt.Sprintf("/v2/test1/foo/manifests/%s", image.Manifest.Digest),
-						Header:       map[string]string{"Authorization": "Bearer " + replicaToken},
+						Header:       test.FlattenHeaders(replicaTokenHeaders),
 						ExpectStatus: http.StatusOK,
 						ExpectBody:   assert.ByteData(image.Manifest.Contents),
 					}.Check(t, s2.Handler)
@@ -236,7 +236,7 @@ func TestManifestSyncJob(t *testing.T) {
 			assert.HTTPRequest{
 				Method:       "GET",
 				Path:         fmt.Sprintf("/v2/test1/foo/manifests/%s", imageList.Manifest.Digest),
-				Header:       map[string]string{"Authorization": "Bearer " + replicaToken},
+				Header:       test.FlattenHeaders(replicaTokenHeaders),
 				ExpectStatus: http.StatusOK,
 				ExpectBody:   assert.ByteData(imageList.Manifest.Contents),
 			}.Check(t, s2.Handler)

@@ -6,6 +6,7 @@ package test
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"strings"
 	"testing"
@@ -18,29 +19,69 @@ import (
 	"github.com/sapcc/keppel/internal/models"
 )
 
-// GetToken obtains a token for use with the Registry V2 API.
+// FlattenHeaders converts a http.Header into map[string]string.
+// This is a temporary helper function to support old assert.HTTPRequest usage.
+//
+// TODO: when refactoring callsites into httptest.Handler.RespondTo(), convert:
+// - calls without variadic arguments into just `httptest.WithHeaders(hdr)`
+// - calls with variadic arguments into `httptest.WithHeaders(hdr)` plus one `httptest.WithHeader(key, value)` per extra header
+//
+// TODO: remove once refactoring from assert.HTTPRequest to httptest.Handler.RespondTo() is complete
+func FlattenHeaders(hdr http.Header, extraHeaders ...map[string]string) map[string]string {
+	result := make(map[string]string, len(hdr))
+	for k, v := range hdr {
+		if len(v) > 0 {
+			result[k] = v[0]
+		}
+	}
+	for _, extraHeader := range extraHeaders {
+		maps.Copy(result, extraHeader)
+	}
+	return result
+}
+
+// GetTokenHeaders obtains a token for use with the Registry V2 API.
 //
 // `scopes` is a list of token scopes, e.g. "repository:test1/foo:pull".
 // The necessary permissions will be inferred from the given scopes, and a
 // dummy UserIdentity object for the user called "correctusername" will be
 // embedded in the token.
-func (s Setup) GetToken(t *testing.T, scopes ...string) string {
+//
+// The return value contains the `Authorization` header for this token.
+func (s Setup) GetTokenHeaders(t *testing.T, scopes ...string) http.Header {
 	t.Helper()
-	return s.getToken(t, auth.Audience{IsAnycast: false}, scopes...)
+	token := s.getToken(t, auth.Audience{IsAnycast: false}, scopes...)
+	return http.Header{
+		"Authorization": {"Bearer " + token},
+	}
 }
 
-// GetAnycastToken is like GetToken, but instead returns a token for the anycast
-// endpoint.
-func (s Setup) GetAnycastToken(t *testing.T, scopes ...string) string {
+// GetAnycastTokenHeaders is like GetTokenHeaders, but instead returns a token for the anycast endpoint.
+//
+// The return value contains the `Authorization` header for this token,
+// as well as `X-Forwarded-*` headers that select the anycast API.
+func (s Setup) GetAnycastTokenHeaders(t *testing.T, scopes ...string) http.Header {
 	t.Helper()
-	return s.getToken(t, auth.Audience{IsAnycast: true}, scopes...)
+	token := s.getToken(t, auth.Audience{IsAnycast: true}, scopes...)
+	return http.Header{
+		"Authorization":     {"Bearer " + token},
+		"X-Forwarded-Host":  {s.Config.AnycastAPIPublicHostname},
+		"X-Forwarded-Proto": {"https"},
+	}
 }
 
-// GetDomainRemappedToken is like GetToken, but instead returns a token for a
-// domain-remapped API.
-func (s Setup) GetDomainRemappedToken(t *testing.T, accountName models.AccountName, scopes ...string) string {
+// GetDomainRemappedTokenHeaders is like GetTokenHeaders, but instead returns a token for a domain-remapped API.
+//
+// The return value contains the `Authorization` header for this token,
+// as well as `X-Forwarded-*` headers that select the domain-remapped API.
+func (s Setup) GetDomainRemappedTokenHeaders(t *testing.T, accountName models.AccountName, scopes ...string) http.Header {
 	t.Helper()
-	return s.getToken(t, auth.Audience{IsAnycast: false, AccountName: accountName}, scopes...)
+	token := s.getToken(t, auth.Audience{IsAnycast: false, AccountName: accountName}, scopes...)
+	return http.Header{
+		"Authorization":     {"Bearer " + token},
+		"X-Forwarded-Host":  {fmt.Sprintf("%s.%s", accountName, s.Config.APIPublicHostname)},
+		"X-Forwarded-Proto": {"https"},
+	}
 }
 
 func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) string {
@@ -119,18 +160,20 @@ func (s Setup) getToken(t *testing.T, audience auth.Audience, scopes ...string) 
 	return tokenResp.Token
 }
 
-// GetAnonToken obtains an anonymous token for use with the Registry V2 API.
+// GetAnonTokenHeaders obtains an anonymous token for use with the Registry V2 API.
 //
 // `scopes` is a list of token scopes, e.g. "repository:test1/foo:pull".
 // The necessary permissions will be inferred from the given scopes.
-func (s Setup) GetAnonToken(t *testing.T, repo string, scopes []string) string {
+//
+// The return value contains the `Authorization` header for this token.
+func (s Setup) GetAnonTokenHeaders(t *testing.T, repo string, scopes []string) http.Header {
 	t.Helper()
 
 	resp, tokenBodyBytes := assert.HTTPRequest{
 		Method: "GET",
-		Path:   fmt.Sprintf("/keppel/v1/auth?service=registry-secondary.example.org&scope=%s:%s", repo, strings.Join(scopes, ",")),
+		Path:   fmt.Sprintf("/keppel/v1/auth?service=%s&scope=%s:%s", s.Config.APIPublicHostname, repo, strings.Join(scopes, ",")),
 		Header: map[string]string{
-			"X-Forwarded-Host":  "registry-secondary.example.org",
+			"X-Forwarded-Host":  s.Config.APIPublicHostname,
 			"X-Forwarded-Proto": "https",
 		},
 		ExpectStatus: http.StatusOK,
@@ -140,7 +183,10 @@ func (s Setup) GetAnonToken(t *testing.T, repo string, scopes []string) string {
 		Token string `json:"token"`
 	}
 	must.SucceedT(t, json.Unmarshal(tokenBodyBytes, &tokenBodyData))
-	return tokenBodyData.Token
+
+	return http.Header{
+		"Authorization": {"Bearer " + tokenBodyData.Token},
+	}
 }
 
 func (s Setup) findAuthTenantIDForAccountName(accountName models.AccountName) (string, error) {

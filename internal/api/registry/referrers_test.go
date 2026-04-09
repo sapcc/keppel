@@ -17,7 +17,7 @@ import (
 func TestReferrersApi(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		token := s.GetToken(t, "repository:test1/foo:pull,push")
+		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
 
 		image := test.GenerateOCIImage(test.OCIArgs{
 			ConfigMediaType: imgspecv1.MediaTypeImageManifest,
@@ -33,9 +33,7 @@ func TestReferrersApi(t *testing.T) {
 		assert.HTTPRequest{
 			Method: "GET",
 			Path:   "/v2/test1/foo/referrers/" + image.Manifest.Digest.String(),
-			Header: map[string]string{
-				"Authorization": "Bearer " + token,
-			},
+			Header: test.FlattenHeaders(tokenHeaders),
 			ExpectBody: assert.JSONObject{
 				"schemaVersion": 2,
 				"mediaType":     "application/vnd.oci.image.index.v1+json",

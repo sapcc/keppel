@@ -14,8 +14,6 @@ import (
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/must"
 
-	"maps"
-
 	"github.com/sapcc/keppel/internal/drivers/trivial"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
@@ -128,12 +126,12 @@ func testAnycast(t *testing.T, firstPass bool, db2 *keppel.DB, action func()) {
 ////////////////////////////////////////////////////////////////////////////////
 // helpers for setting up test scenarios
 
-func getBlobUpload(t *testing.T, h http.Handler, token, fullRepoName string) (uploadURL, uploadUUID string) {
+func getBlobUpload(t *testing.T, h http.Handler, hdr http.Header, fullRepoName string) (uploadURL, uploadUUID string) {
 	t.Helper()
 	resp, _ := assert.HTTPRequest{
 		Method:       "POST",
 		Path:         fmt.Sprintf("/v2/%s/blobs/uploads/", fullRepoName),
-		Header:       map[string]string{"Authorization": "Bearer " + token},
+		Header:       test.FlattenHeaders(hdr),
 		ExpectStatus: http.StatusAccepted,
 		ExpectHeader: map[string]string{
 			test.VersionHeaderKey: test.VersionHeaderValue,
@@ -145,26 +143,26 @@ func getBlobUpload(t *testing.T, h http.Handler, token, fullRepoName string) (up
 }
 
 //nolint:unparam
-func getBlobUploadURL(t *testing.T, h http.Handler, token, fullRepoName string) string {
+func getBlobUploadURL(t *testing.T, h http.Handler, hdr http.Header, fullRepoName string) string {
 	t.Helper()
-	u, _ := getBlobUpload(t, h, token, fullRepoName)
+	u, _ := getBlobUpload(t, h, hdr, fullRepoName)
 	return u
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // reusable assertions
 
-func expectBlobExists(t *testing.T, h http.Handler, token, fullRepoName string, blob test.Bytes, additionalHeaders map[string]string) {
+func expectBlobExists(t *testing.T, h http.Handler, hdr http.Header, fullRepoName string, blob test.Bytes) {
 	t.Helper()
 	for _, method := range []string{"GET", "HEAD"} {
 		respBody := blob.Contents
 		if method == "HEAD" {
 			respBody = nil
 		}
-		req := assert.HTTPRequest{
+		assert.HTTPRequest{
 			Method:       method,
 			Path:         "/v2/" + fullRepoName + "/blobs/" + blob.Digest.String(),
-			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Header:       test.FlattenHeaders(hdr),
 			ExpectStatus: http.StatusOK,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey:   test.VersionHeaderValue,
@@ -173,14 +171,12 @@ func expectBlobExists(t *testing.T, h http.Handler, token, fullRepoName string, 
 				"Docker-Content-Digest": blob.Digest.String(),
 			},
 			ExpectBody: assert.ByteData(respBody),
-		}
-		maps.Copy(req.Header, additionalHeaders)
-		req.Check(t, h)
+		}.Check(t, h)
 	}
 }
 
 //nolint:unparam
-func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName string, manifest test.Bytes, reference string, additionalHeaders map[string]string) {
+func expectManifestExists(t *testing.T, h http.Handler, hdr http.Header, fullRepoName string, manifest test.Bytes, reference string) {
 	t.Helper()
 	for _, method := range []string{"GET", "HEAD"} {
 		respBody := manifest.Contents
@@ -194,7 +190,7 @@ func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName stri
 		req := assert.HTTPRequest{
 			Method:       method,
 			Path:         fmt.Sprintf("/v2/%s/manifests/%s", fullRepoName, reference),
-			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Header:       test.FlattenHeaders(hdr),
 			ExpectStatus: http.StatusOK,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey:   test.VersionHeaderValue,
@@ -203,7 +199,6 @@ func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName stri
 			},
 			ExpectBody: assert.ByteData(respBody),
 		}
-		maps.Copy(req.Header, additionalHeaders)
 
 		// without Accept header
 		req.Check(t, h)

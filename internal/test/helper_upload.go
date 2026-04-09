@@ -37,17 +37,16 @@ var VersionHeader = map[string]string{VersionHeaderKey: VersionHeaderValue}
 func (b Bytes) MustUpload(t *testing.T, s Setup, repo models.Repository) models.Blob {
 	t.Helper()
 
-	token := s.GetToken(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
+	tokenHeaders := s.GetTokenHeaders(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
 
 	// create blob with a monolithic upload
 	assert.HTTPRequest{
 		Method: "POST",
 		Path:   fmt.Sprintf("/v2/%s/blobs/uploads/?digest=%s", repo.FullName(), b.Digest),
-		Header: map[string]string{
-			"Authorization":  "Bearer " + token,
+		Header: FlattenHeaders(tokenHeaders, map[string]string{
 			"Content-Length": strconv.Itoa(len(b.Contents)),
 			"Content-Type":   b.MediaType,
-		},
+		}),
 		Body:         assert.ByteData(b.Contents),
 		ExpectStatus: http.StatusCreated,
 	}.Check(t, s.Handler) //nolint:bodyclose // only used in testing
@@ -94,14 +93,13 @@ func (i Image) MustUpload(t *testing.T, s Setup, repo models.Repository, tagName
 		ref = models.ManifestReference{Tag: tagName}
 	}
 	urlPath := fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), ref)
-	token := s.GetToken(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
+	tokenHeaders := s.GetTokenHeaders(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   urlPath,
-		Header: map[string]string{
-			"Authorization": "Bearer " + token,
-			"Content-Type":  i.Manifest.MediaType,
-		},
+		Header: FlattenHeaders(tokenHeaders, map[string]string{
+			"Content-Type": i.Manifest.MediaType,
+		}),
 		Body:         assert.ByteData(i.Manifest.Contents),
 		ExpectStatus: http.StatusCreated,
 	}.Check(t, s.Handler) //nolint:bodyclose // only used in testing
@@ -148,14 +146,13 @@ func (l ImageList) MustUpload(t *testing.T, s Setup, repo models.Repository, tag
 		ref = models.ManifestReference{Tag: tagName}
 	}
 	urlPath := fmt.Sprintf("/v2/%s/manifests/%s", repo.FullName(), ref)
-	token := s.GetToken(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
+	tokenHeaders := s.GetTokenHeaders(t, fmt.Sprintf("repository:%s:pull,push", repo.FullName()))
 	assert.HTTPRequest{
 		Method: "PUT",
 		Path:   urlPath,
-		Header: map[string]string{
-			"Authorization": "Bearer " + token,
-			"Content-Type":  l.Manifest.MediaType,
-		},
+		Header: FlattenHeaders(tokenHeaders, map[string]string{
+			"Content-Type": l.Manifest.MediaType,
+		}),
 		Body:         assert.ByteData(l.Manifest.Contents),
 		ExpectStatus: http.StatusCreated,
 	}.Check(t, s.Handler) //nolint:bodyclose // only used in testing

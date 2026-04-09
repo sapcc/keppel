@@ -22,8 +22,8 @@ import (
 func TestBlobMonolithicUpload(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		readOnlyToken := s.GetToken(t, "repository:test1/foo:pull")
-		token := s.GetToken(t, "repository:test1/foo:pull,push")
+		readOnlyTokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull")
+		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
 
 		blob := test.NewBytes([]byte("just some random data"))
 
@@ -31,11 +31,10 @@ func TestBlobMonolithicUpload(t *testing.T) {
 		assert.HTTPRequest{
 			Method: "POST",
 			Path:   "/v2/test1/foo/blobs/uploads/?digest=" + blob.Digest.String(),
-			Header: map[string]string{
-				"Authorization":  "Bearer " + readOnlyToken,
+			Header: test.FlattenHeaders(readOnlyTokenHeaders, map[string]string{
 				"Content-Length": strconv.Itoa(len(blob.Contents)),
 				"Content-Type":   "application/octet-stream",
-			},
+			}),
 			Body:         assert.ByteData(blob.Contents),
 			ExpectStatus: http.StatusUnauthorized,
 			ExpectHeader: test.VersionHeader,
@@ -47,11 +46,10 @@ func TestBlobMonolithicUpload(t *testing.T) {
 			assert.HTTPRequest{
 				Method: "POST",
 				Path:   "/v2/test1/foo/blobs/uploads/?digest=" + blob.Digest.String(),
-				Header: map[string]string{
-					"Authorization":  "Bearer " + token,
+				Header: test.FlattenHeaders(tokenHeaders, map[string]string{
 					"Content-Length": strconv.Itoa(len(blob.Contents)),
 					"Content-Type":   "application/octet-stream",
-				},
+				}),
 				Body:         assert.ByteData(blob.Contents),
 				ExpectStatus: http.StatusMethodNotAllowed,
 				ExpectHeader: test.VersionHeader,
@@ -70,11 +68,10 @@ func TestBlobMonolithicUpload(t *testing.T) {
 			assert.HTTPRequest{
 				Method: "POST",
 				Path:   "/v2/test1/foo/blobs/uploads/?digest=" + wrongDigest,
-				Header: map[string]string{
-					"Authorization":  "Bearer " + token,
+				Header: test.FlattenHeaders(tokenHeaders, map[string]string{
 					"Content-Length": strconv.Itoa(len(blob.Contents)),
 					"Content-Type":   "application/octet-stream",
-				},
+				}),
 				Body:         assert.ByteData(blob.Contents),
 				ExpectStatus: http.StatusBadRequest,
 				ExpectHeader: test.VersionHeader,
@@ -87,11 +84,10 @@ func TestBlobMonolithicUpload(t *testing.T) {
 			assert.HTTPRequest{
 				Method: "POST",
 				Path:   "/v2/test1/foo/blobs/uploads/?digest=" + blob.Digest.String(),
-				Header: map[string]string{
-					"Authorization":  "Bearer " + token,
+				Header: test.FlattenHeaders(tokenHeaders, map[string]string{
 					"Content-Length": wrongLength,
 					"Content-Type":   "application/octet-stream",
-				},
+				}),
 				Body:         assert.ByteData(blob.Contents),
 				ExpectStatus: http.StatusBadRequest,
 				ExpectHeader: test.VersionHeader,
@@ -104,13 +100,12 @@ func TestBlobMonolithicUpload(t *testing.T) {
 			assert.HTTPRequest{
 				Method: "POST",
 				Path:   "/v2/test1/foo/blobs/uploads/?digest=" + blob.Digest.String(),
-				Header: map[string]string{
-					"Authorization":     "Bearer " + token,
+				Header: test.FlattenHeaders(tokenHeaders, map[string]string{
 					"Content-Length":    strconv.Itoa(len(blob.Contents)),
 					"Content-Type":      "application/octet-stream",
 					"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
 					"X-Forwarded-Proto": "https",
-				},
+				}),
 				Body:         assert.ByteData(blob.Contents),
 				ExpectStatus: http.StatusMethodNotAllowed,
 				ExpectHeader: test.VersionHeader,
@@ -127,11 +122,10 @@ func TestBlobMonolithicUpload(t *testing.T) {
 			assert.HTTPRequest{
 				Method: "POST",
 				Path:   "/v2/test1/foo/blobs/uploads/?digest=" + blob.Digest.String(),
-				Header: map[string]string{
-					"Authorization":  "Bearer " + token,
+				Header: test.FlattenHeaders(tokenHeaders, map[string]string{
 					"Content-Length": strconv.Itoa(len(blob.Contents)),
 					"Content-Type":   "application/octet-stream",
-				},
+				}),
 				Body:         assert.ByteData(blob.Contents),
 				ExpectStatus: http.StatusCreated,
 				ExpectHeader: map[string]string{
@@ -142,7 +136,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 			}.Check(t, h)
 
 			// validate that the blob was stored at the specified location
-			expectBlobExists(t, h, token, "test1/foo", blob, nil)
+			expectBlobExists(t, h, tokenHeaders, "test1/foo", blob)
 		}
 
 		// test GET via anycast
@@ -150,13 +144,9 @@ func TestBlobMonolithicUpload(t *testing.T) {
 			testWithReplica(t, s, "on_first_use", func(firstPass bool, s2 test.Setup) {
 				testAnycast(t, firstPass, s2.DB, func() {
 					h2 := s2.Handler
-					anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull")
-					anycastHeaders := map[string]string{
-						"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
-						"X-Forwarded-Proto": "https",
-					}
-					expectBlobExists(t, h, anycastToken, "test1/foo", blob, anycastHeaders)
-					expectBlobExists(t, h2, anycastToken, "test1/foo", blob, anycastHeaders)
+					anycastTokenHeaders := s.GetAnycastTokenHeaders(t, "repository:test1/foo:pull")
+					expectBlobExists(t, h, anycastTokenHeaders, "test1/foo", blob)
+					expectBlobExists(t, h2, anycastTokenHeaders, "test1/foo", blob)
 				})
 			})
 		}
@@ -193,17 +183,16 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 	for _, isChunked := range []bool{false, true} {
 		testWithPrimary(t, nil, func(s test.Setup) {
 			h := s.Handler
-			readOnlyToken := s.GetToken(t, "repository:test1/foo:pull")
-			token := s.GetToken(t, "repository:test1/foo:pull,push")
+			readOnlyTokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull")
+			tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
 
 			blob := test.NewBytes([]byte("just some random data"))
 
 			// shorthand for a common header structure that appears in many requests below
 			getHeadersForPATCH := func(offset, length int) map[string]string {
-				hdr := map[string]string{
-					"Authorization": "Bearer " + token,
-					"Content-Type":  "application/octet-stream",
-				}
+				hdr := test.FlattenHeaders(tokenHeaders, map[string]string{
+					"Content-Type": "application/octet-stream",
+				})
 				// for streamed upload, Content-Range and Content-Length are omitted
 				if isChunked {
 					hdr["Content-Range"] = fmt.Sprintf("%d-%d", offset, offset+length-1)
@@ -236,11 +225,10 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			assert.HTTPRequest{
 				Method: "POST",
 				Path:   "/v2/test1/foo/blobs/uploads/",
-				Header: map[string]string{
-					"Authorization":  "Bearer " + readOnlyToken,
+				Header: test.FlattenHeaders(readOnlyTokenHeaders, map[string]string{
 					"Content-Length": strconv.Itoa(len(blob.Contents)),
 					"Content-Type":   "application/octet-stream",
-				},
+				}),
 				Body:         assert.ByteData(blob.Contents),
 				ExpectStatus: http.StatusUnauthorized,
 				ExpectHeader: test.VersionHeader,
@@ -252,11 +240,10 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				assert.HTTPRequest{
 					Method: "POST",
 					Path:   "/v2/test1/foo/blobs/uploads/",
-					Header: map[string]string{
-						"Authorization":  "Bearer " + token,
+					Header: test.FlattenHeaders(tokenHeaders, map[string]string{
 						"Content-Length": strconv.Itoa(len(blob.Contents)),
 						"Content-Type":   "application/octet-stream",
-					},
+					}),
 					Body:         assert.ByteData(blob.Contents),
 					ExpectStatus: http.StatusMethodNotAllowed,
 					ExpectHeader: test.VersionHeader,
@@ -285,7 +272,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			// request should not contain session state)
 			assert.HTTPRequest{
 				Method:       "PATCH",
-				Path:         keppel.AppendQuery(getBlobUploadURL(t, h, token, "test1/foo"), url.Values{"state": {"unexpected"}}),
+				Path:         keppel.AppendQuery(getBlobUploadURL(t, h, tokenHeaders, "test1/foo"), url.Values{"state": {"unexpected"}}),
 				Header:       getHeadersForPATCH(0, len(blob.Contents)),
 				Body:         assert.ByteData(blob.Contents),
 				ExpectStatus: http.StatusBadRequest,
@@ -294,7 +281,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			}.Check(t, h)
 
 			// upload with mismatched content length header to trigger a broken session state
-			uploadURL := getBlobUploadURL(t, h, token, "test1/foo")
+			uploadURL := getBlobUploadURL(t, h, tokenHeaders, "test1/foo")
 			assert.HTTPRequest{
 				Method:       "PATCH",
 				Path:         uploadURL,
@@ -312,7 +299,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 
 			// test that content-length header matches which can only occur when doing chunked uploads
 			if isChunked {
-				uploadURL = getBlobUploadURL(t, h, token, "test1/foo")
+				uploadURL = getBlobUploadURL(t, h, tokenHeaders, "test1/foo")
 				assert.HTTPRequest{
 					Method:       "PATCH",
 					Path:         uploadURL,
@@ -332,7 +319,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			// test failure cases during PATCH: malformed session state (this requires a
 			// successful PATCH first, otherwise the API would not expect to find session
 			// state in our request)
-			uploadURL = getBlobUploadURL(t, h, token, "test1/foo")
+			uploadURL = getBlobUploadURL(t, h, tokenHeaders, "test1/foo")
 			assert.HTTPRequest{
 				Method:       "PATCH",
 				Path:         uploadURL,
@@ -361,7 +348,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 					chunk1, chunk2 := blob.Contents[0:10], blob.Contents[10:15]
 					resp, _ := assert.HTTPRequest{
 						Method:       "PATCH",
-						Path:         getBlobUploadURL(t, h, token, "test1/foo"),
+						Path:         getBlobUploadURL(t, h, tokenHeaders, "test1/foo"),
 						Header:       getHeadersForPATCH(0, len(chunk1)),
 						Body:         assert.ByteData(chunk1),
 						ExpectStatus: http.StatusAccepted,
@@ -369,12 +356,11 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 					assert.HTTPRequest{
 						Method: "PATCH",
 						Path:   resp.Header.Get("Location"),
-						Header: map[string]string{
-							"Authorization":  "Bearer " + token,
+						Header: test.FlattenHeaders(tokenHeaders, map[string]string{
 							"Content-Length": contentLength,
 							"Content-Range":  contentRange,
 							"Content-Type":   "application/octet-stream",
-						},
+						}),
 						Body:         assert.ByteData(chunk2),
 						ExpectStatus: http.StatusRequestedRangeNotSatisfiable,
 						ExpectHeader: test.VersionHeader,
@@ -398,7 +384,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				// upload all the blob contents at once (we're only interested in the final PUT)
 				resp, _ := assert.HTTPRequest{
 					Method:       "PATCH",
-					Path:         getBlobUploadURL(t, h, token, "test1/foo"),
+					Path:         getBlobUploadURL(t, h, tokenHeaders, "test1/foo"),
 					Header:       getHeadersForPATCH(0, len(blob.Contents)),
 					Body:         assert.ByteData(blob.Contents),
 					ExpectStatus: http.StatusAccepted,
@@ -407,7 +393,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				assert.HTTPRequest{
 					Method:       "PUT",
 					Path:         keppel.AppendQuery(uploadURL, url.Values{"digest": {wrongDigest}}),
-					Header:       map[string]string{"Authorization": "Bearer " + token},
+					Header:       test.FlattenHeaders(tokenHeaders),
 					ExpectStatus: http.StatusBadRequest,
 					ExpectHeader: test.VersionHeader,
 					ExpectBody:   test.ErrorCode(keppel.ErrDigestInvalid),
@@ -420,7 +406,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				chunk1, chunk2 := blob.Contents[0:10], blob.Contents[10:]
 				resp, _ := assert.HTTPRequest{
 					Method:       "PATCH",
-					Path:         getBlobUploadURL(t, h, token, "test1/foo"),
+					Path:         getBlobUploadURL(t, h, tokenHeaders, "test1/foo"),
 					Header:       getHeadersForPATCH(0, len(chunk1)),
 					Body:         assert.ByteData(chunk1),
 					ExpectStatus: http.StatusAccepted,
@@ -440,11 +426,10 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				assert.HTTPRequest{
 					Method: "PUT",
 					Path:   keppel.AppendQuery(uploadURL, url.Values{"digest": {blob.Digest.String()}}),
-					Header: map[string]string{
-						"Authorization":  "Bearer " + token,
+					Header: test.FlattenHeaders(tokenHeaders, map[string]string{
 						"Content-Length": wrongContentLength,
 						"Content-Type":   "application/octet-stream",
-					},
+					}),
 					Body:         assert.ByteData(chunk2),
 					ExpectStatus: expectedStatus,
 					ExpectHeader: test.VersionHeader,
@@ -462,7 +447,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 			// test success case twice: should look the same also in the second pass
 			for range []int{1, 2} {
 				// test success case (with multiple chunks!)
-				uploadURL = getBlobUploadURL(t, h, token, "test1/foo")
+				uploadURL = getBlobUploadURL(t, h, tokenHeaders, "test1/foo")
 				progress := 0
 				for _, chunk := range bytes.SplitAfter(blob.Contents, []byte(" ")) {
 					progress += len(chunk)
@@ -472,11 +457,10 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 						assert.HTTPRequest{
 							Method: "PUT",
 							Path:   keppel.AppendQuery(uploadURL, url.Values{"digest": {blob.Digest.String()}}),
-							Header: map[string]string{
-								"Authorization":  "Bearer " + token,
+							Header: test.FlattenHeaders(tokenHeaders, map[string]string{
 								"Content-Length": strconv.Itoa(len(chunk)),
 								"Content-Type":   "application/octet-stream",
-							},
+							}),
 							Body:         assert.ByteData(chunk),
 							ExpectStatus: http.StatusCreated,
 							ExpectHeader: map[string]string{
@@ -503,7 +487,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				}
 
 				// validate that the blob was stored at the specified location
-				expectBlobExists(t, h, token, "test1/foo", blob, nil)
+				expectBlobExists(t, h, tokenHeaders, "test1/foo", blob)
 			}
 
 			if t.Failed() {
@@ -519,8 +503,8 @@ func TestGetBlobUpload(t *testing.T) {
 		//NOTE: We only use the read-write token for driving the blob upload through
 		// its various stages. All the GET requests use the read-only token to verify
 		// that read-only tokens work here.
-		readOnlyToken := s.GetToken(t, "repository:test1/foo:pull")
-		token := s.GetToken(t, "repository:test1/foo:pull,push")
+		readOnlyTokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull")
+		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
 
 		blob := test.NewBytes([]byte("just some random data"))
 
@@ -532,18 +516,18 @@ func TestGetBlobUpload(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/test1/foo/blobs/uploads/b9ef33aa-7e2a-4fc8-8083-6b00601dab98", // bogus session ID
-			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+			Header:       test.FlattenHeaders(readOnlyTokenHeaders),
 			ExpectStatus: http.StatusNotFound,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrBlobUploadUnknown),
 		}.Check(t, h)
 
 		// test success case: upload without contents in it
-		uploadURL, uploadUUID := getBlobUpload(t, h, token, "test1/foo")
+		uploadURL, uploadUUID := getBlobUpload(t, h, tokenHeaders, "test1/foo")
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
-			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+			Header:       test.FlattenHeaders(readOnlyTokenHeaders),
 			ExpectStatus: http.StatusNoContent,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey:    test.VersionHeaderValue,
@@ -559,10 +543,9 @@ func TestGetBlobUpload(t *testing.T) {
 		resp, _ := assert.HTTPRequest{
 			Method: "PATCH",
 			Path:   uploadURL,
-			Header: map[string]string{
-				"Authorization": "Bearer " + token,
-				"Content-Type":  "application/octet-stream",
-			},
+			Header: test.FlattenHeaders(tokenHeaders, map[string]string{
+				"Content-Type": "application/octet-stream",
+			}),
 			Body:         assert.ByteData(blob.Contents),
 			ExpectStatus: http.StatusAccepted,
 			ExpectHeader: map[string]string{
@@ -576,7 +559,7 @@ func TestGetBlobUpload(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
-			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+			Header:       test.FlattenHeaders(readOnlyTokenHeaders),
 			ExpectStatus: http.StatusNoContent,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey:    test.VersionHeaderValue,
@@ -592,7 +575,7 @@ func TestGetBlobUpload(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         uploadURL,
-			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+			Header:       test.FlattenHeaders(readOnlyTokenHeaders),
 			ExpectStatus: http.StatusNoContent,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey:    test.VersionHeaderValue,
@@ -611,11 +594,10 @@ func TestGetBlobUpload(t *testing.T) {
 			assert.HTTPRequest{
 				Method: "GET",
 				Path:   "/v2/test1/foo/blobs/uploads/" + uploadUUID,
-				Header: map[string]string{
-					"Authorization":     "Bearer " + readOnlyToken,
+				Header: test.FlattenHeaders(readOnlyTokenHeaders, map[string]string{
 					"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
 					"X-Forwarded-Proto": "https",
-				},
+				}),
 				ExpectStatus: http.StatusMethodNotAllowed,
 				ExpectHeader: test.VersionHeader,
 				ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
@@ -626,13 +608,13 @@ func TestGetBlobUpload(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "PUT",
 			Path:         keppel.AppendQuery(uploadURL, url.Values{"digest": {blob.Digest.String()}}),
-			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Header:       test.FlattenHeaders(tokenHeaders),
 			ExpectStatus: http.StatusCreated,
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
-			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+			Header:       test.FlattenHeaders(readOnlyTokenHeaders),
 			ExpectStatus: http.StatusNotFound,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrBlobUploadUnknown),
@@ -643,8 +625,8 @@ func TestGetBlobUpload(t *testing.T) {
 func TestDeleteBlobUpload(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		token := s.GetToken(t, "repository:test1/foo:pull,push")
-		deleteToken := s.GetToken(t, "repository:test1/foo:delete")
+		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
+		deleteTokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:delete")
 
 		blobContents := []byte("just some random data")
 
@@ -656,25 +638,25 @@ func TestDeleteBlobUpload(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/v2/test1/foo/blobs/uploads/b9ef33aa-7e2a-4fc8-8083-6b00601dab98", // bogus session ID
-			Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+			Header:       test.FlattenHeaders(deleteTokenHeaders),
 			ExpectStatus: http.StatusNotFound,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrBlobUploadUnknown),
 		}.Check(t, h)
 
 		// test deletion of upload with no contents in it
-		_, uploadUUID := getBlobUpload(t, h, token, "test1/foo")
+		_, uploadUUID := getBlobUpload(t, h, tokenHeaders, "test1/foo")
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
-			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Header:       test.FlattenHeaders(tokenHeaders),
 			ExpectStatus: http.StatusUnauthorized,
 			ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
-			Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+			Header:       test.FlattenHeaders(deleteTokenHeaders),
 			ExpectStatus: http.StatusNoContent,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey: test.VersionHeaderValue,
@@ -684,14 +666,13 @@ func TestDeleteBlobUpload(t *testing.T) {
 		}.Check(t, h)
 
 		// test deletion of upload with contents in it
-		uploadURL, uploadUUID := getBlobUpload(t, h, token, "test1/foo")
+		uploadURL, uploadUUID := getBlobUpload(t, h, tokenHeaders, "test1/foo")
 		assert.HTTPRequest{
 			Method: "PATCH",
 			Path:   uploadURL,
-			Header: map[string]string{
-				"Authorization": "Bearer " + token,
-				"Content-Type":  "application/octet-stream",
-			},
+			Header: test.FlattenHeaders(tokenHeaders, map[string]string{
+				"Content-Type": "application/octet-stream",
+			}),
 			Body:         assert.ByteData(blobContents),
 			ExpectStatus: http.StatusAccepted,
 			ExpectHeader: map[string]string{
@@ -703,14 +684,14 @@ func TestDeleteBlobUpload(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
-			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Header:       test.FlattenHeaders(tokenHeaders),
 			ExpectStatus: http.StatusUnauthorized,
 			ExpectBody:   test.ErrorCode(keppel.ErrDenied),
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/v2/test1/foo/blobs/uploads/" + uploadUUID,
-			Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+			Header:       test.FlattenHeaders(deleteTokenHeaders),
 			ExpectStatus: http.StatusNoContent,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey: test.VersionHeaderValue,
@@ -727,9 +708,9 @@ func TestDeleteBlobUpload(t *testing.T) {
 func TestDeleteBlob(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		token := s.GetToken(t, "repository:test1/foo:pull,push")
-		deleteToken := s.GetToken(t, "repository:test1/foo:delete")
-		otherRepoToken := s.GetToken(t, "repository:test1/bar:pull,push")
+		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
+		deleteTokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:delete")
+		otherRepoTokenHeaders := s.GetTokenHeaders(t, "repository:test1/bar:pull,push")
 
 		blob := test.NewBytes([]byte("just some random data"))
 
@@ -737,7 +718,7 @@ func TestDeleteBlob(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/v2/test1/foo/blobs/" + blob.Digest.String(),
-			Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+			Header:       test.FlattenHeaders(deleteTokenHeaders),
 			ExpectStatus: http.StatusNotFound,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrNameUnknown),
@@ -751,22 +732,21 @@ func TestDeleteBlob(t *testing.T) {
 		assert.HTTPRequest{
 			Method: "POST",
 			Path:   "/v2/test1/bar/blobs/uploads/?from=test1%2Ffoo&mount=" + blob.Digest.String(),
-			Header: map[string]string{
-				"Authorization":  "Bearer " + otherRepoToken,
+			Header: test.FlattenHeaders(otherRepoTokenHeaders, map[string]string{
 				"Content-Length": "0",
-			},
+			}),
 			ExpectStatus: http.StatusCreated,
 		}.Check(t, h)
 
 		// the blob should now be visible in both repos
-		expectBlobExists(t, h, token, "test1/foo", blob, nil)
-		expectBlobExists(t, h, otherRepoToken, "test1/bar", blob, nil)
+		expectBlobExists(t, h, tokenHeaders, "test1/foo", blob)
+		expectBlobExists(t, h, otherRepoTokenHeaders, "test1/bar", blob)
 
 		// test failure case: no delete permission
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/v2/test1/foo/blobs/" + blob.Digest.String(),
-			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Header:       test.FlattenHeaders(tokenHeaders),
 			ExpectStatus: http.StatusUnauthorized,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrDenied),
@@ -776,7 +756,7 @@ func TestDeleteBlob(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/v2/test1/foo/blobs/" + test.DeterministicDummyDigest(1).String(),
-			Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+			Header:       test.FlattenHeaders(deleteTokenHeaders),
 			ExpectStatus: http.StatusNotFound,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrBlobUnknown),
@@ -784,21 +764,21 @@ func TestDeleteBlob(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/v2/test1/foo/blobs/thisisnotadigest",
-			Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+			Header:       test.FlattenHeaders(deleteTokenHeaders),
 			ExpectStatus: http.StatusBadRequest,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrDigestInvalid),
 		}.Check(t, h)
 
 		// we only had failed DELETEs until now, so the blob should still be there
-		expectBlobExists(t, h, token, "test1/foo", blob, nil)
-		expectBlobExists(t, h, otherRepoToken, "test1/bar", blob, nil)
+		expectBlobExists(t, h, tokenHeaders, "test1/foo", blob)
+		expectBlobExists(t, h, otherRepoTokenHeaders, "test1/bar", blob)
 
 		// test success case: delete the blob from the first repo
 		assert.HTTPRequest{
 			Method:       "DELETE",
 			Path:         "/v2/test1/foo/blobs/" + blob.Digest.String(),
-			Header:       map[string]string{"Authorization": "Bearer " + deleteToken},
+			Header:       test.FlattenHeaders(deleteTokenHeaders),
 			ExpectStatus: http.StatusAccepted,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey: test.VersionHeaderValue,
@@ -810,22 +790,22 @@ func TestDeleteBlob(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/test1/foo/blobs/" + blob.Digest.String(),
-			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Header:       test.FlattenHeaders(tokenHeaders),
 			ExpectStatus: http.StatusNotFound,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrBlobUnknown),
 		}.Check(t, h)
 		// ...but still be visible in test1/bar
-		expectBlobExists(t, h, otherRepoToken, "test1/bar", blob, nil)
+		expectBlobExists(t, h, otherRepoTokenHeaders, "test1/bar", blob)
 	})
 }
 
 func TestCrossRepositoryBlobMount(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		h := s.Handler
-		readOnlyToken := s.GetToken(t, "repository:test1/foo:pull")
-		token := s.GetToken(t, "repository:test1/foo:pull,push")
-		otherRepoToken := s.GetToken(t, "repository:test1/bar:pull,push")
+		readOnlyTokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull")
+		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
+		otherRepoTokenHeaders := s.GetTokenHeaders(t, "repository:test1/bar:pull,push")
 
 		blob := test.NewBytes([]byte("just some random data"))
 
@@ -843,7 +823,7 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "POST",
 			Path:         "/v2/test1/foo/blobs/uploads/?from=test1/bar&mount=" + blob.Digest.String(),
-			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
+			Header:       test.FlattenHeaders(readOnlyTokenHeaders),
 			ExpectStatus: http.StatusUnauthorized,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrDenied),
@@ -853,14 +833,14 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "POST",
 			Path:         "/v2/test1/foo/blobs/uploads/?from=test1/qux&mount=" + blob.Digest.String(),
-			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Header:       test.FlattenHeaders(tokenHeaders),
 			ExpectStatus: fallbackToRegularUploadStatus,
 			ExpectHeader: fallbackToRegularUploadHeaders,
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "POST",
 			Path:         "/v2/test1/foo/blobs/uploads/?from=test1/:qux&mount=" + blob.Digest.String(),
-			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Header:       test.FlattenHeaders(tokenHeaders),
 			ExpectStatus: fallbackToRegularUploadStatus,
 			ExpectHeader: fallbackToRegularUploadHeaders,
 		}.Check(t, h)
@@ -869,7 +849,7 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "POST",
 			Path:         "/v2/test1/foo/blobs/uploads/?from=test2/foo&mount=" + blob.Digest.String(),
-			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Header:       test.FlattenHeaders(tokenHeaders),
 			ExpectStatus: fallbackToRegularUploadStatus,
 			ExpectHeader: fallbackToRegularUploadHeaders,
 		}.Check(t, h)
@@ -878,14 +858,14 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "POST",
 			Path:         "/v2/test1/foo/blobs/uploads/?from=test1/bar&mount=wrong",
-			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Header:       test.FlattenHeaders(tokenHeaders),
 			ExpectStatus: fallbackToRegularUploadStatus,
 			ExpectHeader: fallbackToRegularUploadHeaders,
 		}.Check(t, h)
 		assert.HTTPRequest{
 			Method:       "POST",
 			Path:         "/v2/test1/foo/blobs/uploads/?from=test1/bar&mount=" + test.DeterministicDummyDigest(1).String(),
-			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Header:       test.FlattenHeaders(tokenHeaders),
 			ExpectStatus: fallbackToRegularUploadStatus,
 			ExpectHeader: fallbackToRegularUploadHeaders,
 		}.Check(t, h)
@@ -894,7 +874,7 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "GET",
 			Path:         "/v2/test1/foo/blobs/" + blob.Digest.String(),
-			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Header:       test.FlattenHeaders(tokenHeaders),
 			ExpectStatus: http.StatusNotFound,
 			ExpectHeader: test.VersionHeader,
 			ExpectBody:   test.ErrorCode(keppel.ErrBlobUnknown),
@@ -904,7 +884,7 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 		assert.HTTPRequest{
 			Method:       "POST",
 			Path:         "/v2/test1/foo/blobs/uploads/?from=test1/bar&mount=" + blob.Digest.String(),
-			Header:       map[string]string{"Authorization": "Bearer " + token},
+			Header:       test.FlattenHeaders(tokenHeaders),
 			ExpectStatus: http.StatusCreated,
 			ExpectHeader: map[string]string{
 				test.VersionHeaderKey: test.VersionHeaderValue,
@@ -914,7 +894,7 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 		}.Check(t, h)
 
 		// now the blob should be available in both the original and the new repo
-		expectBlobExists(t, h, token, "test1/foo", blob, nil)
-		expectBlobExists(t, h, otherRepoToken, "test1/bar", blob, nil)
+		expectBlobExists(t, h, tokenHeaders, "test1/foo", blob)
+		expectBlobExists(t, h, otherRepoTokenHeaders, "test1/bar", blob)
 	})
 }
