@@ -4,6 +4,7 @@
 package keppel
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -136,18 +137,18 @@ func (r *RBACPolicy) ValidateAndNormalize(strategy ReplicationStrategy) error {
 
 // ParseRBACPolicies parses the RBAC policies for the given account.
 func ParseRBACPolicies(account models.Account) ([]RBACPolicy, error) {
-	return ParseRBACPoliciesField(account.RBACPoliciesJSON)
+	return ParseRBACPoliciesField([]byte(account.RBACPoliciesJSON))
 }
 
 // ParseRBACPoliciesField is like ParseRBACPolicies, but only takes the
 // RBACPoliciesJSON field of type Account instead of the whole Account.
 //
 // This is useful when the full Account has not been loaded from the DB.
-func ParseRBACPoliciesField(buf string) ([]RBACPolicy, error) {
-	if buf == "" || buf == "[]" {
+func ParseRBACPoliciesField(buf []byte) ([]RBACPolicy, error) {
+	if len(buf) == 0 || bytes.Equal(buf, []byte("[]")) {
 		return nil, nil
 	}
 	var policies []RBACPolicy
-	err := json.Unmarshal([]byte(buf), &policies)
+	err := json.Unmarshal(buf, &policies)
 	return policies, err
 }

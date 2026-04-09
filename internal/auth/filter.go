@@ -159,7 +159,7 @@ func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience
 	// performed by keppel-api.
 	var (
 		authTenantID     string
-		rbacPoliciesJSON string
+		rbacPoliciesJSON []byte
 	)
 	err := db.QueryRow(
 		`SELECT auth_tenant_id, rbac_policies_json FROM accounts WHERE name = $1`,

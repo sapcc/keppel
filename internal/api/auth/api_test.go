@@ -427,6 +427,29 @@ var testCases = []TestCase{
 		GrantedActions: "delete"},
 }
 
+func BenchmarkParseRBACPoliciesField(b *testing.B) {
+	b.ReportAllocs()
+
+	payloads := [][]byte{nil, []byte("[]")}
+	for _, tc := range testCases {
+		if tc.RBACPolicy == nil {
+			continue
+		}
+		buf := must.Return(json.Marshal([]keppel.RBACPolicy{*tc.RBACPolicy}))
+		payloads = append(payloads, buf)
+	}
+
+	var err error
+
+	b.ResetTimer()
+	for i := range b.N {
+		_, err = keppel.ParseRBACPoliciesField(payloads[i%len(payloads)])
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 // TODO expect refresh_token when offline_token=true is given
 
 func setupPrimary(t *testing.T, extraOptions ...test.SetupOption) test.Setup {
