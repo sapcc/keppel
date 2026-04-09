@@ -63,3 +63,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
+
+replace github.com/go-gorp/gorp/v3 v3.1.0 => github.com/majewsky/gorp/v3 v3.1.1-0.20260409143009-8eddaa758ac1
