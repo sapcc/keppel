@@ -4,6 +4,7 @@
 package registryv2_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"slices"
@@ -12,9 +13,8 @@ import (
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
-
-	"maps"
 
 	"github.com/sapcc/keppel/internal/drivers/trivial"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -128,98 +128,88 @@ func testAnycast(t *testing.T, firstPass bool, db2 *keppel.DB, action func()) {
 ////////////////////////////////////////////////////////////////////////////////
 // helpers for setting up test scenarios
 
-func getBlobUpload(t *testing.T, h http.Handler, token, fullRepoName string) (uploadURL, uploadUUID string) {
+func getBlobUpload(t *testing.T, ctx context.Context, h httptest.Handler, token, fullRepoName string) (uploadURL, uploadUUID string) {
 	t.Helper()
-	resp, _ := assert.HTTPRequest{
-		Method:       "POST",
-		Path:         fmt.Sprintf("/v2/%s/blobs/uploads/", fullRepoName),
-		Header:       map[string]string{"Authorization": "Bearer " + token},
-		ExpectStatus: http.StatusAccepted,
-		ExpectHeader: map[string]string{
-			test.VersionHeaderKey: test.VersionHeaderValue,
-			"Content-Length":      "0",
-			"Range":               "0-0",
-		},
-	}.Check(t, h)
-	return resp.Header.Get("Location"), resp.Header.Get("Blob-Upload-Session-Id")
+	resp := h.RespondTo(ctx, "POST "+fmt.Sprintf("/v2/%s/blobs/uploads/", fullRepoName),
+		httptest.WithHeader("Authorization", "Bearer "+token))
+	resp.ExpectStatus(t, http.StatusAccepted)
+	assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
+	assert.Equal(t, resp.Header().Get("Content-Length"), "0")
+	assert.Equal(t, resp.Header().Get("Range"), "0-0")
+	return resp.Header().Get("Location"), resp.Header().Get("Blob-Upload-Session-Id")
 }
 
 //nolint:unparam
-func getBlobUploadURL(t *testing.T, h http.Handler, token, fullRepoName string) string {
+func getBlobUploadURL(t *testing.T, ctx context.Context, h httptest.Handler, token, fullRepoName string) string {
 	t.Helper()
-	u, _ := getBlobUpload(t, h, token, fullRepoName)
+	u, _ := getBlobUpload(t, ctx, h, token, fullRepoName)
 	return u
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // reusable assertions
 
-func expectBlobExists(t *testing.T, h http.Handler, token, fullRepoName string, blob test.Bytes, additionalHeaders map[string]string) {
+func expectBlobExists(t *testing.T, ctx context.Context, h httptest.Handler, token, fullRepoName string, blob test.Bytes, additionalHeaders map[string]string) {
 	t.Helper()
 	for _, method := range []string{"GET", "HEAD"} {
-		respBody := blob.Contents
-		if method == "HEAD" {
-			respBody = nil
+		opts := []httptest.RequestOption{httptest.WithHeader("Authorization", "Bearer "+token)}
+		for k, v := range additionalHeaders {
+			opts = append(opts, httptest.WithHeader(k, v))
 		}
-		req := assert.HTTPRequest{
-			Method:       method,
-			Path:         "/v2/" + fullRepoName + "/blobs/" + blob.Digest.String(),
-			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusOK,
-			ExpectHeader: map[string]string{
-				test.VersionHeaderKey:   test.VersionHeaderValue,
-				"Content-Length":        strconv.Itoa(len(blob.Contents)),
-				"Content-Type":          blob.MediaType,
-				"Docker-Content-Digest": blob.Digest.String(),
-			},
-			ExpectBody: assert.ByteData(respBody),
+		resp := h.RespondTo(ctx, method+" /v2/"+fullRepoName+"/blobs/"+blob.Digest.String(), opts...)
+		resp.ExpectStatus(t, http.StatusOK)
+		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
+		assert.Equal(t, resp.Header().Get("Content-Length"), strconv.Itoa(len(blob.Contents)))
+		assert.Equal(t, resp.Header().Get("Content-Type"), blob.MediaType)
+		assert.Equal(t, resp.Header().Get("Docker-Content-Digest"), blob.Digest.String())
+		if method == "GET" {
+			assert.DeepEqual(t, "body", resp.BodyBytes(), blob.Contents)
 		}
-		maps.Copy(req.Header, additionalHeaders)
-		req.Check(t, h)
 	}
 }
 
 //nolint:unparam
-func expectManifestExists(t *testing.T, h http.Handler, token, fullRepoName string, manifest test.Bytes, reference string, additionalHeaders map[string]string) {
+func expectManifestExists(t *testing.T, ctx context.Context, h httptest.Handler, token, fullRepoName string, manifest test.Bytes, reference string, additionalHeaders map[string]string) {
 	t.Helper()
-	for _, method := range []string{"GET", "HEAD"} {
-		respBody := manifest.Contents
-		if method == "HEAD" {
-			respBody = nil
-		}
-		if reference == "" {
-			reference = manifest.Digest.String()
-		}
+	if reference == "" {
+		reference = manifest.Digest.String()
+	}
+	path := fmt.Sprintf("/v2/%s/manifests/%s", fullRepoName, reference)
 
-		req := assert.HTTPRequest{
-			Method:       method,
-			Path:         fmt.Sprintf("/v2/%s/manifests/%s", fullRepoName, reference),
-			Header:       map[string]string{"Authorization": "Bearer " + token},
-			ExpectStatus: http.StatusOK,
-			ExpectHeader: map[string]string{
-				test.VersionHeaderKey:   test.VersionHeaderValue,
-				"Content-Type":          manifest.MediaType,
-				"Docker-Content-Digest": manifest.Digest.String(),
-			},
-			ExpectBody: assert.ByteData(respBody),
+	for _, method := range []string{"GET", "HEAD"} {
+		baseOpts := []httptest.RequestOption{httptest.WithHeader("Authorization", "Bearer "+token)}
+		for k, v := range additionalHeaders {
+			baseOpts = append(baseOpts, httptest.WithHeader(k, v))
 		}
-		maps.Copy(req.Header, additionalHeaders)
 
 		// without Accept header
-		req.Check(t, h)
+		resp := h.RespondTo(ctx, method+" "+path, baseOpts...)
+		resp.ExpectStatus(t, http.StatusOK)
+		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
+		assert.Equal(t, resp.Header().Get("Content-Type"), manifest.MediaType)
+		assert.Equal(t, resp.Header().Get("Docker-Content-Digest"), manifest.Digest.String())
+		if method == "GET" {
+			assert.DeepEqual(t, "body", resp.BodyBytes(), manifest.Contents)
+		}
 
 		// with matching Accept header
-		req.Header["Accept"] = manifest.MediaType
-		req.Check(t, h)
+		resp = h.RespondTo(ctx, method+" "+path, append(baseOpts, httptest.WithHeader("Accept", manifest.MediaType))...)
+		resp.ExpectStatus(t, http.StatusOK)
+		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
+		assert.Equal(t, resp.Header().Get("Content-Type"), manifest.MediaType)
+		assert.Equal(t, resp.Header().Get("Docker-Content-Digest"), manifest.Digest.String())
+		if method == "GET" {
+			assert.DeepEqual(t, "body", resp.BodyBytes(), manifest.Contents)
+		}
 
 		// with mismatching Accept header
-		req.Header["Accept"] = "text/plain"
-		req.ExpectStatus = http.StatusNotAcceptable
-		req.ExpectHeader = test.VersionHeader
+		resp = h.RespondTo(ctx, method+" "+path, append(baseOpts, httptest.WithHeader("Accept", "text/plain"))...)
 		if method == "GET" {
-			req.ExpectBody = test.ErrorCode(keppel.ErrManifestUnknown)
+			resp.ExpectJSON(t, http.StatusNotAcceptable, test.ErrorCode(keppel.ErrManifestUnknown))
+		} else {
+			resp.ExpectStatus(t, http.StatusNotAcceptable)
 		}
-		req.Check(t, h)
+		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
 	}
 }
 

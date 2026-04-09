@@ -11,7 +11,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/majewsky/gg/jsonmatch"
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/httptest"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/test"
@@ -19,39 +21,32 @@ import (
 
 func TestListTags(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
+		ctx := t.Context()
 		h := s.Handler
 		readOnlyToken := s.GetToken(t, "repository:test1/foo:pull")
 
 		// test tag list for missing repo
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/v2/test1/foo/tags/list",
-			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
-			ExpectStatus: http.StatusNotFound,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   test.ErrorCode(keppel.ErrNameUnknown),
-		}.Check(t, h)
+		resp := h.RespondTo(ctx, "GET /v2/test1/foo/tags/list",
+			httptest.WithHeader("Authorization", "Bearer "+readOnlyToken))
+		resp.ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrNameUnknown))
+		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
 
 		// upload a test image without tagging it
 		image := test.GenerateImage( /* no layers */ )
 		image.MustUpload(t, s, fooRepoRef, "")
 
 		// test empty tag list for existing repo
-		req := assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/v2/test1/foo/tags/list",
-			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
-			ExpectStatus: http.StatusOK,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   assert.JSONObject{"name": "test1/foo", "tags": []string{}},
+		doEmptyTagList := func(path string) {
+			resp := h.RespondTo(ctx, "GET "+path,
+				httptest.WithHeader("Authorization", "Bearer "+readOnlyToken))
+			resp.ExpectJSON(t, http.StatusOK, jsonmatch.Object{"name": "test1/foo", "tags": jsonmatch.Array{}})
+			assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
 		}
-		req.Check(t, h)
+		doEmptyTagList("/v2/test1/foo/tags/list")
 
 		// query parameters do not influence this result
-		req.Path = "/v2/test1/foo/tags/list?n=10"
-		req.Check(t, h)
-		req.Path = "/v2/test1/foo/tags/list?n=10&last=foo"
-		req.Check(t, h)
+		doEmptyTagList("/v2/test1/foo/tags/list?n=10")
+		doEmptyTagList("/v2/test1/foo/tags/list?n=10&last=foo")
 
 		// generate pseudo-random, but deterministic tag names
 		allTagNames := make([]string, 10)
@@ -71,28 +66,21 @@ func TestListTags(t *testing.T) {
 		sort.Strings(allTagNames)
 
 		// test unpaginated
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/v2/test1/foo/tags/list",
-			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
-			ExpectStatus: http.StatusOK,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   assert.JSONObject{"name": "test1/foo", "tags": allTagNames},
-		}.Check(t, h)
+		resp2 := h.RespondTo(ctx, "GET /v2/test1/foo/tags/list",
+			httptest.WithHeader("Authorization", "Bearer "+readOnlyToken))
+		resp2.ExpectJSON(t, http.StatusOK, jsonmatch.Object{"name": "test1/foo", "tags": allTagNames})
+		assert.Equal(t, resp2.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
 
 		// test paginated
 		for offset := range allTagNames {
 			for length := 1; length <= len(allTagNames)+1; length++ {
 				expectedPage := allTagNames[offset:]
-				expectedHeaders := map[string]string{
-					test.VersionHeaderKey: test.VersionHeaderValue,
-					"Content-Type":        "application/json",
-				}
+				var linkHeader string
 
 				if len(expectedPage) > length {
 					expectedPage = expectedPage[:length]
 					lastRepoName := expectedPage[len(expectedPage)-1]
-					expectedHeaders["Link"] = fmt.Sprintf(`</v2/test1/foo/tags/list?last=%s&n=%d>; rel="next"`,
+					linkHeader = fmt.Sprintf(`</v2/test1/foo/tags/list?last=%s&n=%d>; rel="next"`,
 						strings.ReplaceAll(lastRepoName, "/", "%2F"), length,
 					)
 				}
@@ -102,34 +90,26 @@ func TestListTags(t *testing.T) {
 					path += `&last=` + allTagNames[offset-1]
 				}
 
-				assert.HTTPRequest{
-					Method:       "GET",
-					Path:         path,
-					Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
-					ExpectStatus: http.StatusOK,
-					ExpectHeader: expectedHeaders,
-					ExpectBody:   assert.JSONObject{"name": "test1/foo", "tags": expectedPage},
-				}.Check(t, h)
+				resp := h.RespondTo(ctx, "GET "+path, httptest.WithHeader("Authorization", "Bearer "+readOnlyToken))
+				resp.ExpectJSON(t, http.StatusOK, jsonmatch.Object{"name": "test1/foo", "tags": expectedPage})
+				assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
+				assert.Equal(t, resp.Header().Get("Content-Type"), "application/json")
+				if linkHeader != "" {
+					assert.Equal(t, resp.Header().Get("Link"), linkHeader)
+				}
 			}
 		}
 
 		// test error cases for pagination query params
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/v2/test1/foo/tags/list?n=-1",
-			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
-			ExpectStatus: http.StatusBadRequest,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   assert.StringData("invalid value for \"n\": strconv.ParseUint: parsing \"-1\": invalid syntax\n"),
-		}.Check(t, h)
-		assert.HTTPRequest{
-			Method:       "GET",
-			Path:         "/v2/test1/foo/tags/list?n=0",
-			Header:       map[string]string{"Authorization": "Bearer " + readOnlyToken},
-			ExpectStatus: http.StatusBadRequest,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   assert.StringData("invalid value for \"n\": must not be 0\n"),
-		}.Check(t, h)
+		resp3 := h.RespondTo(ctx, "GET /v2/test1/foo/tags/list?n=-1",
+			httptest.WithHeader("Authorization", "Bearer "+readOnlyToken))
+		resp3.ExpectText(t, http.StatusBadRequest, "invalid value for \"n\": strconv.ParseUint: parsing \"-1\": invalid syntax\n")
+		assert.Equal(t, resp3.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
+
+		resp4 := h.RespondTo(ctx, "GET /v2/test1/foo/tags/list?n=0",
+			httptest.WithHeader("Authorization", "Bearer "+readOnlyToken))
+		resp4.ExpectText(t, http.StatusBadRequest, "invalid value for \"n\": must not be 0\n")
+		assert.Equal(t, resp4.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
 
 		// test anycast tag listing
 		if currentlyWithAnycast {
@@ -137,20 +117,18 @@ func TestListTags(t *testing.T) {
 				h2 := s2.Handler
 				testAnycast(t, firstPass, s2.DB, func() {
 					anycastToken := s.GetAnycastToken(t, "repository:test1/foo:pull")
-					req := assert.HTTPRequest{
-						Method: "GET",
-						Path:   "/v2/test1/foo/tags/list",
-						Header: map[string]string{
-							"Authorization":     "Bearer " + anycastToken,
-							"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
-							"X-Forwarded-Proto": "https",
-						},
-						ExpectStatus: http.StatusOK,
-						ExpectHeader: test.VersionHeader,
-						ExpectBody:   assert.JSONObject{"name": "test1/foo", "tags": allTagNames},
+					anycastHeaders := []httptest.RequestOption{
+						httptest.WithHeader("Authorization", "Bearer "+anycastToken),
+						httptest.WithHeader("X-Forwarded-Host", s.Config.AnycastAPIPublicHostname),
+						httptest.WithHeader("X-Forwarded-Proto", "https"),
 					}
-					req.Check(t, h)
-					req.Check(t, h2)
+					resp := h.RespondTo(ctx, "GET /v2/test1/foo/tags/list", anycastHeaders...)
+					resp.ExpectJSON(t, http.StatusOK, jsonmatch.Object{"name": "test1/foo", "tags": allTagNames})
+					assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
+
+					resp2 := h2.RespondTo(ctx, "GET /v2/test1/foo/tags/list", anycastHeaders...)
+					resp2.ExpectJSON(t, http.StatusOK, jsonmatch.Object{"name": "test1/foo", "tags": allTagNames})
+					assert.Equal(t, resp2.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
 				})
 			})
 		}

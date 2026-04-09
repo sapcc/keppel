@@ -180,8 +180,8 @@ func TestAnycastRateLimits(t *testing.T) {
 				// four requests because each expectBlobExists() does one GET and one
 				// HEAD, but the rate limit only counts GETs since the rate limit is on
 				// the blob contents, which don't get transferred during HEAD)
-				expectBlobExists(t, h2, anycastToken, "test1/foo", blob, anycastHeaders)
-				expectBlobExists(t, h2, anycastToken, "test1/foo", blob, anycastHeaders)
+				expectBlobExists(t, t.Context(), h2, anycastToken, "test1/foo", blob, anycastHeaders)
+				expectBlobExists(t, t.Context(), h2, anycastToken, "test1/foo", blob, anycastHeaders)
 
 				// third pull will be rejected by the rate limit
 				assert.HTTPRequest{
@@ -205,7 +205,7 @@ func TestAnycastRateLimits(t *testing.T) {
 				}.Check(t, h2)
 
 				// pull from primary is okay since we don't traverse regions
-				expectBlobExists(t, h, anycastToken, "test1/foo", blob, anycastHeaders)
+				expectBlobExists(t, t.Context(), h, anycastToken, "test1/foo", blob, anycastHeaders)
 			})
 		})
 	})
