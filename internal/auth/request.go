@@ -216,15 +216,14 @@ var errMalformedAuthHeader = keppel.ErrUnauthorized.With("malformed Authorizatio
 
 func checkBasicAuth(ctx context.Context, authHeader string, ad keppel.AuthDriver, db *keppel.DB) (keppel.UserIdentity, error) {
 	// decode auth header into username/password pair
-	bytes, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(authHeader, "Basic "))
+	usernamePassword, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(authHeader, "Basic "))
 	if err != nil {
 		return nil, errMalformedAuthHeader
 	}
-	fields := strings.SplitN(string(bytes), ":", 2)
-	if len(fields) != 2 {
+	userName, password, ok := strings.Cut(string(usernamePassword), ":")
+	if !ok {
 		return nil, errMalformedAuthHeader
 	}
-	userName, password := fields[0], fields[1]
 
 	// recognize peer credentials
 	if peerHostName, ok := strings.CutPrefix(userName, "replication@"); ok {
