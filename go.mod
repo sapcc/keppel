@@ -10,8 +10,8 @@ require (
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/gofrs/uuid/v5 v5.4.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/google/cel-go v0.27.0
-	github.com/gophercloud/gophercloud/v2 v2.11.1
+	github.com/google/cel-go v0.28.0
+	github.com/gophercloud/gophercloud/v2 v2.12.0
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/majewsky/gg v1.6.0
@@ -58,7 +58,7 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	golang.org/x/exp v0.0.0-20240823005443-9b4947da3948 // indirect
-	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250818200422-3122310a409c // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
