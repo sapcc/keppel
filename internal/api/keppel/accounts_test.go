@@ -23,6 +23,32 @@ import (
 	"github.com/sapcc/keppel/internal/test"
 )
 
+func BenchmarkSingleAccountSelect(b *testing.B) {
+	s := test.NewSetup(b,
+		test.WithKeppelAPI,
+		test.WithAccount(models.Account{Name: "foo", AuthTenantID: "first"}),
+	)
+
+	b.Run("YesContext", func(b *testing.B) {
+		for range b.N {
+			var account models.ReducedAccount
+			err := s.DB.DbMap.Db.QueryRowContext(b.Context(), `SELECT name, auth_tenant_id FROM accounts WHERE name = 'foo'`).Scan(&account.Name, &account.AuthTenantID)
+			if err != nil {
+				b.Error(err)
+			}
+		}
+	})
+	b.Run("NoContext", func(b *testing.B) {
+		for range b.N {
+			var account models.ReducedAccount
+			err := s.DB.QueryRow(`SELECT name, auth_tenant_id FROM accounts WHERE name = 'foo'`).Scan(&account.Name, &account.AuthTenantID)
+			if err != nil {
+				b.Error(err)
+			}
+		}
+	})
+}
+
 func TestAccountsAPI(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	h := s.Handler
