@@ -169,7 +169,7 @@ func WithJSONBody(payload any) RequestOption {
 // as well as convenience methods for complex assertions:
 //
 //	resp := h.RespondTo(t.Context(), "GET /v1/assets")
-//	assert.Equal(t, resp.Code, http.StatusOK)
+//	assert.Equal(t, resp.StatusCode(), http.StatusOK)
 //
 // Alternatively, the Response() method provides a full *http.Response object, which is useful for Gomega matchers
 // (or when matching more obscure parts of the HTTP response like trailers):
@@ -241,6 +241,9 @@ func (r Response) CaptureJSON(target any) Response {
 	v := reflect.ValueOf(target)
 	if v.Kind() != reflect.Pointer {
 		panic("argument for CaptureJSON() must be a pointer")
+	}
+	if v.IsNil() {
+		panic("argument for CaptureJSON() must not be a nil pointer")
 	}
 	reflect.Indirect(v).SetZero()
 
@@ -341,9 +344,9 @@ func (r Response) ExpectBody(t assert.TestingT, statusCode int, expectedBody []b
 // This function returns the Response object unchanged, since it is intended to be written in a chained style:
 //
 //	h.RespondTo(ctx, "GET /v1/assets").
-//		ExpectHeader("X-Ratelimit-Action", "asset:list").
-//		ExpectHeader("X-Ratelimit-Limit", "500").
-//		ExpectHeader("X-Ratelimit-Remaining", "499").
+//		ExpectHeader(t, "X-Ratelimit-Action", "asset:list").
+//		ExpectHeader(t, "X-Ratelimit-Limit", "500").
+//		ExpectHeader(t, "X-Ratelimit-Remaining", "499").
 //		ExpectJSON(t, http.StatusOK, jsonmatch.Array{
 //			jsonmatch.Object{"id": 42, "name": "test_asset"},
 //		})
@@ -366,7 +369,7 @@ func (r Response) ExpectHeader(t assert.TestingT, key, expected string) Response
 // This function returns the Response object unchanged, since it is intended to be written in a chained style:
 //
 //	h.RespondTo(ctx, "GET /v1/assets").
-//		ExpectHeaders(http.Header{
+//		ExpectHeaders(t, http.Header{
 //			"X-Ratelimit-Action": {"asset:list"},
 //			"X-Ratelimit-Limit": {"500"},
 //			"X-Ratelimit-Remaining": {"499"},
@@ -391,7 +394,7 @@ func (r Response) ExpectHeaders(t assert.TestingT, hdr http.Header) Response {
 			}
 			err = http.Header{key: actual}.Write(&actualBuf)
 			if err != nil {
-				panic(fmt.Sprintf("could not encode expected %s headers: %s", key, err.Error()))
+				panic(fmt.Sprintf("could not encode actual %s headers: %s", key, err.Error()))
 			}
 
 			t.Errorf("expected %q, but got %q",
