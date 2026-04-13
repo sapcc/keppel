@@ -465,20 +465,20 @@ func TestGetAccountsErrorCases(t *testing.T) {
 	h.RespondTo(ctx, "GET /keppel/v1/accounts").
 		ExpectText(t, http.StatusUnauthorized, "unauthorized\n")
 
-	resp := h.RespondTo(ctx, "GET /keppel/v1/accounts/first")
-	assert.Equal(t, resp.Header().Get("Www-Authenticate"),
-		`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_account:first:view"`)
-	resp.ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/first").
+		ExpectHeader(t, "Www-Authenticate",
+			`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_account:first:view"`).
+		ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
 
-	resp = h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
 			},
-		}))
-	assert.Equal(t, resp.Header().Get("Www-Authenticate"),
-		`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_auth_tenant:tenant1:change"`)
-	resp.ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
+		})).
+		ExpectHeader(t, "Www-Authenticate",
+			`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_auth_tenant:tenant1:change"`).
+		ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
 }
 
 func TestPutAccountRBACPolicyNormalization(t *testing.T) {
@@ -584,15 +584,15 @@ func TestPutAccountErrorCases(t *testing.T) {
 		})).ExpectText(t, http.StatusConflict, "account name already in use by a different tenant\n")
 
 	// test invalid authentication/authorization
-	resp := h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
 			},
-		}))
-	assert.Equal(t, resp.Header().Get("Www-Authenticate"),
-		`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_auth_tenant:tenant1:change"`)
-	resp.ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
+		})).
+		ExpectHeader(t, "Www-Authenticate",
+			`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_auth_tenant:tenant1:change"`).
+		ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
 
 	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
 		withPerms("view:tenant1"),
@@ -1056,12 +1056,11 @@ func TestPutAccountErrorCases(t *testing.T) {
 		})).ExpectText(t, http.StatusUnprocessableEntity, "platform filter is only allowed on replica accounts\n")
 
 	// test errors for sublease token issuance: missing authentication/authorization
-	resp = h.RespondTo(ctx, "POST /keppel/v1/accounts/first/sublease")
-	assert.Equal(t, resp.Header().Get("Www-Authenticate"),
-		// default auth is bearer token auth, so an auth challenge gets rendered
-		`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_account:first:change"`,
-	)
-	resp.ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
+	h.RespondTo(ctx, "POST /keppel/v1/accounts/first/sublease").
+		ExpectHeader(t, "Www-Authenticate",
+			// default auth is bearer token auth, so an auth challenge gets rendered
+			`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_account:first:change"`).
+		ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
 
 	h.RespondTo(ctx, "POST /keppel/v1/accounts/first/sublease",
 		withPerms("view:tenant1"),

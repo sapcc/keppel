@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/drivers/basic"
@@ -140,6 +141,7 @@ func TestRateLimits(t *testing.T) {
 }
 
 func TestAnycastRateLimits(t *testing.T) {
+	ctx := t.Context()
 	blob := test.NewBytes([]byte("the blob for our test case"))
 
 	// set up rate limit such that we can pull this blob only twice in a row
@@ -180,21 +182,16 @@ func TestAnycastRateLimits(t *testing.T) {
 				expectBlobExists(t, h2, anycastTokenHeaders, "test1/foo", blob)
 
 				// third pull will be rejected by the rate limit
-				assert.HTTPRequest{
-					Method:       "GET",
-					Path:         "/v2/test1/foo/blobs/" + blob.Digest.String(),
-					Header:       test.FlattenHeaders(anycastTokenHeaders),
-					ExpectBody:   test.ErrorCode(keppel.ErrTooManyRequests),
-					ExpectStatus: http.StatusTooManyRequests,
-					ExpectHeader: map[string]string{
-						test.VersionHeaderKey:   test.VersionHeaderValue,
-						"X-RateLimit-Action":    string(keppel.AnycastBlobBytePullAction),
-						"X-RateLimit-Limit":     strconv.Itoa(limit.Burst),
-						"X-RateLimit-Remaining": "0",
-						"X-RateLimit-Reset":     strconv.Itoa(int(limit.Period.Seconds())),
-						"Retry-After":           "30",
-					},
-				}.Check(t, h2)
+				h2.RespondTo(ctx, "GET /v2/test1/foo/blobs/"+blob.Digest.String(),
+					httptest.WithHeaders(anycastTokenHeaders),
+				).ExpectHeaders(t, http.Header{
+					test.VersionHeaderKey:   {test.VersionHeaderValue},
+					"X-RateLimit-Action":    {string(keppel.AnycastBlobBytePullAction)},
+					"X-RateLimit-Limit":     {strconv.Itoa(limit.Burst)},
+					"X-RateLimit-Remaining": {"0"},
+					"X-RateLimit-Reset":     {strconv.Itoa(int(limit.Period.Seconds()))},
+					"Retry-After":           {"30"},
+				}).ExpectJSON(t, http.StatusTooManyRequests, test.ErrorCode(keppel.ErrTooManyRequests))
 
 				// pull from primary is okay since we don't traverse regions
 				expectBlobExists(t, h, anycastTokenHeaders, "test1/foo", blob)

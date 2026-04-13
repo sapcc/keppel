@@ -21,7 +21,6 @@ import (
 	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-api-declarations/cadf"
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
@@ -343,11 +342,9 @@ func TestGetTrivyReport(t *testing.T) {
 		)
 
 		// happy case: GET on the default format "json" returns that cached report
-		resp := h.RespondTo(ctx, endpointFor(imageManifest.Digest),
-			withPerms("view:tenant1,pull:tenant1"),
-		)
-		assert.Equal(t, resp.Header().Get("Content-Type"), "application/json")
-		resp.ExpectText(t, http.StatusOK, string(buf))
+		h.RespondTo(ctx, endpointFor(imageManifest.Digest), withPerms("view:tenant1,pull:tenant1")).
+			ExpectHeader(t, "Content-Type", "application/json").
+			ExpectText(t, http.StatusOK, string(buf))
 
 		// happy case: GET on a different format will speak to the Trivy server directly (hence we need to instruct our double what to return)
 		imageRef := models.ImageReference{
@@ -358,11 +355,9 @@ func TestGetTrivyReport(t *testing.T) {
 		s.TrivyDouble.ReportFixtures[imageRef] = "fixtures/trivy-report-spdx.json"
 		var expected jsonmatch.Object
 		must.SucceedT(t, json.Unmarshal(must.ReturnT(os.ReadFile("fixtures/trivy-report-spdx.json"))(t), &expected))
-		resp = h.RespondTo(ctx, endpointFor(imageManifest.Digest)+"?format=spdx-json",
-			withPerms("view:tenant1,pull:tenant1"),
-		)
-		assert.Equal(t, resp.Header().Get("Content-Type"), "application/json")
-		resp.ExpectJSON(t, http.StatusOK, expected)
+		h.RespondTo(ctx, endpointFor(imageManifest.Digest)+"?format=spdx-json", withPerms("view:tenant1,pull:tenant1")).
+			ExpectHeader(t, "Content-Type", "application/json").
+			ExpectJSON(t, http.StatusOK, expected)
 	})
 }
 
@@ -396,13 +391,13 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 		}
 		expectRateLimited := func(reset, retryAfter int) {
 			t.Helper()
-			resp := doTrivyRequest()
-			assert.Equal(t, resp.Header().Get("X-RateLimit-Action"), string(keppel.TrivyReportRetrieveAction))
-			assert.Equal(t, resp.Header().Get("X-RateLimit-Limit"), strconv.Itoa(limit.Burst))
-			assert.Equal(t, resp.Header().Get("X-RateLimit-Remaining"), "0")
-			assert.Equal(t, resp.Header().Get("X-RateLimit-Reset"), strconv.Itoa(reset))
-			assert.Equal(t, resp.Header().Get("Retry-After"), strconv.Itoa(retryAfter))
-			resp.ExpectJSON(t, http.StatusTooManyRequests, jsonmatch.Object{
+			doTrivyRequest().ExpectHeaders(t, http.Header{
+				"X-RateLimit-Action":    {string(keppel.TrivyReportRetrieveAction)},
+				"X-RateLimit-Limit":     {strconv.Itoa(limit.Burst)},
+				"X-RateLimit-Remaining": {"0"},
+				"X-RateLimit-Reset":     {strconv.Itoa(reset)},
+				"Retry-After":           {strconv.Itoa(retryAfter)},
+			}).ExpectJSON(t, http.StatusTooManyRequests, jsonmatch.Object{
 				"errors": jsonmatch.Array{jsonmatch.Object{
 					"code":    "TOOMANYREQUESTS",
 					"message": "too many requests; please slow down",

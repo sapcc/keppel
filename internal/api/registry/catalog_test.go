@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -238,13 +239,9 @@ func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
 }
 
 func testNoCatalogOnAnycast(t *testing.T, s test.Setup) {
+	ctx := t.Context()
 	tokenHeaders := s.GetAnycastTokenHeaders(t, "registry:catalog:*")
-	assert.HTTPRequest{
-		Method:       "GET",
-		Path:         "/v2/_catalog",
-		Header:       test.FlattenHeaders(tokenHeaders),
-		ExpectStatus: http.StatusMethodNotAllowed,
-		ExpectHeader: test.VersionHeader,
-		ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
-	}.Check(t, s.Handler)
+	s.Handler.RespondTo(ctx, "GET /v2/_catalog", httptest.WithHeaders(tokenHeaders)).
+		ExpectHeader(t, test.VersionHeaderKey, test.VersionHeaderValue).
+		ExpectJSON(t, http.StatusMethodNotAllowed, test.ErrorCode(keppel.ErrUnsupported))
 }

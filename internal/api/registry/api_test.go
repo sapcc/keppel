@@ -153,12 +153,11 @@ func TestAPIAuthNotGrantingAnyScopes(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		// any endpoint, when not provided with a token, should respond with 401
 		// and challenge us to get one (unless RBAC policies for anonymous access are set up)
-		resp := s.Handler.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest")
-		resp.ExpectStatus(t, http.StatusUnauthorized)
-		assert.Equal(t, resp.Header().Get(test.VersionHeaderKey), test.VersionHeaderValue)
-		assert.Equal(t, resp.Header().Get("Www-Authenticate"),
-			`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull"`,
-		)
+		s.Handler.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest").
+			ExpectHeader(t, test.VersionHeaderKey, test.VersionHeaderValue).
+			ExpectHeader(t, "Www-Authenticate",
+				`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull"`).
+			ExpectStatus(t, http.StatusUnauthorized)
 
 		// any endpoint, when provided with a token that does not grant the right scopes,
 		// should respond with 403 (though actually it's 401 for bug-for-bug compatibility with Docker Hub)
