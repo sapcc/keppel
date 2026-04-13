@@ -163,14 +163,14 @@ func GetSecurityScanPolicies(account models.Account, repo models.Repository) (Se
 }
 
 // PolicyForVulnerability returns the first policy from this set that matches
-// the vulnerability, or nil if no policy matches.
-func (s SecurityScanPolicySet) PolicyForVulnerability(vuln trivy.DetectedVulnerability) *SecurityScanPolicy {
+// the vulnerability, or SecurityScanPolicy{} if no policy matches.
+func (s SecurityScanPolicySet) PolicyForVulnerability(vuln trivy.DetectedVulnerability) (SecurityScanPolicy, bool) {
 	for _, p := range s {
 		if p.MatchesVulnerability(vuln) {
-			return &p
+			return p, true
 		}
 	}
-	return nil
+	return SecurityScanPolicy{}, false
 }
 
 // EnrichReport computes and inserts the "X-Keppel-Applicable-Policies" field
@@ -232,9 +232,9 @@ func (s SecurityScanPolicySet) EnrichReport(payload *trivy.ReportPayload, timeNo
 					return errorStatus, fmt.Errorf("vulnerability severity with name %q returned by Trivy is unknown and cannot be mapped", vuln.Severity)
 				}
 
-				policy := s.PolicyForVulnerability(vuln)
-				if policy != nil {
-					applicablePolicies[vuln.VulnerabilityID] = *policy
+				policy, ok := s.PolicyForVulnerability(vuln)
+				if ok {
+					applicablePolicies[vuln.VulnerabilityID] = policy
 					status = policy.VulnerabilityStatus()
 				}
 				statuses = append(statuses, status)
