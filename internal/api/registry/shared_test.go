@@ -4,14 +4,15 @@
 package registryv2_test
 
 import (
+	"cmp"
 	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
 	"testing"
 
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
+	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 
 	"github.com/sapcc/keppel/internal/drivers/trivial"
@@ -126,24 +127,26 @@ func testAnycast(t *testing.T, firstPass bool, db2 *keppel.DB, action func()) {
 ////////////////////////////////////////////////////////////////////////////////
 // helpers for setting up test scenarios
 
-func getBlobUpload(t *testing.T, h http.Handler, hdr http.Header, fullRepoName string) (uploadURL, uploadUUID string) {
+func getBlobUpload(t *testing.T, h httptest.Handler, hdr http.Header, fullRepoName string) (uploadURL, uploadUUID string) {
 	t.Helper()
-	resp, _ := assert.HTTPRequest{
-		Method:       "POST",
-		Path:         fmt.Sprintf("/v2/%s/blobs/uploads/", fullRepoName),
-		Header:       test.FlattenHeaders(hdr),
-		ExpectStatus: http.StatusAccepted,
-		ExpectHeader: map[string]string{
-			test.VersionHeaderKey: test.VersionHeaderValue,
-			"Content-Length":      "0",
-			"Range":               "0-0",
-		},
-	}.Check(t, h)
-	return resp.Header.Get("Location"), resp.Header.Get("Blob-Upload-Session-Id")
+
+	h.RespondTo(t.Context(),
+		fmt.Sprintf("POST /v2/%s/blobs/uploads/", fullRepoName),
+		httptest.WithHeaders(hdr),
+	).ExpectHeaders(t, http.Header{
+		test.VersionHeaderKey: {test.VersionHeaderValue},
+		"Content-Length":      {"0"},
+		"Range":               {"0-0"},
+	}).
+		CaptureHeader("Location", &uploadURL).
+		CaptureHeader("Blob-Upload-Session-Id", &uploadUUID).
+		ExpectStatus(t, http.StatusAccepted)
+
+	return
 }
 
 //nolint:unparam
-func getBlobUploadURL(t *testing.T, h http.Handler, hdr http.Header, fullRepoName string) string {
+func getBlobUploadURL(t *testing.T, h httptest.Handler, hdr http.Header, fullRepoName string) string {
 	t.Helper()
 	u, _ := getBlobUpload(t, h, hdr, fullRepoName)
 	return u
@@ -152,69 +155,55 @@ func getBlobUploadURL(t *testing.T, h http.Handler, hdr http.Header, fullRepoNam
 ////////////////////////////////////////////////////////////////////////////////
 // reusable assertions
 
-func expectBlobExists(t *testing.T, h http.Handler, hdr http.Header, fullRepoName string, blob test.Bytes) {
+func bodyForMethod(method string, body []byte) []byte {
+	if method == "HEAD" {
+		return nil
+	}
+	return body
+}
+
+func expectBlobExists(t *testing.T, h httptest.Handler, hdr http.Header, fullRepoName string, blob test.Bytes) {
 	t.Helper()
 	for _, method := range []string{"GET", "HEAD"} {
-		respBody := blob.Contents
-		if method == "HEAD" {
-			respBody = nil
-		}
-		assert.HTTPRequest{
-			Method:       method,
-			Path:         "/v2/" + fullRepoName + "/blobs/" + blob.Digest.String(),
-			Header:       test.FlattenHeaders(hdr),
-			ExpectStatus: http.StatusOK,
-			ExpectHeader: map[string]string{
-				test.VersionHeaderKey:   test.VersionHeaderValue,
-				"Content-Length":        strconv.Itoa(len(blob.Contents)),
-				"Content-Type":          blob.MediaType,
-				"Docker-Content-Digest": blob.Digest.String(),
-			},
-			ExpectBody: assert.ByteData(respBody),
-		}.Check(t, h)
+		h.RespondTo(t.Context(),
+			fmt.Sprintf("%s /v2/%s/blobs/%s", method, fullRepoName, blob.Digest.String()),
+			httptest.WithHeaders(hdr),
+		).ExpectHeaders(t, http.Header{
+			test.VersionHeaderKey:   {test.VersionHeaderValue},
+			"Content-Length":        {strconv.Itoa(len(blob.Contents))},
+			"Content-Type":          {blob.MediaType},
+			"Docker-Content-Digest": {blob.Digest.String()},
+		}).ExpectBody(t, http.StatusOK, bodyForMethod(method, blob.Contents))
 	}
 }
 
 //nolint:unparam
-func expectManifestExists(t *testing.T, h http.Handler, hdr http.Header, fullRepoName string, manifest test.Bytes, reference string) {
+func expectManifestExists(t *testing.T, h httptest.Handler, hdr http.Header, fullRepoName string, manifest test.Bytes, reference string) {
 	t.Helper()
 	for _, method := range []string{"GET", "HEAD"} {
-		respBody := manifest.Contents
-		if method == "HEAD" {
-			respBody = nil
-		}
-		if reference == "" {
-			reference = manifest.Digest.String()
-		}
+		// NOTE: `hdr.Get("Accept")` may be empty, in which case we test without any non-empty Accept header
+		for _, acceptHeader := range []string{hdr.Get("Accept"), manifest.MediaType, "text/plain"} {
+			resp := h.RespondTo(t.Context(),
+				fmt.Sprintf("%s /v2/%s/manifests/%s", method, fullRepoName, cmp.Or(reference, manifest.Digest.String())),
+				httptest.WithHeaders(hdr),
+				httptest.WithHeader("Accept", acceptHeader), // must be last to take priority over hdr["Accept"] (if that is set)
+			).ExpectHeader(t, test.VersionHeaderKey, test.VersionHeaderValue)
 
-		req := assert.HTTPRequest{
-			Method:       method,
-			Path:         fmt.Sprintf("/v2/%s/manifests/%s", fullRepoName, reference),
-			Header:       test.FlattenHeaders(hdr),
-			ExpectStatus: http.StatusOK,
-			ExpectHeader: map[string]string{
-				test.VersionHeaderKey:   test.VersionHeaderValue,
-				"Content-Type":          manifest.MediaType,
-				"Docker-Content-Digest": manifest.Digest.String(),
-			},
-			ExpectBody: assert.ByteData(respBody),
+			if acceptHeader == "text/plain" {
+				// with mismatching Accept header, expect error response
+				if method == "GET" {
+					resp.ExpectJSON(t, http.StatusNotAcceptable, test.ErrorCode(keppel.ErrManifestUnknown))
+				} else {
+					resp.ExpectStatus(t, http.StatusNotAcceptable)
+				}
+			} else {
+				// with no Accept header or matching Accept header, expect successful response
+				resp.ExpectHeaders(t, http.Header{
+					"Content-Type":          {manifest.MediaType},
+					"Docker-Content-Digest": {manifest.Digest.String()},
+				}).ExpectBody(t, http.StatusOK, bodyForMethod(method, manifest.Contents))
+			}
 		}
-
-		// without Accept header
-		req.Check(t, h)
-
-		// with matching Accept header
-		req.Header["Accept"] = manifest.MediaType
-		req.Check(t, h)
-
-		// with mismatching Accept header
-		req.Header["Accept"] = "text/plain"
-		req.ExpectStatus = http.StatusNotAcceptable
-		req.ExpectHeader = test.VersionHeader
-		if method == "GET" {
-			req.ExpectBody = test.ErrorCode(keppel.ErrManifestUnknown)
-		}
-		req.Check(t, h)
 	}
 }
 

@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/majewsky/gg/jsonmatch"
-	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/httptest"
 
 	"github.com/sapcc/keppel/internal/keppel"
@@ -26,10 +25,10 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 	ctx := t.Context()
 
 	// test anonymous auth: fails without RBAC policy, succeeds with RBAC policy
-	resp := h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/foo/_manifests")
-	assert.Equal(t, resp.Header().Get("Www-Authenticate"),
-		`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull"`)
-	resp.ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
+	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/foo/_manifests").
+		ExpectHeader(t, "Www-Authenticate",
+			`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull"`).
+		ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
 
 	test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
 		test.ToJSON([]keppel.RBACPolicy{{

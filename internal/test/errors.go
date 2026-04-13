@@ -8,14 +8,29 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/majewsky/gg/jsonmatch"
+
 	"github.com/sapcc/keppel/internal/keppel"
 )
 
 // ErrorCode wraps keppel.RegistryV2ErrorCode with an implementation of the
-// assert.HTTPResponseBody interface.
+// assert.HTTPResponseBody and the jsonmatch.Diffable interfaces.
 type ErrorCode keppel.RegistryV2ErrorCode
 
+// DiffAgainst implements the jsonmatch.Diffable interface.
+func (e ErrorCode) DiffAgainst(buf []byte) []jsonmatch.Diff {
+	return jsonmatch.Object{
+		"errors": []jsonmatch.Object{{
+			"code":    string(e),
+			"message": jsonmatch.Irrelevant(),
+			"detail":  jsonmatch.Irrelevant(),
+		}},
+	}.DiffAgainst(buf)
+}
+
 // AssertResponseBody implements the assert.HTTPResponseBody interface.
+//
+// TODO: remove after all assert.HTTPRequests usage has been replaced with httptest.Handler.RespondTo()
 func (e ErrorCode) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
 	t.Helper()
 	wrapped := ErrorCodeWithMessage{keppel.RegistryV2ErrorCode(e), ""}
@@ -28,7 +43,20 @@ type ErrorCodeWithMessage struct {
 	Message string
 }
 
+// DiffAgainst implements the jsonmatch.Diffable interface.
+func (e ErrorCodeWithMessage) DiffAgainst(buf []byte) []jsonmatch.Diff {
+	return jsonmatch.Object{
+		"errors": []jsonmatch.Object{{
+			"code":    string(e.Code),
+			"message": e.Message,
+			"detail":  jsonmatch.Irrelevant(),
+		}},
+	}.DiffAgainst(buf)
+}
+
 // AssertResponseBody implements the assert.HTTPResponseBody interface.
+//
+// TODO: remove after all assert.HTTPRequests usage has been replaced with httptest.Handler.RespondTo()
 func (e ErrorCodeWithMessage) AssertResponseBody(t *testing.T, requestInfo string, responseBody []byte) bool {
 	t.Helper()
 	var data struct {
