@@ -163,7 +163,8 @@ func GetSecurityScanPolicies(account models.Account, repo models.Repository) (Se
 }
 
 // PolicyForVulnerability returns the first policy from this set that matches
-// the vulnerability, or SecurityScanPolicy{} if no policy matches.
+// the vulnerability. The boolean return value is true if a matching policy
+// was found; otherwise, it returns SecurityScanPolicy{} and false.
 func (s SecurityScanPolicySet) PolicyForVulnerability(vuln trivy.DetectedVulnerability) (SecurityScanPolicy, bool) {
 	for _, p := range s {
 		if p.MatchesVulnerability(vuln) {
