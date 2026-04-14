@@ -110,7 +110,7 @@ func ErrEqual(t TestingT, actual error, expectedErrorOrMessageOrRegexp any) bool
 
 // DeepEqual checks if the actual and expected value are equal as
 // determined by reflect.DeepEqual(), and t.Error()s otherwise.
-func DeepEqual[V any](t *testing.T, variable string, actual, expected V) bool {
+func DeepEqual[V any](t testing.TB, variable string, actual, expected V) bool {
 	t.Helper()
 	if reflect.DeepEqual(actual, expected) {
 		return true
