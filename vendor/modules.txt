@@ -1,8 +1,6 @@
 # cel.dev/expr v0.25.1
 ## explicit; go 1.23.0
 cel.dev/expr
-# github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c
-## explicit; go 1.16
 # github.com/alicebob/miniredis/v2 v2.37.0
 ## explicit; go 1.17
 github.com/alicebob/miniredis/v2
@@ -40,7 +38,6 @@ github.com/dgryski/go-rendezvous
 github.com/dlmiddlecote/sqlstats
 # github.com/docker/docker v28.5.1+incompatible
 ## explicit
-github.com/docker/docker/api/types/versions
 # github.com/go-gorp/gorp/v3 v3.1.0 => github.com/majewsky/gorp/v3 v3.1.1-0.20260409143009-8eddaa758ac1
 ## explicit; go 1.18
 github.com/go-gorp/gorp/v3
@@ -140,6 +137,9 @@ github.com/majewsky/schwift/v2
 github.com/majewsky/schwift/v2/capabilities
 github.com/majewsky/schwift/v2/gopherschwift
 github.com/majewsky/schwift/v2/internal/errext
+# github.com/moby/moby/client v0.1.0
+## explicit; go 1.24.0
+github.com/moby/moby/client/pkg/versions
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
@@ -251,7 +251,7 @@ github.com/yuin/gopher-lua
 github.com/yuin/gopher-lua/ast
 github.com/yuin/gopher-lua/parse
 github.com/yuin/gopher-lua/pm
-# go.podman.io/image/v5 v5.39.2
+# go.podman.io/image/v5 v5.39.2 => go.podman.io/image/v5 v5.38.1-0.20251112190108-acb3639700ff
 ## explicit; go 1.24.0
 go.podman.io/image/v5/docker/reference
 go.podman.io/image/v5/internal/manifest
@@ -279,10 +279,10 @@ golang.org/x/exp/slices
 ## explicit; go 1.25.0
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# google.golang.org/genproto/googleapis/api v0.0.0-20250818200422-3122310a409c
+# google.golang.org/genproto/googleapis/api v0.0.0-20250825161204-c5933d9347a5
 ## explicit; go 1.23.0
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20250825161204-c5933d9347a5
 ## explicit; go 1.23.0
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/protobuf v1.36.11
@@ -328,3 +328,4 @@ google.golang.org/protobuf/types/known/emptypb
 google.golang.org/protobuf/types/known/structpb
 google.golang.org/protobuf/types/known/timestamppb
 google.golang.org/protobuf/types/known/wrapperspb
+# go.podman.io/image/v5 => go.podman.io/image/v5 v5.38.1-0.20251112190108-acb3639700ff

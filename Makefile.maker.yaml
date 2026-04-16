@@ -29,6 +29,11 @@ golang:
   setGoModVersion: true
 
 golangciLint:
+  replaceAllowList:
+    # unmaintained and we do our own fixes
+    - github.com/go-gorp/gorp/v3
+    # here to fix govulncheck until the next release
+    - go.podman.io/image/v5
   createConfig: true
   errcheckExcludes:
     - encoding/json.Marshal
