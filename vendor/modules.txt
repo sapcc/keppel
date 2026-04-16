@@ -206,7 +206,7 @@ github.com/sapcc/go-api-declarations/internal/clone
 github.com/sapcc/go-api-declarations/internal/errorset
 github.com/sapcc/go-api-declarations/internal/units
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20260414142237-b7e49d1eee6f
+# github.com/sapcc/go-bits v0.0.0-20260416170349-9b32d8192041
 ## explicit; go 1.26
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
