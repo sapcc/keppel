@@ -78,8 +78,8 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r, authz)
-	if account == nil {
+	account, ok := a.findReducedAccountFromRequest(w, r, authz)
+	if !ok {
 		return
 	}
 	repo := a.findRepositoryFromRequest(w, r, account.Name)
@@ -201,8 +201,8 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r, authz)
-	if account == nil {
+	account, ok := a.findReducedAccountFromRequest(w, r, authz)
+	if !ok {
 		return
 	}
 	repo := a.findRepositoryFromRequest(w, r, account.Name)
@@ -215,12 +215,12 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tagPolicies, err := api.GetTagPolicies(a.db, account.Reduced())
+	tagPolicies, err := api.GetTagPolicies(a.db, account)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
-	err = a.processor().DeleteManifest(r.Context(), account.Reduced(), repo.Reduced(), parsedDigest, tagPolicies, keppel.AuditContext{
+	err = a.processor().DeleteManifest(r.Context(), account, repo.Reduced(), parsedDigest, tagPolicies, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
@@ -241,8 +241,8 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r, authz)
-	if account == nil {
+	account, ok := a.findReducedAccountFromRequest(w, r, authz)
+	if !ok {
 		return
 	}
 	repo := a.findRepositoryFromRequest(w, r, account.Name)
@@ -251,12 +251,12 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	}
 	tagName := mux.Vars(r)["tag_name"]
 
-	tagPolicies, err := api.GetTagPolicies(a.db, account.Reduced())
+	tagPolicies, err := api.GetTagPolicies(a.db, account)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
-	err = a.processor().DeleteTag(account.Reduced(), repo.Reduced(), tagName, tagPolicies, keppel.AuditContext{
+	err = a.processor().DeleteTag(account, repo.Reduced(), tagName, tagPolicies, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
@@ -277,12 +277,12 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r, authz)
-	if account == nil {
+	account, ok := a.findReducedAccountFromRequest(w, r, authz)
+	if !ok {
 		return
 	}
 
-	err := api.CheckRateLimit(r, w, a.rle, account.Reduced(), authz, keppel.TrivyReportRetrieveAction, 1)
+	err := api.CheckRateLimit(r, w, a.rle, account, authz, keppel.TrivyReportRetrieveAction, 1)
 	if err != nil {
 		if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok && rerr != nil {
 			rerr.WriteAsRegistryV2ResponseTo(w, r)
@@ -355,7 +355,7 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
-		buf, err := a.sd.ReadTrivyReport(r.Context(), account.Reduced(), repo.Name, manifest.Digest, format)
+		buf, err := a.sd.ReadTrivyReport(r.Context(), account, repo.Name, manifest.Digest, format)
 		if respondwith.ObfuscatedErrorText(w, err) {
 			return
 		}

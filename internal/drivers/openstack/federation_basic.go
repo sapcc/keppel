@@ -47,7 +47,7 @@ func (d *federationDriverBasic) Init(_ context.Context, ad keppel.AuthDriver, cf
 }
 
 // ClaimAccountName implements the keppel.FederationDriver interface.
-func (d *federationDriverBasic) ClaimAccountName(ctx context.Context, account models.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (d *federationDriverBasic) ClaimAccountName(ctx context.Context, account models.ReducedAccount, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	project, err := projects.Get(ctx, d.AuthDriver.IdentityV3, account.AuthTenantID).Extract()
 	if err != nil {
 		return keppel.ClaimErrored, err
@@ -72,17 +72,17 @@ func (d *federationDriverBasic) ClaimAccountName(ctx context.Context, account mo
 }
 
 // IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
-func (d *federationDriverBasic) IssueSubleaseTokenSecret(ctx context.Context, account models.Account) (string, error) {
+func (d *federationDriverBasic) IssueSubleaseTokenSecret(ctx context.Context, account models.ReducedAccount) (string, error) {
 	return "", nil
 }
 
 // ForfeitAccountName implements the keppel.FederationDriver interface.
-func (d *federationDriverBasic) ForfeitAccountName(ctx context.Context, account models.Account) error {
+func (d *federationDriverBasic) ForfeitAccountName(ctx context.Context, account models.ReducedAccount) error {
 	return nil
 }
 
 // RecordExistingAccount implements the keppel.FederationDriver interface.
-func (d *federationDriverBasic) RecordExistingAccount(ctx context.Context, account models.Account, now time.Time) error {
+func (d *federationDriverBasic) RecordExistingAccount(ctx context.Context, account models.ReducedAccount, now time.Time) error {
 	return nil
 }
 

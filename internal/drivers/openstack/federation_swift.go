@@ -174,7 +174,7 @@ func (fd *federationDriverSwift) modifyAccountFile(ctx context.Context, accountN
 }
 
 // ClaimAccountName implements the keppel.FederationDriver interface.
-func (fd *federationDriverSwift) ClaimAccountName(ctx context.Context, account models.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (fd *federationDriverSwift) ClaimAccountName(ctx context.Context, account models.ReducedAccount, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	var (
 		isUserError bool
 		err         error
@@ -194,7 +194,7 @@ func (fd *federationDriverSwift) ClaimAccountName(ctx context.Context, account m
 	return keppel.ClaimSucceeded, nil
 }
 
-func (fd *federationDriverSwift) claimPrimaryAccount(ctx context.Context, account models.Account, subleaseTokenSecret string) (isUserError bool, err error) {
+func (fd *federationDriverSwift) claimPrimaryAccount(ctx context.Context, account models.ReducedAccount, subleaseTokenSecret string) (isUserError bool, err error) {
 	// defense in depth - the caller should already have verified this
 	if subleaseTokenSecret != "" {
 		return true, errors.New("cannot check sublease token when claiming a primary account")
@@ -214,7 +214,7 @@ func (fd *federationDriverSwift) claimPrimaryAccount(ctx context.Context, accoun
 	return isUserError, err
 }
 
-func (fd *federationDriverSwift) claimReplicaAccount(ctx context.Context, account models.Account, subleaseTokenSecret string) (isUserError bool, err error) {
+func (fd *federationDriverSwift) claimReplicaAccount(ctx context.Context, account models.ReducedAccount, subleaseTokenSecret string) (isUserError bool, err error) {
 	// defense in depth - the caller should already have verified this
 	if subleaseTokenSecret == "" {
 		return true, errors.New("missing sublease token")
@@ -245,7 +245,7 @@ func (fd *federationDriverSwift) claimReplicaAccount(ctx context.Context, accoun
 }
 
 // IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
-func (fd *federationDriverSwift) IssueSubleaseTokenSecret(ctx context.Context, account models.Account) (string, error) {
+func (fd *federationDriverSwift) IssueSubleaseTokenSecret(ctx context.Context, account models.ReducedAccount) (string, error) {
 	// generate a random token with 16 Base64 chars
 	tokenBytes := make([]byte, 12)
 	_, err := rand.Read(tokenBytes)
@@ -274,7 +274,7 @@ func (fd *federationDriverSwift) IssueSubleaseTokenSecret(ctx context.Context, a
 }
 
 // ForfeitAccountName implements the keppel.FederationDriver interface.
-func (fd *federationDriverSwift) ForfeitAccountName(ctx context.Context, account models.Account) error {
+func (fd *federationDriverSwift) ForfeitAccountName(ctx context.Context, account models.ReducedAccount) error {
 	// case 1: replica account -> just remove ourselves from the set of replicas
 	if account.UpstreamPeerHostName != "" {
 		return fd.modifyAccountFile(ctx, account.Name, func(file *accountFile, _ bool) error {
@@ -299,7 +299,7 @@ func (fd *federationDriverSwift) ForfeitAccountName(ctx context.Context, account
 }
 
 // RecordExistingAccount implements the keppel.FederationDriver interface.
-func (fd *federationDriverSwift) RecordExistingAccount(ctx context.Context, account models.Account, now time.Time) error {
+func (fd *federationDriverSwift) RecordExistingAccount(ctx context.Context, account models.ReducedAccount, now time.Time) error {
 	// Inconsistencies can arise since we have multiple sources of truth in the
 	// Keppels' own database and in the shared Swift container. These
 	// inconsistencies are incredibly unlikely, however, so making this driver

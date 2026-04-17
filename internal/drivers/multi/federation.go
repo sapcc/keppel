@@ -40,7 +40,7 @@ func (fd *federationDriver) Init(ctx context.Context, ad keppel.AuthDriver, cfg 
 }
 
 // ClaimAccountName implements the keppel.FederationDriver interface.
-func (fd *federationDriver) ClaimAccountName(ctx context.Context, account models.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (fd *federationDriver) ClaimAccountName(ctx context.Context, account models.ReducedAccount, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	// the primary driver issued the sublease token secret, so this one has to verify it
 	claimResult, err := fd.Drivers[0].ClaimAccountName(ctx, account, subleaseTokenSecret)
 	if err != nil || claimResult != keppel.ClaimSucceeded {
@@ -60,12 +60,12 @@ func (fd *federationDriver) ClaimAccountName(ctx context.Context, account models
 }
 
 // IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
-func (fd *federationDriver) IssueSubleaseTokenSecret(ctx context.Context, account models.Account) (string, error) {
+func (fd *federationDriver) IssueSubleaseTokenSecret(ctx context.Context, account models.ReducedAccount) (string, error) {
 	return fd.Drivers[0].IssueSubleaseTokenSecret(ctx, account)
 }
 
 // ForfeitAccountName implements the keppel.FederationDriver interface.
-func (fd *federationDriver) ForfeitAccountName(ctx context.Context, account models.Account) error {
+func (fd *federationDriver) ForfeitAccountName(ctx context.Context, account models.ReducedAccount) error {
 	for _, driver := range fd.Drivers {
 		err := driver.ForfeitAccountName(ctx, account)
 		if err != nil {
@@ -76,7 +76,7 @@ func (fd *federationDriver) ForfeitAccountName(ctx context.Context, account mode
 }
 
 // RecordExistingAccount implements the keppel.FederationDriver interface.
-func (fd *federationDriver) RecordExistingAccount(ctx context.Context, account models.Account, now time.Time) error {
+func (fd *federationDriver) RecordExistingAccount(ctx context.Context, account models.ReducedAccount, now time.Time) error {
 	for _, driver := range fd.Drivers {
 		err := driver.RecordExistingAccount(ctx, account, now)
 		if err != nil {
