@@ -124,6 +124,10 @@ func (a Authorization) IssueTokenWithExpires(cfg keppel.Configuration, expiresIn
 		return nil, err
 	}
 	publicHost := a.Audience.Hostname(cfg)
+	access := a.ScopeSet
+	if len(access) == 0 {
+		access = nil
+	}
 	token := jwt.NewWithClaims(method, tokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        uuidV4.String(),
@@ -135,7 +139,7 @@ func (a Authorization) IssueTokenWithExpires(cfg keppel.Configuration, expiresIn
 			IssuedAt:  jwt.NewNumericDate(now),
 		},
 		// access permissions granted to this token
-		Access:   a.ScopeSet.Flatten(),
+		Access:   access,
 		Embedded: embeddedUserIdentity{UserIdentity: a.UserIdentity},
 	})
 	// we need to remember which key we used for this token, to choose the right

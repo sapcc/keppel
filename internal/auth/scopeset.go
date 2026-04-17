@@ -10,7 +10,7 @@ import (
 )
 
 // ScopeSet is a set of scopes.
-type ScopeSet []*Scope
+type ScopeSet []Scope
 
 // NewScopeSet initializes a ScopeSet.
 func NewScopeSet(scopes ...Scope) (ss ScopeSet) {
@@ -36,13 +36,13 @@ func (ss *ScopeSet) Add(s Scope) {
 	if len(s.Actions) == 0 {
 		return
 	}
-	for _, other := range *ss {
+	for i, other := range *ss {
 		if s.ResourceType == other.ResourceType && s.ResourceName == other.ResourceName {
-			other.Actions = mergeAndDedupActions(other.Actions, s.Actions)
+			(*ss)[i].Actions = mergeAndDedupActions((*ss)[i].Actions, s.Actions)
 			return
 		}
 	}
-	*ss = append(*ss, &s)
+	*ss = append(*ss, s)
 }
 
 func mergeAndDedupActions(lhs, rhs []string) []string {
@@ -61,18 +61,6 @@ func mergeAndDedupActions(lhs, rhs []string) []string {
 	return lhs
 }
 
-// Flatten returns the scope set as a plain list of scopes.
-func (ss ScopeSet) Flatten() []Scope {
-	if len(ss) == 0 {
-		return nil
-	}
-	result := make([]Scope, len(ss))
-	for idx, s := range ss {
-		result[idx] = *s
-	}
-	return result
-}
-
 // AccountsWithCatalogAccess returns the names of all accounts whose contents
 // can be listed with the access level in this ScopeSet. If `markerAccountName`
 // is not empty, only accounts with `name > markerAccountName` will be returned.
@@ -81,7 +69,7 @@ func (ss ScopeSet) Flatten() []Scope {
 func (ss ScopeSet) AccountsWithCatalogAccess(markerAccountName models.AccountName) []models.AccountName {
 	var result []models.AccountName
 	for _, scope := range ss {
-		accountName, ok := isKeppelAccountViewScope(*scope)
+		accountName, ok := isKeppelAccountViewScope(scope)
 		if !ok {
 			continue
 		}
