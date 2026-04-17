@@ -67,7 +67,7 @@ func (j *Janitor) garbageCollectManifestsInRepo(ctx context.Context, repo models
 	if err != nil {
 		return fmt.Errorf("cannot find account for repo %s: %w", repo.FullName(), err)
 	}
-	gcPolicies, err := keppel.ParseGCPolicies(*account)
+	gcPolicies, err := keppel.ParseGCPolicies(account)
 	if err != nil {
 		return fmt.Errorf("cannot load GC policies for account %s: %w", account.Name, err)
 	}

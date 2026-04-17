@@ -224,10 +224,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 	// we need to know the account to select the registry instance for this request
 	repoScope := scope.ParseRepositoryScope(authz.Audience)
 	account, err := keppel.FindReducedAccount(a.db, repoScope.AccountName)
-	if respondWithError(w, r, err) {
-		return nil, nil, nil, nil
-	}
-	if account == nil {
+	if errors.Is(err, sql.ErrNoRows) {
 		// if this is an anycast request, try forwarding it to the peer that has the primary account with this name
 		if anycastHandler != nil && authz.Audience.IsAnycast {
 			primaryHostName, err := a.fd.FindPrimaryAccount(r.Context(), repoScope.AccountName)
@@ -255,6 +252,9 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		// anycasting, there should not be a valid token (the auth endpoint does not
 		// issue tokens with scopes for nonexistent accounts)
 		keppel.ErrNameUnknown.With("account not found").WriteAsRegistryV2ResponseTo(w, r)
+		return nil, nil, nil, nil
+	}
+	if respondWithError(w, r, err) {
 		return nil, nil, nil, nil
 	}
 
@@ -289,7 +289,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		return nil, nil, nil, nil
 	}
 
-	return account, &repo, authz, challenge
+	return &account, &repo, authz, challenge
 }
 
 // Returns the repository name as it appears in URL paths for this API.
