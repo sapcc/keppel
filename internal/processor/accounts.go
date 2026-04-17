@@ -68,17 +68,18 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 
 	// check if account already exists
 	originalAccount, err := keppel.FindAccount(p.db, account.Name)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return models.Account{}, keppel.AsRegistryV2Error(err).WithStatus(http.StatusInternalServerError)
 	}
-	if originalAccount != nil && originalAccount.AuthTenantID != account.AuthTenantID {
+	originalAccountExists := err == nil
+	if originalAccountExists && originalAccount.AuthTenantID != account.AuthTenantID {
 		return models.Account{}, keppel.AsRegistryV2Error(errors.New(`account name already in use by a different tenant`)).WithStatus(http.StatusConflict)
 	}
 
 	// PUT can either create a new account or update an existing account;
 	// this distinction is important because several fields can only be set at creation
 	var targetAccount models.Account
-	if originalAccount == nil {
+	if !originalAccountExists {
 		targetAccount = models.Account{
 			Name:                     account.Name,
 			AuthTenantID:             account.AuthTenantID,
@@ -87,7 +88,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 			// all other attributes are set below or in the ApplyToAccount() methods called below
 		}
 	} else {
-		targetAccount = *originalAccount
+		targetAccount = originalAccount
 	}
 
 	// validate and update fields as requested
@@ -124,8 +125,8 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 	// validate replication policy (for OnFirstUseStrategy, the peer hostname is
 	// checked for correctness down below when validating the platform filter)
 	var originalStrategy keppel.ReplicationStrategy
-	if originalAccount != nil {
-		rp := keppel.RenderReplicationPolicy(*originalAccount)
+	if originalAccountExists {
+		rp := keppel.RenderReplicationPolicy(originalAccount)
 		if rp == nil {
 			originalStrategy = keppel.NoReplicationStrategy
 		} else {
@@ -135,7 +136,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 
 	var replicationStrategy keppel.ReplicationStrategy
 	if account.ReplicationPolicy == nil {
-		if originalAccount == nil {
+		if !originalAccountExists {
 			replicationStrategy = keppel.NoReplicationStrategy
 		} else {
 			// PUT on existing account can omit replication policy to reuse existing policy
@@ -144,7 +145,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 	} else {
 		// on existing accounts, we do not allow changing the strategy
 		rp := *account.ReplicationPolicy
-		if originalAccount != nil && originalStrategy != rp.Strategy {
+		if originalAccountExists && originalStrategy != rp.Strategy {
 			return models.Account{}, keppel.AsRegistryV2Error(keppel.ErrIncompatibleReplicationPolicy).WithStatus(http.StatusConflict)
 		}
 
@@ -194,7 +195,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 	}
 
 	// validate platform filter
-	if originalAccount == nil {
+	if !originalAccountExists {
 		switch replicationStrategy {
 		case keppel.NoReplicationStrategy:
 			if account.PlatformFilter != nil {
@@ -228,7 +229,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 	}
 
 	// create account if required
-	if originalAccount == nil {
+	if !originalAccountExists {
 		// sublease tokens are only relevant when creating replica accounts
 		subleaseTokenSecret := ""
 		if targetAccount.UpstreamPeerHostName != "" {
@@ -288,7 +289,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 		}
 	} else {
 		// originalAccount != nil: update if necessary
-		if !reflect.DeepEqual(*originalAccount, targetAccount) {
+		if !reflect.DeepEqual(originalAccount, targetAccount) {
 			_, err := p.db.Update(&targetAccount)
 			if err != nil {
 				return models.Account{}, keppel.AsRegistryV2Error(err).WithStatus(http.StatusInternalServerError)
@@ -298,7 +299,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 		// audit log is necessary for all changes except to InMaintenance
 		if userInfo != nil {
 			originalAccount.IsDeleting = targetAccount.IsDeleting
-			if !reflect.DeepEqual(*originalAccount, targetAccount) {
+			if !reflect.DeepEqual(originalAccount, targetAccount) {
 				p.auditor.Record(audittools.Event{
 					Time:       p.timeNow(),
 					Request:    r,

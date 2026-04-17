@@ -163,18 +163,18 @@ func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request, ss aut
 func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request, _ *auth.Authorization) *models.Account {
 	accountName := models.AccountName(mux.Vars(r)["account"])
 	account, err := keppel.FindAccount(a.db, accountName)
-	if respondwith.ObfuscatedErrorText(w, err) {
-		return nil
-	}
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "account not found", http.StatusNotFound)
+		return nil
+	} else if respondwith.ObfuscatedErrorText(w, err) {
 		return nil
 	}
 	if account.IsDeleting && r.Method == http.MethodGet {
 		http.Error(w, "account is being deleted", http.StatusConflict)
 		return nil
 	}
-	return account
+	// TODO: remove pointer
+	return &account
 }
 
 func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, accountName models.AccountName) *models.Repository {
@@ -188,8 +188,7 @@ func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, 
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "repository not found", http.StatusNotFound)
 		return nil
-	}
-	if respondwith.ObfuscatedErrorText(w, err) {
+	} else if respondwith.ObfuscatedErrorText(w, err) {
 		return nil
 	}
 	return repo

@@ -88,7 +88,8 @@ func mustUploadDummyTrivyReport(t *testing.T, s test.Setup, manifest models.Mani
 		Contents: io.NopCloser(bytes.NewReader(buf)),
 	}
 	repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, manifest.RepositoryID))(t)
-	must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, models.ReducedAccount{Name: repo.AccountName}, repo.Name, manifest.Digest, report))
+	account := must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t)
+	must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, account, repo.Name, manifest.Digest, report))
 	return report, buf
 }
 
