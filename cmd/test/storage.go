@@ -268,8 +268,12 @@ func executeReadManifest(ctx context.Context, sd keppel.StorageDriver, account m
 	if err != nil {
 		logg.Fatal("ReadManifest failed: %s", err.Error())
 	}
+	defer result.Close()
 
-	os.Stdout.Write(result)
+	_, err = io.Copy(os.Stdout, result)
+	if err != nil {
+		logg.Fatal("failed to write manifest contents: %s", err.Error())
+	}
 }
 
 func executeWriteManifest(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
@@ -281,7 +285,7 @@ func executeWriteManifest(ctx context.Context, sd keppel.StorageDriver, account 
 	if err != nil {
 		logg.Fatal("invalid digest: %s", err.Error())
 	}
-	err = sd.WriteManifest(ctx, account, repoName, d, []byte(content))
+	err = sd.WriteManifest(ctx, account, repoName, d, bytes.NewReader([]byte(content)))
 	if err != nil {
 		logg.Fatal("WriteManifest failed: %s", err.Error())
 	}
@@ -316,8 +320,12 @@ func executeReadTrivyReport(ctx context.Context, sd keppel.StorageDriver, accoun
 	if err != nil {
 		logg.Fatal("ReadTrivyReport failed: %s", err.Error())
 	}
+	defer result.Close()
 
-	os.Stdout.Write(result)
+	_, err = io.Copy(os.Stdout, result)
+	if err != nil {
+		logg.Fatal("failed to write trivy report contents: %s", err.Error())
+	}
 }
 
 func executeWriteTrivyReport(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {

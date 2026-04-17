@@ -106,7 +106,7 @@ func TestManifestsAPI(t *testing.T) {
 				must.SucceedT(t, s.SD.WriteManifest(
 					s.Ctx,
 					models.ReducedAccount{Name: repo.AccountName},
-					repo.Name, dummyDigest, []byte(strings.Repeat("x", sizeBytes)),
+					repo.Name, dummyDigest, bytes.NewReader([]byte(strings.Repeat("x", sizeBytes))),
 				))
 				must.SucceedT(t, s.DB.Insert(&models.TrivySecurityInfo{
 					RepositoryID:        int64(repoID),

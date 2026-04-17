@@ -4,11 +4,13 @@
 package processor
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"sort"
 	"time"
@@ -134,7 +136,7 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 
 			// after making all DB changes, but before committing the DB transaction,
 			// write the manifest into the backend
-			return p.sd.WriteManifest(ctx, account, repo.Name, manifest.Digest, m.Contents)
+			return p.sd.WriteManifest(ctx, account, repo.Name, manifest.Digest, bytes.NewReader(m.Contents))
 		},
 	})
 	if err != nil {
@@ -178,7 +180,13 @@ func (p *Processor) ValidateAndStoreManifest(ctx context.Context, account models
 
 // ValidateExistingManifest validates the given manifest that already exists in the DB.
 func (p *Processor) ValidateExistingManifest(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, manifest *models.Manifest) error {
-	manifestBytes, err := p.sd.ReadManifest(ctx, account, repo.Name, manifest.Digest)
+	manifestReader, err := p.sd.ReadManifest(ctx, account, repo.Name, manifest.Digest)
+	if err != nil {
+		return err
+	}
+	defer manifestReader.Close()
+
+	manifestBytes, err := io.ReadAll(manifestReader)
 	if err != nil {
 		return err
 	}
@@ -822,10 +830,14 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 	}
 
 	// cache miss -> download from actual upstream registry
-	manifestBytes, manifestMediaType, err = c.DownloadManifest(ctx, ref, &client.DownloadManifestOpts{
+	manifestReader, manifestMediaType, err := c.DownloadManifest(ctx, ref, &client.DownloadManifestOpts{
 		DoNotCountTowardsLastPulled: true,
 	})
-	if err != nil && account.ExternalPeerURL != "" && errorIsUpstreamRateLimit(err) {
+	if err == nil {
+		defer manifestReader.Close()
+
+		manifestBytes, err = io.ReadAll(manifestReader)
+	} else if err != nil && account.ExternalPeerURL != "" && errorIsUpstreamRateLimit(err) {
 		// when a pull from an external registry runs into a rate limit, ask a
 		// random peer to retry the pull for us; they might be successful since
 		// rate limits are usually per source IP
@@ -835,6 +847,7 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 			err = nil
 		}
 	}
+
 	if err != nil {
 		return nil, "", err
 	}

@@ -4,8 +4,8 @@
 package peerv1
 
 import (
+	"io"
 	"net/http"
-	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-bits/errext"
@@ -41,7 +41,7 @@ func (a *API) handleDelegatedPullManifest(w http.ResponseWriter, r *http.Request
 		Password: r.Header.Get("X-Keppel-Delegated-Pull-Password"), // may be empty
 	}
 	ref := models.ParseManifestReference(vars["reference"])
-	manifestBytes, manifestMediaType, err := rc.DownloadManifest(r.Context(), ref, &opts)
+	manifestReader, manifestMediaType, err := rc.DownloadManifest(r.Context(), ref, &opts)
 
 	if err != nil {
 		if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok {
@@ -53,8 +53,9 @@ func (a *API) handleDelegatedPullManifest(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	defer manifestReader.Close()
+
 	w.Header().Set("Content-Type", manifestMediaType)
-	w.Header().Set("Content-Length", strconv.Itoa(len(manifestBytes)))
 	w.WriteHeader(http.StatusOK)
-	w.Write(manifestBytes)
+	io.Copy(w, manifestReader) //nolint:errcheck // we could only log that the client closed the connection early
 }

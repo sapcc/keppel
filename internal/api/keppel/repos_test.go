@@ -4,6 +4,7 @@
 package keppelv1_test
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"strings"
@@ -75,7 +76,7 @@ func TestReposAPI(t *testing.T) {
 			PushedAt:         manifestPushedAt,
 			NextValidationAt: manifestPushedAt.Add(models.ManifestValidationInterval),
 		}))
-		must.SucceedT(t, s.SD.WriteManifest(s.Ctx, models.ReducedAccount{Name: "test1"}, "repo1-3", dummyDigest, []byte("data")))
+		must.SucceedT(t, s.SD.WriteManifest(s.Ctx, models.ReducedAccount{Name: "test1"}, "repo1-3", dummyDigest, bytes.NewReader([]byte("data"))))
 		must.SucceedT(t, s.DB.Insert(&models.TrivySecurityInfo{
 			RepositoryID:        filledRepo.ID,
 			Digest:              dummyDigest,

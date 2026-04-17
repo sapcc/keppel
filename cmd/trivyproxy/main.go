@@ -109,17 +109,17 @@ func (a *API) proxyToTrivy(w http.ResponseWriter, r *http.Request) {
 
 	stdout, stderr, err := a.runTrivy(r.Context(), imageURL, format, keppelToken)
 	if err != nil {
-		cleanedErr := strings.ReplaceAll(strings.TrimSpace(string(stderr)), "\n", " ")
+		cleanedErr := strings.ReplaceAll(strings.TrimSpace(stderr.String()), "\n", " ")
 		http.Error(w, fmt.Sprintf("trivy: %s: %s", err, cleanedErr), http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(stdout)
+	w.Write(stdout.Bytes())
 }
 
-func (a *API) runTrivy(ctx context.Context, imageURL, format, keppelToken string) (stdout, stderr []byte, err error) {
+func (a *API) runTrivy(ctx context.Context, imageURL, format, keppelToken string) (stdout, stderr bytes.Buffer, err error) {
 	//nolint:gosec // intended behaviour
 	cmd := exec.CommandContext(ctx,
 		"trivy", "image",
@@ -142,5 +142,5 @@ func (a *API) runTrivy(ctx context.Context, imageURL, format, keppelToken string
 	cmd.WaitDelay = 3 * time.Second
 	err = cmd.Run()
 
-	return stdoutBuf.Bytes(), stderrBuf.Bytes(), err
+	return stdoutBuf, stderrBuf, err
 }

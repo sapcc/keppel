@@ -43,7 +43,7 @@ type DownloadManifestOpts struct {
 
 // DownloadManifest fetches a manifest from this repository. If an error is
 // returned, it's usually a *keppel.RegistryV2Error.
-func (c *RepoClient) DownloadManifest(ctx context.Context, reference models.ManifestReference, opts *DownloadManifestOpts) (contents []byte, mediaType string, returnErr error) {
+func (c *RepoClient) DownloadManifest(ctx context.Context, reference models.ManifestReference, opts *DownloadManifestOpts) (contents io.ReadCloser, mediaType string, returnErr error) {
 	if opts == nil {
 		opts = &DownloadManifestOpts{}
 	}
@@ -69,15 +69,5 @@ func (c *RepoClient) DownloadManifest(ctx context.Context, reference models.Mani
 		return nil, "", err
 	}
 
-	respBytes, err := io.ReadAll(resp.Body)
-	if err == nil {
-		err = resp.Body.Close()
-	} else {
-		resp.Body.Close()
-	}
-	if err != nil {
-		return nil, "", err
-	}
-
-	return respBytes, resp.Header.Get("Content-Type"), nil
+	return resp.Body, resp.Header.Get("Content-Type"), nil
 }
