@@ -88,7 +88,8 @@ func mustUploadDummyTrivyReport(t *testing.T, s test.Setup, manifest models.Mani
 		Contents: io.NopCloser(bytes.NewReader(buf)),
 	}
 	repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, manifest.RepositoryID))(t)
-	must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, models.ReducedAccount{Name: repo.AccountName}, repo.Name, manifest.Digest, report))
+	account := must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t)
+	must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, *account, repo.Name, manifest.Digest, report))
 	return report, buf
 }
 
@@ -99,7 +100,7 @@ func TestSweepStorageBlobs(t *testing.T) {
 	tr, _, healthyBlobs, healthyManifests, healthyTrivyReports := setupStorageSweepTest(t, s, sweepStorageJob)
 
 	// put some blobs in the storage without adding them in the DB
-	account := models.ReducedAccount{Name: "test1"}
+	account := models.ReducedAccount{Name: "test1", AuthTenantID: "test1authtenant"}
 	testBlob1 := test.GenerateExampleLayer(30)
 	testBlob2 := test.GenerateExampleLayer(31)
 	storageID1 := testBlob1.Digest.Encoded()
@@ -219,7 +220,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	tr, images, healthyBlobs, healthyManifests, healthyTrivyReports := setupStorageSweepTest(t, s, sweepStorageJob)
 
 	// put some manifests in the storage without adding them in the DB
-	account := models.ReducedAccount{Name: "test1"}
+	account := models.ReducedAccount{Name: "test1", AuthTenantID: "test1authtenant"}
 	testImageList1 := test.GenerateImageList(images[0])
 	testImageList2 := test.GenerateImageList(images[1])
 	for _, manifest := range []test.Bytes{testImageList1.Manifest, testImageList2.Manifest} {
