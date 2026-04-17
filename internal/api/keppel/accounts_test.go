@@ -16,6 +16,7 @@ import (
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httptest"
+	"github.com/sapcc/go-bits/must"
 
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
 	"github.com/sapcc/keppel/internal/keppel"
@@ -2059,4 +2060,34 @@ func TestSecurityScanPoliciesAuthorizationErrors(t *testing.T) {
 	).ExpectText(t, http.StatusUnprocessableEntity,
 		fmt.Sprintf("cannot update or delete this existing policy that is managed by a different user: %s\n", foreignPolicyJSON),
 	)
+}
+
+// Cannot live next to internal/keppel/database_helpers.go due to import cycles with test.NewSetup
+func BenchmarkFindAccount(b *testing.B) {
+	b.ReportAllocs()
+
+	test.WithRoundTripper(func(tt *test.RoundTripper) {
+		s := test.NewSetup(b,
+			test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
+		)
+
+		b.ResetTimer()
+		for b.Loop() {
+			_ = must.ReturnT(keppel.FindAccount(s.DB, "test1"))(b)
+		}
+	})
+}
+func BenchmarkFindReducedAccount(b *testing.B) {
+	b.ReportAllocs()
+
+	test.WithRoundTripper(func(tt *test.RoundTripper) {
+		s := test.NewSetup(b,
+			test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
+		)
+
+		b.ResetTimer()
+		for b.Loop() {
+			_ = must.ReturnT(keppel.FindReducedAccount(s.DB, "test1"))(b)
+		}
+	})
 }
