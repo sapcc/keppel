@@ -58,21 +58,22 @@ func TestRepoClientBasic(t *testing.T) {
 		// test downloading the same image using RepoClient
 		buf, mediaType, err := rc.DownloadManifest(ctx, models.ManifestReference{Tag: "latest"}, nil)
 		must.SucceedT(t, err)
-		assert.Equal(t, string(buf), string(img.Manifest.Contents))
+		assert.Equal(t, string(must.ReturnT(io.ReadAll(buf))(t)), string(img.Manifest.Contents))
+		must.SucceedT(t, buf.Close())
 		assert.Equal(t, mediaType, img.Manifest.MediaType)
 
 		readCloser, sizeBytes, err := rc.DownloadBlob(ctx, img.Config.Digest)
 		must.SucceedT(t, err)
-		buf = must.ReturnT(io.ReadAll(readCloser))(t)
+		configBlob := must.ReturnT(io.ReadAll(readCloser))(t)
 		must.SucceedT(t, readCloser.Close())
 		assert.Equal(t, sizeBytes, uint64(len(img.Config.Contents)))
-		assert.Equal(t, string(buf), string(img.Config.Contents))
+		assert.Equal(t, string(configBlob), string(img.Config.Contents))
 
 		readCloser, sizeBytes, err = rc.DownloadBlob(ctx, img.Layers[0].Digest)
 		must.SucceedT(t, err)
-		buf = must.ReturnT(io.ReadAll(readCloser))(t)
+		layerBlob := must.ReturnT(io.ReadAll(readCloser))(t)
 		must.SucceedT(t, readCloser.Close())
 		assert.Equal(t, sizeBytes, uint64(len(img.Layers[0].Contents)))
-		assert.Equal(t, string(buf), string(img.Layers[0].Contents))
+		assert.Equal(t, string(layerBlob), string(img.Layers[0].Contents))
 	})
 }

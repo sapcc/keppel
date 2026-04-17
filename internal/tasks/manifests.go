@@ -455,10 +455,17 @@ func (j *Janitor) collectManifestLayerBlobs(ctx context.Context, account models.
 	}
 
 	// we only care about blobs that are image layers; the manifest tells us which blobs are layers
-	manifestBytes, err := j.sd.ReadManifest(ctx, account, repo.Name, manifest.Digest)
+	manifestReader, err := j.sd.ReadManifest(ctx, account, repo.Name, manifest.Digest)
 	if err != nil {
 		return nil, err
 	}
+	defer manifestReader.Close()
+
+	manifestBytes, err := io.ReadAll(manifestReader)
+	if err != nil {
+		return nil, err
+	}
+
 	manifestParsed, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
 	if err != nil {
 		return nil, keppel.ErrManifestInvalid.With(err.Error())

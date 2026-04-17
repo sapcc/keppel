@@ -223,7 +223,7 @@ func TestSweepStorageManifests(t *testing.T) {
 	testImageList1 := test.GenerateImageList(images[0])
 	testImageList2 := test.GenerateImageList(images[1])
 	for _, manifest := range []test.Bytes{testImageList1.Manifest, testImageList2.Manifest} {
-		must.SucceedT(t, s.SD.WriteManifest(s.Ctx, account, "foo", manifest.Digest, manifest.Contents))
+		must.SucceedT(t, s.SD.WriteManifest(s.Ctx, account, "foo", manifest.Digest, bytes.NewReader(manifest.Contents)))
 	}
 
 	// next StorageSweepJob should mark them for deletion...
