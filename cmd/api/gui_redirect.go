@@ -4,8 +4,6 @@
 package apicmd
 
 import (
-	"database/sql"
-	"errors"
 	"net/http"
 	"slices"
 	"strings"
@@ -46,7 +44,7 @@ func (g *guiRedirecter) tryRedirectToGUI(w http.ResponseWriter, r *http.Request)
 	// do we have this account/repo?
 	accountName := models.AccountName(vars["account"])
 	account, err := keppel.FindAccount(g.db, accountName)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err != nil {
 		respondNotFound(w, r)
 		return
 	}

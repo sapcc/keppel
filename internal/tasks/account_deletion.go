@@ -260,7 +260,7 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 		return err
 	}
 	defer sqlext.RollbackUnlessCommitted(tx)
-	_, err = tx.Delete(account)
+	_, err = tx.Delete(&account)
 	if err != nil {
 		return err
 	}

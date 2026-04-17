@@ -253,8 +253,7 @@ func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strateg
 		// issue tokens with scopes for nonexistent accounts)
 		keppel.ErrNameUnknown.With("account not found").WriteAsRegistryV2ResponseTo(w, r)
 		return nil, nil, nil, nil
-	}
-	if respondWithError(w, r, err) {
+	} else if respondWithError(w, r, err) {
 		return nil, nil, nil, nil
 	}
 
