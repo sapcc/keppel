@@ -53,13 +53,13 @@ func TestManifestsAPI(t *testing.T) {
 
 		// setup test repos (`repo1-2` and `repo2-1` only exist to validate that we
 		// don't accidentally list manifests from there)
-		repos := []*models.Repository{
+		repos := []models.Repository{
 			{Name: "repo1-1", AccountName: "test1"},
 			{Name: "repo1-2", AccountName: "test1"},
 			{Name: "repo2-1", AccountName: "test2"},
 		}
-		for _, repo := range repos {
-			must.SucceedT(t, s.DB.Insert(repo))
+		for i := range repos {
+			must.SucceedT(t, s.DB.Insert(&repos[i]))
 		}
 
 		// test empty GET
