@@ -27,7 +27,7 @@ func filterAuthorized(ir IncomingRequest, uid keppel.UserIdentity, audience Audi
 
 	var err error
 	for _, scope := range ir.Scopes {
-		filtered := *scope
+		filtered := scope
 		switch scope.ResourceType {
 		case "registry":
 			filtered.Actions, err = filterRegistryActions(uid, audience, db, scope, &additional)
@@ -37,7 +37,7 @@ func filterAuthorized(ir IncomingRequest, uid keppel.UserIdentity, audience Audi
 
 		case "repository":
 			ip := httpext.GetRequesterIPFor(ir.HTTPRequest)
-			filtered.Actions, err = filterRepoActions(ip, *scope, uid, audience, db)
+			filtered.Actions, err = filterRepoActions(ip, scope, uid, audience, db)
 			if err != nil {
 				return nil, err
 			}
@@ -112,7 +112,7 @@ func addCatalogAccess(ss *ScopeSet, uid keppel.UserIdentity, audience Audience, 
 	return nil
 }
 
-func filterRegistryActions(uid keppel.UserIdentity, audience Audience, db *keppel.DB, scope *Scope, additional *ScopeSet) ([]string, error) {
+func filterRegistryActions(uid keppel.UserIdentity, audience Audience, db *keppel.DB, scope Scope, additional *ScopeSet) ([]string, error) {
 	var filtered []string
 
 	if audience.IsAnycast {
@@ -234,7 +234,7 @@ func filterRepoActions(ip string, scope Scope, uid keppel.UserIdentity, audience
 	return result, nil
 }
 
-func filterKeppelAccountActions(uid keppel.UserIdentity, audience Audience, db *keppel.DB, scope *Scope) ([]string, error) {
+func filterKeppelAccountActions(uid keppel.UserIdentity, audience Audience, db *keppel.DB, scope Scope) ([]string, error) {
 	if audience.AccountName != "" && scope.ResourceName != string(audience.AccountName) {
 		// domain-remapped APIs only allow access to that API's account
 		return nil, nil
