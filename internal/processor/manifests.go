@@ -835,6 +835,7 @@ func (p *Processor) downloadManifestViaInboundCache(ctx context.Context, account
 			err = nil
 		}
 	}
+
 	if err != nil {
 		return nil, "", err
 	}

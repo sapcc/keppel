@@ -112,10 +112,13 @@ func (s Setup) ExpectTrivyReportExistsInStorage(t *testing.T, manifest models.Ma
 	t.Helper()
 	repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, manifest.RepositoryID))(t)
 	account := must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t)
-	buf, err := s.SD.ReadTrivyReport(s.Ctx, account, repo.Name, manifest.Digest, format)
+	reader, err := s.SD.ReadTrivyReport(s.Ctx, account, repo.Name, manifest.Digest, format)
 	if err != nil {
 		t.Errorf("expected Trivy report %s/%s to exist in the storage, but got: %s", manifest.Digest, format, err.Error())
+		return
 	}
+	defer reader.Close()
+	buf := must.ReturnT(io.ReadAll(reader))(t)
 	contents.AssertResponseBody(t, fmt.Sprintf("Trivy report %s/%s", manifest.Digest, format), bytes.TrimSpace(buf))
 }
 
@@ -124,8 +127,10 @@ func (s Setup) ExpectTrivyReportMissingInStorage(t *testing.T, manifest models.M
 	t.Helper()
 	repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, manifest.RepositoryID))(t)
 	account := must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t)
-	_, err := s.SD.ReadTrivyReport(s.Ctx, account, repo.Name, manifest.Digest, format)
+	reader, err := s.SD.ReadTrivyReport(s.Ctx, account, repo.Name, manifest.Digest, format)
 	if err == nil {
+		_ = reader.Close()
 		t.Errorf("expected Trivy report %s/%s to be missing in the storage, but could read it", manifest.Digest, format)
+		return
 	}
 }
