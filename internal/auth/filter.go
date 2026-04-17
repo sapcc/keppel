@@ -91,12 +91,13 @@ func addCatalogAccess(ss *ScopeSet, uid keppel.UserIdentity, audience Audience, 
 	} else {
 		// on a domain-remapped API, only that API's account is accessible (if it exists)
 		account, err := keppel.FindAccount(db, audience.AccountName)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
 		if err != nil {
 			return err
 		}
-		if account != nil {
-			accounts = []models.Account{*account}
-		}
+		accounts = []models.Account{account}
 	}
 
 	for _, account := range accounts {
@@ -246,11 +247,11 @@ func filterKeppelAccountActions(uid keppel.UserIdentity, audience Audience, db *
 	}
 
 	account, err := keppel.FindAccount(db, models.AccountName(scope.ResourceName))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
-	}
-	if account == nil {
-		return nil, nil
 	}
 
 	return filterAuthTenantActions(account.AuthTenantID, scope.Actions, uid), nil

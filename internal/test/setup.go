@@ -181,7 +181,7 @@ func GetReplicationPassword() string {
 }
 
 // NewSetup prepares most or all pieces of Keppel for a test.
-func NewSetup(t *testing.T, opts ...SetupOption) Setup {
+func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 	t.Helper()
 	logg.ShowDebug = osext.GetenvBool("KEPPEL_DEBUG")
 	var params setupParams

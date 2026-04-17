@@ -40,11 +40,11 @@ func (a *API) handleSyncReplica(w http.ResponseWriter, r *http.Request) {
 
 	// find account
 	accountName := models.AccountName(mux.Vars(r)["account"])
-	account, err := keppel.FindReducedAccount(a.db, accountName)
+	accountExists, err := keppel.DoesAccountExist(a.db, accountName)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
-	if account == nil {
+	if !accountExists {
 		http.Error(w, "account not found", http.StatusNotFound)
 		return
 	}
