@@ -44,7 +44,7 @@ func (a *API) handleGetAccounts(w http.ResponseWriter, r *http.Request) {
 	// restrict accounts to those visible in the current scope
 	var accountsFiltered []models.Account
 	for idx, account := range accounts {
-		if authz.ScopeSet.Contains(*scopes[idx]) {
+		if authz.ScopeSet.Contains(scopes[idx]) {
 			accountsFiltered = append(accountsFiltered, account)
 		}
 	}

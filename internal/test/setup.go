@@ -50,8 +50,8 @@ type setupParams struct {
 	WithoutCurrentIssuerKey bool
 	RateLimitEngine         *keppel.RateLimitEngine
 	SetupOfPrimary          *Setup
-	Accounts                []*models.Account
-	Repos                   []*models.Repository
+	Accounts                []models.Account
+	Repos                   []models.Repository
 }
 
 // SetupOption is an option that can be given to NewSetup().
@@ -115,14 +115,14 @@ func WithAccount(account models.Account) SetupOption {
 		if account.TagPoliciesJSON == "" {
 			account.TagPoliciesJSON = "[]"
 		}
-		params.Accounts = append(params.Accounts, &account)
+		params.Accounts = append(params.Accounts, account)
 	}
 }
 
 // WithRepo is a SetupOption that adds the given keppel.Repository to the DB during NewSetup().
 func WithRepo(repo models.Repository) SetupOption {
 	return func(params *setupParams) {
-		params.Repos = append(params.Repos, &repo)
+		params.Repos = append(params.Repos, repo)
 	}
 }
 
@@ -157,8 +157,8 @@ type Setup struct {
 	// fields that are only set if the respective With... setup option is included
 	TrivyDouble *TrivyDouble
 	// fields that are filled by WithAccount and WithRepo (in order)
-	Accounts []*models.Account
-	Repos    []*models.Repository
+	Accounts []models.Account
+	Repos    []models.Repository
 	// fields that are only accessible to helper functions
 	tokenCache map[string]string
 }
@@ -313,9 +313,9 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 
 	// setup initial accounts/repos
 	quotasSetFor := make(map[string]bool)
-	for _, account := range params.Accounts {
-		must.SucceedT(t, s.DB.Insert(account))
-		fd.RecordExistingAccount(s.Ctx, *account, s.Clock.Now()) //nolint:errcheck
+	for i, account := range params.Accounts {
+		must.SucceedT(t, s.DB.Insert(&params.Accounts[i]))
+		fd.RecordExistingAccount(s.Ctx, account, s.Clock.Now()) //nolint:errcheck
 		if params.WithQuotas && !quotasSetFor[account.AuthTenantID] {
 			must.SucceedT(t, s.DB.Insert(&models.Quotas{
 				AuthTenantID:  account.AuthTenantID,
@@ -325,8 +325,8 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 		}
 	}
 	s.Accounts = params.Accounts
-	for _, repo := range params.Repos {
-		must.SucceedT(t, s.DB.Insert(repo))
+	for i := range params.Repos {
+		must.SucceedT(t, s.DB.Insert(&params.Repos[i]))
 	}
 	s.Repos = params.Repos
 
