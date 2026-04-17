@@ -55,7 +55,7 @@ type FederationDriver interface {
 	// The implementation MUST be idempotent. If a call returned nil, a subsequent
 	// call with the same `account` must also return nil unless
 	// ForfeitAccountName() was called in between.
-	ClaimAccountName(ctx context.Context, account models.Account, subleaseTokenSecret string) (ClaimResult, error)
+	ClaimAccountName(ctx context.Context, account models.ReducedAccount, subleaseTokenSecret string) (ClaimResult, error)
 
 	// IssueSubleaseTokenSecret may only be called on existing primary accounts,
 	// not on replica accounts. It generates a secret one-time token that other
@@ -64,12 +64,12 @@ type FederationDriver interface {
 	//
 	// Sublease tokens are optional. If ClaimAccountName does not inspect its
 	// `subleaseTokenSecret` parameter, this method shall return ("", nil).
-	IssueSubleaseTokenSecret(ctx context.Context, account models.Account) (string, error)
+	IssueSubleaseTokenSecret(ctx context.Context, account models.ReducedAccount) (string, error)
 
 	// ForfeitAccountName is the inverse operation of ClaimAccountName. It is used
 	// when deleting an account and releases this Keppel's claim on the account
 	// name.
-	ForfeitAccountName(ctx context.Context, account models.Account) error
+	ForfeitAccountName(ctx context.Context, account models.ReducedAccount) error
 
 	// RecordExistingAccount is called regularly for each account in our database.
 	// The driver implementation can use this call to ensure that the existence of
@@ -79,7 +79,7 @@ type FederationDriver interface {
 	//
 	// The `now` argument contains the value of time.Now(). It may refer to an
 	// artificial wall clock during unit tests.
-	RecordExistingAccount(ctx context.Context, account models.Account, now time.Time) error
+	RecordExistingAccount(ctx context.Context, account models.ReducedAccount, now time.Time) error
 
 	// FindPrimaryAccount is used to redirect anycast requests for accounts that
 	// do not exist locally. It shell return the hostname of the peer that hosts

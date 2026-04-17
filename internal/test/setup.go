@@ -315,7 +315,7 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	quotasSetFor := make(map[string]bool)
 	for _, account := range params.Accounts {
 		must.SucceedT(t, s.DB.Insert(account))
-		fd.RecordExistingAccount(s.Ctx, *account, s.Clock.Now()) //nolint:errcheck
+		fd.RecordExistingAccount(s.Ctx, account.Reduced(), s.Clock.Now()) //nolint:errcheck
 		if params.WithQuotas && !quotasSetFor[account.AuthTenantID] {
 			must.SucceedT(t, s.DB.Insert(&models.Quotas{
 				AuthTenantID:  account.AuthTenantID,
