@@ -81,14 +81,14 @@ const (
 )
 
 // ClaimAccountName implements the keppel.FederationDriver interface.
-func (d *federationDriver) ClaimAccountName(ctx context.Context, account models.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (d *federationDriver) ClaimAccountName(ctx context.Context, account models.ReducedAccount, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	if account.UpstreamPeerHostName != "" {
 		return d.claimReplicaAccount(ctx, account, subleaseTokenSecret)
 	}
-	return d.claimPrimaryAccount(ctx, account, subleaseTokenSecret)
+	return d.claimPrimaryAccount(ctx, account.Name, subleaseTokenSecret)
 }
 
-func (d *federationDriver) claimPrimaryAccount(ctx context.Context, account models.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (d *federationDriver) claimPrimaryAccount(ctx context.Context, accountName models.AccountName, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	// defense in depth - the caller should already have verified this
 	if subleaseTokenSecret != "" {
 		return keppel.ClaimFailed, errors.New("cannot check sublease token when claiming a primary account")
@@ -99,7 +99,7 @@ func (d *federationDriver) claimPrimaryAccount(ctx context.Context, account mode
 	// 2. we have a claim -> SET NX does nothing, but GET will return our hostname -> success
 	// 3. someone else has a claim -> SET NX does nothing and GET returns their hostname -> error
 
-	key := d.primaryKey(account.Name)
+	key := d.primaryKey(accountName)
 	nx := redis.SetArgs{Mode: "NX", TTL: 0}
 	err := d.rc.SetArgs(ctx, key, d.ownHostname, nx).Err()
 	if err != nil {
@@ -111,12 +111,12 @@ func (d *federationDriver) claimPrimaryAccount(ctx context.Context, account mode
 		return keppel.ClaimErrored, err
 	}
 	if primaryHostname != d.ownHostname {
-		return keppel.ClaimFailed, fmt.Errorf("account name %s is already in use at %s", account.Name, primaryHostname)
+		return keppel.ClaimFailed, fmt.Errorf("account name %s is already in use at %s", accountName, primaryHostname)
 	}
 	return keppel.ClaimSucceeded, nil
 }
 
-func (d *federationDriver) claimReplicaAccount(ctx context.Context, account models.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (d *federationDriver) claimReplicaAccount(ctx context.Context, account models.ReducedAccount, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	// defense in depth - the caller should already have verified this
 	if subleaseTokenSecret == "" {
 		return keppel.ClaimFailed, errors.New("missing sublease token")
@@ -132,7 +132,7 @@ func (d *federationDriver) claimReplicaAccount(ctx context.Context, account mode
 	}
 
 	// validate the primary account
-	err = d.validatePrimaryHostname(ctx, account, account.UpstreamPeerHostName)
+	err = d.validatePrimaryHostname(ctx, account.Name, account.UpstreamPeerHostName)
 	if err != nil {
 		return keppel.ClaimErrored, err
 	}
@@ -146,14 +146,14 @@ func (d *federationDriver) claimReplicaAccount(ctx context.Context, account mode
 }
 
 // IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
-func (d *federationDriver) IssueSubleaseTokenSecret(ctx context.Context, account models.Account) (string, error) {
+func (d *federationDriver) IssueSubleaseTokenSecret(ctx context.Context, account models.ReducedAccount) (string, error) {
 	// defense in depth - the caller should already have verified this
 	if account.UpstreamPeerHostName != "" {
 		return "", errors.New("operation not allowed for replica accounts")
 	}
 
 	// more defense in depth
-	err := d.validatePrimaryHostname(ctx, account, d.ownHostname)
+	err := d.validatePrimaryHostname(ctx, account.Name, d.ownHostname)
 	if err != nil {
 		return "", err
 	}
@@ -175,14 +175,14 @@ func (d *federationDriver) IssueSubleaseTokenSecret(ctx context.Context, account
 }
 
 // ForfeitAccountName implements the keppel.FederationDriver interface.
-func (d *federationDriver) ForfeitAccountName(ctx context.Context, account models.Account) error {
+func (d *federationDriver) ForfeitAccountName(ctx context.Context, account models.ReducedAccount) error {
 	// case 1: replica account -> just remove ourselves from the set of replicas
 	if account.UpstreamPeerHostName != "" {
 		return d.rc.SRem(ctx, d.replicasKey(account.Name), d.ownHostname).Err()
 	}
 
 	// case 2: primary account -> double-check that we really own it
-	err := d.validatePrimaryHostname(ctx, account, d.ownHostname)
+	err := d.validatePrimaryHostname(ctx, account.Name, d.ownHostname)
 	if err != nil {
 		return err
 	}
@@ -212,7 +212,7 @@ func (d *federationDriver) ForfeitAccountName(ctx context.Context, account model
 }
 
 // RecordExistingAccount implements the keppel.FederationDriver interface.
-func (d *federationDriver) RecordExistingAccount(ctx context.Context, account models.Account, now time.Time) error {
+func (d *federationDriver) RecordExistingAccount(ctx context.Context, account models.ReducedAccount, now time.Time) error {
 	// record this account in Redis using idempotent operations (SET NX for primary, SADD for replica)
 	var expectedPrimaryHostname string
 	if account.UpstreamPeerHostName == "" {
@@ -231,28 +231,28 @@ func (d *federationDriver) RecordExistingAccount(ctx context.Context, account mo
 	}
 
 	// check our expectations against the Redis
-	return d.validatePrimaryHostname(ctx, account, expectedPrimaryHostname)
+	return d.validatePrimaryHostname(ctx, account.Name, expectedPrimaryHostname)
 }
 
-func (d *federationDriver) validatePrimaryHostname(ctx context.Context, account models.Account, expectedPrimaryHostname string) error {
+func (d *federationDriver) validatePrimaryHostname(ctx context.Context, accountName models.AccountName, expectedPrimaryHostname string) error {
 	// Inconsistencies can arise since we have multiple sources of truth in the
 	// Keppels' own database and in the shared Redis. These inconsistencies are
 	// incredibly unlikely, however, so making this driver more complicated to
 	// better guard against them is a bad tradeoff in my opinion. Instead, we just
 	// make sure that the driver loudly complains once it finds an inconsistency,
 	// so the operator can take care of fixing it.
-	primaryHostname, err := d.rc.Get(ctx, d.primaryKey(account.Name)).Result()
+	primaryHostname, err := d.rc.Get(ctx, d.primaryKey(accountName)).Result()
 	if errors.Is(err, redis.Nil) {
 		primaryHostname = ""
 		err = nil
 	}
 	if err != nil {
-		return fmt.Errorf("could not find primary for account %s: %s", account.Name, err.Error())
+		return fmt.Errorf("could not find primary for account %s: %s", accountName, err.Error())
 	}
 
 	if expectedPrimaryHostname != primaryHostname {
 		return fmt.Errorf("expected primary for account %s to be hosted by %s, but is actually hosted by %q",
-			account.Name, expectedPrimaryHostname, primaryHostname)
+			accountName, expectedPrimaryHostname, primaryHostname)
 	}
 	return nil
 }

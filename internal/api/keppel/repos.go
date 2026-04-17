@@ -66,7 +66,7 @@ func (a *API) handleGetRepositories(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account, ok := a.findAccountFromRequest(w, r, authz)
+	account, ok := a.findReducedAccountFromRequest(w, r, authz)
 	if !ok {
 		return
 	}
