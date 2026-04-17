@@ -71,7 +71,7 @@ func TestDeleteAbandonedUploadWithManyChunks(t *testing.T) {
 
 func testDeleteUpload(t *testing.T, setupUploadObject func(context.Context, keppel.StorageDriver, models.ReducedAccount) models.Upload) {
 	j, s := setup(t)
-	account := models.ReducedAccount{Name: "test1"}
+	account := models.ReducedAccount{Name: "test1", AuthTenantID: "test1authtenant"}
 	uploadJob := j.AbandonedUploadCleanupJob(s.Registry)
 
 	// right now, there are no upload objects, so DeleteNextAbandonedUpload should indicate that
