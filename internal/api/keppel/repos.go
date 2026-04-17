@@ -66,8 +66,8 @@ func (a *API) handleGetRepositories(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r, authz)
-	if account == nil {
+	account, ok := a.findAccountFromRequest(w, r, authz)
+	if !ok {
 		return
 	}
 
@@ -217,8 +217,8 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r, authz)
-	if account == nil {
+	account, ok := a.findAccountFromRequest(w, r, authz)
+	if !ok {
 		return
 	}
 	repo := a.findRepositoryFromRequest(w, r, account.Name)

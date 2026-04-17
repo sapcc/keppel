@@ -78,8 +78,8 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r, authz)
-	if account == nil {
+	account, ok := a.findAccountFromRequest(w, r, authz)
+	if !ok {
 		return
 	}
 	repo := a.findRepositoryFromRequest(w, r, account.Name)
@@ -201,8 +201,8 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r, authz)
-	if account == nil {
+	account, ok := a.findAccountFromRequest(w, r, authz)
+	if !ok {
 		return
 	}
 	repo := a.findRepositoryFromRequest(w, r, account.Name)
@@ -241,8 +241,8 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r, authz)
-	if account == nil {
+	account, ok := a.findAccountFromRequest(w, r, authz)
+	if !ok {
 		return
 	}
 	repo := a.findRepositoryFromRequest(w, r, account.Name)
@@ -277,8 +277,8 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r, authz)
-	if account == nil {
+	account, ok := a.findAccountFromRequest(w, r, authz)
+	if !ok {
 		return
 	}
 

@@ -70,12 +70,12 @@ func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r, authz)
-	if account == nil {
+	account, ok := a.findAccountFromRequest(w, r, authz)
+	if !ok {
 		return
 	}
 
-	accountRendered, err := keppel.RenderAccount(*account)
+	accountRendered, err := keppel.RenderAccount(account)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
@@ -148,8 +148,8 @@ func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r, authz)
-	if account == nil {
+	account, ok := a.findAccountFromRequest(w, r, authz)
+	if !ok {
 		return
 	}
 
@@ -158,7 +158,7 @@ func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := a.processor().MarkAccountForDeletion(*account, keppel.AuditContext{
+	err := a.processor().MarkAccountForDeletion(account, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
@@ -175,8 +175,8 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r, authz)
-	if account == nil {
+	account, ok := a.findAccountFromRequest(w, r, authz)
+	if !ok {
 		return
 	}
 
@@ -191,7 +191,7 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var err error
-	st.Secret, err = a.fd.IssueSubleaseTokenSecret(r.Context(), *account)
+	st.Secret, err = a.fd.IssueSubleaseTokenSecret(r.Context(), account)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
@@ -204,8 +204,8 @@ func (a *API) handleGetSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r, authz)
-	if account == nil {
+	account, ok := a.findAccountFromRequest(w, r, authz)
+	if !ok {
 		return
 	}
 
@@ -222,8 +222,8 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 	if authz == nil {
 		return
 	}
-	account := a.findAccountFromRequest(w, r, authz)
-	if account == nil {
+	account, ok := a.findAccountFromRequest(w, r, authz)
+	if !ok {
 		return
 	}
 
@@ -238,7 +238,7 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 	var req struct {
 		Policies []keppel.SecurityScanPolicy `json:"policies"`
 	}
-	ok := decodeJSONRequestBody(w, r.Body, &req)
+	ok = decodeJSONRequestBody(w, r.Body, &req)
 	if !ok {
 		return
 	}
@@ -307,7 +307,7 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 	for _, policy := range req.Policies {
 		if !slices.Contains(dbPolicies, policy) {
 			submitAudit("create/security-scan-policy", AuditSecurityScanPolicy{
-				Account: *account,
+				Account: account,
 				Policy:  policy,
 			})
 		}
@@ -315,7 +315,7 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 	for _, policy := range dbPolicies {
 		if !slices.Contains(req.Policies, policy) {
 			submitAudit("delete/security-scan-policy", AuditSecurityScanPolicy{
-				Account: *account,
+				Account: account,
 				Policy:  policy,
 			})
 		}
