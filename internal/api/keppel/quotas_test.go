@@ -21,11 +21,10 @@ import (
 func TestQuotasAPI(t *testing.T) {
 	// NOTE: This tests both the Keppel-native quota API and the LIQUID API which accesses the same logic.
 	s := test.NewSetup(t, test.WithKeppelAPI)
-	h := s.Handler
 	ctx := t.Context()
 
 	// GET on auth tenant without more specific configuration shows default values
-	h.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"manifests": jsonmatch.Object{"quota": 0, "usage": 0},
 		})
@@ -45,30 +44,30 @@ func TestQuotasAPI(t *testing.T) {
 			},
 		}
 	}
-	h.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
+	s.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
 		withPerms("viewquota:tenant1"),
 		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
 	).ExpectJSON(t, http.StatusOK, buildLiquidResponse(0, 0))
 
 	// GET basic error cases: no permission on the respective auth tenant
-	h.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant2")).
+	s.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant2")).
 		ExpectStatus(t, http.StatusForbidden)
-	h.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
+	s.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
 		withPerms("viewquota:tenant2"),
 		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
 	).ExpectStatus(t, http.StatusForbidden)
 
 	// GET basic error cases: wrong permission on the respective auth tenant
-	h.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("view:tenant1")).
 		ExpectStatus(t, http.StatusForbidden)
-	h.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
+	s.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
 		withPerms("view:tenant1"),
 		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
 	).ExpectStatus(t, http.StatusForbidden)
 
 	// PUT happy case with native API
 	for _, pass := range []int{1, 2, 3} {
-		h.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
+		s.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
 			withPerms("changequota:tenant1"),
 			httptest.WithJSONBody(map[string]any{
 				"manifests": map[string]any{"quota": 50},
@@ -109,7 +108,7 @@ func TestQuotasAPI(t *testing.T) {
 
 	// PUT happy case with LIQUID API
 	for _, pass := range []int{1, 2, 3} {
-		h.RespondTo(ctx, "PUT /liquid/v1/projects/tenant1/quota",
+		s.RespondTo(ctx, "PUT /liquid/v1/projects/tenant1/quota",
 			withPerms("changequota:tenant1"),
 			httptest.WithJSONBody(map[string]any{
 				"resources": map[string]any{
@@ -149,11 +148,11 @@ func TestQuotasAPI(t *testing.T) {
 	}
 
 	// GET reflects changes
-	h.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"manifests": jsonmatch.Object{"quota": 100, "usage": 0},
 		})
-	h.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
+	s.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
 		withPerms("viewquota:tenant1"),
 		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
 	).ExpectJSON(t, http.StatusOK, buildLiquidResponse(100, 0))
@@ -181,29 +180,29 @@ func TestQuotasAPI(t *testing.T) {
 			NextCheckAt:         Some(time.Unix(0, 0)),
 		}))
 	}
-	h.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"manifests": jsonmatch.Object{"quota": 100, "usage": 10},
 		})
-	h.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
+	s.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
 		withPerms("viewquota:tenant1"),
 		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
 	).ExpectJSON(t, http.StatusOK, buildLiquidResponse(100, 10))
 
 	// PUT error cases
-	h.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
+	s.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
 		withPerms("viewquota:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"manifests": map[string]any{"quota": 100},
 		}),
 	).ExpectStatus(t, http.StatusForbidden)
-	h.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
+	s.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
 		withPerms("changequota:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"manifests": map[string]any{"quota": 100, "usage": 10},
 		}),
 	).ExpectText(t, http.StatusBadRequest, "request body is not valid JSON: json: unknown field \"usage\"\n")
-	h.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
+	s.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
 		withPerms("changequota:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"manifests": map[string]any{"quota": 5},

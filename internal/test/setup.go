@@ -4,10 +4,12 @@
 package test
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
@@ -151,7 +153,7 @@ type Setup struct {
 	FD           *FederationDriver
 	SD           *trivial.StorageDriver
 	ICD          *InboundCacheDriver
-	Handler      httptest.Handler
+	Handler      http.Handler
 	Ctx          context.Context //nolint: containedctx  // only used in tests
 	Registry     *prometheus.Registry
 	// fields that are only set if the respective With... setup option is included
@@ -161,6 +163,7 @@ type Setup struct {
 	Repos    []*models.Repository
 	// fields that are only accessible to helper functions
 	tokenCache map[string]string
+	handler    httptest.Handler // not exposed publicly to force usage of s.RespondTo() instead of s.Handler.RespondTo()
 }
 
 // these credentials are in global vars so that we don't have to recompute them in every test run
@@ -301,7 +304,8 @@ func NewSetup(t *testing.T, opts ...SetupOption) Setup {
 	if params.WithPeerAPI {
 		apis = append(apis, peerv1.NewAPI(s.Config, ad, s.DB))
 	}
-	s.Handler = httptest.NewHandler(httpapi.Compose(apis...))
+	s.Handler = httpapi.Compose(apis...)
+	s.handler = httptest.NewHandler(s.Handler)
 	if tt, ok := http.DefaultTransport.(*RoundTripper); ok {
 		// make our own API reachable to other peers
 		tt.Handlers[s.Config.APIPublicHostname] = s.Handler
@@ -355,4 +359,33 @@ func MustExec(t *testing.T, db *keppel.DB, query string, args ...any) {
 	t.Helper()
 	_, err := db.Exec(query, args...)
 	must.SucceedT(t, err)
+}
+
+var looksLikeDistributionAPIEndpointRx = regexp.MustCompile(`^[A-Z]* /v2(?:/|$)`)
+
+// RespondTo is a shorthand for s.Handler.RespondTo() that also checks the following universal response properties:
+//
+//   - Requests for endpoints in the OCI Distribution API (any path at or below /v2/)
+//     must always include the response header "Docker-Distribution-Api-Version: registry/2.0", even for error responses.
+//
+// This saves the trouble of having to duplicate these checks hundreds of times.
+func (s Setup) RespondTo(ctx context.Context, methodAndPath string, options ...httptest.RequestOption) httptest.Response {
+	resp := s.handler.RespondTo(ctx, methodAndPath, options...)
+
+	if looksLikeDistributionAPIEndpointRx.MatchString(methodAndPath) {
+		// this is written in a slightly roundabout way because RespondTo() does not get a `t` argument
+		// (yes, yes, I could add it to the method signature, but then this would not be a behavioral equivalent of s.Handler.RespondTo() anymore)
+		if resp.Header().Get(VersionHeaderKey) != VersionHeaderValue {
+			fakeHandler := httptest.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				msg := fmt.Sprintf("expected %q, but got %q",
+					fmt.Sprintf("%s: %s", VersionHeaderKey, VersionHeaderValue),
+					fmt.Sprintf("%s: %s", VersionHeaderKey, cmp.Or(resp.Header().Get(VersionHeaderKey), "<missing>")),
+				)
+				http.Error(w, msg, 999)
+			}))
+			return fakeHandler.RespondTo(ctx, methodAndPath, options...)
+		}
+	}
+
+	return resp
 }

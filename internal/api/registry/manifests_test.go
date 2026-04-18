@@ -65,9 +65,9 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			// repo does not exist before we first push to it
 			for _, method := range []string{"GET", "HEAD"} {
-				resp := h.RespondTo(ctx, fmt.Sprintf("%s /v2/test1/foo/manifests/%s", method, ref),
+				resp := s.RespondTo(ctx, fmt.Sprintf("%s /v2/test1/foo/manifests/%s", method, ref),
 					httptest.WithHeaders(readOnlyTokenHeaders),
-				).ExpectHeader(t, test.VersionHeaderKey, test.VersionHeaderValue)
+				)
 				if method == "GET" {
 					resp.ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrNameUnknown))
 				} else {
@@ -79,9 +79,9 @@ func TestImageManifestLifecycle(t *testing.T) {
 			_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
 			// ...the manifest does not exist before it is pushed
 			for _, method := range []string{"GET", "HEAD"} {
-				resp := h.RespondTo(ctx, fmt.Sprintf("%s /v2/test1/foo/manifests/%s", method, ref),
+				resp := s.RespondTo(ctx, fmt.Sprintf("%s /v2/test1/foo/manifests/%s", method, ref),
 					httptest.WithHeaders(readOnlyTokenHeaders),
-				).ExpectHeader(t, test.VersionHeaderKey, test.VersionHeaderValue)
+				)
 				if method == "GET" {
 					resp.ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrManifestUnknown))
 				} else {
@@ -306,9 +306,9 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			// check GET/HEAD: manifest should now be available under the reference
 			// where it was pushed to...
-			expectManifestExists(t, h, readOnlyTokenHeaders, "test1/foo", image.Manifest, ref)
+			expectManifestExists(t, s, readOnlyTokenHeaders, "test1/foo", image.Manifest, ref)
 			// ...and under its digest
-			expectManifestExists(t, h, readOnlyTokenHeaders, "test1/foo", image.Manifest, image.Manifest.Digest.String())
+			expectManifestExists(t, s, readOnlyTokenHeaders, "test1/foo", image.Manifest, image.Manifest.Digest.String())
 
 			// GET failure case: wrong scope
 			assert.HTTPRequest{
@@ -325,13 +325,12 @@ func TestImageManifestLifecycle(t *testing.T) {
 			// test GET via anycast
 			if currentlyWithAnycast {
 				testWithReplica(t, s, "on_first_use", func(firstPass bool, s2 test.Setup) {
-					h2 := s2.Handler
 					testAnycast(t, firstPass, s2.DB, func() {
 						anycastTokenHeaders := s.GetAnycastTokenHeaders(t, "repository:test1/foo:pull")
-						expectManifestExists(t, h, anycastTokenHeaders, "test1/foo", image.Manifest, ref)
-						expectManifestExists(t, h, anycastTokenHeaders, "test1/foo", image.Manifest, image.Manifest.Digest.String())
-						expectManifestExists(t, h2, anycastTokenHeaders, "test1/foo", image.Manifest, ref)
-						expectManifestExists(t, h2, anycastTokenHeaders, "test1/foo", image.Manifest, image.Manifest.Digest.String())
+						expectManifestExists(t, s, anycastTokenHeaders, "test1/foo", image.Manifest, ref)
+						expectManifestExists(t, s, anycastTokenHeaders, "test1/foo", image.Manifest, image.Manifest.Digest.String())
+						expectManifestExists(t, s2, anycastTokenHeaders, "test1/foo", image.Manifest, ref)
+						expectManifestExists(t, s2, anycastTokenHeaders, "test1/foo", image.Manifest, image.Manifest.Digest.String())
 					})
 				})
 			}
@@ -513,7 +512,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 		easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagelistmanifest-001-after-upload-manifest.sql")
 
 		// check GET for manifest list
-		expectManifestExists(t, h, tokenHeaders, "test1/foo", list2.Manifest, "list")
+		expectManifestExists(t, s, tokenHeaders, "test1/foo", list2.Manifest, "list")
 
 		// as a special case, GET on the manifest list returns the linux/amd64
 		// manifest if only single-arch manifests are accepted by the client (this
@@ -533,7 +532,7 @@ func TestImageListManifestLifecycle(t *testing.T) {
 		}.Check(t, h)
 		// but we return the whole list if at all possible
 		tokenHeaders.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json")
-		expectManifestExists(t, h, tokenHeaders, "test1/foo", list2.Manifest, "list")
+		expectManifestExists(t, s, tokenHeaders, "test1/foo", list2.Manifest, "list")
 
 		// DELETE failure case: cannot delete manifest list while the manifest still exists in the DB
 		assert.HTTPRequest{

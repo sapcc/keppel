@@ -25,26 +25,25 @@ import (
 
 func TestAccountsAPI(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
-	h := s.Handler
 	ctx := t.Context()
 	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
 	tr0.AssertEmpty()
 
 	// test the /keppel/v1 endpoint
-	h.RespondTo(ctx, "GET /keppel/v1").
+	s.RespondTo(ctx, "GET /keppel/v1").
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"auth_driver": "unittest"})
 
 	// no accounts right now
-	h.RespondTo(ctx, "GET /keppel/v1/accounts", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts", withPerms("view:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"accounts": []jsonmatch.Object{},
 		})
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/first", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/first", withPerms("view:tenant1")).
 		ExpectText(t, http.StatusForbidden, "no permission for keppel_account:first:view\n")
 
 	// create an account (this request is executed twice to test idempotency)
 	for _, pass := range []int{1, 2} {
-		h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 			withPerms("change:tenant1"),
 			httptest.WithJSONBody(map[string]any{
 				"account": map[string]any{
@@ -79,7 +78,7 @@ func TestAccountsAPI(t *testing.T) {
 	}
 
 	// check that account shows up in GET...
-	h.RespondTo(ctx, "GET /keppel/v1/accounts", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts", withPerms("view:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"accounts": []jsonmatch.Object{{
 				"name":           "first",
@@ -88,7 +87,7 @@ func TestAccountsAPI(t *testing.T) {
 				"rbac_policies":  []jsonmatch.Object{},
 			}},
 		})
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/first", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/first", withPerms("view:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"account": jsonmatch.Object{
 				"name":           "first",
@@ -99,11 +98,11 @@ func TestAccountsAPI(t *testing.T) {
 		})
 
 	// ...but only when one has view permission on the correct tenant
-	h.RespondTo(ctx, "GET /keppel/v1/accounts", withPerms("view:tenant2")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts", withPerms("view:tenant2")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"accounts": []jsonmatch.Object{},
 		})
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/first", withPerms("view:tenant2")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/first", withPerms("view:tenant2")).
 		ExpectText(t, http.StatusForbidden, "no permission for keppel_account:first:view\n")
 
 	// create an account with RBAC policies and GC policies (this request is executed twice to test idempotency)
@@ -148,7 +147,7 @@ func TestAccountsAPI(t *testing.T) {
 		},
 	}
 	for _, pass := range []int{1, 2} {
-		h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+		s.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
 			withPerms("change:tenant1"),
 			httptest.WithJSONBody(map[string]any{
 				"account": map[string]any{
@@ -207,7 +206,7 @@ func TestAccountsAPI(t *testing.T) {
 	}
 
 	// check that this account also shows up in GET
-	h.RespondTo(ctx, "GET /keppel/v1/accounts", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts", withPerms("view:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"accounts": []jsonmatch.Object{
 				{
@@ -226,7 +225,7 @@ func TestAccountsAPI(t *testing.T) {
 				},
 			},
 		})
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/second", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/second", withPerms("view:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"account": jsonmatch.Object{
 				"name":           "second",
@@ -258,7 +257,7 @@ func TestAccountsAPI(t *testing.T) {
 			"permissions":      []string{"pull", "delete"},
 		},
 	}
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -296,7 +295,7 @@ func TestAccountsAPI(t *testing.T) {
 	// test POST /keppel/v1/:accounts/sublease success case (error cases are in
 	// TestPutAccountErrorCases and TestGetPutAccountReplicationOnFirstUse)
 	s.FD.NextSubleaseTokenSecretToIssue = "this-is-the-token"
-	h.RespondTo(ctx, "POST /keppel/v1/accounts/second/sublease", withPerms("view:tenant1,change:tenant1")).
+	s.RespondTo(ctx, "POST /keppel/v1/accounts/second/sublease", withPerms("view:tenant1,change:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"sublease_token": makeSubleaseToken("second", "registry.example.org", "this-is-the-token"),
 		})
@@ -307,14 +306,13 @@ func TestAccountsAPI(t *testing.T) {
 
 func TestAccountValidationPolicies(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
-	h := s.Handler
 	ctx := t.Context()
 	_, tr0 := easypg.NewTracker(t, s.DB.Db)
 	tr0.AssertEmpty()
 
 	// shorthand for configuring the account "first" with a PUT request
 	putAccount := func(accountConfig map[string]any) httptest.Response {
-		return h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		return s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 			withPerms("change:tenant1"),
 			httptest.WithJSONBody(map[string]any{"account": accountConfig}),
 		)
@@ -457,20 +455,19 @@ func TestAccountValidationPolicies(t *testing.T) {
 
 func TestGetAccountsErrorCases(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
-	h := s.Handler
 	ctx := t.Context()
 
 	// test invalid authentication (response includes auth challenges since the
 	// default auth scheme is bearer token auth)
-	h.RespondTo(ctx, "GET /keppel/v1/accounts").
+	s.RespondTo(ctx, "GET /keppel/v1/accounts").
 		ExpectText(t, http.StatusUnauthorized, "unauthorized\n")
 
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/first").
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/first").
 		ExpectHeader(t, "Www-Authenticate",
 			`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_account:first:view"`).
 		ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
 
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
@@ -483,10 +480,9 @@ func TestGetAccountsErrorCases(t *testing.T) {
 
 func TestPutAccountRBACPolicyNormalization(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
-	h := s.Handler
 	ctx := t.Context()
 
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -514,13 +510,12 @@ func TestPutAccountRBACPolicyNormalization(t *testing.T) {
 
 func TestPutAccountErrorCases(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
-	h := s.Handler
 	ctx := t.Context()
 	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
 	tr0.AssertEmpty()
 
 	//preparation: create an account (so that we can check the error that the requested account name is taken)
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -537,17 +532,17 @@ func TestPutAccountErrorCases(t *testing.T) {
 	})
 
 	// test invalid inputs
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
 		withPerms("change:tenant1"),
 		httptest.WithBody(strings.NewReader(`{"account":???}`)),
 	).ExpectText(t, http.StatusBadRequest, "request body is not valid JSON: invalid character '?' looking for beginning of value\n")
 
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
 		withPerms("change:tenant1"),
 		httptest.WithBody(strings.NewReader(`{"account":""}`)),
 	).ExpectText(t, http.StatusBadRequest, "request body is not valid JSON: json: cannot unmarshal string into Go struct field .account of type keppel.Account\n")
 
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/keppel-api",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/keppel-api",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -555,7 +550,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		})).ExpectText(t, http.StatusUnprocessableEntity, "account names with the prefix \"keppel\" are reserved for internal use\n")
 
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/v1",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/v1",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -565,7 +560,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 
 	// Just to be sure that this does not regress with any refactors in the future
 	for _, accountName := range []string{"_blobs", "_chunks", "-invalid"} {
-		h.RespondTo(ctx, "PUT /keppel/v1/accounts/"+accountName,
+		s.RespondTo(ctx, "PUT /keppel/v1/accounts/"+accountName,
 			withPerms("change:tenant1"),
 			httptest.WithJSONBody(map[string]any{
 				"account": map[string]any{
@@ -575,7 +570,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		// ^ The API route handler uses `[a-z0-9][a-z0-9-]{0,47}`, so we expect a 404 here.
 	}
 
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 		withPerms("change:tenant2"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -584,7 +579,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		})).ExpectText(t, http.StatusConflict, "account name already in use by a different tenant\n")
 
 	// test invalid authentication/authorization
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
 				"auth_tenant_id": "tenant1",
@@ -594,7 +589,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_auth_tenant:tenant1:change"`).
 		ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
 
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
 		withPerms("view:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -606,7 +601,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 	// error to validate that they generate the correct respective HTTP status
 	// codes)
 	s.FD.ClaimFailsBecauseOfUserError = true
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -616,7 +611,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 	s.FD.ClaimFailsBecauseOfUserError = false
 
 	s.FD.ClaimFailsBecauseOfServerError = true
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -627,7 +622,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 
 	// test rejection by storage driver
 	s.SD.ForbidNewAccounts = true
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -637,7 +632,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 	s.SD.ForbidNewAccounts = false
 
 	// test setting up invalid required_labels
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -804,7 +799,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			expectedStatus = http.StatusBadRequest
 		}
 
-		h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 			withPerms("change:tenant1"),
 			httptest.WithJSONBody(map[string]any{
 				"account": map[string]any{
@@ -980,7 +975,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			expectedStatus = http.StatusBadRequest
 		}
 
-		h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 			withPerms("change:tenant1"),
 			httptest.WithJSONBody(map[string]any{
 				"account": map[string]any{
@@ -991,7 +986,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 	}
 
 	// TODO: why is there a positive test in here?
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -1016,7 +1011,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 	tr.DBChanges().AssertEqual(`
 		INSERT INTO accounts (name, auth_tenant_id, rbac_policies_json) VALUES ('first', 'tenant1', '[{"match_cidr":"1.2.0.0/16","permissions":["pull"]}]');
 	`)
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/first", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/first", withPerms("view:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"account": jsonmatch.Object{
 				"auth_tenant_id": "tenant1",
@@ -1030,7 +1025,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		})
 
 	// test unexpected platform filter
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -1043,7 +1038,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 		})).ExpectText(t, http.StatusConflict, "cannot change platform filter on existing account\n")
 
 	// test unexpected platform filter on new primary account
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/third",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/third",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -1056,20 +1051,20 @@ func TestPutAccountErrorCases(t *testing.T) {
 		})).ExpectText(t, http.StatusUnprocessableEntity, "platform filter is only allowed on replica accounts\n")
 
 	// test errors for sublease token issuance: missing authentication/authorization
-	h.RespondTo(ctx, "POST /keppel/v1/accounts/first/sublease").
+	s.RespondTo(ctx, "POST /keppel/v1/accounts/first/sublease").
 		ExpectHeader(t, "Www-Authenticate",
 			// default auth is bearer token auth, so an auth challenge gets rendered
 			`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="keppel_account:first:change"`).
 		ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
 
-	h.RespondTo(ctx, "POST /keppel/v1/accounts/first/sublease",
+	s.RespondTo(ctx, "POST /keppel/v1/accounts/first/sublease",
 		withPerms("view:tenant1"),
 	).ExpectText(t, http.StatusForbidden, "no permission for keppel_account:first:change\n")
-	h.RespondTo(ctx, "POST /keppel/v1/accounts/unknown/sublease", // account does not exist
+	s.RespondTo(ctx, "POST /keppel/v1/accounts/unknown/sublease", // account does not exist
 		withPerms("view:tenant1,change:tenant1"),
 	).ExpectText(t, http.StatusForbidden, "no permission for keppel_account:unknown:change\n")
 
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -1078,7 +1073,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		})).ExpectText(t, http.StatusBadRequest, "request body is not valid JSON: json: unknown field \"in_maintenance\"\n")
 
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -1087,7 +1082,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		})).ExpectText(t, http.StatusUnprocessableEntity, "malformed attribute \"account.metadata\" in request body does no longer exist\n")
 
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -1096,7 +1091,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 			},
 		})).ExpectStatus(t, http.StatusOK)
 
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -1107,7 +1102,7 @@ func TestPutAccountErrorCases(t *testing.T) {
 
 	// test protection for managed accounts
 	test.MustExec(t, s.DB, "UPDATE accounts SET is_managed = TRUE WHERE name = $1", "first")
-	h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"account": map[string]any{
@@ -1123,7 +1118,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 		s1 := test.NewSetup(t, test.WithKeppelAPI, test.WithPeerAPI)
 		s2 := test.NewSetup(t, test.WithKeppelAPI, test.IsSecondaryTo(&s1))
 
-		s1.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		s1.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 			withPerms("change:tenant1"),
 			httptest.WithJSONBody(map[string]any{
 				"account": map[string]any{
@@ -1140,7 +1135,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 		})
 
 		// test error cases on creation
-		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		s2.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 			withPerms("change:tenant1"),
 			httptest.WithJSONBody(map[string]any{
 				"account": map[string]any{
@@ -1149,7 +1144,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 				},
 			})).ExpectText(t, http.StatusBadRequest, "request body is not valid JSON: do not know how to deserialize ReplicationPolicy with strategy \"yes_please\"\n")
 
-		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		s2.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 			withPerms("change:tenant1"),
 			httptest.WithJSONBody(map[string]any{
 				"account": map[string]any{
@@ -1158,7 +1153,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 				},
 			})).ExpectText(t, http.StatusUnprocessableEntity, "unknown peer registry: \"someone-else.example.org\"\n")
 
-		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		s2.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 			withPerms("change:tenant1"),
 			httptest.WithJSONBody(map[string]any{
 				"account": map[string]any{
@@ -1168,7 +1163,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			})).ExpectText(t, http.StatusForbidden, "wrong sublease token\n")
 
 		s2.FD.ValidSubleaseTokenSecrets["first"] = "valid-token"
-		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		s2.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 			withPerms("change:tenant1"),
 			httptest.WithHeader(keppelv1.SubleaseHeader, makeSubleaseToken("first", "registry.example.org", "not-the-valid-token")),
 			httptest.WithJSONBody(map[string]any{
@@ -1179,7 +1174,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 			})).ExpectText(t, http.StatusForbidden, "wrong sublease token\n")
 
 		// test PUT success case
-		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		s2.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 			withPerms("change:tenant1"),
 			httptest.WithHeader(keppelv1.SubleaseHeader, makeSubleaseToken("first", "registry.example.org", "valid-token")),
 			httptest.WithJSONBody(map[string]any{
@@ -1203,7 +1198,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 
 		// PUT on existing account with replication unspecified is okay, leaves
 		// replication settings unchanged
-		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		s2.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 			withPerms("change:tenant1"),
 			httptest.WithJSONBody(map[string]any{
 				"account": map[string]any{
@@ -1224,11 +1219,11 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 		})
 
 		// cannot issue sublease token for replica account (only for primary accounts)
-		s2.Handler.RespondTo(ctx, "POST /keppel/v1/accounts/first/sublease", withPerms("view:tenant1,change:tenant1")).
+		s2.RespondTo(ctx, "POST /keppel/v1/accounts/first/sublease", withPerms("view:tenant1,change:tenant1")).
 			ExpectText(t, http.StatusBadRequest, "operation not allowed for replica accounts\n")
 
 		// PUT on existing account with different replication settings is not allowed
-		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+		s2.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
 			withPerms("change:tenant2"),
 			httptest.WithJSONBody(map[string]any{
 				"account": map[string]any{
@@ -1243,7 +1238,7 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 				"rbac_policies":  []jsonmatch.Object{},
 			},
 		})
-		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+		s2.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
 			withPerms("change:tenant2"),
 			httptest.WithJSONBody(map[string]any{
 				"account": map[string]any{
@@ -1256,18 +1251,17 @@ func TestGetPutAccountReplicationOnFirstUse(t *testing.T) {
 
 func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
-	h := s.Handler
 	ctx := t.Context()
 
 	// helper functions for basic PUT calls on accounts
 	putFirstAccount := func(accountConfig map[string]any) httptest.Response {
-		return h.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		return s.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 			withPerms("change:tenant1"),
 			httptest.WithJSONBody(map[string]any{"account": accountConfig}),
 		)
 	}
 	putSecondAccount := func(accountConfig map[string]any) httptest.Response {
-		return h.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+		return s.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
 			withPerms("change:tenant2"),
 			httptest.WithJSONBody(map[string]any{"account": accountConfig}),
 		)
@@ -1449,7 +1443,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 	// accounts for the purposes of account name subleasing)
 	s.FD.NextSubleaseTokenSecretToIssue = "this-is-the-token"
 	expectedToken := makeSubleaseToken("first", "registry.example.org", "this-is-the-token")
-	h.RespondTo(ctx, "POST /keppel/v1/accounts/first/sublease", withPerms("view:tenant1,change:tenant1")).
+	s.RespondTo(ctx, "POST /keppel/v1/accounts/first/sublease", withPerms("view:tenant1,change:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"sublease_token": expectedToken})
 
 	// PUT on existing account with different replication settings is not allowed
@@ -1508,7 +1502,6 @@ func TestDeleteAccount(t *testing.T) {
 		test.WithKeppelAPI,
 		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
 	)
-	h := s.Handler
 	ctx := t.Context()
 
 	tr, tr0 := easypg.NewTracker(t, s.DB.Db)
@@ -1516,11 +1509,11 @@ func TestDeleteAccount(t *testing.T) {
 
 	// failure case: insufficient permissions (the "delete" permission refers to
 	// manifests within the account, not the account itself)
-	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1", withPerms("view:tenant1,delete:tenant1")).
+	s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1", withPerms("view:tenant1,delete:tenant1")).
 		ExpectStatus(t, http.StatusForbidden)
 
 	// DELETE on account should immediately mark it for deletion
-	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1", withPerms("view:tenant1,change:tenant1")).
+	s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1", withPerms("view:tenant1,change:tenant1")).
 		ExpectStatus(t, http.StatusNoContent)
 
 	tr.DBChanges().AssertEqualf(`
@@ -1543,7 +1536,7 @@ func TestDeleteAccount(t *testing.T) {
 	)
 
 	// account is already set to be deleted, so nothing happens
-	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1", withPerms("view:tenant1,change:tenant1")).
+	s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1", withPerms("view:tenant1,change:tenant1")).
 		ExpectStatus(t, http.StatusNoContent)
 
 	tr.DBChanges().AssertEmpty()
@@ -1604,7 +1597,7 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 
 		// create some primary accounts to play with
 		for _, name := range []models.AccountName{"first", "second", "third"} {
-			s1.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/"+string(name),
+			s1.RespondTo(ctx, "PUT /keppel/v1/accounts/"+string(name),
 				withPerms("change:tenant1"),
 				httptest.WithJSONBody(map[string]any{
 					"account": map[string]any{
@@ -1637,7 +1630,7 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 		}
 
 		// create an account which inherits the PlatformFilter
-		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
+		s2.RespondTo(ctx, "PUT /keppel/v1/accounts/first",
 			withPerms("change:tenant1"),
 			httptest.WithHeader(keppelv1.SubleaseHeader, makeSubleaseToken("first", "registry.example.org", "valid-token")),
 			httptest.WithJSONBody(map[string]any{
@@ -1664,7 +1657,7 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 		})
 
 		// create an account with the same PlatformFilter
-		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
+		s2.RespondTo(ctx, "PUT /keppel/v1/accounts/second",
 			withPerms("change:tenant1"),
 			httptest.WithHeader(keppelv1.SubleaseHeader, makeSubleaseToken("second", "registry.example.org", "valid-token")),
 			httptest.WithJSONBody(map[string]any{
@@ -1696,7 +1689,7 @@ func TestReplicaAccountsInheritPlatformFilter(t *testing.T) {
 		})
 
 		// create an account with an incompatible PlatformFilter
-		s2.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/third",
+		s2.RespondTo(ctx, "PUT /keppel/v1/accounts/third",
 			withPerms("change:tenant1"),
 			httptest.WithHeader(keppelv1.SubleaseHeader, makeSubleaseToken("third", "registry.example.org", "valid-token")),
 			httptest.WithJSONBody(map[string]any{
@@ -1731,21 +1724,21 @@ func TestSecurityScanPoliciesHappyPath(t *testing.T) {
 	s.AD.ExpectedUserName = "exampleuser"
 
 	// a freshly-created account should have no policies at all
-	s.Handler.RespondTo(ctx, "GET /keppel/v1/accounts/first/security_scan_policies", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/first/security_scan_policies", withPerms("view:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"policies": []jsonmatch.Object{}})
 	s.Auditor.IgnoreEventsUntilNow()
 
 	// helper function for testing a successful PUT of policies, followed by a GET
 	// that returns those same policies
 	expectPoliciesToBeApplied := func(policies ...map[string]any) {
-		s.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
+		s.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
 			withPerms("change:tenant1"),
 			httptest.WithJSONBody(map[string]any{"policies": policies}),
 		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"policies": policies,
 		})
 
-		s.Handler.RespondTo(ctx, "GET /keppel/v1/accounts/first/security_scan_policies",
+		s.RespondTo(ctx, "GET /keppel/v1/accounts/first/security_scan_policies",
 			withPerms("view:tenant1"),
 		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"policies": policies,
@@ -1829,7 +1822,7 @@ func TestSecurityScanPoliciesHappyPath(t *testing.T) {
 	// test expansion of "$REQUESTER" in "managed_by_user" field (this cannot use
 	// expectPoliciesToBeApplied() since the response body is different from the
 	// request body)
-	s.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"policies": []map[string]any{{
@@ -1871,7 +1864,7 @@ func TestSecurityScanPoliciesValidationErrors(t *testing.T) {
 
 	// helper to set security scan policies
 	setPolicies := func(policies []map[string]any) httptest.Response {
-		return s.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
+		return s.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
 			withPerms("change:tenant1"),
 			httptest.WithJSONBody(map[string]any{"policies": policies}),
 		)
@@ -1996,7 +1989,7 @@ func TestSecurityScanPoliciesAuthorizationErrors(t *testing.T) {
 	s.AD.ExpectedUserName = "exampleuser"
 
 	// PUT requires CanChangeAccount
-	s.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
 		withPerms("view:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"policies": []map[string]any{},
@@ -2014,7 +2007,7 @@ func TestSecurityScanPoliciesAuthorizationErrors(t *testing.T) {
 		},
 	}
 	foreignPolicyJSON := toJSONVia[keppel.SecurityScanPolicy](foreignPolicy)
-	s.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"policies": []map[string]any{foreignPolicy},
@@ -2029,7 +2022,7 @@ func TestSecurityScanPoliciesAuthorizationErrors(t *testing.T) {
 		fmt.Sprintf("[%s]", foreignPolicyJSON))
 
 	// it's okay if we leave that policy untouched...
-	s.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"policies": []map[string]any{foreignPolicy},
@@ -2041,7 +2034,7 @@ func TestSecurityScanPoliciesAuthorizationErrors(t *testing.T) {
 	// ...but updating is not okay...
 	delete(foreignPolicy, "managed_by_user")
 	foreignPolicy["match_repository"] = "definitely-not-the-old-value"
-	s.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"policies": []map[string]any{foreignPolicy},
@@ -2051,7 +2044,7 @@ func TestSecurityScanPoliciesAuthorizationErrors(t *testing.T) {
 	)
 
 	// ...and deleting is also not okay
-	s.Handler.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
+	s.RespondTo(ctx, "PUT /keppel/v1/accounts/first/security_scan_policies",
 		withPerms("change:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"policies": []map[string]any{},

@@ -241,7 +241,6 @@ func testAuthErrorsForCatalog(t *testing.T, s test.Setup) {
 func testNoCatalogOnAnycast(t *testing.T, s test.Setup) {
 	ctx := t.Context()
 	tokenHeaders := s.GetAnycastTokenHeaders(t, "registry:catalog:*")
-	s.Handler.RespondTo(ctx, "GET /v2/_catalog", httptest.WithHeaders(tokenHeaders)).
-		ExpectHeader(t, test.VersionHeaderKey, test.VersionHeaderValue).
+	s.RespondTo(ctx, "GET /v2/_catalog", httptest.WithHeaders(tokenHeaders)).
 		ExpectJSON(t, http.StatusMethodNotAllowed, test.ErrorCode(keppel.ErrUnsupported))
 }
