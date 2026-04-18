@@ -153,8 +153,7 @@ func TestAPIAuthNotGrantingAnyScopes(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
 		// any endpoint, when not provided with a token, should respond with 401
 		// and challenge us to get one (unless RBAC policies for anonymous access are set up)
-		s.Handler.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest").
-			ExpectHeader(t, test.VersionHeaderKey, test.VersionHeaderValue).
+		s.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest").
 			ExpectHeader(t, "Www-Authenticate",
 				`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull"`).
 			ExpectStatus(t, http.StatusUnauthorized)
@@ -169,7 +168,7 @@ func TestAPIAuthNotGrantingAnyScopes(t *testing.T) {
 				"detail":  nil,
 			}},
 		}
-		s.Handler.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest", httptest.WithHeaders(tokenHeaders)).
+		s.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest", httptest.WithHeaders(tokenHeaders)).
 			ExpectJSON(t, http.StatusUnauthorized, deniedMessage)
 
 		// same test, but with an anonymous user
@@ -181,7 +180,7 @@ func TestAPIAuthNotGrantingAnyScopes(t *testing.T) {
 			Audience:     auth.Audience{IsAnycast: false},
 			ScopeSet:     auth.ScopeSet{},
 		}.IssueToken(s.Config))(t).Token
-		s.Handler.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest", httptest.WithHeader("Authorization", "Bearer "+token)).
+		s.RespondTo(ctx, "GET /v2/test1/foo/manifests/latest", httptest.WithHeader("Authorization", "Bearer "+token)).
 			ExpectJSON(t, http.StatusUnauthorized, deniedMessage)
 	})
 }

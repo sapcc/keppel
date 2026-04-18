@@ -48,7 +48,6 @@ func TestManifestsAPI(t *testing.T) {
 		s := test.NewSetup(t, test.WithKeppelAPI, test.WithTrivyDouble,
 			test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
 			test.WithAccount(models.Account{Name: "test2", AuthTenantID: "tenant2"}))
-		h := s.Handler
 		ctx := t.Context()
 
 		// setup test repos (`repo1-2` and `repo2-1` only exist to validate that we
@@ -63,12 +62,12 @@ func TestManifestsAPI(t *testing.T) {
 		}
 
 		// test empty GET
-		h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/repo1-1/_manifests",
+		s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/repo1-1/_manifests",
 			withPerms("view:tenant1,pull:tenant1"),
 		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{"manifests": []jsonmatch.Object{}})
 
 		// test that Keppel API does not allow domain-remapping
-		h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/repo1-1/_manifests",
+		s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/repo1-1/_manifests",
 			withPerms("view:tenant1,pull:tenant1"),
 			httptest.WithHeader("X-Forwarded-Host", "test1.registry.example.org"),
 			httptest.WithHeader("X-Forwarded-Proto", "https"),
@@ -170,21 +169,21 @@ func TestManifestsAPI(t *testing.T) {
 		})
 
 		// test GET without pagination
-		h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/repo1-1/_manifests",
+		s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/repo1-1/_manifests",
 			withPerms("view:tenant1,pull:tenant1"),
 		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{"manifests": renderedManifests})
-		h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=10",
+		s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=10",
 			withPerms("view:tenant1,pull:tenant1"),
 		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{"manifests": renderedManifests})
 
 		// test GET with pagination
-		h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=5",
+		s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=5",
 			withPerms("view:tenant1,pull:tenant1"),
 		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"manifests": renderedManifests[0:5],
 			"truncated": true,
 		})
-		h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=5&marker="+renderedManifests[4]["digest"].(digest.Digest).String(),
+		s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=5&marker="+renderedManifests[4]["digest"].(digest.Digest).String(),
 			withPerms("view:tenant1,pull:tenant1"),
 		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{"manifests": renderedManifests[5:10]})
 		for idx := range 9 {
@@ -194,25 +193,25 @@ func TestManifestsAPI(t *testing.T) {
 			if idx < 8 {
 				expectedBody["truncated"] = true
 			}
-			h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=1&marker="+renderedManifests[idx]["digest"].(digest.Digest).String(),
+			s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=1&marker="+renderedManifests[idx]["digest"].(digest.Digest).String(),
 				withPerms("view:tenant1,pull:tenant1"),
 			).ExpectJSON(t, http.StatusOK, expectedBody)
 		}
 
 		// test GET failure cases
-		h.RespondTo(ctx, "GET /keppel/v1/accounts/doesnotexist/repositories/repo1-1/_manifests",
+		s.RespondTo(ctx, "GET /keppel/v1/accounts/doesnotexist/repositories/repo1-1/_manifests",
 			withPerms("view:tenant1,pull:tenant1"),
 		).ExpectText(t, http.StatusForbidden, "no permission for repository:doesnotexist/repo1-1:pull\n")
-		h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/doesnotexist/_manifests",
+		s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/doesnotexist/_manifests",
 			withPerms("view:tenant1,pull:tenant1"),
 		).ExpectStatus(t, http.StatusNotFound)
-		h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=foo",
+		s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/repo1-1/_manifests?limit=foo",
 			withPerms("view:tenant1,pull:tenant1"),
 		).ExpectText(t, http.StatusBadRequest, "strconv.ParseUint: parsing \"foo\": invalid syntax\n")
 
 		// test DELETE manifest happy case
 		easypg.AssertDBContent(t, s.DB.Db, "fixtures/before-delete-manifest.sql")
-		h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-1/_manifests/"+test.DeterministicDummyDigest(11).String(),
+		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-1/_manifests/"+test.DeterministicDummyDigest(11).String(),
 			withPerms("view:tenant1,delete:tenant1"),
 		).ExpectStatus(t, http.StatusNoContent)
 		easypg.AssertDBContent(t, s.DB.Db, "fixtures/after-delete-manifest.sql")
@@ -236,7 +235,7 @@ func TestManifestsAPI(t *testing.T) {
 		})
 
 		// test DELETE tag happy case
-		h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-2/_tags/stillfirst",
+		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-2/_tags/stillfirst",
 			withPerms("view:tenant1,delete:tenant1"),
 		).ExpectStatus(t, http.StatusNoContent)
 		easypg.AssertDBContent(t, s.DB.Db, "fixtures/after-delete-tag.sql")
@@ -255,39 +254,39 @@ func TestManifestsAPI(t *testing.T) {
 		})
 
 		// test DELETE manifest failure cases
-		h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test2/repositories/repo2-1/_manifests/"+test.DeterministicDummyDigest(31).String(),
+		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test2/repositories/repo2-1/_manifests/"+test.DeterministicDummyDigest(31).String(),
 			withPerms("delete:tenant1,view:tenant1,pull:tenant1"),
 		).ExpectText(t, http.StatusForbidden, "no permission for repository:test2/repo2-1:delete\n")
-		h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-2/_manifests/"+test.DeterministicDummyDigest(21).String(),
+		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-2/_manifests/"+test.DeterministicDummyDigest(21).String(),
 			withPerms("view:tenant1,pull:tenant1"),
 		).ExpectStatus(t, http.StatusForbidden)
-		h.RespondTo(ctx, "DELETE /keppel/v1/accounts/doesnotexist/repositories/repo1-2/_manifests/"+test.DeterministicDummyDigest(11).String(),
+		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/doesnotexist/repositories/repo1-2/_manifests/"+test.DeterministicDummyDigest(11).String(),
 			withPerms("delete:tenant1,view:tenant1,pull:tenant1"),
 		).ExpectText(t, http.StatusForbidden, "no permission for repository:doesnotexist/repo1-2:delete\n")
-		h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/doesnotexist/_manifests/"+test.DeterministicDummyDigest(11).String(),
+		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/doesnotexist/_manifests/"+test.DeterministicDummyDigest(11).String(),
 			withPerms("delete:tenant1,view:tenant1,pull:tenant1"),
 		).ExpectStatus(t, http.StatusNotFound)
-		h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-1/_manifests/"+test.DeterministicDummyDigest(11).String(),
+		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-1/_manifests/"+test.DeterministicDummyDigest(11).String(),
 			withPerms("view:tenant1,delete:tenant1"),
 		).ExpectStatus(t, http.StatusNotFound)
-		h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-1/_manifests/second", // this endpoint only works with digests
+		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-1/_manifests/second", // this endpoint only works with digests
 			withPerms("view:tenant1,delete:tenant1"),
 		).ExpectStatus(t, http.StatusNotFound)
-		h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-1/_manifests/sha256:12345",
+		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-1/_manifests/sha256:12345",
 			withPerms("view:tenant1,delete:tenant1"),
 		).ExpectStatus(t, http.StatusNotFound)
 
 		// test DELETE tag failure cases
-		h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-2/_tags/first",
+		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-2/_tags/first",
 			withPerms("view:tenant1,pull:tenant1"),
 		).ExpectStatus(t, http.StatusForbidden)
-		h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test2/repositories/repo2-1/_tags/"+test.DeterministicDummyDigest(31).String(), // this endpoint only works with tags
+		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test2/repositories/repo2-1/_tags/"+test.DeterministicDummyDigest(31).String(), // this endpoint only works with tags
 			withPerms("delete:tenant2,view:tenant2"),
 		).ExpectStatus(t, http.StatusNotFound)
-		h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test2/repositories/doesnotexist/_tags/first",
+		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test2/repositories/doesnotexist/_tags/first",
 			withPerms("delete:tenant2,view:tenant2"),
 		).ExpectStatus(t, http.StatusNotFound)
-		h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test2/repositories/repo2-1/_tags/doesnotexist",
+		s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test2/repositories/repo2-1/_tags/doesnotexist",
 			withPerms("delete:tenant2,view:tenant2"),
 		).ExpectStatus(t, http.StatusNotFound)
 	})
@@ -301,7 +300,6 @@ func TestGetTrivyReport(t *testing.T) {
 			test.WithTrivyDouble,
 			test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
 		)
-		h := s.Handler
 		ctx := t.Context()
 
 		// setup: upload an image and an image list
@@ -314,17 +312,17 @@ func TestGetTrivyReport(t *testing.T) {
 		endpointFor := func(d digest.Digest) string {
 			return "GET /keppel/v1/accounts/test1/repositories/foo/_manifests/" + d.String() + "/trivy_report"
 		}
-		h.RespondTo(ctx, endpointFor(test.DeterministicDummyDigest(1)),
+		s.RespondTo(ctx, endpointFor(test.DeterministicDummyDigest(1)),
 			withPerms("view:tenant1,pull:tenant1"),
 		).ExpectStatus(t, http.StatusNotFound)
 
 		// error case: cannot GET report for an image that does not have scannable layers
-		h.RespondTo(ctx, endpointFor(listManifest.Digest),
+		s.RespondTo(ctx, endpointFor(listManifest.Digest),
 			withPerms("view:tenant1,pull:tenant1"),
 		).ExpectStatus(t, http.StatusMethodNotAllowed)
 
 		// error case: cannot GET report for an image that has not been scanned by the janitor after upload
-		h.RespondTo(ctx, endpointFor(imageManifest.Digest),
+		s.RespondTo(ctx, endpointFor(imageManifest.Digest),
 			withPerms("view:tenant1,pull:tenant1"),
 		).ExpectStatus(t, http.StatusMethodNotAllowed)
 
@@ -343,7 +341,7 @@ func TestGetTrivyReport(t *testing.T) {
 		)
 
 		// happy case: GET on the default format "json" returns that cached report
-		h.RespondTo(ctx, endpointFor(imageManifest.Digest), withPerms("view:tenant1,pull:tenant1")).
+		s.RespondTo(ctx, endpointFor(imageManifest.Digest), withPerms("view:tenant1,pull:tenant1")).
 			ExpectHeader(t, "Content-Type", "application/json").
 			ExpectText(t, http.StatusOK, string(buf))
 
@@ -356,7 +354,7 @@ func TestGetTrivyReport(t *testing.T) {
 		s.TrivyDouble.ReportFixtures[imageRef] = "fixtures/trivy-report-spdx.json"
 		var expected jsonmatch.Object
 		must.SucceedT(t, json.Unmarshal(must.ReturnT(os.ReadFile("fixtures/trivy-report-spdx.json"))(t), &expected))
-		h.RespondTo(ctx, endpointFor(imageManifest.Digest)+"?format=spdx-json", withPerms("view:tenant1,pull:tenant1")).
+		s.RespondTo(ctx, endpointFor(imageManifest.Digest)+"?format=spdx-json", withPerms("view:tenant1,pull:tenant1")).
 			ExpectHeader(t, "Content-Type", "application/json").
 			ExpectJSON(t, http.StatusOK, expected)
 	})
@@ -379,7 +377,6 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 			test.WithRateLimitEngine(rle),
 			test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
 		)
-		h := s.Handler
 		ctx := t.Context()
 
 		_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
@@ -388,7 +385,7 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 
 		doTrivyRequest := func() httptest.Response {
 			endpoint := fmt.Sprintf("GET /keppel/v1/accounts/test1/repositories/foo/_manifests/%s/trivy_report", test.DeterministicDummyDigest(1))
-			return h.RespondTo(ctx, endpoint, httptest.WithHeaders(tokenHeaders))
+			return s.RespondTo(ctx, endpoint, httptest.WithHeaders(tokenHeaders))
 		}
 		expectRateLimited := func(reset, retryAfter int) {
 			t.Helper()

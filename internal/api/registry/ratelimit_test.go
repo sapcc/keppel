@@ -164,12 +164,10 @@ func TestAnycastRateLimits(t *testing.T) {
 		}
 
 		// upload the test blob
-		h := s.Handler
 		blob.MustUpload(t, s, fooRepoRef)
 
 		// pull it via anycast
 		testWithReplica(t, s, "on_first_use", func(firstPass bool, s2 test.Setup) {
-			h2 := s2.Handler
 			s.Clock.StepBy(time.Hour) // reset all rate limits
 			testAnycast(t, firstPass, s2.DB, func() {
 				anycastTokenHeaders := s.GetAnycastTokenHeaders(t, "repository:test1/foo:pull")
@@ -178,11 +176,11 @@ func TestAnycastRateLimits(t *testing.T) {
 				// four requests because each expectBlobExists() does one GET and one
 				// HEAD, but the rate limit only counts GETs since the rate limit is on
 				// the blob contents, which don't get transferred during HEAD)
-				expectBlobExists(t, h2, anycastTokenHeaders, "test1/foo", blob)
-				expectBlobExists(t, h2, anycastTokenHeaders, "test1/foo", blob)
+				expectBlobExists(t, s2, anycastTokenHeaders, "test1/foo", blob)
+				expectBlobExists(t, s2, anycastTokenHeaders, "test1/foo", blob)
 
 				// third pull will be rejected by the rate limit
-				h2.RespondTo(ctx, "GET /v2/test1/foo/blobs/"+blob.Digest.String(),
+				s2.RespondTo(ctx, "GET /v2/test1/foo/blobs/"+blob.Digest.String(),
 					httptest.WithHeaders(anycastTokenHeaders),
 				).ExpectHeaders(t, http.Header{
 					test.VersionHeaderKey:   {test.VersionHeaderValue},
@@ -194,7 +192,7 @@ func TestAnycastRateLimits(t *testing.T) {
 				}).ExpectJSON(t, http.StatusTooManyRequests, test.ErrorCode(keppel.ErrTooManyRequests))
 
 				// pull from primary is okay since we don't traverse regions
-				expectBlobExists(t, h, anycastTokenHeaders, "test1/foo", blob)
+				expectBlobExists(t, s, anycastTokenHeaders, "test1/foo", blob)
 			})
 		})
 	})

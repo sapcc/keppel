@@ -25,11 +25,10 @@ func TestReposAPI(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI, test.WithQuotas,
 		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
 		test.WithAccount(models.Account{Name: "test2", AuthTenantID: "tenant2"}))
-	h := s.Handler
 	ctx := t.Context()
 
 	// test empty result
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories", withPerms("view:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"repositories": []jsonmatch.Object{},
 		})
@@ -115,52 +114,52 @@ func TestReposAPI(t *testing.T) {
 		{"name": "repo1-4", "manifest_count": 0, "tag_count": 0},
 		{"name": "repo1-5", "manifest_count": 0, "tag_count": 0},
 	}
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories", withPerms("view:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"repositories": renderedRepos})
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=5", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=5", withPerms("view:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"repositories": renderedRepos})
 
 	// test GET with pagination
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=3", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=3", withPerms("view:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"repositories": renderedRepos[0:3],
 			"truncated":    true,
 		})
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=3&marker=repo1-3", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=3&marker=repo1-3", withPerms("view:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"repositories": renderedRepos[3:5]})
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=3&marker=repo1-2", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=3&marker=repo1-2", withPerms("view:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"repositories": renderedRepos[2:5]})
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=3&marker=repo1-5", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=3&marker=repo1-5", withPerms("view:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"repositories": []jsonmatch.Object{}})
 
 	// test GET failure cases
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/doesnotexist/repositories", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/doesnotexist/repositories", withPerms("view:tenant1")).
 		ExpectText(t, http.StatusForbidden, "no permission for keppel_account:doesnotexist:view\n")
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=foo", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories?limit=foo", withPerms("view:tenant1")).
 		ExpectText(t, http.StatusBadRequest, "strconv.ParseUint: parsing \"foo\": invalid syntax\n")
 
 	// test DELETE failure cases
-	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test2/repositories/repo2-1", withPerms("delete:tenant1,view:tenant1")).
+	s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test2/repositories/repo2-1", withPerms("delete:tenant1,view:tenant1")).
 		ExpectText(t, http.StatusForbidden, "no permission for repository:test2/repo2-1:delete\n")
-	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-2", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-2", withPerms("view:tenant1")).
 		ExpectText(t, http.StatusForbidden, "no permission for repository:test1/repo1-2:delete\n")
-	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/doesnotexist/repositories/repo1-2", withPerms("delete:tenant1,view:tenant1")).
+	s.RespondTo(ctx, "DELETE /keppel/v1/accounts/doesnotexist/repositories/repo1-2", withPerms("delete:tenant1,view:tenant1")).
 		ExpectText(t, http.StatusForbidden, "no permission for repository:doesnotexist/repo1-2:delete\n")
-	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/doesnotexist", withPerms("delete:tenant1,view:tenant1")).
+	s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/doesnotexist", withPerms("delete:tenant1,view:tenant1")).
 		ExpectText(t, http.StatusNotFound, "repository not found\n")
 
 	// test if tag policy prevents deletion
 	deletingTagPolicyJSON := `{"match_repository":".*","block_delete":true}`
 	test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $1`, "["+deletingTagPolicyJSON+"]")
-	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-3", withPerms("delete:tenant1,view:tenant1")).
+	s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-3", withPerms("delete:tenant1,view:tenant1")).
 		ExpectText(t, http.StatusConflict, "cannot delete manifest because it is protected by tag policy ({\"match_repository\":\".*\",\"block_delete\":true})\n")
 	test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = '[]'`)
 
 	// test DELETE happy case
 	easypg.AssertDBContent(t, s.DB.Db, "fixtures/before-delete-repo.sql")
-	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-1", withPerms("delete:tenant1,view:tenant1")).
+	s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-1", withPerms("delete:tenant1,view:tenant1")).
 		ExpectStatus(t, http.StatusNoContent)
-	h.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-3", withPerms("delete:tenant1,view:tenant1")).
+	s.RespondTo(ctx, "DELETE /keppel/v1/accounts/test1/repositories/repo1-3", withPerms("delete:tenant1,view:tenant1")).
 		ExpectStatus(t, http.StatusNoContent)
 	easypg.AssertDBContent(t, s.DB.Db, "fixtures/after-delete-repo.sql")
 }

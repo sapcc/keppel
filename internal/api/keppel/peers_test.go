@@ -16,11 +16,10 @@ import (
 
 func TestPeersAPI(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
-	h := s.Handler
 	ctx := t.Context()
 
 	// check empty response when there are no peers in the DB
-	h.RespondTo(ctx, "GET /keppel/v1/peers", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/peers", withPerms("view:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"peers": []any{}})
 
 	// add some peers
@@ -33,6 +32,6 @@ func TestPeersAPI(t *testing.T) {
 	}
 
 	// check non-empty response
-	h.RespondTo(ctx, "GET /keppel/v1/peers", withPerms("view:tenant1")).
+	s.RespondTo(ctx, "GET /keppel/v1/peers", withPerms("view:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"peers": expectedPeers})
 }

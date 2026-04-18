@@ -140,15 +140,13 @@ func TestListTags(t *testing.T) {
 			testWithReplica(t, s, "on_first_use", func(firstPass bool, s2 test.Setup) {
 				testAnycast(t, firstPass, s2.DB, func() {
 					anycastTokenHeaders := s.GetAnycastTokenHeaders(t, "repository:test1/foo:pull")
-					for _, handler := range []httptest.Handler{s.Handler, s2.Handler} {
-						handler.RespondTo(ctx, "GET /v2/test1/foo/tags/list",
+					for _, setup := range []test.Setup{s, s2} {
+						setup.RespondTo(ctx, "GET /v2/test1/foo/tags/list",
 							httptest.WithHeaders(anycastTokenHeaders),
-						).
-							ExpectHeader(t, test.VersionHeaderKey, test.VersionHeaderValue).
-							ExpectJSON(t, http.StatusOK, jsonmatch.Object{
-								"name": "test1/foo",
-								"tags": allTagNames,
-							})
+						).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+							"name": "test1/foo",
+							"tags": allTagNames,
+						})
 					}
 				})
 			})
