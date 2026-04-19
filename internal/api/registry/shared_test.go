@@ -4,6 +4,7 @@
 package registryv2_test
 
 import (
+	"bytes"
 	"cmp"
 	"fmt"
 	"net/http"
@@ -35,6 +36,40 @@ var (
 
 // the auth tenant ID that all test accounts use
 const authTenantID = "test1authtenant"
+
+// uploadingBlobMonolithically is a custom RequestOption for the "POST blob upload" endpoint.
+func uploadingBlobMonolithically(blob test.Bytes) httptest.RequestOption {
+	return httptest.MergeRequestOptions(
+		httptest.WithHeader("Content-Length", strconv.Itoa(len(blob.Contents))),
+		httptest.WithHeader("Content-Type", blob.MediaType),
+		httptest.WithBody(bytes.NewReader(blob.Contents)),
+	)
+}
+
+// uploadingManifest is a custom RequestOption for the "PUT manifest" endpoint.
+func uploadingManifest(manifest test.Bytes) httptest.RequestOption {
+	return httptest.MergeRequestOptions(
+		httptest.WithHeader("Content-Type", manifest.MediaType),
+		httptest.WithBody(bytes.NewReader(manifest.Contents)),
+	)
+}
+
+// containsBlob is a custom assertion for the "GET blob" endpoint.
+func containsBlob(t *testing.T, blob test.Bytes) func(httptest.Response) {
+	// Currently, these two assertions are identical.
+	// But we call them either containsBlob() or containsManifest() at the callsite for clarity.
+	return containsManifest(t, blob)
+}
+
+// containsManifest is a custom assertion for the "GET manifest" endpoint.
+func containsManifest(t *testing.T, manifest test.Bytes) func(httptest.Response) {
+	return func(r httptest.Response) {
+		r.ExpectHeader(t, "Content-Length", strconv.Itoa(len(manifest.Contents))).
+			ExpectHeader(t, "Content-Type", manifest.MediaType).
+			ExpectHeader(t, "Docker-Content-Digest", manifest.Digest.String()).
+			ExpectBody(t, http.StatusOK, manifest.Contents)
+	}
+}
 
 func testWithPrimary(t *testing.T, setupOptions []test.SetupOption, action func(test.Setup)) {
 	test.WithRoundTripper(func(tt *test.RoundTripper) {
@@ -134,9 +169,8 @@ func getBlobUpload(t *testing.T, s test.Setup, hdr http.Header, fullRepoName str
 		fmt.Sprintf("POST /v2/%s/blobs/uploads/", fullRepoName),
 		httptest.WithHeaders(hdr),
 	).ExpectHeaders(t, http.Header{
-		test.VersionHeaderKey: {test.VersionHeaderValue},
-		"Content-Length":      {"0"},
-		"Range":               {"0-0"},
+		"Content-Length": {"0"},
+		"Range":          {"0-0"},
 	}).
 		CaptureHeader("Location", &uploadURL).
 		CaptureHeader("Blob-Upload-Session-Id", &uploadUUID).
@@ -169,7 +203,6 @@ func expectBlobExists(t *testing.T, s test.Setup, hdr http.Header, fullRepoName 
 			fmt.Sprintf("%s /v2/%s/blobs/%s", method, fullRepoName, blob.Digest.String()),
 			httptest.WithHeaders(hdr),
 		).ExpectHeaders(t, http.Header{
-			test.VersionHeaderKey:   {test.VersionHeaderValue},
 			"Content-Length":        {strconv.Itoa(len(blob.Contents))},
 			"Content-Type":          {blob.MediaType},
 			"Docker-Content-Digest": {blob.Digest.String()},
