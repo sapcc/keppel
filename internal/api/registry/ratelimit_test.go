@@ -183,7 +183,6 @@ func TestAnycastRateLimits(t *testing.T) {
 				s2.RespondTo(ctx, "GET /v2/test1/foo/blobs/"+blob.Digest.String(),
 					httptest.WithHeaders(anycastTokenHeaders),
 				).ExpectHeaders(t, http.Header{
-					test.VersionHeaderKey:   {test.VersionHeaderValue},
 					"X-RateLimit-Action":    {string(keppel.AnycastBlobBytePullAction)},
 					"X-RateLimit-Limit":     {strconv.Itoa(limit.Burst)},
 					"X-RateLimit-Remaining": {"0"},

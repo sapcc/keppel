@@ -134,9 +134,8 @@ func getBlobUpload(t *testing.T, s test.Setup, hdr http.Header, fullRepoName str
 		fmt.Sprintf("POST /v2/%s/blobs/uploads/", fullRepoName),
 		httptest.WithHeaders(hdr),
 	).ExpectHeaders(t, http.Header{
-		test.VersionHeaderKey: {test.VersionHeaderValue},
-		"Content-Length":      {"0"},
-		"Range":               {"0-0"},
+		"Content-Length": {"0"},
+		"Range":          {"0-0"},
 	}).
 		CaptureHeader("Location", &uploadURL).
 		CaptureHeader("Blob-Upload-Session-Id", &uploadUUID).
@@ -169,7 +168,6 @@ func expectBlobExists(t *testing.T, s test.Setup, hdr http.Header, fullRepoName 
 			fmt.Sprintf("%s /v2/%s/blobs/%s", method, fullRepoName, blob.Digest.String()),
 			httptest.WithHeaders(hdr),
 		).ExpectHeaders(t, http.Header{
-			test.VersionHeaderKey:   {test.VersionHeaderValue},
 			"Content-Length":        {strconv.Itoa(len(blob.Contents))},
 			"Content-Type":          {blob.MediaType},
 			"Docker-Content-Digest": {blob.Digest.String()},
