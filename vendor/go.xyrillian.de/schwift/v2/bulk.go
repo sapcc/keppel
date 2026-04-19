@@ -28,8 +28,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/majewsky/schwift/v2/capabilities"
-	"github.com/majewsky/schwift/v2/internal/errext"
+	"go.xyrillian.de/schwift/v2/capabilities"
+	"go.xyrillian.de/schwift/v2/internal/errext"
 )
 
 // BulkUploadFormat enumerates possible archive formats for Container.BulkUpload().

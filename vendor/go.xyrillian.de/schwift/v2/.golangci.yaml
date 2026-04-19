@@ -1,0 +1,190 @@
+# SPDX-FileCopyrightText: 2024 SAP SE or an SAP affiliate company
+# SPDX-License-Identifier: Apache-2.0
+
+version: "2"
+run:
+  timeout: 3m0s # none by default in v2
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      # Put local imports after 3rd-party packages
+      local-prefixes:
+        - go.xyrillian.de/schwift/v2
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+
+issues:
+  # '0' disables the following options
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  # Disable all pre-enabled linters and enable them explicitly so that a newer version does not introduce new linters unexpectedly
+  default: none
+  enable:
+    - bodyclose
+    - containedctx
+    - copyloopvar
+    - dupword
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - exptostd
+    - forbidigo
+    - ginkgolinter
+    - gocheckcompilerdirectives
+    - goconst
+    - gocritic
+    - gomoddirectives
+    # - gosec # TODO: consider enabling
+    - govet
+    - ineffassign
+    - intrange
+    - iotamixing
+    - modernize
+    - nilerr
+    - nolintlint
+    - nosprintfhostport
+    - perfsprint
+    - predeclared
+    - rowserrcheck
+    - revive
+    - sqlclosecheck
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - usetesting
+    - whitespace
+  settings:
+    dupword:
+      # Do not choke on SQL statements like `INSERT INTO things (foo, bar, baz) VALUES (TRUE, TRUE, TRUE)`.
+      ignore: [ "TRUE", "FALSE", "NULL" ]
+    errcheck:
+      check-type-assertions: false
+      # Report about assignment of errors to blank identifier.
+      check-blank: true
+      # Do not report about not checking of errors in type assertions.
+      # This is not as dangerous as skipping error values because an unchecked type assertion just immediately panics.
+      # We disable this because it makes a ton of useless noise esp. in test code.
+    forbidigo:
+      analyze-types: true # required for pkg:
+      forbid:
+        # ioutil package has been deprecated: https://github.com/golang/go/issues/42026
+        - pattern: ^ioutil\..*$
+        # Using http.DefaultServeMux is discouraged because it's a global variable that some packages silently and magically add handlers to (esp. net/http/pprof).
+        # Applications wishing to use http.ServeMux should obtain local instances through http.NewServeMux() instead of using the global default instance.
+        - pattern: ^http\.DefaultServeMux$
+        - pattern: ^http\.Handle(?:Func)?$
+        - pkg: ^gopkg\.in/square/go-jose\.v2$
+          msg: gopk.in/square/go-jose is archived and has CVEs. Replace it with gopkg.in/go-jose/go-jose.v2
+        - pkg: ^github.com/coreos/go-oidc$
+          msg: github.com/coreos/go-oidc depends on gopkg.in/square/go-jose which has CVEs. Replace it with github.com/coreos/go-oidc/v3
+        - pkg: ^github.com/howeyc/gopass$
+          msg: github.com/howeyc/gopass is archived, use golang.org/x/term instead
+    goconst:
+      min-occurrences: 5
+    gocritic:
+      enabled-checks:
+        - boolExprSimplify
+        - builtinShadow
+        - emptyStringTest
+        - evalOrder
+        - httpNoBody
+        - importShadow
+        - initClause
+        - methodExprCall
+        - paramTypeCombine
+        - preferFilepathJoin
+        - ptrToRefParam
+        - redundantSprint
+        - returnAfterHttpError
+        - stringConcatSimplify
+        - timeExprSimplify
+        - truncateCmp
+        - typeAssertChain
+        - typeUnparen
+        - unnamedResult
+        - unnecessaryBlock
+        - unnecessaryDefer
+        - weakCond
+        - yodaStyleExpr
+    gomoddirectives:
+      toolchain-forbidden: true
+      go-version-pattern: 1\.\d+(\.0)?$
+    gosec:
+      excludes:
+        # useless noise in tests
+        - G602
+    govet:
+      disable:
+        - fieldalignment
+      enable-all: true
+    nolintlint:
+      require-specific: true
+    perfsprint:
+      # modernize generates nicer fix code
+      concat-loop: false
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - checkPrivateReceivers
+            - disableChecksOnConstants
+    staticcheck:
+      dot-import-whitelist:
+        - go.xyrillian.de/gg/option
+    usestdlibvars:
+      http-method: true
+      http-status-code: true
+      time-weekday: true
+      time-month: true
+      time-layout: true
+      crypto-hash: true
+      default-rpc-path: true
+      sql-isolation-level: true
+      tls-signature-scheme: true
+      constant-kind: true
+    usetesting:
+      os-temp-dir: true
+    whitespace:
+      # Enforce newlines (or comments) after multi-line function signatures.
+      multi-func: true
+  exclusions:
+    generated: lax
+    presets:
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - bodyclose
+          - revive
+        path: _test\.go
+      # It is idiomatic Go to reuse the name 'err' with ':=' for subsequent errors.
+      # Ref: https://go.dev/doc/effective_go#redeclaration
+      - path: (.+)\.go$
+        text: declaration of "err" shadows declaration at
+      - linters:
+          - goconst
+        path: (.+)_test\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+
+output:
+  formats:
+    text:
+      # Do not print lines of code with issue.
+      print-issued-lines: false

@@ -12,8 +12,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/majewsky/schwift/v2"
 	"github.com/sapcc/go-bits/regexpext"
+	"go.xyrillian.de/schwift/v2"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"

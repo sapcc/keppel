@@ -32,6 +32,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 )
@@ -617,16 +618,6 @@ func (o *Object) URL() (string, error) {
 	}.URL(o.c.a.backend, nil)
 }
 
-// Returns true if string is contained in slice
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
-
 // TempURL is like Object.URL, but includes a token with a limited lifetime (as
 // specified by the `expires` argument) that permits anonymous access to this
 // object using the given HTTP method. This works only when the tempurl
@@ -671,9 +662,9 @@ func (o *Object) TempURL(ctx context.Context, key, method string, expires time.T
 
 	var mac hash.Hash
 	switch {
-	case contains(allowedDigest, "sha256"):
+	case slices.Contains(allowedDigest, "sha256"):
 		mac = hmac.New(sha256.New, []byte(key))
-	case contains(allowedDigest, "sha1"):
+	case slices.Contains(allowedDigest, "sha1"):
 		mac = hmac.New(sha1.New, []byte(key))
 	default:
 		return "", fmt.Errorf("schwift supports sha1 and sha256 digests but the Swift server only supports: %s", strings.Join(allowedDigest, ", "))

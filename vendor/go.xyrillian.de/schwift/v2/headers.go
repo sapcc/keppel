@@ -106,13 +106,13 @@ func headersFromHTTP(src http.Header) Headers {
 // IsDynamicLargeObject returns true if this set of headers belongs to a Dynamic
 // Large Object (DLO).
 func (h ObjectHeaders) IsDynamicLargeObject() bool {
-	return h.Headers.Get("X-Object-Manifest") != ""
+	return h.Get("X-Object-Manifest") != ""
 }
 
 // IsStaticLargeObject returns true if this set of headers belongs to a Static
 // Large Object (SLO).
 func (h ObjectHeaders) IsStaticLargeObject() bool {
-	return h.Headers.Get("X-Static-Large-Object") == "True"
+	return h.Get("X-Static-Large-Object") == "True"
 }
 
 // IsLargeObject returns true if this set of headers belongs to a large object

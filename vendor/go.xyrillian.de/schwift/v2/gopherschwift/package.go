@@ -27,7 +27,7 @@ so you only need to obtain a client token once using Gophercloud. For example:
 	import (
 		"github.com/gophercloud/gophercloud/v2/openstack"
 		"github.com/gophercloud/utils/v2/openstack/clientconfig"
-		"github.com/majewsky/schwift/v2/gopherschwift"
+		"go.xyrillian.de/schwift/v2/gopherschwift"
 	)
 
 	provider, err := clientconfig.AuthenticatedClient(nil)
@@ -45,7 +45,7 @@ import (
 
 	"github.com/gophercloud/gophercloud/v2"
 
-	"github.com/majewsky/schwift/v2"
+	"go.xyrillian.de/schwift/v2"
 )
 
 // Options contains additional options that can be passed to Wrap().
@@ -74,10 +74,12 @@ type backend struct {
 	userAgent string
 }
 
+// EndpointURL implements the [schwift.Backend] interface.
 func (g *backend) EndpointURL() string {
 	return g.c.Endpoint
 }
 
+// Clone implements the [schwift.Backend] interface.
 func (g *backend) Clone(newEndpointURL string) schwift.Backend {
 	clonedClient := *g.c
 	clonedClient.Endpoint = newEndpointURL
@@ -87,6 +89,7 @@ func (g *backend) Clone(newEndpointURL string) schwift.Backend {
 	}
 }
 
+// Do implements the [schwift.Backend] interface.
 func (g *backend) Do(req *http.Request) (*http.Response, error) {
 	return g.do(req, false)
 }

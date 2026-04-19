@@ -144,7 +144,7 @@ func (b *iteratorBase) nextPage(ctx context.Context, limit int) ([]string, error
 	return result, b.i.putHeader(resp.Header)
 }
 
-func (b *iteratorBase) nextPageDetailed(ctx context.Context, limit int, data interface{}) error {
+func (b *iteratorBase) nextPageDetailed(ctx context.Context, limit int, data any) error {
 	if b.eof {
 		return nil
 	}

@@ -1,6 +1,6 @@
 # Schwift
 
-[![GoDoc](https://godoc.org/github.com/majewsky/schwift?status.svg)](https://godoc.org/github.com/majewsky/schwift)
+[![GoDoc](https://godoc.org/go.xyrillian.de/schwift/v2?status.svg)](https://godoc.org/go.xyrillian.de/schwift/v2)
 
 This is a Go client library for [OpenStack Swift](https://github.com/openstack/swift). I made this after growing
 frustrated with the inflexible API design of [`ncw/swift`](https://github.com/ncw/swift); see [near the
@@ -8,7 +8,7 @@ bottom](#why-another-swift-client-library) for details.
 
 ## Installation
 
-You can get this with `go get github.com/majewsky/schwift`. When using this in an application, vendoring is recommended.
+You can get this with `go get go.xyrillian.de/schwift/v2`. When using this in an application, vendoring is recommended.
 
 ## Usage
 
@@ -18,9 +18,9 @@ For example, to connect to Swift using OpenStack Keystone authentication:
 
 ```go
 import (
-  "github.com/gophercloud/gophercloud"
-  "github.com/gophercloud/gophercloud/openstack"
-  "github.com/majewsky/schwift/gopherschwift"
+  "github.com/gophercloud/gophercloud/v2"
+  "github.com/gophercloud/gophercloud/v2/openstack"
+  "go.xyrillian.de/schwift/v2/gopherschwift"
 )
 
 authOptions, err := openstack.AuthOptionsFromEnv()
@@ -34,9 +34,9 @@ To connect to Swift using Swift's built-in authentication:
 
 ```go
 import (
-  "github.com/gophercloud/gophercloud/openstack"
-  "github.com/gophercloud/gophercloud/openstack/objectstore/v1/swauth"
-  "github.com/majewsky/schwift/gopherschwift"
+  "github.com/gophercloud/gophercloud/v2/openstack"
+  "github.com/gophercloud/gophercloud/v2/openstack/objectstore/v1/swauth"
+  "go.xyrillian.de/schwift/v2/gopherschwift"
 )
 
 provider, err := openstack.NewClient("http://swift.example.com:8080")
@@ -48,7 +48,7 @@ client, err := swauth.NewObjectStorageV1(provider, swauth.AuthOpts {
 account, err := gopherschwift.Wrap(client, nil)
 ```
 
-From this point, follow the [API documentation](https://godoc.org/github.com/majewsky/schwift) for what you can do with
+From this point, follow the [API documentation](https://pkg.go.dev/go.xyrillian.de/schwift/v2) for what you can do with
 the `schwift.Account` object. For example, to download an object's contents into a string:
 
 ```go

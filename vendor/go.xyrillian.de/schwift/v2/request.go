@@ -21,8 +21,10 @@ package schwift
 import (
 	"context"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 )
 
@@ -48,16 +50,10 @@ func cloneRequestOptions(orig *RequestOptions, additional Headers) *RequestOptio
 		Values:  make(url.Values),
 	}
 	if orig != nil {
-		for k, v := range orig.Headers {
-			result.Headers[k] = v
-		}
-		for k, v := range orig.Values {
-			result.Values[k] = v
-		}
+		maps.Copy(result.Headers, orig.Headers)
+		maps.Copy(result.Values, orig.Values)
 	}
-	for k, v := range additional {
-		result.Headers[k] = v
-	}
+	maps.Copy(result.Headers, additional)
 	return &result
 }
 
@@ -140,14 +136,12 @@ func (r Request) Do(ctx context.Context, backend Backend) (*http.Response, error
 		// check disabled -> return response unaltered
 		return resp, nil
 	}
-	for _, code := range r.ExpectStatusCodes {
-		if code == resp.StatusCode {
-			var err error
-			if r.DrainResponseBody || resp.StatusCode == http.StatusNoContent {
-				err = drainResponseBody(resp)
-			}
-			return resp, err
+	if slices.Contains(r.ExpectStatusCodes, resp.StatusCode) {
+		var err error
+		if r.DrainResponseBody || resp.StatusCode == http.StatusNoContent {
+			err = drainResponseBody(resp)
 		}
+		return resp, err
 	}
 
 	// unexpected status code -> generate error

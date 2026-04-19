@@ -1,3 +1,11 @@
+# v2.1.0 (2026-04-19)
+
+Changes:
+
+- The library must now be imported from the new module path `go.xyrillian.de/schwift/v2`.
+  The Go compiler should throw suitable errors after upgrading with `go get -u`.
+- Bumped all dependencies to their latest versions. The minimum Go version is now 1.25.
+
 # v2.0.0 (2024-07-08)
 
 Breaking changes:

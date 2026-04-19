@@ -25,7 +25,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/majewsky/schwift/v2/internal/errext"
+	"go.xyrillian.de/schwift/v2/internal/errext"
 )
 
 var (

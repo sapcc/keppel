@@ -53,7 +53,7 @@ Then, in all these cases, you use gopherschwift to convert the
 gophercloud.ServiceClient into a schwift.Account instance, from which point you
 have access to all of schwift's API:
 
-	import "github.com/majewsky/schwift/v2/gopherschwift"
+	import "go.xyrillian.de/schwift/v2/gopherschwift"
 
 	account, err := gopherschwift.Wrap(client)
 
@@ -107,4 +107,4 @@ that can be detected this way by stating that "This method fails with
 http.StatusXXX if ...". Because of the wide variety of failure modes in Swift,
 this information is not guaranteed to be exhaustive.
 */
-package schwift
+package schwift // import "go.xyrillian.de/schwift/v2"
