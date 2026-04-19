@@ -131,12 +131,6 @@ github.com/lib/pq/scram
 ## explicit; go 1.24
 github.com/majewsky/gg/jsonmatch
 github.com/majewsky/gg/option
-# github.com/majewsky/schwift/v2 v2.0.0
-## explicit; go 1.22
-github.com/majewsky/schwift/v2
-github.com/majewsky/schwift/v2/capabilities
-github.com/majewsky/schwift/v2/gopherschwift
-github.com/majewsky/schwift/v2/internal/errext
 # github.com/moby/moby/client v0.1.0
 ## explicit; go 1.24.0
 github.com/moby/moby/client/pkg/versions
@@ -268,6 +262,12 @@ go.podman.io/storage/pkg/regexp
 # go.uber.org/atomic v1.11.0
 ## explicit; go 1.18
 go.uber.org/atomic
+# go.xyrillian.de/schwift/v2 v2.1.0
+## explicit; go 1.25.0
+go.xyrillian.de/schwift/v2
+go.xyrillian.de/schwift/v2/capabilities
+go.xyrillian.de/schwift/v2/gopherschwift
+go.xyrillian.de/schwift/v2/internal/errext
 # go.yaml.in/yaml/v2 v2.4.3
 ## explicit; go 1.15
 go.yaml.in/yaml/v2

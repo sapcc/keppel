@@ -138,14 +138,6 @@ SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
 path = [
-  "vendor/github.com/majewsky/schwift/v2/**",
-]
-precedence = "override"
-SPDX-FileCopyrightText = "Other"
-SPDX-License-Identifier = "Apache-2.0"
-
-[[annotations]]
-path = [
   "vendor/github.com/opencontainers/distribution-spec/specs-go/**",
 ]
 precedence = "override"
@@ -227,6 +219,14 @@ SPDX-License-Identifier = "BSD-2-Clause"
 [[annotations]]
 path = [
   "vendor/go.podman.io/image/v5/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "Other"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = [
+  "vendor/go.xyrillian.de/schwift/v2/**",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "Other"
