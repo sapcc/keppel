@@ -160,11 +160,11 @@ func (ir IncomingRequest) Authorize(ctx context.Context, cfg keppel.Configuratio
 			// we do not render InfoAPIScope into auth challenges; conversely, since
 			// we don't challenge anyone to obtain tokens for InfoAPIScope, we need to
 			// skip this scope here as well
-			if InfoAPIScope.Contains(*scope) {
+			if InfoAPIScope.Contains(scope) {
 				continue
 			}
 
-			if !authz.ScopeSet.Contains(*scope) {
+			if !authz.ScopeSet.Contains(scope) {
 				// not covered -> generate error, possibly with auth challenge
 				var rerr *keppel.RegistryV2Error
 				switch {

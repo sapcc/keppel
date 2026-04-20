@@ -161,12 +161,12 @@ func (e *RegistryV2Error) WriteAsRegistryV2ResponseTo(w http.ResponseWriter, r *
 		w.WriteHeader(e.Status)
 	}
 	if r.Method != http.MethodHead {
-		buf, _ := json.Marshal(struct {
+		//nolint:errcheck // we can't do much about errors at this point, and the client will see an incomplete response if we fail to write the error body, so we ignore them
+		_ = json.NewEncoder(w).Encode(struct {
 			Errors []*RegistryV2Error `json:"errors"`
 		}{
 			Errors: []*RegistryV2Error{e},
 		})
-		w.Write(append(buf, '\n'))
 	}
 }
 
