@@ -105,7 +105,7 @@ func TestManifestsAPI(t *testing.T) {
 
 				must.SucceedT(t, s.SD.WriteManifest(
 					s.Ctx,
-					models.ReducedAccount{Name: repo.AccountName},
+					*must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t),
 					repo.Name, dummyDigest, []byte(strings.Repeat("x", sizeBytes)),
 				))
 				must.SucceedT(t, s.DB.Insert(&models.TrivySecurityInfo{
@@ -335,7 +335,8 @@ func TestGetTrivyReport(t *testing.T) {
 			Contents: io.NopCloser(bytes.NewReader(buf)),
 		}
 		repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, imageManifest.RepositoryID))(t)
-		must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, models.ReducedAccount{Name: repo.AccountName}, repo.Name, imageManifest.Digest, report))
+		account := *must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t)
+		must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, account, repo.Name, imageManifest.Digest, report))
 		test.MustExec(t, s.DB,
 			"UPDATE trivy_security_info SET vuln_status = $1, has_enriched_report = TRUE WHERE digest = $2",
 			models.CleanSeverity, imageManifest.Digest.String(),
@@ -376,7 +377,7 @@ func TestRateLimitsTrivyReport(t *testing.T) {
 			test.WithKeppelAPI,
 			test.WithTrivyDouble,
 			test.WithRateLimitEngine(rle),
-			test.WithAccount(models.Account{Name: "test1"}),
+			test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
 		)
 		h := s.Handler
 		ctx := t.Context()

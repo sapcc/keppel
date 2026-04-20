@@ -33,7 +33,7 @@ var (
 	barRepoRef = models.Repository{AccountName: "test1", Name: "bar"}
 )
 
-// the auth tenant ID that all test accounts use
+// the auth tenant ID that many test accounts use
 const authTenantID = "test1authtenant"
 
 func testWithPrimary(t *testing.T, setupOptions []test.SetupOption, action func(test.Setup)) {

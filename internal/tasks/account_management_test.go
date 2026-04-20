@@ -266,7 +266,7 @@ func TestAccountManagementStorageSweep(t *testing.T) {
 	assert.ErrEqual(t, managedAccountsJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 
 	// create some unknown blobs ...
-	account := models.ReducedAccount{Name: "abcde"}
+	account := models.ReducedAccount{Name: "abcde", AuthTenantID: "12345"}
 	testBlob := test.GenerateExampleLayer(33)
 	storageID := testBlob.Digest.Encoded()
 	sizeBytes := uint64(len(testBlob.Contents))
