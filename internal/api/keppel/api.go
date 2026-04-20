@@ -160,21 +160,20 @@ func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request, ss aut
 // NOTE: The *auth.Authorization argument is only used to ensure that we call authenticateRequest
 // first. This is important because this function may otherwise leak information about whether
 // accounts exist or not to unauthorized users.
-func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request, _ *auth.Authorization) *models.Account {
+func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request, _ *auth.Authorization) (models.Account, bool) {
 	accountName := models.AccountName(mux.Vars(r)["account"])
 	account, err := keppel.FindAccount(a.db, accountName)
-	if respondwith.ObfuscatedErrorText(w, err) {
-		return nil
-	}
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "account not found", http.StatusNotFound)
-		return nil
+		return models.Account{}, false
+	} else if respondwith.ObfuscatedErrorText(w, err) {
+		return models.Account{}, false
 	}
 	if account.IsDeleting && r.Method == http.MethodGet {
 		http.Error(w, "account is being deleted", http.StatusConflict)
-		return nil
+		return models.Account{}, false
 	}
-	return account
+	return account, true
 }
 
 func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, accountName models.AccountName) *models.Repository {

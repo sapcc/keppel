@@ -105,7 +105,7 @@ func TestManifestsAPI(t *testing.T) {
 
 				must.SucceedT(t, s.SD.WriteManifest(
 					s.Ctx,
-					*must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t),
+					must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t),
 					repo.Name, dummyDigest, []byte(strings.Repeat("x", sizeBytes)),
 				))
 				must.SucceedT(t, s.DB.Insert(&models.TrivySecurityInfo{
@@ -335,7 +335,7 @@ func TestGetTrivyReport(t *testing.T) {
 			Contents: io.NopCloser(bytes.NewReader(buf)),
 		}
 		repo := must.ReturnT(keppel.FindRepositoryByID(s.DB, imageManifest.RepositoryID))(t)
-		account := *must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t)
+		account := must.ReturnT(keppel.FindReducedAccount(s.DB, repo.AccountName))(t)
 		must.SucceedT(t, s.SD.WriteTrivyReport(s.Ctx, account, repo.Name, imageManifest.Digest, report))
 		test.MustExec(t, s.DB,
 			"UPDATE trivy_security_info SET vuln_status = $1, has_enriched_report = TRUE WHERE digest = $2",

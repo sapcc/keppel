@@ -94,7 +94,7 @@ func (j *Janitor) validateManifest(ctx context.Context, manifest models.Manifest
 	manifest.ValidationErrorMessage = ""
 
 	// perform validation
-	err = j.processor().ValidateExistingManifest(ctx, *account, repo.Reduced(), &manifest)
+	err = j.processor().ValidateExistingManifest(ctx, account, repo.Reduced(), &manifest)
 	if err != nil {
 		// on failure, log error message and schedule next validation sooner than usual
 		_, updateErr := j.db.Exec(validateManifestFinishQuery,
@@ -188,7 +188,7 @@ func (j *Janitor) syncManifestsInReplicaRepo(ctx context.Context, repo models.Re
 
 	// do not perform manifest sync while account is in deletion (deletion mode blocks all kinds of replication)
 	if !account.IsDeleting {
-		syncPayload, err := j.getReplicaSyncPayload(ctx, *account, repo)
+		syncPayload, err := j.getReplicaSyncPayload(ctx, account, repo)
 		if err != nil {
 			return err
 		}
@@ -656,7 +656,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 		return nil
 	}
 
-	relevantPolicies, err := keppel.GetSecurityScanPolicies(*account, *repo)
+	relevantPolicies, err := keppel.GetSecurityScanPolicies(account, *repo)
 	if err != nil {
 		return err
 	}

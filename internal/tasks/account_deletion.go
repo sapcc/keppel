@@ -260,7 +260,7 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 		return err
 	}
 	defer sqlext.RollbackUnlessCommitted(tx)
-	_, err = tx.Delete(account)
+	_, err = tx.Delete(&account)
 	if err != nil {
 		return err
 	}
@@ -271,7 +271,7 @@ func (j *Janitor) deleteMarkedAccount(ctx context.Context, accountName models.Ac
 	if err != nil {
 		return fmt.Errorf("while cleaning up storage for account: %w", err)
 	}
-	err = j.fd.ForfeitAccountName(ctx, *account)
+	err = j.fd.ForfeitAccountName(ctx, account)
 	if err != nil {
 		return fmt.Errorf("while cleaning up name claim for account: %w", err)
 	}

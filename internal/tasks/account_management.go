@@ -89,7 +89,7 @@ func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName models.
 			nextCheckDuration = 5 * time.Minute // default interval for recheck after error
 		}
 	} else {
-		var accountModel *models.Account
+		var accountModel models.Account
 		accountModel, err = keppel.FindAccount(j.db, accountName)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -102,7 +102,7 @@ func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName models.
 				UserIdentity: janitorUserIdentity{TaskName: "managed-account-enforcement"},
 				Request:      janitorDummyRequest,
 			}
-			err = j.processor().MarkAccountForDeletion(*accountModel, actx)
+			err = j.processor().MarkAccountForDeletion(accountModel, actx)
 			if err == nil {
 				nextCheckDuration = 1 * time.Hour // account will be deleted -> defer next check until probably after it was deleted
 			} else {
