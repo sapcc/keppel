@@ -76,10 +76,10 @@ prepare-static-check: FORCE install-goimports install-golangci-lint install-shel
 # To add additional flags or values (before the default ones), specify the variable in the environment, e.g. `GO_BUILDFLAGS='-tags experimental' make`.
 # To override the default flags or values, specify the variable on the command line, e.g. `make GO_BUILDFLAGS='-tags experimental'`.
 GO_BUILDFLAGS += -mod vendor
-GO_LDFLAGS +=
-GO_TESTFLAGS +=
-GO_TESTENV +=
-GO_BUILDENV +=
+GO_LDFLAGS    +=
+GO_TESTFLAGS  +=
+GO_TESTENV    +=
+GO_BUILDENV   +=
 
 # These definitions are overridable, e.g. to provide fixed version/commit values when
 # no .git directory is present or to provide a fixed build date for reproducibility.
