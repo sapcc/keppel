@@ -363,7 +363,7 @@ func MustExec(t *testing.T, db *keppel.DB, query string, args ...any) {
 
 var looksLikeDistributionAPIEndpointRx = regexp.MustCompile(`^[A-Z]* /v2(?:/|$)`)
 
-// RespondTo is a shorthand for s.Handler.RespondTo() that also checks the following universal response properties:
+// RespondTo is like s.handler.RespondTo(), but also checks the following universal response properties:
 //
 //   - Requests for endpoints in the OCI Distribution API (any path at or below /v2/)
 //     must always include the response header "Docker-Distribution-Api-Version: registry/2.0", even for error responses.

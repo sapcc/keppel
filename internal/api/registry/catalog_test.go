@@ -111,11 +111,11 @@ func testNonEmptyCatalog(t *testing.T, s test.Setup) {
 
 	// test error cases for pagination query params
 	s.RespondTo(ctx, "GET /v2/_catalog?n=-1", httptest.WithHeaders(tokenHeaders)).
-		ExpectText(t, http.StatusBadRequest, "invalid value for \"n\": strconv.ParseUint: parsing \"-1\": invalid syntax\n")
+		ExpectText(t, http.StatusBadRequest, `invalid value for "n": strconv.ParseUint: parsing "-1": invalid syntax`+"\n")
 	s.RespondTo(ctx, "GET /v2/_catalog?n=0", httptest.WithHeaders(tokenHeaders)).
-		ExpectText(t, http.StatusBadRequest, "invalid value for \"n\": must not be 0\n")
+		ExpectText(t, http.StatusBadRequest, `invalid value for "n": must not be 0`+"\n")
 	s.RespondTo(ctx, "GET /v2/_catalog?n=10&last=invalid", httptest.WithHeaders(tokenHeaders)).
-		ExpectText(t, http.StatusBadRequest, "invalid value for \"last\": must contain a slash\n")
+		ExpectText(t, http.StatusBadRequest, `invalid value for "last": must contain a slash`+"\n")
 }
 
 func testDomainRemappedCatalog(t *testing.T, s test.Setup) {

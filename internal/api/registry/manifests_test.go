@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -217,7 +218,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 					uploadingManifest(updatedImage.Manifest),
 				).ExpectJSON(t, http.StatusConflict, test.ErrorCodeWithMessage{
 					Code:    keppel.ErrDenied,
-					Message: "cannot overwrite tag \"latest\" as it is protected by a tag_policy",
+					Message: `cannot overwrite tag "latest" as it is protected by a tag_policy`,
 				})
 			}
 
@@ -227,7 +228,7 @@ func TestImageManifestLifecycle(t *testing.T) {
 				uploadingManifest(image.Manifest),
 			).ExpectJSON(t, http.StatusConflict, test.ErrorCodeWithMessage{
 				Code:    keppel.ErrDenied,
-				Message: "cannot push tag \"dangerous-release\" as it is forbidden by a tag_policy",
+				Message: `cannot push tag "dangerous-release" as it is forbidden by a tag_policy`,
 			})
 
 			// we did two PUTs, but only the first one will be logged since the second one did not change anything
@@ -483,8 +484,10 @@ func TestManifestQuotaExceeded(t *testing.T) {
 			ExpectJSON(t, http.StatusConflict, quotaExceededMessage)
 
 		// further manifest uploads are not possible now
-		s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/anotherone", httptest.WithHeaders(tokenHeaders)).
-			ExpectJSON(t, http.StatusConflict, quotaExceededMessage)
+		s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/anotherone",
+			httptest.WithHeaders(tokenHeaders),
+			httptest.WithBody(strings.NewReader("request body does not matter")),
+		).ExpectJSON(t, http.StatusConflict, quotaExceededMessage)
 	})
 }
 
@@ -524,7 +527,7 @@ func TestRuleForManifest(t *testing.T) {
 			uploadingManifest(image.Manifest),
 		).ExpectJSON(t, http.StatusBadRequest, test.ErrorCodeWithMessage{
 			Code:    keppel.ErrManifestInvalid,
-			Message: "manifest upload {\"labels\":{\"bar\":\"is there\",\"foo\":\"is there\"},\"layers\":[{\"annotations\":null,\"media_type\":\"application/vnd.docker.image.rootfs.diff.tar.gzip\"}],\"media_type\":\"application/vnd.docker.distribution.manifest.v2+json\",\"repo_name\":\"foo\"} does not satisfy validation rule: 'random-label-that-does-not-exist' in labels",
+			Message: `manifest upload {"labels":{"bar":"is there","foo":"is there"},"layers":[{"annotations":null,"media_type":"application/vnd.docker.image.rootfs.diff.tar.gzip"}],"media_type":"application/vnd.docker.distribution.manifest.v2+json","repo_name":"foo"} does not satisfy validation rule: 'random-label-that-does-not-exist' in labels`,
 		})
 
 		// ... and OCI, too
@@ -533,7 +536,7 @@ func TestRuleForManifest(t *testing.T) {
 			uploadingManifest(imageOCI.Manifest),
 		).ExpectJSON(t, http.StatusBadRequest, test.ErrorCodeWithMessage{
 			Code:    keppel.ErrManifestInvalid,
-			Message: "manifest upload {\"labels\":{\"bar\":\"is there\",\"foo\":\"is there\"},\"layers\":[{\"annotations\":null,\"media_type\":\"application/vnd.docker.image.rootfs.diff.tar.gzip\"}],\"media_type\":\"application/vnd.oci.image.manifest.v1+json\",\"repo_name\":\"foo\"} does not satisfy validation rule: 'random-label-that-does-not-exist' in labels",
+			Message: `manifest upload {"labels":{"bar":"is there","foo":"is there"},"layers":[{"annotations":null,"media_type":"application/vnd.docker.image.rootfs.diff.tar.gzip"}],"media_type":"application/vnd.oci.image.manifest.v1+json","repo_name":"foo"} does not satisfy validation rule: 'random-label-that-does-not-exist' in labels`,
 		})
 
 		// setup required labels on account for success
@@ -600,7 +603,7 @@ func TestRuleForManifest(t *testing.T) {
 			uploadingManifest(provenanceManifest.Manifest),
 		).ExpectJSON(t, http.StatusBadRequest, test.ErrorCodeWithMessage{
 			Code:    keppel.ErrManifestInvalid,
-			Message: "manifest upload {\"labels\":null,\"layers\":[{\"annotations\":{\"in-toto.io/predicate-type\":\"https://slsa.dev/provenance/v0.2\"},\"media_type\":\"application/vnd.in-toto+json\"}],\"media_type\":\"application/vnd.oci.image.manifest.v1+json\",\"repo_name\":\"foo\"} does not satisfy validation rule: 'foo' in labels && 'bar' in labels",
+			Message: `manifest upload {"labels":null,"layers":[{"annotations":{"in-toto.io/predicate-type":"https://slsa.dev/provenance/v0.2"},"media_type":"application/vnd.in-toto+json"}],"media_type":"application/vnd.oci.image.manifest.v1+json","repo_name":"foo"} does not satisfy validation rule: 'foo' in labels && 'bar' in labels`,
 		})
 
 		test.MustExec(t, s.DB,

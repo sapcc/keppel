@@ -100,9 +100,9 @@ func TestListTags(t *testing.T) {
 
 		// test error cases for pagination query params
 		s.RespondTo(ctx, "GET /v2/test1/foo/tags/list?n=-1", httptest.WithHeaders(readOnlyTokenHeaders)).
-			ExpectText(t, http.StatusBadRequest, "invalid value for \"n\": strconv.ParseUint: parsing \"-1\": invalid syntax\n")
+			ExpectText(t, http.StatusBadRequest, `invalid value for "n": strconv.ParseUint: parsing "-1": invalid syntax`+"\n")
 		s.RespondTo(ctx, "GET /v2/test1/foo/tags/list?n=0", httptest.WithHeaders(readOnlyTokenHeaders)).
-			ExpectText(t, http.StatusBadRequest, "invalid value for \"n\": must not be 0\n")
+			ExpectText(t, http.StatusBadRequest, `invalid value for "n": must not be 0`+"\n")
 
 		// test anycast tag listing
 		if currentlyWithAnycast {
