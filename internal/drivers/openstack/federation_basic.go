@@ -66,7 +66,7 @@ func (d *federationDriverBasic) ClaimAccountName(ctx context.Context, account mo
 		}
 	}
 
-	return keppel.ClaimFailed, fmt.Errorf(`account name "%s" is not whitelisted for project "%s"`,
+	return keppel.ClaimFailed, fmt.Errorf(`account name "%s" is not allowlisted for project "%s"`,
 		account.Name, projectName,
 	)
 }

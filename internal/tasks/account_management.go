@@ -5,9 +5,7 @@ package tasks
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -83,39 +81,30 @@ func (j *Janitor) enforceManagedAccount(ctx context.Context, accountName models.
 	if account, ok := maybeAccount.Unpack(); ok {
 		err = j.createOrUpdateManagedAccount(ctx, account, securityScanPolicies)
 		if err == nil {
-			nextCheckDuration = 0 // CreateOrUpdateAccount has already updated NextEnforcementAt
-		} else {
-			err = fmt.Errorf("could not configure managed account %q: %w", accountName, err)
-			nextCheckDuration = 5 * time.Minute // default interval for recheck after error
+			return nil // CreateOrUpdateAccount has already updated NextEnforcementAt
 		}
+		err = fmt.Errorf("could not configure managed account %q: %w", accountName, err)
+		nextCheckDuration = 5 * time.Minute // default interval for recheck after error
 	} else {
 		var accountModel models.Account
 		accountModel, err = keppel.FindAccount(j.db, accountName)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				nextCheckDuration = 0 // assume the account got already deleted
-			} else {
-				return err
-			}
+			return err
+		}
+		actx := keppel.AuditContext{
+			UserIdentity: janitorUserIdentity{TaskName: "managed-account-enforcement"},
+			Request:      janitorDummyRequest,
+		}
+		err = j.processor().MarkAccountForDeletion(accountModel, actx)
+		if err == nil {
+			nextCheckDuration = 1 * time.Hour // account will be deleted -> defer next check until probably after it was deleted
 		} else {
-			actx := keppel.AuditContext{
-				UserIdentity: janitorUserIdentity{TaskName: "managed-account-enforcement"},
-				Request:      janitorDummyRequest,
-			}
-			err = j.processor().MarkAccountForDeletion(accountModel, actx)
-			if err == nil {
-				nextCheckDuration = 1 * time.Hour // account will be deleted -> defer next check until probably after it was deleted
-			} else {
-				err = fmt.Errorf("could not mark account %q for deletion: %w", accountName, err)
-				nextCheckDuration = 5 * time.Minute // default interval for recheck after error
-			}
+			err = fmt.Errorf("could not mark account %q for deletion: %w", accountName, err)
+			nextCheckDuration = 5 * time.Minute // default interval for recheck after error
 		}
 	}
 
 	// ...but depending on the outcome, we also update account.NextEnforcementAt as necessary
-	if nextCheckDuration == 0 {
-		return err
-	}
 	_, err2 := j.db.Exec(managedAccountEnforcementDoneQuery, accountName, j.timeNow().Add(j.addJitter(nextCheckDuration)))
 	if err2 == nil {
 		return err
