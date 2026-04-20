@@ -1,7 +1,7 @@
 # Configuration file for <https://github.com/sapcc/go-makefile-maker>
 
 metadata:
-  url: https://github.com/majewsky/schwift
+  url: https://go.xyrillian.de/schwift
 
 coverageTest:
   except: '/util'
