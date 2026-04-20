@@ -47,7 +47,7 @@ func TestDurationMarshalling(t *testing.T) {
 	// test marshalling error: fractional second value
 	inputDuration := 2500 * time.Millisecond
 	_, err := json.Marshal(Duration(inputDuration))
-	expectedError := `json: error calling MarshalJSON for type keppel.Duration: duration is not a multiple of 1 second: "2.5s"`
+	expectedError := `json: error calling MarshalJSON for type *keppel.Duration: duration is not a multiple of 1 second: "2.5s"`
 	if err == nil {
 		t.Errorf("while marshalling %q: expected error %q, but got no error", inputDuration.String(), expectedError)
 	} else if err.Error() != expectedError {

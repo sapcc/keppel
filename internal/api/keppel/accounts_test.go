@@ -1280,7 +1280,7 @@ func TestGetPutAccountReplicationFromExternalOnFirstUse(t *testing.T) {
 			"strategy": "from_external_on_first_use",
 			"upstream": "registry.example.org",
 		},
-	}).ExpectText(t, http.StatusBadRequest, "request body is not valid JSON: json: cannot unmarshal string into Go struct field Account.account.replication of type keppel.ReplicationExternalPeerSpec\n")
+	}).ExpectText(t, http.StatusBadRequest, "request body is not valid JSON: json: cannot unmarshal string into Go value of type keppel.ReplicationExternalPeerSpec\n")
 
 	putFirstAccount(map[string]any{
 		"auth_tenant_id": "tenant1",

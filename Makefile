@@ -87,6 +87,9 @@ BININFO_VERSION     ?= $(shell git describe --tags --always --abbrev=7)
 BININFO_COMMIT_HASH ?= $(shell git rev-parse --verify HEAD)
 BININFO_BUILD_DATE  ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+# Custom variables provided in Makefile.maker.yaml
+export GOEXPERIMENT = jsonv2
+
 build-all: build/keppel
 
 build/keppel: FORCE
