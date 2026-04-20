@@ -323,7 +323,7 @@ func TestManifestSyncJob(t *testing.T) {
 			// again, nothing to do on the primary side
 			assert.ErrEqual(t, syncManifestsJob1.ProcessOne(s1.Ctx), sql.ErrNoRows)
 			// ManifestSyncJob on the replica side should not do anything while
-			// the account is in maintenance; only the timestamp is updated to make sure
+			// the account is being deleted; only the timestamp is updated to make sure
 			// that the job loop progresses to the next repo
 			test.MustExec(t, s2.DB, `UPDATE accounts SET is_deleting = TRUE`)
 			assert.ErrEqual(t, syncManifestsJob2.ProcessOne(s2.Ctx), nil)
@@ -342,7 +342,7 @@ func TestManifestSyncJob(t *testing.T) {
 
 			// test that replication from external uses the inbound cache
 			if strategy == "from_external_on_first_use" {
-				// after the end of the maintenance, we would naively expect
+				// after resetting the IsDeleting flag, we would naively expect
 				// ManifestSyncJob to actually replicate the deletion, BUT we have an
 				// inbound cache with a lifetime of 6 hours, so actually nothing should
 				// happen (only the tag gets synced, which includes a validation of the
@@ -364,7 +364,7 @@ func TestManifestSyncJob(t *testing.T) {
 			// From now on, we will go in clock increments of 7 hours to force the
 			// inbound cache to never hit.
 
-			// after the end of the maintenance, ManifestSyncJob on the replica
+			// after resetting the IsDeleting flag, ManifestSyncJob on the replica
 			// side should delete the same manifest that we deleted in the primary
 			// account, and also replicate the tag change (which includes a validation
 			// of the tagged manifests)

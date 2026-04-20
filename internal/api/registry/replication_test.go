@@ -33,7 +33,7 @@ func TestReplicationSimpleImage(t *testing.T) {
 			tokenHeaders := s2.GetTokenHeaders(t, "repository:test1/foo:pull")
 
 			if firstPass {
-				// replication will not take place while the account is in maintenance
+				// replication will not take place while the account is being deleted
 				testWithAccountIsDeleting(t, s2.DB, "test1", func() {
 					assert.HTTPRequest{
 						Method:       "GET",
@@ -45,7 +45,7 @@ func TestReplicationSimpleImage(t *testing.T) {
 					}.Check(t, h2)
 				})
 			} else {
-				// if manifest is already present locally, we don't care about the maintenance mode
+				// if manifest is already present locally, we don't care about the IsDeleting flag
 				testWithAccountIsDeleting(t, s2.DB, "test1", func() {
 					expectManifestExists(t, s2, tokenHeaders, "test1/foo", image.Manifest, image.Manifest.Digest.String())
 				})

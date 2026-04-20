@@ -45,7 +45,7 @@ func TestBlobMonolithicUpload(t *testing.T) {
 			uploadingBlobMonolithically(blob),
 		).ExpectJSON(t, http.StatusUnauthorized, test.ErrorCode(keppel.ErrDenied))
 
-		// test failure cases: account is in maintenance
+		// test failure cases: account is being deleted
 		testWithAccountIsDeleting(t, s.DB, "test1", func() {
 			s.RespondTo(ctx, "POST /v2/test1/foo/blobs/uploads/?digest="+blob.Digest.String(),
 				httptest.WithHeaders(tokenHeaders),
@@ -171,7 +171,7 @@ func TestBlobStreamedAndChunkedUpload(t *testing.T) {
 				uploadingBlobMonolithically(blob),
 			).ExpectJSON(t, http.StatusUnauthorized, test.ErrorCode(keppel.ErrDenied))
 
-			// test failure cases during POST: account is in maintenance
+			// test failure cases during POST: account is being deleted
 			testWithAccountIsDeleting(t, s.DB, "test1", func() {
 				s.RespondTo(ctx, "POST /v2/test1/foo/blobs/uploads/",
 					httptest.WithHeaders(tokenHeaders),

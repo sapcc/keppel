@@ -641,7 +641,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 	securityInfo.CheckedAt = None[time.Time]()
 	securityInfo.CheckDurationSecs = None[float64]()
 
-	// skip validation while account is in maintenance (maintenance mode blocks
+	// skip validation while account is being deleted (an ongoing deletion blocks
 	// all kinds of activity on an account's contents)
 	if account.IsDeleting {
 		securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(1 * time.Hour)))
