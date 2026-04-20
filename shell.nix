@@ -13,7 +13,7 @@ mkShell {
     golangci-lint
     gotools # goimports
     openssl
-    postgresql_17
+    postgresql_18
     renovate
     reuse
     typos
