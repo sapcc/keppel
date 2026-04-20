@@ -166,12 +166,29 @@ func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request, _ *
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "account not found", http.StatusNotFound)
 		return models.Account{}, false
-	} else if respondwith.ObfuscatedErrorText(w, err) {
+	}
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return models.Account{}, false
 	}
 	if account.IsDeleting && r.Method == http.MethodGet {
 		http.Error(w, "account is being deleted", http.StatusConflict)
 		return models.Account{}, false
+	}
+	return account, true
+}
+func (a *API) findReducedAccountFromRequest(w http.ResponseWriter, r *http.Request, _ *auth.Authorization) (models.ReducedAccount, bool) {
+	accountName := models.AccountName(mux.Vars(r)["account"])
+	account, err := keppel.FindReducedAccount(a.db, accountName)
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "account not found", http.StatusNotFound)
+		return models.ReducedAccount{}, false
+	}
+	if respondwith.ObfuscatedErrorText(w, err) {
+		return models.ReducedAccount{}, false
+	}
+	if account.IsDeleting && r.Method == http.MethodGet {
+		http.Error(w, "account is being deleted", http.StatusConflict)
+		return models.ReducedAccount{}, false
 	}
 	return account, true
 }

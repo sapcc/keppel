@@ -50,7 +50,7 @@ func (j *Janitor) AccountFederationAnnouncementJob(registerer prometheus.Registe
 }
 
 func (j *Janitor) announceAccountToFederation(ctx context.Context, account models.Account, labels prometheus.Labels) error {
-	err := j.fd.RecordExistingAccount(ctx, account, j.timeNow())
+	err := j.fd.RecordExistingAccount(ctx, account.Reduced(), j.timeNow())
 	if err != nil {
 		// since the announcement is not critical for day-to-day operation, we
 		// accept that it can fail and move on regardless

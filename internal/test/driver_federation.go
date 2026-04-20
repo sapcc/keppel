@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"time"
 
-	. "github.com/majewsky/gg/option"
-
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 )
@@ -32,7 +30,7 @@ type FederationDriver struct {
 
 // AccountRecordedByFederationDriver appears in type FederationDriver.
 type AccountRecordedByFederationDriver struct {
-	Account    models.Account
+	Account    models.ReducedAccount
 	RecordedAt time.Time
 }
 
@@ -52,7 +50,7 @@ func (d *FederationDriver) Init(ctx context.Context, ad keppel.AuthDriver, cfg k
 }
 
 // ClaimAccountName implements the keppel.FederationDriver interface.
-func (d *FederationDriver) ClaimAccountName(ctx context.Context, account models.Account, subleaseTokenSecret string) (keppel.ClaimResult, error) {
+func (d *FederationDriver) ClaimAccountName(ctx context.Context, account models.ReducedAccount, subleaseTokenSecret string) (keppel.ClaimResult, error) {
 	// simulated failures for primary accounts
 	if d.ClaimFailsBecauseOfUserError {
 		return keppel.ClaimFailed, fmt.Errorf("cannot assign name %q to auth tenant %q", account.Name, account.AuthTenantID)
@@ -75,7 +73,7 @@ func (d *FederationDriver) ClaimAccountName(ctx context.Context, account models.
 }
 
 // IssueSubleaseTokenSecret implements the keppel.FederationDriver interface.
-func (d *FederationDriver) IssueSubleaseTokenSecret(ctx context.Context, account models.Account) (string, error) {
+func (d *FederationDriver) IssueSubleaseTokenSecret(ctx context.Context, account models.ReducedAccount) (string, error) {
 	// issue each sublease token only once
 	t := d.NextSubleaseTokenSecretToIssue
 	d.NextSubleaseTokenSecretToIssue = ""
@@ -83,7 +81,7 @@ func (d *FederationDriver) IssueSubleaseTokenSecret(ctx context.Context, account
 }
 
 // ForfeitAccountName implements the keppel.FederationDriver interface.
-func (d *FederationDriver) ForfeitAccountName(ctx context.Context, account models.Account) error {
+func (d *FederationDriver) ForfeitAccountName(ctx context.Context, account models.ReducedAccount) error {
 	if d.ForfeitFails {
 		return errors.New("ForfeitAccountName failed as requested")
 	}
@@ -91,9 +89,7 @@ func (d *FederationDriver) ForfeitAccountName(ctx context.Context, account model
 }
 
 // RecordExistingAccount implements the keppel.FederationDriver interface.
-func (d *FederationDriver) RecordExistingAccount(ctx context.Context, account models.Account, now time.Time) error {
-	account.NextFederationAnnouncementAt = None[time.Time]() // this timestamp is irrelevant for assert.DeepEqual() in tests
-
+func (d *FederationDriver) RecordExistingAccount(ctx context.Context, account models.ReducedAccount, now time.Time) error {
 	d.RecordedAccounts = append(d.RecordedAccounts, AccountRecordedByFederationDriver{
 		Account:    account,
 		RecordedAt: now,

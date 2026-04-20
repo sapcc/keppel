@@ -242,7 +242,7 @@ func (p *Processor) CreateOrUpdateAccount(ctx context.Context, account keppel.Ac
 
 		// check permission to claim account name (this only happens here because
 		// it's only relevant for account creations, not for updates)
-		claimResult, err := p.fd.ClaimAccountName(ctx, targetAccount, subleaseTokenSecret)
+		claimResult, err := p.fd.ClaimAccountName(ctx, targetAccount.Reduced(), subleaseTokenSecret)
 		switch claimResult {
 		case keppel.ClaimSucceeded:
 			// nothing to do

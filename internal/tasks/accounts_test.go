@@ -11,6 +11,7 @@ import (
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/must"
 
+	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
 )
@@ -20,8 +21,7 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 	s.FD.RecordedAccounts = nil
 	s.Clock.StepBy(1 * time.Hour)
 
-	var account1 models.Account
-	must.SucceedT(t, s.DB.SelectOne(&account1, `SELECT * FROM accounts`))
+	account1 := must.ReturnT(keppel.FindReducedAccount(s.DB, "test1"))(t)
 
 	accountJob := j.AccountFederationAnnouncementJob(s.Registry)
 
@@ -34,10 +34,10 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 
 	// setup another account; only that one should need announcing initially
 	s.Clock.StepBy(5 * time.Minute)
-	account2 := models.Account{Name: "test2", AuthTenantID: "test2authtenant", GCPoliciesJSON: "[]"}
+	account2 := models.Account{Name: "test2", AuthTenantID: "test2authtenant"}
 	must.SucceedT(t, s.DB.Insert(&account2))
 	assert.ErrEqual(t, accountJob.ProcessOne(s.Ctx), nil)
-	expectAccountsAnnouncedJustNow(t, s, account2)
+	expectAccountsAnnouncedJustNow(t, s, account2.Reduced())
 	assert.ErrEqual(t, accountJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	expectAccountsAnnouncedJustNow(t, s /*, nothing */)
 
@@ -46,12 +46,12 @@ func TestAnnounceAccountsToFederation(t *testing.T) {
 	assert.ErrEqual(t, accountJob.ProcessOne(s.Ctx), nil)
 	expectAccountsAnnouncedJustNow(t, s, account1)
 	assert.ErrEqual(t, accountJob.ProcessOne(s.Ctx), nil)
-	expectAccountsAnnouncedJustNow(t, s, account2)
+	expectAccountsAnnouncedJustNow(t, s, account2.Reduced())
 	assert.ErrEqual(t, accountJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 	expectAccountsAnnouncedJustNow(t, s /*, nothing */)
 }
 
-func expectAccountsAnnouncedJustNow(t *testing.T, s test.Setup, accounts ...models.Account) {
+func expectAccountsAnnouncedJustNow(t *testing.T, s test.Setup, accounts ...models.ReducedAccount) {
 	t.Helper()
 	var expected []test.AccountRecordedByFederationDriver
 	for _, a := range accounts {
