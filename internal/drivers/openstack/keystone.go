@@ -4,7 +4,7 @@
 // Package openstack contains:
 //   - the AuthDriver "keystone": Keppel tenants are Keystone projects. Incoming HTTP requests are authenticated by reading a Keystone token from the X-Auth-Token request header.
 //   - the StorageDriver "swift": Data for a Keppel account is stored in the Swift container "keppel-<accountname>" in the tenant's Swift account.
-//   - the NameClaimDriver "openstack-basic": A static whitelist is used to check which project can claim which account names.
+//   - the NameClaimDriver "openstack-basic": A static allowlist is used to check which project can claim which account names.
 package openstack
 
 import (
