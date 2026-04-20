@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"regexp"
 	"sync"
 
 	. "github.com/majewsky/gg/option"
@@ -32,14 +31,32 @@ type StorageDriver struct {
 	ForbidNewAccounts bool `json:"-"`
 
 	// state
-	blobs                map[string][]byte
+	blobs                map[blobKey][]byte
 	blobsMutex           sync.RWMutex
-	blobChunkCounts      map[string]uint32 // previous chunkNumber for running upload, 0 when finished (same semantics as keppel.StoredBlobInfo.ChunkCount field)
+	blobChunkCounts      map[blobKey]uint32 // previous chunkNumber for running upload, 0 when finished (same semantics as keppel.StoredBlobInfo.ChunkCount field)
 	blobChunkCountsMutex sync.RWMutex
-	manifests            map[string][]byte
+	manifests            map[manifestKey][]byte
 	manifestMutex        sync.RWMutex
-	trivyReports         map[string][]byte
+	trivyReports         map[trivyReportKey][]byte
 	trivyReportsMutex    sync.RWMutex
+}
+
+type blobKey struct {
+	AuthTenantID string
+	AccountName  models.AccountName
+	StorageID    string
+}
+
+type manifestKey struct {
+	AuthTenantID   string
+	AccountName    models.AccountName
+	RepositoryName string
+	Digest         digest.Digest
+}
+
+type trivyReportKey struct {
+	manifestKey
+	Format string
 }
 
 // PluginTypeID implements the keppel.StorageDriver interface.
@@ -47,10 +64,10 @@ func (d *StorageDriver) PluginTypeID() string { return "in-memory-for-testing" }
 
 // Init implements the keppel.StorageDriver interface.
 func (d *StorageDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error {
-	d.blobs = make(map[string][]byte)
-	d.blobChunkCounts = make(map[string]uint32)
-	d.manifests = make(map[string][]byte)
-	d.trivyReports = make(map[string][]byte)
+	d.blobs = make(map[blobKey][]byte)
+	d.blobChunkCounts = make(map[blobKey]uint32)
+	d.manifests = make(map[manifestKey][]byte)
+	d.trivyReports = make(map[trivyReportKey][]byte)
 	return nil
 }
 
@@ -69,33 +86,42 @@ func checkAccount(account models.ReducedAccount) error {
 	return nil
 }
 
-func blobKey(account models.ReducedAccount, storageID string) (string, error) {
+func getBlobKey(account models.ReducedAccount, storageID string) (blobKey, error) {
 	err := checkAccount(account)
 	if err != nil {
-		return "", err
+		return blobKey{}, err
 	}
-	return fmt.Sprintf("%s/%s/%s", account.AuthTenantID, account.Name, storageID), nil
+	return blobKey{
+		AuthTenantID: account.AuthTenantID,
+		AccountName:  account.Name,
+		StorageID:    storageID,
+	}, nil
 }
 
-func manifestKey(account models.ReducedAccount, repoName string, manifestDigest digest.Digest) (string, error) {
+func getManifestKey(account models.ReducedAccount, repoName string, manifestDigest digest.Digest) (manifestKey, error) {
 	err := checkAccount(account)
 	if err != nil {
-		return "", err
+		return manifestKey{}, err
 	}
-	return fmt.Sprintf("%s/%s/%s/%s", account.AuthTenantID, account.Name, repoName, manifestDigest), nil
+	return manifestKey{
+		AuthTenantID:   account.AuthTenantID,
+		AccountName:    account.Name,
+		RepositoryName: repoName,
+		Digest:         manifestDigest,
+	}, nil
 }
 
-func trivyReportKey(account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) (string, error) {
-	err := checkAccount(account)
+func getTrivyReportKey(account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) (trivyReportKey, error) {
+	mk, err := getManifestKey(account, repoName, manifestDigest)
 	if err != nil {
-		return "", err
+		return trivyReportKey{}, err
 	}
-	return fmt.Sprintf("%s/%s/%s/%s/%s", account.AuthTenantID, account.Name, repoName, manifestDigest, format), nil
+	return trivyReportKey{mk, format}, nil
 }
 
 // AppendToBlob implements the keppel.StorageDriver interface.
 func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.ReducedAccount, storageID string, chunkNumber uint32, chunkLength Option[uint64], chunk io.Reader) error {
-	k, err := blobKey(account, storageID)
+	k, err := getBlobKey(account, storageID)
 	if err != nil {
 		return err
 	}
@@ -131,7 +157,7 @@ func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.Reduced
 
 // FinalizeBlob implements the keppel.StorageDriver interface.
 func (d *StorageDriver) FinalizeBlob(ctx context.Context, account models.ReducedAccount, storageID string, chunkCount uint32) error {
-	k, err := blobKey(account, storageID)
+	k, err := getBlobKey(account, storageID)
 	if err != nil {
 		return err
 	}
@@ -150,7 +176,7 @@ func (d *StorageDriver) FinalizeBlob(ctx context.Context, account models.Reduced
 
 // AbortBlobUpload implements the keppel.StorageDriver interface.
 func (d *StorageDriver) AbortBlobUpload(ctx context.Context, account models.ReducedAccount, storageID string, chunkCount uint32) error {
-	k, err := blobKey(account, storageID)
+	k, err := getBlobKey(account, storageID)
 	if err != nil {
 		return err
 	}
@@ -168,7 +194,7 @@ func (d *StorageDriver) AbortBlobUpload(ctx context.Context, account models.Redu
 func (d *StorageDriver) ReadBlob(ctx context.Context, account models.ReducedAccount, storageID string) (io.ReadCloser, uint64, error) {
 	d.blobsMutex.RLock()
 	defer d.blobsMutex.RUnlock()
-	blobKey, err := blobKey(account, storageID)
+	blobKey, err := getBlobKey(account, storageID)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -186,7 +212,7 @@ func (d *StorageDriver) URLForBlob(ctx context.Context, account models.ReducedAc
 
 // DeleteBlob implements the keppel.StorageDriver interface.
 func (d *StorageDriver) DeleteBlob(ctx context.Context, account models.ReducedAccount, storageID string) error {
-	k, err := blobKey(account, storageID)
+	k, err := getBlobKey(account, storageID)
 	if err != nil {
 		return err
 	}
@@ -205,7 +231,7 @@ func (d *StorageDriver) DeleteBlob(ctx context.Context, account models.ReducedAc
 
 // ReadManifest implements the keppel.StorageDriver interface.
 func (d *StorageDriver) ReadManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) ([]byte, error) {
-	k, err := manifestKey(account, repoName, manifestDigest)
+	k, err := getManifestKey(account, repoName, manifestDigest)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +246,7 @@ func (d *StorageDriver) ReadManifest(ctx context.Context, account models.Reduced
 
 // WriteManifest implements the keppel.StorageDriver interface.
 func (d *StorageDriver) WriteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, contents []byte) error {
-	k, err := manifestKey(account, repoName, manifestDigest)
+	k, err := getManifestKey(account, repoName, manifestDigest)
 	if err != nil {
 		return err
 	}
@@ -232,7 +258,7 @@ func (d *StorageDriver) WriteManifest(ctx context.Context, account models.Reduce
 
 // DeleteManifest implements the keppel.StorageDriver interface.
 func (d *StorageDriver) DeleteManifest(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest) error {
-	k, err := manifestKey(account, repoName, manifestDigest)
+	k, err := getManifestKey(account, repoName, manifestDigest)
 	if err != nil {
 		return err
 	}
@@ -248,7 +274,7 @@ func (d *StorageDriver) DeleteManifest(ctx context.Context, account models.Reduc
 
 // ReadTrivyReport implements the keppel.StorageDriver interface.
 func (d *StorageDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) ([]byte, error) {
-	k, err := trivyReportKey(account, repoName, manifestDigest, format)
+	k, err := getTrivyReportKey(account, repoName, manifestDigest, format)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +289,7 @@ func (d *StorageDriver) ReadTrivyReport(ctx context.Context, account models.Redu
 
 // WriteTrivyReport implements the keppel.StorageDriver interface.
 func (d *StorageDriver) WriteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, payload trivy.ReportPayload) error {
-	k, err := trivyReportKey(account, repoName, manifestDigest, payload.Format)
+	k, err := getTrivyReportKey(account, repoName, manifestDigest, payload.Format)
 	if err != nil {
 		return err
 	}
@@ -282,7 +308,7 @@ func (d *StorageDriver) WriteTrivyReport(ctx context.Context, account models.Red
 
 // DeleteTrivyReport implements the keppel.StorageDriver interface.
 func (d *StorageDriver) DeleteTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) error {
-	k, err := trivyReportKey(account, repoName, manifestDigest, format)
+	k, err := getTrivyReportKey(account, repoName, manifestDigest, format)
 	if err != nil {
 		return err
 	}
@@ -298,6 +324,11 @@ func (d *StorageDriver) DeleteTrivyReport(ctx context.Context, account models.Re
 
 // ListStorageContents implements the keppel.StorageDriver interface.
 func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.ReducedAccount) ([]keppel.StoredBlobInfo, []keppel.StoredManifestInfo, []keppel.StoredTrivyReportInfo, error) {
+	err := checkAccount(account)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
 	var (
 		blobs        []keppel.StoredBlobInfo
 		manifests    []keppel.StoredManifestInfo
@@ -313,64 +344,32 @@ func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.
 	d.trivyReportsMutex.RLock()
 	defer d.trivyReportsMutex.RUnlock()
 
-	blobKeyPattern, err := blobKey(account, `(.*)`)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	rx := regexp.MustCompile(`^` + blobKeyPattern + `$`)
 	for key := range d.blobs {
-		match := rx.FindStringSubmatch(key)
-		if match == nil {
-			continue
+		if key.AccountName == account.Name && key.AuthTenantID == account.AuthTenantID {
+			blobs = append(blobs, keppel.StoredBlobInfo{
+				StorageID:  key.StorageID,
+				ChunkCount: d.blobChunkCounts[key],
+			})
 		}
-
-		blobs = append(blobs, keppel.StoredBlobInfo{
-			StorageID:  match[1],
-			ChunkCount: d.blobChunkCounts[key],
-		})
 	}
 
-	manifestKeyPattern, err := manifestKey(account, `(.*)`, `(.*)`)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	rx = regexp.MustCompile(`^` + manifestKeyPattern + `$`)
 	for key := range d.manifests {
-		match := rx.FindStringSubmatch(key)
-		if match == nil {
-			continue
+		if key.AccountName == account.Name && key.AuthTenantID == account.AuthTenantID {
+			manifests = append(manifests, keppel.StoredManifestInfo{
+				RepositoryName: key.RepositoryName,
+				Digest:         key.Digest,
+			})
 		}
-
-		manifestDigest, err := digest.Parse(match[2])
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		manifests = append(manifests, keppel.StoredManifestInfo{
-			RepositoryName: match[1],
-			Digest:         manifestDigest,
-		})
 	}
 
-	trivyReportKeyPattern, err := trivyReportKey(account, `(.*)`, `(.*)`, `(.*)`)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	rx = regexp.MustCompile(`^` + trivyReportKeyPattern + `$`)
 	for key := range d.trivyReports {
-		match := rx.FindStringSubmatch(key)
-		if match == nil {
-			continue
+		if key.AccountName == account.Name && key.AuthTenantID == account.AuthTenantID {
+			trivyReports = append(trivyReports, keppel.StoredTrivyReportInfo{
+				RepositoryName: key.RepositoryName,
+				Digest:         key.Digest,
+				Format:         key.Format,
+			})
 		}
-
-		manifestDigest, err := digest.Parse(match[2])
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		trivyReports = append(trivyReports, keppel.StoredTrivyReportInfo{
-			RepositoryName: match[1],
-			Digest:         manifestDigest,
-			Format:         match[3],
-		})
 	}
 
 	return blobs, manifests, trivyReports, nil
