@@ -164,6 +164,34 @@ func WithJSONBody(payload any) RequestOption {
 	}
 }
 
+// MergeRequestOptions fuses multiple [RequestOption] instances into a single instance.
+// This is useful for constructing higher-level RequestOptions within an application's test suite, to avoid repetition.
+// For example:
+//
+//	// in the test support library
+//	type CustomAPIPayload struct {
+//		MediaType string
+//		Contents []byte
+//	}
+//	func WithAPIPayload(p APIPayload) httptest.RequestOption {
+//		return httptest.MergeRequestOptions(
+//			httptest.WithHeader("Content-Type", p.MediaType),
+//			httptest.WithHeader("Content-Range", fmt.Sprintf("bytes 0-%d", len(p.Contents))),
+//			httptest.WithBody(p.Contents),
+//		)
+//	}
+//
+//	// within the test function
+//	handler.RespondTo("PUT /payloads/1", WithAPIPayload(p)).
+//		ExpectStatus(t, http.StatusCreated)
+func MergeRequestOptions(options ...RequestOption) RequestOption {
+	return func(p *requestParams) {
+		for _, opt := range options {
+			opt(p)
+		}
+	}
+}
+
 // Response is the result type of Handler.RespondTo().
 // It provides all components of the generated HTTP response as plain data fields to assert against,
 // as well as convenience methods for complex assertions:
@@ -483,4 +511,41 @@ func (r Response) ExpectBodyAsInFixture(t assert.TestingT, statusCode int, fixtu
 	if err != nil {
 		t.Errorf("response body does not match with %s: %s", fixturePath, err.Error())
 	}
+}
+
+// Expect allows chaining a custom assertion into Response's chained method style.
+// The following are identical:
+//
+//	resp := h.RespondTo(ctx, "GET /foo/bar")
+//	assertion(resp)
+//	resp.ExpectStatus(t, http.StatusOK)
+//
+//	h.RespondTo(ctx, "GET /foo/bar").
+//		Expect(assertion).
+//		ExpectStatus(t, http.StatusOK)
+//
+// But the second one looks much nicer.
+// This facility is provided for higher-level assertions within an application's test suite, to avoid repetition.
+// For example:
+//
+//	// in the test support library
+//	type CustomAPIPayload struct {
+//		MediaType string
+//		Contents []byte
+//	}
+//	func ResponseContainingAPIPayload(t *testing.T, p APIPayload) func(Response) {
+//		return func(r Response) {
+//			r.ExpectHeaders(t, http.Header{
+//				"Content-Length": {strconv.Itoa(len(p.Contents))},
+//				"Content-Type":   {p.MediaType},
+//			}).ExpectBody(t, http.StatusOK, p.Contents)
+//		}
+//	}
+//
+//	// within the test function
+//	handler.RespondTo("GET /payloads/1").
+//		Expect(ResponseContainingAPIPayload(t, p))
+func (r Response) Expect(assertion func(Response)) Response {
+	assertion(r)
+	return r
 }
