@@ -692,7 +692,7 @@ func TestManifestArtifactType(t *testing.T) {
 		})
 		image.MustUpload(t, s, fooRepoRef, "latest")
 
-		// check that the annotations_json field is populated correctly in the DB
+		// check that the artifact_type field is populated correctly in the DB
 		actualArtifactType := must.ReturnT(s.DB.SelectStr(`SELECT artifact_type FROM manifests WHERE digest = $1`, image.Manifest.Digest.String()))(t)
 		assert.Equal(t, actualArtifactType, artifactType)
 	})

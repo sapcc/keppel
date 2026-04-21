@@ -163,7 +163,7 @@ type Setup struct {
 	Repos    []models.Repository
 	// fields that are only accessible to helper functions
 	tokenCache map[string]string
-	handler    httptest.Handler // not exposed publicly to force usage of s.RespondTo() instead of s.Handler.RespondTo()
+	handler    httptest.Handler // not exposed publicly to force usage of s.RespondTo() instead of s.handler.RespondTo()
 }
 
 // these credentials are in global vars so that we don't have to recompute them in every test run
