@@ -4,14 +4,17 @@
 package registryv2_test
 
 import (
+	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/opencontainers/go-digest"
-	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
@@ -24,6 +27,24 @@ import (
 	"github.com/sapcc/keppel/internal/tasks"
 	"github.com/sapcc/keppel/internal/test"
 )
+
+// uploadingManifest is a custom RequestOption for the "PUT manifest" endpoint.
+func uploadingManifest(m test.Bytes) httptest.RequestOption {
+	return httptest.MergeRequestOptions(
+		httptest.WithHeader("Content-Type", m.MediaType),
+		httptest.WithBody(bytes.NewReader(m.Contents)),
+	)
+}
+
+// containsManifest is a custom assertion for the "GET manifest" endpoint.
+func containsManifest(t *testing.T, m test.Bytes) func(httptest.Response) {
+	return func(r httptest.Response) {
+		r.ExpectHeader(t, "Content-Length", strconv.Itoa(len(m.Contents))).
+			ExpectHeader(t, "Content-Type", m.MediaType).
+			ExpectHeader(t, "Docker-Content-Digest", m.Digest.String()).
+			ExpectBody(t, http.StatusOK, m.Contents)
+	}
+}
 
 func TestImageManifestLifecycle(t *testing.T) {
 	ctx := t.Context()
@@ -51,23 +72,19 @@ func TestImageManifestLifecycle(t *testing.T) {
 				}),
 			)
 
-			h := s.Handler
 			tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
 			readOnlyTokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull")
 			otherRepoTokenHeaders := s.GetTokenHeaders(t, "repository:test1/bar:pull,push")
 			deleteTokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:delete")
 
 			// on the API, we either reference the tag name (if uploading with tag) or the digest (if uploading without tag)
-			ref := tagName
-			if tagName == "" {
-				ref = image.Manifest.Digest.String()
-			}
+			ref := cmp.Or(tagName, image.Manifest.Digest.String())
 
 			// repo does not exist before we first push to it
 			for _, method := range []string{"GET", "HEAD"} {
-				resp := h.RespondTo(ctx, fmt.Sprintf("%s /v2/test1/foo/manifests/%s", method, ref),
+				resp := s.RespondTo(ctx, fmt.Sprintf("%s /v2/test1/foo/manifests/%s", method, ref),
 					httptest.WithHeaders(readOnlyTokenHeaders),
-				).ExpectHeader(t, test.VersionHeaderKey, test.VersionHeaderValue)
+				)
 				if method == "GET" {
 					resp.ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrNameUnknown))
 				} else {
@@ -79,9 +96,9 @@ func TestImageManifestLifecycle(t *testing.T) {
 			_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
 			// ...the manifest does not exist before it is pushed
 			for _, method := range []string{"GET", "HEAD"} {
-				resp := h.RespondTo(ctx, fmt.Sprintf("%s /v2/test1/foo/manifests/%s", method, ref),
+				resp := s.RespondTo(ctx, fmt.Sprintf("%s /v2/test1/foo/manifests/%s", method, ref),
 					httptest.WithHeaders(readOnlyTokenHeaders),
-				).ExpectHeader(t, test.VersionHeaderKey, test.VersionHeaderValue)
+				)
 				if method == "GET" {
 					resp.ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrManifestUnknown))
 				} else {
@@ -90,84 +107,52 @@ func TestImageManifestLifecycle(t *testing.T) {
 			}
 
 			// PUT failure case: cannot push with read-only token
-			assert.HTTPRequest{
-				Method: "PUT",
-				Path:   "/v2/test1/foo/manifests/" + ref,
-				Header: test.FlattenHeaders(readOnlyTokenHeaders, map[string]string{
-					"Content-Type": image.Manifest.MediaType,
-				}),
-				Body:         assert.ByteData(image.Manifest.Contents),
-				ExpectStatus: http.StatusUnauthorized,
-				ExpectBody:   test.ErrorCode(keppel.ErrDenied),
-			}.Check(t, h)
+			s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/"+ref,
+				httptest.WithHeaders(readOnlyTokenHeaders),
+				uploadingManifest(image.Manifest),
+			).ExpectJSON(t, http.StatusUnauthorized, test.ErrorCode(keppel.ErrDenied))
 
 			// PUT failure case: cannot push while account is being deleted
 			testWithAccountIsDeleting(t, s.DB, "test1", func() {
-				assert.HTTPRequest{
-					Method: "PUT",
-					Path:   "/v2/test1/foo/manifests/" + ref,
-					Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-						"Content-Type": image.Manifest.MediaType,
-					}),
-					Body:         assert.ByteData(image.Manifest.Contents),
-					ExpectStatus: http.StatusMethodNotAllowed,
-					ExpectBody: test.ErrorCodeWithMessage{
-						Code:    keppel.ErrUnsupported,
-						Message: "account is being deleted",
-					},
-				}.Check(t, h)
+				s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/"+ref,
+					httptest.WithHeaders(tokenHeaders),
+					uploadingManifest(image.Manifest),
+				).ExpectJSON(t, http.StatusMethodNotAllowed, test.ErrorCodeWithMessage{
+					Code:    keppel.ErrUnsupported,
+					Message: "account is being deleted",
+				})
 			})
 
 			for _, repo := range []string{"_blobs", "_chunks", `-invalid`} {
 				// PUT failure case: invalid repository names (e.g. repos starting with '_' or '-'),
 				// including reserved internal repos _blobs and _chunks and the '-invalid' case
-				assert.HTTPRequest{
-					Method: "PUT",
-					Path:   "/v2/test1/" + repo + "/manifests/" + ref,
-					Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-						"Content-Type": image.Manifest.MediaType,
-					}),
-					Body:         assert.ByteData(image.Manifest.Contents),
-					ExpectStatus: http.StatusBadRequest,
-					ExpectBody:   test.ErrorCode(keppel.ErrNameInvalid),
-				}.Check(t, h)
+				s.RespondTo(ctx, fmt.Sprintf("PUT /v2/test1/%s/manifests/%s", repo, ref),
+					httptest.WithHeaders(tokenHeaders),
+					uploadingManifest(image.Manifest),
+				).ExpectJSON(t, http.StatusBadRequest, test.ErrorCode(keppel.ErrNameInvalid))
 			}
 
 			// PUT failure case: malformed manifest
-			assert.HTTPRequest{
-				Method: "PUT",
-				Path:   "/v2/test1/foo/manifests/" + ref,
-				Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-					"Content-Type": image.Manifest.MediaType,
-				}),
-				Body:         assert.ByteData(append([]byte("wtf"), image.Manifest.Contents...)),
-				ExpectStatus: http.StatusBadRequest,
-				ExpectBody:   test.ErrorCode(keppel.ErrManifestInvalid),
-			}.Check(t, h)
+			malformedManifest := test.Bytes{
+				MediaType: image.Manifest.MediaType,
+				Contents:  append([]byte("wtf"), image.Manifest.Contents...),
+			}
+			s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/"+ref,
+				httptest.WithHeaders(tokenHeaders),
+				uploadingManifest(malformedManifest),
+			).ExpectJSON(t, http.StatusBadRequest, test.ErrorCode(keppel.ErrManifestInvalid))
 
 			// PUT failure case: wrong digest
-			assert.HTTPRequest{
-				Method: "PUT",
-				Path:   "/v2/test1/foo/manifests/" + test.DeterministicDummyDigest(1).String(),
-				Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-					"Content-Type": image.Manifest.MediaType,
-				}),
-				Body:         assert.ByteData(image.Manifest.Contents),
-				ExpectStatus: http.StatusBadRequest,
-				ExpectBody:   test.ErrorCode(keppel.ErrDigestInvalid),
-			}.Check(t, h)
+			s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/"+test.DeterministicDummyDigest(1).String(),
+				httptest.WithHeaders(tokenHeaders),
+				uploadingManifest(image.Manifest),
+			).ExpectJSON(t, http.StatusBadRequest, test.ErrorCode(keppel.ErrDigestInvalid))
 
 			// PUT failure case: cannot upload manifest if referenced blob is missing
-			assert.HTTPRequest{
-				Method: "PUT",
-				Path:   "/v2/test1/foo/manifests/" + ref,
-				Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-					"Content-Type": image.Manifest.MediaType,
-				}),
-				Body:         assert.ByteData(image.Manifest.Contents),
-				ExpectStatus: http.StatusNotFound,
-				ExpectBody:   test.ErrorCode(keppel.ErrManifestBlobUnknown),
-			}.Check(t, h)
+			s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/"+ref,
+				httptest.WithHeaders(tokenHeaders),
+				uploadingManifest(image.Manifest),
+			).ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrManifestBlobUnknown))
 
 			// failed requests should not retain anything in the storage
 			expectStorageEmpty(t, s.SD, s.DB)
@@ -175,47 +160,31 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			// PUT failure case: cannot upload manifest if referenced blob is uploaded, but in the wrong repo
 			image.Config.MustUpload(t, s, barRepoRef)
-			assert.HTTPRequest{
-				Method: "PUT",
-				Path:   "/v2/test1/foo/manifests/" + ref,
-				Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-					"Content-Type": image.Manifest.MediaType,
-				}),
-				Body:         assert.ByteData(image.Manifest.Contents),
-				ExpectStatus: http.StatusNotFound,
-				ExpectBody:   test.ErrorCode(keppel.ErrManifestBlobUnknown),
-			}.Check(t, h)
+			s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/"+ref,
+				httptest.WithHeaders(tokenHeaders),
+				uploadingManifest(image.Manifest),
+			).ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrManifestBlobUnknown))
 
 			// PUT failure case: cannot upload manifest via the anycast API
 			if currentlyWithAnycast {
-				assert.HTTPRequest{
-					Method: "PUT",
-					Path:   "/v2/test1/foo/manifests/" + ref,
-					Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-						"Content-Type":      image.Manifest.MediaType,
-						"X-Forwarded-Host":  s.Config.AnycastAPIPublicHostname,
-						"X-Forwarded-Proto": "https",
+				s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/"+ref,
+					httptest.WithHeaders(tokenHeaders),
+					httptest.WithHeaders(http.Header{
+						"X-Forwarded-Host":  {s.Config.AnycastAPIPublicHostname},
+						"X-Forwarded-Proto": {"https"},
 					}),
-					Body:         assert.ByteData(image.Manifest.Contents),
-					ExpectStatus: http.StatusMethodNotAllowed,
-					ExpectHeader: test.VersionHeader,
-					ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
-				}.Check(t, h)
+					uploadingManifest(image.Manifest),
+				).ExpectJSON(t, http.StatusMethodNotAllowed, test.ErrorCode(keppel.ErrUnsupported))
 			}
 
 			// PUT failure case: cannot upload manifest without Content-Type, or with
 			// a faulty Content-Type (defense against attacks like CVE-2021-41190)
 			for _, wrongMediaType := range []string{"", manifest.DockerV2ListMediaType} {
-				assert.HTTPRequest{
-					Method: "PUT",
-					Path:   "/v2/test1/foo/manifests/" + ref,
-					Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-						"Content-Type": wrongMediaType,
-					}),
-					Body:         assert.ByteData(image.Manifest.Contents),
-					ExpectStatus: http.StatusBadRequest,
-					ExpectBody:   test.ErrorCode(keppel.ErrManifestInvalid),
-				}.Check(t, h)
+				s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/"+ref,
+					httptest.WithHeaders(tokenHeaders),
+					uploadingManifest(image.Manifest),
+					httptest.WithHeader("Content-Type", wrongMediaType), // overrides Content-Type within uploadingManifest()
+				).ExpectJSON(t, http.StatusBadRequest, test.ErrorCode(keppel.ErrManifestInvalid))
 			}
 
 			// there should still not be any manifests
@@ -243,37 +212,24 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			if ref == "latest" {
 				// block_overwrite should prevent overwriting the tag
-				assert.HTTPRequest{
-					Method: "PUT",
-					Path:   "/v2/test1/foo/manifests/" + ref,
-					Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-						"Content-Type": manifest.DockerV2Schema2MediaType,
-					}),
-					Body:         assert.ByteData(test.GenerateImage(test.GenerateExampleLayer(1)).Manifest.Contents),
-					ExpectStatus: http.StatusConflict,
-					ExpectHeader: test.VersionHeader,
-					ExpectBody: test.ErrorCodeWithMessage{
-						Code:    keppel.ErrDenied,
-						Message: "cannot overwrite tag \"latest\" as it is protected by a tag_policy",
-					},
-				}.Check(t, h)
+				updatedImage := test.GenerateImage(test.GenerateExampleLayer(1))
+				s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/"+ref,
+					httptest.WithHeaders(tokenHeaders),
+					uploadingManifest(updatedImage.Manifest),
+				).ExpectJSON(t, http.StatusConflict, test.ErrorCodeWithMessage{
+					Code:    keppel.ErrDenied,
+					Message: `cannot overwrite tag "latest" as it is protected by a tag_policy`,
+				})
 			}
 
 			// block_push should prevent matching tags from being pushed at all
-			assert.HTTPRequest{
-				Method: "PUT",
-				Path:   "/v2/test1/foo/manifests/dangerous-release",
-				Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-					"Content-Type": manifest.DockerV2Schema2MediaType,
-				}),
-				Body:         assert.ByteData(test.GenerateImage(test.GenerateExampleLayer(1)).Manifest.Contents),
-				ExpectStatus: http.StatusConflict,
-				ExpectHeader: test.VersionHeader,
-				ExpectBody: test.ErrorCodeWithMessage{
-					Code:    keppel.ErrDenied,
-					Message: "cannot push tag \"dangerous-release\" as it is forbidden by a tag_policy",
-				},
-			}.Check(t, h)
+			s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/dangerous-release",
+				httptest.WithHeaders(tokenHeaders),
+				uploadingManifest(image.Manifest),
+			).ExpectJSON(t, http.StatusConflict, test.ErrorCodeWithMessage{
+				Code:    keppel.ErrDenied,
+				Message: `cannot push tag "dangerous-release" as it is forbidden by a tag_policy`,
+			})
 
 			// we did two PUTs, but only the first one will be logged since the second one did not change anything
 			auditEvents := []cadf.Event{{
@@ -306,32 +262,26 @@ func TestImageManifestLifecycle(t *testing.T) {
 
 			// check GET/HEAD: manifest should now be available under the reference
 			// where it was pushed to...
-			expectManifestExists(t, h, readOnlyTokenHeaders, "test1/foo", image.Manifest, ref)
+			expectManifestExists(t, s, readOnlyTokenHeaders, "test1/foo", image.Manifest, ref)
 			// ...and under its digest
-			expectManifestExists(t, h, readOnlyTokenHeaders, "test1/foo", image.Manifest, image.Manifest.Digest.String())
+			expectManifestExists(t, s, readOnlyTokenHeaders, "test1/foo", image.Manifest, image.Manifest.Digest.String())
 
 			// GET failure case: wrong scope
-			assert.HTTPRequest{
-				Method:       "GET",
-				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
-				Header:       test.FlattenHeaders(otherRepoTokenHeaders),
-				ExpectStatus: http.StatusUnauthorized,
-				ExpectHeader: test.VersionHeader,
-				ExpectBody:   test.ErrorCode(keppel.ErrDenied),
-			}.Check(t, h)
+			s.RespondTo(ctx, "GET /v2/test1/foo/manifests/"+image.Manifest.Digest.String(),
+				httptest.WithHeaders(otherRepoTokenHeaders),
+			).ExpectJSON(t, http.StatusUnauthorized, test.ErrorCode(keppel.ErrDenied))
 			// ^ NOTE: docker-registry sends UNAUTHORIZED (401) instead of DENIED (403)
 			//        here, but 403 is more correct.
 
 			// test GET via anycast
 			if currentlyWithAnycast {
 				testWithReplica(t, s, "on_first_use", func(firstPass bool, s2 test.Setup) {
-					h2 := s2.Handler
 					testAnycast(t, firstPass, s2.DB, func() {
 						anycastTokenHeaders := s.GetAnycastTokenHeaders(t, "repository:test1/foo:pull")
-						expectManifestExists(t, h, anycastTokenHeaders, "test1/foo", image.Manifest, ref)
-						expectManifestExists(t, h, anycastTokenHeaders, "test1/foo", image.Manifest, image.Manifest.Digest.String())
-						expectManifestExists(t, h2, anycastTokenHeaders, "test1/foo", image.Manifest, ref)
-						expectManifestExists(t, h2, anycastTokenHeaders, "test1/foo", image.Manifest, image.Manifest.Digest.String())
+						expectManifestExists(t, s, anycastTokenHeaders, "test1/foo", image.Manifest, ref)
+						expectManifestExists(t, s, anycastTokenHeaders, "test1/foo", image.Manifest, image.Manifest.Digest.String())
+						expectManifestExists(t, s2, anycastTokenHeaders, "test1/foo", image.Manifest, ref)
+						expectManifestExists(t, s2, anycastTokenHeaders, "test1/foo", image.Manifest, image.Manifest.Digest.String())
 					})
 				})
 			}
@@ -341,78 +291,54 @@ func TestImageManifestLifecycle(t *testing.T) {
 				`UPDATE manifests SET min_layer_created_at = $1, max_layer_created_at = $2 WHERE digest = $3`,
 				time.Unix(23, 0).UTC(), time.Unix(42, 0).UTC(), image.Manifest.Digest.String(),
 			)
-			test.MustExec(t, s.DB, `UPDATE trivy_security_info SET vuln_status = $1 WHERE digest = $2`, models.CleanSeverity, image.Manifest.Digest.String())
+			test.MustExec(t, s.DB,
+				`UPDATE trivy_security_info SET vuln_status = $1 WHERE digest = $2`,
+				models.CleanSeverity, image.Manifest.Digest.String(),
+			)
 
 			for _, method := range []string{"GET", "HEAD"} {
-				assert.HTTPRequest{
-					Method:       method,
-					Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
-					Header:       test.FlattenHeaders(readOnlyTokenHeaders),
-					ExpectStatus: http.StatusOK,
-					ExpectHeader: map[string]string{
-						test.VersionHeaderKey:           test.VersionHeaderValue,
-						"X-Keppel-Vulnerability-Status": string(models.CleanSeverity),
-						"X-Keppel-Min-Layer-Created-At": "23",
-						"X-Keppel-Max-Layer-Created-At": "42",
-					},
-				}.Check(t, h)
+				s.RespondTo(ctx, method+" /v2/test1/foo/manifests/"+image.Manifest.Digest.String(),
+					httptest.WithHeaders(readOnlyTokenHeaders),
+				).ExpectHeaders(t, http.Header{
+					"X-Keppel-Vulnerability-Status": {string(models.CleanSeverity)},
+					"X-Keppel-Min-Layer-Created-At": {"23"},
+					"X-Keppel-Max-Layer-Created-At": {"42"},
+				}).ExpectStatus(t, http.StatusOK)
 			}
 
 			// test GET with anonymous user (fails unless a pull_anonymous RBAC policy is set up)
-			assert.HTTPRequest{
-				Method:       "GET",
-				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
-				ExpectStatus: http.StatusUnauthorized,
-				ExpectHeader: map[string]string{
-					test.VersionHeaderKey: test.VersionHeaderValue,
-					"Www-Authenticate":    `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull"`,
-				},
-			}.Check(t, h)
+			s.RespondTo(ctx, "GET /v2/test1/foo/manifests/"+image.Manifest.Digest.String()).
+				ExpectHeader(t, "Www-Authenticate", `Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull"`).
+				ExpectStatus(t, http.StatusUnauthorized)
+
 			test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1",
 				test.ToJSON([]keppel.RBACPolicy{{
 					RepositoryPattern: "foo",
 					Permissions:       []keppel.RBACPermission{keppel.RBACAnonymousPullPermission},
 				}}),
 			)
-			assert.HTTPRequest{
-				Method:       "GET",
-				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
-				ExpectStatus: http.StatusOK,
-				ExpectHeader: test.VersionHeader,
-				ExpectBody:   assert.ByteData(image.Manifest.Contents),
-			}.Check(t, h)
+
+			s.RespondTo(ctx, "GET /v2/test1/foo/manifests/"+image.Manifest.Digest.String()).
+				Expect(containsManifest(t, image.Manifest))
+
 			test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1", "")
 
 			// DELETE failure case: no delete permission
-			assert.HTTPRequest{
-				Method:       "DELETE",
-				Path:         "/v2/test1/foo/manifests/" + image.Manifest.Digest.String(),
-				Header:       test.FlattenHeaders(tokenHeaders),
-				ExpectStatus: http.StatusUnauthorized,
-				ExpectHeader: test.VersionHeader,
-				ExpectBody:   test.ErrorCode(keppel.ErrDenied),
-			}.Check(t, h)
+			s.RespondTo(ctx, "DELETE /v2/test1/foo/manifests/"+image.Manifest.Digest.String(),
+				httptest.WithHeaders(tokenHeaders),
+			).ExpectJSON(t, http.StatusUnauthorized, test.ErrorCode(keppel.ErrDenied))
 
 			// DELETE failure case: unknown manifest
-			assert.HTTPRequest{
-				Method:       "DELETE",
-				Path:         "/v2/test1/foo/manifests/" + test.DeterministicDummyDigest(1).String(),
-				Header:       test.FlattenHeaders(deleteTokenHeaders),
-				ExpectStatus: http.StatusNotFound,
-				ExpectHeader: test.VersionHeader,
-				ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
-			}.Check(t, h)
+			s.RespondTo(ctx, "DELETE /v2/test1/foo/manifests/"+test.DeterministicDummyDigest(1).String(),
+				httptest.WithHeaders(deleteTokenHeaders),
+			).ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrManifestUnknown))
 
 			// DELETE failure case: cannot delete blob while the manifest still exists in the DB
-			assert.HTTPRequest{
-				Method:       "DELETE",
-				Path:         "/v2/test1/foo/blobs/" + image.Config.Digest.String(),
-				Header:       test.FlattenHeaders(deleteTokenHeaders),
-				ExpectStatus: http.StatusMethodNotAllowed,
-				ExpectHeader: test.VersionHeader,
-				ExpectBody:   test.ErrorCode(keppel.ErrUnsupported),
-			}.Check(t, h)
+			s.RespondTo(ctx, "DELETE /v2/test1/foo/blobs/"+image.Config.Digest.String(),
+				httptest.WithHeaders(deleteTokenHeaders),
+			).ExpectJSON(t, http.StatusMethodNotAllowed, test.ErrorCode(keppel.ErrUnsupported))
 
+			// DELETE failure case: tag is protected by tag policy
 			test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = $2 WHERE name = $1`, "test1",
 				test.ToJSON([]keppel.TagPolicy{{
 					PolicyMatchRule: keppel.PolicyMatchRule{
@@ -422,14 +348,9 @@ func TestImageManifestLifecycle(t *testing.T) {
 				}}),
 			)
 
-			// DELETE failure case: tag is protected by tag policy
-			assert.HTTPRequest{
-				Method:       "DELETE",
-				Path:         "/v2/test1/foo/manifests/" + ref,
-				Header:       test.FlattenHeaders(deleteTokenHeaders),
-				ExpectStatus: http.StatusConflict,
-				ExpectHeader: test.VersionHeader,
-			}.Check(t, h)
+			s.RespondTo(ctx, "DELETE /v2/test1/foo/manifests/"+ref,
+				httptest.WithHeaders(deleteTokenHeaders),
+			).ExpectJSON(t, http.StatusConflict, test.ErrorCode(keppel.ErrDenied))
 
 			test.MustExec(t, s.DB, `UPDATE accounts SET tag_policies_json = '[]' WHERE name = $1`, "test1")
 
@@ -437,13 +358,9 @@ func TestImageManifestLifecycle(t *testing.T) {
 			s.Auditor.ExpectEvents(t /*, nothing */)
 
 			// DELETE success case
-			assert.HTTPRequest{
-				Method:       "DELETE",
-				Path:         "/v2/test1/foo/manifests/" + ref,
-				Header:       test.FlattenHeaders(deleteTokenHeaders),
-				ExpectStatus: http.StatusAccepted,
-				ExpectHeader: test.VersionHeader,
-			}.Check(t, h)
+			s.RespondTo(ctx, "DELETE /v2/test1/foo/manifests/"+ref,
+				httptest.WithHeaders(deleteTokenHeaders),
+			).ExpectStatus(t, http.StatusAccepted)
 			s.Clock.StepBy(time.Second)
 			if ref == "latest" {
 				easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagemanifest-004-after-delete-tag.sql")
@@ -474,11 +391,12 @@ func TestImageManifestLifecycle(t *testing.T) {
 }
 
 func TestImageListManifestLifecycle(t *testing.T) {
+	ctx := t.Context()
+
 	testWithPrimary(t, nil, func(s test.Setup) {
 		// This test builds on TestImageManifestLifecycle and provides test coverage
 		// for the parts of the manifest push workflow that check manifest-manifest
 		// references. (We don't have those in plain images, only in image lists.)
-		h := s.Handler
 		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
 		deleteTokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:delete")
 
@@ -494,16 +412,10 @@ func TestImageListManifestLifecycle(t *testing.T) {
 
 		// PUT failure case: cannot upload image list manifest referencing missing manifests
 		list1 := test.GenerateImageList(image1, image3)
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/v2/test1/foo/manifests/" + list1.Manifest.Digest.String(),
-			Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-				"Content-Type": list1.Manifest.MediaType,
-			}),
-			Body:         assert.ByteData(list1.Manifest.Contents),
-			ExpectStatus: http.StatusNotFound,
-			ExpectBody:   test.ErrorCode(keppel.ErrManifestUnknown),
-		}.Check(t, h)
+		s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/"+list1.Manifest.Digest.String(),
+			httptest.WithHeaders(tokenHeaders),
+			uploadingManifest(list1.Manifest),
+		).ExpectJSON(t, http.StatusNotFound, test.ErrorCode(keppel.ErrManifestUnknown))
 
 		// PUT success case: upload image list manifest referencing available manifests
 		list2 := test.GenerateImageList(image1, image2)
@@ -513,57 +425,44 @@ func TestImageListManifestLifecycle(t *testing.T) {
 		easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagelistmanifest-001-after-upload-manifest.sql")
 
 		// check GET for manifest list
-		expectManifestExists(t, h, tokenHeaders, "test1/foo", list2.Manifest, "list")
+		expectManifestExists(t, s, tokenHeaders, "test1/foo", list2.Manifest, "list")
 
 		// as a special case, GET on the manifest list returns the linux/amd64
 		// manifest if only single-arch manifests are accepted by the client (this
 		// behavior is somewhat dubious, but required for full compatibility with
 		// existing clients)
-		assert.HTTPRequest{
-			Method: "GET",
-			Path:   "/v2/test1/foo/manifests/" + list2.Manifest.Digest.String(),
-			Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-				"Accept": manifest.DockerV2Schema2MediaType,
-			}),
-			ExpectStatus: http.StatusTemporaryRedirect,
-			ExpectHeader: map[string]string{
-				test.VersionHeaderKey: test.VersionHeaderValue,
-				"Location":            "/v2/test1/foo/manifests/" + image1.Manifest.Digest.String(),
-			},
-		}.Check(t, h)
+		s.RespondTo(ctx, "GET /v2/test1/foo/manifests/"+list2.Manifest.Digest.String(),
+			httptest.WithHeaders(tokenHeaders),
+			httptest.WithHeader("Accept", manifest.DockerV2Schema2MediaType),
+		).
+			ExpectHeader(t, "Location", "/v2/test1/foo/manifests/"+image1.Manifest.Digest.String()).
+			ExpectStatus(t, http.StatusTemporaryRedirect)
+
 		// but we return the whole list if at all possible
 		tokenHeaders.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json")
-		expectManifestExists(t, h, tokenHeaders, "test1/foo", list2.Manifest, "list")
+		expectManifestExists(t, s, tokenHeaders, "test1/foo", list2.Manifest, "list")
 
 		// DELETE failure case: cannot delete manifest list while the manifest still exists in the DB
-		assert.HTTPRequest{
-			Method:       "DELETE",
-			Path:         "/v2/test1/foo/manifests/" + image1.Manifest.Digest.String(),
-			Header:       test.FlattenHeaders(deleteTokenHeaders),
-			ExpectStatus: http.StatusConflict,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody: test.ErrorCodeWithMessage{
-				Code:    keppel.ErrDenied,
-				Message: "cannot delete a manifest which is referenced by the manifest " + list2.Manifest.Digest.String(),
-			},
-		}.Check(t, h)
+		s.RespondTo(ctx, "DELETE /v2/test1/foo/manifests/"+image1.Manifest.Digest.String(),
+			httptest.WithHeaders(deleteTokenHeaders),
+		).ExpectJSON(t, http.StatusConflict, test.ErrorCodeWithMessage{
+			Code:    keppel.ErrDenied,
+			Message: "cannot delete a manifest which is referenced by the manifest " + list2.Manifest.Digest.String(),
+		})
 
 		// DELETE success case
-		assert.HTTPRequest{
-			Method:       "DELETE",
-			Path:         "/v2/test1/foo/manifests/" + list2.Manifest.Digest.String(),
-			Header:       test.FlattenHeaders(deleteTokenHeaders),
-			ExpectStatus: http.StatusAccepted,
-			ExpectHeader: test.VersionHeader,
-		}.Check(t, h)
+		s.RespondTo(ctx, "DELETE /v2/test1/foo/manifests/"+list2.Manifest.Digest.String(),
+			httptest.WithHeaders(deleteTokenHeaders),
+		).ExpectStatus(t, http.StatusAccepted)
 		s.Clock.StepBy(time.Second)
 		easypg.AssertDBContent(t, s.DB.Db, "fixtures/imagelistmanifest-002-after-delete-manifest.sql")
 	})
 }
 
 func TestManifestQuotaExceeded(t *testing.T) {
+	ctx := t.Context()
+
 	testWithPrimary(t, nil, func(s test.Setup) {
-		h := s.Handler
 		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
 
 		// as a setup, upload two images
@@ -581,31 +480,21 @@ func TestManifestQuotaExceeded(t *testing.T) {
 		}
 
 		// further blob uploads are not possible now
-		assert.HTTPRequest{
-			Method:       "POST",
-			Path:         "/v2/test1/foo/blobs/uploads/",
-			Header:       test.FlattenHeaders(tokenHeaders),
-			ExpectStatus: http.StatusConflict,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   quotaExceededMessage,
-		}.Check(t, h)
+		s.RespondTo(ctx, "POST /v2/test1/foo/blobs/uploads/", httptest.WithHeaders(tokenHeaders)).
+			ExpectJSON(t, http.StatusConflict, quotaExceededMessage)
 
 		// further manifest uploads are not possible now
-		assert.HTTPRequest{
-			Method:       "PUT",
-			Path:         "/v2/test1/foo/manifests/anotherone",
-			Header:       test.FlattenHeaders(tokenHeaders),
-			Body:         assert.StringData("request body does not matter"),
-			ExpectStatus: http.StatusConflict,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody:   quotaExceededMessage,
-		}.Check(t, h)
+		s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/anotherone",
+			httptest.WithHeaders(tokenHeaders),
+			httptest.WithBody(strings.NewReader("request body does not matter")),
+		).ExpectJSON(t, http.StatusConflict, quotaExceededMessage)
 	})
 }
 
 func TestRuleForManifest(t *testing.T) {
+	ctx := t.Context()
+
 	testWithPrimary(t, nil, func(s test.Setup) {
-		h := s.Handler
 		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
 
 		labels := map[string]string{"foo": "is there", "bar": "is there"}
@@ -633,35 +522,22 @@ func TestRuleForManifest(t *testing.T) {
 		)
 
 		// docker manifest push should fail ...
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/v2/test1/foo/manifests/latest",
-			Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-				"Content-Type": manifest.DockerV2Schema2MediaType,
-			}),
-			Body:         assert.ByteData(image.Manifest.Contents),
-			ExpectStatus: http.StatusBadRequest,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody: test.ErrorCodeWithMessage{
-				Code:    keppel.ErrManifestInvalid,
-				Message: "manifest upload {\"labels\":{\"bar\":\"is there\",\"foo\":\"is there\"},\"layers\":[{\"annotations\":null,\"media_type\":\"application/vnd.docker.image.rootfs.diff.tar.gzip\"}],\"media_type\":\"application/vnd.docker.distribution.manifest.v2+json\",\"repo_name\":\"foo\"} does not satisfy validation rule: 'random-label-that-does-not-exist' in labels",
-			},
-		}.Check(t, h)
+		s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/latest",
+			httptest.WithHeaders(tokenHeaders),
+			uploadingManifest(image.Manifest),
+		).ExpectJSON(t, http.StatusBadRequest, test.ErrorCodeWithMessage{
+			Code:    keppel.ErrManifestInvalid,
+			Message: `manifest upload {"labels":{"bar":"is there","foo":"is there"},"layers":[{"annotations":null,"media_type":"application/vnd.docker.image.rootfs.diff.tar.gzip"}],"media_type":"application/vnd.docker.distribution.manifest.v2+json","repo_name":"foo"} does not satisfy validation rule: 'random-label-that-does-not-exist' in labels`,
+		})
+
 		// ... and OCI, too
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/v2/test1/foo/manifests/latest",
-			Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-				"Content-Type": imageOCI.Manifest.MediaType,
-			}),
-			Body:         assert.ByteData(imageOCI.Manifest.Contents),
-			ExpectStatus: http.StatusBadRequest,
-			ExpectHeader: test.VersionHeader,
-			ExpectBody: test.ErrorCodeWithMessage{
-				Code:    keppel.ErrManifestInvalid,
-				Message: "manifest upload {\"labels\":{\"bar\":\"is there\",\"foo\":\"is there\"},\"layers\":[{\"annotations\":null,\"media_type\":\"application/vnd.docker.image.rootfs.diff.tar.gzip\"}],\"media_type\":\"application/vnd.oci.image.manifest.v1+json\",\"repo_name\":\"foo\"} does not satisfy validation rule: 'random-label-that-does-not-exist' in labels",
-			},
-		}.Check(t, h)
+		s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/latest",
+			httptest.WithHeaders(tokenHeaders),
+			uploadingManifest(imageOCI.Manifest),
+		).ExpectJSON(t, http.StatusBadRequest, test.ErrorCodeWithMessage{
+			Code:    keppel.ErrManifestInvalid,
+			Message: `manifest upload {"labels":{"bar":"is there","foo":"is there"},"layers":[{"annotations":null,"media_type":"application/vnd.docker.image.rootfs.diff.tar.gzip"}],"media_type":"application/vnd.oci.image.manifest.v1+json","repo_name":"foo"} does not satisfy validation rule: 'random-label-that-does-not-exist' in labels`,
+		})
 
 		// setup required labels on account for success
 		test.MustExec(t, s.DB,
@@ -670,31 +546,24 @@ func TestRuleForManifest(t *testing.T) {
 		)
 
 		// docker manifest push should succeed when all labels are there ...
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/v2/test1/foo/manifests/latest",
-			Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-				"Content-Type": manifest.DockerV2Schema2MediaType,
-			}),
-			Body:         assert.ByteData(image.Manifest.Contents),
-			ExpectStatus: http.StatusCreated,
-			ExpectHeader: test.VersionHeader,
-		}.Check(t, h)
+		s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/latest",
+			httptest.WithHeaders(tokenHeaders),
+			uploadingManifest(image.Manifest),
+		).ExpectStatus(t, http.StatusCreated)
+
 		// ... and OCI, too
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/v2/test1/foo/manifests/latest",
-			Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-				"Content-Type": imageOCI.Manifest.MediaType,
-			}),
-			Body:         assert.ByteData(imageOCI.Manifest.Contents),
-			ExpectStatus: http.StatusCreated,
-			ExpectHeader: test.VersionHeader,
-		}.Check(t, h)
+		s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/latest",
+			httptest.WithHeaders(tokenHeaders),
+			uploadingManifest(imageOCI.Manifest),
+		).ExpectStatus(t, http.StatusCreated)
 
 		// check that the labels_json field is populated correctly in the DB
 		expectLabelsJSONOnManifest(
 			t, s.DB, image.Manifest.Digest,
+			map[string]string{"bar": "is there", "foo": "is there"},
+		)
+		expectLabelsJSONOnManifest(
+			t, s.DB, imageOCI.Manifest.Digest,
 			map[string]string{"bar": "is there", "foo": "is there"},
 		)
 
@@ -709,16 +578,10 @@ func TestRuleForManifest(t *testing.T) {
 		// do not have labels at all), so we can upload this list manifest without
 		// any additional considerations ...
 		list := test.GenerateImageList(image, otherImage)
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/v2/test1/foo/manifests/list",
-			Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-				"Content-Type": manifest.DockerV2ListMediaType,
-			}),
-			Body:         assert.ByteData(list.Manifest.Contents),
-			ExpectStatus: http.StatusCreated,
-			ExpectHeader: test.VersionHeader,
-		}.Check(t, h)
+		s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/list",
+			httptest.WithHeaders(tokenHeaders),
+			uploadingManifest(list.Manifest),
+		).ExpectStatus(t, http.StatusCreated)
 
 		// check the labels_json field on the list manifest
 		expectLabelsJSONOnManifest(
@@ -734,36 +597,24 @@ func TestRuleForManifest(t *testing.T) {
 		layer.MediaType = "application/vnd.in-toto+json"
 		provenanceManifest := test.GenerateOCIImage(test.OCIArgs{}, layer)
 		provenanceManifest.Config.MustUpload(t, s, fooRepoRef)
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/v2/test1/foo/manifests/list",
-			Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-				"Content-Type": imgspecv1.MediaTypeImageManifest,
-			}),
-			Body: assert.ByteData(provenanceManifest.Manifest.Contents),
-			ExpectBody: test.ErrorCodeWithMessage{
-				Code:    keppel.ErrManifestInvalid,
-				Message: "manifest upload {\"labels\":null,\"layers\":[{\"annotations\":{\"in-toto.io/predicate-type\":\"https://slsa.dev/provenance/v0.2\"},\"media_type\":\"application/vnd.in-toto+json\"}],\"media_type\":\"application/vnd.oci.image.manifest.v1+json\",\"repo_name\":\"foo\"} does not satisfy validation rule: 'foo' in labels && 'bar' in labels",
-			},
-			ExpectStatus: http.StatusBadRequest,
-			ExpectHeader: test.VersionHeader,
-		}.Check(t, h)
+
+		s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/list",
+			httptest.WithHeaders(tokenHeaders),
+			uploadingManifest(provenanceManifest.Manifest),
+		).ExpectJSON(t, http.StatusBadRequest, test.ErrorCodeWithMessage{
+			Code:    keppel.ErrManifestInvalid,
+			Message: `manifest upload {"labels":null,"layers":[{"annotations":{"in-toto.io/predicate-type":"https://slsa.dev/provenance/v0.2"},"media_type":"application/vnd.in-toto+json"}],"media_type":"application/vnd.oci.image.manifest.v1+json","repo_name":"foo"} does not satisfy validation rule: 'foo' in labels && 'bar' in labels`,
+		})
 
 		test.MustExec(t, s.DB,
 			`UPDATE accounts SET rule_for_manifest = $1 WHERE name = $2`,
 			"'foo' in labels && 'bar' in labels || layers.exists(l, l.media_type == 'application/vnd.in-toto+json')", "test1",
 		)
 
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/v2/test1/foo/manifests/list",
-			Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-				"Content-Type": imgspecv1.MediaTypeImageManifest,
-			}),
-			Body:         assert.ByteData(provenanceManifest.Manifest.Contents),
-			ExpectStatus: http.StatusCreated,
-			ExpectHeader: test.VersionHeader,
-		}.Check(t, h)
+		s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/list",
+			httptest.WithHeaders(tokenHeaders),
+			uploadingManifest(provenanceManifest.Manifest),
+		).ExpectStatus(t, http.StatusCreated)
 	})
 }
 
@@ -777,8 +628,9 @@ func expectLabelsJSONOnManifest(t *testing.T, db *keppel.DB, manifestDigest dige
 }
 
 func TestImageManifestWrongBlobSize(t *testing.T) {
+	ctx := t.Context()
+
 	testWithPrimary(t, nil, func(s test.Setup) {
-		h := s.Handler
 		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
 
 		// generate an image that references a layer, but the reference includes the wrong layer size
@@ -789,16 +641,10 @@ func TestImageManifestWrongBlobSize(t *testing.T) {
 		image := test.GenerateImage(layer)
 		image.Config.MustUpload(t, s, fooRepoRef)
 
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/v2/test1/foo/manifests/latest",
-			Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-				"Content-Type": image.Manifest.MediaType,
-			}),
-			Body:         assert.ByteData(image.Manifest.Contents),
-			ExpectStatus: http.StatusBadRequest,
-			ExpectBody:   test.ErrorCode(keppel.ErrManifestInvalid),
-		}.Check(t, h)
+		s.RespondTo(ctx, "PUT /v2/test1/foo/manifests/latest",
+			httptest.WithHeaders(tokenHeaders),
+			uploadingManifest(image.Manifest),
+		).ExpectJSON(t, http.StatusBadRequest, test.ErrorCode(keppel.ErrManifestInvalid))
 	})
 }
 
@@ -824,27 +670,10 @@ func TestImageManifestCmdEntrypointAsString(t *testing.T) {
 
 func TestManifestAnnotations(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
-		h := s.Handler
-		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
-
 		image := test.GenerateOCIImage(test.OCIArgs{
-			Annotations: map[string]string{
-				"abc": "def",
-			}},
-		)
+			Annotations: map[string]string{"abc": "def"},
+		})
 		image.MustUpload(t, s, fooRepoRef, "latest")
-
-		// manifest push should succeed
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/v2/test1/foo/manifests/latest",
-			Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-				"Content-Type": imgspecv1.MediaTypeImageManifest,
-			}),
-			Body:         assert.ByteData(image.Manifest.Contents),
-			ExpectStatus: http.StatusCreated,
-			ExpectHeader: test.VersionHeader,
-		}.Check(t, h)
 
 		// check that the annotations_json field is populated correctly in the DB
 		labelsJSONStr := must.ReturnT(s.DB.SelectStr(`SELECT annotations_json FROM manifests WHERE digest = $1`, image.Manifest.Digest.String()))(t)
@@ -857,28 +686,14 @@ func TestManifestAnnotations(t *testing.T) {
 
 func TestManifestArtifactType(t *testing.T) {
 	testWithPrimary(t, nil, func(s test.Setup) {
-		h := s.Handler
-		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
-
 		artifactType := "application/vnd.oci.artifact.config.v1+json"
-		image := test.GenerateOCIImage(test.OCIArgs{ArtifactType: artifactType})
+		image := test.GenerateOCIImage(test.OCIArgs{
+			ArtifactType: artifactType,
+		})
 		image.MustUpload(t, s, fooRepoRef, "latest")
 
-		// manifest push should succeed
-		assert.HTTPRequest{
-			Method: "PUT",
-			Path:   "/v2/test1/foo/manifests/latest",
-			Header: test.FlattenHeaders(tokenHeaders, map[string]string{
-				"Content-Type": imgspecv1.MediaTypeImageManifest,
-			}),
-			Body:         assert.ByteData(image.Manifest.Contents),
-			ExpectStatus: http.StatusCreated,
-			ExpectHeader: test.VersionHeader,
-		}.Check(t, h)
-
 		// check that the annotations_json field is populated correctly in the DB
-		artifactTypeStr := must.ReturnT(s.DB.SelectStr(`SELECT artifact_type FROM manifests WHERE digest = $1`, image.Manifest.Digest.String()))(t)
-
-		assert.DeepEqual(t, "artifact_type", artifactType, artifactTypeStr)
+		actualArtifactType := must.ReturnT(s.DB.SelectStr(`SELECT artifact_type FROM manifests WHERE digest = $1`, image.Manifest.Digest.String()))(t)
+		assert.Equal(t, actualArtifactType, artifactType)
 	})
 }

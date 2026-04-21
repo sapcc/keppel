@@ -8,15 +8,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/majewsky/gg/jsonmatch"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/sapcc/go-bits/assert"
+	"github.com/sapcc/go-bits/httptest"
 
 	"github.com/sapcc/keppel/internal/test"
 )
 
 func TestReferrersApi(t *testing.T) {
+	ctx := t.Context()
+
 	testWithPrimary(t, nil, func(s test.Setup) {
-		h := s.Handler
 		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
 
 		image := test.GenerateOCIImage(test.OCIArgs{
@@ -30,22 +32,17 @@ func TestReferrersApi(t *testing.T) {
 		})
 		subjectManifest.MustUpload(t, s, fooRepoRef, strings.ReplaceAll(image.Manifest.Digest.String(), ":", "-"))
 
-		assert.HTTPRequest{
-			Method: "GET",
-			Path:   "/v2/test1/foo/referrers/" + image.Manifest.Digest.String(),
-			Header: test.FlattenHeaders(tokenHeaders),
-			ExpectBody: assert.JSONObject{
-				"schemaVersion": 2,
-				"mediaType":     "application/vnd.oci.image.index.v1+json",
-				"manifests": []assert.JSONObject{{
-					"artifactType": imgspecv1.MediaTypeImageManifest,
-					"digest":       subjectManifest.Manifest.Digest.String(),
-					"mediaType":    imgspecv1.MediaTypeImageManifest,
-					"size":         subjectManifest.SizeBytes(),
-				}},
-			},
-			ExpectStatus: http.StatusOK,
-			ExpectHeader: test.VersionHeader,
-		}.Check(t, h)
+		s.RespondTo(ctx, "GET /v2/test1/foo/referrers/"+image.Manifest.Digest.String(),
+			httptest.WithHeaders(tokenHeaders),
+		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"schemaVersion": 2,
+			"mediaType":     "application/vnd.oci.image.index.v1+json",
+			"manifests": []jsonmatch.Object{{
+				"artifactType": imgspecv1.MediaTypeImageManifest,
+				"digest":       subjectManifest.Manifest.Digest.String(),
+				"mediaType":    imgspecv1.MediaTypeImageManifest,
+				"size":         subjectManifest.SizeBytes(),
+			}},
+		})
 	})
 }

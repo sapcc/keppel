@@ -17,6 +17,7 @@ import (
 	"github.com/sapcc/keppel/internal/models"
 )
 
+// TODO: make private once assert.HTTPRequest is removed
 const (
 	// VersionHeaderKey is the standard version header name included in all
 	// Registry v2 API responses.
@@ -28,6 +29,8 @@ const (
 
 // VersionHeader is the standard version header included in all Registry v2 API
 // responses.
+//
+// TODO: remove once assert.HTTPRequest is removed
 var VersionHeader = map[string]string{VersionHeaderKey: VersionHeaderValue}
 
 // MustUpload uploads the blob via the Registry V2 API.

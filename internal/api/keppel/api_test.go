@@ -21,11 +21,10 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
 		test.WithRepo(models.Repository{Name: "foo", AccountName: "test1"}),
 	)
-	h := s.Handler
 	ctx := t.Context()
 
 	// test anonymous auth: fails without RBAC policy, succeeds with RBAC policy
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/foo/_manifests").
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/foo/_manifests").
 		ExpectHeader(t, "Www-Authenticate",
 			`Bearer realm="https://registry.example.org/keppel/v1/auth",service="registry.example.org",scope="repository:test1/foo:pull"`).
 		ExpectText(t, http.StatusForbidden, "no bearer token found in request headers\n")
@@ -36,7 +35,7 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 			Permissions:       []keppel.RBACPermission{keppel.RBACAnonymousPullPermission},
 		}}),
 	)
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/foo/_manifests").
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/foo/_manifests").
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{"manifests": []jsonmatch.Object{}})
 	test.MustExec(t, s.DB, `UPDATE accounts SET rbac_policies_json = $2 WHERE name = $1`, "test1", "")
 
@@ -46,10 +45,10 @@ func TestAlternativeAuthSchemes(t *testing.T) {
 	var tokenData struct {
 		Token string `json:"token"`
 	}
-	h.RespondTo(ctx, "GET /keppel/v1/auth?service=registry.example.org&scope=repository:test1/foo:pull",
+	s.RespondTo(ctx, "GET /keppel/v1/auth?service=registry.example.org&scope=repository:test1/foo:pull",
 		withPerms("view:tenant1,pull:tenant1"),
 	).CaptureJSON(&tokenData).ExpectStatus(t, http.StatusOK)
-	h.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/foo/_manifests",
+	s.RespondTo(ctx, "GET /keppel/v1/accounts/test1/repositories/foo/_manifests",
 		httptest.WithHeader("Authorization", "Bearer "+tokenData.Token),
 	).ExpectJSON(t, http.StatusOK, jsonmatch.Object{"manifests": []jsonmatch.Object{}})
 }

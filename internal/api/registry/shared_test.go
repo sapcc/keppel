@@ -127,16 +127,15 @@ func testAnycast(t *testing.T, firstPass bool, db2 *keppel.DB, action func()) {
 ////////////////////////////////////////////////////////////////////////////////
 // helpers for setting up test scenarios
 
-func getBlobUpload(t *testing.T, h httptest.Handler, hdr http.Header, fullRepoName string) (uploadURL, uploadUUID string) {
+func getBlobUpload(t *testing.T, s test.Setup, hdr http.Header, fullRepoName string) (uploadURL, uploadUUID string) {
 	t.Helper()
 
-	h.RespondTo(t.Context(),
+	s.RespondTo(t.Context(),
 		fmt.Sprintf("POST /v2/%s/blobs/uploads/", fullRepoName),
 		httptest.WithHeaders(hdr),
 	).ExpectHeaders(t, http.Header{
-		test.VersionHeaderKey: {test.VersionHeaderValue},
-		"Content-Length":      {"0"},
-		"Range":               {"0-0"},
+		"Content-Length": {"0"},
+		"Range":          {"0-0"},
 	}).
 		CaptureHeader("Location", &uploadURL).
 		CaptureHeader("Blob-Upload-Session-Id", &uploadUUID).
@@ -146,9 +145,9 @@ func getBlobUpload(t *testing.T, h httptest.Handler, hdr http.Header, fullRepoNa
 }
 
 //nolint:unparam
-func getBlobUploadURL(t *testing.T, h httptest.Handler, hdr http.Header, fullRepoName string) string {
+func getBlobUploadURL(t *testing.T, s test.Setup, hdr http.Header, fullRepoName string) string {
 	t.Helper()
-	u, _ := getBlobUpload(t, h, hdr, fullRepoName)
+	u, _ := getBlobUpload(t, s, hdr, fullRepoName)
 	return u
 }
 
@@ -162,14 +161,13 @@ func bodyForMethod(method string, body []byte) []byte {
 	return body
 }
 
-func expectBlobExists(t *testing.T, h httptest.Handler, hdr http.Header, fullRepoName string, blob test.Bytes) {
+func expectBlobExists(t *testing.T, s test.Setup, hdr http.Header, fullRepoName string, blob test.Bytes) {
 	t.Helper()
 	for _, method := range []string{"GET", "HEAD"} {
-		h.RespondTo(t.Context(),
+		s.RespondTo(t.Context(),
 			fmt.Sprintf("%s /v2/%s/blobs/%s", method, fullRepoName, blob.Digest.String()),
 			httptest.WithHeaders(hdr),
 		).ExpectHeaders(t, http.Header{
-			test.VersionHeaderKey:   {test.VersionHeaderValue},
 			"Content-Length":        {strconv.Itoa(len(blob.Contents))},
 			"Content-Type":          {blob.MediaType},
 			"Docker-Content-Digest": {blob.Digest.String()},
@@ -178,16 +176,16 @@ func expectBlobExists(t *testing.T, h httptest.Handler, hdr http.Header, fullRep
 }
 
 //nolint:unparam
-func expectManifestExists(t *testing.T, h httptest.Handler, hdr http.Header, fullRepoName string, manifest test.Bytes, reference string) {
+func expectManifestExists(t *testing.T, s test.Setup, hdr http.Header, fullRepoName string, manifest test.Bytes, reference string) {
 	t.Helper()
 	for _, method := range []string{"GET", "HEAD"} {
 		// NOTE: `hdr.Get("Accept")` may be empty, in which case we test without any non-empty Accept header
 		for _, acceptHeader := range []string{hdr.Get("Accept"), manifest.MediaType, "text/plain"} {
-			resp := h.RespondTo(t.Context(),
+			resp := s.RespondTo(t.Context(),
 				fmt.Sprintf("%s /v2/%s/manifests/%s", method, fullRepoName, cmp.Or(reference, manifest.Digest.String())),
 				httptest.WithHeaders(hdr),
 				httptest.WithHeader("Accept", acceptHeader), // must be last to take priority over hdr["Accept"] (if that is set)
-			).ExpectHeader(t, test.VersionHeaderKey, test.VersionHeaderValue)
+			)
 
 			if acceptHeader == "text/plain" {
 				// with mismatching Accept header, expect error response
