@@ -78,12 +78,12 @@ func (a *API) handleGetManifests(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account, ok := a.findReducedAccountFromRequest(w, r, authz)
-	if !ok {
+	account, err := a.findReducedAccountFromRequest(r, authz)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
-	repo := a.findRepositoryFromRequest(w, r, account.Name)
-	if repo == nil {
+	repo, err := a.findRepositoryFromRequest(r, account.Name)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -201,12 +201,12 @@ func (a *API) handleDeleteManifest(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account, ok := a.findReducedAccountFromRequest(w, r, authz)
-	if !ok {
+	account, err := a.findReducedAccountFromRequest(r, authz)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
-	repo := a.findRepositoryFromRequest(w, r, account.Name)
-	if repo == nil {
+	repo, err := a.findRepositoryFromRequest(r, account.Name)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	parsedDigest, err := digest.Parse(mux.Vars(r)["digest"])
@@ -241,12 +241,12 @@ func (a *API) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account, ok := a.findReducedAccountFromRequest(w, r, authz)
-	if !ok {
+	account, err := a.findReducedAccountFromRequest(r, authz)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
-	repo := a.findRepositoryFromRequest(w, r, account.Name)
-	if repo == nil {
+	repo, err := a.findRepositoryFromRequest(r, account.Name)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	tagName := mux.Vars(r)["tag_name"]
@@ -277,12 +277,12 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account, ok := a.findReducedAccountFromRequest(w, r, authz)
-	if !ok {
+	account, err := a.findReducedAccountFromRequest(r, authz)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
-	err := api.CheckRateLimit(r, w, a.rle, account, authz, keppel.TrivyReportRetrieveAction, 1)
+	err = api.CheckRateLimit(r, w, a.rle, account, authz, keppel.TrivyReportRetrieveAction, 1)
 	if err != nil {
 		if rerr, ok := errext.As[*keppel.RegistryV2Error](err); ok && rerr != nil {
 			rerr.WriteAsRegistryV2ResponseTo(w, r)
@@ -292,8 +292,8 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	repo := a.findRepositoryFromRequest(w, r, account.Name)
-	if repo == nil {
+	repo, err := a.findRepositoryFromRequest(r, account.Name)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	parsedDigest, err := digest.Parse(mux.Vars(r)["digest"])

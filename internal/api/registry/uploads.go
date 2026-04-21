@@ -494,6 +494,8 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
+// TODO: remove `w` argument and return errors using respondwith.CustomStatus(), like in findAccountFromRequest()
+// TODO: return non-pointer arguments to avoid useless heap allocations
 func (a *API) findUpload(w http.ResponseWriter, r *http.Request, repo models.ReducedRepository) *models.Upload {
 	uploadUUID := mux.Vars(r)["uuid"]
 

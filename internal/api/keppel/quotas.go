@@ -39,8 +39,8 @@ func (a *API) handlePutQuotas(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req processor.QuotaRequest
-	ok := decodeJSONRequestBody(w, r.Body, &req)
-	if !ok {
+	err := decodeJSONRequestBody(r.Body, &req)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 

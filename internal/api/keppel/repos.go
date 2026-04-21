@@ -66,8 +66,8 @@ func (a *API) handleGetRepositories(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account, ok := a.findReducedAccountFromRequest(w, r, authz)
-	if !ok {
+	account, err := a.findReducedAccountFromRequest(r, authz)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -162,7 +162,7 @@ var (
 	`)
 )
 
-func (a *API) deleteAllManifestsInRepository(r *http.Request, authz *auth.Authorization, repo *models.Repository, account models.ReducedAccount, tagPolicies []keppel.TagPolicy) error {
+func (a *API) deleteAllManifestsInRepository(r *http.Request, authz *auth.Authorization, repo models.Repository, account models.ReducedAccount, tagPolicies []keppel.TagPolicy) error {
 	// can only delete repository when first deleting all manifests which reference others
 	deletedManifestCount := 0
 	err := sqlext.ForeachRow(a.db, deleteRepositoryFindManifestsQuery, []any{repo.ID},
@@ -217,12 +217,12 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account, ok := a.findAccountFromRequest(w, r, authz)
-	if !ok {
+	account, err := a.findAccountFromRequest(r, authz)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
-	repo := a.findRepositoryFromRequest(w, r, account.Name)
-	if repo == nil {
+	repo, err := a.findRepositoryFromRequest(r, account.Name)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -275,7 +275,7 @@ func (a *API) handleDeleteRepository(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = tx.Delete(repo)
+	_, err = tx.Delete(&repo)
 	if err == nil {
 		err = tx.Commit()
 	}
