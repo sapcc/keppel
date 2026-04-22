@@ -12,10 +12,10 @@ type Quotas struct {
 }
 
 // DefaultQuotas creates a new Quotas instance with the default quotas.
-func DefaultQuotas(authTenantID string) *Quotas {
+func DefaultQuotas(authTenantID string) Quotas {
 	// Right now, the default quota is always 0. The value of having this function
 	// is to ensure that we only need to change this place if this ever changes.
-	return &Quotas{
+	return Quotas{
 		AuthTenantID:  authTenantID,
 		ManifestCount: 0,
 	}

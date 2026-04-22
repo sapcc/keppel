@@ -77,13 +77,12 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	// useful to avoid the accumulation of unreferenced blobs in the account's
 	// backing storage.
 	quotas, err := keppel.FindQuotas(a.db, account.AuthTenantID)
-	if respondWithError(w, r, err) {
+	if errors.Is(err, sql.ErrNoRows) {
+		quotas = models.DefaultQuotas(account.AuthTenantID)
+	} else if respondWithError(w, r, err) {
 		return
 	}
-	if quotas == nil {
-		quotas = models.DefaultQuotas(account.AuthTenantID)
-	}
-	manifestUsage, err := keppel.GetManifestUsage(a.db, *quotas)
+	manifestUsage, err := keppel.GetManifestUsage(a.db, quotas)
 	if respondWithError(w, r, err) {
 		return
 	}

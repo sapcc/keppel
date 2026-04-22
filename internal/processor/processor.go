@@ -5,6 +5,8 @@ package processor
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -104,13 +106,12 @@ func (p *Processor) insideTransaction(ctx context.Context, action func(context.C
 func (p *Processor) checkQuotaForManifestPush(account models.ReducedAccount) error {
 	// check if user has enough quota to push a manifest
 	quotas, err := keppel.FindQuotas(p.db, account.AuthTenantID)
-	if err != nil {
+	if errors.Is(err, sql.ErrNoRows) {
+		quotas = models.DefaultQuotas(account.AuthTenantID)
+	} else if err != nil {
 		return err
 	}
-	if quotas == nil {
-		quotas = models.DefaultQuotas(account.AuthTenantID)
-	}
-	manifestUsage, err := keppel.GetManifestUsage(p.db, *quotas)
+	manifestUsage, err := keppel.GetManifestUsage(p.db, quotas)
 	if err != nil {
 		return err
 	}

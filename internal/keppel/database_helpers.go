@@ -140,16 +140,12 @@ func FindManifestByRepositoryName(db gorp.SqlExecutor, repoName string, accountN
 	return &manifest, err
 }
 
-// FindQuotas works similar to db.SelectOne(), but returns nil instead of
-// sql.ErrNoRows if no quota set exists for this auth tenant.
-func FindQuotas(db gorp.SqlExecutor, authTenantID string) (*models.Quotas, error) {
+// FindQuotas works similar to db.SelectOne().
+// If the quota does not exist, sql.ErrNoRows is returned.
+func FindQuotas(db gorp.SqlExecutor, authTenantID string) (models.Quotas, error) {
 	var quotas models.Quotas
-	err := db.SelectOne(&quotas,
-		"SELECT * FROM quotas WHERE auth_tenant_id = $1", authTenantID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	return &quotas, err
+	err := db.SelectOne(&quotas, "SELECT * FROM quotas WHERE auth_tenant_id = $1", authTenantID)
+	return quotas, err
 }
 
 var manifestUsageQuery = sqlext.SimplifyWhitespace(`
