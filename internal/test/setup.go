@@ -213,7 +213,7 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 		t.Fatal("test.WithoutCurrentIssuerKey requires test.WithPreviousIssuerKey")
 	}
 	if params.WithPreviousIssuerKey {
-		key := must.ReturnT(keppel.ParseIssuerKey(UnitTestIssuerRSAPrivateKey))(t)
+		key := must.ReturnT(keppel.ParseIssuerKey(UnitTestIssuerEd25519SecondPrivateKey))(t)
 		s.Config.JWTIssuerKeys = append(s.Config.JWTIssuerKeys, key)
 	}
 	if !params.WithoutCurrentIssuerKey {
@@ -250,7 +250,7 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 		s.Config.AnycastAPIPublicHostname = "registry-global.example.org"
 
 		if params.WithPreviousIssuerKey {
-			key := must.ReturnT(keppel.ParseIssuerKey(UnitTestAnycastIssuerRSAPrivateKey))(t)
+			key := must.ReturnT(keppel.ParseIssuerKey(UnitTestAnycastIssuerEd25519SecondPrivateKey))(t)
 			s.Config.AnycastJWTIssuerKeys = append(s.Config.AnycastJWTIssuerKeys, key)
 		}
 		if !params.WithoutCurrentIssuerKey {
