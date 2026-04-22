@@ -173,7 +173,7 @@ func (a *API) performCrossRepositoryBlobMount(account models.ReducedAccount, tar
 	}
 
 	// create blob mount if missing
-	err = keppel.MountBlobIntoRepo(a.db, *blob, targetRepo)
+	err = keppel.MountBlobIntoRepo(a.db, blob, targetRepo)
 	if err != nil {
 		return nil, err
 	}
