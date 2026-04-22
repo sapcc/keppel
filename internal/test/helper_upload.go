@@ -61,11 +61,11 @@ func (b Bytes) MustUpload(t *testing.T, s Setup, repo models.Repository) models.
 	// are usually given a Repository instance that does not have the ID field
 	// filled)
 	blob := must.ReturnT(keppel.FindBlobByRepositoryName(s.DB, b.Digest, repo.Name, repo.AccountName))(t)
-	s.ExpectBlobsExistInStorage(t, *blob)
+	s.ExpectBlobsExistInStorage(t, blob)
 	if t.Failed() {
 		t.FailNow()
 	}
-	return *blob
+	return blob
 }
 
 var checkBlobExistsQuery = sqlext.SimplifyWhitespace(`

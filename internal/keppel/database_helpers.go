@@ -73,10 +73,10 @@ var blobGetQueryByAccountName = sqlext.SimplifyWhitespace(`
 
 // FindBlobByRepositoryName is a convenience wrapper around db.SelectOne(). If
 // the blob in question does not exist, sql.ErrNoRows is returned.
-func FindBlobByRepositoryName(db gorp.SqlExecutor, blobDigest digest.Digest, repoName string, accountName models.AccountName) (*models.Blob, error) {
+func FindBlobByRepositoryName(db gorp.SqlExecutor, blobDigest digest.Digest, repoName string, accountName models.AccountName) (models.Blob, error) {
 	var blob models.Blob
 	err := db.SelectOne(&blob, blobGetQueryByRepoName, accountName, blobDigest.String(), repoName)
-	return &blob, err
+	return blob, err
 }
 
 // FindBlobByRepository is a convenience wrapper around db.SelectOne(). If
