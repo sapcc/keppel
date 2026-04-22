@@ -375,7 +375,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	dw, rerr := a.resumeUpload(r.Context(), *account, &upload, r.URL.Query().Get("state"))
+	dw, rerr := a.resumeUpload(r.Context(), *account, upload, r.URL.Query().Get("state"))
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return
@@ -431,7 +431,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	query := r.URL.Query()
-	dw, rerr := a.resumeUpload(r.Context(), *account, &upload, query.Get("state"))
+	dw, rerr := a.resumeUpload(r.Context(), *account, upload, query.Get("state"))
 	if rerr != nil {
 		rerr.WriteAsRegistryV2ResponseTo(w, r)
 		return
@@ -509,7 +509,7 @@ func (a *API) findUpload(w http.ResponseWriter, r *http.Request, repo models.Red
 	return upload, true
 }
 
-func (a *API) resumeUpload(ctx context.Context, account models.ReducedAccount, upload *models.Upload, stateStr string) (dw *digestWriter, returnErr *keppel.RegistryV2Error) {
+func (a *API) resumeUpload(ctx context.Context, account models.ReducedAccount, upload models.Upload, stateStr string) (dw *digestWriter, returnErr *keppel.RegistryV2Error) {
 	// when encountering an error, cancel the upload entirely
 	defer func() {
 		if returnErr != nil {
@@ -519,7 +519,7 @@ func (a *API) resumeUpload(ctx context.Context, account models.ReducedAccount, u
 			if err != nil {
 				logg.Error("additional error encountered during AbortBlobUpload: " + err.Error())
 			}
-			_, err = a.db.Delete(upload)
+			_, err = a.db.Delete(&upload)
 			if err != nil {
 				logg.Error("additional error encountered while deleting Upload from DB: " + err.Error())
 			}
@@ -605,7 +605,10 @@ func (a *API) parseContentRange(upload models.Upload, hdr http.Header) (uint64, 
 	return length, nil
 }
 
-// TODO: remove pointer types from signature
+// The remaining pointers cannot be removed because:
+// upload is written back to without returning it
+// digestWriter must be a pointer
+// chunkSizeBytes might be unknown.
 func (a *API) streamIntoUpload(ctx context.Context, account models.ReducedAccount, upload *models.Upload, dw *digestWriter, chunk io.Reader, chunkSizeBytes *uint64) (digestState string, returnErr error) {
 	// if anything happens during this operation, we likely have produced an
 	// inconsistent state between DB, storage backend and our internal book
