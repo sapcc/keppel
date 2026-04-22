@@ -385,7 +385,7 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 	// parse and validate them
 	chunkSizeBytes := (*uint64)(nil)
 	if r.Header.Get("Content-Range") != "" {
-		lengthBytes, err := a.parseContentRange(&upload, r.Header)
+		lengthBytes, err := a.parseContentRange(upload, r.Header)
 		if err != nil {
 			keppel.ErrSizeInvalid.With(err.Error()).WithStatus(http.StatusRequestedRangeNotSatisfiable).WriteAsRegistryV2ResponseTo(w, r)
 
@@ -569,8 +569,7 @@ func (a *API) resumeUpload(ctx context.Context, account models.ReducedAccount, u
 var contentRangeRx = regexp.MustCompile(`^([0-9]+)-([0-9]+)$`)
 
 // On success, returns the number of bytes that should be in this request's body.
-// TODO: remove upload pointer
-func (a *API) parseContentRange(upload *models.Upload, hdr http.Header) (uint64, error) {
+func (a *API) parseContentRange(upload models.Upload, hdr http.Header) (uint64, error) {
 	// some clients format Content-Range as `bytes=123-456` instead of just `123-456`
 	contentRangeStr := strings.TrimPrefix(hdr.Get("Content-Range"), "bytes=")
 
