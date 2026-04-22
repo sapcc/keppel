@@ -70,8 +70,8 @@ func (a *API) handleGetAccount(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account, ok := a.findAccountFromRequest(w, r, authz)
-	if !ok {
+	account, err := a.findAccountFromRequest(r, authz)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -88,8 +88,8 @@ func (a *API) handlePutAccount(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Account keppel.Account `json:"account"`
 	}
-	ok := decodeJSONRequestBody(w, r.Body, &req)
-	if !ok {
+	err := decodeJSONRequestBody(r.Body, &req)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 	// we do not allow to set name in the request body ...
@@ -148,8 +148,8 @@ func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	if authz == nil {
 		return
 	}
-	account, ok := a.findAccountFromRequest(w, r, authz)
-	if !ok {
+	account, err := a.findAccountFromRequest(r, authz)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -158,7 +158,7 @@ func (a *API) handleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := a.processor().MarkAccountForDeletion(account, keppel.AuditContext{
+	err = a.processor().MarkAccountForDeletion(account, keppel.AuditContext{
 		UserIdentity: authz.UserIdentity,
 		Request:      r,
 	})
@@ -175,8 +175,8 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 	if authz == nil {
 		return
 	}
-	account, ok := a.findReducedAccountFromRequest(w, r, authz)
-	if !ok {
+	account, err := a.findReducedAccountFromRequest(r, authz)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -190,7 +190,6 @@ func (a *API) handlePostAccountSublease(w http.ResponseWriter, r *http.Request) 
 		PrimaryHostname: a.cfg.APIPublicHostname,
 	}
 
-	var err error
 	st.Secret, err = a.fd.IssueSubleaseTokenSecret(r.Context(), account)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
@@ -204,8 +203,8 @@ func (a *API) handleGetSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 	if authz == nil {
 		return
 	}
-	account, ok := a.findAccountFromRequest(w, r, authz)
-	if !ok {
+	account, err := a.findAccountFromRequest(r, authz)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -222,14 +221,14 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 	if authz == nil {
 		return
 	}
-	account, ok := a.findAccountFromRequest(w, r, authz)
-	if !ok {
+	account, err := a.findAccountFromRequest(r, authz)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
 	// decode existing policies
 	var dbPolicies []keppel.SecurityScanPolicy
-	err := json.Unmarshal([]byte(account.SecurityScanPoliciesJSON), &dbPolicies)
+	err = json.Unmarshal([]byte(account.SecurityScanPoliciesJSON), &dbPolicies)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
@@ -238,8 +237,8 @@ func (a *API) handlePutSecurityScanPolicies(w http.ResponseWriter, r *http.Reque
 	var req struct {
 		Policies []keppel.SecurityScanPolicy `json:"policies"`
 	}
-	ok = decodeJSONRequestBody(w, r.Body, &req)
-	if !ok {
+	err = decodeJSONRequestBody(r.Body, &req)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 

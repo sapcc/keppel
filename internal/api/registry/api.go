@@ -135,7 +135,7 @@ func (a *API) handleToplevel(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, map[string]any{})
 }
 
-// Like respondwith.ObfuscatedErrorText(), but writes a RegistryV2Error instead of plain text.
+// Like respondwith.ErrorText(), but writes a RegistryV2Error instead of plain text.
 func respondWithError(w http.ResponseWriter, r *http.Request, err error) bool {
 	if err == nil {
 		return false
@@ -149,6 +149,7 @@ func respondWithError(w http.ResponseWriter, r *http.Request, err error) bool {
 		return true
 	}
 
+	// TODO: should use obfuscation (like respondwith.ObfuscatedErrorText())
 	keppel.ErrUnknown.With(err.Error()).WriteAsRegistryV2ResponseTo(w, r)
 	return true
 }
@@ -186,6 +187,9 @@ func (info anycastRequestInfo) asPrometheusLabels() prometheus.Labels {
 // If the account does not exist locally, but the request is for the anycast API
 // and the account exists elsewhere, the `anycastHandler` is invoked if given
 // instead of giving a 404 response.
+//
+// TODO: remove `w` argument and return errors using respondwith.CustomStatus(), like in findAccountFromRequest()
+// TODO: return non-pointer arguments to avoid useless heap allocations
 func (a *API) checkAccountAccess(w http.ResponseWriter, r *http.Request, strategy repoAccessStrategy, anycastHandler func(http.ResponseWriter, *http.Request, anycastRequestInfo)) (*models.ReducedAccount, *models.ReducedRepository, *auth.Authorization, *auth.Challenge) {
 	// must be set even for 401 responses!
 	w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")

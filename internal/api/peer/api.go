@@ -36,6 +36,7 @@ func (a *API) AddTo(r *mux.Router) {
 	r.Methods("POST").Path("/peer/v1/sync-replica/{account}/{repo:.+}").HandlerFunc(a.handleSyncReplica)
 }
 
+// TODO: remove `w` argument and return errors using respondwith.CustomStatus(), like in findAccountFromRequest()
 func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request) *models.Peer {
 	authz, _, rerr := auth.IncomingRequest{
 		HTTPRequest: r,

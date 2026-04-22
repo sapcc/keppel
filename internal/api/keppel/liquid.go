@@ -42,8 +42,8 @@ func (a *API) handleLiquidReportCapacity(w http.ResponseWriter, r *http.Request)
 
 	// we don't need the request data, but we check it to satisfy the spec
 	var req liquid.ServiceCapacityRequest
-	ok := decodeJSONRequestBody(w, r.Body, &req)
-	if !ok {
+	err := decodeJSONRequestBody(r.Body, &req)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -64,8 +64,8 @@ func (a *API) handleLiquidReportUsage(w http.ResponseWriter, r *http.Request) {
 
 	// we don't need the request data, but we check it to satisfy the spec
 	var req liquid.ServiceUsageRequest
-	ok := decodeJSONRequestBody(w, r.Body, &req)
-	if !ok {
+	err := decodeJSONRequestBody(r.Body, &req)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
@@ -85,12 +85,12 @@ func (a *API) handleLiquidSetQuota(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req liquid.ServiceQuotaRequest
-	ok := decodeJSONRequestBody(w, r.Body, &req)
-	if !ok {
+	err := decodeJSONRequestBody(r.Body, &req)
+	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
 
-	_, err := a.processor().SetQuotas(authTenantID, liquidConvertQuotaRequest(req), authz.UserIdentity.UserInfo(), r)
+	_, err = a.processor().SetQuotas(authTenantID, liquidConvertQuotaRequest(req), authz.UserIdentity.UserInfo(), r)
 	if iqerr, ok := errext.As[processor.ImpossibleQuotaError](err); ok {
 		http.Error(w, iqerr.Message, http.StatusUnprocessableEntity)
 		return

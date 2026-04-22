@@ -143,6 +143,7 @@ func repoScopeFromRequest(r *http.Request, perm keppel.Permission) auth.ScopeSet
 	})
 }
 
+// TODO: remove `w` argument and return errors using respondwith.CustomStatus(), like in findAccountFromRequest()
 func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request, ss auth.ScopeSet) *auth.Authorization {
 	authz, _, rerr := auth.IncomingRequest{
 		HTTPRequest:          r,
@@ -157,69 +158,72 @@ func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request, ss aut
 	return authz
 }
 
+var (
+	errAccountNotFound   = errors.New("account not found")
+	errAccountIsDeleting = errors.New("account is being deleted")
+	errRepoNameInvalid   = errors.New("repo name invalid")
+	errRepoNotFound      = errors.New("repository not found")
+)
+
 // NOTE: The *auth.Authorization argument is only used to ensure that we call authenticateRequest
 // first. This is important because this function may otherwise leak information about whether
 // accounts exist or not to unauthorized users.
-func (a *API) findAccountFromRequest(w http.ResponseWriter, r *http.Request, _ *auth.Authorization) (models.Account, bool) {
+func (a *API) findAccountFromRequest(r *http.Request, _ *auth.Authorization) (models.Account, error) {
 	accountName := models.AccountName(mux.Vars(r)["account"])
 	account, err := keppel.FindAccount(a.db, accountName)
-	if errors.Is(err, sql.ErrNoRows) {
-		http.Error(w, "account not found", http.StatusNotFound)
-		return models.Account{}, false
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return models.Account{}, respondwith.CustomStatus(http.StatusNotFound, errAccountNotFound)
+	case err != nil:
+		return models.Account{}, err
+	case account.IsDeleting && r.Method == http.MethodGet:
+		return models.Account{}, respondwith.CustomStatus(http.StatusConflict, errAccountIsDeleting)
+	default:
+		return account, nil
 	}
-	if respondwith.ObfuscatedErrorText(w, err) {
-		return models.Account{}, false
-	}
-	if account.IsDeleting && r.Method == http.MethodGet {
-		http.Error(w, "account is being deleted", http.StatusConflict)
-		return models.Account{}, false
-	}
-	return account, true
-}
-func (a *API) findReducedAccountFromRequest(w http.ResponseWriter, r *http.Request, _ *auth.Authorization) (models.ReducedAccount, bool) {
-	accountName := models.AccountName(mux.Vars(r)["account"])
-	account, err := keppel.FindReducedAccount(a.db, accountName)
-	if errors.Is(err, sql.ErrNoRows) {
-		http.Error(w, "account not found", http.StatusNotFound)
-		return models.ReducedAccount{}, false
-	}
-	if respondwith.ObfuscatedErrorText(w, err) {
-		return models.ReducedAccount{}, false
-	}
-	if account.IsDeleting && r.Method == http.MethodGet {
-		http.Error(w, "account is being deleted", http.StatusConflict)
-		return models.ReducedAccount{}, false
-	}
-	return account, true
 }
 
-func (a *API) findRepositoryFromRequest(w http.ResponseWriter, r *http.Request, accountName models.AccountName) *models.Repository {
+func (a *API) findReducedAccountFromRequest(r *http.Request, _ *auth.Authorization) (models.ReducedAccount, error) {
+	accountName := models.AccountName(mux.Vars(r)["account"])
+	account, err := keppel.FindReducedAccount(a.db, accountName)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return models.ReducedAccount{}, respondwith.CustomStatus(http.StatusNotFound, errAccountNotFound)
+	case err != nil:
+		return models.ReducedAccount{}, err
+	case account.IsDeleting && r.Method == http.MethodGet:
+		return models.ReducedAccount{}, respondwith.CustomStatus(http.StatusConflict, errAccountIsDeleting)
+	default:
+		return account, nil
+	}
+}
+
+func (a *API) findRepositoryFromRequest(r *http.Request, accountName models.AccountName) (models.Repository, error) {
 	repoName := mux.Vars(r)["repo_name"]
 	if !isValidRepoName(repoName) {
-		http.Error(w, "repo name invalid", http.StatusUnprocessableEntity)
-		return nil
+		return models.Repository{}, respondwith.CustomStatus(http.StatusUnprocessableEntity, errRepoNameInvalid)
 	}
 
 	repo, err := keppel.FindRepository(a.db, repoName, accountName)
-	if errors.Is(err, sql.ErrNoRows) {
-		http.Error(w, "repository not found", http.StatusNotFound)
-		return nil
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return models.Repository{}, respondwith.CustomStatus(http.StatusNotFound, errRepoNotFound)
+	case err != nil:
+		return models.Repository{}, err
+	default:
+		return *repo, nil
 	}
-	if respondwith.ObfuscatedErrorText(w, err) {
-		return nil
-	}
-	return repo
 }
 
-func decodeJSONRequestBody(w http.ResponseWriter, body io.Reader, target any) (ok bool) {
+func decodeJSONRequestBody(body io.Reader, target any) error {
 	decoder := json.NewDecoder(body)
 	decoder.DisallowUnknownFields()
 	err := decoder.Decode(&target)
 	if err != nil {
-		http.Error(w, "request body is not valid JSON: "+err.Error(), http.StatusBadRequest)
-		return false
+		err = fmt.Errorf("request body is not valid JSON: %w", err)
+		return respondwith.CustomStatus(http.StatusBadRequest, err)
 	}
-	return true
+	return nil
 }
 
 func isValidRepoName(name string) bool {
