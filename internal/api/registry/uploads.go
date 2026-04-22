@@ -507,7 +507,7 @@ func (a *API) findUpload(w http.ResponseWriter, r *http.Request, repo models.Red
 		return nil
 	}
 
-	return upload
+	return &upload
 }
 
 func (a *API) resumeUpload(ctx context.Context, account models.ReducedAccount, upload *models.Upload, stateStr string) (dw *digestWriter, returnErr *keppel.RegistryV2Error) {

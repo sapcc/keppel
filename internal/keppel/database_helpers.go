@@ -110,10 +110,10 @@ var uploadGetQueryByRepoID = sqlext.SimplifyWhitespace(`
 
 // FindUploadByRepository is a convenience wrapper around db.SelectOne(). If
 // the upload in question does not exist, sql.ErrNoRows is returned.
-func FindUploadByRepository(db gorp.SqlExecutor, uuid string, repo models.ReducedRepository) (*models.Upload, error) {
+func FindUploadByRepository(db gorp.SqlExecutor, uuid string, repo models.ReducedRepository) (models.Upload, error) {
 	var upload models.Upload
 	err := db.SelectOne(&upload, uploadGetQueryByRepoID, uuid, repo.ID)
-	return &upload, err
+	return upload, err
 }
 
 // FindManifest is a convenience wrapper around db.SelectOne(). If the
