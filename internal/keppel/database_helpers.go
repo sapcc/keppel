@@ -89,10 +89,10 @@ func FindBlobByRepository(db gorp.SqlExecutor, blobDigest digest.Digest, repo mo
 
 // FindBlobByAccountName is a convenience wrapper around db.SelectOne(). If the
 // blob in question does not exist, sql.ErrNoRows is returned.
-func FindBlobByAccountName(db gorp.SqlExecutor, blobDigest digest.Digest, accountName models.AccountName) (*models.Blob, error) {
+func FindBlobByAccountName(db gorp.SqlExecutor, blobDigest digest.Digest, accountName models.AccountName) (models.Blob, error) {
 	var blob models.Blob
 	err := db.SelectOne(&blob, blobGetQueryByAccountName, accountName, blobDigest.String())
-	return &blob, err
+	return blob, err
 }
 
 // MountBlobIntoRepo creates an entry in the blob_mounts database table.
