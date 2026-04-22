@@ -112,11 +112,11 @@ func (i Image) MustUpload(t *testing.T, s Setup, repo models.Repository, tagName
 
 	// validate uploaded manifest
 	manifest := must.ReturnT(keppel.FindManifestByRepositoryName(s.DB, repo.Name, repo.AccountName, i.Manifest.Digest))(t)
-	s.ExpectManifestsExistInStorage(t, repo.Name, *manifest)
+	s.ExpectManifestsExistInStorage(t, repo.Name, manifest)
 	if t.Failed() {
 		t.FailNow()
 	}
-	return *manifest
+	return manifest
 }
 
 var checkManifestExistsQuery = sqlext.SimplifyWhitespace(`
@@ -165,9 +165,9 @@ func (l ImageList) MustUpload(t *testing.T, s Setup, repo models.Repository, tag
 
 	// validate uploaded manifest
 	manifest := must.ReturnT(keppel.FindManifestByRepositoryName(s.DB, repo.Name, repo.AccountName, l.Manifest.Digest))(t)
-	s.ExpectManifestsExistInStorage(t, repo.Name, *manifest)
+	s.ExpectManifestsExistInStorage(t, repo.Name, manifest)
 	if t.Failed() {
 		t.FailNow()
 	}
-	return *manifest
+	return manifest
 }
