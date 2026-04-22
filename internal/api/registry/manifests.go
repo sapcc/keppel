@@ -171,7 +171,7 @@ func (a *API) handleGetOrHeadManifest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.FormatUint(uint64(len(manifestBytes)), 10))
 	w.Header().Set("Content-Type", dbManifest.MediaType)
 	w.Header().Set("Docker-Content-Digest", dbManifest.Digest.String())
-	if securityInfo != nil {
+	if !errors.Is(err, sql.ErrNoRows) {
 		w.Header().Set("X-Keppel-Vulnerability-Status", string(securityInfo.VulnerabilityStatus))
 	}
 	if t, ok := dbManifest.MinLayerCreatedAt.Unpack(); ok {

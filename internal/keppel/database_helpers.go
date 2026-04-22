@@ -178,25 +178,24 @@ func AtLeastZero[I interface{ int | int64 }](x I) uint64 {
 
 // FindOrCreateRepository works similar to db.SelectOne(), but autovivifies a
 // Repository record when none exists yet.
-func FindOrCreateRepository(db gorp.SqlExecutor, name string, accountName models.AccountName) (*models.Repository, error) {
+func FindOrCreateRepository(db gorp.SqlExecutor, name string, accountName models.AccountName) (models.Repository, error) {
 	repo, err := FindRepository(db, name, accountName)
 	if errors.Is(err, sql.ErrNoRows) {
-		repo = &models.Repository{
+		repo = models.Repository{
 			Name:        name,
 			AccountName: accountName,
 		}
-		err = db.Insert(repo)
+		err = db.Insert(&repo)
 	}
 	return repo, err
 }
 
 // FindRepository is a convenience wrapper around db.SelectOne(). If the
 // repository in question does not exist, sql.ErrNoRows is returned.
-func FindRepository(db gorp.SqlExecutor, name string, accountName models.AccountName) (*models.Repository, error) {
+func FindRepository(db gorp.SqlExecutor, name string, accountName models.AccountName) (models.Repository, error) {
 	var repo models.Repository
-	err := db.SelectOne(&repo,
-		"SELECT * FROM repos WHERE account_name = $1 AND name = $2", accountName, name)
-	return &repo, err
+	err := db.SelectOne(&repo, "SELECT * FROM repos WHERE account_name = $1 AND name = $2", accountName, name)
+	return repo, err
 }
 
 // FindOrCreateReducedRepository is like [FindOrCreateRepository], but is faster because it returns a ReducedRepository.
@@ -226,17 +225,16 @@ func FindReducedRepository(db gorp.SqlExecutor, name string, accountName models.
 
 // FindRepositoryByID is a convenience wrapper around db.SelectOne(). If the
 // repository in question does not exist, sql.ErrNoRows is returned.
-func FindRepositoryByID(db gorp.SqlExecutor, id int64) (*models.Repository, error) {
+func FindRepositoryByID(db gorp.SqlExecutor, id int64) (models.Repository, error) {
 	var repo models.Repository
-	err := db.SelectOne(&repo,
-		"SELECT * FROM repos WHERE id = $1", id)
-	return &repo, err
+	err := db.SelectOne(&repo, "SELECT * FROM repos WHERE id = $1", id)
+	return repo, err
 }
 
 // GetSecurityInfo is a convenience wrapper around db.SelectOne(). If the
 // securityInfo in question does not exist, sql.ErrNoRows is returned.
-func GetSecurityInfo(db gorp.SqlExecutor, repoID int64, manifestDigest digest.Digest) (*models.TrivySecurityInfo, error) {
-	var securityInfo *models.TrivySecurityInfo
+func GetSecurityInfo(db gorp.SqlExecutor, repoID int64, manifestDigest digest.Digest) (models.TrivySecurityInfo, error) {
+	var securityInfo models.TrivySecurityInfo
 	err := db.SelectOne(&securityInfo,
 		"SELECT * FROM trivy_security_info WHERE repo_id = $1 and digest = $2",
 		repoID, manifestDigest,

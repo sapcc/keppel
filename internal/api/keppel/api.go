@@ -211,7 +211,7 @@ func (a *API) findRepositoryFromRequest(r *http.Request, accountName models.Acco
 	case err != nil:
 		return models.Repository{}, err
 	default:
-		return *repo, nil
+		return repo, nil
 	}
 }
 
