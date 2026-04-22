@@ -15,7 +15,6 @@ import (
 )
 
 // TODO: rework all functions that may return nil to instead return sql.ErrNoRows
-// TODO: then make all functions return their result without a pointer indirection
 
 // FindAccount works similar to db.SelectOne().
 func FindAccount(db gorp.SqlExecutor, name models.AccountName) (models.Account, error) {
@@ -118,11 +117,11 @@ func FindUploadByRepository(db gorp.SqlExecutor, uuid string, repo models.Reduce
 
 // FindManifest is a convenience wrapper around db.SelectOne(). If the
 // manifest in question does not exist, sql.ErrNoRows is returned.
-func FindManifest(db gorp.SqlExecutor, repo models.ReducedRepository, manifestDigest digest.Digest) (*models.Manifest, error) {
+func FindManifest(db gorp.SqlExecutor, repo models.ReducedRepository, manifestDigest digest.Digest) (models.Manifest, error) {
 	var manifest models.Manifest
 	err := db.SelectOne(&manifest,
 		"SELECT * FROM manifests WHERE repo_id = $1 AND digest = $2", repo.ID, manifestDigest)
-	return &manifest, err
+	return manifest, err
 }
 
 var manifestGetQueryByRepoName = sqlext.SimplifyWhitespace(`

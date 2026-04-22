@@ -648,7 +648,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 		return nil
 	}
 
-	continueCheck, layerBlobs, err := j.checkPreConditionsForTrivy(ctx, account.Reduced(), repo, *manifest, securityInfo)
+	continueCheck, layerBlobs, err := j.checkPreConditionsForTrivy(ctx, account.Reduced(), repo, manifest, securityInfo)
 	if err != nil {
 		return err
 	}
