@@ -266,7 +266,7 @@ func (a *API) performMonolithicUpload(w http.ResponseWriter, r *http.Request, ac
 	if respondWithError(w, r, err) {
 		return false
 	}
-	err = keppel.MountBlobIntoRepo(tx, *blob, repo)
+	err = keppel.MountBlobIntoRepo(tx, blob, repo)
 	if respondWithError(w, r, err) {
 		return false
 	}
@@ -461,7 +461,7 @@ func (a *API) handleFinishBlobUpload(w http.ResponseWriter, r *http.Request) {
 	// chance that unexpected errors could leave us with a dangling blob in the
 	// storage that the DB does not know about, but the storage sweep can clean
 	// that up later.
-	var blob *models.Blob
+	var blob models.Blob
 	err := a.sd.FinalizeBlob(r.Context(), *account, upload.StorageID, upload.NumChunks)
 	if err == nil {
 		blob, err = a.createBlobFromUpload(r.Context(), *account, *repo, *upload, query.Get("digest"))
@@ -661,39 +661,39 @@ func (a *API) streamIntoUpload(ctx context.Context, account models.ReducedAccoun
 	return base64.URLEncoding.EncodeToString(digestStateBytes), nil
 }
 
-func (a *API) createBlobFromUpload(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, upload models.Upload, blobDigestStr string) (blob *models.Blob, returnErr error) {
+func (a *API) createBlobFromUpload(ctx context.Context, account models.ReducedAccount, repo models.ReducedRepository, upload models.Upload, blobDigestStr string) (blob models.Blob, returnErr error) {
 	// validate the digest provided by the user
 	if blobDigestStr == "" {
-		return nil, keppel.ErrDigestInvalid.With("missing digest")
+		return models.Blob{}, keppel.ErrDigestInvalid.With("missing digest")
 	}
 	blobDigest, err := digest.Parse(blobDigestStr)
 	if err != nil {
-		return nil, keppel.ErrDigestInvalid.With(err.Error())
+		return models.Blob{}, keppel.ErrDigestInvalid.With(err.Error())
 	}
 	if blobDigest.String() != upload.Digest {
-		return nil, keppel.ErrDigestInvalid.With("")
+		return models.Blob{}, keppel.ErrDigestInvalid.With("")
 	}
 
 	// prepare database changes
 	tx, err := a.db.Begin()
 	if err != nil {
-		return nil, err
+		return models.Blob{}, err
 	}
 	defer sqlext.RollbackUnlessCommitted(tx)
 
 	_, err = tx.Delete(&upload)
 	if err != nil {
-		return nil, err
+		return models.Blob{}, err
 	}
 
 	blobPushedAt := a.timeNow()
 	blob, err = a.createOrUpdateBlobObject(ctx, tx, upload.SizeBytes, upload.StorageID, blobDigest, blobPushedAt, account)
 	if err != nil {
-		return nil, err
+		return models.Blob{}, err
 	}
-	err = keppel.MountBlobIntoRepo(tx, *blob, repo)
+	err = keppel.MountBlobIntoRepo(tx, blob, repo)
 	if err != nil {
-		return nil, err
+		return models.Blob{}, err
 	}
 	return blob, tx.Commit()
 }
@@ -707,8 +707,7 @@ var insertBlobIfMissingQuery = sqlext.SimplifyWhitespace(`
 // Insert a Blob object in the database. This is similar to building a
 // keppel.Blob and doing tx.Insert(blob), but handles a collision where another
 // blob with the same account name and digest already exists in the database.
-// TODO: remove returned pointer
-func (a *API) createOrUpdateBlobObject(ctx context.Context, tx *gorp.Transaction, sizeBytes uint64, storageID string, blobDigest digest.Digest, blobPushedAt time.Time, account models.ReducedAccount) (*models.Blob, error) {
+func (a *API) createOrUpdateBlobObject(ctx context.Context, tx *gorp.Transaction, sizeBytes uint64, storageID string, blobDigest digest.Digest, blobPushedAt time.Time, account models.ReducedAccount) (models.Blob, error) {
 	// try to insert the blob atomically (I would like to SELECT the result
 	// directly via `RETURNING *`, but that gives sql.ErrNoRows when nothing was
 	// inserted because of ON CONFLICT, so in the general case, we need another
@@ -718,11 +717,11 @@ func (a *API) createOrUpdateBlobObject(ctx context.Context, tx *gorp.Transaction
 		blobPushedAt, blobPushedAt.Add(models.BlobValidationInterval),
 	)
 	if err != nil {
-		return nil, err
+		return models.Blob{}, err
 	}
 	blob, err := keppel.FindBlobByAccountName(tx, blobDigest, account.Name)
 	if err != nil {
-		return nil, err
+		return models.Blob{}, err
 	}
 
 	// if we already had a blob with this digest, there was a CONFLICT and we
@@ -732,12 +731,12 @@ func (a *API) createOrUpdateBlobObject(ctx context.Context, tx *gorp.Transaction
 	if blob.StorageID != storageID {
 		err := a.sd.DeleteBlob(ctx, account, storageID)
 		if err != nil {
-			return nil, fmt.Errorf("while deleting duplicate blob contents for %s at storage ID %s: %w",
+			return models.Blob{}, fmt.Errorf("while deleting duplicate blob contents for %s at storage ID %s: %w",
 				blobDigest, storageID, err)
 		}
 	}
 
-	return &blob, nil
+	return blob, nil
 }
 
 // digestWriter is an io.Writer that writes into the given Hash and also tracks the number of bytes written.
