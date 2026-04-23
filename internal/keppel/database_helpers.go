@@ -14,8 +14,6 @@ import (
 	"github.com/sapcc/keppel/internal/models"
 )
 
-// TODO: rework all functions that may return nil to instead return sql.ErrNoRows
-
 // FindAccount works similar to db.SelectOne().
 func FindAccount(db gorp.SqlExecutor, name models.AccountName) (models.Account, error) {
 	var account models.Account
