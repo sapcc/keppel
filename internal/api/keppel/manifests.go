@@ -18,6 +18,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
+	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/respondwith"
 	"github.com/sapcc/go-bits/sqlext"
 
@@ -359,9 +360,14 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 		if respondwith.ObfuscatedErrorText(w, err) {
 			return
 		}
+		defer buf.Close()
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(buf)
+		_, err = io.Copy(w, buf)
+		if err != nil {
+			logg.Error("IO error while writing Trivy report for %s/%s: %s", repo.FullName(), manifest.Digest, err.Error())
+		}
 		return
 	}
 

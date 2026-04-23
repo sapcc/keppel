@@ -152,9 +152,9 @@ func (d *StorageDriver) DeleteManifest(ctx context.Context, account models.Reduc
 }
 
 // ReadTrivyReport implements the keppel.StorageDriver interface.
-func (d *StorageDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) ([]byte, error) {
+func (d *StorageDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) (io.ReadCloser, error) {
 	path := d.getTrivyReportPath(account, repoName, manifestDigest, format)
-	return os.ReadFile(path)
+	return os.Open(path)
 }
 
 // WriteTrivyReport implements the keppel.StorageDriver interface.

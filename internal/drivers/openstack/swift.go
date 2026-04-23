@@ -319,13 +319,13 @@ func (d *swiftDriver) DeleteManifest(ctx context.Context, account models.Reduced
 }
 
 // ReadTrivyReport implements the keppel.StorageDriver interface.
-func (d *swiftDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) ([]byte, error) {
+func (d *swiftDriver) ReadTrivyReport(ctx context.Context, account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) (io.ReadCloser, error) {
 	c, _, err := d.getBackendConnection(ctx, account)
 	if err != nil {
 		return nil, err
 	}
 	o := c.Object(stringy.TrivyReportObjectName(repoName, manifestDigest, format))
-	return o.Download(ctx, nil).AsByteSlice()
+	return o.Download(ctx, nil).AsReadCloser()
 }
 
 // WriteTrivyReport implements the keppel.StorageDriver interface.

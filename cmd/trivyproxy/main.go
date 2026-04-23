@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -22,6 +23,7 @@ import (
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/httpapi/pprofapi"
 	"github.com/sapcc/go-bits/httpext"
+	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/must"
 	"github.com/sapcc/go-bits/osext"
 	"github.com/spf13/cobra"
@@ -109,17 +111,20 @@ func (a *API) proxyToTrivy(w http.ResponseWriter, r *http.Request) {
 
 	stdout, stderr, err := a.runTrivy(r.Context(), imageURL, format, keppelToken)
 	if err != nil {
-		cleanedErr := strings.ReplaceAll(strings.TrimSpace(string(stderr)), "\n", " ")
+		cleanedErr := strings.ReplaceAll(strings.TrimSpace(stderr.String()), "\n", " ")
 		http.Error(w, fmt.Sprintf("trivy: %s: %s", err, cleanedErr), http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(stdout)
+	w.WriteHeader(http.StatusOK)
+	_, err = io.Copy(w, &stdout)
+	if err != nil {
+		logg.Error("could not write Trivy report for %s to HTTP response body: %s", imageURL, err.Error())
+	}
 }
 
-func (a *API) runTrivy(ctx context.Context, imageURL, format, keppelToken string) (stdout, stderr []byte, err error) {
+func (a *API) runTrivy(ctx context.Context, imageURL, format, keppelToken string) (stdout, stderr bytes.Buffer, err error) {
 	//nolint:gosec // intended behaviour
 	cmd := exec.CommandContext(ctx,
 		"trivy", "image",
@@ -142,5 +147,5 @@ func (a *API) runTrivy(ctx context.Context, imageURL, format, keppelToken string
 	cmd.WaitDelay = 3 * time.Second
 	err = cmd.Run()
 
-	return stdoutBuf.Bytes(), stderrBuf.Bytes(), err
+	return stdoutBuf, stderrBuf, err
 }

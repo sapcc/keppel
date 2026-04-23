@@ -316,8 +316,12 @@ func executeReadTrivyReport(ctx context.Context, sd keppel.StorageDriver, accoun
 	if err != nil {
 		logg.Fatal("ReadTrivyReport failed: %s", err.Error())
 	}
+	defer result.Close()
 
-	os.Stdout.Write(result)
+	_, err = io.Copy(os.Stdout, result)
+	if err != nil {
+		logg.Fatal("failed to write trivy report contents: %s", err.Error())
+	}
 }
 
 func executeWriteTrivyReport(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, args []string) {
