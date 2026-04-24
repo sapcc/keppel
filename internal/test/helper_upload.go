@@ -61,11 +61,11 @@ func (b Bytes) MustUpload(t *testing.T, s Setup, repo models.Repository) models.
 	// are usually given a Repository instance that does not have the ID field
 	// filled)
 	blob := must.ReturnT(keppel.FindBlobByRepositoryName(s.DB, b.Digest, repo.Name, repo.AccountName))(t)
-	s.ExpectBlobsExistInStorage(t, *blob)
+	s.ExpectBlobsExistInStorage(t, blob)
 	if t.Failed() {
 		t.FailNow()
 	}
-	return *blob
+	return blob
 }
 
 var checkBlobExistsQuery = sqlext.SimplifyWhitespace(`
@@ -112,11 +112,11 @@ func (i Image) MustUpload(t *testing.T, s Setup, repo models.Repository, tagName
 
 	// validate uploaded manifest
 	manifest := must.ReturnT(keppel.FindManifestByRepositoryName(s.DB, repo.Name, repo.AccountName, i.Manifest.Digest))(t)
-	s.ExpectManifestsExistInStorage(t, repo.Name, *manifest)
+	s.ExpectManifestsExistInStorage(t, repo.Name, manifest)
 	if t.Failed() {
 		t.FailNow()
 	}
-	return *manifest
+	return manifest
 }
 
 var checkManifestExistsQuery = sqlext.SimplifyWhitespace(`
@@ -165,9 +165,9 @@ func (l ImageList) MustUpload(t *testing.T, s Setup, repo models.Repository, tag
 
 	// validate uploaded manifest
 	manifest := must.ReturnT(keppel.FindManifestByRepositoryName(s.DB, repo.Name, repo.AccountName, l.Manifest.Digest))(t)
-	s.ExpectManifestsExistInStorage(t, repo.Name, *manifest)
+	s.ExpectManifestsExistInStorage(t, repo.Name, manifest)
 	if t.Failed() {
 		t.FailNow()
 	}
-	return *manifest
+	return manifest
 }

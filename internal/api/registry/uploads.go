@@ -77,13 +77,12 @@ func (a *API) handleStartBlobUpload(w http.ResponseWriter, r *http.Request) {
 	// useful to avoid the accumulation of unreferenced blobs in the account's
 	// backing storage.
 	quotas, err := keppel.FindQuotas(a.db, account.AuthTenantID)
-	if respondWithError(w, r, err) {
+	if errors.Is(err, sql.ErrNoRows) {
+		quotas = models.DefaultQuotas(account.AuthTenantID)
+	} else if respondWithError(w, r, err) {
 		return
 	}
-	if quotas == nil {
-		quotas = models.DefaultQuotas(account.AuthTenantID)
-	}
-	manifestUsage, err := keppel.GetManifestUsage(a.db, *quotas)
+	manifestUsage, err := keppel.GetManifestUsage(a.db, quotas)
 	if respondWithError(w, r, err) {
 		return
 	}
@@ -174,7 +173,7 @@ func (a *API) performCrossRepositoryBlobMount(account models.ReducedAccount, tar
 	}
 
 	// create blob mount if missing
-	err = keppel.MountBlobIntoRepo(a.db, *blob, targetRepo)
+	err = keppel.MountBlobIntoRepo(a.db, blob, targetRepo)
 	if err != nil {
 		return nil, err
 	}
@@ -508,7 +507,7 @@ func (a *API) findUpload(w http.ResponseWriter, r *http.Request, repo models.Red
 		return nil
 	}
 
-	return upload
+	return &upload
 }
 
 func (a *API) resumeUpload(ctx context.Context, account models.ReducedAccount, upload *models.Upload, stateStr string) (dw *digestWriter, returnErr *keppel.RegistryV2Error) {
@@ -708,6 +707,7 @@ var insertBlobIfMissingQuery = sqlext.SimplifyWhitespace(`
 // Insert a Blob object in the database. This is similar to building a
 // keppel.Blob and doing tx.Insert(blob), but handles a collision where another
 // blob with the same account name and digest already exists in the database.
+// TODO: remove returned pointer
 func (a *API) createOrUpdateBlobObject(ctx context.Context, tx *gorp.Transaction, sizeBytes uint64, storageID string, blobDigest digest.Digest, blobPushedAt time.Time, account models.ReducedAccount) (*models.Blob, error) {
 	// try to insert the blob atomically (I would like to SELECT the result
 	// directly via `RETURNING *`, but that gives sql.ErrNoRows when nothing was
@@ -737,7 +737,7 @@ func (a *API) createOrUpdateBlobObject(ctx context.Context, tx *gorp.Transaction
 		}
 	}
 
-	return blob, nil
+	return &blob, nil
 }
 
 // digestWriter is an io.Writer that writes into the given Hash and also tracks the number of bytes written.

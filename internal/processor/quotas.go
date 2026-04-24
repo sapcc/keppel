@@ -4,6 +4,8 @@
 package processor
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -50,14 +52,13 @@ func (e ImpossibleQuotaError) Error() string {
 // GetQuotas builds a response for GET /keppel/v1/quotas/:auth_tenant_id.
 func (p *Processor) GetQuotas(authTenantID string) (*QuotaResponse, error) {
 	quotas, err := keppel.FindQuotas(p.db, authTenantID)
-	if err != nil {
+	if errors.Is(err, sql.ErrNoRows) {
+		quotas = models.DefaultQuotas(authTenantID)
+	} else if err != nil {
 		return nil, err
 	}
-	if quotas == nil {
-		quotas = models.DefaultQuotas(authTenantID)
-	}
 
-	manifestCount, err := keppel.GetManifestUsage(p.db, *quotas)
+	manifestCount, err := keppel.GetManifestUsage(p.db, quotas)
 	if err != nil {
 		return nil, err
 	}
@@ -73,16 +74,15 @@ func (p *Processor) GetQuotas(authTenantID string) (*QuotaResponse, error) {
 // SetQuotas changes quotas for an auth tenant and then renders a response
 // for PUT /keppel/v1/quotas/:auth_tenant_id.
 func (p *Processor) SetQuotas(authTenantID string, req QuotaRequest, userInfo audittools.UserInfo, r *http.Request) (*QuotaResponse, error) {
-	quotas, err := keppel.FindQuotas(p.db, authTenantID)
-	if err != nil {
-		return nil, err
-	}
 	isUpdate := true
-	if quotas == nil {
+	quotas, err := keppel.FindQuotas(p.db, authTenantID)
+	if errors.Is(err, sql.ErrNoRows) {
 		quotas = models.DefaultQuotas(authTenantID)
 		isUpdate = false
+	} else if err != nil {
+		return nil, err
 	}
-	quotasBefore := *quotas
+	quotasBefore := quotas
 
 	// check usage
 	tx, err := p.db.Begin()
@@ -91,7 +91,7 @@ func (p *Processor) SetQuotas(authTenantID string, req QuotaRequest, userInfo au
 	}
 	defer sqlext.RollbackUnlessCommitted(tx)
 
-	manifestCount, err := keppel.GetManifestUsage(tx, *quotas)
+	manifestCount, err := keppel.GetManifestUsage(tx, quotas)
 	if err != nil {
 		return nil, err
 	}
@@ -105,9 +105,9 @@ func (p *Processor) SetQuotas(authTenantID string, req QuotaRequest, userInfo au
 		// apply quotas if necessary
 		quotas.ManifestCount = req.Manifests.Quota
 		if isUpdate {
-			_, err = tx.Update(quotas)
+			_, err = tx.Update(&quotas)
 		} else {
-			err = tx.Insert(quotas)
+			err = tx.Insert(&quotas)
 		}
 		if err != nil {
 			return nil, err
@@ -125,7 +125,7 @@ func (p *Processor) SetQuotas(authTenantID string, req QuotaRequest, userInfo au
 				User:       userInfo,
 				ReasonCode: http.StatusOK,
 				Action:     cadf.UpdateAction,
-				Target:     AuditQuotas{QuotasBefore: quotasBefore, QuotasAfter: *quotas},
+				Target:     AuditQuotas{QuotasBefore: quotasBefore, QuotasAfter: quotas},
 			})
 		}
 	}

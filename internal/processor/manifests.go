@@ -749,7 +749,7 @@ func (p *Processor) ReplicateManifest(ctx context.Context, account models.Reduce
 			return nil, nil, err
 		}
 		if configBlob.StorageID == "" {
-			_, err = p.ReplicateBlob(ctx, *configBlob, account, repo, nil)
+			_, err = p.ReplicateBlob(ctx, configBlob, account, repo, nil)
 			if err != nil {
 				return nil, nil, err
 			}
