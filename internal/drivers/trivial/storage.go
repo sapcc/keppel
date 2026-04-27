@@ -335,15 +335,10 @@ func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.
 		trivyReports []keppel.StoredTrivyReportInfo
 	)
 
-	d.blobChunkCountsMutex.RLock()
-	defer d.blobChunkCountsMutex.RUnlock()
 	d.blobsMutex.RLock()
 	defer d.blobsMutex.RUnlock()
-	d.manifestMutex.RLock()
-	defer d.manifestMutex.RUnlock()
-	d.trivyReportsMutex.RLock()
-	defer d.trivyReportsMutex.RUnlock()
-
+	d.blobChunkCountsMutex.RLock()
+	defer d.blobChunkCountsMutex.RUnlock()
 	for key := range d.blobs {
 		if key.AccountName == account.Name && key.AuthTenantID == account.AuthTenantID {
 			blobs = append(blobs, keppel.StoredBlobInfo{
@@ -353,6 +348,8 @@ func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.
 		}
 	}
 
+	d.manifestMutex.RLock()
+	defer d.manifestMutex.RUnlock()
 	for key := range d.manifests {
 		if key.AccountName == account.Name && key.AuthTenantID == account.AuthTenantID {
 			manifests = append(manifests, keppel.StoredManifestInfo{
@@ -362,6 +359,8 @@ func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.
 		}
 	}
 
+	d.trivyReportsMutex.RLock()
+	defer d.trivyReportsMutex.RUnlock()
 	for key := range d.trivyReports {
 		if key.AccountName == account.Name && key.AuthTenantID == account.AuthTenantID {
 			trivyReports = append(trivyReports, keppel.StoredTrivyReportInfo{
