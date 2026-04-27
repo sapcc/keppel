@@ -304,6 +304,34 @@ func (d *StorageDriver) getTrivyReports(account models.ReducedAccount) ([]keppel
 	return reports, nil
 }
 
+// UsedBytes implements the keppel.StorageDriver interface.
+func (d *StorageDriver) UsedBytes(ctx context.Context, authTenantID string) (uint64, error) {
+	var totalBytes uint64
+	err := filepath.WalkDir(filepath.Join(d.RootPath, authTenantID), func(path string, entry os.DirEntry, walkErr error) error {
+		if errors.Is(walkErr, os.ErrNotExist) {
+			return nil
+		}
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		size := info.Size()
+		if size < 0 {
+			return fmt.Errorf("encountered negative file size for %q: %d", path, size)
+		}
+		totalBytes += uint64(size)
+		return nil
+	})
+	return totalBytes, err
+}
+
 // CanSetupAccount implements the keppel.StorageDriver interface.
 func (d *StorageDriver) CanSetupAccount(ctx context.Context, account models.ReducedAccount) error {
 	return nil // this driver does not perform any preflight checks here

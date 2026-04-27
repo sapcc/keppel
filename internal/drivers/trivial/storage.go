@@ -335,10 +335,10 @@ func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.
 		trivyReports []keppel.StoredTrivyReportInfo
 	)
 
-	d.blobsMutex.RLock()
-	defer d.blobsMutex.RUnlock()
 	d.blobChunkCountsMutex.RLock()
 	defer d.blobChunkCountsMutex.RUnlock()
+	d.blobsMutex.RLock()
+	defer d.blobsMutex.RUnlock()
 	for key := range d.blobs {
 		if key.AccountName == account.Name && key.AuthTenantID == account.AuthTenantID {
 			blobs = append(blobs, keppel.StoredBlobInfo{
@@ -372,6 +372,35 @@ func (d *StorageDriver) ListStorageContents(ctx context.Context, account models.
 	}
 
 	return blobs, manifests, trivyReports, nil
+}
+
+// UsedBytes implements the keppel.StorageDriver interface.
+func (d *StorageDriver) UsedBytes(ctx context.Context, authTenantID string) (usedBytes uint64, err error) {
+	d.blobsMutex.RLock()
+	defer d.blobsMutex.RUnlock()
+	for key := range d.blobs {
+		if key.AuthTenantID == authTenantID {
+			usedBytes += uint64(len(d.blobs[key]))
+		}
+	}
+
+	d.manifestMutex.RLock()
+	defer d.manifestMutex.RUnlock()
+	for key := range d.manifests {
+		if key.AuthTenantID == authTenantID {
+			usedBytes += uint64(len(d.manifests[key]))
+		}
+	}
+
+	d.trivyReportsMutex.RLock()
+	defer d.trivyReportsMutex.RUnlock()
+	for key := range d.trivyReports {
+		if key.AuthTenantID == authTenantID {
+			usedBytes += uint64(len(d.trivyReports[key]))
+		}
+	}
+
+	return usedBytes, nil
 }
 
 // CanSetupAccount implements the keppel.StorageDriver interface.
