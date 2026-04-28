@@ -89,6 +89,11 @@ type StorageDriver interface {
 	// eventual consistency.
 	ListStorageContents(ctx context.Context, account models.ReducedAccount) (blobs []StoredBlobInfo, manifests []StoredManifestInfo, trivyReports []StoredTrivyReportInfo, err error)
 
+	// Returns how many bytes are occupied in the backing storage by all objects
+	// (blobs, manifests and Trivy reports) stored in all accounts belonging to
+	// the given `authTenantID`.
+	UsedBytes(ctx context.Context, authTenantID string) (uint64, error)
+
 	// This method is called before a new account is set up in the DB. The
 	// StorageDriver can use this opportunity to check for any reasons why the
 	// account would not be functional once it is persisted in our DB.

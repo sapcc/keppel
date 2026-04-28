@@ -73,16 +73,22 @@ func (d *swiftDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error
 // TODO translate errors from Swift into keppel.RegistryV2Error where
 // appropriate (esp. keppel.ErrSizeInvalid and keppel.ErrTooManyRequests)
 
-func (d *swiftDriver) getBackendAccount(account models.ReducedAccount) *schwift.Account {
+func (d *swiftDriver) getBackendAccount(authTenantID string) *schwift.Account {
 	if d.UseServiceUserProject {
 		return d.mainAccount
 	}
-	return d.mainAccount.SwitchAccount("AUTH_" + account.AuthTenantID)
+	return d.mainAccount.SwitchAccount("AUTH_" + authTenantID)
+}
+
+func (d *swiftDriver) getBackendContainerName(account models.ReducedAccount) string {
+	if d.UseServiceUserProject {
+		return "keppel-" + string(account.Name)
+	}
+	return "keppel-" + account.AuthTenantID + "-" + string(account.Name)
 }
 
 func (d *swiftDriver) getBackendConnection(ctx context.Context, account models.ReducedAccount) (*schwift.Container, *swiftContainerInfo, error) {
-	containerName := "keppel-" + string(account.Name)
-	c := d.getBackendAccount(account).Container(containerName)
+	c := d.getBackendAccount(account.AuthTenantID).Container(d.getBackendContainerName(account))
 
 	// we want to cache the tempurl key to speed up URLForBlob() calls; but we
 	// cannot cache it indefinitely because the Keppel account (and hence the
@@ -431,10 +437,33 @@ func mergeChunkCount(chunkCounts map[string]uint32, key string, chunkNumber uint
 	}
 }
 
+// UsedBytes implements the keppel.StorageDriver interface.
+func (d *swiftDriver) UsedBytes(ctx context.Context, authTenantID string) (uint64, error) {
+	// When UseServiceUserProject is enabled, all keppel accounts share the same
+	// Swift project. We iterate over all keppel-* containers and sum the bytes
+	// used by containers whose next part matches the authTenantID.
+	var totalBytes uint64
+	iter := d.getBackendAccount(authTenantID).Containers()
+	if d.UseServiceUserProject {
+		iter.Prefix = "keppel-" + authTenantID + "-"
+	} else {
+		iter.Prefix = "keppel-"
+	}
+	err := iter.Foreach(ctx, func(c *schwift.Container) error {
+		hdr, err := c.Headers(ctx)
+		if err != nil {
+			return err
+		}
+		totalBytes += hdr.BytesUsed().Get()
+		return nil
+	})
+	return totalBytes, err
+}
+
 // CanSetupAccount implements the keppel.StorageDriver interface.
 func (d *swiftDriver) CanSetupAccount(ctx context.Context, account models.ReducedAccount) error {
 	// check that the Swift account is accessible
-	_, err := d.getBackendAccount(account).Headers(ctx)
+	_, err := d.getBackendAccount(account.AuthTenantID).Headers(ctx)
 	switch {
 	case err == nil:
 		return nil
