@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 Stefan Majewsky <majewsky@gmx.net>
+# SPDX-License-Identifier: Apache-2.0
+version = 1
+SPDX-PackageName = "oblast"
+SPDX-PackageDownloadLocation = "https://git.xyrillian.de/oblast"
+
+[[annotations]]
+path = [
+  ".gitignore",
+  "benchmark/go.mod",
+  "benchmark/go.sum",
+  "description",
+  "go.mod",
+  "go.work",
+  "go.work.sum",
+]
+SPDX-FileCopyrightText = "Stefan Majewsky <majewsky@gmx.net>"
+SPDX-License-Identifier = "Apache-2.0"

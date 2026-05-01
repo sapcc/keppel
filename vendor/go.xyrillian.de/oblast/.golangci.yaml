@@ -1,0 +1,96 @@
+# SPDX-FileCopyrightText: 2026 Stefan Majewsky <majewsky@gmx.net>
+# SPDX-License-Identifier: Apache-2.0
+
+version: "2"
+run:
+  timeout: 3m0s # none by default in v2
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+issues:
+  max-issues-per-linter: 0 # no limit
+  max-same-issues: 0       # no limit
+
+linters:
+  default: standard
+  enable:
+    - errorlint
+    - exhaustive
+    - gocheckcompilerdirectives
+    - goconst
+    - gocritic
+    - gosec
+    - intrange
+    - misspell
+    - musttag
+    - nilerr
+    - nolintlint
+    - perfsprint
+    - prealloc
+    - predeclared
+    - reassign
+    - revive
+    - rowserrcheck
+    - unconvert
+    - usestdlibvars
+    - usetesting
+    - wastedassign
+    - whitespace
+  settings:
+    goconst:
+      min-occurrences: 5
+    gocritic:
+      disable-all: true
+      enabled-checks:
+        - boolExprSimplify
+        - builtinShadow
+        - emptyStringTest
+        - evalOrder
+        - httpNoBody
+        - importShadow
+        - initClause
+        - methodExprCall
+        - paramTypeCombine
+        - preferFilepathJoin
+        - ptrToRefParam
+        - redundantSprint
+        - returnAfterHttpError
+        - stringConcatSimplify
+        - timeExprSimplify
+        - truncateCmp
+        - typeAssertChain
+        - typeUnparen
+        - unnamedResult
+        - unnecessaryBlock
+        - unnecessaryDefer
+        - weakCond
+        - yodaStyleExpr
+    gomoddirectives:
+      toolchain-forbidden: true
+      go-version-pattern: 1\.\d+(\.0)?$
+    nolintlint:
+      require-specific: true
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - checkPrivateReceivers
+            - disableChecksOnConstants
+    staticcheck:
+      dot-import-whitelist:
+        - github.com/majewsky/gg/option
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - path: (.+)\.go$
+        text: declaration of "err" shadows declaration at
+      - path: _test\.go
+        linters: [ goconst ]

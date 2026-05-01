@@ -7,6 +7,7 @@ import (
 	"time"
 
 	. "github.com/majewsky/gg/option"
+	"go.xyrillian.de/oblast"
 )
 
 // AccountName identifies an account. This typedef is used to distinguish these
@@ -51,6 +52,13 @@ type Account struct {
 	NextFederationAnnouncementAt Option[time.Time] `db:"next_federation_announcement_at"` // see tasks.AnnounceAccountToFederationJob
 }
 
+// AccountStore provides loading and storing of [Account] objects from the DB.
+var AccountStore = oblast.MustNewStore[Account](
+	oblast.PostgresDialect(),
+	oblast.TableNameIs("accounts"),
+	oblast.PrimaryKeyIs("name"),
+)
+
 // Reduced converts an Account into a ReducedAccount.
 func (a Account) Reduced() ReducedAccount {
 	return ReducedAccount{
@@ -70,19 +78,26 @@ func (a Account) Reduced() ReducedAccount {
 // This type exists to avoid loading the large payload fields in type Account when we don't need to,
 // which is a significant memory optimization for the keppel-api process.
 type ReducedAccount struct {
-	Name         AccountName
-	AuthTenantID string
+	Name         AccountName `db:"name"`
+	AuthTenantID string      `db:"auth_tenant_id"`
 
 	// replication policy
-	UpstreamPeerHostName string
-	ExternalPeerURL      string
-	ExternalPeerUserName string
-	ExternalPeerPassword string
-	PlatformFilter       PlatformFilter
+	UpstreamPeerHostName string         `db:"upstream_peer_hostname"`
+	ExternalPeerURL      string         `db:"external_peer_url"`
+	ExternalPeerUserName string         `db:"external_peer_username"`
+	ExternalPeerPassword string         `db:"external_peer_password"`
+	PlatformFilter       PlatformFilter `db:"platform_filter"`
 
 	// validation policy, status
-	RuleForManifest string
-	IsDeleting      bool
+	RuleForManifest string `db:"rule_for_manifest"`
+	IsDeleting      bool   `db:"is_deleting"`
 
-	// NOTE: When adding or removing fields, always adjust Account.Reduced() and keppel.FindReducedAccount() too!
+	// NOTE: When adding or removing fields, always adjust Account.Reduced() too!
 }
+
+// ReducedAccountStore provides loading of [ReducedAccount] objects from the DB.
+var ReducedAccountStore = oblast.MustNewStore[ReducedAccount](
+	oblast.PostgresDialect(),
+	oblast.TableNameIs("accounts"),
+	oblast.PrimaryKeyIs("name"),
+)

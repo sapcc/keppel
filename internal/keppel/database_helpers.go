@@ -4,6 +4,7 @@
 package keppel
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 
@@ -14,31 +15,20 @@ import (
 	"github.com/sapcc/keppel/internal/models"
 )
 
-// FindAccount works similar to db.SelectOne().
-func FindAccount(db gorp.SqlExecutor, name models.AccountName) (models.Account, error) {
-	var account models.Account
-	err := db.SelectOne(&account, "SELECT * FROM accounts WHERE name = $1", name)
-	return account, err
-}
+var (
+	findAccountQuery        = models.AccountStore.MustPrepareSelectQueryWhere(`name = $1`)
+	findReducedAccountQuery = models.ReducedAccountStore.MustPrepareSelectQueryWhere(`name = $1`)
+)
 
-var reducedAccountGetByNameQuery = sqlext.SimplifyWhitespace(`
-	SELECT auth_tenant_id, upstream_peer_hostname,
-	       external_peer_url, external_peer_username, external_peer_password,
-	       platform_filter, rule_for_manifest, is_deleting
-	  FROM accounts
-	 WHERE name = $1
-`)
+// FindAccount works similar to db.SelectOne().
+func FindAccount(db *DB, name models.AccountName) (models.Account, error) {
+	return findAccountQuery.SelectOne(context.Background(), db.Db, name)
+}
 
 // FindReducedAccount is like FindAccount, but it returns a ReducedAccount instead.
 // This can be significantly faster than FindAccount if only the most common stuff is needed.
-func FindReducedAccount(db gorp.SqlExecutor, name models.AccountName) (models.ReducedAccount, error) {
-	a := models.ReducedAccount{Name: name}
-	err := db.QueryRow(reducedAccountGetByNameQuery, name).Scan(
-		&a.AuthTenantID, &a.UpstreamPeerHostName,
-		&a.ExternalPeerURL, &a.ExternalPeerUserName, &a.ExternalPeerPassword,
-		&a.PlatformFilter, &a.RuleForManifest, &a.IsDeleting,
-	)
-	return a, err
+func FindReducedAccount(db *DB, name models.AccountName) (models.ReducedAccount, error) {
+	return findReducedAccountQuery.SelectOne(context.Background(), db.Db, name)
 }
 
 // DoesAccountExist checks if an account with the given name exists in the DB.
