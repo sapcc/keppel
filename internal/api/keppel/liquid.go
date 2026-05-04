@@ -22,7 +22,8 @@ const LiquidInfoVersion int64 = 2
 
 func (a *API) handleLiquidGetInfo(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/liquid/v1/info")
-	respondwith.JSON(w, http.StatusOK, liquid.ServiceInfo{
+
+	si := liquid.ServiceInfo{
 		DisplayName: "Container Image Registry",
 		Version:     LiquidInfoVersion,
 		Resources: map[liquid.ResourceName]liquid.ResourceInfo{
@@ -34,7 +35,19 @@ func (a *API) handleLiquidGetInfo(w http.ResponseWriter, r *http.Request) {
 				HasQuota:    true,
 			},
 		},
-	})
+	}
+
+	if a.cfg.TrackBytesQuota {
+		si.Resources["capacity"] = liquid.ResourceInfo{
+			DisplayName: "Capacity",
+			Unit:        liquid.UnitBytes,
+			Topology:    liquid.FlatTopology,
+			HasCapacity: false,
+			HasQuota:    true,
+		}
+	}
+
+	respondwith.JSON(w, http.StatusOK, si)
 }
 
 func (a *API) handleLiquidReportCapacity(w http.ResponseWriter, r *http.Request) {
@@ -69,7 +82,7 @@ func (a *API) handleLiquidReportUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := a.processor().GetQuotas(authTenantID)
+	resp, err := a.processor().GetQuotas(r.Context(), authTenantID)
 	if respondwith.ObfuscatedErrorText(w, err) {
 		return
 	}
@@ -90,7 +103,7 @@ func (a *API) handleLiquidSetQuota(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = a.processor().SetQuotas(authTenantID, liquidConvertQuotaRequest(req), authz.UserIdentity.UserInfo(), r)
+	_, err = a.processor().SetQuotas(r.Context(), authTenantID, liquidConvertQuotaRequest(req), authz.UserIdentity.UserInfo(), r)
 	if iqerr, ok := errext.As[processor.ImpossibleQuotaError](err); ok {
 		http.Error(w, iqerr.Message, http.StatusUnprocessableEntity)
 		return
@@ -102,15 +115,23 @@ func (a *API) handleLiquidSetQuota(w http.ResponseWriter, r *http.Request) {
 }
 
 func liquidConvertQuotaRequest(req liquid.ServiceQuotaRequest) processor.QuotaRequest {
-	return processor.QuotaRequest{
+	qr := processor.QuotaRequest{
 		Manifests: processor.SingleQuotaRequest{
 			Quota: req.Resources["images"].Quota,
 		},
 	}
+
+	if res, ok := req.Resources["capacity"]; ok {
+		qr.Bytes = Some(processor.SingleQuotaRequest{
+			Quota: res.Quota,
+		})
+	}
+
+	return qr
 }
 
 func liquidConvertQuotaResponse(resp processor.QuotaResponse) liquid.ServiceUsageReport {
-	return liquid.ServiceUsageReport{
+	su := liquid.ServiceUsageReport{
 		InfoVersion: LiquidInfoVersion,
 		Metrics:     map[liquid.MetricName][]liquid.Metric{},
 		Resources: map[liquid.ResourceName]*liquid.ResourceUsageReport{
@@ -122,4 +143,15 @@ func liquidConvertQuotaResponse(resp processor.QuotaResponse) liquid.ServiceUsag
 			},
 		},
 	}
+
+	if res, ok := resp.Bytes.Unpack(); ok {
+		su.Resources["capacity"] = &liquid.ResourceUsageReport{
+			Quota: Some(int64(res.Quota)), //nolint:gosec // quota is admin controlled
+			PerAZ: liquid.InAnyAZ(liquid.AZResourceUsageReport{
+				Usage: res.Usage,
+			}),
+		}
+	}
+
+	return su
 }

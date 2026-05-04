@@ -65,6 +65,22 @@ func TestQuotasAPI(t *testing.T) {
 		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
 	).ExpectStatus(t, http.StatusForbidden)
 
+	// basic error cases: trying to set bytes quota but it is not enabled
+	s.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
+		withPerms("changequota:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"bytes": map[string]any{"quota": 50},
+		}),
+	).ExpectBody(t, http.StatusUnprocessableEntity, []byte("bytes quota is not enabled, but request contains bytes quota\n"))
+	s.RespondTo(ctx, "PUT /liquid/v1/projects/tenant1/quota",
+		withPerms("changequota:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"resources": map[string]any{
+				"capacity": map[string]any{"quota": 100},
+			},
+		}),
+	).ExpectBody(t, http.StatusUnprocessableEntity, []byte("bytes quota is not enabled, but request contains bytes quota\n"))
+
 	// PUT happy case with native API
 	for _, pass := range []int{1, 2, 3} {
 		s.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",

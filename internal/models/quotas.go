@@ -8,6 +8,7 @@ package models
 // The JSON serialization is used in audit events for quota changes.
 type Quotas struct {
 	AuthTenantID  string `db:"auth_tenant_id" json:"-"`
+	Bytes         uint64 `db:"bytes" json:"bytes,omitempty"`
 	ManifestCount uint64 `db:"manifests" json:"manifests"`
 }
 
@@ -17,6 +18,7 @@ func DefaultQuotas(authTenantID string) Quotas {
 	// is to ensure that we only need to change this place if this ever changes.
 	return Quotas{
 		AuthTenantID:  authTenantID,
+		Bytes:         0,
 		ManifestCount: 0,
 	}
 }
