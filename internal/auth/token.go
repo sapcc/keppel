@@ -6,7 +6,6 @@ package auth
 import (
 	"crypto"
 	"crypto/ed25519"
-	"crypto/rsa"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -158,8 +157,6 @@ func chooseSigningMethod(key crypto.PrivateKey) jwt.SigningMethod {
 	switch key.(type) {
 	case ed25519.PrivateKey:
 		return jwt.SigningMethodEdDSA
-	case *rsa.PrivateKey:
-		return jwt.SigningMethodRS256
 	default:
 		panic(fmt.Sprintf("do not know which JWT method to use for issuerKey.type = %T", key))
 	}
@@ -168,8 +165,6 @@ func chooseSigningMethod(key crypto.PrivateKey) jwt.SigningMethod {
 func derivePublicKey(key crypto.PrivateKey) crypto.PublicKey {
 	switch key := key.(type) {
 	case ed25519.PrivateKey:
-		return key.Public()
-	case *rsa.PrivateKey:
 		return key.Public()
 	default:
 		panic(fmt.Sprintf("do not know which JWT method to use for issuerKey.type = %T", key))
@@ -181,9 +176,6 @@ func serializePublicKey(key crypto.PrivateKey) string {
 	case ed25519.PrivateKey:
 		pubkey := key.Public().(ed25519.PublicKey)
 		return hex.EncodeToString([]byte(pubkey))
-	case *rsa.PrivateKey:
-		pubkey := key.Public().(*rsa.PublicKey)
-		return fmt.Sprintf("%x:%s", pubkey.E, pubkey.N.Text(16))
 	default:
 		panic(fmt.Sprintf("do not know which JWT method to use for issuerKey.type = %T", key))
 	}
@@ -193,16 +185,6 @@ func equalSigningMethods(m1, m2 jwt.SigningMethod) bool {
 	switch m1 := m1.(type) {
 	case *jwt.SigningMethodEd25519:
 		if m2, ok := m2.(*jwt.SigningMethodEd25519); ok {
-			return *m1 == *m2
-		}
-		return false
-	case *jwt.SigningMethodECDSA:
-		if m2, ok := m2.(*jwt.SigningMethodECDSA); ok {
-			return *m1 == *m2
-		}
-		return false
-	case *jwt.SigningMethodRSA:
-		if m2, ok := m2.(*jwt.SigningMethodRSA); ok {
 			return *m1 == *m2
 		}
 		return false

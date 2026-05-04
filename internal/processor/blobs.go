@@ -81,8 +81,7 @@ func (w *byteCountingWriter) Write(buf []byte) (int, error) {
 // requested blob does not exist, a blob record with an empty storage ID will be
 // inserted into the DB. This indicates to the registry API handler that this
 // blob shall be replicated when it is first pulled.
-// TODO: remove returned pointer
-func (p *Processor) FindBlobOrInsertUnbackedBlob(ctx context.Context, layerInfo manifest.LayerInfo, accountName models.AccountName) (*models.Blob, error) {
+func (p *Processor) FindBlobOrInsertUnbackedBlob(ctx context.Context, layerInfo manifest.LayerInfo, accountName models.AccountName) (models.Blob, error) {
 	var blob models.Blob
 	err := p.insideTransaction(ctx, func(ctx context.Context, tx *gorp.Transaction) error {
 		var err error
@@ -102,10 +101,7 @@ func (p *Processor) FindBlobOrInsertUnbackedBlob(ctx context.Context, layerInfo 
 		}
 		return tx.Insert(&blob)
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &blob, nil
+	return blob, err
 }
 
 var (

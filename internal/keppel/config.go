@@ -57,20 +57,7 @@ func ParseIssuerKey(in string) (crypto.PrivateKey, error) {
 	}
 	buf = stripWhitespaceRx.ReplaceAll(buf, nil)
 
-	// we support either ed25519 keys (preferred) or RSA keys (legacy), and we
-	// decide which one we have based on which parsing attempt does not fail
-	//
-	// TODO remove RSA support after all production instances have been migrated
-	// to ed25519
-	ed25519Key, err1 := jwt.ParseEdPrivateKeyFromPEM(buf)
-	if err1 == nil {
-		return ed25519Key, nil
-	}
-	rsaKey, err2 := jwt.ParseRSAPrivateKeyFromPEM(buf)
-	if err2 == nil {
-		return rsaKey, nil
-	}
-	return nil, fmt.Errorf("neither an ed25519 private key (%q) nor an RSA private key (%q)", err1.Error(), err2.Error())
+	return jwt.ParseEdPrivateKeyFromPEM(buf)
 }
 
 // GetDatabaseURLFromEnvironment reads the KEPPEL_DB_* environment variables.

@@ -733,7 +733,7 @@ func (p *Processor) ReplicateManifest(ctx context.Context, account models.Reduce
 		// also ensure that the blob is mounted in this repo (this is also
 		// important if the blob exists; it may only have been replicated in a
 		// different repo)
-		err = keppel.MountBlobIntoRepo(p.db, *blob, repo)
+		err = keppel.MountBlobIntoRepo(p.db, blob, repo)
 		if err != nil {
 			return nil, nil, err
 		}
