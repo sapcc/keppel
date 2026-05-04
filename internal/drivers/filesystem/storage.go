@@ -40,27 +40,27 @@ func (d *StorageDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) (er
 }
 
 func (d *StorageDriver) getBlobBasePath(account models.ReducedAccount) string {
-	return fmt.Sprintf("%s/%s/%s/blobs", d.RootPath, account.AuthTenantID, account.Name)
+	return filepath.Join(d.RootPath, account.AuthTenantID, string(account.Name), "blobs")
 }
 
 func (d *StorageDriver) getBlobPath(account models.ReducedAccount, storageID string) string {
-	return fmt.Sprintf("%s/%s", d.getBlobBasePath(account), storageID)
+	return filepath.Join(d.getBlobBasePath(account), storageID)
 }
 
 func (d *StorageDriver) getManifestBasePath(account models.ReducedAccount) string {
-	return fmt.Sprintf("%s/%s/%s/manifests", d.RootPath, account.AuthTenantID, account.Name)
+	return filepath.Join(d.RootPath, account.AuthTenantID, string(account.Name), "manifests")
 }
 
 func (d *StorageDriver) getManifestPath(account models.ReducedAccount, repoName string, manifestDigest digest.Digest) string {
-	return fmt.Sprintf("%s/%s/%s", d.getManifestBasePath(account), repoName, manifestDigest)
+	return filepath.Join(d.getManifestBasePath(account), repoName, manifestDigest.String())
 }
 
 func (d *StorageDriver) getTrivyReportBasePath(account models.ReducedAccount) string {
-	return fmt.Sprintf("%s/%s/%s/trivy-reports", d.RootPath, account.AuthTenantID, account.Name)
+	return filepath.Join(d.RootPath, account.AuthTenantID, string(account.Name), "trivy-reports")
 }
 
 func (d *StorageDriver) getTrivyReportPath(account models.ReducedAccount, repoName string, manifestDigest digest.Digest, format string) string {
-	return fmt.Sprintf("%s/%s/%s/%s", d.getTrivyReportBasePath(account), repoName, manifestDigest, format)
+	return filepath.Join(d.getTrivyReportBasePath(account), repoName, manifestDigest.String(), format)
 }
 
 // AppendToBlob implements the keppel.StorageDriver interface.
@@ -302,6 +302,34 @@ func (d *StorageDriver) getTrivyReports(account models.ReducedAccount) ([]keppel
 		}
 	}
 	return reports, nil
+}
+
+// UsedBytes implements the keppel.StorageDriver interface.
+func (d *StorageDriver) UsedBytes(ctx context.Context, authTenantID string) (uint64, error) {
+	var totalBytes uint64
+	err := filepath.WalkDir(filepath.Join(d.RootPath, authTenantID), func(path string, entry os.DirEntry, walkErr error) error {
+		if errors.Is(walkErr, os.ErrNotExist) {
+			return nil
+		}
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		size := info.Size()
+		if size < 0 {
+			return fmt.Errorf("encountered negative file size for %q: %d", path, size)
+		}
+		totalBytes += uint64(size)
+		return nil
+	})
+	return totalBytes, err
 }
 
 // CanSetupAccount implements the keppel.StorageDriver interface.

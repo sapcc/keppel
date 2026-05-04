@@ -125,6 +125,11 @@ func AddStorageCommandTo(parent *cobra.Command) {
 			Run:  wrapStorageCommand(executeCanSetupAccount),
 		},
 		&cobra.Command{
+			Use:  "used-bytes",
+			Args: cobra.NoArgs,
+			Run:  wrapStorageCommand(executeUsedBytes),
+		},
+		&cobra.Command{
 			Use:  "cleanup-account",
 			Args: cobra.NoArgs,
 			Run:  wrapStorageCommand(executeCleanupAccount),
@@ -372,6 +377,15 @@ func executeListStorageContents(ctx context.Context, sd keppel.StorageDriver, ac
 		"trivy_reports": trivyReports,
 	}
 	outputJSON(result)
+}
+
+func executeUsedBytes(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, _ []string) {
+	size, err := sd.UsedBytes(ctx, account.AuthTenantID)
+	if err != nil {
+		logg.Fatal("UsedBytes failed: %s", err.Error())
+	}
+
+	fmt.Println(size)
 }
 
 func executeCanSetupAccount(ctx context.Context, sd keppel.StorageDriver, account models.ReducedAccount, _ []string) {
