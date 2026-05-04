@@ -106,6 +106,9 @@ linters:
           msg: github.com/containers/image/v5 is deprecated and was replaced with go.podman.io/image/v5
     goconst:
       min-occurrences: 5
+      ignore-tests: true
+      ignore-string-values:
+        - '^[a-zA-Z_-]{1,16}$' # ignore short identifiers like "account" or "project_id"
     gocritic:
       enabled-checks:
         - boolExprSimplify
