@@ -35,6 +35,7 @@ type Configuration struct {
 	JWTIssuerKeys            []crypto.PrivateKey
 	AnycastJWTIssuerKeys     []crypto.PrivateKey
 	Trivy                    *trivy.Config
+	TrackBytesQuota          bool
 }
 
 var (
@@ -81,6 +82,7 @@ func ParseConfiguration() Configuration {
 	cfg := Configuration{
 		APIPublicHostname:        osext.MustGetenv("KEPPEL_API_PUBLIC_FQDN"),
 		AnycastAPIPublicHostname: os.Getenv("KEPPEL_API_ANYCAST_FQDN"),
+		TrackBytesQuota:          osext.GetenvBool("KEPPEL_TRACK_BYTES_QUOTA"),
 	}
 
 	parseIssuerKeys := func(prefix string) []crypto.PrivateKey {

@@ -48,6 +48,7 @@ type setupParams struct {
 	WithPeerAPI             bool
 	WithTrivyDouble         bool
 	WithQuotas              bool
+	WithBytesQuotas         bool
 	WithPreviousIssuerKey   bool
 	WithoutCurrentIssuerKey bool
 	RateLimitEngine         *keppel.RateLimitEngine
@@ -95,6 +96,11 @@ func WithTrivyDouble(params *setupParams) {
 // WithQuotas is a SetupOption that sets up ample quota for all configured accounts.
 func WithQuotas(params *setupParams) {
 	params.WithQuotas = true
+}
+
+// WithBytesQuotas is a SetupOption that enables bytes quota.
+func WithBytesQuotas(params *setupParams) {
+	params.WithBytesQuotas = true
 }
 
 // WithRateLimitEngine is a SetupOption to use a RateLimitEngine in enabled APIs.
@@ -206,6 +212,10 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 		Ctx:        t.Context(),
 		Registry:   prometheus.NewPedanticRegistry(),
 		tokenCache: make(map[string]string),
+	}
+
+	if params.WithBytesQuotas {
+		s.Config.TrackBytesQuota = true
 	}
 
 	// select issuer keys
