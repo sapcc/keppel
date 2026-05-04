@@ -13,11 +13,11 @@ import (
 	"strconv"
 	"strings"
 
-	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/must"
 	"github.com/spf13/cobra"
+	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"

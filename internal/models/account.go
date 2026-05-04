@@ -6,7 +6,7 @@ package models
 import (
 	"time"
 
-	. "github.com/majewsky/gg/option"
+	. "go.xyrillian.de/gg/option"
 )
 
 // AccountName identifies an account. This typedef is used to distinguish these

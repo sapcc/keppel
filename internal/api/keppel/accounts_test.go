@@ -11,12 +11,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/majewsky/gg/jsonmatch"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
+	"go.xyrillian.de/gg/jsonmatch"
 
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
 	"github.com/sapcc/keppel/internal/keppel"

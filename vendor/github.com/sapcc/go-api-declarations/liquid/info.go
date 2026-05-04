@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"slices"
 
-	. "github.com/majewsky/gg/option"
+	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/go-api-declarations/internal/clone"
 	"github.com/sapcc/go-api-declarations/internal/units"

@@ -3,7 +3,7 @@
 
 package regexpext
 
-import . "github.com/majewsky/gg/option"
+import . "go.xyrillian.de/gg/option"
 
 // ConfigSet works similar to map[K]V in that it picks values of type V for
 // keys of type K, but the keys in the data structure are actually regexes that

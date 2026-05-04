@@ -10,9 +10,9 @@ import (
 	"errors"
 	"io"
 
-	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-bits/pluggable"
+	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/trivy"

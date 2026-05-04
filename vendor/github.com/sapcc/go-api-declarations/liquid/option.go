@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"time"
 
-	. "github.com/majewsky/gg/option"
+	. "go.xyrillian.de/gg/option"
 )
 
 // ForeachOptionType calls action with every Option[] type that appears in the LIQUID API and returns a slice with the results.

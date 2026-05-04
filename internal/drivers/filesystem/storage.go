@@ -13,8 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
+	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"

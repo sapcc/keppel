@@ -4,8 +4,8 @@
 package keppel
 
 import (
-	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
+	. "go.xyrillian.de/gg/option"
 )
 
 // ReplicaSyncPayload is the format for request bodies and response bodies of

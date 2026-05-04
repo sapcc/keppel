@@ -14,10 +14,10 @@ import (
 	"time"
 
 	"github.com/go-gorp/gorp/v3"
-	. "github.com/majewsky/gg/option"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-bits/logg"
 	"go.podman.io/image/v5/manifest"
+	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/api"
 	"github.com/sapcc/keppel/internal/keppel"

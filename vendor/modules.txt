@@ -127,10 +127,6 @@ github.com/lib/pq/internal/proto
 github.com/lib/pq/oid
 github.com/lib/pq/pqerror
 github.com/lib/pq/scram
-# github.com/majewsky/gg v1.6.0
-## explicit; go 1.24
-github.com/majewsky/gg/jsonmatch
-github.com/majewsky/gg/option
 # github.com/moby/moby/client v0.1.0
 ## explicit; go 1.24.0
 github.com/moby/moby/client/pkg/versions
@@ -192,7 +188,7 @@ github.com/redis/go-redis/v9/push
 ## explicit; go 1.13
 github.com/rs/cors
 github.com/rs/cors/internal
-# github.com/sapcc/go-api-declarations v1.21.0
+# github.com/sapcc/go-api-declarations v1.21.1
 ## explicit; go 1.24
 github.com/sapcc/go-api-declarations/bininfo
 github.com/sapcc/go-api-declarations/cadf
@@ -200,7 +196,7 @@ github.com/sapcc/go-api-declarations/internal/clone
 github.com/sapcc/go-api-declarations/internal/errorset
 github.com/sapcc/go-api-declarations/internal/units
 github.com/sapcc/go-api-declarations/liquid
-# github.com/sapcc/go-bits v0.0.0-20260423021225-fb5e4523b6c5
+# github.com/sapcc/go-bits v0.0.0-20260504092817-9df533508379
 ## explicit; go 1.26
 github.com/sapcc/go-bits/assert
 github.com/sapcc/go-bits/audittools
@@ -262,6 +258,10 @@ go.podman.io/storage/pkg/regexp
 # go.uber.org/atomic v1.11.0
 ## explicit; go 1.18
 go.uber.org/atomic
+# go.xyrillian.de/gg v1.7.0
+## explicit; go 1.24
+go.xyrillian.de/gg/jsonmatch
+go.xyrillian.de/gg/option
 # go.xyrillian.de/schwift/v2 v2.1.0
 ## explicit; go 1.25.0
 go.xyrillian.de/schwift/v2

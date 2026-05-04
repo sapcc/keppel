@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/itchyny/gojq"
-	"github.com/majewsky/gg/jsonmatch"
+	"go.xyrillian.de/gg/jsonmatch"
 )
 
 // JQModifiableJSONFixture represents a JSON fixture file, that can be

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/majewsky/gg/option"
+	. "go.xyrillian.de/gg/option"
 )
 
 // IsRunningTests is set to true only during unit tests.

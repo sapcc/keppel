@@ -31,7 +31,7 @@ package pluggable
 import (
 	"fmt"
 
-	. "github.com/majewsky/gg/option"
+	. "go.xyrillian.de/gg/option"
 )
 
 // Plugin is the base interface for plugins that type Registry can instantiate.

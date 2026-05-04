@@ -12,7 +12,7 @@
 //		"net/http"
 //		"net/http/httptest"
 //
-//		"github.com/majewsky/gg/jsonmatch"
+//		"go.xyrillian.de/gg/jsonmatch"
 //	)
 //
 //	func TestJSONMatchOfResponseBody(t*testing.T) {
@@ -96,12 +96,12 @@
 // In this example, we have made a mistake in the implementation.
 // The field "name" has been misspelled, so it will be marshalled as "naem" instead.
 // Because the test unmarshals into the same type as the implementation, it will not be able to uncover this error.
-// This example might be a bit contrived, but keeping test logic separate from implementation logic is especially important for types using advanced marshalling logic through custom implementations of the json.Marshaler and json.Unmarshaler interfaces.
+// This example might be a bit contrived, but keeping test logic separate from implementation logic is especially important for types using advanced marshalling logic through custom implementations of the [json.Marshaler] and [json.Unmarshaler] interfaces.
 //
 // # Capturing nondeterministic data
 //
 // Sometimes, JSON payloads may contain randomly-generated fields like UUIDs or non-deterministic data like timestamps that cannot be predicted when writing the test code.
-// For these situations, package jsonmatch provides the CaptureField function.
+// For these situations, package jsonmatch provides the [CaptureField] function.
 // The example below shows a test exercising a PUT endpoint to create an object, capturing the object's ID while asserting on the rest of the response, and then using that ID to exercise a GET endpoint that displays the created object.
 //
 //	req1 := httptest.NewRequest(http.MethodPut, "/v1/things/new", strings.NewReader(`{"name":"hello"}`)
@@ -128,7 +128,7 @@
 //		},
 //	}.DiffAgainst(resp2.Body.Bytes())
 //	// ...
-package jsonmatch
+package jsonmatch // import "go.xyrillian.de/gg/jsonmatch"
 
 import (
 	"encoding/json"
@@ -136,7 +136,7 @@ import (
 	"fmt"
 )
 
-// Diffable is the common interface of types Object, Array, Scalar and Null from this package.
+// Diffable is the common interface of types [Object], [Array], [Scalar] and [Null] from this package.
 // The DiffAgainst function compares the value contained in the Diffable against an encoded JSON payload.
 //
 // The implementation will try to generate diffs as granularly as possible.
@@ -174,7 +174,7 @@ var (
 // Please refer to the package documentation for how to use this type.
 type Array []any
 
-// DiffAgainst implements the Diffable interface.
+// DiffAgainst implements the [Diffable] interface.
 func (a Array) DiffAgainst(buf []byte) []Diff {
 	return diffAgainst([]any(a), buf)
 }
@@ -183,21 +183,21 @@ func (a Array) DiffAgainst(buf []byte) []Diff {
 // Please refer to the package documentation for how to use this type.
 type Object map[string]any
 
-// DiffAgainst implements the Diffable interface.
+// DiffAgainst implements the [Diffable] interface.
 func (o Object) DiffAgainst(buf []byte) []Diff {
 	return diffAgainst(map[string]any(o), buf)
 }
 
 // Null implements diffing against an encoded JSON payload that is expected just the value `null`.
 // This type is only used on the top level of the JSON payload.
-// Within type Object or type Array, put a `nil` directly.
+// Within type [Object] or type [Array], put a `nil` directly.
 func Null() Diffable {
 	return scalar{nil}
 }
 
 // Scalar implements diffing against an encoded JSON payload that is expected to contain just a scalar value (a number, string or boolean).
 // This type is only used on the top level of the JSON payload.
-// Within type Object or type Array, put the value directly.
+// Within type [Object] or type [Array,] put the value directly.
 func Scalar[S ScalarValue](value S) Diffable {
 	return scalar{value}
 }
@@ -206,12 +206,12 @@ type scalar struct {
 	Value any
 }
 
-// DiffAgainst implements the Diffable interface.
+// DiffAgainst implements the [Diffable] interface.
 func (s scalar) DiffAgainst(buf []byte) []Diff {
 	return diffAgainst(s.Value, buf)
 }
 
-// ScalarValue is an interface containing every type that can be given to func Scalar.
+// ScalarValue is an interface containing every type that can be given to func [Scalar].
 type ScalarValue interface {
 	~bool |
 		~int | ~int8 | ~int16 | ~int32 | ~int64 |
@@ -221,7 +221,7 @@ type ScalarValue interface {
 }
 
 // Diff is a difference between the actual encoded JSON payload given to a DiffAgainst() call, and the expectation encoded in the object that DiffAgainst() was called on.
-// See type Diffable for details on how diffing works.
+// See type [Diffable] for details on how diffing works.
 type Diff struct {
 	// Kind explains the type of difference.
 	// No stability guarantee is given for the values that can occur in this field.
@@ -246,16 +246,16 @@ func (d Diff) String() string {
 }
 
 // Pointer is a JSON pointer (RFC 6901) that references a particular JSON value relative to the root of the encoded JSON payload that was given to DiffAgainst().
-// It appears in type Diff.
+// It appears in type [Diff].
 //
 // This type is intended to become synonymous with encoding/json/jsontext.Pointer once that type is stabilized.
 type Pointer string
 
-// CaptureField returns a capture slot that can be placed in a jsonmatch.Object or jsonmatch.Array instance to capture individual non-deterministic values during an assertion.
+// CaptureField returns a capture slot that can be placed in an [Object] or [Array] instance to capture individual non-deterministic values during an assertion.
 // Please refer to the package documentation for details and usage examples.
 //
 // Capture slots only work inside data structures that DiffAgainst() knows how to recurse into.
-// Please refer to the documentation on type Diffable for details.
+// Please refer to the documentation on type [Diffable] for details.
 func CaptureField[T any](target *T) any {
 	// NOTE: The public interface is using generics because that allows enforcing
 	// that `target` is passed as pointer. But the internal representation holds
@@ -268,7 +268,7 @@ type capturedField struct {
 	PointerToTarget any
 }
 
-// MarshalJSON implements the json.Marshaler interface by transparently marshaling the contained value.
+// MarshalJSON implements the [json.Marshaler] interface by transparently marshaling the contained value.
 //
 // This implementation ensures that `capturedField` looks like its payload
 // when serialized for a "type mismatch" or "value mismatch" error message.
@@ -276,7 +276,7 @@ func (f capturedField) MarshalJSON() ([]byte, error) {
 	return json.Marshal(f.PointerToTarget)
 }
 
-// UnmarshalJSON implements the json.Unmarshaler interface by always throwing an error.
+// UnmarshalJSON implements the [json.Unmarshaler] interface by always throwing an error.
 //
 // This implementation ensures that `capturedField` is not placed into a
 // container that DiffAgainst() does not know how to recurse into.
@@ -286,19 +286,26 @@ func (f capturedField) UnmarshalJSON(buf []byte) error {
 
 type irrelevant struct{}
 
-// Irrelevant returns a slot that can be placed in a jsonmatch.Object or jsonmatch.Array instance
+// Irrelevant returns a slot that can be placed in an [Object] or [Array] instance
 // to ignore the contents of certain fields or array elements during an assertion.
 //
 // Irrelevant() slots only work inside data structures that DiffAgainst() knows how to recurse into.
-// Please refer to the documentation on type Diffable for details.
+// Please refer to the documentation on type [Diffable] for details.
 func Irrelevant() any {
 	return irrelevant{}
 }
 
-// MarshalJSON implements the json.Marshaler interface.
+// MarshalJSON implements the [json.Marshaler] interface.
 //
 // This implementation ensures that `irrelevant` renders in a readable way
 // when a larger value containing it is serialized for a "type mismatch" or "value mismatch" error message.
 func (irrelevant) MarshalJSON() ([]byte, error) {
 	return []byte(`"<irrelevant>"`), nil
 }
+
+var (
+	// static assertion that the documented interfaces are indeed implemented
+	_ json.Marshaler   = capturedField{}
+	_ json.Unmarshaler = capturedField{}
+	_ json.Marshaler   = irrelevant{}
+)

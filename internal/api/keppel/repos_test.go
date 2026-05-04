@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/majewsky/gg/jsonmatch"
-	. "github.com/majewsky/gg/option"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/must"
+	"go.xyrillian.de/gg/jsonmatch"
+	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"

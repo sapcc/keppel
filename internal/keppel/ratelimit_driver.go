@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/go-redis/redis_rate/v10"
-	. "github.com/majewsky/gg/option"
 	"github.com/redis/go-redis/v9"
 	"github.com/sapcc/go-bits/pluggable"
+	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/models"
 )

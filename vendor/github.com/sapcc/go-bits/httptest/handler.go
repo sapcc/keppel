@@ -18,7 +18,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/majewsky/gg/jsonmatch"
+	"go.xyrillian.de/gg/jsonmatch"
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/internal/testdiff"

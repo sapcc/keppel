@@ -15,7 +15,6 @@ import (
 
 	"github.com/go-gorp/gorp/v3"
 	celTypes "github.com/google/cel-go/common/types"
-	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 	imagespecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/prometheus/client_golang/prometheus"
@@ -25,6 +24,7 @@ import (
 	"github.com/sapcc/go-bits/logg"
 	"github.com/sapcc/go-bits/sqlext"
 	imageManifest "go.podman.io/image/v5/manifest"
+	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/client"

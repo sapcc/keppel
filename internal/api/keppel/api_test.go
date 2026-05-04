@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/majewsky/gg/jsonmatch"
 	"github.com/sapcc/go-bits/httptest"
+	"go.xyrillian.de/gg/jsonmatch"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"

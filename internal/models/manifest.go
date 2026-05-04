@@ -6,8 +6,8 @@ package models
 import (
 	"time"
 
-	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
+	. "go.xyrillian.de/gg/option"
 )
 
 // Manifest contains a record from the `manifests` table.

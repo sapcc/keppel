@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"slices"
 
-	. "github.com/majewsky/gg/option"
+	. "go.xyrillian.de/gg/option"
 )
 
 // Subcapacity describes a distinct chunk of capacity for a resource within an AZ.

@@ -6,7 +6,7 @@ package models
 import (
 	"time"
 
-	. "github.com/majewsky/gg/option"
+	. "go.xyrillian.de/gg/option"
 )
 
 // Peer contains a record from the `peers` table.

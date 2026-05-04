@@ -8,8 +8,8 @@ import (
 	"errors"
 	"fmt"
 
-	. "github.com/majewsky/gg/option"
 	"github.com/sapcc/go-bits/httpext"
+	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/models"

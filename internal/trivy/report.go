@@ -9,7 +9,7 @@ import (
 	"io"
 	"maps"
 
-	. "github.com/majewsky/gg/option"
+	. "go.xyrillian.de/gg/option"
 )
 
 // Report is a type for deserializing a Trivy vulnerability report into.

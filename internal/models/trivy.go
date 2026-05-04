@@ -6,8 +6,8 @@ package models
 import (
 	"time"
 
-	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
+	. "go.xyrillian.de/gg/option"
 )
 
 // TrivySecurityInfo contains a record from the `trivy_security_info` table.

@@ -17,14 +17,14 @@ import (
 	"time"
 
 	"github.com/go-redis/redis_rate/v10"
-	"github.com/majewsky/gg/jsonmatch"
-	. "github.com/majewsky/gg/option"
 	"github.com/opencontainers/go-digest"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/easypg"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 	"go.podman.io/image/v5/manifest"
+	"go.xyrillian.de/gg/jsonmatch"
+	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/drivers/basic"
 	"github.com/sapcc/keppel/internal/keppel"

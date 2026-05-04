@@ -4,8 +4,8 @@
 package keppel
 
 import (
-	. "github.com/majewsky/gg/option"
 	"github.com/sapcc/go-bits/pluggable"
+	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/models"
 )

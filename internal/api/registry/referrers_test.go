@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/majewsky/gg/jsonmatch"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sapcc/go-bits/httptest"
+	"go.xyrillian.de/gg/jsonmatch"
 
 	"github.com/sapcc/keppel/internal/test"
 )

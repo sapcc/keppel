@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/majewsky/gg/jsonmatch"
-	. "github.com/majewsky/gg/option"
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
+	"go.xyrillian.de/gg/jsonmatch"
+	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
