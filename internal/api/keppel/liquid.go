@@ -5,6 +5,7 @@ package keppelv1
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-api-declarations/liquid"
@@ -17,15 +18,14 @@ import (
 	"github.com/sapcc/keppel/internal/processor"
 )
 
-// Increment this whenever the output of handleLiquidGetInfo() changes.
-const LiquidInfoVersion int64 = 2
+var liquidInfoVersion int64 = time.Now().Unix()
 
 func (a *API) handleLiquidGetInfo(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/liquid/v1/info")
 
 	si := liquid.ServiceInfo{
 		DisplayName: "Container Image Registry",
-		Version:     LiquidInfoVersion,
+		Version:     liquidInfoVersion,
 		Resources: map[liquid.ResourceName]liquid.ResourceInfo{
 			"images": {
 				DisplayName: "Images",
@@ -62,7 +62,7 @@ func (a *API) handleLiquidReportCapacity(w http.ResponseWriter, r *http.Request)
 
 	// but we don't need to do any actual work since nothing reports capacity
 	respondwith.JSON(w, http.StatusOK, liquid.ServiceCapacityReport{
-		InfoVersion: LiquidInfoVersion,
+		InfoVersion: liquidInfoVersion,
 		Resources:   map[liquid.ResourceName]*liquid.ResourceCapacityReport{},
 	})
 }
@@ -132,7 +132,7 @@ func liquidConvertQuotaRequest(req liquid.ServiceQuotaRequest) processor.QuotaRe
 
 func liquidConvertQuotaResponse(resp processor.QuotaResponse) liquid.ServiceUsageReport {
 	su := liquid.ServiceUsageReport{
-		InfoVersion: LiquidInfoVersion,
+		InfoVersion: liquidInfoVersion,
 		Metrics:     map[liquid.MetricName][]liquid.Metric{},
 		Resources: map[liquid.ResourceName]*liquid.ResourceUsageReport{
 			"images": {
