@@ -115,10 +115,12 @@ func (a *API) handleLiquidSetQuota(w http.ResponseWriter, r *http.Request) {
 }
 
 func liquidConvertQuotaRequest(req liquid.ServiceQuotaRequest) processor.QuotaRequest {
-	qr := processor.QuotaRequest{
-		Manifests: processor.SingleQuotaRequest{
-			Quota: req.Resources["images"].Quota,
-		},
+	qr := processor.QuotaRequest{}
+
+	if res, ok := req.Resources["images"]; ok {
+		qr.Manifests = Some(processor.SingleQuotaRequest{
+			Quota: res.Quota,
+		})
 	}
 
 	if res, ok := req.Resources["capacity"]; ok {
