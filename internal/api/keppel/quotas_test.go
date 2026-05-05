@@ -6,21 +6,21 @@ package keppelv1_test
 import (
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/sapcc/go-api-declarations/cadf"
 	"github.com/sapcc/go-bits/httptest"
-	"github.com/sapcc/go-bits/must"
 	"go.xyrillian.de/gg/jsonmatch"
-	. "go.xyrillian.de/gg/option"
 
 	"github.com/sapcc/keppel/internal/models"
 	"github.com/sapcc/keppel/internal/test"
 )
 
 func TestQuotasAPI(t *testing.T) {
-	// NOTE: This tests both the Keppel-native quota API and the LIQUID API which accesses the same logic.
-	s := test.NewSetup(t, test.WithKeppelAPI)
+	// NOTE: This tests both the Keppel-native quota API and the LIQUID API which access the same logic.
+	s := test.NewSetup(t,
+		test.WithKeppelAPI,
+		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
+	)
 	ctx := t.Context()
 
 	var infoVersion int64
@@ -197,28 +197,18 @@ func TestQuotasAPI(t *testing.T) {
 	).ExpectJSON(t, http.StatusOK, buildLiquidResponse(100, 0))
 
 	// put some manifests in the DB, check that GET reflects higher usage
-	test.MustExec(t, s.DB, `INSERT INTO accounts (name, auth_tenant_id) VALUES ('test1', 'tenant1')`)
-	must.SucceedT(t, s.DB.Insert(&models.Repository{
-		Name:        "repo1",
+	repo := models.Repository{
 		AccountName: "test1",
-	}))
-	for idx := 1; idx <= 10; idx++ {
-		pushedAt := time.Unix(int64(10000+10*idx), 0)
-		must.SucceedT(t, s.DB.Insert(&models.Manifest{
-			RepositoryID:     1,
-			Digest:           test.DeterministicDummyDigest(idx),
-			MediaType:        "",
-			SizeBytes:        uint64(1000 * idx),
-			PushedAt:         pushedAt,
-			NextValidationAt: pushedAt.Add(models.ManifestValidationInterval),
-		}))
-		must.SucceedT(t, s.DB.Insert(&models.TrivySecurityInfo{
-			RepositoryID:        1,
-			Digest:              test.DeterministicDummyDigest(idx),
-			VulnerabilityStatus: models.PendingVulnerabilityStatus,
-			NextCheckAt:         Some(time.Unix(0, 0)),
-		}))
+		Name:        "foo",
 	}
+	for idx := 1; idx <= 10; idx++ {
+		image := test.GenerateImage(
+			test.GenerateExampleLayer(int64(idx)),
+			test.GenerateExampleLayer(int64(idx+1)),
+		)
+		image.MustUpload(t, s, repo, "latest")
+	}
+	s.Auditor.IgnoreEventsUntilNow()
 	s.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"manifests": jsonmatch.Object{"quota": 100, "usage": 10},
