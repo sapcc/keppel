@@ -20,4 +20,5 @@ The following parameters may be supplied in `$KEPPEL_DRIVER_STORAGE`:
 
 | Field | Type | Explanation |
 | ----- | ---- | ----------- |
+| `service_type` | string | *(optional)* Service type for Swift in the Keystone service catalog. Defaults to `object-store` for native Swift, but can be set to e.g. `object-store-ceph` to use Ceph's Swift-compatible API. |
 | `use_service_user_project` | bool | *(optional)* When set to `true`, stores all payload in the service user's own project instead of in the project owning the respective Keppel account. Defaults to `false`. |

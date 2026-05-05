@@ -5,6 +5,7 @@ package openstack
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -36,7 +37,8 @@ type swiftContainerInfo struct {
 }
 
 type swiftDriver struct {
-	UseServiceUserProject bool `json:"use_service_user_project"`
+	ServiceType           string `json:"service_type"`
+	UseServiceUserProject bool   `json:"use_service_user_project"`
 
 	mainAccount         *schwift.Account
 	containerInfos      map[models.AccountName]*swiftContainerInfo
@@ -57,7 +59,9 @@ func (d *swiftDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) error
 		return keppel.ErrAuthDriverMismatch
 	}
 
-	client, err := openstack.NewObjectStorageV1(k.Provider, k.EndpointOpts)
+	eo := k.EndpointOpts
+	eo.Type = cmp.Or(d.ServiceType, "object-store")
+	client, err := openstack.NewObjectStorageV1(k.Provider, eo)
 	if err != nil {
 		return err
 	}
