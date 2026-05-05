@@ -23,6 +23,28 @@ func TestQuotasAPI(t *testing.T) {
 	s := test.NewSetup(t, test.WithKeppelAPI)
 	ctx := t.Context()
 
+	var infoVersion int64
+
+	s.RespondTo(ctx, "GET /liquid/v1/info",
+		withPerms("viewquota:tenant1"),
+	).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"capacityMetricFamilies": nil,
+		"categories":             nil,
+		"displayName":            "Container Image Registry",
+		"rates":                  nil,
+		"resources": jsonmatch.Object{
+			"images": jsonmatch.Object{
+				"displayName":         "Images",
+				"hasCapacity":         false,
+				"hasQuota":            true,
+				"needsResourceDemand": false,
+				"topology":            "flat",
+			},
+		},
+		"usageMetricFamilies": nil,
+		"version":             jsonmatch.CaptureField(&infoVersion),
+	})
+
 	// GET on auth tenant without more specific configuration shows default values
 	s.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
@@ -30,13 +52,13 @@ func TestQuotasAPI(t *testing.T) {
 		})
 	buildLiquidResponse := func(quota, usage uint64) jsonmatch.Object {
 		return jsonmatch.Object{
-			"infoVersion": 2,
-			"resources": map[string]jsonmatch.Object{
-				"images": {
+			"infoVersion": infoVersion,
+			"resources": jsonmatch.Object{
+				"images": jsonmatch.Object{
 					"forbidden": false,
 					"quota":     quota,
-					"perAZ": map[string]jsonmatch.Object{
-						"any": {
+					"perAZ": jsonmatch.Object{
+						"any": jsonmatch.Object{
 							"usage": usage,
 						},
 					},
@@ -44,6 +66,7 @@ func TestQuotasAPI(t *testing.T) {
 			},
 		}
 	}
+
 	s.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
 		withPerms("viewquota:tenant1"),
 		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
