@@ -34,8 +34,9 @@ type SingleQuotaResponse struct {
 
 // QuotaRequest is the request body payload for PUT /keppel/v1/quotas/:auth_tenant_id.
 type QuotaRequest struct {
-	Bytes     Option[SingleQuotaRequest] `json:"bytes,omitzero"`
-	Manifests SingleQuotaRequest         `json:"manifests"`
+	Bytes Option[SingleQuotaRequest] `json:"bytes,omitzero"`
+	// This field is always required. Option[] is only used to distinguish a quota set to 0 from a missing quota.
+	Manifests Option[SingleQuotaRequest] `json:"manifests,omitzero"`
 }
 
 // SingleQuotaRequest appears in type QuotaRequest.
@@ -102,6 +103,12 @@ func (p *Processor) SetQuotas(ctx context.Context, authTenantID string, req Quot
 	}
 	quotasBefore := quotas
 
+	reqManifests, ok := req.Manifests.Unpack()
+	if !ok {
+		msg := "request does not contain manifest quota"
+		return nil, ImpossibleQuotaError{Message: msg}
+	}
+
 	// check usage
 	tx, err := p.db.Begin()
 	if err != nil {
@@ -113,8 +120,8 @@ func (p *Processor) SetQuotas(ctx context.Context, authTenantID string, req Quot
 	if err != nil {
 		return nil, err
 	}
-	if req.Manifests.Quota < manifestCount {
-		msg := fmt.Sprintf("requested manifest quota (%d) is below usage (%d)", req.Manifests.Quota, manifestCount)
+	if reqManifests.Quota < manifestCount {
+		msg := fmt.Sprintf("requested manifest quota (%d) is below usage (%d)", reqManifests.Quota, manifestCount)
 		return nil, ImpossibleQuotaError{Message: msg}
 	}
 
@@ -140,9 +147,9 @@ func (p *Processor) SetQuotas(ctx context.Context, authTenantID string, req Quot
 		}
 	}
 
-	if quotas.ManifestCount != req.Manifests.Quota || (p.cfg.TrackBytesQuota && quotas.Bytes != reqBytes.Quota) {
+	if quotas.ManifestCount != reqManifests.Quota || (p.cfg.TrackBytesQuota && quotas.Bytes != reqBytes.Quota) {
 		// apply quotas if necessary
-		quotas.ManifestCount = req.Manifests.Quota
+		quotas.ManifestCount = reqManifests.Quota
 		if p.cfg.TrackBytesQuota {
 			quotas.Bytes = reqBytes.Quota
 		}
@@ -174,7 +181,7 @@ func (p *Processor) SetQuotas(ctx context.Context, authTenantID string, req Quot
 
 	qr := &QuotaResponse{
 		Manifests: SingleQuotaResponse{
-			Quota: req.Manifests.Quota,
+			Quota: reqManifests.Quota,
 			Usage: manifestCount,
 		},
 	}
