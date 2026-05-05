@@ -256,3 +256,219 @@ func TestQuotasAPI(t *testing.T) {
 	).ExpectText(t, http.StatusUnprocessableEntity, "requested manifest quota (5) is below usage (10)\n")
 	s.Auditor.ExpectEvents(t /*, nothing */)
 }
+
+func TestQuotasAPIWithBytes(t *testing.T) {
+	// NOTE: This tests both the Keppel-native quota API and the LIQUID API which access the same logic.
+	s := test.NewSetup(t,
+		test.WithKeppelAPI,
+		test.WithBytesQuotas,
+		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
+	)
+	ctx := t.Context()
+
+	var infoVersion int64
+
+	s.RespondTo(ctx, "GET /liquid/v1/info",
+		withPerms("viewquota:tenant1"),
+	).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+		"capacityMetricFamilies": nil,
+		"categories":             nil,
+		"displayName":            "Container Image Registry",
+		"rates":                  nil,
+		"resources": jsonmatch.Object{
+			"capacity": jsonmatch.Object{
+				"displayName":         "Capacity",
+				"hasCapacity":         false,
+				"hasQuota":            true,
+				"needsResourceDemand": false,
+				"topology":            "flat",
+				"unit":                "B",
+			},
+			"images": jsonmatch.Object{
+				"displayName":         "Images",
+				"hasCapacity":         false,
+				"hasQuota":            true,
+				"needsResourceDemand": false,
+				"topology":            "flat",
+			},
+		},
+		"usageMetricFamilies": nil,
+		"version":             jsonmatch.CaptureField(&infoVersion),
+	})
+
+	// GET on auth tenant without more specific configuration shows default values
+	s.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"bytes":     jsonmatch.Object{"quota": 0, "usage": 0},
+			"manifests": jsonmatch.Object{"quota": 0, "usage": 0},
+		})
+	buildLiquidResponse := func(capacityQuota, capacityUsage, imagesQuota, imagesUsage uint64) jsonmatch.Object {
+		return jsonmatch.Object{
+			"infoVersion": infoVersion,
+			"resources": jsonmatch.Object{
+				"capacity": jsonmatch.Object{
+					"forbidden": false,
+					"quota":     capacityQuota,
+					"perAZ": jsonmatch.Object{
+						"any": jsonmatch.Object{
+							"usage": capacityUsage,
+						},
+					},
+				},
+				"images": jsonmatch.Object{
+					"forbidden": false,
+					"quota":     imagesQuota,
+					"perAZ": jsonmatch.Object{
+						"any": jsonmatch.Object{
+							"usage": imagesUsage,
+						},
+					},
+				},
+			},
+		}
+	}
+
+	s.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
+		withPerms("viewquota:tenant1"),
+		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
+	).ExpectJSON(t, http.StatusOK, buildLiquidResponse(0, 0, 0, 0))
+
+	// PUT happy case with native API
+	for _, pass := range []int{1, 2, 3} {
+		s.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
+			withPerms("changequota:tenant1"),
+			httptest.WithJSONBody(map[string]any{
+				"bytes":     map[string]any{"quota": 5_000_000},
+				"manifests": map[string]any{"quota": 50},
+			}),
+		).ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"bytes":     jsonmatch.Object{"quota": 5_000_000, "usage": 0},
+			"manifests": jsonmatch.Object{"quota": 50, "usage": 0},
+		})
+
+		// only the first pass should generate an audit event
+		if pass == 1 {
+			s.Auditor.ExpectEvents(t, cadf.Event{
+				RequestPath: "/keppel/v1/quotas/tenant1",
+				Action:      cadf.UpdateAction,
+				Outcome:     "success",
+				Reason:      test.CADFReasonOK,
+				Target: cadf.Resource{
+					TypeURI:   "docker-registry/project-quota",
+					ID:        "tenant1",
+					ProjectID: "tenant1",
+					Attachments: []cadf.Attachment{
+						{
+							Name:    "payload-before",
+							TypeURI: "mime:application/json",
+							Content: `{"manifests":0}`,
+						},
+						{
+							Name:    "payload",
+							TypeURI: "mime:application/json",
+							Content: `{"bytes":5000000,"manifests":50}`,
+						},
+					},
+				},
+			})
+		} else {
+			s.Auditor.ExpectEvents(t /*, nothing */)
+		}
+	}
+
+	// PUT happy case with LIQUID API
+	for _, pass := range []int{1, 2, 3} {
+		s.RespondTo(ctx, "PUT /liquid/v1/projects/tenant1/quota",
+			withPerms("changequota:tenant1"),
+			httptest.WithJSONBody(map[string]any{
+				"resources": map[string]any{
+					"capacity": map[string]any{"quota": 50_000_000},
+					"images":   map[string]any{"quota": 100},
+				},
+			}),
+		).ExpectStatus(t, http.StatusNoContent)
+
+		// only the first pass should generate an audit event
+		if pass == 1 {
+			s.Auditor.ExpectEvents(t, cadf.Event{
+				RequestPath: "/liquid/v1/projects/tenant1/quota",
+				Action:      cadf.UpdateAction,
+				Outcome:     "success",
+				Reason:      test.CADFReasonOK,
+				Target: cadf.Resource{
+					TypeURI:   "docker-registry/project-quota",
+					ID:        "tenant1",
+					ProjectID: "tenant1",
+					Attachments: []cadf.Attachment{
+						{
+							Name:    "payload-before",
+							TypeURI: "mime:application/json",
+							Content: `{"bytes":5000000,"manifests":50}`,
+						},
+						{
+							Name:    "payload",
+							TypeURI: "mime:application/json",
+							Content: `{"bytes":50000000,"manifests":100}`,
+						},
+					},
+				},
+			})
+		} else {
+			s.Auditor.ExpectEvents(t /*, nothing */)
+		}
+	}
+
+	// reflects changes
+	s.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"bytes":     jsonmatch.Object{"quota": 50_000_000, "usage": 0},
+			"manifests": jsonmatch.Object{"quota": 100, "usage": 0},
+		})
+	s.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
+		withPerms("viewquota:tenant1"),
+		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
+	).ExpectJSON(t, http.StatusOK, buildLiquidResponse(50_000_000, 0, 100, 0))
+
+	// put some blobs in the DB, check that GET reflects higher usage
+	repo := models.Repository{
+		AccountName: "test1",
+		Name:        "foo",
+	}
+	for idx := 1; idx <= 10; idx++ {
+		image := test.GenerateImage(
+			test.GenerateExampleLayer(int64(idx)),
+			test.GenerateExampleLayer(int64(idx+1)),
+		)
+		image.MustUpload(t, s, repo, "latest")
+	}
+	s.Auditor.IgnoreEventsUntilNow()
+
+	s.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant1")).
+		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
+			"bytes":     jsonmatch.Object{"quota": 50_000_000, "usage": 11555866},
+			"manifests": jsonmatch.Object{"quota": 100, "usage": 10},
+		})
+	s.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
+		withPerms("viewquota:tenant1"),
+		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
+	).ExpectJSON(t, http.StatusOK, buildLiquidResponse(50000000, 11555866, 100, 10))
+
+	// PUT error cases
+	s.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
+		withPerms("viewquota:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"bytes":     map[string]any{"bytes": 50_000_000, "quota": 5_000_000},
+			"manifests": map[string]any{"bytes": 10000, "quota": 100},
+		}),
+	).ExpectStatus(t, http.StatusForbidden)
+	s.Auditor.ExpectEvents(t /*, nothing */)
+
+	s.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
+		withPerms("changequota:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"bytes":     map[string]any{"quota": 5_000_000},
+			"manifests": map[string]any{"quota": 5},
+		}),
+	).ExpectText(t, http.StatusUnprocessableEntity, "requested manifest quota (5) is below usage (10)\n")
+	s.Auditor.ExpectEvents(t /*, nothing */)
+}
