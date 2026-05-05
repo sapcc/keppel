@@ -49,7 +49,7 @@ func TestQuotasAPI(t *testing.T) {
 		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
 	).ExpectJSON(t, http.StatusOK, buildLiquidResponse(0, 0))
 
-	// GET basic error cases: no permission on the respective auth tenant
+	// basic error cases: no permission on the respective auth tenant
 	s.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant2")).
 		ExpectStatus(t, http.StatusForbidden)
 	s.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
@@ -57,7 +57,7 @@ func TestQuotasAPI(t *testing.T) {
 		httptest.WithJSONBody(map[string]any{"allAZs": []string{"dummy"}}),
 	).ExpectStatus(t, http.StatusForbidden)
 
-	// GET basic error cases: wrong permission on the respective auth tenant
+	// basic error cases: wrong permission on the respective auth tenant
 	s.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("view:tenant1")).
 		ExpectStatus(t, http.StatusForbidden)
 	s.RespondTo(ctx, "POST /liquid/v1/projects/tenant1/report-usage",
@@ -163,7 +163,7 @@ func TestQuotasAPI(t *testing.T) {
 		}
 	}
 
-	// GET reflects changes
+	// reflects changes
 	s.RespondTo(ctx, "GET /keppel/v1/quotas/tenant1", withPerms("viewquota:tenant1")).
 		ExpectJSON(t, http.StatusOK, jsonmatch.Object{
 			"manifests": jsonmatch.Object{"quota": 100, "usage": 0},
@@ -212,18 +212,21 @@ func TestQuotasAPI(t *testing.T) {
 			"manifests": map[string]any{"quota": 100},
 		}),
 	).ExpectStatus(t, http.StatusForbidden)
+	s.Auditor.ExpectEvents(t /*, nothing */)
+
 	s.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
 		withPerms("changequota:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"manifests": map[string]any{"quota": 100, "usage": 10},
 		}),
 	).ExpectText(t, http.StatusBadRequest, "request body is not valid JSON: json: unknown field \"usage\"\n")
+	s.Auditor.ExpectEvents(t /*, nothing */)
+
 	s.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
 		withPerms("changequota:tenant1"),
 		httptest.WithJSONBody(map[string]any{
 			"manifests": map[string]any{"quota": 5},
 		}),
 	).ExpectText(t, http.StatusUnprocessableEntity, "requested manifest quota (5) is below usage (10)\n")
-
-	// TODO audit events
+	s.Auditor.ExpectEvents(t /*, nothing */)
 }
