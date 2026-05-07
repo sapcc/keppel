@@ -25,7 +25,6 @@ func isValidIdentifier[S ~string](s S) bool {
 //   - Each resource and rate must have a valid name, according to ResourceName.IsValid() and RateName.IsValid().
 //   - Each resource is declared with a valid topology.
 //   - Each rate is declared with a valid topology.
-//   - Each rate is declared with HasUsage = true.
 //
 // Additional validations may be added in the future.
 func ValidateServiceInfo(srv ServiceInfo) error {
@@ -67,9 +66,6 @@ func validateServiceInfoImpl(srv ServiceInfo) (errs errorset.ErrorSet) {
 		}
 		if !rate.Topology.IsValid() {
 			errs.Addf(".Rates[%q] has invalid topology %q", rateName, srv.Rates[rateName].Topology)
-		}
-		if !rate.HasUsage {
-			errs.Addf(".Rates[%q] declared with HasUsage = false, but must be true", rateName)
 		}
 		category, hasCategory := rate.Category.Unpack()
 		if hasCategory {
@@ -212,9 +208,8 @@ func validateUsageReportImpl(report ServiceUsageReport, req ServiceUsageRequest,
 		errs.Add(validateQuotaAgainstTopology(res, resInfo.HasQuota, resInfo.Topology, resName, req.AllAZs))
 	}
 	// validate rate reports
-	for rateName := range info.Rates {
-		// HasUsage = true is implicit and gets verified in the ServiceInfo
-		if !hasKey(report.Rates, rateName) {
+	for rateName, rateInfo := range info.Rates {
+		if rateInfo.HasUsage && !hasKey(report.Rates, rateName) {
 			errs.Addf("missing value for .Rates[%q]", rateName)
 		}
 	}
@@ -222,6 +217,10 @@ func validateUsageReportImpl(report ServiceUsageReport, req ServiceUsageRequest,
 		rateInfo, exists := info.Rates[rateName]
 		if !exists {
 			errs.Addf("unexpected value for .Rates[%q] (rate was not declared)", rateName)
+			continue
+		}
+		if !rateInfo.HasUsage {
+			errs.Addf("unexpected value for .Rates[%q] (rate was declared with HasUsage = false)", rateName)
 			continue
 		}
 		errs.Add(validatePerAZAgainstTopology(rate.PerAZ, rateInfo.Topology, ".Rates", rateName, req.AllAZs))

@@ -48,7 +48,7 @@ type ServiceUsageReport struct {
 	// Must contain an entry for each resource that was declared in type [ServiceInfo].
 	Resources map[ResourceName]*ResourceUsageReport `json:"resources,omitempty"`
 
-	// Must contain an entry for each rate that was declared in type [ServiceInfo].
+	// Must contain an entry for each rate that was declared in type [ServiceInfo] with "HasUsage = true".
 	Rates map[RateName]*RateUsageReport `json:"rates,omitempty"`
 
 	// Must contain an entry for each metric family that was declared for usage metrics in type [ServiceInfo].

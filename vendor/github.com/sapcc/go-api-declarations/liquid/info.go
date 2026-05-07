@@ -237,8 +237,6 @@ type RateInfo struct {
 	Topology Topology `json:"topology"`
 
 	// Whether the liquid reports usage for this rate on the project level.
-	// This must currently be true because there is no other reason for a rate to exist.
-	// This requirement may be relaxed in the future, if LIQUID starts modelling rate limits and there are rates that have limits, but no usage tracking.
 	HasUsage bool `json:"hasUsage"`
 }
 

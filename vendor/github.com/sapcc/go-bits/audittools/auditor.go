@@ -18,10 +18,10 @@ import (
 	"net"
 	"net/url"
 	"strconv"
-	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sapcc/go-api-declarations/cadf"
+	"go.xyrillian.de/gg/jsonmatch"
 
 	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/internal"
@@ -207,19 +207,50 @@ func (a *MockAuditor) Record(event Event) {
 // At the end of the call, the recording will be disposed, so the next ExpectEvents call will not check against the same events again.
 //
 // If you do not have a *testing.T (e.g. under Ginkgo), use func RecordedEvents instead.
-func (a *MockAuditor) ExpectEvents(t *testing.T, expectedEvents ...cadf.Event) {
+func (a *MockAuditor) ExpectEvents(t assert.TestingT, expectedEvents ...cadf.Event) {
 	t.Helper()
+
+	actualEvents := a.RecordedEvents()
+
 	if len(expectedEvents) == 0 {
-		expectedEvents = nil
+		if len(actualEvents) == 0 {
+			return
+		}
 	} else {
 		for idx, event := range expectedEvents {
 			expectedEvents[idx] = a.normalize(event)
 		}
 	}
-	assert.DeepEqual(t, "CADF events", a.events, expectedEvents)
 
-	// reset state for next test
-	a.events = nil
+	// normalize nil to [] for better jsonmatch.Diff output
+	if len(actualEvents) == 0 {
+		actualEvents = []cadf.Event{}
+	}
+	if len(expectedEvents) == 0 {
+		expectedEvents = []cadf.Event{}
+	}
+
+	actualBuf, err := json.Marshal(map[string]any{"events": actualEvents})
+	if err != nil {
+		t.Errorf("cannot marshal recorded events to JSON: %s", err.Error())
+		return
+	}
+	expectedBuf, err := json.Marshal(map[string]any{"events": expectedEvents})
+	if err != nil {
+		t.Errorf("cannot marshal expected events to JSON: %s", err.Error())
+		return
+	}
+
+	var expected jsonmatch.Object
+	err = json.Unmarshal(expectedBuf, &expected)
+	if err != nil {
+		t.Errorf("cannot unmarshal expected events from JSON: %s", err.Error())
+		return
+	}
+
+	for _, d := range expected.DiffAgainst(actualBuf) {
+		t.Errorf("%s", d.String())
+	}
 }
 
 // RecordedEvents returns the list of recorded events.
