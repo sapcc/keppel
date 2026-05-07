@@ -390,14 +390,9 @@ func (a *API) handleContinueBlobUpload(w http.ResponseWriter, r *http.Request) {
 			keppel.ErrSizeInvalid.With(err.Error()).WithStatus(http.StatusRequestedRangeNotSatisfiable).WriteAsRegistryV2ResponseTo(w, r)
 
 			logg.Info("aborting upload because of error during parseContentRange()")
-			countAbortedBlobUpload(*account)
-			err := a.sd.AbortBlobUpload(r.Context(), *account, upload.StorageID, upload.NumChunks)
+			err := a.abortBlobUpload(r.Context(), *account, upload)
 			if err != nil {
 				logg.Error("additional error encountered during AbortBlobUpload: " + err.Error())
-			}
-			_, err = a.db.Delete(&upload)
-			if err != nil {
-				logg.Error("additional error encountered while deleting Upload from DB: " + err.Error())
 			}
 			return
 		}
@@ -514,14 +509,9 @@ func (a *API) resumeUpload(ctx context.Context, account models.ReducedAccount, u
 	defer func() {
 		if returnErr != nil {
 			logg.Info("aborting upload because of error during resumeUpload()")
-			countAbortedBlobUpload(account)
-			err := a.sd.AbortBlobUpload(ctx, account, upload.StorageID, upload.NumChunks)
+			err := a.abortBlobUpload(ctx, account, upload)
 			if err != nil {
 				logg.Error("additional error encountered during AbortBlobUpload: " + err.Error())
-			}
-			_, err = a.db.Delete(&upload)
-			if err != nil {
-				logg.Error("additional error encountered while deleting Upload from DB: " + err.Error())
 			}
 		}
 	}()
@@ -617,14 +607,9 @@ func (a *API) streamIntoUpload(ctx context.Context, account models.ReducedAccoun
 	defer func() {
 		if returnErr != nil {
 			logg.Info("aborting upload because of error during streamIntoUpload()")
-			countAbortedBlobUpload(account)
-			err := a.sd.AbortBlobUpload(ctx, account, upload.StorageID, upload.NumChunks)
+			err := a.abortBlobUpload(ctx, account, *upload)
 			if err != nil {
 				logg.Error("additional error encountered during AbortBlobUpload: " + err.Error())
-			}
-			_, err = a.db.Delete(upload)
-			if err != nil {
-				logg.Error("additional error encountered while deleting Upload from DB: " + err.Error())
 			}
 		}
 	}()
@@ -740,6 +725,30 @@ func (a *API) createOrUpdateBlobObject(ctx context.Context, tx *gorp.Transaction
 	}
 
 	return blob, nil
+}
+
+func (a *API) abortBlobUpload(ctx context.Context, account models.ReducedAccount, originalUpload models.Upload) error {
+	countAbortedBlobUpload(account)
+
+	// refetch the Upload object from the DB to check if it still exists
+	//
+	// This protects against a data corruption race where:
+	// 1. A single request of a chunked upload gets stuck in StorageDriver.AppendToBlob().
+	// 2. The client retries this request after a while and it succeeds.
+	// 3. The client drives the chunked upload to completion, so a Blob is created and the Upload is deleted in the DB.
+	// 4. The request from step 1 finally runs into a timeout in the storage backend
+	//    and runs AbortBlobUpload(), thus deleting data belonging to the finalized blob.
+	var deletedUpload models.Upload
+	err := a.db.QueryRow(`DELETE FROM uploads WHERE uuid = $1 AND repo_id = $2 RETURNING storage_id, num_chunks`,
+		originalUpload.UUID, originalUpload.RepositoryID).Scan(&deletedUpload.StorageID, &deletedUpload.NumChunks)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return fmt.Errorf("while deleting upload record in DB: %w", err)
+	}
+
+	return a.sd.AbortBlobUpload(ctx, account, deletedUpload.StorageID, deletedUpload.NumChunks)
 }
 
 // digestWriter is an io.Writer that writes into the given Hash and also tracks the number of bytes written.
