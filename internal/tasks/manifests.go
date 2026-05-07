@@ -13,11 +13,11 @@ import (
 	"maps"
 	"regexp"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-gorp/gorp/v3"
+	"github.com/klauspost/compress/zstd"
 	"github.com/opencontainers/go-digest"
 	imagespecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/prometheus/client_golang/prometheus"
@@ -815,7 +815,8 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 
 	// filter media types that trivy is known to support
 	for _, blob := range layerBlobs {
-		if blob.MediaType == imageManifest.DockerV2Schema2LayerMediaType || blob.MediaType == imagespecs.MediaTypeImageLayerGzip {
+		if blob.MediaType == imageManifest.DockerV2SchemaLayerMediaTypeUncompressed || blob.MediaType == imageManifest.DockerV2Schema2LayerMediaType || blob.MediaType == imageManifest.DockerV2SchemaLayerMediaTypeZstd ||
+			blob.MediaType == imagespecs.MediaTypeImageLayer || blob.MediaType == imagespecs.MediaTypeImageLayerGzip || blob.MediaType == imagespecs.MediaTypeImageLayerZstd {
 			continue
 		}
 
@@ -840,28 +841,52 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 				return false, layerBlobs, err
 			}
 			// after successful replication, restart this call to read the new blob with the correct StorageID from the DB
-			return j.checkPreConditionsForTrivy(ctx, account, repo, manifest, securityInfo)
+			return j.checkPreConditionsForTrivy(ctx, account, repo, manifest, parsedManifest, securityInfo)
 		}
 
-		if blob.BlocksVulnScanning.IsNone() && strings.HasSuffix(blob.MediaType, "gzip") {
-			// uncompress the blob to check if it's too large for Trivy to handle within its allotted timeout
-			reader, _, err := j.sd.ReadBlob(ctx, account, blob.StorageID)
-			if err != nil {
-				return false, layerBlobs, fmt.Errorf("cannot read blob %s: %w", blob.Digest, err)
-			}
-			defer reader.Close()
-			gzipReader, err := gzip.NewReader(reader)
-			if err != nil {
-				return false, layerBlobs, fmt.Errorf("cannot unzip blob %s: %w", blob.Digest, err)
-			}
-			defer gzipReader.Close()
+		if blob.BlocksVulnScanning.IsNone() {
+			isUncompressed := blob.MediaType == imageManifest.DockerV2SchemaLayerMediaTypeUncompressed || blob.MediaType == imagespecs.MediaTypeImageLayer
+			isGzip := blob.MediaType == imageManifest.DockerV2Schema2LayerMediaType || blob.MediaType == imagespecs.MediaTypeImageLayerGzip
+			isZstd := blob.MediaType == imageManifest.DockerV2SchemaLayerMediaTypeZstd || blob.MediaType == imagespecs.MediaTypeImageLayerZstd
 
 			// when measuring uncompressed size, use LimitReader as a simple but
 			// effective guard against zip bombs
 			limitBytes := int64(1 << 30 * blobUncompressedSizeTooBigGiB)
-			numberBytes, err := io.Copy(io.Discard, io.LimitReader(gzipReader, limitBytes+1))
-			if err != nil {
-				return false, layerBlobs, fmt.Errorf("cannot unzip blob %s: %w", blob.Digest, err)
+			var numberBytes int64
+
+			if isUncompressed {
+				numberBytes = int64(blob.SizeBytes) //nolint:gosec
+			} else if isGzip || isZstd {
+				// uncompress the blob to check if it's too large for Trivy to handle within its allotted timeout
+				reader, _, err := j.sd.ReadBlob(ctx, account, blob.StorageID)
+				if err != nil {
+					return false, layerBlobs, fmt.Errorf("cannot read blob %s: %w", blob.Digest, err)
+				}
+				defer reader.Close()
+
+				if isGzip {
+					compressedReader, err := gzip.NewReader(reader)
+					if err != nil {
+						return false, layerBlobs, fmt.Errorf("cannot create gzip reader for blob %s: %w", blob.Digest, err)
+					}
+					defer compressedReader.Close()
+
+					numberBytes, err = io.Copy(io.Discard, io.LimitReader(compressedReader, limitBytes+1))
+					if err != nil {
+						return false, layerBlobs, fmt.Errorf("cannot decompress gzip blob %s: %w", blob.Digest, err)
+					}
+				} else if isZstd {
+					compressedReader, err := zstd.NewReader(reader)
+					if err != nil {
+						return false, layerBlobs, fmt.Errorf("cannot create zstd reader for blob %s: %w", blob.Digest, err)
+					}
+					defer compressedReader.Close()
+
+					numberBytes, err = io.Copy(io.Discard, io.LimitReader(compressedReader, limitBytes+1))
+					if err != nil {
+						return false, layerBlobs, fmt.Errorf("cannot decompress zstd blob %s: %w", blob.Digest, err)
+					}
+				}
 			}
 
 			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
