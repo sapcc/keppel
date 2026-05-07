@@ -635,6 +635,14 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 	if err != nil {
 		return fmt.Errorf("cannot find manifest for repo %s and digest %s: %w", repo.FullName(), securityInfo.Digest, err)
 	}
+	manifestBytes, err := j.sd.ReadManifest(ctx, account.Reduced(), repo.Name, manifest.Digest)
+	if err != nil {
+		return err
+	}
+	parsedManifest, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
+	if err != nil {
+		return err
+	}
 
 	// clear timing information (this will be filled down below once we actually talk to Trivy;
 	// if any preflight check fails, the fields stay at None)
@@ -648,7 +656,7 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 		return nil
 	}
 
-	continueCheck, layerBlobs, err := j.checkPreConditionsForTrivy(ctx, account.Reduced(), repo, manifest, securityInfo)
+	continueCheck, layerBlobs, err := j.checkPreConditionsForTrivy(ctx, account.Reduced(), repo, manifest, parsedManifest, securityInfo)
 	if err != nil {
 		return err
 	}
@@ -788,10 +796,21 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 
 var blobUncompressedSizeTooBigGiB float64 = 10
 
-func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifest models.Manifest, securityInfo *models.TrivySecurityInfo) (continueCheck bool, layerBlobs []models.Blob, err error) {
+func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifest models.Manifest, parsedManifest keppel.ParsedManifest, securityInfo *models.TrivySecurityInfo) (continueCheck bool, layerBlobs []models.Blob, err error) {
 	layerBlobs, err = j.collectManifestLayerBlobs(ctx, account, repo, manifest)
 	if err != nil {
 		return false, nil, err
+	}
+
+	// Skip buildkit cache, which are not really images and which Trivy does not support
+	// unsupported artifact type "application/vnd.buildkit.cacheconfig.v0" for image "..."
+	if blobInfo := parsedManifest.FindImageConfigBlob(); blobInfo != nil {
+		if blobInfo.MediaType == "application/vnd.buildkit.cacheconfig.v0" {
+			securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
+			securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for manifests with config media type %q", blobInfo.MediaType)
+			securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(24 * time.Hour)))
+			return false, layerBlobs, nil
+		}
 	}
 
 	// filter media types that trivy is known to support
