@@ -31,14 +31,21 @@ type StorageDriver struct {
 	ForbidNewAccounts bool `json:"-"`
 
 	// state
-	blobs                map[blobKey][]byte
-	blobsMutex           sync.RWMutex
-	blobChunkCounts      map[blobKey]uint32 // previous chunkNumber for running upload, 0 when finished (same semantics as keppel.StoredBlobInfo.ChunkCount field)
-	blobChunkCountsMutex sync.RWMutex
-	manifests            map[manifestKey][]byte
-	manifestMutex        sync.RWMutex
-	trivyReports         map[trivyReportKey][]byte
-	trivyReportsMutex    sync.RWMutex
+	blobs                  map[blobKey][]byte
+	blobsMutex             sync.RWMutex
+	blobChunkCounts        map[blobKey]uint32 // previous chunkNumber for running upload, 0 when finished (same semantics as keppel.StoredBlobInfo.ChunkCount field)
+	blobChunkCountsMutex   sync.RWMutex
+	manifests              map[manifestKey][]byte
+	manifestMutex          sync.RWMutex
+	trivyReports           map[trivyReportKey][]byte
+	trivyReportsMutex      sync.RWMutex
+	appendToBlobTraps      map[string]appendToBlobTrap
+	appendToBlobTrapsMutex sync.Mutex
+}
+
+type appendToBlobTrap struct {
+	Started func()
+	Result  <-chan error
 }
 
 type blobKey struct {
@@ -68,15 +75,15 @@ func (d *StorageDriver) Init(ad keppel.AuthDriver, cfg keppel.Configuration) err
 	d.blobChunkCounts = make(map[blobKey]uint32)
 	d.manifests = make(map[manifestKey][]byte)
 	d.trivyReports = make(map[trivyReportKey][]byte)
+	d.appendToBlobTraps = make(map[string]appendToBlobTrap)
 	return nil
 }
 
 var (
-	errNoSuchBlob                   = errors.New("no such blob")
-	errNoSuchManifest               = errors.New("no such manifest")
-	errNoSuchTrivyReport            = errors.New("no such Trivy report")
-	errAppendToBlobAfterFinalize    = errors.New("AppendToBlob() was called after FinalizeBlob()")
-	errAbortBlobUploadAfterFinalize = errors.New("AbortBlobUpload() was called after FinalizeBlob()")
+	errNoSuchBlob                = errors.New("no such blob")
+	errNoSuchManifest            = errors.New("no such manifest")
+	errNoSuchTrivyReport         = errors.New("no such Trivy report")
+	errAppendToBlobAfterFinalize = errors.New("AppendToBlob() was called after FinalizeBlob()")
 )
 
 func checkAccount(account models.ReducedAccount) error {
@@ -119,11 +126,43 @@ func getTrivyReportKey(account models.ReducedAccount, repoName string, manifestD
 	return trivyReportKey{mk, format}, nil
 }
 
+// NextAppendToBlobGetsStuck sets up the next AppendToBlob() call with the given storageID
+// to get stuck as though it's doing a long-running network request.
+//
+// Returns a channel that can be sent into once to simulate the end of the long-running network request (optionally with an error return),
+// and a context that will expire once AppendToBlob() has started and is listening on that channel.
+// The latter is used for deterministic ordering of AppendToBlob() calls within concurrent goroutines of the same test.
+func (d *StorageDriver) NextAppendToBlobGetsStuck(storageID string) (chan<- error, context.Context) {
+	d.appendToBlobTrapsMutex.Lock()
+	defer d.appendToBlobTrapsMutex.Unlock()
+
+	ch := make(chan error)
+	ctx, cancel := context.WithCancel(context.Background())
+	d.appendToBlobTraps[storageID] = appendToBlobTrap{cancel, ch}
+	return ch, ctx
+}
+
+func (d *StorageDriver) getAppendToBlobTrap(storageID string) (appendToBlobTrap, bool) {
+	d.appendToBlobTrapsMutex.Lock()
+	defer d.appendToBlobTrapsMutex.Unlock()
+	trap, ok := d.appendToBlobTraps[storageID]
+	delete(d.appendToBlobTraps, storageID)
+	return trap, ok
+}
+
 // AppendToBlob implements the keppel.StorageDriver interface.
 func (d *StorageDriver) AppendToBlob(ctx context.Context, account models.ReducedAccount, storageID string, chunkNumber uint32, chunkLength Option[uint64], chunk io.Reader) error {
 	k, err := getBlobKey(account, storageID)
 	if err != nil {
 		return err
+	}
+
+	if trap, ok := d.getAppendToBlobTrap(storageID); ok {
+		trap.Started()
+		err := <-trap.Result
+		if err != nil {
+			return err
+		}
 	}
 
 	// check that we're calling AppendToBlob() in the correct order
@@ -176,17 +215,11 @@ func (d *StorageDriver) FinalizeBlob(ctx context.Context, account models.Reduced
 
 // AbortBlobUpload implements the keppel.StorageDriver interface.
 func (d *StorageDriver) AbortBlobUpload(ctx context.Context, account models.ReducedAccount, storageID string, chunkCount uint32) error {
-	k, err := getBlobKey(account, storageID)
-	if err != nil {
-		return err
-	}
-	d.blobChunkCountsMutex.RLock()
-	// we need to unlock here early because DeleteBlob() will also try to lock blobChunkCountsMutex
-	if d.blobChunkCounts[k] == 0 {
-		d.blobChunkCountsMutex.RUnlock()
-		return errAbortBlobUploadAfterFinalize
-	}
-	d.blobChunkCountsMutex.RUnlock()
+	// There used to be special behavior here where AbortBlobUpload would complain if it was called after FinalizeBlob.
+	// However, this is not a situation that productive StorageDriver implementations can always detect in the same way.
+	// To ensure that AbortBlobUpload is not called in this way, this will unconditionally delete everything relating
+	// to this `storageID`, and thus cause data corruption on the finalized blob in a way that is easier to detect than
+	// a simple error return that might be logged without failing the test.
 	return d.DeleteBlob(ctx, account, storageID)
 }
 
