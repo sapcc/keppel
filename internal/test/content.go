@@ -57,7 +57,14 @@ var exampleLayerCache = make(map[int64]Bytes)
 func GenerateExampleLayer(seed int64) Bytes {
 	layer, ok := exampleLayerCache[seed]
 	if !ok {
-		layer = GenerateExampleGzipCompressedLayerSize(seed, 1)
+		switch {
+		case seed%3 == 0:
+			layer = GenerateExampleUncompressedLayerSize(seed, 1)
+		case seed%2 == 0:
+			layer = GenerateExampleZstdCompressedLayerSize(seed, 1)
+		default:
+			layer = GenerateExampleGzipCompressedLayerSize(seed, 1)
+		}
 		if seed >= 0 && seed < 10 {
 			// only the most commonly requested layers are cached to avoid excessive memory usage
 			exampleLayerCache[seed] = layer

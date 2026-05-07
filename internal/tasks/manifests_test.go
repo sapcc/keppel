@@ -383,8 +383,8 @@ func TestManifestSyncJob(t *testing.T) {
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 8;
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 9;
 					DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
-					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
-					%[5]sUPDATE manifests SET next_validation_at = %[6]d WHERE repo_id = 1 AND digest = '%[3]s';
+					%[5]sDELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
+					UPDATE manifests SET next_validation_at = %[6]d WHERE repo_id = 1 AND digest = '%[3]s';
 					UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 					UPDATE tags SET digest = '%[3]s', pushed_at = %[2]d, last_pulled_at = NULL WHERE repo_id = 1 AND name = 'latest';
 					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
@@ -453,16 +453,16 @@ func TestManifestSyncJob(t *testing.T) {
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 4;
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 5;
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 6;
-					DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[2]s';
+					DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM manifest_manifest_refs WHERE repo_id = 1 AND parent_digest = '%[2]s' AND child_digest = '%[3]s';
 					DELETE FROM manifest_manifest_refs WHERE repo_id = 1 AND parent_digest = '%[2]s' AND child_digest = '%[1]s';
-					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[2]s';
+					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
 					UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 					DELETE FROM tags WHERE repo_id = 1 AND name = 'other';
-					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[2]s';
+					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
 				`,
 				images[2].Manifest.Digest,
 				imageList.Manifest.Digest,
