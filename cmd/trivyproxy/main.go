@@ -129,9 +129,11 @@ func (a *API) runTrivy(ctx context.Context, imageURL, format, keppelToken string
 	cmd := exec.CommandContext(ctx,
 		"trivy", "image",
 		"--scanners", "vuln",
-		"--skip-db-update",
 		"--disable-telemetry",
+		"--skip-db-update",
+		"--skip-version-check",
 		// remove when https://github.com/aquasecurity/trivy/issues/3560 is resolved
+		// and add "--skip-java-db-update",
 		"--java-db-repository", a.dbMirrorPrefix+"/aquasecurity/trivy-java-db",
 		"--server", a.trivyURL,
 		"--registry-token", keppelToken,
