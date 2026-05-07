@@ -6,13 +6,17 @@ package registryv2_test
 import (
 	"bytes"
 	"cmp"
+	"context"
+	"database/sql"
 	"fmt"
 	"maps"
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 	"testing"
 
+	"github.com/sapcc/go-bits/assert"
 	"github.com/sapcc/go-bits/httptest"
 	"github.com/sapcc/go-bits/must"
 
@@ -633,5 +637,95 @@ func TestCrossRepositoryBlobMount(t *testing.T) {
 		// now the blob should be available in both the original and the new repo
 		expectBlobExists(t, s, tokenHeaders, "test1/foo", blob)
 		expectBlobExists(t, s, otherRepoTokenHeaders, "test1/bar", blob)
+	})
+}
+
+func TestBlobUploadContinuesAfterFinalizing(t *testing.T) {
+	ctx := t.Context()
+
+	// We have observed data corruption in prod where a blob was deleted from the
+	// storage despite it being in the database and being referenced by manifests there.
+	// This appears to have been caused because:
+	// 1. the client uploaded a chunk of the blob, but that request got stuck in StorageDriver.AppendToBlob(),
+	// 2. the client reattempted that upload after some time, and it went through immediately,
+	// 3. the client drove the upload to completion and the blob was finalized successfully,
+	// 4. then the stuck request finally failed on a timeout within the storage driver.
+	// The last step caused the upload to be treated as broken and deleted, which led to a cleanup
+	// of the payload associated with the upload's StorageID, which at this point was identical to the finished blob's StorageID.
+
+	testWithPrimary(t, nil, func(s test.Setup) {
+		tokenHeaders := s.GetTokenHeaders(t, "repository:test1/foo:pull,push")
+		blob := test.NewBytes([]byte("just some random data"))
+
+		// create the "test1/foo" repository to ensure that we don't just always hit
+		// NAME_UNKNOWN errors
+		_ = must.ReturnT(keppel.FindOrCreateRepository(s.DB, "foo", models.AccountName("test1")))(t)
+
+		chunk1, chunk2 := blob.Contents[0:10], blob.Contents[10:]
+
+		uploadURL, uploadUUID := getBlobUpload(t, s, tokenHeaders, "test1/foo")
+		repo := must.ReturnT(keppel.FindReducedRepository(s.DB, "foo", "test1"))(t)
+		upload := must.ReturnT(keppel.FindUploadByRepository(s.DB, uploadUUID, repo))(t)
+
+		// upload first chunk successfully
+		s.RespondTo(ctx, "PATCH "+uploadURL,
+			httptest.WithHeaders(tokenHeaders),
+			httptest.WithHeader("Content-Type", "application/octet-stream"),
+			httptest.WithBody(bytes.NewReader(chunk1)),
+		).ExpectHeaders(t, http.Header{
+			"Content-Length": {"0"},
+			"Range":          {fmt.Sprintf("0-%d", len(chunk1)-1)},
+		}).
+			CaptureHeader("Location", &uploadURL).
+			ExpectStatus(t, http.StatusAccepted)
+
+		// first PATCH for the second chunk gets stuck in storage and later errors
+		blockedAppendErr, blockedAppendCtx := s.SD.NextAppendToBlobGetsStuck(upload.StorageID)
+		var (
+			wg             sync.WaitGroup
+			firstPatchResp httptest.Response
+		)
+		wg.Go(func() {
+			firstPatchResp = s.RespondTo(context.Background(), "PATCH "+uploadURL,
+				httptest.WithHeaders(tokenHeaders),
+				httptest.WithHeader("Content-Type", "application/octet-stream"),
+				httptest.WithBody(bytes.NewReader(chunk2)),
+			)
+		})
+
+		// wait for the goroutine above to get stuck in AppendToBlob()
+		<-blockedAppendCtx.Done()
+
+		// retry the same second-chunk PATCH while the first one is still stuck
+		s.RespondTo(ctx, "PATCH "+uploadURL,
+			httptest.WithHeaders(tokenHeaders),
+			httptest.WithHeader("Content-Type", "application/octet-stream"),
+			httptest.WithBody(bytes.NewReader(chunk2)),
+		).ExpectHeaders(t, http.Header{
+			"Content-Length": {"0"},
+			"Range":          {fmt.Sprintf("0-%d", len(blob.Contents)-1)},
+		}).
+			CaptureHeader("Location", &uploadURL).
+			ExpectStatus(t, http.StatusAccepted)
+
+		// complete upload successfully
+		s.RespondTo(ctx, "PUT "+keppel.AppendQuery(uploadURL, url.Values{"digest": {blob.Digest.String()}}),
+			httptest.WithHeaders(tokenHeaders),
+		).ExpectHeaders(t, http.Header{
+			"Content-Length": {"0"},
+			"Location":       {"/v2/test1/foo/blobs/" + blob.Digest.String()},
+		}).ExpectStatus(t, http.StatusCreated)
+
+		// let the stuck first PATCH fail afterwards, mimicking delayed storage timeout
+		blockedAppendErr <- context.DeadlineExceeded
+		wg.Wait()
+		firstPatchResp.ExpectJSON(t, http.StatusInternalServerError, test.ErrorCode(keppel.ErrUnknown))
+
+		// the failed AppendToBlob may not cause the finished blob to be deleted
+		expectBlobExists(t, s, tokenHeaders, "test1/foo", blob)
+
+		// and there must be no upload object left behind
+		_, err := keppel.FindUploadByRepository(s.DB, uploadUUID, repo)
+		assert.ErrEqual(t, err, sql.ErrNoRows)
 	})
 }
