@@ -383,8 +383,8 @@ func TestManifestSyncJob(t *testing.T) {
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 8;
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 9;
 					DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
-					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
-					%[5]sUPDATE manifests SET next_validation_at = %[6]d WHERE repo_id = 1 AND digest = '%[3]s';
+					%[5]sDELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
+					UPDATE manifests SET next_validation_at = %[6]d WHERE repo_id = 1 AND digest = '%[3]s';
 					UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 					UPDATE tags SET digest = '%[3]s', pushed_at = %[2]d, last_pulled_at = NULL WHERE repo_id = 1 AND name = 'latest';
 					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
@@ -453,16 +453,16 @@ func TestManifestSyncJob(t *testing.T) {
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 4;
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 5;
 					DELETE FROM manifest_blob_refs WHERE repo_id = 1 AND digest = '%[1]s' AND blob_id = 6;
-					DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[2]s';
+					DELETE FROM manifest_contents WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM manifest_manifest_refs WHERE repo_id = 1 AND parent_digest = '%[2]s' AND child_digest = '%[3]s';
 					DELETE FROM manifest_manifest_refs WHERE repo_id = 1 AND parent_digest = '%[2]s' AND child_digest = '%[1]s';
-					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[2]s';
+					DELETE FROM manifests WHERE repo_id = 1 AND digest = '%[1]s';
 					UPDATE repos SET next_manifest_sync_at = %[4]d WHERE id = 1 AND account_name = 'test1' AND name = 'foo';
 					DELETE FROM tags WHERE repo_id = 1 AND name = 'other';
-					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
 					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[2]s';
+					DELETE FROM trivy_security_info WHERE repo_id = 1 AND digest = '%[1]s';
 				`,
 				images[2].Manifest.Digest,
 				imageList.Manifest.Digest,
@@ -564,10 +564,16 @@ func TestCheckTrivySecurityStatus(t *testing.T) {
 			images[idx] = test.GenerateImage(test.GenerateExampleLayer(int64(idx)))
 			imageManifests[idx] = images[idx].MustUpload(t, s, fooRepoRef, "")
 		}
-		// generate a 2 MiB big image to run into blobUncompressedSizeTooBigGiB
-		bigImage := test.GenerateImage(test.GenerateExampleLayerSize(int64(2), 2))
-		images = append(images, bigImage)
-		imageManifests = append(imageManifests, bigImage.MustUpload(t, s, fooRepoRef, ""))
+		// generate some 2 MiB big image to run into blobUncompressedSizeTooBigGiB
+		bigImageUncompressed := test.GenerateImage(test.GenerateExampleUncompressedLayerSize(int64(2), 2))
+		images = append(images, bigImageUncompressed)
+		imageManifests = append(imageManifests, bigImageUncompressed.MustUpload(t, s, fooRepoRef, ""))
+		bigImageGzip := test.GenerateImage(test.GenerateExampleGzipCompressedLayerSize(int64(2), 2))
+		images = append(images, bigImageGzip)
+		imageManifests = append(imageManifests, bigImageGzip.MustUpload(t, s, fooRepoRef, ""))
+		bigImageZstd := test.GenerateImage(test.GenerateExampleZstdCompressedLayerSize(int64(2), 2))
+		images = append(images, bigImageZstd)
+		imageManifests = append(imageManifests, bigImageZstd.MustUpload(t, s, fooRepoRef, ""))
 
 		// also setup an image list manifest containing those images (so that we have
 		// some manifest-manifest refs to play with)
@@ -597,18 +603,22 @@ func TestCheckTrivySecurityStatus(t *testing.T) {
 		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), nil)
 		assert.ErrEqual(t, trivyJob.ProcessOne(s.Ctx), sql.ErrNoRows)
 		tr.DBChanges().AssertEqualf(`
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[10]s';
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 3 AND account_name = 'test1' AND digest = '%[11]s';
-			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 5 AND account_name = 'test1' AND digest = '%[12]s';
-			UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 7 AND account_name = 'test1' AND digest = '%[13]s';
-			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[7]d, checked_at = %[6]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[1]s';
-			UPDATE trivy_security_info SET next_check_at = %[7]d, checked_at = %[6]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[2]s';
-			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[7]d, checked_at = %[6]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[3]s';
-			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[9]g GiB', next_check_at = %[8]d WHERE repo_id = 1 AND digest = '%[4]s';
-			UPDATE trivy_security_info SET vuln_status = 'Clean', next_check_at = %[7]d, checked_at = %[6]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[5]s';
-		`, images[0].Manifest.Digest, imageList.Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest, images[1].Manifest.Digest,
+			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 1 AND account_name = 'test1' AND digest = '%[12]s';
+			UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 11 AND account_name = 'test1' AND digest = '%[17]s';
+			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 3 AND account_name = 'test1' AND digest = '%[13]s';
+			UPDATE blobs SET blocks_vuln_scanning = FALSE WHERE id = 5 AND account_name = 'test1' AND digest = '%[14]s';
+			UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 7 AND account_name = 'test1' AND digest = '%[15]s';
+			UPDATE blobs SET blocks_vuln_scanning = TRUE WHERE id = 9 AND account_name = 'test1' AND digest = '%[16]s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[9]d, checked_at = %[8]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[1]s';
+			UPDATE trivy_security_info SET next_check_at = %[9]d, checked_at = %[8]d, check_duration_secs = 0 WHERE repo_id = 1 AND digest = '%[2]s';
+			UPDATE trivy_security_info SET vuln_status = 'Critical', next_check_at = %[9]d, checked_at = %[8]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[4]s';
+			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[11]g GiB', next_check_at = %[10]d WHERE repo_id = 1 AND digest = '%[6]s';
+			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[11]g GiB', next_check_at = %[10]d WHERE repo_id = 1 AND digest = '%[7]s';
+			UPDATE trivy_security_info SET vuln_status = 'Clean', next_check_at = %[9]d, checked_at = %[8]d, check_duration_secs = 0, has_enriched_report = TRUE WHERE repo_id = 1 AND digest = '%[3]s';
+			UPDATE trivy_security_info SET vuln_status = 'Unsupported', message = 'vulnerability scanning is not supported for uncompressed image layers above %[11]g GiB', next_check_at = %[10]d WHERE repo_id = 1 AND digest = '%[5]s';
+		`, images[0].Manifest.Digest, imageList.Manifest.Digest, images[1].Manifest.Digest, images[2].Manifest.Digest, images[3].Manifest.Digest, images[4].Manifest.Digest, images[5].Manifest.Digest,
 			s.Clock.Now().Unix(), s.Clock.Now().Add(60*time.Minute).Unix(), s.Clock.Now().Add(24*time.Hour).Unix(), blobUncompressedSizeTooBigGiB,
-			images[0].Layers[0].Digest, images[1].Layers[0].Digest, images[2].Layers[0].Digest, images[3].Layers[0].Digest)
+			images[0].Layers[0].Digest, images[1].Layers[0].Digest, images[2].Layers[0].Digest, images[3].Layers[0].Digest, images[4].Layers[0].Digest, images[5].Layers[0].Digest)
 
 		// for scannable images, a report should now be cached in storage
 		s.ExpectTrivyReportExistsInStorage(t, imageManifests[0], "json", assert.JSONFixtureFile("fixtures/trivy/report-vulnerable.json"))

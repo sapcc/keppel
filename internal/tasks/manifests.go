@@ -4,16 +4,15 @@
 package tasks
 
 import (
-	"compress/gzip"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"io"
 	"maps"
+	"math"
 	"regexp"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -447,28 +446,15 @@ var vulnCheckBlobSelectQuery = sqlext.SimplifyWhitespace(`
 		WHERE r.repo_id = $1 AND r.digest = $2
 `)
 
-func (j *Janitor) collectManifestLayerBlobs(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifest models.Manifest) (layerBlobs []models.Blob, err error) {
+func (j *Janitor) collectManifestLayerBlobs(manifest models.Manifest, parsedManifest keppel.ParsedManifest) (layerBlobs []models.Blob, err error) {
 	var blobs []models.Blob
 	_, err = j.db.Select(&blobs, vulnCheckBlobSelectQuery, manifest.RepositoryID, manifest.Digest)
 	if err != nil {
 		return nil, err
 	}
 
-	// we only care about blobs that are image layers; the manifest tells us which blobs are layers
-	manifestBytes, err := j.sd.ReadManifest(ctx, account, repo.Name, manifest.Digest)
-	if err != nil {
-		return nil, err
-	}
-	manifestParsed, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
-	if err != nil {
-		return nil, keppel.ErrManifestInvalid.With(err.Error())
-	}
-	manifestDigest := digest.FromBytes(manifestBytes)
-	if manifest.Digest != "" && manifestDigest != manifest.Digest {
-		return nil, keppel.ErrDigestInvalid.With("actual manifest digest is %s", manifestDigest)
-	}
 	isLayer := make(map[digest.Digest]bool)
-	for _, desc := range manifestParsed.FindImageLayerBlobs() {
+	for _, desc := range parsedManifest.FindImageLayerBlobs() {
 		isLayer[desc.Digest] = true
 	}
 
@@ -631,10 +617,6 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 	if err != nil {
 		return fmt.Errorf("cannot find account for repo %s: %w", repo.FullName(), err)
 	}
-	manifest, err := keppel.FindManifest(j.db, repo.Reduced(), securityInfo.Digest)
-	if err != nil {
-		return fmt.Errorf("cannot find manifest for repo %s and digest %s: %w", repo.FullName(), securityInfo.Digest, err)
-	}
 
 	// clear timing information (this will be filled down below once we actually talk to Trivy;
 	// if any preflight check fails, the fields stay at None)
@@ -648,7 +630,24 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 		return nil
 	}
 
-	continueCheck, layerBlobs, err := j.checkPreConditionsForTrivy(ctx, account.Reduced(), repo, manifest, securityInfo)
+	manifest, err := keppel.FindManifest(j.db, repo.Reduced(), securityInfo.Digest)
+	if err != nil {
+		return fmt.Errorf("cannot find manifest for repo %s and digest %s: %w", repo.FullName(), securityInfo.Digest, err)
+	}
+	manifestBytes, err := j.sd.ReadManifest(ctx, account.Reduced(), repo.Name, manifest.Digest)
+	if err != nil {
+		return err
+	}
+	parsedManifest, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
+	if err != nil {
+		return err
+	}
+	manifestDigest := digest.FromBytes(manifestBytes)
+	if manifest.Digest != "" && manifestDigest != manifest.Digest {
+		return keppel.ErrDigestInvalid.With("actual manifest digest is %s", manifestDigest)
+	}
+
+	continueCheck, layerBlobs, err := j.checkPreConditionsForTrivy(ctx, account.Reduced(), repo, manifest, parsedManifest, securityInfo)
 	if err != nil {
 		return err
 	}
@@ -788,22 +787,33 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 
 var blobUncompressedSizeTooBigGiB float64 = 10
 
-func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifest models.Manifest, securityInfo *models.TrivySecurityInfo) (continueCheck bool, layerBlobs []models.Blob, err error) {
-	layerBlobs, err = j.collectManifestLayerBlobs(ctx, account, repo, manifest)
+const trivyRecheckUnsupportedManifestInterval = 24 * time.Hour
+
+func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifest models.Manifest, parsedManifest keppel.ParsedManifest, securityInfo *models.TrivySecurityInfo) (continueCheck bool, layerBlobs []models.Blob, err error) {
+	layerBlobs, err = j.collectManifestLayerBlobs(manifest, parsedManifest)
 	if err != nil {
 		return false, nil, err
 	}
 
+	// Skip buildkit cache, which are not really images and which Trivy does not support
+	// unsupported artifact type "application/vnd.buildkit.cacheconfig.v0" for image "..."
+	if blobInfo := parsedManifest.FindImageConfigBlob(); blobInfo != nil {
+		if blobInfo.MediaType == "application/vnd.buildkit.cacheconfig.v0" {
+			securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
+			securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for manifests with config media type %q", blobInfo.MediaType)
+			securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(trivyRecheckUnsupportedManifestInterval)))
+			return false, layerBlobs, nil
+		}
+	}
+
 	// filter media types that trivy is known to support
 	for _, blob := range layerBlobs {
-		if blob.MediaType == imageManifest.DockerV2Schema2LayerMediaType || blob.MediaType == imagespecs.MediaTypeImageLayerGzip {
-			continue
+		if blob.Compression() == models.BlobCompressionUnknown {
+			securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
+			securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
+			securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(trivyRecheckUnsupportedManifestInterval)))
+			return false, layerBlobs, nil
 		}
-
-		securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
-		securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
-		securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(24 * time.Hour)))
-		return false, layerBlobs, nil
 	}
 
 	// can only validate when all blobs are present in the storage
@@ -821,28 +831,41 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 				return false, layerBlobs, err
 			}
 			// after successful replication, restart this call to read the new blob with the correct StorageID from the DB
-			return j.checkPreConditionsForTrivy(ctx, account, repo, manifest, securityInfo)
+			return j.checkPreConditionsForTrivy(ctx, account, repo, manifest, parsedManifest, securityInfo)
 		}
 
-		if blob.BlocksVulnScanning.IsNone() && strings.HasSuffix(blob.MediaType, "gzip") {
-			// uncompress the blob to check if it's too large for Trivy to handle within its allotted timeout
-			reader, _, err := j.sd.ReadBlob(ctx, account, blob.StorageID)
-			if err != nil {
-				return false, layerBlobs, fmt.Errorf("cannot read blob %s: %w", blob.Digest, err)
-			}
-			defer reader.Close()
-			gzipReader, err := gzip.NewReader(reader)
-			if err != nil {
-				return false, layerBlobs, fmt.Errorf("cannot unzip blob %s: %w", blob.Digest, err)
-			}
-			defer gzipReader.Close()
+		if blob.BlocksVulnScanning.IsNone() {
+			compression := blob.Compression()
 
 			// when measuring uncompressed size, use LimitReader as a simple but
 			// effective guard against zip bombs
 			limitBytes := int64(1 << 30 * blobUncompressedSizeTooBigGiB)
-			numberBytes, err := io.Copy(io.Discard, io.LimitReader(gzipReader, limitBytes+1))
-			if err != nil {
-				return false, layerBlobs, fmt.Errorf("cannot unzip blob %s: %w", blob.Digest, err)
+			var numberBytes int64
+
+			if compression == models.BlobCompressionNone {
+				if blob.SizeBytes > math.MaxInt64 {
+					numberBytes = math.MaxInt64
+				} else {
+					numberBytes = int64(blob.SizeBytes)
+				}
+			} else {
+				// uncompress the blob to check if it's too large for Trivy to handle within its allotted timeout
+				reader, _, err := j.sd.ReadBlob(ctx, account, blob.StorageID)
+				if err != nil {
+					return false, layerBlobs, fmt.Errorf("cannot read blob %s: %w", blob.Digest, err)
+				}
+				defer reader.Close()
+
+				compressedReader, err := compression.Reader(reader)
+				if err != nil {
+					return false, layerBlobs, fmt.Errorf("cannot create %s reader for blob %s: %w", compression, blob.Digest, err)
+				}
+				defer compressedReader.Close()
+
+				numberBytes, err = io.Copy(io.Discard, io.LimitReader(compressedReader, limitBytes+1))
+				if err != nil {
+					return false, layerBlobs, fmt.Errorf("cannot decompress %s blob %s: %w", compression, blob.Digest, err)
+				}
 			}
 
 			// mark blocked for vulnerability scanning if one layer/blob is bigger than 10 GiB
@@ -856,7 +879,7 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 		if blob.BlocksVulnScanning == Some(true) {
 			securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
 			securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
-			securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(24 * time.Hour)))
+			securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(trivyRecheckUnsupportedManifestInterval)))
 			return false, layerBlobs, nil
 		}
 	}

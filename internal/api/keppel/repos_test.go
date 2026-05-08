@@ -110,7 +110,7 @@ func TestReposAPI(t *testing.T) {
 	renderedRepos := []jsonmatch.Object{
 		{"name": "repo1-1", "manifest_count": 0, "tag_count": 0},
 		{"name": "repo1-2", "manifest_count": 0, "tag_count": 0},
-		{"name": "repo1-3", "manifest_count": 11, "tag_count": 4, "size_bytes": 1160180, "pushed_at": 20030},
+		{"name": "repo1-3", "manifest_count": 11, "tag_count": 4, "size_bytes": 1159874, "pushed_at": 20030},
 		{"name": "repo1-4", "manifest_count": 0, "tag_count": 0},
 		{"name": "repo1-5", "manifest_count": 0, "tag_count": 0},
 	}

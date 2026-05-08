@@ -325,10 +325,6 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 	if format == "" {
 		format = "json"
 	}
-	if format != "json" && format != "spdx-json" {
-		http.Error(w, fmt.Sprintf("format %s not supported", html.EscapeString(format)), http.StatusBadRequest)
-		return
-	}
 
 	// there is no vulnerability report if:
 	//- we don't have vulnerability scanning enabled at all
@@ -348,7 +344,8 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 
 	// the format "json" is expensive to compute because it involves evaluating security scan policies;
 	// we do not allow running this computation in the API and rely on the enriched report that the janitor has cached for us
-	if format == "json" {
+	switch format {
+	case "json":
 		if !securityInfo.HasEnrichedReport {
 			// This branch is defense in depth. The "405 Method Not Allowed" return above should
 			// already have caught all situations that could cause us to not have a stored report.
@@ -369,25 +366,28 @@ func (a *API) handleGetTrivyReport(w http.ResponseWriter, r *http.Request) {
 			logg.Error("IO error while writing Trivy report for %s/%s: %s", repo.FullName(), manifest.Digest, err.Error())
 		}
 		return
-	}
+	case "spdx-json":
+		// if we could not serve a cached report, ask our trivy-server right now
+		imageRef := models.ImageReference{
+			Host:      a.cfg.APIPublicHostname,
+			RepoName:  fmt.Sprintf("%s/%s", account.Name, repo.Name),
+			Reference: models.ManifestReference{Digest: manifest.Digest},
+		}
+		tokenResp, err := auth.IssueTokenForTrivy(a.cfg, repo.FullName())
+		if respondwith.ObfuscatedErrorText(w, err) {
+			return
+		}
+		report, err := a.cfg.Trivy.ScanManifest(r.Context(), tokenResp.Token, imageRef, format)
+		if respondwith.ObfuscatedErrorText(w, err) {
+			return
+		}
+		defer report.Contents.Close()
 
-	// if we could not serve a cached report, ask our trivy-server right now
-	imageRef := models.ImageReference{
-		Host:      a.cfg.APIPublicHostname,
-		RepoName:  fmt.Sprintf("%s/%s", account.Name, repo.Name),
-		Reference: models.ManifestReference{Digest: manifest.Digest},
-	}
-	tokenResp, err := auth.IssueTokenForTrivy(a.cfg, repo.FullName())
-	if respondwith.ObfuscatedErrorText(w, err) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		io.Copy(w, report.Contents) //nolint:errcheck // we could only log that the client closed the connection early
+	default:
+		http.Error(w, fmt.Sprintf("format %s not supported", html.EscapeString(format)), http.StatusBadRequest)
 		return
 	}
-	report, err := a.cfg.Trivy.ScanManifest(r.Context(), tokenResp.Token, imageRef, format)
-	if respondwith.ObfuscatedErrorText(w, err) {
-		return
-	}
-	defer report.Contents.Close()
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	io.Copy(w, report.Contents) //nolint:errcheck // we could only log that the client closed the connection early
 }

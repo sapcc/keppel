@@ -13,6 +13,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/opencontainers/go-digest"
 	"github.com/opencontainers/image-spec/specs-go"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
@@ -56,7 +57,14 @@ var exampleLayerCache = make(map[int64]Bytes)
 func GenerateExampleLayer(seed int64) Bytes {
 	layer, ok := exampleLayerCache[seed]
 	if !ok {
-		layer = GenerateExampleLayerSize(seed, 1)
+		switch {
+		case seed%3 == 0:
+			layer = GenerateExampleUncompressedLayerSize(seed, 1)
+		case seed%2 == 0:
+			layer = GenerateExampleZstdCompressedLayerSize(seed, 1)
+		default:
+			layer = GenerateExampleGzipCompressedLayerSize(seed, 1)
+		}
 		if seed >= 0 && seed < 10 {
 			// only the most commonly requested layers are cached to avoid excessive memory usage
 			exampleLayerCache[seed] = layer
@@ -65,10 +73,21 @@ func GenerateExampleLayer(seed int64) Bytes {
 	return layer
 }
 
-// GenerateExampleLayerSize generates a blob of a configurable size that can be used like an image
-// layer when constructing image manifests for unit tests. The contents are
-// generated deterministically from the given seed.
-func GenerateExampleLayerSize(seed, sizeMiB int64) Bytes {
+// GenerateExampleUncompressedLayerSize generates a blob of a configurable size that can be used like an image
+// layer when constructing image manifests for unit tests.
+// The contents are generated deterministically from the given seed.
+func GenerateExampleUncompressedLayerSize(seed, sizeMiB int64) Bytes {
+	r := rand.New(rand.NewSource(seed)) //nolint:gosec // random data from hardcoded seed to generate data for tests
+	buf := make([]byte, sizeMiB<<20)
+	r.Read(buf)
+
+	return newBytesWithMediaType(buf, manifest.DockerV2SchemaLayerMediaTypeUncompressed)
+}
+
+// GenerateExampleGzipCompressedLayerSize generates a blob of a configurable size that can be used like an image
+// layer when constructing image manifests for unit tests.
+// The contents are generated deterministically from the given seed.
+func GenerateExampleGzipCompressedLayerSize(seed, sizeMiB int64) Bytes {
 	r := rand.New(rand.NewSource(seed)) //nolint:gosec // random data from hardcoded seed to generate data for tests
 	buf := make([]byte, sizeMiB<<20)
 	r.Read(buf)
@@ -79,6 +98,22 @@ func GenerateExampleLayerSize(seed, sizeMiB int64) Bytes {
 	w.Close()
 
 	return newBytesWithMediaType(byteBuffer.Bytes(), manifest.DockerV2Schema2LayerMediaType)
+}
+
+// GenerateExampleZstdCompressedLayerSize generates a blob of a configurable size that can be used like an image
+// layer when constructing image manifests for unit tests.
+// The contents are generated deterministically from the given seed.
+func GenerateExampleZstdCompressedLayerSize(seed, sizeMiB int64) Bytes {
+	r := rand.New(rand.NewSource(seed)) //nolint:gosec // random data from hardcoded seed to generate data for tests
+	buf := make([]byte, sizeMiB<<20)
+	r.Read(buf)
+
+	var byteBuffer bytes.Buffer
+	w := must.Return(zstd.NewWriter(&byteBuffer))
+	w.Write(buf) //nolint: errcheck
+	w.Close()
+
+	return newBytesWithMediaType(byteBuffer.Bytes(), manifest.DockerV2SchemaLayerMediaTypeZstd)
 }
 
 // Image contains all the pieces of a Docker image. The Layers and Config must
