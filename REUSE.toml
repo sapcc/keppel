@@ -130,6 +130,14 @@ SPDX-License-Identifier = "MPL-2.0"
 
 [[annotations]]
 path = [
+  "vendor/github.com/klauspost/compress/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "Other"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = [
   "vendor/github.com/opencontainers/distribution-spec/specs-go/**",
 ]
 precedence = "override"
@@ -463,14 +471,6 @@ path = [
 precedence = "override"
 SPDX-FileCopyrightText = "Other"
 SPDX-License-Identifier = "MIT"
-
-[[annotations]]
-path = [
-  "vendor/github.com/klauspost/compress/**",
-]
-precedence = "override"
-SPDX-FileCopyrightText = "Other"
-SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
 path = [
