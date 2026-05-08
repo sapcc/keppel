@@ -338,14 +338,6 @@ SPDX-License-Identifier = "ISC"
 
 [[annotations]]
 path = [
-  "vendor/github.com/dgryski/go-rendezvous/**",
-]
-precedence = "override"
-SPDX-FileCopyrightText = "Other"
-SPDX-License-Identifier = "MIT"
-
-[[annotations]]
-path = [
   "vendor/github.com/dhui/dktest/**",
 ]
 precedence = "override"
