@@ -6,6 +6,7 @@ package models
 import (
 	"time"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/opencontainers/go-digest"
 	. "go.xyrillian.de/gg/option"
 )
@@ -41,6 +42,9 @@ func (b Blob) SafeMediaType() string {
 	}
 	return b.MediaType
 }
+
+// TODO: start using compress/zstd, this is a temporary measure to pull it into the vendor/ dir and reduce the size of the actual PR
+var _ = zstd.MinWindowSize
 
 const (
 	// BlobValidationInterval is how often each blob will be validated by BlobValidationJob.

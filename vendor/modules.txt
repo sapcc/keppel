@@ -112,6 +112,16 @@ github.com/itchyny/timefmt-go
 # github.com/jpillora/longestcommon v0.0.0-20161227235612-adb9d91ee629
 ## explicit
 github.com/jpillora/longestcommon
+# github.com/klauspost/compress v1.18.1
+## explicit; go 1.23
+github.com/klauspost/compress
+github.com/klauspost/compress/fse
+github.com/klauspost/compress/huff0
+github.com/klauspost/compress/internal/cpuinfo
+github.com/klauspost/compress/internal/le
+github.com/klauspost/compress/internal/snapref
+github.com/klauspost/compress/zstd
+github.com/klauspost/compress/zstd/internal/xxhash
 # github.com/lib/pq v1.12.3
 ## explicit; go 1.21
 github.com/lib/pq
