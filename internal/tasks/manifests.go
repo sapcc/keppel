@@ -794,6 +794,8 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 
 var blobUncompressedSizeTooBigGiB float64 = 10
 
+const trivyRecheckUnsupportedManifestInterval = 24 * time.Hour
+
 func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifest models.Manifest, parsedManifest keppel.ParsedManifest, securityInfo *models.TrivySecurityInfo) (continueCheck bool, layerBlobs []models.Blob, err error) {
 	layerBlobs, err = j.collectManifestLayerBlobs(ctx, account, repo, manifest)
 	if err != nil {
@@ -806,7 +808,7 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 		if blobInfo.MediaType == "application/vnd.buildkit.cacheconfig.v0" {
 			securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
 			securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for manifests with config media type %q", blobInfo.MediaType)
-			securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(24 * time.Hour)))
+			securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(trivyRecheckUnsupportedManifestInterval)))
 			return false, layerBlobs, nil
 		}
 	}
@@ -816,7 +818,7 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 		if blob.Compression() == models.BlobCompressionUnknown {
 			securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
 			securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
-			securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(24 * time.Hour)))
+			securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(trivyRecheckUnsupportedManifestInterval)))
 			return false, layerBlobs, nil
 		}
 	}
@@ -880,7 +882,7 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 		if blob.BlocksVulnScanning == Some(true) {
 			securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
 			securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for uncompressed image layers above %g GiB", blobUncompressedSizeTooBigGiB)
-			securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(24 * time.Hour)))
+			securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(trivyRecheckUnsupportedManifestInterval)))
 			return false, layerBlobs, nil
 		}
 	}
