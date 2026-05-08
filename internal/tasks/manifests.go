@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"math"
 	"regexp"
 	"slices"
 	"sync"
@@ -850,7 +851,11 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 			var numberBytes int64
 
 			if compression == models.BlobCompressionNone {
-				numberBytes = int64(blob.SizeBytes) //nolint:gosec
+				if blob.SizeBytes > math.MaxInt64 {
+					numberBytes = math.MaxInt64
+				} else {
+					numberBytes = int64(blob.SizeBytes)
+				}
 			} else {
 				// uncompress the blob to check if it's too large for Trivy to handle within its allotted timeout
 				reader, _, err := j.sd.ReadBlob(ctx, account, blob.StorageID)
