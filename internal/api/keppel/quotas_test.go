@@ -463,6 +463,24 @@ func TestQuotasAPIWithBytes(t *testing.T) {
 	).ExpectStatus(t, http.StatusForbidden)
 	s.Auditor.ExpectEvents(t /*, nothing */)
 
+	// trying to set quota without bytes when bytes quota is enabled
+	s.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
+		withPerms("changequota:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"manifests": map[string]any{"quota": 100},
+		}),
+	).ExpectBody(t, http.StatusUnprocessableEntity, []byte("bytes quota is enabled, but request does not contain bytes quota\n"))
+	s.Auditor.ExpectEvents(t /*, nothing */)
+	s.RespondTo(ctx, "PUT /liquid/v1/projects/tenant1/quota",
+		withPerms("changequota:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"resources": map[string]any{
+				"images": map[string]any{"quota": 100},
+			},
+		}),
+	).ExpectBody(t, http.StatusUnprocessableEntity, []byte("bytes quota is enabled, but request does not contain bytes quota\n"))
+	s.Auditor.ExpectEvents(t /*, nothing */)
+
 	s.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
 		withPerms("changequota:tenant1"),
 		httptest.WithJSONBody(map[string]any{
@@ -470,5 +488,25 @@ func TestQuotasAPIWithBytes(t *testing.T) {
 			"manifests": map[string]any{"quota": 5},
 		}),
 	).ExpectText(t, http.StatusUnprocessableEntity, "requested manifest quota (5) is below usage (10)\n")
+	s.Auditor.ExpectEvents(t /*, nothing */)
+
+	// trying to set bytes quota below current usage
+	s.RespondTo(ctx, "PUT /keppel/v1/quotas/tenant1",
+		withPerms("changequota:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"bytes":     map[string]any{"quota": 1_000_000},
+			"manifests": map[string]any{"quota": 100},
+		}),
+	).ExpectText(t, http.StatusUnprocessableEntity, "requested bytes quota (1000000) is below usage (11555866)\n")
+	s.Auditor.ExpectEvents(t /*, nothing */)
+	s.RespondTo(ctx, "PUT /liquid/v1/projects/tenant1/quota",
+		withPerms("changequota:tenant1"),
+		httptest.WithJSONBody(map[string]any{
+			"resources": map[string]any{
+				"capacity": map[string]any{"quota": 1_000_000},
+				"images":   map[string]any{"quota": 100},
+			},
+		}),
+	).ExpectText(t, http.StatusUnprocessableEntity, "requested bytes quota (1000000) is below usage (11555866)\n")
 	s.Auditor.ExpectEvents(t /*, nothing */)
 }
