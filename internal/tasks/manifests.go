@@ -446,28 +446,15 @@ var vulnCheckBlobSelectQuery = sqlext.SimplifyWhitespace(`
 		WHERE r.repo_id = $1 AND r.digest = $2
 `)
 
-func (j *Janitor) collectManifestLayerBlobs(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifest models.Manifest) (layerBlobs []models.Blob, err error) {
+func (j *Janitor) collectManifestLayerBlobs(manifest models.Manifest, parsedManifest keppel.ParsedManifest) (layerBlobs []models.Blob, err error) {
 	var blobs []models.Blob
 	_, err = j.db.Select(&blobs, vulnCheckBlobSelectQuery, manifest.RepositoryID, manifest.Digest)
 	if err != nil {
 		return nil, err
 	}
 
-	// we only care about blobs that are image layers; the manifest tells us which blobs are layers
-	manifestBytes, err := j.sd.ReadManifest(ctx, account, repo.Name, manifest.Digest)
-	if err != nil {
-		return nil, err
-	}
-	manifestParsed, err := keppel.ParseManifest(manifest.MediaType, manifestBytes)
-	if err != nil {
-		return nil, keppel.ErrManifestInvalid.With(err.Error())
-	}
-	manifestDigest := digest.FromBytes(manifestBytes)
-	if manifest.Digest != "" && manifestDigest != manifest.Digest {
-		return nil, keppel.ErrDigestInvalid.With("actual manifest digest is %s", manifestDigest)
-	}
 	isLayer := make(map[digest.Digest]bool)
-	for _, desc := range manifestParsed.FindImageLayerBlobs() {
+	for _, desc := range parsedManifest.FindImageLayerBlobs() {
 		isLayer[desc.Digest] = true
 	}
 
@@ -630,6 +617,19 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 	if err != nil {
 		return fmt.Errorf("cannot find account for repo %s: %w", repo.FullName(), err)
 	}
+
+	// clear timing information (this will be filled down below once we actually talk to Trivy;
+	// if any preflight check fails, the fields stay at None)
+	securityInfo.CheckedAt = None[time.Time]()
+	securityInfo.CheckDurationSecs = None[float64]()
+
+	// skip validation while account is being deleted (an ongoing deletion blocks
+	// all kinds of activity on an account's contents)
+	if account.IsDeleting {
+		securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(1 * time.Hour)))
+		return nil
+	}
+
 	manifest, err := keppel.FindManifest(j.db, repo.Reduced(), securityInfo.Digest)
 	if err != nil {
 		return fmt.Errorf("cannot find manifest for repo %s and digest %s: %w", repo.FullName(), securityInfo.Digest, err)
@@ -642,17 +642,9 @@ func (j *Janitor) doSecurityCheck(ctx context.Context, securityInfo *models.Triv
 	if err != nil {
 		return err
 	}
-
-	// clear timing information (this will be filled down below once we actually talk to Trivy;
-	// if any preflight check fails, the fields stay at None)
-	securityInfo.CheckedAt = None[time.Time]()
-	securityInfo.CheckDurationSecs = None[float64]()
-
-	// skip validation while account is being deleted (an ongoing deletion blocks
-	// all kinds of activity on an account's contents)
-	if account.IsDeleting {
-		securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(1 * time.Hour)))
-		return nil
+	manifestDigest := digest.FromBytes(manifestBytes)
+	if manifest.Digest != "" && manifestDigest != manifest.Digest {
+		return keppel.ErrDigestInvalid.With("actual manifest digest is %s", manifestDigest)
 	}
 
 	continueCheck, layerBlobs, err := j.checkPreConditionsForTrivy(ctx, account.Reduced(), repo, manifest, parsedManifest, securityInfo)
@@ -798,7 +790,7 @@ var blobUncompressedSizeTooBigGiB float64 = 10
 const trivyRecheckUnsupportedManifestInterval = 24 * time.Hour
 
 func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models.ReducedAccount, repo models.Repository, manifest models.Manifest, parsedManifest keppel.ParsedManifest, securityInfo *models.TrivySecurityInfo) (continueCheck bool, layerBlobs []models.Blob, err error) {
-	layerBlobs, err = j.collectManifestLayerBlobs(ctx, account, repo, manifest)
+	layerBlobs, err = j.collectManifestLayerBlobs(manifest, parsedManifest)
 	if err != nil {
 		return false, nil, err
 	}
