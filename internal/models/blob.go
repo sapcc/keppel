@@ -4,10 +4,16 @@
 package models
 
 import (
+	"compress/gzip"
+	"errors"
+	"fmt"
+	"io"
 	"time"
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/opencontainers/go-digest"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
+	"go.podman.io/image/v5/manifest"
 	. "go.xyrillian.de/gg/option"
 )
 
@@ -43,8 +49,54 @@ func (b Blob) SafeMediaType() string {
 	return b.MediaType
 }
 
-// TODO: start using compress/zstd, this is a temporary measure to pull it into the vendor/ dir and reduce the size of the actual PR
-var _ = zstd.MinWindowSize
+// BlobCompression is an enum indicating the compression format used within the blob.
+// This information is derived from the blob's MediaType, and only reported when the MediaType is understood by Keppel.
+type BlobCompression string
+
+const (
+	// BlobCompressionUnknown indicates that we do not recognize the blob's MediaType, and thus do not know whether it is uncompressed.
+	BlobCompressionUnknown BlobCompression = "unknown"
+	// BlobCompressionNone indicates that we recognize the blob's MediaType and thus know that the payload is uncompressed.
+	BlobCompressionNone BlobCompression = "none"
+	BlobCompressionGzip BlobCompression = "gzip"
+	BlobCompressionZstd BlobCompression = "zstd"
+)
+
+// Compression reports the compression format used within the blob,
+// or BlobCompressionUnknown if the blob's MediaType is not understood by Keppel.
+func (b Blob) Compression() BlobCompression {
+	switch b.MediaType {
+	case manifest.DockerV2SchemaLayerMediaTypeUncompressed, v1.MediaTypeImageLayer:
+		return BlobCompressionNone
+	case manifest.DockerV2Schema2LayerMediaType, v1.MediaTypeImageLayerGzip:
+		return BlobCompressionGzip
+	case manifest.DockerV2SchemaLayerMediaTypeZstd, v1.MediaTypeImageLayerZstd:
+		return BlobCompressionZstd
+	default:
+		return BlobCompressionUnknown
+	}
+}
+
+// Reader wraps a reader for compressed data in this format with the respective
+// decompressor, returning a reader that yields uncompressed data.
+func (c BlobCompression) Reader(r io.Reader) (io.ReadCloser, error) {
+	switch c {
+	case BlobCompressionNone:
+		return io.NopCloser(r), nil
+	case BlobCompressionGzip:
+		return gzip.NewReader(r)
+	case BlobCompressionZstd:
+		zr, err := zstd.NewReader(r)
+		if err != nil {
+			return nil, err
+		}
+		return zr.IOReadCloser(), nil
+	case BlobCompressionUnknown:
+		return nil, errors.New("do not know how to handle read data with unknown compression format")
+	default:
+		panic(fmt.Sprintf("unexpected BlobCompression value: %q", c))
+	}
+}
 
 const (
 	// BlobValidationInterval is how often each blob will be validated by BlobValidationJob.

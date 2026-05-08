@@ -4,7 +4,6 @@
 package tasks
 
 import (
-	"compress/gzip"
 	"context"
 	"database/sql"
 	"errors"
@@ -17,7 +16,6 @@ import (
 	"time"
 
 	"github.com/go-gorp/gorp/v3"
-	"github.com/klauspost/compress/zstd"
 	"github.com/opencontainers/go-digest"
 	imagespecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/prometheus/client_golang/prometheus"
@@ -815,15 +813,12 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 
 	// filter media types that trivy is known to support
 	for _, blob := range layerBlobs {
-		if blob.MediaType == imageManifest.DockerV2SchemaLayerMediaTypeUncompressed || blob.MediaType == imageManifest.DockerV2Schema2LayerMediaType || blob.MediaType == imageManifest.DockerV2SchemaLayerMediaTypeZstd ||
-			blob.MediaType == imagespecs.MediaTypeImageLayer || blob.MediaType == imagespecs.MediaTypeImageLayerGzip || blob.MediaType == imagespecs.MediaTypeImageLayerZstd {
-			continue
+		if blob.Compression() == models.BlobCompressionUnknown {
+			securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
+			securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
+			securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(24 * time.Hour)))
+			return false, layerBlobs, nil
 		}
-
-		securityInfo.VulnerabilityStatus = models.UnsupportedVulnerabilityStatus
-		securityInfo.Message = fmt.Sprintf("vulnerability scanning is not supported for blob layers with media type %q", blob.MediaType)
-		securityInfo.NextCheckAt = Some(j.timeNow().Add(j.addJitter(24 * time.Hour)))
-		return false, layerBlobs, nil
 	}
 
 	// can only validate when all blobs are present in the storage
@@ -845,18 +840,16 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 		}
 
 		if blob.BlocksVulnScanning.IsNone() {
-			isUncompressed := blob.MediaType == imageManifest.DockerV2SchemaLayerMediaTypeUncompressed || blob.MediaType == imagespecs.MediaTypeImageLayer
-			isGzip := blob.MediaType == imageManifest.DockerV2Schema2LayerMediaType || blob.MediaType == imagespecs.MediaTypeImageLayerGzip
-			isZstd := blob.MediaType == imageManifest.DockerV2SchemaLayerMediaTypeZstd || blob.MediaType == imagespecs.MediaTypeImageLayerZstd
+			compression := blob.Compression()
 
 			// when measuring uncompressed size, use LimitReader as a simple but
 			// effective guard against zip bombs
 			limitBytes := int64(1 << 30 * blobUncompressedSizeTooBigGiB)
 			var numberBytes int64
 
-			if isUncompressed {
+			if compression == models.BlobCompressionNone {
 				numberBytes = int64(blob.SizeBytes) //nolint:gosec
-			} else if isGzip || isZstd {
+			} else {
 				// uncompress the blob to check if it's too large for Trivy to handle within its allotted timeout
 				reader, _, err := j.sd.ReadBlob(ctx, account, blob.StorageID)
 				if err != nil {
@@ -864,28 +857,15 @@ func (j *Janitor) checkPreConditionsForTrivy(ctx context.Context, account models
 				}
 				defer reader.Close()
 
-				if isGzip {
-					compressedReader, err := gzip.NewReader(reader)
-					if err != nil {
-						return false, layerBlobs, fmt.Errorf("cannot create gzip reader for blob %s: %w", blob.Digest, err)
-					}
-					defer compressedReader.Close()
+				compressedReader, err := compression.Reader(reader)
+				if err != nil {
+					return false, layerBlobs, fmt.Errorf("cannot create %s reader for blob %s: %w", compression, blob.Digest, err)
+				}
+				defer compressedReader.Close()
 
-					numberBytes, err = io.Copy(io.Discard, io.LimitReader(compressedReader, limitBytes+1))
-					if err != nil {
-						return false, layerBlobs, fmt.Errorf("cannot decompress gzip blob %s: %w", blob.Digest, err)
-					}
-				} else if isZstd {
-					compressedReader, err := zstd.NewReader(reader)
-					if err != nil {
-						return false, layerBlobs, fmt.Errorf("cannot create zstd reader for blob %s: %w", blob.Digest, err)
-					}
-					defer compressedReader.Close()
-
-					numberBytes, err = io.Copy(io.Discard, io.LimitReader(compressedReader, limitBytes+1))
-					if err != nil {
-						return false, layerBlobs, fmt.Errorf("cannot decompress zstd blob %s: %w", blob.Digest, err)
-					}
+				numberBytes, err = io.Copy(io.Discard, io.LimitReader(compressedReader, limitBytes+1))
+				if err != nil {
+					return false, layerBlobs, fmt.Errorf("cannot decompress %s blob %s: %w", compression, blob.Digest, err)
 				}
 			}
 
