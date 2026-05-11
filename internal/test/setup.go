@@ -27,6 +27,7 @@ import (
 
 	authapi "github.com/sapcc/keppel/internal/api/auth"
 	keppelv1 "github.com/sapcc/keppel/internal/api/keppel"
+	"github.com/sapcc/keppel/internal/api/liquid"
 	peerv1 "github.com/sapcc/keppel/internal/api/peer"
 	registryv2 "github.com/sapcc/keppel/internal/api/registry"
 	"github.com/sapcc/keppel/internal/drivers/basic"
@@ -45,6 +46,7 @@ type setupParams struct {
 	IsSecondary             bool
 	WithAnycast             bool
 	WithKeppelAPI           bool
+	WithLiquidAPI           bool
 	WithPeerAPI             bool
 	WithTrivyDouble         bool
 	WithQuotas              bool
@@ -81,6 +83,11 @@ func WithAnycast(withAnycast bool) SetupOption {
 // WithKeppelAPI is a SetupOption that enables the Keppel API.
 func WithKeppelAPI(params *setupParams) {
 	params.WithKeppelAPI = true
+}
+
+// WithLiquidAPI is a SetupOption that enables the Liquid API.
+func WithLiquidAPI(params *setupParams) {
+	params.WithLiquidAPI = true
 }
 
 // WithPeerAPI is a SetupOption that enables the peer API.
@@ -310,6 +317,9 @@ func NewSetup(t testing.TB, opts ...SetupOption) Setup {
 	}
 	if params.WithKeppelAPI {
 		apis = append(apis, keppelv1.NewAPI(s.Config, ad, fd, sd, icd, s.DB, s.Auditor, params.RateLimitEngine).OverrideTimeNow(s.Clock.Now))
+	}
+	if params.WithLiquidAPI {
+		apis = append(apis, liquid.NewLiquidAPI(s.Config, ad, sd, s.DB, s.Auditor))
 	}
 	if params.WithPeerAPI {
 		apis = append(apis, peerv1.NewAPI(s.Config, ad, s.DB))
