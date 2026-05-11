@@ -3,6 +3,8 @@
 
 package models
 
+import "math"
+
 // Quotas contains a record from the `quotas` table.
 //
 // The JSON serialization is used in audit events for quota changes.
@@ -13,12 +15,16 @@ type Quotas struct {
 }
 
 // DefaultQuotas creates a new Quotas instance with the default quotas.
-func DefaultQuotas(authTenantID string) Quotas {
-	// Right now, the default quota is always 0. The value of having this function
-	// is to ensure that we only need to change this place if this ever changes.
-	return Quotas{
+func DefaultQuotas(authTenantID string, trackBytesQuota bool) Quotas {
+	quotas := Quotas{
 		AuthTenantID:  authTenantID,
 		Bytes:         0,
 		ManifestCount: 0,
 	}
+
+	if !trackBytesQuota {
+		quotas.Bytes = math.MaxInt64
+	}
+
+	return quotas
 }
