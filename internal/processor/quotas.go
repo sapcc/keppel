@@ -58,7 +58,7 @@ func (e ImpossibleQuotaError) Error() string {
 func (p *Processor) GetQuotas(ctx context.Context, authTenantID string) (*QuotaResponse, error) {
 	quotas, err := keppel.FindQuotas(p.db, authTenantID)
 	if errors.Is(err, sql.ErrNoRows) {
-		quotas = models.DefaultQuotas(authTenantID)
+		quotas = models.DefaultQuotas(authTenantID, p.cfg.TrackBytesQuota)
 	} else if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func (p *Processor) SetQuotas(ctx context.Context, authTenantID string, req Quot
 	isUpdate := true
 	quotas, err := keppel.FindQuotas(p.db, authTenantID)
 	if errors.Is(err, sql.ErrNoRows) {
-		quotas = models.DefaultQuotas(authTenantID)
+		quotas = models.DefaultQuotas(authTenantID, p.cfg.TrackBytesQuota)
 		isUpdate = false
 	} else if err != nil {
 		return nil, err

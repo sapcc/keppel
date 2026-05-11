@@ -107,7 +107,7 @@ func (p *Processor) checkQuotaForManifestPush(account models.ReducedAccount) err
 	// check if user has enough quota to push a manifest
 	quotas, err := keppel.FindQuotas(p.db, account.AuthTenantID)
 	if errors.Is(err, sql.ErrNoRows) {
-		quotas = models.DefaultQuotas(account.AuthTenantID)
+		quotas = models.DefaultQuotas(account.AuthTenantID, p.cfg.TrackBytesQuota)
 	} else if err != nil {
 		return err
 	}

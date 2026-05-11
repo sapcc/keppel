@@ -141,12 +141,12 @@ func TestQuotasAPI(t *testing.T) {
 						{
 							Name:    "payload-before",
 							TypeURI: "mime:application/json",
-							Content: `{"manifests":0}`,
+							Content: `{"bytes":9223372036854775807,"manifests":0}`,
 						},
 						{
 							Name:    "payload",
 							TypeURI: "mime:application/json",
-							Content: `{"manifests":50}`,
+							Content: `{"bytes":9223372036854775807,"manifests":50}`,
 						},
 					},
 				},
@@ -182,12 +182,12 @@ func TestQuotasAPI(t *testing.T) {
 						{
 							Name:    "payload-before",
 							TypeURI: "mime:application/json",
-							Content: `{"manifests":50}`,
+							Content: `{"bytes":9223372036854775807,"manifests":50}`,
 						},
 						{
 							Name:    "payload",
 							TypeURI: "mime:application/json",
-							Content: `{"manifests":100}`,
+							Content: `{"bytes":9223372036854775807,"manifests":100}`,
 						},
 					},
 				},
