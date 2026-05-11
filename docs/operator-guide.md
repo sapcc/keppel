@@ -133,6 +133,7 @@ to run:
 
 - as many instances of `keppel server api` as you want,
 - exactly one instance of `keppel server janitor`,
+- optionally, one instance of `keppel server liquidapi` to enable integration with [Limes](https://github.com/sapcc/limes) if desired,
 - optionally, one instance of `keppel server healthmonitor`,
 - optionally, one instance of `keppel server anycastmonitor`.
 
@@ -214,6 +215,7 @@ These options are only understood by the API server.
 | `KEPPEL_REDIS_PORT` | `6379` | Port on which the Redis server is running on. |
 | `KEPPEL_REDIS_DB_NUM` | `0` | Database number. |
 | `KEPPEL_REDIS_PASSWORD` | *(optional)* | Password for the authentication. |
+| `KEPPEL_TRACK_BYTES_QUOTA` | `false` | Whether bytes quota (capacity) should be tracked. |
 
 #### `KEPPEL_PEERS` JSON format
 
@@ -268,6 +270,15 @@ downloaded and validated every 30 seconds. The result of the test is published a
 the test fails, a detailed error message is logged in stderr. If the setup phase fails, an error message is logged as
 well and the program immediately exits with non-zero status.
 
+### Liquid configuration options
+
+These options are understood by `keppel server liquidapi`:
+
+| Variable | Default | Explanation |
+| -------- | ------- | ----------- |
+| `KEPPEL_LIQUIDAPI_LISTEN_ADDRESS` | :8080 | Listen address for HTTP server. |
+| `KEPPEL_TRACK_BYTES_QUOTA` | `false` | Whether bytes quota (capacity) should be tracked. |
+
 ### Trivy Proxy configuration options
 
 These options are only useful when the Trivy proxy is deployed but the Keppel API and janitor are also influenced by them.
@@ -276,6 +287,7 @@ These options are only useful when the Trivy proxy is deployed but the Keppel AP
 | -------- | ------- | ----------- |
 | `KEPPEL_TRIVY_ADDITIONAL_PULLABLE_REPOS` | *(optional)* | It adds additional scopes to the token issued by the API and the janitor which is meant to allow the trivy components to pull their DB OCI images from the respective repos. |
 | `KEPPEL_TRIVY_DB_MIRROR_PREFIX` | *(required)* | Prefix under which trivy can find its database. This might be a mirror or ghcr.io. |
+| `KEPPEL_TRIVY_LISTEN_ADDRESS` | :8080 | Listen address for HTTP server. |
 | `KEPPEL_TRIVY_TOKEN` | *(required)* | Static secret given out by the Keppel API and janitor to the trivy client to authenticate against the trivy server. |
 | `KEPPEL_TRIVY_URL` | *(required)* | The URL under which the trivy proxy can be reached. |
 

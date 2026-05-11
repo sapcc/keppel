@@ -1,24 +1,73 @@
 // SPDX-FileCopyrightText: 2024 SAP SE or an SAP affiliate company
 // SPDX-License-Identifier: Apache-2.0
 
-package keppelv1
+package liquid
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/sapcc/go-api-declarations/liquid"
+	"github.com/sapcc/go-bits/audittools"
 	"github.com/sapcc/go-bits/errext"
 	"github.com/sapcc/go-bits/httpapi"
 	"github.com/sapcc/go-bits/respondwith"
 	. "go.xyrillian.de/gg/option"
 
+	"github.com/sapcc/keppel/internal/auth"
 	"github.com/sapcc/keppel/internal/keppel"
 	"github.com/sapcc/keppel/internal/processor"
 )
 
 var liquidInfoVersion int64 = time.Now().Unix()
+
+// API contains state variables used by the Liquid API implementation.
+type API struct {
+	cfg        keppel.Configuration
+	authDriver keppel.AuthDriver
+	sd         keppel.StorageDriver
+	db         *keppel.DB
+	auditor    audittools.Auditor
+	// non-pure functions that can be replaced by deterministic doubles for unit tests
+	timeNow func() time.Time
+}
+
+// NewLiquidAPI constructs a new LiquidAPI instance.
+func NewLiquidAPI(cfg keppel.Configuration, ad keppel.AuthDriver, sd keppel.StorageDriver, db *keppel.DB, auditor audittools.Auditor) *API {
+	return &API{cfg, ad, sd, db, auditor, time.Now}
+}
+
+// AddTo implements the LiquidAPI interface.
+func (a *API) AddTo(r *mux.Router) {
+	// Besides the native Keppel API, this handler also implements LIQUID.
+	// Ref: <https://pkg.go.dev/github.com/sapcc/go-api-declarations/liquid>
+	r.Methods("GET").Path("/liquid/v1/info").HandlerFunc(a.handleLiquidGetInfo)
+	r.Methods("POST").Path("/liquid/v1/report-capacity").HandlerFunc(a.handleLiquidReportCapacity)
+	r.Methods("POST").Path("/liquid/v1/projects/{auth_tenant_id}/report-usage").HandlerFunc(a.handleLiquidReportUsage)
+	r.Methods("PUT").Path("/liquid/v1/projects/{auth_tenant_id}/quota").HandlerFunc(a.handleLiquidSetQuota)
+}
+
+func (a *API) processor() *processor.Processor {
+	return processor.New(a.cfg, a.db, a.sd, nil, a.auditor, nil, a.timeNow)
+}
+
+// TODO: remove `w` argument and return errors using respondwith.CustomStatus(), like in findAccountFromRequest()
+func (a *API) authenticateRequest(w http.ResponseWriter, r *http.Request, ss auth.ScopeSet) *auth.Authorization {
+	authz, _, rerr := auth.IncomingRequest{
+		HTTPRequest:        r,
+		Scopes:             ss,
+		CorrectlyReturn403: true,
+	}.Authorize(r.Context(), a.cfg, a.authDriver, a.db)
+	if rerr != nil {
+		rerr.WriteAsTextTo(w)
+		return nil
+	}
+	return authz
+}
 
 func (a *API) handleLiquidGetInfo(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/liquid/v1/info")
@@ -50,6 +99,17 @@ func (a *API) handleLiquidGetInfo(w http.ResponseWriter, r *http.Request) {
 	respondwith.JSON(w, http.StatusOK, si)
 }
 
+func decodeJSONRequestBody(body io.Reader, target any) error {
+	decoder := json.NewDecoder(body)
+	decoder.DisallowUnknownFields()
+	err := decoder.Decode(&target)
+	if err != nil {
+		err = fmt.Errorf("request body is not valid JSON: %w", err)
+		return respondwith.CustomStatus(http.StatusBadRequest, err)
+	}
+	return nil
+}
+
 func (a *API) handleLiquidReportCapacity(w http.ResponseWriter, r *http.Request) {
 	httpapi.IdentifyEndpoint(r, "/liquid/v1/report-capacity")
 
@@ -64,6 +124,14 @@ func (a *API) handleLiquidReportCapacity(w http.ResponseWriter, r *http.Request)
 	respondwith.JSON(w, http.StatusOK, liquid.ServiceCapacityReport{
 		InfoVersion: liquidInfoVersion,
 		Resources:   map[liquid.ResourceName]*liquid.ResourceCapacityReport{},
+	})
+}
+
+func authTenantScope(perm keppel.Permission, authTenantID string) auth.ScopeSet {
+	return auth.NewScopeSet(auth.Scope{
+		ResourceType: "keppel_auth_tenant",
+		ResourceName: authTenantID,
+		Actions:      []string{string(perm)},
 	})
 }
 

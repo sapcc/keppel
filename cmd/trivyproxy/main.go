@@ -61,7 +61,7 @@ func run(cmd *cobra.Command, args []string) {
 	smux.Handle("/", handler)
 	smux.Handle("/metrics", promhttp.Handler())
 
-	apiListenAddress := osext.GetenvOrDefault("KEPPEL_API_LISTEN_ADDRESS", ":8080")
+	apiListenAddress := osext.GetenvOrDefault("KEPPEL_TRIVY_LISTEN_ADDRESS", ":8080")
 	must.Succeed(httpext.ListenAndServeContext(ctx, apiListenAddress, smux))
 }
 

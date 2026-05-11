@@ -19,6 +19,7 @@ func TestQuotasAPI(t *testing.T) {
 	// NOTE: This tests both the Keppel-native quota API and the LIQUID API which access the same logic.
 	s := test.NewSetup(t,
 		test.WithKeppelAPI,
+		test.WithLiquidAPI,
 		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
 	)
 	ctx := t.Context()
@@ -262,6 +263,7 @@ func TestQuotasAPIWithBytes(t *testing.T) {
 	s := test.NewSetup(t,
 		test.WithKeppelAPI,
 		test.WithBytesQuotas,
+		test.WithLiquidAPI,
 		test.WithAccount(models.Account{Name: "test1", AuthTenantID: "tenant1"}),
 	)
 	ctx := t.Context()
